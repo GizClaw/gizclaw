@@ -224,10 +224,14 @@ func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 		t.Fatalf("insert legacy blocked window: %v", err)
 	}
 	const workers = 8
+	runtimes := make([]*Runtime, workers)
+	for i := range runtimes {
+		runtimes[i] = &Runtime{DB: db, Now: func() time.Time { return now }}
+	}
 	start := make(chan struct{})
 	errs := make(chan error, workers)
 	var wg sync.WaitGroup
-	for range workers {
+	for _, runtime := range runtimes {
 		wg.Go(func() {
 			<-start
 			errs <- runtime.Migration(ctx)
@@ -250,6 +254,33 @@ func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 			t.Fatalf("concurrent Migration() lost %s", column)
 		}
 	}
+	var v2IndexExists, legacyIndexExists bool
+	if err := db.QueryRowContext(ctx, `SELECT EXISTS (
+		SELECT 1 FROM pg_indexes
+		WHERE schemaname = current_schema()
+			AND tablename = 'gameplay_workspace_reward_windows'
+			AND indexname = 'gameplay_workspace_reward_windows_active_v2_idx'
+	)`).Scan(&v2IndexExists); err != nil {
+		t.Fatalf("inspect v2 active index: %v", err)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT EXISTS (
+		SELECT 1 FROM pg_indexes
+		WHERE schemaname = current_schema()
+			AND tablename = 'gameplay_workspace_reward_windows'
+			AND indexname = 'gameplay_workspace_reward_windows_active_idx'
+	)`).Scan(&legacyIndexExists); err != nil {
+		t.Fatalf("inspect legacy active index: %v", err)
+	}
+	if !v2IndexExists || legacyIndexExists {
+		t.Fatalf("active indexes: v2=%v legacy=%v, want true and false", v2IndexExists, legacyIndexExists)
+	}
+	var preservedState string
+	if err := db.QueryRowContext(ctx, `SELECT state FROM gameplay_workspace_reward_windows WHERE id = $1`, window.ID).Scan(&preservedState); err != nil {
+		t.Fatalf("load legacy blocked window: %v", err)
+	}
+	if preservedState != workspaceRewardBlocked {
+		t.Fatalf("legacy window state = %q, want %q", preservedState, workspaceRewardBlocked)
+	}
 	window.ID = "window-pending"
 	window.BeneficiaryPublicKey = "peer-b"
 	window.StartHistoryID = "002"
@@ -258,6 +289,53 @@ func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 	source.ScheduledCheckpoint = "002"
 	if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
 		t.Fatalf("insert pending window after concurrent upgrade: %v", err)
+	}
+}
+
+func TestPostgresGameplayMigrationLockCancellation(t *testing.T) {
+	db := openGameplayPostgresTestDB(t)
+	ctx := context.Background()
+	dropGameplayPostgresTables(t, ctx, db)
+	t.Cleanup(func() { dropGameplayPostgresTables(t, context.Background(), db) })
+
+	runtime := &Runtime{DB: db}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("initial Migration() error = %v", err)
+	}
+	lockHolder, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		t.Fatalf("BeginTxx() error = %v", err)
+	}
+	defer lockHolder.Rollback()
+	if _, err := lockHolder.ExecContext(ctx, `SELECT pg_advisory_xact_lock($1)`, gameplayMigrationLockID); err != nil {
+		t.Fatalf("acquire blocking migration lock: %v", err)
+	}
+
+	waitCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	waitErr := make(chan error, 1)
+	go func() {
+		waitErr <- (&Runtime{DB: db}).Migration(waitCtx)
+	}()
+	waitForGameplayPostgresConnections(t, db, 2)
+	cancel()
+	select {
+	case err = <-waitErr:
+	case <-time.After(5 * time.Second):
+		t.Fatal("waiting Migration() did not return after context cancellation")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("waiting Migration() error = %v, want context cancellation", err)
+	}
+	if !strings.Contains(err.Error(), "gameplay: acquire migration lock") {
+		t.Fatalf("waiting Migration() error = %v, want lock operation context", err)
+	}
+	if err := lockHolder.Rollback(); err != nil {
+		t.Fatalf("release blocking migration lock: %v", err)
+	}
+	waitForGameplayPostgresConnections(t, db, 0)
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() after cancellation error = %v", err)
 	}
 }
 
@@ -504,6 +582,17 @@ func openGameplayPostgresTestDB(t *testing.T) *sqlx.DB {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	return db
+}
+
+func waitForGameplayPostgresConnections(t *testing.T, db *sqlx.DB, inUse int) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for db.Stats().InUse != inUse {
+		if time.Now().After(deadline) {
+			t.Fatalf("PostgreSQL connections in use = %d, want %d", db.Stats().InUse, inUse)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 func dropGameplayPostgresTables(t *testing.T, ctx context.Context, db *sqlx.DB) {
