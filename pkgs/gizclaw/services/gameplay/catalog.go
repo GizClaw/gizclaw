@@ -22,8 +22,10 @@ import (
 )
 
 const (
-	defaultListLimit = 50
-	maxListLimit     = 200
+	defaultListLimit  = 50
+	maxListLimit      = 200
+	pixaMaxCanvasSize = 1<<16 - 1
+	pixaClipNameSize  = 32
 )
 
 var (

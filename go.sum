@@ -58,6 +58,8 @@ github.com/GizClaw/flowcraft/sdkx v0.4.10 h1:YKjuRxE9iN2R2baOckfbH0f87d0P0Qkltip
 github.com/GizClaw/flowcraft/sdkx v0.4.10/go.mod h1:1a2Rw1uxXqTCypP+j0zHfszwtOhlsiXwgQSM4k4LMrw=
 github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111 h1:YDuhGJfgRzbBCsN5YHS99K4v1GVsUk05DeK/11r6fug=
 github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111/go.mod h1:GYb/V+peMdzoU+4tCfiWnL3Efls+wDgA0rirlPhOFL8=
+github.com/GizClaw/pixa v0.0.0-20260730033543-a0828917595f h1:5ojof21luqHByRdLzcEMi8Dd1hypUlDoZ8C+dXdcw5U=
+github.com/GizClaw/pixa v0.0.0-20260730033543-a0828917595f/go.mod h1:vuKKNwc3tWhbZViT5kZjC6x1htocCmdFkb+oqCEpe7s=
 github.com/HdrHistogram/hdrhistogram-go v1.1.0/go.mod h1:yDgFjdqOqDEKOvasDdhWNXYg9BVp4O+o5f6V/ehm6Oo=
 github.com/HdrHistogram/hdrhistogram-go v1.1.2/go.mod h1:yDgFjdqOqDEKOvasDdhWNXYg9BVp4O+o5f6V/ehm6Oo=
 github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible/go.mod h1:r7JcOSlj0wfOMncg0iLm8Leh48TZaKVeNIfJntJ2wa0=

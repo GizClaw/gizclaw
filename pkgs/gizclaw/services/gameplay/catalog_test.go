@@ -1,8 +1,8 @@
 package gameplay
 
 import (
+	"bytes"
 	"context"
-	"encoding/binary"
 	"io"
 	"reflect"
 	"strings"
@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 func TestCatalogStoresPetDefWithoutLocalI18n(t *testing.T) {
@@ -61,6 +62,122 @@ func TestCatalogNormalizesAndBoundsBadgeRewardPrompt(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCatalogPetDefPixaUploadRejectsBeforePublication(t *testing.T) {
+	ctx := context.Background()
+	now := time.Unix(1, 0).UTC()
+	assets := objectstore.Dir(t.TempDir())
+	catalog := testCatalog(t, now)
+	catalog.Assets = assets
+
+	spec := testPetDefSpec("Transparent Pet")
+	spec.Visual.Pixa.Metadata.Canvas = apitypes.PetDefPixaCanvasMetadata{Width: 4, Height: 4}
+	createResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{
+		Body: &adminhttp.PetDefUpsert{Id: "transparent-pet", Spec: spec},
+	})
+	if err != nil {
+		t.Fatalf("CreatePetDef() error = %v", err)
+	}
+	requireResponse[adminhttp.CreatePetDef200JSONResponse](t, createResp)
+
+	valid := makePixaFixture(t, 4, 4, []uint16{0, 0x07e0},
+		[]testPixaClip{
+			{name: "default", firstFrame: 0, frameCount: 1},
+			{name: "bath", firstFrame: 0, frameCount: 1},
+		},
+		[]testPixaFrame{{
+			frameType: 0,
+			encoding:  1,
+			payload:   paletteRLE([]byte{0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0}),
+		}},
+	)
+	now = time.Unix(2, 0).UTC()
+	catalog.Now = func() time.Time { return now }
+	uploadResp, err := catalog.UploadPetDefPixa(ctx, adminhttp.UploadPetDefPixaRequestObject{
+		Id: "transparent-pet", Body: io.NopCloser(bytes.NewReader(valid)),
+	})
+	if err != nil {
+		t.Fatalf("UploadPetDefPixa(valid) error = %v", err)
+	}
+	published := requireResponse[adminhttp.UploadPetDefPixa200JSONResponse](t, uploadResp)
+	if published.PixaPath == nil || *published.PixaPath != "pet-defs/transparent-pet/pixa" {
+		t.Fatalf("published PixaPath = %v", published.PixaPath)
+	}
+	if !published.UpdatedAt.Equal(now) {
+		t.Fatalf("published UpdatedAt = %v, want %v", published.UpdatedAt, now)
+	}
+
+	countedAssets := &countingObjectStore{ObjectStore: assets}
+	catalog.Assets = countedAssets
+	invalid := makePixaFixture(t, 4, 4, []uint16{0, 0x07e0},
+		[]testPixaClip{
+			{name: "default", firstFrame: 0, frameCount: 1},
+			{name: "bath", firstFrame: 0, frameCount: 1},
+		},
+		[]testPixaFrame{{
+			frameType: 0,
+			encoding:  1,
+			payload:   paletteRLE([]byte{1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0}),
+		}},
+	)
+	now = time.Unix(3, 0).UTC()
+	rejectResp, err := catalog.UploadPetDefPixa(ctx, adminhttp.UploadPetDefPixaRequestObject{
+		Id: "transparent-pet", Body: io.NopCloser(bytes.NewReader(invalid)),
+	})
+	if err != nil {
+		t.Fatalf("UploadPetDefPixa(invalid) error = %v", err)
+	}
+	rejected := requireResponse[adminhttp.UploadPetDefPixa500JSONResponse](t, rejectResp)
+	if rejected.Error.Code != "INVALID_PET_DEF_PIXA" ||
+		!strings.Contains(rejected.Error.Message, `clip "default" local frame 0`) {
+		t.Fatalf("rejection = %#v", rejected.Error)
+	}
+	if countedAssets.puts != 0 {
+		t.Fatalf("invalid upload called object store Put %d times", countedAssets.puts)
+	}
+	malformedResp, err := catalog.UploadPetDefPixa(ctx, adminhttp.UploadPetDefPixaRequestObject{
+		Id: "transparent-pet", Body: io.NopCloser(strings.NewReader("not a PIXA file")),
+	})
+	if err != nil {
+		t.Fatalf("UploadPetDefPixa(malformed) error = %v", err)
+	}
+	malformed := requireResponse[adminhttp.UploadPetDefPixa500JSONResponse](t, malformedResp)
+	if malformed.Error.Code != "INVALID_PET_DEF_PIXA" || !strings.Contains(malformed.Error.Message, "pixa:") {
+		t.Fatalf("malformed rejection = %#v", malformed.Error)
+	}
+	if countedAssets.puts != 0 {
+		t.Fatalf("malformed upload called object store Put %d times", countedAssets.puts)
+	}
+
+	after, err := catalog.GetPetDefByID(ctx, "transparent-pet")
+	if err != nil {
+		t.Fatalf("GetPetDefByID() error = %v", err)
+	}
+	if !reflect.DeepEqual(after, apitypes.PetDef(published)) {
+		t.Fatalf("PetDef changed after rejected upload\n got: %#v\nwant: %#v", after, published)
+	}
+	downloadResp, err := catalog.DownloadPetDefPixa(ctx, adminhttp.DownloadPetDefPixaRequestObject{Id: "transparent-pet"})
+	if err != nil {
+		t.Fatalf("DownloadPetDefPixa() error = %v", err)
+	}
+	downloaded := requireResponse[adminhttp.DownloadPetDefPixa200ApplicationoctetStreamResponse](t, downloadResp)
+	if closer, ok := downloaded.Body.(io.Closer); ok {
+		defer closer.Close()
+	}
+	if got := readAllBytes(t, downloaded.Body); !bytes.Equal(got, valid) {
+		t.Fatalf("downloaded PIXA changed after rejected upload")
+	}
+}
+
+type countingObjectStore struct {
+	objectstore.ObjectStore
+	puts int
+}
+
+func (s *countingObjectStore) Put(name string, reader io.Reader) error {
+	s.puts++
+	return s.ObjectStore.Put(name, reader)
 }
 
 func requireResponse[T any](t *testing.T, value any) T {
@@ -210,52 +327,4 @@ type rewardEvaluatorFunc func(context.Context, RewardEvaluationRequest) (apitype
 
 func (fn rewardEvaluatorFunc) Evaluate(ctx context.Context, request RewardEvaluationRequest) (apitypes.GameRewardSpec, error) {
 	return fn(ctx, request)
-}
-
-func makeTestPixa(t *testing.T, clips []string, width uint16, height uint16) []byte {
-	t.Helper()
-	if len(clips) == 0 {
-		t.Fatal("makeTestPixa requires at least one clip")
-	}
-	const (
-		headerSize     = 40
-		clipEntrySize  = 56
-		frameEntrySize = 16
-	)
-	paletteOffset := headerSize
-	clipOffset := paletteOffset + 2
-	frameOffset := clipOffset + len(clips)*clipEntrySize
-	payload := make([]byte, int(width)*int(height)*2)
-	for i := 0; i < len(payload); i += 4 {
-		copy(payload[i:], []byte{0x00, 0xf8, 0xe0, 0x07})
-	}
-	payloadOffset := frameOffset + frameEntrySize
-	data := make([]byte, payloadOffset+len(payload))
-	copy(data[:4], "PIXA")
-	binary.LittleEndian.PutUint16(data[4:6], 1)
-	binary.LittleEndian.PutUint16(data[6:8], headerSize)
-	binary.LittleEndian.PutUint16(data[8:10], width)
-	binary.LittleEndian.PutUint16(data[10:12], height)
-	binary.LittleEndian.PutUint16(data[12:14], 1)
-	binary.LittleEndian.PutUint16(data[14:16], uint16(len(clips)))
-	binary.LittleEndian.PutUint32(data[16:20], 1)
-	binary.LittleEndian.PutUint32(data[20:24], uint32(paletteOffset))
-	binary.LittleEndian.PutUint32(data[24:28], uint32(clipOffset))
-	binary.LittleEndian.PutUint32(data[28:32], uint32(frameOffset))
-	binary.LittleEndian.PutUint32(data[32:36], uint32(payloadOffset))
-	binary.LittleEndian.PutUint32(data[36:40], uint32(len(payload)))
-	for i, clip := range clips {
-		base := clipOffset + i*clipEntrySize
-		copy(data[base:base+pixaClipNameSize], []byte(clip))
-		binary.LittleEndian.PutUint32(data[base+36:base+40], 0)
-		binary.LittleEndian.PutUint32(data[base+40:base+44], 1)
-		binary.LittleEndian.PutUint32(data[base+44:base+48], 120)
-		binary.LittleEndian.PutUint16(data[base+48:base+50], 1)
-	}
-	binary.LittleEndian.PutUint16(data[frameOffset:frameOffset+2], 120)
-	data[frameOffset+2] = 0
-	binary.LittleEndian.PutUint32(data[frameOffset+4:frameOffset+8], 0)
-	binary.LittleEndian.PutUint32(data[frameOffset+8:frameOffset+12], uint32(len(payload)))
-	copy(data[payloadOffset:], payload)
-	return data
 }
