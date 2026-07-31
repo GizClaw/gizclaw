@@ -22,6 +22,7 @@ chat_live_tests=(
   TestPushToTalkRoundtrip
   TestHistoryReplay
   TestRealtimeRoundtrip
+  TestFlowcraftRealtimeChatRoundtrip
   TestRealtimeInterrupt
   TestRealtimeAutoSplitHistory
   TestPushToTalkInterrupt
@@ -35,6 +36,7 @@ chat_live_tests=(
 chat_standard_live_patterns=(
   '^TestPushToTalkRoundtrip$'
   '^TestRealtimeRoundtrip$'
+  '^TestFlowcraftRealtimeChatRoundtrip$'
   '^TestHistoryReplay$'
   '^TestRealtimeInterrupt$'
   '^TestRealtimeAutoSplitHistory$'

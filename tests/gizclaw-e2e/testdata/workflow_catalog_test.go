@@ -47,6 +47,7 @@ var workflowFixtureFiles = []string{
 	"16-doubao-realtime-duplex.yaml",
 	"17-eino-memory.yaml",
 	"18-flowcraft-configured-memory.yaml",
+	"19-flowcraft-realtime-chat.yaml",
 	"22-chatroom-direct.yaml",
 	"23-pet-care.yaml",
 	"30-family-circle-chatroom.yaml",

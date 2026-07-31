@@ -107,6 +107,19 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	if got.Workspace != "demo-workflow-rt-auto" {
 		t.Fatalf("realtime auto split workspace = %q", got.Workspace)
 	}
+	got, err = workspaceCaseFlowcraftRealtimeChat.applyConfig(got)
+	if err != nil {
+		t.Fatalf("applyConfig(flowcraft realtime chat) error = %v", err)
+	}
+	if got.workspaceMode() != "realtime" {
+		t.Fatalf("flowcraft realtime chat workspace mode = %q", got.workspaceMode())
+	}
+	if got.Workspace != "demo-workflow-rt-chat" {
+		t.Fatalf("flowcraft realtime chat workspace = %q", got.Workspace)
+	}
+	if got.Rounds != 1 {
+		t.Fatalf("flowcraft realtime chat rounds = %d, want 1", got.Rounds)
+	}
 	got, err = workspaceCasePushToTalkInterrupt.applyConfig(got)
 	if err != nil {
 		t.Fatalf("applyConfig(push) error = %v", err)
@@ -165,6 +178,9 @@ func TestWorkspaceCaseKeepsReplayValidationInDedicatedCase(t *testing.T) {
 	}
 	if !workspaceCaseRealtimeRoundtrip.runtimeValidationOptions().SkipReplay {
 		t.Fatal("continuous roundtrip should not duplicate dedicated replay validation")
+	}
+	if !workspaceCaseFlowcraftRealtimeChat.runtimeValidationOptions().SkipReplay {
+		t.Fatal("flowcraft realtime chat should not duplicate dedicated replay validation")
 	}
 	if !workspaceCaseRealtimeInterrupt.runtimeValidationOptions().SkipReplay {
 		t.Fatal("interrupt should not replay a possibly partial response")
@@ -316,6 +332,11 @@ func TestDeepWorkspaceConfigPathsAreCapabilityRepresentatives(t *testing.T) {
 			name:  "realtime auto split",
 			paths: realtimeAutoSplitWorkspaceConfigPaths(t),
 			want:  []string{"ast-translate.json", "doubao-realtime.json", "flowcraft-basic.json"},
+		},
+		{
+			name:  "flowcraft realtime chat",
+			paths: flowcraftRealtimeChatWorkspaceConfigPaths(t),
+			want:  []string{"flowcraft-realtime-chat.json"},
 		},
 		{
 			name:  "history replay",

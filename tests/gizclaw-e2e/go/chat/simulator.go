@@ -92,6 +92,7 @@ type roundStats struct {
 	FirstTranscriptChunk     time.Duration
 	TranscriptDone           time.Duration
 	FirstTranscriptBeforeEOS bool
+	InputEOSSent             bool
 	FirstAssistantTextChunk  time.Duration
 	AssistantTextDone        time.Duration
 	FirstAudioChunk          time.Duration
@@ -542,6 +543,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 	}
 	stat.Transcript = strings.TrimSpace(transcriptText)
 	stat.AssistantText = strings.TrimSpace(assistant.String())
+	stat.InputEOSSent = inputEOSSentAt.Load() > 0
 	responseStart = observedResponseStart(responseStart, inputEOSSentAt.Load())
 	stat.ResponseTotal = time.Since(responseStart)
 	stat.WorkspaceTotal = time.Since(uplinkStart)
@@ -2090,11 +2092,11 @@ func (t *chatTransport) sendAudioTurnAudioObservedMIME(ctx context.Context, stre
 			}
 		}
 	}
-	if onEOSBoundary != nil {
-		onEOSBoundary(time.Now())
-	}
 	if !endOfStream {
 		return nil
+	}
+	if onEOSBoundary != nil {
+		onEOSBoundary(time.Now())
 	}
 	return t.stream.Push(ctx, &genx.MessageChunk{
 		Part: &genx.Blob{MIMEType: mimeType},

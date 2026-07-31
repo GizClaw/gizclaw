@@ -1,0 +1,30 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  name: flowcraft-realtime-chat
+spec:
+  driver: flowcraft
+  flowcraft:
+    graph:
+      edges:
+      - from: answer
+        to: __end__
+      entry: answer
+      name: Realtime Chat Assistant
+      nodes:
+      - config:
+          max_tokens: 2048
+          model: llm
+          system_prompt: 你是一个简短、自然的中文语音聊天助手。用一句话直接回答用户。
+        id: answer
+        publish: true
+        type: llm
+    max_iterations: 2
+    conversation:
+      starts: peer
+    voice_adapter:
+      asr_model: asr
+      default_voice: narrator
+      node_voices:
+        answer: narrator

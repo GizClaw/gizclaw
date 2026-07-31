@@ -39,14 +39,15 @@ var (
 type workspaceCase string
 
 const (
-	workspaceCasePushToTalkRoundtrip workspaceCase = "push-to-talk-roundtrip"
-	workspaceCasePushToTalkInterrupt workspaceCase = "push-to-talk-interrupt"
-	workspaceCaseRealtimeRoundtrip   workspaceCase = "realtime-roundtrip"
-	workspaceCaseRealtimeInterrupt   workspaceCase = "realtime-interrupt"
-	workspaceCaseRealtimeAutoSplit   workspaceCase = "realtime-auto-split-history"
-	workspaceCaseHistoryReplay       workspaceCase = "history-replay"
-	workspaceCaseHumanReview         workspaceCase = "human-review"
-	workspaceCaseTextRoundtrip       workspaceCase = "text-roundtrip"
+	workspaceCasePushToTalkRoundtrip   workspaceCase = "push-to-talk-roundtrip"
+	workspaceCasePushToTalkInterrupt   workspaceCase = "push-to-talk-interrupt"
+	workspaceCaseRealtimeRoundtrip     workspaceCase = "realtime-roundtrip"
+	workspaceCaseFlowcraftRealtimeChat workspaceCase = "flowcraft-realtime-chat-roundtrip"
+	workspaceCaseRealtimeInterrupt     workspaceCase = "realtime-interrupt"
+	workspaceCaseRealtimeAutoSplit     workspaceCase = "realtime-auto-split-history"
+	workspaceCaseHistoryReplay         workspaceCase = "history-replay"
+	workspaceCaseHumanReview           workspaceCase = "human-review"
+	workspaceCaseTextRoundtrip         workspaceCase = "text-roundtrip"
 )
 
 type workspaceCaseResult struct {
@@ -210,8 +211,11 @@ func (c workspaceCase) applyConfig(cfg config) (config, error) {
 		if c == workspaceCaseHumanReview && cfg.Rounds < 3 {
 			cfg.Rounds = 3
 		}
-	case workspaceCaseRealtimeRoundtrip, workspaceCaseRealtimeInterrupt, workspaceCaseRealtimeAutoSplit:
+	case workspaceCaseRealtimeRoundtrip, workspaceCaseFlowcraftRealtimeChat, workspaceCaseRealtimeInterrupt, workspaceCaseRealtimeAutoSplit:
 		cfg.Workflow.Parameters.Input = string(rpcapi.WorkspaceInputModeRealtime)
+		if c == workspaceCaseFlowcraftRealtimeChat {
+			cfg.Rounds = 1
+		}
 	case workspaceCaseTextRoundtrip:
 		cfg.Rounds = 1
 	default:
@@ -234,6 +238,8 @@ func (c workspaceCase) workspaceIDSuffix() string {
 		return "ptt-int"
 	case workspaceCaseRealtimeRoundtrip:
 		return "rt"
+	case workspaceCaseFlowcraftRealtimeChat:
+		return "rt-chat"
 	case workspaceCaseRealtimeInterrupt:
 		return "rt-int"
 	case workspaceCaseRealtimeAutoSplit:
@@ -283,6 +289,9 @@ func (d *personaDriver) runCase(ctx context.Context, selected workspaceCase) (wo
 		return workspaceCaseResult{Rounds: rounds}, err
 	case workspaceCaseRealtimeRoundtrip:
 		rounds, err := d.runRealtimeRoundtrip(ctx)
+		return workspaceCaseResult{Rounds: rounds}, err
+	case workspaceCaseFlowcraftRealtimeChat:
+		rounds, err := d.runFlowcraftRealtimeChatRoundtrip(ctx)
 		return workspaceCaseResult{Rounds: rounds}, err
 	case workspaceCasePushToTalkInterrupt:
 		interrupts, err := d.runPushToTalkInterrupt(ctx)

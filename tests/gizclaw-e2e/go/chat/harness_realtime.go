@@ -4,6 +4,7 @@ package chat
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -15,6 +16,25 @@ func (d *personaDriver) runRealtimeRoundtripWithMode(ctx context.Context, mode c
 	d.useRoundtripUtterances()
 	mode = configureRealtimeConversationMode(d.cfg.Agent, mode)
 	return d.runConversation(ctx, mode)
+}
+
+func (d *personaDriver) runFlowcraftRealtimeChatRoundtrip(ctx context.Context) ([]roundStats, error) {
+	stats, err := d.runRealtimeRoundtripWithMode(ctx, conversationMode{
+		KeepRealtimeInputOpen: true,
+		RealtimeTailSilence:   4 * time.Second,
+	})
+	if err != nil {
+		return stats, err
+	}
+	for _, stat := range stats {
+		if !stat.FirstTranscriptBeforeEOS {
+			return stats, fmt.Errorf("round %d: transcript started only after client audio EOS", stat.Index)
+		}
+		if stat.InputEOSSent {
+			return stats, fmt.Errorf("round %d: client audio EOS was sent", stat.Index)
+		}
+	}
+	return stats, nil
 }
 
 func configureRealtimeConversationMode(agent string, mode conversationMode) conversationMode {

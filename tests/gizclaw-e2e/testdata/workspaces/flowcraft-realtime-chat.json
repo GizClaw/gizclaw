@@ -1,0 +1,54 @@
+{
+  "agent": "flowcraft",
+  "models": {
+    "asr": "asr",
+    "llm": "llm",
+    "tts": "tts"
+  },
+  "persona": "Always generate exactly this Chinese utterance: 请问你能听清楚我说话吗？",
+  "rounds": 1,
+  "timeout": "300s",
+  "voice": "assistant-voice",
+  "workflow": {
+    "description": "Flowcraft realtime Chat E2E without memory side effects",
+    "flowcraft": {
+      "conversation": {
+        "starts": "peer"
+      },
+      "graph": {
+        "edges": [
+          {
+            "from": "answer",
+            "to": "__end__"
+          }
+        ],
+        "entry": "answer",
+        "name": "Realtime Chat Assistant",
+        "nodes": [
+          {
+            "config": {
+              "max_tokens": 2048,
+              "model": "llm",
+              "system_prompt": "你是一个简短、自然的中文语音聊天助手。用一句话直接回答用户。"
+            },
+            "id": "answer",
+            "publish": true,
+            "type": "llm"
+          }
+        ]
+      },
+      "max_iterations": 2
+    },
+    "name": "flowcraft-realtime-chat",
+    "parameters": {
+      "input": "realtime"
+    },
+    "voice_adapter": {
+      "asr_model": "asr",
+      "default_voice": "narrator",
+      "node_voices": {
+        "answer": "narrator"
+      }
+    }
+  }
+}
