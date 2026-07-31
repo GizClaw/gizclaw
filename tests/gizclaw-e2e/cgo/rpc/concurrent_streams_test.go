@@ -4,6 +4,7 @@ package rpc_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"testing"
@@ -16,6 +17,127 @@ import (
 	cgointernal "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cgo/internal"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
+
+func TestCSDKRPCDataChannelLifecycleLocal(t *testing.T) {
+	fixture := cgointernal.NewServerRPCFixture(t)
+	listener := fixture.Conn.ListenService(0)
+	defer listener.Close()
+
+	serverErr := make(chan error, 1)
+	go func() {
+		for range 2 {
+			stream, err := listener.Accept()
+			if err != nil {
+				serverErr <- err
+				return
+			}
+			request, err := rpcapi.ReadRequest(stream)
+			if err == nil {
+				err = rpcapi.ReadEOS(stream)
+			}
+			var result rpcapi.RPCPayload
+			if err == nil {
+				err = result.FromPingResponse(rpcapi.PingResponse{
+					ServerTime: time.Now().UnixMilli(),
+				})
+			}
+			if err == nil {
+				err = rpcapi.WriteResponseForMethod(
+					stream,
+					request.Method,
+					&rpcapi.RPCResponse{
+						V: rpcapi.RPCVersionV1, Id: request.Id, Result: &result,
+					},
+				)
+			}
+			if err == nil {
+				err = rpcapi.WriteEOS(stream)
+			}
+			closeErr := stream.Close()
+			if err != nil {
+				serverErr <- err
+				return
+			}
+			if closeErr != nil {
+				serverErr <- closeErr
+				return
+			}
+		}
+		serverErr <- nil
+	}()
+
+	baseline := requireTransportSnapshot(t, fixture.Client)
+	requireMandatoryCTransports(t, baseline)
+	if len(baseline.RPCChannelIDs) != 0 ||
+		baseline.ActiveRPCChannelID != 0 {
+		t.Fatalf("connect left an idle RPC channel: %+v", baseline)
+	}
+
+	for index, id := range []string{"local-rpc-1", "local-rpc-2"} {
+		var response rpcpb.PingResponse
+		if err := fixture.Client.CallRPC(
+			rpcpb.RpcMethod_RPC_METHOD_ALL_PING,
+			&rpcpb.PingRequest{ClientSendTime: time.Now().UnixMilli()},
+			&response,
+		); err != nil {
+			t.Fatalf("CallRPC(%s): %v", id, err)
+		}
+		if response.ServerTime <= 0 {
+			t.Fatalf("CallRPC(%s) server_time = %d", id, response.ServerTime)
+		}
+		after := requireTransportSnapshot(t, fixture.Client)
+		requireStableMandatoryCTransports(t, baseline, after)
+		if len(after.RPCChannelIDs) != 0 ||
+			after.ActiveRPCChannelID != 0 {
+			t.Fatalf("CallRPC(%s) left a live RPC channel: %+v", id, after)
+		}
+		wantNextID := baseline.NextLocalChannelID - index - 1
+		if after.NextLocalChannelID != wantNextID {
+			t.Fatalf(
+				"CallRPC(%s) next channel id = %d, want %d",
+				id,
+				after.NextLocalChannelID,
+				wantNextID,
+			)
+		}
+	}
+	if err := <-serverErr; err != nil {
+		t.Fatalf("local RPC server: %v", err)
+	}
+
+	serviceListener := fixture.Conn.ListenService(48)
+	defer serviceListener.Close()
+	channels := make([]*cgointernal.ServiceChannel, 0, 15)
+	for range 15 {
+		channel, err := fixture.Client.OpenServiceChannel(48, 10*time.Second)
+		if err != nil {
+			t.Fatalf("open channel %d: %v", len(channels)+1, err)
+		}
+		channels = append(channels, channel)
+	}
+	defer func() {
+		for _, channel := range channels {
+			channel.Close()
+		}
+	}()
+	_, err := fixture.Client.OpenServiceChannel(48, 10*time.Second)
+	var statusErr *cgointernal.StatusError
+	if !errors.As(err, &statusErr) ||
+		statusErr.Code != cgointernal.StatusChannelLimit {
+		t.Fatalf("sixteenth caller channel error = %v, want channel limit", err)
+	}
+	if err := channels[14].SendFrame(cgointernal.StreamFrame{
+		Type: cgointernal.RPCFrameEOS,
+	}); err != nil {
+		t.Fatalf("existing channel after limit: %v", err)
+	}
+	channels[0].Close()
+	replacement, err := fixture.Client.OpenServiceChannel(48, 10*time.Second)
+	if err != nil {
+		t.Fatalf("open replacement channel: %v", err)
+	}
+	channels[0] = replacement
+}
 
 func TestCSDKConcurrentServiceStreams(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "cgo-concurrent-service-streams")

@@ -24,6 +24,10 @@ typedef struct {
   gzc_str_t data_payload;
 } gzc_rpc_error_t;
 
+/*
+ * All response and nested error string views are borrowed from the client and
+ * remain valid until its next response-producing RPC call or destruction.
+ */
 typedef struct {
   gzc_str_t id;
   gzc_str_t result_payload;
@@ -75,8 +79,8 @@ int gzc_rpc_call_stream(
     gzc_rpc_frame_cb on_frame,
     void *userdata);
 /*
- * Runs the bidirectional speed-test stream on the client's persistent RPC
- * DataChannel. This avoids consuming an additional native SCTP stream.
+ * Runs the bidirectional speed-test stream on one request-owned RPC
+ * DataChannel and closes that channel before returning.
  * duration_ms covers the whole transfer. up_duration_ms and down_duration_ms
  * stop when their respective direction completes; up_mbps and down_mbps are
  * calculated from those direction-specific durations.
@@ -85,7 +89,10 @@ int gzc_rpc_speed_test(
     gzc_client_t *client,
     const gizclaw_rpc_v1_SpeedTestRequest *request,
     gzc_rpc_speed_test_result_t *out_result);
-/* frame and frame->data are borrowed until this synchronous call returns. */
+/*
+ * Sends on the active synchronous legacy Peer RPC call. Returns
+ * GZC_ERR_CLOSED while no such call is active. frame data is borrowed.
+ */
 int gzc_rpc_send_frame(gzc_client_t *client, const gzc_rpc_frame_t *frame);
 /* Opens an incremental transcription upload on a dedicated Peer RPC stream. */
 int gzc_rpc_speech_transcribe_open(

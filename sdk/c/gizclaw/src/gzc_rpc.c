@@ -168,10 +168,8 @@ static int read_service_frame(gzc_service_channel_t *channel, int timeout_ms, gz
   return decode_frame_bytes(frame_bytes, out_frame);
 }
 
-static void close_rpc_channel_on_error(gzc_client_t *client, int rc) {
-  if (rc != GZC_OK) {
-    gzc_client_close_rpc_channel_internal(client);
-  }
+static void finish_rpc_channel(gzc_client_t *client) {
+  gzc_client_close_rpc_channel_internal(client);
 }
 
 static bool is_edge_rpc_method(gizclaw_rpc_v1_RpcMethod method) {
@@ -518,7 +516,7 @@ int gzc_rpc_call(gzc_client_t *client, gizclaw_rpc_v1_RpcMethod method, gzc_str_
   }
   gzc_buf_free(&envelope, platform);
   gzc_buf_free(&frame_bytes, platform);
-  close_rpc_channel_on_error(client, rc);
+  finish_rpc_channel(client);
   return rc;
 }
 
@@ -631,7 +629,7 @@ static int gzc_rpc_call_stream_with_timeout(
   }
   gzc_buf_free(&envelope, platform);
   gzc_buf_free(&frame_bytes, platform);
-  close_rpc_channel_on_error(client, rc);
+  finish_rpc_channel(client);
   return rc;
 }
 
@@ -997,7 +995,7 @@ int gzc_rpc_speed_test(
   if (rc == GZC_OK && limit_rc != GZC_OK) {
     rc = limit_rc;
   }
-  close_rpc_channel_on_error(client, rc);
+  finish_rpc_channel(client);
   return rc;
 }
 

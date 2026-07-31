@@ -9,7 +9,7 @@
 | 符号 | 作用 |
 | --- | --- |
 | `edgeRPCServer` | 持有 authoritative Peer route service。 |
-| `Handle` | 在 Edge service connection 上运行 RPC loop。 |
+| `Handle` | 在 Edge service connection 上处理一个 RPC lifecycle，随后关闭 connection。 |
 | `dispatch` | 分发 Edge route RPC methods。 |
 | `handleLookup` | 查询 Peer 当前 assignment。 |
 | `handleAssign` | 创建或更新 Peer assignment。 |

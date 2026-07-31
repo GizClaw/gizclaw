@@ -406,7 +406,7 @@ func TestRPCServerHandleClosedConn(t *testing.T) {
 	}
 }
 
-func TestRPCServerRetiringDrainKeepsRequestStreamAligned(t *testing.T) {
+func TestRPCServerRetiringDrainClosesRequestChannel(t *testing.T) {
 	serverSide, clientSide := net.Pipe()
 	serverErr := make(chan error, 1)
 	go func() { serverErr <- (&rpcServer{isPeerRetiring: func() bool { return true }}).Handle(serverSide) }()
@@ -416,35 +416,33 @@ func TestRPCServerRetiringDrainKeepsRequestStreamAligned(t *testing.T) {
 	}
 	defer clientStream.Close()
 
-	for _, request := range []*rpcapi.RPCRequest{
-		newRPCRequest("streaming", rpcapi.RPCMethodAllSpeedTestRun, nil),
-		newRPCRequest("next", rpcapi.RPCMethodAllPing, nil),
-	} {
-		if err := clientStream.WriteRequestEnvelope(request); err != nil {
-			t.Fatalf("WriteRequestEnvelope(%s): %v", request.Id, err)
-		}
-		if request.Id == "streaming" {
-			if err := clientStream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte("payload")}); err != nil {
-				t.Fatalf("WriteFrame(binary): %v", err)
-			}
-		}
-		if err := clientStream.WriteEOS(); err != nil {
-			t.Fatalf("WriteEOS(%s): %v", request.Id, err)
-		}
-		response, responseEOS, err := clientStream.ReadResponseEnvelopeForMethod(request.Method)
-		if err != nil {
-			t.Fatalf("ReadResponseEnvelopeForMethod(%s): %v", request.Id, err)
-		}
-		if !responseEOS {
-			if err := clientStream.ReadEOS(); err != nil {
-				t.Fatalf("ReadEOS(%s): %v", request.Id, err)
-			}
-		}
-		if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict {
-			t.Fatalf("response(%s) = %#v, want conflict", request.Id, response)
+	request := newRPCRequest("streaming", rpcapi.RPCMethodAllSpeedTestRun, nil)
+	if err := clientStream.WriteRequestEnvelope(request); err != nil {
+		t.Fatalf("WriteRequestEnvelope: %v", err)
+	}
+	if err := clientStream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte("payload")}); err != nil {
+		t.Fatalf("WriteFrame(binary): %v", err)
+	}
+	if err := clientStream.WriteEOS(); err != nil {
+		t.Fatalf("WriteEOS: %v", err)
+	}
+	response, responseEOS, err := clientStream.ReadResponseEnvelopeForMethod(request.Method)
+	if err != nil {
+		t.Fatalf("ReadResponseEnvelopeForMethod: %v", err)
+	}
+	if !responseEOS {
+		if err := clientStream.ReadEOS(); err != nil {
+			t.Fatalf("ReadEOS: %v", err)
 		}
 	}
-	_ = clientSide.Close()
+	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict {
+		t.Fatalf("response = %#v, want conflict", response)
+	}
+	if err := clientStream.WriteRequestEnvelope(
+		newRPCRequest("next", rpcapi.RPCMethodAllPing, nil),
+	); err == nil {
+		t.Fatal("second request write error = nil, want closed channel")
+	}
 	if err := <-serverErr; err != nil {
 		t.Fatalf("Handle: %v", err)
 	}

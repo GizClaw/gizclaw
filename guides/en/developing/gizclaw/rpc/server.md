@@ -12,7 +12,7 @@ Server methods cover Peer info, runtime status, run Agent, run workspace, histor
 | --- | --- |
 | `rpcServer` | Aggregate caller identity, Peer/runtime/resource services and streaming handlers. |
 | `rpcPeerService` / `rpcPeerRunService` / `rpcPeerRunRuntime` | Minimal domain interfaces that RPC Server depends on. |
-| `Handle` | Start RPC request loop on connection. |
+| `Handle` | Handle one RPC lifecycle on a request-owned connection, then close it. |
 | `dispatch` | Distributes normal request/response RPC methods. |
 | `dispatchStream` | Distribute streaming RPC methods that require consecutive frames. |
 | `handleGetInfo` / `handlePutInfo` | Read or update the current Peer device info. |

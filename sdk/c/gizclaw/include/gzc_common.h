@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define GZC_API_VERSION 3
+#define GZC_API_VERSION 4
 
 typedef enum {
   GZC_OK = 0,
@@ -23,7 +23,8 @@ typedef enum {
   GZC_ERR_CLOSED = -8,
   GZC_ERR_UNSUPPORTED = -9,
   GZC_ERR_JSON = -10,
-  GZC_ERR_WOULD_BLOCK = -11
+  GZC_ERR_WOULD_BLOCK = -11,
+  GZC_ERR_CHANNEL_LIMIT = -12
 } gzc_status_t;
 
 const char *gzc_status_string(gzc_status_t status);

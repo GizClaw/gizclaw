@@ -6,7 +6,8 @@ static_assert(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_GET == 33);
 static_assert(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_RUNTIME_ADOPT == 68);
 static_assert(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_TRANSCRIBE == 92);
 static_assert(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_SYNTHESIZE == 93);
-static_assert(GZC_API_VERSION == 3);
+static_assert(GZC_API_VERSION == 4);
+static_assert(GZC_ERR_CHANNEL_LIMIT == -12);
 
 int main() {
   gzc_webrtc_media_vtable_t media{};

@@ -26,6 +26,8 @@ const char *gzc_status_string(gzc_status_t status) {
     return "json error";
   case GZC_ERR_WOULD_BLOCK:
     return "would block";
+  case GZC_ERR_CHANNEL_LIMIT:
+    return "data channel limit reached";
   default:
     return "unknown";
   }

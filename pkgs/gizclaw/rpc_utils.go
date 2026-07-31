@@ -41,21 +41,18 @@ func handleRPCWithStreamObserved(
 	streamDispatch rpcStreamDispatch,
 	observation *rpcObservationOptions,
 ) error {
+	if conn == nil {
+		return errors.New("rpc: nil conn")
+	}
+	defer conn.Close()
 	stream, err := newRPCStream(context.Background(), conn)
 	if err != nil {
 		return err
 	}
 	defer stream.Close()
 
-	for {
-		done, err := handleRPCStreamRequestObserved(stream, dispatch, streamDispatch, observation)
-		if err != nil {
-			return err
-		}
-		if done {
-			return nil
-		}
-	}
+	_, err = handleRPCStreamRequestObserved(stream, dispatch, streamDispatch, observation)
+	return err
 }
 
 func handleRPCStreamRequest(

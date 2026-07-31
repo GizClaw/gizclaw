@@ -2,7 +2,9 @@ package gizclaw
 
 import (
 	"context"
+	"net"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -12,6 +14,39 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+func TestEdgeRPCServerHandleOneRequestPerDataChannel(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer clientSide.Close()
+
+	serverErrCh := make(chan error, 1)
+	go func() {
+		serverErrCh <- (&edgeRPCServer{}).Handle(serverSide)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	request := func(id string) *rpcapi.RPCRequest {
+		return &rpcapi.RPCRequest{
+			V:      rpcapi.RPCVersionV1,
+			Id:     id,
+			Method: rpcapi.RPCMethodServerPeerLookup,
+		}
+	}
+	resp, err := callRPC(ctx, clientSide, request("req-1"))
+	if err != nil {
+		t.Fatalf("first call error = %v", err)
+	}
+	if resp.Error == nil {
+		t.Fatalf("first response = %#v, want RPC error", resp)
+	}
+	if _, err := callRPC(ctx, clientSide, request("req-2")); err == nil {
+		t.Fatal("second call error = nil, want closed DataChannel")
+	}
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("server Handle error = %v", err)
+	}
+}
 
 func TestEdgeRPCRejectsMismatchedPayload(t *testing.T) {
 	peerKey := giznet.PublicKey{1}

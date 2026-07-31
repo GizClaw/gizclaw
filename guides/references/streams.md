@@ -21,7 +21,7 @@ flowchart LR
 | Direct packet | 双向 | unordered、`maxRetransmits=0` DataChannel | 一条 connection 级长期 channel | 单字节 protocol 加 packet payload；适合允许丢包的高频数据。 |
 | Gateway packet lane | Edge ↔ Server | physical unordered、`maxRetransmits=0` DataChannel | 每条 Edge upstream 一条，共享给多个 logical sessions | 16-byte session ID、protocol byte 与 direct/Opus payload。 |
 | Peer Event Stream | 双向 | reliable、ordered service DataChannel，ID `0x20` | 每条正常 Client / Device Peer connection 必须保持一条 | Protobuf BOS、EOS、文本和资源失效通知；不含实时音频 bytes。 |
-| RPC service stream | 双向 | reliable、ordered service DataChannel | 通常每次调用新建；Server 也接受同一 channel 上的顺序调用 | Protobuf request/response、有限 binary stream。 |
+| RPC service stream | 双向 | reliable、ordered service DataChannel | 每次调用新建，完成后关闭 | Protobuf request/response、有限 binary stream。 |
 | HTTP service stream | 请求方 ↔ Provider | reliable、ordered service DataChannel | 每次 HTTP round trip 动态打开 | HTTP request 与 response。 |
 
 因此总 stream 数量不是常量。正常 Client / Device Peer connection 的四条
@@ -80,9 +80,7 @@ RPC 使用可靠、有序的 service DataChannel。Service ID 选择 Provider，
 每次 `Dial(serviceID)` 创建一条独立的可靠、有序 service DataChannel。相同 service ID 可以同时存在多条 channel。
 关闭或写入失败只影响对应 channel，不能替换或关闭相同 ID 的其他 channel，也
 不能占用或替换 connection-owned Event transport。C cgo backend 同时保留最多
-16 条本地主动创建的 service DataChannel，其中包含 connect 创建的 Event 和
-RPC channel，因此正常连接还可同时打开 14 条 caller-created service channel；
-达到上限时新建返回资源错误，已有 channel 保持可用。
+16 条本地主动创建的 service DataChannel，其中 connect 创建的 Event 占一条，因此正常连接还可同时打开 15 条 caller-created service channel。达到上限时新建明确返回 `GZC_ERR_CHANNEL_LIMIT`，不会复用或替换已有 channel；关闭一条后即可再次创建。
 
 | ID | 名称 | Provider / 用途 |
 | ---: | --- | --- |
@@ -122,7 +120,7 @@ RPC service stream 内使用统一的 4-byte little-endian header：前 2 bytes 
 
 普通 unary RPC 的双方序列都是 `Protobuf envelope → EOS`。Binary RPC 在 request 或 response envelope 与 EOS 之间加入零个或多个 `FrameTypeBinary` chunks。`all.speed_test.run` 可以同时进行双向 binary frames；Firmware、history audio、Workspace icon、Badge PIXA 和 Pet PIXA 下载使用 Server → Client / Device binary frames。
 
-RPC EOS 只结束当前 frame sequence，不等于 [Event `type=eos`](./events#four-different-end-boundaries)，也不等于关闭 service DataChannel。当前调用方通常为一次调用打开一条新 channel；RPC Server 也支持在仍然打开的 channel 上顺序处理多个请求。
+RPC EOS 结束当前方向的 frame sequence；完整 request/response lifecycle 结束后，Provider 关闭该 service DataChannel。它不等于 [Event `type=eos`](./events#four-different-end-boundaries)。一条 RPC DataChannel 只承载一个请求；顺序或提前缓冲的第二个请求不会被 dispatch，下一次 RPC 必须新建 channel。
 
 ### Binary streams
 
@@ -150,7 +148,7 @@ RPC EOS 只结束当前 frame sequence，不等于 [Event `type=eos`](./events#f
 HTTP、RPC 与 Event 的上层 framing 不因 DataChannel 分片而改变；DataChannel message boundary 不是上层 frame boundary。所有 reliable、ordered `giznet/v1/service/<id>` DataChannel 都遵守同一写入模型：
 
 - 每个 channel 只有一个串行 writer，并发逻辑写入的 bytes 不会交错。
-- 原生 DataChannel message 上限按 SDK 资源边界选择：Go、JavaScript 与 Flutter 使用 16 KiB，嵌入式 C API v3 使用 4 KiB；接收端按连续 byte stream 重组 HTTP 或 RPC/Event frame。
+- 原生 DataChannel message 上限按 SDK 资源边界选择：Go、JavaScript 与 Flutter 使用 16 KiB，嵌入式 C API v4 使用 4 KiB；接收端按连续 byte stream 重组 HTTP 或 RPC/Event frame。
 - writer 在 buffered amount 到达 high-water 时停止入队，只在 buffered-amount-low 通知后确认队列不高于 low-water 才恢复。
 - 写入完成只表示全部 bytes 已被本地 WebRTC 发送队列接受，不表示远端已经接收或处理。
 - close、error、send failure 以及调用路径已有的 timeout/cancellation 会唤醒并终止 active/queued writes。部分逻辑写入失败后，该 service channel 必须关闭，剩余 bytes 不会换新 channel 重试。
@@ -160,7 +158,7 @@ HTTP、RPC 与 Event 的上层 framing 不因 DataChannel 分片而改变；Data
 | Go server | 1 MiB | 256 KiB | 16 KiB |
 | JavaScript | 1 MiB | 256 KiB | 16 KiB |
 | Flutter | 1 MiB | 256 KiB | 16 KiB |
-| C API v3 default | 256 KiB | 64 KiB | 4 KiB |
+| C API v4 default | 256 KiB | 64 KiB | 4 KiB |
 
 C 调用方可以通过 `gzc_client_config_t.service_write_high_water_bytes` 与 `service_write_low_water_bytes` 调大阈值；自定义 high-water 不得小于 4 KiB，且 low-water 必须小于 high-water。`write_timeout_ms` 使用 platform 的单调 `time_instant_ms` 计算完整同步逻辑写入的 elapsed time。同步 C API 只在调用期间借用 caller buffer。
 
