@@ -70,7 +70,7 @@ func continuousWorkspaceConfigPaths(t testing.TB) []string {
 
 func realtimeAutoSplitWorkspaceConfigPaths(t testing.TB) []string {
 	t.Helper()
-	return selectedWorkspaceConfigPaths(t, "ast-translate.json", "doubao-realtime.json")
+	return selectedWorkspaceConfigPaths(t, "ast-translate.json", "doubao-realtime.json", "flowcraft-basic.json")
 }
 
 func historyReplayWorkspaceConfigPaths(t testing.TB) []string {

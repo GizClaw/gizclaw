@@ -65,6 +65,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	}
 	owner := stringValue(spec.Workspace.OwnerPublicKey)
 	initiativePolicy := ""
+	inputMode := apitypes.WorkspaceInputModePushToTalk
 	if owner != "" {
 		if f.GenXForOwner == nil {
 			return nil, fmt.Errorf("flowcraft: workspace %q owner GenX resolver is required", workspaceName)
@@ -89,6 +90,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 				starts := apitypes.FlowcraftConversationStarts(*parameters.Conversation.Initiative)
 				public.Conversation = &apitypes.FlowcraftConversation{Starts: &starts}
 			}
+		}
+		inputMode, err = resolveFlowcraftInputMode(parameters.Input)
+		if err != nil {
+			return nil, err
 		}
 	}
 	memoryCloser := spec.MemoryCloser
@@ -123,10 +128,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if f.Memory != nil && f.MemoryKind == string(apitypes.RuntimeProfileMemoryDriverFlowcraft) && spec.MemoryLayout != nil {
 		f.MemoryLaneRecall = flowcraftLaneRecall(spec.MemoryLayout.Spec.Flowcraft.Lanes)
 	}
-	return f.newAgent(ctx, owner, workspaceName, spec.Workflow.Name, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, memoryCloser)
+	return f.newAgent(ctx, owner, workspaceName, spec.Workflow.Name, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, inputMode, memoryCloser)
 }
 
-func (f Factory) newAgent(ctx context.Context, owner, workspaceName, workflowName string, public apitypes.FlowcraftWorkflowSpec, toolInvoker genx.ToolInvoker, inputs InputProvider, initiativePolicy string, memoryCloser io.Closer) (agenthost.Agent, error) {
+func (f Factory) newAgent(ctx context.Context, owner, workspaceName, workflowName string, public apitypes.FlowcraftWorkflowSpec, toolInvoker genx.ToolInvoker, inputs InputProvider, initiativePolicy string, inputMode apitypes.WorkspaceInputMode, memoryCloser io.Closer) (agenthost.Agent, error) {
 	if f.GenX == nil {
 		return nil, fmt.Errorf("flowcraft: peergenx service is required")
 	}
@@ -179,7 +184,7 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName, workflowNam
 	owned = append(owned, core)
 	var transformer genx.Transformer = core
 	if public.VoiceAdapter != nil {
-		transformer, err = f.wrapAudio(core, *public.VoiceAdapter)
+		transformer, err = f.wrapAudio(core, *public.VoiceAdapter, inputMode)
 		if err != nil {
 			return nil, errors.Join(err, closeAll(owned))
 		}
@@ -342,10 +347,10 @@ func llmNodeConfig(source apitypes.FlowcraftLLMNodeConfig) map[string]any {
 	return result
 }
 
-func (f Factory) wrapAudio(core genx.Transformer, voice apitypes.FlowcraftVoiceAdapter) (genx.Transformer, error) {
+func (f Factory) wrapAudio(core genx.Transformer, voice apitypes.FlowcraftVoiceAdapter, inputMode apitypes.WorkspaceInputMode) (genx.Transformer, error) {
 	config := audiodock.Config{Agent: core}
 	if alias := stringValue(voice.AsrModel); alias != "" {
-		config.ASR = patternTransformer{mux: f.GenX.Transformer(), pattern: modelPattern(alias)}
+		config.ASR = patternTransformer{mux: f.GenX.Transformer(), pattern: flowcraftASRPattern(alias, inputMode)}
 	}
 	defaultVoice := stringValue(voice.DefaultVoice)
 	nodeVoices := maps.Clone(valueOrZero(voice.NodeVoices))
@@ -363,6 +368,28 @@ func (f Factory) wrapAudio(core genx.Transformer, voice apitypes.FlowcraftVoiceA
 		}
 	}
 	return audiodock.New(config)
+}
+
+func resolveFlowcraftInputMode(input *apitypes.WorkspaceInputMode) (apitypes.WorkspaceInputMode, error) {
+	if input == nil {
+		return apitypes.WorkspaceInputModePushToTalk, nil
+	}
+	if !input.Valid() {
+		return "", fmt.Errorf("flowcraft: unsupported workspace input %q", *input)
+	}
+	return *input, nil
+}
+
+func flowcraftASRPattern(alias string, inputMode apitypes.WorkspaceInputMode) string {
+	pattern := modelPattern(alias)
+	if inputMode != apitypes.WorkspaceInputModeRealtime {
+		return pattern
+	}
+	separator := "?"
+	if strings.Contains(pattern, "?") {
+		separator = "&"
+	}
+	return pattern + separator + "emit_interim=true"
 }
 
 type patternTransformer struct {
