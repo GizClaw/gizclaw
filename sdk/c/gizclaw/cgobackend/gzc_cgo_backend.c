@@ -412,7 +412,7 @@ static int bridge_peer_create_data_channel(
       }
     }
     if (config->label.len >= sizeof(backend->local_channels[0].label)) {
-      return GZC_ERR_INVALID_ARGUMENT;
+      return GZC_ERR_NO_MEMORY;
     }
     for (size_t i = 0; i < GZC_CGO_MAX_LOCAL_CHANNELS; i++) {
       if (!backend->local_channels[i].in_use) {
