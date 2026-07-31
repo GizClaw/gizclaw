@@ -36,6 +36,19 @@ func TestCSDKBidirectionalOpusRTP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepare C SDK Opus workspace: %v", err)
 	}
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 45*time.Second)
+		defer cleanupCancel()
+		if err := gochat.CleanupCgoPushToTalkWorkspaces(
+			cleanupCtx,
+			filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "workspaces", "doubao-realtime.json"),
+			filepath.Join(identityDir, "config.yaml"),
+			registrationToken,
+			workspaceName,
+		); err != nil {
+			t.Errorf("cleanup C SDK Opus Workspace: %v", err)
+		}
+	})
 	fixture := filepath.Join(
 		h.RepoRoot,
 		"tests", "genx-e2e", "transformer", "testdata",

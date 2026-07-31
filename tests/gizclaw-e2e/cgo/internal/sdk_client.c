@@ -635,6 +635,32 @@ int gzc_cgo_service_channel_send_json(
   return GZC_OK;
 }
 
+int gzc_cgo_service_channel_send_frame(
+    gzc_service_channel_t *channel,
+    int type,
+    const unsigned char *data,
+    unsigned long data_len,
+    char *errbuf,
+    unsigned long errbuf_len) {
+  if (channel == NULL || (data == NULL && data_len != 0) ||
+      !gzc_rpc_frame_type_valid((gzc_rpc_frame_type_t)type)) {
+    return fail(errbuf, errbuf_len, "service channel send frame", GZC_ERR_INVALID_ARGUMENT);
+  }
+  gzc_rpc_frame_t frame;
+  memset(&frame, 0, sizeof(frame));
+  frame.type = (gzc_rpc_frame_type_t)type;
+  frame.data = data;
+  frame.len = (size_t)data_len;
+  int rc = gzc_service_channel_send_frame(channel, &frame);
+  if (rc != GZC_OK) {
+    return fail(errbuf, errbuf_len, "service channel send frame", rc);
+  }
+  if (errbuf != NULL && errbuf_len > 0) {
+    errbuf[0] = 0;
+  }
+  return GZC_OK;
+}
+
 int gzc_cgo_service_channel_read_frame(
     gzc_service_channel_t *channel,
     int timeout_ms,
@@ -723,6 +749,42 @@ int gzc_cgo_session_transport_send_counts(
   }
   *out_packet_data_channel_calls = (unsigned long long)packet_calls;
   *out_opus_rtp_calls = (unsigned long long)opus_calls;
+  return GZC_OK;
+}
+
+int gzc_cgo_session_transport_snapshot(
+    gzc_cgo_session_t *session,
+    gzc_cgo_transport_snapshot_t *out_snapshot) {
+  if (session == NULL || out_snapshot == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_snapshot, 0, sizeof(*out_snapshot));
+  out_snapshot->backend_handle =
+      (unsigned long long)session->backend.handle;
+  out_snapshot->packet_channel_id =
+      session->backend.packet_channel.in_use
+          ? session->backend.packet_channel.id
+          : 0;
+  out_snapshot->packet_ready =
+      session->backend.packet_channel.in_use ? 1 : 0;
+  out_snapshot->media_ready =
+      session->backend.opus_callback != NULL ? 1 : 0;
+  for (unsigned long i = 0; i < GZC_CGO_MAX_LOCAL_CHANNELS; i++) {
+    struct gzc_rtc_channel *channel = &session->backend.local_channels[i];
+    if (!channel->in_use) {
+      continue;
+    }
+    if (strcmp(channel->label, "giznet/v1/service/32") == 0) {
+      out_snapshot->event_channel_id = channel->id;
+      continue;
+    }
+    if (strcmp(channel->label, "giznet/v1/service/0") == 0 &&
+        out_snapshot->rpc_channel_count < GZC_CGO_E2E_MAX_CHANNELS) {
+      out_snapshot->rpc_channel_ids[out_snapshot->rpc_channel_count] =
+          channel->id;
+      out_snapshot->rpc_channel_count++;
+    }
+  }
   return GZC_OK;
 }
 

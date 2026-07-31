@@ -30,6 +30,7 @@ chat_live_tests=(
   TestEinoWorkflowInvokesHTTPAndCurrentPeerTools
   TestEinoWorkflowRoundtrip
   TestFlowcraftConfiguredMemoryStoreRoundtrip
+  TestPeerStreamWorkspaceReloadContinuity
 )
 chat_standard_live_patterns=(
   '^TestPushToTalkRoundtrip$'
@@ -41,6 +42,7 @@ chat_standard_live_patterns=(
   '^TestDashScopeRealtimeWorkflowRoundtrip$'
   '^TestDoubaoRealtimeDuplexWorkflowRoundtrip$'
   '^TestEinoWorkflowInvokesHTTPAndCurrentPeerTools$'
+  '^TestPeerStreamWorkspaceReloadContinuity$'
 )
 chat_memory_live_patterns=(
   '^TestEinoWorkflowRoundtrip$'
@@ -274,6 +276,9 @@ run_js_rpc_tests() {
 
 	echo "==> node tests/gizclaw-e2e/js/rpc"
 	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:rpc)
+
+	echo "==> node tests/gizclaw-e2e/js/streams"
+	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:streams)
 }
 
 run_desktop_tests() {

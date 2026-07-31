@@ -4,6 +4,7 @@ package chat_test
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -37,11 +38,130 @@ func TestCSDKChatRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepare cgo chat workspace: %v", err)
 	}
-	if workspaceName != "realtime-workflow-ptt" {
-		t.Fatalf("C SDK chat workspace = %q, want isolated runtime alias", workspaceName)
+	if !strings.HasPrefix(workspaceName, "realtime-workflow-ptt-") {
+		t.Fatalf("C SDK chat workspace = %q, want isolated runtime alias prefix", workspaceName)
 	}
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 45*time.Second)
+		defer cleanupCancel()
+		if err := gochat.CleanupCgoPushToTalkWorkspaces(
+			cleanupCtx,
+			configPath,
+			contextConfigPath,
+			registrationToken,
+			workspaceName,
+		); err != nil {
+			t.Errorf("cleanup C SDK chat Workspace: %v", err)
+		}
+	})
 	fixture := filepath.Join(h.RepoRoot, "tests", "genx-e2e", "transformer", "testdata", "doubao_realtime_duplex_prompt.ogg")
 	cgointernal.CSDKChatRoundtrip(t, identityDir, registrationToken, workspaceName, fixture)
+}
+
+func TestCSDKPeerStreamWorkspaceReloadContinuity(t *testing.T) {
+	h := clitest.NewSetupHarness(t, "cgo-chat-stream-lifecycle")
+	identityDir := cgointernal.SharedIdentityDir(
+		t,
+		h,
+		"GIZCLAW_E2E_PEER_IDENTITY",
+		"peer",
+	)
+	cgointernal.AssertServerAvailable(t, identityDir)
+	registrationToken := createCSDKChatRegistrationToken(t, h, "stream-lifecycle")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	configPath := filepath.Join(
+		h.RepoRoot,
+		"tests",
+		"gizclaw-e2e",
+		"testdata",
+		"workspaces",
+		"doubao-realtime.json",
+	)
+	contextConfigPath := filepath.Join(identityDir, "config.yaml")
+	var generatedWorkspaces []string
+	cleaned := false
+	defer func() {
+		if cleaned || len(generatedWorkspaces) == 0 {
+			return
+		}
+		cleanupCtx, cleanupCancel := context.WithTimeout(
+			context.Background(),
+			45*time.Second,
+		)
+		defer cleanupCancel()
+		if err := gochat.CleanupCgoPushToTalkWorkspaces(
+			cleanupCtx,
+			configPath,
+			contextConfigPath,
+			registrationToken,
+			generatedWorkspaces...,
+		); err != nil {
+			t.Errorf("cleanup C SDK lifecycle Workspaces after failure: %v", err)
+		}
+	}()
+	workspaceSuffix := fmt.Sprintf("%x", time.Now().UnixNano())
+	firstWorkspace, err := gochat.PrepareCgoPushToTalkWorkspace(
+		ctx,
+		configPath,
+		contextConfigPath,
+		"realtime-workflow",
+		registrationToken,
+	)
+	if err != nil {
+		t.Fatalf("prepare first C SDK lifecycle Workspace: %v", err)
+	}
+	generatedWorkspaces = append(generatedWorkspaces, firstWorkspace)
+	alternateWorkspace, err := gochat.PrepareCgoPushToTalkWorkspaceNamed(
+		ctx,
+		configPath,
+		contextConfigPath,
+		"realtime-workflow",
+		registrationToken,
+		"cgo-stream-lifecycle-b-"+workspaceSuffix,
+	)
+	if err != nil {
+		t.Fatalf("prepare alternate C SDK lifecycle Workspace: %v", err)
+	}
+	generatedWorkspaces = append(generatedWorkspaces, alternateWorkspace)
+	fixture := filepath.Join(
+		h.RepoRoot,
+		"tests",
+		"genx-e2e",
+		"transformer",
+		"testdata",
+		"doubao_realtime_duplex_prompt.ogg",
+	)
+	cgointernal.CSDKPeerStreamWorkspaceReloadContinuity(
+		t,
+		identityDir,
+		registrationToken,
+		firstWorkspace,
+		alternateWorkspace,
+		fixture,
+	)
+	cleanupCtx, cleanupCancel := context.WithTimeout(
+		context.Background(),
+		45*time.Second,
+	)
+	cleanupErr := gochat.CleanupCgoPushToTalkWorkspaces(
+		cleanupCtx,
+		configPath,
+		contextConfigPath,
+		registrationToken,
+		generatedWorkspaces...,
+	)
+	cleanupCancel()
+	if cleanupErr != nil {
+		t.Fatalf("cleanup C SDK lifecycle Workspaces: %v", cleanupErr)
+	}
+	cleaned = true
+	h.SetContextDirAlias("cgo-stream-lifecycle-peer", identityDir)
+	requireCSDKPeerOffline(
+		t,
+		h,
+		h.ContextPublicKey("cgo-stream-lifecycle-peer"),
+	)
 }
 
 func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario string) string {
@@ -123,3 +243,45 @@ func runtimeBindings(resources map[string]string) map[string]apitypes.RuntimePro
 }
 
 func ptr[T any](value T) *T { return &value }
+
+func requireCSDKPeerOffline(
+	t *testing.T,
+	h *clitest.Harness,
+	publicKey string,
+) {
+	t.Helper()
+	adminDir := cgointernal.SharedIdentityDir(
+		t,
+		h,
+		"GIZCLAW_E2E_ADMIN_IDENTITY",
+		"admin",
+	)
+	h.SetContextDirAlias("cgo-stream-lifecycle-admin", adminDir)
+	admin := h.ConnectClientFromContext("cgo-stream-lifecycle-admin")
+	defer admin.Close()
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		t.Fatalf("create admin client for offline assertion: %v", err)
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		response, err := api.GetPeerRuntimeWithResponse(ctx, publicKey)
+		cancel()
+		if err == nil && response.JSON200 != nil && !response.JSON200.Online {
+			return
+		}
+		if time.Now().After(deadline) {
+			if err != nil {
+				t.Fatalf("query C SDK Peer runtime after close: %v", err)
+			}
+			t.Fatalf(
+				"C SDK Peer %s remained online after client close: status=%d body=%s",
+				publicKey,
+				response.StatusCode(),
+				response.Body,
+			)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}

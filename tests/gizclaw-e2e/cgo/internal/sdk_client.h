@@ -11,6 +11,16 @@ typedef struct gzc_cgo_stream_frame {
   unsigned char *data;
   unsigned long len;
 } gzc_cgo_stream_frame_t;
+#define GZC_CGO_E2E_MAX_CHANNELS 16
+typedef struct gzc_cgo_transport_snapshot {
+  unsigned long long backend_handle;
+  int packet_channel_id;
+  int packet_ready;
+  int event_channel_id;
+  int media_ready;
+  unsigned long rpc_channel_count;
+  int rpc_channel_ids[GZC_CGO_E2E_MAX_CHANNELS];
+} gzc_cgo_transport_snapshot_t;
 typedef struct gzc_service_channel gzc_service_channel_t;
 typedef struct gzc_event_stream gzc_event_stream_t;
 
@@ -92,6 +102,13 @@ int gzc_cgo_service_channel_send_json(
     const char *json,
     char *errbuf,
     unsigned long errbuf_len);
+int gzc_cgo_service_channel_send_frame(
+    gzc_service_channel_t *channel,
+    int type,
+    const unsigned char *data,
+    unsigned long data_len,
+    char *errbuf,
+    unsigned long errbuf_len);
 int gzc_cgo_service_channel_read_frame(
     gzc_service_channel_t *channel,
     int timeout_ms,
@@ -112,6 +129,9 @@ int gzc_cgo_session_transport_send_counts(
     gzc_cgo_session_t *session,
     unsigned long long *out_packet_data_channel_calls,
     unsigned long long *out_opus_rtp_calls);
+int gzc_cgo_session_transport_snapshot(
+    gzc_cgo_session_t *session,
+    gzc_cgo_transport_snapshot_t *out_snapshot);
 int gzc_cgo_session_send_battery_telemetry(
     gzc_cgo_session_t *session,
     double percent,
