@@ -223,6 +223,15 @@ async function main(): Promise<void> {
       } catch (error) {
         cleanupError ??= error;
       }
+    }
+    uplinkTrack?.stop();
+    closePeerConnection(pc);
+    try {
+      await requirePeerOffline(identity.publicKey, admin);
+    } catch (error) {
+      cleanupError ??= error;
+    }
+    if (eventProbePeerRegistered) {
       try {
         await deletePeer({
           client: admin,
@@ -233,10 +242,7 @@ async function main(): Promise<void> {
         cleanupError ??= error;
       }
     }
-    uplinkTrack?.stop();
-    closePeerConnection(pc);
     closePeerConnection(adminPC);
-    await requirePeerOffline(identity.publicKey);
   }
   if (testError != null) throw testError;
   if (cleanupError != null) throw cleanupError;
@@ -375,30 +381,24 @@ async function pollTelemetry(
   }
 }
 
-async function requirePeerOffline(peerPublicKey: string): Promise<void> {
-  const adminPC = await connectSetupPeer(adminIdentityDir);
-  try {
-    const client = createAdminAPIClient(
-      adminPC as unknown as RTCPeerConnection,
-      { requestTimeoutMs: 10_000 },
-    );
-    const deadline = Date.now() + 10_000;
-    for (;;) {
-      const runtime = await getPeerRuntime({
-        client,
-        path: { publicKey: peerPublicKey },
-        throwOnError: true,
-      });
-      if (!runtime.data.online) return;
-      if (Date.now() >= deadline) {
-        throw new Error(
-          `Peer ${peerPublicKey} remained online after closing the JavaScript SDK`,
-        );
-      }
-      await new Promise((resolve) => setTimeout(resolve, 100));
+async function requirePeerOffline(
+  peerPublicKey: string,
+  client: ReturnType<typeof createAdminAPIClient>,
+): Promise<void> {
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    const runtime = await getPeerRuntime({
+      client,
+      path: { publicKey: peerPublicKey },
+      throwOnError: true,
+    });
+    if (!runtime.data.online) return;
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `Peer ${peerPublicKey} remained online after closing the JavaScript SDK`,
+      );
     }
-  } finally {
-    closePeerConnection(adminPC);
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }
 
