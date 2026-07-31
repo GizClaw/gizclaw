@@ -24,7 +24,7 @@ flowchart TD
 
 | 结构或函数 | 作用 |
 | --- | --- |
-| `Service.Reload` | 停止旧 runtime，并按当前 Peer run selection 创建新 runtime。 |
+| `Service.Reload` | 破坏式停止当前 Peer 的旧 runtime，并按当前 Peer run selection 创建新 runtime；失败后由 connection-local ErrorTransformer 接管新 BOS。 |
 | `Service.Status` / `Stop` / `Shutdown` | 查询或终止当前 Agent runtime；连接 teardown 会永久关闭该 service。 |
 | `Service.SetRunAgent` | 当 `PeerRun` 提供可选 `PeerRunSelectionStore` capability 时，在与 reload、stop 相同的 transition 边界内持久化 pending selection；只有改变 active workspace 的 selection 才推进 runtime revision。 |
 | `Service.RuntimeRevision` / `PushInput` / `ReloadAndPushInputIfCurrentRevision` | 仅当 connection-scoped input 仍属于当前稳定 runtime revision 时允许写入或原子化地恢复后写入。 |
@@ -74,6 +74,8 @@ Flowcraft 与 Eino 在已配置的 Memory Store 上只绑定 Workspace 这一层
 这些绑定属于 process-start configuration。Reload 会根据当前 Workflow 与 Workspace resource 重建 Agent，但不会 hot-swap 共享 Store 依赖。修改绑定后必须重启 Server，已有数据不会自动移动。
 
 每个 `Service` 为其单个 Peer 串行化 selection 写入、reload、stop 与每次 Realtime input push。transition 在生命周期工作前后改变 runtime revision；只有改变 active workspace 的 selection 才是会推进 revision 的 transition。Realtime chunk 会先进入 runtime transition gate、再进入 per-input queue，并在 gate 内采样稳定 revision，因此输入与控制面操作共享同一个排序点。如果它观察到 revision 已变化或正处于 transition 中，即为过期输入，必须丢弃，不能重新打开或进入新的 workspace。input recovery 在同一个未变化的稳定 revision gate 内 reload 并写入原始 chunk；pending selection 仅在它改变当前 workspace 时才抑制恢复，因此同 workspace 的 selection 仍可恢复 inactive source。Peer teardown 会永久 shutdown 该连接级 service、取消仍在 gate 内的操作、原子阻止任何进行中的 reload 再发布新 runtime，并用有界 context 停止已经发布的 runtime。该边界不串行化无关 Peer，也不替代共享 `RuntimeRegistry` 对 workspace agent 的 ownership。
+
+`Service.Reload` 在取得 transition ownership 后先从当前 Peer 摘掉并停止旧 runtime，再解析和构造 replacement。旧 runtime 的迟到 output、completion 与 error 都会因为失去 active identity 而被忽略。selection、Agent factory、Transform、activation 或 publish 失败时，调用方收到原始 reload error；只要 connection 仍能打开 input，`Service` 同时安装 connection-local ErrorTransformer。ErrorTransformer 不进入共享 `RuntimeRegistry`，不会重新 attach 旧 Agent，并对每个新 BOS 返回同 `stream_id`、`AGENT_RELOAD_FAILED`、`retryable=false` 的 error EOS。该 EOS 只结束对应 logical stream，ErrorTransformer 会保持到下一次成功 reload 或 Peer teardown。
 
 `RuntimeRegistry` 按 Workspace 复用同一个已构造 Agent，并对每个 attach 返回独立 release。单个 Peer reload 只释放自己的引用；剩余引用继续使用原 Agent，既不会被打断，也不会重跑 initiative。最后一个引用释放时，registry 移除该 Agent、关闭 factory 拥有的 per-Agent adapter 并释放 workspace lease；下一次 acquire 才重新解析构造期配置。
 

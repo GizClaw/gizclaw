@@ -13,6 +13,7 @@ func (testEventSink) RemoteChannel(int, string, bool, bool) {}
 func (testEventSink) ChannelState(int, int)                 {}
 func (testEventSink) ChannelMessage(int, []byte, bool)      {}
 func (testEventSink) BufferedAmountLow(int)                 {}
+func (testEventSink) OpusFrame([]byte)                      {}
 
 func TestCloseWakesBlockedPoll(t *testing.T) {
 	backend := New()

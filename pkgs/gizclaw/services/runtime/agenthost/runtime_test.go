@@ -3,6 +3,7 @@ package agenthost
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"maps"
 	"slices"
@@ -583,7 +584,7 @@ func TestRuntimeProfileToolBindingsPreserveAliases(t *testing.T) {
 	}
 }
 
-func TestServiceReloadMissingWorkspaceKeepsPending(t *testing.T) {
+func TestServiceReloadMissingWorkspaceInstallsSafeErrorRuntime(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
 	store := &peerrun.Server{Store: kv.NewMemory(nil)}
@@ -592,6 +593,16 @@ func TestServiceReloadMissingWorkspaceKeepsPending(t *testing.T) {
 	}
 	wantErr := errors.New("agenthost: workspace \"missing\" not found")
 	svc := testService(t, publicKey, store, &fakeHost{err: wantErr})
+	svc.Consumer = StreamConsumerFunc(func(ctx context.Context, stream genx.Stream) error {
+		for {
+			if _, err := stream.Next(); err != nil {
+				if ctx.Err() != nil || IsStreamDone(err) || errors.Is(err, io.ErrClosedPipe) {
+					return nil
+				}
+				return err
+			}
+		}
+	})
 	if _, err := svc.Reload(ctx); !errors.Is(err, wantErr) {
 		t.Fatalf("Reload() error = %v, want %v", err, wantErr)
 	}
@@ -606,7 +617,8 @@ func TestServiceReloadMissingWorkspaceKeepsPending(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Status() error = %v", err)
 	}
-	if status.State != apitypes.PeerRunStatusStateError || status.Message == nil || !strings.Contains(*status.Message, "workspace") {
+	if status.State != apitypes.PeerRunStatusStateError ||
+		status.Message == nil || *status.Message != agentReloadFailedMessage {
 		t.Fatalf("Status() after failed reload = %+v", status)
 	}
 }
@@ -960,11 +972,20 @@ func TestServiceReloadSourceAndOutputErrors(t *testing.T) {
 	}
 	sourceErr := errors.New("source failed")
 	svc := testService(t, publicKey, store, &fakeHost{})
+	sourceCalls := 0
 	svc.Source = StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+		sourceCalls++
 		return nil, sourceErr
 	})
 	if _, err := svc.Reload(ctx); !errors.Is(err, sourceErr) {
 		t.Fatalf("Reload(source error) error = %v, want %v", err, sourceErr)
+	}
+	if sourceCalls != 1 || svc.currentRuntime() != nil {
+		t.Fatalf(
+			"Reload(source error) calls/runtime = %d/%p, want 1/nil",
+			sourceCalls,
+			svc.currentRuntime(),
+		)
 	}
 
 	svc = testService(t, publicKey, store, &fakeHost{})
@@ -978,6 +999,72 @@ func TestServiceReloadSourceAndOutputErrors(t *testing.T) {
 	svc = testService(t, publicKey, store, &nilOutputHost{})
 	if _, err := svc.Reload(ctx); err == nil || !strings.Contains(err.Error(), "output stream") {
 		t.Fatalf("Reload(nil output) error = %v", err)
+	}
+}
+
+func TestServiceReloadCancellationAfterInputOpenInstallsErrorRuntime(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{
+		WorkspaceName: "demo",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	source := NewPushSource(4)
+	openCalls := 0
+	outputs := make(chan *genx.MessageChunk, 1)
+	svc := testService(t, publicKey, store, &fakeHost{})
+	svc.Source = StreamSourceFunc(func(ctx context.Context) (genx.Stream, error) {
+		openCalls++
+		input, err := source.OpenAgentInput(ctx)
+		if openCalls == 1 {
+			cancel()
+		}
+		return input, err
+	})
+	svc.Consumer = StreamConsumerFunc(func(ctx context.Context, stream genx.Stream) error {
+		for {
+			chunk, err := stream.Next()
+			if err != nil {
+				if ctx.Err() != nil || IsStreamDone(err) || errors.Is(err, io.ErrClosedPipe) {
+					return nil
+				}
+				return err
+			}
+			select {
+			case outputs <- chunk:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+	})
+
+	if _, err := svc.Reload(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Reload() error = %v, want context canceled", err)
+	}
+	if openCalls != 2 {
+		t.Fatalf("OpenAgentInput() calls = %d, want primary plus fallback", openCalls)
+	}
+	bos := &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "after-cancel", BeginOfStream: true},
+	}
+	if err := source.Push(context.Background(), bos); err != nil {
+		t.Fatalf("Push(BOS) error = %v", err)
+	}
+	select {
+	case eos := <-outputs:
+		if eos == nil || !eos.IsEndOfStream() ||
+			eos.Ctrl.StreamID != bos.Ctrl.StreamID ||
+			eos.Ctrl.ErrorCode != agentReloadFailedCode {
+			t.Fatalf("error EOS = %#v", eos)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for error EOS")
+	}
+	if _, err := svc.Stop(context.Background()); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -1007,7 +1094,7 @@ func TestServiceReloadActivateFailureClosesStreams(t *testing.T) {
 	}
 }
 
-func TestServiceReloadTransformFailureKeepsCurrentWorkspaceGeneration(t *testing.T) {
+func TestServiceReloadTransformFailureInstallsErrorRuntime(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
 	store := &peerrun.Server{Store: kv.NewMemory(nil)}
@@ -1028,7 +1115,7 @@ func TestServiceReloadTransformFailureKeepsCurrentWorkspaceGeneration(t *testing
 		closed = append(closed, 0)
 		mu.Unlock()
 		var transformer genx.Transformer
-		if index == 0 {
+		if index != 1 {
 			transformer = runtimeTransformerFunc(func(context.Context, genx.Stream) (genx.Stream, error) {
 				return newBlockingStream(), nil
 			})
@@ -1050,16 +1137,28 @@ func TestServiceReloadTransformFailureKeepsCurrentWorkspaceGeneration(t *testing
 	})); err != nil {
 		t.Fatal(err)
 	}
+	source := NewPushSource(4)
+	outputs := make(chan *genx.MessageChunk, 4)
 	svc := &Service{
 		Host:      host,
 		PeerRun:   store,
 		PublicKey: publicKey,
-		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
-			return NewInputStream(1), nil
-		}),
-		Consumer: StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
-			<-ctx.Done()
-			return nil
+		Source:    source,
+		Consumer: StreamConsumerFunc(func(ctx context.Context, stream genx.Stream) error {
+			for {
+				chunk, err := stream.Next()
+				if err != nil {
+					if ctx.Err() != nil || IsStreamDone(err) || errors.Is(err, io.ErrClosedPipe) {
+						return nil
+					}
+					return err
+				}
+				select {
+				case outputs <- chunk:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
 		}),
 	}
 	if _, err := svc.Reload(ctx); err != nil {
@@ -1068,23 +1167,199 @@ func TestServiceReloadTransformFailureKeepsCurrentWorkspaceGeneration(t *testing
 	if _, err := svc.Reload(ctx); !errors.Is(err, wantErr) {
 		t.Fatalf("replacement Reload() error = %v, want %v", err, wantErr)
 	}
-	current, release, err := host.OpenAgent(ctx, "demo")
+	status, err := svc.Status(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	mu.Lock()
-	if current != agents[0] {
-		mu.Unlock()
-		t.Fatal("failed replacement changed the current Workspace generation")
+	if status.State != apitypes.PeerRunStatusStateError ||
+		status.Message == nil || *status.Message != agentReloadFailedMessage {
+		t.Fatalf("Status() = %+v, want reload error", status)
 	}
-	if closed[0] != 0 || closed[1] != 1 {
+	state, err := svc.WorkspaceState(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.RuntimeState != apitypes.PeerRunStatusStateError || state.HistoryAvailable == nil || *state.HistoryAvailable {
+		t.Fatalf("WorkspaceState() = %+v, want error/unavailable", state)
+	}
+
+	if err := source.Push(ctx, &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
+		Ctrl: &genx.StreamCtrl{StreamID: "conversation-ignored"},
+	}); err != nil {
+		t.Fatalf("Push(chunk before BOS) error = %v", err)
+	}
+	select {
+	case unexpected := <-outputs:
+		t.Fatalf("chunk before BOS produced output: %#v", unexpected)
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	bos := &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{
+			StreamID:      "conversation-1",
+			Label:         "microphone",
+			Timestamp:     123,
+			BeginOfStream: true,
+		},
+	}
+	if err := source.Push(ctx, bos); err != nil {
+		t.Fatalf("Push(BOS) error = %v", err)
+	}
+	select {
+	case eos := <-outputs:
+		if eos == nil || !eos.IsEndOfStream() || eos.Ctrl.StreamID != bos.Ctrl.StreamID ||
+			eos.Ctrl.Label != bos.Ctrl.Label || eos.Ctrl.Timestamp != bos.Ctrl.Timestamp ||
+			eos.Ctrl.ErrorCode != agentReloadFailedCode || eos.Ctrl.Error == "" || eos.Ctrl.ErrorRetryable {
+			t.Fatalf("error EOS = %#v", eos)
+		}
+		blob, ok := eos.Part.(*genx.Blob)
+		if !ok || blob.MIMEType != "audio/opus" || len(blob.Data) != 0 {
+			t.Fatalf("error EOS part = %#v, want empty audio/opus", eos.Part)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for error EOS")
+	}
+
+	if err := source.Push(ctx, bos.Clone()); err != nil {
+		t.Fatalf("Push(duplicate BOS) error = %v", err)
+	}
+	select {
+	case duplicate := <-outputs:
+		t.Fatalf("duplicate BOS produced output: %#v", duplicate)
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	secondBOS := bos.Clone()
+	secondBOS.Ctrl.StreamID = "conversation-2"
+	if err := source.Push(ctx, secondBOS); err != nil {
+		t.Fatalf("Push(second BOS) error = %v", err)
+	}
+	select {
+	case eos := <-outputs:
+		if eos == nil || !eos.IsEndOfStream() ||
+			eos.Ctrl.StreamID != secondBOS.Ctrl.StreamID ||
+			eos.Ctrl.ErrorCode != agentReloadFailedCode {
+			t.Fatalf("second error EOS = %#v", eos)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for second error EOS")
+	}
+
+	mu.Lock()
+	if closed[0] != 1 || closed[1] != 1 {
+		mu.Unlock()
+		t.Fatalf("close counts after failed replacement = %v, want [1 1]", closed)
+	}
+	mu.Unlock()
+	if _, err := svc.Reload(ctx); err != nil {
+		t.Fatalf("Reload() after fallback error = %v", err)
+	}
+	status, err = svc.Status(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.State != apitypes.PeerRunStatusStateRunning {
+		t.Fatalf("Status() after replacing fallback = %+v, want running", status)
+	}
+	if _, err := svc.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(closed) != 3 || !slices.Equal(closed, []int{1, 1, 1}) {
+		t.Fatalf("close counts after replacing fallback = %v, want [1 1 1]", closed)
+	}
+}
+
+func TestServiceFailedReplacementKeepsOtherPeerGenerationLive(t *testing.T) {
+	ctx := context.Background()
+	firstKey := testPublicKey(t)
+	secondKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	for _, key := range []giznet.PublicKey{firstKey, secondKey} {
+		if _, err := store.SetRunAgent(ctx, key, apitypes.AgentSelection{
+			WorkspaceName: "demo",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	shared := &multiAttachAgent{}
+	wantErr := errors.New("replacement transform failed")
+	var mu sync.Mutex
+	var closed []int
+	host := New(fakeResolver{spec: Spec{
+		Workspace: apitypes.Workspace{Name: "demo"},
+		AgentType: "reloadable",
+	}})
+	if err := host.Register("reloadable", agentFactoryFunc(func(context.Context, Spec) (Agent, error) {
+		mu.Lock()
+		index := len(closed)
+		closed = append(closed, 0)
+		mu.Unlock()
+		var agent Agent = shared
+		if index != 0 {
+			agent = NewTransformerAgent(runtimeTransformerFunc(
+				func(context.Context, genx.Stream) (genx.Stream, error) {
+					return nil, wantErr
+				},
+			))
+		}
+		return &closeTrackingAgent{
+			Agent: agent,
+			close: func() {
+				mu.Lock()
+				closed[index]++
+				mu.Unlock()
+			},
+		}, nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+
+	firstConsumer := newRecordingConsumer()
+	secondConsumer := newRecordingConsumer()
+	first := testService(t, firstKey, store, host)
+	first.Consumer = firstConsumer
+	second := testService(t, secondKey, store, host)
+	second.Consumer = secondConsumer
+	if _, err := first.Reload(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := second.Reload(ctx); err != nil {
+		t.Fatal(err)
+	}
+	_ = firstConsumer.nextText(t)
+	_ = secondConsumer.nextText(t)
+
+	if _, err := first.Reload(ctx); !errors.Is(err, wantErr) {
+		t.Fatalf("first Reload() error = %v, want %v", err, wantErr)
+	}
+	if err := shared.addOutput(1, "second-peer-still-live"); err != nil {
+		t.Fatalf("add second Peer output: %v", err)
+	}
+	if got := secondConsumer.nextText(t); got != "second-peer-still-live" {
+		t.Fatalf("second Peer output = %q", got)
+	}
+	mu.Lock()
+	if !slices.Equal(closed, []int{0, 1}) {
 		mu.Unlock()
 		t.Fatalf("close counts after failed replacement = %v, want [0 1]", closed)
 	}
 	mu.Unlock()
-	release()
-	if _, err := svc.Stop(ctx); err != nil {
+
+	if _, err := first.Stop(ctx); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := second.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if !slices.Equal(closed, []int{1, 1}) {
+		t.Fatalf("final close counts = %v, want [1 1]", closed)
 	}
 }
 
@@ -1623,6 +1898,17 @@ func (a *multiAttachAgent) transformCalls() int {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.calls
+}
+
+func (a *multiAttachAgent) addOutput(index int, text string) error {
+	a.mu.Lock()
+	if index < 0 || index >= len(a.output) {
+		a.mu.Unlock()
+		return fmt.Errorf("output index %d out of range", index)
+	}
+	output := a.output[index]
+	a.mu.Unlock()
+	return output.Add(&genx.MessageChunk{Part: genx.Text(text)})
 }
 
 func (a *multiAttachAgent) playGearIDs() []string {

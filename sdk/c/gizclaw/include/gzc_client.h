@@ -65,6 +65,8 @@ typedef struct {
 #define GZC_SERVICE_WRITE_CHUNK_SIZE (4u * 1024u)
 #define GZC_SERVICE_WRITE_HIGH_WATER_DEFAULT (256u * 1024u)
 #define GZC_SERVICE_WRITE_LOW_WATER_DEFAULT (64u * 1024u)
+#define GZC_PROTOCOL_OPUS_PACKET 0x10u
+#define GZC_OPUS_MAX_PACKET_SIZE 1275u
 
 typedef struct {
   gzc_str_t server_endpoint;
@@ -89,6 +91,13 @@ typedef struct {
 
 int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_client);
 int gzc_client_set_peer_add_ice_server(gzc_client_t *client, gzc_peer_add_ice_server_fn fn);
+/*
+ * Registers the borrowed v1 media extension before connect. NULL clears the
+ * registration. Existing public configuration structs remain ABI-stable.
+ */
+int gzc_client_set_webrtc_media(
+    gzc_client_t *client,
+    const gzc_webrtc_media_vtable_t *media);
 int gzc_client_connect(gzc_client_t *client);
 /*
  * Drives queued WebRTC callbacks and inbound RPC work on the caller's thread.

@@ -125,28 +125,40 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	s.beginTransition()
 	defer s.finishTransition()
 
+	previous := s.swap(nil)
+	workspaceName := ""
+	if previous != nil {
+		workspaceName = previous.workspace
+		s.setStatus(apitypes.PeerRunStatusStateStarting, workspaceName, nil, nil)
+		if err := previous.stop(ctx); err != nil {
+			return s.reloadFailure(ctx, workspaceName, fmt.Errorf("agenthost: stop previous runtime: %w", err))
+		}
+	}
+
 	selection, err := s.PeerRun.ResolveRunAgent(ctx, s.PublicKey)
 	if err != nil {
-		return s.setErrorStatus("", err), err
+		return s.reloadFailure(ctx, workspaceName, err)
 	}
+	workspaceName = selection.WorkspaceName
 	if err := ctx.Err(); err != nil {
-		return s.setErrorStatus(selection.WorkspaceName, err), err
+		return s.reloadFailure(ctx, workspaceName, err)
 	}
 	if s.ValidateWorkspaceSelection != nil {
 		canonicalName, err := s.ValidateWorkspaceSelection(ctx, selection.WorkspaceName)
 		if err != nil {
 			if s.AllowRestrictedReload == nil || !s.AllowRestrictedReload(ctx, selection.WorkspaceName) {
-				return s.setErrorStatus(selection.WorkspaceName, err), err
+				return s.reloadFailure(ctx, workspaceName, err)
 			}
 		} else {
 			selection.WorkspaceName = canonicalName
+			workspaceName = canonicalName
 		}
 	}
-	s.setStatus(apitypes.PeerRunStatusStateStarting, selection.WorkspaceName, nil, nil)
-	previous := s.currentRuntime()
+	s.setStatus(apitypes.PeerRunStatusStateStarting, workspaceName, nil, nil)
 
 	input, err := s.Source.OpenAgentInput(ctx)
 	if err != nil {
+		// No input route exists for a fallback to receive BOS, so do not retry.
 		return s.setErrorStatus(selection.WorkspaceName, fmt.Errorf("agenthost: open input stream: %w", err)), err
 	}
 	if input == nil {
@@ -155,7 +167,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	}
 	if err := ctx.Err(); err != nil {
 		_ = input.CloseWithError(err)
-		return s.setErrorStatus(selection.WorkspaceName, err), err
+		return s.reloadFailure(ctx, workspaceName, err)
 	}
 	profileToolBindings := map[string]string{}
 	profileWorkflowBindings := map[string]string{}
@@ -177,7 +189,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	baseCtx, err = WithToolExecution(baseCtx, profileTools(profileSnapshot), s.ClientTools)
 	if err != nil {
 		_ = input.CloseWithError(err)
-		return s.setErrorStatus(selection.WorkspaceName, err), err
+		return s.reloadFailure(ctx, workspaceName, err)
 	}
 	baseCtx = withWorkspaceHistoryNotifier(baseCtx, s.OnWorkspaceHistoryUpdated)
 	runCtx, runCancel := context.WithCancel(baseCtx)
@@ -194,7 +206,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	if err != nil {
 		cancel()
 		_ = input.CloseWithError(err)
-		return s.setErrorStatus(selection.WorkspaceName, err), err
+		return s.reloadFailure(ctx, workspaceName, err)
 	}
 	if output == nil {
 		cancel()
@@ -203,7 +215,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		}
 		_ = input.Close()
 		err := errors.New("agenthost: output stream is required")
-		return s.setErrorStatus(selection.WorkspaceName, err), err
+		return s.reloadFailure(ctx, workspaceName, err)
 	}
 	if err := ctx.Err(); err != nil {
 		cancel()
@@ -211,7 +223,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 			release()
 		}
 		_ = errors.Join(output.CloseWithError(err), input.CloseWithError(err))
-		return s.setErrorStatus(selection.WorkspaceName, err), err
+		return s.reloadFailure(ctx, workspaceName, err)
 	}
 	if _, err := s.PeerRun.ActivateRunAgent(ctx, s.PublicKey, selection); err != nil {
 		cancel()
@@ -219,7 +231,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 			release()
 		}
 		_ = errors.Join(output.CloseWithError(err), input.CloseWithError(err))
-		return s.setErrorStatus(selection.WorkspaceName, err), err
+		return s.reloadFailure(ctx, workspaceName, err)
 	}
 	transitionDetached := stopTransitionCancel()
 	if !transitionDetached || ctx.Err() != nil || runCtx.Err() != nil {
@@ -238,7 +250,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 			release()
 		}
 		_ = errors.Join(output.CloseWithError(err), input.CloseWithError(err))
-		return s.setErrorStatus(selection.WorkspaceName, err), err
+		return s.reloadFailure(ctx, workspaceName, err)
 	}
 
 	now := s.now()
@@ -262,14 +274,72 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 			err = ErrServiceClosed
 		}
 		_ = errors.Join(output.CloseWithError(err), input.CloseWithError(err))
-		return s.setErrorStatus(selection.WorkspaceName, err), err
+		return s.reloadFailure(ctx, workspaceName, err)
 	}
 	go s.consume(runCtx, next)
-	if previous != nil {
-		if err := previous.stop(ctx); err != nil {
-			return s.setErrorStatus(selection.WorkspaceName, fmt.Errorf("agenthost: stop previous runtime: %w", err)), err
-		}
+	return status, nil
+}
+
+func (s *Service) reloadFailure(ctx context.Context, workspaceName string, cause error) (apitypes.PeerRunStatus, error) {
+	status := s.setErrorStatus(workspaceName, cause)
+	if s.isClosed() {
+		return status, cause
 	}
+	fallbackStatus, err := s.installReloadErrorRuntime(ctx, workspaceName, cause)
+	if err != nil {
+		s.logger().Error("agenthost: install reload error runtime", "workspace", workspaceName, "error", err)
+		return status, cause
+	}
+	return fallbackStatus, cause
+}
+
+func (s *Service) installReloadErrorRuntime(ctx context.Context, workspaceName string, cause error) (apitypes.PeerRunStatus, error) {
+	runCtx, runCancel := context.WithCancel(context.WithoutCancel(ctx))
+	stopLifecycleCancel := context.AfterFunc(s.lifecycleContext(), runCancel)
+	cancel := func() {
+		stopLifecycleCancel()
+		runCancel()
+	}
+	input, err := s.Source.OpenAgentInput(runCtx)
+	if err != nil {
+		cancel()
+		return s.setErrorStatus(workspaceName, cause), fmt.Errorf("agenthost: open reload error input: %w", err)
+	}
+	if input == nil {
+		cancel()
+		return s.setErrorStatus(workspaceName, cause), errors.New("agenthost: reload error input stream is required")
+	}
+
+	agent := newReloadErrorAgent()
+	output, err := agent.Transform(runCtx, input)
+	if err != nil {
+		cancel()
+		_ = input.CloseWithError(err)
+		return s.setErrorStatus(workspaceName, cause), err
+	}
+	if output == nil {
+		cancel()
+		_ = input.Close()
+		return s.setErrorStatus(workspaceName, cause), errors.New("agenthost: reload error output stream is required")
+	}
+	now := s.now()
+	next := &runtime{
+		cancel:    cancel,
+		agent:     agent,
+		input:     input,
+		output:    output,
+		done:      make(chan struct{}),
+		workspace: workspaceName,
+		startedAt: now,
+		failure:   cause,
+	}
+	status, published := s.publishFailure(next, now)
+	if !published {
+		cancel()
+		_ = errors.Join(output.CloseWithError(ErrServiceClosed), input.CloseWithError(ErrServiceClosed))
+		return status, ErrServiceClosed
+	}
+	go s.consume(runCtx, next)
 	return status, nil
 }
 
@@ -568,6 +638,9 @@ func (s *Service) Status(context.Context) (apitypes.PeerRunStatus, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.runtime != nil {
+		if s.runtime.failure != nil {
+			return s.status, nil
+		}
 		return runningStatus(s.runtime.workspace, s.runtime.startedAt, s.now()), nil
 	}
 	if s.status.State == "" {
@@ -834,6 +907,28 @@ func (s *Service) publishWithCommit(next *runtime, now time.Time, commit func() 
 	return status, true, nil
 }
 
+func (s *Service) publishFailure(next *runtime, now time.Time) (apitypes.PeerRunStatus, bool) {
+	message := agentReloadFailedMessage
+	status := apitypes.PeerRunStatus{
+		State:         apitypes.PeerRunStatusStateError,
+		WorkspaceName: nil,
+		Message:       &message,
+		StartedAt:     &next.startedAt,
+		UpdatedAt:     &now,
+	}
+	if next.workspace != "" {
+		status.WorkspaceName = &next.workspace
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return s.status, false
+	}
+	s.runtime = next
+	s.status = status
+	return status, true
+}
+
 func (s *Service) isClosed() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -910,6 +1005,9 @@ func (s *Service) consume(ctx context.Context, rt *runtime) {
 func (s *Service) failRuntime(rt *runtime, err error) bool {
 	now := s.now()
 	message := err.Error()
+	if rt.failure != nil {
+		message = agentReloadFailedMessage
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.runtime != rt {
@@ -1004,6 +1102,7 @@ type runtime struct {
 	done      chan struct{}
 	workspace string
 	startedAt time.Time
+	failure   error
 }
 
 func (r *runtime) stop(ctx context.Context) error {

@@ -19,9 +19,11 @@ The [Streams Reference](/references/streams) owns the direction, reliability, se
 
 The JavaScript, Flutter, and C SDKs use one serialized writer per reliable, ordered service DataChannel. JavaScript and Flutter carry at most 16 KiB in each native DataChannel message, while the embedded C SDK uses a conservative 4 KiB limit. A writer pauses at its high-water mark and resumes only after a buffered-amount-low notification reports that the queue reached the low-water mark. Successful completion means every fragment of the logical message was accepted by the local WebRTC send queue; it does not mean the remote peer consumed the message.
 
-JavaScript and Flutter use fixed 1 MiB / 256 KiB high/low water marks. C API v2 defaults to 256 KiB / 64 KiB for embedded callers and allows larger values through `service_write_high_water_bytes` and `service_write_low_water_bytes` in `gzc_client_config_t`; a custom high-water mark must be at least 4 KiB and the low-water mark must be lower. Synchronous C sends borrow the caller payload only until the call returns and apply `write_timeout_ms` to the complete logical write. Elapsed-time checks use the platform's monotonic `time_instant_ms`, while protocol timestamps continue to use `time_unix_ms`.
+JavaScript and Flutter use fixed 1 MiB / 256 KiB high/low water marks. C API v3 defaults to 256 KiB / 64 KiB for embedded callers and allows larger values through `service_write_high_water_bytes` and `service_write_low_water_bytes` in `gzc_client_config_t`; a custom high-water mark must be at least 4 KiB and the low-water mark must be lower. Synchronous C sends borrow the caller payload only until the call returns and apply `write_timeout_ms` to the complete logical write. Elapsed-time checks use the platform's monotonic `time_instant_ms`, while protocol timestamps continue to use `time_unix_ms`.
 
 Direct packets, Telemetry, and RTP do not use this service stream writer or its water marks.
+
+C API v3 exposes bidirectional Opus RTP through the separate `gzc_webrtc_media_vtable_t` extension without changing an existing public struct layout. An application registers the extension before connect and continues to use `gzc_client_send_packet` / `gzc_client_read_packet` for `GZC_PROTOCOL_OPUS_PACKET`. The SDK routes `0x10` independently and never writes it to, or reports it as, a packet DataChannel message. The WebRTC backend owns the connection-scoped sendrecv track, RTP headers, and clock, and advances the 48 kHz timestamp from each Opus packet's actual duration.
 
 ## Core structure and main function
 

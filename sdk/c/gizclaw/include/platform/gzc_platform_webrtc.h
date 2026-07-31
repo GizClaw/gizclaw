@@ -86,6 +86,16 @@ typedef void (*gzc_rtc_remote_channel_cb)(
     gzc_rtc_channel_t *channel,
     const gzc_rtc_channel_info_t *info);
 
+/*
+ * Delivers one complete raw Opus packet. opus is borrowed for the duration of
+ * the callback. Platform backends dispatch this callback from peer_poll.
+ */
+typedef void (*gzc_rtc_opus_frame_cb)(
+    void *userdata,
+    gzc_rtc_peer_t *peer,
+    const uint8_t *opus,
+    size_t opus_len);
+
 typedef int (*gzc_peer_add_ice_server_fn)(
     gzc_rtc_peer_t *peer,
     gzc_str_t url,
@@ -123,6 +133,22 @@ typedef struct {
   void (*channel_close)(gzc_rtc_channel_t *channel);
   void (*peer_close)(gzc_rtc_peer_t *peer);
 } gzc_webrtc_vtable_t;
+
+/*
+ * Optional versioned extension for connection-scoped bidirectional Opus RTP.
+ * Version 1 ends at peer_send_opus; larger tables are accepted.
+ */
+typedef struct {
+  size_t struct_size;
+  int (*peer_set_opus_frame_callback)(
+      gzc_rtc_peer_t *peer,
+      gzc_rtc_opus_frame_cb callback,
+      void *callback_userdata);
+  int (*peer_send_opus)(
+      gzc_rtc_peer_t *peer,
+      const uint8_t *opus,
+      size_t opus_len);
+} gzc_webrtc_media_vtable_t;
 
 #ifdef __cplusplus
 }

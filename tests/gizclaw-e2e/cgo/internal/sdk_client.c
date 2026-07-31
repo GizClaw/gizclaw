@@ -14,6 +14,7 @@ struct gzc_cgo_session {
   gzc_http_vtable_t http;
   gzc_platform_crypto_t crypto;
   gzc_webrtc_vtable_t webrtc;
+  gzc_webrtc_media_vtable_t media;
   gzc_client_t *client;
 };
 
@@ -149,6 +150,7 @@ int gzc_cgo_session_open(
   gzc_cgo_backend_http_vtable(&session->backend, &session->http);
   gzc_cgo_backend_crypto_vtable(&session->backend, &session->crypto);
   gzc_cgo_backend_webrtc_vtable(&session->backend, &session->webrtc);
+  gzc_cgo_backend_webrtc_media_vtable(&session->backend, &session->media);
 
   gzc_client_config_t config;
   memset(&config, 0, sizeof(config));
@@ -167,6 +169,13 @@ int gzc_cgo_session_open(
     gzc_cgo_backend_deinit(&session->backend);
     free(session);
     return fail(errbuf, errbuf_len, "client create", rc);
+  }
+  rc = gzc_client_set_webrtc_media(session->client, &session->media);
+  if (rc != GZC_OK) {
+    gzc_client_destroy(session->client);
+    gzc_cgo_backend_deinit(&session->backend);
+    free(session);
+    return fail(errbuf, errbuf_len, "media registration", rc);
   }
   rc = gzc_client_set_peer_add_ice_server(session->client, gzc_cgo_backend_peer_add_ice_server);
   if (rc != GZC_OK) {
@@ -694,6 +703,26 @@ int gzc_cgo_session_send_packet(
   if (errbuf != NULL && errbuf_len > 0) {
     errbuf[0] = 0;
   }
+  return GZC_OK;
+}
+
+int gzc_cgo_session_transport_send_counts(
+    gzc_cgo_session_t *session,
+    unsigned long long *out_packet_data_channel_calls,
+    unsigned long long *out_opus_rtp_calls) {
+  if (session == NULL || out_packet_data_channel_calls == NULL ||
+      out_opus_rtp_calls == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  uint64_t packet_calls = 0;
+  uint64_t opus_calls = 0;
+  int rc = gzc_cgo_backend_transport_send_counts(
+      &session->backend, &packet_calls, &opus_calls);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  *out_packet_data_channel_calls = (unsigned long long)packet_calls;
+  *out_opus_rtp_calls = (unsigned long long)opus_calls;
   return GZC_OK;
 }
 

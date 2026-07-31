@@ -8,6 +8,8 @@ import (
 )
 
 const unsupportedMessage = "workspace runtime feature is not supported by this agent"
+const agentReloadFailedCode = "AGENT_RELOAD_FAILED"
+const agentReloadFailedMessage = "workspace Agent reload failed"
 
 type boardInputsContextKey struct{}
 
@@ -117,4 +119,87 @@ func (a transformerAgent) Recall(context.Context, apitypes.PeerRunRecallRequest)
 		Hits:      []apitypes.PeerRunRecallHit{},
 		Message:   &message,
 	}, nil
+}
+
+type reloadErrorAgent struct {
+	transformerAgent
+}
+
+func newReloadErrorAgent() Agent {
+	transformer := reloadErrorTransformer{}
+	return reloadErrorAgent{
+		transformerAgent: transformerAgent{Transformer: transformer},
+	}
+}
+
+func (a reloadErrorAgent) Status(context.Context) (apitypes.PeerRunWorkspaceState, error) {
+	available := false
+	message := agentReloadFailedMessage
+	return apitypes.PeerRunWorkspaceState{
+		RuntimeState:         apitypes.PeerRunStatusStateError,
+		HistoryAvailable:     &available,
+		MemoryStatsAvailable: &available,
+		RecallAvailable:      &available,
+		Message:              &message,
+	}, nil
+}
+
+type reloadErrorTransformer struct{}
+
+func (t reloadErrorTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
+	go t.forward(ctx, input, output)
+	return output.Stream(), nil
+}
+
+func (t reloadErrorTransformer) forward(ctx context.Context, input genx.Stream, output *genx.StreamBuilder) {
+	seen := make(map[string]struct{})
+	order := make([]string, 0, 64)
+	for {
+		chunk, err := input.Next()
+		if err != nil {
+			if ctx.Err() != nil {
+				_ = output.Abort(ctx.Err())
+				return
+			}
+			_ = output.Abort(err)
+			return
+		}
+		if chunk == nil || !chunk.IsBeginOfStream() || chunk.Ctrl.StreamID == "" {
+			continue
+		}
+		if _, ok := seen[chunk.Ctrl.StreamID]; ok {
+			continue
+		}
+		seen[chunk.Ctrl.StreamID] = struct{}{}
+		order = append(order, chunk.Ctrl.StreamID)
+		if len(order) > 64 {
+			delete(seen, order[0])
+			order = order[1:]
+		}
+		if err := output.Add(reloadFailureEOS(chunk)); err != nil {
+			_ = output.Abort(err)
+			return
+		}
+	}
+}
+
+func reloadFailureEOS(begin *genx.MessageChunk) *genx.MessageChunk {
+	ctrl := *begin.Ctrl
+	ctrl.BeginOfStream = false
+	ctrl.EndOfStream = true
+	ctrl.Error = agentReloadFailedMessage
+	ctrl.ErrorCode = agentReloadFailedCode
+	ctrl.ErrorRetryable = false
+
+	var part genx.Part
+	if blob, ok := begin.Part.(*genx.Blob); ok && blob != nil {
+		part = &genx.Blob{MIMEType: blob.MIMEType}
+	}
+	return &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Name: begin.Name,
+		Part: part,
+		Ctrl: &ctrl,
+	}
 }
