@@ -30,6 +30,7 @@ func allWorkspaceConfigPaths(t testing.TB) []string {
 		"doubao-realtime-duplex.json":      {},
 		"eino-memory.json":                 {},
 		"flowcraft-configured-memory.json": {},
+		"flowcraft-realtime-chat.json":     {},
 	}
 	defaults := make([]string, 0, len(paths)-len(specialized))
 	for _, path := range paths {
@@ -71,6 +72,11 @@ func continuousWorkspaceConfigPaths(t testing.TB) []string {
 func realtimeAutoSplitWorkspaceConfigPaths(t testing.TB) []string {
 	t.Helper()
 	return selectedWorkspaceConfigPaths(t, "ast-translate.json", "doubao-realtime.json", "flowcraft-basic.json")
+}
+
+func flowcraftRealtimeChatWorkspaceConfigPaths(t testing.TB) []string {
+	t.Helper()
+	return selectedWorkspaceConfigPaths(t, "flowcraft-realtime-chat.json")
 }
 
 func historyReplayWorkspaceConfigPaths(t testing.TB) []string {
@@ -161,6 +167,7 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 		"doubao-realtime-duplex-conversation": "doubao-realtime-duplex-conversation",
 		"eino-memory-assistant":               "eino-memory-assistant",
 		"flowcraft-configured-memory":         "flowcraft-configured-memory",
+		"flowcraft-realtime-chat":             "flowcraft-realtime-chat",
 		"flowcraft-voice-assistant":           "flowcraft-voice-assistant",
 		"flowcraft-chat-assistant":            "flowcraft-chat-assistant",
 		"flowcraft-journey-guide":             "flowcraft-journey-guide",
