@@ -45,17 +45,30 @@ type TransportSendCounts struct {
 }
 
 type TransportSnapshot struct {
-	BackendHandle   uint64
-	EventChannelID  int
-	MediaReady      bool
-	PacketChannelID int
-	PacketReady     bool
-	RPCChannelIDs   []int
+	BackendHandle      uint64
+	ActiveRPCChannelID int
+	EventChannelID     int
+	MediaReady         bool
+	NextLocalChannelID int
+	PacketChannelID    int
+	PacketReady        bool
+	RPCChannelIDs      []int
 }
 
 const (
-	RPCFrameEOS = int(C.GZC_RPC_FRAME_EOS)
+	RPCFrameEOS        = int(C.GZC_RPC_FRAME_EOS)
+	StatusChannelLimit = int(C.GZC_ERR_CHANNEL_LIMIT)
 )
+
+type StatusError struct {
+	Operation string
+	Code      int
+	Message   string
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("%s rc=%d: %s", e.Operation, e.Code, e.Message)
+}
 
 // Registration is the typed result decoded by the C server.register helper.
 type Registration struct {
@@ -314,7 +327,11 @@ func (c *Client) OpenServiceChannel(service uint64, timeout time.Duration) (*Ser
 		C.ulong(len(errbuf)),
 	)
 	if rc != C.GZC_OK {
-		return nil, fmt.Errorf("open service channel rc=%d: %s", int(rc), cString(errbuf))
+		return nil, &StatusError{
+			Operation: "open service channel",
+			Code:      int(rc),
+			Message:   cString(errbuf),
+		}
 	}
 	return &ServiceChannel{channel: channel}, nil
 }
@@ -377,12 +394,14 @@ func (c *Client) TransportSnapshot() (TransportSnapshot, error) {
 		ids[index] = int(snapshot.rpc_channel_ids[index])
 	}
 	return TransportSnapshot{
-		BackendHandle:   uint64(snapshot.backend_handle),
-		EventChannelID:  int(snapshot.event_channel_id),
-		MediaReady:      snapshot.media_ready != 0,
-		PacketChannelID: int(snapshot.packet_channel_id),
-		PacketReady:     snapshot.packet_ready != 0,
-		RPCChannelIDs:   ids,
+		BackendHandle:      uint64(snapshot.backend_handle),
+		ActiveRPCChannelID: int(snapshot.active_rpc_channel_id),
+		EventChannelID:     int(snapshot.event_channel_id),
+		MediaReady:         snapshot.media_ready != 0,
+		NextLocalChannelID: int(snapshot.next_local_channel_id),
+		PacketChannelID:    int(snapshot.packet_channel_id),
+		PacketReady:        snapshot.packet_ready != 0,
+		RPCChannelIDs:      ids,
 	}, nil
 }
 

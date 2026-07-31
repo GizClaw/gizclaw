@@ -40,7 +40,6 @@ typedef struct {
   gzc_webrtc_callbacks_t callbacks;
   struct gzc_rtc_peer peer;
   struct gzc_rtc_channel packet_channel;
-  struct gzc_rtc_channel rpc_channel;
   struct gzc_rtc_channel service_channels[16];
   struct gzc_rtc_channel edge_channel;
   struct gzc_rtc_channel remote_channels[GZC_RPC_MAX_INBOUND_CHANNELS + 1u];
@@ -71,7 +70,13 @@ typedef struct {
   int poll_count;
   int last_poll_timeout_ms;
   int create_channel_count;
-  size_t extra_service_channel_count;
+  size_t next_service_channel;
+  int next_service_channel_id;
+  bool service_channel_in_use[16];
+  bool peer_rpc_channel[16];
+  bool active_rpc_alias_observed;
+  gzc_client_t *client;
+  gzc_rtc_channel_t *last_send_channel;
   bool edge_channel_in_use;
   int peer_close_count;
   int close_count;
@@ -243,6 +248,12 @@ static void fake_channel_close(gzc_rtc_channel_t *channel) {
     if (channel == &global_fake_webrtc->edge_channel) {
       global_fake_webrtc->edge_channel_in_use = false;
     }
+    for (size_t i = 0; i < 16u; i++) {
+      if (channel == &global_fake_webrtc->service_channels[i]) {
+        global_fake_webrtc->service_channel_in_use[i] = false;
+        global_fake_webrtc->peer_rpc_channel[i] = false;
+      }
+    }
   }
 }
 
@@ -329,13 +340,23 @@ static int test_peer_set_remote_sdp(gzc_rtc_peer_t *peer, gzc_rtc_sdp_type_t typ
   info.ordered = false;
   info.reliable = false;
   fake->callbacks.on_channel_state(fake->callbacks.userdata, peer, &fake->packet_channel, &info, GZC_RTC_CHANNEL_OPEN);
-  memset(&info, 0, sizeof(info));
-  info.label = gzc_str_from_cstr("giznet/v1/service/0");
-  info.stream_id = 1;
-  info.ordered = true;
-  info.reliable = true;
-  fake->callbacks.on_channel_state(fake->callbacks.userdata, peer, &fake->rpc_channel, &info, GZC_RTC_CHANNEL_OPEN);
   return GZC_OK;
+}
+
+static gzc_rtc_channel_t *allocate_fake_service_channel(
+    fake_webrtc_t *fake,
+    bool peer_rpc) {
+  for (size_t offset = 0; offset < 15u; offset++) {
+    size_t index = (fake->next_service_channel + offset) % 15u;
+    if (!fake->service_channel_in_use[index]) {
+      fake->service_channel_in_use[index] = true;
+      fake->peer_rpc_channel[index] = peer_rpc;
+      fake->next_service_channel = (index + 1u) % 15u;
+      fake->service_channels[index].id = ++fake->next_service_channel_id;
+      return &fake->service_channels[index];
+    }
+  }
+  return NULL;
 }
 
 static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_channel_config_t *config, gzc_rtc_channel_t **out_channel) {
@@ -364,7 +385,11 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
     if (!config->ordered || !config->reliable) {
       return GZC_ERR_INVALID_ARGUMENT;
     }
-    gzc_rtc_channel_t *channel = &fake->rpc_channel;
+    gzc_rtc_channel_t *channel =
+        allocate_fake_service_channel(fake, true);
+    if (channel == NULL) {
+      return GZC_ERR_CHANNEL_LIMIT;
+    }
     *out_channel = channel;
     if (fake->callbacks.on_channel_state != NULL) {
       gzc_rtc_channel_info_t info;
@@ -394,12 +419,11 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
         !fake->edge_channel_in_use) {
       channel = &fake->edge_channel;
       fake->edge_channel_in_use = true;
-    } else if (fake->extra_service_channel_count < 15u) {
-      channel =
-          &fake->service_channels[fake->extra_service_channel_count++];
+    } else {
+      channel = allocate_fake_service_channel(fake, false);
     }
     if (channel == NULL) {
-      return GZC_ERR_NO_MEMORY;
+      return GZC_ERR_CHANNEL_LIMIT;
     }
     *out_channel = channel;
     if (fake->callbacks.on_channel_state != NULL) {
@@ -423,6 +447,10 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
       return GZC_ERR_INVALID_ARGUMENT;
     }
     gzc_rtc_channel_t *channel = &fake->service_channels[15];
+    if (fake->service_channel_in_use[15]) {
+      return GZC_ERR_CHANNEL_LIMIT;
+    }
+    fake->service_channel_in_use[15] = true;
     *out_channel = channel;
     if (fake->callbacks.on_channel_state != NULL) {
       gzc_rtc_channel_info_t info;
@@ -469,7 +497,7 @@ static int test_peer_poll(gzc_rtc_peer_t *peer, int timeout_ms) {
       fake->callbacks.on_channel_buffered_amount_low(
           fake->callbacks.userdata,
           &fake->peer,
-          &fake->rpc_channel);
+          fake->last_send_channel);
     }
   }
   if (fake->response_mode == FAKE_RESPONSE_SPEED_TEST &&
@@ -767,7 +795,7 @@ static int test_channel_send_frame(gzc_rtc_channel_t *channel, const uint8_t *da
     return gzc_buf_append(
         &fake->sent, fake->platform, data, len);
   }
-  bool known_channel = channel == &fake->rpc_channel || channel == &fake->edge_channel;
+  bool known_channel = channel == &fake->edge_channel;
   for (size_t i = 0; i < 16 && !known_channel; i++) {
     known_channel = channel == &fake->service_channels[i];
   }
@@ -1033,13 +1061,19 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
     fake->max_send_len = len;
   }
   fake->buffered_amount += len;
-  bool service_channel = channel == &fake->rpc_channel || channel == &fake->edge_channel;
+  bool service_channel = channel == &fake->edge_channel;
   for (size_t i = 0; i < 16 && !service_channel; i++) {
     service_channel = channel == &fake->service_channels[i];
+    if (service_channel && fake->peer_rpc_channel[i] &&
+        fake->client != NULL &&
+        gzc_client_rpc_channel(fake->client) == channel) {
+      fake->active_rpc_alias_observed = true;
+    }
   }
   if (!service_channel || is_text) {
     return test_channel_send_frame(channel, data, len, is_text);
   }
+  fake->last_send_channel = channel;
   int rc = gzc_buf_append(&fake->native_sent, fake->platform, data, len);
   if (rc != GZC_OK) {
     return rc;
@@ -1534,7 +1568,12 @@ int main(void) {
              "monotonic instant clock is required") != 0) {
     return 1;
   }
-  if (expect(GZC_API_VERSION == 3, "C API version 3") != 0) {
+  if (expect(GZC_API_VERSION == 4, "C API version 4") != 0 ||
+      expect(GZC_ERR_CHANNEL_LIMIT == -12,
+             "channel-limit status value") != 0 ||
+      expect(strcmp(gzc_status_string(GZC_ERR_CHANNEL_LIMIT),
+                    "data channel limit reached") == 0,
+             "channel-limit status string") != 0) {
     return 1;
   }
   invalid_config = config;
@@ -1548,6 +1587,7 @@ int main(void) {
   if (expect(rc == GZC_OK, "client create") != 0) {
     return 1;
   }
+  fake_webrtc.client = client;
   rc = gzc_client_connect(client);
   if (expect(
           rc == GZC_ERR_UNSUPPORTED &&
@@ -1632,8 +1672,13 @@ int main(void) {
     return 1;
   }
   if (expect(
-          fake_webrtc.create_channel_count == 3,
-          "packet, RPC, and Event channels created during connect") != 0) {
+          fake_webrtc.create_channel_count == 2 &&
+              gzc_client_rpc_channel(client) == NULL &&
+              gzc_rpc_send_frame(
+                  client,
+                  &(gzc_rpc_frame_t){.type = GZC_RPC_FRAME_EOS}) ==
+                  GZC_ERR_CLOSED,
+          "connect creates Packet and Event without an idle RPC channel") != 0) {
     return 1;
   }
   if (expect(fake_webrtc.low_threshold == GZC_SERVICE_WRITE_LOW_WATER_DEFAULT,
@@ -1679,6 +1724,36 @@ int main(void) {
   }
   gzc_service_channel_close(same_service_second);
   gzc_service_channel_close(different_service);
+
+  gzc_service_channel_t *capacity_channels[15] = {0};
+  for (size_t i = 0; i < 15u && rc == GZC_OK; i++) {
+    rc = gzc_client_open_service_channel(
+        client, 48, 1000, &capacity_channels[i]);
+  }
+  gzc_service_channel_t *overflow_channel = NULL;
+  if (expect(rc == GZC_OK,
+             "15 caller-created channels coexist with Event") != 0 ||
+      expect(gzc_client_open_service_channel(
+                 client, 48, 1000, &overflow_channel) ==
+                     GZC_ERR_CHANNEL_LIMIT &&
+                 overflow_channel == NULL,
+             "sixteenth caller channel reports channel limit") != 0 ||
+      expect(gzc_service_channel_send_frame(
+                 capacity_channels[14], &coexist_eos) == GZC_OK,
+             "channel-limit failure leaves existing channels usable") != 0) {
+    return 1;
+  }
+  gzc_service_channel_close(capacity_channels[0]);
+  capacity_channels[0] = NULL;
+  rc = gzc_client_open_service_channel(
+      client, 48, 1000, &capacity_channels[0]);
+  if (expect(rc == GZC_OK && capacity_channels[0] != NULL,
+             "released channel slot can be reused") != 0) {
+    return 1;
+  }
+  for (size_t i = 0; i < 15u; i++) {
+    gzc_service_channel_close(capacity_channels[i]);
+  }
 
   gzc_service_channel_t *bounded_channel = NULL;
   rc = gzc_client_open_service_channel(client, 49, 1000, &bounded_channel);
@@ -2190,6 +2265,8 @@ int main(void) {
   fake_webrtc.speed_full_duplex_observed = false;
   fake_webrtc.speed_flood_download = false;
   int channel_count_before_speed = fake_webrtc.create_channel_count;
+  int close_count_before_speed_lifecycle = fake_webrtc.close_count;
+  fake_webrtc.active_rpc_alias_observed = false;
   gizclaw_rpc_v1_SpeedTestRequest speed_test =
       gizclaw_rpc_v1_SpeedTestRequest_init_zero;
   speed_test.up_content_length = fake_webrtc.speed_ack_up_bytes;
@@ -2201,11 +2278,11 @@ int main(void) {
   clock.instant_step_ms = 5;
   rc = gzc_rpc_speed_test(client, &speed_test, &speed_result);
   clock.instant_step_ms = 0;
-  if (expect(rc == GZC_OK, "persistent RPC speed test") != 0 ||
+  if (expect(rc == GZC_OK, "request-scoped RPC speed test") != 0 ||
       expect(
           speed_result.up_bytes == speed_test.up_content_length &&
               speed_result.down_bytes == speed_test.down_content_length,
-          "persistent RPC speed test counts both directions") != 0 ||
+          "request-scoped RPC speed test counts both directions") != 0 ||
       expect(
           speed_result.duration_ms >= speed_result.up_duration_ms &&
               speed_result.duration_ms >=
@@ -2214,7 +2291,7 @@ int main(void) {
                   speed_result.down_duration_ms &&
               speed_result.up_duration_ms > 0 &&
               speed_result.down_duration_ms > 0,
-          "persistent RPC speed test records direction durations") != 0 ||
+          "request-scoped RPC speed test records direction durations") != 0 ||
       expect(
           speed_result.up_mbps ==
                   ((double)speed_result.up_bytes * 8.0) /
@@ -2222,22 +2299,26 @@ int main(void) {
               speed_result.down_mbps ==
                   ((double)speed_result.down_bytes * 8.0) /
                       ((double)speed_result.down_duration_ms * 1000.0),
-          "persistent RPC speed test records direction rates") != 0 ||
+          "request-scoped RPC speed test records direction rates") != 0 ||
       expect(
           fake_webrtc.speed_upload_bytes ==
               speed_test.up_content_length,
-          "persistent RPC speed test uploads the requested bytes") != 0 ||
+          "request-scoped RPC speed test uploads the requested bytes") != 0 ||
       expect(
           fake_webrtc.speed_download_bytes ==
                   speed_test.down_content_length &&
               fake_webrtc.speed_upload_eos_seen &&
               fake_webrtc.speed_response_eos_sent &&
               fake_webrtc.speed_full_duplex_observed,
-          "persistent RPC speed test progresses both directions together") !=
+          "request-scoped RPC speed test progresses both directions together") !=
           0 ||
       expect(
-          fake_webrtc.create_channel_count == channel_count_before_speed,
-          "persistent RPC speed test does not create a DataChannel") != 0) {
+          fake_webrtc.create_channel_count == channel_count_before_speed + 1 &&
+              fake_webrtc.close_count ==
+                  close_count_before_speed_lifecycle + 1 &&
+              fake_webrtc.active_rpc_alias_observed &&
+              gzc_client_rpc_channel(client) == NULL,
+          "speed test owns and closes one fresh RPC DataChannel") != 0) {
     return 1;
   }
   fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;
@@ -2248,10 +2329,13 @@ int main(void) {
       gzc_str_from_parts((const char *)params.data, params.len),
       &response);
   if (expect(rc == GZC_OK,
-             "persistent RPC remains usable after speed test") != 0 ||
+             "fresh RPC remains usable after speed test") != 0 ||
       expect(
-          fake_webrtc.create_channel_count == channel_count_before_speed,
-          "post-speed RPC reuses the same DataChannel") != 0) {
+          fake_webrtc.create_channel_count == channel_count_before_speed + 2 &&
+              fake_webrtc.close_count ==
+                  close_count_before_speed_lifecycle + 2 &&
+              gzc_client_rpc_channel(client) == NULL,
+          "post-speed RPC creates and closes another DataChannel") != 0) {
     return 1;
   }
   fake_webrtc.response_mode = FAKE_RESPONSE_SPEED_TEST;
@@ -3738,6 +3822,7 @@ int main(void) {
   if (rc == GZC_OK) {
     rc = gzc_client_set_webrtc_media(client_custom, &media);
   }
+  fake_webrtc_custom.client = client_custom;
   if (rc == GZC_OK) {
     rc = gzc_client_set_peer_add_ice_server(client_custom, test_peer_add_ice_server);
   }
@@ -3751,15 +3836,13 @@ int main(void) {
   if (rc == GZC_OK) {
     announce_remote_rpc(&fake_webrtc_custom, 0);
   }
-  if (expect(rc == GZC_OK && fake_webrtc_custom.threshold_count == 4u &&
+  if (expect(rc == GZC_OK && fake_webrtc_custom.threshold_count == 3u &&
                  fake_webrtc_custom.threshold_values[0] == 128u * 1024u &&
                  fake_webrtc_custom.threshold_values[1] == 128u * 1024u &&
                  fake_webrtc_custom.threshold_values[2] == 128u * 1024u &&
-                 fake_webrtc_custom.threshold_values[3] == 128u * 1024u &&
-                 fake_webrtc_custom.threshold_channels[0] == &fake_webrtc_custom.rpc_channel &&
-                 fake_webrtc_custom.threshold_channels[1] == &fake_webrtc_custom.service_channels[15] &&
-                 fake_webrtc_custom.threshold_channels[2] == &fake_webrtc_custom.edge_channel &&
-                 fake_webrtc_custom.threshold_channels[3] == &fake_webrtc_custom.remote_channels[0],
+                 fake_webrtc_custom.threshold_channels[0] == &fake_webrtc_custom.service_channels[15] &&
+                 fake_webrtc_custom.threshold_channels[1] == &fake_webrtc_custom.edge_channel &&
+                 fake_webrtc_custom.threshold_channels[2] == &fake_webrtc_custom.remote_channels[0],
              "custom low-water threshold applies to every service channel") != 0) {
     return 1;
   }

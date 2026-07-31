@@ -2,7 +2,7 @@
 
 `Implementation file: rpc_utils.go`
 
-Provides dispatch loop, stream request processing, Ping, client call, request/result construct, payload validation, API error mapping and type conversion helper common to RPC runtime.
+Provides single-request dispatch, stream request processing, Ping, client call, request/result construct, payload validation, API error mapping and type conversion helper common to RPC runtime.
 
 This file is an internal auxiliary implementation of RPC and does not have independent domain capabilities.
 
@@ -10,7 +10,7 @@ This file is an internal auxiliary implementation of RPC and does not have indep
 
 | Symbol | Function |
 | --- | --- |
-| `handleRPC` / `handleRPCWithStream` | Run a normal or streaming RPC Server request loop. |
+| `handleRPC` / `handleRPCWithStream` | Run one normal or streaming RPC lifecycle on a request-owned connection. |
 | `handleRPCStreamRequest` | Select streaming dispatch or normal dispatch and write back response. |
 | `callRPC` | Execute a request/response call on an existing connection. |
 | `callRPCPing` / `handleRPCPing` | Universal Ping client/server helper. |

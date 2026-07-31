@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 	"testing"
@@ -69,9 +70,8 @@ func TestRPCClientPingSingleRequestResponse(t *testing.T) {
 	}
 }
 
-func TestRPCServerHandleReusesStreamByDefault(t *testing.T) {
+func TestRPCServerHandleOneRequestPerDataChannel(t *testing.T) {
 	serverSide, clientSide := net.Pipe()
-	defer serverSide.Close()
 	defer clientSide.Close()
 
 	serverErrCh := make(chan error, 1)
@@ -86,20 +86,108 @@ func TestRPCServerHandleReusesStreamByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Ping(req-1) error = %v", err)
 	}
-	second, err := callRPCPing(ctx, clientSide, "req-2")
-	if err != nil {
-		t.Fatalf("Ping(req-2) error = %v", err)
+	if first.ServerTime <= 0 {
+		t.Fatalf("server time = %d, want positive", first.ServerTime)
 	}
-	if first.ServerTime <= 0 || second.ServerTime <= 0 {
-		t.Fatalf("server times = %d, %d; want positive", first.ServerTime, second.ServerTime)
-	}
-
-	if err := clientSide.Close(); err != nil {
-		t.Fatalf("client close error = %v", err)
+	if _, err := callRPCPing(ctx, clientSide, "req-2"); err == nil {
+		t.Fatal("Ping(req-2) error = nil, want closed DataChannel")
 	}
 	if err := <-serverErrCh; err != nil {
 		t.Fatalf("server Handle error = %v", err)
 	}
+
+	var requests bytes.Buffer
+	for _, id := range []string{"pipelined-1", "pipelined-2"} {
+		params, err := newRPCPingRequestParams(rpcapi.PingRequest{
+			ClientSendTime: time.Now().UnixMilli(),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := rpcapi.WriteRequest(
+			&requests,
+			newRPCRequest(id, rpcapi.RPCMethodAllPing, params),
+		); err != nil {
+			t.Fatal(err)
+		}
+		if err := rpcapi.WriteEOS(&requests); err != nil {
+			t.Fatal(err)
+		}
+	}
+	conn := &bufferedRPCConn{reader: bytes.NewReader(requests.Bytes())}
+	dispatchCount := 0
+	err = handleRPC(conn, func(
+		_ context.Context,
+		req *rpcapi.RPCRequest,
+	) (*rpcapi.RPCResponse, error) {
+		dispatchCount++
+		return newRPCPingResponse(
+			req.Id,
+			rpcapi.PingResponse{ServerTime: rpcServerTimeForID(req.Id)},
+		)
+	})
+	if err != nil {
+		t.Fatalf("pipelined Handle error = %v", err)
+	}
+	if dispatchCount != 1 || !conn.closed {
+		t.Fatalf(
+			"pipelined dispatches = %d, closed = %t; want 1, true",
+			dispatchCount,
+			conn.closed,
+		)
+	}
+	responseReader := bytes.NewReader(conn.writer.Bytes())
+	if _, err := rpcapi.ReadResponseForMethod(
+		responseReader,
+		rpcapi.RPCMethodAllPing,
+	); err != nil {
+		t.Fatalf("read pipelined response: %v", err)
+	}
+	if err := rpcapi.ReadEOS(responseReader); err != nil {
+		t.Fatalf("read pipelined response EOS: %v", err)
+	}
+	if _, err := rpcapi.ReadFrame(responseReader); !errors.Is(err, io.EOF) {
+		t.Fatalf("second pipelined response read error = %v, want EOF", err)
+	}
+}
+
+type bufferedRPCConn struct {
+	reader *bytes.Reader
+	writer bytes.Buffer
+	closed bool
+}
+
+func (c *bufferedRPCConn) Read(data []byte) (int, error) {
+	return c.reader.Read(data)
+}
+
+func (c *bufferedRPCConn) Write(data []byte) (int, error) {
+	return c.writer.Write(data)
+}
+
+func (c *bufferedRPCConn) Close() error {
+	c.closed = true
+	return nil
+}
+
+func (*bufferedRPCConn) LocalAddr() net.Addr {
+	return &net.TCPAddr{}
+}
+
+func (*bufferedRPCConn) RemoteAddr() net.Addr {
+	return &net.TCPAddr{}
+}
+
+func (*bufferedRPCConn) SetDeadline(time.Time) error {
+	return nil
+}
+
+func (*bufferedRPCConn) SetReadDeadline(time.Time) error {
+	return nil
+}
+
+func (*bufferedRPCConn) SetWriteDeadline(time.Time) error {
+	return nil
 }
 
 func TestRPCServerLogsDomainFailureOnce(t *testing.T) {

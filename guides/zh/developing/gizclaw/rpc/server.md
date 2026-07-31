@@ -12,7 +12,7 @@ Server methods 覆盖 Peer info、runtime status、run Agent、run workspace、h
 | --- | --- |
 | `rpcServer` | 聚合 caller identity、Peer/runtime/resource services 与 streaming handlers。 |
 | `rpcPeerService` / `rpcPeerRunService` / `rpcPeerRunRuntime` | RPC Server 依赖的最小领域 interfaces。 |
-| `Handle` | 在 connection 上启动 RPC request loop。 |
+| `Handle` | 在 request-owned connection 上处理一个 RPC lifecycle，随后关闭 connection。 |
 | `dispatch` | 分发普通 request/response RPC methods。 |
 | `dispatchStream` | 分发需要连续 frames 的 streaming RPC methods。 |
 | `handleGetInfo` / `handlePutInfo` | 读取或更新当前 Peer device info。 |

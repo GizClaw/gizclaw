@@ -769,6 +769,12 @@ int gzc_cgo_session_transport_snapshot(
       session->backend.packet_channel.in_use ? 1 : 0;
   out_snapshot->media_ready =
       session->backend.opus_callback != NULL ? 1 : 0;
+  out_snapshot->next_local_channel_id =
+      session->backend.next_local_channel_id;
+  gzc_rtc_channel_t *active_rpc =
+      gzc_client_rpc_channel(session->client);
+  out_snapshot->active_rpc_channel_id =
+      active_rpc == NULL ? 0 : active_rpc->id;
   for (unsigned long i = 0; i < GZC_CGO_MAX_LOCAL_CHANNELS; i++) {
     struct gzc_rtc_channel *channel = &session->backend.local_channels[i];
     if (!channel->in_use) {

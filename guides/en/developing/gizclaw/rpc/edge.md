@@ -9,7 +9,7 @@ Define `edgeRPCServer`, process Peer lookup, assignment and route resolve on the
 | Symbol | Function |
 | --- | --- |
 | `edgeRPCServer` | Holds authoritative Peer route service. |
-| `Handle` | Run an RPC loop on the Edge service connection. |
+| `Handle` | Handle one RPC lifecycle on the Edge service connection, then close it. |
 | `dispatch` | Distributes Edge route RPC methods. |
 | `handleLookup` | Query the current assignment of the Peer. |
 | `handleAssign` | Create or update Peer assignment. |

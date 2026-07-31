@@ -18,6 +18,8 @@ typedef struct gzc_cgo_transport_snapshot {
   int packet_ready;
   int event_channel_id;
   int media_ready;
+  int next_local_channel_id;
+  int active_rpc_channel_id;
   unsigned long rpc_channel_count;
   int rpc_channel_ids[GZC_CGO_E2E_MAX_CHANNELS];
 } gzc_cgo_transport_snapshot_t;

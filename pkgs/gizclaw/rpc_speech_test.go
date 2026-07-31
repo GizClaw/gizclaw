@@ -119,7 +119,7 @@ func TestRPCSpeechExtractStreamsUploadAndReturnsValidatedResult(t *testing.T) {
 	readSpeechEOS(t, stream)
 }
 
-func TestRPCSpeechExtractSplitResponseUsesEnvelopeEOSAsTerminal(t *testing.T) {
+func TestRPCSpeechExtractSplitResponseClosesRequestChannel(t *testing.T) {
 	service := speechServiceFuncs{
 		extract: func(_ context.Context, request peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error) {
 			for {
@@ -178,16 +178,9 @@ func TestRPCSpeechExtractSplitResponseUsesEnvelopeEOSAsTerminal(t *testing.T) {
 	if response.Id != largeID || response.Error != nil {
 		t.Fatalf("response = %+v", response)
 	}
-	if err := client.SetReadDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
-		t.Fatalf("SetReadDeadline() error = %v", err)
-	}
 	_, err = stream.ReadFrame()
-	var netErr net.Error
-	if !errors.As(err, &netErr) || !netErr.Timeout() {
-		t.Fatalf("unexpected frame after split response terminal EOS: %v", err)
-	}
-	if err := client.SetReadDeadline(time.Time{}); err != nil {
-		t.Fatalf("clear read deadline error = %v", err)
+	if err == nil {
+		t.Fatal("frame after split response error = nil, want closed channel")
 	}
 }
 
