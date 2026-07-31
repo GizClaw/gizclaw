@@ -5,12 +5,15 @@ package rpc_test
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
@@ -18,9 +21,39 @@ import (
 
 func TestConcurrentServiceStreams(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "go-concurrent-service-streams")
+	aliasSetupAdminContext(t, h)
 	registerSetupPeer(t, h, "peer-a", "go-concurrent-service-streams", true)
 	peer := h.ConnectClientFromContext("peer-a")
 	t.Cleanup(func() { peer.Close() })
+	peerPublicKey := h.ContextPublicKey("peer-a")
+	registerDefaultRuntimeProfile(t, h, peer)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	groupName := "Concurrent service Event probe"
+	group, err := peer.CreateFriendGroup(
+		ctx,
+		"concurrent-services.group.create",
+		rpcapi.FriendGroupCreateRequest{Name: groupName},
+	)
+	cancel()
+	if err != nil {
+		t.Fatalf("create Event probe Friend Group: %v", err)
+	}
+	if group.Id == nil || *group.Id == "" {
+		t.Fatalf("Event probe Friend Group has no id: %+v", group)
+	}
+	groupID := *group.Id
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cleanupCancel()
+		if _, err := peer.DeleteFriendGroup(
+			cleanupCtx,
+			"concurrent-services.group.delete",
+			rpcapi.FriendGroupDeleteRequest{Id: groupID},
+		); err != nil {
+			t.Errorf("delete Event probe Friend Group: %v", err)
+		}
+		deleteGoEventProbePeer(t, h, peerPublicKey)
+	})
 
 	peerConn := peer.PeerConn()
 	if peerConn == nil {
@@ -67,6 +100,7 @@ func TestConcurrentServiceStreams(t *testing.T) {
 	if err := firstRPC.Close(); err != nil {
 		t.Fatalf("close first RPC stream: %v", err)
 	}
+	requirePeerEventAfterServiceClose(t, peer, eventStream, groupID, groupName)
 
 	requirePingResponse(t, secondRPC, "concurrent-services-second")
 	httpResponse, err := http.ReadResponse(bufio.NewReader(peerHTTP), httpRequest)
@@ -80,6 +114,132 @@ func TestConcurrentServiceStreams(t *testing.T) {
 	}
 	if peer.PeerConn() != peerConn {
 		t.Fatal("closing one service stream replaced or closed the Peer connection")
+	}
+}
+
+func deleteGoEventProbePeer(
+	t *testing.T,
+	h *clitest.Harness,
+	peerPublicKey string,
+) {
+	t.Helper()
+	admin := h.ConnectClientFromContext("admin-a")
+	defer admin.Close()
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		t.Errorf("create Go cleanup admin client: %v", err)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	response, err := api.DeletePeerWithResponse(ctx, peerPublicKey)
+	if err != nil {
+		t.Errorf("delete Go Event probe peer: %v", err)
+		return
+	}
+	if response.JSON200 == nil {
+		t.Errorf(
+			"delete Go Event probe peer status %d: %s",
+			response.StatusCode(),
+			response.Body,
+		)
+	}
+}
+
+func registerDefaultRuntimeProfile(
+	t *testing.T,
+	h *clitest.Harness,
+	peer *gizcli.Client,
+) {
+	t.Helper()
+	admin := h.ConnectClientFromContext("admin-a")
+	defer admin.Close()
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		t.Fatalf("create concurrent-stream admin client: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	tokenName := fmt.Sprintf("e2e-gocs-%d", time.Now().UnixNano())
+	response, err := api.CreateRegistrationTokenWithResponse(
+		ctx,
+		adminhttp.RegistrationTokenUpsert{
+			Name:               tokenName,
+			Token:              tokenName,
+			RuntimeProfileName: "default-gameplay",
+		},
+	)
+	if err != nil {
+		t.Fatalf("create concurrent-stream registration token: %v", err)
+	}
+	if response.JSON200 == nil {
+		t.Fatalf(
+			"create concurrent-stream registration token status %d: %s",
+			response.StatusCode(),
+			response.Body,
+		)
+	}
+	defer func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cleanupCancel()
+		response, err := api.DeleteRegistrationTokenWithResponse(
+			cleanupCtx,
+			tokenName,
+		)
+		if err != nil {
+			t.Errorf("delete concurrent-stream registration token: %v", err)
+		} else if response.JSON200 == nil {
+			t.Errorf(
+				"delete concurrent-stream registration token status %d: %s",
+				response.StatusCode(),
+				response.Body,
+			)
+		}
+	}()
+	registered, err := peer.Register(ctx, "concurrent-services.register", tokenName)
+	if err != nil {
+		t.Fatalf("register concurrent-stream peer: %v", err)
+	}
+	if registered.RuntimeProfileName != "default-gameplay" {
+		t.Fatalf("registered RuntimeProfile = %q, want default-gameplay", registered.RuntimeProfileName)
+	}
+}
+
+func requirePeerEventAfterServiceClose(
+	t *testing.T,
+	peer *gizcli.Client,
+	stream net.Conn,
+	groupID string,
+	groupName string,
+) {
+	t.Helper()
+	updatedGroupName := groupName + " updated"
+	revisionFloor := time.Now().UnixMilli()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if _, err := peer.PutFriendGroup(
+		ctx,
+		"concurrent-services.group.put",
+		rpcapi.FriendGroupPutRequest{Id: groupID, Name: &updatedGroupName},
+	); err != nil {
+		t.Fatalf("update Event probe Friend Group: %v", err)
+	}
+	if err := stream.SetReadDeadline(time.Now().Add(15 * time.Second)); err != nil {
+		t.Fatalf("set Peer Event read deadline: %v", err)
+	}
+	for {
+		event, err := gizcli.ReadPeerStreamEvent(stream)
+		if err != nil {
+			t.Fatalf("read Peer Event after closing sibling RPC: %v", err)
+		}
+		update := event.GetFriendGroupUpdated()
+		if event.GetType() != eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED ||
+			update.GetFriendGroupId() != groupID ||
+			update.GetChange() != eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_METADATA_UPDATED ||
+			update.GetRevisionUnixMs() < revisionFloor {
+			continue
+		}
+		return
 	}
 }
 

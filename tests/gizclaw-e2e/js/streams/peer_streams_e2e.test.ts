@@ -14,7 +14,17 @@ import {
   type WebRTCRPCDataChannelFactory,
 } from "@gizclaw/gizclaw";
 import { createPeerRPCClient } from "@gizclaw/gizclaw/rpc";
-import { createAdminAPIClient, getPeerRuntime } from "@gizclaw/gizclaw/admin";
+import {
+  createAdminAPIClient,
+  createRegistrationToken,
+  deletePeer,
+  deleteRegistrationToken,
+  getPeerRuntime,
+} from "@gizclaw/gizclaw/admin";
+import {
+  FriendGroupChange,
+  subscribePeerEvents,
+} from "@gizclaw/gizclaw/events";
 import {
   assertSetupServerAvailable,
   closePeerConnection,
@@ -37,7 +47,17 @@ async function main(): Promise<void> {
   await assertSetupServerAvailable(identity.endpoint);
   const transports = await connectSetupPeerWithTransports(identityDir);
   const { createdChannels, eventChannel, packetChannel, pc } = transports;
+  const adminPC = await connectSetupPeer(adminIdentityDir);
+  const admin = createAdminAPIClient(adminPC as unknown as RTCPeerConnection, {
+    requestTimeoutMs: 10_000,
+  });
+  const registrationTokenName = `e2e-js-concurrent-stream-${process.pid}-${Date.now()}`;
+  let registrationTokenProvisioned = false;
+  let eventProbeGroupID: string | undefined;
+  let eventProbePeerRegistered = false;
   let uplinkTrack: MediaStreamTrack | undefined;
+  let testError: unknown;
+  let cleanupError: unknown;
   try {
     const mandatoryLabels = createdChannels.map(({ label }) => label);
     assert.deepEqual(mandatoryLabels, [
@@ -60,6 +80,37 @@ async function main(): Promise<void> {
     await audio.sender.replaceTrack(uplinkTrack);
     assert.equal(audio.sender.track, uplinkTrack);
     assert.equal(audio.receiver.track.kind, "audio");
+    const setupRPC = createPeerRPCClient(pc as unknown as RTCPeerConnection, {
+      requestTimeoutMs: 10_000,
+    });
+    await setupRPC.call("server.info.put", {
+      name: "JavaScript concurrent service Event probe",
+    });
+    eventProbePeerRegistered = true;
+    await createRegistrationToken({
+      client: admin,
+      body: {
+        name: registrationTokenName,
+        token: registrationTokenName,
+        runtime_profile_name: "default-gameplay",
+      },
+      throwOnError: true,
+    });
+    registrationTokenProvisioned = true;
+    await setupRPC.call("server.register", { token: registrationTokenName });
+    await deleteRegistrationToken({
+      client: admin,
+      path: { name: registrationTokenName },
+      throwOnError: true,
+    });
+    registrationTokenProvisioned = false;
+    const eventProbeGroup = await setupRPC.call("server.friend_group.create", {
+      name: "JavaScript concurrent service Event probe",
+    });
+    assert.equal(typeof eventProbeGroup.id, "string");
+    assert.notEqual(eventProbeGroup.id, "");
+    eventProbeGroupID = eventProbeGroup.id;
+
     const rpcLabel = giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC);
     const httpLabel = giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_HTTP);
     const firstRPCChannel = pc.createDataChannel(rpcLabel, {
@@ -109,6 +160,11 @@ async function main(): Promise<void> {
     const firstPing = await firstPingPromise;
     assert.ok(firstPing.server_time > 0);
     await waitForDataChannelClosed(firstRPCChannel);
+    await requirePeerEventAfterServiceClose(
+      pc,
+      eventChannel,
+      eventProbeGroupID,
+    );
 
     const [secondPing, serverInfo] = await remainingResponses;
     assert.ok(secondPing.server_time > 0);
@@ -147,11 +203,43 @@ async function main(): Promise<void> {
 
     assert.equal(eventChannel.readyState, "open");
     assert.equal(pc.connectionState, "connected");
+  } catch (error) {
+    testError = error;
   } finally {
+    if (registrationTokenProvisioned) {
+      try {
+        await deleteRegistrationToken({
+          client: admin,
+          path: { name: registrationTokenName },
+          throwOnError: true,
+        });
+      } catch (error) {
+        cleanupError ??= error;
+      }
+    }
+    if (eventProbePeerRegistered) {
+      try {
+        await deleteEventProbeGroup(pc, identityDir, eventProbeGroupID);
+      } catch (error) {
+        cleanupError ??= error;
+      }
+      try {
+        await deletePeer({
+          client: admin,
+          path: { publicKey: identity.publicKey },
+          throwOnError: true,
+        });
+      } catch (error) {
+        cleanupError ??= error;
+      }
+    }
     uplinkTrack?.stop();
     closePeerConnection(pc);
+    closePeerConnection(adminPC);
     await requirePeerOffline(identity.publicKey);
   }
+  if (testError != null) throw testError;
+  if (cleanupError != null) throw cleanupError;
 }
 
 function oneChannelFactory(
@@ -167,6 +255,81 @@ function oneChannelFactory(
       return channel;
     },
   } as unknown as WebRTCRPCDataChannelFactory;
+}
+
+async function requirePeerEventAfterServiceClose(
+  pc: wrtc.RTCPeerConnection,
+  channel: RTCDataChannel,
+  groupID: string,
+): Promise<void> {
+  const revisionFloor = BigInt(Date.now());
+  let unsubscribe = (): void => {};
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const eventPromise = new Promise<void>((resolve, reject) => {
+      unsubscribe = subscribePeerEvents(
+        channel,
+        (event) => {
+          const update = event.friendGroupUpdated;
+          if (
+            event.type === "friend_group.updated" &&
+            update?.friendGroupId === groupID &&
+            update.change === FriendGroupChange.METADATA_UPDATED &&
+            update.revisionUnixMs >= revisionFloor
+          ) {
+            resolve();
+          }
+        },
+        reject,
+      );
+    });
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeout = setTimeout(
+        () =>
+          reject(
+            new Error(
+              "Event Stream did not receive the Friend Group update after sibling RPC close",
+            ),
+          ),
+        10_000,
+      );
+    });
+    const eventRPC = createPeerRPCClient(pc as unknown as RTCPeerConnection, {
+      requestTimeoutMs: 10_000,
+    });
+    await Promise.all([
+      eventRPC.call("server.friend_group.put", {
+        id: groupID,
+        name: "JavaScript concurrent service Event probe updated",
+      }),
+      Promise.race([eventPromise, timeoutPromise]),
+    ]);
+  } finally {
+    if (timeout != null) clearTimeout(timeout);
+    unsubscribe();
+  }
+}
+
+async function deleteEventProbeGroup(
+  pc: wrtc.RTCPeerConnection,
+  identityDir: string,
+  groupID: string | undefined,
+): Promise<void> {
+  const cleanupPC =
+    pc.connectionState === "connected"
+      ? pc
+      : await connectSetupPeer(identityDir);
+  try {
+    const cleanupRPC = createPeerRPCClient(
+      cleanupPC as unknown as RTCPeerConnection,
+      { requestTimeoutMs: 10_000 },
+    );
+    if (groupID != null) {
+      await cleanupRPC.call("server.friend_group.delete", { id: groupID });
+    }
+  } finally {
+    if (cleanupPC !== pc) closePeerConnection(cleanupPC);
+  }
 }
 
 async function waitForDataChannelClosed(

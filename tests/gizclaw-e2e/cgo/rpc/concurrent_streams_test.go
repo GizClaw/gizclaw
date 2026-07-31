@@ -3,11 +3,16 @@
 package rpc_test
 
 import (
+	"context"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	cgointernal "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cgo/internal"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
@@ -20,6 +25,8 @@ func TestCSDKConcurrentServiceStreams(t *testing.T) {
 		"GIZCLAW_E2E_PEER_IDENTITY",
 		"peer",
 	)
+	h.SetContextDirAlias("cgo-concurrent-services-peer", identityDir)
+	peerPublicKey := h.ContextPublicKey("cgo-concurrent-services-peer")
 	cgointernal.AssertServerAvailable(t, identityDir)
 	client, err := cgointernal.NewClient(identityDir)
 	if err != nil {
@@ -31,6 +38,47 @@ func TestCSDKConcurrentServiceStreams(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer eventStream.Close()
+	const (
+		groupName = "C concurrent service Event probe"
+		peerName  = "C concurrent service stream peer"
+	)
+	var putInfo rpcpb.ServerPutInfoResponse
+	if err := client.CallRPC(
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_INFO_PUT,
+		&rpcpb.ServerPutInfoRequest{
+			Value: &rpcpb.DeviceProfile{Name: ptr(peerName)},
+		},
+		&putInfo,
+	); err != nil {
+		t.Fatalf("register C Event probe peer: %v", err)
+	}
+	var groupID string
+	defer func() {
+		if groupID != "" {
+			var groupDelete rpcpb.FriendGroupDeleteResponse
+			if err := client.CallRPC(
+				rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE,
+				&rpcpb.FriendGroupDeleteRequest{Id: groupID},
+				&groupDelete,
+			); err != nil {
+				t.Errorf("delete C Event probe Friend Group: %v", err)
+			}
+		}
+		deleteCEventProbePeer(t, h, peerPublicKey)
+	}()
+	registerCDefaultRuntimeProfile(t, h, client)
+	var groupCreate rpcpb.FriendGroupCreateResponse
+	if err := client.CallRPC(
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_CREATE,
+		&rpcpb.FriendGroupCreateRequest{Name: groupName},
+		&groupCreate,
+	); err != nil {
+		t.Fatalf("create C Event probe Friend Group: %v", err)
+	}
+	groupID = groupCreate.GetValue().GetId()
+	if groupID == "" {
+		t.Fatalf("C Event probe Friend Group has no id: %s", groupCreate.String())
+	}
 
 	baseline := requireTransportSnapshot(t, client)
 	requireMandatoryCTransports(t, baseline)
@@ -59,6 +107,7 @@ func TestCSDKConcurrentServiceStreams(t *testing.T) {
 	sendCServicePing(t, secondRPC, "cgo-concurrent-second")
 	requireCServicePing(t, firstRPC, "cgo-concurrent-first")
 	firstRPC.Close()
+	requireCEventAfterServiceClose(t, client, eventStream, groupID, groupName)
 
 	afterClose := requireTransportSnapshot(t, client)
 	if slices.Contains(afterClose.RPCChannelIDs, firstID) {
@@ -74,6 +123,142 @@ func TestCSDKConcurrentServiceStreams(t *testing.T) {
 		baseline,
 		requireTransportSnapshot(t, client),
 	)
+}
+
+func registerCDefaultRuntimeProfile(
+	t *testing.T,
+	h *clitest.Harness,
+	client *cgointernal.Client,
+) {
+	t.Helper()
+	adminDir := cgointernal.SharedIdentityDir(
+		t,
+		h,
+		"GIZCLAW_E2E_ADMIN_IDENTITY",
+		"admin",
+	)
+	h.SetContextDirAlias("cgo-concurrent-services-admin", adminDir)
+	admin := h.ConnectClientFromContext("cgo-concurrent-services-admin")
+	defer admin.Close()
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		t.Fatalf("create C concurrent-stream admin client: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	tokenName := fmt.Sprintf("e2e-c-concurrent-stream-%d", time.Now().UnixNano())
+	response, err := api.CreateRegistrationTokenWithResponse(
+		ctx,
+		adminhttp.RegistrationTokenUpsert{
+			Name:               tokenName,
+			Token:              tokenName,
+			RuntimeProfileName: "default-gameplay",
+		},
+	)
+	if err != nil {
+		t.Fatalf("create C concurrent-stream registration token: %v", err)
+	}
+	if response.JSON200 == nil {
+		t.Fatalf(
+			"create C concurrent-stream registration token status %d: %s",
+			response.StatusCode(),
+			response.Body,
+		)
+	}
+	defer func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cleanupCancel()
+		response, err := api.DeleteRegistrationTokenWithResponse(
+			cleanupCtx,
+			tokenName,
+		)
+		if err != nil {
+			t.Errorf("delete C concurrent-stream registration token: %v", err)
+		} else if response.JSON200 == nil {
+			t.Errorf(
+				"delete C concurrent-stream registration token status %d: %s",
+				response.StatusCode(),
+				response.Body,
+			)
+		}
+	}()
+	var registered rpcpb.ServerRegisterResponse
+	if err := client.CallRPC(
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_REGISTER,
+		&rpcpb.ServerRegisterRequest{Token: tokenName},
+		&registered,
+	); err != nil {
+		t.Fatalf("register C concurrent-stream peer: %v", err)
+	}
+	if registered.GetRuntimeProfileName() != "default-gameplay" {
+		t.Fatalf(
+			"registered C RuntimeProfile = %q, want default-gameplay",
+			registered.GetRuntimeProfileName(),
+		)
+	}
+}
+
+func deleteCEventProbePeer(
+	t *testing.T,
+	h *clitest.Harness,
+	peerPublicKey string,
+) {
+	t.Helper()
+	admin := h.ConnectClientFromContext("cgo-concurrent-services-admin")
+	defer admin.Close()
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		t.Errorf("create C cleanup admin client: %v", err)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	response, err := api.DeletePeerWithResponse(ctx, peerPublicKey)
+	if err != nil {
+		t.Errorf("delete C Event probe peer: %v", err)
+		return
+	}
+	if response.JSON200 == nil {
+		t.Errorf(
+			"delete C Event probe peer status %d: %s",
+			response.StatusCode(),
+			response.Body,
+		)
+	}
+}
+
+func requireCEventAfterServiceClose(
+	t *testing.T,
+	client *cgointernal.Client,
+	eventStream *cgointernal.EventStream,
+	groupID string,
+	groupName string,
+) {
+	t.Helper()
+	updatedGroupName := groupName + " updated"
+	revisionFloor := time.Now().UnixMilli()
+	var groupPut rpcpb.FriendGroupPutResponse
+	if err := client.CallRPC(
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_PUT,
+		&rpcpb.FriendGroupPutRequest{Id: groupID, Name: ptr(updatedGroupName)},
+		&groupPut,
+	); err != nil {
+		t.Fatalf("update C Event probe Friend Group: %v", err)
+	}
+	for {
+		event, err := eventStream.ReadEvent(15 * time.Second)
+		if err != nil {
+			t.Fatalf("read C Event after closing sibling RPC: %v", err)
+		}
+		update := event.GetFriendGroupUpdated()
+		if event.GetType() != eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED ||
+			update.GetFriendGroupId() != groupID ||
+			update.GetChange() != eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_METADATA_UPDATED ||
+			update.GetRevisionUnixMs() < revisionFloor {
+			continue
+		}
+		return
+	}
 }
 
 func sendCServicePing(
@@ -206,3 +391,5 @@ func requireOneAddedRPCChannel(
 	}
 	return added[0]
 }
+
+func ptr[T any](value T) *T { return &value }
