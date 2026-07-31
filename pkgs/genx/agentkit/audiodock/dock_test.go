@@ -442,6 +442,118 @@ func TestDockASRRoutesOnlyAudioAndBypassesOtherInput(t *testing.T) {
 	}
 }
 
+func TestDockDoesNotTerminateTranscriptOnHistoryAudioEOS(t *testing.T) {
+	asr := transformerFunc(func(_ context.Context, source genx.Stream) (genx.Stream, error) {
+		output := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 4})
+		go func() {
+			defer output.Close()
+			defer source.Close()
+			for {
+				_, err := source.Next()
+				if err != nil {
+					return
+				}
+				_ = output.Push(&genx.MessageChunk{
+					Role: genx.RoleUser,
+					Name: "transcript",
+					Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript", BeginOfStream: true},
+				})
+				_ = output.Push(&genx.MessageChunk{
+					Role: genx.RoleUser,
+					Name: "transcript",
+					Part: genx.Text("hello"),
+					Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript"},
+				})
+				_ = output.Push(&genx.MessageChunk{
+					Role: genx.RoleUser,
+					Name: "transcript",
+					Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2, 3}},
+					Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: genx.HistoryUserAudioLabel},
+				})
+				_ = output.Push(&genx.MessageChunk{
+					Role: genx.RoleUser,
+					Name: "transcript",
+					Part: &genx.Blob{MIMEType: "audio/opus"},
+					Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: genx.HistoryUserAudioLabel, EndOfStream: true},
+				})
+				_ = output.Push(&genx.MessageChunk{
+					Role: genx.RoleUser,
+					Name: "transcript",
+					Part: genx.Text("hello"),
+					Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript"},
+				})
+				_ = output.Push(&genx.MessageChunk{
+					Role: genx.RoleUser,
+					Name: "transcript",
+					Part: genx.Text(""),
+					Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript", EndOfStream: true},
+				})
+				return
+			}
+		}()
+		return output, nil
+	})
+	agent := transformerFunc(func(_ context.Context, source genx.Stream) (genx.Stream, error) {
+		output := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 4})
+		go func() {
+			defer output.Close()
+			defer source.Close()
+			for {
+				chunk, err := source.Next()
+				if err != nil {
+					return
+				}
+				if _, isText := chunk.Part.(genx.Text); isText {
+					continue
+				}
+				_ = output.Push(chunk)
+			}
+		}()
+		return output, nil
+	})
+	dock, err := New(Config{Agent: agent, ASR: asr})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := &sliceStream{chunks: []*genx.MessageChunk{{
+		Role: genx.RoleUser,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{9}},
+		Ctrl: &genx.StreamCtrl{StreamID: "audio-1", BeginOfStream: true},
+	}}}
+	output, err := dock.Transform(t.Context(), input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunks := readAll(t, output)
+
+	var historyData, historyEOS, transcriptText, transcriptEOS int
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil {
+			continue
+		}
+		switch chunk.Ctrl.Label {
+		case genx.HistoryUserAudioLabel:
+			if chunk.IsEndOfStream() {
+				historyEOS++
+			} else if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
+				historyData++
+			}
+		case "transcript":
+			if chunk.IsEndOfStream() {
+				transcriptEOS++
+			} else if chunk.Part == genx.Text("hello") {
+				transcriptText++
+			}
+		}
+	}
+	if historyData != 1 || historyEOS != 1 {
+		t.Fatalf("history audio data/EOS = %d/%d, want 1/1; chunks = %#v", historyData, historyEOS, chunks)
+	}
+	if transcriptText != 2 || transcriptEOS != 1 {
+		t.Fatalf("transcript text/EOS = %d/%d, want 2/1; chunks = %#v", transcriptText, transcriptEOS, chunks)
+	}
+}
+
 func TestDockClosingOutputCancelsWholePipeline(t *testing.T) {
 	cancelled := make(chan struct{})
 	agent := transformerFunc(func(ctx context.Context, _ genx.Stream) (genx.Stream, error) {
