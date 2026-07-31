@@ -3,6 +3,7 @@ package agenthost
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"io"
 	"io/fs"
@@ -16,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
@@ -730,6 +732,170 @@ func TestHistoryAgentMergesOutputHistoryAudioWithTranscript(t *testing.T) {
 	}
 	if len(packets) != 4 || !bytes.Equal(packets[2].Data, []byte{1, 2, 3}) || !bytes.Equal(packets[3].Data, []byte{4, 5}) {
 		t.Fatalf("ogg packets = %+v", packets)
+	}
+}
+
+// TestHistoryAgentPersistsOneEntryForAudioDockTranscript preserves the provider
+// ordering captured for #671: history audio ends before the definite transcript
+// snapshot. A live run observed transcript BOS/text/EOS counts of 1/7/1 at ASR
+// output but 1/7/2 at the old AudioDock and AgentHost boundaries; the fixed path
+// kept 1/7/1 at all three boundaries. This test makes that ordering deterministic.
+func TestHistoryAgentPersistsOneEntryForAudioDockTranscript(t *testing.T) {
+	releaseAgentBypass := make(chan struct{})
+	asrBoundary := make(chan []*genx.MessageChunk, 1)
+	agentHostBoundary := make(chan []*genx.MessageChunk, 1)
+	asr := historyTransformerFunc(func(_ context.Context, input genx.Stream) (genx.Stream, error) {
+		output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
+		go func() {
+			defer input.Close()
+			if _, err := input.Next(); err != nil {
+				_ = output.Abort(err)
+				return
+			}
+			chunks := []*genx.MessageChunk{
+				&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript", BeginOfStream: true}},
+				&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript"}},
+				&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2, 3}}, Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: genx.HistoryUserAudioLabel}},
+				&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: genx.HistoryUserAudioLabel, EndOfStream: true}},
+				&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript"}},
+				&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript", EndOfStream: true}},
+			}
+			_ = output.Add(chunks...)
+			asrBoundary <- cloneHistoryChunks(chunks)
+			_ = output.Done(genx.Usage{})
+		}()
+		return output.Stream(), nil
+	})
+	textAgent := historyTransformerFunc(func(_ context.Context, input genx.Stream) (genx.Stream, error) {
+		output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
+		go func() {
+			defer input.Close()
+			var bypass []*genx.MessageChunk
+			for {
+				chunk, err := input.Next()
+				if err != nil {
+					if !IsStreamDone(err) {
+						_ = output.Abort(err)
+						return
+					}
+					break
+				}
+				if chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.Label == genx.HistoryUserAudioLabel {
+					bypass = append(bypass, chunk.Clone())
+				}
+			}
+			<-releaseAgentBypass
+			_ = output.Add(bypass...)
+			_ = output.Done(genx.Usage{})
+		}()
+		return output.Stream(), nil
+	})
+	dock, err := audiodock.New(audiodock.Config{Agent: textAgent, ASR: asr})
+	if err != nil {
+		t.Fatalf("audiodock.New() error = %v", err)
+	}
+	capturedDock := historyTransformerFunc(func(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+		upstream, err := dock.Transform(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
+		go func() {
+			defer upstream.Close()
+			var captured []*genx.MessageChunk
+			for {
+				chunk, err := upstream.Next()
+				if IsStreamDone(err) {
+					agentHostBoundary <- captured
+					_ = output.Done(genx.Usage{})
+					return
+				}
+				if err != nil {
+					_ = output.Abort(err)
+					return
+				}
+				captured = append(captured, chunk.Clone())
+				if err := output.Add(chunk); err != nil {
+					_ = output.Abort(err)
+					return
+				}
+			}
+		}()
+		return output.Stream(), nil
+	})
+	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	agent := wrapHistoryAgent(NewTransformerAgent(capturedDock), history)
+	output, err := agent.Transform(withHistoryGearID(t.Context(), "gear-a"), historyStreamFromChunks(&genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{9}},
+		Ctrl: &genx.StreamCtrl{StreamID: "audio-1", BeginOfStream: true},
+	}))
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	for {
+		chunk, err := output.Next()
+		if err != nil {
+			t.Fatalf("Next() before transcript EOS error = %v", err)
+		}
+		if chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.Label == "transcript" && chunk.IsEndOfStream() {
+			break
+		}
+	}
+	close(releaseAgentBypass)
+	for {
+		_, err := output.Next()
+		if IsStreamDone(err) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next() after transcript EOS error = %v", err)
+		}
+	}
+
+	page, err := history.ListEntries(t.Context(), "", "", 10)
+	if err != nil {
+		t.Fatalf("ListEntries() error = %v", err)
+	}
+	if len(page.Entries) != 1 {
+		t.Fatalf("history entries = %+v, want one combined transcript and audio entry", page.Entries)
+	}
+	if page.Entries[0].Text == "" || len(page.Entries[0].Assets) != 1 {
+		t.Fatalf("history entry = %+v, want one non-empty transcript with audio", page.Entries[0])
+	}
+	wantBoundary := transcriptBoundaryCounts{transcriptBOS: 1, transcriptText: 2, transcriptEOS: 1, historyData: 1, historyEOS: 1}
+	assertTranscriptBoundary(t, "ASR output", <-asrBoundary, wantBoundary)
+	assertTranscriptBoundary(t, "AudioDock output / AgentHost input", <-agentHostBoundary, wantBoundary)
+}
+
+func TestHistoryAgentKeepsIdenticalTextOnDifferentStreams(t *testing.T) {
+	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
+		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript"}},
+		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript", EndOfStream: true}},
+		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "audio-2", Label: "transcript"}},
+		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "audio-2", Label: "transcript", EndOfStream: true}},
+	)}, history)
+	output, err := agent.Transform(withHistoryGearID(t.Context(), "gear-a"), historyStreamFromChunks())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	for {
+		_, err := output.Next()
+		if IsStreamDone(err) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+	}
+
+	page, err := history.ListEntries(t.Context(), "", "", 10)
+	if err != nil {
+		t.Fatalf("ListEntries() error = %v", err)
+	}
+	if len(page.Entries) != 2 || page.Entries[0].Text != "hello" || page.Entries[1].Text != "hello" {
+		t.Fatalf("history entries = %+v, want identical text preserved for two StreamIDs", page.Entries)
 	}
 }
 
@@ -1452,6 +1618,78 @@ func TestHistoryPCMFormatAndChunkNames(t *testing.T) {
 
 type historyTestAgent struct {
 	output genx.Stream
+}
+
+type historyTransformerFunc func(context.Context, genx.Stream) (genx.Stream, error)
+
+func (f historyTransformerFunc) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	return f(ctx, input)
+}
+
+type transcriptBoundaryCounts struct {
+	transcriptBOS  int
+	transcriptText int
+	transcriptEOS  int
+	historyData    int
+	historyEOS     int
+}
+
+func assertTranscriptBoundary(t *testing.T, name string, chunks []*genx.MessageChunk, want transcriptBoundaryCounts) {
+	t.Helper()
+	var got transcriptBoundaryCounts
+	wantFingerprint := sha256.Sum256([]byte("hello"))
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil {
+			continue
+		}
+		if chunk.Ctrl.Label != "transcript" && chunk.Ctrl.Label != genx.HistoryUserAudioLabel {
+			continue
+		}
+		if chunk.Role != genx.RoleUser || chunk.Name != "transcript" || chunk.Ctrl.StreamID != "audio-1" {
+			t.Fatalf("%s correlated chunk = %#v, want user/transcript/audio-1", name, chunk)
+		}
+		mimeType, _ := chunk.MIMEType()
+		switch chunk.Ctrl.Label {
+		case "transcript":
+			if chunk.IsBeginOfStream() {
+				got.transcriptBOS++
+				continue
+			}
+			if mimeType != "text/plain" {
+				t.Fatalf("%s transcript MIME = %q, want text/plain; chunk = %#v", name, mimeType, chunk)
+			}
+			if chunk.IsEndOfStream() {
+				got.transcriptEOS++
+				continue
+			}
+			text, ok := chunk.Part.(genx.Text)
+			if !ok || sha256.Sum256([]byte(text)) != wantFingerprint {
+				t.Fatalf("%s transcript fingerprint = %x, want %x; chunk = %#v", name, sha256.Sum256([]byte(text)), wantFingerprint, chunk)
+			}
+			got.transcriptText++
+		case genx.HistoryUserAudioLabel:
+			if mimeType != "audio/opus" {
+				t.Fatalf("%s history audio MIME = %q, want audio/opus; chunk = %#v", name, mimeType, chunk)
+			}
+			if chunk.IsEndOfStream() {
+				got.historyEOS++
+			} else {
+				got.historyData++
+			}
+		}
+	}
+	if got != want {
+		t.Fatalf("%s correlated counts = %+v, want %+v; chunks = %#v", name, got, want, chunks)
+	}
+	t.Logf("%s correlation stream=audio-1 role=user name=transcript text_sha256=%x counts=%+v", name, wantFingerprint, got)
+}
+
+func cloneHistoryChunks(chunks []*genx.MessageChunk) []*genx.MessageChunk {
+	cloned := make([]*genx.MessageChunk, 0, len(chunks))
+	for _, chunk := range chunks {
+		cloned = append(cloned, chunk.Clone())
+	}
+	return cloned
 }
 
 type failingHistoryObjectStore struct {

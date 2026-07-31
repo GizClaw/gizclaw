@@ -239,6 +239,14 @@ func (r *dockRun) forwardTranscripts(output genx.Stream) error {
 				label = configured
 			}
 		}
+		if label == genx.HistoryUserAudioLabel {
+			// History audio is a sideband that deliberately shares the transcript
+			// StreamID. Its channel EOS must not finish the visible text response.
+			if err := r.invocation.Output().Push(chunk); err != nil {
+				return fmt.Errorf("audiodock: emit history-only ASR audio: %w", err)
+			}
+			continue
+		}
 		response := routes[streamID]
 		if response == nil {
 			response, err = r.invocation.StartResponse(streamkit.ResponseConfig{
@@ -854,6 +862,11 @@ func (r *inputRouter) forwardASR() {
 				r.fail(fmt.Errorf("audiodock: expose ASR output: %w", err))
 			}
 			return
+		}
+		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Label) == genx.HistoryUserAudioLabel {
+			// The outer recorder consumes this sideband from transcript output.
+			// Sending it through Agent lets non-text bypass return a second copy.
+			continue
 		}
 		if err := r.agentInput.Push(chunk); err != nil {
 			if r.ctx.Err() == nil && !errors.Is(err, io.ErrClosedPipe) {
