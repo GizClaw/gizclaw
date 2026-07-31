@@ -20,29 +20,35 @@ flowchart LR
 | Opus media downlink | Server → Client / Device | WebRTC audio RTP | Peer connection 级别的一条 remote track | Agent 输出经 mixer 合成后的实时 Opus packets。 |
 | Direct packet | 双向 | unordered、`maxRetransmits=0` DataChannel | 一条 connection 级长期 channel | 单字节 protocol 加 packet payload；适合允许丢包的高频数据。 |
 | Gateway packet lane | Edge ↔ Server | physical unordered、`maxRetransmits=0` DataChannel | 每条 Edge upstream 一条，共享给多个 logical sessions | 16-byte session ID、protocol byte 与 direct/Opus payload。 |
-| Peer Event Stream | 双向 | reliable、ordered service DataChannel，ID `0x20` | 每条 Peer connection 通常保持一条 | Protobuf BOS、EOS、文本和资源失效通知；不含实时音频 bytes。 |
+| Peer Event Stream | 双向 | reliable、ordered service DataChannel，ID `0x20` | 每条正常 Client / Device Peer connection 必须保持一条 | Protobuf BOS、EOS、文本和资源失效通知；不含实时音频 bytes。 |
 | RPC service stream | 双向 | reliable、ordered service DataChannel | 通常每次调用新建；Server 也接受同一 channel 上的顺序调用 | Protobuf request/response、有限 binary stream。 |
 | HTTP service stream | 请求方 ↔ Provider | reliable、ordered service DataChannel | 每次 HTTP round trip 动态打开 | HTTP request 与 response。 |
 
-因此 stream 数量不是常量。空闲的常见会话有双向 audio RTP、一个 packet
-DataChannel，并可选地保持一个 Peer Event Stream；每个并发 RPC 或 HTTP
-请求都会再增加一条 service DataChannel。
+因此总 stream 数量不是常量。正常 Client / Device Peer connection 的四条
+connection-scoped transport 是固定且必需的；每个并发 RPC 或 HTTP 请求都会在
+此基础上增加一条独立 service DataChannel。
 
 ## 一条连接有多少个 stream
 
-| 类别 | 常见数量 | 说明 |
+| 类别 | 数量 contract | 说明 |
 | --- | ---: | --- |
 | Opus RTP uplink | 1 | Client / Device 麦克风上行。 |
 | Opus RTP downlink | 1 | Server 混音后的音频下行。 |
 | Direct packet DataChannel | 1 | Telemetry 等允许丢包的 connection-scoped packet。 |
-| Peer Event Stream | 0 或 1 | Client 打开后通常在整条 Peer connection 生命周期内保持。 |
+| Peer Event Stream | 1 | reliable、ordered 的 connection-owned `0x20`。 |
 | RPC service stream | 0–N | 按调用动态创建。 |
 | HTTP service stream | 0–N | 按 HTTP round trip 动态创建。 |
 
 Peer Event Stream 是 connection-scoped transport，不属于某个 Workspace 或页面。
-一个 Client 应为一条 Peer connection 维护一个 session，再在本地把事件分发给
-当前 conversation、聊天 viewer 和资源 controller。页面 controller 不应各自打开
-新的 `0x20` stream。
+连接建立路径必须创建并等待它打开，再把连接报告为 ready。一个 Client 为一条
+Peer connection 维护一个 physical session，并在本地把事件分发给当前
+conversation、聊天 viewer 和资源 controller。页面 controller 只能订阅；打开、
+关闭、reload 或切换 Workspace 都不能创建、替换或关闭 physical `0x20`。
+
+任一必需 transport 意外关闭都会使整个 Peer connection 不再健康并触发完整关闭；
+重连创建的是一条具有全新四条 transport 的 Peer connection，不在旧连接内单独
+替换 Event。重复 packet channel、Event channel 或 Opus uplink 不能替换已接受的
+实例，也不能形成两个 active owner。
 
 ## Audio streams
 
@@ -60,7 +66,10 @@ Direct packet channel 的每条消息由一个 protocol byte 和 payload 组成�
 | `0x11` `ProtocolTunnelPacket` | Edge ↔ Server | Gateway physical upstream 上的 session-tagged direct packet 或 Opus payload；禁止 logical client 直接嵌套发送。 |
 | `0x40` `EventStreamTelemetry` | Client / Device → Server | 上报高频 telemetry packet。队列满时允许丢弃，不能用于必须可靠送达的状态。 |
 
-未知的 direct packet protocol 不会被当作 service stream；Server 当前忽略未注册 packet。
+Direct Packet DataChannel 上收到 `0x10` 时必须静默丢弃，不能当作音频交付，也
+不能关闭 DataChannel 或 Peer connection。其他不支持的保留 protocol
+`0x00`–`0x3f` 同样静默丢弃；后续合法 packet、Event 和 service stream 继续工作。
+`0x40`–`0xff` 仍可交给上层注册方；上层未注册时由其忽略。
 
 ## RPC streams
 
@@ -69,6 +78,11 @@ RPC 使用可靠、有序的 service DataChannel。Service ID 选择 Provider，
 ### Service stream IDs
 
 每次 `Dial(serviceID)` 创建一条独立的可靠、有序 service DataChannel。相同 service ID 可以同时存在多条 channel。
+关闭或写入失败只影响对应 channel，不能替换或关闭相同 ID 的其他 channel，也
+不能占用或替换 connection-owned Event transport。C cgo backend 同时保留最多
+16 条本地主动创建的 service DataChannel，其中包含 connect 创建的 Event 和
+RPC channel，因此正常连接还可同时打开 14 条 caller-created service channel；
+达到上限时新建返回资源错误，已有 channel 保持可用。
 
 | ID | 名称 | Provider / 用途 |
 | ---: | --- | --- |

@@ -59,6 +59,8 @@ typedef ConfigureMicrophoneSending =
       rtc.MediaStreamTrack microphoneTrack,
     );
 typedef PrepareAudioOutput = Future<void> Function();
+typedef ResolvePeerEventSession =
+    WorkspaceEventSession? Function(rtc.RTCPeerConnection peerConnection);
 
 class GizClawConnectionProfile {
   const GizClawConnectionProfile({
@@ -107,6 +109,7 @@ class GizClawConnectionController extends ChangeNotifier {
     RegisterGizClawServer? registerServer,
     ConfigureMicrophoneSending? configureMicrophoneSending,
     PrepareAudioOutput? prepareAudioOutput,
+    ResolvePeerEventSession? resolvePeerEventSession,
   }) : _acquireMicrophoneStream =
            acquireMicrophoneStream ?? _defaultAcquireMicrophoneStream,
        _configureMicrophoneSending =
@@ -117,7 +120,9 @@ class GizClawConnectionController extends ChangeNotifier {
        _prepareAudioOutput = prepareAudioOutput ?? _defaultPrepareAudioOutput,
        _profile = profile,
        _publishClientInfo = publishClientInfo ?? _defaultPublishClientInfo,
-       _registerServer = registerServer ?? _defaultRegisterServer;
+       _registerServer = registerServer ?? _defaultRegisterServer,
+       _resolvePeerEventSession =
+           resolvePeerEventSession ?? peerEventSessionForFlutterGiznetWebRtc;
 
   GizClawConnectionProfile _profile;
   final AcquireMicrophoneStream _acquireMicrophoneStream;
@@ -128,6 +133,7 @@ class GizClawConnectionController extends ChangeNotifier {
   final PrepareAudioOutput _prepareAudioOutput;
   final PublishGizClawClientInfo _publishClientInfo;
   final RegisterGizClawServer _registerServer;
+  final ResolvePeerEventSession _resolvePeerEventSession;
 
   rtc.RTCPeerConnection? _peerConnection;
   rtc.RTCPeerConnection? _pendingPeerConnection;
@@ -137,6 +143,7 @@ class GizClawConnectionController extends ChangeNotifier {
   SetMicrophoneSending? _setMicrophoneSending;
   GizClawClient? _client;
   FlutterWebRtcDataChannelFactory? _dataChannelFactory;
+  WorkspaceEventSession? _peerEventSession;
   String? _clientPublicKey;
   String? _serverId;
   int _connectionRevision = 0;
@@ -149,6 +156,7 @@ class GizClawConnectionController extends ChangeNotifier {
   GizClawDataChannelFactory? get dataChannelFactory => _dataChannelFactory;
   rtc.RTCPeerConnection? get peerConnection => _peerConnection;
   rtc.MediaStreamTrack? get microphoneTrack => _microphoneTrack;
+  WorkspaceEventSession? get peerEventSession => _peerEventSession;
   MicrophoneStatus get microphoneStatus => _microphoneStatus;
   Object? get lastMicrophoneError => _lastMicrophoneError;
   String? get clientPublicKey => _clientPublicKey ?? _profile.clientPublicKey;
@@ -211,6 +219,7 @@ class GizClawConnectionController extends ChangeNotifier {
       );
     }
     rtc.RTCPeerConnection? peerConnection;
+    WorkspaceEventSession? peerEventSession;
     try {
       _ensureCurrentProfile(connectionRevision, activeProfile);
       String? preparedClientPublicKey;
@@ -252,6 +261,10 @@ class GizClawConnectionController extends ChangeNotifier {
       final dataChannelFactory = FlutterWebRtcDataChannelFactory(
         peerConnection,
       );
+      peerEventSession = _resolvePeerEventSession(peerConnection);
+      if (peerEventSession == null) {
+        throw StateError('Peer Event transport was not established');
+      }
       final client = GizClawClient(dataChannelFactory);
       final registrationToken = activeProfile.registrationToken.trim();
       if (registrationToken.isNotEmpty) {
@@ -283,6 +296,7 @@ class GizClawConnectionController extends ChangeNotifier {
       _serverId = info.publicKey;
       _clientPublicKey = preparedClientPublicKey;
       _dataChannelFactory = dataChannelFactory;
+      _peerEventSession = peerEventSession;
       return _client = client;
     } catch (error, stackTrace) {
       _setMicrophoneSending = null;
@@ -303,6 +317,7 @@ class GizClawConnectionController extends ChangeNotifier {
       }
       _setMicrophoneStatus(const MicrophoneStatus.unavailable());
       try {
+        await peerEventSession?.close();
         await _disposeWebRtcResources(
           streams: streams,
           peerConnections: peerConnections,
@@ -345,6 +360,8 @@ class GizClawConnectionController extends ChangeNotifier {
   Future<void> _close() async {
     _client = null;
     _dataChannelFactory = null;
+    final peerEventSession = _peerEventSession;
+    _peerEventSession = null;
     _clientPublicKey = null;
     _serverId = null;
     final pendingPeerConnection = _pendingPeerConnection;
@@ -379,6 +396,7 @@ class GizClawConnectionController extends ChangeNotifier {
         !identical(peerConnection, pendingPeerConnection)) {
       peerConnections.add(peerConnection);
     }
+    await peerEventSession?.close();
     await _disposeWebRtcResources(
       streams: streams,
       peerConnections: peerConnections,

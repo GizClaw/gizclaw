@@ -1,8 +1,9 @@
 # Events
 
 Peer Event Stream 是 Client / Device 与 Server 之间的连接级事件通道。它使用
-service ID `0x20`（`EventStreamAgent`），可靠、有序、双向，并通常在整条 Peer
-connection 生命周期内保持一条。实时 Opus bytes 仍通过 WebRTC audio RTP track
+service ID `0x20`（`EventStreamAgent`），可靠、有序、双向，并在每条正常
+Client / Device Peer connection 生命周期内必须恰好保持一条。实时 Opus bytes
+仍通过 WebRTC audio RTP track
 传输；Event Stream 只承载逻辑流边界、文本和资源失效通知。
 
 每个 event 都是 `gizclaw.events.v1.PeerEvent` Protobuf message，通过
@@ -39,7 +40,17 @@ Direct Chatroom 与 Group Chatroom 共用 Chatroom Workflow driver，但它们�
 Peer Event Stream 属于 Peer connection，不属于某个 Workspace、Agent 或页面。
 一个 Client 应只维护一个 connection-scoped event session，再在本地按
 `workspace_name`、`peer_public_key` 或 `friend_group_id` 分发。页面与 controller
-不能各自打开新的 `0x20` channel。
+不能各自打开新的 `0x20` channel。connect 只有在 Event channel 已打开后才能
+成功；Server 只有在收到并绑定它后才能把 Peer 发布为 online/ready。任一端看到
+physical Event channel 关闭或失败时必须关闭整条 Peer connection，由 connection
+级重连重新创建全部必需 transport。
+
+页面、conversation、Workspace set/reload 和逻辑 BOS/EOS 只增删本地订阅或在
+同一 channel 上发送 frame，不改变 physical Event channel。多个本地 consumer
+共享该 channel；关闭一个 consumer 不影响其他 consumer 或 connection owner。
+C SDK 的 `gzc_event_stream_open`/`close` 只获取/释放单个 caller access handle，
+physical `0x20` 由 client connect/close 创建和销毁。没有 active C access handle
+时，已收到 frame 仍按序保存在有界 connection receive buffer 中。
 
 资源事件是 best-effort invalidation hint，不是权威资源快照：
 
@@ -128,7 +139,8 @@ Client 应按 `code` 本地化显示，并结束对应的 loading/recording 状�
 | --- | --- | --- |
 | PeerEvent `EOS` / `TEXT_DONE` | 一个 `stream_id` 对应的逻辑 stream | 是 |
 | RPC `FrameTypeEOS` | 当前方向的一段 RPC frame sequence | 是 |
-| Service DataChannel EOF / close | 一条 Event、RPC 或 HTTP transport stream | 其他 channel 可以继续 |
+| Service DataChannel EOF / close | 一条 RPC 或 HTTP transport stream | 是；只关闭对应可选 service channel |
+| Peer Event DataChannel EOF / close | 必需的 connection Event transport | 否；整条 Peer connection 失败 |
 | WebRTC connection close | 整条 Peer connection 及其 media、packet、service streams | 否 |
 
 实现层的事件与 GenX chunk 映射见[开发指引：Stream Events](/zh/developing/gizclaw/peer/stream-event)。

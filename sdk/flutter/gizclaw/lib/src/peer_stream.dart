@@ -200,6 +200,10 @@ class WorkspaceEventSession {
     return WorkspaceEventSession._(channel);
   }
 
+  static WorkspaceEventSession attach(GizClawDataChannel channel) {
+    return WorkspaceEventSession._(channel);
+  }
+
   final GizClawDataChannel _channel;
   final _events = StreamController<PeerStreamEvent>.broadcast();
   late final StreamSubscription<Uint8List> _subscription;

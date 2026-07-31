@@ -15,11 +15,14 @@ import {
   validatePeerEvent,
   WorkspaceKind,
   type PeerEvent,
+  sendPeerEvent,
+  subscribePeerEvents,
 } from "./events.ts";
 import {
   encodeFrame,
   RPC_FRAME_TYPE_BINARY,
   RPC_FRAME_TYPE_JSON,
+  type WebRTCRPCDataChannel,
 } from "./index.ts";
 
 const events: PeerEvent[] = [
@@ -251,6 +254,62 @@ test("drops invalid frame types before reporting the error", () => {
     decoder.finish();
   }
 });
+
+test("shares the connection-owned Peer Event channel across subscribers", async () => {
+  const channel = new FakePeerEventChannel();
+  const first: string[] = [];
+  const second: string[] = [];
+  const shared = channel as unknown as WebRTCRPCDataChannel;
+  const unsubscribeFirst = subscribePeerEvents(shared, (event) => {
+    first.push(event.type);
+  });
+  subscribePeerEvents(shared, (event) => {
+    second.push(event.type);
+  });
+
+  channel.receive(encodePeerEventFrame(events[0]));
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  unsubscribeFirst();
+  channel.receive(encodePeerEventFrame(events[1]));
+  await new Promise<void>((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(first, ["bos"]);
+  assert.deepEqual(second, ["bos", "eos"]);
+  channel.readyState = "open";
+  sendPeerEvent(shared, events[2]);
+  assert.equal(channel.sent.length, 1);
+});
+
+class FakePeerEventChannel {
+  readyState: RTCDataChannelState = "connecting";
+  sent: ArrayBuffer[] = [];
+  private readonly messages = new Set<(event: MessageEvent) => void>();
+
+  addEventListener(
+    type: string,
+    listener: (event: MessageEvent) => void,
+  ): void {
+    if (type === "message") this.messages.add(listener);
+  }
+
+  removeEventListener(
+    type: string,
+    listener: (event: MessageEvent) => void,
+  ): void {
+    if (type === "message") this.messages.delete(listener);
+  }
+
+  send(data: ArrayBuffer | ArrayBufferView | Blob | string): void {
+    assert.ok(data instanceof ArrayBuffer);
+    this.sent.push(data);
+  }
+
+  receive(data: ArrayBuffer): void {
+    for (const listener of this.messages) {
+      listener({ data } as MessageEvent);
+    }
+  }
+}
 
 function peerEvent(
   type: PeerEventType,

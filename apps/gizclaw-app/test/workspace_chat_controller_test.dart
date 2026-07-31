@@ -748,6 +748,7 @@ class _VoiceHarness {
     this.controller,
     this.channel,
     this.database,
+    this.eventSession,
     this.track,
     this._senderState,
   );
@@ -758,6 +759,7 @@ class _VoiceHarness {
   }) async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     final factory = _MemoryDataChannelFactory();
+    final eventSession = WorkspaceEventSession.attach(factory.channel);
     final track = _BorrowedTrack();
     final senderState = _SenderState();
     final controller = WorkspaceChatController(
@@ -765,7 +767,7 @@ class _VoiceHarness {
       repository: _EmptyHistoryRepository(database),
       serverId: 'server-a',
       client: GizClawClient(factory),
-      dataChannelFactory: factory,
+      eventSession: eventSession,
       peerConnection: _StatsPeerConnection(),
       inputTrack: track,
       setInputSending: (active) async {
@@ -779,6 +781,7 @@ class _VoiceHarness {
       controller,
       factory.channel,
       database,
+      eventSession,
       track,
       senderState,
     );
@@ -787,6 +790,7 @@ class _VoiceHarness {
   final WorkspaceChatController controller;
   final _MemoryDataChannel channel;
   final AppDatabase database;
+  final WorkspaceEventSession eventSession;
   final _BorrowedTrack track;
   final _SenderState _senderState;
 
@@ -795,6 +799,7 @@ class _VoiceHarness {
 
   Future<void> close() async {
     await controller.close();
+    await eventSession.close();
     await database.close();
   }
 }

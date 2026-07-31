@@ -24,14 +24,21 @@ void main() {
       );
 
       expect(pc.onDataChannel, isNotNull);
-      expect(pc.createdDataChannels, hasLength(1));
+      expect(pc.createdDataChannels, hasLength(2));
       expect(
-        pc.createdDataChannels.single.label,
+        pc.createdDataChannels.first.label,
         giznetWebRtcPacketDataChannelLabel,
       );
-      expect(pc.dataChannelInits.single.ordered, isFalse);
-      expect(pc.dataChannelInits.single.maxRetransmits, 0);
-      expect(pc.dataChannelInits.single.id, -1);
+      expect(
+        pc.createdDataChannels.last.label,
+        giznetWebRtcEventDataChannelLabel,
+      );
+      expect(pc.dataChannelInits.first.ordered, isFalse);
+      expect(pc.dataChannelInits.first.maxRetransmits, 0);
+      expect(pc.dataChannelInits.first.id, -1);
+      expect(pc.dataChannelInits.last.ordered, isTrue);
+      expect(pc.dataChannelInits.last.maxRetransmits, -1);
+      expect(pc.dataChannelInits.last.id, -1);
       expect(pc.addTransceiverCalls, hasLength(1));
       expect(
         pc.addTransceiverCalls.single.kind,
@@ -47,12 +54,14 @@ void main() {
   );
 
   test('attaches the exact local audio track before creating offer', () async {
-    final pc = _FakePeerConnection(stopAfterAudio: false);
+    final pc = _FakePeerConnection(
+      channelInitialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+      stopAfterAudio: false,
+    );
     final track = _FakeMediaStreamTrack(id: 'mic-1', kind: 'audio');
     final stream = _FakeMediaStream('stream-1', [track]);
 
     final connected = await connectFlutterGiznetWebRtc(
-      createPacketDataChannel: false,
       localAudioStream: stream,
       peerConnection: pc,
       prepareOffer: (_) async => _preparedOffer(answerSdp: 'answer-sdp'),
@@ -71,24 +80,71 @@ void main() {
     expect(pc.operations, ['addTransceiver', 'createOffer']);
   });
 
-  test('rejects a local stream when audio transceiver is disabled', () async {
-    final track = _FakeMediaStreamTrack(id: 'mic-1', kind: 'audio');
-    final stream = _FakeMediaStream('stream-1', [track]);
+  test('closes the peer when either mandatory data channel closes', () async {
+    final pc = _FakePeerConnection(
+      channelInitialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+      stopAfterAudio: false,
+    );
+
+    await connectFlutterGiznetWebRtc(
+      peerConnection: pc,
+      prepareOffer: (_) async => _preparedOffer(answerSdp: 'answer-sdp'),
+      sendOffer: (_) async => [1, 2, 3],
+    );
+
+    pc.createdDataChannels.first.emitState(
+      rtc.RTCDataChannelState.RTCDataChannelClosed,
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(pc.closeCalls, 1);
+
+    pc.createdDataChannels.last.emitState(
+      rtc.RTCDataChannelState.RTCDataChannelClosed,
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(pc.closeCalls, 1);
+  });
+
+  test('closes the peer when the WebRTC connection fails', () async {
+    final pc = _FakePeerConnection(
+      channelInitialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+      stopAfterAudio: false,
+    );
+
+    await connectFlutterGiznetWebRtc(
+      peerConnection: pc,
+      prepareOffer: (_) async => _preparedOffer(answerSdp: 'answer-sdp'),
+      sendOffer: (_) async => [1, 2, 3],
+    );
+    pc.emitConnectionState(
+      rtc.RTCPeerConnectionState.RTCPeerConnectionStateFailed,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(pc.closeCalls, 1);
+  });
+
+  test('rejects disabling either mandatory local transport', () async {
     var createCalls = 0;
 
-    await expectLater(
-      connectFlutterGiznetWebRtc(
-        addAudioTransceiver: false,
-        createPeerConnection: (_) async {
-          createCalls++;
-          return _FakePeerConnection();
-        },
-        localAudioStream: stream,
-        prepareOffer: (_) => throw UnimplementedError(),
-        sendOffer: (_) => throw UnimplementedError(),
-      ),
-      throwsArgumentError,
-    );
+    for (final options in [
+      (addAudioTransceiver: false, createPacketDataChannel: true),
+      (addAudioTransceiver: true, createPacketDataChannel: false),
+    ]) {
+      await expectLater(
+        connectFlutterGiznetWebRtc(
+          addAudioTransceiver: options.addAudioTransceiver,
+          createPacketDataChannel: options.createPacketDataChannel,
+          createPeerConnection: (_) async {
+            createCalls++;
+            return _FakePeerConnection();
+          },
+          prepareOffer: (_) => throw UnimplementedError(),
+          sendOffer: (_) => throw UnimplementedError(),
+        ),
+        throwsArgumentError,
+      );
+    }
 
     expect(createCalls, 0);
   });
@@ -118,8 +174,6 @@ void main() {
 
     await expectLater(
       connectFlutterGiznetWebRtc(
-        addAudioTransceiver: false,
-        createPacketDataChannel: false,
         createPeerConnection: (_) async => pc,
         prepareOffer: (_) async => _preparedOffer(),
         sendOffer: (_) async => throw error,
@@ -136,8 +190,6 @@ void main() {
 
     await expectLater(
       connectFlutterGiznetWebRtc(
-        addAudioTransceiver: false,
-        createPacketDataChannel: false,
         peerConnection: pc,
         prepareOffer: (_) async => _preparedOffer(),
         sendOffer: (_) async => throw StateError('send failed'),
@@ -156,7 +208,6 @@ void main() {
 
       await expectLater(
         connectFlutterGiznetWebRtc(
-          addAudioTransceiver: false,
           peerConnection: pc,
           prepareOffer: (_) async => _preparedOffer(),
           sendOffer: (_) async => throw StateError('send failed'),
@@ -166,12 +217,16 @@ void main() {
 
       expect(pc.closeCalls, 0);
       expect(pc.disposeCalls, 0);
-      expect(pc.createdDataChannels.single.closeCalls, 1);
+      expect(
+        pc.createdDataChannels.map((channel) => channel.closeCalls),
+        everyElement(1),
+      );
     },
   );
 
   test('rechecks ICE state after installing the gathering handler', () async {
     final pc = _FakePeerConnection(
+      channelInitialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
       completeIceAfterHandler: true,
       stopAfterAudio: false,
     );
@@ -182,8 +237,6 @@ void main() {
 
     pc.onIceGatheringState = previousHandler;
     final connected = await connectFlutterGiznetWebRtc(
-      addAudioTransceiver: false,
-      createPacketDataChannel: false,
       peerConnection: pc,
       prepareOffer: (_) async => _preparedOffer(answerSdp: 'answer-sdp'),
       sendOffer: (_) async => [1, 2, 3],
@@ -284,6 +337,21 @@ void main() {
 
     expect(appHandlerCalled, isTrue);
     expect(channel.onMessage, isNotNull);
+  });
+
+  test('closes duplicate remote mandatory data channels', () async {
+    final pc = _FakePeerConnection();
+    serveFlutterGiznetWebRtcRpc(pc);
+
+    for (final label in [
+      giznetWebRtcPacketDataChannelLabel,
+      giznetWebRtcEventDataChannelLabel,
+    ]) {
+      final channel = _FakeRtcDataChannel(label: label);
+      pc.onDataChannel?.call(channel);
+      await Future<void>.delayed(Duration.zero);
+      expect(channel.closeCalls, 1);
+    }
   });
 
   test(
@@ -536,6 +604,7 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
   int closeCalls = 0;
   int createOfferCalls = 0;
   int disposeCalls = 0;
+  rtc.RTCPeerConnectionState? currentConnectionState;
   rtc.RTCSessionDescription? localDescription;
   rtc.RTCSessionDescription? remoteDescription;
 
@@ -626,7 +695,12 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
   }
 
   @override
-  rtc.RTCPeerConnectionState? get connectionState => null;
+  rtc.RTCPeerConnectionState? get connectionState => currentConnectionState;
+
+  void emitConnectionState(rtc.RTCPeerConnectionState state) {
+    currentConnectionState = state;
+    onConnectionState?.call(state);
+  }
 
   @override
   Map<String, dynamic> get getConfiguration => const {};

@@ -126,18 +126,18 @@ void main() {
       addTearDown(controller.close);
 
       await controller.start();
-      expect(connection.eventFactory.openCalls, 1);
+      final eventSession = connection.peerEventSession;
+      expect(eventSession, isNotNull);
 
       final viewer = controller.createWorkspaceHistoryViewer(
         workspaceName: 'inactive-room',
       );
       addTearDown(viewer.close);
       expect(viewer.eventSession, isNotNull);
-      expect(viewer.dataChannelFactory, isNull);
 
       await viewer.start(conversation: false);
 
-      expect(connection.eventFactory.openCalls, 1);
+      expect(connection.peerEventSession, same(eventSession));
       expect(client.historyCalls, 1);
     },
   );
@@ -631,7 +631,7 @@ void main() {
       );
 
       await controller.start();
-      await connection.eventFactory.opened.future;
+      await connection.eventReady.future;
       for (
         var attempts = 0;
         attempts < 20 &&
@@ -641,8 +641,8 @@ void main() {
         await Future<void>.delayed(Duration.zero);
       }
 
-      expect(connection.eventFactory.openCalls, 2);
       expect(connection.reconnectCalls, 1);
+      expect(connection.peerEventSession, isNotNull);
       expect(controller.connectionState, MobileConnectionState.connected);
       await controller.close();
     },
@@ -669,10 +669,10 @@ void main() {
       await controller.start();
       expect(connection.reconnectCalls, 0);
       controller.handleAppResumed();
-      await connection.eventFactory.opened.future;
+      await connection.eventReady.future;
 
-      expect(connection.eventFactory.openCalls, 2);
       expect(connection.reconnectCalls, 1);
+      expect(connection.peerEventSession, isNotNull);
       await controller.close();
     },
   );
@@ -1213,15 +1213,17 @@ void main() {
   test('repairs the selected workspace before runtime reload', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     final client = _WorkspaceActivationClient();
+    final connection = _RefreshTestConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+    );
     final controller = MobileDataController(
       database: database,
-      connectionController: _RefreshTestConnection(
-        profile: _profile('gizclaw.local:9820'),
-        client: client,
-        serverId: 'server-a',
-      ),
+      connectionController: connection,
     )..connectionState = MobileConnectionState.connected;
     addTearDown(controller.close);
+    final eventSession = connection.peerEventSession;
 
     await controller.activateWorkspaceChat('workspace-new');
 
@@ -1235,6 +1237,7 @@ void main() {
       WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
     );
     expect(controller.activeWorkspaceName, 'workspace-new');
+    expect(connection.peerEventSession, same(eventSession));
   });
 
   test('resumes realtime input after activating its workspace', () async {
@@ -1555,6 +1558,8 @@ class _RefreshTestConnection extends GizClawConnectionController {
   GizClawConnectionProfile currentProfile;
   GizClawClient currentClient;
   String currentServerId;
+  late final WorkspaceEventSession connectionEventSession =
+      WorkspaceEventSession.attach(_OpenDataChannel('connection-events'));
 
   @override
   GizClawClient get client => currentClient;
@@ -1564,6 +1569,9 @@ class _RefreshTestConnection extends GizClawConnectionController {
 
   @override
   GizClawConnectionProfile get profile => currentProfile;
+
+  @override
+  WorkspaceEventSession? get peerEventSession => connectionEventSession;
 
   @override
   String get serverId => currentServerId;
@@ -1698,15 +1706,19 @@ class _EventRetryConnection extends _RefreshTestConnection {
     required super.serverId,
   });
 
-  final eventFactory = _FailFirstEventFactory();
+  final eventReady = Completer<void>();
   int reconnectCalls = 0;
+  bool eventAvailable = false;
 
   @override
-  GizClawDataChannelFactory get dataChannelFactory => eventFactory;
+  WorkspaceEventSession? get peerEventSession =>
+      eventAvailable ? connectionEventSession : null;
 
   @override
   Future<GizClawClient> reconnect() async {
     reconnectCalls += 1;
+    eventAvailable = true;
+    if (!eventReady.isCompleted) eventReady.complete();
     return currentClient;
   }
 }
@@ -1717,11 +1729,6 @@ class _CountingEventConnection extends _RefreshTestConnection {
     required super.client,
     required super.serverId,
   });
-
-  final eventFactory = _CountingEventFactory();
-
-  @override
-  GizClawDataChannelFactory get dataChannelFactory => eventFactory;
 }
 
 class _EndedMicrophoneConnection extends GizClawConnectionController {
@@ -2151,6 +2158,10 @@ class _VoiceWorkspaceActivationConnection extends _RefreshTestConnection {
   GizClawDataChannelFactory get dataChannelFactory => _eventFactory;
 
   @override
+  late final WorkspaceEventSession peerEventSession =
+      WorkspaceEventSession.attach(_eventFactory._channel);
+
+  @override
   rtc.MediaStreamTrack get microphoneTrack => _microphoneTrack;
 
   @override
@@ -2189,37 +2200,6 @@ class _NeverDataChannelFactory implements GizClawDataChannelFactory {
     GizClawDataChannelOptions options = const GizClawDataChannelOptions(),
   }) {
     throw UnsupportedError('No data channel is used by this test');
-  }
-}
-
-class _FailFirstEventFactory implements GizClawDataChannelFactory {
-  final opened = Completer<void>();
-  int openCalls = 0;
-
-  @override
-  Future<GizClawDataChannel> createDataChannel(
-    String label, {
-    GizClawDataChannelOptions options = const GizClawDataChannelOptions(),
-  }) async {
-    openCalls += 1;
-    if (openCalls == 1) {
-      throw StateError('Peer Event Stream open failed');
-    }
-    if (!opened.isCompleted) opened.complete();
-    return _OpenDataChannel(label);
-  }
-}
-
-class _CountingEventFactory implements GizClawDataChannelFactory {
-  int openCalls = 0;
-
-  @override
-  Future<GizClawDataChannel> createDataChannel(
-    String label, {
-    GizClawDataChannelOptions options = const GizClawDataChannelOptions(),
-  }) async {
-    openCalls += 1;
-    return _OpenDataChannel(label);
   }
 }
 

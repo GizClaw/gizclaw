@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -865,6 +866,54 @@ func TestPeerConnCloseClosesConn(t *testing.T) {
 	if err := serverConn.Close(); err != nil && !errors.Is(err, giznet.ErrConnClosed) {
 		t.Fatalf("server Conn.Close() after PeerConn.close err=%v, want nil or %v", err, giznet.ErrConnClosed)
 	}
+}
+
+func TestPeerConnMandatoryEventStreamTimesOutAndClosesConnection(t *testing.T) {
+	listener := &blockingServiceListener{closed: make(chan struct{})}
+	conn := &closeRecordingConn{testGiznetConn: testGiznetConn{}}
+	peer := &PeerConn{Conn: conn, eventAcceptTimeout: 20 * time.Millisecond}
+	stream, err := peer.acceptMandatoryEventStream(listener)
+	if stream != nil {
+		t.Fatalf("mandatory Event stream = %v, want nil", stream)
+	}
+	if !errors.Is(err, errPeerEventStreamClosed) {
+		t.Fatalf("mandatory Event stream error = %v, want %v", err, errPeerEventStreamClosed)
+	}
+	if !conn.closed.Load() {
+		t.Fatal("missing mandatory Event stream did not close the Peer connection")
+	}
+	select {
+	case <-listener.closed:
+	default:
+		t.Fatal("missing mandatory Event stream did not close its listener")
+	}
+}
+
+type blockingServiceListener struct {
+	closed chan struct{}
+	once   sync.Once
+}
+
+func (l *blockingServiceListener) Accept() (net.Conn, error) {
+	<-l.closed
+	return nil, net.ErrClosed
+}
+
+func (l *blockingServiceListener) Close() error {
+	l.once.Do(func() { close(l.closed) })
+	return nil
+}
+
+func (*blockingServiceListener) Addr() net.Addr { return nil }
+
+type closeRecordingConn struct {
+	testGiznetConn
+	closed atomic.Bool
+}
+
+func (c *closeRecordingConn) Close() error {
+	c.closed.Store(true)
+	return nil
 }
 
 func TestPeerConnCloseStopsAgentRuntime(t *testing.T) {

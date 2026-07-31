@@ -18,6 +18,16 @@ type cgoSink struct {
 	cBackend unsafe.Pointer
 }
 
+func (s cgoSink) PeerState(state int) {
+	if s.cBackend == nil {
+		return
+	}
+	C.gzc_cgo_emit_peer_state(
+		(*C.gzc_cgo_backend_t)(s.cBackend),
+		C.gzc_rtc_peer_state_t(state),
+	)
+}
+
 func (s cgoSink) RemoteChannel(channelID int, label string, ordered, reliable bool) {
 	if s.cBackend == nil {
 		return

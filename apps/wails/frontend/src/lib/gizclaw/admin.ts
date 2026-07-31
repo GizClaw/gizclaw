@@ -401,10 +401,8 @@ export async function connectAdminPeerConnection(
   const timeout = window.setTimeout(() => controller.abort(), 15_000);
   try {
     await connectGiznetWebRTCFromEndpoint({
-      addAudioTransceiver: false,
       clientPrivateKey: base64Decode(runtime.private_key_base64),
       clientPublicKey: runtime.context.local_public_key,
-      createPacketDataChannel: true,
       endpoint: runtime.context.endpoint,
       pc,
       signal: controller.signal,

@@ -9,6 +9,7 @@ import (
 
 type testEventSink struct{}
 
+func (testEventSink) PeerState(int)                         {}
 func (testEventSink) RemoteChannel(int, string, bool, bool) {}
 func (testEventSink) ChannelState(int, int)                 {}
 func (testEventSink) ChannelMessage(int, []byte, bool)      {}

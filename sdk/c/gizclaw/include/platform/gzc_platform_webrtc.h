@@ -135,8 +135,8 @@ typedef struct {
 } gzc_webrtc_vtable_t;
 
 /*
- * Optional versioned extension for connection-scoped bidirectional Opus RTP.
- * Version 1 ends at peer_send_opus; larger tables are accepted.
+ * Versioned extension for connection-scoped bidirectional Opus RTP. A normal
+ * client connect requires version 1. Larger tables are accepted.
  */
 typedef struct {
   size_t struct_size;

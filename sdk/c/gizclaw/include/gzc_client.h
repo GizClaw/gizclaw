@@ -92,8 +92,9 @@ typedef struct {
 int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_client);
 int gzc_client_set_peer_add_ice_server(gzc_client_t *client, gzc_peer_add_ice_server_fn fn);
 /*
- * Registers the borrowed v1 media extension before connect. NULL clears the
- * registration. Existing public configuration structs remain ABI-stable.
+ * Registers the borrowed v1 media extension before connect. A normal connect
+ * requires this extension. NULL clears the registration before connect.
+ * Existing public configuration structs remain ABI-stable.
  */
 int gzc_client_set_webrtc_media(
     gzc_client_t *client,

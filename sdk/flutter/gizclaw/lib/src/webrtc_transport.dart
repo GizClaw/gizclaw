@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
 import 'peer_rpc_server.dart';
+import 'peer_stream.dart';
 import 'signaling.dart';
 import 'transport.dart';
 
@@ -16,6 +17,7 @@ const _dataChannelNativeReadyGracePeriod = Duration(milliseconds: 250);
 const _dataChannelStatePollDelay = Duration(milliseconds: 250);
 
 final _servedPeerConnections = Expando<_ServedPeerConnection>();
+final _peerEventSessions = Expando<WorkspaceEventSession>();
 
 class _ServedPeerConnection {
   _ServedPeerConnection(this.handler, this.handlers);
@@ -68,6 +70,11 @@ void serveFlutterGiznetWebRtcRpc(
   final previous = peerConnection.onDataChannel;
   late final _ServedPeerConnection state;
   void handler(rtc.RTCDataChannel channel) {
+    if (channel.label == giznetWebRtcPacketDataChannelLabel ||
+        channel.label == giznetWebRtcEventDataChannelLabel) {
+      unawaited(channel.close());
+      return;
+    }
     previous?.call(channel);
     if (channel.label == giznetServiceDataChannelLabel(servicePeerRpc)) {
       serveGizClawPeerRpcChannel(
@@ -102,6 +109,20 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
   rtc.RTCPeerConnection? peerConnection,
   required SendGiznetWebRtcOffer sendOffer,
 }) async {
+  if (!addAudioTransceiver) {
+    throw ArgumentError.value(
+      addAudioTransceiver,
+      'addAudioTransceiver',
+      'a normal GizClaw Peer connection requires sendrecv audio',
+    );
+  }
+  if (!createPacketDataChannel) {
+    throw ArgumentError.value(
+      createPacketDataChannel,
+      'createPacketDataChannel',
+      'a normal GizClaw Peer connection requires the packet channel',
+    );
+  }
   rtc.MediaStreamTrack? localAudioTrack;
   if (localAudioStream != null) {
     if (!addAudioTransceiver) {
@@ -123,36 +144,42 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
   }
   final ownsPeerConnection = peerConnection == null;
   final pc = peerConnection ?? await createPeerConnection(configuration);
-  final stopPeerConnectionLogging = !kReleaseMode
+  var stopPeerConnectionLogging = !kReleaseMode
       ? _logPeerConnectionStates(pc)
       : null;
   rtc.RTCDataChannel? packetDataChannel;
+  rtc.RTCDataChannel? eventDataChannel;
+  WorkspaceEventSession? eventSession;
   try {
     serveFlutterGiznetWebRtcRpc(pc, handlers: peerRpcHandlers);
-    if (createPacketDataChannel) {
-      final init = rtc.RTCDataChannelInit()
-        ..id = -1
-        ..ordered = false
-        ..maxRetransmits = 0
-        ..binaryType = 'binary';
-      packetDataChannel = await pc.createDataChannel(
-        giznetWebRtcPacketDataChannelLabel,
-        init,
+    final packetInit = rtc.RTCDataChannelInit()
+      ..id = -1
+      ..ordered = false
+      ..maxRetransmits = 0
+      ..binaryType = 'binary';
+    packetDataChannel = await pc.createDataChannel(
+      giznetWebRtcPacketDataChannelLabel,
+      packetInit,
+    );
+    final eventInit = rtc.RTCDataChannelInit()
+      ..id = -1
+      ..ordered = true
+      ..binaryType = 'binary';
+    eventDataChannel = await pc.createDataChannel(
+      giznetWebRtcEventDataChannelLabel,
+      eventInit,
+    );
+    final init = rtc.RTCRtpTransceiverInit(
+      direction: rtc.TransceiverDirection.SendRecv,
+      streams: localAudioStream == null ? null : [localAudioStream],
+    );
+    if (localAudioTrack == null) {
+      await pc.addTransceiver(
+        kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
+        init: init,
       );
-    }
-    if (addAudioTransceiver) {
-      final init = rtc.RTCRtpTransceiverInit(
-        direction: rtc.TransceiverDirection.SendRecv,
-        streams: localAudioStream == null ? null : [localAudioStream],
-      );
-      if (localAudioTrack == null) {
-        await pc.addTransceiver(
-          kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
-          init: init,
-        );
-      } else {
-        await pc.addTransceiver(track: localAudioTrack, init: init);
-      }
+    } else {
+      await pc.addTransceiver(track: localAudioTrack, init: init);
     }
     final offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -168,11 +195,49 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
     await pc.setRemoteDescription(
       rtc.RTCSessionDescription(answerSdp, 'answer'),
     );
-    if (packetDataChannel != null) {
-      await _waitForDataChannelOpen(packetDataChannel);
+    await Future.wait([
+      _waitForDataChannelOpen(packetDataChannel),
+      _waitForDataChannelOpen(eventDataChannel),
+    ]);
+    var mandatoryTransportFailed = false;
+    void closeFailedPeerConnection() {
+      if (mandatoryTransportFailed) return;
+      mandatoryTransportFailed = true;
+      unawaited(pc.close());
     }
+
+    stopPeerConnectionLogging?.call();
+    stopPeerConnectionLogging = null;
+    final previousConnectionState = pc.onConnectionState;
+    pc.onConnectionState = (state) {
+      previousConnectionState?.call(state);
+      if (state == rtc.RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+        closeFailedPeerConnection();
+      }
+    };
+    packetDataChannel.onDataChannelState = (state) {
+      if (state == rtc.RTCDataChannelState.RTCDataChannelClosed) {
+        closeFailedPeerConnection();
+      }
+    };
+    final eventChannel = FlutterWebRtcDataChannel(
+      eventDataChannel,
+      initialState: GizClawDataChannelState.open,
+    );
+    eventSession = WorkspaceEventSession.attach(eventChannel);
+    _peerEventSessions[pc] = eventSession;
+    late final StreamSubscription<GizClawDataChannelState> stateSubscription;
+    stateSubscription = eventChannel.states.listen((state) {
+      if (state != GizClawDataChannelState.closed) return;
+      unawaited(stateSubscription.cancel());
+      closeFailedPeerConnection();
+    });
     return pc;
   } catch (_) {
+    await eventSession?.close();
+    if (eventDataChannel != null) {
+      await eventDataChannel.close();
+    }
     if (packetDataChannel != null) {
       await packetDataChannel.close();
     }
@@ -184,6 +249,10 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
     stopPeerConnectionLogging?.call();
   }
 }
+
+WorkspaceEventSession? peerEventSessionForFlutterGiznetWebRtc(
+  rtc.RTCPeerConnection peerConnection,
+) => _peerEventSessions[peerConnection];
 
 class FlutterWebRtcDataChannel implements GizClawDataChannel {
   FlutterWebRtcDataChannel(

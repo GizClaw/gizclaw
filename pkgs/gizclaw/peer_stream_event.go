@@ -91,7 +91,7 @@ func (b *peerStreamEventBroker) publish(event *eventpb.PeerEvent, wait bool) err
 	subscriber := b.subscriber
 	b.mu.Unlock()
 	if subscriber == nil {
-		return nil
+		return errPeerEventStreamClosed
 	}
 	write := peerStreamEventWrite{event: proto.Clone(event).(*eventpb.PeerEvent)}
 	if wait {

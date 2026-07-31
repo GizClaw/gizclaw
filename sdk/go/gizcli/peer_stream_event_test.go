@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,6 +27,145 @@ func TestDialPeerEventStreamValidation(t *testing.T) {
 		t.Fatalf("unconnected DialPeerEventStream() error = %v", err)
 	}
 }
+
+func TestClientPeerEventSessionSharesOnePhysicalStream(t *testing.T) {
+	serverSide, physical := net.Pipe()
+	failed := make(chan struct{}, 1)
+	session := newPeerEventSession(physical, func() { failed <- struct{}{} })
+	client := &Client{events: session}
+	session.start()
+	t.Cleanup(func() { _ = session.close() })
+
+	first, err := client.DialPeerEventStream()
+	if err != nil {
+		t.Fatalf("DialPeerEventStream(first) error = %v", err)
+	}
+	second, err := client.DialPeerEventStream()
+	if err != nil {
+		t.Fatalf("DialPeerEventStream(second) error = %v", err)
+	}
+	defer second.Close()
+
+	incoming := textEvent("shared-1", "assistant", "one")
+	if err := WritePeerStreamEvent(serverSide, incoming); err != nil {
+		t.Fatalf("WritePeerStreamEvent(server) error = %v", err)
+	}
+	for name, stream := range map[string]net.Conn{"first": first, "second": second} {
+		got, err := ReadPeerStreamEvent(stream)
+		if err != nil {
+			t.Fatalf("ReadPeerStreamEvent(%s) error = %v", name, err)
+		}
+		if got.Text() != "one" {
+			t.Fatalf("ReadPeerStreamEvent(%s) text = %q", name, got.Text())
+		}
+	}
+
+	if err := first.Close(); err != nil {
+		t.Fatalf("Close(first) error = %v", err)
+	}
+	if err := WritePeerStreamEvent(serverSide, textEvent("shared-2", "assistant", "two")); err != nil {
+		t.Fatalf("WritePeerStreamEvent(after first close) error = %v", err)
+	}
+	got, err := ReadPeerStreamEvent(second)
+	if err != nil {
+		t.Fatalf("ReadPeerStreamEvent(second after first close) error = %v", err)
+	}
+	if got.Text() != "two" {
+		t.Fatalf("second event text = %q", got.Text())
+	}
+
+	outgoing := textEvent("shared-3", "user", "three")
+	readBack := make(chan *eventpb.PeerEvent, 1)
+	go func() {
+		event, _ := ReadPeerStreamEvent(serverSide)
+		readBack <- event
+	}()
+	if err := WritePeerStreamEvent(second, outgoing); err != nil {
+		t.Fatalf("WritePeerStreamEvent(second) error = %v", err)
+	}
+	if got := <-readBack; got == nil || got.Text() != "three" {
+		t.Fatalf("physical outgoing event = %+v", got)
+	}
+	if err := serverSide.Close(); err != nil {
+		t.Fatalf("Close(physical server Event stream) error = %v", err)
+	}
+	if _, err := second.Read(make([]byte, 1)); !errors.Is(err, io.EOF) {
+		t.Fatalf("logical subscriber after physical close error = %v, want EOF", err)
+	}
+	select {
+	case <-failed:
+	case <-time.After(time.Second):
+		t.Fatal("physical Event stream close did not fail the owning connection")
+	}
+}
+
+func TestClientPeerEventWriteFailureClosesOwningConnection(t *testing.T) {
+	writeErr := errors.New("event write failed")
+	physical := &failingPeerEventConn{
+		closed:   make(chan struct{}),
+		writeErr: writeErr,
+	}
+	failed := make(chan struct{}, 1)
+	session := newPeerEventSession(physical, func() { failed <- struct{}{} })
+	session.start()
+	t.Cleanup(func() { _ = session.close() })
+	logical, err := session.subscribe()
+	if err != nil {
+		t.Fatalf("subscribe() error = %v", err)
+	}
+
+	if _, err := logical.Write([]byte("event")); !errors.Is(err, writeErr) {
+		t.Fatalf("logical Event write error = %v, want %v", err, writeErr)
+	}
+	select {
+	case <-failed:
+	case <-time.After(time.Second):
+		t.Fatal("physical Event write failure did not fail the owning connection")
+	}
+	if _, err := logical.Read(make([]byte, 1)); !errors.Is(err, io.EOF) {
+		t.Fatalf("logical subscriber after write failure error = %v, want EOF", err)
+	}
+}
+
+func TestPeerEventSessionDropsQueuedFramesOnShutdown(t *testing.T) {
+	session := newPeerEventSession(nil, nil)
+	logical, err := session.subscribe()
+	if err != nil {
+		t.Fatalf("subscribe() error = %v", err)
+	}
+	session.publish([]byte("stale"))
+	session.shutdown()
+
+	if _, err := logical.Read(make([]byte, 8)); !errors.Is(err, io.EOF) {
+		t.Fatalf("Read() after shutdown error = %v, want EOF", err)
+	}
+}
+
+type failingPeerEventConn struct {
+	closed   chan struct{}
+	writeErr error
+	once     sync.Once
+}
+
+func (c *failingPeerEventConn) Read([]byte) (int, error) {
+	<-c.closed
+	return 0, io.EOF
+}
+
+func (c *failingPeerEventConn) Write([]byte) (int, error) {
+	return 0, c.writeErr
+}
+
+func (c *failingPeerEventConn) Close() error {
+	c.once.Do(func() { close(c.closed) })
+	return nil
+}
+
+func (*failingPeerEventConn) LocalAddr() net.Addr              { return nil }
+func (*failingPeerEventConn) RemoteAddr() net.Addr             { return nil }
+func (*failingPeerEventConn) SetDeadline(time.Time) error      { return nil }
+func (*failingPeerEventConn) SetReadDeadline(time.Time) error  { return nil }
+func (*failingPeerEventConn) SetWriteDeadline(time.Time) error { return nil }
 
 func TestPeerStreamEventHelpersUseOnlyBinaryProtobuf(t *testing.T) {
 	event := textEvent("s1", "assistant", "hello")

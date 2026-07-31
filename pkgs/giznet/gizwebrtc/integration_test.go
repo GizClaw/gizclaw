@@ -262,7 +262,7 @@ func TestPacketWriteRejectsLargePayload(t *testing.T) {
 	}
 }
 
-func TestPacketRejectsReservedProtocols(t *testing.T) {
+func TestPacketIgnoresReservedProtocolsOnRead(t *testing.T) {
 	for _, protocol := range []byte{0x01, 0x0f, 0x12, 0x3f} {
 		t.Run(fmt.Sprintf("write_%02x", protocol), func(t *testing.T) {
 			if _, err := writePacket(noopPacketRaw{}, protocol, nil); !errors.Is(err, giznet.ErrPacketProtocol) {
@@ -271,17 +271,34 @@ func TestPacketRejectsReservedProtocols(t *testing.T) {
 		})
 		t.Run(fmt.Sprintf("read_%02x", protocol), func(t *testing.T) {
 			raw := &fakeStreamRaw{reads: [][]byte{{protocol, 'x'}}}
-			if _, err := readPacket(raw); !errors.Is(err, giznet.ErrPacketProtocol) {
-				t.Fatalf("readPacket reserved protocol err = %v, want %v", err, giznet.ErrPacketProtocol)
+			if _, err := readPacket(raw); !errors.Is(err, errPacketProtocolIgnored) {
+				t.Fatalf("readPacket reserved protocol err = %v, want ignored", err)
 			}
 		})
 	}
 }
 
-func TestPacketReadRejectsServiceStreamProtocol(t *testing.T) {
+func TestPacketReadIgnoresServiceStreamProtocol(t *testing.T) {
 	raw := &fakeStreamRaw{reads: [][]byte{{giznet.ProtocolServiceStream, 'x'}}}
-	if _, err := readPacket(raw); !errors.Is(err, giznet.ErrPacketProtocol) {
-		t.Fatalf("readPacket service-stream protocol err = %v, want %v", err, giznet.ErrPacketProtocol)
+	if _, err := readPacket(raw); !errors.Is(err, errPacketProtocolIgnored) {
+		t.Fatalf("readPacket service-stream protocol err = %v, want ignored", err)
+	}
+}
+
+func TestPacketReadIgnoresOpusDataChannelProtocol(t *testing.T) {
+	raw := &fakeStreamRaw{reads: [][]byte{
+		{giznet.ProtocolOpusPacket, 'x'},
+		{0x42, 'o', 'k'},
+	}}
+	if _, err := readPacket(raw); !errors.Is(err, errPacketProtocolIgnored) {
+		t.Fatalf("readPacket Opus DataChannel protocol err = %v, want ignored", err)
+	}
+	packet, err := readPacket(raw)
+	if err != nil {
+		t.Fatalf("readPacket valid protocol after ignored Opus: %v", err)
+	}
+	if packet.protocol != 0x42 || string(packet.payload) != "ok" {
+		t.Fatalf("valid packet after ignored Opus = %#v", packet)
 	}
 }
 

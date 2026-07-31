@@ -599,17 +599,18 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<void> _openPeerEventSession() async {
-    await _closePeerEventSession();
-    final factory = connection.dataChannelFactory;
-    if (factory == null) return;
+    await _peerEventSubscription?.cancel();
+    _peerEventSubscription = null;
     final generation = _peerEventGeneration;
     final client = connection.client;
-    final session = await WorkspaceEventSession.open(factory);
+    final session = connection.peerEventSession;
+    if (session == null) {
+      throw StateError('Peer Event transport is unavailable');
+    }
     if (_closing ||
         generation != _peerEventGeneration ||
         !connection.isConnected ||
         !identical(connection.client, client)) {
-      await session.close();
       return;
     }
     _peerEventSession = session;
@@ -723,11 +724,9 @@ class MobileDataController extends ChangeNotifier {
   Future<void> _closePeerEventSession() async {
     _peerEventGeneration += 1;
     final subscription = _peerEventSubscription;
-    final session = _peerEventSession;
     _peerEventSubscription = null;
     _peerEventSession = null;
     await subscription?.cancel();
-    await session?.close();
   }
 
   void _updateChatroomWorkspaces() {
@@ -1661,7 +1660,6 @@ class MobileDataController extends ChangeNotifier {
     _friendChatSubscription = null;
     _friendGroupChatSubscription = null;
     _peerEventSubscription = null;
-    final peerEventSession = _peerEventSession;
     _peerEventSession = null;
 
     await Future.wait([
@@ -1669,9 +1667,6 @@ class MobileDataController extends ChangeNotifier {
       for (final subscription in subscriptions)
         if (subscription != null) attempt(subscription.cancel),
     ]);
-    if (peerEventSession != null) {
-      await attempt(peerEventSession.close);
-    }
     _historyEventRefreshDirty.clear();
     final historyEventRefreshes = _historyEventRefreshes.values.toList();
     await Future.wait([

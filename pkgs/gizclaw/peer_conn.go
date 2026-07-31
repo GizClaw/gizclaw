@@ -3,6 +3,7 @@ package gizclaw
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -37,11 +38,12 @@ var (
 )
 
 const (
-	peerConnMixerFormat        = pcm.L16Mono16K
-	peerConnOpusFrameDuration  = 20 * time.Millisecond
-	peerConnTelemetryQueueSize = 32
-	peerConnRuntimeStopTimeout = 2 * time.Second
-	maxDeniedInputStreams      = 256
+	peerConnMixerFormat          = pcm.L16Mono16K
+	peerConnOpusFrameDuration    = 20 * time.Millisecond
+	peerConnTelemetryQueueSize   = 32
+	peerConnRuntimeStopTimeout   = 2 * time.Second
+	peerEventStreamAcceptTimeout = 10 * time.Second
+	maxDeniedInputStreams        = 256
 )
 
 var peerConnTelemetryShutdownTimeout = 2 * time.Second
@@ -73,6 +75,7 @@ type PeerConn struct {
 	rpc                    *rpcServer
 	audioPacing            <-chan time.Time
 	runtimeStopTimeout     time.Duration
+	eventAcceptTimeout     time.Duration
 	closed                 atomic.Bool
 	retiring               atomic.Bool
 	registration           atomic.Pointer[runtimeprofile.Registration]
@@ -137,8 +140,28 @@ func (h *PeerConn) serve() error {
 	) {
 		return h.serveEdgeNode()
 	}
+	h.initEvents()
+	eventListener := h.Conn.ListenService(EventStreamAgent)
+	if eventListener == nil {
+		_ = h.close()
+		return errPeerEventStreamClosed
+	}
+	defer func() { _ = eventListener.Close() }()
+	eventStream, err := h.acceptMandatoryEventStream(eventListener)
+	if err != nil {
+		_ = h.close()
+		return err
+	}
+	unsubscribeEvent, err := h.events.Subscribe(eventStream)
+	if err != nil {
+		_ = eventStream.Close()
+		_ = h.close()
+		return err
+	}
 	oldConn, err := h.Service.activateConn(context.Background(), h.Conn)
 	if err != nil {
+		unsubscribeEvent()
+		_ = eventStream.Close()
 		_ = h.close()
 		return err
 	}
@@ -163,12 +186,48 @@ func (h *PeerConn) serve() error {
 	g.Go(h.serveEdgeRPC)
 	g.Go(h.serveEdgeTunnel)
 	g.Go(h.serveOpenAI)
-	g.Go(h.serveEvents)
+	g.Go(func() error {
+		defer func() { _ = h.close() }()
+		defer unsubscribeEvent()
+		defer func() { _ = eventStream.Close() }()
+		return h.readEventStream(eventStream)
+	})
+	g.Go(func() error { return h.rejectDuplicateEventStreams(eventListener) })
 	err = g.Wait()
 	if err != nil {
 		_ = h.close()
 	}
 	return err
+}
+
+func (h *PeerConn) acceptMandatoryEventStream(listener giznet.ServiceListener) (net.Conn, error) {
+	type acceptResult struct {
+		stream net.Conn
+		err    error
+	}
+	result := make(chan acceptResult, 1)
+	go func() {
+		stream, err := listener.Accept()
+		result <- acceptResult{stream: stream, err: err}
+	}()
+	timeout := h.eventAcceptTimeout
+	if timeout <= 0 {
+		timeout = peerEventStreamAcceptTimeout
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case accepted := <-result:
+		return accepted.stream, accepted.err
+	case <-timer.C:
+		_ = listener.Close()
+		_ = h.close()
+		return nil, fmt.Errorf(
+			"%w: timed out after %s",
+			errPeerEventStreamClosed,
+			timeout,
+		)
+	}
 }
 
 func (h *PeerConn) serveEdgeNode() error {
@@ -287,10 +346,17 @@ func (h *PeerConn) serveEdgeRPC() error {
 }
 
 func (h *PeerConn) init() {
+	h.initEvents()
 	h.initMixer()
 	h.initPeerGenX()
 	h.initAgentHost()
 	h.initRPC()
+}
+
+func (h *PeerConn) initEvents() {
+	if h != nil && h.events == nil {
+		h.events = newPeerStreamEventBroker()
+	}
 }
 
 func (h *PeerConn) initRPC() {
@@ -366,7 +432,6 @@ func (h *PeerConn) initAgentHost() {
 	}
 	resources := h.peerResources()
 	h.agentInput = newPeerRealtimeSource()
-	h.events = newPeerStreamEventBroker()
 	host := newPeerAgentHost(
 		manager.AgentHost,
 		h.serverGenX,
@@ -558,31 +623,6 @@ func (h *PeerConn) isRetiring() bool {
 	return h != nil && h.retiring.Load()
 }
 
-func (h *PeerConn) serveEvents() error {
-	listener := h.Conn.ListenService(EventStreamAgent)
-	defer func() {
-		_ = listener.Close()
-	}()
-	for {
-		stream, err := listener.Accept()
-		if err != nil {
-			if errors.Is(err, net.ErrClosed) {
-				return nil
-			}
-			return err
-		}
-		if h.isRetiring() {
-			_ = stream.Close()
-			continue
-		}
-		go func(stream net.Conn) {
-			if err := h.handleEventStream(stream); err != nil {
-				_ = stream.Close()
-			}
-		}(stream)
-	}
-}
-
 func (h *PeerConn) handleEventStream(stream net.Conn) error {
 	if stream == nil {
 		return nil
@@ -593,6 +633,13 @@ func (h *PeerConn) handleEventStream(stream net.Conn) error {
 	}
 	defer unsubscribe()
 	defer func() { _ = stream.Close() }()
+	return h.readEventStream(stream)
+}
+
+func (h *PeerConn) readEventStream(stream net.Conn) error {
+	if stream == nil {
+		return nil
+	}
 	for {
 		if h.isRetiring() {
 			return ErrPeerConnRetiring
@@ -621,6 +668,19 @@ func (h *PeerConn) handleEventStream(stream net.Conn) error {
 		if err := h.pushAgentInputChunk(context.Background(), chunk); err != nil {
 			return err
 		}
+	}
+}
+
+func (h *PeerConn) rejectDuplicateEventStreams(listener giznet.ServiceListener) error {
+	for {
+		stream, err := listener.Accept()
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) || isPeerServiceClosed(err) {
+				return nil
+			}
+			return err
+		}
+		_ = stream.Close()
 	}
 }
 

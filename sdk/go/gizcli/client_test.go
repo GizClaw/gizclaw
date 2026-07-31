@@ -211,9 +211,10 @@ func TestClientServeClearsPeerConnWhenUnderlyingConnCloses(t *testing.T) {
 		t.Fatalf("Dial() error = %v", err)
 	}
 
+	var serverConn giznet.Conn
 	select {
-	case conn := <-accepted:
-		defer conn.Close()
+	case serverConn = <-accepted:
+		defer serverConn.Close()
 	case err := <-acceptErr:
 		t.Fatalf("Accept() error = %v", err)
 	case <-time.After(3 * time.Second):
@@ -232,6 +233,19 @@ func TestClientServeClearsPeerConnWhenUnderlyingConnCloses(t *testing.T) {
 		default:
 			time.Sleep(10 * time.Millisecond)
 		}
+	}
+	duplicateEvent, err := serverConn.Dial(EventStreamAgent)
+	if err != nil {
+		t.Fatalf("Dial(duplicate Event) error = %v", err)
+	}
+	if err := duplicateEvent.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {
+		t.Fatalf("SetReadDeadline(duplicate Event) error = %v", err)
+	}
+	if _, err := duplicateEvent.Read(make([]byte, 1)); !isPeerPacketReadClosed(err) {
+		t.Fatalf("duplicate Event read error = %v, want closed", err)
+	}
+	if client.PeerConn() == nil {
+		t.Fatal("rejecting duplicate Event closed the valid Peer connection")
 	}
 	if err := client.PeerConn().Close(); err != nil {
 		t.Fatalf("underlying Conn.Close() error = %v", err)

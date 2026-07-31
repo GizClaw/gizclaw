@@ -10,11 +10,17 @@
 
 Event types、字段、方向和 BOS/EOS 边界见 [Events Reference](/references/events)；Event Stream 与 media、direct packet、RPC stream 的关系见 [Streams Reference](/references/streams)。本页只记录实现职责。
 
+`peerStreamEventBroker` 的唯一 writer subscriber 是当前 Peer connection 在 ready
+前绑定的 physical `0x20`。它不是可选页面 service；physical stream 关闭会结束
+整条 Peer connection。SDK 可在该 connection owner 之上建立多个本地 subscriber，
+conversation、Workspace reload/set 和 controller disposal 只管理本地订阅，
+不能调用 transport open/close。
+
 ## 核心结构与主函数
 
 | 符号 | 作用 |
 | --- | --- |
-| `peerStreamEventBroker` | 管理当前连接唯一的 event stream subscriber，并广播产品事件。 |
+| `peerStreamEventBroker` | 管理当前连接唯一、必需的 physical event writer，并广播产品事件。 |
 | `peerAgentOutput` | 消费 Agent output，广播 events，并把 audio 交给 `MixerOutput`。 |
 | `readPeerStreamEvent` / `writePeerStreamEvent` | 只接受 `FrameTypeBinary`，解码和编码 `PeerEvent` Protobuf，并校验 `type` 与 `oneof payload`。 |
 | `peerStreamEventToChunk` | 将产品事件转换为 GenX message chunk。 |

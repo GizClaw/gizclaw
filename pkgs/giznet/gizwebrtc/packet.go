@@ -1,11 +1,14 @@
 package gizwebrtc
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/datachannel"
 )
+
+var errPacketProtocolIgnored = errors.New("gizwebrtc: packet protocol ignored")
 
 type directPacket struct {
 	protocol byte
@@ -40,11 +43,13 @@ func readPacket(raw datachannel.ReadWriteCloserDeadliner) (directPacket, error) 
 	if n < 1 {
 		return directPacket{}, fmt.Errorf("gizwebrtc: empty packet message")
 	}
-	if err := validatePacketProtocol(buf[0]); err != nil {
-		return directPacket{}, err
+	protocol := buf[0]
+	if protocol == giznet.ProtocolOpusPacket ||
+		(protocol < 0x40 && protocol != giznet.ProtocolTunnelPacket) {
+		return directPacket{}, errPacketProtocolIgnored
 	}
 	return directPacket{
-		protocol: buf[0],
+		protocol: protocol,
 		payload:  append([]byte(nil), buf[1:n]...),
 	}, nil
 }

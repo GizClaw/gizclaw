@@ -135,6 +135,36 @@ func TestConnListenServiceReuseAndWriteRoutes(t *testing.T) {
 	}
 }
 
+func TestConnReservesPacketDataChannelBeforeOpen(t *testing.T) {
+	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		t.Fatalf("NewPeerConnection error = %v", err)
+	}
+	defer pc.Close()
+	conn := &Conn{
+		pc:      pc,
+		closeCh: make(chan struct{}),
+	}
+	first, err := pc.CreateDataChannel(packetLabel, nil)
+	if err != nil {
+		t.Fatalf("CreateDataChannel(first) error = %v", err)
+	}
+	second, err := pc.CreateDataChannel(packetLabel, nil)
+	if err != nil {
+		t.Fatalf("CreateDataChannel(second) error = %v", err)
+	}
+
+	conn.handleDataChannel(first)
+	conn.handleDataChannel(second)
+
+	if conn.packetDC != first {
+		t.Fatalf("packet DataChannel = %p, want first %p", conn.packetDC, first)
+	}
+	if got := second.ReadyState(); got != webrtc.DataChannelStateClosing {
+		t.Fatalf("duplicate packet DataChannel state = %s, want closing", got)
+	}
+}
+
 func TestConnNilAndClosedEdges(t *testing.T) {
 	if (*Conn)(nil).PublicKey() != (giznet.PublicKey{}) {
 		t.Fatal("nil PublicKey returned non-zero key")

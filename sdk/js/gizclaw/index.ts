@@ -54,6 +54,8 @@ const SERVICE_DATA_CHANNEL_BUFFER_HIGH_WATER_MARK = 1024 * 1024;
 const SERVICE_DATA_CHANNEL_BUFFER_LOW_WATER_MARK = 256 * 1024;
 const SERVICE_DATA_CHANNEL_WRITE_TIMEOUT_MS = 30000;
 const giznetPacketDataChannels = new WeakMap<object, WebRTCRPCDataChannel>();
+const giznetPeerEventDataChannels = new WeakMap<object, WebRTCRPCDataChannel>();
+const giznetPreparedPeerConnections = new WeakSet<object>();
 const giznetRPCServers = new WeakSet<object>();
 const rpcMethodNamesByID = new Map<number, string>(
   Object.entries(RPC_METHOD_IDS).map(([name, id]) => [id, name]),
@@ -1124,32 +1126,42 @@ export function createAdminAPIFetch(
 export async function connectGiznetWebRTC(
   options: ConnectGiznetWebRTCOptions,
 ): Promise<RTCPeerConnection> {
-  prepareGiznetWebRTCPeerConnection(options.pc, options);
-  const offer = await options.pc.createOffer();
-  await options.pc.setLocalDescription(offer);
-  await waitForICEGatheringComplete(
-    options.pc,
-    options.signal,
-    options.iceGatheringTimeoutMs,
-  );
-  const local = options.pc.localDescription;
-  if (local == null) {
-    throw new Error("WebRTC offer was not created.");
-  }
+  try {
+    prepareGiznetWebRTCPeerConnection(options.pc, options);
+    const offer = await options.pc.createOffer();
+    await options.pc.setLocalDescription(offer);
+    await waitForICEGatheringComplete(
+      options.pc,
+      options.signal,
+      options.iceGatheringTimeoutMs,
+    );
+    const local = options.pc.localDescription;
+    if (local == null) {
+      throw new Error("WebRTC offer was not created.");
+    }
 
-  const prepared = await options.prepareOffer(local.sdp);
-  const encryptedAnswer = await (
-    options.sendOffer ??
-    ((item, signal) =>
-      sendGiznetWebRTCOffer(item, { fetch: options.fetch, signal }))
-  )(prepared, options.signal);
-  const answerSDP = await prepared.openAnswer(encryptedAnswer);
-  await options.pc.setRemoteDescription({ sdp: answerSDP, type: "answer" });
-  const packetDataChannel = getGiznetWebRTCPacketDataChannel(options.pc);
-  if (packetDataChannel != null) {
-    await waitForDataChannelOpen(packetDataChannel, options.signal);
+    const prepared = await options.prepareOffer(local.sdp);
+    const encryptedAnswer = await (
+      options.sendOffer ??
+      ((item, signal) =>
+        sendGiznetWebRTCOffer(item, { fetch: options.fetch, signal }))
+    )(prepared, options.signal);
+    const answerSDP = await prepared.openAnswer(encryptedAnswer);
+    await options.pc.setRemoteDescription({ sdp: answerSDP, type: "answer" });
+    const packetDataChannel = getGiznetWebRTCPacketDataChannel(options.pc);
+    const eventDataChannel = getGiznetWebRTCPeerEventDataChannel(options.pc);
+    if (packetDataChannel == null || eventDataChannel == null) {
+      throw new Error("WebRTC mandatory data channels were not created.");
+    }
+    await Promise.all([
+      waitForDataChannelOpen(packetDataChannel, options.signal),
+      waitForDataChannelOpen(eventDataChannel, options.signal),
+    ]);
+    return options.pc;
+  } catch (error) {
+    options.pc.close();
+    throw error;
   }
-  return options.pc;
 }
 
 export async function connectGiznetWebRTCFromEndpoint(
@@ -1463,9 +1475,29 @@ export function prepareGiznetWebRTCPeerConnection(
     "addAudioTransceiver" | "createPacketDataChannel"
   > = {},
 ): void {
+  if (options.createPacketDataChannel === false) {
+    throw new Error(
+      "A normal GizClaw Peer connection requires the packet data channel.",
+    );
+  }
+  if (options.addAudioTransceiver === false) {
+    throw new Error(
+      "A normal GizClaw Peer connection requires the sendrecv audio transceiver.",
+    );
+  }
+  if (typeof pc.addTransceiver !== "function") {
+    throw new Error(
+      "The WebRTC runtime cannot create the mandatory audio transceiver.",
+    );
+  }
+  if (giznetPreparedPeerConnections.has(pc)) {
+    return;
+  }
   serveGiznetWebRTCRPC(pc);
-  if (options.createPacketDataChannel !== false) {
-    const packetDataChannel = pc.createDataChannel(
+  let packetDataChannel: WebRTCRPCDataChannel | undefined;
+  let eventDataChannel: WebRTCRPCDataChannel | undefined;
+  try {
+    packetDataChannel = pc.createDataChannel(
       GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL,
       {
         maxRetransmits: 0,
@@ -1473,14 +1505,26 @@ export function prepareGiznetWebRTCPeerConnection(
       },
     );
     giznetPacketDataChannels.set(pc, packetDataChannel);
-  } else {
-    giznetPacketDataChannels.delete(pc);
-  }
-  if (
-    options.addAudioTransceiver !== false &&
-    typeof pc.addTransceiver === "function"
-  ) {
+    closePeerConnectionWhenMandatoryChannelCloses(pc, packetDataChannel);
+    eventDataChannel = pc.createDataChannel(
+      giznetServiceDataChannelLabel(GIZCLAW_EVENT_STREAM_AGENT),
+      { ordered: true },
+    );
+    eventDataChannel.binaryType = "arraybuffer";
+    giznetPeerEventDataChannels.set(pc, eventDataChannel);
+    closePeerConnectionWhenMandatoryChannelCloses(pc, eventDataChannel);
+    pc.addEventListener("connectionstatechange", () => {
+      if (pc.connectionState === "failed") {
+        pc.close();
+      }
+    });
     pc.addTransceiver("audio", { direction: "sendrecv" });
+    giznetPreparedPeerConnections.add(pc);
+  } catch (error) {
+    eventDataChannel?.close();
+    packetDataChannel?.close();
+    pc.close();
+    throw error;
   }
 }
 
@@ -1495,6 +1539,14 @@ export function serveGiznetWebRTCRPC(pc: WebRTCRPCDataChannelServer): void {
   pc.addEventListener("datachannel", (event) => {
     const channel = event.channel;
     if (
+      channel.label === GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL ||
+      channel.label ===
+        giznetServiceDataChannelLabel(GIZCLAW_EVENT_STREAM_AGENT)
+    ) {
+      channel.close();
+      return;
+    }
+    if (
       channel.label !== giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC)
     ) {
       return;
@@ -1507,6 +1559,25 @@ export function getGiznetWebRTCPacketDataChannel(
   pc: RTCPeerConnection,
 ): WebRTCRPCDataChannel | undefined {
   return giznetPacketDataChannels.get(pc);
+}
+
+export function getGiznetWebRTCPeerEventDataChannel(
+  pc: RTCPeerConnection,
+): WebRTCRPCDataChannel | undefined {
+  return giznetPeerEventDataChannels.get(pc);
+}
+
+function closePeerConnectionWhenMandatoryChannelCloses(
+  pc: RTCPeerConnection,
+  channel: WebRTCRPCDataChannel,
+): void {
+  const fail = (): void => {
+    if (pc.connectionState !== "closed") {
+      pc.close();
+    }
+  };
+  channel.addEventListener("close", fail);
+  channel.addEventListener("error", fail);
 }
 
 export async function sendGiznetWebRTCTelemetry(

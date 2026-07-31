@@ -161,12 +161,57 @@ func validateOfferSDP(sdp string) error {
 	if !strings.Contains(lower, "a=fingerprint:") {
 		return fmt.Errorf("%w: missing fingerprint", ErrInvalidSDP)
 	}
-	hasOpusAudio := strings.Contains(lower, "m=audio") && strings.Contains(lower, "opus/48000")
-	hasDataChannel := strings.Contains(lower, "m=application") && strings.Contains(lower, "webrtc-datachannel")
-	if !hasOpusAudio && !hasDataChannel {
-		return fmt.Errorf("%w: missing opus audio or data channel", ErrUnsupportedCodec)
+	hasOpusAudio, hasDataChannel := offerHasMandatoryMedia(lower)
+	if !hasOpusAudio || !hasDataChannel {
+		return fmt.Errorf("%w: missing bidirectional opus audio or data channel", ErrUnsupportedCodec)
 	}
 	return nil
+}
+
+func offerHasMandatoryMedia(sdp string) (hasOpusAudio, hasDataChannel bool) {
+	sessionDirection := "sendrecv"
+	media := ""
+	mediaDirection := sessionDirection
+	mediaHasOpus := false
+	finishMedia := func() {
+		if media == "audio" && mediaHasOpus && mediaDirection == "sendrecv" {
+			hasOpusAudio = true
+		}
+	}
+	for line := range strings.SplitSeq(strings.ReplaceAll(sdp, "\r\n", "\n"), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "m=") {
+			finishMedia()
+			fields := strings.Fields(strings.TrimPrefix(line, "m="))
+			media = ""
+			if len(fields) != 0 {
+				media = fields[0]
+			}
+			mediaDirection = sessionDirection
+			mediaHasOpus = false
+			if media == "application" && strings.Contains(line, "webrtc-datachannel") {
+				hasDataChannel = true
+			}
+			continue
+		}
+		switch line {
+		case "a=sendrecv", "a=sendonly", "a=recvonly", "a=inactive":
+			direction := strings.TrimPrefix(line, "a=")
+			if media == "" {
+				sessionDirection = direction
+			} else {
+				mediaDirection = direction
+			}
+		default:
+			if media == "audio" &&
+				strings.HasPrefix(line, "a=rtpmap:") &&
+				strings.Contains(line, " opus/48000") {
+				mediaHasOpus = true
+			}
+		}
+	}
+	finishMedia()
+	return hasOpusAudio, hasDataChannel
 }
 
 func signalingSDPErrorCode(err error) string {
