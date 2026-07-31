@@ -211,8 +211,7 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
     final previousConnectionState = pc.onConnectionState;
     pc.onConnectionState = (state) {
       previousConnectionState?.call(state);
-      if (state ==
-          rtc.RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+      if (state == rtc.RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
         closeFailedPeerConnection();
       }
     };
