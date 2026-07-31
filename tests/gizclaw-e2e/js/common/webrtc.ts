@@ -3,8 +3,9 @@ import path from "node:path";
 import { x25519 } from "@noble/curves/ed25519.js";
 import wrtc from "@roamhq/wrtc";
 import {
-  GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL,
   connectGiznetWebRTCFromEndpoint,
+  getGiznetWebRTCPacketDataChannel,
+  getGiznetWebRTCPeerEventDataChannel,
 } from "@gizclaw/gizclaw";
 import { base58Decode, base58Encode } from "@gizclaw/gizclaw/signaling";
 
@@ -17,11 +18,24 @@ export type Identity = {
   publicKey: string;
 };
 
+export type ObservedDataChannel = {
+  channel: RTCDataChannel;
+  init?: RTCDataChannelInit;
+  label: string;
+};
+
+export type SetupPeerTransports = {
+  createdChannels: ObservedDataChannel[];
+  eventChannel: RTCDataChannel;
+  packetChannel: RTCDataChannel;
+  pc: wrtc.RTCPeerConnection;
+};
+
 export async function connectSetupPeer(
   identityDir: string,
 ): Promise<wrtc.RTCPeerConnection> {
   const identity = await loadIdentity(identityDir);
-  const pc = new wrtc.RTCPeerConnection({ iceTransportPolicy: "relay" });
+  const pc = new wrtc.RTCPeerConnection();
   try {
     await connectGiznetWebRTCFromEndpoint({
       clientPrivateKey: identity.clientPrivateKey,
@@ -38,6 +52,52 @@ export async function connectSetupPeer(
   }
 }
 
+export async function connectSetupPeerWithTransports(
+  identityDir: string,
+): Promise<SetupPeerTransports> {
+  const identity = await loadIdentity(identityDir);
+  const pc = new wrtc.RTCPeerConnection();
+  const createdChannels: ObservedDataChannel[] = [];
+  const createDataChannel = pc.createDataChannel.bind(pc);
+  Object.defineProperty(pc, "createDataChannel", {
+    configurable: true,
+    value: (label: string, init?: RTCDataChannelInit): RTCDataChannel => {
+      const channel = createDataChannel(
+        label,
+        init,
+      ) as unknown as RTCDataChannel;
+      createdChannels.push({ channel, init, label });
+      return channel;
+    },
+  });
+  try {
+    await connectGiznetWebRTCFromEndpoint({
+      clientPrivateKey: identity.clientPrivateKey,
+      endpoint: identity.endpoint,
+      pc: pc as unknown as RTCPeerConnection,
+      signal: AbortSignal.timeout(setupConnectTimeoutMs),
+    });
+    const packetChannel = getGiznetWebRTCPacketDataChannel(
+      pc as unknown as RTCPeerConnection,
+    ) as RTCDataChannel | undefined;
+    const eventChannel = getGiznetWebRTCPeerEventDataChannel(
+      pc as unknown as RTCPeerConnection,
+    ) as RTCDataChannel | undefined;
+    if (packetChannel == null || eventChannel == null) {
+      throw new Error("production SDK did not retain its mandatory channels");
+    }
+    await Promise.all([
+      waitForDataChannelOpen(packetChannel),
+      waitForDataChannelOpen(eventChannel),
+    ]);
+    return { createdChannels, eventChannel, packetChannel, pc };
+  } catch (err) {
+    const wrapped = setupConnectError(pc, err);
+    closePeerConnection(pc);
+    throw wrapped;
+  }
+}
+
 export type SetupPeerWithPacketChannel = {
   packetChannel: RTCDataChannel;
   pc: wrtc.RTCPeerConnection;
@@ -46,23 +106,16 @@ export type SetupPeerWithPacketChannel = {
 export async function connectSetupPeerWithPacketChannel(
   identityDir: string,
 ): Promise<SetupPeerWithPacketChannel> {
-  const identity = await loadIdentity(identityDir);
-  const pc = new wrtc.RTCPeerConnection({ iceTransportPolicy: "relay" });
-  const packetChannel = pc.createDataChannel(
-    GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL,
-    {
-      maxRetransmits: 0,
-      ordered: false,
-    },
-  ) as unknown as RTCDataChannel;
+  const pc = await connectSetupPeer(identityDir);
   try {
-    await connectGiznetWebRTCFromEndpoint({
-      clientPrivateKey: identity.clientPrivateKey,
-      createPacketDataChannel: false,
-      endpoint: identity.endpoint,
-      pc: pc as unknown as RTCPeerConnection,
-      signal: AbortSignal.timeout(setupConnectTimeoutMs),
-    });
+    const packetChannel = getGiznetWebRTCPacketDataChannel(
+      pc as unknown as RTCPeerConnection,
+    ) as RTCDataChannel | undefined;
+    if (packetChannel == null) {
+      throw new Error(
+        "production SDK did not retain its mandatory packet channel",
+      );
+    }
     await waitForDataChannelOpen(packetChannel);
     return { packetChannel, pc };
   } catch (err) {
@@ -120,7 +173,7 @@ function setupConnectError(pc: wrtc.RTCPeerConnection, cause: unknown): Error {
   );
 }
 
-function waitForDataChannelOpen(channel: RTCDataChannel): Promise<void> {
+export function waitForDataChannelOpen(channel: RTCDataChannel): Promise<void> {
   if (channel.readyState === "open") {
     return Promise.resolve();
   }
@@ -129,7 +182,7 @@ function waitForDataChannelOpen(channel: RTCDataChannel): Promise<void> {
       cleanup();
       reject(
         new Error(
-          `packet data channel readyState is ${channel.readyState}, want open`,
+          `data channel ${channel.label} readyState is ${channel.readyState}, want open`,
         ),
       );
     }, 10_000);
@@ -139,7 +192,7 @@ function waitForDataChannelOpen(channel: RTCDataChannel): Promise<void> {
     };
     const onClose = (): void => {
       cleanup();
-      reject(new Error("packet data channel closed before opening"));
+      reject(new Error(`data channel ${channel.label} closed before opening`));
     };
     const cleanup = (): void => {
       clearTimeout(timer);

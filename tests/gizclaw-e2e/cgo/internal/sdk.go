@@ -44,6 +44,19 @@ type TransportSendCounts struct {
 	OpusRTP           uint64
 }
 
+type TransportSnapshot struct {
+	BackendHandle   uint64
+	EventChannelID  int
+	MediaReady      bool
+	PacketChannelID int
+	PacketReady     bool
+	RPCChannelIDs   []int
+}
+
+const (
+	RPCFrameEOS = int(C.GZC_RPC_FRAME_EOS)
+)
+
 // Registration is the typed result decoded by the C server.register helper.
 type Registration struct {
 	RuntimeProfileName string
@@ -349,6 +362,30 @@ func (c *Client) TransportSendCounts() (TransportSendCounts, error) {
 	}, nil
 }
 
+func (c *Client) TransportSnapshot() (TransportSnapshot, error) {
+	if c == nil || c.session == nil {
+		return TransportSnapshot{}, fmt.Errorf("closed C SDK client")
+	}
+	var snapshot C.gzc_cgo_transport_snapshot_t
+	rc := C.gzc_cgo_session_transport_snapshot(c.session, &snapshot)
+	if rc != C.GZC_OK {
+		return TransportSnapshot{}, fmt.Errorf("read transport snapshot rc=%d", int(rc))
+	}
+	count := int(snapshot.rpc_channel_count)
+	ids := make([]int, count)
+	for index := range count {
+		ids[index] = int(snapshot.rpc_channel_ids[index])
+	}
+	return TransportSnapshot{
+		BackendHandle:   uint64(snapshot.backend_handle),
+		EventChannelID:  int(snapshot.event_channel_id),
+		MediaReady:      snapshot.media_ready != 0,
+		PacketChannelID: int(snapshot.packet_channel_id),
+		PacketReady:     snapshot.packet_ready != 0,
+		RPCChannelIDs:   ids,
+	}, nil
+}
+
 func (c *Client) SendBatteryTelemetry(percent float64, charging bool) error {
 	if c == nil || c.session == nil {
 		return fmt.Errorf("closed C SDK client")
@@ -538,6 +575,29 @@ func (c *ServiceChannel) SendJSON(raw string) error {
 	)
 	if rc != C.GZC_OK {
 		return fmt.Errorf("send service json rc=%d: %s", int(rc), cString(errbuf))
+	}
+	return nil
+}
+
+func (c *ServiceChannel) SendFrame(frame StreamFrame) error {
+	if c == nil || c.channel == nil {
+		return fmt.Errorf("closed C SDK service channel")
+	}
+	var data *C.uchar
+	if len(frame.Data) > 0 {
+		data = (*C.uchar)(unsafe.Pointer(&frame.Data[0]))
+	}
+	errbuf := make([]byte, 1024)
+	rc := C.gzc_cgo_service_channel_send_frame(
+		c.channel,
+		C.int(frame.Type),
+		data,
+		C.ulong(len(frame.Data)),
+		(*C.char)(unsafe.Pointer(&errbuf[0])),
+		C.ulong(len(errbuf)),
+	)
+	if rc != C.GZC_OK {
+		return fmt.Errorf("send service frame rc=%d: %s", int(rc), cString(errbuf))
 	}
 	return nil
 }
@@ -787,11 +847,102 @@ func CSDKChatRoundtrip(t *testing.T, identityDir, registrationToken, workspaceNa
 		t.Fatal(err)
 	}
 	defer eventStream.Close()
+	runCSDKChatTurn(t, client, eventStream, "cgo-chat", oggPath)
+}
+
+func CSDKPeerStreamWorkspaceReloadContinuity(
+	t *testing.T,
+	identityDir string,
+	registrationToken string,
+	firstWorkspace string,
+	alternateWorkspace string,
+	oggPath string,
+) {
+	t.Helper()
+	client := newTestClient(t, identityDir)
+	defer client.Close()
+	registerClient(t, client, registrationToken)
+	var original rpcpb.ServerGetRunWorkspaceResponse
+	mustCallRPC(
+		t,
+		client,
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_GET,
+		&rpcpb.ServerGetRunWorkspaceRequest{},
+		&original,
+	)
+	originalWorkspace := original.GetValue().GetWorkspaceName()
+	restored := false
+	defer func() {
+		if !restored {
+			if err := restoreCSDKRunWorkspace(client, originalWorkspace); err != nil {
+				t.Errorf("restore original C SDK Workspace after failure: %v", err)
+			}
+		}
+	}()
+	eventStream, err := client.OpenEventStream(15 * time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer eventStream.Close()
+	baseline, err := client.TransportSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireCSDKMandatoryTransports(t, baseline)
+	requireCSDKDirectPacketTelemetry(t, client)
+	requireStableCSDKMandatoryTransports(
+		t,
+		baseline,
+		mustCSDKTransportSnapshot(t, client),
+	)
+
+	steps := []struct {
+		workspace string
+		set       bool
+	}{
+		{workspace: firstWorkspace, set: true},
+		{workspace: firstWorkspace},
+		{workspace: alternateWorkspace, set: true},
+	}
+	for index, step := range steps {
+		if step.set {
+			setChatWorkspace(t, client, step.workspace)
+		} else {
+			reloadCSDKRunWorkspace(t, client, step.workspace)
+		}
+		runCSDKChatTurn(
+			t,
+			client,
+			eventStream,
+			fmt.Sprintf("cgo-stream-lifecycle-%d", index+1),
+			oggPath,
+		)
+		after, err := client.TransportSnapshot()
+		if err != nil {
+			t.Fatal(err)
+		}
+		requireStableCSDKMandatoryTransports(t, baseline, after)
+	}
+	restoreErr := restoreCSDKRunWorkspace(client, originalWorkspace)
+	if restoreErr != nil {
+		t.Fatalf("restore original C SDK Workspace: %v", restoreErr)
+	}
+	restored = true
+}
+
+func runCSDKChatTurn(
+	t *testing.T,
+	client *Client,
+	eventStream *EventStream,
+	streamID string,
+	oggPath string,
+) {
+	t.Helper()
 	before, err := client.TransportSendCounts()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := eventStream.SendAudioBoundary("cgo-chat", true); err != nil {
+	if err := eventStream.SendAudioBoundary(streamID, true); err != nil {
 		t.Fatalf("send chat BOS: %v", err)
 	}
 	for _, packet := range opusPacketsFromOgg(t, oggPath) {
@@ -802,7 +953,7 @@ func CSDKChatRoundtrip(t *testing.T, identityDir, registrationToken, workspaceNa
 			t.Fatalf("pace chat opus packet: %v", err)
 		}
 	}
-	if err := eventStream.SendAudioBoundary("cgo-chat", false); err != nil {
+	if err := eventStream.SendAudioBoundary(streamID, false); err != nil {
 		t.Fatalf("send chat EOS: %v", err)
 	}
 	deadline := time.Now().Add(90 * time.Second)
@@ -847,8 +998,110 @@ func CSDKChatRoundtrip(t *testing.T, identityDir, registrationToken, workspaceNa
 			return
 		}
 	}
-	if !sawText || downlinkPackets == 0 {
+	if !sawText || downlinkPackets == 0 || !sawEventEOS {
 		t.Fatalf("chat roundtrip missing text or audio: events=%d saw_text=%v saw_eos=%v downlink_packets=%d", eventFrames, sawText, sawEventEOS, downlinkPackets)
+	}
+}
+
+func reloadCSDKRunWorkspace(t *testing.T, client *Client, workspaceName string) {
+	t.Helper()
+	var response rpcpb.ServerReloadRunWorkspaceResponse
+	mustCallRPC(
+		t,
+		client,
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD,
+		&rpcpb.ServerReloadRunWorkspaceRequest{},
+		&response,
+	)
+	if response.GetValue().GetWorkspaceName() != workspaceName {
+		t.Fatalf("invalid server.run.workspace.reload: %s", response.String())
+	}
+}
+
+func restoreCSDKRunWorkspace(client *Client, workspaceName string) error {
+	if strings.TrimSpace(workspaceName) != "" {
+		return setCSDKRunWorkspace(client, workspaceName)
+	}
+	var response rpcpb.ServerStopRunResponse
+	if err := client.CallRPC(
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_STOP,
+		&rpcpb.ServerStopRunRequest{},
+		&response,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
+func requireCSDKDirectPacketTelemetry(t *testing.T, client *Client) {
+	t.Helper()
+	const batteryPercent = 67
+	if err := client.SendBatteryTelemetry(batteryPercent, true); err != nil {
+		t.Fatalf("send C SDK Direct Packet telemetry: %v", err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var response rpcpb.ServerGetStatusResponse
+		if err := client.CallRPC(
+			rpcpb.RpcMethod_RPC_METHOD_SERVER_STATUS_GET,
+			&rpcpb.ServerGetStatusRequest{},
+			&response,
+		); err != nil {
+			t.Fatalf("read C SDK telemetry through server.status.get: %v", err)
+		}
+		status := response.GetValue()
+		if status != nil &&
+			status.BatteryPercent != nil &&
+			status.GetBatteryPercent() == batteryPercent &&
+			status.Charging != nil &&
+			status.GetCharging() {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf(
+				"server.status.get did not reflect C SDK Direct Packet telemetry: %s",
+				response.String(),
+			)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func mustCSDKTransportSnapshot(t *testing.T, client *Client) TransportSnapshot {
+	t.Helper()
+	snapshot, err := client.TransportSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snapshot
+}
+
+func requireCSDKMandatoryTransports(t *testing.T, snapshot TransportSnapshot) {
+	t.Helper()
+	if snapshot.BackendHandle == 0 ||
+		!snapshot.PacketReady ||
+		snapshot.EventChannelID == 0 ||
+		!snapshot.MediaReady {
+		t.Fatalf("mandatory C transports are not ready: %+v", snapshot)
+	}
+}
+
+func requireStableCSDKMandatoryTransports(
+	t *testing.T,
+	want TransportSnapshot,
+	got TransportSnapshot,
+) {
+	t.Helper()
+	if got.BackendHandle != want.BackendHandle ||
+		got.PacketChannelID != want.PacketChannelID ||
+		got.PacketReady != want.PacketReady ||
+		got.EventChannelID != want.EventChannelID ||
+		got.MediaReady != want.MediaReady {
+		t.Fatalf(
+			"mandatory C transport identities changed: before=%+v after=%+v",
+			want,
+			got,
+		)
 	}
 }
 
@@ -1058,18 +1311,33 @@ func decodeStreamResponse(t *testing.T, method rpcpb.RpcMethod, frame []byte, re
 
 func setChatWorkspace(t *testing.T, client *Client, workspaceName string) {
 	t.Helper()
+	if err := setCSDKRunWorkspace(client, workspaceName); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func setCSDKRunWorkspace(client *Client, workspaceName string) error {
 	var setResponse rpcpb.ServerSetRunWorkspaceResponse
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_SET, &rpcpb.ServerSetRunWorkspaceRequest{
+	if err := client.CallRPC(rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_SET, &rpcpb.ServerSetRunWorkspaceRequest{
 		Value: &rpcpb.AgentSelection{WorkspaceName: workspaceName},
-	}, &setResponse)
+	}, &setResponse); err != nil {
+		return err
+	}
 	if setResponse.GetValue().GetWorkspaceName() != workspaceName {
-		t.Fatalf("invalid server.run.workspace.set: %s", setResponse.String())
+		return fmt.Errorf("invalid server.run.workspace.set: %s", setResponse.String())
 	}
 	var reloadResponse rpcpb.ServerReloadRunWorkspaceResponse
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD, &rpcpb.ServerReloadRunWorkspaceRequest{}, &reloadResponse)
-	if reloadResponse.GetValue().GetWorkspaceName() != workspaceName {
-		t.Fatalf("invalid server.run.workspace.reload: %s", reloadResponse.String())
+	if err := client.CallRPC(
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD,
+		&rpcpb.ServerReloadRunWorkspaceRequest{},
+		&reloadResponse,
+	); err != nil {
+		return err
 	}
+	if reloadResponse.GetValue().GetWorkspaceName() != workspaceName {
+		return fmt.Errorf("invalid server.run.workspace.reload: %s", reloadResponse.String())
+	}
+	return nil
 }
 
 func ptr[T any](value T) *T {
