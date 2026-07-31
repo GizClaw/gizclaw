@@ -66,7 +66,6 @@ class WorkspaceChatController extends ChangeNotifier {
     required this.serverId,
     this.localPeerPublicKey,
     this.client,
-    this.dataChannelFactory,
     this.eventSession,
     this.peerConnection,
     this.inputTrack,
@@ -81,7 +80,6 @@ class WorkspaceChatController extends ChangeNotifier {
   });
 
   final GizClawClient? client;
-  final GizClawDataChannelFactory? dataChannelFactory;
   final WorkspaceEventSession? eventSession;
   final rtc.RTCPeerConnection? peerConnection;
   final rtc.MediaStreamTrack? inputTrack;
@@ -102,7 +100,6 @@ class WorkspaceChatController extends ChangeNotifier {
   StreamSubscription<PeerStreamEvent>? _eventSubscription;
   StreamSubscription<PcmAudioLevels>? _pcmLevelSubscription;
   WorkspaceEventSession? _session;
-  bool _ownsSession = false;
   String? _activeStreamId;
   String? _latestInputStreamId;
   Timer? _historyRefreshTimer;
@@ -182,7 +179,6 @@ class WorkspaceChatController extends ChangeNotifier {
           });
     }
     final activeClient = client;
-    final factory = dataChannelFactory;
     if (!conversation) {
       if (stableServerId == null || activeClient == null) {
         state = WorkspaceChatState.offline;
@@ -199,7 +195,7 @@ class WorkspaceChatController extends ChangeNotifier {
     }
     if (stableServerId == null ||
         activeClient == null ||
-        (eventSession == null && factory == null) ||
+        eventSession == null ||
         peerConnection == null) {
       state = WorkspaceChatState.offline;
       notifyListeners();
@@ -220,9 +216,7 @@ class WorkspaceChatController extends ChangeNotifier {
           throw StateError('start workspace: $error');
         }
       }
-      final session =
-          eventSession ?? await WorkspaceEventSession.open(factory!);
-      _ownsSession = eventSession == null;
+      final session = eventSession!;
       _session = session;
       _eventSubscription = session.events.listen(
         _handleEvent,
@@ -771,13 +765,11 @@ class WorkspaceChatController extends ChangeNotifier {
     _historySubscription = null;
     final eventSubscription = _eventSubscription;
     _eventSubscription = null;
-    final session = _session;
     _session = null;
     await Future.wait([
       if (historySubscription != null) historySubscription.cancel(),
       if (eventSubscription != null) eventSubscription.cancel(),
       if (pcmLevelSubscription != null) pcmLevelSubscription.cancel(),
-      if (session != null && _ownsSession) session.close(),
     ]);
   }
 

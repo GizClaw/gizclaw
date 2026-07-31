@@ -71,6 +71,9 @@ typedef struct {
   int poll_count;
   int last_poll_timeout_ms;
   int create_channel_count;
+  size_t extra_service_channel_count;
+  bool edge_channel_in_use;
+  int peer_close_count;
   int close_count;
   gzc_rtc_channel_t *last_closed;
   int ice_server_count;
@@ -237,11 +240,17 @@ static void fake_channel_close(gzc_rtc_channel_t *channel) {
   if (global_fake_webrtc != NULL) {
     global_fake_webrtc->close_count++;
     global_fake_webrtc->last_closed = channel;
+    if (channel == &global_fake_webrtc->edge_channel) {
+      global_fake_webrtc->edge_channel_in_use = false;
+    }
   }
 }
 
 static void fake_peer_close(gzc_rtc_peer_t *peer) {
   (void)peer;
+  if (global_fake_webrtc != NULL) {
+    global_fake_webrtc->peer_close_count++;
+  }
 }
 
 static int test_peer_set_opus_frame_callback(
@@ -355,15 +364,7 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
     if (!config->ordered || !config->reliable) {
       return GZC_ERR_INVALID_ARGUMENT;
     }
-    size_t service_index = fake->create_channel_count < 2
-                               ? 0
-                               : (size_t)(fake->create_channel_count - 2);
-    if (service_index >= 16) {
-      return GZC_ERR_NO_MEMORY;
-    }
-    gzc_rtc_channel_t *channel = fake->create_channel_count < 2
-                                     ? &fake->rpc_channel
-                                     : &fake->service_channels[service_index];
+    gzc_rtc_channel_t *channel = &fake->rpc_channel;
     *out_channel = channel;
     if (fake->callbacks.on_channel_state != NULL) {
       gzc_rtc_channel_info_t info;
@@ -374,20 +375,47 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
       info.reliable = true;
       fake->callbacks.on_channel_state(fake->callbacks.userdata, peer, channel, &info, GZC_RTC_CHANNEL_OPEN);
     }
-  } else if (config->label.len == strlen("giznet/v1/service/49") &&
-             strncmp(config->label.data, "giznet/v1/service/49", config->label.len) == 0) {
+  } else if (
+      (config->label.len == strlen("giznet/v1/service/49") &&
+       strncmp(
+           config->label.data,
+           "giznet/v1/service/49",
+           config->label.len) == 0) ||
+      (config->label.len == strlen("giznet/v1/service/48") &&
+       strncmp(
+           config->label.data,
+           "giznet/v1/service/48",
+           config->label.len) == 0)) {
     if (!config->ordered || !config->reliable) {
       return GZC_ERR_INVALID_ARGUMENT;
     }
-    *out_channel = &fake->edge_channel;
+    gzc_rtc_channel_t *channel = NULL;
+    if (config->label.data[config->label.len - 1u] == '9' &&
+        !fake->edge_channel_in_use) {
+      channel = &fake->edge_channel;
+      fake->edge_channel_in_use = true;
+    } else if (fake->extra_service_channel_count < 15u) {
+      channel =
+          &fake->service_channels[fake->extra_service_channel_count++];
+    }
+    if (channel == NULL) {
+      return GZC_ERR_NO_MEMORY;
+    }
+    *out_channel = channel;
     if (fake->callbacks.on_channel_state != NULL) {
       gzc_rtc_channel_info_t info;
       memset(&info, 0, sizeof(info));
-      info.label = gzc_str_from_cstr("giznet/v1/service/49");
-      info.stream_id = 2;
+      info.label = config->label;
+      info.stream_id =
+          config->label.data[config->label.len - 1u] == '9' ? 49u : 48u;
       info.ordered = true;
       info.reliable = true;
-      fake->callbacks.on_channel_state(fake->callbacks.userdata, peer, &fake->edge_channel, &info, GZC_RTC_CHANNEL_OPEN);
+      fake->callbacks.on_channel_state(
+          fake->callbacks.userdata,
+          peer,
+          channel,
+          &info,
+          GZC_RTC_CHANNEL_OPEN);
     }
   } else if (config->label.len == strlen("giznet/v1/service/32") &&
              strncmp(config->label.data, "giznet/v1/service/32", config->label.len) == 0) {
@@ -733,6 +761,11 @@ static int test_channel_send_frame(gzc_rtc_channel_t *channel, const uint8_t *da
     if (channel == &fake->remote_channels[i] && !is_text) {
       return gzc_buf_append(&fake->sent, fake->platform, data, len);
     }
+  }
+  if (channel == &fake->service_channels[15] && !is_text) {
+    gzc_buf_reset(&fake->sent);
+    return gzc_buf_append(
+        &fake->sent, fake->platform, data, len);
   }
   bool known_channel = channel == &fake->rpc_channel || channel == &fake->edge_channel;
   for (size_t i = 0; i < 16 && !known_channel; i++) {
@@ -1515,6 +1548,14 @@ int main(void) {
   if (expect(rc == GZC_OK, "client create") != 0) {
     return 1;
   }
+  rc = gzc_client_connect(client);
+  if (expect(
+          rc == GZC_ERR_UNSUPPORTED &&
+              fake_webrtc.create_channel_count == 0,
+          "connect rejects a backend without mandatory Opus media") != 0) {
+    gzc_client_destroy(client);
+    return 1;
+  }
   gzc_webrtc_media_vtable_t incomplete_media = media;
   incomplete_media.peer_send_opus = NULL;
   rc = gzc_client_set_webrtc_media(client, &incomplete_media);
@@ -1590,7 +1631,9 @@ int main(void) {
   if (expect(fake_http.post_count == 1, "http post called once") != 0) {
     return 1;
   }
-  if (expect(fake_webrtc.create_channel_count == 2, "packet and rpc channels created during connect") != 0) {
+  if (expect(
+          fake_webrtc.create_channel_count == 3,
+          "packet, RPC, and Event channels created during connect") != 0) {
     return 1;
   }
   if (expect(fake_webrtc.low_threshold == GZC_SERVICE_WRITE_LOW_WATER_DEFAULT,
@@ -1604,6 +1647,38 @@ int main(void) {
              "Opus callback registered before offer") != 0) {
     return 1;
   }
+
+  gzc_service_channel_t *same_service_first = NULL;
+  gzc_service_channel_t *same_service_second = NULL;
+  gzc_service_channel_t *different_service = NULL;
+  rc = gzc_client_open_service_channel(
+      client, 49, 1000, &same_service_first);
+  if (rc == GZC_OK) {
+    rc = gzc_client_open_service_channel(
+        client, 49, 1000, &same_service_second);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_client_open_service_channel(
+        client, 48, 1000, &different_service);
+  }
+  if (expect(
+          rc == GZC_OK && same_service_first != NULL &&
+              same_service_second != NULL && different_service != NULL,
+          "same-ID and different-ID service channels coexist") != 0) {
+    return 1;
+  }
+  gzc_service_channel_close(same_service_first);
+  gzc_rpc_frame_t coexist_eos = {.type = GZC_RPC_FRAME_EOS};
+  if (expect(
+          gzc_service_channel_send_frame(
+              same_service_second, &coexist_eos) == GZC_OK &&
+              gzc_service_channel_send_frame(
+                  different_service, &coexist_eos) == GZC_OK,
+          "closing one service channel leaves its peers usable") != 0) {
+    return 1;
+  }
+  gzc_service_channel_close(same_service_second);
+  gzc_service_channel_close(different_service);
 
   gzc_service_channel_t *bounded_channel = NULL;
   rc = gzc_client_open_service_channel(client, 49, 1000, &bounded_channel);
@@ -1770,9 +1845,22 @@ int main(void) {
   gzc_service_channel_close(timeout_channel);
 
   gzc_event_stream_t *event_stream = NULL;
+  const int event_channel_create_count = fake_webrtc.create_channel_count;
+  const int event_channel_close_count = fake_webrtc.close_count;
   rc = gzc_event_stream_open(client, 1000, &event_stream);
   if (expect(rc == GZC_OK && event_stream != NULL,
              "open Peer Event Stream") != 0) {
+    return 1;
+  }
+  gzc_event_stream_t *duplicate_event_stream = NULL;
+  rc = gzc_event_stream_open(client, 1000, &duplicate_event_stream);
+  if (expect(
+          rc == GZC_ERR_INVALID_ARGUMENT &&
+              duplicate_event_stream == NULL &&
+              fake_webrtc.create_channel_count ==
+                  event_channel_create_count,
+          "second Event access handle is rejected without a new channel") !=
+      0) {
     return 1;
   }
   gzc_peer_event_t outbound_event =
@@ -1836,11 +1924,21 @@ int main(void) {
     return 1;
   }
   gzc_event_stream_close(event_stream);
+  if (expect(
+          fake_webrtc.close_count == event_channel_close_count &&
+              fake_webrtc.create_channel_count ==
+                  event_channel_create_count,
+          "Event handle close leaves the physical channel open") != 0) {
+    return 1;
+  }
 
   event_stream = NULL;
   rc = gzc_event_stream_open(client, 1000, &event_stream);
-  if (expect(rc == GZC_OK && event_stream != NULL,
-             "reopen Peer Event Stream") != 0) {
+  if (expect(
+          rc == GZC_OK && event_stream != NULL &&
+              fake_webrtc.create_channel_count ==
+                  event_channel_create_count,
+          "reopen Peer Event access reuses the physical channel") != 0) {
     return 1;
   }
   gzc_buf_t event_payload;
@@ -2640,7 +2738,27 @@ int main(void) {
       sizeof(reserved_received_packet),
       false);
   rc = gzc_client_read_packet(client, 0, &received_protocol, &received_packet_payload);
-  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "reject received legacy reserved packet protocol") != 0) {
+  if (expect(
+          rc == GZC_ERR_TIMEOUT,
+          "silently ignore received reserved packet protocol") != 0) {
+    gzc_buf_free(&received_packet_payload, platform);
+    return 1;
+  }
+  const uint8_t opus_data_channel_packet[] = {
+      GZC_PROTOCOL_OPUS_PACKET, 0xf8, 0x55};
+  fake_webrtc.callbacks.on_channel_message(
+      fake_webrtc.callbacks.userdata,
+      &fake_webrtc.peer,
+      &fake_webrtc.packet_channel,
+      NULL,
+      opus_data_channel_packet,
+      sizeof(opus_data_channel_packet),
+      false);
+  rc = gzc_client_read_packet(
+      client, 0, &received_protocol, &received_packet_payload);
+  if (expect(
+          rc == GZC_ERR_TIMEOUT,
+          "silently ignore Opus on the Direct Packet channel") != 0) {
     gzc_buf_free(&received_packet_payload, platform);
     return 1;
   }
@@ -2662,6 +2780,18 @@ int main(void) {
     return 1;
   }
   gzc_buf_free(&received_packet_payload, platform);
+  event_stream = NULL;
+  rc = gzc_event_stream_open(client, 1000, &event_stream);
+  if (rc == GZC_OK) {
+    rc = gzc_event_stream_send(event_stream, &outbound_event);
+  }
+  if (expect(
+          rc == GZC_OK,
+          "Event remains usable after ignored Direct Packet protocols") != 0) {
+    return 1;
+  }
+  gzc_event_stream_close(event_stream);
+  event_stream = NULL;
   uint8_t *max_telemetry_payload = (uint8_t *)platform->malloc(platform->userdata, GZC_RPC_MAX_FRAME_SIZE);
   if (expect(max_telemetry_payload != NULL, "allocate max telemetry packet") != 0) {
     return 1;
@@ -3478,19 +3608,41 @@ int main(void) {
   }
   close_remote_rpc(&fake_webrtc, 0);
 
+  event_stream = NULL;
+  rc = gzc_event_stream_open(client, 1000, &event_stream);
+  if (expect(
+          rc == GZC_OK && event_stream != NULL,
+          "acquire Event handle before connection close") != 0) {
+    return 1;
+  }
+  gzc_rtc_opus_frame_cb late_opus_callback =
+      fake_webrtc.opus_callback;
+  void *late_opus_callback_userdata =
+      fake_webrtc.opus_callback_userdata;
   fake_webrtc.callbacks.on_channel_state(
       fake_webrtc.callbacks.userdata,
       &fake_webrtc.peer,
       &fake_webrtc.packet_channel,
       NULL,
       GZC_RTC_CHANNEL_CLOSED);
+  const int peer_close_count_before_failure =
+      fake_webrtc.peer_close_count;
+  rc = gzc_client_poll(client, 0);
+  if (expect(
+          rc == GZC_ERR_CLOSED &&
+              fake_webrtc.peer_close_count ==
+                  peer_close_count_before_failure + 1,
+          "mandatory packet failure closes the physical Peer") != 0) {
+    return 1;
+  }
   rc = gzc_client_send_packet(
       client,
       GZC_PROTOCOL_OPUS_PACKET,
       (const uint8_t[]){0xf8, 0x55},
       2u);
-  if (expect(rc == GZC_OK,
-             "closed packet DataChannel does not stop Opus RTP") != 0) {
+  if (expect(
+          rc == GZC_ERR_CLOSED,
+          "closed mandatory packet channel stops the connection") != 0) {
     return 1;
   }
   rc = gzc_client_send_packet(
@@ -3498,8 +3650,9 @@ int main(void) {
       GZC_PROTOCOL_TELEMETRY,
       (const uint8_t[]){0x01},
       1u);
-  if (expect(rc == GZC_ERR_INVALID_ARGUMENT,
-             "closed packet DataChannel still blocks direct packets") != 0) {
+  if (expect(
+          rc == GZC_ERR_CLOSED,
+          "closed mandatory packet channel blocks direct packets") != 0) {
     return 1;
   }
 
@@ -3512,10 +3665,6 @@ int main(void) {
   gzc_buf_free(&fake_webrtc.outgoing, platform);
   gzc_buf_free(&fake_webrtc.native_sent, platform);
   gzc_buf_free(&fake_webrtc.opus_sent, platform);
-  gzc_rtc_opus_frame_cb late_opus_callback =
-      fake_webrtc.opus_callback;
-  void *late_opus_callback_userdata =
-      fake_webrtc.opus_callback_userdata;
   rc = gzc_client_close(client);
   if (expect(rc == GZC_OK && gzc_client_poll(client, 0) == GZC_ERR_CLOSED,
              "poll reports closed client") != 0) {
@@ -3525,6 +3674,14 @@ int main(void) {
              "Opus callback unregistered before peer close") != 0) {
     return 1;
   }
+  if (expect(
+          gzc_event_stream_send(event_stream, &outbound_event) ==
+              GZC_ERR_CLOSED,
+          "client close invalidates a live Event access handle") != 0) {
+    return 1;
+  }
+  gzc_event_stream_close(event_stream);
+  event_stream = NULL;
   rc = gzc_client_send_packet(
       client,
       GZC_PROTOCOL_OPUS_PACKET,
@@ -3579,6 +3736,9 @@ int main(void) {
   gzc_client_t *client_custom = NULL;
   rc = gzc_client_create(&config_custom, &client_custom);
   if (rc == GZC_OK) {
+    rc = gzc_client_set_webrtc_media(client_custom, &media);
+  }
+  if (rc == GZC_OK) {
     rc = gzc_client_set_peer_add_ice_server(client_custom, test_peer_add_ice_server);
   }
   if (rc == GZC_OK) {
@@ -3591,13 +3751,15 @@ int main(void) {
   if (rc == GZC_OK) {
     announce_remote_rpc(&fake_webrtc_custom, 0);
   }
-  if (expect(rc == GZC_OK && fake_webrtc_custom.threshold_count == 3u &&
+  if (expect(rc == GZC_OK && fake_webrtc_custom.threshold_count == 4u &&
                  fake_webrtc_custom.threshold_values[0] == 128u * 1024u &&
                  fake_webrtc_custom.threshold_values[1] == 128u * 1024u &&
                  fake_webrtc_custom.threshold_values[2] == 128u * 1024u &&
+                 fake_webrtc_custom.threshold_values[3] == 128u * 1024u &&
                  fake_webrtc_custom.threshold_channels[0] == &fake_webrtc_custom.rpc_channel &&
-                 fake_webrtc_custom.threshold_channels[1] == &fake_webrtc_custom.edge_channel &&
-                 fake_webrtc_custom.threshold_channels[2] == &fake_webrtc_custom.remote_channels[0],
+                 fake_webrtc_custom.threshold_channels[1] == &fake_webrtc_custom.service_channels[15] &&
+                 fake_webrtc_custom.threshold_channels[2] == &fake_webrtc_custom.edge_channel &&
+                 fake_webrtc_custom.threshold_channels[3] == &fake_webrtc_custom.remote_channels[0],
              "custom low-water threshold applies to every service channel") != 0) {
     return 1;
   }
@@ -3658,6 +3820,13 @@ int main(void) {
     gzc_buf_free(&fake_webrtc_no_ice_hook.native_sent, platform);
     return 1;
   }
+  rc = gzc_client_set_webrtc_media(client_no_ice_hook, &media);
+  if (expect(
+          rc == GZC_OK,
+          "client without ICE hook still registers mandatory media") != 0) {
+    gzc_client_destroy(client_no_ice_hook);
+    return 1;
+  }
   rc = gzc_client_connect(client_no_ice_hook);
   if (expect(rc == GZC_ERR_UNSUPPORTED, "client connect without ICE hook rejects advertised ICE metadata") != 0) {
     gzc_client_destroy(client_no_ice_hook);
@@ -3712,6 +3881,9 @@ int main(void) {
   gzc_client_t *client_gateway = NULL;
   rc = gzc_client_create(&config_gateway, &client_gateway);
   if (rc == GZC_OK) {
+    rc = gzc_client_set_webrtc_media(client_gateway, &media);
+  }
+  if (rc == GZC_OK) {
     rc = gzc_client_connect(client_gateway);
   }
   if (expect(rc == GZC_OK, "gateway client connects without authoritative ICE hook") != 0 ||
@@ -3728,8 +3900,9 @@ int main(void) {
       GZC_PROTOCOL_OPUS_PACKET,
       (const uint8_t[]){0xf8, 0x55},
       2u);
-  if (expect(rc == GZC_ERR_UNSUPPORTED,
-             "connected client without media extension rejects Opus") != 0) {
+  if (expect(
+          rc == GZC_OK && fake_webrtc_gateway.opus_send_count == 1,
+          "gateway client uses the mandatory Opus media extension") != 0) {
     return 1;
   }
   gzc_client_destroy(client_gateway);

@@ -1,6 +1,7 @@
 package gizwebrtc
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -28,6 +29,7 @@ type Conn struct {
 	packetMu  sync.RWMutex
 	packetDC  *webrtc.DataChannel
 	packetRaw datachannel.ReadWriteCloserDeadliner
+	audioUp   atomic.Bool
 
 	serviceMu sync.Mutex
 	services  map[uint64]*ServiceListener
@@ -84,8 +86,12 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 		audioTrack: audioTrack,
 	}
 	pc.OnDataChannel(c.handleDataChannel)
-	pc.OnTrack(func(track *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
+	pc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		if strings.EqualFold(track.Codec().MimeType, MediaStreamOpus) {
+			if !c.audioUp.CompareAndSwap(false, true) {
+				_ = receiver.Stop()
+				return
+			}
 			go c.readRemoteOpus(track)
 		}
 	})
@@ -292,11 +298,6 @@ func (c *Conn) validate() error {
 
 func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 	label := dc.Label()
-	if label == packetLabel {
-		dc.OnClose(func() {
-			_ = c.Close()
-		})
-	}
 	dc.OnOpen(func() {
 		raw, err := dc.DetachWithDeadline()
 		if err != nil {
@@ -353,6 +354,9 @@ func (c *Conn) setPacket(dc *webrtc.DataChannel, raw datachannel.ReadWriteCloser
 	}
 	c.packetDC = dc
 	c.packetRaw = raw
+	dc.OnClose(func() {
+		_ = c.Close()
+	})
 	c.packetMu.Unlock()
 	close(c.readyCh)
 	go c.readPacketLoop(raw)
@@ -362,6 +366,9 @@ func (c *Conn) readPacketLoop(raw datachannel.ReadWriteCloserDeadliner) {
 	for {
 		pkt, err := readPacket(raw)
 		if err != nil {
+			if errors.Is(err, errPacketProtocolIgnored) {
+				continue
+			}
 			_ = c.Close()
 			return
 		}
@@ -398,6 +405,7 @@ func (c *Conn) writeOpus(payload []byte) (int, error) {
 }
 
 func (c *Conn) readRemoteOpus(track *webrtc.TrackRemote) {
+	defer func() { _ = c.Close() }()
 	for {
 		pkt, _, err := track.ReadRTP()
 		if err != nil {

@@ -42,6 +42,7 @@ type Client struct {
 	conn     giznet.Conn
 	serverPK giznet.PublicKey
 	rpc      *rpcClient
+	events   *peerEventSession
 
 	packetMu          sync.RWMutex
 	packetSubscribers map[byte]map[chan []byte]struct{}
@@ -113,7 +114,22 @@ func (c *Client) Dial(serverPK giznet.PublicKey, serverAddr string) error {
 	if err != nil {
 		return fmt.Errorf("gizclaw: dial: %w", err)
 	}
+	eventStream, err := conn.Dial(EventStreamAgent)
+	if err != nil {
+		_ = conn.Close()
+		if l != nil {
+			_ = l.Close()
+		}
+		return fmt.Errorf("gizclaw: dial mandatory peer event stream: %w", err)
+	}
+	events := newPeerEventSession(eventStream, func() {
+		c.closeTransportIfCurrent(conn)
+	})
 	c.init(l, conn, serverPK)
+	c.mu.Lock()
+	c.events = events
+	c.mu.Unlock()
+	events.start()
 	return nil
 }
 
@@ -141,6 +157,10 @@ func (c *Client) Serve() error {
 		defer stop()
 		return c.servePackets()
 	})
+	g.Go(func() error {
+		defer stop()
+		return c.rejectDuplicateEventStreams()
+	})
 	return g.Wait()
 }
 
@@ -156,15 +176,22 @@ func (c *Client) Close() error {
 	c.mu.Lock()
 	conn := c.conn
 	listener := c.listener
+	events := c.events
 	c.conn = nil
 	c.listener = nil
 	c.serverPK = giznet.PublicKey{}
 	c.rpc = nil
+	c.events = nil
 	c.mu.Unlock()
 
 	var err error
+	if events != nil {
+		if closeErr := events.close(); closeErr != nil {
+			err = closeErr
+		}
+	}
 	if conn != nil {
-		if closeErr := conn.Close(); closeErr != nil {
+		if closeErr := conn.Close(); err == nil {
 			err = closeErr
 		}
 	}
@@ -174,6 +201,18 @@ func (c *Client) Close() error {
 		}
 	}
 	return err
+}
+
+func (c *Client) closeTransportIfCurrent(conn giznet.Conn) {
+	if c == nil || conn == nil {
+		return
+	}
+	c.mu.RLock()
+	current := c.conn == conn
+	c.mu.RUnlock()
+	if current {
+		_ = c.Close()
+	}
 }
 
 // HTTPClient returns an HTTP client bound to a peer service.
@@ -501,6 +540,25 @@ func (c *Client) servePackets() error {
 			return err
 		}
 		c.dispatchPeerPacket(protocol, buf[:n])
+	}
+}
+
+func (c *Client) rejectDuplicateEventStreams() error {
+	conn := c.PeerConn()
+	if conn == nil {
+		return nil
+	}
+	listener := conn.ListenService(EventStreamAgent)
+	defer func() { _ = listener.Close() }()
+	for {
+		stream, err := listener.Accept()
+		if err != nil {
+			if isPeerPacketReadClosed(err) {
+				return nil
+			}
+			return err
+		}
+		_ = stream.Close()
 	}
 }
 

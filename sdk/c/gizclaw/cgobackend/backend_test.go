@@ -20,9 +20,13 @@ func (w *recordingSampleWriter) WriteSample(sample media.Sample) error {
 }
 
 type recordingEventSink struct {
-	opus [][]byte
+	opus       [][]byte
+	peerStates []int
 }
 
+func (s *recordingEventSink) PeerState(state int) {
+	s.peerStates = append(s.peerStates, state)
+}
 func (*recordingEventSink) RemoteChannel(int, string, bool, bool) {}
 func (*recordingEventSink) ChannelState(int, int)                 {}
 func (*recordingEventSink) ChannelMessage(int, []byte, bool)      {}
@@ -140,6 +144,82 @@ func TestAnswerHasBidirectionalOpus(t *testing.T) {
 				t.Fatalf("answerHasBidirectionalOpus() = %t, want %t", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestBackendAcceptsOnlyOneRemoteOpusTrack(t *testing.T) {
+	backend := New()
+	if !backend.claimRemoteOpus() {
+		t.Fatal("first remote Opus track was rejected")
+	}
+	if backend.claimRemoteOpus() {
+		t.Fatal("duplicate remote Opus track was accepted")
+	}
+	backend.Close()
+	if backend.claimRemoteOpus() {
+		t.Fatal("remote Opus track was accepted after close")
+	}
+}
+
+func TestBackendReportsAcceptedRemoteOpusTrackEndAsPeerFailure(t *testing.T) {
+	backend := New()
+	sink := &recordingEventSink{}
+	backend.SetEventSink(sink)
+
+	backend.failPeer()
+	backend.Poll(0)
+
+	if len(sink.peerStates) != 1 || sink.peerStates[0] != RTCPeerFailed {
+		t.Fatalf("peer states = %v, want [%d]", sink.peerStates, RTCPeerFailed)
+	}
+}
+
+func TestBackendKeepsIndependentSameServiceDataChannels(t *testing.T) {
+	backend := New()
+	if err := backend.CreatePeer(); err != nil {
+		t.Fatal(err)
+	}
+	defer backend.Close()
+
+	for _, channel := range []struct {
+		id    int
+		label string
+	}{
+		{id: -1, label: "giznet/v1/service/49"},
+		{id: -2, label: "giznet/v1/service/49"},
+		{id: -3, label: "giznet/v1/service/48"},
+	} {
+		if err := backend.CreateDataChannel(channel.label, channel.id, true, true); err != nil {
+			t.Fatalf("CreateDataChannel(%q, %d): %v", channel.label, channel.id, err)
+		}
+	}
+	backend.mu.Lock()
+	if len(backend.dcs) != 3 {
+		backend.mu.Unlock()
+		t.Fatalf("live data channels = %d, want 3", len(backend.dcs))
+	}
+	first := backend.dcs[-1]
+	second := backend.dcs[-2]
+	different := backend.dcs[-3]
+	backend.mu.Unlock()
+	if first == nil || second == nil || different == nil ||
+		first == second || first == different || second == different {
+		t.Fatal("same-ID and different-ID services did not receive distinct channel state")
+	}
+
+	backend.CloseDataChannel(-1)
+	backend.mu.Lock()
+	_, firstOpen := backend.dcs[-1]
+	_, secondOpen := backend.dcs[-2]
+	_, differentOpen := backend.dcs[-3]
+	backend.mu.Unlock()
+	if firstOpen || !secondOpen || !differentOpen {
+		t.Fatalf(
+			"channel close state = first:%t second:%t different:%t",
+			firstOpen,
+			secondOpen,
+			differentOpen,
+		)
 	}
 }
 

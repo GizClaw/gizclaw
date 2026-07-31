@@ -15,6 +15,13 @@
 
 Audio、direct packet、Peer Event Stream、RPC/HTTP service stream 的方向、可靠性、service ID、framing 与生命周期统一由 [Streams Reference](/references/streams) 定义；Event wire type 与字段统一由 [Events Reference](/references/events) 定义。本页只说明 `PeerConn` 如何实现这些 contract，不再复制协议表格。
 
+正常 Client / Device 连接在产品层 ready 前必须已经具有一条 Opus RTP uplink、
+一条 Opus RTP downlink、一条 unordered `maxRetransmits=0` Direct Packet
+DataChannel 和一条 reliable ordered `0x20` Event Stream。`pkgs/giznet/gizwebrtc`
+负责前三项的 WebRTC mechanics；`PeerConn.serve` 先接受并订阅唯一 Event Stream，
+再调用 `activateConn` 发布 Peer。Event 缺失超时或任一必需 transport 关闭都会
+关闭完整 connection。额外 Event stream 被关闭，不替换已绑定的实例。
+
 ## Service stream 写入流控
 
 JavaScript、Flutter 和 C SDK 对 reliable、ordered service DataChannel 使用每 channel 串行 writer。JavaScript 与 Flutter 的每个原生 DataChannel message 最多承载 16 KiB，面向嵌入式的 C SDK 使用更保守的 4 KiB 上限；writer 到达 high-water 后暂停，收到 buffered-amount-low 通知且队列降到 low-water 后才继续。一次写入成功表示该逻辑消息的全部分片已被本地 WebRTC 发送队列接受，不表示远端已经消费。
@@ -36,11 +43,15 @@ C API v3 通过独立的 `gzc_webrtc_media_vtable_t` 扩展公开双向 Opus RTP
 | `servePackets` / `serveDirectPackets` | 接收普通与 direct packet，并分发 telemetry/media。 |
 | `serveRPC` / `serveEdgeRPC` | 启动 Peer RPC 或 Edge RPC service loop。 |
 | `init` / `initRPC` / `initMixer` / `initAgentHost` / `initPeerGenX` | 组装 connection-scoped runtime dependencies。 |
-| `serveEvents` / `handleEventStream` | 接受 event stream 并推入 Agent input。 |
+| `acceptMandatoryEventStream` / `readEventStream` | 在 Peer activation 前有界等待唯一 Event stream，并把事件推入 Agent input；stream 结束会关闭 connection。 |
+| `rejectDuplicateEventStreams` | 接受并关闭额外 `0x20`，保留已绑定的 connection owner。 |
 | `processTelemetryPackets` / `handleTelemetryPacket` | 解码 telemetry 并同步 Peer status。 |
 | `streamMixedAudio` | 在每个 20ms pacing opportunity 从已混合 PCM stream 读取一帧，编码一次 Opus，并写入一次 WebRTC audio track。 |
 | `close` | 按 lifecycle 顺序关闭所有 connection-scoped 资源。 |
 
-在启动任何 RPC、HTTP、Event、packet 或 audio loop 前，`PeerConn` 会原子确保 durable Peer generation 并把准确 connection 发布到 `Manager`，因此立即到达的 `server.register` 不会早于 connection activation。`server.peer.delete` 开始时，准确的 connection 会进入 retiring，其 Manager 条目会在 durable mutation 前进入 deleting。该 public key 的新工作、registration 与 replacement activation 会被拒绝，但 store 操作不会阻塞其他 Peer。mutation 成功后只条件摘除同一 generation；失败时也只在它仍是 current generation 时恢复。当前删除 RPC 的 transport 会保留到 acknowledgement 与 EOS 写入尝试结束；无论 response 或 EOS 写入是否成功，terminal action 都会关闭完整 Giznet connection。
+在启动任何 RPC、HTTP、packet 或 audio loop 前，`PeerConn` 先绑定 Event Stream，
+再原子确保 durable Peer generation 并把准确 connection 发布到 `Manager`，因此
+不存在“Peer 已 online 但没有 Event transport”的窗口，立即到达的
+`server.register` 也不会早于 connection activation。`server.peer.delete` 开始时，准确的 connection 会进入 retiring，其 Manager 条目会在 durable mutation 前进入 deleting。该 public key 的新工作、registration 与 replacement activation 会被拒绝，但 store 操作不会阻塞其他 Peer。mutation 成功后只条件摘除同一 generation；失败时也只在它仍是 current generation 时恢复。当前删除 RPC 的 transport 会保留到 acknowledgement 与 EOS 写入尝试结束；无论 response 或 EOS 写入是否成功，terminal action 都会关闭完整 Giznet connection。
 
 `streamMixedAudio` 是生成音频唯一的发送 pacing owner。普通 Go ticker 迟到时继续读取下一帧，不丢弃、重排或批量补发 PCM，也不创建 provider epoch。Pion 在同一条 WebRTC track 生命周期内维护 SSRC、RTP sequence number 和 timestamp；每个 20ms Opus sample 在 48kHz RTP clock 上推进 960 ticks，新连接建立独立 RTP timeline。到达 jitter、adaptive playout delay、packet-loss concealment 与 Opus FEC 属于 WebRTC receiver。

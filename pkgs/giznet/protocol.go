@@ -7,7 +7,8 @@ const (
 	// Dial and ListenService. This protocol is not returned by Conn.Read.
 	ProtocolServiceStream byte = 0x00
 
-	// ProtocolOpusPacket identifies raw Opus direct packets.
+	// ProtocolOpusPacket identifies Opus media packets. WebRTC transports these
+	// packets over RTP rather than the Direct Packet DataChannel.
 	ProtocolOpusPacket byte = 0x10
 
 	// ProtocolTunnelPacket identifies session-tagged, loss-tolerant packets

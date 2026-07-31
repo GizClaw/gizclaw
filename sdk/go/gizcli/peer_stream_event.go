@@ -10,20 +10,19 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// DialPeerEventStream opens the reliable bidirectional agent stream event channel.
+// DialPeerEventStream opens a logical view of the connection-owned,
+// bidirectional Peer Event stream.
 func (c *Client) DialPeerEventStream() (net.Conn, error) {
 	if c == nil {
 		return nil, fmt.Errorf("gizclaw: nil client")
 	}
-	conn := c.PeerConn()
-	if conn == nil {
+	c.mu.RLock()
+	events := c.events
+	c.mu.RUnlock()
+	if events == nil {
 		return nil, fmt.Errorf("gizclaw: client is not connected")
 	}
-	stream, err := conn.Dial(EventStreamAgent)
-	if err != nil {
-		return nil, fmt.Errorf("gizclaw: dial peer event stream: %w", err)
-	}
-	return stream, nil
+	return events.subscribe()
 }
 
 // ReadPeerStreamEvent reads one framed peer stream event.

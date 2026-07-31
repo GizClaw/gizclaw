@@ -7,6 +7,7 @@ import {
   GIZCLAW_SERVICE_ADMIN_HTTP,
   GIZCLAW_MAX_PACKET_MESSAGE_SIZE,
   GIZCLAW_EVENT_STREAM_TELEMETRY,
+  GIZCLAW_EVENT_STREAM_AGENT,
   GIZCLAW_SERVICE_EDGE_RPC,
   GIZCLAW_SERVICE_PEER_RPC,
   GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL,
@@ -32,6 +33,7 @@ import {
   fetchGiznetServerInfo,
   giznetServiceDataChannelLabel,
   getGiznetWebRTCPacketDataChannel,
+  getGiznetWebRTCPeerEventDataChannel,
   parseRPCResponse,
   prepareGiznetWebRTCPeerConnection,
   rewriteGiznetWebRTCAnswerForEndpoint,
@@ -1876,7 +1878,7 @@ test("createAdminAPIFetch waits for open readyState before sending", async () =>
   assert.deepEqual(await response.json(), { has_next: false, items: [] });
 });
 
-test("connectGiznetWebRTC waits for the packet data channel", async () => {
+test("connectGiznetWebRTC waits for both mandatory data channels", async () => {
   const pc = new FakePeerConnection();
   let settled = false;
   const connected = connectGiznetWebRTC({
@@ -1897,6 +1899,9 @@ test("connectGiznetWebRTC waits for the packet data channel", async () => {
   assert.equal(settled, false);
 
   pc.channel(GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL).open();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(settled, false);
+  pc.channel(giznetServiceDataChannelLabel(0x20)).open();
 
   assert.equal(await connected, pc);
   assert.equal(settled, true);
@@ -2092,7 +2097,7 @@ test("SSE client yields parsed JSON event objects", async () => {
   assert.deepEqual(events, [{ message: "ready" }]);
 });
 
-test("prepareGiznetWebRTCPeerConnection creates packet channel and audio transceiver", () => {
+test("prepareGiznetWebRTCPeerConnection creates all mandatory transports", () => {
   const pc = new FakePeerConnection();
 
   prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
@@ -2106,9 +2111,51 @@ test("prepareGiznetWebRTCPeerConnection creates packet channel and audio transce
     getGiznetWebRTCPacketDataChannel(pc as unknown as RTCPeerConnection),
     pc.channels[0],
   );
+  assert.equal(
+    getGiznetWebRTCPeerEventDataChannel(pc as unknown as RTCPeerConnection),
+    pc.channels[1],
+  );
+  assert.equal(pc.channels[1]?.label, giznetServiceDataChannelLabel(0x20));
+  assert.deepEqual(pc.channels[1]?.options, { ordered: true });
   assert.deepEqual(pc.transceivers, [
     { kind: "audio", init: { direction: "sendrecv" } },
   ]);
+});
+
+test("closing or failing either mandatory data channel closes the peer connection", () => {
+  const pc = new FakePeerConnection();
+  prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+
+  pc.channels[0]?.fail();
+  assert.equal(pc.closeCalls, 1);
+  assert.equal(pc.connectionState, "closed");
+
+  pc.channels[1]?.remoteClose();
+  assert.equal(pc.closeCalls, 1);
+});
+
+test("failing the peer connection closes its mandatory transports", () => {
+  const pc = new FakePeerConnection();
+  prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+
+  pc.failConnection();
+
+  assert.equal(pc.closeCalls, 1);
+  assert.equal(pc.connectionState, "closed");
+});
+
+test("prepared peer closes duplicate remote mandatory channels", () => {
+  const pc = new FakePeerConnection();
+  prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+
+  for (const label of [
+    GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL,
+    giznetServiceDataChannelLabel(GIZCLAW_EVENT_STREAM_AGENT),
+  ]) {
+    const duplicate = new FakeDataChannel(label);
+    pc.receiveDataChannel(duplicate);
+    assert.equal(duplicate.closed, true);
+  }
 });
 
 test("prepared WebRTC peer serves server-initiated protobuf ping", async () => {
@@ -2730,6 +2777,8 @@ test("prepareEncryptedGiznetWebRTCOffer builds a browser-safe encrypted offer", 
 
 class FakePeerConnection {
   channels: FakeDataChannel[] = [];
+  closeCalls = 0;
+  connectionState: RTCPeerConnectionState = "new";
   iceGatheringState: RTCIceGatheringState = "complete";
   localDescription: RTCSessionDescription | null = null;
   transceivers: Array<{ init?: RTCRtpTransceiverInit; kind: string }> = [];
@@ -2742,6 +2791,11 @@ class FakePeerConnection {
     const channel = new FakeDataChannel(label, options);
     this.channels.push(channel);
     return channel;
+  }
+
+  close(): void {
+    this.closeCalls += 1;
+    this.connectionState = "closed";
   }
 
   async createOffer(): Promise<RTCSessionDescriptionInit> {
@@ -2774,6 +2828,13 @@ class FakePeerConnection {
   receiveDataChannel(channel: FakeDataChannel): void {
     for (const listener of this.listeners.get("datachannel") ?? []) {
       listener({ channel });
+    }
+  }
+
+  failConnection(): void {
+    this.connectionState = "failed";
+    for (const listener of this.listeners.get("connectionstatechange") ?? []) {
+      listener({});
     }
   }
 
@@ -2921,6 +2982,10 @@ class FakeDataChannel {
     this.closed = true;
     this.readyState = "closed";
     this.emit("close");
+  }
+
+  fail(): void {
+    this.emit("error");
   }
 
   open(): void {

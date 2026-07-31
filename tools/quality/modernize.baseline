@@ -88,12 +88,12 @@ pkgs/gizclaw/internal/socialutil/util_test.go:64:34: call of strPtr(x) can be si
 pkgs/gizclaw/internal/socialutil/util_test.go:64:8: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/internal/socialutil/util_test.go:65:34: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/internal/socialutil/util_test.go:65:8: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/peer_conn_test.go:1044:6: for loop can be modernized using range over int
-pkgs/gizclaw/peer_conn_test.go:1134:119: call of peerConnIntPtr(x) can be simplified to new(x)
-pkgs/gizclaw/peer_conn_test.go:1142:113: call of peerConnBoolPtr(x) can be simplified to new(x)
-pkgs/gizclaw/peer_conn_test.go:1150:6: for loop can be modernized using range over int
-pkgs/gizclaw/peer_conn_test.go:1619:6: peerConnBoolPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/peer_conn_test.go:1623:6: peerConnIntPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/peer_conn_test.go:1093:6: for loop can be modernized using range over int
+pkgs/gizclaw/peer_conn_test.go:1183:119: call of peerConnIntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_conn_test.go:1191:113: call of peerConnBoolPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_conn_test.go:1199:6: for loop can be modernized using range over int
+pkgs/gizclaw/peer_conn_test.go:1668:6: peerConnBoolPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/peer_conn_test.go:1672:6: peerConnIntPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/peer_service.go:128:6: for loop can be modernized using range over int
 pkgs/gizclaw/peer_service_serve_admin_test.go:380:23: call of adminTestStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/peer_service_serve_admin_test.go:430:73: call of adminTestStringPtr(x) can be simplified to new(x)

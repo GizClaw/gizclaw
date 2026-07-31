@@ -15,6 +15,7 @@ import {
   RPC_FRAME_TYPE_BINARY,
   RPC_FRAME_TYPE_EOS,
 } from "./index.ts";
+import type { WebRTCRPCDataChannel } from "./index.ts";
 
 export * from "./generated/events/peer_event_pb.js";
 
@@ -180,6 +181,70 @@ export class PeerEventFrameDecoder {
       throw new Error("incomplete Peer Event frame");
     }
   }
+}
+
+export function subscribePeerEvents(
+  channel: WebRTCRPCDataChannel,
+  listener: (event: DecodedPeerStreamEvent) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  const decoder = new PeerEventFrameDecoder();
+  let active = true;
+  let tail = Promise.resolve();
+  const cleanup = (): void => {
+    if (!active) return;
+    active = false;
+    channel.removeEventListener("message", onMessage);
+    channel.removeEventListener("close", onClose);
+    channel.removeEventListener("error", onChannelError);
+  };
+  const onMessage = (message: MessageEvent): void => {
+    tail = tail.then(async () => {
+      if (!active) return;
+      try {
+        const bytes = await peerEventMessageBytes(message.data);
+        for (const event of decoder.push(bytes)) {
+          listener(event);
+        }
+      } catch (error) {
+        onError?.(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  };
+  const onClose = (): void => {
+    cleanup();
+    onError?.(new Error("Peer Event channel closed."));
+  };
+  const onChannelError = (): void => {
+    cleanup();
+    onError?.(new Error("Peer Event channel failed."));
+  };
+  channel.addEventListener("message", onMessage);
+  channel.addEventListener("close", onClose);
+  channel.addEventListener("error", onChannelError);
+  return cleanup;
+}
+
+export function sendPeerEvent(
+  channel: WebRTCRPCDataChannel,
+  event: PeerEvent,
+): void {
+  if (channel.readyState !== "open") {
+    throw new Error("Peer Event channel is not open.");
+  }
+  channel.send(encodePeerEventFrame(event));
+}
+
+async function peerEventMessageBytes(data: unknown): Promise<Uint8Array> {
+  if (data instanceof Uint8Array) return data;
+  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+  if (ArrayBuffer.isView(data)) {
+    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  }
+  if (data instanceof Blob) {
+    return new Uint8Array(await data.arrayBuffer());
+  }
+  throw new Error("Peer Event DataChannel message must be binary.");
 }
 
 export function validatePeerEvent(event: PeerEvent): void {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
@@ -551,6 +552,7 @@ GizClawConnectionController _controller({
   String registrationToken = '',
   RegisterGizClawServer? registerServer,
   PublishGizClawClientInfo? publishClientInfo,
+  ResolvePeerEventSession? resolvePeerEventSession,
 }) {
   const key = '11111111111111111111111111111111';
   return GizClawConnectionController(
@@ -567,7 +569,47 @@ GizClawConnectionController _controller({
     prepareAudioOutput: prepareAudioOutput ?? () async {},
     publishClientInfo: publishClientInfo ?? (_, _) async {},
     registerServer: registerServer,
+    resolvePeerEventSession:
+        resolvePeerEventSession ??
+        (_) => WorkspaceEventSession.attach(_TestEventDataChannel()),
   );
+}
+
+class _TestEventDataChannel implements GizClawDataChannel {
+  final _messages = StreamController<Uint8List>.broadcast();
+  final _states = StreamController<GizClawDataChannelState>.broadcast();
+  var _state = GizClawDataChannelState.open;
+
+  @override
+  int get bufferedAmount => 0;
+
+  @override
+  String get label => giznetWebRtcEventDataChannelLabel;
+
+  @override
+  Stream<Uint8List> get messages => _messages.stream;
+
+  @override
+  GizClawDataChannelState get state => _state;
+
+  @override
+  Stream<GizClawDataChannelState> get states => _states.stream;
+
+  @override
+  Future<void> close() async {
+    if (_state == GizClawDataChannelState.closed) return;
+    _state = GizClawDataChannelState.closed;
+    _states.add(_state);
+    await _messages.close();
+    await _states.close();
+  }
+
+  @override
+  Future<void> send(Uint8List bytes) async {
+    if (_state == GizClawDataChannelState.closed) {
+      throw StateError('Peer Event channel is closed');
+    }
+  }
 }
 
 class _FakePeerConnection extends Fake implements rtc.RTCPeerConnection {

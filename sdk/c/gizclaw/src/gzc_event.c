@@ -5,9 +5,11 @@
 #include <pb_encode.h>
 #include <string.h>
 
+#include "gzc_client_internal.h"
 #include "gzc_rpc_frame.h"
 
 struct gzc_event_stream {
+  gzc_client_t *client;
   gzc_service_channel_t *channel;
   const gzc_platform_t *platform;
 };
@@ -111,12 +113,16 @@ int gzc_event_stream_open(
   }
   memset(stream, 0, sizeof(*stream));
   stream->platform = platform;
-  int rc = gzc_client_open_service_channel(
-      client, GZC_SERVICE_PEER_EVENT, timeout_ms, &stream->channel);
+  gzc_service_channel_t *channel = NULL;
+  int rc =
+      gzc_client_acquire_event_channel_internal(client, stream, &channel);
   if (rc != GZC_OK) {
     platform->free(platform->userdata, stream);
     return rc;
   }
+  stream->client = client;
+  stream->channel = channel;
+  (void)timeout_ms;
   *out_stream = stream;
   return GZC_OK;
 }
@@ -124,8 +130,11 @@ int gzc_event_stream_open(
 int gzc_event_stream_send(
     gzc_event_stream_t *stream,
     const gzc_peer_event_t *event) {
-  if (stream == NULL || stream->channel == NULL || event == NULL) {
+  if (stream == NULL || event == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (stream->channel == NULL) {
+    return GZC_ERR_CLOSED;
   }
   int rc = peer_event_validate(event, 0);
   if (rc != GZC_OK) {
@@ -162,11 +171,14 @@ int gzc_event_stream_read(
     gzc_event_stream_t *stream,
     int timeout_ms,
     gzc_peer_event_t *out_event) {
-  if (stream == NULL || stream->channel == NULL || out_event == NULL) {
+  if (stream == NULL || out_event == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   gzc_peer_event_t empty = gizclaw_events_v1_PeerEvent_init_zero;
   *out_event = empty;
+  if (stream->channel == NULL) {
+    return GZC_ERR_CLOSED;
+  }
   gzc_buf_t frame_bytes;
   gzc_buf_init(&frame_bytes);
   int rc = gzc_service_channel_read_frame(
@@ -203,7 +215,17 @@ void gzc_event_stream_close(gzc_event_stream_t *stream) {
   if (stream == NULL) {
     return;
   }
-  gzc_service_channel_close(stream->channel);
+  gzc_client_release_event_channel_internal(
+      stream->client, stream, stream->channel);
+  stream->client = NULL;
   stream->channel = NULL;
   stream->platform->free(stream->platform->userdata, stream);
+}
+
+void gzc_event_stream_invalidate_internal(gzc_event_stream_t *stream) {
+  if (stream == NULL) {
+    return;
+  }
+  stream->client = NULL;
+  stream->channel = NULL;
 }

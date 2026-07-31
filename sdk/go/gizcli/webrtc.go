@@ -168,14 +168,9 @@ func (r *ClientWebRTCRegistration) registerEventDataChannel(dc *webrtc.DataChann
 		})
 	}
 	dc.OnOpen(func() {
-		conn := r.client.PeerConn()
-		if conn == nil {
-			_ = dc.Close()
-			return
-		}
-		eventStream, err := conn.Dial(EventStreamAgent)
+		eventStream, err := r.client.DialPeerEventStream()
 		if err != nil {
-			slog.Debug("gizclaw: dial event stream for webrtc failed", "error", err)
+			slog.Debug("gizclaw: subscribe to event stream for webrtc failed", "error", err)
 			_ = dc.Close()
 			return
 		}

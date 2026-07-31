@@ -29,9 +29,7 @@ int gzcGoChannelSetBufferedAmountLowThreshold(uint64_t handle, int channel_id, u
 void gzcGoChannelClose(uint64_t handle, int channel_id);
 void gzcGoPeerClose(uint64_t handle);
 enum {
-  gzc_cgo_channel_packet = 0,
-  gzc_cgo_channel_rpc = 1,
-  gzc_cgo_channel_event = 2
+  gzc_cgo_channel_packet = 0
 };
 
 static gzc_str_t bridge_str_from_parts(const char *data, size_t len) {
@@ -137,10 +135,11 @@ int gzc_cgo_backend_init(gzc_cgo_backend_t *backend) {
   backend->peer.backend = backend;
   backend->packet_channel.backend = backend;
   backend->packet_channel.id = gzc_cgo_channel_packet;
-  backend->rpc_channel.backend = backend;
-  backend->rpc_channel.id = gzc_cgo_channel_rpc;
-  backend->event_channel.backend = backend;
-  backend->event_channel.id = gzc_cgo_channel_event;
+  backend->packet_channel.in_use = true;
+  backend->next_local_channel_id = -1;
+  for (size_t i = 0; i < GZC_CGO_MAX_LOCAL_CHANNELS; i++) {
+    backend->local_channels[i].backend = backend;
+  }
   for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
     backend->remote_channels[i].backend = backend;
     backend->remote_channels[i].remote = true;
@@ -319,6 +318,14 @@ static int bridge_peer_create(void *userdata, const gzc_webrtc_callbacks_t *call
   if (backend == NULL || callbacks == NULL || out_peer == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
+  backend->next_local_channel_id = -1;
+  for (size_t i = 0; i < GZC_CGO_MAX_LOCAL_CHANNELS; i++) {
+    backend->local_channels[i].id = 0;
+    backend->local_channels[i].label[0] = 0;
+    backend->local_channels[i].ordered = false;
+    backend->local_channels[i].reliable = false;
+    backend->local_channels[i].in_use = false;
+  }
   backend->callbacks = *callbacks;
   int rc = gzcGoPeerCreate(backend->handle);
   if (rc != GZC_OK) {
@@ -392,14 +399,33 @@ static int bridge_peer_create_data_channel(
   if (config->label.len == strlen("giznet/v1/packet") &&
       strncmp(config->label.data, "giznet/v1/packet", config->label.len) == 0) {
     channel = &backend->packet_channel;
-  } else if (config->label.len == strlen("giznet/v1/service/0") &&
-             strncmp(config->label.data, "giznet/v1/service/0", config->label.len) == 0) {
-    channel = &backend->rpc_channel;
-  } else if (config->label.len == strlen("giznet/v1/service/32") &&
-             strncmp(config->label.data, "giznet/v1/service/32", config->label.len) == 0) {
-    channel = &backend->event_channel;
   } else {
-    return GZC_ERR_UNSUPPORTED;
+    const char *prefix = "giznet/v1/service/";
+    const size_t prefix_len = strlen(prefix);
+    if (config->label.data == NULL || config->label.len <= prefix_len ||
+        strncmp(config->label.data, prefix, prefix_len) != 0) {
+      return GZC_ERR_UNSUPPORTED;
+    }
+    for (size_t i = prefix_len; i < config->label.len; i++) {
+      if (config->label.data[i] < '0' || config->label.data[i] > '9') {
+        return GZC_ERR_UNSUPPORTED;
+      }
+    }
+    for (size_t i = 0; i < GZC_CGO_MAX_LOCAL_CHANNELS; i++) {
+      if (!backend->local_channels[i].in_use) {
+        channel = &backend->local_channels[i];
+        break;
+      }
+    }
+    if (channel == NULL || config->label.len >= sizeof(channel->label)) {
+      return GZC_ERR_NO_MEMORY;
+    }
+    channel->id = backend->next_local_channel_id--;
+    channel->in_use = true;
+    channel->ordered = config->ordered;
+    channel->reliable = config->reliable;
+    memcpy(channel->label, config->label.data, config->label.len);
+    channel->label[config->label.len] = 0;
   }
   int rc = gzcGoPeerCreateDataChannel(
       backend->handle,
@@ -409,6 +435,10 @@ static int bridge_peer_create_data_channel(
       config->ordered,
       config->reliable);
   if (rc != GZC_OK) {
+    if (channel != &backend->packet_channel) {
+      channel->in_use = false;
+      channel->label[0] = 0;
+    }
     return rc;
   }
   *out_channel = channel;
@@ -449,6 +479,10 @@ static int bridge_channel_set_buffered_amount_low_threshold(
 static void bridge_channel_close(gzc_rtc_channel_t *channel) {
   if (channel != NULL && channel->backend != NULL) {
     gzcGoChannelClose(channel->backend->handle, channel->id);
+    if (!channel->remote && channel != &channel->backend->packet_channel) {
+      channel->in_use = false;
+      channel->label[0] = 0;
+    }
   }
 }
 
@@ -586,28 +620,34 @@ static gzc_rtc_channel_t *remote_channel_by_id(gzc_cgo_backend_t *backend, int c
   return NULL;
 }
 
+static gzc_rtc_channel_t *local_channel_by_id(gzc_cgo_backend_t *backend, int channel_id) {
+  if (backend == NULL) {
+    return NULL;
+  }
+  if (channel_id == gzc_cgo_channel_packet) {
+    return &backend->packet_channel;
+  }
+  for (size_t i = 0; i < GZC_CGO_MAX_LOCAL_CHANNELS; i++) {
+    gzc_rtc_channel_t *channel = &backend->local_channels[i];
+    if (channel->in_use && channel->id == channel_id) {
+      return channel;
+    }
+  }
+  return NULL;
+}
+
 static void fill_channel_info(const gzc_rtc_channel_t *channel, gzc_rtc_channel_info_t *info) {
   memset(info, 0, sizeof(*info));
-  if (channel->remote) {
+  if (channel->remote || channel->id != gzc_cgo_channel_packet) {
     info->label = bridge_str_from_cstr(channel->label);
     info->stream_id = (uint16_t)channel->id;
     info->ordered = channel->ordered;
     info->reliable = channel->reliable;
-  } else if (channel->id == gzc_cgo_channel_packet) {
+  } else {
     info->label = bridge_str_from_cstr("giznet/v1/packet");
     info->stream_id = 0;
     info->ordered = false;
     info->reliable = false;
-  } else if (channel->id == gzc_cgo_channel_rpc) {
-    info->label = bridge_str_from_cstr("giznet/v1/service/0");
-    info->stream_id = 1;
-    info->ordered = true;
-    info->reliable = true;
-  } else {
-    info->label = bridge_str_from_cstr("giznet/v1/service/32");
-    info->stream_id = 2;
-    info->ordered = true;
-    info->reliable = true;
   }
 }
 
@@ -658,13 +698,8 @@ void gzc_cgo_emit_channel_state(gzc_cgo_backend_t *backend, int channel_id, gzc_
   }
   gzc_rtc_channel_t *channel = remote_channel_by_id(backend, channel_id);
   if (channel == NULL) {
-    if (channel_id == gzc_cgo_channel_packet) {
-      channel = &backend->packet_channel;
-    } else if (channel_id == gzc_cgo_channel_rpc) {
-      channel = &backend->rpc_channel;
-    } else if (channel_id == gzc_cgo_channel_event) {
-      channel = &backend->event_channel;
-    } else {
+    channel = local_channel_by_id(backend, channel_id);
+    if (channel == NULL) {
       return;
     }
   }
@@ -676,11 +711,22 @@ void gzc_cgo_emit_channel_state(gzc_cgo_backend_t *backend, int channel_id, gzc_
       channel,
       &info,
       state);
-  if (channel->remote && (state == GZC_RTC_CHANNEL_CLOSED || state == GZC_RTC_CHANNEL_ERROR)) {
+  if (channel->remote &&
+      (state == GZC_RTC_CHANNEL_CLOSED || state == GZC_RTC_CHANNEL_ERROR)) {
     channel->in_use = false;
     channel->id = 0;
     channel->label[0] = 0;
   }
+}
+
+void gzc_cgo_emit_peer_state(
+    gzc_cgo_backend_t *backend,
+    gzc_rtc_peer_state_t state) {
+  if (backend == NULL || backend->callbacks.on_peer_state == NULL) {
+    return;
+  }
+  backend->callbacks.on_peer_state(
+      backend->callbacks.userdata, &backend->peer, state);
 }
 
 void gzc_cgo_emit_channel_message(gzc_cgo_backend_t *backend, int channel_id, const uint8_t *data, size_t len, bool is_text) {
@@ -689,13 +735,8 @@ void gzc_cgo_emit_channel_message(gzc_cgo_backend_t *backend, int channel_id, co
   }
   gzc_rtc_channel_t *channel = remote_channel_by_id(backend, channel_id);
   if (channel == NULL) {
-    if (channel_id == gzc_cgo_channel_packet) {
-      channel = &backend->packet_channel;
-    } else if (channel_id == gzc_cgo_channel_rpc) {
-      channel = &backend->rpc_channel;
-    } else if (channel_id == gzc_cgo_channel_event) {
-      channel = &backend->event_channel;
-    } else {
+    channel = local_channel_by_id(backend, channel_id);
+    if (channel == NULL) {
       return;
     }
   }
@@ -715,13 +756,8 @@ void gzc_cgo_emit_channel_buffered_amount_low(gzc_cgo_backend_t *backend, int ch
   }
   gzc_rtc_channel_t *channel = remote_channel_by_id(backend, channel_id);
   if (channel == NULL) {
-    if (channel_id == gzc_cgo_channel_packet) {
-      channel = &backend->packet_channel;
-    } else if (channel_id == gzc_cgo_channel_rpc) {
-      channel = &backend->rpc_channel;
-    } else if (channel_id == gzc_cgo_channel_event) {
-      channel = &backend->event_channel;
-    } else {
+    channel = local_channel_by_id(backend, channel_id);
+    if (channel == NULL) {
       return;
     }
   }

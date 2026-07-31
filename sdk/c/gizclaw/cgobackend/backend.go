@@ -41,6 +41,7 @@ const (
 
 	RTCChannelOpen   = 1
 	RTCChannelClosed = 2
+	RTCPeerFailed    = 4
 )
 
 var processStart = time.Now()
@@ -56,6 +57,7 @@ type HTTPResponse struct {
 }
 
 type EventSink interface {
+	PeerState(state int)
 	RemoteChannel(channelID int, label string, ordered, reliable bool)
 	ChannelState(channelID int, state int)
 	ChannelMessage(channelID int, data []byte, isText bool)
@@ -74,6 +76,7 @@ type Backend struct {
 	events     []backendEvent
 	eventReady chan struct{}
 	closed     bool
+	audioUp    bool
 
 	packetSendCalls atomic.Uint64
 	opusSendCalls   atomic.Uint64
@@ -97,7 +100,8 @@ type dataChannelState struct {
 type backendEventKind uint8
 
 const (
-	backendEventRemoteChannel backendEventKind = iota
+	backendEventPeerState backendEventKind = iota
+	backendEventRemoteChannel
 	backendEventChannelState
 	backendEventChannelMessage
 	backendEventBufferedAmountLow
@@ -255,9 +259,16 @@ func (b *Backend) CreatePeer() error {
 			}
 		}
 	}()
-	pc.OnTrack(func(track *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
+	pc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		if strings.EqualFold(track.Codec().MimeType, MediaStreamOpus) {
-			go b.forwardRemoteOpus(track)
+			if !b.claimRemoteOpus() {
+				_ = receiver.Stop()
+				return
+			}
+			go func() {
+				b.forwardRemoteOpus(track)
+				b.failPeer()
+			}()
 		}
 	})
 	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
@@ -266,7 +277,28 @@ func (b *Backend) CreatePeer() error {
 	b.pc = pc
 	b.opusTrack = opusTrack
 	b.closed = false
+	b.audioUp = false
 	return nil
+}
+
+func (b *Backend) claimRemoteOpus() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed || b.audioUp {
+		return false
+	}
+	b.audioUp = true
+	return true
+}
+
+func (b *Backend) failPeer() {
+	b.enqueue(backendEvent{kind: backendEventPeerState, state: RTCPeerFailed})
+	b.mu.Lock()
+	pc := b.pc
+	b.mu.Unlock()
+	if pc != nil {
+		_ = pc.Close()
+	}
 }
 
 func (b *Backend) acceptRemoteDataChannel(dc *webrtc.DataChannel) {
@@ -563,6 +595,8 @@ func (b *Backend) Poll(timeoutMS int) {
 	}
 	for _, event := range events {
 		switch event.kind {
+		case backendEventPeerState:
+			sink.PeerState(event.state)
 		case backendEventRemoteChannel:
 			sink.RemoteChannel(event.channelID, event.label, event.ordered, event.reliable)
 		case backendEventChannelState:
@@ -665,6 +699,7 @@ func (b *Backend) Close() {
 	b.dcs = nil
 	b.pc = nil
 	b.opusTrack = nil
+	b.audioUp = false
 	b.sink = nil
 	b.events = nil
 	b.closed = true
