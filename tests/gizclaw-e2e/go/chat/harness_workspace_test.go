@@ -315,7 +315,7 @@ func TestDeepWorkspaceConfigPathsAreCapabilityRepresentatives(t *testing.T) {
 		{
 			name:  "realtime auto split",
 			paths: realtimeAutoSplitWorkspaceConfigPaths(t),
-			want:  []string{"ast-translate.json", "doubao-realtime.json"},
+			want:  []string{"ast-translate.json", "doubao-realtime.json", "flowcraft-basic.json"},
 		},
 		{
 			name:  "history replay",
