@@ -80,9 +80,11 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		_ = l.Close()
 		return nil, nil, err
 	}
-	packetDC.OnClose(func() {
+	if !conn.reservePacketDataChannel(packetDC) {
 		_ = conn.Close()
-	})
+		_ = l.Close()
+		return nil, nil, ErrPacketChannel
+	}
 	packetDC.OnOpen(func() {
 		raw, err := packetDC.DetachWithDeadline()
 		if err != nil {

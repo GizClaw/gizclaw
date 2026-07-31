@@ -298,6 +298,10 @@ func (c *Conn) validate() error {
 
 func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 	label := dc.Label()
+	if label == packetLabel && !c.reservePacketDataChannel(dc) {
+		_ = dc.Close()
+		return
+	}
 	dc.OnOpen(func() {
 		raw, err := dc.DetachWithDeadline()
 		if err != nil {
@@ -345,18 +349,30 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 	})
 }
 
+func (c *Conn) reservePacketDataChannel(dc *webrtc.DataChannel) bool {
+	c.packetMu.Lock()
+	defer c.packetMu.Unlock()
+	if c.packetDC != nil {
+		return false
+	}
+	c.packetDC = dc
+	dc.OnClose(func() {
+		_ = c.Close()
+	})
+	dc.OnError(func(error) {
+		_ = c.Close()
+	})
+	return true
+}
+
 func (c *Conn) setPacket(dc *webrtc.DataChannel, raw datachannel.ReadWriteCloserDeadliner) {
 	c.packetMu.Lock()
-	if c.packetRaw != nil {
+	if c.packetDC != dc || c.packetRaw != nil {
 		c.packetMu.Unlock()
 		_ = raw.Close()
 		return
 	}
-	c.packetDC = dc
 	c.packetRaw = raw
-	dc.OnClose(func() {
-		_ = c.Close()
-	})
 	c.packetMu.Unlock()
 	close(c.readyCh)
 	go c.readPacketLoop(raw)
