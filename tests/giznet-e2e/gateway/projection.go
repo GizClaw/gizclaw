@@ -373,7 +373,8 @@ func validateProjectionRunSet(runs []artifact) error {
 			return errors.New("run artifacts were produced by different commits or host/Docker budgets")
 		}
 		currentHost := run.Host
-		if currentHost.GOOS == "" || currentHost.GOARCH == "" || currentHost.GoVersion == "" || currentHost.LogicalCPU <= 0 {
+		if currentHost.GOOS == "" || currentHost.GOARCH == "" || currentHost.GoVersion == "" ||
+			currentHost.LogicalCPU <= 0 || currentHost.GOMAXPROCS != 8 {
 			return fmt.Errorf("scenario %q repetition %d lacks a complete load-driver identity", run.Config.Scenario, run.Config.Repetition)
 		}
 		if host == nil {

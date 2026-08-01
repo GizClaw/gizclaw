@@ -100,6 +100,7 @@ type hostSummary struct {
 	GOARCH     string `json:"goarch"`
 	GoVersion  string `json:"go_version"`
 	LogicalCPU int    `json:"logical_cpu"`
+	GOMAXPROCS int    `json:"go_max_procs"`
 }
 
 type artifactConfig struct {
@@ -455,6 +456,7 @@ func run(ctx context.Context, opts options) (artifact, error) {
 		Host: hostSummary{
 			GOOS: runtime.GOOS, GOARCH: runtime.GOARCH,
 			GoVersion: runtime.Version(), LogicalCPU: runtime.NumCPU(),
+			GOMAXPROCS: runtime.GOMAXPROCS(0),
 		},
 		Config: artifactConfig{
 			Edges: opts.edges, Sessions: opts.sessions, Ramp: opts.ramp,
@@ -777,55 +779,60 @@ func pingAll(ctx context.Context, state *resultState, opts options, sem chan str
 	edgeFailures := make(map[string]int)
 	upstreamRTTs := make(map[string]map[string][]time.Duration)
 	upstreamFailures := make(map[string]map[string]int)
-	var wg sync.WaitGroup
-	for index, session := range sessions {
-		wg.Add(1)
-		go func(index int, session *liveSession) {
-			defer wg.Done()
-			select {
-			case sem <- struct{}{}:
-			case <-ctx.Done():
-				err := ctx.Err()
-				state.recordPing(0, err)
+	sessionOffset := 0
+	for _, batch := range pingSessionBatches(sessions, opts.concurrency) {
+		var wg sync.WaitGroup
+		for batchIndex, session := range batch {
+			index := sessionOffset + batchIndex
+			wg.Add(1)
+			go func(index int, session *liveSession) {
+				defer wg.Done()
+				select {
+				case sem <- struct{}{}:
+				case <-ctx.Done():
+					err := ctx.Err()
+					state.recordPing(0, err)
+					roundMu.Lock()
+					edgeFailures[session.edge]++
+					if upstreamFailures[session.edge] == nil {
+						upstreamFailures[session.edge] = make(map[string]int)
+					}
+					upstreamFailures[session.edge][session.upstream]++
+					roundMu.Unlock()
+					return
+				}
+				defer func() { <-sem }()
+				pingCtx, cancel := context.WithTimeout(ctx, opts.pingTimeout)
+				pingStarted := time.Now()
+				id := fmt.Sprintf("gateway-capacity-%s-%d-%d", phase, round, index)
+				_, err := session.client.Ping(pingCtx, id)
+				rtt := time.Since(pingStarted)
+				cancel()
+				state.recordPing(rtt, err)
 				roundMu.Lock()
-				edgeFailures[session.edge]++
+				if upstreamRTTs[session.edge] == nil {
+					upstreamRTTs[session.edge] = make(map[string][]time.Duration)
+				}
 				if upstreamFailures[session.edge] == nil {
 					upstreamFailures[session.edge] = make(map[string]int)
 				}
-				upstreamFailures[session.edge][session.upstream]++
+				if err == nil {
+					roundRTTs = append(roundRTTs, rtt)
+					edgeRTTs[session.edge] = append(edgeRTTs[session.edge], rtt)
+					upstreamRTTs[session.edge][session.upstream] = append(
+						upstreamRTTs[session.edge][session.upstream],
+						rtt,
+					)
+				} else {
+					edgeFailures[session.edge]++
+					upstreamFailures[session.edge][session.upstream]++
+				}
 				roundMu.Unlock()
-				return
-			}
-			defer func() { <-sem }()
-			pingCtx, cancel := context.WithTimeout(ctx, opts.pingTimeout)
-			pingStarted := time.Now()
-			id := fmt.Sprintf("gateway-capacity-%s-%d-%d", phase, round, index)
-			_, err := session.client.Ping(pingCtx, id)
-			rtt := time.Since(pingStarted)
-			cancel()
-			state.recordPing(rtt, err)
-			roundMu.Lock()
-			if upstreamRTTs[session.edge] == nil {
-				upstreamRTTs[session.edge] = make(map[string][]time.Duration)
-			}
-			if upstreamFailures[session.edge] == nil {
-				upstreamFailures[session.edge] = make(map[string]int)
-			}
-			if err == nil {
-				roundRTTs = append(roundRTTs, rtt)
-				edgeRTTs[session.edge] = append(edgeRTTs[session.edge], rtt)
-				upstreamRTTs[session.edge][session.upstream] = append(
-					upstreamRTTs[session.edge][session.upstream],
-					rtt,
-				)
-			} else {
-				edgeFailures[session.edge]++
-				upstreamFailures[session.edge][session.upstream]++
-			}
-			roundMu.Unlock()
-		}(index, session)
+			}(index, session)
+		}
+		wg.Wait()
+		sessionOffset += len(batch)
 	}
-	wg.Wait()
 	state.recordPingRound(pingRoundSummary{
 		Phase:            phase,
 		Round:            round,
@@ -839,6 +846,19 @@ func pingAll(ctx context.Context, state *resultState, opts options, sem chan str
 		UpstreamRTT:      summarizeNestedLatencyMap(upstreamRTTs),
 		UpstreamFailures: upstreamFailures,
 	})
+}
+
+func pingSessionBatches(sessions []*liveSession, concurrency int) [][]*liveSession {
+	if concurrency <= 0 {
+		return nil
+	}
+	batches := make([][]*liveSession, 0, (len(sessions)+concurrency-1)/concurrency)
+	for len(sessions) > 0 {
+		count := min(len(sessions), concurrency)
+		batches = append(batches, sessions[:count])
+		sessions = sessions[count:]
+	}
+	return batches
 }
 
 func runSpeedTests(ctx context.Context, state *resultState, opts options) {

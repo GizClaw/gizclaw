@@ -100,7 +100,7 @@ run_case() {
   set +a
 
   echo "==> run extended capacity workload: scenario=$scenario repetition=$repetition"
-  (cd "$repo_root" && "$gateway_bin" \
+  (cd "$repo_root" && GOMAXPROCS=8 "$gateway_bin" \
     -edges "$GIZCLAW_E2E_EDGE_ENDPOINT,$GIZCLAW_E2E_EDGE2_ENDPOINT" \
     -sessions "$sessions" \
     -ramp "$ramp" \
