@@ -26,6 +26,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	_ "github.com/GizClaw/gizclaw-go/sdk/c/gizclaw/cgobackend"
 	"google.golang.org/protobuf/proto"
 )
@@ -1234,6 +1235,8 @@ func CSDKSocialRelationships(
 	registrationToken string,
 ) {
 	t.Helper()
+	peerAPublicKey := identityPublicKey(t, identityADir)
+	peerBPublicKey := identityPublicKey(t, identityBDir)
 	clientA := newTestClient(t, identityADir)
 	defer clientA.Close()
 	clientB := newTestClient(t, identityBDir)
@@ -1256,7 +1259,7 @@ func CSDKSocialRelationships(
 	)
 	var friendAdd rpcpb.FriendAddResponse
 	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_ADD, &rpcpb.FriendAddRequest{InviteToken: friendToken.GetInviteToken()}, &friendAdd)
-	if friendAdd.GetValue().GetId() == "" || friendAdd.GetValue().GetWorkspaceName() == "" || friendAdd.GetValue().GetPeerPublicKey() == "" {
+	if friendAdd.GetValue().GetId() == "" || friendAdd.GetValue().GetWorkspaceName() == "" || friendAdd.GetValue().GetPeerPublicKey() != peerBPublicKey {
 		t.Fatalf("invalid server.friend.add: %s", friendAdd.String())
 	}
 	friendID := friendAdd.GetValue().GetId()
@@ -1278,19 +1281,26 @@ func CSDKSocialRelationships(
 		&repeatedFriendAdd,
 	)
 	if repeatedFriendAdd.GetValue().GetId() != friendID ||
-		repeatedFriendAdd.GetValue().GetWorkspaceName() != friendWorkspace {
+		repeatedFriendAdd.GetValue().GetWorkspaceName() != friendWorkspace ||
+		repeatedFriendAdd.GetValue().GetPeerPublicKey() != peerBPublicKey {
 		t.Fatalf("repeated server.friend.add was not idempotent: %s", repeatedFriendAdd.String())
 	}
-	for name, client := range map[string]*Client{"Peer A": clientA, "Peer B": clientB} {
+	for name, peer := range map[string]struct {
+		client                *Client
+		expectedPeerPublicKey string
+	}{
+		"Peer A": {client: clientA, expectedPeerPublicKey: peerBPublicKey},
+		"Peer B": {client: clientB, expectedPeerPublicKey: peerAPublicKey},
+	} {
 		var friends rpcpb.FriendListResponse
 		mustCallRPC(
 			t,
-			client,
+			peer.client,
 			rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_LIST,
-			&rpcpb.FriendListRequest{Limit: new(int64(1000))},
+			&rpcpb.FriendListRequest{Limit: ptr(int64(1000))},
 			&friends,
 		)
-		if !friendListContainsWorkspace(friends.GetItems(), friendWorkspace) {
+		if !friendListContains(friends.GetItems(), peer.expectedPeerPublicKey, friendWorkspace) {
 			t.Fatalf("%s did not list the shared Friend relationship: %s", name, friends.String())
 		}
 	}
@@ -1373,6 +1383,23 @@ func newTestClient(t *testing.T, identityDir string) *Client {
 		t.Fatal(err)
 	}
 	return client
+}
+
+func identityPublicKey(t *testing.T, identityDir string) string {
+	t.Helper()
+	cfg, err := readClientConfig(identityDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var privateKey giznet.Key
+	if err := privateKey.UnmarshalText([]byte(cfg.privateKey)); err != nil {
+		t.Fatalf("parse C SDK identity private key: %v", err)
+	}
+	keyPair, err := giznet.NewKeyPair(privateKey)
+	if err != nil {
+		t.Fatalf("derive C SDK identity public key: %v", err)
+	}
+	return keyPair.Public.String()
 }
 
 func registerClient(t *testing.T, client *Client, registrationToken string) Registration {
@@ -1492,10 +1519,10 @@ func contactListContains(items []*rpcpb.ContactObject, id string) bool {
 	return false
 }
 
-func friendListContainsWorkspace(items []*rpcpb.FriendObject, workspaceName string) bool {
+func friendListContains(items []*rpcpb.FriendObject, peerPublicKey, workspaceName string) bool {
 	for _, item := range items {
 		if item.GetId() != "" &&
-			item.GetPeerPublicKey() != "" &&
+			item.GetPeerPublicKey() == peerPublicKey &&
 			item.GetWorkspaceName() == workspaceName {
 			return true
 		}
