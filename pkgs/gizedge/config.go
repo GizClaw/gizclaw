@@ -6,10 +6,12 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/goccy/go-yaml"
 )
 
@@ -36,8 +38,10 @@ type IdentityConfig struct {
 }
 
 type UpstreamConfig struct {
-	Endpoint  string           `yaml:"endpoint"`
-	PublicKey giznet.PublicKey `yaml:"public-key"`
+	Endpoint           string                `yaml:"endpoint"`
+	PublicKey          giznet.PublicKey      `yaml:"public-key"`
+	ICETransportPolicy string                `yaml:"ice-transport-policy"`
+	ICEServers         []gizwebrtc.ICEServer `yaml:"ice-servers"`
 }
 
 type TLSConfig struct {
@@ -146,6 +150,12 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if cfg.Upstream.PublicKey.IsZero() {
 		cfg.Upstream.PublicKey = fileCfg.Upstream.PublicKey
 	}
+	if cfg.Upstream.ICETransportPolicy == "" {
+		cfg.Upstream.ICETransportPolicy = fileCfg.Upstream.ICETransportPolicy
+	}
+	if len(cfg.Upstream.ICEServers) == 0 {
+		cfg.Upstream.ICEServers = append([]gizwebrtc.ICEServer(nil), fileCfg.Upstream.ICEServers...)
+	}
 	if cfg.TLS.CertSource == "" || cfg.TLS.CertSource == TLSCertSourceDisabled {
 		cfg.TLS = fileCfg.TLS
 	}
@@ -196,6 +206,9 @@ func (cfg Config) validate() error {
 	if _, err := cfg.UpstreamURL(); err != nil {
 		return err
 	}
+	if err := cfg.Upstream.validate(); err != nil {
+		return err
+	}
 	if err := cfg.TURN.validate(); err != nil {
 		return err
 	}
@@ -210,6 +223,91 @@ func (cfg Config) validate() error {
 	default:
 		return fmt.Errorf("edge: invalid tls.cert-source %q", cfg.TLS.CertSource)
 	}
+}
+
+func (cfg UpstreamConfig) relayEnabled() bool {
+	return cfg.ICETransportPolicy == "relay" && len(cfg.ICEServers) > 0
+}
+
+func (cfg UpstreamConfig) validate() error {
+	policy := cfg.ICETransportPolicy
+	if policy == "" && len(cfg.ICEServers) == 0 {
+		return nil
+	}
+	if policy != "relay" {
+		return fmt.Errorf("edge: upstream.ice-transport-policy must be relay when upstream ICE servers are configured")
+	}
+	if len(cfg.ICEServers) < 2 {
+		return fmt.Errorf("edge: upstream.ice-servers must contain at least two relay members")
+	}
+	seen := make(map[string]int, len(cfg.ICEServers))
+	for i, server := range cfg.ICEServers {
+		endpoint, err := upstreamRelayEndpoint(server)
+		if err != nil {
+			return fmt.Errorf("edge: invalid upstream.ice-servers[%d]: %w", i, err)
+		}
+		if previous, ok := seen[endpoint]; ok {
+			return fmt.Errorf("edge: upstream.ice-servers[%d] duplicates member %d", i, previous)
+		}
+		seen[endpoint] = i
+		if err := validateUpstreamRelayCredentials(server); err != nil {
+			return fmt.Errorf("edge: invalid upstream.ice-servers[%d]: %w", i, err)
+		}
+	}
+	return nil
+}
+
+func upstreamRelayEndpoint(server gizwebrtc.ICEServer) (string, error) {
+	if len(server.URLs) != 1 {
+		return "", fmt.Errorf("urls must contain exactly one TURN endpoint")
+	}
+	raw := server.URLs[0]
+	if raw != strings.TrimSpace(raw) {
+		return "", fmt.Errorf("urls must not contain surrounding whitespace")
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "", fmt.Errorf("urls contain an invalid TURN endpoint")
+	}
+	if !strings.HasPrefix(raw, "turn:") || parsed.Scheme != "turn" || parsed.Opaque == "" || parsed.Host != "" || parsed.User != nil {
+		return "", fmt.Errorf("urls must use a turn URI without userinfo")
+	}
+	if parsed.Fragment != "" {
+		return "", fmt.Errorf("urls must not contain a fragment")
+	}
+	query := parsed.Query()
+	if len(query) != 1 || len(query["transport"]) != 1 || query.Get("transport") != "udp" {
+		return "", fmt.Errorf("urls must contain only transport=udp")
+	}
+	host, portText, err := net.SplitHostPort(parsed.Opaque)
+	if err != nil {
+		return "", fmt.Errorf("urls must contain a literal IP and explicit port")
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return "", fmt.Errorf("urls host must be a literal IP")
+	}
+	port, err := strconv.ParseUint(portText, 10, 16)
+	if err != nil || port == 0 {
+		return "", fmt.Errorf("urls port must be between 1 and 65535")
+	}
+	return net.JoinHostPort(ip.String(), strconv.FormatUint(port, 10)), nil
+}
+
+func validateUpstreamRelayCredentials(server gizwebrtc.ICEServer) error {
+	switch server.CredentialMode {
+	case "", gizwebrtc.ICECredentialModeStatic:
+		if strings.TrimSpace(server.Username) == "" || strings.TrimSpace(server.Credential) == "" {
+			return fmt.Errorf("static credential mode requires username and credential")
+		}
+	case gizwebrtc.ICECredentialModeTURNREST:
+		if strings.TrimSpace(server.Credential) == "" {
+			return fmt.Errorf("turn-rest credential mode requires credential")
+		}
+	default:
+		return fmt.Errorf("credential-mode is unsupported")
+	}
+	return nil
 }
 
 func mergeGatewayConfig(cfg, file GatewayConfig) GatewayConfig {

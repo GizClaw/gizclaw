@@ -82,7 +82,7 @@ func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
 		},
 		Gateway: gatewayConfig,
 	}
-	gateway, err := newGateway(t.Context(), cfg, upstreamURL)
+	gateway, err := newGateway(t.Context(), cfg, upstreamURL, nil)
 	if err != nil {
 		t.Fatalf("newGateway error = %v", err)
 	}
@@ -573,7 +573,7 @@ func openGatewayThroughputStreams(tb testing.TB, clients, maxUpstreams int) []ga
 		},
 		Gateway: gatewayConfig,
 	}
-	gateway, err := newGateway(ctx, cfg, upstreamURL)
+	gateway, err := newGateway(ctx, cfg, upstreamURL, nil)
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -843,6 +843,43 @@ func TestGatewayAdmissionRejectsCapacityBeforeHandshake(t *testing.T) {
 	admission.releasePending()
 	if _, err := gateway.reserveAdmission(); err != nil {
 		t.Fatalf("reserve after release error = %v", err)
+	}
+}
+
+func TestGatewayUpstreamReportsOnlyUnplannedPhysicalRelayFailure(t *testing.T) {
+	for _, test := range []struct {
+		name          string
+		cancelContext bool
+		wantFailures  uint32
+	}{
+		{name: "physical failure", wantFailures: 1},
+		{name: "shutdown", cancelContext: true, wantFailures: 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			selector, err := newUpstreamRelaySelector(testUpstreamRelayConfig(t))
+			if err != nil {
+				t.Fatalf("newUpstreamRelaySelector error = %v", err)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			if test.cancelContext {
+				cancel()
+			} else {
+				defer cancel()
+			}
+			pool := &gatewayPool{ctx: ctx}
+			entry := &gatewayUpstream{
+				pool:         pool,
+				conn:         &failingGiznetConn{readErr: giznet.ErrConnClosed},
+				relayAttempt: selector.markSuccess(0),
+			}
+			pool.entries = []*gatewayUpstream{entry}
+
+			entry.readPackets()
+
+			if got := selector.members[0].failures; got != test.wantFailures {
+				t.Fatalf("relay failure count = %d, want %d", got, test.wantFailures)
+			}
+		})
 	}
 }
 

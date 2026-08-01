@@ -13,6 +13,7 @@ pkgs/gizedge/
 ├── config.go     # Edge workspace 配置与边界检查
 ├── edge.go       # Public ingress、上游连接和请求转发 runtime
 ├── gateway.go    # Client 终止、逻辑连接与有界 upstream pool
+├── upstream_relay.go # 共享的 upstream TURN 选择与健康状态
 └── turn.go       # 可选 TURN server runtime
 ```
 
@@ -61,7 +62,8 @@ Edge workspace 配置描述当前节点运行所需的基础信息：
 
 - Edge Node 自身的 giznet identity。
 - Public HTTP listen address 和对外 endpoint。
-- 单个 upstream Server 的 endpoint 与 public key。
+- 单个 upstream Server 的 endpoint 与 public key，以及可选的 Edge-to-Server
+  relay-only TURN pool。
 - TLS certificate source 的选择。
 - 可选 TURN listener、public endpoint、relay address、credential 和 relay port range。
 - 可选 gateway ICE UDP listener、public UDP endpoint、容量、upstream pool、buffer、idle 和 drain 边界。
@@ -85,6 +87,44 @@ Edge ingress 不拥有 Peer HTTP、OpenAI-compatible HTTP 或其他 product rout
 ### Upstream Connection
 
 Edge Node 使用 `pkgs/giznet/gizwebrtc` 连接配置的 authoritative Server。`ServiceEdgeHTTP` 承载 public HTTP forwarding，`ServiceEdgeTunnel` 承载 gateway logical sessions。
+
+默认省略 `upstream.ice-transport-policy` 和 `upstream.ice-servers`，保持原有
+direct ICE。启用 relay 时配置至少两个 literal-IP TURN/UDP 成员：
+
+```yaml
+upstream:
+  endpoint: https://server.example.invalid:9820
+  public-key: <authoritative-server-key>
+  ice-transport-policy: relay
+  ice-servers:
+    - urls: [turn:192.0.2.10:3478?transport=udp]
+      username: <turn-rest-key-id>
+      credential: <turn-rest-shared-secret>
+      credential-mode: turn-rest
+    - urls: [turn:192.0.2.11:3478?transport=udp]
+      username: <turn-rest-key-id>
+      credential: <turn-rest-shared-secret>
+      credential-mode: turn-rest
+```
+
+relay mode 为每条新 upstream PeerConnection 只传入一个 pool member 和
+relay-only ICE。HTTP forwarding 与 gateway upstream 共享同一个进程内
+round-robin 健康 selector。relay 失败后进入有上限的指数退避；连接仍在原有 30 秒预算内
+尝试其他 eligible member，每个 member 最多使用 5 秒，并且绝不回退到 direct ICE。
+成功重连会清除该 member 的失败状态；request cancellation、Edge shutdown 或单个
+logical session 失败不会惩罚 relay。已有 gateway session 保持绑定到原 physical
+upstream，可能随其失败；新的 client reconnect 才会从当前 healthy pool 重新选择。
+
+每个 pool member 只允许一个小写 `turn:` URL，地址必须是 literal IPv4 或带方括号的
+IPv6、显式端口，并且 query 只能是 `transport=udp`。static mode（显式或默认）同时要求
+`username` 和 `credential`；`turn-rest` 要求作为 shared secret 的 `credential`，配置的
+username/key ID 可为空。无效、重复、字段不完整、hostname、TCP 或 TLS relay 配置都会在
+Edge 启动 listener 前失败。
+
+relay 选择不会改变 `upstream.endpoint`、`upstream.public-key` 或 signaling 使用的
+Server identity。顶层 `turn` block 与它相互独立：该 block 运行 device-to-Edge 的
+downstream TURN server，不是 Edge-to-Server upstream pool member。日志不得记录 relay
+username、credential、SDP、ICE candidate body 或业务 payload。
 
 每条 gateway upstream 是一条独立的 WebRTC PeerConnection 和 SCTP
 association；每个 logical session 在选中的 upstream 上拥有自己的
