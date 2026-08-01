@@ -361,14 +361,14 @@ func requireCEventAfterServiceClose(
 	var groupPut rpcpb.FriendGroupPutResponse
 	if err := client.CallRPC(
 		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_PUT,
-		&rpcpb.FriendGroupPutRequest{Id: groupID, Name: new(updatedGroupName)},
+		&rpcpb.FriendGroupPutRequest{Id: groupID, Name: &updatedGroupName},
 		&groupPut,
 	); err != nil {
 		t.Fatalf("update C Event probe Friend Group: %v", err)
 	}
 	updatedAt := groupPut.GetValue().GetUpdatedAt()
 	if updatedAt == "" {
-		t.Fatalf("updated C Event probe Friend Group has no server updated_at: %s", groupPut.String())
+		t.Fatal("updated C Event probe Friend Group has no server updated_at")
 	}
 	serverUpdatedAt, err := time.Parse(time.RFC3339Nano, updatedAt)
 	if err != nil {

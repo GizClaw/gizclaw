@@ -108,9 +108,11 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 bash tests/gizclaw-e2e/run_human_review_tests.sh
 ```
 
-破坏性的 Edge 场景和已 provision 的 Volc LogStore 使用各自固定入口：
+需要固定 selection 的 sibling-close、破坏性 Edge 场景和已 provision 的 Volc
+LogStore 使用各自入口：
 
 ```sh
+bash tests/gizclaw-e2e/run_sibling_close_tests.sh
 bash tests/gizclaw-e2e/run_edge_failure_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
 
@@ -120,7 +122,9 @@ GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
   bash tests/gizclaw-e2e/run_volc_log_tests.sh
 ```
 
-五个 GizClaw 入口都要求同一份完整的 `tests/gizclaw-e2e/.env`。Gateway capacity
+六个 GizClaw 入口都要求同一份完整的 `tests/gizclaw-e2e/.env`。Sibling-close 入口在
+独立 Docker 环境中固定连续运行三次 JavaScript、C/cgo 与 Go 的并发 service/Event
+场景，不接受环境变量改变 selection 或重复次数。Gateway capacity
 入口固定运行本机 one-Server/two-Edge 的 100-session 基线：除保持连接和多轮 ping 外，
 100 个 session 还会同步执行每路 4 MiB upload 和 download，并按共享 wall-clock 记录
 聚合吞吐；单路对照使用 32 MiB sustained payload。machine-readable artifact 写到
