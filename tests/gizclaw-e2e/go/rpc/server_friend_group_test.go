@@ -3,6 +3,8 @@
 package rpc_test
 
 import (
+	"bytes"
+	"errors"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -118,6 +120,29 @@ func TestServerFriendGroupRPC(t *testing.T) {
 		if message.FriendGroupId != *group.Id || message.HistoryId == "" {
 			t.Fatalf("friend_group.messages.list item = %#v", message)
 		}
+	}
+	missingHistoryID := "issue-686-missing-history"
+	var audio bytes.Buffer
+	audioResult, err := env.c.GetFriendGroupMessageAudio(env.ctx, "friend_group.messages.audio.get.missing", rpcapi.FriendGroupMessageAudioGetRequest{
+		FriendGroupId: *group.Id,
+		HistoryId:     missingHistoryID,
+	}, &audio)
+	if err == nil {
+		t.Fatal("friend_group.messages.audio.get missing unexpectedly succeeded")
+	}
+	var rpcErr rpcapi.Error
+	if !errors.As(err, &rpcErr) || rpcErr.Code != rpcapi.RPCErrorCodeNotFound || rpcErr.Message != "not found" || err.Error() != "rpc: not found" {
+		t.Fatalf("friend_group.messages.audio.get missing error = %v (%+v), want generic typed not found", err, rpcErr)
+	}
+	if audioResult.Metadata != (rpcapi.FriendGroupMessageAudioGetResponse{}) || audioResult.Bytes != 0 || audio.Len() != 0 {
+		t.Fatalf("friend_group.messages.audio.get missing result = %#v payload=%q, want zero result", audioResult, audio.String())
+	}
+	gotAfterAudioFailure, err := env.c.GetFriendGroup(env.ctx, "friend_group.get.after_audio_failure", rpcapi.FriendGroupGetRequest{Id: *group.Id})
+	if err != nil {
+		t.Fatalf("friend_group.get after audio failure: %v", err)
+	}
+	if gotAfterAudioFailure.Id == nil || *gotAfterAudioFailure.Id != *group.Id {
+		t.Fatalf("friend_group.get after audio failure = %#v", gotAfterAudioFailure)
 	}
 	if _, err := env.d.GetFriendGroup(env.ctx, "friend_group.get.denied", rpcapi.FriendGroupGetRequest{Id: *group.Id}); err == nil {
 		t.Fatal("non-member unexpectedly read group")
