@@ -1124,10 +1124,11 @@ func requireStableCSDKMandatoryTransports(
 	}
 }
 
-func CSDKSocialBasic(t *testing.T, identityDir string) {
+func CSDKSocialBasic(t *testing.T, identityDir, registrationToken string) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
 	defer client.Close()
+	requireDefaultGameplayRegistration(t, client, registrationToken)
 	unique := time.Now().UnixMilli()
 	contactName := fmt.Sprintf("C SDK Social Contact %d", unique)
 	contactPhone := fmt.Sprintf("+1555%010d", unique%10000000000)
@@ -1142,6 +1143,14 @@ func CSDKSocialBasic(t *testing.T, identityDir string) {
 		t.Fatalf("invalid server.contact.create: %s", contactCreate.String())
 	}
 	contactID := contactCreate.GetValue().GetId()
+	defer cleanupCSDKRPC(
+		t,
+		client,
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_CONTACT_DELETE,
+		&rpcpb.ContactDeleteRequest{Id: contactID},
+		&rpcpb.ContactDeleteResponse{},
+		"Contact",
+	)
 	var contactGet rpcpb.ContactGetResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_CONTACT_GET, &rpcpb.ContactGetRequest{Id: contactID}, &contactGet)
 	if contactGet.GetValue().GetId() != contactID {
@@ -1162,6 +1171,14 @@ func CSDKSocialBasic(t *testing.T, identityDir string) {
 		t.Fatalf("invalid server.friend_group.create: %s", groupCreate.String())
 	}
 	groupID := groupCreate.GetValue().GetId()
+	defer cleanupCSDKRPC(
+		t,
+		client,
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE,
+		&rpcpb.FriendGroupDeleteRequest{Id: groupID},
+		&rpcpb.FriendGroupDeleteResponse{},
+		"Friend Group",
+	)
 	var groupGet rpcpb.FriendGroupGetResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_GET, &rpcpb.FriendGroupGetRequest{Id: groupID}, &groupGet)
 	if groupGet.GetValue().GetId() != groupID {
@@ -1177,6 +1194,14 @@ func CSDKSocialBasic(t *testing.T, identityDir string) {
 	if tokenResponse.GetInviteToken() == "" || tokenResponse.GetExpiresAt() == "" {
 		t.Fatalf("invalid server.friend_group.invite_token.create: %s", tokenResponse.String())
 	}
+	defer cleanupCSDKRPC(
+		t,
+		client,
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR,
+		&rpcpb.FriendGroupInviteTokenClearRequest{FriendGroupId: groupID},
+		&rpcpb.FriendGroupInviteTokenClearResponse{},
+		"Friend Group invite token",
+	)
 	var messageSend rpcpb.FriendGroupMessageSendResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND, &rpcpb.FriendGroupMessageSendRequest{
 		FriendGroupId:    groupID,
@@ -1202,22 +1227,72 @@ func CSDKSocialBasic(t *testing.T, identityDir string) {
 	}
 }
 
-func CSDKSocialRelationships(t *testing.T, identityADir, identityBDir string) {
+func CSDKSocialRelationships(
+	t *testing.T,
+	identityADir,
+	identityBDir,
+	registrationToken string,
+) {
 	t.Helper()
 	clientA := newTestClient(t, identityADir)
 	defer clientA.Close()
 	clientB := newTestClient(t, identityBDir)
 	defer clientB.Close()
+	requireDefaultGameplayRegistration(t, clientA, registrationToken)
+	requireDefaultGameplayRegistration(t, clientB, registrationToken)
 
 	var friendToken rpcpb.FriendInviteTokenCreateResponse
 	mustCallRPC(t, clientB, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE, &rpcpb.FriendInviteTokenCreateRequest{}, &friendToken)
 	if friendToken.GetInviteToken() == "" || friendToken.GetExpiresAt() == "" {
 		t.Fatalf("invalid server.friend.invite_token.create: %s", friendToken.String())
 	}
+	defer cleanupCSDKRPC(
+		t,
+		clientB,
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR,
+		&rpcpb.FriendInviteTokenClearRequest{},
+		&rpcpb.FriendInviteTokenClearResponse{},
+		"Friend invite token",
+	)
 	var friendAdd rpcpb.FriendAddResponse
 	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_ADD, &rpcpb.FriendAddRequest{InviteToken: friendToken.GetInviteToken()}, &friendAdd)
 	if friendAdd.GetValue().GetId() == "" || friendAdd.GetValue().GetWorkspaceName() == "" || friendAdd.GetValue().GetPeerPublicKey() == "" {
 		t.Fatalf("invalid server.friend.add: %s", friendAdd.String())
+	}
+	friendID := friendAdd.GetValue().GetId()
+	friendWorkspace := friendAdd.GetValue().GetWorkspaceName()
+	defer cleanupCSDKRPC(
+		t,
+		clientA,
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_DELETE,
+		&rpcpb.FriendDeleteRequest{Id: friendID},
+		&rpcpb.FriendDeleteResponse{},
+		"Friend relationship",
+	)
+	var repeatedFriendAdd rpcpb.FriendAddResponse
+	mustCallRPC(
+		t,
+		clientA,
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_ADD,
+		&rpcpb.FriendAddRequest{InviteToken: friendToken.GetInviteToken()},
+		&repeatedFriendAdd,
+	)
+	if repeatedFriendAdd.GetValue().GetId() != friendID ||
+		repeatedFriendAdd.GetValue().GetWorkspaceName() != friendWorkspace {
+		t.Fatalf("repeated server.friend.add was not idempotent: %s", repeatedFriendAdd.String())
+	}
+	for name, client := range map[string]*Client{"Peer A": clientA, "Peer B": clientB} {
+		var friends rpcpb.FriendListResponse
+		mustCallRPC(
+			t,
+			client,
+			rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_LIST,
+			&rpcpb.FriendListRequest{Limit: new(int64(1000))},
+			&friends,
+		)
+		if !friendListContainsWorkspace(friends.GetItems(), friendWorkspace) {
+			t.Fatalf("%s did not list the shared Friend relationship: %s", name, friends.String())
+		}
 	}
 
 	var groupCreate rpcpb.FriendGroupCreateResponse
@@ -1229,11 +1304,27 @@ func CSDKSocialRelationships(t *testing.T, identityADir, identityBDir string) {
 		t.Fatalf("invalid server.friend_group.create: %s", groupCreate.String())
 	}
 	groupID := groupCreate.GetValue().GetId()
+	defer cleanupCSDKRPC(
+		t,
+		clientA,
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE,
+		&rpcpb.FriendGroupDeleteRequest{Id: groupID},
+		&rpcpb.FriendGroupDeleteResponse{},
+		"Friend Group",
+	)
 	var groupToken rpcpb.FriendGroupInviteTokenCreateResponse
 	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE, &rpcpb.FriendGroupInviteTokenCreateRequest{FriendGroupId: groupID}, &groupToken)
 	if groupToken.GetInviteToken() == "" || groupToken.GetExpiresAt() == "" {
 		t.Fatalf("invalid server.friend_group.invite_token.create: %s", groupToken.String())
 	}
+	defer cleanupCSDKRPC(
+		t,
+		clientA,
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR,
+		&rpcpb.FriendGroupInviteTokenClearRequest{FriendGroupId: groupID},
+		&rpcpb.FriendGroupInviteTokenClearResponse{},
+		"Friend Group invite token",
+	)
 	var groupJoin rpcpb.FriendGroupJoinResponse
 	mustCallRPC(t, clientB, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_JOIN, &rpcpb.FriendGroupJoinRequest{InviteToken: groupToken.GetInviteToken()}, &groupJoin)
 	if groupJoin.GetGroup().GetId() != groupID {
@@ -1294,6 +1385,35 @@ func registerClient(t *testing.T, client *Client, registrationToken string) Regi
 		t.Fatalf("invalid server.register response: %+v", response)
 	}
 	return response
+}
+
+func requireDefaultGameplayRegistration(
+	t *testing.T,
+	client *Client,
+	registrationToken string,
+) {
+	t.Helper()
+	registered := registerClient(t, client, registrationToken)
+	if registered.RuntimeProfileName != "default-gameplay" {
+		t.Fatalf(
+			"registered C RuntimeProfile = %q, want default-gameplay",
+			registered.RuntimeProfileName,
+		)
+	}
+}
+
+func cleanupCSDKRPC(
+	t *testing.T,
+	client *Client,
+	method rpcpb.RpcMethod,
+	request proto.Message,
+	response proto.Message,
+	resource string,
+) {
+	t.Helper()
+	if err := client.CallRPC(method, request, response); err != nil {
+		t.Errorf("cleanup C SDK %s: %v", resource, err)
+	}
 }
 
 func requireFirmwareRegistration(t *testing.T, registration Registration, firmwareID string) {
@@ -1366,6 +1486,17 @@ func ptr[T any](value T) *T {
 func contactListContains(items []*rpcpb.ContactObject, id string) bool {
 	for _, item := range items {
 		if item.GetId() == id {
+			return true
+		}
+	}
+	return false
+}
+
+func friendListContainsWorkspace(items []*rpcpb.FriendObject, workspaceName string) bool {
+	for _, item := range items {
+		if item.GetId() != "" &&
+			item.GetPeerPublicKey() != "" &&
+			item.GetWorkspaceName() == workspaceName {
 			return true
 		}
 	}
