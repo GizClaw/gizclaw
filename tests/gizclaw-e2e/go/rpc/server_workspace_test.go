@@ -24,7 +24,7 @@ func TestServerWorkspaceRPC(t *testing.T) {
 	t.Cleanup(func() { _, _ = admin.DeleteWorkflowWithResponse(env.ctx, mutationWorkflow) })
 	profile, err := admin.PutRuntimeProfileWithResponse(env.ctx, "e2e-peer-a", adminhttp.RuntimeProfileUpsert{
 		Name: "e2e-peer-a",
-		Spec: sharedRuntimeProfileSpecWithMutation(),
+		Spec: sharedRuntimeProfileSpecWithMutation(t),
 	})
 	if err != nil {
 		t.Fatalf("put RuntimeProfile with mutation Workflow: %v", err)
