@@ -8,7 +8,6 @@
 
 ```text
 apps/wails/
-├── resources/              # 内嵌的新建本地 Server bootstrap catalog 与 assets
 ├── internal/
 │   ├── appconfig/       # pod.json、目录投影和权限
 │   ├── bridge/          # Pod 密钥只写；bootstrap.env 可由受信任 Renderer 编辑
@@ -26,17 +25,19 @@ Desktop App 不复制 `pkgs/gizclaw` 的服务端业务。`api/http/desktop.json
 
 ## 本地 Server Bootstrap
 
-`resources/local-server` 只内嵌 Desktop 拥有的 PIXA 二进制。Raids `v0.3.0` release
-通过 commit-addressed GitHub archive 获取，是 `RuntimeProfile/default`、
+Raids `v0.3.0` release 通过 commit-addressed GitHub archive 获取，是 `RuntimeProfile/default`、
 `RegistrationToken/default-runtime` 及该
 Profile 所引用 Credential、Tenant、Model、Voice、MemoryLayout、Workflow 与 PetDef 的声明式来源。
-Desktop 在配置根目录下私有缓存并校验 archive，只解析 Profile 的依赖闭包，再依次
-apply 依赖、上传 PIXA、apply Profile 和 token；`runtime-profile.example.yaml` 仅作说明。
+PetDef 引用的 PIXA 二进制来自固定提交
+`GizClaw/pixa@5fed581ae87ac3cf4a5a05952d43edebbbed8d9f` 中同名且安全的 basename。
+Desktop 在配置根目录下私有缓存并校验 Raids archive 与按提交隔离的 PIXA 文件，只解析
+Profile 的依赖闭包，再依次 apply 依赖、上传 PIXA、apply Profile 和 token；
+`runtime-profile.example.yaml` 仅作说明。
 
 可移植 default profile 可以把 Workflow Memory alias 绑定到 `flowcraft_bbh`；该 connection 没有 endpoint 或 key，managed directory 从本地 Server Workspace 派生。Archive selection 会包含被引用的 `MemoryLayout`，并在 apply 前验证每个 driver/connection 组合及 Layout 使用的 Flowcraft model alias。
 
 Credential 模板来自 Raids，具体 secret 值仍只来自 Desktop 私有 `bootstrap.env` 或进程
-环境。archive cache、RuntimeProfile、`pod.json`、URL、Web Storage 和日志均不得包含
+环境。Raids 与 PIXA cache、RuntimeProfile、`pod.json`、URL、Web Storage 和日志均不得包含
 这些值。没有有效 cache 且 GitHub 不可达时，Desktop 和远程 Pod 管理仍可用；新建本地
 Pod 与必须执行的本地 runtime-contract migration 会在部分 catalog apply 前失败。
 
@@ -65,7 +66,7 @@ restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
 目录或删除。启动 Desktop 时只清理被退出或崩溃中断的 `initializing` 目录，保留
 `failed` Pod。状态清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时重放
 完整 catalog。旧版 local Pod 在 Server ready 后只执行一次 runtime contract 迁移：apply
-解析后的 Raids 依赖闭包与 PIXA，再替换 `RuntimeProfile/default`、apply
+解析后的 Raids 依赖闭包与固定提交的 PIXA，再替换 `RuntimeProfile/default`、apply
 `RegistrationToken/default-runtime`、删除旧
 `RegistrationToken/app:com.gizclaw.opensource` 与 `RegistrationToken/desktop-local`，
 移除 workspace 中废弃的 token handoff 文件，并把 catalog version 记录到 `pod.json`。若恢复到

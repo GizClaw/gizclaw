@@ -263,11 +263,19 @@ func validatePIXAAsset(source fs.FS, name string, expectedWidth, expectedHeight 
 	if err != nil {
 		return err
 	}
+	return validatePIXAData(data, name, expectedWidth, expectedHeight)
+}
+
+func validatePIXAData(data []byte, name string, expectedWidth, expectedHeight uint16) error {
 	if len(data) < 40 || string(data[:4]) != "PIXA" {
 		return fmt.Errorf("local server catalog: %s is not a PIXA asset", name)
 	}
-	if binary.LittleEndian.Uint16(data[4:6]) != 1 || binary.LittleEndian.Uint16(data[6:8]) < 40 {
+	headerSize := binary.LittleEndian.Uint16(data[6:8])
+	if binary.LittleEndian.Uint16(data[4:6]) != 1 || headerSize < 40 {
 		return fmt.Errorf("local server catalog: %s has an unsupported PIXA header", name)
+	}
+	if int(headerSize) > len(data) {
+		return fmt.Errorf("local server catalog: %s has PIXA header size %d larger than file size %d", name, headerSize, len(data))
 	}
 	width := binary.LittleEndian.Uint16(data[8:10])
 	height := binary.LittleEndian.Uint16(data[10:12])

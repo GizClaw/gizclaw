@@ -16,7 +16,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/localserver"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/tray"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/webui"
-	desktopresources "github.com/GizClaw/gizclaw-go/apps/wails/resources"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -64,13 +63,9 @@ func NewAppWithPathsAndAssets(paths appconfig.Paths, assets fs.FS) (*App, error)
 	if err := store.CleanupIncomplete(); err != nil {
 		return nil, err
 	}
-	catalogFS, err := desktopresources.LocalServer()
+	resolver, err := localserver.NewRaidsResolver(paths.RaidsCacheDir, paths.PIXACacheDir)
 	if err != nil {
-		return nil, fmt.Errorf("desktop app: local server resources: %w", err)
-	}
-	resolver, err := localserver.NewRaidsResolver(catalogFS, paths.RaidsCacheDir)
-	if err != nil {
-		return nil, fmt.Errorf("desktop app: local Raids assets: %w", err)
+		return nil, fmt.Errorf("desktop app: local bootstrap catalog: %w", err)
 	}
 	messages := appmessages.System()
 	app := &App{messages: messages, bridge: &bridge.PodBridge{

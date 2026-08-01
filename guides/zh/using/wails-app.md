@@ -46,13 +46,14 @@ Renderer/WebView 可以读取文件全文和已保存值；只来自启动进程
 本地 Pod 会在 manifest 和投影保存后立即回到首页。Pod 卡片显示“正在初始化数据”；
 点开后可查看持续更新的初始化状态，也可以关闭详情稍后再看。后台任务会启动新的
 Server、下载或复用私有缓存的 Raids `v0.3.0` archive，apply 当前 RuntimeProfile 所选的
-Credential/Tenant/Model/Voice/MemoryLayout/Workflow/PetDef，上传匹配的内置 PIXA 二进制，再 apply
+Credential/Tenant/Model/Voice/MemoryLayout/Workflow/PetDef，下载或复用私有缓存中来自
+`GizClaw/pixa@5fed581ae87ac3cf4a5a05952d43edebbbed8d9f` 的匹配 PIXA 二进制，再 apply
 唯一的 `RuntimeProfile/default` 与 `RegistrationToken/default-runtime`。全部完成后详情自动切换为正常界面。
 
 初始化失败会停止 Server，并在 Pod 详情中保留脱敏错误、目录入口和删除操作。退出
 Desktop 或崩溃时仍在初始化的 Pod 会在下次启动时清理；已经成功创建的 Pod 在
 Desktop 或 Server 重启时不会重放完整 catalog，因此用户后续修改和删除的资源会保留。
-旧版 local Pod 会在 Server ready 后执行一次兼容迁移：安装 Raids 依赖与 PIXA、替换
+旧版 local Pod 会在 Server ready 后执行一次兼容迁移：安装 Raids 依赖与固定提交的 PIXA、替换
 `RuntimeProfile/default`、apply `RegistrationToken/default-runtime`，再删除两个旧
 Desktop token 与 workspace handoff 文件，不改动其他资源。若 Desktop 恢复到旧版 Server 进程，会先使用当前 companion 重启；旧翻译
 alias 会继续保留，已有 Workspace 不需要重建。

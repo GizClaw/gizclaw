@@ -1,54 +1,12 @@
 package localserver_test
 
 import (
-	"io/fs"
-	"path"
 	"strings"
 	"testing"
 	"testing/fstest"
 
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/localserver"
-	desktopresources "github.com/GizClaw/gizclaw-go/apps/wails/resources"
 )
-
-func TestBundledCatalogContainsOnlyDesktopOwnedAssets(t *testing.T) {
-	source, err := desktopresources.LocalServer()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var resources []string
-	err = fs.WalkDir(source, ".", func(name string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if !entry.IsDir() && (path.Ext(name) == ".yaml" || path.Ext(name) == ".yml") {
-			resources = append(resources, name)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(resources) != 0 {
-		t.Fatalf("bundled declarative resources = %v, want none", resources)
-	}
-	var assetCount int
-	err = fs.WalkDir(source, "assets/pet-defs", func(name string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if !entry.IsDir() && path.Ext(name) == ".pixa" {
-			assetCount++
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if assetCount != 9 {
-		t.Fatalf("bundled PetDef PIXA assets = %d, want 9", assetCount)
-	}
-}
 
 func TestCatalogEnvironmentUsesSavedThenProcessThenDefault(t *testing.T) {
 	catalog := &localserver.Catalog{Requirements: []localserver.EnvironmentRequirement{
