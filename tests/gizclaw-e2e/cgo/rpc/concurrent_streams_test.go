@@ -358,25 +358,50 @@ func requireCEventAfterServiceClose(
 ) {
 	t.Helper()
 	updatedGroupName := groupName + " updated"
-	revisionFloor := time.Now().UnixMilli()
 	var groupPut rpcpb.FriendGroupPutResponse
 	if err := client.CallRPC(
 		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_PUT,
-		&rpcpb.FriendGroupPutRequest{Id: groupID, Name: ptr(updatedGroupName)},
+		&rpcpb.FriendGroupPutRequest{Id: groupID, Name: &updatedGroupName},
 		&groupPut,
 	); err != nil {
 		t.Fatalf("update C Event probe Friend Group: %v", err)
 	}
+	updatedAt := groupPut.GetValue().GetUpdatedAt()
+	if updatedAt == "" {
+		t.Fatal("updated C Event probe Friend Group has no server updated_at")
+	}
+	serverUpdatedAt, err := time.Parse(time.RFC3339Nano, updatedAt)
+	if err != nil {
+		t.Fatalf("parse C Event probe Friend Group server updated_at %q: %v", updatedAt, err)
+	}
+	revisionFloor := serverUpdatedAt.UnixMilli()
+	unmatched := make([]string, 0, 5)
 	for {
 		event, err := eventStream.ReadEvent(15 * time.Second)
 		if err != nil {
-			t.Fatalf("read C Event after closing sibling RPC: %v", err)
+			t.Fatalf(
+				"read C Event after closing sibling RPC: expected group=%q change=%s revision>=%d; unmatched=%v: %v",
+				groupID,
+				eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_METADATA_UPDATED,
+				revisionFloor,
+				unmatched,
+				err,
+			)
 		}
 		update := event.GetFriendGroupUpdated()
 		if event.GetType() != eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED ||
 			update.GetFriendGroupId() != groupID ||
 			update.GetChange() != eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_METADATA_UPDATED ||
 			update.GetRevisionUnixMs() < revisionFloor {
+			if len(unmatched) < cap(unmatched) {
+				unmatched = append(unmatched, fmt.Sprintf(
+					"type=%s group=%q change=%s revision=%d",
+					event.GetType(),
+					update.GetFriendGroupId(),
+					update.GetChange(),
+					update.GetRevisionUnixMs(),
+				))
+			}
 			continue
 		}
 		return
