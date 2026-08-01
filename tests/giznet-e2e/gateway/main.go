@@ -1645,7 +1645,10 @@ func readFDCount(requireProcessFallback bool) (int, string) {
 		return len(entries), source
 	}
 	if requireProcessFallback {
-		output, commandErr := boundedProcessCommand("lsof", "-a", "-p", strconv.Itoa(os.Getpid()), "-Ff")
+		if count, ok := readNativeFDCount(); ok {
+			return count, "native_process"
+		}
+		output, commandErr := boundedProcessCommand("lsof", "-b", "-nP", "-a", "-p", strconv.Itoa(os.Getpid()), "-Ff")
 		if commandErr == nil {
 			return countLsofFileDescriptors(string(output)), "lsof_process"
 		}
