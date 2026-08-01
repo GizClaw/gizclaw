@@ -18,6 +18,7 @@ tests/gizclaw-e2e/setup/.env
 tests/gizclaw-e2e/.testbench
 tests/gizclaw-e2e/testdata/bin
 tests/gizclaw-e2e/testdata/docker
+tests/gizclaw-e2e/testdata/gateway-capacity-extended
 tests/gizclaw-e2e/testdata/server-workspace/data
 tests/gizclaw-e2e/testdata/server-workspace/*.log
 tests/gizclaw-e2e/testdata/server-workspace/*.pid

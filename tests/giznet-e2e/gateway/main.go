@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
+	"os/signal"
 	"runtime"
 	"runtime/metrics"
 	"slices"
@@ -19,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -52,6 +55,19 @@ type options struct {
 	maxEstablishmentFailures int
 	maxPingFailures          int
 	maxP99RTT                time.Duration
+	maxPingRoundDuration     time.Duration
+	requireBalancedEdges     bool
+	maxSessionsPerEdge       int
+	requiredUpstreamsPerEdge int
+	maxUpstreamsPerEdge      int
+	maxSessionsPerUpstream   int
+	dockerProject            string
+	dockerComposeFile        string
+	requireRoleResources     bool
+	scenario                 string
+	repetition               int
+	soak                     bool
+	analysisDir              string
 }
 
 type artifact struct {
@@ -74,6 +90,7 @@ type artifact struct {
 	EdgeDistribution      map[string]int            `json:"edge_distribution"`
 	UpstreamDistribution  map[string]map[string]int `json:"upstream_distribution"`
 	ResourceUsage         resourceSummary           `json:"resource_usage"`
+	Extended              *extendedRunEvidence      `json:"extended,omitempty"`
 	Errors                []string                  `json:"errors,omitempty"`
 	Passed                bool                      `json:"passed"`
 }
@@ -103,6 +120,15 @@ type artifactConfig struct {
 	MaxEstablishmentFailures int           `json:"max_establishment_failures"`
 	MaxPingFailures          int           `json:"max_ping_failures"`
 	MaxP99RTT                time.Duration `json:"max_p99_rtt"`
+	MaxPingRoundDuration     time.Duration `json:"max_ping_round_duration"`
+	RequireBalancedEdges     bool          `json:"require_balanced_edges"`
+	MaxSessionsPerEdge       int           `json:"max_sessions_per_edge"`
+	RequiredUpstreamsPerEdge int           `json:"required_upstreams_per_edge"`
+	MaxUpstreamsPerEdge      int           `json:"max_upstreams_per_edge"`
+	MaxSessionsPerUpstream   int           `json:"max_sessions_per_upstream"`
+	Scenario                 string        `json:"scenario,omitempty"`
+	Repetition               int           `json:"repetition,omitempty"`
+	Soak                     bool          `json:"soak,omitempty"`
 }
 
 type latencySummary struct {
@@ -114,6 +140,7 @@ type latencySummary struct {
 }
 
 type pingRoundSummary struct {
+	Phase            string                               `json:"phase"`
 	Round            int                                  `json:"round"`
 	StartedAt        time.Time                            `json:"started_at"`
 	Duration         time.Duration                        `json:"duration"`
@@ -198,6 +225,7 @@ type resourcePoint struct {
 	CPUSeconds       float64   `json:"cpu_seconds"`
 	CPUSecondsSource string    `json:"cpu_seconds_source"`
 	OpenFDs          int       `json:"open_fds"`
+	OpenFDsSource    string    `json:"open_fds_source,omitempty"`
 	HeapAllocBytes   uint64    `json:"heap_alloc_bytes"`
 	Goroutines       int       `json:"goroutines"`
 }
@@ -272,7 +300,22 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
-	report, err := run(context.Background(), opts)
+	if opts.analysisDir != "" {
+		report, analyzeErr := analyzeCapacityArtifacts(opts.analysisDir)
+		if analyzeErr != nil {
+			fmt.Fprintln(os.Stderr, analyzeErr)
+			os.Exit(1)
+		}
+		if writeErr := writeProjectionArtifact(opts.artifactPath, report); writeErr != nil {
+			fmt.Fprintln(os.Stderr, writeErr)
+			os.Exit(1)
+		}
+		fmt.Printf("gateway capacity analysis complete: qualified=%t artifact=%s\n", report.Qualified, opts.artifactPath)
+		return
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	report, err := run(ctx, opts)
 	if writeErr := writeArtifact(opts.artifactPath, report); writeErr != nil {
 		fmt.Fprintln(os.Stderr, writeErr)
 		os.Exit(1)
@@ -312,7 +355,26 @@ func parseOptions() (options, error) {
 	flag.IntVar(&opts.maxEstablishmentFailures, "max-establishment-failures", 0, "accepted dial failures")
 	flag.IntVar(&opts.maxPingFailures, "max-ping-failures", 0, "accepted ping failures")
 	flag.DurationVar(&opts.maxP99RTT, "max-p99-rtt", 0, "optional maximum p99 ping RTT")
+	flag.DurationVar(&opts.maxPingRoundDuration, "max-ping-round-duration", 0, "optional maximum complete ping-round duration")
+	flag.BoolVar(&opts.requireBalancedEdges, "require-balanced-edges", false, "require equal session distribution across all Edges")
+	flag.IntVar(&opts.maxSessionsPerEdge, "max-sessions-per-edge", 0, "optional configured session limit for each Edge")
+	flag.IntVar(&opts.requiredUpstreamsPerEdge, "required-upstreams-per-edge", 0, "optional exact observed upstream associations required per Edge")
+	flag.IntVar(&opts.maxUpstreamsPerEdge, "max-upstreams-per-edge", 0, "optional maximum observed upstream associations per Edge")
+	flag.IntVar(&opts.maxSessionsPerUpstream, "max-sessions-per-upstream", 0, "optional maximum observed sessions per upstream")
+	flag.StringVar(&opts.dockerProject, "docker-project", "", "Docker Compose project for external role sampling")
+	flag.StringVar(&opts.dockerComposeFile, "docker-compose-file", "", "Docker Compose file for external role sampling")
+	flag.BoolVar(&opts.requireRoleResources, "require-role-resources", false, "require load-driver, Edge, and Server process resource samples")
+	flag.StringVar(&opts.scenario, "scenario", "", "extended-capacity scenario identifier")
+	flag.IntVar(&opts.repetition, "repetition", 0, "one-based extended-capacity repetition")
+	flag.BoolVar(&opts.soak, "soak", false, "mark this run as the long soak")
+	flag.StringVar(&opts.analysisDir, "analyze-dir", "", "analyze extended run artifacts in this directory")
 	flag.Parse()
+	if opts.analysisDir != "" {
+		if strings.TrimSpace(opts.artifactPath) == "" {
+			return options{}, errors.New("-artifact is required")
+		}
+		return opts, nil
+	}
 
 	for edge := range strings.SplitSeq(rawEdges, ",") {
 		edge = strings.TrimSpace(edge)
@@ -320,47 +382,65 @@ func parseOptions() (options, error) {
 			opts.edges = append(opts.edges, edge)
 		}
 	}
-	switch {
-	case len(opts.edges) == 0:
-		return options{}, errors.New("-edges is required")
-	case opts.sessions <= 0:
-		return options{}, errors.New("-sessions must be positive")
-	case opts.ramp < 0 || opts.duration < 0:
-		return options{}, errors.New("-ramp and -duration must be non-negative")
-	case opts.pingInterval <= 0:
-		return options{}, errors.New("-ping-interval must be positive")
-	case opts.dialTimeout <= 0 || opts.pingTimeout <= 0 || opts.speedTimeout <= 0:
-		return options{}, errors.New("-dial-timeout, -ping-timeout, and -speed-timeout must be positive")
-	case opts.speedBytes < 0:
-		return options{}, errors.New("-speed-bytes must be non-negative")
-	case opts.speedBytes > maxSpeedBytes:
-		return options{}, fmt.Errorf("-speed-bytes must not exceed %d", maxSpeedBytes)
-	case opts.speedBaselineBytes < 0 || opts.speedBaselineBytes > maxSpeedBytes:
-		return options{}, fmt.Errorf("-speed-baseline-bytes must be between 0 and %d", maxSpeedBytes)
-	case opts.speedBytes > 0 && int64(opts.sessions) > math.MaxInt64/opts.speedBytes:
-		return options{}, errors.New("-sessions and -speed-bytes overflow aggregate byte accounting")
-	case opts.speedBytes == 0 && opts.speedBaselineBytes > 0:
-		return options{}, errors.New("-speed-baseline-bytes requires positive -speed-bytes")
-	case !nonNegativeFinite(opts.minSpeedAggregateRatio) ||
-		!nonNegativeFinite(opts.minUploadAggregateMbps) ||
-		!nonNegativeFinite(opts.minDownloadAggregateMbps):
-		return options{}, errors.New("speed thresholds must be finite and non-negative")
-	case opts.speedBytes == 0 &&
-		(opts.minSpeedAggregateRatio > 0 ||
-			opts.minUploadAggregateMbps > 0 ||
-			opts.minDownloadAggregateMbps > 0):
-		return options{}, errors.New("speed thresholds require positive -speed-bytes")
-	case opts.concurrency <= 0:
-		return options{}, errors.New("-concurrency must be positive")
-	case strings.TrimSpace(opts.artifactPath) == "":
-		return options{}, errors.New("-artifact is required")
-	case opts.maxEstablishmentFailures < 0 || opts.maxPingFailures < 0 || opts.maxP99RTT < 0:
-		return options{}, errors.New("failure and RTT thresholds must be non-negative")
+	if err := validateOptions(opts); err != nil {
+		return options{}, err
 	}
 	if opts.speedBytes > 0 && opts.speedBaselineBytes == 0 {
 		opts.speedBaselineBytes = opts.speedBytes
 	}
 	return opts, nil
+}
+
+func validateOptions(opts options) error {
+	switch {
+	case len(opts.edges) == 0:
+		return errors.New("-edges is required")
+	case opts.sessions <= 0:
+		return errors.New("-sessions must be positive")
+	case opts.ramp < 0 || opts.duration < 0:
+		return errors.New("-ramp and -duration must be non-negative")
+	case opts.pingInterval <= 0:
+		return errors.New("-ping-interval must be positive")
+	case opts.dialTimeout <= 0 || opts.pingTimeout <= 0 || opts.speedTimeout <= 0:
+		return errors.New("-dial-timeout, -ping-timeout, and -speed-timeout must be positive")
+	case opts.speedBytes < 0:
+		return errors.New("-speed-bytes must be non-negative")
+	case opts.speedBytes > maxSpeedBytes:
+		return fmt.Errorf("-speed-bytes must not exceed %d", maxSpeedBytes)
+	case opts.speedBaselineBytes < 0 || opts.speedBaselineBytes > maxSpeedBytes:
+		return fmt.Errorf("-speed-baseline-bytes must be between 0 and %d", maxSpeedBytes)
+	case opts.speedBytes > 0 && int64(opts.sessions) > math.MaxInt64/opts.speedBytes:
+		return errors.New("-sessions and -speed-bytes overflow aggregate byte accounting")
+	case opts.speedBytes == 0 && opts.speedBaselineBytes > 0:
+		return errors.New("-speed-baseline-bytes requires positive -speed-bytes")
+	case !nonNegativeFinite(opts.minSpeedAggregateRatio) ||
+		!nonNegativeFinite(opts.minUploadAggregateMbps) ||
+		!nonNegativeFinite(opts.minDownloadAggregateMbps):
+		return errors.New("speed thresholds must be finite and non-negative")
+	case opts.speedBytes == 0 &&
+		(opts.minSpeedAggregateRatio > 0 ||
+			opts.minUploadAggregateMbps > 0 ||
+			opts.minDownloadAggregateMbps > 0):
+		return errors.New("speed thresholds require positive -speed-bytes")
+	case opts.concurrency <= 0:
+		return errors.New("-concurrency must be positive")
+	case strings.TrimSpace(opts.artifactPath) == "":
+		return errors.New("-artifact is required")
+	case opts.maxEstablishmentFailures < 0 || opts.maxPingFailures < 0 || opts.maxP99RTT < 0:
+		return errors.New("failure and RTT thresholds must be non-negative")
+	case opts.maxPingRoundDuration < 0:
+		return errors.New("-max-ping-round-duration must be non-negative")
+	case opts.maxSessionsPerEdge < 0 || opts.requiredUpstreamsPerEdge < 0 ||
+		opts.maxUpstreamsPerEdge < 0 || opts.maxSessionsPerUpstream < 0:
+		return errors.New("Edge and upstream limits must be non-negative")
+	case opts.maxUpstreamsPerEdge > 0 && opts.requiredUpstreamsPerEdge > opts.maxUpstreamsPerEdge:
+		return errors.New("-required-upstreams-per-edge must not exceed -max-upstreams-per-edge")
+	case opts.requireRoleResources && (strings.TrimSpace(opts.dockerProject) == "" || strings.TrimSpace(opts.dockerComposeFile) == ""):
+		return errors.New("-require-role-resources requires -docker-project and -docker-compose-file")
+	case opts.requireRoleResources && (strings.TrimSpace(opts.scenario) == "" || opts.repetition <= 0):
+		return errors.New("-require-role-resources requires -scenario and positive -repetition")
+	}
+	return nil
 }
 
 func nonNegativeFinite(value float64) bool {
@@ -387,20 +467,46 @@ func run(ctx context.Context, opts options) (artifact, error) {
 			MinDownloadAggregateMbps: opts.minDownloadAggregateMbps,
 			Concurrency:              opts.concurrency,
 			MaxEstablishmentFailures: opts.maxEstablishmentFailures,
-			MaxPingFailures:          opts.maxPingFailures, MaxP99RTT: opts.maxP99RTT,
+			MaxPingFailures:          opts.maxPingFailures,
+			MaxP99RTT:                opts.maxP99RTT,
+			MaxPingRoundDuration:     opts.maxPingRoundDuration,
+			RequireBalancedEdges:     opts.requireBalancedEdges,
+			MaxSessionsPerEdge:       opts.maxSessionsPerEdge,
+			RequiredUpstreamsPerEdge: opts.requiredUpstreamsPerEdge,
+			MaxUpstreamsPerEdge:      opts.maxUpstreamsPerEdge,
+			MaxSessionsPerUpstream:   opts.maxSessionsPerUpstream,
+			Scenario:                 opts.scenario,
+			Repetition:               opts.repetition,
+			Soak:                     opts.soak,
 		},
 		Attempted:            opts.sessions,
 		EdgeDistribution:     make(map[string]int),
 		UpstreamDistribution: make(map[string]map[string]int),
 	}
-	resources := newResourceSampler()
+	resources := newResourceSampler(opts.requireRoleResources)
 	defer resources.stop()
+	var extended *extendedSamplerState
+	if opts.requireRoleResources {
+		report.Version = extendedArtifactVersion
+		var err error
+		extended, err = startExtendedSampler(ctx, opts.dockerProject, opts.dockerComposeFile)
+		if err != nil {
+			report.Errors = []string{err.Error()}
+			report.FinishedAt = time.Now()
+			report.ResourceUsage = resources.summary()
+			return report, err
+		}
+	}
 
 	edges, err := fetchEdges(ctx, opts.edges)
 	if err != nil {
 		report.Errors = []string{err.Error()}
 		report.FinishedAt = time.Now()
 		report.ResourceUsage = resources.summary()
+		if extended != nil {
+			report.Extended = extended.finish(context.Background(), resources)
+			report.Errors = append(report.Errors, report.Extended.Errors...)
+		}
 		return report, err
 	}
 	state := &resultState{
@@ -409,10 +515,10 @@ func run(ctx context.Context, opts options) (artifact, error) {
 	}
 	sem := make(chan struct{}, opts.concurrency)
 	if err := establishSessions(ctx, opts, edges, state, sem, establish); err != nil {
-		return finalize(report, state, resources), err
+		return finalize(report, state, resources, extended), err
 	}
 
-	pingAll(ctx, state, opts, sem, 0)
+	pingAll(ctx, state, opts, sem, "hold", 0)
 	if opts.speedBytes > 0 {
 		runSpeedTests(ctx, state, opts)
 	}
@@ -426,19 +532,19 @@ func run(ctx context.Context, opts options) (artifact, error) {
 			select {
 			case <-ctx.Done():
 				closeSessions(state)
-				return finalize(report, state, resources), ctx.Err()
+				return finalize(report, state, resources, extended), ctx.Err()
 			case <-deadline.C:
 				closeSessions(state)
-				final := finalize(report, state, resources)
+				final := finalize(report, state, resources, extended)
 				return final, acceptanceError(final, opts)
 			case <-ticker.C:
-				pingAll(ctx, state, opts, sem, round)
+				pingAll(ctx, state, opts, sem, "hold", round)
 				round++
 			}
 		}
 	}
 	closeSessions(state)
-	final := finalize(report, state, resources)
+	final := finalize(report, state, resources, extended)
 	return final, acceptanceError(final, opts)
 }
 
@@ -458,6 +564,10 @@ func establishSessions(
 	establishSession establishSessionFunc,
 ) error {
 	var establishWG sync.WaitGroup
+	stopRampPings := func() {}
+	if opts.requireRoleResources {
+		stopRampPings = startRampPings(ctx, state, opts, sem)
+	}
 	delay := time.Duration(0)
 	if opts.sessions > 1 {
 		delay = opts.ramp / time.Duration(opts.sessions-1)
@@ -468,6 +578,7 @@ func establishSessions(
 			select {
 			case <-ctx.Done():
 				timer.Stop()
+				stopRampPings()
 				establishWG.Wait()
 				closeSessions(state)
 				return ctx.Err()
@@ -490,18 +601,54 @@ func establishSessions(
 			state.addSession(session)
 			state.serveWG.Go(func() {
 				err := session.serve()
-				if !session.closed.Load() && err != nil {
-					state.recordDisconnect(fmt.Sprintf("session %d disconnected: %v", i, err))
-				}
+				handleSessionServeExit(state, session, i, err)
 			})
 		})
 	}
 	establishWG.Wait()
+	stopRampPings()
 	if err := ctx.Err(); err != nil {
 		closeSessions(state)
 		return err
 	}
 	return nil
+}
+
+func startRampPings(ctx context.Context, state *resultState, opts options, sem chan struct{}) func() {
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		ticker := time.NewTicker(opts.pingInterval)
+		defer ticker.Stop()
+		round := 0
+		for {
+			select {
+			case <-ticker.C:
+				pingAll(ctx, state, opts, sem, "ramp", round)
+				round++
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			}
+		}
+	})
+	var once sync.Once
+	return func() {
+		once.Do(func() { close(done) })
+		wg.Wait()
+	}
+}
+
+func handleSessionServeExit(state *resultState, session *liveSession, index int, err error) {
+	if session.closed.Load() {
+		return
+	}
+	message := fmt.Sprintf("session %d disconnected", index)
+	if err != nil {
+		message += ": " + err.Error()
+	}
+	state.recordDisconnect(message)
 }
 
 func fetchEdges(ctx context.Context, endpoints []string) ([]edgeMetadata, error) {
@@ -619,7 +766,7 @@ func establish(parent context.Context, edge edgeMetadata, index int, timeout tim
 	return &liveSession{client: client, edge: edge.endpoint, upstream: upstream}, nil
 }
 
-func pingAll(ctx context.Context, state *resultState, opts options, sem chan struct{}, round int) {
+func pingAll(ctx context.Context, state *resultState, opts options, sem chan struct{}, phase string, round int) {
 	state.mu.Lock()
 	sessions := append([]*liveSession(nil), state.sessions...)
 	state.mu.Unlock()
@@ -652,7 +799,7 @@ func pingAll(ctx context.Context, state *resultState, opts options, sem chan str
 			defer func() { <-sem }()
 			pingCtx, cancel := context.WithTimeout(ctx, opts.pingTimeout)
 			pingStarted := time.Now()
-			id := fmt.Sprintf("gateway-capacity-%d-%d", round, index)
+			id := fmt.Sprintf("gateway-capacity-%s-%d-%d", phase, round, index)
 			_, err := session.client.Ping(pingCtx, id)
 			rtt := time.Since(pingStarted)
 			cancel()
@@ -680,6 +827,7 @@ func pingAll(ctx context.Context, state *resultState, opts options, sem chan str
 	}
 	wg.Wait()
 	state.recordPingRound(pingRoundSummary{
+		Phase:            phase,
 		Round:            round,
 		StartedAt:        started,
 		Duration:         time.Since(started),
@@ -1150,7 +1298,10 @@ func closeSessions(state *resultState) {
 	state.serveWG.Wait()
 }
 
-func finalize(report artifact, state *resultState, resources *resourceSampler) artifact {
+func finalize(report artifact, state *resultState, resources *resourceSampler, extended *extendedSamplerState) artifact {
+	if extended != nil {
+		report.Extended = extended.finish(context.Background(), resources)
+	}
 	state.mu.Lock()
 	defer state.mu.Unlock()
 	report.FinishedAt = time.Now()
@@ -1164,6 +1315,9 @@ func finalize(report artifact, state *resultState, resources *resourceSampler) a
 	report.PingRounds = append([]pingRoundSummary(nil), state.pingRounds...)
 	report.SpeedTest = state.speedTest
 	report.Errors = append([]string(nil), state.errors...)
+	if report.Extended != nil {
+		report.Errors = append(report.Errors, report.Extended.Errors...)
+	}
 	var rx, tx uint64
 	for _, session := range state.sessions {
 		sessionRx, sessionTx := session.rxBytes, session.txBytes
@@ -1184,13 +1338,72 @@ func finalize(report artifact, state *resultState, resources *resourceSampler) a
 		report.BytesPerSession.TxMean = float64(tx) / float64(report.Established)
 	}
 	report.ResourceUsage = resources.summary()
-	report.Passed = report.EstablishmentFailures <= report.Config.MaxEstablishmentFailures &&
+	extendedFailed := report.Extended != nil && len(report.Extended.Errors) > 0
+	report.Passed = !extendedFailed && report.EstablishmentFailures <= report.Config.MaxEstablishmentFailures &&
 		report.PingFailures <= report.Config.MaxPingFailures &&
 		report.UnexpectedDisconnects == 0 && !report.IdentityCrossover &&
 		(report.Config.SpeedBytes == 0 ||
 			(report.SpeedTest.Upload.Passed && report.SpeedTest.Download.Passed)) &&
-		(report.Config.MaxP99RTT == 0 || time.Duration(report.RTT.P99*float64(time.Millisecond)) <= report.Config.MaxP99RTT)
+		(report.Config.MaxP99RTT == 0 || time.Duration(report.RTT.P99*float64(time.Millisecond)) <= report.Config.MaxP99RTT) &&
+		pingRoundsWithin(report.PingRounds, report.Config.MaxPingRoundDuration) &&
+		distributionWithin(report, report.Config)
 	return report
+}
+
+func pingRoundsWithin(rounds []pingRoundSummary, maximum time.Duration) bool {
+	if maximum == 0 {
+		return true
+	}
+	for _, round := range rounds {
+		if round.Duration > maximum {
+			return false
+		}
+	}
+	return true
+}
+
+func distributionWithin(report artifact, config artifactConfig) bool {
+	for _, edge := range config.Edges {
+		if config.MaxSessionsPerEdge > 0 && report.EdgeDistribution[edge] > config.MaxSessionsPerEdge {
+			return false
+		}
+		if config.MaxUpstreamsPerEdge > 0 || config.MaxSessionsPerUpstream > 0 {
+			assigned := 0
+			for _, sessions := range report.UpstreamDistribution[edge] {
+				assigned += sessions
+			}
+			if assigned != report.EdgeDistribution[edge] {
+				return false
+			}
+		}
+	}
+	if config.RequireBalancedEdges {
+		if len(config.Edges) == 0 || report.Established%len(config.Edges) != 0 {
+			return false
+		}
+		expected := report.Established / len(config.Edges)
+		for _, edge := range config.Edges {
+			if report.EdgeDistribution[edge] != expected {
+				return false
+			}
+		}
+	}
+	for _, upstreams := range report.UpstreamDistribution {
+		if config.RequiredUpstreamsPerEdge > 0 && len(upstreams) != config.RequiredUpstreamsPerEdge {
+			return false
+		}
+		if config.MaxUpstreamsPerEdge > 0 && len(upstreams) > config.MaxUpstreamsPerEdge {
+			return false
+		}
+		if config.MaxSessionsPerUpstream > 0 {
+			for _, sessions := range upstreams {
+				if sessions > config.MaxSessionsPerUpstream {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }
 
 func acceptanceError(report artifact, opts options) error {
@@ -1261,24 +1474,27 @@ func writeArtifact(path string, report artifact) error {
 }
 
 type resourceSampler struct {
-	done chan struct{}
-	wg   sync.WaitGroup
-	mu   sync.Mutex
-	data resourceSummary
+	done                   chan struct{}
+	wg                     sync.WaitGroup
+	mu                     sync.Mutex
+	data                   resourceSummary
+	points                 []resourcePoint
+	requireProcessFallback bool
 }
 
-func newResourceSampler() *resourceSampler {
-	s := &resourceSampler{done: make(chan struct{})}
-	point := readResourcePoint()
+func newResourceSampler(requireProcessFallback bool) *resourceSampler {
+	s := &resourceSampler{done: make(chan struct{}), requireProcessFallback: requireProcessFallback}
+	point := readResourcePoint(requireProcessFallback)
 	s.data.Start = point
 	s.data.Peak = point
+	s.points = append(s.points, point)
 	s.wg.Go(func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				s.observe(readResourcePoint())
+				s.observe(readResourcePoint(s.requireProcessFallback))
 			case <-s.done:
 				return
 			}
@@ -1290,6 +1506,7 @@ func newResourceSampler() *resourceSampler {
 func (s *resourceSampler) observe(point resourcePoint) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.points = append(s.points, point)
 	improved := false
 	if point.RSSBytes > s.data.Peak.RSSBytes {
 		s.data.Peak.RSSBytes = point.RSSBytes
@@ -1316,6 +1533,12 @@ func (s *resourceSampler) observe(point resourcePoint) {
 	}
 }
 
+func (s *resourceSampler) samples() []resourcePoint {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]resourcePoint(nil), s.points...)
+}
+
 func (s *resourceSampler) stop() {
 	select {
 	case <-s.done:
@@ -1327,7 +1550,7 @@ func (s *resourceSampler) stop() {
 }
 
 func (s *resourceSampler) summary() resourceSummary {
-	point := readResourcePoint()
+	point := readResourcePoint(s.requireProcessFallback)
 	s.observe(point)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1335,14 +1558,15 @@ func (s *resourceSampler) summary() resourceSummary {
 	return s.data
 }
 
-func readResourcePoint() resourcePoint {
+func readResourcePoint(requireProcessFallback bool) resourcePoint {
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
-	rssBytes, rssSource := readRSS(memory.Sys)
+	rssBytes, rssSource := readRSS(memory.Sys, requireProcessFallback)
+	openFDs, openFDsSource := readFDCount(requireProcessFallback)
 	return resourcePoint{
 		At: time.Now(), RSSBytes: rssBytes, RSSSource: rssSource,
 		CPUSeconds: readActiveCPUSeconds(), CPUSecondsSource: "go_runtime_total_minus_idle",
-		OpenFDs: readFDCount(), HeapAllocBytes: memory.HeapAlloc,
+		OpenFDs: openFDs, OpenFDsSource: openFDsSource, HeapAllocBytes: memory.HeapAlloc,
 		Goroutines: runtime.NumGoroutine(),
 	}
 }
@@ -1367,29 +1591,63 @@ func activeCPUSeconds(total, idle float64) float64 {
 	return max(total-idle, 0)
 }
 
-func readRSS(fallback uint64) (uint64, string) {
+func readRSS(fallback uint64, requireProcessFallback bool) (uint64, string) {
 	data, err := os.ReadFile("/proc/self/statm")
-	if err != nil {
-		return fallback, "go_memstats_sys"
+	if err == nil {
+		fields := strings.Fields(string(data))
+		if len(fields) >= 2 {
+			pages, parseErr := strconv.ParseUint(fields[1], 10, 64)
+			if parseErr == nil {
+				return pages * uint64(os.Getpagesize()), "proc_self_statm"
+			}
+		}
 	}
-	fields := strings.Fields(string(data))
-	if len(fields) < 2 {
-		return fallback, "go_memstats_sys"
+	if requireProcessFallback {
+		output, commandErr := boundedProcessCommand("ps", "-o", "rss=", "-p", strconv.Itoa(os.Getpid()))
+		if commandErr == nil {
+			kilobytes, parseErr := strconv.ParseUint(strings.TrimSpace(string(output)), 10, 64)
+			if parseErr == nil {
+				return kilobytes * 1024, "ps_rss_kib"
+			}
+		}
 	}
-	pages, err := strconv.ParseUint(fields[1], 10, 64)
-	if err != nil {
-		return fallback, "go_memstats_sys"
-	}
-	return pages * uint64(os.Getpagesize()), "proc_self_statm"
+	return fallback, "go_memstats_sys"
 }
 
-func readFDCount() int {
+func readFDCount(requireProcessFallback bool) (int, string) {
 	entries, err := os.ReadDir("/proc/self/fd")
+	source := "proc_self_fd"
 	if err != nil {
 		entries, err = os.ReadDir("/dev/fd")
+		source = "dev_fd"
 	}
-	if err != nil {
-		return -1
+	if err == nil {
+		return len(entries), source
 	}
-	return len(entries)
+	if requireProcessFallback {
+		output, commandErr := boundedProcessCommand("lsof", "-a", "-p", strconv.Itoa(os.Getpid()), "-Ff")
+		if commandErr == nil {
+			return countLsofFileDescriptors(string(output)), "lsof_process"
+		}
+	}
+	return -1, "unsupported"
+}
+
+func boundedProcessCommand(name string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return exec.CommandContext(ctx, name, args...).Output()
+}
+
+func countLsofFileDescriptors(output string) int {
+	count := 0
+	for line := range strings.SplitSeq(output, "\n") {
+		if len(line) > 1 && line[0] == 'f' {
+			if _, err := strconv.ParseUint(line[1:], 10, 64); err != nil {
+				continue
+			}
+			count++
+		}
+	}
+	return count
 }

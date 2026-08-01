@@ -12,20 +12,38 @@ state_root="$e2e_dir/testdata/docker"
 default_turn_relay_port_count=100
 
 # shellcheck source=credentials.sh
+# shellcheck disable=SC1091
 source "$script_dir/credentials.sh"
 require_gizclaw_e2e_credentials "$env_file"
 
 stack_mode="standard"
-if [[ "${1:-}" == "--volc-log" ]]; then
-  stack_mode="volc-log"
-  shift
-fi
+topology_mode="full"
+while (($# > 0)); do
+  case "$1" in
+    --volc-log)
+      stack_mode="volc-log"
+      shift
+      ;;
+    --gateway-capacity)
+      topology_mode="gateway-capacity"
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
 if [[ "$stack_mode" == "volc-log" ]]; then
   # shellcheck disable=SC2154
   require_gizclaw_e2e_credentials "$env_file" "${gizclaw_e2e_volc_log_credentials[@]}"
   : "${GIZCLAW_E2E_VOLC_LOG_ENDPOINT:?set the provisioned LogStore endpoint}"
   : "${GIZCLAW_E2E_VOLC_LOG_REGION:?set the provisioned LogStore region}"
   : "${GIZCLAW_E2E_VOLC_LOG_TOPIC_ID:?set the provisioned LogStore topic id}"
+fi
+if [[ "$topology_mode" == "gateway-capacity" ]]; then
+  export GIZCLAW_E2E_CAPACITY_ONLY=1
+else
+  unset GIZCLAW_E2E_CAPACITY_ONLY
 fi
 
 pick_free_tcp_port() {
@@ -97,9 +115,11 @@ finally:
 PY
     return
   fi
-  if command -v lsof >/dev/null 2>&1; then
-    ! lsof -nP -iUDP@"*":"$port" >/dev/null 2>&1
-    return
+	if command -v lsof >/dev/null 2>&1; then
+		if lsof -nP -iUDP@"*":"$port" >/dev/null 2>&1; then
+			return 1
+		fi
+		return 0
   fi
   echo "checking UDP ports requires lsof or python3" >&2
   return 2
@@ -446,7 +466,13 @@ compose_files=(-f "$compose_file")
 if [[ "$stack_mode" == "volc-log" ]]; then
   compose_files+=(-f "$volc_log_compose_file")
 fi
-if [[ $# -gt 0 ]]; then
+if [[ "$topology_mode" == "gateway-capacity" ]]; then
+  if [[ $# -gt 0 ]]; then
+    echo "--gateway-capacity does not accept docker compose arguments" >&2
+    exit 2
+  fi
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --build turn server edge edge2
+elif [[ $# -gt 0 ]]; then
   docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up "$@"
 else
   docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --build
@@ -454,8 +480,11 @@ fi
 
 edge_tcp_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port --protocol tcp edge 9821 | awk -F: '{print $NF}')"
 edge2_tcp_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port --protocol tcp edge2 9821 | awk -F: '{print $NF}')"
-desktop_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port desktop 4191 | awk -F: '{print $NF}')"
-desktop_url="http://127.0.0.1:${desktop_port}"
+desktop_url=""
+if [[ "$topology_mode" == "full" ]]; then
+  desktop_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port desktop 4191 | awk -F: '{print $NF}')"
+  desktop_url="http://127.0.0.1:${desktop_port}"
+fi
 
 wait_docker_ready_file "server" "/tmp/gizclaw-e2e-server-ready" "docker server"
 wait_http_ready "http://$GIZCLAW_E2E_SERVER_ENDPOINT/server-info" "docker server admin" "server"
@@ -468,7 +497,9 @@ if [[ -z "$server_public_key" ]]; then
   echo "docker edge /server-info did not return server public_key" >&2
   exit 2
 fi
-wait_http_ready "$desktop_url" "docker desktop" "desktop"
+if [[ "$topology_mode" == "full" ]]; then
+  wait_http_ready "$desktop_url" "docker desktop" "desktop"
+fi
 
 state_dir="$state_root/$GIZCLAW_E2E_DOCKER_PROJECT"
 write_runtime_env "$state_dir" "$state_dir/cmd-config-home" "$state_dir/identities" "$desktop_url" "$server_public_key"
