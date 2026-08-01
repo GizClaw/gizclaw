@@ -20,14 +20,37 @@ import (
 	"testing"
 	"testing/fstest"
 
-	desktopresources "github.com/GizClaw/gizclaw-go/apps/wails/resources"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
 //go:embed testdata/raids-v0.3.0.tar.gz
 var raidsV030Archive []byte
 
-const raidsV030ArchiveSHA256 = "27bd688a4f61cac741685af4da871281994d4d7ec3d8103dc37d6d0d222497f9"
+//go:embed testdata/transparent-96x104.pixa
+var localPIXARawFixture []byte
+
+const (
+	raidsV030ArchiveSHA256  = "27bd688a4f61cac741685af4da871281994d4d7ec3d8103dc37d6d0d222497f9"
+	localPIXARawFixtureHash = "5220ea6d6ae36b6c94cf260852fde3b5732fc1ae9bf6c894dd90868e3c75446b"
+)
+
+// The source repository excludes these assets from redistribution. This
+// metadata lets an explicitly gated smoke test pin the immutable responses
+// without copying the restricted artwork into this repository.
+var pinnedPIXARawAssets = map[string]struct {
+	size   int
+	sha256 string
+}{
+	"bsod.pixa":        {size: 216904, sha256: "f3230abe60a12e189c39dc8d24426af15c0b759c167e030348abf76d8f5ebb56"},
+	"codex.pixa":       {size: 194782, sha256: "429d8a27b63ad259975a8adca3575d1419b5b57987b982293dee72fc9e514e0e"},
+	"dewey.pixa":       {size: 181192, sha256: "fd29d0eb525ee614e3db3e74f7874cd553c7a809fee8bd48dca1ce26797ebf65"},
+	"fireball.pixa":    {size: 231920, sha256: "ab8e7ea5836319eec6a04aeeb514bd171c8c961142a09aa8b0173eb22d803428"},
+	"hoots.pixa":       {size: 288012, sha256: "f895bea0886806a9d6bcbf5418a184cd527dd53f39f7f19ca425faba6c41e21f"},
+	"null-signal.pixa": {size: 152790, sha256: "2b996596ac93f75547aa4dbcc4724bfeccb69d9a1b33c5cd35470f20f5ee6162"},
+	"rocky.pixa":       {size: 210370, sha256: "528c7d9a87a712c6275e54f9e86c0af8f5c9306a6b17ad5b0c11ff374a6a03be"},
+	"seedy.pixa":       {size: 205884, sha256: "8748eea33bc935a27e6b63f186aeb112e8548217f1eff389cdf48777890e4cee"},
+	"stacky.pixa":      {size: 168196, sha256: "3278be5f1e4d0b1477a2ca5dfc21562dc9a67947b3abd22dcae46bf271252747"},
+}
 
 func TestReadRaidsArchiveRejectsUnsafeAndAcceptsPackageFiles(t *testing.T) {
 	archive := testRaidsArchive(t, []tar.Header{
@@ -71,11 +94,35 @@ func TestRaidsV030FixtureBuildsPetDependencyClosure(t *testing.T) {
 	if got := fmt.Sprintf("%x", sha256.Sum256(raidsV030Archive)); got != raidsV030ArchiveSHA256 {
 		t.Fatalf("Raids v0.3.0 fixture SHA-256 = %s, want %s", got, raidsV030ArchiveSHA256)
 	}
-	assets, err := desktopresources.LocalServer()
+	if got := fmt.Sprintf("%x", sha256.Sum256(localPIXARawFixture)); got != localPIXARawFixtureHash {
+		t.Fatalf("local PIXA raw fixture SHA-256 = %s, want %s", got, localPIXARawFixtureHash)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		name := strings.TrimPrefix(request.URL.Path, "/")
+		if _, ok := pinnedPIXARawAssets[name]; !ok {
+			http.NotFound(writer, request)
+			return
+		}
+		_, _ = writer.Write(localPIXARawFixture)
+	}))
+	defer server.Close()
+	pixa, err := newPIXAResolver(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalog, err := buildRaidsCatalog(assets, raidsV030Archive)
+	pixa.assetBaseURL = server.URL + "/"
+	loadedAssets := map[string]bool{}
+	catalog, err := buildRaidsCatalog(func(name string, width, height uint16) ([]byte, error) {
+		if _, ok := pinnedPIXARawAssets[name]; !ok {
+			return nil, fmt.Errorf("no pinned raw PIXA fixture metadata for %s", name)
+		}
+		data, err := pixa.resolve(t.Context(), name, width, height)
+		if err != nil {
+			return nil, err
+		}
+		loadedAssets[name] = true
+		return data, nil
+	}, raidsV030Archive)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,6 +146,37 @@ func TestRaidsV030FixtureBuildsPetDependencyClosure(t *testing.T) {
 			t.Errorf("catalog resources do not include %s", resource)
 		}
 	}
+	if len(catalog.PetDefPIXAs) != len(pinnedPIXARawAssets) || len(loadedAssets) != len(pinnedPIXARawAssets) {
+		t.Fatalf("PetDef PIXA mappings/loads = %d/%d, want %d", len(catalog.PetDefPIXAs), len(loadedAssets), len(pinnedPIXARawAssets))
+	}
+	for name := range pinnedPIXARawAssets {
+		if !loadedAssets[name] {
+			t.Errorf("PIXA loader did not resolve %s", name)
+		}
+	}
+}
+
+func TestPinnedPIXARawMediaSmoke(t *testing.T) {
+	if os.Getenv("GIZCLAW_TEST_PINNED_PIXA_MEDIA") != "1" {
+		t.Skip("set GIZCLAW_TEST_PINNED_PIXA_MEDIA=1 to verify the pinned GitHub media responses")
+	}
+	pixa, err := newPIXAResolver(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, fixture := range pinnedPIXARawAssets {
+		data, err := pixa.resolve(t.Context(), name, 96, 104)
+		if err != nil {
+			t.Errorf("resolve %s: %v", name, err)
+			continue
+		}
+		if len(data) != fixture.size {
+			t.Errorf("pinned raw PIXA %s size = %d, want %d", name, len(data), fixture.size)
+		}
+		if got := fmt.Sprintf("%x", sha256.Sum256(data)); got != fixture.sha256 {
+			t.Errorf("pinned raw PIXA %s SHA-256 = %s, want %s", name, got, fixture.sha256)
+		}
+	}
 }
 
 func TestRaidsReleaseUsesCommitAddressedArchive(t *testing.T) {
@@ -107,6 +185,9 @@ func TestRaidsReleaseUsesCommitAddressedArchive(t *testing.T) {
 	}
 	if len(RaidsCommit) != 40 || RaidsArchiveURL != "https://github.com/GizClaw/raids/archive/"+RaidsCommit+".tar.gz" {
 		t.Fatalf("Raids archive pin = %q at %q", RaidsCommit, RaidsArchiveURL)
+	}
+	if len(PIXACommit) != 40 || PIXAAssetBaseURL != "https://media.githubusercontent.com/media/GizClaw/pixa/"+PIXACommit+"/assets/codex-pets/" {
+		t.Fatalf("PIXA asset pin = %q at %q", PIXACommit, PIXAAssetBaseURL)
 	}
 }
 
@@ -147,10 +228,6 @@ func TestSelectRaidsDependenciesIncludesOnlyProfileClosure(t *testing.T) {
 }
 
 func TestSelectPetDefPIXAsCopiesSelectedLocalAsset(t *testing.T) {
-	source, err := desktopresources.LocalServer()
-	if err != nil {
-		t.Fatal(err)
-	}
 	target := fstest.MapFS{}
 	selected := map[string]raidsCandidate{
 		"PetDef/petdef-codex": {
@@ -178,7 +255,11 @@ spec:
 `),
 		},
 	}
-	assets, err := selectPetDefPIXAs(source, selected, target)
+	var loadedName string
+	assets, err := selectPetDefPIXAs(func(name string, width, height uint16) ([]byte, error) {
+		loadedName = name
+		return testPIXA(width, height), nil
+	}, selected, target)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,18 +269,30 @@ spec:
 	if _, ok := target["assets/pet-defs/codex.pixa"]; !ok {
 		t.Fatal("selected PIXA was not copied into the composed catalog")
 	}
+	if loadedName != "codex.pixa" {
+		t.Fatalf("loaded PIXA name = %q", loadedName)
+	}
 
 	candidate := selected["PetDef/petdef-codex"]
 	candidate.data = bytes.ReplaceAll(candidate.data, []byte("asset://codex/pets/codex.pixa"), []byte("https://example.com/codex.pixa"))
 	selected["PetDef/petdef-codex"] = candidate
-	if _, err := selectPetDefPIXAs(source, selected, fstest.MapFS{}); err == nil ||
+	if _, err := selectPetDefPIXAs(nil, selected, fstest.MapFS{}); err == nil ||
 		!strings.Contains(err.Error(), "unsupported PIXA asset_ref") {
 		t.Fatalf("unsupported PIXA asset_ref error = %v", err)
+	}
+
+	candidate.data = bytes.ReplaceAll(candidate.data, []byte("https://example.com/codex.pixa"), []byte("asset://codex/pets/codex.pixa"))
+	selected["PetDef/petdef-codex"] = candidate
+	_, err = selectPetDefPIXAs(func(string, uint16, uint16) ([]byte, error) {
+		return nil, errors.New("HTTP 404 Not Found")
+	}, selected, fstest.MapFS{})
+	if err == nil || !strings.Contains(err.Error(), "PetDef/petdef-codex") ||
+		!strings.Contains(err.Error(), PIXACommit+"/codex.pixa") || !strings.Contains(err.Error(), "HTTP 404") {
+		t.Fatalf("missing PIXA source context error = %v", err)
 	}
 }
 
 func TestRaidsResolverCachesValidatedArchive(t *testing.T) {
-	profile := testRuntimeProfileFS()
 	archive := testMinimalRaidsArchive(t)
 	var downloads atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -210,7 +303,7 @@ func TestRaidsResolverCachesValidatedArchive(t *testing.T) {
 		_, _ = writer.Write(archive)
 	}))
 	cacheDir := t.TempDir()
-	resolver, err := NewRaidsResolver(profile, cacheDir)
+	resolver, err := NewRaidsResolver(cacheDir, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +320,7 @@ func TestRaidsResolverCachesValidatedArchive(t *testing.T) {
 	}
 	server.Close()
 
-	cachedResolver, err := NewRaidsResolver(profile, cacheDir)
+	cachedResolver, err := NewRaidsResolver(cacheDir, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +380,7 @@ func TestBuildRaidsCatalogRejectsInvalidDefaultContract(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			archive := testMinimalRaidsArchiveWithRoots(t, test.profile, test.token, test.extra)
-			if _, err := buildRaidsCatalog(testRuntimeProfileFS(), archive); err == nil || !strings.Contains(err.Error(), test.want) {
+			if _, err := buildRaidsCatalog(nil, archive); err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("buildRaidsCatalog() error = %v, want %q", err, test.want)
 			}
 		})
@@ -314,9 +407,8 @@ func TestRaidsResolverReplacesExistingCacheArchive(t *testing.T) {
 }
 
 func TestRaidsResolverReportsInvalidCacheWhenDownloadFails(t *testing.T) {
-	profile := testRuntimeProfileFS()
 	cacheDir := t.TempDir()
-	resolver, err := NewRaidsResolver(profile, cacheDir)
+	resolver, err := NewRaidsResolver(cacheDir, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,7 +429,6 @@ func TestRaidsResolverRejectsSymlinkedCacheDirectory(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink creation requires additional Windows privileges")
 	}
-	profile := testRuntimeProfileFS()
 	root := t.TempDir()
 	target := filepath.Join(root, "target")
 	if err := os.Mkdir(target, 0o700); err != nil {
@@ -347,7 +438,7 @@ func TestRaidsResolverRejectsSymlinkedCacheDirectory(t *testing.T) {
 	if err := os.Symlink(target, cacheDir); err != nil {
 		t.Fatal(err)
 	}
-	resolver, err := NewRaidsResolver(profile, cacheDir)
+	resolver, err := NewRaidsResolver(cacheDir, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -16,6 +16,7 @@ type Paths struct {
 	PodsDir          string `json:"pods_dir"`
 	BootstrapEnvFile string `json:"bootstrap_env_file"`
 	RaidsCacheDir    string `json:"raids_cache_dir"`
+	PIXACacheDir     string `json:"pixa_cache_dir"`
 }
 
 func DefaultPaths() (Paths, error) {
@@ -35,11 +36,12 @@ func NewPaths(root string) Paths {
 		PodsDir:          filepath.Join(root, "pods"),
 		BootstrapEnvFile: filepath.Join(root, "bootstrap.env"),
 		RaidsCacheDir:    filepath.Join(root, "raids"),
+		PIXACacheDir:     filepath.Join(root, "pixa"),
 	}
 }
 
 func (p Paths) Ensure() error {
-	if p.ConfigRoot == "" || p.PodsDir == "" || p.BootstrapEnvFile == "" || p.RaidsCacheDir == "" {
+	if p.ConfigRoot == "" || p.PodsDir == "" || p.BootstrapEnvFile == "" || p.RaidsCacheDir == "" || p.PIXACacheDir == "" {
 		return fmt.Errorf("appconfig: incomplete paths")
 	}
 	if err := secureDir(p.PodsDir); err != nil {
@@ -47,6 +49,9 @@ func (p Paths) Ensure() error {
 	}
 	if err := secureDir(p.RaidsCacheDir); err != nil {
 		return fmt.Errorf("appconfig: mkdir raids cache: %w", err)
+	}
+	if err := secureDir(p.PIXACacheDir); err != nil {
+		return fmt.Errorf("appconfig: mkdir PIXA cache: %w", err)
 	}
 	return nil
 }

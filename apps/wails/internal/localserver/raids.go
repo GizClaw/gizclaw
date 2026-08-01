@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
 	"os"
 	"path"
@@ -46,34 +45,38 @@ type CatalogResolver interface {
 }
 
 // RaidsResolver loads the fixed public Raids archive and combines its selected
-// resources with Desktop-owned binary assets.
+// resources with commit-addressed PIXA assets.
 type RaidsResolver struct {
-	assets     fs.FS
 	cacheDir   string
 	archiveURL string
 	httpClient *http.Client
+	pixa       *pixaResolver
 
 	mu     sync.Mutex
 	cached *Catalog
 }
 
 // NewRaidsResolver constructs a resolver without contacting the network.
-func NewRaidsResolver(assets fs.FS, cacheDir string) (*RaidsResolver, error) {
-	if assets == nil {
-		return nil, errors.New("raids catalog: local asset filesystem is required")
+func NewRaidsResolver(cacheDir, pixaCacheDir string) (*RaidsResolver, error) {
+	if strings.TrimSpace(cacheDir) == "" {
+		return nil, errors.New("raids catalog: cache directory is required")
+	}
+	pixa, err := newPIXAResolver(pixaCacheDir)
+	if err != nil {
+		return nil, err
 	}
 	return &RaidsResolver{
-		assets:     assets,
 		cacheDir:   cacheDir,
 		archiveURL: RaidsArchiveURL,
 		httpClient: &http.Client{Timeout: 20 * time.Second},
+		pixa:       pixa,
 	}, nil
 }
 
 // Resolve returns a cache-backed, immutable catalog. A failed candidate never
 // replaces a previously valid archive.
 func (r *RaidsResolver) Resolve(ctx context.Context) (*Catalog, error) {
-	if r == nil || r.assets == nil || strings.TrimSpace(r.cacheDir) == "" {
+	if r == nil || r.pixa == nil || strings.TrimSpace(r.cacheDir) == "" {
 		return nil, errors.New("raids catalog: resolver is not configured")
 	}
 	r.mu.Lock()
@@ -87,10 +90,14 @@ func (r *RaidsResolver) Resolve(ctx context.Context) (*Catalog, error) {
 	archive, cacheReadErr := r.readCache()
 	var cacheErr error
 	if cacheReadErr == nil {
-		catalog, catalogErr := buildRaidsCatalog(r.assets, archive)
+		catalog, catalogErr := r.buildCatalog(ctx, archive)
 		if catalogErr == nil {
 			r.cached = catalog
 			return catalog, nil
+		}
+		var assetErr *pixaAssetError
+		if errors.As(catalogErr, &assetErr) {
+			return nil, catalogErr
 		}
 		cacheErr = fmt.Errorf("validate cached archive: %w", catalogErr)
 	} else if !os.IsNotExist(cacheReadErr) {
@@ -103,7 +110,7 @@ func (r *RaidsResolver) Resolve(ctx context.Context) (*Catalog, error) {
 		}
 		return nil, fmt.Errorf("raids catalog: load %s: %w", RaidsVersion, downloadErr)
 	}
-	catalog, validateErr := buildRaidsCatalog(r.assets, candidate)
+	catalog, validateErr := r.buildCatalog(ctx, candidate)
 	if validateErr != nil {
 		return nil, fmt.Errorf("raids catalog: validate %s: %w", RaidsVersion, validateErr)
 	}
@@ -112,6 +119,12 @@ func (r *RaidsResolver) Resolve(ctx context.Context) (*Catalog, error) {
 	}
 	r.cached = catalog
 	return catalog, nil
+}
+
+func (r *RaidsResolver) buildCatalog(ctx context.Context, archive []byte) (*Catalog, error) {
+	return buildRaidsCatalog(func(name string, width, height uint16) ([]byte, error) {
+		return r.pixa.resolve(ctx, name, width, height)
+	}, archive)
 }
 
 func (r *RaidsResolver) cacheFile() string { return filepath.Join(r.cacheDir, RaidsVersion+".tar.gz") }
@@ -253,7 +266,7 @@ type raidsCandidate struct {
 	credentialName string
 }
 
-func buildRaidsCatalog(assetFS fs.FS, archive []byte) (*Catalog, error) {
+func buildRaidsCatalog(loadPIXA func(string, uint16, uint16) ([]byte, error), archive []byte) (*Catalog, error) {
 	files, err := readRaidsArchive(archive)
 	if err != nil {
 		return nil, err
@@ -330,7 +343,7 @@ func buildRaidsCatalog(assetFS fs.FS, archive []byte) (*Catalog, error) {
 			return nil, fmt.Errorf("raids catalog: collect environment requirements from %s/%s: %w", candidate.kind, candidate.name, err)
 		}
 	}
-	petDefPIXAs, err := selectPetDefPIXAs(assetFS, selected, mapFS)
+	petDefPIXAs, err := selectPetDefPIXAs(loadPIXA, selected, mapFS)
 	if err != nil {
 		return nil, err
 	}
@@ -357,7 +370,12 @@ func buildRaidsCatalog(assetFS fs.FS, archive []byte) (*Catalog, error) {
 	return result, nil
 }
 
-func selectPetDefPIXAs(source fs.FS, selected map[string]raidsCandidate, target fstest.MapFS) ([]PetDefPIXA, error) {
+type pixaAssetError struct{ err error }
+
+func (e *pixaAssetError) Error() string { return e.err.Error() }
+func (e *pixaAssetError) Unwrap() error { return e.err }
+
+func selectPetDefPIXAs(loadPIXA func(string, uint16, uint16) ([]byte, error), selected map[string]raidsCandidate, target fstest.MapFS) ([]PetDefPIXA, error) {
 	names := make([]string, 0)
 	for _, candidate := range selected {
 		if candidate.kind == "PetDef" {
@@ -370,6 +388,7 @@ func selectPetDefPIXAs(source fs.FS, selected map[string]raidsCandidate, target 
 	sort.Strings(names)
 
 	result := make([]PetDefPIXA, 0, len(names))
+	assetOwners := map[string]string{}
 	for _, name := range names {
 		candidate := selected["PetDef/"+name]
 		resource, _, err := decodeResource(candidate.data)
@@ -387,21 +406,27 @@ func selectPetDefPIXAs(source fs.FS, selected map[string]raidsCandidate, target 
 			path.Ext(assetName) != ".pixa" {
 			return nil, fmt.Errorf("raids catalog: PetDef/%s has unsupported PIXA asset_ref %q", name, petDef.Spec.Visual.Pixa.AssetRef)
 		}
-		assetPath := path.Join("assets/pet-defs", assetName)
-		data, err := readAsset(source, assetPath)
-		if err != nil {
-			return nil, fmt.Errorf("raids catalog: load local PIXA for PetDef/%s: %w", name, err)
+		if owner := assetOwners[assetName]; owner != "" {
+			return nil, fmt.Errorf("raids catalog: PetDef/%s and PetDef/%s reuse PIXA asset %s", owner, name, assetName)
 		}
-		target[assetPath] = &fstest.MapFile{Data: data, Mode: 0o444}
-
+		assetOwners[assetName] = name
+		assetPath := path.Join("assets/pet-defs", assetName)
 		width := petDef.Spec.Visual.Pixa.Metadata.Canvas.Width
 		height := petDef.Spec.Visual.Pixa.Metadata.Canvas.Height
 		if width <= 0 || width > 1<<16-1 || height <= 0 || height > 1<<16-1 {
 			return nil, fmt.Errorf("raids catalog: PetDef/%s has unsupported PIXA dimensions %dx%d", name, width, height)
 		}
-		if err := validatePIXAAsset(target, assetPath, uint16(width), uint16(height)); err != nil {
-			return nil, fmt.Errorf("raids catalog: validate local PIXA for PetDef/%s: %w", name, err)
+		if loadPIXA == nil {
+			return nil, &pixaAssetError{err: fmt.Errorf("raids catalog: PIXA loader is required for PetDef/%s", name)}
 		}
+		data, err := loadPIXA(assetName, uint16(width), uint16(height))
+		if err != nil {
+			return nil, &pixaAssetError{err: fmt.Errorf("raids catalog: load PIXA for PetDef/%s from GizClaw/pixa@%s/%s: %w", name, PIXACommit, assetName, err)}
+		}
+		if err := validatePIXAData(data, assetName, uint16(width), uint16(height)); err != nil {
+			return nil, &pixaAssetError{err: fmt.Errorf("raids catalog: validate PIXA for PetDef/%s from GizClaw/pixa@%s/%s: %w", name, PIXACommit, assetName, err)}
+		}
+		target[assetPath] = &fstest.MapFile{Data: data, Mode: 0o444}
 		result = append(result, PetDefPIXA{PetDef: name, PIXA: assetPath})
 	}
 	return result, nil

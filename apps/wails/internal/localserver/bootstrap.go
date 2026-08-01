@@ -288,7 +288,7 @@ func (b *Bootstrapper) uploadPetDefPIXAs(
 		}
 		args := []string{"admin", "pet-defs", "upload-pixa", asset.PetDef, "--context", "local", "-f", file}
 		if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
-			return fmt.Errorf("local server bootstrap: upload PetDef/%s PIXA: %w", asset.PetDef, err)
+			return fmt.Errorf("local server bootstrap: upload PetDef/%s PIXA %s: %w", asset.PetDef, asset.PIXA, err)
 		}
 	}
 	return nil

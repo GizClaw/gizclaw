@@ -25,17 +25,18 @@ Schema source of desktop bridge DTO; generated through `gen:sdk` of `sdk/js` aft
 
 ## Local Server bootstrap
 
-`resources/local-server` embeds only Desktop-owned PIXA binaries. The public Raids `v0.3.0`
-release is fetched through its commit-addressed GitHub archive and is the declarative source for `RuntimeProfile/default`,
+The public Raids `v0.3.0` release is fetched through its commit-addressed GitHub archive and is the declarative source for `RuntimeProfile/default`,
 `RegistrationToken/default-runtime`, and the Credential, Tenant, Model, Voice, MemoryLayout, Workflow, and PetDef
-resources referenced by that profile. Desktop validates and caches the archive privately below its
-config root, resolves only the profile dependency closure, and applies dependencies, PIXA binaries,
-the profile, and then the token. `runtime-profile.example.yaml` remains documentation-only.
+resources referenced by that profile. PIXA assets referenced by PetDefs come from the matching safe basenames in the pinned
+`GizClaw/pixa@5fed581ae87ac3cf4a5a05952d43edebbbed8d9f` commit. Desktop validates and privately caches both
+the Raids archive and the commit-scoped PIXA files below its config root, resolves only the profile dependency
+closure, and applies dependencies, PIXA binaries, the profile, and then the token.
+`runtime-profile.example.yaml` remains documentation-only.
 
 The portable default profile may bind a Workflow Memory alias to `flowcraft_bbh`; this connection has no endpoint or key and derives its managed directory from the local Server Workspace. Archive selection includes the referenced `MemoryLayout` and validates every selected driver/connection pair plus the Layout's Flowcraft model aliases before applying anything.
 
 Credential templates come from Raids; credential values remain in Desktop's private
-`bootstrap.env` or the process environment. The archive cache, RuntimeProfile, `pod.json`, URLs,
+`bootstrap.env` or the process environment. The Raids and PIXA caches, RuntimeProfile, `pod.json`, URLs,
 Web Storage, and logs never contain those values. If neither a valid cache nor GitHub is available,
 Desktop and remote Pod management remain usable, but new local Pod creation and required local
 runtime-contract migration fail before they can partially apply a catalog.
@@ -55,7 +56,7 @@ Each local Server persists its own independent resource instances.
 
 Completed local Pods do not replay the full bootstrap catalog during start,
 restart, or Desktop upgrade. A legacy local Pod performs one targeted migration
-after its Server is ready: Desktop reapplies the resolved Raids dependency closure and PIXA assets,
+after its Server is ready: Desktop reapplies the resolved Raids dependency closure and pinned PIXA assets,
 replaces `RuntimeProfile/default`, applies `RegistrationToken/default-runtime`, retires
 `RegistrationToken/app:com.gizclaw.opensource` and `RegistrationToken/desktop-local`, removes the
 obsolete workspace token handoff, and records the local catalog version in `pod.json`. A recovered

@@ -18,7 +18,8 @@ private key.
   Add the Server and enroll with the local App registration token. A new local Pod contains exactly one
   `RuntimeProfile/default` and `RegistrationToken/default-runtime`. Both come from the fixed Raids
   `v0.3.0` archive together with the profile's Credential, Tenant, Model, Voice, MemoryLayout, Workflow, and PetDef
-  dependencies. Desktop uploads the matching PIXA binaries, then applies the profile and its public
+  dependencies. Desktop downloads or reuses privately cached matching PIXA binaries from
+  `GizClaw/pixa@5fed581ae87ac3cf4a5a05952d43edebbbed8d9f`, then applies the profile and its public
   deterministic enrollment token; it does not create Firmware or generate another local token.
   Anyone who can reach the LAN endpoint and knows the public UUID can attempt registration into the
   default profile, while Admin access still requires the separate Admin identity.
@@ -29,7 +30,7 @@ private key.
 
 Local Play and the local share QR expose the validated Raids public token only after the current
 catalog contract has completed. Existing local Pods migrate once by applying the Raids dependency
-closure, PIXA assets, profile, and token before retiring the two legacy Desktop tokens and workspace
+closure, pinned PIXA assets, profile, and token before retiring the two legacy Desktop tokens and workspace
 handoff file. A failed apply or cleanup keeps Play and QR unavailable until a retry succeeds. Remote
 Pods continue to use only their explicitly configured deployment token.
 

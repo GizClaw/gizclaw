@@ -267,6 +267,29 @@ func TestBootstrapperIdentifiesFailingResourceWithoutEnvironmentValues(t *testin
 	}
 }
 
+func TestBootstrapperIdentifiesRejectedPetDefPIXA(t *testing.T) {
+	catalog := &Catalog{
+		FS:          fstest.MapFS{"assets/pet-defs/codex.pixa": {Data: []byte("pet")}},
+		PetDefPIXAs: []PetDefPIXA{{PetDef: "petdef-codex", PIXA: "assets/pet-defs/codex.pixa"}},
+	}
+	bootstrapper := &Bootstrapper{Catalog: catalog}
+	err := bootstrapper.uploadPetDefPIXAs(
+		context.Background(),
+		catalog,
+		t.TempDir(),
+		"/fake/gizclaw",
+		nil,
+		func(context.Context, string, []string, []string) error {
+			return errors.New("visible outer-border pixel")
+		},
+	)
+	if err == nil || !strings.Contains(err.Error(), "PetDef/petdef-codex") ||
+		!strings.Contains(err.Error(), "assets/pet-defs/codex.pixa") ||
+		!strings.Contains(err.Error(), "visible outer-border pixel") {
+		t.Fatalf("uploadPetDefPIXAs() error = %v", err)
+	}
+}
+
 func TestRunBootstrapCommandReturnsRedactedDiagnostic(t *testing.T) {
 	if os.Getenv("GIZCLAW_BOOTSTRAP_HELPER_PROCESS") == "1" {
 		_, _ = fmt.Fprintln(os.Stderr, "request rejected for secret-token")
