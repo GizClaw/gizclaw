@@ -29,4 +29,6 @@ sequenceDiagram
 
 The RPC adapter owns payload decoding, framing, lifecycle, and stable error mapping. Domain services own storage, resource validation, authorization, and execution.
 
+Friend Group messages are a read-only projection of the group's bound Workspace History. List/get/audio requests accept `friend_group_id` (and History ID where needed); the Server loads the group, verifies current membership, resolves its stored Workspace name, and returns the dedicated Friend Group DTO. Conversation is the only write path. Audio get uses the standard metadata, binary frames, and EOS response and never exposes Workspace or asset locators.
+
 `server.peer.delete` has empty request and response messages and never accepts a target public key. It atomically creates or reuses the caller's pending-deletion handoff while retaining the active Peer, then the Server immediately marks the current connection retiring and rejects new work, and attempts to flush the response and EOS. The full connection closes even if either write fails. `server.workspace.delete` creates or reuses the same transparent handoff only for a caller-owned user Workspace; system Workspaces remain non-deletable. `server.pet.delete` retains the Pet and writes or reuses Pet pending work while retaining its bound system Workspace.

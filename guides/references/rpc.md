@@ -107,9 +107,10 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为安全 alias catalo
 | 59 | `server.friend_group.members.add` | 向 Friend Group 添加成员并设置 member/admin role。 |
 | 60 | `server.friend_group.members.put` | 修改 Friend Group 成员的 member/admin role。 |
 | 61 | `server.friend_group.members.delete` | 从 Friend Group 删除成员。 |
-| 62 | `server.friend_group.messages.list` | 分页列出 Friend Group 的音频消息 metadata。 |
-| 63 | `server.friend_group.messages.get` | 读取一条 Friend Group 音频消息 metadata。 |
-| 64 | `server.friend_group.messages.send` | 向 Friend Group 发送带 content type 和可选 TTL 的音频消息。 |
+| 62 | `server.friend_group.messages.list` | 按 Friend Group 解析其 Workspace，并分页投影 Workspace History。 |
+| 63 | `server.friend_group.messages.get` | 按 History ID 读取 Friend Group Workspace History 投影。 |
+| 64 | *(reserved)* | 保留已移除的 `server.friend_group.messages.send` 编号与枚举名。 |
+| 96 | `server.friend_group.messages.audio.get` | 返回 Friend Group Workspace History 音频 metadata，并通过 binary frames 传输音频 bytes。 |
 
 ## Gameplay
 

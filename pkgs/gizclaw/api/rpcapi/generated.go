@@ -590,9 +590,9 @@ const (
 	RPCMethodServerFriendGroupMembersDelete     RPCMethod = "server.friend_group.members.delete"
 	RPCMethodServerFriendGroupMembersList       RPCMethod = "server.friend_group.members.list"
 	RPCMethodServerFriendGroupMembersPut        RPCMethod = "server.friend_group.members.put"
+	RPCMethodServerFriendGroupMessagesAudioGet  RPCMethod = "server.friend_group.messages.audio.get"
 	RPCMethodServerFriendGroupMessagesGet       RPCMethod = "server.friend_group.messages.get"
 	RPCMethodServerFriendGroupMessagesList      RPCMethod = "server.friend_group.messages.list"
-	RPCMethodServerFriendGroupMessagesSend      RPCMethod = "server.friend_group.messages.send"
 	RPCMethodServerFriendGroupPut               RPCMethod = "server.friend_group.put"
 	RPCMethodServerFriendInviteTokenClear       RPCMethod = "server.friend.invite_token.clear"
 	RPCMethodServerFriendInviteTokenCreate      RPCMethod = "server.friend.invite_token.create"
@@ -718,11 +718,11 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerFriendGroupMembersPut:
 		return true
+	case RPCMethodServerFriendGroupMessagesAudioGet:
+		return true
 	case RPCMethodServerFriendGroupMessagesGet:
 		return true
 	case RPCMethodServerFriendGroupMessagesList:
-		return true
-	case RPCMethodServerFriendGroupMessagesSend:
 		return true
 	case RPCMethodServerFriendGroupPut:
 		return true
@@ -1984,10 +1984,24 @@ type FriendGroupMemberPutResponse = FriendGroupMemberObject
 // FriendGroupMemberRole defines model for FriendGroupMemberRole.
 type FriendGroupMemberRole string
 
+// FriendGroupMessageAudioGetRequest defines model for FriendGroupMessageAudioGetRequest.
+type FriendGroupMessageAudioGetRequest struct {
+	FriendGroupId string `json:"friend_group_id"`
+	HistoryId     string `json:"history_id"`
+}
+
+// FriendGroupMessageAudioGetResponse defines model for FriendGroupMessageAudioGetResponse.
+type FriendGroupMessageAudioGetResponse struct {
+	FriendGroupId string `json:"friend_group_id"`
+	HistoryId     string `json:"history_id"`
+	MimeType      string `json:"mime_type"`
+	SizeBytes     int64  `json:"size_bytes"`
+}
+
 // FriendGroupMessageGetRequest defines model for FriendGroupMessageGetRequest.
 type FriendGroupMessageGetRequest struct {
 	FriendGroupId string `json:"friend_group_id"`
-	Id            string `json:"id"`
+	HistoryId     string `json:"history_id"`
 }
 
 // FriendGroupMessageGetResponse defines model for FriendGroupMessageGetResponse.
@@ -1995,9 +2009,10 @@ type FriendGroupMessageGetResponse = FriendGroupMessageObject
 
 // FriendGroupMessageListRequest defines model for FriendGroupMessageListRequest.
 type FriendGroupMessageListRequest struct {
-	Cursor        *string `json:"cursor,omitempty"`
-	FriendGroupId *string `json:"friend_group_id,omitempty"`
-	Limit         *int    `json:"limit,omitempty"`
+	Cursor        *string                           `json:"cursor,omitempty"`
+	FriendGroupId string                            `json:"friend_group_id"`
+	Limit         *int                              `json:"limit,omitempty"`
+	Order         *WorkspaceHistoryListRequestOrder `json:"order,omitempty"`
 }
 
 // FriendGroupMessageListResponse defines model for FriendGroupMessageListResponse.
@@ -2009,27 +2024,16 @@ type FriendGroupMessageListResponse struct {
 
 // FriendGroupMessageObject defines model for FriendGroupMessageObject.
 type FriendGroupMessageObject struct {
-	AudioContentType    *string    `json:"audio_content_type,omitempty"`
-	AudioPath           *string    `json:"audio_path,omitempty"`
-	AudioSizeBytes      *int64     `json:"audio_size_bytes,omitempty"`
-	CreatedAt           *time.Time `json:"created_at,omitempty"`
-	ExpiresAt           *time.Time `json:"expires_at,omitempty"`
-	FriendGroupId       *string    `json:"friend_group_id,omitempty"`
-	Id                  *string    `json:"id,omitempty"`
-	SenderPeerPublicKey *string    `json:"sender_peer_public_key,omitempty"`
-	TtlSeconds          *int       `json:"ttl_seconds,omitempty"`
+	AudioAvailable      bool                    `json:"audio_available"`
+	CreatedAt           time.Time               `json:"created_at"`
+	ExpiresAt           *time.Time              `json:"expires_at,omitempty"`
+	FriendGroupId       string                  `json:"friend_group_id"`
+	HistoryId           string                  `json:"history_id"`
+	Name                string                  `json:"name"`
+	SenderPeerPublicKey *string                 `json:"sender_peer_public_key,omitempty"`
+	Text                string                  `json:"text"`
+	Type                PeerRunHistoryEntryType `json:"type"`
 }
-
-// FriendGroupMessageSendRequest defines model for FriendGroupMessageSendRequest.
-type FriendGroupMessageSendRequest struct {
-	AudioBase64      []byte `json:"audio_base64"`
-	AudioContentType string `json:"audio_content_type"`
-	FriendGroupId    string `json:"friend_group_id"`
-	TtlSeconds       *int   `json:"ttl_seconds,omitempty"`
-}
-
-// FriendGroupMessageSendResponse defines model for FriendGroupMessageSendResponse.
-type FriendGroupMessageSendResponse = FriendGroupMessageObject
 
 // FriendGroupObject defines model for FriendGroupObject.
 type FriendGroupObject struct {
@@ -4790,6 +4794,23 @@ func (t *RPCPayload) MergeFriendGroupMemberDeleteRequest(v FriendGroupMemberDele
 	return t.merge("FriendGroupMemberDeleteRequest", v)
 }
 
+// AsFriendGroupMessageAudioGetRequest decodes the RPCPayload as a FriendGroupMessageAudioGetRequest
+func (t RPCPayload) AsFriendGroupMessageAudioGetRequest() (FriendGroupMessageAudioGetRequest, error) {
+	var body FriendGroupMessageAudioGetRequest
+	err := t.decode("FriendGroupMessageAudioGetRequest", &body)
+	return body, err
+}
+
+// FromFriendGroupMessageAudioGetRequest overwrites any protobuf payload as the provided FriendGroupMessageAudioGetRequest
+func (t *RPCPayload) FromFriendGroupMessageAudioGetRequest(v FriendGroupMessageAudioGetRequest) error {
+	return t.encode("FriendGroupMessageAudioGetRequest", v)
+}
+
+// MergeFriendGroupMessageAudioGetRequest performs a merge with any protobuf payload, using the provided FriendGroupMessageAudioGetRequest
+func (t *RPCPayload) MergeFriendGroupMessageAudioGetRequest(v FriendGroupMessageAudioGetRequest) error {
+	return t.merge("FriendGroupMessageAudioGetRequest", v)
+}
+
 // AsFriendGroupMessageListRequest decodes the RPCPayload as a FriendGroupMessageListRequest
 func (t RPCPayload) AsFriendGroupMessageListRequest() (FriendGroupMessageListRequest, error) {
 	var body FriendGroupMessageListRequest
@@ -4822,23 +4843,6 @@ func (t *RPCPayload) FromFriendGroupMessageGetRequest(v FriendGroupMessageGetReq
 // MergeFriendGroupMessageGetRequest performs a merge with any protobuf payload, using the provided FriendGroupMessageGetRequest
 func (t *RPCPayload) MergeFriendGroupMessageGetRequest(v FriendGroupMessageGetRequest) error {
 	return t.merge("FriendGroupMessageGetRequest", v)
-}
-
-// AsFriendGroupMessageSendRequest decodes the RPCPayload as a FriendGroupMessageSendRequest
-func (t RPCPayload) AsFriendGroupMessageSendRequest() (FriendGroupMessageSendRequest, error) {
-	var body FriendGroupMessageSendRequest
-	err := t.decode("FriendGroupMessageSendRequest", &body)
-	return body, err
-}
-
-// FromFriendGroupMessageSendRequest overwrites any protobuf payload as the provided FriendGroupMessageSendRequest
-func (t *RPCPayload) FromFriendGroupMessageSendRequest(v FriendGroupMessageSendRequest) error {
-	return t.encode("FriendGroupMessageSendRequest", v)
-}
-
-// MergeFriendGroupMessageSendRequest performs a merge with any protobuf payload, using the provided FriendGroupMessageSendRequest
-func (t *RPCPayload) MergeFriendGroupMessageSendRequest(v FriendGroupMessageSendRequest) error {
-	return t.merge("FriendGroupMessageSendRequest", v)
 }
 
 // AsBadgeDefPixaDownloadRequest decodes the RPCPayload as a BadgeDefPixaDownloadRequest
@@ -6286,6 +6290,23 @@ func (t *RPCPayload) MergeFriendGroupMemberDeleteResponse(v FriendGroupMemberDel
 	return t.merge("FriendGroupMemberDeleteResponse", v)
 }
 
+// AsFriendGroupMessageAudioGetResponse decodes the RPCPayload as a FriendGroupMessageAudioGetResponse
+func (t RPCPayload) AsFriendGroupMessageAudioGetResponse() (FriendGroupMessageAudioGetResponse, error) {
+	var body FriendGroupMessageAudioGetResponse
+	err := t.decode("FriendGroupMessageAudioGetResponse", &body)
+	return body, err
+}
+
+// FromFriendGroupMessageAudioGetResponse overwrites any protobuf payload as the provided FriendGroupMessageAudioGetResponse
+func (t *RPCPayload) FromFriendGroupMessageAudioGetResponse(v FriendGroupMessageAudioGetResponse) error {
+	return t.encode("FriendGroupMessageAudioGetResponse", v)
+}
+
+// MergeFriendGroupMessageAudioGetResponse performs a merge with any protobuf payload, using the provided FriendGroupMessageAudioGetResponse
+func (t *RPCPayload) MergeFriendGroupMessageAudioGetResponse(v FriendGroupMessageAudioGetResponse) error {
+	return t.merge("FriendGroupMessageAudioGetResponse", v)
+}
+
 // AsFriendGroupMessageListResponse decodes the RPCPayload as a FriendGroupMessageListResponse
 func (t RPCPayload) AsFriendGroupMessageListResponse() (FriendGroupMessageListResponse, error) {
 	var body FriendGroupMessageListResponse
@@ -6318,23 +6339,6 @@ func (t *RPCPayload) FromFriendGroupMessageGetResponse(v FriendGroupMessageGetRe
 // MergeFriendGroupMessageGetResponse performs a merge with any protobuf payload, using the provided FriendGroupMessageGetResponse
 func (t *RPCPayload) MergeFriendGroupMessageGetResponse(v FriendGroupMessageGetResponse) error {
 	return t.merge("FriendGroupMessageGetResponse", v)
-}
-
-// AsFriendGroupMessageSendResponse decodes the RPCPayload as a FriendGroupMessageSendResponse
-func (t RPCPayload) AsFriendGroupMessageSendResponse() (FriendGroupMessageSendResponse, error) {
-	var body FriendGroupMessageSendResponse
-	err := t.decode("FriendGroupMessageSendResponse", &body)
-	return body, err
-}
-
-// FromFriendGroupMessageSendResponse overwrites any protobuf payload as the provided FriendGroupMessageSendResponse
-func (t *RPCPayload) FromFriendGroupMessageSendResponse(v FriendGroupMessageSendResponse) error {
-	return t.encode("FriendGroupMessageSendResponse", v)
-}
-
-// MergeFriendGroupMessageSendResponse performs a merge with any protobuf payload, using the provided FriendGroupMessageSendResponse
-func (t *RPCPayload) MergeFriendGroupMessageSendResponse(v FriendGroupMessageSendResponse) error {
-	return t.merge("FriendGroupMessageSendResponse", v)
 }
 
 // AsBadgeDefPixaDownloadResponse decodes the RPCPayload as a BadgeDefPixaDownloadResponse

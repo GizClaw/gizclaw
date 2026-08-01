@@ -16,7 +16,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -293,9 +292,6 @@ func TestServerInitPreservesExistingModularPeerLayout(t *testing.T) {
 		configure func(*Server, kv.Store, objectstore.ObjectStore)
 	}{
 		{name: "agent host", configure: func(server *Server, _ kv.Store, objects objectstore.ObjectStore) { server.AgentHostStore = objects }},
-		{name: "friend group message", configure: func(server *Server, _ kv.Store, objects objectstore.ObjectStore) {
-			server.FriendGroupMessageAssets = objects
-		}},
 		{name: "gameplay", configure: func(server *Server, _ kv.Store, objects objectstore.ObjectStore) { server.GameplayAssets = objects }},
 		{name: "flowcraft state", configure: func(server *Server, state kv.Store, _ objectstore.ObjectStore) { server.FlowcraftState = state }},
 	}
@@ -585,35 +581,6 @@ func TestServerServeWithoutListenStillRequiresListenerAfterClose(t *testing.T) {
 	}
 	if err := server.Serve(); !errors.Is(err, giznet.ErrNilListener) {
 		t.Fatalf("Serve() error = %v, want %v", err, giznet.ErrNilListener)
-	}
-}
-
-func TestServerCloseWaitsForCleanupLoop(t *testing.T) {
-	server := &Server{
-		FriendGroupMessageCleanup: time.Hour,
-		manager: &Manager{
-			FriendGroups: &friendgroup.Server{Messages: kv.NewMemory(nil)},
-		},
-	}
-	server.startCleanup()
-	if server.cleanupStop == nil || server.cleanupDone == nil {
-		t.Fatal("startCleanup did not start cleanup loop")
-	}
-
-	done := make(chan error, 1)
-	go func() {
-		done <- server.Close()
-	}()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("Close() error = %v", err)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("Close() did not wait for cleanup loop to exit")
-	}
-	if server.cleanupStop != nil || server.cleanupDone != nil {
-		t.Fatal("Close() did not clear cleanup state")
 	}
 }
 

@@ -135,14 +135,6 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: friend-group-belongs
-  friend-group-messages:
-    kind: keyvalue
-    storage: memory
-    prefix: friend-group-messages
-  friend-group-message-assets:
-    kind: objectstore
-    storage: local-files
-    prefix: friend-group-messages
   metrics:
     kind: metrics
     memory: {}
@@ -164,8 +156,3 @@ workflows:
   store: workflows
 history:
   store: history
-friend_groups:
-  message_default_ttl: 24h
-  message_max_ttl: 7d
-  message_cleanup_interval: 100ms
-  message_max_audio_bytes: 67108864

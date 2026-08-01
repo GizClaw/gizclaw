@@ -551,15 +551,26 @@ export type FriendGroupMemberPutRequest = {
   "role": FriendGroupMemberMutableRole;
 };
 export type FriendGroupMemberPutResponse = FriendGroupMemberObject;
+export type FriendGroupMessageAudioGetRequest = {
+  "friend_group_id": string;
+  "history_id": string;
+};
+export type FriendGroupMessageAudioGetResponse = {
+  "friend_group_id": string;
+  "history_id": string;
+  "mime_type": string;
+  "size_bytes": number;
+};
 export type FriendGroupMessageGetRequest = {
   "friend_group_id": string;
-  "id": string;
+  "history_id": string;
 };
 export type FriendGroupMessageGetResponse = FriendGroupMessageObject;
 export type FriendGroupMessageListRequest = {
   "cursor"?: string;
-  "friend_group_id"?: string;
+  "friend_group_id": string;
   "limit"?: number;
+  "order"?: WorkspaceHistoryListRequestOrder;
 };
 export type FriendGroupMessageListResponse = {
   "has_next": boolean;
@@ -567,23 +578,16 @@ export type FriendGroupMessageListResponse = {
   "next_cursor"?: string;
 };
 export type FriendGroupMessageObject = {
-  "audio_content_type"?: string;
-  "audio_path"?: string;
-  "audio_size_bytes"?: number;
-  "created_at"?: string;
+  "created_at": string;
   "expires_at"?: string;
-  "friend_group_id"?: string;
-  "id"?: string;
-  "sender_peer_public_key"?: string;
-  "ttl_seconds"?: number;
-};
-export type FriendGroupMessageSendRequest = {
-  "audio_base64": string;
-  "audio_content_type": string;
   "friend_group_id": string;
-  "ttl_seconds"?: number;
+  "sender_peer_public_key"?: string;
+  "history_id": string;
+  "name": string;
+  "text": string;
+  "type": PeerRunHistoryEntryType;
+  "audio_available": boolean;
 };
-export type FriendGroupMessageSendResponse = FriendGroupMessageObject;
 export type FriendGroupObject = {
   "created_at"?: string;
   "created_by_peer_public_key"?: string;
@@ -1404,9 +1408,9 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend_group.members.delete": "FriendGroupMemberDeleteRequest",
   "server.friend_group.members.list": "FriendGroupMemberListRequest",
   "server.friend_group.members.put": "FriendGroupMemberPutRequest",
+  "server.friend_group.messages.audio.get": "FriendGroupMessageAudioGetRequest",
   "server.friend_group.messages.get": "FriendGroupMessageGetRequest",
   "server.friend_group.messages.list": "FriendGroupMessageListRequest",
-  "server.friend_group.messages.send": "FriendGroupMessageSendRequest",
   "server.friend_group.put": "FriendGroupPutRequest",
   "server.friend.add": "FriendAddRequest",
   "server.friend.delete": "FriendDeleteRequest",
@@ -1501,9 +1505,9 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend_group.members.delete": "FriendGroupMemberDeleteResponse",
   "server.friend_group.members.list": "FriendGroupMemberListResponse",
   "server.friend_group.members.put": "FriendGroupMemberPutResponse",
+  "server.friend_group.messages.audio.get": "FriendGroupMessageAudioGetResponse",
   "server.friend_group.messages.get": "FriendGroupMessageGetResponse",
   "server.friend_group.messages.list": "FriendGroupMessageListResponse",
-  "server.friend_group.messages.send": "FriendGroupMessageSendResponse",
   "server.friend_group.put": "FriendGroupPutResponse",
   "server.friend.add": "FriendAddResponse",
   "server.friend.delete": "FriendDeleteResponse",
@@ -3840,6 +3844,44 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "FriendGroupMessageAudioGetRequest": {
+    "fields": [
+      {
+        "name": "friend_group_id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "history_id",
+        "number": 2,
+        "type": "string"
+      }
+    ]
+  },
+  "FriendGroupMessageAudioGetResponse": {
+    "fields": [
+      {
+        "name": "friend_group_id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "history_id",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "mime_type",
+        "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "size_bytes",
+        "number": 4,
+        "type": "int64"
+      }
+    ]
+  },
   "FriendGroupMessageGetRequest": {
     "fields": [
       {
@@ -3848,7 +3890,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "history_id",
         "number": 2,
         "type": "string"
       }
@@ -3874,7 +3916,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "friend_group_id",
         "number": 2,
-        "optional": true,
         "type": "string"
       },
       {
@@ -3882,6 +3923,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "int64"
+      },
+      {
+        "name": "order",
+        "number": 4,
+        "optional": true,
+        "type": "WorkspaceHistoryListRequestOrder"
       }
     ]
   },
@@ -3909,27 +3956,8 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendGroupMessageObject": {
     "fields": [
       {
-        "name": "audio_content_type",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "audio_path",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "audio_size_bytes",
-        "number": 3,
-        "optional": true,
-        "type": "int64"
-      },
-      {
         "name": "created_at",
         "number": 4,
-        "optional": true,
         "type": "string"
       },
       {
@@ -3941,13 +3969,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "friend_group_id",
         "number": 6,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "id",
-        "number": 7,
-        "optional": true,
         "type": "string"
       },
       {
@@ -3957,44 +3978,29 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "ttl_seconds",
-        "number": 9,
-        "optional": true,
-        "type": "int64"
-      }
-    ]
-  },
-  "FriendGroupMessageSendRequest": {
-    "fields": [
-      {
-        "name": "audio_base64",
-        "number": 1,
-        "type": "bytes"
-      },
-      {
-        "name": "audio_content_type",
-        "number": 2,
+        "name": "history_id",
+        "number": 10,
         "type": "string"
       },
       {
-        "name": "friend_group_id",
-        "number": 3,
+        "name": "name",
+        "number": 11,
         "type": "string"
       },
       {
-        "name": "ttl_seconds",
-        "number": 4,
-        "optional": true,
-        "type": "int64"
-      }
-    ]
-  },
-  "FriendGroupMessageSendResponse": {
-    "fields": [
+        "name": "text",
+        "number": 12,
+        "type": "string"
+      },
       {
-        "name": "value",
-        "number": 1,
-        "type": "FriendGroupMessageObject"
+        "name": "type",
+        "number": 13,
+        "type": "PeerRunHistoryEntryType"
+      },
+      {
+        "name": "audio_available",
+        "number": 14,
+        "type": "bool"
       }
     ]
   },

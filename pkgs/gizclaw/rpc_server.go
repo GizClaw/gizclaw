@@ -116,6 +116,8 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 		return true, s.handleWorkspaceIconDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerWorkspaceHistoryAudioGet:
 		return true, s.handleWorkspaceHistoryAudioGet(ctx, stream, req)
+	case rpcapi.RPCMethodServerFriendGroupMessagesAudioGet:
+		return true, s.handleFriendGroupMessageAudioGet(ctx, stream, req)
 	case rpcapi.RPCMethodServerPeerDelete:
 		return true, s.handlePeerDelete(ctx, stream, req)
 	default:
@@ -279,7 +281,7 @@ func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendGroupMembersDelete,
 		rpcapi.RPCMethodServerFriendGroupMessagesList,
 		rpcapi.RPCMethodServerFriendGroupMessagesGet,
-		rpcapi.RPCMethodServerFriendGroupMessagesSend,
+		rpcapi.RPCMethodServerFriendGroupMessagesAudioGet,
 		rpcapi.RPCMethodServerBadgeDefPixaDownload:
 		return true
 	default:

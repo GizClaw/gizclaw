@@ -2822,14 +2822,180 @@ class FriendGroupMemberPutResponse extends $pb.GeneratedMessage {
   FriendGroupMemberObject ensureValue() => $_ensure(0);
 }
 
-class FriendGroupMessageGetRequest extends $pb.GeneratedMessage {
-  factory FriendGroupMessageGetRequest({
+class FriendGroupMessageAudioGetRequest extends $pb.GeneratedMessage {
+  factory FriendGroupMessageAudioGetRequest({
     $core.String? friendGroupId,
-    $core.String? id,
+    $core.String? historyId,
   }) {
     final result = create();
     if (friendGroupId != null) result.friendGroupId = friendGroupId;
-    if (id != null) result.id = id;
+    if (historyId != null) result.historyId = historyId;
+    return result;
+  }
+
+  FriendGroupMessageAudioGetRequest._();
+
+  factory FriendGroupMessageAudioGetRequest.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FriendGroupMessageAudioGetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FriendGroupMessageAudioGetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'friendGroupId')
+    ..aOS(2, _omitFieldNames ? '' : 'historyId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendGroupMessageAudioGetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendGroupMessageAudioGetRequest copyWith(
+          void Function(FriendGroupMessageAudioGetRequest) updates) =>
+      super.copyWith((message) =>
+              updates(message as FriendGroupMessageAudioGetRequest))
+          as FriendGroupMessageAudioGetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FriendGroupMessageAudioGetRequest create() =>
+      FriendGroupMessageAudioGetRequest._();
+  @$core.override
+  FriendGroupMessageAudioGetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FriendGroupMessageAudioGetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FriendGroupMessageAudioGetRequest>(
+          create);
+  static FriendGroupMessageAudioGetRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get friendGroupId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set friendGroupId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasFriendGroupId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearFriendGroupId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get historyId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set historyId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasHistoryId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearHistoryId() => $_clearField(2);
+}
+
+class FriendGroupMessageAudioGetResponse extends $pb.GeneratedMessage {
+  factory FriendGroupMessageAudioGetResponse({
+    $core.String? friendGroupId,
+    $core.String? historyId,
+    $core.String? mimeType,
+    $fixnum.Int64? sizeBytes,
+  }) {
+    final result = create();
+    if (friendGroupId != null) result.friendGroupId = friendGroupId;
+    if (historyId != null) result.historyId = historyId;
+    if (mimeType != null) result.mimeType = mimeType;
+    if (sizeBytes != null) result.sizeBytes = sizeBytes;
+    return result;
+  }
+
+  FriendGroupMessageAudioGetResponse._();
+
+  factory FriendGroupMessageAudioGetResponse.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FriendGroupMessageAudioGetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FriendGroupMessageAudioGetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'friendGroupId')
+    ..aOS(2, _omitFieldNames ? '' : 'historyId')
+    ..aOS(3, _omitFieldNames ? '' : 'mimeType')
+    ..aInt64(4, _omitFieldNames ? '' : 'sizeBytes')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendGroupMessageAudioGetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendGroupMessageAudioGetResponse copyWith(
+          void Function(FriendGroupMessageAudioGetResponse) updates) =>
+      super.copyWith((message) =>
+              updates(message as FriendGroupMessageAudioGetResponse))
+          as FriendGroupMessageAudioGetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FriendGroupMessageAudioGetResponse create() =>
+      FriendGroupMessageAudioGetResponse._();
+  @$core.override
+  FriendGroupMessageAudioGetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FriendGroupMessageAudioGetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FriendGroupMessageAudioGetResponse>(
+          create);
+  static FriendGroupMessageAudioGetResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get friendGroupId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set friendGroupId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasFriendGroupId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearFriendGroupId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get historyId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set historyId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasHistoryId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearHistoryId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get mimeType => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set mimeType($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMimeType() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMimeType() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get sizeBytes => $_getI64(3);
+  @$pb.TagNumber(4)
+  set sizeBytes($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSizeBytes() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSizeBytes() => $_clearField(4);
+}
+
+class FriendGroupMessageGetRequest extends $pb.GeneratedMessage {
+  factory FriendGroupMessageGetRequest({
+    $core.String? friendGroupId,
+    $core.String? historyId,
+  }) {
+    final result = create();
+    if (friendGroupId != null) result.friendGroupId = friendGroupId;
+    if (historyId != null) result.historyId = historyId;
     return result;
   }
 
@@ -2847,7 +3013,7 @@ class FriendGroupMessageGetRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'friendGroupId')
-    ..aOS(2, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'historyId')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2882,13 +3048,13 @@ class FriendGroupMessageGetRequest extends $pb.GeneratedMessage {
   void clearFriendGroupId() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get id => $_getSZ(1);
+  $core.String get historyId => $_getSZ(1);
   @$pb.TagNumber(2)
-  set id($core.String value) => $_setString(1, value);
+  set historyId($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasId() => $_has(1);
+  $core.bool hasHistoryId() => $_has(1);
   @$pb.TagNumber(2)
-  void clearId() => $_clearField(2);
+  void clearHistoryId() => $_clearField(2);
 }
 
 class FriendGroupMessageGetResponse extends $pb.GeneratedMessage {
@@ -2956,11 +3122,13 @@ class FriendGroupMessageListRequest extends $pb.GeneratedMessage {
     $core.String? cursor,
     $core.String? friendGroupId,
     $fixnum.Int64? limit,
+    $0.WorkspaceHistoryListRequestOrder? order,
   }) {
     final result = create();
     if (cursor != null) result.cursor = cursor;
     if (friendGroupId != null) result.friendGroupId = friendGroupId;
     if (limit != null) result.limit = limit;
+    if (order != null) result.order = order;
     return result;
   }
 
@@ -2980,6 +3148,8 @@ class FriendGroupMessageListRequest extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'cursor')
     ..aOS(2, _omitFieldNames ? '' : 'friendGroupId')
     ..aInt64(3, _omitFieldNames ? '' : 'limit')
+    ..aE<$0.WorkspaceHistoryListRequestOrder>(4, _omitFieldNames ? '' : 'order',
+        enumValues: $0.WorkspaceHistoryListRequestOrder.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3030,6 +3200,15 @@ class FriendGroupMessageListRequest extends $pb.GeneratedMessage {
   $core.bool hasLimit() => $_has(2);
   @$pb.TagNumber(3)
   void clearLimit() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $0.WorkspaceHistoryListRequestOrder get order => $_getN(3);
+  @$pb.TagNumber(4)
+  set order($0.WorkspaceHistoryListRequestOrder value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasOrder() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearOrder() => $_clearField(4);
 }
 
 class FriendGroupMessageListResponse extends $pb.GeneratedMessage {
@@ -3110,27 +3289,27 @@ class FriendGroupMessageListResponse extends $pb.GeneratedMessage {
 
 class FriendGroupMessageObject extends $pb.GeneratedMessage {
   factory FriendGroupMessageObject({
-    $core.String? audioContentType,
-    $core.String? audioPath,
-    $fixnum.Int64? audioSizeBytes,
     $core.String? createdAt,
     $core.String? expiresAt,
     $core.String? friendGroupId,
-    $core.String? id,
     $core.String? senderPeerPublicKey,
-    $fixnum.Int64? ttlSeconds,
+    $core.String? historyId,
+    $core.String? name,
+    $core.String? text,
+    $0.PeerRunHistoryEntryType? type,
+    $core.bool? audioAvailable,
   }) {
     final result = create();
-    if (audioContentType != null) result.audioContentType = audioContentType;
-    if (audioPath != null) result.audioPath = audioPath;
-    if (audioSizeBytes != null) result.audioSizeBytes = audioSizeBytes;
     if (createdAt != null) result.createdAt = createdAt;
     if (expiresAt != null) result.expiresAt = expiresAt;
     if (friendGroupId != null) result.friendGroupId = friendGroupId;
-    if (id != null) result.id = id;
     if (senderPeerPublicKey != null)
       result.senderPeerPublicKey = senderPeerPublicKey;
-    if (ttlSeconds != null) result.ttlSeconds = ttlSeconds;
+    if (historyId != null) result.historyId = historyId;
+    if (name != null) result.name = name;
+    if (text != null) result.text = text;
+    if (type != null) result.type = type;
+    if (audioAvailable != null) result.audioAvailable = audioAvailable;
     return result;
   }
 
@@ -3147,15 +3326,16 @@ class FriendGroupMessageObject extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'FriendGroupMessageObject',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'audioContentType')
-    ..aOS(2, _omitFieldNames ? '' : 'audioPath')
-    ..aInt64(3, _omitFieldNames ? '' : 'audioSizeBytes')
     ..aOS(4, _omitFieldNames ? '' : 'createdAt')
     ..aOS(5, _omitFieldNames ? '' : 'expiresAt')
     ..aOS(6, _omitFieldNames ? '' : 'friendGroupId')
-    ..aOS(7, _omitFieldNames ? '' : 'id')
     ..aOS(8, _omitFieldNames ? '' : 'senderPeerPublicKey')
-    ..aInt64(9, _omitFieldNames ? '' : 'ttlSeconds')
+    ..aOS(10, _omitFieldNames ? '' : 'historyId')
+    ..aOS(11, _omitFieldNames ? '' : 'name')
+    ..aOS(12, _omitFieldNames ? '' : 'text')
+    ..aE<$0.PeerRunHistoryEntryType>(13, _omitFieldNames ? '' : 'type',
+        enumValues: $0.PeerRunHistoryEntryType.values)
+    ..aOB(14, _omitFieldNames ? '' : 'audioAvailable')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3178,240 +3358,86 @@ class FriendGroupMessageObject extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<FriendGroupMessageObject>(create);
   static FriendGroupMessageObject? _defaultInstance;
 
-  @$pb.TagNumber(1)
-  $core.String get audioContentType => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set audioContentType($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasAudioContentType() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearAudioContentType() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get audioPath => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set audioPath($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasAudioPath() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearAudioPath() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $fixnum.Int64 get audioSizeBytes => $_getI64(2);
-  @$pb.TagNumber(3)
-  set audioSizeBytes($fixnum.Int64 value) => $_setInt64(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasAudioSizeBytes() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearAudioSizeBytes() => $_clearField(3);
-
   @$pb.TagNumber(4)
-  $core.String get createdAt => $_getSZ(3);
+  $core.String get createdAt => $_getSZ(0);
   @$pb.TagNumber(4)
-  set createdAt($core.String value) => $_setString(3, value);
+  set createdAt($core.String value) => $_setString(0, value);
   @$pb.TagNumber(4)
-  $core.bool hasCreatedAt() => $_has(3);
+  $core.bool hasCreatedAt() => $_has(0);
   @$pb.TagNumber(4)
   void clearCreatedAt() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.String get expiresAt => $_getSZ(4);
+  $core.String get expiresAt => $_getSZ(1);
   @$pb.TagNumber(5)
-  set expiresAt($core.String value) => $_setString(4, value);
+  set expiresAt($core.String value) => $_setString(1, value);
   @$pb.TagNumber(5)
-  $core.bool hasExpiresAt() => $_has(4);
+  $core.bool hasExpiresAt() => $_has(1);
   @$pb.TagNumber(5)
   void clearExpiresAt() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $core.String get friendGroupId => $_getSZ(5);
+  $core.String get friendGroupId => $_getSZ(2);
   @$pb.TagNumber(6)
-  set friendGroupId($core.String value) => $_setString(5, value);
+  set friendGroupId($core.String value) => $_setString(2, value);
   @$pb.TagNumber(6)
-  $core.bool hasFriendGroupId() => $_has(5);
+  $core.bool hasFriendGroupId() => $_has(2);
   @$pb.TagNumber(6)
   void clearFriendGroupId() => $_clearField(6);
 
-  @$pb.TagNumber(7)
-  $core.String get id => $_getSZ(6);
-  @$pb.TagNumber(7)
-  set id($core.String value) => $_setString(6, value);
-  @$pb.TagNumber(7)
-  $core.bool hasId() => $_has(6);
-  @$pb.TagNumber(7)
-  void clearId() => $_clearField(7);
-
   @$pb.TagNumber(8)
-  $core.String get senderPeerPublicKey => $_getSZ(7);
+  $core.String get senderPeerPublicKey => $_getSZ(3);
   @$pb.TagNumber(8)
-  set senderPeerPublicKey($core.String value) => $_setString(7, value);
+  set senderPeerPublicKey($core.String value) => $_setString(3, value);
   @$pb.TagNumber(8)
-  $core.bool hasSenderPeerPublicKey() => $_has(7);
+  $core.bool hasSenderPeerPublicKey() => $_has(3);
   @$pb.TagNumber(8)
   void clearSenderPeerPublicKey() => $_clearField(8);
 
-  @$pb.TagNumber(9)
-  $fixnum.Int64 get ttlSeconds => $_getI64(8);
-  @$pb.TagNumber(9)
-  set ttlSeconds($fixnum.Int64 value) => $_setInt64(8, value);
-  @$pb.TagNumber(9)
-  $core.bool hasTtlSeconds() => $_has(8);
-  @$pb.TagNumber(9)
-  void clearTtlSeconds() => $_clearField(9);
-}
+  @$pb.TagNumber(10)
+  $core.String get historyId => $_getSZ(4);
+  @$pb.TagNumber(10)
+  set historyId($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(10)
+  $core.bool hasHistoryId() => $_has(4);
+  @$pb.TagNumber(10)
+  void clearHistoryId() => $_clearField(10);
 
-class FriendGroupMessageSendRequest extends $pb.GeneratedMessage {
-  factory FriendGroupMessageSendRequest({
-    $core.List<$core.int>? audioBase64,
-    $core.String? audioContentType,
-    $core.String? friendGroupId,
-    $fixnum.Int64? ttlSeconds,
-  }) {
-    final result = create();
-    if (audioBase64 != null) result.audioBase64 = audioBase64;
-    if (audioContentType != null) result.audioContentType = audioContentType;
-    if (friendGroupId != null) result.friendGroupId = friendGroupId;
-    if (ttlSeconds != null) result.ttlSeconds = ttlSeconds;
-    return result;
-  }
+  @$pb.TagNumber(11)
+  $core.String get name => $_getSZ(5);
+  @$pb.TagNumber(11)
+  set name($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(11)
+  $core.bool hasName() => $_has(5);
+  @$pb.TagNumber(11)
+  void clearName() => $_clearField(11);
 
-  FriendGroupMessageSendRequest._();
+  @$pb.TagNumber(12)
+  $core.String get text => $_getSZ(6);
+  @$pb.TagNumber(12)
+  set text($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(12)
+  $core.bool hasText() => $_has(6);
+  @$pb.TagNumber(12)
+  void clearText() => $_clearField(12);
 
-  factory FriendGroupMessageSendRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory FriendGroupMessageSendRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+  @$pb.TagNumber(13)
+  $0.PeerRunHistoryEntryType get type => $_getN(7);
+  @$pb.TagNumber(13)
+  set type($0.PeerRunHistoryEntryType value) => $_setField(13, value);
+  @$pb.TagNumber(13)
+  $core.bool hasType() => $_has(7);
+  @$pb.TagNumber(13)
+  void clearType() => $_clearField(13);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'FriendGroupMessageSendRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..a<$core.List<$core.int>>(
-        1, _omitFieldNames ? '' : 'audioBase64', $pb.PbFieldType.OY)
-    ..aOS(2, _omitFieldNames ? '' : 'audioContentType')
-    ..aOS(3, _omitFieldNames ? '' : 'friendGroupId')
-    ..aInt64(4, _omitFieldNames ? '' : 'ttlSeconds')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FriendGroupMessageSendRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FriendGroupMessageSendRequest copyWith(
-          void Function(FriendGroupMessageSendRequest) updates) =>
-      super.copyWith(
-              (message) => updates(message as FriendGroupMessageSendRequest))
-          as FriendGroupMessageSendRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static FriendGroupMessageSendRequest create() =>
-      FriendGroupMessageSendRequest._();
-  @$core.override
-  FriendGroupMessageSendRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static FriendGroupMessageSendRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<FriendGroupMessageSendRequest>(create);
-  static FriendGroupMessageSendRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.List<$core.int> get audioBase64 => $_getN(0);
-  @$pb.TagNumber(1)
-  set audioBase64($core.List<$core.int> value) => $_setBytes(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasAudioBase64() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearAudioBase64() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get audioContentType => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set audioContentType($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasAudioContentType() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearAudioContentType() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get friendGroupId => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set friendGroupId($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasFriendGroupId() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearFriendGroupId() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $fixnum.Int64 get ttlSeconds => $_getI64(3);
-  @$pb.TagNumber(4)
-  set ttlSeconds($fixnum.Int64 value) => $_setInt64(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasTtlSeconds() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearTtlSeconds() => $_clearField(4);
-}
-
-class FriendGroupMessageSendResponse extends $pb.GeneratedMessage {
-  factory FriendGroupMessageSendResponse({
-    FriendGroupMessageObject? value,
-  }) {
-    final result = create();
-    if (value != null) result.value = value;
-    return result;
-  }
-
-  FriendGroupMessageSendResponse._();
-
-  factory FriendGroupMessageSendResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory FriendGroupMessageSendResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'FriendGroupMessageSendResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<FriendGroupMessageObject>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: FriendGroupMessageObject.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FriendGroupMessageSendResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FriendGroupMessageSendResponse copyWith(
-          void Function(FriendGroupMessageSendResponse) updates) =>
-      super.copyWith(
-              (message) => updates(message as FriendGroupMessageSendResponse))
-          as FriendGroupMessageSendResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static FriendGroupMessageSendResponse create() =>
-      FriendGroupMessageSendResponse._();
-  @$core.override
-  FriendGroupMessageSendResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static FriendGroupMessageSendResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<FriendGroupMessageSendResponse>(create);
-  static FriendGroupMessageSendResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  FriendGroupMessageObject get value => $_getN(0);
-  @$pb.TagNumber(1)
-  set value(FriendGroupMessageObject value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-  @$pb.TagNumber(1)
-  FriendGroupMessageObject ensureValue() => $_ensure(0);
+  @$pb.TagNumber(14)
+  $core.bool get audioAvailable => $_getBF(8);
+  @$pb.TagNumber(14)
+  set audioAvailable($core.bool value) => $_setBool(8, value);
+  @$pb.TagNumber(14)
+  $core.bool hasAudioAvailable() => $_has(8);
+  @$pb.TagNumber(14)
+  void clearAudioAvailable() => $_clearField(14);
 }
 
 class FriendGroupObject extends $pb.GeneratedMessage {

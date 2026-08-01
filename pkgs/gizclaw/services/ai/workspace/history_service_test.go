@@ -36,6 +36,13 @@ func TestServerWorkspaceHistoryServiceReadPaths(t *testing.T) {
 	if len(list.Items) != 1 || list.Items[0].Id != entry.ID || list.Items[0].Text != "hello" {
 		t.Fatalf("ListWorkspaceHistory() = %+v", list)
 	}
+	page, err := srv.ListWorkspaceHistoryPage(ctx, "demo0001", apitypes.PeerRunHistoryListRequest{})
+	if err != nil {
+		t.Fatalf("ListWorkspaceHistoryPage() error = %v", err)
+	}
+	if len(page.Entries) != 1 || page.Entries[0].ID != entry.ID || len(page.Entries[0].Assets) != 1 || page.Entries[0].Assets[0].MIMEType != "audio/opus" {
+		t.Fatalf("ListWorkspaceHistoryPage() = %+v", page)
+	}
 
 	got, err := srv.GetWorkspaceHistory(ctx, "demo0001", entry.ID)
 	if err != nil {

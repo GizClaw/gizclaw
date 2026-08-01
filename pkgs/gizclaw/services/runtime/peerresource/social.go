@@ -2,8 +2,11 @@ package peerresource
 
 import (
 	"context"
+	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 )
 
 func (s *Server) handleContactList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -385,15 +388,42 @@ func (s *Server) handleFriendGroupMessagesList(ctx context.Context, req *rpcapi.
 	if s.FriendGroups == nil {
 		return internalError(req.Id, "friend group service not configured")
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsFriendGroupMessageListRequest)
-	if !ok {
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsFriendGroupMessageListRequest)
+	if !ok || strings.TrimSpace(params.FriendGroupId) == "" || params.Order != nil && !params.Order.Valid() {
 		return invalidParams(req.Id)
 	}
-	result, err := s.FriendGroups.ListFriendGroupMessages(ctx, s.Caller.String(), params)
+	workspaceName, err := s.FriendGroups.ResolveFriendGroupWorkspace(ctx, s.Caller.String(), params.FriendGroupId)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromFriendGroupMessageListResponse)
+	history, resp := s.workspaceHistoryService(req.Id)
+	if resp != nil {
+		return resp
+	}
+	var order *apitypes.PeerRunHistoryListRequestOrder
+	if params.Order != nil {
+		converted := apitypes.PeerRunHistoryListRequestOrder(*params.Order)
+		order = &converted
+	}
+	page, err := history.ListWorkspaceHistoryPage(ctx, workspaceName, apitypes.PeerRunHistoryListRequest{
+		Cursor: params.Cursor,
+		Limit:  params.Limit,
+		Order:  order,
+	})
+	if err != nil {
+		return friendGroupHistoryRPCResponse(req.Id, err)
+	}
+	items := make([]rpcapi.FriendGroupMessageObject, 0, len(page.Entries))
+	for _, entry := range page.Entries {
+		items = append(items, friendGroupMessageProjection(params.FriendGroupId, entry))
+	}
+	var nextCursor *string
+	if page.NextCursor != "" {
+		nextCursor = &page.NextCursor
+	}
+	return resultResponse(req.Id, rpcapi.FriendGroupMessageListResponse{
+		Items: items, HasNext: page.HasNext, NextCursor: nextCursor,
+	}, (*rpcapi.RPCPayload).FromFriendGroupMessageListResponse)
 }
 
 func (s *Server) handleFriendGroupMessagesGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -404,24 +434,47 @@ func (s *Server) handleFriendGroupMessagesGet(ctx context.Context, req *rpcapi.R
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.FriendGroups.GetFriendGroupMessage(ctx, s.Caller.String(), params)
-	if err != nil {
-		return businessError(req.Id, err)
-	}
-	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromFriendGroupMessageGetResponse)
-}
-
-func (s *Server) handleFriendGroupMessagesSend(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.FriendGroups == nil {
-		return internalError(req.Id, "friend group service not configured")
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsFriendGroupMessageSendRequest)
-	if !ok {
+	if strings.TrimSpace(params.FriendGroupId) == "" || strings.TrimSpace(params.HistoryId) == "" {
 		return invalidParams(req.Id)
 	}
-	result, err := s.FriendGroups.SendFriendGroupMessage(ctx, s.Caller.String(), params)
+	workspaceName, err := s.FriendGroups.ResolveFriendGroupWorkspace(ctx, s.Caller.String(), params.FriendGroupId)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromFriendGroupMessageSendResponse)
+	history, resp := s.workspaceHistoryService(req.Id)
+	if resp != nil {
+		return resp
+	}
+	entry, err := history.GetWorkspaceHistory(ctx, workspaceName, params.HistoryId)
+	if err != nil {
+		return friendGroupHistoryRPCResponse(req.Id, err)
+	}
+	return resultResponse(req.Id, friendGroupMessageProjection(params.FriendGroupId, entry), (*rpcapi.RPCPayload).FromFriendGroupMessageGetResponse)
+}
+
+func friendGroupHistoryRPCResponse(requestID string, err error) *rpcapi.RPCResponse {
+	rpcErr := historyRPCError(err)
+	if rpcErr.Code == rpcapi.RPCErrorCodeNotFound {
+		rpcErr.Message = "not found"
+	}
+	return rpcapi.Error{RequestID: requestID, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
+}
+
+func friendGroupMessageProjection(friendGroupID string, entry workspace.HistoryEntry) rpcapi.FriendGroupMessageObject {
+	item := rpcapi.FriendGroupMessageObject{
+		CreatedAt: entry.CreatedAt, ExpiresAt: entry.ExpiresAt,
+		FriendGroupId: strings.TrimSpace(friendGroupID), HistoryId: entry.ID,
+		Name: entry.Name, Text: entry.Text, Type: rpcapi.PeerRunHistoryEntryType(entry.Type),
+	}
+	if item.Type == rpcapi.PeerRunHistoryEntryTypeGear && strings.TrimSpace(entry.GearID) != "" {
+		gearID := strings.TrimSpace(entry.GearID)
+		item.SenderPeerPublicKey = &gearID
+	}
+	for _, asset := range entry.Assets {
+		if strings.HasPrefix(strings.ToLower(workspaceHistoryAssetMIMEType(asset.Name, asset.MIMEType)), "audio/") {
+			item.AudioAvailable = true
+			break
+		}
+	}
+	return item
 }

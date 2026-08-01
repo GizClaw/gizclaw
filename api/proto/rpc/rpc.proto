@@ -61,6 +61,9 @@ message RpcRequest {
 }
 
 enum RpcMethod {
+  reserved 64;
+  reserved "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND";
+
   RPC_METHOD_UNSPECIFIED = 0;
   RPC_METHOD_ALL_PING = 1 [(rpc_method) = { name: "all.ping" request: "PingRequest" response: "PingResponse" }];
   RPC_METHOD_ALL_SPEED_TEST_RUN = 2 [(rpc_method) = { name: "all.speed_test.run" request: "SpeedTestRequest" response: "SpeedTestResponse" }];
@@ -125,7 +128,6 @@ enum RpcMethod {
   RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE = 61 [(rpc_method) = { name: "server.friend_group.members.delete" request: "FriendGroupMemberDeleteRequest" response: "FriendGroupMemberDeleteResponse" }];
   RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST = 62 [(rpc_method) = { name: "server.friend_group.messages.list" request: "FriendGroupMessageListRequest" response: "FriendGroupMessageListResponse" }];
   RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET = 63 [(rpc_method) = { name: "server.friend_group.messages.get" request: "FriendGroupMessageGetRequest" response: "FriendGroupMessageGetResponse" }];
-  RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND = 64 [(rpc_method) = { name: "server.friend_group.messages.send" request: "FriendGroupMessageSendRequest" response: "FriendGroupMessageSendResponse" }];
   RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = 65 [(rpc_method) = { name: "server.badge_def.pixa.download" request: "BadgeDefPixaDownloadRequest" response: "BadgeDefPixaDownloadResponse" }];
   RPC_METHOD_SERVER_PET_LIST = 66 [(rpc_method) = { name: "server.pet.list" request: "ServerPetListRequest" response: "ServerPetListResponse" }];
   RPC_METHOD_SERVER_PET_GET = 67 [(rpc_method) = { name: "server.pet.get" request: "ServerPetGetRequest" response: "ServerPetGetResponse" }];
@@ -157,4 +159,5 @@ enum RpcMethod {
   RPC_METHOD_SERVER_SPEECH_SYNTHESIZE = 93 [(rpc_method) = { name: "server.speech.synthesize" request: "SpeechSynthesizeRequest" response: "SpeechSynthesizeResponse" }];
   RPC_METHOD_SERVER_PEER_DELETE = 94 [(rpc_method) = { name: "server.peer.delete" request: "ServerPeerDeleteRequest" response: "ServerPeerDeleteResponse" }];
   RPC_METHOD_SERVER_SPEECH_EXTRACT = 95 [(rpc_method) = { name: "server.speech.extract" request: "SpeechExtractRequest" response: "SpeechExtractResponse" }];
+  RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET = 96 [(rpc_method) = { name: "server.friend_group.messages.audio.get" request: "FriendGroupMessageAudioGetRequest" response: "FriendGroupMessageAudioGetResponse" }];
 }

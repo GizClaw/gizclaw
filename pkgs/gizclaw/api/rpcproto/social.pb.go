@@ -2171,17 +2171,137 @@ func (x *FriendGroupMemberPutResponse) GetValue() *FriendGroupMemberObject {
 	return nil
 }
 
+type FriendGroupMessageAudioGetRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FriendGroupId string                 `protobuf:"bytes,1,opt,name=friend_group_id,json=friendGroupId,proto3" json:"friend_group_id,omitempty"`
+	HistoryId     string                 `protobuf:"bytes,2,opt,name=history_id,json=historyId,proto3" json:"history_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FriendGroupMessageAudioGetRequest) Reset() {
+	*x = FriendGroupMessageAudioGetRequest{}
+	mi := &file_payload_social_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FriendGroupMessageAudioGetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FriendGroupMessageAudioGetRequest) ProtoMessage() {}
+
+func (x *FriendGroupMessageAudioGetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_social_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FriendGroupMessageAudioGetRequest.ProtoReflect.Descriptor instead.
+func (*FriendGroupMessageAudioGetRequest) Descriptor() ([]byte, []int) {
+	return file_payload_social_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *FriendGroupMessageAudioGetRequest) GetFriendGroupId() string {
+	if x != nil {
+		return x.FriendGroupId
+	}
+	return ""
+}
+
+func (x *FriendGroupMessageAudioGetRequest) GetHistoryId() string {
+	if x != nil {
+		return x.HistoryId
+	}
+	return ""
+}
+
+type FriendGroupMessageAudioGetResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FriendGroupId string                 `protobuf:"bytes,1,opt,name=friend_group_id,json=friendGroupId,proto3" json:"friend_group_id,omitempty"`
+	HistoryId     string                 `protobuf:"bytes,2,opt,name=history_id,json=historyId,proto3" json:"history_id,omitempty"`
+	MimeType      string                 `protobuf:"bytes,3,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	SizeBytes     int64                  `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FriendGroupMessageAudioGetResponse) Reset() {
+	*x = FriendGroupMessageAudioGetResponse{}
+	mi := &file_payload_social_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FriendGroupMessageAudioGetResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FriendGroupMessageAudioGetResponse) ProtoMessage() {}
+
+func (x *FriendGroupMessageAudioGetResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_social_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FriendGroupMessageAudioGetResponse.ProtoReflect.Descriptor instead.
+func (*FriendGroupMessageAudioGetResponse) Descriptor() ([]byte, []int) {
+	return file_payload_social_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *FriendGroupMessageAudioGetResponse) GetFriendGroupId() string {
+	if x != nil {
+		return x.FriendGroupId
+	}
+	return ""
+}
+
+func (x *FriendGroupMessageAudioGetResponse) GetHistoryId() string {
+	if x != nil {
+		return x.HistoryId
+	}
+	return ""
+}
+
+func (x *FriendGroupMessageAudioGetResponse) GetMimeType() string {
+	if x != nil {
+		return x.MimeType
+	}
+	return ""
+}
+
+func (x *FriendGroupMessageAudioGetResponse) GetSizeBytes() int64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
+}
+
 type FriendGroupMessageGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	FriendGroupId string                 `protobuf:"bytes,1,opt,name=friend_group_id,json=friendGroupId,proto3" json:"friend_group_id,omitempty"`
-	Id            string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	HistoryId     string                 `protobuf:"bytes,2,opt,name=history_id,json=historyId,proto3" json:"history_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FriendGroupMessageGetRequest) Reset() {
 	*x = FriendGroupMessageGetRequest{}
-	mi := &file_payload_social_proto_msgTypes[43]
+	mi := &file_payload_social_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2193,7 +2313,7 @@ func (x *FriendGroupMessageGetRequest) String() string {
 func (*FriendGroupMessageGetRequest) ProtoMessage() {}
 
 func (x *FriendGroupMessageGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[43]
+	mi := &file_payload_social_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2206,7 +2326,7 @@ func (x *FriendGroupMessageGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMessageGetRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupMessageGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{43}
+	return file_payload_social_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *FriendGroupMessageGetRequest) GetFriendGroupId() string {
@@ -2216,9 +2336,9 @@ func (x *FriendGroupMessageGetRequest) GetFriendGroupId() string {
 	return ""
 }
 
-func (x *FriendGroupMessageGetRequest) GetId() string {
+func (x *FriendGroupMessageGetRequest) GetHistoryId() string {
 	if x != nil {
-		return x.Id
+		return x.HistoryId
 	}
 	return ""
 }
@@ -2232,7 +2352,7 @@ type FriendGroupMessageGetResponse struct {
 
 func (x *FriendGroupMessageGetResponse) Reset() {
 	*x = FriendGroupMessageGetResponse{}
-	mi := &file_payload_social_proto_msgTypes[44]
+	mi := &file_payload_social_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2244,7 +2364,7 @@ func (x *FriendGroupMessageGetResponse) String() string {
 func (*FriendGroupMessageGetResponse) ProtoMessage() {}
 
 func (x *FriendGroupMessageGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[44]
+	mi := &file_payload_social_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2257,7 +2377,7 @@ func (x *FriendGroupMessageGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMessageGetResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupMessageGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{44}
+	return file_payload_social_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *FriendGroupMessageGetResponse) GetValue() *FriendGroupMessageObject {
@@ -2268,17 +2388,18 @@ func (x *FriendGroupMessageGetResponse) GetValue() *FriendGroupMessageObject {
 }
 
 type FriendGroupMessageListRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Cursor        *string                `protobuf:"bytes,1,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
-	FriendGroupId *string                `protobuf:"bytes,2,opt,name=friend_group_id,json=friendGroupId,proto3,oneof" json:"friend_group_id,omitempty"`
-	Limit         *int64                 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	state         protoimpl.MessageState            `protogen:"open.v1"`
+	Cursor        *string                           `protobuf:"bytes,1,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
+	FriendGroupId string                            `protobuf:"bytes,2,opt,name=friend_group_id,json=friendGroupId,proto3" json:"friend_group_id,omitempty"`
+	Limit         *int64                            `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	Order         *WorkspaceHistoryListRequestOrder `protobuf:"varint,4,opt,name=order,proto3,enum=gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder,oneof" json:"order,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FriendGroupMessageListRequest) Reset() {
 	*x = FriendGroupMessageListRequest{}
-	mi := &file_payload_social_proto_msgTypes[45]
+	mi := &file_payload_social_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2290,7 +2411,7 @@ func (x *FriendGroupMessageListRequest) String() string {
 func (*FriendGroupMessageListRequest) ProtoMessage() {}
 
 func (x *FriendGroupMessageListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[45]
+	mi := &file_payload_social_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2303,7 +2424,7 @@ func (x *FriendGroupMessageListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMessageListRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupMessageListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{45}
+	return file_payload_social_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *FriendGroupMessageListRequest) GetCursor() string {
@@ -2314,8 +2435,8 @@ func (x *FriendGroupMessageListRequest) GetCursor() string {
 }
 
 func (x *FriendGroupMessageListRequest) GetFriendGroupId() string {
-	if x != nil && x.FriendGroupId != nil {
-		return *x.FriendGroupId
+	if x != nil {
+		return x.FriendGroupId
 	}
 	return ""
 }
@@ -2325,6 +2446,13 @@ func (x *FriendGroupMessageListRequest) GetLimit() int64 {
 		return *x.Limit
 	}
 	return 0
+}
+
+func (x *FriendGroupMessageListRequest) GetOrder() WorkspaceHistoryListRequestOrder {
+	if x != nil && x.Order != nil {
+		return *x.Order
+	}
+	return WorkspaceHistoryListRequestOrder_WORKSPACE_HISTORY_LIST_REQUEST_ORDER_UNSPECIFIED
 }
 
 type FriendGroupMessageListResponse struct {
@@ -2338,7 +2466,7 @@ type FriendGroupMessageListResponse struct {
 
 func (x *FriendGroupMessageListResponse) Reset() {
 	*x = FriendGroupMessageListResponse{}
-	mi := &file_payload_social_proto_msgTypes[46]
+	mi := &file_payload_social_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2350,7 +2478,7 @@ func (x *FriendGroupMessageListResponse) String() string {
 func (*FriendGroupMessageListResponse) ProtoMessage() {}
 
 func (x *FriendGroupMessageListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[46]
+	mi := &file_payload_social_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2363,7 +2491,7 @@ func (x *FriendGroupMessageListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMessageListResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupMessageListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{46}
+	return file_payload_social_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *FriendGroupMessageListResponse) GetHasNext() bool {
@@ -2388,23 +2516,23 @@ func (x *FriendGroupMessageListResponse) GetNextCursor() string {
 }
 
 type FriendGroupMessageObject struct {
-	state               protoimpl.MessageState `protogen:"open.v1"`
-	AudioContentType    *string                `protobuf:"bytes,1,opt,name=audio_content_type,json=audioContentType,proto3,oneof" json:"audio_content_type,omitempty"`
-	AudioPath           *string                `protobuf:"bytes,2,opt,name=audio_path,json=audioPath,proto3,oneof" json:"audio_path,omitempty"`
-	AudioSizeBytes      *int64                 `protobuf:"varint,3,opt,name=audio_size_bytes,json=audioSizeBytes,proto3,oneof" json:"audio_size_bytes,omitempty"`
-	CreatedAt           *string                `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3,oneof" json:"created_at,omitempty"`
-	ExpiresAt           *string                `protobuf:"bytes,5,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
-	FriendGroupId       *string                `protobuf:"bytes,6,opt,name=friend_group_id,json=friendGroupId,proto3,oneof" json:"friend_group_id,omitempty"`
-	Id                  *string                `protobuf:"bytes,7,opt,name=id,proto3,oneof" json:"id,omitempty"`
-	SenderPeerPublicKey *string                `protobuf:"bytes,8,opt,name=sender_peer_public_key,json=senderPeerPublicKey,proto3,oneof" json:"sender_peer_public_key,omitempty"`
-	TtlSeconds          *int64                 `protobuf:"varint,9,opt,name=ttl_seconds,json=ttlSeconds,proto3,oneof" json:"ttl_seconds,omitempty"`
+	state               protoimpl.MessageState  `protogen:"open.v1"`
+	CreatedAt           string                  `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	ExpiresAt           *string                 `protobuf:"bytes,5,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
+	FriendGroupId       string                  `protobuf:"bytes,6,opt,name=friend_group_id,json=friendGroupId,proto3" json:"friend_group_id,omitempty"`
+	SenderPeerPublicKey *string                 `protobuf:"bytes,8,opt,name=sender_peer_public_key,json=senderPeerPublicKey,proto3,oneof" json:"sender_peer_public_key,omitempty"`
+	HistoryId           string                  `protobuf:"bytes,10,opt,name=history_id,json=historyId,proto3" json:"history_id,omitempty"`
+	Name                string                  `protobuf:"bytes,11,opt,name=name,proto3" json:"name,omitempty"`
+	Text                string                  `protobuf:"bytes,12,opt,name=text,proto3" json:"text,omitempty"`
+	Type                PeerRunHistoryEntryType `protobuf:"varint,13,opt,name=type,proto3,enum=gizclaw.rpc.v1.PeerRunHistoryEntryType" json:"type,omitempty"`
+	AudioAvailable      bool                    `protobuf:"varint,14,opt,name=audio_available,json=audioAvailable,proto3" json:"audio_available,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
 
 func (x *FriendGroupMessageObject) Reset() {
 	*x = FriendGroupMessageObject{}
-	mi := &file_payload_social_proto_msgTypes[47]
+	mi := &file_payload_social_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2416,7 +2544,7 @@ func (x *FriendGroupMessageObject) String() string {
 func (*FriendGroupMessageObject) ProtoMessage() {}
 
 func (x *FriendGroupMessageObject) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[47]
+	mi := &file_payload_social_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2429,33 +2557,12 @@ func (x *FriendGroupMessageObject) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMessageObject.ProtoReflect.Descriptor instead.
 func (*FriendGroupMessageObject) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{47}
-}
-
-func (x *FriendGroupMessageObject) GetAudioContentType() string {
-	if x != nil && x.AudioContentType != nil {
-		return *x.AudioContentType
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageObject) GetAudioPath() string {
-	if x != nil && x.AudioPath != nil {
-		return *x.AudioPath
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageObject) GetAudioSizeBytes() int64 {
-	if x != nil && x.AudioSizeBytes != nil {
-		return *x.AudioSizeBytes
-	}
-	return 0
+	return file_payload_social_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *FriendGroupMessageObject) GetCreatedAt() string {
-	if x != nil && x.CreatedAt != nil {
-		return *x.CreatedAt
+	if x != nil {
+		return x.CreatedAt
 	}
 	return ""
 }
@@ -2468,15 +2575,8 @@ func (x *FriendGroupMessageObject) GetExpiresAt() string {
 }
 
 func (x *FriendGroupMessageObject) GetFriendGroupId() string {
-	if x != nil && x.FriendGroupId != nil {
-		return *x.FriendGroupId
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageObject) GetId() string {
-	if x != nil && x.Id != nil {
-		return *x.Id
+	if x != nil {
+		return x.FriendGroupId
 	}
 	return ""
 }
@@ -2488,123 +2588,39 @@ func (x *FriendGroupMessageObject) GetSenderPeerPublicKey() string {
 	return ""
 }
 
-func (x *FriendGroupMessageObject) GetTtlSeconds() int64 {
-	if x != nil && x.TtlSeconds != nil {
-		return *x.TtlSeconds
-	}
-	return 0
-}
-
-type FriendGroupMessageSendRequest struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	AudioBase64      []byte                 `protobuf:"bytes,1,opt,name=audio_base64,json=audioBase64,proto3" json:"audio_base64,omitempty"`
-	AudioContentType string                 `protobuf:"bytes,2,opt,name=audio_content_type,json=audioContentType,proto3" json:"audio_content_type,omitempty"`
-	FriendGroupId    string                 `protobuf:"bytes,3,opt,name=friend_group_id,json=friendGroupId,proto3" json:"friend_group_id,omitempty"`
-	TtlSeconds       *int64                 `protobuf:"varint,4,opt,name=ttl_seconds,json=ttlSeconds,proto3,oneof" json:"ttl_seconds,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
-}
-
-func (x *FriendGroupMessageSendRequest) Reset() {
-	*x = FriendGroupMessageSendRequest{}
-	mi := &file_payload_social_proto_msgTypes[48]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FriendGroupMessageSendRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FriendGroupMessageSendRequest) ProtoMessage() {}
-
-func (x *FriendGroupMessageSendRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[48]
+func (x *FriendGroupMessageObject) GetHistoryId() string {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FriendGroupMessageSendRequest.ProtoReflect.Descriptor instead.
-func (*FriendGroupMessageSendRequest) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{48}
-}
-
-func (x *FriendGroupMessageSendRequest) GetAudioBase64() []byte {
-	if x != nil {
-		return x.AudioBase64
-	}
-	return nil
-}
-
-func (x *FriendGroupMessageSendRequest) GetAudioContentType() string {
-	if x != nil {
-		return x.AudioContentType
+		return x.HistoryId
 	}
 	return ""
 }
 
-func (x *FriendGroupMessageSendRequest) GetFriendGroupId() string {
+func (x *FriendGroupMessageObject) GetName() string {
 	if x != nil {
-		return x.FriendGroupId
+		return x.Name
 	}
 	return ""
 }
 
-func (x *FriendGroupMessageSendRequest) GetTtlSeconds() int64 {
-	if x != nil && x.TtlSeconds != nil {
-		return *x.TtlSeconds
-	}
-	return 0
-}
-
-type FriendGroupMessageSendResponse struct {
-	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Value         *FriendGroupMessageObject `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *FriendGroupMessageSendResponse) Reset() {
-	*x = FriendGroupMessageSendResponse{}
-	mi := &file_payload_social_proto_msgTypes[49]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FriendGroupMessageSendResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FriendGroupMessageSendResponse) ProtoMessage() {}
-
-func (x *FriendGroupMessageSendResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[49]
+func (x *FriendGroupMessageObject) GetText() string {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
+		return x.Text
 	}
-	return mi.MessageOf(x)
+	return ""
 }
 
-// Deprecated: Use FriendGroupMessageSendResponse.ProtoReflect.Descriptor instead.
-func (*FriendGroupMessageSendResponse) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{49}
-}
-
-func (x *FriendGroupMessageSendResponse) GetValue() *FriendGroupMessageObject {
+func (x *FriendGroupMessageObject) GetType() PeerRunHistoryEntryType {
 	if x != nil {
-		return x.Value
+		return x.Type
 	}
-	return nil
+	return PeerRunHistoryEntryType_PEER_RUN_HISTORY_ENTRY_TYPE_UNSPECIFIED
+}
+
+func (x *FriendGroupMessageObject) GetAudioAvailable() bool {
+	if x != nil {
+		return x.AudioAvailable
+	}
+	return false
 }
 
 type FriendGroupObject struct {
@@ -3409,57 +3425,56 @@ const file_payload_social_proto_rawDesc = "" +
 	"\x02id\x18\x02 \x01(\tR\x02id\x12@\n" +
 	"\x04role\x18\x03 \x01(\x0e2,.gizclaw.rpc.v1.FriendGroupMemberMutableRoleR\x04role\"]\n" +
 	"\x1cFriendGroupMemberPutResponse\x12=\n" +
-	"\x05value\x18\x01 \x01(\v2'.gizclaw.rpc.v1.FriendGroupMemberObjectR\x05value\"V\n" +
+	"\x05value\x18\x01 \x01(\v2'.gizclaw.rpc.v1.FriendGroupMemberObjectR\x05value\"j\n" +
+	"!FriendGroupMessageAudioGetRequest\x12&\n" +
+	"\x0ffriend_group_id\x18\x01 \x01(\tR\rfriendGroupId\x12\x1d\n" +
+	"\n" +
+	"history_id\x18\x02 \x01(\tR\thistoryId\"\xa7\x01\n" +
+	"\"FriendGroupMessageAudioGetResponse\x12&\n" +
+	"\x0ffriend_group_id\x18\x01 \x01(\tR\rfriendGroupId\x12\x1d\n" +
+	"\n" +
+	"history_id\x18\x02 \x01(\tR\thistoryId\x12\x1b\n" +
+	"\tmime_type\x18\x03 \x01(\tR\bmimeType\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\x04 \x01(\x03R\tsizeBytes\"e\n" +
 	"\x1cFriendGroupMessageGetRequest\x12&\n" +
-	"\x0ffriend_group_id\x18\x01 \x01(\tR\rfriendGroupId\x12\x0e\n" +
-	"\x02id\x18\x02 \x01(\tR\x02id\"_\n" +
+	"\x0ffriend_group_id\x18\x01 \x01(\tR\rfriendGroupId\x12\x1d\n" +
+	"\n" +
+	"history_id\x18\x02 \x01(\tR\thistoryId\"_\n" +
 	"\x1dFriendGroupMessageGetResponse\x12>\n" +
-	"\x05value\x18\x01 \x01(\v2(.gizclaw.rpc.v1.FriendGroupMessageObjectR\x05value\"\xad\x01\n" +
+	"\x05value\x18\x01 \x01(\v2(.gizclaw.rpc.v1.FriendGroupMessageObjectR\x05value\"\xeb\x01\n" +
 	"\x1dFriendGroupMessageListRequest\x12\x1b\n" +
-	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12+\n" +
-	"\x0ffriend_group_id\x18\x02 \x01(\tH\x01R\rfriendGroupId\x88\x01\x01\x12\x19\n" +
-	"\x05limit\x18\x03 \x01(\x03H\x02R\x05limit\x88\x01\x01B\t\n" +
-	"\a_cursorB\x12\n" +
-	"\x10_friend_group_idB\b\n" +
-	"\x06_limit\"\xb1\x01\n" +
+	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12&\n" +
+	"\x0ffriend_group_id\x18\x02 \x01(\tR\rfriendGroupId\x12\x19\n" +
+	"\x05limit\x18\x03 \x01(\x03H\x01R\x05limit\x88\x01\x01\x12K\n" +
+	"\x05order\x18\x04 \x01(\x0e20.gizclaw.rpc.v1.WorkspaceHistoryListRequestOrderH\x02R\x05order\x88\x01\x01B\t\n" +
+	"\a_cursorB\b\n" +
+	"\x06_limitB\b\n" +
+	"\x06_order\"\xb1\x01\n" +
 	"\x1eFriendGroupMessageListResponse\x12\x19\n" +
 	"\bhas_next\x18\x01 \x01(\bR\ahasNext\x12>\n" +
 	"\x05items\x18\x02 \x03(\v2(.gizclaw.rpc.v1.FriendGroupMessageObjectR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\xa9\x04\n" +
-	"\x18FriendGroupMessageObject\x121\n" +
-	"\x12audio_content_type\x18\x01 \x01(\tH\x00R\x10audioContentType\x88\x01\x01\x12\"\n" +
+	"\f_next_cursor\"\xf7\x03\n" +
+	"\x18FriendGroupMessageObject\x12\x1d\n" +
 	"\n" +
-	"audio_path\x18\x02 \x01(\tH\x01R\taudioPath\x88\x01\x01\x12-\n" +
-	"\x10audio_size_bytes\x18\x03 \x01(\x03H\x02R\x0eaudioSizeBytes\x88\x01\x01\x12\"\n" +
+	"created_at\x18\x04 \x01(\tR\tcreatedAt\x12\"\n" +
 	"\n" +
-	"created_at\x18\x04 \x01(\tH\x03R\tcreatedAt\x88\x01\x01\x12\"\n" +
+	"expires_at\x18\x05 \x01(\tH\x00R\texpiresAt\x88\x01\x01\x12&\n" +
+	"\x0ffriend_group_id\x18\x06 \x01(\tR\rfriendGroupId\x128\n" +
+	"\x16sender_peer_public_key\x18\b \x01(\tH\x01R\x13senderPeerPublicKey\x88\x01\x01\x12\x1d\n" +
 	"\n" +
-	"expires_at\x18\x05 \x01(\tH\x04R\texpiresAt\x88\x01\x01\x12+\n" +
-	"\x0ffriend_group_id\x18\x06 \x01(\tH\x05R\rfriendGroupId\x88\x01\x01\x12\x13\n" +
-	"\x02id\x18\a \x01(\tH\x06R\x02id\x88\x01\x01\x128\n" +
-	"\x16sender_peer_public_key\x18\b \x01(\tH\aR\x13senderPeerPublicKey\x88\x01\x01\x12$\n" +
-	"\vttl_seconds\x18\t \x01(\x03H\bR\n" +
-	"ttlSeconds\x88\x01\x01B\x15\n" +
-	"\x13_audio_content_typeB\r\n" +
-	"\v_audio_pathB\x13\n" +
-	"\x11_audio_size_bytesB\r\n" +
-	"\v_created_atB\r\n" +
-	"\v_expires_atB\x12\n" +
-	"\x10_friend_group_idB\x05\n" +
-	"\x03_idB\x19\n" +
-	"\x17_sender_peer_public_keyB\x0e\n" +
-	"\f_ttl_seconds\"\xce\x01\n" +
-	"\x1dFriendGroupMessageSendRequest\x12!\n" +
-	"\faudio_base64\x18\x01 \x01(\fR\vaudioBase64\x12,\n" +
-	"\x12audio_content_type\x18\x02 \x01(\tR\x10audioContentType\x12&\n" +
-	"\x0ffriend_group_id\x18\x03 \x01(\tR\rfriendGroupId\x12$\n" +
-	"\vttl_seconds\x18\x04 \x01(\x03H\x00R\n" +
-	"ttlSeconds\x88\x01\x01B\x0e\n" +
-	"\f_ttl_seconds\"`\n" +
-	"\x1eFriendGroupMessageSendResponse\x12>\n" +
-	"\x05value\x18\x01 \x01(\v2(.gizclaw.rpc.v1.FriendGroupMessageObjectR\x05value\"\xde\x03\n" +
+	"history_id\x18\n" +
+	" \x01(\tR\thistoryId\x12\x12\n" +
+	"\x04name\x18\v \x01(\tR\x04name\x12\x12\n" +
+	"\x04text\x18\f \x01(\tR\x04text\x12;\n" +
+	"\x04type\x18\r \x01(\x0e2'.gizclaw.rpc.v1.PeerRunHistoryEntryTypeR\x04type\x12'\n" +
+	"\x0faudio_available\x18\x0e \x01(\bR\x0eaudioAvailableB\r\n" +
+	"\v_expires_atB\x19\n" +
+	"\x17_sender_peer_public_keyJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\a\x10\bJ\x04\b\t\x10\n" +
+	"R\x12audio_content_typeR\n" +
+	"audio_pathR\x10audio_size_bytesR\x02idR\vttl_seconds\"\xde\x03\n" +
 	"\x11FriendGroupObject\x12\"\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tH\x00R\tcreatedAt\x88\x01\x01\x12?\n" +
@@ -3584,13 +3599,13 @@ var file_payload_social_proto_goTypes = []any{
 	(*FriendGroupMemberObject)(nil),              // 40: gizclaw.rpc.v1.FriendGroupMemberObject
 	(*FriendGroupMemberPutRequest)(nil),          // 41: gizclaw.rpc.v1.FriendGroupMemberPutRequest
 	(*FriendGroupMemberPutResponse)(nil),         // 42: gizclaw.rpc.v1.FriendGroupMemberPutResponse
-	(*FriendGroupMessageGetRequest)(nil),         // 43: gizclaw.rpc.v1.FriendGroupMessageGetRequest
-	(*FriendGroupMessageGetResponse)(nil),        // 44: gizclaw.rpc.v1.FriendGroupMessageGetResponse
-	(*FriendGroupMessageListRequest)(nil),        // 45: gizclaw.rpc.v1.FriendGroupMessageListRequest
-	(*FriendGroupMessageListResponse)(nil),       // 46: gizclaw.rpc.v1.FriendGroupMessageListResponse
-	(*FriendGroupMessageObject)(nil),             // 47: gizclaw.rpc.v1.FriendGroupMessageObject
-	(*FriendGroupMessageSendRequest)(nil),        // 48: gizclaw.rpc.v1.FriendGroupMessageSendRequest
-	(*FriendGroupMessageSendResponse)(nil),       // 49: gizclaw.rpc.v1.FriendGroupMessageSendResponse
+	(*FriendGroupMessageAudioGetRequest)(nil),    // 43: gizclaw.rpc.v1.FriendGroupMessageAudioGetRequest
+	(*FriendGroupMessageAudioGetResponse)(nil),   // 44: gizclaw.rpc.v1.FriendGroupMessageAudioGetResponse
+	(*FriendGroupMessageGetRequest)(nil),         // 45: gizclaw.rpc.v1.FriendGroupMessageGetRequest
+	(*FriendGroupMessageGetResponse)(nil),        // 46: gizclaw.rpc.v1.FriendGroupMessageGetResponse
+	(*FriendGroupMessageListRequest)(nil),        // 47: gizclaw.rpc.v1.FriendGroupMessageListRequest
+	(*FriendGroupMessageListResponse)(nil),       // 48: gizclaw.rpc.v1.FriendGroupMessageListResponse
+	(*FriendGroupMessageObject)(nil),             // 49: gizclaw.rpc.v1.FriendGroupMessageObject
 	(*FriendGroupObject)(nil),                    // 50: gizclaw.rpc.v1.FriendGroupObject
 	(*FriendGroupPutRequest)(nil),                // 51: gizclaw.rpc.v1.FriendGroupPutRequest
 	(*FriendGroupPutResponse)(nil),               // 52: gizclaw.rpc.v1.FriendGroupPutResponse
@@ -3605,6 +3620,8 @@ var file_payload_social_proto_goTypes = []any{
 	(*FriendObject)(nil),                         // 61: gizclaw.rpc.v1.FriendObject
 	(FriendGroupMemberMutableRole)(0),            // 62: gizclaw.rpc.v1.FriendGroupMemberMutableRole
 	(FriendGroupMemberRole)(0),                   // 63: gizclaw.rpc.v1.FriendGroupMemberRole
+	(WorkspaceHistoryListRequestOrder)(0),        // 64: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
+	(PeerRunHistoryEntryType)(0),                 // 65: gizclaw.rpc.v1.PeerRunHistoryEntryType
 }
 var file_payload_social_proto_depIdxs = []int32{
 	8,  // 0: gizclaw.rpc.v1.ContactCreateResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
@@ -3628,17 +3645,18 @@ var file_payload_social_proto_depIdxs = []int32{
 	63, // 18: gizclaw.rpc.v1.FriendGroupMemberObject.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
 	62, // 19: gizclaw.rpc.v1.FriendGroupMemberPutRequest.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberMutableRole
 	40, // 20: gizclaw.rpc.v1.FriendGroupMemberPutResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
-	47, // 21: gizclaw.rpc.v1.FriendGroupMessageGetResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMessageObject
-	47, // 22: gizclaw.rpc.v1.FriendGroupMessageListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupMessageObject
-	47, // 23: gizclaw.rpc.v1.FriendGroupMessageSendResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMessageObject
-	63, // 24: gizclaw.rpc.v1.FriendGroupObject.my_role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
-	50, // 25: gizclaw.rpc.v1.FriendGroupPutResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	61, // 26: gizclaw.rpc.v1.FriendListResponse.items:type_name -> gizclaw.rpc.v1.FriendObject
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	49, // 21: gizclaw.rpc.v1.FriendGroupMessageGetResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMessageObject
+	64, // 22: gizclaw.rpc.v1.FriendGroupMessageListRequest.order:type_name -> gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
+	49, // 23: gizclaw.rpc.v1.FriendGroupMessageListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupMessageObject
+	65, // 24: gizclaw.rpc.v1.FriendGroupMessageObject.type:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntryType
+	63, // 25: gizclaw.rpc.v1.FriendGroupObject.my_role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
+	50, // 26: gizclaw.rpc.v1.FriendGroupPutResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	61, // 27: gizclaw.rpc.v1.FriendListResponse.items:type_name -> gizclaw.rpc.v1.FriendObject
+	28, // [28:28] is the sub-list for method output_type
+	28, // [28:28] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_payload_social_proto_init() }
@@ -3660,10 +3678,9 @@ func file_payload_social_proto_init() {
 	file_payload_social_proto_msgTypes[38].OneofWrappers = []any{}
 	file_payload_social_proto_msgTypes[39].OneofWrappers = []any{}
 	file_payload_social_proto_msgTypes[40].OneofWrappers = []any{}
-	file_payload_social_proto_msgTypes[45].OneofWrappers = []any{}
-	file_payload_social_proto_msgTypes[46].OneofWrappers = []any{}
 	file_payload_social_proto_msgTypes[47].OneofWrappers = []any{}
 	file_payload_social_proto_msgTypes[48].OneofWrappers = []any{}
+	file_payload_social_proto_msgTypes[49].OneofWrappers = []any{}
 	file_payload_social_proto_msgTypes[50].OneofWrappers = []any{}
 	file_payload_social_proto_msgTypes[51].OneofWrappers = []any{}
 	file_payload_social_proto_msgTypes[58].OneofWrappers = []any{}

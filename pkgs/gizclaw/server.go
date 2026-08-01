@@ -55,58 +55,52 @@ type Server struct {
 	PeerListeners         []giznet.Listener
 	PeerListenerFactories []PeerListenerFactory
 
-	PeerStore                    kv.Store
-	PeerRunStore                 kv.Store
-	CredentialStore              kv.Store
-	FirmwareStore                kv.Store
-	FirmwareAssets               objectstore.ObjectStore
-	RuntimeProfileStore          kv.Store
-	AgentHostStore               objectstore.ObjectStore
-	MiniMaxCredentialStore       kv.Store
-	MiniMaxTenantStore           kv.Store
-	DeepSeekTenantStore          kv.Store
-	VolcTenantStore              kv.Store
-	ModelStore                   kv.Store
-	VoiceStore                   kv.Store
-	MemoryLayoutStore            kv.Store
-	WorkspaceStore               kv.Store
-	WorkflowStore                kv.Store
-	ToolStore                    kv.Store
-	PublicLoginStore             kv.Store
-	ContactStore                 kv.Store
-	FriendInviteTokenStore       kv.Store
-	FriendStore                  kv.Store
-	FriendGroupStore             kv.Store
-	FriendGroupInviteTokenStore  kv.Store
-	FriendGroupMemberStore       kv.Store
-	FriendGroupBelongStore       kv.Store
-	FriendGroupMessageStore      kv.Store
-	FriendGroupMessageAssets     objectstore.ObjectStore
-	PetDefStore                  kv.Store
-	BadgeDefStore                kv.Store
-	GameDefStore                 kv.Store
-	GameplayAssets               objectstore.ObjectStore
-	WorkspaceAssets              objectstore.ObjectStore
-	GameplayDB                   *sqlx.DB
-	MetricsStore                 metrics.Store
-	ServerLogQuery               ServerLogQueryService
-	FlowcraftHistory             logstore.MutableStore
-	FlowcraftState               kv.Store
-	MemoryRoot                   string
-	FriendGroupMessageDefaultTTL time.Duration
-	FriendGroupMessageMaxTTL     time.Duration
-	FriendGroupMessageCleanup    time.Duration
-	FriendGroupMessageMaxBytes   int64
-	SpeechLimits                 SpeechLimits
-	ClientToolTimeout            time.Duration
-	ToolHTTPExecutor             giztools.HTTPExecutor
-	BuildCommit                  string
-	PublicEndpoint               string
-	PublicICETCP                 bool
-	PublicLoginAuthorizer        publiclogin.SessionAuthorizer
-	ICEServers                   []gizwebrtc.ICEServer
-	WebRTCSignalingHandler       http.Handler
-	EdgeNodes                    []giznet.PublicKey
+	PeerStore                   kv.Store
+	PeerRunStore                kv.Store
+	CredentialStore             kv.Store
+	FirmwareStore               kv.Store
+	FirmwareAssets              objectstore.ObjectStore
+	RuntimeProfileStore         kv.Store
+	AgentHostStore              objectstore.ObjectStore
+	MiniMaxCredentialStore      kv.Store
+	MiniMaxTenantStore          kv.Store
+	DeepSeekTenantStore         kv.Store
+	VolcTenantStore             kv.Store
+	ModelStore                  kv.Store
+	VoiceStore                  kv.Store
+	MemoryLayoutStore           kv.Store
+	WorkspaceStore              kv.Store
+	WorkflowStore               kv.Store
+	ToolStore                   kv.Store
+	PublicLoginStore            kv.Store
+	ContactStore                kv.Store
+	FriendInviteTokenStore      kv.Store
+	FriendStore                 kv.Store
+	FriendGroupStore            kv.Store
+	FriendGroupInviteTokenStore kv.Store
+	FriendGroupMemberStore      kv.Store
+	FriendGroupBelongStore      kv.Store
+	PetDefStore                 kv.Store
+	BadgeDefStore               kv.Store
+	GameDefStore                kv.Store
+	GameplayAssets              objectstore.ObjectStore
+	WorkspaceAssets             objectstore.ObjectStore
+	GameplayDB                  *sqlx.DB
+	MetricsStore                metrics.Store
+	ServerLogQuery              ServerLogQueryService
+	FlowcraftHistory            logstore.MutableStore
+	FlowcraftState              kv.Store
+	MemoryRoot                  string
+	SpeechLimits                SpeechLimits
+	ClientToolTimeout           time.Duration
+	ToolHTTPExecutor            giztools.HTTPExecutor
+	BuildCommit                 string
+	PublicEndpoint              string
+	PublicICETCP                bool
+	PublicLoginAuthorizer       publiclogin.SessionAuthorizer
+	ICEServers                  []gizwebrtc.ICEServer
+	WebRTCSignalingHandler      http.Handler
+	EdgeNodes                   []giznet.PublicKey
 
 	manager             *Manager
 	peerService         *PeerService
@@ -115,8 +109,6 @@ type Server struct {
 	listeners           []giznet.Listener
 	closed              bool
 	httpHandler         http.Handler
-	cleanupStop         context.CancelFunc
-	cleanupDone         <-chan struct{}
 	driveFactStop       context.CancelFunc
 	driveFactDone       <-chan struct{}
 	workspaceRewardStop context.CancelFunc
@@ -173,7 +165,6 @@ func (s *Server) Listen() error {
 	s.listeners = listeners
 	s.closed = false
 	s.listenerMu.Unlock()
-	s.startCleanup()
 	s.startDriveFactDispatcher()
 	if err := s.startWorkspaceRewardDispatcher(); err != nil {
 		_ = s.Close()
@@ -282,14 +273,6 @@ func (s *Server) Close() error {
 			errs = append(errs, listener.Close())
 		}
 	}
-	if s.cleanupStop != nil {
-		s.cleanupStop()
-		s.cleanupStop = nil
-	}
-	if s.cleanupDone != nil {
-		<-s.cleanupDone
-		s.cleanupDone = nil
-	}
 	if s.driveFactStop != nil {
 		s.driveFactStop()
 		s.driveFactStop = nil
@@ -337,34 +320,6 @@ func (s *Server) startWorkspaceRewardDispatcher() error {
 	return nil
 }
 
-func (s *Server) startCleanup() {
-	if s == nil || s.cleanupStop != nil || s.manager == nil || s.manager.FriendGroups == nil || s.manager.FriendGroups.Messages == nil {
-		return
-	}
-	interval := s.FriendGroupMessageCleanup
-	if interval <= 0 {
-		interval = 5 * time.Minute
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	s.cleanupStop = cancel
-	s.cleanupDone = done
-	friendGroups := s.manager.FriendGroups
-	go func() {
-		defer close(done)
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				_ = friendGroups.CleanupExpiredFriendGroupMessages(context.WithoutCancel(ctx))
-			}
-		}
-	}()
-}
-
 // EffectivePeerStore returns the peer KV layout used by the server runtime.
 // Legacy single-KV configurations keep peer records under the peers prefix;
 // peer and workspace icon stores do not change that layout.
@@ -401,18 +356,12 @@ func (s *Server) usesLegacySharedStore() bool {
 		s.FriendGroupInviteTokenStore == nil &&
 		s.FriendGroupMemberStore == nil &&
 		s.FriendGroupBelongStore == nil &&
-		s.FriendGroupMessageStore == nil &&
-		s.FriendGroupMessageAssets == nil &&
 		s.RuntimeProfileStore == nil &&
 		s.PetDefStore == nil &&
 		s.BadgeDefStore == nil &&
 		s.GameDefStore == nil &&
 		s.GameplayAssets == nil &&
-		s.GameplayDB == nil &&
-		s.FriendGroupMessageDefaultTTL == 0 &&
-		s.FriendGroupMessageMaxTTL == 0 &&
-		s.FriendGroupMessageCleanup == 0 &&
-		s.FriendGroupMessageMaxBytes == 0
+		s.GameplayDB == nil
 }
 
 func (s *Server) init() error {
@@ -449,7 +398,6 @@ func (s *Server) init() error {
 	friendGroupInviteTokenStore := moduleStore(s.FriendGroupInviteTokenStore, s.PeerStore, "friend-group-invite-tokens")
 	friendGroupMemberStore := moduleStore(s.FriendGroupMemberStore, s.PeerStore, "friend-group-members")
 	friendGroupBelongStore := moduleStore(s.FriendGroupBelongStore, s.PeerStore, "friend-group-belongs")
-	friendGroupMessageStore := moduleStore(s.FriendGroupMessageStore, s.PeerStore, "friend-group-messages")
 	friendGroupRelationshipStore, friendGroupRelationshipPrefixes, ok := kv.SharedAtomicStore(
 		friendGroupStore,
 		friendGroupInviteTokenStore,
@@ -564,14 +512,9 @@ func (s *Server) init() error {
 		InviteRelationshipPrefix: friendGroupInvitePrefix,
 		MemberRelationshipPrefix: friendGroupMemberPrefix,
 		BelongRelationshipPrefix: friendGroupBelongPrefix,
-		Messages:                 friendGroupMessageStore,
-		MessageAssets:            s.FriendGroupMessageAssets,
 		Workspaces:               workspaceServer,
 		RuntimeProfileForOwner:   manager.runtimeProfileForOwner,
 		NotifyPeer:               notifyPeer,
-		MessageDefaultTTL:        s.FriendGroupMessageDefaultTTL,
-		MessageMaxTTL:            s.FriendGroupMessageMaxTTL,
-		MessageMaxAudioBytes:     s.FriendGroupMessageMaxBytes,
 	}
 	providerTenantsServer := &providertenants.Server{
 		ModelStore:          modelStore,

@@ -88,7 +88,6 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE = 61,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST = 62,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET = 63,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND = 64,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = 65,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_LIST = 66,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_GET = 67,
@@ -119,7 +118,8 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_TRANSCRIBE = 92,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_SYNTHESIZE = 93,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_DELETE = 94,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_EXTRACT = 95
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_EXTRACT = 95,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET = 96
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */
@@ -174,8 +174,8 @@ extern "C" {
 #define _gizclaw_rpc_v1_RpcErrorCode_ARRAYSIZE ((gizclaw_rpc_v1_RpcErrorCode)(gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_CONFLICT+1))
 
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
-#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_EXTRACT
-#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_EXTRACT+1))
+#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET
+#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET+1))
 
 
 

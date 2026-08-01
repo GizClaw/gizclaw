@@ -251,12 +251,6 @@ func (c *Client) GetFriendGroupMessage(ctx context.Context, id string, request r
 	})
 }
 
-func (c *Client) SendFriendGroupMessage(ctx context.Context, id string, request rpcapi.FriendGroupMessageSendRequest) (*rpcapi.FriendGroupMessageSendResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupMessageSendResponse, error) {
-		return client.SendFriendGroupMessage(ctx, conn, id, request)
-	})
-}
-
 func (c *Client) ListPets(ctx context.Context, id string, request rpcapi.ServerPetListRequest) (*rpcapi.ServerPetListResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPetListResponse, error) {
 		return client.ListPets(ctx, conn, id, request)

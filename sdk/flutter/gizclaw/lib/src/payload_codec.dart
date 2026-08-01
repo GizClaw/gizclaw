@@ -63,12 +63,14 @@ final _messageFactories = <String, MessageFactory>{
   'FriendGroupMemberListResponse': payload.FriendGroupMemberListResponse.new,
   'FriendGroupMemberPutRequest': payload.FriendGroupMemberPutRequest.new,
   'FriendGroupMemberPutResponse': payload.FriendGroupMemberPutResponse.new,
+  'FriendGroupMessageAudioGetRequest':
+      payload.FriendGroupMessageAudioGetRequest.new,
+  'FriendGroupMessageAudioGetResponse':
+      payload.FriendGroupMessageAudioGetResponse.new,
   'FriendGroupMessageGetRequest': payload.FriendGroupMessageGetRequest.new,
   'FriendGroupMessageGetResponse': payload.FriendGroupMessageGetResponse.new,
   'FriendGroupMessageListRequest': payload.FriendGroupMessageListRequest.new,
   'FriendGroupMessageListResponse': payload.FriendGroupMessageListResponse.new,
-  'FriendGroupMessageSendRequest': payload.FriendGroupMessageSendRequest.new,
-  'FriendGroupMessageSendResponse': payload.FriendGroupMessageSendResponse.new,
   'FriendGroupPutRequest': payload.FriendGroupPutRequest.new,
   'FriendGroupPutResponse': payload.FriendGroupPutResponse.new,
   'FriendInfoGetRequest': payload.FriendInfoGetRequest.new,
@@ -278,12 +280,14 @@ final _messageTypes = <String, Type>{
   'FriendGroupMemberListResponse': payload.FriendGroupMemberListResponse,
   'FriendGroupMemberPutRequest': payload.FriendGroupMemberPutRequest,
   'FriendGroupMemberPutResponse': payload.FriendGroupMemberPutResponse,
+  'FriendGroupMessageAudioGetRequest':
+      payload.FriendGroupMessageAudioGetRequest,
+  'FriendGroupMessageAudioGetResponse':
+      payload.FriendGroupMessageAudioGetResponse,
   'FriendGroupMessageGetRequest': payload.FriendGroupMessageGetRequest,
   'FriendGroupMessageGetResponse': payload.FriendGroupMessageGetResponse,
   'FriendGroupMessageListRequest': payload.FriendGroupMessageListRequest,
   'FriendGroupMessageListResponse': payload.FriendGroupMessageListResponse,
-  'FriendGroupMessageSendRequest': payload.FriendGroupMessageSendRequest,
-  'FriendGroupMessageSendResponse': payload.FriendGroupMessageSendResponse,
   'FriendGroupPutRequest': payload.FriendGroupPutRequest,
   'FriendGroupPutResponse': payload.FriendGroupPutResponse,
   'FriendInfoGetRequest': payload.FriendInfoGetRequest,

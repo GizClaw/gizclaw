@@ -179,6 +179,20 @@ type HistoryEntryPage struct {
 	NextCursor string
 }
 
+// ListPage returns one authoritative internal History page with the same
+// ordering, cursor, and limit semantics as the public History list.
+func (s *HistoryStore) ListPage(ctx context.Context, req apitypes.PeerRunHistoryListRequest) (HistoryEntryPage, error) {
+	entries, hasNext, next, err := s.listInternal(ctx, req)
+	if err != nil {
+		return HistoryEntryPage{}, err
+	}
+	nextCursor := ""
+	if next != nil {
+		nextCursor = *next
+	}
+	return HistoryEntryPage{Entries: entries, HasNext: hasNext, NextCursor: nextCursor}, nil
+}
+
 // ListEntries returns internal persisted entries in ascending ID order after
 // the exclusive cursor and, when provided, through the inclusive high-water.
 func (s *HistoryStore) ListEntries(ctx context.Context, after, through string, limit int) (HistoryEntryPage, error) {

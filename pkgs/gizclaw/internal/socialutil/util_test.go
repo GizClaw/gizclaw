@@ -147,14 +147,7 @@ func TestGroupRolesAndMessageExpiry(t *testing.T) {
 	}
 
 	now := time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC)
-	expiredAt := now
 	future := now.Add(time.Second)
-	if !MessageExpired(rpcapi.FriendGroupMessageObject{ExpiresAt: &expiredAt}, now) {
-		t.Fatal("MessageExpired at boundary = false, want true")
-	}
-	if MessageExpired(rpcapi.FriendGroupMessageObject{ExpiresAt: &future}, now) {
-		t.Fatal("MessageExpired future = true, want false")
-	}
 	if !TimeValue(&now).Equal(now) || !TimeValue(nil).IsZero() {
 		t.Fatal("TimeValue returned unexpected value")
 	}

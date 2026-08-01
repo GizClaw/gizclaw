@@ -166,6 +166,46 @@ func TestModelRetiredCapabilitiesTagRemainsReserved(t *testing.T) {
 	t.Fatal("Model tag 4 is not reserved after removing capabilities")
 }
 
+func TestFriendGroupMessageMethodReservationAndAudioRegistry(t *testing.T) {
+	descriptor := rpcpb.RpcMethod_RPC_METHOD_UNSPECIFIED.Descriptor()
+	if descriptor.Values().ByNumber(64) != nil {
+		t.Fatal("RPC method 64 was reused")
+	}
+	reservedNumber := false
+	for i := 0; i < descriptor.ReservedRanges().Len(); i++ {
+		rangeValue := descriptor.ReservedRanges().Get(i)
+		if 64 >= rangeValue[0] && 64 <= rangeValue[1] {
+			reservedNumber = true
+		}
+	}
+	if !reservedNumber {
+		t.Fatal("RPC method 64 is not reserved")
+	}
+	reservedName := false
+	for i := 0; i < descriptor.ReservedNames().Len(); i++ {
+		if descriptor.ReservedNames().Get(i) == "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND" {
+			reservedName = true
+		}
+	}
+	if !reservedName {
+		t.Fatal("retired Friend Group message send enum name is not reserved")
+	}
+	audio := descriptor.Values().ByName("RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET")
+	if audio == nil || audio.Number() != 96 || RPCMethodServerFriendGroupMessagesAudioGet != "server.friend_group.messages.audio.get" || !RPCMethodServerFriendGroupMessagesAudioGet.Valid() {
+		t.Fatalf("Friend Group message audio registry = descriptor:%v wrapper:%q", audio, RPCMethodServerFriendGroupMessagesAudioGet)
+	}
+
+	request := FriendGroupMessageAudioGetRequest{FriendGroupId: "group-a", HistoryId: "history-a"}
+	var payload RPCPayload
+	if err := payload.FromFriendGroupMessageAudioGetRequest(request); err != nil {
+		t.Fatalf("encode Friend Group audio request: %v", err)
+	}
+	decoded, err := payload.AsFriendGroupMessageAudioGetRequest()
+	if err != nil || decoded != request {
+		t.Fatalf("Friend Group audio request round trip = %#v, error=%v", decoded, err)
+	}
+}
+
 func TestEncodeRPCResponseRejectsResultWithoutMethod(t *testing.T) {
 	var result RPCPayload
 	if err := result.FromPingResponse(PingResponse{ServerTime: 456}); err != nil {

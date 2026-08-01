@@ -1,14 +1,11 @@
 package friendgroup
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"hash/fnv"
-	"reflect"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -22,7 +19,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 type WorkspaceService interface {
@@ -37,8 +33,6 @@ type Server struct {
 	InviteTokens           kv.Store
 	Members                kv.Store
 	Belongs                kv.Store
-	Messages               kv.Store
-	MessageAssets          objectstore.ObjectStore
 	Workspaces             WorkspaceService
 	RuntimeProfileForOwner func(context.Context, string) (apitypes.RuntimeProfile, error)
 	NotifyPeer             func(context.Context, string, *eventpb.PeerEvent)
@@ -50,10 +44,6 @@ type Server struct {
 	InviteRelationshipPrefix kv.Key
 	MemberRelationshipPrefix kv.Key
 	BelongRelationshipPrefix kv.Key
-
-	MessageDefaultTTL    time.Duration
-	MessageMaxTTL        time.Duration
-	MessageMaxAudioBytes int64
 
 	Now   func() time.Time
 	NewID func() string
@@ -77,11 +67,13 @@ type retirementIntent struct {
 
 type retiredFriendGroupDataDescriptor struct {
 	FriendGroupID      string   `json:"friend_group_id"`
-	MessageStorePrefix []string `json:"message_store_prefix"`
-	MessageAssetPrefix string   `json:"message_asset_prefix"`
+	MessageStorePrefix []string `json:"message_store_prefix,omitempty"`
+	MessageAssetPrefix string   `json:"message_asset_prefix,omitempty"`
 }
 
 var retirementIntentsRoot = kv.Key{"social-retirement-intents", "friend-groups"}
+
+var errFriendGroupPendingDeletion = errors.New("social: friend group is pending deletion")
 
 func (s *Server) CreateFriendGroup(ctx context.Context, owner string, req rpcapi.FriendGroupCreateRequest) (rpcapi.FriendGroupObject, error) {
 	friendGroups, err := s.groupsStore()
@@ -270,6 +262,39 @@ func (s *Server) GetFriendGroup(ctx context.Context, owner string, req rpcapi.Fr
 		return rpcapi.FriendGroupObject{}, err
 	}
 	return s.withMyRole(ctx, owner, group)
+}
+
+// ResolveFriendGroupWorkspace returns the authoritative system Workspace for
+// a current Group member. It loads the Group before checking membership so a
+// stale membership record cannot grant access after Group retirement.
+func (s *Server) ResolveFriendGroupWorkspace(ctx context.Context, owner, friendGroupID string) (string, error) {
+	store, err := s.groupsStore()
+	if err != nil {
+		return "", err
+	}
+	friendGroupID = strings.TrimSpace(friendGroupID)
+	owner = strings.TrimSpace(owner)
+	if friendGroupID == "" || owner == "" {
+		return "", errors.New("social: group id and peer public key are required")
+	}
+	group, err := socialutil.ReadJSONValue[rpcapi.FriendGroupObject](ctx, store, socialutil.GroupKey(friendGroupID))
+	if err != nil {
+		return "", err
+	}
+	if err := s.rejectDataPendingDeletion(ctx, friendGroupID); err != nil {
+		if errors.Is(err, errFriendGroupPendingDeletion) {
+			return "", kv.ErrNotFound
+		}
+		return "", err
+	}
+	if _, err := s.groupMember(ctx, friendGroupID, owner); err != nil {
+		return "", err
+	}
+	workspaceName := strings.TrimSpace(socialutil.StringValue(group.WorkspaceName))
+	if workspaceName == "" {
+		return "", errors.New("social: friend group workspace binding is missing")
+	}
+	return workspaceName, nil
 }
 
 func (s *Server) AdminGetFriendGroup(ctx context.Context, friendGroupID string) (rpcapi.FriendGroupObject, error) {
@@ -853,147 +878,6 @@ func (s *Server) listFriendGroupMembers(ctx context.Context, friendGroupID, curs
 	return rpcapi.FriendGroupMemberListResponse{Items: items, HasNext: entries.HasNext, NextCursor: entries.NextCursor}, nil
 }
 
-// Deprecated: send chatroom content through the active workspace runtime and use workspace history for storage.
-func (s *Server) SendFriendGroupMessage(ctx context.Context, owner string, req rpcapi.FriendGroupMessageSendRequest) (rpcapi.FriendGroupMessageObject, error) {
-	store, err := s.messagesStore()
-	if err != nil {
-		return rpcapi.FriendGroupMessageObject{}, err
-	}
-	if s.MessageAssets == nil {
-		return rpcapi.FriendGroupMessageObject{}, errors.New("social: friend group message asset store not configured")
-	}
-	req.FriendGroupId = strings.TrimSpace(req.FriendGroupId)
-	if err := s.requireUse(ctx, owner, req.FriendGroupId); err != nil {
-		return rpcapi.FriendGroupMessageObject{}, err
-	}
-	if req.AudioContentType != socialutil.DefaultAudioContentType {
-		return rpcapi.FriendGroupMessageObject{}, errors.New("social: unsupported audio content type")
-	}
-	if int64(len(req.AudioBase64)) > s.messageMaxAudioBytes() {
-		return rpcapi.FriendGroupMessageObject{}, errors.New("social: friend group message audio exceeds max size")
-	}
-	now := s.now()
-	ttl, err := s.messageTTL(req.TtlSeconds)
-	if err != nil {
-		return rpcapi.FriendGroupMessageObject{}, err
-	}
-	id := s.newID()
-	path := socialutil.EscapeStoreSegment(req.FriendGroupId) + "/" + socialutil.EscapeStoreSegment(id) + ".opus"
-	if err := s.MessageAssets.Put(path, bytes.NewReader(req.AudioBase64)); err != nil {
-		return rpcapi.FriendGroupMessageObject{}, err
-	}
-	size := int64(len(req.AudioBase64))
-	ttlSeconds := int(ttl.Seconds())
-	expiresAt := now.Add(ttl)
-	item := rpcapi.FriendGroupMessageObject{
-		Id:                  &id,
-		FriendGroupId:       &req.FriendGroupId,
-		SenderPeerPublicKey: &owner,
-		AudioPath:           &path,
-		AudioContentType:    &req.AudioContentType,
-		AudioSizeBytes:      &size,
-		TtlSeconds:          &ttlSeconds,
-		ExpiresAt:           &expiresAt,
-		CreatedAt:           &now,
-	}
-	if err := socialutil.WriteJSON(ctx, store, socialutil.GroupMessageKey(req.FriendGroupId, id), item); err != nil {
-		_ = s.MessageAssets.Delete(path)
-		return rpcapi.FriendGroupMessageObject{}, err
-	}
-	return item, nil
-}
-
-// Deprecated: read chatroom records through workspace history get/audio.get.
-func (s *Server) GetFriendGroupMessage(ctx context.Context, owner string, req rpcapi.FriendGroupMessageGetRequest) (rpcapi.FriendGroupMessageObject, error) {
-	req.FriendGroupId = strings.TrimSpace(req.FriendGroupId)
-	req.Id = strings.TrimSpace(req.Id)
-	if err := s.requireRead(ctx, owner, req.FriendGroupId); err != nil {
-		return rpcapi.FriendGroupMessageObject{}, err
-	}
-	store, err := s.messagesStore()
-	if err != nil {
-		return rpcapi.FriendGroupMessageObject{}, err
-	}
-	item, err := socialutil.ReadJSONValue[rpcapi.FriendGroupMessageObject](ctx, store, socialutil.GroupMessageKey(req.FriendGroupId, req.Id))
-	if err != nil {
-		return rpcapi.FriendGroupMessageObject{}, err
-	}
-	if socialutil.MessageExpired(item, s.now()) {
-		return rpcapi.FriendGroupMessageObject{}, kv.ErrNotFound
-	}
-	return item, nil
-}
-
-// Deprecated: read chatroom records through workspace history list/get.
-func (s *Server) ListFriendGroupMessages(ctx context.Context, owner string, req rpcapi.FriendGroupMessageListRequest) (rpcapi.FriendGroupMessageListResponse, error) {
-	if req.FriendGroupId != nil {
-		v := strings.TrimSpace(*req.FriendGroupId)
-		req.FriendGroupId = &v
-	}
-	if err := s.requireRead(ctx, owner, socialutil.StringValue(req.FriendGroupId)); err != nil {
-		return rpcapi.FriendGroupMessageListResponse{}, err
-	}
-	store, err := s.messagesStore()
-	if err != nil {
-		return rpcapi.FriendGroupMessageListResponse{}, err
-	}
-	items := make([]rpcapi.FriendGroupMessageObject, 0)
-	for entry, err := range store.List(ctx, append(socialutil.GroupMessagesRoot, socialutil.EscapeStoreSegment(socialutil.StringValue(req.FriendGroupId)))) {
-		if err != nil {
-			return rpcapi.FriendGroupMessageListResponse{}, err
-		}
-		var item rpcapi.FriendGroupMessageObject
-		if err := json.Unmarshal(entry.Value, &item); err != nil {
-			return rpcapi.FriendGroupMessageListResponse{}, err
-		}
-		if !socialutil.MessageExpired(item, s.now()) {
-			items = append(items, item)
-		}
-	}
-	sort.SliceStable(items, func(i, j int) bool {
-		return socialutil.CompareByCreatedAtDesc(socialutil.TimeValue(items[i].CreatedAt), socialutil.StringValue(items[i].Id), socialutil.TimeValue(items[j].CreatedAt), socialutil.StringValue(items[j].Id))
-	})
-	page := socialutil.PageItems(items, socialutil.StringValue(req.Cursor), socialutil.IntValue(req.Limit), func(item rpcapi.FriendGroupMessageObject) string {
-		return socialutil.StringValue(item.Id)
-	})
-	return rpcapi.FriendGroupMessageListResponse{Items: page.Items, HasNext: page.HasNext, NextCursor: page.NextCursor}, nil
-}
-
-func (s *Server) CleanupExpiredFriendGroupMessages(ctx context.Context) error {
-	if s.Messages == nil {
-		return errors.New("social: friend group message store not configured")
-	}
-	now := s.now()
-	var deleteKeys []kv.Key
-	var deleteObjects []string
-	for entry, err := range s.Messages.List(ctx, socialutil.GroupMessagesRoot) {
-		if err != nil {
-			return err
-		}
-		var item rpcapi.FriendGroupMessageObject
-		if err := json.Unmarshal(entry.Value, &item); err != nil {
-			return err
-		}
-		if socialutil.MessageExpired(item, now) {
-			deleteKeys = append(deleteKeys, entry.Key)
-			if item.AudioPath != nil {
-				deleteObjects = append(deleteObjects, *item.AudioPath)
-			}
-		}
-	}
-	if len(deleteKeys) > 0 {
-		if err := s.Messages.BatchDelete(ctx, deleteKeys); err != nil {
-			return err
-		}
-	}
-	for _, name := range deleteObjects {
-		if s.MessageAssets != nil {
-			_ = s.MessageAssets.Delete(name)
-		}
-	}
-	return nil
-}
-
 func (s *Server) writeMember(ctx context.Context, friendGroupID, peerID string, role rpcapi.FriendGroupMemberRole) (rpcapi.FriendGroupMemberObject, error) {
 	members, err := s.membersStore()
 	if err != nil {
@@ -1202,11 +1086,6 @@ func (s *Server) ensureDataPendingDeletion(
 	friendGroupID = strings.TrimSpace(friendGroupID)
 	descriptor := retiredFriendGroupDataDescriptor{
 		FriendGroupID: friendGroupID,
-		MessageStorePrefix: []string{
-			socialutil.GroupMessagesRoot[0],
-			socialutil.EscapeStoreSegment(friendGroupID),
-		},
-		MessageAssetPrefix: socialutil.EscapeStoreSegment(friendGroupID) + "/",
 	}
 	record, err := pendingdeletion.New(
 		pendingdeletion.KindFriendGroup,
@@ -1238,9 +1117,9 @@ func (s *Server) ensureDataPendingDeletion(
 			err,
 		)
 	}
-	if !reflect.DeepEqual(storedDescriptor, descriptor) {
+	if strings.TrimSpace(storedDescriptor.FriendGroupID) != friendGroupID {
 		return fmt.Errorf(
-			"social: Friend Group PendingDeletion descriptor %q does not match cleanup locators",
+			"social: Friend Group PendingDeletion descriptor %q does not match Friend Group identity",
 			friendGroupID,
 		)
 	}
@@ -1262,7 +1141,8 @@ func (s *Server) rejectDataPendingDeletion(ctx context.Context, friendGroupID st
 	}
 	if pending {
 		return fmt.Errorf(
-			"social: friend group %q is pending deletion and cannot be reused",
+			"%w: friend group %q cannot be reused",
+			errFriendGroupPendingDeletion,
 			friendGroupID,
 		)
 	}
@@ -1669,46 +1549,6 @@ func (s *Server) belongsStore() (kv.Store, error) {
 		return s.Members, nil
 	}
 	return nil, errors.New("social: group belong service not configured")
-}
-
-func (s *Server) messagesStore() (kv.Store, error) {
-	if s == nil || s.Messages == nil {
-		return nil, errors.New("social: friend group message service not configured")
-	}
-	return s.Messages, nil
-}
-
-func (s *Server) messageTTL(value *int) (time.Duration, error) {
-	ttl := s.messageDefaultTTL()
-	if value != nil && *value > 0 {
-		ttl = time.Duration(*value) * time.Second
-	}
-	maxTTL := s.messageMaxTTL()
-	if maxTTL > 0 && ttl > maxTTL {
-		return 0, errors.New("social: friend group message ttl exceeds max ttl")
-	}
-	return ttl, nil
-}
-
-func (s *Server) messageDefaultTTL() time.Duration {
-	if s != nil && s.MessageDefaultTTL > 0 {
-		return s.MessageDefaultTTL
-	}
-	return socialutil.DefaultMessageTTL
-}
-
-func (s *Server) messageMaxTTL() time.Duration {
-	if s != nil && s.MessageMaxTTL > 0 {
-		return s.MessageMaxTTL
-	}
-	return socialutil.DefaultMessageMaxTTL
-}
-
-func (s *Server) messageMaxAudioBytes() int64 {
-	if s != nil && s.MessageMaxAudioBytes > 0 {
-		return s.MessageMaxAudioBytes
-	}
-	return socialutil.DefaultMaxAudioBytes
 }
 
 func (s *Server) inviteTokenTTL() time.Duration {

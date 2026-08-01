@@ -215,28 +215,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		return nil, err
 	}
 	cmdSrv.Server = gizServer
-	if cfg.FriendGroups.MessageDefaultTTL != "" {
-		ttl, err := parseConfigDuration(cfg.FriendGroups.MessageDefaultTTL)
-		if err != nil {
-			return nil, fmt.Errorf("server: friend_groups.message_default_ttl: %w", err)
-		}
-		gizServer.FriendGroupMessageDefaultTTL = ttl
-	}
-	if cfg.FriendGroups.MessageMaxTTL != "" {
-		ttl, err := parseConfigDuration(cfg.FriendGroups.MessageMaxTTL)
-		if err != nil {
-			return nil, fmt.Errorf("server: friend_groups.message_max_ttl: %w", err)
-		}
-		gizServer.FriendGroupMessageMaxTTL = ttl
-	}
-	if cfg.FriendGroups.MessageCleanupInterval != "" {
-		interval, err := parseConfigDuration(cfg.FriendGroups.MessageCleanupInterval)
-		if err != nil {
-			return nil, fmt.Errorf("server: friend_groups.message_cleanup_interval: %w", err)
-		}
-		gizServer.FriendGroupMessageCleanup = interval
-	}
-	gizServer.FriendGroupMessageMaxBytes = cfg.FriendGroups.MessageMaxAudioBytes
 	transcriptionDuration, _ := parsePositiveConfigDuration(cfg.Speech.Transcription.MaxAudioDuration)
 	transcriptionTimeout, _ := parsePositiveConfigDuration(cfg.Speech.Transcription.RequestTimeout)
 	extractionTimeout, _ := parsePositiveConfigDuration(cfg.Speech.Extraction.RequestTimeout)
@@ -338,16 +316,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		if storeExists(cfg, defaultFriendGroupBelongsStore) {
 			if gizServer.FriendGroupBelongStore, err = ss.KV(defaultFriendGroupBelongsStore); err != nil {
 				return nil, fmt.Errorf("server: friend group belongs store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultFriendGroupMessagesStore) {
-			if gizServer.FriendGroupMessageStore, err = ss.KV(defaultFriendGroupMessagesStore); err != nil {
-				return nil, fmt.Errorf("server: friend group messages store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultFriendGroupMessageAssetsStore) {
-			if gizServer.FriendGroupMessageAssets, err = ss.ObjectStore(defaultFriendGroupMessageAssetsStore); err != nil {
-				return nil, fmt.Errorf("server: friend group message assets store: %w", err)
 			}
 		}
 		if storeExists(cfg, defaultPetDefsStore) {

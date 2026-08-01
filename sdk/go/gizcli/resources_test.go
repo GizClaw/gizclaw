@@ -118,13 +118,10 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 			return client.DeleteFriendGroupMember(ctx, "friend-group-members-delete", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupId: "group-a", Id: "peer-b"})
 		}},
 		{"friend group messages list", func() (any, error) {
-			return client.ListFriendGroupMessages(ctx, "friend-group-messages-list", rpcapi.FriendGroupMessageListRequest{})
+			return client.ListFriendGroupMessages(ctx, "friend-group-messages-list", rpcapi.FriendGroupMessageListRequest{FriendGroupId: "group-a"})
 		}},
 		{"friend group messages get", func() (any, error) {
-			return client.GetFriendGroupMessage(ctx, "friend-group-messages-get", rpcapi.FriendGroupMessageGetRequest{FriendGroupId: "group-a", Id: "message-a"})
-		}},
-		{"friend group messages send", func() (any, error) {
-			return client.SendFriendGroupMessage(ctx, "friend-group-messages-send", rpcapi.FriendGroupMessageSendRequest{FriendGroupId: "group-a", AudioContentType: "audio/opus"})
+			return client.GetFriendGroupMessage(ctx, "friend-group-messages-get", rpcapi.FriendGroupMessageGetRequest{FriendGroupId: "group-a", HistoryId: "history-a"})
 		}},
 	}
 

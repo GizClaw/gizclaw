@@ -50,6 +50,7 @@ type Server struct {
 
 type WorkspaceHistoryService interface {
 	ListWorkspaceHistory(context.Context, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error)
+	ListWorkspaceHistoryPage(context.Context, string, apitypes.PeerRunHistoryListRequest) (workspace.HistoryEntryPage, error)
 	GetWorkspaceHistory(context.Context, string, string) (workspace.HistoryEntry, error)
 	ReadWorkspaceHistoryAsset(context.Context, string, string) (io.ReadCloser, error)
 }
@@ -97,9 +98,9 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendGroupMembersAdd,
 		rpcapi.RPCMethodServerFriendGroupMembersPut,
 		rpcapi.RPCMethodServerFriendGroupMembersDelete,
+		rpcapi.RPCMethodServerFriendGroupMessagesAudioGet,
 		rpcapi.RPCMethodServerFriendGroupMessagesList,
 		rpcapi.RPCMethodServerFriendGroupMessagesGet,
-		rpcapi.RPCMethodServerFriendGroupMessagesSend,
 		rpcapi.RPCMethodServerBadgeDefPixaDownload,
 		rpcapi.RPCMethodServerPetList,
 		rpcapi.RPCMethodServerPetGet,
@@ -217,8 +218,8 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleFriendGroupMessagesList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendGroupMessagesGet:
 		return s.handleFriendGroupMessagesGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerFriendGroupMessagesSend:
-		return s.handleFriendGroupMessagesSend(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupMessagesAudioGet:
+		return s.handleFriendGroupMessagesAudioGet(ctx, req), true, nil
 	case rpcapi.RPCMethodServerBadgeDefPixaDownload:
 		return s.handleBadgeDefPixaDownload(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetList:
@@ -674,6 +675,55 @@ func (s *Server) handleWorkspaceHistoryAudioGet(ctx context.Context, req *rpcapi
 	return resultResponse(req.Id, respValue, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioGetResponse)
 }
 
+func (s *Server) handleFriendGroupMessagesAudioGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsFriendGroupMessageAudioGetRequest)
+	if !ok || strings.TrimSpace(params.FriendGroupId) == "" || strings.TrimSpace(params.HistoryId) == "" {
+		return invalidParams(req.Id)
+	}
+	respValue, reader, rpcErr, err := s.PrepareFriendGroupMessageAudioGet(ctx, params)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	if rpcErr != nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
+	}
+	if reader != nil {
+		_ = reader.Close()
+	}
+	return resultResponse(req.Id, respValue, (*rpcapi.RPCPayload).FromFriendGroupMessageAudioGetResponse)
+}
+
+// PrepareFriendGroupMessageAudioGet authorizes the caller through the Group
+// binding, then opens the retained Workspace History audio without buffering.
+func (s *Server) PrepareFriendGroupMessageAudioGet(ctx context.Context, params rpcapi.FriendGroupMessageAudioGetRequest) (rpcapi.FriendGroupMessageAudioGetResponse, io.ReadCloser, *rpcapi.RPCError, error) {
+	if strings.TrimSpace(params.FriendGroupId) == "" || strings.TrimSpace(params.HistoryId) == "" {
+		return rpcapi.FriendGroupMessageAudioGetResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "invalid params"}, nil
+	}
+	if s.FriendGroups == nil {
+		return rpcapi.FriendGroupMessageAudioGetResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "friend group service not configured"}, nil
+	}
+	workspaceName, err := s.FriendGroups.ResolveFriendGroupWorkspace(ctx, s.Caller.String(), params.FriendGroupId)
+	if err != nil {
+		resp := businessError("", err)
+		return rpcapi.FriendGroupMessageAudioGetResponse{}, nil, &rpcapi.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}, nil
+	}
+	history, resp := s.workspaceHistoryService("")
+	if resp != nil {
+		return rpcapi.FriendGroupMessageAudioGetResponse{}, nil, &rpcapi.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}, nil
+	}
+	mimeType, sizeBytes, reader, rpcErr := openWorkspaceHistoryAudio(ctx, history, workspaceName, params.HistoryId)
+	if rpcErr != nil {
+		if rpcErr.Code == rpcapi.RPCErrorCodeNotFound {
+			rpcErr.Message = "not found"
+		}
+		return rpcapi.FriendGroupMessageAudioGetResponse{}, nil, rpcErr, nil
+	}
+	return rpcapi.FriendGroupMessageAudioGetResponse{
+		FriendGroupId: params.FriendGroupId, HistoryId: params.HistoryId,
+		MimeType: mimeType, SizeBytes: sizeBytes,
+	}, reader, nil, nil
+}
+
 func (s *Server) PrepareWorkspaceHistoryAudioGet(ctx context.Context, params rpcapi.WorkspaceHistoryAudioGetRequest) (rpcapi.WorkspaceHistoryAudioGetResponse, io.ReadCloser, *rpcapi.RPCError, error) {
 	if strings.TrimSpace(params.WorkspaceName) == "" || strings.TrimSpace(params.HistoryId) == "" {
 		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "invalid params"}, nil
@@ -685,9 +735,22 @@ func (s *Server) PrepareWorkspaceHistoryAudioGet(ctx context.Context, params rpc
 	if resp := s.requireWorkspaceAccess(ctx, "", params.WorkspaceName); resp != nil {
 		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, &rpcapi.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}, nil
 	}
-	entry, err := history.GetWorkspaceHistory(ctx, params.WorkspaceName, params.HistoryId)
+	mimeType, sizeBytes, r, rpcErr := openWorkspaceHistoryAudio(ctx, history, params.WorkspaceName, params.HistoryId)
+	if rpcErr != nil {
+		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, rpcErr, nil
+	}
+	return rpcapi.WorkspaceHistoryAudioGetResponse{
+		WorkspaceName: params.WorkspaceName,
+		HistoryId:     params.HistoryId,
+		MimeType:      mimeType,
+		SizeBytes:     sizeBytes,
+	}, r, nil, nil
+}
+
+func openWorkspaceHistoryAudio(ctx context.Context, history WorkspaceHistoryService, workspaceName, historyID string) (string, int64, io.ReadCloser, *rpcapi.RPCError) {
+	entry, err := history.GetWorkspaceHistory(ctx, workspaceName, historyID)
 	if err != nil {
-		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, historyRPCError(err), nil
+		return "", 0, nil, historyRPCError(err)
 	}
 	var asset workspace.HistoryAsset
 	mimeType := ""
@@ -700,18 +763,13 @@ func (s *Server) PrepareWorkspaceHistoryAudioGet(ctx context.Context, params rpc
 		}
 	}
 	if mimeType == "" {
-		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace history entry has no audio"}, nil
+		return "", 0, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace history entry has no audio"}
 	}
-	r, err := history.ReadWorkspaceHistoryAsset(ctx, params.WorkspaceName, asset.Name)
+	r, err := history.ReadWorkspaceHistoryAsset(ctx, workspaceName, asset.Name)
 	if err != nil {
-		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, historyRPCError(err), nil
+		return "", 0, nil, historyRPCError(err)
 	}
-	return rpcapi.WorkspaceHistoryAudioGetResponse{
-		WorkspaceName: params.WorkspaceName,
-		HistoryId:     params.HistoryId,
-		MimeType:      mimeType,
-		SizeBytes:     asset.Bytes,
-	}, r, nil, nil
+	return mimeType, asset.Bytes, r, nil
 }
 
 func historyRPCError(err error) *rpcapi.RPCError {

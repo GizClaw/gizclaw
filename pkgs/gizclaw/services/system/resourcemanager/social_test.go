@@ -11,7 +11,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 func TestApplyFriendResourceCreatesAndDeletes(t *testing.T) {
@@ -679,8 +678,6 @@ func newSocialResourceManager(t *testing.T) *Manager {
 			Members:                friendGroupRelationships,
 			Belongs:                friendGroupRelationships,
 			RelationshipStore:      friendGroupRelationships,
-			Messages:               kv.NewMemory(nil),
-			MessageAssets:          objectstore.Dir(t.TempDir()),
 			Workspaces:             workspaces,
 			RuntimeProfileForOwner: socialRuntimeProfile,
 		},

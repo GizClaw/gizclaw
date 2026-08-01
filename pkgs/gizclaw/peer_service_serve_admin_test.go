@@ -26,7 +26,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -290,9 +289,7 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 		InviteTokens:      groupStore,
 		Members:           groupStore,
 		Belongs:           groupStore,
-		Messages:          groupStore,
 		RelationshipStore: groupStore,
-		MessageAssets:     objectstore.Dir(t.TempDir()),
 		Now:               func() time.Time { return time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC) },
 		NewID:             func() string { return "group-a" },
 	}
