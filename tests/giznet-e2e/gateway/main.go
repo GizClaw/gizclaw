@@ -805,9 +805,22 @@ func pingAll(ctx context.Context, state *resultState, opts options, sem chan str
 				pingCtx, cancel := context.WithTimeout(ctx, opts.pingTimeout)
 				pingStarted := time.Now()
 				id := fmt.Sprintf("gateway-capacity-%s-%d-%d", phase, round, index)
+				rxBefore, txBefore := session.byteCounts()
 				_, err := session.client.Ping(pingCtx, id)
+				rxAfter, txAfter := session.byteCounts()
 				rtt := time.Since(pingStarted)
 				cancel()
+				if err != nil {
+					err = fmt.Errorf(
+						"id=%s edge=%s upstream=%s rx_delta=%d tx_delta=%d: %w",
+						id,
+						session.edge,
+						session.upstream,
+						counterDelta(rxBefore, rxAfter),
+						counterDelta(txBefore, txAfter),
+						err,
+					)
+				}
 				state.recordPing(rtt, err)
 				roundMu.Lock()
 				if upstreamRTTs[session.edge] == nil {
@@ -1243,6 +1256,25 @@ func (s *liveSession) peerConn() giznet.Conn {
 		return nil
 	}
 	return s.client.PeerConn()
+}
+
+func (s *liveSession) byteCounts() (uint64, uint64) {
+	conn := s.peerConn()
+	if conn == nil {
+		return 0, 0
+	}
+	peer := conn.PeerInfo()
+	if peer == nil {
+		return 0, 0
+	}
+	return peer.RxBytes, peer.TxBytes
+}
+
+func counterDelta(before, after uint64) uint64 {
+	if after < before {
+		return 0
+	}
+	return after - before
 }
 
 func (s *liveSession) speedTest(

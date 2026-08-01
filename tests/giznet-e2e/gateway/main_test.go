@@ -330,3 +330,12 @@ func TestPingSessionBatchesPreserveOrderAndConcurrency(t *testing.T) {
 		t.Fatalf("zero-concurrency batches = %v, want nil", batches)
 	}
 }
+
+func TestCounterDelta(t *testing.T) {
+	if got := counterDelta(10, 14); got != 4 {
+		t.Fatalf("counterDelta(10, 14) = %d, want 4", got)
+	}
+	if got := counterDelta(14, 10); got != 0 {
+		t.Fatalf("counterDelta(14, 10) = %d, want 0", got)
+	}
+}
