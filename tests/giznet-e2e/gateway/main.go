@@ -431,6 +431,10 @@ func validateOptions(opts options) error {
 		return errors.New("failure and RTT thresholds must be non-negative")
 	case opts.maxPingRoundDuration < 0:
 		return errors.New("-max-ping-round-duration must be non-negative")
+	case opts.maxPingRoundDuration > opts.pingInterval:
+		return errors.New("-max-ping-round-duration must not exceed -ping-interval")
+	case opts.maxPingRoundDuration > 0 && opts.pingTimeout >= opts.maxPingRoundDuration:
+		return errors.New("-ping-timeout must be less than -max-ping-round-duration")
 	case opts.maxSessionsPerEdge < 0 || opts.requiredUpstreamsPerEdge < 0 ||
 		opts.maxUpstreamsPerEdge < 0 || opts.maxSessionsPerUpstream < 0:
 		return errors.New("Edge and upstream limits must be non-negative")

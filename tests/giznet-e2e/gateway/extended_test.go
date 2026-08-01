@@ -32,6 +32,27 @@ func TestValidateOptionsRequiresCompleteRoleSamplingIdentity(t *testing.T) {
 	}
 }
 
+func TestValidateOptionsKeepsPingTimeoutInsideRoundBudget(t *testing.T) {
+	opts := validOptionsForTest()
+	opts.pingInterval = 30 * time.Second
+	opts.maxPingRoundDuration = 30 * time.Second
+	opts.pingTimeout = 28 * time.Second
+	if err := validateOptions(opts); err != nil {
+		t.Fatalf("validateOptions = %v", err)
+	}
+
+	opts.pingTimeout = opts.maxPingRoundDuration
+	if err := validateOptions(opts); err == nil || !strings.Contains(err.Error(), "less than") {
+		t.Fatalf("validateOptions error = %v, want ping timeout budget error", err)
+	}
+
+	opts.pingTimeout = 28 * time.Second
+	opts.maxPingRoundDuration = 31 * time.Second
+	if err := validateOptions(opts); err == nil || !strings.Contains(err.Error(), "must not exceed") {
+		t.Fatalf("validateOptions error = %v, want ping interval budget error", err)
+	}
+}
+
 func TestParseDockerProcessSample(t *testing.T) {
 	at := time.Unix(10, 0)
 	got, err := parseDockerProcessSample("10000000000 123 5 4096 30 10 100 7 999 1024")

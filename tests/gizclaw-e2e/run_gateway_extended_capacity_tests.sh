@@ -100,6 +100,8 @@ run_case() {
   set +a
 
   echo "==> run extended capacity workload: scenario=$scenario repetition=$repetition"
+  # Leave reliable SCTP most of the 30-second round to recover while keeping
+  # a two-second margin for artifact aggregation and the round deadline.
   (cd "$repo_root" && GOMAXPROCS=8 "$gateway_bin" \
     -edges "$GIZCLAW_E2E_EDGE_ENDPOINT,$GIZCLAW_E2E_EDGE2_ENDPOINT" \
     -sessions "$sessions" \
@@ -107,7 +109,7 @@ run_case() {
     -duration "$hold" \
     -ping-interval 30s \
     -dial-timeout 20s \
-    -ping-timeout 10s \
+    -ping-timeout 28s \
     -speed-bytes 0 \
     -concurrency 512 \
     -max-establishment-failures 0 \
