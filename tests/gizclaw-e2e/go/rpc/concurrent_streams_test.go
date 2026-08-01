@@ -214,29 +214,50 @@ func requirePeerEventAfterServiceClose(
 ) {
 	t.Helper()
 	updatedGroupName := groupName + " updated"
-	revisionFloor := time.Now().UnixMilli()
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	if _, err := peer.PutFriendGroup(
+	groupPut, err := peer.PutFriendGroup(
 		ctx,
 		"concurrent-services.group.put",
 		rpcapi.FriendGroupPutRequest{Id: groupID, Name: &updatedGroupName},
-	); err != nil {
+	)
+	if err != nil {
 		t.Fatalf("update Event probe Friend Group: %v", err)
 	}
+	if groupPut.UpdatedAt == nil {
+		t.Fatalf("updated Event probe Friend Group has no server updated_at: %+v", groupPut)
+	}
+	revisionFloor := groupPut.UpdatedAt.UnixMilli()
 	if err := stream.SetReadDeadline(time.Now().Add(15 * time.Second)); err != nil {
 		t.Fatalf("set Peer Event read deadline: %v", err)
 	}
+	unmatched := make([]string, 0, 5)
 	for {
 		event, err := gizcli.ReadPeerStreamEvent(stream)
 		if err != nil {
-			t.Fatalf("read Peer Event after closing sibling RPC: %v", err)
+			t.Fatalf(
+				"read Peer Event after closing sibling RPC: expected group=%q change=%s revision>=%d; unmatched=%v: %v",
+				groupID,
+				eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_METADATA_UPDATED,
+				revisionFloor,
+				unmatched,
+				err,
+			)
 		}
 		update := event.GetFriendGroupUpdated()
 		if event.GetType() != eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED ||
 			update.GetFriendGroupId() != groupID ||
 			update.GetChange() != eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_METADATA_UPDATED ||
 			update.GetRevisionUnixMs() < revisionFloor {
+			if len(unmatched) < cap(unmatched) {
+				unmatched = append(unmatched, fmt.Sprintf(
+					"type=%s group=%q change=%s revision=%d",
+					event.GetType(),
+					update.GetFriendGroupId(),
+					update.GetChange(),
+					update.GetRevisionUnixMs(),
+				))
+			}
 			continue
 		}
 		return

@@ -159,7 +159,7 @@ async function main(): Promise<void> {
     ]);
     const firstPing = await firstPingPromise;
     assert.ok(firstPing.server_time > 0);
-    await waitForDataChannelClosed(firstRPCChannel);
+    requireDataChannelCloseStarted(firstRPCChannel);
     await requirePeerEventAfterServiceClose(
       pc,
       eventChannel,
@@ -268,52 +268,125 @@ async function requirePeerEventAfterServiceClose(
   channel: RTCDataChannel,
   groupID: string,
 ): Promise<void> {
-  const revisionFloor = BigInt(Date.now());
+  type EventCandidate = {
+    change: FriendGroupChange | undefined;
+    groupID: string | undefined;
+    revisionUnixMs: bigint | undefined;
+    type: string;
+  };
+
+  let revisionFloor: bigint | undefined;
+  const candidates: EventCandidate[] = [];
+  let newestMatchingCandidate: EventCandidate | undefined;
+  let acceptCandidate = (_candidate: EventCandidate): void => {};
   let unsubscribe = (): void => {};
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     const eventPromise = new Promise<void>((resolve, reject) => {
+      acceptCandidate = (candidate: EventCandidate): void => {
+        if (
+          revisionFloor != null &&
+          candidate.type === "friend_group.updated" &&
+          candidate.groupID === groupID &&
+          candidate.change === FriendGroupChange.METADATA_UPDATED &&
+          candidate.revisionUnixMs != null &&
+          candidate.revisionUnixMs >= revisionFloor
+        ) {
+          resolve();
+        }
+      };
       unsubscribe = subscribePeerEvents(
         channel,
         (event) => {
           const update = event.friendGroupUpdated;
+          const candidate: EventCandidate = {
+            change: update?.change,
+            groupID: update?.friendGroupId,
+            revisionUnixMs: update?.revisionUnixMs,
+            type: event.type,
+          };
+          if (candidates.length < 5) candidates.push(candidate);
           if (
-            event.type === "friend_group.updated" &&
-            update?.friendGroupId === groupID &&
-            update.change === FriendGroupChange.METADATA_UPDATED &&
-            update.revisionUnixMs >= revisionFloor
+            candidate.type === "friend_group.updated" &&
+            candidate.groupID === groupID &&
+            candidate.change === FriendGroupChange.METADATA_UPDATED &&
+            candidate.revisionUnixMs != null &&
+            (newestMatchingCandidate?.revisionUnixMs == null ||
+              candidate.revisionUnixMs > newestMatchingCandidate.revisionUnixMs)
           ) {
-            resolve();
+            newestMatchingCandidate = candidate;
           }
+          acceptCandidate(candidate);
         },
-        reject,
+        (error) =>
+          reject(
+            new Error(`Peer Event channel or decoder failed: ${error.message}`),
+          ),
       );
     });
     const timeoutPromise = new Promise<never>((_, reject) => {
-      timeout = setTimeout(
-        () =>
-          reject(
-            new Error(
-              "Event Stream did not receive the Friend Group update after sibling RPC close",
-            ),
+      timeout = setTimeout(() => {
+        const candidateSummary =
+          candidates.length === 0
+            ? "none"
+            : candidates
+                .map(
+                  (candidate) =>
+                    `type=${candidate.type} group=${candidate.groupID ?? "<none>"} ` +
+                    `change=${candidate.change ?? "<none>"} ` +
+                    `revision=${candidate.revisionUnixMs?.toString() ?? "<none>"}`,
+                )
+                .join("; ");
+        reject(
+          new Error(
+            `Peer Event timeout after sibling RPC close: expected group=${groupID} ` +
+              `change=${FriendGroupChange.METADATA_UPDATED} ` +
+              `revision>=${revisionFloor?.toString() ?? "<mutation-pending>"}; ` +
+              `candidates=${candidateSummary}`,
           ),
-        10_000,
-      );
+        );
+      }, 10_000);
     });
     const eventRPC = createPeerRPCClient(pc as unknown as RTCPeerConnection, {
       requestTimeoutMs: 10_000,
     });
-    await Promise.all([
-      eventRPC.call("server.friend_group.put", {
+    const groupPutPromise = eventRPC
+      .call("server.friend_group.put", {
         id: groupID,
         name: "JavaScript concurrent service Event probe updated",
-      }),
+      })
+      .then((groupPut) => {
+        revisionFloor = parseServerRevisionUnixMs(groupPut.updated_at);
+        if (newestMatchingCandidate != null) {
+          acceptCandidate(newestMatchingCandidate);
+        }
+      })
+      .catch((error: unknown) => {
+        throw new Error(
+          `Friend Group mutation failed after sibling RPC close: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+    await Promise.all([
+      groupPutPromise,
       Promise.race([eventPromise, timeoutPromise]),
     ]);
   } finally {
     if (timeout != null) clearTimeout(timeout);
     unsubscribe();
   }
+}
+
+function parseServerRevisionUnixMs(updatedAt: string | undefined): bigint {
+  if (updatedAt == null || updatedAt === "") {
+    throw new Error("Friend Group mutation response has no server updated_at");
+  }
+  const unixMs = Date.parse(updatedAt);
+  if (!Number.isFinite(unixMs)) {
+    throw new Error(
+      `Friend Group mutation response has invalid server updated_at: ${updatedAt}`,
+    );
+  }
+  return BigInt(unixMs);
 }
 
 async function deleteEventProbeGroup(
@@ -338,29 +411,13 @@ async function deleteEventProbeGroup(
   }
 }
 
-async function waitForDataChannelClosed(
-  channel: RTCDataChannel,
-): Promise<void> {
-  if (channel.readyState === "closed") return;
-  await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(
-        new Error(
-          `data channel ${channel.id} state=${channel.readyState}, want closed`,
-        ),
-      );
-    }, 5000);
-    const onClose = (): void => {
-      cleanup();
-      resolve();
-    };
-    const cleanup = (): void => {
-      clearTimeout(timeout);
-      channel.removeEventListener("close", onClose);
-    };
-    channel.addEventListener("close", onClose);
-  });
+function requireDataChannelCloseStarted(channel: RTCDataChannel): void {
+  // The RPC client closes before resolving. wrtc can remain in "closing" while
+  // its SCTP reset acknowledgement is pending, but the channel is no longer usable.
+  assert.ok(
+    channel.readyState === "closing" || channel.readyState === "closed",
+    `data channel ${channel.id} state=${channel.readyState}, want closing or closed`,
+  );
 }
 
 async function pollTelemetry(
