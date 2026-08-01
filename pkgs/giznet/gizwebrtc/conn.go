@@ -96,12 +96,15 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 		}
 	})
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		switch state {
-		case webrtc.PeerConnectionStateFailed, webrtc.PeerConnectionStateClosed, webrtc.PeerConnectionStateDisconnected:
+		if peerConnectionStateIsTerminal(state) {
 			_ = c.Close()
 		}
 	})
 	return c, nil
+}
+
+func peerConnectionStateIsTerminal(state webrtc.PeerConnectionState) bool {
+	return state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed
 }
 
 // AcceptService accepts the next remotely opened service stream together with
