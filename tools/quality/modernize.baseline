@@ -2,7 +2,7 @@ apps/wails/internal/endpointhealth/prober.go:67:5: if statement can be modernize
 apps/wails/internal/endpointhealth/prober.go:74:3: copying variable is unneeded
 apps/wails/internal/endpointhealth/prober.go:76:3: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/commands/admin/resource.go:379:6: for loop can be modernized using range over int
-cmd/internal/commands/connect/command.go:997:6: stringPtr can be an inlinable wrapper around new(expr)
+cmd/internal/commands/connect/command.go:1022:6: stringPtr can be an inlinable wrapper around new(expr)
 cmd/internal/server/tcp_mux.go:32:2: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/server/tcp_mux.go:67:3: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/server/workspace_test.go:114:72: Replace []byte(fmt.Sprintf...) with fmt.Appendf
@@ -76,8 +76,8 @@ pkgs/gizclaw/integration_rpc_test.go:159:11: call of strPtr(x) can be simplified
 pkgs/gizclaw/integration_rpc_test.go:160:11: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/integration_rpc_test.go:174:92: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/integration_utils_test.go:800:6: strPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/internal/socialutil/util.go:288:6: IntPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/internal/socialutil/util_test.go:169:6: strPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/internal/socialutil/util.go:274:6: IntPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/internal/socialutil/util_test.go:162:6: strPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/internal/socialutil/util_test.go:22:36: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/internal/socialutil/util_test.go:22:66: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/internal/socialutil/util_test.go:23:37: call of strPtr(x) can be simplified to new(x)
@@ -95,9 +95,9 @@ pkgs/gizclaw/peer_conn_test.go:1199:6: for loop can be modernized using range ov
 pkgs/gizclaw/peer_conn_test.go:1668:6: peerConnBoolPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/peer_conn_test.go:1672:6: peerConnIntPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/peer_service.go:128:6: for loop can be modernized using range over int
-pkgs/gizclaw/peer_service_serve_admin_test.go:380:23: call of adminTestStringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/peer_service_serve_admin_test.go:430:73: call of adminTestStringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/peer_service_serve_admin_test.go:684:6: adminTestStringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/peer_service_serve_admin_test.go:377:23: call of adminTestStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_service_serve_admin_test.go:427:73: call of adminTestStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_service_serve_admin_test.go:681:6: adminTestStringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/rpc_server_service_test.go:156:151: call of intPtr(x) can be simplified to new(x)
 pkgs/gizclaw/rpc_server_service_test.go:29:46: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/rpc_server_service_test.go:31:46: call of stringPtr(x) can be simplified to new(x)
@@ -217,16 +217,16 @@ pkgs/gizclaw/services/gameplay/reward.go:207:6: stringPtr can be an inlinable wr
 pkgs/gizclaw/services/runtime/agent/resolver.go:63:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
 pkgs/gizclaw/services/runtime/peer/store_ops.go:398:5: if statement can be modernized using min
 pkgs/gizclaw/services/runtime/peerresource/access.go:629:6: ptr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/runtime/peerresource/server.go:1215:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/services/runtime/peerresource/server.go:1215:83: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/services/runtime/peerresource/server.go:1223:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/services/runtime/peerresource/server.go:1223:81: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/services/runtime/peerresource/server.go:1231:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/services/runtime/peerresource/server.go:1231:65: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/services/runtime/peerresource/server.go:1235:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/services/runtime/peerresource/server.go:1235:67: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/services/runtime/peerresource/server.go:1239:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/services/runtime/peerresource/server.go:1239:78: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1273:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1273:83: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1281:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1281:81: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1289:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1289:65: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1293:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1293:67: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1297:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1297:78: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:503:103: call of intPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:520:19: call of intPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:533:19: call of intPtr(x) can be simplified to new(x)
@@ -285,13 +285,10 @@ pkgs/gizclaw/services/social/contact/server_test.go:43:16: call of strPtr(x) can
 pkgs/gizclaw/services/social/contact/server_test.go:53:16: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/social/contact/server_test.go:63:16: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/social/contact/server_test.go:64:16: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:1173:6: strPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:708:110: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:738:46: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:795:21: call of IntPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:895:94: call of IntPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:919:129: call of IntPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:926:128: call of IntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:627:110: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:654:46: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:760:94: call of IntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:998:6: strPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/system/publiclogin/server_test.go:118:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
 pkgs/gizclaw/services/system/publiclogin/server_test.go:455:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
 pkgs/gizclaw/services/system/resourcemanager/common_test.go:115:6: ptr can be an inlinable wrapper around new(expr)

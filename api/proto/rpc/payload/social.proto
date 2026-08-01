@@ -212,9 +212,21 @@ message FriendGroupMemberPutResponse {
   FriendGroupMemberObject value = 1;
 }
 
+message FriendGroupMessageAudioGetRequest {
+  string friend_group_id = 1;
+  string history_id = 2;
+}
+
+message FriendGroupMessageAudioGetResponse {
+  string friend_group_id = 1;
+  string history_id = 2;
+  string mime_type = 3;
+  int64 size_bytes = 4;
+}
+
 message FriendGroupMessageGetRequest {
   string friend_group_id = 1;
-  string id = 2;
+  string history_id = 2;
 }
 
 message FriendGroupMessageGetResponse {
@@ -223,8 +235,9 @@ message FriendGroupMessageGetResponse {
 
 message FriendGroupMessageListRequest {
   optional string cursor = 1;
-  optional string friend_group_id = 2;
+  string friend_group_id = 2;
   optional int64 limit = 3;
+  optional WorkspaceHistoryListRequestOrder order = 4;
 }
 
 message FriendGroupMessageListResponse {
@@ -234,26 +247,18 @@ message FriendGroupMessageListResponse {
 }
 
 message FriendGroupMessageObject {
-  optional string audio_content_type = 1;
-  optional string audio_path = 2;
-  optional int64 audio_size_bytes = 3;
-  optional string created_at = 4;
+  reserved 1, 2, 3, 7, 9;
+  reserved "audio_content_type", "audio_path", "audio_size_bytes", "id", "ttl_seconds";
+
+  string created_at = 4;
   optional string expires_at = 5;
-  optional string friend_group_id = 6;
-  optional string id = 7;
+  string friend_group_id = 6;
   optional string sender_peer_public_key = 8;
-  optional int64 ttl_seconds = 9;
-}
-
-message FriendGroupMessageSendRequest {
-  bytes audio_base64 = 1;
-  string audio_content_type = 2;
-  string friend_group_id = 3;
-  optional int64 ttl_seconds = 4;
-}
-
-message FriendGroupMessageSendResponse {
-  FriendGroupMessageObject value = 1;
+  string history_id = 10;
+  string name = 11;
+  string text = 12;
+  PeerRunHistoryEntryType type = 13;
+  bool audio_available = 14;
 }
 
 message FriendGroupObject {

@@ -1203,28 +1203,15 @@ func CSDKSocialBasic(t *testing.T, identityDir, registrationToken string) {
 		&rpcpb.FriendGroupInviteTokenClearResponse{},
 		"Friend Group invite token",
 	)
-	var messageSend rpcpb.FriendGroupMessageSendResponse
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND, &rpcpb.FriendGroupMessageSendRequest{
-		FriendGroupId:    groupID,
-		AudioContentType: "audio/opus",
-		AudioBase64:      []byte("not-real-opus-but-rpc-payload"),
-	}, &messageSend)
-	if messageSend.GetValue().GetId() == "" || messageSend.GetValue().GetFriendGroupId() != groupID {
-		t.Fatalf("invalid server.friend_group.messages.send: %s", messageSend.String())
-	}
-	messageID := messageSend.GetValue().GetId()
-	var messageGet rpcpb.FriendGroupMessageGetResponse
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET, &rpcpb.FriendGroupMessageGetRequest{FriendGroupId: groupID, Id: messageID}, &messageGet)
-	if messageGet.GetValue().GetId() != messageID {
-		t.Fatalf("invalid server.friend_group.messages.get: %s", messageGet.String())
-	}
 	var messageList rpcpb.FriendGroupMessageListResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST, &rpcpb.FriendGroupMessageListRequest{
-		FriendGroupId: ptr(groupID),
+		FriendGroupId: groupID,
 		Limit:         ptr(int64(1000)),
 	}, &messageList)
-	if !friendGroupMessageListContains(messageList.GetItems(), messageID) {
-		t.Fatalf("invalid server.friend_group.messages.list: %s", messageList.String())
+	for _, message := range messageList.GetItems() {
+		if message.GetFriendGroupId() != groupID || message.GetHistoryId() == "" {
+			t.Fatalf("invalid server.friend_group.messages.list: %s", messageList.String())
+		}
 	}
 }
 
@@ -1348,31 +1335,15 @@ func CSDKSocialRelationships(
 	if !friendGroupMemberListContains(memberList.GetItems(), groupID) {
 		t.Fatalf("invalid server.friend_group.members.list: %s", memberList.String())
 	}
-	var messageSend rpcpb.FriendGroupMessageSendResponse
-	mustCallRPC(t, clientB, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND, &rpcpb.FriendGroupMessageSendRequest{
-		FriendGroupId:    groupID,
-		AudioContentType: "audio/opus",
-		AudioBase64:      []byte("c-sdk-cross-user-social-message"),
-	}, &messageSend)
-	if messageSend.GetValue().GetId() == "" || messageSend.GetValue().GetFriendGroupId() != groupID {
-		t.Fatalf("invalid server.friend_group.messages.send: %s", messageSend.String())
-	}
-	messageID := messageSend.GetValue().GetId()
-	var messageGet rpcpb.FriendGroupMessageGetResponse
-	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET, &rpcpb.FriendGroupMessageGetRequest{
-		FriendGroupId: groupID,
-		Id:            messageID,
-	}, &messageGet)
-	if messageGet.GetValue().GetId() != messageID {
-		t.Fatalf("invalid server.friend_group.messages.get: %s", messageGet.String())
-	}
 	var messageList rpcpb.FriendGroupMessageListResponse
 	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST, &rpcpb.FriendGroupMessageListRequest{
-		FriendGroupId: ptr(groupID),
+		FriendGroupId: groupID,
 		Limit:         ptr(int64(1000)),
 	}, &messageList)
-	if !friendGroupMessageListContains(messageList.GetItems(), messageID) {
-		t.Fatalf("invalid server.friend_group.messages.list: %s", messageList.String())
+	for _, message := range messageList.GetItems() {
+		if message.GetFriendGroupId() != groupID || message.GetHistoryId() == "" {
+			t.Fatalf("invalid server.friend_group.messages.list: %s", messageList.String())
+		}
 	}
 }
 
@@ -1542,15 +1513,6 @@ func friendGroupListContains(items []*rpcpb.FriendGroupObject, id string) bool {
 func friendGroupMemberListContains(items []*rpcpb.FriendGroupMemberObject, groupID string) bool {
 	for _, item := range items {
 		if item.GetFriendGroupId() == groupID {
-			return true
-		}
-	}
-	return false
-}
-
-func friendGroupMessageListContains(items []*rpcpb.FriendGroupMessageObject, id string) bool {
-	for _, item := range items {
-		if item.GetId() == id {
 			return true
 		}
 	}

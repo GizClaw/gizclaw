@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
@@ -353,6 +352,13 @@ system_tasks:
 	}
 }
 
+func TestParseConfigRejectsLegacyFriendGroupMessageSettings(t *testing.T) {
+	_, err := parseConfigData([]byte("friend_groups:\n  message_default_ttl: 24h\n"))
+	if err == nil || !strings.Contains(err.Error(), "message_default_ttl") {
+		t.Fatalf("parseConfigData() error = %v, want retired Friend Group message setting rejection", err)
+	}
+}
+
 func TestAdminPublicKeySecurityPolicy(t *testing.T) {
 	allowed := testPublicKey(1)
 	other := testPublicKey(2)
@@ -389,14 +395,11 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	if srv.AgentHostStore == nil {
 		t.Fatalf("agenthost store not wired: %+v", srv.Server)
 	}
-	if srv.ContactStore == nil || srv.FriendInviteTokenStore == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil || srv.FriendGroupInviteTokenStore == nil || srv.FriendGroupMemberStore == nil || srv.FriendGroupMessageStore == nil || srv.FriendGroupMessageAssets == nil {
+	if srv.ContactStore == nil || srv.FriendInviteTokenStore == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil || srv.FriendGroupInviteTokenStore == nil || srv.FriendGroupMemberStore == nil {
 		t.Fatalf("social stores not wired: %+v", srv.Server)
 	}
 	if srv.PetDefStore == nil || srv.BadgeDefStore == nil || srv.GameDefStore == nil || srv.GameplayAssets == nil || srv.WorkspaceAssets == nil || srv.GameplayDB == nil {
 		t.Fatalf("gameplay stores not wired: %+v", srv.Server)
-	}
-	if srv.FriendGroupMessageDefaultTTL != 24*time.Hour || srv.FriendGroupMessageMaxTTL != 7*24*time.Hour || srv.FriendGroupMessageCleanup != 5*time.Minute || srv.FriendGroupMessageMaxBytes != 2097152 {
-		t.Fatalf("social timing config not wired: default=%v max=%v cleanup=%v bytes=%d", srv.FriendGroupMessageDefaultTTL, srv.FriendGroupMessageMaxTTL, srv.FriendGroupMessageCleanup, srv.FriendGroupMessageMaxBytes)
 	}
 }
 
@@ -878,34 +881,6 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 	}
 }
 
-func TestValidateReportsLayeredStorageMissingFields(t *testing.T) {
-	base := Config{
-		Listen:   "127.0.0.1:9820",
-		Endpoint: "127.0.0.1:9820",
-		Storage:  map[string]storage.Config{"memory": {Kind: storage.KindKeyValue, Memory: &storage.MemoryConfig{}}},
-	}
-	tests := []struct {
-		name string
-		edit func(*Config)
-		want string
-	}{
-		{"bad friend group default ttl", func(c *Config) { c.FriendGroups.MessageDefaultTTL = "later" }, "server: friend_groups.message_default_ttl: time: invalid duration \"later\""},
-		{"bad friend group max ttl", func(c *Config) { c.FriendGroups.MessageMaxTTL = "later" }, "server: friend_groups.message_max_ttl: time: invalid duration \"later\""},
-		{"bad friend group cleanup interval", func(c *Config) { c.FriendGroups.MessageCleanupInterval = "later" }, "server: friend_groups.message_cleanup_interval: time: invalid duration \"later\""},
-		{"bad friend group message size", func(c *Config) { c.FriendGroups.MessageMaxAudioBytes = -1 }, "server: friend_groups.message_max_audio_bytes must be >= 0"},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg := base
-			tc.edit(&cfg)
-			err := cfg.validate()
-			if err == nil || err.Error() != tc.want {
-				t.Fatalf("validate error = %v, want %q", err, tc.want)
-			}
-		})
-	}
-}
-
 func TestPrepareConfigGeneratesKeyPairAndDefaultPorts(t *testing.T) {
 	cfg, err := prepareConfig(Config{})
 	if err != nil {
@@ -1154,38 +1129,30 @@ func validLayeredConfig(dir string) Config {
 			"gameplay-db": {Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: filepath.Join(dir, "gameplay.sqlite")}},
 		},
 		Stores: map[string]stores.Config{
-			"peers":                       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
-			"credentials":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
-			"firmwares":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
-			"firmware-assets":             {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "firmwares"},
-			"runtime-profiles":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "runtime-profiles"},
-			"memory-layouts":              {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "memory-layouts"},
-			"agenthost":                   {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "agenthost"},
-			"minimax-tenants":             {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "minimax-tenants"},
-			"voices":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "voices"},
-			"workspaces":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workspaces"},
-			"workflows":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workflows"},
-			"contacts":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "contacts"},
-			"friend-invite-tokens":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-invite-tokens"},
-			"friends":                     {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friends"},
-			"friend-groups":               {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-groups"},
-			"friend-group-invite-tokens":  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-invite-tokens"},
-			"friend-group-members":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-members"},
-			"friend-group-messages":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-messages"},
-			"friend-group-message-assets": {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "friend-group-messages"},
-			"pet-defs":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pet-defs"},
-			"badge-defs":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "badge-defs"},
-			"game-defs":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "game-defs"},
-			"gameplay-assets":             {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "gameplay"},
-			"workspace-assets":            {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspaces"},
-			"gameplay-db":                 {Kind: stores.KindSQL, Storage: "gameplay-db"},
+			"peers":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
+			"credentials":                {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
+			"firmwares":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
+			"firmware-assets":            {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "firmwares"},
+			"runtime-profiles":           {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "runtime-profiles"},
+			"memory-layouts":             {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "memory-layouts"},
+			"agenthost":                  {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "agenthost"},
+			"minimax-tenants":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "minimax-tenants"},
+			"voices":                     {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "voices"},
+			"workspaces":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workspaces"},
+			"workflows":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workflows"},
+			"contacts":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "contacts"},
+			"friend-invite-tokens":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-invite-tokens"},
+			"friends":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friends"},
+			"friend-groups":              {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-groups"},
+			"friend-group-invite-tokens": {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-invite-tokens"},
+			"friend-group-members":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-members"},
+			"pet-defs":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pet-defs"},
+			"badge-defs":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "badge-defs"},
+			"game-defs":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "game-defs"},
+			"gameplay-assets":            {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "gameplay"},
+			"workspace-assets":           {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspaces"},
+			"gameplay-db":                {Kind: stores.KindSQL, Storage: "gameplay-db"},
 		},
 		AgentHost: &AgentHostConfig{RuntimeStore: "agenthost"},
-		FriendGroups: FriendGroupsConfig{
-			MessageDefaultTTL:      "24h",
-			MessageMaxTTL:          "7d",
-			MessageCleanupInterval: "5m",
-			MessageMaxAudioBytes:   2097152,
-		},
 	}
 }

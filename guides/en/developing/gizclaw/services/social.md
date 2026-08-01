@@ -8,7 +8,7 @@
 services/social/
 ├── contact/       # Contact resources
 ├── friend/        # friend requests and friend relationships
-└── friendgroup/   # groups, members, messages, and message assets
+└── friendgroup/   # groups, members, invitations, and Workspace binding
 ```
 
 ## Subdirectory responsibilities
@@ -27,9 +27,11 @@ Friend relationship rows store the exact Workspace name for their lifecycle. For
 
 ### friendgroup
 
-Owns friend groups, members, messages, invites, and message assets. Group membership directly grants access to the group system Workspace.
+Owns friend groups, members, invites, and the authoritative `friend_group_id -> workspace_name` binding. Group membership directly grants access to the group system Workspace.
 
-Each Friend Group lifecycle owns a system Workspace. Creation rollback may immediately delete an unused Workspace. Formal group deletion first atomically removes Group, invite, member, and belongs records and stores a retirement intent in one shared relationship-store transaction. After that commit, it creates a Friend Group data `PendingDeletion` with the message-store and message-asset locators, then places the Workspace in its own `PendingDeletion`. Messages, history, runtime, and artifacts remain physically intact for their owning asynchronous cleaners. A peer-created group belongs to its creator; Admin creation requires an explicit owner. Membership grants data access without changing ownership. The owner's RuntimeProfile `workflows.system.group_chatroom` selects the persisted Chatroom Workflow.
+Each Friend Group lifecycle owns a system Workspace. Creation rollback may immediately delete an unused Workspace. Formal group deletion first atomically removes Group, invite, member, and belongs records and stores a retirement intent in one shared relationship-store transaction. After that commit, it creates a Friend Group data `PendingDeletion`, then places the Workspace in its own `PendingDeletion`. Workspace History, runtime, and artifacts remain physically intact for their owning asynchronous cleaners. Legacy Friend Group pending-deletion descriptors may still contain retired message-store locators; retries decode but never reopen or clean those stores. A peer-created group belongs to its creator; Admin creation requires an explicit owner. Membership grants data access without changing ownership. The owner's RuntimeProfile `workflows.system.group_chatroom` selects the persisted Chatroom Workflow.
+
+Conversation is the only write path for group messages. `server.friend_group.messages.list/get/audio.get` is a read-only Social projection over the bound Workspace History: it loads the group, verifies current membership, resolves the stored Workspace name, and returns stable History IDs and retained History audio. Friend Group owns no message metadata store, audio store, TTL, or cleanup loop.
 
 The relationship commit and Workspace retirement are two retryable phases. If
 phase one fails, both the relationship and Workspace remain usable. If phase
@@ -52,13 +54,13 @@ flowchart LR
     Surface["Admin / Peer Social surface"] --> Social["services/social"]
     Social --> Workspace["services/ai/workspace"]
     Social --> KV["KV stores"]
-    Social --> Assets["Message object store"]
+    Social --> History["Workspace History"]
 ```
 
 Should be placed at `services/social`:
 
-- Domain behaviors for Contact, friend request, friend relationship, group, member and message.
-- Validation, storage and cleanup of Social resources.
+- Domain behaviors for Contact, friend request, friend relationship, group, member, and group-to-Workspace resolution.
+- Validation, storage, and cleanup of Social relationship resources.
 
 Shouldn't be placed here:
 

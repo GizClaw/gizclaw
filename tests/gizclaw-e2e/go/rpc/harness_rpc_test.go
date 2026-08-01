@@ -64,7 +64,7 @@ func newServerResourceHarness(t *testing.T) *serverResourceHarness {
 	t.Cleanup(cancel)
 	peer := h.ConnectClientFromContext("peer-a")
 	t.Cleanup(func() { peer.Close() })
-	registerRuntimeProfile(t, h, peer, "peer-a", sharedRuntimeProfileSpec())
+	registerRuntimeProfile(t, h, peer, "peer-a", sharedRuntimeProfileSpec(t))
 	return &serverResourceHarness{h: h, ctx: ctx, peer: peer}
 }
 
@@ -81,10 +81,10 @@ func newSocialRPCHarness(t *testing.T) *socialRPCHarness {
 	t.Cleanup(cancel)
 	a := h.ConnectClientFromContext("peer-a")
 	b := h.ConnectClientFromContext("peer-b")
-	registerRuntimeProfile(t, h, a, "peer-a", sharedRuntimeProfileSpec())
-	registerRuntimeProfile(t, h, b, "peer-b", sharedRuntimeProfileSpec())
+	registerRuntimeProfile(t, h, a, "peer-a", sharedRuntimeProfileSpec(t))
+	registerRuntimeProfile(t, h, b, "peer-b", sharedRuntimeProfileSpec(t))
 	c := h.ConnectClientFromContext("peer-c")
-	registerRuntimeProfile(t, h, c, "peer-c", sharedRuntimeProfileSpec())
+	registerRuntimeProfile(t, h, c, "peer-c", sharedRuntimeProfileSpec(t))
 	d := h.ConnectClientFromContext("peer-d")
 	t.Cleanup(func() { a.Close() })
 	t.Cleanup(func() { b.Close() })
@@ -140,7 +140,8 @@ func registerSetupPeer(t *testing.T, h *clitest.Harness, contextName, serial str
 	_ = defaultClientView
 }
 
-func sharedRuntimeProfileSpec() apitypes.RuntimeProfileSpec {
+func sharedRuntimeProfileSpec(t *testing.T) apitypes.RuntimeProfileSpec {
+	t.Helper()
 	workflows := apitypes.RuntimeProfileWorkflowCollections{
 		"assistants": {
 			"shared":   e2eRuntimeBinding(sharedWorkflow),
@@ -155,6 +156,19 @@ func sharedRuntimeProfileSpec() apitypes.RuntimeProfileSpec {
 	voices := map[string]apitypes.RuntimeProfileBinding{
 		"narrator": e2eRuntimeBinding("volc-tenant:volc-main:zh_female_vv_jupiter_bigtts"),
 	}
+	connection := apitypes.RuntimeProfileMemoryConnection{}
+	if err := connection.FromRuntimeProfileFlowcraftBBHConnection(apitypes.RuntimeProfileFlowcraftBBHConnection{
+		Type: apitypes.RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	memories := map[string]apitypes.RuntimeProfileMemoryBinding{
+		"chat-memory": {
+			LayoutId:   "chat-memory",
+			Driver:     apitypes.RuntimeProfileMemoryDriverFlowcraft,
+			Connection: connection,
+		},
+	}
 	return apitypes.RuntimeProfileSpec{
 		Workflows: apitypes.RuntimeProfileWorkflows{
 			System: apitypes.RuntimeProfileSystemWorkflows{
@@ -164,12 +178,13 @@ func sharedRuntimeProfileSpec() apitypes.RuntimeProfileSpec {
 			},
 			Collections: workflows,
 		},
-		Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices},
+		Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices, Memories: &memories},
 	}
 }
 
-func sharedRuntimeProfileSpecWithMutation() apitypes.RuntimeProfileSpec {
-	spec := sharedRuntimeProfileSpec()
+func sharedRuntimeProfileSpecWithMutation(t *testing.T) apitypes.RuntimeProfileSpec {
+	t.Helper()
+	spec := sharedRuntimeProfileSpec(t)
 	spec.Workflows.Collections["assistants"]["mutation"] = e2eRuntimeBinding(mutationWorkflow)
 	return spec
 }

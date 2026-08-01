@@ -283,11 +283,7 @@
             "type": "string"
           },
           "order": {
-            "type": "string",
-            "enum": [
-              "asc",
-              "desc"
-            ]
+            "$ref": "#/components/schemas/WorkspaceHistoryListRequestOrder"
           },
           "limit": {
             "type": "integer",
@@ -296,6 +292,20 @@
         },
         "required": [
           "workspace_name"
+        ]
+      },
+      "WorkspaceHistoryListRequestOrder": {
+        "type": "string",
+        "enum": [
+          "asc",
+          "desc"
+        ]
+      },
+      "PeerRunHistoryEntryType": {
+        "type": "string",
+        "enum": [
+          "gear",
+          "agent"
         ]
       },
       "WorkspaceHistoryListResponse": {
@@ -1362,7 +1372,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "history_id": {
             "type": "string"
           },
           "friend_group_id": {
@@ -1371,18 +1381,17 @@
           "sender_peer_public_key": {
             "type": "string"
           },
-          "audio_path": {
+          "name": {
             "type": "string"
           },
-          "audio_content_type": {
+          "text": {
             "type": "string"
           },
-          "audio_size_bytes": {
-            "type": "integer",
-            "format": "int64"
+          "type": {
+            "$ref": "#/components/schemas/PeerRunHistoryEntryType"
           },
-          "ttl_seconds": {
-            "type": "integer"
+          "audio_available": {
+            "type": "boolean"
           },
           "expires_at": {
             "type": "string",
@@ -1392,7 +1401,16 @@
             "type": "string",
             "format": "date-time"
           }
-        }
+        },
+        "required": [
+          "created_at",
+          "friend_group_id",
+          "history_id",
+          "name",
+          "text",
+          "type",
+          "audio_available"
+        ]
       },
       "FriendGroupMessageListRequest": {
         "type": "object",
@@ -1406,8 +1424,14 @@
           },
           "friend_group_id": {
             "type": "string"
+          },
+          "order": {
+            "$ref": "#/components/schemas/WorkspaceHistoryListRequestOrder"
           }
-        }
+        },
+        "required": [
+          "friend_group_id"
+        ]
       },
       "FriendGroupMessageListResponse": {
         "type": "object",
@@ -1431,32 +1455,46 @@
           "has_next"
         ]
       },
-      "FriendGroupMessageSendRequest": {
+      "FriendGroupMessageAudioGetRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "friend_group_id": {
             "type": "string"
           },
-          "audio_base64": {
-            "type": "string",
-            "format": "byte"
-          },
-          "audio_content_type": {
+          "history_id": {
             "type": "string"
-          },
-          "ttl_seconds": {
-            "type": "integer"
           }
         },
         "required": [
           "friend_group_id",
-          "audio_base64",
-          "audio_content_type"
+          "history_id"
         ]
       },
-      "FriendGroupMessageSendResponse": {
-        "$ref": "#/components/schemas/FriendGroupMessageObject"
+      "FriendGroupMessageAudioGetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          },
+          "history_id": {
+            "type": "string"
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "friend_group_id",
+          "history_id",
+          "mime_type",
+          "size_bytes"
+        ]
       },
       "FriendGroupMemberRole": {
         "type": "string",
@@ -1503,13 +1541,13 @@
           "friend_group_id": {
             "type": "string"
           },
-          "id": {
+          "history_id": {
             "type": "string"
           }
         },
         "required": [
           "friend_group_id",
-          "id"
+          "history_id"
         ]
       },
       "FriendGroupMessageGetResponse": {

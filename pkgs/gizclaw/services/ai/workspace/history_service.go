@@ -36,6 +36,16 @@ func (s *Server) ListWorkspaceHistory(ctx context.Context, workspaceName string,
 	return store.List(ctx, req)
 }
 
+// ListWorkspaceHistoryPage returns one internal History page for Server-owned
+// projections that need authoritative entry and asset metadata.
+func (s *Server) ListWorkspaceHistoryPage(ctx context.Context, workspaceName string, req apitypes.PeerRunHistoryListRequest) (HistoryEntryPage, error) {
+	store, err := s.historyStore(ctx, workspaceName)
+	if err != nil {
+		return HistoryEntryPage{}, err
+	}
+	return store.ListPage(ctx, req)
+}
+
 // ListWorkspaceHistoryEntries returns the internal persisted shape used by
 // Server-owned post-processors. Public History DTOs intentionally omit origin.
 func (s *Server) ListWorkspaceHistoryEntries(ctx context.Context, workspaceName, after, through string, limit int) (HistoryEntryPage, error) {

@@ -159,7 +159,6 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE      RpcMethod = 61
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST       RpcMethod = 62
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET        RpcMethod = 63
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND       RpcMethod = 64
 	RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD          RpcMethod = 65
 	RpcMethod_RPC_METHOD_SERVER_PET_LIST                         RpcMethod = 66
 	RpcMethod_RPC_METHOD_SERVER_PET_GET                          RpcMethod = 67
@@ -191,6 +190,7 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_SPEECH_SYNTHESIZE                RpcMethod = 93
 	RpcMethod_RPC_METHOD_SERVER_PEER_DELETE                      RpcMethod = 94
 	RpcMethod_RPC_METHOD_SERVER_SPEECH_EXTRACT                   RpcMethod = 95
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET  RpcMethod = 96
 )
 
 // Enum value maps for RpcMethod.
@@ -260,7 +260,6 @@ var (
 		61: "RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE",
 		62: "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST",
 		63: "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET",
-		64: "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND",
 		65: "RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD",
 		66: "RPC_METHOD_SERVER_PET_LIST",
 		67: "RPC_METHOD_SERVER_PET_GET",
@@ -292,6 +291,7 @@ var (
 		93: "RPC_METHOD_SERVER_SPEECH_SYNTHESIZE",
 		94: "RPC_METHOD_SERVER_PEER_DELETE",
 		95: "RPC_METHOD_SERVER_SPEECH_EXTRACT",
+		96: "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET",
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                             0,
@@ -358,7 +358,6 @@ var (
 		"RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE":      61,
 		"RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST":       62,
 		"RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET":        63,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND":       64,
 		"RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD":          65,
 		"RPC_METHOD_SERVER_PET_LIST":                         66,
 		"RPC_METHOD_SERVER_PET_GET":                          67,
@@ -390,6 +389,7 @@ var (
 		"RPC_METHOD_SERVER_SPEECH_SYNTHESIZE":                93,
 		"RPC_METHOD_SERVER_PEER_DELETE":                      94,
 		"RPC_METHOD_SERVER_SPEECH_EXTRACT":                   95,
+		"RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET":  96,
 	}
 )
 
@@ -882,7 +882,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1aRPC_ERROR_CODE_BAD_REQUEST\x10\x90\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_FORBIDDEN\x10\x93\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_NOT_FOUND\x10\x94\x03\x12\x1c\n" +
-	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\x8f[\n" +
+	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xd5[\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1011,9 +1011,7 @@ const file_rpc_proto_rawDesc = "" +
 	",RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST\x10>\x1af\xc2\xf3\x18b\n" +
 	"!server.friend_group.messages.list\x12\x1dFriendGroupMessageListRequest\x1a\x1eFriendGroupMessageListResponse\x12\x94\x01\n" +
 	"+RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET\x10?\x1ac\xc2\xf3\x18_\n" +
-	" server.friend_group.messages.get\x12\x1cFriendGroupMessageGetRequest\x1a\x1dFriendGroupMessageGetResponse\x12\x98\x01\n" +
-	",RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND\x10@\x1af\xc2\xf3\x18b\n" +
-	"!server.friend_group.messages.send\x12\x1dFriendGroupMessageSendRequest\x1a\x1eFriendGroupMessageSendResponse\x12\x8e\x01\n" +
+	" server.friend_group.messages.get\x12\x1cFriendGroupMessageGetRequest\x1a\x1dFriendGroupMessageGetResponse\x12\x8e\x01\n" +
 	")RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD\x10A\x1a_\xc2\xf3\x18[\n" +
 	"\x1eserver.badge_def.pixa.download\x12\x1bBadgeDefPixaDownloadRequest\x1a\x1cBadgeDefPixaDownloadResponse\x12b\n" +
 	"\x1aRPC_METHOD_SERVER_PET_LIST\x10B\x1aB\xc2\xf3\x18>\n" +
@@ -1075,7 +1073,9 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1dRPC_METHOD_SERVER_PEER_DELETE\x10^\x1aK\xc2\xf3\x18G\n" +
 	"\x12server.peer.delete\x12\x17ServerPeerDeleteRequest\x1a\x18ServerPeerDeleteResponse\x12n\n" +
 	" RPC_METHOD_SERVER_SPEECH_EXTRACT\x10_\x1aH\xc2\xf3\x18D\n" +
-	"\x15server.speech.extract\x12\x14SpeechExtractRequest\x1a\x15SpeechExtractResponse:d\n" +
+	"\x15server.speech.extract\x12\x14SpeechExtractRequest\x1a\x15SpeechExtractResponse\x12\xaa\x01\n" +
+	"1RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET\x10`\x1as\xc2\xf3\x18o\n" +
+	"&server.friend_group.messages.audio.get\x12!FriendGroupMessageAudioGetRequest\x1a\"FriendGroupMessageAudioGetResponse\"\x04\b@\x10@*,RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

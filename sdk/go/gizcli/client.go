@@ -410,6 +410,15 @@ func (c *Client) GetWorkspaceHistoryAudio(ctx context.Context, id string, reques
 	return c.rpcClient().GetWorkspaceHistoryAudio(ctx, stream, id, request, out)
 }
 
+func (c *Client) GetFriendGroupMessageAudio(ctx context.Context, id string, request rpcapi.FriendGroupMessageAudioGetRequest, out io.Writer) (FriendGroupMessageAudioGetResult, error) {
+	stream, err := c.rpcConn()
+	if err != nil {
+		return FriendGroupMessageAudioGetResult{}, err
+	}
+	defer func() { _ = stream.Close() }()
+	return c.rpcClient().GetFriendGroupMessageAudio(ctx, stream, id, request, out)
+}
+
 func (c *Client) ServerPeerLookup(ctx context.Context, id string, request rpcpb.ServerPeerLookupRequest) (*rpcpb.ServerPeerLookupResponse, error) {
 	return callClientServiceRPC(c, ServiceEdgeRPC, func(client *rpcClient, conn net.Conn) (*rpcpb.ServerPeerLookupResponse, error) {
 		return client.ServerPeerLookup(ctx, conn, id, request)

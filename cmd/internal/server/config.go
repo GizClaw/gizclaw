@@ -49,12 +49,7 @@ type AgentHostFlowcraftConfig struct {
 
 type FriendsConfig struct{}
 
-type FriendGroupsConfig struct {
-	MessageDefaultTTL      string `yaml:"message_default_ttl"`
-	MessageMaxTTL          string `yaml:"message_max_ttl"`
-	MessageCleanupInterval string `yaml:"message_cleanup_interval"`
-	MessageMaxAudioBytes   int64  `yaml:"message_max_audio_bytes"`
-}
+type FriendGroupsConfig struct{}
 
 type SpeechConfig struct {
 	Transcription SpeechTranscriptionConfig `yaml:"transcription"`
@@ -126,34 +121,32 @@ type ConfigFile struct {
 }
 
 const (
-	defaultPeersStore                    = "peers"
-	defaultCredentialsStore              = "credentials"
-	defaultFirmwaresStore                = "firmwares"
-	defaultFirmwareAssetsStore           = "firmware-assets"
-	defaultRuntimeProfilesStore          = "runtime-profiles"
-	defaultMemoryLayoutsStore            = "memory-layouts"
-	defaultMiniMaxTenantsStore           = "minimax-tenants"
-	defaultDeepSeekTenantsStore          = "deepseek-tenants"
-	defaultVoicesStore                   = "voices"
-	defaultWorkspacesStore               = "workspaces"
-	defaultWorkflowsStore                = "workflows"
-	defaultContactsStore                 = "contacts"
-	defaultFriendInviteTokensStore       = "friend-invite-tokens"
-	defaultFriendsStore                  = "friends"
-	defaultFriendGroupsStore             = "friend-groups"
-	defaultFriendGroupInviteTokensStore  = "friend-group-invite-tokens"
-	defaultFriendGroupMembersStore       = "friend-group-members"
-	defaultFriendGroupBelongsStore       = "friend-group-belongs"
-	defaultFriendGroupMessagesStore      = "friend-group-messages"
-	defaultFriendGroupMessageAssetsStore = "friend-group-message-assets"
-	defaultPetDefsStore                  = "pet-defs"
-	defaultBadgeDefsStore                = "badge-defs"
-	defaultGameDefsStore                 = "game-defs"
-	defaultGameplayAssetsStore           = "gameplay-assets"
-	defaultWorkspaceAssetsStore          = "workspace-assets"
-	defaultGameplayDBStore               = "gameplay-db"
-	defaultMetricsStore                  = "metrics"
-	maxSpeechExtractionRequestTimeout    = 120 * time.Second
+	defaultPeersStore                   = "peers"
+	defaultCredentialsStore             = "credentials"
+	defaultFirmwaresStore               = "firmwares"
+	defaultFirmwareAssetsStore          = "firmware-assets"
+	defaultRuntimeProfilesStore         = "runtime-profiles"
+	defaultMemoryLayoutsStore           = "memory-layouts"
+	defaultMiniMaxTenantsStore          = "minimax-tenants"
+	defaultDeepSeekTenantsStore         = "deepseek-tenants"
+	defaultVoicesStore                  = "voices"
+	defaultWorkspacesStore              = "workspaces"
+	defaultWorkflowsStore               = "workflows"
+	defaultContactsStore                = "contacts"
+	defaultFriendInviteTokensStore      = "friend-invite-tokens"
+	defaultFriendsStore                 = "friends"
+	defaultFriendGroupsStore            = "friend-groups"
+	defaultFriendGroupInviteTokensStore = "friend-group-invite-tokens"
+	defaultFriendGroupMembersStore      = "friend-group-members"
+	defaultFriendGroupBelongsStore      = "friend-group-belongs"
+	defaultPetDefsStore                 = "pet-defs"
+	defaultBadgeDefsStore               = "badge-defs"
+	defaultGameDefsStore                = "game-defs"
+	defaultGameplayAssetsStore          = "gameplay-assets"
+	defaultWorkspaceAssetsStore         = "workspace-assets"
+	defaultGameplayDBStore              = "gameplay-db"
+	defaultMetricsStore                 = "metrics"
+	maxSpeechExtractionRequestTimeout   = 120 * time.Second
 )
 
 func LoadConfig(path string) (ConfigFile, error) {
@@ -171,6 +164,13 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	var topLevel map[string]any
 	if err := yaml.Unmarshal(data, &topLevel); err != nil {
 		return ConfigFile{}, err
+	}
+	if friendGroups, ok := topLevel["friend_groups"].(map[string]any); ok {
+		for _, retired := range []string{"message_default_ttl", "message_max_ttl", "message_cleanup_interval", "message_max_audio_bytes"} {
+			if _, exists := friendGroups[retired]; exists {
+				return ConfigFile{}, fmt.Errorf("server: friend_groups.%s is not supported; Friend Group messages use Workspace History retention", retired)
+			}
+		}
 	}
 	if _, exists := topLevel["serving-public"]; exists {
 		return ConfigFile{}, fmt.Errorf("server: serving-public is not supported; use serve-to-clients")
@@ -394,18 +394,7 @@ func mergeFriendsConfig(runtime FriendsConfig, file FriendsConfig) FriendsConfig
 }
 
 func mergeFriendGroupsConfig(runtime FriendGroupsConfig, file FriendGroupsConfig) FriendGroupsConfig {
-	if runtime.MessageDefaultTTL == "" {
-		runtime.MessageDefaultTTL = file.MessageDefaultTTL
-	}
-	if runtime.MessageMaxTTL == "" {
-		runtime.MessageMaxTTL = file.MessageMaxTTL
-	}
-	if runtime.MessageCleanupInterval == "" {
-		runtime.MessageCleanupInterval = file.MessageCleanupInterval
-	}
-	if runtime.MessageMaxAudioBytes == 0 {
-		runtime.MessageMaxAudioBytes = file.MessageMaxAudioBytes
-	}
+	_ = file
 	return runtime
 }
 
@@ -490,24 +479,6 @@ func (cfg Config) validate() error {
 		if publicKey.IsZero() {
 			return fmt.Errorf("server: edge-nodes[%d] is zero", i)
 		}
-	}
-	if cfg.FriendGroups.MessageDefaultTTL != "" {
-		if _, err := parseConfigDuration(cfg.FriendGroups.MessageDefaultTTL); err != nil {
-			return fmt.Errorf("server: friend_groups.message_default_ttl: %w", err)
-		}
-	}
-	if cfg.FriendGroups.MessageMaxTTL != "" {
-		if _, err := parseConfigDuration(cfg.FriendGroups.MessageMaxTTL); err != nil {
-			return fmt.Errorf("server: friend_groups.message_max_ttl: %w", err)
-		}
-	}
-	if cfg.FriendGroups.MessageCleanupInterval != "" {
-		if _, err := parseConfigDuration(cfg.FriendGroups.MessageCleanupInterval); err != nil {
-			return fmt.Errorf("server: friend_groups.message_cleanup_interval: %w", err)
-		}
-	}
-	if cfg.FriendGroups.MessageMaxAudioBytes < 0 {
-		return fmt.Errorf("server: friend_groups.message_max_audio_bytes must be >= 0")
 	}
 	if cfg.Speech.Transcription.MaxAudioBytes <= 0 {
 		return fmt.Errorf("server: speech.transcription.max_audio_bytes must be > 0")

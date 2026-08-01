@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"iter"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -20,93 +18,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	_ "modernc.org/sqlite"
 )
 
 type groupNotification struct {
 	recipient string
 	event     *eventpb.PeerEvent
-}
-
-func TestRolesAudioMessagesAndTTL(t *testing.T) {
-	ctx := context.Background()
-	s := newTestServer(t)
-	s.MessageDefaultTTL = time.Second
-	s.MessageMaxAudioBytes = 16
-
-	group, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
-	if err != nil {
-		t.Fatalf("CreateFriendGroup: %v", err)
-	}
-	friendGroupID := socialutil.StringValue(group.Id)
-	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: friendGroupID, PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("member")}); err != nil {
-		t.Fatalf("AddFriendGroupMember member: %v", err)
-	}
-	if _, err := s.PutFriendGroupMember(ctx, "peer-b", rpcapi.FriendGroupMemberPutRequest{FriendGroupId: friendGroupID, Id: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("admin")}); err == nil {
-		t.Fatal("PutFriendGroupMember by member error = nil")
-	}
-	if _, err := s.PutFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberPutRequest{FriendGroupId: friendGroupID, Id: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("admin")}); err != nil {
-		t.Fatalf("PutFriendGroupMember by owner: %v", err)
-	}
-	if _, err := s.AddFriendGroupMember(ctx, "peer-b", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: friendGroupID, PeerPublicKey: "peer-c", Role: rpcapi.FriendGroupMemberMutableRole("member")}); err != nil {
-		t.Fatalf("AddFriendGroupMember by admin: %v", err)
-	}
-	if _, err := s.AddFriendGroupMember(ctx, "peer-b", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: friendGroupID, PeerPublicKey: "peer-d", Role: rpcapi.FriendGroupMemberMutableRole("admin")}); err == nil {
-		t.Fatal("admin adding admin error = nil")
-	}
-	if _, err := s.GetFriendGroup(ctx, "peer-d", rpcapi.FriendGroupGetRequest{Id: friendGroupID}); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("GetFriendGroup by non-member error = %v, want kv.ErrNotFound", err)
-	}
-
-	msg, err := s.SendFriendGroupMessage(ctx, "peer-b", rpcapi.FriendGroupMessageSendRequest{
-		FriendGroupId:    " " + friendGroupID + " ",
-		AudioBase64:      []byte("opus"),
-		AudioContentType: "audio/opus",
-	})
-	if err != nil {
-		t.Fatalf("SendFriendGroupMessage: %v", err)
-	}
-	if msg.AudioPath == nil || strings.Contains(*msg.AudioPath, "..") || filepath.IsAbs(*msg.AudioPath) {
-		t.Fatalf("audio_path = %v", msg.AudioPath)
-	}
-	rc, err := s.MessageAssets.Get(socialutil.StringValue(msg.AudioPath))
-	if err != nil {
-		t.Fatalf("Get audio object: %v", err)
-	}
-	data, _ := io.ReadAll(rc)
-	_ = rc.Close()
-	if string(data) != "opus" {
-		t.Fatalf("audio bytes = %q", data)
-	}
-	if _, err := s.SendFriendGroupMessage(ctx, "peer-b", rpcapi.FriendGroupMessageSendRequest{
-		FriendGroupId:    friendGroupID,
-		AudioBase64:      []byte("0123456789abcdefg"),
-		AudioContentType: "audio/opus",
-	}); err == nil {
-		t.Fatal("oversized SendFriendGroupMessage error = nil")
-	}
-	if _, err := s.GetFriendGroupMessage(ctx, "peer-c", rpcapi.FriendGroupMessageGetRequest{FriendGroupId: friendGroupID, Id: socialutil.StringValue(msg.Id)}); err != nil {
-		t.Fatalf("GetFriendGroupMessage by member: %v", err)
-	}
-	if _, err := s.SendFriendGroupMessage(ctx, "peer-d", rpcapi.FriendGroupMessageSendRequest{
-		FriendGroupId:    friendGroupID,
-		AudioBase64:      []byte("opus"),
-		AudioContentType: "audio/opus",
-	}); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("SendFriendGroupMessage by non-member error = %v, want kv.ErrNotFound", err)
-	}
-
-	s.Now = func() time.Time { return time.Date(2026, 6, 13, 0, 0, 2, 0, time.UTC) }
-	if _, err := s.GetFriendGroupMessage(ctx, "peer-c", rpcapi.FriendGroupMessageGetRequest{FriendGroupId: friendGroupID, Id: socialutil.StringValue(msg.Id)}); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("GetFriendGroupMessage expired error = %v, want kv.ErrNotFound", err)
-	}
-	if err := s.CleanupExpiredFriendGroupMessages(ctx); err != nil {
-		t.Fatalf("CleanupExpiredFriendGroupMessages: %v", err)
-	}
-	if _, err := s.MessageAssets.Get(socialutil.StringValue(msg.AudioPath)); err == nil {
-		t.Fatal("expired audio object still exists")
-	}
 }
 
 func TestFriendGroupEventsReachCurrentAndFormerMembers(t *testing.T) {
@@ -354,13 +271,22 @@ func TestDeleteFriendGroupIsRelationshipFirstAndRetryable(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("AddFriendGroupMember: %v", err)
 	}
-	message, err := s.SendFriendGroupMessage(ctx, "peer-a", rpcapi.FriendGroupMessageSendRequest{
-		FriendGroupId:    groupID,
-		AudioBase64:      []byte("opus"),
-		AudioContentType: socialutil.DefaultAudioContentType,
-	})
+	legacyMessageRoot := kv.Key{"friend-group-messages"}
+	legacyMessageKey := append(append(kv.Key{}, legacyMessageRoot...), socialutil.EscapeStoreSegment(groupID), "legacy-message")
+	if err := s.Groups.Set(ctx, legacyMessageKey, []byte(`{"legacy":true}`)); err != nil {
+		t.Fatalf("seed legacy message metadata: %v", err)
+	}
+	legacyDescriptor := retiredFriendGroupDataDescriptor{
+		FriendGroupID:      groupID,
+		MessageStorePrefix: []string{legacyMessageRoot[0], socialutil.EscapeStoreSegment(groupID)},
+		MessageAssetPrefix: socialutil.EscapeStoreSegment(groupID) + "/",
+	}
+	legacyPending, err := pendingdeletion.New(pendingdeletion.KindFriendGroup, groupID, nil, pendingdeletion.ReasonFriendGroupDelete, legacyDescriptor, s.now())
 	if err != nil {
-		t.Fatalf("SendFriendGroupMessage: %v", err)
+		t.Fatalf("create legacy PendingDeletion: %v", err)
+	}
+	if _, _, err := pendingdeletion.CreateOrGet(ctx, s.RelationshipStore, legacyPending); err != nil {
+		t.Fatalf("seed legacy PendingDeletion: %v", err)
 	}
 	var notifications []groupNotification
 	s.NotifyPeer = func(_ context.Context, recipient string, event *eventpb.PeerEvent) {
@@ -398,20 +324,13 @@ func TestDeleteFriendGroupIsRelationshipFirstAndRetryable(t *testing.T) {
 	}
 	if descriptor.FriendGroupID != groupID ||
 		len(descriptor.MessageStorePrefix) != 2 ||
-		descriptor.MessageStorePrefix[0] != socialutil.GroupMessagesRoot[0] ||
+		descriptor.MessageStorePrefix[0] != legacyMessageRoot[0] ||
 		descriptor.MessageStorePrefix[1] != socialutil.EscapeStoreSegment(groupID) ||
 		descriptor.MessageAssetPrefix != socialutil.EscapeStoreSegment(groupID)+"/" {
 		t.Fatalf("Friend Group data PendingDeletion descriptor = %#v", descriptor)
 	}
-	if _, err := s.Messages.Get(
-		ctx,
-		socialutil.GroupMessageKey(groupID, socialutil.StringValue(message.Id)),
-	); err != nil {
+	if _, err := s.Groups.Get(ctx, legacyMessageKey); err != nil {
 		t.Fatalf("message metadata removed during retirement: %v", err)
-	}
-	assets, err := s.MessageAssets.List(descriptor.MessageAssetPrefix)
-	if err != nil || len(assets) != 1 {
-		t.Fatalf("message assets after retirement = %#v, error = %v", assets, err)
 	}
 
 	workspaces.retireErr = nil
@@ -708,9 +627,6 @@ func TestConfigurationErrorsAndHelpers(t *testing.T) {
 	if _, err := empty.ListFriendGroupMembers(ctx, "peer-a", rpcapi.FriendGroupMemberListRequest{FriendGroupId: strPtr("group-a")}); err == nil {
 		t.Fatal("ListFriendGroupMembers without store error = nil")
 	}
-	if _, err := empty.SendFriendGroupMessage(ctx, "peer-a", rpcapi.FriendGroupMessageSendRequest{FriendGroupId: "group-a", AudioContentType: "audio/opus"}); err == nil {
-		t.Fatal("SendFriendGroupMessage without store error = nil")
-	}
 	if _, err := empty.AdminApplyFriendGroup(ctx, "group-a", "peer-a", "Group A", nil); err == nil {
 		t.Fatal("AdminApplyFriendGroup without store error = nil")
 	}
@@ -771,32 +687,7 @@ func TestConfigurationErrorsAndHelpers(t *testing.T) {
 	if _, err := s.JoinFriendGroup(ctx, "peer-b", rpcapi.FriendGroupJoinRequest{InviteToken: "missing"}); err == nil {
 		t.Fatal("JoinFriendGroup missing token error = nil")
 	}
-	if _, err := s.SendFriendGroupMessage(ctx, "peer-a", rpcapi.FriendGroupMessageSendRequest{
-		FriendGroupId:    friendGroupID,
-		AudioBase64:      []byte("opus"),
-		AudioContentType: "audio/wav",
-	}); err == nil {
-		t.Fatal("SendFriendGroupMessage unsupported content type error = nil")
-	}
-	noAssets := *s
-	noAssets.MessageAssets = nil
-	if _, err := noAssets.SendFriendGroupMessage(ctx, "peer-a", rpcapi.FriendGroupMessageSendRequest{
-		FriendGroupId:    friendGroupID,
-		AudioBase64:      []byte("opus"),
-		AudioContentType: "audio/opus",
-	}); err == nil {
-		t.Fatal("SendFriendGroupMessage without assets error = nil")
-	}
-	s.MessageMaxTTL = time.Second
-	if _, err := s.SendFriendGroupMessage(ctx, "peer-a", rpcapi.FriendGroupMessageSendRequest{
-		FriendGroupId:    friendGroupID,
-		AudioBase64:      []byte("opus"),
-		AudioContentType: "audio/opus",
-		TtlSeconds:       socialutil.IntPtr(2),
-	}); err == nil {
-		t.Fatal("SendFriendGroupMessage exceeding max ttl error = nil")
-	}
-	defaultClock := &Server{Groups: kv.NewMemory(nil), Members: kv.NewMemory(nil), Messages: kv.NewMemory(nil), MessageAssets: objectstore.Dir(t.TempDir())}
+	defaultClock := &Server{Groups: kv.NewMemory(nil), Members: kv.NewMemory(nil)}
 	if _, err := defaultClock.CreateFriendGroup(ctx, "peer-z", rpcapi.FriendGroupCreateRequest{Name: "room"}); err != nil {
 		t.Fatalf("CreateFriendGroup with default clock: %v", err)
 	}
@@ -855,32 +746,6 @@ func TestCreateRollsBackPartialWrites(t *testing.T) {
 	}
 }
 
-func TestSendMessageDeletesObjectWhenMetadataWriteFails(t *testing.T) {
-	ctx := context.Background()
-	s := newTestServer(t)
-	baseAssets := s.MessageAssets
-	s.Messages = failingSetStore{Store: kv.NewMemory(nil)}
-
-	group, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
-	if err != nil {
-		t.Fatalf("CreateFriendGroup: %v", err)
-	}
-	if _, err := s.SendFriendGroupMessage(ctx, "peer-a", rpcapi.FriendGroupMessageSendRequest{
-		FriendGroupId:    socialutil.StringValue(group.Id),
-		AudioBase64:      []byte("opus"),
-		AudioContentType: "audio/opus",
-	}); err == nil {
-		t.Fatal("SendFriendGroupMessage with failing metadata store error = nil")
-	}
-	objects, err := baseAssets.List("")
-	if err != nil {
-		t.Fatalf("List message assets: %v", err)
-	}
-	if len(objects) != 0 {
-		t.Fatalf("message assets after failed send = %#v, want empty", objects)
-	}
-}
-
 func TestFilteredListsPaginateAfterFilteringAndSortNewestFirst(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer(t)
@@ -900,36 +765,6 @@ func TestFilteredListsPaginateAfterFilteringAndSortNewestFirst(t *testing.T) {
 		t.Fatalf("ListFriendGroups page = %#v, want only visible group without next page", friendGroups)
 	}
 
-	olderMessage, err := s.SendFriendGroupMessage(ctx, "peer-a", rpcapi.FriendGroupMessageSendRequest{
-		FriendGroupId:    socialutil.StringValue(group.Id),
-		AudioBase64:      []byte("old"),
-		AudioContentType: "audio/opus",
-	})
-	if err != nil {
-		t.Fatalf("SendFriendGroupMessage older: %v", err)
-	}
-	newerMessage, err := s.SendFriendGroupMessage(ctx, "peer-a", rpcapi.FriendGroupMessageSendRequest{
-		FriendGroupId:    socialutil.StringValue(group.Id),
-		AudioBase64:      []byte("new"),
-		AudioContentType: "audio/opus",
-	})
-	if err != nil {
-		t.Fatalf("SendFriendGroupMessage newer: %v", err)
-	}
-	messages, err := s.ListFriendGroupMessages(ctx, "peer-a", rpcapi.FriendGroupMessageListRequest{FriendGroupId: group.Id, Limit: socialutil.IntPtr(1)})
-	if err != nil {
-		t.Fatalf("ListFriendGroupMessages first page: %v", err)
-	}
-	if len(messages.Items) != 1 || socialutil.StringValue(messages.Items[0].Id) != socialutil.StringValue(newerMessage.Id) || !messages.HasNext || messages.NextCursor == nil {
-		t.Fatalf("ListFriendGroupMessages first page = %#v, want newest message and next cursor", messages)
-	}
-	messages, err = s.ListFriendGroupMessages(ctx, "peer-a", rpcapi.FriendGroupMessageListRequest{FriendGroupId: group.Id, Limit: socialutil.IntPtr(1), Cursor: messages.NextCursor})
-	if err != nil {
-		t.Fatalf("ListFriendGroupMessages second page: %v", err)
-	}
-	if len(messages.Items) != 1 || socialutil.StringValue(messages.Items[0].Id) != socialutil.StringValue(olderMessage.Id) || messages.HasNext {
-		t.Fatalf("ListFriendGroupMessages second page = %#v, want older message without next page", messages)
-	}
 }
 
 func newTestServer(t *testing.T) *Server {
@@ -942,9 +777,7 @@ func newTestServer(t *testing.T) *Server {
 		InviteTokens:      store,
 		Members:           store,
 		Belongs:           store,
-		Messages:          store,
 		RelationshipStore: store,
-		MessageAssets:     objectstore.Dir(t.TempDir()),
 		Now:               func() time.Time { return now },
 		NewID: func() string {
 			nextID++
@@ -1013,14 +846,6 @@ func (s *failAfterGetStore) Get(ctx context.Context, key kv.Key) ([]byte, error)
 		return nil, errors.New("forced get failure")
 	}
 	return s.Store.Get(ctx, key)
-}
-
-type failingDeletePrefixStore struct {
-	objectstore.ObjectStore
-}
-
-func (s failingDeletePrefixStore) DeletePrefix(string) error {
-	return errors.New("forced delete prefix failure")
 }
 
 type failingBatchMutateStore struct {

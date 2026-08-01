@@ -75,6 +75,8 @@ Direct Packet DataChannel 上收到 `0x10` 时必须静默丢弃，不能当作�
 
 RPC 使用可靠、有序的 service DataChannel。Service ID 选择 Provider，RPC frame 定义单条 channel 内的 framing，binary stream 则是在 RPC request 或 response 中传输有界 bytes。
 
+`server.workspace.history.audio.get` 与 `server.friend_group.messages.audio.get` 都使用相同的下载顺序：request envelope、request EOS、response metadata envelope、一个或多个 binary frame、response EOS。Friend Group 版本按 `friend_group_id + history_id` 鉴权和寻址，metadata 回显这两个 identity；客户端必须校验 `audio/*` MIME、累计 bytes 精确等于 `size_bytes`，并收到最终 EOS 后才把下载视为完整。
+
 ### Service stream IDs
 
 每次 `Dial(serviceID)` 创建一条独立的可靠、有序 service DataChannel。相同 service ID 可以同时存在多条 channel。

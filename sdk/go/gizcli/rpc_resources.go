@@ -265,10 +265,6 @@ func (c *rpcClient) GetFriendGroupMessage(ctx context.Context, conn net.Conn, id
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMessagesGet, request, (*rpcapi.RPCPayload).FromFriendGroupMessageGetRequest, rpcapi.RPCPayload.AsFriendGroupMessageGetResponse, "friend group message get")
 }
 
-func (c *rpcClient) SendFriendGroupMessage(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMessageSendRequest) (*rpcapi.FriendGroupMessageSendResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMessagesSend, request, (*rpcapi.RPCPayload).FromFriendGroupMessageSendRequest, rpcapi.RPCPayload.AsFriendGroupMessageSendResponse, "friend group message send")
-}
-
 func (c *rpcClient) ListTools(ctx context.Context, conn net.Conn, id string, request rpcapi.ToolListRequest) (*rpcapi.ToolListResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerToolList, request, (*rpcapi.RPCPayload).FromToolListRequest, rpcapi.RPCPayload.AsToolListResponse, "tool list")
 }

@@ -110,30 +110,14 @@ func TestServerFriendGroupRPC(t *testing.T) {
 	if len(members.Items) < 3 {
 		t.Fatalf("friend_group.members.list = %#v, want admin plus two members", members.Items)
 	}
-	msg, err := env.b.SendFriendGroupMessage(env.ctx, "friend_group.messages.send", rpcapi.FriendGroupMessageSendRequest{
-		FriendGroupId:    *group.Id,
-		AudioContentType: "audio/opus",
-		AudioBase64:      []byte("not-real-opus-but-rpc-payload"),
-	})
-	if err != nil {
-		t.Fatalf("friend_group.messages.send: %v", err)
-	}
-	if msg.Id == nil || *msg.Id == "" {
-		t.Fatalf("friend_group.messages.send id is empty: %#v", msg)
-	}
-	gotMsg, err := env.c.GetFriendGroupMessage(env.ctx, "friend_group.messages.get", rpcapi.FriendGroupMessageGetRequest{FriendGroupId: *group.Id, Id: *msg.Id})
-	if err != nil {
-		t.Fatalf("friend_group.messages.get: %v", err)
-	}
-	if gotMsg.Id == nil || *gotMsg.Id != *msg.Id {
-		t.Fatalf("friend_group.messages.get id = %#v, want %q", gotMsg.Id, *msg.Id)
-	}
-	messages, err := env.c.ListFriendGroupMessages(env.ctx, "friend_group.messages.list", rpcapi.FriendGroupMessageListRequest{FriendGroupId: group.Id})
+	messages, err := env.c.ListFriendGroupMessages(env.ctx, "friend_group.messages.list", rpcapi.FriendGroupMessageListRequest{FriendGroupId: *group.Id})
 	if err != nil {
 		t.Fatalf("friend_group.messages.list: %v", err)
 	}
-	if len(messages.Items) != 1 || messages.Items[0].Id == nil || *messages.Items[0].Id != *msg.Id {
-		t.Fatalf("friend_group.messages.list = %#v, want %q", messages.Items, *msg.Id)
+	for _, message := range messages.Items {
+		if message.FriendGroupId != *group.Id || message.HistoryId == "" {
+			t.Fatalf("friend_group.messages.list item = %#v", message)
+		}
 	}
 	if _, err := env.d.GetFriendGroup(env.ctx, "friend_group.get.denied", rpcapi.FriendGroupGetRequest{Id: *group.Id}); err == nil {
 		t.Fatal("non-member unexpectedly read group")

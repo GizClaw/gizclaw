@@ -19,14 +19,9 @@ import (
 )
 
 const (
-	DefaultListLimit        = 50
-	MaxListLimit            = 200
-	DefaultInviteTokenTTL   = 5 * time.Minute
-	DefaultMessageTTL       = 24 * time.Hour
-	DefaultMessageMaxTTL    = 7 * 24 * time.Hour
-	DefaultCleanupInterval  = 5 * time.Minute
-	DefaultMaxAudioBytes    = 2 * 1024 * 1024
-	DefaultAudioContentType = "audio/opus"
+	DefaultListLimit      = 50
+	MaxListLimit          = 200
+	DefaultInviteTokenTTL = 5 * time.Minute
 )
 
 var (
@@ -37,7 +32,6 @@ var (
 	GroupInviteTokensRoot  = kv.Key{"friend-group-invite-tokens"}
 	GroupMembersRoot       = kv.Key{"friend-group-members"}
 	GroupBelongsRoot       = kv.Key{"friend-group-belongs"}
-	GroupMessagesRoot      = kv.Key{"friend-group-messages"}
 )
 
 type EntryPage struct {
@@ -190,10 +184,6 @@ func GroupBelongKey(peerID, friendGroupID string) kv.Key {
 	return append(append(kv.Key{}, GroupBelongsRoot...), EscapeStoreSegment(peerID), EscapeStoreSegment(friendGroupID))
 }
 
-func GroupMessageKey(friendGroupID, id string) kv.Key {
-	return append(append(kv.Key{}, GroupMessagesRoot...), EscapeStoreSegment(friendGroupID), EscapeStoreSegment(id))
-}
-
 func RelationID(a, b string) string {
 	parts := []string{strings.TrimSpace(a), strings.TrimSpace(b)}
 	sort.Strings(parts)
@@ -236,10 +226,6 @@ func GroupRole(member rpcapi.FriendGroupMemberObject) rpcapi.FriendGroupMemberRo
 func shortHash(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(sum[:])[:20]
-}
-
-func MessageExpired(item rpcapi.FriendGroupMessageObject, now time.Time) bool {
-	return item.ExpiresAt != nil && !item.ExpiresAt.After(now)
 }
 
 func TimeValue(v *time.Time) time.Time {

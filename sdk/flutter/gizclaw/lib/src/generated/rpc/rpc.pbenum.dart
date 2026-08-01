@@ -214,9 +214,6 @@ class RpcMethod extends $pb.ProtobufEnum {
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET =
       RpcMethod._(63,
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET');
-  static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND =
-      RpcMethod._(64,
-          _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND');
   static const RpcMethod RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = RpcMethod
       ._(65, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD');
   static const RpcMethod RPC_METHOD_SERVER_PET_LIST =
@@ -280,6 +277,12 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(94, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PEER_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_SPEECH_EXTRACT =
       RpcMethod._(95, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_SPEECH_EXTRACT');
+  static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET =
+      RpcMethod._(
+          96,
+          _omitEnumNames
+              ? ''
+              : 'RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -346,7 +349,6 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE,
     RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST,
     RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET,
-    RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND,
     RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD,
     RPC_METHOD_SERVER_PET_LIST,
     RPC_METHOD_SERVER_PET_GET,
@@ -378,10 +380,11 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_SPEECH_SYNTHESIZE,
     RPC_METHOD_SERVER_PEER_DELETE,
     RPC_METHOD_SERVER_SPEECH_EXTRACT,
+    RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 95);
+      $pb.ProtobufEnum.$_initByValueList(values, 96);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

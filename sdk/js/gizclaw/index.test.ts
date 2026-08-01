@@ -1612,9 +1612,8 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
     channel: "stable",
     path: "firmware.bin",
   });
-  await rpc.call("server.friend_group.messages.send", {
+  await rpc.call("server.friend_group.messages.list", {
     friend_group_id: "group-a",
-    text: "hello",
   });
 
   assert.deepEqual(calls, [
@@ -1628,8 +1627,8 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
       params: { channel: "stable", path: "firmware.bin" },
     },
     {
-      method: "server.friend_group.messages.send",
-      params: { friend_group_id: "group-a", text: "hello" },
+      method: "server.friend_group.messages.list",
+      params: { friend_group_id: "group-a" },
     },
   ]);
 });

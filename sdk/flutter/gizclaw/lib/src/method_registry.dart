@@ -393,12 +393,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'FriendGroupMessageGetRequest',
     responseType: 'FriendGroupMessageGetResponse',
   ),
-  'server.friend_group.messages.send': RpcMethodDescriptor(
-    id: 64,
-    name: 'server.friend_group.messages.send',
-    requestType: 'FriendGroupMessageSendRequest',
-    responseType: 'FriendGroupMessageSendResponse',
-  ),
   'server.badge_def.pixa.download': RpcMethodDescriptor(
     id: 65,
     name: 'server.badge_def.pixa.download',
@@ -585,6 +579,12 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'SpeechExtractRequest',
     responseType: 'SpeechExtractResponse',
   ),
+  'server.friend_group.messages.audio.get': RpcMethodDescriptor(
+    id: 96,
+    name: 'server.friend_group.messages.audio.get',
+    requestType: 'FriendGroupMessageAudioGetRequest',
+    responseType: 'FriendGroupMessageAudioGetResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -651,7 +651,6 @@ const rpcMethodNamesById = <int, String>{
   61: 'server.friend_group.members.delete',
   62: 'server.friend_group.messages.list',
   63: 'server.friend_group.messages.get',
-  64: 'server.friend_group.messages.send',
   65: 'server.badge_def.pixa.download',
   66: 'server.pet.list',
   67: 'server.pet.get',
@@ -683,6 +682,7 @@ const rpcMethodNamesById = <int, String>{
   93: 'server.speech.synthesize',
   94: 'server.peer.delete',
   95: 'server.speech.extract',
+  96: 'server.friend_group.messages.audio.get',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {
