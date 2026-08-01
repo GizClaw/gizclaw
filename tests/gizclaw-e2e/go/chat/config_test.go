@@ -148,8 +148,41 @@ func TestLoadFlowcraftConfigs(t *testing.T) {
 		t.Fatalf("glob flowcraft configs: %v", err)
 	}
 	sort.Strings(paths)
-	if len(paths) != 8 {
-		t.Fatalf("flowcraft config count = %d, want 8: %v", len(paths), paths)
+	wantNames := []string{
+		"flowcraft-basic.json",
+		"flowcraft-chat.json",
+		"flowcraft-configured-memory.json",
+		"flowcraft-journey.json",
+		"flowcraft-multi-role-storyteller.json",
+		"flowcraft-murder-mystery.json",
+		"flowcraft-poetry-adventure-li-bai.json",
+		"flowcraft-realtime-chat.json",
+		"flowcraft-werewolf.json",
+	}
+	gotNames := make([]string, len(paths))
+	gotSet := make(map[string]struct{}, len(paths))
+	for i, path := range paths {
+		gotNames[i] = filepath.Base(path)
+		gotSet[gotNames[i]] = struct{}{}
+	}
+	sort.Strings(gotNames)
+
+	wantSet := make(map[string]struct{}, len(wantNames))
+	var missing []string
+	for _, name := range wantNames {
+		wantSet[name] = struct{}{}
+		if _, ok := gotSet[name]; !ok {
+			missing = append(missing, name)
+		}
+	}
+	var unexpected []string
+	for _, name := range gotNames {
+		if _, ok := wantSet[name]; !ok {
+			unexpected = append(unexpected, name)
+		}
+	}
+	if len(missing) != 0 || len(unexpected) != 0 {
+		t.Fatalf("flowcraft config inventory mismatch: missing=%v unexpected=%v; got=%v want=%v", missing, unexpected, gotNames, wantNames)
 	}
 	for _, path := range paths {
 		t.Run(filepath.Base(path), func(t *testing.T) {
