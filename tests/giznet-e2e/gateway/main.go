@@ -935,9 +935,7 @@ func recordEstablishmentPhases(
 	timing.Phases[phaseClientICEConnected] = clientTiming.ICEConnected
 	timing.Phases[phaseClientDTLSConnected] = clientTiming.DTLSConnected
 	timing.Phases[phaseClientDataChannel] = clientTiming.DataChannelReady
-	for phase, duration := range recorder.signalingPhases() {
-		timing.Phases[phase] = duration
-	}
+	maps.Copy(timing.Phases, recorder.signalingPhases())
 }
 
 func pingAll(ctx context.Context, state *resultState, opts options, sem chan struct{}, phase string, round int) {
