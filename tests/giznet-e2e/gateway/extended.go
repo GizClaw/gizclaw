@@ -367,19 +367,43 @@ func parseDockerProcessSample(output string) (dockerProcessSample, error) {
 	if len(fields) != 10 {
 		return dockerProcessSample{}, fmt.Errorf("expected 10 fields, got %d", len(fields))
 	}
+	timestamp, err := strconv.ParseInt(fields[0], 10, 64)
+	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			return dockerProcessSample{}, fmt.Errorf("sample timestamp overflows int64: %w", err)
+		}
+		return dockerProcessSample{}, fmt.Errorf("field 0: %w", err)
+	}
+	if timestamp < 0 {
+		return dockerProcessSample{}, errors.New("sample timestamp must be non-negative")
+	}
+	processID, err := strconv.Atoi(fields[1])
+	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			return dockerProcessSample{}, fmt.Errorf("process ID overflows int: %w", err)
+		}
+		return dockerProcessSample{}, fmt.Errorf("field 1: %w", err)
+	}
+	if processID < 0 {
+		return dockerProcessSample{}, errors.New("process ID must be non-negative")
+	}
+	openFDs, err := strconv.Atoi(fields[7])
+	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			return dockerProcessSample{}, fmt.Errorf("open FD count overflows int: %w", err)
+		}
+		return dockerProcessSample{}, fmt.Errorf("field 7: %w", err)
+	}
+	if openFDs < 0 {
+		return dockerProcessSample{}, errors.New("open FD count must be non-negative")
+	}
 	values := make([]uint64, len(fields))
-	for index, field := range fields {
-		value, err := strconv.ParseUint(field, 10, 64)
+	for _, index := range []int{2, 3, 4, 5, 6, 8, 9} {
+		value, err := strconv.ParseUint(fields[index], 10, 64)
 		if err != nil {
 			return dockerProcessSample{}, fmt.Errorf("field %d: %w", index, err)
 		}
 		values[index] = value
-	}
-	if values[0] > math.MaxInt64 {
-		return dockerProcessSample{}, errors.New("sample timestamp overflows int64")
-	}
-	if values[1] > math.MaxInt || values[7] > math.MaxInt {
-		return dockerProcessSample{}, errors.New("process ID or open FD count overflows int")
 	}
 	if values[3] == 0 || values[6] == 0 {
 		return dockerProcessSample{}, errors.New("page size and clock ticks must be positive")
@@ -389,13 +413,13 @@ func parseDockerProcessSample(output string) (dockerProcessSample, error) {
 	}
 	return dockerProcessSample{
 		Point: roleResourcePoint{
-			At:       time.Unix(0, int64(values[0])),
+			At:       time.Unix(0, timestamp),
 			RSSBytes: values[2] * values[3], RSSSource: "proc_pid_statm",
 			CPUSeconds: (float64(values[4]) + float64(values[5])) / float64(values[6]), CPUSecondsSource: "proc_pid_stat",
-			OpenFDs: int(values[7]), OpenFDsSource: "proc_pid_fd",
+			OpenFDs: openFDs, OpenFDsSource: "proc_pid_fd",
 			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "goroutines"},
 		},
-		ProcessID: int(values[1]), ProcessStartTicks: values[8], OpenFDLimit: values[9],
+		ProcessID: processID, ProcessStartTicks: values[8], OpenFDLimit: values[9],
 	}, nil
 }
 

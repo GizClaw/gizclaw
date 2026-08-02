@@ -75,6 +75,7 @@ func TestParseDockerProcessSample(t *testing.T) {
 		t.Fatal("parseDockerProcessSample accepted malformed output")
 	}
 	for name, sample := range map[string]string{
+		"timestamp":      "18446744073709551615 1 1 1 1 1 1 1 1 1",
 		"process ID":     "1 18446744073709551615 1 1 1 1 1 1 1 1",
 		"open FD count":  "1 1 1 1 1 1 1 18446744073709551615 1 1",
 		"resident bytes": "1 1 18446744073709551615 2 1 1 1 1 1 1",
@@ -82,6 +83,17 @@ func TestParseDockerProcessSample(t *testing.T) {
 		t.Run(name+" overflow", func(t *testing.T) {
 			if _, err := parseDockerProcessSample(sample); err == nil || !strings.Contains(err.Error(), "overflow") {
 				t.Fatalf("parseDockerProcessSample error = %v, want overflow", err)
+			}
+		})
+	}
+	for name, sample := range map[string]string{
+		"timestamp":     "-1 1 1 1 1 1 1 1 1 1",
+		"process ID":    "1 -1 1 1 1 1 1 1 1 1",
+		"open FD count": "1 1 1 1 1 1 1 -1 1 1",
+	} {
+		t.Run(name+" negative", func(t *testing.T) {
+			if _, err := parseDockerProcessSample(sample); err == nil || !strings.Contains(err.Error(), "non-negative") {
+				t.Fatalf("parseDockerProcessSample error = %v, want non-negative", err)
 			}
 		})
 	}
