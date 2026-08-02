@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"maps"
 	"math"
 	"net/http"
 	"net/url"
@@ -32,7 +33,7 @@ import (
 )
 
 const (
-	artifactVersion = 6
+	artifactVersion = 7
 	maxSpeedBytes   = int64(1 << 30)
 )
 
@@ -282,10 +283,11 @@ type resultState struct {
 }
 
 type upstreamRecorder struct {
-	base     http.RoundTripper
-	mu       sync.Mutex
-	id       string
-	duration time.Duration
+	base         http.RoundTripper
+	mu           sync.Mutex
+	id           string
+	duration     time.Duration
+	serverPhases map[string]time.Duration
 }
 
 func (r *upstreamRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -296,6 +298,12 @@ func (r *upstreamRecorder) RoundTrip(req *http.Request) (*http.Response, error) 
 	r.duration += duration
 	if err == nil {
 		r.id = resp.Header.Get("X-GizClaw-Gateway-Upstream")
+		for phase, phaseDuration := range parseServerTiming(resp.Header.Get("Server-Timing")) {
+			if r.serverPhases == nil {
+				r.serverPhases = make(map[string]time.Duration)
+			}
+			r.serverPhases[phase] += phaseDuration
+		}
 	}
 	r.mu.Unlock()
 	return resp, err
@@ -311,6 +319,35 @@ func (r *upstreamRecorder) signalingDuration() time.Duration {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.duration
+}
+
+func (r *upstreamRecorder) signalingPhases() map[string]time.Duration {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return maps.Clone(r.serverPhases)
+}
+
+func parseServerTiming(header string) map[string]time.Duration {
+	phases := make(map[string]time.Duration)
+	for metric := range strings.SplitSeq(header, ",") {
+		parts := strings.Split(strings.TrimSpace(metric), ";")
+		phase, ok := serverTimingPhases[strings.TrimSpace(parts[0])]
+		if !ok {
+			continue
+		}
+		for _, parameter := range parts[1:] {
+			name, value, found := strings.Cut(strings.TrimSpace(parameter), "=")
+			if !found || name != "dur" {
+				continue
+			}
+			milliseconds, err := strconv.ParseFloat(value, 64)
+			if err != nil || milliseconds < 0 || math.IsInf(milliseconds, 0) || math.IsNaN(milliseconds) {
+				continue
+			}
+			phases[phase] = durationFromMilliseconds(milliseconds)
+		}
+	}
+	return phases
 }
 
 func main() {
@@ -858,19 +895,11 @@ func establish(
 	clientDialStarted := time.Now()
 	if err := client.Dial(edge.serverKey, edge.endpoint); err != nil {
 		timing.DialDuration = time.Since(clientDialStarted)
-		timing.Phases[phaseClientDial] = timing.DialDuration
-		timing.Phases[phaseTransportDial] = transportDuration
-		timing.Phases[phaseHTTPSignaling] = recorder.signalingDuration()
-		timing.Phases[phaseTransportOther] = max(transportDuration-recorder.signalingDuration(), 0)
-		timing.Phases[phaseMandatoryEventStream] = max(timing.Phases[phaseClientDial]-transportDuration, 0)
+		recordEstablishmentPhases(&timing, transportDuration, recorder)
 		return nil, timing, err
 	}
 	timing.DialDuration = time.Since(clientDialStarted)
-	timing.Phases[phaseClientDial] = timing.DialDuration
-	timing.Phases[phaseTransportDial] = transportDuration
-	timing.Phases[phaseHTTPSignaling] = recorder.signalingDuration()
-	timing.Phases[phaseTransportOther] = max(transportDuration-recorder.signalingDuration(), 0)
-	timing.Phases[phaseMandatoryEventStream] = max(timing.Phases[phaseClientDial]-transportDuration, 0)
+	recordEstablishmentPhases(&timing, transportDuration, recorder)
 	upstream := recorder.upstreamID()
 	timing.Upstream = upstream
 	if upstream == "" {
@@ -878,6 +907,24 @@ func establish(
 		return nil, timing, fmt.Errorf("session %d did not receive an upstream assignment", index)
 	}
 	return &liveSession{client: client, edge: edge.endpoint, upstream: upstream}, timing, nil
+}
+
+func recordEstablishmentPhases(
+	timing *establishmentSessionResult,
+	transportDuration time.Duration,
+	recorder *upstreamRecorder,
+) {
+	if timing == nil || recorder == nil {
+		return
+	}
+	timing.Phases[phaseClientDial] = timing.DialDuration
+	timing.Phases[phaseTransportDial] = transportDuration
+	timing.Phases[phaseHTTPSignaling] = recorder.signalingDuration()
+	timing.Phases[phaseTransportOther] = max(transportDuration-recorder.signalingDuration(), 0)
+	timing.Phases[phaseMandatoryEventStream] = max(timing.Phases[phaseClientDial]-transportDuration, 0)
+	for phase, duration := range recorder.signalingPhases() {
+		timing.Phases[phase] = duration
+	}
 }
 
 func pingAll(ctx context.Context, state *resultState, opts options, sem chan struct{}, phase string, round int) {

@@ -13,15 +13,30 @@ const (
 	phaseHTTPSignaling        = "http_signaling"
 	phaseTransportOther       = "transport_other"
 	phaseMandatoryEventStream = "mandatory_event_stream"
-	phasePeerConnection       = "peer_connection_construction"
-	phaseICEGathering         = "ice_gathering"
+	phaseClientPeerConnection = "client_peer_connection_construction"
+	phaseClientICEGathering   = "client_ice_gathering"
 	phaseDTLSSCTPDataChannel  = "dtls_sctp_datachannel"
+	phaseServerPeerConnection = "server_peer_connection_construction"
+	phaseServerSetRemote      = "server_set_remote_description"
+	phaseServerCreateAnswer   = "server_create_answer"
+	phaseServerSetLocal       = "server_set_local_description"
+	phaseServerICEGathering   = "server_ice_gathering"
+	phaseServerRewriteSDP     = "server_rewrite_sdp"
 )
 
 var unsupportedEstablishmentPhases = map[string]string{
-	phasePeerConnection:      "Pion does not expose this boundary through the current gizwebrtc Dial contract",
-	phaseICEGathering:        "Pion does not expose this boundary through the current gizwebrtc Dial contract",
-	phaseDTLSSCTPDataChannel: "DTLS, SCTP, and DataChannel readiness are combined in transport_dial",
+	phaseClientPeerConnection: "Pion does not expose this boundary through the current gizwebrtc Dial contract",
+	phaseClientICEGathering:   "Pion does not expose this boundary through the current gizwebrtc Dial contract",
+	phaseDTLSSCTPDataChannel:  "DTLS, SCTP, and DataChannel readiness are combined in transport_dial",
+}
+
+var serverTimingPhases = map[string]string{
+	"giz_peer_connection": phaseServerPeerConnection,
+	"giz_set_remote":      phaseServerSetRemote,
+	"giz_create_answer":   phaseServerCreateAnswer,
+	"giz_set_local":       phaseServerSetLocal,
+	"giz_ice_gathering":   phaseServerICEGathering,
+	"giz_rewrite_sdp":     phaseServerRewriteSDP,
 }
 
 type establishmentSummary struct {

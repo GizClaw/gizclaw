@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const extendedArtifactVersion = 7
+const extendedArtifactVersion = 8
 
 var dockerRolePIDFiles = map[string]string{
 	"edge":   "/src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.pid",

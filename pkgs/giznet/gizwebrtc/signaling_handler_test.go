@@ -13,6 +13,17 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
+func TestSignalingTimingServerHeader(t *testing.T) {
+	header := (signalingTiming{
+		peerConnection: 1250 * time.Microsecond,
+		iceGathering:   1000125 * time.Microsecond,
+	}).serverTiming()
+	if !strings.Contains(header, "giz_peer_connection;dur=1.250") ||
+		!strings.Contains(header, "giz_ice_gathering;dur=1000.125") {
+		t.Fatalf("Server-Timing = %q", header)
+	}
+}
+
 func TestSignalingHandlerRejectsMalformedRequests(t *testing.T) {
 	serverKey := mustKeyPair(t)
 	clientKey := mustKeyPair(t)

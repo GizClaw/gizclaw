@@ -16,6 +16,34 @@ import (
 
 const signalingBodyLimit = 256 * 1024
 
+type signalingTiming struct {
+	peerConnection time.Duration
+	setRemote      time.Duration
+	createAnswer   time.Duration
+	setLocal       time.Duration
+	iceGathering   time.Duration
+	rewriteSDP     time.Duration
+}
+
+func (t signalingTiming) serverTiming() string {
+	metrics := []struct {
+		name     string
+		duration time.Duration
+	}{
+		{name: "giz_peer_connection", duration: t.peerConnection},
+		{name: "giz_set_remote", duration: t.setRemote},
+		{name: "giz_create_answer", duration: t.createAnswer},
+		{name: "giz_set_local", duration: t.setLocal},
+		{name: "giz_ice_gathering", duration: t.iceGathering},
+		{name: "giz_rewrite_sdp", duration: t.rewriteSDP},
+	}
+	parts := make([]string, 0, len(metrics))
+	for _, metric := range metrics {
+		parts = append(parts, fmt.Sprintf("%s;dur=%.3f", metric.name, float64(metric.duration)/float64(time.Millisecond)))
+	}
+	return strings.Join(parts, ", ")
+}
+
 func (l *Listener) SignalingHandler() http.Handler {
 	return http.HandlerFunc(l.handleOffer)
 }
@@ -81,13 +109,14 @@ func (l *Listener) handleOffer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	answerSDP, conn, err := l.acceptOffer(r.Context(), clientPK, string(offerSDP))
+	answerSDP, conn, timing, err := l.acceptOffer(r.Context(), clientPK, string(offerSDP))
 	if err != nil {
 		writeSignalingError(w, http.StatusInternalServerError, "answer_failed")
 		return
 	}
 	sealed := respAEAD.Seal(nil, respNonce, []byte(answerSDP), responseAAD(clientPK, ts, nonce))
 	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Server-Timing", timing.serverTiming())
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(sealed)
 
@@ -102,47 +131,67 @@ func (l *Listener) handleOffer(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-func (l *Listener) acceptOffer(ctx context.Context, clientPK giznet.PublicKey, offerSDP string) (string, *Conn, error) {
+func (l *Listener) acceptOffer(
+	ctx context.Context,
+	clientPK giznet.PublicKey,
+	offerSDP string,
+) (string, *Conn, signalingTiming, error) {
+	timing := signalingTiming{}
+	started := time.Now()
 	pc, err := l.api.NewPeerConnection(peerConnectionConfiguration(l.cfg.ICEServers, l.cfg.ICETransportPolicy))
+	timing.peerConnection = time.Since(started)
 	if err != nil {
-		return "", nil, err
+		return "", nil, timing, err
 	}
 	conn, err := newConn(clientPK, pc, l.cfg.SecurityPolicy, "server")
 	if err != nil {
 		_ = pc.Close()
-		return "", nil, err
+		return "", nil, timing, err
 	}
 	if l.cfg.AggregateServices {
 		conn.EnableServiceAccept()
 	}
+	started = time.Now()
 	if err := pc.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: offerSDP}); err != nil {
+		timing.setRemote = time.Since(started)
 		_ = conn.Close()
-		return "", nil, err
+		return "", nil, timing, err
 	}
+	timing.setRemote = time.Since(started)
 	gatherComplete := webrtc.GatheringCompletePromise(pc)
+	started = time.Now()
 	answer, err := pc.CreateAnswer(nil)
+	timing.createAnswer = time.Since(started)
 	if err != nil {
 		_ = conn.Close()
-		return "", nil, err
+		return "", nil, timing, err
 	}
+	started = time.Now()
 	if err := pc.SetLocalDescription(answer); err != nil {
+		timing.setLocal = time.Since(started)
 		_ = conn.Close()
-		return "", nil, err
+		return "", nil, timing, err
 	}
+	timing.setLocal = time.Since(started)
+	started = time.Now()
 	if err := waitForGathering(ctx, gatherComplete); err != nil {
+		timing.iceGathering = time.Since(started)
 		_ = conn.Close()
-		return "", nil, err
+		return "", nil, timing, err
 	}
+	timing.iceGathering = time.Since(started)
 	if pc.LocalDescription() == nil {
 		_ = conn.Close()
-		return "", nil, fmt.Errorf("gizwebrtc: missing local answer")
+		return "", nil, timing, fmt.Errorf("gizwebrtc: missing local answer")
 	}
+	started = time.Now()
 	answerSDP, err := rewriteSDPHostCandidates(pc.LocalDescription().SDP, l.cfg.PublicICEUDPAddr, l.cfg.PublicICETCPAddr)
+	timing.rewriteSDP = time.Since(started)
 	if err != nil {
 		_ = conn.Close()
-		return "", nil, err
+		return "", nil, timing, err
 	}
-	return answerSDP, conn, nil
+	return answerSDP, conn, timing, nil
 }
 
 func parseHeaderPublicKey(text string) (giznet.PublicKey, error) {

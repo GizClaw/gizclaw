@@ -36,7 +36,7 @@ func TestSummarizeEstablishmentReportsRateLatencyAndPhases(t *testing.T) {
 	if phase := got.Phases[phaseKeyGeneration]; !phase.Supported || phase.Latency.Count != 100 {
 		t.Fatalf("key-generation phase = %+v", phase)
 	}
-	if phase := got.Phases[phaseICEGathering]; phase.Supported || phase.Reason == "" {
+	if phase := got.Phases[phaseClientICEGathering]; phase.Supported || phase.Reason == "" {
 		t.Fatalf("unsupported ICE phase = %+v", phase)
 	}
 }
@@ -64,6 +64,22 @@ func TestEstablishmentWithinAppliesRateAndDialGates(t *testing.T) {
 				t.Fatalf("establishment passed gate: %+v", summary)
 			}
 		})
+	}
+}
+
+func TestParseServerTimingReportsSupportedPhases(t *testing.T) {
+	got := parseServerTiming(
+		"giz_peer_connection;dur=1.250, ignored;dur=99, " +
+			"giz_ice_gathering;dur=1000.125;desc=answer, giz_rewrite_sdp;dur=invalid",
+	)
+	if got[phaseServerPeerConnection] != 1250*time.Microsecond {
+		t.Fatalf("peer-connection timing = %s", got[phaseServerPeerConnection])
+	}
+	if got[phaseServerICEGathering] != 1000125*time.Microsecond {
+		t.Fatalf("ICE-gathering timing = %s", got[phaseServerICEGathering])
+	}
+	if _, ok := got[phaseServerRewriteSDP]; ok {
+		t.Fatal("invalid rewrite timing was retained")
 	}
 }
 

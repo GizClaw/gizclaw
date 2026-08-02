@@ -611,7 +611,7 @@ func TestSignalingHandlerClosedListenerAndAcceptOfferInvalidSDP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(client) error = %v", err)
 	}
-	if _, _, err := listener.acceptOffer(context.Background(), clientKey.Public, "not sdp"); err == nil {
+	if _, _, _, err := listener.acceptOffer(context.Background(), clientKey.Public, "not sdp"); err == nil {
 		t.Fatal("acceptOffer invalid SDP error = nil")
 	}
 	if err := listener.Close(); err != nil {
