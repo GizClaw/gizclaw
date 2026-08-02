@@ -38,13 +38,15 @@ type Conn struct {
 	acceptAll atomic.Bool
 	serviceCh chan acceptedService
 
-	readCh  chan directPacket
-	readyCh chan struct{}
-	closeCh chan struct{}
-	once    sync.Once
-	closed  atomic.Bool
-	rxBytes atomic.Uint64
-	txBytes atomic.Uint64
+	readCh   chan directPacket
+	readyCh  chan struct{}
+	closeCh  chan struct{}
+	once     sync.Once
+	closed   atomic.Bool
+	closeMu  sync.RWMutex
+	closeErr error
+	rxBytes  atomic.Uint64
+	txBytes  atomic.Uint64
 
 	audioTrack sampleWriter
 }
@@ -97,7 +99,7 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 	})
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		if peerConnectionStateIsTerminal(state) {
-			_ = c.Close()
+			_ = c.closeWithError(peerConnectionCloseError(pc, state))
 		}
 	})
 	return c, nil
@@ -105,6 +107,57 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 
 func peerConnectionStateIsTerminal(state webrtc.PeerConnectionState) bool {
 	return state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed
+}
+
+func peerConnectionCloseError(pc *webrtc.PeerConnection, state webrtc.PeerConnectionState) error {
+	if pc == nil || state != webrtc.PeerConnectionStateFailed {
+		return fmt.Errorf("gizwebrtc: peer connection state %s", state)
+	}
+	report := pc.GetStats()
+	pair, ok := selectedICECandidatePair(report)
+	if !ok {
+		return fmt.Errorf("gizwebrtc: peer connection state %s", state)
+	}
+	local, _ := report[pair.LocalCandidateID].(webrtc.ICECandidateStats)
+	remote, _ := report[pair.RemoteCandidateID].(webrtc.ICECandidateStats)
+	return fmt.Errorf(
+		"gizwebrtc: peer connection state %s: ice_pair_state=%s nominated=%t "+
+			"local=%s/%s remote=%s/%s packets_sent=%d packets_received=%d "+
+			"requests_sent=%d responses_received=%d requests_received=%d responses_sent=%d "+
+			"packets_discarded_on_send=%d",
+		state,
+		pair.State,
+		pair.Nominated,
+		local.CandidateType,
+		local.Protocol,
+		remote.CandidateType,
+		remote.Protocol,
+		pair.PacketsSent,
+		pair.PacketsReceived,
+		pair.RequestsSent,
+		pair.ResponsesReceived,
+		pair.RequestsReceived,
+		pair.ResponsesSent,
+		pair.PacketsDiscardedOnSend,
+	)
+}
+
+func selectedICECandidatePair(report webrtc.StatsReport) (webrtc.ICECandidatePairStats, bool) {
+	var selected webrtc.ICECandidatePairStats
+	found := false
+	for _, stat := range report {
+		pair, ok := stat.(webrtc.ICECandidatePairStats)
+		if !ok {
+			continue
+		}
+		if !found || pair.Nominated && !selected.Nominated ||
+			pair.Nominated == selected.Nominated &&
+				pair.BytesSent+pair.BytesReceived > selected.BytesSent+selected.BytesReceived {
+			selected = pair
+			found = true
+		}
+	}
+	return selected, found
 }
 
 // AcceptService accepts the next remotely opened service stream together with
@@ -204,6 +257,9 @@ func (c *Conn) Read(buf []byte) (byte, int, error) {
 		c.rxBytes.Add(uint64(len(pkt.payload)))
 		return pkt.protocol, len(pkt.payload), nil
 	case <-c.closeCh:
+		if err := c.closeError(); err != nil {
+			return 0, 0, err
+		}
 		return 0, 0, giznet.ErrConnClosed
 	}
 }
@@ -255,10 +311,17 @@ func (c *Conn) PeerInfo() *giznet.PeerInfo {
 }
 
 func (c *Conn) Close() error {
+	return c.closeWithError(nil)
+}
+
+func (c *Conn) closeWithError(cause error) error {
 	if c == nil {
 		return giznet.ErrNilConn
 	}
 	c.once.Do(func() {
+		c.closeMu.Lock()
+		c.closeErr = cause
+		c.closeMu.Unlock()
 		c.closed.Store(true)
 		close(c.closeCh)
 		c.serviceMu.Lock()
@@ -289,11 +352,23 @@ func (c *Conn) Close() error {
 	return nil
 }
 
+func (c *Conn) closeError() error {
+	if c == nil {
+		return nil
+	}
+	c.closeMu.RLock()
+	defer c.closeMu.RUnlock()
+	return c.closeErr
+}
+
 func (c *Conn) validate() error {
 	if c == nil || c.pc == nil {
 		return giznet.ErrNilConn
 	}
 	if c.closed.Load() {
+		if err := c.closeError(); err != nil {
+			return err
+		}
 		return giznet.ErrConnClosed
 	}
 	return nil
@@ -360,10 +435,10 @@ func (c *Conn) reservePacketDataChannel(dc *webrtc.DataChannel) bool {
 	}
 	c.packetDC = dc
 	dc.OnClose(func() {
-		_ = c.Close()
+		_ = c.closeWithError(errors.New("gizwebrtc: packet data channel closed"))
 	})
-	dc.OnError(func(error) {
-		_ = c.Close()
+	dc.OnError(func(err error) {
+		_ = c.closeWithError(fmt.Errorf("gizwebrtc: packet data channel: %v", err))
 	})
 	return true
 }
@@ -388,7 +463,7 @@ func (c *Conn) readPacketLoop(raw datachannel.ReadWriteCloserDeadliner) {
 			if errors.Is(err, errPacketProtocolIgnored) {
 				continue
 			}
-			_ = c.Close()
+			_ = c.closeWithError(fmt.Errorf("gizwebrtc: read packet data channel: %v", err))
 			return
 		}
 		c.enqueuePacket(pkt)
@@ -424,10 +499,10 @@ func (c *Conn) writeOpus(payload []byte) (int, error) {
 }
 
 func (c *Conn) readRemoteOpus(track *webrtc.TrackRemote) {
-	defer func() { _ = c.Close() }()
 	for {
 		pkt, _, err := track.ReadRTP()
 		if err != nil {
+			_ = c.closeWithError(fmt.Errorf("gizwebrtc: read remote opus: %v", err))
 			return
 		}
 		c.enqueueRemoteOpusFrame(pkt.Payload)
