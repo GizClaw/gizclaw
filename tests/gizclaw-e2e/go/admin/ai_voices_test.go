@@ -12,15 +12,18 @@ import (
 func TestAdminAPIVoicesListAndGet(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
-	resp, err := env.api.ListVoicesWithResponse(env.ctx, &adminhttp.ListVoicesParams{Limit: ptr[int32](50)})
-	if err != nil {
-		t.Fatalf("list voices: %v", err)
-	}
-	requireStatusOK(t, resp, resp.Body)
-	if resp.JSON200 == nil {
-		t.Fatalf("list voices missing JSON200")
-	}
-	seed := requireName(t, resp.JSON200.Items, "minimax-narrator-clone", func(item apitypes.Voice) string { return item.Name })
+	items := collectAdminPages(t, 50, func(cursor *string, limit int32) ([]apitypes.Voice, bool, *string) {
+		resp, err := env.api.ListVoicesWithResponse(env.ctx, &adminhttp.ListVoicesParams{Cursor: cursor, Limit: &limit})
+		if err != nil {
+			t.Fatalf("list voices: %v", err)
+		}
+		requireStatusOK(t, resp, resp.Body)
+		if resp.JSON200 == nil {
+			t.Fatalf("list voices missing JSON200")
+		}
+		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
+	})
+	seed := requireName(t, items, "minimax-narrator-clone", func(item apitypes.Voice) string { return item.Name })
 
 	get, err := env.api.GetVoiceWithResponse(env.ctx, seed.Id)
 	if err != nil {

@@ -434,6 +434,7 @@ func (h *PeerConn) initAgentHost() {
 	h.agentInput = newPeerRealtimeSource()
 	host := newPeerAgentHost(
 		manager.AgentHost,
+		resources,
 		h.serverGenX,
 		h.ownerGenX,
 		manager.Gameplay,
@@ -716,11 +717,15 @@ func (h *PeerConn) authorizeChatroomEvent(ctx context.Context, event *eventpb.Pe
 		h.acceptInputEvent(event, streamID, "", false)
 		return true, nil
 	}
-	isChatroom, denial := h.Service.manager.chatroomAccessState(
-		ctx,
-		h.Conn.PublicKey(),
-		workspaceName,
-	)
+	workspace, rpcErr := h.peerResources().ResolveAccessibleWorkspace(ctx, workspaceName)
+	if rpcErr != nil {
+		var err error
+		workspace, err = h.peerResources().ResolveWorkspaceForAccessCheck(ctx, workspaceName)
+		if err != nil {
+			return h.rejectChatroomEvent(event, streamID, chatroom.AccessCheckFailedError())
+		}
+	}
+	isChatroom, denial := h.Service.manager.chatroomAccessStateForWorkspace(ctx, h.Conn.PublicKey(), workspace)
 	if denial == nil {
 		h.acceptInputEvent(event, streamID, workspaceName, isChatroom)
 		return true, nil

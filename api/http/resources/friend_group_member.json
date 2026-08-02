@@ -49,10 +49,8 @@
         "properties": {
           "friend_group_id": {
             "type": "string",
-            "minLength": 8,
-            "maxLength": 48,
-            "pattern": "^[a-z][a-z0-9._-]{6,46}[a-z0-9]$",
-            "description": "Friend group custom ID. The peer_public_key segment is not a custom ID."
+            "minLength": 1,
+            "description": "Opaque canonical FriendGroup ID returned by the Server. The peer_public_key segment is not a resource ID."
           },
           "peer_public_key": {
             "type": "string"

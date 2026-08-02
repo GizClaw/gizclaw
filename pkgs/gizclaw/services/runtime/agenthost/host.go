@@ -70,11 +70,11 @@ func (h *Host) OpenAgent(ctx context.Context, pattern string) (Agent, func(), er
 	if err != nil {
 		return nil, nil, err
 	}
-	workspaceName := string(spec.Workspace.Name)
-	if workspaceName == "" {
-		return nil, nil, fmt.Errorf("agenthost: resolved workspace name is required")
+	workspaceID := string(spec.Workspace.Id)
+	if workspaceID == "" {
+		return nil, nil, fmt.Errorf("agenthost: resolved workspace ID is required")
 	}
-	return h.runtimeRegistry().Acquire(ctx, h, workspaceName, spec)
+	return h.runtimeRegistry().Acquire(ctx, h, workspaceID, spec)
 }
 
 // PrepareReloadAgent constructs a complete replacement generation without
@@ -91,11 +91,11 @@ func (h *Host) PrepareReloadAgent(ctx context.Context, pattern string) (*prepare
 	if err != nil {
 		return nil, err
 	}
-	workspaceName := string(spec.Workspace.Name)
-	if workspaceName == "" {
-		return nil, fmt.Errorf("agenthost: resolved workspace name is required")
+	workspaceID := string(spec.Workspace.Id)
+	if workspaceID == "" {
+		return nil, fmt.Errorf("agenthost: resolved workspace ID is required")
 	}
-	return h.runtimeRegistry().PrepareReplacement(ctx, h, workspaceName, spec)
+	return h.runtimeRegistry().PrepareReplacement(ctx, h, workspaceID, spec)
 }
 
 // ReloadAgent is the direct Host API. Service reloads use PrepareReloadAgent so

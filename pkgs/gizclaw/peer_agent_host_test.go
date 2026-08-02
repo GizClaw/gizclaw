@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/asttranslate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/chatroom"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/dashscoperealtime"
@@ -21,6 +23,28 @@ type peerAgentHostTestResolver struct{}
 
 func (peerAgentHostTestResolver) Resolve(context.Context, string) (agenthost.Spec, error) {
 	return agenthost.Spec{}, nil
+}
+
+type peerAgentCanonicalTestResolver struct {
+	resolvedID string
+}
+
+func (*peerAgentCanonicalTestResolver) Resolve(context.Context, string) (agenthost.Spec, error) {
+	return agenthost.Spec{}, nil
+}
+
+func (r *peerAgentCanonicalTestResolver) ResolveByID(_ context.Context, id string) (agenthost.Spec, error) {
+	r.resolvedID = id
+	return agenthost.Spec{Workspace: apitypes.Workspace{Id: id}}, nil
+}
+
+type peerAgentWorkspaceTestResolver struct {
+	resolvedName string
+}
+
+func (r *peerAgentWorkspaceTestResolver) ResolveRunWorkspaceSelection(_ context.Context, name string) (apitypes.Workspace, *rpcapi.RPCError) {
+	r.resolvedName = name
+	return apitypes.Workspace{Id: "01K1HZZZ9PV2KYRHZJ4V94Z0DQ", Name: name}, nil
 }
 
 type peerAgentHostHistoryStore struct{}
@@ -45,7 +69,7 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	base := agenthost.New(peerAgentHostTestResolver{})
 	history := &peerAgentHostHistoryStore{}
 	state := kv.NewMemory(nil)
-	got := newPeerAgentHost(base, nil, nil, nil, history, state, t.TempDir(), nil)
+	got := newPeerAgentHost(base, nil, nil, nil, nil, history, state, t.TempDir(), nil)
 	if got == nil {
 		t.Fatal("newPeerAgentHost() = nil")
 	}
@@ -113,7 +137,27 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 }
 
 func TestNewPeerAgentHostNilBase(t *testing.T) {
-	if got := newPeerAgentHost(nil, nil, nil, nil, nil, nil, "", nil); got != nil {
+	if got := newPeerAgentHost(nil, nil, nil, nil, nil, nil, nil, "", nil); got != nil {
 		t.Fatalf("newPeerAgentHost(nil) = %#v, want nil", got)
+	}
+}
+
+func TestPeerAgentResolverResolvesPeerNameToCanonicalWorkspaceID(t *testing.T) {
+	base := &peerAgentCanonicalTestResolver{}
+	workspaces := &peerAgentWorkspaceTestResolver{}
+	resolver := peerAgentResolver{base: base, workspaces: workspaces}
+
+	spec, err := resolver.Resolve(t.Context(), "/workspaces/shared-room")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if workspaces.resolvedName != "shared-room" {
+		t.Fatalf("Peer Workspace selection = %q, want shared-room", workspaces.resolvedName)
+	}
+	if base.resolvedID != "01K1HZZZ9PV2KYRHZJ4V94Z0DQ" {
+		t.Fatalf("canonical Workspace resolution = %q", base.resolvedID)
+	}
+	if spec.Workspace.Id != base.resolvedID {
+		t.Fatalf("resolved Workspace ID = %q, want %q", spec.Workspace.Id, base.resolvedID)
 	}
 }

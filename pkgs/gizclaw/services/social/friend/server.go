@@ -322,14 +322,14 @@ func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.Frien
 	return rpcapi.FriendListResponse{Items: items, HasNext: entries.HasNext, NextCursor: entries.NextCursor}, nil
 }
 
-// WorkspaceRecipients returns the peers whose reciprocal relationship binds
-// the named Direct Chatroom Workspace.
-func (s *Server) WorkspaceRecipients(ctx context.Context, workspaceName string) ([]string, error) {
+// WorkspaceRecipientsByID returns the peers whose reciprocal relationship
+// binds the canonical Direct Chatroom Workspace.
+func (s *Server) WorkspaceRecipientsByID(ctx context.Context, workspaceID string) ([]string, error) {
 	store, err := s.friendsStore()
 	if err != nil {
 		return nil, err
 	}
-	workspaceName = strings.TrimSpace(workspaceName)
+	workspaceID = strings.TrimSpace(workspaceID)
 	seen := make(map[string]struct{})
 	for entry, err := range store.List(ctx, socialutil.FriendsRoot) {
 		if err != nil {
@@ -339,10 +339,22 @@ func (s *Server) WorkspaceRecipients(ctx context.Context, workspaceName string) 
 		if err := json.Unmarshal(entry.Value, &item); err != nil {
 			return nil, err
 		}
-		if strings.TrimSpace(socialutil.StringValue(item.WorkspaceName)) != workspaceName || len(entry.Key) < 3 {
+		if len(entry.Key) < 3 {
 			continue
 		}
-		seen[socialutil.UnescapeStoreSegment(entry.Key[1])] = struct{}{}
+		owner := socialutil.UnescapeStoreSegment(entry.Key[1])
+		relationID := friendRelationID(owner, socialutil.StringValue(item.Id))
+		binding, err := readWorkspaceBinding(ctx, store, relationID)
+		if errors.Is(err, kv.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if binding.WorkspaceID != workspaceID {
+			continue
+		}
+		seen[owner] = struct{}{}
 	}
 	recipients := make([]string, 0, len(seen))
 	for publicKey := range seen {

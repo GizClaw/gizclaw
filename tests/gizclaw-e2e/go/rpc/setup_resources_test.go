@@ -26,7 +26,7 @@ const (
 	sharedSetupSocialClientPublicKey = "8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu"
 )
 
-var sharedSetupSocialGroupID string
+var sharedSetupSocialGroupName string
 
 func newSharedSetupRPCHarness(t *testing.T) *sharedSetupRPCHarness {
 	t.Helper()
@@ -65,7 +65,7 @@ func applySharedSocialFixtures(t *testing.T, h *clitest.Harness) {
 	if err != nil {
 		t.Fatalf("ensure shared Social fixtures: %v", err)
 	}
-	sharedSetupSocialGroupID = ids.FriendGroupID
+	sharedSetupSocialGroupName = ids.FriendGroupName
 }
 
 func TestSharedSetupRPCResourcesPagination(t *testing.T) {
@@ -99,21 +99,21 @@ func TestSharedSetupRPCSocialFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatalf("friend_group.list shared fixture: %v", err)
 	}
-	group := requireFriendGroupID(t, groups.Items, sharedSetupSocialGroupID)
+	group := requireFriendGroupName(t, groups.Items, sharedSetupSocialGroupName)
 	if group.MyRole == nil || *group.MyRole != rpcapi.FriendGroupMemberRoleMember {
 		t.Fatalf("shared group my_role = %#v, want member", group.MyRole)
 	}
 
-	gotGroup, err := env.peer.GetFriendGroup(env.ctx, "shared.social.friend_group.get", rpcapi.FriendGroupGetRequest{Name: sharedSetupSocialGroupID})
+	gotGroup, err := env.peer.GetFriendGroup(env.ctx, "shared.social.friend_group.get", rpcapi.FriendGroupGetRequest{Name: sharedSetupSocialGroupName})
 	if err != nil {
 		t.Fatalf("friend_group.get shared fixture: %v", err)
 	}
-	if gotGroup.Name != sharedSetupSocialGroupID || gotGroup.DisplayName == nil || *gotGroup.DisplayName != "Family Circle" {
+	if gotGroup.Name != sharedSetupSocialGroupName || gotGroup.DisplayName == nil || *gotGroup.DisplayName != "Family Circle" {
 		t.Fatalf("shared group = %#v", gotGroup)
 	}
 
 	members, err := env.peer.ListFriendGroupMembers(env.ctx, "shared.social.friend_group.members.list", rpcapi.FriendGroupMemberListRequest{
-		FriendGroupName: testStringPtr(sharedSetupSocialGroupID),
+		FriendGroupName: testStringPtr(sharedSetupSocialGroupName),
 	})
 	if err != nil {
 		t.Fatalf("friend_group.members.list shared fixture: %v", err)
@@ -220,14 +220,14 @@ func requireFriendPeer(t *testing.T, items []rpcapi.FriendObject, peerPublicKey 
 	return rpcapi.FriendObject{}
 }
 
-func requireFriendGroupID(t *testing.T, items []rpcapi.FriendGroupObject, id string) rpcapi.FriendGroupObject {
+func requireFriendGroupName(t *testing.T, items []rpcapi.FriendGroupObject, name string) rpcapi.FriendGroupObject {
 	t.Helper()
 	for _, item := range items {
-		if item.Name == id {
+		if item.Name == name {
 			return item
 		}
 	}
-	t.Fatalf("missing friend group %q in %#v", id, items)
+	t.Fatalf("missing friend group %q in %#v", name, items)
 	return rpcapi.FriendGroupObject{}
 }
 

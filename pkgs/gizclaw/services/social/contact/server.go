@@ -10,7 +10,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -217,9 +216,6 @@ func (s *Server) createContact(ctx context.Context, owner, id, name string, disp
 	}
 	if rawName != name {
 		return rpcapi.ContactObject{}, errors.New("social: contact name must not contain surrounding whitespace")
-	}
-	if err := customid.ValidateField("contact name", name); err != nil {
-		return rpcapi.ContactObject{}, err
 	}
 	displayName := strings.TrimSpace(socialutil.StringValue(displayNameValue))
 	phoneNumber := strings.TrimSpace(socialutil.StringValue(phoneNumberValue))

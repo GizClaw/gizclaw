@@ -46,7 +46,7 @@ func newWriteCmd(ctxName *string, update bool) *cobra.Command {
 		short = "Update a DeepSeek tenant"
 	}
 	cmd := &cobra.Command{
-		Use:   operation + " <name>",
+		Use:   operation + " <id>",
 		Short: short,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -87,7 +87,7 @@ func newWriteCmd(ctxName *string, update bool) *cobra.Command {
 
 func newDeleteCmd(ctxName *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <name>",
+		Use:   "delete <id>",
 		Short: "Delete a DeepSeek tenant",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -130,7 +130,7 @@ func newListCmd(ctxName *string) *cobra.Command {
 
 func newGetCmd(ctxName *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <name>",
+		Use:   "get <id>",
 		Short: "Get a DeepSeek tenant",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

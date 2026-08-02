@@ -352,9 +352,9 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), `"created_by_peer_public_key":"peer-a"`) || strings.Contains(rec.Body.String(), "my_role") {
 		t.Fatalf("admin-created group owner projection is invalid: %s", rec.Body.String())
 	}
-	rec = serveAdminJSON(app, http.MethodPost, "/social/friend-groups/group-a/members", `{"name":"owner01","peer_public_key":"peer-a","role":"owner"}`)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"role":"owner"`) {
-		t.Fatalf("POST owner member status=%d body=%s", rec.Code, rec.Body.String())
+	rec = serveAdminAsset(app, http.MethodGet, "/social/friend-groups/group-a/members", "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"name":"Room"`) || !strings.Contains(rec.Body.String(), `"role":"owner"`) {
+		t.Fatalf("GET owner member status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	rec = serveAdminJSON(app, http.MethodPut, "/social/friend-groups/group-a/members/peer-a", `{"role":"admin"}`)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"role":"admin"`) {

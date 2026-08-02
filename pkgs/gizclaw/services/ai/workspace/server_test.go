@@ -788,20 +788,43 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 	}
 }
 
-func TestNormalizeWorkspaceUpsertAcceptsWorkflowAliasesAndResourceIDs(t *testing.T) {
+func TestNormalizeWorkspaceUpsertAcceptsOpaqueWorkflowIDs(t *testing.T) {
 	t.Parallel()
 
-	for _, workflowName := range []string{"2fa-chat", "my_workflow"} {
+	for _, workflowID := range []string{"2fa-chat", "Opaque_Workflow_ID", strings.Repeat("a", 80)} {
 		got, err := normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
 			Name:       "runtime-workspace",
-			WorkflowId: workflowName,
+			WorkflowId: workflowID,
 		}, "")
 		if err != nil {
-			t.Fatalf("normalizeWorkspaceUpsert(%q) error = %v", workflowName, err)
+			t.Fatalf("normalizeWorkspaceUpsert(%q) error = %v", workflowID, err)
 		}
-		if got.WorkflowId != workflowName {
-			t.Fatalf("normalizeWorkspaceUpsert() workflow_name = %q, want %q", got.WorkflowId, workflowName)
+		if got.WorkflowId != workflowID {
+			t.Fatalf("normalizeWorkspaceUpsert() workflow_id = %q, want %q", got.WorkflowId, workflowID)
 		}
+	}
+}
+
+func TestNormalizeWorkspaceUpsertNormalizesWorkflowID(t *testing.T) {
+	t.Parallel()
+
+	got, err := normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
+		Name:       "runtime-workspace",
+		WorkflowId: "  0123456789abcdef  ",
+	}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.WorkflowId != "0123456789abcdef" {
+		t.Fatalf("normalizeWorkspaceUpsert() workflow_id = %q", got.WorkflowId)
+	}
+
+	_, err = normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
+		Name:       "runtime-workspace",
+		WorkflowId: "  ",
+	}, "")
+	if err == nil || !strings.Contains(err.Error(), "workflow_id is required") {
+		t.Fatalf("normalizeWorkspaceUpsert(empty workflow_id) error = %v", err)
 	}
 }
 

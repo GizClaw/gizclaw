@@ -36,10 +36,26 @@ func (s *Server) ListWorkspaceHistory(ctx context.Context, workspaceName string,
 	return store.List(ctx, req)
 }
 
+func (s *Server) ListWorkspaceHistoryByID(ctx context.Context, workspaceID string, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
+	store, err := s.historyStoreByID(ctx, workspaceID)
+	if err != nil {
+		return apitypes.PeerRunHistoryListResponse{}, err
+	}
+	return store.List(ctx, req)
+}
+
 // ListWorkspaceHistoryPage returns one internal History page for Server-owned
 // projections that need authoritative entry and asset metadata.
 func (s *Server) ListWorkspaceHistoryPage(ctx context.Context, workspaceName string, req apitypes.PeerRunHistoryListRequest) (HistoryEntryPage, error) {
 	store, err := s.historyStore(ctx, workspaceName)
+	if err != nil {
+		return HistoryEntryPage{}, err
+	}
+	return store.ListPage(ctx, req)
+}
+
+func (s *Server) ListWorkspaceHistoryPageByID(ctx context.Context, workspaceID string, req apitypes.PeerRunHistoryListRequest) (HistoryEntryPage, error) {
+	store, err := s.historyStoreByID(ctx, workspaceID)
 	if err != nil {
 		return HistoryEntryPage{}, err
 	}
@@ -137,6 +153,14 @@ func (s *Server) AdminGetWorkspaceHistory(ctx context.Context, workspaceName, hi
 
 func (s *Server) ReadWorkspaceHistoryAsset(ctx context.Context, workspaceName, assetName string) (io.ReadCloser, error) {
 	store, err := s.historyStore(ctx, workspaceName)
+	if err != nil {
+		return nil, err
+	}
+	return store.ReadAsset(ctx, assetName)
+}
+
+func (s *Server) ReadWorkspaceHistoryAssetByID(ctx context.Context, workspaceID, assetName string) (io.ReadCloser, error) {
+	store, err := s.historyStoreByID(ctx, workspaceID)
 	if err != nil {
 		return nil, err
 	}

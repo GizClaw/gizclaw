@@ -113,6 +113,7 @@ func TestPeerConnRejectsRevokedChatroomTurnWithoutPushingAgentInput(t *testing.T
 	}
 	manager := &Manager{
 		Workspaces: staticWorkspaceService{workspace: apitypes.Workspace{
+			Id:         "id-" + relationWorkspaceName,
 			Name:       relationWorkspaceName,
 			Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
 		}},
@@ -181,6 +182,7 @@ func TestPeerConnRejectsRevokedChatroomTurnWithoutPushingAgentInput(t *testing.T
 		t.Fatalf("restored Workspace = %q, want a new incarnation", restoredWorkspaceName)
 	}
 	manager.Workspaces = staticWorkspaceService{workspace: apitypes.Workspace{
+		Id:         "id-" + restoredWorkspaceName,
 		Name:       restoredWorkspaceName,
 		Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
 	}}
@@ -306,6 +308,7 @@ func TestPeerConnReauthorizesAudioPacketsAfterChatroomAccessIsRevoked(t *testing
 		Conn: &testGiznetConn{publicKey: caller},
 		Service: &PeerService{manager: &Manager{
 			Workspaces: staticWorkspaceService{workspace: apitypes.Workspace{
+				Id:         "id-" + relationWorkspaceName,
 				Name:       relationWorkspaceName,
 				Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
 			}},
@@ -370,6 +373,7 @@ func TestPeerConnReauthorizesAudioPacketsAfterChatroomAccessIsRevoked(t *testing
 		t.Fatalf("restored Workspace = %q, want a new incarnation", restoredWorkspaceName)
 	}
 	peer.Service.manager.Workspaces = staticWorkspaceService{workspace: apitypes.Workspace{
+		Id:         "id-" + restoredWorkspaceName,
 		Name:       restoredWorkspaceName,
 		Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
 	}}

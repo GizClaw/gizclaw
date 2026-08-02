@@ -27,7 +27,7 @@ func NewCmd() *cobra.Command {
 func newUploadPixaCmd(ctxName *string) *cobra.Command {
 	var file string
 	cmd := &cobra.Command{
-		Use:   "upload-pixa <name> -f <asset.pixa>",
+		Use:   "upload-pixa <id> -f <asset.pixa>",
 		Short: "Upload a PetDef PIXA asset",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -360,16 +360,20 @@ func (m *Manager) BroadcastPeerEvent(publicKey giznet.PublicKey, event *eventpb.
 	return broker.Notify(event)
 }
 
-func (m *Manager) broadcastWorkspaceHistoryUpdated(ctx context.Context, workspaceName string, lastUpdated time.Time) {
+func (m *Manager) broadcastWorkspaceHistoryUpdated(ctx context.Context, workspaceID string, lastUpdated time.Time) {
 	if m == nil || m.Workspaces == nil {
 		return
 	}
-	workspaceName = strings.TrimSpace(workspaceName)
-	if workspaceName == "" {
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" {
 		return
 	}
-	workspace, err := resolveWorkspaceByName(ctx, m.Workspaces, workspaceName)
+	workspace, err := resolveWorkspaceByID(ctx, m.Workspaces, workspaceID)
 	if err != nil {
+		return
+	}
+	workspaceName := strings.TrimSpace(workspace.Name)
+	if workspaceName == "" {
 		return
 	}
 	var recipients []string
@@ -382,13 +386,13 @@ func (m *Manager) broadcastWorkspaceHistoryUpdated(ctx context.Context, workspac
 				if m.Friends == nil {
 					return
 				}
-				recipients, err = m.Friends.WorkspaceRecipients(ctx, workspaceName)
+				recipients, err = m.Friends.WorkspaceRecipientsByID(ctx, workspace.Id)
 			case apitypes.ChatRoomModeGroup:
 				kind = eventpb.WorkspaceKind_WORKSPACE_KIND_GROUP_CHATROOM
 				if m.FriendGroups == nil {
 					return
 				}
-				recipients, err = m.FriendGroups.WorkspaceRecipients(ctx, workspaceName)
+				recipients, err = m.FriendGroups.WorkspaceRecipientsByID(ctx, workspace.Id)
 			}
 		}
 	}
@@ -451,6 +455,14 @@ func (m *Manager) chatroomAccessState(
 	if err != nil {
 		return true, chatroom.AccessCheckFailedError()
 	}
+	return m.chatroomAccessStateForWorkspace(ctx, caller, workspace)
+}
+
+func (m *Manager) chatroomAccessStateForWorkspace(
+	ctx context.Context,
+	caller giznet.PublicKey,
+	workspace apitypes.Workspace,
+) (bool, *chatroom.AccessError) {
 	if workspace.Parameters == nil {
 		return false, nil
 	}
@@ -464,7 +476,7 @@ func (m *Manager) chatroomAccessState(
 		if m.Friends == nil {
 			return true, chatroom.AccessCheckFailedError()
 		}
-		recipients, err := m.Friends.WorkspaceRecipients(ctx, workspaceName)
+		recipients, err := m.Friends.WorkspaceRecipientsByID(ctx, workspace.Id)
 		if err != nil {
 			return true, chatroom.AccessCheckFailedError()
 		}
@@ -476,7 +488,7 @@ func (m *Manager) chatroomAccessState(
 		if m.FriendGroups == nil {
 			return true, chatroom.AccessCheckFailedError()
 		}
-		recipients, err := m.FriendGroups.WorkspaceRecipients(ctx, workspaceName)
+		recipients, err := m.FriendGroups.WorkspaceRecipientsByID(ctx, workspace.Id)
 		if errors.Is(err, kv.ErrNotFound) {
 			return true, chatroom.GroupDeletedError()
 		}
@@ -519,6 +531,27 @@ func resolveWorkspaceByName(
 		return apitypes.Workspace{}, errors.New("gizclaw: workspace name resolver is required")
 	}
 	return resolver.GetWorkspaceByName(ctx, strings.TrimSpace(name))
+}
+
+func resolveWorkspaceByID(
+	ctx context.Context,
+	service workspace.WorkspaceAdminService,
+	id string,
+) (apitypes.Workspace, error) {
+	response, err := service.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Id: strings.TrimSpace(id)})
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	switch response := response.(type) {
+	case adminhttp.GetWorkspace200JSONResponse:
+		return apitypes.Workspace(response), nil
+	case adminhttp.GetWorkspace404JSONResponse:
+		return apitypes.Workspace{}, kv.ErrNotFound
+	case adminhttp.GetWorkspace500JSONResponse:
+		return apitypes.Workspace{}, errors.New(response.Error.Message)
+	default:
+		return apitypes.Workspace{}, fmt.Errorf("gizclaw: unexpected GetWorkspace response %T", response)
+	}
 }
 
 func containsPublicKey(values []string, target string) bool {

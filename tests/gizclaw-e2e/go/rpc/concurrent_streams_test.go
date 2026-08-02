@@ -192,7 +192,7 @@ func registerDefaultRuntimeProfile(
 		)
 		if err != nil {
 			t.Errorf("delete concurrent-stream registration token: %v", err)
-		} else if response.StatusCode() != 204 {
+		} else if response.JSON200 == nil {
 			t.Errorf(
 				"delete concurrent-stream registration token status %d: %s",
 				response.StatusCode(),

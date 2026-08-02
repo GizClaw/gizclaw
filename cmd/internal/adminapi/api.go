@@ -245,12 +245,12 @@ func CreateCredential(ctx context.Context, c *gizcli.Client, req adminhttp.Crede
 	return apitypes.Credential{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
 }
 
-func GetCredential(ctx context.Context, c *gizcli.Client, name string) (apitypes.Credential, error) {
+func GetCredential(ctx context.Context, c *gizcli.Client, id string) (apitypes.Credential, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Credential{}, err
 	}
-	resp, err := api.GetCredentialWithResponse(ctx, string(name))
+	resp, err := api.GetCredentialWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.Credential{}, err
 	}
@@ -260,12 +260,12 @@ func GetCredential(ctx context.Context, c *gizcli.Client, name string) (apitypes
 	return apitypes.Credential{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func PutCredential(ctx context.Context, c *gizcli.Client, name string, req adminhttp.CredentialUpsert) (apitypes.Credential, error) {
+func PutCredential(ctx context.Context, c *gizcli.Client, id string, req adminhttp.CredentialUpsert) (apitypes.Credential, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Credential{}, err
 	}
-	resp, err := api.PutCredentialWithResponse(ctx, string(name), req)
+	resp, err := api.PutCredentialWithResponse(ctx, id, req)
 	if err != nil {
 		return apitypes.Credential{}, err
 	}
@@ -275,12 +275,12 @@ func PutCredential(ctx context.Context, c *gizcli.Client, name string, req admin
 	return apitypes.Credential{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON500)
 }
 
-func DeleteCredential(ctx context.Context, c *gizcli.Client, name string) (apitypes.Credential, error) {
+func DeleteCredential(ctx context.Context, c *gizcli.Client, id string) (apitypes.Credential, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Credential{}, err
 	}
-	resp, err := api.DeleteCredentialWithResponse(ctx, string(name))
+	resp, err := api.DeleteCredentialWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.Credential{}, err
 	}
@@ -329,12 +329,12 @@ func CreateFirmware(ctx context.Context, c *gizcli.Client, req adminhttp.Firmwar
 	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
 }
 
-func GetFirmware(ctx context.Context, c *gizcli.Client, name string) (apitypes.Firmware, error) {
+func GetFirmware(ctx context.Context, c *gizcli.Client, id string) (apitypes.Firmware, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
-	resp, err := api.GetFirmwareWithResponse(ctx, name)
+	resp, err := api.GetFirmwareWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
@@ -344,12 +344,12 @@ func GetFirmware(ctx context.Context, c *gizcli.Client, name string) (apitypes.F
 	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func PutFirmware(ctx context.Context, c *gizcli.Client, name string, req adminhttp.FirmwareUpsert) (apitypes.Firmware, error) {
+func PutFirmware(ctx context.Context, c *gizcli.Client, id string, req adminhttp.FirmwareUpsert) (apitypes.Firmware, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
-	resp, err := api.PutFirmwareWithResponse(ctx, name, req)
+	resp, err := api.PutFirmwareWithResponse(ctx, id, req)
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
@@ -359,12 +359,12 @@ func PutFirmware(ctx context.Context, c *gizcli.Client, name string, req adminht
 	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON500)
 }
 
-func DeleteFirmware(ctx context.Context, c *gizcli.Client, name string) (apitypes.Firmware, error) {
+func DeleteFirmware(ctx context.Context, c *gizcli.Client, id string) (apitypes.Firmware, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
-	resp, err := api.DeleteFirmwareWithResponse(ctx, name)
+	resp, err := api.DeleteFirmwareWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
@@ -374,12 +374,12 @@ func DeleteFirmware(ctx context.Context, c *gizcli.Client, name string) (apitype
 	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func ReleaseFirmware(ctx context.Context, c *gizcli.Client, name string) (apitypes.Firmware, error) {
+func ReleaseFirmware(ctx context.Context, c *gizcli.Client, id string) (apitypes.Firmware, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
-	resp, err := api.ReleaseFirmwareWithResponse(ctx, name)
+	resp, err := api.ReleaseFirmwareWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
@@ -389,12 +389,12 @@ func ReleaseFirmware(ctx context.Context, c *gizcli.Client, name string) (apityp
 	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON409, resp.JSON500)
 }
 
-func RollbackFirmware(ctx context.Context, c *gizcli.Client, name string) (apitypes.Firmware, error) {
+func RollbackFirmware(ctx context.Context, c *gizcli.Client, id string) (apitypes.Firmware, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
-	resp, err := api.RollbackFirmwareWithResponse(ctx, name)
+	resp, err := api.RollbackFirmwareWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
@@ -404,12 +404,12 @@ func RollbackFirmware(ctx context.Context, c *gizcli.Client, name string) (apity
 	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON409, resp.JSON500)
 }
 
-func UploadFirmwareArtifact(ctx context.Context, c *gizcli.Client, name, channel string, body io.Reader) (apitypes.Firmware, error) {
+func UploadFirmwareArtifact(ctx context.Context, c *gizcli.Client, id, channel string, body io.Reader) (apitypes.Firmware, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
-	resp, err := api.UploadFirmwareArtifactWithBodyWithResponse(ctx, name, adminhttp.UploadFirmwareArtifactParamsChannel(channel), "application/x-tar", body)
+	resp, err := api.UploadFirmwareArtifactWithBodyWithResponse(ctx, id, adminhttp.UploadFirmwareArtifactParamsChannel(channel), "application/x-tar", body)
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
@@ -419,12 +419,12 @@ func UploadFirmwareArtifact(ctx context.Context, c *gizcli.Client, name, channel
 	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON409, resp.JSON500)
 }
 
-func UploadPetDefPixa(ctx context.Context, c *gizcli.Client, name string, body io.Reader) (apitypes.PetDef, error) {
+func UploadPetDefPixa(ctx context.Context, c *gizcli.Client, id string, body io.Reader) (apitypes.PetDef, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.PetDef{}, err
 	}
-	resp, err := api.UploadPetDefPixaWithBodyWithResponse(ctx, name, "application/octet-stream", body)
+	resp, err := api.UploadPetDefPixaWithBodyWithResponse(ctx, id, "application/octet-stream", body)
 	if err != nil {
 		return apitypes.PetDef{}, err
 	}
@@ -434,12 +434,12 @@ func UploadPetDefPixa(ctx context.Context, c *gizcli.Client, name string, body i
 	return apitypes.PetDef{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func DownloadFirmwareArtifact(ctx context.Context, c *gizcli.Client, name, channel string) ([]byte, error) {
+func DownloadFirmwareArtifact(ctx context.Context, c *gizcli.Client, id, channel string) ([]byte, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return nil, err
 	}
-	resp, err := api.DownloadFirmwareArtifactWithResponse(ctx, name, adminhttp.DownloadFirmwareArtifactParamsChannel(channel))
+	resp, err := api.DownloadFirmwareArtifactWithResponse(ctx, id, adminhttp.DownloadFirmwareArtifactParamsChannel(channel))
 	if err != nil {
 		return nil, err
 	}
@@ -449,12 +449,12 @@ func DownloadFirmwareArtifact(ctx context.Context, c *gizcli.Client, name, chann
 	return nil, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func DeleteFirmwareArtifact(ctx context.Context, c *gizcli.Client, name, channel string) (apitypes.Firmware, error) {
+func DeleteFirmwareArtifact(ctx context.Context, c *gizcli.Client, id, channel string) (apitypes.Firmware, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
-	resp, err := api.DeleteFirmwareArtifactWithResponse(ctx, name, adminhttp.DeleteFirmwareArtifactParamsChannel(channel))
+	resp, err := api.DeleteFirmwareArtifactWithResponse(ctx, id, adminhttp.DeleteFirmwareArtifactParamsChannel(channel))
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
@@ -464,7 +464,7 @@ func DeleteFirmwareArtifact(ctx context.Context, c *gizcli.Client, name, channel
 	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func ListFirmwareArtifactEntries(ctx context.Context, c *gizcli.Client, name, channel, path string) (apitypes.FirmwareArtifactList, error) {
+func ListFirmwareArtifactEntries(ctx context.Context, c *gizcli.Client, id, channel, path string) (apitypes.FirmwareArtifactList, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.FirmwareArtifactList{}, err
@@ -473,7 +473,7 @@ func ListFirmwareArtifactEntries(ctx context.Context, c *gizcli.Client, name, ch
 	if strings.TrimSpace(path) != "" {
 		params.Path = &path
 	}
-	resp, err := api.ListFirmwareArtifactEntriesWithResponse(ctx, name, adminhttp.ListFirmwareArtifactEntriesParamsChannel(channel), params)
+	resp, err := api.ListFirmwareArtifactEntriesWithResponse(ctx, id, adminhttp.ListFirmwareArtifactEntriesParamsChannel(channel), params)
 	if err != nil {
 		return apitypes.FirmwareArtifactList{}, err
 	}
@@ -483,7 +483,7 @@ func ListFirmwareArtifactEntries(ctx context.Context, c *gizcli.Client, name, ch
 	return apitypes.FirmwareArtifactList{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON500)
 }
 
-func TreeFirmwareArtifactEntries(ctx context.Context, c *gizcli.Client, name, channel, path string) (apitypes.FirmwareArtifactTree, error) {
+func TreeFirmwareArtifactEntries(ctx context.Context, c *gizcli.Client, id, channel, path string) (apitypes.FirmwareArtifactTree, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.FirmwareArtifactTree{}, err
@@ -492,7 +492,7 @@ func TreeFirmwareArtifactEntries(ctx context.Context, c *gizcli.Client, name, ch
 	if strings.TrimSpace(path) != "" {
 		params.Path = &path
 	}
-	resp, err := api.TreeFirmwareArtifactEntriesWithResponse(ctx, name, adminhttp.TreeFirmwareArtifactEntriesParamsChannel(channel), params)
+	resp, err := api.TreeFirmwareArtifactEntriesWithResponse(ctx, id, adminhttp.TreeFirmwareArtifactEntriesParamsChannel(channel), params)
 	if err != nil {
 		return apitypes.FirmwareArtifactTree{}, err
 	}
@@ -502,7 +502,7 @@ func TreeFirmwareArtifactEntries(ctx context.Context, c *gizcli.Client, name, ch
 	return apitypes.FirmwareArtifactTree{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON500)
 }
 
-func StatFirmwareArtifactEntry(ctx context.Context, c *gizcli.Client, name, channel, path string) (apitypes.FirmwareArtifactStats, error) {
+func StatFirmwareArtifactEntry(ctx context.Context, c *gizcli.Client, id, channel, path string) (apitypes.FirmwareArtifactStats, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.FirmwareArtifactStats{}, err
@@ -511,7 +511,7 @@ func StatFirmwareArtifactEntry(ctx context.Context, c *gizcli.Client, name, chan
 	if strings.TrimSpace(path) != "" {
 		params.Path = &path
 	}
-	resp, err := api.StatFirmwareArtifactEntryWithResponse(ctx, name, adminhttp.StatFirmwareArtifactEntryParamsChannel(channel), params)
+	resp, err := api.StatFirmwareArtifactEntryWithResponse(ctx, id, adminhttp.StatFirmwareArtifactEntryParamsChannel(channel), params)
 	if err != nil {
 		return apitypes.FirmwareArtifactStats{}, err
 	}
@@ -521,13 +521,13 @@ func StatFirmwareArtifactEntry(ctx context.Context, c *gizcli.Client, name, chan
 	return apitypes.FirmwareArtifactStats{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON500)
 }
 
-func DownloadFirmwareArtifactEntry(ctx context.Context, c *gizcli.Client, name, channel, path string) ([]byte, error) {
+func DownloadFirmwareArtifactEntry(ctx context.Context, c *gizcli.Client, id, channel, path string) ([]byte, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return nil, err
 	}
 	params := &adminhttp.DownloadFirmwareArtifactEntryParams{Path: path}
-	resp, err := api.DownloadFirmwareArtifactEntryWithResponse(ctx, name, adminhttp.DownloadFirmwareArtifactEntryParamsChannel(channel), params)
+	resp, err := api.DownloadFirmwareArtifactEntryWithResponse(ctx, id, adminhttp.DownloadFirmwareArtifactEntryParamsChannel(channel), params)
 	if err != nil {
 		return nil, err
 	}
@@ -576,12 +576,12 @@ func CreateMiniMaxTenant(ctx context.Context, c *gizcli.Client, req adminhttp.Mi
 	return apitypes.MiniMaxTenant{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
 }
 
-func GetMiniMaxTenant(ctx context.Context, c *gizcli.Client, name string) (apitypes.MiniMaxTenant, error) {
+func GetMiniMaxTenant(ctx context.Context, c *gizcli.Client, id string) (apitypes.MiniMaxTenant, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.MiniMaxTenant{}, err
 	}
-	resp, err := api.GetMiniMaxTenantWithResponse(ctx, string(name))
+	resp, err := api.GetMiniMaxTenantWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.MiniMaxTenant{}, err
 	}
@@ -591,12 +591,12 @@ func GetMiniMaxTenant(ctx context.Context, c *gizcli.Client, name string) (apity
 	return apitypes.MiniMaxTenant{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func PutMiniMaxTenant(ctx context.Context, c *gizcli.Client, name string, req adminhttp.MiniMaxTenantUpsert) (apitypes.MiniMaxTenant, error) {
+func PutMiniMaxTenant(ctx context.Context, c *gizcli.Client, id string, req adminhttp.MiniMaxTenantUpsert) (apitypes.MiniMaxTenant, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.MiniMaxTenant{}, err
 	}
-	resp, err := api.PutMiniMaxTenantWithResponse(ctx, string(name), req)
+	resp, err := api.PutMiniMaxTenantWithResponse(ctx, id, req)
 	if err != nil {
 		return apitypes.MiniMaxTenant{}, err
 	}
@@ -606,12 +606,12 @@ func PutMiniMaxTenant(ctx context.Context, c *gizcli.Client, name string, req ad
 	return apitypes.MiniMaxTenant{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON500)
 }
 
-func DeleteMiniMaxTenant(ctx context.Context, c *gizcli.Client, name string) (apitypes.MiniMaxTenant, error) {
+func DeleteMiniMaxTenant(ctx context.Context, c *gizcli.Client, id string) (apitypes.MiniMaxTenant, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.MiniMaxTenant{}, err
 	}
-	resp, err := api.DeleteMiniMaxTenantWithResponse(ctx, string(name))
+	resp, err := api.DeleteMiniMaxTenantWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.MiniMaxTenant{}, err
 	}
@@ -621,12 +621,12 @@ func DeleteMiniMaxTenant(ctx context.Context, c *gizcli.Client, name string) (ap
 	return apitypes.MiniMaxTenant{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func SyncMiniMaxTenantVoices(ctx context.Context, c *gizcli.Client, name string) (adminhttp.MiniMaxSyncVoicesResult, error) {
+func SyncMiniMaxTenantVoices(ctx context.Context, c *gizcli.Client, id string) (adminhttp.MiniMaxSyncVoicesResult, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return adminhttp.MiniMaxSyncVoicesResult{}, err
 	}
-	resp, err := api.SyncMiniMaxTenantVoicesWithResponse(ctx, string(name))
+	resp, err := api.SyncMiniMaxTenantVoicesWithResponse(ctx, id)
 	if err != nil {
 		return adminhttp.MiniMaxSyncVoicesResult{}, err
 	}
@@ -660,12 +660,12 @@ func ListVolcTenants(ctx context.Context, c *gizcli.Client) ([]apitypes.VolcTena
 	})
 }
 
-func GetVolcTenant(ctx context.Context, c *gizcli.Client, name string) (apitypes.VolcTenant, error) {
+func GetVolcTenant(ctx context.Context, c *gizcli.Client, id string) (apitypes.VolcTenant, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.VolcTenant{}, err
 	}
-	resp, err := api.GetVolcTenantWithResponse(ctx, string(name))
+	resp, err := api.GetVolcTenantWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.VolcTenant{}, err
 	}
@@ -675,12 +675,12 @@ func GetVolcTenant(ctx context.Context, c *gizcli.Client, name string) (apitypes
 	return apitypes.VolcTenant{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func SyncVolcTenantVoices(ctx context.Context, c *gizcli.Client, name string) (adminhttp.VolcSyncVoicesResult, error) {
+func SyncVolcTenantVoices(ctx context.Context, c *gizcli.Client, id string) (adminhttp.VolcSyncVoicesResult, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return adminhttp.VolcSyncVoicesResult{}, err
 	}
-	resp, err := api.SyncVolcTenantVoicesWithResponse(ctx, string(name))
+	resp, err := api.SyncVolcTenantVoicesWithResponse(ctx, id)
 	if err != nil {
 		return adminhttp.VolcSyncVoicesResult{}, err
 	}
@@ -714,12 +714,12 @@ func ListOpenAITenants(ctx context.Context, c *gizcli.Client) ([]apitypes.OpenAI
 	})
 }
 
-func GetOpenAITenant(ctx context.Context, c *gizcli.Client, name string) (apitypes.OpenAITenant, error) {
+func GetOpenAITenant(ctx context.Context, c *gizcli.Client, id string) (apitypes.OpenAITenant, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.OpenAITenant{}, err
 	}
-	resp, err := api.GetOpenAITenantWithResponse(ctx, name)
+	resp, err := api.GetOpenAITenantWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.OpenAITenant{}, err
 	}
@@ -753,12 +753,12 @@ func ListGeminiTenants(ctx context.Context, c *gizcli.Client) ([]apitypes.Gemini
 	})
 }
 
-func GetGeminiTenant(ctx context.Context, c *gizcli.Client, name string) (apitypes.GeminiTenant, error) {
+func GetGeminiTenant(ctx context.Context, c *gizcli.Client, id string) (apitypes.GeminiTenant, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.GeminiTenant{}, err
 	}
-	resp, err := api.GetGeminiTenantWithResponse(ctx, name)
+	resp, err := api.GetGeminiTenantWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.GeminiTenant{}, err
 	}
@@ -792,12 +792,12 @@ func ListDashScopeTenants(ctx context.Context, c *gizcli.Client) ([]apitypes.Das
 	})
 }
 
-func GetDashScopeTenant(ctx context.Context, c *gizcli.Client, name string) (apitypes.DashScopeTenant, error) {
+func GetDashScopeTenant(ctx context.Context, c *gizcli.Client, id string) (apitypes.DashScopeTenant, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.DashScopeTenant{}, err
 	}
-	resp, err := api.GetDashScopeTenantWithResponse(ctx, name)
+	resp, err := api.GetDashScopeTenantWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.DashScopeTenant{}, err
 	}
@@ -831,12 +831,12 @@ func ListDeepSeekTenants(ctx context.Context, c *gizcli.Client) ([]apitypes.Deep
 	})
 }
 
-func GetDeepSeekTenant(ctx context.Context, c *gizcli.Client, name string) (apitypes.DeepSeekTenant, error) {
+func GetDeepSeekTenant(ctx context.Context, c *gizcli.Client, id string) (apitypes.DeepSeekTenant, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.DeepSeekTenant{}, err
 	}
-	resp, err := api.GetDeepSeekTenantWithResponse(ctx, name)
+	resp, err := api.GetDeepSeekTenantWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.DeepSeekTenant{}, err
 	}
@@ -861,12 +861,12 @@ func CreateDeepSeekTenant(ctx context.Context, c *gizcli.Client, req adminhttp.D
 	return apitypes.DeepSeekTenant{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
 }
 
-func PutDeepSeekTenant(ctx context.Context, c *gizcli.Client, name string, req adminhttp.DeepSeekTenantUpsert) (apitypes.DeepSeekTenant, error) {
+func PutDeepSeekTenant(ctx context.Context, c *gizcli.Client, id string, req adminhttp.DeepSeekTenantUpsert) (apitypes.DeepSeekTenant, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.DeepSeekTenant{}, err
 	}
-	resp, err := api.PutDeepSeekTenantWithResponse(ctx, name, req)
+	resp, err := api.PutDeepSeekTenantWithResponse(ctx, id, req)
 	if err != nil {
 		return apitypes.DeepSeekTenant{}, err
 	}
@@ -876,12 +876,12 @@ func PutDeepSeekTenant(ctx context.Context, c *gizcli.Client, name string, req a
 	return apitypes.DeepSeekTenant{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON500)
 }
 
-func DeleteDeepSeekTenant(ctx context.Context, c *gizcli.Client, name string) (apitypes.DeepSeekTenant, error) {
+func DeleteDeepSeekTenant(ctx context.Context, c *gizcli.Client, id string) (apitypes.DeepSeekTenant, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.DeepSeekTenant{}, err
 	}
-	resp, err := api.DeleteDeepSeekTenantWithResponse(ctx, name)
+	resp, err := api.DeleteDeepSeekTenantWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.DeepSeekTenant{}, err
 	}
@@ -1119,12 +1119,12 @@ func PutWorkflow(ctx context.Context, c *gizcli.Client, id string, req apitypes.
 	return apitypes.Workflow{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON500)
 }
 
-func DeleteWorkflow(ctx context.Context, c *gizcli.Client, name string) (apitypes.Workflow, error) {
+func DeleteWorkflow(ctx context.Context, c *gizcli.Client, id string) (apitypes.Workflow, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Workflow{}, err
 	}
-	resp, err := api.DeleteWorkflowWithResponse(ctx, string(name))
+	resp, err := api.DeleteWorkflowWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.Workflow{}, err
 	}
@@ -1173,12 +1173,12 @@ func CreateWorkspace(ctx context.Context, c *gizcli.Client, req adminhttp.Worksp
 	return apitypes.Workspace{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
 }
 
-func GetWorkspace(ctx context.Context, c *gizcli.Client, name string) (apitypes.Workspace, error) {
+func GetWorkspace(ctx context.Context, c *gizcli.Client, id string) (apitypes.Workspace, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
-	resp, err := api.GetWorkspaceWithResponse(ctx, string(name))
+	resp, err := api.GetWorkspaceWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
@@ -1188,12 +1188,12 @@ func GetWorkspace(ctx context.Context, c *gizcli.Client, name string) (apitypes.
 	return apitypes.Workspace{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func PutWorkspace(ctx context.Context, c *gizcli.Client, name string, req adminhttp.WorkspaceUpsert) (apitypes.Workspace, error) {
+func PutWorkspace(ctx context.Context, c *gizcli.Client, id string, req adminhttp.WorkspaceUpsert) (apitypes.Workspace, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
-	resp, err := api.PutWorkspaceWithResponse(ctx, string(name), req)
+	resp, err := api.PutWorkspaceWithResponse(ctx, id, req)
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
@@ -1203,12 +1203,12 @@ func PutWorkspace(ctx context.Context, c *gizcli.Client, name string, req adminh
 	return apitypes.Workspace{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON500)
 }
 
-func DeleteWorkspace(ctx context.Context, c *gizcli.Client, name string) (apitypes.Workspace, error) {
+func DeleteWorkspace(ctx context.Context, c *gizcli.Client, id string) (apitypes.Workspace, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
-	resp, err := api.DeleteWorkspaceWithResponse(ctx, string(name))
+	resp, err := api.DeleteWorkspaceWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
@@ -1254,12 +1254,12 @@ func CreateRuntimeProfile(ctx context.Context, c *gizcli.Client, req adminhttp.R
 	return apitypes.RuntimeProfile{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
 }
 
-func GetRuntimeProfile(ctx context.Context, c *gizcli.Client, name string) (apitypes.RuntimeProfile, error) {
+func GetRuntimeProfile(ctx context.Context, c *gizcli.Client, id string) (apitypes.RuntimeProfile, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
-	resp, err := api.GetRuntimeProfileWithResponse(ctx, name)
+	resp, err := api.GetRuntimeProfileWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
@@ -1269,12 +1269,12 @@ func GetRuntimeProfile(ctx context.Context, c *gizcli.Client, name string) (apit
 	return apitypes.RuntimeProfile{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func PutRuntimeProfile(ctx context.Context, c *gizcli.Client, name string, req adminhttp.RuntimeProfileUpsert) (apitypes.RuntimeProfile, error) {
+func PutRuntimeProfile(ctx context.Context, c *gizcli.Client, id string, req adminhttp.RuntimeProfileUpsert) (apitypes.RuntimeProfile, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
-	resp, err := api.PutRuntimeProfileWithResponse(ctx, name, req)
+	resp, err := api.PutRuntimeProfileWithResponse(ctx, id, req)
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
@@ -1284,12 +1284,12 @@ func PutRuntimeProfile(ctx context.Context, c *gizcli.Client, name string, req a
 	return apitypes.RuntimeProfile{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON500)
 }
 
-func DeleteRuntimeProfile(ctx context.Context, c *gizcli.Client, name string) (apitypes.RuntimeProfile, error) {
+func DeleteRuntimeProfile(ctx context.Context, c *gizcli.Client, id string) (apitypes.RuntimeProfile, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
-	resp, err := api.DeleteRuntimeProfileWithResponse(ctx, name)
+	resp, err := api.DeleteRuntimeProfileWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
@@ -1335,12 +1335,12 @@ func CreateRegistrationToken(ctx context.Context, c *gizcli.Client, req adminhtt
 	return apitypes.RegistrationToken{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
 }
 
-func PutRegistrationToken(ctx context.Context, c *gizcli.Client, name string, req adminhttp.RegistrationTokenUpsert) (apitypes.RegistrationToken, error) {
+func PutRegistrationToken(ctx context.Context, c *gizcli.Client, id string, req adminhttp.RegistrationTokenUpsert) (apitypes.RegistrationToken, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.RegistrationToken{}, err
 	}
-	resp, err := api.PutRegistrationTokenWithResponse(ctx, name, req)
+	resp, err := api.PutRegistrationTokenWithResponse(ctx, id, req)
 	if err != nil {
 		return apitypes.RegistrationToken{}, err
 	}
@@ -1350,12 +1350,12 @@ func PutRegistrationToken(ctx context.Context, c *gizcli.Client, name string, re
 	return apitypes.RegistrationToken{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
 }
 
-func GetRegistrationToken(ctx context.Context, c *gizcli.Client, name string) (apitypes.RegistrationToken, error) {
+func GetRegistrationToken(ctx context.Context, c *gizcli.Client, id string) (apitypes.RegistrationToken, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.RegistrationToken{}, err
 	}
-	resp, err := api.GetRegistrationTokenWithResponse(ctx, name)
+	resp, err := api.GetRegistrationTokenWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.RegistrationToken{}, err
 	}
@@ -1365,12 +1365,12 @@ func GetRegistrationToken(ctx context.Context, c *gizcli.Client, name string) (a
 	return apitypes.RegistrationToken{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func DeleteRegistrationToken(ctx context.Context, c *gizcli.Client, name string) (apitypes.RegistrationToken, error) {
+func DeleteRegistrationToken(ctx context.Context, c *gizcli.Client, id string) (apitypes.RegistrationToken, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.RegistrationToken{}, err
 	}
-	resp, err := api.DeleteRegistrationTokenWithResponse(ctx, name)
+	resp, err := api.DeleteRegistrationTokenWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.RegistrationToken{}, err
 	}

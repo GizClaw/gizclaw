@@ -57,11 +57,12 @@ policy、alias 或 Peer transport 内部对象。`ResolveTools` 与 `InvokeTool`
 Transform context 读取 scope，因此一个 Workspace Agent 可以由不同 Profile 和
 handler 的多个 Peer 并发共享；Invoker 不捕获构造 Agent 时的 Peer 状态。
 
-Workspace 与 Workflow policy 只包含 canonical Tool Resource name，并且只能缩小
+Workspace 与 Workflow policy 只包含 canonical Tool resource ID，并且只能缩小
 当前 Peer Profile 选择的集合。缺少 Tool scope 会返回明确配置错误。Disconnect、
 reload、stop 或 connection replacement 会取消旧 context；迟到调用不能转发到新
 connection 或其他在线 Peer。Resource declaration 与 provider Credential 在调用时
-读取，可能产生副作用的 Tool 永远不会自动 retry。
+读取；只有完成基于 ID 的授权后，AgentHost 才使用 Tool 的不可变 execution name
+分发。可能产生副作用的 Tool 永远不会自动 retry。
 
 ## Store 依赖 ownership
 

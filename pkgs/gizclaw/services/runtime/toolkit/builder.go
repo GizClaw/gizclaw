@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sort"
 	"strings"
 )
 
@@ -23,25 +24,26 @@ func (b *Builder) Build(ctx context.Context, req BuildRequest) (ToolKit, error) 
 	if b == nil || b.Tools == nil {
 		return ToolKit{}, ErrNotConfigured
 	}
-	names := orderedToolNames(req.ProfileTools)
-	tools := make([]Tool, 0, len(names))
-	for _, name := range names {
-		tool, err := b.Tools.GetTool(ctx, name)
+	ids := orderedToolIDs(req.ProfileTools)
+	tools := make([]Tool, 0, len(ids))
+	for _, id := range ids {
+		tool, err := b.Tools.GetToolByID(ctx, id)
 		if errors.Is(err, ErrToolNotFound) {
-			return ToolKit{}, fmt.Errorf("%w: RuntimeProfile references %q", ErrToolNotFound, name)
+			return ToolKit{}, fmt.Errorf("%w: RuntimeProfile references Tool ID %q", ErrToolNotFound, id)
 		}
 		if err != nil {
 			return ToolKit{}, err
 		}
 		tools = append(tools, tool)
 	}
-	allowedPolicy := toolNameSet(req.AllowedTools, req.RestrictTools || len(req.AllowedTools) > 0)
+	sort.Slice(tools, func(i, j int) bool { return tools[i].Name < tools[j].Name })
+	allowedPolicy := toolIDSet(req.AllowedTools, req.RestrictTools || len(req.AllowedTools) > 0)
 	out := make([]Tool, 0, len(tools))
 	for _, tool := range tools {
 		if !tool.Enabled {
 			continue
 		}
-		if allowedPolicy != nil && !allowedPolicy[tool.Name] {
+		if allowedPolicy != nil && !allowedPolicy[tool.ID] {
 			continue
 		}
 		out = append(out, tool)
@@ -49,7 +51,7 @@ func (b *Builder) Build(ctx context.Context, req BuildRequest) (ToolKit, error) 
 	return ToolKit{Tools: cloneTools(out)}, nil
 }
 
-func orderedToolNames(profile []string) []string {
+func orderedToolIDs(profile []string) []string {
 	seen := make(map[string]struct{}, len(profile))
 	out := make([]string, 0, len(profile))
 	for _, id := range profile {
@@ -66,7 +68,7 @@ func orderedToolNames(profile []string) []string {
 	return out
 }
 
-func toolNameSet(ids []string, restrict bool) map[string]bool {
+func toolIDSet(ids []string, restrict bool) map[string]bool {
 	if !restrict {
 		return nil
 	}

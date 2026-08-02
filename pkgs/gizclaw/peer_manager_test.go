@@ -470,6 +470,7 @@ func TestManagerWorkspaceHistoryEventsUseCurrentDirectChatAccess(t *testing.T) {
 	manager := NewManager(nil)
 	manager.Friends = friends
 	manager.Workspaces = staticWorkspaceService{workspace: apitypes.Workspace{
+		Id:             "id-" + workspaceName,
 		Name:           workspaceName,
 		OwnerPublicKey: &owner,
 		Parameters: socialutil.ChatRoomWorkspaceParameters(
@@ -495,7 +496,7 @@ func TestManagerWorkspaceHistoryEventsUseCurrentDirectChatAccess(t *testing.T) {
 
 	manager.broadcastWorkspaceHistoryUpdated(
 		ctx,
-		workspaceName,
+		"id-"+workspaceName,
 		time.UnixMilli(1234),
 	)
 	for _, key := range []giznet.PublicKey{first, second} {
@@ -520,7 +521,7 @@ func TestManagerWorkspaceHistoryEventsUseCurrentDirectChatAccess(t *testing.T) {
 	}
 	manager.broadcastWorkspaceHistoryUpdated(
 		ctx,
-		workspaceName,
+		"id-"+workspaceName,
 		time.UnixMilli(5678),
 	)
 	time.Sleep(10 * time.Millisecond)
@@ -583,6 +584,7 @@ func TestManagerChatroomAccessUsesAuthoritativeRelationships(t *testing.T) {
 	}
 	workspaceName := socialutil.StringValue(relation.WorkspaceName)
 	directWorkspace := apitypes.Workspace{
+		Id:         "id-" + workspaceName,
 		Name:       workspaceName,
 		Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
 	}
@@ -627,6 +629,7 @@ func TestManagerChatroomAccessUsesAuthoritativeRelationships(t *testing.T) {
 		t.Fatalf("AddFriendGroupMember: %v", err)
 	}
 	groupWorkspace := apitypes.Workspace{
+		Id:         "id-" + socialStringValue(group.WorkspaceName),
 		Name:       socialStringValue(group.WorkspaceName),
 		Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeGroup),
 	}
@@ -677,7 +680,7 @@ func (s staticWorkspaceService) DeleteWorkspace(context.Context, adminhttp.Delet
 }
 
 func (s staticWorkspaceService) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
-	if string(request.Id) != s.workspace.Name {
+	if string(request.Id) != s.workspace.Id {
 		return adminhttp.GetWorkspace404JSONResponse{}, nil
 	}
 	return adminhttp.GetWorkspace200JSONResponse(s.workspace), nil

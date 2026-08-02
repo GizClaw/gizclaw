@@ -4454,7 +4454,7 @@ type FriendGroupInviteTokenResourceKind string
 type FriendGroupInviteTokenSpec struct {
 	ExpiresAt time.Time `json:"expires_at"`
 
-	// FriendGroupId Friend group custom ID. The invite_token value is not a custom ID.
+	// FriendGroupId Opaque canonical FriendGroup ID returned by the Server. The invite_token value is not a resource ID.
 	FriendGroupId string `json:"friend_group_id"`
 	InviteToken   string `json:"invite_token"`
 }
@@ -4478,7 +4478,7 @@ type FriendGroupMemberRole string
 
 // FriendGroupMemberSpec defines model for FriendGroupMemberSpec.
 type FriendGroupMemberSpec struct {
-	// FriendGroupId Friend group custom ID. The peer_public_key segment is not a custom ID.
+	// FriendGroupId Opaque canonical FriendGroup ID returned by the Server. The peer_public_key segment is not a resource ID.
 	FriendGroupId string                `json:"friend_group_id"`
 	PeerPublicKey string                `json:"peer_public_key"`
 	Role          FriendGroupMemberRole `json:"role"`
@@ -6225,7 +6225,7 @@ type ToolResource struct {
 	ApiVersion ResourceAPIVersion `json:"apiVersion"`
 	Kind       ToolResourceKind   `json:"kind"`
 
-	// Metadata metadata.name is the canonical Tool name. It must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$ and is the only execution identity.
+	// Metadata metadata.id is the canonical Tool resource ID when updating. metadata.name is the immutable runtime execution name and must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$.
 	Metadata ResourceMetadata `json:"metadata"`
 
 	// Spec Strict Tool declaration selected by type. metadata.name is the only Tool identity.
@@ -6261,7 +6261,7 @@ type ToolType string
 
 // ToolkitPolicy Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 type ToolkitPolicy struct {
-	// ToolIds Allowed canonical Tool Resource names. RuntimeProfile aliases are not accepted.
+	// ToolIds Allowed canonical Tool resource IDs. RuntimeProfile aliases and Tool names are not accepted.
 	ToolIds *[]string `json:"tool_ids,omitempty"`
 }
 
@@ -6441,7 +6441,7 @@ type WorkflowResource struct {
 	ApiVersion ResourceAPIVersion   `json:"apiVersion"`
 	Kind       WorkflowResourceKind `json:"kind"`
 
-	// Metadata metadata.name is the workflow custom ID.
+	// Metadata metadata.id is the canonical Workflow ID when updating, and metadata.name is the immutable Workflow name used by Peer RPC projections.
 	Metadata ResourceMetadata `json:"metadata"`
 
 	// Spec Workflow union: one reusable non-Pet variant or the Pet domain wrapper.

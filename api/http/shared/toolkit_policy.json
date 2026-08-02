@@ -19,7 +19,7 @@
               "minLength": 1
             },
             "uniqueItems": true,
-            "description": "Allowed canonical Tool Resource names. RuntimeProfile aliases are not accepted."
+            "description": "Allowed canonical Tool resource IDs. RuntimeProfile aliases and Tool names are not accepted."
           }
         },
         "additionalProperties": false

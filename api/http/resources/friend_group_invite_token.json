@@ -49,10 +49,8 @@
         "properties": {
           "friend_group_id": {
             "type": "string",
-            "minLength": 8,
-            "maxLength": 48,
-            "pattern": "^[a-z][a-z0-9._-]{6,46}[a-z0-9]$",
-            "description": "Friend group custom ID. The invite_token value is not a custom ID."
+            "minLength": 1,
+            "description": "Opaque canonical FriendGroup ID returned by the Server. The invite_token value is not a resource ID."
           },
           "invite_token": {
             "type": "string"

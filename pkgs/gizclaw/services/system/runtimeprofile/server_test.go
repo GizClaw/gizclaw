@@ -1372,6 +1372,7 @@ func TestNormalizeMemoryBindingEnforcesStrictDriverConnectionOneOf(t *testing.T)
 		wantErr string
 	}{
 		{name: "managed Flowcraft BBH", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_bbh"}}`},
+		{name: "opaque canonical layout ID", raw: `{"layout_id":"1234opaque","driver":"flowcraft","connection":{"type":"flowcraft_bbh"}}`},
 		{name: "Flowcraft object store", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_object_store","directory":"/var/lib/gizclaw/memory"}}`},
 		{name: "Flowcraft PostgreSQL", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_postgresql","dsn":"postgres://gizclaw:secret@db/memory"}}`},
 		{name: "Mem0", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://api.mem0.ai","api_key":"key","poll_interval":"500ms"}}`},

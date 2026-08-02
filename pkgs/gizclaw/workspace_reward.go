@@ -220,7 +220,7 @@ func (m *Manager) handleWorkspaceHistoryUpdated(
 		return
 	}
 	if m.Gameplay != nil {
-		workspace, resolveErr := resolveWorkspaceByName(ctx, m.Workspaces, workspaceID)
+		workspace, resolveErr := resolveWorkspaceByID(ctx, m.Workspaces, workspaceID)
 		if resolveErr == nil {
 			resolveErr = m.Gameplay.EnqueueWorkspaceRewardActivity(workspace.Id, entry)
 		}

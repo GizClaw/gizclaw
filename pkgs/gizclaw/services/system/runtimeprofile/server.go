@@ -770,8 +770,8 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 
 func normalizeMemoryBinding(binding apitypes.RuntimeProfileMemoryBinding) (apitypes.RuntimeProfileMemoryBinding, error) {
 	binding.LayoutId = strings.TrimSpace(binding.LayoutId)
-	if err := customid.ValidateField("layout_id", binding.LayoutId); err != nil {
-		return binding, err
+	if binding.LayoutId == "" {
+		return binding, errors.New("layout_id is required")
 	}
 	if !binding.Driver.Valid() {
 		return binding, fmt.Errorf("unsupported driver %q", binding.Driver)

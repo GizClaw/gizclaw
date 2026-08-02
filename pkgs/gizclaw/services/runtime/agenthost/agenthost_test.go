@@ -471,7 +471,7 @@ func TestHostTransformReusesAgentForConcurrentSameWorkspace(t *testing.T) {
 }
 
 func TestHostUsesCanonicalWorkspaceLeaseAcrossRuntimeProfiles(t *testing.T) {
-	spec := Spec{Workspace: apitypes.Workspace{Name: "system"}, AgentType: "echo"}
+	spec := Spec{Workspace: apitypes.Workspace{Id: "workspace-system", Name: "system"}, AgentType: "echo"}
 	host := New(fakeResolver{spec: spec})
 	createCount := 0
 	if err := host.Register("echo", FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
@@ -482,7 +482,7 @@ func TestHostUsesCanonicalWorkspaceLeaseAcrossRuntimeProfiles(t *testing.T) {
 	}
 	firstContext := WithResourceAccess(t.Context(), "peer-a", nil, nil, "profile-a")
 	secondContext := WithResourceAccess(t.Context(), "peer-b", nil, nil, "profile-b")
-	if runtimeKey("system") != runtimeKey("system") {
+	if runtimeKey(spec.Workspace.Id) != runtimeKey(spec.Workspace.Id) {
 		t.Fatal("canonical Workspace identity must be stable across RuntimeProfiles")
 	}
 	first, release, err := host.OpenAgent(firstContext, "system")
@@ -506,6 +506,48 @@ func TestHostUsesCanonicalWorkspaceLeaseAcrossRuntimeProfiles(t *testing.T) {
 		t.Fatalf("factory calls after final release = %d, want 2", createCount)
 	}
 	releaseThird()
+}
+
+func TestHostSeparatesSameNamedWorkspacesByCanonicalID(t *testing.T) {
+	resolver := workspacePatternResolver{
+		"first":  {Workspace: apitypes.Workspace{Id: "workspace-first", Name: "shared"}, AgentType: "echo"},
+		"second": {Workspace: apitypes.Workspace{Id: "workspace-second", Name: "shared"}, AgentType: "echo"},
+	}
+	host := New(resolver)
+	created := 0
+	if err := host.Register("echo", agentFactoryFunc(func(context.Context, Spec) (Agent, error) {
+		created++
+		return &pointerTestAgent{Agent: NewTransformerAgent(passthroughTransformer{})}, nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+	first, releaseFirst, err := host.OpenAgent(t.Context(), "first")
+	if err != nil {
+		t.Fatalf("OpenAgent(first) error = %v", err)
+	}
+	defer releaseFirst()
+	second, releaseSecond, err := host.OpenAgent(t.Context(), "second")
+	if err != nil {
+		t.Fatalf("OpenAgent(second) error = %v", err)
+	}
+	defer releaseSecond()
+	if first == second || created != 2 {
+		t.Fatalf("same-named Workspace agents = (%p, %p), factory calls = %d; want isolated instances", first, second, created)
+	}
+	for _, id := range []string{"workspace-first", "workspace-second"} {
+		if _, err := host.coordinator().Acquire(t.Context(), id); !errors.Is(err, ErrWorkspaceBusy) {
+			t.Fatalf("Acquire(%q) error = %v, want %v", id, err, ErrWorkspaceBusy)
+		}
+	}
+}
+
+func TestHostRejectsWorkspaceWithoutCanonicalID(t *testing.T) {
+	host := New(workspacePatternResolver{
+		"missing": {Workspace: apitypes.Workspace{Name: "shared"}, AgentType: "echo"},
+	})
+	if _, _, err := host.OpenAgent(t.Context(), "missing"); err == nil || !strings.Contains(err.Error(), "workspace ID is required") {
+		t.Fatalf("OpenAgent() error = %v, want canonical Workspace ID failure", err)
+	}
 }
 
 func TestHostTransformReleasesWhenOutputEnds(t *testing.T) {
@@ -825,6 +867,16 @@ type fakeResolver struct {
 	err  error
 }
 
+type workspacePatternResolver map[string]Spec
+
+func (r workspacePatternResolver) Resolve(_ context.Context, pattern string) (Spec, error) {
+	spec, ok := r[pattern]
+	if !ok {
+		return Spec{}, errors.New("workspace not found")
+	}
+	return spec, nil
+}
+
 type agentFactoryFunc func(context.Context, Spec) (Agent, error)
 
 func (f agentFactoryFunc) NewAgent(ctx context.Context, spec Spec) (Agent, error) {
@@ -837,6 +889,10 @@ type closeTrackingAgent struct {
 	close func()
 }
 
+type pointerTestAgent struct {
+	Agent
+}
+
 func (a *closeTrackingAgent) Close() error {
 	a.once.Do(a.close)
 	return nil
@@ -845,6 +901,9 @@ func (a *closeTrackingAgent) Close() error {
 func (r fakeResolver) Resolve(context.Context, string) (Spec, error) {
 	if r.err != nil {
 		return Spec{}, r.err
+	}
+	if r.spec.Workspace.Id == "" && r.spec.Workspace.Name != "" {
+		r.spec.Workspace.Id = "id-" + r.spec.Workspace.Name
 	}
 	return r.spec, nil
 }

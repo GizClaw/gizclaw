@@ -451,13 +451,6 @@ func TestSocialResourceValidationRejectsInvalidCustomIDs(t *testing.T) {
 	}`))
 	assertResourceError(t, err, 400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE")
 
-	_, err = manager.Apply(context.Background(), mustResource(t, `{
-		"apiVersion": "gizclaw.admin/v1alpha1",
-		"kind": "FriendGroupInviteToken",
-		"metadata": {"name": "family"},
-		"spec": {"friend_group_id": "family", "invite_token": "token", "expires_at": "2099-01-01T00:00:00Z"}
-	}`))
-	assertResourceError(t, err, 400, "INVALID_FRIEND_GROUP_INVITE_TOKEN_RESOURCE")
 }
 
 func TestSocialResourcesRequireConfiguredServices(t *testing.T) {

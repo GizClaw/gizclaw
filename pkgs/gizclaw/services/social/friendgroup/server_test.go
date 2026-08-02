@@ -157,6 +157,46 @@ func TestAdminCreateFriendGroupRollsBackWorkspaceOnGroupWriteFailure(t *testing.
 	}
 }
 
+func TestAdminCreateFriendGroupCreatesOwnerMembership(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer(t)
+	group, err := s.AdminCreateFriendGroup(ctx, "peer-a", "family", nil, nil)
+	if err != nil {
+		t.Fatalf("AdminCreateFriendGroup: %v", err)
+	}
+	member, err := s.AdminGetFriendGroupMember(ctx, group.Id, "peer-a")
+	if err != nil {
+		t.Fatalf("AdminGetFriendGroupMember: %v", err)
+	}
+	if got := socialutil.StringValue(member.FriendGroupName); got != "family" {
+		t.Fatalf("owner membership name = %q, want family", got)
+	}
+	if got := socialutil.GroupRole(member); got != rpcapi.FriendGroupMemberRoleOwner {
+		t.Fatalf("owner membership role = %q, want owner", got)
+	}
+}
+
+func TestAdminCreateFriendGroupRollsBackOnOwnerMembershipWriteFailure(t *testing.T) {
+	ctx := t.Context()
+	groups := kv.NewMemory(nil)
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer(t)
+	s.Groups = groups
+	s.Members = failingSetStore{Store: kv.NewMemory(nil)}
+	s.Workspaces = workspaces
+	s.RuntimeProfileForOwner = testRuntimeProfileForOwner
+
+	if _, err := s.AdminCreateFriendGroup(ctx, "peer-a", "family", nil, nil); err == nil {
+		t.Fatal("AdminCreateFriendGroup with failing member store error = nil")
+	}
+	if _, err := groups.Get(ctx, socialutil.GroupKey("id-a")); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("group after rollback error = %v, want not found", err)
+	}
+	if len(workspaces.deleted) != 1 {
+		t.Fatalf("deleted workspaces = %#v, want one workspace rollback", workspaces.deleted)
+	}
+}
+
 func TestAdminDeleteFriendGroupMemberRollsBackWhenBelongsDeleteFails(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer(t)

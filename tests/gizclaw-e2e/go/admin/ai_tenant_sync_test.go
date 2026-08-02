@@ -34,28 +34,40 @@ func TestAdminAPISyncVolcTenantVoicesForWorkspaceUse(t *testing.T) {
 
 	providerKind := adminhttp.VoiceProviderKind(apitypes.VoiceProviderKindVolcTenant)
 	source := adminhttp.VoiceSource(apitypes.VoiceSourceSync)
-	limit := int32(200)
-	voices, err := env.api.ListVoicesWithResponse(env.ctx, &adminhttp.ListVoicesParams{
-		Limit: &limit, ProviderKind: &providerKind, ProviderId: &tenant.Id, Source: &source,
+	voices := collectAdminPages(t, 200, func(cursor *string, limit int32) ([]apitypes.Voice, bool, *string) {
+		resp, err := env.api.ListVoicesWithResponse(env.ctx, &adminhttp.ListVoicesParams{
+			Cursor: cursor, Limit: &limit, ProviderKind: &providerKind, ProviderId: &tenant.Id, Source: &source,
+		})
+		if err != nil {
+			t.Fatalf("list synced Volc voices: %v", err)
+		}
+		requireStatusOK(t, resp, resp.Body)
+		if resp.JSON200 == nil {
+			t.Fatal("list synced Volc voices missing JSON200")
+		}
+		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	if err != nil {
-		t.Fatalf("list synced Volc voices: %v", err)
-	}
-	requireStatusOK(t, voices, voices.Body)
-	for _, voiceName := range []string{
-		"volc-tenant:volc-main:zh_female_vv_mars_bigtts",
-		"volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-		"volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
-		"volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
-		"volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts",
-		"volc-tenant:volc-main:ICL_zh_female_bingjiao3_tob",
+	for _, voiceID := range []string{
+		"zh_female_vv_mars_bigtts",
+		"zh_female_shaoergushi_mars_bigtts",
+		"zh_male_sunwukong_mars_bigtts",
+		"zh_male_tangseng_mars_bigtts",
+		"zh_male_zhubajie_mars_bigtts",
+		"ICL_zh_female_bingjiao3_tob",
 	} {
 		found := false
-		for _, item := range voices.JSON200.Items {
-			found = found || item.Name == voiceName && item.Source == apitypes.VoiceSourceSync
+		for _, item := range voices {
+			if item.Provider.Id != tenant.Id || item.ProviderData == nil || item.Source != apitypes.VoiceSourceSync {
+				continue
+			}
+			provider, decodeErr := item.ProviderData.AsVolcTenantVoiceProviderData()
+			found = decodeErr == nil && provider.VoiceId != nil && *provider.VoiceId == voiceID
+			if found {
+				break
+			}
 		}
 		if !found {
-			t.Fatalf("synced Volc voice %q is missing from %#v", voiceName, voices.JSON200.Items)
+			t.Fatalf("synced Volc provider voice %q is missing", voiceID)
 		}
 	}
 }

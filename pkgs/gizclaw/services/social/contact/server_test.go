@@ -255,7 +255,7 @@ func TestAdminApplyContactCreatesWithoutIDAndUpdatesWithMatchingIDName(t *testin
 	}
 }
 
-func TestAdminContactRejectsInvalidName(t *testing.T) {
+func TestAdminContactAcceptsShortNameAndRejectsPaddedName(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
 
@@ -263,8 +263,8 @@ func TestAdminContactRejectsInvalidName(t *testing.T) {
 		OwnerPublicKey: "peer-a",
 		Name:           "alice",
 		DisplayName:    strPtr("Alice"),
-	}); err == nil {
-		t.Fatal("AdminCreateContact accepted short name")
+	}); err != nil {
+		t.Fatalf("AdminCreateContact short Peer name: %v", err)
 	}
 	if _, err := s.AdminApplyContact(ctx, "peer-a", "", " alice001 ", strPtr("Alice"), nil); err == nil {
 		t.Fatal("AdminApplyContact accepted padded name")

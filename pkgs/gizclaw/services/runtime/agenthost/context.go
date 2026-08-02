@@ -88,25 +88,25 @@ func WithToolExecution(
 		aliases = append(aliases, alias)
 	}
 	sort.Strings(aliases)
-	names := make([]string, 0, len(aliases))
+	ids := make([]string, 0, len(aliases))
 	seen := make(map[string]string, len(aliases))
 	for _, alias := range aliases {
-		name := strings.TrimSpace((*bindings)[alias].ResourceId)
-		if name == "" {
-			return nil, fmt.Errorf("agenthost: runtime Tool alias %q has an empty resource name", alias)
+		id := strings.TrimSpace((*bindings)[alias].ResourceId)
+		if id == "" {
+			return nil, fmt.Errorf("agenthost: runtime Tool alias %q has an empty resource ID", alias)
 		}
-		if previous, duplicate := seen[name]; duplicate {
+		if previous, duplicate := seen[id]; duplicate {
 			return nil, fmt.Errorf(
 				"agenthost: runtime Tool aliases %q and %q bind the same canonical Tool %q",
-				previous, alias, name,
+				previous, alias, id,
 			)
 		}
-		seen[name] = alias
-		names = append(names, name)
+		seen[id] = alias
+		ids = append(ids, id)
 	}
-	sort.Strings(names)
+	sort.Strings(ids)
 	return context.WithValue(ctx, toolExecutionContextKey{}, toolExecutionContext{
-		profileTools: names,
+		profileTools: ids,
 		client:       client,
 	}), nil
 }

@@ -44,7 +44,7 @@ func newListCmd(ctxName *string) *cobra.Command {
 
 func newGetCmd(ctxName *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <name>",
+		Use:   "get <id>",
 		Short: "Get a DashScope tenant",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

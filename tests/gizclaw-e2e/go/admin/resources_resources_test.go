@@ -23,7 +23,11 @@ var (
 func TestAdminAPIResourcesGet(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
-	get, err := env.api.GetResourceWithResponse(env.ctx, apitypes.ResourceKindWorkflow, "flowcraft-chat-assistant")
+	workflowID, err := clitest.ResourceIDByName(env.ctx, env.api, "Workflow", "flowcraft-chat-assistant")
+	if err != nil {
+		t.Fatalf("resolve workflow resource: %v", err)
+	}
+	get, err := env.api.GetResourceWithResponse(env.ctx, apitypes.ResourceKindWorkflow, workflowID)
 	if err != nil {
 		t.Fatalf("get workflow resource: %v", err)
 	}

@@ -120,6 +120,28 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 	if err != nil {
 		return Spec{}, err
 	}
+	return r.resolveWorkspace(ctx, ws)
+}
+
+// ResolveByID loads a Workspace through its canonical Admin identity. Peer
+// runtimes use this only after their name-based access check has resolved the
+// selected Workspace, so shared system Workspaces never depend on one
+// participant's name index.
+func (r ServiceResolver) ResolveByID(ctx context.Context, workspaceID string) (Spec, error) {
+	if r.Workspaces == nil {
+		return Spec{}, fmt.Errorf("agenthost: workspace service is required")
+	}
+	if r.Workflows == nil {
+		return Spec{}, fmt.Errorf("agenthost: workflow service is required")
+	}
+	ws, err := r.getWorkspaceByID(ctx, strings.TrimSpace(workspaceID))
+	if err != nil {
+		return Spec{}, err
+	}
+	return r.resolveWorkspace(ctx, ws)
+}
+
+func (r ServiceResolver) resolveWorkspace(ctx context.Context, ws apitypes.Workspace) (Spec, error) {
 	resolutionCtx, err := r.ownerRuntimeContext(ctx, ws)
 	if err != nil {
 		return Spec{}, err

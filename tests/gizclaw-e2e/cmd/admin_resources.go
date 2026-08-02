@@ -46,6 +46,7 @@ func UpsertRuntimeProfileByName(ctx context.Context, api *adminhttp.ClientWithRe
 type SocialFixtureIDs struct {
 	FriendID           string
 	FriendGroupID      string
+	FriendGroupName    string
 	ClientMembershipID string
 }
 
@@ -81,6 +82,7 @@ func EnsureSocialFixture(ctx context.Context, api *adminhttp.ClientWithResponses
 	for _, item := range groups.JSON200.Items {
 		if item.CreatedByPeerPublicKey == ownerPublicKey && item.Name == "family-circle" {
 			ids.FriendGroupID = item.Id
+			ids.FriendGroupName = item.Name
 			break
 		}
 	}
@@ -92,11 +94,15 @@ func EnsureSocialFixture(ctx context.Context, api *adminhttp.ClientWithResponses
 			return ids, listResponseError("create FriendGroup", created, err)
 		}
 		ids.FriendGroupID = created.JSON200.Id
+		ids.FriendGroupName = created.JSON200.Name
 	} else {
 		updated, err := api.PutFriendGroupWithResponse(ctx, ids.FriendGroupID, adminhttp.AdminFriendGroupPutRequest{DisplayName: &displayName, Description: &description})
 		if err != nil || updated.JSON200 == nil {
 			return ids, listResponseError("put FriendGroup", updated, err)
 		}
+	}
+	if ids.FriendGroupName == "" {
+		ids.FriendGroupName = "family-circle"
 	}
 
 	members, err := api.ListFriendGroupMembersWithResponse(ctx, ids.FriendGroupID, &adminhttp.ListFriendGroupMembersParams{Limit: &limit})
@@ -105,7 +111,7 @@ func EnsureSocialFixture(ctx context.Context, api *adminhttp.ClientWithResponses
 	}
 	for _, item := range members.JSON200.Items {
 		if item.PeerPublicKey == clientPublicKey {
-			ids.ClientMembershipID = item.Id
+			ids.ClientMembershipID = ids.FriendGroupID + ":" + item.PeerPublicKey
 			break
 		}
 	}
@@ -116,7 +122,7 @@ func EnsureSocialFixture(ctx context.Context, api *adminhttp.ClientWithResponses
 		if err != nil || created.JSON200 == nil {
 			return ids, listResponseError("create FriendGroupMember", created, err)
 		}
-		ids.ClientMembershipID = created.JSON200.Id
+		ids.ClientMembershipID = ids.FriendGroupID + ":" + created.JSON200.PeerPublicKey
 	} else {
 		updated, err := api.PutFriendGroupMemberWithResponse(ctx, ids.FriendGroupID, clientPublicKey, adminhttp.AdminFriendGroupMemberPutRequest{Role: rpcapi.FriendGroupMemberRoleMember})
 		if err != nil || updated.JSON200 == nil {
@@ -460,7 +466,7 @@ func DeleteRegistrationTokenByName(ctx context.Context, api *adminhttp.ClientWit
 				if err != nil {
 					return err
 				}
-				if deleted.StatusCode() != 204 {
+				if deleted.StatusCode() != 200 {
 					return fmt.Errorf("delete RegistrationToken %q status %d: %s", name, deleted.StatusCode(), strings.TrimSpace(string(deleted.Body)))
 				}
 				return nil

@@ -22,14 +22,15 @@ func TestResolveInvokeReauthorizesAndValidatesArguments(t *testing.T) {
 			Not: &jsonschema.Schema{},
 		},
 	}
-	if _, err := server.CreateTool(context.Background(), tool); err != nil {
+	created, err := server.CreateTool(context.Background(), tool)
+	if err != nil {
 		t.Fatalf("PutTool(): %v", err)
 	}
 	builder := &Builder{Tools: server}
 	resolved, args, err := builder.ResolveInvoke(context.Background(), InvokeRequest{
 		Build: BuildRequest{
-			ProfileTools:  []string{"volume_set"},
-			AllowedTools:  []string{"volume_set"},
+			ProfileTools:  []string{created.ID},
+			AllowedTools:  []string{created.ID},
 			RestrictTools: true,
 		},
 		Name: "volume_set",
@@ -44,7 +45,7 @@ func TestResolveInvokeReauthorizesAndValidatesArguments(t *testing.T) {
 
 	for _, bad := range []json.RawMessage{json.RawMessage(`[]`), json.RawMessage(`{"level":"loud"}`), json.RawMessage(`{"level":7,"extra":true}`)} {
 		if _, _, err := builder.ResolveInvoke(context.Background(), InvokeRequest{
-			Build: BuildRequest{ProfileTools: []string{"volume_set"}},
+			Build: BuildRequest{ProfileTools: []string{created.ID}},
 			Name:  "volume_set",
 			Args:  bad,
 		}); !errors.Is(err, ErrInvalidTool) {
@@ -61,7 +62,7 @@ func TestResolveInvokeRejectsUnboundAliasAndSeesResourceUpdate(t *testing.T) {
 		t.Fatalf("PutTool(): %v", err)
 	}
 	builder := &Builder{Tools: server}
-	request := BuildRequest{ProfileTools: []string{"volume_set"}}
+	request := BuildRequest{ProfileTools: []string{created.ID}}
 	if _, _, err := builder.ResolveInvoke(context.Background(), InvokeRequest{
 		Build: request,
 		Name:  "device-volume",

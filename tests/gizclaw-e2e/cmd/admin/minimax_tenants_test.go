@@ -19,10 +19,14 @@ func TestAdminMiniMaxTenantsUserStory(t *testing.T) {
 	if !strings.Contains(list.Stdout, `"name":"minimax-cn"`) {
 		t.Fatalf("minimax-cn tenant is not configured in this e2e environment: %s", strings.TrimSpace(list.Stdout))
 	}
+	tenantID := adminResourceID(t, list.Stdout, "minimax-cn")
+	credentials := h.RunCLI("admin", "credentials", "list", "--context", "admin-a")
+	credentials.MustSucceed(t)
+	credentialID := adminResourceID(t, credentials.Stdout, "minimax-cn-credential")
 
-	get := h.RunCLI("admin", "minimax-tenants", "get", "minimax-cn", "--context", "admin-a")
+	get := h.RunCLI("admin", "minimax-tenants", "get", tenantID, "--context", "admin-a")
 	get.MustSucceed(t)
-	if !strings.Contains(get.Stdout, `"credential_name":"minimax-cn-credential"`) {
+	if !strings.Contains(get.Stdout, `"credential_id":"`+credentialID+`"`) {
 		t.Fatalf("minimax tenants get missing credential:\n%s", get.Stdout)
 	}
 }

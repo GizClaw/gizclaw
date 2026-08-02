@@ -16,9 +16,7 @@
         "properties": {
           "workflow_id": {
             "type": "string",
-            "minLength": 8,
-            "maxLength": 48,
-            "pattern": "^[a-z][a-z0-9._-]{6,46}[a-z0-9]$",
+            "minLength": 1,
             "description": "Referenced Workflow canonical ID."
           },
           "parameters": {

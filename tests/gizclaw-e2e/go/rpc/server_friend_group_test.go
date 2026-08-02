@@ -91,6 +91,10 @@ func TestServerFriendGroupRPC(t *testing.T) {
 	if memberC.PeerPublicKey == nil || *memberC.PeerPublicKey != env.peer["peer-c"] {
 		t.Fatalf("member c peer_public_key = %#v", memberC.PeerPublicKey)
 	}
+	if memberC.FriendGroupName == nil || *memberC.FriendGroupName != "peer-c" {
+		t.Fatalf("member c friend_group_name = %#v, want peer-specific name", memberC.FriendGroupName)
+	}
+	peerCGroupName := *memberC.FriendGroupName
 	limit := 1
 	groups, err := env.a.ListFriendGroups(env.ctx, "friend_group.list.page1", rpcapi.FriendGroupListRequest{Limit: &limit})
 	if err != nil {
@@ -113,19 +117,19 @@ func TestServerFriendGroupRPC(t *testing.T) {
 	if len(members.Items) < 3 {
 		t.Fatalf("friend_group.members.list = %#v, want admin plus two members", members.Items)
 	}
-	messages, err := env.c.ListFriendGroupMessages(env.ctx, "friend_group.messages.list", rpcapi.FriendGroupMessageListRequest{FriendGroupName: group.Name})
+	messages, err := env.c.ListFriendGroupMessages(env.ctx, "friend_group.messages.list", rpcapi.FriendGroupMessageListRequest{FriendGroupName: peerCGroupName})
 	if err != nil {
 		t.Fatalf("friend_group.messages.list: %v", err)
 	}
 	for _, message := range messages.Items {
-		if message.FriendGroupName != group.Name || message.HistoryId == "" {
+		if message.FriendGroupName != peerCGroupName || message.HistoryId == "" {
 			t.Fatalf("friend_group.messages.list item = %#v", message)
 		}
 	}
 	missingHistoryID := "issue-686-missing-history"
 	var audio bytes.Buffer
 	audioResult, err := env.c.GetFriendGroupMessageAudio(env.ctx, "friend_group.messages.audio.get.missing", rpcapi.FriendGroupMessageAudioGetRequest{
-		FriendGroupName: group.Name,
+		FriendGroupName: peerCGroupName,
 		HistoryId:       missingHistoryID,
 	}, &audio)
 	if err == nil {
@@ -138,11 +142,11 @@ func TestServerFriendGroupRPC(t *testing.T) {
 	if audioResult.Metadata != (rpcapi.FriendGroupMessageAudioGetResponse{}) || audioResult.Bytes != 0 || audio.Len() != 0 {
 		t.Fatalf("friend_group.messages.audio.get missing result = %#v payload=%q, want zero result", audioResult, audio.String())
 	}
-	gotAfterAudioFailure, err := env.c.GetFriendGroup(env.ctx, "friend_group.get.after_audio_failure", rpcapi.FriendGroupGetRequest{Name: group.Name})
+	gotAfterAudioFailure, err := env.c.GetFriendGroup(env.ctx, "friend_group.get.after_audio_failure", rpcapi.FriendGroupGetRequest{Name: peerCGroupName})
 	if err != nil {
 		t.Fatalf("friend_group.get after audio failure: %v", err)
 	}
-	if gotAfterAudioFailure.Name != group.Name {
+	if gotAfterAudioFailure.Name != peerCGroupName {
 		t.Fatalf("friend_group.get after audio failure = %#v", gotAfterAudioFailure)
 	}
 	if _, err := env.d.GetFriendGroup(env.ctx, "friend_group.get.denied", rpcapi.FriendGroupGetRequest{Name: group.Name}); err == nil {

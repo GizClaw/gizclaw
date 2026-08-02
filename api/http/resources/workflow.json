@@ -32,7 +32,7 @@
                 "$ref": "./resource.json#/components/schemas/ResourceMetadata"
               }
             ],
-            "description": "metadata.name is the workflow custom ID."
+            "description": "metadata.id is the canonical Workflow ID when updating, and metadata.name is the immutable Workflow name used by Peer RPC projections."
           },
           "spec": {
             "$ref": "../shared/workflow_spec.json#/components/schemas/WorkflowSpec"

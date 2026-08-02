@@ -21,7 +21,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
@@ -973,9 +972,9 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 			return adminhttp.WorkspaceUpsert{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
 		}
 	}
-	workflowName := string(in.WorkflowId)
-	if err := validateWorkspaceWorkflowId(workflowName); err != nil {
-		return adminhttp.WorkspaceUpsert{}, err
+	workflowID := strings.TrimSpace(string(in.WorkflowId))
+	if workflowID == "" {
+		return adminhttp.WorkspaceUpsert{}, errors.New("workflow_id is required")
 	}
 	policy, err := toolkit.NormalizePolicy(in.Toolkit)
 	if err != nil {
@@ -990,15 +989,8 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 		Name:       string(name),
 		Parameters: cloneParameters(in.Parameters),
 		Toolkit:    policy,
-		WorkflowId: string(workflowName),
+		WorkflowId: workflowID,
 	}, nil
-}
-
-func validateWorkspaceWorkflowId(value string) error {
-	if err := customid.ValidateField("workflow_name", value); err == nil {
-		return nil
-	}
-	return runtimeprofile.ValidateAlias("workflow_name", value)
 }
 
 func normalizeWorkspaceLabels(labels *map[string]string) (*map[string]string, error) {

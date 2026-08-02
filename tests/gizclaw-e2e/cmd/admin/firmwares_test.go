@@ -45,7 +45,10 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 	dataTarPath := filepath.Join(h.SandboxDir, "data.tar")
 	writeFirmwareTarFile(t, dataTarPath, map[string]string{"assets/data.txt": "data firmware payload"})
 
-	put := h.RunCLI("admin", "firmwares", "put", "devkit", "-f", firmwarePath, "--context", "admin-a")
+	created := h.RunCLI("admin", "firmwares", "create", "-f", firmwarePath, "--context", "admin-a")
+	created.MustSucceed(t)
+	firmwareID := adminCreatedResourceID(t, created.Stdout)
+	put := h.RunCLI("admin", "firmwares", "put", firmwareID, "-f", firmwarePath, "--context", "admin-a")
 	put.MustSucceed(t)
 	assertContains(t, put.Stdout, `"name":"devkit"`, `"description":"stable channel"`)
 
@@ -53,63 +56,63 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 	list.MustSucceed(t)
 	assertContains(t, list.Stdout, `"name":"devkit"`, `"description":"Devkit firmware line"`)
 
-	get := h.RunCLI("admin", "firmwares", "get", "devkit", "--context", "admin-a")
+	get := h.RunCLI("admin", "firmwares", "get", firmwareID, "--context", "admin-a")
 	get.MustSucceed(t)
 	assertContains(t, get.Stdout, `"name":"devkit"`, `"description":"stable channel"`)
 
-	uploadApp := h.RunCLI("admin", "firmwares", "upload-artifact", "devkit", "--channel", "stable", "-f", appTarPath, "--context", "admin-a")
+	uploadApp := h.RunCLI("admin", "firmwares", "upload-artifact", firmwareID, "--channel", "stable", "-f", appTarPath, "--context", "admin-a")
 	uploadApp.MustSucceed(t)
-	assertContains(t, uploadApp.Stdout, `"tar_path":"devkit/stable/artifact/artifact.tar"`, `"sha256":`)
+	assertContains(t, uploadApp.Stdout, `"tar_path":"`+firmwareID+`/stable/artifact/artifact.tar"`, `"sha256":`)
 
-	artifactList := h.RunCLI("admin", "firmwares", "artifact", "ls", "devkit", "--channel", "stable", "--path", "firmware", "--context", "admin-a")
+	artifactList := h.RunCLI("admin", "firmwares", "artifact", "ls", firmwareID, "--channel", "stable", "--path", "firmware", "--context", "admin-a")
 	artifactList.MustSucceed(t)
 	assertContains(t, artifactList.Stdout, `"path":"firmware/main.bin"`, `"path":"firmware/voice_dsp.bin"`)
 
-	artifactTree := h.RunCLI("admin", "firmwares", "artifact", "tree", "devkit", "--channel", "stable", "--context", "admin-a")
+	artifactTree := h.RunCLI("admin", "firmwares", "artifact", "tree", firmwareID, "--channel", "stable", "--context", "admin-a")
 	artifactTree.MustSucceed(t)
 	assertContains(t, artifactTree.Stdout, `"path":"assets/icons/status.png"`, `"path":"config/device.json"`, `"path":"firmware/main.bin"`)
 
-	artifactStat := h.RunCLI("admin", "firmwares", "artifact", "stat", "devkit", "--channel", "stable", "--path", "assets/icons/status.png", "--context", "admin-a")
+	artifactStat := h.RunCLI("admin", "firmwares", "artifact", "stat", firmwareID, "--channel", "stable", "--path", "assets/icons/status.png", "--context", "admin-a")
 	artifactStat.MustSucceed(t)
 	assertContains(t, artifactStat.Stdout, `"path":"assets/icons/status.png"`, `"type":"file"`)
 
 	entryDownloadPath := filepath.Join(h.SandboxDir, "artifact-main.bin")
-	artifactDownload := h.RunCLI("admin", "firmwares", "artifact", "dl", "devkit", "--channel", "stable", "--path", "firmware/main.bin", "--output", entryDownloadPath, "--context", "admin-a")
+	artifactDownload := h.RunCLI("admin", "firmwares", "artifact", "dl", firmwareID, "--channel", "stable", "--path", "firmware/main.bin", "--output", entryDownloadPath, "--context", "admin-a")
 	artifactDownload.MustSucceed(t)
 	assertContains(t, artifactDownload.Stdout, `"output":"`+entryDownloadPath+`"`)
 	assertFileContent(t, entryDownloadPath, "app firmware payload")
 
 	tarDownloadPath := filepath.Join(h.SandboxDir, "stable-artifact.tar")
-	artifactTar := h.RunCLI("admin", "firmwares", "download-artifact", "devkit", "--channel", "stable", "--output", tarDownloadPath, "--context", "admin-a")
+	artifactTar := h.RunCLI("admin", "firmwares", "download-artifact", firmwareID, "--channel", "stable", "--output", tarDownloadPath, "--context", "admin-a")
 	artifactTar.MustSucceed(t)
 	assertContains(t, artifactTar.Stdout, `"output":"`+tarDownloadPath+`"`)
 	assertTarContains(t, tarDownloadPath, "firmware/main.bin", "assets/icons/status.png", "config/device.json")
 
-	uploadDevelop := h.RunCLI("admin", "firmwares", "upload-artifact", "devkit", "--channel", "develop", "-f", dataTarPath, "--context", "admin-a")
+	uploadDevelop := h.RunCLI("admin", "firmwares", "upload-artifact", firmwareID, "--channel", "develop", "-f", dataTarPath, "--context", "admin-a")
 	uploadDevelop.MustSucceed(t)
-	assertContains(t, uploadDevelop.Stdout, `"tar_path":"devkit/develop/artifact/artifact.tar"`)
+	assertContains(t, uploadDevelop.Stdout, `"tar_path":"`+firmwareID+`/develop/artifact/artifact.tar"`)
 
-	deleteDevelop := h.RunCLI("admin", "firmwares", "delete-artifact", "devkit", "--channel", "develop", "--context", "admin-a")
+	deleteDevelop := h.RunCLI("admin", "firmwares", "delete-artifact", firmwareID, "--channel", "develop", "--context", "admin-a")
 	deleteDevelop.MustSucceed(t)
 	assertContains(t, deleteDevelop.Stdout, `"name":"devkit"`)
 
-	uploadData := h.RunCLI("admin", "firmwares", "upload-artifact", "devkit", "--channel", "pending", "-f", dataTarPath, "--context", "admin-a")
+	uploadData := h.RunCLI("admin", "firmwares", "upload-artifact", firmwareID, "--channel", "pending", "-f", dataTarPath, "--context", "admin-a")
 	uploadData.MustSucceed(t)
-	assertContains(t, uploadData.Stdout, `"tar_path":"devkit/pending/artifact/artifact.tar"`, `"sha256":`)
+	assertContains(t, uploadData.Stdout, `"tar_path":"`+firmwareID+`/pending/artifact/artifact.tar"`, `"sha256":`)
 
-	release := h.RunCLI("admin", "firmwares", "release", "devkit", "--context", "admin-a")
+	release := h.RunCLI("admin", "firmwares", "release", firmwareID, "--context", "admin-a")
 	release.MustSucceed(t)
-	assertContains(t, release.Stdout, `"stable":{"artifact":{`, `"tar_path":"devkit/pending/artifact/artifact.tar"`, `"beta":{"artifact":{`, `"tar_path":"devkit/stable/artifact/artifact.tar"`)
+	assertContains(t, release.Stdout, `"stable":{"artifact":{`, `"tar_path":"`+firmwareID+`/pending/artifact/artifact.tar"`, `"beta":{"artifact":{`, `"tar_path":"`+firmwareID+`/stable/artifact/artifact.tar"`)
 
-	rollback := h.RunCLI("admin", "firmwares", "rollback", "devkit", "--context", "admin-a")
+	rollback := h.RunCLI("admin", "firmwares", "rollback", firmwareID, "--context", "admin-a")
 	rollback.MustSucceed(t)
-	assertContains(t, rollback.Stdout, `"stable":{"artifact":{`, `"tar_path":"devkit/stable/artifact/artifact.tar"`)
+	assertContains(t, rollback.Stdout, `"stable":{"artifact":{`, `"tar_path":"`+firmwareID+`/stable/artifact/artifact.tar"`)
 
-	resource := h.RunCLI("admin", "show", "Firmware", "devkit", "--context", "admin-a")
+	resource := h.RunCLI("admin", "show", "Firmware", firmwareID, "--context", "admin-a")
 	resource.MustSucceed(t)
 	assertContains(t, resource.Stdout, `"kind":"Firmware"`, `"name":"devkit"`)
 
-	delete := h.RunCLI("admin", "firmwares", "delete", "devkit", "--context", "admin-a")
+	delete := h.RunCLI("admin", "firmwares", "delete", firmwareID, "--context", "admin-a")
 	delete.MustSucceed(t)
 	assertContains(t, delete.Stdout, `"name":"devkit"`)
 }

@@ -445,11 +445,8 @@ func validateFriendGroupInviteTokenResource(item apitypes.FriendGroupInviteToken
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return err
 	}
-	if err := customid.ValidateField("metadata.name", item.Metadata.Name); err != nil {
-		return applyError(400, "INVALID_FRIEND_GROUP_INVITE_TOKEN_RESOURCE", err.Error())
-	}
-	if err := customid.ValidateField("spec.friend_group_id", item.Spec.FriendGroupId); err != nil {
-		return applyError(400, "INVALID_FRIEND_GROUP_INVITE_TOKEN_RESOURCE", err.Error())
+	if strings.TrimSpace(item.Spec.FriendGroupId) == "" {
+		return applyError(400, "INVALID_FRIEND_GROUP_INVITE_TOKEN_RESOURCE", "spec.friend_group_id is required")
 	}
 	if item.Spec.FriendGroupId != item.Metadata.Name {
 		return applyError(400, "INVALID_FRIEND_GROUP_INVITE_TOKEN_RESOURCE", "metadata.name must match spec.friend_group_id")
@@ -467,8 +464,8 @@ func validateFriendGroupMemberResource(item apitypes.FriendGroupMemberResource) 
 	if err := customid.ValidateField("metadata.name", item.Metadata.Name); err != nil {
 		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", err.Error())
 	}
-	if err := customid.ValidateField("spec.friend_group_id", item.Spec.FriendGroupId); err != nil {
-		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", err.Error())
+	if strings.TrimSpace(item.Spec.FriendGroupId) == "" {
+		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", "spec.friend_group_id is required")
 	}
 	if strings.TrimSpace(item.Spec.PeerPublicKey) == "" {
 		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", "spec.peer_public_key is required")

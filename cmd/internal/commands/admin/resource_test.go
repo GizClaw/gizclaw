@@ -626,15 +626,15 @@ func (f *fakeResourceClient) ApplyResource(_ context.Context, resource apitypes.
 	return f.applyResult, nil
 }
 
-func (f *fakeResourceClient) DeleteResource(_ context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+func (f *fakeResourceClient) DeleteResource(_ context.Context, kind apitypes.ResourceKind, id string) (apitypes.Resource, error) {
 	f.deletedKind = kind
-	f.deletedName = name
+	f.deletedName = id
 	return f.getResource, nil
 }
 
-func (f *fakeResourceClient) GetResource(_ context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+func (f *fakeResourceClient) GetResource(_ context.Context, kind apitypes.ResourceKind, id string) (apitypes.Resource, error) {
 	f.gotKind = kind
-	f.gotName = name
+	f.gotName = id
 	return f.getResource, nil
 }
 

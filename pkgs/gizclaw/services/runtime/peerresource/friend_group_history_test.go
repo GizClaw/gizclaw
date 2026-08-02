@@ -37,7 +37,7 @@ func TestFriendGroupMessagesProjectSingleWorkspaceHistoryPage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode list response: %v", err)
 	}
-	if history.listPageCalls != 1 || history.getCalls != 0 || history.workspaceName != "group-workspace" {
+	if history.listPageCalls != 1 || history.getCalls != 0 || history.workspaceName != "workspace-id" {
 		t.Fatalf("history calls = listPage:%d get:%d workspace:%q", history.listPageCalls, history.getCalls, history.workspaceName)
 	}
 	if history.listRequest.Limit == nil || *history.listRequest.Limit != limit || history.listRequest.Order == nil || *history.listRequest.Order != apitypes.PeerRunHistoryListRequestOrderDesc {
@@ -100,7 +100,7 @@ func TestFriendGroupMessagesGetAndAudioUseResolvedWorkspace(t *testing.T) {
 		t.Fatalf("Dispatch(get) = response=%#v handled=%v error=%v", response, handled, err)
 	}
 	item, err := response.Result.AsFriendGroupMessageGetResponse()
-	if err != nil || item.HistoryId != "history-1" || history.getCalls != 1 || history.workspaceName != "group-workspace" {
+	if err != nil || item.HistoryId != "history-1" || history.getCalls != 1 || history.workspaceName != "workspace-id" {
 		t.Fatalf("get = item=%#v decode=%v calls=%d workspace=%q", item, err, history.getCalls, history.workspaceName)
 	}
 
@@ -231,18 +231,7 @@ func newFriendGroupHistoryServer(t *testing.T) (*Server, *fakeFriendGroupHistory
 	}
 	store := kv.NewMemory(nil)
 	groupID := "group-a"
-	workspaceName := "group-workspace"
-	role := rpcapi.FriendGroupMemberRoleMember
-	if err := socialutil.WriteJSON(t.Context(), store, socialutil.GroupKey(groupID), rpcapi.FriendGroupObject{Name: groupID, WorkspaceName: &workspaceName}); err != nil {
-		t.Fatalf("seed group: %v", err)
-	}
 	caller := keyPair.Public.String()
-	if err := socialutil.WriteJSON(t.Context(), store, socialutil.GroupMemberKey(groupID, caller), rpcapi.FriendGroupMemberObject{FriendGroupName: &groupID, PeerPublicKey: &caller, Role: &role}); err != nil {
-		t.Fatalf("seed group member: %v", err)
-	}
-	if err := store.Set(t.Context(), socialutil.GroupNameKey(caller, groupID), []byte(groupID)); err != nil {
-		t.Fatalf("seed group name index: %v", err)
-	}
 	createdAt := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	history := &fakeFriendGroupHistoryWorkspace{page: workspace.HistoryEntryPage{
 		Entries: []workspace.HistoryEntry{{
@@ -252,12 +241,23 @@ func newFriendGroupHistoryServer(t *testing.T) (*Server, *fakeFriendGroupHistory
 		HasNext: true, NextCursor: "next-history",
 	}}
 	history.entry = history.page.Entries[0]
-	return &Server{
-		Caller: keyPair.Public,
-		FriendGroups: &friendgroup.Server{
-			Groups: store, Members: store, Belongs: store, RelationshipStore: store,
-		},
+	groups := &friendgroup.Server{
+		Groups: store, Members: store, Belongs: store, RelationshipStore: store,
 		Workspaces: history,
+		RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) {
+			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
+				System: apitypes.RuntimeProfileSystemWorkflows{GroupChatroom: "chatroom"},
+			}}}, nil
+		},
+		NewID: func() string { return groupID },
+	}
+	if _, err := groups.CreateFriendGroup(t.Context(), caller, rpcapi.FriendGroupCreateRequest{Name: groupID}); err != nil {
+		t.Fatalf("create group fixture: %v", err)
+	}
+	return &Server{
+		Caller:       keyPair.Public,
+		FriendGroups: groups,
+		Workspaces:   history,
 	}, history, groupID
 }
 
@@ -294,16 +294,16 @@ func (*fakeFriendGroupHistoryWorkspace) GetWorkspace(context.Context, adminhttp.
 func (*fakeFriendGroupHistoryWorkspace) PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
 	return nil, nil
 }
-func (*fakeFriendGroupHistoryWorkspace) ListWorkspaceHistory(context.Context, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
+func (*fakeFriendGroupHistoryWorkspace) ListWorkspaceHistoryByID(context.Context, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
 	return apitypes.PeerRunHistoryListResponse{}, nil
 }
-func (f *fakeFriendGroupHistoryWorkspace) ListWorkspaceHistoryPage(_ context.Context, name string, request apitypes.PeerRunHistoryListRequest) (workspace.HistoryEntryPage, error) {
+func (f *fakeFriendGroupHistoryWorkspace) ListWorkspaceHistoryPageByID(_ context.Context, name string, request apitypes.PeerRunHistoryListRequest) (workspace.HistoryEntryPage, error) {
 	f.listPageCalls++
 	f.workspaceName = name
 	f.listRequest = request
 	return f.page, nil
 }
-func (f *fakeFriendGroupHistoryWorkspace) GetWorkspaceHistory(_ context.Context, name, historyID string) (workspace.HistoryEntry, error) {
+func (f *fakeFriendGroupHistoryWorkspace) GetWorkspaceHistoryByID(_ context.Context, name, historyID string) (workspace.HistoryEntry, error) {
 	f.getCalls++
 	f.workspaceName = name
 	if strings.TrimSpace(historyID) != f.entry.ID {
@@ -311,6 +311,23 @@ func (f *fakeFriendGroupHistoryWorkspace) GetWorkspaceHistory(_ context.Context,
 	}
 	return f.entry, nil
 }
-func (*fakeFriendGroupHistoryWorkspace) ReadWorkspaceHistoryAsset(context.Context, string, string) (io.ReadCloser, error) {
+func (*fakeFriendGroupHistoryWorkspace) ReadWorkspaceHistoryAssetByID(context.Context, string, string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("opus")), nil
+}
+
+func (*fakeFriendGroupHistoryWorkspace) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+	system := true
+	return apitypes.Workspace{Id: "workspace-id", Name: body.Name, WorkflowId: body.WorkflowId, Parameters: body.Parameters, System: &system}, true, nil
+}
+
+func (*fakeFriendGroupHistoryWorkspace) DeleteSystemWorkspace(context.Context, string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{}, nil
+}
+
+func (*fakeFriendGroupHistoryWorkspace) GetRetiredSystemWorkspaceByID(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{}, kv.ErrNotFound
+}
+
+func (*fakeFriendGroupHistoryWorkspace) RetireSystemWorkspaceByID(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{}, nil
 }

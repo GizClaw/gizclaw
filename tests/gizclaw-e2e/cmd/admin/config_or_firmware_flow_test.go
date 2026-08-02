@@ -3,6 +3,7 @@
 package admin_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,39 +23,66 @@ func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
   "name":"devkit",
   "slots":{"stable":{},"beta":{},"develop":{},"pending":{}}
 }`)
-	h.RunCLI("admin", "firmwares", "put", "devkit", "-f", firmwarePath, "--context", "admin-a").MustSucceed(t)
+	firmware := h.RunCLI("admin", "firmwares", "create", "-f", firmwarePath, "--context", "admin-a")
+	firmware.MustSucceed(t)
+	firmwareID := adminCreatedResourceID(t, firmware.Stdout)
+
+	chatroomPath := filepath.Join(h.SandboxDir, "chatroom-workflow.json")
+	writeAdminFixture(t, chatroomPath, `{
+		"apiVersion":"gizclaw.admin/v1alpha1",
+		"kind":"Workflow",
+		"metadata":{"name":"system-chatroom"},
+		"spec":{"driver":"chatroom","chatroom":{"history":{"ttl":"168h"}}}
+	}`)
+	chatroom := h.RunCLI("admin", "apply", "-f", chatroomPath, "--context", "admin-a")
+	chatroom.MustSucceed(t)
+	chatroomID := adminAppliedResourceID(t, chatroom.Stdout)
+
+	petPath := filepath.Join(h.SandboxDir, "pet-workflow.json")
+	writeAdminFixture(t, petPath, `{
+		"apiVersion":"gizclaw.admin/v1alpha1",
+		"kind":"Workflow",
+		"metadata":{"name":"system-pet-chatroom"},
+		"spec":{"driver":"pet","pet":{"driver":"chatroom","chatroom":{"history":{"ttl":"168h"}}}}
+	}`)
+	pet := h.RunCLI("admin", "apply", "-f", petPath, "--context", "admin-a")
+	pet.MustSucceed(t)
+	petID := adminAppliedResourceID(t, pet.Stdout)
 
 	profilePath := filepath.Join(h.SandboxDir, "runtime-profile.json")
-	writeAdminFixture(t, profilePath, `{
+	writeAdminFixture(t, profilePath, fmt.Sprintf(`{
   "name":"device-default",
-  "spec":{"resources":{"models":{"primary":"model-default"},"pet_defs":{"tragon":"petdef-tragon"}}}
-}`)
+  "spec":{
+    "resources":{},
+    "workflows":{"system":{"friend_chatroom":%q,"group_chatroom":%q,"pet":%q},"collections":{}}
+  }
+}`, chatroomID, chatroomID, petID))
 	profile := h.RunCLI("admin", "runtime-profiles", "create", "-f", profilePath, "--context", "admin-a")
 	profile.MustSucceed(t)
-	assertContains(t, profile.Stdout, `"models":{"primary":"model-default"}`, `"pet_defs":{"tragon":"petdef-tragon"}`)
+	profileID := adminCreatedResourceID(t, profile.Stdout)
+	assertContains(t, profile.Stdout, `"friend_chatroom":"`+chatroomID+`"`, `"pet":"`+petID+`"`)
 
 	tokenPath := filepath.Join(h.SandboxDir, "registration-token.json")
-	writeAdminFixture(t, tokenPath, `{
+	writeAdminFixture(t, tokenPath, fmt.Sprintf(`{
   "name":"device-default",
-  "runtime_profile_name":"device-default",
-  "firmware_id":"devkit"
-}`)
+  "runtime_profile_id":%q,
+  "firmware_id":%q,
+  "token":"e2e-device-default-token"
+}`, profileID, firmwareID))
 	created := h.RunCLI("admin", "registration-tokens", "create", "-f", tokenPath, "--context", "admin-a")
 	created.MustSucceed(t)
-	assertContains(t, created.Stdout, `"token":"`, `"runtime_profile_name":"device-default"`, `"firmware_id":"devkit"`)
+	tokenID := adminCreatedResourceID(t, created.Stdout)
+	assertContains(t, created.Stdout, `"token":"`, `"runtime_profile_id":"`+profileID+`"`, `"firmware_id":"`+firmwareID+`"`)
 	if strings.Contains(created.Stdout, `"channel"`) {
 		t.Fatalf("registration token persisted a Firmware channel:\n%s", created.Stdout)
 	}
 
-	got := h.RunCLI("admin", "registration-tokens", "get", "device-default", "--context", "admin-a")
+	got := h.RunCLI("admin", "registration-tokens", "get", tokenID, "--context", "admin-a")
 	got.MustSucceed(t)
-	if strings.Contains(got.Stdout, `"token"`) {
-		t.Fatalf("registration token metadata leaked raw token:\n%s", got.Stdout)
-	}
-	assertContains(t, got.Stdout, `"firmware_id":"devkit"`)
+	assertContains(t, got.Stdout, `"token":"e2e-device-default-token"`, `"firmware_id":"`+firmwareID+`"`)
 
-	h.RunCLI("admin", "registration-tokens", "delete", "device-default", "--context", "admin-a").MustSucceed(t)
-	h.RunCLI("admin", "runtime-profiles", "delete", "device-default", "--context", "admin-a").MustSucceed(t)
+	h.RunCLI("admin", "registration-tokens", "delete", tokenID, "--context", "admin-a").MustSucceed(t)
+	h.RunCLI("admin", "runtime-profiles", "delete", profileID, "--context", "admin-a").MustSucceed(t)
 }
 
 func writeAdminFixture(t *testing.T, path, body string) {

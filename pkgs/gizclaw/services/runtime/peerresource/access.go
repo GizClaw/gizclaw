@@ -3,6 +3,7 @@ package peerresource
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -14,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 type profileResourceKind string
@@ -452,43 +454,24 @@ func (s *Server) canAccessWorkspace(ctx context.Context, item apitypes.Workspace
 		return true, nil
 	}
 	workspaceName := strings.TrimSpace(item.Name)
+	workspaceID := strings.TrimSpace(item.Id)
 	owner := s.Caller.String()
 	if s.Friends != nil {
-		limit := 200
-		var cursor *string
-		for {
-			list, err := s.Friends.ListFriends(ctx, owner, rpcapi.FriendListRequest{Cursor: cursor, Limit: &limit})
-			if err != nil {
-				return false, err
-			}
-			for _, friend := range list.Items {
-				if strings.TrimSpace(valueOrZero(friend.WorkspaceName)) == workspaceName {
-					return true, nil
-				}
-			}
-			if !list.HasNext || list.NextCursor == nil {
-				break
-			}
-			cursor = list.NextCursor
+		recipients, err := s.Friends.WorkspaceRecipientsByID(ctx, workspaceID)
+		if err != nil {
+			return false, err
+		}
+		if slices.Contains(recipients, owner) {
+			return true, nil
 		}
 	}
 	if s.FriendGroups != nil {
-		limit := 200
-		var cursor *string
-		for {
-			list, err := s.FriendGroups.ListFriendGroups(ctx, owner, rpcapi.FriendGroupListRequest{Cursor: cursor, Limit: &limit})
-			if err != nil {
-				return false, err
-			}
-			for _, group := range list.Items {
-				if strings.TrimSpace(valueOrZero(group.WorkspaceName)) == workspaceName {
-					return true, nil
-				}
-			}
-			if !list.HasNext || list.NextCursor == nil {
-				break
-			}
-			cursor = list.NextCursor
+		recipients, err := s.FriendGroups.WorkspaceRecipientsByID(ctx, workspaceID)
+		if err != nil && !errors.Is(err, kv.ErrNotFound) {
+			return false, err
+		}
+		if slices.Contains(recipients, owner) {
+			return true, nil
 		}
 	}
 	if s.Gameplay != nil && s.RuntimeProfile != nil {

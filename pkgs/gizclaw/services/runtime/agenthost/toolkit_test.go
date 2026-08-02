@@ -20,13 +20,13 @@ import (
 
 func TestToolkitInvokerUsesCanonicalCurrentPeerScope(t *testing.T) {
 	server := &toolkit.Server{Store: kv.NewMemory(nil)}
-	putAgentHostTool(t, server, agentHostClientTool("volume_set"))
-	putAgentHostTool(t, server, agentHostClientTool("brightness_set"))
+	volume := putAgentHostTool(t, server, agentHostClientTool("volume_set"))
+	brightness := putAgentHostTool(t, server, agentHostClientTool("brightness_set"))
 	client := &recordingClientTools{result: json.RawMessage(`{"ok":true}`)}
 	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}}
 	ctx := toolTestContext(t, map[string]string{
-		"volume":     "volume_set",
-		"brightness": "brightness_set",
+		"volume":     volume.ID,
+		"brightness": brightness.ID,
 	}, client)
 
 	definitions, err := invoker.ResolveTools(ctx)
@@ -54,7 +54,7 @@ func TestToolkitInvokerReauthorizesResourceAtInvoke(t *testing.T) {
 	tool := agentHostClientTool("volume_set")
 	created := putAgentHostTool(t, server, tool)
 	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}}
-	ctx := toolTestContext(t, map[string]string{"volume": "volume_set"}, &recordingClientTools{})
+	ctx := toolTestContext(t, map[string]string{"volume": created.ID}, &recordingClientTools{})
 	if _, err := invoker.ResolveTools(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestToolkitInvokerReauthorizesResourceAtInvoke(t *testing.T) {
 
 func TestToolkitInvokerClientRecoverableErrors(t *testing.T) {
 	server := &toolkit.Server{Store: kv.NewMemory(nil)}
-	putAgentHostTool(t, server, agentHostClientTool("volume_set"))
+	created := putAgentHostTool(t, server, agentHostClientTool("volume_set"))
 	invoker := &ToolkitInvoker{
 		Builder:       &toolkit.Builder{Tools: server},
 		ClientTimeout: time.Millisecond,
@@ -92,7 +92,7 @@ func TestToolkitInvokerClientRecoverableErrors(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := toolTestContext(t, map[string]string{"volume": "volume_set"}, test.client)
+			ctx := toolTestContext(t, map[string]string{"volume": created.ID}, test.client)
 			result, err := invoker.InvokeTool(ctx, "volume_set", json.RawMessage(`{"level":1}`))
 			if err != nil || string(result) != test.want {
 				t.Fatalf("InvokeTool() = %s, %v, want %s", result, err, test.want)
@@ -103,12 +103,12 @@ func TestToolkitInvokerClientRecoverableErrors(t *testing.T) {
 
 func TestToolkitInvokerClientTimeoutIsEnforcedWithinLongerParentDeadline(t *testing.T) {
 	server := &toolkit.Server{Store: kv.NewMemory(nil)}
-	putAgentHostTool(t, server, agentHostClientTool("volume_set"))
+	created := putAgentHostTool(t, server, agentHostClientTool("volume_set"))
 	invoker := &ToolkitInvoker{
 		Builder:       &toolkit.Builder{Tools: server},
 		ClientTimeout: time.Millisecond,
 	}
-	ctx := toolTestContext(t, map[string]string{"volume": "volume_set"}, &recordingClientTools{wait: true})
+	ctx := toolTestContext(t, map[string]string{"volume": created.ID}, &recordingClientTools{wait: true})
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
@@ -121,7 +121,7 @@ func TestToolkitInvokerClientTimeoutIsEnforcedWithinLongerParentDeadline(t *test
 
 func TestToolkitInvokerHTTPDispatch(t *testing.T) {
 	server := &toolkit.Server{Store: kv.NewMemory(nil)}
-	putAgentHostTool(t, server, agentHostHTTPTool("get_weather"))
+	created := putAgentHostTool(t, server, agentHostHTTPTool("get_weather"))
 	transport := roundTripperFunc(func(request *http.Request) (*http.Response, error) {
 		if request.URL.String() != "https://weather.example/v1?city=Hangzhou" {
 			t.Fatalf("HTTP URL = %s", request.URL)
@@ -136,7 +136,7 @@ func TestToolkitInvokerHTTPDispatch(t *testing.T) {
 		Builder: &toolkit.Builder{Tools: server},
 		HTTP:    giztools.HTTPExecutor{Transport: transport},
 	}
-	ctx := toolTestContext(t, map[string]string{"weather": "get_weather"}, nil)
+	ctx := toolTestContext(t, map[string]string{"weather": created.ID}, nil)
 	result, err := invoker.InvokeTool(ctx, "get_weather", json.RawMessage(`{"city":"Hangzhou"}`))
 	if err != nil || string(result) != `{"temp":25}` {
 		t.Fatalf("InvokeTool() = %s, %v", result, err)
@@ -145,13 +145,13 @@ func TestToolkitInvokerHTTPDispatch(t *testing.T) {
 
 func TestToolkitInvokerConcurrentPeerScopesStayIsolated(t *testing.T) {
 	server := &toolkit.Server{Store: kv.NewMemory(nil)}
-	putAgentHostTool(t, server, agentHostClientTool("volume_set"))
+	created := putAgentHostTool(t, server, agentHostClientTool("volume_set"))
 	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}}
 	first := &recordingClientTools{result: json.RawMessage(`{"peer":"a"}`)}
 	second := &recordingClientTools{result: json.RawMessage(`{"peer":"b"}`)}
 	contexts := []context.Context{
-		toolTestContext(t, map[string]string{"volume-a": "volume_set"}, first),
-		toolTestContext(t, map[string]string{"volume-b": "volume_set"}, second),
+		toolTestContext(t, map[string]string{"volume-a": created.ID}, first),
+		toolTestContext(t, map[string]string{"volume-b": created.ID}, second),
 	}
 	wants := []string{`{"peer":"a"}`, `{"peer":"b"}`}
 	var wg sync.WaitGroup
@@ -276,10 +276,10 @@ func agentHostHTTPTool(name string) toolkit.Tool {
 
 func TestToolkitInvokerRejectsInvalidArgumentsBeforeClientRPC(t *testing.T) {
 	server := &toolkit.Server{Store: kv.NewMemory(nil)}
-	putAgentHostTool(t, server, agentHostClientTool("volume_set"))
+	created := putAgentHostTool(t, server, agentHostClientTool("volume_set"))
 	client := &recordingClientTools{}
 	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}}
-	ctx := toolTestContext(t, map[string]string{"volume": "volume_set"}, client)
+	ctx := toolTestContext(t, map[string]string{"volume": created.ID}, client)
 	if _, err := invoker.InvokeTool(ctx, "volume_set", json.RawMessage(`{"level":"loud"}`)); !errors.Is(err, toolkit.ErrInvalidTool) {
 		t.Fatalf("InvokeTool() error = %v", err)
 	}

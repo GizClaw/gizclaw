@@ -500,7 +500,7 @@ export type FriendGroupInviteTokenResource = {
 
 export type FriendGroupInviteTokenSpec = {
     /**
-     * Friend group custom ID. The invite_token value is not a custom ID.
+     * Opaque canonical FriendGroup ID returned by the Server. The invite_token value is not a resource ID.
      */
     friend_group_id: string;
     invite_token: string;
@@ -521,7 +521,7 @@ export type FriendGroupMemberRole = 'owner' | 'admin' | 'member';
 
 export type FriendGroupMemberSpec = {
     /**
-     * Friend group custom ID. The peer_public_key segment is not a custom ID.
+     * Opaque canonical FriendGroup ID returned by the Server. The peer_public_key segment is not a resource ID.
      */
     friend_group_id: string;
     peer_public_key: string;
@@ -718,7 +718,7 @@ export type ToolResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Tool';
     /**
-     * metadata.name is the canonical Tool name. It must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$ and is the only execution identity.
+     * metadata.id is the canonical Tool resource ID when updating. metadata.name is the immutable runtime execution name and must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$.
      */
     metadata: ResourceMetadata;
     spec: ToolSpec;
@@ -742,7 +742,7 @@ export type WorkflowResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Workflow';
     /**
-     * metadata.name is the workflow custom ID.
+     * metadata.id is the canonical Workflow ID when updating, and metadata.name is the immutable Workflow name used by Peer RPC projections.
      */
     metadata: ResourceMetadata;
     spec: WorkflowSpec;
@@ -2242,7 +2242,7 @@ export type ToolTriggerExample = {
  */
 export type ToolkitPolicy = {
     /**
-     * Allowed canonical Tool Resource names. RuntimeProfile aliases are not accepted.
+     * Allowed canonical Tool resource IDs. RuntimeProfile aliases and Tool names are not accepted.
      */
     tool_ids?: Array<string>;
 };
@@ -3373,7 +3373,7 @@ export type ToolResourceWritable = {
     apiVersion: ResourceApiVersion;
     kind: 'Tool';
     /**
-     * metadata.name is the canonical Tool name. It must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$ and is the only execution identity.
+     * metadata.id is the canonical Tool resource ID when updating. metadata.name is the immutable runtime execution name and must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$.
      */
     metadata: ResourceMetadata;
     spec: ToolSpecWritable;

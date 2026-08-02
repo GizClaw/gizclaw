@@ -26,8 +26,8 @@ type resourceClient interface {
 
 type adminResourceAPI interface {
 	ApplyResourceWithResponse(ctx context.Context, body adminhttp.ApplyResourceJSONRequestBody, reqEditors ...adminhttp.RequestEditorFn) (*adminhttp.ApplyResourceResponse, error)
-	DeleteResourceWithResponse(ctx context.Context, kind adminhttp.ResourceKind, name string, reqEditors ...adminhttp.RequestEditorFn) (*adminhttp.DeleteResourceResponse, error)
-	GetResourceWithResponse(ctx context.Context, kind adminhttp.ResourceKind, name string, reqEditors ...adminhttp.RequestEditorFn) (*adminhttp.GetResourceResponse, error)
+	DeleteResourceWithResponse(ctx context.Context, kind adminhttp.ResourceKind, id string, reqEditors ...adminhttp.RequestEditorFn) (*adminhttp.DeleteResourceResponse, error)
+	GetResourceWithResponse(ctx context.Context, kind adminhttp.ResourceKind, id string, reqEditors ...adminhttp.RequestEditorFn) (*adminhttp.GetResourceResponse, error)
 }
 
 type resourceClientBridge struct {
@@ -46,8 +46,8 @@ func (r *resourceClientBridge) ApplyResource(ctx context.Context, resource apity
 	return apitypes.ApplyResult{}, resourceResponseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500, resp.JSON501)
 }
 
-func (r *resourceClientBridge) DeleteResource(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
-	resp, err := r.api.DeleteResourceWithResponse(ctx, kind, string(name))
+func (r *resourceClientBridge) DeleteResource(ctx context.Context, kind apitypes.ResourceKind, id string) (apitypes.Resource, error) {
+	resp, err := r.api.DeleteResourceWithResponse(ctx, kind, id)
 	if err != nil {
 		return apitypes.Resource{}, err
 	}
@@ -57,8 +57,8 @@ func (r *resourceClientBridge) DeleteResource(ctx context.Context, kind apitypes
 	return apitypes.Resource{}, resourceResponseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON409, resp.JSON500)
 }
 
-func (r *resourceClientBridge) GetResource(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
-	resp, err := r.api.GetResourceWithResponse(ctx, kind, string(name))
+func (r *resourceClientBridge) GetResource(ctx context.Context, kind apitypes.ResourceKind, id string) (apitypes.Resource, error) {
+	resp, err := r.api.GetResourceWithResponse(ctx, kind, id)
 	if err != nil {
 		return apitypes.Resource{}, err
 	}
@@ -124,11 +124,11 @@ func newApplyCmd(ctxName *string) *cobra.Command {
 
 func newShowCmd(ctxName *string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "show <kind> <name>",
-		Short: "Show a named admin resource",
+		Use:   "show <kind> <id>",
+		Short: "Show an admin resource by canonical ID",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kind, name, err := parseNamedResourceArgs(args)
+			kind, id, err := parseResourceIDArgs(args)
 			if err != nil {
 				return err
 			}
@@ -137,7 +137,7 @@ func newShowCmd(ctxName *string) *cobra.Command {
 				return err
 			}
 			defer c.Close()
-			resource, err := c.GetResource(context.Background(), kind, name)
+			resource, err := c.GetResource(context.Background(), kind, id)
 			if err != nil {
 				return err
 			}
@@ -150,11 +150,11 @@ func newShowCmd(ctxName *string) *cobra.Command {
 
 func newDeleteCmd(ctxName *string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete <kind> <name>",
-		Short: "Delete a named admin resource",
+		Use:   "delete <kind> <id>",
+		Short: "Delete an admin resource by canonical ID",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kind, name, err := parseNamedResourceArgs(args)
+			kind, id, err := parseResourceIDArgs(args)
 			if err != nil {
 				return err
 			}
@@ -163,7 +163,7 @@ func newDeleteCmd(ctxName *string) *cobra.Command {
 				return err
 			}
 			defer c.Close()
-			resource, err := c.DeleteResource(context.Background(), kind, name)
+			resource, err := c.DeleteResource(context.Background(), kind, id)
 			if err != nil {
 				return err
 			}
@@ -405,19 +405,19 @@ func escapeJSONStringFragment(value string) string {
 	return quoted[1 : len(quoted)-1]
 }
 
-func parseNamedResourceArgs(args []string) (apitypes.ResourceKind, string, error) {
+func parseResourceIDArgs(args []string) (apitypes.ResourceKind, string, error) {
 	kind := apitypes.ResourceKind(args[0])
 	if !kind.Valid() {
 		return "", "", fmt.Errorf("unknown resource kind %q", args[0])
 	}
 	if kind == apitypes.ResourceKindResourceList {
-		return "", "", fmt.Errorf("resource kind %q cannot be addressed by name", kind)
+		return "", "", fmt.Errorf("resource kind %q cannot be addressed by ID", kind)
 	}
-	name := strings.TrimSpace(args[1])
-	if name == "" {
-		return "", "", fmt.Errorf("resource name is required")
+	id := strings.TrimSpace(args[1])
+	if id == "" {
+		return "", "", fmt.Errorf("resource ID is required")
 	}
-	return kind, name, nil
+	return kind, id, nil
 }
 
 func resourceResponseError(status int, body []byte, errs ...any) error {
