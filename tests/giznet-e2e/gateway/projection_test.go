@@ -94,6 +94,9 @@ func TestAnalyzeCapacityArtifactsProducesQualifiedProjection(t *testing.T) {
 	if report.Budgets.RequiredLoadDriverHosts == nil || *report.Budgets.RequiredLoadDriverHosts != 1 {
 		t.Fatalf("required load-driver hosts = %v, want 1", report.Budgets.RequiredLoadDriverHosts)
 	}
+	if got, want := report.Budgets.LoadDriverCPUCores, 5.6; math.Abs(got-want) > 1e-9 {
+		t.Fatalf("load-driver CPU budget = %v, want %v", got, want)
+	}
 	if report.Models["edge"].TargetSessions != 15_000 || report.Models["server"].TargetSessions != 30_000 {
 		t.Fatalf("role targets = %+v", report.Models)
 	}

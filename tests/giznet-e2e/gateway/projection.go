@@ -553,7 +553,7 @@ func applyProjectionBudgets(report *projectionReport, runs []artifact) {
 	report.Budgets = projectionBudgets{
 		UsableFraction:        usable,
 		LoadDriverMemoryBytes: float64(report.Environment.HostMemoryBytes) * usable,
-		LoadDriverCPUCores:    float64(runtimeLogicalCPU(runs)) * usable,
+		LoadDriverCPUCores:    float64(loadDriverCPUCapacity(runs)) * usable,
 		LoadDriverOpenFDs:     float64(report.Environment.HostOpenFDLimit) * usable,
 		DockerMemoryBytes:     float64(report.Environment.Docker.MemoryBytes) * usable,
 		DockerCPUCores:        float64(report.Environment.Docker.LogicalCPU) * usable,
@@ -589,11 +589,11 @@ func requiredHostCount(projected, perHostBudget float64) int {
 	return max(int(math.Ceil(projected/perHostBudget)), 1)
 }
 
-func runtimeLogicalCPU(runs []artifact) int {
+func loadDriverCPUCapacity(runs []artifact) int {
 	if len(runs) == 0 {
 		return 0
 	}
-	return runs[0].Host.LogicalCPU
+	return min(runs[0].Host.LogicalCPU, runs[0].Host.GOMAXPROCS)
 }
 
 func checkBudget(report *projectionReport, label string, projected, budget float64) {
