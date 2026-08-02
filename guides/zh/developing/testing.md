@@ -150,11 +150,12 @@ association。硬门槛为 500/500 usable sessions，establishment、ping、disc
 ignored 的 `testdata/gateway-capacity-extended/sessions-500-burst/`；每轮记录精确 repository
 head 和 dirty state，可发布证据必须来自最终 clean PR head。
 
-如果 Docker host 可直达 container address，capacity runner 使用每个 Edge container 的
-direct signaling endpoint，避免把 published-port proxy backlog 误判为 load generator 以外
-的瓶颈；runner 会打印选定的 endpoint boundary，不可直达时回退到 published endpoint。
-WebRTC/ICE 仍使用配置的 gateway candidates，Dial barrier 和 workload 不会被 pacing、
-batching 或 preconnect。
+如果 Docker host 可直达 container address，capacity script 会同时传入每个 Edge container
+的 direct endpoint 和显式的本机 `-signaling-base-from-edge` override；其他调用仍遵守
+advertised `transport.endpoint` contract。这样不会改变非本机 discovery 行为，同时避免把
+published-port proxy backlog 误判为 load generator 以外的瓶颈。script 会打印选定的
+endpoint boundary，不可直达时回退到 published endpoint。WebRTC/ICE 仍使用配置的 gateway
+candidates，Dial barrier 和 workload 不会被 pacing、batching 或 preconnect。
 
 ## GenX provider E2E
 

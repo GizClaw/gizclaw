@@ -170,13 +170,15 @@ not gates. Artifacts are written under ignored
 exact repository head and dirty state, so publishable evidence must come from
 the clean final PR head.
 
-The capacity runner uses each Edge container's directly reachable signaling
-endpoint when the Docker host exposes container addresses, avoiding
-published-port proxy backlog as a load-generator artifact. It prints the
-selected endpoint boundary and falls back to the published endpoint when a
-Docker implementation does not expose container addresses. WebRTC/ICE still
-uses the configured gateway candidates; the Dial barrier and workload are not
-paced, batched, or preconnected.
+When the Docker host exposes container addresses, the capacity script passes
+each Edge container's direct endpoint together with the explicit local
+`-signaling-base-from-edge` override. The gateway runner otherwise retains the
+advertised `transport.endpoint` contract. This avoids published-port proxy
+backlog as a load-generator artifact without changing non-local discovery
+behavior. The script prints the selected endpoint boundary and falls back to
+the published endpoint when direct access is unavailable. WebRTC/ICE still uses
+the configured gateway candidates; the Dial barrier and workload are not paced,
+batched, or preconnected.
 
 ## GenX provider E2E
 

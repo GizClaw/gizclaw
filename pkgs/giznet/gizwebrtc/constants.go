@@ -19,7 +19,10 @@ const (
 	// interleaved messages per stream can exhaust the receiver window before
 	// delivery. This is one aggregate association limit, not a per-stream budget.
 	sctpBurstServiceStreams = 64
-	sctpReceiveBufferSize   = sctpBurstServiceStreams * streamWriteHighWater
+	// GatewaySCTPReceiveBufferSize is reserved for bounded Edge-to-Server
+	// upstream associations. Public client associations retain Pion's default
+	// receive window.
+	GatewaySCTPReceiveBufferSize = sctpBurstServiceStreams * streamWriteHighWater
 	// SCTP's one-second initial retransmission is visible in burst DataChannel
 	// setup when an INIT or COOKIE flight is lost. Cap the retry interval while
 	// retaining reliable delivery and the existing retransmission count.

@@ -50,6 +50,40 @@ func TestServerSecurityPolicyAllowsPublicServicesWithoutPeerLookup(t *testing.T)
 	}
 }
 
+func TestServerSecurityPolicyAllowsGatewaySCTPOnlyForActiveEdgeNode(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	peers := &peer.Server{Store: mustBadgerInMemory(t, nil)}
+	if _, err := peers.EnsureConnectedPeer(context.Background(), keyPair.Public); err != nil {
+		t.Fatal(err)
+	}
+	policy := testServerSecurityPolicy(peers)
+	if policy.AllowGatewaySCTP(keyPair.Public) {
+		t.Fatal("client role allowed gateway SCTP profile")
+	}
+	stored, err := peers.LoadPeer(context.Background(), keyPair.Public)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored.Role = apitypes.PeerRoleEdgeNode
+	stored.Status = apitypes.PeerRegistrationStatusActive
+	if _, err := peers.SavePeer(context.Background(), stored); err != nil {
+		t.Fatal(err)
+	}
+	if !policy.AllowGatewaySCTP(keyPair.Public) {
+		t.Fatal("active edge-node did not receive gateway SCTP profile")
+	}
+	stored.Status = apitypes.PeerRegistrationStatusBlocked
+	if _, err := peers.SavePeer(context.Background(), stored); err != nil {
+		t.Fatal(err)
+	}
+	if policy.AllowGatewaySCTP(keyPair.Public) {
+		t.Fatal("blocked edge-node retained gateway SCTP profile")
+	}
+}
+
 func TestServerSecurityPolicyDeniesAdminServiceForUnknownPeer(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {

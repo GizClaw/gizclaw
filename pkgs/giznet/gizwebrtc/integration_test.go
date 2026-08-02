@@ -157,6 +157,9 @@ func TestInterleavedServiceStreamsDoNotExhaustSCTPReceiveWindow(t *testing.T) {
 	serverListener, err := (&ListenConfig{
 		CipherMode:     CipherModePlaintext,
 		SecurityPolicy: allowAllPolicy{},
+		GatewaySCTPPeer: func(context.Context, giznet.PublicKey) bool {
+			return true
+		},
 	}).Listen(serverKey)
 	if err != nil {
 		t.Fatalf("Listen error = %v", err)
@@ -168,9 +171,10 @@ func TestInterleavedServiceStreamsDoNotExhaustSCTPReceiveWindow(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	clientListener, clientConn, err := Dial(ctx, clientKey, serverKey.Public, DialConfig{
-		SignalingURL:   httpServer.URL + SignalingPath,
-		CipherMode:     CipherModePlaintext,
-		SecurityPolicy: allowAllPolicy{},
+		SignalingURL:          httpServer.URL + SignalingPath,
+		CipherMode:            CipherModePlaintext,
+		SecurityPolicy:        allowAllPolicy{},
+		SCTPReceiveBufferSize: GatewaySCTPReceiveBufferSize,
 	})
 	if err != nil {
 		t.Fatalf("Dial error = %v", err)

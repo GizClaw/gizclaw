@@ -140,6 +140,7 @@ run_case() {
   # a two-second margin for artifact aggregation and the round deadline.
   (cd "$repo_root" && GOMAXPROCS="$gateway_gomaxprocs" "$gateway_bin" \
     -edges "$capacity_edge_endpoint,$capacity_edge2_endpoint" \
+    -signaling-base-from-edge \
     -sessions "$sessions" \
     -ramp "$ramp" \
     -duration "$hold" \

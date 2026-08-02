@@ -246,7 +246,7 @@ func TestFetchEdgesRejectsDuplicateTransportIdentity(t *testing.T) {
 	defer server.Close()
 	endpoint = server.URL
 
-	_, err = fetchEdges(context.Background(), []string{server.URL, server.URL})
+	_, err = fetchEdges(context.Background(), []string{server.URL, server.URL}, false)
 	if err == nil || !strings.Contains(err.Error(), "duplicates transport identity") {
 		t.Fatalf("fetchEdges error = %v, want duplicate transport identity", err)
 	}
@@ -277,12 +277,19 @@ func TestFetchEdgesUsesSelectedEndpointForSignaling(t *testing.T) {
 	}))
 	defer server.Close()
 
-	edges, err := fetchEdges(context.Background(), []string{server.URL})
+	edges, err := fetchEdges(context.Background(), []string{server.URL}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := edges[0].signalingURL, "https://published.example:9821/offer"; got != want {
+		t.Fatalf("default signaling URL = %q, want advertised endpoint %q", got, want)
+	}
+	edges, err = fetchEdges(context.Background(), []string{server.URL}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got, want := edges[0].signalingURL, server.URL+"/offer"; got != want {
-		t.Fatalf("signaling URL = %q, want selected endpoint %q", got, want)
+		t.Fatalf("overridden signaling URL = %q, want selected endpoint %q", got, want)
 	}
 }
 

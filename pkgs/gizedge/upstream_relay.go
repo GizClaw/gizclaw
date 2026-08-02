@@ -127,10 +127,11 @@ func (s *upstreamRelaySelector) dialUpstream(
 		server := cloneICEServer(s.members[member].server)
 		attemptCtx, cancel := context.WithTimeout(ctx, s.attemptTimeout)
 		listener, conn, err := s.dial(attemptCtx, cfg.KeyPair, cfg.Upstream.PublicKey, gizwebrtc.DialConfig{
-			SignalingURL:       upstreamSignalingURL(upstreamURL),
-			ICEServers:         []gizwebrtc.ICEServer{server},
-			ICETransportPolicy: webrtc.ICETransportPolicyRelay,
-			SecurityPolicy:     edgeSecurityPolicy{},
+			SignalingURL:          upstreamSignalingURL(upstreamURL),
+			ICEServers:            []gizwebrtc.ICEServer{server},
+			ICETransportPolicy:    webrtc.ICETransportPolicyRelay,
+			SecurityPolicy:        edgeSecurityPolicy{},
+			SCTPReceiveBufferSize: gizwebrtc.GatewaySCTPReceiveBufferSize,
 		})
 		cancel()
 		if err == nil {

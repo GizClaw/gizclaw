@@ -11,9 +11,10 @@ import (
 )
 
 type Listener struct {
-	key *giznet.KeyPair
-	cfg ListenConfig
-	api *webrtc.API
+	key            *giznet.KeyPair
+	cfg            ListenConfig
+	api            *webrtc.API
+	gatewaySCTPAPI *webrtc.API
 
 	closers []func() error
 

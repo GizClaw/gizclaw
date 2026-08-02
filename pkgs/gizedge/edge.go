@@ -139,8 +139,9 @@ func dialUpstream(
 		return conn, listener, attempt, nil
 	}
 	listener, conn, err := gizwebrtc.Dial(dialCtx, cfg.KeyPair, cfg.Upstream.PublicKey, gizwebrtc.DialConfig{
-		SignalingURL:   upstreamSignalingURL(upstreamURL),
-		SecurityPolicy: edgeSecurityPolicy{},
+		SignalingURL:          upstreamSignalingURL(upstreamURL),
+		SecurityPolicy:        edgeSecurityPolicy{},
+		SCTPReceiveBufferSize: gizwebrtc.GatewaySCTPReceiveBufferSize,
 	})
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("edge: dial upstream server: %w", err)

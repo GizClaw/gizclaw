@@ -47,12 +47,17 @@ WebRTC 与 Pion 相关的实现细节留在这个子目录。上层 GizClaw 服�
 PeerConnection、offer、ICE gathering、signaling、remote description、ICE connected、
 DTLS connected 和 DataChannel ready timing，且不会向调用方暴露可变 Pion 对象。
 
-默认 Pion API 使用 32 MiB association 级 SCTP receive buffer，与验收 burst 中 64 条正在
-传输的 service streams 各自 512 KiB 的 DataChannel send budget 一致，避免每条
-interleaved stream 的多个 partial messages 在交付前耗尽 receiver window。每条 connection
-最多接收远端打开的 2,048 条 service DataChannel，与 gateway 每条 upstream association 的
-active-session 上限一致；超出上限的 channel 会在交付前关闭，service label 不能创建无界
-queue。SCTP retransmission 上限为 250 ms，DTLS flight
+普通 public client association 保留 Pion 默认 SCTP receive window。Edge gateway 最多为
+当前已准入的 64 条 client association 提供 4 MiB burst window，把每个 Edge 的 burst
+profile receive credit 限制在 256 MiB；额度释放前，后续 association 仍使用默认窗口。独立的
+32 MiB association 级窗口只用于有界的 Edge-to-Server upstream：Edge 在配置的
+`max-upstreams` 上限内显式请求该窗口，Server 只在认证 peer 是 active `edge-node` 后选择
+该窗口。它与验收 burst 中 64 条正在传输
+的 service streams 各自 512 KiB 的 DataChannel send budget 一致，避免 interleaved partial
+messages 在交付前耗尽 receiver window。每条 connection 最多接收远端打开的 2,048 条
+service DataChannel，与 gateway 每条 upstream association 的 active-session 上限一致；
+超出上限的 channel 会在交付前关闭，service label 不能创建无界 queue。SCTP
+retransmission 上限为 250 ms，DTLS flight
 的 initial retransmission interval 为 250 ms，使 burst 中丢失 handshake flight 时不会固定
 增加默认的 1 秒等待。SCTP reliable delivery 和 retransmission count 不变；DTLS
 retransmission 与 exponential backoff 仍然启用。

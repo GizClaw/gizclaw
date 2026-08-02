@@ -554,7 +554,7 @@ func TestConfigListenAddrs(t *testing.T) {
 }
 
 func TestWebRTCListenConfigUsesListenAndPublicEndpoint(t *testing.T) {
-	policy := testSecurityPolicy{}
+	policy := testGatewaySCTPSecurityPolicy{}
 	handler := testPeerEventHandler{}
 	iceTCPListener := &testListener{addr: testAddr("0.0.0.0:9820")}
 	cfg := webRTCListenConfig(Config{Listen: "0.0.0.0:9820", Endpoint: "192.168.1.20:19820"}, gizclaw.PeerListenerOptions{
@@ -585,6 +585,9 @@ func TestWebRTCListenConfigUsesListenAndPublicEndpoint(t *testing.T) {
 	}
 	if cfg.PeerEventHandler != handler {
 		t.Fatal("PeerEventHandler not preserved")
+	}
+	if cfg.GatewaySCTPPeer == nil || !cfg.GatewaySCTPPeer(context.Background(), giznet.PublicKey{}) {
+		t.Fatal("GatewaySCTPPeer policy not preserved")
 	}
 }
 
@@ -686,6 +689,12 @@ func (testSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
 }
 
 func (testSecurityPolicy) AllowService(giznet.PublicKey, uint64) bool {
+	return true
+}
+
+type testGatewaySCTPSecurityPolicy struct{ testSecurityPolicy }
+
+func (testGatewaySCTPSecurityPolicy) AllowGatewaySCTP(giznet.PublicKey) bool {
 	return true
 }
 

@@ -24,7 +24,15 @@ const (
 	gatewayPoolWarmUpstreams       = 4
 	gatewayPoolWarmupTimeout       = 5 * time.Second
 	gatewayPoolReplenishRetryDelay = time.Second
+	// The first bounded set of admitted client associations gets enough receive
+	// credit for a 1 MiB burst without exposing the 32 MiB upstream profile to
+	// every public peer. This caps burst-profile receive credit at 256 MiB per
+	// Edge.
+	gatewayClientSCTPReceiveBufferSize = 4 * 1024 * 1024
+	gatewayClientBurstSCTPLimit        = 64
 )
+
+type gatewayAdmissionContextKey struct{}
 
 type Gateway struct {
 	ctx    context.Context
@@ -37,6 +45,7 @@ type Gateway struct {
 	capacityMu sync.Mutex
 	pending    int
 	active     int
+	burstSCTP  int
 
 	admissionMu     sync.Mutex
 	admissions      map[giznet.PublicKey][]*gatewayAdmission
@@ -57,6 +66,7 @@ type gatewayAdmission struct {
 	remoteAddr      string
 	upstream        *gatewayUpstream
 	releaseUpstream func()
+	burstSCTP       bool
 }
 
 type gatewaySession struct {
@@ -71,12 +81,23 @@ func newGateway(
 	relaySelector *upstreamRelaySelector,
 ) (*Gateway, error) {
 	ctx, cancel := context.WithCancel(parent)
+	gateway := &Gateway{
+		ctx:             ctx,
+		cancel:          cancel,
+		cfg:             cfg,
+		admissions:      make(map[giznet.PublicKey][]*gatewayAdmission),
+		admissionNotify: make(chan struct{}),
+		sessions:        make(map[*gatewaySession]struct{}),
+		acceptDone:      make(chan struct{}),
+	}
 	listener, err := (&gizwebrtc.ListenConfig{
-		ICEUDPAddr:        cfg.Gateway.ICEUDPListen,
-		PublicICEUDPAddr:  cfg.Gateway.PublicICEUDP,
-		ICELite:           true,
-		SecurityPolicy:    gatewayClientSecurityPolicy{},
-		AggregateServices: true,
+		ICEUDPAddr:                   cfg.Gateway.ICEUDPListen,
+		PublicICEUDPAddr:             cfg.Gateway.PublicICEUDP,
+		ICELite:                      true,
+		SecurityPolicy:               gatewayClientSecurityPolicy{},
+		AggregateServices:            true,
+		GatewaySCTPPeer:              gateway.allowBurstSCTP,
+		GatewaySCTPReceiveBufferSize: gatewayClientSCTPReceiveBufferSize,
 	}).Listen(cfg.KeyPair)
 	if err != nil {
 		cancel()
@@ -94,17 +115,8 @@ func newGateway(
 		cancel()
 		return nil, err
 	}
-	gateway := &Gateway{
-		ctx:             ctx,
-		cancel:          cancel,
-		cfg:             cfg,
-		listener:        listener,
-		pool:            pool,
-		admissions:      make(map[giznet.PublicKey][]*gatewayAdmission),
-		admissionNotify: make(chan struct{}),
-		sessions:        make(map[*gatewaySession]struct{}),
-		acceptDone:      make(chan struct{}),
-	}
+	gateway.listener = listener
+	gateway.pool = pool
 	go gateway.acceptLoop()
 	return gateway, nil
 }
@@ -133,6 +145,7 @@ func (g *Gateway) serveSignaling(w http.ResponseWriter, r *http.Request) {
 	}
 	admission.clientKey = clientKey
 	admission.remoteAddr = r.RemoteAddr
+	r = r.WithContext(context.WithValue(r.Context(), gatewayAdmissionContextKey{}, admission))
 	entry, release, err := g.pool.acquire(r.Context())
 	if err != nil {
 		admission.releasePending()
@@ -176,7 +189,28 @@ func (g *Gateway) reserveAdmission() (*gatewayAdmission, error) {
 		return nil, ErrGatewayOverCapacity
 	}
 	g.pending++
-	return &gatewayAdmission{gateway: g}, nil
+	admission := &gatewayAdmission{gateway: g}
+	if g.burstSCTP < gatewayClientBurstSCTPLimit {
+		g.burstSCTP++
+		admission.burstSCTP = true
+	}
+	return admission, nil
+}
+
+func (g *Gateway) allowBurstSCTP(ctx context.Context, publicKey giznet.PublicKey) bool {
+	admission, _ := ctx.Value(gatewayAdmissionContextKey{}).(*gatewayAdmission)
+	return admission != nil && admission.gateway == g && admission.burstSCTP &&
+		admission.clientKey == publicKey
+}
+
+func (a *gatewayAdmission) releaseBurstSCTPLocked() {
+	if !a.burstSCTP {
+		return
+	}
+	a.burstSCTP = false
+	if a.gateway.burstSCTP > 0 {
+		a.gateway.burstSCTP--
+	}
 }
 
 func (a *gatewayAdmission) releasePending() {
@@ -187,6 +221,7 @@ func (a *gatewayAdmission) releasePending() {
 	if a.gateway.pending > 0 {
 		a.gateway.pending--
 	}
+	a.releaseBurstSCTPLocked()
 	a.gateway.capacityMu.Unlock()
 	a.releasePool()
 	a.gateway.removeAdmission(a)
@@ -216,6 +251,7 @@ func (a *gatewayAdmission) releaseActive() {
 	if a.gateway.active > 0 {
 		a.gateway.active--
 	}
+	a.releaseBurstSCTPLocked()
 	a.gateway.capacityMu.Unlock()
 	a.releasePool()
 }
