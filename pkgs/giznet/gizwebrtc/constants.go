@@ -14,10 +14,12 @@ const (
 
 	maxPacketMessageSize = 64 * 1024
 	// Message interleaving can leave partial messages queued across every active
-	// DataChannel. Match the association receive credit to the bounded service
-	// queue's complete per-channel send budget; otherwise several interleaved
-	// messages per stream can exhaust the receiver window before delivery.
-	sctpReceiveBufferSize = acceptQueueSize * streamWriteHighWater
+	// DataChannel. Match the association receive credit to the qualified burst's
+	// transferring streams and per-channel send budget; otherwise several
+	// interleaved messages per stream can exhaust the receiver window before
+	// delivery. This is one aggregate association limit, not a per-stream budget.
+	sctpBurstServiceStreams = 64
+	sctpReceiveBufferSize   = sctpBurstServiceStreams * streamWriteHighWater
 	// SCTP's one-second initial retransmission is visible in burst DataChannel
 	// setup when an INIT or COOKIE flight is lost. Cap the retry interval while
 	// retaining reliable delivery and the existing retransmission count.
@@ -39,4 +41,8 @@ const (
 	readPacketQueueSize  = 256
 	acceptQueueSize      = 64
 	serviceQueueSize     = 64
+	// Bound remote service DataChannel admission per connection. This matches
+	// the gateway's supported active-session ceiling per upstream association;
+	// the SCTP receive window independently bounds aggregate queued bytes.
+	maxInboundServiceStreams = 2048
 )

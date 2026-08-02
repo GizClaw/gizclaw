@@ -47,10 +47,14 @@ WebRTC implementation details related to Pion are left in this subdirectory. The
 signaling, remote-description, ICE-connected, DTLS-connected, and DataChannel
 ready timing without exposing mutable Pion objects.
 
-The default Pion API uses a 32 MiB SCTP receive buffer, matching the bounded 64
-service streams times their 512 KiB per-DataChannel send budget. This prevents
-multiple partial messages per interleaved stream from exhausting the receiver
-window before delivery. SCTP retransmission is capped at 250 ms, and DTLS
+The default Pion API uses a 32 MiB aggregate SCTP receive buffer, matching the
+qualified burst of 64 transferring service streams times their 512 KiB
+per-DataChannel send budget. This prevents multiple partial messages per
+interleaved stream from exhausting the receiver window before delivery. A
+connection admits at most 2,048 remotely opened service DataChannels, matching
+the gateway's active-session ceiling per upstream association; excess channels
+are closed before delivery, so service labels cannot create unbounded queues.
+SCTP retransmission is capped at 250 ms, and DTLS
 flights use a 250 ms initial retransmission interval, so lost handshake flights
 during a burst do not add the one-second defaults. SCTP reliable delivery and
 its retransmission count remain unchanged; DTLS retransmission and exponential

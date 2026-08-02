@@ -252,6 +252,40 @@ func TestFetchEdgesRejectsDuplicateTransportIdentity(t *testing.T) {
 	}
 }
 
+func TestFetchEdgesUsesSelectedEndpointForSignaling(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	transportKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		info := apitypes.ServerInfo{
+			PublicKey: serverKey.Public.String(),
+			Transport: &apitypes.ServerInfoTransport{
+				Endpoint:      "https://published.example:9821",
+				Mode:          apitypes.ServerInfoTransportModeEdgeGateway,
+				PublicKey:     transportKey.Public.String(),
+				SignalingPath: "/offer",
+			},
+		}
+		if err := json.NewEncoder(w).Encode(info); err != nil {
+			t.Error(err)
+		}
+	}))
+	defer server.Close()
+
+	edges, err := fetchEdges(context.Background(), []string{server.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := edges[0].signalingURL, server.URL+"/offer"; got != want {
+		t.Fatalf("signaling URL = %q, want selected endpoint %q", got, want)
+	}
+}
+
 func TestEstablishSessionsClosesEstablishedSessionsWhenRampIsCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	closed := make(chan struct{})

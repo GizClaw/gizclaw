@@ -47,9 +47,12 @@ WebRTC 与 Pion 相关的实现细节留在这个子目录。上层 GizClaw 服�
 PeerConnection、offer、ICE gathering、signaling、remote description、ICE connected、
 DTLS connected 和 DataChannel ready timing，且不会向调用方暴露可变 Pion 对象。
 
-默认 Pion API 使用 32 MiB SCTP receive buffer，与 64 条 bounded service streams 各自
-512 KiB 的 DataChannel send budget 一致，避免每条 interleaved stream 的多个 partial
-messages 在交付前耗尽 receiver window。SCTP retransmission 上限为 250 ms，DTLS flight
+默认 Pion API 使用 32 MiB association 级 SCTP receive buffer，与验收 burst 中 64 条正在
+传输的 service streams 各自 512 KiB 的 DataChannel send budget 一致，避免每条
+interleaved stream 的多个 partial messages 在交付前耗尽 receiver window。每条 connection
+最多接收远端打开的 2,048 条 service DataChannel，与 gateway 每条 upstream association 的
+active-session 上限一致；超出上限的 channel 会在交付前关闭，service label 不能创建无界
+queue。SCTP retransmission 上限为 250 ms，DTLS flight
 的 initial retransmission interval 为 250 ms，使 burst 中丢失 handshake flight 时不会固定
 增加默认的 1 秒等待。SCTP reliable delivery 和 retransmission count 不变；DTLS
 retransmission 与 exponential backoff 仍然启用。

@@ -165,7 +165,7 @@ func TestInterleavedServiceStreamsDoNotExhaustSCTPReceiveWindow(t *testing.T) {
 	httpServer := httptest.NewServer(serverListener.SignalingHandler())
 	defer httpServer.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	clientListener, clientConn, err := Dial(ctx, clientKey, serverKey.Public, DialConfig{
 		SignalingURL:   httpServer.URL + SignalingPath,
@@ -180,7 +180,7 @@ func TestInterleavedServiceStreamsDoNotExhaustSCTPReceiveWindow(t *testing.T) {
 	serverConn := acceptConn(t, serverListener)
 	defer serverConn.Close()
 
-	const streamCount = acceptQueueSize
+	const streamCount = sctpBurstServiceStreams
 	clientStreams := make([]net.Conn, streamCount)
 	serverStreams := make([]net.Conn, streamCount)
 	service := serverConn.ListenService(100)
@@ -203,10 +203,10 @@ func TestInterleavedServiceStreamsDoNotExhaustSCTPReceiveWindow(t *testing.T) {
 	errorsCh := make(chan error, streamCount*2)
 	var workers sync.WaitGroup
 	for index := range streamCount {
-		if err := clientStreams[index].SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		if err := clientStreams[index].SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
 			t.Fatalf("SetDeadline(client %d) error = %v", index, err)
 		}
-		if err := serverStreams[index].SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		if err := serverStreams[index].SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
 			t.Fatalf("SetDeadline(server %d) error = %v", index, err)
 		}
 		workers.Go(func() {

@@ -827,8 +827,7 @@ func fetchEdges(ctx context.Context, endpoints []string) ([]edgeMetadata, error)
 			}
 		}
 		serverKey = authoritative
-		transportBase, err := normalizeHTTPBase(info.Transport.Endpoint)
-		if err != nil {
+		if _, err := normalizeHTTPBase(info.Transport.Endpoint); err != nil {
 			return nil, fmt.Errorf("edge %q transport endpoint: %w", endpoint, err)
 		}
 		path := info.Transport.SignalingPath
@@ -837,7 +836,7 @@ func fetchEdges(ctx context.Context, endpoints []string) ([]edgeMetadata, error)
 		}
 		edges = append(edges, edgeMetadata{
 			endpoint: endpoint, serverKey: authoritative, transportKey: transport,
-			signalingURL: transportBase + path, authoritative: info,
+			signalingURL: base + path, authoritative: info,
 		})
 	}
 	return edges, nil
