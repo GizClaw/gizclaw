@@ -162,7 +162,7 @@ func openSharedFlowcraft(ctx context.Context, request Request) (sharedBackend, e
 
 func sharedLocalDirectory(request Request, connectionType string) (string, error) {
 	if connectionType == "flowcraft_bbh" {
-		return managedBindingRoot(request.ServerRoot, request.ProfileName, request.BindingName)
+		return managedBindingRoot(request.ServerRoot, request.ProfileID, request.BindingName)
 	}
 	connection, err := request.Binding.Connection.AsRuntimeProfileFlowcraftObjectStoreConnection()
 	if err != nil {

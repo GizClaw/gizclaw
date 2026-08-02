@@ -486,15 +486,15 @@ func TestPeerServiceEdgeSideControlUsesDeviceGrantForUnregisteredController(t *t
 	if rec := do(http.MethodGet, "/openai/v1/models", ""); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), `"code":"PRIMARY_SESSION_REQUIRED"`) {
 		t.Fatalf("side session /openai status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	createContact := do(http.MethodPost, "/side-control/contacts", `{"display_name":"Alice"}`)
+	createContact := do(http.MethodPost, "/side-control/contacts", `{"name":"alice-contact","display_name":"Alice"}`)
 	if createContact.Code != http.StatusCreated {
 		t.Fatalf("create contact status = %d body=%s", createContact.Code, createContact.Body.String())
 	}
 	var createdContact rpcapi.ContactObject
-	if err := json.Unmarshal(createContact.Body.Bytes(), &createdContact); err != nil || createdContact.Id == nil {
+	if err := json.Unmarshal(createContact.Body.Bytes(), &createdContact); err != nil || createdContact.Name != "alice-contact" {
 		t.Fatalf("decode created contact = %+v err=%v", createdContact, err)
 	}
-	contactPath := "/side-control/contacts/" + *createdContact.Id
+	contactPath := "/side-control/contacts/" + createdContact.Name
 	if rec := do(http.MethodGet, contactPath, ""); rec.Code != http.StatusOK {
 		t.Fatalf("get contact status = %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -542,29 +542,29 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 	loginServer := publiclogin.NewServer(serverKey, mustBadgerInMemory(t, nil))
 	models := &model.Server{Store: kv.NewMemory(nil)}
 	createdModel, err := models.CreateModel(context.Background(), adminhttp.CreateModelRequestObject{Body: &adminhttp.ModelUpsert{
-		Id:     "profile-model",
+		Name:   "profile-model",
 		Kind:   apitypes.ModelKindLlm,
 		Source: apitypes.ModelSourceManual,
 		Provider: apitypes.ModelProvider{
 			Kind: "openai-tenant",
-			Name: "global",
+			Id:   "global",
 		},
 		ProviderData: mustOpenAIModelProviderData(t, "profile-model-upstream"),
 	}})
 	if err != nil {
 		t.Fatalf("CreateModel error = %v", err)
 	}
-	if _, ok := createdModel.(adminhttp.CreateModel200JSONResponse); !ok {
+	modelObject, ok := createdModel.(adminhttp.CreateModel200JSONResponse)
+	if !ok {
 		t.Fatalf("CreateModel response = %#v", createdModel)
 	}
 	profileModels := map[string]apitypes.RuntimeProfileBinding{
-		"primary": {ResourceId: "profile-model", I18n: map[string]apitypes.RuntimeProfileI18nText{
+		"primary": {ResourceId: modelObject.Id, I18n: map[string]apitypes.RuntimeProfileI18nText{
 			"en": {DisplayName: "Primary"}, "zh-CN": {DisplayName: "主要模型"},
 		}},
 	}
-	runtimeProfiles := &runtimeprofile.Server{Store: kv.NewMemory(nil)}
-	profileResponse, err := runtimeProfiles.PutRuntimeProfile(context.Background(), adminhttp.PutRuntimeProfileRequestObject{
-		Name: "edge-runtime",
+	runtimeProfiles := &runtimeprofile.Server{Store: kv.NewMemory(nil), NewID: func() string { return "edge-runtime" }}
+	profileResponse, err := runtimeProfiles.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{
 		Body: &adminhttp.RuntimeProfileUpsert{
 			Name: "edge-runtime",
 			Spec: apitypes.RuntimeProfileSpec{
@@ -576,8 +576,8 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PutRuntimeProfile error = %v", err)
 	}
-	if _, ok := profileResponse.(adminhttp.PutRuntimeProfile200JSONResponse); !ok {
-		t.Fatalf("PutRuntimeProfile response = %#v", profileResponse)
+	if _, ok := profileResponse.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
+		t.Fatalf("CreateRuntimeProfile response = %#v", profileResponse)
 	}
 	loginServer.RegistrationResolver = func(_ context.Context, rawToken string) (runtimeprofile.Registration, error) {
 		if rawToken != "edge-runtime-token" {

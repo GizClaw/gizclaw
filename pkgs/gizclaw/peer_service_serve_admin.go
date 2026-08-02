@@ -101,7 +101,7 @@ func (s *adminService) ApplyResource(ctx context.Context, request adminhttp.Appl
 }
 
 func (s *adminService) GetResource(ctx context.Context, request adminhttp.GetResourceRequestObject) (adminhttp.GetResourceResponseObject, error) {
-	resource, err := s.ResourceManager.Get(ctx, request.Kind, request.Name)
+	resource, err := s.ResourceManager.Get(ctx, request.Kind, request.Id)
 	if err != nil {
 		status, body := resourceManagerError(err)
 		switch status {
@@ -120,7 +120,7 @@ func (s *adminService) PutResource(ctx context.Context, request adminhttp.PutRes
 	if request.JSONBody == nil {
 		return adminhttp.PutResource400JSONResponse(apitypes.NewErrorResponse("INVALID_RESOURCE", "request body is required")), nil
 	}
-	if err := validateResourcePathMatch(*request.JSONBody, request.Kind, request.Name); err != nil {
+	if err := validateResourcePathMatch(*request.JSONBody, request.Kind, request.Id); err != nil {
 		return adminhttp.PutResource400JSONResponse(apitypes.NewErrorResponse("INVALID_RESOURCE_PATH", err.Error())), nil
 	}
 	resource, err := s.ResourceManager.Put(ctx, *request.JSONBody)
@@ -141,7 +141,7 @@ func (s *adminService) PutResource(ctx context.Context, request adminhttp.PutRes
 }
 
 func (s *adminService) DeleteResource(ctx context.Context, request adminhttp.DeleteResourceRequestObject) (adminhttp.DeleteResourceResponseObject, error) {
-	resource, err := s.ResourceManager.Delete(ctx, request.Kind, request.Name)
+	resource, err := s.ResourceManager.Delete(ctx, request.Kind, request.Id)
 	if err != nil {
 		status, body := resourceManagerError(err)
 		switch status {
@@ -188,11 +188,11 @@ func resourceManagerError(err error) (int, apitypes.ErrorResponse) {
 	return http.StatusInternalServerError, apitypes.NewErrorResponse("RESOURCE_MANAGER_ERROR", err.Error())
 }
 
-func validateResourcePathMatch(resource apitypes.Resource, kind apitypes.ResourceKind, name string) error {
+func validateResourcePathMatch(resource apitypes.Resource, kind apitypes.ResourceKind, id string) error {
 	var header struct {
 		Kind     apitypes.ResourceKind `json:"kind"`
 		Metadata struct {
-			Name string `json:"name"`
+			Id *string `json:"id"`
 		} `json:"metadata"`
 	}
 	data, err := json.Marshal(resource)
@@ -205,8 +205,8 @@ func validateResourcePathMatch(resource apitypes.Resource, kind apitypes.Resourc
 	if header.Kind != kind {
 		return errors.New("resource kind does not match path kind")
 	}
-	if header.Metadata.Name != name {
-		return errors.New("resource metadata.name does not match path name")
+	if header.Metadata.Id == nil || *header.Metadata.Id != id {
+		return errors.New("resource metadata.id does not match path id")
 	}
 	return nil
 }

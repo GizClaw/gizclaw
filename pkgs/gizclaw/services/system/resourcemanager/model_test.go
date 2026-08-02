@@ -19,10 +19,10 @@ func TestApplyModelCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 		"metadata": {"name": "qwen-flash"},
 		"spec": {
 			"kind": "llm",
-			"provider": {"kind": "openai-tenant", "name": "dashscope"},
+			"provider": {"kind": "openai-tenant", "id": "dashscope"},
 			"provider_data": {"upstream_model": "qwen-flash", "support_json_output": false, "support_tool_calls": false, "support_text_only": false, "use_system_role": false, "support_temperature": false, "support_thinking": false},
 			"source": "manual",
-			"name": "Qwen Flash"
+			"display_name": "Qwen Flash"
 		}
 	}`)
 
@@ -33,6 +33,7 @@ func TestApplyModelCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 	if result.Action != apitypes.ApplyActionCreated {
 		t.Fatalf("Apply(create Model) action = %s", result.Action)
 	}
+	resource = withResourceID(t, resource, *result.Id)
 	result, err = manager.Apply(context.Background(), resource)
 	if err != nil {
 		t.Fatalf("Apply(unchanged Model) error = %v", err)
@@ -47,13 +48,14 @@ func TestApplyModelCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 		"metadata": {"name": "qwen-flash"},
 		"spec": {
 			"kind": "llm",
-			"provider": {"kind": "openai-tenant", "name": "dashscope"},
+			"provider": {"kind": "openai-tenant", "id": "dashscope"},
 			"provider_data": {"upstream_model": "qwen-flash", "support_json_output": false, "support_tool_calls": false, "support_text_only": false, "use_system_role": false, "support_temperature": false, "support_thinking": false},
 			"source": "manual",
-			"name": "Qwen Flash",
+			"display_name": "Qwen Flash",
 			"description": "fast model"
 		}
 	}`)
+	updated = withResourceID(t, updated, *result.Id)
 	result, err = manager.Apply(context.Background(), updated)
 	if err != nil {
 		t.Fatalf("Apply(update Model) error = %v", err)
@@ -71,12 +73,17 @@ func TestPutGetDeleteModelResource(t *testing.T) {
 		"metadata": {"name": "chat"},
 		"spec": {
 			"kind": "llm",
-			"provider": {"kind": "openai-tenant", "name": "openai"},
+			"provider": {"kind": "openai-tenant", "id": "openai"},
 			"source": "manual",
 			"provider_data": {"upstream_model":"gpt-4o-mini", "support_json_output": false, "support_tool_calls": false, "support_text_only": false, "use_system_role": false, "support_temperature": false, "support_thinking": false}
 		}
 	}`)
 
+	created, err := manager.Apply(context.Background(), resource)
+	if err != nil {
+		t.Fatalf("Apply(Model) error = %v", err)
+	}
+	resource = withResourceID(t, resource, *created.Id)
 	stored, err := manager.Put(context.Background(), resource)
 	if err != nil {
 		t.Fatalf("Put(Model) error = %v", err)
@@ -89,7 +96,8 @@ func TestPutGetDeleteModelResource(t *testing.T) {
 		t.Fatalf("Put(Model) provider.kind = %s", model.Spec.Provider.Kind)
 	}
 
-	got, err := manager.Get(context.Background(), apitypes.ResourceKindModel, "chat")
+	id := *created.Id
+	got, err := manager.Get(context.Background(), apitypes.ResourceKindModel, id)
 	if err != nil {
 		t.Fatalf("Get(Model) error = %v", err)
 	}
@@ -101,7 +109,7 @@ func TestPutGetDeleteModelResource(t *testing.T) {
 		t.Fatalf("Get(Model) metadata.name = %s", gotModel.Metadata.Name)
 	}
 
-	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindModel, "chat")
+	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindModel, id)
 	if err != nil {
 		t.Fatalf("Delete(Model) error = %v", err)
 	}
@@ -112,7 +120,7 @@ func TestPutGetDeleteModelResource(t *testing.T) {
 	if deletedModel.Metadata.Name != "chat" {
 		t.Fatalf("Delete(Model) metadata.name = %s", deletedModel.Metadata.Name)
 	}
-	_, err = manager.Get(context.Background(), apitypes.ResourceKindModel, "chat")
+	_, err = manager.Get(context.Background(), apitypes.ResourceKindModel, id)
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
 }
 

@@ -1,7 +1,7 @@
 package rpcapi
 
 type SpeechTranscribeRequest struct {
-	ModelAlias  string  `json:"model_alias"`
+	ModelName   string  `json:"model_name"`
 	ContentType string  `json:"content_type"`
 	Language    *string `json:"language,omitempty"`
 }
@@ -11,12 +11,12 @@ type SpeechTranscribeResponse struct {
 }
 
 type SpeechExtractRequest struct {
-	ASRModelAlias     string  `json:"asr_model_alias"`
-	ExtractModelAlias string  `json:"extract_model_alias"`
-	ContentType       string  `json:"content_type"`
-	Language          *string `json:"language,omitempty"`
-	SchemaJSON        string  `json:"schema_json"`
-	Instruction       *string `json:"instruction,omitempty"`
+	ASRModelName     string  `json:"asr_model_name"`
+	ExtractModelName string  `json:"extract_model_name"`
+	ContentType      string  `json:"content_type"`
+	Language         *string `json:"language,omitempty"`
+	SchemaJSON       string  `json:"schema_json"`
+	Instruction      *string `json:"instruction,omitempty"`
 }
 
 type SpeechExtractResponse struct {
@@ -25,7 +25,7 @@ type SpeechExtractResponse struct {
 }
 
 type SpeechSynthesizeRequest struct {
-	VoiceAlias           string   `json:"voice_alias"`
+	VoiceName            string   `json:"voice_name"`
 	Text                 string   `json:"text"`
 	AcceptedContentTypes []string `json:"accepted_content_types"`
 }

@@ -221,7 +221,7 @@ typedef struct _gizclaw_rpc_v1_ServerReloadRunWorkspaceResponse {
 
 typedef struct _gizclaw_rpc_v1_ServerRunSayRequest {
     pb_callback_t text;
-    pb_callback_t voice_alias;
+    pb_callback_t voice_name;
 } gizclaw_rpc_v1_ServerRunSayRequest;
 
 typedef struct _gizclaw_rpc_v1_ServerRunSayResponse {
@@ -358,14 +358,12 @@ typedef struct _gizclaw_rpc_v1_Workspace {
     bool has_parameters;
     gizclaw_rpc_v1_WorkspaceParameters parameters;
     pb_callback_t updated_at;
-    pb_callback_t workflow_alias;
+    pb_callback_t workflow_name;
     bool has_toolkit;
     gizclaw_rpc_v1_ToolkitPolicy toolkit;
     bool system;
     bool has_icon;
     gizclaw_rpc_v1_Icon icon;
-    bool has_owner_public_key;
-    char owner_public_key[65];
     bool available;
 } gizclaw_rpc_v1_Workspace;
 
@@ -373,7 +371,7 @@ typedef struct _gizclaw_rpc_v1_WorkspaceCreateBody {
     pb_callback_t name;
     bool has_parameters;
     gizclaw_rpc_v1_WorkspaceParameters parameters;
-    pb_callback_t workflow_alias;
+    pb_callback_t workflow_name;
     bool has_toolkit;
     gizclaw_rpc_v1_ToolkitPolicy toolkit;
     pb_callback_t collection;
@@ -467,7 +465,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerSetRunWorkspaceResponse_init_default {false, gizclaw_rpc_v1_PeerRunWorkspaceState_init_default}
 #define gizclaw_rpc_v1_ServerStopRunRequest_init_default {0}
 #define gizclaw_rpc_v1_ServerStopRunResponse_init_default {false, gizclaw_rpc_v1_PeerRunStatus_init_default}
-#define gizclaw_rpc_v1_Workspace_init_default    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_default, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, 0, false, gizclaw_rpc_v1_Icon_init_default, false, "", 0}
+#define gizclaw_rpc_v1_Workspace_init_default    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_default, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, 0, false, gizclaw_rpc_v1_Icon_init_default, 0}
 #define gizclaw_rpc_v1_WorkspaceCreateBody_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_default, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspacePutBody_init_default {false, gizclaw_rpc_v1_WorkspaceParameters_init_default, false, gizclaw_rpc_v1_ToolkitPolicy_init_default}
 #define gizclaw_rpc_v1_WorkspaceIconDownloadRequest_init_default {"", _gizclaw_rpc_v1_IconFormat_MIN}
@@ -531,7 +529,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerSetRunWorkspaceResponse_init_zero {false, gizclaw_rpc_v1_PeerRunWorkspaceState_init_zero}
 #define gizclaw_rpc_v1_ServerStopRunRequest_init_zero {0}
 #define gizclaw_rpc_v1_ServerStopRunResponse_init_zero {false, gizclaw_rpc_v1_PeerRunStatus_init_zero}
-#define gizclaw_rpc_v1_Workspace_init_zero       {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, 0, false, gizclaw_rpc_v1_Icon_init_zero, false, "", 0}
+#define gizclaw_rpc_v1_Workspace_init_zero       {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, 0, false, gizclaw_rpc_v1_Icon_init_zero, 0}
 #define gizclaw_rpc_v1_WorkspaceCreateBody_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_zero, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspacePutBody_init_zero {false, gizclaw_rpc_v1_WorkspaceParameters_init_zero, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero}
 #define gizclaw_rpc_v1_WorkspaceIconDownloadRequest_init_zero {"", _gizclaw_rpc_v1_IconFormat_MIN}
@@ -633,7 +631,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerReloadRunResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerReloadRunWorkspaceResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerRunSayRequest_text_tag 1
-#define gizclaw_rpc_v1_ServerRunSayRequest_voice_alias_tag 2
+#define gizclaw_rpc_v1_ServerRunSayRequest_voice_name_tag 2
 #define gizclaw_rpc_v1_ServerRunSayResponse_accepted_tag 1
 #define gizclaw_rpc_v1_ServerRunWorkspaceRecallRequest_value_tag 1
 #define gizclaw_rpc_v1_ServerRunWorkspaceRecallResponse_value_tag 1
@@ -676,23 +674,22 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceParameters_doubao_realtime_workspace_parameters_tag 2
 #define gizclaw_rpc_v1_WorkspaceParameters_asttranslate_workspace_parameters_tag 3
 #define gizclaw_rpc_v1_WorkspaceParameters_chat_room_workspace_parameters_tag 4
-#define gizclaw_rpc_v1_WorkspaceParameters_dash_scope_realtime_workspace_parameters_tag 6
-#define gizclaw_rpc_v1_WorkspaceParameters_doubao_realtime_duplex_workspace_parameters_tag 7
-#define gizclaw_rpc_v1_WorkspaceParameters_eino_workspace_parameters_tag 8
+#define gizclaw_rpc_v1_WorkspaceParameters_dash_scope_realtime_workspace_parameters_tag 5
+#define gizclaw_rpc_v1_WorkspaceParameters_doubao_realtime_duplex_workspace_parameters_tag 6
+#define gizclaw_rpc_v1_WorkspaceParameters_eino_workspace_parameters_tag 7
 #define gizclaw_rpc_v1_Workspace_created_at_tag  1
 #define gizclaw_rpc_v1_Workspace_last_active_at_tag 2
 #define gizclaw_rpc_v1_Workspace_name_tag        3
 #define gizclaw_rpc_v1_Workspace_parameters_tag  4
 #define gizclaw_rpc_v1_Workspace_updated_at_tag  5
-#define gizclaw_rpc_v1_Workspace_workflow_alias_tag 6
+#define gizclaw_rpc_v1_Workspace_workflow_name_tag 6
 #define gizclaw_rpc_v1_Workspace_toolkit_tag     7
 #define gizclaw_rpc_v1_Workspace_system_tag      8
 #define gizclaw_rpc_v1_Workspace_icon_tag        9
-#define gizclaw_rpc_v1_Workspace_owner_public_key_tag 10
 #define gizclaw_rpc_v1_Workspace_available_tag   11
 #define gizclaw_rpc_v1_WorkspaceCreateBody_name_tag 1
 #define gizclaw_rpc_v1_WorkspaceCreateBody_parameters_tag 2
-#define gizclaw_rpc_v1_WorkspaceCreateBody_workflow_alias_tag 3
+#define gizclaw_rpc_v1_WorkspaceCreateBody_workflow_name_tag 3
 #define gizclaw_rpc_v1_WorkspaceCreateBody_toolkit_tag 4
 #define gizclaw_rpc_v1_WorkspaceCreateBody_collection_tag 5
 #define gizclaw_rpc_v1_WorkspacePutBody_parameters_tag 4
@@ -941,7 +938,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 
 #define gizclaw_rpc_v1_ServerRunSayRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   text,              1) \
-X(a, CALLBACK, SINGULAR, STRING,   voice_alias,       2)
+X(a, CALLBACK, SINGULAR, STRING,   voice_name,        2)
 #define gizclaw_rpc_v1_ServerRunSayRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ServerRunSayRequest_DEFAULT NULL
 
@@ -1003,11 +1000,10 @@ X(a, CALLBACK, SINGULAR, STRING,   last_active_at,    2) \
 X(a, CALLBACK, SINGULAR, STRING,   name,              3) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  parameters,        4) \
 X(a, CALLBACK, SINGULAR, STRING,   updated_at,        5) \
-X(a, CALLBACK, SINGULAR, STRING,   workflow_alias,    6) \
+X(a, CALLBACK, SINGULAR, STRING,   workflow_name,     6) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  toolkit,           7) \
 X(a, STATIC,   SINGULAR, BOOL,     system,            8) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  icon,              9) \
-X(a, STATIC,   OPTIONAL, STRING,   owner_public_key,  10) \
 X(a, STATIC,   SINGULAR, BOOL,     available,        11)
 #define gizclaw_rpc_v1_Workspace_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Workspace_DEFAULT NULL
@@ -1018,7 +1014,7 @@ X(a, STATIC,   SINGULAR, BOOL,     available,        11)
 #define gizclaw_rpc_v1_WorkspaceCreateBody_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  parameters,        2) \
-X(a, CALLBACK, SINGULAR, STRING,   workflow_alias,    3) \
+X(a, CALLBACK, SINGULAR, STRING,   workflow_name,     3) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  toolkit,           4) \
 X(a, CALLBACK, SINGULAR, STRING,   collection,        5)
 #define gizclaw_rpc_v1_WorkspaceCreateBody_CALLBACK pb_default_field_callback
@@ -1146,9 +1142,9 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (value,flowcraft_workspace_parameters,value.f
 X(a, STATIC,   ONEOF,    MESSAGE,  (value,doubao_realtime_workspace_parameters,value.doubao_realtime_workspace_parameters),   2) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (value,asttranslate_workspace_parameters,value.asttranslate_workspace_parameters),   3) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (value,chat_room_workspace_parameters,value.chat_room_workspace_parameters),   4) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,dash_scope_realtime_workspace_parameters,value.dash_scope_realtime_workspace_parameters),   6) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,doubao_realtime_duplex_workspace_parameters,value.doubao_realtime_duplex_workspace_parameters),   7) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,eino_workspace_parameters,value.eino_workspace_parameters),   8)
+X(a, STATIC,   ONEOF,    MESSAGE,  (value,dash_scope_realtime_workspace_parameters,value.dash_scope_realtime_workspace_parameters),   5) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (value,doubao_realtime_duplex_workspace_parameters,value.doubao_realtime_duplex_workspace_parameters),   6) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (value,eino_workspace_parameters,value.eino_workspace_parameters),   7)
 #define gizclaw_rpc_v1_WorkspaceParameters_CALLBACK NULL
 #define gizclaw_rpc_v1_WorkspaceParameters_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkspaceParameters_value_flowcraft_workspace_parameters_MSGTYPE gizclaw_rpc_v1_FlowcraftWorkspaceParameters
@@ -1305,7 +1301,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspacePutResponse_msg;
 
 /* Maximum encoded size of messages (where known) */
 #if defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_size)
-union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size)]; char f3[(6 + gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size)]; char f4[(6 + gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size)]; char f6[(6 + gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size)]; char f7[(6 + gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_size)]; char f0[14];};
+union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size)]; char f3[(6 + gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size)]; char f4[(6 + gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size)]; char f5[(6 + gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size)]; char f6[(6 + gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_size)]; char f0[14];};
 #endif
 /* gizclaw_rpc_v1_AgentSelection_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PeerRunAgent_size depends on runtime parameters */

@@ -12,6 +12,7 @@
         "type": "object",
         "required": [
           "id",
+          "name",
           "kind",
           "source",
           "provider",
@@ -20,9 +21,15 @@
           "updated_at"
         ],
         "properties": {
-    "id": {
-      "type": "string"
-    },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
           "kind": {
             "$ref": "./model_kind.json#/components/schemas/ModelKind"
           },
@@ -31,10 +38,6 @@
           },
           "provider": {
             "$ref": "./model_provider.json#/components/schemas/ModelProvider"
-          },
-          "name": {
-            "type": "string",
-            "example": "MiniMax M2.5"
           },
           "description": {
             "type": "string",

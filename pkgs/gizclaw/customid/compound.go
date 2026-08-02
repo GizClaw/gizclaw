@@ -32,8 +32,5 @@ func SplitMembershipName(name string) (string, string, error) {
 	if strings.Contains(memberID, ":") {
 		return "", "", fmt.Errorf("metadata.name must be friend_group_id:peer_public_key")
 	}
-	if err := ValidateField("friend_group_id", groupID); err != nil {
-		return "", "", err
-	}
 	return groupID, memberID, nil
 }

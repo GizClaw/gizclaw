@@ -55,7 +55,7 @@ func (e *PeerEvent) Validate() error {
 			return fmt.Errorf("%w: friend relationship", ErrMissingIdentifier)
 		}
 	case *PeerEvent_FriendGroupUpdated:
-		if strings.TrimSpace(payload.FriendGroupUpdated.GetFriendGroupId()) == "" ||
+		if strings.TrimSpace(payload.FriendGroupUpdated.GetFriendGroupName()) == "" ||
 			strings.TrimSpace(payload.FriendGroupUpdated.GetWorkspaceName()) == "" {
 			return fmt.Errorf("%w: friend group", ErrMissingIdentifier)
 		}

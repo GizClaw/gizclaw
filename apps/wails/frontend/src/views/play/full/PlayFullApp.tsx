@@ -246,7 +246,7 @@ type Section =
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
 
 type Voice = {
-  alias: string;
+  name: string;
   i18n: Record<string, { display_name: string; description?: string }>;
 };
 
@@ -551,7 +551,7 @@ function GameplayPanel(): JSX.Element {
   const results = usePagedList<GameResultObject>(loadResultsPage);
   const grants = usePagedList<RewardGrantObject>(loadGrantsPage);
   const [points, setPoints] = useState<PointsAccountObject | null>(null);
-  const [selectedPetID, setSelectedPetID] = useState("");
+  const [selectedPetName, setSelectedPetName] = useState("");
   const [adoptName, setAdoptName] = useState("");
   const [driveBehavior, setDriveBehavior] = useState("");
   const [driveGameID, setDriveGameID] = useState("");
@@ -561,7 +561,9 @@ function GameplayPanel(): JSX.Element {
   const [driveOutcome, setDriveOutcome] = useState("");
   const [driveDurationMs, setDriveDurationMs] = useState("");
   const [driveIdempotencyKey, setDriveIdempotencyKey] = useState("");
-  const [petClipByID, setPetClipByID] = useState<Record<string, string>>({});
+  const [petClipByName, setPetClipByName] = useState<Record<string, string>>(
+    {},
+  );
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
@@ -575,7 +577,7 @@ function GameplayPanel(): JSX.Element {
   }, [refreshSummary]);
 
   useEffect(() => {
-    setSelectedPetID((current) => current || pets.page.items[0]?.id || "");
+    setSelectedPetName((current) => current || pets.page.items[0]?.name || "");
   }, [pets.page.items]);
 
   const refreshAll = async (): Promise<void> => {
@@ -594,7 +596,7 @@ function GameplayPanel(): JSX.Element {
     try {
       await expectData(
         adoptPeerPet({
-          body: { display_name: adoptName.trim() },
+          body: { name: adoptName.trim(), display_name: adoptName.trim() },
         }),
       );
       setAdoptName("");
@@ -607,7 +609,7 @@ function GameplayPanel(): JSX.Element {
   };
 
   const drive = async (): Promise<void> => {
-    if (selectedPetID.trim() === "") {
+    if (selectedPetName.trim() === "") {
       setError("Select a pet first.");
       return;
     }
@@ -615,11 +617,11 @@ function GameplayPanel(): JSX.Element {
     setError("");
     try {
       const body: Record<string, unknown> = {
-        pet_id: selectedPetID.trim(),
+        pet_name: selectedPetName.trim(),
       };
       if (driveGameID.trim() !== "") {
         body.game_result = {
-          game_def_id: driveGameID.trim(),
+          game_name: driveGameID.trim(),
           ...(driveScore.trim() !== "" ? { score: Number(driveScore) } : {}),
           ...(driveMaxScore.trim() !== ""
             ? { max_score: Number(driveMaxScore) }
@@ -646,9 +648,9 @@ function GameplayPanel(): JSX.Element {
         body.behavior = driveBehavior.trim();
       }
       await expectData(drivePeerPet({ body }));
-      const petID = selectedPetID.trim();
+      const petName = selectedPetName.trim();
       const actionID = driveGameID.trim() === "" ? driveBehavior.trim() : "";
-      const presentation = await getPeerPetActions({ body: { id: petID } });
+      const presentation = await getPeerPetActions({ body: { name: petName } });
       const clipName =
         presentation.data == null
           ? actionID || "idle"
@@ -656,7 +658,7 @@ function GameplayPanel(): JSX.Element {
               presentation.data as PetActionsObject,
               actionID,
             );
-      setPetClipByID((current) => ({ ...current, [petID]: clipName }));
+      setPetClipByName((current) => ({ ...current, [petName]: clipName }));
       await refreshAll();
     } catch (err) {
       setError(toMessage(err));
@@ -670,11 +672,11 @@ function GameplayPanel(): JSX.Element {
     if (name == null || name.trim() === "") {
       return;
     }
-    setBusy(`rename:${pet.id}`);
+    setBusy(`rename:${pet.name}`);
     setError("");
     try {
       await expectData(
-        putPeerPet({ body: { id: pet.id, display_name: name.trim() } }),
+        putPeerPet({ body: { name: pet.name, display_name: name.trim() } }),
       );
       await refreshAll();
     } catch (err) {
@@ -685,13 +687,13 @@ function GameplayPanel(): JSX.Element {
   };
 
   const remove = async (pet: PetObject): Promise<void> => {
-    if (!window.confirm(`Delete pet ${pet.display_name || pet.id}?`)) {
+    if (!window.confirm(`Delete pet ${pet.display_name || pet.name}?`)) {
       return;
     }
-    setBusy(`delete:${pet.id}`);
+    setBusy(`delete:${pet.name}`);
     setError("");
     try {
-      await expectData(deletePeerPet({ body: { id: pet.id } }));
+      await expectData(deletePeerPet({ body: { name: pet.name } }));
       await refreshAll();
     } catch (err) {
       setError(toMessage(err));
@@ -774,14 +776,14 @@ function GameplayPanel(): JSX.Element {
           </Button>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-4 xl:grid-cols-[minmax(12rem,1fr)_repeat(7,minmax(7rem,0.75fr))_auto]">
-          <Select onValueChange={setSelectedPetID} value={selectedPetID}>
+          <Select onValueChange={setSelectedPetName} value={selectedPetName}>
             <SelectTrigger>
               <SelectValue placeholder="Pet" />
             </SelectTrigger>
             <SelectContent>
               {pets.page.items.map((pet) => (
-                <SelectItem key={pet.id} value={pet.id}>
-                  {pet.display_name || pet.id}
+                <SelectItem key={pet.name} value={pet.name}>
+                  {pet.display_name || pet.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -830,7 +832,7 @@ function GameplayPanel(): JSX.Element {
             value={driveIdempotencyKey}
           />
           <Button
-            disabled={busy !== "" || selectedPetID === ""}
+            disabled={busy !== "" || selectedPetName === ""}
             onClick={() => void drive()}
             type="button"
           >
@@ -842,7 +844,7 @@ function GameplayPanel(): JSX.Element {
       <GameplayPetTable
         busy={busy}
         pager={pets}
-        petClipByID={petClipByID}
+        petClipByName={petClipByName}
         onDelete={remove}
         onRename={rename}
       />
@@ -898,13 +900,13 @@ function GameplayPetTable({
   onDelete,
   onRename,
   pager,
-  petClipByID,
+  petClipByName,
 }: {
   busy: string;
   onDelete: (pet: PetObject) => Promise<void>;
   onRename: (pet: PetObject) => Promise<void>;
   pager: ReturnType<typeof usePagedList<PetObject>>;
-  petClipByID: Record<string, string>;
+  petClipByName: Record<string, string>;
 }): JSX.Element {
   return (
     <Card>
@@ -945,26 +947,26 @@ function GameplayPetTable({
             </TableHeader>
             <TableBody>
               {pager.page.items.map((pet) => (
-                <TableRow key={pet.id}>
+                <TableRow key={pet.name}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <GameplayPixaSprite
-                        clipName={petClipByID[pet.id] ?? "idle"}
-                        id={pet.id}
+                        clipName={petClipByName[pet.name] ?? "idle"}
+                        id={pet.name}
                         type="pet"
                       />
                       <div>
                         <div className="font-medium">
-                          {pet.display_name || pet.id}
+                          {pet.display_name || pet.name}
                         </div>
                         <div className="font-mono text-xs text-muted-foreground">
-                          {pet.id}
+                          {pet.name}
                         </div>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">
-                    {pet.petdef_id}
+                    {pet.pet_def_name}
                   </TableCell>
                   <TableCell>{petXP(pet)}</TableCell>
                   <TableCell
@@ -1072,20 +1074,20 @@ function GameplayBadgeTable({
             </TableHeader>
             <TableBody>
               {pager.page.items.map((badge) => (
-                <TableRow key={badge.id}>
+                <TableRow key={badge.name}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <GameplayPixaSprite
                         clipName="icon"
-                        id={badge.badge_def_id}
+                        id={badge.badge_def_name}
                         type="badgedef"
                       />
                       <div>
                         <div className="font-mono text-xs">
-                          {badge.badge_def_id}
+                          {badge.badge_def_name}
                         </div>
                         <div className="font-mono text-xs text-muted-foreground">
-                          {badge.id}
+                          {badge.name}
                         </div>
                       </div>
                     </div>
@@ -1126,8 +1128,8 @@ function GameplayPixaSprite({
     void (async () => {
       const result =
         type === "pet"
-          ? await getPeerPetPixa({ body: { pet_id: id } })
-          : await getPeerBadgeDefPixa({ body: { id } });
+          ? await getPeerPetPixa({ body: { pet_name: id } })
+          : await getPeerBadgeDefPixa({ body: { name: id } });
       if (cancelled) {
         return;
       }
@@ -1328,10 +1330,7 @@ function ContactsPanel(): JSX.Element {
                 {pager.page.items.map((contact) => (
                   <ContactRow
                     contact={contact}
-                    key={
-                      contact.id ??
-                      `${contact.display_name ?? ""}:${contact.phone_number ?? ""}`
-                    }
+                    key={contact.name}
                     onChanged={pager.refresh}
                     onEdit={openEdit}
                   />
@@ -1368,15 +1367,15 @@ function ContactRow({
   onEdit: (contact: ContactObject) => void;
 }): JSX.Element {
   const [deleting, setDeleting] = useState(false);
-  const id = contact.id ?? "";
+  const name = contact.name;
 
   const remove = async (): Promise<void> => {
-    if (id === "") {
+    if (name === "") {
       return;
     }
     setDeleting(true);
     try {
-      await deleteContact(id);
+      await deleteContact(name);
       toast.success("Contact deleted", {
         description: contactDisplayName(contact),
       });
@@ -1399,9 +1398,9 @@ function ContactRow({
         </div>
         <div
           className="truncate font-mono text-xs text-muted-foreground"
-          title={id}
+          title={name}
         >
-          {id || "-"}
+          {name || "-"}
         </div>
       </TableCell>
       <TableCell
@@ -1424,7 +1423,7 @@ function ContactRow({
             Edit
           </Button>
           <Button
-            disabled={deleting || id === ""}
+            disabled={deleting || name === ""}
             onClick={() => void remove()}
             size="sm"
             type="button"
@@ -1449,6 +1448,7 @@ function ContactDialog({
   onSaved: (contact: ContactObject) => void;
   open: boolean;
 }): JSX.Element {
+  const [name, setName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1458,22 +1458,23 @@ function ContactDialog({
     if (!open) {
       return;
     }
+    setName(contact?.name ?? "");
     setDisplayName(contact?.display_name ?? "");
     setPhoneNumber(contact?.phone_number ?? "");
     setError("");
   }, [contact, open]);
 
   const submit = async (): Promise<void> => {
-    if (displayName.trim() === "" && phoneNumber.trim() === "") {
+    if (name.trim() === "") {
       return;
     }
     setSaving(true);
     setError("");
     try {
       const saved =
-        contact?.id == null || contact.id === ""
-          ? await createContact(displayName, phoneNumber)
-          : await updateContact(contact.id, displayName, phoneNumber);
+        contact == null
+          ? await createContact(name, displayName, phoneNumber)
+          : await updateContact(name, displayName, phoneNumber);
       onSaved(saved);
     } catch (err) {
       setError(toMessage(err));
@@ -1500,6 +1501,15 @@ function ContactDialog({
             </Alert>
           ) : null}
           <FieldGroup>
+            <ShadField>
+              <FieldLabel htmlFor="contact-name">Name</FieldLabel>
+              <Input
+                disabled={contact != null}
+                id="contact-name"
+                onChange={(event) => setName(event.target.value)}
+                value={name}
+              />
+            </ShadField>
             <ShadField>
               <FieldLabel htmlFor="contact-display-name">
                 Display name
@@ -1532,9 +1542,7 @@ function ContactDialog({
             Cancel
           </Button>
           <Button
-            disabled={
-              saving || (displayName.trim() === "" && phoneNumber.trim() === "")
-            }
+            disabled={saving || name.trim() === ""}
             onClick={() => void submit()}
             type="button"
           >
@@ -2001,6 +2009,7 @@ function FriendGroupsPanel({
   const [createDescription, setCreateDescription] = useState("");
   const [creating, setCreating] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
+  const [joinName, setJoinName] = useState("");
   const [joinToken, setJoinToken] = useState("");
   const [joining, setJoining] = useState(false);
 
@@ -2027,13 +2036,15 @@ function FriendGroupsPanel({
   };
 
   const join = async (): Promise<void> => {
+    const name = joinName.trim();
     const token = joinToken.trim();
-    if (token === "") {
+    if (name === "" || token === "") {
       return;
     }
     setJoining(true);
     try {
-      const response = await joinFriendGroupByInviteToken(token);
+      const response = await joinFriendGroupByInviteToken(token, name);
+      setJoinName("");
       setJoinToken("");
       setJoinOpen(false);
       toast.success("Group joined", {
@@ -2103,13 +2114,13 @@ function FriendGroupsPanel({
                 {pager.page.items.map((group) => {
                   const workspaceName = group.workspace_name ?? "";
                   return (
-                    <TableRow key={group.id ?? group.name ?? workspaceName}>
+                    <TableRow key={group.name}>
                       <TableCell>
                         <div className="font-medium">
                           {groupDisplayName(group)}
                         </div>
                         <div className="font-mono text-xs text-muted-foreground">
-                          {group.id ?? "-"}
+                          {group.name}
                         </div>
                       </TableCell>
                       <TableCell>{group.my_role ?? "-"}</TableCell>
@@ -2192,6 +2203,11 @@ function FriendGroupsPanel({
             </DialogDescription>
           </DialogHeader>
           <FieldGroup>
+            <Field
+              label="Local group name"
+              value={joinName}
+              onChange={setJoinName}
+            />
             <ShadField>
               <FieldLabel htmlFor="group-join-token">Invite token</FieldLabel>
               <Input
@@ -2211,7 +2227,9 @@ function FriendGroupsPanel({
               Cancel
             </Button>
             <Button
-              disabled={joining || joinToken.trim() === ""}
+              disabled={
+                joining || joinName.trim() === "" || joinToken.trim() === ""
+              }
               onClick={() => void join()}
               type="button"
             >
@@ -2236,7 +2254,7 @@ function FriendGroupDetailPanel({
   onOpenChat: (target: SocialChatTarget) => void;
 }): JSX.Element {
   const [currentGroup, setCurrentGroup] = useState(group);
-  const groupID = currentGroup.id ?? "";
+  const groupName = currentGroup.name;
   const workspaceName = currentGroup.workspace_name ?? "";
   const history = useWorkspaceHistory(workspaceName, "desc");
 
@@ -2245,11 +2263,11 @@ function FriendGroupDetailPanel({
   }, [group]);
 
   const refreshGroup = async (): Promise<void> => {
-    if (groupID === "") {
+    if (groupName === "") {
       return;
     }
     try {
-      const next = await getFriendGroup(groupID);
+      const next = await getFriendGroup(groupName);
       setCurrentGroup(next);
       onGroupChange(next);
     } catch (err) {
@@ -2344,8 +2362,7 @@ function GroupInfoPanel({
         </Button>
       </CardHeader>
       <CardContent className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-        <WorkspaceInfoItem label="Group ID" value={group.id ?? "-"} />
-        <WorkspaceInfoItem label="Name" value={group.name ?? "-"} />
+        <WorkspaceInfoItem label="Group name" value={group.name || "-"} />
         <WorkspaceInfoItem label="My role" value={group.my_role ?? "-"} />
         <WorkspaceInfoItem
           label="Workspace"
@@ -2369,7 +2386,7 @@ function GroupMembersPanel({
 }: {
   group: FriendGroupObject;
 }): JSX.Element {
-  const groupID = group.id ?? "";
+  const groupID = group.name;
   const pager = usePagedList<FriendGroupMemberObject>(
     useCallback(
       (cursor: string) => listFriendGroupMembersPage(groupID, cursor),
@@ -2377,6 +2394,7 @@ function GroupMembersPanel({
     ),
   );
   const [memberPublicKey, setMemberPublicKey] = useState("");
+  const [memberName, setMemberName] = useState("");
   const [memberRole, setMemberRole] =
     useState<FriendGroupMemberMutableRole>("member");
   const [saving, setSaving] = useState(false);
@@ -2384,13 +2402,15 @@ function GroupMembersPanel({
 
   const addMember = async (): Promise<void> => {
     const peerPublicKey = memberPublicKey.trim();
-    if (groupID === "" || peerPublicKey === "") {
+    const name = memberName.trim();
+    if (groupID === "" || peerPublicKey === "" || name === "") {
       return;
     }
     setSaving(true);
     try {
-      await addFriendGroupMember(groupID, peerPublicKey, memberRole);
+      await addFriendGroupMember(groupID, peerPublicKey, name, memberRole);
       setMemberPublicKey("");
+      setMemberName("");
       toast.success("Group member added");
       pager.refresh();
     } catch (err) {
@@ -2421,11 +2441,16 @@ function GroupMembersPanel({
           </Alert>
         ) : null}
         {canManage ? (
-          <div className="grid gap-3 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_160px_auto]">
+          <div className="grid gap-3 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_160px_auto]">
             <Field
               label="Peer public key"
               value={memberPublicKey}
               onChange={setMemberPublicKey}
+            />
+            <Field
+              label="Member-local group name"
+              value={memberName}
+              onChange={setMemberName}
             />
             <SelectField
               label="Role"
@@ -2437,7 +2462,11 @@ function GroupMembersPanel({
             />
             <div className="flex items-end">
               <Button
-                disabled={saving || memberPublicKey.trim() === ""}
+                disabled={
+                  saving ||
+                  memberName.trim() === "" ||
+                  memberPublicKey.trim() === ""
+                }
                 onClick={() => void addMember()}
                 type="button"
               >
@@ -2586,7 +2615,7 @@ function GroupInviteTokenPanel({
 }: {
   group: FriendGroupObject;
 }): JSX.Element {
-  const groupID = group.id ?? "";
+  const groupID = group.name;
   const owner = group.my_role === "owner";
   const [token, setToken] = useState<FriendGroupInviteTokenGetResponse | null>(
     null,
@@ -3558,12 +3587,12 @@ function WorkspacePanel({
               <div className="flex flex-col gap-5">
                 <div className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                   <WorkspaceInfoItem
-                    label="Workspace ID"
+                    label="Workspace name"
                     value={details.name || "-"}
                   />
                   <WorkspaceInfoItem
                     label="Workflow"
-                    value={details.workflow_alias || "-"}
+                    value={details.workflow_name || "-"}
                   />
                 </div>
                 <FieldGroup>
@@ -4598,7 +4627,7 @@ function ChatTester({
     [models],
   );
   const selectedModelSpec = useMemo(
-    () => chatModels.find((model) => model.alias === selectedModel),
+    () => chatModels.find((model) => model.name === selectedModel),
     [chatModels, selectedModel],
   );
   const playableVoices = useMemo(
@@ -4658,8 +4687,8 @@ function ChatTester({
       setSelectedModel("");
       return;
     }
-    if (!chatModels.some((model) => model.alias === selectedModel)) {
-      setSelectedModel(chatModels[0].alias);
+    if (!chatModels.some((model) => model.name === selectedModel)) {
+      setSelectedModel(chatModels[0].name);
     }
   }, [chatModels, selectedModel]);
 
@@ -4674,8 +4703,8 @@ function ChatTester({
       setSelectedVoice("");
       return;
     }
-    if (!playableVoices.some((voice) => voice.alias === selectedVoice)) {
-      setSelectedVoice(playableVoices[0].alias);
+    if (!playableVoices.some((voice) => voice.name === selectedVoice)) {
+      setSelectedVoice(playableVoices[0].name);
     }
   }, [playableVoices, selectedVoice]);
 
@@ -4815,7 +4844,7 @@ function ChatTester({
                 label="Model"
                 value={selectedModel}
                 onChange={setSelectedModel}
-                options={chatModels.map((model) => model.alias)}
+                options={chatModels.map((model) => model.name)}
               />
               {supportsTemperature ? (
                 <Field
@@ -4834,7 +4863,7 @@ function ChatTester({
                     value={selectedVoice}
                     onChange={setSelectedVoice}
                     onOpen={loadVoices}
-                    options={playableVoices.map((voice) => voice.alias)}
+                    options={playableVoices.map((voice) => voice.name)}
                   />
                   <SwitchField
                     label="Auto Speak"
@@ -5725,7 +5754,7 @@ function friendDisplayName(friend: FriendObject): string {
 }
 
 function groupDisplayName(group: FriendGroupObject): string {
-  return group.name || compactID(group.id ?? group.workspace_name ?? "group");
+  return group.display_name?.trim() || group.name;
 }
 
 function friendChatTarget(friend: FriendObject): SocialChatTarget {
@@ -5739,7 +5768,7 @@ function friendChatTarget(friend: FriendObject): SocialChatTarget {
 
 function groupChatTarget(group: FriendGroupObject): SocialChatTarget {
   return {
-    id: group.id ?? group.name ?? group.workspace_name ?? "",
+    id: group.name,
     kind: "group",
     title: groupDisplayName(group),
     workspaceName: group.workspace_name ?? "",
@@ -5752,9 +5781,7 @@ function socialTargetKey(target: SocialChatTarget): string {
 
 function contactDisplayName(contact: ContactObject): string {
   return (
-    contact.display_name?.trim() ||
-    contact.phone_number?.trim() ||
-    compactID(contact.id ?? "contact")
+    contact.display_name?.trim() || contact.phone_number?.trim() || contact.name
   );
 }
 
@@ -5767,12 +5794,14 @@ function listContactsPage(
 }
 
 function createContact(
+  name: string,
   displayName: string,
   phoneNumber: string,
 ): Promise<ContactObject> {
   return expectData(
     createPeerContact({
       body: {
+        name: name.trim(),
         display_name: displayName.trim() || undefined,
         phone_number: phoneNumber.trim() || undefined,
       },
@@ -5781,7 +5810,7 @@ function createContact(
 }
 
 function updateContact(
-  id: string,
+  name: string,
   displayName: string,
   phoneNumber: string,
 ): Promise<ContactObject> {
@@ -5789,17 +5818,16 @@ function updateContact(
     putPeerContact({
       body: {
         display_name: displayName.trim(),
-        id,
+        name,
         phone_number: phoneNumber.trim(),
       },
-      path: { id },
     }),
   ) as Promise<ContactObject>;
 }
 
-function deleteContact(id: string): Promise<ContactObject> {
+function deleteContact(name: string): Promise<ContactObject> {
   return expectData(
-    deletePeerContact({ path: { id } }),
+    deletePeerContact({ body: { name } }),
   ) as Promise<ContactObject>;
 }
 
@@ -5855,84 +5883,95 @@ function createFriendGroup(
   ) as Promise<FriendGroupObject>;
 }
 
-function getFriendGroup(id: string): Promise<FriendGroupObject> {
+function getFriendGroup(name: string): Promise<FriendGroupObject> {
   return expectData(
-    getPeerFriendGroup({ path: { id } }),
+    getPeerFriendGroup({ body: { name } }),
   ) as Promise<FriendGroupObject>;
 }
 
 function joinFriendGroupByInviteToken(
   inviteToken: string,
+  name: string,
 ): Promise<{ group: FriendGroupObject; member: FriendGroupMemberObject }> {
   return expectData(
-    joinPeerFriendGroup({ body: { invite_token: inviteToken } }),
+    joinPeerFriendGroup({ body: { invite_token: inviteToken, name } }),
   ) as Promise<{ group: FriendGroupObject; member: FriendGroupMemberObject }>;
 }
 
 function getFriendGroupInviteToken(
-  id: string,
+  name: string,
 ): Promise<FriendGroupInviteTokenGetResponse> {
   return expectData(
-    getPeerFriendGroupInviteToken({ path: { id } }),
+    getPeerFriendGroupInviteToken({ body: { friend_group_name: name } }),
   ) as Promise<FriendGroupInviteTokenGetResponse>;
 }
 
 function createFriendGroupInviteToken(
-  id: string,
+  name: string,
 ): Promise<FriendGroupInviteTokenGetResponse> {
   return expectData(
-    createPeerFriendGroupInviteToken({ path: { id } }),
+    createPeerFriendGroupInviteToken({ body: { friend_group_name: name } }),
   ) as Promise<FriendGroupInviteTokenGetResponse>;
 }
 
-function clearFriendGroupInviteToken(id: string): Promise<unknown> {
-  return expectData(clearPeerFriendGroupInviteToken({ path: { id } }));
+function clearFriendGroupInviteToken(name: string): Promise<unknown> {
+  return expectData(
+    clearPeerFriendGroupInviteToken({ body: { friend_group_name: name } }),
+  );
 }
 
 function listFriendGroupMembersPage(
-  id: string,
+  name: string,
   cursor: string,
 ): Promise<PageResponse<FriendGroupMemberObject>> {
-  if (id.trim() === "") {
+  if (name.trim() === "") {
     return Promise.resolve({ has_next: false, items: [] });
   }
   return expectData(
-    listPeerFriendGroupMembers({ path: { id }, query: pageQuery(cursor) }),
+    listPeerFriendGroupMembers({
+      query: { ...pageQuery(cursor), friend_group_name: name },
+    }),
   ) as Promise<PageResponse<FriendGroupMemberObject>>;
 }
 
 function addFriendGroupMember(
-  id: string,
+  name: string,
   peerPublicKey: string,
+  memberName: string,
   role: FriendGroupMemberMutableRole,
 ): Promise<FriendGroupMemberObject> {
   return expectData(
     addPeerFriendGroupMember({
-      body: { friend_group_id: id, peer_public_key: peerPublicKey, role },
-      path: { id },
+      body: {
+        friend_group_name: name,
+        member_name: memberName,
+        peer_public_key: peerPublicKey,
+        role,
+      },
     }),
   ) as Promise<FriendGroupMemberObject>;
 }
 
 function updateFriendGroupMember(
-  id: string,
+  name: string,
   memberID: string,
   role: FriendGroupMemberMutableRole,
 ): Promise<FriendGroupMemberObject> {
   return expectData(
     putPeerFriendGroupMember({
-      body: { friend_group_id: id, id: memberID, role },
-      path: { id, member_id: memberID },
+      body: { friend_group_name: name, id: memberID, role },
     }),
   ) as Promise<FriendGroupMemberObject>;
 }
 
 function deleteFriendGroupMember(
-  id: string,
+  name: string,
   memberID: string,
 ): Promise<FriendGroupMemberObject> {
   return expectData(
-    deletePeerFriendGroupMember({ path: { id, member_id: memberID } }),
+    deletePeerFriendGroupMember({
+      body: { friend_group_name: name, id: memberID },
+    }),
   ) as Promise<FriendGroupMemberObject>;
 }
 
@@ -6132,7 +6171,7 @@ function WorkspacesPanel(): JSX.Element {
       loadPage={loadPage}
       row={(item) => [
         item.name,
-        item.workflow_alias,
+        item.workflow_name,
         formatDate(item.last_active_at),
         formatDate(item.updated_at),
       ]}
@@ -6148,10 +6187,10 @@ function WorkflowsPanel(): JSX.Element {
   );
   return (
     <PagedSimpleTable
-      columns={["Alias", "Driver"]}
+      columns={["Name", "Driver"]}
       empty="No workflows"
       loadPage={loadPage}
-      row={(item) => [item.alias, String(item.driver)]}
+      row={(item) => [item.name, String(item.driver)]}
       title="Workflows"
     />
   );
@@ -6450,7 +6489,7 @@ function ModelsPanel({
             <DashboardTable>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
+                  <TableHead>Name</TableHead>
                   <TableHead>Kind</TableHead>
                   <TableHead>Provider</TableHead>
                   <TableHead>Think</TableHead>
@@ -6463,9 +6502,9 @@ function ModelsPanel({
                   const providerData = runtimeModelProviderData(model);
                   const thinkingParam = thinkingParameter(providerData);
                   return (
-                    <TableRow key={model.alias}>
+                    <TableRow key={model.name}>
                       <TableCell className="font-mono text-xs font-medium">
-                        {model.alias}
+                        {model.name}
                       </TableCell>
                       <TableCell>{model.kind ?? "-"}</TableCell>
                       <TableCell>{model.provider_kind || "-"}</TableCell>
@@ -6528,10 +6567,10 @@ function VoicesPanel(): JSX.Element {
           pageIndex={pager.page.cursors.length}
         />
       }
-      columns={["Alias", "English", "Chinese"]}
+      columns={["Name", "English", "Chinese"]}
       empty={pager.page.loading ? "Loading" : pager.error || "No voices"}
       rows={pager.page.items.map((item) => [
-        item.alias,
+        item.name,
         item.i18n.en?.display_name ?? "",
         item.i18n["zh-CN"]?.display_name ?? "",
       ])}
@@ -6884,17 +6923,17 @@ function mergeVoices(voices: Voice[]): Voice[] {
   const seen = new Set<string>();
   const out: Voice[] = [];
   for (const voice of voices) {
-    if (seen.has(voice.alias)) {
+    if (seen.has(voice.name)) {
       continue;
     }
-    seen.add(voice.alias);
+    seen.add(voice.name);
     out.push(voice);
   }
   return out;
 }
 
 function isPlayableVoice(voice: Voice): boolean {
-  return voice.alias.trim() !== "";
+  return voice.name.trim() !== "";
 }
 
 async function createWorkspaceVoiceSession({

@@ -180,7 +180,7 @@ func TestCSDKConcurrentServiceStreams(t *testing.T) {
 			var groupDelete rpcpb.FriendGroupDeleteResponse
 			if err := client.CallRPC(
 				rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE,
-				&rpcpb.FriendGroupDeleteRequest{Id: groupID},
+				&rpcpb.FriendGroupDeleteRequest{Name: groupID},
 				&groupDelete,
 			); err != nil {
 				t.Errorf("delete C Event probe Friend Group: %v", err)
@@ -197,9 +197,9 @@ func TestCSDKConcurrentServiceStreams(t *testing.T) {
 	); err != nil {
 		t.Fatalf("create C Event probe Friend Group: %v", err)
 	}
-	groupID = groupCreate.GetValue().GetId()
+	groupID = groupCreate.GetValue().GetName()
 	if groupID == "" {
-		t.Fatalf("C Event probe Friend Group has no id: %s", groupCreate.String())
+		t.Fatalf("C Event probe Friend Group has no name: %s", groupCreate.String())
 	}
 
 	baseline := requireTransportSnapshot(t, client)
@@ -269,12 +269,16 @@ func registerCDefaultRuntimeProfile(
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	tokenName := fmt.Sprintf("e2e-c-concurrent-stream-%d", time.Now().UnixNano())
+	profile, found, err := clitest.RuntimeProfileByName(ctx, api, "default-gameplay")
+	if err != nil || !found {
+		t.Fatalf("resolve default gameplay RuntimeProfile: found=%v err=%v", found, err)
+	}
 	response, err := api.CreateRegistrationTokenWithResponse(
 		ctx,
 		adminhttp.RegistrationTokenUpsert{
-			Name:               tokenName,
-			Token:              tokenName,
-			RuntimeProfileName: "default-gameplay",
+			Name:             tokenName,
+			Token:            tokenName,
+			RuntimeProfileId: profile.Id,
 		},
 	)
 	if err != nil {
@@ -292,7 +296,7 @@ func registerCDefaultRuntimeProfile(
 		defer cleanupCancel()
 		response, err := api.DeleteRegistrationTokenWithResponse(
 			cleanupCtx,
-			tokenName,
+			response.JSON200.Id,
 		)
 		if err != nil {
 			t.Errorf("delete C concurrent-stream registration token: %v", err)
@@ -312,10 +316,11 @@ func registerCDefaultRuntimeProfile(
 	); err != nil {
 		t.Fatalf("register C concurrent-stream peer: %v", err)
 	}
-	if registered.GetRuntimeProfileName() != "default-gameplay" {
+	if registered.GetRuntimeProfileName() != profile.Name {
 		t.Fatalf(
-			"registered C RuntimeProfile = %q, want default-gameplay",
+			"registered C RuntimeProfile = %q, want %q",
 			registered.GetRuntimeProfileName(),
+			profile.Name,
 		)
 	}
 }
@@ -361,7 +366,7 @@ func requireCEventAfterServiceClose(
 	var groupPut rpcpb.FriendGroupPutResponse
 	if err := client.CallRPC(
 		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_PUT,
-		&rpcpb.FriendGroupPutRequest{Id: groupID, Name: &updatedGroupName},
+		&rpcpb.FriendGroupPutRequest{Name: groupID, DisplayName: &updatedGroupName},
 		&groupPut,
 	); err != nil {
 		t.Fatalf("update C Event probe Friend Group: %v", err)
@@ -390,14 +395,14 @@ func requireCEventAfterServiceClose(
 		}
 		update := event.GetFriendGroupUpdated()
 		if event.GetType() != eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED ||
-			update.GetFriendGroupId() != groupID ||
+			update.GetFriendGroupName() != groupID ||
 			update.GetChange() != eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_METADATA_UPDATED ||
 			update.GetRevisionUnixMs() < revisionFloor {
 			if len(unmatched) < cap(unmatched) {
 				unmatched = append(unmatched, fmt.Sprintf(
 					"type=%s group=%q change=%s revision=%d",
 					event.GetType(),
-					update.GetFriendGroupId(),
+					update.GetFriendGroupName(),
 					update.GetChange(),
 					update.GetRevisionUnixMs(),
 				))

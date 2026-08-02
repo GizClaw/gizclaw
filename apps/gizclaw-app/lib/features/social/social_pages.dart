@@ -663,25 +663,28 @@ class _JoinGroupSheet extends StatefulWidget {
 }
 
 class _JoinGroupSheetState extends State<_JoinGroupSheet> {
+  final _nameController = TextEditingController();
   final _inviteController = TextEditingController();
   bool _busy = false;
   Object? _error;
 
   @override
   void dispose() {
+    _nameController.dispose();
     _inviteController.dispose();
     super.dispose();
   }
 
   Future<void> _join() async {
+    final name = _nameController.text.trim();
     final token = _inviteController.text.trim();
-    if (_busy || token.isEmpty) return;
+    if (_busy || name.isEmpty || token.isEmpty) return;
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final group = await widget.data.joinFriendGroup(token);
+      final group = await widget.data.joinFriendGroup(name, token);
       if (mounted) Navigator.pop(context, group);
     } catch (error) {
       if (!mounted) return;
@@ -720,6 +723,16 @@ class _JoinGroupSheetState extends State<_JoinGroupSheet> {
           const SizedBox(height: 18),
           Text(context.l10n.groupJoinTitle, style: GizText.sectionTitle),
           const SizedBox(height: 16),
+          CupertinoTextField(
+            key: const ValueKey('group-local-name-field'),
+            controller: _nameController,
+            placeholder: context.l10n.actionText(key: 'groupName'),
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.next,
+            padding: const EdgeInsets.all(14),
+          ),
+          const SizedBox(height: 12),
           CupertinoTextField(
             key: const ValueKey('group-invite-token-field'),
             controller: _inviteController,

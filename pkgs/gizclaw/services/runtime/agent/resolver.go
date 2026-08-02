@@ -37,7 +37,7 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 	if err != nil {
 		return Spec{}, err
 	}
-	workflow, err := r.getWorkflow(ctx, string(workspace.WorkflowName))
+	workflow, err := r.getWorkflow(ctx, workspace.WorkflowId)
 	if err != nil {
 		return Spec{}, err
 	}
@@ -78,24 +78,17 @@ func ParseWorkspacePattern(pattern string) (string, error) {
 }
 
 func (r ServiceResolver) getWorkspace(ctx context.Context, name string) (apitypes.Workspace, error) {
-	response, err := r.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: string(name)})
-	if err != nil {
-		return apitypes.Workspace{}, err
+	resolver, ok := r.Workspaces.(interface {
+		GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error)
+	})
+	if !ok {
+		return apitypes.Workspace{}, fmt.Errorf("agent: workspace service does not support Peer name lookup")
 	}
-	switch response := response.(type) {
-	case adminhttp.GetWorkspace200JSONResponse:
-		return apitypes.Workspace(response), nil
-	case adminhttp.GetWorkspace404JSONResponse:
-		return apitypes.Workspace{}, fmt.Errorf("agent: workspace %q not found", name)
-	case adminhttp.GetWorkspace500JSONResponse:
-		return apitypes.Workspace{}, fmt.Errorf("agent: get workspace %q failed: %s", name, response.Error.Message)
-	default:
-		return apitypes.Workspace{}, fmt.Errorf("agent: unexpected GetWorkspace response %T", response)
-	}
+	return resolver.GetWorkspaceByName(ctx, name)
 }
 
-func (r ServiceResolver) getWorkflow(ctx context.Context, name string) (apitypes.Workflow, error) {
-	response, err := r.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: string(name)})
+func (r ServiceResolver) getWorkflow(ctx context.Context, id string) (apitypes.Workflow, error) {
+	response, err := r.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Workflow{}, err
 	}
@@ -103,9 +96,9 @@ func (r ServiceResolver) getWorkflow(ctx context.Context, name string) (apitypes
 	case adminhttp.GetWorkflow200JSONResponse:
 		return apitypes.Workflow(response), nil
 	case adminhttp.GetWorkflow404JSONResponse:
-		return apitypes.Workflow{}, fmt.Errorf("agent: workflow %q not found", name)
+		return apitypes.Workflow{}, fmt.Errorf("agent: workflow %q not found", id)
 	case adminhttp.GetWorkflow500JSONResponse:
-		return apitypes.Workflow{}, fmt.Errorf("agent: get workflow %q failed: %s", name, response.Error.Message)
+		return apitypes.Workflow{}, fmt.Errorf("agent: get workflow %q failed: %s", id, response.Error.Message)
 	default:
 		return apitypes.Workflow{}, fmt.Errorf("agent: unexpected GetWorkflow response %T", response)
 	}

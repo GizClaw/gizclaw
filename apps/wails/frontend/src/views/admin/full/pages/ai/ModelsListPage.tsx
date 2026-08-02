@@ -196,7 +196,7 @@ export function ModelsListPage(): JSX.Element {
                     <TableCell className="text-sm font-medium">
                       <ProviderLabel
                         kind={model.provider.kind}
-                        name={model.provider.name}
+                        name={model.provider.id}
                       />
                     </TableCell>
                     <TableCell className="max-w-[24rem]">

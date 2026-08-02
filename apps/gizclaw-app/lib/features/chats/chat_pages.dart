@@ -91,7 +91,7 @@ class _WorkflowPickerPageState extends State<WorkflowPickerPage> {
     try {
       final workspace = await MobileDataScope.watch(context).createWorkspace(
         collection: widget.collection,
-        workflowAlias: workflow.name,
+        workflowName: workflow.name,
       );
       if (!mounted) return;
       context.go(
@@ -300,7 +300,7 @@ class _WorkspaceListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final workflow = MobileDataScope.watch(
       context,
-    ).workflow(workspace.workflowAlias, collection: workspace.collection);
+    ).workflow(workspace.workflowName, collection: workspace.collection);
     final workflowLabel = workflow.driver == WorkflowDriverKind.unsupported
         ? context.l10n.actionText(key: 'unavailable')
         : workflow.title;
@@ -581,7 +581,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     final data = MobileDataScope.watch(context);
     final workspace = data.workspace(widget.workspaceName);
     final workflow = data.workflow(
-      workspace.workflowAlias,
+      workspace.workflowName,
       collection: workspace.collection,
     );
     final chatroomMetadata = data.chatroomWorkspace(widget.workspaceName);

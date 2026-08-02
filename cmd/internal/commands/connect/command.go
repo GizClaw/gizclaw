@@ -153,10 +153,10 @@ func newRunStatusCmd() *cobra.Command {
 
 func newSayCmd() *cobra.Command {
 	var opts connectRPCOptions
-	var voiceAlias string
+	var voiceName string
 
 	cmd := &cobra.Command{
-		Use:   "say --voice <voice-alias> <text>",
+		Use:   "say --voice <voice-name> <text>",
 		Short: "Ask the server to synthesize speech for this connection",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.MinimumNArgs(1)(cmd, args); err != nil {
@@ -165,22 +165,22 @@ func newSayCmd() *cobra.Command {
 			if strings.TrimSpace(strings.Join(args, " ")) == "" {
 				return fmt.Errorf("text must not be empty")
 			}
-			if strings.TrimSpace(voiceAlias) == "" {
-				return fmt.Errorf("voice alias is required")
+			if strings.TrimSpace(voiceName) == "" {
+				return fmt.Errorf("voice name is required")
 			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
 				return c.ServerRunSay(ctx, "server.run.say", rpcapi.ServerRunSayRequest{
-					Text:       strings.Join(args, " "),
-					VoiceAlias: strings.TrimSpace(voiceAlias),
+					Text:      strings.Join(args, " "),
+					VoiceName: strings.TrimSpace(voiceName),
 				})
 			})
 		},
 	}
 	opts.addFlags(cmd)
-	cmd.Flags().StringVar(&voiceAlias, "voice", "", "RuntimeProfile voice alias")
+	cmd.Flags().StringVar(&voiceName, "voice", "", "RuntimeProfile voice name")
 	return cmd
 }
 
@@ -438,12 +438,12 @@ func newContactListCmd() *cobra.Command {
 func newContactGetCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "get <contact-id>",
+		Use:   "get <contact-name>",
 		Short: "Get a contact",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.GetContact(ctx, "contact.get", rpcapi.ContactGetRequest{Id: args[0]})
+				return c.GetContact(ctx, "contact.get", rpcapi.ContactGetRequest{Name: args[0]})
 			})
 		},
 	}
@@ -456,10 +456,10 @@ func newContactCreateCmd() *cobra.Command {
 	var displayName string
 	var phoneNumber string
 	cmd := &cobra.Command{
-		Use:   "create [--display-name <name>] [--phone-number <phone>]",
+		Use:   "create <name> [--display-name <name>] [--phone-number <phone>]",
 		Short: "Create a contact",
 		Args: func(cmd *cobra.Command, args []string) error {
-			if err := cobra.NoArgs(cmd, args); err != nil {
+			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
 				return err
 			}
 			if strings.TrimSpace(displayName) == "" && strings.TrimSpace(phoneNumber) == "" {
@@ -470,6 +470,7 @@ func newContactCreateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
 				return c.CreateContact(ctx, "contact.create", rpcapi.ContactCreateRequest{
+					Name:        args[0],
 					DisplayName: optionalString(displayName),
 					PhoneNumber: optionalString(phoneNumber),
 				})
@@ -487,7 +488,7 @@ func newContactPutCmd() *cobra.Command {
 	var displayName string
 	var phoneNumber string
 	cmd := &cobra.Command{
-		Use:   "put <contact-id> [--display-name <name>] [--phone-number <phone>]",
+		Use:   "put <contact-name> [--display-name <name>] [--phone-number <phone>]",
 		Short: "Update a contact",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
@@ -501,7 +502,7 @@ func newContactPutCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
 				return c.PutContact(ctx, "contact.put", rpcapi.ContactPutRequest{
-					Id:          args[0],
+					Name:        args[0],
 					DisplayName: optionalString(displayName),
 					PhoneNumber: optionalString(phoneNumber),
 				})
@@ -517,12 +518,12 @@ func newContactPutCmd() *cobra.Command {
 func newContactDeleteCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "delete <contact-id>",
+		Use:   "delete <contact-name>",
 		Short: "Delete a contact",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.DeleteContact(ctx, "contact.delete", rpcapi.ContactDeleteRequest{Id: args[0]})
+				return c.DeleteContact(ctx, "contact.delete", rpcapi.ContactDeleteRequest{Name: args[0]})
 			})
 		},
 	}
@@ -680,12 +681,12 @@ func newFriendGroupListCmd() *cobra.Command {
 func newFriendGroupGetCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "get <friend-group-id>",
+		Use:   "get <friend-group-name>",
 		Short: "Get a friend group",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.GetFriendGroup(ctx, "friend_group.get", rpcapi.FriendGroupGetRequest{Id: args[0]})
+				return c.GetFriendGroup(ctx, "friend_group.get", rpcapi.FriendGroupGetRequest{Name: args[0]})
 			})
 		},
 	}
@@ -713,20 +714,20 @@ func newFriendGroupCreateCmd() *cobra.Command {
 
 func newFriendGroupPutCmd() *cobra.Command {
 	var opts connectRPCOptions
-	var name string
+	var displayName string
 	var description string
 	cmd := &cobra.Command{
-		Use:   "put <friend-group-id> [--name <name>] [--description <text>]",
+		Use:   "put <friend-group-name> [--display-name <name>] [--description <text>]",
 		Short: "Update a friend group",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.PutFriendGroup(ctx, "friend_group.put", rpcapi.FriendGroupPutRequest{Id: args[0], Name: optionalString(name), Description: optionalString(description)})
+				return c.PutFriendGroup(ctx, "friend_group.put", rpcapi.FriendGroupPutRequest{Name: args[0], DisplayName: optionalString(displayName), Description: optionalString(description)})
 			})
 		},
 	}
 	opts.addFlags(cmd)
-	cmd.Flags().StringVar(&name, "name", "", "friend group name")
+	cmd.Flags().StringVar(&displayName, "display-name", "", "friend group display name")
 	cmd.Flags().StringVar(&description, "description", "", "friend group description")
 	return cmd
 }
@@ -734,12 +735,12 @@ func newFriendGroupPutCmd() *cobra.Command {
 func newFriendGroupDeleteCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "delete <friend-group-id>",
+		Use:   "delete <friend-group-name>",
 		Short: "Delete a friend group",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.DeleteFriendGroup(ctx, "friend_group.delete", rpcapi.FriendGroupDeleteRequest{Id: args[0]})
+				return c.DeleteFriendGroup(ctx, "friend_group.delete", rpcapi.FriendGroupDeleteRequest{Name: args[0]})
 			})
 		},
 	}
@@ -750,12 +751,12 @@ func newFriendGroupDeleteCmd() *cobra.Command {
 func newFriendGroupJoinCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "join <invite-token>",
+		Use:   "join <name> <invite-token>",
 		Short: "Join a friend group by invite token",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.JoinFriendGroup(ctx, "friend_group.join", rpcapi.FriendGroupJoinRequest{InviteToken: strings.TrimSpace(args[0])})
+				return c.JoinFriendGroup(ctx, "friend_group.join", rpcapi.FriendGroupJoinRequest{Name: strings.TrimSpace(args[0]), InviteToken: strings.TrimSpace(args[1])})
 			})
 		},
 	}
@@ -775,12 +776,12 @@ func newFriendGroupInviteTokenCmd() *cobra.Command {
 func newFriendGroupInviteTokenGetCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "get <friend-group-id>",
+		Use:   "get <friend-group-name>",
 		Short: "Get the active friend group invite token",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.GetFriendGroupInviteToken(ctx, "friend_group.invite_token.get", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupId: args[0]})
+				return c.GetFriendGroupInviteToken(ctx, "friend_group.invite_token.get", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupName: args[0]})
 			})
 		},
 	}
@@ -791,12 +792,12 @@ func newFriendGroupInviteTokenGetCmd() *cobra.Command {
 func newFriendGroupInviteTokenCreateCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "create <friend-group-id>",
+		Use:   "create <friend-group-name>",
 		Short: "Create or refresh a friend group invite token",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.CreateFriendGroupInviteToken(ctx, "friend_group.invite_token.create", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupId: args[0]})
+				return c.CreateFriendGroupInviteToken(ctx, "friend_group.invite_token.create", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupName: args[0]})
 			})
 		},
 	}
@@ -807,12 +808,12 @@ func newFriendGroupInviteTokenCreateCmd() *cobra.Command {
 func newFriendGroupInviteTokenClearCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "clear <friend-group-id>",
+		Use:   "clear <friend-group-name>",
 		Short: "Clear a friend group invite token",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.ClearFriendGroupInviteToken(ctx, "friend_group.invite_token.clear", rpcapi.FriendGroupInviteTokenClearRequest{FriendGroupId: args[0]})
+				return c.ClearFriendGroupInviteToken(ctx, "friend_group.invite_token.clear", rpcapi.FriendGroupInviteTokenClearRequest{FriendGroupName: args[0]})
 			})
 		},
 	}
@@ -834,12 +835,12 @@ func newFriendGroupMembersListCmd() *cobra.Command {
 	var cursor string
 	var limit int
 	cmd := &cobra.Command{
-		Use:   "list <friend-group-id>",
+		Use:   "list <friend-group-name>",
 		Short: "List friend group members",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.ListFriendGroupMembers(ctx, "friend_group.members.list", rpcapi.FriendGroupMemberListRequest{FriendGroupId: &args[0], Cursor: optionalString(cursor), Limit: optionalInt(limit)})
+				return c.ListFriendGroupMembers(ctx, "friend_group.members.list", rpcapi.FriendGroupMemberListRequest{FriendGroupName: &args[0], Cursor: optionalString(cursor), Limit: optionalInt(limit)})
 			})
 		},
 	}
@@ -852,23 +853,28 @@ func newFriendGroupMembersListCmd() *cobra.Command {
 func newFriendGroupMembersAddCmd() *cobra.Command {
 	var opts connectRPCOptions
 	var role string
+	var memberName string
 	cmd := &cobra.Command{
-		Use:   "add <friend-group-id> <peer-public-key> --role <member|admin>",
+		Use:   "add <friend-group-name> <peer-public-key> --member-name <name> --role <member|admin>",
 		Short: "Add a friend group member",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.ExactArgs(2)(cmd, args); err != nil {
+				return err
+			}
+			if err := nonEmptyFlag("member-name", memberName); err != nil {
 				return err
 			}
 			return nonEmptyFlag("role", role)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.AddFriendGroupMember(ctx, "friend_group.members.add", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: args[0], PeerPublicKey: args[1], Role: rpcapi.FriendGroupMemberMutableRole(strings.TrimSpace(role))})
+				return c.AddFriendGroupMember(ctx, "friend_group.members.add", rpcapi.FriendGroupMemberAddRequest{FriendGroupName: args[0], PeerPublicKey: args[1], MemberName: strings.TrimSpace(memberName), Role: rpcapi.FriendGroupMemberMutableRole(strings.TrimSpace(role))})
 			})
 		},
 	}
 	opts.addFlags(cmd)
 	cmd.Flags().StringVar(&role, "role", "", "member role")
+	cmd.Flags().StringVar(&memberName, "member-name", "", "target member's local friend group name")
 	return cmd
 }
 
@@ -876,7 +882,7 @@ func newFriendGroupMembersPutCmd() *cobra.Command {
 	var opts connectRPCOptions
 	var role string
 	cmd := &cobra.Command{
-		Use:   "put <friend-group-id> <peer-public-key> --role <member|admin>",
+		Use:   "put <friend-group-name> <peer-public-key> --role <member|admin>",
 		Short: "Update a friend group member role",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.ExactArgs(2)(cmd, args); err != nil {
@@ -886,7 +892,7 @@ func newFriendGroupMembersPutCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.PutFriendGroupMember(ctx, "friend_group.members.put", rpcapi.FriendGroupMemberPutRequest{FriendGroupId: args[0], Id: args[1], Role: rpcapi.FriendGroupMemberMutableRole(strings.TrimSpace(role))})
+				return c.PutFriendGroupMember(ctx, "friend_group.members.put", rpcapi.FriendGroupMemberPutRequest{FriendGroupName: args[0], Id: args[1], Role: rpcapi.FriendGroupMemberMutableRole(strings.TrimSpace(role))})
 			})
 		},
 	}
@@ -898,12 +904,12 @@ func newFriendGroupMembersPutCmd() *cobra.Command {
 func newFriendGroupMembersDeleteCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "delete <friend-group-id> <peer-public-key>",
+		Use:   "delete <friend-group-name> <peer-public-key>",
 		Short: "Delete a friend group member",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.DeleteFriendGroupMember(ctx, "friend_group.members.delete", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupId: args[0], Id: args[1]})
+				return c.DeleteFriendGroupMember(ctx, "friend_group.members.delete", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: args[0], Id: args[1]})
 			})
 		},
 	}
@@ -925,12 +931,12 @@ func newFriendGroupMessagesListCmd() *cobra.Command {
 	var cursor string
 	var limit int
 	cmd := &cobra.Command{
-		Use:   "list <friend-group-id>",
+		Use:   "list <friend-group-name>",
 		Short: "List friend group workspace history",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.ListFriendGroupMessages(ctx, "friend_group.messages.list", rpcapi.FriendGroupMessageListRequest{FriendGroupId: args[0], Cursor: optionalString(cursor), Limit: optionalInt(limit)})
+				return c.ListFriendGroupMessages(ctx, "friend_group.messages.list", rpcapi.FriendGroupMessageListRequest{FriendGroupName: args[0], Cursor: optionalString(cursor), Limit: optionalInt(limit)})
 			})
 		},
 	}
@@ -943,12 +949,12 @@ func newFriendGroupMessagesListCmd() *cobra.Command {
 func newFriendGroupMessagesGetCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "get <friend-group-id> <history-id>",
+		Use:   "get <friend-group-name> <history-id>",
 		Short: "Get a friend group workspace history entry",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.GetFriendGroupMessage(ctx, "friend_group.messages.get", rpcapi.FriendGroupMessageGetRequest{FriendGroupId: args[0], HistoryId: args[1]})
+				return c.GetFriendGroupMessage(ctx, "friend_group.messages.get", rpcapi.FriendGroupMessageGetRequest{FriendGroupName: args[0], HistoryId: args[1]})
 			})
 		},
 	}
@@ -966,7 +972,7 @@ func newFriendGroupMessagesAudioGetCmd() *cobra.Command {
 	var opts connectRPCOptions
 	var output string
 	cmd := &cobra.Command{
-		Use:   "get <friend-group-id> <history-id> --output <file>",
+		Use:   "get <friend-group-name> <history-id> --output <file>",
 		Short: "Download audio attached to a friend group workspace history entry",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.ExactArgs(2)(cmd, args); err != nil {
@@ -994,7 +1000,7 @@ func newFriendGroupMessagesAudioGetCmd() *cobra.Command {
 						_ = os.Remove(tmpPath)
 					}
 				}()
-				result, err := c.GetFriendGroupMessageAudio(ctx, "friend_group.messages.audio.get", rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupId: args[0], HistoryId: args[1]}, out)
+				result, err := c.GetFriendGroupMessageAudio(ctx, "friend_group.messages.audio.get", rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupName: args[0], HistoryId: args[1]}, out)
 				closeErr := out.Close()
 				if err != nil {
 					return nil, err

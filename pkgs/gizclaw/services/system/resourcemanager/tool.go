@@ -23,8 +23,25 @@ func (m *Manager) applyTool(ctx context.Context, resource apitypes.Resource) (ap
 	if err != nil {
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_TOOL_RESOURCE", err.Error())
 	}
-	existing, exists, err := m.getTool(ctx, desired.Name)
+	id, updating, err := resourceUpdateID(item.Metadata)
 	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !updating {
+		stored, err := m.services.Tools.CreateTool(ctx, desired)
+		if err != nil {
+			return apitypes.ApplyResult{}, toolServiceError(err)
+		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindTool, item.Metadata.Name, stored.ID), nil
+	}
+	existing, exists, err := m.getTool(ctx, id)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !exists {
+		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindTool, id)
+	}
+	if err := validateImmutableResourceName(apitypes.ResourceKindTool, id, existing.Name, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {
@@ -45,21 +62,17 @@ func (m *Manager) applyTool(ctx context.Context, resource apitypes.Resource) (ap
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindTool, item.Metadata.Name), nil
+			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindTool, item.Metadata.Name, id), nil
 		}
 	}
-	if _, err := m.services.Tools.PutTool(ctx, desired); err != nil {
+	if _, err := m.services.Tools.PutTool(ctx, id, desired); err != nil {
 		return apitypes.ApplyResult{}, toolServiceError(err)
 	}
-	action := apitypes.ApplyActionCreated
-	if exists {
-		action = apitypes.ApplyActionUpdated
-	}
-	return applyResult(action, apitypes.ResourceKindTool, item.Metadata.Name), nil
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindTool, item.Metadata.Name, id), nil
 }
 
-func (m *Manager) getTool(ctx context.Context, name string) (toolkit.Tool, bool, error) {
-	item, err := m.services.Tools.GetTool(ctx, name)
+func (m *Manager) getTool(ctx context.Context, id string) (toolkit.Tool, bool, error) {
+	item, err := m.services.Tools.GetToolByID(ctx, id)
 	if errors.Is(err, toolkit.ErrToolNotFound) {
 		return toolkit.Tool{}, false, nil
 	}
@@ -69,24 +82,24 @@ func (m *Manager) getTool(ctx context.Context, name string) (toolkit.Tool, bool,
 	return item, true, nil
 }
 
-func (m *Manager) putToolResource(ctx context.Context, item apitypes.ToolResource) (apitypes.Resource, error) {
+func (m *Manager) putToolResource(ctx context.Context, id string, item apitypes.ToolResource) (apitypes.Resource, error) {
 	tool, err := toolkit.FromSpec(item.Metadata.Name, item.Spec)
 	if err != nil {
 		return apitypes.Resource{}, applyError(400, "INVALID_TOOL_RESOURCE", err.Error())
 	}
-	stored, err := m.services.Tools.PutTool(ctx, tool)
+	stored, err := m.services.Tools.PutTool(ctx, id, tool)
 	if err != nil {
 		return apitypes.Resource{}, toolServiceError(err)
 	}
-	return m.Get(ctx, apitypes.ResourceKindTool, stored.Name)
+	return m.Get(ctx, apitypes.ResourceKindTool, stored.ID)
 }
 
-func (m *Manager) deleteTool(ctx context.Context, name string) (toolkit.Tool, bool, error) {
-	item, exists, err := m.getTool(ctx, name)
+func (m *Manager) deleteTool(ctx context.Context, id string) (toolkit.Tool, bool, error) {
+	item, exists, err := m.getTool(ctx, id)
 	if err != nil || !exists {
 		return item, exists, err
 	}
-	if err := m.services.Tools.DeleteTool(ctx, name); err != nil {
+	if err := m.services.Tools.DeleteTool(ctx, id); err != nil {
 		return toolkit.Tool{}, false, toolServiceError(err)
 	}
 	return item, true, nil
@@ -100,7 +113,7 @@ func resourceFromTool(item toolkit.Tool) (apitypes.Resource, error) {
 	return marshalResource(apitypes.ToolResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.ToolResourceKindTool,
-		Metadata:   apitypes.ResourceMetadata{Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: &item.ID, Name: item.Name},
 		Spec:       spec,
 	})
 }

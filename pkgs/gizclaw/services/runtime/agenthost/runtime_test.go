@@ -939,13 +939,13 @@ func TestServiceReusesWorkspaceRuntimeForMultipleGears(t *testing.T) {
 	if _, err := first.Stop(ctx); err != nil {
 		t.Fatalf("first Stop() error = %v", err)
 	}
-	if _, err := host.coordinator().Acquire(ctx, "demo"); !errors.Is(err, ErrWorkspaceBusy) {
+	if _, err := host.coordinator().Acquire(ctx, "id-demo"); !errors.Is(err, ErrWorkspaceBusy) {
 		t.Fatalf("Acquire after first stop error = %v, want %v", err, ErrWorkspaceBusy)
 	}
 	if _, err := second.Stop(ctx); err != nil {
 		t.Fatalf("second Stop() error = %v", err)
 	}
-	lease, err := host.coordinator().Acquire(ctx, "demo")
+	lease, err := host.coordinator().Acquire(ctx, "id-demo")
 	if err != nil {
 		t.Fatalf("Acquire after both stops error = %v", err)
 	}

@@ -74,7 +74,7 @@ func (e *StatusError) Error() string {
 // Registration is the typed result decoded by the C server.register helper.
 type Registration struct {
 	RuntimeProfileName string
-	FirmwareID         *string
+	FirmwareName       *string
 }
 
 // RPCError preserves a server RPC error returned through the C test bridge.
@@ -233,18 +233,18 @@ func (c *Client) Register(token string) (Registration, error) {
 	cToken := C.CString(token)
 	defer C.free(unsafe.Pointer(cToken))
 	runtimeProfileName := make([]byte, 256)
-	firmwareID := make([]byte, 256)
+	firmwareName := make([]byte, 256)
 	errbuf := make([]byte, 1024)
-	var hasFirmwareID C.int
+	var hasFirmwareName C.int
 	var rpcErrorCode C.int
 	rc := C.gzc_cgo_session_register(
 		c.session,
 		cToken,
 		(*C.char)(unsafe.Pointer(&runtimeProfileName[0])),
 		C.ulong(len(runtimeProfileName)),
-		&hasFirmwareID,
-		(*C.char)(unsafe.Pointer(&firmwareID[0])),
-		C.ulong(len(firmwareID)),
+		&hasFirmwareName,
+		(*C.char)(unsafe.Pointer(&firmwareName[0])),
+		C.ulong(len(firmwareName)),
 		&rpcErrorCode,
 		(*C.char)(unsafe.Pointer(&errbuf[0])),
 		C.ulong(len(errbuf)),
@@ -260,9 +260,9 @@ func (c *Client) Register(token string) (Registration, error) {
 		return Registration{}, fmt.Errorf("register C SDK client rc=%d: %s", int(rc), cString(errbuf))
 	}
 	result := Registration{RuntimeProfileName: cString(runtimeProfileName)}
-	if hasFirmwareID != 0 {
-		value := cString(firmwareID)
-		result.FirmwareID = &value
+	if hasFirmwareName != 0 {
+		value := cString(firmwareName)
+		result.FirmwareName = &value
 	}
 	return result, nil
 }
@@ -785,7 +785,7 @@ func CSDKFirmwareDownload(t *testing.T, identityDir, registrationToken string) {
 			if !sawMetadata {
 				var response rpcpb.FirmwareFilesDownloadResponse
 				decodeStreamResponse(t, rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD, frame.Data, &response)
-				if response.GetFirmwareId() != "devkit-firmware-main" || response.GetPath() != "firmware/main.bin" {
+				if response.GetFirmwareName() != "devkit-firmware-main" || response.GetPath() != "firmware/main.bin" {
 					t.Fatalf("invalid firmware download metadata: %s", response.String())
 				}
 				sawMetadata = true
@@ -818,9 +818,9 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 	var createResponse rpcpb.WorkspaceCreateResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE, &rpcpb.WorkspaceCreateRequest{
 		Value: &rpcpb.WorkspaceCreateBody{
-			Name:          workspaceName,
-			Collection:    "assistants",
-			WorkflowAlias: "chatroom",
+			Name:         workspaceName,
+			Collection:   "assistants",
+			WorkflowName: "chatroom",
 			Parameters: &rpcpb.WorkspaceParameters{Value: &rpcpb.WorkspaceParameters_ChatRoomWorkspaceParameters{
 				ChatRoomWorkspaceParameters: &rpcpb.ChatRoomWorkspaceParameters{},
 			}},
@@ -832,7 +832,7 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 	var workspaceResponse rpcpb.WorkspaceGetResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET, &rpcpb.WorkspaceGetRequest{Name: workspaceName}, &workspaceResponse)
 	workspace := workspaceResponse.GetValue()
-	if workspace == nil || workspace.GetName() != workspaceName || workspace.GetWorkflowAlias() != "chatroom" || !workspace.GetAvailable() {
+	if workspace == nil || workspace.GetName() != workspaceName || workspace.GetWorkflowName() != "chatroom" || !workspace.GetAvailable() {
 		t.Fatalf("invalid server.workspace.get: %s", workspaceResponse.String())
 	}
 	setChatWorkspace(t, client, workspaceName)
@@ -1137,24 +1137,25 @@ func CSDKSocialBasic(t *testing.T, identityDir, registrationToken string) {
 
 	var contactCreate rpcpb.ContactCreateResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_CONTACT_CREATE, &rpcpb.ContactCreateRequest{
+		Name:        contactName,
 		DisplayName: ptr(contactName),
 		PhoneNumber: ptr(contactPhone),
 	}, &contactCreate)
-	if contactCreate.GetValue().GetId() == "" || contactCreate.GetValue().GetDisplayName() != contactName {
+	if contactCreate.GetValue().GetName() != contactName || contactCreate.GetValue().GetDisplayName() != contactName {
 		t.Fatalf("invalid server.contact.create: %s", contactCreate.String())
 	}
-	contactID := contactCreate.GetValue().GetId()
+	contactID := contactCreate.GetValue().GetName()
 	defer cleanupCSDKRPC(
 		t,
 		client,
 		rpcpb.RpcMethod_RPC_METHOD_SERVER_CONTACT_DELETE,
-		&rpcpb.ContactDeleteRequest{Id: contactID},
+		&rpcpb.ContactDeleteRequest{Name: contactID},
 		&rpcpb.ContactDeleteResponse{},
 		"Contact",
 	)
 	var contactGet rpcpb.ContactGetResponse
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_CONTACT_GET, &rpcpb.ContactGetRequest{Id: contactID}, &contactGet)
-	if contactGet.GetValue().GetId() != contactID {
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_CONTACT_GET, &rpcpb.ContactGetRequest{Name: contactID}, &contactGet)
+	if contactGet.GetValue().GetName() != contactID {
 		t.Fatalf("invalid server.contact.get: %s", contactGet.String())
 	}
 	var contactList rpcpb.ContactListResponse
@@ -1168,21 +1169,21 @@ func CSDKSocialBasic(t *testing.T, identityDir, registrationToken string) {
 		Name:        groupName,
 		Description: ptr("created by cgo C SDK test"),
 	}, &groupCreate)
-	if groupCreate.GetValue().GetId() == "" || groupCreate.GetValue().GetName() != groupName || groupCreate.GetValue().GetWorkspaceName() == "" {
+	if groupCreate.GetValue().GetName() != groupName || groupCreate.GetValue().GetWorkspaceName() == "" {
 		t.Fatalf("invalid server.friend_group.create: %s", groupCreate.String())
 	}
-	groupID := groupCreate.GetValue().GetId()
+	groupID := groupCreate.GetValue().GetName()
 	defer cleanupCSDKRPC(
 		t,
 		client,
 		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE,
-		&rpcpb.FriendGroupDeleteRequest{Id: groupID},
+		&rpcpb.FriendGroupDeleteRequest{Name: groupID},
 		&rpcpb.FriendGroupDeleteResponse{},
 		"Friend Group",
 	)
 	var groupGet rpcpb.FriendGroupGetResponse
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_GET, &rpcpb.FriendGroupGetRequest{Id: groupID}, &groupGet)
-	if groupGet.GetValue().GetId() != groupID {
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_GET, &rpcpb.FriendGroupGetRequest{Name: groupID}, &groupGet)
+	if groupGet.GetValue().GetName() != groupID {
 		t.Fatalf("invalid server.friend_group.get: %s", groupGet.String())
 	}
 	var groupList rpcpb.FriendGroupListResponse
@@ -1191,7 +1192,7 @@ func CSDKSocialBasic(t *testing.T, identityDir, registrationToken string) {
 		t.Fatalf("invalid server.friend_group.list: %s", groupList.String())
 	}
 	var tokenResponse rpcpb.FriendGroupInviteTokenCreateResponse
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE, &rpcpb.FriendGroupInviteTokenCreateRequest{FriendGroupId: groupID}, &tokenResponse)
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE, &rpcpb.FriendGroupInviteTokenCreateRequest{FriendGroupName: groupID}, &tokenResponse)
 	if tokenResponse.GetInviteToken() == "" || tokenResponse.GetExpiresAt() == "" {
 		t.Fatalf("invalid server.friend_group.invite_token.create: %s", tokenResponse.String())
 	}
@@ -1199,17 +1200,17 @@ func CSDKSocialBasic(t *testing.T, identityDir, registrationToken string) {
 		t,
 		client,
 		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR,
-		&rpcpb.FriendGroupInviteTokenClearRequest{FriendGroupId: groupID},
+		&rpcpb.FriendGroupInviteTokenClearRequest{FriendGroupName: groupID},
 		&rpcpb.FriendGroupInviteTokenClearResponse{},
 		"Friend Group invite token",
 	)
 	var messageList rpcpb.FriendGroupMessageListResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST, &rpcpb.FriendGroupMessageListRequest{
-		FriendGroupId: groupID,
-		Limit:         ptr(int64(1000)),
+		FriendGroupName: groupID,
+		Limit:           ptr(int64(1000)),
 	}, &messageList)
 	for _, message := range messageList.GetItems() {
-		if message.GetFriendGroupId() != groupID || message.GetHistoryId() == "" {
+		if message.GetFriendGroupName() != groupID || message.GetHistoryId() == "" {
 			t.Fatalf("invalid server.friend_group.messages.list: %s", messageList.String())
 		}
 	}
@@ -1297,20 +1298,20 @@ func CSDKSocialRelationships(
 		Name:        "c-sdk-cross-user-group",
 		Description: ptr("created by cgo C SDK relationship test"),
 	}, &groupCreate)
-	if groupCreate.GetValue().GetId() == "" || groupCreate.GetValue().GetWorkspaceName() == "" {
+	if groupCreate.GetValue().GetName() == "" || groupCreate.GetValue().GetWorkspaceName() == "" {
 		t.Fatalf("invalid server.friend_group.create: %s", groupCreate.String())
 	}
-	groupID := groupCreate.GetValue().GetId()
+	groupID := groupCreate.GetValue().GetName()
 	defer cleanupCSDKRPC(
 		t,
 		clientA,
 		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE,
-		&rpcpb.FriendGroupDeleteRequest{Id: groupID},
+		&rpcpb.FriendGroupDeleteRequest{Name: groupID},
 		&rpcpb.FriendGroupDeleteResponse{},
 		"Friend Group",
 	)
 	var groupToken rpcpb.FriendGroupInviteTokenCreateResponse
-	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE, &rpcpb.FriendGroupInviteTokenCreateRequest{FriendGroupId: groupID}, &groupToken)
+	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE, &rpcpb.FriendGroupInviteTokenCreateRequest{FriendGroupName: groupID}, &groupToken)
 	if groupToken.GetInviteToken() == "" || groupToken.GetExpiresAt() == "" {
 		t.Fatalf("invalid server.friend_group.invite_token.create: %s", groupToken.String())
 	}
@@ -1318,30 +1319,30 @@ func CSDKSocialRelationships(
 		t,
 		clientA,
 		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR,
-		&rpcpb.FriendGroupInviteTokenClearRequest{FriendGroupId: groupID},
+		&rpcpb.FriendGroupInviteTokenClearRequest{FriendGroupName: groupID},
 		&rpcpb.FriendGroupInviteTokenClearResponse{},
 		"Friend Group invite token",
 	)
 	var groupJoin rpcpb.FriendGroupJoinResponse
-	mustCallRPC(t, clientB, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_JOIN, &rpcpb.FriendGroupJoinRequest{InviteToken: groupToken.GetInviteToken()}, &groupJoin)
-	if groupJoin.GetGroup().GetId() != groupID {
+	mustCallRPC(t, clientB, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_JOIN, &rpcpb.FriendGroupJoinRequest{Name: groupID, InviteToken: groupToken.GetInviteToken()}, &groupJoin)
+	if groupJoin.GetGroup().GetName() != groupID {
 		t.Fatalf("invalid server.friend_group.join: %s", groupJoin.String())
 	}
 	var memberList rpcpb.FriendGroupMemberListResponse
 	mustCallRPC(t, clientB, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST, &rpcpb.FriendGroupMemberListRequest{
-		FriendGroupId: ptr(groupID),
-		Limit:         ptr(int64(1000)),
+		FriendGroupName: ptr(groupID),
+		Limit:           ptr(int64(1000)),
 	}, &memberList)
 	if !friendGroupMemberListContains(memberList.GetItems(), groupID) {
 		t.Fatalf("invalid server.friend_group.members.list: %s", memberList.String())
 	}
 	var messageList rpcpb.FriendGroupMessageListResponse
 	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST, &rpcpb.FriendGroupMessageListRequest{
-		FriendGroupId: groupID,
-		Limit:         ptr(int64(1000)),
+		FriendGroupName: groupID,
+		Limit:           ptr(int64(1000)),
 	}, &messageList)
 	for _, message := range messageList.GetItems() {
-		if message.GetFriendGroupId() != groupID || message.GetHistoryId() == "" {
+		if message.GetFriendGroupName() != groupID || message.GetHistoryId() == "" {
 			t.Fatalf("invalid server.friend_group.messages.list: %s", messageList.String())
 		}
 	}
@@ -1414,10 +1415,10 @@ func cleanupCSDKRPC(
 	}
 }
 
-func requireFirmwareRegistration(t *testing.T, registration Registration, firmwareID string) {
+func requireFirmwareRegistration(t *testing.T, registration Registration, firmwareName string) {
 	t.Helper()
-	if registration.FirmwareID == nil || *registration.FirmwareID != firmwareID {
-		t.Fatalf("server.register firmware = %+v, want %q", registration.FirmwareID, firmwareID)
+	if registration.FirmwareName == nil || *registration.FirmwareName != firmwareName {
+		t.Fatalf("server.register firmware = %+v, want %q", registration.FirmwareName, firmwareName)
 	}
 }
 
@@ -1483,7 +1484,7 @@ func ptr[T any](value T) *T {
 
 func contactListContains(items []*rpcpb.ContactObject, id string) bool {
 	for _, item := range items {
-		if item.GetId() == id {
+		if item.GetName() == id {
 			return true
 		}
 	}
@@ -1503,7 +1504,7 @@ func friendListContains(items []*rpcpb.FriendObject, peerPublicKey, workspaceNam
 
 func friendGroupListContains(items []*rpcpb.FriendGroupObject, id string) bool {
 	for _, item := range items {
-		if item.GetId() == id {
+		if item.GetName() == id {
 			return true
 		}
 	}
@@ -1512,7 +1513,7 @@ func friendGroupListContains(items []*rpcpb.FriendGroupObject, id string) bool {
 
 func friendGroupMemberListContains(items []*rpcpb.FriendGroupMemberObject, groupID string) bool {
 	for _, item := range items {
-		if item.GetFriendGroupId() == groupID {
+		if item.GetFriendGroupName() == groupID {
 			return true
 		}
 	}

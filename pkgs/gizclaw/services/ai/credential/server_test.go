@@ -71,7 +71,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 		t.Fatalf("CreateCredential() body = %#v", created.Body)
 	}
 
-	getResp, err := srv.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Name: "openai-primary"})
+	getResp, err := srv.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("GetCredential() error = %v", err)
 	}
@@ -93,7 +93,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 			"body": {"ark_api_key": "volc-api-key"}
 	}`)
 	putResp, err := srv.PutCredential(ctx, adminhttp.PutCredentialRequestObject{
-		Name: "openai-primary",
+		Id:   created.Id,
 		Body: &updateBody,
 	})
 	if err != nil {
@@ -143,7 +143,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 		t.Fatalf("ListCredentials(new provider) body = %#v", newList.Items[0].Body)
 	}
 
-	deleteResp, err := srv.DeleteCredential(ctx, adminhttp.DeleteCredentialRequestObject{Name: "openai-primary"})
+	deleteResp, err := srv.DeleteCredential(ctx, adminhttp.DeleteCredentialRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("DeleteCredential() error = %v", err)
 	}
@@ -151,7 +151,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 		t.Fatalf("DeleteCredential() response = %#v", deleteResp)
 	}
 
-	getAfterDelete, err := srv.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Name: "openai-primary"})
+	getAfterDelete, err := srv.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("GetCredential() after delete error = %v", err)
 	}
@@ -200,7 +200,7 @@ func TestServerVolcCredentialRoundTrip(t *testing.T) {
 		}
 	}
 
-	getResp, err := srv.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Name: "volc-main"})
+	getResp, err := srv.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("GetCredential() error = %v", err)
 	}
@@ -311,13 +311,13 @@ func TestServerRejectsMissingBodyOnCreateAndNewPut(t *testing.T) {
 		"provider": "openai"
 	}`)
 	putResp, err := srv.PutCredential(ctx, adminhttp.PutCredentialRequestObject{
-		Name: "beta",
+		Id:   "beta",
 		Body: &putBody,
 	})
 	if err != nil {
 		t.Fatalf("PutCredential() error = %v", err)
 	}
-	if _, ok := putResp.(adminhttp.PutCredential400JSONResponse); !ok {
+	if _, ok := putResp.(adminhttp.PutCredential404JSONResponse); !ok {
 		t.Fatalf("PutCredential() response = %#v", putResp)
 	}
 
@@ -329,7 +329,7 @@ func TestServerRejectsMissingBodyOnCreateAndNewPut(t *testing.T) {
 		t.Fatalf("CreateCredential(nil body) response = %#v", nilCreateResp)
 	}
 
-	nilPutResp, err := srv.PutCredential(ctx, adminhttp.PutCredentialRequestObject{Name: "beta"})
+	nilPutResp, err := srv.PutCredential(ctx, adminhttp.PutCredentialRequestObject{Id: "beta"})
 	if err != nil {
 		t.Fatalf("PutCredential(nil body) error = %v", err)
 	}
@@ -449,9 +449,11 @@ func TestServerPutRetainsExistingSecretForSameMethod(t *testing.T) {
 		"description": "first",
 		"body": {"api_key": "sk-test"}
 	}`)
-	if _, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &createBody}); err != nil {
+	createResp, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &createBody})
+	if err != nil {
 		t.Fatalf("CreateCredential() error = %v", err)
 	}
+	created := createResp.(adminhttp.CreateCredential200JSONResponse)
 
 	putBody := mustCredentialUpsert(t, `{
 		"name": "alpha",
@@ -459,7 +461,7 @@ func TestServerPutRetainsExistingSecretForSameMethod(t *testing.T) {
 		"description": "second"
 	}`)
 	putResp, err := srv.PutCredential(ctx, adminhttp.PutCredentialRequestObject{
-		Name: "alpha",
+		Id:   created.Id,
 		Body: &putBody,
 	})
 	if err != nil {
@@ -469,7 +471,7 @@ func TestServerPutRetainsExistingSecretForSameMethod(t *testing.T) {
 		t.Fatalf("PutCredential() response = %#v", putResp)
 	}
 
-	record, err := getCredentialRecord(ctx, srv.Store, "alpha")
+	record, err := getCredentialRecord(ctx, srv.Store, created.Id)
 	if err != nil {
 		t.Fatalf("getCredentialRecord() error = %v", err)
 	}
@@ -487,13 +489,23 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 
+	seed := mustCredentialUpsert(t, `{
+		"name": "expected",
+		"provider": "openai",
+		"body": {"api_key": "sk-test"}
+	}`)
+	createdResp, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &seed})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created := createdResp.(adminhttp.CreateCredential200JSONResponse)
 	body := mustCredentialUpsert(t, `{
 		"name": "other",
 		"provider": "openai",
 		"body": {"api_key": "sk-test"}
 	}`)
 	resp, err := srv.PutCredential(ctx, adminhttp.PutCredentialRequestObject{
-		Name: "expected",
+		Id:   created.Id,
 		Body: &body,
 	})
 	if err != nil {
@@ -538,7 +550,7 @@ func TestServerCredentialValidationAndMissingPaths(t *testing.T) {
 		t.Fatalf("CreateCredential(missing provider) response = %#v", badResp)
 	}
 
-	missingDelete, err := srv.DeleteCredential(ctx, adminhttp.DeleteCredentialRequestObject{Name: "missing"})
+	missingDelete, err := srv.DeleteCredential(ctx, adminhttp.DeleteCredentialRequestObject{Id: "missing"})
 	if err != nil {
 		t.Fatalf("DeleteCredential(missing) error = %v", err)
 	}

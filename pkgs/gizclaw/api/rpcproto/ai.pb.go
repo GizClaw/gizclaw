@@ -85,7 +85,7 @@ func (ModelProviderKind) EnumDescriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{0}
 }
 
-type AliasI18NText struct {
+type ResourceI18NText struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	DisplayName   string                 `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	Description   *string                `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
@@ -93,20 +93,20 @@ type AliasI18NText struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AliasI18NText) Reset() {
-	*x = AliasI18NText{}
+func (x *ResourceI18NText) Reset() {
+	*x = ResourceI18NText{}
 	mi := &file_payload_ai_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AliasI18NText) String() string {
+func (x *ResourceI18NText) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AliasI18NText) ProtoMessage() {}
+func (*ResourceI18NText) ProtoMessage() {}
 
-func (x *AliasI18NText) ProtoReflect() protoreflect.Message {
+func (x *ResourceI18NText) ProtoReflect() protoreflect.Message {
 	mi := &file_payload_ai_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -118,19 +118,19 @@ func (x *AliasI18NText) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AliasI18NText.ProtoReflect.Descriptor instead.
-func (*AliasI18NText) Descriptor() ([]byte, []int) {
+// Deprecated: Use ResourceI18NText.ProtoReflect.Descriptor instead.
+func (*ResourceI18NText) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *AliasI18NText) GetDisplayName() string {
+func (x *ResourceI18NText) GetDisplayName() string {
 	if x != nil {
 		return x.DisplayName
 	}
 	return ""
 }
 
-func (x *AliasI18NText) GetDescription() string {
+func (x *ResourceI18NText) GetDescription() string {
 	if x != nil && x.Description != nil {
 		return *x.Description
 	}
@@ -139,7 +139,7 @@ func (x *AliasI18NText) GetDescription() string {
 
 type SpeechTranscribeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ModelAlias    string                 `protobuf:"bytes,1,opt,name=model_alias,json=modelAlias,proto3" json:"model_alias,omitempty"`
+	ModelName     string                 `protobuf:"bytes,1,opt,name=model_name,json=modelName,proto3" json:"model_name,omitempty"`
 	ContentType   string                 `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
 	Language      *string                `protobuf:"bytes,3,opt,name=language,proto3,oneof" json:"language,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -176,9 +176,9 @@ func (*SpeechTranscribeRequest) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *SpeechTranscribeRequest) GetModelAlias() string {
+func (x *SpeechTranscribeRequest) GetModelName() string {
 	if x != nil {
-		return x.ModelAlias
+		return x.ModelName
 	}
 	return ""
 }
@@ -242,15 +242,15 @@ func (x *SpeechTranscribeResponse) GetTranscript() string {
 }
 
 type SpeechExtractRequest struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	AsrModelAlias     string                 `protobuf:"bytes,1,opt,name=asr_model_alias,json=asrModelAlias,proto3" json:"asr_model_alias,omitempty"`
-	ExtractModelAlias string                 `protobuf:"bytes,2,opt,name=extract_model_alias,json=extractModelAlias,proto3" json:"extract_model_alias,omitempty"`
-	ContentType       string                 `protobuf:"bytes,3,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
-	Language          *string                `protobuf:"bytes,4,opt,name=language,proto3,oneof" json:"language,omitempty"`
-	SchemaJson        string                 `protobuf:"bytes,5,opt,name=schema_json,json=schemaJson,proto3" json:"schema_json,omitempty"`
-	Instruction       *string                `protobuf:"bytes,6,opt,name=instruction,proto3,oneof" json:"instruction,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	AsrModelName     string                 `protobuf:"bytes,1,opt,name=asr_model_name,json=asrModelName,proto3" json:"asr_model_name,omitempty"`
+	ExtractModelName string                 `protobuf:"bytes,2,opt,name=extract_model_name,json=extractModelName,proto3" json:"extract_model_name,omitempty"`
+	ContentType      string                 `protobuf:"bytes,3,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	Language         *string                `protobuf:"bytes,4,opt,name=language,proto3,oneof" json:"language,omitempty"`
+	SchemaJson       string                 `protobuf:"bytes,5,opt,name=schema_json,json=schemaJson,proto3" json:"schema_json,omitempty"`
+	Instruction      *string                `protobuf:"bytes,6,opt,name=instruction,proto3,oneof" json:"instruction,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *SpeechExtractRequest) Reset() {
@@ -283,16 +283,16 @@ func (*SpeechExtractRequest) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *SpeechExtractRequest) GetAsrModelAlias() string {
+func (x *SpeechExtractRequest) GetAsrModelName() string {
 	if x != nil {
-		return x.AsrModelAlias
+		return x.AsrModelName
 	}
 	return ""
 }
 
-func (x *SpeechExtractRequest) GetExtractModelAlias() string {
+func (x *SpeechExtractRequest) GetExtractModelName() string {
 	if x != nil {
-		return x.ExtractModelAlias
+		return x.ExtractModelName
 	}
 	return ""
 }
@@ -379,7 +379,7 @@ func (x *SpeechExtractResponse) GetResultJson() string {
 
 type SpeechSynthesizeRequest struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
-	VoiceAlias           string                 `protobuf:"bytes,1,opt,name=voice_alias,json=voiceAlias,proto3" json:"voice_alias,omitempty"`
+	VoiceName            string                 `protobuf:"bytes,1,opt,name=voice_name,json=voiceName,proto3" json:"voice_name,omitempty"`
 	Text                 string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
 	AcceptedContentTypes []string               `protobuf:"bytes,3,rep,name=accepted_content_types,json=acceptedContentTypes,proto3" json:"accepted_content_types,omitempty"`
 	unknownFields        protoimpl.UnknownFields
@@ -416,9 +416,9 @@ func (*SpeechSynthesizeRequest) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *SpeechSynthesizeRequest) GetVoiceAlias() string {
+func (x *SpeechSynthesizeRequest) GetVoiceName() string {
 	if x != nil {
-		return x.VoiceAlias
+		return x.VoiceName
 	}
 	return ""
 }
@@ -1745,7 +1745,7 @@ type EinoWorkflowSpec struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Graph         *structpb.Struct       `protobuf:"bytes,1,opt,name=graph,proto3" json:"graph,omitempty"`
 	Limits        *structpb.Struct       `protobuf:"bytes,2,opt,name=limits,proto3,oneof" json:"limits,omitempty"`
-	Conversation  *structpb.Struct       `protobuf:"bytes,4,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
+	Conversation  *structpb.Struct       `protobuf:"bytes,3,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3210,7 +3210,7 @@ type FlowcraftWorkspaceParameters struct {
 	AgentType     FlowcraftWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType" json:"agent_type,omitempty"`
 	Conversation  *FlowcraftConversationParameters      `protobuf:"bytes,2,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
 	E2E           *bool                                 `protobuf:"varint,3,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
-	Input         *WorkspaceInputMode                   `protobuf:"varint,7,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
+	Input         *WorkspaceInputMode                   `protobuf:"varint,4,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3382,10 +3382,10 @@ func (x *PetWorkflowSpec) GetEino() *EinoWorkflowSpec {
 }
 
 type Model struct {
-	state protoimpl.MessageState    `protogen:"open.v1"`
-	Alias string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
-	I18N  map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Kind  ModelKind                 `protobuf:"varint,3,opt,name=kind,proto3,enum=gizclaw.rpc.v1.ModelKind" json:"kind,omitempty"`
+	state protoimpl.MessageState       `protogen:"open.v1"`
+	Name  string                       `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	I18N  map[string]*ResourceI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Kind  ModelKind                    `protobuf:"varint,3,opt,name=kind,proto3,enum=gizclaw.rpc.v1.ModelKind" json:"kind,omitempty"`
 	// Types that are valid to be assigned to ProviderData:
 	//
 	//	*Model_OpenaiTenant
@@ -3395,7 +3395,7 @@ type Model struct {
 	//	*Model_MinimaxTenant
 	//	*Model_DeepseekTenant
 	ProviderData  isModel_ProviderData `protobuf_oneof:"provider_data"`
-	ProviderKind  ModelProviderKind    `protobuf:"varint,11,opt,name=provider_kind,json=providerKind,proto3,enum=gizclaw.rpc.v1.ModelProviderKind" json:"provider_kind,omitempty"`
+	ProviderKind  ModelProviderKind    `protobuf:"varint,10,opt,name=provider_kind,json=providerKind,proto3,enum=gizclaw.rpc.v1.ModelProviderKind" json:"provider_kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3430,14 +3430,14 @@ func (*Model) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{46}
 }
 
-func (x *Model) GetAlias() string {
+func (x *Model) GetName() string {
 	if x != nil {
-		return x.Alias
+		return x.Name
 	}
 	return ""
 }
 
-func (x *Model) GetI18N() map[string]*AliasI18NText {
+func (x *Model) GetI18N() map[string]*ResourceI18NText {
 	if x != nil {
 		return x.I18N
 	}
@@ -3524,27 +3524,27 @@ type isModel_ProviderData interface {
 }
 
 type Model_OpenaiTenant struct {
-	OpenaiTenant *OpenAITenantModelProviderData `protobuf:"bytes,5,opt,name=openai_tenant,json=openaiTenant,proto3,oneof"`
+	OpenaiTenant *OpenAITenantModelProviderData `protobuf:"bytes,4,opt,name=openai_tenant,json=openaiTenant,proto3,oneof"`
 }
 
 type Model_GeminiTenant struct {
-	GeminiTenant *GeminiTenantModelProviderData `protobuf:"bytes,6,opt,name=gemini_tenant,json=geminiTenant,proto3,oneof"`
+	GeminiTenant *GeminiTenantModelProviderData `protobuf:"bytes,5,opt,name=gemini_tenant,json=geminiTenant,proto3,oneof"`
 }
 
 type Model_DashscopeTenant struct {
-	DashscopeTenant *DashScopeTenantModelProviderData `protobuf:"bytes,7,opt,name=dashscope_tenant,json=dashscopeTenant,proto3,oneof"`
+	DashscopeTenant *DashScopeTenantModelProviderData `protobuf:"bytes,6,opt,name=dashscope_tenant,json=dashscopeTenant,proto3,oneof"`
 }
 
 type Model_VolcTenant struct {
-	VolcTenant *VolcTenantModelProviderData `protobuf:"bytes,8,opt,name=volc_tenant,json=volcTenant,proto3,oneof"`
+	VolcTenant *VolcTenantModelProviderData `protobuf:"bytes,7,opt,name=volc_tenant,json=volcTenant,proto3,oneof"`
 }
 
 type Model_MinimaxTenant struct {
-	MinimaxTenant *MiniMaxTenantModelProviderData `protobuf:"bytes,9,opt,name=minimax_tenant,json=minimaxTenant,proto3,oneof"`
+	MinimaxTenant *MiniMaxTenantModelProviderData `protobuf:"bytes,8,opt,name=minimax_tenant,json=minimaxTenant,proto3,oneof"`
 }
 
 type Model_DeepseekTenant struct {
-	DeepseekTenant *DeepSeekTenantModelProviderData `protobuf:"bytes,10,opt,name=deepseek_tenant,json=deepseekTenant,proto3,oneof"`
+	DeepseekTenant *DeepSeekTenantModelProviderData `protobuf:"bytes,9,opt,name=deepseek_tenant,json=deepseekTenant,proto3,oneof"`
 }
 
 func (*Model_OpenaiTenant) isModel_ProviderData() {}
@@ -4345,7 +4345,7 @@ func (x *DeepSeekTenantModelProviderData) GetDefaultThinkingLevel() string {
 
 type ModelGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Alias         string                 `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4380,9 +4380,9 @@ func (*ModelGetRequest) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{53}
 }
 
-func (x *ModelGetRequest) GetAlias() string {
+func (x *ModelGetRequest) GetName() string {
 	if x != nil {
-		return x.Alias
+		return x.Name
 	}
 	return ""
 }
@@ -4576,9 +4576,9 @@ func (x *ModelListResponse) GetRuntimeProfileRevision() string {
 }
 
 type Voice struct {
-	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Alias         string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
-	I18N          map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	state         protoimpl.MessageState       `protogen:"open.v1"`
+	Name          string                       `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	I18N          map[string]*ResourceI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4613,14 +4613,14 @@ func (*Voice) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{57}
 }
 
-func (x *Voice) GetAlias() string {
+func (x *Voice) GetName() string {
 	if x != nil {
-		return x.Alias
+		return x.Name
 	}
 	return ""
 }
 
-func (x *Voice) GetI18N() map[string]*AliasI18NText {
+func (x *Voice) GetI18N() map[string]*ResourceI18NText {
 	if x != nil {
 		return x.I18N
 	}
@@ -4629,7 +4629,7 @@ func (x *Voice) GetI18N() map[string]*AliasI18NText {
 
 type VoiceGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Alias         string                 `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4664,9 +4664,9 @@ func (*VoiceGetRequest) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{58}
 }
 
-func (x *VoiceGetRequest) GetAlias() string {
+func (x *VoiceGetRequest) GetName() string {
 	if x != nil {
-		return x.Alias
+		return x.Name
 	}
 	return ""
 }
@@ -4860,12 +4860,12 @@ func (x *VoiceListResponse) GetRuntimeProfileRevision() string {
 }
 
 type Workflow struct {
-	state             protoimpl.MessageState    `protogen:"open.v1"`
-	Alias             string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
-	I18N              map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Collection        string                    `protobuf:"bytes,3,opt,name=collection,proto3" json:"collection,omitempty"`
-	Driver            WorkflowDriver            `protobuf:"varint,4,opt,name=driver,proto3,enum=gizclaw.rpc.v1.WorkflowDriver" json:"driver,omitempty"`
-	WorkspaceLangPair *string                   `protobuf:"bytes,5,opt,name=workspace_lang_pair,json=workspaceLangPair,proto3,oneof" json:"workspace_lang_pair,omitempty"`
+	state             protoimpl.MessageState       `protogen:"open.v1"`
+	Name              string                       `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	I18N              map[string]*ResourceI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Collection        string                       `protobuf:"bytes,3,opt,name=collection,proto3" json:"collection,omitempty"`
+	Driver            WorkflowDriver               `protobuf:"varint,4,opt,name=driver,proto3,enum=gizclaw.rpc.v1.WorkflowDriver" json:"driver,omitempty"`
+	WorkspaceLangPair *string                      `protobuf:"bytes,5,opt,name=workspace_lang_pair,json=workspaceLangPair,proto3,oneof" json:"workspace_lang_pair,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -4900,14 +4900,14 @@ func (*Workflow) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{62}
 }
 
-func (x *Workflow) GetAlias() string {
+func (x *Workflow) GetName() string {
 	if x != nil {
-		return x.Alias
+		return x.Name
 	}
 	return ""
 }
 
-func (x *Workflow) GetI18N() map[string]*AliasI18NText {
+func (x *Workflow) GetI18N() map[string]*ResourceI18NText {
 	if x != nil {
 		return x.I18N
 	}
@@ -4937,7 +4937,7 @@ func (x *Workflow) GetWorkspaceLangPair() string {
 
 type WorkflowGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Alias         string                 `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4972,9 +4972,9 @@ func (*WorkflowGetRequest) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{63}
 }
 
-func (x *WorkflowGetRequest) GetAlias() string {
+func (x *WorkflowGetRequest) GetName() string {
 	if x != nil {
-		return x.Alias
+		return x.Name
 	}
 	return ""
 }
@@ -5175,27 +5175,27 @@ func (x *WorkflowListResponse) GetRuntimeProfileRevision() string {
 	return ""
 }
 
-type ToolkitPolicyToolIds struct {
+type ToolkitPolicyToolNames struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Value         []string               `protobuf:"bytes,1,rep,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ToolkitPolicyToolIds) Reset() {
-	*x = ToolkitPolicyToolIds{}
+func (x *ToolkitPolicyToolNames) Reset() {
+	*x = ToolkitPolicyToolNames{}
 	mi := &file_payload_ai_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ToolkitPolicyToolIds) String() string {
+func (x *ToolkitPolicyToolNames) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ToolkitPolicyToolIds) ProtoMessage() {}
+func (*ToolkitPolicyToolNames) ProtoMessage() {}
 
-func (x *ToolkitPolicyToolIds) ProtoReflect() protoreflect.Message {
+func (x *ToolkitPolicyToolNames) ProtoReflect() protoreflect.Message {
 	mi := &file_payload_ai_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -5207,12 +5207,12 @@ func (x *ToolkitPolicyToolIds) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ToolkitPolicyToolIds.ProtoReflect.Descriptor instead.
-func (*ToolkitPolicyToolIds) Descriptor() ([]byte, []int) {
+// Deprecated: Use ToolkitPolicyToolNames.ProtoReflect.Descriptor instead.
+func (*ToolkitPolicyToolNames) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{67}
 }
 
-func (x *ToolkitPolicyToolIds) GetValue() []string {
+func (x *ToolkitPolicyToolNames) GetValue() []string {
 	if x != nil {
 		return x.Value
 	}
@@ -5220,8 +5220,8 @@ func (x *ToolkitPolicyToolIds) GetValue() []string {
 }
 
 type ToolkitPolicy struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ToolIds       *ToolkitPolicyToolIds  `protobuf:"bytes,1,opt,name=tool_ids,json=toolIds,proto3,oneof" json:"tool_ids,omitempty"`
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	ToolNames     *ToolkitPolicyToolNames `protobuf:"bytes,1,opt,name=tool_names,json=toolNames,proto3,oneof" json:"tool_names,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5256,19 +5256,19 @@ func (*ToolkitPolicy) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{68}
 }
 
-func (x *ToolkitPolicy) GetToolIds() *ToolkitPolicyToolIds {
+func (x *ToolkitPolicy) GetToolNames() *ToolkitPolicyToolNames {
 	if x != nil {
-		return x.ToolIds
+		return x.ToolNames
 	}
 	return nil
 }
 
 type Tool struct {
-	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Alias         string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
-	I18N          map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	InputSchema   *structpb.Struct          `protobuf:"bytes,3,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
-	Name          string                    `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`
+	state         protoimpl.MessageState       `protogen:"open.v1"`
+	Name          string                       `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	I18N          map[string]*ResourceI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	InputSchema   *structpb.Struct             `protobuf:"bytes,3,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
+	InvokeName    string                       `protobuf:"bytes,4,opt,name=invoke_name,json=invokeName,proto3" json:"invoke_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5303,14 +5303,14 @@ func (*Tool) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{69}
 }
 
-func (x *Tool) GetAlias() string {
+func (x *Tool) GetName() string {
 	if x != nil {
-		return x.Alias
+		return x.Name
 	}
 	return ""
 }
 
-func (x *Tool) GetI18N() map[string]*AliasI18NText {
+func (x *Tool) GetI18N() map[string]*ResourceI18NText {
 	if x != nil {
 		return x.I18N
 	}
@@ -5324,9 +5324,9 @@ func (x *Tool) GetInputSchema() *structpb.Struct {
 	return nil
 }
 
-func (x *Tool) GetName() string {
+func (x *Tool) GetInvokeName() string {
 	if x != nil {
-		return x.Name
+		return x.InvokeName
 	}
 	return ""
 }
@@ -5461,7 +5461,7 @@ func (x *ToolListResponse) GetRuntimeProfileRevision() string {
 
 type ToolGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Alias         string                 `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5496,9 +5496,9 @@ func (*ToolGetRequest) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{72}
 }
 
-func (x *ToolGetRequest) GetAlias() string {
+func (x *ToolGetRequest) GetName() string {
 	if x != nil {
-		return x.Alias
+		return x.Name
 	}
 	return ""
 }
@@ -5565,8 +5565,8 @@ func (x *ToolGetResponse) GetRuntimeProfileRevision() string {
 
 type ToolInvokeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Args          *structpb.Struct       `protobuf:"bytes,4,opt,name=args,proto3" json:"args,omitempty"`
-	Name          string                 `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`
+	Args          *structpb.Struct       `protobuf:"bytes,1,opt,name=args,proto3" json:"args,omitempty"`
+	InvokeName    string                 `protobuf:"bytes,2,opt,name=invoke_name,json=invokeName,proto3" json:"invoke_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5608,9 +5608,9 @@ func (x *ToolInvokeRequest) GetArgs() *structpb.Struct {
 	return nil
 }
 
-func (x *ToolInvokeRequest) GetName() string {
+func (x *ToolInvokeRequest) GetInvokeName() string {
 	if x != nil {
-		return x.Name
+		return x.InvokeName
 	}
 	return ""
 }
@@ -5663,24 +5663,24 @@ var File_payload_ai_proto protoreflect.FileDescriptor
 
 const file_payload_ai_proto_rawDesc = "" +
 	"\n" +
-	"\x10payload/ai.proto\x12\x0egizclaw.rpc.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x13payload/enums.proto\"i\n" +
-	"\rAliasI18nText\x12!\n" +
+	"\x10payload/ai.proto\x12\x0egizclaw.rpc.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x13payload/enums.proto\"l\n" +
+	"\x10ResourceI18nText\x12!\n" +
 	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01B\x0e\n" +
-	"\f_description\"\x8b\x01\n" +
-	"\x17SpeechTranscribeRequest\x12\x1f\n" +
-	"\vmodel_alias\x18\x01 \x01(\tR\n" +
-	"modelAlias\x12!\n" +
+	"\f_description\"\x89\x01\n" +
+	"\x17SpeechTranscribeRequest\x12\x1d\n" +
+	"\n" +
+	"model_name\x18\x01 \x01(\tR\tmodelName\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x1f\n" +
 	"\blanguage\x18\x03 \x01(\tH\x00R\blanguage\x88\x01\x01B\v\n" +
 	"\t_language\":\n" +
 	"\x18SpeechTranscribeResponse\x12\x1e\n" +
 	"\n" +
 	"transcript\x18\x01 \x01(\tR\n" +
-	"transcript\"\x97\x02\n" +
-	"\x14SpeechExtractRequest\x12&\n" +
-	"\x0fasr_model_alias\x18\x01 \x01(\tR\rasrModelAlias\x12.\n" +
-	"\x13extract_model_alias\x18\x02 \x01(\tR\x11extractModelAlias\x12!\n" +
+	"transcript\"\x93\x02\n" +
+	"\x14SpeechExtractRequest\x12$\n" +
+	"\x0easr_model_name\x18\x01 \x01(\tR\fasrModelName\x12,\n" +
+	"\x12extract_model_name\x18\x02 \x01(\tR\x10extractModelName\x12!\n" +
 	"\fcontent_type\x18\x03 \x01(\tR\vcontentType\x12\x1f\n" +
 	"\blanguage\x18\x04 \x01(\tH\x00R\blanguage\x88\x01\x01\x12\x1f\n" +
 	"\vschema_json\x18\x05 \x01(\tR\n" +
@@ -5693,10 +5693,10 @@ const file_payload_ai_proto_rawDesc = "" +
 	"transcript\x18\x01 \x01(\tR\n" +
 	"transcript\x12\x1f\n" +
 	"\vresult_json\x18\x02 \x01(\tR\n" +
-	"resultJson\"\x84\x01\n" +
-	"\x17SpeechSynthesizeRequest\x12\x1f\n" +
-	"\vvoice_alias\x18\x01 \x01(\tR\n" +
-	"voiceAlias\x12\x12\n" +
+	"resultJson\"\x82\x01\n" +
+	"\x17SpeechSynthesizeRequest\x12\x1d\n" +
+	"\n" +
+	"voice_name\x18\x01 \x01(\tR\tvoiceName\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\x124\n" +
 	"\x16accepted_content_types\x18\x03 \x03(\tR\x14acceptedContentTypes\"\xa9\x01\n" +
 	"\x18SpeechSynthesizeResponse\x12!\n" +
@@ -5910,13 +5910,13 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x10_output_loudnessB\x0f\n" +
 	"\r_output_speedB\x0e\n" +
 	"\f_sample_rateB\b\n" +
-	"\x06_voice\"\xe3\x01\n" +
+	"\x06_voice\"\xd5\x01\n" +
 	"\x10EinoWorkflowSpec\x12-\n" +
 	"\x05graph\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x05graph\x124\n" +
 	"\x06limits\x18\x02 \x01(\v2\x17.google.protobuf.StructH\x00R\x06limits\x88\x01\x01\x12@\n" +
-	"\fconversation\x18\x04 \x01(\v2\x17.google.protobuf.StructH\x01R\fconversation\x88\x01\x01B\t\n" +
+	"\fconversation\x18\x03 \x01(\v2\x17.google.protobuf.StructH\x01R\fconversation\x88\x01\x01B\t\n" +
 	"\a_limitsB\x0f\n" +
-	"\r_conversationJ\x04\b\x03\x10\x04R\x06memory\"\xf4\x01\n" +
+	"\r_conversation\"\xf4\x01\n" +
 	"\x17EinoWorkspaceParameters\x12O\n" +
 	"\n" +
 	"agent_type\x18\x01 \x01(\x0e20.gizclaw.rpc.v1.EinoWorkspaceParametersAgentTypeR\tagentType\x12\x15\n" +
@@ -6104,16 +6104,16 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x18_agent_initiative_policyB\r\n" +
 	"\v_initiative\"H\n" +
 	"\x15FlowcraftWorkflowSpec\x12/\n" +
-	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\x89\x03\n" +
+	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\xc7\x02\n" +
 	"\x1cFlowcraftWorkspaceParameters\x12T\n" +
 	"\n" +
 	"agent_type\x18\x01 \x01(\x0e25.gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentTypeR\tagentType\x12X\n" +
 	"\fconversation\x18\x02 \x01(\v2/.gizclaw.rpc.v1.FlowcraftConversationParametersH\x00R\fconversation\x88\x01\x01\x12\x15\n" +
 	"\x03e2e\x18\x03 \x01(\bH\x01R\x03e2e\x88\x01\x01\x12=\n" +
-	"\x05input\x18\a \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x02R\x05input\x88\x01\x01B\x0f\n" +
+	"\x05input\x18\x04 \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x02R\x05input\x88\x01\x01B\x0f\n" +
 	"\r_conversationB\x06\n" +
 	"\x04_e2eB\b\n" +
-	"\x06_inputJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\x0egenerate_modelR\rextract_modelR\x0fembedding_model\"\xe1\x06\n" +
+	"\x06_input\"\xe1\x06\n" +
 	"\x0fPetWorkflowSpec\x12>\n" +
 	"\x06driver\x18\x01 \x01(\x0e2&.gizclaw.rpc.v1.ReusableWorkflowDriverR\x06driver\x12<\n" +
 	"\atoolkit\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x00R\atoolkit\x88\x01\x01\x12H\n" +
@@ -6133,24 +6133,24 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\t_chatroomB\x15\n" +
 	"\x13_dashscope_realtimeB\x19\n" +
 	"\x17_doubao_realtime_duplexB\a\n" +
-	"\x05_eino\"\xc8\x06\n" +
-	"\x05Model\x12\x14\n" +
-	"\x05alias\x18\x01 \x01(\tR\x05alias\x123\n" +
+	"\x05_eino\"\xc3\x06\n" +
+	"\x05Model\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x123\n" +
 	"\x04i18n\x18\x02 \x03(\v2\x1f.gizclaw.rpc.v1.Model.I18nEntryR\x04i18n\x12-\n" +
 	"\x04kind\x18\x03 \x01(\x0e2\x19.gizclaw.rpc.v1.ModelKindR\x04kind\x12T\n" +
-	"\ropenai_tenant\x18\x05 \x01(\v2-.gizclaw.rpc.v1.OpenAITenantModelProviderDataH\x00R\fopenaiTenant\x12T\n" +
-	"\rgemini_tenant\x18\x06 \x01(\v2-.gizclaw.rpc.v1.GeminiTenantModelProviderDataH\x00R\fgeminiTenant\x12]\n" +
-	"\x10dashscope_tenant\x18\a \x01(\v20.gizclaw.rpc.v1.DashScopeTenantModelProviderDataH\x00R\x0fdashscopeTenant\x12N\n" +
-	"\vvolc_tenant\x18\b \x01(\v2+.gizclaw.rpc.v1.VolcTenantModelProviderDataH\x00R\n" +
+	"\ropenai_tenant\x18\x04 \x01(\v2-.gizclaw.rpc.v1.OpenAITenantModelProviderDataH\x00R\fopenaiTenant\x12T\n" +
+	"\rgemini_tenant\x18\x05 \x01(\v2-.gizclaw.rpc.v1.GeminiTenantModelProviderDataH\x00R\fgeminiTenant\x12]\n" +
+	"\x10dashscope_tenant\x18\x06 \x01(\v20.gizclaw.rpc.v1.DashScopeTenantModelProviderDataH\x00R\x0fdashscopeTenant\x12N\n" +
+	"\vvolc_tenant\x18\a \x01(\v2+.gizclaw.rpc.v1.VolcTenantModelProviderDataH\x00R\n" +
 	"volcTenant\x12W\n" +
-	"\x0eminimax_tenant\x18\t \x01(\v2..gizclaw.rpc.v1.MiniMaxTenantModelProviderDataH\x00R\rminimaxTenant\x12Z\n" +
-	"\x0fdeepseek_tenant\x18\n" +
-	" \x01(\v2/.gizclaw.rpc.v1.DeepSeekTenantModelProviderDataH\x00R\x0edeepseekTenant\x12F\n" +
-	"\rprovider_kind\x18\v \x01(\x0e2!.gizclaw.rpc.v1.ModelProviderKindR\fproviderKind\x1aV\n" +
+	"\x0eminimax_tenant\x18\b \x01(\v2..gizclaw.rpc.v1.MiniMaxTenantModelProviderDataH\x00R\rminimaxTenant\x12Z\n" +
+	"\x0fdeepseek_tenant\x18\t \x01(\v2/.gizclaw.rpc.v1.DeepSeekTenantModelProviderDataH\x00R\x0edeepseekTenant\x12F\n" +
+	"\rprovider_kind\x18\n" +
+	" \x01(\x0e2!.gizclaw.rpc.v1.ModelProviderKindR\fproviderKind\x1aY\n" +
 	"\tI18nEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
-	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01B\x0f\n" +
-	"\rprovider_dataJ\x04\b\x04\x10\x05\"\x9e\x06\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x126\n" +
+	"\x05value\x18\x02 \x01(\v2 .gizclaw.rpc.v1.ResourceI18nTextR\x05value:\x028\x01B\x0f\n" +
+	"\rprovider_data\"\x9e\x06\n" +
 	"\x1dOpenAITenantModelProviderData\x12*\n" +
 	"\x0eupstream_model\x18\x01 \x01(\tH\x00R\rupstreamModel\x88\x01\x01\x123\n" +
 	"\x13support_json_output\x18\x02 \x01(\bH\x01R\x11supportJsonOutput\x88\x01\x01\x121\n" +
@@ -6297,9 +6297,9 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x10_use_system_roleB\x11\n" +
 	"\x0f_thinking_paramB\x17\n" +
 	"\x15_thinking_level_paramB\x19\n" +
-	"\x17_default_thinking_level\"'\n" +
-	"\x0fModelGetRequest\x12\x14\n" +
-	"\x05alias\x18\x01 \x01(\tR\x05alias\"\xab\x01\n" +
+	"\x17_default_thinking_level\"%\n" +
+	"\x0fModelGetRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\xab\x01\n" +
 	"\x10ModelGetResponse\x12+\n" +
 	"\x05value\x18\x01 \x01(\v2\x15.gizclaw.rpc.v1.ModelR\x05value\x120\n" +
 	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
@@ -6316,15 +6316,15 @@ const file_payload_ai_proto_rawDesc = "" +
 	"nextCursor\x88\x01\x01\x120\n" +
 	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
 	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
-	"\f_next_cursor\"\xaa\x01\n" +
-	"\x05Voice\x12\x14\n" +
-	"\x05alias\x18\x01 \x01(\tR\x05alias\x123\n" +
-	"\x04i18n\x18\x02 \x03(\v2\x1f.gizclaw.rpc.v1.Voice.I18nEntryR\x04i18n\x1aV\n" +
+	"\f_next_cursor\"\xab\x01\n" +
+	"\x05Voice\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x123\n" +
+	"\x04i18n\x18\x02 \x03(\v2\x1f.gizclaw.rpc.v1.Voice.I18nEntryR\x04i18n\x1aY\n" +
 	"\tI18nEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
-	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01\"'\n" +
-	"\x0fVoiceGetRequest\x12\x14\n" +
-	"\x05alias\x18\x01 \x01(\tR\x05alias\"\xab\x01\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x126\n" +
+	"\x05value\x18\x02 \x01(\v2 .gizclaw.rpc.v1.ResourceI18nTextR\x05value:\x028\x01\"%\n" +
+	"\x0fVoiceGetRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\xab\x01\n" +
 	"\x10VoiceGetResponse\x12+\n" +
 	"\x05value\x18\x01 \x01(\v2\x15.gizclaw.rpc.v1.VoiceR\x05value\x120\n" +
 	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
@@ -6341,21 +6341,21 @@ const file_payload_ai_proto_rawDesc = "" +
 	"nextCursor\x88\x01\x01\x120\n" +
 	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
 	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
-	"\f_next_cursor\"\xd5\x02\n" +
-	"\bWorkflow\x12\x14\n" +
-	"\x05alias\x18\x01 \x01(\tR\x05alias\x126\n" +
+	"\f_next_cursor\"\xd6\x02\n" +
+	"\bWorkflow\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x126\n" +
 	"\x04i18n\x18\x02 \x03(\v2\".gizclaw.rpc.v1.Workflow.I18nEntryR\x04i18n\x12\x1e\n" +
 	"\n" +
 	"collection\x18\x03 \x01(\tR\n" +
 	"collection\x126\n" +
 	"\x06driver\x18\x04 \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowDriverR\x06driver\x123\n" +
-	"\x13workspace_lang_pair\x18\x05 \x01(\tH\x00R\x11workspaceLangPair\x88\x01\x01\x1aV\n" +
+	"\x13workspace_lang_pair\x18\x05 \x01(\tH\x00R\x11workspaceLangPair\x88\x01\x01\x1aY\n" +
 	"\tI18nEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
-	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01B\x16\n" +
-	"\x14_workspace_lang_pair\"*\n" +
-	"\x12WorkflowGetRequest\x12\x14\n" +
-	"\x05alias\x18\x01 \x01(\tR\x05alias\"\xb1\x01\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x126\n" +
+	"\x05value\x18\x02 \x01(\v2 .gizclaw.rpc.v1.ResourceI18nTextR\x05value:\x028\x01B\x16\n" +
+	"\x14_workspace_lang_pair\"(\n" +
+	"\x12WorkflowGetRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\xb1\x01\n" +
 	"\x13WorkflowGetResponse\x12.\n" +
 	"\x05value\x18\x01 \x01(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05value\x120\n" +
 	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
@@ -6375,20 +6375,22 @@ const file_payload_ai_proto_rawDesc = "" +
 	"nextCursor\x88\x01\x01\x120\n" +
 	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
 	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
-	"\f_next_cursor\",\n" +
-	"\x14ToolkitPolicyToolIds\x12\x14\n" +
-	"\x05value\x18\x01 \x03(\tR\x05value\"b\n" +
-	"\rToolkitPolicy\x12D\n" +
-	"\btool_ids\x18\x01 \x01(\v2$.gizclaw.rpc.v1.ToolkitPolicyToolIdsH\x00R\atoolIds\x88\x01\x01B\v\n" +
-	"\t_tool_ids\"\x8d\x02\n" +
-	"\x04Tool\x12\x14\n" +
-	"\x05alias\x18\x01 \x01(\tR\x05alias\x122\n" +
+	"\f_next_cursor\".\n" +
+	"\x16ToolkitPolicyToolNames\x12\x14\n" +
+	"\x05value\x18\x01 \x03(\tR\x05value\"j\n" +
+	"\rToolkitPolicy\x12J\n" +
+	"\n" +
+	"tool_names\x18\x01 \x01(\v2&.gizclaw.rpc.v1.ToolkitPolicyToolNamesH\x00R\ttoolNames\x88\x01\x01B\r\n" +
+	"\v_tool_names\"\x86\x02\n" +
+	"\x04Tool\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x122\n" +
 	"\x04i18n\x18\x02 \x03(\v2\x1e.gizclaw.rpc.v1.Tool.I18nEntryR\x04i18n\x12:\n" +
-	"\finput_schema\x18\x03 \x01(\v2\x17.google.protobuf.StructR\vinputSchema\x12\x12\n" +
-	"\x04name\x18\x05 \x01(\tR\x04name\x1aV\n" +
+	"\finput_schema\x18\x03 \x01(\v2\x17.google.protobuf.StructR\vinputSchema\x12\x1f\n" +
+	"\vinvoke_name\x18\x04 \x01(\tR\n" +
+	"invokeName\x1aY\n" +
 	"\tI18nEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
-	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01J\x04\b\x04\x10\x05R\routput_schema\"^\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x126\n" +
+	"\x05value\x18\x02 \x01(\v2 .gizclaw.rpc.v1.ResourceI18nTextR\x05value:\x028\x01\"^\n" +
 	"\x0fToolListRequest\x12\x1b\n" +
 	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01B\t\n" +
@@ -6401,16 +6403,17 @@ const file_payload_ai_proto_rawDesc = "" +
 	"nextCursor\x88\x01\x01\x120\n" +
 	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
 	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
-	"\f_next_cursor\"&\n" +
-	"\x0eToolGetRequest\x12\x14\n" +
-	"\x05alias\x18\x01 \x01(\tR\x05alias\"\xa9\x01\n" +
+	"\f_next_cursor\"$\n" +
+	"\x0eToolGetRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\xa9\x01\n" +
 	"\x0fToolGetResponse\x12*\n" +
 	"\x05value\x18\x01 \x01(\v2\x14.gizclaw.rpc.v1.ToolR\x05value\x120\n" +
 	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
-	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"\x80\x01\n" +
+	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"a\n" +
 	"\x11ToolInvokeRequest\x12+\n" +
-	"\x04args\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x04args\x12\x12\n" +
-	"\x04name\x18\x05 \x01(\tR\x04nameJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04R\acall_idR\atool_idR\x06method\"1\n" +
+	"\x04args\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x04args\x12\x1f\n" +
+	"\vinvoke_name\x18\x02 \x01(\tR\n" +
+	"invokeName\"1\n" +
 	"\x12ToolInvokeResponse\x12\x1b\n" +
 	"\tdata_json\x18\x01 \x01(\tR\bdataJson*\xa6\x02\n" +
 	"\x11ModelProviderKind\x12#\n" +
@@ -6438,7 +6441,7 @@ var file_payload_ai_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_payload_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 82)
 var file_payload_ai_proto_goTypes = []any{
 	(ModelProviderKind)(0),                                    // 0: gizclaw.rpc.v1.ModelProviderKind
-	(*AliasI18NText)(nil),                                     // 1: gizclaw.rpc.v1.AliasI18nText
+	(*ResourceI18NText)(nil),                                  // 1: gizclaw.rpc.v1.ResourceI18nText
 	(*SpeechTranscribeRequest)(nil),                           // 2: gizclaw.rpc.v1.SpeechTranscribeRequest
 	(*SpeechTranscribeResponse)(nil),                          // 3: gizclaw.rpc.v1.SpeechTranscribeResponse
 	(*SpeechExtractRequest)(nil),                              // 4: gizclaw.rpc.v1.SpeechExtractRequest
@@ -6505,7 +6508,7 @@ var file_payload_ai_proto_goTypes = []any{
 	(*WorkflowGetResponse)(nil),                               // 65: gizclaw.rpc.v1.WorkflowGetResponse
 	(*WorkflowListRequest)(nil),                               // 66: gizclaw.rpc.v1.WorkflowListRequest
 	(*WorkflowListResponse)(nil),                              // 67: gizclaw.rpc.v1.WorkflowListResponse
-	(*ToolkitPolicyToolIds)(nil),                              // 68: gizclaw.rpc.v1.ToolkitPolicyToolIds
+	(*ToolkitPolicyToolNames)(nil),                            // 68: gizclaw.rpc.v1.ToolkitPolicyToolNames
 	(*ToolkitPolicy)(nil),                                     // 69: gizclaw.rpc.v1.ToolkitPolicy
 	(*Tool)(nil),                                              // 70: gizclaw.rpc.v1.Tool
 	(*ToolListRequest)(nil),                                   // 71: gizclaw.rpc.v1.ToolListRequest
@@ -6625,17 +6628,17 @@ var file_payload_ai_proto_depIdxs = []int32{
 	101, // 81: gizclaw.rpc.v1.Workflow.driver:type_name -> gizclaw.rpc.v1.WorkflowDriver
 	63,  // 82: gizclaw.rpc.v1.WorkflowGetResponse.value:type_name -> gizclaw.rpc.v1.Workflow
 	63,  // 83: gizclaw.rpc.v1.WorkflowListResponse.items:type_name -> gizclaw.rpc.v1.Workflow
-	68,  // 84: gizclaw.rpc.v1.ToolkitPolicy.tool_ids:type_name -> gizclaw.rpc.v1.ToolkitPolicyToolIds
+	68,  // 84: gizclaw.rpc.v1.ToolkitPolicy.tool_names:type_name -> gizclaw.rpc.v1.ToolkitPolicyToolNames
 	82,  // 85: gizclaw.rpc.v1.Tool.i18n:type_name -> gizclaw.rpc.v1.Tool.I18nEntry
 	90,  // 86: gizclaw.rpc.v1.Tool.input_schema:type_name -> google.protobuf.Struct
 	70,  // 87: gizclaw.rpc.v1.ToolListResponse.items:type_name -> gizclaw.rpc.v1.Tool
 	70,  // 88: gizclaw.rpc.v1.ToolGetResponse.value:type_name -> gizclaw.rpc.v1.Tool
 	90,  // 89: gizclaw.rpc.v1.ToolInvokeRequest.args:type_name -> google.protobuf.Struct
 	38,  // 90: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry.value:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	1,   // 91: gizclaw.rpc.v1.Model.I18nEntry.value:type_name -> gizclaw.rpc.v1.AliasI18nText
-	1,   // 92: gizclaw.rpc.v1.Voice.I18nEntry.value:type_name -> gizclaw.rpc.v1.AliasI18nText
-	1,   // 93: gizclaw.rpc.v1.Workflow.I18nEntry.value:type_name -> gizclaw.rpc.v1.AliasI18nText
-	1,   // 94: gizclaw.rpc.v1.Tool.I18nEntry.value:type_name -> gizclaw.rpc.v1.AliasI18nText
+	1,   // 91: gizclaw.rpc.v1.Model.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
+	1,   // 92: gizclaw.rpc.v1.Voice.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
+	1,   // 93: gizclaw.rpc.v1.Workflow.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
+	1,   // 94: gizclaw.rpc.v1.Tool.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
 	95,  // [95:95] is the sub-list for method output_type
 	95,  // [95:95] is the sub-list for method input_type
 	95,  // [95:95] is the sub-list for extension type_name

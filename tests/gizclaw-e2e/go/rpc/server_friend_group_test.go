@@ -18,47 +18,47 @@ func TestServerFriendGroupRPC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("friend_group.create: %v", err)
 	}
-	if group.Id == nil || *group.Id == "" || group.WorkspaceName == nil || *group.WorkspaceName == "" {
+	if group.Name == "" || group.WorkspaceName == nil || *group.WorkspaceName == "" {
 		t.Fatalf("friend_group.create = %#v", group)
 	}
 	secondGroup, err := env.a.CreateFriendGroup(env.ctx, "friend_group.create.backup", rpcapi.FriendGroupCreateRequest{Name: "backup"})
 	if err != nil {
 		t.Fatalf("friend_group.create backup: %v", err)
 	}
-	got, err := env.a.GetFriendGroup(env.ctx, "friend_group.get", rpcapi.FriendGroupGetRequest{Id: *group.Id})
+	got, err := env.a.GetFriendGroup(env.ctx, "friend_group.get", rpcapi.FriendGroupGetRequest{Name: group.Name})
 	if err != nil {
 		t.Fatalf("friend_group.get: %v", err)
 	}
-	if got.Name == nil || *got.Name != "family" {
+	if got.Name != "family" {
 		t.Fatalf("friend_group.get name = %#v", got.Name)
 	}
 	renamed := "family chat"
-	updated, err := env.a.PutFriendGroup(env.ctx, "friend_group.put", rpcapi.FriendGroupPutRequest{Id: *group.Id, Name: &renamed})
+	updated, err := env.a.PutFriendGroup(env.ctx, "friend_group.put", rpcapi.FriendGroupPutRequest{Name: group.Name, DisplayName: &renamed})
 	if err != nil {
 		t.Fatalf("friend_group.put: %v", err)
 	}
-	if updated.Name == nil || *updated.Name != renamed {
-		t.Fatalf("friend_group.put name = %#v", updated.Name)
+	if updated.Name != group.Name || updated.DisplayName == nil || *updated.DisplayName != renamed {
+		t.Fatalf("friend_group.put = %#v", updated)
 	}
 	if updated.MyRole == nil || *updated.MyRole != rpcapi.FriendGroupMemberRoleOwner {
 		t.Fatalf("friend_group.put my_role = %#v, want admin", updated.MyRole)
 	}
 
-	emptyToken, err := env.a.GetFriendGroupInviteToken(env.ctx, "friend_group.invite_token.get.empty", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupId: *group.Id})
+	emptyToken, err := env.a.GetFriendGroupInviteToken(env.ctx, "friend_group.invite_token.get.empty", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupName: group.Name})
 	if err != nil {
 		t.Fatalf("friend_group.invite_token.get empty: %v", err)
 	}
 	if emptyToken.InviteToken != nil || emptyToken.ExpiresAt != nil {
 		t.Fatalf("friend_group.invite_token.get empty = %#v, want no token", emptyToken)
 	}
-	token, err := env.a.CreateFriendGroupInviteToken(env.ctx, "friend_group.invite_token.create", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupId: *group.Id})
+	token, err := env.a.CreateFriendGroupInviteToken(env.ctx, "friend_group.invite_token.create", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupName: group.Name})
 	if err != nil {
 		t.Fatalf("friend_group.invite_token.create: %v", err)
 	}
 	if token.InviteToken == "" || token.ExpiresAt.IsZero() {
 		t.Fatalf("friend_group.invite_token.create = %#v", token)
 	}
-	joined, err := env.b.JoinFriendGroup(env.ctx, "friend_group.join.b", rpcapi.FriendGroupJoinRequest{InviteToken: token.InviteToken})
+	joined, err := env.b.JoinFriendGroup(env.ctx, "friend_group.join.b", rpcapi.FriendGroupJoinRequest{Name: group.Name, InviteToken: token.InviteToken})
 	if err != nil {
 		t.Fatalf("friend_group.join b: %v", err)
 	}
@@ -69,9 +69,9 @@ func TestServerFriendGroupRPC(t *testing.T) {
 		t.Fatalf("friend_group.join my_role = %#v, want member", joined.Group.MyRole)
 	}
 	memberB, err := env.a.PutFriendGroupMember(env.ctx, "friend_group.members.put.b", rpcapi.FriendGroupMemberPutRequest{
-		FriendGroupId: *group.Id,
-		Id:            env.peer["peer-b"],
-		Role:          rpcapi.FriendGroupMemberMutableRoleAdmin,
+		FriendGroupName: group.Name,
+		Id:              env.peer["peer-b"],
+		Role:            rpcapi.FriendGroupMemberMutableRoleAdmin,
 	})
 	if err != nil {
 		t.Fatalf("friend_group.members.put b: %v", err)
@@ -80,9 +80,10 @@ func TestServerFriendGroupRPC(t *testing.T) {
 		t.Fatalf("member b role = %#v", memberB.Role)
 	}
 	memberC, err := env.b.AddFriendGroupMember(env.ctx, "friend_group.members.add.c", rpcapi.FriendGroupMemberAddRequest{
-		FriendGroupId: *group.Id,
-		PeerPublicKey: env.peer["peer-c"],
-		Role:          rpcapi.FriendGroupMemberMutableRoleMember,
+		FriendGroupName: group.Name,
+		PeerPublicKey:   env.peer["peer-c"],
+		Role:            rpcapi.FriendGroupMemberMutableRoleMember,
+		MemberName:      "peer-c",
 	})
 	if err != nil {
 		t.Fatalf("friend_group.members.add c: %v", err)
@@ -90,6 +91,10 @@ func TestServerFriendGroupRPC(t *testing.T) {
 	if memberC.PeerPublicKey == nil || *memberC.PeerPublicKey != env.peer["peer-c"] {
 		t.Fatalf("member c peer_public_key = %#v", memberC.PeerPublicKey)
 	}
+	if memberC.FriendGroupName == nil || *memberC.FriendGroupName != "peer-c" {
+		t.Fatalf("member c friend_group_name = %#v, want peer-specific name", memberC.FriendGroupName)
+	}
+	peerCGroupName := *memberC.FriendGroupName
 	limit := 1
 	groups, err := env.a.ListFriendGroups(env.ctx, "friend_group.list.page1", rpcapi.FriendGroupListRequest{Limit: &limit})
 	if err != nil {
@@ -105,27 +110,27 @@ func TestServerFriendGroupRPC(t *testing.T) {
 	if len(groups.Items) != 1 || groups.HasNext {
 		t.Fatalf("friend_group.list page2 = %#v", groups)
 	}
-	members, err := env.a.ListFriendGroupMembers(env.ctx, "friend_group.members.list", rpcapi.FriendGroupMemberListRequest{FriendGroupId: group.Id})
+	members, err := env.a.ListFriendGroupMembers(env.ctx, "friend_group.members.list", rpcapi.FriendGroupMemberListRequest{FriendGroupName: &group.Name})
 	if err != nil {
 		t.Fatalf("friend_group.members.list: %v", err)
 	}
 	if len(members.Items) < 3 {
 		t.Fatalf("friend_group.members.list = %#v, want admin plus two members", members.Items)
 	}
-	messages, err := env.c.ListFriendGroupMessages(env.ctx, "friend_group.messages.list", rpcapi.FriendGroupMessageListRequest{FriendGroupId: *group.Id})
+	messages, err := env.c.ListFriendGroupMessages(env.ctx, "friend_group.messages.list", rpcapi.FriendGroupMessageListRequest{FriendGroupName: peerCGroupName})
 	if err != nil {
 		t.Fatalf("friend_group.messages.list: %v", err)
 	}
 	for _, message := range messages.Items {
-		if message.FriendGroupId != *group.Id || message.HistoryId == "" {
+		if message.FriendGroupName != peerCGroupName || message.HistoryId == "" {
 			t.Fatalf("friend_group.messages.list item = %#v", message)
 		}
 	}
 	missingHistoryID := "issue-686-missing-history"
 	var audio bytes.Buffer
 	audioResult, err := env.c.GetFriendGroupMessageAudio(env.ctx, "friend_group.messages.audio.get.missing", rpcapi.FriendGroupMessageAudioGetRequest{
-		FriendGroupId: *group.Id,
-		HistoryId:     missingHistoryID,
+		FriendGroupName: peerCGroupName,
+		HistoryId:       missingHistoryID,
 	}, &audio)
 	if err == nil {
 		t.Fatal("friend_group.messages.audio.get missing unexpectedly succeeded")
@@ -137,24 +142,24 @@ func TestServerFriendGroupRPC(t *testing.T) {
 	if audioResult.Metadata != (rpcapi.FriendGroupMessageAudioGetResponse{}) || audioResult.Bytes != 0 || audio.Len() != 0 {
 		t.Fatalf("friend_group.messages.audio.get missing result = %#v payload=%q, want zero result", audioResult, audio.String())
 	}
-	gotAfterAudioFailure, err := env.c.GetFriendGroup(env.ctx, "friend_group.get.after_audio_failure", rpcapi.FriendGroupGetRequest{Id: *group.Id})
+	gotAfterAudioFailure, err := env.c.GetFriendGroup(env.ctx, "friend_group.get.after_audio_failure", rpcapi.FriendGroupGetRequest{Name: peerCGroupName})
 	if err != nil {
 		t.Fatalf("friend_group.get after audio failure: %v", err)
 	}
-	if gotAfterAudioFailure.Id == nil || *gotAfterAudioFailure.Id != *group.Id {
+	if gotAfterAudioFailure.Name != peerCGroupName {
 		t.Fatalf("friend_group.get after audio failure = %#v", gotAfterAudioFailure)
 	}
-	if _, err := env.d.GetFriendGroup(env.ctx, "friend_group.get.denied", rpcapi.FriendGroupGetRequest{Id: *group.Id}); err == nil {
+	if _, err := env.d.GetFriendGroup(env.ctx, "friend_group.get.denied", rpcapi.FriendGroupGetRequest{Name: group.Name}); err == nil {
 		t.Fatal("non-member unexpectedly read group")
 	}
-	if _, err := env.b.DeleteFriendGroupMember(env.ctx, "friend_group.members.delete.c", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupId: *group.Id, Id: env.peer["peer-c"]}); err != nil {
+	if _, err := env.b.DeleteFriendGroupMember(env.ctx, "friend_group.members.delete.c", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: group.Name, Id: env.peer["peer-c"]}); err != nil {
 		t.Fatalf("friend_group.members.delete c: %v", err)
 	}
-	deleted, err := env.a.DeleteFriendGroup(env.ctx, "friend_group.delete", rpcapi.FriendGroupDeleteRequest{Id: *secondGroup.Id})
+	deleted, err := env.a.DeleteFriendGroup(env.ctx, "friend_group.delete", rpcapi.FriendGroupDeleteRequest{Name: secondGroup.Name})
 	if err != nil {
 		t.Fatalf("friend_group.delete: %v", err)
 	}
-	if deleted.Id == nil || *deleted.Id != *secondGroup.Id {
-		t.Fatalf("friend_group.delete id = %#v, want %q", deleted.Id, *secondGroup.Id)
+	if deleted.Name != secondGroup.Name {
+		t.Fatalf("friend_group.delete name = %#v, want %q", deleted.Name, secondGroup.Name)
 	}
 }

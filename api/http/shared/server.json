@@ -126,7 +126,7 @@
         "type": "object",
         "required": [
           "text",
-          "voice_alias"
+          "voice_name"
         ],
         "additionalProperties": false,
         "properties": {
@@ -134,7 +134,7 @@
             "type": "string",
             "minLength": 1
           },
-          "voice_alias": {
+          "voice_name": {
             "type": "string"
           }
         }
@@ -429,13 +429,13 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "alias": {
+          "name": {
             "type": "string",
             "minLength": 1
           }
         },
         "required": [
-          "alias"
+          "name"
         ]
       },
       "WorkflowGetResponse": {
@@ -460,13 +460,13 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "alias",
+          "name",
           "collection",
           "driver",
           "i18n"
         ],
         "properties": {
-          "alias": {
+          "name": {
             "type": "string",
             "minLength": 1
           },
@@ -479,12 +479,12 @@
           "i18n": {
             "type": "object",
             "additionalProperties": {
-              "$ref": "#/components/schemas/AliasI18nText"
+              "$ref": "#/components/schemas/NameI18nText"
             }
           }
         }
       },
-      "AliasI18nText": {
+      "NameI18nText": {
         "type": "object",
         "required": ["display_name"],
         "properties": {
@@ -512,7 +512,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "../shared/model.json#/components/schemas/Model"
+              "$ref": "#/components/schemas/Model"
             }
           },
           "has_next": {
@@ -531,59 +531,60 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string",
             "minLength": 1
           }
         },
         "required": [
-          "id"
+          "name"
         ]
       },
       "ModelGetResponse": {
-        "$ref": "../shared/model.json#/components/schemas/Model"
+        "properties": {
+          "value": {
+            "$ref": "#/components/schemas/Model"
+          },
+          "runtime_profile_name": {
+            "type": "string"
+          },
+          "runtime_profile_revision": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "runtime_profile_name",
+          "runtime_profile_revision"
+        ]
       },
-      "ModelCreateRequest": {
-        "$ref": "../shared/model.json#/components/schemas/Model"
-      },
-      "ModelCreateResponse": {
-        "$ref": "../shared/model.json#/components/schemas/Model"
-      },
-      "ModelPutRequest": {
+      "Model": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string",
             "minLength": 1
           },
-          "body": {
-            "$ref": "../shared/model.json#/components/schemas/Model"
+          "i18n": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/NameI18nText"
+            }
+          },
+          "kind": {
+            "$ref": "../shared/model_kind.json#/components/schemas/ModelKind"
+          },
+          "provider_kind": {
+            "$ref": "../shared/model_provider_kind.json#/components/schemas/ModelProviderKind"
           }
         },
         "required": [
-          "id",
-          "body"
+          "name",
+          "i18n",
+          "kind",
+          "provider_kind"
         ]
-      },
-      "ModelPutResponse": {
-        "$ref": "../shared/model.json#/components/schemas/Model"
-      },
-      "ModelDeleteRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "ModelDeleteResponse": {
-        "$ref": "../shared/model.json#/components/schemas/Model"
       },
       "VoiceListRequest": {
         "type": "object",
@@ -605,7 +606,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "../shared/voice.json#/components/schemas/Voice"
+              "$ref": "#/components/schemas/Voice"
             }
           },
           "has_next": {
@@ -624,57 +625,6 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "VoiceGetResponse": {
-        "$ref": "../shared/voice.json#/components/schemas/Voice"
-      },
-      "CredentialListRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "limit": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "CredentialListResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "../shared/credential.json#/components/schemas/Credential"
-            }
-          },
-          "has_next": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "items",
-          "has_next"
-        ]
-      },
-      "CredentialGetRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
           "name": {
             "type": "string",
             "minLength": 1
@@ -684,16 +634,25 @@
           "name"
         ]
       },
-      "CredentialGetResponse": {
-        "$ref": "../shared/credential.json#/components/schemas/Credential"
+      "VoiceGetResponse": {
+        "properties": {
+          "value": {
+            "$ref": "#/components/schemas/Voice"
+          },
+          "runtime_profile_name": {
+            "type": "string"
+          },
+          "runtime_profile_revision": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "runtime_profile_name",
+          "runtime_profile_revision"
+        ]
       },
-      "CredentialCreateRequest": {
-        "$ref": "../shared/credential.json#/components/schemas/Credential"
-      },
-      "CredentialCreateResponse": {
-        "$ref": "../shared/credential.json#/components/schemas/Credential"
-      },
-      "CredentialPutRequest": {
+      "Voice": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -701,39 +660,23 @@
             "type": "string",
             "minLength": 1
           },
-          "body": {
-            "$ref": "../shared/credential.json#/components/schemas/Credential"
+          "i18n": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/NameI18nText"
+            }
           }
         },
         "required": [
           "name",
-          "body"
+          "i18n"
         ]
-      },
-      "CredentialPutResponse": {
-        "$ref": "../shared/credential.json#/components/schemas/Credential"
-      },
-      "CredentialDeleteRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "name"
-        ]
-      },
-      "CredentialDeleteResponse": {
-        "$ref": "../shared/credential.json#/components/schemas/Credential"
       },
       "ContactObject": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           },
           "display_name": {
@@ -750,7 +693,10 @@
             "type": "string",
             "format": "date-time"
           }
-        }
+        },
+        "required": [
+          "name"
+        ]
       },
       "ContactListRequest": {
         "type": "object",
@@ -790,12 +736,12 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           }
         },
         "required": [
-          "id"
+          "name"
         ]
       },
       "ContactGetResponse": {
@@ -805,22 +751,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "display_name": {
-            "type": "string"
-          },
-          "phone_number": {
-            "type": "string"
-          }
-        }
-      },
-      "ContactCreateResponse": {
-        "$ref": "#/components/schemas/ContactObject"
-      },
-      "ContactPutRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
+          "name": {
             "type": "string"
           },
           "display_name": {
@@ -831,7 +762,28 @@
           }
         },
         "required": [
-          "id"
+          "name"
+        ]
+      },
+      "ContactCreateResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "ContactPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
         ]
       },
       "ContactPutResponse": {
@@ -841,12 +793,12 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           }
         },
         "required": [
-          "id"
+          "name"
         ]
       },
       "ContactDeleteResponse": {
@@ -1033,10 +985,10 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           },
-          "name": {
+          "display_name": {
             "type": "string"
           },
           "description": {
@@ -1059,7 +1011,10 @@
           "my_role": {
             "$ref": "#/components/schemas/FriendGroupMemberRole"
           }
-        }
+        },
+        "required": [
+          "name"
+        ]
       },
       "FriendGroupListRequest": {
         "type": "object",
@@ -1099,12 +1054,12 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           }
         },
         "required": [
-          "id"
+          "name"
         ]
       },
       "FriendGroupGetResponse": {
@@ -1115,6 +1070,9 @@
         "additionalProperties": false,
         "properties": {
           "name": {
+            "type": "string"
+          },
+          "display_name": {
             "type": "string"
           },
           "description": {
@@ -1132,10 +1090,10 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           },
-          "name": {
+          "display_name": {
             "type": "string"
           },
           "description": {
@@ -1143,7 +1101,7 @@
           }
         },
         "required": [
-          "id"
+          "name"
         ]
       },
       "FriendGroupPutResponse": {
@@ -1153,12 +1111,12 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           }
         },
         "required": [
-          "id"
+          "name"
         ]
       },
       "FriendGroupDeleteResponse": {
@@ -1168,12 +1126,12 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "friend_group_id": {
+          "friend_group_name": {
             "type": "string"
           }
         },
         "required": [
-          "friend_group_id"
+          "friend_group_name"
         ]
       },
       "FriendGroupInviteTokenGetResponse": {
@@ -1193,12 +1151,12 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "friend_group_id": {
+          "friend_group_name": {
             "type": "string"
           }
         },
         "required": [
-          "friend_group_id"
+          "friend_group_name"
         ]
       },
       "FriendGroupInviteTokenCreateResponse": {
@@ -1222,12 +1180,12 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "friend_group_id": {
+          "friend_group_name": {
             "type": "string"
           }
         },
         "required": [
-          "friend_group_id"
+          "friend_group_name"
         ]
       },
       "FriendGroupInviteTokenClearResponse": {
@@ -1239,12 +1197,16 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "name": {
+            "type": "string"
+          },
           "invite_token": {
             "type": "string"
           }
         },
         "required": [
-          "invite_token"
+          "invite_token",
+          "name"
         ]
       },
       "FriendGroupJoinResponse": {
@@ -1270,7 +1232,7 @@
           "id": {
             "type": "string"
           },
-          "friend_group_id": {
+          "friend_group_name": {
             "type": "string"
           },
           "peer_public_key": {
@@ -1299,7 +1261,7 @@
           "limit": {
             "type": "integer"
           },
-          "friend_group_id": {
+          "friend_group_name": {
             "type": "string"
           }
         }
@@ -1330,7 +1292,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "friend_group_id": {
+          "friend_group_name": {
             "type": "string"
           },
           "peer_public_key": {
@@ -1338,12 +1300,16 @@
           },
           "role": {
             "$ref": "#/components/schemas/FriendGroupMemberMutableRole"
+          },
+          "member_name": {
+            "type": "string"
           }
         },
         "required": [
-          "friend_group_id",
+          "friend_group_name",
           "peer_public_key",
-          "role"
+          "role",
+          "member_name"
         ]
       },
       "FriendGroupMemberAddResponse": {
@@ -1353,7 +1319,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "friend_group_id": {
+          "friend_group_name": {
             "type": "string"
           },
           "id": {
@@ -1361,7 +1327,7 @@
           }
         },
         "required": [
-          "friend_group_id",
+          "friend_group_name",
           "id"
         ]
       },
@@ -1375,7 +1341,7 @@
           "history_id": {
             "type": "string"
           },
-          "friend_group_id": {
+          "friend_group_name": {
             "type": "string"
           },
           "sender_peer_public_key": {
@@ -1404,7 +1370,7 @@
         },
         "required": [
           "created_at",
-          "friend_group_id",
+          "friend_group_name",
           "history_id",
           "name",
           "text",
@@ -1422,7 +1388,7 @@
           "limit": {
             "type": "integer"
           },
-          "friend_group_id": {
+          "friend_group_name": {
             "type": "string"
           },
           "order": {
@@ -1430,7 +1396,7 @@
           }
         },
         "required": [
-          "friend_group_id"
+          "friend_group_name"
         ]
       },
       "FriendGroupMessageListResponse": {
@@ -1459,7 +1425,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "friend_group_id": {
+          "friend_group_name": {
             "type": "string"
           },
           "history_id": {
@@ -1467,7 +1433,7 @@
           }
         },
         "required": [
-          "friend_group_id",
+          "friend_group_name",
           "history_id"
         ]
       },
@@ -1475,7 +1441,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "friend_group_id": {
+          "friend_group_name": {
             "type": "string"
           },
           "history_id": {
@@ -1490,7 +1456,7 @@
           }
         },
         "required": [
-          "friend_group_id",
+          "friend_group_name",
           "history_id",
           "mime_type",
           "size_bytes"
@@ -1515,7 +1481,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "friend_group_id": {
+          "friend_group_name": {
             "type": "string"
           },
           "id": {
@@ -1526,7 +1492,7 @@
           }
         },
         "required": [
-          "friend_group_id",
+          "friend_group_name",
           "id",
           "role"
         ]
@@ -1538,7 +1504,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "friend_group_id": {
+          "friend_group_name": {
             "type": "string"
           },
           "history_id": {
@@ -1546,7 +1512,7 @@
           }
         },
         "required": [
-          "friend_group_id",
+          "friend_group_name",
           "history_id"
         ]
       },
@@ -1573,7 +1539,7 @@
       "FirmwareFilesDownloadResponse": {
         "type": "object",
         "required": [
-          "firmware_id",
+          "firmware_name",
           "channel",
           "path",
           "file",
@@ -1581,7 +1547,7 @@
         ],
         "additionalProperties": false,
         "properties": {
-          "firmware_id": {
+          "firmware_name": {
             "type": "string"
           },
           "channel": {

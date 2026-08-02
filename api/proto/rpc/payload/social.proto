@@ -9,8 +9,9 @@ import "payload/enums.proto";
 option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
 
 message ContactCreateRequest {
-  optional string display_name = 1;
-  optional string phone_number = 2;
+  string name = 1;
+  optional string display_name = 2;
+  optional string phone_number = 3;
 }
 
 message ContactCreateResponse {
@@ -18,7 +19,7 @@ message ContactCreateResponse {
 }
 
 message ContactDeleteRequest {
-  string id = 1;
+  string name = 1;
 }
 
 message ContactDeleteResponse {
@@ -26,7 +27,7 @@ message ContactDeleteResponse {
 }
 
 message ContactGetRequest {
-  string id = 1;
+  string name = 1;
 }
 
 message ContactGetResponse {
@@ -47,14 +48,14 @@ message ContactListResponse {
 message ContactObject {
   optional string created_at = 1;
   optional string display_name = 2;
-  optional string id = 3;
+  string name = 3;
   optional string phone_number = 4;
   optional string updated_at = 5;
 }
 
 message ContactPutRequest {
   optional string display_name = 1;
-  string id = 2;
+  string name = 2;
   optional string phone_number = 3;
 }
 
@@ -95,6 +96,7 @@ message FriendInfoGetResponse {
 message FriendGroupCreateRequest {
   optional string description = 1;
   string name = 2;
+  optional string display_name = 3;
 }
 
 message FriendGroupCreateResponse {
@@ -102,7 +104,7 @@ message FriendGroupCreateResponse {
 }
 
 message FriendGroupDeleteRequest {
-  string id = 1;
+  string name = 1;
 }
 
 message FriendGroupDeleteResponse {
@@ -110,7 +112,7 @@ message FriendGroupDeleteResponse {
 }
 
 message FriendGroupGetRequest {
-  string id = 1;
+  string name = 1;
 }
 
 message FriendGroupGetResponse {
@@ -118,14 +120,14 @@ message FriendGroupGetResponse {
 }
 
 message FriendGroupInviteTokenClearRequest {
-  string friend_group_id = 1;
+  string friend_group_name = 1;
 }
 
 message FriendGroupInviteTokenClearResponse {
 }
 
 message FriendGroupInviteTokenCreateRequest {
-  string friend_group_id = 1;
+  string friend_group_name = 1;
 }
 
 message FriendGroupInviteTokenCreateResponse {
@@ -134,7 +136,7 @@ message FriendGroupInviteTokenCreateResponse {
 }
 
 message FriendGroupInviteTokenGetRequest {
-  string friend_group_id = 1;
+  string friend_group_name = 1;
 }
 
 message FriendGroupInviteTokenGetResponse {
@@ -144,6 +146,7 @@ message FriendGroupInviteTokenGetResponse {
 
 message FriendGroupJoinRequest {
   string invite_token = 1;
+  string name = 2;
 }
 
 message FriendGroupJoinResponse {
@@ -163,9 +166,10 @@ message FriendGroupListResponse {
 }
 
 message FriendGroupMemberAddRequest {
-  string friend_group_id = 1;
+  string friend_group_name = 1;
   string peer_public_key = 2;
   FriendGroupMemberMutableRole role = 3;
+  string member_name = 4;
 }
 
 message FriendGroupMemberAddResponse {
@@ -173,7 +177,7 @@ message FriendGroupMemberAddResponse {
 }
 
 message FriendGroupMemberDeleteRequest {
-  string friend_group_id = 1;
+  string friend_group_name = 1;
   string id = 2;
 }
 
@@ -183,7 +187,7 @@ message FriendGroupMemberDeleteResponse {
 
 message FriendGroupMemberListRequest {
   optional string cursor = 1;
-  optional string friend_group_id = 2;
+  optional string friend_group_name = 2;
   optional int64 limit = 3;
 }
 
@@ -195,7 +199,7 @@ message FriendGroupMemberListResponse {
 
 message FriendGroupMemberObject {
   optional string created_at = 1;
-  optional string friend_group_id = 2;
+  optional string friend_group_name = 2;
   optional string id = 3;
   optional string peer_public_key = 4;
   optional FriendGroupMemberRole role = 5;
@@ -203,7 +207,7 @@ message FriendGroupMemberObject {
 }
 
 message FriendGroupMemberPutRequest {
-  string friend_group_id = 1;
+  string friend_group_name = 1;
   string id = 2;
   FriendGroupMemberMutableRole role = 3;
 }
@@ -213,19 +217,19 @@ message FriendGroupMemberPutResponse {
 }
 
 message FriendGroupMessageAudioGetRequest {
-  string friend_group_id = 1;
+  string friend_group_name = 1;
   string history_id = 2;
 }
 
 message FriendGroupMessageAudioGetResponse {
-  string friend_group_id = 1;
+  string friend_group_name = 1;
   string history_id = 2;
   string mime_type = 3;
   int64 size_bytes = 4;
 }
 
 message FriendGroupMessageGetRequest {
-  string friend_group_id = 1;
+  string friend_group_name = 1;
   string history_id = 2;
 }
 
@@ -235,7 +239,7 @@ message FriendGroupMessageGetResponse {
 
 message FriendGroupMessageListRequest {
   optional string cursor = 1;
-  string friend_group_id = 2;
+  string friend_group_name = 2;
   optional int64 limit = 3;
   optional WorkspaceHistoryListRequestOrder order = 4;
 }
@@ -247,35 +251,32 @@ message FriendGroupMessageListResponse {
 }
 
 message FriendGroupMessageObject {
-  reserved 1, 2, 3, 7, 9;
-  reserved "audio_content_type", "audio_path", "audio_size_bytes", "id", "ttl_seconds";
-
-  string created_at = 4;
-  optional string expires_at = 5;
-  string friend_group_id = 6;
-  optional string sender_peer_public_key = 8;
-  string history_id = 10;
-  string name = 11;
-  string text = 12;
-  PeerRunHistoryEntryType type = 13;
-  bool audio_available = 14;
+  string created_at = 1;
+  optional string expires_at = 2;
+  string friend_group_name = 3;
+  optional string sender_peer_public_key = 4;
+  string history_id = 5;
+  string name = 6;
+  string text = 7;
+  PeerRunHistoryEntryType type = 8;
+  bool audio_available = 9;
 }
 
 message FriendGroupObject {
   optional string created_at = 1;
   optional string created_by_peer_public_key = 2;
   optional string description = 3;
-  optional string id = 4;
+  optional string display_name = 4;
   optional FriendGroupMemberRole my_role = 5;
-  optional string name = 6;
+  string name = 6;
   optional string updated_at = 7;
   optional string workspace_name = 8;
 }
 
 message FriendGroupPutRequest {
   optional string description = 1;
-  string id = 2;
-  optional string name = 3;
+  string name = 2;
+  optional string display_name = 3;
 }
 
 message FriendGroupPutResponse {

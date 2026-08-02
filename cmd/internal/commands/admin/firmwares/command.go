@@ -90,7 +90,7 @@ func newCreateCmd(ctxName *string) *cobra.Command {
 
 func newGetCmd(ctxName *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <name>",
+		Use:   "get <id>",
 		Short: "Get a firmware",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -111,8 +111,8 @@ func newGetCmd(ctxName *string) *cobra.Command {
 func newPutCmd(ctxName *string) *cobra.Command {
 	var file string
 	cmd := &cobra.Command{
-		Use:   "put <name> -f <file>",
-		Short: "Create or update a firmware",
+		Use:   "put <id> -f <file>",
+		Short: "Update a firmware",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			req, err := readFirmwareUpsert(cmd, file)
@@ -137,7 +137,7 @@ func newPutCmd(ctxName *string) *cobra.Command {
 
 func newDeleteCmd(ctxName *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <name>",
+		Use:   "delete <id>",
 		Short: "Delete a firmware",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -157,7 +157,7 @@ func newDeleteCmd(ctxName *string) *cobra.Command {
 
 func newReleaseCmd(ctxName *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "release <name>",
+		Use:   "release <id>",
 		Short: "Promote firmware slots",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -177,7 +177,7 @@ func newReleaseCmd(ctxName *string) *cobra.Command {
 
 func newRollbackCmd(ctxName *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "rollback <name>",
+		Use:   "rollback <id>",
 		Short: "Rollback firmware stable slot",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -200,7 +200,7 @@ func newUploadArtifactCmd(ctxName *string) *cobra.Command {
 	var file string
 	var dir string
 	cmd := &cobra.Command{
-		Use:   "upload-artifact <name> --channel <channel> (-f artifact.tar | -d dir)",
+		Use:   "upload-artifact <id> --channel <channel> (-f artifact.tar | -d dir)",
 		Short: "Upload a firmware channel artifact tar",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -244,7 +244,7 @@ func newDownloadArtifactCmd(ctxName *string) *cobra.Command {
 	var channel string
 	var output string
 	cmd := &cobra.Command{
-		Use:   "download-artifact <name> --channel <channel> -o artifact.tar",
+		Use:   "download-artifact <id> --channel <channel> -o artifact.tar",
 		Short: "Download a firmware channel artifact tar",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -277,7 +277,7 @@ func newDownloadArtifactCmd(ctxName *string) *cobra.Command {
 func newDeleteArtifactCmd(ctxName *string) *cobra.Command {
 	var channel string
 	cmd := &cobra.Command{
-		Use:   "delete-artifact <name> --channel <channel>",
+		Use:   "delete-artifact <id> --channel <channel>",
 		Short: "Delete a firmware channel artifact",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -318,7 +318,7 @@ func newArtifactListCmd(ctxName *string) *cobra.Command {
 	var channel string
 	var entryPath string
 	cmd := &cobra.Command{
-		Use:   "ls <name> --channel <channel> [--path dir-or-file]",
+		Use:   "ls <id> --channel <channel> [--path dir-or-file]",
 		Short: "List artifact entries",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -343,7 +343,7 @@ func newArtifactTreeCmd(ctxName *string) *cobra.Command {
 	var channel string
 	var entryPath string
 	cmd := &cobra.Command{
-		Use:   "tree <name> --channel <channel> [--path dir]",
+		Use:   "tree <id> --channel <channel> [--path dir]",
 		Short: "List artifact entries recursively",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -368,7 +368,7 @@ func newArtifactStatCmd(ctxName *string) *cobra.Command {
 	var channel string
 	var entryPath string
 	cmd := &cobra.Command{
-		Use:   "stat <name> --channel <channel> [--path file-or-dir]",
+		Use:   "stat <id> --channel <channel> [--path file-or-dir]",
 		Short: "Get artifact stats",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -394,7 +394,7 @@ func newArtifactDownloadCmd(ctxName *string) *cobra.Command {
 	var entryPath string
 	var output string
 	cmd := &cobra.Command{
-		Use:   "dl <name> --channel <channel> --path file -o output",
+		Use:   "dl <id> --channel <channel> --path file -o output",
 		Short: "Download an artifact file",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -10,22 +10,21 @@ option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpc
 
 message Badge {
   bool active = 1;
-  string badge_def_id = 2;
+  string badge_def_name = 2;
   string created_at = 3;
   int64 exp = 4;
-  string id = 5;
-  int64 level = 6;
-  string owner_public_key = 7;
-  int64 progress = 8;
-  string updated_at = 9;
+  int64 level = 5;
+  string name = 6;
+  int64 progress = 7;
+  string updated_at = 8;
 }
 
 message BadgeDefPixaDownloadRequest {
-  string id = 1;
+  string name = 1;
 }
 
 message BadgeDefPixaDownloadResponse {
-  string id = 1;
+  string name = 1;
   optional string pixa_path = 2;
   int64 size_bytes = 3;
 }
@@ -40,15 +39,14 @@ message GameResult {
   string created_at = 1;
   optional string difficulty = 2;
   optional int64 duration_ms = 3;
-  string game_def_id = 4;
+  string game_def_name = 4;
   string id = 5;
   optional string idempotency_key = 6;
   optional int64 max_score = 7;
   string occurred_at = 8;
   optional string outcome = 9;
-  string owner_public_key = 10;
   optional GameplayMetadata payload = 11;
-  string pet_id = 12;
+  string pet_name = 12;
   string runtime_profile_name = 13;
   optional int64 score = 14;
 }
@@ -67,6 +65,10 @@ message GameRewardSpec {
 
 message GameplayGetRequest {
   string id = 1;
+}
+
+message GameplayNameGetRequest {
+  string name = 1;
 }
 
 message GameplayListRequest {
@@ -107,25 +109,24 @@ message PetProgression {
 }
 
 message Pet {
-  string id = 1;
-  string owner_public_key = 2;
-  string runtime_profile_name = 3;
-  string petdef_id = 4;
-  string display_name = 5;
-  string workspace_name = 6;
-  PetStats stats = 7;
-  PetProgression progression = 8;
-  PetLifecycle lifecycle = 9;
-  optional string died_at = 10;
-  string state_settled_at = 11;
-  string last_active_at = 12;
-  string created_at = 13;
-  string updated_at = 14;
+  string name = 1;
+  string runtime_profile_name = 2;
+  string pet_def_name = 3;
+  string display_name = 4;
+  string workspace_name = 5;
+  PetStats stats = 6;
+  PetProgression progression = 7;
+  PetLifecycle lifecycle = 8;
+  optional string died_at = 9;
+  string state_settled_at = 10;
+  string last_active_at = 11;
+  string created_at = 12;
+  string updated_at = 13;
 }
 
 message PetAdoptRequest {
-  string display_name = 1;
-  optional string id = 2;
+  string name = 1;
+  string display_name = 2;
 }
 
 message PetAdoptResponse {
@@ -135,12 +136,12 @@ message PetAdoptResponse {
 }
 
 message PetPixaDownloadRequest {
-  string pet_id = 1;
+  string pet_name = 1;
 }
 
 message PetPixaDownloadResponse {
-  string pet_id = 1;
-  string petdef_id = 2;
+  string pet_name = 1;
+  string pet_def_name = 2;
   optional string pixa_path = 3;
   int64 size_bytes = 4;
 }
@@ -157,21 +158,21 @@ message PetVisualBindings {
 }
 
 message PetActions {
-  string pet_id = 1;
-  string petdef_id = 2;
+  string pet_name = 1;
+  string pet_def_name = 2;
   PetVisualBindings bindings = 3;
-  string petdef_updated_at = 4;
+  string pet_def_updated_at = 4;
   map<string, string> clip_names = 5;
 }
 
 message PetDeleteRequest {
-  string id = 1;
+  string name = 1;
 }
 
 message PetDriveGameResultInput {
   optional string difficulty = 1;
   optional int64 duration_ms = 2;
-  string game_def_id = 3;
+  string game_name = 3;
   optional string idempotency_key = 4;
   optional int64 max_score = 5;
   optional string occurred_at = 6;
@@ -183,7 +184,7 @@ message PetDriveGameResultInput {
 message PetDriveRequest {
   optional PetBehavior behavior = 1;
   optional PetDriveGameResultInput game_result = 2;
-  string pet_id = 3;
+  string pet_name = 3;
   optional string idempotency_key = 4;
 }
 
@@ -197,7 +198,7 @@ message PetDriveResponse {
 }
 
 message PetGetRequest {
-  string id = 1;
+  string name = 1;
 }
 
 message PetListResponse {
@@ -208,7 +209,7 @@ message PetListResponse {
 
 message PetPutRequest {
   string display_name = 1;
-  string id = 2;
+  string name = 2;
 }
 
 message PointsAccount {
@@ -226,7 +227,7 @@ message PointsTransaction {
   optional string game_result_id = 4;
   string id = 5;
   string owner_public_key = 6;
-  optional string pet_id = 7;
+  optional string pet_name = 7;
   string reason = 8;
   optional string reward_grant_id = 9;
   string runtime_profile_name = 10;
@@ -247,7 +248,7 @@ message RewardGrant {
   string id = 4;
   string owner_public_key = 5;
   int64 pet_exp_delta = 6;
-  optional string pet_id = 7;
+  optional string pet_name = 7;
   int64 points_delta = 8;
   optional string reason = 9;
   string runtime_profile_name = 10;
@@ -262,7 +263,7 @@ message RewardGrantListResponse {
 }
 
 message ServerBadgeGetRequest {
-  GameplayGetRequest value = 1;
+  GameplayNameGetRequest value = 1;
 }
 
 message ServerBadgeGetResponse {

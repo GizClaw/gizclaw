@@ -112,6 +112,32 @@ func mustWorkflow(t *testing.T, raw string) apitypes.Workflow {
 	return doc
 }
 
+func withResourceID(t *testing.T, resource apitypes.Resource, id string) apitypes.Resource {
+	t.Helper()
+	data, err := json.Marshal(resource)
+	if err != nil {
+		t.Fatalf("marshal resource: %v", err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(data, &document); err != nil {
+		t.Fatalf("decode resource: %v", err)
+	}
+	metadata, ok := document["metadata"].(map[string]any)
+	if !ok {
+		t.Fatal("resource metadata is missing")
+	}
+	metadata["id"] = id
+	data, err = json.Marshal(document)
+	if err != nil {
+		t.Fatalf("marshal resource with id: %v", err)
+	}
+	var result apitypes.Resource
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("decode resource with id: %v", err)
+	}
+	return result
+}
+
 func ptr[T any](value T) *T {
 	return &value
 }

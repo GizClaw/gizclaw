@@ -873,7 +873,7 @@ _DockContext _dockContext(Uri location, MobileDataController data) {
     final active = data.activeWorkspaceName == workspaceName;
     final workspace = data.workspace(workspaceName);
     final driver = data
-        .workflow(workspace.workflowAlias, collection: workspace.collection)
+        .workflow(workspace.workflowName, collection: workspace.collection)
         .driver;
     final mode =
         data.activeInputMode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME
@@ -895,7 +895,7 @@ _DockContext _dockContext(Uri location, MobileDataController data) {
     final chatroom = data.chatroomWorkspace(workspaceName);
     final workspace = data.workspace(workspaceName);
     final driver = data
-        .workflow(workspace.workflowAlias, collection: workspace.collection)
+        .workflow(workspace.workflowName, collection: workspace.collection)
         .driver;
     final contextLabel = chatroom == null
         ? driver.label

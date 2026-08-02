@@ -57,7 +57,7 @@ type ProviderTenantConfig<T extends ProviderTenant> = {
   detailFields(tenant: T): Array<[string, string | undefined]>;
   emptyTitle: string;
   eyebrow: string;
-  get(name: string): Promise<T>;
+  get(id: string): Promise<T>;
   kindBadge: string;
   list(query: {
     cursor?: string;
@@ -76,7 +76,7 @@ const openAIConfig: ProviderTenantConfig<OpenAiTenant> = {
     ["Name", tenant.name],
     ["Endpoint kind", tenant.kind],
     ["API mode", tenant.api_mode],
-    ["Credential", tenant.credential_name],
+    ["Credential ID", tenant.credential_id],
     ["Base URL", tenant.base_url],
     ["Description", tenant.description],
     ["Created", tenant.created_at],
@@ -84,7 +84,7 @@ const openAIConfig: ProviderTenantConfig<OpenAiTenant> = {
   ],
   emptyTitle: "No OpenAI-compatible tenants",
   eyebrow: "Providers",
-  get: async (name) => expectData(getOpenAiTenant({ path: { name } })),
+  get: async (id) => expectData(getOpenAiTenant({ path: { id } })),
   kindBadge: "OpenAI-compatible",
   list: async (query) => expectData(listOpenAiTenants({ query })),
   listDescription:
@@ -100,7 +100,7 @@ const openAIConfig: ProviderTenantConfig<OpenAiTenant> = {
 const geminiConfig: ProviderTenantConfig<GeminiTenant> = {
   detailFields: (tenant) => [
     ["Name", tenant.name],
-    ["Credential", tenant.credential_name],
+    ["Credential ID", tenant.credential_id],
     ["Project ID", tenant.project_id],
     ["Location", tenant.location],
     ["Base URL", tenant.base_url],
@@ -110,7 +110,7 @@ const geminiConfig: ProviderTenantConfig<GeminiTenant> = {
   ],
   emptyTitle: "No Gemini tenants",
   eyebrow: "Providers",
-  get: async (name) => expectData(getGeminiTenant({ path: { name } })),
+  get: async (id) => expectData(getGeminiTenant({ path: { id } })),
   kindBadge: "Gemini",
   list: async (query) => expectData(listGeminiTenants({ query })),
   listDescription:
@@ -125,7 +125,7 @@ const geminiConfig: ProviderTenantConfig<GeminiTenant> = {
 const dashScopeConfig: ProviderTenantConfig<DashScopeTenant> = {
   detailFields: (tenant) => [
     ["Name", tenant.name],
-    ["Credential", tenant.credential_name],
+    ["Credential ID", tenant.credential_id],
     ["Base URL", tenant.base_url],
     ["Description", tenant.description],
     ["Created", tenant.created_at],
@@ -133,7 +133,7 @@ const dashScopeConfig: ProviderTenantConfig<DashScopeTenant> = {
   ],
   emptyTitle: "No DashScope tenants",
   eyebrow: "Providers",
-  get: async (name) => expectData(getDashScopeTenant({ path: { name } })),
+  get: async (id) => expectData(getDashScopeTenant({ path: { id } })),
   kindBadge: "DashScope",
   list: async (query) => expectData(listDashScopeTenants({ query })),
   listDescription:
@@ -148,7 +148,7 @@ const dashScopeConfig: ProviderTenantConfig<DashScopeTenant> = {
 const deepSeekConfig: ProviderTenantConfig<DeepSeekTenant> = {
   detailFields: (tenant) => [
     ["Name", tenant.name],
-    ["Credential", tenant.credential_name],
+    ["Credential ID", tenant.credential_id],
     ["Base URL", tenant.base_url],
     ["Description", tenant.description],
     ["Created", tenant.created_at],
@@ -156,7 +156,7 @@ const deepSeekConfig: ProviderTenantConfig<DeepSeekTenant> = {
   ],
   emptyTitle: "No DeepSeek tenants",
   eyebrow: "Providers",
-  get: async (name) => expectData(getDeepSeekTenant({ path: { name } })),
+  get: async (id) => expectData(getDeepSeekTenant({ path: { id } })),
   kindBadge: "DeepSeek",
   list: async (query) => expectData(listDeepSeekTenants({ query })),
   listDescription:
@@ -326,14 +326,14 @@ function ProviderTenantsListPage<T extends ProviderTenant>({
                 {items.map((tenant) => (
                   <TableRow
                     className="cursor-pointer hover:bg-muted/40"
-                    key={tenant.name}
-                    onClick={() => openTenant(tenant.name)}
-                    onKeyDown={(event) => handleRowKeyDown(event, tenant.name)}
+                    key={tenant.id}
+                    onClick={() => openTenant(tenant.id)}
+                    onKeyDown={(event) => handleRowKeyDown(event, tenant.id)}
                     role="link"
                     tabIndex={0}
                   >
                     <TableCell className="font-medium">{tenant.name}</TableCell>
-                    <TableCell>{tenant.credential_name}</TableCell>
+                    <TableCell>{tenant.credential_id}</TableCell>
                     <TableCell className="max-w-[18rem] truncate text-sm text-muted-foreground">
                       {formatValue(tenant.base_url)}
                     </TableCell>
@@ -382,7 +382,7 @@ function ProviderTenantDetailPage<T extends ProviderTenant>({
         config.get(tenantName),
         expectData(
           getResource({
-            path: { kind: config.resourceKind, name: tenantName },
+            path: { kind: config.resourceKind, id: tenantName },
           }),
         ),
       ]);

@@ -72,11 +72,17 @@ func registerGameplayProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Clie
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	tokenName := "e2e-gameplay-" + tokenSuffix
-	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
+	if err := clitest.DeleteRegistrationTokenByName(ctx, api, tokenName); err != nil {
+		t.Fatalf("retire gameplay RegistrationToken: %v", err)
+	}
+	profile, found, err := clitest.RuntimeProfileByName(ctx, api, "default-gameplay")
+	if err != nil || !found {
+		t.Fatalf("resolve default gameplay RuntimeProfile: found=%v err=%v", found, err)
+	}
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name:               tokenName,
-		Token:              tokenName,
-		RuntimeProfileName: "default-gameplay",
+		Name:             tokenName,
+		Token:            tokenName,
+		RuntimeProfileId: profile.Id,
 	})
 	if err != nil {
 		t.Fatalf("create gameplay RegistrationToken: %v", err)
@@ -88,7 +94,7 @@ func registerGameplayProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Clie
 	if err != nil {
 		t.Fatalf("register gameplay connection: %v", err)
 	}
-	if registered.RuntimeProfileName != "default-gameplay" {
+	if registered.RuntimeProfileName != profile.Name {
 		t.Fatalf("register gameplay connection = %#v", registered)
 	}
 }

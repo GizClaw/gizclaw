@@ -18,31 +18,35 @@ func (m *Manager) applyDeepSeekTenant(ctx context.Context, resource apitypes.Res
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	name := string(pathParam(item.Metadata.Name))
-	existing, exists, err := m.getDeepSeekTenant(ctx, name)
+	body := deepSeekTenantUpsert(item)
+	return applyNamedResource(ctx, item.Metadata, apitypes.ResourceKindDeepSeekTenant, item.Spec,
+		m.getDeepSeekTenant,
+		func(ctx context.Context) (string, error) { return m.createDeepSeekTenant(ctx, body) },
+		func(ctx context.Context, id string) error { return m.putDeepSeekTenant(ctx, id, body) },
+		func(value apitypes.DeepSeekTenant) string { return value.Name }, deepSeekTenantSpec)
+}
+
+func (m *Manager) createDeepSeekTenant(ctx context.Context, body adminhttp.DeepSeekTenantUpsert) (string, error) {
+	response, err := m.services.ProviderTenants.CreateDeepSeekTenant(ctx, adminhttp.CreateDeepSeekTenantRequestObject{Body: &body})
 	if err != nil {
-		return apitypes.ApplyResult{}, err
+		return "", err
 	}
-	if exists {
-		same, err := semanticEqual(deepSeekTenantSpec(existing), item.Spec)
-		if err != nil {
-			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
-		}
-		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindDeepSeekTenant, item.Metadata.Name), nil
-		}
+	switch response := response.(type) {
+	case adminhttp.CreateDeepSeekTenant200JSONResponse:
+		return response.Id, nil
+	case adminhttp.CreateDeepSeekTenant400JSONResponse:
+		return "", responseError(400, "CREATE_DEEPSEEK_TENANT_FAILED", "failed to create DeepSeek tenant", response)
+	case adminhttp.CreateDeepSeekTenant409JSONResponse:
+		return "", responseError(409, "CREATE_DEEPSEEK_TENANT_FAILED", "failed to create DeepSeek tenant", response)
+	case adminhttp.CreateDeepSeekTenant500JSONResponse:
+		return "", responseError(500, "CREATE_DEEPSEEK_TENANT_FAILED", "failed to create DeepSeek tenant", response)
+	default:
+		return "", unexpectedResponse("CreateDeepSeekTenant", response)
 	}
-	if err := m.putDeepSeekTenant(ctx, name, deepSeekTenantUpsert(item)); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindDeepSeekTenant, item.Metadata.Name), nil
-	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindDeepSeekTenant, item.Metadata.Name), nil
 }
 
 func (m *Manager) getDeepSeekTenant(ctx context.Context, name string) (apitypes.DeepSeekTenant, bool, error) {
-	response, err := m.services.ProviderTenants.GetDeepSeekTenant(ctx, adminhttp.GetDeepSeekTenantRequestObject{Name: name})
+	response, err := m.services.ProviderTenants.GetDeepSeekTenant(ctx, adminhttp.GetDeepSeekTenantRequestObject{Id: name})
 	if err != nil {
 		return apitypes.DeepSeekTenant{}, false, err
 	}
@@ -59,7 +63,7 @@ func (m *Manager) getDeepSeekTenant(ctx context.Context, name string) (apitypes.
 }
 
 func (m *Manager) putDeepSeekTenant(ctx context.Context, name string, body adminhttp.DeepSeekTenantUpsert) error {
-	response, err := m.services.ProviderTenants.PutDeepSeekTenant(ctx, adminhttp.PutDeepSeekTenantRequestObject{Name: name, Body: &body})
+	response, err := m.services.ProviderTenants.PutDeepSeekTenant(ctx, adminhttp.PutDeepSeekTenantRequestObject{Id: name, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -76,7 +80,7 @@ func (m *Manager) putDeepSeekTenant(ctx context.Context, name string, body admin
 }
 
 func (m *Manager) deleteDeepSeekTenant(ctx context.Context, name string) (apitypes.DeepSeekTenant, bool, error) {
-	response, err := m.services.ProviderTenants.DeleteDeepSeekTenant(ctx, adminhttp.DeleteDeepSeekTenantRequestObject{Name: name})
+	response, err := m.services.ProviderTenants.DeleteDeepSeekTenant(ctx, adminhttp.DeleteDeepSeekTenantRequestObject{Id: name})
 	if err != nil {
 		return apitypes.DeepSeekTenant{}, false, err
 	}
@@ -94,18 +98,18 @@ func (m *Manager) deleteDeepSeekTenant(ctx context.Context, name string) (apityp
 
 func deepSeekTenantSpec(item apitypes.DeepSeekTenant) apitypes.DeepSeekTenantSpec {
 	return apitypes.DeepSeekTenantSpec{
-		BaseUrl:        item.BaseUrl,
-		CredentialName: item.CredentialName,
-		Description:    item.Description,
+		BaseUrl:      item.BaseUrl,
+		CredentialId: item.CredentialId,
+		Description:  item.Description,
 	}
 }
 
 func deepSeekTenantUpsert(resource apitypes.DeepSeekTenantResource) adminhttp.DeepSeekTenantUpsert {
 	return adminhttp.DeepSeekTenantUpsert{
-		BaseUrl:        resource.Spec.BaseUrl,
-		CredentialName: resource.Spec.CredentialName,
-		Description:    resource.Spec.Description,
-		Name:           string(resource.Metadata.Name),
+		BaseUrl:      resource.Spec.BaseUrl,
+		CredentialId: resource.Spec.CredentialId,
+		Description:  resource.Spec.Description,
+		Name:         string(resource.Metadata.Name),
 	}
 }
 
@@ -113,7 +117,7 @@ func resourceFromDeepSeekTenant(item apitypes.DeepSeekTenant) (apitypes.Resource
 	return marshalResource(apitypes.DeepSeekTenantResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.DeepSeekTenantResourceKind(apitypes.ResourceKindDeepSeekTenant),
-		Metadata:   apitypes.ResourceMetadata{Name: string(item.Name)},
+		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
 		Spec:       deepSeekTenantSpec(item),
 	})
 }

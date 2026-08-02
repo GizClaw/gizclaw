@@ -56,11 +56,11 @@ export type ModelList = {
 };
 
 export type ModelUpsert = {
-    id: string;
+    name: string;
     kind: ModelKind;
     source: ModelSource;
     provider: ModelProvider;
-    name?: string;
+    display_name?: string;
     description?: string;
     provider_data: ModelProviderData;
 };
@@ -69,7 +69,7 @@ export type MiniMaxTenantUpsert = {
     name: string;
     app_id?: string;
     group_id?: string;
-    credential_name: string;
+    credential_id: string;
     base_url?: string;
     description?: string;
 };
@@ -82,7 +82,7 @@ export type MiniMaxTenantList = {
 
 export type VolcTenantUpsert = {
     name: string;
-    credential_name: string;
+    credential_id: string;
     region?: string;
     endpoint?: string;
     resource_ids?: Array<string>;
@@ -102,16 +102,16 @@ export type VoiceList = {
 };
 
 export type VoiceUpsert = {
-    id: string;
+    name: string;
     source: VoiceSource;
     provider: VoiceProvider;
-    name?: string;
+    display_name?: string;
     description?: string;
     provider_data?: VoiceProviderData;
 };
 
 export type MiniMaxSyncVoicesResult = {
-    tenant_name: string;
+    tenant_id: string;
     synced_at: string;
     created_count: number;
     updated_count: number;
@@ -119,7 +119,7 @@ export type MiniMaxSyncVoicesResult = {
 };
 
 export type VolcSyncVoicesResult = {
-    tenant_name: string;
+    tenant_id: string;
     synced_at: string;
     created_count: number;
     updated_count: number;
@@ -128,7 +128,7 @@ export type VolcSyncVoicesResult = {
 
 export type WorkspaceUpsert = {
     name: string;
-    workflow_name: string;
+    workflow_id: string;
     /**
      * Stored Workspace labels. Omission preserves labels on put; an explicit empty object clears them.
      */
@@ -138,6 +138,16 @@ export type WorkspaceUpsert = {
     parameters?: WorkspaceParameters;
     toolkit?: ToolkitPolicy;
     icon?: Icon;
+};
+
+export type MemoryLayoutUpsert = {
+    name: string;
+    spec: MemoryLayoutSpec;
+};
+
+export type WorkflowUpsert = {
+    name: string;
+    spec: WorkflowSpec;
 };
 
 export type WorkspaceList = {
@@ -160,7 +170,7 @@ export type WorkflowList = {
 
 export type GeminiTenantUpsert = {
     name: string;
-    credential_name: string;
+    credential_id: string;
     project_id?: string;
     location?: string;
     base_url?: string;
@@ -176,7 +186,7 @@ export type GeminiTenantList = {
 export type OpenAiTenantUpsert = {
     name: string;
     kind?: OpenAiTenantKind;
-    credential_name: string;
+    credential_id: string;
     base_url?: string;
     api_mode?: OpenAiTenantApiMode;
     description?: string;
@@ -190,7 +200,7 @@ export type OpenAiTenantList = {
 
 export type DeepSeekTenantUpsert = {
     name: string;
-    credential_name: string;
+    credential_id: string;
     base_url?: string;
     description?: string;
 };
@@ -203,7 +213,7 @@ export type DeepSeekTenantList = {
 
 export type DashScopeTenantUpsert = {
     name: string;
-    credential_name: string;
+    credential_id: string;
     base_url?: string;
     description?: string;
 };
@@ -218,7 +228,7 @@ export type AdminFriendObject = {
     owner_public_key: string;
     id: string;
     peer_public_key: string;
-    workspace_name: string;
+    workspace_id: string;
     created_at?: string;
     updated_at?: string;
 };
@@ -226,6 +236,7 @@ export type AdminFriendObject = {
 export type AdminContactObject = {
     owner_public_key: string;
     id: string;
+    name: string;
     display_name?: string;
     phone_number?: string;
     created_at?: string;
@@ -240,7 +251,7 @@ export type AdminContactListResponse = {
 
 export type AdminContactCreateRequest = {
     owner_public_key: string;
-    id?: string;
+    name: string;
     display_name?: string;
     phone_number?: string;
 };
@@ -267,18 +278,36 @@ export type AdminFriendCreateRequest = {
 
 export type AdminFriendGroupCreateRequest = {
     name: string;
+    display_name?: string;
     description?: string;
     owner_public_key: string;
 };
 
 export type AdminFriendGroupPutRequest = {
-    name?: string;
+    display_name?: string;
     description?: string;
 };
 
 export type AdminFriendGroupMemberCreateRequest = {
+    name: string;
     peer_public_key: string;
     role: ServerFriendGroupMemberRole;
+};
+
+export type AdminFriendGroupMemberObject = {
+    id: string;
+    friend_group_id: string;
+    name: string;
+    peer_public_key: string;
+    role: ServerFriendGroupMemberRole;
+    created_at?: string;
+    updated_at?: string;
+};
+
+export type AdminFriendGroupMemberListResponse = {
+    items: Array<AdminFriendGroupMemberObject>;
+    has_next: boolean;
+    next_cursor?: string;
 };
 
 export type AdminFriendGroupMemberPutRequest = {
@@ -309,19 +338,36 @@ export type GameDefList = {
 };
 
 export type PetDefUpsert = {
-    id: string;
+    name: string;
     spec: PetDefSpec;
 };
 
 export type BadgeDefUpsert = {
-    id: string;
+    name: string;
     spec: BadgeDefSpec;
 };
 
 export type GameDefUpsert = {
-    id: string;
+    name: string;
     spec: GameDefSpec;
     icon?: Icon;
+};
+
+export type AdminFriendGroupObject = {
+    id: string;
+    name: string;
+    display_name?: string;
+    description?: string;
+    created_by_peer_public_key: string;
+    workspace_id?: string;
+    created_at?: string;
+    updated_at?: string;
+};
+
+export type AdminFriendGroupListResponse = {
+    items: Array<AdminFriendGroupObject>;
+    has_next: boolean;
+    next_cursor?: string;
 };
 
 export type RuntimeProfileList = {
@@ -344,7 +390,7 @@ export type RegistrationTokenList = {
 export type RegistrationTokenUpsert = {
     name: string;
     token: string;
-    runtime_profile_name: string;
+    runtime_profile_id: string;
     /**
      * Optional Server-assigned Firmware release-line ID. The device selects its own channel.
      */
@@ -362,7 +408,7 @@ export type ContactResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Contact';
     /**
-     * metadata.name must be owner_public_key:id; only id is a custom ID.
+     * metadata.name is the immutable Peer-visible contact name; metadata.id is omitted on create and required on update.
      */
     metadata: ResourceMetadata;
     spec: ContactSpec;
@@ -370,13 +416,9 @@ export type ContactResource = {
 
 export type ContactSpec = {
     /**
-     * Owner peer public key. metadata.name must be owner_public_key:id.
+     * Immutable owner peer public key.
      */
     owner_public_key: string;
-    /**
-     * Owner-scoped contact custom ID. metadata.name must be owner_public_key:id.
-     */
-    id: string;
     display_name?: string;
     phone_number?: string;
 };
@@ -431,7 +473,7 @@ export type FriendGroupResource = {
     apiVersion: ResourceApiVersion;
     kind: 'FriendGroup';
     /**
-     * metadata.name is the friend group custom ID.
+     * metadata.name is the immutable Admin name; metadata.id is omitted on create and required on update.
      */
     metadata: ResourceMetadata;
     spec: FriendGroupSpec;
@@ -442,11 +484,8 @@ export type FriendGroupSpec = {
      * Immutable owner Peer public key used to resolve the system Workflow.
      */
     owner_public_key: string;
-    /**
-     * Display name for the friend group. metadata.name is the stable group id.
-     */
-    name: string;
     description?: string;
+    display_name?: string;
 };
 
 export type FriendGroupInviteTokenResource = {
@@ -461,7 +500,7 @@ export type FriendGroupInviteTokenResource = {
 
 export type FriendGroupInviteTokenSpec = {
     /**
-     * Friend group custom ID. The invite_token value is not a custom ID.
+     * Opaque canonical FriendGroup ID returned by the Server. The invite_token value is not a resource ID.
      */
     friend_group_id: string;
     invite_token: string;
@@ -472,7 +511,7 @@ export type FriendGroupMemberResource = {
     apiVersion: ResourceApiVersion;
     kind: 'FriendGroupMember';
     /**
-     * metadata.name must be friend_group_id:peer_public_key; only friend_group_id is a custom ID.
+     * metadata.name is this member's immutable Peer-visible group name; metadata.id is the canonical membership ID returned by the Server.
      */
     metadata: ResourceMetadata;
     spec: FriendGroupMemberSpec;
@@ -482,7 +521,7 @@ export type FriendGroupMemberRole = 'owner' | 'admin' | 'member';
 
 export type FriendGroupMemberSpec = {
     /**
-     * Friend group custom ID. The peer_public_key segment is not a custom ID.
+     * Opaque canonical FriendGroup ID returned by the Server. The peer_public_key segment is not a resource ID.
      */
     friend_group_id: string;
     peer_public_key: string;
@@ -545,7 +584,7 @@ export type RegistrationTokenResource = {
     metadata: ResourceMetadata;
     spec: {
         token: string;
-        runtime_profile_name: string;
+        runtime_profile_id: string;
         /**
          * Optional Server-assigned Firmware release-line ID. The device selects its own channel.
          */
@@ -562,6 +601,10 @@ export type ApplyResult = {
     apiVersion: ResourceApiVersion;
     kind: ResourceKind;
     name: string;
+    /**
+     * Canonical Server ID for the concrete resource. Omitted only for virtual ResourceList results.
+     */
+    id?: string;
     action: ApplyAction;
     message?: string;
     /**
@@ -634,7 +677,11 @@ export type ResourceKind = 'Credential' | 'Firmware' | 'Contact' | 'Friend' | 'F
 
 export type ResourceMetadata = {
     /**
-     * Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-].
+     * Immutable opaque canonical ID allocated by the Server. Omit on create; include the returned ID for update.
+     */
+    id?: string;
+    /**
+     * Immutable resource name. Kind-specific rules apply. Names use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-].
      */
     name: string;
     annotations?: {
@@ -671,7 +718,7 @@ export type ToolResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Tool';
     /**
-     * metadata.name is the canonical Tool name. It must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$ and is the only execution identity.
+     * metadata.id is the canonical Tool resource ID when updating. metadata.name is the immutable runtime execution name and must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$.
      */
     metadata: ResourceMetadata;
     spec: ToolSpec;
@@ -695,7 +742,7 @@ export type WorkflowResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Workflow';
     /**
-     * metadata.name is the workflow custom ID.
+     * metadata.id is the canonical Workflow ID when updating, and metadata.name is the immutable Workflow name used by Peer RPC projections.
      */
     metadata: ResourceMetadata;
     spec: WorkflowSpec;
@@ -705,7 +752,7 @@ export type WorkspaceResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Workspace';
     /**
-     * metadata.name is the workspace custom ID. spec.workflow_name is the referenced workflow custom ID.
+     * metadata.id is the canonical Workspace ID when updating, metadata.name is the immutable Workspace name, and spec.workflow_id is the canonical Workflow ID.
      */
     metadata: ResourceMetadata;
     spec: WorkspaceSpec;
@@ -713,6 +760,7 @@ export type WorkspaceResource = {
 };
 
 export type Credential = {
+    id: string;
     name: string;
     provider: string;
     body: CredentialBody;
@@ -782,8 +830,9 @@ export type CredentialSpec = {
 };
 
 export type DashScopeTenant = {
+    id: string;
     name: string;
-    credential_name: string;
+    credential_id: string;
     base_url?: string;
     description?: string;
     created_at: string;
@@ -791,14 +840,15 @@ export type DashScopeTenant = {
 };
 
 export type DashScopeTenantSpec = {
-    credential_name: string;
+    credential_id: string;
     base_url?: string;
     description?: string;
 };
 
 export type DeepSeekTenant = {
+    id: string;
     name: string;
-    credential_name: string;
+    credential_id: string;
     base_url?: string;
     description?: string;
     created_at: string;
@@ -806,7 +856,7 @@ export type DeepSeekTenant = {
 };
 
 export type DeepSeekTenantSpec = {
-    credential_name: string;
+    credential_id: string;
     base_url?: string;
     description?: string;
 };
@@ -837,6 +887,7 @@ export type ErrorResponse = {
 };
 
 export type Firmware = {
+    id: string;
     name: string;
     description?: string;
     slots: FirmwareSlots;
@@ -961,6 +1012,7 @@ export type Badge = {
 
 export type BadgeDef = {
     id: string;
+    name: string;
     spec: BadgeDefSpec;
     pixa_path?: string;
     created_at: string;
@@ -983,6 +1035,7 @@ export type BadgeListResponse = {
 
 export type GameDef = {
     id: string;
+    name: string;
     spec: GameDefSpec;
     icon?: Icon;
     created_at: string;
@@ -1012,7 +1065,7 @@ export type GameResult = {
     payload?: GameplayMetadata;
     occurred_at: string;
     created_at: string;
-    runtime_profile_name: string;
+    runtime_profile_id: string;
 };
 
 export type GameResultListResponse = {
@@ -1027,10 +1080,11 @@ export type GameplayMetadata = {
 
 export type Pet = {
     id: string;
+    name: string;
     owner_public_key: string;
-    petdef_id: string;
+    pet_def_id: string;
     display_name: string;
-    workspace_name: string;
+    workspace_id: string;
     stats: PetStats;
     progression: PetProgression;
     lifecycle: PetLifecycle;
@@ -1039,11 +1093,12 @@ export type Pet = {
     last_active_at: string;
     created_at: string;
     updated_at: string;
-    runtime_profile_name: string;
+    runtime_profile_id: string;
 };
 
 export type PetDef = {
     id: string;
+    name: string;
     spec: PetDefSpec;
     pixa_path?: string;
     created_at: string;
@@ -1149,7 +1204,7 @@ export type PointsAccount = {
     balance: number;
     created_at: string;
     updated_at: string;
-    runtime_profile_name: string;
+    runtime_profile_id: string;
 };
 
 export type PointsTransaction = {
@@ -1164,7 +1219,7 @@ export type PointsTransaction = {
     source_type: string;
     source_id: string;
     created_at: string;
-    runtime_profile_name: string;
+    runtime_profile_id: string;
 };
 
 export type PointsTransactionListResponse = {
@@ -1187,7 +1242,7 @@ export type RewardGrant = {
     source_id: string;
     reason?: string;
     created_at: string;
-    runtime_profile_name: string;
+    runtime_profile_id: string;
 };
 
 export type RewardGrantListResponse = {
@@ -1197,8 +1252,9 @@ export type RewardGrantListResponse = {
 };
 
 export type GeminiTenant = {
+    id: string;
     name: string;
-    credential_name: string;
+    credential_id: string;
     project_id?: string;
     location?: string;
     base_url?: string;
@@ -1208,7 +1264,7 @@ export type GeminiTenant = {
 };
 
 export type GeminiTenantSpec = {
-    credential_name: string;
+    credential_id: string;
     project_id?: string;
     location?: string;
     base_url?: string;
@@ -1307,8 +1363,9 @@ export type Mem0MemoryLayoutPolicy = {
 };
 
 export type MemoryLayout = {
+    id: string;
     /**
-     * Stable MemoryLayout resource ID.
+     * Immutable MemoryLayout resource name.
      */
     name: string;
     spec: MemoryLayoutSpec;
@@ -1331,10 +1388,11 @@ export type VolcMem0Strategy = {
 };
 
 export type MiniMaxTenant = {
+    id: string;
     name: string;
     app_id?: string;
     group_id?: string;
-    credential_name: string;
+    credential_id: string;
     base_url?: string;
     description?: string;
     last_synced_at?: string;
@@ -1345,17 +1403,18 @@ export type MiniMaxTenant = {
 export type MiniMaxTenantSpec = {
     app_id?: string;
     group_id?: string;
-    credential_name: string;
+    credential_id: string;
     base_url?: string;
     description?: string;
 };
 
 export type Model = {
     id: string;
+    name: string;
+    display_name?: string;
     kind: ModelKind;
     source: ModelSource;
     provider: ModelProvider;
-    name?: string;
     description?: string;
     provider_data: ModelProviderData;
     synced_at?: string;
@@ -1370,7 +1429,7 @@ export type ModelKind = 'llm' | 'tts' | 'asr' | 'realtime' | 'realtime-duplex' |
 
 export type ModelProvider = {
     kind: ModelProviderKind;
-    name: string;
+    id: string;
 };
 
 export type DashScopeTenantModelProviderData = {
@@ -1481,15 +1540,16 @@ export type ModelSpec = {
     kind: ModelKind;
     source: ModelSource;
     provider: ModelProvider;
-    name?: string;
+    display_name?: string;
     description?: string;
     provider_data: ModelProviderData;
 };
 
 export type OpenAiTenant = {
+    id: string;
     name: string;
     kind: OpenAiTenantKind;
-    credential_name: string;
+    credential_id: string;
     base_url?: string;
     api_mode: OpenAiTenantApiMode;
     description?: string;
@@ -1509,7 +1569,7 @@ export type OpenAiTenantKind = 'compatible' | 'openai' | 'azure';
 
 export type OpenAiTenantSpec = {
     kind?: OpenAiTenantKind;
-    credential_name: string;
+    credential_id: string;
     base_url?: string;
     api_mode?: OpenAiTenantApiMode;
     description?: string;
@@ -1635,9 +1695,10 @@ export type Registration = {
 };
 
 export type RegistrationToken = {
+    id: string;
     name: string;
     token: string;
-    runtime_profile_name: string;
+    runtime_profile_id: string;
     /**
      * Optional Server-assigned Firmware release-line ID. The device selects its own channel.
      */
@@ -1655,6 +1716,7 @@ export type Runtime = {
 };
 
 export type RuntimeProfile = {
+    id: string;
     name: string;
     /**
      * Deterministic opaque revision of the normalized RuntimeProfile spec.
@@ -1940,39 +2002,7 @@ export type FriendGroupInviteTokenGetResponse = {
     expires_at?: string;
 };
 
-export type FriendGroupListResponse = {
-    items: Array<FriendGroupObject>;
-    has_next: boolean;
-    next_cursor?: string;
-};
-
-export type FriendGroupMemberListResponse = {
-    items: Array<FriendGroupMemberObject>;
-    has_next: boolean;
-    next_cursor?: string;
-};
-
-export type FriendGroupMemberObject = {
-    id?: string;
-    friend_group_id?: string;
-    peer_public_key?: string;
-    role?: ServerFriendGroupMemberRole;
-    created_at?: string;
-    updated_at?: string;
-};
-
 export type ServerFriendGroupMemberRole = 'owner' | 'admin' | 'member';
-
-export type FriendGroupObject = {
-    id?: string;
-    name?: string;
-    description?: string;
-    created_by_peer_public_key?: string;
-    workspace_name?: string;
-    created_at?: string;
-    updated_at?: string;
-    my_role?: ServerFriendGroupMemberRole;
-};
 
 export type FriendListResponse = {
     items: Array<FriendObject>;
@@ -2212,16 +2242,17 @@ export type ToolTriggerExample = {
  */
 export type ToolkitPolicy = {
     /**
-     * Allowed canonical Tool Resource names. RuntimeProfile aliases are not accepted.
+     * Allowed canonical Tool resource IDs. RuntimeProfile aliases and Tool names are not accepted.
      */
     tool_ids?: Array<string>;
 };
 
 export type Voice = {
     id: string;
+    name: string;
+    display_name?: string;
     source: VoiceSource;
     provider: VoiceProvider;
-    name?: string;
     description?: string;
     provider_data?: VoiceProviderData;
     synced_at?: string;
@@ -2231,7 +2262,7 @@ export type Voice = {
 
 export type VoiceProvider = {
     kind: VoiceProviderKind;
-    name: string;
+    id: string;
 };
 
 export type DashScopeTenantVoiceProviderData = {
@@ -2294,14 +2325,15 @@ export type VoiceSource = 'sync' | 'manual';
 export type VoiceSpec = {
     source: VoiceSource;
     provider: VoiceProvider;
-    name?: string;
+    display_name?: string;
     description?: string;
     provider_data?: VoiceProviderData;
 };
 
 export type VolcTenant = {
+    id: string;
     name: string;
-    credential_name: string;
+    credential_id: string;
     region?: string;
     endpoint?: string;
     resource_ids?: Array<string>;
@@ -2312,7 +2344,7 @@ export type VolcTenant = {
 };
 
 export type VolcTenantSpec = {
-    credential_name: string;
+    credential_id: string;
     region?: string;
     endpoint?: string;
     resource_ids?: Array<string>;
@@ -2321,7 +2353,11 @@ export type VolcTenantSpec = {
 
 export type Workflow = {
     /**
-     * Stable workflow ID used by storage, paths, RuntimeProfiles, and workspace references.
+     * Immutable opaque canonical ID allocated by the Server.
+     */
+    id: string;
+    /**
+     * Immutable workflow name used by Peer RPC projections.
      */
     name: string;
     spec: WorkflowSpec;
@@ -3065,6 +3101,7 @@ export type FlowcraftWorkflowSpec = {
 export type PetWorkflowSpec = ReusableWorkflowSpec & unknown;
 
 export type Workspace = {
+    id: string;
     name: string;
     /**
      * Immutable owner Peer public key. Domain-created system Workspaces always persist it.
@@ -3076,7 +3113,7 @@ export type Workspace = {
     labels?: {
         [key: string]: string;
     };
-    workflow_name: string;
+    workflow_id: string;
     /**
      * Whether the Workspace lifecycle is owned by another domain service. System Workspaces cannot be deleted through generic Workspace operations.
      */
@@ -3256,9 +3293,9 @@ export type WorkspaceParameters = ({
 
 export type WorkspaceSpec = {
     /**
-     * Referenced workflow custom ID.
+     * Referenced Workflow canonical ID.
      */
-    workflow_name: string;
+    workflow_id: string;
     parameters?: WorkspaceParameters;
     toolkit?: ToolkitPolicy;
 };
@@ -3336,7 +3373,7 @@ export type ToolResourceWritable = {
     apiVersion: ResourceApiVersion;
     kind: 'Tool';
     /**
-     * metadata.name is the canonical Tool name. It must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$ and is the only execution identity.
+     * metadata.id is the canonical Tool resource ID when updating. metadata.name is the immutable runtime execution name and must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$.
      */
     metadata: ResourceMetadata;
     spec: ToolSpecWritable;
@@ -3413,6 +3450,7 @@ export type ToolSpecWritable = ({
 } & ClientRpcToolSpec);
 
 export type WorkspaceWritable = {
+    id: string;
     name: string;
     /**
      * Stored Workspace labels used by Admin and internal exact-match filtering. Peer RPC does not project this map.
@@ -3420,7 +3458,7 @@ export type WorkspaceWritable = {
     labels?: {
         [key: string]: string;
     };
-    workflow_name: string;
+    workflow_id: string;
     parameters?: WorkspaceParameters;
     toolkit?: ToolkitPolicy;
     icon?: Icon;
@@ -3562,10 +3600,10 @@ export type DeleteResourceData = {
         /**
          * Declarative resource metadata.name
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/resources/{kind}/{name}';
+    url: '/resources/{kind}/{id}';
 };
 
 export type DeleteResourceErrors = {
@@ -3606,17 +3644,17 @@ export type GetResourceData = {
          */
         kind: ResourceKind;
         /**
-         * Declarative resource metadata.name
+         * Declarative resource canonical metadata.id
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/resources/{kind}/{name}';
+    url: '/resources/{kind}/{id}';
 };
 
 export type GetResourceErrors = {
     /**
-     * Invalid resource kind or name
+     * Invalid resource kind or ID
      */
     400: ErrorResponse;
     /**
@@ -3654,10 +3692,10 @@ export type PutResourceData = {
         /**
          * Declarative resource metadata.name
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/resources/{kind}/{name}';
+    url: '/resources/{kind}/{id}';
 };
 
 export type PutResourceErrors = {
@@ -4087,7 +4125,7 @@ export type ListFriendGroupsResponses = {
     /**
      * Friend group list
      */
-    200: FriendGroupListResponse;
+    200: AdminFriendGroupListResponse;
 };
 
 export type ListFriendGroupsResponse = ListFriendGroupsResponses[keyof ListFriendGroupsResponses];
@@ -4120,7 +4158,7 @@ export type CreateFriendGroupResponses = {
     /**
      * Created friend group
      */
-    200: FriendGroupObject;
+    200: AdminFriendGroupObject;
 };
 
 export type CreateFriendGroupResponse = CreateFriendGroupResponses[keyof CreateFriendGroupResponses];
@@ -4158,7 +4196,7 @@ export type DeleteFriendGroupResponses = {
     /**
      * Deleted friend group
      */
-    200: FriendGroupObject;
+    200: AdminFriendGroupObject;
 };
 
 export type DeleteFriendGroupResponse = DeleteFriendGroupResponses[keyof DeleteFriendGroupResponses];
@@ -4196,7 +4234,7 @@ export type GetFriendGroupResponses = {
     /**
      * Friend group
      */
-    200: FriendGroupObject;
+    200: AdminFriendGroupObject;
 };
 
 export type GetFriendGroupResponse = GetFriendGroupResponses[keyof GetFriendGroupResponses];
@@ -4234,7 +4272,7 @@ export type PutFriendGroupResponses = {
     /**
      * Updated friend group
      */
-    200: FriendGroupObject;
+    200: AdminFriendGroupObject;
 };
 
 export type PutFriendGroupResponse = PutFriendGroupResponses[keyof PutFriendGroupResponses];
@@ -4281,7 +4319,7 @@ export type ListFriendGroupMembersResponses = {
     /**
      * Friend group member list
      */
-    200: FriendGroupMemberListResponse;
+    200: AdminFriendGroupMemberListResponse;
 };
 
 export type ListFriendGroupMembersResponse = ListFriendGroupMembersResponses[keyof ListFriendGroupMembersResponses];
@@ -4319,7 +4357,7 @@ export type CreateFriendGroupMemberResponses = {
     /**
      * Created friend group member
      */
-    200: FriendGroupMemberObject;
+    200: AdminFriendGroupMemberObject;
 };
 
 export type CreateFriendGroupMemberResponse = CreateFriendGroupMemberResponses[keyof CreateFriendGroupMemberResponses];
@@ -4361,7 +4399,7 @@ export type DeleteFriendGroupMemberResponses = {
     /**
      * Deleted friend group member
      */
-    200: FriendGroupMemberObject;
+    200: AdminFriendGroupMemberObject;
 };
 
 export type DeleteFriendGroupMemberResponse = DeleteFriendGroupMemberResponses[keyof DeleteFriendGroupMemberResponses];
@@ -4403,7 +4441,7 @@ export type PutFriendGroupMemberResponses = {
     /**
      * Updated friend group member
      */
-    200: FriendGroupMemberObject;
+    200: AdminFriendGroupMemberObject;
 };
 
 export type PutFriendGroupMemberResponse = PutFriendGroupMemberResponses[keyof PutFriendGroupMemberResponses];
@@ -4557,7 +4595,7 @@ export type ListMemoryLayoutsResponses = {
 export type ListMemoryLayoutsResponse = ListMemoryLayoutsResponses[keyof ListMemoryLayoutsResponses];
 
 export type CreateMemoryLayoutData = {
-    body: MemoryLayout;
+    body: MemoryLayoutUpsert;
     path?: never;
     query?: never;
     url: '/memory-layouts';
@@ -4624,7 +4662,7 @@ export type ListWorkflowsResponses = {
 export type ListWorkflowsResponse = ListWorkflowsResponses[keyof ListWorkflowsResponses];
 
 export type CreateWorkflowData = {
-    body: Workflow;
+    body: WorkflowUpsert;
     path?: never;
     query?: never;
     url: '/workflows';
@@ -4635,6 +4673,10 @@ export type CreateWorkflowErrors = {
      * Invalid workflow payload
      */
     400: ErrorResponse;
+    /**
+     * Workflow not found
+     */
+    404: ErrorResponse;
     /**
      * Workflow already exists
      */
@@ -4727,12 +4769,12 @@ export type DeleteFirmwareData = {
     body?: never;
     path: {
         /**
-         * Firmware name
+         * Firmware ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/firmwares/{name}';
+    url: '/firmwares/{id}';
 };
 
 export type DeleteFirmwareErrors = {
@@ -4761,12 +4803,12 @@ export type GetFirmwareData = {
     body?: never;
     path: {
         /**
-         * Firmware name
+         * Firmware ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/firmwares/{name}';
+    url: '/firmwares/{id}';
 };
 
 export type GetFirmwareErrors = {
@@ -4795,12 +4837,12 @@ export type PutFirmwareData = {
     body: FirmwareUpsert;
     path: {
         /**
-         * Firmware name
+         * Firmware ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/firmwares/{name}';
+    url: '/firmwares/{id}';
 };
 
 export type PutFirmwareErrors = {
@@ -4808,6 +4850,10 @@ export type PutFirmwareErrors = {
      * Invalid firmware payload
      */
     400: ErrorResponse;
+    /**
+     * Firmware not found
+     */
+    404: ErrorResponse;
     /**
      * Internal error
      */
@@ -4829,12 +4875,12 @@ export type ReleaseFirmwareData = {
     body?: never;
     path: {
         /**
-         * Firmware name
+         * Firmware ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/firmwares/{name}/@release';
+    url: '/firmwares/{id}/@release';
 };
 
 export type ReleaseFirmwareErrors = {
@@ -4867,12 +4913,12 @@ export type RollbackFirmwareData = {
     body?: never;
     path: {
         /**
-         * Firmware name
+         * Firmware ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/firmwares/{name}/@rollback';
+    url: '/firmwares/{id}/@rollback';
 };
 
 export type RollbackFirmwareErrors = {
@@ -4952,6 +4998,10 @@ export type CreateCredentialErrors = {
      */
     400: ErrorResponse;
     /**
+     * Credential not found
+     */
+    404: ErrorResponse;
+    /**
      * Credential already exists
      */
     409: ErrorResponse;
@@ -4976,12 +5026,12 @@ export type DeleteCredentialData = {
     body?: never;
     path: {
         /**
-         * Credential name
+         * Credential ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/credentials/{name}';
+    url: '/credentials/{id}';
 };
 
 export type DeleteCredentialErrors = {
@@ -5010,12 +5060,12 @@ export type GetCredentialData = {
     body?: never;
     path: {
         /**
-         * Credential name
+         * Credential ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/credentials/{name}';
+    url: '/credentials/{id}';
 };
 
 export type GetCredentialErrors = {
@@ -5044,12 +5094,12 @@ export type PutCredentialData = {
     body: CredentialUpsert;
     path: {
         /**
-         * Credential name
+         * Credential ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/credentials/{name}';
+    url: '/credentials/{id}';
 };
 
 export type PutCredentialErrors = {
@@ -5057,6 +5107,10 @@ export type PutCredentialErrors = {
      * Invalid credential payload
      */
     400: ErrorResponse;
+    /**
+     * Credential not found
+     */
+    404: ErrorResponse;
     /**
      * Internal error
      */
@@ -5087,9 +5141,9 @@ export type ListModelsData = {
          */
         providerKind?: ModelProviderKind;
         /**
-         * Filter models by provider instance name
+         * Filter models by canonical provider resource ID
          */
-        providerName?: string;
+        providerId?: string;
         /**
          * Opaque cursor returned by the previous list response
          */
@@ -5239,6 +5293,10 @@ export type PutModelErrors = {
      */
     400: ErrorResponse;
     /**
+     * Model not found
+     */
+    404: ErrorResponse;
+    /**
      * Model cannot be modified because source is sync
      */
     409: ErrorResponse;
@@ -5373,6 +5431,10 @@ export type CreateDeepSeekTenantErrors = {
      */
     400: ErrorResponse;
     /**
+     * DeepSeek tenant not found
+     */
+    404: ErrorResponse;
+    /**
      * DeepSeek tenant already exists
      */
     409: ErrorResponse;
@@ -5464,12 +5526,12 @@ export type DeleteGeminiTenantData = {
     body?: never;
     path: {
         /**
-         * Gemini tenant name
+         * Gemini tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/gemini-tenants/{name}';
+    url: '/gemini-tenants/{id}';
 };
 
 export type DeleteGeminiTenantErrors = {
@@ -5498,12 +5560,12 @@ export type GetGeminiTenantData = {
     body?: never;
     path: {
         /**
-         * Gemini tenant name
+         * Gemini tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/gemini-tenants/{name}';
+    url: '/gemini-tenants/{id}';
 };
 
 export type GetGeminiTenantErrors = {
@@ -5532,12 +5594,12 @@ export type PutGeminiTenantData = {
     body: GeminiTenantUpsert;
     path: {
         /**
-         * Gemini tenant name
+         * Gemini tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/gemini-tenants/{name}';
+    url: '/gemini-tenants/{id}';
 };
 
 export type PutGeminiTenantErrors = {
@@ -5545,6 +5607,10 @@ export type PutGeminiTenantErrors = {
      * Invalid Gemini tenant payload
      */
     400: ErrorResponse;
+    /**
+     * Gemini tenant not found
+     */
+    404: ErrorResponse;
     /**
      * Internal error
      */
@@ -5566,12 +5632,12 @@ export type DeleteDashScopeTenantData = {
     body?: never;
     path: {
         /**
-         * DashScope tenant name
+         * DashScope tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/dashscope-tenants/{name}';
+    url: '/dashscope-tenants/{id}';
 };
 
 export type DeleteDashScopeTenantErrors = {
@@ -5600,12 +5666,12 @@ export type GetDashScopeTenantData = {
     body?: never;
     path: {
         /**
-         * DashScope tenant name
+         * DashScope tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/dashscope-tenants/{name}';
+    url: '/dashscope-tenants/{id}';
 };
 
 export type GetDashScopeTenantErrors = {
@@ -5634,12 +5700,12 @@ export type PutDashScopeTenantData = {
     body: DashScopeTenantUpsert;
     path: {
         /**
-         * DashScope tenant name
+         * DashScope tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/dashscope-tenants/{name}';
+    url: '/dashscope-tenants/{id}';
 };
 
 export type PutDashScopeTenantErrors = {
@@ -5647,6 +5713,10 @@ export type PutDashScopeTenantErrors = {
      * Invalid DashScope tenant payload
      */
     400: ErrorResponse;
+    /**
+     * DashScope tenant not found
+     */
+    404: ErrorResponse;
     /**
      * Internal error
      */
@@ -5668,12 +5738,12 @@ export type DeleteDeepSeekTenantData = {
     body?: never;
     path: {
         /**
-         * DeepSeek tenant name
+         * DeepSeek tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/deepseek-tenants/{name}';
+    url: '/deepseek-tenants/{id}';
 };
 
 export type DeleteDeepSeekTenantErrors = {
@@ -5702,12 +5772,12 @@ export type GetDeepSeekTenantData = {
     body?: never;
     path: {
         /**
-         * DeepSeek tenant name
+         * DeepSeek tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/deepseek-tenants/{name}';
+    url: '/deepseek-tenants/{id}';
 };
 
 export type GetDeepSeekTenantErrors = {
@@ -5736,12 +5806,12 @@ export type PutDeepSeekTenantData = {
     body: DeepSeekTenantUpsert;
     path: {
         /**
-         * DeepSeek tenant name
+         * DeepSeek tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/deepseek-tenants/{name}';
+    url: '/deepseek-tenants/{id}';
 };
 
 export type PutDeepSeekTenantErrors = {
@@ -5749,6 +5819,10 @@ export type PutDeepSeekTenantErrors = {
      * Invalid DeepSeek tenant payload
      */
     400: ErrorResponse;
+    /**
+     * DeepSeek tenant not found
+     */
+    404: ErrorResponse;
     /**
      * Internal error
      */
@@ -5837,12 +5911,12 @@ export type DeleteOpenAiTenantData = {
     body?: never;
     path: {
         /**
-         * OpenAI-compatible tenant name
+         * OpenAI-compatible tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/openai-tenants/{name}';
+    url: '/openai-tenants/{id}';
 };
 
 export type DeleteOpenAiTenantErrors = {
@@ -5871,12 +5945,12 @@ export type GetOpenAiTenantData = {
     body?: never;
     path: {
         /**
-         * OpenAI-compatible tenant name
+         * OpenAI-compatible tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/openai-tenants/{name}';
+    url: '/openai-tenants/{id}';
 };
 
 export type GetOpenAiTenantErrors = {
@@ -5905,12 +5979,12 @@ export type PutOpenAiTenantData = {
     body: OpenAiTenantUpsert;
     path: {
         /**
-         * OpenAI-compatible tenant name
+         * OpenAI-compatible tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/openai-tenants/{name}';
+    url: '/openai-tenants/{id}';
 };
 
 export type PutOpenAiTenantErrors = {
@@ -5918,6 +5992,10 @@ export type PutOpenAiTenantErrors = {
      * Invalid OpenAI-compatible tenant payload
      */
     400: ErrorResponse;
+    /**
+     * OpenAI-compatible tenant not found
+     */
+    404: ErrorResponse;
     /**
      * Internal error
      */
@@ -6006,12 +6084,12 @@ export type DeleteMiniMaxTenantData = {
     body?: never;
     path: {
         /**
-         * MiniMax tenant name
+         * MiniMax tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/minimax-tenants/{name}';
+    url: '/minimax-tenants/{id}';
 };
 
 export type DeleteMiniMaxTenantErrors = {
@@ -6040,12 +6118,12 @@ export type GetMiniMaxTenantData = {
     body?: never;
     path: {
         /**
-         * MiniMax tenant name
+         * MiniMax tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/minimax-tenants/{name}';
+    url: '/minimax-tenants/{id}';
 };
 
 export type GetMiniMaxTenantErrors = {
@@ -6074,12 +6152,12 @@ export type PutMiniMaxTenantData = {
     body: MiniMaxTenantUpsert;
     path: {
         /**
-         * MiniMax tenant name
+         * MiniMax tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/minimax-tenants/{name}';
+    url: '/minimax-tenants/{id}';
 };
 
 export type PutMiniMaxTenantErrors = {
@@ -6087,6 +6165,10 @@ export type PutMiniMaxTenantErrors = {
      * Invalid MiniMax tenant payload
      */
     400: ErrorResponse;
+    /**
+     * MiniMax tenant not found
+     */
+    404: ErrorResponse;
     /**
      * Internal error
      */
@@ -6108,12 +6190,12 @@ export type SyncMiniMaxTenantVoicesData = {
     body?: never;
     path: {
         /**
-         * MiniMax tenant name
+         * MiniMax tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/minimax-tenants/{name}/@sync-voices';
+    url: '/minimax-tenants/{id}/@sync-voices';
 };
 
 export type SyncMiniMaxTenantVoicesErrors = {
@@ -6217,12 +6299,12 @@ export type DeleteVolcTenantData = {
     body?: never;
     path: {
         /**
-         * Volcengine tenant name
+         * Volcengine tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/volc-tenants/{name}';
+    url: '/volc-tenants/{id}';
 };
 
 export type DeleteVolcTenantErrors = {
@@ -6251,12 +6333,12 @@ export type GetVolcTenantData = {
     body?: never;
     path: {
         /**
-         * Volcengine tenant name
+         * Volcengine tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/volc-tenants/{name}';
+    url: '/volc-tenants/{id}';
 };
 
 export type GetVolcTenantErrors = {
@@ -6285,12 +6367,12 @@ export type PutVolcTenantData = {
     body: VolcTenantUpsert;
     path: {
         /**
-         * Volcengine tenant name
+         * Volcengine tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/volc-tenants/{name}';
+    url: '/volc-tenants/{id}';
 };
 
 export type PutVolcTenantErrors = {
@@ -6298,6 +6380,10 @@ export type PutVolcTenantErrors = {
      * Invalid Volcengine tenant payload
      */
     400: ErrorResponse;
+    /**
+     * Volcengine tenant not found
+     */
+    404: ErrorResponse;
     /**
      * Internal error
      */
@@ -6319,12 +6405,12 @@ export type SyncVolcTenantVoicesData = {
     body?: never;
     path: {
         /**
-         * Volcengine tenant name
+         * Volcengine tenant ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/volc-tenants/{name}/@sync-voices';
+    url: '/volc-tenants/{id}/@sync-voices';
 };
 
 export type SyncVolcTenantVoicesErrors = {
@@ -6370,9 +6456,9 @@ export type ListVoicesData = {
          */
         providerKind?: VoiceProviderKind;
         /**
-         * Filter voices by provider instance name
+         * Filter voices by canonical provider resource ID
          */
-        providerName?: string;
+        providerId?: string;
         /**
          * Opaque cursor returned by the previous list response
          */
@@ -6522,6 +6608,10 @@ export type PutVoiceErrors = {
      */
     400: ErrorResponse;
     /**
+     * Voice not found
+     */
+    404: ErrorResponse;
+    /**
      * Voice cannot be modified because source is sync
      */
     409: ErrorResponse;
@@ -6546,12 +6636,12 @@ export type DeleteMemoryLayoutData = {
     body?: never;
     path: {
         /**
-         * MemoryLayout name
+         * MemoryLayout ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/memory-layouts/{name}';
+    url: '/memory-layouts/{id}';
 };
 
 export type DeleteMemoryLayoutErrors = {
@@ -6580,12 +6670,12 @@ export type GetMemoryLayoutData = {
     body?: never;
     path: {
         /**
-         * MemoryLayout name
+         * MemoryLayout ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/memory-layouts/{name}';
+    url: '/memory-layouts/{id}';
 };
 
 export type GetMemoryLayoutErrors = {
@@ -6611,15 +6701,15 @@ export type GetMemoryLayoutResponses = {
 export type GetMemoryLayoutResponse = GetMemoryLayoutResponses[keyof GetMemoryLayoutResponses];
 
 export type PutMemoryLayoutData = {
-    body: MemoryLayout;
+    body: MemoryLayoutUpsert;
     path: {
         /**
-         * MemoryLayout name
+         * MemoryLayout ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/memory-layouts/{name}';
+    url: '/memory-layouts/{id}';
 };
 
 export type PutMemoryLayoutErrors = {
@@ -6627,6 +6717,10 @@ export type PutMemoryLayoutErrors = {
      * Invalid memory layout payload
      */
     400: ErrorResponse;
+    /**
+     * Memory layout not found
+     */
+    404: ErrorResponse;
     /**
      * Internal error
      */
@@ -6648,12 +6742,12 @@ export type DeleteWorkflowData = {
     body?: never;
     path: {
         /**
-         * Workflow name
+         * Workflow ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/workflows/{name}';
+    url: '/workflows/{id}';
 };
 
 export type DeleteWorkflowErrors = {
@@ -6682,12 +6776,12 @@ export type GetWorkflowData = {
     body?: never;
     path: {
         /**
-         * Workflow name
+         * Workflow ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/workflows/{name}';
+    url: '/workflows/{id}';
 };
 
 export type GetWorkflowErrors = {
@@ -6713,15 +6807,15 @@ export type GetWorkflowResponses = {
 export type GetWorkflowResponse = GetWorkflowResponses[keyof GetWorkflowResponses];
 
 export type PutWorkflowData = {
-    body: Workflow;
+    body: WorkflowUpsert;
     path: {
         /**
-         * Workflow name
+         * Workflow ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/workflows/{name}';
+    url: '/workflows/{id}';
 };
 
 export type PutWorkflowErrors = {
@@ -6729,6 +6823,10 @@ export type PutWorkflowErrors = {
      * Invalid workflow payload
      */
     400: ErrorResponse;
+    /**
+     * Workflow not found
+     */
+    404: ErrorResponse;
     /**
      * Internal error
      */
@@ -6825,12 +6923,12 @@ export type DeleteWorkspaceData = {
     body?: never;
     path: {
         /**
-         * Workspace name
+         * Workspace ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/workspaces/{name}';
+    url: '/workspaces/{id}';
 };
 
 export type DeleteWorkspaceErrors = {
@@ -6863,12 +6961,12 @@ export type GetWorkspaceData = {
     body?: never;
     path: {
         /**
-         * Workspace name
+         * Workspace ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/workspaces/{name}';
+    url: '/workspaces/{id}';
 };
 
 export type GetWorkspaceErrors = {
@@ -6897,12 +6995,12 @@ export type PutWorkspaceData = {
     body: WorkspaceUpsert;
     path: {
         /**
-         * Workspace name
+         * Workspace ID
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/workspaces/{name}';
+    url: '/workspaces/{id}';
 };
 
 export type PutWorkspaceErrors = {
@@ -6910,6 +7008,10 @@ export type PutWorkspaceErrors = {
      * Invalid workspace payload
      */
     400: ErrorResponse;
+    /**
+     * Workspace not found
+     */
+    404: ErrorResponse;
     /**
      * System workspace update is forbidden
      */
@@ -6934,11 +7036,11 @@ export type PutWorkspaceResponse = PutWorkspaceResponses[keyof PutWorkspaceRespo
 export type DeleteWorkspaceIconData = {
     body?: never;
     path: {
-        name: string;
+        id: string;
         format: 'pixa' | 'png';
     };
     query?: never;
-    url: '/workspaces/{name}/icon/{format}';
+    url: '/workspaces/{id}/icon/{format}';
 };
 
 export type DeleteWorkspaceIconErrors = {
@@ -6966,11 +7068,11 @@ export type DeleteWorkspaceIconResponse = DeleteWorkspaceIconResponses[keyof Del
 export type DownloadWorkspaceIconData = {
     body?: never;
     path: {
-        name: string;
+        id: string;
         format: 'pixa' | 'png';
     };
     query?: never;
-    url: '/workspaces/{name}/icon/{format}';
+    url: '/workspaces/{id}/icon/{format}';
 };
 
 export type DownloadWorkspaceIconErrors = {
@@ -6998,11 +7100,11 @@ export type DownloadWorkspaceIconResponse = DownloadWorkspaceIconResponses[keyof
 export type UploadWorkspaceIconData = {
     body: Blob | File;
     path: {
-        name: string;
+        id: string;
         format: 'pixa' | 'png';
     };
     query?: never;
-    url: '/workspaces/{name}/icon/{format}';
+    url: '/workspaces/{id}/icon/{format}';
 };
 
 export type UploadWorkspaceIconErrors = {
@@ -7039,9 +7141,9 @@ export type ListWorkspaceHistoryData = {
     body?: never;
     path: {
         /**
-         * Workspace name
+         * Workspace ID
          */
-        name: string;
+        id: string;
     };
     query?: {
         /**
@@ -7057,7 +7159,7 @@ export type ListWorkspaceHistoryData = {
          */
         order?: 'asc' | 'desc';
     };
-    url: '/workspaces/{name}/history';
+    url: '/workspaces/{id}/history';
 };
 
 export type ListWorkspaceHistoryErrors = {
@@ -7090,16 +7192,16 @@ export type GetWorkspaceHistoryData = {
     body?: never;
     path: {
         /**
-         * Workspace name
+         * Workspace ID
          */
-        name: string;
+        id: string;
         /**
          * Workspace history id
          */
         historyId: string;
     };
     query?: never;
-    url: '/workspaces/{name}/history/{historyId}';
+    url: '/workspaces/{id}/history/{historyId}';
 };
 
 export type GetWorkspaceHistoryErrors = {
@@ -7132,16 +7234,16 @@ export type DownloadWorkspaceHistoryAudioData = {
     body?: never;
     path: {
         /**
-         * Workspace name
+         * Workspace ID
          */
-        name: string;
+        id: string;
         /**
          * Workspace history id
          */
         historyId: string;
     };
     query?: never;
-    url: '/workspaces/{name}/history/{historyId}/audio.ogg';
+    url: '/workspaces/{id}/history/{historyId}/audio.ogg';
 };
 
 export type DownloadWorkspaceHistoryAudioErrors = {
@@ -7842,16 +7944,16 @@ export type DeleteFirmwareArtifactData = {
     body?: never;
     path: {
         /**
-         * Firmware name
+         * Firmware ID
          */
-        name: string;
+        id: string;
         /**
          * Firmware channel/slot name
          */
         channel: 'stable' | 'beta' | 'develop' | 'pending';
     };
     query?: never;
-    url: '/firmwares/{name}/packages/{channel}/artifact.tar';
+    url: '/firmwares/{id}/packages/{channel}/artifact.tar';
 };
 
 export type DeleteFirmwareArtifactErrors = {
@@ -7880,16 +7982,16 @@ export type DownloadFirmwareArtifactData = {
     body?: never;
     path: {
         /**
-         * Firmware name
+         * Firmware ID
          */
-        name: string;
+        id: string;
         /**
          * Firmware channel/slot name
          */
         channel: 'stable' | 'beta' | 'develop' | 'pending';
     };
     query?: never;
-    url: '/firmwares/{name}/packages/{channel}/artifact.tar';
+    url: '/firmwares/{id}/packages/{channel}/artifact.tar';
 };
 
 export type DownloadFirmwareArtifactErrors = {
@@ -7918,16 +8020,16 @@ export type UploadFirmwareArtifactData = {
     body: Blob | File;
     path: {
         /**
-         * Firmware name
+         * Firmware ID
          */
-        name: string;
+        id: string;
         /**
          * Firmware channel/slot name
          */
         channel: 'stable' | 'beta' | 'develop' | 'pending';
     };
     query?: never;
-    url: '/firmwares/{name}/packages/{channel}/artifact.tar';
+    url: '/firmwares/{id}/packages/{channel}/artifact.tar';
 };
 
 export type UploadFirmwareArtifactErrors = {
@@ -7964,9 +8066,9 @@ export type ListFirmwareArtifactEntriesData = {
     body?: never;
     path: {
         /**
-         * Firmware name
+         * Firmware ID
          */
-        name: string;
+        id: string;
         /**
          * Firmware channel/slot name
          */
@@ -7978,7 +8080,7 @@ export type ListFirmwareArtifactEntriesData = {
          */
         path?: string;
     };
-    url: '/firmwares/{name}/packages/{channel}/artifact/ls';
+    url: '/firmwares/{id}/packages/{channel}/artifact/ls';
 };
 
 export type ListFirmwareArtifactEntriesErrors = {
@@ -8011,9 +8113,9 @@ export type TreeFirmwareArtifactEntriesData = {
     body?: never;
     path: {
         /**
-         * Firmware name
+         * Firmware ID
          */
-        name: string;
+        id: string;
         /**
          * Firmware channel/slot name
          */
@@ -8025,7 +8127,7 @@ export type TreeFirmwareArtifactEntriesData = {
          */
         path?: string;
     };
-    url: '/firmwares/{name}/packages/{channel}/artifact/tree';
+    url: '/firmwares/{id}/packages/{channel}/artifact/tree';
 };
 
 export type TreeFirmwareArtifactEntriesErrors = {
@@ -8058,9 +8160,9 @@ export type StatFirmwareArtifactEntryData = {
     body?: never;
     path: {
         /**
-         * Firmware name
+         * Firmware ID
          */
-        name: string;
+        id: string;
         /**
          * Firmware channel/slot name
          */
@@ -8072,7 +8174,7 @@ export type StatFirmwareArtifactEntryData = {
          */
         path?: string;
     };
-    url: '/firmwares/{name}/packages/{channel}/artifact/stat';
+    url: '/firmwares/{id}/packages/{channel}/artifact/stat';
 };
 
 export type StatFirmwareArtifactEntryErrors = {
@@ -8105,9 +8207,9 @@ export type DownloadFirmwareArtifactEntryData = {
     body?: never;
     path: {
         /**
-         * Firmware name
+         * Firmware ID
          */
-        name: string;
+        id: string;
         /**
          * Firmware channel/slot name
          */
@@ -8119,7 +8221,7 @@ export type DownloadFirmwareArtifactEntryData = {
          */
         path: string;
     };
-    url: '/firmwares/{name}/packages/{channel}/artifact/dl';
+    url: '/firmwares/{id}/packages/{channel}/artifact/dl';
 };
 
 export type DownloadFirmwareArtifactEntryErrors = {
@@ -8301,6 +8403,10 @@ export type PutPetDefErrors = {
      */
     400: ErrorResponse;
     /**
+     * PetDef not found
+     */
+    404: ErrorResponse;
+    /**
      * PetDef conflict
      */
     409: ErrorResponse;
@@ -8474,6 +8580,10 @@ export type PutBadgeDefErrors = {
      */
     400: ErrorResponse;
     /**
+     * BadgeDef not found
+     */
+    404: ErrorResponse;
+    /**
      * BadgeDef conflict
      */
     409: ErrorResponse;
@@ -8646,6 +8756,10 @@ export type PutGameDefErrors = {
      * Invalid GameDef
      */
     400: ErrorResponse;
+    /**
+     * GameDef not found
+     */
+    404: ErrorResponse;
     /**
      * GameDef conflict
      */
@@ -9457,10 +9571,10 @@ export type DeleteRuntimeProfileData = {
         /**
          * RuntimeProfile identifier
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/runtime-profiles/{name}';
+    url: '/runtime-profiles/{id}';
 };
 
 export type DeleteRuntimeProfileErrors = {
@@ -9491,10 +9605,10 @@ export type GetRuntimeProfileData = {
         /**
          * RuntimeProfile identifier
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/runtime-profiles/{name}';
+    url: '/runtime-profiles/{id}';
 };
 
 export type GetRuntimeProfileErrors = {
@@ -9525,10 +9639,10 @@ export type PutRuntimeProfileData = {
         /**
          * RuntimeProfile identifier
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/runtime-profiles/{name}';
+    url: '/runtime-profiles/{id}';
 };
 
 export type PutRuntimeProfileErrors = {
@@ -9536,6 +9650,10 @@ export type PutRuntimeProfileErrors = {
      * Invalid RuntimeProfile
      */
     400: ErrorResponse;
+    /**
+     * RuntimeProfile not found
+     */
+    404: ErrorResponse;
     /**
      * RuntimeProfile conflict
      */
@@ -9630,10 +9748,10 @@ export type DeleteRegistrationTokenData = {
         /**
          * RegistrationToken identifier
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/registration-tokens/{name}';
+    url: '/registration-tokens/{id}';
 };
 
 export type DeleteRegistrationTokenErrors = {
@@ -9664,10 +9782,10 @@ export type GetRegistrationTokenData = {
         /**
          * RegistrationToken identifier
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/registration-tokens/{name}';
+    url: '/registration-tokens/{id}';
 };
 
 export type GetRegistrationTokenErrors = {
@@ -9698,10 +9816,10 @@ export type PutRegistrationTokenData = {
         /**
          * RegistrationToken identifier
          */
-        name: string;
+        id: string;
     };
     query?: never;
-    url: '/registration-tokens/{name}';
+    url: '/registration-tokens/{id}';
 };
 
 export type PutRegistrationTokenErrors = {
@@ -9709,6 +9827,10 @@ export type PutRegistrationTokenErrors = {
      * Invalid RegistrationToken
      */
     400: ErrorResponse;
+    /**
+     * RegistrationToken not found
+     */
+    404: ErrorResponse;
     /**
      * RegistrationToken conflict
      */

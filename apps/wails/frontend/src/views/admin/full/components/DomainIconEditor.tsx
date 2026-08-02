@@ -64,7 +64,7 @@ export function DomainIconEditor({
 
   const upload = (format: IconFormat, file: File): Promise<void> =>
     run(`upload-${format}`, async () => {
-      const path = owner === "game-def" ? { id, format } : { name: id, format };
+      const path = { id, format };
       if (owner === "game-def")
         await expectData(
           uploadGameDefIcon({
@@ -76,7 +76,7 @@ export function DomainIconEditor({
         await expectData(
           uploadWorkspaceIcon({
             body: file,
-            path: path as { name: string; format: IconFormat },
+            path: path as { id: string; format: IconFormat },
           }),
         );
       if (format === "png") setPreview(file);
@@ -87,9 +87,7 @@ export function DomainIconEditor({
       const blob =
         owner === "game-def"
           ? await expectData(downloadGameDefIcon({ path: { id, format } }))
-          : await expectData(
-              downloadWorkspaceIcon({ path: { name: id, format } }),
-            );
+          : await expectData(downloadWorkspaceIcon({ path: { id, format } }));
       if (format === "png") {
         setPreview(blob);
         return;
@@ -106,8 +104,7 @@ export function DomainIconEditor({
     run(`delete-${format}`, async () => {
       if (owner === "game-def")
         await expectData(deleteGameDefIcon({ path: { id, format } }));
-      else
-        await expectData(deleteWorkspaceIcon({ path: { name: id, format } }));
+      else await expectData(deleteWorkspaceIcon({ path: { id, format } }));
       if (format === "png") setPreviewURL("");
     });
 

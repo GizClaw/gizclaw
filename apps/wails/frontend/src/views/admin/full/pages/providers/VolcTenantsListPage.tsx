@@ -171,8 +171,8 @@ export function VolcTenantsListPage(): JSX.Element {
                 {items.map((tenant) => (
                   <TableRow
                     className="cursor-pointer hover:bg-muted/40"
-                    key={tenant.name}
-                    onClick={() => openTenant(tenant.name)}
+                    key={tenant.id}
+                    onClick={() => openTenant(tenant.id)}
                     onKeyDown={(event) => handleRowKeyDown(event, tenant.name)}
                     role="link"
                     tabIndex={0}
@@ -183,7 +183,7 @@ export function VolcTenantsListPage(): JSX.Element {
                           className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={(event) => {
                             event.stopPropagation();
-                            openTenant(tenant.name);
+                            openTenant(tenant.id);
                           }}
                           title={tenant.name}
                           type="button"
@@ -209,9 +209,9 @@ export function VolcTenantsListPage(): JSX.Element {
                     </TableCell>
                     <TableCell
                       className="truncate"
-                      title={tenant.credential_name}
+                      title={tenant.credential_id}
                     >
-                      {tenant.credential_name}
+                      {tenant.credential_id}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatValue(tenant.region)}

@@ -11,10 +11,10 @@
       "DashScopeTenantSpec": {
         "type": "object",
         "required": [
-          "credential_name"
+          "credential_id"
         ],
         "properties": {
-          "credential_name": {
+          "credential_id": {
             "type": "string"
           },
           "base_url": {

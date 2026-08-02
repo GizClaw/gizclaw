@@ -21,31 +21,33 @@ func TestWorkspaceIconLifecycleAndProjection(t *testing.T) {
 	seedWorkflow(t, srv, "workflow-icon")
 	body := mustWorkspaceUpsert(t, `{
 		"name": "workspace-icon",
-		"workflow_name": "workflow-icon",
+		"workflow_id": "workflow-icon",
 		"parameters": {"mode": "demo"}
 	}`)
 	createResponse, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := createResponse.(adminhttp.CreateWorkspace200JSONResponse); !ok {
+	created, ok := createResponse.(adminhttp.CreateWorkspace200JSONResponse)
+	if !ok {
 		t.Fatalf("CreateWorkspace() response = %#v", createResponse)
 	}
+	workspaceID := created.Id
 
 	want := workspaceIconPNG(t)
 	uploadResponse, err := srv.UploadWorkspaceIcon(ctx, adminhttp.UploadWorkspaceIconRequestObject{
-		Name: "workspace-icon", Format: adminhttp.UploadWorkspaceIconParamsFormat("png"), Body: bytes.NewReader(want),
+		Id: workspaceID, Format: adminhttp.UploadWorkspaceIconParamsFormat("png"), Body: bytes.NewReader(want),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	uploaded, ok := uploadResponse.(adminhttp.UploadWorkspaceIcon200JSONResponse)
-	if !ok || uploaded.Icon == nil || uploaded.Icon.Png == nil || *uploaded.Icon.Png != "workspace-icon/icon.png" {
+	if !ok || uploaded.Icon == nil || uploaded.Icon.Png == nil || *uploaded.Icon.Png != string(workspaceID)+"/icon.png" {
 		t.Fatalf("UploadWorkspaceIcon() response = %#v", uploadResponse)
 	}
 
 	downloadResponse, err := srv.DownloadWorkspaceIcon(ctx, adminhttp.DownloadWorkspaceIconRequestObject{
-		Name: "workspace-icon", Format: adminhttp.Png,
+		Id: workspaceID, Format: adminhttp.Png,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +70,7 @@ func TestWorkspaceIconLifecycleAndProjection(t *testing.T) {
 	}
 
 	putBody := body
-	putResponse, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "workspace-icon", Body: &putBody})
+	putResponse, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: workspaceID, Body: &putBody})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +80,7 @@ func TestWorkspaceIconLifecycleAndProjection(t *testing.T) {
 	}
 	bad := "other/icon.png"
 	putBody.Icon = &apitypes.Icon{Png: &bad}
-	putResponse, err = srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "workspace-icon", Body: &putBody})
+	putResponse, err = srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: workspaceID, Body: &putBody})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +89,7 @@ func TestWorkspaceIconLifecycleAndProjection(t *testing.T) {
 	}
 
 	deleteResponse, err := srv.DeleteWorkspaceIcon(ctx, adminhttp.DeleteWorkspaceIconRequestObject{
-		Name: "workspace-icon", Format: adminhttp.DeleteWorkspaceIconParamsFormatPng,
+		Id: workspaceID, Format: adminhttp.DeleteWorkspaceIconParamsFormatPng,
 	})
 	if err != nil {
 		t.Fatal(err)

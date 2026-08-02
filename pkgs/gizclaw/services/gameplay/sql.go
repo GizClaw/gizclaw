@@ -24,23 +24,24 @@ type queryRebinder interface {
 }
 
 type petAdoptionReservation struct {
-	OwnerPublicKey     string
-	PetID              string
-	RuntimeProfileName string
-	PetDefID           string
-	DisplayName        string
-	WorkspaceName      string
-	WorkflowName       string
-	AdoptionCost       int64
-	CreatedAt          time.Time
+	OwnerPublicKey   string
+	PetID            string
+	Name             string
+	RuntimeProfileId string
+	PetDefID         string
+	DisplayName      string
+	WorkspaceName    string
+	WorkflowID       string
+	AdoptionCost     int64
+	CreatedAt        time.Time
 }
 
-func findPetAdoptionReservation(ctx context.Context, db queryRebinder, owner, petID string) (petAdoptionReservation, error) {
+func findPetAdoptionReservation(ctx context.Context, db queryRebinder, owner, name string) (petAdoptionReservation, error) {
 	var reservation petAdoptionReservation
 	var createdAt string
-	err := db.QueryRowContext(ctx, db.Rebind(`SELECT owner_public_key, pet_id, runtime_profile_name, petdef_id, display_name, workspace_name, workflow_name, adoption_cost, created_at FROM gameplay_pet_adoption_reservations WHERE owner_public_key = ? AND pet_id = ?`), owner, petID).Scan(
-		&reservation.OwnerPublicKey, &reservation.PetID, &reservation.RuntimeProfileName, &reservation.PetDefID,
-		&reservation.DisplayName, &reservation.WorkspaceName, &reservation.WorkflowName, &reservation.AdoptionCost, &createdAt,
+	err := db.QueryRowContext(ctx, db.Rebind(`SELECT owner_public_key, pet_id, name, runtime_profile_id, pet_def_id, display_name, workspace_name, workflow_id, adoption_cost, created_at FROM gameplay_pet_adoption_reservations WHERE owner_public_key = ? AND name = ?`), owner, name).Scan(
+		&reservation.OwnerPublicKey, &reservation.PetID, &reservation.Name, &reservation.RuntimeProfileId, &reservation.PetDefID,
+		&reservation.DisplayName, &reservation.WorkspaceName, &reservation.WorkflowID, &reservation.AdoptionCost, &createdAt,
 	)
 	if err != nil {
 		return petAdoptionReservation{}, err
@@ -55,9 +56,9 @@ func insertPetAdoptionReservation(ctx context.Context, tx *sqlx.Tx, reservation 
 }
 
 func insertPetAdoptionReservationIfAbsent(ctx context.Context, tx *sqlx.Tx, reservation petAdoptionReservation) (bool, error) {
-	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_adoption_reservations (owner_public_key, pet_id, runtime_profile_name, petdef_id, display_name, workspace_name, workflow_name, adoption_cost, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, pet_id) DO NOTHING`),
-		reservation.OwnerPublicKey, reservation.PetID, reservation.RuntimeProfileName, reservation.PetDefID,
-		reservation.DisplayName, reservation.WorkspaceName, reservation.WorkflowName, reservation.AdoptionCost, formatTime(reservation.CreatedAt))
+	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_adoption_reservations (owner_public_key, pet_id, name, runtime_profile_id, pet_def_id, display_name, workspace_name, workflow_id, adoption_cost, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, name) DO NOTHING`),
+		reservation.OwnerPublicKey, reservation.PetID, reservation.Name, reservation.RuntimeProfileId, reservation.PetDefID,
+		reservation.DisplayName, reservation.WorkspaceName, reservation.WorkflowID, reservation.AdoptionCost, formatTime(reservation.CreatedAt))
 	if err != nil {
 		return false, err
 	}
@@ -65,12 +66,12 @@ func insertPetAdoptionReservationIfAbsent(ctx context.Context, tx *sqlx.Tx, rese
 	return inserted == 1, err
 }
 
-func deletePetAdoptionReservationIfIncomplete(ctx context.Context, db *sqlx.DB, owner, petID string) (bool, error) {
+func deletePetAdoptionReservationIfIncomplete(ctx context.Context, db *sqlx.DB, owner, name, petID string) (bool, error) {
 	result, err := db.ExecContext(ctx, db.Rebind(`DELETE FROM gameplay_pet_adoption_reservations
-		WHERE owner_public_key = ? AND pet_id = ?
+		WHERE owner_public_key = ? AND name = ?
 		AND NOT EXISTS (SELECT 1 FROM gameplay_pets WHERE owner_public_key = ? AND id = ?)
 		AND NOT EXISTS (SELECT 1 FROM gameplay_points_transactions WHERE owner_public_key = ? AND source_type = 'pet' AND source_id = ? AND reason = 'pet.adopt')`),
-		owner, petID, owner, petID, owner, petID)
+		owner, name, owner, petID, owner, petID)
 	if err != nil {
 		return false, err
 	}
@@ -79,15 +80,15 @@ func deletePetAdoptionReservationIfIncomplete(ctx context.Context, db *sqlx.DB, 
 }
 
 type petDriveTick struct {
-	OwnerPublicKey     string
-	RuntimeProfileName string
-	IdempotencyKey     string
-	PetID              string
-	CreatedAt          time.Time
+	OwnerPublicKey   string
+	RuntimeProfileId string
+	IdempotencyKey   string
+	PetID            string
+	CreatedAt        time.Time
 }
 
 func petSelectSQL() string {
-	return `SELECT owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name, stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at FROM gameplay_pets`
+	return `SELECT owner_public_key, id, name, runtime_profile_id, pet_def_id, display_name, workspace_id, stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at FROM gameplay_pets`
 }
 
 func scanPet(row rowScanner) (apitypes.Pet, error) {
@@ -95,7 +96,7 @@ func scanPet(row rowScanner) (apitypes.Pet, error) {
 	var statsJSON, progressionJSON string
 	var diedAt sql.NullString
 	var stateSettledAt, lastActiveAt, createdAt, updatedAt string
-	err := row.Scan(&pet.OwnerPublicKey, &pet.Id, &pet.RuntimeProfileName, &pet.PetdefId, &pet.DisplayName, &pet.WorkspaceName, &statsJSON, &progressionJSON, &pet.Lifecycle, &diedAt, &stateSettledAt, &lastActiveAt, &createdAt, &updatedAt)
+	err := row.Scan(&pet.OwnerPublicKey, &pet.Id, &pet.Name, &pet.RuntimeProfileId, &pet.PetDefId, &pet.DisplayName, &pet.WorkspaceId, &statsJSON, &progressionJSON, &pet.Lifecycle, &diedAt, &stateSettledAt, &lastActiveAt, &createdAt, &updatedAt)
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
@@ -141,8 +142,8 @@ func insertPet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
 	if err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pets (owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name, stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-		pet.OwnerPublicKey, pet.Id, pet.RuntimeProfileName, pet.PetdefId, pet.DisplayName, pet.WorkspaceName, statsJSON, progressionJSON, pet.Lifecycle, nullableTime(pet.DiedAt), formatTime(pet.StateSettledAt), formatTime(pet.LastActiveAt), formatTime(pet.CreatedAt), formatTime(pet.UpdatedAt))
+	_, err = tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pets (owner_public_key, id, name, runtime_profile_id, pet_def_id, display_name, workspace_id, stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+		pet.OwnerPublicKey, pet.Id, pet.Name, pet.RuntimeProfileId, pet.PetDefId, pet.DisplayName, pet.WorkspaceId, statsJSON, progressionJSON, pet.Lifecycle, nullableTime(pet.DiedAt), formatTime(pet.StateSettledAt), formatTime(pet.LastActiveAt), formatTime(pet.CreatedAt), formatTime(pet.UpdatedAt))
 	if err != nil {
 		return err
 	}
@@ -150,33 +151,11 @@ func insertPet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
 }
 
 func insertPetWorkspaceBinding(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
-	profileName := strings.TrimSpace(pet.RuntimeProfileName)
-	workspaceName := strings.TrimSpace(pet.WorkspaceName)
-	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_workspace_bindings (owner_public_key, pet_id, runtime_profile_name, workspace_name, created_at) VALUES (?, ?, ?, ?, ?)`),
-		pet.OwnerPublicKey, pet.Id, profileName, workspaceName, formatTime(pet.CreatedAt))
+	profileName := strings.TrimSpace(pet.RuntimeProfileId)
+	workspaceID := strings.TrimSpace(pet.WorkspaceId)
+	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_workspace_bindings (owner_public_key, pet_id, runtime_profile_id, workspace_id, created_at) VALUES (?, ?, ?, ?, ?)`),
+		pet.OwnerPublicKey, pet.Id, profileName, workspaceID, formatTime(pet.CreatedAt))
 	return err
-}
-
-func ensurePetWorkspaceBinding(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
-	wantProfileName := strings.TrimSpace(pet.RuntimeProfileName)
-	wantWorkspaceName := strings.TrimSpace(pet.WorkspaceName)
-	if _, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_workspace_bindings (owner_public_key, pet_id, runtime_profile_name, workspace_name, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, pet_id) DO NOTHING`),
-		pet.OwnerPublicKey, pet.Id, wantProfileName, wantWorkspaceName, formatTime(pet.CreatedAt)); err != nil {
-		return err
-	}
-	var profileName, workspaceName string
-	if err := tx.QueryRowContext(ctx, tx.Rebind(`SELECT runtime_profile_name, workspace_name FROM gameplay_pet_workspace_bindings WHERE owner_public_key = ? AND pet_id = ?`), pet.OwnerPublicKey, pet.Id).Scan(&profileName, &workspaceName); err != nil {
-		return err
-	}
-	if strings.TrimSpace(profileName) != wantProfileName || strings.TrimSpace(workspaceName) != wantWorkspaceName {
-		return fmt.Errorf("gameplay: Pet %q binding conflicts with RuntimeProfile %q Workspace %q", pet.Id, profileName, workspaceName)
-	}
-	if profileName != wantProfileName || workspaceName != wantWorkspaceName {
-		_, err := tx.ExecContext(ctx, tx.Rebind(`UPDATE gameplay_pet_workspace_bindings SET runtime_profile_name = ?, workspace_name = ? WHERE owner_public_key = ? AND pet_id = ?`),
-			wantProfileName, wantWorkspaceName, pet.OwnerPublicKey, pet.Id)
-		return err
-	}
-	return nil
 }
 
 func updatePet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
@@ -194,13 +173,13 @@ func updatePet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
 }
 
 func petDriveTickSelectSQL() string {
-	return `SELECT owner_public_key, runtime_profile_name, idempotency_key, pet_id, created_at FROM gameplay_pet_drive_ticks`
+	return `SELECT owner_public_key, runtime_profile_id, idempotency_key, pet_id, created_at FROM gameplay_pet_drive_ticks`
 }
 
 func scanPetDriveTick(row rowScanner) (petDriveTick, error) {
 	var tick petDriveTick
 	var createdAt string
-	if err := row.Scan(&tick.OwnerPublicKey, &tick.RuntimeProfileName, &tick.IdempotencyKey, &tick.PetID, &createdAt); err != nil {
+	if err := row.Scan(&tick.OwnerPublicKey, &tick.RuntimeProfileId, &tick.IdempotencyKey, &tick.PetID, &createdAt); err != nil {
 		return petDriveTick{}, err
 	}
 	tick.CreatedAt = parseTime(createdAt)
@@ -208,12 +187,12 @@ func scanPetDriveTick(row rowScanner) (petDriveTick, error) {
 }
 
 func findPetDriveTick(ctx context.Context, db queryRebinder, owner, runtimeProfileName, key string) (petDriveTick, error) {
-	return scanPetDriveTick(db.QueryRowContext(ctx, db.Rebind(petDriveTickSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ? AND idempotency_key = ?`), owner, runtimeProfileName, strings.TrimSpace(key)))
+	return scanPetDriveTick(db.QueryRowContext(ctx, db.Rebind(petDriveTickSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_id = ? AND idempotency_key = ?`), owner, runtimeProfileName, strings.TrimSpace(key)))
 }
 
 func insertPetDriveTick(ctx context.Context, tx *sqlx.Tx, tick petDriveTick) (bool, error) {
-	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_drive_ticks (owner_public_key, runtime_profile_name, idempotency_key, pet_id, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, runtime_profile_name, idempotency_key) DO NOTHING`),
-		tick.OwnerPublicKey, tick.RuntimeProfileName, strings.TrimSpace(tick.IdempotencyKey), tick.PetID, formatTime(tick.CreatedAt))
+	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_drive_ticks (owner_public_key, runtime_profile_id, idempotency_key, pet_id, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, runtime_profile_id, idempotency_key) DO NOTHING`),
+		tick.OwnerPublicKey, tick.RuntimeProfileId, strings.TrimSpace(tick.IdempotencyKey), tick.PetID, formatTime(tick.CreatedAt))
 	if err != nil {
 		return false, err
 	}
@@ -222,13 +201,13 @@ func insertPetDriveTick(ctx context.Context, tx *sqlx.Tx, tick petDriveTick) (bo
 }
 
 func pointsAccountSelectSQL() string {
-	return `SELECT owner_public_key, runtime_profile_name, balance, created_at, updated_at FROM gameplay_points_accounts`
+	return `SELECT owner_public_key, runtime_profile_id, balance, created_at, updated_at FROM gameplay_points_accounts`
 }
 
 func scanPointsAccount(row rowScanner) (apitypes.PointsAccount, error) {
 	var account apitypes.PointsAccount
 	var createdAt, updatedAt string
-	if err := row.Scan(&account.OwnerPublicKey, &account.RuntimeProfileName, &account.Balance, &createdAt, &updatedAt); err != nil {
+	if err := row.Scan(&account.OwnerPublicKey, &account.RuntimeProfileId, &account.Balance, &createdAt, &updatedAt); err != nil {
 		return apitypes.PointsAccount{}, err
 	}
 	account.CreatedAt = parseTime(createdAt)
@@ -237,12 +216,12 @@ func scanPointsAccount(row rowScanner) (apitypes.PointsAccount, error) {
 }
 
 func findPointsAccount(ctx context.Context, db queryRebinder, owner, runtimeProfileName string) (apitypes.PointsAccount, error) {
-	return scanPointsAccount(db.QueryRowContext(ctx, db.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ?`), owner, runtimeProfileName))
+	return scanPointsAccount(db.QueryRowContext(ctx, db.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_id = ?`), owner, runtimeProfileName))
 }
 
 func insertPointsAccount(ctx context.Context, tx *sqlx.Tx, account apitypes.PointsAccount) (bool, error) {
-	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_accounts (owner_public_key, runtime_profile_name, balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, runtime_profile_name) DO NOTHING`),
-		account.OwnerPublicKey, account.RuntimeProfileName, account.Balance, formatTime(account.CreatedAt), formatTime(account.UpdatedAt))
+	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_accounts (owner_public_key, runtime_profile_id, balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, runtime_profile_id) DO NOTHING`),
+		account.OwnerPublicKey, account.RuntimeProfileId, account.Balance, formatTime(account.CreatedAt), formatTime(account.UpdatedAt))
 	if err != nil {
 		return false, err
 	}
@@ -251,14 +230,14 @@ func insertPointsAccount(ctx context.Context, tx *sqlx.Tx, account apitypes.Poin
 }
 
 func pointsTransactionSelectSQL() string {
-	return `SELECT owner_public_key, id, runtime_profile_name, pet_id, game_result_id, reward_grant_id, delta, balance_after, reason, source_type, source_id, created_at FROM gameplay_points_transactions`
+	return `SELECT owner_public_key, id, runtime_profile_id, pet_id, game_result_id, reward_grant_id, delta, balance_after, reason, source_type, source_id, created_at FROM gameplay_points_transactions`
 }
 
 func scanPointsTransaction(row rowScanner) (apitypes.PointsTransaction, error) {
 	var item apitypes.PointsTransaction
 	var petID, gameResultID, rewardGrantID sql.NullString
 	var createdAt string
-	err := row.Scan(&item.OwnerPublicKey, &item.Id, &item.RuntimeProfileName, &petID, &gameResultID, &rewardGrantID, &item.Delta, &item.BalanceAfter, &item.Reason, &item.SourceType, &item.SourceId, &createdAt)
+	err := row.Scan(&item.OwnerPublicKey, &item.Id, &item.RuntimeProfileId, &petID, &gameResultID, &rewardGrantID, &item.Delta, &item.BalanceAfter, &item.Reason, &item.SourceType, &item.SourceId, &createdAt)
 	if err != nil {
 		return apitypes.PointsTransaction{}, err
 	}
@@ -270,8 +249,8 @@ func scanPointsTransaction(row rowScanner) (apitypes.PointsTransaction, error) {
 }
 
 func insertPointsTransaction(ctx context.Context, tx *sqlx.Tx, item apitypes.PointsTransaction) error {
-	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_transactions (owner_public_key, id, runtime_profile_name, pet_id, game_result_id, reward_grant_id, delta, balance_after, reason, source_type, source_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-		item.OwnerPublicKey, item.Id, item.RuntimeProfileName, nullableString(item.PetId), nullableString(item.GameResultId), nullableString(item.RewardGrantId), item.Delta, item.BalanceAfter, item.Reason, item.SourceType, item.SourceId, formatTime(item.CreatedAt))
+	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_transactions (owner_public_key, id, runtime_profile_id, pet_id, game_result_id, reward_grant_id, delta, balance_after, reason, source_type, source_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+		item.OwnerPublicKey, item.Id, item.RuntimeProfileId, nullableString(item.PetId), nullableString(item.GameResultId), nullableString(item.RewardGrantId), item.Delta, item.BalanceAfter, item.Reason, item.SourceType, item.SourceId, formatTime(item.CreatedAt))
 	return err
 }
 
@@ -304,7 +283,7 @@ func upsertBadge(ctx context.Context, tx *sqlx.Tx, item apitypes.Badge) error {
 }
 
 func gameResultSelectSQL() string {
-	return `SELECT owner_public_key, id, runtime_profile_name, pet_id, game_def_id, score, max_score, difficulty, outcome, duration_ms, idempotency_key, payload_json, occurred_at, created_at FROM gameplay_game_results`
+	return `SELECT owner_public_key, id, runtime_profile_id, pet_id, game_def_id, score, max_score, difficulty, outcome, duration_ms, idempotency_key, payload_json, occurred_at, created_at FROM gameplay_game_results`
 }
 
 func scanGameResult(row rowScanner) (apitypes.GameResult, error) {
@@ -312,7 +291,7 @@ func scanGameResult(row rowScanner) (apitypes.GameResult, error) {
 	var score, maxScore, durationMs sql.NullInt64
 	var difficulty, outcome, idempotencyKey, payloadJSON sql.NullString
 	var occurredAt, createdAt string
-	if err := row.Scan(&item.OwnerPublicKey, &item.Id, &item.RuntimeProfileName, &item.PetId, &item.GameDefId, &score, &maxScore, &difficulty, &outcome, &durationMs, &idempotencyKey, &payloadJSON, &occurredAt, &createdAt); err != nil {
+	if err := row.Scan(&item.OwnerPublicKey, &item.Id, &item.RuntimeProfileId, &item.PetId, &item.GameDefId, &score, &maxScore, &difficulty, &outcome, &durationMs, &idempotencyKey, &payloadJSON, &occurredAt, &createdAt); err != nil {
 		return apitypes.GameResult{}, err
 	}
 	if score.Valid {
@@ -351,17 +330,17 @@ func insertGameResult(ctx context.Context, tx *sqlx.Tx, item apitypes.GameResult
 		}
 		payloadJSON = sql.NullString{String: data, Valid: true}
 	}
-	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_game_results (owner_public_key, id, runtime_profile_name, pet_id, game_def_id, score, max_score, difficulty, outcome, duration_ms, idempotency_key, payload_json, occurred_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-		item.OwnerPublicKey, item.Id, item.RuntimeProfileName, item.PetId, item.GameDefId, nullableInt64(item.Score), nullableInt64(item.MaxScore), nullableString(item.Difficulty), nullableString(item.Outcome), nullableInt64(item.DurationMs), nullableString(item.IdempotencyKey), payloadJSON, formatTime(item.OccurredAt), formatTime(item.CreatedAt))
+	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_game_results (owner_public_key, id, runtime_profile_id, pet_id, game_def_id, score, max_score, difficulty, outcome, duration_ms, idempotency_key, payload_json, occurred_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+		item.OwnerPublicKey, item.Id, item.RuntimeProfileId, item.PetId, item.GameDefId, nullableInt64(item.Score), nullableInt64(item.MaxScore), nullableString(item.Difficulty), nullableString(item.Outcome), nullableInt64(item.DurationMs), nullableString(item.IdempotencyKey), payloadJSON, formatTime(item.OccurredAt), formatTime(item.CreatedAt))
 	return err
 }
 
 func findGameResultByIdempotencyKey(ctx context.Context, tx *sqlx.Tx, owner, runtimeProfileName, key string) (apitypes.GameResult, error) {
-	return scanGameResult(tx.QueryRowContext(ctx, tx.Rebind(gameResultSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ? AND idempotency_key = ?`), owner, runtimeProfileName, strings.TrimSpace(key)))
+	return scanGameResult(tx.QueryRowContext(ctx, tx.Rebind(gameResultSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_id = ? AND idempotency_key = ?`), owner, runtimeProfileName, strings.TrimSpace(key)))
 }
 
 func rewardGrantSelectSQL() string {
-	return `SELECT owner_public_key, id, runtime_profile_name, pet_id, game_result_id, points_delta, pet_exp_delta, badge_exp_delta_json, source_type, source_id, reason, created_at FROM gameplay_reward_grants`
+	return `SELECT owner_public_key, id, runtime_profile_id, pet_id, game_result_id, points_delta, pet_exp_delta, badge_exp_delta_json, source_type, source_id, reason, created_at FROM gameplay_reward_grants`
 }
 
 func scanRewardGrant(row rowScanner) (apitypes.RewardGrant, error) {
@@ -369,7 +348,7 @@ func scanRewardGrant(row rowScanner) (apitypes.RewardGrant, error) {
 	var petID, gameResultID, reason sql.NullString
 	var badgeExpJSON string
 	var createdAt string
-	if err := row.Scan(&item.OwnerPublicKey, &item.Id, &item.RuntimeProfileName, &petID, &gameResultID, &item.PointsDelta, &item.PetExpDelta, &badgeExpJSON, &item.SourceType, &item.SourceId, &reason, &createdAt); err != nil {
+	if err := row.Scan(&item.OwnerPublicKey, &item.Id, &item.RuntimeProfileId, &petID, &gameResultID, &item.PointsDelta, &item.PetExpDelta, &badgeExpJSON, &item.SourceType, &item.SourceId, &reason, &createdAt); err != nil {
 		return apitypes.RewardGrant{}, err
 	}
 	item.PetId = nullStringPtr(petID)
@@ -387,14 +366,14 @@ func insertRewardGrant(ctx context.Context, tx *sqlx.Tx, item apitypes.RewardGra
 	if err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_reward_grants (owner_public_key, id, runtime_profile_name, pet_id, game_result_id, points_delta, pet_exp_delta, badge_exp_delta_json, source_type, source_id, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-		item.OwnerPublicKey, item.Id, item.RuntimeProfileName, nullableString(item.PetId), nullableString(item.GameResultId), item.PointsDelta, item.PetExpDelta, badgeExpJSON, item.SourceType, item.SourceId, nullableString(item.Reason), formatTime(item.CreatedAt))
+	_, err = tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_reward_grants (owner_public_key, id, runtime_profile_id, pet_id, game_result_id, points_delta, pet_exp_delta, badge_exp_delta_json, source_type, source_id, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+		item.OwnerPublicKey, item.Id, item.RuntimeProfileId, nullableString(item.PetId), nullableString(item.GameResultId), item.PointsDelta, item.PetExpDelta, badgeExpJSON, item.SourceType, item.SourceId, nullableString(item.Reason), formatTime(item.CreatedAt))
 	return err
 }
 
 func driveFactOutboxSelectSQL() string {
-	return `SELECT observation_id, payload_digest, owner_public_key, runtime_profile_name, pet_id,
-		workspace_name, target_profile_name, target_profile_revision, target_binding_name, target_binding_identity,
+	return `SELECT observation_id, payload_digest, owner_public_key, runtime_profile_id, pet_id,
+		workspace_id, target_profile_id, target_profile_revision, target_binding_name, target_binding_identity,
 		payload_json, state, operation_id, attempt_count, next_attempt_at, last_error,
 		claim_token, claim_until, created_at, updated_at
 		FROM gameplay_drive_fact_outbox`
@@ -405,7 +384,7 @@ func scanDriveFactOutbox(row rowScanner) (driveFactOutbox, error) {
 	var payloadJSON, nextAttemptAt, claimUntil, createdAt, updatedAt string
 	if err := row.Scan(
 		&item.ObservationID, &item.PayloadDigest, &item.OwnerPublicKey, &item.RuntimeProfile, &item.PetID,
-		&item.Target.WorkspaceName, &item.Target.ProfileName, &item.Target.ProfileRevision,
+		&item.Target.WorkspaceID, &item.Target.ProfileID, &item.Target.ProfileRevision,
 		&item.Target.BindingName, &item.Target.BindingIdentity,
 		&payloadJSON, &item.State, &item.OperationID, &item.AttemptCount, &nextAttemptAt,
 		&item.LastError, &item.ClaimToken, &claimUntil, &createdAt, &updatedAt,
@@ -430,14 +409,14 @@ func insertDriveFactOutbox(ctx context.Context, tx *sqlx.Tx, item driveFactOutbo
 		return fmt.Errorf("gameplay: encode Drive Fact outbox payload: %w", err)
 	}
 	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_drive_fact_outbox (
-			observation_id, payload_digest, owner_public_key, runtime_profile_name, pet_id,
-			workspace_name, target_profile_name, target_profile_revision, target_binding_name, target_binding_identity,
+			observation_id, payload_digest, owner_public_key, runtime_profile_id, pet_id,
+			workspace_id, target_profile_id, target_profile_revision, target_binding_name, target_binding_identity,
 			payload_json, state, operation_id, attempt_count, next_attempt_at, last_error,
 			claim_token, claim_until, created_at, updated_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(workspace_name, observation_id) DO NOTHING`),
+		ON CONFLICT(workspace_id, observation_id) DO NOTHING`),
 		item.ObservationID, item.PayloadDigest, item.OwnerPublicKey, item.RuntimeProfile, item.PetID,
-		item.Target.WorkspaceName, item.Target.ProfileName, item.Target.ProfileRevision,
+		item.Target.WorkspaceID, item.Target.ProfileID, item.Target.ProfileRevision,
 		item.Target.BindingName, item.Target.BindingIdentity,
 		string(payloadJSON), item.State, item.OperationID, item.AttemptCount, formatDriveFactTime(item.NextAttemptAt),
 		item.LastError, item.ClaimToken, formatDriveFactTime(item.ClaimUntil), formatDriveFactTime(item.CreatedAt), formatDriveFactTime(item.UpdatedAt),
@@ -450,8 +429,8 @@ func insertDriveFactOutbox(ctx context.Context, tx *sqlx.Tx, item driveFactOutbo
 		return err
 	}
 	existing, err := scanDriveFactOutbox(tx.QueryRowContext(ctx, tx.Rebind(
-		driveFactOutboxSelectSQL()+` WHERE workspace_name = ? AND observation_id = ?`,
-	), item.Target.WorkspaceName, item.ObservationID))
+		driveFactOutboxSelectSQL()+` WHERE workspace_id = ? AND observation_id = ?`,
+	), item.Target.WorkspaceID, item.ObservationID))
 	if err != nil {
 		return err
 	}
@@ -483,10 +462,10 @@ func (r *Runtime) claimDriveFact(ctx context.Context) (driveFactOutbox, bool, er
 		claimUntil := now.Add(30 * time.Second)
 		result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_drive_fact_outbox
 			SET claim_token = ?, claim_until = ?, attempt_count = attempt_count + 1, updated_at = ?
-			WHERE workspace_name = ? AND observation_id = ? AND state <> ? AND next_attempt_at <= ?
+			WHERE workspace_id = ? AND observation_id = ? AND state <> ? AND next_attempt_at <= ?
 				AND (claim_token = '' OR claim_until <= ?)`),
 			token, formatDriveFactTime(claimUntil), formatDriveFactTime(now),
-			item.Target.WorkspaceName, item.ObservationID, driveFactDelivered, formatDriveFactTime(now), formatDriveFactTime(now))
+			item.Target.WorkspaceID, item.ObservationID, driveFactDelivered, formatDriveFactTime(now), formatDriveFactTime(now))
 		if err != nil {
 			return driveFactOutbox{}, false, err
 		}
@@ -512,9 +491,9 @@ func (r *Runtime) finishDriveFactClaim(ctx context.Context, item driveFactOutbox
 	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_drive_fact_outbox
 		SET state = ?, operation_id = ?, last_error = ?, next_attempt_at = ?,
 			claim_token = '', claim_until = '', updated_at = ?
-		WHERE workspace_name = ? AND observation_id = ? AND claim_token = ?`),
+		WHERE workspace_id = ? AND observation_id = ? AND claim_token = ?`),
 		state, operationID, lastError, formatDriveFactTime(nextAttemptAt), formatDriveFactTime(r.now()),
-		item.Target.WorkspaceName, item.ObservationID, item.ClaimToken)
+		item.Target.WorkspaceID, item.ObservationID, item.ClaimToken)
 	if err != nil {
 		return err
 	}
@@ -535,9 +514,9 @@ func (r *Runtime) extendDriveFactClaim(ctx context.Context, item driveFactOutbox
 	}
 	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_drive_fact_outbox
 		SET claim_until = ?, updated_at = ?
-		WHERE workspace_name = ? AND observation_id = ? AND claim_token = ?`),
+		WHERE workspace_id = ? AND observation_id = ? AND claim_token = ?`),
 		formatDriveFactTime(claimUntil), formatDriveFactTime(r.now()),
-		item.Target.WorkspaceName, item.ObservationID, item.ClaimToken)
+		item.Target.WorkspaceID, item.ObservationID, item.ClaimToken)
 	if err != nil {
 		return err
 	}
@@ -557,11 +536,11 @@ func (r *Runtime) setDriveFactClaimTarget(ctx context.Context, item driveFactOut
 		return err
 	}
 	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_drive_fact_outbox
-		SET target_profile_name = ?, target_profile_revision = ?, target_binding_name = ?,
+		SET target_profile_id = ?, target_profile_revision = ?, target_binding_name = ?,
 			target_binding_identity = ?, updated_at = ?
-		WHERE workspace_name = ? AND observation_id = ? AND claim_token = ?`),
-		target.ProfileName, target.ProfileRevision, target.BindingName, target.BindingIdentity, formatDriveFactTime(r.now()),
-		item.Target.WorkspaceName, item.ObservationID, item.ClaimToken)
+		WHERE workspace_id = ? AND observation_id = ? AND claim_token = ?`),
+		target.ProfileID, target.ProfileRevision, target.BindingName, target.BindingIdentity, formatDriveFactTime(r.now()),
+		item.Target.WorkspaceID, item.ObservationID, item.ClaimToken)
 	if err != nil {
 		return err
 	}
@@ -594,12 +573,12 @@ func listOwnerRows[T any](ctx context.Context, r *Runtime, owner, table string, 
 	query := fmt.Sprintf(`SELECT %s FROM %s WHERE owner_public_key = ?`, columns, table)
 	args := []any{owner}
 	if profile, registered := runtimeProfileFromContext(ctx); registered && profileScoped {
-		profileName := strings.TrimSpace(profile.Name)
-		if profileName == "" {
+		profileID := strings.TrimSpace(profile.Id)
+		if profileID == "" {
 			return nil, false, nil, errors.New("gameplay: RuntimeProfile is required")
 		}
-		query += ` AND runtime_profile_name = ?`
-		args = append(args, profileName)
+		query += ` AND runtime_profile_id = ?`
+		args = append(args, profileID)
 	}
 	if cursor != "" {
 		query += ` AND id > ?`

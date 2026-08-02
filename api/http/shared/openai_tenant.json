@@ -29,21 +29,25 @@
       "OpenAITenant": {
         "type": "object",
         "required": [
+          "id",
           "name",
           "kind",
-          "credential_name",
+          "credential_id",
           "api_mode",
           "created_at",
           "updated_at"
         ],
         "properties": {
+          "id": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
           "kind": {
             "$ref": "#/components/schemas/OpenAITenantKind"
           },
-          "credential_name": {
+          "credential_id": {
             "type": "string"
           },
           "base_url": {

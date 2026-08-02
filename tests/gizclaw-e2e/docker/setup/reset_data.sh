@@ -8,6 +8,7 @@ testdata_dir="$e2e_dir/testdata"
 workspace_dir="$testdata_dir/server-workspace"
 resource_dir="$testdata_dir/resources"
 bin_path="$testdata_dir/bin/gizclaw"
+fixture_apply_bin="$testdata_dir/bin/gizclaw-e2e-fixture-apply"
 env_file="$e2e_dir/.env"
 # shellcheck source=../../setup/credentials.sh
 source "$e2e_dir/setup/credentials.sh"
@@ -76,43 +77,22 @@ init_data() {
     exit 2
   fi
 
-  apply_resource() {
-    local resource_file="$1"
-    XDG_CONFIG_HOME="$config_home" \
-      "$bin_path" admin apply --context "$admin_context" -f "$resource_file"
-  }
-
-  local provider_voices_synced=0
-  for resource_file in "${resource_files[@]}"; do
-    # RuntimeProfiles in the gameplay fixtures bind provider-owned Voice
-    # resources. Materialize those Voices after tenants exist and before the
-    # first profile that references them is validated.
-    if [[ "$provider_voices_synced" == "0" && "$resource_file" == */07-gameplay/* ]]; then
-      XDG_CONFIG_HOME="$config_home" \
-        "$bin_path" admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null
-      provider_voices_synced=1
-    fi
-    apply_resource "$resource_file"
-  done
-
-  if [[ "$provider_voices_synced" == "0" ]]; then
-    XDG_CONFIG_HOME="$config_home" \
-      "$bin_path" admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null
+  local firmware_asset_path="$repo_root/tests/gizclaw-e2e/testdata/assets/firmware/devkit-firmware-main.tar"
+  if [[ ! -f "$firmware_asset_path" ]]; then
+    echo "missing firmware fixture asset: $firmware_asset_path" >&2
+    exit 2
   fi
-
-  upload_firmware_asset() {
-    local firmware_id="devkit-firmware-main"
-    local channel="stable"
-    local asset_path="$repo_root/tests/gizclaw-e2e/testdata/assets/firmware/devkit-firmware-main.tar"
-    if [[ ! -f "$asset_path" ]]; then
-      echo "missing firmware fixture asset: $asset_path" >&2
-      exit 2
-    fi
-    XDG_CONFIG_HOME="$config_home" \
-      "$bin_path" admin firmwares upload-artifact "$firmware_id" --channel "$channel" -f "$asset_path" --context "$admin_context" >/dev/null
-  }
-
-  upload_firmware_asset
+  if [[ ! -x "$fixture_apply_bin" ]]; then
+    (cd "$repo_root" && go build -o "$fixture_apply_bin" ./tests/gizclaw-e2e/internal/fixtureapply)
+  fi
+  "$fixture_apply_bin" \
+    --bin "$bin_path" \
+    --config-home "$config_home" \
+    --context "$admin_context" \
+    --sync-volc-tenant volc-main \
+    --firmware-name devkit-firmware-main \
+    --firmware-asset "$firmware_asset_path" \
+    "${resource_files[@]}"
 
 }
 

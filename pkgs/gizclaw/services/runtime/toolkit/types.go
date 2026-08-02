@@ -16,6 +16,7 @@ const (
 
 // Tool is the persisted configuration for one canonically named capability.
 type Tool struct {
+	ID          string            `json:"id"`
 	Name        string            `json:"name"`
 	Type        ToolType          `json:"type"`
 	Description *string           `json:"description,omitempty"`

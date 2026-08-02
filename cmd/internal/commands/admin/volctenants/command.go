@@ -45,7 +45,7 @@ func newListCmd(ctxName *string) *cobra.Command {
 
 func newGetCmd(ctxName *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <name>",
+		Use:   "get <id>",
 		Short: "Get a Volcengine tenant",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -65,7 +65,7 @@ func newGetCmd(ctxName *string) *cobra.Command {
 
 func newSyncVoicesCmd(ctxName *string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "sync-voices <name>",
+		Use:   "sync-voices <id>",
 		Short: "Sync Volcengine tenant voices",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

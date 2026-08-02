@@ -8,6 +8,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
 func TestServerWorkspaceRPC(t *testing.T) {
@@ -17,39 +18,36 @@ func TestServerWorkspaceRPC(t *testing.T) {
 
 	_, _ = env.peer.DeleteWorkspace(env.ctx, "workspace.delete.preclean", rpcapi.WorkspaceDeleteRequest{Name: mutationWorkspace})
 	_, _ = env.peer.DeleteWorkspace(env.ctx, "workspace.delete.page.preclean", rpcapi.WorkspaceDeleteRequest{Name: pageWorkspace})
-	_, _ = admin.DeleteWorkflowWithResponse(env.ctx, mutationWorkflow)
-	if response, err := admin.CreateWorkflowWithResponse(env.ctx, adminWorkflow(mutationWorkflow, "workspace test flow")); err != nil || response.JSON200 == nil {
+	response, err := admin.CreateWorkflowWithResponse(env.ctx, adminWorkflow(mutationWorkflow, "workspace test flow"))
+	if err != nil || response.JSON200 == nil {
 		t.Fatalf("create workflow for workspace test: %v", err)
 	}
-	t.Cleanup(func() { _, _ = admin.DeleteWorkflowWithResponse(env.ctx, mutationWorkflow) })
-	profile, err := admin.PutRuntimeProfileWithResponse(env.ctx, "e2e-peer-a", adminhttp.RuntimeProfileUpsert{
+	t.Cleanup(func() { _, _ = admin.DeleteWorkflowWithResponse(env.ctx, response.JSON200.Id) })
+	_, err = clitest.UpsertRuntimeProfileByName(env.ctx, admin, adminhttp.RuntimeProfileUpsert{
 		Name: "e2e-peer-a",
 		Spec: sharedRuntimeProfileSpecWithMutation(t),
 	})
 	if err != nil {
 		t.Fatalf("put RuntimeProfile with mutation Workflow: %v", err)
 	}
-	if profile.JSON200 == nil {
-		t.Fatalf("put RuntimeProfile with mutation Workflow status %d: %s", profile.StatusCode(), profile.Body)
-	}
 	createInput := rpcapi.WorkspaceInputModePushToTalk
 	workspace, err := env.peer.CreateWorkspace(env.ctx, "workspace.create", rpcapi.WorkspaceCreateRequest{
-		Name:          mutationWorkspace,
-		Collection:    "assistants",
-		WorkflowAlias: "mutation",
-		Parameters:    rpcFlowcraftWorkspaceParameters(t, createInput),
+		Name:         mutationWorkspace,
+		Collection:   "assistants",
+		WorkflowName: "mutation",
+		Parameters:   rpcFlowcraftWorkspaceParameters(t, createInput),
 	})
 	if err != nil {
 		t.Fatalf("workspace.create: %v", err)
 	}
-	if workspace.Name != mutationWorkspace || workspace.WorkflowAlias != "mutation" || !workspace.Available {
+	if workspace.Name != mutationWorkspace || workspace.WorkflowName != "mutation" || !workspace.Available {
 		t.Fatalf("workspace.create = %#v", workspace)
 	}
 	if _, err := env.peer.CreateWorkspace(env.ctx, "workspace.create.page", rpcapi.WorkspaceCreateRequest{
-		Name:          pageWorkspace,
-		Collection:    "assistants",
-		WorkflowAlias: "mutation",
-		Parameters:    rpcFlowcraftWorkspaceParameters(t, createInput),
+		Name:         pageWorkspace,
+		Collection:   "assistants",
+		WorkflowName: "mutation",
+		Parameters:   rpcFlowcraftWorkspaceParameters(t, createInput),
 	}); err != nil {
 		t.Fatalf("workspace.create page item: %v", err)
 	}
@@ -72,7 +70,7 @@ func TestServerWorkspaceRPC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("workspace.put: %v", err)
 	}
-	if workspace.Name != mutationWorkspace || workspace.WorkflowAlias != "mutation" || !workspace.Available {
+	if workspace.Name != mutationWorkspace || workspace.WorkflowName != "mutation" || !workspace.Available {
 		t.Fatalf("workspace.put = %#v", workspace)
 	}
 	gotWorkspace, err := env.peer.GetWorkspace(env.ctx, "workspace.get.updated", rpcapi.WorkspaceGetRequest{Name: mutationWorkspace})
@@ -103,13 +101,13 @@ func TestServerResourceUnavailableWithoutProfileOrOwnership(t *testing.T) {
 
 	denied := env.h.ConnectClientFromContext("peer-denied")
 	defer denied.Close()
-	if _, err := denied.GetWorkflow(env.ctx, "workflow.get.denied", rpcapi.WorkflowGetRequest{Alias: "shared"}); err == nil {
+	if _, err := denied.GetWorkflow(env.ctx, "workflow.get.denied", rpcapi.WorkflowGetRequest{Name: "shared"}); err == nil {
 		t.Fatalf("denied peer workflow.get error = %v", err)
 	}
 	if _, err := denied.GetWorkspace(env.ctx, "workspace.get.denied", rpcapi.WorkspaceGetRequest{Name: sharedWorkspace}); err == nil {
 		t.Fatalf("denied peer workspace.get error = %v", err)
 	}
-	if _, err := denied.GetModel(env.ctx, "model.get.denied", rpcapi.ModelGetRequest{Alias: "chat"}); err == nil {
+	if _, err := denied.GetModel(env.ctx, "model.get.denied", rpcapi.ModelGetRequest{Name: "chat"}); err == nil {
 		t.Fatalf("denied peer model.get error = %v", err)
 	}
 	assertDeniedListsRejectMissingProfile(t, env.ctx, denied)
@@ -121,13 +119,6 @@ func TestServerResourceCreatorOwnsConcreteResources(t *testing.T) {
 
 	workspaceName := "owner-workspace"
 	unownedWorkspaceName := "unowned-workspace"
-	t.Cleanup(func() {
-		_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, workspaceName)
-		_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, unownedWorkspaceName)
-	})
-	_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, workspaceName)
-	_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, unownedWorkspaceName)
-
 	input := apitypes.WorkspaceInputModePushToTalk
 	var adminParameters apitypes.WorkspaceParameters
 	if err := adminParameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
@@ -136,23 +127,28 @@ func TestServerResourceCreatorOwnsConcreteResources(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("build unowned Workspace parameters: %v", err)
 	}
+	workflowID, err := clitest.ResourceIDByName(env.ctx, admin, "Workflow", sharedWorkflow)
+	if err != nil {
+		t.Fatalf("resolve shared Workflow: %v", err)
+	}
 	created, err := admin.CreateWorkspaceWithResponse(env.ctx, adminhttp.WorkspaceUpsert{
-		Name:         unownedWorkspaceName,
-		WorkflowName: sharedWorkflow,
-		Parameters:   &adminParameters,
+		Name:       unownedWorkspaceName,
+		WorkflowId: workflowID,
+		Parameters: &adminParameters,
 	})
 	if err != nil || created.JSON200 == nil {
 		t.Fatalf("create unowned workspace: response=%#v error=%v", created, err)
 	}
+	t.Cleanup(func() { _, _ = admin.DeleteWorkspaceWithResponse(env.ctx, created.JSON200.Id) })
 	if _, err := env.peer.DeleteWorkspace(env.ctx, "owner.workspace.unowned.delete", rpcapi.WorkspaceDeleteRequest{Name: unownedWorkspaceName}); err == nil {
 		t.Fatalf("workspace.delete unowned error = %v", err)
 	}
 
 	if _, err := env.peer.CreateWorkspace(env.ctx, "owner.workspace.create", rpcapi.WorkspaceCreateRequest{
-		Name:          workspaceName,
-		Collection:    "assistants",
-		WorkflowAlias: "shared",
-		Parameters:    rpcFlowcraftWorkspaceParameters(t, rpcapi.WorkspaceInputModePushToTalk),
+		Name:         workspaceName,
+		Collection:   "assistants",
+		WorkflowName: "shared",
+		Parameters:   rpcFlowcraftWorkspaceParameters(t, rpcapi.WorkspaceInputModePushToTalk),
 	}); err != nil {
 		t.Fatalf("workspace.create owner: %v", err)
 	}

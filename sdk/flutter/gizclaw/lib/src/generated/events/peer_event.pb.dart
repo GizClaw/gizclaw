@@ -975,14 +975,14 @@ class FriendRelationshipUpdated extends $pb.GeneratedMessage {
 
 class FriendGroupUpdated extends $pb.GeneratedMessage {
   factory FriendGroupUpdated({
-    $core.String? friendGroupId,
+    $core.String? friendGroupName,
     $core.String? workspaceName,
     FriendGroupChange? change,
     $fixnum.Int64? revisionUnixMs,
     $core.String? affectedPeerPublicKey,
   }) {
     final result = create();
-    if (friendGroupId != null) result.friendGroupId = friendGroupId;
+    if (friendGroupName != null) result.friendGroupName = friendGroupName;
     if (workspaceName != null) result.workspaceName = workspaceName;
     if (change != null) result.change = change;
     if (revisionUnixMs != null) result.revisionUnixMs = revisionUnixMs;
@@ -1005,7 +1005,7 @@ class FriendGroupUpdated extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.events.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'friendGroupId')
+    ..aOS(1, _omitFieldNames ? '' : 'friendGroupName')
     ..aOS(2, _omitFieldNames ? '' : 'workspaceName')
     ..aE<FriendGroupChange>(3, _omitFieldNames ? '' : 'change',
         enumValues: FriendGroupChange.values)
@@ -1033,13 +1033,13 @@ class FriendGroupUpdated extends $pb.GeneratedMessage {
   static FriendGroupUpdated? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get friendGroupId => $_getSZ(0);
+  $core.String get friendGroupName => $_getSZ(0);
   @$pb.TagNumber(1)
-  set friendGroupId($core.String value) => $_setString(0, value);
+  set friendGroupName($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasFriendGroupId() => $_has(0);
+  $core.bool hasFriendGroupName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearFriendGroupId() => $_clearField(1);
+  void clearFriendGroupName() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get workspaceName => $_getSZ(1);

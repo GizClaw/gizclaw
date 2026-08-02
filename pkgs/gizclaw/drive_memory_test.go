@@ -23,8 +23,8 @@ func TestDriveFactTargetUsesOpaqueBindingIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	spec := agenthost.Spec{
-		Workspace:  apitypes.Workspace{Name: "pet-workspace"},
-		MemoryName: "long-term", MemoryProfileName: "profile",
+		Workspace:  apitypes.Workspace{Id: "workspace-id", Name: "pet-workspace"},
+		MemoryName: "long-term", MemoryProfileID: "profile-id",
 		MemoryProfileRevision: "revision",
 		MemoryBinding: &apitypes.RuntimeProfileMemoryBinding{
 			Driver:   apitypes.RuntimeProfileMemoryDriverMem0,
@@ -36,7 +36,7 @@ func TestDriveFactTargetUsesOpaqueBindingIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if target.WorkspaceName != "pet-workspace" || target.BindingName != "long-term" ||
+	if target.WorkspaceID != "workspace-id" || target.BindingName != "long-term" ||
 		target.BindingIdentity == "" || strings.Contains(target.BindingIdentity, "top-secret") {
 		t.Fatalf("target = %#v", target)
 	}

@@ -17,7 +17,7 @@ func TestServerToolRPCIsReadOnlyRuntimeCatalog(t *testing.T) {
 	if len(listed.Items) != 0 {
 		t.Fatalf("server.tool.list = %#v, want empty unconfigured RuntimeProfile catalog", listed.Items)
 	}
-	if _, err := env.peer.GetTool(env.ctx, "tool.get.missing", rpcapi.ToolGetRequest{Alias: "missing"}); err == nil {
+	if _, err := env.peer.GetTool(env.ctx, "tool.get.missing", rpcapi.ToolGetRequest{Name: "missing"}); err == nil {
 		t.Fatal("server.tool.get unexpectedly resolved an unconfigured alias")
 	}
 }

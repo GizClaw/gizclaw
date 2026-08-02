@@ -7,17 +7,20 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func TestBuilderSelectsCanonicalNamesAndAppliesPolicy(t *testing.T) {
+func TestBuilderResolvesCanonicalIDsAndAppliesPolicy(t *testing.T) {
 	t.Parallel()
 	server := &Server{Store: kv.NewMemory(nil)}
+	toolIDs := make(map[string]string)
 	for _, tool := range []Tool{testClientTool("volume_set"), testHTTPTool("get_weather")} {
-		if _, err := server.PutTool(context.Background(), tool); err != nil {
+		created, err := server.CreateTool(context.Background(), tool)
+		if err != nil {
 			t.Fatalf("PutTool(%q): %v", tool.Name, err)
 		}
+		toolIDs[tool.Name] = created.ID
 	}
 	kit, err := (&Builder{Tools: server}).Build(context.Background(), BuildRequest{
-		ProfileTools:  []string{"get_weather", "volume_set", "get_weather"},
-		AllowedTools:  []string{"volume_set"},
+		ProfileTools:  []string{toolIDs["get_weather"], toolIDs["volume_set"], toolIDs["get_weather"]},
+		AllowedTools:  []string{toolIDs["volume_set"]},
 		RestrictTools: true,
 	})
 	if err != nil {
@@ -36,11 +39,12 @@ func TestBuilderSkipsDisabledAndRejectsDanglingTools(t *testing.T) {
 	server := &Server{Store: kv.NewMemory(nil)}
 	disabled := testClientTool("volume_set")
 	disabled.Enabled = false
-	if _, err := server.PutTool(context.Background(), disabled); err != nil {
+	created, err := server.CreateTool(context.Background(), disabled)
+	if err != nil {
 		t.Fatalf("PutTool(): %v", err)
 	}
 	kit, err := (&Builder{Tools: server}).Build(context.Background(), BuildRequest{
-		ProfileTools: []string{"volume_set"},
+		ProfileTools: []string{created.ID},
 	})
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
@@ -60,16 +64,17 @@ func TestBuilderReturnsDefensiveSnapshots(t *testing.T) {
 	server := &Server{Store: kv.NewMemory(nil)}
 	tool := testClientTool("volume_set")
 	tool.Metadata = []byte(`{"category":"device"}`)
-	if _, err := server.PutTool(context.Background(), tool); err != nil {
+	created, err := server.CreateTool(context.Background(), tool)
+	if err != nil {
 		t.Fatalf("PutTool(): %v", err)
 	}
 	builder := &Builder{Tools: server}
-	first, err := builder.Build(context.Background(), BuildRequest{ProfileTools: []string{"volume_set"}})
+	first, err := builder.Build(context.Background(), BuildRequest{ProfileTools: []string{created.ID}})
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
 	first.Tools[0].Metadata[0] = '['
-	second, err := builder.Build(context.Background(), BuildRequest{ProfileTools: []string{"volume_set"}})
+	second, err := builder.Build(context.Background(), BuildRequest{ProfileTools: []string{created.ID}})
 	if err != nil {
 		t.Fatalf("Build() second: %v", err)
 	}

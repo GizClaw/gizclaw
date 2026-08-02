@@ -30,7 +30,7 @@ func TestWorkspaceRemainsVisibleWhenRuntimeAliasDisappears(t *testing.T) {
 	}
 
 	created := callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
-		Name: "journey-1", Collection: "story-teller", WorkflowAlias: "journey",
+		Name: "journey-1", Collection: "story-teller", WorkflowName: "journey",
 	})
 	if !created.Available {
 		t.Fatalf("created Workspace = %#v, want available", created)
@@ -86,17 +86,17 @@ func TestSystemWorkspaceAvailabilityDoesNotRequireCollectionLabel(t *testing.T) 
 	system := true
 	profile := runtimeProfileWithWorkspaceAlias("r1")
 	if !workspaceAvailable(&profile, apitypes.Workspace{
-		Name: "pet-1", WorkflowName: "pet-care", System: &system,
+		Name: "pet-1", WorkflowId: "pet-care", System: &system,
 	}) {
 		t.Fatal("system Workspace without labels is unavailable")
 	}
 	if workspaceAvailable(nil, apitypes.Workspace{
-		Name: "pet-1", WorkflowName: "pet-care", System: &system,
+		Name: "pet-1", WorkflowId: "pet-care", System: &system,
 	}) {
 		t.Fatal("system Workspace without a RuntimeProfile is available")
 	}
 	if workspaceAvailable(&profile, apitypes.Workspace{
-		Name: "legacy", WorkflowName: "pet-care",
+		Name: "legacy", WorkflowId: "pet-care",
 	}) {
 		t.Fatal("ordinary unlabeled Workspace is available")
 	}
@@ -110,6 +110,7 @@ func runtimeProfileWithWorkspaceAlias(revision string) apitypes.RuntimeProfile {
 				"llm": collectionTestBinding("chat-model", "Chat"),
 			},
 		}, Workflows: apitypes.RuntimeProfileWorkflows{
+			System: apitypes.RuntimeProfileSystemWorkflows{Pet: "pet-care"},
 			Collections: apitypes.RuntimeProfileWorkflowCollections{
 				"story-teller": {"journey": collectionTestBinding("canonical-workflow", "Journey")},
 			},

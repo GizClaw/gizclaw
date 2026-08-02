@@ -6,7 +6,7 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
-PB_BIND(gizclaw_rpc_v1_AliasI18nText, gizclaw_rpc_v1_AliasI18nText, AUTO)
+PB_BIND(gizclaw_rpc_v1_ResourceI18nText, gizclaw_rpc_v1_ResourceI18nText, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_SpeechTranscribeRequest, gizclaw_rpc_v1_SpeechTranscribeRequest, AUTO)
@@ -222,7 +222,7 @@ PB_BIND(gizclaw_rpc_v1_WorkflowListRequest, gizclaw_rpc_v1_WorkflowListRequest, 
 PB_BIND(gizclaw_rpc_v1_WorkflowListResponse, gizclaw_rpc_v1_WorkflowListResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ToolkitPolicyToolIds, gizclaw_rpc_v1_ToolkitPolicyToolIds, AUTO)
+PB_BIND(gizclaw_rpc_v1_ToolkitPolicyToolNames, gizclaw_rpc_v1_ToolkitPolicyToolNames, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ToolkitPolicy, gizclaw_rpc_v1_ToolkitPolicy, AUTO)

@@ -40,9 +40,13 @@ func TestSplitMembershipName(t *testing.T) {
 	}
 }
 
-func TestSplitMembershipNameRejectsInvalidGroupIDSegment(t *testing.T) {
-	if _, _, err := SplitMembershipName("family:PeerKey"); err == nil {
-		t.Fatal("SplitMembershipName accepted short group id")
+func TestSplitMembershipNameAcceptsOpaqueGroupID(t *testing.T) {
+	groupID, memberID, err := SplitMembershipName("01K1HZZZ9PV2KYRHZJ4V94Z0DQ:PeerKey")
+	if err != nil {
+		t.Fatalf("SplitMembershipName: %v", err)
+	}
+	if groupID != "01K1HZZZ9PV2KYRHZJ4V94Z0DQ" || memberID != "PeerKey" {
+		t.Fatalf("SplitMembershipName = %q, %q", groupID, memberID)
 	}
 }
 

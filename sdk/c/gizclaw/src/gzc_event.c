@@ -76,7 +76,7 @@ static int peer_event_validate(const gzc_peer_event_t *event, int allow_unknown)
   case gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED:
     return event->which_payload ==
                        gizclaw_events_v1_PeerEvent_friend_group_updated_tag &&
-                   has_non_space(event->payload.friend_group_updated.friend_group_id) &&
+                   has_non_space(event->payload.friend_group_updated.friend_group_name) &&
                    has_non_space(event->payload.friend_group_updated.workspace_name)
                ? GZC_OK
                : GZC_ERR_RPC;

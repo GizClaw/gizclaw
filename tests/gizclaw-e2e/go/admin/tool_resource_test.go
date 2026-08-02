@@ -12,9 +12,12 @@ import (
 
 func TestAdminAPIToolResourceLifecycle(t *testing.T) {
 	env := newAdminAPIHarness(t)
-	id := mutationName("tool-resource")
+	name := mutationName("tool-resource")
+	var id string
 	t.Cleanup(func() {
-		_, _ = env.api.DeleteResourceWithResponse(env.ctx, apitypes.ResourceKindTool, id)
+		if id != "" {
+			_, _ = env.api.DeleteResourceWithResponse(env.ctx, apitypes.ResourceKindTool, id)
+		}
 	})
 
 	auth := apitypes.ToolHTTPAuth{}
@@ -38,7 +41,7 @@ func TestAdminAPIToolResourceLifecycle(t *testing.T) {
 	if err := resource.FromToolResource(apitypes.ToolResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.ToolResourceKindTool,
-		Metadata:   apitypes.ResourceMetadata{Name: id},
+		Metadata:   apitypes.ResourceMetadata{Name: name},
 		Spec:       spec,
 	}); err != nil {
 		t.Fatalf("build Tool resource: %v", err)
@@ -49,9 +52,10 @@ func TestAdminAPIToolResourceLifecycle(t *testing.T) {
 		t.Fatalf("apply Tool resource: %v", err)
 	}
 	requireStatusOK(t, applied, applied.Body)
-	if applied.JSON200 == nil || applied.JSON200.Kind != apitypes.ResourceKindTool || applied.JSON200.Name != id {
+	if applied.JSON200 == nil || applied.JSON200.Id == nil || applied.JSON200.Kind != apitypes.ResourceKindTool || applied.JSON200.Name != name {
 		t.Fatalf("apply Tool resource = %#v", applied.JSON200)
 	}
+	id = *applied.JSON200.Id
 
 	got, err := env.api.GetResourceWithResponse(env.ctx, apitypes.ResourceKindTool, id)
 	if err != nil {

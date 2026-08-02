@@ -312,6 +312,7 @@
         "type": "object",
         "required": [
           "id",
+          "name",
           "spec",
           "created_at",
           "updated_at"
@@ -319,6 +320,9 @@
         "additionalProperties": false,
         "properties": {
           "id": {
+            "type": "string"
+          },
+          "name": {
             "type": "string"
           },
           "spec": {
@@ -369,6 +373,7 @@
         "type": "object",
         "required": [
           "id",
+          "name",
           "spec",
           "created_at",
           "updated_at"
@@ -376,6 +381,9 @@
         "additionalProperties": false,
         "properties": {
           "id": {
+            "type": "string"
+          },
+          "name": {
             "type": "string"
           },
           "spec": {
@@ -431,6 +439,7 @@
         "type": "object",
         "required": [
           "id",
+          "name",
           "spec",
           "created_at",
           "updated_at"
@@ -438,6 +447,9 @@
         "additionalProperties": false,
         "properties": {
           "id": {
+            "type": "string"
+          },
+          "name": {
             "type": "string"
           },
           "spec": {
@@ -460,11 +472,12 @@
         "type": "object",
         "required": [
           "id",
+          "name",
           "owner_public_key",
-          "runtime_profile_name",
-          "petdef_id",
+          "runtime_profile_id",
+          "pet_def_id",
           "display_name",
-          "workspace_name",
+          "workspace_id",
           "stats",
           "progression",
           "lifecycle",
@@ -478,16 +491,20 @@
           "id": {
             "type": "string"
           },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
           "owner_public_key": {
             "type": "string"
           },
-          "petdef_id": {
+          "pet_def_id": {
             "type": "string"
           },
           "display_name": {
             "type": "string"
           },
-          "workspace_name": {
+          "workspace_id": {
             "type": "string"
           },
           "stats": {
@@ -519,7 +536,7 @@
             "type": "string",
             "format": "date-time"
           },
-          "runtime_profile_name": {
+          "runtime_profile_id": {
             "type": "string"
           }
         }
@@ -577,7 +594,7 @@
         "type": "object",
         "required": [
           "owner_public_key",
-          "runtime_profile_name",
+          "runtime_profile_id",
           "balance",
           "created_at",
           "updated_at"
@@ -599,7 +616,7 @@
             "type": "string",
             "format": "date-time"
           },
-          "runtime_profile_name": {
+          "runtime_profile_id": {
             "type": "string"
           }
         }
@@ -609,7 +626,7 @@
         "required": [
           "id",
           "owner_public_key",
-          "runtime_profile_name",
+          "runtime_profile_id",
           "delta",
           "balance_after",
           "reason",
@@ -655,7 +672,7 @@
             "type": "string",
             "format": "date-time"
           },
-          "runtime_profile_name": {
+          "runtime_profile_id": {
             "type": "string"
           }
         }
@@ -665,7 +682,7 @@
         "required": [
           "id",
           "owner_public_key",
-          "runtime_profile_name",
+          "runtime_profile_id",
           "pet_id",
           "game_def_id",
           "occurred_at",
@@ -717,7 +734,7 @@
             "type": "string",
             "format": "date-time"
           },
-          "runtime_profile_name": {
+          "runtime_profile_id": {
             "type": "string"
           }
         }
@@ -727,7 +744,7 @@
         "required": [
           "id",
           "owner_public_key",
-          "runtime_profile_name",
+          "runtime_profile_id",
           "points_delta",
           "pet_exp_delta",
           "badge_exp_delta",
@@ -777,7 +794,7 @@
             "type": "string",
             "format": "date-time"
           },
-          "runtime_profile_name": {
+          "runtime_profile_id": {
             "type": "string"
           }
         }
@@ -908,6 +925,7 @@
       "PetAdoptRequest": {
         "type": "object",
         "required": [
+          "name",
           "display_name"
         ],
         "additionalProperties": false,
@@ -916,7 +934,7 @@
             "type": "string",
             "minLength": 1
           },
-          "id": {
+          "name": {
             "type": "string",
             "minLength": 8,
             "maxLength": 48,

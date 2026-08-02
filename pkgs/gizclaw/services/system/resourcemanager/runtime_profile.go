@@ -11,7 +11,7 @@ func (m *Manager) getRuntimeProfile(ctx context.Context, name string) (apitypes.
 	if m.services.RuntimeProfiles == nil {
 		return apitypes.RuntimeProfile{}, false, missingService("runtime profiles")
 	}
-	response, err := m.services.RuntimeProfiles.GetRuntimeProfile(ctx, adminhttp.GetRuntimeProfileRequestObject{Name: name})
+	response, err := m.services.RuntimeProfiles.GetRuntimeProfile(ctx, adminhttp.GetRuntimeProfileRequestObject{Id: name})
 	if err != nil {
 		return apitypes.RuntimeProfile{}, false, err
 	}
@@ -27,9 +27,9 @@ func (m *Manager) getRuntimeProfile(ctx context.Context, name string) (apitypes.
 	}
 }
 
-func (m *Manager) putRuntimeProfile(ctx context.Context, name string, spec apitypes.RuntimeProfileSpec) error {
+func (m *Manager) putRuntimeProfile(ctx context.Context, id, name string, spec apitypes.RuntimeProfileSpec) error {
 	body := adminhttp.RuntimeProfileUpsert{Name: name, Spec: spec}
-	response, err := m.services.RuntimeProfiles.PutRuntimeProfile(ctx, adminhttp.PutRuntimeProfileRequestObject{Name: name, Body: &body})
+	response, err := m.services.RuntimeProfiles.PutRuntimeProfile(ctx, adminhttp.PutRuntimeProfileRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func (m *Manager) deleteRuntimeProfile(ctx context.Context, name string) (apityp
 	if m.services.RuntimeProfiles == nil {
 		return apitypes.RuntimeProfile{}, false, missingService("runtime profiles")
 	}
-	response, err := m.services.RuntimeProfiles.DeleteRuntimeProfile(ctx, adminhttp.DeleteRuntimeProfileRequestObject{Name: name})
+	response, err := m.services.RuntimeProfiles.DeleteRuntimeProfile(ctx, adminhttp.DeleteRuntimeProfileRequestObject{Id: name})
 	if err != nil {
 		return apitypes.RuntimeProfile{}, false, err
 	}
@@ -75,8 +75,39 @@ func (m *Manager) applyRuntimeProfile(ctx context.Context, resource apitypes.Res
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	previous, exists, err := m.getRuntimeProfile(ctx, item.Metadata.Name)
+	id, updating, err := resourceUpdateID(item.Metadata)
 	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !updating {
+		body := adminhttp.RuntimeProfileUpsert{Name: item.Metadata.Name, Spec: item.Spec}
+		response, err := m.services.RuntimeProfiles.CreateRuntimeProfile(ctx, adminhttp.CreateRuntimeProfileRequestObject{Body: &body})
+		if err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		var createdID string
+		switch response := response.(type) {
+		case adminhttp.CreateRuntimeProfile200JSONResponse:
+			createdID = response.Id
+		case adminhttp.CreateRuntimeProfile400JSONResponse:
+			return apitypes.ApplyResult{}, responseError(400, "CREATE_RUNTIME_PROFILE_FAILED", "failed to create RuntimeProfile", response)
+		case adminhttp.CreateRuntimeProfile409JSONResponse:
+			return apitypes.ApplyResult{}, responseError(409, "CREATE_RUNTIME_PROFILE_FAILED", "failed to create RuntimeProfile", response)
+		case adminhttp.CreateRuntimeProfile500JSONResponse:
+			return apitypes.ApplyResult{}, responseError(500, "CREATE_RUNTIME_PROFILE_FAILED", "failed to create RuntimeProfile", response)
+		default:
+			return apitypes.ApplyResult{}, unexpectedResponse("CreateRuntimeProfile", response)
+		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindRuntimeProfile, item.Metadata.Name, createdID), nil
+	}
+	previous, exists, err := m.getRuntimeProfile(ctx, id)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !exists {
+		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindRuntimeProfile, id)
+	}
+	if err := validateImmutableResourceName(apitypes.ResourceKindRuntimeProfile, id, previous.Name, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {
@@ -85,24 +116,20 @@ func (m *Manager) applyRuntimeProfile(ctx context.Context, resource apitypes.Res
 			return apitypes.ApplyResult{}, err
 		}
 		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindRuntimeProfile, item.Metadata.Name), nil
+			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindRuntimeProfile, item.Metadata.Name, id), nil
 		}
 	}
-	if err := m.putRuntimeProfile(ctx, item.Metadata.Name, item.Spec); err != nil {
+	if err := m.putRuntimeProfile(ctx, id, item.Metadata.Name, item.Spec); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	action := apitypes.ApplyActionCreated
-	if exists {
-		action = apitypes.ApplyActionUpdated
-	}
-	return applyResult(action, apitypes.ResourceKindRuntimeProfile, item.Metadata.Name), nil
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindRuntimeProfile, item.Metadata.Name, id), nil
 }
 
 func resourceFromRuntimeProfile(item apitypes.RuntimeProfile) (apitypes.Resource, error) {
 	return marshalResource(apitypes.RuntimeProfileResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.RuntimeProfileResourceKind(apitypes.ResourceKindRuntimeProfile),
-		Metadata:   apitypes.ResourceMetadata{Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
 		Spec:       item.Spec,
 	})
 }

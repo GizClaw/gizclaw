@@ -1112,15 +1112,14 @@ type AgentSelection struct {
 
 // Badge defines model for Badge.
 type Badge struct {
-	Active         bool      `json:"active"`
-	BadgeDefId     string    `json:"badge_def_id"`
-	CreatedAt      time.Time `json:"created_at"`
-	Exp            int64     `json:"exp"`
-	Id             string    `json:"id"`
-	Level          int64     `json:"level"`
-	OwnerPublicKey string    `json:"owner_public_key"`
-	Progress       int64     `json:"progress"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	Active       bool      `json:"active"`
+	BadgeDefName string    `json:"badge_def_name"`
+	CreatedAt    time.Time `json:"created_at"`
+	Exp          int64     `json:"exp"`
+	Level        int64     `json:"level"`
+	Name         string    `json:"name"`
+	Progress     int64     `json:"progress"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // BadgeDef defines model for BadgeDef.
@@ -1134,12 +1133,12 @@ type BadgeDef struct {
 
 // BadgeDefPixaDownloadRequest defines model for BadgeDefPixaDownloadRequest.
 type BadgeDefPixaDownloadRequest struct {
-	Id string `json:"id"`
+	Name string `json:"name"`
 }
 
 // BadgeDefPixaDownloadResponse defines model for BadgeDefPixaDownloadResponse.
 type BadgeDefPixaDownloadResponse struct {
-	Id        string  `json:"id"`
+	Name      string  `json:"name"`
 	PixaPath  *string `json:"pixa_path,omitempty"`
 	SizeBytes int64   `json:"size_bytes"`
 }
@@ -1224,6 +1223,7 @@ type ClientGetInfoResponse = HardwareInfo
 
 // ContactCreateRequest defines model for ContactCreateRequest.
 type ContactCreateRequest struct {
+	Name        string  `json:"name"`
 	DisplayName *string `json:"display_name,omitempty"`
 	PhoneNumber *string `json:"phone_number,omitempty"`
 }
@@ -1233,7 +1233,7 @@ type ContactCreateResponse = ContactObject
 
 // ContactDeleteRequest defines model for ContactDeleteRequest.
 type ContactDeleteRequest struct {
-	Id string `json:"id"`
+	Name string `json:"name"`
 }
 
 // ContactDeleteResponse defines model for ContactDeleteResponse.
@@ -1241,7 +1241,7 @@ type ContactDeleteResponse = ContactObject
 
 // ContactGetRequest defines model for ContactGetRequest.
 type ContactGetRequest struct {
-	Id string `json:"id"`
+	Name string `json:"name"`
 }
 
 // ContactGetResponse defines model for ContactGetResponse.
@@ -1264,7 +1264,7 @@ type ContactListResponse struct {
 type ContactObject struct {
 	CreatedAt   *time.Time `json:"created_at,omitempty"`
 	DisplayName *string    `json:"display_name,omitempty"`
-	Id          *string    `json:"id,omitempty"`
+	Name        string     `json:"name"`
 	PhoneNumber *string    `json:"phone_number,omitempty"`
 	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
 }
@@ -1272,73 +1272,18 @@ type ContactObject struct {
 // ContactPutRequest defines model for ContactPutRequest.
 type ContactPutRequest struct {
 	DisplayName *string `json:"display_name,omitempty"`
-	Id          string  `json:"id"`
+	Name        string  `json:"name"`
 	PhoneNumber *string `json:"phone_number,omitempty"`
 }
 
 // ContactPutResponse defines model for ContactPutResponse.
 type ContactPutResponse = ContactObject
 
-// Credential defines model for Credential.
-type Credential struct {
-	// Body Provider-specific credential payload. The shape is selected by Credential.provider.
-	Body           CredentialBody `json:"body"`
-	CreatedAt      time.Time      `json:"created_at"`
-	Description    *string        `json:"description,omitempty"`
-	Name           string         `json:"name"`
-	OwnerPublicKey *string        `json:"owner_public_key,omitempty"`
-	Provider       string         `json:"provider"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-}
-
-// CredentialBody Provider-specific credential payload. The shape is selected by Credential.provider.
+// CredentialBody contains provider-specific Admin credential data used by
+// internal conversion helpers. Credential resources are not exposed by Peer RPC.
 type CredentialBody struct {
 	Value any
 }
-
-// CredentialCreateRequest defines model for CredentialCreateRequest.
-type CredentialCreateRequest = Credential
-
-// CredentialCreateResponse defines model for CredentialCreateResponse.
-type CredentialCreateResponse = Credential
-
-// CredentialDeleteRequest defines model for CredentialDeleteRequest.
-type CredentialDeleteRequest struct {
-	Name string `json:"name"`
-}
-
-// CredentialDeleteResponse defines model for CredentialDeleteResponse.
-type CredentialDeleteResponse = Credential
-
-// CredentialGetRequest defines model for CredentialGetRequest.
-type CredentialGetRequest struct {
-	Name string `json:"name"`
-}
-
-// CredentialGetResponse defines model for CredentialGetResponse.
-type CredentialGetResponse = Credential
-
-// CredentialListRequest defines model for CredentialListRequest.
-type CredentialListRequest struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *int    `json:"limit,omitempty"`
-}
-
-// CredentialListResponse defines model for CredentialListResponse.
-type CredentialListResponse struct {
-	HasNext    bool         `json:"has_next"`
-	Items      []Credential `json:"items"`
-	NextCursor *string      `json:"next_cursor,omitempty"`
-}
-
-// CredentialPutRequest defines model for CredentialPutRequest.
-type CredentialPutRequest struct {
-	Body Credential `json:"body"`
-	Name string     `json:"name"`
-}
-
-// CredentialPutResponse defines model for CredentialPutResponse.
-type CredentialPutResponse = Credential
 
 // DashScopeCredentialBody defines model for DashScopeCredentialBody.
 type DashScopeCredentialBody struct {
@@ -1755,11 +1700,11 @@ type FirmwareFilesDownloadRequest struct {
 
 // FirmwareFilesDownloadResponse defines model for FirmwareFilesDownloadResponse.
 type FirmwareFilesDownloadResponse struct {
-	Artifact   FirmwareArtifact      `json:"artifact"`
-	Channel    FirmwareChannelName   `json:"channel"`
-	File       FirmwareArtifactEntry `json:"file"`
-	FirmwareId string                `json:"firmware_id"`
-	Path       string                `json:"path"`
+	Artifact     FirmwareArtifact      `json:"artifact"`
+	Channel      FirmwareChannelName   `json:"channel"`
+	File         FirmwareArtifactEntry `json:"file"`
+	FirmwareName string                `json:"firmware_name"`
+	Path         string                `json:"path"`
 }
 
 // FirmwareGetRequest defines model for FirmwareGetRequest.
@@ -1850,6 +1795,7 @@ type FriendInfoGetResponse struct {
 type FriendGroupCreateRequest struct {
 	Description *string `json:"description,omitempty"`
 	Name        string  `json:"name"`
+	DisplayName *string `json:"display_name,omitempty"`
 }
 
 // FriendGroupCreateResponse defines model for FriendGroupCreateResponse.
@@ -1857,7 +1803,7 @@ type FriendGroupCreateResponse = FriendGroupObject
 
 // FriendGroupDeleteRequest defines model for FriendGroupDeleteRequest.
 type FriendGroupDeleteRequest struct {
-	Id string `json:"id"`
+	Name string `json:"name"`
 }
 
 // FriendGroupDeleteResponse defines model for FriendGroupDeleteResponse.
@@ -1865,7 +1811,7 @@ type FriendGroupDeleteResponse = FriendGroupObject
 
 // FriendGroupGetRequest defines model for FriendGroupGetRequest.
 type FriendGroupGetRequest struct {
-	Id string `json:"id"`
+	Name string `json:"name"`
 }
 
 // FriendGroupGetResponse defines model for FriendGroupGetResponse.
@@ -1873,7 +1819,7 @@ type FriendGroupGetResponse = FriendGroupObject
 
 // FriendGroupInviteTokenClearRequest defines model for FriendGroupInviteTokenClearRequest.
 type FriendGroupInviteTokenClearRequest struct {
-	FriendGroupId string `json:"friend_group_id"`
+	FriendGroupName string `json:"friend_group_name"`
 }
 
 // FriendGroupInviteTokenClearResponse defines model for FriendGroupInviteTokenClearResponse.
@@ -1881,7 +1827,7 @@ type FriendGroupInviteTokenClearResponse = map[string]any
 
 // FriendGroupInviteTokenCreateRequest defines model for FriendGroupInviteTokenCreateRequest.
 type FriendGroupInviteTokenCreateRequest struct {
-	FriendGroupId string `json:"friend_group_id"`
+	FriendGroupName string `json:"friend_group_name"`
 }
 
 // FriendGroupInviteTokenCreateResponse defines model for FriendGroupInviteTokenCreateResponse.
@@ -1892,7 +1838,7 @@ type FriendGroupInviteTokenCreateResponse struct {
 
 // FriendGroupInviteTokenGetRequest defines model for FriendGroupInviteTokenGetRequest.
 type FriendGroupInviteTokenGetRequest struct {
-	FriendGroupId string `json:"friend_group_id"`
+	FriendGroupName string `json:"friend_group_name"`
 }
 
 // FriendGroupInviteTokenGetResponse defines model for FriendGroupInviteTokenGetResponse.
@@ -1904,6 +1850,7 @@ type FriendGroupInviteTokenGetResponse struct {
 // FriendGroupJoinRequest defines model for FriendGroupJoinRequest.
 type FriendGroupJoinRequest struct {
 	InviteToken string `json:"invite_token"`
+	Name        string `json:"name"`
 }
 
 // FriendGroupJoinResponse defines model for FriendGroupJoinResponse.
@@ -1927,9 +1874,10 @@ type FriendGroupListResponse struct {
 
 // FriendGroupMemberAddRequest defines model for FriendGroupMemberAddRequest.
 type FriendGroupMemberAddRequest struct {
-	FriendGroupId string                       `json:"friend_group_id"`
-	PeerPublicKey string                       `json:"peer_public_key"`
-	Role          FriendGroupMemberMutableRole `json:"role"`
+	FriendGroupName string                       `json:"friend_group_name"`
+	PeerPublicKey   string                       `json:"peer_public_key"`
+	Role            FriendGroupMemberMutableRole `json:"role"`
+	MemberName      string                       `json:"member_name"`
 }
 
 // FriendGroupMemberAddResponse defines model for FriendGroupMemberAddResponse.
@@ -1937,8 +1885,8 @@ type FriendGroupMemberAddResponse = FriendGroupMemberObject
 
 // FriendGroupMemberDeleteRequest defines model for FriendGroupMemberDeleteRequest.
 type FriendGroupMemberDeleteRequest struct {
-	FriendGroupId string `json:"friend_group_id"`
-	Id            string `json:"id"`
+	FriendGroupName string `json:"friend_group_name"`
+	Id              string `json:"id"`
 }
 
 // FriendGroupMemberDeleteResponse defines model for FriendGroupMemberDeleteResponse.
@@ -1946,9 +1894,9 @@ type FriendGroupMemberDeleteResponse = FriendGroupMemberObject
 
 // FriendGroupMemberListRequest defines model for FriendGroupMemberListRequest.
 type FriendGroupMemberListRequest struct {
-	Cursor        *string `json:"cursor,omitempty"`
-	FriendGroupId *string `json:"friend_group_id,omitempty"`
-	Limit         *int    `json:"limit,omitempty"`
+	Cursor          *string `json:"cursor,omitempty"`
+	FriendGroupName *string `json:"friend_group_name,omitempty"`
+	Limit           *int    `json:"limit,omitempty"`
 }
 
 // FriendGroupMemberListResponse defines model for FriendGroupMemberListResponse.
@@ -1963,19 +1911,19 @@ type FriendGroupMemberMutableRole string
 
 // FriendGroupMemberObject defines model for FriendGroupMemberObject.
 type FriendGroupMemberObject struct {
-	CreatedAt     *time.Time             `json:"created_at,omitempty"`
-	FriendGroupId *string                `json:"friend_group_id,omitempty"`
-	Id            *string                `json:"id,omitempty"`
-	PeerPublicKey *string                `json:"peer_public_key,omitempty"`
-	Role          *FriendGroupMemberRole `json:"role,omitempty"`
-	UpdatedAt     *time.Time             `json:"updated_at,omitempty"`
+	CreatedAt       *time.Time             `json:"created_at,omitempty"`
+	FriendGroupName *string                `json:"friend_group_name,omitempty"`
+	Id              *string                `json:"id,omitempty"`
+	PeerPublicKey   *string                `json:"peer_public_key,omitempty"`
+	Role            *FriendGroupMemberRole `json:"role,omitempty"`
+	UpdatedAt       *time.Time             `json:"updated_at,omitempty"`
 }
 
 // FriendGroupMemberPutRequest defines model for FriendGroupMemberPutRequest.
 type FriendGroupMemberPutRequest struct {
-	FriendGroupId string                       `json:"friend_group_id"`
-	Id            string                       `json:"id"`
-	Role          FriendGroupMemberMutableRole `json:"role"`
+	FriendGroupName string                       `json:"friend_group_name"`
+	Id              string                       `json:"id"`
+	Role            FriendGroupMemberMutableRole `json:"role"`
 }
 
 // FriendGroupMemberPutResponse defines model for FriendGroupMemberPutResponse.
@@ -1986,22 +1934,22 @@ type FriendGroupMemberRole string
 
 // FriendGroupMessageAudioGetRequest defines model for FriendGroupMessageAudioGetRequest.
 type FriendGroupMessageAudioGetRequest struct {
-	FriendGroupId string `json:"friend_group_id"`
-	HistoryId     string `json:"history_id"`
+	FriendGroupName string `json:"friend_group_name"`
+	HistoryId       string `json:"history_id"`
 }
 
 // FriendGroupMessageAudioGetResponse defines model for FriendGroupMessageAudioGetResponse.
 type FriendGroupMessageAudioGetResponse struct {
-	FriendGroupId string `json:"friend_group_id"`
-	HistoryId     string `json:"history_id"`
-	MimeType      string `json:"mime_type"`
-	SizeBytes     int64  `json:"size_bytes"`
+	FriendGroupName string `json:"friend_group_name"`
+	HistoryId       string `json:"history_id"`
+	MimeType        string `json:"mime_type"`
+	SizeBytes       int64  `json:"size_bytes"`
 }
 
 // FriendGroupMessageGetRequest defines model for FriendGroupMessageGetRequest.
 type FriendGroupMessageGetRequest struct {
-	FriendGroupId string `json:"friend_group_id"`
-	HistoryId     string `json:"history_id"`
+	FriendGroupName string `json:"friend_group_name"`
+	HistoryId       string `json:"history_id"`
 }
 
 // FriendGroupMessageGetResponse defines model for FriendGroupMessageGetResponse.
@@ -2009,10 +1957,10 @@ type FriendGroupMessageGetResponse = FriendGroupMessageObject
 
 // FriendGroupMessageListRequest defines model for FriendGroupMessageListRequest.
 type FriendGroupMessageListRequest struct {
-	Cursor        *string                           `json:"cursor,omitempty"`
-	FriendGroupId string                            `json:"friend_group_id"`
-	Limit         *int                              `json:"limit,omitempty"`
-	Order         *WorkspaceHistoryListRequestOrder `json:"order,omitempty"`
+	Cursor          *string                           `json:"cursor,omitempty"`
+	FriendGroupName string                            `json:"friend_group_name"`
+	Limit           *int                              `json:"limit,omitempty"`
+	Order           *WorkspaceHistoryListRequestOrder `json:"order,omitempty"`
 }
 
 // FriendGroupMessageListResponse defines model for FriendGroupMessageListResponse.
@@ -2027,7 +1975,7 @@ type FriendGroupMessageObject struct {
 	AudioAvailable      bool                    `json:"audio_available"`
 	CreatedAt           time.Time               `json:"created_at"`
 	ExpiresAt           *time.Time              `json:"expires_at,omitempty"`
-	FriendGroupId       string                  `json:"friend_group_id"`
+	FriendGroupName     string                  `json:"friend_group_name"`
 	HistoryId           string                  `json:"history_id"`
 	Name                string                  `json:"name"`
 	SenderPeerPublicKey *string                 `json:"sender_peer_public_key,omitempty"`
@@ -2040,9 +1988,9 @@ type FriendGroupObject struct {
 	CreatedAt              *time.Time             `json:"created_at,omitempty"`
 	CreatedByPeerPublicKey *string                `json:"created_by_peer_public_key,omitempty"`
 	Description            *string                `json:"description,omitempty"`
-	Id                     *string                `json:"id,omitempty"`
+	DisplayName            *string                `json:"display_name,omitempty"`
 	MyRole                 *FriendGroupMemberRole `json:"my_role,omitempty"`
-	Name                   *string                `json:"name,omitempty"`
+	Name                   string                 `json:"name"`
 	UpdatedAt              *time.Time             `json:"updated_at,omitempty"`
 	WorkspaceName          *string                `json:"workspace_name,omitempty"`
 }
@@ -2050,8 +1998,8 @@ type FriendGroupObject struct {
 // FriendGroupPutRequest defines model for FriendGroupPutRequest.
 type FriendGroupPutRequest struct {
 	Description *string `json:"description,omitempty"`
-	Id          string  `json:"id"`
-	Name        *string `json:"name,omitempty"`
+	Name        string  `json:"name"`
+	DisplayName *string `json:"display_name,omitempty"`
 }
 
 // FriendGroupPutResponse defines model for FriendGroupPutResponse.
@@ -2126,15 +2074,14 @@ type GameResult struct {
 	CreatedAt          time.Time         `json:"created_at"`
 	Difficulty         *string           `json:"difficulty,omitempty"`
 	DurationMs         *int64            `json:"duration_ms,omitempty"`
-	GameDefId          string            `json:"game_def_id"`
+	GameDefName        string            `json:"game_def_name"`
 	Id                 string            `json:"id"`
 	IdempotencyKey     *string           `json:"idempotency_key,omitempty"`
 	MaxScore           *int64            `json:"max_score,omitempty"`
 	OccurredAt         time.Time         `json:"occurred_at"`
 	Outcome            *string           `json:"outcome,omitempty"`
-	OwnerPublicKey     string            `json:"owner_public_key"`
 	Payload            *GameplayMetadata `json:"payload,omitempty"`
-	PetId              string            `json:"pet_id"`
+	PetName            string            `json:"pet_name"`
 	RuntimeProfileName string            `json:"runtime_profile_name"`
 	Score              *int64            `json:"score,omitempty"`
 }
@@ -2156,6 +2103,11 @@ type GameRewardSpec struct {
 // GameplayGetRequest defines model for GameplayGetRequest.
 type GameplayGetRequest struct {
 	Id string `json:"id"`
+}
+
+// GameplayNameGetRequest defines model for GameplayNameGetRequest.
+type GameplayNameGetRequest struct {
+	Name string `json:"name"`
 }
 
 // GameplayListRequest defines model for GameplayListRequest.
@@ -2259,8 +2211,8 @@ type MiniMaxTenantVoiceProviderData struct {
 
 // Model defines model for Model.
 type Model struct {
-	Alias           string                            `json:"alias"`
-	I18n            map[string]AliasI18nText          `json:"i18n"`
+	Name            string                            `json:"name"`
+	I18n            map[string]ResourceI18nText       `json:"i18n"`
 	Kind            ModelKind                         `json:"kind"`
 	ProviderKind    ModelProviderKind                 `json:"provider_kind"`
 	OpenAITenant    *OpenAITenantModelProviderData    `json:"openai_tenant,omitempty"`
@@ -2271,28 +2223,14 @@ type Model struct {
 	DeepSeekTenant  *DeepSeekTenantModelProviderData  `json:"deepseek_tenant,omitempty"`
 }
 
-type AliasI18nText struct {
+type ResourceI18nText struct {
 	DisplayName string  `json:"display_name"`
 	Description *string `json:"description,omitempty"`
 }
 
-// ModelCreateRequest defines model for ModelCreateRequest.
-type ModelCreateRequest = Model
-
-// ModelCreateResponse defines model for ModelCreateResponse.
-type ModelCreateResponse = Model
-
-// ModelDeleteRequest defines model for ModelDeleteRequest.
-type ModelDeleteRequest struct {
-	Id string `json:"id"`
-}
-
-// ModelDeleteResponse defines model for ModelDeleteResponse.
-type ModelDeleteResponse = Model
-
 // ModelGetRequest defines model for ModelGetRequest.
 type ModelGetRequest struct {
-	Alias string `json:"alias"`
+	Name string `json:"name"`
 }
 
 type ModelGetResponse struct {
@@ -2333,15 +2271,6 @@ type ModelProviderData struct {
 
 // ModelProviderKind Provider resource kind usable by model runtime.
 type ModelProviderKind string
-
-// ModelPutRequest defines model for ModelPutRequest.
-type ModelPutRequest struct {
-	Body Model  `json:"body"`
-	Id   string `json:"id"`
-}
-
-// ModelPutResponse defines model for ModelPutResponse.
-type ModelPutResponse = Model
 
 // ModelSource How the model entered the global catalog
 type ModelSource string
@@ -2535,10 +2464,9 @@ type PeerStatus struct {
 
 // Pet defines model for Pet.
 type Pet struct {
-	Id                 string         `json:"id"`
-	OwnerPublicKey     string         `json:"owner_public_key"`
+	Name               string         `json:"name"`
 	RuntimeProfileName string         `json:"runtime_profile_name"`
-	PetdefId           string         `json:"petdef_id"`
+	PetDefName         string         `json:"pet_def_name"`
 	DisplayName        string         `json:"display_name"`
 	WorkspaceName      string         `json:"workspace_name"`
 	Stats              PetStats       `json:"stats"`
@@ -2553,8 +2481,8 @@ type Pet struct {
 
 // PetAdoptRequest defines model for PetAdoptRequest.
 type PetAdoptRequest struct {
-	DisplayName string  `json:"display_name"`
-	Id          *string `json:"id,omitempty"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
 }
 
 // PetAdoptResponse defines model for PetAdoptResponse.
@@ -2657,14 +2585,14 @@ type PetDefVoiceSpec struct {
 
 // PetDeleteRequest defines model for PetDeleteRequest.
 type PetDeleteRequest struct {
-	Id string `json:"id"`
+	Name string `json:"name"`
 }
 
 // PetDriveGameResultInput defines model for PetDriveGameResultInput.
 type PetDriveGameResultInput struct {
 	Difficulty     *string           `json:"difficulty,omitempty"`
 	DurationMs     *int64            `json:"duration_ms,omitempty"`
-	GameDefId      string            `json:"game_def_id"`
+	GameName       string            `json:"game_name"`
 	IdempotencyKey *string           `json:"idempotency_key,omitempty"`
 	MaxScore       *int64            `json:"max_score,omitempty"`
 	OccurredAt     *time.Time        `json:"occurred_at,omitempty"`
@@ -2677,7 +2605,7 @@ type PetDriveGameResultInput struct {
 type PetDriveRequest struct {
 	Behavior       *PetBehavior             `json:"behavior,omitempty"`
 	GameResult     *PetDriveGameResultInput `json:"game_result,omitempty"`
-	PetId          string                   `json:"pet_id"`
+	PetName        string                   `json:"pet_name"`
 	IdempotencyKey *string                  `json:"idempotency_key,omitempty"`
 }
 
@@ -2693,7 +2621,7 @@ type PetDriveResponse struct {
 
 // PetGetRequest defines model for PetGetRequest.
 type PetGetRequest struct {
-	Id string `json:"id"`
+	Name string `json:"name"`
 }
 
 // PetListResponse defines model for PetListResponse.
@@ -2706,7 +2634,7 @@ type PetListResponse struct {
 // PetPutRequest defines model for PetPutRequest.
 type PetPutRequest struct {
 	DisplayName string `json:"display_name"`
-	Id          string `json:"id"`
+	Name        string `json:"name"`
 }
 
 // PingRequest defines model for PingRequest.
@@ -2736,7 +2664,7 @@ type PointsTransaction struct {
 	GameResultId       *string   `json:"game_result_id,omitempty"`
 	Id                 string    `json:"id"`
 	OwnerPublicKey     string    `json:"owner_public_key"`
-	PetId              *string   `json:"pet_id,omitempty"`
+	PetName            *string   `json:"pet_name,omitempty"`
 	Reason             string    `json:"reason"`
 	RewardGrantId      *string   `json:"reward_grant_id,omitempty"`
 	RuntimeProfileName string    `json:"runtime_profile_name"`
@@ -2797,7 +2725,7 @@ type RewardGrant struct {
 	Id                 string           `json:"id"`
 	OwnerPublicKey     string           `json:"owner_public_key"`
 	PetExpDelta        int64            `json:"pet_exp_delta"`
-	PetId              *string          `json:"pet_id,omitempty"`
+	PetName            *string          `json:"pet_name,omitempty"`
 	PointsDelta        int64            `json:"points_delta"`
 	Reason             *string          `json:"reason,omitempty"`
 	RuntimeProfileName string           `json:"runtime_profile_name"`
@@ -2822,7 +2750,7 @@ type Runtime struct {
 }
 
 // ServerBadgeGetRequest defines model for ServerBadgeGetRequest.
-type ServerBadgeGetRequest = GameplayGetRequest
+type ServerBadgeGetRequest = GameplayNameGetRequest
 
 // ServerBadgeGetResponse defines model for ServerBadgeGetResponse.
 type ServerBadgeGetResponse = Badge
@@ -2985,8 +2913,8 @@ type ServerRewardGrantListResponse = RewardGrantListResponse
 
 // ServerRunSayRequest defines model for ServerRunSayRequest.
 type ServerRunSayRequest struct {
-	Text       string `json:"text"`
-	VoiceAlias string `json:"voice_alias"`
+	Text      string `json:"text"`
+	VoiceName string `json:"voice_name"`
 }
 
 // ServerRunSayResponse defines model for ServerRunSayResponse.
@@ -3082,13 +3010,13 @@ type ReusableWorkflowDriver string
 
 // Voice defines model for Voice.
 type Voice struct {
-	Alias string                   `json:"alias"`
-	I18n  map[string]AliasI18nText `json:"i18n"`
+	Name string                      `json:"name"`
+	I18n map[string]ResourceI18nText `json:"i18n"`
 }
 
 // VoiceGetRequest defines model for VoiceGetRequest.
 type VoiceGetRequest struct {
-	Alias string `json:"alias"`
+	Name string `json:"name"`
 }
 
 type VoiceGetResponse struct {
@@ -3171,11 +3099,11 @@ type VolcTenantVoiceProviderData struct {
 
 // Workflow defines model for Workflow.
 type Workflow struct {
-	Alias             string                   `json:"alias"`
-	I18n              map[string]AliasI18nText `json:"i18n"`
-	Collection        string                   `json:"collection"`
-	Driver            WorkflowDriver           `json:"driver"`
-	WorkspaceLangPair *string                  `json:"workspace_lang_pair,omitempty"`
+	Name              string                      `json:"name"`
+	I18n              map[string]ResourceI18nText `json:"i18n"`
+	Collection        string                      `json:"collection"`
+	Driver            WorkflowDriver              `json:"driver"`
+	WorkspaceLangPair *string                     `json:"workspace_lang_pair,omitempty"`
 }
 
 // WorkflowDriver defines model for WorkflowDriver.
@@ -3183,7 +3111,7 @@ type WorkflowDriver string
 
 // WorkflowGetRequest defines model for WorkflowGetRequest.
 type WorkflowGetRequest struct {
-	Alias string `json:"alias"`
+	Name string `json:"name"`
 }
 
 type WorkflowGetResponse struct {
@@ -3210,8 +3138,8 @@ type WorkflowListResponse struct {
 
 // ToolkitPolicy defines model for ToolkitPolicy.
 type ToolkitPolicy struct {
-	// ToolIds Explicit list of Tool resource IDs an agent runtime may see. Omit to inherit a broader policy; set an empty list to expose no tools.
-	ToolIds *[]string `json:"tool_ids,omitempty"`
+	// ToolNames Explicit list of Peer-scoped Tool names an agent runtime may see. Omit to inherit a broader policy; set an empty list to expose no tools.
+	ToolNames *[]string `json:"tool_names,omitempty"`
 }
 
 // WorkflowSpec defines model for WorkflowSpec.
@@ -3236,16 +3164,15 @@ type Workspace struct {
 	Icon      *Icon     `json:"icon,omitempty"`
 
 	// LastActiveAt Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.
-	LastActiveAt   time.Time `json:"last_active_at"`
-	Name           string    `json:"name"`
-	OwnerPublicKey *string   `json:"owner_public_key,omitempty"`
+	LastActiveAt time.Time `json:"last_active_at"`
+	Name         string    `json:"name"`
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
-	Parameters    *WorkspaceParameters `json:"parameters,omitempty"`
-	System        bool                 `json:"system"`
-	Toolkit       *ToolkitPolicy       `json:"toolkit,omitempty"`
-	UpdatedAt     time.Time            `json:"updated_at"`
-	WorkflowAlias string               `json:"workflow_alias"`
+	Parameters   *WorkspaceParameters `json:"parameters,omitempty"`
+	System       bool                 `json:"system"`
+	Toolkit      *ToolkitPolicy       `json:"toolkit,omitempty"`
+	UpdatedAt    time.Time            `json:"updated_at"`
+	WorkflowName string               `json:"workflow_name"`
 }
 
 type WorkspaceCreateBody struct {
@@ -3253,9 +3180,9 @@ type WorkspaceCreateBody struct {
 	Collection string `json:"collection"`
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
-	Parameters    *WorkspaceParameters `json:"parameters,omitempty"`
-	Toolkit       *ToolkitPolicy       `json:"toolkit,omitempty"`
-	WorkflowAlias string               `json:"workflow_alias"`
+	Parameters   *WorkspaceParameters `json:"parameters,omitempty"`
+	Toolkit      *ToolkitPolicy       `json:"toolkit,omitempty"`
+	WorkflowName string               `json:"workflow_name"`
 }
 
 type WorkspacePutBody struct {
@@ -4216,57 +4143,6 @@ func (t *RPCPayload) MergeModelGetRequest(v ModelGetRequest) error {
 	return t.merge("ModelGetRequest", v)
 }
 
-// AsModelCreateRequest decodes the RPCPayload as a ModelCreateRequest
-func (t RPCPayload) AsModelCreateRequest() (ModelCreateRequest, error) {
-	var body ModelCreateRequest
-	err := t.decode("ModelCreateRequest", &body)
-	return body, err
-}
-
-// FromModelCreateRequest overwrites any protobuf payload as the provided ModelCreateRequest
-func (t *RPCPayload) FromModelCreateRequest(v ModelCreateRequest) error {
-	return t.encode("ModelCreateRequest", v)
-}
-
-// MergeModelCreateRequest performs a merge with any protobuf payload, using the provided ModelCreateRequest
-func (t *RPCPayload) MergeModelCreateRequest(v ModelCreateRequest) error {
-	return t.merge("ModelCreateRequest", v)
-}
-
-// AsModelPutRequest decodes the RPCPayload as a ModelPutRequest
-func (t RPCPayload) AsModelPutRequest() (ModelPutRequest, error) {
-	var body ModelPutRequest
-	err := t.decode("ModelPutRequest", &body)
-	return body, err
-}
-
-// FromModelPutRequest overwrites any protobuf payload as the provided ModelPutRequest
-func (t *RPCPayload) FromModelPutRequest(v ModelPutRequest) error {
-	return t.encode("ModelPutRequest", v)
-}
-
-// MergeModelPutRequest performs a merge with any protobuf payload, using the provided ModelPutRequest
-func (t *RPCPayload) MergeModelPutRequest(v ModelPutRequest) error {
-	return t.merge("ModelPutRequest", v)
-}
-
-// AsModelDeleteRequest decodes the RPCPayload as a ModelDeleteRequest
-func (t RPCPayload) AsModelDeleteRequest() (ModelDeleteRequest, error) {
-	var body ModelDeleteRequest
-	err := t.decode("ModelDeleteRequest", &body)
-	return body, err
-}
-
-// FromModelDeleteRequest overwrites any protobuf payload as the provided ModelDeleteRequest
-func (t *RPCPayload) FromModelDeleteRequest(v ModelDeleteRequest) error {
-	return t.encode("ModelDeleteRequest", v)
-}
-
-// MergeModelDeleteRequest performs a merge with any protobuf payload, using the provided ModelDeleteRequest
-func (t *RPCPayload) MergeModelDeleteRequest(v ModelDeleteRequest) error {
-	return t.merge("ModelDeleteRequest", v)
-}
-
 // AsVoiceListRequest decodes the RPCPayload as a VoiceListRequest
 func (t RPCPayload) AsVoiceListRequest() (VoiceListRequest, error) {
 	var body VoiceListRequest
@@ -4299,91 +4175,6 @@ func (t *RPCPayload) FromVoiceGetRequest(v VoiceGetRequest) error {
 // MergeVoiceGetRequest performs a merge with any protobuf payload, using the provided VoiceGetRequest
 func (t *RPCPayload) MergeVoiceGetRequest(v VoiceGetRequest) error {
 	return t.merge("VoiceGetRequest", v)
-}
-
-// AsCredentialListRequest decodes the RPCPayload as a CredentialListRequest
-func (t RPCPayload) AsCredentialListRequest() (CredentialListRequest, error) {
-	var body CredentialListRequest
-	err := t.decode("CredentialListRequest", &body)
-	return body, err
-}
-
-// FromCredentialListRequest overwrites any protobuf payload as the provided CredentialListRequest
-func (t *RPCPayload) FromCredentialListRequest(v CredentialListRequest) error {
-	return t.encode("CredentialListRequest", v)
-}
-
-// MergeCredentialListRequest performs a merge with any protobuf payload, using the provided CredentialListRequest
-func (t *RPCPayload) MergeCredentialListRequest(v CredentialListRequest) error {
-	return t.merge("CredentialListRequest", v)
-}
-
-// AsCredentialGetRequest decodes the RPCPayload as a CredentialGetRequest
-func (t RPCPayload) AsCredentialGetRequest() (CredentialGetRequest, error) {
-	var body CredentialGetRequest
-	err := t.decode("CredentialGetRequest", &body)
-	return body, err
-}
-
-// FromCredentialGetRequest overwrites any protobuf payload as the provided CredentialGetRequest
-func (t *RPCPayload) FromCredentialGetRequest(v CredentialGetRequest) error {
-	return t.encode("CredentialGetRequest", v)
-}
-
-// MergeCredentialGetRequest performs a merge with any protobuf payload, using the provided CredentialGetRequest
-func (t *RPCPayload) MergeCredentialGetRequest(v CredentialGetRequest) error {
-	return t.merge("CredentialGetRequest", v)
-}
-
-// AsCredentialCreateRequest decodes the RPCPayload as a CredentialCreateRequest
-func (t RPCPayload) AsCredentialCreateRequest() (CredentialCreateRequest, error) {
-	var body CredentialCreateRequest
-	err := t.decode("CredentialCreateRequest", &body)
-	return body, err
-}
-
-// FromCredentialCreateRequest overwrites any protobuf payload as the provided CredentialCreateRequest
-func (t *RPCPayload) FromCredentialCreateRequest(v CredentialCreateRequest) error {
-	return t.encode("CredentialCreateRequest", v)
-}
-
-// MergeCredentialCreateRequest performs a merge with any protobuf payload, using the provided CredentialCreateRequest
-func (t *RPCPayload) MergeCredentialCreateRequest(v CredentialCreateRequest) error {
-	return t.merge("CredentialCreateRequest", v)
-}
-
-// AsCredentialPutRequest decodes the RPCPayload as a CredentialPutRequest
-func (t RPCPayload) AsCredentialPutRequest() (CredentialPutRequest, error) {
-	var body CredentialPutRequest
-	err := t.decode("CredentialPutRequest", &body)
-	return body, err
-}
-
-// FromCredentialPutRequest overwrites any protobuf payload as the provided CredentialPutRequest
-func (t *RPCPayload) FromCredentialPutRequest(v CredentialPutRequest) error {
-	return t.encode("CredentialPutRequest", v)
-}
-
-// MergeCredentialPutRequest performs a merge with any protobuf payload, using the provided CredentialPutRequest
-func (t *RPCPayload) MergeCredentialPutRequest(v CredentialPutRequest) error {
-	return t.merge("CredentialPutRequest", v)
-}
-
-// AsCredentialDeleteRequest decodes the RPCPayload as a CredentialDeleteRequest
-func (t RPCPayload) AsCredentialDeleteRequest() (CredentialDeleteRequest, error) {
-	var body CredentialDeleteRequest
-	err := t.decode("CredentialDeleteRequest", &body)
-	return body, err
-}
-
-// FromCredentialDeleteRequest overwrites any protobuf payload as the provided CredentialDeleteRequest
-func (t *RPCPayload) FromCredentialDeleteRequest(v CredentialDeleteRequest) error {
-	return t.encode("CredentialDeleteRequest", v)
-}
-
-// MergeCredentialDeleteRequest performs a merge with any protobuf payload, using the provided CredentialDeleteRequest
-func (t *RPCPayload) MergeCredentialDeleteRequest(v CredentialDeleteRequest) error {
-	return t.merge("CredentialDeleteRequest", v)
 }
 
 // AsContactListRequest decodes the RPCPayload as a ContactListRequest
@@ -5712,57 +5503,6 @@ func (t *RPCPayload) MergeModelGetResponse(v ModelGetResponse) error {
 	return t.merge("ModelGetResponse", v)
 }
 
-// AsModelCreateResponse decodes the RPCPayload as a ModelCreateResponse
-func (t RPCPayload) AsModelCreateResponse() (ModelCreateResponse, error) {
-	var body ModelCreateResponse
-	err := t.decode("ModelCreateResponse", &body)
-	return body, err
-}
-
-// FromModelCreateResponse overwrites any protobuf payload as the provided ModelCreateResponse
-func (t *RPCPayload) FromModelCreateResponse(v ModelCreateResponse) error {
-	return t.encode("ModelCreateResponse", v)
-}
-
-// MergeModelCreateResponse performs a merge with any protobuf payload, using the provided ModelCreateResponse
-func (t *RPCPayload) MergeModelCreateResponse(v ModelCreateResponse) error {
-	return t.merge("ModelCreateResponse", v)
-}
-
-// AsModelPutResponse decodes the RPCPayload as a ModelPutResponse
-func (t RPCPayload) AsModelPutResponse() (ModelPutResponse, error) {
-	var body ModelPutResponse
-	err := t.decode("ModelPutResponse", &body)
-	return body, err
-}
-
-// FromModelPutResponse overwrites any protobuf payload as the provided ModelPutResponse
-func (t *RPCPayload) FromModelPutResponse(v ModelPutResponse) error {
-	return t.encode("ModelPutResponse", v)
-}
-
-// MergeModelPutResponse performs a merge with any protobuf payload, using the provided ModelPutResponse
-func (t *RPCPayload) MergeModelPutResponse(v ModelPutResponse) error {
-	return t.merge("ModelPutResponse", v)
-}
-
-// AsModelDeleteResponse decodes the RPCPayload as a ModelDeleteResponse
-func (t RPCPayload) AsModelDeleteResponse() (ModelDeleteResponse, error) {
-	var body ModelDeleteResponse
-	err := t.decode("ModelDeleteResponse", &body)
-	return body, err
-}
-
-// FromModelDeleteResponse overwrites any protobuf payload as the provided ModelDeleteResponse
-func (t *RPCPayload) FromModelDeleteResponse(v ModelDeleteResponse) error {
-	return t.encode("ModelDeleteResponse", v)
-}
-
-// MergeModelDeleteResponse performs a merge with any protobuf payload, using the provided ModelDeleteResponse
-func (t *RPCPayload) MergeModelDeleteResponse(v ModelDeleteResponse) error {
-	return t.merge("ModelDeleteResponse", v)
-}
-
 // AsVoiceListResponse decodes the RPCPayload as a VoiceListResponse
 func (t RPCPayload) AsVoiceListResponse() (VoiceListResponse, error) {
 	var body VoiceListResponse
@@ -5795,91 +5535,6 @@ func (t *RPCPayload) FromVoiceGetResponse(v VoiceGetResponse) error {
 // MergeVoiceGetResponse performs a merge with any protobuf payload, using the provided VoiceGetResponse
 func (t *RPCPayload) MergeVoiceGetResponse(v VoiceGetResponse) error {
 	return t.merge("VoiceGetResponse", v)
-}
-
-// AsCredentialListResponse decodes the RPCPayload as a CredentialListResponse
-func (t RPCPayload) AsCredentialListResponse() (CredentialListResponse, error) {
-	var body CredentialListResponse
-	err := t.decode("CredentialListResponse", &body)
-	return body, err
-}
-
-// FromCredentialListResponse overwrites any protobuf payload as the provided CredentialListResponse
-func (t *RPCPayload) FromCredentialListResponse(v CredentialListResponse) error {
-	return t.encode("CredentialListResponse", v)
-}
-
-// MergeCredentialListResponse performs a merge with any protobuf payload, using the provided CredentialListResponse
-func (t *RPCPayload) MergeCredentialListResponse(v CredentialListResponse) error {
-	return t.merge("CredentialListResponse", v)
-}
-
-// AsCredentialGetResponse decodes the RPCPayload as a CredentialGetResponse
-func (t RPCPayload) AsCredentialGetResponse() (CredentialGetResponse, error) {
-	var body CredentialGetResponse
-	err := t.decode("CredentialGetResponse", &body)
-	return body, err
-}
-
-// FromCredentialGetResponse overwrites any protobuf payload as the provided CredentialGetResponse
-func (t *RPCPayload) FromCredentialGetResponse(v CredentialGetResponse) error {
-	return t.encode("CredentialGetResponse", v)
-}
-
-// MergeCredentialGetResponse performs a merge with any protobuf payload, using the provided CredentialGetResponse
-func (t *RPCPayload) MergeCredentialGetResponse(v CredentialGetResponse) error {
-	return t.merge("CredentialGetResponse", v)
-}
-
-// AsCredentialCreateResponse decodes the RPCPayload as a CredentialCreateResponse
-func (t RPCPayload) AsCredentialCreateResponse() (CredentialCreateResponse, error) {
-	var body CredentialCreateResponse
-	err := t.decode("CredentialCreateResponse", &body)
-	return body, err
-}
-
-// FromCredentialCreateResponse overwrites any protobuf payload as the provided CredentialCreateResponse
-func (t *RPCPayload) FromCredentialCreateResponse(v CredentialCreateResponse) error {
-	return t.encode("CredentialCreateResponse", v)
-}
-
-// MergeCredentialCreateResponse performs a merge with any protobuf payload, using the provided CredentialCreateResponse
-func (t *RPCPayload) MergeCredentialCreateResponse(v CredentialCreateResponse) error {
-	return t.merge("CredentialCreateResponse", v)
-}
-
-// AsCredentialPutResponse decodes the RPCPayload as a CredentialPutResponse
-func (t RPCPayload) AsCredentialPutResponse() (CredentialPutResponse, error) {
-	var body CredentialPutResponse
-	err := t.decode("CredentialPutResponse", &body)
-	return body, err
-}
-
-// FromCredentialPutResponse overwrites any protobuf payload as the provided CredentialPutResponse
-func (t *RPCPayload) FromCredentialPutResponse(v CredentialPutResponse) error {
-	return t.encode("CredentialPutResponse", v)
-}
-
-// MergeCredentialPutResponse performs a merge with any protobuf payload, using the provided CredentialPutResponse
-func (t *RPCPayload) MergeCredentialPutResponse(v CredentialPutResponse) error {
-	return t.merge("CredentialPutResponse", v)
-}
-
-// AsCredentialDeleteResponse decodes the RPCPayload as a CredentialDeleteResponse
-func (t RPCPayload) AsCredentialDeleteResponse() (CredentialDeleteResponse, error) {
-	var body CredentialDeleteResponse
-	err := t.decode("CredentialDeleteResponse", &body)
-	return body, err
-}
-
-// FromCredentialDeleteResponse overwrites any protobuf payload as the provided CredentialDeleteResponse
-func (t *RPCPayload) FromCredentialDeleteResponse(v CredentialDeleteResponse) error {
-	return t.encode("CredentialDeleteResponse", v)
-}
-
-// MergeCredentialDeleteResponse performs a merge with any protobuf payload, using the provided CredentialDeleteResponse
-func (t *RPCPayload) MergeCredentialDeleteResponse(v CredentialDeleteResponse) error {
-	return t.merge("CredentialDeleteResponse", v)
 }
 
 // AsContactListResponse decodes the RPCPayload as a ContactListResponse

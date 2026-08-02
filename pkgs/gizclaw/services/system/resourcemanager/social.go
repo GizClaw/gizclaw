@@ -3,7 +3,6 @@ package resourcemanager
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -25,26 +24,28 @@ func (m *Manager) applyFriend(ctx context.Context, resource apitypes.Resource) (
 	if err := validateFriendResource(item); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	existing, exists, err := m.getFriend(ctx, item.Metadata.Name)
+	id, updating, err := resourceUpdateID(item.Metadata)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists {
-		same, err := semanticEqual(friendSpec(existing), item.Spec)
+	if !updating {
+		created, err := m.services.Friends.AdminCreateFriendResource(ctx, item.Spec.OwnerPublicKey, item.Spec.PeerPublicKey)
 		if err != nil {
-			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
+			return apitypes.ApplyResult{}, err
 		}
-		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindFriend, item.Metadata.Name), nil
-		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindFriend, item.Metadata.Name, created.Id), nil
 	}
-	if _, err := m.services.Friends.AdminCreateFriendResource(ctx, item.Spec.OwnerPublicKey, item.Spec.PeerPublicKey); err != nil {
+	existing, exists, err := m.getFriend(ctx, id)
+	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindFriend, item.Metadata.Name), nil
+	if !exists {
+		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindFriend, id)
 	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindFriend, item.Metadata.Name), nil
+	if item.Metadata.Name != existing.Id || !equalFriendSpec(friendSpec(existing), item.Spec) {
+		return apitypes.ApplyResult{}, applyError(409, "IMMUTABLE_FRIEND", "Friend relationships cannot be updated")
+	}
+	return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindFriend, item.Metadata.Name, id), nil
 }
 
 func (m *Manager) applyContact(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
@@ -58,26 +59,39 @@ func (m *Manager) applyContact(ctx context.Context, resource apitypes.Resource) 
 	if err := validateContactResource(item); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	existing, exists, err := m.getContact(ctx, item.Metadata.Name)
+	id, updating, err := resourceUpdateID(item.Metadata)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists {
-		same, err := semanticEqual(contactSpec(existing), item.Spec)
+	if !updating {
+		created, err := m.services.Contacts.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{OwnerPublicKey: item.Spec.OwnerPublicKey, Name: item.Metadata.Name, DisplayName: item.Spec.DisplayName, PhoneNumber: item.Spec.PhoneNumber})
 		if err != nil {
-			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
+			return apitypes.ApplyResult{}, err
 		}
-		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindContact, item.Metadata.Name), nil
-		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindContact, item.Metadata.Name, created.Id), nil
 	}
-	if _, err := m.services.Contacts.AdminApplyContact(ctx, item.Spec.OwnerPublicKey, item.Spec.Id, item.Spec.DisplayName, item.Spec.PhoneNumber); err != nil {
+	existing, exists, err := m.getContact(ctx, id)
+	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindContact, item.Metadata.Name), nil
+	if !exists {
+		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindContact, id)
 	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindContact, item.Metadata.Name), nil
+	if existing.Name != item.Metadata.Name || existing.OwnerPublicKey != item.Spec.OwnerPublicKey {
+		return apitypes.ApplyResult{}, applyError(409, "IMMUTABLE_CONTACT_IDENTITY", "Contact name and owner are immutable")
+	}
+	desired := apitypes.ContactSpec{OwnerPublicKey: item.Spec.OwnerPublicKey, DisplayName: item.Spec.DisplayName, PhoneNumber: item.Spec.PhoneNumber}
+	same, err := semanticEqual(contactSpec(existing), desired)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if same {
+		return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindContact, item.Metadata.Name, id), nil
+	}
+	if _, err := m.services.Contacts.AdminPutContactByID(ctx, id, adminhttp.AdminContactPutRequest{DisplayName: item.Spec.DisplayName, PhoneNumber: item.Spec.PhoneNumber}); err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindContact, item.Metadata.Name, id), nil
 }
 
 func (m *Manager) applyFriendGroup(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
@@ -91,9 +105,26 @@ func (m *Manager) applyFriendGroup(ctx context.Context, resource apitypes.Resour
 	if err := validateFriendGroupResource(item); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	existing, exists, err := m.getFriendGroup(ctx, item.Metadata.Name)
+	id, updating, err := resourceUpdateID(item.Metadata)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
+	}
+	if !updating {
+		created, err := m.services.FriendGroups.AdminCreateFriendGroup(ctx, item.Spec.OwnerPublicKey, item.Metadata.Name, item.Spec.DisplayName, item.Spec.Description)
+		if err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindFriendGroup, item.Metadata.Name, created.Id), nil
+	}
+	existing, exists, err := m.getFriendGroup(ctx, id)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !exists {
+		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindFriendGroup, id)
+	}
+	if existing.Name != item.Metadata.Name || socialutil.StringValue(existing.CreatedByPeerPublicKey) != item.Spec.OwnerPublicKey {
+		return apitypes.ApplyResult{}, applyError(409, "IMMUTABLE_FRIEND_GROUP_IDENTITY", "FriendGroup name and owner are immutable")
 	}
 	if exists {
 		same, err := semanticEqual(friendGroupSpec(existing), item.Spec)
@@ -101,16 +132,13 @@ func (m *Manager) applyFriendGroup(ctx context.Context, resource apitypes.Resour
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindFriendGroup, item.Metadata.Name), nil
+			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindFriendGroup, item.Metadata.Name, id), nil
 		}
 	}
-	if _, err := m.services.FriendGroups.AdminApplyFriendGroup(ctx, item.Metadata.Name, item.Spec.OwnerPublicKey, item.Spec.Name, item.Spec.Description); err != nil {
+	if _, err := m.services.FriendGroups.AdminPutFriendGroup(ctx, id, item.Spec.DisplayName, item.Spec.Description); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindFriendGroup, item.Metadata.Name), nil
-	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindFriendGroup, item.Metadata.Name), nil
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindFriendGroup, item.Metadata.Name, id), nil
 }
 
 func (m *Manager) applyFriendGroupInviteToken(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
@@ -124,9 +152,25 @@ func (m *Manager) applyFriendGroupInviteToken(ctx context.Context, resource apit
 	if err := validateFriendGroupInviteTokenResource(item); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	existing, exists, err := m.getFriendGroupInviteToken(ctx, item.Metadata.Name)
+	id, updating, err := resourceUpdateID(item.Metadata)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
+	}
+	if !updating {
+		if _, err := m.services.FriendGroups.AdminPutFriendGroupInviteToken(ctx, item.Spec.FriendGroupId, item.Spec.InviteToken, item.Spec.ExpiresAt); err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindFriendGroupInviteToken, item.Metadata.Name, item.Spec.FriendGroupId), nil
+	}
+	if id != item.Spec.FriendGroupId {
+		return apitypes.ApplyResult{}, applyError(400, "INVALID_FRIEND_GROUP_INVITE_TOKEN_RESOURCE", "metadata.id must match spec.friend_group_id")
+	}
+	existing, exists, err := m.getFriendGroupInviteToken(ctx, id)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !exists {
+		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindFriendGroupInviteToken, id)
 	}
 	if exists {
 		same, err := semanticEqual(friendGroupInviteTokenSpec(item.Metadata.Name, existing), item.Spec)
@@ -134,16 +178,13 @@ func (m *Manager) applyFriendGroupInviteToken(ctx context.Context, resource apit
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindFriendGroupInviteToken, item.Metadata.Name), nil
+			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindFriendGroupInviteToken, item.Metadata.Name, id), nil
 		}
 	}
-	if _, err := m.services.FriendGroups.AdminPutFriendGroupInviteToken(ctx, item.Spec.FriendGroupId, item.Spec.InviteToken, item.Spec.ExpiresAt); err != nil {
+	if _, err := m.services.FriendGroups.AdminPutFriendGroupInviteToken(ctx, id, item.Spec.InviteToken, item.Spec.ExpiresAt); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindFriendGroupInviteToken, item.Metadata.Name), nil
-	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindFriendGroupInviteToken, item.Metadata.Name), nil
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindFriendGroupInviteToken, item.Metadata.Name, id), nil
 }
 
 func (m *Manager) applyFriendGroupMember(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
@@ -157,26 +198,45 @@ func (m *Manager) applyFriendGroupMember(ctx context.Context, resource apitypes.
 	if err := validateFriendGroupMemberResource(item); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	existing, exists, err := m.getFriendGroupMember(ctx, item.Metadata.Name)
+	id, updating, err := resourceUpdateID(item.Metadata)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
+	canonicalID := friendGroupMemberResourceName(item.Spec.FriendGroupId, item.Spec.PeerPublicKey)
+	if !updating {
+		if _, exists, err := m.getFriendGroupMember(ctx, canonicalID); err != nil {
+			return apitypes.ApplyResult{}, err
+		} else if exists {
+			return apitypes.ApplyResult{}, applyError(409, "FRIEND_GROUP_MEMBER_ALREADY_EXISTS", "FriendGroupMember already exists")
+		}
+		if _, err := m.services.FriendGroups.AdminPutFriendGroupMember(ctx, item.Spec.FriendGroupId, item.Spec.PeerPublicKey, item.Metadata.Name, rpcapi.FriendGroupMemberRole(item.Spec.Role)); err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindFriendGroupMember, item.Metadata.Name, canonicalID), nil
+	}
+	if id != canonicalID {
+		return apitypes.ApplyResult{}, applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", "metadata.id must match spec friend group and peer")
+	}
+	existing, exists, err := m.getFriendGroupMember(ctx, id)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !exists {
+		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindFriendGroupMember, id)
+	}
 	if exists {
-		same, err := semanticEqual(friendGroupMemberSpec(existing), item.Spec)
+		same, err := semanticEqual(friendGroupMemberSpec(item.Spec.FriendGroupId, existing), item.Spec)
 		if err != nil {
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindFriendGroupMember, item.Metadata.Name), nil
+			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindFriendGroupMember, item.Metadata.Name, id), nil
 		}
 	}
-	if _, err := m.services.FriendGroups.AdminPutFriendGroupMember(ctx, item.Spec.FriendGroupId, item.Spec.PeerPublicKey, rpcapi.FriendGroupMemberRole(item.Spec.Role)); err != nil {
+	if _, err := m.services.FriendGroups.AdminPutFriendGroupMember(ctx, item.Spec.FriendGroupId, item.Spec.PeerPublicKey, "", rpcapi.FriendGroupMemberRole(item.Spec.Role)); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindFriendGroupMember, item.Metadata.Name), nil
-	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindFriendGroupMember, item.Metadata.Name), nil
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindFriendGroupMember, item.Metadata.Name, id), nil
 }
 
 func (m *Manager) getFriend(ctx context.Context, name string) (adminhttp.AdminFriendObject, bool, error) {
@@ -194,12 +254,8 @@ func (m *Manager) getFriend(ctx context.Context, name string) (adminhttp.AdminFr
 	return item, true, nil
 }
 
-func (m *Manager) getContact(ctx context.Context, name string) (adminhttp.AdminContactObject, bool, error) {
-	owner, id, err := contactResourceParts(name)
-	if err != nil {
-		return adminhttp.AdminContactObject{}, false, err
-	}
-	item, err := m.services.Contacts.AdminGetContact(ctx, owner, id)
+func (m *Manager) getContact(ctx context.Context, id string) (adminhttp.AdminContactObject, bool, error) {
+	item, err := m.services.Contacts.AdminGetContactByID(ctx, id)
 	if errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.AdminContactObject{}, false, nil
 	}
@@ -253,7 +309,7 @@ func resourceFromFriend(item adminhttp.AdminFriendObject) (apitypes.Resource, er
 	return marshalResource(apitypes.FriendResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FriendResourceKindFriend,
-		Metadata:   apitypes.ResourceMetadata{Name: socialutil.RelationID(item.OwnerPublicKey, item.PeerPublicKey)},
+		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Id},
 		Spec:       friendSpec(item),
 	})
 }
@@ -262,16 +318,16 @@ func resourceFromContact(item adminhttp.AdminContactObject) (apitypes.Resource, 
 	return marshalResource(apitypes.ContactResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.ContactResourceKindContact,
-		Metadata:   apitypes.ResourceMetadata{Name: contactResourceName(item.OwnerPublicKey, item.Id)},
+		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
 		Spec:       contactSpec(item),
 	})
 }
 
-func resourceFromFriendGroup(item rpcapi.FriendGroupObject) (apitypes.Resource, error) {
+func resourceFromFriendGroup(friendGroupID string, item rpcapi.FriendGroupObject) (apitypes.Resource, error) {
 	return marshalResource(apitypes.FriendGroupResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FriendGroupResourceKindFriendGroup,
-		Metadata:   apitypes.ResourceMetadata{Name: socialutil.StringValue(item.Id)},
+		Metadata:   apitypes.ResourceMetadata{Id: &friendGroupID, Name: item.Name},
 		Spec:       friendGroupSpec(item),
 	})
 }
@@ -280,17 +336,18 @@ func resourceFromFriendGroupInviteToken(friendGroupID string, item rpcapi.Friend
 	return marshalResource(apitypes.FriendGroupInviteTokenResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FriendGroupInviteTokenResourceKindFriendGroupInviteToken,
-		Metadata:   apitypes.ResourceMetadata{Name: friendGroupID},
+		Metadata:   apitypes.ResourceMetadata{Id: &friendGroupID, Name: friendGroupID},
 		Spec:       friendGroupInviteTokenSpec(friendGroupID, item),
 	})
 }
 
-func resourceFromFriendGroupMember(item rpcapi.FriendGroupMemberObject) (apitypes.Resource, error) {
-	spec := friendGroupMemberSpec(item)
+func resourceFromFriendGroupMember(friendGroupID string, item rpcapi.FriendGroupMemberObject) (apitypes.Resource, error) {
+	spec := friendGroupMemberSpec(friendGroupID, item)
+	id := friendGroupMemberResourceName(spec.FriendGroupId, spec.PeerPublicKey)
 	return marshalResource(apitypes.FriendGroupMemberResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FriendGroupMemberResourceKindFriendGroupMember,
-		Metadata:   apitypes.ResourceMetadata{Name: friendGroupMemberResourceName(spec.FriendGroupId, spec.PeerPublicKey)},
+		Metadata:   apitypes.ResourceMetadata{Id: &id, Name: socialutil.StringValue(item.FriendGroupName)},
 		Spec:       spec,
 	})
 }
@@ -302,10 +359,13 @@ func friendSpec(item adminhttp.AdminFriendObject) apitypes.FriendSpec {
 	}
 }
 
+func equalFriendSpec(left, right apitypes.FriendSpec) bool {
+	return left.OwnerPublicKey == right.OwnerPublicKey && left.PeerPublicKey == right.PeerPublicKey
+}
+
 func contactSpec(item adminhttp.AdminContactObject) apitypes.ContactSpec {
 	return apitypes.ContactSpec{
 		OwnerPublicKey: item.OwnerPublicKey,
-		Id:             item.Id,
 		DisplayName:    item.DisplayName,
 		PhoneNumber:    item.PhoneNumber,
 	}
@@ -314,7 +374,7 @@ func contactSpec(item adminhttp.AdminContactObject) apitypes.ContactSpec {
 func friendGroupSpec(item rpcapi.FriendGroupObject) apitypes.FriendGroupSpec {
 	return apitypes.FriendGroupSpec{
 		OwnerPublicKey: socialutil.StringValue(item.CreatedByPeerPublicKey),
-		Name:           socialutil.StringValue(item.Name),
+		DisplayName:    item.DisplayName,
 		Description:    socialutil.OptionalString(strings.TrimSpace(socialutil.StringValue(item.Description))),
 	}
 }
@@ -330,9 +390,9 @@ func friendGroupInviteTokenSpec(friendGroupID string, item rpcapi.FriendGroupInv
 	return spec
 }
 
-func friendGroupMemberSpec(item rpcapi.FriendGroupMemberObject) apitypes.FriendGroupMemberSpec {
+func friendGroupMemberSpec(friendGroupID string, item rpcapi.FriendGroupMemberObject) apitypes.FriendGroupMemberSpec {
 	return apitypes.FriendGroupMemberSpec{
-		FriendGroupId: socialutil.StringValue(item.FriendGroupId),
+		FriendGroupId: friendGroupID,
 		PeerPublicKey: socialutil.StringValue(item.PeerPublicKey),
 		Role:          apitypes.FriendGroupMemberRole(socialutil.GroupRole(item)),
 	}
@@ -356,12 +416,11 @@ func validateContactResource(item apitypes.ContactResource) error {
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return err
 	}
-	owner, id, err := contactResourceParts(item.Metadata.Name)
-	if err != nil {
-		return err
+	if err := customid.ValidateField("metadata.name", item.Metadata.Name); err != nil {
+		return applyError(400, "INVALID_CONTACT_RESOURCE", err.Error())
 	}
-	if item.Spec.OwnerPublicKey != owner || item.Spec.Id != id {
-		return applyError(400, "INVALID_CONTACT_RESOURCE", "metadata.name must match owner_public_key:id")
+	if strings.TrimSpace(item.Spec.OwnerPublicKey) == "" {
+		return applyError(400, "INVALID_CONTACT_RESOURCE", "spec.owner_public_key is required")
 	}
 	if strings.TrimSpace(socialutil.StringValue(item.Spec.DisplayName)) == "" && strings.TrimSpace(socialutil.StringValue(item.Spec.PhoneNumber)) == "" {
 		return applyError(400, "INVALID_CONTACT_RESOURCE", "spec.display_name or spec.phone_number is required")
@@ -376,9 +435,6 @@ func validateFriendGroupResource(item apitypes.FriendGroupResource) error {
 	if err := customid.ValidateField("metadata.name", item.Metadata.Name); err != nil {
 		return applyError(400, "INVALID_FRIEND_GROUP_RESOURCE", err.Error())
 	}
-	if strings.TrimSpace(item.Spec.Name) == "" {
-		return applyError(400, "INVALID_FRIEND_GROUP_RESOURCE", "spec.name is required")
-	}
 	if strings.TrimSpace(item.Spec.OwnerPublicKey) == "" {
 		return applyError(400, "INVALID_FRIEND_GROUP_RESOURCE", "spec.owner_public_key is required")
 	}
@@ -389,11 +445,8 @@ func validateFriendGroupInviteTokenResource(item apitypes.FriendGroupInviteToken
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return err
 	}
-	if err := customid.ValidateField("metadata.name", item.Metadata.Name); err != nil {
-		return applyError(400, "INVALID_FRIEND_GROUP_INVITE_TOKEN_RESOURCE", err.Error())
-	}
-	if err := customid.ValidateField("spec.friend_group_id", item.Spec.FriendGroupId); err != nil {
-		return applyError(400, "INVALID_FRIEND_GROUP_INVITE_TOKEN_RESOURCE", err.Error())
+	if strings.TrimSpace(item.Spec.FriendGroupId) == "" {
+		return applyError(400, "INVALID_FRIEND_GROUP_INVITE_TOKEN_RESOURCE", "spec.friend_group_id is required")
 	}
 	if item.Spec.FriendGroupId != item.Metadata.Name {
 		return applyError(400, "INVALID_FRIEND_GROUP_INVITE_TOKEN_RESOURCE", "metadata.name must match spec.friend_group_id")
@@ -408,21 +461,17 @@ func validateFriendGroupMemberResource(item apitypes.FriendGroupMemberResource) 
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return err
 	}
-	friendGroupID, peerID, err := friendGroupMemberResourceParts(item.Metadata.Name)
-	if err != nil {
-		return err
-	}
-	if err := customid.ValidateField("spec.friend_group_id", item.Spec.FriendGroupId); err != nil {
+	if err := customid.ValidateField("metadata.name", item.Metadata.Name); err != nil {
 		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", err.Error())
+	}
+	if strings.TrimSpace(item.Spec.FriendGroupId) == "" {
+		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", "spec.friend_group_id is required")
 	}
 	if strings.TrimSpace(item.Spec.PeerPublicKey) == "" {
 		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", "spec.peer_public_key is required")
 	}
 	if !item.Spec.Role.Valid() {
 		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", "spec.role is invalid")
-	}
-	if item.Spec.FriendGroupId != friendGroupID || item.Spec.PeerPublicKey != peerID {
-		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", fmt.Sprintf("metadata.name must be %q", friendGroupMemberResourceName(item.Spec.FriendGroupId, item.Spec.PeerPublicKey)))
 	}
 	return nil
 }
@@ -436,18 +485,6 @@ func friendResourcePeers(name string) (string, string, error) {
 		return "", "", applyError(400, "INVALID_FRIEND_RESOURCE", "metadata.name must use sorted relation id order")
 	}
 	return left, right, nil
-}
-
-func contactResourceName(owner, id string) string {
-	return customid.OwnerScopedName(owner, id)
-}
-
-func contactResourceParts(name string) (string, string, error) {
-	owner, id, err := customid.SplitOwnerScopedName(name)
-	if err != nil {
-		return "", "", applyError(400, "INVALID_CONTACT_RESOURCE", err.Error())
-	}
-	return owner, id, nil
 }
 
 func friendGroupMemberResourceName(friendGroupID, peerID string) string {

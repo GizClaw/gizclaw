@@ -659,23 +659,24 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 		t.Fatalf("init error = %v", err)
 	}
 	modelResponse, err := server.manager.Models.CreateModel(context.Background(), adminhttp.CreateModelRequestObject{Body: &adminhttp.ModelUpsert{
-		Id:     "profile-model",
+		Name:   "profile-model",
 		Kind:   apitypes.ModelKindLlm,
 		Source: apitypes.ModelSourceManual,
 		Provider: apitypes.ModelProvider{
 			Kind: "openai-tenant",
-			Name: "global",
+			Id:   "global",
 		},
 		ProviderData: mustOpenAIModelProviderData(t, "profile-model-upstream"),
 	}})
 	if err != nil {
 		t.Fatalf("CreateModel error = %v", err)
 	}
-	if _, ok := modelResponse.(adminhttp.CreateModel200JSONResponse); !ok {
+	createdModel, ok := modelResponse.(adminhttp.CreateModel200JSONResponse)
+	if !ok {
 		t.Fatalf("CreateModel response = %#v", modelResponse)
 	}
 	models := map[string]apitypes.RuntimeProfileBinding{
-		"primary": {ResourceId: "profile-model", I18n: map[string]apitypes.RuntimeProfileI18nText{
+		"primary": {ResourceId: createdModel.Id, I18n: map[string]apitypes.RuntimeProfileI18nText{
 			"en": {DisplayName: "Primary"}, "zh-CN": {DisplayName: "主要模型"},
 		}},
 	}
@@ -692,13 +693,14 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateRuntimeProfile error = %v", err)
 	}
-	if _, ok := profileResponse.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
+	createdProfile, ok := profileResponse.(adminhttp.CreateRuntimeProfile200JSONResponse)
+	if !ok {
 		t.Fatalf("CreateRuntimeProfile response = %#v", profileResponse)
 	}
 	tokenResponse, err := server.manager.RuntimeProfiles.CreateRegistrationToken(context.Background(), adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name:               "public-http-token",
-		Token:              "public-http-registration",
-		RuntimeProfileName: "public-http-profile",
+		Name:             "public-http-token",
+		Token:            "public-http-registration",
+		RuntimeProfileId: createdProfile.Id,
 	}})
 	if err != nil {
 		t.Fatalf("CreateRegistrationToken error = %v", err)

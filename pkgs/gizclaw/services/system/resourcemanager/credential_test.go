@@ -52,7 +52,7 @@ func TestApplyCredentialUnchangedSkipsPut(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "minimax-main"},
+		"metadata": {"id": "minimax-main", "name": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"},
@@ -84,7 +84,7 @@ func TestApplyCredentialUpdatesResource(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "minimax-main"},
+		"metadata": {"id": "minimax-main", "name": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "new"}
@@ -133,12 +133,13 @@ func TestGetCredentialReturnsResource(t *testing.T) {
 
 func TestPutCredentialWritesAndReturnsResource(t *testing.T) {
 	credentials := newFakeCredentials()
+	credentials.items["minimax-main"] = apitypes.Credential{Id: "minimax-main", Name: "minimax-main"}
 	manager := New(Services{Credentials: credentials})
 
 	resource, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "minimax-main"},
+		"metadata": {"id": "minimax-main", "name": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
@@ -164,12 +165,13 @@ func TestPutCredentialWritesAndReturnsResource(t *testing.T) {
 
 func TestPutCredentialEscapesServicePathName(t *testing.T) {
 	credentials := newFakeCredentials()
+	credentials.items["mini/max%main"] = apitypes.Credential{Id: "mini/max%main", Name: "mini/max%main"}
 	manager := New(Services{Credentials: credentials})
 
 	resource, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "mini/max%main"},
+		"metadata": {"id": "mini/max%main", "name": "mini/max%main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
@@ -223,12 +225,20 @@ func (f *fakeCredentials) ListCredentials(context.Context, adminhttp.ListCredent
 	return nil, nil
 }
 
-func (f *fakeCredentials) CreateCredential(context.Context, adminhttp.CreateCredentialRequestObject) (adminhttp.CreateCredentialResponseObject, error) {
-	return nil, nil
+func (f *fakeCredentials) CreateCredential(_ context.Context, request adminhttp.CreateCredentialRequestObject) (adminhttp.CreateCredentialResponseObject, error) {
+	f.putCount++
+	body := *request.Body
+	now := time.Now().UTC()
+	item := apitypes.Credential{
+		Id: body.Name, Name: body.Name, Body: body.Body, CreatedAt: now,
+		Description: body.Description, Provider: body.Provider, UpdatedAt: now,
+	}
+	f.items[item.Id] = item
+	return adminhttp.CreateCredential200JSONResponse(item), nil
 }
 
 func (f *fakeCredentials) DeleteCredential(_ context.Context, request adminhttp.DeleteCredentialRequestObject) (adminhttp.DeleteCredentialResponseObject, error) {
-	name := mustUnescapePathParam(string(request.Name))
+	name := mustUnescapePathParam(string(request.Id))
 	item, ok := f.items[name]
 	if !ok {
 		return adminhttp.DeleteCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", "not found")), nil
@@ -241,7 +251,7 @@ func (f *fakeCredentials) GetCredential(_ context.Context, request adminhttp.Get
 	if f.getStatus == 500 {
 		return adminhttp.GetCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
-	name := mustUnescapePathParam(string(request.Name))
+	name := mustUnescapePathParam(string(request.Id))
 	item, ok := f.items[name]
 	if !ok {
 		return adminhttp.GetCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", "not found")), nil
@@ -257,10 +267,11 @@ func (f *fakeCredentials) PutCredential(_ context.Context, request adminhttp.Put
 		return adminhttp.PutCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	f.putCount++
-	name := mustUnescapePathParam(string(request.Name))
+	name := string(request.Id)
 	body := *request.Body
 	now := time.Now().UTC()
 	item := apitypes.Credential{
+		Id:          name,
 		Body:        body.Body,
 		CreatedAt:   now,
 		Description: body.Description,

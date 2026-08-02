@@ -192,7 +192,7 @@ export function VoicesListPage(): JSX.Element {
                     <TableCell className="text-sm font-medium">
                       <ProviderLabel
                         kind={voice.provider.kind}
-                        name={voice.provider.name}
+                        name={voice.provider.id}
                       />
                     </TableCell>
                     <TableCell className="max-w-[22rem]">

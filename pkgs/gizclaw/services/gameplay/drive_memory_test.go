@@ -29,12 +29,12 @@ type driveFactMemoryFake struct {
 	observeFunc    func(context.Context, memory.Observation) (memory.ObserveResult, error)
 }
 
-func (fake *driveFactMemoryFake) Snapshot(_ context.Context, workspaceName string) (DriveFactTarget, error) {
+func (fake *driveFactMemoryFake) Snapshot(_ context.Context, workspaceID string) (DriveFactTarget, error) {
 	if fake.snapshotErr != nil {
 		return DriveFactTarget{}, fake.snapshotErr
 	}
 	target := fake.target
-	target.WorkspaceName = workspaceName
+	target.WorkspaceID = workspaceID
 	return target, nil
 }
 
@@ -120,7 +120,7 @@ func TestDriveFactDispatcherBlocksCorruptPayload(t *testing.T) {
 	ctx, runtime, _ := newPetRuntime(t)
 	delivery := testDriveFactMemory()
 	runtime.DriveFacts = delivery
-	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{DisplayName: "Pet"})
+	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{Name: "pet-main", DisplayName: "Pet"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestDriveFactCancellationReleasesClaim(t *testing.T) {
 		return memory.ObserveResult{}, ctx.Err()
 	}
 	runtime.DriveFacts = delivery
-	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{DisplayName: "Pet"})
+	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{Name: "pet-main", DisplayName: "Pet"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestDriveFactClaimPreventsConcurrentSubmission(t *testing.T) {
 	delivery.observeEntered = make(chan struct{}, 1)
 	delivery.observeRelease = release
 	runtime.DriveFacts = delivery
-	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{DisplayName: "Pet"})
+	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{Name: "pet-main", DisplayName: "Pet"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +234,7 @@ func (fake *driveFactMemoryFake) Wait(_ context.Context, _ DriveFactTarget, requ
 func testDriveFactMemory() *driveFactMemoryFake {
 	return &driveFactMemoryFake{
 		target: DriveFactTarget{
-			ProfileName: "profile", ProfileRevision: "revision",
+			ProfileID: "profile-id", ProfileRevision: "revision",
 			BindingName: "memory", BindingIdentity: "binding-digest",
 		},
 		observeOut: memory.ObserveResult{Facts: []memory.Fact{{ID: "fact"}}},
@@ -246,7 +246,7 @@ func TestAcceptedCareEnqueuesAndDeliversCanonicalWorkspaceFact(t *testing.T) {
 	ctx, runtime, _ := newPetRuntime(t)
 	delivery := testDriveFactMemory()
 	runtime.DriveFacts = delivery
-	adopted, err := runtime.AdoptPet(ctx, "owner-secret", apitypes.PetAdoptRequest{DisplayName: "Pet"})
+	adopted, err := runtime.AdoptPet(ctx, "owner-secret", apitypes.PetAdoptRequest{Name: "pet-main", DisplayName: "Pet"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +276,7 @@ func TestAcceptedCareEnqueuesAndDeliversCanonicalWorkspaceFact(t *testing.T) {
 	observation := delivery.observe[0]
 	delivery.mu.Unlock()
 	wantID := "gameplay/drive/reward_grant/" + response.RewardGrants[0].Id
-	if observation.ID != wantID || observation.Scope != (memory.Scope{AppID: adopted.Pet.WorkspaceName}) ||
+	if observation.ID != wantID || observation.Scope != (memory.Scope{AppID: adopted.Pet.WorkspaceId}) ||
 		len(observation.Facts) != 1 || observation.Context != nil {
 		t.Fatalf("observation = %#v", observation)
 	}
@@ -314,7 +314,7 @@ func TestAcceptedCareEnqueuesAndDeliversCanonicalWorkspaceFact(t *testing.T) {
 func TestDriveFactOutboxExcludesNoopAndRejectedDrives(t *testing.T) {
 	ctx, runtime, _ := newPetRuntime(t)
 	runtime.DriveFacts = testDriveFactMemory()
-	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{DisplayName: "Pet"})
+	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{Name: "pet-main", DisplayName: "Pet"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,8 +341,8 @@ func TestDriveFactOutboxExcludesNoopAndRejectedDrives(t *testing.T) {
 
 func TestCanonicalGameDriveFactExcludesRawPayload(t *testing.T) {
 	pet := apitypes.Pet{
-		Id: "pet", PetdefId: "petdef", WorkspaceName: "workspace",
-		RuntimeProfileName: "profile", Lifecycle: apitypes.PetLifecycleAlive,
+		Id: "pet", PetDefId: "petdef", WorkspaceId: "workspace",
+		RuntimeProfileId: "profile", Lifecycle: apitypes.PetLifecycleAlive,
 	}
 	result := &apitypes.GameResult{
 		Id: "result", PetId: pet.Id, GameDefId: "game",
@@ -386,7 +386,7 @@ func TestDriveFactDispatcherPersistsOperationBeforeWaitAndResumes(t *testing.T) 
 	delivery.observeOut.Operation = &memory.Operation{ID: "opaque-operation", Status: memory.OperationPending}
 	delivery.waitOut.Operation = &memory.Operation{ID: "opaque-operation", Status: memory.OperationSucceeded}
 	runtime.DriveFacts = delivery
-	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{DisplayName: "Pet"})
+	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{Name: "pet-main", DisplayName: "Pet"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -426,7 +426,7 @@ func TestDriveFactDispatcherPersistsOperationBeforeWaitAndResumes(t *testing.T) 
 func TestDriveFactOutboxFailureRollsBackAcceptedDrive(t *testing.T) {
 	ctx, runtime, _ := newPetRuntime(t)
 	runtime.DriveFacts = testDriveFactMemory()
-	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{DisplayName: "Pet"})
+	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{Name: "pet-main", DisplayName: "Pet"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -470,7 +470,7 @@ func TestDriveFactDispatcherReconcilesEmptyTerminalOperation(t *testing.T) {
 		Operation: &memory.Operation{ID: "opaque-operation", Status: memory.OperationSucceeded},
 	}
 	runtime.DriveFacts = delivery
-	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{DisplayName: "Pet"})
+	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{Name: "pet-main", DisplayName: "Pet"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -509,7 +509,7 @@ func TestDriveFactBindingFailureDoesNotRollbackDrive(t *testing.T) {
 	delivery := testDriveFactMemory()
 	delivery.snapshotErr = errors.New("binding missing secret-value")
 	runtime.DriveFacts = delivery
-	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{DisplayName: "Pet"})
+	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{Name: "pet-main", DisplayName: "Pet"})
 	if err != nil {
 		t.Fatal(err)
 	}

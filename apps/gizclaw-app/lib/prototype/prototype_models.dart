@@ -65,7 +65,7 @@ class WorkflowCard {
 class WorkspaceCard {
   const WorkspaceCard({
     required this.name,
-    required this.workflowAlias,
+    required this.workflowName,
     required this.collection,
     required this.lastActive,
     this.chatroomKind,
@@ -74,7 +74,7 @@ class WorkspaceCard {
   final ChatroomWorkspaceKind? chatroomKind;
   final String collection;
   final String name;
-  final String workflowAlias;
+  final String workflowName;
   final String lastActive;
 
   String get title => name;

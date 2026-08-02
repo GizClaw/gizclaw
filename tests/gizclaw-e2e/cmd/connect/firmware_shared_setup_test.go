@@ -39,7 +39,7 @@ func createRuntimeProfileRegistrationToken(t *testing.T, h *clitest.Harness) str
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	profileName := "e2e-firmware-main"
-	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
+	profile, err := clitest.UpsertRuntimeProfileByName(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Name: profileName,
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{},
@@ -56,14 +56,17 @@ func createRuntimeProfileRegistrationToken(t *testing.T, h *clitest.Harness) str
 	if err != nil {
 		t.Fatalf("put RuntimeProfile: %v", err)
 	}
-	if profileResp.JSON200 == nil {
-		t.Fatalf("put RuntimeProfile: err=%v status=%d body=%s", err, profileResp.StatusCode(), strings.TrimSpace(string(profileResp.Body)))
-	}
 	tokenName := "e2e-firmware-main-token"
-	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
-	firmwareID := "devkit-firmware-main"
+	if err := clitest.DeleteRegistrationTokenByName(ctx, api, tokenName); err != nil {
+		t.Fatalf("retire RegistrationToken: %v", err)
+	}
+	firmware, found, err := clitest.FirmwareByName(ctx, api, "devkit-firmware-main")
+	if err != nil || !found {
+		t.Fatalf("resolve Firmware devkit-firmware-main: found=%v err=%v", found, err)
+	}
+	firmwareID := firmware.Id
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name: tokenName, Token: tokenName, RuntimeProfileName: profileName, FirmwareId: &firmwareID,
+		Name: tokenName, Token: tokenName, RuntimeProfileId: profile.Id, FirmwareId: &firmwareID,
 	})
 	if err != nil {
 		t.Fatalf("create RegistrationToken: %v", err)

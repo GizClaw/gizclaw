@@ -24,7 +24,7 @@ func NewCmd() *cobra.Command {
 }
 
 func newListCmd(ctxName *string) *cobra.Command {
-	var source, providerKind, providerName string
+	var source, providerKind, providerID string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List voices",
@@ -34,7 +34,7 @@ func newListCmd(ctxName *string) *cobra.Command {
 				return err
 			}
 			defer c.Close()
-			items, err := adminapi.ListVoices(context.Background(), c, source, providerKind, providerName)
+			items, err := adminapi.ListVoices(context.Background(), c, source, providerKind, providerID)
 			if err != nil {
 				return err
 			}
@@ -43,7 +43,7 @@ func newListCmd(ctxName *string) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&source, "source", "", "filter by source")
 	cmd.Flags().StringVar(&providerKind, "provider-kind", "", "filter by provider kind")
-	cmd.Flags().StringVar(&providerName, "provider-name", "", "filter by provider name")
+	cmd.Flags().StringVar(&providerID, "provider-id", "", "filter by provider ID")
 	return cmd
 }
 

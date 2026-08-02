@@ -24,9 +24,9 @@ func TestFriendGroupMessagesProjectSingleWorkspaceHistoryPage(t *testing.T) {
 	order := rpcapi.WorkspaceHistoryListRequestOrderDesc
 	limit := 1
 	request := friendGroupHistoryRPCRequest(t, "list", rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListRequest{
-		FriendGroupId: groupID,
-		Limit:         &limit,
-		Order:         &order,
+		FriendGroupName: groupID,
+		Limit:           &limit,
+		Order:           &order,
 	}, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest)
 
 	response, handled, err := server.Dispatch(ctx, request)
@@ -37,7 +37,7 @@ func TestFriendGroupMessagesProjectSingleWorkspaceHistoryPage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode list response: %v", err)
 	}
-	if history.listPageCalls != 1 || history.getCalls != 0 || history.workspaceName != "group-workspace" {
+	if history.listPageCalls != 1 || history.getCalls != 0 || history.workspaceName != "workspace-id" {
 		t.Fatalf("history calls = listPage:%d get:%d workspace:%q", history.listPageCalls, history.getCalls, history.workspaceName)
 	}
 	if history.listRequest.Limit == nil || *history.listRequest.Limit != limit || history.listRequest.Order == nil || *history.listRequest.Order != apitypes.PeerRunHistoryListRequestOrderDesc {
@@ -47,7 +47,7 @@ func TestFriendGroupMessagesProjectSingleWorkspaceHistoryPage(t *testing.T) {
 		t.Fatalf("list response = %#v", result)
 	}
 	item := result.Items[0]
-	if item.FriendGroupId != groupID || item.HistoryId != "history-1" || item.Name != "gear" || item.Text != "hello" || item.Type != rpcapi.PeerRunHistoryEntryTypeGear || !item.AudioAvailable || item.SenderPeerPublicKey == nil || *item.SenderPeerPublicKey != "peer-sender" {
+	if item.FriendGroupName != groupID || item.HistoryId != "history-1" || item.Name != "gear" || item.Text != "hello" || item.Type != rpcapi.PeerRunHistoryEntryTypeGear || !item.AudioAvailable || item.SenderPeerPublicKey == nil || *item.SenderPeerPublicKey != "peer-sender" {
 		t.Fatalf("projected item = %#v", item)
 	}
 }
@@ -66,10 +66,10 @@ func TestFriendGroupMessagesListPreservesCursorOrderAndStableHistoryIDs(t *testi
 	limit := 2
 	order := rpcapi.WorkspaceHistoryListRequestOrderAsc
 	request := friendGroupHistoryRPCRequest(t, "page", rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListRequest{
-		FriendGroupId: groupID,
-		Cursor:        &cursor,
-		Limit:         &limit,
-		Order:         &order,
+		FriendGroupName: groupID,
+		Cursor:          &cursor,
+		Limit:           &limit,
+		Order:           &order,
 	}, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest)
 
 	response, handled, err := server.Dispatch(t.Context(), request)
@@ -92,25 +92,25 @@ func TestFriendGroupMessagesGetAndAudioUseResolvedWorkspace(t *testing.T) {
 	ctx := t.Context()
 	server, history, groupID := newFriendGroupHistoryServer(t)
 	request := friendGroupHistoryRPCRequest(t, "get", rpcapi.RPCMethodServerFriendGroupMessagesGet, rpcapi.FriendGroupMessageGetRequest{
-		FriendGroupId: groupID,
-		HistoryId:     "history-1",
+		FriendGroupName: groupID,
+		HistoryId:       "history-1",
 	}, (*rpcapi.RPCPayload).FromFriendGroupMessageGetRequest)
 	response, handled, err := server.Dispatch(ctx, request)
 	if err != nil || !handled || response.Error != nil {
 		t.Fatalf("Dispatch(get) = response=%#v handled=%v error=%v", response, handled, err)
 	}
 	item, err := response.Result.AsFriendGroupMessageGetResponse()
-	if err != nil || item.HistoryId != "history-1" || history.getCalls != 1 || history.workspaceName != "group-workspace" {
+	if err != nil || item.HistoryId != "history-1" || history.getCalls != 1 || history.workspaceName != "workspace-id" {
 		t.Fatalf("get = item=%#v decode=%v calls=%d workspace=%q", item, err, history.getCalls, history.workspaceName)
 	}
 
-	metadata, reader, rpcErr, err := server.PrepareFriendGroupMessageAudioGet(ctx, rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupId: groupID, HistoryId: "history-1"})
+	metadata, reader, rpcErr, err := server.PrepareFriendGroupMessageAudioGet(ctx, rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupName: groupID, HistoryId: "history-1"})
 	if err != nil || rpcErr != nil {
 		t.Fatalf("PrepareFriendGroupMessageAudioGet() = metadata=%#v rpcErr=%#v error=%v", metadata, rpcErr, err)
 	}
 	defer reader.Close()
 	audio, err := io.ReadAll(reader)
-	if err != nil || string(audio) != "opus" || metadata.FriendGroupId != groupID || metadata.HistoryId != "history-1" || metadata.MimeType != "audio/opus" || metadata.SizeBytes != 4 {
+	if err != nil || string(audio) != "opus" || metadata.FriendGroupName != groupID || metadata.HistoryId != "history-1" || metadata.MimeType != "audio/opus" || metadata.SizeBytes != 4 {
 		t.Fatalf("audio = metadata=%#v bytes=%q error=%v", metadata, audio, err)
 	}
 }
@@ -119,7 +119,7 @@ func TestFriendGroupMessageAudioRejectsMissingHistoryAudio(t *testing.T) {
 	server, history, groupID := newFriendGroupHistoryServer(t)
 	history.entry.Assets = nil
 
-	metadata, reader, rpcErr, err := server.PrepareFriendGroupMessageAudioGet(t.Context(), rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupId: groupID, HistoryId: "history-1"})
+	metadata, reader, rpcErr, err := server.PrepareFriendGroupMessageAudioGet(t.Context(), rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupName: groupID, HistoryId: "history-1"})
 	if err != nil || reader != nil || rpcErr == nil || rpcErr.Code != rpcapi.RPCErrorCodeNotFound || rpcErr.Message != "not found" {
 		t.Fatalf("PrepareFriendGroupMessageAudioGet(missing audio) = metadata=%#v reader=%v rpcErr=%#v error=%v", metadata, reader, rpcErr, err)
 	}
@@ -130,7 +130,7 @@ func TestFriendGroupMessageProjectionDoesNotInferSenderOrAudio(t *testing.T) {
 		ID: "history-agent", Type: "agent", GearID: "must-not-leak", Name: "assistant", Text: "text only",
 		CreatedAt: time.Date(2026, 8, 1, 1, 0, 0, 0, time.UTC), ReplayAvailable: true,
 	})
-	if item.FriendGroupId != "group-a" || item.HistoryId != "history-agent" || item.SenderPeerPublicKey != nil || item.AudioAvailable {
+	if item.FriendGroupName != "group-a" || item.HistoryId != "history-agent" || item.SenderPeerPublicKey != nil || item.AudioAvailable {
 		t.Fatalf("agent text projection = %#v", item)
 	}
 }
@@ -142,7 +142,7 @@ func TestFriendGroupMessagesRejectNonMemberBeforeHistoryRead(t *testing.T) {
 		t.Fatalf("GenerateKeyPair(other): %v", err)
 	}
 	server.Caller = other.Public
-	request := friendGroupHistoryRPCRequest(t, "denied", rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListRequest{FriendGroupId: groupID}, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest)
+	request := friendGroupHistoryRPCRequest(t, "denied", rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListRequest{FriendGroupName: groupID}, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest)
 	response, handled, err := server.Dispatch(t.Context(), request)
 	if err != nil || !handled || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound {
 		t.Fatalf("Dispatch(non-member) = response=%#v handled=%v error=%v", response, handled, err)
@@ -159,19 +159,19 @@ func TestFriendGroupMessagesRejectRemovedMemberAcrossReadMethods(t *testing.T) {
 		t.Fatalf("remove current member: %v", err)
 	}
 
-	listRequest := friendGroupHistoryRPCRequest(t, "removed-list", rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListRequest{FriendGroupId: groupID}, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest)
+	listRequest := friendGroupHistoryRPCRequest(t, "removed-list", rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListRequest{FriendGroupName: groupID}, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest)
 	listResponse, handled, err := server.Dispatch(t.Context(), listRequest)
 	if err != nil || !handled || listResponse.Error == nil || listResponse.Error.Code != rpcapi.RPCErrorCodeNotFound || listResponse.Error.Message != "not found" {
 		t.Fatalf("Dispatch(removed list) = response=%#v handled=%v error=%v", listResponse, handled, err)
 	}
 
-	getRequest := friendGroupHistoryRPCRequest(t, "removed-get", rpcapi.RPCMethodServerFriendGroupMessagesGet, rpcapi.FriendGroupMessageGetRequest{FriendGroupId: groupID, HistoryId: "history-1"}, (*rpcapi.RPCPayload).FromFriendGroupMessageGetRequest)
+	getRequest := friendGroupHistoryRPCRequest(t, "removed-get", rpcapi.RPCMethodServerFriendGroupMessagesGet, rpcapi.FriendGroupMessageGetRequest{FriendGroupName: groupID, HistoryId: "history-1"}, (*rpcapi.RPCPayload).FromFriendGroupMessageGetRequest)
 	getResponse, handled, err := server.Dispatch(t.Context(), getRequest)
 	if err != nil || !handled || getResponse.Error == nil || getResponse.Error.Code != rpcapi.RPCErrorCodeNotFound || getResponse.Error.Message != "not found" {
 		t.Fatalf("Dispatch(removed get) = response=%#v handled=%v error=%v", getResponse, handled, err)
 	}
 
-	metadata, reader, rpcErr, err := server.PrepareFriendGroupMessageAudioGet(t.Context(), rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupId: groupID, HistoryId: "history-1"})
+	metadata, reader, rpcErr, err := server.PrepareFriendGroupMessageAudioGet(t.Context(), rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupName: groupID, HistoryId: "history-1"})
 	if err != nil || reader != nil || rpcErr == nil || rpcErr.Code != rpcapi.RPCErrorCodeNotFound || rpcErr.Message != "not found" {
 		t.Fatalf("PrepareFriendGroupMessageAudioGet(removed) = metadata=%#v reader=%v rpcErr=%#v error=%v", metadata, reader, rpcErr, err)
 	}
@@ -186,7 +186,7 @@ func TestFriendGroupMessagesRejectDeletedGroupBeforeHistoryRead(t *testing.T) {
 		t.Fatalf("delete group record: %v", err)
 	}
 
-	request := friendGroupHistoryRPCRequest(t, "deleted", rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListRequest{FriendGroupId: groupID}, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest)
+	request := friendGroupHistoryRPCRequest(t, "deleted", rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListRequest{FriendGroupName: groupID}, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest)
 	response, handled, err := server.Dispatch(t.Context(), request)
 	if err != nil || !handled || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound || response.Error.Message != "not found" {
 		t.Fatalf("Dispatch(deleted) = response=%#v handled=%v error=%v", response, handled, err)
@@ -213,7 +213,7 @@ func TestFriendGroupMessagesRejectPendingDeletionBeforeHistoryRead(t *testing.T)
 		t.Fatalf("pendingdeletion.CreateOrGet(): %v", err)
 	}
 
-	request := friendGroupHistoryRPCRequest(t, "retiring", rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListRequest{FriendGroupId: groupID}, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest)
+	request := friendGroupHistoryRPCRequest(t, "retiring", rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListRequest{FriendGroupName: groupID}, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest)
 	response, handled, err := server.Dispatch(t.Context(), request)
 	if err != nil || !handled || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound || response.Error.Message != "not found" {
 		t.Fatalf("Dispatch(retiring) = response=%#v handled=%v error=%v", response, handled, err)
@@ -231,15 +231,7 @@ func newFriendGroupHistoryServer(t *testing.T) (*Server, *fakeFriendGroupHistory
 	}
 	store := kv.NewMemory(nil)
 	groupID := "group-a"
-	workspaceName := "group-workspace"
-	role := rpcapi.FriendGroupMemberRoleMember
-	if err := socialutil.WriteJSON(t.Context(), store, socialutil.GroupKey(groupID), rpcapi.FriendGroupObject{Id: &groupID, WorkspaceName: &workspaceName}); err != nil {
-		t.Fatalf("seed group: %v", err)
-	}
 	caller := keyPair.Public.String()
-	if err := socialutil.WriteJSON(t.Context(), store, socialutil.GroupMemberKey(groupID, caller), rpcapi.FriendGroupMemberObject{FriendGroupId: &groupID, PeerPublicKey: &caller, Role: &role}); err != nil {
-		t.Fatalf("seed group member: %v", err)
-	}
 	createdAt := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	history := &fakeFriendGroupHistoryWorkspace{page: workspace.HistoryEntryPage{
 		Entries: []workspace.HistoryEntry{{
@@ -249,12 +241,23 @@ func newFriendGroupHistoryServer(t *testing.T) (*Server, *fakeFriendGroupHistory
 		HasNext: true, NextCursor: "next-history",
 	}}
 	history.entry = history.page.Entries[0]
-	return &Server{
-		Caller: keyPair.Public,
-		FriendGroups: &friendgroup.Server{
-			Groups: store, Members: store, Belongs: store, RelationshipStore: store,
-		},
+	groups := &friendgroup.Server{
+		Groups: store, Members: store, Belongs: store, RelationshipStore: store,
 		Workspaces: history,
+		RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) {
+			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
+				System: apitypes.RuntimeProfileSystemWorkflows{GroupChatroom: "chatroom"},
+			}}}, nil
+		},
+		NewID: func() string { return groupID },
+	}
+	if _, err := groups.CreateFriendGroup(t.Context(), caller, rpcapi.FriendGroupCreateRequest{Name: groupID}); err != nil {
+		t.Fatalf("create group fixture: %v", err)
+	}
+	return &Server{
+		Caller:       keyPair.Public,
+		FriendGroups: groups,
+		Workspaces:   history,
 	}, history, groupID
 }
 
@@ -291,16 +294,16 @@ func (*fakeFriendGroupHistoryWorkspace) GetWorkspace(context.Context, adminhttp.
 func (*fakeFriendGroupHistoryWorkspace) PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
 	return nil, nil
 }
-func (*fakeFriendGroupHistoryWorkspace) ListWorkspaceHistory(context.Context, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
+func (*fakeFriendGroupHistoryWorkspace) ListWorkspaceHistoryByID(context.Context, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
 	return apitypes.PeerRunHistoryListResponse{}, nil
 }
-func (f *fakeFriendGroupHistoryWorkspace) ListWorkspaceHistoryPage(_ context.Context, name string, request apitypes.PeerRunHistoryListRequest) (workspace.HistoryEntryPage, error) {
+func (f *fakeFriendGroupHistoryWorkspace) ListWorkspaceHistoryPageByID(_ context.Context, name string, request apitypes.PeerRunHistoryListRequest) (workspace.HistoryEntryPage, error) {
 	f.listPageCalls++
 	f.workspaceName = name
 	f.listRequest = request
 	return f.page, nil
 }
-func (f *fakeFriendGroupHistoryWorkspace) GetWorkspaceHistory(_ context.Context, name, historyID string) (workspace.HistoryEntry, error) {
+func (f *fakeFriendGroupHistoryWorkspace) GetWorkspaceHistoryByID(_ context.Context, name, historyID string) (workspace.HistoryEntry, error) {
 	f.getCalls++
 	f.workspaceName = name
 	if strings.TrimSpace(historyID) != f.entry.ID {
@@ -308,6 +311,23 @@ func (f *fakeFriendGroupHistoryWorkspace) GetWorkspaceHistory(_ context.Context,
 	}
 	return f.entry, nil
 }
-func (*fakeFriendGroupHistoryWorkspace) ReadWorkspaceHistoryAsset(context.Context, string, string) (io.ReadCloser, error) {
+func (*fakeFriendGroupHistoryWorkspace) ReadWorkspaceHistoryAssetByID(context.Context, string, string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("opus")), nil
+}
+
+func (*fakeFriendGroupHistoryWorkspace) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+	system := true
+	return apitypes.Workspace{Id: "workspace-id", Name: body.Name, WorkflowId: body.WorkflowId, Parameters: body.Parameters, System: &system}, true, nil
+}
+
+func (*fakeFriendGroupHistoryWorkspace) DeleteSystemWorkspace(context.Context, string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{}, nil
+}
+
+func (*fakeFriendGroupHistoryWorkspace) GetRetiredSystemWorkspaceByID(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{}, kv.ErrNotFound
+}
+
+func (*fakeFriendGroupHistoryWorkspace) RetireSystemWorkspaceByID(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{}, nil
 }

@@ -20,7 +20,7 @@ func TestApplyMiniMaxTenantCreatesResource(t *testing.T) {
 		"spec": {
 			"app_id": "app",
 			"group_id": "group",
-			"credential_name": "minimax-main",
+			"credential_id": "minimax-main",
 			"description": "primary tenant"
 		}
 	}`))
@@ -33,8 +33,8 @@ func TestApplyMiniMaxTenantCreatesResource(t *testing.T) {
 	if minimax.putTenantCount != 1 {
 		t.Fatalf("putTenantCount = %d, want 1", minimax.putTenantCount)
 	}
-	if minimax.tenants["main"].CredentialName != "minimax-main" {
-		t.Fatalf("credential name = %q, want minimax-main", minimax.tenants["main"].CredentialName)
+	if minimax.tenants["main"].CredentialId != "minimax-main" {
+		t.Fatalf("credential name = %q, want minimax-main", minimax.tenants["main"].CredentialId)
 	}
 }
 
@@ -47,7 +47,7 @@ func TestApplyVolcTenantCreatesResource(t *testing.T) {
 		"kind": "VolcTenant",
 		"metadata": {"name": "volc-main"},
 		"spec": {
-			"credential_name": "volc-cred",
+			"credential_id": "volc-cred",
 			"region": "cn-beijing",
 			"resource_ids": ["seed-tts-2.0"],
 			"description": "primary tenant"
@@ -62,19 +62,20 @@ func TestApplyVolcTenantCreatesResource(t *testing.T) {
 	if minimax.putVolcCount != 1 {
 		t.Fatalf("putVolcCount = %d, want 1", minimax.putVolcCount)
 	}
-	if minimax.volcTenants["volc-main"].CredentialName != "volc-cred" {
-		t.Fatalf("credential name = %q, want volc-cred", minimax.volcTenants["volc-main"].CredentialName)
+	if minimax.volcTenants["volc-main"].CredentialId != "volc-cred" {
+		t.Fatalf("credential name = %q, want volc-cred", minimax.volcTenants["volc-main"].CredentialId)
 	}
 }
 
 func TestGetVolcTenantReturnsResource(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.volcTenants["volc-main"] = apitypes.VolcTenant{
-		CreatedAt:      time.Now().UTC(),
-		CredentialName: "volc-cred",
-		Name:           "volc-main",
-		Region:         stringPtr("cn-shanghai"),
-		UpdatedAt:      time.Now().UTC(),
+		CreatedAt:    time.Now().UTC(),
+		CredentialId: "volc-cred",
+		Id:           "volc-main",
+		Name:         "volc-main",
+		Region:       stringPtr("cn-shanghai"),
+		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
@@ -89,28 +90,29 @@ func TestGetVolcTenantReturnsResource(t *testing.T) {
 	if tenant.Metadata.Name != "volc-main" {
 		t.Fatalf("metadata.name = %q, want volc-main", tenant.Metadata.Name)
 	}
-	if tenant.Spec.CredentialName != "volc-cred" {
-		t.Fatalf("credential_name = %q, want volc-cred", tenant.Spec.CredentialName)
+	if tenant.Spec.CredentialId != "volc-cred" {
+		t.Fatalf("credential_name = %q, want volc-cred", tenant.Spec.CredentialId)
 	}
 }
 
 func TestApplyVolcTenantUnchangedSkipsPut(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.volcTenants["volc-main"] = apitypes.VolcTenant{
-		CreatedAt:      time.Now().UTC(),
-		CredentialName: "volc-cred",
-		Name:           "volc-main",
-		Region:         stringPtr("cn-shanghai"),
-		UpdatedAt:      time.Now().UTC(),
+		CreatedAt:    time.Now().UTC(),
+		CredentialId: "volc-cred",
+		Id:           "volc-main",
+		Name:         "volc-main",
+		Region:       stringPtr("cn-shanghai"),
+		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "VolcTenant",
-		"metadata": {"name": "volc-main"},
+		"metadata": {"id": "volc-main", "name": "volc-main"},
 		"spec": {
-			"credential_name": "volc-cred",
+			"credential_id": "volc-cred",
 			"region": "cn-shanghai"
 		}
 	}`))
@@ -128,19 +130,20 @@ func TestApplyVolcTenantUnchangedSkipsPut(t *testing.T) {
 func TestApplyVolcTenantUpdatesResource(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.volcTenants["volc-main"] = apitypes.VolcTenant{
-		CreatedAt:      time.Now().UTC(),
-		CredentialName: "volc-cred",
-		Name:           "volc-main",
-		UpdatedAt:      time.Now().UTC(),
+		CreatedAt:    time.Now().UTC(),
+		CredentialId: "volc-cred",
+		Id:           "volc-main",
+		Name:         "volc-main",
+		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "VolcTenant",
-		"metadata": {"name": "volc-main"},
+		"metadata": {"id": "volc-main", "name": "volc-main"},
 		"spec": {
-			"credential_name": "volc-cred",
+			"credential_id": "volc-cred",
 			"region": "cn-shanghai"
 		}
 	}`))
@@ -157,14 +160,15 @@ func TestApplyVolcTenantUpdatesResource(t *testing.T) {
 
 func TestPutVolcTenantWritesAndReturnsResource(t *testing.T) {
 	minimax := newFakeMiniMax()
+	minimax.volcTenants["volc-main"] = apitypes.VolcTenant{Id: "volc-main", Name: "volc-main", CredentialId: "volc-cred"}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
 	resource, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "VolcTenant",
-		"metadata": {"name": "volc-main"},
+		"metadata": {"id": "volc-main", "name": "volc-main"},
 		"spec": {
-			"credential_name": "volc-cred"
+			"credential_id": "volc-cred"
 		}
 	}`))
 	if err != nil {
@@ -185,10 +189,10 @@ func TestPutVolcTenantWritesAndReturnsResource(t *testing.T) {
 func TestDeleteVolcTenantDeletesAndReturnsResource(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.volcTenants["volc-main"] = apitypes.VolcTenant{
-		CreatedAt:      time.Now().UTC(),
-		CredentialName: "volc-cred",
-		Name:           "volc-main",
-		UpdatedAt:      time.Now().UTC(),
+		CreatedAt:    time.Now().UTC(),
+		CredentialId: "volc-cred",
+		Name:         "volc-main",
+		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
@@ -211,12 +215,13 @@ func TestDeleteVolcTenantDeletesAndReturnsResource(t *testing.T) {
 func TestDeleteMiniMaxTenantDeletesAndReturnsResource(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.tenants["main"] = apitypes.MiniMaxTenant{
-		AppId:          stringPtr("new-app"),
-		CreatedAt:      time.Now().UTC(),
-		CredentialName: "minimax-main",
-		GroupId:        stringPtr("group"),
-		Name:           "main",
-		UpdatedAt:      time.Now().UTC(),
+		AppId:        stringPtr("new-app"),
+		CreatedAt:    time.Now().UTC(),
+		CredentialId: "minimax-main",
+		GroupId:      stringPtr("group"),
+		Id:           "main",
+		Name:         "main",
+		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
@@ -239,12 +244,12 @@ func TestDeleteMiniMaxTenantDeletesAndReturnsResource(t *testing.T) {
 func TestGetMiniMaxTenantReturnsResource(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.tenants["main"] = apitypes.MiniMaxTenant{
-		AppId:          stringPtr("old-app"),
-		CreatedAt:      time.Now().UTC(),
-		CredentialName: "minimax-main",
-		GroupId:        stringPtr("group"),
-		Name:           "main",
-		UpdatedAt:      time.Now().UTC(),
+		AppId:        stringPtr("old-app"),
+		CreatedAt:    time.Now().UTC(),
+		CredentialId: "minimax-main",
+		GroupId:      stringPtr("group"),
+		Name:         "main",
+		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
@@ -259,31 +264,32 @@ func TestGetMiniMaxTenantReturnsResource(t *testing.T) {
 	if tenant.Metadata.Name != "main" {
 		t.Fatalf("metadata.name = %q, want main", tenant.Metadata.Name)
 	}
-	if tenant.Spec.CredentialName != "minimax-main" {
-		t.Fatalf("credential_name = %q, want minimax-main", tenant.Spec.CredentialName)
+	if tenant.Spec.CredentialId != "minimax-main" {
+		t.Fatalf("credential_name = %q, want minimax-main", tenant.Spec.CredentialId)
 	}
 }
 
 func TestApplyMiniMaxTenantUnchangedSkipsPut(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.tenants["main"] = apitypes.MiniMaxTenant{
-		AppId:          stringPtr("new-app"),
-		CreatedAt:      time.Now().UTC(),
-		CredentialName: "minimax-main",
-		GroupId:        stringPtr("group"),
-		Name:           "main",
-		UpdatedAt:      time.Now().UTC(),
+		AppId:        stringPtr("new-app"),
+		CreatedAt:    time.Now().UTC(),
+		CredentialId: "minimax-main",
+		GroupId:      stringPtr("group"),
+		Id:           "main",
+		Name:         "main",
+		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "MiniMaxTenant",
-		"metadata": {"name": "main"},
+		"metadata": {"id": "main", "name": "main"},
 		"spec": {
 			"app_id": "new-app",
 			"group_id": "group",
-			"credential_name": "minimax-main"
+			"credential_id": "minimax-main"
 		}
 	}`))
 	if err != nil {
@@ -300,22 +306,23 @@ func TestApplyMiniMaxTenantUnchangedSkipsPut(t *testing.T) {
 func TestApplyMiniMaxTenantUpdatesResource(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.tenants["main"] = apitypes.MiniMaxTenant{
-		CreatedAt:      time.Now().UTC(),
-		CredentialName: "minimax-main",
-		GroupId:        stringPtr("group"),
-		Name:           "main",
-		UpdatedAt:      time.Now().UTC(),
+		CreatedAt:    time.Now().UTC(),
+		CredentialId: "minimax-main",
+		GroupId:      stringPtr("group"),
+		Id:           "main",
+		Name:         "main",
+		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "MiniMaxTenant",
-		"metadata": {"name": "main"},
+		"metadata": {"id": "main", "name": "main"},
 		"spec": {
 			"app_id": "app",
 			"group_id": "group",
-			"credential_name": "minimax-main"
+			"credential_id": "minimax-main"
 		}
 	}`))
 	if err != nil {
@@ -332,22 +339,23 @@ func TestApplyMiniMaxTenantUpdatesResource(t *testing.T) {
 func TestApplyVoiceUpdatesResource(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.voices["voice-1"] = apitypes.Voice{
-		CreatedAt: time.Now().UTC(),
-		Id:        "voice-1",
-		Name:      ptr("Old"),
-		Provider:  apitypes.VoiceProvider{Kind: "minimax", Name: "main"},
-		Source:    apitypes.VoiceSourceManual,
-		UpdatedAt: time.Now().UTC(),
+		CreatedAt:   time.Now().UTC(),
+		Id:          "voice-1",
+		Name:        "voice-1",
+		DisplayName: ptr("Old"),
+		Provider:    apitypes.VoiceProvider{Kind: "minimax", Id: "main"},
+		Source:      apitypes.VoiceSourceManual,
+		UpdatedAt:   time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Voice",
-		"metadata": {"name": "voice-1"},
+		"metadata": {"id": "voice-1", "name": "voice-1"},
 		"spec": {
-			"name": "New",
-			"provider": {"kind": "minimax", "name": "main"},
+			"display_name": "New",
+			"provider": {"kind": "minimax", "id": "main"},
 			"source": "manual"
 		}
 	}`))
@@ -371,8 +379,8 @@ func TestApplyVoiceCreatesResource(t *testing.T) {
 		"kind": "Voice",
 		"metadata": {"name": "voice-1"},
 		"spec": {
-			"name": "Narrator",
-			"provider": {"kind": "minimax", "name": "main"},
+			"display_name": "Narrator",
+			"provider": {"kind": "minimax", "id": "main"},
 			"source": "manual"
 		}
 	}`))
@@ -391,22 +399,23 @@ func TestApplyVoiceUnchangedSkipsPut(t *testing.T) {
 	name := "Narrator"
 	minimax := newFakeMiniMax()
 	minimax.voices["voice-1"] = apitypes.Voice{
-		CreatedAt: time.Now().UTC(),
-		Id:        "voice-1",
-		Name:      &name,
-		Provider:  apitypes.VoiceProvider{Kind: "minimax", Name: "main"},
-		Source:    apitypes.VoiceSourceManual,
-		UpdatedAt: time.Now().UTC(),
+		CreatedAt:   time.Now().UTC(),
+		Id:          "voice-1",
+		Name:        "voice-1",
+		DisplayName: &name,
+		Provider:    apitypes.VoiceProvider{Kind: "minimax", Id: "main"},
+		Source:      apitypes.VoiceSourceManual,
+		UpdatedAt:   time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Voice",
-		"metadata": {"name": "voice-1"},
+		"metadata": {"id": "voice-1", "name": "voice-1"},
 		"spec": {
-			"name": "Narrator",
-			"provider": {"kind": "minimax", "name": "main"},
+			"display_name": "Narrator",
+			"provider": {"kind": "minimax", "id": "main"},
 			"source": "manual"
 		}
 	}`))
@@ -423,15 +432,16 @@ func TestApplyVoiceUnchangedSkipsPut(t *testing.T) {
 
 func TestPutVoiceWritesAndReturnsResource(t *testing.T) {
 	minimax := newFakeMiniMax()
+	minimax.voices["voice-1"] = apitypes.Voice{Id: "voice-1", Name: "voice-1", Provider: apitypes.VoiceProvider{Kind: "minimax", Id: "main"}, Source: apitypes.VoiceSourceManual}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
 	resource, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Voice",
-		"metadata": {"name": "voice-1"},
+		"metadata": {"id": "voice-1", "name": "voice-1"},
 		"spec": {
-			"name": "Narrator",
-			"provider": {"kind": "minimax", "name": "main"},
+			"display_name": "Narrator",
+			"provider": {"kind": "minimax", "id": "main"},
 			"source": "manual"
 		}
 	}`))
@@ -448,8 +458,8 @@ func TestPutVoiceWritesAndReturnsResource(t *testing.T) {
 	if voice.Metadata.Name != "voice-1" {
 		t.Fatalf("metadata.name = %q, want voice-1", voice.Metadata.Name)
 	}
-	if voice.Spec.Provider.Name != "main" {
-		t.Fatalf("provider.name = %q, want main", voice.Spec.Provider.Name)
+	if voice.Spec.Provider.Id != "main" {
+		t.Fatalf("provider.name = %q, want main", voice.Spec.Provider.Id)
 	}
 }
 
@@ -458,7 +468,8 @@ func TestDeleteVoiceDeletesAndReturnsResource(t *testing.T) {
 	minimax.voices["voice-1"] = apitypes.Voice{
 		CreatedAt: time.Now().UTC(),
 		Id:        "voice-1",
-		Provider:  apitypes.VoiceProvider{Kind: "local", Name: "manual"},
+		Name:      "voice-1",
+		Provider:  apitypes.VoiceProvider{Kind: "local", Id: "manual"},
 		Source:    apitypes.VoiceSourceManual,
 		UpdatedAt: time.Now().UTC(),
 	}
@@ -482,15 +493,16 @@ func TestDeleteVoiceDeletesAndReturnsResource(t *testing.T) {
 
 func TestPutMiniMaxTenantWritesAndReturnsResource(t *testing.T) {
 	minimax := newFakeMiniMax()
+	minimax.tenants["main"] = apitypes.MiniMaxTenant{Id: "main", Name: "main", CredentialId: "minimax-main"}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
 	resource, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "MiniMaxTenant",
-		"metadata": {"name": "main"},
+		"metadata": {"id": "main", "name": "main"},
 		"spec": {
 			"group_id": "group",
-			"credential_name": "minimax-main"
+			"credential_id": "minimax-main"
 		}
 	}`))
 	if err != nil {
@@ -711,16 +723,24 @@ func (f *fakeMiniMax) PutOpenAITenant(context.Context, adminhttp.PutOpenAITenant
 	return nil, nil
 }
 
-func (f *fakeMiniMax) CreateMiniMaxTenant(context.Context, adminhttp.CreateMiniMaxTenantRequestObject) (adminhttp.CreateMiniMaxTenantResponseObject, error) {
-	return nil, nil
+func (f *fakeMiniMax) CreateMiniMaxTenant(_ context.Context, request adminhttp.CreateMiniMaxTenantRequestObject) (adminhttp.CreateMiniMaxTenantResponseObject, error) {
+	f.putTenantCount++
+	body := *request.Body
+	now := time.Now().UTC()
+	tenant := apitypes.MiniMaxTenant{
+		AppId: body.AppId, BaseUrl: body.BaseUrl, CreatedAt: now, CredentialId: body.CredentialId,
+		Description: body.Description, GroupId: body.GroupId, Id: body.Name, Name: body.Name, UpdatedAt: now,
+	}
+	f.tenants[tenant.Id] = tenant
+	return adminhttp.CreateMiniMaxTenant200JSONResponse(tenant), nil
 }
 
 func (f *fakeMiniMax) DeleteMiniMaxTenant(_ context.Context, request adminhttp.DeleteMiniMaxTenantRequestObject) (adminhttp.DeleteMiniMaxTenantResponseObject, error) {
-	tenant, ok := f.tenants[string(request.Name)]
+	tenant, ok := f.tenants[string(request.Id)]
 	if !ok {
 		return adminhttp.DeleteMiniMaxTenant404JSONResponse(apitypes.NewErrorResponse("MINIMAX_TENANT_NOT_FOUND", "not found")), nil
 	}
-	delete(f.tenants, string(request.Name))
+	delete(f.tenants, string(request.Id))
 	return adminhttp.DeleteMiniMaxTenant200JSONResponse(tenant), nil
 }
 
@@ -728,7 +748,7 @@ func (f *fakeMiniMax) GetMiniMaxTenant(_ context.Context, request adminhttp.GetM
 	if f.getTenantStatus == 500 {
 		return adminhttp.GetMiniMaxTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
-	tenant, ok := f.tenants[string(request.Name)]
+	tenant, ok := f.tenants[string(request.Id)]
 	if !ok {
 		return adminhttp.GetMiniMaxTenant404JSONResponse(apitypes.NewErrorResponse("MINIMAX_TENANT_NOT_FOUND", "not found")), nil
 	}
@@ -746,15 +766,17 @@ func (f *fakeMiniMax) PutMiniMaxTenant(_ context.Context, request adminhttp.PutM
 	body := *request.Body
 	now := time.Now().UTC()
 	tenant := apitypes.MiniMaxTenant{
-		BaseUrl:        body.BaseUrl,
-		CreatedAt:      now,
-		CredentialName: body.CredentialName,
-		Description:    body.Description,
-		GroupId:        body.GroupId,
-		Name:           body.Name,
-		UpdatedAt:      now,
+		AppId:        body.AppId,
+		BaseUrl:      body.BaseUrl,
+		CreatedAt:    now,
+		CredentialId: body.CredentialId,
+		Description:  body.Description,
+		GroupId:      body.GroupId,
+		Id:           string(request.Id),
+		Name:         body.Name,
+		UpdatedAt:    now,
 	}
-	f.tenants[string(request.Name)] = tenant
+	f.tenants[string(request.Id)] = tenant
 	return adminhttp.PutMiniMaxTenant200JSONResponse(tenant), nil
 }
 
@@ -766,16 +788,25 @@ func (f *fakeMiniMax) ListVolcTenants(context.Context, adminhttp.ListVolcTenants
 	return nil, nil
 }
 
-func (f *fakeMiniMax) CreateVolcTenant(context.Context, adminhttp.CreateVolcTenantRequestObject) (adminhttp.CreateVolcTenantResponseObject, error) {
-	return nil, nil
+func (f *fakeMiniMax) CreateVolcTenant(_ context.Context, request adminhttp.CreateVolcTenantRequestObject) (adminhttp.CreateVolcTenantResponseObject, error) {
+	f.putVolcCount++
+	body := *request.Body
+	now := time.Now().UTC()
+	tenant := apitypes.VolcTenant{
+		CreatedAt: now, CredentialId: body.CredentialId, Description: body.Description,
+		Endpoint: body.Endpoint, Id: body.Name, Name: body.Name, Region: body.Region,
+		ResourceIds: body.ResourceIds, UpdatedAt: now,
+	}
+	f.volcTenants[tenant.Id] = tenant
+	return adminhttp.CreateVolcTenant200JSONResponse(tenant), nil
 }
 
 func (f *fakeMiniMax) DeleteVolcTenant(_ context.Context, request adminhttp.DeleteVolcTenantRequestObject) (adminhttp.DeleteVolcTenantResponseObject, error) {
-	tenant, ok := f.volcTenants[string(request.Name)]
+	tenant, ok := f.volcTenants[string(request.Id)]
 	if !ok {
 		return adminhttp.DeleteVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", "not found")), nil
 	}
-	delete(f.volcTenants, string(request.Name))
+	delete(f.volcTenants, string(request.Id))
 	return adminhttp.DeleteVolcTenant200JSONResponse(tenant), nil
 }
 
@@ -783,7 +814,7 @@ func (f *fakeMiniMax) GetVolcTenant(_ context.Context, request adminhttp.GetVolc
 	if f.getTenantStatus == 500 {
 		return adminhttp.GetVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
-	tenant, ok := f.volcTenants[string(request.Name)]
+	tenant, ok := f.volcTenants[string(request.Id)]
 	if !ok {
 		return adminhttp.GetVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", "not found")), nil
 	}
@@ -801,16 +832,17 @@ func (f *fakeMiniMax) PutVolcTenant(_ context.Context, request adminhttp.PutVolc
 	body := *request.Body
 	now := time.Now().UTC()
 	tenant := apitypes.VolcTenant{
-		CreatedAt:      now,
-		CredentialName: body.CredentialName,
-		Description:    body.Description,
-		Endpoint:       body.Endpoint,
-		Name:           body.Name,
-		Region:         body.Region,
-		ResourceIds:    body.ResourceIds,
-		UpdatedAt:      now,
+		CreatedAt:    now,
+		CredentialId: body.CredentialId,
+		Description:  body.Description,
+		Endpoint:     body.Endpoint,
+		Id:           string(request.Id),
+		Name:         body.Name,
+		Region:       body.Region,
+		ResourceIds:  body.ResourceIds,
+		UpdatedAt:    now,
 	}
-	f.volcTenants[string(request.Name)] = tenant
+	f.volcTenants[string(request.Id)] = tenant
 	return adminhttp.PutVolcTenant200JSONResponse(tenant), nil
 }
 
@@ -818,8 +850,17 @@ func (f *fakeMiniMax) SyncVolcTenantVoices(context.Context, adminhttp.SyncVolcTe
 	return nil, nil
 }
 
-func (f *fakeMiniMax) CreateVoice(context.Context, adminhttp.CreateVoiceRequestObject) (adminhttp.CreateVoiceResponseObject, error) {
-	return nil, nil
+func (f *fakeMiniMax) CreateVoice(_ context.Context, request adminhttp.CreateVoiceRequestObject) (adminhttp.CreateVoiceResponseObject, error) {
+	f.putVoiceCount++
+	body := *request.Body
+	now := time.Now().UTC()
+	voice := apitypes.Voice{
+		CreatedAt: now, Description: body.Description, DisplayName: body.DisplayName,
+		Id: body.Name, Name: body.Name, Provider: body.Provider, ProviderData: body.ProviderData,
+		Source: body.Source, UpdatedAt: now,
+	}
+	f.voices[voice.Id] = voice
+	return adminhttp.CreateVoice200JSONResponse(voice), nil
 }
 
 func (f *fakeMiniMax) ListVoices(context.Context, adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
@@ -861,7 +902,8 @@ func (f *fakeMiniMax) PutVoice(_ context.Context, request adminhttp.PutVoiceRequ
 	voice := apitypes.Voice{
 		CreatedAt:    now,
 		Description:  body.Description,
-		Id:           body.Id,
+		DisplayName:  body.DisplayName,
+		Id:           string(request.Id),
 		Name:         body.Name,
 		Provider:     body.Provider,
 		ProviderData: body.ProviderData,

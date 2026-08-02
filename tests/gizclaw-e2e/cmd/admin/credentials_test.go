@@ -21,6 +21,7 @@ func TestAdminCredentialsUserStory(t *testing.T) {
 			t.Fatalf("credentials list missing %q:\n%s", want, list.Stdout)
 		}
 	}
+	credentialID := adminResourceID(t, list.Stdout, "fake-openai-credential-000")
 
 	filtered := h.RunCLI("admin", "credentials", "list", "--provider", "openai", "--context", "admin-a")
 	filtered.MustSucceed(t)
@@ -28,13 +29,13 @@ func TestAdminCredentialsUserStory(t *testing.T) {
 		t.Fatalf("credentials filtered list returned unexpected items:\n%s", filtered.Stdout)
 	}
 
-	get := h.RunCLI("admin", "credentials", "get", "fake-openai-credential-000", "--context", "admin-a")
+	get := h.RunCLI("admin", "credentials", "get", credentialID, "--context", "admin-a")
 	get.MustSucceed(t)
 	if !strings.Contains(get.Stdout, `"provider":"openai"`) {
 		t.Fatalf("credentials get missing provider:\n%s", get.Stdout)
 	}
 
-	rpcGet := h.RunCLI("admin", "credentials", "get", "fake-openai-credential-000", "--context", "admin-a")
+	rpcGet := h.RunCLI("admin", "credentials", "get", credentialID, "--context", "admin-a")
 	rpcGet.MustSucceed(t)
 	if !strings.Contains(rpcGet.Stdout, `"api_key":"sk-fake-openai-000"`) {
 		t.Fatalf("credentials get missing fake api key:\n%s", rpcGet.Stdout)

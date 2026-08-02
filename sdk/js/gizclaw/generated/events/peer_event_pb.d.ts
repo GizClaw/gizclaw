@@ -347,9 +347,9 @@ export declare const FriendRelationshipUpdatedSchema: GenMessage<FriendRelations
 export declare type FriendGroupUpdated =
   Message<"gizclaw.events.v1.FriendGroupUpdated"> & {
     /**
-     * @generated from field: string friend_group_id = 1;
+     * @generated from field: string friend_group_name = 1;
      */
-    friendGroupId: string;
+    friendGroupName: string;
 
     /**
      * @generated from field: string workspace_name = 2;

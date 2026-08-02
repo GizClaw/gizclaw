@@ -26,6 +26,7 @@ type Runtime struct {
 }
 
 type RuntimeStore interface {
+	// All Workspace arguments are canonical Workspace IDs.
 	PrepareWorkspace(context.Context, string) (Runtime, error)
 	GetWorkspaceRuntime(context.Context, string) (Runtime, error)
 	DeleteWorkspaceRuntime(context.Context, string) error
@@ -43,8 +44,8 @@ func NewObjectRuntimeStore(objects objectstore.ObjectStore) ObjectRuntimeStore {
 	return ObjectRuntimeStore{Objects: objects}
 }
 
-func (s ObjectRuntimeStore) PrepareWorkspace(ctx context.Context, workspace string) (Runtime, error) {
-	rt, err := s.GetWorkspaceRuntime(ctx, workspace)
+func (s ObjectRuntimeStore) PrepareWorkspace(ctx context.Context, workspaceID string) (Runtime, error) {
+	rt, err := s.GetWorkspaceRuntime(ctx, workspaceID)
 	if err != nil {
 		return Runtime{}, err
 	}
@@ -59,20 +60,20 @@ func (s ObjectRuntimeStore) PrepareWorkspace(ctx context.Context, workspace stri
 	return rt, nil
 }
 
-func (s ObjectRuntimeStore) GetWorkspaceRuntime(_ context.Context, workspace string) (Runtime, error) {
-	workspace = strings.TrimSpace(workspace)
-	if workspace == "" {
-		return Runtime{}, fmt.Errorf("workspace: name is required")
+func (s ObjectRuntimeStore) GetWorkspaceRuntime(_ context.Context, workspaceID string) (Runtime, error) {
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" {
+		return Runtime{}, fmt.Errorf("workspace: id is required")
 	}
 	if s.Objects == nil {
 		return Runtime{}, fmt.Errorf("workspace: runtime store is required")
 	}
-	objectPrefix := ObjectPrefix(workspace)
+	objectPrefix := ObjectPrefix(workspaceID)
 	rt := Runtime{
 		ObjectPrefix: objectPrefix,
 		History: &HistoryStore{
 			Objects:        s.Objects,
-			Workspace:      workspace,
+			Workspace:      workspaceID,
 			ObjectPrefix:   objectPrefix,
 			AssetRetention: defaultHistoryAssetTTL,
 		},
@@ -156,20 +157,20 @@ func newRuntimeDialogID() (string, error) {
 	return "dialog-" + hex.EncodeToString(random[:]), nil
 }
 
-func (s ObjectRuntimeStore) DeleteWorkspaceRuntime(_ context.Context, workspace string) error {
-	workspace = strings.TrimSpace(workspace)
-	if workspace == "" {
-		return fmt.Errorf("workspace: name is required")
+func (s ObjectRuntimeStore) DeleteWorkspaceRuntime(_ context.Context, workspaceID string) error {
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" {
+		return fmt.Errorf("workspace: id is required")
 	}
 	if s.Objects == nil {
 		return fmt.Errorf("workspace: runtime store is required")
 	}
-	if err := s.Objects.DeletePrefix(ObjectPrefix(workspace)); err != nil {
+	if err := s.Objects.DeletePrefix(ObjectPrefix(workspaceID)); err != nil {
 		return fmt.Errorf("workspace: delete runtime prefix: %w", err)
 	}
 	return nil
 }
 
-func ObjectPrefix(workspace string) string {
-	return "workspaces/" + url.PathEscape(workspace)
+func ObjectPrefix(workspaceID string) string {
+	return "workspaces/" + url.PathEscape(workspaceID)
 }

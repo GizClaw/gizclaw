@@ -6,7 +6,7 @@ import {
   deleteFriendGroup,
   getFriendGroup,
   putFriendGroup,
-  type FriendGroupObject,
+  type AdminFriendGroupObject,
 } from "@gizclaw/gizclaw/admin";
 import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
@@ -33,14 +33,13 @@ import { formatDate, formatShortKey } from "../../lib/format";
 import { FriendGroupInviteTokenPanel } from "./FriendGroupInviteTokenPanel";
 import { FriendGroupMemberEditor } from "./FriendGroupMemberEditor";
 import { WorkspaceHistoryPanel } from "./WorkspaceHistoryPanel";
-import { decodeRouteParam, socialWorkspaceName } from "./social-utils";
+import { decodeRouteParam } from "./social-utils";
 
 export function FriendGroupDetailPage(): JSX.Element {
   const params = useParams();
   const navigate = useNavigate();
   const groupID = useMemo(() => decodeRouteParam(params.id ?? ""), [params.id]);
-  const [group, setGroup] = useState<FriendGroupObject | null>(null);
-  const [name, setName] = useState("");
+  const [group, setGroup] = useState<AdminFriendGroupObject | null>(null);
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
@@ -61,7 +60,6 @@ export function FriendGroupDetailPage(): JSX.Element {
     try {
       const next = await expectData(getFriendGroup({ path: { id: groupID } }));
       setGroup(next);
-      setName(next.name ?? "");
       setDescription(next.description ?? "");
     } catch (err) {
       setGroup(null);
@@ -82,14 +80,12 @@ export function FriendGroupDetailPage(): JSX.Element {
       const next = await expectData(
         putFriendGroup({
           body: {
-            name: name.trim() || undefined,
             description: description.trim() || undefined,
           },
           path: { id: groupID },
         }),
       );
       setGroup(next);
-      setName(next.name ?? "");
       setDescription(next.description ?? "");
       setNotice({ message: "Friend group saved.", tone: "success" });
     } catch (err) {
@@ -173,7 +169,7 @@ export function FriendGroupDetailPage(): JSX.Element {
         meta={
           group ? (
             <Badge variant="outline">
-              {socialWorkspaceName(group.workspace_name)}
+              {formatShortKey(group.workspace_id)}
             </Badge>
           ) : null
         }
@@ -210,7 +206,7 @@ export function FriendGroupDetailPage(): JSX.Element {
               <DetailBlock
                 items={[
                   ["Group id", group.id],
-                  ["Workspace", group.workspace_name],
+                  ["Workspace id", group.workspace_id],
                   ["Created", formatDate(group.created_at)],
                   ["Updated", formatDate(group.updated_at)],
                 ]}
@@ -225,7 +221,6 @@ export function FriendGroupDetailPage(): JSX.Element {
                       ? group.created_by_peer_public_key
                       : "None",
                   ],
-                  ["My role", group.my_role ?? "None"],
                   ["Workspace access", "Members only"],
                 ]}
                 title="Runtime Model"
@@ -242,11 +237,8 @@ export function FriendGroupDetailPage(): JSX.Element {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 xl:grid-cols-2">
-                  <FormField label="Name">
-                    <Input
-                      onChange={(event) => setName(event.target.value)}
-                      value={name}
-                    />
+                  <FormField label="Name (immutable)">
+                    <Input disabled value={group.name} />
                   </FormField>
                   <FormField label="Description">
                     <Textarea
@@ -257,7 +249,7 @@ export function FriendGroupDetailPage(): JSX.Element {
                 </div>
                 <div className="flex justify-end border-t pt-4">
                   <Button
-                    disabled={busy !== "" || name.trim() === ""}
+                    disabled={busy !== ""}
                     onClick={() => void save()}
                     type="button"
                   >
@@ -278,7 +270,7 @@ export function FriendGroupDetailPage(): JSX.Element {
           </TabsContent>
 
           <TabsContent className="space-y-4" value="history">
-            <WorkspaceHistoryPanel workspaceName={group.workspace_name} />
+            <WorkspaceHistoryPanel workspaceId={group.workspace_id} />
           </TabsContent>
         </Tabs>
       )}

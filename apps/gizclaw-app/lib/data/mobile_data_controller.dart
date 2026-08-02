@@ -848,7 +848,7 @@ class MobileDataController extends ChangeNotifier {
     required bool Function() isCurrent,
   }) async {
     final loaded = <Workflow>[];
-    final aliases = <String>{};
+    final names = <String>{};
     String? profileName;
     String? profileRevision;
     for (final collection in appWorkflowCollections) {
@@ -875,11 +875,11 @@ class MobileDataController extends ChangeNotifier {
         for (final workflow in response.items) {
           if (workflow.collection != collection.id) {
             throw StateError(
-              'Workflow ${workflow.alias} belongs to ${workflow.collection}',
+              'Workflow ${workflow.name} belongs to ${workflow.collection}',
             );
           }
-          if (!aliases.add(workflow.alias)) {
-            throw StateError('Duplicate workflow alias ${workflow.alias}');
+          if (!names.add(workflow.name)) {
+            throw StateError('Duplicate workflow name ${workflow.name}');
           }
           collectionItems.add(workflow.deepCopy());
         }
@@ -1110,56 +1110,62 @@ class MobileDataController extends ChangeNotifier {
     return response.value;
   }
 
-  Future<void> deleteFriendGroup(String friendGroupId) async {
-    await _groupClient().deleteFriendGroup(friendGroupId.trim());
+  Future<void> deleteFriendGroup(String friendGroupName) async {
+    await _groupClient().deleteFriendGroup(friendGroupName.trim());
     await refresh();
   }
 
   Future<FriendGroupMemberListResponse> listFriendGroupMembers(
-    String friendGroupId, {
+    String friendGroupName, {
     String? cursor,
     int? limit,
   }) => _groupClient().listFriendGroupMembers(
-    friendGroupId.trim(),
+    friendGroupName.trim(),
     cursor: cursor,
     limit: limit,
   );
 
   Future<void> deleteFriendGroupMember(
-    String friendGroupId,
+    String friendGroupName,
     String memberId,
   ) async {
     await _groupClient().deleteFriendGroupMember(
-      friendGroupId.trim(),
+      friendGroupName.trim(),
       memberId.trim(),
     );
     await refresh();
   }
 
   Future<FriendGroupInviteTokenGetResponse> getFriendGroupInviteToken(
-    String friendGroupId,
-  ) => _groupClient().getFriendGroupInviteToken(friendGroupId.trim());
+    String friendGroupName,
+  ) => _groupClient().getFriendGroupInviteToken(friendGroupName.trim());
 
   Future<FriendGroupInviteTokenCreateResponse> createFriendGroupInviteToken(
-    String friendGroupId,
-  ) => _groupClient().createFriendGroupInviteToken(friendGroupId.trim());
+    String friendGroupName,
+  ) => _groupClient().createFriendGroupInviteToken(friendGroupName.trim());
 
-  Future<void> clearFriendGroupInviteToken(String friendGroupId) async {
-    await _groupClient().clearFriendGroupInviteToken(friendGroupId.trim());
+  Future<void> clearFriendGroupInviteToken(String friendGroupName) async {
+    await _groupClient().clearFriendGroupInviteToken(friendGroupName.trim());
   }
 
-  Future<FriendGroupObject> joinFriendGroup(String inviteToken) async {
-    final response = await _groupClient().joinFriendGroup(inviteToken.trim());
+  Future<FriendGroupObject> joinFriendGroup(
+    String name,
+    String inviteToken,
+  ) async {
+    final response = await _groupClient().joinFriendGroup(
+      name: name.trim(),
+      inviteToken: inviteToken.trim(),
+    );
     await refresh();
     return response.group;
   }
 
   Future<Workspace> createWorkspace({
     required String collection,
-    required String workflowAlias,
+    required String workflowName,
   }) async {
     final normalizedCollection = collection.trim();
-    final normalizedAlias = workflowAlias.trim();
+    final normalizedAlias = workflowName.trim();
     final selected = workflows.firstWhere(
       (workflow) =>
           workflow.collection == normalizedCollection &&
@@ -1178,7 +1184,7 @@ class MobileDataController extends ChangeNotifier {
         WorkspaceCreateBody(
           name: workspaceName,
           collection: normalizedCollection,
-          workflowAlias: normalizedAlias,
+          workflowName: normalizedAlias,
           parameters: newWorkspaceParametersForDriver(
             selected.driver,
             langPair: selected.workspaceLangPair,
@@ -1208,7 +1214,7 @@ class MobileDataController extends ChangeNotifier {
       (item) => item.name == name,
       orElse: () => WorkspaceCard(
         name: name,
-        workflowAlias: '',
+        workflowName: '',
         collection: '',
         lastActive: 'Unavailable',
       ),
@@ -1274,7 +1280,7 @@ class MobileDataController extends ChangeNotifier {
               return MobileWorkspaceDestination(
                 surface: MobileWorkspaceSurface.pet,
                 workspaceName: workspaceName,
-                resourceId: pet.id,
+                resourceId: pet.name,
               );
             }
           }
@@ -1505,12 +1511,12 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<WorkflowDriverKind> _driverForWorkspace(Workspace workspace) async {
-    final cached = workflow(workspace.workflowAlias).driver;
+    final cached = workflow(workspace.workflowName).driver;
     if (cached != WorkflowDriverKind.unsupported) return cached;
     final client = connection.client;
-    if (client == null || workspace.workflowAlias.isEmpty) return cached;
+    if (client == null || workspace.workflowName.isEmpty) return cached;
     try {
-      final response = await client.getWorkflow(workspace.workflowAlias);
+      final response = await client.getWorkflow(workspace.workflowName);
       return appWorkflowCard(response.value, _effectiveLocale).driver;
     } catch (_) {
       return cached;

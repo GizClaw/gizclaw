@@ -38,8 +38,8 @@ The portable default profile may bind a Workflow Memory alias to `flowcraft_bbh`
 Credential templates come from Raids; credential values remain in Desktop's private
 `bootstrap.env` or the process environment. The Raids and PIXA caches, RuntimeProfile, `pod.json`, URLs,
 Web Storage, and logs never contain those values. If neither a valid cache nor GitHub is available,
-Desktop and remote Pod management remain usable, but new local Pod creation and required local
-runtime-contract migration fail before they can partially apply a catalog.
+Desktop and remote Pod management remain usable, but new local Pod bootstrap fails before it can
+partially apply a catalog.
 
 Raids publishes `RegistrationToken/default-runtime` with the deterministic public UUID
 `28c4e4e9-a05f-5a7e-815e-9cf9afb6878f`, bound to `RuntimeProfile/default`. Desktop decodes and
@@ -54,18 +54,15 @@ can reach a Desktop local Server on its LAN-facing address and knows this UUID c
 register into `RuntimeProfile/default`; Admin access still requires the separate Admin identity.
 Each local Server persists its own independent resource instances.
 
-Completed local Pods do not replay the full bootstrap catalog during start,
-restart, or Desktop upgrade. A legacy local Pod performs one targeted migration
-after its Server is ready: Desktop reapplies the resolved Raids dependency closure and pinned PIXA assets,
-replaces `RuntimeProfile/default`, applies `RegistrationToken/default-runtime`, retires
-`RegistrationToken/app:com.gizclaw.opensource` and `RegistrationToken/desktop-local`, removes the
-obsolete workspace token handoff, and records the local catalog version in `pod.json`. A recovered
-legacy process is restarted with the current companion
-before migration, and the default profile preserves legacy translation aliases
-for existing Workspaces. Unreferenced Workflows and other resources, including
-user edits, remain unchanged.
-Desktop suppresses QR and Play token handoff until this migration completes; a failed apply or
-cleanup leaves the old catalog version so a later retry can converge.
+Fresh local Pod bootstrap applies one create-only manifest at a time in dependency order. Desktop
+reads the canonical ID returned by each Admin apply, rewrites later foreign-key references to those
+IDs, and uses the returned PetDef ID for PIXA upload. It does not retry a create after an ambiguous
+transport failure because doing so could create a second resource.
+
+Completed local Pods do not replay the bootstrap catalog during start, restart, or Desktop upgrade.
+A local Pod whose catalog version predates the final resource-identity schema is incompatible:
+Desktop refuses start and restart and asks the operator to recreate it. Desktop does not migrate,
+delete, or otherwise rewrite that Pod's data.
 
 ## Local Server recovery
 

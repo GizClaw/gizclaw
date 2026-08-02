@@ -8,7 +8,7 @@ import {
   deleteFriendGroupMember,
   listFriendGroupMembers,
   putFriendGroupMember,
-  type FriendGroupMemberObject,
+  type AdminFriendGroupMemberObject,
   type FriendGroupMemberRole,
 } from "@gizclaw/gizclaw/admin";
 import { expectData, toMessage } from "@/dashboard";
@@ -62,7 +62,7 @@ export function FriendGroupMemberEditor({
     pageNumber,
     prevPage,
     refresh,
-  } = useCursorListPage<FriendGroupMemberObject>(async (query) => {
+  } = useCursorListPage<AdminFriendGroupMemberObject>(async (query) => {
     const result = await expectData(
       listFriendGroupMembers({ path: { id: groupID }, query }),
     );
@@ -73,6 +73,7 @@ export function FriendGroupMemberEditor({
     };
   });
   const [peerPublicKey, setPeerPublicKey] = useState("");
+  const [memberName, setMemberName] = useState("");
   const [role, setRole] = useState<FriendGroupMemberRole>("member");
   const [notice, setNotice] = useState<{
     message: string;
@@ -86,11 +87,16 @@ export function FriendGroupMemberEditor({
     try {
       await expectData(
         createFriendGroupMember({
-          body: { peer_public_key: peerPublicKey.trim(), role },
+          body: {
+            name: memberName.trim(),
+            peer_public_key: peerPublicKey.trim(),
+            role,
+          },
           path: { id: groupID },
         }),
       );
       setPeerPublicKey("");
+      setMemberName("");
       setRole("member");
       await refresh();
       setNotice({ message: "Member added.", tone: "success" });
@@ -102,7 +108,7 @@ export function FriendGroupMemberEditor({
   };
 
   const updateRole = async (
-    member: FriendGroupMemberObject,
+    member: AdminFriendGroupMemberObject,
     nextRole: FriendGroupMemberRole,
   ): Promise<void> => {
     const publicKey = member.peer_public_key ?? "";
@@ -128,7 +134,7 @@ export function FriendGroupMemberEditor({
   };
 
   const removeMember = async (
-    member: FriendGroupMemberObject,
+    member: AdminFriendGroupMemberObject,
   ): Promise<void> => {
     const publicKey = member.peer_public_key ?? "";
     if (publicKey === "") {
@@ -165,7 +171,14 @@ export function FriendGroupMemberEditor({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_14rem_auto] lg:items-end">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_14rem_auto] lg:items-end">
+            <FormField label="Member name">
+              <Input
+                onChange={(event) => setMemberName(event.target.value)}
+                placeholder="Owner-scoped member name"
+                value={memberName}
+              />
+            </FormField>
             <FormField label="Peer public key">
               <Input
                 onChange={(event) => setPeerPublicKey(event.target.value)}
@@ -193,7 +206,11 @@ export function FriendGroupMemberEditor({
               </Select>
             </FormField>
             <Button
-              disabled={busy !== "" || peerPublicKey.trim() === ""}
+              disabled={
+                busy !== "" ||
+                memberName.trim() === "" ||
+                peerPublicKey.trim() === ""
+              }
               onClick={() => void addMember()}
               type="button"
             >

@@ -13,7 +13,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-var openAITenantsRoot = kv.Key{"openai-tenants", "by-name"}
+var (
+	openAITenantsRoot       = kv.Key{"openai-tenants", "by-id"}
+	openAITenantsByNameRoot = kv.Key{"openai-tenants", "by-name"}
+)
 
 func (s *Server) ListOpenAITenants(ctx context.Context, request adminhttp.ListOpenAITenantsRequestObject) (adminhttp.ListOpenAITenantsResponseObject, error) {
 	store, err := s.store()
@@ -44,16 +47,16 @@ func (s *Server) CreateOpenAITenant(ctx context.Context, request adminhttp.Creat
 	if err != nil {
 		return adminhttp.CreateOpenAITenant400JSONResponse(apitypes.NewErrorResponse("INVALID_OPENAI_TENANT", err.Error())), nil
 	}
-	if _, err := store.Get(ctx, openAITenantKey(string(tenant.Name))); err == nil {
-		return adminhttp.CreateOpenAITenant409JSONResponse(apitypes.NewErrorResponse("OPENAI_TENANT_ALREADY_EXISTS", fmt.Sprintf("OpenAI tenant %q already exists", tenant.Name))), nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.CreateOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
+	tenant.Id = s.newID()
 	now := s.now()
 	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
-	if err := writeOpenAITenant(ctx, store, tenant); err != nil {
+	created, err := createNamedTenant(ctx, store, openAITenantKey(tenant.Id), openAITenantNameKey(tenant.Name), tenant.Id, tenant)
+	if err != nil {
 		return adminhttp.CreateOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	if !created {
+		return adminhttp.CreateOpenAITenant409JSONResponse(apitypes.NewErrorResponse("OPENAI_TENANT_ALREADY_EXISTS", fmt.Sprintf("OpenAI tenant %q already exists", tenant.Name))), nil
 	}
 	return adminhttp.CreateOpenAITenant200JSONResponse(tenant), nil
 }
@@ -63,14 +66,14 @@ func (s *Server) GetOpenAITenant(ctx context.Context, request adminhttp.GetOpenA
 	if err != nil {
 		return adminhttp.GetOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	name, err := url.PathUnescape(string(request.Name))
+	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	tenant, err := getOpenAITenant(ctx, store, name)
+	tenant, err := getOpenAITenant(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.GetOpenAITenant404JSONResponse(apitypes.NewErrorResponse("OPENAI_TENANT_NOT_FOUND", fmt.Sprintf("OpenAI tenant %q not found", name))), nil
+			return adminhttp.GetOpenAITenant404JSONResponse(apitypes.NewErrorResponse("OPENAI_TENANT_NOT_FOUND", fmt.Sprintf("OpenAI tenant %q not found", id))), nil
 		}
 		return adminhttp.GetOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -85,24 +88,28 @@ func (s *Server) PutOpenAITenant(ctx context.Context, request adminhttp.PutOpenA
 	if request.Body == nil {
 		return adminhttp.PutOpenAITenant400JSONResponse(apitypes.NewErrorResponse("INVALID_OPENAI_TENANT", "request body required")), nil
 	}
-	name, err := url.PathUnescape(string(request.Name))
+	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	tenant, err := normalizeOpenAITenantUpsert(*request.Body, name)
+	tenant, err := normalizeOpenAITenantUpsert(*request.Body, "")
 	if err != nil {
 		return adminhttp.PutOpenAITenant400JSONResponse(apitypes.NewErrorResponse("INVALID_OPENAI_TENANT", err.Error())), nil
 	}
-	previous, err := getOpenAITenant(ctx, store, name)
-	if err != nil && !errors.Is(err, kv.ErrNotFound) {
+	previous, err := getOpenAITenant(ctx, store, id)
+	if errors.Is(err, kv.ErrNotFound) {
+		return adminhttp.PutOpenAITenant404JSONResponse(apitypes.NewErrorResponse("OPENAI_TENANT_NOT_FOUND", fmt.Sprintf("OpenAI tenant %q not found", id))), nil
+	}
+	if err != nil {
 		return adminhttp.PutOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
-	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
-	if err == nil {
-		tenant.CreatedAt = previous.CreatedAt
+	if tenant.Name != previous.Name {
+		return adminhttp.PutOpenAITenant400JSONResponse(apitypes.NewErrorResponse("INVALID_OPENAI_TENANT", fmt.Sprintf("name %q must match immutable name %q", tenant.Name, previous.Name))), nil
 	}
+	tenant.Id = previous.Id
+	tenant.CreatedAt = previous.CreatedAt
 	if err := writeOpenAITenant(ctx, store, tenant); err != nil {
 		return adminhttp.PutOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -114,18 +121,18 @@ func (s *Server) DeleteOpenAITenant(ctx context.Context, request adminhttp.Delet
 	if err != nil {
 		return adminhttp.DeleteOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	name, err := url.PathUnescape(string(request.Name))
+	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	tenant, err := getOpenAITenant(ctx, store, name)
+	tenant, err := getOpenAITenant(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.DeleteOpenAITenant404JSONResponse(apitypes.NewErrorResponse("OPENAI_TENANT_NOT_FOUND", fmt.Sprintf("OpenAI tenant %q not found", name))), nil
+			return adminhttp.DeleteOpenAITenant404JSONResponse(apitypes.NewErrorResponse("OPENAI_TENANT_NOT_FOUND", fmt.Sprintf("OpenAI tenant %q not found", id))), nil
 		}
 		return adminhttp.DeleteOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := store.Delete(ctx, openAITenantKey(string(tenant.Name))); err != nil {
+	if err := deleteNamedTenant(ctx, store, openAITenantKey(tenant.Id), openAITenantNameKey(tenant.Name)); err != nil {
 		return adminhttp.DeleteOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteOpenAITenant200JSONResponse(tenant), nil
@@ -139,9 +146,9 @@ func normalizeOpenAITenantUpsert(in adminhttp.OpenAITenantUpsert, expectedName s
 	if expectedName != "" && name != expectedName {
 		return apitypes.OpenAITenant{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
 	}
-	credentialName := strings.TrimSpace(string(in.CredentialName))
+	credentialName := strings.TrimSpace(string(in.CredentialId))
 	if credentialName == "" {
-		return apitypes.OpenAITenant{}, errors.New("credential_name is required")
+		return apitypes.OpenAITenant{}, errors.New("credential_id is required")
 	}
 	kind := apitypes.OpenAITenantKindCompatible
 	if in.Kind != nil {
@@ -164,10 +171,10 @@ func normalizeOpenAITenantUpsert(in adminhttp.OpenAITenantUpsert, expectedName s
 		return apitypes.OpenAITenant{}, fmt.Errorf("unsupported api_mode %q", apiMode)
 	}
 	tenant := apitypes.OpenAITenant{
-		ApiMode:        apiMode,
-		CredentialName: string(credentialName),
-		Kind:           kind,
-		Name:           string(name),
+		ApiMode:      apiMode,
+		CredentialId: string(credentialName),
+		Kind:         kind,
+		Name:         string(name),
 	}
 	if in.BaseUrl != nil {
 		baseURL := strings.TrimSpace(*in.BaseUrl)
@@ -214,7 +221,7 @@ func listOpenAITenantsPage(ctx context.Context, store kv.Store, cursor string, l
 		return items, false, nil, nil
 	}
 	page := items[:limit]
-	next := escapeStoreSegment(string(page[len(page)-1].Name))
+	next := escapeStoreSegment(string(page[len(page)-1].Id))
 	return page, true, &next, nil
 }
 
@@ -223,24 +230,28 @@ func writeOpenAITenant(ctx context.Context, store kv.Store, tenant apitypes.Open
 	if err != nil {
 		return fmt.Errorf("openai tenants: encode tenant %s: %w", tenant.Name, err)
 	}
-	if err := store.Set(ctx, openAITenantKey(string(tenant.Name)), data); err != nil {
+	if err := store.Set(ctx, openAITenantKey(string(tenant.Id)), data); err != nil {
 		return fmt.Errorf("openai tenants: write tenant %s: %w", tenant.Name, err)
 	}
 	return nil
 }
 
-func getOpenAITenant(ctx context.Context, store kv.Store, name string) (apitypes.OpenAITenant, error) {
-	data, err := store.Get(ctx, openAITenantKey(name))
+func getOpenAITenant(ctx context.Context, store kv.Store, id string) (apitypes.OpenAITenant, error) {
+	data, err := store.Get(ctx, openAITenantKey(id))
 	if err != nil {
 		return apitypes.OpenAITenant{}, err
 	}
 	var tenant apitypes.OpenAITenant
 	if err := json.Unmarshal(data, &tenant); err != nil {
-		return apitypes.OpenAITenant{}, fmt.Errorf("openai tenants: decode tenant %s: %w", name, err)
+		return apitypes.OpenAITenant{}, fmt.Errorf("openai tenants: decode tenant %s: %w", id, err)
 	}
 	return tenant, nil
 }
 
-func openAITenantKey(name string) kv.Key {
-	return append(append(kv.Key{}, openAITenantsRoot...), escapeStoreSegment(name))
+func openAITenantKey(id string) kv.Key {
+	return append(append(kv.Key{}, openAITenantsRoot...), escapeStoreSegment(id))
+}
+
+func openAITenantNameKey(name string) kv.Key {
+	return tenantNameKey(openAITenantsByNameRoot, name)
 }

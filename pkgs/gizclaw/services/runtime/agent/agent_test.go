@@ -67,8 +67,8 @@ func TestServiceResolverResolvesWorkspaceAndWorkflow(t *testing.T) {
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
 			"demo": {
-				Name:         "demo",
-				WorkflowName: "workflow-1",
+				Name:       "demo",
+				WorkflowId: "workflow-1",
 			},
 		}},
 		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
@@ -97,7 +97,7 @@ func TestServiceResolverErrors(t *testing.T) {
 		t.Fatalf("missing workspace error = %v", err)
 	}
 	resolver.Workspaces = fakeWorkspaceService{items: map[string]apitypes.Workspace{
-		"demo": {Name: "demo", WorkflowName: "missing"},
+		"demo": {Name: "demo", WorkflowId: "missing"},
 	}}
 	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "workflow") {
 		t.Fatalf("missing workflow error = %v", err)
@@ -302,7 +302,7 @@ func TestServiceResolverResponseErrors(t *testing.T) {
 		t.Fatalf("workspace 500 error = %v", err)
 	}
 
-	resolver.Workspaces = responseWorkspaceService{response: adminhttp.GetWorkspace200JSONResponse(apitypes.Workspace{Name: "demo", WorkflowName: "workflow"})}
+	resolver.Workspaces = responseWorkspaceService{response: adminhttp.GetWorkspace200JSONResponse(apitypes.Workspace{Name: "demo", WorkflowId: "workflow"})}
 	resolver.Workflows = responseWorkflowService{response: adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed"))}
 	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "failed") {
 		t.Fatalf("workflow 500 error = %v", err)
@@ -419,11 +419,19 @@ type fakeWorkspaceService struct {
 }
 
 func (s fakeWorkspaceService) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
-	item, ok := s.items[string(request.Name)]
+	item, ok := s.items[string(request.Id)]
 	if !ok {
 		return adminhttp.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
 	}
 	return adminhttp.GetWorkspace200JSONResponse(item), nil
+}
+
+func (s fakeWorkspaceService) GetWorkspaceByName(_ context.Context, name string) (apitypes.Workspace, error) {
+	item, ok := s.items[name]
+	if !ok {
+		return apitypes.Workspace{}, errors.New("workspace not found")
+	}
+	return item, nil
 }
 
 type fakeWorkflowService struct {
@@ -432,7 +440,7 @@ type fakeWorkflowService struct {
 }
 
 func (s fakeWorkflowService) GetWorkflow(_ context.Context, request adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
-	item, ok := s.items[string(request.Name)]
+	item, ok := s.items[string(request.Id)]
 	if !ok {
 		return adminhttp.GetWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", "not found")), nil
 	}
@@ -446,6 +454,19 @@ type responseWorkspaceService struct {
 
 func (s responseWorkspaceService) GetWorkspace(context.Context, adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
 	return s.response, nil
+}
+
+func (s responseWorkspaceService) GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error) {
+	switch response := s.response.(type) {
+	case adminhttp.GetWorkspace200JSONResponse:
+		return apitypes.Workspace(response), nil
+	case adminhttp.GetWorkspace404JSONResponse:
+		return apitypes.Workspace{}, errors.New("workspace not found")
+	case adminhttp.GetWorkspace500JSONResponse:
+		return apitypes.Workspace{}, errors.New(response.Error.Message)
+	default:
+		return apitypes.Workspace{}, errors.New("unexpected workspace response")
+	}
 }
 
 type responseWorkflowService struct {

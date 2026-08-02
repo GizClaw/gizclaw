@@ -21,7 +21,7 @@
           "provider": {
             "$ref": "./voice_provider.json#/components/schemas/VoiceProvider"
           },
-          "name": {
+          "display_name": {
             "type": "string",
             "example": "calm narrator"
           },

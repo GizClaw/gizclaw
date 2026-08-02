@@ -39,7 +39,7 @@ Profile 的依赖闭包，再依次 apply 依赖、上传 PIXA、apply Profile �
 Credential 模板来自 Raids，具体 secret 值仍只来自 Desktop 私有 `bootstrap.env` 或进程
 环境。Raids 与 PIXA cache、RuntimeProfile、`pod.json`、URL、Web Storage 和日志均不得包含
 这些值。没有有效 cache 且 GitHub 不可达时，Desktop 和远程 Pod 管理仍可用；新建本地
-Pod 与必须执行的本地 runtime-contract migration 会在部分 catalog apply 前失败。
+Pod 的 bootstrap 会在部分 catalog apply 前失败。
 
 Desktop 配置根目录中的 `bootstrap.env` 以 `0600` 保存未来本地 Pod 创建所需的
 dotenv 值。为了支持表单和原始文本两种编辑方式，bridge 会把文件的完整 `content`
@@ -64,16 +64,14 @@ restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
 `.initializing` 是 `0600` 的持久化 JSON 状态：`initializing` 会出现在 Pod 列表和
 详情中，成功后删除；失败时停止进程并原子改写为带脱敏错误的 `failed`，由用户查看
 目录或删除。启动 Desktop 时只清理被退出或崩溃中断的 `initializing` 目录，保留
-`failed` Pod。状态清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时重放
-完整 catalog。旧版 local Pod 在 Server ready 后只执行一次 runtime contract 迁移：apply
-解析后的 Raids 依赖闭包与固定提交的 PIXA，再替换 `RuntimeProfile/default`、apply
-`RegistrationToken/default-runtime`、删除旧
-`RegistrationToken/app:com.gizclaw.opensource` 与 `RegistrationToken/desktop-local`，
-移除 workspace 中废弃的 token handoff 文件，并把 catalog version 记录到 `pod.json`。若恢复到
-旧版遗留进程，Desktop 会先用当前 companion 重启；default profile 同时保留已有
-Workspace 所需的旧翻译 alias。未被该 Profile 引用的 Workflow 与其他可能已被用户修改的资源保持不变。
-迁移完成前 Desktop 不展示二维码，也不向本地 Play 交付 token。apply 或清理失败会保留旧
-catalog version，后续重试可继续收敛。
+`failed` Pod。新建本地 Pod 的 bootstrap 按依赖顺序逐个执行 create-only manifest。
+Desktop 读取每次 Admin apply 返回的 canonical ID，把后续 foreign-key reference 改写为
+这些 ID，并使用返回的 PetDef ID 上传 PIXA。create 遇到结果不明确的传输错误时不会重试，
+以免创建第二份资源。
+
+状态清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时重放完整 catalog。
+catalog version 早于最终资源 identity Schema 的 local Pod 属于不兼容数据：Desktop 拒绝
+start 和 restart，并要求操作者重新创建。Desktop 不迁移、删除或改写该 Pod 的数据。
 
 Raids 发布的 `RegistrationToken/default-runtime` 绑定 `RuntimeProfile/default`，其确定性
 公开 UUID 为 `28c4e4e9-a05f-5a7e-815e-9cf9afb6878f`。Desktop 只解码并校验清单中的值，

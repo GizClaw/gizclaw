@@ -26,7 +26,7 @@
           "provider": {
             "$ref": "./model_provider.json#/components/schemas/ModelProvider"
           },
-          "name": {
+          "display_name": {
             "type": "string",
             "example": "MiniMax M2.5"
           },

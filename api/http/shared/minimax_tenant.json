@@ -11,12 +11,16 @@
       "MiniMaxTenant": {
         "type": "object",
         "required": [
+          "id",
           "name",
-          "credential_name",
+          "credential_id",
           "created_at",
           "updated_at"
         ],
         "properties": {
+          "id": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
@@ -26,7 +30,7 @@
           "group_id": {
             "type": "string"
           },
-          "credential_name": {
+          "credential_id": {
             "type": "string"
           },
           "base_url": {

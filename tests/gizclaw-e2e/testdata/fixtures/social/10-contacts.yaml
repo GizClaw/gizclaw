@@ -8,18 +8,16 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Contact
     metadata:
-      name: 6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee:living-room
+      name: living-room
     spec:
       owner_public_key: 6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee
-      id: living-room
       display_name: Living Room Device
       phone_number: '+15550100001'
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Contact
     metadata:
-      name: 8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu:family-admin
+      name: family-admin
     spec:
       owner_public_key: 8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu
-      id: family-admin
       display_name: Family Admin Device
       phone_number: '+15550100002'

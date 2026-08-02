@@ -41,7 +41,7 @@ typedef struct _gizclaw_rpc_v1_FirmwareFilesDownloadResponse {
     gizclaw_rpc_v1_FirmwareChannelName channel;
     bool has_file;
     gizclaw_rpc_v1_FirmwareArtifactEntry file;
-    pb_callback_t firmware_id;
+    pb_callback_t firmware_name;
     pb_callback_t path;
 } gizclaw_rpc_v1_FirmwareFilesDownloadResponse;
 
@@ -124,7 +124,7 @@ extern "C" {
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_artifact_tag 1
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_channel_tag 2
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_file_tag 3
-#define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_firmware_id_tag 4
+#define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_firmware_name_tag 4
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_path_tag 5
 #define gizclaw_rpc_v1_FirmwareSlot_artifact_tag 1
 #define gizclaw_rpc_v1_FirmwareSlot_description_tag 2
@@ -181,7 +181,7 @@ X(a, CALLBACK, SINGULAR, STRING,   path,              2)
 X(a, STATIC,   OPTIONAL, MESSAGE,  artifact,          1) \
 X(a, STATIC,   SINGULAR, UENUM,    channel,           2) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  file,              3) \
-X(a, CALLBACK, SINGULAR, STRING,   firmware_id,       4) \
+X(a, CALLBACK, SINGULAR, STRING,   firmware_name,     4) \
 X(a, CALLBACK, SINGULAR, STRING,   path,              5)
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_DEFAULT NULL

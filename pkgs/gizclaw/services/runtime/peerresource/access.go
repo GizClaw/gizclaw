@@ -3,6 +3,7 @@ package peerresource
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -14,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 type profileResourceKind string
@@ -57,10 +59,10 @@ func bindingMap(values *map[string]apitypes.RuntimeProfileBinding) map[string]ap
 	return *values
 }
 
-func bindingI18n(binding apitypes.RuntimeProfileBinding) map[string]rpcapi.AliasI18nText {
-	out := make(map[string]rpcapi.AliasI18nText, len(binding.I18n))
+func bindingI18n(binding apitypes.RuntimeProfileBinding) map[string]rpcapi.ResourceI18nText {
+	out := make(map[string]rpcapi.ResourceI18nText, len(binding.I18n))
 	for locale, text := range binding.I18n {
-		out[locale] = rpcapi.AliasI18nText{DisplayName: text.DisplayName, Description: text.Description}
+		out[locale] = rpcapi.ResourceI18nText{DisplayName: text.DisplayName, Description: text.Description}
 	}
 	return out
 }
@@ -109,22 +111,12 @@ func (s *Server) profileNames(kind profileResourceKind) []string {
 	if len(bindings) == 0 {
 		return nil
 	}
-	aliases := make([]string, 0, len(bindings))
-	for alias := range bindings {
-		aliases = append(aliases, alias)
+	names := make([]string, 0, len(bindings))
+	for name := range bindings {
+		names = append(names, name)
 	}
-	sort.Strings(aliases)
-	out := make([]string, 0, len(aliases))
-	seen := make(map[string]struct{}, len(aliases))
-	for _, alias := range aliases {
-		value := bindings[alias]
-		if _, ok := seen[value]; ok {
-			continue
-		}
-		seen[value] = struct{}{}
-		out = append(out, value)
-	}
-	return out
+	sort.Strings(names)
+	return names
 }
 
 func (s *Server) profileBindings(kind profileResourceKind) map[string]string {
@@ -183,6 +175,21 @@ func profileBindingsFrom(profile *apitypes.RuntimeProfile, kind profileResourceK
 
 func (s *Server) profileAllows(kind profileResourceKind, name string) bool {
 	return slices.Contains(s.profileNames(kind), name)
+}
+
+func (s *Server) resolveProfileResourceName(kind profileResourceKind, name string) (string, bool) {
+	id, ok := s.profileBindings(kind)[strings.TrimSpace(name)]
+	return id, ok && id != ""
+}
+
+func (s *Server) profileResourceName(kind profileResourceKind, id string) (string, bool) {
+	id = strings.TrimSpace(id)
+	for _, name := range s.profileNames(kind) {
+		if s.profileBindings(kind)[name] == id {
+			return name, true
+		}
+	}
+	return "", false
 }
 
 // ResolveModelAlias resolves an allowed RuntimeProfile alias without exposing
@@ -447,43 +454,24 @@ func (s *Server) canAccessWorkspace(ctx context.Context, item apitypes.Workspace
 		return true, nil
 	}
 	workspaceName := strings.TrimSpace(item.Name)
+	workspaceID := strings.TrimSpace(item.Id)
 	owner := s.Caller.String()
 	if s.Friends != nil {
-		limit := 200
-		var cursor *string
-		for {
-			list, err := s.Friends.ListFriends(ctx, owner, rpcapi.FriendListRequest{Cursor: cursor, Limit: &limit})
-			if err != nil {
-				return false, err
-			}
-			for _, friend := range list.Items {
-				if strings.TrimSpace(valueOrZero(friend.WorkspaceName)) == workspaceName {
-					return true, nil
-				}
-			}
-			if !list.HasNext || list.NextCursor == nil {
-				break
-			}
-			cursor = list.NextCursor
+		recipients, err := s.Friends.WorkspaceRecipientsByID(ctx, workspaceID)
+		if err != nil {
+			return false, err
+		}
+		if slices.Contains(recipients, owner) {
+			return true, nil
 		}
 	}
 	if s.FriendGroups != nil {
-		limit := 200
-		var cursor *string
-		for {
-			list, err := s.FriendGroups.ListFriendGroups(ctx, owner, rpcapi.FriendGroupListRequest{Cursor: cursor, Limit: &limit})
-			if err != nil {
-				return false, err
-			}
-			for _, group := range list.Items {
-				if strings.TrimSpace(valueOrZero(group.WorkspaceName)) == workspaceName {
-					return true, nil
-				}
-			}
-			if !list.HasNext || list.NextCursor == nil {
-				break
-			}
-			cursor = list.NextCursor
+		recipients, err := s.FriendGroups.WorkspaceRecipientsByID(ctx, workspaceID)
+		if err != nil && !errors.Is(err, kv.ErrNotFound) {
+			return false, err
+		}
+		if slices.Contains(recipients, owner) {
+			return true, nil
 		}
 	}
 	if s.Gameplay != nil && s.RuntimeProfile != nil {
@@ -524,16 +512,9 @@ func isSocialWorkspace(item apitypes.Workspace) bool {
 }
 
 func (s *Server) requireWorkspaceAccess(ctx context.Context, requestID, name string) *rpcapi.RPCResponse {
-	response, err := s.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: name})
+	item, err := s.getWorkspaceByName(s.ownerContext(ctx), name)
 	if err != nil {
-		return internalError(requestID, err.Error())
-	}
-	item, rpcResponse, err := adminResult[apitypes.Workspace](response.VisitGetWorkspaceResponse)
-	if err != nil {
-		return internalError(requestID, err.Error())
-	}
-	if rpcResponse != nil {
-		return withRequestID(requestID, rpcResponse)
+		return statusError(requestID, http.StatusNotFound, "workspace not found")
 	}
 	allowed, err := s.canAccessWorkspace(ctx, item)
 	if err != nil {

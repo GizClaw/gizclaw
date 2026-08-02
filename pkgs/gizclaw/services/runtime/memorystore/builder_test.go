@@ -104,7 +104,7 @@ func TestFlowcraftConfigCanDisableModelExtraction(t *testing.T) {
 
 func TestBuildManagedFlowcraftStoreKeepsWorkspaceScopesIsolated(t *testing.T) {
 	request := managedTestRequest(t)
-	request.WorkspaceName = "workspace-a"
+	request.WorkspaceID = "workspace-a"
 	request.BindingName = "memory"
 	result, err := Build(context.Background(), request)
 	if err != nil {
@@ -150,7 +150,7 @@ func TestManagedFlowcraftProjectionRebuildPreservesCanonicalFacts(t *testing.T) 
 		t.Fatal(err)
 	}
 	if _, err := first.Store.Observe(t.Context(), memory.Observation{
-		Scope: memory.Scope{AppID: request.WorkspaceName},
+		Scope: memory.Scope{AppID: request.WorkspaceID},
 		Text:  "Mochi likes salmon.",
 	}); err != nil {
 		t.Fatal(err)
@@ -166,7 +166,7 @@ func TestManagedFlowcraftProjectionRebuildPreservesCanonicalFacts(t *testing.T) 
 	}
 	t.Cleanup(func() { _ = second.Closer.Close() })
 	recalled, err := second.Store.Recall(t.Context(), memory.Query{
-		Scope: memory.Scope{AppID: request.WorkspaceName},
+		Scope: memory.Scope{AppID: request.WorkspaceID},
 		Text:  "salmon",
 		Limit: 5,
 	})

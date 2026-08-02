@@ -33,8 +33,8 @@ void main() {
               'server.pet.pixa.download',
               payload.ServerPetPixaDownloadResponse(
                 value: payload.PetPixaDownloadResponse(
-                  petId: 'pet-miso',
-                  petdefId: 'petdef-miso',
+                  petName: 'pet-miso',
+                  petDefName: 'petdef-miso',
                   pixaPath: 'pets/miso.pixa',
                   sizeBytes: Int64(bytes.length),
                 ),
@@ -48,7 +48,7 @@ void main() {
     );
 
     final result = await future;
-    expect(result.metadata.value.petId, 'pet-miso');
+    expect(result.metadata.value.petName, 'pet-miso');
     expect(result.bytes, bytes);
     expect(result.asset.clips.single.name, 'default');
   });
@@ -72,7 +72,7 @@ void main() {
             payload: encodeRpcResponsePayload(
               'server.badge_def.pixa.download',
               payload.BadgeDefPixaDownloadResponse(
-                id: 'badge-heart',
+                name: 'badge-heart',
                 pixaPath: 'badges/heart.pixa',
                 sizeBytes: Int64(bytes.length),
               ),
@@ -85,7 +85,7 @@ void main() {
     );
 
     final result = await future;
-    expect(result.metadata.id, 'badge-heart');
+    expect(result.metadata.name, 'badge-heart');
     expect(selectPixaClip(result.asset)?.name, 'icon');
   });
 }

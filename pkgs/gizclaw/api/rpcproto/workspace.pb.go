@@ -1795,7 +1795,7 @@ func (x *ServerReloadRunWorkspaceResponse) GetValue() *PeerRunWorkspaceState {
 type ServerRunSayRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
-	VoiceAlias    string                 `protobuf:"bytes,2,opt,name=voice_alias,json=voiceAlias,proto3" json:"voice_alias,omitempty"`
+	VoiceName     string                 `protobuf:"bytes,2,opt,name=voice_name,json=voiceName,proto3" json:"voice_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1837,9 +1837,9 @@ func (x *ServerRunSayRequest) GetText() string {
 	return ""
 }
 
-func (x *ServerRunSayRequest) GetVoiceAlias() string {
+func (x *ServerRunSayRequest) GetVoiceName() string {
 	if x != nil {
-		return x.VoiceAlias
+		return x.VoiceName
 	}
 	return ""
 }
@@ -2233,20 +2233,19 @@ func (x *ServerStopRunResponse) GetValue() *PeerRunStatus {
 }
 
 type Workspace struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	CreatedAt      string                 `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	LastActiveAt   string                 `protobuf:"bytes,2,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
-	Name           string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Parameters     *WorkspaceParameters   `protobuf:"bytes,4,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`
-	UpdatedAt      string                 `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	WorkflowAlias  string                 `protobuf:"bytes,6,opt,name=workflow_alias,json=workflowAlias,proto3" json:"workflow_alias,omitempty"`
-	Toolkit        *ToolkitPolicy         `protobuf:"bytes,7,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
-	System         bool                   `protobuf:"varint,8,opt,name=system,proto3" json:"system,omitempty"`
-	Icon           *Icon                  `protobuf:"bytes,9,opt,name=icon,proto3,oneof" json:"icon,omitempty"`
-	OwnerPublicKey *string                `protobuf:"bytes,10,opt,name=owner_public_key,json=ownerPublicKey,proto3,oneof" json:"owner_public_key,omitempty"`
-	Available      bool                   `protobuf:"varint,11,opt,name=available,proto3" json:"available,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CreatedAt     string                 `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	LastActiveAt  string                 `protobuf:"bytes,2,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Parameters    *WorkspaceParameters   `protobuf:"bytes,4,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`
+	UpdatedAt     string                 `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	WorkflowName  string                 `protobuf:"bytes,6,opt,name=workflow_name,json=workflowName,proto3" json:"workflow_name,omitempty"`
+	Toolkit       *ToolkitPolicy         `protobuf:"bytes,7,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
+	System        bool                   `protobuf:"varint,8,opt,name=system,proto3" json:"system,omitempty"`
+	Icon          *Icon                  `protobuf:"bytes,9,opt,name=icon,proto3,oneof" json:"icon,omitempty"`
+	Available     bool                   `protobuf:"varint,11,opt,name=available,proto3" json:"available,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Workspace) Reset() {
@@ -2314,9 +2313,9 @@ func (x *Workspace) GetUpdatedAt() string {
 	return ""
 }
 
-func (x *Workspace) GetWorkflowAlias() string {
+func (x *Workspace) GetWorkflowName() string {
 	if x != nil {
-		return x.WorkflowAlias
+		return x.WorkflowName
 	}
 	return ""
 }
@@ -2342,13 +2341,6 @@ func (x *Workspace) GetIcon() *Icon {
 	return nil
 }
 
-func (x *Workspace) GetOwnerPublicKey() string {
-	if x != nil && x.OwnerPublicKey != nil {
-		return *x.OwnerPublicKey
-	}
-	return ""
-}
-
 func (x *Workspace) GetAvailable() bool {
 	if x != nil {
 		return x.Available
@@ -2360,7 +2352,7 @@ type WorkspaceCreateBody struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Parameters    *WorkspaceParameters   `protobuf:"bytes,2,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`
-	WorkflowAlias string                 `protobuf:"bytes,3,opt,name=workflow_alias,json=workflowAlias,proto3" json:"workflow_alias,omitempty"`
+	WorkflowName  string                 `protobuf:"bytes,3,opt,name=workflow_name,json=workflowName,proto3" json:"workflow_name,omitempty"`
 	Toolkit       *ToolkitPolicy         `protobuf:"bytes,4,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
 	Collection    string                 `protobuf:"bytes,5,opt,name=collection,proto3" json:"collection,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2411,9 +2403,9 @@ func (x *WorkspaceCreateBody) GetParameters() *WorkspaceParameters {
 	return nil
 }
 
-func (x *WorkspaceCreateBody) GetWorkflowAlias() string {
+func (x *WorkspaceCreateBody) GetWorkflowName() string {
 	if x != nil {
-		return x.WorkflowAlias
+		return x.WorkflowName
 	}
 	return ""
 }
@@ -3485,15 +3477,15 @@ type WorkspaceParameters_ChatRoomWorkspaceParameters struct {
 }
 
 type WorkspaceParameters_DashScopeRealtimeWorkspaceParameters struct {
-	DashScopeRealtimeWorkspaceParameters *DashScopeRealtimeWorkspaceParameters `protobuf:"bytes,6,opt,name=dash_scope_realtime_workspace_parameters,json=dashScopeRealtimeWorkspaceParameters,proto3,oneof"`
+	DashScopeRealtimeWorkspaceParameters *DashScopeRealtimeWorkspaceParameters `protobuf:"bytes,5,opt,name=dash_scope_realtime_workspace_parameters,json=dashScopeRealtimeWorkspaceParameters,proto3,oneof"`
 }
 
 type WorkspaceParameters_DoubaoRealtimeDuplexWorkspaceParameters struct {
-	DoubaoRealtimeDuplexWorkspaceParameters *DoubaoRealtimeDuplexWorkspaceParameters `protobuf:"bytes,7,opt,name=doubao_realtime_duplex_workspace_parameters,json=doubaoRealtimeDuplexWorkspaceParameters,proto3,oneof"`
+	DoubaoRealtimeDuplexWorkspaceParameters *DoubaoRealtimeDuplexWorkspaceParameters `protobuf:"bytes,6,opt,name=doubao_realtime_duplex_workspace_parameters,json=doubaoRealtimeDuplexWorkspaceParameters,proto3,oneof"`
 }
 
 type WorkspaceParameters_EinoWorkspaceParameters struct {
-	EinoWorkspaceParameters *EinoWorkspaceParameters `protobuf:"bytes,8,opt,name=eino_workspace_parameters,json=einoWorkspaceParameters,proto3,oneof"`
+	EinoWorkspaceParameters *EinoWorkspaceParameters `protobuf:"bytes,7,opt,name=eino_workspace_parameters,json=einoWorkspaceParameters,proto3,oneof"`
 }
 
 func (*WorkspaceParameters_FlowcraftWorkspaceParameters) isWorkspaceParameters_Value() {}
@@ -3781,11 +3773,11 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"!\n" +
 	"\x1fServerReloadRunWorkspaceRequest\"_\n" +
 	" ServerReloadRunWorkspaceResponse\x12;\n" +
-	"\x05value\x18\x01 \x01(\v2%.gizclaw.rpc.v1.PeerRunWorkspaceStateR\x05value\"J\n" +
+	"\x05value\x18\x01 \x01(\v2%.gizclaw.rpc.v1.PeerRunWorkspaceStateR\x05value\"H\n" +
 	"\x13ServerRunSayRequest\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text\x12\x1f\n" +
-	"\vvoice_alias\x18\x02 \x01(\tR\n" +
-	"voiceAlias\"2\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\x12\x1d\n" +
+	"\n" +
+	"voice_name\x18\x02 \x01(\tR\tvoiceName\"2\n" +
 	"\x14ServerRunSayResponse\x12\x1a\n" +
 	"\baccepted\x18\x01 \x01(\bR\baccepted\"]\n" +
 	"\x1fServerRunWorkspaceRecallRequest\x12:\n" +
@@ -3802,7 +3794,7 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\v2%.gizclaw.rpc.v1.PeerRunWorkspaceStateR\x05value\"\x16\n" +
 	"\x14ServerStopRunRequest\"L\n" +
 	"\x15ServerStopRunResponse\x123\n" +
-	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"\xff\x03\n" +
+	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"\xb9\x03\n" +
 	"\tWorkspace\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12$\n" +
@@ -3812,25 +3804,22 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"parameters\x18\x04 \x01(\v2#.gizclaw.rpc.v1.WorkspaceParametersH\x00R\n" +
 	"parameters\x88\x01\x01\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x05 \x01(\tR\tupdatedAt\x12%\n" +
-	"\x0eworkflow_alias\x18\x06 \x01(\tR\rworkflowAlias\x12<\n" +
+	"updated_at\x18\x05 \x01(\tR\tupdatedAt\x12#\n" +
+	"\rworkflow_name\x18\x06 \x01(\tR\fworkflowName\x12<\n" +
 	"\atoolkit\x18\a \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01\x12\x16\n" +
 	"\x06system\x18\b \x01(\bR\x06system\x12-\n" +
-	"\x04icon\x18\t \x01(\v2\x14.gizclaw.rpc.v1.IconH\x02R\x04icon\x88\x01\x01\x12-\n" +
-	"\x10owner_public_key\x18\n" +
-	" \x01(\tH\x03R\x0eownerPublicKey\x88\x01\x01\x12\x1c\n" +
+	"\x04icon\x18\t \x01(\v2\x14.gizclaw.rpc.v1.IconH\x02R\x04icon\x88\x01\x01\x12\x1c\n" +
 	"\tavailable\x18\v \x01(\bR\tavailableB\r\n" +
 	"\v_parametersB\n" +
 	"\n" +
 	"\b_toolkitB\a\n" +
-	"\x05_iconB\x13\n" +
-	"\x11_owner_public_key\"\x93\x02\n" +
+	"\x05_icon\"\x91\x02\n" +
 	"\x13WorkspaceCreateBody\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12H\n" +
 	"\n" +
 	"parameters\x18\x02 \x01(\v2#.gizclaw.rpc.v1.WorkspaceParametersH\x00R\n" +
-	"parameters\x88\x01\x01\x12%\n" +
-	"\x0eworkflow_alias\x18\x03 \x01(\tR\rworkflowAlias\x12<\n" +
+	"parameters\x88\x01\x01\x12#\n" +
+	"\rworkflow_name\x18\x03 \x01(\tR\fworkflowName\x12<\n" +
 	"\atoolkit\x18\x04 \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01\x12\x1e\n" +
 	"\n" +
 	"collection\x18\x05 \x01(\tR\n" +
@@ -3912,16 +3901,16 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"nextCursor\x88\x01\x01\x120\n" +
 	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
 	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
-	"\f_next_cursor\"\xc0\a\n" +
+	"\f_next_cursor\"\xa0\a\n" +
 	"\x13WorkspaceParameters\x12t\n" +
 	"\x1eflowcraft_workspace_parameters\x18\x01 \x01(\v2,.gizclaw.rpc.v1.FlowcraftWorkspaceParametersH\x00R\x1cflowcraftWorkspaceParameters\x12\x84\x01\n" +
 	"$doubao_realtime_workspace_parameters\x18\x02 \x01(\v21.gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersH\x00R!doubaoRealtimeWorkspaceParameters\x12}\n" +
 	"!asttranslate_workspace_parameters\x18\x03 \x01(\v2/.gizclaw.rpc.v1.ASTTranslateWorkspaceParametersH\x00R\x1fasttranslateWorkspaceParameters\x12r\n" +
 	"\x1echat_room_workspace_parameters\x18\x04 \x01(\v2+.gizclaw.rpc.v1.ChatRoomWorkspaceParametersH\x00R\x1bchatRoomWorkspaceParameters\x12\x8e\x01\n" +
-	"(dash_scope_realtime_workspace_parameters\x18\x06 \x01(\v24.gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersH\x00R$dashScopeRealtimeWorkspaceParameters\x12\x97\x01\n" +
-	"+doubao_realtime_duplex_workspace_parameters\x18\a \x01(\v27.gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersH\x00R'doubaoRealtimeDuplexWorkspaceParameters\x12e\n" +
-	"\x19eino_workspace_parameters\x18\b \x01(\v2'.gizclaw.rpc.v1.EinoWorkspaceParametersH\x00R\x17einoWorkspaceParametersB\a\n" +
-	"\x05valueJ\x04\b\x05\x10\x06R\x18pet_workspace_parameters\"_\n" +
+	"(dash_scope_realtime_workspace_parameters\x18\x05 \x01(\v24.gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersH\x00R$dashScopeRealtimeWorkspaceParameters\x12\x97\x01\n" +
+	"+doubao_realtime_duplex_workspace_parameters\x18\x06 \x01(\v27.gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersH\x00R'doubaoRealtimeDuplexWorkspaceParameters\x12e\n" +
+	"\x19eino_workspace_parameters\x18\a \x01(\v2'.gizclaw.rpc.v1.EinoWorkspaceParametersH\x00R\x17einoWorkspaceParametersB\a\n" +
+	"\x05value\"_\n" +
 	"\x13WorkspacePutRequest\x124\n" +
 	"\x04body\x18\x01 \x01(\v2 .gizclaw.rpc.v1.WorkspacePutBodyR\x04body\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"G\n" +

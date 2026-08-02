@@ -30,8 +30,8 @@ import (
 )
 
 type Request struct {
-	WorkspaceName   string
-	ProfileName     string
+	WorkspaceID     string
+	ProfileID       string
 	ProfileRevision string
 	BindingName     string
 	Layout          apitypes.MemoryLayout
@@ -47,9 +47,9 @@ type Result struct {
 }
 
 func Build(ctx context.Context, request Request) (Result, error) {
-	workspaceName := strings.TrimSpace(request.WorkspaceName)
-	if workspaceName == "" {
-		return Result{}, errors.New("memory store: workspace name is required")
+	workspaceID := strings.TrimSpace(request.WorkspaceID)
+	if workspaceID == "" {
+		return Result{}, errors.New("memory store: workspace id is required")
 	}
 	if request.Layout.Name != request.Binding.LayoutId {
 		return Result{}, fmt.Errorf("memory store: layout %q does not match binding layout_id %q", request.Layout.Name, request.Binding.LayoutId)
@@ -123,43 +123,43 @@ func buildFlowcraft(ctx context.Context, request Request) (*memoryflowcraft.Stor
 	}
 	switch connectionType {
 	case "flowcraft_bbh":
-		dir, err := managedBindingRoot(request.ServerRoot, request.ProfileName, request.BindingName)
+		dir, err := managedBindingRoot(request.ServerRoot, request.ProfileID, request.BindingName)
 		if err != nil {
 			return nil, nil, err
 		}
-		return openFlowcraftLocal(ctx, dir, request.WorkspaceName, policy, config)
+		return openFlowcraftLocal(ctx, dir, policy, config)
 	case "flowcraft_object_store":
 		connection, err := request.Binding.Connection.AsRuntimeProfileFlowcraftObjectStoreConnection()
 		if err != nil {
 			return nil, nil, err
 		}
 		dir := filepath.Clean(connection.Directory)
-		return openFlowcraftLocal(ctx, dir, request.WorkspaceName, policy, config)
+		return openFlowcraftLocal(ctx, dir, policy, config)
 	case "flowcraft_postgresql":
 		connection, err := request.Binding.Connection.AsRuntimeProfileFlowcraftPostgreSQLConnection()
 		if err != nil {
 			return nil, nil, err
 		}
-		return openFlowcraftPostgres(ctx, connection.Dsn, request.WorkspaceName, policy, config)
+		return openFlowcraftPostgres(ctx, connection.Dsn, request.WorkspaceID, policy, config)
 	default:
 		return nil, nil, fmt.Errorf("memory store: flowcraft driver cannot use connection type %q", connectionType)
 	}
 }
 
-func managedBindingRoot(serverRoot, profileName, bindingName string) (string, error) {
+func managedBindingRoot(serverRoot, profileID, bindingName string) (string, error) {
 	serverRoot = strings.TrimSpace(serverRoot)
 	if serverRoot == "" {
 		return "", errors.New("memory store: flowcraft_bbh requires the Server Workspace root")
 	}
-	if !safePathSegment(profileName) || !safePathSegment(bindingName) {
-		return "", errors.New("memory store: RuntimeProfile name and binding alias must be safe path segments")
+	if !safePathSegment(profileID) || !safePathSegment(bindingName) {
+		return "", errors.New("memory store: RuntimeProfile id and binding alias must be safe path segments")
 	}
 	absoluteRoot, err := filepath.Abs(serverRoot)
 	if err != nil {
 		return "", fmt.Errorf("memory store: resolve Server Workspace root: %w", err)
 	}
 	base := filepath.Join(absoluteRoot, "data", "memory")
-	target := filepath.Join(base, profileName, bindingName)
+	target := filepath.Join(base, profileID, bindingName)
 	relative, err := filepath.Rel(base, target)
 	if err != nil || relative == "." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
 		return "", errors.New("memory store: managed binding path escapes the Server Workspace root")
@@ -253,7 +253,7 @@ func flowcraftLaneNames(lanes []apitypes.FlowcraftMemoryLanePolicy) []string {
 	return result
 }
 
-func openFlowcraftLocal(ctx context.Context, dir, workspaceName string, policy apitypes.FlowcraftMemoryLayoutPolicy, config memoryflowcraft.Config) (*memoryflowcraft.Store, io.Closer, error) {
+func openFlowcraftLocal(ctx context.Context, dir string, policy apitypes.FlowcraftMemoryLayoutPolicy, config memoryflowcraft.Config) (*memoryflowcraft.Store, io.Closer, error) {
 	metadataWorkspace, err := sdkworkspace.NewLocalWorkspace(dir)
 	if err != nil {
 		return nil, nil, err
@@ -292,7 +292,7 @@ func openFlowcraftLocal(ctx context.Context, dir, workspaceName string, policy a
 	return store, multiCloser(append(owned, store)), nil
 }
 
-func openFlowcraftPostgres(ctx context.Context, dsn, workspaceName string, policy apitypes.FlowcraftMemoryLayoutPolicy, config memoryflowcraft.Config) (*memoryflowcraft.Store, io.Closer, error) {
+func openFlowcraftPostgres(ctx context.Context, dsn, workspaceID string, policy apitypes.FlowcraftMemoryLayoutPolicy, config memoryflowcraft.Config) (*memoryflowcraft.Store, io.Closer, error) {
 	backend, err := flowpostgres.Open(ctx, dsn)
 	if err != nil {
 		return nil, nil, err
@@ -317,7 +317,7 @@ func openFlowcraftPostgres(ctx context.Context, dsn, workspaceName string, polic
 	if err != nil {
 		return fail(err)
 	}
-	if err := store.Rebuild(ctx, memory.Scope{AppID: workspaceName}); err != nil {
+	if err := store.Rebuild(ctx, memory.Scope{AppID: workspaceID}); err != nil {
 		return fail(errors.Join(err, store.Close()))
 	}
 	return store, multiCloser(append(owned, store)), nil

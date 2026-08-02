@@ -100,10 +100,10 @@ func TestAdminResourceShowRegistrationTokenRoundTripsThroughApply(t *testing.T) 
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "RegistrationToken",
-		"metadata": {"name": "desktop-token"},
+		"metadata": {"id": "token-id", "name": "desktop-token"},
 		"spec": {
 			"token": "desktop-token",
-			"runtime_profile_name": "default"
+			"runtime_profile_id": "default"
 		}
 	}`)
 	fake := &fakeResourceClient{
@@ -136,7 +136,7 @@ func TestAdminResourceShowRegistrationTokenRoundTripsThroughApply(t *testing.T) 
 	if err != nil {
 		t.Fatalf("applied resource is not RegistrationToken: %v", err)
 	}
-	if applied.Spec.Token != "desktop-token" || applied.Spec.RuntimeProfileName != "default" {
+	if applied.Spec.Token != "desktop-token" || applied.Spec.RuntimeProfileId != "default" {
 		t.Fatalf("applied RegistrationToken = %#v", applied)
 	}
 }
@@ -626,15 +626,15 @@ func (f *fakeResourceClient) ApplyResource(_ context.Context, resource apitypes.
 	return f.applyResult, nil
 }
 
-func (f *fakeResourceClient) DeleteResource(_ context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+func (f *fakeResourceClient) DeleteResource(_ context.Context, kind apitypes.ResourceKind, id string) (apitypes.Resource, error) {
 	f.deletedKind = kind
-	f.deletedName = name
+	f.deletedName = id
 	return f.getResource, nil
 }
 
-func (f *fakeResourceClient) GetResource(_ context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+func (f *fakeResourceClient) GetResource(_ context.Context, kind apitypes.ResourceKind, id string) (apitypes.Resource, error) {
 	f.gotKind = kind
-	f.gotName = name
+	f.gotName = id
 	return f.getResource, nil
 }
 

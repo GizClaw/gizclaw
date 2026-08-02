@@ -54,10 +54,14 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if spec.Workspace.OwnerPublicKey != nil {
 		owner = strings.TrimSpace(*spec.Workspace.OwnerPublicKey)
 	}
-	scope := flowcraftagent.WorkspaceAgentScope(owner, spec.Workspace.Name, spec.Workspace.Name)
+	workspaceID := strings.TrimSpace(spec.Workspace.Id)
+	if workspaceID == "" {
+		return nil, fmt.Errorf("eino: workspace id is required")
+	}
+	scope := flowcraftagent.WorkspaceAgentScope(owner, workspaceID, workspaceID)
 	config := genxeino.Config{
 		Agent: genxeino.AgentConfig{
-			ID:        strings.TrimSpace(spec.Workspace.Name),
+			ID:        workspaceID,
 			Name:      strings.TrimSpace(spec.Workflow.Name),
 			ContextID: scope,
 		},
@@ -80,8 +84,8 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			return nil, fmt.Errorf("eino: incomplete runtime memory binding")
 		}
 		request := memorystore.Request{
-			WorkspaceName:   strings.TrimSpace(spec.Workspace.Name),
-			ProfileName:     spec.MemoryProfileName,
+			WorkspaceID:     workspaceID,
+			ProfileID:       spec.MemoryProfileID,
 			ProfileRevision: spec.MemoryProfileRevision,
 			BindingName:     spec.MemoryName,
 			Layout:          *spec.MemoryLayout,
@@ -104,13 +108,13 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		memoryCloser = result.Closer
 	}
 	if store != nil {
-		bound, err := memory.BindApp(store, spec.Workspace.Name)
+		bound, err := memory.BindApp(store, workspaceID)
 		if err != nil {
 			return nil, errors.Join(fmt.Errorf("eino: bind workspace memory: %w", err), closeMemory(memoryCloser))
 		}
 		config.Memory = &genxeino.MemoryConfig{
 			Store: bound,
-			Scope: memory.Scope{AppID: strings.TrimSpace(spec.Workspace.Name)},
+			Scope: memory.Scope{AppID: workspaceID},
 		}
 	}
 	transformer, err := genxeino.New(ctx, config)

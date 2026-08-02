@@ -32,7 +32,7 @@ void main() {
               'server.register',
               ServerRegisterResponse(
                 runtimeProfileName: 'profile-a',
-                firmwareId: 'h106',
+                firmwareName: 'h106',
               ),
             ),
           ).writeToBuffer(),
@@ -43,7 +43,7 @@ void main() {
 
     final response = await future;
     expect(response.runtimeProfileName, 'profile-a');
-    expect(response.firmwareId, 'h106');
+    expect(response.firmwareName, 'h106');
   });
 
   test('uploads the local device info to the server', () async {

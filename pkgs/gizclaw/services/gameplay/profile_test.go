@@ -42,7 +42,7 @@ func TestResolveProfileRulesUsesLocalAliasesAndSkipsMissingResources(t *testing.
 	profile.Spec.Gameplay.Pet.Games = map[string]apitypes.RuntimeProfileGameSpec{"dinodive": gamePolicy, "missing": gamePolicy}
 
 	runtime := &Runtime{Catalog: catalog}
-	rules, err := runtime.resolveProfileRules(WithRuntimeProfile(ctx, profile), "default")
+	rules, err := runtime.resolveProfileRules(WithRuntimeProfile(ctx, profile), profile.Id)
 	if err != nil {
 		t.Fatalf("resolveProfileRules() error = %v", err)
 	}
@@ -68,7 +68,7 @@ func TestResolveProfileRulesTreatsEmptyProfileMapAsAllowNone(t *testing.T) {
 	profile.Spec.Resources.GameDefs = &empty
 	profile.Spec.Gameplay.Pet.Games = map[string]apitypes.RuntimeProfileGameSpec{}
 	runtime := &Runtime{Catalog: catalog}
-	rules, err := runtime.resolveProfileRules(WithRuntimeProfile(ctx, profile), "default")
+	rules, err := runtime.resolveProfileRules(WithRuntimeProfile(ctx, profile), profile.Id)
 	if err != nil {
 		t.Fatalf("resolveProfileRules() error = %v", err)
 	}

@@ -10,9 +10,10 @@
     "schemas": {
       "RuntimeProfile": {
         "type": "object",
-        "required": ["name", "revision", "spec", "created_at", "updated_at"],
+        "required": ["id", "name", "revision", "spec", "created_at", "updated_at"],
         "additionalProperties": false,
         "properties": {
+          "id": { "type": "string" },
           "name": { "type": "string" },
           "revision": {
             "type": "string",

@@ -160,17 +160,17 @@ Server 消费这对资源；其中确定性 UUID 是公开注册标识，不是 
 部署仍拥有自己的 RegistrationToken，可独立安装 default 或产品专用 profile，并把显式
 token 绑定到任意一个。
 
-`server.register` 把连接关联到 RuntimeProfile，并持久化 owner 选择的 RuntimeProfile name 与可选 Firmware ID，再在响应中返回这两个选择。Owner-bound Workspace 即使在 owner 离线时，也会通过这个持久化 name 解析 RuntimeProfile 的当前 revision；owner 后续成功注册可替换该选择。RegistrationToken 和 Peer 都不保存 Firmware channel；stable、beta、develop 或 pending 由设备自行选择。更新或切换 RuntimeProfile 只改变后续操作使用的环境，不重写 Workspace context 或已经保存的 alias。
+`server.register` 把连接关联到 RuntimeProfile，内部持久化 canonical RuntimeProfile ID 与可选 Firmware ID，Peer response 只返回两者的 scoped name。Owner-bound Workspace 即使在 owner 离线时，也会通过持久化的 canonical RuntimeProfile ID 解析当前 revision；owner 后续成功注册可替换该选择。RegistrationToken 和 Peer 都不保存 Firmware channel；stable、beta、develop 或 pending 由设备自行选择。更新或切换 RuntimeProfile 只改变后续操作使用的环境，不重写 Workspace context 或已经保存的内部 binding。
 
 公开 HTTP login 也可以通过 `X-Registration-Token` 提交同一个值。注册成功或失败日志不包含提交的 token 值。
 
 ## Peer surface 与 ownership
 
-- Workflow、Model、Voice 和 Tool list/get 只返回安全 alias projection。AST Workflow projection 会携带 Workspace 默认语言对，客户端不再从动态 alias 推断行为；projection 不暴露真实 ID、provider、tenant、credential、owner 或 executor routing。
-- Workflow list 必须传 Collection；Workflow get 只传全局唯一 alias；不存在 `source=runtime|owned`。
+- Workflow、Model、Voice 和 Tool list/get 只返回安全的 scoped-name projection。AST Workflow projection 会携带 Workspace 默认语言对，客户端不再从动态 name 推断行为；projection 不暴露真实 ID、provider、tenant、credential、owner 或 executor routing。
+- Workflow list 必须传 Collection；Workflow get 只传当前 RuntimeProfile 投影出的 name；不存在 `source=runtime|owned`。
 - Peer RPC 不提供 Workflow、Model、Credential 和 Tool create/put/delete；真实资源统一由 Admin 管理。
-- Workspace create 必须传 `collection` 与 `workflow_alias`，Workspace list 必须传 `collection`。Server 把 Collection 保存为内部 Workspace label，但 Peer RPC 不返回通用 labels。
-- Workflow alias 删除后，不隐藏也不删除 Workspace。list/get 仍返回 Workspace，reload/run 在 alias 恢复前返回 not found。
+- Workspace create 必须传 `collection` 与 `workflow_name`，Workspace list 必须传 `collection`。Server 把 Collection 保存为内部 Workspace label，但 Peer RPC 不返回通用 labels。
+- Workflow binding 删除后，不隐藏也不删除 Workspace。list/get 仍返回 Workspace，reload/run 在相同 Peer name 恢复前返回 not found。
 - Pet 实例仍是 Peer/领域状态；领养与所有 reward 数值都来自 `gameplay`，Server config 只保存运行参数。
 
 Firmware 仍是独立 Admin 资源，不进入 RuntimeProfile projection。RegistrationToken 可以独立绑定 Firmware release-line ID，但不绑定 channel。Credential 与 ProviderTenant 只是真实 Model、Voice 在 Server 侧使用的依赖，不会暴露给设备。

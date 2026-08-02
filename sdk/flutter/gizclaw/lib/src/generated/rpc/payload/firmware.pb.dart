@@ -440,14 +440,14 @@ class FirmwareFilesDownloadResponse extends $pb.GeneratedMessage {
     FirmwareArtifact? artifact,
     $0.FirmwareChannelName? channel,
     FirmwareArtifactEntry? file,
-    $core.String? firmwareId,
+    $core.String? firmwareName,
     $core.String? path,
   }) {
     final result = create();
     if (artifact != null) result.artifact = artifact;
     if (channel != null) result.channel = channel;
     if (file != null) result.file = file;
-    if (firmwareId != null) result.firmwareId = firmwareId;
+    if (firmwareName != null) result.firmwareName = firmwareName;
     if (path != null) result.path = path;
     return result;
   }
@@ -471,7 +471,7 @@ class FirmwareFilesDownloadResponse extends $pb.GeneratedMessage {
         enumValues: $0.FirmwareChannelName.values)
     ..aOM<FirmwareArtifactEntry>(3, _omitFieldNames ? '' : 'file',
         subBuilder: FirmwareArtifactEntry.create)
-    ..aOS(4, _omitFieldNames ? '' : 'firmwareId')
+    ..aOS(4, _omitFieldNames ? '' : 'firmwareName')
     ..aOS(5, _omitFieldNames ? '' : 'path')
     ..hasRequiredFields = false;
 
@@ -529,13 +529,13 @@ class FirmwareFilesDownloadResponse extends $pb.GeneratedMessage {
   FirmwareArtifactEntry ensureFile() => $_ensure(2);
 
   @$pb.TagNumber(4)
-  $core.String get firmwareId => $_getSZ(3);
+  $core.String get firmwareName => $_getSZ(3);
   @$pb.TagNumber(4)
-  set firmwareId($core.String value) => $_setString(3, value);
+  set firmwareName($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasFirmwareId() => $_has(3);
+  $core.bool hasFirmwareName() => $_has(3);
   @$pb.TagNumber(4)
-  void clearFirmwareId() => $_clearField(4);
+  void clearFirmwareName() => $_clearField(4);
 
   @$pb.TagNumber(5)
   $core.String get path => $_getSZ(4);

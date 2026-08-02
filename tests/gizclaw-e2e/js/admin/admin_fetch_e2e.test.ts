@@ -38,15 +38,15 @@ async function main(): Promise<void> {
     assert.equal(Array.isArray(response.data.items), true);
 
     const workflows = await listWorkflows({ client, throwOnError: true });
-    const workflowName = workflows.data.items[0]?.name;
+    const workflowID = workflows.data.items[0]?.id;
     assert.notEqual(
-      workflowName,
+      workflowID,
       undefined,
       "setup server must contain a Workflow fixture",
     );
     const current = await getResource({
       client,
-      path: { kind: "Workflow", name: workflowName! },
+      path: { kind: "Workflow", id: workflowID! },
       throwOnError: true,
     });
     type MutableAdminResource = {

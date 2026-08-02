@@ -27,7 +27,7 @@ func TestModelRPCProjectionUsesExactlyTheSelectedProviderData(t *testing.T) {
 		t.Run(string(tt.kind), func(t *testing.T) {
 			got, err := modelRPCProjection("chat", apitypes.RuntimeProfileBinding{}, apitypes.Model{
 				Kind:         apitypes.ModelKindLlm,
-				Provider:     apitypes.ModelProvider{Kind: tt.kind, Name: "main"},
+				Provider:     apitypes.ModelProvider{Kind: tt.kind, Id: "main"},
 				ProviderData: tt.data,
 			})
 			if err != nil {
@@ -45,7 +45,7 @@ func TestModelRPCProjectionUsesExactlyTheSelectedProviderData(t *testing.T) {
 
 	_, err := modelRPCProjection("chat", apitypes.RuntimeProfileBinding{}, apitypes.Model{
 		Kind:         apitypes.ModelKindLlm,
-		Provider:     apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Name: "main"},
+		Provider:     apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Id: "main"},
 		ProviderData: tests[len(tests)-1].data,
 	})
 	if err == nil {

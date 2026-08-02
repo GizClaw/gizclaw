@@ -36,7 +36,7 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 		"name": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
-		"credential_name": "cred-main",
+		"credential_id": "cred-main",
 		"base_url": "https://api.minimax.chat",
 		"description": "primary tenant"
 	}`)
@@ -48,14 +48,14 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 	if !ok {
 		t.Fatalf("CreateMiniMaxTenant() response = %#v", createResp)
 	}
-	if created.Name != "tenant-a" || created.CredentialName != "cred-main" {
+	if created.Name != "tenant-a" || created.CredentialId != "cred-main" {
 		t.Fatalf("CreateMiniMaxTenant() tenant = %#v", created)
 	}
 	if created.CreatedAt.IsZero() || created.UpdatedAt.IsZero() {
 		t.Fatalf("CreateMiniMaxTenant() timestamps = %#v", created)
 	}
 
-	getResp, err := srv.GetMiniMaxTenant(ctx, adminhttp.GetMiniMaxTenantRequestObject{Name: "tenant-a"})
+	getResp, err := srv.GetMiniMaxTenant(ctx, adminhttp.GetMiniMaxTenantRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("GetMiniMaxTenant() error = %v", err)
 	}
@@ -71,11 +71,11 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 		"name": "tenant-a",
 		"app_id": "app-2",
 		"group_id": "group-2",
-		"credential_name": "cred-main",
+		"credential_id": "cred-main",
 		"description": "updated tenant"
 	}`)
 	putResp, err := srv.PutMiniMaxTenant(ctx, adminhttp.PutMiniMaxTenantRequestObject{
-		Name: "tenant-a",
+		Id:   created.Id,
 		Body: &updateBody,
 	})
 	if err != nil {
@@ -107,9 +107,10 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 	voice := apitypes.Voice{
 		CreatedAt: created.CreatedAt,
 		Id:        "minimax-tenant:tenant-a:voice-1",
+		Name:      "minimax-tenant:tenant-a:voice-1",
 		Provider: apitypes.VoiceProvider{
 			Kind: miniMaxProviderKind,
-			Name: string("tenant-a"),
+			Id:   created.Id,
 		},
 		ProviderData: providerData(miniMaxProviderKind, map[string]any{
 			"voice_id": "voice-1",
@@ -128,9 +129,10 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 	manualVoice := apitypes.Voice{
 		CreatedAt: created.CreatedAt,
 		Id:        "manual:tenant-a:voice-2",
+		Name:      "manual:tenant-a:voice-2",
 		Provider: apitypes.VoiceProvider{
 			Kind: miniMaxProviderKind,
-			Name: string("tenant-a"),
+			Id:   created.Id,
 		},
 		Source:    apitypes.VoiceSourceManual,
 		UpdatedAt: created.CreatedAt,
@@ -139,7 +141,7 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 		t.Fatalf("writeVoice(manual) error = %v", err)
 	}
 
-	deleteResp, err := srv.DeleteMiniMaxTenant(ctx, adminhttp.DeleteMiniMaxTenantRequestObject{Name: "tenant-a"})
+	deleteResp, err := srv.DeleteMiniMaxTenant(ctx, adminhttp.DeleteMiniMaxTenantRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("DeleteMiniMaxTenant() error = %v", err)
 	}
@@ -168,9 +170,9 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 	})
 
 	for _, body := range []adminhttp.MiniMaxTenantUpsert{
-		{Name: "alpha", AppId: stringPtr("app-a"), GroupId: stringPtr("group-a"), CredentialName: "cred-main"},
-		{Name: "beta", AppId: stringPtr("app-b"), GroupId: stringPtr("group-b"), CredentialName: "cred-main"},
-		{Name: "gamma", AppId: stringPtr("app-c"), GroupId: stringPtr("group-c"), CredentialName: "cred-main"},
+		{Name: "alpha", AppId: stringPtr("app-a"), GroupId: stringPtr("group-a"), CredentialId: "cred-main"},
+		{Name: "beta", AppId: stringPtr("app-b"), GroupId: stringPtr("group-b"), CredentialId: "cred-main"},
+		{Name: "gamma", AppId: stringPtr("app-c"), GroupId: stringPtr("group-c"), CredentialId: "cred-main"},
 	} {
 		if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &body}); err != nil {
 			t.Fatalf("CreateMiniMaxTenant(%q) error = %v", body.Name, err)
@@ -211,9 +213,9 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 	}
 
 	invalidBody := adminhttp.MiniMaxTenantUpsert{
-		Name:           "missing-cred",
-		GroupId:        stringPtr("group-x"),
-		CredentialName: "not-found",
+		Name:         "missing-cred",
+		GroupId:      stringPtr("group-x"),
+		CredentialId: "not-found",
 	}
 	invalidResp, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &invalidBody})
 	if err != nil {
@@ -231,7 +233,7 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 		t.Fatalf("CreateMiniMaxTenant(nil body) response = %#v", nilCreateResp)
 	}
 
-	nilPutResp, err := srv.PutMiniMaxTenant(ctx, adminhttp.PutMiniMaxTenantRequestObject{Name: "tenant-a"})
+	nilPutResp, err := srv.PutMiniMaxTenant(ctx, adminhttp.PutMiniMaxTenantRequestObject{Id: "tenant-a"})
 	if err != nil {
 		t.Fatalf("PutMiniMaxTenant(nil body) error = %v", err)
 	}
@@ -239,7 +241,7 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 		t.Fatalf("PutMiniMaxTenant(nil body) response = %#v", nilPutResp)
 	}
 
-	getMissingResp, err := srv.GetMiniMaxTenant(ctx, adminhttp.GetMiniMaxTenantRequestObject{Name: "missing"})
+	getMissingResp, err := srv.GetMiniMaxTenant(ctx, adminhttp.GetMiniMaxTenantRequestObject{Id: "missing"})
 	if err != nil {
 		t.Fatalf("GetMiniMaxTenant(missing) error = %v", err)
 	}
@@ -247,7 +249,7 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 		t.Fatalf("GetMiniMaxTenant(missing) response = %#v", getMissingResp)
 	}
 
-	deleteMissingResp, err := srv.DeleteMiniMaxTenant(ctx, adminhttp.DeleteMiniMaxTenantRequestObject{Name: "missing"})
+	deleteMissingResp, err := srv.DeleteMiniMaxTenant(ctx, adminhttp.DeleteMiniMaxTenantRequestObject{Id: "missing"})
 	if err != nil {
 		t.Fatalf("DeleteMiniMaxTenant(missing) error = %v", err)
 	}
@@ -262,9 +264,9 @@ func TestServerMiniMaxCredentialValidation(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	tenant := apitypes.MiniMaxTenant{
-		CredentialName: "cred-main",
-		GroupId:        stringPtr("group-1"),
-		Name:           "tenant-a",
+		CredentialId: "cred-main",
+		GroupId:      stringPtr("group-1"),
+		Name:         "tenant-a",
 	}
 
 	seedCredential(t, srv, apitypes.Credential{
@@ -308,12 +310,12 @@ func TestServerMiniMaxCredentialValidation(t *testing.T) {
 		t.Fatal("miniMaxClientForTenant() returned nil client")
 	}
 	missingTenant := tenant
-	missingTenant.CredentialName = "missing-cred"
+	missingTenant.CredentialId = "missing-cred"
 	if _, err := srv.miniMaxCredentialForTenant(ctx, credentialStore, missingTenant); err == nil || !strings.Contains(err.Error(), `credential "missing-cred" not found`) {
 		t.Fatalf("miniMaxCredentialForTenant(missing) error = %v", err)
 	}
 
-	missingTenantResp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "missing"})
+	missingTenantResp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Id: "missing"})
 	if err != nil {
 		t.Fatalf("SyncMiniMaxTenantVoices(missing tenant) error = %v", err)
 	}
@@ -435,7 +437,7 @@ func TestVoiceHelperEdgeCases(t *testing.T) {
 		t.Fatal("mapEqual(unmarshalable, empty) = true")
 	}
 	voice := apitypes.Voice{
-		Provider: apitypes.VoiceProvider{Kind: apitypes.VoiceProviderKindMinimaxTenant, Name: "tenant"},
+		Provider: apitypes.VoiceProvider{Kind: apitypes.VoiceProviderKindMinimaxTenant, Id: "tenant"},
 	}
 	providerData := apitypes.VoiceProviderData{}
 	voiceID := " voice-1 "
@@ -582,7 +584,7 @@ func TestServerMiniMaxTenantValidationAndConflictPaths(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "cred-main",
+		Id:        "cred-main",
 		Provider:  "minimax",
 		Body:      testMiniMaxCredentialBody("tok-main"),
 		CreatedAt: srv.now(),
@@ -593,7 +595,7 @@ func TestServerMiniMaxTenantValidationAndConflictPaths(t *testing.T) {
 		"name": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
-		"credential_name": "cred-main"
+		"credential_id": "cred-main"
 	}`)
 	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &body}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant(seed) error = %v", err)
@@ -611,10 +613,10 @@ func TestServerMiniMaxTenantValidationAndConflictPaths(t *testing.T) {
 		"name": "other-name",
 		"app_id": "app-1",
 		"group_id": "group-1",
-		"credential_name": "cred-main"
+		"credential_id": "cred-main"
 	}`)
 	pathMismatchResp, err := srv.PutMiniMaxTenant(ctx, adminhttp.PutMiniMaxTenantRequestObject{
-		Name: "tenant-a",
+		Id:   miniMaxTenantID(t, srv, ctx, "tenant-a"),
 		Body: &pathMismatch,
 	})
 	if err != nil {
@@ -628,7 +630,7 @@ func TestServerMiniMaxTenantValidationAndConflictPaths(t *testing.T) {
 		"name": "tenant-b",
 		"app_id": "app-2",
 		"group_id": "group-2",
-		"credential_name": "cred-main",
+		"credential_id": "cred-main",
 		"base_url": "not-a-url"
 	}`)
 	invalidBaseURLResp, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &invalidBaseURL})
@@ -639,7 +641,7 @@ func TestServerMiniMaxTenantValidationAndConflictPaths(t *testing.T) {
 		t.Fatalf("CreateMiniMaxTenant(invalid base_url) response = %#v", invalidBaseURLResp)
 	}
 
-	deleteMissingResp, err := srv.DeleteMiniMaxTenant(ctx, adminhttp.DeleteMiniMaxTenantRequestObject{Name: "missing"})
+	deleteMissingResp, err := srv.DeleteMiniMaxTenant(ctx, adminhttp.DeleteMiniMaxTenantRequestObject{Id: "missing"})
 	if err != nil {
 		t.Fatalf("DeleteMiniMaxTenant(missing) error = %v", err)
 	}
@@ -693,14 +695,14 @@ func TestServerSyncMiniMaxTenantVoicesUsesTenantBaseURL(t *testing.T) {
 		"name": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
-		"credential_name": "cred-main"
+		"credential_id": "cred-main"
 	}`)
 	tenantBody.BaseUrl = stringPtr(upstream.URL)
 	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
 
-	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Id: miniMaxTenantID(t, srv, ctx, "tenant-a")})
 	if err != nil {
 		t.Fatalf("SyncMiniMaxTenantVoices() error = %v", err)
 	}
@@ -764,14 +766,14 @@ func TestServerSyncMiniMaxTenantVoicesRetriesTransientEOF(t *testing.T) {
 		"name": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
-		"credential_name": "cred-main"
+		"credential_id": "cred-main"
 	}`)
 	tenantBody.BaseUrl = stringPtr(upstream.URL)
 	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
 
-	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Id: miniMaxTenantID(t, srv, ctx, "tenant-a")})
 	if err != nil {
 		t.Fatalf("SyncMiniMaxTenantVoices() error = %v", err)
 	}
@@ -807,14 +809,14 @@ func TestServerSyncMiniMaxTenantVoicesCredentialRejected(t *testing.T) {
 		"name": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
-		"credential_name": "cred-main"
+		"credential_id": "cred-main"
 	}`)
 	tenantBody.BaseUrl = stringPtr(upstream.URL)
 	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
 
-	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Id: miniMaxTenantID(t, srv, ctx, "tenant-a")})
 	if err != nil {
 		t.Fatalf("SyncMiniMaxTenantVoices() error = %v", err)
 	}
@@ -861,14 +863,14 @@ func TestServerSyncMiniMaxTenantVoicesFallsBackAfterRegionalAuthError(t *testing
 		"name": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
-		"credential_name": "cred-main"
+		"credential_id": "cred-main"
 	}`)
 	tenantBody.BaseUrl = stringPtr(rejecting.URL)
 	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
 
-	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Id: miniMaxTenantID(t, srv, ctx, "tenant-a")})
 	if err != nil {
 		t.Fatalf("SyncMiniMaxTenantVoices() error = %v", err)
 	}
@@ -921,7 +923,7 @@ func TestServerSyncMiniMaxTenantVoicesReconcile(t *testing.T) {
 		"name": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
-		"credential_name": "cred-main"
+		"credential_id": "cred-main"
 	}`)
 	tenantBody.BaseUrl = stringPtr(upstream.URL)
 	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
@@ -932,7 +934,7 @@ func TestServerSyncMiniMaxTenantVoicesReconcile(t *testing.T) {
 		Id:        "manual:tenant-a:keep",
 		Provider: apitypes.VoiceProvider{
 			Kind: miniMaxProviderKind,
-			Name: string("tenant-a"),
+			Id:   string("tenant-a"),
 		},
 		Source:    apitypes.VoiceSourceManual,
 		UpdatedAt: srv.now(),
@@ -945,7 +947,7 @@ func TestServerSyncMiniMaxTenantVoicesReconcile(t *testing.T) {
 		t.Fatalf("writeVoice(manual) error = %v", err)
 	}
 
-	firstResp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	firstResp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Id: miniMaxTenantID(t, srv, ctx, "tenant-a")})
 	if err != nil {
 		t.Fatalf("first SyncMiniMaxTenantVoices() error = %v", err)
 	}
@@ -958,7 +960,7 @@ func TestServerSyncMiniMaxTenantVoicesReconcile(t *testing.T) {
 	}
 
 	stage.Store(1)
-	secondResp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	secondResp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Id: miniMaxTenantID(t, srv, ctx, "tenant-a")})
 	if err != nil {
 		t.Fatalf("second SyncMiniMaxTenantVoices() error = %v", err)
 	}
@@ -971,7 +973,7 @@ func TestServerSyncMiniMaxTenantVoicesReconcile(t *testing.T) {
 	}
 
 	updatedVoice := requireStoredVoice(t, srv, ctx, "minimax-tenant:tenant-a:voice-1")
-	if updatedVoice.Name == nil || *updatedVoice.Name != "first-updated" {
+	if updatedVoice.DisplayName == nil || *updatedVoice.DisplayName != "first-updated" {
 		t.Fatalf("updated sync voice = %#v", updatedVoice)
 	}
 
@@ -1040,14 +1042,14 @@ func TestServerSyncMiniMaxTenantVoicesFetchesAllVoiceTypes(t *testing.T) {
 		"name": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
-		"credential_name": "cred-main"
+		"credential_id": "cred-main"
 	}`)
 	tenantBody.BaseUrl = stringPtr(upstream.URL)
 	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
 
-	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Id: miniMaxTenantID(t, srv, ctx, "tenant-a")})
 	if err != nil {
 		t.Fatalf("SyncMiniMaxTenantVoices() error = %v", err)
 	}
@@ -1121,11 +1123,11 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 
 	resourceIDs := []string{"seed-tts-2.0", "seed-icl-2.0"}
 	createBody := adminhttp.VolcTenantUpsert{
-		Name:           "tenant-a",
-		CredentialName: "volc-main",
-		Region:         stringPtr("cn-beijing"),
-		ResourceIds:    &resourceIDs,
-		Description:    stringPtr("primary tenant"),
+		Name:         "tenant-a",
+		CredentialId: "volc-main",
+		Region:       stringPtr("cn-beijing"),
+		ResourceIds:  &resourceIDs,
+		Description:  stringPtr("primary tenant"),
 	}
 	createResp, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody})
 	if err != nil {
@@ -1135,7 +1137,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 	if !ok {
 		t.Fatalf("CreateVolcTenant() response = %#v", createResp)
 	}
-	if created.Name != "tenant-a" || created.CredentialName != "volc-main" {
+	if created.Name != "tenant-a" || created.CredentialId != "volc-main" {
 		t.Fatalf("CreateVolcTenant() tenant = %#v", created)
 	}
 	listResp, err := srv.ListVolcTenants(ctx, adminhttp.ListVolcTenantsRequestObject{})
@@ -1147,7 +1149,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 		t.Fatalf("ListVolcTenants() response = %#v", listResp)
 	}
 
-	syncResp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
+	syncResp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Id: volcTenantID(t, srv, ctx, "tenant-a")})
 	if err != nil {
 		t.Fatalf("SyncVolcTenantVoices() error = %v", err)
 	}
@@ -1167,7 +1169,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 		"volc-tenant:tenant-a:S_male_1",
 	} {
 		voice := requireStoredVoice(t, srv, ctx, string(id))
-		if voice.Provider.Kind != volcProviderKind || voice.Provider.Name != "tenant-a" {
+		if voice.Provider.Kind != volcProviderKind || voice.Provider.Id != created.Id {
 			t.Fatalf("GetVoice(%s) provider = %#v", id, voice.Provider)
 		}
 		if id == "volc-tenant:tenant-a:zh_female_public" && voiceProviderDataString(apitypes.Voice(voice), "resource_id") != "seed-tts-2.0" {
@@ -1201,7 +1203,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 			State:          "Success",
 		}},
 	}}
-	resyncResp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
+	resyncResp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Id: volcTenantID(t, srv, ctx, "tenant-a")})
 	if err != nil {
 		t.Fatalf("SyncVolcTenantVoices(resync) error = %v", err)
 	}
@@ -1213,7 +1215,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 		t.Fatalf("SyncVolcTenantVoices(resync) result = %#v", resynced)
 	}
 
-	deleteResp, err := srv.DeleteVolcTenant(ctx, adminhttp.DeleteVolcTenantRequestObject{Name: "tenant-a"})
+	deleteResp, err := srv.DeleteVolcTenant(ctx, adminhttp.DeleteVolcTenantRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("DeleteVolcTenant() error = %v", err)
 	}
@@ -1232,11 +1234,11 @@ func TestServerVolcTenantPutGetAndValidation(t *testing.T) {
 	ctx := context.Background()
 
 	invalidBody := adminhttp.VolcTenantUpsert{
-		Name:           "tenant-a",
-		CredentialName: "missing-credential",
-		Endpoint:       stringPtr("not-a-url"),
+		Name:         "tenant-a",
+		CredentialId: "missing-credential",
+		Endpoint:     stringPtr("not-a-url"),
 	}
-	invalidResp, err := srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Name: "tenant-a", Body: &invalidBody})
+	invalidResp, err := srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Id: "tenant-a", Body: &invalidBody})
 	if err != nil {
 		t.Fatalf("PutVolcTenant(invalid) error = %v", err)
 	}
@@ -1253,14 +1255,19 @@ func TestServerVolcTenantPutGetAndValidation(t *testing.T) {
 	})
 	resourceIDs := []string{" seed-tts-2.0 ", "", "seed-tts-2.0", "seed-icl-2.0"}
 	body := adminhttp.VolcTenantUpsert{
-		Name:           "tenant-a",
-		CredentialName: "volc-main",
-		Endpoint:       stringPtr("https://speech.example.com/"),
-		Region:         stringPtr(" cn-beijing "),
-		ResourceIds:    &resourceIDs,
-		Description:    stringPtr(" primary "),
+		Name:         "tenant-a",
+		CredentialId: "volc-main",
+		Endpoint:     stringPtr("https://speech.example.com/"),
+		Region:       stringPtr(" cn-beijing "),
+		ResourceIds:  &resourceIDs,
+		Description:  stringPtr(" primary "),
 	}
-	putResp, err := srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Name: "tenant-a", Body: &body})
+	createResp, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &body})
+	if err != nil {
+		t.Fatalf("CreateVolcTenant() error = %v", err)
+	}
+	created := createResp.(adminhttp.CreateVolcTenant200JSONResponse)
+	putResp, err := srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Id: created.Id, Body: &body})
 	if err != nil {
 		t.Fatalf("PutVolcTenant() error = %v", err)
 	}
@@ -1275,12 +1282,12 @@ func TestServerVolcTenantPutGetAndValidation(t *testing.T) {
 		t.Fatalf("PutVolcTenant() resource_ids = %#v", put.ResourceIds)
 	}
 
-	getResp, err := srv.GetVolcTenant(ctx, adminhttp.GetVolcTenantRequestObject{Name: "tenant-a"})
+	getResp, err := srv.GetVolcTenant(ctx, adminhttp.GetVolcTenantRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("GetVolcTenant() error = %v", err)
 	}
 	got, ok := getResp.(adminhttp.GetVolcTenant200JSONResponse)
-	if !ok || got.CredentialName != "volc-main" {
+	if !ok || got.CredentialId != "volc-main" {
 		t.Fatalf("GetVolcTenant() response = %#v", getResp)
 	}
 }
@@ -1295,12 +1302,12 @@ func TestServerVolcTenantErrorResponses(t *testing.T) {
 	} else if _, ok := resp.(adminhttp.CreateVolcTenant400JSONResponse); !ok {
 		t.Fatalf("CreateVolcTenant(nil body) response = %#v, want 400", resp)
 	}
-	if resp, err := srv.GetVolcTenant(ctx, adminhttp.GetVolcTenantRequestObject{Name: "missing"}); err != nil {
+	if resp, err := srv.GetVolcTenant(ctx, adminhttp.GetVolcTenantRequestObject{Id: "missing"}); err != nil {
 		t.Fatalf("GetVolcTenant(missing) error = %v", err)
 	} else if _, ok := resp.(adminhttp.GetVolcTenant404JSONResponse); !ok {
 		t.Fatalf("GetVolcTenant(missing) response = %#v, want 404", resp)
 	}
-	if resp, err := srv.DeleteVolcTenant(ctx, adminhttp.DeleteVolcTenantRequestObject{Name: "missing"}); err != nil {
+	if resp, err := srv.DeleteVolcTenant(ctx, adminhttp.DeleteVolcTenantRequestObject{Id: "missing"}); err != nil {
 		t.Fatalf("DeleteVolcTenant(missing) error = %v", err)
 	} else if _, ok := resp.(adminhttp.DeleteVolcTenant404JSONResponse); !ok {
 		t.Fatalf("DeleteVolcTenant(missing) response = %#v, want 404", resp)
@@ -1314,12 +1321,13 @@ func TestServerVolcTenantErrorResponses(t *testing.T) {
 		UpdatedAt: srv.now(),
 	})
 	createBody := adminhttp.VolcTenantUpsert{
-		Name:           "tenant-a",
-		CredentialName: "volc-main",
+		Name:         "tenant-a",
+		CredentialId: "volc-main",
 	}
 	if _, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
 		t.Fatalf("CreateVolcTenant() error = %v", err)
 	}
+	tenantID := volcTenantID(t, srv, ctx, "tenant-a")
 	if resp, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
 		t.Fatalf("CreateVolcTenant(duplicate) error = %v", err)
 	} else if _, ok := resp.(adminhttp.CreateVolcTenant409JSONResponse); !ok {
@@ -1327,12 +1335,12 @@ func TestServerVolcTenantErrorResponses(t *testing.T) {
 	}
 	mismatchBody := createBody
 	mismatchBody.Name = "other"
-	if resp, err := srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Name: "tenant-a", Body: &mismatchBody}); err != nil {
+	if resp, err := srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Id: tenantID, Body: &mismatchBody}); err != nil {
 		t.Fatalf("PutVolcTenant(mismatch) error = %v", err)
 	} else if _, ok := resp.(adminhttp.PutVolcTenant400JSONResponse); !ok {
 		t.Fatalf("PutVolcTenant(mismatch) response = %#v, want 400", resp)
 	}
-	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "missing"}); err != nil {
+	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Id: "missing"}); err != nil {
 		t.Fatalf("SyncVolcTenantVoices(missing) error = %v", err)
 	} else if _, ok := resp.(adminhttp.SyncVolcTenantVoices404JSONResponse); !ok {
 		t.Fatalf("SyncVolcTenantVoices(missing) response = %#v, want 404", resp)
@@ -1341,7 +1349,7 @@ func TestServerVolcTenantErrorResponses(t *testing.T) {
 	srv.VolcSpeakerClientFactory = func(context.Context, apitypes.Credential, apitypes.VolcTenant) (VolcSpeakerClient, error) {
 		return nil, errors.New("factory rejected")
 	}
-	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"}); err != nil {
+	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Id: tenantID}); err != nil {
 		t.Fatalf("SyncVolcTenantVoices(factory error) error = %v", err)
 	} else if _, ok := resp.(adminhttp.SyncVolcTenantVoices400JSONResponse); !ok {
 		t.Fatalf("SyncVolcTenantVoices(factory error) response = %#v, want 400", resp)
@@ -1350,7 +1358,7 @@ func TestServerVolcTenantErrorResponses(t *testing.T) {
 	srv.VolcSpeakerClientFactory = func(context.Context, apitypes.Credential, apitypes.VolcTenant) (VolcSpeakerClient, error) {
 		return &fakeVolcSpeakerClient{speakersErr: errors.New("speakers unavailable"), timbresErr: errors.New("timbres unavailable")}, nil
 	}
-	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"}); err != nil {
+	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Id: tenantID}); err != nil {
 		t.Fatalf("SyncVolcTenantVoices(upstream error) error = %v", err)
 	} else if _, ok := resp.(adminhttp.SyncVolcTenantVoices502JSONResponse); !ok {
 		t.Fatalf("SyncVolcTenantVoices(upstream error) response = %#v, want 502", resp)
@@ -1359,13 +1367,13 @@ func TestServerVolcTenantErrorResponses(t *testing.T) {
 	resourceIDs := []string{"seed-tts-2.0"}
 	updateBody := createBody
 	updateBody.ResourceIds = &resourceIDs
-	if _, err := srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Name: "tenant-a", Body: &updateBody}); err != nil {
+	if _, err := srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Id: tenantID, Body: &updateBody}); err != nil {
 		t.Fatalf("PutVolcTenant(resource ids) error = %v", err)
 	}
 	srv.VolcSpeakerClientFactory = func(context.Context, apitypes.Credential, apitypes.VolcTenant) (VolcSpeakerClient, error) {
 		return &fakeVolcSpeakerClient{trainStatusErr: errors.New("train status unavailable")}, nil
 	}
-	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"}); err != nil {
+	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Id: tenantID}); err != nil {
 		t.Fatalf("SyncVolcTenantVoices(train status error) error = %v", err)
 	} else if _, ok := resp.(adminhttp.SyncVolcTenantVoices502JSONResponse); !ok {
 		t.Fatalf("SyncVolcTenantVoices(train status error) response = %#v, want 502", resp)
@@ -1379,7 +1387,7 @@ func TestServerVolcTenantErrorResponses(t *testing.T) {
 			Statuses:   []volcSpeakerStatus{{ResourceID: "seed-tts-2.0"}},
 		}}}, nil
 	}
-	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"}); err != nil {
+	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Id: tenantID}); err != nil {
 		t.Fatalf("SyncVolcTenantVoices(missing speaker id) error = %v", err)
 	} else if _, ok := resp.(adminhttp.SyncVolcTenantVoices502JSONResponse); !ok {
 		t.Fatalf("SyncVolcTenantVoices(missing speaker id) response = %#v, want 502", resp)
@@ -1408,14 +1416,14 @@ func TestServerVolcSyncPublicOnlySkipsTrainStatusAPI(t *testing.T) {
 		return fakeClient, nil
 	}
 	createBody := adminhttp.VolcTenantUpsert{
-		Name:           "tenant-a",
-		CredentialName: "volc-main",
+		Name:         "tenant-a",
+		CredentialId: "volc-main",
 	}
 	if _, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
 		t.Fatalf("CreateVolcTenant() error = %v", err)
 	}
 
-	syncResp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
+	syncResp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Id: volcTenantID(t, srv, ctx, "tenant-a")})
 	if err != nil {
 		t.Fatalf("SyncVolcTenantVoices() error = %v", err)
 	}
@@ -1459,14 +1467,14 @@ func TestServerVolcSyncTimbreFallbackMapsICLResourceID(t *testing.T) {
 	}
 	resourceIDs := []string{"seed-tts-1.0", "seed-tts-2.0", "seed-icl-2.0"}
 	createBody := adminhttp.VolcTenantUpsert{
-		Name:           "tenant-a",
-		CredentialName: "volc-main",
-		ResourceIds:    &resourceIDs,
+		Name:         "tenant-a",
+		CredentialId: "volc-main",
+		ResourceIds:  &resourceIDs,
 	}
 	if _, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
 		t.Fatalf("CreateVolcTenant() error = %v", err)
 	}
-	syncResp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
+	syncResp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Id: volcTenantID(t, srv, ctx, "tenant-a")})
 	if err != nil {
 		t.Fatalf("SyncVolcTenantVoices() error = %v", err)
 	}
@@ -1488,7 +1496,7 @@ func TestServerVolcTenantStoreNotConfigured(t *testing.T) {
 
 	srv := &Server{}
 	ctx := context.Background()
-	createBody := adminhttp.VolcTenantUpsert{Name: "tenant-a", CredentialName: "cred"}
+	createBody := adminhttp.VolcTenantUpsert{Name: "tenant-a", CredentialId: "cred"}
 	for name, call := range map[string]func() (any, error){
 		"ListVolcTenants": func() (any, error) {
 			return srv.ListVolcTenants(ctx, adminhttp.ListVolcTenantsRequestObject{})
@@ -1497,16 +1505,16 @@ func TestServerVolcTenantStoreNotConfigured(t *testing.T) {
 			return srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody})
 		},
 		"DeleteVolcTenant": func() (any, error) {
-			return srv.DeleteVolcTenant(ctx, adminhttp.DeleteVolcTenantRequestObject{Name: "tenant-a"})
+			return srv.DeleteVolcTenant(ctx, adminhttp.DeleteVolcTenantRequestObject{Id: "tenant-a"})
 		},
 		"GetVolcTenant": func() (any, error) {
-			return srv.GetVolcTenant(ctx, adminhttp.GetVolcTenantRequestObject{Name: "tenant-a"})
+			return srv.GetVolcTenant(ctx, adminhttp.GetVolcTenantRequestObject{Id: "tenant-a"})
 		},
 		"PutVolcTenant": func() (any, error) {
-			return srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Name: "tenant-a", Body: &createBody})
+			return srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Id: "tenant-a", Body: &createBody})
 		},
 		"SyncVolcTenantVoices": func() (any, error) {
-			return srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
+			return srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Id: "tenant-a"})
 		},
 	} {
 		resp, err := call()
@@ -1539,13 +1547,13 @@ func TestServerVolcSyncRejectsInvalidCredential(t *testing.T) {
 		UpdatedAt: srv.now(),
 	})
 	createBody := adminhttp.VolcTenantUpsert{
-		Name:           "tenant-a",
-		CredentialName: "volc-main",
+		Name:         "tenant-a",
+		CredentialId: "volc-main",
 	}
 	if _, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
 		t.Fatalf("CreateVolcTenant() error = %v", err)
 	}
-	resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
+	resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Id: volcTenantID(t, srv, ctx, "tenant-a")})
 	if err != nil {
 		t.Fatalf("SyncVolcTenantVoices() error = %v", err)
 	}
@@ -1697,8 +1705,8 @@ func TestTenantReferenceValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("credentialStore() error = %v", err)
 	}
-	miniMaxTenant := apitypes.MiniMaxTenant{Name: "mmx", CredentialName: "mmx-cred"}
-	volcTenant := apitypes.VolcTenant{Name: "volc", CredentialName: "volc-cred"}
+	miniMaxTenant := apitypes.MiniMaxTenant{Name: "mmx", CredentialId: "mmx-cred"}
+	volcTenant := apitypes.VolcTenant{Name: "volc", CredentialId: "volc-cred"}
 
 	if err := validateTenantReferences(ctx, credentialStore, miniMaxTenant); err == nil || !strings.Contains(err.Error(), `credential "mmx-cred" not found`) {
 		t.Fatalf("validateTenantReferences(missing) error = %v", err)
@@ -1735,9 +1743,9 @@ func TestVolcSpeakerClientForTenantValidation(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	tenant := apitypes.VolcTenant{
-		CredentialName: "volc-main",
-		Name:           "tenant-a",
-		Region:         stringPtr("cn-beijing"),
+		CredentialId: "volc-main",
+		Name:         "tenant-a",
+		Region:       stringPtr("cn-beijing"),
 	}
 	if _, err := srv.volcSpeakerClientForTenant(ctx, apitypes.Credential{
 		Name:     "wrong-provider",
@@ -1899,6 +1907,20 @@ func requireStoredVoice(t *testing.T, srv *Server, ctx context.Context, id strin
 		t.Fatalf("voiceStore() error = %v", err)
 	}
 	voice, err := getVoice(ctx, store, id)
+	if errors.Is(err, kv.ErrNotFound) {
+		voice, err = getVoiceByName(ctx, store, id)
+	}
+	if errors.Is(err, kv.ErrNotFound) {
+		parts := strings.SplitN(id, ":", 3)
+		if len(parts) == 3 && parts[1] == "tenant-a" {
+			switch parts[0] {
+			case "volc-tenant":
+				voice, err = getVoiceByName(ctx, store, stableVoiceName(volcProviderKind, volcTenantID(t, srv, ctx, parts[1]), parts[2]))
+			case "minimax-tenant":
+				voice, err = getVoiceByName(ctx, store, stableVoiceName(miniMaxProviderKind, miniMaxTenantID(t, srv, ctx, parts[1]), parts[2]))
+			}
+		}
+	}
 	if err != nil {
 		t.Fatalf("getVoice(%s) error = %v", id, err)
 	}
@@ -1919,6 +1941,9 @@ func requireMissingVoice(t *testing.T, srv *Server, ctx context.Context, id stri
 
 func seedCredential(t *testing.T, srv *Server, credential apitypes.Credential) {
 	t.Helper()
+	if credential.Id == "" {
+		credential.Id = credential.Name
+	}
 
 	data, err := json.Marshal(credential)
 	if err != nil {
@@ -1928,9 +1953,35 @@ func seedCredential(t *testing.T, srv *Server, credential apitypes.Credential) {
 	if err != nil {
 		t.Fatalf("credentialStore() error = %v", err)
 	}
-	if err := store.Set(context.Background(), credentialKey(string(credential.Name)), data); err != nil {
+	if err := store.Set(context.Background(), credentialKey(credential.Id), data); err != nil {
 		t.Fatalf("Store.Set(credential) error = %v", err)
 	}
+}
+
+func miniMaxTenantID(t *testing.T, srv *Server, ctx context.Context, name string) string {
+	t.Helper()
+	store, err := srv.tenantStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := store.Get(ctx, miniMaxTenantNameKey(name))
+	if err != nil {
+		t.Fatalf("resolve MiniMax tenant %q: %v", name, err)
+	}
+	return string(id)
+}
+
+func volcTenantID(t *testing.T, srv *Server, ctx context.Context, name string) string {
+	t.Helper()
+	store, err := srv.volcTenantStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := store.Get(ctx, volcTenantNameKey(name))
+	if err != nil {
+		t.Fatalf("resolve Volc tenant %q: %v", name, err)
+	}
+	return string(id)
 }
 
 func mustMiniMaxTenantUpsert(t *testing.T, raw string) adminhttp.MiniMaxTenantUpsert {

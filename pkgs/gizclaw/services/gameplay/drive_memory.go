@@ -27,8 +27,8 @@ const (
 // to an accepted Drive. BindingIdentity identifies the physical backend
 // without persisting credentials.
 type DriveFactTarget struct {
-	WorkspaceName   string
-	ProfileName     string
+	WorkspaceID     string
+	ProfileID       string
 	ProfileRevision string
 	BindingName     string
 	BindingIdentity string
@@ -49,9 +49,9 @@ type driveFactPayload struct {
 	ObservedAt time.Time      `json:"observed_at"`
 }
 
-func (payload driveFactPayload) observation(workspaceName string) memory.Observation {
+func (payload driveFactPayload) observation(workspaceID string) memory.Observation {
 	return memory.Observation{
-		Scope:      memory.Scope{AppID: workspaceName},
+		Scope:      memory.Scope{AppID: workspaceID},
 		ID:         payload.ID,
 		Facts:      []memory.FactCandidate{{Text: payload.Text, Attributes: cloneDriveFactAttributes(payload.Attributes)}},
 		ObservedAt: payload.ObservedAt,
@@ -81,26 +81,26 @@ func canonicalDriveFact(pet apitypes.Pet, behavior apitypes.PetBehavior, result 
 	sourceType := "reward_grant"
 	sourceID := grant.Id
 	attributes := map[string]any{
-		"kind":                 "event",
-		"source_type":          sourceType,
-		"source_id":            sourceID,
-		"pet_id":               pet.Id,
-		"petdef_id":            pet.PetdefId,
-		"workspace_name":       pet.WorkspaceName,
-		"runtime_profile_name": pet.RuntimeProfileName,
-		"pet_exp_delta":        grant.PetExpDelta,
-		"points_delta":         grant.PointsDelta,
-		"reward_grant_id":      grant.Id,
-		"badge_exp_delta":      sortedBadgeDeltas(grant.BadgeExpDelta),
-		"pet_lifecycle":        string(pet.Lifecycle),
-		"pet_level":            pet.Progression.Level,
-		"pet_experience":       pet.Progression.Experience,
-		"pet_life":             pet.Stats.Life,
-		"pet_energy":           pet.Stats.Energy,
-		"pet_health":           pet.Stats.Health,
-		"pet_hygiene":          pet.Stats.Hygiene,
-		"pet_mood":             pet.Stats.Mood,
-		"pet_satiety":          pet.Stats.Satiety,
+		"kind":               "event",
+		"source_type":        sourceType,
+		"source_id":          sourceID,
+		"pet_id":             pet.Id,
+		"pet_def_id":         pet.PetDefId,
+		"workspace_id":       pet.WorkspaceId,
+		"runtime_profile_id": pet.RuntimeProfileId,
+		"pet_exp_delta":      grant.PetExpDelta,
+		"points_delta":       grant.PointsDelta,
+		"reward_grant_id":    grant.Id,
+		"badge_exp_delta":    sortedBadgeDeltas(grant.BadgeExpDelta),
+		"pet_lifecycle":      string(pet.Lifecycle),
+		"pet_level":          pet.Progression.Level,
+		"pet_experience":     pet.Progression.Experience,
+		"pet_life":           pet.Stats.Life,
+		"pet_energy":         pet.Stats.Energy,
+		"pet_health":         pet.Stats.Health,
+		"pet_hygiene":        pet.Stats.Hygiene,
+		"pet_mood":           pet.Stats.Mood,
+		"pet_satiety":        pet.Stats.Satiety,
 	}
 	text := fmt.Sprintf("Pet %s completed care behavior %s.", strconv.Quote(pet.Id), strconv.Quote(string(behavior)))
 	attributes["behavior"] = string(behavior)
@@ -125,7 +125,7 @@ func canonicalDriveFact(pet apitypes.Pet, behavior apitypes.PetBehavior, result 
 		Attributes: attributes,
 		ObservedAt: observedAt.UTC(),
 	}
-	digest, err := memory.ObservationPayloadDigest(payload.observation(pet.WorkspaceName))
+	digest, err := memory.ObservationPayloadDigest(payload.observation(pet.WorkspaceId))
 	if err != nil {
 		return driveFactPayload{}, "", err
 	}
@@ -159,19 +159,19 @@ func cloneDriveFactAttributes(input map[string]any) map[string]any {
 	return output
 }
 
-func (r *Runtime) snapshotDriveFactTarget(ctx context.Context, workspaceName string) (DriveFactTarget, string) {
+func (r *Runtime) snapshotDriveFactTarget(ctx context.Context, workspaceID string) (DriveFactTarget, string) {
 	if r.DriveFacts == nil {
-		return DriveFactTarget{WorkspaceName: workspaceName}, "Workspace Memory delivery is not configured"
+		return DriveFactTarget{WorkspaceID: workspaceID}, "Workspace Memory delivery is not configured"
 	}
-	target, err := r.DriveFacts.Snapshot(ctx, workspaceName)
+	target, err := r.DriveFacts.Snapshot(ctx, workspaceID)
 	if err != nil {
-		return DriveFactTarget{WorkspaceName: workspaceName}, sanitizeDriveFactError(err)
+		return DriveFactTarget{WorkspaceID: workspaceID}, sanitizeDriveFactError(err)
 	}
-	if strings.TrimSpace(target.WorkspaceName) == "" {
-		target.WorkspaceName = workspaceName
+	if strings.TrimSpace(target.WorkspaceID) == "" {
+		target.WorkspaceID = workspaceID
 	}
-	if target.WorkspaceName != workspaceName || strings.TrimSpace(target.BindingIdentity) == "" {
-		return DriveFactTarget{WorkspaceName: workspaceName}, "Workspace Memory binding snapshot is invalid"
+	if target.WorkspaceID != workspaceID || strings.TrimSpace(target.BindingIdentity) == "" {
+		return DriveFactTarget{WorkspaceID: workspaceID}, "Workspace Memory binding snapshot is invalid"
 	}
 	return target, ""
 }
@@ -186,7 +186,7 @@ func (r *Runtime) DispatchDriveFactsOnce(ctx context.Context) (bool, error) {
 	if err != nil || !found {
 		return found, err
 	}
-	observation := item.Payload.observation(item.Target.WorkspaceName)
+	observation := item.Payload.observation(item.Target.WorkspaceID)
 	digest, err := memory.ObservationPayloadDigest(observation)
 	if err != nil || digest != item.PayloadDigest {
 		if err == nil {
@@ -198,7 +198,7 @@ func (r *Runtime) DispatchDriveFactsOnce(ctx context.Context) (bool, error) {
 		return true, r.failDriveFact(ctx, item, fmt.Errorf("%w: Workspace Memory delivery is not configured", memory.ErrInvalidInput))
 	}
 	if strings.TrimSpace(item.Target.BindingIdentity) == "" {
-		target, err := r.DriveFacts.Snapshot(ctx, item.Target.WorkspaceName)
+		target, err := r.DriveFacts.Snapshot(ctx, item.Target.WorkspaceID)
 		if err != nil {
 			return true, r.failDriveFact(ctx, item, err)
 		}
@@ -283,7 +283,7 @@ func (r *Runtime) failDriveFact(ctx context.Context, item driveFactOutbox, cause
 	sanitized := sanitizeDriveFactError(cause)
 	slog.WarnContext(ctx, "gameplay Drive Fact delivery deferred",
 		"observation_id", item.ObservationID,
-		"workspace_name", item.Target.WorkspaceName,
+		"workspace_id", item.Target.WorkspaceID,
 		"state", item.State,
 		"attempt_count", item.AttemptCount,
 		"error", sanitized,

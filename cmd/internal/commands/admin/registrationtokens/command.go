@@ -74,7 +74,7 @@ func newCreateCmd(ctxName *string) *cobra.Command {
 func newPutCmd(ctxName *string) *cobra.Command {
 	var file string
 	cmd := &cobra.Command{
-		Use: "put <name> -f <file>", Short: "Create or replace a RegistrationToken", Args: cobra.ExactArgs(1),
+		Use: "put <id> -f <file>", Short: "Update a RegistrationToken", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			request, err := readUpsert(cmd, file)
 			if err != nil {
@@ -98,7 +98,7 @@ func newPutCmd(ctxName *string) *cobra.Command {
 
 func newGetCmd(ctxName *string) *cobra.Command {
 	return &cobra.Command{
-		Use: "get <name>", Short: "Get a RegistrationToken", Args: cobra.ExactArgs(1),
+		Use: "get <id>", Short: "Get a RegistrationToken", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := connection.ConnectFromContext(*ctxName)
 			if err != nil {
@@ -116,7 +116,7 @@ func newGetCmd(ctxName *string) *cobra.Command {
 
 func newDeleteCmd(ctxName *string) *cobra.Command {
 	return &cobra.Command{
-		Use: "delete <name>", Short: "Delete a RegistrationToken", Args: cobra.ExactArgs(1),
+		Use: "delete <id>", Short: "Delete a RegistrationToken", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := connection.ConnectFromContext(*ctxName)
 			if err != nil {

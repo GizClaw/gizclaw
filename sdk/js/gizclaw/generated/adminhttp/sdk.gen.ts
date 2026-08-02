@@ -42,14 +42,14 @@ export const applyResource = <ThrowOnError extends boolean = false>(options: Opt
  *
  * Delete a named declarative admin resource by kind and name. ResourceList and resources without delete semantics are rejected.
  */
-export const deleteResource = <ThrowOnError extends boolean = false>(options: Options<DeleteResourceData, ThrowOnError>): RequestResult<DeleteResourceResponses, DeleteResourceErrors, ThrowOnError> => (options.client ?? client).delete<DeleteResourceResponses, DeleteResourceErrors, ThrowOnError>({ url: '/resources/{kind}/{name}', ...options });
+export const deleteResource = <ThrowOnError extends boolean = false>(options: Options<DeleteResourceData, ThrowOnError>): RequestResult<DeleteResourceResponses, DeleteResourceErrors, ThrowOnError> => (options.client ?? client).delete<DeleteResourceResponses, DeleteResourceErrors, ThrowOnError>({ url: '/resources/{kind}/{id}', ...options });
 
 /**
  * Get an admin resource
  *
  * Get a named declarative admin resource by kind and name.
  */
-export const getResource = <ThrowOnError extends boolean = false>(options: Options<GetResourceData, ThrowOnError>): RequestResult<GetResourceResponses, GetResourceErrors, ThrowOnError> => (options.client ?? client).get<GetResourceResponses, GetResourceErrors, ThrowOnError>({ url: '/resources/{kind}/{name}', ...options });
+export const getResource = <ThrowOnError extends boolean = false>(options: Options<GetResourceData, ThrowOnError>): RequestResult<GetResourceResponses, GetResourceErrors, ThrowOnError> => (options.client ?? client).get<GetResourceResponses, GetResourceErrors, ThrowOnError>({ url: '/resources/{kind}/{id}', ...options });
 
 /**
  * Create or update an admin resource
@@ -57,7 +57,7 @@ export const getResource = <ThrowOnError extends boolean = false>(options: Optio
  * Create or update a named declarative admin resource. The request body's kind and metadata.name must match the path parameters.
  */
 export const putResource = <ThrowOnError extends boolean = false>(options: Options<PutResourceData, ThrowOnError>): RequestResult<PutResourceResponses, PutResourceErrors, ThrowOnError> => (options.client ?? client).put<PutResourceResponses, PutResourceErrors, ThrowOnError>({
-    url: '/resources/{kind}/{name}',
+    url: '/resources/{kind}/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -280,18 +280,18 @@ export const createFirmware = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Delete a firmware release line
  */
-export const deleteFirmware = <ThrowOnError extends boolean = false>(options: Options<DeleteFirmwareData, ThrowOnError>): RequestResult<DeleteFirmwareResponses, DeleteFirmwareErrors, ThrowOnError> => (options.client ?? client).delete<DeleteFirmwareResponses, DeleteFirmwareErrors, ThrowOnError>({ url: '/firmwares/{name}', ...options });
+export const deleteFirmware = <ThrowOnError extends boolean = false>(options: Options<DeleteFirmwareData, ThrowOnError>): RequestResult<DeleteFirmwareResponses, DeleteFirmwareErrors, ThrowOnError> => (options.client ?? client).delete<DeleteFirmwareResponses, DeleteFirmwareErrors, ThrowOnError>({ url: '/firmwares/{id}', ...options });
 
 /**
  * Get a firmware release line
  */
-export const getFirmware = <ThrowOnError extends boolean = false>(options: Options<GetFirmwareData, ThrowOnError>): RequestResult<GetFirmwareResponses, GetFirmwareErrors, ThrowOnError> => (options.client ?? client).get<GetFirmwareResponses, GetFirmwareErrors, ThrowOnError>({ url: '/firmwares/{name}', ...options });
+export const getFirmware = <ThrowOnError extends boolean = false>(options: Options<GetFirmwareData, ThrowOnError>): RequestResult<GetFirmwareResponses, GetFirmwareErrors, ThrowOnError> => (options.client ?? client).get<GetFirmwareResponses, GetFirmwareErrors, ThrowOnError>({ url: '/firmwares/{id}', ...options });
 
 /**
- * Create or update a firmware release line
+ * Update a firmware release line
  */
 export const putFirmware = <ThrowOnError extends boolean = false>(options: Options<PutFirmwareData, ThrowOnError>): RequestResult<PutFirmwareResponses, PutFirmwareErrors, ThrowOnError> => (options.client ?? client).put<PutFirmwareResponses, PutFirmwareErrors, ThrowOnError>({
-    url: '/firmwares/{name}',
+    url: '/firmwares/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -304,14 +304,14 @@ export const putFirmware = <ThrowOnError extends boolean = false>(options: Optio
  *
  * Atomically release by shifting slots left in develop, beta, stable, pending order: beta to develop, stable to beta, pending to stable, then clear pending. The resulting stable slot must be non-empty.
  */
-export const releaseFirmware = <ThrowOnError extends boolean = false>(options: Options<ReleaseFirmwareData, ThrowOnError>): RequestResult<ReleaseFirmwareResponses, ReleaseFirmwareErrors, ThrowOnError> => (options.client ?? client).post<ReleaseFirmwareResponses, ReleaseFirmwareErrors, ThrowOnError>({ url: '/firmwares/{name}/@release', ...options });
+export const releaseFirmware = <ThrowOnError extends boolean = false>(options: Options<ReleaseFirmwareData, ThrowOnError>): RequestResult<ReleaseFirmwareResponses, ReleaseFirmwareErrors, ThrowOnError> => (options.client ?? client).post<ReleaseFirmwareResponses, ReleaseFirmwareErrors, ThrowOnError>({ url: '/firmwares/{id}/@release', ...options });
 
 /**
  * Rollback firmware stable slot
  *
  * Atomically rollback by shifting slots right in develop, beta, stable, pending order: develop to beta, beta to stable, stable to pending, then clear develop. The resulting stable slot must be non-empty.
  */
-export const rollbackFirmware = <ThrowOnError extends boolean = false>(options: Options<RollbackFirmwareData, ThrowOnError>): RequestResult<RollbackFirmwareResponses, RollbackFirmwareErrors, ThrowOnError> => (options.client ?? client).post<RollbackFirmwareResponses, RollbackFirmwareErrors, ThrowOnError>({ url: '/firmwares/{name}/@rollback', ...options });
+export const rollbackFirmware = <ThrowOnError extends boolean = false>(options: Options<RollbackFirmwareData, ThrowOnError>): RequestResult<RollbackFirmwareResponses, RollbackFirmwareErrors, ThrowOnError> => (options.client ?? client).post<RollbackFirmwareResponses, RollbackFirmwareErrors, ThrowOnError>({ url: '/firmwares/{id}/@rollback', ...options });
 
 /**
  * List stored credentials
@@ -333,18 +333,18 @@ export const createCredential = <ThrowOnError extends boolean = false>(options: 
 /**
  * Delete a credential
  */
-export const deleteCredential = <ThrowOnError extends boolean = false>(options: Options<DeleteCredentialData, ThrowOnError>): RequestResult<DeleteCredentialResponses, DeleteCredentialErrors, ThrowOnError> => (options.client ?? client).delete<DeleteCredentialResponses, DeleteCredentialErrors, ThrowOnError>({ url: '/credentials/{name}', ...options });
+export const deleteCredential = <ThrowOnError extends boolean = false>(options: Options<DeleteCredentialData, ThrowOnError>): RequestResult<DeleteCredentialResponses, DeleteCredentialErrors, ThrowOnError> => (options.client ?? client).delete<DeleteCredentialResponses, DeleteCredentialErrors, ThrowOnError>({ url: '/credentials/{id}', ...options });
 
 /**
  * Get a credential
  */
-export const getCredential = <ThrowOnError extends boolean = false>(options: Options<GetCredentialData, ThrowOnError>): RequestResult<GetCredentialResponses, GetCredentialErrors, ThrowOnError> => (options.client ?? client).get<GetCredentialResponses, GetCredentialErrors, ThrowOnError>({ url: '/credentials/{name}', ...options });
+export const getCredential = <ThrowOnError extends boolean = false>(options: Options<GetCredentialData, ThrowOnError>): RequestResult<GetCredentialResponses, GetCredentialErrors, ThrowOnError> => (options.client ?? client).get<GetCredentialResponses, GetCredentialErrors, ThrowOnError>({ url: '/credentials/{id}', ...options });
 
 /**
  * Create or update a credential
  */
 export const putCredential = <ThrowOnError extends boolean = false>(options: Options<PutCredentialData, ThrowOnError>): RequestResult<PutCredentialResponses, PutCredentialErrors, ThrowOnError> => (options.client ?? client).put<PutCredentialResponses, PutCredentialErrors, ThrowOnError>({
-    url: '/credentials/{name}',
+    url: '/credentials/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -445,18 +445,18 @@ export const createGeminiTenant = <ThrowOnError extends boolean = false>(options
 /**
  * Delete a Gemini tenant
  */
-export const deleteGeminiTenant = <ThrowOnError extends boolean = false>(options: Options<DeleteGeminiTenantData, ThrowOnError>): RequestResult<DeleteGeminiTenantResponses, DeleteGeminiTenantErrors, ThrowOnError> => (options.client ?? client).delete<DeleteGeminiTenantResponses, DeleteGeminiTenantErrors, ThrowOnError>({ url: '/gemini-tenants/{name}', ...options });
+export const deleteGeminiTenant = <ThrowOnError extends boolean = false>(options: Options<DeleteGeminiTenantData, ThrowOnError>): RequestResult<DeleteGeminiTenantResponses, DeleteGeminiTenantErrors, ThrowOnError> => (options.client ?? client).delete<DeleteGeminiTenantResponses, DeleteGeminiTenantErrors, ThrowOnError>({ url: '/gemini-tenants/{id}', ...options });
 
 /**
  * Get a Gemini tenant
  */
-export const getGeminiTenant = <ThrowOnError extends boolean = false>(options: Options<GetGeminiTenantData, ThrowOnError>): RequestResult<GetGeminiTenantResponses, GetGeminiTenantErrors, ThrowOnError> => (options.client ?? client).get<GetGeminiTenantResponses, GetGeminiTenantErrors, ThrowOnError>({ url: '/gemini-tenants/{name}', ...options });
+export const getGeminiTenant = <ThrowOnError extends boolean = false>(options: Options<GetGeminiTenantData, ThrowOnError>): RequestResult<GetGeminiTenantResponses, GetGeminiTenantErrors, ThrowOnError> => (options.client ?? client).get<GetGeminiTenantResponses, GetGeminiTenantErrors, ThrowOnError>({ url: '/gemini-tenants/{id}', ...options });
 
 /**
- * Create or update a Gemini tenant
+ * Update a Gemini tenant
  */
 export const putGeminiTenant = <ThrowOnError extends boolean = false>(options: Options<PutGeminiTenantData, ThrowOnError>): RequestResult<PutGeminiTenantResponses, PutGeminiTenantErrors, ThrowOnError> => (options.client ?? client).put<PutGeminiTenantResponses, PutGeminiTenantErrors, ThrowOnError>({
-    url: '/gemini-tenants/{name}',
+    url: '/gemini-tenants/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -467,18 +467,18 @@ export const putGeminiTenant = <ThrowOnError extends boolean = false>(options: O
 /**
  * Delete a DashScope tenant
  */
-export const deleteDashScopeTenant = <ThrowOnError extends boolean = false>(options: Options<DeleteDashScopeTenantData, ThrowOnError>): RequestResult<DeleteDashScopeTenantResponses, DeleteDashScopeTenantErrors, ThrowOnError> => (options.client ?? client).delete<DeleteDashScopeTenantResponses, DeleteDashScopeTenantErrors, ThrowOnError>({ url: '/dashscope-tenants/{name}', ...options });
+export const deleteDashScopeTenant = <ThrowOnError extends boolean = false>(options: Options<DeleteDashScopeTenantData, ThrowOnError>): RequestResult<DeleteDashScopeTenantResponses, DeleteDashScopeTenantErrors, ThrowOnError> => (options.client ?? client).delete<DeleteDashScopeTenantResponses, DeleteDashScopeTenantErrors, ThrowOnError>({ url: '/dashscope-tenants/{id}', ...options });
 
 /**
  * Get a DashScope tenant
  */
-export const getDashScopeTenant = <ThrowOnError extends boolean = false>(options: Options<GetDashScopeTenantData, ThrowOnError>): RequestResult<GetDashScopeTenantResponses, GetDashScopeTenantErrors, ThrowOnError> => (options.client ?? client).get<GetDashScopeTenantResponses, GetDashScopeTenantErrors, ThrowOnError>({ url: '/dashscope-tenants/{name}', ...options });
+export const getDashScopeTenant = <ThrowOnError extends boolean = false>(options: Options<GetDashScopeTenantData, ThrowOnError>): RequestResult<GetDashScopeTenantResponses, GetDashScopeTenantErrors, ThrowOnError> => (options.client ?? client).get<GetDashScopeTenantResponses, GetDashScopeTenantErrors, ThrowOnError>({ url: '/dashscope-tenants/{id}', ...options });
 
 /**
- * Create or update a DashScope tenant
+ * Update a DashScope tenant
  */
 export const putDashScopeTenant = <ThrowOnError extends boolean = false>(options: Options<PutDashScopeTenantData, ThrowOnError>): RequestResult<PutDashScopeTenantResponses, PutDashScopeTenantErrors, ThrowOnError> => (options.client ?? client).put<PutDashScopeTenantResponses, PutDashScopeTenantErrors, ThrowOnError>({
-    url: '/dashscope-tenants/{name}',
+    url: '/dashscope-tenants/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -489,18 +489,18 @@ export const putDashScopeTenant = <ThrowOnError extends boolean = false>(options
 /**
  * Delete a DeepSeek tenant
  */
-export const deleteDeepSeekTenant = <ThrowOnError extends boolean = false>(options: Options<DeleteDeepSeekTenantData, ThrowOnError>): RequestResult<DeleteDeepSeekTenantResponses, DeleteDeepSeekTenantErrors, ThrowOnError> => (options.client ?? client).delete<DeleteDeepSeekTenantResponses, DeleteDeepSeekTenantErrors, ThrowOnError>({ url: '/deepseek-tenants/{name}', ...options });
+export const deleteDeepSeekTenant = <ThrowOnError extends boolean = false>(options: Options<DeleteDeepSeekTenantData, ThrowOnError>): RequestResult<DeleteDeepSeekTenantResponses, DeleteDeepSeekTenantErrors, ThrowOnError> => (options.client ?? client).delete<DeleteDeepSeekTenantResponses, DeleteDeepSeekTenantErrors, ThrowOnError>({ url: '/deepseek-tenants/{id}', ...options });
 
 /**
  * Get a DeepSeek tenant
  */
-export const getDeepSeekTenant = <ThrowOnError extends boolean = false>(options: Options<GetDeepSeekTenantData, ThrowOnError>): RequestResult<GetDeepSeekTenantResponses, GetDeepSeekTenantErrors, ThrowOnError> => (options.client ?? client).get<GetDeepSeekTenantResponses, GetDeepSeekTenantErrors, ThrowOnError>({ url: '/deepseek-tenants/{name}', ...options });
+export const getDeepSeekTenant = <ThrowOnError extends boolean = false>(options: Options<GetDeepSeekTenantData, ThrowOnError>): RequestResult<GetDeepSeekTenantResponses, GetDeepSeekTenantErrors, ThrowOnError> => (options.client ?? client).get<GetDeepSeekTenantResponses, GetDeepSeekTenantErrors, ThrowOnError>({ url: '/deepseek-tenants/{id}', ...options });
 
 /**
  * Create or update a DeepSeek tenant
  */
 export const putDeepSeekTenant = <ThrowOnError extends boolean = false>(options: Options<PutDeepSeekTenantData, ThrowOnError>): RequestResult<PutDeepSeekTenantResponses, PutDeepSeekTenantErrors, ThrowOnError> => (options.client ?? client).put<PutDeepSeekTenantResponses, PutDeepSeekTenantErrors, ThrowOnError>({
-    url: '/deepseek-tenants/{name}',
+    url: '/deepseek-tenants/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -528,18 +528,18 @@ export const createOpenAiTenant = <ThrowOnError extends boolean = false>(options
 /**
  * Delete an OpenAI-compatible tenant
  */
-export const deleteOpenAiTenant = <ThrowOnError extends boolean = false>(options: Options<DeleteOpenAiTenantData, ThrowOnError>): RequestResult<DeleteOpenAiTenantResponses, DeleteOpenAiTenantErrors, ThrowOnError> => (options.client ?? client).delete<DeleteOpenAiTenantResponses, DeleteOpenAiTenantErrors, ThrowOnError>({ url: '/openai-tenants/{name}', ...options });
+export const deleteOpenAiTenant = <ThrowOnError extends boolean = false>(options: Options<DeleteOpenAiTenantData, ThrowOnError>): RequestResult<DeleteOpenAiTenantResponses, DeleteOpenAiTenantErrors, ThrowOnError> => (options.client ?? client).delete<DeleteOpenAiTenantResponses, DeleteOpenAiTenantErrors, ThrowOnError>({ url: '/openai-tenants/{id}', ...options });
 
 /**
  * Get an OpenAI-compatible tenant
  */
-export const getOpenAiTenant = <ThrowOnError extends boolean = false>(options: Options<GetOpenAiTenantData, ThrowOnError>): RequestResult<GetOpenAiTenantResponses, GetOpenAiTenantErrors, ThrowOnError> => (options.client ?? client).get<GetOpenAiTenantResponses, GetOpenAiTenantErrors, ThrowOnError>({ url: '/openai-tenants/{name}', ...options });
+export const getOpenAiTenant = <ThrowOnError extends boolean = false>(options: Options<GetOpenAiTenantData, ThrowOnError>): RequestResult<GetOpenAiTenantResponses, GetOpenAiTenantErrors, ThrowOnError> => (options.client ?? client).get<GetOpenAiTenantResponses, GetOpenAiTenantErrors, ThrowOnError>({ url: '/openai-tenants/{id}', ...options });
 
 /**
- * Create or update an OpenAI-compatible tenant
+ * Update an OpenAI-compatible tenant
  */
 export const putOpenAiTenant = <ThrowOnError extends boolean = false>(options: Options<PutOpenAiTenantData, ThrowOnError>): RequestResult<PutOpenAiTenantResponses, PutOpenAiTenantErrors, ThrowOnError> => (options.client ?? client).put<PutOpenAiTenantResponses, PutOpenAiTenantErrors, ThrowOnError>({
-    url: '/openai-tenants/{name}',
+    url: '/openai-tenants/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -567,18 +567,18 @@ export const createMiniMaxTenant = <ThrowOnError extends boolean = false>(option
 /**
  * Delete a MiniMax tenant
  */
-export const deleteMiniMaxTenant = <ThrowOnError extends boolean = false>(options: Options<DeleteMiniMaxTenantData, ThrowOnError>): RequestResult<DeleteMiniMaxTenantResponses, DeleteMiniMaxTenantErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMiniMaxTenantResponses, DeleteMiniMaxTenantErrors, ThrowOnError>({ url: '/minimax-tenants/{name}', ...options });
+export const deleteMiniMaxTenant = <ThrowOnError extends boolean = false>(options: Options<DeleteMiniMaxTenantData, ThrowOnError>): RequestResult<DeleteMiniMaxTenantResponses, DeleteMiniMaxTenantErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMiniMaxTenantResponses, DeleteMiniMaxTenantErrors, ThrowOnError>({ url: '/minimax-tenants/{id}', ...options });
 
 /**
  * Get a MiniMax tenant
  */
-export const getMiniMaxTenant = <ThrowOnError extends boolean = false>(options: Options<GetMiniMaxTenantData, ThrowOnError>): RequestResult<GetMiniMaxTenantResponses, GetMiniMaxTenantErrors, ThrowOnError> => (options.client ?? client).get<GetMiniMaxTenantResponses, GetMiniMaxTenantErrors, ThrowOnError>({ url: '/minimax-tenants/{name}', ...options });
+export const getMiniMaxTenant = <ThrowOnError extends boolean = false>(options: Options<GetMiniMaxTenantData, ThrowOnError>): RequestResult<GetMiniMaxTenantResponses, GetMiniMaxTenantErrors, ThrowOnError> => (options.client ?? client).get<GetMiniMaxTenantResponses, GetMiniMaxTenantErrors, ThrowOnError>({ url: '/minimax-tenants/{id}', ...options });
 
 /**
- * Create or update a MiniMax tenant
+ * Update a MiniMax tenant
  */
 export const putMiniMaxTenant = <ThrowOnError extends boolean = false>(options: Options<PutMiniMaxTenantData, ThrowOnError>): RequestResult<PutMiniMaxTenantResponses, PutMiniMaxTenantErrors, ThrowOnError> => (options.client ?? client).put<PutMiniMaxTenantResponses, PutMiniMaxTenantErrors, ThrowOnError>({
-    url: '/minimax-tenants/{name}',
+    url: '/minimax-tenants/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -589,7 +589,7 @@ export const putMiniMaxTenant = <ThrowOnError extends boolean = false>(options: 
 /**
  * Sync voices from a MiniMax tenant into the global voice catalog
  */
-export const syncMiniMaxTenantVoices = <ThrowOnError extends boolean = false>(options: Options<SyncMiniMaxTenantVoicesData, ThrowOnError>): RequestResult<SyncMiniMaxTenantVoicesResponses, SyncMiniMaxTenantVoicesErrors, ThrowOnError> => (options.client ?? client).post<SyncMiniMaxTenantVoicesResponses, SyncMiniMaxTenantVoicesErrors, ThrowOnError>({ url: '/minimax-tenants/{name}/@sync-voices', ...options });
+export const syncMiniMaxTenantVoices = <ThrowOnError extends boolean = false>(options: Options<SyncMiniMaxTenantVoicesData, ThrowOnError>): RequestResult<SyncMiniMaxTenantVoicesResponses, SyncMiniMaxTenantVoicesErrors, ThrowOnError> => (options.client ?? client).post<SyncMiniMaxTenantVoicesResponses, SyncMiniMaxTenantVoicesErrors, ThrowOnError>({ url: '/minimax-tenants/{id}/@sync-voices', ...options });
 
 /**
  * List all Volcengine tenants
@@ -611,18 +611,18 @@ export const createVolcTenant = <ThrowOnError extends boolean = false>(options: 
 /**
  * Delete a Volcengine tenant
  */
-export const deleteVolcTenant = <ThrowOnError extends boolean = false>(options: Options<DeleteVolcTenantData, ThrowOnError>): RequestResult<DeleteVolcTenantResponses, DeleteVolcTenantErrors, ThrowOnError> => (options.client ?? client).delete<DeleteVolcTenantResponses, DeleteVolcTenantErrors, ThrowOnError>({ url: '/volc-tenants/{name}', ...options });
+export const deleteVolcTenant = <ThrowOnError extends boolean = false>(options: Options<DeleteVolcTenantData, ThrowOnError>): RequestResult<DeleteVolcTenantResponses, DeleteVolcTenantErrors, ThrowOnError> => (options.client ?? client).delete<DeleteVolcTenantResponses, DeleteVolcTenantErrors, ThrowOnError>({ url: '/volc-tenants/{id}', ...options });
 
 /**
  * Get a Volcengine tenant
  */
-export const getVolcTenant = <ThrowOnError extends boolean = false>(options: Options<GetVolcTenantData, ThrowOnError>): RequestResult<GetVolcTenantResponses, GetVolcTenantErrors, ThrowOnError> => (options.client ?? client).get<GetVolcTenantResponses, GetVolcTenantErrors, ThrowOnError>({ url: '/volc-tenants/{name}', ...options });
+export const getVolcTenant = <ThrowOnError extends boolean = false>(options: Options<GetVolcTenantData, ThrowOnError>): RequestResult<GetVolcTenantResponses, GetVolcTenantErrors, ThrowOnError> => (options.client ?? client).get<GetVolcTenantResponses, GetVolcTenantErrors, ThrowOnError>({ url: '/volc-tenants/{id}', ...options });
 
 /**
- * Create or update a Volcengine tenant
+ * Update a Volcengine tenant
  */
 export const putVolcTenant = <ThrowOnError extends boolean = false>(options: Options<PutVolcTenantData, ThrowOnError>): RequestResult<PutVolcTenantResponses, PutVolcTenantErrors, ThrowOnError> => (options.client ?? client).put<PutVolcTenantResponses, PutVolcTenantErrors, ThrowOnError>({
-    url: '/volc-tenants/{name}',
+    url: '/volc-tenants/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -633,7 +633,7 @@ export const putVolcTenant = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * Sync voices from a Volcengine tenant into the global voice catalog
  */
-export const syncVolcTenantVoices = <ThrowOnError extends boolean = false>(options: Options<SyncVolcTenantVoicesData, ThrowOnError>): RequestResult<SyncVolcTenantVoicesResponses, SyncVolcTenantVoicesErrors, ThrowOnError> => (options.client ?? client).post<SyncVolcTenantVoicesResponses, SyncVolcTenantVoicesErrors, ThrowOnError>({ url: '/volc-tenants/{name}/@sync-voices', ...options });
+export const syncVolcTenantVoices = <ThrowOnError extends boolean = false>(options: Options<SyncVolcTenantVoicesData, ThrowOnError>): RequestResult<SyncVolcTenantVoicesResponses, SyncVolcTenantVoicesErrors, ThrowOnError> => (options.client ?? client).post<SyncVolcTenantVoicesResponses, SyncVolcTenantVoicesErrors, ThrowOnError>({ url: '/volc-tenants/{id}/@sync-voices', ...options });
 
 /**
  * List all voices
@@ -677,18 +677,18 @@ export const putVoice = <ThrowOnError extends boolean = false>(options: Options<
 /**
  * Delete a memory layout
  */
-export const deleteMemoryLayout = <ThrowOnError extends boolean = false>(options: Options<DeleteMemoryLayoutData, ThrowOnError>): RequestResult<DeleteMemoryLayoutResponses, DeleteMemoryLayoutErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMemoryLayoutResponses, DeleteMemoryLayoutErrors, ThrowOnError>({ url: '/memory-layouts/{name}', ...options });
+export const deleteMemoryLayout = <ThrowOnError extends boolean = false>(options: Options<DeleteMemoryLayoutData, ThrowOnError>): RequestResult<DeleteMemoryLayoutResponses, DeleteMemoryLayoutErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMemoryLayoutResponses, DeleteMemoryLayoutErrors, ThrowOnError>({ url: '/memory-layouts/{id}', ...options });
 
 /**
  * Get a memory layout
  */
-export const getMemoryLayout = <ThrowOnError extends boolean = false>(options: Options<GetMemoryLayoutData, ThrowOnError>): RequestResult<GetMemoryLayoutResponses, GetMemoryLayoutErrors, ThrowOnError> => (options.client ?? client).get<GetMemoryLayoutResponses, GetMemoryLayoutErrors, ThrowOnError>({ url: '/memory-layouts/{name}', ...options });
+export const getMemoryLayout = <ThrowOnError extends boolean = false>(options: Options<GetMemoryLayoutData, ThrowOnError>): RequestResult<GetMemoryLayoutResponses, GetMemoryLayoutErrors, ThrowOnError> => (options.client ?? client).get<GetMemoryLayoutResponses, GetMemoryLayoutErrors, ThrowOnError>({ url: '/memory-layouts/{id}', ...options });
 
 /**
- * Create or update a memory layout
+ * Update a memory layout
  */
 export const putMemoryLayout = <ThrowOnError extends boolean = false>(options: Options<PutMemoryLayoutData, ThrowOnError>): RequestResult<PutMemoryLayoutResponses, PutMemoryLayoutErrors, ThrowOnError> => (options.client ?? client).put<PutMemoryLayoutResponses, PutMemoryLayoutErrors, ThrowOnError>({
-    url: '/memory-layouts/{name}',
+    url: '/memory-layouts/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -699,18 +699,18 @@ export const putMemoryLayout = <ThrowOnError extends boolean = false>(options: O
 /**
  * Delete a workflow
  */
-export const deleteWorkflow = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkflowData, ThrowOnError>): RequestResult<DeleteWorkflowResponses, DeleteWorkflowErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkflowResponses, DeleteWorkflowErrors, ThrowOnError>({ url: '/workflows/{name}', ...options });
+export const deleteWorkflow = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkflowData, ThrowOnError>): RequestResult<DeleteWorkflowResponses, DeleteWorkflowErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkflowResponses, DeleteWorkflowErrors, ThrowOnError>({ url: '/workflows/{id}', ...options });
 
 /**
  * Get a workflow
  */
-export const getWorkflow = <ThrowOnError extends boolean = false>(options: Options<GetWorkflowData, ThrowOnError>): RequestResult<GetWorkflowResponses, GetWorkflowErrors, ThrowOnError> => (options.client ?? client).get<GetWorkflowResponses, GetWorkflowErrors, ThrowOnError>({ url: '/workflows/{name}', ...options });
+export const getWorkflow = <ThrowOnError extends boolean = false>(options: Options<GetWorkflowData, ThrowOnError>): RequestResult<GetWorkflowResponses, GetWorkflowErrors, ThrowOnError> => (options.client ?? client).get<GetWorkflowResponses, GetWorkflowErrors, ThrowOnError>({ url: '/workflows/{id}', ...options });
 
 /**
  * Create or update a workflow
  */
 export const putWorkflow = <ThrowOnError extends boolean = false>(options: Options<PutWorkflowData, ThrowOnError>): RequestResult<PutWorkflowResponses, PutWorkflowErrors, ThrowOnError> => (options.client ?? client).put<PutWorkflowResponses, PutWorkflowErrors, ThrowOnError>({
-    url: '/workflows/{name}',
+    url: '/workflows/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -740,18 +740,18 @@ export const createWorkspace = <ThrowOnError extends boolean = false>(options: O
  *
  * Writes or reuses a durable pending-deletion handoff for a user-created Workspace while retaining the active Workspace and its indexes. System Workspaces cannot be deleted through this operation; physical runtime, history, assets, objects, and files are retained for later cleanup.
  */
-export const deleteWorkspace = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkspaceData, ThrowOnError>): RequestResult<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError>({ url: '/workspaces/{name}', ...options });
+export const deleteWorkspace = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkspaceData, ThrowOnError>): RequestResult<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError>({ url: '/workspaces/{id}', ...options });
 
 /**
  * Get a workspace
  */
-export const getWorkspace = <ThrowOnError extends boolean = false>(options: Options<GetWorkspaceData, ThrowOnError>): RequestResult<GetWorkspaceResponses, GetWorkspaceErrors, ThrowOnError> => (options.client ?? client).get<GetWorkspaceResponses, GetWorkspaceErrors, ThrowOnError>({ url: '/workspaces/{name}', ...options });
+export const getWorkspace = <ThrowOnError extends boolean = false>(options: Options<GetWorkspaceData, ThrowOnError>): RequestResult<GetWorkspaceResponses, GetWorkspaceErrors, ThrowOnError> => (options.client ?? client).get<GetWorkspaceResponses, GetWorkspaceErrors, ThrowOnError>({ url: '/workspaces/{id}', ...options });
 
 /**
- * Create or update a workspace
+ * Update a workspace
  */
 export const putWorkspace = <ThrowOnError extends boolean = false>(options: Options<PutWorkspaceData, ThrowOnError>): RequestResult<PutWorkspaceResponses, PutWorkspaceErrors, ThrowOnError> => (options.client ?? client).put<PutWorkspaceResponses, PutWorkspaceErrors, ThrowOnError>({
-    url: '/workspaces/{name}',
+    url: '/workspaces/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -762,19 +762,19 @@ export const putWorkspace = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * Delete a workspace icon
  */
-export const deleteWorkspaceIcon = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkspaceIconData, ThrowOnError>): RequestResult<DeleteWorkspaceIconResponses, DeleteWorkspaceIconErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkspaceIconResponses, DeleteWorkspaceIconErrors, ThrowOnError>({ url: '/workspaces/{name}/icon/{format}', ...options });
+export const deleteWorkspaceIcon = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkspaceIconData, ThrowOnError>): RequestResult<DeleteWorkspaceIconResponses, DeleteWorkspaceIconErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkspaceIconResponses, DeleteWorkspaceIconErrors, ThrowOnError>({ url: '/workspaces/{id}/icon/{format}', ...options });
 
 /**
  * Download a workspace icon
  */
-export const downloadWorkspaceIcon = <ThrowOnError extends boolean = false>(options: Options<DownloadWorkspaceIconData, ThrowOnError>): RequestResult<DownloadWorkspaceIconResponses, DownloadWorkspaceIconErrors, ThrowOnError> => (options.client ?? client).get<DownloadWorkspaceIconResponses, DownloadWorkspaceIconErrors, ThrowOnError>({ url: '/workspaces/{name}/icon/{format}', ...options });
+export const downloadWorkspaceIcon = <ThrowOnError extends boolean = false>(options: Options<DownloadWorkspaceIconData, ThrowOnError>): RequestResult<DownloadWorkspaceIconResponses, DownloadWorkspaceIconErrors, ThrowOnError> => (options.client ?? client).get<DownloadWorkspaceIconResponses, DownloadWorkspaceIconErrors, ThrowOnError>({ url: '/workspaces/{id}/icon/{format}', ...options });
 
 /**
  * Upload or replace a workspace icon
  */
 export const uploadWorkspaceIcon = <ThrowOnError extends boolean = false>(options: Options<UploadWorkspaceIconData, ThrowOnError>): RequestResult<UploadWorkspaceIconResponses, UploadWorkspaceIconErrors, ThrowOnError> => (options.client ?? client).put<UploadWorkspaceIconResponses, UploadWorkspaceIconErrors, ThrowOnError>({
     bodySerializer: null,
-    url: '/workspaces/{name}/icon/{format}',
+    url: '/workspaces/{id}/icon/{format}',
     ...options,
     headers: {
         'Content-Type': 'application/octet-stream',
@@ -785,17 +785,17 @@ export const uploadWorkspaceIcon = <ThrowOnError extends boolean = false>(option
 /**
  * List workspace history without requiring an active runtime connection
  */
-export const listWorkspaceHistory = <ThrowOnError extends boolean = false>(options: Options<ListWorkspaceHistoryData, ThrowOnError>): RequestResult<ListWorkspaceHistoryResponses, ListWorkspaceHistoryErrors, ThrowOnError> => (options.client ?? client).get<ListWorkspaceHistoryResponses, ListWorkspaceHistoryErrors, ThrowOnError>({ url: '/workspaces/{name}/history', ...options });
+export const listWorkspaceHistory = <ThrowOnError extends boolean = false>(options: Options<ListWorkspaceHistoryData, ThrowOnError>): RequestResult<ListWorkspaceHistoryResponses, ListWorkspaceHistoryErrors, ThrowOnError> => (options.client ?? client).get<ListWorkspaceHistoryResponses, ListWorkspaceHistoryErrors, ThrowOnError>({ url: '/workspaces/{id}/history', ...options });
 
 /**
  * Get one workspace history entry
  */
-export const getWorkspaceHistory = <ThrowOnError extends boolean = false>(options: Options<GetWorkspaceHistoryData, ThrowOnError>): RequestResult<GetWorkspaceHistoryResponses, GetWorkspaceHistoryErrors, ThrowOnError> => (options.client ?? client).get<GetWorkspaceHistoryResponses, GetWorkspaceHistoryErrors, ThrowOnError>({ url: '/workspaces/{name}/history/{historyId}', ...options });
+export const getWorkspaceHistory = <ThrowOnError extends boolean = false>(options: Options<GetWorkspaceHistoryData, ThrowOnError>): RequestResult<GetWorkspaceHistoryResponses, GetWorkspaceHistoryErrors, ThrowOnError> => (options.client ?? client).get<GetWorkspaceHistoryResponses, GetWorkspaceHistoryErrors, ThrowOnError>({ url: '/workspaces/{id}/history/{historyId}', ...options });
 
 /**
  * Download workspace history audio as Ogg Opus
  */
-export const downloadWorkspaceHistoryAudio = <ThrowOnError extends boolean = false>(options: Options<DownloadWorkspaceHistoryAudioData, ThrowOnError>): RequestResult<DownloadWorkspaceHistoryAudioResponses, DownloadWorkspaceHistoryAudioErrors, ThrowOnError> => (options.client ?? client).get<DownloadWorkspaceHistoryAudioResponses, DownloadWorkspaceHistoryAudioErrors, ThrowOnError>({ url: '/workspaces/{name}/history/{historyId}/audio.ogg', ...options });
+export const downloadWorkspaceHistoryAudio = <ThrowOnError extends boolean = false>(options: Options<DownloadWorkspaceHistoryAudioData, ThrowOnError>): RequestResult<DownloadWorkspaceHistoryAudioResponses, DownloadWorkspaceHistoryAudioErrors, ThrowOnError> => (options.client ?? client).get<DownloadWorkspaceHistoryAudioResponses, DownloadWorkspaceHistoryAudioErrors, ThrowOnError>({ url: '/workspaces/{id}/history/{historyId}/audio.ogg', ...options });
 
 /**
  * List all peers
@@ -915,14 +915,14 @@ export const getPeerFriend = <ThrowOnError extends boolean = false>(options: Opt
  *
  * Delete artifact.tar, extracted files, manifest, and channel artifact metadata.
  */
-export const deleteFirmwareArtifact = <ThrowOnError extends boolean = false>(options: Options<DeleteFirmwareArtifactData, ThrowOnError>): RequestResult<DeleteFirmwareArtifactResponses, DeleteFirmwareArtifactErrors, ThrowOnError> => (options.client ?? client).delete<DeleteFirmwareArtifactResponses, DeleteFirmwareArtifactErrors, ThrowOnError>({ url: '/firmwares/{name}/packages/{channel}/artifact.tar', ...options });
+export const deleteFirmwareArtifact = <ThrowOnError extends boolean = false>(options: Options<DeleteFirmwareArtifactData, ThrowOnError>): RequestResult<DeleteFirmwareArtifactResponses, DeleteFirmwareArtifactErrors, ThrowOnError> => (options.client ?? client).delete<DeleteFirmwareArtifactResponses, DeleteFirmwareArtifactErrors, ThrowOnError>({ url: '/firmwares/{id}/packages/{channel}/artifact.tar', ...options });
 
 /**
  * Download a firmware channel artifact tar
  *
  * Download the original artifact.tar uploaded for a firmware channel.
  */
-export const downloadFirmwareArtifact = <ThrowOnError extends boolean = false>(options: Options<DownloadFirmwareArtifactData, ThrowOnError>): RequestResult<DownloadFirmwareArtifactResponses, DownloadFirmwareArtifactErrors, ThrowOnError> => (options.client ?? client).get<DownloadFirmwareArtifactResponses, DownloadFirmwareArtifactErrors, ThrowOnError>({ url: '/firmwares/{name}/packages/{channel}/artifact.tar', ...options });
+export const downloadFirmwareArtifact = <ThrowOnError extends boolean = false>(options: Options<DownloadFirmwareArtifactData, ThrowOnError>): RequestResult<DownloadFirmwareArtifactResponses, DownloadFirmwareArtifactErrors, ThrowOnError> => (options.client ?? client).get<DownloadFirmwareArtifactResponses, DownloadFirmwareArtifactErrors, ThrowOnError>({ url: '/firmwares/{id}/packages/{channel}/artifact.tar', ...options });
 
 /**
  * Upload a firmware channel artifact tar
@@ -931,7 +931,7 @@ export const downloadFirmwareArtifact = <ThrowOnError extends boolean = false>(o
  */
 export const uploadFirmwareArtifact = <ThrowOnError extends boolean = false>(options: Options<UploadFirmwareArtifactData, ThrowOnError>): RequestResult<UploadFirmwareArtifactResponses, UploadFirmwareArtifactErrors, ThrowOnError> => (options.client ?? client).put<UploadFirmwareArtifactResponses, UploadFirmwareArtifactErrors, ThrowOnError>({
     bodySerializer: null,
-    url: '/firmwares/{name}/packages/{channel}/artifact.tar',
+    url: '/firmwares/{id}/packages/{channel}/artifact.tar',
     ...options,
     headers: {
         'Content-Type': 'application/x-tar',
@@ -944,28 +944,28 @@ export const uploadFirmwareArtifact = <ThrowOnError extends boolean = false>(opt
  *
  * List one file entry or the immediate children of a directory inside the channel artifact manifest.
  */
-export const listFirmwareArtifactEntries = <ThrowOnError extends boolean = false>(options: Options<ListFirmwareArtifactEntriesData, ThrowOnError>): RequestResult<ListFirmwareArtifactEntriesResponses, ListFirmwareArtifactEntriesErrors, ThrowOnError> => (options.client ?? client).get<ListFirmwareArtifactEntriesResponses, ListFirmwareArtifactEntriesErrors, ThrowOnError>({ url: '/firmwares/{name}/packages/{channel}/artifact/ls', ...options });
+export const listFirmwareArtifactEntries = <ThrowOnError extends boolean = false>(options: Options<ListFirmwareArtifactEntriesData, ThrowOnError>): RequestResult<ListFirmwareArtifactEntriesResponses, ListFirmwareArtifactEntriesErrors, ThrowOnError> => (options.client ?? client).get<ListFirmwareArtifactEntriesResponses, ListFirmwareArtifactEntriesErrors, ThrowOnError>({ url: '/firmwares/{id}/packages/{channel}/artifact/ls', ...options });
 
 /**
  * Return firmware artifact tree entries
  *
  * Return recursive flat entries below a directory in the channel artifact manifest.
  */
-export const treeFirmwareArtifactEntries = <ThrowOnError extends boolean = false>(options: Options<TreeFirmwareArtifactEntriesData, ThrowOnError>): RequestResult<TreeFirmwareArtifactEntriesResponses, TreeFirmwareArtifactEntriesErrors, ThrowOnError> => (options.client ?? client).get<TreeFirmwareArtifactEntriesResponses, TreeFirmwareArtifactEntriesErrors, ThrowOnError>({ url: '/firmwares/{name}/packages/{channel}/artifact/tree', ...options });
+export const treeFirmwareArtifactEntries = <ThrowOnError extends boolean = false>(options: Options<TreeFirmwareArtifactEntriesData, ThrowOnError>): RequestResult<TreeFirmwareArtifactEntriesResponses, TreeFirmwareArtifactEntriesErrors, ThrowOnError> => (options.client ?? client).get<TreeFirmwareArtifactEntriesResponses, TreeFirmwareArtifactEntriesErrors, ThrowOnError>({ url: '/firmwares/{id}/packages/{channel}/artifact/tree', ...options });
 
 /**
  * Stat a firmware artifact or entry
  *
  * Return artifact-level stats when path is empty, otherwise return one file or directory entry stat.
  */
-export const statFirmwareArtifactEntry = <ThrowOnError extends boolean = false>(options: Options<StatFirmwareArtifactEntryData, ThrowOnError>): RequestResult<StatFirmwareArtifactEntryResponses, StatFirmwareArtifactEntryErrors, ThrowOnError> => (options.client ?? client).get<StatFirmwareArtifactEntryResponses, StatFirmwareArtifactEntryErrors, ThrowOnError>({ url: '/firmwares/{name}/packages/{channel}/artifact/stat', ...options });
+export const statFirmwareArtifactEntry = <ThrowOnError extends boolean = false>(options: Options<StatFirmwareArtifactEntryData, ThrowOnError>): RequestResult<StatFirmwareArtifactEntryResponses, StatFirmwareArtifactEntryErrors, ThrowOnError> => (options.client ?? client).get<StatFirmwareArtifactEntryResponses, StatFirmwareArtifactEntryErrors, ThrowOnError>({ url: '/firmwares/{id}/packages/{channel}/artifact/stat', ...options });
 
 /**
  * Download one firmware artifact entry
  *
  * Download one regular file extracted from the channel artifact.
  */
-export const downloadFirmwareArtifactEntry = <ThrowOnError extends boolean = false>(options: Options<DownloadFirmwareArtifactEntryData, ThrowOnError>): RequestResult<DownloadFirmwareArtifactEntryResponses, DownloadFirmwareArtifactEntryErrors, ThrowOnError> => (options.client ?? client).get<DownloadFirmwareArtifactEntryResponses, DownloadFirmwareArtifactEntryErrors, ThrowOnError>({ url: '/firmwares/{name}/packages/{channel}/artifact/dl', ...options });
+export const downloadFirmwareArtifactEntry = <ThrowOnError extends boolean = false>(options: Options<DownloadFirmwareArtifactEntryData, ThrowOnError>): RequestResult<DownloadFirmwareArtifactEntryResponses, DownloadFirmwareArtifactEntryErrors, ThrowOnError> => (options.client ?? client).get<DownloadFirmwareArtifactEntryResponses, DownloadFirmwareArtifactEntryErrors, ThrowOnError>({ url: '/firmwares/{id}/packages/{channel}/artifact/dl', ...options });
 
 /**
  * List PetDefs
@@ -995,7 +995,7 @@ export const deletePetDef = <ThrowOnError extends boolean = false>(options: Opti
 export const getPetDef = <ThrowOnError extends boolean = false>(options: Options<GetPetDefData, ThrowOnError>): RequestResult<GetPetDefResponses, GetPetDefErrors, ThrowOnError> => (options.client ?? client).get<GetPetDefResponses, GetPetDefErrors, ThrowOnError>({ url: '/pet-defs/{id}', ...options });
 
 /**
- * Create or update a PetDef
+ * Update a PetDef
  */
 export const putPetDef = <ThrowOnError extends boolean = false>(options: Options<PutPetDefData, ThrowOnError>): RequestResult<PutPetDefResponses, PutPetDefErrors, ThrowOnError> => (options.client ?? client).put<PutPetDefResponses, PutPetDefErrors, ThrowOnError>({
     url: '/pet-defs/{id}',
@@ -1034,7 +1034,7 @@ export const deleteBadgeDef = <ThrowOnError extends boolean = false>(options: Op
 export const getBadgeDef = <ThrowOnError extends boolean = false>(options: Options<GetBadgeDefData, ThrowOnError>): RequestResult<GetBadgeDefResponses, GetBadgeDefErrors, ThrowOnError> => (options.client ?? client).get<GetBadgeDefResponses, GetBadgeDefErrors, ThrowOnError>({ url: '/badge-defs/{id}', ...options });
 
 /**
- * Create or update a BadgeDef
+ * Update a BadgeDef
  */
 export const putBadgeDef = <ThrowOnError extends boolean = false>(options: Options<PutBadgeDefData, ThrowOnError>): RequestResult<PutBadgeDefResponses, PutBadgeDefErrors, ThrowOnError> => (options.client ?? client).put<PutBadgeDefResponses, PutBadgeDefErrors, ThrowOnError>({
     url: '/badge-defs/{id}',
@@ -1073,7 +1073,7 @@ export const deleteGameDef = <ThrowOnError extends boolean = false>(options: Opt
 export const getGameDef = <ThrowOnError extends boolean = false>(options: Options<GetGameDefData, ThrowOnError>): RequestResult<GetGameDefResponses, GetGameDefErrors, ThrowOnError> => (options.client ?? client).get<GetGameDefResponses, GetGameDefErrors, ThrowOnError>({ url: '/game-defs/{id}', ...options });
 
 /**
- * Create or update a GameDef
+ * Update a GameDef
  */
 export const putGameDef = <ThrowOnError extends boolean = false>(options: Options<PutGameDefData, ThrowOnError>): RequestResult<PutGameDefResponses, PutGameDefErrors, ThrowOnError> => (options.client ?? client).put<PutGameDefResponses, PutGameDefErrors, ThrowOnError>({
     url: '/game-defs/{id}',
@@ -1225,18 +1225,18 @@ export const createRuntimeProfile = <ThrowOnError extends boolean = false>(optio
 /**
  * Delete a RuntimeProfile
  */
-export const deleteRuntimeProfile = <ThrowOnError extends boolean = false>(options: Options<DeleteRuntimeProfileData, ThrowOnError>): RequestResult<DeleteRuntimeProfileResponses, DeleteRuntimeProfileErrors, ThrowOnError> => (options.client ?? client).delete<DeleteRuntimeProfileResponses, DeleteRuntimeProfileErrors, ThrowOnError>({ url: '/runtime-profiles/{name}', ...options });
+export const deleteRuntimeProfile = <ThrowOnError extends boolean = false>(options: Options<DeleteRuntimeProfileData, ThrowOnError>): RequestResult<DeleteRuntimeProfileResponses, DeleteRuntimeProfileErrors, ThrowOnError> => (options.client ?? client).delete<DeleteRuntimeProfileResponses, DeleteRuntimeProfileErrors, ThrowOnError>({ url: '/runtime-profiles/{id}', ...options });
 
 /**
  * Get a RuntimeProfile
  */
-export const getRuntimeProfile = <ThrowOnError extends boolean = false>(options: Options<GetRuntimeProfileData, ThrowOnError>): RequestResult<GetRuntimeProfileResponses, GetRuntimeProfileErrors, ThrowOnError> => (options.client ?? client).get<GetRuntimeProfileResponses, GetRuntimeProfileErrors, ThrowOnError>({ url: '/runtime-profiles/{name}', ...options });
+export const getRuntimeProfile = <ThrowOnError extends boolean = false>(options: Options<GetRuntimeProfileData, ThrowOnError>): RequestResult<GetRuntimeProfileResponses, GetRuntimeProfileErrors, ThrowOnError> => (options.client ?? client).get<GetRuntimeProfileResponses, GetRuntimeProfileErrors, ThrowOnError>({ url: '/runtime-profiles/{id}', ...options });
 
 /**
- * Create or update a RuntimeProfile
+ * Update a RuntimeProfile
  */
 export const putRuntimeProfile = <ThrowOnError extends boolean = false>(options: Options<PutRuntimeProfileData, ThrowOnError>): RequestResult<PutRuntimeProfileResponses, PutRuntimeProfileErrors, ThrowOnError> => (options.client ?? client).put<PutRuntimeProfileResponses, PutRuntimeProfileErrors, ThrowOnError>({
-    url: '/runtime-profiles/{name}',
+    url: '/runtime-profiles/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -1264,18 +1264,18 @@ export const createRegistrationToken = <ThrowOnError extends boolean = false>(op
 /**
  * Delete a RegistrationToken
  */
-export const deleteRegistrationToken = <ThrowOnError extends boolean = false>(options: Options<DeleteRegistrationTokenData, ThrowOnError>): RequestResult<DeleteRegistrationTokenResponses, DeleteRegistrationTokenErrors, ThrowOnError> => (options.client ?? client).delete<DeleteRegistrationTokenResponses, DeleteRegistrationTokenErrors, ThrowOnError>({ url: '/registration-tokens/{name}', ...options });
+export const deleteRegistrationToken = <ThrowOnError extends boolean = false>(options: Options<DeleteRegistrationTokenData, ThrowOnError>): RequestResult<DeleteRegistrationTokenResponses, DeleteRegistrationTokenErrors, ThrowOnError> => (options.client ?? client).delete<DeleteRegistrationTokenResponses, DeleteRegistrationTokenErrors, ThrowOnError>({ url: '/registration-tokens/{id}', ...options });
 
 /**
  * Get a RegistrationToken
  */
-export const getRegistrationToken = <ThrowOnError extends boolean = false>(options: Options<GetRegistrationTokenData, ThrowOnError>): RequestResult<GetRegistrationTokenResponses, GetRegistrationTokenErrors, ThrowOnError> => (options.client ?? client).get<GetRegistrationTokenResponses, GetRegistrationTokenErrors, ThrowOnError>({ url: '/registration-tokens/{name}', ...options });
+export const getRegistrationToken = <ThrowOnError extends boolean = false>(options: Options<GetRegistrationTokenData, ThrowOnError>): RequestResult<GetRegistrationTokenResponses, GetRegistrationTokenErrors, ThrowOnError> => (options.client ?? client).get<GetRegistrationTokenResponses, GetRegistrationTokenErrors, ThrowOnError>({ url: '/registration-tokens/{id}', ...options });
 
 /**
- * Create or update a RegistrationToken
+ * Update a RegistrationToken
  */
 export const putRegistrationToken = <ThrowOnError extends boolean = false>(options: Options<PutRegistrationTokenData, ThrowOnError>): RequestResult<PutRegistrationTokenResponses, PutRegistrationTokenErrors, ThrowOnError> => (options.client ?? client).put<PutRegistrationTokenResponses, PutRegistrationTokenErrors, ThrowOnError>({
-    url: '/registration-tokens/{name}',
+    url: '/registration-tokens/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',

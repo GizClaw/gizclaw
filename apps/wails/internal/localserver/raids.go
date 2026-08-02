@@ -39,7 +39,7 @@ const (
 )
 
 // CatalogResolver provides a fully validated catalog for one local Pod
-// bootstrap or runtime-contract migration.
+// bootstrap.
 type CatalogResolver interface {
 	Resolve(context.Context) (*Catalog, error)
 }
@@ -262,7 +262,7 @@ type raidsCandidate struct {
 	name           string
 	data           []byte
 	providerKind   string
-	providerName   string
+	providerID     string
 	credentialName string
 }
 
@@ -308,13 +308,18 @@ func buildRaidsCatalog(loadPIXA func(string, uint16, uint16) ([]byte, error), ar
 	if !ok {
 		return nil, fmt.Errorf("Raids RegistrationToken/%s is missing", defaultRegistrationTokenName)
 	}
-	tokenResource, _, err := decodeResource(tokenCandidate.data)
-	if err != nil {
-		return nil, fmt.Errorf("decode RegistrationToken/%s: %w", defaultRegistrationTokenName, err)
+	var token struct {
+		Spec struct {
+			Token              string `json:"token"`
+			RuntimeProfileName string `json:"runtime_profile_name"`
+		} `json:"spec"`
 	}
-	token, err := tokenResource.AsRegistrationTokenResource()
+	tokenJSON, err := yaml.YAMLToJSON(tokenCandidate.data)
 	if err != nil {
-		return nil, fmt.Errorf("decode RegistrationToken/%s: %w", defaultRegistrationTokenName, err)
+		return nil, fmt.Errorf("decode RegistrationToken/%s YAML: %w", defaultRegistrationTokenName, err)
+	}
+	if err := json.Unmarshal(tokenJSON, &token); err != nil {
+		return nil, fmt.Errorf("decode RegistrationToken/%s JSON: %w", defaultRegistrationTokenName, err)
 	}
 	if token.Spec.RuntimeProfileName != defaultRuntimeProfileName {
 		return nil, fmt.Errorf("RegistrationToken/%s targets RuntimeProfile/%s, want %s", defaultRegistrationTokenName, token.Spec.RuntimeProfileName, defaultRuntimeProfileName)
@@ -626,18 +631,18 @@ func parseRaidsCandidate(data []byte) (raidsCandidate, error) {
 			return raidsCandidate{}, fmt.Errorf("decode provider: %w", err)
 		}
 		candidate.providerKind = spec.Provider.Kind
-		candidate.providerName = spec.Provider.Name
-		if candidate.providerKind == "" || candidate.providerName == "" {
+		candidate.providerID = spec.Provider.Name
+		if candidate.providerKind == "" || candidate.providerID == "" {
 			return raidsCandidate{}, fmt.Errorf("%s/%s has no provider reference", header.Kind, header.Name)
 		}
 	case "DashScopeTenant", "DeepSeekTenant", "GeminiTenant", "MiniMaxTenant", "OpenAITenant", "VolcTenant":
 		var spec struct {
-			CredentialName string `json:"credential_name"`
+			CredentialId string `json:"credential_name"`
 		}
 		if err := json.Unmarshal(header.Spec, &spec); err != nil {
 			return raidsCandidate{}, fmt.Errorf("decode tenant: %w", err)
 		}
-		candidate.credentialName = spec.CredentialName
+		candidate.credentialName = spec.CredentialId
 		if candidate.credentialName == "" {
 			return raidsCandidate{}, fmt.Errorf("%s/%s has no credential_name", header.Kind, header.Name)
 		}
@@ -735,12 +740,12 @@ func selectRaidsDependencies(profile apitypes.RuntimeProfileResource, index map[
 			return nil, fmt.Errorf("RuntimeProfile/default references missing Raids %s/%s", current.kind, current.name)
 		}
 		selected[key] = candidate
-		if candidate.providerName != "" {
+		if candidate.providerID != "" {
 			tenantKind, ok := tenantResourceKind(candidate.providerKind)
 			if !ok {
 				return nil, fmt.Errorf("%s/%s has unsupported provider kind %q", candidate.kind, candidate.name, candidate.providerKind)
 			}
-			pending = append(pending, struct{ kind, name string }{tenantKind, candidate.providerName})
+			pending = append(pending, struct{ kind, name string }{tenantKind, candidate.providerID})
 		}
 		if candidate.credentialName != "" {
 			pending = append(pending, struct{ kind, name string }{"Credential", candidate.credentialName})

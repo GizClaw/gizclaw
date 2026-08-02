@@ -18,6 +18,7 @@ func TestApplyGameDefIgnoresOwnerManagedIcon(t *testing.T) {
 		CreatedAt: time.Now().UTC(),
 		Icon:      &apitypes.Icon{Png: &iconName},
 		Id:        "demo",
+		Name:      "demo",
 		Spec:      apitypes.GameDefSpec{DisplayName: "Demo"},
 		UpdatedAt: time.Now().UTC(),
 	}
@@ -35,7 +36,7 @@ func TestApplyGameDefIgnoresOwnerManagedIcon(t *testing.T) {
 	unchanged, err := manager.Apply(ctx, mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "GameDef",
-		"metadata": {"name": "demo"},
+		"metadata": {"id": "demo", "name": "demo"},
 		"spec": {"display_name": "Demo"}
 	}`))
 	if err != nil {
@@ -48,7 +49,7 @@ func TestApplyGameDefIgnoresOwnerManagedIcon(t *testing.T) {
 	updated, err := manager.Apply(ctx, mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "GameDef",
-		"metadata": {"name": "demo"},
+		"metadata": {"id": "demo", "name": "demo"},
 		"icon": {"png": "caller-controlled/icon.png"},
 		"spec": {"display_name": "Updated demo"}
 	}`))

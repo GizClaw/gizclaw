@@ -233,7 +233,7 @@ class MobileDataRepository {
               return WorkspaceEntriesCompanion.insert(
                 serverId: serverId,
                 name: workspace.name,
-                workflowAlias: workspace.workflowAlias,
+                workflowName: workspace.workflowName,
                 collection: Value(item.collection),
                 createdAt: Value(_dateTimeOrNull(workspace.createdAt)),
                 lastActiveAt: Value(_dateTimeOrNull(workspace.lastActiveAt)),
@@ -336,7 +336,10 @@ class MobileDataRepository {
             return FriendGroupEntriesCompanion.insert(
               serverId: serverId,
               id: _friendGroupKey(group),
-              name: group.name,
+              name:
+                  group.hasDisplayName() && group.displayName.trim().isNotEmpty
+                  ? group.displayName
+                  : group.name,
               description: group.description,
               workspaceName: Value(
                 group.hasWorkspaceName() ? group.workspaceName : null,
@@ -452,9 +455,9 @@ String _friendKey(FriendObject friend) {
 }
 
 String _friendGroupKey(FriendGroupObject group) {
-  if (group.id.trim().isNotEmpty) return group.id.trim();
+  if (group.name.trim().isNotEmpty) return group.name.trim();
   if (group.workspaceName.trim().isNotEmpty) return group.workspaceName.trim();
-  return group.name.trim();
+  return '';
 }
 
 WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {
@@ -462,7 +465,7 @@ WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {
   return WorkspaceCard(
     chatroomKind: _chatroomKind(workspace),
     name: row.name,
-    workflowAlias: row.workflowAlias,
+    workflowName: row.workflowName,
     collection: row.collection,
     lastActive: _relativeTime(
       row.lastActiveAt ?? row.updatedAt ?? row.createdAt,

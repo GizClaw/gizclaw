@@ -16,52 +16,62 @@ func TestAdminAIProviderCatalogUserStory(t *testing.T) {
 
 	openAIList := h.RunCLI("admin", "openai-tenants", "list", "--context", "admin-a")
 	openAIList.MustSucceed(t)
-	assertOutputContains(t, openAIList.Stdout, `"name":"fake-openai"`, `"credential_name":"fake-openai-credential-000"`)
+	openAITenantID := adminResourceID(t, openAIList.Stdout, "fake-openai")
+	credentials := h.RunCLI("admin", "credentials", "list", "--context", "admin-a")
+	credentials.MustSucceed(t)
+	openAICredentialID := adminResourceID(t, credentials.Stdout, "fake-openai-credential-000")
+	assertOutputContains(t, openAIList.Stdout, `"name":"fake-openai"`, `"credential_id":"`+openAICredentialID+`"`)
 
-	openAIGet := h.RunCLI("admin", "openai-tenants", "get", "fake-openai", "--context", "admin-a")
+	openAIGet := h.RunCLI("admin", "openai-tenants", "get", openAITenantID, "--context", "admin-a")
 	openAIGet.MustSucceed(t)
 	assertOutputContains(t, openAIGet.Stdout, `"kind":"compatible"`, `"api_mode":"chat_completions"`)
 
 	geminiList := h.RunCLI("admin", "gemini-tenants", "list", "--context", "admin-a")
 	geminiList.MustSucceed(t)
 	if strings.Contains(geminiList.Stdout, `"name":"gemini-main"`) {
-		geminiGet := h.RunCLI("admin", "gemini-tenants", "get", "gemini-main", "--context", "admin-a")
+		geminiTenantID := adminResourceID(t, geminiList.Stdout, "gemini-main")
+		geminiCredentialID := adminResourceID(t, credentials.Stdout, "gemini-main-credential")
+		geminiGet := h.RunCLI("admin", "gemini-tenants", "get", geminiTenantID, "--context", "admin-a")
 		geminiGet.MustSucceed(t)
-		assertOutputContains(t, geminiGet.Stdout, `"credential_name":"gemini-main-credential"`, `"location":"global"`)
+		assertOutputContains(t, geminiGet.Stdout, `"credential_id":"`+geminiCredentialID+`"`, `"location":"global"`)
 	}
 
 	dashScopeList := h.RunCLI("admin", "dashscope-tenants", "list", "--context", "admin-a")
 	dashScopeList.MustSucceed(t)
 	if strings.Contains(dashScopeList.Stdout, `"name":"qwen-dashscope-main"`) {
-		assertOutputContains(t, dashScopeList.Stdout, `"credential_name":"qwen-dashscope-credential"`)
-		dashScopeGet := h.RunCLI("admin", "dashscope-tenants", "get", "qwen-dashscope-main", "--context", "admin-a")
+		dashScopeTenantID := adminResourceID(t, dashScopeList.Stdout, "qwen-dashscope-main")
+		dashScopeCredentialID := adminResourceID(t, credentials.Stdout, "qwen-dashscope-credential")
+		assertOutputContains(t, dashScopeList.Stdout, `"credential_id":"`+dashScopeCredentialID+`"`)
+		dashScopeGet := h.RunCLI("admin", "dashscope-tenants", "get", dashScopeTenantID, "--context", "admin-a")
 		dashScopeGet.MustSucceed(t)
 		assertOutputContains(t, dashScopeGet.Stdout, `"name":"qwen-dashscope-main"`, `"base_url":"`)
 	}
 
-	modelsList := h.RunCLI("admin", "models", "list", "--provider-kind", "openai-tenant", "--provider-name", "fake-openai", "--context", "admin-a")
+	modelsList := h.RunCLI("admin", "models", "list", "--provider-kind", "openai-tenant", "--provider-id", openAITenantID, "--context", "admin-a")
 	modelsList.MustSucceed(t)
-	assertOutputContains(t, modelsList.Stdout, `"id":"fake-openai-chat-000"`, `"upstream_model":"fake-gpt-000"`)
+	assertOutputContains(t, modelsList.Stdout, `"name":"fake-openai-chat-000"`, `"upstream_model":"fake-gpt-000"`)
+	modelID := adminResourceID(t, modelsList.Stdout, "fake-openai-chat-000")
 
-	rpcModelsList := h.RunCLI("admin", "models", "list", "--provider-kind", "openai-tenant", "--provider-name", "fake-openai", "--context", "admin-a")
+	rpcModelsList := h.RunCLI("admin", "models", "list", "--provider-kind", "openai-tenant", "--provider-id", openAITenantID, "--context", "admin-a")
 	rpcModelsList.MustSucceed(t)
-	assertOutputContains(t, rpcModelsList.Stdout, `"id":"fake-openai-chat-000"`, `"id":"fake-openai-chat-079"`)
+	assertOutputContains(t, rpcModelsList.Stdout, `"name":"fake-openai-chat-000"`, `"name":"fake-openai-chat-079"`)
 
-	modelGet := h.RunCLI("admin", "models", "get", "fake-openai-chat-000", "--context", "admin-a")
+	modelGet := h.RunCLI("admin", "models", "get", modelID, "--context", "admin-a")
 	modelGet.MustSucceed(t)
-	assertOutputContains(t, modelGet.Stdout, `"kind":"llm"`, `"name":"Fake OpenAI chat model fake-openai-chat-000"`)
+	assertOutputContains(t, modelGet.Stdout, `"kind":"llm"`, `"name":"fake-openai-chat-000"`)
 
-	rpcModelGet := h.RunCLI("admin", "models", "get", "fake-openai-chat-000", "--context", "admin-a")
+	rpcModelGet := h.RunCLI("admin", "models", "get", modelID, "--context", "admin-a")
 	rpcModelGet.MustSucceed(t)
 	assertOutputContains(t, rpcModelGet.Stdout, `"upstream_model":"fake-gpt-000"`)
 
 	profilesList := h.RunCLI("admin", "runtime-profiles", "list", "--context", "admin-a")
 	profilesList.MustSucceed(t)
 	assertOutputContains(t, profilesList.Stdout, `"name":"default-gameplay"`)
+	profileID := adminResourceID(t, profilesList.Stdout, "default-gameplay")
 
-	profileGet := h.RunCLI("admin", "runtime-profiles", "get", "default-gameplay", "--context", "admin-a")
+	profileGet := h.RunCLI("admin", "runtime-profiles", "get", profileID, "--context", "admin-a")
 	profileGet.MustSucceed(t)
-	assertOutputContains(t, profileGet.Stdout, `"pet_defs":{"starter":"petdef-starter"}`)
+	assertOutputContains(t, profileGet.Stdout, `"pet_defs":{"starter-pet":{`, `"resource_id":`)
 }
 
 func assertOutputContains(t *testing.T, output string, values ...string) {

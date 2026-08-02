@@ -384,7 +384,7 @@ void main() {
     controller.workspaces = const [
       WorkspaceCard(
         name: 'legacy-workspace',
-        workflowAlias: 'legacy-dynamic-workflow',
+        workflowName: 'legacy-dynamic-workflow',
         collection: 'raids',
         lastActive: 'Previously created',
       ),
@@ -985,6 +985,10 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(
+      find.byKey(const ValueKey('group-local-name-field')),
+      ' local-crew ',
+    );
+    await tester.enterText(
       find.byKey(const ValueKey('group-invite-token-field')),
       ' group-invite ',
     );
@@ -994,6 +998,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pump(const Duration(milliseconds: 700));
 
+    expect(controller.joinedGroupName, 'local-crew');
     expect(controller.joinedInviteToken, 'group-invite');
     expect(find.byKey(const ValueKey('join-group-sheet')), findsNothing);
     expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
@@ -1493,7 +1498,7 @@ class _GroupCreationController extends MobileDataController {
     workspaces = const [
       WorkspaceCard(
         name: 'new-group-workspace',
-        workflowAlias: 'chatroom',
+        workflowName: 'chatroom',
         collection: 'assistants',
         lastActive: 'Now',
         chatroomKind: ChatroomWorkspaceKind.group,
@@ -1511,8 +1516,8 @@ class _GroupCreationController extends MobileDataController {
     createCalls += 1;
     expect(refreshAfterCreate, isFalse);
     return FriendGroupObject(
-      id: 'new-group',
-      name: name,
+      name: 'new-group',
+      displayName: name,
       description: description,
       workspaceName: 'new-group-workspace',
     );
@@ -1548,7 +1553,7 @@ class _GroupInviteController extends MobileDataController {
     workspaces = const [
       WorkspaceCard(
         name: 'owner-group-workspace',
-        workflowAlias: 'chatroom',
+        workflowName: 'chatroom',
         collection: 'assistants',
         lastActive: 'Now',
         chatroomKind: ChatroomWorkspaceKind.group,
@@ -1564,6 +1569,7 @@ class _GroupInviteController extends MobileDataController {
   String? deletedGroupId;
   String? inviteGroupId;
   String? joinedInviteToken;
+  String? joinedGroupName;
   String? removedMemberId;
 
   @override
@@ -1571,9 +1577,9 @@ class _GroupInviteController extends MobileDataController {
 
   @override
   Future<FriendGroupInviteTokenGetResponse> getFriendGroupInviteToken(
-    String friendGroupId,
+    String friendGroupName,
   ) async {
-    inviteGroupId = friendGroupId;
+    inviteGroupId = friendGroupName;
     return FriendGroupInviteTokenGetResponse(
       inviteToken: initialInviteToken,
       expiresAt: initialInviteToken.isEmpty ? '' : '2026-07-24T06:00:00Z',
@@ -1582,9 +1588,9 @@ class _GroupInviteController extends MobileDataController {
 
   @override
   Future<FriendGroupInviteTokenCreateResponse> createFriendGroupInviteToken(
-    String friendGroupId,
+    String friendGroupName,
   ) async {
-    inviteGroupId = friendGroupId;
+    inviteGroupId = friendGroupName;
     createInviteCalls += 1;
     if (failCreateInvite) throw StateError('invite creation failed');
     return FriendGroupInviteTokenCreateResponse(
@@ -1594,36 +1600,36 @@ class _GroupInviteController extends MobileDataController {
   }
 
   @override
-  Future<void> clearFriendGroupInviteToken(String friendGroupId) async {
-    inviteGroupId = friendGroupId;
+  Future<void> clearFriendGroupInviteToken(String friendGroupName) async {
+    inviteGroupId = friendGroupName;
     clearInviteCalls += 1;
   }
 
   @override
   Future<FriendGroupMemberListResponse> listFriendGroupMembers(
-    String friendGroupId, {
+    String friendGroupName, {
     String? cursor,
     int? limit,
   }) async {
-    expect(friendGroupId, 'group-owner');
+    expect(friendGroupName, 'group-owner');
     expect(cursor, isNull);
     expect(limit, 50);
     return FriendGroupMemberListResponse(
       items: [
         FriendGroupMemberObject(
-          friendGroupId: friendGroupId,
+          friendGroupName: friendGroupName,
           id: 'peer-owner',
           peerPublicKey: 'peer-owner',
           role: FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_OWNER,
         ),
         FriendGroupMemberObject(
-          friendGroupId: friendGroupId,
+          friendGroupName: friendGroupName,
           id: 'peer-admin',
           peerPublicKey: 'peer-admin',
           role: FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_ADMIN,
         ),
         FriendGroupMemberObject(
-          friendGroupId: friendGroupId,
+          friendGroupName: friendGroupName,
           id: 'peer-member',
           peerPublicKey: 'peer-member',
           role: FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_MEMBER,
@@ -1634,20 +1640,24 @@ class _GroupInviteController extends MobileDataController {
 
   @override
   Future<void> deleteFriendGroupMember(
-    String friendGroupId,
+    String friendGroupName,
     String memberId,
   ) async {
-    expect(friendGroupId, 'group-owner');
+    expect(friendGroupName, 'group-owner');
     removedMemberId = memberId;
   }
 
   @override
-  Future<void> deleteFriendGroup(String friendGroupId) async {
-    deletedGroupId = friendGroupId;
+  Future<void> deleteFriendGroup(String friendGroupName) async {
+    deletedGroupId = friendGroupName;
   }
 
   @override
-  Future<FriendGroupObject> joinFriendGroup(String inviteToken) async {
+  Future<FriendGroupObject> joinFriendGroup(
+    String name,
+    String inviteToken,
+  ) async {
+    joinedGroupName = name;
     joinedInviteToken = inviteToken;
     chatroomWorkspaces = const [
       ChatroomWorkspaceMetadata(
@@ -1668,14 +1678,14 @@ class _GroupInviteController extends MobileDataController {
     workspaces = const [
       WorkspaceCard(
         name: 'owner-group-workspace',
-        workflowAlias: 'chatroom',
+        workflowName: 'chatroom',
         collection: 'assistants',
         lastActive: 'Now',
         chatroomKind: ChatroomWorkspaceKind.group,
       ),
       WorkspaceCard(
         name: 'joined-group-workspace',
-        workflowAlias: 'chatroom',
+        workflowName: 'chatroom',
         collection: 'assistants',
         lastActive: 'Now',
         chatroomKind: ChatroomWorkspaceKind.group,
@@ -1683,8 +1693,8 @@ class _GroupInviteController extends MobileDataController {
     ];
     notifyListeners();
     return FriendGroupObject(
-      id: 'joined-group',
-      name: 'Joined Crew',
+      name: 'joined-group',
+      displayName: 'Joined Crew',
       workspaceName: 'joined-group-workspace',
     );
   }
@@ -1713,7 +1723,7 @@ class _RemovedDirectChatController extends MobileDataController {
     workspaces = const [
       WorkspaceCard(
         name: 'direct-chat',
-        workflowAlias: 'chatroom',
+        workflowName: 'chatroom',
         collection: 'assistants',
         lastActive: 'Now',
         chatroomKind: ChatroomWorkspaceKind.direct,

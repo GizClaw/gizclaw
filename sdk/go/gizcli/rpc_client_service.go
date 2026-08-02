@@ -110,7 +110,7 @@ func (c *rpcClient) handleInvokeTool(ctx context.Context, req *rpcapi.RPCRequest
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	name := strings.TrimSpace(params.Name)
+	name := strings.TrimSpace(params.InvokeName)
 	if c.peer == nil || !clientToolNamePattern.MatchString(name) {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "invalid Tool name"}.RPCResponse(), nil
 	}

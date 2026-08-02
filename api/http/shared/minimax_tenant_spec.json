@@ -11,7 +11,7 @@
       "MiniMaxTenantSpec": {
         "type": "object",
         "required": [
-          "credential_name"
+          "credential_id"
         ],
         "properties": {
           "app_id": {
@@ -20,7 +20,7 @@
           "group_id": {
             "type": "string"
           },
-          "credential_name": {
+          "credential_id": {
             "type": "string"
           },
           "base_url": {

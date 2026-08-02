@@ -26,7 +26,7 @@ func TestClientSpeechUsesSpeechSpecificStreamDeadlines(t *testing.T) {
 			name: "transcription", timeout: 80 * time.Second,
 			call: func(client *Client) error {
 				_, err := client.TranscribeSpeech(context.Background(), "deadline", rpcapi.SpeechTranscribeRequest{
-					ModelAlias: "asr", ContentType: "audio/L16;rate=16000;channels=1",
+					ModelName: "asr", ContentType: "audio/L16;rate=16000;channels=1",
 				}, bytes.NewReader([]byte{1}))
 				return err
 			},
@@ -35,7 +35,7 @@ func TestClientSpeechUsesSpeechSpecificStreamDeadlines(t *testing.T) {
 			name: "synthesis", timeout: 125 * time.Second,
 			call: func(client *Client) error {
 				_, err := client.SynthesizeSpeech(context.Background(), "deadline", rpcapi.SpeechSynthesizeRequest{
-					VoiceAlias: "voice", Text: "hello",
+					VoiceName: "voice", Text: "hello",
 				}, io.Discard)
 				return err
 			},
@@ -44,7 +44,7 @@ func TestClientSpeechUsesSpeechSpecificStreamDeadlines(t *testing.T) {
 			name: "extraction", timeout: 125 * time.Second,
 			call: func(client *Client) error {
 				_, err := client.ExtractSpeech(context.Background(), "deadline", rpcapi.SpeechExtractRequest{
-					ASRModelAlias: "asr", ExtractModelAlias: "extract",
+					ASRModelName: "asr", ExtractModelName: "extract",
 					ContentType: "audio/L16;rate=16000;channels=1",
 					SchemaJSON:  `{"type":"object"}`,
 				}, bytes.NewReader([]byte{1}))
@@ -176,10 +176,10 @@ func TestExtractSpeechStreamsReaderBeforeEOF(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	result, err := (&rpcClient{}).ExtractSpeech(ctx, clientSide, "extract", rpcapi.SpeechExtractRequest{
-		ASRModelAlias:     "asr-main",
-		ExtractModelAlias: "extract-main",
-		ContentType:       "audio/L16;rate=16000;channels=1",
-		SchemaJSON:        `{"type":"object","properties":{"name":{"type":"string"}}}`,
+		ASRModelName:     "asr-main",
+		ExtractModelName: "extract-main",
+		ContentType:      "audio/L16;rate=16000;channels=1",
+		SchemaJSON:       `{"type":"object","properties":{"name":{"type":"string"}}}`,
 	}, &gatedSpeechReader{release: release})
 	if err != nil {
 		t.Fatalf("ExtractSpeech() error = %v", err)
@@ -250,7 +250,7 @@ func TestTranscribeSpeechStreamsReaderBeforeEOF(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	result, err := (&rpcClient{}).TranscribeSpeech(ctx, clientSide, "transcribe", rpcapi.SpeechTranscribeRequest{
-		ModelAlias:  "asr-main",
+		ModelName:   "asr-main",
 		ContentType: "audio/L16;rate=16000;channels=1",
 	}, &gatedSpeechReader{release: release})
 	if err != nil {
@@ -307,7 +307,7 @@ func TestTranscribeSpeechDelimitsSplitRequestEnvelopeBeforeAudio(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	result, err := (&rpcClient{}).TranscribeSpeech(ctx, clientSide, largeID, rpcapi.SpeechTranscribeRequest{
-		ModelAlias: "asr-main", ContentType: "audio/L16;rate=16000;channels=1",
+		ModelName: "asr-main", ContentType: "audio/L16;rate=16000;channels=1",
 	}, bytes.NewReader([]byte{1, 2, 3}))
 	if err != nil {
 		t.Fatalf("TranscribeSpeech() error = %v", err)
@@ -353,7 +353,7 @@ func TestTranscribeSpeechReturnsEarlyServerErrorBeforeAudioEOF(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	result, err := (&rpcClient{}).TranscribeSpeech(ctx, clientSide, "invalid", rpcapi.SpeechTranscribeRequest{
-		ModelAlias: "missing", ContentType: "audio/L16;rate=16000;channels=1",
+		ModelName: "missing", ContentType: "audio/L16;rate=16000;channels=1",
 	}, audio)
 	if result != nil || err == nil || !strings.Contains(err.Error(), "model alias is invalid") {
 		t.Fatalf("TranscribeSpeech() = (%+v, %v)", result, err)
@@ -399,10 +399,10 @@ func TestExtractSpeechReturnsEarlyServerErrorBeforeAudioEOF(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	result, err := (&rpcClient{}).ExtractSpeech(ctx, clientSide, "invalid", rpcapi.SpeechExtractRequest{
-		ASRModelAlias:     "asr-main",
-		ExtractModelAlias: "missing",
-		ContentType:       "audio/L16;rate=16000;channels=1",
-		SchemaJSON:        `{"type":"object"}`,
+		ASRModelName:     "asr-main",
+		ExtractModelName: "missing",
+		ContentType:      "audio/L16;rate=16000;channels=1",
+		SchemaJSON:       `{"type":"object"}`,
 	}, audio)
 	if result != nil || err == nil || !strings.Contains(err.Error(), "speech alias not found") {
 		t.Fatalf("ExtractSpeech() = (%+v, %v)", result, err)
@@ -441,10 +441,10 @@ func TestExtractSpeechCancellationStopsLiveUpload(t *testing.T) {
 	resultDone := make(chan error, 1)
 	go func() {
 		_, err := (&rpcClient{}).ExtractSpeech(ctx, clientSide, "cancel", rpcapi.SpeechExtractRequest{
-			ASRModelAlias:     "asr-main",
-			ExtractModelAlias: "extract-main",
-			ContentType:       "audio/L16;rate=16000;channels=1",
-			SchemaJSON:        `{"type":"object"}`,
+			ASRModelName:     "asr-main",
+			ExtractModelName: "extract-main",
+			ContentType:      "audio/L16;rate=16000;channels=1",
+			SchemaJSON:       `{"type":"object"}`,
 		}, audio)
 		resultDone <- err
 	}()
@@ -522,7 +522,7 @@ func TestSynthesizeSpeechWritesFirstFrameBeforeEOS(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	result, err := (&rpcClient{}).SynthesizeSpeech(ctx, clientSide, "synthesize", rpcapi.SpeechSynthesizeRequest{
-		VoiceAlias:           "narrator",
+		VoiceName:            "narrator",
 		Text:                 "hello",
 		AcceptedContentTypes: []string{"audio/pcm"},
 	}, writer)

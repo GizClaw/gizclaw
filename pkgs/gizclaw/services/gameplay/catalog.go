@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
@@ -29,9 +30,12 @@ const (
 )
 
 var (
-	petDefsRoot   = kv.Key{"by-id"}
-	badgeDefsRoot = kv.Key{"by-id"}
-	gameDefsRoot  = kv.Key{"by-id"}
+	petDefsRoot         = kv.Key{"by-id"}
+	petDefsByNameRoot   = kv.Key{"by-name"}
+	badgeDefsRoot       = kv.Key{"by-id"}
+	badgeDefsByNameRoot = kv.Key{"by-name"}
+	gameDefsRoot        = kv.Key{"by-id"}
+	gameDefsByNameRoot  = kv.Key{"by-name"}
 )
 
 type Catalog struct {
@@ -41,6 +45,7 @@ type Catalog struct {
 	Assets    objectstore.ObjectStore
 	Now       func() time.Time
 	IconLocks iconasset.Locker
+	NewID     func() string
 }
 
 type CatalogAdminService interface {
@@ -96,18 +101,18 @@ func (c *Catalog) CreatePetDef(ctx context.Context, request adminhttp.CreatePetD
 	if err != nil {
 		return adminhttp.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id := strings.TrimSpace(request.Body.Id)
-	item, err := c.buildPetDef(id, request.Body.Spec, nil, time.Time{})
+	name := strings.TrimSpace(request.Body.Name)
+	id := c.newID()
+	item, err := c.buildPetDef(id, name, request.Body.Spec, nil, time.Time{})
 	if err != nil {
 		return adminhttp.CreatePetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
-	if _, err := store.Get(ctx, petDefKey(item.Id)); err == nil {
-		return adminhttp.CreatePetDef409JSONResponse(apitypes.NewErrorResponse("PET_DEF_ALREADY_EXISTS", fmt.Sprintf("pet def %q already exists", item.Id))), nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
+	created, err := createNamedCatalogItem(ctx, store, petDefKey(item.Id), petDefNameKey(item.Name), item.Id, item)
+	if err != nil {
 		return adminhttp.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := writeJSON(ctx, store, petDefKey(item.Id), item); err != nil {
-		return adminhttp.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	if !created {
+		return adminhttp.CreatePetDef409JSONResponse(apitypes.NewErrorResponse("PET_DEF_ALREADY_EXISTS", fmt.Sprintf("pet def %q already exists", item.Name))), nil
 	}
 	return adminhttp.CreatePetDef200JSONResponse(item), nil
 }
@@ -128,7 +133,7 @@ func (c *Catalog) DeletePetDef(ctx context.Context, request adminhttp.DeletePetD
 		}
 		return adminhttp.DeletePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := store.Delete(ctx, petDefKey(id)); err != nil {
+	if err := store.BatchDelete(ctx, []kv.Key{petDefKey(id), petDefNameKey(item.Name)}); err != nil {
 		return adminhttp.DeletePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if c.Assets != nil {
@@ -161,7 +166,10 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 		return nil, err
 	}
 	previous, err := readJSON[apitypes.PetDef](ctx, store, petDefKey(id))
-	if err != nil && !errors.Is(err, kv.ErrNotFound) {
+	if errors.Is(err, kv.ErrNotFound) {
+		return adminhttp.PutPetDef404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", fmt.Sprintf("pet def %q not found", id))), nil
+	}
+	if err != nil {
 		return adminhttp.PutPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	createdAt := time.Time{}
@@ -173,7 +181,10 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 			pixaPath = nil
 		}
 	}
-	item, err := c.buildPetDefForUpdate(id, request.Body.Spec, previous, err == nil, pixaPath, createdAt)
+	if strings.TrimSpace(request.Body.Name) != previous.Name {
+		return adminhttp.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", fmt.Sprintf("name %q must match immutable name %q", request.Body.Name, previous.Name))), nil
+	}
+	item, err := c.buildPetDefForUpdate(id, previous.Name, request.Body.Spec, previous, true, pixaPath, createdAt)
 	if err != nil {
 		return adminhttp.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
@@ -259,18 +270,18 @@ func (c *Catalog) CreateBadgeDef(ctx context.Context, request adminhttp.CreateBa
 	if err != nil {
 		return adminhttp.CreateBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id := strings.TrimSpace(request.Body.Id)
-	item, err := c.buildBadgeDef(id, request.Body.Spec, nil, time.Time{})
+	name := strings.TrimSpace(request.Body.Name)
+	id := c.newID()
+	item, err := c.buildBadgeDef(id, name, request.Body.Spec, nil, time.Time{})
 	if err != nil {
 		return adminhttp.CreateBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", err.Error())), nil
 	}
-	if _, err := store.Get(ctx, badgeDefKey(item.Id)); err == nil {
-		return adminhttp.CreateBadgeDef409JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_ALREADY_EXISTS", fmt.Sprintf("badge def %q already exists", item.Id))), nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
+	created, err := createNamedCatalogItem(ctx, store, badgeDefKey(item.Id), badgeDefNameKey(item.Name), item.Id, item)
+	if err != nil {
 		return adminhttp.CreateBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := writeJSON(ctx, store, badgeDefKey(item.Id), item); err != nil {
-		return adminhttp.CreateBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	if !created {
+		return adminhttp.CreateBadgeDef409JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_ALREADY_EXISTS", fmt.Sprintf("badge def %q already exists", item.Name))), nil
 	}
 	return adminhttp.CreateBadgeDef200JSONResponse(item), nil
 }
@@ -291,7 +302,7 @@ func (c *Catalog) DeleteBadgeDef(ctx context.Context, request adminhttp.DeleteBa
 		}
 		return adminhttp.DeleteBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := store.Delete(ctx, badgeDefKey(id)); err != nil {
+	if err := store.BatchDelete(ctx, []kv.Key{badgeDefKey(id), badgeDefNameKey(item.Name)}); err != nil {
 		return adminhttp.DeleteBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if c.Assets != nil {
@@ -324,7 +335,10 @@ func (c *Catalog) PutBadgeDef(ctx context.Context, request adminhttp.PutBadgeDef
 		return nil, err
 	}
 	previous, err := readJSON[apitypes.BadgeDef](ctx, store, badgeDefKey(id))
-	if err != nil && !errors.Is(err, kv.ErrNotFound) {
+	if errors.Is(err, kv.ErrNotFound) {
+		return adminhttp.PutBadgeDef404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", fmt.Sprintf("badge def %q not found", id))), nil
+	}
+	if err != nil {
 		return adminhttp.PutBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	createdAt := time.Time{}
@@ -333,7 +347,10 @@ func (c *Catalog) PutBadgeDef(ctx context.Context, request adminhttp.PutBadgeDef
 		createdAt = previous.CreatedAt
 		pixaPath = previous.PixaPath
 	}
-	item, err := c.buildBadgeDef(id, request.Body.Spec, pixaPath, createdAt)
+	if strings.TrimSpace(request.Body.Name) != previous.Name {
+		return adminhttp.PutBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", fmt.Sprintf("name %q must match immutable name %q", request.Body.Name, previous.Name))), nil
+	}
+	item, err := c.buildBadgeDef(id, previous.Name, request.Body.Spec, pixaPath, createdAt)
 	if err != nil {
 		return adminhttp.PutBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", err.Error())), nil
 	}
@@ -416,18 +433,18 @@ func (c *Catalog) CreateGameDef(ctx context.Context, request adminhttp.CreateGam
 	if err != nil {
 		return adminhttp.CreateGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id := strings.TrimSpace(request.Body.Id)
-	item, err := c.buildGameDef(id, request.Body.Spec, time.Time{})
+	name := strings.TrimSpace(request.Body.Name)
+	id := c.newID()
+	item, err := c.buildGameDef(id, name, request.Body.Spec, time.Time{})
 	if err != nil {
 		return adminhttp.CreateGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", err.Error())), nil
 	}
-	if _, err := store.Get(ctx, gameDefKey(item.Id)); err == nil {
-		return adminhttp.CreateGameDef409JSONResponse(apitypes.NewErrorResponse("GAME_DEF_ALREADY_EXISTS", fmt.Sprintf("game def %q already exists", item.Id))), nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
+	created, err := createNamedCatalogItem(ctx, store, gameDefKey(item.Id), gameDefNameKey(item.Name), item.Id, item)
+	if err != nil {
 		return adminhttp.CreateGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := writeJSON(ctx, store, gameDefKey(item.Id), item); err != nil {
-		return adminhttp.CreateGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	if !created {
+		return adminhttp.CreateGameDef409JSONResponse(apitypes.NewErrorResponse("GAME_DEF_ALREADY_EXISTS", fmt.Sprintf("game def %q already exists", item.Name))), nil
 	}
 	return adminhttp.CreateGameDef200JSONResponse(item), nil
 }
@@ -460,7 +477,7 @@ func (c *Catalog) DeleteGameDef(ctx context.Context, request adminhttp.DeleteGam
 			}
 		}
 	}
-	if err := store.Delete(ctx, gameDefKey(id)); err != nil {
+	if err := store.BatchDelete(ctx, []kv.Key{gameDefKey(id), gameDefNameKey(item.Name)}); err != nil {
 		return adminhttp.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteGameDef200JSONResponse(item), nil
@@ -492,7 +509,10 @@ func (c *Catalog) PutGameDef(ctx context.Context, request adminhttp.PutGameDefRe
 	unlock := c.IconLocks.LockRecord(id)
 	defer unlock()
 	previous, err := readJSON[apitypes.GameDef](ctx, store, gameDefKey(id))
-	if err != nil && !errors.Is(err, kv.ErrNotFound) {
+	if errors.Is(err, kv.ErrNotFound) {
+		return adminhttp.PutGameDef404JSONResponse(apitypes.NewErrorResponse("GAME_DEF_NOT_FOUND", fmt.Sprintf("game def %q not found", id))), nil
+	}
+	if err != nil {
 		return adminhttp.PutGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := iconasset.ValidateProjection(previous.Icon, request.Body.Icon); err != nil {
@@ -502,7 +522,10 @@ func (c *Catalog) PutGameDef(ctx context.Context, request adminhttp.PutGameDefRe
 	if err == nil {
 		createdAt = previous.CreatedAt
 	}
-	item, err := c.buildGameDef(id, request.Body.Spec, createdAt)
+	if strings.TrimSpace(request.Body.Name) != previous.Name {
+		return adminhttp.PutGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", fmt.Sprintf("name %q must match immutable name %q", request.Body.Name, previous.Name))), nil
+	}
+	item, err := c.buildGameDef(id, previous.Name, request.Body.Spec, createdAt)
 	if err != nil {
 		return adminhttp.PutGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", err.Error())), nil
 	}
@@ -561,18 +584,22 @@ func (c *Catalog) GetGameDefByID(ctx context.Context, id string) (apitypes.GameD
 	return item, err
 }
 
-func (c *Catalog) buildPetDef(id string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
-	return c.buildPetDefWithValidator(id, spec, pixaPath, createdAt, validatePetDef)
+func (c *Catalog) buildPetDef(id, name string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
+	return c.buildPetDefWithValidator(id, name, spec, pixaPath, createdAt, validatePetDef)
 }
 
-func (c *Catalog) buildPetDefForUpdate(id string, spec apitypes.PetDefSpec, _ apitypes.PetDef, _ bool, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
-	return c.buildPetDef(id, spec, pixaPath, createdAt)
+func (c *Catalog) buildPetDefForUpdate(id, name string, spec apitypes.PetDefSpec, _ apitypes.PetDef, _ bool, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
+	return c.buildPetDef(id, name, spec, pixaPath, createdAt)
 }
 
-func (c *Catalog) buildPetDefWithValidator(id string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time, validate func(apitypes.PetDefSpec) error) (apitypes.PetDef, error) {
+func (c *Catalog) buildPetDefWithValidator(id, name string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time, validate func(apitypes.PetDefSpec) error) (apitypes.PetDef, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return apitypes.PetDef{}, errors.New("id is required")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return apitypes.PetDef{}, errors.New("name is required")
 	}
 	if err := validate(spec); err != nil {
 		return apitypes.PetDef{}, err
@@ -581,7 +608,7 @@ func (c *Catalog) buildPetDefWithValidator(id string, spec apitypes.PetDefSpec, 
 	if createdAt.IsZero() {
 		createdAt = now
 	}
-	return apitypes.PetDef{Id: id, Spec: spec, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
+	return apitypes.PetDef{Id: id, Name: name, Spec: spec, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
 }
 
 func validatePetDef(spec apitypes.PetDefSpec) error {
@@ -680,10 +707,14 @@ func validatePetDefBindings(visual apitypes.PetDefVisualSpec) error {
 	return nil
 }
 
-func (c *Catalog) buildBadgeDef(id string, spec apitypes.BadgeDefSpec, pixaPath *string, createdAt time.Time) (apitypes.BadgeDef, error) {
+func (c *Catalog) buildBadgeDef(id, name string, spec apitypes.BadgeDefSpec, pixaPath *string, createdAt time.Time) (apitypes.BadgeDef, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return apitypes.BadgeDef{}, errors.New("id is required")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return apitypes.BadgeDef{}, errors.New("name is required")
 	}
 	spec.DisplayName = strings.TrimSpace(spec.DisplayName)
 	if spec.DisplayName == "" {
@@ -706,13 +737,17 @@ func (c *Catalog) buildBadgeDef(id string, spec apitypes.BadgeDefSpec, pixaPath 
 	if createdAt.IsZero() {
 		createdAt = now
 	}
-	return apitypes.BadgeDef{Id: id, Spec: spec, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
+	return apitypes.BadgeDef{Id: id, Name: name, Spec: spec, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
 }
 
-func (c *Catalog) buildGameDef(id string, spec apitypes.GameDefSpec, createdAt time.Time) (apitypes.GameDef, error) {
+func (c *Catalog) buildGameDef(id, name string, spec apitypes.GameDefSpec, createdAt time.Time) (apitypes.GameDef, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return apitypes.GameDef{}, errors.New("id is required")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return apitypes.GameDef{}, errors.New("name is required")
 	}
 	if strings.TrimSpace(spec.DisplayName) == "" {
 		return apitypes.GameDef{}, errors.New("display_name is required")
@@ -721,7 +756,7 @@ func (c *Catalog) buildGameDef(id string, spec apitypes.GameDefSpec, createdAt t
 	if createdAt.IsZero() {
 		createdAt = now
 	}
-	return apitypes.GameDef{Id: id, Spec: spec, CreatedAt: createdAt, UpdatedAt: now}, nil
+	return apitypes.GameDef{Id: id, Name: name, Spec: spec, CreatedAt: createdAt, UpdatedAt: now}, nil
 }
 
 func (c *Catalog) store(store kv.Store, name string) (kv.Store, error) {
@@ -736,6 +771,13 @@ func (c *Catalog) now() time.Time {
 		return c.Now().UTC()
 	}
 	return time.Now().UTC()
+}
+
+func (c *Catalog) newID() string {
+	if c != nil && c.NewID != nil {
+		return c.NewID()
+	}
+	return socialutil.NewID()
 }
 
 func (c *Catalog) putAsset(name string, reader io.Reader) error {
@@ -774,6 +816,27 @@ func (c *Catalog) openAsset(name string) (io.ReadCloser, int64, error) {
 func petDefKey(id string) kv.Key   { return append(append(kv.Key(nil), petDefsRoot...), id) }
 func badgeDefKey(id string) kv.Key { return append(append(kv.Key(nil), badgeDefsRoot...), id) }
 func gameDefKey(id string) kv.Key  { return append(append(kv.Key(nil), gameDefsRoot...), id) }
+func petDefNameKey(name string) kv.Key {
+	return append(append(kv.Key(nil), petDefsByNameRoot...), name)
+}
+func badgeDefNameKey(name string) kv.Key {
+	return append(append(kv.Key(nil), badgeDefsByNameRoot...), name)
+}
+func gameDefNameKey(name string) kv.Key {
+	return append(append(kv.Key(nil), gameDefsByNameRoot...), name)
+}
+
+func createNamedCatalogItem(ctx context.Context, store kv.Store, recordKey, nameKey kv.Key, id string, value any) (bool, error) {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return false, err
+	}
+	_, created, err := kv.CreateIfAbsent(ctx, store,
+		kv.Entry{Key: nameKey, Value: []byte(id)},
+		[]kv.Entry{{Key: recordKey, Value: data}},
+	)
+	return created, err
+}
 
 func writeJSON(ctx context.Context, store kv.Store, key kv.Key, value any) error {
 	data, err := json.Marshal(value)

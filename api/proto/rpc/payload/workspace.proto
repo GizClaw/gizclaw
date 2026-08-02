@@ -187,7 +187,7 @@ message ServerReloadRunWorkspaceResponse {
 
 message ServerRunSayRequest {
   string text = 1;
-  string voice_alias = 2;
+  string voice_name = 2;
 }
 
 message ServerRunSayResponse {
@@ -231,18 +231,17 @@ message Workspace {
   string name = 3;
   optional WorkspaceParameters parameters = 4;
   string updated_at = 5;
-  string workflow_alias = 6;
+  string workflow_name = 6;
   optional ToolkitPolicy toolkit = 7;
   bool system = 8;
   optional Icon icon = 9;
-  optional string owner_public_key = 10;
   bool available = 11;
 }
 
 message WorkspaceCreateBody {
   string name = 1;
   optional WorkspaceParameters parameters = 2;
-  string workflow_alias = 3;
+  string workflow_name = 3;
   optional ToolkitPolicy toolkit = 4;
   string collection = 5;
 }
@@ -337,17 +336,14 @@ message WorkspaceListResponse {
 }
 
 message WorkspaceParameters {
-  reserved 5;
-  reserved "pet_workspace_parameters";
-
   oneof value {
     FlowcraftWorkspaceParameters flowcraft_workspace_parameters = 1;
     DoubaoRealtimeWorkspaceParameters doubao_realtime_workspace_parameters = 2;
     ASTTranslateWorkspaceParameters asttranslate_workspace_parameters = 3;
     ChatRoomWorkspaceParameters chat_room_workspace_parameters = 4;
-    DashScopeRealtimeWorkspaceParameters dash_scope_realtime_workspace_parameters = 6;
-    DoubaoRealtimeDuplexWorkspaceParameters doubao_realtime_duplex_workspace_parameters = 7;
-    EinoWorkspaceParameters eino_workspace_parameters = 8;
+    DashScopeRealtimeWorkspaceParameters dash_scope_realtime_workspace_parameters = 5;
+    DoubaoRealtimeDuplexWorkspaceParameters doubao_realtime_duplex_workspace_parameters = 6;
+    EinoWorkspaceParameters eino_workspace_parameters = 7;
   }
 }
 

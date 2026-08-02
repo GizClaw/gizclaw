@@ -69,8 +69,8 @@ func TestServerSocialRPCHumanReview(t *testing.T) {
 	if stringValue(group.WorkspaceName) == "" {
 		t.Fatalf("friend_group.create workspace_name is empty: %#v", group)
 	}
-	mustAddFriendGroupMember(t, h, "peer-a", stringValue(group.Id), peerB, rpcapi.FriendGroupMemberMutableRoleMember)
-	mustAddFriendGroupMember(t, h, "peer-a", stringValue(group.Id), peerC, rpcapi.FriendGroupMemberMutableRoleMember)
+	mustAddFriendGroupMember(t, h, "peer-a", group.Name, peerB, rpcapi.FriendGroupMemberMutableRoleMember)
+	mustAddFriendGroupMember(t, h, "peer-a", group.Name, peerC, rpcapi.FriendGroupMemberMutableRoleMember)
 	t.Run("group chat", func(t *testing.T) {
 		runSocialHumanReviewAudioStory(t, h, playback, "peer-b", "peer-c", stringValue(group.WorkspaceName), []string{
 			"你好，这是群聊语音留言测试第一轮。",
@@ -156,7 +156,7 @@ func registerSocialHumanReviewProfile(t *testing.T, api *adminhttp.ClientWithRes
 	voices := map[string]string{socialHumanReviewVoiceAlias: socialHumanReviewVoiceResource}
 	modelBindings := socialRuntimeBindings(models)
 	voiceBindings := socialRuntimeBindings(voices)
-	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, socialHumanReviewRuntimeProfile, adminhttp.RuntimeProfileUpsert{
+	profile, err := clitest.UpsertRuntimeProfileByName(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Name: socialHumanReviewRuntimeProfile,
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
 			Models: &modelBindings,
@@ -175,15 +175,14 @@ func registerSocialHumanReviewProfile(t *testing.T, api *adminhttp.ClientWithRes
 	if err != nil {
 		t.Fatalf("put social human-review RuntimeProfile: %v", err)
 	}
-	if profileResp.JSON200 == nil {
-		t.Fatalf("put social human-review RuntimeProfile status %d: %s", profileResp.StatusCode(), strings.TrimSpace(string(profileResp.Body)))
-	}
 	tokenName := "e2e-social-human-review"
-	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
+	if err := clitest.DeleteRegistrationTokenByName(ctx, api, tokenName); err != nil {
+		t.Fatalf("retire social human-review RegistrationToken: %v", err)
+	}
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name:               tokenName,
-		Token:              tokenName,
-		RuntimeProfileName: socialHumanReviewRuntimeProfile,
+		Name:             tokenName,
+		Token:            tokenName,
+		RuntimeProfileId: profile.Id,
 	})
 	if err != nil {
 		t.Fatalf("create social human-review RegistrationToken: %v", err)
@@ -196,7 +195,7 @@ func registerSocialHumanReviewProfile(t *testing.T, api *adminhttp.ClientWithRes
 		if err != nil {
 			t.Fatalf("register %s for social human review: %v", peerName, err)
 		}
-		if registered.RuntimeProfileName != socialHumanReviewRuntimeProfile {
+		if registered.RuntimeProfileName != profile.Name {
 			t.Fatalf("register %s for social human review = %#v", peerName, registered)
 		}
 	}

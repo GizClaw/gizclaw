@@ -29,7 +29,7 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 
 	createBody := mustWorkspaceUpsert(t, `{
 		"name": "alpha001",
-		"workflow_name": "workflow-1",
+		"workflow_id": "workflow-1",
 		"parameters": {"mode": "demo"}
 	}`)
 
@@ -41,7 +41,7 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if !ok {
 		t.Fatalf("CreateWorkspace() response = %#v", createResp)
 	}
-	if created.Name != "alpha001" || created.WorkflowName != "workflow-1" {
+	if created.Name != "alpha001" || created.WorkflowId != "workflow-1" {
 		t.Fatalf("CreateWorkspace() workspace = %#v", created)
 	}
 	if created.System == nil || *created.System {
@@ -53,7 +53,11 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if !created.LastActiveAt.Equal(created.CreatedAt) {
 		t.Fatalf("CreateWorkspace() last_active_at = %s, want created_at %s", created.LastActiveAt, created.CreatedAt)
 	}
-	if len(runtime.prepared) != 1 || runtime.prepared[0] != "alpha001" {
+	workspaceID := string(created.Id)
+	if workspaceID == "" || workspaceID == created.Name {
+		t.Fatalf("CreateWorkspace() id = %q, want opaque server ID distinct from name", workspaceID)
+	}
+	if len(runtime.prepared) != 1 || runtime.prepared[0] != workspaceID {
 		t.Fatalf("runtime prepared after create = %#v", runtime.prepared)
 	}
 
@@ -69,7 +73,7 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 		t.Fatalf("ListWorkspaces() = %#v", listed)
 	}
 
-	getResp, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: "alpha001"})
+	getResp, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Id: workspaceID})
 	if err != nil {
 		t.Fatalf("GetWorkspace() error = %v", err)
 	}
@@ -83,11 +87,11 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 
 	updateBody := mustWorkspaceUpsert(t, `{
 		"name": "alpha001",
-		"workflow_name": "workflow-1",
+		"workflow_id": "workflow-1",
 		"parameters": {"mode": "updated"}
 	}`)
 	putResp, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{
-		Name: "alpha001",
+		Id:   workspaceID,
 		Body: &updateBody,
 	})
 	if err != nil {
@@ -103,11 +107,11 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if !updated.LastActiveAt.Equal(created.LastActiveAt) {
 		t.Fatalf("PutWorkspace() last_active_at = %s, want unchanged %s", updated.LastActiveAt, created.LastActiveAt)
 	}
-	if len(runtime.prepared) != 2 || runtime.prepared[1] != "alpha001" {
+	if len(runtime.prepared) != 2 || runtime.prepared[1] != workspaceID {
 		t.Fatalf("runtime prepared after put = %#v", runtime.prepared)
 	}
 
-	deleteResp, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: "alpha001"})
+	deleteResp, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Id: workspaceID})
 	if err != nil {
 		t.Fatalf("DeleteWorkspace() error = %v", err)
 	}
@@ -117,11 +121,11 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if len(runtime.deleted) != 0 {
 		t.Fatalf("runtime deleted during pending-deletion request = %#v", runtime.deleted)
 	}
-	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, "alpha001"); err != nil || !pending {
+	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, workspaceID); err != nil || !pending {
 		t.Fatalf("workspace pending deletion = %v, error = %v", pending, err)
 	}
 
-	getAfterDelete, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: "alpha001"})
+	getAfterDelete, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Id: workspaceID})
 	if err != nil {
 		t.Fatalf("GetWorkspace() after delete error = %v", err)
 	}
@@ -143,7 +147,7 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if _, ok := createAfterDelete.(adminhttp.CreateWorkspace409JSONResponse); !ok {
 		t.Fatalf("CreateWorkspace() while retained response = %#v", createAfterDelete)
 	}
-	putAfterDelete, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "alpha001", Body: &updateBody})
+	putAfterDelete, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: workspaceID, Body: &updateBody})
 	if err != nil {
 		t.Fatalf("PutWorkspace() while pending error = %v", err)
 	}
@@ -152,7 +156,7 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	}
 	invalidPutBody := updateBody
 	invalidPutBody.Name = "other-workspace"
-	invalidPutAfterDelete, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "alpha001", Body: &invalidPutBody})
+	invalidPutAfterDelete, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: workspaceID, Body: &invalidPutBody})
 	if err != nil {
 		t.Fatalf("PutWorkspace() invalid while pending error = %v", err)
 	}
@@ -178,7 +182,7 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("encode initial chatroom parameters: %v", err)
 	}
-	body := adminhttp.WorkspaceUpsert{Name: "friend-chat", WorkflowName: "chatroom", Parameters: &parameters}
+	body := adminhttp.WorkspaceUpsert{Name: "friend-chat", WorkflowId: "chatroom", Parameters: &parameters}
 
 	created, wasCreated, err := srv.CreateSystemWorkspace(ctx, body)
 	if err != nil {
@@ -203,12 +207,12 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 		t.Fatalf("encode updated chatroom parameters: %v", err)
 	}
 	putBody := adminhttp.WorkspaceUpsert{
-		Name:         "friend-chat",
-		WorkflowName: "chatroom",
-		Parameters:   &updatedParameters,
+		Name:       "friend-chat",
+		WorkflowId: "chatroom",
+		Parameters: &updatedParameters,
 	}
 	putCtx := WithRuntimeWorkflowBindings(ctx, map[string]string{"personal": "chatroom"})
-	putResp, err := srv.PutWorkspace(putCtx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &putBody})
+	putResp, err := srv.PutWorkspace(putCtx, adminhttp.PutWorkspaceRequestObject{Id: created.Id, Body: &putBody})
 	if err != nil {
 		t.Fatalf("PutWorkspace(system) error = %v", err)
 	}
@@ -223,7 +227,7 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	labels := map[string]string{"domain": "changed"}
 	conflictingLabelsBody := putBody
 	conflictingLabelsBody.Labels = &labels
-	conflictingLabels, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &conflictingLabelsBody})
+	conflictingLabels, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: created.Id, Body: &conflictingLabelsBody})
 	if err != nil {
 		t.Fatalf("PutWorkspace(system conflicting labels) error = %v", err)
 	}
@@ -234,7 +238,7 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	toolIDs := []string{"tool-a"}
 	conflictingToolkitBody := putBody
 	conflictingToolkitBody.Toolkit = &apitypes.ToolkitPolicy{ToolIds: &toolIDs}
-	conflictingToolkit, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &conflictingToolkitBody})
+	conflictingToolkit, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: created.Id, Body: &conflictingToolkitBody})
 	if err != nil {
 		t.Fatalf("PutWorkspace(system conflicting toolkit) error = %v", err)
 	}
@@ -253,7 +257,7 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	}
 	conflictingTranscriptBody := putBody
 	conflictingTranscriptBody.Parameters = &conflictingTranscriptParameters
-	conflictingTranscript, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &conflictingTranscriptBody})
+	conflictingTranscript, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: created.Id, Body: &conflictingTranscriptBody})
 	if err != nil {
 		t.Fatalf("PutWorkspace(system conflicting transcript) error = %v", err)
 	}
@@ -271,7 +275,7 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	}
 	conflictingPutBody := putBody
 	conflictingPutBody.Parameters = &conflictingParameters
-	conflictingPut, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &conflictingPutBody})
+	conflictingPut, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: created.Id, Body: &conflictingPutBody})
 	if err != nil {
 		t.Fatalf("PutWorkspace(system conflicting mode) error = %v", err)
 	}
@@ -280,8 +284,8 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 		t.Fatalf("PutWorkspace(system conflicting mode) response = %#v", conflictingPut)
 	}
 	conflictingWorkflowBody := putBody
-	conflictingWorkflowBody.WorkflowName = "other-workflow"
-	conflictingWorkflow, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &conflictingWorkflowBody})
+	conflictingWorkflowBody.WorkflowId = "other-workflow"
+	conflictingWorkflow, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: created.Id, Body: &conflictingWorkflowBody})
 	if err != nil {
 		t.Fatalf("PutWorkspace(system conflicting Workflow) error = %v", err)
 	}
@@ -290,7 +294,7 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 		t.Fatalf("PutWorkspace(system conflicting Workflow) response = %#v", conflictingWorkflow)
 	}
 
-	deleteResp, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: "friend-chat"})
+	deleteResp, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("DeleteWorkspace(system) error = %v", err)
 	}
@@ -304,7 +308,7 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	if _, err := getWorkspace(ctx, srv.Store, "friend-chat"); err != nil {
 		t.Fatalf("system workspace after rejected generic delete: %v", err)
 	}
-	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, "friend-chat"); err != nil || pending {
+	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, created.Id); err != nil || pending {
 		t.Fatalf("system workspace pending deletion = %v, error = %v", pending, err)
 	}
 
@@ -315,14 +319,14 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	if deleted.System == nil || !*deleted.System {
 		t.Fatalf("DeleteSystemWorkspace() = %#v", deleted)
 	}
-	if len(runtime.deleted) != 1 || runtime.deleted[0] != "friend-chat" {
+	if len(runtime.deleted) != 1 || runtime.deleted[0] != created.Id {
 		t.Fatalf("runtime deleted after system delete = %#v", runtime.deleted)
 	}
 	if _, err := srv.DeleteSystemWorkspace(ctx, "friend-chat"); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("DeleteSystemWorkspace(missing) error = %v, want kv.ErrNotFound", err)
 	}
-	if len(runtime.deleted) != 2 || runtime.deleted[1] != "friend-chat" {
-		t.Fatalf("runtime deleted after missing system delete = %#v", runtime.deleted)
+	if len(runtime.deleted) != 1 {
+		t.Fatalf("runtime deleted after missing system delete = %#v, want no name-based cleanup", runtime.deleted)
 	}
 }
 
@@ -330,18 +334,22 @@ func TestWorkspaceDeleteSerializesWithPut(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	seedWorkflow(t, srv, "workflow-1")
-	body := adminhttp.WorkspaceUpsert{Name: "concurrent", WorkflowName: "workflow-1"}
-	if response, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body}); err != nil {
+	body := adminhttp.WorkspaceUpsert{Name: "concurrent", WorkflowId: "workflow-1"}
+	response, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	if err != nil {
 		t.Fatalf("CreateWorkspace: %v", err)
-	} else if _, ok := response.(adminhttp.CreateWorkspace200JSONResponse); !ok {
+	}
+	created, ok := response.(adminhttp.CreateWorkspace200JSONResponse)
+	if !ok {
 		t.Fatalf("CreateWorkspace response = %#v", response)
 	}
+	workspaceID := created.Id
 
 	start := make(chan struct{})
 	errs := make(chan error, 2)
 	go func() {
 		<-start
-		response, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: body.Name})
+		response, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Id: workspaceID})
 		if err == nil {
 			if _, ok := response.(adminhttp.DeleteWorkspace200JSONResponse); !ok {
 				err = fmt.Errorf("DeleteWorkspace response = %#v", response)
@@ -351,7 +359,7 @@ func TestWorkspaceDeleteSerializesWithPut(t *testing.T) {
 	}()
 	go func() {
 		<-start
-		response, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: body.Name, Body: &body})
+		response, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: workspaceID, Body: &body})
 		if err == nil {
 			switch response.(type) {
 			case adminhttp.PutWorkspace200JSONResponse:
@@ -367,10 +375,10 @@ func TestWorkspaceDeleteSerializesWithPut(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := getWorkspace(ctx, srv.Store, body.Name); err != nil {
+	if _, err := getWorkspaceByID(ctx, srv.Store, workspaceID); err != nil {
 		t.Fatalf("workspace after concurrent delete/put error = %v", err)
 	}
-	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, body.Name); err != nil || !pending {
+	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, workspaceID); err != nil || !pending {
 		t.Fatalf("workspace pending deletion = %v, error = %v", pending, err)
 	}
 }
@@ -387,11 +395,12 @@ func TestCreateSystemWorkspaceRejectsRetiringWorkspace(t *testing.T) {
 		t.Fatalf("encode Chatroom parameters: %v", err)
 	}
 	body := adminhttp.WorkspaceUpsert{
-		Name:         "friend-chat-retiring",
-		WorkflowName: "chatroom",
-		Parameters:   &parameters,
+		Name:       "friend-chat-retiring",
+		WorkflowId: "chatroom",
+		Parameters: &parameters,
 	}
-	if _, _, err := srv.CreateSystemWorkspace(ctx, body); err != nil {
+	_, _, err := srv.CreateSystemWorkspace(ctx, body)
+	if err != nil {
 		t.Fatalf("CreateSystemWorkspace() error = %v", err)
 	}
 	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, directMode, "peer-a:peer-b"); err != nil {
@@ -417,17 +426,18 @@ func TestCreateSystemWorkspaceRejectsRetiringWorkspaceAfterRecordRemoval(t *test
 		t.Fatalf("encode Chatroom parameters: %v", err)
 	}
 	body := adminhttp.WorkspaceUpsert{
-		Name:         "friend-chat-partially-cleaned",
-		WorkflowName: "chatroom",
-		Parameters:   &parameters,
+		Name:       "friend-chat-partially-cleaned",
+		WorkflowId: "chatroom",
+		Parameters: &parameters,
 	}
-	if _, _, err := srv.CreateSystemWorkspace(ctx, body); err != nil {
+	created, _, err := srv.CreateSystemWorkspace(ctx, body)
+	if err != nil {
 		t.Fatalf("CreateSystemWorkspace() error = %v", err)
 	}
 	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, directMode, "peer-a:peer-b"); err != nil {
 		t.Fatalf("RetireSystemWorkspace() error = %v", err)
 	}
-	if err := srv.Store.Delete(ctx, workspaceKey(body.Name)); err != nil {
+	if err := srv.Store.Delete(ctx, workspaceKey(created.Id)); err != nil {
 		t.Fatalf("remove active Workspace record: %v", err)
 	}
 	preparedBefore := len(runtime.prepared)
@@ -461,7 +471,7 @@ func TestServerSystemWorkspaceClassificationComesFromCreationPath(t *testing.T) 
 	srv.RuntimeStore = &recordingRuntimeStore{}
 	ctx := context.Background()
 	seedWorkflow(t, srv, "chatroom")
-	body := adminhttp.WorkspaceUpsert{Name: "friend-user-created", WorkflowName: "chatroom"}
+	body := adminhttp.WorkspaceUpsert{Name: "friend-user-created", WorkflowId: "chatroom"}
 
 	createResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
@@ -474,7 +484,7 @@ func TestServerSystemWorkspaceClassificationComesFromCreationPath(t *testing.T) 
 	if _, _, err := srv.CreateSystemWorkspace(ctx, body); err == nil {
 		t.Fatal("CreateSystemWorkspace(user Workspace) error = nil, want classification conflict")
 	}
-	deleteResp, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: body.Name})
+	deleteResp, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("DeleteWorkspace() error = %v", err)
 	}
@@ -483,48 +493,61 @@ func TestServerSystemWorkspaceClassificationComesFromCreationPath(t *testing.T) 
 	}
 }
 
-func TestServerWorkspaceLastActiveBackfillsLegacyRecords(t *testing.T) {
+func TestServerCreateWorkspaceDeletesPreparedRuntimeWhenRecordCreationFails(t *testing.T) {
+	srv := newTestServer(t)
+	runtime := &recordingRuntimeStore{}
+	srv.RuntimeStore = runtime
+	srv.NewID = func() string { return "workspace-failed-create" }
+	seedWorkflow(t, srv, "workflow-1")
+	srv.Store = failingCreateIfAbsentStore{Store: srv.Store, err: errors.New("injected create failure")}
+	body := adminhttp.WorkspaceUpsert{Name: "failed-create", WorkflowId: "workflow-1"}
+
+	response, err := srv.CreateWorkspace(t.Context(), adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	if err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	internal, ok := response.(adminhttp.CreateWorkspace500JSONResponse)
+	if !ok || !strings.Contains(internal.Error.Message, "injected create failure") {
+		t.Fatalf("CreateWorkspace() response = %#v, want injected 500", response)
+	}
+	if len(runtime.prepared) != 1 || runtime.prepared[0] != "workspace-failed-create" {
+		t.Fatalf("prepared runtimes = %#v", runtime.prepared)
+	}
+	if len(runtime.deleted) != 1 || runtime.deleted[0] != "workspace-failed-create" {
+		t.Fatalf("deleted runtimes = %#v, want prepared runtime cleanup", runtime.deleted)
+	}
+}
+
+func TestServerRejectsWorkspaceRecordsOutsideFinalSchema(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
 	ctx := context.Background()
 	createdAt := time.Date(2026, 6, 22, 8, 0, 0, 0, time.UTC)
 	updatedAt := createdAt.Add(time.Hour)
-	legacy := map[string]any{
-		"name":          "legacy",
-		"workflow_name": "workflow-1",
-		"created_at":    createdAt.Format(time.RFC3339Nano),
-		"updated_at":    updatedAt.Format(time.RFC3339Nano),
+	incomplete := map[string]any{
+		"id":          "legacy-id",
+		"name":        "legacy",
+		"workflow_id": "workflow-1",
+		"created_at":  createdAt.Format(time.RFC3339Nano),
+		"updated_at":  updatedAt.Format(time.RFC3339Nano),
 	}
-	data, err := json.Marshal(legacy)
+	data, err := json.Marshal(incomplete)
 	if err != nil {
 		t.Fatalf("json.Marshal() error = %v", err)
 	}
-	if err := srv.Store.Set(ctx, workspaceKey("legacy"), data); err != nil {
+	if err := srv.Store.BatchSet(ctx, []kv.Entry{
+		{Key: workspaceKey("legacy-id"), Value: data},
+		{Key: workspaceScopeNameKey(nil, "legacy"), Value: []byte("legacy-id")},
+	}); err != nil {
 		t.Fatalf("seed legacy workspace: %v", err)
 	}
 
-	got, err := getWorkspace(ctx, srv.Store, "legacy")
-	if err != nil {
+	if _, err := getWorkspace(ctx, srv.Store, "legacy"); err == nil || !strings.Contains(err.Error(), "requires system") {
 		t.Fatalf("getWorkspace() error = %v", err)
 	}
-	if !got.LastActiveAt.Equal(createdAt) {
-		t.Fatalf("getWorkspace() last_active_at = %s, want created_at %s", got.LastActiveAt, createdAt)
-	}
-	if got.System == nil || *got.System {
-		t.Fatalf("getWorkspace() legacy system = %#v, want false", got.System)
-	}
-
-	listResp, err := srv.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{})
-	if err != nil {
-		t.Fatalf("ListWorkspaces() error = %v", err)
-	}
-	listed, ok := listResp.(adminhttp.ListWorkspaces200JSONResponse)
-	if !ok || len(listed.Items) != 1 {
-		t.Fatalf("ListWorkspaces() response = %#v", listResp)
-	}
-	if !listed.Items[0].LastActiveAt.Equal(createdAt) {
-		t.Fatalf("ListWorkspaces() last_active_at = %s, want created_at %s", listed.Items[0].LastActiveAt, createdAt)
+	if _, _, _, err := listWorkspacePage(ctx, srv.Store, workspacesRoot, "", 10, nil); err == nil || !strings.Contains(err.Error(), "requires system") {
+		t.Fatalf("listWorkspacePage() error = %v", err)
 	}
 }
 
@@ -539,8 +562,8 @@ func TestServerListWorkspacesPagination(t *testing.T) {
 
 	for _, name := range []string{"alpha001", "beta0001", "gamma001"} {
 		body := adminhttp.WorkspaceUpsert{
-			Name:         string(name),
-			WorkflowName: "workflow-1",
+			Name:       string(name),
+			WorkflowId: "workflow-1",
 		}
 		if _, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body}); err != nil {
 			t.Fatalf("CreateWorkspace(%q) error = %v", name, err)
@@ -588,7 +611,7 @@ func TestServerWorkspaceLabelsRoundTripPreserveAndClear(t *testing.T) {
 	seedWorkflow(t, srv, "workflow-1")
 	ctx := context.Background()
 	inputLabels := map[string]string{"collection": "raids", "tier": "Gold"}
-	body := adminhttp.WorkspaceUpsert{Name: "labels01", WorkflowName: "workflow-1", Labels: &inputLabels}
+	body := adminhttp.WorkspaceUpsert{Name: "labels01", WorkflowId: "workflow-1", Labels: &inputLabels}
 	response, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatalf("CreateWorkspace() error = %v", err)
@@ -600,7 +623,8 @@ func TestServerWorkspaceLabelsRoundTripPreserveAndClear(t *testing.T) {
 	inputLabels["collection"] = "mutated"
 	(*created.Labels)["collection"] = "also-mutated"
 
-	getResponse, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: "labels01"})
+	workspaceID := created.Id
+	getResponse, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Id: workspaceID})
 	if err != nil {
 		t.Fatalf("GetWorkspace() error = %v", err)
 	}
@@ -609,8 +633,8 @@ func TestServerWorkspaceLabelsRoundTripPreserveAndClear(t *testing.T) {
 		t.Fatalf("stored labels = %#v", stored.Labels)
 	}
 
-	preserve := adminhttp.WorkspaceUpsert{Name: "labels01", WorkflowName: "workflow-1"}
-	putResponse, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "labels01", Body: &preserve})
+	preserve := adminhttp.WorkspaceUpsert{Name: "labels01", WorkflowId: "workflow-1"}
+	putResponse, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: workspaceID, Body: &preserve})
 	if err != nil {
 		t.Fatalf("PutWorkspace(preserve) error = %v", err)
 	}
@@ -620,8 +644,8 @@ func TestServerWorkspaceLabelsRoundTripPreserveAndClear(t *testing.T) {
 	}
 
 	empty := map[string]string{}
-	clear := adminhttp.WorkspaceUpsert{Name: "labels01", WorkflowName: "workflow-1", Labels: &empty}
-	putResponse, err = srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "labels01", Body: &clear})
+	clear := adminhttp.WorkspaceUpsert{Name: "labels01", WorkflowId: "workflow-1", Labels: &empty}
+	putResponse, err = srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: workspaceID, Body: &clear})
 	if err != nil {
 		t.Fatalf("PutWorkspace(clear) error = %v", err)
 	}
@@ -652,7 +676,7 @@ func TestServerWorkspaceLabelValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			srv := newTestServer(t)
 			seedWorkflow(t, srv, "workflow-1")
-			body := adminhttp.WorkspaceUpsert{Name: "invalid1", WorkflowName: "workflow-1", Labels: &test.labels}
+			body := adminhttp.WorkspaceUpsert{Name: "invalid1", WorkflowId: "workflow-1", Labels: &test.labels}
 			response, err := srv.CreateWorkspace(context.Background(), adminhttp.CreateWorkspaceRequestObject{Body: &body})
 			if err != nil {
 				t.Fatalf("CreateWorkspace() error = %v", err)
@@ -671,6 +695,12 @@ func TestServerWorkspaceLabelFilteringBeforePagination(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
+	ids := []string{"workspace-01", "workspace-02", "workspace-03", "workspace-04"}
+	srv.NewID = func() string {
+		id := ids[0]
+		ids = ids[1:]
+		return id
+	}
 	seedWorkflow(t, srv, "workflow-1")
 	ctx := ownership.WithOwner(context.Background(), "peer-a")
 	fixtures := []struct {
@@ -685,7 +715,7 @@ func TestServerWorkspaceLabelFilteringBeforePagination(t *testing.T) {
 	}
 	for _, fixture := range fixtures {
 		labels := map[string]string{"collection": fixture.collection, "tier": fixture.tier}
-		body := adminhttp.WorkspaceUpsert{Name: fixture.name, WorkflowName: "workflow-1", Labels: &labels}
+		body := adminhttp.WorkspaceUpsert{Name: fixture.name, WorkflowId: "workflow-1", Labels: &labels}
 		if _, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body}); err != nil {
 			t.Fatalf("CreateWorkspace(%q) error = %v", fixture.name, err)
 		}
@@ -740,7 +770,7 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 
 	missingWorkflow := mustWorkspaceUpsert(t, `{
 		"name": "alpha001",
-		"workflow_name": "missing-workflow"
+		"workflow_id": "missing-workflow"
 	}`)
 	resp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &missingWorkflow})
 	if err != nil {
@@ -760,7 +790,7 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 
 	missingName := mustWorkspaceUpsert(t, `{
 		"name": " ",
-		"workflow_name": "workflow-1"
+		"workflow_id": "workflow-1"
 	}`)
 	missingNameResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &missingName})
 	if err != nil {
@@ -770,11 +800,11 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 		t.Fatalf("CreateWorkspace(missing name) response = %#v", missingNameResp)
 	}
 
-	invalidWorkflowName := mustWorkspaceUpsert(t, `{
+	invalidWorkflowId := mustWorkspaceUpsert(t, `{
 		"name": "alpha001",
-		"workflow_name": "Bad_Name"
+		"workflow_id": "Bad_Name"
 	}`)
-	invalidWorkflowResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &invalidWorkflowName})
+	invalidWorkflowResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &invalidWorkflowId})
 	if err != nil {
 		t.Fatalf("CreateWorkspace(invalid workflow name) error = %v", err)
 	}
@@ -783,20 +813,43 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 	}
 }
 
-func TestNormalizeWorkspaceUpsertAcceptsWorkflowAliasesAndResourceIDs(t *testing.T) {
+func TestNormalizeWorkspaceUpsertAcceptsOpaqueWorkflowIDs(t *testing.T) {
 	t.Parallel()
 
-	for _, workflowName := range []string{"2fa-chat", "my_workflow"} {
+	for _, workflowID := range []string{"2fa-chat", "Opaque_Workflow_ID", strings.Repeat("a", 80)} {
 		got, err := normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
-			Name:         "runtime-workspace",
-			WorkflowName: workflowName,
+			Name:       "runtime-workspace",
+			WorkflowId: workflowID,
 		}, "")
 		if err != nil {
-			t.Fatalf("normalizeWorkspaceUpsert(%q) error = %v", workflowName, err)
+			t.Fatalf("normalizeWorkspaceUpsert(%q) error = %v", workflowID, err)
 		}
-		if got.WorkflowName != workflowName {
-			t.Fatalf("normalizeWorkspaceUpsert() workflow_name = %q, want %q", got.WorkflowName, workflowName)
+		if got.WorkflowId != workflowID {
+			t.Fatalf("normalizeWorkspaceUpsert() workflow_id = %q, want %q", got.WorkflowId, workflowID)
 		}
+	}
+}
+
+func TestNormalizeWorkspaceUpsertNormalizesWorkflowID(t *testing.T) {
+	t.Parallel()
+
+	got, err := normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
+		Name:       "runtime-workspace",
+		WorkflowId: "  0123456789abcdef  ",
+	}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.WorkflowId != "0123456789abcdef" {
+		t.Fatalf("normalizeWorkspaceUpsert() workflow_id = %q", got.WorkflowId)
+	}
+
+	_, err = normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
+		Name:       "runtime-workspace",
+		WorkflowId: "  ",
+	}, "")
+	if err == nil || !strings.Contains(err.Error(), "workflow_id is required") {
+		t.Fatalf("normalizeWorkspaceUpsert(empty workflow_id) error = %v", err)
 	}
 }
 
@@ -808,9 +861,9 @@ func TestServerRejectsInvalidToolkitPolicy(t *testing.T) {
 	seedWorkflow(t, srv, "workflow-1")
 	toolIDs := []string{""}
 	body := adminhttp.WorkspaceUpsert{
-		Name:         "alpha001",
-		WorkflowName: "workflow-1",
-		Toolkit:      &apitypes.ToolkitPolicy{ToolIds: &toolIDs},
+		Name:       "alpha001",
+		WorkflowId: "workflow-1",
+		Toolkit:    &apitypes.ToolkitPolicy{ToolIds: &toolIDs},
 	}
 
 	createResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
@@ -821,7 +874,7 @@ func TestServerRejectsInvalidToolkitPolicy(t *testing.T) {
 		t.Fatalf("CreateWorkspace() response = %#v", createResp)
 	}
 
-	putResp, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "alpha001", Body: &body})
+	putResp, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: "alpha001", Body: &body})
 	if err != nil {
 		t.Fatalf("PutWorkspace() error = %v", err)
 	}
@@ -837,12 +890,25 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 	ctx := context.Background()
 	seedWorkflow(t, srv, "workflow-1")
 
+	createdBody := mustWorkspaceUpsert(t, `{
+		"name": "expected1",
+		"workflow_id": "workflow-1"
+	}`)
+	createResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &createdBody})
+	if err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	created, ok := createResp.(adminhttp.CreateWorkspace200JSONResponse)
+	if !ok {
+		t.Fatalf("CreateWorkspace() response = %#v", createResp)
+	}
+
 	body := mustWorkspaceUpsert(t, `{
 		"name": "other001",
-		"workflow_name": "workflow-1"
+		"workflow_id": "workflow-1"
 	}`)
 	resp, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{
-		Name: "expected1",
+		Id:   created.Id,
 		Body: &body,
 	})
 	if err != nil {
@@ -852,7 +918,7 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 		t.Fatalf("PutWorkspace() response = %#v", resp)
 	}
 
-	nilPutResp, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "expected1"})
+	nilPutResp, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("PutWorkspace(nil body) error = %v", err)
 	}
@@ -872,7 +938,7 @@ func TestServerWorkspaceConflictAndMissingDelete(t *testing.T) {
 
 	body := mustWorkspaceUpsert(t, `{
 		"name": "alpha001",
-		"workflow_name": "workflow-1"
+		"workflow_id": "workflow-1"
 	}`)
 	if _, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body}); err != nil {
 		t.Fatalf("CreateWorkspace(seed) error = %v", err)
@@ -885,7 +951,7 @@ func TestServerWorkspaceConflictAndMissingDelete(t *testing.T) {
 		t.Fatalf("CreateWorkspace(duplicate) response = %#v", duplicateResp)
 	}
 
-	deleteResp, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: "missing"})
+	deleteResp, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Id: "missing"})
 	if err != nil {
 		t.Fatalf("DeleteWorkspace(missing) error = %v", err)
 	}
@@ -904,7 +970,7 @@ func TestServerDefersDirectFlowcraftAliasesToOwnerRuntimeProfile(t *testing.T) {
 	ctx := context.Background()
 	seedFlowcraftWorkflow(t, srv, "model-service-missing", "chat-alias")
 	srv.Models = nil
-	body := mustWorkspaceUpsert(t, `{"name":"model-service-missing","workflow_name":"model-service-missing","parameters":{"agent_type":"flowcraft"}}`)
+	body := mustWorkspaceUpsert(t, `{"name":"model-service-missing","workflow_id":"model-service-missing","parameters":{"agent_type":"flowcraft"}}`)
 	resp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatalf("CreateWorkspace(model service missing) error = %v", err)
@@ -944,18 +1010,21 @@ func TestServerValidatesRuntimeFlowcraftModelAliases(t *testing.T) {
 			want:     `references missing runtime Model alias "generate-model"`,
 		},
 	}
+	var validWorkspaceID string
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testCtx := WithRuntimeModelBindings(WithRuntimeWorkflowBindings(context.Background(), map[string]string{"2fa-chat": "flowcraft-chat"}), tt.bindings)
-			body := mustWorkspaceUpsert(t, fmt.Sprintf(`{"name":%q,"workflow_name":"2fa-chat","parameters":{"agent_type":"flowcraft"}}`, "runtime-"+strings.ReplaceAll(tt.name, " ", "-")))
+			body := mustWorkspaceUpsert(t, fmt.Sprintf(`{"name":%q,"workflow_id":"flowcraft-chat","parameters":{"agent_type":"flowcraft"}}`, "runtime-"+strings.ReplaceAll(tt.name, " ", "-")))
 			resp, err := srv.CreateWorkspace(testCtx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 			if err != nil {
 				t.Fatalf("CreateWorkspace() error = %v", err)
 			}
 			if tt.ok {
-				if _, ok := resp.(adminhttp.CreateWorkspace200JSONResponse); !ok {
+				created, ok := resp.(adminhttp.CreateWorkspace200JSONResponse)
+				if !ok {
 					t.Fatalf("CreateWorkspace() response = %#v", resp)
 				}
+				validWorkspaceID = created.Id
 				return
 			}
 			invalid, ok := resp.(adminhttp.CreateWorkspace400JSONResponse)
@@ -970,7 +1039,7 @@ func TestServerValidatesRuntimeFlowcraftModelAliases(t *testing.T) {
 			}
 		})
 	}
-	getResp, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: "runtime-valid-aliases"})
+	getResp, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Id: validWorkspaceID})
 	if err != nil {
 		t.Fatalf("GetWorkspace(runtime-valid) error = %v", err)
 	}
@@ -1060,10 +1129,10 @@ func TestServerValidatesRuntimeASTTranslateAliases(t *testing.T) {
 		want string
 		ok   bool
 	}{
-		{name: "valid", body: `{"name":"ast-valid","workflow_name":"translate","parameters":{"agent_type":"ast-translate","translation_model":"translate-model","voice":{"tts_voice":"translator"}}}`, ok: true},
-		{name: "missing model", body: `{"name":"ast-missing-model","workflow_name":"translate","parameters":{"agent_type":"ast-translate","translation_model":"missing"}}`, want: `missing runtime Model alias "missing"`},
-		{name: "wrong model kind", body: `{"name":"ast-wrong-model","workflow_name":"translate","parameters":{"agent_type":"ast-translate","translation_model":"wrong-model"}}`, want: `has kind "llm", want "translation"`},
-		{name: "missing voice", body: `{"name":"ast-missing-voice","workflow_name":"translate","parameters":{"agent_type":"ast-translate","voice":{"tts_voice":"missing"}}}`, want: `missing runtime Voice alias "missing"`},
+		{name: "valid", body: `{"name":"ast-valid","workflow_id":"ast-workflow","parameters":{"agent_type":"ast-translate","translation_model":"translate-model","voice":{"tts_voice":"translator"}}}`, ok: true},
+		{name: "missing model", body: `{"name":"ast-missing-model","workflow_id":"ast-workflow","parameters":{"agent_type":"ast-translate","translation_model":"missing"}}`, want: `missing runtime Model alias "missing"`},
+		{name: "wrong model kind", body: `{"name":"ast-wrong-model","workflow_id":"ast-workflow","parameters":{"agent_type":"ast-translate","translation_model":"wrong-model"}}`, want: `has kind "llm", want "translation"`},
+		{name: "missing voice", body: `{"name":"ast-missing-voice","workflow_id":"ast-workflow","parameters":{"agent_type":"ast-translate","voice":{"tts_voice":"missing"}}}`, want: `missing runtime Voice alias "missing"`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -1141,62 +1210,62 @@ func TestServerValidatesNewRealtimeWorkspaceOverrides(t *testing.T) {
 	}{
 		{
 			name: "dash valid",
-			body: `{"name":"dash-valid","workflow_name":"dash","parameters":{"agent_type":"dashscope-realtime","model":"dash-override","voice":"dash-override-voice"}}`,
+			body: `{"name":"dash-valid","workflow_id":"dash-workflow","parameters":{"agent_type":"dashscope-realtime","model":"dash-override","voice":"dash-override-voice"}}`,
 			ok:   true,
 		},
 		{
 			name: "dash wrong parameter variant",
-			body: `{"name":"dash-wrong-variant","workflow_name":"dash","parameters":{"agent_type":"eino"}}`,
+			body: `{"name":"dash-wrong-variant","workflow_id":"dash-workflow","parameters":{"agent_type":"eino"}}`,
 			want: "dashscope_realtime parameters are required",
 		},
 		{
 			name: "dash missing model",
-			body: `{"name":"dash-missing-model","workflow_name":"dash","parameters":{"agent_type":"dashscope-realtime","model":"missing"}}`,
+			body: `{"name":"dash-missing-model","workflow_id":"dash-workflow","parameters":{"agent_type":"dashscope-realtime","model":"missing"}}`,
 			want: `missing runtime Model alias "missing"`,
 		},
 		{
 			name: "dash wrong model kind",
-			body: `{"name":"dash-wrong-kind","workflow_name":"dash","parameters":{"agent_type":"dashscope-realtime","model":"wrong-kind"}}`,
+			body: `{"name":"dash-wrong-kind","workflow_id":"dash-workflow","parameters":{"agent_type":"dashscope-realtime","model":"wrong-kind"}}`,
 			want: `has kind "llm", want "realtime"`,
 		},
 		{
 			name: "dash missing voice",
-			body: `{"name":"dash-missing-voice","workflow_name":"dash","parameters":{"agent_type":"dashscope-realtime","voice":"missing"}}`,
+			body: `{"name":"dash-missing-voice","workflow_id":"dash-workflow","parameters":{"agent_type":"dashscope-realtime","voice":"missing"}}`,
 			want: `missing runtime Voice alias "missing"`,
 		},
 		{
 			name: "dash incompatible voice",
-			body: `{"name":"dash-wrong-voice","workflow_name":"dash","parameters":{"agent_type":"dashscope-realtime","voice":"wrong-voice"}}`,
+			body: `{"name":"dash-wrong-voice","workflow_id":"dash-workflow","parameters":{"agent_type":"dashscope-realtime","voice":"wrong-voice"}}`,
 			want: "uses provider",
 		},
 		{
 			name: "duplex valid",
-			body: `{"name":"duplex-valid","workflow_name":"duplex","parameters":{"agent_type":"doubao-realtime-duplex","model":"duplex-override","voice":"duplex-override-voice"}}`,
+			body: `{"name":"duplex-valid","workflow_id":"duplex-workflow","parameters":{"agent_type":"doubao-realtime-duplex","model":"duplex-override","voice":"duplex-override-voice"}}`,
 			ok:   true,
 		},
 		{
 			name: "duplex wrong parameter variant",
-			body: `{"name":"duplex-wrong-variant","workflow_name":"duplex","parameters":{"agent_type":"eino"}}`,
+			body: `{"name":"duplex-wrong-variant","workflow_id":"duplex-workflow","parameters":{"agent_type":"eino"}}`,
 			want: "doubao_realtime_duplex parameters are required",
 		},
 		{
 			name: "duplex missing model",
-			body: `{"name":"duplex-missing-model","workflow_name":"duplex","parameters":{"agent_type":"doubao-realtime-duplex","model":"missing"}}`,
+			body: `{"name":"duplex-missing-model","workflow_id":"duplex-workflow","parameters":{"agent_type":"doubao-realtime-duplex","model":"missing"}}`,
 			want: `missing runtime Model alias "missing"`,
 		},
 		{
 			name: "duplex wrong model kind",
-			body: `{"name":"duplex-wrong-kind","workflow_name":"duplex","parameters":{"agent_type":"doubao-realtime-duplex","model":"wrong-kind-duplex"}}`,
+			body: `{"name":"duplex-wrong-kind","workflow_id":"duplex-workflow","parameters":{"agent_type":"doubao-realtime-duplex","model":"wrong-kind-duplex"}}`,
 			want: `has kind "llm", want "realtime-duplex"`,
 		},
 		{
 			name: "duplex missing voice",
-			body: `{"name":"duplex-missing-voice","workflow_name":"duplex","parameters":{"agent_type":"doubao-realtime-duplex","voice":"missing"}}`,
+			body: `{"name":"duplex-missing-voice","workflow_id":"duplex-workflow","parameters":{"agent_type":"doubao-realtime-duplex","voice":"missing"}}`,
 			want: `missing runtime Voice alias "missing"`,
 		},
 		{
 			name: "duplex incompatible voice",
-			body: `{"name":"duplex-wrong-voice","workflow_name":"duplex","parameters":{"agent_type":"doubao-realtime-duplex","voice":"wrong-voice"}}`,
+			body: `{"name":"duplex-wrong-voice","workflow_id":"duplex-workflow","parameters":{"agent_type":"doubao-realtime-duplex","voice":"wrong-voice"}}`,
 			want: "uses provider",
 		},
 	}
@@ -1242,7 +1311,7 @@ func TestServerRejectsWrongEinoWorkspaceParameterVariant(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := WithRuntimeWorkflowBindings(t.Context(), map[string]string{"eino": "eino-workflow"})
-	body := mustWorkspaceUpsert(t, `{"name":"eino-wrong-variant","workflow_name":"eino","parameters":{"agent_type":"dashscope-realtime"}}`)
+	body := mustWorkspaceUpsert(t, `{"name":"eino-wrong-variant","workflow_id":"eino-workflow","parameters":{"agent_type":"dashscope-realtime"}}`)
 	response, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatal(err)
@@ -1372,7 +1441,7 @@ func seedProviderModel(
 	}
 	data, err := json.Marshal(apitypes.Model{
 		Id: id, Kind: kind,
-		Provider:     apitypes.ModelProvider{Kind: providerKind, Name: providerName},
+		Provider:     apitypes.ModelProvider{Kind: providerKind, Id: providerName},
 		ProviderData: providerData,
 		Source:       apitypes.ModelSourceManual,
 	})
@@ -1397,10 +1466,11 @@ func seedProviderVoice(
 		t.Fatalf("Voices = %T", srv.Voices)
 	}
 	if err := voice.Write(t.Context(), voiceServer.Store, apitypes.Voice{
-		Id: id,
+		Id:   id,
+		Name: id,
 		Provider: apitypes.VoiceProvider{
 			Kind: providerKind,
-			Name: providerName,
+			Id:   providerName,
 		},
 		Source: apitypes.VoiceSourceManual,
 	}, nil); err != nil {
@@ -1421,6 +1491,15 @@ func mustWorkspaceUpsert(t *testing.T, raw string) adminhttp.WorkspaceUpsert {
 type recordingRuntimeStore struct {
 	prepared []string
 	deleted  []string
+}
+
+type failingCreateIfAbsentStore struct {
+	kv.Store
+	err error
+}
+
+func (s failingCreateIfAbsentStore) CreateIfAbsent(context.Context, kv.Entry, []kv.Entry) ([]byte, bool, error) {
+	return nil, false, s.err
 }
 
 func (s *recordingRuntimeStore) PrepareWorkspace(_ context.Context, workspace string) (Runtime, error) {

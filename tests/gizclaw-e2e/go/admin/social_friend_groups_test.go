@@ -23,12 +23,11 @@ func TestAdminAPIFriendGroupsMembersAndInviteToken(t *testing.T) {
 		t.Fatalf("create friend group: %v", err)
 	}
 	requireStatusOK(t, created, created.Body)
-	if created.JSON200 == nil || created.JSON200.Id == nil || *created.JSON200.Id == "" ||
-		created.JSON200.CreatedByPeerPublicKey == nil || *created.JSON200.CreatedByPeerPublicKey != env.adminKey ||
-		created.JSON200.MyRole != nil {
+	if created.JSON200 == nil || created.JSON200.Id == "" ||
+		created.JSON200.CreatedByPeerPublicKey != env.adminKey {
 		t.Fatalf("created friend group = %#v", created.JSON200)
 	}
-	groupID := *created.JSON200.Id
+	groupID := created.JSON200.Id
 	t.Cleanup(func() { _, _ = env.api.DeleteFriendGroupWithResponse(env.ctx, groupID) })
 
 	get, err := env.api.GetFriendGroupWithResponse(env.ctx, groupID)
@@ -36,35 +35,24 @@ func TestAdminAPIFriendGroupsMembersAndInviteToken(t *testing.T) {
 		t.Fatalf("get friend group: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.WorkspaceName == nil || *get.JSON200.WorkspaceName == "" {
+	if get.JSON200 == nil || get.JSON200.WorkspaceId == nil || *get.JSON200.WorkspaceId == "" {
 		t.Fatalf("get friend group = %#v", get.JSON200)
 	}
 
-	renamed, err := env.api.PutFriendGroupWithResponse(env.ctx, groupID, adminhttp.AdminFriendGroupPutRequest{
-		Name:        ptr(mutationName("renamed-group")),
+	updated, err := env.api.PutFriendGroupWithResponse(env.ctx, groupID, adminhttp.AdminFriendGroupPutRequest{
+		DisplayName: ptr("Renamed Group"),
 		Description: ptr("renamed"),
 	})
 	if err != nil {
 		t.Fatalf("put friend group: %v", err)
 	}
-	requireStatusOK(t, renamed, renamed.Body)
-	if renamed.JSON200 == nil || renamed.JSON200.Name == nil || *renamed.JSON200.Name != mutationName("renamed-group") {
-		t.Fatalf("renamed friend group = %#v", renamed.JSON200)
-	}
-
-	owner, err := env.api.CreateFriendGroupMemberWithResponse(env.ctx, groupID, adminhttp.AdminFriendGroupMemberCreateRequest{
-		PeerPublicKey: env.adminKey,
-		Role:          rpcapi.FriendGroupMemberRoleOwner,
-	})
-	if err != nil {
-		t.Fatalf("create owner member: %v", err)
-	}
-	requireStatusOK(t, owner, owner.Body)
-	if owner.JSON200 == nil || owner.JSON200.Role == nil || *owner.JSON200.Role != rpcapi.FriendGroupMemberRoleOwner {
-		t.Fatalf("owner member = %#v", owner.JSON200)
+	requireStatusOK(t, updated, updated.Body)
+	if updated.JSON200 == nil || updated.JSON200.Name != created.JSON200.Name || updated.JSON200.DisplayName == nil || *updated.JSON200.DisplayName != "Renamed Group" {
+		t.Fatalf("updated friend group = %#v", updated.JSON200)
 	}
 
 	member, err := env.api.CreateFriendGroupMemberWithResponse(env.ctx, groupID, adminhttp.AdminFriendGroupMemberCreateRequest{
+		Name:          created.JSON200.Name,
 		PeerPublicKey: env.peerKey,
 		Role:          rpcapi.FriendGroupMemberRoleMember,
 	})
@@ -72,7 +60,7 @@ func TestAdminAPIFriendGroupsMembersAndInviteToken(t *testing.T) {
 		t.Fatalf("create member: %v", err)
 	}
 	requireStatusOK(t, member, member.Body)
-	if member.JSON200 == nil || member.JSON200.Role == nil || *member.JSON200.Role != rpcapi.FriendGroupMemberRoleMember {
+	if member.JSON200 == nil || member.JSON200.Role != rpcapi.FriendGroupMemberRoleMember || member.JSON200.FriendGroupId != groupID {
 		t.Fatalf("member = %#v", member.JSON200)
 	}
 
@@ -83,11 +71,11 @@ func TestAdminAPIFriendGroupsMembersAndInviteToken(t *testing.T) {
 		t.Fatalf("put member: %v", err)
 	}
 	requireStatusOK(t, updatedMember, updatedMember.Body)
-	if updatedMember.JSON200 == nil || updatedMember.JSON200.Role == nil || *updatedMember.JSON200.Role != rpcapi.FriendGroupMemberRoleAdmin {
+	if updatedMember.JSON200 == nil || updatedMember.JSON200.Role != rpcapi.FriendGroupMemberRoleAdmin || updatedMember.JSON200.FriendGroupId != groupID {
 		t.Fatalf("updated member = %#v", updatedMember.JSON200)
 	}
 
-	members := collectAdminPagesInt(t, 1, func(cursor *string, limit int) ([]rpcapi.FriendGroupMemberObject, bool, *string) {
+	members := collectAdminPagesInt(t, 1, func(cursor *string, limit int) ([]adminhttp.AdminFriendGroupMemberObject, bool, *string) {
 		resp, err := env.api.ListFriendGroupMembersWithResponse(env.ctx, groupID, &adminhttp.ListFriendGroupMembersParams{Cursor: cursor, Limit: &limit})
 		if err != nil {
 			t.Fatalf("list friend group members: %v", err)
@@ -98,11 +86,11 @@ func TestAdminAPIFriendGroupsMembersAndInviteToken(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	requireName(t, members, env.peerKey, func(item rpcapi.FriendGroupMemberObject) string {
-		if item.PeerPublicKey == nil {
-			return ""
-		}
-		return *item.PeerPublicKey
+	requireName(t, members, env.peerKey, func(item adminhttp.AdminFriendGroupMemberObject) string {
+		return item.PeerPublicKey
+	})
+	requireName(t, members, env.adminKey, func(item adminhttp.AdminFriendGroupMemberObject) string {
+		return item.PeerPublicKey
 	})
 
 	expiresAt := time.Now().UTC().Add(10 * time.Minute)

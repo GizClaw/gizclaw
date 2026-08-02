@@ -62,12 +62,13 @@ func TestGetWorkflowReturnsResource(t *testing.T) {
 
 func TestPutWorkflowWritesResource(t *testing.T) {
 	workflows := newFakeWorkflows()
+	workflows.items["workflow"] = mustWorkflow(t, `{"id":"workflow","name":"workflow","spec":{"driver":"flowcraft","flowcraft":{"graph":{"name":"old","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}}`)
 	manager := New(Services{Workflows: workflows})
 
 	_, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workflow",
-		"metadata": {"name": "workflow"},
+		"metadata": {"id": "workflow", "name": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
@@ -93,7 +94,7 @@ func TestApplyWorkflowUnchangedSkipsPut(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workflow",
-		"metadata": {"name": "workflow"},
+		"metadata": {"id": "workflow", "name": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
@@ -123,7 +124,7 @@ func TestApplyWorkflowNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workflow",
-		"metadata": {"name": "workflow"},
+		"metadata": {"id": "workflow", "name": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
 			"toolkit": {"tool_ids": [" system.music.play ", "system.mode.switch", "system.music.play"]},
@@ -153,7 +154,7 @@ func TestApplyWorkflowUpdatesResource(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workflow",
-		"metadata": {"name": "workflow"},
+		"metadata": {"id": "workflow", "name": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"graph": {"name": "new-assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
@@ -179,11 +180,11 @@ func TestWorkflowServiceErrorResponses(t *testing.T) {
 
 	workflows.getStatus = 0
 	workflows.putStatus = 400
-	err = manager.putWorkflow(context.Background(), "workflow", apitypes.Workflow{})
+	err = manager.putWorkflow(context.Background(), "workflow", adminhttp.WorkflowUpsert{})
 	assertResourceError(t, err, 400, "INVALID_WORKFLOW")
 
 	workflows.putStatus = 500
-	err = manager.putWorkflow(context.Background(), "workflow", apitypes.Workflow{})
+	err = manager.putWorkflow(context.Background(), "workflow", adminhttp.WorkflowUpsert{})
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
 }
 
@@ -202,16 +203,20 @@ func (f *fakeWorkflows) ListWorkflows(context.Context, adminhttp.ListWorkflowsRe
 	return nil, nil
 }
 
-func (f *fakeWorkflows) CreateWorkflow(context.Context, adminhttp.CreateWorkflowRequestObject) (adminhttp.CreateWorkflowResponseObject, error) {
-	return nil, nil
+func (f *fakeWorkflows) CreateWorkflow(_ context.Context, request adminhttp.CreateWorkflowRequestObject) (adminhttp.CreateWorkflowResponseObject, error) {
+	f.putCount++
+	body := *request.Body
+	item := apitypes.Workflow{Id: body.Name, Name: body.Name, Spec: body.Spec}
+	f.items[item.Id] = item
+	return adminhttp.CreateWorkflow200JSONResponse(item), nil
 }
 
 func (f *fakeWorkflows) DeleteWorkflow(_ context.Context, request adminhttp.DeleteWorkflowRequestObject) (adminhttp.DeleteWorkflowResponseObject, error) {
-	item, ok := f.items[string(request.Name)]
+	item, ok := f.items[string(request.Id)]
 	if !ok {
 		return adminhttp.DeleteWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", "not found")), nil
 	}
-	delete(f.items, string(request.Name))
+	delete(f.items, string(request.Id))
 	return adminhttp.DeleteWorkflow200JSONResponse(item), nil
 }
 
@@ -219,7 +224,7 @@ func (f *fakeWorkflows) GetWorkflow(_ context.Context, request adminhttp.GetWork
 	if f.getStatus == 500 {
 		return adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
-	item, ok := f.items[string(request.Name)]
+	item, ok := f.items[string(request.Id)]
 	if !ok {
 		return adminhttp.GetWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", "not found")), nil
 	}
@@ -234,7 +239,8 @@ func (f *fakeWorkflows) PutWorkflow(_ context.Context, request adminhttp.PutWork
 		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	f.putCount++
-	item := *request.Body
-	f.items[string(request.Name)] = item
+	body := *request.Body
+	item := apitypes.Workflow{Id: string(request.Id), Name: body.Name, Spec: body.Spec}
+	f.items[string(request.Id)] = item
 	return adminhttp.PutWorkflow200JSONResponse(item), nil
 }

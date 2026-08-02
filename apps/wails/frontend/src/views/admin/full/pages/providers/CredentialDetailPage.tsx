@@ -58,9 +58,9 @@ export function CredentialDetailPage(): JSX.Element {
     setError("");
     try {
       const [nextCredential, nextResource] = await Promise.all([
-        expectData(getCredential({ path: { name: credentialName } })),
+        expectData(getCredential({ path: { id: credentialName } })),
         expectData(
-          getResource({ path: { kind: "Credential", name: credentialName } }),
+          getResource({ path: { kind: "Credential", id: credentialName } }),
         ),
       ]);
       setCredential(nextCredential);

@@ -98,9 +98,9 @@ export function FirmwareDetailPage(): JSX.Element {
     setError("");
     try {
       const [nextFirmware, nextResource] = await Promise.all([
-        expectData(getFirmware({ path: { name: firmwareName } })),
+        expectData(getFirmware({ path: { id: firmwareName } })),
         expectData(
-          getResource({ path: { kind: "Firmware", name: firmwareName } }),
+          getResource({ path: { kind: "Firmware", id: firmwareName } }),
         ),
       ]);
       setFirmware(nextFirmware);
@@ -126,12 +126,12 @@ export function FirmwareDetailPage(): JSX.Element {
       }
       const body = formToUpsert({ ...nextForm, name: firmwareName });
       const next = await expectData(
-        putFirmware({ body, path: { name: firmwareName } }),
+        putFirmware({ body, path: { id: firmwareName } }),
       );
       setFirmware(next);
       setForm(firmwareToForm(next));
       const nextResource = await expectData(
-        getResource({ path: { kind: "Firmware", name: firmwareName } }),
+        getResource({ path: { kind: "Firmware", id: firmwareName } }),
       );
       setResource(nextResource);
     } catch (err) {
@@ -147,13 +147,13 @@ export function FirmwareDetailPage(): JSX.Element {
     try {
       const next = await expectData(
         action === "release"
-          ? releaseFirmware({ path: { name: firmwareName } })
-          : rollbackFirmware({ path: { name: firmwareName } }),
+          ? releaseFirmware({ path: { id: firmwareName } })
+          : rollbackFirmware({ path: { id: firmwareName } }),
       );
       setFirmware(next);
       setForm(firmwareToForm(next));
       const nextResource = await expectData(
-        getResource({ path: { kind: "Firmware", name: firmwareName } }),
+        getResource({ path: { kind: "Firmware", id: firmwareName } }),
       );
       setResource(nextResource);
     } catch (err) {
@@ -174,14 +174,14 @@ export function FirmwareDetailPage(): JSX.Element {
       const next = await expectData(
         uploadFirmwareArtifact({
           body: file,
-          path: { name: firmwareName, channel },
+          path: { id: firmwareName, channel },
         }),
       );
       setFirmware(next);
       setForm(firmwareToForm(next));
       setArtifactEntries((current) => ({ ...current, [channel]: undefined }));
       const nextResource = await expectData(
-        getResource({ path: { kind: "Firmware", name: firmwareName } }),
+        getResource({ path: { kind: "Firmware", id: firmwareName } }),
       );
       setResource(nextResource);
     } catch (err) {
@@ -197,13 +197,13 @@ export function FirmwareDetailPage(): JSX.Element {
     setError("");
     try {
       const next = await expectData(
-        deleteFirmwareArtifact({ path: { name: firmwareName, channel } }),
+        deleteFirmwareArtifact({ path: { id: firmwareName, channel } }),
       );
       setFirmware(next);
       setForm(firmwareToForm(next));
       setArtifactEntries((current) => ({ ...current, [channel]: undefined }));
       const nextResource = await expectData(
-        getResource({ path: { kind: "Firmware", name: firmwareName } }),
+        getResource({ path: { kind: "Firmware", id: firmwareName } }),
       );
       setResource(nextResource);
     } catch (err) {
@@ -219,7 +219,7 @@ export function FirmwareDetailPage(): JSX.Element {
     setError("");
     try {
       const tree = await expectData(
-        treeFirmwareArtifactEntries({ path: { name: firmwareName, channel } }),
+        treeFirmwareArtifactEntries({ path: { id: firmwareName, channel } }),
       );
       setArtifactEntries((current) => ({ ...current, [channel]: tree.items }));
     } catch (err) {
@@ -235,7 +235,7 @@ export function FirmwareDetailPage(): JSX.Element {
     setError("");
     try {
       const blob = await expectData(
-        downloadFirmwareArtifact({ path: { name: firmwareName, channel } }),
+        downloadFirmwareArtifact({ path: { id: firmwareName, channel } }),
       );
       saveBlob(blob, `${firmwareName}-${channel}-artifact.tar`);
     } catch (err) {
@@ -255,7 +255,7 @@ export function FirmwareDetailPage(): JSX.Element {
     try {
       const blob = await expectData(
         downloadFirmwareArtifactEntry({
-          path: { name: firmwareName, channel },
+          path: { id: firmwareName, channel },
           query: { path: entryPath },
         }),
       );
@@ -277,7 +277,7 @@ export function FirmwareDetailPage(): JSX.Element {
     try {
       const stats = await expectData(
         statFirmwareArtifactEntry({
-          path: { name: firmwareName, channel },
+          path: { id: firmwareName, channel },
           query: { path: entryPath },
         }),
       );

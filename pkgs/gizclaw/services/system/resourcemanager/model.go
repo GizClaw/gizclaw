@@ -18,9 +18,25 @@ func (m *Manager) applyModel(ctx context.Context, resource apitypes.Resource) (a
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	id := string(pathParam(item.Metadata.Name))
+	id, updating, err := resourceUpdateID(item.Metadata)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !updating {
+		createdID, err := m.createModel(ctx, modelUpsert(item))
+		if err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindModel, item.Metadata.Name, createdID), nil
+	}
 	existing, exists, err := m.getModel(ctx, id)
 	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !exists {
+		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindModel, id)
+	}
+	if err := validateImmutableResourceName(apitypes.ResourceKindModel, id, existing.Name, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {
@@ -29,16 +45,32 @@ func (m *Manager) applyModel(ctx context.Context, resource apitypes.Resource) (a
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindModel, item.Metadata.Name), nil
+			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindModel, item.Metadata.Name, id), nil
 		}
 	}
 	if err := m.putModel(ctx, id, modelUpsert(item)); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindModel, item.Metadata.Name), nil
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindModel, item.Metadata.Name, id), nil
+}
+
+func (m *Manager) createModel(ctx context.Context, body adminhttp.ModelUpsert) (string, error) {
+	response, err := m.services.Models.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &body})
+	if err != nil {
+		return "", err
 	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindModel, item.Metadata.Name), nil
+	switch response := response.(type) {
+	case adminhttp.CreateModel200JSONResponse:
+		return response.Id, nil
+	case adminhttp.CreateModel400JSONResponse:
+		return "", responseError(400, "CREATE_MODEL_FAILED", "failed to create model", response)
+	case adminhttp.CreateModel409JSONResponse:
+		return "", responseError(409, "CREATE_MODEL_FAILED", "failed to create model", response)
+	case adminhttp.CreateModel500JSONResponse:
+		return "", responseError(500, "CREATE_MODEL_FAILED", "failed to create model", response)
+	default:
+		return "", unexpectedResponse("CreateModel", response)
+	}
 }
 
 func (m *Manager) getModel(ctx context.Context, id string) (apitypes.Model, bool, error) {
@@ -98,7 +130,7 @@ func modelSpec(model apitypes.Model) apitypes.ModelSpec {
 	return apitypes.ModelSpec{
 		Description:  model.Description,
 		Kind:         model.Kind,
-		Name:         model.Name,
+		DisplayName:  model.DisplayName,
 		Provider:     model.Provider,
 		ProviderData: model.ProviderData,
 		Source:       model.Source,
@@ -108,9 +140,9 @@ func modelSpec(model apitypes.Model) apitypes.ModelSpec {
 func modelUpsert(resource apitypes.ModelResource) adminhttp.ModelUpsert {
 	return adminhttp.ModelUpsert{
 		Description:  resource.Spec.Description,
-		Id:           string(resource.Metadata.Name),
+		Name:         string(resource.Metadata.Name),
 		Kind:         resource.Spec.Kind,
-		Name:         resource.Spec.Name,
+		DisplayName:  resource.Spec.DisplayName,
 		Provider:     resource.Spec.Provider,
 		ProviderData: resource.Spec.ProviderData,
 		Source:       resource.Spec.Source,
@@ -121,7 +153,7 @@ func resourceFromModel(item apitypes.Model) (apitypes.Resource, error) {
 	return marshalResource(apitypes.ModelResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.ModelResourceKind(apitypes.ResourceKindModel),
-		Metadata:   apitypes.ResourceMetadata{Name: string(item.Id)},
+		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
 		Spec:       modelSpec(item),
 	})
 }

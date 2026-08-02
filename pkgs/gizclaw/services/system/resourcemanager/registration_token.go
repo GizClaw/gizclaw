@@ -16,29 +16,42 @@ func (m *Manager) applyRegistrationToken(ctx context.Context, resource apitypes.
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	previous, exists, err := m.getRegistrationToken(ctx, item.Metadata.Name)
+	id, updating, err := resourceUpdateID(item.Metadata)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists && registrationTokenMatches(previous, item.Spec.Token, item.Spec.RuntimeProfileName, item.Spec.FirmwareId) {
-		return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindRegistrationToken, item.Metadata.Name), nil
+	if !updating {
+		createdID, err := m.createRegistrationToken(ctx, item)
+		if err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindRegistrationToken, item.Metadata.Name, createdID), nil
 	}
-	_, err = m.putRegistrationToken(ctx, item)
+	previous, exists, err := m.getRegistrationToken(ctx, id)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	action := apitypes.ApplyActionCreated
-	if exists {
-		action = apitypes.ApplyActionUpdated
+	if !exists {
+		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindRegistrationToken, id)
 	}
-	return applyResult(action, apitypes.ResourceKindRegistrationToken, item.Metadata.Name), nil
+	if err := validateImmutableResourceName(apitypes.ResourceKindRegistrationToken, id, previous.Name, item.Metadata.Name); err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if registrationTokenMatches(previous, item.Spec.Token, item.Spec.RuntimeProfileId, item.Spec.FirmwareId) {
+		return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindRegistrationToken, item.Metadata.Name, id), nil
+	}
+	_, err = m.putRegistrationToken(ctx, id, item)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindRegistrationToken, item.Metadata.Name, id), nil
 }
 
 func (m *Manager) getRegistrationToken(ctx context.Context, name string) (apitypes.RegistrationToken, bool, error) {
 	if m.services.RuntimeProfiles == nil {
 		return apitypes.RegistrationToken{}, false, missingService("registration tokens")
 	}
-	response, err := m.services.RuntimeProfiles.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Name: name})
+	response, err := m.services.RuntimeProfiles.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Id: name})
 	if err != nil {
 		return apitypes.RegistrationToken{}, false, err
 	}
@@ -54,17 +67,17 @@ func (m *Manager) getRegistrationToken(ctx context.Context, name string) (apityp
 	}
 }
 
-func (m *Manager) putRegistrationToken(ctx context.Context, item apitypes.RegistrationTokenResource) (apitypes.Resource, error) {
+func (m *Manager) putRegistrationToken(ctx context.Context, id string, item apitypes.RegistrationTokenResource) (apitypes.Resource, error) {
 	if m.services.RuntimeProfiles == nil {
 		return apitypes.Resource{}, missingService("registration tokens")
 	}
 	body := adminhttp.RegistrationTokenUpsert{
-		Name:               item.Metadata.Name,
-		Token:              item.Spec.Token,
-		RuntimeProfileName: item.Spec.RuntimeProfileName,
-		FirmwareId:         item.Spec.FirmwareId,
+		Name:             item.Metadata.Name,
+		Token:            item.Spec.Token,
+		RuntimeProfileId: item.Spec.RuntimeProfileId,
+		FirmwareId:       item.Spec.FirmwareId,
 	}
-	response, err := m.services.RuntimeProfiles.PutRegistrationToken(ctx, adminhttp.PutRegistrationTokenRequestObject{Name: item.Metadata.Name, Body: &body})
+	response, err := m.services.RuntimeProfiles.PutRegistrationToken(ctx, adminhttp.PutRegistrationTokenRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return apitypes.Resource{}, err
 	}
@@ -82,11 +95,31 @@ func (m *Manager) putRegistrationToken(ctx context.Context, item apitypes.Regist
 	}
 }
 
+func (m *Manager) createRegistrationToken(ctx context.Context, item apitypes.RegistrationTokenResource) (string, error) {
+	body := adminhttp.RegistrationTokenUpsert{Name: item.Metadata.Name, Token: item.Spec.Token, RuntimeProfileId: item.Spec.RuntimeProfileId, FirmwareId: item.Spec.FirmwareId}
+	response, err := m.services.RuntimeProfiles.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &body})
+	if err != nil {
+		return "", err
+	}
+	switch response := response.(type) {
+	case adminhttp.CreateRegistrationToken200JSONResponse:
+		return response.Id, nil
+	case adminhttp.CreateRegistrationToken400JSONResponse:
+		return "", responseError(400, "CREATE_REGISTRATION_TOKEN_FAILED", "failed to create RegistrationToken", response)
+	case adminhttp.CreateRegistrationToken409JSONResponse:
+		return "", responseError(409, "CREATE_REGISTRATION_TOKEN_FAILED", "failed to create RegistrationToken", response)
+	case adminhttp.CreateRegistrationToken500JSONResponse:
+		return "", responseError(500, "CREATE_REGISTRATION_TOKEN_FAILED", "failed to create RegistrationToken", response)
+	default:
+		return "", unexpectedResponse("CreateRegistrationToken", response)
+	}
+}
+
 func (m *Manager) deleteRegistrationToken(ctx context.Context, name string) (apitypes.RegistrationToken, bool, error) {
 	if m.services.RuntimeProfiles == nil {
 		return apitypes.RegistrationToken{}, false, missingService("registration tokens")
 	}
-	response, err := m.services.RuntimeProfiles.DeleteRegistrationToken(ctx, adminhttp.DeleteRegistrationTokenRequestObject{Name: name})
+	response, err := m.services.RuntimeProfiles.DeleteRegistrationToken(ctx, adminhttp.DeleteRegistrationTokenRequestObject{Id: name})
 	if err != nil {
 		return apitypes.RegistrationToken{}, false, err
 	}
@@ -106,16 +139,16 @@ func resourceFromRegistrationToken(item apitypes.RegistrationToken) (apitypes.Re
 	resource := apitypes.RegistrationTokenResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.RegistrationTokenResourceKind(apitypes.ResourceKindRegistrationToken),
-		Metadata:   apitypes.ResourceMetadata{Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
 	}
 	resource.Spec.Token = item.Token
-	resource.Spec.RuntimeProfileName = item.RuntimeProfileName
+	resource.Spec.RuntimeProfileId = item.RuntimeProfileId
 	resource.Spec.FirmwareId = item.FirmwareId
 	return marshalResource(resource)
 }
 
 func registrationTokenMatches(item apitypes.RegistrationToken, token, runtimeProfileName string, firmwareID *string) bool {
-	if item.Token != strings.TrimSpace(token) || item.RuntimeProfileName != strings.TrimSpace(runtimeProfileName) {
+	if item.Token != strings.TrimSpace(token) || item.RuntimeProfileId != strings.TrimSpace(runtimeProfileName) {
 		return false
 	}
 	if item.FirmwareId == nil || firmwareID == nil {

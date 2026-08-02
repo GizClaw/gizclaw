@@ -301,11 +301,11 @@ class $WorkspaceEntriesTable extends WorkspaceEntries
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _workflowAliasMeta = const VerificationMeta(
-    'workflowAlias',
+  static const VerificationMeta _workflowNameMeta = const VerificationMeta(
+    'workflowName',
   );
   @override
-  late final GeneratedColumn<String> workflowAlias = GeneratedColumn<String>(
+  late final GeneratedColumn<String> workflowName = GeneratedColumn<String>(
     'workflow_name',
     aliasedName,
     false,
@@ -384,7 +384,7 @@ class $WorkspaceEntriesTable extends WorkspaceEntries
   List<GeneratedColumn> get $columns => [
     serverId,
     name,
-    workflowAlias,
+    workflowName,
     collection,
     createdAt,
     lastActiveAt,
@@ -422,14 +422,14 @@ class $WorkspaceEntriesTable extends WorkspaceEntries
     }
     if (data.containsKey('workflow_name')) {
       context.handle(
-        _workflowAliasMeta,
-        workflowAlias.isAcceptableOrUnknown(
+        _workflowNameMeta,
+        workflowName.isAcceptableOrUnknown(
           data['workflow_name']!,
-          _workflowAliasMeta,
+          _workflowNameMeta,
         ),
       );
     } else if (isInserting) {
-      context.missing(_workflowAliasMeta);
+      context.missing(_workflowNameMeta);
     }
     if (data.containsKey('collection')) {
       context.handle(
@@ -497,7 +497,7 @@ class $WorkspaceEntriesTable extends WorkspaceEntries
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
-      workflowAlias: attachedDatabase.typeMapping.read(
+      workflowName: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}workflow_name'],
       )!,
@@ -537,7 +537,7 @@ class $WorkspaceEntriesTable extends WorkspaceEntries
 class WorkspaceEntry extends DataClass implements Insertable<WorkspaceEntry> {
   final String serverId;
   final String name;
-  final String workflowAlias;
+  final String workflowName;
   final String collection;
   final DateTime? createdAt;
   final DateTime? lastActiveAt;
@@ -547,7 +547,7 @@ class WorkspaceEntry extends DataClass implements Insertable<WorkspaceEntry> {
   const WorkspaceEntry({
     required this.serverId,
     required this.name,
-    required this.workflowAlias,
+    required this.workflowName,
     required this.collection,
     this.createdAt,
     this.lastActiveAt,
@@ -560,7 +560,7 @@ class WorkspaceEntry extends DataClass implements Insertable<WorkspaceEntry> {
     final map = <String, Expression>{};
     map['server_id'] = Variable<String>(serverId);
     map['name'] = Variable<String>(name);
-    map['workflow_name'] = Variable<String>(workflowAlias);
+    map['workflow_name'] = Variable<String>(workflowName);
     map['collection'] = Variable<String>(collection);
     if (!nullToAbsent || createdAt != null) {
       map['created_at'] = Variable<DateTime>(createdAt);
@@ -580,7 +580,7 @@ class WorkspaceEntry extends DataClass implements Insertable<WorkspaceEntry> {
     return WorkspaceEntriesCompanion(
       serverId: Value(serverId),
       name: Value(name),
-      workflowAlias: Value(workflowAlias),
+      workflowName: Value(workflowName),
       collection: Value(collection),
       createdAt: createdAt == null && nullToAbsent
           ? const Value.absent()
@@ -604,7 +604,7 @@ class WorkspaceEntry extends DataClass implements Insertable<WorkspaceEntry> {
     return WorkspaceEntry(
       serverId: serializer.fromJson<String>(json['serverId']),
       name: serializer.fromJson<String>(json['name']),
-      workflowAlias: serializer.fromJson<String>(json['workflowAlias']),
+      workflowName: serializer.fromJson<String>(json['workflowName']),
       collection: serializer.fromJson<String>(json['collection']),
       createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
       lastActiveAt: serializer.fromJson<DateTime?>(json['lastActiveAt']),
@@ -619,7 +619,7 @@ class WorkspaceEntry extends DataClass implements Insertable<WorkspaceEntry> {
     return <String, dynamic>{
       'serverId': serializer.toJson<String>(serverId),
       'name': serializer.toJson<String>(name),
-      'workflowAlias': serializer.toJson<String>(workflowAlias),
+      'workflowName': serializer.toJson<String>(workflowName),
       'collection': serializer.toJson<String>(collection),
       'createdAt': serializer.toJson<DateTime?>(createdAt),
       'lastActiveAt': serializer.toJson<DateTime?>(lastActiveAt),
@@ -632,7 +632,7 @@ class WorkspaceEntry extends DataClass implements Insertable<WorkspaceEntry> {
   WorkspaceEntry copyWith({
     String? serverId,
     String? name,
-    String? workflowAlias,
+    String? workflowName,
     String? collection,
     Value<DateTime?> createdAt = const Value.absent(),
     Value<DateTime?> lastActiveAt = const Value.absent(),
@@ -642,7 +642,7 @@ class WorkspaceEntry extends DataClass implements Insertable<WorkspaceEntry> {
   }) => WorkspaceEntry(
     serverId: serverId ?? this.serverId,
     name: name ?? this.name,
-    workflowAlias: workflowAlias ?? this.workflowAlias,
+    workflowName: workflowName ?? this.workflowName,
     collection: collection ?? this.collection,
     createdAt: createdAt.present ? createdAt.value : this.createdAt,
     lastActiveAt: lastActiveAt.present ? lastActiveAt.value : this.lastActiveAt,
@@ -654,9 +654,9 @@ class WorkspaceEntry extends DataClass implements Insertable<WorkspaceEntry> {
     return WorkspaceEntry(
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
       name: data.name.present ? data.name.value : this.name,
-      workflowAlias: data.workflowAlias.present
-          ? data.workflowAlias.value
-          : this.workflowAlias,
+      workflowName: data.workflowName.present
+          ? data.workflowName.value
+          : this.workflowName,
       collection: data.collection.present
           ? data.collection.value
           : this.collection,
@@ -679,7 +679,7 @@ class WorkspaceEntry extends DataClass implements Insertable<WorkspaceEntry> {
     return (StringBuffer('WorkspaceEntry(')
           ..write('serverId: $serverId, ')
           ..write('name: $name, ')
-          ..write('workflowAlias: $workflowAlias, ')
+          ..write('workflowName: $workflowName, ')
           ..write('collection: $collection, ')
           ..write('createdAt: $createdAt, ')
           ..write('lastActiveAt: $lastActiveAt, ')
@@ -694,7 +694,7 @@ class WorkspaceEntry extends DataClass implements Insertable<WorkspaceEntry> {
   int get hashCode => Object.hash(
     serverId,
     name,
-    workflowAlias,
+    workflowName,
     collection,
     createdAt,
     lastActiveAt,
@@ -708,7 +708,7 @@ class WorkspaceEntry extends DataClass implements Insertable<WorkspaceEntry> {
       (other is WorkspaceEntry &&
           other.serverId == this.serverId &&
           other.name == this.name &&
-          other.workflowAlias == this.workflowAlias &&
+          other.workflowName == this.workflowName &&
           other.collection == this.collection &&
           other.createdAt == this.createdAt &&
           other.lastActiveAt == this.lastActiveAt &&
@@ -720,7 +720,7 @@ class WorkspaceEntry extends DataClass implements Insertable<WorkspaceEntry> {
 class WorkspaceEntriesCompanion extends UpdateCompanion<WorkspaceEntry> {
   final Value<String> serverId;
   final Value<String> name;
-  final Value<String> workflowAlias;
+  final Value<String> workflowName;
   final Value<String> collection;
   final Value<DateTime?> createdAt;
   final Value<DateTime?> lastActiveAt;
@@ -731,7 +731,7 @@ class WorkspaceEntriesCompanion extends UpdateCompanion<WorkspaceEntry> {
   const WorkspaceEntriesCompanion({
     this.serverId = const Value.absent(),
     this.name = const Value.absent(),
-    this.workflowAlias = const Value.absent(),
+    this.workflowName = const Value.absent(),
     this.collection = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.lastActiveAt = const Value.absent(),
@@ -743,7 +743,7 @@ class WorkspaceEntriesCompanion extends UpdateCompanion<WorkspaceEntry> {
   WorkspaceEntriesCompanion.insert({
     required String serverId,
     required String name,
-    required String workflowAlias,
+    required String workflowName,
     this.collection = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.lastActiveAt = const Value.absent(),
@@ -753,13 +753,13 @@ class WorkspaceEntriesCompanion extends UpdateCompanion<WorkspaceEntry> {
     this.rowid = const Value.absent(),
   }) : serverId = Value(serverId),
        name = Value(name),
-       workflowAlias = Value(workflowAlias),
+       workflowName = Value(workflowName),
        rawProtobuf = Value(rawProtobuf),
        refreshedAt = Value(refreshedAt);
   static Insertable<WorkspaceEntry> custom({
     Expression<String>? serverId,
     Expression<String>? name,
-    Expression<String>? workflowAlias,
+    Expression<String>? workflowName,
     Expression<String>? collection,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? lastActiveAt,
@@ -771,7 +771,7 @@ class WorkspaceEntriesCompanion extends UpdateCompanion<WorkspaceEntry> {
     return RawValuesInsertable({
       if (serverId != null) 'server_id': serverId,
       if (name != null) 'name': name,
-      if (workflowAlias != null) 'workflow_name': workflowAlias,
+      if (workflowName != null) 'workflow_name': workflowName,
       if (collection != null) 'collection': collection,
       if (createdAt != null) 'created_at': createdAt,
       if (lastActiveAt != null) 'last_active_at': lastActiveAt,
@@ -785,7 +785,7 @@ class WorkspaceEntriesCompanion extends UpdateCompanion<WorkspaceEntry> {
   WorkspaceEntriesCompanion copyWith({
     Value<String>? serverId,
     Value<String>? name,
-    Value<String>? workflowAlias,
+    Value<String>? workflowName,
     Value<String>? collection,
     Value<DateTime?>? createdAt,
     Value<DateTime?>? lastActiveAt,
@@ -797,7 +797,7 @@ class WorkspaceEntriesCompanion extends UpdateCompanion<WorkspaceEntry> {
     return WorkspaceEntriesCompanion(
       serverId: serverId ?? this.serverId,
       name: name ?? this.name,
-      workflowAlias: workflowAlias ?? this.workflowAlias,
+      workflowName: workflowName ?? this.workflowName,
       collection: collection ?? this.collection,
       createdAt: createdAt ?? this.createdAt,
       lastActiveAt: lastActiveAt ?? this.lastActiveAt,
@@ -817,8 +817,8 @@ class WorkspaceEntriesCompanion extends UpdateCompanion<WorkspaceEntry> {
     if (name.present) {
       map['name'] = Variable<String>(name.value);
     }
-    if (workflowAlias.present) {
-      map['workflow_name'] = Variable<String>(workflowAlias.value);
+    if (workflowName.present) {
+      map['workflow_name'] = Variable<String>(workflowName.value);
     }
     if (collection.present) {
       map['collection'] = Variable<String>(collection.value);
@@ -849,7 +849,7 @@ class WorkspaceEntriesCompanion extends UpdateCompanion<WorkspaceEntry> {
     return (StringBuffer('WorkspaceEntriesCompanion(')
           ..write('serverId: $serverId, ')
           ..write('name: $name, ')
-          ..write('workflowAlias: $workflowAlias, ')
+          ..write('workflowName: $workflowName, ')
           ..write('collection: $collection, ')
           ..write('createdAt: $createdAt, ')
           ..write('lastActiveAt: $lastActiveAt, ')
@@ -2887,7 +2887,7 @@ typedef $$WorkspaceEntriesTableCreateCompanionBuilder =
     WorkspaceEntriesCompanion Function({
       required String serverId,
       required String name,
-      required String workflowAlias,
+      required String workflowName,
       Value<String> collection,
       Value<DateTime?> createdAt,
       Value<DateTime?> lastActiveAt,
@@ -2900,7 +2900,7 @@ typedef $$WorkspaceEntriesTableUpdateCompanionBuilder =
     WorkspaceEntriesCompanion Function({
       Value<String> serverId,
       Value<String> name,
-      Value<String> workflowAlias,
+      Value<String> workflowName,
       Value<String> collection,
       Value<DateTime?> createdAt,
       Value<DateTime?> lastActiveAt,
@@ -2929,8 +2929,8 @@ class $$WorkspaceEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get workflowAlias => $composableBuilder(
-    column: $table.workflowAlias,
+  ColumnFilters<String> get workflowName => $composableBuilder(
+    column: $table.workflowName,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2984,8 +2984,8 @@ class $$WorkspaceEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get workflowAlias => $composableBuilder(
-    column: $table.workflowAlias,
+  ColumnOrderings<String> get workflowName => $composableBuilder(
+    column: $table.workflowName,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -3035,8 +3035,8 @@ class $$WorkspaceEntriesTableAnnotationComposer
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
 
-  GeneratedColumn<String> get workflowAlias => $composableBuilder(
-    column: $table.workflowAlias,
+  GeneratedColumn<String> get workflowName => $composableBuilder(
+    column: $table.workflowName,
     builder: (column) => column,
   );
 
@@ -3106,7 +3106,7 @@ class $$WorkspaceEntriesTableTableManager
               ({
                 Value<String> serverId = const Value.absent(),
                 Value<String> name = const Value.absent(),
-                Value<String> workflowAlias = const Value.absent(),
+                Value<String> workflowName = const Value.absent(),
                 Value<String> collection = const Value.absent(),
                 Value<DateTime?> createdAt = const Value.absent(),
                 Value<DateTime?> lastActiveAt = const Value.absent(),
@@ -3117,7 +3117,7 @@ class $$WorkspaceEntriesTableTableManager
               }) => WorkspaceEntriesCompanion(
                 serverId: serverId,
                 name: name,
-                workflowAlias: workflowAlias,
+                workflowName: workflowName,
                 collection: collection,
                 createdAt: createdAt,
                 lastActiveAt: lastActiveAt,
@@ -3130,7 +3130,7 @@ class $$WorkspaceEntriesTableTableManager
               ({
                 required String serverId,
                 required String name,
-                required String workflowAlias,
+                required String workflowName,
                 Value<String> collection = const Value.absent(),
                 Value<DateTime?> createdAt = const Value.absent(),
                 Value<DateTime?> lastActiveAt = const Value.absent(),
@@ -3141,7 +3141,7 @@ class $$WorkspaceEntriesTableTableManager
               }) => WorkspaceEntriesCompanion.insert(
                 serverId: serverId,
                 name: name,
-                workflowAlias: workflowAlias,
+                workflowName: workflowName,
                 collection: collection,
                 createdAt: createdAt,
                 lastActiveAt: lastActiveAt,

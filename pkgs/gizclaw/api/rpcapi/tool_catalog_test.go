@@ -6,13 +6,13 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-func TestToolCatalogPreservesAliasAndCanonicalName(t *testing.T) {
+func TestToolCatalogPreservesResourceAndInvocationNames(t *testing.T) {
 	t.Parallel()
 	var payload RPCPayload
 	response := ToolGetResponse{
 		Value: Tool{
-			Alias:       "device_volume",
-			Name:        "client_volume_set",
+			Name:        "device_volume",
+			InvokeName:  "client_volume_set",
 			InputSchema: jsonschema.Schema{Type: "object"},
 		},
 	}
@@ -23,7 +23,7 @@ func TestToolCatalogPreservesAliasAndCanonicalName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsToolGetResponse() error = %v", err)
 	}
-	if decoded.Value.Alias != response.Value.Alias || decoded.Value.Name != response.Value.Name {
-		t.Fatalf("Tool identity = alias %q, name %q", decoded.Value.Alias, decoded.Value.Name)
+	if decoded.Value.Name != response.Value.Name || decoded.Value.InvokeName != response.Value.InvokeName {
+		t.Fatalf("Tool identity = name %q, invoke_name %q", decoded.Value.Name, decoded.Value.InvokeName)
 	}
 }

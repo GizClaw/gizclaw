@@ -188,10 +188,10 @@ export function CredentialsListPage(): JSX.Element {
                 {items.map((credential) => (
                   <TableRow
                     className="cursor-pointer hover:bg-muted/40"
-                    key={credential.name}
-                    onClick={() => openCredential(credential.name)}
+                    key={credential.id}
+                    onClick={() => openCredential(credential.id)}
                     onKeyDown={(event) =>
-                      handleRowKeyDown(event, credential.name)
+                      handleRowKeyDown(event, credential.id)
                     }
                     role="link"
                     tabIndex={0}
@@ -202,7 +202,7 @@ export function CredentialsListPage(): JSX.Element {
                           className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={(event) => {
                             event.stopPropagation();
-                            openCredential(credential.name);
+                            openCredential(credential.id);
                           }}
                           title={credential.name}
                           type="button"

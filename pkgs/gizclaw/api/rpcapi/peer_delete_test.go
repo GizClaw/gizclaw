@@ -18,7 +18,7 @@ func TestServerPeerDeletePayloadCodec(t *testing.T) {
 		t.Fatalf("AsServerPeerDeleteResponse: %v", err)
 	}
 	protoMethod, err := ProtoMethod(RPCMethodServerPeerDelete)
-	if err != nil || int32(protoMethod) != 94 {
+	if err != nil || int32(protoMethod) != 93 {
 		t.Fatalf("ProtoMethod(RPCMethodServerPeerDelete) = %d, %v", protoMethod, err)
 	}
 }

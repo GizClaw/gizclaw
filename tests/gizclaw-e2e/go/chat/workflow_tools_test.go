@@ -198,17 +198,18 @@ func configureChatToolResources(
 	if err != nil {
 		t.Fatalf("apply Tool E2E Workflow resource: %v", err)
 	}
-	if workflowResponse.JSON200 == nil {
+	if workflowResponse.JSON200 == nil || workflowResponse.JSON200.Id == nil {
 		t.Fatalf(
 			"apply Tool E2E Workflow resource status %d: %s",
 			workflowResponse.StatusCode(),
 			strings.TrimSpace(string(workflowResponse.Body)),
 		)
 	}
+	workflowID := *workflowResponse.JSON200.Id
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
-		_, _ = api.DeleteResourceWithResponse(cleanupCtx, apitypes.ResourceKindWorkflow, workflowName)
+		_, _ = api.DeleteResourceWithResponse(cleanupCtx, apitypes.ResourceKindWorkflow, workflowID)
 	})
 
 	bindings := make(map[string]apitypes.RuntimeProfileBinding, len(specs))
@@ -227,35 +228,32 @@ func configureChatToolResources(
 		if err != nil {
 			t.Fatalf("apply Tool resource %q: %v", name, err)
 		}
-		if response.JSON200 == nil {
+		if response.JSON200 == nil || response.JSON200.Id == nil {
 			t.Fatalf("apply Tool resource %q status %d: %s", name, response.StatusCode(), strings.TrimSpace(string(response.Body)))
 		}
 		bindingIndex++
 		alias := fmt.Sprintf("tool-e2e-%d", bindingIndex)
 		bindings[alias] = apitypes.RuntimeProfileBinding{
-			ResourceId: name,
+			ResourceId: *response.JSON200.Id,
 			I18n: map[string]apitypes.RuntimeProfileI18nText{
 				"en":    {DisplayName: name},
 				"zh-CN": {DisplayName: name},
 			},
 		}
-		name := name
+		toolID := *response.JSON200.Id
 		t.Cleanup(func() {
 			cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cleanupCancel()
-			_, _ = api.DeleteResourceWithResponse(cleanupCtx, apitypes.ResourceKindTool, name)
+			_, _ = api.DeleteResourceWithResponse(cleanupCtx, apitypes.ResourceKindTool, toolID)
 		})
 	}
 
 	const profileName = "e2e-chat"
-	current, err := api.GetRuntimeProfileWithResponse(ctx, profileName)
-	if err != nil {
+	current, found, err := clitest.RuntimeProfileByName(ctx, api, profileName)
+	if err != nil || !found {
 		t.Fatalf("get Tool E2E RuntimeProfile: %v", err)
 	}
-	if current.JSON200 == nil {
-		t.Fatalf("get Tool E2E RuntimeProfile status %d: %s", current.StatusCode(), strings.TrimSpace(string(current.Body)))
-	}
-	originalSpec, err := cloneRuntimeProfileSpec(current.JSON200.Spec)
+	originalSpec, err := cloneRuntimeProfileSpec(current.Spec)
 	if err != nil {
 		t.Fatalf("snapshot Tool E2E RuntimeProfile: %v", err)
 	}
@@ -265,13 +263,13 @@ func configureChatToolResources(
 	}
 	profileSpec.Resources.Tools = &bindings
 	profileSpec.Workflows.Collections["assistants"][workflowName] = apitypes.RuntimeProfileBinding{
-		ResourceId: workflowName,
+		ResourceId: workflowID,
 		I18n: map[string]apitypes.RuntimeProfileI18nText{
 			"en":    {DisplayName: "E2E Tool workflow"},
 			"zh-CN": {DisplayName: "E2E Tool 工作流"},
 		},
 	}
-	updated, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
+	updated, err := api.PutRuntimeProfileWithResponse(ctx, current.Id, adminhttp.RuntimeProfileUpsert{
 		Name: profileName,
 		Spec: profileSpec,
 	})
@@ -284,7 +282,7 @@ func configureChatToolResources(
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
-		restored, restoreErr := api.PutRuntimeProfileWithResponse(cleanupCtx, profileName, adminhttp.RuntimeProfileUpsert{
+		restored, restoreErr := api.PutRuntimeProfileWithResponse(cleanupCtx, current.Id, adminhttp.RuntimeProfileUpsert{
 			Name: profileName,
 			Spec: originalSpec,
 		})
@@ -300,7 +298,7 @@ func configureChatToolResources(
 			)
 			return
 		}
-		actual, getErr := api.GetRuntimeProfileWithResponse(cleanupCtx, profileName)
+		actual, getErr := api.GetRuntimeProfileWithResponse(cleanupCtx, current.Id)
 		if getErr != nil {
 			t.Errorf("verify restored Tool E2E RuntimeProfile: %v", getErr)
 			return

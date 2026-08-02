@@ -81,7 +81,7 @@ class _PetPageState extends State<PetPage> {
       if (!mounted || request != _request) return;
       for (final pet in pets) {
         data.rememberPetRouteContext(
-          petId: pet.id,
+          petId: pet.name,
           title: pet.displayName.trim().isEmpty
               ? 'Pet companion'
               : pet.displayName,
@@ -90,7 +90,7 @@ class _PetPageState extends State<PetPage> {
       }
       setState(() {
         _pets = pets;
-        _visuals.removeWhere((id, _) => !pets.any((pet) => pet.id == id));
+        _visuals.removeWhere((id, _) => !pets.any((pet) => pet.name == id));
         _loading = false;
       });
       await Future.wait([for (final pet in pets) _loadVisual(pet, request)]);
@@ -107,13 +107,13 @@ class _PetPageState extends State<PetPage> {
     try {
       final data = MobileDataScope.watch(context);
       final presentation = (await data.runRpc(
-        (client) => client.getPetActions(pet.id),
+        (client) => client.getPetActions(pet.name),
         retryOnTransportError: true,
       )).value;
       PixaAsset? pixa;
       try {
         pixa = (await data.runRpc(
-          (client) => client.downloadPetPixa(pet.id),
+          (client) => client.downloadPetPixa(pet.name),
           retryOnTransportError: true,
         )).asset;
       } catch (_) {
@@ -121,7 +121,7 @@ class _PetPageState extends State<PetPage> {
       }
       if (!mounted || request != _request) return;
       setState(() {
-        _visuals[pet.id] = _PetVisual(presentation: presentation, pixa: pixa);
+        _visuals[pet.name] = _PetVisual(presentation: presentation, pixa: pixa);
       });
     } catch (_) {
       // Keep the cover usable even if its presentation is temporarily missing.
@@ -140,9 +140,9 @@ class _PetPageState extends State<PetPage> {
     try {
       final response = await MobileDataScope.watch(
         context,
-      ).runRpc((client) => client.adoptPet(displayName: name));
+      ).runRpc((client) => client.adoptPet(name: name, displayName: name));
       await _loadPets();
-      if (mounted) context.push('/pets/${response.value.pet.id}');
+      if (mounted) context.push('/pets/${response.value.pet.name}');
     } catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
@@ -203,8 +203,9 @@ class _PetPageState extends State<PetPage> {
                   if (_pets.length == 1)
                     _PetCoverCard(
                       pet: _pets.first,
-                      visual: _visuals[_pets.first.id],
-                      onPressed: () => context.push('/pets/${_pets.first.id}'),
+                      visual: _visuals[_pets.first.name],
+                      onPressed: () =>
+                          context.push('/pets/${_pets.first.name}'),
                     ),
                   if (_pets.length > 1)
                     GridView.builder(
@@ -221,10 +222,10 @@ class _PetPageState extends State<PetPage> {
                       itemCount: _pets.length,
                       itemBuilder: (context, index) => _PetCoverCard(
                         pet: _pets[index],
-                        visual: _visuals[_pets[index].id],
+                        visual: _visuals[_pets[index].name],
                         compact: true,
                         onPressed: () =>
-                            context.push('/pets/${_pets[index].id}'),
+                            context.push('/pets/${_pets[index].name}'),
                       ),
                     ),
                 ],
@@ -388,7 +389,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
       }
       if (!mounted || request != _request) return;
       data.rememberPetRouteContext(
-        petId: pet.id,
+        petId: pet.name,
         title: pet.displayName.trim().isEmpty
             ? 'Pet companion'
             : pet.displayName,
@@ -448,7 +449,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
       final animation = Future<void>.delayed(duration);
       final response = await MobileDataScope.watch(
         context,
-      ).runRpc((client) => client.drivePet(pet.id, behavior: behavior));
+      ).runRpc((client) => client.drivePet(pet.name, behavior: behavior));
       if (!mounted) return;
       setState(() => _pet = response.value.pet);
       await animation;
@@ -952,7 +953,7 @@ class _PetCoverCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardRadius = compact ? GizCorners.card : GizCorners.hero;
-    final accent = _petCoverAccent(pet.id);
+    final accent = _petCoverAccent(pet.name);
     return GizPressable(
       onPressed: onPressed,
       borderRadius: cardRadius,

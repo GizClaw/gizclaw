@@ -32,7 +32,7 @@
                 "$ref": "./resource.json#/components/schemas/ResourceMetadata"
               }
             ],
-            "description": "metadata.name is the friend group custom ID."
+            "description": "metadata.name is the immutable Admin name; metadata.id is omitted on create and required on update."
           },
           "spec": {
             "$ref": "#/components/schemas/FriendGroupSpec"
@@ -42,8 +42,7 @@
       "FriendGroupSpec": {
         "type": "object",
         "required": [
-          "owner_public_key",
-          "name"
+          "owner_public_key"
         ],
         "properties": {
           "owner_public_key": {
@@ -51,11 +50,10 @@
             "minLength": 1,
             "description": "Immutable owner Peer public key used to resolve the system Workflow."
           },
-          "name": {
-            "type": "string",
-            "description": "Display name for the friend group. metadata.name is the stable group id."
-          },
           "description": {
+            "type": "string"
+          },
+          "display_name": {
             "type": "string"
           }
         }

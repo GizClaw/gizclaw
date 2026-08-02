@@ -30,13 +30,13 @@ void main() {
       payload.ModelListResponse(
         items: [
           payload.Model(
-            alias: 'chat-model',
+            name: 'chat-model',
             kind: enums.ModelKind.MODEL_KIND_LLM,
           ),
         ],
       ),
     );
-    expect((await future).items.single.alias, 'chat-model');
+    expect((await future).items.single.name, 'chat-model');
   });
 
   test('creates a typed workspace document', () async {
@@ -44,7 +44,7 @@ void main() {
     final client = GizClawClient(factory);
     final workspace = payload.WorkspaceCreateBody(
       name: 'mobile-ast-device',
-      workflowAlias: 'volc-ast-translate',
+      workflowName: 'volc-ast-translate',
       collection: 'translates',
     );
 
@@ -54,13 +54,13 @@ void main() {
         decodeRpcRequestPayload('server.workspace.create', request.payload)
             as payload.WorkspaceCreateRequest;
     expect(body.value.name, 'mobile-ast-device');
-    expect(body.value.workflowAlias, 'volc-ast-translate');
+    expect(body.value.workflowName, 'volc-ast-translate');
     expect(body.value.collection, 'translates');
 
     final responseWorkspace = payload.Workspace(
       name: workspace.name,
       system: true,
-      workflowAlias: workspace.workflowAlias,
+      workflowName: workspace.workflowName,
     );
     _respond(
       factory.channels.single,
@@ -95,7 +95,7 @@ void main() {
       payload.WorkspacePutResponse(
         value: payload.Workspace(
           name: 'mobile-ast-device',
-          workflowAlias: 'volc-ast-translate',
+          workflowName: 'volc-ast-translate',
         ),
       ),
     );

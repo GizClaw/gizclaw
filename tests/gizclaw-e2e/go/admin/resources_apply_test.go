@@ -14,7 +14,6 @@ func TestAdminAPIApplyResource(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
 	name := mutationName("apply-workflow")
-	_, _ = env.api.DeleteWorkflowWithResponse(env.ctx, name)
 	var resource apitypes.Resource
 	if err := resource.FromWorkflowResource(apitypes.WorkflowResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
@@ -32,10 +31,10 @@ func TestAdminAPIApplyResource(t *testing.T) {
 		t.Fatalf("apply resource: %v", err)
 	}
 	requireStatusOK(t, resp, resp.Body)
-	if resp.JSON200 == nil || resp.JSON200.Name != name || resp.JSON200.Kind != apitypes.ResourceKindWorkflow {
+	if resp.JSON200 == nil || resp.JSON200.Id == nil || resp.JSON200.Name != name || resp.JSON200.Kind != apitypes.ResourceKindWorkflow {
 		t.Fatalf("apply resource = %#v", resp.JSON200)
 	}
-	deleted, err := env.api.DeleteWorkflowWithResponse(env.ctx, name)
+	deleted, err := env.api.DeleteWorkflowWithResponse(env.ctx, *resp.JSON200.Id)
 	if err != nil {
 		t.Fatalf("delete applied workflow: %v", err)
 	}
@@ -50,21 +49,19 @@ func TestAdminAPIApplySocialResources(t *testing.T) {
 
 	owner, peer := sortedPublicKeys(env.adminKey, env.peerKey)
 	relationID := owner + ":" + peer
-	groupID := mutationName("social-group")
-	memberName := groupID + ":" + env.peerKey
+	groupName := mutationName("social-group")
 	expiresAt := time.Now().UTC().Add(30 * time.Minute)
 
+	friendID := applyAndRequire(t, env, apitypes.ResourceKindFriend, relationID, friendResource(t, relationID, owner, peer))
+	groupID := applyAndRequire(t, env, apitypes.ResourceKindFriendGroup, groupName, friendGroupResource(t, groupName, env.adminKey, "E2E Mut Social Group", "created by e2e apply"))
+	memberID := applyAndRequire(t, env, apitypes.ResourceKindFriendGroupMember, groupName, friendGroupMemberResource(t, groupName, groupID, env.peerKey, apitypes.FriendGroupMemberRoleMember))
+	tokenID := applyAndRequire(t, env, apitypes.ResourceKindFriendGroupInviteToken, groupID, friendGroupInviteTokenResource(t, groupID, "e2e-mut-social-token", expiresAt))
 	t.Cleanup(func() {
-		_, _ = env.api.DeleteResourceWithResponse(env.ctx, apitypes.ResourceKindFriendGroupInviteToken, groupID)
-		_, _ = env.api.DeleteResourceWithResponse(env.ctx, apitypes.ResourceKindFriendGroupMember, memberName)
+		_, _ = env.api.DeleteResourceWithResponse(env.ctx, apitypes.ResourceKindFriendGroupInviteToken, tokenID)
+		_, _ = env.api.DeleteResourceWithResponse(env.ctx, apitypes.ResourceKindFriendGroupMember, memberID)
 		_, _ = env.api.DeleteResourceWithResponse(env.ctx, apitypes.ResourceKindFriendGroup, groupID)
-		_, _ = env.api.DeleteResourceWithResponse(env.ctx, apitypes.ResourceKindFriend, relationID)
+		_, _ = env.api.DeleteResourceWithResponse(env.ctx, apitypes.ResourceKindFriend, friendID)
 	})
-
-	applyAndRequire(t, env, apitypes.ResourceKindFriend, relationID, friendResource(t, relationID, owner, peer))
-	applyAndRequire(t, env, apitypes.ResourceKindFriendGroup, groupID, friendGroupResource(t, groupID, env.adminKey, "E2E Mut Social Group", "created by e2e apply"))
-	applyAndRequire(t, env, apitypes.ResourceKindFriendGroupMember, memberName, friendGroupMemberResource(t, memberName, groupID, env.peerKey, apitypes.FriendGroupMemberRoleMember))
-	applyAndRequire(t, env, apitypes.ResourceKindFriendGroupInviteToken, groupID, friendGroupInviteTokenResource(t, groupID, "e2e-mut-social-token", expiresAt))
 }
 
 func TestAdminAPIApplyRejectsInvalidCustomIDResources(t *testing.T) {
@@ -84,7 +81,7 @@ func TestAdminAPIApplyRejectsInvalidCustomIDResources(t *testing.T) {
 		},
 		{
 			name:     "contact id segment",
-			resource: contactResource(t, env.peerKey+":alice", env.peerKey, "alice"),
+			resource: contactResource(t, "alice", env.peerKey),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -99,7 +96,7 @@ func TestAdminAPIApplyRejectsInvalidCustomIDResources(t *testing.T) {
 	}
 }
 
-func applyAndRequire(t *testing.T, env *adminAPIHarness, kind apitypes.ResourceKind, name string, resource apitypes.Resource) {
+func applyAndRequire(t *testing.T, env *adminAPIHarness, kind apitypes.ResourceKind, name string, resource apitypes.Resource) string {
 	t.Helper()
 
 	resp, err := env.api.ApplyResourceWithResponse(env.ctx, resource)
@@ -107,9 +104,10 @@ func applyAndRequire(t *testing.T, env *adminAPIHarness, kind apitypes.ResourceK
 		t.Fatalf("apply %s %s: %v", kind, name, err)
 	}
 	requireStatusOK(t, resp, resp.Body)
-	if resp.JSON200 == nil || resp.JSON200.Kind != kind || resp.JSON200.Name != name {
+	if resp.JSON200 == nil || resp.JSON200.Id == nil || resp.JSON200.Kind != kind || resp.JSON200.Name != name {
 		t.Fatalf("apply %s %s = %#v", kind, name, resp.JSON200)
 	}
+	return *resp.JSON200.Id
 }
 
 func workflowResource(t *testing.T, name string) apitypes.Resource {
@@ -130,7 +128,7 @@ func workflowResource(t *testing.T, name string) apitypes.Resource {
 	return resource
 }
 
-func contactResource(t *testing.T, name, owner, id string) apitypes.Resource {
+func contactResource(t *testing.T, name, owner string) apitypes.Resource {
 	t.Helper()
 
 	var resource apitypes.Resource
@@ -140,7 +138,6 @@ func contactResource(t *testing.T, name, owner, id string) apitypes.Resource {
 		Metadata:   apitypes.ResourceMetadata{Name: name},
 		Spec: apitypes.ContactSpec{
 			OwnerPublicKey: owner,
-			Id:             id,
 			DisplayName:    ptr("Invalid Contact"),
 		},
 	}); err != nil {
@@ -167,17 +164,17 @@ func friendResource(t *testing.T, name, owner, peer string) apitypes.Resource {
 	return resource
 }
 
-func friendGroupResource(t *testing.T, id, owner, name, description string) apitypes.Resource {
+func friendGroupResource(t *testing.T, name, owner, displayName, description string) apitypes.Resource {
 	t.Helper()
 
 	var resource apitypes.Resource
 	if err := resource.FromFriendGroupResource(apitypes.FriendGroupResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FriendGroupResourceKindFriendGroup,
-		Metadata:   apitypes.ResourceMetadata{Name: id},
+		Metadata:   apitypes.ResourceMetadata{Name: name},
 		Spec: apitypes.FriendGroupSpec{
 			OwnerPublicKey: owner,
-			Name:           name,
+			DisplayName:    ptr(displayName),
 			Description:    ptr(description),
 		},
 	}); err != nil {

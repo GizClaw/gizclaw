@@ -59,7 +59,7 @@ func (registry *Registry) Resolve(ctx context.Context, request Request) (Result,
 		}
 		return Result{}, err
 	}
-	bound, err := memory.BindApp(result.Store, request.WorkspaceName)
+	bound, err := memory.BindApp(result.Store, request.WorkspaceID)
 	if err != nil {
 		if logicalCloser != nil {
 			_ = logicalCloser.Close()
@@ -96,7 +96,7 @@ func registryKey(request Request) (string, error) {
 	digest := sha256.Sum256(identity)
 	return fmt.Sprintf(
 		"%s\x00%s\x00%s\x00%x",
-		request.ProfileName,
+		request.ProfileID,
 		request.BindingName,
 		request.Binding.Driver,
 		digest[:16],

@@ -6,10 +6,10 @@
     "schemas": {
       "DeepSeekTenantSpec": {
         "type": "object",
-        "required": ["credential_name"],
+        "required": ["credential_id"],
         "additionalProperties": false,
         "properties": {
-          "credential_name": { "type": "string" },
+          "credential_id": { "type": "string" },
           "base_url": { "type": "string", "format": "uri", "example": "https://api.deepseek.com" },
           "description": { "type": "string", "example": "primary DeepSeek tenant" }
         }

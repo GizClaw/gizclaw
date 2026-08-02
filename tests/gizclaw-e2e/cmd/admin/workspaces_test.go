@@ -24,16 +24,22 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 			t.Fatalf("workspaces list missing %q:\n%s", want, list.Stdout)
 		}
 	}
+	assistantWorkspaceID := adminResourceID(t, list.Stdout, "workspace-flowcraft-assistant")
+	supportWorkspaceID := adminResourceID(t, list.Stdout, "support-desk-workspace")
+	workflows := h.RunCLI("admin", "workflows", "list", "--context", "admin-a")
+	workflows.MustSucceed(t)
+	voiceWorkflowID := adminResourceID(t, workflows.Stdout, "flowcraft-voice-assistant")
+	chatWorkflowID := adminResourceID(t, workflows.Stdout, "flowcraft-chat-assistant")
 
-	get := h.RunCLI("admin", "workspaces", "get", "workspace-flowcraft-assistant", "--context", "admin-a")
+	get := h.RunCLI("admin", "workspaces", "get", assistantWorkspaceID, "--context", "admin-a")
 	get.MustSucceed(t)
-	if !strings.Contains(get.Stdout, `"workflow_name":"flowcraft-voice-assistant"`) {
-		t.Fatalf("workspaces get missing workflow name:\n%s", get.Stdout)
+	if !strings.Contains(get.Stdout, `"workflow_id":"`+voiceWorkflowID+`"`) {
+		t.Fatalf("workspaces get missing canonical workflow ID:\n%s", get.Stdout)
 	}
 
-	rpcGet := h.RunCLI("admin", "workspaces", "get", "support-desk-workspace", "--context", "admin-a")
+	rpcGet := h.RunCLI("admin", "workspaces", "get", supportWorkspaceID, "--context", "admin-a")
 	rpcGet.MustSucceed(t)
-	if !strings.Contains(rpcGet.Stdout, `"workflow_name":"flowcraft-chat-assistant"`) {
-		t.Fatalf("workspaces get missing resource workflow name:\n%s", rpcGet.Stdout)
+	if !strings.Contains(rpcGet.Stdout, `"workflow_id":"`+chatWorkflowID+`"`) {
+		t.Fatalf("workspaces get missing canonical workflow ID:\n%s", rpcGet.Stdout)
 	}
 }

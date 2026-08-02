@@ -137,7 +137,7 @@ func TestFactoryBindsOnlyWorkspaceAppAndReportsConfiguredBackend(t *testing.T) {
 	store.mu.Lock()
 	scope := store.query.Scope
 	store.mu.Unlock()
-	if scope.AppID != spec.Workspace.Name || scope.AgentID != "" {
+	if scope.AppID != spec.Workspace.Id || scope.AgentID != "" {
 		t.Fatalf("Recall scope = %#v, want only Workspace AppID", scope)
 	}
 	if scope.UserID != "" || scope.RunID != "" {
@@ -154,7 +154,7 @@ func TestFactoryBindsOnlyWorkspaceAppAndReportsConfiguredBackend(t *testing.T) {
 		t.Fatal("MemoryStats metadata is nil")
 	}
 	metadataScope, ok := (*stats.Metadata)["scope"].(map[string]any)
-	if !ok || metadataScope["app_id"] != spec.Workspace.Name ||
+	if !ok || metadataScope["app_id"] != spec.Workspace.Id ||
 		metadataScope["agent_id"] != "" {
 		t.Fatalf("MemoryStats scope = %#v", (*stats.Metadata)["scope"])
 	}
@@ -208,7 +208,7 @@ func einoFactorySpec(t testing.TB) agenthost.Spec {
 		t.Fatalf("decode Eino factory fixture: %v", err)
 	}
 	return agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "workspace-a"},
+		Workspace: apitypes.Workspace{Id: "workspace-id-a", Name: "workspace-a"},
 		Workflow: apitypes.Workflow{
 			Name: "workflow-a",
 			Spec: apitypes.WorkflowSpec{

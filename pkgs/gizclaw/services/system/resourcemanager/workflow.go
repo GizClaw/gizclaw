@@ -24,9 +24,25 @@ func (m *Manager) applyWorkflow(ctx context.Context, resource apitypes.Resource)
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_WORKFLOW_RESOURCE", err.Error())
 	}
 	item.Spec = spec
-	name := string(pathParam(item.Metadata.Name))
-	existing, exists, err := m.getWorkflow(ctx, name)
+	id, updating, err := resourceUpdateID(item.Metadata)
 	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !updating {
+		createdID, err := m.createWorkflow(ctx, workflowFromResource(item))
+		if err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindWorkflow, item.Metadata.Name, createdID), nil
+	}
+	existing, exists, err := m.getWorkflow(ctx, id)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !exists {
+		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindWorkflow, id)
+	}
+	if err := validateImmutableResourceName(apitypes.ResourceKindWorkflow, id, existing.Name, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {
@@ -35,16 +51,32 @@ func (m *Manager) applyWorkflow(ctx context.Context, resource apitypes.Resource)
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindWorkflow, item.Metadata.Name), nil
+			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindWorkflow, item.Metadata.Name, id), nil
 		}
 	}
-	if err := m.putWorkflow(ctx, name, workflowFromResource(item)); err != nil {
+	if err := m.putWorkflow(ctx, id, workflowFromResource(item)); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindWorkflow, item.Metadata.Name), nil
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindWorkflow, item.Metadata.Name, id), nil
+}
+
+func (m *Manager) createWorkflow(ctx context.Context, body adminhttp.WorkflowUpsert) (string, error) {
+	response, err := m.services.Workflows.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &body})
+	if err != nil {
+		return "", err
 	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindWorkflow, item.Metadata.Name), nil
+	switch response := response.(type) {
+	case adminhttp.CreateWorkflow200JSONResponse:
+		return response.Id, nil
+	case adminhttp.CreateWorkflow400JSONResponse:
+		return "", responseError(400, "CREATE_WORKFLOW_FAILED", "failed to create workflow", response)
+	case adminhttp.CreateWorkflow409JSONResponse:
+		return "", responseError(409, "CREATE_WORKFLOW_FAILED", "failed to create workflow", response)
+	case adminhttp.CreateWorkflow500JSONResponse:
+		return "", responseError(500, "CREATE_WORKFLOW_FAILED", "failed to create workflow", response)
+	default:
+		return "", unexpectedResponse("CreateWorkflow", response)
+	}
 }
 
 func normalizeWorkflowResourceSpec(spec apitypes.WorkflowSpec) (apitypes.WorkflowSpec, error) {
@@ -57,7 +89,7 @@ func normalizeWorkflowResourceSpec(spec apitypes.WorkflowSpec) (apitypes.Workflo
 }
 
 func (m *Manager) getWorkflow(ctx context.Context, name string) (apitypes.Workflow, bool, error) {
-	response, err := m.services.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: name})
+	response, err := m.services.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: name})
 	if err != nil {
 		return apitypes.Workflow{}, false, err
 	}
@@ -73,8 +105,8 @@ func (m *Manager) getWorkflow(ctx context.Context, name string) (apitypes.Workfl
 	}
 }
 
-func (m *Manager) putWorkflow(ctx context.Context, name string, body apitypes.Workflow) error {
-	response, err := m.services.Workflows.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Name: name, Body: &body})
+func (m *Manager) putWorkflow(ctx context.Context, name string, body adminhttp.WorkflowUpsert) error {
+	response, err := m.services.Workflows.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Id: name, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -91,7 +123,7 @@ func (m *Manager) putWorkflow(ctx context.Context, name string, body apitypes.Wo
 }
 
 func (m *Manager) deleteWorkflow(ctx context.Context, name string) (apitypes.Workflow, bool, error) {
-	response, err := m.services.Workflows.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: name})
+	response, err := m.services.Workflows.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Id: name})
 	if err != nil {
 		return apitypes.Workflow{}, false, err
 	}
@@ -111,13 +143,13 @@ func resourceFromWorkflow(_ string, item apitypes.Workflow) (apitypes.Resource, 
 	return marshalResource(apitypes.WorkflowResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.WorkflowResourceKind(apitypes.ResourceKindWorkflow),
-		Metadata:   apitypes.ResourceMetadata{Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
 		Spec:       item.Spec,
 	})
 }
 
-func workflowFromResource(item apitypes.WorkflowResource) apitypes.Workflow {
-	return apitypes.Workflow{
+func workflowFromResource(item apitypes.WorkflowResource) adminhttp.WorkflowUpsert {
+	return adminhttp.WorkflowUpsert{
 		Name: item.Metadata.Name,
 		Spec: item.Spec,
 	}

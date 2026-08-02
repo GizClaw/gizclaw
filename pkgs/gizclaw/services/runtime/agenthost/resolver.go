@@ -33,7 +33,7 @@ type ServiceResolver struct {
 }
 
 type workspaceRuntimeProvider interface {
-	GetWorkspaceRuntime(context.Context, string) (workspace.Runtime, error)
+	GetWorkspaceRuntimeByID(context.Context, string) (workspace.Runtime, error)
 }
 
 // ResolveMemory resolves only the Workspace, outer Workflow, and owner
@@ -54,6 +54,27 @@ func (r ServiceResolver) ResolveMemory(ctx context.Context, pattern string) (Spe
 	if err != nil {
 		return Spec{}, err
 	}
+	return r.resolveWorkspaceMemory(ctx, ws)
+}
+
+// ResolveMemoryByID resolves a Workspace Memory binding through the canonical
+// Admin identity. Background services must use this path so a mutable or
+// owner-scoped Peer name never becomes a durable foreign key.
+func (r ServiceResolver) ResolveMemoryByID(ctx context.Context, workspaceID string) (Spec, error) {
+	if r.Workspaces == nil {
+		return Spec{}, fmt.Errorf("agenthost: workspace service is required")
+	}
+	if r.Workflows == nil {
+		return Spec{}, fmt.Errorf("agenthost: workflow service is required")
+	}
+	ws, err := r.getWorkspaceByID(ctx, strings.TrimSpace(workspaceID))
+	if err != nil {
+		return Spec{}, err
+	}
+	return r.resolveWorkspaceMemory(ctx, ws)
+}
+
+func (r ServiceResolver) resolveWorkspaceMemory(ctx context.Context, ws apitypes.Workspace) (Spec, error) {
 	resolutionCtx, err := r.ownerRuntimeContext(ctx, ws)
 	if err != nil {
 		return Spec{}, err
@@ -70,16 +91,16 @@ func (r ServiceResolver) ResolveMemory(ctx context.Context, pattern string) (Spe
 	if err != nil {
 		return Spec{}, err
 	}
-	var memoryProfileName, memoryProfileRevision string
+	var memoryProfileID, memoryProfileRevision string
 	if memoryBinding != nil {
 		profile := resolutionCtx.Value(runtimeProfileContextKey{}).(apitypes.RuntimeProfile)
-		memoryProfileName = profile.Name
+		memoryProfileID = profile.Id
 		memoryProfileRevision = profile.Revision
 	}
 	return Spec{
 		Workspace: ws, Workflow: resolvedWorkflow,
 		MemoryName: memoryName, MemoryBinding: memoryBinding, MemoryLayout: memoryLayout,
-		MemoryProfileName: memoryProfileName, MemoryProfileRevision: memoryProfileRevision,
+		MemoryProfileID: memoryProfileID, MemoryProfileRevision: memoryProfileRevision,
 	}, nil
 }
 
@@ -99,6 +120,28 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 	if err != nil {
 		return Spec{}, err
 	}
+	return r.resolveWorkspace(ctx, ws)
+}
+
+// ResolveByID loads a Workspace through its canonical Admin identity. Peer
+// runtimes use this only after their name-based access check has resolved the
+// selected Workspace, so shared system Workspaces never depend on one
+// participant's name index.
+func (r ServiceResolver) ResolveByID(ctx context.Context, workspaceID string) (Spec, error) {
+	if r.Workspaces == nil {
+		return Spec{}, fmt.Errorf("agenthost: workspace service is required")
+	}
+	if r.Workflows == nil {
+		return Spec{}, fmt.Errorf("agenthost: workflow service is required")
+	}
+	ws, err := r.getWorkspaceByID(ctx, strings.TrimSpace(workspaceID))
+	if err != nil {
+		return Spec{}, err
+	}
+	return r.resolveWorkspace(ctx, ws)
+}
+
+func (r ServiceResolver) resolveWorkspace(ctx context.Context, ws apitypes.Workspace) (Spec, error) {
 	resolutionCtx, err := r.ownerRuntimeContext(ctx, ws)
 	if err != nil {
 		return Spec{}, err
@@ -117,7 +160,7 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 	}
 	var runtime workspace.Runtime
 	if provider, ok := r.Workspaces.(workspaceRuntimeProvider); ok {
-		runtime, err = provider.GetWorkspaceRuntime(ctx, string(ws.Name))
+		runtime, err = provider.GetWorkspaceRuntimeByID(ctx, ws.Id)
 		if err != nil {
 			return Spec{}, err
 		}
@@ -130,10 +173,10 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 	if err != nil {
 		return Spec{}, err
 	}
-	var memoryProfileName, memoryProfileRevision string
+	var memoryProfileID, memoryProfileRevision string
 	if memoryBinding != nil {
 		profile := resolutionCtx.Value(runtimeProfileContextKey{}).(apitypes.RuntimeProfile)
-		memoryProfileName = profile.Name
+		memoryProfileID = profile.Id
 		memoryProfileRevision = profile.Revision
 	}
 	return Spec{
@@ -143,7 +186,7 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 		Runtime:               runtime,
 		ToolInvoker:           tools,
 		MemoryName:            memoryName,
-		MemoryProfileName:     memoryProfileName,
+		MemoryProfileID:       memoryProfileID,
 		MemoryProfileRevision: memoryProfileRevision,
 		MemoryBinding:         memoryBinding,
 		MemoryLayout:          memoryLayout,
@@ -197,7 +240,7 @@ func (r ServiceResolver) resolveMemory(ctx context.Context, workflow apitypes.Wo
 	if r.MemoryLayouts == nil {
 		return "", nil, nil, fmt.Errorf("agenthost: memory layout service is required")
 	}
-	response, err := r.MemoryLayouts.GetMemoryLayout(ctx, adminhttp.GetMemoryLayoutRequestObject{Name: binding.LayoutId})
+	response, err := r.MemoryLayouts.GetMemoryLayout(ctx, adminhttp.GetMemoryLayoutRequestObject{Id: binding.LayoutId})
 	if err != nil {
 		return "", nil, nil, err
 	}
@@ -216,18 +259,12 @@ func (r ServiceResolver) resolveMemory(ctx context.Context, workflow apitypes.Wo
 }
 
 func resolveWorkspaceWorkflowName(ctx context.Context, ws apitypes.Workspace) (string, error) {
-	if ws.OwnerPublicKey != nil && ws.Labels != nil && strings.TrimSpace((*ws.Labels)["collection"]) != "" {
-		access, ok := resourceAccessFromContext(ctx)
-		if !ok {
-			return "", fmt.Errorf("agenthost: resource access context is required for runtime workflow %q", ws.WorkflowName)
-		}
-		name := strings.TrimSpace(access.profileWorkflowBindings[string(ws.WorkflowName)])
-		if name == "" {
-			return "", fmt.Errorf("agenthost: runtime workflow alias %q not found", ws.WorkflowName)
-		}
-		return name, nil
+	_ = ctx
+	id := strings.TrimSpace(ws.WorkflowId)
+	if id == "" {
+		return "", fmt.Errorf("agenthost: workspace %q has no workflow id", ws.Name)
 	}
-	return string(ws.WorkflowName), nil
+	return id, nil
 }
 
 func (r ServiceResolver) resolveToolkit(_ context.Context, ws apitypes.Workspace, workflow apitypes.Workflow) (*ToolkitInvoker, error) {
@@ -345,7 +382,16 @@ func ParseWorkspacePattern(pattern string) (string, error) {
 }
 
 func (r ServiceResolver) getWorkspace(ctx context.Context, name string) (apitypes.Workspace, error) {
-	response, err := r.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: string(name)})
+	if resolver, ok := r.Workspaces.(interface {
+		GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error)
+	}); ok {
+		return resolver.GetWorkspaceByName(ctx, name)
+	}
+	return apitypes.Workspace{}, fmt.Errorf("agenthost: workspace name resolver is required")
+}
+
+func (r ServiceResolver) getWorkspaceByID(ctx context.Context, id string) (apitypes.Workspace, error) {
+	response, err := r.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
@@ -353,16 +399,16 @@ func (r ServiceResolver) getWorkspace(ctx context.Context, name string) (apitype
 	case adminhttp.GetWorkspace200JSONResponse:
 		return apitypes.Workspace(response), nil
 	case adminhttp.GetWorkspace404JSONResponse:
-		return apitypes.Workspace{}, fmt.Errorf("agenthost: workspace %q not found", name)
+		return apitypes.Workspace{}, fmt.Errorf("agenthost: workspace %q not found", id)
 	case adminhttp.GetWorkspace500JSONResponse:
-		return apitypes.Workspace{}, fmt.Errorf("agenthost: get workspace %q failed: %s", name, response.Error.Message)
+		return apitypes.Workspace{}, fmt.Errorf("agenthost: get workspace %q failed: %s", id, response.Error.Message)
 	default:
 		return apitypes.Workspace{}, fmt.Errorf("agenthost: unexpected GetWorkspace response %T", response)
 	}
 }
 
-func (r ServiceResolver) getWorkflow(ctx context.Context, name string) (apitypes.Workflow, error) {
-	response, err := r.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: string(name)})
+func (r ServiceResolver) getWorkflow(ctx context.Context, id string) (apitypes.Workflow, error) {
+	response, err := r.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Workflow{}, err
 	}
@@ -370,9 +416,9 @@ func (r ServiceResolver) getWorkflow(ctx context.Context, name string) (apitypes
 	case adminhttp.GetWorkflow200JSONResponse:
 		return apitypes.Workflow(response), nil
 	case adminhttp.GetWorkflow404JSONResponse:
-		return apitypes.Workflow{}, fmt.Errorf("agenthost: workflow %q not found", name)
+		return apitypes.Workflow{}, fmt.Errorf("agenthost: workflow %q not found", id)
 	case adminhttp.GetWorkflow500JSONResponse:
-		return apitypes.Workflow{}, fmt.Errorf("agenthost: get workflow %q failed: %s", name, response.Error.Message)
+		return apitypes.Workflow{}, fmt.Errorf("agenthost: get workflow %q failed: %s", id, response.Error.Message)
 	default:
 		return apitypes.Workflow{}, fmt.Errorf("agenthost: unexpected GetWorkflow response %T", response)
 	}

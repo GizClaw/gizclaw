@@ -3,6 +3,7 @@
 package admin_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,6 +36,7 @@ func TestAdminResourcesUserStory(t *testing.T) {
 	if !strings.Contains(apply.Stdout, `"action":"created"`) || !strings.Contains(apply.Stdout, `"name":"minimax-main"`) {
 		t.Fatalf("admin apply create output unexpected:\n%s", apply.Stdout)
 	}
+	credentialID := adminAppliedResourceID(t, apply.Stdout)
 
 	missing := h.RunCLI("admin", "show", "Credential", "missing", "--context", "admin-a")
 	if missing.Err == nil {
@@ -44,22 +46,22 @@ func TestAdminResourcesUserStory(t *testing.T) {
 		t.Fatalf("admin show missing stderr = %s", missing.Stderr)
 	}
 
-	show := h.RunCLI("admin", "show", "Credential", "minimax-main", "--context", "admin-a")
+	show := h.RunCLI("admin", "show", "Credential", credentialID, "--context", "admin-a")
 	show.MustSucceed(t)
 	if !strings.Contains(show.Stdout, `"kind":"Credential"`) || !strings.Contains(show.Stdout, `"name":"minimax-main"`) {
 		t.Fatalf("admin show output unexpected:\n%s", show.Stdout)
 	}
 
-	if err := os.WriteFile(resourcePath, []byte(`{
+	if err := os.WriteFile(resourcePath, []byte(fmt.Sprintf(`{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "minimax-main"},
+		"metadata": {"id": %q, "name": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"description": "updated credential",
 			"body": {"api_key": "secret"}
 		}
-	}`), 0o644); err != nil {
+	}`, credentialID)), 0o644); err != nil {
 		t.Fatalf("write updated resource file: %v", err)
 	}
 	update := h.RunCLI("admin", "apply", "-f", resourcePath, "--context", "admin-a")
@@ -68,7 +70,7 @@ func TestAdminResourcesUserStory(t *testing.T) {
 		t.Fatalf("admin apply update output unexpected:\n%s", update.Stdout)
 	}
 
-	deleted := h.RunCLI("admin", "delete", "Credential", "minimax-main", "--context", "admin-a")
+	deleted := h.RunCLI("admin", "delete", "Credential", credentialID, "--context", "admin-a")
 	deleted.MustSucceed(t)
 	if !strings.Contains(deleted.Stdout, `"kind":"Credential"`) || !strings.Contains(deleted.Stdout, `"name":"minimax-main"`) {
 		t.Fatalf("admin delete output unexpected:\n%s", deleted.Stdout)
@@ -78,7 +80,7 @@ func TestAdminResourcesUserStory(t *testing.T) {
 	if resourceList.Err == nil {
 		t.Fatal("admin show ResourceList should fail before server lookup")
 	}
-	if !strings.Contains(resourceList.Stderr, `resource kind "ResourceList" cannot be addressed by name`) {
+	if !strings.Contains(resourceList.Stderr, `resource kind "ResourceList" cannot be addressed by ID`) {
 		t.Fatalf("admin show ResourceList stderr = %s", resourceList.Stderr)
 	}
 }
@@ -89,8 +91,29 @@ func TestAdminResourceListAppliesModelAndVoice(t *testing.T) {
 	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "admin-sn").MustSucceed(t)
 
+	credentialPath := filepath.Join(h.SandboxDir, "openai-credential.json")
+	writeAdminFixture(t, credentialPath, `{
+		"apiVersion":"gizclaw.admin/v1alpha1",
+		"kind":"Credential",
+		"metadata":{"name":"openai-main-credential"},
+		"spec":{"provider":"openai","body":{"api_key":"secret"}}
+	}`)
+	credential := h.RunCLI("admin", "apply", "-f", credentialPath, "--context", "admin-a")
+	credential.MustSucceed(t)
+	credentialID := adminAppliedResourceID(t, credential.Stdout)
+	tenantPath := filepath.Join(h.SandboxDir, "openai-tenant.json")
+	writeAdminFixture(t, tenantPath, fmt.Sprintf(`{
+		"apiVersion":"gizclaw.admin/v1alpha1",
+		"kind":"OpenAITenant",
+		"metadata":{"name":"openai-main"},
+		"spec":{"kind":"compatible","credential_id":%q,"base_url":"https://api.openai.com/v1","api_mode":"chat_completions"}
+	}`, credentialID))
+	tenant := h.RunCLI("admin", "apply", "-f", tenantPath, "--context", "admin-a")
+	tenant.MustSucceed(t)
+	tenantID := adminAppliedResourceID(t, tenant.Stdout)
+
 	resourcePath := filepath.Join(h.SandboxDir, "model-voice-resources.json")
-	if err := os.WriteFile(resourcePath, []byte(`{
+	if err := os.WriteFile(resourcePath, []byte(fmt.Sprintf(`{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "ResourceList",
 		"metadata": {"name": "model-voice-bundle"},
@@ -105,7 +128,7 @@ func TestAdminResourceListAppliesModelAndVoice(t *testing.T) {
 						"source": "manual",
 						"provider": {
 							"kind": "openai-tenant",
-							"name": "openai-main"
+							"id": %q
 						},
 						"name": "OpenAI main chat",
 						"description": "OpenAI-compatible chat model from resource apply",
@@ -124,7 +147,7 @@ func TestAdminResourceListAppliesModelAndVoice(t *testing.T) {
 						"source": "manual",
 						"provider": {
 							"kind": "openai-tenant",
-							"name": "openai-main"
+							"id": %q
 						},
 						"name": "OpenAI Alloy",
 						"description": "OpenAI-compatible voice from resource apply",
@@ -135,7 +158,7 @@ func TestAdminResourceListAppliesModelAndVoice(t *testing.T) {
 				}
 			]
 		}
-	}`), 0o644); err != nil {
+	}`, tenantID, tenantID)), 0o644); err != nil {
 		t.Fatalf("write resource list file: %v", err)
 	}
 
@@ -154,8 +177,14 @@ func TestAdminResourceListAppliesModelAndVoice(t *testing.T) {
 			t.Fatalf("admin apply resource list missing %s:\n%s", want, apply.Stdout)
 		}
 	}
+	resourceIDs := adminAppliedResourceIDs(t, apply.Stdout)
+	modelID := resourceIDs["openai-main-chat"]
+	voiceID := resourceIDs["openai-main-alloy"]
+	if modelID == "" || voiceID == "" {
+		t.Fatalf("admin ResourceList apply did not return model and voice IDs: %s", apply.Stdout)
+	}
 
-	showModel := h.RunCLI("admin", "show", "Model", "openai-main-chat", "--context", "admin-a")
+	showModel := h.RunCLI("admin", "show", "Model", modelID, "--context", "admin-a")
 	showModel.MustSucceed(t)
 	for _, want := range []string{
 		`"kind":"Model"`,
@@ -168,7 +197,7 @@ func TestAdminResourceListAppliesModelAndVoice(t *testing.T) {
 		}
 	}
 
-	showVoice := h.RunCLI("admin", "show", "Voice", "openai-main-alloy", "--context", "admin-a")
+	showVoice := h.RunCLI("admin", "show", "Voice", voiceID, "--context", "admin-a")
 	showVoice.MustSucceed(t)
 	for _, want := range []string{
 		`"kind":"Voice"`,
@@ -181,13 +210,13 @@ func TestAdminResourceListAppliesModelAndVoice(t *testing.T) {
 		}
 	}
 
-	deleteModel := h.RunCLI("admin", "delete", "Model", "openai-main-chat", "--context", "admin-a")
+	deleteModel := h.RunCLI("admin", "delete", "Model", modelID, "--context", "admin-a")
 	deleteModel.MustSucceed(t)
 	if !strings.Contains(deleteModel.Stdout, `"kind":"Model"`) || !strings.Contains(deleteModel.Stdout, `"name":"openai-main-chat"`) {
 		t.Fatalf("admin delete Model output unexpected:\n%s", deleteModel.Stdout)
 	}
 
-	deleteVoice := h.RunCLI("admin", "delete", "Voice", "openai-main-alloy", "--context", "admin-a")
+	deleteVoice := h.RunCLI("admin", "delete", "Voice", voiceID, "--context", "admin-a")
 	deleteVoice.MustSucceed(t)
 	if !strings.Contains(deleteVoice.Stdout, `"kind":"Voice"`) || !strings.Contains(deleteVoice.Stdout, `"name":"openai-main-alloy"`) {
 		t.Fatalf("admin delete Voice output unexpected:\n%s", deleteVoice.Stdout)

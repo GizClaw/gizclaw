@@ -432,10 +432,10 @@ void _validateMessage(events.PeerEvent message, {bool allowUnknown = false}) {
       break;
     case events.PeerEvent_Payload.friendGroupUpdated:
       final payload = message.friendGroupUpdated;
-      if (payload.friendGroupId.trim().isEmpty ||
+      if (payload.friendGroupName.trim().isEmpty ||
           payload.workspaceName.trim().isEmpty) {
         throw const FormatException(
-          'friend group event requires friendGroupId and workspaceName',
+          'friend group event requires friendGroupName and workspaceName',
         );
       }
       break;

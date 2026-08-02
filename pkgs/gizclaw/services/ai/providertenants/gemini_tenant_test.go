@@ -74,7 +74,7 @@ func TestServerGeminiTenantCRUDAndPagination(t *testing.T) {
 	description := "updated tenant"
 	updated.Description = &description
 	now = now.Add(time.Minute)
-	putResp, err := srv.PutGeminiTenant(ctx, adminhttp.PutGeminiTenantRequestObject{Name: "default", Body: &updated})
+	putResp, err := srv.PutGeminiTenant(ctx, adminhttp.PutGeminiTenantRequestObject{Id: created.Id, Body: &updated})
 	if err != nil {
 		t.Fatalf("PutGeminiTenant() error = %v", err)
 	}
@@ -89,21 +89,21 @@ func TestServerGeminiTenantCRUDAndPagination(t *testing.T) {
 		t.Fatalf("PutGeminiTenant() description = %#v", put.Description)
 	}
 
-	getResp, err := srv.GetGeminiTenant(ctx, adminhttp.GetGeminiTenantRequestObject{Name: "default"})
+	getResp, err := srv.GetGeminiTenant(ctx, adminhttp.GetGeminiTenantRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("GetGeminiTenant() error = %v", err)
 	}
 	if got, ok := getResp.(adminhttp.GetGeminiTenant200JSONResponse); !ok || got.Name != "default" {
 		t.Fatalf("GetGeminiTenant() response = %#v", getResp)
 	}
-	deleteResp, err := srv.DeleteGeminiTenant(ctx, adminhttp.DeleteGeminiTenantRequestObject{Name: "default"})
+	deleteResp, err := srv.DeleteGeminiTenant(ctx, adminhttp.DeleteGeminiTenantRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("DeleteGeminiTenant() error = %v", err)
 	}
 	if _, ok := deleteResp.(adminhttp.DeleteGeminiTenant200JSONResponse); !ok {
 		t.Fatalf("DeleteGeminiTenant() response = %#v", deleteResp)
 	}
-	if resp, err := srv.GetGeminiTenant(ctx, adminhttp.GetGeminiTenantRequestObject{Name: "default"}); err != nil {
+	if resp, err := srv.GetGeminiTenant(ctx, adminhttp.GetGeminiTenantRequestObject{Id: created.Id}); err != nil {
 		t.Fatalf("GetGeminiTenant(missing) error = %v", err)
 	} else if _, ok := resp.(adminhttp.GetGeminiTenant404JSONResponse); !ok {
 		t.Fatalf("GetGeminiTenant(missing) response = %#v", resp)
@@ -117,7 +117,7 @@ func TestServerGeminiTenantValidationAndStoreErrors(t *testing.T) {
 		name string
 		body adminhttp.GeminiTenantUpsert
 	}{
-		{name: "missing name", body: adminhttp.GeminiTenantUpsert{CredentialName: "credential"}},
+		{name: "missing name", body: adminhttp.GeminiTenantUpsert{CredentialId: "credential"}},
 		{name: "missing credential", body: adminhttp.GeminiTenantUpsert{Name: "tenant"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -132,9 +132,9 @@ func TestServerGeminiTenantValidationAndStoreErrors(t *testing.T) {
 	}
 
 	body := geminiTenantUpsert("tenant")
-	if resp, err := srv.PutGeminiTenant(ctx, adminhttp.PutGeminiTenantRequestObject{Name: "other", Body: &body}); err != nil {
+	if resp, err := srv.PutGeminiTenant(ctx, adminhttp.PutGeminiTenantRequestObject{Id: "other", Body: &body}); err != nil {
 		t.Fatalf("PutGeminiTenant(mismatch) error = %v", err)
-	} else if _, ok := resp.(adminhttp.PutGeminiTenant400JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.PutGeminiTenant404JSONResponse); !ok {
 		t.Fatalf("PutGeminiTenant(mismatch) response = %#v", resp)
 	}
 
@@ -149,17 +149,17 @@ func TestServerGeminiTenantValidationAndStoreErrors(t *testing.T) {
 	} else if _, ok := resp.(adminhttp.CreateGeminiTenant500JSONResponse); !ok {
 		t.Fatalf("CreateGeminiTenant(nil store) response = %#v", resp)
 	}
-	if resp, err := badStore.GetGeminiTenant(ctx, adminhttp.GetGeminiTenantRequestObject{Name: "tenant"}); err != nil {
+	if resp, err := badStore.GetGeminiTenant(ctx, adminhttp.GetGeminiTenantRequestObject{Id: "tenant"}); err != nil {
 		t.Fatalf("GetGeminiTenant(nil store) error = %v", err)
 	} else if _, ok := resp.(adminhttp.GetGeminiTenant500JSONResponse); !ok {
 		t.Fatalf("GetGeminiTenant(nil store) response = %#v", resp)
 	}
-	if resp, err := badStore.PutGeminiTenant(ctx, adminhttp.PutGeminiTenantRequestObject{Name: "tenant", Body: &body}); err != nil {
+	if resp, err := badStore.PutGeminiTenant(ctx, adminhttp.PutGeminiTenantRequestObject{Id: "tenant", Body: &body}); err != nil {
 		t.Fatalf("PutGeminiTenant(nil store) error = %v", err)
 	} else if _, ok := resp.(adminhttp.PutGeminiTenant500JSONResponse); !ok {
 		t.Fatalf("PutGeminiTenant(nil store) response = %#v", resp)
 	}
-	if resp, err := badStore.DeleteGeminiTenant(ctx, adminhttp.DeleteGeminiTenantRequestObject{Name: "tenant"}); err != nil {
+	if resp, err := badStore.DeleteGeminiTenant(ctx, adminhttp.DeleteGeminiTenantRequestObject{Id: "tenant"}); err != nil {
 		t.Fatalf("DeleteGeminiTenant(nil store) error = %v", err)
 	} else if _, ok := resp.(adminhttp.DeleteGeminiTenant500JSONResponse); !ok {
 		t.Fatalf("DeleteGeminiTenant(nil store) response = %#v", resp)
@@ -170,10 +170,10 @@ func geminiTenantUpsert(name string) adminhttp.GeminiTenantUpsert {
 	projectID := "project-" + name
 	location := "global"
 	return adminhttp.GeminiTenantUpsert{
-		CredentialName: string("credential"),
-		Location:       &location,
-		Name:           string(name),
-		ProjectId:      &projectID,
+		CredentialId: string("credential"),
+		Location:     &location,
+		Name:         string(name),
+		ProjectId:    &projectID,
 	}
 }
 

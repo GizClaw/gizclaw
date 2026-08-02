@@ -10,9 +10,6 @@ import (
 
 func TestServerWorkflowRuntimeAliases(t *testing.T) {
 	env := newServerResourceHarness(t)
-	admin := serverResourceAdminClient(t, env)
-	_, _ = admin.DeleteWorkflowWithResponse(env.ctx, mutationWorkflow)
-
 	limit := 1
 	var cursor *string
 	var found *rpcapi.Workflow
@@ -26,7 +23,7 @@ func TestServerWorkflowRuntimeAliases(t *testing.T) {
 			t.Fatalf("workflow.list runtime page %d: %v", page, err)
 		}
 		for i := range list.Items {
-			if list.Items[i].Alias == "shared" {
+			if list.Items[i].Name == "shared" {
 				found = &list.Items[i]
 				break
 			}
@@ -43,21 +40,21 @@ func TestServerWorkflowRuntimeAliases(t *testing.T) {
 		t.Fatalf("runtime Workflow alias = %#v", found)
 	}
 	got, err := env.peer.GetWorkflow(env.ctx, "workflow.get.runtime", rpcapi.WorkflowGetRequest{
-		Alias: "shared",
+		Name: "shared",
 	})
 	if err != nil {
 		t.Fatalf("workflow.get runtime alias: %v", err)
 	}
-	if got.Value.Alias != "shared" || got.Value.Driver != rpcapi.WorkflowDriverFlowcraft {
+	if got.Value.Name != "shared" || got.Value.Driver != rpcapi.WorkflowDriverFlowcraft {
 		t.Fatalf("workflow.get runtime alias = %#v", got)
 	}
 	if _, err := env.peer.GetWorkflow(env.ctx, "workflow.get.runtime.concrete", rpcapi.WorkflowGetRequest{
-		Alias: sharedWorkflow,
+		Name: sharedWorkflow,
 	}); err == nil {
 		t.Fatal("runtime Workflow get accepted a concrete resource name")
 	}
 	if _, err := env.peer.GetWorkflow(env.ctx, "workflow.get.runtime.missing", rpcapi.WorkflowGetRequest{
-		Alias: "mutation",
+		Name: "mutation",
 	}); err == nil {
 		t.Fatal("runtime Workflow get resolved an alias that is not in the profile")
 	}

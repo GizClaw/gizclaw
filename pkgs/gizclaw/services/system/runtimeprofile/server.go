@@ -19,13 +19,16 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 var (
-	profilesRoot        = kv.Key{"runtime-profiles", "by-name"}
+	profilesRoot        = kv.Key{"runtime-profiles", "by-id"}
+	profilesByNameRoot  = kv.Key{"runtime-profiles", "by-name"}
 	profilesByOwnerRoot = kv.Key{"runtime-profiles", "by-owner"}
-	tokensRoot          = kv.Key{"registration-tokens", "by-name"}
+	tokensRoot          = kv.Key{"registration-tokens", "by-id"}
+	tokensByNameRoot    = kv.Key{"registration-tokens", "by-name"}
 	tokensByHashRoot    = kv.Key{"registration-tokens", "by-token-hash"}
 )
 
@@ -45,6 +48,7 @@ var errResourceResolverNotConfigured = errors.New("resource resolver not configu
 type Server struct {
 	Store           kv.Store
 	Now             func() time.Time
+	NewID           func() string
 	ResolveResource func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error)
 	mutationMu      sync.Mutex
 }
@@ -69,6 +73,7 @@ type Registration struct {
 	TokenName      string
 	RuntimeProfile apitypes.RuntimeProfile
 	FirmwareID     *string
+	FirmwareName   *string
 }
 
 // ResolveProfile returns the current persisted revision for a profile name.
@@ -119,7 +124,11 @@ func (s *Server) BindOwnerProfileAndCommit(ctx context.Context, owner, profileNa
 	if previousErr != nil && !errors.Is(previousErr, kv.ErrNotFound) {
 		return previousErr
 	}
-	if err := store.Set(ctx, key, []byte(profileName)); err != nil {
+	profile, err := GetProfile(ctx, store, profileName)
+	if err != nil {
+		return err
+	}
+	if err := store.Set(ctx, key, []byte(profile.Id)); err != nil {
 		return err
 	}
 	if commit == nil {
@@ -155,11 +164,18 @@ func (s *Server) ResolveOwnerProfile(ctx context.Context, owner string) (apitype
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
-	profileName, err := store.Get(ctx, ownerProfileKey(owner))
+	profileID, err := store.Get(ctx, ownerProfileKey(owner))
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
-	return s.ResolveProfile(ctx, string(profileName))
+	profile, err := getProfileByID(ctx, store, string(profileID))
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	if err := s.validateResources(ctx, profile.Spec); err != nil {
+		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile %q dependencies are invalid: %w", profile.Name, err)
+	}
+	return profile, nil
 }
 
 func (s *Server) ResolveRegistration(ctx context.Context, rawToken string) (Registration, error) {
@@ -169,11 +185,11 @@ func (s *Server) ResolveRegistration(ctx context.Context, rawToken string) (Regi
 	}
 	token := strings.TrimSpace(rawToken)
 	digest := tokenDigest(token)
-	nameBytes, err := store.Get(ctx, tokenHashKey(digest))
+	idBytes, err := store.Get(ctx, tokenHashKey(digest))
 	if err != nil {
 		return Registration{}, err
 	}
-	item, err := getRegistrationToken(ctx, store, string(nameBytes))
+	item, err := getRegistrationTokenByID(ctx, store, string(idBytes))
 	if err != nil {
 		return Registration{}, err
 	}
@@ -181,11 +197,33 @@ func (s *Server) ResolveRegistration(ctx context.Context, rawToken string) (Regi
 	if item.Token != token {
 		return Registration{}, kv.ErrNotFound
 	}
-	profile, err := GetProfile(ctx, store, item.RuntimeProfileName)
+	profile, err := getProfileByID(ctx, store, item.RuntimeProfileId)
 	if err != nil {
 		return Registration{}, err
 	}
-	return Registration{TokenName: item.Name, RuntimeProfile: profile, FirmwareID: cloneString(item.FirmwareId)}, nil
+	var firmwareName *string
+	if item.FirmwareId != nil {
+		if s.ResolveResource == nil {
+			return Registration{}, errResourceResolverNotConfigured
+		}
+		resource, err := s.ResolveResource(ctx, apitypes.ResourceKindFirmware, *item.FirmwareId)
+		if err != nil {
+			return Registration{}, fmt.Errorf("resolve registration firmware: %w", err)
+		}
+		firmware, err := resource.AsFirmwareResource()
+		if err != nil {
+			return Registration{}, errors.New("registration firmware_id does not reference a Firmware")
+		}
+		name := strings.TrimSpace(firmware.Metadata.Name)
+		if name == "" {
+			return Registration{}, errors.New("registration Firmware has an empty name")
+		}
+		firmwareName = &name
+	}
+	return Registration{
+		TokenName: item.Name, RuntimeProfile: profile,
+		FirmwareID: cloneString(item.FirmwareId), FirmwareName: firmwareName,
+	}, nil
 }
 
 func (s *Server) ListRuntimeProfiles(ctx context.Context, request adminhttp.ListRuntimeProfilesRequestObject) (adminhttp.ListRuntimeProfilesResponseObject, error) {
@@ -217,15 +255,25 @@ func (s *Server) CreateRuntimeProfile(ctx context.Context, request adminhttp.Cre
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
-	if _, err := GetProfile(ctx, store, item.Name); err == nil {
-		return adminhttp.CreateRuntimeProfile409JSONResponse(conflict("runtime profile already exists")), nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.CreateRuntimeProfile500JSONResponse(internalError(err)), nil
-	}
+	item.Id = s.newID()
 	now := s.now()
 	item.CreatedAt, item.UpdatedAt = now, now
-	if err := writeProfile(ctx, store, item); err != nil {
+	if err := setProfileRevision(&item); err != nil {
 		return adminhttp.CreateRuntimeProfile500JSONResponse(internalError(err)), nil
+	}
+	encoded, err := json.Marshal(item)
+	if err != nil {
+		return adminhttp.CreateRuntimeProfile500JSONResponse(internalError(err)), nil
+	}
+	_, created, err := kv.CreateIfAbsent(ctx, store,
+		kv.Entry{Key: profileNameKey(item.Name), Value: []byte(item.Id)},
+		[]kv.Entry{{Key: profileKey(item.Id), Value: encoded}},
+	)
+	if err != nil {
+		return adminhttp.CreateRuntimeProfile500JSONResponse(internalError(err)), nil
+	}
+	if !created {
+		return adminhttp.CreateRuntimeProfile409JSONResponse(conflict("runtime profile already exists")), nil
 	}
 	return adminhttp.CreateRuntimeProfile200JSONResponse(item), nil
 }
@@ -235,13 +283,13 @@ func (s *Server) GetRuntimeProfile(ctx context.Context, request adminhttp.GetRun
 	if err != nil {
 		return adminhttp.GetRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
-	name, err := pathName(request.Name)
+	id, err := pathID(request.Id)
 	if err != nil {
 		return nil, err
 	}
-	item, err := GetProfile(ctx, store, name)
+	item, err := getProfileByID(ctx, store, id)
 	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.GetRuntimeProfile404JSONResponse(notFound("runtime profile", name)), nil
+		return adminhttp.GetRuntimeProfile404JSONResponse(notFound("runtime profile", id)), nil
 	}
 	if err != nil {
 		return adminhttp.GetRuntimeProfile500JSONResponse(internalError(err)), nil
@@ -257,11 +305,11 @@ func (s *Server) PutRuntimeProfile(ctx context.Context, request adminhttp.PutRun
 	if request.Body == nil {
 		return adminhttp.PutRuntimeProfile400JSONResponse(invalid("request body required")), nil
 	}
-	name, err := pathName(request.Name)
+	id, err := pathID(request.Id)
 	if err != nil {
 		return nil, err
 	}
-	item, err := normalizeProfile(*request.Body, name)
+	item, err := normalizeProfile(*request.Body, "")
 	if err != nil {
 		return adminhttp.PutRuntimeProfile400JSONResponse(invalid(err.Error())), nil
 	}
@@ -270,15 +318,19 @@ func (s *Server) PutRuntimeProfile(ctx context.Context, request adminhttp.PutRun
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
-	previous, getErr := GetProfile(ctx, store, name)
-	if getErr != nil && !errors.Is(getErr, kv.ErrNotFound) {
+	previous, getErr := getProfileByID(ctx, store, id)
+	if errors.Is(getErr, kv.ErrNotFound) {
+		return adminhttp.PutRuntimeProfile404JSONResponse(notFound("runtime profile", id)), nil
+	}
+	if getErr != nil {
 		return adminhttp.PutRuntimeProfile500JSONResponse(internalError(getErr)), nil
 	}
-	now := s.now()
-	item.CreatedAt, item.UpdatedAt = now, now
-	if getErr == nil {
-		item.CreatedAt = previous.CreatedAt
+	if item.Name != previous.Name {
+		return adminhttp.PutRuntimeProfile400JSONResponse(invalid(fmt.Sprintf("name %q must match immutable name %q", item.Name, previous.Name))), nil
 	}
+	now := s.now()
+	item.Id = previous.Id
+	item.CreatedAt, item.UpdatedAt = previous.CreatedAt, now
 	if err := writeProfile(ctx, store, item); err != nil {
 		return adminhttp.PutRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
@@ -290,20 +342,20 @@ func (s *Server) DeleteRuntimeProfile(ctx context.Context, request adminhttp.Del
 	if err != nil {
 		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
-	name, err := pathName(request.Name)
+	id, err := pathID(request.Id)
 	if err != nil {
 		return nil, err
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
-	item, err := GetProfile(ctx, store, name)
+	item, err := getProfileByID(ctx, store, id)
 	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.DeleteRuntimeProfile404JSONResponse(notFound("runtime profile", name)), nil
+		return adminhttp.DeleteRuntimeProfile404JSONResponse(notFound("runtime profile", id)), nil
 	}
 	if err != nil {
 		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
-	if err := store.Delete(ctx, profileKey(name)); err != nil {
+	if err := store.BatchDelete(ctx, []kv.Key{profileKey(id), profileNameKey(item.Name)}); err != nil {
 		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
 	return adminhttp.DeleteRuntimeProfile200JSONResponse(item), nil
@@ -340,14 +392,9 @@ func (s *Server) CreateRegistrationToken(ctx context.Context, request adminhttp.
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
-	if _, err := getRegistrationToken(ctx, store, item.Name); err == nil {
-		return adminhttp.CreateRegistrationToken409JSONResponse(conflict("registration token already exists")), nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
-	}
-	if _, err := GetProfile(ctx, store, item.RuntimeProfileName); err != nil {
+	if _, err := getProfileByID(ctx, store, item.RuntimeProfileId); err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.CreateRegistrationToken400JSONResponse(invalid("runtime_profile_name does not exist")), nil
+			return adminhttp.CreateRegistrationToken400JSONResponse(invalid("runtime_profile_id does not exist")), nil
 		}
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
@@ -358,13 +405,21 @@ func (s *Server) CreateRegistrationToken(ctx context.Context, request adminhttp.
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	now := s.now()
+	item.Id = s.newID()
 	item.CreatedAt, item.UpdatedAt = now, now
 	encoded, err := json.Marshal(item)
 	if err != nil {
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	if err := store.BatchSet(ctx, []kv.Entry{{Key: tokenKey(item.Name), Value: encoded}, {Key: tokenHashKey(digest), Value: []byte(item.Name)}}); err != nil {
+	_, created, err := kv.CreateIfAbsent(ctx, store,
+		kv.Entry{Key: tokenNameKey(item.Name), Value: []byte(item.Id)},
+		[]kv.Entry{{Key: tokenKey(item.Id), Value: encoded}, {Key: tokenHashKey(digest), Value: []byte(item.Id)}},
+	)
+	if err != nil {
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
+	}
+	if !created {
+		return adminhttp.CreateRegistrationToken409JSONResponse(conflict("registration token already exists")), nil
 	}
 	return adminhttp.CreateRegistrationToken200JSONResponse(item), nil
 }
@@ -377,11 +432,11 @@ func (s *Server) PutRegistrationToken(ctx context.Context, request adminhttp.Put
 	if request.Body == nil {
 		return adminhttp.PutRegistrationToken400JSONResponse(invalid("request body required")), nil
 	}
-	name, err := pathName(request.Name)
+	id, err := pathID(request.Id)
 	if err != nil {
 		return nil, err
 	}
-	item, err := normalizeRegistrationToken(*request.Body, name)
+	item, err := normalizeRegistrationToken(*request.Body, "")
 	if err != nil {
 		return adminhttp.PutRegistrationToken400JSONResponse(invalid(err.Error())), nil
 	}
@@ -393,39 +448,41 @@ func (s *Server) PutRegistrationToken(ctx context.Context, request adminhttp.Put
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
-	previous, getErr := getRegistrationToken(ctx, store, name)
-	if getErr != nil && !errors.Is(getErr, kv.ErrNotFound) {
+	previous, getErr := getRegistrationTokenByID(ctx, store, id)
+	if errors.Is(getErr, kv.ErrNotFound) {
+		return adminhttp.PutRegistrationToken404JSONResponse(notFound("registration token", id)), nil
+	}
+	if getErr != nil {
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(getErr)), nil
 	}
-	if _, err := GetProfile(ctx, store, item.RuntimeProfileName); err != nil {
+	if item.Name != previous.Name {
+		return adminhttp.PutRegistrationToken400JSONResponse(invalid(fmt.Sprintf("name %q must match immutable name %q", item.Name, previous.Name))), nil
+	}
+	if _, err := getProfileByID(ctx, store, item.RuntimeProfileId); err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.PutRegistrationToken400JSONResponse(invalid("runtime_profile_name does not exist")), nil
+			return adminhttp.PutRegistrationToken400JSONResponse(invalid("runtime_profile_id does not exist")), nil
 		}
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	digest := tokenDigest(item.Token)
-	if existing, err := store.Get(ctx, tokenHashKey(digest)); err == nil && string(existing) != name {
+	if existing, err := store.Get(ctx, tokenHashKey(digest)); err == nil && string(existing) != id {
 		return adminhttp.PutRegistrationToken409JSONResponse(conflict(fmt.Sprintf("token is already used by registration token %q", string(existing)))), nil
 	} else if err != nil && !errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	now := s.now()
-	item.CreatedAt, item.UpdatedAt = now, now
-	if getErr == nil {
-		item.CreatedAt = previous.CreatedAt
-	}
+	item.Id = previous.Id
+	item.CreatedAt, item.UpdatedAt = previous.CreatedAt, now
 	encoded, err := json.Marshal(item)
 	if err != nil {
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	deletes := make([]kv.Key, 0, 1)
-	if getErr == nil {
-		previousDigest := tokenDigest(previous.Token)
-		if previousDigest != digest {
-			deletes = append(deletes, tokenHashKey(previousDigest))
-		}
+	previousDigest := tokenDigest(previous.Token)
+	if previousDigest != digest {
+		deletes = append(deletes, tokenHashKey(previousDigest))
 	}
-	if err := store.BatchMutate(ctx, []kv.Entry{{Key: tokenKey(name), Value: encoded}, {Key: tokenHashKey(digest), Value: []byte(name)}}, deletes); err != nil {
+	if err := store.BatchMutate(ctx, []kv.Entry{{Key: tokenKey(id), Value: encoded}, {Key: tokenHashKey(digest), Value: []byte(id)}}, deletes); err != nil {
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	return adminhttp.PutRegistrationToken200JSONResponse(item), nil
@@ -444,13 +501,13 @@ func (s *Server) GetRegistrationToken(ctx context.Context, request adminhttp.Get
 	if err != nil {
 		return adminhttp.GetRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	name, err := pathName(request.Name)
+	id, err := pathID(request.Id)
 	if err != nil {
 		return nil, err
 	}
-	item, err := getRegistrationToken(ctx, store, name)
+	item, err := getRegistrationTokenByID(ctx, store, id)
 	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.GetRegistrationToken404JSONResponse(notFound("registration token", name)), nil
+		return adminhttp.GetRegistrationToken404JSONResponse(notFound("registration token", id)), nil
 	}
 	if err != nil {
 		return adminhttp.GetRegistrationToken500JSONResponse(internalError(err)), nil
@@ -463,36 +520,44 @@ func (s *Server) DeleteRegistrationToken(ctx context.Context, request adminhttp.
 	if err != nil {
 		return adminhttp.DeleteRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	name, err := pathName(request.Name)
+	id, err := pathID(request.Id)
 	if err != nil {
 		return nil, err
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
-	item, err := getRegistrationToken(ctx, store, name)
+	item, err := getRegistrationTokenByID(ctx, store, id)
 	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.DeleteRegistrationToken404JSONResponse(notFound("registration token", name)), nil
+		return adminhttp.DeleteRegistrationToken404JSONResponse(notFound("registration token", id)), nil
 	}
 	if err != nil {
 		return adminhttp.DeleteRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	if err := store.BatchDelete(ctx, []kv.Key{tokenKey(name), tokenHashKey(tokenDigest(item.Token))}); err != nil {
+	if err := store.BatchDelete(ctx, []kv.Key{tokenKey(id), tokenNameKey(item.Name), tokenHashKey(tokenDigest(item.Token))}); err != nil {
 		return adminhttp.DeleteRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	return adminhttp.DeleteRegistrationToken200JSONResponse(item), nil
 }
 
 func GetProfile(ctx context.Context, store kv.Store, name string) (apitypes.RuntimeProfile, error) {
-	data, err := store.Get(ctx, profileKey(name))
+	id, err := store.Get(ctx, profileNameKey(name))
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	return getProfileByID(ctx, store, string(id))
+}
+
+func getProfileByID(ctx context.Context, store kv.Store, id string) (apitypes.RuntimeProfile, error) {
+	data, err := store.Get(ctx, profileKey(id))
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
 	var item apitypes.RuntimeProfile
 	if err := json.Unmarshal(data, &item); err != nil {
-		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile: decode %s: %w", name, err)
+		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile: decode %s: %w", id, err)
 	}
 	if err := setProfileRevision(&item); err != nil {
-		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile: revision %s: %w", name, err)
+		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile: revision %s: %w", id, err)
 	}
 	return item, nil
 }
@@ -505,17 +570,17 @@ func writeProfile(ctx context.Context, store kv.Store, item apitypes.RuntimeProf
 	if err != nil {
 		return err
 	}
-	return store.Set(ctx, profileKey(item.Name), data)
+	return store.Set(ctx, profileKey(item.Id), data)
 }
 
-func getRegistrationToken(ctx context.Context, store kv.Store, name string) (apitypes.RegistrationToken, error) {
-	data, err := store.Get(ctx, tokenKey(name))
+func getRegistrationTokenByID(ctx context.Context, store kv.Store, id string) (apitypes.RegistrationToken, error) {
+	data, err := store.Get(ctx, tokenKey(id))
 	if err != nil {
 		return apitypes.RegistrationToken{}, err
 	}
 	var item apitypes.RegistrationToken
 	if err := json.Unmarshal(data, &item); err != nil {
-		return apitypes.RegistrationToken{}, fmt.Errorf("registration token: decode %s: %w", name, err)
+		return apitypes.RegistrationToken{}, fmt.Errorf("registration token: decode %s: %w", id, err)
 	}
 	return item, nil
 }
@@ -532,9 +597,9 @@ func normalizeRegistrationToken(in adminhttp.RegistrationTokenUpsert, expectedNa
 	if token == "" {
 		return apitypes.RegistrationToken{}, errors.New("token is required")
 	}
-	profileName := strings.TrimSpace(in.RuntimeProfileName)
-	if profileName == "" {
-		return apitypes.RegistrationToken{}, errors.New("runtime_profile_name is required")
+	profileID := strings.TrimSpace(in.RuntimeProfileId)
+	if profileID == "" {
+		return apitypes.RegistrationToken{}, errors.New("runtime_profile_id is required")
 	}
 	var firmwareID *string
 	if in.FirmwareId != nil {
@@ -545,10 +610,10 @@ func normalizeRegistrationToken(in adminhttp.RegistrationTokenUpsert, expectedNa
 		firmwareID = &value
 	}
 	return apitypes.RegistrationToken{
-		Name:               name,
-		Token:              token,
-		RuntimeProfileName: profileName,
-		FirmwareId:         firmwareID,
+		Name:             name,
+		Token:            token,
+		RuntimeProfileId: profileID,
+		FirmwareId:       firmwareID,
 	}, nil
 }
 
@@ -705,8 +770,8 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 
 func normalizeMemoryBinding(binding apitypes.RuntimeProfileMemoryBinding) (apitypes.RuntimeProfileMemoryBinding, error) {
 	binding.LayoutId = strings.TrimSpace(binding.LayoutId)
-	if err := customid.ValidateField("layout_id", binding.LayoutId); err != nil {
-		return binding, err
+	if binding.LayoutId == "" {
+		return binding, errors.New("layout_id is required")
 	}
 	if !binding.Driver.Valid() {
 		return binding, fmt.Errorf("unsupported driver %q", binding.Driver)
@@ -1144,12 +1209,12 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 		voice := voices[strings.TrimSpace(voiceAlias)]
 		model := models[strings.TrimSpace(modelAlias)]
 		if voice.Spec.Provider.Kind != apitypes.VoiceProviderKind(model.Spec.Provider.Kind) ||
-			voice.Spec.Provider.Name != model.Spec.Provider.Name {
+			voice.Spec.Provider.Id != model.Spec.Provider.Id {
 			return fmt.Errorf(
 				"%s.%s voice alias %q uses provider %q/%q, want %q/%q to match model alias %q",
 				path, field, voiceAlias,
-				voice.Spec.Provider.Kind, voice.Spec.Provider.Name,
-				model.Spec.Provider.Kind, model.Spec.Provider.Name,
+				voice.Spec.Provider.Kind, voice.Spec.Provider.Id,
+				model.Spec.Provider.Kind, model.Spec.Provider.Id,
 				modelAlias,
 			)
 		}
@@ -1697,16 +1762,29 @@ func (s *Server) now() time.Time {
 	return time.Now().UTC()
 }
 
+func (s *Server) newID() string {
+	if s != nil && s.NewID != nil {
+		return s.NewID()
+	}
+	return socialutil.NewID()
+}
+
 func tokenDigest(raw string) string {
 	digest := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(digest[:])
 }
 
-func profileKey(name string) kv.Key { return append(append(kv.Key{}, profilesRoot...), escape(name)) }
+func profileKey(id string) kv.Key { return append(append(kv.Key{}, profilesRoot...), escape(id)) }
+func profileNameKey(name string) kv.Key {
+	return append(append(kv.Key{}, profilesByNameRoot...), escape(name))
+}
 func ownerProfileKey(owner string) kv.Key {
 	return append(append(kv.Key{}, profilesByOwnerRoot...), escape(owner))
 }
-func tokenKey(name string) kv.Key     { return append(append(kv.Key{}, tokensRoot...), escape(name)) }
+func tokenKey(id string) kv.Key { return append(append(kv.Key{}, tokensRoot...), escape(id)) }
+func tokenNameKey(name string) kv.Key {
+	return append(append(kv.Key{}, tokensByNameRoot...), escape(name))
+}
 func tokenHashKey(hash string) kv.Key { return append(append(kv.Key{}, tokensByHashRoot...), hash) }
 
 func escape(value string) string {
@@ -1714,12 +1792,15 @@ func escape(value string) string {
 	return strings.ReplaceAll(value, ":", "%3A")
 }
 
-func pathName(raw string) (string, error) {
-	name, err := url.PathUnescape(raw)
+func pathID(raw string) (string, error) {
+	id, err := url.PathUnescape(raw)
 	if err != nil {
-		return "", fmt.Errorf("invalid path name: %w", err)
+		return "", fmt.Errorf("invalid path id: %w", err)
 	}
-	return name, nil
+	if strings.TrimSpace(id) == "" {
+		return "", errors.New("path id is required")
+	}
+	return id, nil
 }
 
 func invalid(message string) apitypes.ErrorResponse {

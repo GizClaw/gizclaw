@@ -2,19 +2,19 @@
 
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource)
 
-`peerresource` projects the current RuntimeProfile into the Peer RPC surface. Workflow, Model, Voice, and Tool values are safe alias DTOs; AST Workflow values additionally carry the Workspace language-pair default needed for alias-independent creation. The projection never returns canonical resource IDs, providers, tenants, credentials, ownership, or executor routing.
+`peerresource` projects the current RuntimeProfile into the Peer RPC surface. Workflow, Model, Voice, and Tool values expose scoped `name` DTOs. These names originate from RuntimeProfile binding aliases but are the only public Peer identity; AST Workflow values additionally carry the Workspace language-pair default needed for name-based creation. The projection never returns canonical resource IDs, providers, tenants, credentials, ownership, or executor routing.
 
 ```mermaid
 flowchart LR
-    Profile["Current RuntimeProfile snapshot"] --> Alias["Alias projection"]
-    Alias --> RPC["Peer list / get / use"]
+    Profile["Current RuntimeProfile snapshot"] --> Name["Scoped name projection"]
+    Name --> RPC["Peer list / get / use"]
     Domain["Workspace / Friend / Pet state"] --> RPC
 ```
 
-Workflow list requires an explicit Collection and preserves the dynamic membership declared under `workflows.collections`. Workflow aliases are globally unique, so get uses the alias alone. Model, Voice, and Tool catalogs come from their respective RuntimeProfile resource maps. Every catalog response includes the RuntimeProfile name and content revision.
+Workflow list requires an explicit Collection and preserves the dynamic membership declared under `workflows.collections`. Projected Workflow names are unique within the current RuntimeProfile, so get uses the name alone. Model, Voice, and Tool catalogs come from their respective RuntimeProfile resource maps. Every catalog response includes the RuntimeProfile name and content revision.
 
-Peer resource create/put/delete exists only for Workspace state. Admin owns canonical Workflow, Model, Credential, and Tool mutation. Workspace create validates `collection` plus `workflow_alias`, stores Collection as an internal label, and list performs exact Collection filtering. Generic labels remain an Admin/storage detail and are not exposed in the Peer DTO.
+Peer resource create/put/delete exists only for Workspace state. Admin owns canonical Workflow, Model, Credential, and Tool mutation. Workspace create validates `collection` plus `workflow_name`, stores Collection as an internal label, and list performs exact Collection filtering. Generic labels remain an Admin/storage detail and are not exposed in the Peer DTO.
 
-Firmware is not part of the RuntimeProfile alias catalog. A RegistrationToken may bind one Firmware release line to a Peer; `server.firmware.get` and download both resolve that caller binding, while the device selects a channel only in each download request. Peer RPC does not expose a Firmware list.
+Firmware is not part of the RuntimeProfile name catalog. A RegistrationToken may bind one canonical Firmware ID to a Peer; `server.register` returns its scoped Firmware name, and `server.firmware.get` and download resolve that caller binding without exposing the ID. The device selects a channel only in each download request. Peer RPC does not expose a Firmware list.
 
-Catalog resolution takes a fresh profile snapshot for each operation. A dangling alias is unavailable without exposing its canonical target. Removing a Workflow alias does not remove or hide existing Workspace state; execution returns not found until a compatible alias is available again.
+Catalog resolution takes a fresh profile snapshot for each operation. A dangling internal binding is unavailable without exposing its canonical target. Removing a Workflow binding does not remove or hide existing Workspace state; execution returns not found until the same Peer name is restored.

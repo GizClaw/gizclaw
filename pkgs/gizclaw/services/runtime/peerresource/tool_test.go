@@ -8,7 +8,7 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-func TestProjectToolExposesCanonicalNameDistinctFromRuntimeAlias(t *testing.T) {
+func TestProjectToolExposesPeerNameDistinctFromInvocationName(t *testing.T) {
 	t.Parallel()
 	projected := projectTool(
 		"device_volume",
@@ -19,7 +19,7 @@ func TestProjectToolExposesCanonicalNameDistinctFromRuntimeAlias(t *testing.T) {
 			InputSchema: jsonschema.Schema{Type: "object"},
 		},
 	)
-	if projected.Alias != "device_volume" || projected.Name != "client_volume_set" {
-		t.Fatalf("projectTool() identity = alias %q, name %q", projected.Alias, projected.Name)
+	if projected.Name != "device_volume" || projected.InvokeName != "client_volume_set" {
+		t.Fatalf("projectTool() identity = name %q, invoke_name %q", projected.Name, projected.InvokeName)
 	}
 }

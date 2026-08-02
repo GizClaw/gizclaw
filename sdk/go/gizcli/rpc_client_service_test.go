@@ -86,7 +86,7 @@ func TestRPCClientHandleToolInvoke(t *testing.T) {
 		t.Fatal(err)
 	}
 	var params rpcapi.RPCPayload
-	if err := params.FromToolInvokeRequest(rpcapi.ToolInvokeRequest{Name: "music_play", Args: map[string]any{"query": "song"}}); err != nil {
+	if err := params.FromToolInvokeRequest(rpcapi.ToolInvokeRequest{InvokeName: "music_play", Args: map[string]any{"query": "song"}}); err != nil {
 		t.Fatalf("FromToolInvokeRequest() error = %v", err)
 	}
 	resp, err := (&rpcClient{peer: device}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "invoke", Method: rpcapi.RPCMethodClientToolInvoke, Params: &params})
@@ -180,7 +180,7 @@ func TestRPCClientToolHandlerCanBeInvokedRepeatedly(t *testing.T) {
 func dispatchClientTool(t *testing.T, client *Client, name string, args map[string]any) *rpcapi.RPCResponse {
 	t.Helper()
 	var params rpcapi.RPCPayload
-	if err := params.FromToolInvokeRequest(rpcapi.ToolInvokeRequest{Name: name, Args: args}); err != nil {
+	if err := params.FromToolInvokeRequest(rpcapi.ToolInvokeRequest{InvokeName: name, Args: args}); err != nil {
 		t.Fatal(err)
 	}
 	response, err := (&rpcClient{peer: client}).dispatch(t.Context(), &rpcapi.RPCRequest{

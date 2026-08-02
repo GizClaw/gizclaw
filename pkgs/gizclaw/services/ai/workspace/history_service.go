@@ -36,10 +36,26 @@ func (s *Server) ListWorkspaceHistory(ctx context.Context, workspaceName string,
 	return store.List(ctx, req)
 }
 
+func (s *Server) ListWorkspaceHistoryByID(ctx context.Context, workspaceID string, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
+	store, err := s.historyStoreByID(ctx, workspaceID)
+	if err != nil {
+		return apitypes.PeerRunHistoryListResponse{}, err
+	}
+	return store.List(ctx, req)
+}
+
 // ListWorkspaceHistoryPage returns one internal History page for Server-owned
 // projections that need authoritative entry and asset metadata.
 func (s *Server) ListWorkspaceHistoryPage(ctx context.Context, workspaceName string, req apitypes.PeerRunHistoryListRequest) (HistoryEntryPage, error) {
 	store, err := s.historyStore(ctx, workspaceName)
+	if err != nil {
+		return HistoryEntryPage{}, err
+	}
+	return store.ListPage(ctx, req)
+}
+
+func (s *Server) ListWorkspaceHistoryPageByID(ctx context.Context, workspaceID string, req apitypes.PeerRunHistoryListRequest) (HistoryEntryPage, error) {
+	store, err := s.historyStoreByID(ctx, workspaceID)
 	if err != nil {
 		return HistoryEntryPage{}, err
 	}
@@ -56,9 +72,25 @@ func (s *Server) ListWorkspaceHistoryEntries(ctx context.Context, workspaceName,
 	return store.ListEntries(ctx, after, through, limit)
 }
 
+func (s *Server) ListWorkspaceHistoryEntriesByID(ctx context.Context, workspaceID, after, through string, limit int) (HistoryEntryPage, error) {
+	store, err := s.historyStoreByID(ctx, workspaceID)
+	if err != nil {
+		return HistoryEntryPage{}, err
+	}
+	return store.ListEntries(ctx, after, through, limit)
+}
+
 // LatestWorkspaceHistoryEntry returns the newest retained internal entry.
 func (s *Server) LatestWorkspaceHistoryEntry(ctx context.Context, workspaceName string) (HistoryEntry, bool, error) {
 	store, err := s.historyStore(ctx, workspaceName)
+	if err != nil {
+		return HistoryEntry{}, false, err
+	}
+	return store.LatestEntry(ctx)
+}
+
+func (s *Server) LatestWorkspaceHistoryEntryByID(ctx context.Context, workspaceID string) (HistoryEntry, bool, error) {
+	store, err := s.historyStoreByID(ctx, workspaceID)
 	if err != nil {
 		return HistoryEntry{}, false, err
 	}
@@ -79,8 +111,16 @@ func (s *Server) LatestWorkspaceHistoryEntryBefore(
 	return store.LatestEntryBefore(ctx, before)
 }
 
+func (s *Server) LatestWorkspaceHistoryEntryBeforeByID(ctx context.Context, workspaceID string, before time.Time) (HistoryEntry, bool, error) {
+	store, err := s.historyStoreByID(ctx, workspaceID)
+	if err != nil {
+		return HistoryEntry{}, false, err
+	}
+	return store.LatestEntryBefore(ctx, before)
+}
+
 func (s *Server) AdminListWorkspaceHistory(ctx context.Context, workspaceName string, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
-	store, err := s.historyStore(ctx, workspaceName)
+	store, err := s.historyStoreByID(ctx, workspaceName)
 	if err != nil {
 		return apitypes.PeerRunHistoryListResponse{}, err
 	}
@@ -95,8 +135,16 @@ func (s *Server) GetWorkspaceHistory(ctx context.Context, workspaceName, history
 	return store.Get(ctx, historyID)
 }
 
+func (s *Server) GetWorkspaceHistoryByID(ctx context.Context, workspaceID, historyID string) (HistoryEntry, error) {
+	store, err := s.historyStoreByID(ctx, workspaceID)
+	if err != nil {
+		return HistoryEntry{}, err
+	}
+	return store.Get(ctx, historyID)
+}
+
 func (s *Server) AdminGetWorkspaceHistory(ctx context.Context, workspaceName, historyID string) (HistoryEntry, error) {
-	store, err := s.historyStore(ctx, workspaceName)
+	store, err := s.historyStoreByID(ctx, workspaceName)
 	if err != nil {
 		return HistoryEntry{}, err
 	}
@@ -111,8 +159,16 @@ func (s *Server) ReadWorkspaceHistoryAsset(ctx context.Context, workspaceName, a
 	return store.ReadAsset(ctx, assetName)
 }
 
+func (s *Server) ReadWorkspaceHistoryAssetByID(ctx context.Context, workspaceID, assetName string) (io.ReadCloser, error) {
+	store, err := s.historyStoreByID(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	return store.ReadAsset(ctx, assetName)
+}
+
 func (s *Server) AdminReadWorkspaceHistoryAudio(ctx context.Context, workspaceName, historyID string) (io.ReadCloser, int64, error) {
-	store, err := s.historyStore(ctx, workspaceName)
+	store, err := s.historyStoreByID(ctx, workspaceName)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -149,13 +205,14 @@ func (s *Server) historyStoreWithMetadata(ctx context.Context, workspaceName str
 	if err != nil {
 		return nil, nil, err
 	}
-	if _, err := getWorkspace(ctx, store, workspaceName); err != nil {
+	workspace, err := getWorkspace(ctx, store, workspaceName)
+	if err != nil {
 		return nil, nil, err
 	}
 	if s.RuntimeStore == nil {
 		return nil, nil, fmt.Errorf("workspace: runtime store is required")
 	}
-	rt, err := s.RuntimeStore.GetWorkspaceRuntime(ctx, workspaceName)
+	rt, err := s.RuntimeStore.GetWorkspaceRuntime(ctx, workspace.Id)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -163,6 +220,35 @@ func (s *Server) historyStoreWithMetadata(ctx context.Context, workspaceName str
 		return nil, nil, fmt.Errorf("workspace: history store is required")
 	}
 	return store, rt.History, nil
+}
+
+func (s *Server) historyStoreByID(ctx context.Context, workspaceID string) (*HistoryStore, error) {
+	if s == nil {
+		return nil, fmt.Errorf("workspace: nil server")
+	}
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" {
+		return nil, fmt.Errorf("workspace: id is required")
+	}
+	store, err := s.store()
+	if err != nil {
+		return nil, err
+	}
+	workspace, err := getWorkspaceByID(ctx, store, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	if s.RuntimeStore == nil {
+		return nil, fmt.Errorf("workspace: runtime store is required")
+	}
+	rt, err := s.RuntimeStore.GetWorkspaceRuntime(ctx, workspace.Id)
+	if err != nil {
+		return nil, err
+	}
+	if rt.History == nil {
+		return nil, fmt.Errorf("workspace: history store is required")
+	}
+	return rt.History, nil
 }
 
 func bumpWorkspaceLastActive(ctx context.Context, store kv.Store, workspaceName string, lastActiveAt time.Time) error {
@@ -173,9 +259,8 @@ func bumpWorkspaceLastActive(ctx context.Context, store kv.Store, workspaceName 
 	if err != nil {
 		return err
 	}
-	workspace = normalizeWorkspaceTimestamps(workspace)
 	lastActiveAt = lastActiveAt.UTC()
-	if !workspace.LastActiveAt.IsZero() && !lastActiveAt.After(workspace.LastActiveAt) {
+	if !lastActiveAt.After(workspace.LastActiveAt) {
 		return nil
 	}
 	workspace.LastActiveAt = lastActiveAt

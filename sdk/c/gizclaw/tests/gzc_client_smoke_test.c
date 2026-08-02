@@ -156,7 +156,7 @@ static int test_tool_handler(
       pb_istream_from_buffer((const pb_byte_t *)request_payload.data,
                              request_payload.len);
   if (!pb_decode(&input, gizclaw_rpc_v1_ToolInvokeRequest_fields, &request) ||
-      strcmp(request.name, "volume_set") != 0) {
+      strcmp(request.invoke_name, "volume_set") != 0) {
     return GZC_ERR_RPC;
   }
   handler->call_count++;
@@ -1393,31 +1393,6 @@ int main(void) {
              "all Peer Event golden vectors match Nanopb") != 0) {
     return 1;
   }
-  gizclaw_rpc_v1_Workspace workspace = gizclaw_rpc_v1_Workspace_init_default;
-  workspace.has_owner_public_key = true;
-  strcpy(workspace.owner_public_key, "peer-public-key");
-  uint8_t workspace_bytes[128];
-  pb_ostream_t workspace_output =
-      pb_ostream_from_buffer(workspace_bytes, sizeof(workspace_bytes));
-  if (expect(pb_encode(&workspace_output, gizclaw_rpc_v1_Workspace_fields,
-                       &workspace),
-             "encode workspace owner public key") != 0) {
-    return 1;
-  }
-  gizclaw_rpc_v1_Workspace decoded_workspace =
-      gizclaw_rpc_v1_Workspace_init_default;
-  pb_istream_t workspace_input =
-      pb_istream_from_buffer(workspace_bytes, workspace_output.bytes_written);
-  if (expect(pb_decode(&workspace_input, gizclaw_rpc_v1_Workspace_fields,
-                       &decoded_workspace),
-             "decode workspace owner public key") != 0 ||
-      expect(decoded_workspace.has_owner_public_key &&
-                 strcmp(decoded_workspace.owner_public_key,
-                        "peer-public-key") == 0,
-             "workspace owner public key uses bounded nanopb storage") != 0) {
-    return 1;
-  }
-
   fake_clock_t clock = {
       .instant_ms = 1000,
       .unix_ms = INT64_C(1700000000000),
@@ -2135,10 +2110,10 @@ int main(void) {
   if (expect(method_id == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING, "request method id value") != 0) {
     return 1;
   }
-  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD == 88, "pet pixa method id value") != 0) {
+  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD == 87, "pet pixa method id value") != 0) {
     return 1;
   }
-  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD == 65, "badge pixa method id value") != 0) {
+  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD == 64, "badge pixa method id value") != 0) {
     return 1;
   }
 
@@ -2390,7 +2365,7 @@ int main(void) {
 
   gizclaw_rpc_v1_SpeechTranscribeRequest transcribe_request =
       gizclaw_rpc_v1_SpeechTranscribeRequest_init_zero;
-  strcpy(transcribe_request.model_alias, "asr-main");
+  strcpy(transcribe_request.model_name, "asr-main");
   strcpy(
       transcribe_request.content_type,
       "audio/L16;rate=16000;channels=1");
@@ -2417,8 +2392,8 @@ int main(void) {
 
   gizclaw_rpc_v1_SpeechExtractRequest extract_request =
       gizclaw_rpc_v1_SpeechExtractRequest_init_zero;
-  strcpy(extract_request.asr_model_alias, "asr-main");
-  strcpy(extract_request.extract_model_alias, "extract-main");
+  strcpy(extract_request.asr_model_name, "asr-main");
+  strcpy(extract_request.extract_model_name, "extract-main");
   strcpy(
       extract_request.content_type,
       "audio/L16;rate=16000;channels=1");
@@ -2464,7 +2439,7 @@ int main(void) {
 
   gizclaw_rpc_v1_SpeechSynthesizeRequest synthesize_request =
       gizclaw_rpc_v1_SpeechSynthesizeRequest_init_zero;
-  strcpy(synthesize_request.voice_alias, "narrator");
+  strcpy(synthesize_request.voice_name, "narrator");
   strcpy(synthesize_request.text, "hello");
   synthesize_request.accepted_content_types_count = 1;
   strcpy(synthesize_request.accepted_content_types[0], "audio/pcm");
@@ -3181,7 +3156,7 @@ int main(void) {
 
   gizclaw_rpc_v1_ToolInvokeRequest tool_request =
       gizclaw_rpc_v1_ToolInvokeRequest_init_zero;
-  strcpy(tool_request.name, "volume_set");
+  strcpy(tool_request.invoke_name, "volume_set");
   gzc_buf_t tool_payload;
   gzc_buf_init(&tool_payload);
   rc = encode_test_pb_message(
@@ -3240,7 +3215,7 @@ int main(void) {
   }
   close_remote_rpc(&fake_webrtc, 0);
 
-  strcpy(tool_request.name, "brightness_set");
+  strcpy(tool_request.invoke_name, "brightness_set");
   gzc_buf_reset(&tool_payload);
   rc = encode_test_pb_message(
       platform, gizclaw_rpc_v1_ToolInvokeRequest_fields, &tool_request,

@@ -481,7 +481,7 @@ func (m speechExtractionModels) GetModel(_ context.Context, request adminhttp.Ge
 		Kind: apitypes.ModelKindLlm,
 		Provider: apitypes.ModelProvider{
 			Kind: apitypes.ModelProviderKindOpenaiTenant,
-			Name: "main",
+			Id:   "main",
 		},
 	}
 	if request.Id == "canonical-asr" {

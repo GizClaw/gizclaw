@@ -18,9 +18,25 @@ func (m *Manager) applyMemoryLayout(ctx context.Context, resource apitypes.Resou
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	name := string(pathParam(item.Metadata.Name))
-	existing, exists, err := m.getMemoryLayout(ctx, name)
+	id, updating, err := resourceUpdateID(item.Metadata)
 	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !updating {
+		createdID, err := m.createMemoryLayout(ctx, memoryLayoutFromResource(item))
+		if err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindMemoryLayout, item.Metadata.Name, createdID), nil
+	}
+	existing, exists, err := m.getMemoryLayout(ctx, id)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !exists {
+		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindMemoryLayout, id)
+	}
+	if err := validateImmutableResourceName(apitypes.ResourceKindMemoryLayout, id, existing.Name, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {
@@ -29,20 +45,36 @@ func (m *Manager) applyMemoryLayout(ctx context.Context, resource apitypes.Resou
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindMemoryLayout, item.Metadata.Name), nil
+			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindMemoryLayout, item.Metadata.Name, id), nil
 		}
 	}
-	if err := m.putMemoryLayout(ctx, name, memoryLayoutFromResource(item)); err != nil {
+	if err := m.putMemoryLayout(ctx, id, memoryLayoutFromResource(item)); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindMemoryLayout, item.Metadata.Name), nil
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindMemoryLayout, item.Metadata.Name, id), nil
+}
+
+func (m *Manager) createMemoryLayout(ctx context.Context, body adminhttp.MemoryLayoutUpsert) (string, error) {
+	response, err := m.services.MemoryLayouts.CreateMemoryLayout(ctx, adminhttp.CreateMemoryLayoutRequestObject{Body: &body})
+	if err != nil {
+		return "", err
 	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindMemoryLayout, item.Metadata.Name), nil
+	switch response := response.(type) {
+	case adminhttp.CreateMemoryLayout200JSONResponse:
+		return response.Id, nil
+	case adminhttp.CreateMemoryLayout400JSONResponse:
+		return "", responseError(400, "CREATE_MEMORY_LAYOUT_FAILED", "failed to create memory layout", response)
+	case adminhttp.CreateMemoryLayout409JSONResponse:
+		return "", responseError(409, "CREATE_MEMORY_LAYOUT_FAILED", "failed to create memory layout", response)
+	case adminhttp.CreateMemoryLayout500JSONResponse:
+		return "", responseError(500, "CREATE_MEMORY_LAYOUT_FAILED", "failed to create memory layout", response)
+	default:
+		return "", unexpectedResponse("CreateMemoryLayout", response)
+	}
 }
 
 func (m *Manager) getMemoryLayout(ctx context.Context, name string) (apitypes.MemoryLayout, bool, error) {
-	response, err := m.services.MemoryLayouts.GetMemoryLayout(ctx, adminhttp.GetMemoryLayoutRequestObject{Name: name})
+	response, err := m.services.MemoryLayouts.GetMemoryLayout(ctx, adminhttp.GetMemoryLayoutRequestObject{Id: name})
 	if err != nil {
 		return apitypes.MemoryLayout{}, false, err
 	}
@@ -58,8 +90,8 @@ func (m *Manager) getMemoryLayout(ctx context.Context, name string) (apitypes.Me
 	}
 }
 
-func (m *Manager) putMemoryLayout(ctx context.Context, name string, body apitypes.MemoryLayout) error {
-	response, err := m.services.MemoryLayouts.PutMemoryLayout(ctx, adminhttp.PutMemoryLayoutRequestObject{Name: name, Body: &body})
+func (m *Manager) putMemoryLayout(ctx context.Context, name string, body adminhttp.MemoryLayoutUpsert) error {
+	response, err := m.services.MemoryLayouts.PutMemoryLayout(ctx, adminhttp.PutMemoryLayoutRequestObject{Id: name, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -76,7 +108,7 @@ func (m *Manager) putMemoryLayout(ctx context.Context, name string, body apitype
 }
 
 func (m *Manager) deleteMemoryLayout(ctx context.Context, name string) (apitypes.MemoryLayout, bool, error) {
-	response, err := m.services.MemoryLayouts.DeleteMemoryLayout(ctx, adminhttp.DeleteMemoryLayoutRequestObject{Name: name})
+	response, err := m.services.MemoryLayouts.DeleteMemoryLayout(ctx, adminhttp.DeleteMemoryLayoutRequestObject{Id: name})
 	if err != nil {
 		return apitypes.MemoryLayout{}, false, err
 	}
@@ -96,11 +128,11 @@ func resourceFromMemoryLayout(item apitypes.MemoryLayout) (apitypes.Resource, er
 	return marshalResource(apitypes.MemoryLayoutResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.MemoryLayoutResourceKindMemoryLayout,
-		Metadata:   apitypes.ResourceMetadata{Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
 		Spec:       item.Spec,
 	})
 }
 
-func memoryLayoutFromResource(item apitypes.MemoryLayoutResource) apitypes.MemoryLayout {
-	return apitypes.MemoryLayout{Name: item.Metadata.Name, Spec: item.Spec}
+func memoryLayoutFromResource(item apitypes.MemoryLayoutResource) adminhttp.MemoryLayoutUpsert {
+	return adminhttp.MemoryLayoutUpsert{Name: item.Metadata.Name, Spec: item.Spec}
 }

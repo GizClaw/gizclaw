@@ -10,6 +10,7 @@
       "Tool": {
         "type": "object",
         "required": [
+          "id",
           "name",
           "type",
           "enabled",
@@ -19,6 +20,9 @@
         ],
         "additionalProperties": false,
         "properties": {
+          "id": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },

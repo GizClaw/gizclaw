@@ -9,13 +9,13 @@ import "payload/enums.proto";
 
 option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
 
-message AliasI18nText {
+message ResourceI18nText {
   string display_name = 1;
   optional string description = 2;
 }
 
 message SpeechTranscribeRequest {
-  string model_alias = 1;
+  string model_name = 1;
   string content_type = 2;
   optional string language = 3;
 }
@@ -25,8 +25,8 @@ message SpeechTranscribeResponse {
 }
 
 message SpeechExtractRequest {
-  string asr_model_alias = 1;
-  string extract_model_alias = 2;
+  string asr_model_name = 1;
+  string extract_model_name = 2;
   string content_type = 3;
   optional string language = 4;
   string schema_json = 5;
@@ -39,7 +39,7 @@ message SpeechExtractResponse {
 }
 
 message SpeechSynthesizeRequest {
-  string voice_alias = 1;
+  string voice_name = 1;
   string text = 2;
   repeated string accepted_content_types = 3;
 }
@@ -182,12 +182,9 @@ message DoubaoRealtimeDuplexWorkspaceParameters {
 }
 
 message EinoWorkflowSpec {
-  reserved 3;
-  reserved "memory";
-
   google.protobuf.Struct graph = 1;
   optional google.protobuf.Struct limits = 2;
-  optional google.protobuf.Struct conversation = 4;
+  optional google.protobuf.Struct conversation = 3;
 }
 
 message EinoWorkspaceParameters {
@@ -335,13 +332,10 @@ message FlowcraftWorkflowSpec {
 }
 
 message FlowcraftWorkspaceParameters {
-  reserved 4, 5, 6;
-  reserved "generate_model", "extract_model", "embedding_model";
-
   FlowcraftWorkspaceParametersAgentType agent_type = 1;
   optional FlowcraftConversationParameters conversation = 2;
   optional bool e2e = 3;
-  optional WorkspaceInputMode input = 7;
+  optional WorkspaceInputMode input = 4;
 }
 
 message PetWorkflowSpec {
@@ -357,19 +351,18 @@ message PetWorkflowSpec {
 }
 
 message Model {
-  string alias = 1;
-  map<string, AliasI18nText> i18n = 2;
+  string name = 1;
+  map<string, ResourceI18nText> i18n = 2;
   ModelKind kind = 3;
-  reserved 4;
   oneof provider_data {
-    OpenAITenantModelProviderData openai_tenant = 5;
-    GeminiTenantModelProviderData gemini_tenant = 6;
-    DashScopeTenantModelProviderData dashscope_tenant = 7;
-    VolcTenantModelProviderData volc_tenant = 8;
-    MiniMaxTenantModelProviderData minimax_tenant = 9;
-    DeepSeekTenantModelProviderData deepseek_tenant = 10;
+    OpenAITenantModelProviderData openai_tenant = 4;
+    GeminiTenantModelProviderData gemini_tenant = 5;
+    DashScopeTenantModelProviderData dashscope_tenant = 6;
+    VolcTenantModelProviderData volc_tenant = 7;
+    MiniMaxTenantModelProviderData minimax_tenant = 8;
+    DeepSeekTenantModelProviderData deepseek_tenant = 9;
   }
-  ModelProviderKind provider_kind = 11;
+  ModelProviderKind provider_kind = 10;
 }
 
 enum ModelProviderKind {
@@ -472,7 +465,7 @@ message DeepSeekTenantModelProviderData {
 }
 
 message ModelGetRequest {
-  string alias = 1;
+  string name = 1;
 }
 
 message ModelGetResponse {
@@ -495,12 +488,12 @@ message ModelListResponse {
 }
 
 message Voice {
-  string alias = 1;
-  map<string, AliasI18nText> i18n = 2;
+  string name = 1;
+  map<string, ResourceI18nText> i18n = 2;
 }
 
 message VoiceGetRequest {
-  string alias = 1;
+  string name = 1;
 }
 
 message VoiceGetResponse {
@@ -523,15 +516,15 @@ message VoiceListResponse {
 }
 
 message Workflow {
-  string alias = 1;
-  map<string, AliasI18nText> i18n = 2;
+  string name = 1;
+  map<string, ResourceI18nText> i18n = 2;
   string collection = 3;
   WorkflowDriver driver = 4;
   optional string workspace_lang_pair = 5;
 }
 
 message WorkflowGetRequest {
-  string alias = 1;
+  string name = 1;
 }
 
 message WorkflowGetResponse {
@@ -554,22 +547,19 @@ message WorkflowListResponse {
   string runtime_profile_revision = 5;
 }
 
-message ToolkitPolicyToolIds {
+message ToolkitPolicyToolNames {
   repeated string value = 1;
 }
 
 message ToolkitPolicy {
-  optional ToolkitPolicyToolIds tool_ids = 1;
+  optional ToolkitPolicyToolNames tool_names = 1;
 }
 
 message Tool {
-  reserved 4;
-  reserved "output_schema";
-
-  string alias = 1;
-  map<string, AliasI18nText> i18n = 2;
+  string name = 1;
+  map<string, ResourceI18nText> i18n = 2;
   google.protobuf.Struct input_schema = 3;
-  string name = 5;
+  string invoke_name = 4;
 }
 
 message ToolListRequest {
@@ -586,7 +576,7 @@ message ToolListResponse {
 }
 
 message ToolGetRequest {
-  string alias = 1;
+  string name = 1;
 }
 
 message ToolGetResponse {
@@ -596,11 +586,8 @@ message ToolGetResponse {
 }
 
 message ToolInvokeRequest {
-  reserved 1, 2, 3;
-  reserved "call_id", "tool_id", "method";
-
-  google.protobuf.Struct args = 4;
-  string name = 5;
+  google.protobuf.Struct args = 1;
+  string invoke_name = 2;
 }
 
 message ToolInvokeResponse {

@@ -106,10 +106,10 @@ class GizClawClient {
     );
   }
 
-  Future<payload.WorkflowGetResponse> getWorkflow(String alias) {
+  Future<payload.WorkflowGetResponse> getWorkflow(String name) {
     return rpc.call<payload.WorkflowGetResponse>(
       'server.workflow.get',
-      payload.WorkflowGetRequest(alias: alias),
+      payload.WorkflowGetRequest(name: name),
     );
   }
 
@@ -218,52 +218,76 @@ class GizClawClient {
     );
   }
 
-  Future<payload.FriendGroupDeleteResponse> deleteFriendGroup(String id) {
+  Future<payload.FriendGroupDeleteResponse> deleteFriendGroup(String name) {
     return rpc.call<payload.FriendGroupDeleteResponse>(
       'server.friend_group.delete',
-      payload.FriendGroupDeleteRequest(id: id),
+      payload.FriendGroupDeleteRequest(name: name),
     );
   }
 
   Future<payload.FriendGroupInviteTokenGetResponse> getFriendGroupInviteToken(
-    String friendGroupId,
+    String friendGroupName,
   ) {
     return rpc.call<payload.FriendGroupInviteTokenGetResponse>(
       'server.friend_group.invite_token.get',
-      payload.FriendGroupInviteTokenGetRequest(friendGroupId: friendGroupId),
+      payload.FriendGroupInviteTokenGetRequest(
+        friendGroupName: friendGroupName,
+      ),
     );
   }
 
   Future<payload.FriendGroupInviteTokenCreateResponse>
-  createFriendGroupInviteToken(String friendGroupId) {
+  createFriendGroupInviteToken(String friendGroupName) {
     return rpc.call<payload.FriendGroupInviteTokenCreateResponse>(
       'server.friend_group.invite_token.create',
-      payload.FriendGroupInviteTokenCreateRequest(friendGroupId: friendGroupId),
+      payload.FriendGroupInviteTokenCreateRequest(
+        friendGroupName: friendGroupName,
+      ),
     );
   }
 
   Future<payload.FriendGroupInviteTokenClearResponse>
-  clearFriendGroupInviteToken(String friendGroupId) {
+  clearFriendGroupInviteToken(String friendGroupName) {
     return rpc.call<payload.FriendGroupInviteTokenClearResponse>(
       'server.friend_group.invite_token.clear',
-      payload.FriendGroupInviteTokenClearRequest(friendGroupId: friendGroupId),
+      payload.FriendGroupInviteTokenClearRequest(
+        friendGroupName: friendGroupName,
+      ),
     );
   }
 
-  Future<payload.FriendGroupJoinResponse> joinFriendGroup(String inviteToken) {
+  Future<payload.FriendGroupJoinResponse> joinFriendGroup({
+    required String name,
+    required String inviteToken,
+  }) {
+    final normalizedName = name.trim();
+    final normalizedInviteToken = inviteToken.trim();
+    if (normalizedName.isEmpty) {
+      throw ArgumentError.value(name, 'name', 'must not be empty');
+    }
+    if (normalizedInviteToken.isEmpty) {
+      throw ArgumentError.value(
+        inviteToken,
+        'inviteToken',
+        'must not be empty',
+      );
+    }
     return rpc.call<payload.FriendGroupJoinResponse>(
       'server.friend_group.join',
-      payload.FriendGroupJoinRequest(inviteToken: inviteToken),
+      payload.FriendGroupJoinRequest(
+        name: normalizedName,
+        inviteToken: normalizedInviteToken,
+      ),
     );
   }
 
   Future<payload.FriendGroupMemberListResponse> listFriendGroupMembers(
-    String friendGroupId, {
+    String friendGroupName, {
     String? cursor,
     int? limit,
   }) {
     final request = payload.FriendGroupMemberListRequest(
-      friendGroupId: friendGroupId,
+      friendGroupName: friendGroupName,
     );
     if (cursor != null) request.cursor = cursor;
     if (limit != null) request.limit = Int64(limit);
@@ -274,13 +298,13 @@ class GizClawClient {
   }
 
   Future<payload.FriendGroupMemberDeleteResponse> deleteFriendGroupMember(
-    String friendGroupId,
+    String friendGroupName,
     String id,
   ) {
     return rpc.call<payload.FriendGroupMemberDeleteResponse>(
       'server.friend_group.members.delete',
       payload.FriendGroupMemberDeleteRequest(
-        friendGroupId: friendGroupId,
+        friendGroupName: friendGroupName,
         id: id,
       ),
     );
@@ -375,18 +399,22 @@ class GizClawClient {
     );
   }
 
-  Future<payload.ServerPetGetResponse> getPet(String id) {
+  Future<payload.ServerPetGetResponse> getPet(String name) {
     return rpc.call<payload.ServerPetGetResponse>(
       'server.pet.get',
-      payload.ServerPetGetRequest(value: payload.PetGetRequest(id: id)),
+      payload.ServerPetGetRequest(value: payload.PetGetRequest(name: name)),
     );
   }
 
   Future<payload.RuntimeAdoptResponse> adoptPet({
-    String? id,
+    required String name,
     required String displayName,
   }) {
+    final normalizedName = name.trim();
     final normalizedDisplayName = displayName.trim();
+    if (normalizedName.isEmpty) {
+      throw ArgumentError.value(name, 'name', 'must not be empty');
+    }
     if (normalizedDisplayName.isEmpty) {
       throw ArgumentError.value(
         displayName,
@@ -394,8 +422,7 @@ class GizClawClient {
         'must not be empty',
       );
     }
-    final value = payload.PetAdoptRequest();
-    if (id != null) value.id = id;
+    final value = payload.PetAdoptRequest(name: normalizedName);
     value.displayName = normalizedDisplayName;
     return rpc.call<payload.RuntimeAdoptResponse>(
       'runtime.adopt',
@@ -404,11 +431,11 @@ class GizClawClient {
   }
 
   Future<payload.ServerPetDriveResponse> drivePet(
-    String petId, {
+    String petName, {
     required payload.PetBehavior behavior,
     String? idempotencyKey,
   }) {
-    final value = payload.PetDriveRequest(petId: petId, behavior: behavior);
+    final value = payload.PetDriveRequest(petName: petName, behavior: behavior);
     if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
       value.idempotencyKey = idempotencyKey;
     }
@@ -419,11 +446,14 @@ class GizClawClient {
   }
 
   Future<payload.ServerPetDriveResponse> drivePetGame(
-    String petId, {
+    String petName, {
     required payload.PetDriveGameResultInput gameResult,
     String? idempotencyKey,
   }) {
-    final value = payload.PetDriveRequest(petId: petId, gameResult: gameResult);
+    final value = payload.PetDriveRequest(
+      petName: petName,
+      gameResult: gameResult,
+    );
     if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
       gameResult.idempotencyKey = idempotencyKey;
     }
@@ -433,21 +463,21 @@ class GizClawClient {
     );
   }
 
-  Future<payload.ServerPetActionsGetResponse> getPetActions(String petId) {
+  Future<payload.ServerPetActionsGetResponse> getPetActions(String petName) {
     return rpc.call<payload.ServerPetActionsGetResponse>(
       'server.pet.actions.get',
       payload.ServerPetActionsGetRequest(
-        value: payload.PetGetRequest(id: petId),
+        value: payload.PetGetRequest(name: petName),
       ),
     );
   }
 
   Future<PixaDownloadResult<payload.ServerPetPixaDownloadResponse>>
-  downloadPetPixa(String petId) async {
+  downloadPetPixa(String petName) async {
     final response = await rpc.callBinary(
       'server.pet.pixa.download',
       payload.ServerPetPixaDownloadRequest(
-        value: payload.PetPixaDownloadRequest(petId: petId),
+        value: payload.PetPixaDownloadRequest(petName: petName),
       ),
     );
     final metadata = response.response as payload.ServerPetPixaDownloadResponse;
@@ -460,10 +490,10 @@ class GizClawClient {
   }
 
   Future<PixaDownloadResult<payload.BadgeDefPixaDownloadResponse>>
-  downloadBadgeDefPixa(String id) async {
+  downloadBadgeDefPixa(String name) async {
     final response = await rpc.callBinary(
       'server.badge_def.pixa.download',
-      payload.BadgeDefPixaDownloadRequest(id: id),
+      payload.BadgeDefPixaDownloadRequest(name: name),
     );
     final metadata = response.response as payload.BadgeDefPixaDownloadResponse;
     final bytes = Uint8List.fromList(response.body);

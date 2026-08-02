@@ -27,7 +27,7 @@ func TestRegistrationBindsFirmwareRPC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("firmware.files.download registered: %v", err)
 	}
-	if result.Metadata.FirmwareId != sharedFirmware || result.Bytes == 0 || registeredOut.Len() == 0 {
+	if result.Metadata.FirmwareName != sharedFirmware || result.Bytes == 0 || registeredOut.Len() == 0 {
 		t.Fatalf("firmware.files.download registered = %#v bytes=%d", result.Metadata, registeredOut.Len())
 	}
 

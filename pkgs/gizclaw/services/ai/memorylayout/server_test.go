@@ -3,9 +3,11 @@ package memorylayout
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -21,7 +23,8 @@ func TestServerMemoryLayoutLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if response, ok := created.(adminhttp.CreateMemoryLayout200JSONResponse); !ok || response.Name != layout.Name {
+	createdLayout, ok := created.(adminhttp.CreateMemoryLayout200JSONResponse)
+	if !ok || createdLayout.Name != layout.Name {
 		t.Fatalf("CreateMemoryLayout() = %#v", created)
 	}
 	duplicate, err := server.CreateMemoryLayout(ctx, adminhttp.CreateMemoryLayoutRequestObject{Body: &layout})
@@ -31,7 +34,7 @@ func TestServerMemoryLayoutLifecycle(t *testing.T) {
 	if _, ok := duplicate.(adminhttp.CreateMemoryLayout409JSONResponse); !ok {
 		t.Fatalf("duplicate CreateMemoryLayout() = %#v", duplicate)
 	}
-	got, err := server.GetMemoryLayout(ctx, adminhttp.GetMemoryLayoutRequestObject{Name: layout.Name})
+	got, err := server.GetMemoryLayout(ctx, adminhttp.GetMemoryLayoutRequestObject{Id: createdLayout.Id})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +53,7 @@ func TestServerMemoryLayoutLifecycle(t *testing.T) {
 	}
 
 	layout.Spec.Mem0.CustomInstructions = new("updated extraction")
-	put, err := server.PutMemoryLayout(ctx, adminhttp.PutMemoryLayoutRequestObject{Name: layout.Name, Body: &layout})
+	put, err := server.PutMemoryLayout(ctx, adminhttp.PutMemoryLayoutRequestObject{Id: createdLayout.Id, Body: &layout})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,14 +61,14 @@ func TestServerMemoryLayoutLifecycle(t *testing.T) {
 		response.Spec.Mem0.CustomInstructions == nil || *response.Spec.Mem0.CustomInstructions != "updated extraction" {
 		t.Fatalf("PutMemoryLayout() = %#v", put)
 	}
-	deleted, err := server.DeleteMemoryLayout(ctx, adminhttp.DeleteMemoryLayoutRequestObject{Name: layout.Name})
+	deleted, err := server.DeleteMemoryLayout(ctx, adminhttp.DeleteMemoryLayoutRequestObject{Id: createdLayout.Id})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if response, ok := deleted.(adminhttp.DeleteMemoryLayout200JSONResponse); !ok || response.Name != layout.Name {
 		t.Fatalf("DeleteMemoryLayout() = %#v", deleted)
 	}
-	missing, err := server.GetMemoryLayout(ctx, adminhttp.GetMemoryLayoutRequestObject{Name: layout.Name})
+	missing, err := server.GetMemoryLayout(ctx, adminhttp.GetMemoryLayoutRequestObject{Id: createdLayout.Id})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,44 +114,96 @@ func TestServerConcurrentCreateHasSingleWinner(t *testing.T) {
 	}
 }
 
+func TestServerSerializesPutWithDelete(t *testing.T) {
+	server := newTestServer(t)
+	layout := testLayout(t, "pet-memory")
+	createdResponse, err := server.CreateMemoryLayout(t.Context(), adminhttp.CreateMemoryLayoutRequestObject{Body: &layout})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created := createdResponse.(adminhttp.CreateMemoryLayout200JSONResponse)
+
+	blocked := &blockingMemoryLayoutGetStore{
+		Store:   server.Store,
+		key:     layoutKey(created.Id).String(),
+		reached: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	server.Store = blocked
+	layout.Spec.Mem0.CustomInstructions = new("updated")
+	putDone := make(chan adminhttp.PutMemoryLayoutResponseObject, 1)
+	go func() {
+		response, putErr := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Id: created.Id, Body: &layout})
+		if putErr != nil {
+			t.Errorf("PutMemoryLayout() error = %v", putErr)
+		}
+		putDone <- response
+	}()
+	<-blocked.reached
+
+	deleteDone := make(chan adminhttp.DeleteMemoryLayoutResponseObject, 1)
+	go func() {
+		response, deleteErr := server.DeleteMemoryLayout(t.Context(), adminhttp.DeleteMemoryLayoutRequestObject{Id: created.Id})
+		if deleteErr != nil {
+			t.Errorf("DeleteMemoryLayout() error = %v", deleteErr)
+		}
+		deleteDone <- response
+	}()
+	select {
+	case response := <-deleteDone:
+		t.Fatalf("DeleteMemoryLayout() completed during PutMemoryLayout() read: %#v", response)
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(blocked.release)
+	if response := <-putDone; response == nil {
+		t.Fatal("PutMemoryLayout() response = nil")
+	}
+	if response := <-deleteDone; response == nil {
+		t.Fatal("DeleteMemoryLayout() response = nil")
+	}
+	if _, err := server.Store.Get(t.Context(), layoutNameKey(created.Name)); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("name index after serialized delete error = %v, want kv.ErrNotFound", err)
+	}
+}
+
 func TestServerRejectsInvalidMemoryLayouts(t *testing.T) {
 	tests := []struct {
 		name   string
-		mutate func(*apitypes.MemoryLayout)
+		mutate func(*adminhttp.MemoryLayoutUpsert)
 		want   string
 	}{
-		{"empty lanes", func(layout *apitypes.MemoryLayout) { layout.Spec.Flowcraft.Lanes = nil }, "lanes must not be empty"},
-		{"duplicate lanes", func(layout *apitypes.MemoryLayout) {
+		{"empty lanes", func(layout *adminhttp.MemoryLayoutUpsert) { layout.Spec.Flowcraft.Lanes = nil }, "lanes must not be empty"},
+		{"duplicate lanes", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Flowcraft.Lanes = append(layout.Spec.Flowcraft.Lanes, layout.Spec.Flowcraft.Lanes[0])
 		}, "duplicate name"},
-		{"invalid fact kind", func(layout *apitypes.MemoryLayout) {
+		{"invalid fact kind", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Flowcraft.Lanes[0].Kind = "unknown"
 		}, "kind"},
-		{"invalid extraction mode", func(layout *apitypes.MemoryLayout) {
+		{"invalid extraction mode", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Flowcraft.Extraction.Mode = "unknown"
 		}, "extraction.mode"},
-		{"invalid extraction timeout", func(layout *apitypes.MemoryLayout) {
+		{"invalid extraction timeout", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Flowcraft.Extraction.StageTimeout = new("0s")
 		}, "stage_timeout"},
-		{"invalid overfetch", func(layout *apitypes.MemoryLayout) {
+		{"invalid overfetch", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Flowcraft.Bbh.SearchOverfetch = new(0)
 		}, "search_overfetch"},
-		{"invalid analyzer", func(layout *apitypes.MemoryLayout) {
+		{"invalid analyzer", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Flowcraft.Bbh.Bleve.Analyzer = analyzerPtr("unknown")
 		}, "analyzer"},
-		{"invalid flush interval", func(layout *apitypes.MemoryLayout) {
+		{"invalid flush interval", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Flowcraft.Bbh.Hnsw.FlushInterval = new("invalid")
 		}, "flush_interval"},
-		{"empty mem0 policy", func(layout *apitypes.MemoryLayout) {
+		{"empty mem0 policy", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Mem0 = apitypes.Mem0MemoryLayoutPolicy{}
 		}, "spec.mem0 must define"},
-		{"duplicate volc strategy", func(layout *apitypes.MemoryLayout) {
+		{"duplicate volc strategy", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.VolcMem0.Strategies = append(layout.Spec.VolcMem0.Strategies, layout.Spec.VolcMem0.Strategies[0])
 		}, "duplicate name"},
-		{"invalid volc strategy", func(layout *apitypes.MemoryLayout) {
+		{"invalid volc strategy", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.VolcMem0.Strategies[0].Type = "unknown"
 		}, "strategies[0].type"},
-		{"too many volc strategies", func(layout *apitypes.MemoryLayout) {
+		{"too many volc strategies", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.VolcMem0.Strategies = make([]apitypes.VolcMem0Strategy, 51)
 		}, "between 1 and 50"},
 	}
@@ -172,7 +227,13 @@ func TestServerRejectsInvalidMemoryLayouts(t *testing.T) {
 func TestServerRejectsMemoryLayoutPathMismatch(t *testing.T) {
 	server := newTestServer(t)
 	layout := testLayout(t, "pet-memory")
-	response, err := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Name: "other-memory", Body: &layout})
+	createdResponse, err := server.CreateMemoryLayout(t.Context(), adminhttp.CreateMemoryLayoutRequestObject{Body: &layout})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created := createdResponse.(adminhttp.CreateMemoryLayout200JSONResponse)
+	layout.Name = "other-memory"
+	response, err := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Id: created.Id, Body: &layout})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +283,7 @@ func newTestServer(t *testing.T) *Server {
 	return &Server{Store: store}
 }
 
-func testLayout(t *testing.T, name string) apitypes.MemoryLayout {
+func testLayout(t *testing.T, name string) adminhttp.MemoryLayoutUpsert {
 	t.Helper()
 	raw := `{
 		"name":"` + name + `",
@@ -239,7 +300,7 @@ func testLayout(t *testing.T, name string) apitypes.MemoryLayout {
 			"volc_mem0":{"strategies":[{"name":"owner-profile","type":"user_preference"}]}
 		}
 	}`
-	var layout apitypes.MemoryLayout
+	var layout adminhttp.MemoryLayoutUpsert
 	if err := json.Unmarshal([]byte(raw), &layout); err != nil {
 		t.Fatal(err)
 	}
@@ -249,4 +310,22 @@ func testLayout(t *testing.T, name string) apitypes.MemoryLayout {
 func analyzerPtr(value string) *apitypes.FlowcraftMemoryBlevePolicyAnalyzer {
 	typed := apitypes.FlowcraftMemoryBlevePolicyAnalyzer(value)
 	return &typed
+}
+
+type blockingMemoryLayoutGetStore struct {
+	kv.Store
+	key     string
+	once    sync.Once
+	reached chan struct{}
+	release chan struct{}
+}
+
+func (s *blockingMemoryLayoutGetStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	if key.String() == s.key {
+		s.once.Do(func() {
+			close(s.reached)
+			<-s.release
+		})
+	}
+	return s.Store.Get(ctx, key)
 }

@@ -42,7 +42,7 @@ type artifactManifest struct {
 }
 
 func (s *Server) DownloadFirmwareArtifact(ctx context.Context, request adminhttp.DownloadFirmwareArtifactRequestObject) (adminhttp.DownloadFirmwareArtifactResponseObject, error) {
-	_, slot, _, err := s.getArtifactSlot(ctx, request.Name, string(request.Channel))
+	_, slot, _, err := s.getArtifactSlot(ctx, request.Id, string(request.Channel))
 	if err != nil {
 		return downloadArtifactError(err), nil
 	}
@@ -61,7 +61,7 @@ func (s *Server) DownloadFirmwareArtifact(ctx context.Context, request adminhttp
 }
 
 func (s *Server) UploadFirmwareArtifact(ctx context.Context, request adminhttp.UploadFirmwareArtifactRequestObject) (adminhttp.UploadFirmwareArtifactResponseObject, error) {
-	item, _, channel, err := s.getArtifactSlot(ctx, request.Name, string(request.Channel))
+	item, _, channel, err := s.getArtifactSlot(ctx, request.Id, string(request.Channel))
 	if err != nil {
 		return uploadArtifactError(err), nil
 	}
@@ -73,13 +73,13 @@ func (s *Server) UploadFirmwareArtifact(ctx context.Context, request adminhttp.U
 	if err != nil {
 		return adminhttp.UploadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ASSETS_NOT_CONFIGURED", err.Error())), nil
 	}
-	prefix := firmwareArtifactPrefix(item.Name, channel)
+	prefix := firmwareArtifactPrefix(item.Id, channel)
 	if exists, err := artifactPrefixHasObjects(assets, prefix); err != nil {
 		return adminhttp.UploadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	} else if exists || slot.Artifact != nil {
 		return adminhttp.UploadFirmwareArtifact409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_EXISTS", errArtifactExists.Error())), nil
 	}
-	artifact, err := writeArtifactPackage(ctx, assets, item.Name, channel, request.Body, s.now())
+	artifact, err := writeArtifactPackage(ctx, assets, item.Id, channel, request.Body, s.now())
 	if err != nil {
 		if errors.Is(err, errInvalidArtifact) {
 			return adminhttp.UploadFirmwareArtifact400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT", err.Error())), nil
@@ -95,7 +95,7 @@ func (s *Server) UploadFirmwareArtifact(ctx context.Context, request adminhttp.U
 }
 
 func (s *Server) DeleteFirmwareArtifact(ctx context.Context, request adminhttp.DeleteFirmwareArtifactRequestObject) (adminhttp.DeleteFirmwareArtifactResponseObject, error) {
-	item, _, channel, err := s.getArtifactSlot(ctx, request.Name, string(request.Channel))
+	item, _, channel, err := s.getArtifactSlot(ctx, request.Id, string(request.Channel))
 	if err != nil {
 		return deleteArtifactError(err), nil
 	}
@@ -104,7 +104,7 @@ func (s *Server) DeleteFirmwareArtifact(ctx context.Context, request adminhttp.D
 	if err != nil {
 		return adminhttp.DeleteFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ASSETS_NOT_CONFIGURED", err.Error())), nil
 	}
-	prefix := firmwareArtifactPrefix(item.Name, channel)
+	prefix := firmwareArtifactPrefix(item.Id, channel)
 	exists, err := artifactPrefixHasObjects(assets, prefix)
 	if err != nil {
 		return adminhttp.DeleteFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -126,7 +126,7 @@ func (s *Server) DeleteFirmwareArtifact(ctx context.Context, request adminhttp.D
 }
 
 func (s *Server) ListFirmwareArtifactEntries(ctx context.Context, request adminhttp.ListFirmwareArtifactEntriesRequestObject) (adminhttp.ListFirmwareArtifactEntriesResponseObject, error) {
-	item, slot, channel, err := s.getArtifactSlot(ctx, request.Name, string(request.Channel))
+	item, slot, channel, err := s.getArtifactSlot(ctx, request.Id, string(request.Channel))
 	if err != nil {
 		return listArtifactError(err), nil
 	}
@@ -143,7 +143,7 @@ func (s *Server) ListFirmwareArtifactEntries(ctx context.Context, request adminh
 		return listArtifactError(err), nil
 	}
 	return adminhttp.ListFirmwareArtifactEntries200JSONResponse(apitypes.FirmwareArtifactList{
-		FirmwareId: item.Name,
+		FirmwareId: item.Id,
 		Channel:    channel,
 		Path:       target,
 		Items:      items,
@@ -151,7 +151,7 @@ func (s *Server) ListFirmwareArtifactEntries(ctx context.Context, request adminh
 }
 
 func (s *Server) TreeFirmwareArtifactEntries(ctx context.Context, request adminhttp.TreeFirmwareArtifactEntriesRequestObject) (adminhttp.TreeFirmwareArtifactEntriesResponseObject, error) {
-	item, slot, channel, err := s.getArtifactSlot(ctx, request.Name, string(request.Channel))
+	item, slot, channel, err := s.getArtifactSlot(ctx, request.Id, string(request.Channel))
 	if err != nil {
 		return treeArtifactError(err), nil
 	}
@@ -168,7 +168,7 @@ func (s *Server) TreeFirmwareArtifactEntries(ctx context.Context, request adminh
 		return treeArtifactError(err), nil
 	}
 	return adminhttp.TreeFirmwareArtifactEntries200JSONResponse(apitypes.FirmwareArtifactTree{
-		FirmwareId: item.Name,
+		FirmwareId: item.Id,
 		Channel:    channel,
 		Path:       target,
 		Items:      items,
@@ -176,7 +176,7 @@ func (s *Server) TreeFirmwareArtifactEntries(ctx context.Context, request adminh
 }
 
 func (s *Server) StatFirmwareArtifactEntry(ctx context.Context, request adminhttp.StatFirmwareArtifactEntryRequestObject) (adminhttp.StatFirmwareArtifactEntryResponseObject, error) {
-	item, slot, channel, err := s.getArtifactSlot(ctx, request.Name, string(request.Channel))
+	item, slot, channel, err := s.getArtifactSlot(ctx, request.Id, string(request.Channel))
 	if err != nil {
 		return statArtifactError(err), nil
 	}
@@ -192,13 +192,13 @@ func (s *Server) StatFirmwareArtifactEntry(ctx context.Context, request adminhtt
 	if err != nil {
 		return statArtifactError(err), nil
 	}
-	stats.FirmwareId = item.Name
+	stats.FirmwareId = item.Id
 	stats.Channel = channel
 	return adminhttp.StatFirmwareArtifactEntry200JSONResponse(stats), nil
 }
 
 func (s *Server) DownloadFirmwareArtifactEntry(ctx context.Context, request adminhttp.DownloadFirmwareArtifactEntryRequestObject) (adminhttp.DownloadFirmwareArtifactEntryResponseObject, error) {
-	_, slot, _, err := s.getArtifactSlot(ctx, request.Name, string(request.Channel))
+	_, slot, _, err := s.getArtifactSlot(ctx, request.Id, string(request.Channel))
 	if err != nil {
 		return downloadEntryError(err), nil
 	}
@@ -209,8 +209,8 @@ func (s *Server) DownloadFirmwareArtifactEntry(ctx context.Context, request admi
 	return adminhttp.DownloadFirmwareArtifactEntry200ApplicationoctetStreamResponse{Body: reader, ContentLength: entry.Size}, nil
 }
 
-func (s *Server) PrepareArtifactEntryDownload(ctx context.Context, name, channel, filePath string) (apitypes.FirmwareArtifact, apitypes.FirmwareArtifactEntry, io.ReadCloser, error) {
-	_, slot, _, err := s.getArtifactSlot(ctx, name, channel)
+func (s *Server) PrepareArtifactEntryDownload(ctx context.Context, id, channel, filePath string) (apitypes.FirmwareArtifact, apitypes.FirmwareArtifactEntry, io.ReadCloser, error) {
+	_, slot, _, err := s.getArtifactSlot(ctx, id, channel)
 	if err != nil {
 		return apitypes.FirmwareArtifact{}, apitypes.FirmwareArtifactEntry{}, nil, err
 	}
@@ -252,21 +252,21 @@ func IsArtifactNotFoundError(err error) bool {
 	return errors.Is(err, kv.ErrNotFound) || errors.Is(err, errChannelNotFound) || errors.Is(err, errArtifactNotFound)
 }
 
-func (s *Server) getArtifactSlot(ctx context.Context, rawName, rawChannel string) (apitypes.Firmware, *apitypes.FirmwareSlot, string, error) {
+func (s *Server) getArtifactSlot(ctx context.Context, rawID, rawChannel string) (apitypes.Firmware, *apitypes.FirmwareSlot, string, error) {
 	store, err := s.store()
 	if err != nil {
 		return apitypes.Firmware{}, nil, "", err
 	}
-	name, err := url.PathUnescape(rawName)
+	id, err := url.PathUnescape(rawID)
 	if err != nil {
 		return apitypes.Firmware{}, nil, "", fmt.Errorf("%w: %v", errInvalidArtifact, err)
 	}
-	name = strings.TrimSpace(name)
+	id = strings.TrimSpace(id)
 	channel := strings.TrimSpace(rawChannel)
-	if name == "" {
-		return apitypes.Firmware{}, nil, "", fmt.Errorf("%w: firmware name is required", errInvalidArtifact)
+	if id == "" {
+		return apitypes.Firmware{}, nil, "", fmt.Errorf("%w: firmware id is required", errInvalidArtifact)
 	}
-	item, err := Get(ctx, store, name)
+	item, err := Get(ctx, store, id)
 	if err != nil {
 		return apitypes.Firmware{}, nil, "", err
 	}
@@ -277,8 +277,8 @@ func (s *Server) getArtifactSlot(ctx context.Context, rawName, rawChannel string
 	return item, slot, channel, nil
 }
 
-func writeArtifactPackage(ctx context.Context, assets objectstore.ObjectStore, name, channel string, body io.Reader, uploadedAt time.Time) (apitypes.FirmwareArtifact, error) {
-	prefix := firmwareArtifactPrefix(name, channel)
+func writeArtifactPackage(ctx context.Context, assets objectstore.ObjectStore, id, channel string, body io.Reader, uploadedAt time.Time) (apitypes.FirmwareArtifact, error) {
+	prefix := firmwareArtifactPrefix(id, channel)
 	tarPath := path.Join(prefix, firmwareArtifactTarName)
 	manifestPath := path.Join(prefix, firmwareArtifactManifestName)
 	filesPath := path.Join(prefix, firmwareArtifactFilesDir)
@@ -298,7 +298,7 @@ func writeArtifactPackage(ctx context.Context, assets objectstore.ObjectStore, n
 		<-putErrCh
 		if errors.Is(err, errInvalidArtifact) {
 			if cleanupErr := assets.DeletePrefix(prefix); cleanupErr != nil {
-				return apitypes.FirmwareArtifact{}, fmt.Errorf("cleanup invalid firmware artifact %q/%q: %w", name, channel, cleanupErr)
+				return apitypes.FirmwareArtifact{}, fmt.Errorf("cleanup invalid firmware artifact %q/%q: %w", id, channel, cleanupErr)
 			}
 		}
 		return apitypes.FirmwareArtifact{}, err
@@ -603,8 +603,8 @@ func artifactPrefixHasObjects(assets objectstore.ObjectStore, prefix string) (bo
 	return len(objects) > 0, nil
 }
 
-func firmwareArtifactPrefix(name, channel string) string {
-	return path.Join(firmwareAssetPrefix(name), objectPathSegment(channel), "artifact")
+func firmwareArtifactPrefix(id, channel string) string {
+	return path.Join(firmwareAssetPrefix(id), objectPathSegment(channel), "artifact")
 }
 
 func mergeArtifactMetadata(previous apitypes.FirmwareSlots, next *apitypes.FirmwareSlots) {

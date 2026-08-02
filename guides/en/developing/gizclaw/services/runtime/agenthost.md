@@ -60,12 +60,13 @@ RuntimeProfile, Credential, policy, alias, or Peer-transport internals.
 Workspace Agent remains safely shared by concurrent Peers with different
 Profiles and handlers. The invoker never captures construction-time Peer state.
 
-Workspace and Workflow policies contain canonical Tool Resource names and can
+Workspace and Workflow policies contain canonical Tool resource IDs and can
 only narrow the current-Peer Profile set. A missing Tool scope is an explicit
 configuration error. Disconnect, reload, stop, or connection replacement
 cancels the old context; a late invocation cannot route to a replacement or
 another online Peer. Resource declarations and provider Credentials are read at
-invocation time, and non-idempotent Tool execution is never retried.
+invocation time; only after ID-based authorization does AgentHost dispatch the
+Tool's immutable execution name. Non-idempotent Tool execution is never retried.
 
 ## Store dependency ownership
 

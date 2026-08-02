@@ -389,10 +389,10 @@ func (s *Server) handleFriendGroupMessagesList(ctx context.Context, req *rpcapi.
 		return internalError(req.Id, "friend group service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsFriendGroupMessageListRequest)
-	if !ok || strings.TrimSpace(params.FriendGroupId) == "" || params.Order != nil && !params.Order.Valid() {
+	if !ok || strings.TrimSpace(params.FriendGroupName) == "" || params.Order != nil && !params.Order.Valid() {
 		return invalidParams(req.Id)
 	}
-	workspaceName, err := s.FriendGroups.ResolveFriendGroupWorkspace(ctx, s.Caller.String(), params.FriendGroupId)
+	workspaceID, err := s.FriendGroups.ResolveFriendGroupWorkspaceIDByName(ctx, s.Caller.String(), params.FriendGroupName)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -405,7 +405,7 @@ func (s *Server) handleFriendGroupMessagesList(ctx context.Context, req *rpcapi.
 		converted := apitypes.PeerRunHistoryListRequestOrder(*params.Order)
 		order = &converted
 	}
-	page, err := history.ListWorkspaceHistoryPage(ctx, workspaceName, apitypes.PeerRunHistoryListRequest{
+	page, err := history.ListWorkspaceHistoryPageByID(ctx, workspaceID, apitypes.PeerRunHistoryListRequest{
 		Cursor: params.Cursor,
 		Limit:  params.Limit,
 		Order:  order,
@@ -415,7 +415,7 @@ func (s *Server) handleFriendGroupMessagesList(ctx context.Context, req *rpcapi.
 	}
 	items := make([]rpcapi.FriendGroupMessageObject, 0, len(page.Entries))
 	for _, entry := range page.Entries {
-		items = append(items, friendGroupMessageProjection(params.FriendGroupId, entry))
+		items = append(items, friendGroupMessageProjection(params.FriendGroupName, entry))
 	}
 	var nextCursor *string
 	if page.NextCursor != "" {
@@ -434,10 +434,10 @@ func (s *Server) handleFriendGroupMessagesGet(ctx context.Context, req *rpcapi.R
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	if strings.TrimSpace(params.FriendGroupId) == "" || strings.TrimSpace(params.HistoryId) == "" {
+	if strings.TrimSpace(params.FriendGroupName) == "" || strings.TrimSpace(params.HistoryId) == "" {
 		return invalidParams(req.Id)
 	}
-	workspaceName, err := s.FriendGroups.ResolveFriendGroupWorkspace(ctx, s.Caller.String(), params.FriendGroupId)
+	workspaceID, err := s.FriendGroups.ResolveFriendGroupWorkspaceIDByName(ctx, s.Caller.String(), params.FriendGroupName)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -445,11 +445,11 @@ func (s *Server) handleFriendGroupMessagesGet(ctx context.Context, req *rpcapi.R
 	if resp != nil {
 		return resp
 	}
-	entry, err := history.GetWorkspaceHistory(ctx, workspaceName, params.HistoryId)
+	entry, err := history.GetWorkspaceHistoryByID(ctx, workspaceID, params.HistoryId)
 	if err != nil {
 		return friendGroupHistoryRPCResponse(req.Id, err)
 	}
-	return resultResponse(req.Id, friendGroupMessageProjection(params.FriendGroupId, entry), (*rpcapi.RPCPayload).FromFriendGroupMessageGetResponse)
+	return resultResponse(req.Id, friendGroupMessageProjection(params.FriendGroupName, entry), (*rpcapi.RPCPayload).FromFriendGroupMessageGetResponse)
 }
 
 func friendGroupHistoryRPCResponse(requestID string, err error) *rpcapi.RPCResponse {
@@ -460,10 +460,10 @@ func friendGroupHistoryRPCResponse(requestID string, err error) *rpcapi.RPCRespo
 	return rpcapi.Error{RequestID: requestID, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
 }
 
-func friendGroupMessageProjection(friendGroupID string, entry workspace.HistoryEntry) rpcapi.FriendGroupMessageObject {
+func friendGroupMessageProjection(friendGroupName string, entry workspace.HistoryEntry) rpcapi.FriendGroupMessageObject {
 	item := rpcapi.FriendGroupMessageObject{
 		CreatedAt: entry.CreatedAt, ExpiresAt: entry.ExpiresAt,
-		FriendGroupId: strings.TrimSpace(friendGroupID), HistoryId: entry.ID,
+		FriendGroupName: strings.TrimSpace(friendGroupName), HistoryId: entry.ID,
 		Name: entry.Name, Text: entry.Text, Type: rpcapi.PeerRunHistoryEntryType(entry.Type),
 	}
 	if item.Type == rpcapi.PeerRunHistoryEntryTypeGear && strings.TrimSpace(entry.GearID) != "" {

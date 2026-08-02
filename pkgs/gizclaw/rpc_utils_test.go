@@ -225,7 +225,7 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 		Id:     "request-1",
 		Method: rpcapi.RPCMethodServerWorkspaceCreate,
 		Params: mustRPCParams(rpcapi.WorkspaceCreateRequest{
-			Name: "workspace-a", Collection: "assistants", WorkflowAlias: "chat",
+			Name: "workspace-a", Collection: "assistants", WorkflowName: "chat",
 		}, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest),
 	})
 	if err != nil {

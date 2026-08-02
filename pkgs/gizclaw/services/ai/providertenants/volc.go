@@ -18,11 +18,15 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	voicecatalog "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-var volcTenantsRoot = kv.Key{"volc-by-name"}
+var (
+	volcTenantsRoot       = kv.Key{"volc-by-id"}
+	volcTenantsByNameRoot = kv.Key{"volc-by-name"}
+)
 
 const (
 	defaultVolcRegion         = "cn-beijing"
@@ -76,16 +80,16 @@ func (s *Server) CreateVolcTenant(ctx context.Context, request adminhttp.CreateV
 	if err := validateVolcTenantReferences(ctx, credentialStore, tenant); err != nil {
 		return adminhttp.CreateVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
-	if _, err := store.Get(ctx, volcTenantKey(string(tenant.Name))); err == nil {
-		return adminhttp.CreateVolcTenant409JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_ALREADY_EXISTS", fmt.Sprintf("Volcengine tenant %q already exists", tenant.Name))), nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.CreateVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
+	tenant.Id = s.newID()
 	now := s.now()
 	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
-	if err := writeVolcTenant(ctx, store, tenant); err != nil {
+	created, err := createNamedTenant(ctx, store, volcTenantKey(tenant.Id), volcTenantNameKey(tenant.Name), tenant.Id, tenant)
+	if err != nil {
 		return adminhttp.CreateVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	if !created {
+		return adminhttp.CreateVolcTenant409JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_ALREADY_EXISTS", fmt.Sprintf("Volcengine tenant %q already exists", tenant.Name))), nil
 	}
 	return adminhttp.CreateVolcTenant200JSONResponse(tenant), nil
 }
@@ -95,14 +99,14 @@ func (s *Server) DeleteVolcTenant(ctx context.Context, request adminhttp.DeleteV
 	if err != nil {
 		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	name, err := url.PathUnescape(string(request.Name))
+	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	tenant, err := getVolcTenant(ctx, store, name)
+	tenant, err := getVolcTenant(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.DeleteVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", name))), nil
+			return adminhttp.DeleteVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", id))), nil
 		}
 		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -110,10 +114,10 @@ func (s *Server) DeleteVolcTenant(ctx context.Context, request adminhttp.DeleteV
 	if err != nil {
 		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := deleteVolcTenantVoices(ctx, voiceStore, tenant.Name); err != nil {
+	if err := deleteVolcTenantVoices(ctx, voiceStore, tenant.Id); err != nil {
 		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := store.Delete(ctx, volcTenantKey(string(tenant.Name))); err != nil {
+	if err := deleteNamedTenant(ctx, store, volcTenantKey(tenant.Id), volcTenantNameKey(tenant.Name)); err != nil {
 		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteVolcTenant200JSONResponse(tenant), nil
@@ -124,14 +128,14 @@ func (s *Server) GetVolcTenant(ctx context.Context, request adminhttp.GetVolcTen
 	if err != nil {
 		return adminhttp.GetVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	name, err := url.PathUnescape(string(request.Name))
+	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	tenant, err := getVolcTenant(ctx, store, name)
+	tenant, err := getVolcTenant(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.GetVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", name))), nil
+			return adminhttp.GetVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", id))), nil
 		}
 		return adminhttp.GetVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -146,11 +150,11 @@ func (s *Server) PutVolcTenant(ctx context.Context, request adminhttp.PutVolcTen
 	if request.Body == nil {
 		return adminhttp.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", "request body required")), nil
 	}
-	name, err := url.PathUnescape(string(request.Name))
+	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	tenant, err := normalizeVolcTenantUpsert(*request.Body, name)
+	tenant, err := normalizeVolcTenantUpsert(*request.Body, "")
 	if err != nil {
 		return adminhttp.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
@@ -161,17 +165,21 @@ func (s *Server) PutVolcTenant(ctx context.Context, request adminhttp.PutVolcTen
 	if err := validateVolcTenantReferences(ctx, credentialStore, tenant); err != nil {
 		return adminhttp.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
-	previous, err := getVolcTenant(ctx, store, name)
-	if err != nil && !errors.Is(err, kv.ErrNotFound) {
+	previous, err := getVolcTenant(ctx, store, id)
+	if errors.Is(err, kv.ErrNotFound) {
+		return adminhttp.PutVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", id))), nil
+	}
+	if err != nil {
 		return adminhttp.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
-	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
-	if err == nil {
-		tenant.CreatedAt = previous.CreatedAt
-		tenant.LastSyncedAt = cloneTime(previous.LastSyncedAt)
+	if tenant.Name != previous.Name {
+		return adminhttp.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", fmt.Sprintf("name %q must match immutable name %q", tenant.Name, previous.Name))), nil
 	}
+	tenant.Id = previous.Id
+	tenant.CreatedAt = previous.CreatedAt
+	tenant.LastSyncedAt = cloneTime(previous.LastSyncedAt)
 	if err := writeVolcTenant(ctx, store, tenant); err != nil {
 		return adminhttp.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -191,21 +199,21 @@ func (s *Server) SyncVolcTenantVoices(ctx context.Context, request adminhttp.Syn
 	if err != nil {
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	name, err := url.PathUnescape(string(request.Name))
+	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	tenant, err := getVolcTenant(ctx, tenantStore, name)
+	tenant, err := getVolcTenant(ctx, tenantStore, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.SyncVolcTenantVoices404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", name))), nil
+			return adminhttp.SyncVolcTenantVoices404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", id))), nil
 		}
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	credential, err := getCredential(ctx, credentialStore, string(tenant.CredentialName))
+	credential, err := getCredential(ctx, credentialStore, string(tenant.CredentialId))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.SyncVolcTenantVoices400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", fmt.Sprintf("credential %q not found", tenant.CredentialName))), nil
+			return adminhttp.SyncVolcTenantVoices400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", fmt.Sprintf("credential %q not found", tenant.CredentialId))), nil
 		}
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -235,7 +243,7 @@ func (s *Server) SyncVolcTenantVoices(ctx context.Context, request adminhttp.Syn
 		CreatedCount: createdCount,
 		DeletedCount: deletedCount,
 		SyncedAt:     now,
-		TenantName:   tenant.Name,
+		TenantId:     tenant.Id,
 		UpdatedCount: updatedCount,
 	}), nil
 }
@@ -265,13 +273,13 @@ func normalizeVolcTenantUpsert(in adminhttp.VolcTenantUpsert, expectedName strin
 	if expectedName != "" && name != expectedName {
 		return apitypes.VolcTenant{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
 	}
-	credentialName := strings.TrimSpace(string(in.CredentialName))
+	credentialName := strings.TrimSpace(string(in.CredentialId))
 	if credentialName == "" {
-		return apitypes.VolcTenant{}, errors.New("credential_name is required")
+		return apitypes.VolcTenant{}, errors.New("credential_id is required")
 	}
 	tenant := apitypes.VolcTenant{
-		CredentialName: string(credentialName),
-		Name:           string(name),
+		CredentialId: string(credentialName),
+		Name:         string(name),
 	}
 	if in.Region != nil {
 		region := strings.TrimSpace(*in.Region)
@@ -305,9 +313,9 @@ func normalizeVolcTenantUpsert(in adminhttp.VolcTenantUpsert, expectedName strin
 }
 
 func validateVolcTenantReferences(ctx context.Context, store kv.Store, tenant apitypes.VolcTenant) error {
-	if _, err := store.Get(ctx, credentialKey(string(tenant.CredentialName))); err != nil {
+	if _, err := store.Get(ctx, credentialKey(string(tenant.CredentialId))); err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return fmt.Errorf("credential %q not found", tenant.CredentialName)
+			return fmt.Errorf("credential %q not found", tenant.CredentialId)
 		}
 		return err
 	}
@@ -319,20 +327,20 @@ func writeVolcTenant(ctx context.Context, store kv.Store, tenant apitypes.VolcTe
 	if err != nil {
 		return fmt.Errorf("mmx: encode volc tenant %s: %w", tenant.Name, err)
 	}
-	if err := store.Set(ctx, volcTenantKey(string(tenant.Name)), data); err != nil {
+	if err := store.Set(ctx, volcTenantKey(string(tenant.Id)), data); err != nil {
 		return fmt.Errorf("mmx: write volc tenant %s: %w", tenant.Name, err)
 	}
 	return nil
 }
 
-func getVolcTenant(ctx context.Context, store kv.Store, name string) (apitypes.VolcTenant, error) {
-	data, err := store.Get(ctx, volcTenantKey(name))
+func getVolcTenant(ctx context.Context, store kv.Store, id string) (apitypes.VolcTenant, error) {
+	data, err := store.Get(ctx, volcTenantKey(id))
 	if err != nil {
 		return apitypes.VolcTenant{}, err
 	}
 	var tenant apitypes.VolcTenant
 	if err := json.Unmarshal(data, &tenant); err != nil {
-		return apitypes.VolcTenant{}, fmt.Errorf("mmx: decode volc tenant %s: %w", name, err)
+		return apitypes.VolcTenant{}, fmt.Errorf("mmx: decode volc tenant %s: %w", id, err)
 	}
 	return tenant, nil
 }
@@ -343,7 +351,7 @@ func (s *Server) volcSpeakerClientForTenant(ctx context.Context, credential apit
 	}
 	provider := strings.TrimSpace(string(credential.Provider))
 	if provider != "" && provider != "volc" && provider != "volcengine" {
-		return nil, fmt.Errorf("credential %q provider must be volcengine", tenant.CredentialName)
+		return nil, fmt.Errorf("credential %q provider must be volcengine", tenant.CredentialId)
 	}
 	_, ak, sk, err := volcCredentialValues(credential)
 	if err != nil {
@@ -723,7 +731,7 @@ func (r volcSpeakerRecord) providerVoiceID() string {
 }
 
 func reconcileVolcTenantVoices(ctx context.Context, store kv.Store, tenant apitypes.VolcTenant, upstream []volcSpeakerRecord, now time.Time) (int32, int32, int32, error) {
-	existing, err := voicecatalog.ListProvider(ctx, store, volcProviderKind, string(tenant.Name))
+	existing, err := voicecatalog.ListProvider(ctx, store, volcProviderKind, tenant.Id)
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -747,8 +755,9 @@ func reconcileVolcTenantVoices(ctx context.Context, store kv.Store, tenant apity
 			return 0, 0, 0, errors.New("Volcengine returned voice without speaker id")
 		}
 		seen[providerVoiceID] = struct{}{}
-		record := voiceFromVolc(tenant.Name, upstreamVoice, now)
+		record := voiceFromVolc(tenant.Id, upstreamVoice, now)
 		if previous, ok := existingByProviderVoiceID[providerVoiceID]; ok {
+			record.Id = previous.Id
 			record.CreatedAt = previous.CreatedAt
 			if voicecatalog.SemanticEqual(previous, record) {
 				record.UpdatedAt = previous.UpdatedAt
@@ -761,19 +770,7 @@ func reconcileVolcTenantVoices(ctx context.Context, store kv.Store, tenant apity
 			}
 			continue
 		}
-		if occupied, err := voicecatalog.Get(ctx, store, string(record.Id)); err == nil {
-			if occupied.Source != apitypes.VoiceSourceSync {
-				return 0, 0, 0, fmt.Errorf("voice id %q is occupied by non-sync resource", record.Id)
-			}
-			previousCopy := occupied
-			if err := voicecatalog.Write(ctx, store, record, &previousCopy); err != nil {
-				return 0, 0, 0, err
-			}
-			updatedCount++
-			continue
-		} else if !errors.Is(err, kv.ErrNotFound) {
-			return 0, 0, 0, err
-		}
+		record.Id = socialutil.NewID()
 		createdCount++
 		if err := voicecatalog.Write(ctx, store, record, nil); err != nil {
 			return 0, 0, 0, err
@@ -793,18 +790,18 @@ func reconcileVolcTenantVoices(ctx context.Context, store kv.Store, tenant apity
 	return createdCount, updatedCount, deletedCount, nil
 }
 
-func voiceFromVolc(tenantName string, upstream volcSpeakerRecord, now time.Time) apitypes.Voice {
+func voiceFromVolc(tenantID string, upstream volcSpeakerRecord, now time.Time) apitypes.Voice {
 	providerVoiceID := upstream.providerVoiceID()
-	voiceID := voicecatalog.StableID(volcProviderKind, string(tenantName), providerVoiceID)
+	voiceName := voicecatalog.StableID(volcProviderKind, tenantID, providerVoiceID)
 	name, description, raw := volcVoiceDisplay(upstream)
 	resourceID := strings.TrimSpace(string(upstream.resourceID))
 	syncedAt := now
 	voice := apitypes.Voice{
 		CreatedAt: now,
-		Id:        string(voiceID),
+		Name:      voiceName,
 		Provider: apitypes.VoiceProvider{
 			Kind: volcProviderKind,
-			Name: string(tenantName),
+			Id:   tenantID,
 		},
 		ProviderData: voicecatalog.ProviderData(volcProviderKind, map[string]any{
 			"raw":         raw,
@@ -818,7 +815,7 @@ func voiceFromVolc(tenantName string, upstream volcSpeakerRecord, now time.Time)
 		UpdatedAt: now,
 	}
 	if name != "" {
-		voice.Name = &name
+		voice.DisplayName = &name
 	}
 	if description != "" {
 		voice.Description = &description
@@ -872,8 +869,8 @@ func (r volcSpeakerRecord) statusText() string {
 	return strings.TrimSpace(r.status.InstanceStatus)
 }
 
-func deleteVolcTenantVoices(ctx context.Context, store kv.Store, tenantName string) error {
-	voices, err := voicecatalog.ListProvider(ctx, store, volcProviderKind, string(tenantName))
+func deleteVolcTenantVoices(ctx context.Context, store kv.Store, tenantID string) error {
+	voices, err := voicecatalog.ListProvider(ctx, store, volcProviderKind, tenantID)
 	if err != nil {
 		return err
 	}
@@ -995,8 +992,12 @@ func firstVolcTimbreSpeakerName(infos []*speechsaasprod.TimbreInfoForListBigMode
 	return ""
 }
 
-func volcTenantKey(name string) kv.Key {
-	return append(append(kv.Key{}, volcTenantsRoot...), escapeStoreSegment(name))
+func volcTenantKey(id string) kv.Key {
+	return append(append(kv.Key{}, volcTenantsRoot...), escapeStoreSegment(id))
+}
+
+func volcTenantNameKey(name string) kv.Key {
+	return tenantNameKey(volcTenantsByNameRoot, name)
 }
 
 func (s *Server) volcTenantStore() (kv.Store, error) {

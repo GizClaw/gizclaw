@@ -22,10 +22,10 @@ void main() {
       listRequest.id,
       'server.pet.list',
       ServerPetListResponse(
-        value: PetListResponse(items: [Pet(id: 'pet-a')]),
+        value: PetListResponse(items: [Pet(name: 'pet-a')]),
       ),
     );
-    expect((await listFuture).value.items.single.id, 'pet-a');
+    expect((await listFuture).value.items.single.name, 'pet-a');
 
     final actionsFuture = client.getPetActions('pet-a');
     final actionsRequest = await _request(factory, 1);
@@ -35,17 +35,17 @@ void main() {
               actionsRequest.payload,
             )
             as ServerPetActionsGetRequest;
-    expect(actionsPayload.value.id, 'pet-a');
+    expect(actionsPayload.value.name, 'pet-a');
     _respond(
       factory.channels[1],
       actionsRequest.id,
       'server.pet.actions.get',
-      ServerPetActionsGetResponse(value: PetActions(petId: 'pet-a')),
+      ServerPetActionsGetResponse(value: PetActions(petName: 'pet-a')),
     );
-    expect((await actionsFuture).value.petId, 'pet-a');
+    expect((await actionsFuture).value.petName, 'pet-a');
 
     final adoptFuture = client.adoptPet(
-      id: 'device-pet-01',
+      name: 'device-pet-01',
       displayName: 'Miso',
     );
     final adoptRequest = await _request(factory, 2);
@@ -53,17 +53,24 @@ void main() {
         decodeRpcRequestPayload('runtime.adopt', adoptRequest.payload)
             as RuntimeAdoptRequest;
     expect(adoptPayload.value.displayName, 'Miso');
-    expect(adoptPayload.value.id, 'device-pet-01');
+    expect(adoptPayload.value.name, 'device-pet-01');
     _respond(
       factory.channels[2],
       adoptRequest.id,
       'runtime.adopt',
       RuntimeAdoptResponse(
-        value: PetAdoptResponse(pet: Pet(id: 'pet-b')),
+        value: PetAdoptResponse(pet: Pet(name: 'pet-b')),
       ),
     );
-    expect((await adoptFuture).value.pet.id, 'pet-b');
-    expect(() => client.adoptPet(displayName: '   '), throwsArgumentError);
+    expect((await adoptFuture).value.pet.name, 'pet-b');
+    expect(
+      () => client.adoptPet(name: 'pet-c', displayName: '   '),
+      throwsArgumentError,
+    );
+    expect(
+      () => client.adoptPet(name: '   ', displayName: 'Pet'),
+      throwsArgumentError,
+    );
 
     final driveFuture = client.drivePet(
       'pet-b',
@@ -74,7 +81,7 @@ void main() {
     final drivePayload =
         decodeRpcRequestPayload('server.pet.drive', driveRequest.payload)
             as ServerPetDriveRequest;
-    expect(drivePayload.value.petId, 'pet-b');
+    expect(drivePayload.value.petName, 'pet-b');
     expect(drivePayload.value.behavior, PetBehavior.PET_BEHAVIOR_BATHE);
     expect(drivePayload.value.idempotencyKey, 'care-1');
     _respond(
@@ -82,14 +89,14 @@ void main() {
       driveRequest.id,
       'server.pet.drive',
       ServerPetDriveResponse(
-        value: PetDriveResponse(pet: Pet(id: 'pet-b')),
+        value: PetDriveResponse(pet: Pet(name: 'pet-b')),
       ),
     );
-    expect((await driveFuture).value.pet.id, 'pet-b');
+    expect((await driveFuture).value.pet.name, 'pet-b');
 
     final gameFuture = client.drivePetGame(
       'pet-b',
-      gameResult: PetDriveGameResultInput(gameDefId: 'puzzle'),
+      gameResult: PetDriveGameResultInput(gameName: 'puzzle'),
       idempotencyKey: 'game-1',
     );
     final gameRequest = await _request(factory, 4);
@@ -103,10 +110,10 @@ void main() {
       gameRequest.id,
       'server.pet.drive',
       ServerPetDriveResponse(
-        value: PetDriveResponse(pet: Pet(id: 'pet-b')),
+        value: PetDriveResponse(pet: Pet(name: 'pet-b')),
       ),
     );
-    expect((await gameFuture).value.pet.id, 'pet-b');
+    expect((await gameFuture).value.pet.name, 'pet-b');
   });
 }
 

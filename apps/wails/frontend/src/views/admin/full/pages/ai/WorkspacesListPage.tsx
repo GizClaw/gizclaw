@@ -203,9 +203,9 @@ export function WorkspacesListPage(): JSX.Element {
                     </TableCell>
                     <TableCell
                       className="truncate"
-                      title={workspace.workflow_name}
+                      title={workspace.workflow_id}
                     >
-                      {workspace.workflow_name}
+                      {workspace.workflow_id}
                     </TableCell>
                     <TableCell className="text-right">
                       {Object.keys(workspace.parameters ?? {}).length}

@@ -24,14 +24,16 @@ func TestAdminWorkflowsUserStory(t *testing.T) {
 			t.Fatalf("workflows list missing %q:\n%s", want, list.Stdout)
 		}
 	}
+	voiceWorkflowID := adminResourceID(t, list.Stdout, "flowcraft-voice-assistant")
+	chatWorkflowID := adminResourceID(t, list.Stdout, "flowcraft-chat-assistant")
 
-	get := h.RunCLI("admin", "workflows", "get", "flowcraft-voice-assistant", "--context", "admin-a")
+	get := h.RunCLI("admin", "workflows", "get", voiceWorkflowID, "--context", "admin-a")
 	get.MustSucceed(t)
 	if !strings.Contains(get.Stdout, `"driver":"flowcraft"`) {
 		t.Fatalf("workflows get missing driver:\n%s", get.Stdout)
 	}
 
-	rpcGet := h.RunCLI("admin", "workflows", "get", "flowcraft-chat-assistant", "--context", "admin-a")
+	rpcGet := h.RunCLI("admin", "workflows", "get", chatWorkflowID, "--context", "admin-a")
 	rpcGet.MustSucceed(t)
 	if !strings.Contains(rpcGet.Stdout, `"name":"flowcraft-chat-assistant"`) || !strings.Contains(rpcGet.Stdout, `"driver":"flowcraft"`) {
 		t.Fatalf("workflows get missing resource fields:\n%s", rpcGet.Stdout)

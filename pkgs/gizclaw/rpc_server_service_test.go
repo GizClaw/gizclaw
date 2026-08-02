@@ -178,7 +178,7 @@ func TestRPCServerPeerMethods(t *testing.T) {
 	}
 
 	audio := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerRunSayResponse, error) {
-		return client.ServerRunSay(context.Background(), conn, "audio-say", rpcapi.ServerRunSayRequest{Text: "hello", VoiceAlias: "voice-1"})
+		return client.ServerRunSay(context.Background(), conn, "audio-say", rpcapi.ServerRunSayRequest{Text: "hello", VoiceName: "voice-1"})
 	})
 	if !audio.Accepted {
 		t.Fatalf("ServerRunSay() = %+v", audio)
@@ -562,7 +562,7 @@ func TestRPCServerDispatchErrorPaths(t *testing.T) {
 	if resp, err := (&rpcServer{}).dispatch(context.Background(), newRPCRequest("audio", rpcapi.RPCMethodServerRunSay, nil)); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
 		t.Fatalf("dispatch(audio missing params) = %+v, %v", resp, err)
 	}
-	if resp, err := (&rpcServer{}).dispatch(context.Background(), newRPCRequest("audio", rpcapi.RPCMethodServerRunSay, mustRPCParams(rpcapi.ServerRunSayRequest{Text: "hello", VoiceAlias: "voice"}, (*rpcapi.RPCPayload).FromServerRunSayRequest))); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
+	if resp, err := (&rpcServer{}).dispatch(context.Background(), newRPCRequest("audio", rpcapi.RPCMethodServerRunSay, mustRPCParams(rpcapi.ServerRunSayRequest{Text: "hello", VoiceName: "voice"}, (*rpcapi.RPCPayload).FromServerRunSayRequest))); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
 		t.Fatalf("dispatch(audio missing service) = %+v, %v", resp, err)
 	}
 }

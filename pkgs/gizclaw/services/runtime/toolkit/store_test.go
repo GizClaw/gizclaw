@@ -19,7 +19,7 @@ func TestServerPutGetListDeleteAndDefensiveCopies(t *testing.T) {
 	server := &Server{Store: kv.NewMemory(nil), Now: func() time.Time { return now }}
 	tool := testClientTool("volume_set")
 	tool.Metadata = json.RawMessage(`{"category":"device"}`)
-	created, err := server.PutTool(ctx, tool)
+	created, err := server.CreateTool(ctx, tool)
 	if err != nil {
 		t.Fatalf("PutTool(): %v", err)
 	}
@@ -37,21 +37,21 @@ func TestServerPutGetListDeleteAndDefensiveCopies(t *testing.T) {
 	}
 	now = now.Add(time.Minute)
 	got.Version = new("2")
-	updated, err := server.PutTool(ctx, got)
+	updated, err := server.PutTool(ctx, got.ID, got)
 	if err != nil {
 		t.Fatalf("PutTool(update): %v", err)
 	}
 	if updated.CreatedAt != created.CreatedAt || updated.UpdatedAt != now {
 		t.Fatalf("updated timestamps = %s/%s", updated.CreatedAt, updated.UpdatedAt)
 	}
-	if _, err := server.PutTool(ctx, testHTTPTool("get_weather")); err != nil {
+	if _, err := server.CreateTool(ctx, testHTTPTool("get_weather")); err != nil {
 		t.Fatalf("PutTool(second): %v", err)
 	}
 	items, err := server.ListTools(ctx)
 	if err != nil || len(items) != 2 {
 		t.Fatalf("ListTools() = %d, %v", len(items), err)
 	}
-	if err := server.DeleteTool(ctx, tool.Name); err != nil {
+	if err := server.DeleteTool(ctx, created.ID); err != nil {
 		t.Fatalf("DeleteTool(): %v", err)
 	}
 	if _, err := server.GetTool(ctx, tool.Name); !errors.Is(err, ErrToolNotFound) {
@@ -65,11 +65,12 @@ func TestServerRetainsRotatesAndDropsDirectSecrets(t *testing.T) {
 	server := &Server{Store: kv.NewMemory(nil)}
 	tool := testHTTPTool("get_weather")
 	tool.HTTP.Auth = HTTPAuth{Method: "bearer", BearerToken: new("first")}
-	if _, err := server.PutTool(ctx, tool); err != nil {
+	created, err := server.CreateTool(ctx, tool)
+	if err != nil {
 		t.Fatalf("PutTool(create): %v", err)
 	}
 	tool.HTTP.Auth.BearerToken = nil
-	retained, err := server.PutTool(ctx, tool)
+	retained, err := server.PutTool(ctx, created.ID, tool)
 	if err != nil {
 		t.Fatalf("PutTool(retain): %v", err)
 	}
@@ -77,7 +78,7 @@ func TestServerRetainsRotatesAndDropsDirectSecrets(t *testing.T) {
 		t.Fatalf("retained secret = %#v", retained.HTTP.Auth.BearerToken)
 	}
 	tool.HTTP.Auth.BearerToken = new("second")
-	rotated, err := server.PutTool(ctx, tool)
+	rotated, err := server.PutTool(ctx, created.ID, tool)
 	if err != nil {
 		t.Fatalf("PutTool(rotate): %v", err)
 	}
@@ -85,7 +86,7 @@ func TestServerRetainsRotatesAndDropsDirectSecrets(t *testing.T) {
 		t.Fatalf("rotated secret = %#v", rotated.HTTP.Auth.BearerToken)
 	}
 	tool.HTTP.Auth = HTTPAuth{Method: "none"}
-	changed, err := server.PutTool(ctx, tool)
+	changed, err := server.PutTool(ctx, created.ID, tool)
 	if err != nil {
 		t.Fatalf("PutTool(change method): %v", err)
 	}

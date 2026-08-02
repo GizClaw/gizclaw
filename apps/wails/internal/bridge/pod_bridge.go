@@ -34,7 +34,6 @@ type PodBridge struct {
 	WebUI                *webui.Manager
 
 	mutationMu   sync.Mutex
-	contractMu   sync.Mutex
 	creating     sync.Map
 	initializing sync.Map
 	refreshMu    sync.Mutex
@@ -43,7 +42,6 @@ type PodBridge struct {
 
 type LocalPodBootstrapper interface {
 	Apply(context.Context, string, map[string]string) error
-	MigrateRuntimeContract(context.Context, string, map[string]string) error
 }
 
 type podRefresh struct {
@@ -182,24 +180,9 @@ func (b *PodBridge) RecoverLocalServers(ctx context.Context) error {
 		}
 		if status.State == "running" {
 			pod := entry.Pod
-			if pod.LocalCatalogVersion < appconfig.LocalCatalogVersion {
-				if err := b.Store.Save(pod); err != nil {
-					endpoint := fmt.Sprintf("127.0.0.1:%d", pod.LocalServer.Port)
-					b.Health.MarkUnreachable(endpoint, fmt.Sprintf("local server workspace upgrade failed: %v", err))
-					continue
-				}
-				restartCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-				_, restartErr := b.Local.Restart(restartCtx, pod.ID, filepath.Join(b.Paths.PodsDir, pod.ID, "workspace"))
-				cancel()
-				if restartErr != nil {
-					endpoint := fmt.Sprintf("127.0.0.1:%d", pod.LocalServer.Port)
-					b.Health.MarkUnreachable(endpoint, fmt.Sprintf("local server upgrade restart failed: %v", restartErr))
-					continue
-				}
-			}
 			if _, err := b.ensureLocalRuntimeContract(ctx, pod); err != nil {
 				endpoint := fmt.Sprintf("127.0.0.1:%d", entry.Pod.LocalServer.Port)
-				b.Health.MarkUnreachable(endpoint, fmt.Sprintf("local runtime migration failed: %v", err))
+				b.Health.MarkUnreachable(endpoint, err.Error())
 			}
 		}
 	}
@@ -761,19 +744,14 @@ func (b *PodBridge) StartLocal(ctx context.Context, id string) (PodSummary, erro
 	if err := b.recoverLocalServerForMutation(ctx, pod); err != nil {
 		return PodSummary{}, err
 	}
+	if _, err := b.ensureLocalRuntimeContract(ctx, pod); err != nil {
+		return PodSummary{}, err
+	}
 	if err := b.Store.Save(pod); err != nil {
 		return PodSummary{}, fmt.Errorf("desktop bridge: refresh local workspace: %w", err)
 	}
 	workspace := filepath.Join(b.Paths.PodsDir, id, "workspace")
-	legacyProcessRunning := pod.LocalCatalogVersion < appconfig.LocalCatalogVersion && b.Local.Status(id).State == "running"
-	if legacyProcessRunning {
-		restartCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		_, err = b.Local.Restart(restartCtx, id, workspace)
-		cancel()
-		if err != nil {
-			return PodSummary{}, err
-		}
-	} else if b.Local.Status(id).State != "running" {
+	if b.Local.Status(id).State != "running" {
 		if listenErr := appconfig.CheckPortAvailable(pod.LocalServer.Port); listenErr != nil {
 			return PodSummary{}, fmt.Errorf("desktop bridge: local server port %d is already in use", pod.LocalServer.Port)
 		}
@@ -781,62 +759,17 @@ func (b *PodBridge) StartLocal(ctx context.Context, id string) (PodSummary, erro
 			return PodSummary{}, err
 		}
 	}
-	pod, err = b.ensureLocalRuntimeContract(ctx, pod)
-	if err != nil {
-		return PodSummary{}, err
-	}
 	return b.summary(pod), nil
 }
 
-func (b *PodBridge) ensureLocalRuntimeContract(ctx context.Context, pod appconfig.Pod) (appconfig.Pod, error) {
+func (b *PodBridge) ensureLocalRuntimeContract(_ context.Context, pod appconfig.Pod) (appconfig.Pod, error) {
 	if pod.LocalServer == nil || pod.LocalCatalogVersion >= appconfig.LocalCatalogVersion {
 		return pod, nil
 	}
-	if _, ok := ctx.Deadline(); !ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Minute)
-		defer cancel()
-	}
-	if err := b.waitLocalReady(ctx, pod.ID, pod.LocalServer.Port); err != nil {
-		return appconfig.Pod{}, err
-	}
-	if err := b.migrateLocalRuntimeContract(ctx, pod.ID); err != nil {
-		return appconfig.Pod{}, err
-	}
-	return b.Store.Load(pod.ID)
-}
-
-func (b *PodBridge) migrateLocalRuntimeContract(ctx context.Context, id string) error {
-	b.contractMu.Lock()
-	defer b.contractMu.Unlock()
-	pod, err := b.Store.Load(id)
-	if err != nil {
-		return err
-	}
-	if pod.LocalServer == nil || pod.LocalCatalogVersion >= appconfig.LocalCatalogVersion {
-		return nil
-	}
-	if b.Bootstrapper == nil {
-		return errors.New("desktop bridge: local runtime migration requires a bootstrapper")
-	}
-	savedEnvironment := map[string]string{}
-	if b.BootstrapEnvironment.Path != "" {
-		var err error
-		savedEnvironment, err = b.BootstrapEnvironment.Load()
-		if err != nil {
-			return fmt.Errorf("desktop bridge: load bootstrap environment for local runtime migration: %w", err)
-		}
-	}
-	podDir := filepath.Join(b.Paths.PodsDir, id)
-	if err := b.Bootstrapper.MigrateRuntimeContract(ctx, podDir, savedEnvironment); err != nil {
-		return fmt.Errorf("desktop bridge: migrate local runtime contract: %w", err)
-	}
-	pod.LocalCatalogVersion = appconfig.LocalCatalogVersion
-	pod.RegistrationToken = ""
-	if err := b.Store.Save(pod); err != nil {
-		return fmt.Errorf("desktop bridge: record local catalog version: %w", err)
-	}
-	return nil
+	return appconfig.Pod{}, fmt.Errorf(
+		"desktop bridge: local Pod %q uses incompatible catalog version %d; recreate it for catalog version %d",
+		pod.ID, pod.LocalCatalogVersion, appconfig.LocalCatalogVersion,
+	)
 }
 
 func (b *PodBridge) StopLocal(ctx context.Context, id string) (PodSummary, error) {
@@ -876,6 +809,9 @@ func (b *PodBridge) RestartLocal(ctx context.Context, id string) (PodSummary, er
 	if err := b.recoverLocalServerForMutation(ctx, pod); err != nil {
 		return PodSummary{}, err
 	}
+	if _, err := b.ensureLocalRuntimeContract(ctx, pod); err != nil {
+		return PodSummary{}, err
+	}
 	if err := b.Store.Save(pod); err != nil {
 		return PodSummary{}, fmt.Errorf("desktop bridge: refresh local workspace: %w", err)
 	}
@@ -888,10 +824,6 @@ func (b *PodBridge) RestartLocal(ctx context.Context, id string) (PodSummary, er
 		return PodSummary{}, fmt.Errorf("desktop bridge: local server port %d is already in use", pod.LocalServer.Port)
 	}
 	if _, err := b.Local.Start(id, filepath.Join(b.Paths.PodsDir, id, "workspace")); err != nil {
-		return PodSummary{}, err
-	}
-	pod, err = b.ensureLocalRuntimeContract(ctx, pod)
-	if err != nil {
 		return PodSummary{}, err
 	}
 	return b.summary(pod), nil
@@ -1027,7 +959,7 @@ func (b *PodBridge) localRegistrationToken(ctx context.Context, pod appconfig.Po
 		return "", fmt.Errorf("desktop bridge: pod %q is remote", pod.ID)
 	}
 	if pod.LocalCatalogVersion < appconfig.LocalCatalogVersion {
-		return "", fmt.Errorf("desktop bridge: local Play catalog migration is incomplete")
+		return "", fmt.Errorf("desktop bridge: local Play requires recreating this incompatible local Pod")
 	}
 	catalog, err := b.catalog(ctx)
 	if err != nil {

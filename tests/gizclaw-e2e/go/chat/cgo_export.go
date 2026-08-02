@@ -14,12 +14,12 @@ import (
 
 // PrepareCgoPushToTalkWorkspace recreates and reloads a voice workspace using
 // the same setup path as the Go chat e2e cases, then returns its workspace name.
-func PrepareCgoPushToTalkWorkspace(ctx context.Context, configPath, contextConfigPath, runtimeWorkflowAlias, registrationToken string) (string, error) {
+func PrepareCgoPushToTalkWorkspace(ctx context.Context, configPath, contextConfigPath, runtimeWorkflowName, registrationToken string) (string, error) {
 	return prepareCgoPushToTalkWorkspace(
 		ctx,
 		configPath,
 		contextConfigPath,
-		runtimeWorkflowAlias,
+		runtimeWorkflowName,
 		registrationToken,
 		"",
 		true,
@@ -32,7 +32,7 @@ func PrepareCgoPushToTalkWorkspaceNamed(
 	ctx context.Context,
 	configPath string,
 	contextConfigPath string,
-	runtimeWorkflowAlias string,
+	runtimeWorkflowName string,
 	registrationToken string,
 	workspaceName string,
 ) (string, error) {
@@ -40,7 +40,7 @@ func PrepareCgoPushToTalkWorkspaceNamed(
 		ctx,
 		configPath,
 		contextConfigPath,
-		runtimeWorkflowAlias,
+		runtimeWorkflowName,
 		registrationToken,
 		workspaceName,
 		false,
@@ -97,7 +97,7 @@ func prepareCgoPushToTalkWorkspace(
 	ctx context.Context,
 	configPath string,
 	contextConfigPath string,
-	runtimeWorkflowAlias string,
+	runtimeWorkflowName string,
 	registrationToken string,
 	workspaceName string,
 	selectWorkspace bool,
@@ -106,11 +106,11 @@ func prepareCgoPushToTalkWorkspace(
 	if err != nil {
 		return "", err
 	}
-	runtimeWorkflowAlias = strings.TrimSpace(runtimeWorkflowAlias)
-	if runtimeWorkflowAlias == "" {
+	runtimeWorkflowName = strings.TrimSpace(runtimeWorkflowName)
+	if runtimeWorkflowName == "" {
 		return "", fmt.Errorf("runtime workflow alias is required")
 	}
-	cfg.Workflow.Name = runtimeWorkflowAlias
+	cfg.Workflow.Name = runtimeWorkflowName
 	cfg, err = workspaceCasePushToTalkRoundtrip.applyConfig(cfg)
 	if err != nil {
 		return "", err

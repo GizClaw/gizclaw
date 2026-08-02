@@ -31,7 +31,8 @@ func TestToolResourceLifecycleUsesMetadataName(t *testing.T) {
 	if err != nil || created.Action != apitypes.ApplyActionCreated || created.Name != "volume_set" {
 		t.Fatalf("Apply(create) = %#v, %v", created, err)
 	}
-	got, err := manager.Get(t.Context(), apitypes.ResourceKindTool, "volume_set")
+	id := *created.Id
+	got, err := manager.Get(t.Context(), apitypes.ResourceKindTool, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +46,7 @@ func TestToolResourceLifecycleUsesMetadataName(t *testing.T) {
 	if discriminator, err := typed.Spec.Discriminator(); err != nil || discriminator != "client_rpc" {
 		t.Fatalf("spec type = %q, %v", discriminator, err)
 	}
-	deleted, err := manager.Delete(t.Context(), apitypes.ResourceKindTool, "volume_set")
+	deleted, err := manager.Delete(t.Context(), apitypes.ResourceKindTool, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +54,7 @@ func TestToolResourceLifecycleUsesMetadataName(t *testing.T) {
 	if err != nil || deletedTool.Metadata.Name != "volume_set" {
 		t.Fatalf("Delete() = %#v, %v", deletedTool, err)
 	}
-	if _, err := manager.Get(t.Context(), apitypes.ResourceKindTool, "volume_set"); err == nil {
+	if _, err := manager.Get(t.Context(), apitypes.ResourceKindTool, id); err == nil {
 		t.Fatal("Get(deleted Tool) succeeded")
 	}
 }
@@ -83,29 +84,30 @@ func TestToolResourceDirectSecretIsWriteOnlyRetainedAndRotated(t *testing.T) {
 	if err != nil || created.Action != apitypes.ApplyActionCreated {
 		t.Fatalf("Apply(create) = %#v, %v", created, err)
 	}
-	assertToolSecretRedacted(t, manager)
-	unchanged, err := manager.Apply(t.Context(), resourceWithSecret(""))
+	toolID := *created.Id
+	assertToolSecretRedacted(t, manager, toolID)
+	unchanged, err := manager.Apply(t.Context(), withResourceID(t, resourceWithSecret(""), toolID))
 	if err != nil || unchanged.Action != apitypes.ApplyActionUnchanged {
 		t.Fatalf("Apply(retain) = %#v, %v", unchanged, err)
 	}
-	stored, err := tools.GetTool(t.Context(), "weather")
+	stored, err := tools.GetToolByID(t.Context(), toolID)
 	if err != nil || stored.HTTP.Auth.BearerToken == nil || *stored.HTTP.Auth.BearerToken != "first" {
 		t.Fatalf("retained secret = %#v, %v", stored.HTTP, err)
 	}
-	rotated, err := manager.Apply(t.Context(), resourceWithSecret(`,"bearer_token":"second"`))
+	rotated, err := manager.Apply(t.Context(), withResourceID(t, resourceWithSecret(`,"bearer_token":"second"`), toolID))
 	if err != nil || rotated.Action != apitypes.ApplyActionUpdated {
 		t.Fatalf("Apply(rotate) = %#v, %v", rotated, err)
 	}
-	stored, err = tools.GetTool(context.Background(), "weather")
+	stored, err = tools.GetToolByID(context.Background(), toolID)
 	if err != nil || stored.HTTP.Auth.BearerToken == nil || *stored.HTTP.Auth.BearerToken != "second" {
 		t.Fatalf("rotated secret = %#v, %v", stored.HTTP, err)
 	}
-	assertToolSecretRedacted(t, manager)
+	assertToolSecretRedacted(t, manager, toolID)
 }
 
-func assertToolSecretRedacted(t *testing.T, manager *Manager) {
+func assertToolSecretRedacted(t *testing.T, manager *Manager, id string) {
 	t.Helper()
-	got, err := manager.Get(t.Context(), apitypes.ResourceKindTool, "weather")
+	got, err := manager.Get(t.Context(), apitypes.ResourceKindTool, id)
 	if err != nil {
 		t.Fatal(err)
 	}

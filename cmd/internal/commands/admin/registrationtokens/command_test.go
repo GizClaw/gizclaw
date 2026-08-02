@@ -12,13 +12,13 @@ func TestReadUpsertReadsCompleteRegistrationTokenFromStdin(t *testing.T) {
 	cmd.SetIn(bytes.NewBufferString(`{
 		"name":"app:com.gizclaw.opensource",
 		"token":"desktop-token",
-		"runtime_profile_name":"default"
+		"runtime_profile_id":"default"
 	}`))
 	item, err := readUpsert(cmd, "-")
 	if err != nil {
 		t.Fatalf("readUpsert() error = %v", err)
 	}
-	if item.Name != "app:com.gizclaw.opensource" || item.Token != "desktop-token" || item.RuntimeProfileName != "default" {
+	if item.Name != "app:com.gizclaw.opensource" || item.Token != "desktop-token" || item.RuntimeProfileId != "default" {
 		t.Fatalf("readUpsert() = %#v", item)
 	}
 }

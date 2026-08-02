@@ -332,7 +332,7 @@ type FirmwareFilesDownloadResponse struct {
 	Artifact      *FirmwareArtifact      `protobuf:"bytes,1,opt,name=artifact,proto3" json:"artifact,omitempty"`
 	Channel       FirmwareChannelName    `protobuf:"varint,2,opt,name=channel,proto3,enum=gizclaw.rpc.v1.FirmwareChannelName" json:"channel,omitempty"`
 	File          *FirmwareArtifactEntry `protobuf:"bytes,3,opt,name=file,proto3" json:"file,omitempty"`
-	FirmwareId    string                 `protobuf:"bytes,4,opt,name=firmware_id,json=firmwareId,proto3" json:"firmware_id,omitempty"`
+	FirmwareName  string                 `protobuf:"bytes,4,opt,name=firmware_name,json=firmwareName,proto3" json:"firmware_name,omitempty"`
 	Path          string                 `protobuf:"bytes,5,opt,name=path,proto3" json:"path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -389,9 +389,9 @@ func (x *FirmwareFilesDownloadResponse) GetFile() *FirmwareArtifactEntry {
 	return nil
 }
 
-func (x *FirmwareFilesDownloadResponse) GetFirmwareId() string {
+func (x *FirmwareFilesDownloadResponse) GetFirmwareName() string {
 	if x != nil {
-		return x.FirmwareId
+		return x.FirmwareName
 	}
 	return ""
 }
@@ -637,13 +637,12 @@ const file_payload_firmware_proto_rawDesc = "" +
 	"\r_content_type\"q\n" +
 	"\x1cFirmwareFilesDownloadRequest\x12=\n" +
 	"\achannel\x18\x01 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameR\achannel\x12\x12\n" +
-	"\x04path\x18\x02 \x01(\tR\x04path\"\x8c\x02\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"\x90\x02\n" +
 	"\x1dFirmwareFilesDownloadResponse\x12<\n" +
 	"\bartifact\x18\x01 \x01(\v2 .gizclaw.rpc.v1.FirmwareArtifactR\bartifact\x12=\n" +
 	"\achannel\x18\x02 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameR\achannel\x129\n" +
-	"\x04file\x18\x03 \x01(\v2%.gizclaw.rpc.v1.FirmwareArtifactEntryR\x04file\x12\x1f\n" +
-	"\vfirmware_id\x18\x04 \x01(\tR\n" +
-	"firmwareId\x12\x12\n" +
+	"\x04file\x18\x03 \x01(\v2%.gizclaw.rpc.v1.FirmwareArtifactEntryR\x04file\x12#\n" +
+	"\rfirmware_name\x18\x04 \x01(\tR\ffirmwareName\x12\x12\n" +
 	"\x04path\x18\x05 \x01(\tR\x04path\"\x14\n" +
 	"\x12FirmwareGetRequest\"E\n" +
 	"\x13FirmwareGetResponse\x12.\n" +

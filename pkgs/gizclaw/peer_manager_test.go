@@ -457,19 +457,21 @@ func TestManagerWorkspaceHistoryEventsUseCurrentDirectChatAccess(t *testing.T) {
 	second := giznet.PublicKey{12}
 	unrelated := giznet.PublicKey{13}
 	friends := newTestFriendServer(kv.NewMemory(nil))
-	relation, err := friends.AdminCreateFriendResource(
+	relation, err := friends.AdminCreateFriend(
 		ctx,
 		first.String(),
 		second.String(),
 	)
 	if err != nil {
-		t.Fatalf("AdminCreateFriendResource: %v", err)
+		t.Fatalf("AdminCreateFriend: %v", err)
 	}
+	workspaceName := socialutil.StringValue(relation.WorkspaceName)
 	owner := first.String()
 	manager := NewManager(nil)
 	manager.Friends = friends
 	manager.Workspaces = staticWorkspaceService{workspace: apitypes.Workspace{
-		Name:           relation.WorkspaceName,
+		Id:             "id-" + workspaceName,
+		Name:           workspaceName,
 		OwnerPublicKey: &owner,
 		Parameters: socialutil.ChatRoomWorkspaceParameters(
 			apitypes.ChatRoomModeDirect,
@@ -494,7 +496,7 @@ func TestManagerWorkspaceHistoryEventsUseCurrentDirectChatAccess(t *testing.T) {
 
 	manager.broadcastWorkspaceHistoryUpdated(
 		ctx,
-		relation.WorkspaceName,
+		"id-"+workspaceName,
 		time.UnixMilli(1234),
 	)
 	for _, key := range []giznet.PublicKey{first, second} {
@@ -519,7 +521,7 @@ func TestManagerWorkspaceHistoryEventsUseCurrentDirectChatAccess(t *testing.T) {
 	}
 	manager.broadcastWorkspaceHistoryUpdated(
 		ctx,
-		relation.WorkspaceName,
+		"id-"+workspaceName,
 		time.UnixMilli(5678),
 	)
 	time.Sleep(10 * time.Millisecond)
@@ -576,12 +578,14 @@ func TestManagerChatroomAccessUsesAuthoritativeRelationships(t *testing.T) {
 	other := giznet.PublicKey{2}
 
 	friends := newTestFriendServer(kv.NewMemory(nil))
-	relation, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String())
+	relation, err := friends.AdminCreateFriend(ctx, caller.String(), other.String())
 	if err != nil {
-		t.Fatalf("AdminCreateFriendResource: %v", err)
+		t.Fatalf("AdminCreateFriend: %v", err)
 	}
+	workspaceName := socialutil.StringValue(relation.WorkspaceName)
 	directWorkspace := apitypes.Workspace{
-		Name:       relation.WorkspaceName,
+		Id:         "id-" + workspaceName,
+		Name:       workspaceName,
 		Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
 	}
 	manager := &Manager{
@@ -606,21 +610,26 @@ func TestManagerChatroomAccessUsesAuthoritativeRelationships(t *testing.T) {
 		Members:           groupStore,
 		Belongs:           groupStore,
 		RelationshipStore: groupStore,
-		NewID:             func() string { return "group-a" },
+		Workspaces:        &adminGameplayWorkspaceService{},
+		RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) {
+			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{System: apitypes.RuntimeProfileSystemWorkflows{GroupChatroom: "chatroom"}}}}, nil
+		},
+		NewID: func() string { return "group-a" },
 	}
 	group, err := groups.CreateFriendGroup(ctx, caller.String(), rpcapi.FriendGroupCreateRequest{Name: "room"})
 	if err != nil {
 		t.Fatalf("CreateFriendGroup: %v", err)
 	}
-	groupID := socialStringValue(group.Id)
 	if _, err := groups.AddFriendGroupMember(ctx, caller.String(), rpcapi.FriendGroupMemberAddRequest{
-		FriendGroupId: groupID,
-		PeerPublicKey: other.String(),
-		Role:          rpcapi.FriendGroupMemberMutableRole("member"),
+		FriendGroupName: group.Name,
+		PeerPublicKey:   other.String(),
+		Role:            rpcapi.FriendGroupMemberMutableRole("member"),
+		MemberName:      "room-other",
 	}); err != nil {
 		t.Fatalf("AddFriendGroupMember: %v", err)
 	}
 	groupWorkspace := apitypes.Workspace{
+		Id:         "id-" + socialStringValue(group.WorkspaceName),
 		Name:       socialStringValue(group.WorkspaceName),
 		Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeGroup),
 	}
@@ -630,8 +639,8 @@ func TestManagerChatroomAccessUsesAuthoritativeRelationships(t *testing.T) {
 		t.Fatalf("group Chatroom access denied before member deletion: %+v", denial)
 	}
 	if _, err := groups.DeleteFriendGroupMember(ctx, other.String(), rpcapi.FriendGroupMemberDeleteRequest{
-		FriendGroupId: groupID,
-		Id:            other.String(),
+		FriendGroupName: "room-other",
+		Id:              other.String(),
 	}); err != nil {
 		t.Fatalf("DeleteFriendGroupMember: %v", err)
 	}
@@ -639,7 +648,7 @@ func TestManagerChatroomAccessUsesAuthoritativeRelationships(t *testing.T) {
 		t.Fatalf("removed member denial = %+v", denial)
 	}
 	groups.Workspaces = &adminGameplayWorkspaceService{}
-	if _, err := groups.DeleteFriendGroup(ctx, caller.String(), rpcapi.FriendGroupDeleteRequest{Id: groupID}); err != nil {
+	if _, err := groups.DeleteFriendGroup(ctx, caller.String(), rpcapi.FriendGroupDeleteRequest{Name: group.Name}); err != nil {
 		t.Fatalf("DeleteFriendGroup: %v", err)
 	}
 	if denial := manager.chatroomAccessError(ctx, caller, groupWorkspace.Name); denial.Code != "CHATROOM_GROUP_DELETED" {
@@ -649,6 +658,13 @@ func TestManagerChatroomAccessUsesAuthoritativeRelationships(t *testing.T) {
 
 type staticWorkspaceService struct {
 	workspace apitypes.Workspace
+}
+
+func (s staticWorkspaceService) GetWorkspaceByName(_ context.Context, name string) (apitypes.Workspace, error) {
+	if name != s.workspace.Name {
+		return apitypes.Workspace{}, kv.ErrNotFound
+	}
+	return s.workspace, nil
 }
 
 func (s staticWorkspaceService) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
@@ -664,7 +680,7 @@ func (s staticWorkspaceService) DeleteWorkspace(context.Context, adminhttp.Delet
 }
 
 func (s staticWorkspaceService) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
-	if string(request.Name) != s.workspace.Name {
+	if string(request.Id) != s.workspace.Id {
 		return adminhttp.GetWorkspace404JSONResponse{}, nil
 	}
 	return adminhttp.GetWorkspace200JSONResponse(s.workspace), nil

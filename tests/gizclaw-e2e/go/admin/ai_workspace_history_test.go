@@ -16,15 +16,16 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
+	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
 func TestAdminAPIWorkspaceHistoryListAndGetFromSocialConversation(t *testing.T) {
 	env := newAdminAPIHarness(t)
-	workspaceName, texts := createAdminSocialConversationHistory(t, env)
+	_, workspaceID, texts := createAdminSocialConversationHistory(t, env)
 	order := adminhttp.Asc
 	limit := 2
 
-	history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceName, &adminhttp.ListWorkspaceHistoryParams{
+	history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceID, &adminhttp.ListWorkspaceHistoryParams{
 		Limit: &limit,
 		Order: &order,
 	})
@@ -43,7 +44,7 @@ func TestAdminAPIWorkspaceHistoryListAndGetFromSocialConversation(t *testing.T) 
 		t.Fatalf("first workspace history text = %q", first.Text)
 	}
 
-	next, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceName, &adminhttp.ListWorkspaceHistoryParams{
+	next, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceID, &adminhttp.ListWorkspaceHistoryParams{
 		Limit:  &limit,
 		Cursor: history.JSON200.NextCursor,
 		Order:  &order,
@@ -56,7 +57,7 @@ func TestAdminAPIWorkspaceHistoryListAndGetFromSocialConversation(t *testing.T) 
 		t.Fatalf("workspace history next page = %#v", next.JSON200)
 	}
 
-	get, err := env.api.GetWorkspaceHistoryWithResponse(env.ctx, workspaceName, first.Id)
+	get, err := env.api.GetWorkspaceHistoryWithResponse(env.ctx, workspaceID, first.Id)
 	if err != nil {
 		t.Fatalf("get workspace history: %v", err)
 	}
@@ -73,32 +74,32 @@ func TestAdminAPISocialWorkspaceHistoryStartsEmptyUntilConversation(t *testing.T
 	registerAdminHistoryPeers(t, env, env.admin, peer)
 	applyAdminSocialFixtures(t, env)
 
-	friend, err := env.api.GetPeerFriendWithResponse(env.ctx, e2eSocialAdminPublicKey, e2eSocialRelationID)
+	friend, err := env.api.GetFriendWithResponse(env.ctx, e2eSocialAdminPublicKey, e2eSocialRelationID)
 	if err != nil {
 		t.Fatalf("get shared social friend: %v", err)
 	}
 	requireStatusOK(t, friend, friend.Body)
-	if friend.JSON200 == nil || friend.JSON200.WorkspaceName == nil || *friend.JSON200.WorkspaceName == "" {
+	if friend.JSON200 == nil || friend.JSON200.WorkspaceId == "" {
 		t.Fatalf("shared social friend = %#v", friend.JSON200)
 	}
-	requireAdminSocialWorkspaceHistoryEmpty(t, env, "friend", *friend.JSON200.WorkspaceName)
+	requireAdminSocialWorkspaceHistoryEmpty(t, env, "friend", friend.JSON200.WorkspaceId)
 
 	group, err := env.api.GetFriendGroupWithResponse(env.ctx, e2eSocialGroupID)
 	if err != nil {
 		t.Fatalf("get shared social friend group: %v", err)
 	}
 	requireStatusOK(t, group, group.Body)
-	if group.JSON200 == nil || group.JSON200.WorkspaceName == nil || *group.JSON200.WorkspaceName == "" {
+	if group.JSON200 == nil || group.JSON200.WorkspaceId == nil || *group.JSON200.WorkspaceId == "" {
 		t.Fatalf("shared social friend group = %#v", group.JSON200)
 	}
-	requireAdminSocialWorkspaceHistoryEmpty(t, env, "friend_group", *group.JSON200.WorkspaceName)
+	requireAdminSocialWorkspaceHistoryEmpty(t, env, "friend_group", *group.JSON200.WorkspaceId)
 }
 
-func requireAdminSocialWorkspaceHistoryEmpty(t *testing.T, env *adminAPIHarness, label, workspaceName string) {
+func requireAdminSocialWorkspaceHistoryEmpty(t *testing.T, env *adminAPIHarness, label, workspaceID string) {
 	t.Helper()
 	order := adminhttp.Asc
 	limit := 10
-	history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceName, &adminhttp.ListWorkspaceHistoryParams{
+	history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceID, &adminhttp.ListWorkspaceHistoryParams{
 		Limit: &limit,
 		Order: &order,
 	})
@@ -111,7 +112,7 @@ func requireAdminSocialWorkspaceHistoryEmpty(t *testing.T, env *adminAPIHarness,
 	}
 }
 
-func createAdminSocialConversationHistory(t *testing.T, env *adminAPIHarness) (string, []string) {
+func createAdminSocialConversationHistory(t *testing.T, env *adminAPIHarness) (string, string, []string) {
 	t.Helper()
 
 	const (
@@ -145,7 +146,10 @@ func createAdminSocialConversationHistory(t *testing.T, env *adminAPIHarness) (s
 	if strings.TrimSpace(workspaceName) == "" {
 		t.Fatalf("friend workspace name is empty: %#v", friend)
 	}
-
+	workspace, found, err := clitest.WorkspaceByName(env.ctx, env.api, workspaceName)
+	if err != nil || !found {
+		t.Fatalf("resolve friend workspace %q: found=%v err=%v", workspaceName, found, err)
+	}
 	if _, err := writer.SetServerRunWorkspace(ctx, "admin.history.workspace.set", rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: workspaceName}); err != nil {
 		t.Fatalf("set run workspace %q: %v", workspaceName, err)
 	}
@@ -169,9 +173,9 @@ func createAdminSocialConversationHistory(t *testing.T, env *adminAPIHarness) (s
 	}
 	for i, text := range texts {
 		sendAdminChatText(t, ctx, chat, "admin-chat-text-"+strconv.Itoa(i+1), text)
-		waitForAdminWorkspaceHistoryText(t, env, workspaceName, text)
+		waitForAdminWorkspaceHistoryText(t, env, workspace.Id, text)
 	}
-	return workspaceName, texts
+	return workspaceName, workspace.Id, texts
 }
 
 func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*gizcli.Client) {
@@ -188,7 +192,7 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 			"zh-CN": {DisplayName: "私聊"},
 		},
 	}
-	profile, err := env.api.PutRuntimeProfileWithResponse(env.ctx, profileName, adminhttp.RuntimeProfileUpsert{
+	profile, err := clitest.UpsertRuntimeProfileByName(env.ctx, env.api, adminhttp.RuntimeProfileUpsert{
 		Name: profileName,
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{},
@@ -207,13 +211,13 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 	if err != nil {
 		t.Fatalf("put workspace history RuntimeProfile: %v", err)
 	}
-	requireStatusOK(t, profile, profile.Body)
-
-	_, _ = env.api.DeleteRegistrationTokenWithResponse(env.ctx, tokenName)
+	if err := clitest.DeleteRegistrationTokenByName(env.ctx, env.api, tokenName); err != nil {
+		t.Fatalf("retire workspace history RegistrationToken: %v", err)
+	}
 	token, err := env.api.CreateRegistrationTokenWithResponse(env.ctx, adminhttp.RegistrationTokenUpsert{
-		Name:               tokenName,
-		Token:              tokenName,
-		RuntimeProfileName: profileName,
+		Name:             tokenName,
+		Token:            tokenName,
+		RuntimeProfileId: profile.Id,
 	})
 	if err != nil {
 		t.Fatalf("create workspace history RegistrationToken: %v", err)
@@ -227,7 +231,7 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 		if err != nil {
 			t.Fatalf("register workspace history peer %d: %v", i, err)
 		}
-		if registered.RuntimeProfileName != profileName {
+		if registered.RuntimeProfileName != profile.Name {
 			t.Fatalf("register workspace history peer %d = %#v", i, registered)
 		}
 	}
@@ -252,14 +256,14 @@ func sendAdminChatText(t *testing.T, ctx context.Context, stream *gizcli.PeerStr
 	}
 }
 
-func waitForAdminWorkspaceHistoryText(t *testing.T, env *adminAPIHarness, workspaceName, text string) {
+func waitForAdminWorkspaceHistoryText(t *testing.T, env *adminAPIHarness, workspaceID, text string) {
 	t.Helper()
 	deadline := time.Now().Add(15 * time.Second)
 	limit := 20
 	reconnects := 0
 	var lastResponse string
 	for {
-		history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceName, &adminhttp.ListWorkspaceHistoryParams{Limit: &limit})
+		history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceID, &adminhttp.ListWorkspaceHistoryParams{Limit: &limit})
 		if err == nil && history.JSON200 != nil {
 			for _, item := range history.JSON200.Items {
 				if item.Text == text {
@@ -280,7 +284,7 @@ func waitForAdminWorkspaceHistoryText(t *testing.T, env *adminAPIHarness, worksp
 			if err != nil {
 				t.Fatalf("list workspace history while waiting for %q: %v", text, err)
 			}
-			t.Fatalf("workspace history text %q not found in %q; last response: %s", text, workspaceName, lastResponse)
+			t.Fatalf("workspace history text %q not found in %q; last response: %s", text, workspaceID, lastResponse)
 		}
 		time.Sleep(250 * time.Millisecond)
 	}

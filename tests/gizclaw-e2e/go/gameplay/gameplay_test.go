@@ -14,17 +14,17 @@ import (
 
 func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	env := newIsolatedGameplayHarness(t)
-	petID := "e2e-pet-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	petName := "e2e-pet-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
 	adopted, err := env.peer.AdoptPet(env.ctx, "gameplay.pet.adopt", rpcapi.RuntimeAdoptRequest{
 		DisplayName: "E2E Pet",
-		Id:          &petID,
+		Name:        petName,
 	})
 	if err != nil {
 		t.Fatalf("pet.adopt: %v", err)
 	}
 	t.Cleanup(func() {
-		_, _ = env.peer.DeletePet(env.ctx, "gameplay.pet.delete.cleanup", rpcapi.ServerPetDeleteRequest{Id: adopted.Pet.Id})
+		_, _ = env.peer.DeletePet(env.ctx, "gameplay.pet.delete.cleanup", rpcapi.ServerPetDeleteRequest{Name: adopted.Pet.Name})
 	})
 	assertAdoptedStarterPet(t, adopted.Pet)
 	if adopted.Points.Balance != 90 || adopted.Transaction.Delta != -10 {
@@ -32,19 +32,19 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	}
 	replayed, err := env.peer.AdoptPet(env.ctx, "gameplay.pet.adopt.replay", rpcapi.RuntimeAdoptRequest{
 		DisplayName: "Ignored Replay Name",
-		Id:          &petID,
+		Name:        petName,
 	})
 	if err != nil {
 		t.Fatalf("pet.adopt replay: %v", err)
 	}
-	if replayed.Pet.Id != adopted.Pet.Id || replayed.Pet.DisplayName != adopted.Pet.DisplayName || replayed.Transaction.Id != adopted.Transaction.Id || replayed.Points.Balance != adopted.Points.Balance {
-		t.Fatalf("pet.adopt replay = %#v, want Pet ID %q, display name %q, transaction ID %q, and Points balance %d", replayed, adopted.Pet.Id, adopted.Pet.DisplayName, adopted.Transaction.Id, adopted.Points.Balance)
+	if replayed.Pet.Name != adopted.Pet.Name || replayed.Pet.DisplayName != adopted.Pet.DisplayName || replayed.Transaction.Id != adopted.Transaction.Id || replayed.Points.Balance != adopted.Points.Balance {
+		t.Fatalf("pet.adopt replay = %#v, want Pet name %q, display name %q, transaction ID %q, and Points balance %d", replayed, adopted.Pet.Name, adopted.Pet.DisplayName, adopted.Transaction.Id, adopted.Points.Balance)
 	}
 	workspace, err := env.peer.GetWorkspace(env.ctx, "gameplay.pet.workspace.get", rpcapi.WorkspaceGetRequest{Name: adopted.Pet.WorkspaceName})
 	if err != nil {
 		t.Fatalf("workspace.get pet workspace: %v", err)
 	}
-	if workspace.Value.Name != adopted.Pet.WorkspaceName || workspace.Value.WorkflowAlias != "pet-care" {
+	if workspace.Value.Name != adopted.Pet.WorkspaceName || workspace.Value.WorkflowName != "pet-care" {
 		t.Fatalf("pet workspace = %#v", workspace)
 	}
 	if workspace.Value.Parameters != nil {
@@ -52,7 +52,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	}
 	tickKey := "gameplay-empty-tick-1"
 	tick, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive.empty", rpcapi.ServerPetDriveRequest{
-		PetId: adopted.Pet.Id, IdempotencyKey: &tickKey,
+		PetName: adopted.Pet.Name, IdempotencyKey: &tickKey,
 	})
 	if err != nil {
 		t.Fatalf("pet.drive empty: %v", err)
@@ -60,12 +60,12 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if tick.GameResult != nil || len(tick.Badges) != 0 || len(tick.Transactions) != 0 || len(tick.RewardGrants) != 0 {
 		t.Fatalf("pet.drive empty response = %#v", tick)
 	}
-	storedTick, err := env.peer.GetPet(env.ctx, "gameplay.pet.get.after-empty", rpcapi.ServerPetGetRequest{Id: adopted.Pet.Id})
+	storedTick, err := env.peer.GetPet(env.ctx, "gameplay.pet.get.after-empty", rpcapi.ServerPetGetRequest{Name: adopted.Pet.Name})
 	if err != nil || storedTick.StateSettledAt != tick.Pet.StateSettledAt || storedTick.LastActiveAt != adopted.Pet.LastActiveAt {
 		t.Fatalf("pet.get after empty = %#v, %v", storedTick, err)
 	}
 	tickReplay, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive.empty.replay", rpcapi.ServerPetDriveRequest{
-		PetId: adopted.Pet.Id, IdempotencyKey: &tickKey,
+		PetName: adopted.Pet.Name, IdempotencyKey: &tickKey,
 	})
 	if err != nil || tickReplay.Pet.StateSettledAt != tick.Pet.StateSettledAt {
 		t.Fatalf("pet.drive empty replay = %#v, %v", tickReplay, err)
@@ -73,7 +73,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	behavior := rpcapi.PetBehaviorBathe
 	careKey := "gameplay-care-1"
 	care, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive.care", rpcapi.ServerPetDriveRequest{
-		PetId: adopted.Pet.Id, Behavior: &behavior, IdempotencyKey: &careKey,
+		PetName: adopted.Pet.Name, Behavior: &behavior, IdempotencyKey: &careKey,
 	})
 	if err != nil {
 		t.Fatalf("pet.drive care: %v", err)
@@ -91,9 +91,9 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	difficulty := "normal"
 	idempotencyKey := "gameplay-result-1"
 	drive, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive", rpcapi.ServerPetDriveRequest{
-		PetId: adopted.Pet.Id,
+		PetName: adopted.Pet.Name,
 		GameResult: &rpcapi.PetDriveGameResultInput{
-			GameDefId:      "game-starter",
+			GameName:       "game-starter",
 			Score:          &score,
 			MaxScore:       &maxScore,
 			Difficulty:     &difficulty,
@@ -112,7 +112,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if drive.Points.Balance != 80 {
 		t.Fatalf("pet.drive points = %#v", drive.Points)
 	}
-	if drive.GameResult == nil || drive.GameResult.GameDefId != "game-starter" || drive.GameResult.Score == nil || *drive.GameResult.Score != score {
+	if drive.GameResult == nil || drive.GameResult.GameDefName != "game-starter" || drive.GameResult.Score == nil || *drive.GameResult.Score != score {
 		t.Fatalf("pet.drive game result = %#v", drive.GameResult)
 	}
 	if drive.GameResult.MaxScore == nil || *drive.GameResult.MaxScore != maxScore || drive.GameResult.DurationMs == nil || *drive.GameResult.DurationMs != durationMs || drive.GameResult.IdempotencyKey == nil || *drive.GameResult.IdempotencyKey != idempotencyKey {
@@ -125,9 +125,9 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 		t.Fatalf("pet.drive transactions = %#v", drive.Transactions)
 	}
 	duplicate, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive.duplicate", rpcapi.ServerPetDriveRequest{
-		PetId: adopted.Pet.Id,
+		PetName: adopted.Pet.Name,
 		GameResult: &rpcapi.PetDriveGameResultInput{
-			GameDefId:      "game-starter",
+			GameName:       "game-starter",
 			IdempotencyKey: &idempotencyKey,
 		},
 	})
@@ -139,7 +139,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pet.list: %v", err)
 	}
-	requirePetID(t, pets.Items, adopted.Pet.Id)
+	requirePetName(t, pets.Items, adopted.Pet.Name)
 
 	pointsTransactions, err := env.peer.ListPointsTransactions(env.ctx, "gameplay.points.transactions.list", rpcapi.ServerPointsTransactionListRequest{})
 	if err != nil {
@@ -170,7 +170,7 @@ func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
 		t.Fatalf("pet.adopt for chat: %v", err)
 	}
 	t.Cleanup(func() {
-		_, _ = env.peer.DeletePet(env.ctx, "gameplay.chat.pet.delete.cleanup", rpcapi.ServerPetDeleteRequest{Id: adopted.Pet.Id})
+		_, _ = env.peer.DeletePet(env.ctx, "gameplay.chat.pet.delete.cleanup", rpcapi.ServerPetDeleteRequest{Name: adopted.Pet.Name})
 	})
 	assertAdoptedStarterPet(t, adopted.Pet)
 	if adopted.Pet.DisplayName != "Chat Pet" {
@@ -254,7 +254,7 @@ func TestGameplayWorkspaceConversationReward(t *testing.T) {
 		t.Fatalf("pet.adopt for Workspace reward: %v", err)
 	}
 	t.Cleanup(func() {
-		_, _ = env.peer.DeletePet(env.ctx, "gameplay.workspace.reward.pet.delete.cleanup", rpcapi.ServerPetDeleteRequest{Id: adopted.Pet.Id})
+		_, _ = env.peer.DeletePet(env.ctx, "gameplay.workspace.reward.pet.delete.cleanup", rpcapi.ServerPetDeleteRequest{Name: adopted.Pet.Name})
 	})
 	if err := selectGameplayWorkspace(env.ctx, env.peer, adopted.Pet.WorkspaceName); err != nil {
 		t.Fatalf("select Workspace reward Pet workspace %q: %v", adopted.Pet.WorkspaceName, err)
@@ -306,7 +306,7 @@ func TestGameplayWorkspaceConversationReward(t *testing.T) {
 		t.Fatalf("get Workspace RewardGrant: %v", err)
 	}
 	if reward.SourceType != "workspace_history_window" ||
-		reward.PetId != nil || reward.GameResultId != nil ||
+		reward.PetName != nil || reward.GameResultId != nil ||
 		reward.PetExpDelta != 0 || reward.PointsDelta <= 0 {
 		t.Fatalf("Workspace RewardGrant = %#v", reward)
 	}
@@ -314,7 +314,7 @@ func TestGameplayWorkspaceConversationReward(t *testing.T) {
 
 func assertAdoptedStarterPet(t *testing.T, pet rpcapi.Pet) {
 	t.Helper()
-	if pet.PetdefId != "petdef-starter" || pet.DisplayName == "" || pet.WorkspaceName == "" {
+	if pet.PetDefName != "petdef-starter" || pet.DisplayName == "" || pet.WorkspaceName == "" {
 		t.Fatalf("adopted pet = %#v", pet)
 	}
 	if pet.RuntimeProfileName != "default-gameplay" {
@@ -369,14 +369,14 @@ func (e *workspaceStartError) Error() string {
 	return "workspace " + e.workspace + " did not start: " + e.message
 }
 
-func requirePetID(t *testing.T, items []rpcapi.Pet, id string) {
+func requirePetName(t *testing.T, items []rpcapi.Pet, name string) {
 	t.Helper()
 	for _, item := range items {
-		if item.Id == id {
+		if item.Name == name {
 			return
 		}
 	}
-	t.Fatalf("pet %q not found in %#v", id, items)
+	t.Fatalf("pet %q not found in %#v", name, items)
 }
 
 func requirePointsTransactionID(t *testing.T, items []rpcapi.PointsTransaction, id string) {

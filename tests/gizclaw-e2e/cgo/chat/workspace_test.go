@@ -190,7 +190,7 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 		"doubao-assistant": "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts",
 	}
 	profileName := "cgo-chat"
-	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
+	profile, err := clitest.UpsertRuntimeProfileByName(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Name: profileName,
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
 			Models: ptr(runtimeBindings(modelResources)),
@@ -209,15 +209,14 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 	if err != nil {
 		t.Fatalf("put C SDK chat RuntimeProfile: %v", err)
 	}
-	if profileResp.JSON200 == nil {
-		t.Fatalf("put C SDK chat RuntimeProfile status %d: %s", profileResp.StatusCode(), strings.TrimSpace(string(profileResp.Body)))
-	}
 	tokenName := "cgo-chat-" + scenario
-	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
+	if err := clitest.DeleteRegistrationTokenByName(ctx, api, tokenName); err != nil {
+		t.Fatalf("retire C SDK chat RegistrationToken: %v", err)
+	}
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name:               tokenName,
-		Token:              tokenName,
-		RuntimeProfileName: profileName,
+		Name:             tokenName,
+		Token:            tokenName,
+		RuntimeProfileId: profile.Id,
 	})
 	if err != nil {
 		t.Fatalf("create C SDK chat RegistrationToken: %v", err)

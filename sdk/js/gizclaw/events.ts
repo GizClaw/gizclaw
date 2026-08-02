@@ -388,11 +388,11 @@ function validateResourceIdentifiers(event: PeerEvent): void {
       return;
     case "friendGroupUpdated":
       if (
-        event.payload.value.friendGroupId.trim() === "" ||
+        event.payload.value.friendGroupName.trim() === "" ||
         event.payload.value.workspaceName.trim() === ""
       ) {
         throw new Error(
-          "friend group event requires friendGroupId and workspaceName",
+          "friend group event requires friendGroupName and workspaceName",
         );
       }
       return;

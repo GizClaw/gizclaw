@@ -169,7 +169,7 @@ func (s *rpcServer) handleSpeechTranscribe(ctx context.Context, stream *rpcStrea
 	if params.Language != nil {
 		language = strings.TrimSpace(*params.Language)
 	}
-	transcript, callErr := service.Transcribe(callCtx, strings.TrimSpace(params.ModelAlias), language, builder.Stream())
+	transcript, callErr := service.Transcribe(callCtx, strings.TrimSpace(params.ModelName), language, builder.Stream())
 	if callErr != nil {
 		cancel()
 		_ = builder.Abort(callErr)
@@ -243,8 +243,8 @@ func (s *rpcServer) handleSpeechExtract(ctx context.Context, stream *rpcStream, 
 	}()
 
 	extraction, callErr := service.Extract(callCtx, peergenx.SpeechExtractionRequest{
-		ASRModelAlias:       strings.TrimSpace(params.ASRModelAlias),
-		ExtractModelAlias:   strings.TrimSpace(params.ExtractModelAlias),
+		ASRModelAlias:       strings.TrimSpace(params.ASRModelName),
+		ExtractModelAlias:   strings.TrimSpace(params.ExtractModelName),
 		Language:            language,
 		SchemaJSON:          params.SchemaJSON,
 		Instruction:         instruction,
@@ -407,7 +407,7 @@ func (s *rpcServer) handleSpeechSynthesize(ctx context.Context, stream *rpcStrea
 		}
 		return err
 	}
-	synthesis, err := service.Synthesize(callCtx, strings.TrimSpace(params.VoiceAlias), params.Text, accepted)
+	synthesis, err := service.Synthesize(callCtx, strings.TrimSpace(params.VoiceName), params.Text, accepted)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			if closeErr := callStream.Close(); closeErr != nil {
@@ -546,8 +546,8 @@ func validateSpeechSynthesisMetadata(synthesis peergenx.SpeechSynthesis, accepte
 }
 
 func validateSpeechTranscribeRequest(request rpcapi.SpeechTranscribeRequest) (string, error) {
-	if !validRuntimeAlias(strings.TrimSpace(request.ModelAlias)) {
-		return "", errors.New("model_alias is invalid")
+	if !validRuntimeAlias(strings.TrimSpace(request.ModelName)) {
+		return "", errors.New("model_name is invalid")
 	}
 	if len(request.ContentType) == 0 || len(request.ContentType) > rpcSpeechMaxContentTypeBytes {
 		return "", errors.New("content_type is invalid")
@@ -567,15 +567,15 @@ func validateSpeechTranscribeRequest(request rpcapi.SpeechTranscribeRequest) (st
 
 func validateSpeechExtractRequest(request rpcapi.SpeechExtractRequest, limits SpeechLimits) (contentType, language, instruction string, err error) {
 	contentType, err = validateSpeechTranscribeRequest(rpcapi.SpeechTranscribeRequest{
-		ModelAlias:  request.ASRModelAlias,
+		ModelName:   request.ASRModelName,
 		ContentType: request.ContentType,
 		Language:    request.Language,
 	})
 	if err != nil {
 		return "", "", "", err
 	}
-	if !validRuntimeAlias(strings.TrimSpace(request.ExtractModelAlias)) {
-		return "", "", "", errors.New("extract_model_alias is invalid")
+	if !validRuntimeAlias(strings.TrimSpace(request.ExtractModelName)) {
+		return "", "", "", errors.New("extract_model_name is invalid")
 	}
 	if !utf8.ValidString(request.SchemaJSON) {
 		return "", "", "", fmt.Errorf("%w: schema_json must be valid UTF-8", errSpeechBadRequest)
@@ -599,8 +599,8 @@ func validateSpeechExtractRequest(request rpcapi.SpeechExtractRequest, limits Sp
 }
 
 func validateSpeechSynthesizeRequest(request rpcapi.SpeechSynthesizeRequest, maxTextBytes int) ([]string, error) {
-	if !validRuntimeAlias(strings.TrimSpace(request.VoiceAlias)) {
-		return nil, errors.New("voice_alias is invalid")
+	if !validRuntimeAlias(strings.TrimSpace(request.VoiceName)) {
+		return nil, errors.New("voice_name is invalid")
 	}
 	if !utf8.ValidString(request.Text) {
 		return nil, errors.New("text must be valid UTF-8")

@@ -3,10 +3,10 @@
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit)
 
 `toolkit` 负责 typed Tool Resource 的持久化、公共校验、防御性快照与
-canonical-name policy 过滤。`ToolResource.metadata.name` 是唯一 Tool
-identity；Resource 存储、RuntimeProfile binding、`ToolkitPolicy.tool_ids`、
-模型声明与调用都使用完全相同的名字。RuntimeProfile map key 只用于展示和配置，
-绝不是调用 alias。
+canonical-ID policy 过滤。Admin Tool resource 同时拥有 server-assigned
+`metadata.id` 和 immutable `metadata.name`；RuntimeProfile binding 与 Admin
+`ToolkitPolicy.tool_ids` 保存 canonical ID。Peer RPC 把 binding key 投影为 scoped
+Tool `name`；Peer Toolkit policy 和调用只使用该 name，不暴露 canonical ID。
 
 目前支持两种 Tool：
 
@@ -16,8 +16,8 @@ identity；Resource 存储、RuntimeProfile binding、`ToolkitPolicy.tool_ids`�
 - `client_rpc` 调用当前已连接 Peer SDK 中按 canonical name 挂载的 handler。
   该分支没有 method、handler ID、Peer ID、endpoint 或 Credential 配置。
 
-Resource contract 中不存在 `source`、`builtin`、executor registry、第二个 Tool
-ID、`output_schema` 或 provider ToolCall ID。
+Resource contract 中不存在 `source`、`builtin`、executor registry、第二套 Tool
+identity、`output_schema` 或 provider ToolCall ID。
 
 ## HTTP auth 与 transport
 
@@ -44,8 +44,8 @@ response pointer。执行不会自动重试。
 
 ```mermaid
 flowchart LR
-    Resource["Tool Resource canonical name"] --> Profile["当前 Peer RuntimeProfile binding"]
-    Profile --> Policy["canonical Workspace 和 Workflow policy"]
+    Resource["Admin Tool canonical ID"] --> Profile["当前 Peer RuntimeProfile binding"]
+    Profile --> Policy["Peer scoped Tool name"]
     Policy --> Invoker["context-scoped AgentHost ToolInvoker"]
     Invoker --> HTTP["http_request 走 giztools"]
     Invoker --> Client["client_rpc 走当前 Peer connection"]
@@ -53,9 +53,9 @@ flowchart LR
     Client --> Continue
 ```
 
-Disabled Tool 不会被声明；dangling Resource 或同一 canonical name 的重复 binding
+Disabled Tool 不会被声明；dangling Resource 或同一 canonical ID 的重复 binding
 会使 scope 构造失败。每次调用都会重新读取 Resource、重新授权、校验 model
-arguments，再严格按 `spec.type` 分发；不会回退到另一类型、alias、owner Profile
+arguments，再严格按 `spec.type` 分发；不会回退到另一类型、name、owner Profile
 或其他在线 Peer。
 
 Client 的 `timeout` 与 `unavailable` 会成为有界 JSON Tool result，交回模型继续

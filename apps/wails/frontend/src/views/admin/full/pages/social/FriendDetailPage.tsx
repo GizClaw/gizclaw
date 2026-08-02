@@ -139,7 +139,7 @@ export function FriendDetailPage(): JSX.Element {
         meta={
           friend ? (
             <Badge variant="outline">
-              {formatShortKey(friend.workspace_name)}
+              {formatShortKey(friend.workspace_id)}
             </Badge>
           ) : null
         }
@@ -170,7 +170,7 @@ export function FriendDetailPage(): JSX.Element {
                 ["Owner peer", friend.owner_public_key],
                 ["Friend peer", friend.peer_public_key],
                 ["Friend id", friend.id],
-                ["Workspace", friend.workspace_name],
+                ["Workspace id", friend.workspace_id],
               ]}
               title="Friend Row"
             />
@@ -185,7 +185,7 @@ export function FriendDetailPage(): JSX.Element {
             />
           </div>
 
-          <WorkspaceHistoryPanel workspaceName={friend.workspace_name} />
+          <WorkspaceHistoryPanel workspaceId={friend.workspace_id} />
         </div>
       )}
     </div>

@@ -3,11 +3,11 @@
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit)
 
 `toolkit` owns typed Tool Resource persistence, common validation, defensive
-snapshots, and canonical-name policy filtering. `ToolResource.metadata.name` is
-the only Tool identity. The same exact name is used by Resource storage,
-RuntimeProfile bindings, `ToolkitPolicy.tool_ids`, model declarations, and
-invocation. A RuntimeProfile map key is display and configuration metadata; it
-is never an invocation alias.
+snapshots, and canonical-ID policy filtering. Admin Tool resources have a
+server-assigned `metadata.id` and immutable `metadata.name`. RuntimeProfile
+bindings and Admin `ToolkitPolicy.tool_ids` store canonical IDs. Peer RPC
+projects each binding key as a scoped Tool `name`; Peer Toolkit policy and
+invocation use only that name and never expose the canonical ID.
 
 Two Tool types are supported:
 
@@ -18,7 +18,7 @@ Two Tool types are supported:
   connected Peer SDK. It contains no method, handler ID, Peer ID, endpoint, or
   Credential configuration.
 
-There is no `source`, `builtin`, executor registry, duplicate Tool ID,
+There is no `source`, `builtin`, executor registry, duplicate Tool identity,
 `output_schema`, or provider ToolCall ID in the Resource contract.
 
 ## HTTP authentication and transport
@@ -47,8 +47,8 @@ status, content type, size, syntax, and response pointers. It never retries.
 
 ```mermaid
 flowchart LR
-    Resource["Tool Resource canonical name"] --> Profile["Current-Peer RuntimeProfile binding"]
-    Profile --> Policy["Canonical Workspace and Workflow policy"]
+    Resource["Admin Tool canonical ID"] --> Profile["Current-Peer RuntimeProfile binding"]
+    Profile --> Policy["Peer scoped Tool name"]
     Policy --> Invoker["Context-scoped AgentHost ToolInvoker"]
     Invoker --> HTTP["http_request via giztools"]
     Invoker --> Client["client_rpc on current Peer connection"]
@@ -56,10 +56,10 @@ flowchart LR
     Client --> Continue
 ```
 
-Disabled Tools are not advertised. Dangling or duplicate canonical bindings
+Disabled Tools are not advertised. Dangling or duplicate canonical-ID bindings
 fail scope construction. Every invocation re-reads and reauthorizes the
 Resource, validates model arguments, and dispatches by `spec.type`; it does not
-fall back to another type, alias, owner Profile, or online Peer.
+fall back to another type, name, owner Profile, or online Peer.
 
 Client `timeout` and `unavailable` are bounded JSON Tool results submitted to
 the model continuation. Raw handler, transport, Peer, and Credential details

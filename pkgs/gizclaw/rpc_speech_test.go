@@ -80,12 +80,12 @@ func TestRPCSpeechExtractStreamsUploadAndReturnsValidatedResult(t *testing.T) {
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "extract", rpcapi.RPCMethodServerSpeechExtract,
 		rpcapi.SpeechExtractRequest{
-			ASRModelAlias:     "asr-main",
-			ExtractModelAlias: "extract-main",
-			ContentType:       "audio/L16;rate=16000;channels=1",
-			Language:          new("zh-CN"),
-			SchemaJSON:        `{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}`,
-			Instruction:       new("extract the contact"),
+			ASRModelName:     "asr-main",
+			ExtractModelName: "extract-main",
+			ContentType:      "audio/L16;rate=16000;channels=1",
+			Language:         new("zh-CN"),
+			SchemaJSON:       `{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}`,
+			Instruction:      new("extract the contact"),
 		},
 		(*rpcapi.RPCPayload).FromSpeechExtractRequest)
 	if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1, 2}}); err != nil {
@@ -146,10 +146,10 @@ func TestRPCSpeechExtractSplitResponseClosesRequestChannel(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	params, err := newRPCRequestParams(rpcapi.SpeechExtractRequest{
-		ASRModelAlias:     "asr-main",
-		ExtractModelAlias: "extract-main",
-		ContentType:       "audio/L16;rate=16000;channels=1",
-		SchemaJSON:        `{"type":"object","properties":{"name":{"type":"string"}}}`,
+		ASRModelName:     "asr-main",
+		ExtractModelName: "extract-main",
+		ContentType:      "audio/L16;rate=16000;channels=1",
+		SchemaJSON:       `{"type":"object","properties":{"name":{"type":"string"}}}`,
 	}, (*rpcapi.RPCPayload).FromSpeechExtractRequest)
 	if err != nil {
 		t.Fatalf("newRPCRequestParams() error = %v", err)
@@ -392,7 +392,7 @@ func TestValidateSpeechExtractRequestRejectsBoundedMetadata(t *testing.T) {
 		{
 			name: "oversized schema",
 			request: rpcapi.SpeechExtractRequest{
-				ASRModelAlias: "asr", ExtractModelAlias: "extract",
+				ASRModelName: "asr", ExtractModelName: "extract",
 				ContentType: "audio/L16;rate=16000;channels=1",
 				SchemaJSON:  strings.Repeat("x", rpcSpeechMaxSchemaBytes+1),
 			},
@@ -400,7 +400,7 @@ func TestValidateSpeechExtractRequestRejectsBoundedMetadata(t *testing.T) {
 		{
 			name: "oversized instruction",
 			request: rpcapi.SpeechExtractRequest{
-				ASRModelAlias: "asr", ExtractModelAlias: "extract",
+				ASRModelName: "asr", ExtractModelName: "extract",
 				ContentType: "audio/L16;rate=16000;channels=1",
 				SchemaJSON:  `{"type":"object"}`,
 				Instruction: new(strings.Repeat("x", rpcSpeechMaxInstructionBytes+1)),
@@ -409,7 +409,7 @@ func TestValidateSpeechExtractRequestRejectsBoundedMetadata(t *testing.T) {
 		{
 			name: "invalid UTF-8 schema",
 			request: rpcapi.SpeechExtractRequest{
-				ASRModelAlias: "asr", ExtractModelAlias: "extract",
+				ASRModelName: "asr", ExtractModelName: "extract",
 				ContentType: "audio/L16;rate=16000;channels=1",
 				SchemaJSON:  string([]byte{0xff}),
 			},
@@ -417,7 +417,7 @@ func TestValidateSpeechExtractRequestRejectsBoundedMetadata(t *testing.T) {
 		{
 			name: "invalid UTF-8 instruction",
 			request: rpcapi.SpeechExtractRequest{
-				ASRModelAlias: "asr", ExtractModelAlias: "extract",
+				ASRModelName: "asr", ExtractModelName: "extract",
 				ContentType: "audio/L16;rate=16000;channels=1",
 				SchemaJSON:  `{"type":"object"}`,
 				Instruction: new(string([]byte{0xff})),
@@ -473,7 +473,7 @@ func TestRPCSpeechTranscribeStreamsUploadBeforeEOS(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "transcribe", rpcapi.RPCMethodServerSpeechTranscribe,
-		rpcapi.SpeechTranscribeRequest{ModelAlias: "asr-main", ContentType: "audio/L16;rate=16000;channels=1", Language: new("zh-CN")},
+		rpcapi.SpeechTranscribeRequest{ModelName: "asr-main", ContentType: "audio/L16;rate=16000;channels=1", Language: new("zh-CN")},
 		(*rpcapi.RPCPayload).FromSpeechTranscribeRequest)
 	if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1, 2}}); err != nil {
 		t.Fatalf("WriteFrame(first audio) error = %v", err)
@@ -509,12 +509,12 @@ func TestRPCSpeechTranscribeStreamsUploadBeforeEOS(t *testing.T) {
 func TestRPCSpeechAcceptsLeadingDigitRuntimeAliases(t *testing.T) {
 	t.Parallel()
 	if _, err := validateSpeechTranscribeRequest(rpcapi.SpeechTranscribeRequest{
-		ModelAlias: "2fa-asr", ContentType: "audio/L16;rate=16000;channels=1",
+		ModelName: "2fa-asr", ContentType: "audio/L16;rate=16000;channels=1",
 	}); err != nil {
 		t.Fatalf("validateSpeechTranscribeRequest() error = %v", err)
 	}
 	if _, err := validateSpeechSynthesizeRequest(rpcapi.SpeechSynthesizeRequest{
-		VoiceAlias: "2fa-voice", Text: "hello", AcceptedContentTypes: []string{"audio/pcm"},
+		VoiceName: "2fa-voice", Text: "hello", AcceptedContentTypes: []string{"audio/pcm"},
 	}, rpcSpeechMaxTextBytes); err != nil {
 		t.Fatalf("validateSpeechSynthesizeRequest() error = %v", err)
 	}
@@ -540,7 +540,7 @@ func TestRPCSpeechTranscribeLimitIsBadRequest(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "limit", rpcapi.RPCMethodServerSpeechTranscribe,
-		rpcapi.SpeechTranscribeRequest{ModelAlias: "asr-main", ContentType: "audio/L16;rate=16000;channels=1"},
+		rpcapi.SpeechTranscribeRequest{ModelName: "asr-main", ContentType: "audio/L16;rate=16000;channels=1"},
 		(*rpcapi.RPCPayload).FromSpeechTranscribeRequest)
 	if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1, 2, 3, 4}}); err != nil {
 		t.Fatalf("WriteFrame() error = %v", err)
@@ -571,7 +571,7 @@ func TestRPCSpeechTranscribeRejectsEmptyAudio(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "empty", rpcapi.RPCMethodServerSpeechTranscribe,
-		rpcapi.SpeechTranscribeRequest{ModelAlias: "asr-main", ContentType: "audio/L16;rate=16000;channels=1"},
+		rpcapi.SpeechTranscribeRequest{ModelName: "asr-main", ContentType: "audio/L16;rate=16000;channels=1"},
 		(*rpcapi.RPCPayload).FromSpeechTranscribeRequest)
 	if err := stream.WriteEOS(); err != nil {
 		t.Fatalf("WriteEOS() error = %v", err)
@@ -593,7 +593,7 @@ func TestRPCSpeechTranscribeRejectsUnsupportedMIME(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "mime", rpcapi.RPCMethodServerSpeechTranscribe,
-		rpcapi.SpeechTranscribeRequest{ModelAlias: "asr-main", ContentType: "audio/ogg"},
+		rpcapi.SpeechTranscribeRequest{ModelName: "asr-main", ContentType: "audio/ogg"},
 		(*rpcapi.RPCPayload).FromSpeechTranscribeRequest)
 	response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechTranscribe)
 	if err != nil {
@@ -625,7 +625,7 @@ func TestRPCSpeechTranscribeSanitizesProviderError(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "provider", rpcapi.RPCMethodServerSpeechTranscribe,
-		rpcapi.SpeechTranscribeRequest{ModelAlias: "asr-main", ContentType: "audio/L16;rate=16000;channels=1"},
+		rpcapi.SpeechTranscribeRequest{ModelName: "asr-main", ContentType: "audio/L16;rate=16000;channels=1"},
 		(*rpcapi.RPCPayload).FromSpeechTranscribeRequest)
 	if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1, 2}}); err != nil {
 		t.Fatalf("WriteFrame() error = %v", err)
@@ -656,7 +656,7 @@ func TestRPCSpeechTranscribeTimeoutInterruptsStalledUpload(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "timeout", rpcapi.RPCMethodServerSpeechTranscribe,
-		rpcapi.SpeechTranscribeRequest{ModelAlias: "asr-main", ContentType: "audio/L16;rate=16000;channels=1"},
+		rpcapi.SpeechTranscribeRequest{ModelName: "asr-main", ContentType: "audio/L16;rate=16000;channels=1"},
 		(*rpcapi.RPCPayload).FromSpeechTranscribeRequest)
 	response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechTranscribe)
 	if err != nil {
@@ -684,7 +684,7 @@ func TestRPCSpeechTranscribeEarlyErrorUnblocksBufferedUpload(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "early-error", rpcapi.RPCMethodServerSpeechTranscribe,
-		rpcapi.SpeechTranscribeRequest{ModelAlias: "missing", ContentType: "audio/L16;rate=16000;channels=1"},
+		rpcapi.SpeechTranscribeRequest{ModelName: "missing", ContentType: "audio/L16;rate=16000;channels=1"},
 		(*rpcapi.RPCPayload).FromSpeechTranscribeRequest)
 	<-providerStarted
 	if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1, 2}}); err != nil {
@@ -713,7 +713,7 @@ func TestRPCSpeechTranscribeEarlyErrorCancelsStalledUpload(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "stalled-early-error", rpcapi.RPCMethodServerSpeechTranscribe,
-		rpcapi.SpeechTranscribeRequest{ModelAlias: "missing", ContentType: "audio/L16;rate=16000;channels=1"},
+		rpcapi.SpeechTranscribeRequest{ModelName: "missing", ContentType: "audio/L16;rate=16000;channels=1"},
 		(*rpcapi.RPCPayload).FromSpeechTranscribeRequest)
 
 	responseDone := make(chan struct {
@@ -764,7 +764,7 @@ func TestRPCSpeechSynthesizeStreamsAudioBeforeEOS(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "synthesize", rpcapi.RPCMethodServerSpeechSynthesize,
-		rpcapi.SpeechSynthesizeRequest{VoiceAlias: "narrator", Text: "hello", AcceptedContentTypes: []string{"audio/pcm"}},
+		rpcapi.SpeechSynthesizeRequest{VoiceName: "narrator", Text: "hello", AcceptedContentTypes: []string{"audio/pcm"}},
 		(*rpcapi.RPCPayload).FromSpeechSynthesizeRequest)
 	if err := stream.WriteEOS(); err != nil {
 		t.Fatalf("WriteEOS() error = %v", err)
@@ -811,7 +811,7 @@ func TestRPCSpeechSynthesizeSplitsOversizedProviderChunk(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "large-chunk", rpcapi.RPCMethodServerSpeechSynthesize,
-		rpcapi.SpeechSynthesizeRequest{VoiceAlias: "narrator", Text: "hello", AcceptedContentTypes: []string{"audio/ogg"}},
+		rpcapi.SpeechSynthesizeRequest{VoiceName: "narrator", Text: "hello", AcceptedContentTypes: []string{"audio/ogg"}},
 		(*rpcapi.RPCPayload).FromSpeechSynthesizeRequest)
 	if err := stream.WriteEOS(); err != nil {
 		t.Fatalf("WriteEOS() error = %v", err)
@@ -847,7 +847,7 @@ func TestRPCSpeechSynthesizeTimeoutInterruptsMissingEOS(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "timeout", rpcapi.RPCMethodServerSpeechSynthesize,
-		rpcapi.SpeechSynthesizeRequest{VoiceAlias: "narrator", Text: "hello", AcceptedContentTypes: []string{"audio/pcm"}},
+		rpcapi.SpeechSynthesizeRequest{VoiceName: "narrator", Text: "hello", AcceptedContentTypes: []string{"audio/pcm"}},
 		(*rpcapi.RPCPayload).FromSpeechSynthesizeRequest)
 	response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechSynthesize)
 	if err != nil {
@@ -871,7 +871,7 @@ func TestRPCSpeechSynthesizeRejectsUnsupportedFormat(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "format", rpcapi.RPCMethodServerSpeechSynthesize,
-		rpcapi.SpeechSynthesizeRequest{VoiceAlias: "narrator", Text: "hello", AcceptedContentTypes: []string{"audio/ogg"}},
+		rpcapi.SpeechSynthesizeRequest{VoiceName: "narrator", Text: "hello", AcceptedContentTypes: []string{"audio/ogg"}},
 		(*rpcapi.RPCPayload).FromSpeechSynthesizeRequest)
 	if err := stream.WriteEOS(); err != nil {
 		t.Fatalf("WriteEOS() error = %v", err)
@@ -908,7 +908,7 @@ func TestRPCSpeechSynthesizeOutputLimitAbortsWithoutSuccessEOS(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "limit", rpcapi.RPCMethodServerSpeechSynthesize,
-		rpcapi.SpeechSynthesizeRequest{VoiceAlias: "narrator", Text: "hello", AcceptedContentTypes: []string{"audio/ogg"}},
+		rpcapi.SpeechSynthesizeRequest{VoiceName: "narrator", Text: "hello", AcceptedContentTypes: []string{"audio/ogg"}},
 		(*rpcapi.RPCPayload).FromSpeechSynthesizeRequest)
 	if err := stream.WriteEOS(); err != nil {
 		t.Fatalf("WriteEOS() error = %v", err)
@@ -924,8 +924,8 @@ func TestRPCSpeechSynthesizeOutputLimitAbortsWithoutSuccessEOS(t *testing.T) {
 
 func TestValidateSpeechSynthesizeRequestRejectsDuplicateMediaTypes(t *testing.T) {
 	_, err := validateSpeechSynthesizeRequest(rpcapi.SpeechSynthesizeRequest{
-		VoiceAlias: "narrator",
-		Text:       "hello",
+		VoiceName: "narrator",
+		Text:      "hello",
 		AcceptedContentTypes: []string{
 			"audio/pcm",
 			"audio/pcm;rate=16000",
@@ -1062,10 +1062,10 @@ func writeStandardSpeechExtractRequest(t *testing.T, stream *rpcStream, id strin
 	t.Helper()
 	writeSpeechRequest(t, stream, id, rpcapi.RPCMethodServerSpeechExtract,
 		rpcapi.SpeechExtractRequest{
-			ASRModelAlias:     "asr-main",
-			ExtractModelAlias: "extract-main",
-			ContentType:       "audio/L16;rate=16000;channels=1",
-			SchemaJSON:        `{"type":"object","properties":{"name":{"type":"string"}}}`,
+			ASRModelName:     "asr-main",
+			ExtractModelName: "extract-main",
+			ContentType:      "audio/L16;rate=16000;channels=1",
+			SchemaJSON:       `{"type":"object","properties":{"name":{"type":"string"}}}`,
 		},
 		(*rpcapi.RPCPayload).FromSpeechExtractRequest)
 }

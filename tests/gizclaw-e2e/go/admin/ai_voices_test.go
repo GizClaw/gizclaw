@@ -12,24 +12,25 @@ import (
 func TestAdminAPIVoicesListAndGet(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
-	resp, err := env.api.ListVoicesWithResponse(env.ctx, &adminhttp.ListVoicesParams{Limit: ptr[int32](50)})
-	if err != nil {
-		t.Fatalf("list voices: %v", err)
-	}
-	requireStatusOK(t, resp, resp.Body)
-	if resp.JSON200 == nil {
-		t.Fatalf("list voices missing JSON200")
-	}
-	if !hasAdminName(resp.JSON200.Items, "minimax-narrator-clone", func(item apitypes.Voice) string { return item.Id }) {
-		t.Fatal("minimax-narrator-clone voice is not configured in this e2e environment")
-	}
+	items := collectAdminPages(t, 50, func(cursor *string, limit int32) ([]apitypes.Voice, bool, *string) {
+		resp, err := env.api.ListVoicesWithResponse(env.ctx, &adminhttp.ListVoicesParams{Cursor: cursor, Limit: &limit})
+		if err != nil {
+			t.Fatalf("list voices: %v", err)
+		}
+		requireStatusOK(t, resp, resp.Body)
+		if resp.JSON200 == nil {
+			t.Fatalf("list voices missing JSON200")
+		}
+		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
+	})
+	seed := requireName(t, items, "minimax-narrator-clone", func(item apitypes.Voice) string { return item.Name })
 
-	get, err := env.api.GetVoiceWithResponse(env.ctx, "minimax-narrator-clone")
+	get, err := env.api.GetVoiceWithResponse(env.ctx, seed.Id)
 	if err != nil {
 		t.Fatalf("get voice: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.Id != "minimax-narrator-clone" || get.JSON200.Provider.Name != "minimax-cn" {
+	if get.JSON200 == nil || get.JSON200.Id != seed.Id || get.JSON200.Name != seed.Name || get.JSON200.Provider.Id == "" {
 		t.Fatalf("get voice = %#v", get.JSON200)
 	}
 }

@@ -49,10 +49,10 @@ type Server struct {
 }
 
 type WorkspaceHistoryService interface {
-	ListWorkspaceHistory(context.Context, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error)
-	ListWorkspaceHistoryPage(context.Context, string, apitypes.PeerRunHistoryListRequest) (workspace.HistoryEntryPage, error)
-	GetWorkspaceHistory(context.Context, string, string) (workspace.HistoryEntry, error)
-	ReadWorkspaceHistoryAsset(context.Context, string, string) (io.ReadCloser, error)
+	ListWorkspaceHistoryByID(context.Context, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error)
+	ListWorkspaceHistoryPageByID(context.Context, string, apitypes.PeerRunHistoryListRequest) (workspace.HistoryEntryPage, error)
+	GetWorkspaceHistoryByID(context.Context, string, string) (workspace.HistoryEntry, error)
+	ReadWorkspaceHistoryAssetByID(context.Context, string, string) (io.ReadCloser, error)
 }
 
 func IsMethod(method rpcapi.RPCMethod) bool {
@@ -302,7 +302,7 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 	}
 	page := make([]rpcapi.Workspace, 0, len(pageNames))
 	for _, name := range pageNames {
-		projected, err := workspaceRPCProjection(byName[name], workspaceAvailable(profile, byName[name]))
+		projected, err := workspaceRPCProjection(byName[name], profile)
 		if err != nil {
 			return internalError(req.Id, err.Error())
 		}
@@ -315,22 +315,142 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 }
 
 func (s *Server) getWorkspaceForList(ctx context.Context, requestID, name string) (apitypes.Workspace, *rpcapi.RPCResponse, error) {
-	resp, err := s.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: name})
-	if err != nil {
-		return apitypes.Workspace{}, nil, err
+	item, err := s.getWorkspaceByName(s.ownerContext(ctx), name)
+	if errors.Is(err, kv.ErrNotFound) {
+		return apitypes.Workspace{}, statusError(requestID, http.StatusNotFound, "workspace not found"), nil
 	}
-	workspace, rpcResp, err := adminResult[apitypes.Workspace](resp.VisitGetWorkspaceResponse)
-	if rpcResp != nil {
-		rpcResp = withRequestID(requestID, rpcResp)
-	}
-	return workspace, rpcResp, err
+	return item, nil, err
 }
 
-func workspaceRPCProjection(item apitypes.Workspace, available bool) (rpcapi.Workspace, error) {
+func (s *Server) getWorkspaceByName(ctx context.Context, name string) (apitypes.Workspace, error) {
+	name = strings.TrimSpace(name)
+	if resolver, ok := s.Workspaces.(interface {
+		GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error)
+	}); ok {
+		item, err := resolver.GetWorkspaceByName(ctx, name)
+		if err == nil || !errors.Is(err, kv.ErrNotFound) {
+			return item, err
+		}
+		return s.getAccessibleDomainWorkspaceByName(ctx, name)
+	}
+	if lister, ok := s.Workspaces.(ownedWorkspaceLister); ok {
+		items, err := lister.ListWorkspacesByOwner(ctx, s.Caller.String())
+		if err != nil {
+			return apitypes.Workspace{}, err
+		}
+		for _, item := range items {
+			if item.Name == strings.TrimSpace(name) {
+				return item, nil
+			}
+		}
+	}
+	return apitypes.Workspace{}, kv.ErrNotFound
+}
+
+// getAccessibleDomainWorkspaceByName resolves a shared system Workspace that
+// is indexed under another participant's ownership scope. The caller still
+// addresses it only by name, and the domain relationship check prevents a
+// same-named Workspace owned by an unrelated peer from crossing the boundary.
+func (s *Server) getAccessibleDomainWorkspaceByName(ctx context.Context, name string) (apitypes.Workspace, error) {
+	limit := int32(200)
+	var cursor *string
+	for {
+		response, err := s.Workspaces.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{
+			Params: adminhttp.ListWorkspacesParams{Cursor: cursor, Limit: &limit},
+		})
+		if err != nil {
+			return apitypes.Workspace{}, err
+		}
+		page, rpcResponse, err := adminResult[adminhttp.WorkspaceList](response.VisitListWorkspacesResponse)
+		if err != nil {
+			return apitypes.Workspace{}, err
+		}
+		if rpcResponse != nil {
+			return apitypes.Workspace{}, fmt.Errorf("list Workspaces: %s", rpcResponse.Error.Message)
+		}
+		for _, item := range page.Items {
+			if item.Name != name {
+				continue
+			}
+			allowed, err := s.canAccessWorkspace(ctx, item)
+			if err != nil {
+				return apitypes.Workspace{}, err
+			}
+			if allowed {
+				return item, nil
+			}
+		}
+		if !page.HasNext || page.NextCursor == nil || *page.NextCursor == "" {
+			return apitypes.Workspace{}, kv.ErrNotFound
+		}
+		cursor = page.NextCursor
+	}
+}
+
+// ResolveWorkspaceForAccessCheck resolves the canonical candidate used to
+// produce an authoritative chatroom denial after a relationship is revoked.
+// Ambiguous same-named candidates are rejected rather than crossing an owner
+// boundary.
+func (s *Server) ResolveWorkspaceForAccessCheck(ctx context.Context, name string) (apitypes.Workspace, error) {
+	if s == nil || s.Workspaces == nil {
+		return apitypes.Workspace{}, errors.New("workspace service not configured")
+	}
+	name = strings.TrimSpace(name)
+	if resolver, ok := s.Workspaces.(interface {
+		GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error)
+	}); ok {
+		item, err := resolver.GetWorkspaceByName(s.ownerContext(ctx), name)
+		if err == nil {
+			return item, nil
+		}
+		if !errors.Is(err, kv.ErrNotFound) {
+			return apitypes.Workspace{}, err
+		}
+	}
+	limit := int32(200)
+	var cursor *string
+	var candidate *apitypes.Workspace
+	for {
+		response, err := s.Workspaces.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{
+			Params: adminhttp.ListWorkspacesParams{Cursor: cursor, Limit: &limit},
+		})
+		if err != nil {
+			return apitypes.Workspace{}, err
+		}
+		page, rpcResponse, err := adminResult[adminhttp.WorkspaceList](response.VisitListWorkspacesResponse)
+		if err != nil {
+			return apitypes.Workspace{}, err
+		}
+		if rpcResponse != nil {
+			return apitypes.Workspace{}, fmt.Errorf("list Workspaces: %s", rpcResponse.Error.Message)
+		}
+		for _, item := range page.Items {
+			if item.Name != name {
+				continue
+			}
+			if candidate != nil {
+				return apitypes.Workspace{}, kv.ErrNotFound
+			}
+			value := item
+			candidate = &value
+		}
+		if !page.HasNext || page.NextCursor == nil || *page.NextCursor == "" {
+			break
+		}
+		cursor = page.NextCursor
+	}
+	if candidate == nil {
+		return apitypes.Workspace{}, kv.ErrNotFound
+	}
+	return *candidate, nil
+}
+
+func workspaceRPCProjection(item apitypes.Workspace, profile *apitypes.RuntimeProfile) (rpcapi.Workspace, error) {
+	workflowName, available := workspaceWorkflowName(profile, item)
 	out := rpcapi.Workspace{
 		CreatedAt: item.CreatedAt, LastActiveAt: item.LastActiveAt, Name: item.Name,
-		OwnerPublicKey: item.OwnerPublicKey, System: item.System != nil && *item.System,
-		UpdatedAt: item.UpdatedAt, WorkflowAlias: item.WorkflowName, Available: available,
+		System:    item.System != nil && *item.System,
+		UpdatedAt: item.UpdatedAt, WorkflowName: workflowName, Available: available,
 	}
 	if item.Parameters != nil {
 		parameters, err := convertType[rpcapi.WorkspaceParameters](*item.Parameters)
@@ -357,59 +477,92 @@ func workspaceRPCProjection(item apitypes.Workspace, available bool) (rpcapi.Wor
 }
 
 func workspaceAvailable(profile *apitypes.RuntimeProfile, item apitypes.Workspace) bool {
+	_, available := workspaceWorkflowName(profile, item)
+	return available
+}
+
+func workspaceWorkflowName(profile *apitypes.RuntimeProfile, item apitypes.Workspace) (string, bool) {
 	if profile == nil {
-		return false
+		return "", false
 	}
 	if item.System != nil && *item.System {
-		return true
+		for _, alias := range []struct {
+			name string
+			id   string
+		}{
+			{name: "friend-chatroom", id: profile.Spec.Workflows.System.FriendChatroom},
+			{name: "group-chatroom", id: profile.Spec.Workflows.System.GroupChatroom},
+			{name: "pet", id: profile.Spec.Workflows.System.Pet},
+		} {
+			if strings.TrimSpace(alias.id) == strings.TrimSpace(item.WorkflowId) {
+				return alias.name, true
+			}
+		}
 	}
 	if item.Labels == nil {
-		return false
+		return "", false
 	}
 	collection := strings.TrimSpace((*item.Labels)["collection"])
 	bindings, ok := profile.Spec.Workflows.Collections[collection]
 	if !ok {
-		return false
+		return "", false
 	}
-	_, ok = bindings[strings.TrimSpace(item.WorkflowName)]
-	return ok
+	for alias, binding := range bindings {
+		if strings.TrimSpace(binding.ResourceId) == strings.TrimSpace(item.WorkflowId) {
+			return alias, true
+		}
+	}
+	return "", false
 }
 
-// ValidateRunWorkspaceSelection resolves a workspace selection and verifies
-// that the current peer may use the canonical workspace resource.
-func (s *Server) ValidateRunWorkspaceSelection(ctx context.Context, name string) (string, *rpcapi.RPCError) {
+// ResolveAccessibleWorkspace resolves a Peer-visible name to the canonical
+// Workspace and verifies that the current peer may access it.
+func (s *Server) ResolveAccessibleWorkspace(ctx context.Context, name string) (apitypes.Workspace, *rpcapi.RPCError) {
 	if s == nil || s.Workspaces == nil {
-		return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "workspace service not configured"}
+		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "workspace service not configured"}
 	}
-	resp, err := s.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: name})
+	workspace, err := s.getWorkspaceByName(s.ownerContext(ctx), name)
+	if errors.Is(err, kv.ErrNotFound) {
+		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace not found"}
+	}
 	if err != nil {
-		return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
-	}
-	workspace, rpcResp, err := adminResult[apitypes.Workspace](resp.VisitGetWorkspaceResponse)
-	if err != nil {
-		return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
-	}
-	if rpcResp != nil {
-		if rpcResp.Error == nil {
-			return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "workspace lookup returned an invalid response"}
-		}
-		return "", &rpcapi.RPCError{Code: rpcResp.Error.Code, Message: rpcResp.Error.Message}
+		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
 	}
 	canonicalName := strings.TrimSpace(workspace.Name)
 	if canonicalName == "" || canonicalName != workspace.Name {
-		return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "workspace service returned an invalid canonical name"}
+		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "workspace service returned an invalid canonical name"}
 	}
 	allowed, err := s.canAccessWorkspace(ctx, workspace)
 	if err != nil {
-		return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
+		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
 	}
 	if !allowed {
-		return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeForbidden, Message: "workspace is not accessible to the authenticated peer"}
+		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeForbidden, Message: "workspace is not accessible to the authenticated peer"}
+	}
+	return workspace, nil
+}
+
+// ResolveRunWorkspaceSelection additionally verifies that the resolved
+// Workspace workflow is available in the current RuntimeProfile.
+func (s *Server) ResolveRunWorkspaceSelection(ctx context.Context, name string) (apitypes.Workspace, *rpcapi.RPCError) {
+	workspace, rpcErr := s.ResolveAccessibleWorkspace(ctx, name)
+	if rpcErr != nil {
+		return apitypes.Workspace{}, rpcErr
 	}
 	if !workspaceAvailable(s.currentRuntimeProfile(), workspace) {
-		return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace workflow is not available in the current runtime profile"}
+		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace workflow is not available in the current runtime profile"}
 	}
-	return canonicalName, nil
+	return workspace, nil
+}
+
+// ValidateRunWorkspaceSelection retains the Peer RPC name-only contract while
+// the runtime can separately consume the canonical Workspace identity.
+func (s *Server) ValidateRunWorkspaceSelection(ctx context.Context, name string) (string, *rpcapi.RPCError) {
+	workspace, rpcErr := s.ResolveRunWorkspaceSelection(ctx, name)
+	if rpcErr != nil {
+		return "", rpcErr
+	}
+	return workspace.Name, nil
 }
 
 func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -420,16 +573,12 @@ func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	adminResp, err := s.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: params.Name})
+	item, err := s.getWorkspaceByName(s.ownerContext(ctx), params.Name)
+	if errors.Is(err, kv.ErrNotFound) {
+		return statusError(req.Id, http.StatusNotFound, "workspace not found")
+	}
 	if err != nil {
 		return internalError(req.Id, err.Error())
-	}
-	item, rpcResp, err := adminResult[apitypes.Workspace](adminResp.VisitGetWorkspaceResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp)
 	}
 	allowed, err := s.canAccessWorkspace(ctx, item)
 	if err != nil {
@@ -442,7 +591,7 @@ func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest)
 	if profile == nil {
 		return internalError(req.Id, "runtime profile not configured")
 	}
-	projected, err := workspaceRPCProjection(item, workspaceAvailable(profile, item))
+	projected, err := workspaceRPCProjection(item, profile)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -460,7 +609,7 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 		return invalidParams(req.Id), true, nil
 	}
 	collection := strings.TrimSpace(params.Collection)
-	alias := strings.TrimSpace(params.WorkflowAlias)
+	alias := strings.TrimSpace(params.WorkflowName)
 	profile := s.currentRuntimeProfile()
 	if profile == nil {
 		return internalError(req.Id, "runtime profile not configured"), true, nil
@@ -469,7 +618,7 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	if collection == "" || alias == "" || !exists {
 		return invalidParams(req.Id), true, nil
 	}
-	_, exists = bindings[alias]
+	binding, exists := bindings[alias]
 	if !exists {
 		return statusError(req.Id, http.StatusNotFound, "workflow not found"), true, nil
 	}
@@ -485,7 +634,7 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	}
 	labels := map[string]string{"collection": collection}
 	body := adminhttp.CreateWorkspaceJSONRequestBody{
-		Name: params.Name, WorkflowName: alias,
+		Name: params.Name, WorkflowId: binding.ResourceId,
 		Parameters: parameters, Toolkit: toolkitPolicy, Labels: &labels,
 	}
 	workspaceCtx := workspace.WithRuntimeVoiceBindings(
@@ -500,7 +649,7 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 		return internalError(req.Id, err.Error()), true, nil
 	}
 	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitCreateWorkspaceResponse, func(payload *rpcapi.RPCPayload, item apitypes.Workspace) error {
-		projected, err := workspaceRPCProjection(item, true)
+		projected, err := workspaceRPCProjection(item, profile)
 		if err != nil {
 			return err
 		}
@@ -516,16 +665,12 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
-	currentResp, err := s.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: params.Name})
+	current, err := s.getWorkspaceByName(s.ownerContext(ctx), params.Name)
+	if errors.Is(err, kv.ErrNotFound) {
+		return statusError(req.Id, http.StatusNotFound, "workspace not found"), true, nil
+	}
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
-	}
-	current, rpcResp, err := adminResult[apitypes.Workspace](currentResp.VisitGetWorkspaceResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp), true, nil
 	}
 	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
 		return response, true, nil
@@ -535,7 +680,7 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 		return internalError(req.Id, "runtime profile not configured"), true, nil
 	}
 	body := adminhttp.PutWorkspaceJSONRequestBody{
-		Name: current.Name, WorkflowName: current.WorkflowName,
+		Name: current.Name, WorkflowId: current.WorkflowId,
 		Parameters: current.Parameters, Toolkit: current.Toolkit,
 	}
 	if params.Body.Parameters != nil {
@@ -559,12 +704,12 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 		),
 		profileBindingsFrom(profile, profileVoices),
 	)
-	adminResp, err := s.Workspaces.PutWorkspace(workspaceCtx, adminhttp.PutWorkspaceRequestObject{Name: params.Name, Body: &body})
+	adminResp, err := s.Workspaces.PutWorkspace(workspaceCtx, adminhttp.PutWorkspaceRequestObject{Id: current.Id, Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
 	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitPutWorkspaceResponse, func(payload *rpcapi.RPCPayload, item apitypes.Workspace) error {
-		projected, err := workspaceRPCProjection(item, workspaceAvailable(profile, item))
+		projected, err := workspaceRPCProjection(item, profile)
 		if err != nil {
 			return err
 		}
@@ -580,26 +725,22 @@ func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCReque
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	currentResp, err := s.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: params.Name})
+	current, err := s.getWorkspaceByName(s.ownerContext(ctx), params.Name)
+	if errors.Is(err, kv.ErrNotFound) {
+		return statusError(req.Id, http.StatusNotFound, "workspace not found")
+	}
 	if err != nil {
 		return internalError(req.Id, err.Error())
-	}
-	current, rpcResp, err := adminResult[apitypes.Workspace](currentResp.VisitGetWorkspaceResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp)
 	}
 	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
 		return response
 	}
-	adminResp, err := s.Workspaces.DeleteWorkspace(s.ownerContext(ctx), adminhttp.DeleteWorkspaceRequestObject{Name: params.Name})
+	adminResp, err := s.Workspaces.DeleteWorkspace(s.ownerContext(ctx), adminhttp.DeleteWorkspaceRequestObject{Id: current.Id})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
 	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitDeleteWorkspaceResponse, func(payload *rpcapi.RPCPayload, item apitypes.Workspace) error {
-		projected, err := workspaceRPCProjection(item, workspaceAvailable(s.currentRuntimeProfile(), item))
+		projected, err := workspaceRPCProjection(item, s.currentRuntimeProfile())
 		if err != nil {
 			return err
 		}
@@ -619,15 +760,16 @@ func (s *Server) handleWorkspaceHistoryList(ctx context.Context, req *rpcapi.RPC
 	if params.Order != nil && !params.Order.Valid() {
 		return statusError(req.Id, http.StatusBadRequest, "unsupported workspace history order")
 	}
-	if resp := s.requireWorkspaceAccess(ctx, req.Id, params.WorkspaceName); resp != nil {
-		return resp
+	workspace, rpcErr := s.ResolveAccessibleWorkspace(ctx, params.WorkspaceName)
+	if rpcErr != nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
 	}
 	var order *apitypes.PeerRunHistoryListRequestOrder
 	if params.Order != nil {
 		converted := apitypes.PeerRunHistoryListRequestOrder(*params.Order)
 		order = &converted
 	}
-	list, err := history.ListWorkspaceHistory(ctx, params.WorkspaceName, apitypes.PeerRunHistoryListRequest{
+	list, err := history.ListWorkspaceHistoryByID(ctx, workspace.Id, apitypes.PeerRunHistoryListRequest{
 		Cursor: params.Cursor,
 		Limit:  params.Limit,
 		Order:  order,
@@ -647,10 +789,11 @@ func (s *Server) handleWorkspaceHistoryGet(ctx context.Context, req *rpcapi.RPCR
 	if !ok || strings.TrimSpace(params.WorkspaceName) == "" || strings.TrimSpace(params.HistoryId) == "" {
 		return invalidParams(req.Id)
 	}
-	if resp := s.requireWorkspaceAccess(ctx, req.Id, params.WorkspaceName); resp != nil {
-		return resp
+	workspace, rpcErr := s.ResolveAccessibleWorkspace(ctx, params.WorkspaceName)
+	if rpcErr != nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
 	}
-	entry, err := history.GetWorkspaceHistory(ctx, params.WorkspaceName, params.HistoryId)
+	entry, err := history.GetWorkspaceHistoryByID(ctx, workspace.Id, params.HistoryId)
 	if err != nil {
 		return historyRPCResponse(req.Id, err)
 	}
@@ -677,7 +820,7 @@ func (s *Server) handleWorkspaceHistoryAudioGet(ctx context.Context, req *rpcapi
 
 func (s *Server) handleFriendGroupMessagesAudioGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsFriendGroupMessageAudioGetRequest)
-	if !ok || strings.TrimSpace(params.FriendGroupId) == "" || strings.TrimSpace(params.HistoryId) == "" {
+	if !ok || strings.TrimSpace(params.FriendGroupName) == "" || strings.TrimSpace(params.HistoryId) == "" {
 		return invalidParams(req.Id)
 	}
 	respValue, reader, rpcErr, err := s.PrepareFriendGroupMessageAudioGet(ctx, params)
@@ -696,13 +839,13 @@ func (s *Server) handleFriendGroupMessagesAudioGet(ctx context.Context, req *rpc
 // PrepareFriendGroupMessageAudioGet authorizes the caller through the Group
 // binding, then opens the retained Workspace History audio without buffering.
 func (s *Server) PrepareFriendGroupMessageAudioGet(ctx context.Context, params rpcapi.FriendGroupMessageAudioGetRequest) (rpcapi.FriendGroupMessageAudioGetResponse, io.ReadCloser, *rpcapi.RPCError, error) {
-	if strings.TrimSpace(params.FriendGroupId) == "" || strings.TrimSpace(params.HistoryId) == "" {
+	if strings.TrimSpace(params.FriendGroupName) == "" || strings.TrimSpace(params.HistoryId) == "" {
 		return rpcapi.FriendGroupMessageAudioGetResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "invalid params"}, nil
 	}
 	if s.FriendGroups == nil {
 		return rpcapi.FriendGroupMessageAudioGetResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "friend group service not configured"}, nil
 	}
-	workspaceName, err := s.FriendGroups.ResolveFriendGroupWorkspace(ctx, s.Caller.String(), params.FriendGroupId)
+	workspaceID, err := s.FriendGroups.ResolveFriendGroupWorkspaceIDByName(ctx, s.Caller.String(), params.FriendGroupName)
 	if err != nil {
 		resp := businessError("", err)
 		return rpcapi.FriendGroupMessageAudioGetResponse{}, nil, &rpcapi.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}, nil
@@ -711,7 +854,7 @@ func (s *Server) PrepareFriendGroupMessageAudioGet(ctx context.Context, params r
 	if resp != nil {
 		return rpcapi.FriendGroupMessageAudioGetResponse{}, nil, &rpcapi.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}, nil
 	}
-	mimeType, sizeBytes, reader, rpcErr := openWorkspaceHistoryAudio(ctx, history, workspaceName, params.HistoryId)
+	mimeType, sizeBytes, reader, rpcErr := openWorkspaceHistoryAudio(ctx, history, workspaceID, params.HistoryId)
 	if rpcErr != nil {
 		if rpcErr.Code == rpcapi.RPCErrorCodeNotFound {
 			rpcErr.Message = "not found"
@@ -719,7 +862,7 @@ func (s *Server) PrepareFriendGroupMessageAudioGet(ctx context.Context, params r
 		return rpcapi.FriendGroupMessageAudioGetResponse{}, nil, rpcErr, nil
 	}
 	return rpcapi.FriendGroupMessageAudioGetResponse{
-		FriendGroupId: params.FriendGroupId, HistoryId: params.HistoryId,
+		FriendGroupName: params.FriendGroupName, HistoryId: params.HistoryId,
 		MimeType: mimeType, SizeBytes: sizeBytes,
 	}, reader, nil, nil
 }
@@ -732,10 +875,11 @@ func (s *Server) PrepareWorkspaceHistoryAudioGet(ctx context.Context, params rpc
 	if resp != nil {
 		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, &rpcapi.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}, nil
 	}
-	if resp := s.requireWorkspaceAccess(ctx, "", params.WorkspaceName); resp != nil {
-		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, &rpcapi.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}, nil
+	workspace, rpcErr := s.ResolveAccessibleWorkspace(ctx, params.WorkspaceName)
+	if rpcErr != nil {
+		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, rpcErr, nil
 	}
-	mimeType, sizeBytes, r, rpcErr := openWorkspaceHistoryAudio(ctx, history, params.WorkspaceName, params.HistoryId)
+	mimeType, sizeBytes, r, rpcErr := openWorkspaceHistoryAudio(ctx, history, workspace.Id, params.HistoryId)
 	if rpcErr != nil {
 		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, rpcErr, nil
 	}
@@ -747,8 +891,8 @@ func (s *Server) PrepareWorkspaceHistoryAudioGet(ctx context.Context, params rpc
 	}, r, nil, nil
 }
 
-func openWorkspaceHistoryAudio(ctx context.Context, history WorkspaceHistoryService, workspaceName, historyID string) (string, int64, io.ReadCloser, *rpcapi.RPCError) {
-	entry, err := history.GetWorkspaceHistory(ctx, workspaceName, historyID)
+func openWorkspaceHistoryAudio(ctx context.Context, history WorkspaceHistoryService, workspaceID, historyID string) (string, int64, io.ReadCloser, *rpcapi.RPCError) {
+	entry, err := history.GetWorkspaceHistoryByID(ctx, workspaceID, historyID)
 	if err != nil {
 		return "", 0, nil, historyRPCError(err)
 	}
@@ -765,7 +909,7 @@ func openWorkspaceHistoryAudio(ctx context.Context, history WorkspaceHistoryServ
 	if mimeType == "" {
 		return "", 0, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace history entry has no audio"}
 	}
-	r, err := history.ReadWorkspaceHistoryAsset(ctx, workspaceName, asset.Name)
+	r, err := history.ReadWorkspaceHistoryAssetByID(ctx, workspaceID, asset.Name)
 	if err != nil {
 		return "", 0, nil, historyRPCError(err)
 	}
@@ -850,7 +994,7 @@ func (s *Server) listRuntimeWorkflows(ctx context.Context, collection string, bi
 	items := make([]rpcapi.Workflow, 0, len(aliases))
 	for _, alias := range aliases {
 		binding := bindings[alias]
-		resp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: binding.ResourceId})
+		resp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: binding.ResourceId})
 		if err != nil {
 			return nil, err
 		}
@@ -874,18 +1018,18 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 		return internalError(req.Id, "workflow service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowGetRequest)
-	if !ok || strings.TrimSpace(params.Alias) == "" {
+	if !ok || strings.TrimSpace(params.Name) == "" {
 		return invalidParams(req.Id)
 	}
 	profile := s.currentRuntimeProfile()
 	if profile == nil {
 		return internalError(req.Id, "runtime profile not configured")
 	}
-	collection, binding, exists := workflowBinding(profile, params.Alias)
+	collection, binding, exists := workflowBinding(profile, params.Name)
 	if !exists {
 		return statusError(req.Id, http.StatusNotFound, "workflow not found")
 	}
-	adminResp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: binding.ResourceId})
+	adminResp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: binding.ResourceId})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -900,14 +1044,14 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 		return withRequestID(req.Id, rpcResp)
 	}
 	return resultResponse(req.Id, rpcapi.WorkflowGetResponse{
-		Value:              workflowRPCProjection(result, params.Alias, collection, binding),
+		Value:              workflowRPCProjection(result, params.Name, collection, binding),
 		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromWorkflowGetResponse)
 }
 
 func workflowRPCProjection(item apitypes.Workflow, alias, collection string, binding apitypes.RuntimeProfileBinding) rpcapi.Workflow {
 	result := rpcapi.Workflow{
-		Alias: alias, Collection: collection, I18n: bindingI18n(binding),
+		Name: alias, Collection: collection, I18n: bindingI18n(binding),
 		Driver: rpcapi.WorkflowDriver(item.Spec.Driver),
 	}
 	if item.Spec.AstTranslate != nil {
@@ -961,14 +1105,14 @@ func (s *Server) handleModelGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 		return internalError(req.Id, "model service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsModelGetRequest)
-	if !ok || strings.TrimSpace(params.Alias) == "" {
+	if !ok || strings.TrimSpace(params.Name) == "" {
 		return invalidParams(req.Id)
 	}
 	profile := s.currentRuntimeProfile()
 	if profile == nil {
 		return internalError(req.Id, "runtime profile not configured")
 	}
-	binding, exists := bindingMap(profile.Spec.Resources.Models)[strings.TrimSpace(params.Alias)]
+	binding, exists := bindingMap(profile.Spec.Resources.Models)[strings.TrimSpace(params.Name)]
 	if !exists {
 		return statusError(req.Id, http.StatusNotFound, "model not found")
 	}
@@ -979,7 +1123,7 @@ func (s *Server) handleModelGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 		}
 		return withRequestID(req.Id, response)
 	}
-	projected, err := modelRPCProjection(params.Alias, binding, item)
+	projected, err := modelRPCProjection(params.Name, binding, item)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -993,7 +1137,7 @@ func modelRPCProjection(alias string, binding apitypes.RuntimeProfileBinding, it
 		return rpcapi.Model{}, fmt.Errorf("invalid model provider data: %w", err)
 	}
 	out := rpcapi.Model{
-		Alias:        alias,
+		Name:         alias,
 		I18n:         bindingI18n(binding),
 		Kind:         rpcapi.ModelKind(item.Kind),
 		ProviderKind: rpcapi.ModelProviderKind(item.Provider.Kind),
@@ -1102,7 +1246,7 @@ func (s *Server) handleVoiceList(ctx context.Context, req *rpcapi.RPCRequest) *r
 		if rpcResp != nil {
 			return withRequestID(req.Id, rpcResp)
 		}
-		items = append(items, rpcapi.Voice{Alias: alias, I18n: bindingI18n(binding)})
+		items = append(items, rpcapi.Voice{Name: alias, I18n: bindingI18n(binding)})
 	}
 	return resultResponse(req.Id, rpcapi.VoiceListResponse{
 		Items: items, HasNext: hasNext, NextCursor: nextCursor,
@@ -1115,14 +1259,14 @@ func (s *Server) handleVoiceGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 		return internalError(req.Id, "voice service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsVoiceGetRequest)
-	if !ok || strings.TrimSpace(params.Alias) == "" {
+	if !ok || strings.TrimSpace(params.Name) == "" {
 		return invalidParams(req.Id)
 	}
 	profile := s.currentRuntimeProfile()
 	if profile == nil {
 		return internalError(req.Id, "runtime profile not configured")
 	}
-	binding, exists := bindingMap(profile.Spec.Resources.Voices)[strings.TrimSpace(params.Alias)]
+	binding, exists := bindingMap(profile.Spec.Resources.Voices)[strings.TrimSpace(params.Name)]
 	if !exists {
 		return statusError(req.Id, http.StatusNotFound, "voice not found")
 	}
@@ -1141,7 +1285,7 @@ func (s *Server) handleVoiceGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 		return withRequestID(req.Id, rpcResp)
 	}
 	return resultResponse(req.Id, rpcapi.VoiceGetResponse{
-		Value:              rpcapi.Voice{Alias: params.Alias, I18n: bindingI18n(binding)},
+		Value:              rpcapi.Voice{Name: params.Name, I18n: bindingI18n(binding)},
 		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromVoiceGetResponse)
 }
@@ -1286,22 +1430,6 @@ func convertValue(dst reflect.Value, src reflect.Value) error {
 		dst.Set(reflect.ValueOf(body))
 		return nil
 	}
-	if dst.Type() == reflect.TypeOf(rpcapi.Pet{}) && src.Type() == reflect.TypeOf(apitypes.Pet{}) {
-		dst.Set(reflect.ValueOf(apiPetToRPC(src.Interface().(apitypes.Pet))))
-		return nil
-	}
-	if dst.Type() == reflect.TypeOf(apitypes.Pet{}) && src.Type() == reflect.TypeOf(rpcapi.Pet{}) {
-		dst.Set(reflect.ValueOf(rpcPetToAPI(src.Interface().(rpcapi.Pet))))
-		return nil
-	}
-	if dst.Type() == reflect.TypeOf(rpcapi.PetDriveResponse{}) && src.Type() == reflect.TypeOf(apitypes.PetDriveResponse{}) {
-		body, err := apiPetDriveResponseToRPC(src.Interface().(apitypes.PetDriveResponse))
-		if err != nil {
-			return err
-		}
-		dst.Set(reflect.ValueOf(body))
-		return nil
-	}
 	if src.Type().AssignableTo(dst.Type()) {
 		dst.Set(src)
 		return nil
@@ -1374,74 +1502,6 @@ func convertValue(dst reflect.Value, src reflect.Value) error {
 		return nil
 	default:
 		return fmt.Errorf("cannot convert %s to %s", src.Type(), dst.Type())
-	}
-}
-
-func apiPetDriveResponseToRPC(in apitypes.PetDriveResponse) (rpcapi.PetDriveResponse, error) {
-	var out rpcapi.PetDriveResponse
-	out.Pet = apiPetToRPC(in.Pet)
-	if err := convertValue(reflect.ValueOf(&out.Points).Elem(), reflect.ValueOf(in.Points)); err != nil {
-		return rpcapi.PetDriveResponse{}, fmt.Errorf("Points: %w", err)
-	}
-	if in.GameResult != nil {
-		out.GameResult = &rpcapi.GameResult{}
-		if err := convertValue(reflect.ValueOf(out.GameResult).Elem(), reflect.ValueOf(*in.GameResult)); err != nil {
-			return rpcapi.PetDriveResponse{}, fmt.Errorf("GameResult: %w", err)
-		}
-	}
-	if err := convertValue(reflect.ValueOf(&out.Badges).Elem(), reflect.ValueOf(in.Badges)); err != nil {
-		return rpcapi.PetDriveResponse{}, fmt.Errorf("Badges: %w", err)
-	}
-	if err := convertValue(reflect.ValueOf(&out.RewardGrants).Elem(), reflect.ValueOf(in.RewardGrants)); err != nil {
-		return rpcapi.PetDriveResponse{}, fmt.Errorf("RewardGrants: %w", err)
-	}
-	if err := convertValue(reflect.ValueOf(&out.Transactions).Elem(), reflect.ValueOf(in.Transactions)); err != nil {
-		return rpcapi.PetDriveResponse{}, fmt.Errorf("Transactions: %w", err)
-	}
-	return out, nil
-}
-
-func apiPetToRPC(in apitypes.Pet) rpcapi.Pet {
-	return rpcapi.Pet{
-		CreatedAt:    in.CreatedAt,
-		DisplayName:  in.DisplayName,
-		Id:           in.Id,
-		LastActiveAt: in.LastActiveAt,
-		Stats: rpcapi.PetStats{
-			Life: in.Stats.Life, Health: in.Stats.Health, Satiety: in.Stats.Satiety,
-			Hygiene: in.Stats.Hygiene, Mood: in.Stats.Mood, Energy: in.Stats.Energy,
-		},
-		OwnerPublicKey:     in.OwnerPublicKey,
-		PetdefId:           in.PetdefId,
-		Progression:        rpcapi.PetProgression{Experience: in.Progression.Experience, Level: in.Progression.Level},
-		Lifecycle:          rpcapi.PetLifecycle(in.Lifecycle),
-		DiedAt:             in.DiedAt,
-		StateSettledAt:     in.StateSettledAt,
-		RuntimeProfileName: in.RuntimeProfileName,
-		UpdatedAt:          in.UpdatedAt,
-		WorkspaceName:      in.WorkspaceName,
-	}
-}
-
-func rpcPetToAPI(in rpcapi.Pet) apitypes.Pet {
-	return apitypes.Pet{
-		CreatedAt:    in.CreatedAt,
-		DisplayName:  in.DisplayName,
-		Id:           in.Id,
-		LastActiveAt: in.LastActiveAt,
-		Stats: apitypes.PetStats{
-			Life: in.Stats.Life, Health: in.Stats.Health, Satiety: in.Stats.Satiety,
-			Hygiene: in.Stats.Hygiene, Mood: in.Stats.Mood, Energy: in.Stats.Energy,
-		},
-		OwnerPublicKey:     in.OwnerPublicKey,
-		PetdefId:           in.PetdefId,
-		Progression:        apitypes.PetProgression{Experience: in.Progression.Experience, Level: in.Progression.Level},
-		Lifecycle:          apitypes.PetLifecycle(in.Lifecycle),
-		DiedAt:             in.DiedAt,
-		StateSettledAt:     in.StateSettledAt,
-		RuntimeProfileName: in.RuntimeProfileName,
-		UpdatedAt:          in.UpdatedAt,
-		WorkspaceName:      in.WorkspaceName,
 	}
 }
 

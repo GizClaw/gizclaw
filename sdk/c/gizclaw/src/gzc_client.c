@@ -1538,7 +1538,7 @@ int gzc_client_dispatch_rpc_internal(
         pb_istream_from_buffer((const pb_byte_t *)request_payload.data,
                                request_payload.len);
     if (!pb_decode(&stream, gizclaw_rpc_v1_ToolInvokeRequest_fields, &request) ||
-        request.name[0] == '\0') {
+        request.invoke_name[0] == '\0') {
       const gzc_rpc_provider_response_t response = {
           .has_error = true,
           .error_code =
@@ -1547,12 +1547,12 @@ int gzc_client_dispatch_rpc_internal(
       };
       return respond(respond_userdata, &response);
     }
-    const size_t name_len = strlen(request.name);
+    const size_t name_len = strlen(request.invoke_name);
     for (size_t i = 0; i < client->config.tool_handler_count; i++) {
       const gzc_tool_handler_t *registered =
           &client->config.tool_handlers[i];
       if (registered->name.len == name_len &&
-          memcmp(registered->name.data, request.name, name_len) == 0) {
+          memcmp(registered->name.data, request.invoke_name, name_len) == 0) {
         return registered->handler(registered->userdata,
                                    request_payload,
                                    respond,

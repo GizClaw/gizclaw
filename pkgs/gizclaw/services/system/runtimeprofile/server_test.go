@@ -30,7 +30,7 @@ func TestRegistrationTokenIsReadableAndIndexedByHash(t *testing.T) {
 	})
 
 	response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "pet-board", Token: " device-token ", RuntimeProfileName: "pet-runtime",
+		Name: "pet-board", Token: " device-token ", RuntimeProfileId: "pet-runtime",
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -39,7 +39,7 @@ func TestRegistrationTokenIsReadableAndIndexedByHash(t *testing.T) {
 	if !ok || created.Token != "device-token" || !created.CreatedAt.Equal(now) || !created.UpdatedAt.Equal(now) {
 		t.Fatalf("create response = %#v, want complete persisted resource", response)
 	}
-	stored, err := store.Get(ctx, tokenKey("pet-board"))
+	stored, err := store.Get(ctx, tokenKey(created.Id))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,11 +54,11 @@ func TestRegistrationTokenIsReadableAndIndexedByHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(indexedName) != created.Name {
-		t.Fatalf("hash index = %q, want %q", indexedName, created.Name)
+	if string(indexedName) != created.Id {
+		t.Fatalf("hash index = %q, want %q", indexedName, created.Id)
 	}
 
-	gotResponse, err := s.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Name: "pet-board"})
+	gotResponse, err := s.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestRegistrationTokenCanBeReusedUntilDeleted(t *testing.T) {
 	s := &Server{Store: store}
 	createProfile(t, s, "pet-runtime", nil)
 	response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "pet-board", Token: "reusable-token", RuntimeProfileName: "pet-runtime",
+		Name: "pet-board", Token: "reusable-token", RuntimeProfileId: "pet-runtime",
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -106,7 +106,7 @@ func TestRegistrationTokenCanBeReusedUntilDeleted(t *testing.T) {
 			t.Fatalf("reusable token resolve: %v", err)
 		}
 	}
-	deleteResponse, err := s.DeleteRegistrationToken(ctx, adminhttp.DeleteRegistrationTokenRequestObject{Name: "pet-board"})
+	deleteResponse, err := s.DeleteRegistrationToken(ctx, adminhttp.DeleteRegistrationTokenRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestPutRegistrationTokenReplacesTokenAndHashIndexAtomically(t *testing.T) {
 	s := &Server{Store: store, Now: func() time.Time { return now }}
 	createProfile(t, s, "pet-runtime", nil)
 	createResponse, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "pet-board", Token: "old-token", RuntimeProfileName: "pet-runtime",
+		Name: "pet-board", Token: "old-token", RuntimeProfileId: "pet-runtime",
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -136,8 +136,8 @@ func TestPutRegistrationTokenReplacesTokenAndHashIndexAtomically(t *testing.T) {
 
 	now = now.Add(time.Minute)
 	putResponse, err := s.PutRegistrationToken(ctx, adminhttp.PutRegistrationTokenRequestObject{
-		Name: "pet-board",
-		Body: &adminhttp.RegistrationTokenUpsert{Name: "pet-board", Token: "new-token", RuntimeProfileName: "pet-runtime"},
+		Id:   created.Id,
+		Body: &adminhttp.RegistrationTokenUpsert{Name: "pet-board", Token: "new-token", RuntimeProfileId: "pet-runtime"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -172,18 +172,19 @@ func TestPutRegistrationTokenStoreFailurePreservesRecordAndIndexes(t *testing.T)
 	s := &Server{Store: store}
 	createProfile(t, s, "pet-runtime", nil)
 	createResponse, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "pet-board", Token: "old-token", RuntimeProfileName: "pet-runtime",
+		Name: "pet-board", Token: "old-token", RuntimeProfileId: "pet-runtime",
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := createResponse.(adminhttp.CreateRegistrationToken200JSONResponse); !ok {
+	created, ok := createResponse.(adminhttp.CreateRegistrationToken200JSONResponse)
+	if !ok {
 		t.Fatalf("CreateRegistrationToken() = %#v", createResponse)
 	}
 	s.Store = failingBatchMutateStore{Store: store}
 	putResponse, err := s.PutRegistrationToken(ctx, adminhttp.PutRegistrationTokenRequestObject{
-		Name: "pet-board",
-		Body: &adminhttp.RegistrationTokenUpsert{Name: "pet-board", Token: "new-token", RuntimeProfileName: "pet-runtime"},
+		Id:   created.Id,
+		Body: &adminhttp.RegistrationTokenUpsert{Name: "pet-board", Token: "new-token", RuntimeProfileId: "pet-runtime"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -191,7 +192,7 @@ func TestPutRegistrationTokenStoreFailurePreservesRecordAndIndexes(t *testing.T)
 	if _, ok := putResponse.(adminhttp.PutRegistrationToken500JSONResponse); !ok {
 		t.Fatalf("PutRegistrationToken() = %#v, want 500", putResponse)
 	}
-	gotResponse, err := s.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Name: "pet-board"})
+	gotResponse, err := s.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,19 +213,22 @@ func TestRegistrationTokenCollisionLeavesBothResourcesUnchanged(t *testing.T) {
 	store := kv.NewMemory(nil)
 	s := &Server{Store: store}
 	createProfile(t, s, "pet-runtime", nil)
+	createdIDs := map[string]string{}
 	for _, item := range []adminhttp.RegistrationTokenUpsert{
-		{Name: "first-token", Token: " shared-token ", RuntimeProfileName: "pet-runtime"},
-		{Name: "second-token", Token: "second-token", RuntimeProfileName: "pet-runtime"},
+		{Name: "first-token", Token: " shared-token ", RuntimeProfileId: "pet-runtime"},
+		{Name: "second-token", Token: "second-token", RuntimeProfileId: "pet-runtime"},
 	} {
 		response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &item})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := response.(adminhttp.CreateRegistrationToken200JSONResponse); !ok {
+		created, ok := response.(adminhttp.CreateRegistrationToken200JSONResponse)
+		if !ok {
 			t.Fatalf("CreateRegistrationToken(%s) = %#v", item.Name, response)
 		}
+		createdIDs[item.Name] = created.Id
 	}
-	conflictingCreate := adminhttp.RegistrationTokenUpsert{Name: "third-token", Token: "shared-token", RuntimeProfileName: "pet-runtime"}
+	conflictingCreate := adminhttp.RegistrationTokenUpsert{Name: "third-token", Token: "shared-token", RuntimeProfileId: "pet-runtime"}
 	response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &conflictingCreate})
 	if err != nil {
 		t.Fatal(err)
@@ -232,15 +236,15 @@ func TestRegistrationTokenCollisionLeavesBothResourcesUnchanged(t *testing.T) {
 	if _, ok := response.(adminhttp.CreateRegistrationToken409JSONResponse); !ok {
 		t.Fatalf("conflicting create = %#v, want 409", response)
 	}
-	conflictingPut := adminhttp.RegistrationTokenUpsert{Name: "second-token", Token: " shared-token ", RuntimeProfileName: "pet-runtime"}
-	putResponse, err := s.PutRegistrationToken(ctx, adminhttp.PutRegistrationTokenRequestObject{Name: "second-token", Body: &conflictingPut})
+	conflictingPut := adminhttp.RegistrationTokenUpsert{Name: "second-token", Token: " shared-token ", RuntimeProfileId: "pet-runtime"}
+	putResponse, err := s.PutRegistrationToken(ctx, adminhttp.PutRegistrationTokenRequestObject{Id: createdIDs["second-token"], Body: &conflictingPut})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := putResponse.(adminhttp.PutRegistrationToken409JSONResponse); !ok {
 		t.Fatalf("conflicting put = %#v, want 409", putResponse)
 	}
-	second, err := s.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Name: "second-token"})
+	second, err := s.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Id: createdIDs["second-token"]})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -262,13 +266,13 @@ func TestRegistrationTokenAcceptsScopedAppName(t *testing.T) {
 	}
 	createProfile(t, s, "app-runtime", nil)
 	response, err := s.CreateRegistrationToken(context.Background(), adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "app:com.gizclaw.opensource", Token: "desktop-token", RuntimeProfileName: "app-runtime",
+		Name: "app:com.gizclaw.opensource", Token: "desktop-token", RuntimeProfileId: "app-runtime",
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	created, ok := response.(adminhttp.CreateRegistrationToken200JSONResponse)
-	if !ok || created.Name != "app:com.gizclaw.opensource" || created.RuntimeProfileName != "app-runtime" {
+	if !ok || created.Name != "app:com.gizclaw.opensource" || created.RuntimeProfileId != "app-runtime" {
 		t.Fatalf("CreateRegistrationToken() = %#v", response)
 	}
 }
@@ -294,7 +298,7 @@ func TestRegistrationTokenBindsOptionalFirmwareReleaseLine(t *testing.T) {
 	createProfile(t, s, "h106-production", nil)
 	firmwareID := " h106 "
 	response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "h106-token", Token: "h106-registration", RuntimeProfileName: "h106-production", FirmwareId: &firmwareID,
+		Name: "h106-token", Token: "h106-registration", RuntimeProfileId: "h106-production", FirmwareId: &firmwareID,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -303,7 +307,7 @@ func TestRegistrationTokenBindsOptionalFirmwareReleaseLine(t *testing.T) {
 	if !ok || created.FirmwareId == nil || *created.FirmwareId != "h106" {
 		t.Fatalf("CreateRegistrationToken() = %#v, want h106 firmware binding", response)
 	}
-	listed, err := s.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Name: "h106-token"})
+	listed, err := s.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +332,7 @@ func TestRegistrationTokenBindsOptionalFirmwareReleaseLine(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-				Name: test.name, Token: test.name + "-token", RuntimeProfileName: "h106-production", FirmwareId: &test.firmwareID,
+				Name: test.name, Token: test.name + "-token", RuntimeProfileId: "h106-production", FirmwareId: &test.firmwareID,
 			}})
 			if err != nil {
 				t.Fatal(err)
@@ -353,7 +357,7 @@ func TestConcurrentRegistrationTokenCreateKeepsNameAndHashIndexesConsistent(t *t
 	for range attempts {
 		wg.Go(func() {
 			response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-				Name: "pet-board", Token: "concurrent-token", RuntimeProfileName: "pet-runtime",
+				Name: "pet-board", Token: "concurrent-token", RuntimeProfileId: "pet-runtime",
 			}})
 			if err != nil {
 				t.Errorf("CreateRegistrationToken() error = %v", err)
@@ -590,7 +594,7 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 		Spec: apitypes.VoiceSpec{
 			Provider: apitypes.VoiceProvider{
 				Kind: apitypes.VoiceProviderKindVolcTenant,
-				Name: "other-tenant",
+				Id:   "other-tenant",
 			},
 		},
 	}
@@ -627,14 +631,14 @@ func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
 		"dash": {
 			Spec: apitypes.ModelSpec{
 				Kind:         apitypes.ModelKindRealtime,
-				Provider:     apitypes.ModelProvider{Kind: apitypes.ModelProviderKindDashscopeTenant, Name: "dash-main"},
+				Provider:     apitypes.ModelProvider{Kind: apitypes.ModelProviderKindDashscopeTenant, Id: "dash-main"},
 				ProviderData: dashData,
 			},
 		},
 		"duplex": {
 			Spec: apitypes.ModelSpec{
 				Kind:         apitypes.ModelKindRealtimeDuplex,
-				Provider:     apitypes.ModelProvider{Kind: apitypes.ModelProviderKindVolcTenant, Name: "volc-main"},
+				Provider:     apitypes.ModelProvider{Kind: apitypes.ModelProviderKindVolcTenant, Id: "volc-main"},
 				ProviderData: duplexData,
 			},
 		},
@@ -646,7 +650,7 @@ func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
 			Spec: apitypes.VoiceSpec{
 				Provider: apitypes.VoiceProvider{
 					Kind: apitypes.VoiceProviderKindDashscopeTenant,
-					Name: "dash-main",
+					Id:   "dash-main",
 				},
 			},
 		},
@@ -668,7 +672,7 @@ func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
 		Spec: apitypes.VoiceSpec{
 			Provider: apitypes.VoiceProvider{
 				Kind: apitypes.VoiceProviderKindVolcTenant,
-				Name: "volc-main",
+				Id:   "volc-main",
 			},
 		},
 	}
@@ -690,7 +694,7 @@ func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
 		Spec: apitypes.VoiceSpec{
 			Provider: apitypes.VoiceProvider{
 				Kind: apitypes.VoiceProviderKindVolcTenant,
-				Name: "other-volc-tenant",
+				Id:   "other-volc-tenant",
 			},
 		},
 	}
@@ -1221,7 +1225,7 @@ func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t 
 		}
 		return previousResolver(ctx, kind, name)
 	}
-	response, err := s.PutRuntimeProfile(t.Context(), adminhttp.PutRuntimeProfileRequestObject{Name: first.Name, Body: &updated})
+	response, err := s.PutRuntimeProfile(t.Context(), adminhttp.PutRuntimeProfileRequestObject{Id: first.Name, Body: &updated})
 	if err != nil {
 		t.Fatalf("PutRuntimeProfile() error = %v", err)
 	}
@@ -1293,6 +1297,9 @@ func TestBindOwnerProfileAndCommitRestoresBindingAfterRequestCancellation(t *tes
 
 func createProfile(t *testing.T, s *Server, name string, models map[string]string) {
 	t.Helper()
+	previousNewID := s.NewID
+	s.NewID = func() string { return name }
+	defer func() { s.NewID = previousNewID }()
 	previousResolver := s.ResolveResource
 	s.ResolveResource = func(ctx context.Context, kind apitypes.ResourceKind, resourceName string) (apitypes.Resource, error) {
 		if kind == apitypes.ResourceKindWorkflow {
@@ -1365,6 +1372,7 @@ func TestNormalizeMemoryBindingEnforcesStrictDriverConnectionOneOf(t *testing.T)
 		wantErr string
 	}{
 		{name: "managed Flowcraft BBH", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_bbh"}}`},
+		{name: "opaque canonical layout ID", raw: `{"layout_id":"1234opaque","driver":"flowcraft","connection":{"type":"flowcraft_bbh"}}`},
 		{name: "Flowcraft object store", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_object_store","directory":"/var/lib/gizclaw/memory"}}`},
 		{name: "Flowcraft PostgreSQL", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_postgresql","dsn":"postgres://gizclaw:secret@db/memory"}}`},
 		{name: "Mem0", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://api.mem0.ai","api_key":"key","poll_interval":"500ms"}}`},

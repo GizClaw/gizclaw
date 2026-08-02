@@ -15,7 +15,7 @@ class Servers extends Table {
 class WorkspaceEntries extends Table {
   TextColumn get serverId => text()();
   TextColumn get name => text()();
-  TextColumn get workflowAlias => text().named('workflow_name')();
+  TextColumn get workflowName => text().named('workflow_name')();
   TextColumn get collection => text().withDefault(const Constant(''))();
   DateTimeColumn get createdAt => dateTime().nullable()();
   DateTimeColumn get lastActiveAt => dateTime().nullable()();

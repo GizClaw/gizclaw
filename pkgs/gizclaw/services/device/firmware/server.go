@@ -11,11 +11,15 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
-var firmwaresRoot = kv.Key{"by-name"}
+var (
+	firmwaresRoot       = kv.Key{"by-id"}
+	firmwaresByNameRoot = kv.Key{"by-name"}
+)
 
 const (
 	defaultListLimit = 50
@@ -26,6 +30,7 @@ type Server struct {
 	Store  kv.Store
 	Assets objectstore.ObjectStore
 	Now    func() time.Time
+	NewID  func() string
 }
 
 type FirmwareAdminService interface {
@@ -76,16 +81,23 @@ func (s *Server) CreateFirmware(ctx context.Context, request adminhttp.CreateFir
 	if err != nil {
 		return adminhttp.CreateFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", err.Error())), nil
 	}
-	if _, err := Get(ctx, store, item.Name); err == nil {
-		return adminhttp.CreateFirmware409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ALREADY_EXISTS", fmt.Sprintf("firmware %q already exists", item.Name))), nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.CreateFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
+	item.Id = s.newID()
 	now := s.now()
 	item.CreatedAt = now
 	item.UpdatedAt = now
-	if err := Write(ctx, store, item); err != nil {
+	data, err := json.Marshal(item)
+	if err != nil {
 		return adminhttp.CreateFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	_, created, err := kv.CreateIfAbsent(ctx, store,
+		kv.Entry{Key: firmwareNameKey(item.Name), Value: []byte(item.Id)},
+		[]kv.Entry{{Key: firmwareKey(item.Id), Value: data}},
+	)
+	if err != nil {
+		return adminhttp.CreateFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	if !created {
+		return adminhttp.CreateFirmware409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ALREADY_EXISTS", fmt.Sprintf("firmware %q already exists", item.Name))), nil
 	}
 	return adminhttp.CreateFirmware200JSONResponse(item), nil
 }
@@ -95,21 +107,21 @@ func (s *Server) DeleteFirmware(ctx context.Context, request adminhttp.DeleteFir
 	if err != nil {
 		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	name, err := url.PathUnescape(string(request.Name))
+	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	item, err := Get(ctx, store, name)
+	item, err := Get(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.DeleteFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", name))), nil
+			return adminhttp.DeleteFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", id))), nil
 		}
 		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := store.Delete(ctx, firmwareKey(name)); err != nil {
+	if err := store.BatchDelete(ctx, []kv.Key{firmwareKey(id), firmwareNameKey(item.Name)}); err != nil {
 		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := s.deleteAssetPrefix(name); err != nil {
+	if err := s.deleteAssetPrefix(id); err != nil {
 		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteFirmware200JSONResponse(item), nil
@@ -120,14 +132,14 @@ func (s *Server) GetFirmware(ctx context.Context, request adminhttp.GetFirmwareR
 	if err != nil {
 		return adminhttp.GetFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	name, err := url.PathUnescape(string(request.Name))
+	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	item, err := Get(ctx, store, name)
+	item, err := Get(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.GetFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", name))), nil
+			return adminhttp.GetFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", id))), nil
 		}
 		return adminhttp.GetFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -142,25 +154,29 @@ func (s *Server) PutFirmware(ctx context.Context, request adminhttp.PutFirmwareR
 	if request.Body == nil {
 		return adminhttp.PutFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", "request body required")), nil
 	}
-	name, err := url.PathUnescape(string(request.Name))
+	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	item, err := normalizeFirmwareUpsert(*request.Body, name)
+	item, err := normalizeFirmwareUpsert(*request.Body, "")
 	if err != nil {
 		return adminhttp.PutFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", err.Error())), nil
 	}
-	previous, err := Get(ctx, store, name)
-	if err != nil && !errors.Is(err, kv.ErrNotFound) {
+	previous, err := Get(ctx, store, id)
+	if errors.Is(err, kv.ErrNotFound) {
+		return adminhttp.PutFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", id))), nil
+	}
+	if err != nil {
 		return adminhttp.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	now := s.now()
-	item.CreatedAt = now
-	item.UpdatedAt = now
-	if err == nil {
-		item.CreatedAt = previous.CreatedAt
-		mergeArtifactMetadata(previous.Slots, &item.Slots)
+	if item.Name != previous.Name {
+		return adminhttp.PutFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", fmt.Sprintf("name %q must match immutable name %q", item.Name, previous.Name))), nil
 	}
+	now := s.now()
+	item.UpdatedAt = now
+	item.Id = previous.Id
+	item.CreatedAt = previous.CreatedAt
+	mergeArtifactMetadata(previous.Slots, &item.Slots)
 	if err := Write(ctx, store, item); err != nil {
 		return adminhttp.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -168,17 +184,17 @@ func (s *Server) PutFirmware(ctx context.Context, request adminhttp.PutFirmwareR
 }
 
 func (s *Server) ReleaseFirmware(ctx context.Context, request adminhttp.ReleaseFirmwareRequestObject) (adminhttp.ReleaseFirmwareResponseObject, error) {
-	item, err := s.updateSlots(ctx, request.Name, releaseSlots)
+	item, err := s.updateSlots(ctx, request.Id, releaseSlots)
 	if err != nil {
-		return releaseError(request.Name, err), nil
+		return releaseError(request.Id, err), nil
 	}
 	return adminhttp.ReleaseFirmware200JSONResponse(item), nil
 }
 
 func (s *Server) RollbackFirmware(ctx context.Context, request adminhttp.RollbackFirmwareRequestObject) (adminhttp.RollbackFirmwareResponseObject, error) {
-	item, err := s.updateSlots(ctx, request.Name, rollbackSlots)
+	item, err := s.updateSlots(ctx, request.Id, rollbackSlots)
 	if err != nil {
-		return rollbackError(request.Name, err), nil
+		return rollbackError(request.Id, err), nil
 	}
 	return adminhttp.RollbackFirmware200JSONResponse(item), nil
 }
@@ -189,16 +205,16 @@ var (
 	errChannelNotFound     = errors.New("firmware channel not found")
 )
 
-func (s *Server) updateSlots(ctx context.Context, rawName string, mutate func(apitypes.FirmwareSlots) apitypes.FirmwareSlots) (apitypes.Firmware, error) {
+func (s *Server) updateSlots(ctx context.Context, rawID string, mutate func(apitypes.FirmwareSlots) apitypes.FirmwareSlots) (apitypes.Firmware, error) {
 	store, err := s.store()
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
-	name, err := url.PathUnescape(string(rawName))
+	id, err := url.PathUnescape(string(rawID))
 	if err != nil {
 		return apitypes.Firmware{}, fmt.Errorf("invalid params: %w", err)
 	}
-	item, err := Get(ctx, store, name)
+	item, err := Get(ctx, store, id)
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
@@ -253,8 +269,8 @@ func rollbackError(name string, err error) adminhttp.RollbackFirmwareResponseObj
 	return adminhttp.RollbackFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
 }
 
-func Get(ctx context.Context, store kv.Store, name string) (apitypes.Firmware, error) {
-	data, err := store.Get(ctx, firmwareKey(name))
+func Get(ctx context.Context, store kv.Store, id string) (apitypes.Firmware, error) {
+	data, err := store.Get(ctx, firmwareKey(id))
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
@@ -270,7 +286,7 @@ func Write(ctx context.Context, store kv.Store, item apitypes.Firmware) error {
 	if err != nil {
 		return fmt.Errorf("firmware: encode %s: %w", item.Name, err)
 	}
-	if err := store.Set(ctx, firmwareKey(item.Name), data); err != nil {
+	if err := store.Set(ctx, firmwareKey(item.Id), data); err != nil {
 		return fmt.Errorf("firmware: write %s: %w", item.Name, err)
 	}
 	return nil
@@ -357,8 +373,20 @@ func slotHasPayload(slot apitypes.FirmwareSlot) bool {
 	return false
 }
 
-func firmwareKey(name string) kv.Key {
-	return append(append(kv.Key{}, firmwaresRoot...), escapeStoreSegment(name))
+func GetByName(ctx context.Context, store kv.Store, name string) (apitypes.Firmware, error) {
+	id, err := store.Get(ctx, firmwareNameKey(name))
+	if err != nil {
+		return apitypes.Firmware{}, err
+	}
+	return Get(ctx, store, string(id))
+}
+
+func firmwareKey(id string) kv.Key {
+	return append(append(kv.Key{}, firmwaresRoot...), escapeStoreSegment(id))
+}
+
+func firmwareNameKey(name string) kv.Key {
+	return append(append(kv.Key{}, firmwaresByNameRoot...), escapeStoreSegment(name))
 }
 
 func escapeStoreSegment(value string) string {
@@ -429,6 +457,13 @@ func (s *Server) now() time.Time {
 	return time.Now().UTC()
 }
 
+func (s *Server) newID() string {
+	if s != nil && s.NewID != nil {
+		return s.NewID()
+	}
+	return socialutil.NewID()
+}
+
 func slotForChannel(slots *apitypes.FirmwareSlots, channel string) (*apitypes.FirmwareSlot, bool) {
 	switch channel {
 	case "stable":
@@ -444,15 +479,15 @@ func slotForChannel(slots *apitypes.FirmwareSlots, channel string) (*apitypes.Fi
 	}
 }
 
-func (s *Server) deleteAssetPrefix(name string) error {
+func (s *Server) deleteAssetPrefix(id string) error {
 	if s == nil || s.Assets == nil {
 		return nil
 	}
-	return s.Assets.DeletePrefix(firmwareAssetPrefix(name))
+	return s.Assets.DeletePrefix(firmwareAssetPrefix(id))
 }
 
-func firmwareAssetPrefix(name string) string {
-	return objectPathSegment(name)
+func firmwareAssetPrefix(id string) string {
+	return objectPathSegment(id)
 }
 
 func objectPathSegment(value string) string {

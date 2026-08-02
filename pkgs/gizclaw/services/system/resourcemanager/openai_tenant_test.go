@@ -16,7 +16,7 @@ func TestApplyOpenAITenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 		"metadata": {"name": "minimax"},
 		"spec": {
 			"kind": "compatible",
-			"credential_name": "minimax",
+			"credential_id": "minimax",
 			"base_url": "https://api.minimax.chat/v1",
 			"api_mode": "chat_completions"
 		}
@@ -29,6 +29,7 @@ func TestApplyOpenAITenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 	if result.Action != apitypes.ApplyActionCreated {
 		t.Fatalf("Apply(create OpenAITenant) action = %s", result.Action)
 	}
+	resource = withResourceID(t, resource, *result.Id)
 	result, err = manager.Apply(context.Background(), resource)
 	if err != nil {
 		t.Fatalf("Apply(unchanged OpenAITenant) error = %v", err)
@@ -43,12 +44,13 @@ func TestApplyOpenAITenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 		"metadata": {"name": "minimax"},
 		"spec": {
 			"kind": "compatible",
-			"credential_name": "minimax",
+			"credential_id": "minimax",
 			"base_url": "https://api.minimax.chat/v1",
 			"api_mode": "chat_completions",
 			"description": "MiniMax compatible endpoint"
 		}
 	}`)
+	updated = withResourceID(t, updated, *result.Id)
 	result, err = manager.Apply(context.Background(), updated)
 	if err != nil {
 		t.Fatalf("Apply(update OpenAITenant) error = %v", err)
@@ -65,11 +67,16 @@ func TestPutGetDeleteOpenAITenantResource(t *testing.T) {
 		"kind": "OpenAITenant",
 		"metadata": {"name": "minimax"},
 		"spec": {
-			"credential_name": "minimax",
+			"credential_id": "minimax",
 			"base_url": "https://api.minimax.chat/v1"
 		}
 	}`)
 
+	created, err := manager.Apply(context.Background(), resource)
+	if err != nil {
+		t.Fatalf("Apply(OpenAITenant) error = %v", err)
+	}
+	resource = withResourceID(t, resource, *created.Id)
 	stored, err := manager.Put(context.Background(), resource)
 	if err != nil {
 		t.Fatalf("Put(OpenAITenant) error = %v", err)
@@ -78,11 +85,12 @@ func TestPutGetDeleteOpenAITenantResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsOpenAITenantResource(Put) error = %v", err)
 	}
-	if tenant.Spec.CredentialName != "minimax" {
-		t.Fatalf("Put(OpenAITenant) credential_name = %s", tenant.Spec.CredentialName)
+	if tenant.Spec.CredentialId != "minimax" {
+		t.Fatalf("Put(OpenAITenant) credential_name = %s", tenant.Spec.CredentialId)
 	}
 
-	got, err := manager.Get(context.Background(), apitypes.ResourceKindOpenAITenant, "minimax")
+	id := *created.Id
+	got, err := manager.Get(context.Background(), apitypes.ResourceKindOpenAITenant, id)
 	if err != nil {
 		t.Fatalf("Get(OpenAITenant) error = %v", err)
 	}
@@ -94,7 +102,7 @@ func TestPutGetDeleteOpenAITenantResource(t *testing.T) {
 		t.Fatalf("Get(OpenAITenant) metadata.name = %s", gotTenant.Metadata.Name)
 	}
 
-	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindOpenAITenant, "minimax")
+	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindOpenAITenant, id)
 	if err != nil {
 		t.Fatalf("Delete(OpenAITenant) error = %v", err)
 	}
@@ -105,9 +113,9 @@ func TestPutGetDeleteOpenAITenantResource(t *testing.T) {
 	if deletedTenant.Metadata.Name != "minimax" {
 		t.Fatalf("Delete(OpenAITenant) metadata.name = %s", deletedTenant.Metadata.Name)
 	}
-	_, err = manager.Get(context.Background(), apitypes.ResourceKindOpenAITenant, "minimax")
+	_, err = manager.Get(context.Background(), apitypes.ResourceKindOpenAITenant, id)
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
-	_, err = manager.Delete(context.Background(), apitypes.ResourceKindOpenAITenant, "minimax")
+	_, err = manager.Delete(context.Background(), apitypes.ResourceKindOpenAITenant, id)
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
 }
 
@@ -133,7 +141,7 @@ func TestOpenAITenantMissingServiceErrors(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "OpenAITenant",
 		"metadata": {"name": "minimax"},
-		"spec": {"credential_name": "minimax"}
+		"spec": {"credential_id": "minimax"}
 	}`)
 
 	if _, err := manager.Get(context.Background(), apitypes.ResourceKindOpenAITenant, "minimax"); err == nil {
@@ -156,7 +164,7 @@ func TestApplyOpenAITenantRejectsInvalidHeader(t *testing.T) {
 		"apiVersion": "unsupported",
 		"kind": "OpenAITenant",
 		"metadata": {"name": "minimax"},
-		"spec": {"credential_name": "minimax"}
+		"spec": {"credential_id": "minimax"}
 	}`)
 	_, err := manager.Apply(context.Background(), resource)
 	assertResourceError(t, err, 400, "UNSUPPORTED_RESOURCE_VERSION")

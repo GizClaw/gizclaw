@@ -2,9 +2,12 @@ package gizclaw
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/asttranslate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/chatroom"
@@ -22,6 +25,7 @@ import (
 
 func newPeerAgentHost(
 	base *agenthost.Host,
+	workspaces peerAgentWorkspaceResolver,
 	peerGenX *peergenx.Service,
 	ownerGenX func(context.Context, string) (*peergenx.Service, error),
 	pets petagent.ContextProvider,
@@ -33,7 +37,11 @@ func newPeerAgentHost(
 	if base == nil {
 		return nil
 	}
-	host := agenthost.New(base.Resolver)
+	resolver := base.Resolver
+	if workspaces != nil {
+		resolver = peerAgentResolver{base: resolver, workspaces: workspaces}
+	}
+	host := agenthost.New(resolver)
 	host.Coordinator = base.Coordinator
 	host.RuntimeRegistry = base.WorkspaceRuntimes()
 
@@ -76,4 +84,33 @@ func newPeerAgentHost(
 	})
 	_ = host.Register(petagent.Type, petagent.Factory{Pets: pets, Factories: host.Registry})
 	return host
+}
+
+type peerAgentWorkspaceResolver interface {
+	ResolveRunWorkspaceSelection(context.Context, string) (apitypes.Workspace, *rpcapi.RPCError)
+}
+
+type canonicalAgentResolver interface {
+	ResolveByID(context.Context, string) (agenthost.Spec, error)
+}
+
+type peerAgentResolver struct {
+	base       agenthost.Resolver
+	workspaces peerAgentWorkspaceResolver
+}
+
+func (r peerAgentResolver) Resolve(ctx context.Context, pattern string) (agenthost.Spec, error) {
+	name, err := agenthost.ParseWorkspacePattern(pattern)
+	if err != nil {
+		return agenthost.Spec{}, err
+	}
+	workspace, rpcErr := r.workspaces.ResolveRunWorkspaceSelection(ctx, name)
+	if rpcErr != nil {
+		return agenthost.Spec{}, errors.New(rpcErr.Message)
+	}
+	resolver, ok := r.base.(canonicalAgentResolver)
+	if !ok {
+		return agenthost.Spec{}, errors.New("agenthost: canonical Workspace resolver is required")
+	}
+	return resolver.ResolveByID(ctx, workspace.Id)
 }

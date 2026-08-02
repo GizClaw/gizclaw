@@ -38,7 +38,7 @@ export function VoiceDetailPage(): JSX.Element {
     try {
       const [nextVoice, nextResource] = await Promise.all([
         expectData(getVoice({ path: { id: voiceID } })),
-        expectData(getResource({ path: { kind: "Voice", name: voiceID } })),
+        expectData(getResource({ path: { kind: "Voice", id: voiceID } })),
       ]);
       setVoice(nextVoice);
       setVoiceResource(nextResource);
@@ -200,7 +200,7 @@ function providerDataString(voice: Voice, key: string): string | undefined {
 }
 
 function providerDisplayText(voice: Voice): string {
-  return `${providerPrefix(voice.provider.kind)}/${voice.provider.name}`;
+  return `${providerPrefix(voice.provider.kind)}/${voice.provider.id}`;
 }
 
 function providerPrefix(kind: string): string {
@@ -238,14 +238,14 @@ function cliCommands(voice: Voice): string {
     `gizclaw admin --context <admin-cli-context> delete Voice ${id}`,
   );
   if (voice.provider.kind === "volc-tenant") {
-    const tenantName = shellQuote(voice.provider.name);
+    const tenantID = shellQuote(voice.provider.id);
     commands.push(
       ``,
       `# Show the Volcengine tenant that owns this voice`,
-      `gizclaw admin --context <admin-cli-context> show VolcTenant ${tenantName}`,
+      `gizclaw admin --context <admin-cli-context> show VolcTenant ${tenantID}`,
       ``,
       `# Re-sync voices from this Volcengine tenant`,
-      `gizclaw admin volc-tenants --context <admin-cli-context> sync-voices ${tenantName}`,
+      `gizclaw admin volc-tenants --context <admin-cli-context> sync-voices ${tenantID}`,
     );
   }
   return commands.join("\n");

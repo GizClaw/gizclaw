@@ -59,7 +59,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		t.Fatalf("ListWorkflows() = %#v", listed)
 	}
 
-	getResp, err := srv.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: "demo-assistant"})
+	getResp, err := srv.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("GetWorkflow() error = %v", err)
 	}
@@ -87,7 +87,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		}
 	}`)
 	putResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{
-		Name: "demo-assistant",
+		Id:   created.Id,
 		Body: &updateDoc,
 	})
 	if err != nil {
@@ -102,7 +102,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		t.Fatalf("PutWorkflow() spec = %#v", putSingle.Spec)
 	}
 
-	deleteResp, err := srv.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: "demo-assistant"})
+	deleteResp, err := srv.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("DeleteWorkflow() error = %v", err)
 	}
@@ -110,7 +110,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		t.Fatalf("DeleteWorkflow() response = %#v", deleteResp)
 	}
 
-	getAfterDelete, err := srv.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: "demo-assistant"})
+	getAfterDelete, err := srv.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("GetWorkflow() after delete error = %v", err)
 	}
@@ -124,7 +124,7 @@ func TestServerRejectsUnknownWorkflowDriver(t *testing.T) {
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	doc := apitypes.Workflow{
+	doc := adminhttp.WorkflowUpsert{
 		Name: "bad-workflow",
 		Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriver("bad-driver")},
 	}
@@ -245,7 +245,7 @@ func TestServerRejectsEmptyFlowcraftSpec(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	empty := apitypes.FlowcraftWorkflowSpec{}
-	doc := apitypes.Workflow{Name: "empty-flowcraft", Spec: apitypes.WorkflowSpec{
+	doc := adminhttp.WorkflowUpsert{Name: "empty-flowcraft", Spec: apitypes.WorkflowSpec{
 		Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &empty,
 	}}
 
@@ -301,7 +301,7 @@ func TestServerRejectsInvalidChatRoomWorkflowSpec(t *testing.T) {
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	cases := map[string]apitypes.Workflow{
+	cases := map[string]adminhttp.WorkflowUpsert{
 		"missing chatroom": {
 			Name: "missing-chatroom",
 			Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverChatroom},
@@ -324,7 +324,7 @@ func TestServerRejectsInvalidToolkitPolicy(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	toolIDs := []string{""}
-	doc := apitypes.Workflow{
+	doc := adminhttp.WorkflowUpsert{
 		Name: "bad-toolkit",
 		Spec: apitypes.WorkflowSpec{
 			Driver:  apitypes.WorkflowDriverFlowcraft,
@@ -340,11 +340,11 @@ func TestServerRejectsInvalidToolkitPolicy(t *testing.T) {
 		t.Fatalf("CreateWorkflow() response = %#v", createResp)
 	}
 
-	putResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Name: "bad-toolkit", Body: &doc})
+	putResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Id: "bad-toolkit", Body: &doc})
 	if err != nil {
 		t.Fatalf("PutWorkflow() error = %v", err)
 	}
-	if _, ok := putResp.(adminhttp.PutWorkflow400JSONResponse); !ok {
+	if _, ok := putResp.(adminhttp.PutWorkflow404JSONResponse); !ok {
 		t.Fatalf("PutWorkflow() response = %#v", putResp)
 	}
 }
@@ -355,7 +355,7 @@ func TestServerNormalizesNestedPetToolkitPolicy(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	toolIDs := []string{" tool-b ", "tool-a", "tool-a"}
-	doc := apitypes.Workflow{
+	doc := adminhttp.WorkflowUpsert{
 		Name: "pet-care",
 		Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverPet,
@@ -384,7 +384,7 @@ func TestServerNormalizesNestedPetToolkitPolicy(t *testing.T) {
 
 	invalidIDs := []string{" "}
 	doc.Spec.Pet.Toolkit = &apitypes.ToolkitPolicy{ToolIds: &invalidIDs}
-	invalidResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Name: doc.Name, Body: &doc})
+	invalidResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Id: created.Id, Body: &doc})
 	if err != nil {
 		t.Fatalf("PutWorkflow() error = %v", err)
 	}
@@ -419,6 +419,17 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 
 	srv := newTestServer(t)
 	ctx := context.Background()
+	seed := mustDocument(t, `{
+		"name": "expected-name",
+		"spec": {
+			"driver": "flowcraft",
+			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
+	}`)
+	createdResponse, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &seed})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created := createdResponse.(adminhttp.CreateWorkflow200JSONResponse)
 	doc := mustDocument(t, `{
 		"name": "other-name",
 		"spec": {
@@ -427,7 +438,7 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 	}`)
 
 	resp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{
-		Name: "expected-name",
+		Id:   created.Id,
 		Body: &doc,
 	})
 	if err != nil {
@@ -445,7 +456,7 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 		t.Fatalf("CreateWorkflow(nil body) response = %#v", nilCreateResp)
 	}
 
-	nilPutResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Name: "expected-name"})
+	nilPutResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Id: "expected-name"})
 	if err != nil {
 		t.Fatalf("PutWorkflow(nil body) error = %v", err)
 	}
@@ -549,7 +560,7 @@ func TestServerWorkflowConflictAndMissingDelete(t *testing.T) {
 		t.Fatalf("CreateWorkflow(duplicate) response = %#v", duplicateResp)
 	}
 
-	deleteResp, err := srv.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: "missing"})
+	deleteResp, err := srv.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Id: "missing"})
 	if err != nil {
 		t.Fatalf("DeleteWorkflow(missing) error = %v", err)
 	}
@@ -584,7 +595,7 @@ func TestServerWorkflowStoreNotConfigured(t *testing.T) {
 	if _, ok := createResp.(adminhttp.CreateWorkflow500JSONResponse); !ok {
 		t.Fatalf("CreateWorkflow() response = %#v", createResp)
 	}
-	getResp, err := srv.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: "missing-store"})
+	getResp, err := srv.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: "missing-store"})
 	if err != nil {
 		t.Fatalf("GetWorkflow() error = %v", err)
 	}
@@ -598,7 +609,7 @@ func TestServerRejectsMissingWorkflowRequiredFields(t *testing.T) {
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	for name, doc := range map[string]apitypes.Workflow{
+	for name, doc := range map[string]adminhttp.WorkflowUpsert{
 		"name": {
 			Spec: apitypes.WorkflowSpec{
 				Driver:   apitypes.WorkflowDriverChatroom,
@@ -623,7 +634,7 @@ func TestServerRejectsUnsupportedWorkflowDriver(t *testing.T) {
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	doc := apitypes.Workflow{
+	doc := adminhttp.WorkflowUpsert{
 		Name: "bad-version",
 		Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriver("example-invalid")},
 	}
@@ -645,11 +656,12 @@ func TestWorkflowResponseVisitors(t *testing.T) {
 			"driver": "flowcraft",
 			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
+	responseDoc := apitypes.Workflow{Name: doc.Name, Spec: doc.Spec}
 	cases := map[string]func(*fiber.Ctx) error{
-		"create": createWorkflow200Response{doc: doc}.VisitCreateWorkflowResponse,
-		"get":    getWorkflow200Response{doc: doc}.VisitGetWorkflowResponse,
-		"put":    putWorkflow200Response{doc: doc}.VisitPutWorkflowResponse,
-		"delete": deleteWorkflow200Response{doc: doc}.VisitDeleteWorkflowResponse,
+		"create": createWorkflow200Response{doc: responseDoc}.VisitCreateWorkflowResponse,
+		"get":    getWorkflow200Response{doc: responseDoc}.VisitGetWorkflowResponse,
+		"put":    putWorkflow200Response{doc: responseDoc}.VisitPutWorkflowResponse,
+		"delete": deleteWorkflow200Response{doc: responseDoc}.VisitDeleteWorkflowResponse,
 	}
 	for name, visit := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -682,10 +694,10 @@ func newTestServer(t *testing.T) *Server {
 	return &Server{Store: store}
 }
 
-func mustDocument(t *testing.T, raw string) apitypes.Workflow {
+func mustDocument(t *testing.T, raw string) adminhttp.WorkflowUpsert {
 	t.Helper()
 
-	var doc apitypes.Workflow
+	var doc adminhttp.WorkflowUpsert
 	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
@@ -698,8 +710,8 @@ func workflowDriver(t *testing.T, doc apitypes.Workflow) string {
 	return string(doc.Spec.Driver)
 }
 
-func mustSingle(t *testing.T, doc apitypes.Workflow) apitypes.Workflow {
+func mustSingle(t *testing.T, doc apitypes.Workflow) adminhttp.WorkflowUpsert {
 	t.Helper()
 
-	return doc
+	return adminhttp.WorkflowUpsert{Name: doc.Name, Spec: doc.Spec}
 }
