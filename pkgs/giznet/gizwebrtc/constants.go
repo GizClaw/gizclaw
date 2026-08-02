@@ -16,11 +16,11 @@ const (
 	// The previous 1400-byte split multiplied every tunnel frame into dozens of
 	// SCTP messages and throttled sustained Edge throughput.
 	streamChunkSize = 32 * 1024
-	// One Edge upstream carries several logical sessions. Allow four 1 MiB
-	// transfers to remain in flight before applying bounded backpressure so one
-	// session cannot make every sibling wait for the low-water callback.
-	streamWriteHighWater = 4 * 1024 * 1024
-	streamWriteLowWater  = 1 * 1024 * 1024
+	// BufferedAmount is scoped to one DataChannel, while several service
+	// DataChannels share one SCTP association. Keep each channel's queue small
+	// enough that a burst cannot hide tens of MiB behind one association.
+	streamWriteHighWater = 512 * 1024
+	streamWriteLowWater  = 128 * 1024
 	readPacketQueueSize  = 256
 	acceptQueueSize      = 64
 	serviceQueueSize     = 64
