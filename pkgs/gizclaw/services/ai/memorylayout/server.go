@@ -86,12 +86,12 @@ func (s *Server) CreateMemoryLayout(ctx context.Context, request adminhttp.Creat
 	if request.Body == nil {
 		return adminhttp.CreateMemoryLayout400JSONResponse(apitypes.NewErrorResponse("INVALID_MEMORY_LAYOUT", "request body required")), nil
 	}
-	item, raw, err := validate(upsertToLayout(*request.Body), "")
+	item, _, err := validate(upsertToLayout(*request.Body), "")
 	if err != nil {
 		return adminhttp.CreateMemoryLayout400JSONResponse(apitypes.NewErrorResponse("INVALID_MEMORY_LAYOUT", err.Error())), nil
 	}
 	item.Id = s.newID()
-	raw, err = json.Marshal(item)
+	raw, err := json.Marshal(item)
 	if err != nil {
 		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -154,14 +154,14 @@ func (s *Server) PutMemoryLayout(ctx context.Context, request adminhttp.PutMemor
 	if err != nil {
 		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	item, raw, err := validate(upsertToLayout(*request.Body), previous.Name)
+	item, _, err := validate(upsertToLayout(*request.Body), previous.Name)
 	if err != nil {
 		return adminhttp.PutMemoryLayout400JSONResponse(apitypes.NewErrorResponse("INVALID_MEMORY_LAYOUT", err.Error())), nil
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
 	item.Id = previous.Id
-	raw, err = json.Marshal(item)
+	raw, err := json.Marshal(item)
 	if err != nil {
 		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
