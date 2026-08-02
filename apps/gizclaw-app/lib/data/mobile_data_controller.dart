@@ -1148,8 +1148,14 @@ class MobileDataController extends ChangeNotifier {
     await _groupClient().clearFriendGroupInviteToken(friendGroupName.trim());
   }
 
-  Future<FriendGroupObject> joinFriendGroup(String inviteToken) async {
-    final response = await _groupClient().joinFriendGroup(inviteToken.trim());
+  Future<FriendGroupObject> joinFriendGroup(
+    String name,
+    String inviteToken,
+  ) async {
+    final response = await _groupClient().joinFriendGroup(
+      name: name.trim(),
+      inviteToken: inviteToken.trim(),
+    );
     await refresh();
     return response.group;
   }

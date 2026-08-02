@@ -3,9 +3,11 @@ package memorylayout
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -109,6 +111,58 @@ func TestServerConcurrentCreateHasSingleWinner(t *testing.T) {
 	}
 	if created != 1 || conflicts != 1 {
 		t.Fatalf("created = %d, conflicts = %d; want 1 and 1", created, conflicts)
+	}
+}
+
+func TestServerSerializesPutWithDelete(t *testing.T) {
+	server := newTestServer(t)
+	layout := testLayout(t, "pet-memory")
+	createdResponse, err := server.CreateMemoryLayout(t.Context(), adminhttp.CreateMemoryLayoutRequestObject{Body: &layout})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created := createdResponse.(adminhttp.CreateMemoryLayout200JSONResponse)
+
+	blocked := &blockingMemoryLayoutGetStore{
+		Store:   server.Store,
+		key:     layoutKey(created.Id).String(),
+		reached: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	server.Store = blocked
+	layout.Spec.Mem0.CustomInstructions = new("updated")
+	putDone := make(chan adminhttp.PutMemoryLayoutResponseObject, 1)
+	go func() {
+		response, putErr := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Id: created.Id, Body: &layout})
+		if putErr != nil {
+			t.Errorf("PutMemoryLayout() error = %v", putErr)
+		}
+		putDone <- response
+	}()
+	<-blocked.reached
+
+	deleteDone := make(chan adminhttp.DeleteMemoryLayoutResponseObject, 1)
+	go func() {
+		response, deleteErr := server.DeleteMemoryLayout(t.Context(), adminhttp.DeleteMemoryLayoutRequestObject{Id: created.Id})
+		if deleteErr != nil {
+			t.Errorf("DeleteMemoryLayout() error = %v", deleteErr)
+		}
+		deleteDone <- response
+	}()
+	select {
+	case response := <-deleteDone:
+		t.Fatalf("DeleteMemoryLayout() completed during PutMemoryLayout() read: %#v", response)
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(blocked.release)
+	if response := <-putDone; response == nil {
+		t.Fatal("PutMemoryLayout() response = nil")
+	}
+	if response := <-deleteDone; response == nil {
+		t.Fatal("DeleteMemoryLayout() response = nil")
+	}
+	if _, err := server.Store.Get(t.Context(), layoutNameKey(created.Name)); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("name index after serialized delete error = %v, want kv.ErrNotFound", err)
 	}
 }
 
@@ -256,4 +310,22 @@ func testLayout(t *testing.T, name string) adminhttp.MemoryLayoutUpsert {
 func analyzerPtr(value string) *apitypes.FlowcraftMemoryBlevePolicyAnalyzer {
 	typed := apitypes.FlowcraftMemoryBlevePolicyAnalyzer(value)
 	return &typed
+}
+
+type blockingMemoryLayoutGetStore struct {
+	kv.Store
+	key     string
+	once    sync.Once
+	reached chan struct{}
+	release chan struct{}
+}
+
+func (s *blockingMemoryLayoutGetStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	if key.String() == s.key {
+		s.once.Do(func() {
+			close(s.reached)
+			<-s.release
+		})
+	}
+	return s.Store.Get(ctx, key)
 }

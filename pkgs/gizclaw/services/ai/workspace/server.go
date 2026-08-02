@@ -328,9 +328,20 @@ func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, norm
 			return apitypes.Workspace{}, err
 		}
 	}
+	cleanupRuntime := func(cause error) error {
+		if s.RuntimeStore == nil {
+			return cause
+		}
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+		defer cancel()
+		if err := s.RuntimeStore.DeleteWorkspaceRuntime(cleanupCtx, workspace.Id); err != nil {
+			return errors.Join(cause, fmt.Errorf("delete prepared Workspace runtime: %w", err))
+		}
+		return cause
+	}
 	data, err := json.Marshal(workspace)
 	if err != nil {
-		return apitypes.Workspace{}, err
+		return apitypes.Workspace{}, cleanupRuntime(err)
 	}
 	entries := []kv.Entry{{Key: workspaceKey(workspace.Id), Value: data}}
 	if workspace.OwnerPublicKey != nil && !system {
@@ -341,10 +352,10 @@ func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, norm
 		entries,
 	)
 	if err != nil {
-		return apitypes.Workspace{}, err
+		return apitypes.Workspace{}, cleanupRuntime(err)
 	}
 	if !created {
-		return apitypes.Workspace{}, fmt.Errorf("workspace %q already exists", workspace.Name)
+		return apitypes.Workspace{}, cleanupRuntime(fmt.Errorf("workspace %q already exists", workspace.Name))
 	}
 	return workspace, nil
 }

@@ -143,6 +143,8 @@ func (s *Server) PutMemoryLayout(ctx context.Context, request adminhttp.PutMemor
 	if err != nil {
 		return nil, err
 	}
+	s.mutationMu.Lock()
+	defer s.mutationMu.Unlock()
 	previousRaw, err := s.Store.Get(ctx, layoutKey(id))
 	if errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.PutMemoryLayout404JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_NOT_FOUND", fmt.Sprintf("memory layout %q not found", id))), nil
@@ -158,8 +160,6 @@ func (s *Server) PutMemoryLayout(ctx context.Context, request adminhttp.PutMemor
 	if err != nil {
 		return adminhttp.PutMemoryLayout400JSONResponse(apitypes.NewErrorResponse("INVALID_MEMORY_LAYOUT", err.Error())), nil
 	}
-	s.mutationMu.Lock()
-	defer s.mutationMu.Unlock()
 	item.Id = previous.Id
 	raw, err := json.Marshal(item)
 	if err != nil {

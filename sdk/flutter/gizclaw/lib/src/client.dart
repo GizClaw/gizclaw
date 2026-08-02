@@ -256,10 +256,28 @@ class GizClawClient {
     );
   }
 
-  Future<payload.FriendGroupJoinResponse> joinFriendGroup(String inviteToken) {
+  Future<payload.FriendGroupJoinResponse> joinFriendGroup({
+    required String name,
+    required String inviteToken,
+  }) {
+    final normalizedName = name.trim();
+    final normalizedInviteToken = inviteToken.trim();
+    if (normalizedName.isEmpty) {
+      throw ArgumentError.value(name, 'name', 'must not be empty');
+    }
+    if (normalizedInviteToken.isEmpty) {
+      throw ArgumentError.value(
+        inviteToken,
+        'inviteToken',
+        'must not be empty',
+      );
+    }
     return rpc.call<payload.FriendGroupJoinResponse>(
       'server.friend_group.join',
-      payload.FriendGroupJoinRequest(inviteToken: inviteToken),
+      payload.FriendGroupJoinRequest(
+        name: normalizedName,
+        inviteToken: normalizedInviteToken,
+      ),
     );
   }
 
@@ -389,10 +407,14 @@ class GizClawClient {
   }
 
   Future<payload.RuntimeAdoptResponse> adoptPet({
-    String? name,
+    required String name,
     required String displayName,
   }) {
+    final normalizedName = name.trim();
     final normalizedDisplayName = displayName.trim();
+    if (normalizedName.isEmpty) {
+      throw ArgumentError.value(name, 'name', 'must not be empty');
+    }
     if (normalizedDisplayName.isEmpty) {
       throw ArgumentError.value(
         displayName,
@@ -400,8 +422,7 @@ class GizClawClient {
         'must not be empty',
       );
     }
-    final value = payload.PetAdoptRequest();
-    if (name != null) value.name = name;
+    final value = payload.PetAdoptRequest(name: normalizedName);
     value.displayName = normalizedDisplayName;
     return rpc.call<payload.RuntimeAdoptResponse>(
       'runtime.adopt',

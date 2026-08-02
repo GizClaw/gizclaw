@@ -493,6 +493,31 @@ func TestServerSystemWorkspaceClassificationComesFromCreationPath(t *testing.T) 
 	}
 }
 
+func TestServerCreateWorkspaceDeletesPreparedRuntimeWhenRecordCreationFails(t *testing.T) {
+	srv := newTestServer(t)
+	runtime := &recordingRuntimeStore{}
+	srv.RuntimeStore = runtime
+	srv.NewID = func() string { return "workspace-failed-create" }
+	seedWorkflow(t, srv, "workflow-1")
+	srv.Store = failingCreateIfAbsentStore{Store: srv.Store, err: errors.New("injected create failure")}
+	body := adminhttp.WorkspaceUpsert{Name: "failed-create", WorkflowId: "workflow-1"}
+
+	response, err := srv.CreateWorkspace(t.Context(), adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	if err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	internal, ok := response.(adminhttp.CreateWorkspace500JSONResponse)
+	if !ok || !strings.Contains(internal.Error.Message, "injected create failure") {
+		t.Fatalf("CreateWorkspace() response = %#v, want injected 500", response)
+	}
+	if len(runtime.prepared) != 1 || runtime.prepared[0] != "workspace-failed-create" {
+		t.Fatalf("prepared runtimes = %#v", runtime.prepared)
+	}
+	if len(runtime.deleted) != 1 || runtime.deleted[0] != "workspace-failed-create" {
+		t.Fatalf("deleted runtimes = %#v, want prepared runtime cleanup", runtime.deleted)
+	}
+}
+
 func TestServerRejectsWorkspaceRecordsOutsideFinalSchema(t *testing.T) {
 	t.Parallel()
 
@@ -1466,6 +1491,15 @@ func mustWorkspaceUpsert(t *testing.T, raw string) adminhttp.WorkspaceUpsert {
 type recordingRuntimeStore struct {
 	prepared []string
 	deleted  []string
+}
+
+type failingCreateIfAbsentStore struct {
+	kv.Store
+	err error
+}
+
+func (s failingCreateIfAbsentStore) CreateIfAbsent(context.Context, kv.Entry, []kv.Entry) ([]byte, bool, error) {
+	return nil, false, s.err
 }
 
 func (s *recordingRuntimeStore) PrepareWorkspace(_ context.Context, workspace string) (Runtime, error) {

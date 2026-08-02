@@ -302,3 +302,73 @@ func strPtr(v string) *string {
 func intPtr(v int) *int {
 	return &v
 }
+
+func TestPutAndDeleteContactAreSerialized(t *testing.T) {
+	s := newTestServer()
+	created, err := s.CreateContact(t.Context(), "peer-a", rpcapi.ContactCreateRequest{
+		Name:        "alice001",
+		DisplayName: new("Alice"),
+	})
+	if err != nil {
+		t.Fatalf("CreateContact() error = %v", err)
+	}
+	id, err := s.resolveContactName(t.Context(), "peer-a", created.Name)
+	if err != nil {
+		t.Fatalf("resolveContactName() error = %v", err)
+	}
+	blocked := &blockingContactGetStore{
+		Store:   s.Store,
+		key:     socialutil.ContactKey("peer-a", id).String(),
+		reached: make(chan struct{}, 1),
+		release: make(chan struct{}),
+	}
+	s.Store = blocked
+	putDone := make(chan error, 1)
+	go func() {
+		_, putErr := s.PutContact(t.Context(), "peer-a", rpcapi.ContactPutRequest{
+			Name:        created.Name,
+			DisplayName: new("Alice Updated"),
+		})
+		putDone <- putErr
+	}()
+	<-blocked.reached
+
+	deleteDone := make(chan error, 1)
+	go func() {
+		_, deleteErr := s.DeleteContact(t.Context(), "peer-a", rpcapi.ContactDeleteRequest{Name: created.Name})
+		deleteDone <- deleteErr
+	}()
+	select {
+	case deleteErr := <-deleteDone:
+		t.Fatalf("DeleteContact() completed during PutContact() read: %v", deleteErr)
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(blocked.release)
+	if err := <-putDone; err != nil {
+		t.Fatalf("PutContact() error = %v", err)
+	}
+	if err := <-deleteDone; err != nil {
+		t.Fatalf("DeleteContact() error = %v", err)
+	}
+	if _, err := s.GetContact(t.Context(), "peer-a", rpcapi.ContactGetRequest{Name: created.Name}); err != kv.ErrNotFound {
+		t.Fatalf("GetContact() after delete error = %v, want kv.ErrNotFound", err)
+	}
+}
+
+type blockingContactGetStore struct {
+	kv.Store
+	key     string
+	reached chan struct{}
+	release chan struct{}
+}
+
+func (s *blockingContactGetStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	if key.String() == s.key {
+		select {
+		case s.reached <- struct{}{}:
+		default:
+		}
+		<-s.release
+	}
+	return s.Store.Get(ctx, key)
+}

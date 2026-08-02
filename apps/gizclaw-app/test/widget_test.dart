@@ -985,6 +985,10 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(
+      find.byKey(const ValueKey('group-local-name-field')),
+      ' local-crew ',
+    );
+    await tester.enterText(
       find.byKey(const ValueKey('group-invite-token-field')),
       ' group-invite ',
     );
@@ -994,6 +998,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pump(const Duration(milliseconds: 700));
 
+    expect(controller.joinedGroupName, 'local-crew');
     expect(controller.joinedInviteToken, 'group-invite');
     expect(find.byKey(const ValueKey('join-group-sheet')), findsNothing);
     expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
@@ -1564,6 +1569,7 @@ class _GroupInviteController extends MobileDataController {
   String? deletedGroupId;
   String? inviteGroupId;
   String? joinedInviteToken;
+  String? joinedGroupName;
   String? removedMemberId;
 
   @override
@@ -1647,7 +1653,11 @@ class _GroupInviteController extends MobileDataController {
   }
 
   @override
-  Future<FriendGroupObject> joinFriendGroup(String inviteToken) async {
+  Future<FriendGroupObject> joinFriendGroup(
+    String name,
+    String inviteToken,
+  ) async {
+    joinedGroupName = name;
     joinedInviteToken = inviteToken;
     chatroomWorkspaces = const [
       ChatroomWorkspaceMetadata(

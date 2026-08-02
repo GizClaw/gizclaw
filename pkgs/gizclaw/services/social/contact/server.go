@@ -271,6 +271,8 @@ func (s *Server) putContactByID(ctx context.Context, owner, id string, displayNa
 	if err != nil {
 		return rpcapi.ContactObject{}, err
 	}
+	s.mutationMu.Lock()
+	defer s.mutationMu.Unlock()
 	item, err := socialutil.ReadJSONValue[rpcapi.ContactObject](ctx, store, socialutil.ContactKey(owner, id))
 	if err != nil {
 		return rpcapi.ContactObject{}, err
@@ -311,6 +313,8 @@ func (s *Server) deleteContactByID(ctx context.Context, owner, id string) (rpcap
 	if err != nil {
 		return rpcapi.ContactObject{}, err
 	}
+	s.mutationMu.Lock()
+	defer s.mutationMu.Unlock()
 	item, err := socialutil.ReadJSONValue[rpcapi.ContactObject](ctx, store, socialutil.ContactKey(owner, id))
 	if err != nil {
 		return rpcapi.ContactObject{}, err

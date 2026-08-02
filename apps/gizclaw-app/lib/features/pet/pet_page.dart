@@ -140,7 +140,7 @@ class _PetPageState extends State<PetPage> {
     try {
       final response = await MobileDataScope.watch(
         context,
-      ).runRpc((client) => client.adoptPet(displayName: name));
+      ).runRpc((client) => client.adoptPet(name: name, displayName: name));
       await _loadPets();
       if (mounted) context.push('/pets/${response.value.pet.name}');
     } catch (error) {

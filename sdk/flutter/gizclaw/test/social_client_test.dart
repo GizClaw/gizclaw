@@ -205,12 +205,16 @@ void main() {
     );
     expect((await createFuture).inviteToken, 'invite-b');
 
-    final joinFuture = client.joinFriendGroup('invite-group');
+    final joinFuture = client.joinFriendGroup(
+      name: ' group-local ',
+      inviteToken: ' invite-group ',
+    );
     final joinRequest = await _request(factory, 2);
     final joinPayload =
         decodeRpcRequestPayload('server.friend_group.join', joinRequest.payload)
             as payload.FriendGroupJoinRequest;
     expect(joinPayload.inviteToken, 'invite-group');
+    expect(joinPayload.name, 'group-local');
     _respond(
       factory.channels[2],
       joinRequest.id,
