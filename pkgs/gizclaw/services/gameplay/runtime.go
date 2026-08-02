@@ -396,7 +396,7 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if err := validatePetAdoptionReservationBinding(reservation, owner, req.Name, ruleset); err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
-	response, workspaceCreated, createErr := r.createReservedPetAdoption(ctx, reservation, ruleset)
+	response, workspaceCreatedByAttempt, createErr := r.createReservedPetAdoption(ctx, reservation, ruleset)
 	if createErr == nil {
 		return response, nil
 	}
@@ -409,7 +409,11 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if recoveryErr != nil {
 		return apitypes.PetAdoptResponse{}, recoveryErr
 	}
-	if workspaceCreated {
+	// createReservedPetAdoption reports a Workspace created by this attempt on
+	// every later transactional failure. Recovery must run before compensation
+	// because a commit can have an uncertain result; only an incomplete adoption
+	// is allowed to delete the newly created system Workspace.
+	if workspaceCreatedByAttempt {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cleanupCancel()
 		if _, err := r.Workspaces.DeleteSystemWorkspace(cleanupCtx, reservation.WorkspaceName); err != nil && !errors.Is(err, kv.ErrNotFound) {
@@ -498,7 +502,7 @@ func (r *Runtime) createReservedPetAdoption(ctx context.Context, reservation pet
 	if account.Balance < reservation.AdoptionCost {
 		return apitypes.PetAdoptResponse{}, false, errInsufficientPoints
 	}
-	petWorkspace, workspaceCreated, err := r.createPetWorkspace(ctx, reservation.OwnerPublicKey, reservation.WorkspaceName, reservation.WorkflowID)
+	petWorkspace, workspaceCreatedByAttempt, err := r.createPetWorkspace(ctx, reservation.OwnerPublicKey, reservation.WorkspaceName, reservation.WorkflowID)
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, false, err
 	}
@@ -512,15 +516,15 @@ func (r *Runtime) createReservedPetAdoption(ctx context.Context, reservation pet
 	}
 	txn, err := r.recordPointsTx(ctx, tx, &account, -reservation.AdoptionCost, ruleset.ID, pet.Id, "", "", "pet.adopt", "pet", pet.Id, true)
 	if err != nil {
-		return apitypes.PetAdoptResponse{}, workspaceCreated, err
+		return apitypes.PetAdoptResponse{}, workspaceCreatedByAttempt, err
 	}
 	if err := insertPet(ctx, tx, pet); err != nil {
-		return apitypes.PetAdoptResponse{}, workspaceCreated, err
+		return apitypes.PetAdoptResponse{}, workspaceCreatedByAttempt, err
 	}
 	if err := tx.Commit(); err != nil {
-		return apitypes.PetAdoptResponse{}, workspaceCreated, err
+		return apitypes.PetAdoptResponse{}, workspaceCreatedByAttempt, err
 	}
-	return apitypes.PetAdoptResponse{Pet: pet, Points: account, Transaction: txn}, workspaceCreated, nil
+	return apitypes.PetAdoptResponse{Pet: pet, Points: account, Transaction: txn}, workspaceCreatedByAttempt, nil
 }
 
 func (r *Runtime) preflightPetAdoptionTx(ctx context.Context, tx *sqlx.Tx, owner string, ruleset ProfileRules, adoptionCost int64) error {
