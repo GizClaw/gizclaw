@@ -51,7 +51,7 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 					Id: "chat",
 					Provider: apitypes.ModelProvider{
 						Kind: apitypes.ModelProviderKindOpenaiTenant,
-						Id: "test",
+						Id:   "test",
 					},
 				},
 				{
@@ -59,7 +59,7 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 					Kind: apitypes.ModelKindAsr,
 					Provider: apitypes.ModelProvider{
 						Kind: apitypes.ModelProviderKindVolcTenant,
-						Id: "test",
+						Id:   "test",
 					},
 				},
 			}}), nil
@@ -230,7 +230,7 @@ func TestPeerConnOpenAIServiceStreamsChatThroughProxy(t *testing.T) {
 				Id: "chat",
 				Provider: apitypes.ModelProvider{
 					Kind: apitypes.ModelProviderKindOpenaiTenant,
-					Id: "test",
+					Id:   "test",
 				},
 			}}}), nil
 		}),

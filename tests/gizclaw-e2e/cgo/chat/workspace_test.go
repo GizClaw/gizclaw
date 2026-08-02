@@ -214,8 +214,8 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 		t.Fatalf("retire C SDK chat RegistrationToken: %v", err)
 	}
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name:               tokenName,
-		Token:              tokenName,
+		Name:             tokenName,
+		Token:            tokenName,
 		RuntimeProfileId: profile.Id,
 	})
 	if err != nil {

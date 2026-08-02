@@ -915,7 +915,7 @@ func ListModels(ctx context.Context, c *gizcli.Client, source, providerKind, pro
 		resp, err := api.ListModelsWithResponse(ctx, &adminhttp.ListModelsParams{
 			Source:       sourceFilter,
 			ProviderKind: providerKindFilter,
-			ProviderId: providerIDFilter,
+			ProviderId:   providerIDFilter,
 			Cursor:       cursor,
 			Limit:        limit,
 		})
@@ -972,7 +972,7 @@ func ListVoices(ctx context.Context, c *gizcli.Client, source, providerKind, pro
 		resp, err := api.ListVoicesWithResponse(ctx, &adminhttp.ListVoicesParams{
 			Source:       sourceFilter,
 			ProviderKind: providerKindFilter,
-			ProviderId: providerIDFilter,
+			ProviderId:   providerIDFilter,
 			Cursor:       cursor,
 			Limit:        limit,
 		})

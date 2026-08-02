@@ -68,8 +68,8 @@ func createCSDKSocialRegistrationToken(
 	response, err := api.CreateRegistrationTokenWithResponse(
 		ctx,
 		adminhttp.RegistrationTokenUpsert{
-			Name:               tokenName,
-			Token:              tokenName,
+			Name:             tokenName,
+			Token:            tokenName,
 			RuntimeProfileId: profile.Id,
 		},
 	)

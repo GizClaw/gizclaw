@@ -120,8 +120,8 @@ func createMediaRegistrationToken(t *testing.T, h *clitest.Harness) string {
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(
 		ctx,
 		adminhttp.RegistrationTokenUpsert{
-			Name:               tokenName,
-			Token:              tokenName,
+			Name:             tokenName,
+			Token:            tokenName,
 			RuntimeProfileId: profile.Id,
 		},
 	)
