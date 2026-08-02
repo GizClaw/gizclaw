@@ -98,7 +98,7 @@ func (s *sharedWorkspaceNameService) CreateSystemWorkspace(ctx context.Context, 
 	system := true
 	owner, _ := ownership.FromContext(ctx)
 	s.item = apitypes.Workspace{
-		Id: "workspace-id", Name: body.Name, OwnerPublicKey: ptr(owner),
+		Id: "workspace-id", Name: body.Name, OwnerPublicKey: &owner,
 		System: &system, WorkflowId: body.WorkflowId, Parameters: body.Parameters,
 	}
 	return s.item, true, nil
