@@ -97,7 +97,7 @@ func TestPostgresGameplayContract(t *testing.T) {
 	if len(results.Items) != 1 {
 		t.Fatalf("ListGameResults() count = %d, want 1", len(results.Items))
 	}
-	points, err := runtime.GetPoints(ctx, "peer-postgres", "default")
+	points, err := runtime.GetPoints(ctx, "peer-postgres", profile.Id)
 	if err != nil {
 		t.Fatalf("GetPoints() error = %v", err)
 	}
@@ -129,7 +129,7 @@ func TestPostgresGameplayContract(t *testing.T) {
 	}
 
 	runtime.NewID = sequentialIDs("pet-postgres-2", "adopt-txn-2")
-	if _, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{Name: "pet-main", DisplayName: "Pet"}); err != nil {
+	if _, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{Name: "pet-second", DisplayName: "Pet"}); err != nil {
 		t.Fatalf("AdoptPet(second) error = %v", err)
 	}
 	limit := 1
@@ -379,7 +379,7 @@ func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 	if err := runtimes[0].Migration(ctx); err != nil {
 		t.Fatalf("Migration() error = %v", err)
 	}
-	petID := "postgres-pet-01"
+	petName := "postgres-pet-01"
 	const workers = 8
 	start := make(chan struct{})
 	responses := make(chan apitypes.PetAdoptResponse, workers)
@@ -389,7 +389,7 @@ func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 		runtime := runtimes[i%len(runtimes)]
 		wg.Go(func() {
 			<-start
-			response, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{Name: petID, DisplayName: "Pet"})
+			response, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{Name: petName, DisplayName: "Pet"})
 			responses <- response
 			errs <- err
 		})
@@ -404,9 +404,15 @@ func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 		}
 	}
 	var transactionID string
+	var petID string
 	for response := range responses {
-		if response.Pet.Id != petID || response.Points.Balance != 35 {
+		if response.Pet.Name != petName || response.Points.Balance != 35 {
 			t.Fatalf("AdoptPet(concurrent) = %#v", response)
+		}
+		if petID == "" {
+			petID = response.Pet.Id
+		} else if response.Pet.Id != petID {
+			t.Fatalf("Pet ID = %q, want %q", response.Pet.Id, petID)
 		}
 		if transactionID == "" {
 			transactionID = response.Transaction.Id
@@ -415,7 +421,7 @@ func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 		}
 	}
 	var pets, transactions int
-	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM gameplay_pets WHERE owner_public_key = $1 AND id = $2`, "peer-postgres", petID).Scan(&pets); err != nil {
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM gameplay_pets WHERE owner_public_key = $1 AND name = $2`, "peer-postgres", petName).Scan(&pets); err != nil {
 		t.Fatalf("count Pets: %v", err)
 	}
 	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM gameplay_points_transactions WHERE owner_public_key = $1 AND source_type = 'pet' AND source_id = $2 AND reason = 'pet.adopt'`, "peer-postgres", petID).Scan(&transactions); err != nil {

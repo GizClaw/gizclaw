@@ -98,7 +98,7 @@ func TestBootstrapperAppliesResourcesThenRuntimeProfileAndRegistrationToken(t *t
 				if kind == "" {
 					t.Fatalf("unexpected apply document = %s", data)
 				}
-				result = []byte(fmt.Sprintf(`{"apiVersion":"gizclaw.admin/v1alpha1","kind":%q,"name":%q,"id":%q,"action":"created"}`, kind, name, name+"-id"))
+				result = fmt.Appendf(nil, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":%q,"name":%q,"id":%q,"action":"created"}`, kind, name, name+"-id")
 			}
 			checkCommand(executable, args, environment)
 			return result, nil
