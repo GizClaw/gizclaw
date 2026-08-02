@@ -52,7 +52,7 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 			return client.ListWorkflows(ctx, conn, "workflow-list", rpcapi.WorkflowListRequest{Collection: "assistants"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowGet, rpcapi.WorkflowGetResponse{}, (*rpcapi.RPCPayload).FromWorkflowGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowGetResponse, error) {
-			return client.GetWorkflow(ctx, conn, "workflow-get", rpcapi.WorkflowGetRequest{Alias: "flow"})
+			return client.GetWorkflow(ctx, conn, "workflow-get", rpcapi.WorkflowGetRequest{Name: "flow"})
 		})
 	})
 
@@ -61,7 +61,7 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 			return client.ListModels(ctx, conn, "model-list", rpcapi.ModelListRequest{})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelGet, rpcapi.ModelGetResponse{Value: resourceModel("llm")}, (*rpcapi.RPCPayload).FromModelGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelGetResponse, error) {
-			return client.GetModel(ctx, conn, "model-get", rpcapi.ModelGetRequest{Alias: "llm"})
+			return client.GetModel(ctx, conn, "model-get", rpcapi.ModelGetRequest{Name: "llm"})
 		})
 	})
 
@@ -70,16 +70,16 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 			return client.ListContacts(ctx, conn, "contact-list", rpcapi.ContactListRequest{})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactGet, rpcapi.ContactGetResponse{}, (*rpcapi.RPCPayload).FromContactGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactGetResponse, error) {
-			return client.GetContact(ctx, conn, "contact-get", rpcapi.ContactGetRequest{Id: "contact-a"})
+			return client.GetContact(ctx, conn, "contact-get", rpcapi.ContactGetRequest{Name: "contact-a"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactCreate, rpcapi.ContactCreateResponse{}, (*rpcapi.RPCPayload).FromContactCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactCreateResponse, error) {
 			return client.CreateContact(ctx, conn, "contact-create", rpcapi.ContactCreateRequest{})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactPut, rpcapi.ContactPutResponse{}, (*rpcapi.RPCPayload).FromContactPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactPutResponse, error) {
-			return client.PutContact(ctx, conn, "contact-put", rpcapi.ContactPutRequest{Id: "contact-a"})
+			return client.PutContact(ctx, conn, "contact-put", rpcapi.ContactPutRequest{Name: "contact-a"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactDelete, rpcapi.ContactDeleteResponse{}, (*rpcapi.RPCPayload).FromContactDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactDeleteResponse, error) {
-			return client.DeleteContact(ctx, conn, "contact-delete", rpcapi.ContactDeleteRequest{Id: "contact-a"})
+			return client.DeleteContact(ctx, conn, "contact-delete", rpcapi.ContactDeleteRequest{Name: "contact-a"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendInviteTokenGet, rpcapi.FriendInviteTokenGetResponse{}, (*rpcapi.RPCPayload).FromFriendInviteTokenGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendInviteTokenGetResponse, error) {
 			return client.GetFriendInviteToken(ctx, conn, "friend-invite-token-get", rpcapi.FriendInviteTokenGetRequest{})
@@ -103,25 +103,25 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 			return client.ListFriendGroups(ctx, conn, "friend-group-list", rpcapi.FriendGroupListRequest{})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupGet, rpcapi.FriendGroupGetResponse{}, (*rpcapi.RPCPayload).FromFriendGroupGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupGetResponse, error) {
-			return client.GetFriendGroup(ctx, conn, "friend-group-get", rpcapi.FriendGroupGetRequest{Id: "group-a"})
+			return client.GetFriendGroup(ctx, conn, "friend-group-get", rpcapi.FriendGroupGetRequest{Name: "group-a"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupCreate, rpcapi.FriendGroupCreateResponse{}, (*rpcapi.RPCPayload).FromFriendGroupCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupCreateResponse, error) {
 			return client.CreateFriendGroup(ctx, conn, "friend-group-create", rpcapi.FriendGroupCreateRequest{Name: "family"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupPut, rpcapi.FriendGroupPutResponse{}, (*rpcapi.RPCPayload).FromFriendGroupPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupPutResponse, error) {
-			return client.PutFriendGroup(ctx, conn, "friend-group-put", rpcapi.FriendGroupPutRequest{Id: "group-a"})
+			return client.PutFriendGroup(ctx, conn, "friend-group-put", rpcapi.FriendGroupPutRequest{Name: "group-a"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupDelete, rpcapi.FriendGroupDeleteResponse{}, (*rpcapi.RPCPayload).FromFriendGroupDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupDeleteResponse, error) {
-			return client.DeleteFriendGroup(ctx, conn, "friend-group-delete", rpcapi.FriendGroupDeleteRequest{Id: "group-a"})
+			return client.DeleteFriendGroup(ctx, conn, "friend-group-delete", rpcapi.FriendGroupDeleteRequest{Name: "group-a"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupInviteTokenGet, rpcapi.FriendGroupInviteTokenGetResponse{}, (*rpcapi.RPCPayload).FromFriendGroupInviteTokenGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupInviteTokenGetResponse, error) {
-			return client.GetFriendGroupInviteToken(ctx, conn, "friend-group-invite-token-get", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupId: "group-a"})
+			return client.GetFriendGroupInviteToken(ctx, conn, "friend-group-invite-token-get", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupName: "group-a"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupInviteTokenCreate, rpcapi.FriendGroupInviteTokenCreateResponse{}, (*rpcapi.RPCPayload).FromFriendGroupInviteTokenCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupInviteTokenCreateResponse, error) {
-			return client.CreateFriendGroupInviteToken(ctx, conn, "friend-group-invite-token-create", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupId: "group-a"})
+			return client.CreateFriendGroupInviteToken(ctx, conn, "friend-group-invite-token-create", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupName: "group-a"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupInviteTokenClear, rpcapi.FriendGroupInviteTokenClearResponse{}, (*rpcapi.RPCPayload).FromFriendGroupInviteTokenClearResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupInviteTokenClearResponse, error) {
-			return client.ClearFriendGroupInviteToken(ctx, conn, "friend-group-invite-token-clear", rpcapi.FriendGroupInviteTokenClearRequest{FriendGroupId: "group-a"})
+			return client.ClearFriendGroupInviteToken(ctx, conn, "friend-group-invite-token-clear", rpcapi.FriendGroupInviteTokenClearRequest{FriendGroupName: "group-a"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupJoin, rpcapi.FriendGroupJoinResponse{}, (*rpcapi.RPCPayload).FromFriendGroupJoinResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupJoinResponse, error) {
 			return client.JoinFriendGroup(ctx, conn, "friend-group-join", rpcapi.FriendGroupJoinRequest{InviteToken: "token-a"})
@@ -130,19 +130,19 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 			return client.ListFriendGroupMembers(ctx, conn, "friend-group-members-list", rpcapi.FriendGroupMemberListRequest{})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersAdd, rpcapi.FriendGroupMemberAddResponse{}, (*rpcapi.RPCPayload).FromFriendGroupMemberAddResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberAddResponse, error) {
-			return client.AddFriendGroupMember(ctx, conn, "friend-group-members-add", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: "group-a", PeerPublicKey: "peer-b"})
+			return client.AddFriendGroupMember(ctx, conn, "friend-group-members-add", rpcapi.FriendGroupMemberAddRequest{FriendGroupName: "group-a", PeerPublicKey: "peer-b"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersPut, rpcapi.FriendGroupMemberPutResponse{}, (*rpcapi.RPCPayload).FromFriendGroupMemberPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberPutResponse, error) {
-			return client.PutFriendGroupMember(ctx, conn, "friend-group-members-put", rpcapi.FriendGroupMemberPutRequest{FriendGroupId: "group-a", Id: "peer-b"})
+			return client.PutFriendGroupMember(ctx, conn, "friend-group-members-put", rpcapi.FriendGroupMemberPutRequest{FriendGroupName: "group-a", Id: "peer-b"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersDelete, rpcapi.FriendGroupMemberDeleteResponse{}, (*rpcapi.RPCPayload).FromFriendGroupMemberDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberDeleteResponse, error) {
-			return client.DeleteFriendGroupMember(ctx, conn, "friend-group-members-delete", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupId: "group-a", Id: "peer-b"})
+			return client.DeleteFriendGroupMember(ctx, conn, "friend-group-members-delete", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: "group-a", Id: "peer-b"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListResponse{}, (*rpcapi.RPCPayload).FromFriendGroupMessageListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMessageListResponse, error) {
-			return client.ListFriendGroupMessages(ctx, conn, "friend-group-messages-list", rpcapi.FriendGroupMessageListRequest{FriendGroupId: "group-a"})
+			return client.ListFriendGroupMessages(ctx, conn, "friend-group-messages-list", rpcapi.FriendGroupMessageListRequest{FriendGroupName: "group-a"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMessagesGet, rpcapi.FriendGroupMessageGetResponse{}, (*rpcapi.RPCPayload).FromFriendGroupMessageGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMessageGetResponse, error) {
-			return client.GetFriendGroupMessage(ctx, conn, "friend-group-messages-get", rpcapi.FriendGroupMessageGetRequest{FriendGroupId: "group-a", HistoryId: "history-a"})
+			return client.GetFriendGroupMessage(ctx, conn, "friend-group-messages-get", rpcapi.FriendGroupMessageGetRequest{FriendGroupName: "group-a", HistoryId: "history-a"})
 		})
 		runFriendGroupMessageAudioGetWrapperTest(t, client)
 	})
@@ -196,7 +196,7 @@ func TestClientDeletePeerUsesRPCConnection(t *testing.T) {
 	}
 }
 
-func TestRPCRegisterPreservesFirmwareID(t *testing.T) {
+func TestRPCRegisterPreservesFirmwareName(t *testing.T) {
 	client := &rpcClient{}
 	serverSide, clientSide := net.Pipe()
 	defer serverSide.Close()
@@ -212,7 +212,7 @@ func TestRPCRegisterPreservesFirmwareID(t *testing.T) {
 		}
 		serverErrCh <- writeRPCResponseWithEOS(serverSide, req.Method, resourceResponse(
 			req.Id,
-			rpcapi.ServerRegisterResponse{RuntimeProfileName: "profile-a", FirmwareID: &firmwareID},
+			rpcapi.ServerRegisterResponse{RuntimeProfileName: "profile-a", FirmwareName: &firmwareID},
 			(*rpcapi.RPCPayload).FromServerRegisterResponse,
 		))
 	}()
@@ -221,7 +221,7 @@ func TestRPCRegisterPreservesFirmwareID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
-	if response.RuntimeProfileName != "profile-a" || response.FirmwareId == nil || *response.FirmwareId != firmwareID {
+	if response.RuntimeProfileName != "profile-a" || response.FirmwareName == nil || *response.FirmwareName != firmwareID {
 		t.Fatalf("Register() response = %#v", response)
 	}
 	if err := <-serverErrCh; err != nil {
@@ -249,11 +249,11 @@ func runWorkflowGetWrapperTest(t *testing.T, client *rpcClient) {
 		))
 	}()
 
-	got, err := client.GetWorkflow(context.Background(), clientSide, "workflow-get", rpcapi.WorkflowGetRequest{Alias: "localized-flow"})
+	got, err := client.GetWorkflow(context.Background(), clientSide, "workflow-get", rpcapi.WorkflowGetRequest{Name: "localized-flow"})
 	if err != nil {
 		t.Fatalf("workflow get call error = %v", err)
 	}
-	if got.Value.Alias != "localized-flow" {
+	if got.Value.Name != "localized-flow" {
 		t.Fatalf("workflow get = %#v", got)
 	}
 	if err := <-serverErrCh; err != nil {
@@ -335,11 +335,11 @@ func runFirmwareDownloadWrapperTest(t *testing.T, client *rpcClient) {
 			return
 		}
 		resp := resourceResponse(req.Id, rpcapi.FirmwareFilesDownloadResponse{
-			FirmwareId: "devkit",
-			Channel:    rpcapi.FirmwareChannelNameStable,
-			Path:       "firmware.bin",
-			Artifact:   rpcapi.FirmwareArtifact{TarPath: "devkit/stable/artifact/artifact.tar", Size: 1024, ContentType: "application/x-tar"},
-			File:       rpcapi.FirmwareArtifactEntry{Path: "firmware.bin", Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len(payload))},
+			FirmwareName: "devkit",
+			Channel:      rpcapi.FirmwareChannelNameStable,
+			Path:         "firmware.bin",
+			Artifact:     rpcapi.FirmwareArtifact{TarPath: "devkit/stable/artifact/artifact.tar", Size: 1024, ContentType: "application/x-tar"},
+			File:         rpcapi.FirmwareArtifactEntry{Path: "firmware.bin", Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len(payload))},
 		}, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadResponse)
 		if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
 			serverErrCh <- err
@@ -387,7 +387,7 @@ func runBadgeDefPixaDownloadWrapperTest(t *testing.T, client *rpcClient) {
 			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerBadgeDefPixaDownload}
 			return
 		}
-		resp := resourceResponse(req.Id, rpcapi.BadgeDefPixaDownloadResponse{Id: "badge-a", PixaPath: &pixaPath, SizeBytes: int64(len(payload))}, (*rpcapi.RPCPayload).FromBadgeDefPixaDownloadResponse)
+		resp := resourceResponse(req.Id, rpcapi.BadgeDefPixaDownloadResponse{Name: "badge-a", PixaPath: &pixaPath, SizeBytes: int64(len(payload))}, (*rpcapi.RPCPayload).FromBadgeDefPixaDownloadResponse)
 		if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
 			serverErrCh <- err
 			return
@@ -400,11 +400,11 @@ func runBadgeDefPixaDownloadWrapperTest(t *testing.T, client *rpcClient) {
 	}()
 
 	var out bytes.Buffer
-	result, err := client.DownloadBadgeDefPixa(context.Background(), clientSide, "badgedef-pixa-download", rpcapi.BadgeDefPixaDownloadRequest{Id: "badge-a"}, &out)
+	result, err := client.DownloadBadgeDefPixa(context.Background(), clientSide, "badgedef-pixa-download", rpcapi.BadgeDefPixaDownloadRequest{Name: "badge-a"}, &out)
 	if err != nil {
 		t.Fatalf("badgedef pixa download call error = %v", err)
 	}
-	if result.Metadata.Id != "badge-a" || result.Bytes != int64(len(payload)) || out.String() != string(payload) {
+	if result.Metadata.Name != "badge-a" || result.Bytes != int64(len(payload)) || out.String() != string(payload) {
 		t.Fatalf("badgedef pixa download result = %#v payload %q", result, out.String())
 	}
 	if err := <-serverErrCh; err != nil {
@@ -495,10 +495,10 @@ func runFriendGroupMessageAudioGetWrapperTest(t *testing.T, client *rpcClient) {
 			return
 		}
 		resp := resourceResponse(req.Id, rpcapi.FriendGroupMessageAudioGetResponse{
-			FriendGroupId: "group-a",
-			HistoryId:     "history-a",
-			MimeType:      "audio/opus",
-			SizeBytes:     int64(len(payload)),
+			FriendGroupName: "group-a",
+			HistoryId:       "history-a",
+			MimeType:        "audio/opus",
+			SizeBytes:       int64(len(payload)),
 		}, (*rpcapi.RPCPayload).FromFriendGroupMessageAudioGetResponse)
 		serverStream, err := newRPCStream(context.Background(), serverSide)
 		if err != nil {
@@ -518,8 +518,8 @@ func runFriendGroupMessageAudioGetWrapperTest(t *testing.T, client *rpcClient) {
 
 	var out bytes.Buffer
 	result, err := client.GetFriendGroupMessageAudio(context.Background(), clientSide, "friend-group-message-audio-get", rpcapi.FriendGroupMessageAudioGetRequest{
-		FriendGroupId: "group-a",
-		HistoryId:     "history-a",
+		FriendGroupName: "group-a",
+		HistoryId:       "history-a",
 	}, &out)
 	if err != nil {
 		t.Fatalf("friend group message audio get call error = %v", err)
@@ -633,12 +633,12 @@ func (friendGroupAudioShortWriter) Write(p []byte) (int, error) {
 
 func TestGetFriendGroupMessageAudioRejectsMalformedResponse(t *testing.T) {
 	writerErr := errors.New("friend group audio writer failed")
-	request := rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupId: "group-a", HistoryId: "history-a"}
+	request := rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupName: "group-a", HistoryId: "history-a"}
 	validMetadata := rpcapi.FriendGroupMessageAudioGetResponse{
-		FriendGroupId: request.FriendGroupId,
-		HistoryId:     request.HistoryId,
-		MimeType:      "audio/opus",
-		SizeBytes:     4,
+		FriendGroupName: request.FriendGroupName,
+		HistoryId:       request.HistoryId,
+		MimeType:        "audio/opus",
+		SizeBytes:       4,
 	}
 
 	for _, tc := range []struct {
@@ -652,27 +652,27 @@ func TestGetFriendGroupMessageAudioRejectsMalformedResponse(t *testing.T) {
 	}{
 		{
 			name:         "friend group identity",
-			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupId: "other", HistoryId: request.HistoryId, MimeType: "audio/opus"},
+			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupName: "other", HistoryId: request.HistoryId, MimeType: "audio/opus"},
 			wantContains: "identity mismatch",
 		},
 		{
 			name:         "history identity",
-			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupId: request.FriendGroupId, HistoryId: "other", MimeType: "audio/opus"},
+			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupName: request.FriendGroupName, HistoryId: "other", MimeType: "audio/opus"},
 			wantContains: "identity mismatch",
 		},
 		{
 			name:         "non audio MIME",
-			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupId: request.FriendGroupId, HistoryId: request.HistoryId, MimeType: "application/octet-stream"},
+			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupName: request.FriendGroupName, HistoryId: request.HistoryId, MimeType: "application/octet-stream"},
 			wantContains: "MIME type",
 		},
 		{
 			name:         "malformed MIME",
-			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupId: request.FriendGroupId, HistoryId: request.HistoryId, MimeType: "not a MIME"},
+			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupName: request.FriendGroupName, HistoryId: request.HistoryId, MimeType: "not a MIME"},
 			wantContains: "MIME type",
 		},
 		{
 			name:         "negative size",
-			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupId: request.FriendGroupId, HistoryId: request.HistoryId, MimeType: "audio/opus", SizeBytes: -1},
+			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupName: request.FriendGroupName, HistoryId: request.HistoryId, MimeType: "audio/opus", SizeBytes: -1},
 			wantContains: "invalid history audio size",
 		},
 		{
@@ -769,7 +769,7 @@ func TestGetFriendGroupMessageAudioReturnsTypedMissingAudioError(t *testing.T) {
 	serverSide, clientSide := net.Pipe()
 	defer clientSide.Close()
 
-	request := rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupId: "group-a", HistoryId: "missing-history"}
+	request := rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupName: "group-a", HistoryId: "missing-history"}
 	serverErrCh := make(chan error, 1)
 	go func() {
 		defer serverSide.Close()
@@ -809,7 +809,7 @@ func TestGetFriendGroupMessageAudioReturnsTypedMissingAudioError(t *testing.T) {
 }
 
 func TestGetFriendGroupMessageAudioStopsOnContextAndTransportFailure(t *testing.T) {
-	request := rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupId: "group-a", HistoryId: "history-a"}
+	request := rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupName: "group-a", HistoryId: "history-a"}
 	for _, tc := range []struct {
 		name               string
 		deadline           time.Duration
@@ -901,21 +901,21 @@ func waitFriendGroupAudioServer(t *testing.T, serverErrCh <-chan error) {
 }
 
 func resourceWorkspace(name string) rpcapi.Workspace {
-	return rpcapi.Workspace{Name: name, WorkflowAlias: "flow-a"}
+	return rpcapi.Workspace{Name: name, WorkflowName: "flow-a"}
 }
 
 func resourceWorkflowDoc(alias string) rpcapi.WorkflowGetResponse {
 	return rpcapi.WorkflowGetResponse{
-		Value: rpcapi.Workflow{Alias: alias, Collection: "assistants", Driver: rpcapi.WorkflowDriverFlowcraft,
-			I18n: map[string]rpcapi.AliasI18nText{"en": {DisplayName: alias}, "zh-CN": {DisplayName: alias}}},
+		Value: rpcapi.Workflow{Name: alias, Collection: "assistants", Driver: rpcapi.WorkflowDriverFlowcraft,
+			I18n: map[string]rpcapi.ResourceI18nText{"en": {DisplayName: alias}, "zh-CN": {DisplayName: alias}}},
 		RuntimeProfileName: "default", RuntimeProfileRevision: "revision",
 	}
 }
 
 func resourceModel(alias string) rpcapi.Model {
 	return rpcapi.Model{
-		Alias: alias, Kind: rpcapi.ModelKindLlm,
-		I18n:         map[string]rpcapi.AliasI18nText{"en": {DisplayName: alias}, "zh-CN": {DisplayName: alias}},
+		Name: alias, Kind: rpcapi.ModelKindLlm,
+		I18n:         map[string]rpcapi.ResourceI18nText{"en": {DisplayName: alias}, "zh-CN": {DisplayName: alias}},
 		ProviderKind: rpcapi.ModelProviderKindOpenaiTenant,
 		OpenAITenant: &rpcapi.OpenAITenantModelProviderData{},
 	}

@@ -25,10 +25,10 @@ type ToolTrigger struct {
 }
 
 type Tool struct {
-	Alias       string                   `json:"alias"`
-	I18n        map[string]AliasI18nText `json:"i18n"`
-	InputSchema jsonschema.Schema        `json:"input_schema"`
-	Name        string                   `json:"name"`
+	Name        string                      `json:"name"`
+	I18n        map[string]ResourceI18nText `json:"i18n"`
+	InputSchema jsonschema.Schema           `json:"input_schema"`
+	InvokeName  string                      `json:"invoke_name"`
 }
 
 type ToolListRequest struct {
@@ -45,7 +45,7 @@ type ToolListResponse struct {
 }
 
 type ToolGetRequest struct {
-	Alias string `json:"alias"`
+	Name string `json:"name"`
 }
 
 type ToolGetResponse struct {
@@ -55,8 +55,8 @@ type ToolGetResponse struct {
 }
 
 type ToolInvokeRequest struct {
-	Name string                 `json:"name"`
-	Args map[string]interface{} `json:"args"`
+	InvokeName string                 `json:"invoke_name"`
+	Args       map[string]interface{} `json:"args"`
 }
 
 type ToolInvokeResponse struct {

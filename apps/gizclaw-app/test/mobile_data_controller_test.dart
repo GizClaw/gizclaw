@@ -287,10 +287,10 @@ void main() {
 
     await controller.createWorkspace(
       collection: 'raids',
-      workflowAlias: 'journey',
+      workflowName: 'journey',
     );
 
-    expect(client.requests.single.workflowAlias, 'journey');
+    expect(client.requests.single.workflowName, 'journey');
     expect(client.requests.single.collection, 'raids');
     expect(client.requests.single.hasParameters(), isTrue);
     expect(
@@ -331,10 +331,10 @@ void main() {
       for (final entry in aliases.entries) {
         await controller.createWorkspace(
           collection: 'translates',
-          workflowAlias: entry.key,
+          workflowName: entry.key,
         );
         final request = client.requests.last;
-        expect(request.workflowAlias, entry.key);
+        expect(request.workflowName, entry.key);
         expect(
           request.parameters.asttranslateWorkspaceParameters.langPair,
           entry.value,
@@ -1111,7 +1111,7 @@ void main() {
   test('repairs an empty parameter envelope for mode switching', () {
     final workspace = Workspace(
       name: 'translator',
-      workflowAlias: 'volc-ast-translate',
+      workflowName: 'volc-ast-translate',
       parameters: WorkspaceParameters(),
     );
 
@@ -1134,7 +1134,7 @@ void main() {
   test('repairs missing translation parameters with the safe auto default', () {
     final workspace = Workspace(
       name: 'japanese-translator',
-      workflowAlias: 'translate-zh-ja',
+      workflowName: 'translate-zh-ja',
       parameters: WorkspaceParameters(),
     );
 
@@ -1194,7 +1194,7 @@ void main() {
             ..workspaces = const [
               WorkspaceCard(
                 name: 'workspace-a',
-                workflowAlias: 'chat',
+                workflowName: 'chat',
                 collection: 'raids',
                 lastActive: '',
               ),
@@ -1246,7 +1246,7 @@ void main() {
     final client = _WorkspaceActivationClient()
       ..workspaces['workspace-realtime'] = Workspace(
         name: 'workspace-realtime',
-        workflowAlias: 'doubao-realtime',
+        workflowName: 'doubao-realtime',
         parameters: WorkspaceParameters(
           doubaoRealtimeWorkspaceParameters: DoubaoRealtimeWorkspaceParameters(
             input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
@@ -1977,12 +1977,12 @@ class _PartialWorkflowCatalogClient extends _RunWorkspaceClient {
       items: collection == 'assistants'
           ? [
               Workflow(
-                alias: 'chat',
+                name: 'chat',
                 collection: 'assistants',
                 driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
                 i18n: {
-                  'en': AliasI18nText(displayName: 'Chat'),
-                  'zh-CN': AliasI18nText(displayName: '聊天'),
+                  'en': ResourceI18nText(displayName: 'Chat'),
+                  'zh-CN': ResourceI18nText(displayName: '聊天'),
                 }.entries,
               ),
             ]
@@ -2004,7 +2004,7 @@ class _WorkspaceCreateClient extends _RunWorkspaceClient {
     return WorkspaceCreateResponse(
       value: Workspace(
         name: workspace.name,
-        workflowAlias: workspace.workflowAlias,
+        workflowName: workspace.workflowName,
       ),
     );
   }
@@ -2036,12 +2036,12 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
   final workspaces = <String, Workspace>{
     'workspace-old': Workspace(
       name: 'workspace-old',
-      workflowAlias: 'chat',
+      workflowName: 'chat',
       parameters: newWorkspaceParametersForDriver(WorkflowDriverKind.flowcraft),
     ),
     'workspace-new': Workspace(
       name: 'workspace-new',
-      workflowAlias: 'chat',
+      workflowName: 'chat',
       parameters: WorkspaceParameters(),
     ),
   };
@@ -2084,7 +2084,7 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
   Future<WorkflowGetResponse> getWorkflow(String alias) async {
     return WorkflowGetResponse(
       value: Workflow(
-        alias: alias,
+        name: alias,
         collection: 'raids',
         driver: alias == 'doubao-realtime'
             ? WorkflowDriver.WORKFLOW_DRIVER_DOUBAO_REALTIME

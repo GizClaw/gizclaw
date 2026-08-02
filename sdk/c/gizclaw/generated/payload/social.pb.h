@@ -12,16 +12,17 @@
 
 /* Struct definitions */
 typedef struct _gizclaw_rpc_v1_ContactCreateRequest {
+    pb_callback_t name;
     pb_callback_t display_name;
     pb_callback_t phone_number;
 } gizclaw_rpc_v1_ContactCreateRequest;
 
 typedef struct _gizclaw_rpc_v1_ContactDeleteRequest {
-    pb_callback_t id;
+    pb_callback_t name;
 } gizclaw_rpc_v1_ContactDeleteRequest;
 
 typedef struct _gizclaw_rpc_v1_ContactGetRequest {
-    pb_callback_t id;
+    pb_callback_t name;
 } gizclaw_rpc_v1_ContactGetRequest;
 
 typedef struct _gizclaw_rpc_v1_ContactListRequest {
@@ -39,7 +40,7 @@ typedef struct _gizclaw_rpc_v1_ContactListResponse {
 typedef struct _gizclaw_rpc_v1_ContactObject {
     pb_callback_t created_at;
     pb_callback_t display_name;
-    pb_callback_t id;
+    pb_callback_t name;
     pb_callback_t phone_number;
     pb_callback_t updated_at;
 } gizclaw_rpc_v1_ContactObject;
@@ -61,7 +62,7 @@ typedef struct _gizclaw_rpc_v1_ContactGetResponse {
 
 typedef struct _gizclaw_rpc_v1_ContactPutRequest {
     pb_callback_t display_name;
-    pb_callback_t id;
+    pb_callback_t name;
     pb_callback_t phone_number;
 } gizclaw_rpc_v1_ContactPutRequest;
 
@@ -98,18 +99,19 @@ typedef struct _gizclaw_rpc_v1_FriendInfoGetResponse {
 typedef struct _gizclaw_rpc_v1_FriendGroupCreateRequest {
     pb_callback_t description;
     pb_callback_t name;
+    pb_callback_t display_name;
 } gizclaw_rpc_v1_FriendGroupCreateRequest;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupDeleteRequest {
-    pb_callback_t id;
+    pb_callback_t name;
 } gizclaw_rpc_v1_FriendGroupDeleteRequest;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupGetRequest {
-    pb_callback_t id;
+    pb_callback_t name;
 } gizclaw_rpc_v1_FriendGroupGetRequest;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupInviteTokenClearRequest {
-    pb_callback_t friend_group_id;
+    pb_callback_t friend_group_name;
 } gizclaw_rpc_v1_FriendGroupInviteTokenClearRequest;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupInviteTokenClearResponse {
@@ -117,7 +119,7 @@ typedef struct _gizclaw_rpc_v1_FriendGroupInviteTokenClearResponse {
 } gizclaw_rpc_v1_FriendGroupInviteTokenClearResponse;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupInviteTokenCreateRequest {
-    pb_callback_t friend_group_id;
+    pb_callback_t friend_group_name;
 } gizclaw_rpc_v1_FriendGroupInviteTokenCreateRequest;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupInviteTokenCreateResponse {
@@ -126,7 +128,7 @@ typedef struct _gizclaw_rpc_v1_FriendGroupInviteTokenCreateResponse {
 } gizclaw_rpc_v1_FriendGroupInviteTokenCreateResponse;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupInviteTokenGetRequest {
-    pb_callback_t friend_group_id;
+    pb_callback_t friend_group_name;
 } gizclaw_rpc_v1_FriendGroupInviteTokenGetRequest;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupInviteTokenGetResponse {
@@ -136,6 +138,7 @@ typedef struct _gizclaw_rpc_v1_FriendGroupInviteTokenGetResponse {
 
 typedef struct _gizclaw_rpc_v1_FriendGroupJoinRequest {
     pb_callback_t invite_token;
+    pb_callback_t name;
 } gizclaw_rpc_v1_FriendGroupJoinRequest;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupListRequest {
@@ -151,19 +154,20 @@ typedef struct _gizclaw_rpc_v1_FriendGroupListResponse {
 } gizclaw_rpc_v1_FriendGroupListResponse;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupMemberAddRequest {
-    pb_callback_t friend_group_id;
+    pb_callback_t friend_group_name;
     pb_callback_t peer_public_key;
     gizclaw_rpc_v1_FriendGroupMemberMutableRole role;
+    pb_callback_t member_name;
 } gizclaw_rpc_v1_FriendGroupMemberAddRequest;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupMemberDeleteRequest {
-    pb_callback_t friend_group_id;
+    pb_callback_t friend_group_name;
     pb_callback_t id;
 } gizclaw_rpc_v1_FriendGroupMemberDeleteRequest;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupMemberListRequest {
     pb_callback_t cursor;
-    pb_callback_t friend_group_id;
+    pb_callback_t friend_group_name;
     bool has_limit;
     int64_t limit;
 } gizclaw_rpc_v1_FriendGroupMemberListRequest;
@@ -176,7 +180,7 @@ typedef struct _gizclaw_rpc_v1_FriendGroupMemberListResponse {
 
 typedef struct _gizclaw_rpc_v1_FriendGroupMemberObject {
     pb_callback_t created_at;
-    pb_callback_t friend_group_id;
+    pb_callback_t friend_group_name;
     pb_callback_t id;
     pb_callback_t peer_public_key;
     bool has_role;
@@ -195,7 +199,7 @@ typedef struct _gizclaw_rpc_v1_FriendGroupMemberDeleteResponse {
 } gizclaw_rpc_v1_FriendGroupMemberDeleteResponse;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupMemberPutRequest {
-    pb_callback_t friend_group_id;
+    pb_callback_t friend_group_name;
     pb_callback_t id;
     gizclaw_rpc_v1_FriendGroupMemberMutableRole role;
 } gizclaw_rpc_v1_FriendGroupMemberPutRequest;
@@ -206,26 +210,26 @@ typedef struct _gizclaw_rpc_v1_FriendGroupMemberPutResponse {
 } gizclaw_rpc_v1_FriendGroupMemberPutResponse;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupMessageAudioGetRequest {
-    char friend_group_id[256];
+    char friend_group_name[256];
     char history_id[256];
 } gizclaw_rpc_v1_FriendGroupMessageAudioGetRequest;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupMessageAudioGetResponse {
-    char friend_group_id[256];
+    char friend_group_name[256];
     char history_id[256];
     char mime_type[129];
     int64_t size_bytes;
 } gizclaw_rpc_v1_FriendGroupMessageAudioGetResponse;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupMessageGetRequest {
-    char friend_group_id[256];
+    char friend_group_name[256];
     char history_id[256];
 } gizclaw_rpc_v1_FriendGroupMessageGetRequest;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupMessageListRequest {
     bool has_cursor;
     char cursor[256];
-    char friend_group_id[256];
+    char friend_group_name[256];
     bool has_limit;
     int64_t limit;
     bool has_order;
@@ -243,7 +247,7 @@ typedef struct _gizclaw_rpc_v1_FriendGroupMessageObject {
     char created_at[65];
     bool has_expires_at;
     char expires_at[65];
-    char friend_group_id[256];
+    char friend_group_name[256];
     bool has_sender_peer_public_key;
     char sender_peer_public_key[65];
     char history_id[256];
@@ -262,7 +266,7 @@ typedef struct _gizclaw_rpc_v1_FriendGroupObject {
     pb_callback_t created_at;
     pb_callback_t created_by_peer_public_key;
     pb_callback_t description;
-    pb_callback_t id;
+    pb_callback_t display_name;
     bool has_my_role;
     gizclaw_rpc_v1_FriendGroupMemberRole my_role;
     pb_callback_t name;
@@ -294,8 +298,8 @@ typedef struct _gizclaw_rpc_v1_FriendGroupJoinResponse {
 
 typedef struct _gizclaw_rpc_v1_FriendGroupPutRequest {
     pb_callback_t description;
-    pb_callback_t id;
     pb_callback_t name;
+    pb_callback_t display_name;
 } gizclaw_rpc_v1_FriendGroupPutRequest;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupPutResponse {
@@ -365,7 +369,7 @@ extern "C" {
 #endif
 
 /* Initializer values for message structs */
-#define gizclaw_rpc_v1_ContactCreateRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_ContactCreateRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ContactCreateResponse_init_default {false, gizclaw_rpc_v1_ContactObject_init_default}
 #define gizclaw_rpc_v1_ContactDeleteRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ContactDeleteResponse_init_default {false, gizclaw_rpc_v1_ContactObject_init_default}
@@ -383,7 +387,7 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendInfo_init_default   {false, "", false, ""}
 #define gizclaw_rpc_v1_FriendInfoGetRequest_init_default {""}
 #define gizclaw_rpc_v1_FriendInfoGetResponse_init_default {"", false, gizclaw_rpc_v1_FriendInfo_init_default}
-#define gizclaw_rpc_v1_FriendGroupCreateRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_FriendGroupCreateRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupCreateResponse_init_default {false, gizclaw_rpc_v1_FriendGroupObject_init_default}
 #define gizclaw_rpc_v1_FriendGroupDeleteRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupDeleteResponse_init_default {false, gizclaw_rpc_v1_FriendGroupObject_init_default}
@@ -395,11 +399,11 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendGroupInviteTokenCreateResponse_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupInviteTokenGetRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupInviteTokenGetResponse_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_FriendGroupJoinRequest_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_FriendGroupJoinRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupJoinResponse_init_default {false, gizclaw_rpc_v1_FriendGroupObject_init_default, false, gizclaw_rpc_v1_FriendGroupMemberObject_init_default}
 #define gizclaw_rpc_v1_FriendGroupListRequest_init_default {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_FriendGroupListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_FriendGroupMemberAddRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_FriendGroupMemberMutableRole_MIN}
+#define gizclaw_rpc_v1_FriendGroupMemberAddRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_FriendGroupMemberMutableRole_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupMemberAddResponse_init_default {false, gizclaw_rpc_v1_FriendGroupMemberObject_init_default}
 #define gizclaw_rpc_v1_FriendGroupMemberDeleteRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupMemberDeleteResponse_init_default {false, gizclaw_rpc_v1_FriendGroupMemberObject_init_default}
@@ -427,7 +431,7 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendListRequest_init_default {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_FriendListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendObject_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ContactCreateRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_ContactCreateRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ContactCreateResponse_init_zero {false, gizclaw_rpc_v1_ContactObject_init_zero}
 #define gizclaw_rpc_v1_ContactDeleteRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ContactDeleteResponse_init_zero {false, gizclaw_rpc_v1_ContactObject_init_zero}
@@ -445,7 +449,7 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendInfo_init_zero      {false, "", false, ""}
 #define gizclaw_rpc_v1_FriendInfoGetRequest_init_zero {""}
 #define gizclaw_rpc_v1_FriendInfoGetResponse_init_zero {"", false, gizclaw_rpc_v1_FriendInfo_init_zero}
-#define gizclaw_rpc_v1_FriendGroupCreateRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_FriendGroupCreateRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupCreateResponse_init_zero {false, gizclaw_rpc_v1_FriendGroupObject_init_zero}
 #define gizclaw_rpc_v1_FriendGroupDeleteRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupDeleteResponse_init_zero {false, gizclaw_rpc_v1_FriendGroupObject_init_zero}
@@ -457,11 +461,11 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendGroupInviteTokenCreateResponse_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupInviteTokenGetRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupInviteTokenGetResponse_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_FriendGroupJoinRequest_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_FriendGroupJoinRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupJoinResponse_init_zero {false, gizclaw_rpc_v1_FriendGroupObject_init_zero, false, gizclaw_rpc_v1_FriendGroupMemberObject_init_zero}
 #define gizclaw_rpc_v1_FriendGroupListRequest_init_zero {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_FriendGroupListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_FriendGroupMemberAddRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_FriendGroupMemberMutableRole_MIN}
+#define gizclaw_rpc_v1_FriendGroupMemberAddRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_FriendGroupMemberMutableRole_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupMemberAddResponse_init_zero {false, gizclaw_rpc_v1_FriendGroupMemberObject_init_zero}
 #define gizclaw_rpc_v1_FriendGroupMemberDeleteRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupMemberDeleteResponse_init_zero {false, gizclaw_rpc_v1_FriendGroupMemberObject_init_zero}
@@ -491,10 +495,11 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendObject_init_zero    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 
 /* Field tags (for use in manual encoding/decoding) */
-#define gizclaw_rpc_v1_ContactCreateRequest_display_name_tag 1
-#define gizclaw_rpc_v1_ContactCreateRequest_phone_number_tag 2
-#define gizclaw_rpc_v1_ContactDeleteRequest_id_tag 1
-#define gizclaw_rpc_v1_ContactGetRequest_id_tag  1
+#define gizclaw_rpc_v1_ContactCreateRequest_name_tag 1
+#define gizclaw_rpc_v1_ContactCreateRequest_display_name_tag 2
+#define gizclaw_rpc_v1_ContactCreateRequest_phone_number_tag 3
+#define gizclaw_rpc_v1_ContactDeleteRequest_name_tag 1
+#define gizclaw_rpc_v1_ContactGetRequest_name_tag 1
 #define gizclaw_rpc_v1_ContactListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_ContactListRequest_limit_tag 2
 #define gizclaw_rpc_v1_ContactListResponse_has_next_tag 1
@@ -502,14 +507,14 @@ extern "C" {
 #define gizclaw_rpc_v1_ContactListResponse_next_cursor_tag 3
 #define gizclaw_rpc_v1_ContactObject_created_at_tag 1
 #define gizclaw_rpc_v1_ContactObject_display_name_tag 2
-#define gizclaw_rpc_v1_ContactObject_id_tag      3
+#define gizclaw_rpc_v1_ContactObject_name_tag    3
 #define gizclaw_rpc_v1_ContactObject_phone_number_tag 4
 #define gizclaw_rpc_v1_ContactObject_updated_at_tag 5
 #define gizclaw_rpc_v1_ContactCreateResponse_value_tag 1
 #define gizclaw_rpc_v1_ContactDeleteResponse_value_tag 1
 #define gizclaw_rpc_v1_ContactGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ContactPutRequest_display_name_tag 1
-#define gizclaw_rpc_v1_ContactPutRequest_id_tag  2
+#define gizclaw_rpc_v1_ContactPutRequest_name_tag 2
 #define gizclaw_rpc_v1_ContactPutRequest_phone_number_tag 3
 #define gizclaw_rpc_v1_ContactPutResponse_value_tag 1
 #define gizclaw_rpc_v1_FriendAddRequest_invite_token_tag 1
@@ -521,73 +526,76 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendInfoGetResponse_value_tag 2
 #define gizclaw_rpc_v1_FriendGroupCreateRequest_description_tag 1
 #define gizclaw_rpc_v1_FriendGroupCreateRequest_name_tag 2
-#define gizclaw_rpc_v1_FriendGroupDeleteRequest_id_tag 1
-#define gizclaw_rpc_v1_FriendGroupGetRequest_id_tag 1
-#define gizclaw_rpc_v1_FriendGroupInviteTokenClearRequest_friend_group_id_tag 1
-#define gizclaw_rpc_v1_FriendGroupInviteTokenCreateRequest_friend_group_id_tag 1
+#define gizclaw_rpc_v1_FriendGroupCreateRequest_display_name_tag 3
+#define gizclaw_rpc_v1_FriendGroupDeleteRequest_name_tag 1
+#define gizclaw_rpc_v1_FriendGroupGetRequest_name_tag 1
+#define gizclaw_rpc_v1_FriendGroupInviteTokenClearRequest_friend_group_name_tag 1
+#define gizclaw_rpc_v1_FriendGroupInviteTokenCreateRequest_friend_group_name_tag 1
 #define gizclaw_rpc_v1_FriendGroupInviteTokenCreateResponse_expires_at_tag 1
 #define gizclaw_rpc_v1_FriendGroupInviteTokenCreateResponse_invite_token_tag 2
-#define gizclaw_rpc_v1_FriendGroupInviteTokenGetRequest_friend_group_id_tag 1
+#define gizclaw_rpc_v1_FriendGroupInviteTokenGetRequest_friend_group_name_tag 1
 #define gizclaw_rpc_v1_FriendGroupInviteTokenGetResponse_expires_at_tag 1
 #define gizclaw_rpc_v1_FriendGroupInviteTokenGetResponse_invite_token_tag 2
 #define gizclaw_rpc_v1_FriendGroupJoinRequest_invite_token_tag 1
+#define gizclaw_rpc_v1_FriendGroupJoinRequest_name_tag 2
 #define gizclaw_rpc_v1_FriendGroupListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_FriendGroupListRequest_limit_tag 2
 #define gizclaw_rpc_v1_FriendGroupListResponse_has_next_tag 1
 #define gizclaw_rpc_v1_FriendGroupListResponse_items_tag 2
 #define gizclaw_rpc_v1_FriendGroupListResponse_next_cursor_tag 3
-#define gizclaw_rpc_v1_FriendGroupMemberAddRequest_friend_group_id_tag 1
+#define gizclaw_rpc_v1_FriendGroupMemberAddRequest_friend_group_name_tag 1
 #define gizclaw_rpc_v1_FriendGroupMemberAddRequest_peer_public_key_tag 2
 #define gizclaw_rpc_v1_FriendGroupMemberAddRequest_role_tag 3
-#define gizclaw_rpc_v1_FriendGroupMemberDeleteRequest_friend_group_id_tag 1
+#define gizclaw_rpc_v1_FriendGroupMemberAddRequest_member_name_tag 4
+#define gizclaw_rpc_v1_FriendGroupMemberDeleteRequest_friend_group_name_tag 1
 #define gizclaw_rpc_v1_FriendGroupMemberDeleteRequest_id_tag 2
 #define gizclaw_rpc_v1_FriendGroupMemberListRequest_cursor_tag 1
-#define gizclaw_rpc_v1_FriendGroupMemberListRequest_friend_group_id_tag 2
+#define gizclaw_rpc_v1_FriendGroupMemberListRequest_friend_group_name_tag 2
 #define gizclaw_rpc_v1_FriendGroupMemberListRequest_limit_tag 3
 #define gizclaw_rpc_v1_FriendGroupMemberListResponse_has_next_tag 1
 #define gizclaw_rpc_v1_FriendGroupMemberListResponse_items_tag 2
 #define gizclaw_rpc_v1_FriendGroupMemberListResponse_next_cursor_tag 3
 #define gizclaw_rpc_v1_FriendGroupMemberObject_created_at_tag 1
-#define gizclaw_rpc_v1_FriendGroupMemberObject_friend_group_id_tag 2
+#define gizclaw_rpc_v1_FriendGroupMemberObject_friend_group_name_tag 2
 #define gizclaw_rpc_v1_FriendGroupMemberObject_id_tag 3
 #define gizclaw_rpc_v1_FriendGroupMemberObject_peer_public_key_tag 4
 #define gizclaw_rpc_v1_FriendGroupMemberObject_role_tag 5
 #define gizclaw_rpc_v1_FriendGroupMemberObject_updated_at_tag 6
 #define gizclaw_rpc_v1_FriendGroupMemberAddResponse_value_tag 1
 #define gizclaw_rpc_v1_FriendGroupMemberDeleteResponse_value_tag 1
-#define gizclaw_rpc_v1_FriendGroupMemberPutRequest_friend_group_id_tag 1
+#define gizclaw_rpc_v1_FriendGroupMemberPutRequest_friend_group_name_tag 1
 #define gizclaw_rpc_v1_FriendGroupMemberPutRequest_id_tag 2
 #define gizclaw_rpc_v1_FriendGroupMemberPutRequest_role_tag 3
 #define gizclaw_rpc_v1_FriendGroupMemberPutResponse_value_tag 1
-#define gizclaw_rpc_v1_FriendGroupMessageAudioGetRequest_friend_group_id_tag 1
+#define gizclaw_rpc_v1_FriendGroupMessageAudioGetRequest_friend_group_name_tag 1
 #define gizclaw_rpc_v1_FriendGroupMessageAudioGetRequest_history_id_tag 2
-#define gizclaw_rpc_v1_FriendGroupMessageAudioGetResponse_friend_group_id_tag 1
+#define gizclaw_rpc_v1_FriendGroupMessageAudioGetResponse_friend_group_name_tag 1
 #define gizclaw_rpc_v1_FriendGroupMessageAudioGetResponse_history_id_tag 2
 #define gizclaw_rpc_v1_FriendGroupMessageAudioGetResponse_mime_type_tag 3
 #define gizclaw_rpc_v1_FriendGroupMessageAudioGetResponse_size_bytes_tag 4
-#define gizclaw_rpc_v1_FriendGroupMessageGetRequest_friend_group_id_tag 1
+#define gizclaw_rpc_v1_FriendGroupMessageGetRequest_friend_group_name_tag 1
 #define gizclaw_rpc_v1_FriendGroupMessageGetRequest_history_id_tag 2
 #define gizclaw_rpc_v1_FriendGroupMessageListRequest_cursor_tag 1
-#define gizclaw_rpc_v1_FriendGroupMessageListRequest_friend_group_id_tag 2
+#define gizclaw_rpc_v1_FriendGroupMessageListRequest_friend_group_name_tag 2
 #define gizclaw_rpc_v1_FriendGroupMessageListRequest_limit_tag 3
 #define gizclaw_rpc_v1_FriendGroupMessageListRequest_order_tag 4
 #define gizclaw_rpc_v1_FriendGroupMessageListResponse_has_next_tag 1
 #define gizclaw_rpc_v1_FriendGroupMessageListResponse_items_tag 2
 #define gizclaw_rpc_v1_FriendGroupMessageListResponse_next_cursor_tag 3
-#define gizclaw_rpc_v1_FriendGroupMessageObject_created_at_tag 4
-#define gizclaw_rpc_v1_FriendGroupMessageObject_expires_at_tag 5
-#define gizclaw_rpc_v1_FriendGroupMessageObject_friend_group_id_tag 6
-#define gizclaw_rpc_v1_FriendGroupMessageObject_sender_peer_public_key_tag 8
-#define gizclaw_rpc_v1_FriendGroupMessageObject_history_id_tag 10
-#define gizclaw_rpc_v1_FriendGroupMessageObject_name_tag 11
-#define gizclaw_rpc_v1_FriendGroupMessageObject_text_tag 12
-#define gizclaw_rpc_v1_FriendGroupMessageObject_type_tag 13
-#define gizclaw_rpc_v1_FriendGroupMessageObject_audio_available_tag 14
+#define gizclaw_rpc_v1_FriendGroupMessageObject_created_at_tag 1
+#define gizclaw_rpc_v1_FriendGroupMessageObject_expires_at_tag 2
+#define gizclaw_rpc_v1_FriendGroupMessageObject_friend_group_name_tag 3
+#define gizclaw_rpc_v1_FriendGroupMessageObject_sender_peer_public_key_tag 4
+#define gizclaw_rpc_v1_FriendGroupMessageObject_history_id_tag 5
+#define gizclaw_rpc_v1_FriendGroupMessageObject_name_tag 6
+#define gizclaw_rpc_v1_FriendGroupMessageObject_text_tag 7
+#define gizclaw_rpc_v1_FriendGroupMessageObject_type_tag 8
+#define gizclaw_rpc_v1_FriendGroupMessageObject_audio_available_tag 9
 #define gizclaw_rpc_v1_FriendGroupMessageGetResponse_value_tag 1
 #define gizclaw_rpc_v1_FriendGroupObject_created_at_tag 1
 #define gizclaw_rpc_v1_FriendGroupObject_created_by_peer_public_key_tag 2
 #define gizclaw_rpc_v1_FriendGroupObject_description_tag 3
-#define gizclaw_rpc_v1_FriendGroupObject_id_tag  4
+#define gizclaw_rpc_v1_FriendGroupObject_display_name_tag 4
 #define gizclaw_rpc_v1_FriendGroupObject_my_role_tag 5
 #define gizclaw_rpc_v1_FriendGroupObject_name_tag 6
 #define gizclaw_rpc_v1_FriendGroupObject_updated_at_tag 7
@@ -598,8 +606,8 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendGroupJoinResponse_group_tag 1
 #define gizclaw_rpc_v1_FriendGroupJoinResponse_member_tag 2
 #define gizclaw_rpc_v1_FriendGroupPutRequest_description_tag 1
-#define gizclaw_rpc_v1_FriendGroupPutRequest_id_tag 2
-#define gizclaw_rpc_v1_FriendGroupPutRequest_name_tag 3
+#define gizclaw_rpc_v1_FriendGroupPutRequest_name_tag 2
+#define gizclaw_rpc_v1_FriendGroupPutRequest_display_name_tag 3
 #define gizclaw_rpc_v1_FriendGroupPutResponse_value_tag 1
 #define gizclaw_rpc_v1_FriendInviteTokenCreateResponse_expires_at_tag 1
 #define gizclaw_rpc_v1_FriendInviteTokenCreateResponse_invite_token_tag 2
@@ -620,8 +628,9 @@ extern "C" {
 
 /* Struct field encoding specification for nanopb */
 #define gizclaw_rpc_v1_ContactCreateRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   display_name,      1) \
-X(a, CALLBACK, OPTIONAL, STRING,   phone_number,      2)
+X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
+X(a, CALLBACK, OPTIONAL, STRING,   display_name,      2) \
+X(a, CALLBACK, OPTIONAL, STRING,   phone_number,      3)
 #define gizclaw_rpc_v1_ContactCreateRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ContactCreateRequest_DEFAULT NULL
 
@@ -632,7 +641,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_ContactCreateResponse_value_MSGTYPE gizclaw_rpc_v1_ContactObject
 
 #define gizclaw_rpc_v1_ContactDeleteRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1)
+X(a, CALLBACK, SINGULAR, STRING,   name,              1)
 #define gizclaw_rpc_v1_ContactDeleteRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ContactDeleteRequest_DEFAULT NULL
 
@@ -643,7 +652,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_ContactDeleteResponse_value_MSGTYPE gizclaw_rpc_v1_ContactObject
 
 #define gizclaw_rpc_v1_ContactGetRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1)
+X(a, CALLBACK, SINGULAR, STRING,   name,              1)
 #define gizclaw_rpc_v1_ContactGetRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ContactGetRequest_DEFAULT NULL
 
@@ -670,7 +679,7 @@ X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
 #define gizclaw_rpc_v1_ContactObject_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   created_at,        1) \
 X(a, CALLBACK, OPTIONAL, STRING,   display_name,      2) \
-X(a, CALLBACK, OPTIONAL, STRING,   id,                3) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              3) \
 X(a, CALLBACK, OPTIONAL, STRING,   phone_number,      4) \
 X(a, CALLBACK, OPTIONAL, STRING,   updated_at,        5)
 #define gizclaw_rpc_v1_ContactObject_CALLBACK pb_default_field_callback
@@ -678,7 +687,7 @@ X(a, CALLBACK, OPTIONAL, STRING,   updated_at,        5)
 
 #define gizclaw_rpc_v1_ContactPutRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   display_name,      1) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                2) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              2) \
 X(a, CALLBACK, OPTIONAL, STRING,   phone_number,      3)
 #define gizclaw_rpc_v1_ContactPutRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ContactPutRequest_DEFAULT NULL
@@ -731,7 +740,8 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
 
 #define gizclaw_rpc_v1_FriendGroupCreateRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   description,       1) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              2)
+X(a, CALLBACK, SINGULAR, STRING,   name,              2) \
+X(a, CALLBACK, OPTIONAL, STRING,   display_name,      3)
 #define gizclaw_rpc_v1_FriendGroupCreateRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FriendGroupCreateRequest_DEFAULT NULL
 
@@ -742,7 +752,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_FriendGroupCreateResponse_value_MSGTYPE gizclaw_rpc_v1_FriendGroupObject
 
 #define gizclaw_rpc_v1_FriendGroupDeleteRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1)
+X(a, CALLBACK, SINGULAR, STRING,   name,              1)
 #define gizclaw_rpc_v1_FriendGroupDeleteRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FriendGroupDeleteRequest_DEFAULT NULL
 
@@ -753,7 +763,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_FriendGroupDeleteResponse_value_MSGTYPE gizclaw_rpc_v1_FriendGroupObject
 
 #define gizclaw_rpc_v1_FriendGroupGetRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1)
+X(a, CALLBACK, SINGULAR, STRING,   name,              1)
 #define gizclaw_rpc_v1_FriendGroupGetRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FriendGroupGetRequest_DEFAULT NULL
 
@@ -764,7 +774,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_FriendGroupGetResponse_value_MSGTYPE gizclaw_rpc_v1_FriendGroupObject
 
 #define gizclaw_rpc_v1_FriendGroupInviteTokenClearRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   friend_group_id,   1)
+X(a, CALLBACK, SINGULAR, STRING,   friend_group_name,   1)
 #define gizclaw_rpc_v1_FriendGroupInviteTokenClearRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FriendGroupInviteTokenClearRequest_DEFAULT NULL
 
@@ -774,7 +784,7 @@ X(a, CALLBACK, SINGULAR, STRING,   friend_group_id,   1)
 #define gizclaw_rpc_v1_FriendGroupInviteTokenClearResponse_DEFAULT NULL
 
 #define gizclaw_rpc_v1_FriendGroupInviteTokenCreateRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   friend_group_id,   1)
+X(a, CALLBACK, SINGULAR, STRING,   friend_group_name,   1)
 #define gizclaw_rpc_v1_FriendGroupInviteTokenCreateRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FriendGroupInviteTokenCreateRequest_DEFAULT NULL
 
@@ -785,7 +795,7 @@ X(a, CALLBACK, SINGULAR, STRING,   invite_token,      2)
 #define gizclaw_rpc_v1_FriendGroupInviteTokenCreateResponse_DEFAULT NULL
 
 #define gizclaw_rpc_v1_FriendGroupInviteTokenGetRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   friend_group_id,   1)
+X(a, CALLBACK, SINGULAR, STRING,   friend_group_name,   1)
 #define gizclaw_rpc_v1_FriendGroupInviteTokenGetRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FriendGroupInviteTokenGetRequest_DEFAULT NULL
 
@@ -796,7 +806,8 @@ X(a, CALLBACK, OPTIONAL, STRING,   invite_token,      2)
 #define gizclaw_rpc_v1_FriendGroupInviteTokenGetResponse_DEFAULT NULL
 
 #define gizclaw_rpc_v1_FriendGroupJoinRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   invite_token,      1)
+X(a, CALLBACK, SINGULAR, STRING,   invite_token,      1) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              2)
 #define gizclaw_rpc_v1_FriendGroupJoinRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FriendGroupJoinRequest_DEFAULT NULL
 
@@ -823,9 +834,10 @@ X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
 #define gizclaw_rpc_v1_FriendGroupListResponse_items_MSGTYPE gizclaw_rpc_v1_FriendGroupObject
 
 #define gizclaw_rpc_v1_FriendGroupMemberAddRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   friend_group_id,   1) \
+X(a, CALLBACK, SINGULAR, STRING,   friend_group_name,   1) \
 X(a, CALLBACK, SINGULAR, STRING,   peer_public_key,   2) \
-X(a, STATIC,   SINGULAR, UENUM,    role,              3)
+X(a, STATIC,   SINGULAR, UENUM,    role,              3) \
+X(a, CALLBACK, SINGULAR, STRING,   member_name,       4)
 #define gizclaw_rpc_v1_FriendGroupMemberAddRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FriendGroupMemberAddRequest_DEFAULT NULL
 
@@ -836,7 +848,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_FriendGroupMemberAddResponse_value_MSGTYPE gizclaw_rpc_v1_FriendGroupMemberObject
 
 #define gizclaw_rpc_v1_FriendGroupMemberDeleteRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   friend_group_id,   1) \
+X(a, CALLBACK, SINGULAR, STRING,   friend_group_name,   1) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                2)
 #define gizclaw_rpc_v1_FriendGroupMemberDeleteRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FriendGroupMemberDeleteRequest_DEFAULT NULL
@@ -849,7 +861,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 
 #define gizclaw_rpc_v1_FriendGroupMemberListRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   cursor,            1) \
-X(a, CALLBACK, OPTIONAL, STRING,   friend_group_id,   2) \
+X(a, CALLBACK, OPTIONAL, STRING,   friend_group_name,   2) \
 X(a, STATIC,   OPTIONAL, INT64,    limit,             3)
 #define gizclaw_rpc_v1_FriendGroupMemberListRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FriendGroupMemberListRequest_DEFAULT NULL
@@ -864,7 +876,7 @@ X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
 
 #define gizclaw_rpc_v1_FriendGroupMemberObject_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   created_at,        1) \
-X(a, CALLBACK, OPTIONAL, STRING,   friend_group_id,   2) \
+X(a, CALLBACK, OPTIONAL, STRING,   friend_group_name,   2) \
 X(a, CALLBACK, OPTIONAL, STRING,   id,                3) \
 X(a, CALLBACK, OPTIONAL, STRING,   peer_public_key,   4) \
 X(a, STATIC,   OPTIONAL, UENUM,    role,              5) \
@@ -873,7 +885,7 @@ X(a, CALLBACK, OPTIONAL, STRING,   updated_at,        6)
 #define gizclaw_rpc_v1_FriendGroupMemberObject_DEFAULT NULL
 
 #define gizclaw_rpc_v1_FriendGroupMemberPutRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   friend_group_id,   1) \
+X(a, CALLBACK, SINGULAR, STRING,   friend_group_name,   1) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                2) \
 X(a, STATIC,   SINGULAR, UENUM,    role,              3)
 #define gizclaw_rpc_v1_FriendGroupMemberPutRequest_CALLBACK pb_default_field_callback
@@ -886,13 +898,13 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_FriendGroupMemberPutResponse_value_MSGTYPE gizclaw_rpc_v1_FriendGroupMemberObject
 
 #define gizclaw_rpc_v1_FriendGroupMessageAudioGetRequest_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, STRING,   friend_group_id,   1) \
+X(a, STATIC,   SINGULAR, STRING,   friend_group_name,   1) \
 X(a, STATIC,   SINGULAR, STRING,   history_id,        2)
 #define gizclaw_rpc_v1_FriendGroupMessageAudioGetRequest_CALLBACK NULL
 #define gizclaw_rpc_v1_FriendGroupMessageAudioGetRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_FriendGroupMessageAudioGetResponse_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, STRING,   friend_group_id,   1) \
+X(a, STATIC,   SINGULAR, STRING,   friend_group_name,   1) \
 X(a, STATIC,   SINGULAR, STRING,   history_id,        2) \
 X(a, STATIC,   SINGULAR, STRING,   mime_type,         3) \
 X(a, STATIC,   SINGULAR, INT64,    size_bytes,        4)
@@ -900,7 +912,7 @@ X(a, STATIC,   SINGULAR, INT64,    size_bytes,        4)
 #define gizclaw_rpc_v1_FriendGroupMessageAudioGetResponse_DEFAULT NULL
 
 #define gizclaw_rpc_v1_FriendGroupMessageGetRequest_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, STRING,   friend_group_id,   1) \
+X(a, STATIC,   SINGULAR, STRING,   friend_group_name,   1) \
 X(a, STATIC,   SINGULAR, STRING,   history_id,        2)
 #define gizclaw_rpc_v1_FriendGroupMessageGetRequest_CALLBACK NULL
 #define gizclaw_rpc_v1_FriendGroupMessageGetRequest_DEFAULT NULL
@@ -913,7 +925,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 
 #define gizclaw_rpc_v1_FriendGroupMessageListRequest_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, STRING,   cursor,            1) \
-X(a, STATIC,   SINGULAR, STRING,   friend_group_id,   2) \
+X(a, STATIC,   SINGULAR, STRING,   friend_group_name,   2) \
 X(a, STATIC,   OPTIONAL, INT64,    limit,             3) \
 X(a, STATIC,   OPTIONAL, UENUM,    order,             4)
 #define gizclaw_rpc_v1_FriendGroupMessageListRequest_CALLBACK NULL
@@ -928,15 +940,15 @@ X(a, STATIC,   OPTIONAL, STRING,   next_cursor,       3)
 #define gizclaw_rpc_v1_FriendGroupMessageListResponse_items_MSGTYPE gizclaw_rpc_v1_FriendGroupMessageObject
 
 #define gizclaw_rpc_v1_FriendGroupMessageObject_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, STRING,   created_at,        4) \
-X(a, STATIC,   OPTIONAL, STRING,   expires_at,        5) \
-X(a, STATIC,   SINGULAR, STRING,   friend_group_id,   6) \
-X(a, STATIC,   OPTIONAL, STRING,   sender_peer_public_key,   8) \
-X(a, STATIC,   SINGULAR, STRING,   history_id,       10) \
-X(a, STATIC,   SINGULAR, STRING,   name,             11) \
-X(a, STATIC,   SINGULAR, STRING,   text,             12) \
-X(a, STATIC,   SINGULAR, UENUM,    type,             13) \
-X(a, STATIC,   SINGULAR, BOOL,     audio_available,  14)
+X(a, STATIC,   SINGULAR, STRING,   created_at,        1) \
+X(a, STATIC,   OPTIONAL, STRING,   expires_at,        2) \
+X(a, STATIC,   SINGULAR, STRING,   friend_group_name,   3) \
+X(a, STATIC,   OPTIONAL, STRING,   sender_peer_public_key,   4) \
+X(a, STATIC,   SINGULAR, STRING,   history_id,        5) \
+X(a, STATIC,   SINGULAR, STRING,   name,              6) \
+X(a, STATIC,   SINGULAR, STRING,   text,              7) \
+X(a, STATIC,   SINGULAR, UENUM,    type,              8) \
+X(a, STATIC,   SINGULAR, BOOL,     audio_available,   9)
 #define gizclaw_rpc_v1_FriendGroupMessageObject_CALLBACK NULL
 #define gizclaw_rpc_v1_FriendGroupMessageObject_DEFAULT NULL
 
@@ -944,9 +956,9 @@ X(a, STATIC,   SINGULAR, BOOL,     audio_available,  14)
 X(a, CALLBACK, OPTIONAL, STRING,   created_at,        1) \
 X(a, CALLBACK, OPTIONAL, STRING,   created_by_peer_public_key,   2) \
 X(a, CALLBACK, OPTIONAL, STRING,   description,       3) \
-X(a, CALLBACK, OPTIONAL, STRING,   id,                4) \
+X(a, CALLBACK, OPTIONAL, STRING,   display_name,      4) \
 X(a, STATIC,   OPTIONAL, UENUM,    my_role,           5) \
-X(a, CALLBACK, OPTIONAL, STRING,   name,              6) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              6) \
 X(a, CALLBACK, OPTIONAL, STRING,   updated_at,        7) \
 X(a, CALLBACK, OPTIONAL, STRING,   workspace_name,    8)
 #define gizclaw_rpc_v1_FriendGroupObject_CALLBACK pb_default_field_callback
@@ -954,8 +966,8 @@ X(a, CALLBACK, OPTIONAL, STRING,   workspace_name,    8)
 
 #define gizclaw_rpc_v1_FriendGroupPutRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   description,       1) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                2) \
-X(a, CALLBACK, OPTIONAL, STRING,   name,              3)
+X(a, CALLBACK, SINGULAR, STRING,   name,              2) \
+X(a, CALLBACK, OPTIONAL, STRING,   display_name,      3)
 #define gizclaw_rpc_v1_FriendGroupPutRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FriendGroupPutRequest_DEFAULT NULL
 

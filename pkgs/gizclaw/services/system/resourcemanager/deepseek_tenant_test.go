@@ -15,7 +15,7 @@ func TestApplyDeepSeekTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 		"kind": "DeepSeekTenant",
 		"metadata": {"name": "default"},
 		"spec": {
-			"credential_name": "deepseek",
+			"credential_id": "deepseek",
 			"base_url": "https://deepseek.example.com"
 		}
 	}`)
@@ -27,6 +27,7 @@ func TestApplyDeepSeekTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 	if result.Action != apitypes.ApplyActionCreated {
 		t.Fatalf("Apply(create DeepSeekTenant) action = %s", result.Action)
 	}
+	resource = withResourceID(t, resource, *result.Id)
 	result, err = manager.Apply(context.Background(), resource)
 	if err != nil {
 		t.Fatalf("Apply(unchanged DeepSeekTenant) error = %v", err)
@@ -40,11 +41,12 @@ func TestApplyDeepSeekTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 		"kind": "DeepSeekTenant",
 		"metadata": {"name": "default"},
 		"spec": {
-			"credential_name": "deepseek",
+			"credential_id": "deepseek",
 			"base_url": "https://deepseek.example.com",
 			"description": "DeepSeek project"
 		}
 	}`)
+	updated = withResourceID(t, updated, *result.Id)
 	result, err = manager.Apply(context.Background(), updated)
 	if err != nil {
 		t.Fatalf("Apply(update DeepSeekTenant) error = %v", err)
@@ -61,11 +63,16 @@ func TestPutGetDeleteDeepSeekTenantResource(t *testing.T) {
 		"kind": "DeepSeekTenant",
 		"metadata": {"name": "default"},
 		"spec": {
-			"credential_name": "deepseek",
+			"credential_id": "deepseek",
 			"base_url": "https://deepseek.example.com"
 		}
 	}`)
 
+	created, err := manager.Apply(context.Background(), resource)
+	if err != nil {
+		t.Fatalf("Apply(DeepSeekTenant) error = %v", err)
+	}
+	resource = withResourceID(t, resource, *created.Id)
 	stored, err := manager.Put(context.Background(), resource)
 	if err != nil {
 		t.Fatalf("Put(DeepSeekTenant) error = %v", err)
@@ -74,11 +81,12 @@ func TestPutGetDeleteDeepSeekTenantResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsDeepSeekTenantResource(Put) error = %v", err)
 	}
-	if tenant.Spec.CredentialName != "deepseek" {
-		t.Fatalf("Put(DeepSeekTenant) credential_name = %s", tenant.Spec.CredentialName)
+	if tenant.Spec.CredentialId != "deepseek" {
+		t.Fatalf("Put(DeepSeekTenant) credential_name = %s", tenant.Spec.CredentialId)
 	}
 
-	got, err := manager.Get(context.Background(), apitypes.ResourceKindDeepSeekTenant, "default")
+	id := *created.Id
+	got, err := manager.Get(context.Background(), apitypes.ResourceKindDeepSeekTenant, id)
 	if err != nil {
 		t.Fatalf("Get(DeepSeekTenant) error = %v", err)
 	}
@@ -90,7 +98,7 @@ func TestPutGetDeleteDeepSeekTenantResource(t *testing.T) {
 		t.Fatalf("Get(DeepSeekTenant) metadata.name = %s", gotTenant.Metadata.Name)
 	}
 
-	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindDeepSeekTenant, "default")
+	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindDeepSeekTenant, id)
 	if err != nil {
 		t.Fatalf("Delete(DeepSeekTenant) error = %v", err)
 	}
@@ -101,9 +109,9 @@ func TestPutGetDeleteDeepSeekTenantResource(t *testing.T) {
 	if deletedTenant.Metadata.Name != "default" {
 		t.Fatalf("Delete(DeepSeekTenant) metadata.name = %s", deletedTenant.Metadata.Name)
 	}
-	_, err = manager.Get(context.Background(), apitypes.ResourceKindDeepSeekTenant, "default")
+	_, err = manager.Get(context.Background(), apitypes.ResourceKindDeepSeekTenant, id)
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
-	_, err = manager.Delete(context.Background(), apitypes.ResourceKindDeepSeekTenant, "default")
+	_, err = manager.Delete(context.Background(), apitypes.ResourceKindDeepSeekTenant, id)
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
 }
 
@@ -129,7 +137,7 @@ func TestDeepSeekTenantMissingServiceErrors(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "DeepSeekTenant",
 		"metadata": {"name": "default"},
-		"spec": {"credential_name": "deepseek"}
+		"spec": {"credential_id": "deepseek"}
 	}`)
 
 	if _, err := manager.Get(context.Background(), apitypes.ResourceKindDeepSeekTenant, "default"); err == nil {
@@ -152,7 +160,7 @@ func TestApplyDeepSeekTenantRejectsInvalidHeader(t *testing.T) {
 		"apiVersion": "unsupported",
 		"kind": "DeepSeekTenant",
 		"metadata": {"name": "default"},
-		"spec": {"credential_name": "deepseek"}
+		"spec": {"credential_id": "deepseek"}
 	}`)
 	_, err := manager.Apply(context.Background(), resource)
 	assertResourceError(t, err, 400, "UNSUPPORTED_RESOURCE_VERSION")

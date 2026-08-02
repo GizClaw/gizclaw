@@ -148,7 +148,7 @@ func TestFriendRelationshipEventsReachBothRecipientViews(t *testing.T) {
 		notifications = append(notifications, friendNotification{recipient: recipient, event: event})
 	}
 
-	friend, err := s.AdminCreateFriendResource(ctx, "peer-a", "peer-b")
+	friend, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
 	if err != nil {
 		t.Fatalf("AdminCreateFriendResource: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestFriendRelationshipEventsReachBothRecipientViews(t *testing.T) {
 		t,
 		notifications,
 		eventpb.FriendRelationshipChange_FRIEND_RELATIONSHIP_CHANGE_CREATED,
-		friend.WorkspaceName,
+		socialutil.StringValue(friend.WorkspaceName),
 	)
 
 	notifications = nil
@@ -168,7 +168,7 @@ func TestFriendRelationshipEventsReachBothRecipientViews(t *testing.T) {
 		t,
 		notifications,
 		eventpb.FriendRelationshipChange_FRIEND_RELATIONSHIP_CHANGE_DELETED,
-		friend.WorkspaceName,
+		socialutil.StringValue(friend.WorkspaceName),
 	)
 }
 
@@ -221,7 +221,7 @@ func TestAddFriendWorkspaceBelongsToInviteTokenCreator(t *testing.T) {
 	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: token.InviteToken}); err != nil {
 		t.Fatal(err)
 	}
-	if len(workspaces.created) != 1 || workspaces.created[0].WorkflowName != "owner-direct-chat" {
+	if len(workspaces.created) != 1 || workspaces.created[0].WorkflowId != "owner-direct-chat" {
 		t.Fatalf("created Workspaces = %#v", workspaces.created)
 	}
 	if len(workspaces.owners) != 1 || workspaces.owners[0] != "peer-b" {
@@ -278,7 +278,7 @@ func TestDeleteFriendIsRelationshipFirstAndRetryable(t *testing.T) {
 	ctx := t.Context()
 	workspaces := &recordingWorkspaceService{}
 	s := newTestServer()
-	friend, err := s.AdminCreateFriendResource(ctx, "peer-a", "peer-b")
+	friend, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
 	if err != nil {
 		t.Fatalf("AdminCreateFriendResource: %v", err)
 	}
@@ -322,7 +322,7 @@ func TestDeleteFriendIsRelationshipFirstAndRetryable(t *testing.T) {
 		t,
 		notifications,
 		eventpb.FriendRelationshipChange_FRIEND_RELATIONSHIP_CHANGE_DELETED,
-		friend.WorkspaceName,
+		socialutil.StringValue(friend.WorkspaceName),
 	)
 	notificationCount := len(notifications)
 	retried, err := restarted.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Id: "peer-b"})
@@ -330,7 +330,7 @@ func TestDeleteFriendIsRelationshipFirstAndRetryable(t *testing.T) {
 		t.Fatalf("DeleteFriend retry after completed retirement: %v", err)
 	}
 	if socialutil.StringValue(retried.Id) != "peer-b" ||
-		socialutil.StringValue(retried.WorkspaceName) != friend.WorkspaceName {
+		socialutil.StringValue(retried.WorkspaceName) != socialutil.StringValue(friend.WorkspaceName) {
 		t.Fatalf("DeleteFriend completed retry = %#v", retried)
 	}
 	if len(notifications) != notificationCount {
@@ -348,18 +348,20 @@ func TestStaleRetirementCompletionLeavesNewerIntentUntouched(t *testing.T) {
 	s.Workspaces = workspaces
 	relationID := socialutil.RelationID("peer-a", "peer-b")
 	stale := retirementIntent{
-		RelationID: relationID,
-		FirstPeer:  "peer-a",
-		SecondPeer: "peer-b",
-		Workspace:  "stale-workspace",
-		DeletedAt:  s.now(),
+		RelationID:    relationID,
+		FirstPeer:     "peer-a",
+		SecondPeer:    "peer-b",
+		WorkspaceID:   "id-stale-workspace",
+		WorkspaceName: "stale-workspace",
+		DeletedAt:     s.now(),
 	}
 	newer := retirementIntent{
-		RelationID: relationID,
-		FirstPeer:  "peer-a",
-		SecondPeer: "peer-b",
-		Workspace:  "newer-workspace",
-		DeletedAt:  s.now().Add(time.Second),
+		RelationID:    relationID,
+		FirstPeer:     "peer-a",
+		SecondPeer:    "peer-b",
+		WorkspaceID:   "id-newer-workspace",
+		WorkspaceName: "newer-workspace",
+		DeletedAt:     s.now().Add(time.Second),
 	}
 	if err := socialutil.WriteJSON(
 		ctx,
@@ -377,7 +379,7 @@ func TestStaleRetirementCompletionLeavesNewerIntentUntouched(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read newer retirement intent: %v", err)
 	}
-	if current.Workspace != newer.Workspace ||
+	if current.WorkspaceID != newer.WorkspaceID || current.WorkspaceName != newer.WorkspaceName ||
 		!current.DeletedAt.Equal(newer.DeletedAt) {
 		t.Fatalf("stale completion changed newer intent: got %#v, want %#v", current, newer)
 	}
@@ -388,8 +390,8 @@ func TestStaleRetirementCompletionLeavesNewerIntentUntouched(t *testing.T) {
 	); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("stale completion receipt error = %v, want not found", err)
 	}
-	if len(workspaces.retired) != 1 || workspaces.retired[0] != stale.Workspace {
-		t.Fatalf("retired Workspaces = %v, want %q", workspaces.retired, stale.Workspace)
+	if len(workspaces.retired) != 1 || workspaces.retired[0] != stale.WorkspaceID {
+		t.Fatalf("retired Workspaces = %v, want %q", workspaces.retired, stale.WorkspaceID)
 	}
 }
 
@@ -429,8 +431,8 @@ func TestFriendRecreationUsesNewWorkspaceIncarnation(t *testing.T) {
 		t.Fatalf("Workspace incarnations are not unique: %v", workspaceNames)
 	}
 	if len(workspaces.retired) != 2 ||
-		workspaces.retired[0] != workspaceNames[0] ||
-		workspaces.retired[1] != workspaceNames[1] {
+		workspaces.retired[0] != "id-"+workspaceNames[0] ||
+		workspaces.retired[1] != "id-"+workspaceNames[1] {
 		t.Fatalf(
 			"retired Workspaces = %v, want first two incarnations %v",
 			workspaces.retired,
@@ -480,7 +482,7 @@ func TestAddFriendAfterDeletionKeepsRetiredWorkspaceIsolated(t *testing.T) {
 	if firstWorkspace == secondWorkspace {
 		t.Fatalf("re-added Friend reused Workspace %q", firstWorkspace)
 	}
-	if len(workspaces.retired) != 1 || workspaces.retired[0] != firstWorkspace {
+	if len(workspaces.retired) != 1 || workspaces.retired[0] != "id-"+firstWorkspace {
 		t.Fatalf(
 			"retired Workspaces = %v, want unchanged old Workspace %q",
 			workspaces.retired,
@@ -492,8 +494,8 @@ func TestAddFriendAfterDeletionKeepsRetiredWorkspaceIsolated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readRetirementReceipt: %v", err)
 	}
-	if receipt.Workspace != firstWorkspace {
-		t.Fatalf("retirement receipt Workspace = %q, want %q", receipt.Workspace, firstWorkspace)
+	if receipt.WorkspaceName != firstWorkspace || receipt.WorkspaceID != "id-"+firstWorkspace {
+		t.Fatalf("retirement receipt Workspace = %#v, want ID %q and name %q", receipt, "id-"+firstWorkspace, firstWorkspace)
 	}
 	receiptData, err := s.Friends.Get(ctx, retirementReceiptKey(relationID))
 	if err != nil {
@@ -620,7 +622,8 @@ func TestReconcileCommittedDecisionDoesNotRestoreDeletedRelationship(t *testing.
 	if err != nil {
 		t.Fatalf("getOrCreateCreationIntent: %v", err)
 	}
-	if err := s.ensureCreationWorkspace(ctx, intent); err != nil {
+	workspace, err := s.ensureCreationWorkspace(ctx, intent)
+	if err != nil {
 		t.Fatalf("ensureCreationWorkspace: %v", err)
 	}
 	if _, err := s.commitFriendCreation(
@@ -629,6 +632,7 @@ func TestReconcileCommittedDecisionDoesNotRestoreDeletedRelationship(t *testing.
 		"peer-a",
 		"peer-b",
 		intent,
+		workspace,
 	); err != nil {
 		t.Fatalf("commitFriendCreation: %v", err)
 	}
@@ -740,15 +744,16 @@ func TestDeleteFriendCancelsFailedCreationBeforeReconciliation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readRetirementReceipt: %v", err)
 	}
-	if receipt.Workspace != creation.Workspace {
+	if receipt.WorkspaceName != creation.Workspace {
 		t.Fatalf("retirement receipt = %#v, want Workspace %q", receipt, creation.Workspace)
 	}
 	newerRetirement := retirementIntent{
-		RelationID: relationID,
-		FirstPeer:  "peer-a",
-		SecondPeer: "peer-b",
-		Workspace:  "newer-direct-workspace",
-		DeletedAt:  s.now().Add(time.Second),
+		RelationID:    relationID,
+		FirstPeer:     "peer-a",
+		SecondPeer:    "peer-b",
+		WorkspaceID:   "id-newer-direct-workspace",
+		WorkspaceName: "newer-direct-workspace",
+		DeletedAt:     s.now().Add(time.Second),
 	}
 	if err := socialutil.WriteJSON(
 		ctx,
@@ -780,7 +785,8 @@ func TestDeleteFriendCancelsFailedCreationBeforeReconciliation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read newer retirement intent: %v", err)
 	}
-	if stillPending.Workspace != newerRetirement.Workspace ||
+	if stillPending.WorkspaceID != newerRetirement.WorkspaceID ||
+		stillPending.WorkspaceName != newerRetirement.WorkspaceName ||
 		stillPending.DeletedAt != newerRetirement.DeletedAt {
 		t.Fatalf(
 			"newer retirement intent changed: got %#v, want %#v",
@@ -836,7 +842,8 @@ func TestCreationCommitCannotWinAfterConcurrentCancellation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("getOrCreateCreationIntent: %v", err)
 	}
-	if err := creator.ensureCreationWorkspace(ctx, intent); err != nil {
+	workspace, err := creator.ensureCreationWorkspace(ctx, intent)
+	if err != nil {
 		t.Fatalf("ensureCreationWorkspace: %v", err)
 	}
 
@@ -848,6 +855,7 @@ func TestCreationCommitCannotWinAfterConcurrentCancellation(t *testing.T) {
 			"peer-a",
 			"peer-b",
 			intent,
+			workspace,
 		)
 		commitResult <- err
 	}()
@@ -954,7 +962,8 @@ func TestConcurrentCancellationRetiresCreationThatAlreadyCommitted(t *testing.T)
 	if err != nil {
 		t.Fatalf("getOrCreateCreationIntent: %v", err)
 	}
-	if err := creator.ensureCreationWorkspace(ctx, intent); err != nil {
+	workspace, err := creator.ensureCreationWorkspace(ctx, intent)
+	if err != nil {
 		t.Fatalf("ensureCreationWorkspace: %v", err)
 	}
 
@@ -977,6 +986,7 @@ func TestConcurrentCancellationRetiresCreationThatAlreadyCommitted(t *testing.T)
 		"peer-a",
 		"peer-b",
 		intent,
+		workspace,
 	); err != nil {
 		t.Fatalf("commitFriendCreation before cancellation: %v", err)
 	}
@@ -1010,9 +1020,10 @@ func TestConcurrentCancellationRetiresCreationThatAlreadyCommitted(t *testing.T)
 	if err != nil {
 		t.Fatalf("readRetirementReceipt: %v", err)
 	}
-	if receipt.Workspace != intent.Workspace ||
+	if receipt.WorkspaceName != intent.Workspace ||
+		receipt.WorkspaceID != "id-"+intent.Workspace ||
 		len(workspaces.retired) != 1 ||
-		workspaces.retired[0] != intent.Workspace ||
+		workspaces.retired[0] != "id-"+intent.Workspace ||
 		len(workspaces.deleted) != 0 {
 		t.Fatalf(
 			"committed-then-deleted lifecycle: receipt=%#v retired=%v deleted=%v",
@@ -1039,52 +1050,6 @@ func TestFriendCreationRejectsIncompleteReciprocalRows(t *testing.T) {
 	if _, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b"); err == nil ||
 		!strings.Contains(err.Error(), "incomplete") {
 		t.Fatalf("AdminCreateFriend incomplete relationship error = %v", err)
-	}
-}
-
-func TestLegacyFriendRowsUsePairWorkspaceFallback(t *testing.T) {
-	ctx := t.Context()
-	workspaces := &recordingWorkspaceService{}
-	s := newTestServer()
-	s.Workspaces = workspaces
-	relationID := socialutil.RelationID("peer-a", "peer-b")
-	for _, row := range []struct{ owner, peer string }{
-		{"peer-a", "peer-b"},
-		{"peer-b", "peer-a"},
-	} {
-		item := rpcapi.FriendObject{
-			Id:            &row.peer,
-			PeerPublicKey: &row.peer,
-		}
-		if err := socialutil.WriteJSON(
-			ctx,
-			s.Friends,
-			socialutil.FriendKey(row.owner, relationID),
-			item,
-		); err != nil {
-			t.Fatal(err)
-		}
-	}
-	item, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
-	if err != nil {
-		t.Fatalf("AdminCreateFriend legacy rows: %v", err)
-	}
-	legacyWorkspace := socialutil.DirectWorkspaceName(relationID)
-	if socialutil.StringValue(item.WorkspaceName) != legacyWorkspace {
-		t.Fatalf("legacy Friend = %#v, want Workspace %q", item, legacyWorkspace)
-	}
-	if len(workspaces.created) != 0 {
-		t.Fatalf("legacy idempotent create made a Workspace: %#v", workspaces.created)
-	}
-	if _, err := s.DeleteFriend(
-		ctx,
-		"peer-a",
-		rpcapi.FriendDeleteRequest{Id: "peer-b"},
-	); err != nil {
-		t.Fatalf("DeleteFriend legacy rows: %v", err)
-	}
-	if len(workspaces.retired) != 1 || workspaces.retired[0] != legacyWorkspace {
-		t.Fatalf("legacy retired Workspaces = %v, want %q", workspaces.retired, legacyWorkspace)
 	}
 }
 
@@ -1224,12 +1189,11 @@ func TestAdminFriendResourceWrappersAndCursorHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AdminCreateFriendResource: %v", err)
 	}
-	if created.OwnerPublicKey != "peer-c" || created.PeerPublicKey != "peer-d" || created.Id != "peer-d" {
+	if created.OwnerPublicKey != "peer-c" || created.PeerPublicKey != "peer-d" || created.Id != "peer-c:peer-d" {
 		t.Fatalf("AdminCreateFriendResource row = %#v", created)
 	}
-	if created.WorkspaceName == socialutil.DirectWorkspaceName(socialutil.RelationID("peer-c", "peer-d")) ||
-		!strings.HasPrefix(created.WorkspaceName, "social-direct-") {
-		t.Fatalf("AdminCreateFriendResource workspace = %q, want incarnation workspace", created.WorkspaceName)
+	if created.WorkspaceId == "" || !strings.HasPrefix(created.WorkspaceId, "id-social-direct-") {
+		t.Fatalf("AdminCreateFriendResource workspace ID = %q, want canonical ID", created.WorkspaceId)
 	}
 	page, err := s.AdminListFriends(ctx, new("malformed/cursor/value"), new(10))
 	if err != nil {
@@ -1452,12 +1416,21 @@ func (s *recordingWorkspaceService) CreateSystemWorkspace(ctx context.Context, b
 	for _, existing := range s.created {
 		if existing.Name == body.Name {
 			system := true
-			return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, OwnerPublicKey: &owner, System: &system}, false, nil
+			return apitypes.Workspace{Id: "id-" + body.Name, Name: body.Name, WorkflowId: body.WorkflowId, Parameters: body.Parameters, OwnerPublicKey: &owner, System: &system}, false, nil
 		}
 	}
 	s.created = append(s.created, body)
 	system := true
-	return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, OwnerPublicKey: &owner, System: &system}, true, nil
+	return apitypes.Workspace{Id: "id-" + body.Name, Name: body.Name, WorkflowId: body.WorkflowId, Parameters: body.Parameters, OwnerPublicKey: &owner, System: &system}, true, nil
+}
+
+func (s *recordingWorkspaceService) GetWorkspaceByName(_ context.Context, name string) (apitypes.Workspace, error) {
+	for _, existing := range s.created {
+		if existing.Name == name {
+			return apitypes.Workspace{Id: "id-" + name, Name: name}, nil
+		}
+	}
+	return apitypes.Workspace{}, kv.ErrNotFound
 }
 
 func (s *recordingWorkspaceService) DeleteSystemWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {
@@ -1470,6 +1443,11 @@ func (s *recordingWorkspaceService) RetireSystemWorkspace(_ context.Context, nam
 	return apitypes.Workspace{Name: name}, s.retireErr
 }
 
+func (s *recordingWorkspaceService) RetireSystemWorkspaceByID(_ context.Context, id string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+	s.retired = append(s.retired, id)
+	return apitypes.Workspace{Id: id}, s.retireErr
+}
+
 func (s *recordingWorkspaceService) CreateWorkspace(_ context.Context, req adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
 	if req.Body == nil {
 		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
@@ -1480,10 +1458,10 @@ func (s *recordingWorkspaceService) CreateWorkspace(_ context.Context, req admin
 		}
 	}
 	s.created = append(s.created, *req.Body)
-	return adminhttp.CreateWorkspace200JSONResponse(apitypes.Workspace{Name: req.Body.Name, WorkflowName: req.Body.WorkflowName, Parameters: req.Body.Parameters}), nil
+	return adminhttp.CreateWorkspace200JSONResponse(apitypes.Workspace{Name: req.Body.Name, WorkflowId: req.Body.WorkflowId, Parameters: req.Body.Parameters}), nil
 }
 
 func (s *recordingWorkspaceService) DeleteWorkspace(_ context.Context, req adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
-	s.deleted = append(s.deleted, req.Name)
-	return adminhttp.DeleteWorkspace200JSONResponse(apitypes.Workspace{Name: req.Name}), nil
+	s.deleted = append(s.deleted, req.Id)
+	return adminhttp.DeleteWorkspace200JSONResponse(apitypes.Workspace{Name: req.Id}), nil
 }

@@ -95,8 +95,8 @@ func TestCSDKFirmwareRequiresBinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if registration.FirmwareID != nil {
-		t.Fatalf("unbound server.register firmware = %q", *registration.FirmwareID)
+	if registration.FirmwareName != nil {
+		t.Fatalf("unbound server.register firmware = %q", *registration.FirmwareName)
 	}
 
 	_, _, err = client.GetFirmware()
@@ -144,7 +144,7 @@ func createCSDKRegistrationToken(t *testing.T, h *clitest.Harness, scenario stri
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	profileName := "cgo-firmware"
-	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
+	profile, err := clitest.UpsertRuntimeProfileByName(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Name: profileName,
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{},
@@ -161,13 +161,19 @@ func createCSDKRegistrationToken(t *testing.T, h *clitest.Harness, scenario stri
 	if err != nil {
 		t.Fatalf("put C SDK RuntimeProfile: %v", err)
 	}
-	if profileResp.JSON200 == nil {
-		t.Fatalf("put C SDK RuntimeProfile status %d: %s", profileResp.StatusCode(), strings.TrimSpace(string(profileResp.Body)))
-	}
 	tokenName := "cgo-" + scenario
-	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
+	if err := clitest.DeleteRegistrationTokenByName(ctx, api, tokenName); err != nil {
+		t.Fatalf("retire C SDK RegistrationToken: %v", err)
+	}
+	if firmwareID != nil {
+		firmware, found, resolveErr := clitest.FirmwareByName(ctx, api, *firmwareID)
+		if resolveErr != nil || !found {
+			t.Fatalf("resolve C SDK Firmware %q: found=%v err=%v", *firmwareID, found, resolveErr)
+		}
+		firmwareID = &firmware.Id
+	}
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name: tokenName, Token: tokenName, RuntimeProfileName: profileName, FirmwareId: firmwareID,
+		Name: tokenName, Token: tokenName, RuntimeProfileId: profile.Id, FirmwareId: firmwareID,
 	})
 	if err != nil {
 		t.Fatalf("create C SDK RegistrationToken: %v", err)

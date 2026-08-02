@@ -110,7 +110,7 @@ typedef struct _gizclaw_events_v1_FriendRelationshipUpdated {
 } gizclaw_events_v1_FriendRelationshipUpdated;
 
 typedef struct _gizclaw_events_v1_FriendGroupUpdated {
-    char friend_group_id[257];
+    char friend_group_name[257];
     char workspace_name[257];
     gizclaw_events_v1_FriendGroupChange change;
     int64_t revision_unix_ms;
@@ -238,7 +238,7 @@ extern "C" {
 #define gizclaw_events_v1_FriendRelationshipUpdated_workspace_name_tag 2
 #define gizclaw_events_v1_FriendRelationshipUpdated_change_tag 3
 #define gizclaw_events_v1_FriendRelationshipUpdated_revision_unix_ms_tag 4
-#define gizclaw_events_v1_FriendGroupUpdated_friend_group_id_tag 1
+#define gizclaw_events_v1_FriendGroupUpdated_friend_group_name_tag 1
 #define gizclaw_events_v1_FriendGroupUpdated_workspace_name_tag 2
 #define gizclaw_events_v1_FriendGroupUpdated_change_tag 3
 #define gizclaw_events_v1_FriendGroupUpdated_revision_unix_ms_tag 4
@@ -343,7 +343,7 @@ X(a, STATIC,   SINGULAR, INT64,    revision_unix_ms,   4)
 #define gizclaw_events_v1_FriendRelationshipUpdated_DEFAULT NULL
 
 #define gizclaw_events_v1_FriendGroupUpdated_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, STRING,   friend_group_id,   1) \
+X(a, STATIC,   SINGULAR, STRING,   friend_group_name,   1) \
 X(a, STATIC,   SINGULAR, STRING,   workspace_name,    2) \
 X(a, STATIC,   SINGULAR, UENUM,    change,            3) \
 X(a, STATIC,   SINGULAR, INT64,    revision_unix_ms,   4) \

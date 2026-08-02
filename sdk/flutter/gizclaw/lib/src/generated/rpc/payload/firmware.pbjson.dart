@@ -164,7 +164,7 @@ const FirmwareFilesDownloadResponse$json = {
       '6': '.gizclaw.rpc.v1.FirmwareArtifactEntry',
       '10': 'file'
     },
-    {'1': 'firmware_id', '3': 4, '4': 1, '5': 9, '10': 'firmwareId'},
+    {'1': 'firmware_name', '3': 4, '4': 1, '5': 9, '10': 'firmwareName'},
     {'1': 'path', '3': 5, '4': 1, '5': 9, '10': 'path'},
   ],
 };
@@ -174,8 +174,8 @@ final $typed_data.Uint8List firmwareFilesDownloadResponseDescriptor = $convert.b
     'Ch1GaXJtd2FyZUZpbGVzRG93bmxvYWRSZXNwb25zZRI8CghhcnRpZmFjdBgBIAEoCzIgLmdpem'
     'NsYXcucnBjLnYxLkZpcm13YXJlQXJ0aWZhY3RSCGFydGlmYWN0Ej0KB2NoYW5uZWwYAiABKA4y'
     'Iy5naXpjbGF3LnJwYy52MS5GaXJtd2FyZUNoYW5uZWxOYW1lUgdjaGFubmVsEjkKBGZpbGUYAy'
-    'ABKAsyJS5naXpjbGF3LnJwYy52MS5GaXJtd2FyZUFydGlmYWN0RW50cnlSBGZpbGUSHwoLZmly'
-    'bXdhcmVfaWQYBCABKAlSCmZpcm13YXJlSWQSEgoEcGF0aBgFIAEoCVIEcGF0aA==');
+    'ABKAsyJS5naXpjbGF3LnJwYy52MS5GaXJtd2FyZUFydGlmYWN0RW50cnlSBGZpbGUSIwoNZmly'
+    'bXdhcmVfbmFtZRgEIAEoCVIMZmlybXdhcmVOYW1lEhIKBHBhdGgYBSABKAlSBHBhdGg=');
 
 @$core.Deprecated('Use firmwareGetRequestDescriptor instead')
 const FirmwareGetRequest$json = {

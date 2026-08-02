@@ -2,15 +2,15 @@ package rpcapi
 
 // PetPixaDownloadRequest defines model for PetPixaDownloadRequest.
 type PetPixaDownloadRequest struct {
-	PetId string `json:"pet_id"`
+	PetName string `json:"pet_name"`
 }
 
 // PetPixaDownloadResponse defines model for PetPixaDownloadResponse.
 type PetPixaDownloadResponse struct {
-	PetId     string  `json:"pet_id"`
-	PetdefId  string  `json:"petdef_id"`
-	PixaPath  *string `json:"pixa_path,omitempty"`
-	SizeBytes int64   `json:"size_bytes"`
+	PetName    string  `json:"pet_name"`
+	PetDefName string  `json:"pet_def_name"`
+	PixaPath   *string `json:"pixa_path,omitempty"`
+	SizeBytes  int64   `json:"size_bytes"`
 }
 
 type PetVisualBindings struct {
@@ -25,11 +25,11 @@ type PetVisualBindings struct {
 }
 
 type PetActions struct {
-	PetId           string            `json:"pet_id"`
-	PetdefId        string            `json:"petdef_id"`
+	PetName         string            `json:"pet_name"`
+	PetDefName      string            `json:"pet_def_name"`
 	Bindings        PetVisualBindings `json:"bindings"`
 	ClipNames       map[string]string `json:"clip_names"`
-	PetdefUpdatedAt string            `json:"petdef_updated_at"`
+	PetDefUpdatedAt string            `json:"pet_def_updated_at"`
 }
 
 type ServerPetPixaDownloadRequest = PetPixaDownloadRequest

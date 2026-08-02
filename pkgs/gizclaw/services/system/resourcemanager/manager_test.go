@@ -23,7 +23,7 @@ func TestManagerRejectsInvalidInputs(t *testing.T) {
 	_, err = manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
 		"kind":"Unknown",
-		"metadata":{"name":"example"},
+		"metadata":{"id":"example","name":"example"},
 		"spec":{}
 	}`))
 	assertResourceError(t, err, 400, "UNKNOWN_RESOURCE_KIND")
@@ -39,7 +39,7 @@ func TestManagerRejectsNilReceiver(t *testing.T) {
 	_, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
 		"kind":"Credential",
-		"metadata":{"name":"example"},
+		"metadata":{"id":"example","name":"example"},
 		"spec":{"provider":"minimax","body":{"api_key":"secret"}}
 	}`))
 	assertResourceError(t, err, 500, "RESOURCE_MANAGER_NOT_CONFIGURED")

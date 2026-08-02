@@ -12,23 +12,23 @@ func TestSocialFriendGroupRPC(t *testing.T) {
 		t.Fatalf("friend_group.create workspace_name is empty: %#v", group)
 	}
 	secondFriendGroup := mustCreateFriendGroup(t, h, "peer-a", "backup", "")
-	gotFriendGroup := mustGetFriendGroup(t, h, "peer-a", stringValue(group.Id))
-	if stringValue(gotFriendGroup.Name) != "family" {
-		t.Fatalf("friend_group.get name = %q, want family", stringValue(gotFriendGroup.Name))
+	gotFriendGroup := mustGetFriendGroup(t, h, "peer-a", group.Name)
+	if gotFriendGroup.Name != "family" {
+		t.Fatalf("friend_group.get name = %q, want family", gotFriendGroup.Name)
 	}
 	if stringValue(gotFriendGroup.WorkspaceName) != stringValue(group.WorkspaceName) {
 		t.Fatalf("friend_group.get workspace_name = %q, want %q", stringValue(gotFriendGroup.WorkspaceName), stringValue(group.WorkspaceName))
 	}
-	if err := getFriendGroupError(t, h, "peer-d", stringValue(group.Id)); err == nil {
+	if err := getFriendGroupError(t, h, "peer-d", group.Name); err == nil {
 		t.Fatal("non-member unexpectedly read group")
 	}
-	renamedFriendGroup := mustPutFriendGroup(t, h, "peer-a", stringValue(group.Id), "family chat")
-	if stringValue(renamedFriendGroup.Name) != "family chat" {
-		t.Fatalf("friend_group.put name = %q, want family chat", stringValue(renamedFriendGroup.Name))
+	updatedFriendGroup := mustPutFriendGroup(t, h, "peer-a", group.Name, "family chat")
+	if updatedFriendGroup.Name != group.Name || stringValue(updatedFriendGroup.DisplayName) != "family chat" {
+		t.Fatalf("friend_group.put = %#v, want immutable name and updated display_name", updatedFriendGroup)
 	}
-	assertFriendGroupPagination(t, h, []string{stringValue(group.Id), stringValue(secondFriendGroup.Id)})
-	deletedFriendGroup := mustDeleteFriendGroup(t, h, "peer-a", stringValue(secondFriendGroup.Id))
-	if stringValue(deletedFriendGroup.Id) != stringValue(secondFriendGroup.Id) {
-		t.Fatalf("friend_group.delete id = %q, want %q", stringValue(deletedFriendGroup.Id), stringValue(secondFriendGroup.Id))
+	assertFriendGroupPagination(t, h, []string{group.Name, secondFriendGroup.Name})
+	deletedFriendGroup := mustDeleteFriendGroup(t, h, "peer-a", secondFriendGroup.Name)
+	if deletedFriendGroup.Name != secondFriendGroup.Name {
+		t.Fatalf("friend_group.delete id = %q, want %q", deletedFriendGroup.Name, secondFriendGroup.Name)
 	}
 }

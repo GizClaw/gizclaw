@@ -78,6 +78,7 @@ type AdminResourceJSON = {
   kind: ResourceKind;
   metadata: {
     annotations?: Record<string, string>;
+    id?: string;
     labels?: Record<string, string>;
     name: string;
   };
@@ -151,8 +152,8 @@ export function ResourcesPage(): JSX.Element {
     if (!canAddressResource) {
       setError(
         kind === "ResourceList"
-          ? "ResourceList is applied as a bundle; it cannot be fetched by kind/name."
-          : "Enter a resource name first.",
+          ? "ResourceList is applied as a bundle; it cannot be fetched by kind/ID."
+          : "Enter a resource ID first.",
       );
       return;
     }
@@ -162,7 +163,7 @@ export function ResourcesPage(): JSX.Element {
     setApplyResult(null);
     try {
       const next = await expectData(
-        getResource({ path: { kind, name: name.trim() } }),
+        getResource({ path: { kind, id: name.trim() } }),
       );
       setResource(next);
       setResourceText(JSON.stringify(next, null, 2));
@@ -187,7 +188,7 @@ export function ResourcesPage(): JSX.Element {
         setError("");
         try {
           const next = await expectData(
-            getResource({ path: { kind: nextKind, name: nextName.trim() } }),
+            getResource({ path: { kind: nextKind, id: nextName.trim() } }),
           );
           setResource(next);
           setResourceText(JSON.stringify(next, null, 2));
@@ -220,8 +221,12 @@ export function ResourcesPage(): JSX.Element {
     ) {
       throw new Error("Resource metadata.name is required.");
     }
-    if (kind !== "ResourceList" && parsed.metadata.name !== name.trim()) {
-      throw new Error(`Resource metadata.name must match ${name.trim()}.`);
+    if (
+      kind !== "ResourceList" &&
+      typeof parsed.metadata.id === "string" &&
+      parsed.metadata.id !== name.trim()
+    ) {
+      throw new Error(`Resource metadata.id must match ${name.trim()}.`);
     }
     return parsed as AdminResourceJSON;
   };
@@ -240,8 +245,9 @@ export function ResourcesPage(): JSX.Element {
       setNotice(`${result.kind} ${result.name} ${result.action}.`);
       if (body.kind !== "ResourceList") {
         setKind(body.kind);
-        setName(body.metadata.name);
-        syncURL(body.kind, body.metadata.name);
+        const nextID = result.id ?? "";
+        setName(nextID);
+        syncURL(body.kind, nextID);
       }
     } catch (err) {
       setError(toMessage(err));
@@ -263,7 +269,7 @@ export function ResourcesPage(): JSX.Element {
       const next = await expectData(
         putResource({
           body: body as Resource,
-          path: { kind, name: name.trim() },
+          path: { kind, id: name.trim() },
         }),
       );
       setResource(next);
@@ -284,9 +290,9 @@ export function ResourcesPage(): JSX.Element {
     setApplyResult(null);
     try {
       if (!canAddressResource) {
-        throw new Error("Enter a resource name first.");
+        throw new Error("Enter a resource ID first.");
       }
-      await expectData(deleteResource({ path: { kind, name: name.trim() } }));
+      await expectData(deleteResource({ path: { kind, id: name.trim() } }));
       setResource(null);
       setResourceText(JSON.stringify(resourceTemplate(kind, name), null, 2));
       setNotice(`Deleted ${kind} ${name.trim()}.`);
@@ -396,7 +402,7 @@ export function ResourcesPage(): JSX.Element {
       let source: unknown = resource;
       if (canAddressResource) {
         source = await expectData(
-          getResource({ path: { kind: "PetDef", name: name.trim() } }),
+          getResource({ path: { kind: "PetDef", id: name.trim() } }),
         );
         setResource(source as Resource);
       }
@@ -484,13 +490,13 @@ export function ResourcesPage(): JSX.Element {
               </Select>
             </FormField>
             <FormField
-              description="Resource identifier within the selected kind."
-              label="Name"
+              description="Canonical resource ID returned by the server. For a new apply, set metadata.name in the JSON."
+              label="ID"
             >
               <div className="flex gap-2">
                 <Input
                   onChange={(event) => handleNameChange(event.target.value)}
-                  placeholder="resource-name"
+                  placeholder="resource-id"
                   value={name}
                 />
                 <Button

@@ -14,7 +14,7 @@ import (
 )
 
 func workspaceRewardWindowColumns() string {
-	return `id, workspace_name, workspace_kind, beneficiary_public_key, runtime_profile_name,
+	return `id, workspace_id, workspace_kind, beneficiary_public_key, runtime_profile_id,
 		runtime_profile_revision, policy_json, policy_digest, start_history_id, high_water_history_id,
 		start_history_at, high_water_history_at, opened_at, last_activity_at, evaluate_after, state,
 		attempt_count, next_attempt_at, claim_token, claim_until, transcript_digest, outcome, last_error,
@@ -52,8 +52,8 @@ func scanWorkspaceRewardWindow(row rowScanner) (workspaceRewardWindow, error) {
 	var startAt, highWaterAt, openedAt, lastActivityAt, evaluateAfter string
 	var nextAttemptAt, claimUntil, createdAt, updatedAt string
 	err := row.Scan(
-		&window.ID, &window.WorkspaceName, &window.WorkspaceKind, &window.BeneficiaryPublicKey,
-		&window.RuntimeProfileName, &window.RuntimeProfileRevision, &policyJSON, &window.PolicyDigest,
+		&window.ID, &window.WorkspaceID, &window.WorkspaceKind, &window.BeneficiaryPublicKey,
+		&window.RuntimeProfileId, &window.RuntimeProfileRevision, &policyJSON, &window.PolicyDigest,
 		&window.StartHistoryID, &window.HighWaterHistoryID, &startAt, &highWaterAt, &openedAt,
 		&lastActivityAt, &evaluateAfter, &window.State, &window.AttemptCount, &nextAttemptAt,
 		&window.ClaimToken, &claimUntil, &window.TranscriptDigest, &window.Outcome, &window.LastError,
@@ -85,16 +85,16 @@ func scanWorkspaceRewardWindow(row rowScanner) (workspaceRewardWindow, error) {
 	return window, nil
 }
 
-func (r *Runtime) getWorkspaceRewardSource(ctx context.Context, workspaceName string) (workspaceRewardSource, error) {
+func (r *Runtime) getWorkspaceRewardSource(ctx context.Context, workspaceID string) (workspaceRewardSource, error) {
 	db, err := r.db()
 	if err != nil {
 		return workspaceRewardSource{}, err
 	}
 	var source workspaceRewardSource
 	var createdAt, updatedAt string
-	err = db.QueryRowContext(ctx, db.Rebind(`SELECT workspace_name, scheduled_checkpoint, completed_checkpoint, created_at, updated_at
-		FROM gameplay_workspace_reward_sources WHERE workspace_name = ?`), workspaceName).Scan(
-		&source.WorkspaceName, &source.ScheduledCheckpoint, &source.CompletedCheckpoint, &createdAt, &updatedAt,
+	err = db.QueryRowContext(ctx, db.Rebind(`SELECT workspace_id, scheduled_checkpoint, completed_checkpoint, created_at, updated_at
+		FROM gameplay_workspace_reward_sources WHERE workspace_id = ?`), workspaceID).Scan(
+		&source.WorkspaceID, &source.ScheduledCheckpoint, &source.CompletedCheckpoint, &createdAt, &updatedAt,
 	)
 	if err != nil {
 		return workspaceRewardSource{}, err
@@ -110,9 +110,9 @@ func (r *Runtime) insertWorkspaceRewardSource(ctx context.Context, source worksp
 		return err
 	}
 	_, err = db.ExecContext(ctx, db.Rebind(`INSERT INTO gameplay_workspace_reward_sources
-		(workspace_name, scheduled_checkpoint, completed_checkpoint, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?) ON CONFLICT(workspace_name) DO NOTHING`),
-		source.WorkspaceName, source.ScheduledCheckpoint, source.CompletedCheckpoint,
+		(workspace_id, scheduled_checkpoint, completed_checkpoint, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?) ON CONFLICT(workspace_id) DO NOTHING`),
+		source.WorkspaceID, source.ScheduledCheckpoint, source.CompletedCheckpoint,
 		formatTime(source.CreatedAt), formatTime(source.UpdatedAt),
 	)
 	return err
@@ -124,8 +124,8 @@ func (r *Runtime) updateWorkspaceRewardSource(ctx context.Context, source worksp
 		return err
 	}
 	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_workspace_reward_sources
-		SET scheduled_checkpoint = ?, completed_checkpoint = ?, updated_at = ? WHERE workspace_name = ?`),
-		source.ScheduledCheckpoint, source.CompletedCheckpoint, formatTime(source.UpdatedAt), source.WorkspaceName,
+		SET scheduled_checkpoint = ?, completed_checkpoint = ?, updated_at = ? WHERE workspace_id = ?`),
+		source.ScheduledCheckpoint, source.CompletedCheckpoint, formatTime(source.UpdatedAt), source.WorkspaceID,
 	)
 	if err != nil {
 		return err
@@ -133,14 +133,14 @@ func (r *Runtime) updateWorkspaceRewardSource(ctx context.Context, source worksp
 	return requireWorkspaceRewardRow(result, "source changed while updating")
 }
 
-func (r *Runtime) activeWorkspaceRewardWindow(ctx context.Context, workspaceName string) (workspaceRewardWindow, error) {
+func (r *Runtime) activeWorkspaceRewardWindow(ctx context.Context, workspaceID string) (workspaceRewardWindow, error) {
 	db, err := r.db()
 	if err != nil {
 		return workspaceRewardWindow{}, err
 	}
 	return scanWorkspaceRewardWindow(db.QueryRowContext(ctx, db.Rebind(
-		workspaceRewardWindowSelectSQL()+` WHERE workspace_name = ? AND state IN (?, ?, ?) ORDER BY created_at LIMIT 1`,
-	), workspaceName, workspaceRewardPending, workspaceRewardClaimed, workspaceRewardRetry))
+		workspaceRewardWindowSelectSQL()+` WHERE workspace_id = ? AND state IN (?, ?, ?) ORDER BY created_at LIMIT 1`,
+	), workspaceID, workspaceRewardPending, workspaceRewardClaimed, workspaceRewardRetry))
 }
 
 func (r *Runtime) insertWorkspaceRewardWindowAndUpdateSource(
@@ -162,14 +162,14 @@ func (r *Runtime) insertWorkspaceRewardWindowAndUpdateSource(
 	}
 	defer tx.Rollback()
 	_, err = tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_workspace_reward_windows
-		(id, workspace_name, workspace_kind, beneficiary_public_key, runtime_profile_name,
+		(id, workspace_id, workspace_kind, beneficiary_public_key, runtime_profile_id,
 		runtime_profile_revision, policy_json, policy_digest, start_history_id, high_water_history_id,
 		start_history_at, high_water_history_at, opened_at, last_activity_at, evaluate_after, state,
 		attempt_count, next_attempt_at, claim_token, claim_until, transcript_digest, outcome, last_error,
 		created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-		window.ID, window.WorkspaceName, window.WorkspaceKind, window.BeneficiaryPublicKey,
-		window.RuntimeProfileName, window.RuntimeProfileRevision, policyJSON, window.PolicyDigest,
+		window.ID, window.WorkspaceID, window.WorkspaceKind, window.BeneficiaryPublicKey,
+		window.RuntimeProfileId, window.RuntimeProfileRevision, policyJSON, window.PolicyDigest,
 		window.StartHistoryID, window.HighWaterHistoryID, formatTime(window.StartHistoryAt),
 		formatTime(window.HighWaterHistoryAt), formatTime(window.OpenedAt), formatTime(window.LastActivityAt),
 		formatTime(window.EvaluateAfter), window.State, window.AttemptCount, formatTime(window.NextAttemptAt),
@@ -224,8 +224,8 @@ func (r *Runtime) updateWorkspaceRewardWindowAndSource(
 
 func updateWorkspaceRewardSourceTx(ctx context.Context, tx *sqlx.Tx, source workspaceRewardSource) error {
 	result, err := tx.ExecContext(ctx, tx.Rebind(`UPDATE gameplay_workspace_reward_sources
-		SET scheduled_checkpoint = ?, completed_checkpoint = ?, updated_at = ? WHERE workspace_name = ?`),
-		source.ScheduledCheckpoint, source.CompletedCheckpoint, formatTime(source.UpdatedAt), source.WorkspaceName,
+		SET scheduled_checkpoint = ?, completed_checkpoint = ?, updated_at = ? WHERE workspace_id = ?`),
+		source.ScheduledCheckpoint, source.CompletedCheckpoint, formatTime(source.UpdatedAt), source.WorkspaceID,
 	)
 	if err != nil {
 		return err
@@ -366,8 +366,8 @@ func completeWorkspaceRewardWindowTx(
 		return errors.New("gameplay: workspace reward claim is no longer owned")
 	}
 	result, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE gameplay_workspace_reward_sources
-		SET completed_checkpoint = ?, updated_at = ? WHERE workspace_name = ?`),
-		window.HighWaterHistoryID, formatTime(now), window.WorkspaceName,
+		SET completed_checkpoint = ?, updated_at = ? WHERE workspace_id = ?`),
+		window.HighWaterHistoryID, formatTime(now), window.WorkspaceID,
 	)
 	if err != nil {
 		return err
@@ -381,7 +381,7 @@ func (r *Runtime) settleWorkspaceReward(
 	transcriptDigest string,
 	evaluation workspaceRewardEvaluation,
 ) (apitypes.RewardGrant, bool, error) {
-	lock := r.workspaceRewardMutexForSettlement(window.BeneficiaryPublicKey, window.RuntimeProfileName)
+	lock := r.workspaceRewardMutexForSettlement(window.BeneficiaryPublicKey, window.RuntimeProfileId)
 	lock.Lock()
 	defer lock.Unlock()
 	db, err := r.db()
@@ -400,7 +400,7 @@ func (r *Runtime) settleWorkspaceReward(
 		return apitypes.RewardGrant{}, false, err
 	}
 	account, err := r.ensureAccountTx(ctx, tx, window.BeneficiaryPublicKey, ProfileRules{
-		Name: window.RuntimeProfileName,
+		ID:   window.RuntimeProfileId,
 		Spec: ProfileRulesSpec{Points: &apitypes.RuntimeProfilePointsSpec{InitialBalance: &window.Policy.InitialPointsBalance}},
 	})
 	if err != nil {
@@ -410,7 +410,7 @@ func (r *Runtime) settleWorkspaceReward(
 		return apitypes.RewardGrant{}, false, err
 	}
 	usedPoints, usedBadgeExp, err := workspaceRewardRollingUsage(
-		ctx, tx, window.BeneficiaryPublicKey, window.RuntimeProfileName,
+		ctx, tx, window.BeneficiaryPublicKey, window.RuntimeProfileId,
 		window.PolicyDigest, r.now().Add(-window.Policy.BudgetPeriod),
 	)
 	if err != nil {
@@ -443,7 +443,7 @@ func (r *Runtime) settleWorkspaceReward(
 	reason := strings.TrimSpace(evaluation.Reason)
 	grant := apitypes.RewardGrant{
 		Id: r.newID(), OwnerPublicKey: window.BeneficiaryPublicKey,
-		RuntimeProfileName: window.RuntimeProfileName, PointsDelta: pointsDelta,
+		RuntimeProfileId: window.RuntimeProfileId, PointsDelta: pointsDelta,
 		PetExpDelta: 0, BadgeExpDelta: badgeDelta, SourceType: "workspace_history_window",
 		SourceId: window.ID, Reason: &reason, CreatedAt: now,
 	}
@@ -452,17 +452,17 @@ func (r *Runtime) settleWorkspaceReward(
 		return apitypes.RewardGrant{}, false, err
 	}
 	_, err = tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_reward_grants
-		(owner_public_key, id, runtime_profile_name, pet_id, game_result_id, points_delta,
+		(owner_public_key, id, runtime_profile_id, pet_id, game_result_id, points_delta,
 		pet_exp_delta, badge_exp_delta_json, source_type, source_id, policy_digest, reason, created_at)
 		VALUES (?, ?, ?, NULL, NULL, ?, 0, ?, ?, ?, ?, ?, ?)`),
-		grant.OwnerPublicKey, grant.Id, grant.RuntimeProfileName, grant.PointsDelta, badgeJSON,
+		grant.OwnerPublicKey, grant.Id, grant.RuntimeProfileId, grant.PointsDelta, badgeJSON,
 		grant.SourceType, grant.SourceId, window.PolicyDigest, reason, formatTime(now),
 	)
 	if err != nil {
 		return apitypes.RewardGrant{}, false, err
 	}
 	if pointsDelta > 0 {
-		if _, err := r.applyPointsTx(ctx, tx, &account, pointsDelta, window.RuntimeProfileName, "", "", grant.Id, "workspace.conversation.reward", grant.SourceType, grant.SourceId); err != nil {
+		if _, err := r.applyPointsTx(ctx, tx, &account, pointsDelta, window.RuntimeProfileId, "", "", grant.Id, "workspace.conversation.reward", grant.SourceType, grant.SourceId); err != nil {
 			return apitypes.RewardGrant{}, false, err
 		}
 	}
@@ -488,7 +488,7 @@ func workspaceRewardRollingUsage(
 ) (int64, int64, error) {
 	rows, err := tx.QueryContext(ctx, tx.Rebind(`SELECT points_delta, badge_exp_delta_json
 		FROM gameplay_reward_grants
-		WHERE owner_public_key = ? AND runtime_profile_name = ? AND source_type = ?
+		WHERE owner_public_key = ? AND runtime_profile_id = ? AND source_type = ?
 		  AND policy_digest = ? AND created_at >= ?`),
 		owner, profile, "workspace_history_window", policyDigest, formatTime(since),
 	)
@@ -567,9 +567,9 @@ func (r *Runtime) retryWorkspaceRewardWindow(ctx context.Context, window workspa
 		return err
 	}
 	slog.Warn("workspace reward deferred",
-		"workspace", window.WorkspaceName,
+		"workspace", window.WorkspaceID,
 		"beneficiary", window.BeneficiaryPublicKey,
-		"profile", window.RuntimeProfileName,
+		"profile", window.RuntimeProfileId,
 		"policy_digest", window.PolicyDigest,
 		"window", window.ID,
 		"attempt", window.AttemptCount,
@@ -599,9 +599,9 @@ func (r *Runtime) blockWorkspaceRewardWindow(ctx context.Context, window workspa
 		return err
 	}
 	slog.Error("workspace reward blocked",
-		"workspace", window.WorkspaceName,
+		"workspace", window.WorkspaceID,
 		"beneficiary", window.BeneficiaryPublicKey,
-		"profile", window.RuntimeProfileName,
+		"profile", window.RuntimeProfileId,
 		"policy_digest", window.PolicyDigest,
 		"window", window.ID,
 		"attempt", window.AttemptCount,

@@ -35,13 +35,13 @@ import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
 import { formatDate } from "../../lib/format";
 
 type WorkspaceHistoryPanelProps = {
-  workspaceName: string | undefined;
+  workspaceId: string | undefined;
 };
 
 export function WorkspaceHistoryPanel({
-  workspaceName,
+  workspaceId,
 }: WorkspaceHistoryPanelProps): JSX.Element {
-  const normalizedWorkspaceName = workspaceName?.trim() ?? "";
+  const normalizedWorkspaceID = workspaceId?.trim() ?? "";
   const {
     error,
     hasNext,
@@ -52,12 +52,12 @@ export function WorkspaceHistoryPanel({
     prevPage,
     refresh,
   } = useCursorListPage<PeerRunHistoryEntry>(async (query) => {
-    if (normalizedWorkspaceName === "") {
+    if (normalizedWorkspaceID === "") {
       return { hasNext: false, items: [], nextCursor: null };
     }
     const result = await expectData(
       listWorkspaceHistory({
-        path: { name: normalizedWorkspaceName },
+        path: { id: normalizedWorkspaceID },
         query: { ...query, order: "asc" },
       }),
     );
@@ -80,7 +80,7 @@ export function WorkspaceHistoryPanel({
   }, [audioURL]);
 
   const playAudio = async (historyID: string): Promise<void> => {
-    if (normalizedWorkspaceName === "") {
+    if (normalizedWorkspaceID === "") {
       return;
     }
     setPlayingHistoryID(historyID);
@@ -88,7 +88,7 @@ export function WorkspaceHistoryPanel({
     try {
       const audio = await expectData(
         downloadWorkspaceHistoryAudio({
-          path: { name: normalizedWorkspaceName, historyId: historyID },
+          path: { id: normalizedWorkspaceID, historyId: historyID },
         }),
       );
       setAudioURL((current) => {
@@ -104,7 +104,7 @@ export function WorkspaceHistoryPanel({
     }
   };
 
-  if (normalizedWorkspaceName === "") {
+  if (normalizedWorkspaceID === "") {
     return (
       <EmptyState
         description="This social resource does not have a backing workspace."

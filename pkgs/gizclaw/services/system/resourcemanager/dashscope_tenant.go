@@ -18,31 +18,35 @@ func (m *Manager) applyDashScopeTenant(ctx context.Context, resource apitypes.Re
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	name := string(pathParam(item.Metadata.Name))
-	existing, exists, err := m.getDashScopeTenant(ctx, name)
+	body := dashScopeTenantUpsert(item)
+	return applyNamedResource(ctx, item.Metadata, apitypes.ResourceKindDashScopeTenant, item.Spec,
+		m.getDashScopeTenant,
+		func(ctx context.Context) (string, error) { return m.createDashScopeTenant(ctx, body) },
+		func(ctx context.Context, id string) error { return m.putDashScopeTenant(ctx, id, body) },
+		func(value apitypes.DashScopeTenant) string { return value.Name }, dashScopeTenantSpec)
+}
+
+func (m *Manager) createDashScopeTenant(ctx context.Context, body adminhttp.DashScopeTenantUpsert) (string, error) {
+	response, err := m.services.ProviderTenants.CreateDashScopeTenant(ctx, adminhttp.CreateDashScopeTenantRequestObject{Body: &body})
 	if err != nil {
-		return apitypes.ApplyResult{}, err
+		return "", err
 	}
-	if exists {
-		same, err := semanticEqual(dashScopeTenantSpec(existing), item.Spec)
-		if err != nil {
-			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
-		}
-		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindDashScopeTenant, item.Metadata.Name), nil
-		}
+	switch response := response.(type) {
+	case adminhttp.CreateDashScopeTenant200JSONResponse:
+		return response.Id, nil
+	case adminhttp.CreateDashScopeTenant400JSONResponse:
+		return "", responseError(400, "CREATE_DASHSCOPE_TENANT_FAILED", "failed to create DashScope tenant", response)
+	case adminhttp.CreateDashScopeTenant409JSONResponse:
+		return "", responseError(409, "CREATE_DASHSCOPE_TENANT_FAILED", "failed to create DashScope tenant", response)
+	case adminhttp.CreateDashScopeTenant500JSONResponse:
+		return "", responseError(500, "CREATE_DASHSCOPE_TENANT_FAILED", "failed to create DashScope tenant", response)
+	default:
+		return "", unexpectedResponse("CreateDashScopeTenant", response)
 	}
-	if err := m.putDashScopeTenant(ctx, name, dashScopeTenantUpsert(item)); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindDashScopeTenant, item.Metadata.Name), nil
-	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindDashScopeTenant, item.Metadata.Name), nil
 }
 
 func (m *Manager) getDashScopeTenant(ctx context.Context, name string) (apitypes.DashScopeTenant, bool, error) {
-	response, err := m.services.ProviderTenants.GetDashScopeTenant(ctx, adminhttp.GetDashScopeTenantRequestObject{Name: name})
+	response, err := m.services.ProviderTenants.GetDashScopeTenant(ctx, adminhttp.GetDashScopeTenantRequestObject{Id: name})
 	if err != nil {
 		return apitypes.DashScopeTenant{}, false, err
 	}
@@ -59,7 +63,7 @@ func (m *Manager) getDashScopeTenant(ctx context.Context, name string) (apitypes
 }
 
 func (m *Manager) putDashScopeTenant(ctx context.Context, name string, body adminhttp.DashScopeTenantUpsert) error {
-	response, err := m.services.ProviderTenants.PutDashScopeTenant(ctx, adminhttp.PutDashScopeTenantRequestObject{Name: name, Body: &body})
+	response, err := m.services.ProviderTenants.PutDashScopeTenant(ctx, adminhttp.PutDashScopeTenantRequestObject{Id: name, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -76,7 +80,7 @@ func (m *Manager) putDashScopeTenant(ctx context.Context, name string, body admi
 }
 
 func (m *Manager) deleteDashScopeTenant(ctx context.Context, name string) (apitypes.DashScopeTenant, bool, error) {
-	response, err := m.services.ProviderTenants.DeleteDashScopeTenant(ctx, adminhttp.DeleteDashScopeTenantRequestObject{Name: name})
+	response, err := m.services.ProviderTenants.DeleteDashScopeTenant(ctx, adminhttp.DeleteDashScopeTenantRequestObject{Id: name})
 	if err != nil {
 		return apitypes.DashScopeTenant{}, false, err
 	}
@@ -94,18 +98,18 @@ func (m *Manager) deleteDashScopeTenant(ctx context.Context, name string) (apity
 
 func dashScopeTenantSpec(item apitypes.DashScopeTenant) apitypes.DashScopeTenantSpec {
 	return apitypes.DashScopeTenantSpec{
-		BaseUrl:        item.BaseUrl,
-		CredentialName: item.CredentialName,
-		Description:    item.Description,
+		BaseUrl:      item.BaseUrl,
+		CredentialId: item.CredentialId,
+		Description:  item.Description,
 	}
 }
 
 func dashScopeTenantUpsert(resource apitypes.DashScopeTenantResource) adminhttp.DashScopeTenantUpsert {
 	return adminhttp.DashScopeTenantUpsert{
-		BaseUrl:        resource.Spec.BaseUrl,
-		CredentialName: resource.Spec.CredentialName,
-		Description:    resource.Spec.Description,
-		Name:           string(resource.Metadata.Name),
+		BaseUrl:      resource.Spec.BaseUrl,
+		CredentialId: resource.Spec.CredentialId,
+		Description:  resource.Spec.Description,
+		Name:         string(resource.Metadata.Name),
 	}
 }
 
@@ -113,7 +117,7 @@ func resourceFromDashScopeTenant(item apitypes.DashScopeTenant) (apitypes.Resour
 	return marshalResource(apitypes.DashScopeTenantResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.DashScopeTenantResourceKind(apitypes.ResourceKindDashScopeTenant),
-		Metadata:   apitypes.ResourceMetadata{Name: string(item.Name)},
+		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
 		Spec:       dashScopeTenantSpec(item),
 	})
 }

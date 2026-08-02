@@ -107,11 +107,11 @@ func TestListVoicesReturnsRuntimeProfileVoiceList(t *testing.T) {
 			if req.Params.Limit == nil || *req.Params.Limit != limit {
 				t.Fatalf("limit = %#v, want %d", req.Params.Limit, limit)
 			}
-			if req.Params.Source != nil || req.Params.ProviderKind != nil || req.Params.ProviderName != nil {
+			if req.Params.Source != nil || req.Params.ProviderKind != nil || req.Params.ProviderId != nil {
 				t.Fatalf("unexpected admin voice filters = %#v", req.Params)
 			}
 			return adminhttp.ListVoices200JSONResponse(adminhttp.VoiceList{
-				Items: []apitypes.Voice{{Id: "voice-a", Name: stringPtr("Voice A")}},
+				Items: []apitypes.Voice{{Id: "voice-a", Name: "voice-a", DisplayName: stringPtr("Voice A")}},
 			}), nil
 		}),
 	}
@@ -902,14 +902,14 @@ func (f transformerFunc) Transform(ctx context.Context, pattern string, input ge
 	return f(ctx, pattern, input)
 }
 
-func testModel(id, providerName string) apitypes.Model {
+func testModel(id, providerID string) apitypes.Model {
 	return apitypes.Model{
 		Id:        id,
 		Kind:      apitypes.ModelKindLlm,
 		CreatedAt: time.Unix(100, 0),
 		Provider: apitypes.ModelProvider{
 			Kind: apitypes.ModelProviderKindOpenaiTenant,
-			Name: providerName,
+			Id:   providerID,
 		},
 	}
 }

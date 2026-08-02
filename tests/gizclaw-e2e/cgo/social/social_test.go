@@ -59,12 +59,18 @@ func createCSDKSocialRegistrationToken(
 		t.Fatalf("create C social admin client: %v", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	profile, found, err := clitest.RuntimeProfileByName(ctx, api, "default-gameplay")
+	if err != nil || !found {
+		cancel()
+		admin.Close()
+		t.Fatalf("resolve default gameplay RuntimeProfile: found=%v err=%v", found, err)
+	}
 	response, err := api.CreateRegistrationTokenWithResponse(
 		ctx,
 		adminhttp.RegistrationTokenUpsert{
 			Name:               tokenName,
 			Token:              tokenName,
-			RuntimeProfileName: "default-gameplay",
+			RuntimeProfileId: profile.Id,
 		},
 	)
 	cancel()
@@ -95,13 +101,13 @@ func createCSDKSocialRegistrationToken(
 		defer cleanupCancel()
 		cleanupResponse, err := cleanupAPI.DeleteRegistrationTokenWithResponse(
 			cleanupCtx,
-			tokenName,
+			response.JSON200.Id,
 		)
 		if err != nil {
 			t.Errorf("delete C social RegistrationToken: %v", err)
 			return
 		}
-		if cleanupResponse.JSON200 == nil {
+		if cleanupResponse.StatusCode() != 204 {
 			t.Errorf(
 				"delete C social RegistrationToken status %d: %s",
 				cleanupResponse.StatusCode(),

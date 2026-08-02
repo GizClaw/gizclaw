@@ -267,16 +267,16 @@ int gzc_cgo_session_register(
     const char *token,
     char *out_runtime_profile_name,
     unsigned long out_runtime_profile_name_len,
-    int *out_has_firmware_id,
-    char *out_firmware_id,
-    unsigned long out_firmware_id_len,
+    int *out_has_firmware_name,
+    char *out_firmware_name,
+    unsigned long out_firmware_name_len,
     int *out_rpc_error_code,
     char *errbuf,
     unsigned long errbuf_len) {
-  if (session == NULL || token == NULL || out_has_firmware_id == NULL) {
+  if (session == NULL || token == NULL || out_has_firmware_name == NULL) {
     return fail(errbuf, errbuf_len, "register", GZC_ERR_INVALID_ARGUMENT);
   }
-  *out_has_firmware_id = 0;
+  *out_has_firmware_name = 0;
   if (out_rpc_error_code != NULL) {
     *out_rpc_error_code = 0;
   }
@@ -341,20 +341,20 @@ int gzc_cgo_session_register(
   if (rc != GZC_OK) {
     return rc;
   }
-  *out_has_firmware_id = response.has_firmware_id ? 1 : 0;
-  if (response.has_firmware_id) {
+  *out_has_firmware_name = response.has_firmware_name ? 1 : 0;
+  if (response.has_firmware_name) {
     rc = copy_c_string(
-        out_firmware_id,
-        out_firmware_id_len,
-        response.firmware_id,
+        out_firmware_name,
+        out_firmware_name_len,
+        response.firmware_name,
         errbuf,
         errbuf_len,
         "registration firmware id");
     if (rc != GZC_OK) {
       return rc;
     }
-  } else if (out_firmware_id != NULL && out_firmware_id_len > 0) {
-    out_firmware_id[0] = 0;
+  } else if (out_firmware_name != NULL && out_firmware_name_len > 0) {
+    out_firmware_name[0] = 0;
   }
   if (errbuf != NULL && errbuf_len > 0) {
     errbuf[0] = 0;

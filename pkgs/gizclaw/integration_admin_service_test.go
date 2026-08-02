@@ -43,7 +43,7 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 		t.Fatalf("ListWorkflows len = %d", len(items))
 	}
 
-	got, err := getWorkflow(context.Background(), admin, "demo-assistant")
+	got, err := getWorkflow(context.Background(), admin, created.Id)
 	if err != nil {
 		t.Fatalf("GetWorkflow error: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 			}
 		}
 	}`)
-	updated, err := putWorkflow(context.Background(), admin, "demo-assistant", updateDoc)
+	updated, err := putWorkflow(context.Background(), admin, created.Id, updateDoc)
 	if err != nil {
 		t.Fatalf("PutWorkflow error: %v", err)
 	}
@@ -68,10 +68,10 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 		t.Fatalf("PutWorkflow spec = %#v", updated.Spec)
 	}
 
-	if _, err := deleteWorkflow(context.Background(), admin, "demo-assistant"); err != nil {
+	if _, err := deleteWorkflow(context.Background(), admin, created.Id); err != nil {
 		t.Fatalf("DeleteWorkflow error: %v", err)
 	}
-	if _, err := getWorkflow(context.Background(), admin, "demo-assistant"); err == nil {
+	if _, err := getWorkflow(context.Background(), admin, created.Id); err == nil {
 		t.Fatal("GetWorkflow after delete expected error")
 	}
 }
@@ -116,16 +116,17 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 			}
 		}
 	}`)
-	if _, err := createWorkflow(context.Background(), admin, workflowDoc); err != nil {
+	workflow, err := createWorkflow(context.Background(), admin, workflowDoc)
+	if err != nil {
 		t.Fatalf("CreateWorkflow error: %v", err)
 	}
 	if _, err := createModel(context.Background(), admin, adminhttp.ModelUpsert{
-		Id:     "updated",
+		Name:   "updated",
 		Kind:   apitypes.ModelKindLlm,
 		Source: apitypes.ModelSourceManual,
 		Provider: apitypes.ModelProvider{
 			Kind: "openai-tenant",
-			Name: "global",
+			Id:   "global",
 		},
 		ProviderData: mustOpenAIProviderData(t, "updated-upstream"),
 	}); err != nil {
@@ -133,9 +134,9 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 	}
 
 	createBody := adminhttp.WorkspaceUpsert{
-		Name:         "demo-workspace",
-		WorkflowName: "demo-workflow",
-		Parameters:   testFlowcraftWorkspaceParameters(),
+		Name:       "demo-workspace",
+		WorkflowId: workflow.Id,
+		Parameters: testFlowcraftWorkspaceParameters(),
 	}
 	created, err := createWorkspace(context.Background(), admin, createBody)
 	if err != nil {
@@ -153,18 +154,18 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 		t.Fatalf("ListWorkspaces len = %d", len(items))
 	}
 
-	got, err := getWorkspace(context.Background(), admin, "demo-workspace")
+	got, err := getWorkspace(context.Background(), admin, created.Id)
 	if err != nil {
 		t.Fatalf("GetWorkspace error: %v", err)
 	}
-	if got.WorkflowName != "demo-workflow" {
-		t.Fatalf("GetWorkspace workflow = %q", got.WorkflowName)
+	if got.WorkflowId != workflow.Id {
+		t.Fatalf("GetWorkspace workflow = %q", got.WorkflowId)
 	}
 
-	updated, err := putWorkspace(context.Background(), admin, "demo-workspace", adminhttp.WorkspaceUpsert{
-		Name:         "demo-workspace",
-		WorkflowName: "demo-workflow",
-		Parameters:   testFlowcraftWorkspaceParameters(),
+	updated, err := putWorkspace(context.Background(), admin, created.Id, adminhttp.WorkspaceUpsert{
+		Name:       "demo-workspace",
+		WorkflowId: workflow.Id,
+		Parameters: testFlowcraftWorkspaceParameters(),
 	})
 	if err != nil {
 		t.Fatalf("PutWorkspace error: %v", err)
@@ -174,10 +175,10 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 		t.Fatalf("PutWorkspace parameters = %#v", updated.Parameters)
 	}
 
-	if _, err := deleteWorkspace(context.Background(), admin, "demo-workspace"); err != nil {
+	if _, err := deleteWorkspace(context.Background(), admin, created.Id); err != nil {
 		t.Fatalf("DeleteWorkspace error: %v", err)
 	}
-	if _, err := getWorkspace(context.Background(), admin, "demo-workspace"); err != nil {
+	if _, err := getWorkspace(context.Background(), admin, created.Id); err != nil {
 		t.Fatalf("GetWorkspace after delete: %v", err)
 	}
 }
@@ -213,7 +214,7 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 		t.Fatalf("ListCredentials = %#v", items)
 	}
 
-	got, err := getCredential(context.Background(), admin, "openai-primary")
+	got, err := getCredential(context.Background(), admin, created.Id)
 	if err != nil {
 		t.Fatalf("GetCredential error: %v", err)
 	}
@@ -230,7 +231,7 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 			"description": "volc credential",
 			"body": {"ark_api_key": "volc-api-key"}
 	}`)
-	updated, err := putCredential(context.Background(), admin, "openai-primary", updateBody)
+	updated, err := putCredential(context.Background(), admin, created.Id, updateBody)
 	if err != nil {
 		t.Fatalf("PutCredential error: %v", err)
 	}
@@ -253,10 +254,10 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 		t.Fatalf("ListCredentials(provider) body = %#v", filtered[0].Body)
 	}
 
-	if _, err := deleteCredential(context.Background(), admin, "openai-primary"); err != nil {
+	if _, err := deleteCredential(context.Background(), admin, created.Id); err != nil {
 		t.Fatalf("DeleteCredential error: %v", err)
 	}
-	if _, err := getCredential(context.Background(), admin, "openai-primary"); err == nil {
+	if _, err := getCredential(context.Background(), admin, created.Id); err == nil {
 		t.Fatal("GetCredential after delete expected error")
 	}
 }

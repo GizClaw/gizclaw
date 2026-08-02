@@ -11,7 +11,7 @@ func TestBuilderSelectsCanonicalNamesAndAppliesPolicy(t *testing.T) {
 	t.Parallel()
 	server := &Server{Store: kv.NewMemory(nil)}
 	for _, tool := range []Tool{testClientTool("volume_set"), testHTTPTool("get_weather")} {
-		if _, err := server.PutTool(context.Background(), tool); err != nil {
+		if _, err := server.CreateTool(context.Background(), tool); err != nil {
 			t.Fatalf("PutTool(%q): %v", tool.Name, err)
 		}
 	}
@@ -36,7 +36,7 @@ func TestBuilderSkipsDisabledAndRejectsDanglingTools(t *testing.T) {
 	server := &Server{Store: kv.NewMemory(nil)}
 	disabled := testClientTool("volume_set")
 	disabled.Enabled = false
-	if _, err := server.PutTool(context.Background(), disabled); err != nil {
+	if _, err := server.CreateTool(context.Background(), disabled); err != nil {
 		t.Fatalf("PutTool(): %v", err)
 	}
 	kit, err := (&Builder{Tools: server}).Build(context.Background(), BuildRequest{
@@ -60,7 +60,7 @@ func TestBuilderReturnsDefensiveSnapshots(t *testing.T) {
 	server := &Server{Store: kv.NewMemory(nil)}
 	tool := testClientTool("volume_set")
 	tool.Metadata = []byte(`{"category":"device"}`)
-	if _, err := server.PutTool(context.Background(), tool); err != nil {
+	if _, err := server.CreateTool(context.Background(), tool); err != nil {
 		t.Fatalf("PutTool(): %v", err)
 	}
 	builder := &Builder{Tools: server}

@@ -229,7 +229,7 @@ func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) 
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "registration failed"}.RPCResponse(), nil
 	}
 	slog.InfoContext(ctx, "device registration accepted", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "registration_token", registration.TokenName, "runtime_profile", registration.RuntimeProfile.Name)
-	response := rpcapi.ServerRegisterResponse{RuntimeProfileName: registration.RuntimeProfile.Name, FirmwareID: registration.FirmwareID}
+	response := rpcapi.ServerRegisterResponse{RuntimeProfileName: registration.RuntimeProfile.Name, FirmwareName: registration.FirmwareName}
 	return newRPCResultResponse(req.Id, response, (*rpcapi.RPCPayload).FromServerRegisterResponse)
 }
 
@@ -779,7 +779,7 @@ func (s *rpcServer) handleServerRunSay(ctx context.Context, req *rpcapi.RPCReque
 	}
 	resp, err := s.serverGenX.Say(ctx, peergenx.SayRequest{
 		Text:       params.Text,
-		VoiceAlias: strings.TrimSpace(params.VoiceAlias),
+		VoiceAlias: strings.TrimSpace(params.VoiceName),
 	})
 	if err != nil {
 		switch {

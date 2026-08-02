@@ -45,8 +45,8 @@ func TestFirmwareGetResolvesCallerBinding(t *testing.T) {
 		}),
 		Firmwares: firmwarePeerServiceFuncs{
 			get: func(_ context.Context, request adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error) {
-				if request.Name != firmwareID {
-					t.Fatalf("GetFirmware() name = %q, want %q", request.Name, firmwareID)
+				if request.Id != firmwareID {
+					t.Fatalf("GetFirmware() name = %q, want %q", request.Id, firmwareID)
 				}
 				return adminhttp.GetFirmware200JSONResponse(apitypes.Firmware{
 					Name: firmwareID, CreatedAt: time.Unix(1, 0), UpdatedAt: time.Unix(2, 0), Slots: apitypes.FirmwareSlots{},
@@ -82,7 +82,8 @@ func TestFirmwareGetRejectsUnboundCaller(t *testing.T) {
 }
 
 func TestFirmwareDownloadResolvesCallerBinding(t *testing.T) {
-	firmwareID := "h106"
+	firmwareID := "firmware-01"
+	firmwareName := "h106"
 	payload := "firmware-payload"
 	server := &Server{
 		Caller: giznet.PublicKey{3},
@@ -90,9 +91,13 @@ func TestFirmwareDownloadResolvesCallerBinding(t *testing.T) {
 			return apitypes.Peer{FirmwareId: &firmwareID}, nil
 		}),
 		Firmwares: firmwarePeerServiceFuncs{
-			get: func(context.Context, adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error) {
-				t.Fatal("PrepareFirmwareDownload() unexpectedly called GetFirmware")
-				return nil, nil
+			get: func(_ context.Context, request adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error) {
+				if request.Id != firmwareID {
+					t.Fatalf("GetFirmware() id = %q, want %q", request.Id, firmwareID)
+				}
+				return adminhttp.GetFirmware200JSONResponse(apitypes.Firmware{
+					Id: firmwareID, Name: firmwareName, CreatedAt: time.Unix(1, 0), UpdatedAt: time.Unix(2, 0), Slots: apitypes.FirmwareSlots{},
+				}), nil
 			},
 			prepare: func(_ context.Context, gotFirmwareID, channel, path string) (apitypes.FirmwareArtifact, apitypes.FirmwareArtifactEntry, io.ReadCloser, error) {
 				if gotFirmwareID != firmwareID || channel != "beta" || path != "firmware/main.bin" {
@@ -117,7 +122,7 @@ func TestFirmwareDownloadResolvesCallerBinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadAll() error = %v", err)
 	}
-	if metadata.FirmwareId != firmwareID || metadata.Channel != rpcapi.FirmwareChannelNameBeta || metadata.Path != "firmware/main.bin" || string(data) != payload {
+	if metadata.FirmwareName != firmwareName || metadata.Channel != rpcapi.FirmwareChannelNameBeta || metadata.Path != "firmware/main.bin" || string(data) != payload {
 		t.Fatalf("PrepareFirmwareDownload() metadata = %#v, payload = %q", metadata, data)
 	}
 }

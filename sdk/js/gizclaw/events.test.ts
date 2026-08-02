@@ -80,7 +80,7 @@ const events: PeerEvent[] = [
     },
   ),
   peerEvent(PeerEventType.FRIEND_GROUP_UPDATED, "friendGroupUpdated", {
-    friendGroupId: "group-a",
+    friendGroupName: "group-a",
     workspaceName: "group-a",
     change: FriendGroupChange.MEMBER_REMOVED,
     revisionUnixMs: 6n,

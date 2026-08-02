@@ -117,7 +117,7 @@ func TestServiceResolverUsesWorkflowDriverAsAgentType(t *testing.T) {
 func TestServiceResolverUsesWorkspaceOwnerRuntimeProfile(t *testing.T) {
 	owner := "owner-public-key"
 	labels := map[string]string{"collection": "assistants"}
-	ws := systemWorkspace("shared", "chat", nil)
+	ws := systemWorkspace("shared", "owner-workflow", nil)
 	ws.OwnerPublicKey = &owner
 	ws.Labels = &labels
 	profile := apitypes.RuntimeProfile{
@@ -161,6 +161,7 @@ func TestServiceResolverUsesCallerRuntimeProfileMemoryForUnownedWorkspace(t *tes
 		},
 	}
 	profile := apitypes.RuntimeProfile{
+		Id:       "caller-profile-id",
 		Name:     "caller-profile",
 		Revision: "revision-1",
 		Spec: apitypes.RuntimeProfileSpec{
@@ -184,7 +185,7 @@ func TestServiceResolverUsesCallerRuntimeProfileMemoryForUnownedWorkspace(t *tes
 		t.Fatalf("Resolve() error = %v", err)
 	}
 	if spec.MemoryName != "pet-memory" || spec.MemoryBinding == nil ||
-		spec.MemoryLayout == nil || spec.MemoryProfileName != "caller-profile" ||
+		spec.MemoryLayout == nil || spec.MemoryProfileID != "caller-profile-id" ||
 		spec.MemoryProfileRevision != "revision-1" {
 		t.Fatalf("resolved Memory spec = %#v", spec)
 	}
@@ -363,7 +364,7 @@ func TestServiceResolverErrors(t *testing.T) {
 func TestServiceResolverAllowsAdminWorkspaceWithCanonicalWorkflow(t *testing.T) {
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
-			"demo": {Name: "demo", WorkflowName: "workflow-1"},
+			"demo": {Name: "demo", WorkflowId: "workflow-1"},
 		}},
 		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": mustWorkflow(t, "workflow-1"),
@@ -378,10 +379,11 @@ func TestServiceResolverAllowsAdminWorkspaceWithCanonicalWorkflow(t *testing.T) 
 func systemWorkspace(name, workflowName string, parameters *apitypes.WorkspaceParameters) apitypes.Workspace {
 	system := true
 	return apitypes.Workspace{
-		Name:         name,
-		Parameters:   parameters,
-		System:       &system,
-		WorkflowName: workflowName,
+		Id:         "id-" + name,
+		Name:       name,
+		Parameters: parameters,
+		System:     &system,
+		WorkflowId: workflowName,
 	}
 }
 
@@ -854,14 +856,22 @@ type fakeWorkspaceService struct {
 }
 
 func (s fakeWorkspaceService) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
-	item, ok := s.items[string(request.Name)]
+	item, ok := s.items[string(request.Id)]
 	if !ok {
 		return adminhttp.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
 	}
 	return adminhttp.GetWorkspace200JSONResponse(item), nil
 }
 
-func (s fakeWorkspaceService) GetWorkspaceRuntime(context.Context, string) (workspace.Runtime, error) {
+func (s fakeWorkspaceService) GetWorkspaceByName(_ context.Context, name string) (apitypes.Workspace, error) {
+	item, ok := s.items[name]
+	if !ok {
+		return apitypes.Workspace{}, errors.New("workspace not found")
+	}
+	return item, nil
+}
+
+func (s fakeWorkspaceService) GetWorkspaceRuntimeByID(context.Context, string) (workspace.Runtime, error) {
 	return s.runtime, nil
 }
 
@@ -885,7 +895,7 @@ func (service fakeMemoryLayoutService) GetMemoryLayout(
 type subjectToolkitResolver struct{}
 
 func (s fakeWorkflowService) GetWorkflow(_ context.Context, request adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
-	item, ok := s.items[string(request.Name)]
+	item, ok := s.items[string(request.Id)]
 	if !ok {
 		return adminhttp.GetWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", "not found")), nil
 	}

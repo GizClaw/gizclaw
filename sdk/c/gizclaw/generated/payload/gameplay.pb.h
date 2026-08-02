@@ -28,22 +28,21 @@ typedef enum _gizclaw_rpc_v1_PetLifecycle {
 /* Struct definitions */
 typedef struct _gizclaw_rpc_v1_Badge {
     bool active;
-    pb_callback_t badge_def_id;
+    pb_callback_t badge_def_name;
     pb_callback_t created_at;
     int64_t exp;
-    pb_callback_t id;
     int64_t level;
-    pb_callback_t owner_public_key;
+    pb_callback_t name;
     int64_t progress;
     pb_callback_t updated_at;
 } gizclaw_rpc_v1_Badge;
 
 typedef struct _gizclaw_rpc_v1_BadgeDefPixaDownloadRequest {
-    pb_callback_t id;
+    pb_callback_t name;
 } gizclaw_rpc_v1_BadgeDefPixaDownloadRequest;
 
 typedef struct _gizclaw_rpc_v1_BadgeDefPixaDownloadResponse {
-    pb_callback_t id;
+    pb_callback_t name;
     pb_callback_t pixa_path;
     int64_t size_bytes;
 } gizclaw_rpc_v1_BadgeDefPixaDownloadResponse;
@@ -75,6 +74,10 @@ typedef struct _gizclaw_rpc_v1_GameplayGetRequest {
     pb_callback_t id;
 } gizclaw_rpc_v1_GameplayGetRequest;
 
+typedef struct _gizclaw_rpc_v1_GameplayNameGetRequest {
+    pb_callback_t name;
+} gizclaw_rpc_v1_GameplayNameGetRequest;
+
 typedef struct _gizclaw_rpc_v1_GameplayListRequest {
     pb_callback_t cursor;
     bool has_limit;
@@ -91,17 +94,16 @@ typedef struct _gizclaw_rpc_v1_GameResult {
     pb_callback_t difficulty;
     bool has_duration_ms;
     int64_t duration_ms;
-    pb_callback_t game_def_id;
+    pb_callback_t game_def_name;
     pb_callback_t id;
     pb_callback_t idempotency_key;
     bool has_max_score;
     int64_t max_score;
     pb_callback_t occurred_at;
     pb_callback_t outcome;
-    pb_callback_t owner_public_key;
     bool has_payload;
     gizclaw_rpc_v1_GameplayMetadata payload;
-    pb_callback_t pet_id;
+    pb_callback_t pet_name;
     pb_callback_t runtime_profile_name;
     bool has_score;
     int64_t score;
@@ -122,10 +124,9 @@ typedef struct _gizclaw_rpc_v1_PetProgression {
 } gizclaw_rpc_v1_PetProgression;
 
 typedef struct _gizclaw_rpc_v1_Pet {
-    pb_callback_t id;
-    pb_callback_t owner_public_key;
+    pb_callback_t name;
     pb_callback_t runtime_profile_name;
-    pb_callback_t petdef_id;
+    pb_callback_t pet_def_name;
     pb_callback_t display_name;
     pb_callback_t workspace_name;
     bool has_stats;
@@ -141,17 +142,17 @@ typedef struct _gizclaw_rpc_v1_Pet {
 } gizclaw_rpc_v1_Pet;
 
 typedef struct _gizclaw_rpc_v1_PetAdoptRequest {
+    pb_callback_t name;
     pb_callback_t display_name;
-    pb_callback_t id;
 } gizclaw_rpc_v1_PetAdoptRequest;
 
 typedef struct _gizclaw_rpc_v1_PetPixaDownloadRequest {
-    pb_callback_t pet_id;
+    pb_callback_t pet_name;
 } gizclaw_rpc_v1_PetPixaDownloadRequest;
 
 typedef struct _gizclaw_rpc_v1_PetPixaDownloadResponse {
-    pb_callback_t pet_id;
-    pb_callback_t petdef_id;
+    pb_callback_t pet_name;
+    pb_callback_t pet_def_name;
     pb_callback_t pixa_path;
     int64_t size_bytes;
 } gizclaw_rpc_v1_PetPixaDownloadResponse;
@@ -168,11 +169,11 @@ typedef struct _gizclaw_rpc_v1_PetVisualBindings {
 } gizclaw_rpc_v1_PetVisualBindings;
 
 typedef struct _gizclaw_rpc_v1_PetActions {
-    pb_callback_t pet_id;
-    pb_callback_t petdef_id;
+    pb_callback_t pet_name;
+    pb_callback_t pet_def_name;
     bool has_bindings;
     gizclaw_rpc_v1_PetVisualBindings bindings;
-    pb_callback_t petdef_updated_at;
+    pb_callback_t pet_def_updated_at;
     pb_callback_t clip_names;
 } gizclaw_rpc_v1_PetActions;
 
@@ -182,14 +183,14 @@ typedef struct _gizclaw_rpc_v1_PetActions_ClipNamesEntry {
 } gizclaw_rpc_v1_PetActions_ClipNamesEntry;
 
 typedef struct _gizclaw_rpc_v1_PetDeleteRequest {
-    pb_callback_t id;
+    pb_callback_t name;
 } gizclaw_rpc_v1_PetDeleteRequest;
 
 typedef struct _gizclaw_rpc_v1_PetDriveGameResultInput {
     pb_callback_t difficulty;
     bool has_duration_ms;
     int64_t duration_ms;
-    pb_callback_t game_def_id;
+    pb_callback_t game_name;
     pb_callback_t idempotency_key;
     bool has_max_score;
     int64_t max_score;
@@ -206,12 +207,12 @@ typedef struct _gizclaw_rpc_v1_PetDriveRequest {
     gizclaw_rpc_v1_PetBehavior behavior;
     bool has_game_result;
     gizclaw_rpc_v1_PetDriveGameResultInput game_result;
-    pb_callback_t pet_id;
+    pb_callback_t pet_name;
     pb_callback_t idempotency_key;
 } gizclaw_rpc_v1_PetDriveRequest;
 
 typedef struct _gizclaw_rpc_v1_PetGetRequest {
-    pb_callback_t id;
+    pb_callback_t name;
 } gizclaw_rpc_v1_PetGetRequest;
 
 typedef struct _gizclaw_rpc_v1_PetListResponse {
@@ -222,7 +223,7 @@ typedef struct _gizclaw_rpc_v1_PetListResponse {
 
 typedef struct _gizclaw_rpc_v1_PetPutRequest {
     pb_callback_t display_name;
-    pb_callback_t id;
+    pb_callback_t name;
 } gizclaw_rpc_v1_PetPutRequest;
 
 typedef struct _gizclaw_rpc_v1_PointsAccount {
@@ -252,7 +253,7 @@ typedef struct _gizclaw_rpc_v1_PointsTransaction {
     pb_callback_t game_result_id;
     pb_callback_t id;
     pb_callback_t owner_public_key;
-    pb_callback_t pet_id;
+    pb_callback_t pet_name;
     pb_callback_t reason;
     pb_callback_t reward_grant_id;
     pb_callback_t runtime_profile_name;
@@ -282,7 +283,7 @@ typedef struct _gizclaw_rpc_v1_RewardGrant {
     pb_callback_t id;
     pb_callback_t owner_public_key;
     int64_t pet_exp_delta;
-    pb_callback_t pet_id;
+    pb_callback_t pet_name;
     int64_t points_delta;
     pb_callback_t reason;
     pb_callback_t runtime_profile_name;
@@ -303,7 +304,7 @@ typedef struct _gizclaw_rpc_v1_RewardGrantListResponse {
 
 typedef struct _gizclaw_rpc_v1_ServerBadgeGetRequest {
     bool has_value;
-    gizclaw_rpc_v1_GameplayGetRequest value;
+    gizclaw_rpc_v1_GameplayNameGetRequest value;
 } gizclaw_rpc_v1_ServerBadgeGetRequest;
 
 typedef struct _gizclaw_rpc_v1_ServerBadgeGetResponse {
@@ -497,6 +498,7 @@ extern "C" {
 
 
 
+
 #define gizclaw_rpc_v1_Pet_lifecycle_ENUMTYPE gizclaw_rpc_v1_PetLifecycle
 
 
@@ -556,20 +558,21 @@ extern "C" {
 
 
 /* Initializer values for message structs */
-#define gizclaw_rpc_v1_Badge_init_default        {0, {{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, 0, {{NULL}, NULL}, 0, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Badge_init_default        {0, {{NULL}, NULL}, {{NULL}, NULL}, 0, 0, {{NULL}, NULL}, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_BadgeDefPixaDownloadRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_BadgeDefPixaDownloadResponse_init_default {{{NULL}, NULL}, {{NULL}, NULL}, 0}
 #define gizclaw_rpc_v1_BadgeListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_GameResult_init_default   {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_GameplayMetadata_init_default, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
+#define gizclaw_rpc_v1_GameResult_init_default   {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_GameplayMetadata_init_default, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_GameResultListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_GameRewardSpec_init_default {{{NULL}, NULL}, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry_init_default {{{NULL}, NULL}, 0}
 #define gizclaw_rpc_v1_GameplayGetRequest_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_GameplayNameGetRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_GameplayListRequest_init_default {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_GameplayMetadata_init_default {false, google_protobuf_Struct_init_default}
 #define gizclaw_rpc_v1_PetStats_init_default     {0, 0, 0, 0, 0, 0}
 #define gizclaw_rpc_v1_PetProgression_init_default {0, 0}
-#define gizclaw_rpc_v1_Pet_init_default          {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetStats_init_default, false, gizclaw_rpc_v1_PetProgression_init_default, _gizclaw_rpc_v1_PetLifecycle_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Pet_init_default          {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetStats_init_default, false, gizclaw_rpc_v1_PetProgression_init_default, _gizclaw_rpc_v1_PetLifecycle_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetAdoptRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetAdoptResponse_init_default {false, gizclaw_rpc_v1_Pet_init_default, false, gizclaw_rpc_v1_PointsAccount_init_default, false, gizclaw_rpc_v1_PointsTransaction_init_default}
 #define gizclaw_rpc_v1_PetPixaDownloadRequest_init_default {{{NULL}, NULL}}
@@ -590,7 +593,7 @@ extern "C" {
 #define gizclaw_rpc_v1_RewardGrant_init_default  {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_RewardGrant_BadgeExpDeltaEntry_init_default {{{NULL}, NULL}, 0}
 #define gizclaw_rpc_v1_RewardGrantListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ServerBadgeGetRequest_init_default {false, gizclaw_rpc_v1_GameplayGetRequest_init_default}
+#define gizclaw_rpc_v1_ServerBadgeGetRequest_init_default {false, gizclaw_rpc_v1_GameplayNameGetRequest_init_default}
 #define gizclaw_rpc_v1_ServerBadgeGetResponse_init_default {false, gizclaw_rpc_v1_Badge_init_default}
 #define gizclaw_rpc_v1_ServerBadgeListRequest_init_default {false, gizclaw_rpc_v1_GameplayListRequest_init_default}
 #define gizclaw_rpc_v1_ServerBadgeListResponse_init_default {false, gizclaw_rpc_v1_BadgeListResponse_init_default}
@@ -624,20 +627,21 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerRewardGrantGetResponse_init_default {false, gizclaw_rpc_v1_RewardGrant_init_default}
 #define gizclaw_rpc_v1_ServerRewardGrantListRequest_init_default {false, gizclaw_rpc_v1_GameplayListRequest_init_default}
 #define gizclaw_rpc_v1_ServerRewardGrantListResponse_init_default {false, gizclaw_rpc_v1_RewardGrantListResponse_init_default}
-#define gizclaw_rpc_v1_Badge_init_zero           {0, {{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, 0, {{NULL}, NULL}, 0, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Badge_init_zero           {0, {{NULL}, NULL}, {{NULL}, NULL}, 0, 0, {{NULL}, NULL}, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_BadgeDefPixaDownloadRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_BadgeDefPixaDownloadResponse_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, 0}
 #define gizclaw_rpc_v1_BadgeListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_GameResult_init_zero      {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_GameplayMetadata_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
+#define gizclaw_rpc_v1_GameResult_init_zero      {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_GameplayMetadata_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_GameResultListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_GameRewardSpec_init_zero  {{{NULL}, NULL}, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry_init_zero {{{NULL}, NULL}, 0}
 #define gizclaw_rpc_v1_GameplayGetRequest_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_GameplayNameGetRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_GameplayListRequest_init_zero {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_GameplayMetadata_init_zero {false, google_protobuf_Struct_init_zero}
 #define gizclaw_rpc_v1_PetStats_init_zero        {0, 0, 0, 0, 0, 0}
 #define gizclaw_rpc_v1_PetProgression_init_zero  {0, 0}
-#define gizclaw_rpc_v1_Pet_init_zero             {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetStats_init_zero, false, gizclaw_rpc_v1_PetProgression_init_zero, _gizclaw_rpc_v1_PetLifecycle_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Pet_init_zero             {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetStats_init_zero, false, gizclaw_rpc_v1_PetProgression_init_zero, _gizclaw_rpc_v1_PetLifecycle_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetAdoptRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetAdoptResponse_init_zero {false, gizclaw_rpc_v1_Pet_init_zero, false, gizclaw_rpc_v1_PointsAccount_init_zero, false, gizclaw_rpc_v1_PointsTransaction_init_zero}
 #define gizclaw_rpc_v1_PetPixaDownloadRequest_init_zero {{{NULL}, NULL}}
@@ -658,7 +662,7 @@ extern "C" {
 #define gizclaw_rpc_v1_RewardGrant_init_zero     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_RewardGrant_BadgeExpDeltaEntry_init_zero {{{NULL}, NULL}, 0}
 #define gizclaw_rpc_v1_RewardGrantListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ServerBadgeGetRequest_init_zero {false, gizclaw_rpc_v1_GameplayGetRequest_init_zero}
+#define gizclaw_rpc_v1_ServerBadgeGetRequest_init_zero {false, gizclaw_rpc_v1_GameplayNameGetRequest_init_zero}
 #define gizclaw_rpc_v1_ServerBadgeGetResponse_init_zero {false, gizclaw_rpc_v1_Badge_init_zero}
 #define gizclaw_rpc_v1_ServerBadgeListRequest_init_zero {false, gizclaw_rpc_v1_GameplayListRequest_init_zero}
 #define gizclaw_rpc_v1_ServerBadgeListResponse_init_zero {false, gizclaw_rpc_v1_BadgeListResponse_init_zero}
@@ -695,16 +699,15 @@ extern "C" {
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_Badge_active_tag          1
-#define gizclaw_rpc_v1_Badge_badge_def_id_tag    2
+#define gizclaw_rpc_v1_Badge_badge_def_name_tag  2
 #define gizclaw_rpc_v1_Badge_created_at_tag      3
 #define gizclaw_rpc_v1_Badge_exp_tag             4
-#define gizclaw_rpc_v1_Badge_id_tag              5
-#define gizclaw_rpc_v1_Badge_level_tag           6
-#define gizclaw_rpc_v1_Badge_owner_public_key_tag 7
-#define gizclaw_rpc_v1_Badge_progress_tag        8
-#define gizclaw_rpc_v1_Badge_updated_at_tag      9
-#define gizclaw_rpc_v1_BadgeDefPixaDownloadRequest_id_tag 1
-#define gizclaw_rpc_v1_BadgeDefPixaDownloadResponse_id_tag 1
+#define gizclaw_rpc_v1_Badge_level_tag           5
+#define gizclaw_rpc_v1_Badge_name_tag            6
+#define gizclaw_rpc_v1_Badge_progress_tag        7
+#define gizclaw_rpc_v1_Badge_updated_at_tag      8
+#define gizclaw_rpc_v1_BadgeDefPixaDownloadRequest_name_tag 1
+#define gizclaw_rpc_v1_BadgeDefPixaDownloadResponse_name_tag 1
 #define gizclaw_rpc_v1_BadgeDefPixaDownloadResponse_pixa_path_tag 2
 #define gizclaw_rpc_v1_BadgeDefPixaDownloadResponse_size_bytes_tag 3
 #define gizclaw_rpc_v1_BadgeListResponse_has_next_tag 1
@@ -719,21 +722,21 @@ extern "C" {
 #define gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry_key_tag 1
 #define gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry_value_tag 2
 #define gizclaw_rpc_v1_GameplayGetRequest_id_tag 1
+#define gizclaw_rpc_v1_GameplayNameGetRequest_name_tag 1
 #define gizclaw_rpc_v1_GameplayListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_GameplayListRequest_limit_tag 2
 #define gizclaw_rpc_v1_GameplayMetadata_fields_tag 1
 #define gizclaw_rpc_v1_GameResult_created_at_tag 1
 #define gizclaw_rpc_v1_GameResult_difficulty_tag 2
 #define gizclaw_rpc_v1_GameResult_duration_ms_tag 3
-#define gizclaw_rpc_v1_GameResult_game_def_id_tag 4
+#define gizclaw_rpc_v1_GameResult_game_def_name_tag 4
 #define gizclaw_rpc_v1_GameResult_id_tag         5
 #define gizclaw_rpc_v1_GameResult_idempotency_key_tag 6
 #define gizclaw_rpc_v1_GameResult_max_score_tag  7
 #define gizclaw_rpc_v1_GameResult_occurred_at_tag 8
 #define gizclaw_rpc_v1_GameResult_outcome_tag    9
-#define gizclaw_rpc_v1_GameResult_owner_public_key_tag 10
 #define gizclaw_rpc_v1_GameResult_payload_tag    11
-#define gizclaw_rpc_v1_GameResult_pet_id_tag     12
+#define gizclaw_rpc_v1_GameResult_pet_name_tag   12
 #define gizclaw_rpc_v1_GameResult_runtime_profile_name_tag 13
 #define gizclaw_rpc_v1_GameResult_score_tag      14
 #define gizclaw_rpc_v1_PetStats_life_tag         1
@@ -744,25 +747,24 @@ extern "C" {
 #define gizclaw_rpc_v1_PetStats_energy_tag       6
 #define gizclaw_rpc_v1_PetProgression_experience_tag 1
 #define gizclaw_rpc_v1_PetProgression_level_tag  2
-#define gizclaw_rpc_v1_Pet_id_tag                1
-#define gizclaw_rpc_v1_Pet_owner_public_key_tag  2
-#define gizclaw_rpc_v1_Pet_runtime_profile_name_tag 3
-#define gizclaw_rpc_v1_Pet_petdef_id_tag         4
-#define gizclaw_rpc_v1_Pet_display_name_tag      5
-#define gizclaw_rpc_v1_Pet_workspace_name_tag    6
-#define gizclaw_rpc_v1_Pet_stats_tag             7
-#define gizclaw_rpc_v1_Pet_progression_tag       8
-#define gizclaw_rpc_v1_Pet_lifecycle_tag         9
-#define gizclaw_rpc_v1_Pet_died_at_tag           10
-#define gizclaw_rpc_v1_Pet_state_settled_at_tag  11
-#define gizclaw_rpc_v1_Pet_last_active_at_tag    12
-#define gizclaw_rpc_v1_Pet_created_at_tag        13
-#define gizclaw_rpc_v1_Pet_updated_at_tag        14
-#define gizclaw_rpc_v1_PetAdoptRequest_display_name_tag 1
-#define gizclaw_rpc_v1_PetAdoptRequest_id_tag    2
-#define gizclaw_rpc_v1_PetPixaDownloadRequest_pet_id_tag 1
-#define gizclaw_rpc_v1_PetPixaDownloadResponse_pet_id_tag 1
-#define gizclaw_rpc_v1_PetPixaDownloadResponse_petdef_id_tag 2
+#define gizclaw_rpc_v1_Pet_name_tag              1
+#define gizclaw_rpc_v1_Pet_runtime_profile_name_tag 2
+#define gizclaw_rpc_v1_Pet_pet_def_name_tag      3
+#define gizclaw_rpc_v1_Pet_display_name_tag      4
+#define gizclaw_rpc_v1_Pet_workspace_name_tag    5
+#define gizclaw_rpc_v1_Pet_stats_tag             6
+#define gizclaw_rpc_v1_Pet_progression_tag       7
+#define gizclaw_rpc_v1_Pet_lifecycle_tag         8
+#define gizclaw_rpc_v1_Pet_died_at_tag           9
+#define gizclaw_rpc_v1_Pet_state_settled_at_tag  10
+#define gizclaw_rpc_v1_Pet_last_active_at_tag    11
+#define gizclaw_rpc_v1_Pet_created_at_tag        12
+#define gizclaw_rpc_v1_Pet_updated_at_tag        13
+#define gizclaw_rpc_v1_PetAdoptRequest_name_tag  1
+#define gizclaw_rpc_v1_PetAdoptRequest_display_name_tag 2
+#define gizclaw_rpc_v1_PetPixaDownloadRequest_pet_name_tag 1
+#define gizclaw_rpc_v1_PetPixaDownloadResponse_pet_name_tag 1
+#define gizclaw_rpc_v1_PetPixaDownloadResponse_pet_def_name_tag 2
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_pixa_path_tag 3
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_size_bytes_tag 4
 #define gizclaw_rpc_v1_PetVisualBindings_feed_tag 1
@@ -773,17 +775,17 @@ extern "C" {
 #define gizclaw_rpc_v1_PetVisualBindings_sick_tag 6
 #define gizclaw_rpc_v1_PetVisualBindings_dead_tag 7
 #define gizclaw_rpc_v1_PetVisualBindings_sleep_tag 8
-#define gizclaw_rpc_v1_PetActions_pet_id_tag     1
-#define gizclaw_rpc_v1_PetActions_petdef_id_tag  2
+#define gizclaw_rpc_v1_PetActions_pet_name_tag   1
+#define gizclaw_rpc_v1_PetActions_pet_def_name_tag 2
 #define gizclaw_rpc_v1_PetActions_bindings_tag   3
-#define gizclaw_rpc_v1_PetActions_petdef_updated_at_tag 4
+#define gizclaw_rpc_v1_PetActions_pet_def_updated_at_tag 4
 #define gizclaw_rpc_v1_PetActions_clip_names_tag 5
 #define gizclaw_rpc_v1_PetActions_ClipNamesEntry_key_tag 1
 #define gizclaw_rpc_v1_PetActions_ClipNamesEntry_value_tag 2
-#define gizclaw_rpc_v1_PetDeleteRequest_id_tag   1
+#define gizclaw_rpc_v1_PetDeleteRequest_name_tag 1
 #define gizclaw_rpc_v1_PetDriveGameResultInput_difficulty_tag 1
 #define gizclaw_rpc_v1_PetDriveGameResultInput_duration_ms_tag 2
-#define gizclaw_rpc_v1_PetDriveGameResultInput_game_def_id_tag 3
+#define gizclaw_rpc_v1_PetDriveGameResultInput_game_name_tag 3
 #define gizclaw_rpc_v1_PetDriveGameResultInput_idempotency_key_tag 4
 #define gizclaw_rpc_v1_PetDriveGameResultInput_max_score_tag 5
 #define gizclaw_rpc_v1_PetDriveGameResultInput_occurred_at_tag 6
@@ -792,14 +794,14 @@ extern "C" {
 #define gizclaw_rpc_v1_PetDriveGameResultInput_score_tag 9
 #define gizclaw_rpc_v1_PetDriveRequest_behavior_tag 1
 #define gizclaw_rpc_v1_PetDriveRequest_game_result_tag 2
-#define gizclaw_rpc_v1_PetDriveRequest_pet_id_tag 3
+#define gizclaw_rpc_v1_PetDriveRequest_pet_name_tag 3
 #define gizclaw_rpc_v1_PetDriveRequest_idempotency_key_tag 4
-#define gizclaw_rpc_v1_PetGetRequest_id_tag      1
+#define gizclaw_rpc_v1_PetGetRequest_name_tag    1
 #define gizclaw_rpc_v1_PetListResponse_has_next_tag 1
 #define gizclaw_rpc_v1_PetListResponse_items_tag 2
 #define gizclaw_rpc_v1_PetListResponse_next_cursor_tag 3
 #define gizclaw_rpc_v1_PetPutRequest_display_name_tag 1
-#define gizclaw_rpc_v1_PetPutRequest_id_tag      2
+#define gizclaw_rpc_v1_PetPutRequest_name_tag    2
 #define gizclaw_rpc_v1_PointsAccount_balance_tag 1
 #define gizclaw_rpc_v1_PointsAccount_created_at_tag 2
 #define gizclaw_rpc_v1_PointsAccount_owner_public_key_tag 3
@@ -817,7 +819,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PointsTransaction_game_result_id_tag 4
 #define gizclaw_rpc_v1_PointsTransaction_id_tag  5
 #define gizclaw_rpc_v1_PointsTransaction_owner_public_key_tag 6
-#define gizclaw_rpc_v1_PointsTransaction_pet_id_tag 7
+#define gizclaw_rpc_v1_PointsTransaction_pet_name_tag 7
 #define gizclaw_rpc_v1_PointsTransaction_reason_tag 8
 #define gizclaw_rpc_v1_PointsTransaction_reward_grant_id_tag 9
 #define gizclaw_rpc_v1_PointsTransaction_runtime_profile_name_tag 10
@@ -835,7 +837,7 @@ extern "C" {
 #define gizclaw_rpc_v1_RewardGrant_id_tag        4
 #define gizclaw_rpc_v1_RewardGrant_owner_public_key_tag 5
 #define gizclaw_rpc_v1_RewardGrant_pet_exp_delta_tag 6
-#define gizclaw_rpc_v1_RewardGrant_pet_id_tag    7
+#define gizclaw_rpc_v1_RewardGrant_pet_name_tag  7
 #define gizclaw_rpc_v1_RewardGrant_points_delta_tag 8
 #define gizclaw_rpc_v1_RewardGrant_reason_tag    9
 #define gizclaw_rpc_v1_RewardGrant_runtime_profile_name_tag 10
@@ -883,24 +885,23 @@ extern "C" {
 /* Struct field encoding specification for nanopb */
 #define gizclaw_rpc_v1_Badge_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, BOOL,     active,            1) \
-X(a, CALLBACK, SINGULAR, STRING,   badge_def_id,      2) \
+X(a, CALLBACK, SINGULAR, STRING,   badge_def_name,    2) \
 X(a, CALLBACK, SINGULAR, STRING,   created_at,        3) \
 X(a, STATIC,   SINGULAR, INT64,    exp,               4) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                5) \
-X(a, STATIC,   SINGULAR, INT64,    level,             6) \
-X(a, CALLBACK, SINGULAR, STRING,   owner_public_key,   7) \
-X(a, STATIC,   SINGULAR, INT64,    progress,          8) \
-X(a, CALLBACK, SINGULAR, STRING,   updated_at,        9)
+X(a, STATIC,   SINGULAR, INT64,    level,             5) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              6) \
+X(a, STATIC,   SINGULAR, INT64,    progress,          7) \
+X(a, CALLBACK, SINGULAR, STRING,   updated_at,        8)
 #define gizclaw_rpc_v1_Badge_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Badge_DEFAULT NULL
 
 #define gizclaw_rpc_v1_BadgeDefPixaDownloadRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1)
+X(a, CALLBACK, SINGULAR, STRING,   name,              1)
 #define gizclaw_rpc_v1_BadgeDefPixaDownloadRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_BadgeDefPixaDownloadRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_BadgeDefPixaDownloadResponse_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
 X(a, CALLBACK, OPTIONAL, STRING,   pixa_path,         2) \
 X(a, STATIC,   SINGULAR, INT64,    size_bytes,        3)
 #define gizclaw_rpc_v1_BadgeDefPixaDownloadResponse_CALLBACK pb_default_field_callback
@@ -918,15 +919,14 @@ X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
 X(a, CALLBACK, SINGULAR, STRING,   created_at,        1) \
 X(a, CALLBACK, OPTIONAL, STRING,   difficulty,        2) \
 X(a, STATIC,   OPTIONAL, INT64,    duration_ms,       3) \
-X(a, CALLBACK, SINGULAR, STRING,   game_def_id,       4) \
+X(a, CALLBACK, SINGULAR, STRING,   game_def_name,     4) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                5) \
 X(a, CALLBACK, OPTIONAL, STRING,   idempotency_key,   6) \
 X(a, STATIC,   OPTIONAL, INT64,    max_score,         7) \
 X(a, CALLBACK, SINGULAR, STRING,   occurred_at,       8) \
 X(a, CALLBACK, OPTIONAL, STRING,   outcome,           9) \
-X(a, CALLBACK, SINGULAR, STRING,   owner_public_key,  10) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  payload,          11) \
-X(a, CALLBACK, SINGULAR, STRING,   pet_id,           12) \
+X(a, CALLBACK, SINGULAR, STRING,   pet_name,         12) \
 X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,  13) \
 X(a, STATIC,   OPTIONAL, INT64,    score,            14)
 #define gizclaw_rpc_v1_GameResult_CALLBACK pb_default_field_callback
@@ -960,6 +960,11 @@ X(a, CALLBACK, SINGULAR, STRING,   id,                1)
 #define gizclaw_rpc_v1_GameplayGetRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_GameplayGetRequest_DEFAULT NULL
 
+#define gizclaw_rpc_v1_GameplayNameGetRequest_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              1)
+#define gizclaw_rpc_v1_GameplayNameGetRequest_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_GameplayNameGetRequest_DEFAULT NULL
+
 #define gizclaw_rpc_v1_GameplayListRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   cursor,            1) \
 X(a, STATIC,   OPTIONAL, INT64,    limit,             2)
@@ -989,28 +994,27 @@ X(a, STATIC,   SINGULAR, INT64,    level,             2)
 #define gizclaw_rpc_v1_PetProgression_DEFAULT NULL
 
 #define gizclaw_rpc_v1_Pet_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
-X(a, CALLBACK, SINGULAR, STRING,   owner_public_key,   2) \
-X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,   3) \
-X(a, CALLBACK, SINGULAR, STRING,   petdef_id,         4) \
-X(a, CALLBACK, SINGULAR, STRING,   display_name,      5) \
-X(a, CALLBACK, SINGULAR, STRING,   workspace_name,    6) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  stats,             7) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  progression,       8) \
-X(a, STATIC,   SINGULAR, UENUM,    lifecycle,         9) \
-X(a, CALLBACK, OPTIONAL, STRING,   died_at,          10) \
-X(a, CALLBACK, SINGULAR, STRING,   state_settled_at,  11) \
-X(a, CALLBACK, SINGULAR, STRING,   last_active_at,   12) \
-X(a, CALLBACK, SINGULAR, STRING,   created_at,       13) \
-X(a, CALLBACK, SINGULAR, STRING,   updated_at,       14)
+X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,   2) \
+X(a, CALLBACK, SINGULAR, STRING,   pet_def_name,      3) \
+X(a, CALLBACK, SINGULAR, STRING,   display_name,      4) \
+X(a, CALLBACK, SINGULAR, STRING,   workspace_name,    5) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  stats,             6) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  progression,       7) \
+X(a, STATIC,   SINGULAR, UENUM,    lifecycle,         8) \
+X(a, CALLBACK, OPTIONAL, STRING,   died_at,           9) \
+X(a, CALLBACK, SINGULAR, STRING,   state_settled_at,  10) \
+X(a, CALLBACK, SINGULAR, STRING,   last_active_at,   11) \
+X(a, CALLBACK, SINGULAR, STRING,   created_at,       12) \
+X(a, CALLBACK, SINGULAR, STRING,   updated_at,       13)
 #define gizclaw_rpc_v1_Pet_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Pet_DEFAULT NULL
 #define gizclaw_rpc_v1_Pet_stats_MSGTYPE gizclaw_rpc_v1_PetStats
 #define gizclaw_rpc_v1_Pet_progression_MSGTYPE gizclaw_rpc_v1_PetProgression
 
 #define gizclaw_rpc_v1_PetAdoptRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   display_name,      1) \
-X(a, CALLBACK, OPTIONAL, STRING,   id,                2)
+X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
+X(a, CALLBACK, SINGULAR, STRING,   display_name,      2)
 #define gizclaw_rpc_v1_PetAdoptRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PetAdoptRequest_DEFAULT NULL
 
@@ -1025,13 +1029,13 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  transaction,       3)
 #define gizclaw_rpc_v1_PetAdoptResponse_transaction_MSGTYPE gizclaw_rpc_v1_PointsTransaction
 
 #define gizclaw_rpc_v1_PetPixaDownloadRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   pet_id,            1)
+X(a, CALLBACK, SINGULAR, STRING,   pet_name,          1)
 #define gizclaw_rpc_v1_PetPixaDownloadRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PetPixaDownloadRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   pet_id,            1) \
-X(a, CALLBACK, SINGULAR, STRING,   petdef_id,         2) \
+X(a, CALLBACK, SINGULAR, STRING,   pet_name,          1) \
+X(a, CALLBACK, SINGULAR, STRING,   pet_def_name,      2) \
 X(a, CALLBACK, OPTIONAL, STRING,   pixa_path,         3) \
 X(a, STATIC,   SINGULAR, INT64,    size_bytes,        4)
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_CALLBACK pb_default_field_callback
@@ -1050,10 +1054,10 @@ X(a, CALLBACK, OPTIONAL, STRING,   sleep,             8)
 #define gizclaw_rpc_v1_PetVisualBindings_DEFAULT NULL
 
 #define gizclaw_rpc_v1_PetActions_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   pet_id,            1) \
-X(a, CALLBACK, SINGULAR, STRING,   petdef_id,         2) \
+X(a, CALLBACK, SINGULAR, STRING,   pet_name,          1) \
+X(a, CALLBACK, SINGULAR, STRING,   pet_def_name,      2) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  bindings,          3) \
-X(a, CALLBACK, SINGULAR, STRING,   petdef_updated_at,   4) \
+X(a, CALLBACK, SINGULAR, STRING,   pet_def_updated_at,   4) \
 X(a, CALLBACK, REPEATED, MESSAGE,  clip_names,        5)
 #define gizclaw_rpc_v1_PetActions_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PetActions_DEFAULT NULL
@@ -1067,14 +1071,14 @@ X(a, CALLBACK, SINGULAR, STRING,   value,             2)
 #define gizclaw_rpc_v1_PetActions_ClipNamesEntry_DEFAULT NULL
 
 #define gizclaw_rpc_v1_PetDeleteRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1)
+X(a, CALLBACK, SINGULAR, STRING,   name,              1)
 #define gizclaw_rpc_v1_PetDeleteRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PetDeleteRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_PetDriveGameResultInput_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   difficulty,        1) \
 X(a, STATIC,   OPTIONAL, INT64,    duration_ms,       2) \
-X(a, CALLBACK, SINGULAR, STRING,   game_def_id,       3) \
+X(a, CALLBACK, SINGULAR, STRING,   game_name,         3) \
 X(a, CALLBACK, OPTIONAL, STRING,   idempotency_key,   4) \
 X(a, STATIC,   OPTIONAL, INT64,    max_score,         5) \
 X(a, CALLBACK, OPTIONAL, STRING,   occurred_at,       6) \
@@ -1088,7 +1092,7 @@ X(a, STATIC,   OPTIONAL, INT64,    score,             9)
 #define gizclaw_rpc_v1_PetDriveRequest_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, UENUM,    behavior,          1) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  game_result,       2) \
-X(a, CALLBACK, SINGULAR, STRING,   pet_id,            3) \
+X(a, CALLBACK, SINGULAR, STRING,   pet_name,          3) \
 X(a, CALLBACK, OPTIONAL, STRING,   idempotency_key,   4)
 #define gizclaw_rpc_v1_PetDriveRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PetDriveRequest_DEFAULT NULL
@@ -1111,7 +1115,7 @@ X(a, CALLBACK, REPEATED, MESSAGE,  transactions,      6)
 #define gizclaw_rpc_v1_PetDriveResponse_transactions_MSGTYPE gizclaw_rpc_v1_PointsTransaction
 
 #define gizclaw_rpc_v1_PetGetRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1)
+X(a, CALLBACK, SINGULAR, STRING,   name,              1)
 #define gizclaw_rpc_v1_PetGetRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PetGetRequest_DEFAULT NULL
 
@@ -1125,7 +1129,7 @@ X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
 
 #define gizclaw_rpc_v1_PetPutRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   display_name,      1) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                2)
+X(a, CALLBACK, SINGULAR, STRING,   name,              2)
 #define gizclaw_rpc_v1_PetPutRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PetPutRequest_DEFAULT NULL
 
@@ -1145,7 +1149,7 @@ X(a, STATIC,   SINGULAR, INT64,    delta,             3) \
 X(a, CALLBACK, OPTIONAL, STRING,   game_result_id,    4) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                5) \
 X(a, CALLBACK, SINGULAR, STRING,   owner_public_key,   6) \
-X(a, CALLBACK, OPTIONAL, STRING,   pet_id,            7) \
+X(a, CALLBACK, OPTIONAL, STRING,   pet_name,          7) \
 X(a, CALLBACK, SINGULAR, STRING,   reason,            8) \
 X(a, CALLBACK, OPTIONAL, STRING,   reward_grant_id,   9) \
 X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,  10) \
@@ -1169,7 +1173,7 @@ X(a, CALLBACK, OPTIONAL, STRING,   game_result_id,    3) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                4) \
 X(a, CALLBACK, SINGULAR, STRING,   owner_public_key,   5) \
 X(a, STATIC,   SINGULAR, INT64,    pet_exp_delta,     6) \
-X(a, CALLBACK, OPTIONAL, STRING,   pet_id,            7) \
+X(a, CALLBACK, OPTIONAL, STRING,   pet_name,          7) \
 X(a, STATIC,   SINGULAR, INT64,    points_delta,      8) \
 X(a, CALLBACK, OPTIONAL, STRING,   reason,            9) \
 X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,  10) \
@@ -1197,7 +1201,7 @@ X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
 X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_ServerBadgeGetRequest_CALLBACK NULL
 #define gizclaw_rpc_v1_ServerBadgeGetRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_ServerBadgeGetRequest_value_MSGTYPE gizclaw_rpc_v1_GameplayGetRequest
+#define gizclaw_rpc_v1_ServerBadgeGetRequest_value_MSGTYPE gizclaw_rpc_v1_GameplayNameGetRequest
 
 #define gizclaw_rpc_v1_ServerBadgeGetResponse_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
@@ -1405,6 +1409,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_GameResultListResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_GameRewardSpec_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_GameplayGetRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_GameplayNameGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_GameplayListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_GameplayMetadata_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetStats_msg;
@@ -1475,6 +1480,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerRewardGrantListResponse_msg;
 #define gizclaw_rpc_v1_GameRewardSpec_fields &gizclaw_rpc_v1_GameRewardSpec_msg
 #define gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry_fields &gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry_msg
 #define gizclaw_rpc_v1_GameplayGetRequest_fields &gizclaw_rpc_v1_GameplayGetRequest_msg
+#define gizclaw_rpc_v1_GameplayNameGetRequest_fields &gizclaw_rpc_v1_GameplayNameGetRequest_msg
 #define gizclaw_rpc_v1_GameplayListRequest_fields &gizclaw_rpc_v1_GameplayListRequest_msg
 #define gizclaw_rpc_v1_GameplayMetadata_fields &gizclaw_rpc_v1_GameplayMetadata_msg
 #define gizclaw_rpc_v1_PetStats_fields &gizclaw_rpc_v1_PetStats_msg
@@ -1545,6 +1551,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerRewardGrantListResponse_msg;
 /* gizclaw_rpc_v1_GameRewardSpec_size depends on runtime parameters */
 /* gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry_size depends on runtime parameters */
 /* gizclaw_rpc_v1_GameplayGetRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_GameplayNameGetRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_GameplayListRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Pet_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetAdoptRequest_size depends on runtime parameters */

@@ -15,7 +15,7 @@ func TestApplyGeminiTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 		"kind": "GeminiTenant",
 		"metadata": {"name": "default"},
 		"spec": {
-			"credential_name": "gemini",
+			"credential_id": "gemini",
 			"project_id": "project-a",
 			"location": "global"
 		}
@@ -28,6 +28,7 @@ func TestApplyGeminiTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 	if result.Action != apitypes.ApplyActionCreated {
 		t.Fatalf("Apply(create GeminiTenant) action = %s", result.Action)
 	}
+	resource = withResourceID(t, resource, *result.Id)
 	result, err = manager.Apply(context.Background(), resource)
 	if err != nil {
 		t.Fatalf("Apply(unchanged GeminiTenant) error = %v", err)
@@ -41,12 +42,13 @@ func TestApplyGeminiTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 		"kind": "GeminiTenant",
 		"metadata": {"name": "default"},
 		"spec": {
-			"credential_name": "gemini",
+			"credential_id": "gemini",
 			"project_id": "project-a",
 			"location": "global",
 			"description": "Gemini project"
 		}
 	}`)
+	updated = withResourceID(t, updated, *result.Id)
 	result, err = manager.Apply(context.Background(), updated)
 	if err != nil {
 		t.Fatalf("Apply(update GeminiTenant) error = %v", err)
@@ -63,11 +65,16 @@ func TestPutGetDeleteGeminiTenantResource(t *testing.T) {
 		"kind": "GeminiTenant",
 		"metadata": {"name": "default"},
 		"spec": {
-			"credential_name": "gemini",
+			"credential_id": "gemini",
 			"project_id": "project-a"
 		}
 	}`)
 
+	created, err := manager.Apply(context.Background(), resource)
+	if err != nil {
+		t.Fatalf("Apply(GeminiTenant) error = %v", err)
+	}
+	resource = withResourceID(t, resource, *created.Id)
 	stored, err := manager.Put(context.Background(), resource)
 	if err != nil {
 		t.Fatalf("Put(GeminiTenant) error = %v", err)
@@ -76,11 +83,12 @@ func TestPutGetDeleteGeminiTenantResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsGeminiTenantResource(Put) error = %v", err)
 	}
-	if tenant.Spec.CredentialName != "gemini" {
-		t.Fatalf("Put(GeminiTenant) credential_name = %s", tenant.Spec.CredentialName)
+	if tenant.Spec.CredentialId != "gemini" {
+		t.Fatalf("Put(GeminiTenant) credential_name = %s", tenant.Spec.CredentialId)
 	}
 
-	got, err := manager.Get(context.Background(), apitypes.ResourceKindGeminiTenant, "default")
+	id := *created.Id
+	got, err := manager.Get(context.Background(), apitypes.ResourceKindGeminiTenant, id)
 	if err != nil {
 		t.Fatalf("Get(GeminiTenant) error = %v", err)
 	}
@@ -92,7 +100,7 @@ func TestPutGetDeleteGeminiTenantResource(t *testing.T) {
 		t.Fatalf("Get(GeminiTenant) metadata.name = %s", gotTenant.Metadata.Name)
 	}
 
-	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindGeminiTenant, "default")
+	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindGeminiTenant, id)
 	if err != nil {
 		t.Fatalf("Delete(GeminiTenant) error = %v", err)
 	}
@@ -103,9 +111,9 @@ func TestPutGetDeleteGeminiTenantResource(t *testing.T) {
 	if deletedTenant.Metadata.Name != "default" {
 		t.Fatalf("Delete(GeminiTenant) metadata.name = %s", deletedTenant.Metadata.Name)
 	}
-	_, err = manager.Get(context.Background(), apitypes.ResourceKindGeminiTenant, "default")
+	_, err = manager.Get(context.Background(), apitypes.ResourceKindGeminiTenant, id)
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
-	_, err = manager.Delete(context.Background(), apitypes.ResourceKindGeminiTenant, "default")
+	_, err = manager.Delete(context.Background(), apitypes.ResourceKindGeminiTenant, id)
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
 }
 
@@ -131,7 +139,7 @@ func TestGeminiTenantMissingServiceErrors(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "GeminiTenant",
 		"metadata": {"name": "default"},
-		"spec": {"credential_name": "gemini"}
+		"spec": {"credential_id": "gemini"}
 	}`)
 
 	if _, err := manager.Get(context.Background(), apitypes.ResourceKindGeminiTenant, "default"); err == nil {
@@ -154,7 +162,7 @@ func TestApplyGeminiTenantRejectsInvalidHeader(t *testing.T) {
 		"apiVersion": "unsupported",
 		"kind": "GeminiTenant",
 		"metadata": {"name": "default"},
-		"spec": {"credential_name": "gemini"}
+		"spec": {"credential_id": "gemini"}
 	}`)
 	_, err := manager.Apply(context.Background(), resource)
 	assertResourceError(t, err, 400, "UNSUPPORTED_RESOURCE_VERSION")

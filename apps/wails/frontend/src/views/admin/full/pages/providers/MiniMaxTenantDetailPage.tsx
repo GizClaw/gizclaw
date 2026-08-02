@@ -43,7 +43,7 @@ import { ResourceCliPanel } from "../../components/ResourceCliPanel";
 type MiniMaxTenantForm = {
   appID: string;
   baseURL: string;
-  credentialName: string;
+  credentialID: string;
   description: string;
   groupID: string;
 };
@@ -75,9 +75,9 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
     setNotice("");
     try {
       const [nextTenant, nextResource, credentialList] = await Promise.all([
-        expectData(getMiniMaxTenant({ path: { name: tenantName } })),
+        expectData(getMiniMaxTenant({ path: { id: tenantName } })),
         expectData(
-          getResource({ path: { kind: "MiniMaxTenant", name: tenantName } }),
+          getResource({ path: { kind: "MiniMaxTenant", id: tenantName } }),
         ),
         expectData(listCredentials({ query: { limit: 200 } })),
       ]);
@@ -110,18 +110,18 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
             name: tenant.name,
             app_id: optionalString(form.appID),
             group_id: optionalString(form.groupID),
-            credential_name: form.credentialName.trim(),
+            credential_id: form.credentialID.trim(),
             base_url: optionalString(form.baseURL),
             description: optionalString(form.description),
           },
-          path: { name: tenant.name },
+          path: { id: tenant.id },
         }),
       );
       setTenant(updated);
       setForm(formFromTenant(updated));
       setTenantResource(
         await expectData(
-          getResource({ path: { kind: "MiniMaxTenant", name: updated.name } }),
+          getResource({ path: { kind: "MiniMaxTenant", id: updated.id } }),
         ),
       );
       setNotice("MiniMax tenant saved.");
@@ -141,7 +141,7 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
     setNotice("");
     try {
       const result = await expectData(
-        syncMiniMaxTenantVoices({ path: { name: tenant.name } }),
+        syncMiniMaxTenantVoices({ path: { id: tenant.id } }),
       );
       await load();
       setNotice(
@@ -165,7 +165,7 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
 
   const credentialOptions = mergeCredentialOptions(
     credentials,
-    form.credentialName,
+    form.credentialID,
   );
 
   return (
@@ -242,7 +242,7 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
               <DetailBlock
                 items={[
                   ["Name", tenant.name],
-                  ["Credential", tenant.credential_name],
+                  ["Credential ID", tenant.credential_id],
                   ["Description", tenant.description],
                   ["Base URL", tenant.base_url],
                 ]}
@@ -287,20 +287,17 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
                       onValueChange={(value) =>
                         setForm((current) => ({
                           ...current,
-                          credentialName: value,
+                          credentialID: value,
                         }))
                       }
-                      value={form.credentialName}
+                      value={form.credentialID}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select credential" />
                       </SelectTrigger>
                       <SelectContent>
                         {credentialOptions.map((credential) => (
-                          <SelectItem
-                            key={credential.name}
-                            value={credential.name}
-                          >
+                          <SelectItem key={credential.id} value={credential.id}>
                             {credential.name} · {credential.provider}
                           </SelectItem>
                         ))}
@@ -406,7 +403,7 @@ function emptyForm(): MiniMaxTenantForm {
   return {
     appID: "",
     baseURL: "",
-    credentialName: "",
+    credentialID: "",
     description: "",
     groupID: "",
   };
@@ -416,7 +413,7 @@ function formFromTenant(tenant: MiniMaxTenant): MiniMaxTenantForm {
   return {
     appID: tenant.app_id ?? "",
     baseURL: tenant.base_url ?? "",
-    credentialName: tenant.credential_name,
+    credentialID: tenant.credential_id,
     description: tenant.description ?? "",
     groupID: tenant.group_id ?? "",
   };
@@ -429,17 +426,18 @@ function optionalString(value: string): string | undefined {
 
 function mergeCredentialOptions(
   credentials: Credential[],
-  currentName: string,
+  currentID: string,
 ): Credential[] {
   if (
-    currentName === "" ||
-    credentials.some((credential) => credential.name === currentName)
+    currentID === "" ||
+    credentials.some((credential) => credential.id === currentID)
   ) {
     return credentials;
   }
   return [
     {
-      name: currentName,
+      id: currentID,
+      name: currentID,
       provider: "unknown",
       body: {},
       created_at: "",

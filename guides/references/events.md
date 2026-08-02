@@ -39,7 +39,7 @@ Direct Chatroom 与 Group Chatroom 共用 Chatroom Workflow driver，但它们�
 
 Peer Event Stream 属于 Peer connection，不属于某个 Workspace、Agent 或页面。
 一个 Client 应只维护一个 connection-scoped event session，再在本地按
-`workspace_name`、`peer_public_key` 或 `friend_group_id` 分发。页面与 controller
+`workspace_name`、`peer_public_key` 或接收成员自己的 `friend_group_name` 分发。页面与 controller
 不能各自打开新的 `0x20` channel。connect 只有在 Event channel 已打开后才能
 成功；Server 只有在收到并绑定它后才能把 Peer 发布为 online/ready。任一端看到
 physical Event channel 关闭或失败时必须关闭整条 Peer connection，由 connection
@@ -119,7 +119,7 @@ Client 应按 `code` 本地化显示，并结束对应的 loading/recording 状�
 
 `friend_group_updated`：
 
-- `friend_group_id`
+- `friend_group_name`：按接收成员投影的本地 name；同一 canonical 群组发给不同成员时可以不同
 - `workspace_name`
 - `change`：`CREATED`、`DELETED`、`MEMBER_ADDED`、`MEMBER_REMOVED` 或
   `MEMBER_ROLE_CHANGED`；群名称或描述变化使用 `METADATA_UPDATED`

@@ -100,8 +100,12 @@ func TestIntegrationAdminResourceAPIs(t *testing.T) {
 	if applyResp.JSON200 == nil || applyResp.JSON200.Action != apitypes.ApplyActionCreated {
 		t.Fatalf("ApplyResource create response status=%d body=%s", applyResp.StatusCode(), string(applyResp.Body))
 	}
+	if applyResp.JSON200.Id == nil || *applyResp.JSON200.Id == "" {
+		t.Fatalf("ApplyResource create response missing canonical id: %s", string(applyResp.Body))
+	}
+	credentialID := *applyResp.JSON200.Id
 
-	getResp, err := api.GetResourceWithResponse(context.Background(), apitypes.ResourceKindCredential, "minimax-main")
+	getResp, err := api.GetResourceWithResponse(context.Background(), apitypes.ResourceKindCredential, credentialID)
 	if err != nil {
 		t.Fatalf("GetResourceWithResponse error: %v", err)
 	}
@@ -112,7 +116,7 @@ func TestIntegrationAdminResourceAPIs(t *testing.T) {
 	updatedResource := mustAdminResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "minimax-main"},
+		"metadata": {"id": "`+credentialID+`", "name": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"description": "updated credential",
@@ -127,7 +131,7 @@ func TestIntegrationAdminResourceAPIs(t *testing.T) {
 		t.Fatalf("ApplyResource update response status=%d body=%s", updatedResp.StatusCode(), string(updatedResp.Body))
 	}
 
-	putResp, err := api.PutResourceWithResponse(context.Background(), apitypes.ResourceKindCredential, "minimax-main", updatedResource)
+	putResp, err := api.PutResourceWithResponse(context.Background(), apitypes.ResourceKindCredential, credentialID, updatedResource)
 	if err != nil {
 		t.Fatalf("PutResourceWithResponse error: %v", err)
 	}
@@ -135,14 +139,14 @@ func TestIntegrationAdminResourceAPIs(t *testing.T) {
 		t.Fatalf("PutResource response status=%d body=%s", putResp.StatusCode(), string(putResp.Body))
 	}
 
-	deleteResp, err := api.DeleteResourceWithResponse(context.Background(), apitypes.ResourceKindCredential, "minimax-main")
+	deleteResp, err := api.DeleteResourceWithResponse(context.Background(), apitypes.ResourceKindCredential, credentialID)
 	if err != nil {
 		t.Fatalf("DeleteResourceWithResponse error: %v", err)
 	}
 	if deleteResp.JSON200 == nil {
 		t.Fatalf("DeleteResource response status=%d body=%s", deleteResp.StatusCode(), string(deleteResp.Body))
 	}
-	getAfterDeleteResp, err := api.GetResourceWithResponse(context.Background(), apitypes.ResourceKindCredential, "minimax-main")
+	getAfterDeleteResp, err := api.GetResourceWithResponse(context.Background(), apitypes.ResourceKindCredential, credentialID)
 	if err != nil {
 		t.Fatalf("GetResourceWithResponse(after delete) error: %v", err)
 	}

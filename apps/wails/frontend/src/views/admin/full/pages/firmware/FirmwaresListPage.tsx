@@ -168,8 +168,8 @@ export function FirmwaresListPage(): JSX.Element {
                 {items.map((firmware) => (
                   <TableRow
                     className="cursor-pointer hover:bg-muted/40"
-                    key={firmware.name}
-                    onClick={() => openFirmware(firmware.name)}
+                    key={firmware.id}
+                    onClick={() => openFirmware(firmware.id)}
                     onKeyDown={(event) =>
                       handleRowKeyDown(event, firmware.name)
                     }
@@ -182,7 +182,7 @@ export function FirmwaresListPage(): JSX.Element {
                           className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={(event) => {
                             event.stopPropagation();
-                            openFirmware(firmware.name);
+                            openFirmware(firmware.id);
                           }}
                           title={firmware.name}
                           type="button"

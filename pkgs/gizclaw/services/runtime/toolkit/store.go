@@ -8,16 +8,22 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-var toolsRoot = kv.Key{"by-name"}
+var (
+	toolsRoot       = kv.Key{"by-id"}
+	toolsByNameRoot = kv.Key{"by-name"}
+)
 
 type Server struct {
 	Store kv.Store
 	Now   func() time.Time
+	NewID func() string
 }
 
 func (s *Server) GetTool(ctx context.Context, name string) (Tool, error) {
@@ -29,16 +35,35 @@ func (s *Server) GetTool(ctx context.Context, name string) (Tool, error) {
 	if err != nil {
 		return Tool{}, err
 	}
-	data, err := store.Get(ctx, toolKey(name))
+	id, err := store.Get(ctx, toolNameKey(name))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
 			return Tool{}, ErrToolNotFound
 		}
 		return Tool{}, fmt.Errorf("toolkit: get tool %q: %w", name, err)
 	}
+	return s.GetToolByID(ctx, string(id))
+}
+
+func (s *Server) GetToolByID(ctx context.Context, id string) (Tool, error) {
+	store, err := s.store()
+	if err != nil {
+		return Tool{}, err
+	}
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return Tool{}, ErrToolNotFound
+	}
+	data, err := store.Get(ctx, toolKey(id))
+	if err != nil {
+		if errors.Is(err, kv.ErrNotFound) {
+			return Tool{}, ErrToolNotFound
+		}
+		return Tool{}, fmt.Errorf("toolkit: get tool %q: %w", id, err)
+	}
 	tool, err := decodeTool(data)
 	if err != nil {
-		return Tool{}, fmt.Errorf("toolkit: decode tool %q: %w", name, err)
+		return Tool{}, fmt.Errorf("toolkit: decode tool %q: %w", id, err)
 	}
 	return tool, nil
 }
@@ -62,7 +87,7 @@ func (s *Server) ListTools(ctx context.Context) ([]Tool, error) {
 	return tools, nil
 }
 
-func (s *Server) PutTool(ctx context.Context, tool Tool) (Tool, error) {
+func (s *Server) CreateTool(ctx context.Context, tool Tool) (Tool, error) {
 	store, err := s.store()
 	if err != nil {
 		return Tool{}, err
@@ -71,15 +96,9 @@ func (s *Server) PutTool(ctx context.Context, tool Tool) (Tool, error) {
 	if err != nil {
 		return Tool{}, err
 	}
+	tool.ID = s.newID()
 	now := s.now()
-	if existing, err := s.GetTool(ctx, tool.Name); err == nil {
-		tool.CreatedAt = existing.CreatedAt
-		retainDirectSecret(&tool, existing)
-	} else if !errors.Is(err, ErrToolNotFound) {
-		return Tool{}, err
-	} else {
-		tool.CreatedAt = now
-	}
+	tool.CreatedAt = now
 	tool, err = NormalizeTool(tool)
 	if err != nil {
 		return Tool{}, err
@@ -89,23 +108,64 @@ func (s *Server) PutTool(ctx context.Context, tool Tool) (Tool, error) {
 	if err != nil {
 		return Tool{}, fmt.Errorf("toolkit: encode tool %q: %w", tool.Name, err)
 	}
-	if err := store.Set(ctx, toolKey(tool.Name), data); err != nil {
+	_, created, err := kv.CreateIfAbsent(ctx, store,
+		kv.Entry{Key: toolNameKey(tool.Name), Value: []byte(tool.ID)},
+		[]kv.Entry{{Key: toolKey(tool.ID), Value: data}},
+	)
+	if err != nil {
 		return Tool{}, fmt.Errorf("toolkit: put tool %q: %w", tool.Name, err)
+	}
+	if !created {
+		return Tool{}, fmt.Errorf("%w: tool name %q already exists", ErrInvalidTool, tool.Name)
 	}
 	return cloneTool(tool), nil
 }
 
-func (s *Server) DeleteTool(ctx context.Context, name string) error {
+func (s *Server) PutTool(ctx context.Context, id string, tool Tool) (Tool, error) {
+	store, err := s.store()
+	if err != nil {
+		return Tool{}, err
+	}
+	existing, err := s.GetToolByID(ctx, id)
+	if err != nil {
+		return Tool{}, err
+	}
+	tool, err = normalizeToolDeclaration(tool)
+	if err != nil {
+		return Tool{}, err
+	}
+	if tool.Name != existing.Name {
+		return Tool{}, fmt.Errorf("%w: name %q must match immutable name %q", ErrInvalidTool, tool.Name, existing.Name)
+	}
+	tool.ID = existing.ID
+	tool.CreatedAt = existing.CreatedAt
+	tool.UpdatedAt = s.now()
+	retainDirectSecret(&tool, existing)
+	tool, err = NormalizeTool(tool)
+	if err != nil {
+		return Tool{}, err
+	}
+	data, err := json.Marshal(tool)
+	if err != nil {
+		return Tool{}, fmt.Errorf("toolkit: encode tool %q: %w", tool.Name, err)
+	}
+	if err := store.Set(ctx, toolKey(tool.ID), data); err != nil {
+		return Tool{}, fmt.Errorf("toolkit: put tool %q: %w", tool.ID, err)
+	}
+	return cloneTool(tool), nil
+}
+
+func (s *Server) DeleteTool(ctx context.Context, id string) error {
 	store, err := s.store()
 	if err != nil {
 		return err
 	}
-	name, err = normalizeToolName(name)
+	tool, err := s.GetToolByID(ctx, id)
 	if err != nil {
 		return err
 	}
-	if err := store.Delete(ctx, toolKey(name)); err != nil {
-		return fmt.Errorf("toolkit: delete tool %q: %w", name, err)
+	if err := store.BatchDelete(ctx, []kv.Key{toolKey(tool.ID), toolNameKey(tool.Name)}); err != nil {
+		return fmt.Errorf("toolkit: delete tool %q: %w", tool.ID, err)
 	}
 	return nil
 }
@@ -140,8 +200,19 @@ func decodeTool(data []byte) (Tool, error) {
 	return NormalizeTool(tool)
 }
 
-func toolKey(name string) kv.Key {
-	return append(append(kv.Key{}, toolsRoot...), url.PathEscape(name))
+func toolKey(id string) kv.Key {
+	return append(append(kv.Key{}, toolsRoot...), url.PathEscape(id))
+}
+
+func toolNameKey(name string) kv.Key {
+	return append(append(kv.Key{}, toolsByNameRoot...), url.PathEscape(name))
+}
+
+func (s *Server) newID() string {
+	if s != nil && s.NewID != nil {
+		return s.NewID()
+	}
+	return socialutil.NewID()
 }
 
 func retainDirectSecret(desired *Tool, existing Tool) {

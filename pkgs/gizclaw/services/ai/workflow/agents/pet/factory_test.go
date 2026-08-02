@@ -67,7 +67,7 @@ func TestFactoryDelegatesNestedWorkflowToRegisteredFactory(t *testing.T) {
 		MemoryBinding:         memoryBinding,
 		MemoryLayout:          memoryLayout,
 		MemoryName:            "pet-memory",
-		MemoryProfileName:     "default",
+		MemoryProfileID:       "profile-id",
 		MemoryProfileRevision: "revision-1",
 	})
 	if err != nil {
@@ -80,7 +80,7 @@ func TestFactoryDelegatesNestedWorkflowToRegisteredFactory(t *testing.T) {
 		t.Fatalf("delegated Workspace/input provider = %#v", nested.spec)
 	}
 	if nested.spec.MemoryBinding != memoryBinding || nested.spec.MemoryLayout != memoryLayout ||
-		nested.spec.MemoryName != "pet-memory" || nested.spec.MemoryProfileName != "default" ||
+		nested.spec.MemoryName != "pet-memory" || nested.spec.MemoryProfileID != "profile-id" ||
 		nested.spec.MemoryProfileRevision != "revision-1" {
 		t.Fatalf("delegated outer Memory binding = %#v", nested.spec)
 	}

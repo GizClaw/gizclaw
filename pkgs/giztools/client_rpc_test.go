@@ -22,7 +22,7 @@ func TestClientRPCExecutorInvokesExactlyOnce(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if params.Name != "set_volume" || params.Args["level"] != float64(7) {
+		if params.InvokeName != "set_volume" || params.Args["level"] != float64(7) {
 			t.Fatalf("params = %#v", params)
 		}
 		return clientRPCResult(t, request.Id, `{"ok":true}`)

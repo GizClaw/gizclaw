@@ -19,9 +19,10 @@ import 'dart:typed_data' as $typed_data;
 const ContactCreateRequest$json = {
   '1': 'ContactCreateRequest',
   '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
     {
       '1': 'display_name',
-      '3': 1,
+      '3': 2,
       '4': 1,
       '5': 9,
       '9': 0,
@@ -30,7 +31,7 @@ const ContactCreateRequest$json = {
     },
     {
       '1': 'phone_number',
-      '3': 2,
+      '3': 3,
       '4': 1,
       '5': 9,
       '9': 1,
@@ -46,9 +47,9 @@ const ContactCreateRequest$json = {
 
 /// Descriptor for `ContactCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List contactCreateRequestDescriptor = $convert.base64Decode(
-    'ChRDb250YWN0Q3JlYXRlUmVxdWVzdBImCgxkaXNwbGF5X25hbWUYASABKAlIAFILZGlzcGxheU'
-    '5hbWWIAQESJgoMcGhvbmVfbnVtYmVyGAIgASgJSAFSC3Bob25lTnVtYmVyiAEBQg8KDV9kaXNw'
-    'bGF5X25hbWVCDwoNX3Bob25lX251bWJlcg==');
+    'ChRDb250YWN0Q3JlYXRlUmVxdWVzdBISCgRuYW1lGAEgASgJUgRuYW1lEiYKDGRpc3BsYXlfbm'
+    'FtZRgCIAEoCUgAUgtkaXNwbGF5TmFtZYgBARImCgxwaG9uZV9udW1iZXIYAyABKAlIAVILcGhv'
+    'bmVOdW1iZXKIAQFCDwoNX2Rpc3BsYXlfbmFtZUIPCg1fcGhvbmVfbnVtYmVy');
 
 @$core.Deprecated('Use contactCreateResponseDescriptor instead')
 const ContactCreateResponse$json = {
@@ -74,13 +75,13 @@ final $typed_data.Uint8List contactCreateResponseDescriptor = $convert.base64Dec
 const ContactDeleteRequest$json = {
   '1': 'ContactDeleteRequest',
   '2': [
-    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
   ],
 };
 
 /// Descriptor for `ContactDeleteRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List contactDeleteRequestDescriptor = $convert
-    .base64Decode('ChRDb250YWN0RGVsZXRlUmVxdWVzdBIOCgJpZBgBIAEoCVICaWQ=');
+    .base64Decode('ChRDb250YWN0RGVsZXRlUmVxdWVzdBISCgRuYW1lGAEgASgJUgRuYW1l');
 
 @$core.Deprecated('Use contactDeleteResponseDescriptor instead')
 const ContactDeleteResponse$json = {
@@ -106,13 +107,13 @@ final $typed_data.Uint8List contactDeleteResponseDescriptor = $convert.base64Dec
 const ContactGetRequest$json = {
   '1': 'ContactGetRequest',
   '2': [
-    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
   ],
 };
 
 /// Descriptor for `ContactGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List contactGetRequestDescriptor =
-    $convert.base64Decode('ChFDb250YWN0R2V0UmVxdWVzdBIOCgJpZBgBIAEoCVICaWQ=');
+final $typed_data.Uint8List contactGetRequestDescriptor = $convert
+    .base64Decode('ChFDb250YWN0R2V0UmVxdWVzdBISCgRuYW1lGAEgASgJUgRuYW1l');
 
 @$core.Deprecated('Use contactGetResponseDescriptor instead')
 const ContactGetResponse$json = {
@@ -208,13 +209,13 @@ const ContactObject$json = {
       '10': 'displayName',
       '17': true
     },
-    {'1': 'id', '3': 3, '4': 1, '5': 9, '9': 2, '10': 'id', '17': true},
+    {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
     {
       '1': 'phone_number',
       '3': 4,
       '4': 1,
       '5': 9,
-      '9': 3,
+      '9': 2,
       '10': 'phoneNumber',
       '17': true
     },
@@ -223,7 +224,7 @@ const ContactObject$json = {
       '3': 5,
       '4': 1,
       '5': 9,
-      '9': 4,
+      '9': 3,
       '10': 'updatedAt',
       '17': true
     },
@@ -231,7 +232,6 @@ const ContactObject$json = {
   '8': [
     {'1': '_created_at'},
     {'1': '_display_name'},
-    {'1': '_id'},
     {'1': '_phone_number'},
     {'1': '_updated_at'},
   ],
@@ -240,10 +240,10 @@ const ContactObject$json = {
 /// Descriptor for `ContactObject`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List contactObjectDescriptor = $convert.base64Decode(
     'Cg1Db250YWN0T2JqZWN0EiIKCmNyZWF0ZWRfYXQYASABKAlIAFIJY3JlYXRlZEF0iAEBEiYKDG'
-    'Rpc3BsYXlfbmFtZRgCIAEoCUgBUgtkaXNwbGF5TmFtZYgBARITCgJpZBgDIAEoCUgCUgJpZIgB'
-    'ARImCgxwaG9uZV9udW1iZXIYBCABKAlIA1ILcGhvbmVOdW1iZXKIAQESIgoKdXBkYXRlZF9hdB'
-    'gFIAEoCUgEUgl1cGRhdGVkQXSIAQFCDQoLX2NyZWF0ZWRfYXRCDwoNX2Rpc3BsYXlfbmFtZUIF'
-    'CgNfaWRCDwoNX3Bob25lX251bWJlckINCgtfdXBkYXRlZF9hdA==');
+    'Rpc3BsYXlfbmFtZRgCIAEoCUgBUgtkaXNwbGF5TmFtZYgBARISCgRuYW1lGAMgASgJUgRuYW1l'
+    'EiYKDHBob25lX251bWJlchgEIAEoCUgCUgtwaG9uZU51bWJlcogBARIiCgp1cGRhdGVkX2F0GA'
+    'UgASgJSANSCXVwZGF0ZWRBdIgBAUINCgtfY3JlYXRlZF9hdEIPCg1fZGlzcGxheV9uYW1lQg8K'
+    'DV9waG9uZV9udW1iZXJCDQoLX3VwZGF0ZWRfYXQ=');
 
 @$core.Deprecated('Use contactPutRequestDescriptor instead')
 const ContactPutRequest$json = {
@@ -258,7 +258,7 @@ const ContactPutRequest$json = {
       '10': 'displayName',
       '17': true
     },
-    {'1': 'id', '3': 2, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
     {
       '1': 'phone_number',
       '3': 3,
@@ -278,8 +278,8 @@ const ContactPutRequest$json = {
 /// Descriptor for `ContactPutRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List contactPutRequestDescriptor = $convert.base64Decode(
     'ChFDb250YWN0UHV0UmVxdWVzdBImCgxkaXNwbGF5X25hbWUYASABKAlIAFILZGlzcGxheU5hbW'
-    'WIAQESDgoCaWQYAiABKAlSAmlkEiYKDHBob25lX251bWJlchgDIAEoCUgBUgtwaG9uZU51bWJl'
-    'cogBAUIPCg1fZGlzcGxheV9uYW1lQg8KDV9waG9uZV9udW1iZXI=');
+    'WIAQESEgoEbmFtZRgCIAEoCVIEbmFtZRImCgxwaG9uZV9udW1iZXIYAyABKAlIAVILcGhvbmVO'
+    'dW1iZXKIAQFCDwoNX2Rpc3BsYXlfbmFtZUIPCg1fcGhvbmVfbnVtYmVy');
 
 @$core.Deprecated('Use contactPutResponseDescriptor instead')
 const ContactPutResponse$json = {
@@ -430,17 +430,27 @@ const FriendGroupCreateRequest$json = {
       '17': true
     },
     {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {
+      '1': 'display_name',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'displayName',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_description'},
+    {'1': '_display_name'},
   ],
 };
 
 /// Descriptor for `FriendGroupCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List friendGroupCreateRequestDescriptor =
-    $convert.base64Decode(
-        'ChhGcmllbmRHcm91cENyZWF0ZVJlcXVlc3QSJQoLZGVzY3JpcHRpb24YASABKAlIAFILZGVzY3'
-        'JpcHRpb26IAQESEgoEbmFtZRgCIAEoCVIEbmFtZUIOCgxfZGVzY3JpcHRpb24=');
+final $typed_data.Uint8List friendGroupCreateRequestDescriptor = $convert.base64Decode(
+    'ChhGcmllbmRHcm91cENyZWF0ZVJlcXVlc3QSJQoLZGVzY3JpcHRpb24YASABKAlIAFILZGVzY3'
+    'JpcHRpb26IAQESEgoEbmFtZRgCIAEoCVIEbmFtZRImCgxkaXNwbGF5X25hbWUYAyABKAlIAVIL'
+    'ZGlzcGxheU5hbWWIAQFCDgoMX2Rlc2NyaXB0aW9uQg8KDV9kaXNwbGF5X25hbWU=');
 
 @$core.Deprecated('Use friendGroupCreateResponseDescriptor instead')
 const FriendGroupCreateResponse$json = {
@@ -467,13 +477,14 @@ final $typed_data.Uint8List friendGroupCreateResponseDescriptor =
 const FriendGroupDeleteRequest$json = {
   '1': 'FriendGroupDeleteRequest',
   '2': [
-    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
   ],
 };
 
 /// Descriptor for `FriendGroupDeleteRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List friendGroupDeleteRequestDescriptor = $convert
-    .base64Decode('ChhGcmllbmRHcm91cERlbGV0ZVJlcXVlc3QSDgoCaWQYASABKAlSAmlk');
+final $typed_data.Uint8List friendGroupDeleteRequestDescriptor =
+    $convert.base64Decode(
+        'ChhGcmllbmRHcm91cERlbGV0ZVJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZQ==');
 
 @$core.Deprecated('Use friendGroupDeleteResponseDescriptor instead')
 const FriendGroupDeleteResponse$json = {
@@ -500,13 +511,14 @@ final $typed_data.Uint8List friendGroupDeleteResponseDescriptor =
 const FriendGroupGetRequest$json = {
   '1': 'FriendGroupGetRequest',
   '2': [
-    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
   ],
 };
 
 /// Descriptor for `FriendGroupGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List friendGroupGetRequestDescriptor = $convert
-    .base64Decode('ChVGcmllbmRHcm91cEdldFJlcXVlc3QSDgoCaWQYASABKAlSAmlk');
+final $typed_data.Uint8List friendGroupGetRequestDescriptor =
+    $convert.base64Decode(
+        'ChVGcmllbmRHcm91cEdldFJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZQ==');
 
 @$core.Deprecated('Use friendGroupGetResponseDescriptor instead')
 const FriendGroupGetResponse$json = {
@@ -533,15 +545,15 @@ final $typed_data.Uint8List friendGroupGetResponseDescriptor =
 const FriendGroupInviteTokenClearRequest$json = {
   '1': 'FriendGroupInviteTokenClearRequest',
   '2': [
-    {'1': 'friend_group_id', '3': 1, '4': 1, '5': 9, '10': 'friendGroupId'},
+    {'1': 'friend_group_name', '3': 1, '4': 1, '5': 9, '10': 'friendGroupName'},
   ],
 };
 
 /// Descriptor for `FriendGroupInviteTokenClearRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupInviteTokenClearRequestDescriptor =
     $convert.base64Decode(
-        'CiJGcmllbmRHcm91cEludml0ZVRva2VuQ2xlYXJSZXF1ZXN0EiYKD2ZyaWVuZF9ncm91cF9pZB'
-        'gBIAEoCVINZnJpZW5kR3JvdXBJZA==');
+        'CiJGcmllbmRHcm91cEludml0ZVRva2VuQ2xlYXJSZXF1ZXN0EioKEWZyaWVuZF9ncm91cF9uYW'
+        '1lGAEgASgJUg9mcmllbmRHcm91cE5hbWU=');
 
 @$core.Deprecated('Use friendGroupInviteTokenClearResponseDescriptor instead')
 const FriendGroupInviteTokenClearResponse$json = {
@@ -557,15 +569,15 @@ final $typed_data.Uint8List friendGroupInviteTokenClearResponseDescriptor =
 const FriendGroupInviteTokenCreateRequest$json = {
   '1': 'FriendGroupInviteTokenCreateRequest',
   '2': [
-    {'1': 'friend_group_id', '3': 1, '4': 1, '5': 9, '10': 'friendGroupId'},
+    {'1': 'friend_group_name', '3': 1, '4': 1, '5': 9, '10': 'friendGroupName'},
   ],
 };
 
 /// Descriptor for `FriendGroupInviteTokenCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupInviteTokenCreateRequestDescriptor =
     $convert.base64Decode(
-        'CiNGcmllbmRHcm91cEludml0ZVRva2VuQ3JlYXRlUmVxdWVzdBImCg9mcmllbmRfZ3JvdXBfaW'
-        'QYASABKAlSDWZyaWVuZEdyb3VwSWQ=');
+        'CiNGcmllbmRHcm91cEludml0ZVRva2VuQ3JlYXRlUmVxdWVzdBIqChFmcmllbmRfZ3JvdXBfbm'
+        'FtZRgBIAEoCVIPZnJpZW5kR3JvdXBOYW1l');
 
 @$core.Deprecated('Use friendGroupInviteTokenCreateResponseDescriptor instead')
 const FriendGroupInviteTokenCreateResponse$json = {
@@ -586,15 +598,15 @@ final $typed_data.Uint8List friendGroupInviteTokenCreateResponseDescriptor =
 const FriendGroupInviteTokenGetRequest$json = {
   '1': 'FriendGroupInviteTokenGetRequest',
   '2': [
-    {'1': 'friend_group_id', '3': 1, '4': 1, '5': 9, '10': 'friendGroupId'},
+    {'1': 'friend_group_name', '3': 1, '4': 1, '5': 9, '10': 'friendGroupName'},
   ],
 };
 
 /// Descriptor for `FriendGroupInviteTokenGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupInviteTokenGetRequestDescriptor =
     $convert.base64Decode(
-        'CiBGcmllbmRHcm91cEludml0ZVRva2VuR2V0UmVxdWVzdBImCg9mcmllbmRfZ3JvdXBfaWQYAS'
-        'ABKAlSDWZyaWVuZEdyb3VwSWQ=');
+        'CiBGcmllbmRHcm91cEludml0ZVRva2VuR2V0UmVxdWVzdBIqChFmcmllbmRfZ3JvdXBfbmFtZR'
+        'gBIAEoCVIPZnJpZW5kR3JvdXBOYW1l');
 
 @$core.Deprecated('Use friendGroupInviteTokenGetResponseDescriptor instead')
 const FriendGroupInviteTokenGetResponse$json = {
@@ -637,6 +649,7 @@ const FriendGroupJoinRequest$json = {
   '1': 'FriendGroupJoinRequest',
   '2': [
     {'1': 'invite_token', '3': 1, '4': 1, '5': 9, '10': 'inviteToken'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
   ],
 };
 
@@ -644,7 +657,7 @@ const FriendGroupJoinRequest$json = {
 final $typed_data.Uint8List friendGroupJoinRequestDescriptor =
     $convert.base64Decode(
         'ChZGcmllbmRHcm91cEpvaW5SZXF1ZXN0EiEKDGludml0ZV90b2tlbhgBIAEoCVILaW52aXRlVG'
-        '9rZW4=');
+        '9rZW4SEgoEbmFtZRgCIAEoCVIEbmFtZQ==');
 
 @$core.Deprecated('Use friendGroupJoinResponseDescriptor instead')
 const FriendGroupJoinResponse$json = {
@@ -732,7 +745,7 @@ final $typed_data.Uint8List friendGroupListResponseDescriptor = $convert.base64D
 const FriendGroupMemberAddRequest$json = {
   '1': 'FriendGroupMemberAddRequest',
   '2': [
-    {'1': 'friend_group_id', '3': 1, '4': 1, '5': 9, '10': 'friendGroupId'},
+    {'1': 'friend_group_name', '3': 1, '4': 1, '5': 9, '10': 'friendGroupName'},
     {'1': 'peer_public_key', '3': 2, '4': 1, '5': 9, '10': 'peerPublicKey'},
     {
       '1': 'role',
@@ -742,15 +755,16 @@ const FriendGroupMemberAddRequest$json = {
       '6': '.gizclaw.rpc.v1.FriendGroupMemberMutableRole',
       '10': 'role'
     },
+    {'1': 'member_name', '3': 4, '4': 1, '5': 9, '10': 'memberName'},
   ],
 };
 
 /// Descriptor for `FriendGroupMemberAddRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupMemberAddRequestDescriptor = $convert.base64Decode(
-    'ChtGcmllbmRHcm91cE1lbWJlckFkZFJlcXVlc3QSJgoPZnJpZW5kX2dyb3VwX2lkGAEgASgJUg'
-    '1mcmllbmRHcm91cElkEiYKD3BlZXJfcHVibGljX2tleRgCIAEoCVINcGVlclB1YmxpY0tleRJA'
-    'CgRyb2xlGAMgASgOMiwuZ2l6Y2xhdy5ycGMudjEuRnJpZW5kR3JvdXBNZW1iZXJNdXRhYmxlUm'
-    '9sZVIEcm9sZQ==');
+    'ChtGcmllbmRHcm91cE1lbWJlckFkZFJlcXVlc3QSKgoRZnJpZW5kX2dyb3VwX25hbWUYASABKA'
+    'lSD2ZyaWVuZEdyb3VwTmFtZRImCg9wZWVyX3B1YmxpY19rZXkYAiABKAlSDXBlZXJQdWJsaWNL'
+    'ZXkSQAoEcm9sZRgDIAEoDjIsLmdpemNsYXcucnBjLnYxLkZyaWVuZEdyb3VwTWVtYmVyTXV0YW'
+    'JsZVJvbGVSBHJvbGUSHwoLbWVtYmVyX25hbWUYBCABKAlSCm1lbWJlck5hbWU=');
 
 @$core.Deprecated('Use friendGroupMemberAddResponseDescriptor instead')
 const FriendGroupMemberAddResponse$json = {
@@ -777,7 +791,7 @@ final $typed_data.Uint8List friendGroupMemberAddResponseDescriptor =
 const FriendGroupMemberDeleteRequest$json = {
   '1': 'FriendGroupMemberDeleteRequest',
   '2': [
-    {'1': 'friend_group_id', '3': 1, '4': 1, '5': 9, '10': 'friendGroupId'},
+    {'1': 'friend_group_name', '3': 1, '4': 1, '5': 9, '10': 'friendGroupName'},
     {'1': 'id', '3': 2, '4': 1, '5': 9, '10': 'id'},
   ],
 };
@@ -785,8 +799,8 @@ const FriendGroupMemberDeleteRequest$json = {
 /// Descriptor for `FriendGroupMemberDeleteRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupMemberDeleteRequestDescriptor =
     $convert.base64Decode(
-        'Ch5GcmllbmRHcm91cE1lbWJlckRlbGV0ZVJlcXVlc3QSJgoPZnJpZW5kX2dyb3VwX2lkGAEgAS'
-        'gJUg1mcmllbmRHcm91cElkEg4KAmlkGAIgASgJUgJpZA==');
+        'Ch5GcmllbmRHcm91cE1lbWJlckRlbGV0ZVJlcXVlc3QSKgoRZnJpZW5kX2dyb3VwX25hbWUYAS'
+        'ABKAlSD2ZyaWVuZEdyb3VwTmFtZRIOCgJpZBgCIAEoCVICaWQ=');
 
 @$core.Deprecated('Use friendGroupMemberDeleteResponseDescriptor instead')
 const FriendGroupMemberDeleteResponse$json = {
@@ -815,19 +829,19 @@ const FriendGroupMemberListRequest$json = {
   '2': [
     {'1': 'cursor', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'cursor', '17': true},
     {
-      '1': 'friend_group_id',
+      '1': 'friend_group_name',
       '3': 2,
       '4': 1,
       '5': 9,
       '9': 1,
-      '10': 'friendGroupId',
+      '10': 'friendGroupName',
       '17': true
     },
     {'1': 'limit', '3': 3, '4': 1, '5': 3, '9': 2, '10': 'limit', '17': true},
   ],
   '8': [
     {'1': '_cursor'},
-    {'1': '_friend_group_id'},
+    {'1': '_friend_group_name'},
     {'1': '_limit'},
   ],
 };
@@ -835,9 +849,9 @@ const FriendGroupMemberListRequest$json = {
 /// Descriptor for `FriendGroupMemberListRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupMemberListRequestDescriptor = $convert.base64Decode(
     'ChxGcmllbmRHcm91cE1lbWJlckxpc3RSZXF1ZXN0EhsKBmN1cnNvchgBIAEoCUgAUgZjdXJzb3'
-    'KIAQESKwoPZnJpZW5kX2dyb3VwX2lkGAIgASgJSAFSDWZyaWVuZEdyb3VwSWSIAQESGQoFbGlt'
-    'aXQYAyABKANIAlIFbGltaXSIAQFCCQoHX2N1cnNvckISChBfZnJpZW5kX2dyb3VwX2lkQggKBl'
-    '9saW1pdA==');
+    'KIAQESLwoRZnJpZW5kX2dyb3VwX25hbWUYAiABKAlIAVIPZnJpZW5kR3JvdXBOYW1liAEBEhkK'
+    'BWxpbWl0GAMgASgDSAJSBWxpbWl0iAEBQgkKB19jdXJzb3JCFAoSX2ZyaWVuZF9ncm91cF9uYW'
+    '1lQggKBl9saW1pdA==');
 
 @$core.Deprecated('Use friendGroupMemberListResponseDescriptor instead')
 const FriendGroupMemberListResponse$json = {
@@ -888,12 +902,12 @@ const FriendGroupMemberObject$json = {
       '17': true
     },
     {
-      '1': 'friend_group_id',
+      '1': 'friend_group_name',
       '3': 2,
       '4': 1,
       '5': 9,
       '9': 1,
-      '10': 'friendGroupId',
+      '10': 'friendGroupName',
       '17': true
     },
     {'1': 'id', '3': 3, '4': 1, '5': 9, '9': 2, '10': 'id', '17': true},
@@ -928,7 +942,7 @@ const FriendGroupMemberObject$json = {
   ],
   '8': [
     {'1': '_created_at'},
-    {'1': '_friend_group_id'},
+    {'1': '_friend_group_name'},
     {'1': '_id'},
     {'1': '_peer_public_key'},
     {'1': '_role'},
@@ -939,18 +953,18 @@ const FriendGroupMemberObject$json = {
 /// Descriptor for `FriendGroupMemberObject`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupMemberObjectDescriptor = $convert.base64Decode(
     'ChdGcmllbmRHcm91cE1lbWJlck9iamVjdBIiCgpjcmVhdGVkX2F0GAEgASgJSABSCWNyZWF0ZW'
-    'RBdIgBARIrCg9mcmllbmRfZ3JvdXBfaWQYAiABKAlIAVINZnJpZW5kR3JvdXBJZIgBARITCgJp'
-    'ZBgDIAEoCUgCUgJpZIgBARIrCg9wZWVyX3B1YmxpY19rZXkYBCABKAlIA1INcGVlclB1YmxpY0'
-    'tleYgBARI+CgRyb2xlGAUgASgOMiUuZ2l6Y2xhdy5ycGMudjEuRnJpZW5kR3JvdXBNZW1iZXJS'
-    'b2xlSARSBHJvbGWIAQESIgoKdXBkYXRlZF9hdBgGIAEoCUgFUgl1cGRhdGVkQXSIAQFCDQoLX2'
-    'NyZWF0ZWRfYXRCEgoQX2ZyaWVuZF9ncm91cF9pZEIFCgNfaWRCEgoQX3BlZXJfcHVibGljX2tl'
-    'eUIHCgVfcm9sZUINCgtfdXBkYXRlZF9hdA==');
+    'RBdIgBARIvChFmcmllbmRfZ3JvdXBfbmFtZRgCIAEoCUgBUg9mcmllbmRHcm91cE5hbWWIAQES'
+    'EwoCaWQYAyABKAlIAlICaWSIAQESKwoPcGVlcl9wdWJsaWNfa2V5GAQgASgJSANSDXBlZXJQdW'
+    'JsaWNLZXmIAQESPgoEcm9sZRgFIAEoDjIlLmdpemNsYXcucnBjLnYxLkZyaWVuZEdyb3VwTWVt'
+    'YmVyUm9sZUgEUgRyb2xliAEBEiIKCnVwZGF0ZWRfYXQYBiABKAlIBVIJdXBkYXRlZEF0iAEBQg'
+    '0KC19jcmVhdGVkX2F0QhQKEl9mcmllbmRfZ3JvdXBfbmFtZUIFCgNfaWRCEgoQX3BlZXJfcHVi'
+    'bGljX2tleUIHCgVfcm9sZUINCgtfdXBkYXRlZF9hdA==');
 
 @$core.Deprecated('Use friendGroupMemberPutRequestDescriptor instead')
 const FriendGroupMemberPutRequest$json = {
   '1': 'FriendGroupMemberPutRequest',
   '2': [
-    {'1': 'friend_group_id', '3': 1, '4': 1, '5': 9, '10': 'friendGroupId'},
+    {'1': 'friend_group_name', '3': 1, '4': 1, '5': 9, '10': 'friendGroupName'},
     {'1': 'id', '3': 2, '4': 1, '5': 9, '10': 'id'},
     {
       '1': 'role',
@@ -966,9 +980,9 @@ const FriendGroupMemberPutRequest$json = {
 /// Descriptor for `FriendGroupMemberPutRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupMemberPutRequestDescriptor =
     $convert.base64Decode(
-        'ChtGcmllbmRHcm91cE1lbWJlclB1dFJlcXVlc3QSJgoPZnJpZW5kX2dyb3VwX2lkGAEgASgJUg'
-        '1mcmllbmRHcm91cElkEg4KAmlkGAIgASgJUgJpZBJACgRyb2xlGAMgASgOMiwuZ2l6Y2xhdy5y'
-        'cGMudjEuRnJpZW5kR3JvdXBNZW1iZXJNdXRhYmxlUm9sZVIEcm9sZQ==');
+        'ChtGcmllbmRHcm91cE1lbWJlclB1dFJlcXVlc3QSKgoRZnJpZW5kX2dyb3VwX25hbWUYASABKA'
+        'lSD2ZyaWVuZEdyb3VwTmFtZRIOCgJpZBgCIAEoCVICaWQSQAoEcm9sZRgDIAEoDjIsLmdpemNs'
+        'YXcucnBjLnYxLkZyaWVuZEdyb3VwTWVtYmVyTXV0YWJsZVJvbGVSBHJvbGU=');
 
 @$core.Deprecated('Use friendGroupMemberPutResponseDescriptor instead')
 const FriendGroupMemberPutResponse$json = {
@@ -995,7 +1009,7 @@ final $typed_data.Uint8List friendGroupMemberPutResponseDescriptor =
 const FriendGroupMessageAudioGetRequest$json = {
   '1': 'FriendGroupMessageAudioGetRequest',
   '2': [
-    {'1': 'friend_group_id', '3': 1, '4': 1, '5': 9, '10': 'friendGroupId'},
+    {'1': 'friend_group_name', '3': 1, '4': 1, '5': 9, '10': 'friendGroupName'},
     {'1': 'history_id', '3': 2, '4': 1, '5': 9, '10': 'historyId'},
   ],
 };
@@ -1003,14 +1017,14 @@ const FriendGroupMessageAudioGetRequest$json = {
 /// Descriptor for `FriendGroupMessageAudioGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupMessageAudioGetRequestDescriptor =
     $convert.base64Decode(
-        'CiFGcmllbmRHcm91cE1lc3NhZ2VBdWRpb0dldFJlcXVlc3QSJgoPZnJpZW5kX2dyb3VwX2lkGA'
-        'EgASgJUg1mcmllbmRHcm91cElkEh0KCmhpc3RvcnlfaWQYAiABKAlSCWhpc3RvcnlJZA==');
+        'CiFGcmllbmRHcm91cE1lc3NhZ2VBdWRpb0dldFJlcXVlc3QSKgoRZnJpZW5kX2dyb3VwX25hbW'
+        'UYASABKAlSD2ZyaWVuZEdyb3VwTmFtZRIdCgpoaXN0b3J5X2lkGAIgASgJUgloaXN0b3J5SWQ=');
 
 @$core.Deprecated('Use friendGroupMessageAudioGetResponseDescriptor instead')
 const FriendGroupMessageAudioGetResponse$json = {
   '1': 'FriendGroupMessageAudioGetResponse',
   '2': [
-    {'1': 'friend_group_id', '3': 1, '4': 1, '5': 9, '10': 'friendGroupId'},
+    {'1': 'friend_group_name', '3': 1, '4': 1, '5': 9, '10': 'friendGroupName'},
     {'1': 'history_id', '3': 2, '4': 1, '5': 9, '10': 'historyId'},
     {'1': 'mime_type', '3': 3, '4': 1, '5': 9, '10': 'mimeType'},
     {'1': 'size_bytes', '3': 4, '4': 1, '5': 3, '10': 'sizeBytes'},
@@ -1020,16 +1034,16 @@ const FriendGroupMessageAudioGetResponse$json = {
 /// Descriptor for `FriendGroupMessageAudioGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupMessageAudioGetResponseDescriptor =
     $convert.base64Decode(
-        'CiJGcmllbmRHcm91cE1lc3NhZ2VBdWRpb0dldFJlc3BvbnNlEiYKD2ZyaWVuZF9ncm91cF9pZB'
-        'gBIAEoCVINZnJpZW5kR3JvdXBJZBIdCgpoaXN0b3J5X2lkGAIgASgJUgloaXN0b3J5SWQSGwoJ'
-        'bWltZV90eXBlGAMgASgJUghtaW1lVHlwZRIdCgpzaXplX2J5dGVzGAQgASgDUglzaXplQnl0ZX'
-        'M=');
+        'CiJGcmllbmRHcm91cE1lc3NhZ2VBdWRpb0dldFJlc3BvbnNlEioKEWZyaWVuZF9ncm91cF9uYW'
+        '1lGAEgASgJUg9mcmllbmRHcm91cE5hbWUSHQoKaGlzdG9yeV9pZBgCIAEoCVIJaGlzdG9yeUlk'
+        'EhsKCW1pbWVfdHlwZRgDIAEoCVIIbWltZVR5cGUSHQoKc2l6ZV9ieXRlcxgEIAEoA1IJc2l6ZU'
+        'J5dGVz');
 
 @$core.Deprecated('Use friendGroupMessageGetRequestDescriptor instead')
 const FriendGroupMessageGetRequest$json = {
   '1': 'FriendGroupMessageGetRequest',
   '2': [
-    {'1': 'friend_group_id', '3': 1, '4': 1, '5': 9, '10': 'friendGroupId'},
+    {'1': 'friend_group_name', '3': 1, '4': 1, '5': 9, '10': 'friendGroupName'},
     {'1': 'history_id', '3': 2, '4': 1, '5': 9, '10': 'historyId'},
   ],
 };
@@ -1037,8 +1051,8 @@ const FriendGroupMessageGetRequest$json = {
 /// Descriptor for `FriendGroupMessageGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupMessageGetRequestDescriptor =
     $convert.base64Decode(
-        'ChxGcmllbmRHcm91cE1lc3NhZ2VHZXRSZXF1ZXN0EiYKD2ZyaWVuZF9ncm91cF9pZBgBIAEoCV'
-        'INZnJpZW5kR3JvdXBJZBIdCgpoaXN0b3J5X2lkGAIgASgJUgloaXN0b3J5SWQ=');
+        'ChxGcmllbmRHcm91cE1lc3NhZ2VHZXRSZXF1ZXN0EioKEWZyaWVuZF9ncm91cF9uYW1lGAEgAS'
+        'gJUg9mcmllbmRHcm91cE5hbWUSHQoKaGlzdG9yeV9pZBgCIAEoCVIJaGlzdG9yeUlk');
 
 @$core.Deprecated('Use friendGroupMessageGetResponseDescriptor instead')
 const FriendGroupMessageGetResponse$json = {
@@ -1066,7 +1080,7 @@ const FriendGroupMessageListRequest$json = {
   '1': 'FriendGroupMessageListRequest',
   '2': [
     {'1': 'cursor', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'cursor', '17': true},
-    {'1': 'friend_group_id', '3': 2, '4': 1, '5': 9, '10': 'friendGroupId'},
+    {'1': 'friend_group_name', '3': 2, '4': 1, '5': 9, '10': 'friendGroupName'},
     {'1': 'limit', '3': 3, '4': 1, '5': 3, '9': 1, '10': 'limit', '17': true},
     {
       '1': 'order',
@@ -1089,10 +1103,10 @@ const FriendGroupMessageListRequest$json = {
 /// Descriptor for `FriendGroupMessageListRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupMessageListRequestDescriptor = $convert.base64Decode(
     'Ch1GcmllbmRHcm91cE1lc3NhZ2VMaXN0UmVxdWVzdBIbCgZjdXJzb3IYASABKAlIAFIGY3Vyc2'
-    '9yiAEBEiYKD2ZyaWVuZF9ncm91cF9pZBgCIAEoCVINZnJpZW5kR3JvdXBJZBIZCgVsaW1pdBgD'
-    'IAEoA0gBUgVsaW1pdIgBARJLCgVvcmRlchgEIAEoDjIwLmdpemNsYXcucnBjLnYxLldvcmtzcG'
-    'FjZUhpc3RvcnlMaXN0UmVxdWVzdE9yZGVySAJSBW9yZGVyiAEBQgkKB19jdXJzb3JCCAoGX2xp'
-    'bWl0QggKBl9vcmRlcg==');
+    '9yiAEBEioKEWZyaWVuZF9ncm91cF9uYW1lGAIgASgJUg9mcmllbmRHcm91cE5hbWUSGQoFbGlt'
+    'aXQYAyABKANIAVIFbGltaXSIAQESSwoFb3JkZXIYBCABKA4yMC5naXpjbGF3LnJwYy52MS5Xb3'
+    'Jrc3BhY2VIaXN0b3J5TGlzdFJlcXVlc3RPcmRlckgCUgVvcmRlcogBAUIJCgdfY3Vyc29yQggK'
+    'Bl9saW1pdEIICgZfb3JkZXI=');
 
 @$core.Deprecated('Use friendGroupMessageListResponseDescriptor instead')
 const FriendGroupMessageListResponse$json = {
@@ -1134,71 +1148,55 @@ final $typed_data.Uint8List friendGroupMessageListResponseDescriptor =
 const FriendGroupMessageObject$json = {
   '1': 'FriendGroupMessageObject',
   '2': [
-    {'1': 'created_at', '3': 4, '4': 1, '5': 9, '10': 'createdAt'},
+    {'1': 'created_at', '3': 1, '4': 1, '5': 9, '10': 'createdAt'},
     {
       '1': 'expires_at',
-      '3': 5,
+      '3': 2,
       '4': 1,
       '5': 9,
       '9': 0,
       '10': 'expiresAt',
       '17': true
     },
-    {'1': 'friend_group_id', '3': 6, '4': 1, '5': 9, '10': 'friendGroupId'},
+    {'1': 'friend_group_name', '3': 3, '4': 1, '5': 9, '10': 'friendGroupName'},
     {
       '1': 'sender_peer_public_key',
-      '3': 8,
+      '3': 4,
       '4': 1,
       '5': 9,
       '9': 1,
       '10': 'senderPeerPublicKey',
       '17': true
     },
-    {'1': 'history_id', '3': 10, '4': 1, '5': 9, '10': 'historyId'},
-    {'1': 'name', '3': 11, '4': 1, '5': 9, '10': 'name'},
-    {'1': 'text', '3': 12, '4': 1, '5': 9, '10': 'text'},
+    {'1': 'history_id', '3': 5, '4': 1, '5': 9, '10': 'historyId'},
+    {'1': 'name', '3': 6, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'text', '3': 7, '4': 1, '5': 9, '10': 'text'},
     {
       '1': 'type',
-      '3': 13,
+      '3': 8,
       '4': 1,
       '5': 14,
       '6': '.gizclaw.rpc.v1.PeerRunHistoryEntryType',
       '10': 'type'
     },
-    {'1': 'audio_available', '3': 14, '4': 1, '5': 8, '10': 'audioAvailable'},
+    {'1': 'audio_available', '3': 9, '4': 1, '5': 8, '10': 'audioAvailable'},
   ],
   '8': [
     {'1': '_expires_at'},
     {'1': '_sender_peer_public_key'},
   ],
-  '9': [
-    {'1': 1, '2': 2},
-    {'1': 2, '2': 3},
-    {'1': 3, '2': 4},
-    {'1': 7, '2': 8},
-    {'1': 9, '2': 10},
-  ],
-  '10': [
-    'audio_content_type',
-    'audio_path',
-    'audio_size_bytes',
-    'id',
-    'ttl_seconds'
-  ],
 };
 
 /// Descriptor for `FriendGroupMessageObject`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupMessageObjectDescriptor = $convert.base64Decode(
-    'ChhGcmllbmRHcm91cE1lc3NhZ2VPYmplY3QSHQoKY3JlYXRlZF9hdBgEIAEoCVIJY3JlYXRlZE'
-    'F0EiIKCmV4cGlyZXNfYXQYBSABKAlIAFIJZXhwaXJlc0F0iAEBEiYKD2ZyaWVuZF9ncm91cF9p'
-    'ZBgGIAEoCVINZnJpZW5kR3JvdXBJZBI4ChZzZW5kZXJfcGVlcl9wdWJsaWNfa2V5GAggASgJSA'
-    'FSE3NlbmRlclBlZXJQdWJsaWNLZXmIAQESHQoKaGlzdG9yeV9pZBgKIAEoCVIJaGlzdG9yeUlk'
-    'EhIKBG5hbWUYCyABKAlSBG5hbWUSEgoEdGV4dBgMIAEoCVIEdGV4dBI7CgR0eXBlGA0gASgOMi'
-    'cuZ2l6Y2xhdy5ycGMudjEuUGVlclJ1bkhpc3RvcnlFbnRyeVR5cGVSBHR5cGUSJwoPYXVkaW9f'
-    'YXZhaWxhYmxlGA4gASgIUg5hdWRpb0F2YWlsYWJsZUINCgtfZXhwaXJlc19hdEIZChdfc2VuZG'
-    'VyX3BlZXJfcHVibGljX2tleUoECAEQAkoECAIQA0oECAMQBEoECAcQCEoECAkQClISYXVkaW9f'
-    'Y29udGVudF90eXBlUgphdWRpb19wYXRoUhBhdWRpb19zaXplX2J5dGVzUgJpZFILdHRsX3NlY2'
-    '9uZHM=');
+    'ChhGcmllbmRHcm91cE1lc3NhZ2VPYmplY3QSHQoKY3JlYXRlZF9hdBgBIAEoCVIJY3JlYXRlZE'
+    'F0EiIKCmV4cGlyZXNfYXQYAiABKAlIAFIJZXhwaXJlc0F0iAEBEioKEWZyaWVuZF9ncm91cF9u'
+    'YW1lGAMgASgJUg9mcmllbmRHcm91cE5hbWUSOAoWc2VuZGVyX3BlZXJfcHVibGljX2tleRgEIA'
+    'EoCUgBUhNzZW5kZXJQZWVyUHVibGljS2V5iAEBEh0KCmhpc3RvcnlfaWQYBSABKAlSCWhpc3Rv'
+    'cnlJZBISCgRuYW1lGAYgASgJUgRuYW1lEhIKBHRleHQYByABKAlSBHRleHQSOwoEdHlwZRgIIA'
+    'EoDjInLmdpemNsYXcucnBjLnYxLlBlZXJSdW5IaXN0b3J5RW50cnlUeXBlUgR0eXBlEicKD2F1'
+    'ZGlvX2F2YWlsYWJsZRgJIAEoCFIOYXVkaW9BdmFpbGFibGVCDQoLX2V4cGlyZXNfYXRCGQoXX3'
+    'NlbmRlcl9wZWVyX3B1YmxpY19rZXk=');
 
 @$core.Deprecated('Use friendGroupObjectDescriptor instead')
 const FriendGroupObject$json = {
@@ -1231,7 +1229,15 @@ const FriendGroupObject$json = {
       '10': 'description',
       '17': true
     },
-    {'1': 'id', '3': 4, '4': 1, '5': 9, '9': 3, '10': 'id', '17': true},
+    {
+      '1': 'display_name',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '9': 3,
+      '10': 'displayName',
+      '17': true
+    },
     {
       '1': 'my_role',
       '3': 5,
@@ -1242,13 +1248,13 @@ const FriendGroupObject$json = {
       '10': 'myRole',
       '17': true
     },
-    {'1': 'name', '3': 6, '4': 1, '5': 9, '9': 5, '10': 'name', '17': true},
+    {'1': 'name', '3': 6, '4': 1, '5': 9, '10': 'name'},
     {
       '1': 'updated_at',
       '3': 7,
       '4': 1,
       '5': 9,
-      '9': 6,
+      '9': 5,
       '10': 'updatedAt',
       '17': true
     },
@@ -1257,7 +1263,7 @@ const FriendGroupObject$json = {
       '3': 8,
       '4': 1,
       '5': 9,
-      '9': 7,
+      '9': 6,
       '10': 'workspaceName',
       '17': true
     },
@@ -1266,9 +1272,8 @@ const FriendGroupObject$json = {
     {'1': '_created_at'},
     {'1': '_created_by_peer_public_key'},
     {'1': '_description'},
-    {'1': '_id'},
+    {'1': '_display_name'},
     {'1': '_my_role'},
-    {'1': '_name'},
     {'1': '_updated_at'},
     {'1': '_workspace_name'},
   ],
@@ -1278,13 +1283,13 @@ const FriendGroupObject$json = {
 final $typed_data.Uint8List friendGroupObjectDescriptor = $convert.base64Decode(
     'ChFGcmllbmRHcm91cE9iamVjdBIiCgpjcmVhdGVkX2F0GAEgASgJSABSCWNyZWF0ZWRBdIgBAR'
     'I/ChpjcmVhdGVkX2J5X3BlZXJfcHVibGljX2tleRgCIAEoCUgBUhZjcmVhdGVkQnlQZWVyUHVi'
-    'bGljS2V5iAEBEiUKC2Rlc2NyaXB0aW9uGAMgASgJSAJSC2Rlc2NyaXB0aW9uiAEBEhMKAmlkGA'
-    'QgASgJSANSAmlkiAEBEkMKB215X3JvbGUYBSABKA4yJS5naXpjbGF3LnJwYy52MS5GcmllbmRH'
-    'cm91cE1lbWJlclJvbGVIBFIGbXlSb2xliAEBEhcKBG5hbWUYBiABKAlIBVIEbmFtZYgBARIiCg'
-    'p1cGRhdGVkX2F0GAcgASgJSAZSCXVwZGF0ZWRBdIgBARIqCg53b3Jrc3BhY2VfbmFtZRgIIAEo'
-    'CUgHUg13b3Jrc3BhY2VOYW1liAEBQg0KC19jcmVhdGVkX2F0Qh0KG19jcmVhdGVkX2J5X3BlZX'
-    'JfcHVibGljX2tleUIOCgxfZGVzY3JpcHRpb25CBQoDX2lkQgoKCF9teV9yb2xlQgcKBV9uYW1l'
-    'Qg0KC191cGRhdGVkX2F0QhEKD193b3Jrc3BhY2VfbmFtZQ==');
+    'bGljS2V5iAEBEiUKC2Rlc2NyaXB0aW9uGAMgASgJSAJSC2Rlc2NyaXB0aW9uiAEBEiYKDGRpc3'
+    'BsYXlfbmFtZRgEIAEoCUgDUgtkaXNwbGF5TmFtZYgBARJDCgdteV9yb2xlGAUgASgOMiUuZ2l6'
+    'Y2xhdy5ycGMudjEuRnJpZW5kR3JvdXBNZW1iZXJSb2xlSARSBm15Um9sZYgBARISCgRuYW1lGA'
+    'YgASgJUgRuYW1lEiIKCnVwZGF0ZWRfYXQYByABKAlIBVIJdXBkYXRlZEF0iAEBEioKDndvcmtz'
+    'cGFjZV9uYW1lGAggASgJSAZSDXdvcmtzcGFjZU5hbWWIAQFCDQoLX2NyZWF0ZWRfYXRCHQobX2'
+    'NyZWF0ZWRfYnlfcGVlcl9wdWJsaWNfa2V5Qg4KDF9kZXNjcmlwdGlvbkIPCg1fZGlzcGxheV9u'
+    'YW1lQgoKCF9teV9yb2xlQg0KC191cGRhdGVkX2F0QhEKD193b3Jrc3BhY2VfbmFtZQ==');
 
 @$core.Deprecated('Use friendGroupPutRequestDescriptor instead')
 const FriendGroupPutRequest$json = {
@@ -1299,20 +1304,28 @@ const FriendGroupPutRequest$json = {
       '10': 'description',
       '17': true
     },
-    {'1': 'id', '3': 2, '4': 1, '5': 9, '10': 'id'},
-    {'1': 'name', '3': 3, '4': 1, '5': 9, '9': 1, '10': 'name', '17': true},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {
+      '1': 'display_name',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'displayName',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_description'},
-    {'1': '_name'},
+    {'1': '_display_name'},
   ],
 };
 
 /// Descriptor for `FriendGroupPutRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupPutRequestDescriptor = $convert.base64Decode(
     'ChVGcmllbmRHcm91cFB1dFJlcXVlc3QSJQoLZGVzY3JpcHRpb24YASABKAlIAFILZGVzY3JpcH'
-    'Rpb26IAQESDgoCaWQYAiABKAlSAmlkEhcKBG5hbWUYAyABKAlIAVIEbmFtZYgBAUIOCgxfZGVz'
-    'Y3JpcHRpb25CBwoFX25hbWU=');
+    'Rpb26IAQESEgoEbmFtZRgCIAEoCVIEbmFtZRImCgxkaXNwbGF5X25hbWUYAyABKAlIAVILZGlz'
+    'cGxheU5hbWWIAQFCDgoMX2Rlc2NyaXB0aW9uQg8KDV9kaXNwbGF5X25hbWU=');
 
 @$core.Deprecated('Use friendGroupPutResponseDescriptor instead')
 const FriendGroupPutResponse$json = {

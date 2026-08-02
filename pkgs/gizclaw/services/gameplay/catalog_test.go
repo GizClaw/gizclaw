@@ -20,7 +20,7 @@ func TestCatalogStoresPetDefWithoutLocalI18n(t *testing.T) {
 	ctx := context.Background()
 	spec := testPetDefSpec("No I18n")
 	resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
-		Id:   "petdef-no-i18n",
+		Name: "petdef-no-i18n",
 		Spec: spec,
 	}})
 	if err != nil {
@@ -36,7 +36,7 @@ func TestCatalogNormalizesAndBoundsBadgeRewardPrompt(t *testing.T) {
 	t.Parallel()
 	catalog := testCatalog(t, time.Unix(1, 0))
 	prompt := "  Award for sustained scientific curiosity.  "
-	item, err := catalog.buildBadgeDef("science", apitypes.BadgeDefSpec{
+	item, err := catalog.buildBadgeDef("badge-id", "science", apitypes.BadgeDefSpec{
 		DisplayName:  " Science ",
 		RewardPrompt: &prompt,
 	}, nil, time.Time{})
@@ -54,7 +54,7 @@ func TestCatalogNormalizesAndBoundsBadgeRewardPrompt(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			_, err := catalog.buildBadgeDef("science", apitypes.BadgeDefSpec{
+			_, err := catalog.buildBadgeDef("badge-id", "science", apitypes.BadgeDefSpec{
 				DisplayName: "Science", RewardPrompt: &value,
 			}, nil, time.Time{})
 			if err == nil {
@@ -74,12 +74,13 @@ func TestCatalogPetDefPixaUploadRejectsBeforePublication(t *testing.T) {
 	spec := testPetDefSpec("Transparent Pet")
 	spec.Visual.Pixa.Metadata.Canvas = apitypes.PetDefPixaCanvasMetadata{Width: 4, Height: 4}
 	createResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{
-		Body: &adminhttp.PetDefUpsert{Id: "transparent-pet", Spec: spec},
+		Body: &adminhttp.PetDefUpsert{Name: "transparent-pet", Spec: spec},
 	})
 	if err != nil {
 		t.Fatalf("CreatePetDef() error = %v", err)
 	}
-	requireResponse[adminhttp.CreatePetDef200JSONResponse](t, createResp)
+	created := requireResponse[adminhttp.CreatePetDef200JSONResponse](t, createResp)
+	petDefID := created.Id
 
 	valid := makePixaFixture(t, 4, 4, []uint16{0, 0x07e0},
 		[]testPixaClip{
@@ -95,13 +96,13 @@ func TestCatalogPetDefPixaUploadRejectsBeforePublication(t *testing.T) {
 	now = time.Unix(2, 0).UTC()
 	catalog.Now = func() time.Time { return now }
 	uploadResp, err := catalog.UploadPetDefPixa(ctx, adminhttp.UploadPetDefPixaRequestObject{
-		Id: "transparent-pet", Body: io.NopCloser(bytes.NewReader(valid)),
+		Id: petDefID, Body: io.NopCloser(bytes.NewReader(valid)),
 	})
 	if err != nil {
 		t.Fatalf("UploadPetDefPixa(valid) error = %v", err)
 	}
 	published := requireResponse[adminhttp.UploadPetDefPixa200JSONResponse](t, uploadResp)
-	if published.PixaPath == nil || *published.PixaPath != "pet-defs/transparent-pet/pixa" {
+	if published.PixaPath == nil || *published.PixaPath != "pet-defs/"+string(petDefID)+"/pixa" {
 		t.Fatalf("published PixaPath = %v", published.PixaPath)
 	}
 	if !published.UpdatedAt.Equal(now) {
@@ -123,7 +124,7 @@ func TestCatalogPetDefPixaUploadRejectsBeforePublication(t *testing.T) {
 	)
 	now = time.Unix(3, 0).UTC()
 	rejectResp, err := catalog.UploadPetDefPixa(ctx, adminhttp.UploadPetDefPixaRequestObject{
-		Id: "transparent-pet", Body: io.NopCloser(bytes.NewReader(invalid)),
+		Id: petDefID, Body: io.NopCloser(bytes.NewReader(invalid)),
 	})
 	if err != nil {
 		t.Fatalf("UploadPetDefPixa(invalid) error = %v", err)
@@ -137,7 +138,7 @@ func TestCatalogPetDefPixaUploadRejectsBeforePublication(t *testing.T) {
 		t.Fatalf("invalid upload called object store Put %d times", countedAssets.puts)
 	}
 	malformedResp, err := catalog.UploadPetDefPixa(ctx, adminhttp.UploadPetDefPixaRequestObject{
-		Id: "transparent-pet", Body: io.NopCloser(strings.NewReader("not a PIXA file")),
+		Id: petDefID, Body: io.NopCloser(strings.NewReader("not a PIXA file")),
 	})
 	if err != nil {
 		t.Fatalf("UploadPetDefPixa(malformed) error = %v", err)
@@ -150,7 +151,7 @@ func TestCatalogPetDefPixaUploadRejectsBeforePublication(t *testing.T) {
 		t.Fatalf("malformed upload called object store Put %d times", countedAssets.puts)
 	}
 	oversizedResp, err := catalog.UploadPetDefPixa(ctx, adminhttp.UploadPetDefPixaRequestObject{
-		Id:   "transparent-pet",
+		Id:   petDefID,
 		Body: io.NopCloser(io.LimitReader(zeroReader{}, petDefPixaMaxEncodedBytes+1)),
 	})
 	if err != nil {
@@ -165,14 +166,14 @@ func TestCatalogPetDefPixaUploadRejectsBeforePublication(t *testing.T) {
 		t.Fatalf("oversized upload called object store Put %d times", countedAssets.puts)
 	}
 
-	after, err := catalog.GetPetDefByID(ctx, "transparent-pet")
+	after, err := catalog.GetPetDefByID(ctx, petDefID)
 	if err != nil {
 		t.Fatalf("GetPetDefByID() error = %v", err)
 	}
 	if !reflect.DeepEqual(after, apitypes.PetDef(published)) {
 		t.Fatalf("PetDef changed after rejected upload\n got: %#v\nwant: %#v", after, published)
 	}
-	downloadResp, err := catalog.DownloadPetDefPixa(ctx, adminhttp.DownloadPetDefPixaRequestObject{Id: "transparent-pet"})
+	downloadResp, err := catalog.DownloadPetDefPixa(ctx, adminhttp.DownloadPetDefPixaRequestObject{Id: petDefID})
 	if err != nil {
 		t.Fatalf("DownloadPetDefPixa() error = %v", err)
 	}
@@ -261,22 +262,30 @@ func testCatalog(t *testing.T, now time.Time) *Catalog {
 
 func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) apitypes.RuntimeProfile {
 	t.Helper()
+	previousNewID := catalog.NewID
+	ids := []string{"petdef-basic", "badge-basic", "game-basic"}
+	catalog.NewID = func() string {
+		id := ids[0]
+		ids = ids[1:]
+		return id
+	}
+	defer func() { catalog.NewID = previousNewID }()
 	petResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
-		Id: "petdef-basic", Spec: testPetDefSpec("Spark"),
+		Name: "petdef-basic", Spec: testPetDefSpec("Spark"),
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() error = %v", err)
 	}
 	requireResponse[adminhttp.CreatePetDef200JSONResponse](t, petResp)
 	badgeResp, err := catalog.CreateBadgeDef(ctx, adminhttp.CreateBadgeDefRequestObject{Body: &adminhttp.BadgeDefUpsert{
-		Id: "badge-basic", Spec: apitypes.BadgeDefSpec{DisplayName: "First Win"},
+		Name: "badge-basic", Spec: apitypes.BadgeDefSpec{DisplayName: "First Win"},
 	}})
 	if err != nil {
 		t.Fatalf("CreateBadgeDef() error = %v", err)
 	}
 	requireResponse[adminhttp.CreateBadgeDef200JSONResponse](t, badgeResp)
 	gameResp, err := catalog.CreateGameDef(ctx, adminhttp.CreateGameDefRequestObject{Body: &adminhttp.GameDefUpsert{
-		Id: "game-basic", Spec: apitypes.GameDefSpec{DisplayName: "Puzzle"},
+		Name: "game-basic", Spec: apitypes.GameDefSpec{DisplayName: "Puzzle"},
 	}})
 	if err != nil {
 		t.Fatalf("CreateGameDef() error = %v", err)
@@ -290,6 +299,7 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) ap
 	badgeDefs := map[string]apitypes.RuntimeProfileBinding{"basic": gameplayTestBinding("badge-basic")}
 	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "basic", Weight: 10, AdoptionCost: &adoptionCost}}
 	return apitypes.RuntimeProfile{
+		Id:   "runtime-profile-default",
 		Name: "default",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{

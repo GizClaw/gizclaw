@@ -25,9 +25,25 @@ func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_WORKSPACE_RESOURCE", err.Error())
 	}
 	item.Spec = spec
-	name := string(pathParam(item.Metadata.Name))
-	existing, exists, err := m.getWorkspace(ctx, name)
+	id, updating, err := resourceUpdateID(item.Metadata)
 	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !updating {
+		createdID, err := m.createWorkspace(ctx, workspaceUpsert(item))
+		if err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindWorkspace, item.Metadata.Name, createdID), nil
+	}
+	existing, exists, err := m.getWorkspace(ctx, id)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !exists {
+		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindWorkspace, id)
+	}
+	if err := validateImmutableResourceName(apitypes.ResourceKindWorkspace, id, existing.Name, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {
@@ -49,16 +65,32 @@ func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindWorkspace, item.Metadata.Name), nil
+			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindWorkspace, item.Metadata.Name, id), nil
 		}
 	}
-	if err := m.putWorkspace(ctx, name, workspaceUpsert(item)); err != nil {
+	if err := m.putWorkspace(ctx, id, workspaceUpsert(item)); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindWorkspace, item.Metadata.Name), nil
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindWorkspace, item.Metadata.Name, id), nil
+}
+
+func (m *Manager) createWorkspace(ctx context.Context, body adminhttp.WorkspaceUpsert) (string, error) {
+	response, err := m.services.Workspaces.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	if err != nil {
+		return "", err
 	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindWorkspace, item.Metadata.Name), nil
+	switch response := response.(type) {
+	case adminhttp.CreateWorkspace200JSONResponse:
+		return response.Id, nil
+	case adminhttp.CreateWorkspace400JSONResponse:
+		return "", responseError(400, "CREATE_WORKSPACE_FAILED", "failed to create workspace", response)
+	case adminhttp.CreateWorkspace409JSONResponse:
+		return "", responseError(409, "CREATE_WORKSPACE_FAILED", "failed to create workspace", response)
+	case adminhttp.CreateWorkspace500JSONResponse:
+		return "", responseError(500, "CREATE_WORKSPACE_FAILED", "failed to create workspace", response)
+	default:
+		return "", unexpectedResponse("CreateWorkspace", response)
+	}
 }
 
 func normalizeWorkspaceResourceSpec(spec apitypes.WorkspaceSpec) (apitypes.WorkspaceSpec, error) {
@@ -71,7 +103,7 @@ func normalizeWorkspaceResourceSpec(spec apitypes.WorkspaceSpec) (apitypes.Works
 }
 
 func (m *Manager) getWorkspace(ctx context.Context, name string) (apitypes.Workspace, bool, error) {
-	response, err := m.services.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: name})
+	response, err := m.services.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Id: name})
 	if err != nil {
 		return apitypes.Workspace{}, false, err
 	}
@@ -88,7 +120,7 @@ func (m *Manager) getWorkspace(ctx context.Context, name string) (apitypes.Works
 }
 
 func (m *Manager) putWorkspace(ctx context.Context, name string, body adminhttp.WorkspaceUpsert) error {
-	response, err := m.services.Workspaces.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: name, Body: &body})
+	response, err := m.services.Workspaces.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: name, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -105,7 +137,7 @@ func (m *Manager) putWorkspace(ctx context.Context, name string, body adminhttp.
 }
 
 func (m *Manager) deleteWorkspace(ctx context.Context, name string) (apitypes.Workspace, bool, error) {
-	response, err := m.services.Workspaces.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: name})
+	response, err := m.services.Workspaces.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Id: name})
 	if err != nil {
 		return apitypes.Workspace{}, false, err
 	}
@@ -125,19 +157,19 @@ func (m *Manager) deleteWorkspace(ctx context.Context, name string) (apitypes.Wo
 
 func workspaceSpec(workspace apitypes.Workspace) apitypes.WorkspaceSpec {
 	return apitypes.WorkspaceSpec{
-		Parameters:   workspace.Parameters,
-		Toolkit:      workspace.Toolkit,
-		WorkflowName: workspace.WorkflowName,
+		Parameters: workspace.Parameters,
+		Toolkit:    workspace.Toolkit,
+		WorkflowId: workspace.WorkflowId,
 	}
 }
 
 func workspaceUpsert(resource apitypes.WorkspaceResource) adminhttp.WorkspaceUpsert {
 	return adminhttp.WorkspaceUpsert{
-		Labels:       cloneWorkspaceLabels(resource.Metadata.Labels),
-		Name:         string(resource.Metadata.Name),
-		Parameters:   resource.Spec.Parameters,
-		Toolkit:      resource.Spec.Toolkit,
-		WorkflowName: resource.Spec.WorkflowName,
+		Labels:     cloneWorkspaceLabels(resource.Metadata.Labels),
+		Name:       string(resource.Metadata.Name),
+		Parameters: resource.Spec.Parameters,
+		Toolkit:    resource.Spec.Toolkit,
+		WorkflowId: resource.Spec.WorkflowId,
 	}
 }
 
@@ -145,7 +177,7 @@ func resourceFromWorkspace(item apitypes.Workspace) (apitypes.Resource, error) {
 	return marshalResource(apitypes.WorkspaceResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.WorkspaceResourceKind(apitypes.ResourceKindWorkspace),
-		Metadata:   apitypes.ResourceMetadata{Name: string(item.Name), Labels: cloneWorkspaceLabels(item.Labels)},
+		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name, Labels: cloneWorkspaceLabels(item.Labels)},
 		Icon:       item.Icon,
 		Spec:       workspaceSpec(item),
 	})

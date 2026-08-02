@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
@@ -26,8 +27,9 @@ import (
 )
 
 var (
-	workspacesRoot        = kv.Key{"by-name"}
-	workflowsRoot         = kv.Key{"by-name"}
+	workspacesRoot        = kv.Key{"by-id"}
+	workspacesByScopeRoot = kv.Key{"by-scope-name"}
+	workflowsRoot         = kv.Key{"by-id"}
 	workspacesByOwnerRoot = kv.Key{"by-owner"}
 )
 
@@ -49,6 +51,7 @@ type Server struct {
 	RuntimeStore  RuntimeStore
 	Assets        objectstore.ObjectStore
 	IconLocks     iconasset.Locker
+	NewID         func() string
 }
 
 type ModelService interface {
@@ -101,6 +104,8 @@ type WorkspaceAdminService interface {
 type SystemWorkspaceService interface {
 	CreateSystemWorkspace(context.Context, adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error)
 	DeleteSystemWorkspace(context.Context, string) (apitypes.Workspace, error)
+	GetWorkspace(context.Context, adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error)
+	GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error)
 }
 
 // SystemWorkspaceRetirementService is the relationship-owner handoff for
@@ -112,6 +117,7 @@ type SystemWorkspaceRetirementService interface {
 }
 
 type chatroomRetirementDescriptor struct {
+	ID               string                `json:"id"`
 	Name             string                `json:"name"`
 	WorkspaceKind    apitypes.ChatRoomMode `json:"workspace_kind"`
 	SocialResourceID string                `json:"social_resource_id"`
@@ -186,8 +192,7 @@ func (s *Server) ListWorkspacesByOwnerAndLabels(ctx context.Context, owner strin
 		if len(entry.Key) == 0 {
 			continue
 		}
-		name := unescapeStoreSegment(entry.Key[len(entry.Key)-1])
-		item, err := getWorkspace(ctx, store, name)
+		item, err := getWorkspaceByID(ctx, store, string(entry.Value))
 		if errors.Is(err, kv.ErrNotFound) {
 			continue
 		}
@@ -223,13 +228,13 @@ func (s *Server) CreateWorkspace(ctx context.Context, request adminhttp.CreateWo
 	if err != nil {
 		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := s.validateReferences(ctx, workflowStore, normalized, false); err != nil {
+	if err := s.validateReferences(ctx, workflowStore, normalized, true); err != nil {
 		if isInvalidWorkspaceReference(err) {
 			return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
 		}
 		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if _, err := store.Get(ctx, workspaceKey(string(normalized.Name))); err == nil {
+	if _, err := getWorkspace(ctx, store, string(normalized.Name)); err == nil {
 		return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse("WORKSPACE_ALREADY_EXISTS", fmt.Sprintf("workspace %q already exists", normalized.Name))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -258,20 +263,25 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 	}
 	unlock := s.IconLocks.LockRecord(string(normalized.Name))
 	defer unlock()
-	retiring, err := pendingdeletion.HasLocator(
-		ctx,
-		store,
-		pendingdeletion.KindWorkspace,
-		string(normalized.Name),
-	)
-	if err != nil {
-		return apitypes.Workspace{}, false, err
-	}
-	if retiring {
-		return apitypes.Workspace{}, false, fmt.Errorf(
-			"workspace %q is pending deletion and cannot be reused",
-			normalized.Name,
+	existingID, err := workspaceIDByName(ctx, store, normalized.Name)
+	if err == nil {
+		retiring, pendingErr := pendingdeletion.HasLocator(
+			ctx,
+			store,
+			pendingdeletion.KindWorkspace,
+			existingID,
 		)
+		if pendingErr != nil {
+			return apitypes.Workspace{}, false, pendingErr
+		}
+		if retiring {
+			return apitypes.Workspace{}, false, fmt.Errorf(
+				"workspace %q is pending deletion and cannot be reused",
+				normalized.Name,
+			)
+		}
+	} else if !errors.Is(err, kv.ErrNotFound) {
+		return apitypes.Workspace{}, false, err
 	}
 	workflowStore, err := s.workflowStore()
 	if err != nil {
@@ -301,6 +311,7 @@ func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, norm
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
 		CreatedAt:    now,
+		Id:           s.newID(),
 		LastActiveAt: now,
 		Labels:       cloneLabelsOrEmpty(normalized.Labels),
 		Name:         normalized.Name,
@@ -308,18 +319,33 @@ func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, norm
 		System:       new(system),
 		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
 		UpdatedAt:    now,
-		WorkflowName: normalized.WorkflowName,
+		WorkflowId:   normalized.WorkflowId,
 	}
 	if owner, ok := ownership.FromContext(ctx); ok {
 		workspace.OwnerPublicKey = &owner
 	}
 	if s.RuntimeStore != nil {
-		if _, err := s.RuntimeStore.PrepareWorkspace(ctx, workspace.Name); err != nil {
+		if _, err := s.RuntimeStore.PrepareWorkspace(ctx, workspace.Id); err != nil {
 			return apitypes.Workspace{}, err
 		}
 	}
-	if err := writeWorkspace(ctx, store, workspace); err != nil {
+	data, err := json.Marshal(workspace)
+	if err != nil {
 		return apitypes.Workspace{}, err
+	}
+	entries := []kv.Entry{{Key: workspaceKey(workspace.Id), Value: data}}
+	if workspace.OwnerPublicKey != nil && !system {
+		entries = append(entries, kv.Entry{Key: workspaceByOwnerKey(*workspace.OwnerPublicKey, workspace.Name), Value: []byte(workspace.Id)})
+	}
+	_, created, err := kv.CreateIfAbsent(ctx, store,
+		kv.Entry{Key: workspaceScopeNameKey(workspace.OwnerPublicKey, workspace.Name), Value: []byte(workspace.Id)},
+		entries,
+	)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	if !created {
+		return apitypes.Workspace{}, fmt.Errorf("workspace %q already exists", workspace.Name)
 	}
 	return workspace, nil
 }
@@ -329,16 +355,16 @@ func (s *Server) DeleteWorkspace(ctx context.Context, request adminhttp.DeleteWo
 	if err != nil {
 		return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	name, err := url.PathUnescape(string(request.Name))
+	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	unlock := s.IconLocks.LockOwner(name)
+	unlock := s.IconLocks.LockOwner(id)
 	defer unlock()
-	workspace, err := getWorkspace(ctx, store, name)
+	workspace, err := getWorkspaceByID(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.DeleteWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", fmt.Sprintf("workspace %q not found", name))), nil
+			return adminhttp.DeleteWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", fmt.Sprintf("workspace %q not found", id))), nil
 		}
 		return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -364,15 +390,34 @@ func (s *Server) DeleteSystemWorkspace(ctx context.Context, name string) (apityp
 	defer unlock()
 	workspace, err := getWorkspace(ctx, store, name)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) && s.RuntimeStore != nil {
-			if cleanupErr := s.RuntimeStore.DeleteWorkspaceRuntime(ctx, name); cleanupErr != nil {
-				return apitypes.Workspace{}, cleanupErr
-			}
-		}
 		return apitypes.Workspace{}, err
 	}
 	if !workspaceIsSystem(workspace) {
 		return apitypes.Workspace{}, fmt.Errorf("workspace %q is not a system Workspace", name)
+	}
+	if err := s.deleteWorkspaceRecord(ctx, store, workspace); err != nil {
+		return apitypes.Workspace{}, err
+	}
+	return workspace, nil
+}
+
+// DeleteSystemWorkspaceByID removes a not-yet-committed system Workspace by
+// its canonical identity. Relationship services use this after a Workspace ID
+// has been persisted; name-based deletion is limited to creation rollback.
+func (s *Server) DeleteSystemWorkspaceByID(ctx context.Context, id string) (apitypes.Workspace, error) {
+	store, err := s.store()
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	id = strings.TrimSpace(id)
+	unlock := s.IconLocks.LockOwner(id)
+	defer unlock()
+	workspace, err := getWorkspaceByID(ctx, store, id)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	if !workspaceIsSystem(workspace) {
+		return apitypes.Workspace{}, fmt.Errorf("workspace %q is not a system Workspace", id)
 	}
 	if err := s.deleteWorkspaceRecord(ctx, store, workspace); err != nil {
 		return apitypes.Workspace{}, err
@@ -403,6 +448,37 @@ func (s *Server) RetireSystemWorkspace(ctx context.Context, name string, mode ap
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
+	return s.retireSystemWorkspace(ctx, store, item, mode, socialResourceID)
+}
+
+// RetireSystemWorkspaceByID persists cleanup for an established Chatroom
+// Workspace using its canonical identity.
+func (s *Server) RetireSystemWorkspaceByID(ctx context.Context, id string, mode apitypes.ChatRoomMode, socialResourceID string) (apitypes.Workspace, error) {
+	store, err := s.store()
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	id = strings.TrimSpace(id)
+	socialResourceID = strings.TrimSpace(socialResourceID)
+	if !mode.Valid() || socialResourceID == "" {
+		return apitypes.Workspace{}, errors.New("workspace: Chatroom retirement mode and social resource id are required")
+	}
+	unlock := s.IconLocks.LockOwner(id)
+	defer unlock()
+	if item, err := s.getRetiredSystemWorkspaceByID(ctx, store, id, mode, socialResourceID); err == nil {
+		return item, nil
+	} else if !errors.Is(err, kv.ErrNotFound) {
+		return apitypes.Workspace{}, err
+	}
+	item, err := getWorkspaceByID(ctx, store, id)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	return s.retireSystemWorkspace(ctx, store, item, mode, socialResourceID)
+}
+
+func (s *Server) retireSystemWorkspace(ctx context.Context, store kv.Store, item apitypes.Workspace, mode apitypes.ChatRoomMode, socialResourceID string) (apitypes.Workspace, error) {
+	name := item.Name
 	if !workspaceIsSystem(item) {
 		return apitypes.Workspace{}, fmt.Errorf("workspace %q is not a system Workspace", name)
 	}
@@ -418,6 +494,7 @@ func (s *Server) RetireSystemWorkspace(ctx context.Context, name string, mode ap
 		reason = pendingdeletion.ReasonFriendGroupDelete
 	}
 	descriptor := chatroomRetirementDescriptor{
+		ID:               item.Id,
 		Name:             item.Name,
 		WorkspaceKind:    mode,
 		SocialResourceID: socialResourceID,
@@ -426,7 +503,7 @@ func (s *Server) RetireSystemWorkspace(ctx context.Context, name string, mode ap
 	}
 	record, err := pendingdeletion.New(
 		pendingdeletion.KindWorkspace,
-		item.Name,
+		item.Id,
 		nil,
 		reason,
 		descriptor,
@@ -459,6 +536,23 @@ func (s *Server) GetRetiredSystemWorkspace(ctx context.Context, name string, mod
 	return s.getRetiredSystemWorkspace(ctx, store, name, mode, socialResourceID)
 }
 
+// GetRetiredSystemWorkspaceByID returns an existing retirement by canonical
+// Workspace ID without resolving an owner-scoped Peer name.
+func (s *Server) GetRetiredSystemWorkspaceByID(ctx context.Context, id string, mode apitypes.ChatRoomMode, socialResourceID string) (apitypes.Workspace, error) {
+	store, err := s.store()
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	id = strings.TrimSpace(id)
+	socialResourceID = strings.TrimSpace(socialResourceID)
+	if !mode.Valid() || socialResourceID == "" {
+		return apitypes.Workspace{}, errors.New("workspace: Chatroom retirement mode and social resource id are required")
+	}
+	unlock := s.IconLocks.LockOwner(id)
+	defer unlock()
+	return s.getRetiredSystemWorkspaceByID(ctx, store, id, mode, socialResourceID)
+}
+
 func (s *Server) getRetiredSystemWorkspace(
 	ctx context.Context,
 	store kv.Store,
@@ -466,26 +560,45 @@ func (s *Server) getRetiredSystemWorkspace(
 	mode apitypes.ChatRoomMode,
 	socialResourceID string,
 ) (apitypes.Workspace, error) {
+	id, err := workspaceIDByName(ctx, store, name)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	return s.getRetiredSystemWorkspaceByID(ctx, store, id, mode, socialResourceID)
+}
+
+func (s *Server) getRetiredSystemWorkspaceByID(
+	ctx context.Context,
+	store kv.Store,
+	id string,
+	mode apitypes.ChatRoomMode,
+	socialResourceID string,
+) (apitypes.Workspace, error) {
 	record, err := pendingdeletion.GetByLocator(
 		ctx,
 		store,
 		pendingdeletion.KindWorkspace,
-		name,
+		id,
 	)
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
-	descriptor, err := validateChatroomRetirementRecord(record, name, mode, socialResourceID)
+	var stored chatroomRetirementDescriptor
+	if err := json.Unmarshal(record.Descriptor, &stored); err != nil {
+		return apitypes.Workspace{}, fmt.Errorf("workspace: decode Chatroom retirement descriptor: %w", err)
+	}
+	descriptor, err := validateChatroomRetirementRecord(record, stored.Name, mode, socialResourceID)
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
-	item, getErr := getWorkspace(ctx, store, name)
+	item, getErr := getWorkspaceByID(ctx, store, id)
 	if getErr == nil {
 		return item, nil
 	}
 	if errors.Is(getErr, kv.ErrNotFound) {
 		return apitypes.Workspace{
-			Name:           name,
+			Id:             descriptor.ID,
+			Name:           descriptor.Name,
 			OwnerPublicKey: cloneString(descriptor.OwnerPublicKey),
 		}, nil
 	}
@@ -518,7 +631,8 @@ func validateChatroomRetirementRecord(
 			err,
 		)
 	}
-	if strings.TrimSpace(descriptor.Name) != name ||
+	if strings.TrimSpace(descriptor.ID) != record.ResourceID ||
+		strings.TrimSpace(descriptor.Name) != name ||
 		descriptor.WorkspaceKind != mode ||
 		strings.TrimSpace(descriptor.SocialResourceID) != socialResourceID {
 		return chatroomRetirementDescriptor{}, fmt.Errorf(
@@ -537,17 +651,17 @@ func (s *Server) deleteWorkspaceRecord(ctx context.Context, store kv.Store, work
 	}
 	if s.Assets != nil {
 		for _, format := range []iconasset.Format{iconasset.FormatPixa, iconasset.FormatPNG} {
-			if err := s.Assets.Delete(iconasset.ObjectName(string(workspace.Name), format)); err != nil {
+			if err := s.Assets.Delete(iconasset.ObjectName(string(workspace.Id), format)); err != nil {
 				return errors.New("failed to delete workspace icon")
 			}
 		}
 	}
 	if s.RuntimeStore != nil {
-		if err := s.RuntimeStore.DeleteWorkspaceRuntime(ctx, workspace.Name); err != nil {
+		if err := s.RuntimeStore.DeleteWorkspaceRuntime(ctx, workspace.Id); err != nil {
 			return err
 		}
 	}
-	keys := []kv.Key{workspaceKey(string(workspace.Name))}
+	keys := []kv.Key{workspaceKey(string(workspace.Id)), workspaceScopeNameKey(workspace.OwnerPublicKey, workspace.Name)}
 	if workspace.OwnerPublicKey != nil && !workspaceIsSystem(workspace) {
 		keys = append(keys, workspaceByOwnerKey(*workspace.OwnerPublicKey, workspace.Name))
 	}
@@ -556,17 +670,19 @@ func (s *Server) deleteWorkspaceRecord(ctx context.Context, store kv.Store, work
 
 func (s *Server) fastDeleteWorkspaceRecord(ctx context.Context, store kv.Store, workspace apitypes.Workspace) error {
 	descriptor := struct {
+		ID             string  `json:"id"`
 		Name           string  `json:"name"`
 		OwnerPublicKey *string `json:"owner_public_key,omitempty"`
 		HasIcon        bool    `json:"has_icon"`
 	}{
+		ID:             workspace.Id,
 		Name:           workspace.Name,
 		OwnerPublicKey: cloneString(workspace.OwnerPublicKey),
 		HasIcon:        workspace.Icon != nil,
 	}
 	record, err := pendingdeletion.New(
 		pendingdeletion.KindWorkspace,
-		workspace.Name,
+		workspace.Id,
 		workspace.OwnerPublicKey,
 		pendingdeletion.ReasonResourceDelete,
 		descriptor,
@@ -584,36 +700,47 @@ func (s *Server) GetWorkspace(ctx context.Context, request adminhttp.GetWorkspac
 	if err != nil {
 		return adminhttp.GetWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	name, err := url.PathUnescape(string(request.Name))
+	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	workspace, err := getWorkspace(ctx, store, name)
+	workspace, err := getWorkspaceByID(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", fmt.Sprintf("workspace %q not found", name))), nil
+			return adminhttp.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", fmt.Sprintf("workspace %q not found", id))), nil
 		}
 		return adminhttp.GetWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.GetWorkspace200JSONResponse(workspace), nil
 }
 
-func (s *Server) GetWorkspaceRuntime(ctx context.Context, name string) (Runtime, error) {
+// GetWorkspaceByName resolves the authenticated owner's Peer-visible name to
+// the canonical Workspace record. Admin callers use GetWorkspace with an ID.
+func (s *Server) GetWorkspaceByName(ctx context.Context, name string) (apitypes.Workspace, error) {
+	store, err := s.store()
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	return getWorkspace(ctx, store, strings.TrimSpace(name))
+}
+
+// GetWorkspaceRuntimeByID returns runtime state by canonical Workspace ID.
+func (s *Server) GetWorkspaceRuntimeByID(ctx context.Context, id string) (Runtime, error) {
 	if s == nil || s.RuntimeStore == nil {
 		return Runtime{}, nil
 	}
-	return s.RuntimeStore.GetWorkspaceRuntime(ctx, name)
+	return s.RuntimeStore.GetWorkspaceRuntime(ctx, strings.TrimSpace(id))
 }
 
 func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
 	if request.Body == nil {
 		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
 	}
-	name, err := url.PathUnescape(string(request.Name))
+	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	normalized, err := normalizeWorkspaceUpsert(*request.Body, name)
+	normalized, err := normalizeWorkspaceUpsert(*request.Body, "")
 	if err != nil {
 		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
 	}
@@ -621,11 +748,17 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	if err != nil {
 		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	unlock := s.IconLocks.LockRecord(name)
+	unlock := s.IconLocks.LockRecord(id)
 	defer unlock()
-	previous, previousErr := getWorkspace(ctx, store, name)
-	if previousErr != nil && !errors.Is(previousErr, kv.ErrNotFound) {
+	previous, previousErr := getWorkspaceByID(ctx, store, id)
+	if errors.Is(previousErr, kv.ErrNotFound) {
+		return adminhttp.PutWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", fmt.Sprintf("workspace %q not found", id))), nil
+	}
+	if previousErr != nil {
 		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", previousErr.Error())), nil
+	}
+	if normalized.Name != previous.Name {
+		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", fmt.Sprintf("name %q must match immutable name %q", normalized.Name, previous.Name))), nil
 	}
 	if previousErr == nil && workspaceIsSystem(previous) &&
 		!systemWorkspaceAllowsInputUpdate(previous, normalized) {
@@ -638,7 +771,7 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	if err != nil {
 		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := s.validateReferences(ctx, workflowStore, normalized, previousErr == nil && workspaceIsSystem(previous)); err != nil {
+	if err := s.validateReferences(ctx, workflowStore, normalized, true); err != nil {
 		if isInvalidWorkspaceReference(err) {
 			return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
 		}
@@ -650,6 +783,7 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
 		CreatedAt:    now,
+		Id:           previous.Id,
 		LastActiveAt: now,
 		Labels:       cloneLabelsOrEmpty(normalized.Labels),
 		Name:         normalized.Name,
@@ -657,25 +791,18 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 		System:       new(false),
 		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
 		UpdatedAt:    now,
-		WorkflowName: normalized.WorkflowName,
+		WorkflowId:   normalized.WorkflowId,
 		Icon:         previous.Icon,
 	}
-	if previousErr == nil {
-		workspace.CreatedAt = previous.CreatedAt
-		workspace.LastActiveAt = previous.LastActiveAt
-		workspace.System = previous.System
-		workspace.OwnerPublicKey = cloneString(previous.OwnerPublicKey)
-		if normalized.Labels == nil {
-			workspace.Labels = cloneLabelsOrEmpty(previous.Labels)
-		}
-	}
-	if previousErr != nil {
-		if owner, ok := ownership.FromContext(ctx); ok {
-			workspace.OwnerPublicKey = &owner
-		}
+	workspace.CreatedAt = previous.CreatedAt
+	workspace.LastActiveAt = previous.LastActiveAt
+	workspace.System = previous.System
+	workspace.OwnerPublicKey = cloneString(previous.OwnerPublicKey)
+	if normalized.Labels == nil {
+		workspace.Labels = cloneLabelsOrEmpty(previous.Labels)
 	}
 	if s.RuntimeStore != nil {
-		if _, err := s.RuntimeStore.PrepareWorkspace(ctx, workspace.Name); err != nil {
+		if _, err := s.RuntimeStore.PrepareWorkspace(ctx, workspace.Id); err != nil {
 			return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 		}
 	}
@@ -690,9 +817,12 @@ func writeWorkspace(ctx context.Context, store kv.Store, workspace apitypes.Work
 	if err != nil {
 		return fmt.Errorf("workspace: encode %s: %w", workspace.Name, err)
 	}
-	entries := []kv.Entry{{Key: workspaceKey(string(workspace.Name)), Value: data}}
+	entries := []kv.Entry{
+		{Key: workspaceKey(string(workspace.Id)), Value: data},
+		{Key: workspaceScopeNameKey(workspace.OwnerPublicKey, workspace.Name), Value: []byte(workspace.Id)},
+	}
 	if workspace.OwnerPublicKey != nil && !workspaceIsSystem(workspace) {
-		entries = append(entries, kv.Entry{Key: workspaceByOwnerKey(*workspace.OwnerPublicKey, workspace.Name), Value: []byte{}})
+		entries = append(entries, kv.Entry{Key: workspaceByOwnerKey(*workspace.OwnerPublicKey, workspace.Name), Value: []byte(workspace.Id)})
 	}
 	if err := store.BatchSet(ctx, entries); err != nil {
 		return fmt.Errorf("workspace: write %s: %w", workspace.Name, err)
@@ -703,7 +833,7 @@ func writeWorkspace(ctx context.Context, store kv.Store, workspace apitypes.Work
 func systemWorkspaceMatches(existing apitypes.Workspace, desired adminhttp.WorkspaceUpsert, owner string) bool {
 	return existing.OwnerPublicKey != nil &&
 		strings.TrimSpace(*existing.OwnerPublicKey) == owner &&
-		existing.WorkflowName == desired.WorkflowName &&
+		existing.WorkflowId == desired.WorkflowId &&
 		reflect.DeepEqual(existing.Labels, cloneLabelsOrEmpty(desired.Labels)) &&
 		systemWorkspaceDomainParametersMatch(existing.Parameters, desired.Parameters) &&
 		reflect.DeepEqual(existing.Toolkit, cloneToolkitPolicy(desired.Toolkit))
@@ -714,7 +844,7 @@ func systemWorkspaceAllowsInputUpdate(existing apitypes.Workspace, desired admin
 	if desired.Labels == nil {
 		desiredLabels = cloneLabelsOrEmpty(existing.Labels)
 	}
-	return existing.WorkflowName == desired.WorkflowName &&
+	return existing.WorkflowId == desired.WorkflowId &&
 		reflect.DeepEqual(existing.Labels, desiredLabels) &&
 		reflect.DeepEqual(existing.Toolkit, cloneToolkitPolicy(desired.Toolkit)) &&
 		systemWorkspaceDomainParametersMatch(existing.Parameters, desired.Parameters)
@@ -741,15 +871,36 @@ func systemWorkspaceDomainParametersMatch(existing, desired *apitypes.WorkspaceP
 }
 
 func getWorkspace(ctx context.Context, store kv.Store, name string) (apitypes.Workspace, error) {
-	data, err := store.Get(ctx, workspaceKey(name))
+	id, err := workspaceIDByName(ctx, store, name)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	return getWorkspaceByID(ctx, store, id)
+}
+
+func workspaceIDByName(ctx context.Context, store kv.Store, name string) (string, error) {
+	var owner *string
+	if value, ok := ownership.FromContext(ctx); ok && strings.TrimSpace(value) != "" {
+		value = strings.TrimSpace(value)
+		owner = &value
+	}
+	id, err := store.Get(ctx, workspaceScopeNameKey(owner, name))
+	if err != nil {
+		return "", err
+	}
+	return string(id), nil
+}
+
+func getWorkspaceByID(ctx context.Context, store kv.Store, id string) (apitypes.Workspace, error) {
+	data, err := store.Get(ctx, workspaceKey(id))
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
 	var workspace apitypes.Workspace
 	if err := json.Unmarshal(data, &workspace); err != nil {
-		return apitypes.Workspace{}, fmt.Errorf("workspace: decode %s: %w", name, err)
+		return apitypes.Workspace{}, fmt.Errorf("workspace: decode %s: %w", id, err)
 	}
-	return normalizeWorkspaceTimestamps(workspace), nil
+	return validateStoredWorkspace(workspace)
 }
 
 func listWorkspacePage(ctx context.Context, store kv.Store, prefix kv.Key, cursor string, limit int, selector map[string]string) ([]apitypes.Workspace, bool, *string, error) {
@@ -770,7 +921,10 @@ func listWorkspacePage(ctx context.Context, store kv.Store, prefix kv.Key, curso
 		if err := json.Unmarshal(entry.Value, &workspace); err != nil {
 			return nil, false, nil, fmt.Errorf("workspace: decode list %s: %w", entry.Key.String(), err)
 		}
-		workspace = normalizeWorkspaceTimestamps(workspace)
+		workspace, err = validateStoredWorkspace(workspace)
+		if err != nil {
+			return nil, false, nil, fmt.Errorf("workspace: validate list %s: %w", entry.Key.String(), err)
+		}
 		if !workspaceMatchesLabels(workspace, selector) {
 			continue
 		}
@@ -788,18 +942,18 @@ func listWorkspacePage(ctx context.Context, store kv.Store, prefix kv.Key, curso
 	return items, true, &nextCursor, nil
 }
 
-func normalizeWorkspaceTimestamps(workspace apitypes.Workspace) apitypes.Workspace {
+func validateStoredWorkspace(workspace apitypes.Workspace) (apitypes.Workspace, error) {
+	if strings.TrimSpace(workspace.Id) == "" || strings.TrimSpace(string(workspace.Name)) == "" || strings.TrimSpace(string(workspace.WorkflowId)) == "" {
+		return apitypes.Workspace{}, errors.New("stored Workspace requires id, name, and workflow_id")
+	}
 	if workspace.System == nil {
-		workspace.System = new(false)
+		return apitypes.Workspace{}, errors.New("stored Workspace requires system")
+	}
+	if workspace.CreatedAt.IsZero() || workspace.LastActiveAt.IsZero() || workspace.UpdatedAt.IsZero() {
+		return apitypes.Workspace{}, errors.New("stored Workspace requires created_at, last_active_at, and updated_at")
 	}
 	workspace.Labels = cloneLabelsOrEmpty(workspace.Labels)
-	if workspace.LastActiveAt.IsZero() {
-		workspace.LastActiveAt = workspace.CreatedAt
-	}
-	if workspace.LastActiveAt.IsZero() {
-		workspace.LastActiveAt = workspace.UpdatedAt
-	}
-	return workspace
+	return workspace, nil
 }
 
 func workspaceIsSystem(workspace apitypes.Workspace) bool {
@@ -819,8 +973,8 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 			return adminhttp.WorkspaceUpsert{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
 		}
 	}
-	workflowName := string(in.WorkflowName)
-	if err := validateWorkspaceWorkflowName(workflowName); err != nil {
+	workflowName := string(in.WorkflowId)
+	if err := validateWorkspaceWorkflowId(workflowName); err != nil {
 		return adminhttp.WorkspaceUpsert{}, err
 	}
 	policy, err := toolkit.NormalizePolicy(in.Toolkit)
@@ -832,15 +986,15 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 		return adminhttp.WorkspaceUpsert{}, err
 	}
 	return adminhttp.WorkspaceUpsert{
-		Labels:       labels,
-		Name:         string(name),
-		Parameters:   cloneParameters(in.Parameters),
-		Toolkit:      policy,
-		WorkflowName: string(workflowName),
+		Labels:     labels,
+		Name:       string(name),
+		Parameters: cloneParameters(in.Parameters),
+		Toolkit:    policy,
+		WorkflowId: string(workflowName),
 	}, nil
 }
 
-func validateWorkspaceWorkflowName(value string) error {
+func validateWorkspaceWorkflowId(value string) error {
 	if err := customid.ValidateField("workflow_name", value); err == nil {
 		return nil
 	}
@@ -1237,12 +1391,12 @@ func (s *Server) validateRuntimeVoiceCompatibility(
 		)
 	}
 	if voice.Provider.Kind != apitypes.VoiceProviderKind(model.Provider.Kind) ||
-		voice.Provider.Name != model.Provider.Name {
+		voice.Provider.Id != model.Provider.Id {
 		return invalidWorkspaceReference(
 			"%s %q Voice %q uses provider %q/%q, want %q/%q to match Model %q",
 			subject, role, alias,
-			voice.Provider.Kind, voice.Provider.Name,
-			model.Provider.Kind, model.Provider.Name,
+			voice.Provider.Kind, voice.Provider.Id,
+			model.Provider.Kind, model.Provider.Id,
 			modelAlias,
 		)
 	}
@@ -1297,19 +1451,10 @@ func (s *Server) validateASTTranslateOverrides(ctx context.Context, workspacePar
 	return nil
 }
 
-func resolveWorkflowReference(ctx context.Context, workspace adminhttp.WorkspaceUpsert, direct bool) (string, bool, error) {
-	name := string(workspace.WorkflowName)
-	if direct {
-		return name, false, nil
-	}
-	if bindings, present := ctx.Value(runtimeWorkflowBindingsContextKey{}).(map[string]string); present {
-		resolved := strings.TrimSpace(bindings[name])
-		if resolved == "" {
-			return "", false, invalidWorkspaceReference("runtime workflow alias %q not found", name)
-		}
-		return resolved, true, nil
-	}
-	return name, false, nil
+func resolveWorkflowReference(ctx context.Context, workspace adminhttp.WorkspaceUpsert, _ bool) (string, bool, error) {
+	name := strings.TrimSpace(string(workspace.WorkflowId))
+	_, runtimeBound := ctx.Value(runtimeWorkflowBindingsContextKey{}).(map[string]string)
+	return name, runtimeBound, nil
 }
 
 // FlowcraftModelReference is one effective Model selected for a FlowCraft role.
@@ -1399,8 +1544,16 @@ func isInvalidWorkspaceReference(err error) bool {
 	return errors.As(err, &invalid)
 }
 
-func workspaceKey(name string) kv.Key {
-	return append(append(kv.Key{}, workspacesRoot...), escapeStoreSegment(name))
+func workspaceKey(id string) kv.Key {
+	return append(append(kv.Key{}, workspacesRoot...), escapeStoreSegment(id))
+}
+
+func workspaceScopeNameKey(owner *string, name string) kv.Key {
+	scope := "@admin"
+	if owner != nil && strings.TrimSpace(*owner) != "" {
+		scope = strings.TrimSpace(*owner)
+	}
+	return append(append(append(kv.Key{}, workspacesByScopeRoot...), escapeStoreSegment(scope)), escapeStoreSegment(name))
 }
 
 func workspaceByOwnerKey(owner, name string) kv.Key {
@@ -1409,6 +1562,13 @@ func workspaceByOwnerKey(owner, name string) kv.Key {
 
 func workspaceByOwnerPrefix(owner string) kv.Key {
 	return append(append(kv.Key{}, workspacesByOwnerRoot...), escapeStoreSegment(owner))
+}
+
+func (s *Server) newID() string {
+	if s != nil && s.NewID != nil {
+		return s.NewID()
+	}
+	return socialutil.NewID()
 }
 
 func cloneString(value *string) *string {
@@ -1435,11 +1595,6 @@ func workflowReferenceKey(name string) kv.Key {
 func escapeStoreSegment(value string) string {
 	value = strings.ReplaceAll(value, "%", "%25")
 	return strings.ReplaceAll(value, ":", "%3A")
-}
-
-func unescapeStoreSegment(value string) string {
-	value = strings.ReplaceAll(value, "%3A", ":")
-	return strings.ReplaceAll(value, "%25", "%")
 }
 
 func normalizeListParams(cursor *string, limit *int32) (string, int) {

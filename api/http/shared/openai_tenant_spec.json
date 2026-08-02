@@ -11,13 +11,13 @@
       "OpenAITenantSpec": {
         "type": "object",
         "required": [
-          "credential_name"
+          "credential_id"
         ],
         "properties": {
           "kind": {
             "$ref": "./openai_tenant.json#/components/schemas/OpenAITenantKind"
           },
-          "credential_name": {
+          "credential_id": {
             "type": "string"
           },
           "base_url": {

@@ -45,15 +45,15 @@ func TestSocialRealtimeHistoryRPC(t *testing.T) {
 	})
 
 	group := mustCreateFriendGroup(t, h, "peer-a", "realtime", "")
-	mustAddFriendGroupMember(t, h, "peer-a", stringValue(group.Id), peerB, rpcapi.FriendGroupMemberMutableRoleMember)
-	mustAddFriendGroupMember(t, h, "peer-a", stringValue(group.Id), peerC, rpcapi.FriendGroupMemberMutableRoleMember)
+	mustAddFriendGroupMember(t, h, "peer-a", group.Name, peerB, rpcapi.FriendGroupMemberMutableRoleMember)
+	mustAddFriendGroupMember(t, h, "peer-a", group.Name, peerC, rpcapi.FriendGroupMemberMutableRoleMember)
 	setSocialChatWorkspaceInputMode(t, h, stringValue(group.WorkspaceName), realtime)
 	t.Run("group chat", func(t *testing.T) {
 		runSocialRealtimeAudioHistory(t, h, "peer-b", "peer-c", stringValue(group.WorkspaceName), []string{
 			"你好，这是实时群聊留言第一段。",
 			"第二段实时群聊留言应该自动切分。",
 			"第三段实时群聊留言用于验证历史播放。",
-		}, stringValue(group.Id))
+		}, group.Name)
 	})
 }
 
@@ -194,7 +194,7 @@ func assertFriendGroupMessageHistory(
 	t.Helper()
 	for name, client := range map[string]*gizcli.Client{"writer": writer, "reader": reader} {
 		messages, err := client.ListFriendGroupMessages(ctx, "social.realtime.friend_group.messages.list."+name, rpcapi.FriendGroupMessageListRequest{
-			FriendGroupId: friendGroupID,
+			FriendGroupName: friendGroupID,
 		})
 		if err != nil {
 			t.Fatalf("%s FriendGroup message list: %v", name, err)
@@ -213,8 +213,8 @@ func assertFriendGroupMessageHistory(
 		}
 
 		message, err := client.GetFriendGroupMessage(ctx, "social.realtime.friend_group.messages.get."+name, rpcapi.FriendGroupMessageGetRequest{
-			FriendGroupId: friendGroupID,
-			HistoryId:     historyID,
+			FriendGroupName: friendGroupID,
+			HistoryId:       historyID,
 		})
 		if err != nil {
 			t.Fatalf("%s FriendGroup message get %q: %v", name, historyID, err)
@@ -224,8 +224,8 @@ func assertFriendGroupMessageHistory(
 
 	var out bytes.Buffer
 	result, err := reader.GetFriendGroupMessageAudio(ctx, "social.realtime.friend_group.messages.audio.get", rpcapi.FriendGroupMessageAudioGetRequest{
-		FriendGroupId: friendGroupID,
-		HistoryId:     historyID,
+		FriendGroupName: friendGroupID,
+		HistoryId:       historyID,
 	}, &out)
 	if err != nil {
 		t.Fatalf("reader FriendGroup message audio get %q: %v", historyID, err)
@@ -240,7 +240,7 @@ func assertFriendGroupMessageHistory(
 
 func assertFriendGroupMessageProjection(t *testing.T, phase string, message rpcapi.FriendGroupMessageObject, friendGroupID, historyID, senderPeerPublicKey string) {
 	t.Helper()
-	if message.FriendGroupId != friendGroupID ||
+	if message.FriendGroupName != friendGroupID ||
 		message.HistoryId != historyID ||
 		message.Type != rpcapi.PeerRunHistoryEntryTypeGear ||
 		message.SenderPeerPublicKey == nil ||

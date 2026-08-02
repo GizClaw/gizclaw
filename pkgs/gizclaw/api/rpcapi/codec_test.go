@@ -92,7 +92,7 @@ func TestModelProviderDataOneofRoundTripAndRejectsMultipleValues(t *testing.T) {
 		UpstreamModel: "deepseek-chat",
 	}
 	response := ModelGetResponse{Value: Model{
-		Alias:          "chat",
+		Name:           "chat",
 		Kind:           ModelKindLlm,
 		ProviderKind:   ModelProviderKindDeepseekTenant,
 		DeepSeekTenant: deepSeek,
@@ -110,7 +110,7 @@ func TestModelProviderDataOneofRoundTripAndRejectsMultipleValues(t *testing.T) {
 	}
 	dashScopeMode := DashScopeTenantModelProviderDataApiModeChatCompletions
 	dashScopeResponse := ModelGetResponse{Value: Model{
-		Alias:        "qwen",
+		Name:         "qwen",
 		Kind:         ModelKindLlm,
 		ProviderKind: ModelProviderKindDashscopeTenant,
 		DashScopeTenant: &DashScopeTenantModelProviderData{
@@ -151,51 +151,32 @@ func TestModelProviderDataOneofRoundTripAndRejectsMultipleValues(t *testing.T) {
 	}
 }
 
-func TestModelRetiredCapabilitiesTagRemainsReserved(t *testing.T) {
+func TestModelFieldsAreCompactedWithoutCompatibilityReservations(t *testing.T) {
 	descriptor := (&rpcpb.Model{}).ProtoReflect().Descriptor()
 	providerKind := descriptor.Fields().ByName("provider_kind")
-	if providerKind == nil || providerKind.Number() != 11 {
-		t.Fatalf("Model.provider_kind field = %v, want tag 11", providerKind)
+	if providerKind == nil || providerKind.Number() != 10 {
+		t.Fatalf("Model.provider_kind field = %v, want tag 10", providerKind)
 	}
-	for i := 0; i < descriptor.ReservedRanges().Len(); i++ {
-		reserved := descriptor.ReservedRanges().Get(i)
-		if reserved[0] <= 4 && 4 < reserved[1] {
-			return
-		}
+	if descriptor.ReservedRanges().Len() != 0 || descriptor.ReservedNames().Len() != 0 {
+		t.Fatalf("Model compatibility reservations = ranges:%v names:%v", descriptor.ReservedRanges(), descriptor.ReservedNames())
 	}
-	t.Fatal("Model tag 4 is not reserved after removing capabilities")
 }
 
-func TestFriendGroupMessageMethodReservationAndAudioRegistry(t *testing.T) {
+func TestRPCMethodsAreCompactedWithoutCompatibilityReservations(t *testing.T) {
 	descriptor := rpcpb.RpcMethod_RPC_METHOD_UNSPECIFIED.Descriptor()
-	if descriptor.Values().ByNumber(64) != nil {
-		t.Fatal("RPC method 64 was reused")
+	badgeDefinition := descriptor.Values().ByName("RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD")
+	if badgeDefinition == nil || badgeDefinition.Number() != 64 {
+		t.Fatalf("Badge definition method = %v, want tag 64", badgeDefinition)
 	}
-	reservedNumber := false
-	for i := 0; i < descriptor.ReservedRanges().Len(); i++ {
-		rangeValue := descriptor.ReservedRanges().Get(i)
-		if 64 >= rangeValue[0] && 64 <= rangeValue[1] {
-			reservedNumber = true
-		}
-	}
-	if !reservedNumber {
-		t.Fatal("RPC method 64 is not reserved")
-	}
-	reservedName := false
-	for i := 0; i < descriptor.ReservedNames().Len(); i++ {
-		if descriptor.ReservedNames().Get(i) == "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND" {
-			reservedName = true
-		}
-	}
-	if !reservedName {
-		t.Fatal("retired Friend Group message send enum name is not reserved")
+	if descriptor.ReservedRanges().Len() != 0 || descriptor.ReservedNames().Len() != 0 {
+		t.Fatalf("RPC method compatibility reservations = ranges:%v names:%v", descriptor.ReservedRanges(), descriptor.ReservedNames())
 	}
 	audio := descriptor.Values().ByName("RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET")
-	if audio == nil || audio.Number() != 96 || RPCMethodServerFriendGroupMessagesAudioGet != "server.friend_group.messages.audio.get" || !RPCMethodServerFriendGroupMessagesAudioGet.Valid() {
+	if audio == nil || audio.Number() != 95 || RPCMethodServerFriendGroupMessagesAudioGet != "server.friend_group.messages.audio.get" || !RPCMethodServerFriendGroupMessagesAudioGet.Valid() {
 		t.Fatalf("Friend Group message audio registry = descriptor:%v wrapper:%q", audio, RPCMethodServerFriendGroupMessagesAudioGet)
 	}
 
-	request := FriendGroupMessageAudioGetRequest{FriendGroupId: "group-a", HistoryId: "history-a"}
+	request := FriendGroupMessageAudioGetRequest{FriendGroupName: "group-a", HistoryId: "history-a"}
 	var payload RPCPayload
 	if err := payload.FromFriendGroupMessageAudioGetRequest(request); err != nil {
 		t.Fatalf("encode Friend Group audio request: %v", err)
@@ -525,10 +506,10 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 
 	var workspaceCreate RPCPayload
-	workspaceToolIDs := []string{"system.toolkit.echo"}
+	workspaceToolNames := []string{"echo"}
 	if err := workspaceCreate.FromWorkspaceCreateRequest(WorkspaceCreateRequest{
-		Name: "demo", Collection: "assistants", WorkflowAlias: "chat",
-		Toolkit: &ToolkitPolicy{ToolIds: &workspaceToolIDs},
+		Name: "demo", Collection: "assistants", WorkflowName: "chat",
+		Toolkit: &ToolkitPolicy{ToolNames: &workspaceToolNames},
 	}); err != nil {
 		t.Fatalf("FromWorkspaceCreateRequest() error = %v", err)
 	}
@@ -536,29 +517,29 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsWorkspaceCreateRequest() error = %v", err)
 	}
-	if workspaceCreateDecoded.Collection != "assistants" || workspaceCreateDecoded.WorkflowAlias != "chat" {
+	if workspaceCreateDecoded.Collection != "assistants" || workspaceCreateDecoded.WorkflowName != "chat" {
 		t.Fatalf("workspace create = %#v", workspaceCreateDecoded)
 	}
 
 	var workflowGet RPCPayload
-	if err := workflowGet.FromWorkflowGetRequest(WorkflowGetRequest{Alias: "flowcraft-toolkit"}); err != nil {
+	if err := workflowGet.FromWorkflowGetRequest(WorkflowGetRequest{Name: "flowcraft-toolkit"}); err != nil {
 		t.Fatalf("FromWorkflowGetRequest() error = %v", err)
 	}
 	workflowGetDecoded, err := workflowGet.AsWorkflowGetRequest()
-	if err != nil || workflowGetDecoded.Alias != "flowcraft-toolkit" {
+	if err != nil || workflowGetDecoded.Name != "flowcraft-toolkit" {
 		t.Fatalf("workflow get = %#v, %v", workflowGetDecoded, err)
 	}
 
 	var workflowResponse RPCPayload
 	workflow := WorkflowGetResponse{
-		Value:              Workflow{Alias: "flowcraft-toolkit", Collection: "assistants", Driver: WorkflowDriverFlowcraft, I18n: map[string]AliasI18nText{"en": {DisplayName: "Flowcraft"}}},
+		Value:              Workflow{Name: "flowcraft-toolkit", Collection: "assistants", Driver: WorkflowDriverFlowcraft, I18n: map[string]ResourceI18nText{"en": {DisplayName: "Flowcraft"}}},
 		RuntimeProfileName: "default", RuntimeProfileRevision: "revision",
 	}
 	if err := workflowResponse.FromWorkflowGetResponse(workflow); err != nil {
 		t.Fatalf("FromWorkflowGetResponse() error = %v", err)
 	}
 	workflowDecoded, err := workflowResponse.AsWorkflowGetResponse()
-	if err != nil || workflowDecoded.Value.Alias != workflow.Value.Alias {
+	if err != nil || workflowDecoded.Value.Name != workflow.Value.Name {
 		t.Fatalf("workflow response = %#v, %v", workflowDecoded, err)
 	}
 
@@ -579,8 +560,8 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 	t.Parallel()
 	var modelPayload RPCPayload
 	model := Model{
-		Alias:        "duplex",
-		I18n:         map[string]AliasI18nText{},
+		Name:         "duplex",
+		I18n:         map[string]ResourceI18nText{},
 		Kind:         ModelKindRealtimeDuplex,
 		ProviderKind: ModelProviderKindVolcTenant,
 		VolcTenant: &VolcTenantModelProviderData{

@@ -171,6 +171,7 @@ export type Runtime = {
 };
 
 export type ContactCreateRequest = {
+    name: string;
     display_name?: string;
     phone_number?: string;
 };
@@ -182,7 +183,7 @@ export type ContactListResponse = {
 };
 
 export type ContactObject = {
-    id?: string;
+    name: string;
     display_name?: string;
     phone_number?: string;
     created_at?: string;

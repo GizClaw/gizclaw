@@ -198,7 +198,7 @@ func (s *peerHTTP) GetSideControlContact(ctx context.Context, request peerhttp.G
 	if s == nil || s.Contacts == nil {
 		return peerhttp.GetSideControlContact500JSONResponse{InternalErrorJSONResponse: sideControlInternal("contact service is not configured")}, nil
 	}
-	item, err := s.Contacts.GetContact(ctx, principal.TargetPublicKey.String(), rpcapi.ContactGetRequest{Id: request.ContactId})
+	item, err := s.Contacts.GetContact(ctx, principal.TargetPublicKey.String(), rpcapi.ContactGetRequest{Name: request.ContactId})
 	if errors.Is(err, kv.ErrNotFound) {
 		return peerhttp.GetSideControlContact404JSONResponse{NotFoundJSONResponse: sideControlNotFound(err)}, nil
 	}
@@ -219,7 +219,7 @@ func (s *peerHTTP) PutSideControlContact(ctx context.Context, request peerhttp.P
 	if s == nil || s.Contacts == nil {
 		return peerhttp.PutSideControlContact500JSONResponse{InternalErrorJSONResponse: sideControlInternal("contact service is not configured")}, nil
 	}
-	item, err := s.Contacts.PutContact(ctx, principal.TargetPublicKey.String(), rpcapi.ContactPutRequest{Id: request.ContactId, DisplayName: request.Body.DisplayName, PhoneNumber: request.Body.PhoneNumber})
+	item, err := s.Contacts.PutContact(ctx, principal.TargetPublicKey.String(), rpcapi.ContactPutRequest{Name: request.ContactId, DisplayName: request.Body.DisplayName, PhoneNumber: request.Body.PhoneNumber})
 	if errors.Is(err, kv.ErrNotFound) {
 		return peerhttp.PutSideControlContact404JSONResponse{NotFoundJSONResponse: sideControlNotFound(err)}, nil
 	}
@@ -241,7 +241,7 @@ func (s *peerHTTP) DeleteSideControlContact(ctx context.Context, request peerhtt
 	if s == nil || s.Contacts == nil {
 		return peerhttp.DeleteSideControlContact500JSONResponse{InternalErrorJSONResponse: sideControlInternal("contact service is not configured")}, nil
 	}
-	item, err := s.Contacts.DeleteContact(ctx, principal.TargetPublicKey.String(), rpcapi.ContactDeleteRequest{Id: request.ContactId})
+	item, err := s.Contacts.DeleteContact(ctx, principal.TargetPublicKey.String(), rpcapi.ContactDeleteRequest{Name: request.ContactId})
 	if errors.Is(err, kv.ErrNotFound) {
 		return peerhttp.DeleteSideControlContact404JSONResponse{NotFoundJSONResponse: sideControlNotFound(err)}, nil
 	}

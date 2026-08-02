@@ -891,7 +891,7 @@ func DeleteDeepSeekTenant(ctx context.Context, c *gizcli.Client, name string) (a
 	return apitypes.DeepSeekTenant{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func ListModels(ctx context.Context, c *gizcli.Client, source, providerKind, providerName string) ([]apitypes.Model, error) {
+func ListModels(ctx context.Context, c *gizcli.Client, source, providerKind, providerID string) ([]apitypes.Model, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return nil, err
@@ -906,16 +906,16 @@ func ListModels(ctx context.Context, c *gizcli.Client, source, providerKind, pro
 		value := adminhttp.ModelProviderKind(providerKind)
 		providerKindFilter = &value
 	}
-	var providerNameFilter *string
-	if providerName != "" {
-		value := providerName
-		providerNameFilter = &value
+	var providerIDFilter *string
+	if providerID != "" {
+		value := providerID
+		providerIDFilter = &value
 	}
 	return collectAllPages(func(cursor *string, limit *int32) (pagedItems[apitypes.Model], error) {
 		resp, err := api.ListModelsWithResponse(ctx, &adminhttp.ListModelsParams{
 			Source:       sourceFilter,
 			ProviderKind: providerKindFilter,
-			ProviderName: providerNameFilter,
+			ProviderId: providerIDFilter,
 			Cursor:       cursor,
 			Limit:        limit,
 		})
@@ -948,7 +948,7 @@ func GetModel(ctx context.Context, c *gizcli.Client, id string) (apitypes.Model,
 	return apitypes.Model{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func ListVoices(ctx context.Context, c *gizcli.Client, source, providerKind, providerName string) ([]apitypes.Voice, error) {
+func ListVoices(ctx context.Context, c *gizcli.Client, source, providerKind, providerID string) ([]apitypes.Voice, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return nil, err
@@ -963,16 +963,16 @@ func ListVoices(ctx context.Context, c *gizcli.Client, source, providerKind, pro
 		value := adminhttp.VoiceProviderKind(providerKind)
 		providerKindFilter = &value
 	}
-	var providerNameFilter *string
-	if providerName != "" {
-		value := string(providerName)
-		providerNameFilter = &value
+	var providerIDFilter *string
+	if providerID != "" {
+		value := string(providerID)
+		providerIDFilter = &value
 	}
 	return collectAllPages(func(cursor *string, limit *int32) (pagedItems[apitypes.Voice], error) {
 		resp, err := api.ListVoicesWithResponse(ctx, &adminhttp.ListVoicesParams{
 			Source:       sourceFilter,
 			ProviderKind: providerKindFilter,
-			ProviderName: providerNameFilter,
+			ProviderId: providerIDFilter,
 			Cursor:       cursor,
 			Limit:        limit,
 		})
@@ -1079,7 +1079,7 @@ func CreateWorkflow(ctx context.Context, c *gizcli.Client, req apitypes.Workflow
 	if err != nil {
 		return apitypes.Workflow{}, err
 	}
-	resp, err := api.CreateWorkflowWithResponse(ctx, req)
+	resp, err := api.CreateWorkflowWithResponse(ctx, adminhttp.WorkflowUpsert{Name: req.Name, Spec: req.Spec})
 	if err != nil {
 		return apitypes.Workflow{}, err
 	}
@@ -1089,12 +1089,12 @@ func CreateWorkflow(ctx context.Context, c *gizcli.Client, req apitypes.Workflow
 	return apitypes.Workflow{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
 }
 
-func GetWorkflow(ctx context.Context, c *gizcli.Client, name string) (apitypes.Workflow, error) {
+func GetWorkflow(ctx context.Context, c *gizcli.Client, id string) (apitypes.Workflow, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Workflow{}, err
 	}
-	resp, err := api.GetWorkflowWithResponse(ctx, string(name))
+	resp, err := api.GetWorkflowWithResponse(ctx, id)
 	if err != nil {
 		return apitypes.Workflow{}, err
 	}
@@ -1104,12 +1104,12 @@ func GetWorkflow(ctx context.Context, c *gizcli.Client, name string) (apitypes.W
 	return apitypes.Workflow{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func PutWorkflow(ctx context.Context, c *gizcli.Client, name string, req apitypes.Workflow) (apitypes.Workflow, error) {
+func PutWorkflow(ctx context.Context, c *gizcli.Client, id string, req apitypes.Workflow) (apitypes.Workflow, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Workflow{}, err
 	}
-	resp, err := api.PutWorkflowWithResponse(ctx, string(name), req)
+	resp, err := api.PutWorkflowWithResponse(ctx, id, adminhttp.WorkflowUpsert{Name: req.Name, Spec: req.Spec})
 	if err != nil {
 		return apitypes.Workflow{}, err
 	}

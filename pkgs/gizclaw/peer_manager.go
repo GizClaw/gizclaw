@@ -368,18 +368,10 @@ func (m *Manager) broadcastWorkspaceHistoryUpdated(ctx context.Context, workspac
 	if workspaceName == "" {
 		return
 	}
-	response, err := m.Workspaces.GetWorkspace(
-		ctx,
-		adminhttp.GetWorkspaceRequestObject{Name: workspaceName},
-	)
+	workspace, err := resolveWorkspaceByName(ctx, m.Workspaces, workspaceName)
 	if err != nil {
 		return
 	}
-	workspaceResponse, ok := response.(adminhttp.GetWorkspace200JSONResponse)
-	if !ok {
-		return
-	}
-	workspace := apitypes.Workspace(workspaceResponse)
 	var recipients []string
 	kind := eventpb.WorkspaceKind_WORKSPACE_KIND_WORKFLOW
 	if workspace.Parameters != nil {
@@ -455,15 +447,10 @@ func (m *Manager) chatroomAccessState(
 	if m == nil || m.Workspaces == nil {
 		return true, chatroom.AccessCheckFailedError()
 	}
-	response, err := m.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: workspaceName})
+	workspace, err := resolveWorkspaceByName(ctx, m.Workspaces, workspaceName)
 	if err != nil {
 		return true, chatroom.AccessCheckFailedError()
 	}
-	workspaceResponse, ok := response.(adminhttp.GetWorkspace200JSONResponse)
-	if !ok {
-		return true, chatroom.AccessCheckFailedError()
-	}
-	workspace := apitypes.Workspace(workspaceResponse)
 	if workspace.Parameters == nil {
 		return false, nil
 	}
@@ -509,20 +496,29 @@ func (m *Manager) isChatroomWorkspace(ctx context.Context, workspaceName string)
 	if m == nil || m.Workspaces == nil {
 		return false
 	}
-	response, err := m.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: workspaceName})
+	workspace, err := resolveWorkspaceByName(ctx, m.Workspaces, workspaceName)
 	if err != nil {
 		return false
 	}
-	workspaceResponse, ok := response.(adminhttp.GetWorkspace200JSONResponse)
-	if !ok {
-		return false
-	}
-	workspace := apitypes.Workspace(workspaceResponse)
 	if workspace.Parameters == nil {
 		return false
 	}
 	parameters, err := workspace.Parameters.AsChatRoomWorkspaceParameters()
 	return err == nil && parameters.Mode != nil && parameters.Mode.Valid()
+}
+
+func resolveWorkspaceByName(
+	ctx context.Context,
+	service workspace.WorkspaceAdminService,
+	name string,
+) (apitypes.Workspace, error) {
+	resolver, ok := service.(interface {
+		GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error)
+	})
+	if !ok {
+		return apitypes.Workspace{}, errors.New("gizclaw: workspace name resolver is required")
+	}
+	return resolver.GetWorkspaceByName(ctx, strings.TrimSpace(name))
 }
 
 func containsPublicKey(values []string, target string) bool {

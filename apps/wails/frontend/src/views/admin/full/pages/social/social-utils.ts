@@ -1,7 +1,7 @@
 import type {
   AdminContactObject,
   AdminFriendObject,
-  FriendGroupObject,
+  AdminFriendGroupObject,
 } from "@gizclaw/gizclaw/admin";
 
 import { formatShortKey } from "../../lib/format";
@@ -26,8 +26,8 @@ export function friendRelationID(a: string, b: string): string {
   return [a.trim(), b.trim()].sort().join(":");
 }
 
-export function friendGroupDetailPath(group: FriendGroupObject): string {
-  return `/social/friend-groups/${encodeURIComponent(group.id ?? "")}`;
+export function friendGroupDetailPath(group: AdminFriendGroupObject): string {
+  return `/social/friend-groups/${encodeURIComponent(group.id)}`;
 }
 
 export function socialWorkspaceName(value: string | undefined): string {

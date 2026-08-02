@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
@@ -43,19 +44,19 @@ func (s *Server) PreparePetPixaDownload(ctx context.Context, params rpcapi.PetPi
 	if runtime == nil || runtime.Catalog == nil {
 		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "gameplay service not configured"}, nil
 	}
-	petID := strings.TrimSpace(params.PetId)
-	if petID == "" {
-		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "pet id is required"}, nil
+	petName := strings.TrimSpace(params.PetName)
+	if petName == "" {
+		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "pet name is required"}, nil
 	}
 	profileCtx, failure := s.gameplayProfileContext(ctx, "")
 	if failure != nil {
 		return rpcapi.PetPixaDownloadResponse{}, nil, failure.Error, nil
 	}
-	pet, err := runtime.GetPet(profileCtx, s.Caller.String(), petID)
+	pet, err := runtime.GetPetByName(profileCtx, s.Caller.String(), petName)
 	if err != nil {
 		return rpcapi.PetPixaDownloadResponse{}, nil, gameplayRPCError(err), nil
 	}
-	item, err := runtime.Catalog.GetPetDefByID(ctx, pet.PetdefId)
+	item, err := runtime.Catalog.GetPetDefByID(ctx, pet.PetDefId)
 	if err != nil {
 		return rpcapi.PetPixaDownloadResponse{}, nil, gameplayRPCError(err), nil
 	}
@@ -64,7 +65,11 @@ func (s *Server) PreparePetPixaDownload(ctx context.Context, params rpcapi.PetPi
 	if err != nil {
 		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: err.Error()}, nil
 	}
-	return rpcapi.PetPixaDownloadResponse{PetId: pet.Id, PetdefId: item.Id, PixaPath: item.PixaPath, SizeBytes: size}, reader, nil, nil
+	petDefName, ok := s.profileResourceName(profilePetDefs, item.Id)
+	if !ok {
+		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "pet definition is not available"}, nil
+	}
+	return rpcapi.PetPixaDownloadResponse{PetName: pet.Name, PetDefName: petDefName, PixaPath: item.PixaPath, SizeBytes: size}, reader, nil, nil
 }
 
 func (s *Server) handleBadgeDefPixaDownload(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -90,23 +95,24 @@ func (s *Server) PrepareBadgeDefPixaDownload(ctx context.Context, params rpcapi.
 	if runtime == nil || runtime.Catalog == nil {
 		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "gameplay service not configured"}, nil
 	}
-	id := strings.TrimSpace(params.Id)
-	if id == "" {
-		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "badge def id is required"}, nil
+	name := strings.TrimSpace(params.Name)
+	if name == "" {
+		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "badge definition name is required"}, nil
+	}
+	id, ok := s.resolveProfileResourceName(profileBadgeDefs, name)
+	if !ok {
+		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "badge definition is not available"}, nil
 	}
 	item, err := runtime.Catalog.GetBadgeDefByID(ctx, id)
 	if err != nil {
 		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, gameplayRPCError(err), nil
-	}
-	if !s.profileAllows(profileBadgeDefs, id) {
-		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeForbidden, Message: "badge def pixa is not available to this peer"}, nil
 	}
 	path := valueOrZero(item.PixaPath)
 	reader, size, err := runtime.Catalog.OpenAsset(path)
 	if err != nil {
 		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: err.Error()}, nil
 	}
-	return rpcapi.BadgeDefPixaDownloadResponse{Id: item.Id, PixaPath: item.PixaPath, SizeBytes: size}, reader, nil, nil
+	return rpcapi.BadgeDefPixaDownloadResponse{Name: name, PixaPath: item.PixaPath, SizeBytes: size}, reader, nil, nil
 }
 
 func (s *Server) handlePetList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -130,7 +136,15 @@ func (s *Server) handlePetList(ctx context.Context, req *rpcapi.RPCRequest) *rpc
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetListResponse)
+	items := make([]rpcapi.Pet, 0, len(resp.Items))
+	for _, pet := range resp.Items {
+		projected, err := s.projectPet(ctx, pet)
+		if err != nil {
+			return businessError(req.Id, err)
+		}
+		items = append(items, projected)
+	}
+	return resultResponse(req.Id, rpcapi.PetListResponse{Items: items, HasNext: resp.HasNext, NextCursor: resp.NextCursor}, (*rpcapi.RPCPayload).FromServerPetListResponse)
 }
 
 func gameplayRPCError(err error) *rpcapi.RPCError {
@@ -154,11 +168,15 @@ func (s *Server) handlePetGet(ctx context.Context, req *rpcapi.RPCRequest) *rpca
 	if failure != nil {
 		return failure
 	}
-	resp, err := runtime.GetPet(profileCtx, s.Caller.String(), params.Id)
+	resp, err := runtime.GetPetByName(profileCtx, s.Caller.String(), params.Name)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetGetResponse)
+	projected, err := s.projectPet(ctx, resp)
+	if err != nil {
+		return businessError(req.Id, err)
+	}
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromServerPetGetResponse)
 }
 
 func (s *Server) handlePetActionsGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -177,22 +195,26 @@ func (s *Server) handlePetActionsGet(ctx context.Context, req *rpcapi.RPCRequest
 	if failure != nil {
 		return failure
 	}
-	pet, err := runtime.GetPet(profileCtx, s.Caller.String(), params.Id)
+	pet, err := runtime.GetPetByName(profileCtx, s.Caller.String(), params.Name)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	petDef, err := runtime.Catalog.GetPetDefByID(ctx, pet.PetdefId)
+	petDef, err := runtime.Catalog.GetPetDefByID(ctx, pet.PetDefId)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, petActions(pet, petDef), (*rpcapi.RPCPayload).FromServerPetActionsGetResponse)
+	petDefName, ok := s.profileResourceName(profilePetDefs, petDef.Id)
+	if !ok {
+		return statusError(req.Id, http.StatusNotFound, "pet definition is not available")
+	}
+	return resultResponse(req.Id, petActions(pet, petDefName, petDef), (*rpcapi.RPCPayload).FromServerPetActionsGetResponse)
 }
 
-func petActions(pet apitypes.Pet, petDef apitypes.PetDef) rpcapi.PetActions {
+func petActions(pet apitypes.Pet, petDefName string, petDef apitypes.PetDef) rpcapi.PetActions {
 	spec := petDef.Spec
 	return rpcapi.PetActions{
-		PetId:    pet.Id,
-		PetdefId: petDef.Id,
+		PetName:    pet.Name,
+		PetDefName: petDefName,
 		Bindings: rpcapi.PetVisualBindings{
 			Feed: spec.Visual.Bindings.Behaviors.Feed, Bathe: spec.Visual.Bindings.Behaviors.Bathe,
 			Play: spec.Visual.Bindings.Behaviors.Play, Heal: spec.Visual.Bindings.Behaviors.Heal,
@@ -200,7 +222,7 @@ func petActions(pet apitypes.Pet, petDef apitypes.PetDef) rpcapi.PetActions {
 			Dead: spec.Visual.Bindings.States.Dead, Sleep: spec.Visual.Bindings.States.Sleep,
 		},
 		ClipNames:       petClipNames(spec.Visual.Pixa.Metadata),
-		PetdefUpdatedAt: petDef.UpdatedAt.Format(time.RFC3339Nano),
+		PetDefUpdatedAt: petDef.UpdatedAt.Format(time.RFC3339Nano),
 	}
 }
 
@@ -214,6 +236,177 @@ func petClipNames(pixa apitypes.PetDefPixaMetadata) map[string]string {
 	return out
 }
 
+func (s *Server) projectPet(ctx context.Context, pet apitypes.Pet) (rpcapi.Pet, error) {
+	runtimeProfileName, err := s.runtimeProfileName(pet.RuntimeProfileId)
+	if err != nil {
+		return rpcapi.Pet{}, err
+	}
+	petDefName, ok := s.profileResourceName(profilePetDefs, pet.PetDefId)
+	if !ok {
+		return rpcapi.Pet{}, errors.New("gameplay: pet definition is not available in the active RuntimeProfile")
+	}
+	stats, err := convertType[rpcapi.PetStats](pet.Stats)
+	if err != nil {
+		return rpcapi.Pet{}, err
+	}
+	progression, err := convertType[rpcapi.PetProgression](pet.Progression)
+	if err != nil {
+		return rpcapi.Pet{}, err
+	}
+	if s.Workspaces == nil {
+		return rpcapi.Pet{}, errors.New("gameplay: workspace service is not configured")
+	}
+	response, err := s.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Id: pet.WorkspaceId})
+	if err != nil {
+		return rpcapi.Pet{}, err
+	}
+	workspace, ok := response.(adminhttp.GetWorkspace200JSONResponse)
+	if !ok {
+		return rpcapi.Pet{}, errors.New("gameplay: pet workspace is not available")
+	}
+	return rpcapi.Pet{
+		Name: pet.Name, RuntimeProfileName: runtimeProfileName, PetDefName: petDefName,
+		DisplayName: pet.DisplayName, WorkspaceName: workspace.Name,
+		Stats: stats, Progression: progression, Lifecycle: rpcapi.PetLifecycle(pet.Lifecycle),
+		DiedAt: pet.DiedAt, StateSettledAt: pet.StateSettledAt, LastActiveAt: pet.LastActiveAt,
+		CreatedAt: pet.CreatedAt, UpdatedAt: pet.UpdatedAt,
+	}, nil
+}
+
+func (s *Server) runtimeProfileName(id string) (string, error) {
+	profile := s.currentRuntimeProfile()
+	if profile == nil || strings.TrimSpace(profile.Id) == "" || strings.TrimSpace(profile.Name) == "" {
+		return "", errors.New("gameplay: active RuntimeProfile is not available")
+	}
+	if strings.TrimSpace(id) != profile.Id {
+		return "", errors.New("gameplay: resource belongs to a different RuntimeProfile")
+	}
+	return profile.Name, nil
+}
+
+func (s *Server) projectPointsAccount(item apitypes.PointsAccount) (rpcapi.PointsAccount, error) {
+	name, err := s.runtimeProfileName(item.RuntimeProfileId)
+	if err != nil {
+		return rpcapi.PointsAccount{}, err
+	}
+	return rpcapi.PointsAccount{
+		OwnerPublicKey:     item.OwnerPublicKey,
+		RuntimeProfileName: name,
+		Balance:            item.Balance,
+		CreatedAt:          item.CreatedAt,
+		UpdatedAt:          item.UpdatedAt,
+	}, nil
+}
+
+func (s *Server) projectBadge(item apitypes.Badge) (rpcapi.Badge, error) {
+	name, ok := s.profileResourceName(profileBadgeDefs, item.BadgeDefId)
+	if !ok {
+		return rpcapi.Badge{}, errors.New("gameplay: badge definition is not available in the active RuntimeProfile")
+	}
+	return rpcapi.Badge{Name: name, BadgeDefName: name, Exp: item.Exp, Level: item.Level, Active: item.Active, Progress: item.Progress, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt}, nil
+}
+
+func (s *Server) projectPointsTransaction(ctx context.Context, item apitypes.PointsTransaction) (rpcapi.PointsTransaction, error) {
+	projected, err := convertType[rpcapi.PointsTransaction](item)
+	if err != nil {
+		return rpcapi.PointsTransaction{}, err
+	}
+	projected.RuntimeProfileName, err = s.runtimeProfileName(item.RuntimeProfileId)
+	if err != nil {
+		return rpcapi.PointsTransaction{}, err
+	}
+	if item.PetId != nil {
+		pet, err := s.Gameplay.GetPet(ctx, s.Caller.String(), *item.PetId)
+		if err != nil {
+			return rpcapi.PointsTransaction{}, err
+		}
+		projected.PetName = &pet.Name
+	}
+	return projected, nil
+}
+
+func (s *Server) projectGameResult(ctx context.Context, item apitypes.GameResult) (rpcapi.GameResult, error) {
+	projected, err := convertType[rpcapi.GameResult](item)
+	if err != nil {
+		return rpcapi.GameResult{}, err
+	}
+	projected.RuntimeProfileName, err = s.runtimeProfileName(item.RuntimeProfileId)
+	if err != nil {
+		return rpcapi.GameResult{}, err
+	}
+	pet, err := s.Gameplay.GetPet(ctx, s.Caller.String(), item.PetId)
+	if err != nil {
+		return rpcapi.GameResult{}, err
+	}
+	gameName, ok := s.profileResourceName(profileGameDefs, item.GameDefId)
+	if !ok {
+		return rpcapi.GameResult{}, errors.New("gameplay: game definition is not available in the active RuntimeProfile")
+	}
+	projected.PetName = pet.Name
+	projected.GameDefName = gameName
+	return projected, nil
+}
+
+func (s *Server) projectRewardGrant(ctx context.Context, item apitypes.RewardGrant) (rpcapi.RewardGrant, error) {
+	projected, err := convertType[rpcapi.RewardGrant](item)
+	if err != nil {
+		return rpcapi.RewardGrant{}, err
+	}
+	projected.RuntimeProfileName, err = s.runtimeProfileName(item.RuntimeProfileId)
+	if err != nil {
+		return rpcapi.RewardGrant{}, err
+	}
+	if item.PetId != nil {
+		pet, err := s.Gameplay.GetPet(ctx, s.Caller.String(), *item.PetId)
+		if err != nil {
+			return rpcapi.RewardGrant{}, err
+		}
+		projected.PetName = &pet.Name
+	}
+	return projected, nil
+}
+
+func (s *Server) projectPetDriveResponse(ctx context.Context, item apitypes.PetDriveResponse) (rpcapi.PetDriveResponse, error) {
+	pet, err := s.projectPet(ctx, item.Pet)
+	if err != nil {
+		return rpcapi.PetDriveResponse{}, err
+	}
+	points, err := s.projectPointsAccount(item.Points)
+	if err != nil {
+		return rpcapi.PetDriveResponse{}, err
+	}
+	out := rpcapi.PetDriveResponse{Pet: pet, Points: points}
+	for _, badge := range item.Badges {
+		projected, err := s.projectBadge(badge)
+		if err != nil {
+			return rpcapi.PetDriveResponse{}, err
+		}
+		out.Badges = append(out.Badges, projected)
+	}
+	for _, transaction := range item.Transactions {
+		projected, err := s.projectPointsTransaction(ctx, transaction)
+		if err != nil {
+			return rpcapi.PetDriveResponse{}, err
+		}
+		out.Transactions = append(out.Transactions, projected)
+	}
+	for _, grant := range item.RewardGrants {
+		projected, err := s.projectRewardGrant(ctx, grant)
+		if err != nil {
+			return rpcapi.PetDriveResponse{}, err
+		}
+		out.RewardGrants = append(out.RewardGrants, projected)
+	}
+	if item.GameResult != nil {
+		projected, err := s.projectGameResult(ctx, *item.GameResult)
+		if err != nil {
+			return rpcapi.PetDriveResponse{}, err
+		}
+		out.GameResult = &projected
+	}
+	return out, nil
+}
+
 func (s *Server) handlePetAdopt(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	runtime, failure := s.gameplayRuntime(req)
 	if failure != nil {
@@ -223,10 +416,7 @@ func (s *Server) handlePetAdopt(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	apiParams, err := convertType[apitypes.PetAdoptRequest](params)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
+	apiParams := apitypes.PetAdoptRequest{Name: params.Name, DisplayName: params.DisplayName}
 	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
 	if failure != nil {
 		return failure
@@ -235,7 +425,20 @@ func (s *Server) handlePetAdopt(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if err != nil {
 		return gameplayBusinessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromRuntimeAdoptResponse)
+	pet, err := s.projectPet(ctx, resp.Pet)
+	if err != nil {
+		return businessError(req.Id, err)
+	}
+	transaction, err := s.projectPointsTransaction(profileCtx, resp.Transaction)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	transaction.PetName = &pet.Name
+	points, err := s.projectPointsAccount(resp.Points)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	return resultResponse(req.Id, rpcapi.PetAdoptResponse{Pet: pet, Points: points, Transaction: transaction}, (*rpcapi.RPCPayload).FromRuntimeAdoptResponse)
 }
 
 func (s *Server) handlePetPut(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -247,19 +450,19 @@ func (s *Server) handlePetPut(ctx context.Context, req *rpcapi.RPCRequest) *rpca
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	apiParams, err := convertType[apitypes.PetPutRequest](params)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
 	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
 	if failure != nil {
 		return failure
 	}
-	resp, err := runtime.PutPet(profileCtx, s.Caller.String(), apiParams)
+	resp, err := runtime.PutPetByName(profileCtx, s.Caller.String(), params.Name, params.DisplayName)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetPutResponse)
+	projected, err := s.projectPet(ctx, resp)
+	if err != nil {
+		return businessError(req.Id, err)
+	}
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromServerPetPutResponse)
 }
 
 func (s *Server) handlePetDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -275,11 +478,15 @@ func (s *Server) handlePetDelete(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if failure != nil {
 		return failure
 	}
-	resp, err := runtime.DeletePet(profileCtx, s.Caller.String(), params.Id)
+	resp, err := runtime.DeletePetByName(profileCtx, s.Caller.String(), params.Name)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetDeleteResponse)
+	projected, err := s.projectPet(ctx, resp)
+	if err != nil {
+		return businessError(req.Id, err)
+	}
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromServerPetDeleteResponse)
 }
 
 func (s *Server) handlePetDrive(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -291,10 +498,6 @@ func (s *Server) handlePetDrive(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	apiParams, err := convertType[apitypes.PetDriveRequest](params)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
 	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
 	if failure != nil {
 		return failure
@@ -302,11 +505,40 @@ func (s *Server) handlePetDrive(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if s.RewardEvaluator != nil {
 		profileCtx = gameplay.WithRewardEvaluator(profileCtx, s.RewardEvaluator)
 	}
+	pet, err := runtime.GetPetByName(profileCtx, s.Caller.String(), params.PetName)
+	if err != nil {
+		return businessError(req.Id, err)
+	}
+	apiParams := apitypes.PetDriveRequest{PetId: pet.Id, IdempotencyKey: params.IdempotencyKey}
+	if params.Behavior != nil {
+		behavior := apitypes.PetBehavior(*params.Behavior)
+		apiParams.Behavior = &behavior
+	}
+	if params.GameResult != nil {
+		gameDefID, ok := s.resolveProfileResourceName(profileGameDefs, params.GameResult.GameName)
+		if !ok {
+			return statusError(req.Id, http.StatusNotFound, "game definition is not available")
+		}
+		metadata, err := convertType[*apitypes.GameplayMetadata](params.GameResult.Payload)
+		if err != nil {
+			return internalError(req.Id, err.Error())
+		}
+		apiParams.GameResult = &apitypes.PetDriveGameResultInput{
+			GameDefId: gameDefID, Difficulty: params.GameResult.Difficulty, DurationMs: params.GameResult.DurationMs,
+			IdempotencyKey: params.GameResult.IdempotencyKey, MaxScore: params.GameResult.MaxScore,
+			OccurredAt: params.GameResult.OccurredAt, Outcome: params.GameResult.Outcome,
+			Payload: metadata, Score: params.GameResult.Score,
+		}
+	}
 	resp, err := runtime.DrivePet(profileCtx, s.Caller.String(), apiParams)
 	if err != nil {
 		return gameplayBusinessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetDriveResponse)
+	projected, err := s.projectPetDriveResponse(profileCtx, resp)
+	if err != nil {
+		return businessError(req.Id, err)
+	}
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromServerPetDriveResponse)
 }
 
 func gameplayBusinessError(id string, err error) *rpcapi.RPCResponse {
@@ -338,7 +570,11 @@ func (s *Server) handlePointsGet(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPointsGetResponse)
+	projected, err := s.projectPointsAccount(resp)
+	if err != nil {
+		return businessError(req.Id, err)
+	}
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromServerPointsGetResponse)
 }
 
 func (s *Server) gameplayProfileContext(ctx context.Context, requestID string) (context.Context, *rpcapi.RPCResponse) {
@@ -373,7 +609,15 @@ func (s *Server) handlePointsTransactionsList(ctx context.Context, req *rpcapi.R
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPointsTransactionListResponse)
+	items := make([]rpcapi.PointsTransaction, 0, len(resp.Items))
+	for _, item := range resp.Items {
+		projected, err := s.projectPointsTransaction(profileCtx, item)
+		if err != nil {
+			return businessError(req.Id, err)
+		}
+		items = append(items, projected)
+	}
+	return resultResponse(req.Id, rpcapi.PointsTransactionListResponse{Items: items, HasNext: resp.HasNext, NextCursor: resp.NextCursor}, (*rpcapi.RPCPayload).FromServerPointsTransactionListResponse)
 }
 
 func (s *Server) handlePointsTransactionsGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -393,7 +637,11 @@ func (s *Server) handlePointsTransactionsGet(ctx context.Context, req *rpcapi.RP
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPointsTransactionGetResponse)
+	projected, err := s.projectPointsTransaction(profileCtx, resp)
+	if err != nil {
+		return businessError(req.Id, err)
+	}
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromServerPointsTransactionGetResponse)
 }
 
 func (s *Server) handleBadgeList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -409,11 +657,23 @@ func (s *Server) handleBadgeList(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	resp, err := runtime.ListBadges(ctx, s.Caller.String(), apiParams)
+	profileCtx, failure := s.gameplayProfileContext(ctx, req.Id)
+	if failure != nil {
+		return failure
+	}
+	resp, err := runtime.ListBadges(profileCtx, s.Caller.String(), apiParams)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerBadgeListResponse)
+	items := make([]rpcapi.Badge, 0, len(resp.Items))
+	for _, item := range resp.Items {
+		projected, err := s.projectBadge(item)
+		if err != nil {
+			return businessError(req.Id, err)
+		}
+		items = append(items, projected)
+	}
+	return resultResponse(req.Id, rpcapi.BadgeListResponse{Items: items, HasNext: resp.HasNext, NextCursor: resp.NextCursor}, (*rpcapi.RPCPayload).FromServerBadgeListResponse)
 }
 
 func (s *Server) handleBadgeGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -425,11 +685,19 @@ func (s *Server) handleBadgeGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	resp, err := runtime.GetBadge(ctx, s.Caller.String(), params.Id)
+	badgeDefID, ok := s.resolveProfileResourceName(profileBadgeDefs, params.Name)
+	if !ok {
+		return statusError(req.Id, http.StatusNotFound, "badge is not available")
+	}
+	resp, err := runtime.GetBadge(ctx, s.Caller.String(), badgeDefID)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerBadgeGetResponse)
+	projected, err := s.projectBadge(resp)
+	if err != nil {
+		return businessError(req.Id, err)
+	}
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromServerBadgeGetResponse)
 }
 
 func (s *Server) handleGameResultList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -453,7 +721,15 @@ func (s *Server) handleGameResultList(ctx context.Context, req *rpcapi.RPCReques
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerGameResultListResponse)
+	items := make([]rpcapi.GameResult, 0, len(resp.Items))
+	for _, item := range resp.Items {
+		projected, err := s.projectGameResult(profileCtx, item)
+		if err != nil {
+			return businessError(req.Id, err)
+		}
+		items = append(items, projected)
+	}
+	return resultResponse(req.Id, rpcapi.GameResultListResponse{Items: items, HasNext: resp.HasNext, NextCursor: resp.NextCursor}, (*rpcapi.RPCPayload).FromServerGameResultListResponse)
 }
 
 func (s *Server) handleGameResultGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -473,7 +749,11 @@ func (s *Server) handleGameResultGet(ctx context.Context, req *rpcapi.RPCRequest
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerGameResultGetResponse)
+	projected, err := s.projectGameResult(profileCtx, resp)
+	if err != nil {
+		return businessError(req.Id, err)
+	}
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromServerGameResultGetResponse)
 }
 
 func (s *Server) handleRewardGrantList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -497,7 +777,15 @@ func (s *Server) handleRewardGrantList(ctx context.Context, req *rpcapi.RPCReque
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerRewardGrantListResponse)
+	items := make([]rpcapi.RewardGrant, 0, len(resp.Items))
+	for _, item := range resp.Items {
+		projected, err := s.projectRewardGrant(profileCtx, item)
+		if err != nil {
+			return businessError(req.Id, err)
+		}
+		items = append(items, projected)
+	}
+	return resultResponse(req.Id, rpcapi.RewardGrantListResponse{Items: items, HasNext: resp.HasNext, NextCursor: resp.NextCursor}, (*rpcapi.RPCPayload).FromServerRewardGrantListResponse)
 }
 
 func (s *Server) handleRewardGrantGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -517,5 +805,9 @@ func (s *Server) handleRewardGrantGet(ctx context.Context, req *rpcapi.RPCReques
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerRewardGrantGetResponse)
+	projected, err := s.projectRewardGrant(profileCtx, resp)
+	if err != nil {
+		return businessError(req.Id, err)
+	}
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromServerRewardGrantGetResponse)
 }

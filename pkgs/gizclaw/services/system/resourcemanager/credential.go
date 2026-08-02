@@ -18,9 +18,25 @@ func (m *Manager) applyCredential(ctx context.Context, resource apitypes.Resourc
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	name := string(pathParam(item.Metadata.Name))
-	existing, exists, err := m.getCredential(ctx, name)
+	id, updating, err := resourceUpdateID(item.Metadata)
 	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !updating {
+		createdID, err := m.createCredential(ctx, credentialUpsert(item))
+		if err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindCredential, item.Metadata.Name, createdID), nil
+	}
+	existing, exists, err := m.getCredential(ctx, id)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !exists {
+		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindCredential, id)
+	}
+	if err := validateImmutableResourceName(apitypes.ResourceKindCredential, id, existing.Name, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {
@@ -29,20 +45,36 @@ func (m *Manager) applyCredential(ctx context.Context, resource apitypes.Resourc
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindCredential, item.Metadata.Name), nil
+			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindCredential, item.Metadata.Name, id), nil
 		}
 	}
-	if err := m.putCredential(ctx, name, credentialUpsert(item)); err != nil {
+	if err := m.putCredential(ctx, id, credentialUpsert(item)); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindCredential, item.Metadata.Name), nil
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindCredential, item.Metadata.Name, id), nil
+}
+
+func (m *Manager) createCredential(ctx context.Context, body adminhttp.CredentialUpsert) (string, error) {
+	response, err := m.services.Credentials.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &body})
+	if err != nil {
+		return "", err
 	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindCredential, item.Metadata.Name), nil
+	switch response := response.(type) {
+	case adminhttp.CreateCredential200JSONResponse:
+		return response.Id, nil
+	case adminhttp.CreateCredential400JSONResponse:
+		return "", responseError(400, "CREATE_CREDENTIAL_FAILED", "failed to create credential", response)
+	case adminhttp.CreateCredential409JSONResponse:
+		return "", responseError(409, "CREATE_CREDENTIAL_FAILED", "failed to create credential", response)
+	case adminhttp.CreateCredential500JSONResponse:
+		return "", responseError(500, "CREATE_CREDENTIAL_FAILED", "failed to create credential", response)
+	default:
+		return "", unexpectedResponse("CreateCredential", response)
+	}
 }
 
 func (m *Manager) getCredential(ctx context.Context, name string) (apitypes.Credential, bool, error) {
-	response, err := m.services.Credentials.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Name: name})
+	response, err := m.services.Credentials.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Id: name})
 	if err != nil {
 		return apitypes.Credential{}, false, err
 	}
@@ -59,7 +91,7 @@ func (m *Manager) getCredential(ctx context.Context, name string) (apitypes.Cred
 }
 
 func (m *Manager) putCredential(ctx context.Context, name string, body adminhttp.CredentialUpsert) error {
-	response, err := m.services.Credentials.PutCredential(ctx, adminhttp.PutCredentialRequestObject{Name: name, Body: &body})
+	response, err := m.services.Credentials.PutCredential(ctx, adminhttp.PutCredentialRequestObject{Id: name, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -76,7 +108,7 @@ func (m *Manager) putCredential(ctx context.Context, name string, body adminhttp
 }
 
 func (m *Manager) deleteCredential(ctx context.Context, name string) (apitypes.Credential, bool, error) {
-	response, err := m.services.Credentials.DeleteCredential(ctx, adminhttp.DeleteCredentialRequestObject{Name: name})
+	response, err := m.services.Credentials.DeleteCredential(ctx, adminhttp.DeleteCredentialRequestObject{Id: name})
 	if err != nil {
 		return apitypes.Credential{}, false, err
 	}
@@ -113,7 +145,7 @@ func resourceFromCredential(item apitypes.Credential) (apitypes.Resource, error)
 	return marshalResource(apitypes.CredentialResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.CredentialResourceKind(apitypes.ResourceKindCredential),
-		Metadata:   apitypes.ResourceMetadata{Name: string(item.Name)},
+		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
 		Spec:       credentialSpec(item),
 	})
 }

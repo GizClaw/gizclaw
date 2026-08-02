@@ -36,11 +36,11 @@ func TestListRuntimeWorkflowsUsesCollectionAliasesAndSkipsDanglingBindings(t *te
 	}
 	aliases := make([]string, len(items))
 	for i, item := range items {
-		aliases[i] = item.Alias
+		aliases[i] = item.Name
 		if item.Collection != "assistants" || item.I18n["en"].DisplayName == "" {
 			t.Fatalf("workflow projection = %#v", item)
 		}
-		if item.Alias == "translate" && (item.WorkspaceLangPair == nil || *item.WorkspaceLangPair != "zh/ja") {
+		if item.Name == "translate" && (item.WorkspaceLangPair == nil || *item.WorkspaceLangPair != "zh/ja") {
 			t.Fatalf("translation workflow projection = %#v", item)
 		}
 	}
@@ -92,19 +92,19 @@ func TestAliasGetsHideDanglingCanonicalResourceIDs(t *testing.T) {
 	}
 
 	var workflowPayload rpcapi.RPCPayload
-	if err := workflowPayload.FromWorkflowGetRequest(rpcapi.WorkflowGetRequest{Alias: "chat"}); err != nil {
+	if err := workflowPayload.FromWorkflowGetRequest(rpcapi.WorkflowGetRequest{Name: "chat"}); err != nil {
 		t.Fatal(err)
 	}
 	assertAliasNotFound(t, server.handleWorkflowGet(context.Background(), &rpcapi.RPCRequest{Id: "workflow", Params: &workflowPayload}), "workflow not found", "canonical-secret-workflow")
 
 	var modelPayload rpcapi.RPCPayload
-	if err := modelPayload.FromModelGetRequest(rpcapi.ModelGetRequest{Alias: "chat"}); err != nil {
+	if err := modelPayload.FromModelGetRequest(rpcapi.ModelGetRequest{Name: "chat"}); err != nil {
 		t.Fatal(err)
 	}
 	assertAliasNotFound(t, server.handleModelGet(context.Background(), &rpcapi.RPCRequest{Id: "model", Params: &modelPayload}), "model not found", "tenant/model/canonical-secret")
 
 	var voicePayload rpcapi.RPCPayload
-	if err := voicePayload.FromVoiceGetRequest(rpcapi.VoiceGetRequest{Alias: "narrator"}); err != nil {
+	if err := voicePayload.FromVoiceGetRequest(rpcapi.VoiceGetRequest{Name: "narrator"}); err != nil {
 		t.Fatal(err)
 	}
 	assertAliasNotFound(t, server.handleVoiceGet(context.Background(), &rpcapi.RPCRequest{Id: "voice", Params: &voicePayload}), "voice not found", "volc-tenant:main:canonical-secret")
@@ -117,8 +117,8 @@ func TestListModelsProjectsRuntimeAliases(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	models := &model.Server{Store: store}
 	canonical := adminhttp.ModelUpsert{
-		Id: "tenant-model-canonical", Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceManual,
-		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Name: "primary"},
+		Name: "tenant-model-canonical", Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceManual,
+		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Id: "primary"},
 	}
 	var providerData apitypes.ModelProviderData
 	upstreamModel := "tenant-model-upstream"
@@ -139,16 +139,17 @@ func TestListModelsProjectsRuntimeAliases(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateModel() error = %v", err)
 	}
-	if _, ok := response.(adminhttp.CreateModel200JSONResponse); !ok {
+	created, ok := response.(adminhttp.CreateModel200JSONResponse)
+	if !ok {
 		t.Fatalf("CreateModel() response = %#v", response)
 	}
 	bindings := map[string]apitypes.RuntimeProfileBinding{
-		"extract-model":  collectionTestBinding("tenant-model-canonical", "Extract Model"),
-		"generate-model": collectionTestBinding("tenant-model-canonical", "Generate Model"),
+		"extract-model":  collectionTestBinding(created.Id, "Extract Model"),
+		"generate-model": collectionTestBinding(created.Id, "Generate Model"),
 		"missing-model":  collectionTestBinding("deleted-model", "Missing Model"),
 	}
 	profile := apitypes.RuntimeProfile{
-		Name: "default", Revision: "r1",
+		Id: "default", Revision: "r1",
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &bindings}},
 	}
 	server := &Server{Models: models, RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile }}
@@ -192,23 +193,24 @@ func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	voices := &voice.Server{Store: store}
 	canonical := adminhttp.VoiceUpsert{
-		Id: "openai-tenant:primary:canonical-voice", Source: apitypes.VoiceSourceManual,
-		Provider: apitypes.VoiceProvider{Kind: apitypes.VoiceProviderKindOpenaiTenant, Name: "primary"},
+		Name: "openai-tenant:primary:canonical-voice", Source: apitypes.VoiceSourceManual,
+		Provider: apitypes.VoiceProvider{Kind: apitypes.VoiceProviderKindOpenaiTenant, Id: "primary"},
 	}
 	response, err := voices.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &canonical})
 	if err != nil {
 		t.Fatalf("CreateVoice() error = %v", err)
 	}
-	if _, ok := response.(adminhttp.CreateVoice200JSONResponse); !ok {
+	created, ok := response.(adminhttp.CreateVoice200JSONResponse)
+	if !ok {
 		t.Fatalf("CreateVoice() response = %#v", response)
 	}
 	bindings := map[string]apitypes.RuntimeProfileBinding{
-		"assistant-voice": collectionTestBinding(string(canonical.Id), "Assistant Voice"),
-		"narrator-voice":  collectionTestBinding(string(canonical.Id), "Narrator Voice"),
+		"assistant-voice": collectionTestBinding(created.Id, "Assistant Voice"),
+		"narrator-voice":  collectionTestBinding(created.Id, "Narrator Voice"),
 		"missing-voice":   collectionTestBinding("openai-tenant:primary:deleted", "Missing Voice"),
 	}
 	profile := apitypes.RuntimeProfile{
-		Name: "default", Revision: "r1",
+		Id: "default", Revision: "r1",
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Voices: &bindings}},
 	}
 	server := &Server{Voices: voices, RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile }}
@@ -236,7 +238,7 @@ func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
 	if !ok || got.Id != "narrator-voice" {
 		t.Fatalf("GetVoice(alias) = %#v", gotResponse)
 	}
-	canonicalResponse, err := server.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: canonical.Id})
+	canonicalResponse, err := server.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("GetVoice(canonical) error = %v", err)
 	}
@@ -258,14 +260,14 @@ func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
 	}
 	rpcAliases := make([]string, len(rpcList.Items))
 	for i, item := range rpcList.Items {
-		rpcAliases[i] = item.Alias
+		rpcAliases[i] = item.Name
 	}
 	if want := []string{"assistant-voice", "narrator-voice"}; !reflect.DeepEqual(rpcAliases, want) {
 		t.Fatalf("handleVoiceList() aliases = %#v, want %#v", rpcAliases, want)
 	}
 
 	var getPayload rpcapi.RPCPayload
-	if err := getPayload.FromVoiceGetRequest(rpcapi.VoiceGetRequest{Alias: "narrator-voice"}); err != nil {
+	if err := getPayload.FromVoiceGetRequest(rpcapi.VoiceGetRequest{Name: "narrator-voice"}); err != nil {
 		t.Fatal(err)
 	}
 	rpcGetResponse := server.handleVoiceGet(ctx, &rpcapi.RPCRequest{Id: "voice-get", Params: &getPayload})
@@ -276,8 +278,8 @@ func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsVoiceGetResponse() error = %v", err)
 	}
-	if rpcGet.Value.Alias != "narrator-voice" {
-		t.Fatalf("handleVoiceGet() alias = %q, want narrator-voice", rpcGet.Value.Alias)
+	if rpcGet.Value.Name != "narrator-voice" {
+		t.Fatalf("handleVoiceGet() alias = %q, want narrator-voice", rpcGet.Value.Name)
 	}
 }
 
@@ -296,6 +298,9 @@ func assertAliasNotFound(t *testing.T, response *rpcapi.RPCResponse, message, ca
 
 func createWorkflowForCollectionTest(t *testing.T, ctx context.Context, server *workflow.Server, name string) {
 	t.Helper()
+	previousNewID := server.NewID
+	server.NewID = func() string { return name }
+	defer func() { server.NewID = previousNewID }()
 	var flowcraftSpec apitypes.FlowcraftWorkflowSpec
 	if err := json.Unmarshal([]byte(`{
 		"graph": {
@@ -318,7 +323,7 @@ func createWorkflowForCollectionTest(t *testing.T, ctx context.Context, server *
 			},
 		}
 	}
-	document := apitypes.Workflow{Name: name, Spec: spec}
+	document := adminhttp.WorkflowUpsert{Name: name, Spec: spec}
 	response, err := server.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &document})
 	if err != nil {
 		t.Fatalf("CreateWorkflow(%q) error = %v", name, err)

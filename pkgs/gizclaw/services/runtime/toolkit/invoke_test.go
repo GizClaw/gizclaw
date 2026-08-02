@@ -22,7 +22,7 @@ func TestResolveInvokeReauthorizesAndValidatesArguments(t *testing.T) {
 			Not: &jsonschema.Schema{},
 		},
 	}
-	if _, err := server.PutTool(context.Background(), tool); err != nil {
+	if _, err := server.CreateTool(context.Background(), tool); err != nil {
 		t.Fatalf("PutTool(): %v", err)
 	}
 	builder := &Builder{Tools: server}
@@ -56,7 +56,8 @@ func TestResolveInvokeReauthorizesAndValidatesArguments(t *testing.T) {
 func TestResolveInvokeRejectsUnboundAliasAndSeesResourceUpdate(t *testing.T) {
 	t.Parallel()
 	server := &Server{Store: kv.NewMemory(nil)}
-	if _, err := server.PutTool(context.Background(), testClientTool("volume_set")); err != nil {
+	created, err := server.CreateTool(context.Background(), testClientTool("volume_set"))
+	if err != nil {
 		t.Fatalf("PutTool(): %v", err)
 	}
 	builder := &Builder{Tools: server}
@@ -69,7 +70,7 @@ func TestResolveInvokeRejectsUnboundAliasAndSeesResourceUpdate(t *testing.T) {
 	}
 	disabled := testClientTool("volume_set")
 	disabled.Enabled = false
-	if _, err := server.PutTool(context.Background(), disabled); err != nil {
+	if _, err := server.PutTool(context.Background(), created.ID, disabled); err != nil {
 		t.Fatalf("disable PutTool(): %v", err)
 	}
 	if _, _, err := builder.ResolveInvoke(context.Background(), InvokeRequest{

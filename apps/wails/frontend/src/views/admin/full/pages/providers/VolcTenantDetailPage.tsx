@@ -41,7 +41,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ResourceCliPanel } from "../../components/ResourceCliPanel";
 
 type VolcTenantForm = {
-  credentialName: string;
+  credentialID: string;
   description: string;
   endpoint: string;
   region: string;
@@ -75,9 +75,9 @@ export function VolcTenantDetailPage(): JSX.Element {
     setNotice("");
     try {
       const [nextTenant, nextResource, credentialList] = await Promise.all([
-        expectData(getVolcTenant({ path: { name: tenantName } })),
+        expectData(getVolcTenant({ path: { id: tenantName } })),
         expectData(
-          getResource({ path: { kind: "VolcTenant", name: tenantName } }),
+          getResource({ path: { kind: "VolcTenant", id: tenantName } }),
         ),
         expectData(listCredentials({ query: { limit: 200 } })),
       ]);
@@ -108,20 +108,20 @@ export function VolcTenantDetailPage(): JSX.Element {
         putVolcTenant({
           body: {
             name: tenant.name,
-            credential_name: form.credentialName.trim(),
+            credential_id: form.credentialID.trim(),
             region: optionalString(form.region),
             endpoint: optionalString(form.endpoint),
             resource_ids: optionalStringList(form.resourceIDs),
             description: optionalString(form.description),
           },
-          path: { name: tenant.name },
+          path: { id: tenant.id },
         }),
       );
       setTenant(updated);
       setForm(formFromTenant(updated));
       setTenantResource(
         await expectData(
-          getResource({ path: { kind: "VolcTenant", name: updated.name } }),
+          getResource({ path: { kind: "VolcTenant", id: updated.id } }),
         ),
       );
       setNotice("Volcengine tenant saved.");
@@ -141,7 +141,7 @@ export function VolcTenantDetailPage(): JSX.Element {
     setNotice("");
     try {
       const result = await expectData(
-        syncVolcTenantVoices({ path: { name: tenant.name } }),
+        syncVolcTenantVoices({ path: { id: tenant.id } }),
       );
       await load();
       setNotice(
@@ -165,7 +165,7 @@ export function VolcTenantDetailPage(): JSX.Element {
 
   const credentialOptions = mergeCredentialOptions(
     credentials,
-    form.credentialName,
+    form.credentialID,
   );
 
   return (
@@ -242,7 +242,7 @@ export function VolcTenantDetailPage(): JSX.Element {
               <DetailBlock
                 items={[
                   ["Name", tenant.name],
-                  ["Credential", tenant.credential_name],
+                  ["Credential ID", tenant.credential_id],
                   ["Description", tenant.description],
                   ["Last sync", tenant.last_synced_at],
                 ]}
@@ -287,20 +287,17 @@ export function VolcTenantDetailPage(): JSX.Element {
                       onValueChange={(value) =>
                         setForm((current) => ({
                           ...current,
-                          credentialName: value,
+                          credentialID: value,
                         }))
                       }
-                      value={form.credentialName}
+                      value={form.credentialID}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select credential" />
                       </SelectTrigger>
                       <SelectContent>
                         {credentialOptions.map((credential) => (
-                          <SelectItem
-                            key={credential.name}
-                            value={credential.name}
-                          >
+                          <SelectItem key={credential.id} value={credential.id}>
                             {credential.name} · {credential.provider}
                           </SelectItem>
                         ))}
@@ -407,7 +404,7 @@ function decodeRouteParam(value: string): string {
 
 function emptyForm(): VolcTenantForm {
   return {
-    credentialName: "",
+    credentialID: "",
     description: "",
     endpoint: "",
     region: "",
@@ -417,7 +414,7 @@ function emptyForm(): VolcTenantForm {
 
 function formFromTenant(tenant: VolcTenant): VolcTenantForm {
   return {
-    credentialName: tenant.credential_name,
+    credentialID: tenant.credential_id,
     description: tenant.description ?? "",
     endpoint: tenant.endpoint ?? "",
     region: tenant.region ?? "",
@@ -440,17 +437,18 @@ function optionalStringList(value: string): string[] | undefined {
 
 function mergeCredentialOptions(
   credentials: Credential[],
-  currentName: string,
+  currentID: string,
 ): Credential[] {
   if (
-    currentName === "" ||
-    credentials.some((credential) => credential.name === currentName)
+    currentID === "" ||
+    credentials.some((credential) => credential.id === currentID)
   ) {
     return credentials;
   }
   return [
     {
-      name: currentName,
+      id: currentID,
+      name: currentID,
       provider: "unknown",
       body: {},
       created_at: "",

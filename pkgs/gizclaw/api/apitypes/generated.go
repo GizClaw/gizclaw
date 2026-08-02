@@ -3002,6 +3002,9 @@ type ApplyResult struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion `json:"apiVersion"`
 
+	// Id Canonical Server ID for the concrete resource. Omitted only for virtual ResourceList results.
+	Id *string `json:"id,omitempty"`
+
 	// Items Nested apply results for ResourceList resources.
 	Items *[]ApplyResult `json:"items,omitempty"`
 
@@ -3028,6 +3031,7 @@ type Badge struct {
 type BadgeDef struct {
 	CreatedAt time.Time    `json:"created_at"`
 	Id        string       `json:"id"`
+	Name      string       `json:"name"`
 	PixaPath  *string      `json:"pixa_path,omitempty"`
 	Spec      BadgeDefSpec `json:"spec"`
 	UpdatedAt time.Time    `json:"updated_at"`
@@ -3134,7 +3138,7 @@ type ContactResource struct {
 	ApiVersion ResourceAPIVersion  `json:"apiVersion"`
 	Kind       ContactResourceKind `json:"kind"`
 
-	// Metadata metadata.name must be owner_public_key:id; only id is a custom ID.
+	// Metadata metadata.name is the immutable Peer-visible contact name; metadata.id is omitted on create and required on update.
 	Metadata ResourceMetadata `json:"metadata"`
 	Spec     ContactSpec      `json:"spec"`
 }
@@ -3146,10 +3150,7 @@ type ContactResourceKind string
 type ContactSpec struct {
 	DisplayName *string `json:"display_name,omitempty"`
 
-	// Id Owner-scoped contact custom ID. metadata.name must be owner_public_key:id.
-	Id string `json:"id"`
-
-	// OwnerPublicKey Owner peer public key. metadata.name must be owner_public_key:id.
+	// OwnerPublicKey Immutable owner peer public key.
 	OwnerPublicKey string  `json:"owner_public_key"`
 	PhoneNumber    *string `json:"phone_number,omitempty"`
 }
@@ -3160,6 +3161,7 @@ type Credential struct {
 	Body        CredentialBody `json:"body"`
 	CreatedAt   time.Time      `json:"created_at"`
 	Description *string        `json:"description,omitempty"`
+	Id          string         `json:"id"`
 	Name        string         `json:"name"`
 	Provider    string         `json:"provider"`
 	UpdatedAt   time.Time      `json:"updated_at"`
@@ -3285,12 +3287,13 @@ type DashScopeRealtimeWorkspaceParametersVad string
 
 // DashScopeTenant defines model for DashScopeTenant.
 type DashScopeTenant struct {
-	BaseUrl        *string   `json:"base_url,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	CredentialName string    `json:"credential_name"`
-	Description    *string   `json:"description,omitempty"`
-	Name           string    `json:"name"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	BaseUrl      *string   `json:"base_url,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	CredentialId string    `json:"credential_id"`
+	Description  *string   `json:"description,omitempty"`
+	Id           string    `json:"id"`
+	Name         string    `json:"name"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // DashScopeTenantModelProviderData defines model for DashScopeTenantModelProviderData.
@@ -3326,9 +3329,9 @@ type DashScopeTenantResourceKind string
 
 // DashScopeTenantSpec defines model for DashScopeTenantSpec.
 type DashScopeTenantSpec struct {
-	BaseUrl        *string `json:"base_url,omitempty"`
-	CredentialName string  `json:"credential_name"`
-	Description    *string `json:"description,omitempty"`
+	BaseUrl      *string `json:"base_url,omitempty"`
+	CredentialId string  `json:"credential_id"`
+	Description  *string `json:"description,omitempty"`
 }
 
 // DashScopeTenantVoiceProviderData defines model for DashScopeTenantVoiceProviderData.
@@ -3344,12 +3347,13 @@ type DeepSeekCredentialBody struct {
 
 // DeepSeekTenant defines model for DeepSeekTenant.
 type DeepSeekTenant struct {
-	BaseUrl        *string   `json:"base_url,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	CredentialName string    `json:"credential_name"`
-	Description    *string   `json:"description,omitempty"`
-	Name           string    `json:"name"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	BaseUrl      *string   `json:"base_url,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	CredentialId string    `json:"credential_id"`
+	Description  *string   `json:"description,omitempty"`
+	Id           string    `json:"id"`
+	Name         string    `json:"name"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // DeepSeekTenantModelProviderData defines model for DeepSeekTenantModelProviderData.
@@ -3385,9 +3389,9 @@ type DeepSeekTenantResourceKind string
 
 // DeepSeekTenantSpec defines model for DeepSeekTenantSpec.
 type DeepSeekTenantSpec struct {
-	BaseUrl        *string `json:"base_url,omitempty"`
-	CredentialName string  `json:"credential_name"`
-	Description    *string `json:"description,omitempty"`
+	BaseUrl      *string `json:"base_url,omitempty"`
+	CredentialId string  `json:"credential_id"`
+	Description  *string `json:"description,omitempty"`
 }
 
 // DeviceIdentifiers defines model for DeviceIdentifiers.
@@ -4010,6 +4014,7 @@ type Event struct {
 type Firmware struct {
 	CreatedAt   time.Time     `json:"created_at"`
 	Description *string       `json:"description,omitempty"`
+	Id          string        `json:"id"`
 	Name        string        `json:"name"`
 	Slots       FirmwareSlots `json:"slots"`
 	UpdatedAt   time.Time     `json:"updated_at"`
@@ -4460,7 +4465,7 @@ type FriendGroupMemberResource struct {
 	ApiVersion ResourceAPIVersion            `json:"apiVersion"`
 	Kind       FriendGroupMemberResourceKind `json:"kind"`
 
-	// Metadata metadata.name must be friend_group_id:peer_public_key; only friend_group_id is a custom ID.
+	// Metadata metadata.name is this member's immutable Peer-visible group name; metadata.id is the canonical membership ID returned by the Server.
 	Metadata ResourceMetadata      `json:"metadata"`
 	Spec     FriendGroupMemberSpec `json:"spec"`
 }
@@ -4485,7 +4490,7 @@ type FriendGroupResource struct {
 	ApiVersion ResourceAPIVersion      `json:"apiVersion"`
 	Kind       FriendGroupResourceKind `json:"kind"`
 
-	// Metadata metadata.name is the friend group custom ID.
+	// Metadata metadata.name is the immutable Admin name; metadata.id is omitted on create and required on update.
 	Metadata ResourceMetadata `json:"metadata"`
 	Spec     FriendGroupSpec  `json:"spec"`
 }
@@ -4496,9 +4501,7 @@ type FriendGroupResourceKind string
 // FriendGroupSpec defines model for FriendGroupSpec.
 type FriendGroupSpec struct {
 	Description *string `json:"description,omitempty"`
-
-	// Name Display name for the friend group. metadata.name is the stable group id.
-	Name string `json:"name"`
+	DisplayName *string `json:"display_name,omitempty"`
 
 	// OwnerPublicKey Immutable owner Peer public key used to resolve the system Workflow.
 	OwnerPublicKey string `json:"owner_public_key"`
@@ -4530,6 +4533,7 @@ type GameDef struct {
 	CreatedAt time.Time   `json:"created_at"`
 	Icon      *Icon       `json:"icon,omitempty"`
 	Id        string      `json:"id"`
+	Name      string      `json:"name"`
 	Spec      GameDefSpec `json:"spec"`
 	UpdatedAt time.Time   `json:"updated_at"`
 }
@@ -4559,20 +4563,20 @@ type GameDefSpec struct {
 
 // GameResult defines model for GameResult.
 type GameResult struct {
-	CreatedAt          time.Time         `json:"created_at"`
-	Difficulty         *string           `json:"difficulty,omitempty"`
-	DurationMs         *int64            `json:"duration_ms,omitempty"`
-	GameDefId          string            `json:"game_def_id"`
-	Id                 string            `json:"id"`
-	IdempotencyKey     *string           `json:"idempotency_key,omitempty"`
-	MaxScore           *int64            `json:"max_score,omitempty"`
-	OccurredAt         time.Time         `json:"occurred_at"`
-	Outcome            *string           `json:"outcome,omitempty"`
-	OwnerPublicKey     string            `json:"owner_public_key"`
-	Payload            *GameplayMetadata `json:"payload,omitempty"`
-	PetId              string            `json:"pet_id"`
-	RuntimeProfileName string            `json:"runtime_profile_name"`
-	Score              *int64            `json:"score,omitempty"`
+	CreatedAt        time.Time         `json:"created_at"`
+	Difficulty       *string           `json:"difficulty,omitempty"`
+	DurationMs       *int64            `json:"duration_ms,omitempty"`
+	GameDefId        string            `json:"game_def_id"`
+	Id               string            `json:"id"`
+	IdempotencyKey   *string           `json:"idempotency_key,omitempty"`
+	MaxScore         *int64            `json:"max_score,omitempty"`
+	OccurredAt       time.Time         `json:"occurred_at"`
+	Outcome          *string           `json:"outcome,omitempty"`
+	OwnerPublicKey   string            `json:"owner_public_key"`
+	Payload          *GameplayMetadata `json:"payload,omitempty"`
+	PetId            string            `json:"pet_id"`
+	RuntimeProfileId string            `json:"runtime_profile_id"`
+	Score            *int64            `json:"score,omitempty"`
 }
 
 // GameResultListResponse defines model for GameResultListResponse.
@@ -4612,14 +4616,15 @@ type GeminiCredentialBody struct {
 
 // GeminiTenant defines model for GeminiTenant.
 type GeminiTenant struct {
-	BaseUrl        *string   `json:"base_url,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	CredentialName string    `json:"credential_name"`
-	Description    *string   `json:"description,omitempty"`
-	Location       *string   `json:"location,omitempty"`
-	Name           string    `json:"name"`
-	ProjectId      *string   `json:"project_id,omitempty"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	BaseUrl      *string   `json:"base_url,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	CredentialId string    `json:"credential_id"`
+	Description  *string   `json:"description,omitempty"`
+	Id           string    `json:"id"`
+	Location     *string   `json:"location,omitempty"`
+	Name         string    `json:"name"`
+	ProjectId    *string   `json:"project_id,omitempty"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // GeminiTenantModelProviderData defines model for GeminiTenantModelProviderData.
@@ -4651,11 +4656,11 @@ type GeminiTenantResourceKind string
 
 // GeminiTenantSpec defines model for GeminiTenantSpec.
 type GeminiTenantSpec struct {
-	BaseUrl        *string `json:"base_url,omitempty"`
-	CredentialName string  `json:"credential_name"`
-	Description    *string `json:"description,omitempty"`
-	Location       *string `json:"location,omitempty"`
-	ProjectId      *string `json:"project_id,omitempty"`
+	BaseUrl      *string `json:"base_url,omitempty"`
+	CredentialId string  `json:"credential_id"`
+	Description  *string `json:"description,omitempty"`
+	Location     *string `json:"location,omitempty"`
+	ProjectId    *string `json:"project_id,omitempty"`
 }
 
 // GeminiTenantVoiceProviderData defines model for GeminiTenantVoiceProviderData.
@@ -4707,7 +4712,9 @@ type Mem0MemoryLayoutPolicy struct {
 
 // MemoryLayout defines model for MemoryLayout.
 type MemoryLayout struct {
-	// Name Stable MemoryLayout resource ID.
+	Id string `json:"id"`
+
+	// Name Immutable MemoryLayout resource name.
 	Name string           `json:"name"`
 	Spec MemoryLayoutSpec `json:"spec"`
 }
@@ -4742,15 +4749,16 @@ type MiniMaxCredentialBody struct {
 
 // MiniMaxTenant defines model for MiniMaxTenant.
 type MiniMaxTenant struct {
-	AppId          *string    `json:"app_id,omitempty"`
-	BaseUrl        *string    `json:"base_url,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	CredentialName string     `json:"credential_name"`
-	Description    *string    `json:"description,omitempty"`
-	GroupId        *string    `json:"group_id,omitempty"`
-	LastSyncedAt   *time.Time `json:"last_synced_at,omitempty"`
-	Name           string     `json:"name"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	AppId        *string    `json:"app_id,omitempty"`
+	BaseUrl      *string    `json:"base_url,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	CredentialId string     `json:"credential_id"`
+	Description  *string    `json:"description,omitempty"`
+	GroupId      *string    `json:"group_id,omitempty"`
+	Id           string     `json:"id"`
+	LastSyncedAt *time.Time `json:"last_synced_at,omitempty"`
+	Name         string     `json:"name"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 // MiniMaxTenantModelProviderData defines model for MiniMaxTenantModelProviderData.
@@ -4786,11 +4794,11 @@ type MiniMaxTenantResourceKind string
 
 // MiniMaxTenantSpec defines model for MiniMaxTenantSpec.
 type MiniMaxTenantSpec struct {
-	AppId          *string `json:"app_id,omitempty"`
-	BaseUrl        *string `json:"base_url,omitempty"`
-	CredentialName string  `json:"credential_name"`
-	Description    *string `json:"description,omitempty"`
-	GroupId        *string `json:"group_id,omitempty"`
+	AppId        *string `json:"app_id,omitempty"`
+	BaseUrl      *string `json:"base_url,omitempty"`
+	CredentialId string  `json:"credential_id"`
+	Description  *string `json:"description,omitempty"`
+	GroupId      *string `json:"group_id,omitempty"`
 }
 
 // MiniMaxTenantVoiceProviderData defines model for MiniMaxTenantVoiceProviderData.
@@ -4807,11 +4815,12 @@ type MiniMaxTenantVoiceProviderData struct {
 type Model struct {
 	CreatedAt   time.Time `json:"created_at"`
 	Description *string   `json:"description,omitempty"`
+	DisplayName *string   `json:"display_name,omitempty"`
 	Id          string    `json:"id"`
 
 	// Kind Runtime role of a model.
 	Kind     ModelKind     `json:"kind"`
-	Name     *string       `json:"name,omitempty"`
+	Name     string        `json:"name"`
 	Provider ModelProvider `json:"provider"`
 
 	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
@@ -4828,9 +4837,10 @@ type ModelKind string
 
 // ModelProvider defines model for ModelProvider.
 type ModelProvider struct {
+	Id string `json:"id"`
+
 	// Kind Provider resource kind usable by model runtime.
 	Kind ModelProviderKind `json:"kind"`
-	Name string            `json:"name"`
 }
 
 // ModelProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
@@ -4859,10 +4869,10 @@ type ModelSource string
 // ModelSpec defines model for ModelSpec.
 type ModelSpec struct {
 	Description *string `json:"description,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
 
 	// Kind Runtime role of a model.
 	Kind     ModelKind     `json:"kind"`
-	Name     *string       `json:"name,omitempty"`
 	Provider ModelProvider `json:"provider"`
 
 	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
@@ -4884,11 +4894,12 @@ type OpenAICredentialBody struct {
 // OpenAITenant defines model for OpenAITenant.
 type OpenAITenant struct {
 	// ApiMode OpenAI API mode used by this tenant.
-	ApiMode        OpenAITenantAPIMode `json:"api_mode"`
-	BaseUrl        *string             `json:"base_url,omitempty"`
-	CreatedAt      time.Time           `json:"created_at"`
-	CredentialName string              `json:"credential_name"`
-	Description    *string             `json:"description,omitempty"`
+	ApiMode      OpenAITenantAPIMode `json:"api_mode"`
+	BaseUrl      *string             `json:"base_url,omitempty"`
+	CreatedAt    time.Time           `json:"created_at"`
+	CredentialId string              `json:"credential_id"`
+	Description  *string             `json:"description,omitempty"`
+	Id           string              `json:"id"`
 
 	// Kind OpenAI-compatible endpoint kind.
 	Kind      OpenAITenantKind `json:"kind"`
@@ -4932,10 +4943,10 @@ type OpenAITenantResourceKind string
 // OpenAITenantSpec defines model for OpenAITenantSpec.
 type OpenAITenantSpec struct {
 	// ApiMode OpenAI API mode used by this tenant.
-	ApiMode        *OpenAITenantAPIMode `json:"api_mode,omitempty"`
-	BaseUrl        *string              `json:"base_url,omitempty"`
-	CredentialName string               `json:"credential_name"`
-	Description    *string              `json:"description,omitempty"`
+	ApiMode      *OpenAITenantAPIMode `json:"api_mode,omitempty"`
+	BaseUrl      *string              `json:"base_url,omitempty"`
+	CredentialId string               `json:"credential_id"`
+	Description  *string              `json:"description,omitempty"`
 
 	// Kind OpenAI-compatible endpoint kind.
 	Kind *OpenAITenantKind `json:"kind,omitempty"`
@@ -5193,26 +5204,27 @@ type PeerTelemetryValue struct {
 
 // Pet defines model for Pet.
 type Pet struct {
-	CreatedAt          time.Time      `json:"created_at"`
-	DiedAt             *time.Time     `json:"died_at,omitempty"`
-	DisplayName        string         `json:"display_name"`
-	Id                 string         `json:"id"`
-	LastActiveAt       time.Time      `json:"last_active_at"`
-	Lifecycle          PetLifecycle   `json:"lifecycle"`
-	OwnerPublicKey     string         `json:"owner_public_key"`
-	PetdefId           string         `json:"petdef_id"`
-	Progression        PetProgression `json:"progression"`
-	RuntimeProfileName string         `json:"runtime_profile_name"`
-	StateSettledAt     time.Time      `json:"state_settled_at"`
-	Stats              PetStats       `json:"stats"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-	WorkspaceName      string         `json:"workspace_name"`
+	CreatedAt        time.Time      `json:"created_at"`
+	DiedAt           *time.Time     `json:"died_at,omitempty"`
+	DisplayName      string         `json:"display_name"`
+	Id               string         `json:"id"`
+	LastActiveAt     time.Time      `json:"last_active_at"`
+	Lifecycle        PetLifecycle   `json:"lifecycle"`
+	Name             string         `json:"name"`
+	OwnerPublicKey   string         `json:"owner_public_key"`
+	PetDefId         string         `json:"pet_def_id"`
+	Progression      PetProgression `json:"progression"`
+	RuntimeProfileId string         `json:"runtime_profile_id"`
+	StateSettledAt   time.Time      `json:"state_settled_at"`
+	Stats            PetStats       `json:"stats"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	WorkspaceId      string         `json:"workspace_id"`
 }
 
 // PetAdoptRequest defines model for PetAdoptRequest.
 type PetAdoptRequest struct {
-	DisplayName string  `json:"display_name"`
-	Id          *string `json:"id,omitempty"`
+	DisplayName string `json:"display_name"`
+	Name        string `json:"name"`
 }
 
 // PetAdoptResponse defines model for PetAdoptResponse.
@@ -5229,6 +5241,7 @@ type PetBehavior string
 type PetDef struct {
 	CreatedAt time.Time  `json:"created_at"`
 	Id        string     `json:"id"`
+	Name      string     `json:"name"`
 	PixaPath  *string    `json:"pixa_path,omitempty"`
 	Spec      PetDefSpec `json:"spec"`
 	UpdatedAt time.Time  `json:"updated_at"`
@@ -5424,27 +5437,27 @@ type PetWorkflowVariantDriver string
 
 // PointsAccount defines model for PointsAccount.
 type PointsAccount struct {
-	Balance            int64     `json:"balance"`
-	CreatedAt          time.Time `json:"created_at"`
-	OwnerPublicKey     string    `json:"owner_public_key"`
-	RuntimeProfileName string    `json:"runtime_profile_name"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	Balance          int64     `json:"balance"`
+	CreatedAt        time.Time `json:"created_at"`
+	OwnerPublicKey   string    `json:"owner_public_key"`
+	RuntimeProfileId string    `json:"runtime_profile_id"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // PointsTransaction defines model for PointsTransaction.
 type PointsTransaction struct {
-	BalanceAfter       int64     `json:"balance_after"`
-	CreatedAt          time.Time `json:"created_at"`
-	Delta              int64     `json:"delta"`
-	GameResultId       *string   `json:"game_result_id,omitempty"`
-	Id                 string    `json:"id"`
-	OwnerPublicKey     string    `json:"owner_public_key"`
-	PetId              *string   `json:"pet_id,omitempty"`
-	Reason             string    `json:"reason"`
-	RewardGrantId      *string   `json:"reward_grant_id,omitempty"`
-	RuntimeProfileName string    `json:"runtime_profile_name"`
-	SourceId           string    `json:"source_id"`
-	SourceType         string    `json:"source_type"`
+	BalanceAfter     int64     `json:"balance_after"`
+	CreatedAt        time.Time `json:"created_at"`
+	Delta            int64     `json:"delta"`
+	GameResultId     *string   `json:"game_result_id,omitempty"`
+	Id               string    `json:"id"`
+	OwnerPublicKey   string    `json:"owner_public_key"`
+	PetId            *string   `json:"pet_id,omitempty"`
+	Reason           string    `json:"reason"`
+	RewardGrantId    *string   `json:"reward_grant_id,omitempty"`
+	RuntimeProfileId string    `json:"runtime_profile_id"`
+	SourceId         string    `json:"source_id"`
+	SourceType       string    `json:"source_type"`
 }
 
 // PointsTransactionListResponse defines model for PointsTransactionListResponse.
@@ -5474,11 +5487,12 @@ type RegistrationToken struct {
 	CreatedAt time.Time `json:"created_at"`
 
 	// FirmwareId Optional Server-assigned Firmware release-line ID. The device selects its own channel.
-	FirmwareId         *string   `json:"firmware_id,omitempty"`
-	Name               string    `json:"name"`
-	RuntimeProfileName string    `json:"runtime_profile_name"`
-	Token              string    `json:"token"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	FirmwareId       *string   `json:"firmware_id,omitempty"`
+	Id               string    `json:"id"`
+	Name             string    `json:"name"`
+	RuntimeProfileId string    `json:"runtime_profile_id"`
+	Token            string    `json:"token"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // RegistrationTokenResource defines model for RegistrationTokenResource.
@@ -5489,9 +5503,9 @@ type RegistrationTokenResource struct {
 	Metadata   ResourceMetadata              `json:"metadata"`
 	Spec       struct {
 		// FirmwareId Optional Server-assigned Firmware release-line ID. The device selects its own channel.
-		FirmwareId         *string `json:"firmware_id,omitempty"`
-		RuntimeProfileName string  `json:"runtime_profile_name"`
-		Token              string  `json:"token"`
+		FirmwareId       *string `json:"firmware_id,omitempty"`
+		RuntimeProfileId string  `json:"runtime_profile_id"`
+		Token            string  `json:"token"`
 	} `json:"spec"`
 }
 
@@ -5532,9 +5546,12 @@ type ResourceListSpec struct {
 // ResourceMetadata defines model for ResourceMetadata.
 type ResourceMetadata struct {
 	Annotations *map[string]string `json:"annotations,omitempty"`
-	Labels      *map[string]string `json:"labels,omitempty"`
 
-	// Name Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-].
+	// Id Immutable opaque canonical ID allocated by the Server. Omit on create; include the returned ID for update.
+	Id     *string            `json:"id,omitempty"`
+	Labels *map[string]string `json:"labels,omitempty"`
+
+	// Name Immutable resource name. Kind-specific rules apply. Names use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-].
 	Name string `json:"name"`
 
 	// OwnerPublicKey Immutable owner Public Key for Client-created resources. Admin-owned resources omit this field.
@@ -5672,18 +5689,18 @@ type ReusableWorkflowSpecObject struct {
 
 // RewardGrant defines model for RewardGrant.
 type RewardGrant struct {
-	BadgeExpDelta      map[string]int64 `json:"badge_exp_delta"`
-	CreatedAt          time.Time        `json:"created_at"`
-	GameResultId       *string          `json:"game_result_id,omitempty"`
-	Id                 string           `json:"id"`
-	OwnerPublicKey     string           `json:"owner_public_key"`
-	PetExpDelta        int64            `json:"pet_exp_delta"`
-	PetId              *string          `json:"pet_id,omitempty"`
-	PointsDelta        int64            `json:"points_delta"`
-	Reason             *string          `json:"reason,omitempty"`
-	RuntimeProfileName string           `json:"runtime_profile_name"`
-	SourceId           string           `json:"source_id"`
-	SourceType         string           `json:"source_type"`
+	BadgeExpDelta    map[string]int64 `json:"badge_exp_delta"`
+	CreatedAt        time.Time        `json:"created_at"`
+	GameResultId     *string          `json:"game_result_id,omitempty"`
+	Id               string           `json:"id"`
+	OwnerPublicKey   string           `json:"owner_public_key"`
+	PetExpDelta      int64            `json:"pet_exp_delta"`
+	PetId            *string          `json:"pet_id,omitempty"`
+	PointsDelta      int64            `json:"points_delta"`
+	Reason           *string          `json:"reason,omitempty"`
+	RuntimeProfileId string           `json:"runtime_profile_id"`
+	SourceId         string           `json:"source_id"`
+	SourceType       string           `json:"source_type"`
 }
 
 // RewardGrantListResponse defines model for RewardGrantListResponse.
@@ -5705,6 +5722,7 @@ type Runtime struct {
 // RuntimeProfile defines model for RuntimeProfile.
 type RuntimeProfile struct {
 	CreatedAt time.Time `json:"created_at"`
+	Id        string    `json:"id"`
 	Name      string    `json:"name"`
 
 	// Revision Deterministic opaque revision of the normalized RuntimeProfile spec.
@@ -6081,6 +6099,7 @@ type Tool struct {
 	CreatedAt   time.Time `json:"created_at"`
 	Description *string   `json:"description,omitempty"`
 	Enabled     bool      `json:"enabled"`
+	Id          string    `json:"id"`
 
 	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
 	InputSchema ToolJSONSchema          `json:"input_schema"`
@@ -6250,8 +6269,9 @@ type ToolkitPolicy struct {
 type Voice struct {
 	CreatedAt   time.Time     `json:"created_at"`
 	Description *string       `json:"description,omitempty"`
+	DisplayName *string       `json:"display_name,omitempty"`
 	Id          string        `json:"id"`
-	Name        *string       `json:"name,omitempty"`
+	Name        string        `json:"name"`
 	Provider    VoiceProvider `json:"provider"`
 
 	// ProviderData Provider-specific voice runtime configuration. The shape is selected by Voice.provider.kind.
@@ -6265,9 +6285,10 @@ type Voice struct {
 
 // VoiceProvider defines model for VoiceProvider.
 type VoiceProvider struct {
+	Id string `json:"id"`
+
 	// Kind Provider resource kind usable by voice runtime.
 	Kind VoiceProviderKind `json:"kind"`
-	Name string            `json:"name"`
 }
 
 // VoiceProviderData Provider-specific voice runtime configuration. The shape is selected by Voice.provider.kind.
@@ -6296,7 +6317,7 @@ type VoiceSource string
 // VoiceSpec defines model for VoiceSpec.
 type VoiceSpec struct {
 	Description *string       `json:"description,omitempty"`
-	Name        *string       `json:"name,omitempty"`
+	DisplayName *string       `json:"display_name,omitempty"`
 	Provider    VoiceProvider `json:"provider"`
 
 	// ProviderData Provider-specific voice runtime configuration. The shape is selected by Voice.provider.kind.
@@ -6334,15 +6355,16 @@ type VolcMem0StrategyType string
 
 // VolcTenant defines model for VolcTenant.
 type VolcTenant struct {
-	CreatedAt      time.Time  `json:"created_at"`
-	CredentialName string     `json:"credential_name"`
-	Description    *string    `json:"description,omitempty"`
-	Endpoint       *string    `json:"endpoint,omitempty"`
-	LastSyncedAt   *time.Time `json:"last_synced_at,omitempty"`
-	Name           string     `json:"name"`
-	Region         *string    `json:"region,omitempty"`
-	ResourceIds    *[]string  `json:"resource_ids,omitempty"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	CreatedAt    time.Time  `json:"created_at"`
+	CredentialId string     `json:"credential_id"`
+	Description  *string    `json:"description,omitempty"`
+	Endpoint     *string    `json:"endpoint,omitempty"`
+	Id           string     `json:"id"`
+	LastSyncedAt *time.Time `json:"last_synced_at,omitempty"`
+	Name         string     `json:"name"`
+	Region       *string    `json:"region,omitempty"`
+	ResourceIds  *[]string  `json:"resource_ids,omitempty"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 // VolcTenantModelProviderData defines model for VolcTenantModelProviderData.
@@ -6379,11 +6401,11 @@ type VolcTenantResourceKind string
 
 // VolcTenantSpec defines model for VolcTenantSpec.
 type VolcTenantSpec struct {
-	CredentialName string    `json:"credential_name"`
-	Description    *string   `json:"description,omitempty"`
-	Endpoint       *string   `json:"endpoint,omitempty"`
-	Region         *string   `json:"region,omitempty"`
-	ResourceIds    *[]string `json:"resource_ids,omitempty"`
+	CredentialId string    `json:"credential_id"`
+	Description  *string   `json:"description,omitempty"`
+	Endpoint     *string   `json:"endpoint,omitempty"`
+	Region       *string   `json:"region,omitempty"`
+	ResourceIds  *[]string `json:"resource_ids,omitempty"`
 }
 
 // VolcTenantVoiceProviderData defines model for VolcTenantVoiceProviderData.
@@ -6397,7 +6419,10 @@ type VolcTenantVoiceProviderData struct {
 
 // Workflow defines model for Workflow.
 type Workflow struct {
-	// Name Stable workflow ID used by storage, paths, RuntimeProfiles, and workspace references.
+	// Id Immutable opaque canonical ID allocated by the Server.
+	Id string `json:"id"`
+
+	// Name Immutable workflow name used by Peer RPC projections.
 	Name string `json:"name"`
 
 	// Spec Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
@@ -6452,6 +6477,7 @@ type WorkflowSpecObject struct {
 type Workspace struct {
 	CreatedAt time.Time `json:"created_at"`
 	Icon      *Icon     `json:"icon,omitempty"`
+	Id        string    `json:"id"`
 
 	// Labels Stored Workspace labels used by Admin and internal exact-match filtering. Peer RPC does not project this map.
 	Labels *map[string]string `json:"labels,omitempty"`
@@ -6470,9 +6496,9 @@ type Workspace struct {
 	System *bool `json:"system,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
-	Toolkit      *ToolkitPolicy `json:"toolkit,omitempty"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	WorkflowName string         `json:"workflow_name"`
+	Toolkit    *ToolkitPolicy `json:"toolkit,omitempty"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+	WorkflowId string         `json:"workflow_id"`
 }
 
 // WorkspaceInputMode defines model for WorkspaceInputMode.
@@ -6490,7 +6516,7 @@ type WorkspaceResource struct {
 	Icon       *Icon                 `json:"icon,omitempty"`
 	Kind       WorkspaceResourceKind `json:"kind"`
 
-	// Metadata metadata.name is the workspace custom ID. spec.workflow_name is the referenced workflow custom ID.
+	// Metadata metadata.id is the canonical Workspace ID when updating, metadata.name is the immutable Workspace name, and spec.workflow_id is the canonical Workflow ID.
 	Metadata ResourceMetadata `json:"metadata"`
 	Spec     WorkspaceSpec    `json:"spec"`
 }
@@ -6506,8 +6532,8 @@ type WorkspaceSpec struct {
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 
-	// WorkflowName Referenced workflow custom ID.
-	WorkflowName string `json:"workflow_name"`
+	// WorkflowId Referenced Workflow canonical ID.
+	WorkflowId string `json:"workflow_id"`
 }
 
 // AsASTTranslateInternalSpeakerParameters returns the union data inside the ASTTranslateVoiceParameters as a ASTTranslateInternalSpeakerParameters

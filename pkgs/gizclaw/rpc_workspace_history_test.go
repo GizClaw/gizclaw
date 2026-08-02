@@ -104,10 +104,10 @@ func TestRPCServerFriendGroupMessageAudioGetStreamsBinary(t *testing.T) {
 	payload := []byte("group-opus-payload")
 	service := &fakeFriendGroupMessageAudioService{
 		metadata: rpcapi.FriendGroupMessageAudioGetResponse{
-			FriendGroupId: "group-a",
-			HistoryId:     "history-1",
-			MimeType:      "audio/opus",
-			SizeBytes:     int64(len(payload)),
+			FriendGroupName: "group-a",
+			HistoryId:       "history-1",
+			MimeType:        "audio/opus",
+			SizeBytes:       int64(len(payload)),
 		},
 		payload: payload,
 	}
@@ -123,8 +123,8 @@ func TestRPCServerFriendGroupMessageAudioGetStreamsBinary(t *testing.T) {
 	defer stream.Close()
 
 	params, err := newRPCRequestParams(rpcapi.FriendGroupMessageAudioGetRequest{
-		FriendGroupId: "group-a",
-		HistoryId:     "history-1",
+		FriendGroupName: "group-a",
+		HistoryId:       "history-1",
 	}, (*rpcapi.RPCPayload).FromFriendGroupMessageAudioGetRequest)
 	if err != nil {
 		t.Fatalf("newRPCRequestParams() error = %v", err)
@@ -176,7 +176,7 @@ func TestRPCServerFriendGroupMessageAudioGetStreamsBinary(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("server did not finish")
 	}
-	if service.request.FriendGroupId != "group-a" || service.request.HistoryId != "history-1" {
+	if service.request.FriendGroupName != "group-a" || service.request.HistoryId != "history-1" {
 		t.Fatalf("request = %+v", service.request)
 	}
 }

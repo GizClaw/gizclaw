@@ -20,6 +20,7 @@ func WithRuntimeProfile(ctx context.Context, profile apitypes.RuntimeProfile) co
 }
 
 type ProfileRules struct {
+	ID   string
 	Name string
 	Spec ProfileRulesSpec
 }
@@ -87,6 +88,7 @@ func profileRulesFromContext(ctx context.Context, requestedName string) (Profile
 		games[gameDefID] = ProfileGameRule{GameDefID: gameDefID, Policy: policy}
 	}
 	return ProfileRules{
+		ID:   profile.Id,
 		Name: profile.Name,
 		Spec: ProfileRulesSpec{
 			Actions: map[apitypes.PetBehavior]apitypes.RuntimeProfilePetActionSpec{
@@ -111,16 +113,16 @@ func pointsRulesFromContext(ctx context.Context, requestedName string) (ProfileR
 	if err != nil {
 		return ProfileRules{}, err
 	}
-	return ProfileRules{Name: profile.Name, Spec: ProfileRulesSpec{Points: gameplay.Points}}, nil
+	return ProfileRules{ID: profile.Id, Name: profile.Name, Spec: ProfileRulesSpec{Points: gameplay.Points}}, nil
 }
 
 func gameplayProfileFromContext(ctx context.Context, requestedName string) (apitypes.RuntimeProfile, *apitypes.RuntimeProfileGameplaySpec, error) {
 	profile, ok := runtimeProfileFromContext(ctx)
-	if !ok || strings.TrimSpace(profile.Name) == "" {
+	if !ok || strings.TrimSpace(profile.Id) == "" || strings.TrimSpace(profile.Name) == "" {
 		return apitypes.RuntimeProfile{}, nil, errors.New("gameplay: RuntimeProfile is required")
 	}
 	requestedName = strings.TrimSpace(requestedName)
-	if requestedName != "" && requestedName != profile.Name {
+	if requestedName != "" && requestedName != profile.Id {
 		return apitypes.RuntimeProfile{}, nil, errors.New("gameplay: resource belongs to a different RuntimeProfile")
 	}
 	if profile.Spec.Gameplay == nil {

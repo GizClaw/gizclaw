@@ -75,8 +75,8 @@ WorkflowCard appWorkflowCard(Workflow workflow, Locale locale) {
   final subtitle = text?.description.trim();
   final driver = _workflowDriver(workflow.driver);
   return WorkflowCard(
-    name: workflow.alias,
-    title: title == null || title.isEmpty ? workflow.alias : title,
+    name: workflow.name,
+    title: title == null || title.isEmpty ? workflow.name : title,
     subtitle: subtitle ?? '',
     driverLabel: driver.label,
     collection: workflow.collection,
@@ -89,8 +89,8 @@ WorkflowCard appWorkflowCard(Workflow workflow, Locale locale) {
   );
 }
 
-AliasI18nText? _localizedAliasText(
-  Map<String, AliasI18nText> translations,
+ResourceI18nText? _localizedAliasText(
+  Map<String, ResourceI18nText> translations,
   Locale locale,
 ) {
   final country = locale.countryCode?.trim();

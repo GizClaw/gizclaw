@@ -13,9 +13,14 @@ import (
 
 func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing.T) {
 	ctx := context.Background()
-	profiles := &runtimeprofile.Server{Store: kv.NewMemory(nil)}
+	ids := []string{"profile-a", "profile-b", "device-a"}
+	profiles := &runtimeprofile.Server{Store: kv.NewMemory(nil), NewID: func() string {
+		id := ids[0]
+		ids = ids[1:]
+		return id
+	}}
 	manager := New(Services{
-		Firmwares:       &firmware.Server{Store: kv.NewMemory(nil)},
+		Firmwares:       &firmware.Server{Store: kv.NewMemory(nil), NewID: func() string { return "h106" }},
 		RuntimeProfiles: profiles,
 	})
 	if _, err := manager.Apply(ctx, mustResource(t, `{
@@ -68,7 +73,7 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 			"apiVersion":"gizclaw.admin/v1alpha1",
 			"kind":"RegistrationToken",
 			"metadata":{"name":"device-a"},
-			"spec":{"token":"device-token","runtime_profile_name":"profile-a","firmware_id":"h106"}
+			"spec":{"token":"device-token","runtime_profile_id":"profile-a","firmware_id":"h106"}
 		}]}
 	}`))
 	if err != nil {
@@ -106,7 +111,7 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 	}
 
 	shownResource.Spec.Token = "replacement-token"
-	shownResource.Spec.RuntimeProfileName = "profile-b"
+	shownResource.Spec.RuntimeProfileId = "profile-b"
 	shownResource.Spec.FirmwareId = nil
 	changed, err := marshalResource(shownResource)
 	if err != nil {
@@ -127,7 +132,7 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 	if err != nil {
 		t.Fatalf("updated AsRegistrationTokenResource() error = %v", err)
 	}
-	if readBackResource.Spec.Token != "replacement-token" || readBackResource.Spec.RuntimeProfileName != "profile-b" || readBackResource.Spec.FirmwareId != nil {
+	if readBackResource.Spec.Token != "replacement-token" || readBackResource.Spec.RuntimeProfileId != "profile-b" || readBackResource.Spec.FirmwareId != nil {
 		t.Fatalf("updated RegistrationToken = %#v", readBackResource)
 	}
 	if _, err := profiles.ResolveRegistration(ctx, "device-token"); !errors.Is(err, kv.ErrNotFound) {
@@ -146,8 +151,8 @@ func TestPutRegistrationTokenRequiresRuntimeProfileService(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
 		"kind":"RegistrationToken",
-		"metadata":{"name":"device-a"},
-		"spec":{"token":"device-token","runtime_profile_name":"profile-a"}
+		"metadata":{"id":"device-a","name":"device-a"},
+		"spec":{"token":"device-token","runtime_profile_id":"profile-a"}
 	}`)
 	if _, err := New(Services{}).Put(context.Background(), resource); !isResourceError(err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED") {
 		t.Fatalf("Put(RegistrationToken) error = %v, want missing service", err)

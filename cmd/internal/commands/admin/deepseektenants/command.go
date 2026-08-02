@@ -54,7 +54,7 @@ func newWriteCmd(ctxName *string, update bool) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			request := adminhttp.DeepSeekTenantUpsert{Name: name, CredentialName: strings.TrimSpace(credentialName)}
+			request := adminhttp.DeepSeekTenantUpsert{Name: name, CredentialId: strings.TrimSpace(credentialName)}
 			if value := strings.TrimSpace(baseURL); value != "" {
 				request.BaseUrl = &value
 			}

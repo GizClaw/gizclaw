@@ -32,7 +32,7 @@
                 "$ref": "./resource.json#/components/schemas/ResourceMetadata"
               }
             ],
-            "description": "metadata.name must be owner_public_key:id; only id is a custom ID."
+            "description": "metadata.name is the immutable Peer-visible contact name; metadata.id is omitted on create and required on update."
           },
           "spec": {
             "$ref": "#/components/schemas/ContactSpec"
@@ -42,21 +42,13 @@
       "ContactSpec": {
         "type": "object",
         "required": [
-          "owner_public_key",
-          "id"
+          "owner_public_key"
         ],
         "properties": {
           "owner_public_key": {
             "type": "string",
             "minLength": 1,
-            "description": "Owner peer public key. metadata.name must be owner_public_key:id."
-          },
-          "id": {
-            "type": "string",
-            "minLength": 8,
-            "maxLength": 48,
-            "pattern": "^[a-z][a-z0-9._-]{6,46}[a-z0-9]$",
-            "description": "Owner-scoped contact custom ID. metadata.name must be owner_public_key:id."
+            "description": "Immutable owner peer public key."
           },
           "display_name": {
             "type": "string"

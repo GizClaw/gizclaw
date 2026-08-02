@@ -57,7 +57,7 @@ void main() {
     expect((await groupsFuture).items.single.workspaceName, 'social-group-a');
 
     final createGroupFuture = client.createFriendGroup(
-      name: 'Studio',
+      name: 'studio',
       description: 'Daily voice room',
     );
     final createGroupRequest = await _request(factory, 2);
@@ -67,7 +67,7 @@ void main() {
               createGroupRequest.payload,
             )
             as payload.FriendGroupCreateRequest;
-    expect(createGroupPayload.name, 'Studio');
+    expect(createGroupPayload.name, 'studio');
     expect(createGroupPayload.description, 'Daily voice room');
     _respond(
       factory.channels[2],
@@ -75,8 +75,7 @@ void main() {
       'server.friend_group.create',
       payload.FriendGroupCreateResponse(
         value: payload.FriendGroupObject(
-          id: 'studio',
-          name: 'Studio',
+          name: 'studio',
           workspaceName: 'social-group-studio',
         ),
       ),
@@ -177,7 +176,7 @@ void main() {
               getRequest.payload,
             )
             as payload.FriendGroupInviteTokenGetRequest;
-    expect(getPayload.friendGroupId, 'group-a');
+    expect(getPayload.friendGroupName, 'group-a');
     _respond(
       factory.channels[0],
       getRequest.id,
@@ -194,7 +193,7 @@ void main() {
               createRequest.payload,
             )
             as payload.FriendGroupInviteTokenCreateRequest;
-    expect(createPayload.friendGroupId, 'group-a');
+    expect(createPayload.friendGroupName, 'group-a');
     _respond(
       factory.channels[1],
       createRequest.id,
@@ -218,11 +217,11 @@ void main() {
       'server.friend_group.join',
       payload.FriendGroupJoinResponse(
         group: payload.FriendGroupObject(
-          id: 'group-a',
+          name: 'group-a',
           workspaceName: 'social-group-a',
         ),
         member: payload.FriendGroupMemberObject(
-          friendGroupId: 'group-a',
+          friendGroupName: 'group-a',
           peerPublicKey: 'peer-b',
         ),
       ),
@@ -237,7 +236,7 @@ void main() {
               clearRequest.payload,
             )
             as payload.FriendGroupInviteTokenClearRequest;
-    expect(clearPayload.friendGroupId, 'group-a');
+    expect(clearPayload.friendGroupName, 'group-a');
     _respond(
       factory.channels[3],
       clearRequest.id,
@@ -263,7 +262,7 @@ void main() {
               listRequest.payload,
             )
             as payload.FriendGroupMemberListRequest;
-    expect(listPayload.friendGroupId, 'group-a');
+    expect(listPayload.friendGroupName, 'group-a');
     expect(listPayload.cursor, 'member-cursor');
     expect(listPayload.limit.toInt(), 20);
     _respond(
@@ -273,7 +272,7 @@ void main() {
       payload.FriendGroupMemberListResponse(
         items: [
           payload.FriendGroupMemberObject(
-            friendGroupId: 'group-a',
+            friendGroupName: 'group-a',
             id: 'peer-b',
             peerPublicKey: 'peer-b',
           ),
@@ -293,7 +292,7 @@ void main() {
               removeMemberRequest.payload,
             )
             as payload.FriendGroupMemberDeleteRequest;
-    expect(removeMemberPayload.friendGroupId, 'group-a');
+    expect(removeMemberPayload.friendGroupName, 'group-a');
     expect(removeMemberPayload.id, 'peer-b');
     _respond(
       factory.channels[1],
@@ -301,7 +300,7 @@ void main() {
       'server.friend_group.members.delete',
       payload.FriendGroupMemberDeleteResponse(
         value: payload.FriendGroupMemberObject(
-          friendGroupId: 'group-a',
+          friendGroupName: 'group-a',
           id: 'peer-b',
         ),
       ),
@@ -316,16 +315,16 @@ void main() {
               deleteGroupRequest.payload,
             )
             as payload.FriendGroupDeleteRequest;
-    expect(deleteGroupPayload.id, 'group-a');
+    expect(deleteGroupPayload.name, 'group-a');
     _respond(
       factory.channels[2],
       deleteGroupRequest.id,
       'server.friend_group.delete',
       payload.FriendGroupDeleteResponse(
-        value: payload.FriendGroupObject(id: 'group-a'),
+        value: payload.FriendGroupObject(name: 'group-a'),
       ),
     );
-    expect((await deleteGroupFuture).value.id, 'group-a');
+    expect((await deleteGroupFuture).value.name, 'group-a');
   });
 }
 

@@ -11,12 +11,16 @@
       "Firmware": {
         "type": "object",
         "required": [
+          "id",
           "name",
           "slots",
           "created_at",
           "updated_at"
         ],
         "properties": {
+          "id": {
+            "type": "string"
+          },
           "name": {
             "type": "string",
             "example": "devkit"

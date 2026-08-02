@@ -65,7 +65,7 @@ type workspaceRewardTestEnvironment struct {
 	notifications []WorkspaceRewardUpdate
 }
 
-func (e *workspaceRewardTestEnvironment) ListWorkspaceNames(context.Context) ([]string, error) {
+func (e *workspaceRewardTestEnvironment) ListWorkspaceIDs(context.Context) ([]string, error) {
 	names := make([]string, 0, len(e.entries))
 	for name := range e.entries {
 		names = append(names, name)
@@ -205,9 +205,10 @@ func TestSnapshotWorkspaceRewardPolicyResolvesFrozenResources(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 29, 1, 30, 0, 0, time.UTC)
 	catalog := testCatalog(t, now)
+	catalog.NewID = func() string { return "badge-science" }
 	rewardPrompt := "Reward evidence of scientific reasoning."
 	response, err := catalog.CreateBadgeDef(ctx, adminhttp.CreateBadgeDefRequestObject{
-		Body: &adminhttp.BadgeDefUpsert{Id: "badge-science", Spec: apitypes.BadgeDefSpec{
+		Body: &adminhttp.BadgeDefUpsert{Name: "badge-science", Spec: apitypes.BadgeDefSpec{
 			DisplayName: " Science ", RewardPrompt: &rewardPrompt,
 		}},
 	})
@@ -229,6 +230,7 @@ func TestSnapshotWorkspaceRewardPolicyResolvesFrozenResources(t *testing.T) {
 	}
 	initialBalance := int64(7)
 	profile := apitypes.RuntimeProfile{
+		Id:   "runtime-profile-a",
 		Name: "profile-a", Revision: "revision-a",
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{
@@ -342,9 +344,10 @@ func TestWorkspaceRewardWindowSettlesOnceAndEnforcesRollingBudget(t *testing.T) 
 		policy:  &policy, generator: generator,
 	}
 	catalog := testCatalog(t, now)
+	catalog.NewID = func() string { return "badge-science" }
 	rewardPrompt := "Award sound scientific reasoning."
 	response, err := catalog.CreateBadgeDef(ctx, adminhttp.CreateBadgeDefRequestObject{
-		Body: &adminhttp.BadgeDefUpsert{Id: "badge-science", Spec: apitypes.BadgeDefSpec{
+		Body: &adminhttp.BadgeDefUpsert{Name: "badge-science", Spec: apitypes.BadgeDefSpec{
 			DisplayName: "Science", RewardPrompt: &rewardPrompt,
 		}},
 	})
@@ -383,11 +386,11 @@ func TestWorkspaceRewardWindowSettlesOnceAndEnforcesRollingBudget(t *testing.T) 
 	}
 	initialBalance := int64(0)
 	account, err := runtime.GetPoints(WithRuntimeProfile(ctx, apitypes.RuntimeProfile{
-		Name: "profile-a",
+		Id: "runtime-profile-a", Name: "profile-a",
 		Spec: apitypes.RuntimeProfileSpec{Gameplay: &apitypes.RuntimeProfileGameplaySpec{
 			Points: &apitypes.RuntimeProfilePointsSpec{InitialBalance: &initialBalance},
 		}},
-	}), "peer-a", "profile-a")
+	}), "peer-a", "runtime-profile-a")
 	if err != nil {
 		t.Fatalf("GetPoints() error = %v", err)
 	}
@@ -542,12 +545,12 @@ func TestWorkspaceRewardMigrationReplacesBlockedActiveIndex(t *testing.T) {
 		t.Fatalf("drop v2 active index: %v", err)
 	}
 	if _, err := runtime.DB.ExecContext(ctx, `CREATE UNIQUE INDEX gameplay_workspace_reward_windows_active_idx
-		ON gameplay_workspace_reward_windows(workspace_name)
+		ON gameplay_workspace_reward_windows(workspace_id)
 		WHERE state IN ('pending', 'claimed', 'retry', 'blocked')`); err != nil {
 		t.Fatalf("create legacy active index: %v", err)
 	}
 	source := workspaceRewardSource{
-		WorkspaceName: "workflow-a", ScheduledCheckpoint: "001",
+		WorkspaceID: "workflow-a", ScheduledCheckpoint: "001",
 		CreatedAt: now, UpdatedAt: now,
 	}
 	if err := runtime.insertWorkspaceRewardSource(ctx, source); err != nil {
@@ -555,9 +558,9 @@ func TestWorkspaceRewardMigrationReplacesBlockedActiveIndex(t *testing.T) {
 	}
 	policy := workspaceRewardTestPolicy(t)
 	window := workspaceRewardWindow{
-		ID: "window-blocked", WorkspaceName: source.WorkspaceName,
+		ID: "window-blocked", WorkspaceID: source.WorkspaceID,
 		WorkspaceKind: WorkspaceRewardKindWorkflow, BeneficiaryPublicKey: "peer-a",
-		RuntimeProfileName: "profile-a", RuntimeProfileRevision: "revision-a",
+		RuntimeProfileId: "runtime-profile-a", RuntimeProfileRevision: "revision-a",
 		Policy: policy, PolicyDigest: policy.Digest,
 		StartHistoryID: "001", HighWaterHistoryID: "001",
 		StartHistoryAt: now, HighWaterHistoryAt: now, OpenedAt: now,
@@ -1140,7 +1143,7 @@ func TestWorkspaceRewardTranscriptRequiresClaimedHighWater(t *testing.T) {
 	}}
 	runtime := &Runtime{WorkspaceRewards: environment}
 	_, _, _, err := runtime.workspaceRewardTranscript(context.Background(), workspaceRewardWindow{
-		WorkspaceName: "workflow-a", BeneficiaryPublicKey: "peer-a",
+		WorkspaceID: "workflow-a", BeneficiaryPublicKey: "peer-a",
 		StartHistoryID: "001", HighWaterHistoryID: "002", Policy: policy,
 	})
 	if err == nil || !strings.Contains(err.Error(), "high-water") {
@@ -1248,9 +1251,10 @@ func testConcurrentWorkspaceRewardSettlement(t *testing.T, db *sqlx.DB) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 29, 6, 0, 0, 0, time.UTC)
 	catalog := testCatalog(t, now)
+	catalog.NewID = func() string { return "badge-science" }
 	rewardPrompt := "Reward scientific reasoning."
 	response, err := catalog.CreateBadgeDef(ctx, adminhttp.CreateBadgeDefRequestObject{
-		Body: &adminhttp.BadgeDefUpsert{Id: "badge-science", Spec: apitypes.BadgeDefSpec{
+		Body: &adminhttp.BadgeDefUpsert{Name: "badge-science", Spec: apitypes.BadgeDefSpec{
 			DisplayName: "Science", RewardPrompt: &rewardPrompt,
 		}},
 	})
@@ -1268,13 +1272,13 @@ func testConcurrentWorkspaceRewardSettlement(t *testing.T, db *sqlx.DB) {
 	initialBalance := int64(0)
 	if _, err := runtimes[0].GetPoints(
 		WithRuntimeProfile(ctx, apitypes.RuntimeProfile{
-			Name: "profile-a",
+			Id: "runtime-profile-a", Name: "profile-a",
 			Spec: apitypes.RuntimeProfileSpec{Gameplay: &apitypes.RuntimeProfileGameplaySpec{
 				Points: &apitypes.RuntimeProfilePointsSpec{InitialBalance: &initialBalance},
 			}},
 		}),
 		"peer-a",
-		"profile-a",
+		"runtime-profile-a",
 	); err != nil {
 		t.Fatalf("GetPoints() error = %v", err)
 	}
@@ -1283,16 +1287,16 @@ func testConcurrentWorkspaceRewardSettlement(t *testing.T, db *sqlx.DB) {
 	for i := range windows {
 		suffix := string(rune('a' + i))
 		source := workspaceRewardSource{
-			WorkspaceName: "workflow-" + suffix, ScheduledCheckpoint: "002",
+			WorkspaceID: "workflow-" + suffix, ScheduledCheckpoint: "002",
 			CreatedAt: now, UpdatedAt: now,
 		}
 		if err := runtimes[i].insertWorkspaceRewardSource(ctx, source); err != nil {
 			t.Fatalf("insert source %s: %v", suffix, err)
 		}
 		window := workspaceRewardWindow{
-			ID: "window-" + suffix, WorkspaceName: source.WorkspaceName,
+			ID: "window-" + suffix, WorkspaceID: source.WorkspaceID,
 			WorkspaceKind: WorkspaceRewardKindWorkflow, BeneficiaryPublicKey: "peer-a",
-			RuntimeProfileName: "profile-a", RuntimeProfileRevision: "revision-a",
+			RuntimeProfileId: "runtime-profile-a", RuntimeProfileRevision: "revision-a",
 			Policy: policy, PolicyDigest: policy.Digest, StartHistoryID: "001", HighWaterHistoryID: "002",
 			StartHistoryAt: now, HighWaterHistoryAt: now, OpenedAt: now, LastActivityAt: now,
 			EvaluateAfter: now, State: workspaceRewardClaimed, AttemptCount: 1,
@@ -1345,7 +1349,7 @@ func testConcurrentWorkspaceRewardSettlement(t *testing.T, db *sqlx.DB) {
 	}
 	var balance, badgeExp int64
 	if err := db.QueryRowContext(ctx, `SELECT balance FROM gameplay_points_accounts
-		WHERE owner_public_key = 'peer-a' AND runtime_profile_name = 'profile-a'`).Scan(&balance); err != nil {
+		WHERE owner_public_key = 'peer-a' AND runtime_profile_id = 'runtime-profile-a'`).Scan(&balance); err != nil {
 		t.Fatalf("read Points balance: %v", err)
 	}
 	if err := db.QueryRowContext(ctx, `SELECT exp FROM gameplay_badges
@@ -1364,7 +1368,7 @@ func testConcurrentWorkspaceRewardSettlement(t *testing.T, db *sqlx.DB) {
 func workspaceRewardTestPolicy(t *testing.T) WorkspaceRewardPolicySnapshot {
 	t.Helper()
 	policy := WorkspaceRewardPolicySnapshot{
-		RuntimeProfileName: "profile-a", RuntimeProfileRevision: "revision-a",
+		RuntimeProfileId: "runtime-profile-a", RuntimeProfileRevision: "revision-a",
 		ModelAlias: "reward-evaluator", ModelResourceID: "model-reward",
 		WorkspaceKinds: []WorkspaceRewardKind{WorkspaceRewardKindWorkflow},
 		QuietPeriod:    time.Minute, MaxWindowAge: 10 * time.Minute,

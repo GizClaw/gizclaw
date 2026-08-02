@@ -86,10 +86,10 @@ func TestObjectRuntimeStoreValidation(t *testing.T) {
 	}
 
 	store := NewObjectRuntimeStore(objectstore.Dir(t.TempDir()))
-	if _, err := store.PrepareWorkspace(context.Background(), " "); err == nil || !strings.Contains(err.Error(), "name") {
+	if _, err := store.PrepareWorkspace(context.Background(), " "); err == nil || !strings.Contains(err.Error(), "id") {
 		t.Fatalf("PrepareWorkspace(empty workspace) error = %v", err)
 	}
-	if err := store.DeleteWorkspaceRuntime(context.Background(), " "); err == nil || !strings.Contains(err.Error(), "name") {
+	if err := store.DeleteWorkspaceRuntime(context.Background(), " "); err == nil || !strings.Contains(err.Error(), "id") {
 		t.Fatalf("DeleteWorkspaceRuntime(empty workspace) error = %v", err)
 	}
 }

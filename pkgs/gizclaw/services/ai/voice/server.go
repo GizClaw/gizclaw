@@ -11,11 +11,13 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 var (
 	voicesRoot                  = kv.Key{"by-id"}
+	voicesByNameRoot            = kv.Key{"by-name"}
 	voicesBySourceRoot          = kv.Key{"by-source"}
 	voicesByProviderRoot        = kv.Key{"by-provider"}
 	voicesByProviderVoiceIDRoot = kv.Key{"by-provider-voice-id"}
@@ -29,6 +31,7 @@ const (
 type Server struct {
 	Store kv.Store
 	Now   func() time.Time
+	NewID func() string
 }
 
 type VoiceAdminService interface {
@@ -44,7 +47,7 @@ var _ VoiceAdminService = (*Server)(nil)
 type Filters struct {
 	Source       *string
 	ProviderKind *string
-	ProviderName *string
+	ProviderId   *string
 }
 
 func (s *Server) CreateVoice(ctx context.Context, request adminhttp.CreateVoiceRequestObject) (adminhttp.CreateVoiceResponseObject, error) {
@@ -59,16 +62,23 @@ func (s *Server) CreateVoice(ctx context.Context, request adminhttp.CreateVoiceR
 	if err != nil {
 		return adminhttp.CreateVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", err.Error())), nil
 	}
-	if _, err := store.Get(ctx, voiceKey(string(voice.Id))); err == nil {
-		return adminhttp.CreateVoice409JSONResponse(apitypes.NewErrorResponse("VOICE_ALREADY_EXISTS", fmt.Sprintf("voice %q already exists", voice.Id))), nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.CreateVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
+	voice.Id = s.newID()
 	now := s.now()
 	voice.CreatedAt = now
 	voice.UpdatedAt = now
-	if err := Write(ctx, store, voice, nil); err != nil {
+	data, err := json.Marshal(voice)
+	if err != nil {
 		return adminhttp.CreateVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	_, created, err := kv.CreateIfAbsent(ctx, store,
+		kv.Entry{Key: voiceNameKey(voice.Name), Value: []byte(voice.Id)},
+		voiceEntries(voice, data),
+	)
+	if err != nil {
+		return adminhttp.CreateVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	if !created {
+		return adminhttp.CreateVoice409JSONResponse(apitypes.NewErrorResponse("VOICE_ALREADY_EXISTS", fmt.Sprintf("voice %q already exists", voice.Name))), nil
 	}
 	return adminhttp.CreateVoice200JSONResponse(voice), nil
 }
@@ -92,10 +102,10 @@ func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesReq
 			filters.ProviderKind = &kind
 		}
 	}
-	if request.Params.ProviderName != nil {
-		name := strings.TrimSpace(string(*request.Params.ProviderName))
+	if request.Params.ProviderId != nil {
+		name := strings.TrimSpace(string(*request.Params.ProviderId))
 		if name != "" {
-			filters.ProviderName = &name
+			filters.ProviderId = &name
 		}
 	}
 	items, hasNext, nextCursor, err := listPage(ctx, store, filters, cursor, limit)
@@ -162,28 +172,30 @@ func (s *Server) PutVoice(ctx context.Context, request adminhttp.PutVoiceRequest
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	voice, err := normalizeVoiceUpsert(*request.Body, id)
+	voice, err := normalizeVoiceUpsert(*request.Body, "")
 	if err != nil {
 		return adminhttp.PutVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", err.Error())), nil
 	}
 	previous, err := Get(ctx, store, id)
-	if err != nil && !errors.Is(err, kv.ErrNotFound) {
+	if errors.Is(err, kv.ErrNotFound) {
+		return adminhttp.PutVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", fmt.Sprintf("voice %q not found", id))), nil
+	}
+	if err != nil {
 		return adminhttp.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	voice.CreatedAt = now
 	voice.UpdatedAt = now
-	var previousPtr *apitypes.Voice
-	if err == nil {
-		if previous.Source == apitypes.VoiceSourceSync {
-			return adminhttp.PutVoice409JSONResponse(apitypes.NewErrorResponse("SYNC_VOICE_READ_ONLY", fmt.Sprintf("voice %q has source sync and cannot be modified via API", previous.Id))), nil
-		}
-		voice.CreatedAt = previous.CreatedAt
-		voice.SyncedAt = cloneTime(previous.SyncedAt)
-		previousCopy := previous
-		previousPtr = &previousCopy
+	if voice.Name != previous.Name {
+		return adminhttp.PutVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", fmt.Sprintf("name %q must match immutable name %q", voice.Name, previous.Name))), nil
 	}
-	if err := Write(ctx, store, voice, previousPtr); err != nil {
+	if previous.Source == apitypes.VoiceSourceSync {
+		return adminhttp.PutVoice409JSONResponse(apitypes.NewErrorResponse("SYNC_VOICE_READ_ONLY", fmt.Sprintf("voice %q has source sync and cannot be modified via API", previous.Id))), nil
+	}
+	voice.Id = previous.Id
+	voice.CreatedAt = previous.CreatedAt
+	voice.SyncedAt = cloneTime(previous.SyncedAt)
+	if err := Write(ctx, store, voice, &previous); err != nil {
 		return adminhttp.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.PutVoice200JSONResponse(voice), nil
@@ -332,9 +344,10 @@ func StableID(kind apitypes.VoiceProviderKind, name string, providerVoiceID stri
 
 func SemanticEqual(left, right apitypes.Voice) bool {
 	return equalStringPtr(left.Description, right.Description) &&
-		equalStringPtr(left.Name, right.Name) &&
+		left.Name == right.Name &&
+		equalStringPtr(left.DisplayName, right.DisplayName) &&
 		left.Provider.Kind == right.Provider.Kind &&
-		left.Provider.Name == right.Provider.Name &&
+		left.Provider.Id == right.Provider.Id &&
 		left.Source == right.Source &&
 		providerDataEqual(left.ProviderData, right.ProviderData)
 }
@@ -371,23 +384,31 @@ func Write(ctx context.Context, store kv.Store, voice apitypes.Voice, previous *
 	if previous != nil {
 		deletes = staleIndexKeys(*previous, voice)
 	}
-	if len(deletes) > 0 {
-		if err := store.BatchDelete(ctx, deletes); err != nil {
-			return fmt.Errorf("voice: delete stale indexes %s: %w", voice.Id, err)
-		}
-	}
 	entries := []kv.Entry{
 		{Key: voiceKey(string(voice.Id)), Value: data},
 		{Key: voiceBySourceKey(string(voice.Source), string(voice.Id)), Value: []byte{}},
-		{Key: voiceByProviderKey(string(voice.Provider.Kind), string(voice.Provider.Name), string(voice.Id)), Value: []byte{}},
+		{Key: voiceByProviderKey(string(voice.Provider.Kind), string(voice.Provider.Id), string(voice.Id)), Value: []byte{}},
 	}
 	if providerVoiceID := ProviderDataString(voice, "voice_id"); providerVoiceID != "" {
 		entries = append(entries, kv.Entry{
-			Key:   voiceByProviderVoiceIDKey(string(voice.Provider.Kind), string(voice.Provider.Name), providerVoiceID),
+			Key:   voiceByProviderVoiceIDKey(string(voice.Provider.Kind), string(voice.Provider.Id), providerVoiceID),
 			Value: []byte(string(voice.Id)),
 		})
 	}
-	if err := store.BatchSet(ctx, entries); err != nil {
+	if previous == nil {
+		_, created, err := kv.CreateIfAbsent(ctx, store,
+			kv.Entry{Key: voiceNameKey(voice.Name), Value: []byte(voice.Id)},
+			entries,
+		)
+		if err != nil {
+			return fmt.Errorf("voice: create voice %s: %w", voice.Id, err)
+		}
+		if !created {
+			return fmt.Errorf("voice: name %q already exists", voice.Name)
+		}
+		return nil
+	}
+	if err := store.BatchMutate(ctx, entries, deletes); err != nil {
 		return fmt.Errorf("voice: write voice %s: %w", voice.Id, err)
 	}
 	return nil
@@ -396,13 +417,14 @@ func Write(ctx context.Context, store kv.Store, voice apitypes.Voice, previous *
 func Delete(ctx context.Context, store kv.Store, voice apitypes.Voice) error {
 	keys := []kv.Key{
 		voiceKey(string(voice.Id)),
+		voiceNameKey(voice.Name),
 		voiceBySourceKey(string(voice.Source), string(voice.Id)),
-		voiceByProviderKey(string(voice.Provider.Kind), string(voice.Provider.Name), string(voice.Id)),
+		voiceByProviderKey(string(voice.Provider.Kind), string(voice.Provider.Id), string(voice.Id)),
 	}
 	if providerVoiceID := ProviderDataString(voice, "voice_id"); providerVoiceID != "" {
 		keys = append(keys, voiceByProviderVoiceIDKey(
 			string(voice.Provider.Kind),
-			string(voice.Provider.Name),
+			string(voice.Provider.Id),
 			providerVoiceID,
 		))
 	}
@@ -461,13 +483,13 @@ func (s *Server) now() time.Time {
 	return time.Now().UTC()
 }
 
-func normalizeVoiceUpsert(in adminhttp.VoiceUpsert, expectedID string) (apitypes.Voice, error) {
-	id := strings.TrimSpace(string(in.Id))
-	if id == "" {
-		return apitypes.Voice{}, errors.New("id is required")
+func normalizeVoiceUpsert(in adminhttp.VoiceUpsert, expectedName string) (apitypes.Voice, error) {
+	name := strings.TrimSpace(string(in.Name))
+	if name == "" {
+		return apitypes.Voice{}, errors.New("name is required")
 	}
-	if expectedID != "" && id != expectedID {
-		return apitypes.Voice{}, fmt.Errorf("id %q must match path id %q", id, expectedID)
+	if expectedName != "" && name != expectedName {
+		return apitypes.Voice{}, fmt.Errorf("name %q must match immutable name %q", name, expectedName)
 	}
 	source := apitypes.VoiceSource(strings.TrimSpace(string(in.Source)))
 	if source == "" {
@@ -483,22 +505,22 @@ func normalizeVoiceUpsert(in adminhttp.VoiceUpsert, expectedID string) (apitypes
 	if providerKind == "" {
 		return apitypes.Voice{}, errors.New("provider.kind is required")
 	}
-	providerName := strings.TrimSpace(string(in.Provider.Name))
-	if providerName == "" {
-		return apitypes.Voice{}, errors.New("provider.name is required")
+	providerID := strings.TrimSpace(string(in.Provider.Id))
+	if providerID == "" {
+		return apitypes.Voice{}, errors.New("provider.id is required")
 	}
 	voice := apitypes.Voice{
-		Id: string(id),
+		Name: name,
 		Provider: apitypes.VoiceProvider{
 			Kind: apitypes.VoiceProviderKind(providerKind),
-			Name: string(providerName),
+			Id:   providerID,
 		},
 		Source: source,
 	}
-	if in.Name != nil {
-		name := strings.TrimSpace(*in.Name)
-		if name != "" {
-			voice.Name = &name
+	if in.DisplayName != nil {
+		displayName := strings.TrimSpace(*in.DisplayName)
+		if displayName != "" {
+			voice.DisplayName = &displayName
 		}
 	}
 	if in.Description != nil {
@@ -516,8 +538,8 @@ func normalizeVoiceUpsert(in adminhttp.VoiceUpsert, expectedID string) (apitypes
 func listPage(ctx context.Context, store kv.Store, filters Filters, cursor string, limit int) ([]apitypes.Voice, bool, *string, error) {
 	prefix := voicesRoot
 	switch {
-	case filters.ProviderKind != nil && filters.ProviderName != nil:
-		prefix = voiceByProviderPrefix(*filters.ProviderKind, *filters.ProviderName)
+	case filters.ProviderKind != nil && filters.ProviderId != nil:
+		prefix = voiceByProviderPrefix(*filters.ProviderKind, *filters.ProviderId)
 	case filters.Source != nil:
 		prefix = voiceBySourcePrefix(*filters.Source)
 	}
@@ -576,7 +598,7 @@ func matchesFilters(voice apitypes.Voice, filters Filters) bool {
 	if filters.ProviderKind != nil && string(voice.Provider.Kind) != *filters.ProviderKind {
 		return false
 	}
-	if filters.ProviderName != nil && string(voice.Provider.Name) != *filters.ProviderName {
+	if filters.ProviderId != nil && string(voice.Provider.Id) != *filters.ProviderId {
 		return false
 	}
 	return true
@@ -587,18 +609,18 @@ func staleIndexKeys(previous, next apitypes.Voice) []kv.Key {
 	if previous.Source != next.Source {
 		keys = append(keys, voiceBySourceKey(string(previous.Source), string(previous.Id)))
 	}
-	if previous.Provider.Kind != next.Provider.Kind || previous.Provider.Name != next.Provider.Name {
-		keys = append(keys, voiceByProviderKey(string(previous.Provider.Kind), string(previous.Provider.Name), string(previous.Id)))
+	if previous.Provider.Kind != next.Provider.Kind || previous.Provider.Id != next.Provider.Id {
+		keys = append(keys, voiceByProviderKey(string(previous.Provider.Kind), string(previous.Provider.Id), string(previous.Id)))
 	}
 	previousProviderVoiceID := ProviderDataString(previous, "voice_id")
 	if previousProviderVoiceID != "" {
 		nextProviderVoiceID := ProviderDataString(next, "voice_id")
 		if previous.Provider.Kind != next.Provider.Kind ||
-			previous.Provider.Name != next.Provider.Name ||
+			previous.Provider.Id != next.Provider.Id ||
 			previousProviderVoiceID != nextProviderVoiceID {
 			keys = append(keys, voiceByProviderVoiceIDKey(
 				string(previous.Provider.Kind),
-				string(previous.Provider.Name),
+				string(previous.Provider.Id),
 				previousProviderVoiceID,
 			))
 		}
@@ -784,6 +806,25 @@ func voiceKey(id string) kv.Key {
 	return append(append(kv.Key{}, voicesRoot...), escapeStoreSegment(id))
 }
 
+func voiceNameKey(name string) kv.Key {
+	return append(append(kv.Key{}, voicesByNameRoot...), escapeStoreSegment(name))
+}
+
+func voiceEntries(voice apitypes.Voice, data []byte) []kv.Entry {
+	entries := []kv.Entry{
+		{Key: voiceKey(voice.Id), Value: data},
+		{Key: voiceBySourceKey(string(voice.Source), voice.Id), Value: []byte{}},
+		{Key: voiceByProviderKey(string(voice.Provider.Kind), voice.Provider.Id, voice.Id), Value: []byte{}},
+	}
+	if providerVoiceID := ProviderDataString(voice, "voice_id"); providerVoiceID != "" {
+		entries = append(entries, kv.Entry{
+			Key:   voiceByProviderVoiceIDKey(string(voice.Provider.Kind), voice.Provider.Id, providerVoiceID),
+			Value: []byte(voice.Id),
+		})
+	}
+	return entries
+}
+
 func voiceBySourcePrefix(source string) kv.Key {
 	return append(append(kv.Key{}, voicesBySourceRoot...), escapeStoreSegment(source))
 }
@@ -818,4 +859,11 @@ func unescapeStoreSegment(value string) string {
 		return value
 	}
 	return unescaped
+}
+
+func (s *Server) newID() string {
+	if s != nil && s.NewID != nil {
+		return s.NewID()
+	}
+	return socialutil.NewID()
 }

@@ -46,11 +46,7 @@ import { FormField } from "@/dashboard";
 import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
 import { formatDate, formatShortKey } from "../../lib/format";
-import {
-  friendDetailPath,
-  friendRelationID,
-  socialWorkspaceName,
-} from "./social-utils";
+import { friendDetailPath, friendRelationID } from "./social-utils";
 
 export function FriendsListPage(): JSX.Element {
   const navigate = useNavigate();
@@ -341,9 +337,9 @@ export function FriendsListPage(): JSX.Element {
                       </TableCell>
                       <TableCell
                         className="truncate font-mono text-xs"
-                        title={socialWorkspaceName(friend.workspace_name)}
+                        title={friend.workspace_id}
                       >
-                        {socialWorkspaceName(friend.workspace_name)}
+                        {friend.workspace_id}
                       </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">
                         {formatDate(friend.updated_at)}

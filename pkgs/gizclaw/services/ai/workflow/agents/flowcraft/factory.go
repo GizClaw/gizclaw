@@ -58,6 +58,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if workspaceName == "" {
 		return nil, fmt.Errorf("flowcraft: workspace name is required")
 	}
+	workspaceID := strings.TrimSpace(spec.Workspace.Id)
+	if workspaceID == "" {
+		return nil, fmt.Errorf("flowcraft: workspace id is required")
+	}
 	public := *spec.Workflow.Spec.Flowcraft
 	if spec.Memory != nil {
 		f.Memory = spec.Memory
@@ -102,8 +106,8 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			return nil, fmt.Errorf("flowcraft: incomplete runtime memory binding")
 		}
 		request := memorystore.Request{
-			WorkspaceName:   workspaceName,
-			ProfileName:     spec.MemoryProfileName,
+			WorkspaceID:     workspaceID,
+			ProfileID:       spec.MemoryProfileID,
 			ProfileRevision: spec.MemoryProfileRevision,
 			BindingName:     spec.MemoryName,
 			Layout:          *spec.MemoryLayout,
@@ -128,10 +132,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if f.Memory != nil && f.MemoryKind == string(apitypes.RuntimeProfileMemoryDriverFlowcraft) && spec.MemoryLayout != nil {
 		f.MemoryLaneRecall = flowcraftLaneRecall(spec.MemoryLayout.Spec.Flowcraft.Lanes)
 	}
-	return f.newAgent(ctx, owner, workspaceName, spec.Workflow.Name, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, inputMode, memoryCloser)
+	return f.newAgent(ctx, owner, workspaceID, spec.Workflow.Name, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, inputMode, memoryCloser)
 }
 
-func (f Factory) newAgent(ctx context.Context, owner, workspaceName, workflowName string, public apitypes.FlowcraftWorkflowSpec, toolInvoker genx.ToolInvoker, inputs InputProvider, initiativePolicy string, inputMode apitypes.WorkspaceInputMode, memoryCloser io.Closer) (agenthost.Agent, error) {
+func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName string, public apitypes.FlowcraftWorkflowSpec, toolInvoker genx.ToolInvoker, inputs InputProvider, initiativePolicy string, inputMode apitypes.WorkspaceInputMode, memoryCloser io.Closer) (agenthost.Agent, error) {
 	if f.GenX == nil {
 		return nil, fmt.Errorf("flowcraft: peergenx service is required")
 	}
@@ -151,9 +155,9 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName, workflowNam
 			return nil, fmt.Errorf("flowcraft: resolve model alias %q for node %q: %w", alias, node.ID, err)
 		}
 	}
-	agentID := workspaceName
-	scope := WorkspaceAgentScope(owner, workspaceName, agentID)
-	memoryScope := memory.Scope{AppID: workspaceName}
+	agentID := workspaceID
+	scope := WorkspaceAgentScope(owner, workspaceID, agentID)
+	memoryScope := memory.Scope{AppID: workspaceID}
 	config := genxflowcraft.Config{
 		ID: agentID, Name: strings.TrimSpace(workflowName), Graph: graph,
 		MaxIterations: intValue(public.MaxIterations), PublishNodes: publishNodes,
@@ -557,18 +561,18 @@ func genxflowcraftBoardInputs(provider InputProvider) func(context.Context) (map
 	return func(ctx context.Context) (map[string]any, error) { return provider(ctx) }
 }
 
-// WorkspaceAgentScope is the stable owner/Workspace/Agent namespace shared by
-// History, State, and Flowcraft Memory for product-owned fixed Graphs.
-func WorkspaceAgentScope(owner, workspaceName, agentID string) string {
+// WorkspaceAgentScope is the stable owner/canonical-Workspace-ID/Agent
+// namespace shared by History, State, and Flowcraft Memory.
+func WorkspaceAgentScope(owner, workspaceID, agentID string) string {
 	parts := make([]string, 0, 6)
 	if owner = strings.TrimSpace(owner); owner != "" {
 		parts = append(parts, "o", scopeToken(owner))
 	}
-	return strings.Join(append(parts, "w", scopeToken(workspaceName), "a", scopeToken(agentID)), "/")
+	return strings.Join(append(parts, "w", scopeToken(workspaceID), "a", scopeToken(agentID)), "/")
 }
 
-func workspaceAgentScope(owner, workspaceName, agentID string) string {
-	return WorkspaceAgentScope(owner, workspaceName, agentID)
+func workspaceAgentScope(owner, workspaceID, agentID string) string {
+	return WorkspaceAgentScope(owner, workspaceID, agentID)
 }
 
 func flowcraftStateStore(base kv.Store, scope string) kv.Store {

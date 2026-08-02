@@ -464,28 +464,28 @@ test("parseRPCResponse decodes framed protobuf responses", () => {
 test("RPC payload codec preserves optional registration firmware release line", () => {
   const payload = encodeRPCResponsePayload("server.register", {
     runtime_profile_name: "h106-production",
-    firmware_id: "h106",
+    firmware_name: "h106",
   });
 
   const decoded = decodeRPCResponsePayload("server.register", payload) as {
     runtime_profile_name?: string;
-    firmware_id?: string;
+    firmware_name?: string;
   };
   assert.deepEqual(decoded, {
     runtime_profile_name: "h106-production",
-    firmware_id: "h106",
+    firmware_name: "h106",
   });
 });
 
-test("RPC payload codec preserves caller-assigned Pet adoption IDs", () => {
+test("RPC payload codec preserves caller-assigned Pet adoption names", () => {
   const payload = encodeRPCRequestPayload("runtime.adopt", {
     display_name: "Miso",
-    id: "device-pet-01",
+    name: "device-pet-01",
   });
 
   assert.deepEqual(decodeRPCRequestPayload("runtime.adopt", payload), {
     display_name: "Miso",
-    id: "device-pet-01",
+    name: "device-pet-01",
   });
 });
 
@@ -521,16 +521,16 @@ test("RPC payload codec round-trips system workspace classification", () => {
       name: "friend-chat",
       system: true,
       updated_at: "2026-07-16T00:00:00Z",
-      workflow_alias: "chatroom",
+      workflow_name: "chatroom",
     },
   });
 
   const decoded = decodeRPCResponsePayload("server.workspace.get", payload) as {
     runtime_profile_name?: string;
-    value?: { system?: boolean; workflow_alias?: string };
+    value?: { system?: boolean; workflow_name?: string };
   };
   assert.equal(decoded.value?.system, true);
-  assert.equal(decoded.value?.workflow_alias, "chatroom");
+  assert.equal(decoded.value?.workflow_name, "chatroom");
   assert.equal(decoded.runtime_profile_name, "default");
 });
 
@@ -539,7 +539,7 @@ test("RPC payload codec enforces typed model provider-data oneof", () => {
     runtime_profile_name: "default",
     runtime_profile_revision: "revision-1",
     value: {
-      alias: "chat",
+      name: "chat",
       deepseek_tenant: {
         api_mode: "chat_completions",
         thinking_levels: [],
@@ -559,7 +559,7 @@ test("RPC payload codec enforces typed model provider-data oneof", () => {
   const dashScopeResponse = {
     ...response,
     value: {
-      alias: "qwen",
+      name: "qwen",
       dashscope_tenant: {
         api_mode: "chat_completions",
         thinking_levels: [],
@@ -582,7 +582,7 @@ test("RPC payload codec enforces typed model provider-data oneof", () => {
   const duplexResponse = {
     ...response,
     value: {
-      alias: "duplex",
+      name: "duplex",
       i18n: {},
       kind: "realtime-duplex",
       provider_kind: "volc-tenant",
@@ -631,7 +631,7 @@ test("RPC payload codec enforces typed model provider-data oneof", () => {
   let providerKindTag = -1;
   for (let index = 0; index + 1 < mismatchedPayload.length; index++) {
     if (
-      mismatchedPayload[index] === 0x58 &&
+      mismatchedPayload[index] === 0x50 &&
       mismatchedPayload[index + 1] === 0x06
     ) {
       providerKindTag = index;
@@ -673,7 +673,7 @@ test("RPC payload codec selects every new workflow workspace discriminator", () 
       collection: "assistants",
       name: `workspace-${agentType}`,
       parameters: { agent_type: agentType },
-      workflow_alias: `workflow-${agentType}`,
+      workflow_name: `workflow-${agentType}`,
     };
     const payload = encodeRPCRequestPayload("server.workspace.create", request);
     const decoded = decodeRPCRequestPayload(
@@ -692,7 +692,7 @@ test("RPC payload codec round-trips DashScope float options", () => {
       agent_type: "dashscope-realtime",
       temperature: 0.7,
     },
-    workflow_alias: "workflow-dashscope",
+    workflow_name: "workflow-dashscope",
   };
   const payload = encodeRPCRequestPayload("server.workspace.create", request);
   const decoded = decodeRPCRequestPayload(
@@ -762,8 +762,8 @@ test("RPC payload codec preserves safe Tool JSON schema fields", () => {
     runtime_profile_name: "default",
     runtime_profile_revision: "revision-1",
     value: {
-      alias: "lookup",
-      name: "canonical_lookup",
+      name: "lookup",
+      invoke_name: "canonical_lookup",
       i18n: {},
       input_schema: {
         type: "string",
@@ -774,11 +774,16 @@ test("RPC payload codec preserves safe Tool JSON schema fields", () => {
   });
 
   const decoded = decodeRPCResponsePayload("server.tool.get", payload) as {
-    value?: { input_schema?: Record<string, unknown>; name?: string };
+    value?: {
+      input_schema?: Record<string, unknown>;
+      invoke_name?: string;
+      name?: string;
+    };
   };
   const parameters = decoded.value?.input_schema;
 
-  assert.equal(decoded.value?.name, "canonical_lookup");
+  assert.equal(decoded.value?.name, "lookup");
+  assert.equal(decoded.value?.invoke_name, "canonical_lookup");
   assert.equal(parameters?.additionalProperties, false);
   assert.equal(parameters?.minLength, 1);
   assert.equal(parameters?.type, "string");
@@ -796,12 +801,12 @@ test("RPC payload codec preserves safe Tool JSON schema fields", () => {
   );
 });
 
-test("RPC payload codec exposes only runtime workflow aliases", () => {
+test("RPC payload codec exposes only runtime workflow names", () => {
   const workflow = {
     runtime_profile_name: "default",
     runtime_profile_revision: "revision-1",
     value: {
-      alias: "assistant",
+      name: "assistant",
       collection: "assistants",
       driver: "doubao-realtime",
       i18n: {
@@ -812,25 +817,25 @@ test("RPC payload codec exposes only runtime workflow aliases", () => {
   const payload = encodeRPCResponsePayload("server.workflow.get", workflow);
   const decoded = decodeRPCResponsePayload("server.workflow.get", payload) as {
     value?: {
-      alias?: string;
+      name?: string;
       collection?: string;
       owner_public_key?: string;
       spec?: unknown;
     };
   };
 
-  assert.equal(decoded.value?.alias, "assistant");
+  assert.equal(decoded.value?.name, "assistant");
   assert.equal(decoded.value?.collection, "assistants");
   assert.equal(decoded.value?.owner_public_key, undefined);
   assert.equal(decoded.value?.spec, undefined);
 });
 
-test("RPC payload codec addresses workflows by globally unique alias", () => {
+test("RPC payload codec addresses workflows by peer-visible name", () => {
   const payload = encodeRPCRequestPayload("server.workflow.get", {
-    alias: "assistant",
+    name: "assistant",
   });
   assert.deepEqual(decodeRPCRequestPayload("server.workflow.get", payload), {
-    alias: "assistant",
+    name: "assistant",
   });
 });
 
@@ -1009,7 +1014,7 @@ test("WebRTCRPCClient streams transcription audio before request EOS", async () 
 
   const promise = client.transcribeSpeech(
     {
-      model_alias: "asr-main",
+      model_name: "asr-main",
       content_type: "audio/L16;rate=16000;channels=1",
     },
     audio(),
@@ -1070,8 +1075,8 @@ test("WebRTCRPCClient streams extraction audio before request EOS", async () => 
 
   const promise = client.extractSpeech(
     {
-      asr_model_alias: "asr-main",
-      extract_model_alias: "extract-main",
+      asr_model_name: "asr-main",
+      extract_model_name: "extract-main",
       content_type: "audio/L16;rate=16000;channels=1",
       schema_json:
         '{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}',
@@ -1122,7 +1127,7 @@ test("WebRTCRPCClient delimits a split transcription envelope before audio", asy
   const client = new WebRTCRPCClient(pc, { createID: () => largeID });
   const promise = client.transcribeSpeech(
     {
-      model_alias: "asr-main",
+      model_name: "asr-main",
       content_type: "audio/L16;rate=16000;channels=1",
     },
     [new Uint8Array([1, 2])],
@@ -1180,7 +1185,7 @@ test("WebRTCRPCClient stops a live transcription upload on an early response", a
 
   const promise = client.transcribeSpeech(
     {
-      model_alias: "missing",
+      model_name: "missing",
       content_type: "audio/L16;rate=16000;channels=1",
     },
     audio,
@@ -1230,8 +1235,8 @@ test("WebRTCRPCClient stops a live extraction upload on an early response", asyn
 
   const promise = client.extractSpeech(
     {
-      asr_model_alias: "asr-main",
-      extract_model_alias: "missing",
+      asr_model_name: "asr-main",
+      extract_model_name: "missing",
       content_type: "audio/L16;rate=16000;channels=1",
       schema_json: '{"type":"object"}',
     },
@@ -1284,8 +1289,8 @@ test("WebRTCRPCClient cancels a live extraction upload with AbortSignal", async 
 
   const promise = client.extractSpeech(
     {
-      asr_model_alias: "asr-main",
-      extract_model_alias: "extract-main",
+      asr_model_name: "asr-main",
+      extract_model_name: "extract-main",
       content_type: "audio/L16;rate=16000;channels=1",
       schema_json: '{"type":"object"}',
     },
@@ -1308,7 +1313,7 @@ test("WebRTCRPCClient exposes synthesized audio before response EOS", async () =
     createID: () => "speech-synthesize",
   });
   const promise = client.synthesizeSpeech({
-    voice_alias: "narrator",
+    voice_name: "narrator",
     text: "hello",
     accepted_content_types: ["audio/pcm"],
   });
@@ -1367,7 +1372,7 @@ test("WebRTCRPCClient gives speech calls speech-specific default timeouts", asyn
   });
   const transcription = transcriptionClient.transcribeSpeech(
     {
-      model_alias: "asr-main",
+      model_name: "asr-main",
       content_type: "audio/L16;rate=16000;channels=1",
     },
     [new Uint8Array([1, 2])],
@@ -1393,7 +1398,7 @@ test("WebRTCRPCClient gives speech calls speech-specific default timeouts", asyn
     requestTimeoutMs: 1,
   });
   const synthesis = synthesisClient.synthesizeSpeech({
-    voice_alias: "narrator",
+    voice_name: "narrator",
     text: "hello",
     accepted_content_types: ["audio/pcm"],
   });
@@ -1613,7 +1618,7 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
     path: "firmware.bin",
   });
   await rpc.call("server.friend_group.messages.list", {
-    friend_group_id: "group-a",
+    friend_group_name: "group-a",
   });
 
   assert.deepEqual(calls, [
@@ -1628,7 +1633,7 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
     },
     {
       method: "server.friend_group.messages.list",
-      params: { friend_group_id: "group-a" },
+      params: { friend_group_name: "group-a" },
     },
   ]);
 });
@@ -1723,28 +1728,28 @@ test("createPeerRPCClient forwards dedicated streaming speech methods", async ()
     call: async () => ({}),
     callBinary: async () => ({ body: new Uint8Array(), result: {} }),
     transcribeSpeech: async (
-      params: { model_alias: string },
+      params: { model_name: string },
       input: Iterable<Uint8Array>,
     ) => {
       calls.push(
-        `transcribe:${params.model_alias}:${Array.from(input)[0]?.byteLength ?? 0}`,
+        `transcribe:${params.model_name}:${Array.from(input)[0]?.byteLength ?? 0}`,
       );
       return { transcript: "hello" };
     },
     extractSpeech: async (
-      params: { extract_model_alias: string },
+      params: { extract_model_name: string },
       input: Iterable<Uint8Array>,
     ) => {
       calls.push(
-        `extract:${params.extract_model_alias}:${Array.from(input)[0]?.byteLength ?? 0}`,
+        `extract:${params.extract_model_name}:${Array.from(input)[0]?.byteLength ?? 0}`,
       );
       return {
         transcript: "name is GizClaw",
         result_json: '{"name":"GizClaw"}',
       };
     },
-    synthesizeSpeech: async (params: { voice_alias: string }) => {
-      calls.push(`synthesize:${params.voice_alias}`);
+    synthesizeSpeech: async (params: { voice_name: string }) => {
+      calls.push(`synthesize:${params.voice_name}`);
       return {
         body: (async function* () {
           yield new Uint8Array([3, 4]);
@@ -1760,7 +1765,7 @@ test("createPeerRPCClient forwards dedicated streaming speech methods", async ()
     (
       await rpc.transcribeSpeech(
         {
-          model_alias: "2fa-asr",
+          model_name: "2fa-asr",
           content_type: "audio/L16;rate=16000;channels=1",
         },
         audio,
@@ -1772,8 +1777,8 @@ test("createPeerRPCClient forwards dedicated streaming speech methods", async ()
     (
       await rpc.extractSpeech(
         {
-          asr_model_alias: "2fa-asr",
-          extract_model_alias: "2fa-extract",
+          asr_model_name: "2fa-asr",
+          extract_model_name: "2fa-extract",
           content_type: "audio/L16;rate=16000;channels=1",
           schema_json:
             '{"type":"object","properties":{"name":{"type":"string"}}}',
@@ -1784,7 +1789,7 @@ test("createPeerRPCClient forwards dedicated streaming speech methods", async ()
     '{"name":"GizClaw"}',
   );
   const synthesis = await rpc.synthesizeSpeech({
-    voice_alias: "2fa-voice",
+    voice_name: "2fa-voice",
     text: "hello",
     accepted_content_types: ["audio/pcm"],
   });

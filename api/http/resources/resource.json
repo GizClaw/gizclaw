@@ -52,9 +52,14 @@
           "name"
         ],
         "properties": {
+          "id": {
+            "type": "string",
+            "description": "Immutable opaque canonical ID allocated by the Server. Omit on create; include the returned ID for update.",
+            "minLength": 1
+          },
           "name": {
             "type": "string",
-            "description": "Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-]."
+            "description": "Immutable resource name. Kind-specific rules apply. Names use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-]."
           },
           "annotations": {
             "type": "object",
@@ -210,6 +215,10 @@
           },
           "name": {
             "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "description": "Canonical Server ID for the concrete resource. Omitted only for virtual ResourceList results."
           },
           "action": {
             "$ref": "#/components/schemas/ApplyAction"

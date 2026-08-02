@@ -33,6 +33,9 @@ PB_BIND(gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry, gizclaw_rpc_v1_GameRew
 PB_BIND(gizclaw_rpc_v1_GameplayGetRequest, gizclaw_rpc_v1_GameplayGetRequest, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_GameplayNameGetRequest, gizclaw_rpc_v1_GameplayNameGetRequest, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_GameplayListRequest, gizclaw_rpc_v1_GameplayListRequest, AUTO)
 
 
@@ -45,7 +48,7 @@ PB_BIND(gizclaw_rpc_v1_PetStats, gizclaw_rpc_v1_PetStats, AUTO)
 PB_BIND(gizclaw_rpc_v1_PetProgression, gizclaw_rpc_v1_PetProgression, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_Pet, gizclaw_rpc_v1_Pet, 2)
+PB_BIND(gizclaw_rpc_v1_Pet, gizclaw_rpc_v1_Pet, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_PetAdoptRequest, gizclaw_rpc_v1_PetAdoptRequest, AUTO)

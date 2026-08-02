@@ -15,9 +15,10 @@ func TestSafeToolPayloadRoundTripAndMethodRegistry(t *testing.T) {
 		t.Fatalf("MethodFromProto() = %q, %v", got, err)
 	}
 	tool := Tool{
-		Alias:       "play-music",
-		I18n:        map[string]AliasI18nText{"en": {DisplayName: "Play Music"}, "zh-CN": {DisplayName: "播放音乐"}},
+		Name:        "play-music",
+		I18n:        map[string]ResourceI18nText{"en": {DisplayName: "Play Music"}, "zh-CN": {DisplayName: "播放音乐"}},
 		InputSchema: jsonschema.Schema{Type: "object", Required: []string{"query"}, Properties: map[string]*jsonschema.Schema{"query": {Type: "string"}}},
+		InvokeName:  "client_play_music",
 	}
 	response := ToolGetResponse{Value: tool, RuntimeProfileName: "default", RuntimeProfileRevision: "revision"}
 	var payload RPCPayload
@@ -28,7 +29,7 @@ func TestSafeToolPayloadRoundTripAndMethodRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsToolGetResponse() error = %v", err)
 	}
-	if got.Value.Alias != tool.Alias || got.Value.InputSchema.Properties["query"].Type != "string" {
+	if got.Value.Name != tool.Name || got.Value.InvokeName != tool.InvokeName || got.Value.InputSchema.Properties["query"].Type != "string" {
 		t.Fatalf("Tool round trip = %#v", got)
 	}
 

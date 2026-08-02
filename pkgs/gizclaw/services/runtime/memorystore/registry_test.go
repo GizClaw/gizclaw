@@ -132,7 +132,7 @@ func TestRegistrySharesPhysicalBackendAcrossWorkspaceScopedStores(t *testing.T) 
 	t.Cleanup(func() { _ = registry.Close() })
 
 	firstRequest := managedTestRequest(t)
-	firstRequest.WorkspaceName = "workspace-a"
+	firstRequest.WorkspaceID = "workspace-a"
 	first, err := registry.Resolve(t.Context(), firstRequest)
 	if err != nil {
 		t.Fatal(err)
@@ -145,7 +145,7 @@ func TestRegistrySharesPhysicalBackendAcrossWorkspaceScopedStores(t *testing.T) 
 	}
 
 	secondRequest := firstRequest
-	secondRequest.WorkspaceName = "workspace-b"
+	secondRequest.WorkspaceID = "workspace-b"
 	second, err := registry.Resolve(t.Context(), secondRequest)
 	if err != nil {
 		t.Fatal(err)
@@ -269,8 +269,8 @@ func managedTestRequest(t *testing.T) Request {
 		t.Fatal(err)
 	}
 	return Request{
-		WorkspaceName:   "workspace",
-		ProfileName:     "default",
+		WorkspaceID:     "workspace",
+		ProfileID:       "profile-id",
 		ProfileRevision: "revision",
 		BindingName:     "pet-memory",
 		ServerRoot:      t.TempDir(),

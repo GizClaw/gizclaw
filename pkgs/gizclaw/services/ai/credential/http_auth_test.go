@@ -12,6 +12,7 @@ import (
 
 func TestHTTPAuthorizerUsesProviderCredentialFields(t *testing.T) {
 	server := newTestServer(t)
+	credentialIDs := map[string]string{}
 	for _, source := range []string{
 		`{"name":"volc-tools","provider":"volc","body":{"ark_api_key":"ark-secret","search_api_key":"search-secret","openapi_access_key_id":"ak","openapi_access_key":"sk"}}`,
 		`{"name":"aliyun-tools","provider":"aliyun","body":{"app_code":"app-code","access_key_id":"aliyun-ak","access_key_secret":"aliyun-sk"}}`,
@@ -21,9 +22,11 @@ func TestHTTPAuthorizerUsesProviderCredentialFields(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := response.(adminhttp.CreateCredential200JSONResponse); !ok {
+		created, ok := response.(adminhttp.CreateCredential200JSONResponse)
+		if !ok {
 			t.Fatalf("CreateCredential() = %#v", response)
 		}
+		credentialIDs[created.Name] = created.Id
 	}
 	for _, test := range []struct {
 		method     string
@@ -35,7 +38,7 @@ func TestHTTPAuthorizerUsesProviderCredentialFields(t *testing.T) {
 		{method: "aliyun_app_code", credential: "aliyun-tools", want: "APPCODE app-code"},
 	} {
 		authorizer, err := server.HTTPAuthorizer(t.Context(), HTTPAuthConfig{
-			Method: test.method, Credential: test.credential,
+			Method: test.method, Credential: credentialIDs[test.credential],
 		})
 		if err != nil {
 			t.Fatalf("HTTPAuthorizer(%s) error = %v", test.method, err)
@@ -57,11 +60,12 @@ func TestHTTPAuthorizerRejectsProviderAliasForVolcMethods(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := response.(adminhttp.CreateCredential200JSONResponse); !ok {
+	created, ok := response.(adminhttp.CreateCredential200JSONResponse)
+	if !ok {
 		t.Fatalf("CreateCredential() = %#v", response)
 	}
 	if _, err := server.HTTPAuthorizer(t.Context(), HTTPAuthConfig{
-		Method: "volc_ark", Credential: "legacy-volc",
+		Method: "volc_ark", Credential: created.Id,
 	}); err == nil || !strings.Contains(err.Error(), "provider") {
 		t.Fatalf("HTTPAuthorizer() error = %v", err)
 	}

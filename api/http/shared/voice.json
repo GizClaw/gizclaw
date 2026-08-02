@@ -12,6 +12,7 @@
         "type": "object",
         "required": [
           "id",
+          "name",
           "source",
           "provider",
           "created_at",
@@ -21,15 +22,17 @@
           "id": {
             "type": "string"
           },
+          "name": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
           "source": {
             "$ref": "./voice_source.json#/components/schemas/VoiceSource"
           },
           "provider": {
             "$ref": "./voice_provider.json#/components/schemas/VoiceProvider"
-          },
-          "name": {
-            "type": "string",
-            "example": "calm narrator"
           },
           "description": {
             "type": "string",

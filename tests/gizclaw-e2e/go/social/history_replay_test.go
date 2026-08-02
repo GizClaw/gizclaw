@@ -23,9 +23,9 @@ func TestSocialHistoryReplayRPC(t *testing.T) {
 	})
 
 	group := mustCreateFriendGroup(t, h, "peer-a", "family", "voice room")
-	mustAddFriendGroupMember(t, h, "peer-a", stringValue(group.Id), peerB, rpcapi.FriendGroupMemberMutableRoleMember)
-	mustPutFriendGroupMember(t, h, "peer-a", stringValue(group.Id), peerB, rpcapi.FriendGroupMemberMutableRoleAdmin)
-	mustAddFriendGroupMember(t, h, "peer-b", stringValue(group.Id), peerC, rpcapi.FriendGroupMemberMutableRoleMember)
+	mustAddFriendGroupMember(t, h, "peer-a", group.Name, peerB, rpcapi.FriendGroupMemberMutableRoleMember)
+	mustPutFriendGroupMember(t, h, "peer-a", group.Name, peerB, rpcapi.FriendGroupMemberMutableRoleAdmin)
+	mustAddFriendGroupMember(t, h, "peer-b", group.Name, peerC, rpcapi.FriendGroupMemberMutableRoleMember)
 	t.Run("group chat", func(t *testing.T) {
 		assertChatWorkspaceHistory(t, h, "peer-b", "peer-c", stringValue(group.WorkspaceName), []string{
 			"hello group chat round one",

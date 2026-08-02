@@ -111,8 +111,8 @@ typedef struct _gizclaw_rpc_v1_ServerRegisterRequest {
 
 typedef struct _gizclaw_rpc_v1_ServerRegisterResponse {
     char runtime_profile_name[256];
-    bool has_firmware_id;
-    char firmware_id[256];
+    bool has_firmware_name;
+    char firmware_name[256];
 } gizclaw_rpc_v1_ServerRegisterResponse;
 
 typedef struct _gizclaw_rpc_v1_ServerPeerDeleteRequest {
@@ -269,7 +269,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PingResponse_server_time_tag 1
 #define gizclaw_rpc_v1_ServerRegisterRequest_token_tag 1
 #define gizclaw_rpc_v1_ServerRegisterResponse_runtime_profile_name_tag 1
-#define gizclaw_rpc_v1_ServerRegisterResponse_firmware_id_tag 2
+#define gizclaw_rpc_v1_ServerRegisterResponse_firmware_name_tag 2
 #define gizclaw_rpc_v1_Runtime_last_addr_tag     1
 #define gizclaw_rpc_v1_Runtime_last_seen_at_tag  2
 #define gizclaw_rpc_v1_Runtime_online_tag        3
@@ -392,7 +392,7 @@ X(a, STATIC,   SINGULAR, STRING,   token,             1)
 
 #define gizclaw_rpc_v1_ServerRegisterResponse_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, STRING,   runtime_profile_name,   1) \
-X(a, STATIC,   OPTIONAL, STRING,   firmware_id,       2)
+X(a, STATIC,   OPTIONAL, STRING,   firmware_name,     2)
 #define gizclaw_rpc_v1_ServerRegisterResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_ServerRegisterResponse_DEFAULT NULL
 

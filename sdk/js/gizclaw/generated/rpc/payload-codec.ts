@@ -89,26 +89,21 @@ export type ASTTranslateWorkspaceParameters = {
 export type AgentSelection = {
   "workspace_name": string;
 };
-export type AliasI18nText = {
-  "display_name": string;
-  "description"?: string;
-};
 export type Badge = {
   "active": boolean;
-  "badge_def_id": string;
+  "badge_def_name": string;
   "created_at": string;
   "exp": number;
-  "id": string;
   "level": number;
-  "owner_public_key": string;
+  "name": string;
   "progress": number;
   "updated_at": string;
 };
 export type BadgeDefPixaDownloadRequest = {
-  "id": string;
+  "name": string;
 };
 export type BadgeDefPixaDownloadResponse = {
-  "id": string;
+  "name": string;
   "pixa_path"?: string;
   "size_bytes": number;
 };
@@ -147,16 +142,17 @@ export type ClientGetIdentifiersResponse = DeviceIdentifiers;
 export type ClientGetInfoRequest = Record<string, never>;
 export type ClientGetInfoResponse = HardwareInfo;
 export type ContactCreateRequest = {
+  "name": string;
   "display_name"?: string;
   "phone_number"?: string;
 };
 export type ContactCreateResponse = ContactObject;
 export type ContactDeleteRequest = {
-  "id": string;
+  "name": string;
 };
 export type ContactDeleteResponse = ContactObject;
 export type ContactGetRequest = {
-  "id": string;
+  "name": string;
 };
 export type ContactGetResponse = ContactObject;
 export type ContactListRequest = {
@@ -171,13 +167,13 @@ export type ContactListResponse = {
 export type ContactObject = {
   "created_at"?: string;
   "display_name"?: string;
-  "id"?: string;
+  "name": string;
   "phone_number"?: string;
   "updated_at"?: string;
 };
 export type ContactPutRequest = {
   "display_name"?: string;
-  "id": string;
+  "name": string;
   "phone_number"?: string;
 };
 export type ContactPutResponse = ContactObject;
@@ -433,7 +429,7 @@ export type FirmwareFilesDownloadResponse = {
   "artifact": FirmwareArtifact;
   "channel": FirmwareChannelName;
   "file": FirmwareArtifactEntry;
-  "firmware_id": string;
+  "firmware_name": string;
   "path": string;
 };
 export type FirmwareGetRequest = Record<string, never>;
@@ -472,29 +468,30 @@ export type FriendDeleteResponse = FriendObject;
 export type FriendGroupCreateRequest = {
   "description"?: string;
   "name": string;
+  "display_name"?: string;
 };
 export type FriendGroupCreateResponse = FriendGroupObject;
 export type FriendGroupDeleteRequest = {
-  "id": string;
+  "name": string;
 };
 export type FriendGroupDeleteResponse = FriendGroupObject;
 export type FriendGroupGetRequest = {
-  "id": string;
+  "name": string;
 };
 export type FriendGroupGetResponse = FriendGroupObject;
 export type FriendGroupInviteTokenClearRequest = {
-  "friend_group_id": string;
+  "friend_group_name": string;
 };
 export type FriendGroupInviteTokenClearResponse = Record<string, never>;
 export type FriendGroupInviteTokenCreateRequest = {
-  "friend_group_id": string;
+  "friend_group_name": string;
 };
 export type FriendGroupInviteTokenCreateResponse = {
   "expires_at": string;
   "invite_token": string;
 };
 export type FriendGroupInviteTokenGetRequest = {
-  "friend_group_id": string;
+  "friend_group_name": string;
 };
 export type FriendGroupInviteTokenGetResponse = {
   "expires_at"?: string;
@@ -502,6 +499,7 @@ export type FriendGroupInviteTokenGetResponse = {
 };
 export type FriendGroupJoinRequest = {
   "invite_token": string;
+  "name": string;
 };
 export type FriendGroupJoinResponse = {
   "group": FriendGroupObject;
@@ -517,19 +515,20 @@ export type FriendGroupListResponse = {
   "next_cursor"?: string;
 };
 export type FriendGroupMemberAddRequest = {
-  "friend_group_id": string;
+  "friend_group_name": string;
   "peer_public_key": string;
   "role": FriendGroupMemberMutableRole;
+  "member_name": string;
 };
 export type FriendGroupMemberAddResponse = FriendGroupMemberObject;
 export type FriendGroupMemberDeleteRequest = {
-  "friend_group_id": string;
+  "friend_group_name": string;
   "id": string;
 };
 export type FriendGroupMemberDeleteResponse = FriendGroupMemberObject;
 export type FriendGroupMemberListRequest = {
   "cursor"?: string;
-  "friend_group_id"?: string;
+  "friend_group_name"?: string;
   "limit"?: number;
 };
 export type FriendGroupMemberListResponse = {
@@ -539,36 +538,36 @@ export type FriendGroupMemberListResponse = {
 };
 export type FriendGroupMemberObject = {
   "created_at"?: string;
-  "friend_group_id"?: string;
+  "friend_group_name"?: string;
   "id"?: string;
   "peer_public_key"?: string;
   "role"?: FriendGroupMemberRole;
   "updated_at"?: string;
 };
 export type FriendGroupMemberPutRequest = {
-  "friend_group_id": string;
+  "friend_group_name": string;
   "id": string;
   "role": FriendGroupMemberMutableRole;
 };
 export type FriendGroupMemberPutResponse = FriendGroupMemberObject;
 export type FriendGroupMessageAudioGetRequest = {
-  "friend_group_id": string;
+  "friend_group_name": string;
   "history_id": string;
 };
 export type FriendGroupMessageAudioGetResponse = {
-  "friend_group_id": string;
+  "friend_group_name": string;
   "history_id": string;
   "mime_type": string;
   "size_bytes": number;
 };
 export type FriendGroupMessageGetRequest = {
-  "friend_group_id": string;
+  "friend_group_name": string;
   "history_id": string;
 };
 export type FriendGroupMessageGetResponse = FriendGroupMessageObject;
 export type FriendGroupMessageListRequest = {
   "cursor"?: string;
-  "friend_group_id": string;
+  "friend_group_name": string;
   "limit"?: number;
   "order"?: WorkspaceHistoryListRequestOrder;
 };
@@ -580,7 +579,7 @@ export type FriendGroupMessageListResponse = {
 export type FriendGroupMessageObject = {
   "created_at": string;
   "expires_at"?: string;
-  "friend_group_id": string;
+  "friend_group_name": string;
   "sender_peer_public_key"?: string;
   "history_id": string;
   "name": string;
@@ -592,16 +591,16 @@ export type FriendGroupObject = {
   "created_at"?: string;
   "created_by_peer_public_key"?: string;
   "description"?: string;
-  "id"?: string;
+  "display_name"?: string;
   "my_role"?: FriendGroupMemberRole;
-  "name"?: string;
+  "name": string;
   "updated_at"?: string;
   "workspace_name"?: string;
 };
 export type FriendGroupPutRequest = {
   "description"?: string;
-  "id": string;
-  "name"?: string;
+  "name": string;
+  "display_name"?: string;
 };
 export type FriendGroupPutResponse = FriendGroupObject;
 export type FriendInfo = {
@@ -647,15 +646,14 @@ export type GameResult = {
   "created_at": string;
   "difficulty"?: string;
   "duration_ms"?: number;
-  "game_def_id": string;
+  "game_def_name": string;
   "id": string;
   "idempotency_key"?: string;
   "max_score"?: number;
   "occurred_at": string;
   "outcome"?: string;
-  "owner_public_key": string;
   "payload"?: GameplayMetadata;
-  "pet_id": string;
+  "pet_name": string;
   "runtime_profile_name": string;
   "score"?: number;
 };
@@ -678,6 +676,9 @@ export type GameplayListRequest = {
 };
 export type GameplayMetadata = {
   "fields": Record<string, unknown>;
+};
+export type GameplayNameGetRequest = {
+  "name": string;
 };
 export type GeminiTenantModelProviderData = {
   "upstream_model"?: string;
@@ -716,8 +717,8 @@ export type MiniMaxTenantModelProviderData = {
   "default_thinking_level"?: string;
 };
 export type Model = {
-  "alias": string;
-  "i18n": Record<string, AliasI18nText>;
+  "name": string;
+  "i18n": Record<string, ResourceI18nText>;
   "kind": ModelKind;
   "openai_tenant"?: OpenAITenantModelProviderData;
   "gemini_tenant"?: GeminiTenantModelProviderData;
@@ -728,7 +729,7 @@ export type Model = {
   "provider_kind": ModelProviderKind;
 };
 export type ModelGetRequest = {
-  "alias": string;
+  "name": string;
 };
 export type ModelGetResponse = {
   "value": Model;
@@ -879,10 +880,9 @@ export type PeerStatus = {
   "volume"?: number;
 };
 export type Pet = {
-  "id": string;
-  "owner_public_key": string;
+  "name": string;
   "runtime_profile_name": string;
-  "petdef_id": string;
+  "pet_def_name": string;
   "display_name": string;
   "workspace_name": string;
   "stats": PetStats;
@@ -895,15 +895,15 @@ export type Pet = {
   "updated_at": string;
 };
 export type PetActions = {
-  "pet_id": string;
-  "petdef_id": string;
+  "pet_name": string;
+  "pet_def_name": string;
   "bindings": PetVisualBindings;
-  "petdef_updated_at": string;
+  "pet_def_updated_at": string;
   "clip_names": Record<string, string>;
 };
 export type PetAdoptRequest = {
+  "name": string;
   "display_name": string;
-  "id"?: string;
 };
 export type PetAdoptResponse = {
   "pet": Pet;
@@ -911,12 +911,12 @@ export type PetAdoptResponse = {
   "transaction": PointsTransaction;
 };
 export type PetDeleteRequest = {
-  "id": string;
+  "name": string;
 };
 export type PetDriveGameResultInput = {
   "difficulty"?: string;
   "duration_ms"?: number;
-  "game_def_id": string;
+  "game_name": string;
   "idempotency_key"?: string;
   "max_score"?: number;
   "occurred_at"?: string;
@@ -927,7 +927,7 @@ export type PetDriveGameResultInput = {
 export type PetDriveRequest = {
   "behavior"?: PetBehavior;
   "game_result"?: PetDriveGameResultInput;
-  "pet_id": string;
+  "pet_name": string;
   "idempotency_key"?: string;
 };
 export type PetDriveResponse = {
@@ -939,7 +939,7 @@ export type PetDriveResponse = {
   "transactions": PointsTransaction[];
 };
 export type PetGetRequest = {
-  "id": string;
+  "name": string;
 };
 export type PetListResponse = {
   "has_next": boolean;
@@ -947,11 +947,11 @@ export type PetListResponse = {
   "next_cursor"?: string;
 };
 export type PetPixaDownloadRequest = {
-  "pet_id": string;
+  "pet_name": string;
 };
 export type PetPixaDownloadResponse = {
-  "pet_id": string;
-  "petdef_id": string;
+  "pet_name": string;
+  "pet_def_name": string;
   "pixa_path"?: string;
   "size_bytes": number;
 };
@@ -961,7 +961,7 @@ export type PetProgression = {
 };
 export type PetPutRequest = {
   "display_name": string;
-  "id": string;
+  "name": string;
 };
 export type PetStats = {
   "life": number;
@@ -1012,7 +1012,7 @@ export type PointsTransaction = {
   "game_result_id"?: string;
   "id": string;
   "owner_public_key": string;
-  "pet_id"?: string;
+  "pet_name"?: string;
   "reason": string;
   "reward_grant_id"?: string;
   "runtime_profile_name": string;
@@ -1024,6 +1024,10 @@ export type PointsTransactionListResponse = {
   "items": PointsTransaction[];
   "next_cursor"?: string;
 };
+export type ResourceI18nText = {
+  "display_name": string;
+  "description"?: string;
+};
 export type RewardGrant = {
   "badge_exp_delta": Record<string, number>;
   "created_at": string;
@@ -1031,7 +1035,7 @@ export type RewardGrant = {
   "id": string;
   "owner_public_key": string;
   "pet_exp_delta": number;
-  "pet_id"?: string;
+  "pet_name"?: string;
   "points_delta": number;
   "reason"?: string;
   "runtime_profile_name": string;
@@ -1052,7 +1056,7 @@ export type Runtime = {
 };
 export type RuntimeAdoptRequest = PetAdoptRequest;
 export type RuntimeAdoptResponse = PetAdoptResponse;
-export type ServerBadgeGetRequest = GameplayGetRequest;
+export type ServerBadgeGetRequest = GameplayNameGetRequest;
 export type ServerBadgeGetResponse = Badge;
 export type ServerBadgeListRequest = GameplayListRequest;
 export type ServerBadgeListResponse = BadgeListResponse;
@@ -1120,7 +1124,7 @@ export type ServerRegisterRequest = {
 };
 export type ServerRegisterResponse = {
   "runtime_profile_name": string;
-  "firmware_id"?: string;
+  "firmware_name"?: string;
 };
 export type ServerReloadRunRequest = Record<string, never>;
 export type ServerReloadRunResponse = PeerRunStatus;
@@ -1138,7 +1142,7 @@ export type ServerRouteResolveResponse = {
 };
 export type ServerRunSayRequest = {
   "text": string;
-  "voice_alias": string;
+  "voice_name": string;
 };
 export type ServerRunSayResponse = {
   "accepted": boolean;
@@ -1152,8 +1156,8 @@ export type ServerSetRunWorkspaceResponse = PeerRunWorkspaceState;
 export type ServerStopRunRequest = Record<string, never>;
 export type ServerStopRunResponse = PeerRunStatus;
 export type SpeechExtractRequest = {
-  "asr_model_alias": string;
-  "extract_model_alias": string;
+  "asr_model_name": string;
+  "extract_model_name": string;
   "content_type": string;
   "language"?: string;
   "schema_json": string;
@@ -1164,7 +1168,7 @@ export type SpeechExtractResponse = {
   "result_json": string;
 };
 export type SpeechSynthesizeRequest = {
-  "voice_alias": string;
+  "voice_name": string;
   "text": string;
   "accepted_content_types": string[];
 };
@@ -1174,7 +1178,7 @@ export type SpeechSynthesizeResponse = {
   "channels"?: number;
 };
 export type SpeechTranscribeRequest = {
-  "model_alias": string;
+  "model_name": string;
   "content_type": string;
   "language"?: string;
 };
@@ -1190,13 +1194,13 @@ export type SpeedTestResponse = {
   "up_content_length": number;
 };
 export type Tool = {
-  "alias": string;
-  "i18n": Record<string, AliasI18nText>;
-  "input_schema": Record<string, unknown>;
   "name": string;
+  "i18n": Record<string, ResourceI18nText>;
+  "input_schema": Record<string, unknown>;
+  "invoke_name": string;
 };
 export type ToolGetRequest = {
-  "alias": string;
+  "name": string;
 };
 export type ToolGetResponse = {
   "value": Tool;
@@ -1205,7 +1209,7 @@ export type ToolGetResponse = {
 };
 export type ToolInvokeRequest = {
   "args": Record<string, unknown>;
-  "name": string;
+  "invoke_name": string;
 };
 export type ToolInvokeResponse = {
   "data_json": string;
@@ -1222,15 +1226,15 @@ export type ToolListResponse = {
   "runtime_profile_revision": string;
 };
 export type ToolkitPolicy = {
-  "tool_ids"?: ToolkitPolicyToolIds;
+  "tool_names"?: ToolkitPolicyToolNames;
 };
-export type ToolkitPolicyToolIds = string[];
+export type ToolkitPolicyToolNames = string[];
 export type Voice = {
-  "alias": string;
-  "i18n": Record<string, AliasI18nText>;
+  "name": string;
+  "i18n": Record<string, ResourceI18nText>;
 };
 export type VoiceGetRequest = {
-  "alias": string;
+  "name": string;
 };
 export type VoiceGetResponse = {
   "value": Voice;
@@ -1264,14 +1268,14 @@ export type VolcTenantModelProviderData = {
   "default_thinking_level"?: string;
 };
 export type Workflow = {
-  "alias": string;
-  "i18n": Record<string, AliasI18nText>;
+  "name": string;
+  "i18n": Record<string, ResourceI18nText>;
   "collection": string;
   "driver": WorkflowDriver;
   "workspace_lang_pair"?: string;
 };
 export type WorkflowGetRequest = {
-  "alias": string;
+  "name": string;
 };
 export type WorkflowGetResponse = {
   "value": Workflow;
@@ -1296,17 +1300,16 @@ export type Workspace = {
   "name": string;
   "parameters"?: WorkspaceParameters;
   "updated_at": string;
-  "workflow_alias": string;
+  "workflow_name": string;
   "toolkit"?: ToolkitPolicy;
   "system": boolean;
   "icon"?: Icon;
-  "owner_public_key"?: string;
   "available": boolean;
 };
 export type WorkspaceCreateBody = {
   "name": string;
   "parameters"?: WorkspaceParameters;
-  "workflow_alias": string;
+  "workflow_name": string;
   "toolkit"?: ToolkitPolicy;
   "collection": string;
 };
@@ -1583,21 +1586,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "AliasI18nText": {
-    "fields": [
-      {
-        "name": "display_name",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "description",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
   "ASTTranslateExternalVoiceParameters": {
     "fields": [
       {
@@ -1762,7 +1750,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "bool"
       },
       {
-        "name": "badge_def_id",
+        "name": "badge_def_name",
         "number": 2,
         "type": "string"
       },
@@ -1777,28 +1765,23 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "int64"
       },
       {
-        "name": "id",
-        "number": 5,
-        "type": "string"
-      },
-      {
         "name": "level",
-        "number": 6,
+        "number": 5,
         "type": "int64"
       },
       {
-        "name": "owner_public_key",
-        "number": 7,
+        "name": "name",
+        "number": 6,
         "type": "string"
       },
       {
         "name": "progress",
-        "number": 8,
+        "number": 7,
         "type": "int64"
       },
       {
         "name": "updated_at",
-        "number": 9,
+        "number": 8,
         "type": "string"
       }
     ]
@@ -1806,7 +1789,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "BadgeDefPixaDownloadRequest": {
     "fields": [
       {
-        "name": "id",
+        "name": "name",
         "number": 1,
         "type": "string"
       }
@@ -1815,7 +1798,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "BadgeDefPixaDownloadResponse": {
     "fields": [
       {
-        "name": "id",
+        "name": "name",
         "number": 1,
         "type": "string"
       },
@@ -1980,14 +1963,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "ContactCreateRequest": {
     "fields": [
       {
-        "name": "display_name",
+        "name": "name",
         "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "display_name",
+        "number": 2,
         "optional": true,
         "type": "string"
       },
       {
         "name": "phone_number",
-        "number": 2,
+        "number": 3,
         "optional": true,
         "type": "string"
       }
@@ -2005,7 +1993,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "ContactDeleteRequest": {
     "fields": [
       {
-        "name": "id",
+        "name": "name",
         "number": 1,
         "type": "string"
       }
@@ -2023,7 +2011,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "ContactGetRequest": {
     "fields": [
       {
-        "name": "id",
+        "name": "name",
         "number": 1,
         "type": "string"
       }
@@ -2090,9 +2078,8 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "name",
         "number": 3,
-        "optional": true,
         "type": "string"
       },
       {
@@ -2118,7 +2105,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "name",
         "number": 2,
         "type": "string"
       },
@@ -3188,7 +3175,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       },
       {
         "name": "conversation",
-        "number": 4,
+        "number": 3,
         "optional": true,
         "type": "google.protobuf.Struct"
       }
@@ -3351,7 +3338,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "FirmwareArtifactEntry"
       },
       {
-        "name": "firmware_id",
+        "name": "firmware_name",
         "number": 4,
         "type": "string"
       },
@@ -3460,7 +3447,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       },
       {
         "name": "input",
-        "number": 7,
+        "number": 4,
         "optional": true,
         "type": "WorkspaceInputMode"
       }
@@ -3514,6 +3501,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "name",
         "number": 2,
         "type": "string"
+      },
+      {
+        "name": "display_name",
+        "number": 3,
+        "optional": true,
+        "type": "string"
       }
     ]
   },
@@ -3529,7 +3522,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendGroupDeleteRequest": {
     "fields": [
       {
-        "name": "id",
+        "name": "name",
         "number": 1,
         "type": "string"
       }
@@ -3547,7 +3540,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendGroupGetRequest": {
     "fields": [
       {
-        "name": "id",
+        "name": "name",
         "number": 1,
         "type": "string"
       }
@@ -3565,7 +3558,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendGroupInviteTokenClearRequest": {
     "fields": [
       {
-        "name": "friend_group_id",
+        "name": "friend_group_name",
         "number": 1,
         "type": "string"
       }
@@ -3577,7 +3570,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendGroupInviteTokenCreateRequest": {
     "fields": [
       {
-        "name": "friend_group_id",
+        "name": "friend_group_name",
         "number": 1,
         "type": "string"
       }
@@ -3600,7 +3593,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendGroupInviteTokenGetRequest": {
     "fields": [
       {
-        "name": "friend_group_id",
+        "name": "friend_group_name",
         "number": 1,
         "type": "string"
       }
@@ -3627,6 +3620,11 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "invite_token",
         "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "name",
+        "number": 2,
         "type": "string"
       }
     ]
@@ -3685,7 +3683,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendGroupMemberAddRequest": {
     "fields": [
       {
-        "name": "friend_group_id",
+        "name": "friend_group_name",
         "number": 1,
         "type": "string"
       },
@@ -3698,6 +3696,11 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "role",
         "number": 3,
         "type": "FriendGroupMemberMutableRole"
+      },
+      {
+        "name": "member_name",
+        "number": 4,
+        "type": "string"
       }
     ]
   },
@@ -3713,7 +3716,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendGroupMemberDeleteRequest": {
     "fields": [
       {
-        "name": "friend_group_id",
+        "name": "friend_group_name",
         "number": 1,
         "type": "string"
       },
@@ -3742,7 +3745,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "friend_group_id",
+        "name": "friend_group_name",
         "number": 2,
         "optional": true,
         "type": "string"
@@ -3785,7 +3788,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "friend_group_id",
+        "name": "friend_group_name",
         "number": 2,
         "optional": true,
         "type": "string"
@@ -3819,7 +3822,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendGroupMemberPutRequest": {
     "fields": [
       {
-        "name": "friend_group_id",
+        "name": "friend_group_name",
         "number": 1,
         "type": "string"
       },
@@ -3847,7 +3850,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendGroupMessageAudioGetRequest": {
     "fields": [
       {
-        "name": "friend_group_id",
+        "name": "friend_group_name",
         "number": 1,
         "type": "string"
       },
@@ -3861,7 +3864,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendGroupMessageAudioGetResponse": {
     "fields": [
       {
-        "name": "friend_group_id",
+        "name": "friend_group_name",
         "number": 1,
         "type": "string"
       },
@@ -3885,7 +3888,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendGroupMessageGetRequest": {
     "fields": [
       {
-        "name": "friend_group_id",
+        "name": "friend_group_name",
         "number": 1,
         "type": "string"
       },
@@ -3914,7 +3917,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "friend_group_id",
+        "name": "friend_group_name",
         "number": 2,
         "type": "string"
       },
@@ -3957,49 +3960,49 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     "fields": [
       {
         "name": "created_at",
-        "number": 4,
+        "number": 1,
         "type": "string"
       },
       {
         "name": "expires_at",
-        "number": 5,
+        "number": 2,
         "optional": true,
         "type": "string"
       },
       {
-        "name": "friend_group_id",
-        "number": 6,
+        "name": "friend_group_name",
+        "number": 3,
         "type": "string"
       },
       {
         "name": "sender_peer_public_key",
-        "number": 8,
+        "number": 4,
         "optional": true,
         "type": "string"
       },
       {
         "name": "history_id",
-        "number": 10,
+        "number": 5,
         "type": "string"
       },
       {
         "name": "name",
-        "number": 11,
+        "number": 6,
         "type": "string"
       },
       {
         "name": "text",
-        "number": 12,
+        "number": 7,
         "type": "string"
       },
       {
         "name": "type",
-        "number": 13,
+        "number": 8,
         "type": "PeerRunHistoryEntryType"
       },
       {
         "name": "audio_available",
-        "number": 14,
+        "number": 9,
         "type": "bool"
       }
     ]
@@ -4025,7 +4028,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "display_name",
         "number": 4,
         "optional": true,
         "type": "string"
@@ -4039,7 +4042,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "name",
         "number": 6,
-        "optional": true,
         "type": "string"
       },
       {
@@ -4065,12 +4067,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "name",
         "number": 2,
         "type": "string"
       },
       {
-        "name": "name",
+        "name": "display_name",
         "number": 3,
         "optional": true,
         "type": "string"
@@ -4272,6 +4274,15 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "GameplayNameGetRequest": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
   "GameResult": {
     "fields": [
       {
@@ -4292,7 +4303,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "int64"
       },
       {
-        "name": "game_def_id",
+        "name": "game_def_name",
         "number": 4,
         "type": "string"
       },
@@ -4325,18 +4336,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "owner_public_key",
-        "number": 10,
-        "type": "string"
-      },
-      {
         "name": "payload",
         "number": 11,
         "optional": true,
         "type": "GameplayMetadata"
       },
       {
-        "name": "pet_id",
+        "name": "pet_name",
         "number": 12,
         "type": "string"
       },
@@ -4579,12 +4585,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "Model": {
     "fields": [
       {
-        "name": "alias",
+        "name": "name",
         "number": 1,
         "type": "string"
       },
       {
-        "mapValue": "AliasI18nText",
+        "mapValue": "ResourceI18nText",
         "name": "i18n",
         "number": 2,
         "type": "map"
@@ -4596,49 +4602,49 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       },
       {
         "name": "openai_tenant",
-        "number": 5,
+        "number": 4,
         "oneof": true,
         "oneofGroup": "provider_data",
         "type": "OpenAITenantModelProviderData"
       },
       {
         "name": "gemini_tenant",
-        "number": 6,
+        "number": 5,
         "oneof": true,
         "oneofGroup": "provider_data",
         "type": "GeminiTenantModelProviderData"
       },
       {
         "name": "dashscope_tenant",
-        "number": 7,
+        "number": 6,
         "oneof": true,
         "oneofGroup": "provider_data",
         "type": "DashScopeTenantModelProviderData"
       },
       {
         "name": "volc_tenant",
-        "number": 8,
+        "number": 7,
         "oneof": true,
         "oneofGroup": "provider_data",
         "type": "VolcTenantModelProviderData"
       },
       {
         "name": "minimax_tenant",
-        "number": 9,
+        "number": 8,
         "oneof": true,
         "oneofGroup": "provider_data",
         "type": "MiniMaxTenantModelProviderData"
       },
       {
         "name": "deepseek_tenant",
-        "number": 10,
+        "number": 9,
         "oneof": true,
         "oneofGroup": "provider_data",
         "type": "DeepSeekTenantModelProviderData"
       },
       {
         "name": "provider_kind",
-        "number": 11,
+        "number": 10,
         "type": "ModelProviderKind"
       }
     ]
@@ -4646,7 +4652,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "ModelGetRequest": {
     "fields": [
       {
-        "name": "alias",
+        "name": "name",
         "number": 1,
         "type": "string"
       }
@@ -5337,74 +5343,69 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "Pet": {
     "fields": [
       {
-        "name": "id",
+        "name": "name",
         "number": 1,
         "type": "string"
       },
       {
-        "name": "owner_public_key",
+        "name": "runtime_profile_name",
         "number": 2,
         "type": "string"
       },
       {
-        "name": "runtime_profile_name",
+        "name": "pet_def_name",
         "number": 3,
         "type": "string"
       },
       {
-        "name": "petdef_id",
+        "name": "display_name",
         "number": 4,
         "type": "string"
       },
       {
-        "name": "display_name",
+        "name": "workspace_name",
         "number": 5,
         "type": "string"
       },
       {
-        "name": "workspace_name",
-        "number": 6,
-        "type": "string"
-      },
-      {
         "name": "stats",
-        "number": 7,
+        "number": 6,
         "type": "PetStats"
       },
       {
         "name": "progression",
-        "number": 8,
+        "number": 7,
         "type": "PetProgression"
       },
       {
         "name": "lifecycle",
-        "number": 9,
+        "number": 8,
         "type": "PetLifecycle"
       },
       {
         "name": "died_at",
-        "number": 10,
+        "number": 9,
         "optional": true,
         "type": "string"
       },
       {
         "name": "state_settled_at",
-        "number": 11,
+        "number": 10,
         "type": "string"
       },
       {
         "name": "last_active_at",
-        "number": 12,
+        "number": 11,
         "type": "string"
       },
       {
         "name": "created_at",
-        "number": 13,
+        "number": 12,
         "type": "string"
       },
       {
         "name": "updated_at",
-        "number": 14,
+        "number": 13,
         "type": "string"
       }
     ]
@@ -5412,12 +5413,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "PetActions": {
     "fields": [
       {
-        "name": "pet_id",
+        "name": "pet_name",
         "number": 1,
         "type": "string"
       },
       {
-        "name": "petdef_id",
+        "name": "pet_def_name",
         "number": 2,
         "type": "string"
       },
@@ -5427,7 +5428,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "PetVisualBindings"
       },
       {
-        "name": "petdef_updated_at",
+        "name": "pet_def_updated_at",
         "number": 4,
         "type": "string"
       },
@@ -5442,14 +5443,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "PetAdoptRequest": {
     "fields": [
       {
-        "name": "display_name",
+        "name": "name",
         "number": 1,
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "display_name",
         "number": 2,
-        "optional": true,
         "type": "string"
       }
     ]
@@ -5476,7 +5476,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "PetDeleteRequest": {
     "fields": [
       {
-        "name": "id",
+        "name": "name",
         "number": 1,
         "type": "string"
       }
@@ -5497,7 +5497,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "int64"
       },
       {
-        "name": "game_def_id",
+        "name": "game_name",
         "number": 3,
         "type": "string"
       },
@@ -5554,7 +5554,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "PetDriveGameResultInput"
       },
       {
-        "name": "pet_id",
+        "name": "pet_name",
         "number": 3,
         "type": "string"
       },
@@ -5607,7 +5607,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "PetGetRequest": {
     "fields": [
       {
-        "name": "id",
+        "name": "name",
         "number": 1,
         "type": "string"
       }
@@ -5637,7 +5637,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "PetPixaDownloadRequest": {
     "fields": [
       {
-        "name": "pet_id",
+        "name": "pet_name",
         "number": 1,
         "type": "string"
       }
@@ -5646,12 +5646,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "PetPixaDownloadResponse": {
     "fields": [
       {
-        "name": "pet_id",
+        "name": "pet_name",
         "number": 1,
         "type": "string"
       },
       {
-        "name": "petdef_id",
+        "name": "pet_def_name",
         "number": 2,
         "type": "string"
       },
@@ -5690,7 +5690,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "name",
         "number": 2,
         "type": "string"
       }
@@ -5913,7 +5913,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "pet_id",
+        "name": "pet_name",
         "number": 7,
         "optional": true,
         "type": "string"
@@ -5967,6 +5967,21 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ResourceI18nText": {
+    "fields": [
+      {
+        "name": "display_name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "description",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
   "RewardGrant": {
     "fields": [
       {
@@ -6002,7 +6017,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "int64"
       },
       {
-        "name": "pet_id",
+        "name": "pet_name",
         "number": 7,
         "optional": true,
         "type": "string"
@@ -6111,7 +6126,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "value",
         "number": 1,
-        "type": "GameplayGetRequest"
+        "type": "GameplayNameGetRequest"
       }
     ]
   },
@@ -6561,7 +6576,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "firmware_id",
+        "name": "firmware_name",
         "number": 2,
         "optional": true,
         "type": "string"
@@ -6654,7 +6669,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "voice_alias",
+        "name": "voice_name",
         "number": 2,
         "type": "string"
       }
@@ -6738,12 +6753,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "SpeechExtractRequest": {
     "fields": [
       {
-        "name": "asr_model_alias",
+        "name": "asr_model_name",
         "number": 1,
         "type": "string"
       },
       {
-        "name": "extract_model_alias",
+        "name": "extract_model_name",
         "number": 2,
         "type": "string"
       },
@@ -6788,7 +6803,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "SpeechSynthesizeRequest": {
     "fields": [
       {
-        "name": "voice_alias",
+        "name": "voice_name",
         "number": 1,
         "type": "string"
       },
@@ -6829,7 +6844,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "SpeechTranscribeRequest": {
     "fields": [
       {
-        "name": "model_alias",
+        "name": "model_name",
         "number": 1,
         "type": "string"
       },
@@ -6886,12 +6901,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "Tool": {
     "fields": [
       {
-        "name": "alias",
+        "name": "name",
         "number": 1,
         "type": "string"
       },
       {
-        "mapValue": "AliasI18nText",
+        "mapValue": "ResourceI18nText",
         "name": "i18n",
         "number": 2,
         "type": "map"
@@ -6902,8 +6917,8 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "google.protobuf.Struct"
       },
       {
-        "name": "name",
-        "number": 5,
+        "name": "invoke_name",
+        "number": 4,
         "type": "string"
       }
     ]
@@ -6911,7 +6926,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "ToolGetRequest": {
     "fields": [
       {
-        "name": "alias",
+        "name": "name",
         "number": 1,
         "type": "string"
       }
@@ -6940,12 +6955,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     "fields": [
       {
         "name": "args",
-        "number": 4,
+        "number": 1,
         "type": "google.protobuf.Struct"
       },
       {
-        "name": "name",
-        "number": 5,
+        "name": "invoke_name",
+        "number": 2,
         "type": "string"
       }
     ]
@@ -6962,14 +6977,14 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "ToolkitPolicy": {
     "fields": [
       {
-        "name": "tool_ids",
+        "name": "tool_names",
         "number": 1,
         "optional": true,
-        "type": "ToolkitPolicyToolIds"
+        "type": "ToolkitPolicyToolNames"
       }
     ]
   },
-  "ToolkitPolicyToolIds": {
+  "ToolkitPolicyToolNames": {
     "fields": [
       {
         "name": "value",
@@ -7029,12 +7044,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "Voice": {
     "fields": [
       {
-        "name": "alias",
+        "name": "name",
         "number": 1,
         "type": "string"
       },
       {
-        "mapValue": "AliasI18nText",
+        "mapValue": "ResourceI18nText",
         "name": "i18n",
         "number": 2,
         "type": "map"
@@ -7044,7 +7059,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "VoiceGetRequest": {
     "fields": [
       {
-        "name": "alias",
+        "name": "name",
         "number": 1,
         "type": "string"
       }
@@ -7201,12 +7216,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "Workflow": {
     "fields": [
       {
-        "name": "alias",
+        "name": "name",
         "number": 1,
         "type": "string"
       },
       {
-        "mapValue": "AliasI18nText",
+        "mapValue": "ResourceI18nText",
         "name": "i18n",
         "number": 2,
         "type": "map"
@@ -7232,7 +7247,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "WorkflowGetRequest": {
     "fields": [
       {
-        "name": "alias",
+        "name": "name",
         "number": 1,
         "type": "string"
       }
@@ -7338,7 +7353,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "workflow_alias",
+        "name": "workflow_name",
         "number": 6,
         "type": "string"
       },
@@ -7358,12 +7373,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 9,
         "optional": true,
         "type": "Icon"
-      },
-      {
-        "name": "owner_public_key",
-        "number": 10,
-        "optional": true,
-        "type": "string"
       },
       {
         "name": "available",
@@ -7386,7 +7395,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "WorkspaceParameters"
       },
       {
-        "name": "workflow_alias",
+        "name": "workflow_name",
         "number": 3,
         "type": "string"
       },
@@ -7687,21 +7696,21 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       },
       {
         "name": "dash_scope_realtime_workspace_parameters",
-        "number": 6,
+        "number": 5,
         "oneof": true,
         "oneofGroup": "value",
         "type": "DashScopeRealtimeWorkspaceParameters"
       },
       {
         "name": "doubao_realtime_duplex_workspace_parameters",
-        "number": 7,
+        "number": 6,
         "oneof": true,
         "oneofGroup": "value",
         "type": "DoubaoRealtimeDuplexWorkspaceParameters"
       },
       {
         "name": "eino_workspace_parameters",
-        "number": 8,
+        "number": 7,
         "oneof": true,
         "oneofGroup": "value",
         "type": "EinoWorkspaceParameters"

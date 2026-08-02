@@ -77,9 +77,9 @@ func createMediaRegistrationToken(t *testing.T, h *clitest.Harness) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	profileName := "cgo-opus-media"
-	profileResp, err := api.PutRuntimeProfileWithResponse(
+	profile, err := clitest.UpsertRuntimeProfileByName(
 		ctx,
-		profileName,
+		api,
 		adminhttp.RuntimeProfileUpsert{
 			Name: profileName,
 			Spec: apitypes.RuntimeProfileSpec{
@@ -113,22 +113,16 @@ func createMediaRegistrationToken(t *testing.T, h *clitest.Harness) string {
 	if err != nil {
 		t.Fatalf("put C SDK media RuntimeProfile: %v", err)
 	}
-	if profileResp.JSON200 == nil {
-		t.Fatalf(
-			"put C SDK media RuntimeProfile status %d: %s",
-			profileResp.StatusCode(),
-			strings.TrimSpace(string(profileResp.Body)),
-		)
-	}
-
 	tokenName := "cgo-opus-media"
-	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
+	if err := clitest.DeleteRegistrationTokenByName(ctx, api, tokenName); err != nil {
+		t.Fatalf("retire C SDK media RegistrationToken: %v", err)
+	}
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(
 		ctx,
 		adminhttp.RegistrationTokenUpsert{
 			Name:               tokenName,
 			Token:              tokenName,
-			RuntimeProfileName: profileName,
+			RuntimeProfileId: profile.Id,
 		},
 	)
 	if err != nil {

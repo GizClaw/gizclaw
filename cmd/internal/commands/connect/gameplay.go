@@ -56,12 +56,12 @@ func newPetListCmd() *cobra.Command {
 func newPetGetCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "get <pet-id>",
+		Use:   "get <pet-name>",
 		Short: "Get a pet",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.GetPet(ctx, "server.pet.get", rpcapi.ServerPetGetRequest{Id: args[0]})
+				return c.GetPet(ctx, "server.pet.get", rpcapi.ServerPetGetRequest{Name: args[0]})
 			})
 		},
 	}
@@ -72,12 +72,12 @@ func newPetGetCmd() *cobra.Command {
 func newPetActionsCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "actions <pet-id>",
+		Use:   "actions <pet-name>",
 		Short: "Get pet actions",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.GetPetActions(ctx, "server.pet.actions.get", rpcapi.ServerPetActionsGetRequest{Id: args[0]})
+				return c.GetPetActions(ctx, "server.pet.actions.get", rpcapi.ServerPetActionsGetRequest{Name: args[0]})
 			})
 		},
 	}
@@ -89,7 +89,7 @@ func newPetPixaCmd() *cobra.Command {
 	var opts connectRPCOptions
 	var output string
 	cmd := &cobra.Command{
-		Use:   "pixa <pet-id> --output <file>",
+		Use:   "pixa <pet-name> --output <file>",
 		Short: "Download pet pixa",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
@@ -117,7 +117,7 @@ func newPetPixaCmd() *cobra.Command {
 						_ = os.Remove(tmpPath)
 					}
 				}()
-				result, err := c.DownloadPetPixa(ctx, "server.pet.pixa.download", rpcapi.PetPixaDownloadRequest{PetId: args[0]}, out)
+				result, err := c.DownloadPetPixa(ctx, "server.pet.pixa.download", rpcapi.PetPixaDownloadRequest{PetName: args[0]}, out)
 				closeErr := out.Close()
 				if err != nil {
 					return nil, err
@@ -145,38 +145,32 @@ func newPetPixaCmd() *cobra.Command {
 func newPetAdoptCmd() *cobra.Command {
 	var opts connectRPCOptions
 	var displayName string
-	var petID string
 	cmd := &cobra.Command{
-		Use:   "adopt",
+		Use:   "adopt <name>",
 		Short: "Adopt a pet",
-		Args:  cobra.NoArgs,
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			displayName = strings.TrimSpace(displayName)
 			if displayName == "" {
 				return fmt.Errorf("name must not be empty")
 			}
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				var id *string
-				if cmd.Flags().Changed("id") {
-					id = &petID
-				}
 				return c.AdoptPet(ctx, "runtime.adopt", rpcapi.RuntimeAdoptRequest{
+					Name:        args[0],
 					DisplayName: displayName,
-					Id:          id,
 				})
 			})
 		},
 	}
 	opts.addFlags(cmd)
-	cmd.Flags().StringVar(&petID, "id", "", "stable peer-scoped pet ID")
-	cmd.Flags().StringVar(&displayName, "name", "", "pet display name")
+	cmd.Flags().StringVar(&displayName, "display-name", "", "pet display name")
 	return cmd
 }
 
 func newPetRenameCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "rename <pet-id> <name>",
+		Use:   "rename <pet-name> <display-name>",
 		Short: "Rename a pet",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.ExactArgs(2)(cmd, args); err != nil {
@@ -189,7 +183,7 @@ func newPetRenameCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.PutPet(ctx, "server.pet.put", rpcapi.ServerPetPutRequest{Id: args[0], DisplayName: args[1]})
+				return c.PutPet(ctx, "server.pet.put", rpcapi.ServerPetPutRequest{Name: args[0], DisplayName: args[1]})
 			})
 		},
 	}
@@ -200,12 +194,12 @@ func newPetRenameCmd() *cobra.Command {
 func newPetDeleteCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "delete <pet-id>",
+		Use:   "delete <pet-name>",
 		Short: "Delete a pet",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.DeletePet(ctx, "server.pet.delete", rpcapi.ServerPetDeleteRequest{Id: args[0]})
+				return c.DeletePet(ctx, "server.pet.delete", rpcapi.ServerPetDeleteRequest{Name: args[0]})
 			})
 		},
 	}
@@ -225,12 +219,12 @@ func newPetDriveCmd() *cobra.Command {
 	var idempotencyKey string
 	var occurredAt string
 	cmd := &cobra.Command{
-		Use:   "drive <pet-id>",
+		Use:   "drive <pet-name>",
 		Short: "Drive pet gameplay state",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				req := rpcapi.ServerPetDriveRequest{PetId: args[0]}
+				req := rpcapi.ServerPetDriveRequest{PetName: args[0]}
 				behaviorName := strings.TrimSpace(behavior)
 				if behaviorName != "" {
 					value := rpcapi.PetBehavior(behaviorName)
@@ -255,7 +249,7 @@ func newPetDriveCmd() *cobra.Command {
 						occurredAtValue = &parsed
 					}
 					req.GameResult = &rpcapi.PetDriveGameResultInput{
-						GameDefId:      game,
+						GameName:       game,
 						Score:          optionalInt64(score),
 						MaxScore:       optionalInt64(maxScore),
 						Difficulty:     optionalString(difficulty),
@@ -274,7 +268,7 @@ func newPetDriveCmd() *cobra.Command {
 	}
 	opts.addFlags(cmd)
 	cmd.Flags().StringVar(&behavior, "behavior", "", "fixed pet behavior: feed, bathe, play, or heal")
-	cmd.Flags().StringVar(&game, "game", "", "game definition id")
+	cmd.Flags().StringVar(&game, "game", "", "game definition name")
 	cmd.Flags().Int64Var(&score, "score", 0, "game score")
 	cmd.Flags().Int64Var(&maxScore, "max-score", 0, "game max score")
 	cmd.Flags().StringVar(&difficulty, "difficulty", "", "game difficulty")
@@ -351,8 +345,8 @@ func newPointsTransactionGetCmd() *cobra.Command {
 func newBadgeCmd() *cobra.Command {
 	return newListGetGameplayCmd("badge", "badges", func(ctx context.Context, c *gizcli.Client, cursor string, limit int) (any, error) {
 		return c.ListBadges(ctx, "server.badge.list", rpcapi.ServerBadgeListRequest{Cursor: optionalString(cursor), Limit: optionalInt(limit)})
-	}, func(ctx context.Context, c *gizcli.Client, id string) (any, error) {
-		return c.GetBadge(ctx, "server.badge.get", rpcapi.ServerBadgeGetRequest{Id: id})
+	}, func(ctx context.Context, c *gizcli.Client, name string) (any, error) {
+		return c.GetBadge(ctx, "server.badge.get", rpcapi.ServerBadgeGetRequest{Name: name})
 	})
 }
 

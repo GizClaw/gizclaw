@@ -185,7 +185,7 @@ void main() {
       id: 'tool-1',
       method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
       methodName: 'client.tool.invoke',
-      request: ToolInvokeRequest(name: 'music_play'),
+      request: ToolInvokeRequest(invokeName: 'music_play'),
     );
     final result =
         decodeRpcResponsePayload('client.tool.invoke', response.payload)
@@ -217,7 +217,7 @@ void main() {
         method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
         payloadBytes: encodeRpcRequestPayload(
           'client.tool.invoke',
-          ToolInvokeRequest(name: 'music_play'),
+          ToolInvokeRequest(invokeName: 'music_play'),
         ),
       ),
     );
@@ -259,7 +259,7 @@ void main() {
           method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
           payloadBytes: encodeRpcRequestPayload(
             'client.tool.invoke',
-            ToolInvokeRequest(name: 'music_play'),
+            ToolInvokeRequest(invokeName: 'music_play'),
           ),
         ),
         encodeFrame(rpcFrameTypeBinary, [1]),
@@ -285,7 +285,7 @@ void main() {
       id: 'tool-missing',
       method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
       methodName: 'client.tool.invoke',
-      request: ToolInvokeRequest(name: 'missing_tool'),
+      request: ToolInvokeRequest(invokeName: 'missing_tool'),
     );
     expect(
       response.error.code,

@@ -48,7 +48,7 @@ func TestWorkspaceRewardNotificationRejectsInvalidBeneficiary(t *testing.T) {
 	t.Parallel()
 	environment := &workspaceRewardEnvironment{manager: &Manager{}}
 	err := environment.NotifyWorkspaceReward(context.Background(), "not-a-public-key", gameplay.WorkspaceRewardUpdate{
-		WorkspaceName: "workflow-a", RewardGrantID: "grant-a",
+		WorkspaceID: "workspace-a", RewardGrantID: "grant-a",
 	})
 	if err == nil {
 		t.Fatal("NotifyWorkspaceReward() succeeded")

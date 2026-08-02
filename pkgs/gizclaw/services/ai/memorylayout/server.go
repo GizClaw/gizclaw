@@ -17,11 +17,13 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 var (
-	layoutsRoot         = kv.Key{"by-name"}
+	layoutsRoot         = kv.Key{"by-id"}
+	layoutsByNameRoot   = kv.Key{"by-name"}
 	runtimeAliasPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 )
 
@@ -32,6 +34,7 @@ const (
 
 type Server struct {
 	Store      kv.Store
+	NewID      func() string
 	mutationMu sync.Mutex
 }
 
@@ -83,35 +86,41 @@ func (s *Server) CreateMemoryLayout(ctx context.Context, request adminhttp.Creat
 	if request.Body == nil {
 		return adminhttp.CreateMemoryLayout400JSONResponse(apitypes.NewErrorResponse("INVALID_MEMORY_LAYOUT", "request body required")), nil
 	}
-	item, raw, err := validate(*request.Body, "")
+	item, raw, err := validate(upsertToLayout(*request.Body), "")
 	if err != nil {
 		return adminhttp.CreateMemoryLayout400JSONResponse(apitypes.NewErrorResponse("INVALID_MEMORY_LAYOUT", err.Error())), nil
 	}
-	key := layoutKey(item.Name)
-	s.mutationMu.Lock()
-	defer s.mutationMu.Unlock()
-	if _, err := s.Store.Get(ctx, key); err == nil {
-		return adminhttp.CreateMemoryLayout409JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_ALREADY_EXISTS", fmt.Sprintf("memory layout %q already exists", item.Name))), nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
+	item.Id = s.newID()
+	raw, err = json.Marshal(item)
+	if err != nil {
 		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := s.Store.Set(ctx, key, raw); err != nil {
+	s.mutationMu.Lock()
+	defer s.mutationMu.Unlock()
+	_, created, err := kv.CreateIfAbsent(ctx, s.Store,
+		kv.Entry{Key: layoutNameKey(item.Name), Value: []byte(item.Id)},
+		[]kv.Entry{{Key: layoutKey(item.Id), Value: raw}},
+	)
+	if err != nil {
 		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	if !created {
+		return adminhttp.CreateMemoryLayout409JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_ALREADY_EXISTS", fmt.Sprintf("memory layout %q already exists", item.Name))), nil
 	}
 	return adminhttp.CreateMemoryLayout200JSONResponse(item), nil
 }
 
 func (s *Server) GetMemoryLayout(ctx context.Context, request adminhttp.GetMemoryLayoutRequestObject) (adminhttp.GetMemoryLayoutResponseObject, error) {
-	name, err := pathName(request.Name)
+	id, err := pathID(request.Id)
 	if err != nil {
 		return nil, err
 	}
 	if s == nil || s.Store == nil {
 		return adminhttp.GetMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "memory layout store not configured")), nil
 	}
-	raw, err := s.Store.Get(ctx, layoutKey(name))
+	raw, err := s.Store.Get(ctx, layoutKey(id))
 	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.GetMemoryLayout404JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_NOT_FOUND", fmt.Sprintf("memory layout %q not found", name))), nil
+		return adminhttp.GetMemoryLayout404JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_NOT_FOUND", fmt.Sprintf("memory layout %q not found", id))), nil
 	}
 	if err != nil {
 		return adminhttp.GetMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -130,24 +139,40 @@ func (s *Server) PutMemoryLayout(ctx context.Context, request adminhttp.PutMemor
 	if request.Body == nil {
 		return adminhttp.PutMemoryLayout400JSONResponse(apitypes.NewErrorResponse("INVALID_MEMORY_LAYOUT", "request body required")), nil
 	}
-	name, err := pathName(request.Name)
+	id, err := pathID(request.Id)
 	if err != nil {
 		return nil, err
 	}
-	item, raw, err := validate(*request.Body, name)
+	previousRaw, err := s.Store.Get(ctx, layoutKey(id))
+	if errors.Is(err, kv.ErrNotFound) {
+		return adminhttp.PutMemoryLayout404JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_NOT_FOUND", fmt.Sprintf("memory layout %q not found", id))), nil
+	}
+	if err != nil {
+		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	previous, err := decode(previousRaw)
+	if err != nil {
+		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	item, raw, err := validate(upsertToLayout(*request.Body), previous.Name)
 	if err != nil {
 		return adminhttp.PutMemoryLayout400JSONResponse(apitypes.NewErrorResponse("INVALID_MEMORY_LAYOUT", err.Error())), nil
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
-	if err := s.Store.Set(ctx, layoutKey(name), raw); err != nil {
+	item.Id = previous.Id
+	raw, err = json.Marshal(item)
+	if err != nil {
+		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	if err := s.Store.Set(ctx, layoutKey(id), raw); err != nil {
 		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.PutMemoryLayout200JSONResponse(item), nil
 }
 
 func (s *Server) DeleteMemoryLayout(ctx context.Context, request adminhttp.DeleteMemoryLayoutRequestObject) (adminhttp.DeleteMemoryLayoutResponseObject, error) {
-	name, err := pathName(request.Name)
+	id, err := pathID(request.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -156,9 +181,9 @@ func (s *Server) DeleteMemoryLayout(ctx context.Context, request adminhttp.Delet
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
-	raw, err := s.Store.Get(ctx, layoutKey(name))
+	raw, err := s.Store.Get(ctx, layoutKey(id))
 	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.DeleteMemoryLayout404JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_NOT_FOUND", fmt.Sprintf("memory layout %q not found", name))), nil
+		return adminhttp.DeleteMemoryLayout404JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_NOT_FOUND", fmt.Sprintf("memory layout %q not found", id))), nil
 	}
 	if err != nil {
 		return adminhttp.DeleteMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -167,7 +192,7 @@ func (s *Server) DeleteMemoryLayout(ctx context.Context, request adminhttp.Delet
 	if err != nil {
 		return adminhttp.DeleteMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := s.Store.Delete(ctx, layoutKey(name)); err != nil {
+	if err := s.Store.BatchDelete(ctx, []kv.Key{layoutKey(id), layoutNameKey(item.Name)}); err != nil {
 		return adminhttp.DeleteMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteMemoryLayout200JSONResponse(item), nil
@@ -338,19 +363,34 @@ func decode(raw []byte) (apitypes.MemoryLayout, error) {
 	return item, err
 }
 
-func layoutKey(name string) kv.Key {
-	return append(append(kv.Key{}, layoutsRoot...), name)
+func upsertToLayout(in adminhttp.MemoryLayoutUpsert) apitypes.MemoryLayout {
+	return apitypes.MemoryLayout{Name: in.Name, Spec: in.Spec}
 }
 
-func pathName(value string) (string, error) {
-	name, err := url.PathUnescape(value)
+func (s *Server) newID() string {
+	if s != nil && s.NewID != nil {
+		return s.NewID()
+	}
+	return socialutil.NewID()
+}
+
+func layoutKey(id string) kv.Key {
+	return append(append(kv.Key{}, layoutsRoot...), id)
+}
+
+func layoutNameKey(name string) kv.Key {
+	return append(append(kv.Key{}, layoutsByNameRoot...), name)
+}
+
+func pathID(value string) (string, error) {
+	id, err := url.PathUnescape(value)
 	if err != nil {
 		return "", fmt.Errorf("invalid params: %w", err)
 	}
-	if err := customid.ValidateField("path name", name); err != nil {
-		return "", err
+	if strings.TrimSpace(id) == "" {
+		return "", errors.New("path id is required")
 	}
-	return name, nil
+	return id, nil
 }
 
 func normalizeListParams(cursor *string, limit *int32) (string, int) {

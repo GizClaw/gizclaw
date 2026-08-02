@@ -1017,7 +1017,7 @@ func (x *FriendRelationshipUpdated) GetRevisionUnixMs() int64 {
 
 type FriendGroupUpdated struct {
 	state                 protoimpl.MessageState `protogen:"open.v1"`
-	FriendGroupId         string                 `protobuf:"bytes,1,opt,name=friend_group_id,json=friendGroupId,proto3" json:"friend_group_id,omitempty"`
+	FriendGroupName       string                 `protobuf:"bytes,1,opt,name=friend_group_name,json=friendGroupName,proto3" json:"friend_group_name,omitempty"`
 	WorkspaceName         string                 `protobuf:"bytes,2,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
 	Change                FriendGroupChange      `protobuf:"varint,3,opt,name=change,proto3,enum=gizclaw.events.v1.FriendGroupChange" json:"change,omitempty"`
 	RevisionUnixMs        int64                  `protobuf:"varint,4,opt,name=revision_unix_ms,json=revisionUnixMs,proto3" json:"revision_unix_ms,omitempty"`
@@ -1056,9 +1056,9 @@ func (*FriendGroupUpdated) Descriptor() ([]byte, []int) {
 	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *FriendGroupUpdated) GetFriendGroupId() string {
+func (x *FriendGroupUpdated) GetFriendGroupName() string {
 	if x != nil {
-		return x.FriendGroupId
+		return x.FriendGroupName
 	}
 	return ""
 }
@@ -1210,9 +1210,9 @@ const file_api_proto_events_peer_event_proto_rawDesc = "" +
 	"\x0fpeer_public_key\x18\x01 \x01(\tR\rpeerPublicKey\x12%\n" +
 	"\x0eworkspace_name\x18\x02 \x01(\tR\rworkspaceName\x12C\n" +
 	"\x06change\x18\x03 \x01(\x0e2+.gizclaw.events.v1.FriendRelationshipChangeR\x06change\x12(\n" +
-	"\x10revision_unix_ms\x18\x04 \x01(\x03R\x0erevisionUnixMs\"\x84\x02\n" +
-	"\x12FriendGroupUpdated\x12&\n" +
-	"\x0ffriend_group_id\x18\x01 \x01(\tR\rfriendGroupId\x12%\n" +
+	"\x10revision_unix_ms\x18\x04 \x01(\x03R\x0erevisionUnixMs\"\x88\x02\n" +
+	"\x12FriendGroupUpdated\x12*\n" +
+	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12%\n" +
 	"\x0eworkspace_name\x18\x02 \x01(\tR\rworkspaceName\x12<\n" +
 	"\x06change\x18\x03 \x01(\x0e2$.gizclaw.events.v1.FriendGroupChangeR\x06change\x12(\n" +
 	"\x10revision_unix_ms\x18\x04 \x01(\x03R\x0erevisionUnixMs\x127\n" +

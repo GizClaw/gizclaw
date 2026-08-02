@@ -17,6 +17,7 @@ func TestCRUDUsesDirectFieldsAndPerPeerScope(t *testing.T) {
 	s := newTestServer()
 
 	contact, err := s.CreateContact(ctx, "peer-a", rpcapi.ContactCreateRequest{
+		Name:        "alice001",
 		DisplayName: strPtr("Alice"),
 		PhoneNumber: strPtr("+1 (555) 0100"),
 	})
@@ -30,15 +31,15 @@ func TestCRUDUsesDirectFieldsAndPerPeerScope(t *testing.T) {
 		t.Fatalf("phone_number = %q", got)
 	}
 
-	if _, err := s.CreateContact(ctx, "peer-a", rpcapi.ContactCreateRequest{PhoneNumber: strPtr("15550100")}); err == nil {
+	if _, err := s.CreateContact(ctx, "peer-a", rpcapi.ContactCreateRequest{Name: "alice002", PhoneNumber: strPtr("15550100")}); err == nil {
 		t.Fatal("CreateContact duplicate phone_number error = nil")
 	}
-	if _, err := s.CreateContact(ctx, "peer-b", rpcapi.ContactCreateRequest{PhoneNumber: strPtr("15550100")}); err != nil {
+	if _, err := s.CreateContact(ctx, "peer-b", rpcapi.ContactCreateRequest{Name: "alice001", PhoneNumber: strPtr("15550100")}); err != nil {
 		t.Fatalf("CreateContact same phone for another peer: %v", err)
 	}
 
 	updated, err := s.PutContact(ctx, "peer-a", rpcapi.ContactPutRequest{
-		Id:          contactID(contact),
+		Name:        contact.Name,
 		DisplayName: strPtr("Alice Zhang"),
 		PhoneNumber: strPtr("+1 555 0101"),
 	})
@@ -49,7 +50,7 @@ func TestCRUDUsesDirectFieldsAndPerPeerScope(t *testing.T) {
 		t.Fatalf("updated display_name = %q", got)
 	}
 	phoneOnly, err := s.PutContact(ctx, "peer-a", rpcapi.ContactPutRequest{
-		Id:          contactID(contact),
+		Name:        contact.Name,
 		PhoneNumber: strPtr("+1 555 0102"),
 	})
 	if err != nil {
@@ -59,19 +60,19 @@ func TestCRUDUsesDirectFieldsAndPerPeerScope(t *testing.T) {
 		t.Fatalf("phone-only PutContact display_name = %q, want previous value", got)
 	}
 	if _, err := s.PutContact(ctx, "peer-a", rpcapi.ContactPutRequest{
-		Id:          contactID(contact),
+		Name:        contact.Name,
 		DisplayName: strPtr(""),
 		PhoneNumber: strPtr(""),
 	}); err == nil {
 		t.Fatal("PutContact clearing all fields error = nil")
 	}
 
-	got, err := s.GetContact(ctx, "peer-a", rpcapi.ContactGetRequest{Id: contactID(contact)})
+	got, err := s.GetContact(ctx, "peer-a", rpcapi.ContactGetRequest{Name: contact.Name})
 	if err != nil {
 		t.Fatalf("GetContact: %v", err)
 	}
-	if socialutil.StringValue(got.Id) != contactID(contact) {
-		t.Fatalf("GetContact id = %q, want %q", socialutil.StringValue(got.Id), contactID(contact))
+	if got.Name != contact.Name {
+		t.Fatalf("GetContact name = %q, want %q", got.Name, contact.Name)
 	}
 	list, err := s.ListContacts(ctx, "peer-a", rpcapi.ContactListRequest{})
 	if err != nil {
@@ -80,12 +81,12 @@ func TestCRUDUsesDirectFieldsAndPerPeerScope(t *testing.T) {
 	if len(list.Items) != 1 {
 		t.Fatalf("ListContacts len = %d, want 1", len(list.Items))
 	}
-	deleted, err := s.DeleteContact(ctx, "peer-a", rpcapi.ContactDeleteRequest{Id: contactID(contact)})
+	deleted, err := s.DeleteContact(ctx, "peer-a", rpcapi.ContactDeleteRequest{Name: contact.Name})
 	if err != nil {
 		t.Fatalf("DeleteContact: %v", err)
 	}
-	if socialutil.StringValue(deleted.Id) != contactID(contact) {
-		t.Fatalf("DeleteContact id = %q, want %q", socialutil.StringValue(deleted.Id), contactID(contact))
+	if deleted.Name != contact.Name {
+		t.Fatalf("DeleteContact name = %q, want %q", deleted.Name, contact.Name)
 	}
 }
 
@@ -102,13 +103,14 @@ func TestDuplicatePhoneScansBeyondFirstPage(t *testing.T) {
 	for i := range socialutil.MaxListLimit + 1 {
 		lastPhone = fmt.Sprintf("+1 555 9%03d", i)
 		if _, err := s.CreateContact(ctx, "peer-a", rpcapi.ContactCreateRequest{
+			Name:        fmt.Sprintf("contact-%03d", i),
 			DisplayName: strPtr(fmt.Sprintf("Contact %03d", i)),
 			PhoneNumber: strPtr(lastPhone),
 		}); err != nil {
 			t.Fatalf("CreateContact %d: %v", i, err)
 		}
 	}
-	if _, err := s.CreateContact(ctx, "peer-a", rpcapi.ContactCreateRequest{PhoneNumber: strPtr(lastPhone)}); err == nil {
+	if _, err := s.CreateContact(ctx, "peer-a", rpcapi.ContactCreateRequest{Name: "duplicate-phone", PhoneNumber: strPtr(lastPhone)}); err == nil {
 		t.Fatal("CreateContact duplicate phone beyond first page error = nil")
 	}
 }
@@ -119,14 +121,14 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 
 	first, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-a",
-		Id:             strPtr("alice001"),
+		Name:           "alice001",
 		DisplayName:    strPtr("Alice"),
 		PhoneNumber:    strPtr("+1 555 0100"),
 	})
 	if err != nil {
 		t.Fatalf("AdminCreateContact: %v", err)
 	}
-	if first.OwnerPublicKey != "peer-a" || first.Id != "alice001" {
+	if first.OwnerPublicKey != "peer-a" || first.Id != "id-a" || first.Name != "alice001" {
 		t.Fatalf("created contact = %+v", first)
 	}
 	if first.CreatedAt == nil || first.UpdatedAt == nil {
@@ -134,14 +136,14 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 	}
 	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-a",
-		Id:             strPtr("alice001"),
+		Name:           "alice001",
 		DisplayName:    strPtr("Alice Again"),
 	}); err == nil {
-		t.Fatal("AdminCreateContact duplicate id error = nil")
+		t.Fatal("AdminCreateContact duplicate name error = nil")
 	}
 	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-a",
-		Id:             strPtr("alice001-phone"),
+		Name:           "alice-phone",
 		PhoneNumber:    strPtr("+1 (555) 0100"),
 	}); err == nil {
 		t.Fatal("AdminCreateContact duplicate phone error = nil")
@@ -149,14 +151,14 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 
 	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-a",
-		Id:             strPtr("bob00001"),
+		Name:           "bob00001",
 		DisplayName:    strPtr("Bob"),
 	}); err != nil {
 		t.Fatalf("AdminCreateContact bob00001: %v", err)
 	}
 	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-b",
-		Id:             strPtr("carol001"),
+		Name:           "carol001",
 		DisplayName:    strPtr("Carol"),
 	}); err != nil {
 		t.Fatalf("AdminCreateContact carol001: %v", err)
@@ -191,7 +193,7 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 		t.Fatalf("global next page = %+v, want peer-b contact", globalNext)
 	}
 
-	updated, err := s.AdminPutContact(ctx, "peer-a", "alice001", adminhttp.AdminContactPutRequest{
+	updated, err := s.AdminPutContact(ctx, "peer-a", first.Id, adminhttp.AdminContactPutRequest{
 		DisplayName: strPtr("Alice Zhang"),
 		PhoneNumber: strPtr("+1 555 0101"),
 	})
@@ -201,30 +203,30 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 	if socialutil.StringValue(updated.DisplayName) != "Alice Zhang" || socialutil.StringValue(updated.PhoneNumber) != "+1 555 0101" {
 		t.Fatalf("updated contact = %+v", updated)
 	}
-	got, err := s.AdminGetContact(ctx, "peer-a", "alice001")
+	got, err := s.AdminGetContact(ctx, "peer-a", first.Id)
 	if err != nil {
 		t.Fatalf("AdminGetContact: %v", err)
 	}
-	if got.Id != "alice001" || got.OwnerPublicKey != "peer-a" {
+	if got.Id != first.Id || got.Name != "alice001" || got.OwnerPublicKey != "peer-a" {
 		t.Fatalf("got contact = %+v", got)
 	}
-	deleted, err := s.AdminDeleteContact(ctx, "peer-a", "alice001")
+	deleted, err := s.AdminDeleteContact(ctx, "peer-a", first.Id)
 	if err != nil {
 		t.Fatalf("AdminDeleteContact: %v", err)
 	}
-	if deleted.Id != "alice001" {
-		t.Fatalf("deleted contact id = %q, want alice001", deleted.Id)
+	if deleted.Id != first.Id {
+		t.Fatalf("deleted contact id = %q, want %q", deleted.Id, first.Id)
 	}
-	if _, err := s.AdminGetContact(ctx, "peer-a", "alice001"); err == nil {
+	if _, err := s.AdminGetContact(ctx, "peer-a", first.Id); err == nil {
 		t.Fatal("AdminGetContact deleted contact error = nil")
 	}
 }
 
-func TestAdminApplyContactUpsertsAndPreservesCreatedAt(t *testing.T) {
+func TestAdminApplyContactCreatesWithoutIDAndUpdatesWithMatchingIDName(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
 
-	created, err := s.AdminApplyContact(ctx, "peer-a", "alice001", strPtr("Alice"), strPtr("+1 555 0100"))
+	created, err := s.AdminApplyContact(ctx, "peer-a", "", "alice001", strPtr("Alice"), strPtr("+1 555 0100"))
 	if err != nil {
 		t.Fatalf("AdminApplyContact create: %v", err)
 	}
@@ -234,7 +236,7 @@ func TestAdminApplyContactUpsertsAndPreservesCreatedAt(t *testing.T) {
 	createdAt := *created.CreatedAt
 
 	s.Now = func() time.Time { return createdAt.Add(time.Hour) }
-	updated, err := s.AdminApplyContact(ctx, "peer-a", "alice001", strPtr("Alice Zhang"), strPtr("+1 555 0101"))
+	updated, err := s.AdminApplyContact(ctx, "peer-a", created.Id, created.Name, strPtr("Alice Zhang"), strPtr("+1 555 0101"))
 	if err != nil {
 		t.Fatalf("AdminApplyContact update: %v", err)
 	}
@@ -245,24 +247,27 @@ func TestAdminApplyContactUpsertsAndPreservesCreatedAt(t *testing.T) {
 		t.Fatalf("updated UpdatedAt = %v, want after %v", updated.UpdatedAt, createdAt)
 	}
 
-	if _, err := s.AdminApplyContact(ctx, "peer-a", "bob00001", strPtr("Bob"), strPtr("+1 (555) 0101")); err == nil {
+	if _, err := s.AdminApplyContact(ctx, "peer-a", "", "bob00001", strPtr("Bob"), strPtr("+1 (555) 0101")); err == nil {
 		t.Fatal("AdminApplyContact duplicate phone error = nil")
+	}
+	if _, err := s.AdminApplyContact(ctx, "peer-a", created.Id, "other001", strPtr("Alice"), nil); err == nil {
+		t.Fatal("AdminApplyContact accepted mismatched immutable name")
 	}
 }
 
-func TestAdminContactRejectsInvalidCustomID(t *testing.T) {
+func TestAdminContactRejectsInvalidName(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
 
 	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-a",
-		Id:             strPtr("alice"),
+		Name:           "alice",
 		DisplayName:    strPtr("Alice"),
 	}); err == nil {
-		t.Fatal("AdminCreateContact accepted short id")
+		t.Fatal("AdminCreateContact accepted short name")
 	}
-	if _, err := s.AdminApplyContact(ctx, "peer-a", " alice001 ", strPtr("Alice"), nil); err == nil {
-		t.Fatal("AdminApplyContact accepted padded id")
+	if _, err := s.AdminApplyContact(ctx, "peer-a", "", " alice001 ", strPtr("Alice"), nil); err == nil {
+		t.Fatal("AdminApplyContact accepted padded name")
 	}
 }
 
@@ -272,7 +277,7 @@ func TestConfigurationErrors(t *testing.T) {
 	if _, err := empty.ListContacts(ctx, "peer-a", rpcapi.ContactListRequest{}); err == nil {
 		t.Fatal("ListContacts without store error = nil")
 	}
-	if _, err := empty.CreateContact(ctx, "", rpcapi.ContactCreateRequest{DisplayName: strPtr("Alice")}); err == nil {
+	if _, err := empty.CreateContact(ctx, "", rpcapi.ContactCreateRequest{Name: "alice001", DisplayName: strPtr("Alice")}); err == nil {
 		t.Fatal("CreateContact without store error = nil")
 	}
 }
@@ -296,8 +301,4 @@ func strPtr(v string) *string {
 
 func intPtr(v int) *int {
 	return &v
-}
-
-func contactID(item rpcapi.ContactObject) string {
-	return socialutil.StringValue(item.Id)
 }

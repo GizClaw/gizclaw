@@ -19,8 +19,8 @@ func TestAdminAPITenantsListAndGet(t *testing.T) {
 	if openAIList.JSON200 == nil {
 		t.Fatalf("list OpenAI tenants missing JSON200")
 	}
-	requireName(t, openAIList.JSON200.Items, "fake-openai", func(item apitypes.OpenAITenant) string { return item.Name })
-	openAIGet, err := env.api.GetOpenAITenantWithResponse(env.ctx, "fake-openai")
+	openAI := requireName(t, openAIList.JSON200.Items, "fake-openai", func(item apitypes.OpenAITenant) string { return item.Name })
+	openAIGet, err := env.api.GetOpenAITenantWithResponse(env.ctx, openAI.Id)
 	if err != nil {
 		t.Fatalf("get OpenAI tenant: %v", err)
 	}
@@ -35,7 +35,8 @@ func TestAdminAPITenantsListAndGet(t *testing.T) {
 		t.Fatalf("list MiniMax tenants missing JSON200")
 	}
 	if hasAdminName(miniMaxList.JSON200.Items, "minimax-cn", func(item apitypes.MiniMaxTenant) string { return item.Name }) {
-		miniMaxGet, err := env.api.GetMiniMaxTenantWithResponse(env.ctx, "minimax-cn")
+		miniMax := requireName(t, miniMaxList.JSON200.Items, "minimax-cn", func(item apitypes.MiniMaxTenant) string { return item.Name })
+		miniMaxGet, err := env.api.GetMiniMaxTenantWithResponse(env.ctx, miniMax.Id)
 		if err != nil {
 			t.Fatalf("get MiniMax tenant: %v", err)
 		}
@@ -56,7 +57,8 @@ func TestAdminAPITenantsListAndGet(t *testing.T) {
 		t.Fatalf("list Volc tenants missing JSON200")
 	}
 	if hasAdminName(volcList.JSON200.Items, "volc-main", func(item apitypes.VolcTenant) string { return item.Name }) {
-		volcGet, err := env.api.GetVolcTenantWithResponse(env.ctx, "volc-main")
+		volc := requireName(t, volcList.JSON200.Items, "volc-main", func(item apitypes.VolcTenant) string { return item.Name })
+		volcGet, err := env.api.GetVolcTenantWithResponse(env.ctx, volc.Id)
 		if err != nil {
 			t.Fatalf("get Volc tenant: %v", err)
 		}
@@ -77,7 +79,8 @@ func TestAdminAPITenantsListAndGet(t *testing.T) {
 		t.Fatalf("list Gemini tenants missing JSON200")
 	}
 	if hasAdminName(geminiList.JSON200.Items, "gemini-main", func(item apitypes.GeminiTenant) string { return item.Name }) {
-		geminiGet, err := env.api.GetGeminiTenantWithResponse(env.ctx, "gemini-main")
+		gemini := requireName(t, geminiList.JSON200.Items, "gemini-main", func(item apitypes.GeminiTenant) string { return item.Name })
+		geminiGet, err := env.api.GetGeminiTenantWithResponse(env.ctx, gemini.Id)
 		if err != nil {
 			t.Fatalf("get Gemini tenant: %v", err)
 		}
@@ -98,7 +101,8 @@ func TestAdminAPITenantsListAndGet(t *testing.T) {
 		t.Fatalf("list DashScope tenants missing JSON200")
 	}
 	if hasAdminName(dashScopeList.JSON200.Items, "qwen-dashscope-main", func(item apitypes.DashScopeTenant) string { return item.Name }) {
-		dashScopeGet, err := env.api.GetDashScopeTenantWithResponse(env.ctx, "qwen-dashscope-main")
+		dashScope := requireName(t, dashScopeList.JSON200.Items, "qwen-dashscope-main", func(item apitypes.DashScopeTenant) string { return item.Name })
+		dashScopeGet, err := env.api.GetDashScopeTenantWithResponse(env.ctx, dashScope.Id)
 		if err != nil {
 			t.Fatalf("get DashScope tenant: %v", err)
 		}

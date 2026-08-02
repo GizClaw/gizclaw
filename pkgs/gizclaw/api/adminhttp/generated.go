@@ -317,7 +317,7 @@ func (e UploadWorkspaceIconParamsFormat) Valid() bool {
 // AdminContactCreateRequest defines model for AdminContactCreateRequest.
 type AdminContactCreateRequest struct {
 	DisplayName    *string `json:"display_name,omitempty"`
-	Id             *string `json:"id,omitempty"`
+	Name           string  `json:"name"`
 	OwnerPublicKey string  `json:"owner_public_key"`
 	PhoneNumber    *string `json:"phone_number,omitempty"`
 }
@@ -334,6 +334,7 @@ type AdminContactObject struct {
 	CreatedAt      *time.Time `json:"created_at,omitempty"`
 	DisplayName    *string    `json:"display_name,omitempty"`
 	Id             string     `json:"id"`
+	Name           string     `json:"name"`
 	OwnerPublicKey string     `json:"owner_public_key"`
 	PhoneNumber    *string    `json:"phone_number,omitempty"`
 	UpdatedAt      *time.Time `json:"updated_at,omitempty"`
@@ -353,6 +354,7 @@ type AdminFriendCreateRequest struct {
 // AdminFriendGroupCreateRequest defines model for AdminFriendGroupCreateRequest.
 type AdminFriendGroupCreateRequest struct {
 	Description    *string `json:"description,omitempty"`
+	DisplayName    *string `json:"display_name,omitempty"`
 	Name           string  `json:"name"`
 	OwnerPublicKey string  `json:"owner_public_key"`
 }
@@ -363,10 +365,36 @@ type AdminFriendGroupInviteTokenPutRequest struct {
 	InviteToken string    `json:"invite_token"`
 }
 
+// AdminFriendGroupListResponse defines model for AdminFriendGroupListResponse.
+type AdminFriendGroupListResponse struct {
+	HasNext    bool                     `json:"has_next"`
+	Items      []AdminFriendGroupObject `json:"items"`
+	NextCursor *string                  `json:"next_cursor,omitempty"`
+}
+
 // AdminFriendGroupMemberCreateRequest defines model for AdminFriendGroupMemberCreateRequest.
 type AdminFriendGroupMemberCreateRequest struct {
+	Name          string                             `json:"name"`
 	PeerPublicKey string                             `json:"peer_public_key"`
 	Role          externalRef1.FriendGroupMemberRole `json:"role"`
+}
+
+// AdminFriendGroupMemberListResponse defines model for AdminFriendGroupMemberListResponse.
+type AdminFriendGroupMemberListResponse struct {
+	HasNext    bool                           `json:"has_next"`
+	Items      []AdminFriendGroupMemberObject `json:"items"`
+	NextCursor *string                        `json:"next_cursor,omitempty"`
+}
+
+// AdminFriendGroupMemberObject defines model for AdminFriendGroupMemberObject.
+type AdminFriendGroupMemberObject struct {
+	CreatedAt     *time.Time                         `json:"created_at,omitempty"`
+	FriendGroupId string                             `json:"friend_group_id"`
+	Id            string                             `json:"id"`
+	Name          string                             `json:"name"`
+	PeerPublicKey string                             `json:"peer_public_key"`
+	Role          externalRef1.FriendGroupMemberRole `json:"role"`
+	UpdatedAt     *time.Time                         `json:"updated_at,omitempty"`
 }
 
 // AdminFriendGroupMemberPutRequest defines model for AdminFriendGroupMemberPutRequest.
@@ -374,10 +402,22 @@ type AdminFriendGroupMemberPutRequest struct {
 	Role externalRef1.FriendGroupMemberRole `json:"role"`
 }
 
+// AdminFriendGroupObject defines model for AdminFriendGroupObject.
+type AdminFriendGroupObject struct {
+	CreatedAt              *time.Time `json:"created_at,omitempty"`
+	CreatedByPeerPublicKey string     `json:"created_by_peer_public_key"`
+	Description            *string    `json:"description,omitempty"`
+	DisplayName            *string    `json:"display_name,omitempty"`
+	Id                     string     `json:"id"`
+	Name                   string     `json:"name"`
+	UpdatedAt              *time.Time `json:"updated_at,omitempty"`
+	WorkspaceId            *string    `json:"workspace_id,omitempty"`
+}
+
 // AdminFriendGroupPutRequest defines model for AdminFriendGroupPutRequest.
 type AdminFriendGroupPutRequest struct {
 	Description *string `json:"description,omitempty"`
-	Name        *string `json:"name,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
 }
 
 // AdminFriendListResponse defines model for AdminFriendListResponse.
@@ -394,7 +434,7 @@ type AdminFriendObject struct {
 	OwnerPublicKey string     `json:"owner_public_key"`
 	PeerPublicKey  string     `json:"peer_public_key"`
 	UpdatedAt      *time.Time `json:"updated_at,omitempty"`
-	WorkspaceName  string     `json:"workspace_name"`
+	WorkspaceId    string     `json:"workspace_id"`
 }
 
 // AdminSocialFriendCreateRequest defines model for AdminSocialFriendCreateRequest.
@@ -417,7 +457,7 @@ type BadgeDefList struct {
 
 // BadgeDefUpsert defines model for BadgeDefUpsert.
 type BadgeDefUpsert struct {
-	Id   string                    `json:"id"`
+	Name string                    `json:"name"`
 	Spec externalRef0.BadgeDefSpec `json:"spec"`
 }
 
@@ -446,10 +486,10 @@ type DashScopeTenantList struct {
 
 // DashScopeTenantUpsert defines model for DashScopeTenantUpsert.
 type DashScopeTenantUpsert struct {
-	BaseUrl        *string `json:"base_url,omitempty"`
-	CredentialName string  `json:"credential_name"`
-	Description    *string `json:"description,omitempty"`
-	Name           string  `json:"name"`
+	BaseUrl      *string `json:"base_url,omitempty"`
+	CredentialId string  `json:"credential_id"`
+	Description  *string `json:"description,omitempty"`
+	Name         string  `json:"name"`
 }
 
 // DeepSeekTenantList defines model for DeepSeekTenantList.
@@ -461,10 +501,10 @@ type DeepSeekTenantList struct {
 
 // DeepSeekTenantUpsert defines model for DeepSeekTenantUpsert.
 type DeepSeekTenantUpsert struct {
-	BaseUrl        *string `json:"base_url,omitempty"`
-	CredentialName string  `json:"credential_name"`
-	Description    *string `json:"description,omitempty"`
-	Name           string  `json:"name"`
+	BaseUrl      *string `json:"base_url,omitempty"`
+	CredentialId string  `json:"credential_id"`
+	Description  *string `json:"description,omitempty"`
+	Name         string  `json:"name"`
 }
 
 // FirmwareList defines model for FirmwareList.
@@ -491,7 +531,7 @@ type GameDefList struct {
 // GameDefUpsert defines model for GameDefUpsert.
 type GameDefUpsert struct {
 	Icon *externalRef0.Icon       `json:"icon,omitempty"`
-	Id   string                   `json:"id"`
+	Name string                   `json:"name"`
 	Spec externalRef0.GameDefSpec `json:"spec"`
 }
 
@@ -504,12 +544,12 @@ type GeminiTenantList struct {
 
 // GeminiTenantUpsert defines model for GeminiTenantUpsert.
 type GeminiTenantUpsert struct {
-	BaseUrl        *string `json:"base_url,omitempty"`
-	CredentialName string  `json:"credential_name"`
-	Description    *string `json:"description,omitempty"`
-	Location       *string `json:"location,omitempty"`
-	Name           string  `json:"name"`
-	ProjectId      *string `json:"project_id,omitempty"`
+	BaseUrl      *string `json:"base_url,omitempty"`
+	CredentialId string  `json:"credential_id"`
+	Description  *string `json:"description,omitempty"`
+	Location     *string `json:"location,omitempty"`
+	Name         string  `json:"name"`
+	ProjectId    *string `json:"project_id,omitempty"`
 }
 
 // MemoryLayoutList defines model for MemoryLayoutList.
@@ -519,12 +559,18 @@ type MemoryLayoutList struct {
 	NextCursor *string                     `json:"next_cursor,omitempty"`
 }
 
+// MemoryLayoutUpsert defines model for MemoryLayoutUpsert.
+type MemoryLayoutUpsert struct {
+	Name string                        `json:"name"`
+	Spec externalRef0.MemoryLayoutSpec `json:"spec"`
+}
+
 // MiniMaxSyncVoicesResult defines model for MiniMaxSyncVoicesResult.
 type MiniMaxSyncVoicesResult struct {
 	CreatedCount int32     `json:"created_count"`
 	DeletedCount int32     `json:"deleted_count"`
 	SyncedAt     time.Time `json:"synced_at"`
-	TenantName   string    `json:"tenant_name"`
+	TenantId     string    `json:"tenant_id"`
 	UpdatedCount int32     `json:"updated_count"`
 }
 
@@ -537,12 +583,12 @@ type MiniMaxTenantList struct {
 
 // MiniMaxTenantUpsert defines model for MiniMaxTenantUpsert.
 type MiniMaxTenantUpsert struct {
-	AppId          *string `json:"app_id,omitempty"`
-	BaseUrl        *string `json:"base_url,omitempty"`
-	CredentialName string  `json:"credential_name"`
-	Description    *string `json:"description,omitempty"`
-	GroupId        *string `json:"group_id,omitempty"`
-	Name           string  `json:"name"`
+	AppId        *string `json:"app_id,omitempty"`
+	BaseUrl      *string `json:"base_url,omitempty"`
+	CredentialId string  `json:"credential_id"`
+	Description  *string `json:"description,omitempty"`
+	GroupId      *string `json:"group_id,omitempty"`
+	Name         string  `json:"name"`
 }
 
 // ModelList defines model for ModelList.
@@ -555,11 +601,11 @@ type ModelList struct {
 // ModelUpsert defines model for ModelUpsert.
 type ModelUpsert struct {
 	Description *string `json:"description,omitempty"`
-	Id          string  `json:"id"`
+	DisplayName *string `json:"display_name,omitempty"`
 
 	// Kind Runtime role of a model.
 	Kind     externalRef0.ModelKind     `json:"kind"`
-	Name     *string                    `json:"name,omitempty"`
+	Name     string                     `json:"name"`
 	Provider externalRef0.ModelProvider `json:"provider"`
 
 	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
@@ -579,10 +625,10 @@ type OpenAITenantList struct {
 // OpenAITenantUpsert defines model for OpenAITenantUpsert.
 type OpenAITenantUpsert struct {
 	// ApiMode OpenAI API mode used by this tenant.
-	ApiMode        *externalRef0.OpenAITenantAPIMode `json:"api_mode,omitempty"`
-	BaseUrl        *string                           `json:"base_url,omitempty"`
-	CredentialName string                            `json:"credential_name"`
-	Description    *string                           `json:"description,omitempty"`
+	ApiMode      *externalRef0.OpenAITenantAPIMode `json:"api_mode,omitempty"`
+	BaseUrl      *string                           `json:"base_url,omitempty"`
+	CredentialId string                            `json:"credential_id"`
+	Description  *string                           `json:"description,omitempty"`
 
 	// Kind OpenAI-compatible endpoint kind.
 	Kind *externalRef0.OpenAITenantKind `json:"kind,omitempty"`
@@ -598,7 +644,7 @@ type PetDefList struct {
 
 // PetDefUpsert defines model for PetDefUpsert.
 type PetDefUpsert struct {
-	Id   string                  `json:"id"`
+	Name string                  `json:"name"`
 	Spec externalRef0.PetDefSpec `json:"spec"`
 }
 
@@ -631,10 +677,10 @@ type RegistrationTokenList struct {
 // RegistrationTokenUpsert defines model for RegistrationTokenUpsert.
 type RegistrationTokenUpsert struct {
 	// FirmwareId Optional Server-assigned Firmware release-line ID. The device selects its own channel.
-	FirmwareId         *string `json:"firmware_id,omitempty"`
-	Name               string  `json:"name"`
-	RuntimeProfileName string  `json:"runtime_profile_name"`
-	Token              string  `json:"token"`
+	FirmwareId       *string `json:"firmware_id,omitempty"`
+	Name             string  `json:"name"`
+	RuntimeProfileId string  `json:"runtime_profile_id"`
+	Token            string  `json:"token"`
 }
 
 // RuntimeProfileList defines model for RuntimeProfileList.
@@ -660,8 +706,8 @@ type VoiceList struct {
 // VoiceUpsert defines model for VoiceUpsert.
 type VoiceUpsert struct {
 	Description *string                    `json:"description,omitempty"`
-	Id          string                     `json:"id"`
-	Name        *string                    `json:"name,omitempty"`
+	DisplayName *string                    `json:"display_name,omitempty"`
+	Name        string                     `json:"name"`
 	Provider    externalRef0.VoiceProvider `json:"provider"`
 
 	// ProviderData Provider-specific voice runtime configuration. The shape is selected by Voice.provider.kind.
@@ -676,7 +722,7 @@ type VolcSyncVoicesResult struct {
 	CreatedCount int32     `json:"created_count"`
 	DeletedCount int32     `json:"deleted_count"`
 	SyncedAt     time.Time `json:"synced_at"`
-	TenantName   string    `json:"tenant_name"`
+	TenantId     string    `json:"tenant_id"`
 	UpdatedCount int32     `json:"updated_count"`
 }
 
@@ -689,12 +735,12 @@ type VolcTenantList struct {
 
 // VolcTenantUpsert defines model for VolcTenantUpsert.
 type VolcTenantUpsert struct {
-	CredentialName string    `json:"credential_name"`
-	Description    *string   `json:"description,omitempty"`
-	Endpoint       *string   `json:"endpoint,omitempty"`
-	Name           string    `json:"name"`
-	Region         *string   `json:"region,omitempty"`
-	ResourceIds    *[]string `json:"resource_ids,omitempty"`
+	CredentialId string    `json:"credential_id"`
+	Description  *string   `json:"description,omitempty"`
+	Endpoint     *string   `json:"endpoint,omitempty"`
+	Name         string    `json:"name"`
+	Region       *string   `json:"region,omitempty"`
+	ResourceIds  *[]string `json:"resource_ids,omitempty"`
 }
 
 // WorkflowList defines model for WorkflowList.
@@ -702,6 +748,14 @@ type WorkflowList struct {
 	HasNext    bool                    `json:"has_next"`
 	Items      []externalRef0.Workflow `json:"items"`
 	NextCursor *string                 `json:"next_cursor,omitempty"`
+}
+
+// WorkflowUpsert defines model for WorkflowUpsert.
+type WorkflowUpsert struct {
+	Name string `json:"name"`
+
+	// Spec Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
+	Spec externalRef0.WorkflowSpec `json:"spec"`
 }
 
 // WorkspaceList defines model for WorkspaceList.
@@ -723,8 +777,8 @@ type WorkspaceUpsert struct {
 	Parameters *externalRef0.WorkspaceParameters `json:"parameters,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
-	Toolkit      *externalRef0.ToolkitPolicy `json:"toolkit,omitempty"`
-	WorkflowName string                      `json:"workflow_name"`
+	Toolkit    *externalRef0.ToolkitPolicy `json:"toolkit,omitempty"`
+	WorkflowId string                      `json:"workflow_id"`
 }
 
 // ModelProviderKind Provider resource kind usable by model runtime.
@@ -909,8 +963,8 @@ type ListModelsParams struct {
 	// ProviderKind Filter models by provider kind
 	ProviderKind *ModelProviderKind `form:"providerKind,omitempty" json:"providerKind,omitempty"`
 
-	// ProviderName Filter models by provider instance name
-	ProviderName *string `form:"providerName,omitempty" json:"providerName,omitempty"`
+	// ProviderId Filter models by canonical provider resource ID
+	ProviderId *string `form:"providerId,omitempty" json:"providerId,omitempty"`
 
 	// Cursor Opaque cursor returned by the previous list response
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -1116,8 +1170,8 @@ type ListVoicesParams struct {
 	// ProviderKind Filter voices by provider kind
 	ProviderKind *VoiceProviderKind `form:"providerKind,omitempty" json:"providerKind,omitempty"`
 
-	// ProviderName Filter voices by provider instance name
-	ProviderName *string `form:"providerName,omitempty" json:"providerName,omitempty"`
+	// ProviderId Filter voices by canonical provider resource ID
+	ProviderId *string `form:"providerId,omitempty" json:"providerId,omitempty"`
 
 	// Cursor Opaque cursor returned by the previous list response
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -1226,10 +1280,10 @@ type CreateGeminiTenantJSONRequestBody = GeminiTenantUpsert
 type PutGeminiTenantJSONRequestBody = GeminiTenantUpsert
 
 // CreateMemoryLayoutJSONRequestBody defines body for CreateMemoryLayout for application/json ContentType.
-type CreateMemoryLayoutJSONRequestBody = externalRef0.MemoryLayout
+type CreateMemoryLayoutJSONRequestBody = MemoryLayoutUpsert
 
 // PutMemoryLayoutJSONRequestBody defines body for PutMemoryLayout for application/json ContentType.
-type PutMemoryLayoutJSONRequestBody = externalRef0.MemoryLayout
+type PutMemoryLayoutJSONRequestBody = MemoryLayoutUpsert
 
 // CreateMiniMaxTenantJSONRequestBody defines body for CreateMiniMaxTenant for application/json ContentType.
 type CreateMiniMaxTenantJSONRequestBody = MiniMaxTenantUpsert
@@ -1316,10 +1370,10 @@ type CreateVolcTenantJSONRequestBody = VolcTenantUpsert
 type PutVolcTenantJSONRequestBody = VolcTenantUpsert
 
 // CreateWorkflowJSONRequestBody defines body for CreateWorkflow for application/json ContentType.
-type CreateWorkflowJSONRequestBody = externalRef0.Workflow
+type CreateWorkflowJSONRequestBody = WorkflowUpsert
 
 // PutWorkflowJSONRequestBody defines body for PutWorkflow for application/json ContentType.
-type PutWorkflowJSONRequestBody = externalRef0.Workflow
+type PutWorkflowJSONRequestBody = WorkflowUpsert
 
 // CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
 type CreateWorkspaceJSONRequestBody = WorkspaceUpsert
@@ -1439,15 +1493,15 @@ type ClientInterface interface {
 	CreateCredential(ctx context.Context, body CreateCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteCredential request
-	DeleteCredential(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteCredential(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetCredential request
-	GetCredential(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetCredential(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutCredentialWithBody request with any body
-	PutCredentialWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutCredentialWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutCredential(ctx context.Context, name string, body PutCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutCredential(ctx context.Context, id string, body PutCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListDashScopeTenants request
 	ListDashScopeTenants(ctx context.Context, params *ListDashScopeTenantsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1458,15 +1512,15 @@ type ClientInterface interface {
 	CreateDashScopeTenant(ctx context.Context, body CreateDashScopeTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteDashScopeTenant request
-	DeleteDashScopeTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteDashScopeTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetDashScopeTenant request
-	GetDashScopeTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetDashScopeTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutDashScopeTenantWithBody request with any body
-	PutDashScopeTenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutDashScopeTenantWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutDashScopeTenant(ctx context.Context, name string, body PutDashScopeTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutDashScopeTenant(ctx context.Context, id string, body PutDashScopeTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListDeepSeekTenants request
 	ListDeepSeekTenants(ctx context.Context, params *ListDeepSeekTenantsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1477,15 +1531,15 @@ type ClientInterface interface {
 	CreateDeepSeekTenant(ctx context.Context, body CreateDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteDeepSeekTenant request
-	DeleteDeepSeekTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteDeepSeekTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetDeepSeekTenant request
-	GetDeepSeekTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetDeepSeekTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutDeepSeekTenantWithBody request with any body
-	PutDeepSeekTenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutDeepSeekTenantWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutDeepSeekTenant(ctx context.Context, name string, body PutDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutDeepSeekTenant(ctx context.Context, id string, body PutDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListFirmwares request
 	ListFirmwares(ctx context.Context, params *ListFirmwaresParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1496,42 +1550,42 @@ type ClientInterface interface {
 	CreateFirmware(ctx context.Context, body CreateFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteFirmware request
-	DeleteFirmware(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteFirmware(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetFirmware request
-	GetFirmware(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetFirmware(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutFirmwareWithBody request with any body
-	PutFirmwareWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutFirmwareWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutFirmware(ctx context.Context, name string, body PutFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutFirmware(ctx context.Context, id string, body PutFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ReleaseFirmware request
-	ReleaseFirmware(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ReleaseFirmware(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RollbackFirmware request
-	RollbackFirmware(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RollbackFirmware(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteFirmwareArtifact request
-	DeleteFirmwareArtifact(ctx context.Context, name string, channel DeleteFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteFirmwareArtifact(ctx context.Context, id string, channel DeleteFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DownloadFirmwareArtifact request
-	DownloadFirmwareArtifact(ctx context.Context, name string, channel DownloadFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DownloadFirmwareArtifact(ctx context.Context, id string, channel DownloadFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UploadFirmwareArtifactWithBody request with any body
-	UploadFirmwareArtifactWithBody(ctx context.Context, name string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UploadFirmwareArtifactWithBody(ctx context.Context, id string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DownloadFirmwareArtifactEntry request
-	DownloadFirmwareArtifactEntry(ctx context.Context, name string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DownloadFirmwareArtifactEntry(ctx context.Context, id string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListFirmwareArtifactEntries request
-	ListFirmwareArtifactEntries(ctx context.Context, name string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListFirmwareArtifactEntries(ctx context.Context, id string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// StatFirmwareArtifactEntry request
-	StatFirmwareArtifactEntry(ctx context.Context, name string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	StatFirmwareArtifactEntry(ctx context.Context, id string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// TreeFirmwareArtifactEntries request
-	TreeFirmwareArtifactEntries(ctx context.Context, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	TreeFirmwareArtifactEntries(ctx context.Context, id string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListGameDefs request
 	ListGameDefs(ctx context.Context, params *ListGameDefsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1570,15 +1624,15 @@ type ClientInterface interface {
 	CreateGeminiTenant(ctx context.Context, body CreateGeminiTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteGeminiTenant request
-	DeleteGeminiTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteGeminiTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetGeminiTenant request
-	GetGeminiTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetGeminiTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutGeminiTenantWithBody request with any body
-	PutGeminiTenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutGeminiTenantWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutGeminiTenant(ctx context.Context, name string, body PutGeminiTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutGeminiTenant(ctx context.Context, id string, body PutGeminiTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// StreamServerLogs request
 	StreamServerLogs(ctx context.Context, params *StreamServerLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1592,15 +1646,15 @@ type ClientInterface interface {
 	CreateMemoryLayout(ctx context.Context, body CreateMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteMemoryLayout request
-	DeleteMemoryLayout(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteMemoryLayout(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetMemoryLayout request
-	GetMemoryLayout(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetMemoryLayout(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutMemoryLayoutWithBody request with any body
-	PutMemoryLayoutWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutMemoryLayoutWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutMemoryLayout(ctx context.Context, name string, body PutMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutMemoryLayout(ctx context.Context, id string, body PutMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListMiniMaxTenants request
 	ListMiniMaxTenants(ctx context.Context, params *ListMiniMaxTenantsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1611,18 +1665,18 @@ type ClientInterface interface {
 	CreateMiniMaxTenant(ctx context.Context, body CreateMiniMaxTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteMiniMaxTenant request
-	DeleteMiniMaxTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteMiniMaxTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetMiniMaxTenant request
-	GetMiniMaxTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetMiniMaxTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutMiniMaxTenantWithBody request with any body
-	PutMiniMaxTenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutMiniMaxTenantWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutMiniMaxTenant(ctx context.Context, name string, body PutMiniMaxTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutMiniMaxTenant(ctx context.Context, id string, body PutMiniMaxTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SyncMiniMaxTenantVoices request
-	SyncMiniMaxTenantVoices(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SyncMiniMaxTenantVoices(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListModels request
 	ListModels(ctx context.Context, params *ListModelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1652,15 +1706,15 @@ type ClientInterface interface {
 	CreateOpenAITenant(ctx context.Context, body CreateOpenAITenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteOpenAITenant request
-	DeleteOpenAITenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteOpenAITenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetOpenAITenant request
-	GetOpenAITenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetOpenAITenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutOpenAITenantWithBody request with any body
-	PutOpenAITenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutOpenAITenantWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutOpenAITenant(ctx context.Context, name string, body PutOpenAITenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutOpenAITenant(ctx context.Context, id string, body PutOpenAITenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPeers request
 	ListPeers(ctx context.Context, params *ListPeersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1792,26 +1846,26 @@ type ClientInterface interface {
 	CreateRegistrationToken(ctx context.Context, body CreateRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteRegistrationToken request
-	DeleteRegistrationToken(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteRegistrationToken(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetRegistrationToken request
-	GetRegistrationToken(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetRegistrationToken(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutRegistrationTokenWithBody request with any body
-	PutRegistrationTokenWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutRegistrationTokenWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutRegistrationToken(ctx context.Context, name string, body PutRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutRegistrationToken(ctx context.Context, id string, body PutRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteResource request
-	DeleteResource(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteResource(ctx context.Context, kind ResourceKind, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetResource request
-	GetResource(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetResource(ctx context.Context, kind ResourceKind, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutResourceWithBody request with any body
-	PutResourceWithBody(ctx context.Context, kind ResourceKind, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutResourceWithBody(ctx context.Context, kind ResourceKind, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutResource(ctx context.Context, kind ResourceKind, name string, body PutResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutResource(ctx context.Context, kind ResourceKind, id string, body PutResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListRuntimeProfiles request
 	ListRuntimeProfiles(ctx context.Context, params *ListRuntimeProfilesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1822,15 +1876,15 @@ type ClientInterface interface {
 	CreateRuntimeProfile(ctx context.Context, body CreateRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteRuntimeProfile request
-	DeleteRuntimeProfile(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteRuntimeProfile(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetRuntimeProfile request
-	GetRuntimeProfile(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetRuntimeProfile(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutRuntimeProfileWithBody request with any body
-	PutRuntimeProfileWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutRuntimeProfileWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutRuntimeProfile(ctx context.Context, name string, body PutRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutRuntimeProfile(ctx context.Context, id string, body PutRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListContacts request
 	ListContacts(ctx context.Context, params *ListContactsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1939,18 +1993,18 @@ type ClientInterface interface {
 	CreateVolcTenant(ctx context.Context, body CreateVolcTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteVolcTenant request
-	DeleteVolcTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteVolcTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetVolcTenant request
-	GetVolcTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetVolcTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutVolcTenantWithBody request with any body
-	PutVolcTenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutVolcTenantWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutVolcTenant(ctx context.Context, name string, body PutVolcTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutVolcTenant(ctx context.Context, id string, body PutVolcTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SyncVolcTenantVoices request
-	SyncVolcTenantVoices(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SyncVolcTenantVoices(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListWorkflows request
 	ListWorkflows(ctx context.Context, params *ListWorkflowsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1961,15 +2015,15 @@ type ClientInterface interface {
 	CreateWorkflow(ctx context.Context, body CreateWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteWorkflow request
-	DeleteWorkflow(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteWorkflow(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetWorkflow request
-	GetWorkflow(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetWorkflow(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutWorkflowWithBody request with any body
-	PutWorkflowWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutWorkflowWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutWorkflow(ctx context.Context, name string, body PutWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutWorkflow(ctx context.Context, id string, body PutWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListWorkspaces request
 	ListWorkspaces(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1980,33 +2034,33 @@ type ClientInterface interface {
 	CreateWorkspace(ctx context.Context, body CreateWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteWorkspace request
-	DeleteWorkspace(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteWorkspace(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetWorkspace request
-	GetWorkspace(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetWorkspace(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutWorkspaceWithBody request with any body
-	PutWorkspaceWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutWorkspaceWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutWorkspace(ctx context.Context, name string, body PutWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutWorkspace(ctx context.Context, id string, body PutWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListWorkspaceHistory request
-	ListWorkspaceHistory(ctx context.Context, name string, params *ListWorkspaceHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListWorkspaceHistory(ctx context.Context, id string, params *ListWorkspaceHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetWorkspaceHistory request
-	GetWorkspaceHistory(ctx context.Context, name string, historyId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetWorkspaceHistory(ctx context.Context, id string, historyId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DownloadWorkspaceHistoryAudio request
-	DownloadWorkspaceHistoryAudio(ctx context.Context, name string, historyId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DownloadWorkspaceHistoryAudio(ctx context.Context, id string, historyId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteWorkspaceIcon request
-	DeleteWorkspaceIcon(ctx context.Context, name string, format DeleteWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteWorkspaceIcon(ctx context.Context, id string, format DeleteWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DownloadWorkspaceIcon request
-	DownloadWorkspaceIcon(ctx context.Context, name string, format DownloadWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DownloadWorkspaceIcon(ctx context.Context, id string, format DownloadWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UploadWorkspaceIconWithBody request with any body
-	UploadWorkspaceIconWithBody(ctx context.Context, name string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UploadWorkspaceIconWithBody(ctx context.Context, id string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) ApplyResourceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -2177,8 +2231,8 @@ func (c *Client) CreateCredential(ctx context.Context, body CreateCredentialJSON
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteCredential(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteCredentialRequest(c.Server, name)
+func (c *Client) DeleteCredential(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteCredentialRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2189,8 +2243,8 @@ func (c *Client) DeleteCredential(ctx context.Context, name string, reqEditors .
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetCredential(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetCredentialRequest(c.Server, name)
+func (c *Client) GetCredential(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCredentialRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2201,8 +2255,8 @@ func (c *Client) GetCredential(ctx context.Context, name string, reqEditors ...R
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutCredentialWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutCredentialRequestWithBody(c.Server, name, contentType, body)
+func (c *Client) PutCredentialWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutCredentialRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2213,8 +2267,8 @@ func (c *Client) PutCredentialWithBody(ctx context.Context, name string, content
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutCredential(ctx context.Context, name string, body PutCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutCredentialRequest(c.Server, name, body)
+func (c *Client) PutCredential(ctx context.Context, id string, body PutCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutCredentialRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2261,8 +2315,8 @@ func (c *Client) CreateDashScopeTenant(ctx context.Context, body CreateDashScope
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteDashScopeTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteDashScopeTenantRequest(c.Server, name)
+func (c *Client) DeleteDashScopeTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDashScopeTenantRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2273,8 +2327,8 @@ func (c *Client) DeleteDashScopeTenant(ctx context.Context, name string, reqEdit
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetDashScopeTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetDashScopeTenantRequest(c.Server, name)
+func (c *Client) GetDashScopeTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDashScopeTenantRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2285,8 +2339,8 @@ func (c *Client) GetDashScopeTenant(ctx context.Context, name string, reqEditors
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutDashScopeTenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutDashScopeTenantRequestWithBody(c.Server, name, contentType, body)
+func (c *Client) PutDashScopeTenantWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutDashScopeTenantRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2297,8 +2351,8 @@ func (c *Client) PutDashScopeTenantWithBody(ctx context.Context, name string, co
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutDashScopeTenant(ctx context.Context, name string, body PutDashScopeTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutDashScopeTenantRequest(c.Server, name, body)
+func (c *Client) PutDashScopeTenant(ctx context.Context, id string, body PutDashScopeTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutDashScopeTenantRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2345,8 +2399,8 @@ func (c *Client) CreateDeepSeekTenant(ctx context.Context, body CreateDeepSeekTe
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteDeepSeekTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteDeepSeekTenantRequest(c.Server, name)
+func (c *Client) DeleteDeepSeekTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDeepSeekTenantRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2357,8 +2411,8 @@ func (c *Client) DeleteDeepSeekTenant(ctx context.Context, name string, reqEdito
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetDeepSeekTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetDeepSeekTenantRequest(c.Server, name)
+func (c *Client) GetDeepSeekTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeepSeekTenantRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2369,8 +2423,8 @@ func (c *Client) GetDeepSeekTenant(ctx context.Context, name string, reqEditors 
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutDeepSeekTenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutDeepSeekTenantRequestWithBody(c.Server, name, contentType, body)
+func (c *Client) PutDeepSeekTenantWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutDeepSeekTenantRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2381,8 +2435,8 @@ func (c *Client) PutDeepSeekTenantWithBody(ctx context.Context, name string, con
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutDeepSeekTenant(ctx context.Context, name string, body PutDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutDeepSeekTenantRequest(c.Server, name, body)
+func (c *Client) PutDeepSeekTenant(ctx context.Context, id string, body PutDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutDeepSeekTenantRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2429,8 +2483,8 @@ func (c *Client) CreateFirmware(ctx context.Context, body CreateFirmwareJSONRequ
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteFirmware(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteFirmwareRequest(c.Server, name)
+func (c *Client) DeleteFirmware(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteFirmwareRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2441,8 +2495,8 @@ func (c *Client) DeleteFirmware(ctx context.Context, name string, reqEditors ...
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetFirmware(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetFirmwareRequest(c.Server, name)
+func (c *Client) GetFirmware(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFirmwareRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2453,8 +2507,8 @@ func (c *Client) GetFirmware(ctx context.Context, name string, reqEditors ...Req
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutFirmwareWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutFirmwareRequestWithBody(c.Server, name, contentType, body)
+func (c *Client) PutFirmwareWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutFirmwareRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2465,8 +2519,8 @@ func (c *Client) PutFirmwareWithBody(ctx context.Context, name string, contentTy
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutFirmware(ctx context.Context, name string, body PutFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutFirmwareRequest(c.Server, name, body)
+func (c *Client) PutFirmware(ctx context.Context, id string, body PutFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutFirmwareRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2477,8 +2531,8 @@ func (c *Client) PutFirmware(ctx context.Context, name string, body PutFirmwareJ
 	return c.Client.Do(req)
 }
 
-func (c *Client) ReleaseFirmware(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReleaseFirmwareRequest(c.Server, name)
+func (c *Client) ReleaseFirmware(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReleaseFirmwareRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2489,8 +2543,8 @@ func (c *Client) ReleaseFirmware(ctx context.Context, name string, reqEditors ..
 	return c.Client.Do(req)
 }
 
-func (c *Client) RollbackFirmware(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRollbackFirmwareRequest(c.Server, name)
+func (c *Client) RollbackFirmware(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRollbackFirmwareRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2501,8 +2555,8 @@ func (c *Client) RollbackFirmware(ctx context.Context, name string, reqEditors .
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteFirmwareArtifact(ctx context.Context, name string, channel DeleteFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteFirmwareArtifactRequest(c.Server, name, channel)
+func (c *Client) DeleteFirmwareArtifact(ctx context.Context, id string, channel DeleteFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteFirmwareArtifactRequest(c.Server, id, channel)
 	if err != nil {
 		return nil, err
 	}
@@ -2513,8 +2567,8 @@ func (c *Client) DeleteFirmwareArtifact(ctx context.Context, name string, channe
 	return c.Client.Do(req)
 }
 
-func (c *Client) DownloadFirmwareArtifact(ctx context.Context, name string, channel DownloadFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDownloadFirmwareArtifactRequest(c.Server, name, channel)
+func (c *Client) DownloadFirmwareArtifact(ctx context.Context, id string, channel DownloadFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadFirmwareArtifactRequest(c.Server, id, channel)
 	if err != nil {
 		return nil, err
 	}
@@ -2525,8 +2579,8 @@ func (c *Client) DownloadFirmwareArtifact(ctx context.Context, name string, chan
 	return c.Client.Do(req)
 }
 
-func (c *Client) UploadFirmwareArtifactWithBody(ctx context.Context, name string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUploadFirmwareArtifactRequestWithBody(c.Server, name, channel, contentType, body)
+func (c *Client) UploadFirmwareArtifactWithBody(ctx context.Context, id string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadFirmwareArtifactRequestWithBody(c.Server, id, channel, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2537,8 +2591,8 @@ func (c *Client) UploadFirmwareArtifactWithBody(ctx context.Context, name string
 	return c.Client.Do(req)
 }
 
-func (c *Client) DownloadFirmwareArtifactEntry(ctx context.Context, name string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDownloadFirmwareArtifactEntryRequest(c.Server, name, channel, params)
+func (c *Client) DownloadFirmwareArtifactEntry(ctx context.Context, id string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadFirmwareArtifactEntryRequest(c.Server, id, channel, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2549,8 +2603,8 @@ func (c *Client) DownloadFirmwareArtifactEntry(ctx context.Context, name string,
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListFirmwareArtifactEntries(ctx context.Context, name string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListFirmwareArtifactEntriesRequest(c.Server, name, channel, params)
+func (c *Client) ListFirmwareArtifactEntries(ctx context.Context, id string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFirmwareArtifactEntriesRequest(c.Server, id, channel, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2561,8 +2615,8 @@ func (c *Client) ListFirmwareArtifactEntries(ctx context.Context, name string, c
 	return c.Client.Do(req)
 }
 
-func (c *Client) StatFirmwareArtifactEntry(ctx context.Context, name string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStatFirmwareArtifactEntryRequest(c.Server, name, channel, params)
+func (c *Client) StatFirmwareArtifactEntry(ctx context.Context, id string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStatFirmwareArtifactEntryRequest(c.Server, id, channel, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2573,8 +2627,8 @@ func (c *Client) StatFirmwareArtifactEntry(ctx context.Context, name string, cha
 	return c.Client.Do(req)
 }
 
-func (c *Client) TreeFirmwareArtifactEntries(ctx context.Context, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewTreeFirmwareArtifactEntriesRequest(c.Server, name, channel, params)
+func (c *Client) TreeFirmwareArtifactEntries(ctx context.Context, id string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTreeFirmwareArtifactEntriesRequest(c.Server, id, channel, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2741,8 +2795,8 @@ func (c *Client) CreateGeminiTenant(ctx context.Context, body CreateGeminiTenant
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteGeminiTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteGeminiTenantRequest(c.Server, name)
+func (c *Client) DeleteGeminiTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteGeminiTenantRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2753,8 +2807,8 @@ func (c *Client) DeleteGeminiTenant(ctx context.Context, name string, reqEditors
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetGeminiTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetGeminiTenantRequest(c.Server, name)
+func (c *Client) GetGeminiTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGeminiTenantRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2765,8 +2819,8 @@ func (c *Client) GetGeminiTenant(ctx context.Context, name string, reqEditors ..
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutGeminiTenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutGeminiTenantRequestWithBody(c.Server, name, contentType, body)
+func (c *Client) PutGeminiTenantWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutGeminiTenantRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2777,8 +2831,8 @@ func (c *Client) PutGeminiTenantWithBody(ctx context.Context, name string, conte
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutGeminiTenant(ctx context.Context, name string, body PutGeminiTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutGeminiTenantRequest(c.Server, name, body)
+func (c *Client) PutGeminiTenant(ctx context.Context, id string, body PutGeminiTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutGeminiTenantRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2837,8 +2891,8 @@ func (c *Client) CreateMemoryLayout(ctx context.Context, body CreateMemoryLayout
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteMemoryLayout(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteMemoryLayoutRequest(c.Server, name)
+func (c *Client) DeleteMemoryLayout(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteMemoryLayoutRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2849,8 +2903,8 @@ func (c *Client) DeleteMemoryLayout(ctx context.Context, name string, reqEditors
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetMemoryLayout(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetMemoryLayoutRequest(c.Server, name)
+func (c *Client) GetMemoryLayout(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMemoryLayoutRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2861,8 +2915,8 @@ func (c *Client) GetMemoryLayout(ctx context.Context, name string, reqEditors ..
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutMemoryLayoutWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutMemoryLayoutRequestWithBody(c.Server, name, contentType, body)
+func (c *Client) PutMemoryLayoutWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutMemoryLayoutRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2873,8 +2927,8 @@ func (c *Client) PutMemoryLayoutWithBody(ctx context.Context, name string, conte
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutMemoryLayout(ctx context.Context, name string, body PutMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutMemoryLayoutRequest(c.Server, name, body)
+func (c *Client) PutMemoryLayout(ctx context.Context, id string, body PutMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutMemoryLayoutRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2921,8 +2975,8 @@ func (c *Client) CreateMiniMaxTenant(ctx context.Context, body CreateMiniMaxTena
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteMiniMaxTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteMiniMaxTenantRequest(c.Server, name)
+func (c *Client) DeleteMiniMaxTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteMiniMaxTenantRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2933,8 +2987,8 @@ func (c *Client) DeleteMiniMaxTenant(ctx context.Context, name string, reqEditor
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetMiniMaxTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetMiniMaxTenantRequest(c.Server, name)
+func (c *Client) GetMiniMaxTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMiniMaxTenantRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2945,8 +2999,8 @@ func (c *Client) GetMiniMaxTenant(ctx context.Context, name string, reqEditors .
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutMiniMaxTenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutMiniMaxTenantRequestWithBody(c.Server, name, contentType, body)
+func (c *Client) PutMiniMaxTenantWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutMiniMaxTenantRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2957,8 +3011,8 @@ func (c *Client) PutMiniMaxTenantWithBody(ctx context.Context, name string, cont
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutMiniMaxTenant(ctx context.Context, name string, body PutMiniMaxTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutMiniMaxTenantRequest(c.Server, name, body)
+func (c *Client) PutMiniMaxTenant(ctx context.Context, id string, body PutMiniMaxTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutMiniMaxTenantRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2969,8 +3023,8 @@ func (c *Client) PutMiniMaxTenant(ctx context.Context, name string, body PutMini
 	return c.Client.Do(req)
 }
 
-func (c *Client) SyncMiniMaxTenantVoices(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSyncMiniMaxTenantVoicesRequest(c.Server, name)
+func (c *Client) SyncMiniMaxTenantVoices(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSyncMiniMaxTenantVoicesRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3101,8 +3155,8 @@ func (c *Client) CreateOpenAITenant(ctx context.Context, body CreateOpenAITenant
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteOpenAITenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteOpenAITenantRequest(c.Server, name)
+func (c *Client) DeleteOpenAITenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOpenAITenantRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3113,8 +3167,8 @@ func (c *Client) DeleteOpenAITenant(ctx context.Context, name string, reqEditors
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetOpenAITenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetOpenAITenantRequest(c.Server, name)
+func (c *Client) GetOpenAITenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOpenAITenantRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3125,8 +3179,8 @@ func (c *Client) GetOpenAITenant(ctx context.Context, name string, reqEditors ..
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutOpenAITenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutOpenAITenantRequestWithBody(c.Server, name, contentType, body)
+func (c *Client) PutOpenAITenantWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutOpenAITenantRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3137,8 +3191,8 @@ func (c *Client) PutOpenAITenantWithBody(ctx context.Context, name string, conte
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutOpenAITenant(ctx context.Context, name string, body PutOpenAITenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutOpenAITenantRequest(c.Server, name, body)
+func (c *Client) PutOpenAITenant(ctx context.Context, id string, body PutOpenAITenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutOpenAITenantRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3689,8 +3743,8 @@ func (c *Client) CreateRegistrationToken(ctx context.Context, body CreateRegistr
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteRegistrationToken(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteRegistrationTokenRequest(c.Server, name)
+func (c *Client) DeleteRegistrationToken(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteRegistrationTokenRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3701,8 +3755,8 @@ func (c *Client) DeleteRegistrationToken(ctx context.Context, name string, reqEd
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRegistrationToken(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetRegistrationTokenRequest(c.Server, name)
+func (c *Client) GetRegistrationToken(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRegistrationTokenRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3713,8 +3767,8 @@ func (c *Client) GetRegistrationToken(ctx context.Context, name string, reqEdito
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutRegistrationTokenWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutRegistrationTokenRequestWithBody(c.Server, name, contentType, body)
+func (c *Client) PutRegistrationTokenWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutRegistrationTokenRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3725,8 +3779,8 @@ func (c *Client) PutRegistrationTokenWithBody(ctx context.Context, name string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutRegistrationToken(ctx context.Context, name string, body PutRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutRegistrationTokenRequest(c.Server, name, body)
+func (c *Client) PutRegistrationToken(ctx context.Context, id string, body PutRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutRegistrationTokenRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3737,8 +3791,8 @@ func (c *Client) PutRegistrationToken(ctx context.Context, name string, body Put
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteResource(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteResourceRequest(c.Server, kind, name)
+func (c *Client) DeleteResource(ctx context.Context, kind ResourceKind, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteResourceRequest(c.Server, kind, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3749,8 +3803,8 @@ func (c *Client) DeleteResource(ctx context.Context, kind ResourceKind, name str
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetResource(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetResourceRequest(c.Server, kind, name)
+func (c *Client) GetResource(ctx context.Context, kind ResourceKind, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetResourceRequest(c.Server, kind, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3761,8 +3815,8 @@ func (c *Client) GetResource(ctx context.Context, kind ResourceKind, name string
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutResourceWithBody(ctx context.Context, kind ResourceKind, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutResourceRequestWithBody(c.Server, kind, name, contentType, body)
+func (c *Client) PutResourceWithBody(ctx context.Context, kind ResourceKind, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutResourceRequestWithBody(c.Server, kind, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3773,8 +3827,8 @@ func (c *Client) PutResourceWithBody(ctx context.Context, kind ResourceKind, nam
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutResource(ctx context.Context, kind ResourceKind, name string, body PutResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutResourceRequest(c.Server, kind, name, body)
+func (c *Client) PutResource(ctx context.Context, kind ResourceKind, id string, body PutResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutResourceRequest(c.Server, kind, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3821,8 +3875,8 @@ func (c *Client) CreateRuntimeProfile(ctx context.Context, body CreateRuntimePro
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteRuntimeProfile(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteRuntimeProfileRequest(c.Server, name)
+func (c *Client) DeleteRuntimeProfile(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteRuntimeProfileRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3833,8 +3887,8 @@ func (c *Client) DeleteRuntimeProfile(ctx context.Context, name string, reqEdito
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRuntimeProfile(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetRuntimeProfileRequest(c.Server, name)
+func (c *Client) GetRuntimeProfile(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRuntimeProfileRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3845,8 +3899,8 @@ func (c *Client) GetRuntimeProfile(ctx context.Context, name string, reqEditors 
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutRuntimeProfileWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutRuntimeProfileRequestWithBody(c.Server, name, contentType, body)
+func (c *Client) PutRuntimeProfileWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutRuntimeProfileRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3857,8 +3911,8 @@ func (c *Client) PutRuntimeProfileWithBody(ctx context.Context, name string, con
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutRuntimeProfile(ctx context.Context, name string, body PutRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutRuntimeProfileRequest(c.Server, name, body)
+func (c *Client) PutRuntimeProfile(ctx context.Context, id string, body PutRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutRuntimeProfileRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4337,8 +4391,8 @@ func (c *Client) CreateVolcTenant(ctx context.Context, body CreateVolcTenantJSON
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteVolcTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteVolcTenantRequest(c.Server, name)
+func (c *Client) DeleteVolcTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteVolcTenantRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -4349,8 +4403,8 @@ func (c *Client) DeleteVolcTenant(ctx context.Context, name string, reqEditors .
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetVolcTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetVolcTenantRequest(c.Server, name)
+func (c *Client) GetVolcTenant(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetVolcTenantRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -4361,8 +4415,8 @@ func (c *Client) GetVolcTenant(ctx context.Context, name string, reqEditors ...R
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutVolcTenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutVolcTenantRequestWithBody(c.Server, name, contentType, body)
+func (c *Client) PutVolcTenantWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutVolcTenantRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4373,8 +4427,8 @@ func (c *Client) PutVolcTenantWithBody(ctx context.Context, name string, content
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutVolcTenant(ctx context.Context, name string, body PutVolcTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutVolcTenantRequest(c.Server, name, body)
+func (c *Client) PutVolcTenant(ctx context.Context, id string, body PutVolcTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutVolcTenantRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4385,8 +4439,8 @@ func (c *Client) PutVolcTenant(ctx context.Context, name string, body PutVolcTen
 	return c.Client.Do(req)
 }
 
-func (c *Client) SyncVolcTenantVoices(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSyncVolcTenantVoicesRequest(c.Server, name)
+func (c *Client) SyncVolcTenantVoices(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSyncVolcTenantVoicesRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -4433,8 +4487,8 @@ func (c *Client) CreateWorkflow(ctx context.Context, body CreateWorkflowJSONRequ
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteWorkflow(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteWorkflowRequest(c.Server, name)
+func (c *Client) DeleteWorkflow(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteWorkflowRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -4445,8 +4499,8 @@ func (c *Client) DeleteWorkflow(ctx context.Context, name string, reqEditors ...
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetWorkflow(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetWorkflowRequest(c.Server, name)
+func (c *Client) GetWorkflow(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWorkflowRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -4457,8 +4511,8 @@ func (c *Client) GetWorkflow(ctx context.Context, name string, reqEditors ...Req
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutWorkflowWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutWorkflowRequestWithBody(c.Server, name, contentType, body)
+func (c *Client) PutWorkflowWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutWorkflowRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4469,8 +4523,8 @@ func (c *Client) PutWorkflowWithBody(ctx context.Context, name string, contentTy
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutWorkflow(ctx context.Context, name string, body PutWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutWorkflowRequest(c.Server, name, body)
+func (c *Client) PutWorkflow(ctx context.Context, id string, body PutWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutWorkflowRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4517,8 +4571,8 @@ func (c *Client) CreateWorkspace(ctx context.Context, body CreateWorkspaceJSONRe
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteWorkspace(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteWorkspaceRequest(c.Server, name)
+func (c *Client) DeleteWorkspace(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteWorkspaceRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -4529,8 +4583,8 @@ func (c *Client) DeleteWorkspace(ctx context.Context, name string, reqEditors ..
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetWorkspace(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetWorkspaceRequest(c.Server, name)
+func (c *Client) GetWorkspace(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWorkspaceRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -4541,8 +4595,8 @@ func (c *Client) GetWorkspace(ctx context.Context, name string, reqEditors ...Re
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutWorkspaceWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutWorkspaceRequestWithBody(c.Server, name, contentType, body)
+func (c *Client) PutWorkspaceWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutWorkspaceRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4553,8 +4607,8 @@ func (c *Client) PutWorkspaceWithBody(ctx context.Context, name string, contentT
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutWorkspace(ctx context.Context, name string, body PutWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutWorkspaceRequest(c.Server, name, body)
+func (c *Client) PutWorkspace(ctx context.Context, id string, body PutWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutWorkspaceRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4565,8 +4619,8 @@ func (c *Client) PutWorkspace(ctx context.Context, name string, body PutWorkspac
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListWorkspaceHistory(ctx context.Context, name string, params *ListWorkspaceHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListWorkspaceHistoryRequest(c.Server, name, params)
+func (c *Client) ListWorkspaceHistory(ctx context.Context, id string, params *ListWorkspaceHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListWorkspaceHistoryRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -4577,8 +4631,8 @@ func (c *Client) ListWorkspaceHistory(ctx context.Context, name string, params *
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetWorkspaceHistory(ctx context.Context, name string, historyId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetWorkspaceHistoryRequest(c.Server, name, historyId)
+func (c *Client) GetWorkspaceHistory(ctx context.Context, id string, historyId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWorkspaceHistoryRequest(c.Server, id, historyId)
 	if err != nil {
 		return nil, err
 	}
@@ -4589,8 +4643,8 @@ func (c *Client) GetWorkspaceHistory(ctx context.Context, name string, historyId
 	return c.Client.Do(req)
 }
 
-func (c *Client) DownloadWorkspaceHistoryAudio(ctx context.Context, name string, historyId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDownloadWorkspaceHistoryAudioRequest(c.Server, name, historyId)
+func (c *Client) DownloadWorkspaceHistoryAudio(ctx context.Context, id string, historyId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadWorkspaceHistoryAudioRequest(c.Server, id, historyId)
 	if err != nil {
 		return nil, err
 	}
@@ -4601,8 +4655,8 @@ func (c *Client) DownloadWorkspaceHistoryAudio(ctx context.Context, name string,
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteWorkspaceIcon(ctx context.Context, name string, format DeleteWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteWorkspaceIconRequest(c.Server, name, format)
+func (c *Client) DeleteWorkspaceIcon(ctx context.Context, id string, format DeleteWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteWorkspaceIconRequest(c.Server, id, format)
 	if err != nil {
 		return nil, err
 	}
@@ -4613,8 +4667,8 @@ func (c *Client) DeleteWorkspaceIcon(ctx context.Context, name string, format De
 	return c.Client.Do(req)
 }
 
-func (c *Client) DownloadWorkspaceIcon(ctx context.Context, name string, format DownloadWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDownloadWorkspaceIconRequest(c.Server, name, format)
+func (c *Client) DownloadWorkspaceIcon(ctx context.Context, id string, format DownloadWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadWorkspaceIconRequest(c.Server, id, format)
 	if err != nil {
 		return nil, err
 	}
@@ -4625,8 +4679,8 @@ func (c *Client) DownloadWorkspaceIcon(ctx context.Context, name string, format 
 	return c.Client.Do(req)
 }
 
-func (c *Client) UploadWorkspaceIconWithBody(ctx context.Context, name string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUploadWorkspaceIconRequestWithBody(c.Server, name, format, contentType, body)
+func (c *Client) UploadWorkspaceIconWithBody(ctx context.Context, id string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadWorkspaceIconRequestWithBody(c.Server, id, format, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5089,12 +5143,12 @@ func NewCreateCredentialRequestWithBody(server string, contentType string, body 
 }
 
 // NewDeleteCredentialRequest generates requests for DeleteCredential
-func NewDeleteCredentialRequest(server string, name string) (*http.Request, error) {
+func NewDeleteCredentialRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5123,12 +5177,12 @@ func NewDeleteCredentialRequest(server string, name string) (*http.Request, erro
 }
 
 // NewGetCredentialRequest generates requests for GetCredential
-func NewGetCredentialRequest(server string, name string) (*http.Request, error) {
+func NewGetCredentialRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5157,23 +5211,23 @@ func NewGetCredentialRequest(server string, name string) (*http.Request, error) 
 }
 
 // NewPutCredentialRequest calls the generic PutCredential builder with application/json body
-func NewPutCredentialRequest(server string, name string, body PutCredentialJSONRequestBody) (*http.Request, error) {
+func NewPutCredentialRequest(server string, id string, body PutCredentialJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutCredentialRequestWithBody(server, name, "application/json", bodyReader)
+	return NewPutCredentialRequestWithBody(server, id, "application/json", bodyReader)
 }
 
 // NewPutCredentialRequestWithBody generates requests for PutCredential with any type of body
-func NewPutCredentialRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPutCredentialRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5309,12 +5363,12 @@ func NewCreateDashScopeTenantRequestWithBody(server string, contentType string, 
 }
 
 // NewDeleteDashScopeTenantRequest generates requests for DeleteDashScopeTenant
-func NewDeleteDashScopeTenantRequest(server string, name string) (*http.Request, error) {
+func NewDeleteDashScopeTenantRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5343,12 +5397,12 @@ func NewDeleteDashScopeTenantRequest(server string, name string) (*http.Request,
 }
 
 // NewGetDashScopeTenantRequest generates requests for GetDashScopeTenant
-func NewGetDashScopeTenantRequest(server string, name string) (*http.Request, error) {
+func NewGetDashScopeTenantRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5377,23 +5431,23 @@ func NewGetDashScopeTenantRequest(server string, name string) (*http.Request, er
 }
 
 // NewPutDashScopeTenantRequest calls the generic PutDashScopeTenant builder with application/json body
-func NewPutDashScopeTenantRequest(server string, name string, body PutDashScopeTenantJSONRequestBody) (*http.Request, error) {
+func NewPutDashScopeTenantRequest(server string, id string, body PutDashScopeTenantJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutDashScopeTenantRequestWithBody(server, name, "application/json", bodyReader)
+	return NewPutDashScopeTenantRequestWithBody(server, id, "application/json", bodyReader)
 }
 
 // NewPutDashScopeTenantRequestWithBody generates requests for PutDashScopeTenant with any type of body
-func NewPutDashScopeTenantRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPutDashScopeTenantRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5529,12 +5583,12 @@ func NewCreateDeepSeekTenantRequestWithBody(server string, contentType string, b
 }
 
 // NewDeleteDeepSeekTenantRequest generates requests for DeleteDeepSeekTenant
-func NewDeleteDeepSeekTenantRequest(server string, name string) (*http.Request, error) {
+func NewDeleteDeepSeekTenantRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5563,12 +5617,12 @@ func NewDeleteDeepSeekTenantRequest(server string, name string) (*http.Request, 
 }
 
 // NewGetDeepSeekTenantRequest generates requests for GetDeepSeekTenant
-func NewGetDeepSeekTenantRequest(server string, name string) (*http.Request, error) {
+func NewGetDeepSeekTenantRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5597,23 +5651,23 @@ func NewGetDeepSeekTenantRequest(server string, name string) (*http.Request, err
 }
 
 // NewPutDeepSeekTenantRequest calls the generic PutDeepSeekTenant builder with application/json body
-func NewPutDeepSeekTenantRequest(server string, name string, body PutDeepSeekTenantJSONRequestBody) (*http.Request, error) {
+func NewPutDeepSeekTenantRequest(server string, id string, body PutDeepSeekTenantJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutDeepSeekTenantRequestWithBody(server, name, "application/json", bodyReader)
+	return NewPutDeepSeekTenantRequestWithBody(server, id, "application/json", bodyReader)
 }
 
 // NewPutDeepSeekTenantRequestWithBody generates requests for PutDeepSeekTenant with any type of body
-func NewPutDeepSeekTenantRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPutDeepSeekTenantRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5749,12 +5803,12 @@ func NewCreateFirmwareRequestWithBody(server string, contentType string, body io
 }
 
 // NewDeleteFirmwareRequest generates requests for DeleteFirmware
-func NewDeleteFirmwareRequest(server string, name string) (*http.Request, error) {
+func NewDeleteFirmwareRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5783,12 +5837,12 @@ func NewDeleteFirmwareRequest(server string, name string) (*http.Request, error)
 }
 
 // NewGetFirmwareRequest generates requests for GetFirmware
-func NewGetFirmwareRequest(server string, name string) (*http.Request, error) {
+func NewGetFirmwareRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5817,23 +5871,23 @@ func NewGetFirmwareRequest(server string, name string) (*http.Request, error) {
 }
 
 // NewPutFirmwareRequest calls the generic PutFirmware builder with application/json body
-func NewPutFirmwareRequest(server string, name string, body PutFirmwareJSONRequestBody) (*http.Request, error) {
+func NewPutFirmwareRequest(server string, id string, body PutFirmwareJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutFirmwareRequestWithBody(server, name, "application/json", bodyReader)
+	return NewPutFirmwareRequestWithBody(server, id, "application/json", bodyReader)
 }
 
 // NewPutFirmwareRequestWithBody generates requests for PutFirmware with any type of body
-func NewPutFirmwareRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPutFirmwareRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5864,12 +5918,12 @@ func NewPutFirmwareRequestWithBody(server string, name string, contentType strin
 }
 
 // NewReleaseFirmwareRequest generates requests for ReleaseFirmware
-func NewReleaseFirmwareRequest(server string, name string) (*http.Request, error) {
+func NewReleaseFirmwareRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5898,12 +5952,12 @@ func NewReleaseFirmwareRequest(server string, name string) (*http.Request, error
 }
 
 // NewRollbackFirmwareRequest generates requests for RollbackFirmware
-func NewRollbackFirmwareRequest(server string, name string) (*http.Request, error) {
+func NewRollbackFirmwareRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5932,12 +5986,12 @@ func NewRollbackFirmwareRequest(server string, name string) (*http.Request, erro
 }
 
 // NewDeleteFirmwareArtifactRequest generates requests for DeleteFirmwareArtifact
-func NewDeleteFirmwareArtifactRequest(server string, name string, channel DeleteFirmwareArtifactParamsChannel) (*http.Request, error) {
+func NewDeleteFirmwareArtifactRequest(server string, id string, channel DeleteFirmwareArtifactParamsChannel) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5973,12 +6027,12 @@ func NewDeleteFirmwareArtifactRequest(server string, name string, channel Delete
 }
 
 // NewDownloadFirmwareArtifactRequest generates requests for DownloadFirmwareArtifact
-func NewDownloadFirmwareArtifactRequest(server string, name string, channel DownloadFirmwareArtifactParamsChannel) (*http.Request, error) {
+func NewDownloadFirmwareArtifactRequest(server string, id string, channel DownloadFirmwareArtifactParamsChannel) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -6014,12 +6068,12 @@ func NewDownloadFirmwareArtifactRequest(server string, name string, channel Down
 }
 
 // NewUploadFirmwareArtifactRequestWithBody generates requests for UploadFirmwareArtifact with any type of body
-func NewUploadFirmwareArtifactRequestWithBody(server string, name string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader) (*http.Request, error) {
+func NewUploadFirmwareArtifactRequestWithBody(server string, id string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -6057,12 +6111,12 @@ func NewUploadFirmwareArtifactRequestWithBody(server string, name string, channe
 }
 
 // NewDownloadFirmwareArtifactEntryRequest generates requests for DownloadFirmwareArtifactEntry
-func NewDownloadFirmwareArtifactEntryRequest(server string, name string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams) (*http.Request, error) {
+func NewDownloadFirmwareArtifactEntryRequest(server string, id string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -6116,12 +6170,12 @@ func NewDownloadFirmwareArtifactEntryRequest(server string, name string, channel
 }
 
 // NewListFirmwareArtifactEntriesRequest generates requests for ListFirmwareArtifactEntries
-func NewListFirmwareArtifactEntriesRequest(server string, name string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams) (*http.Request, error) {
+func NewListFirmwareArtifactEntriesRequest(server string, id string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -6179,12 +6233,12 @@ func NewListFirmwareArtifactEntriesRequest(server string, name string, channel L
 }
 
 // NewStatFirmwareArtifactEntryRequest generates requests for StatFirmwareArtifactEntry
-func NewStatFirmwareArtifactEntryRequest(server string, name string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams) (*http.Request, error) {
+func NewStatFirmwareArtifactEntryRequest(server string, id string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -6242,12 +6296,12 @@ func NewStatFirmwareArtifactEntryRequest(server string, name string, channel Sta
 }
 
 // NewTreeFirmwareArtifactEntriesRequest generates requests for TreeFirmwareArtifactEntries
-func NewTreeFirmwareArtifactEntriesRequest(server string, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams) (*http.Request, error) {
+func NewTreeFirmwareArtifactEntriesRequest(server string, id string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -6755,12 +6809,12 @@ func NewCreateGeminiTenantRequestWithBody(server string, contentType string, bod
 }
 
 // NewDeleteGeminiTenantRequest generates requests for DeleteGeminiTenant
-func NewDeleteGeminiTenantRequest(server string, name string) (*http.Request, error) {
+func NewDeleteGeminiTenantRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -6789,12 +6843,12 @@ func NewDeleteGeminiTenantRequest(server string, name string) (*http.Request, er
 }
 
 // NewGetGeminiTenantRequest generates requests for GetGeminiTenant
-func NewGetGeminiTenantRequest(server string, name string) (*http.Request, error) {
+func NewGetGeminiTenantRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -6823,23 +6877,23 @@ func NewGetGeminiTenantRequest(server string, name string) (*http.Request, error
 }
 
 // NewPutGeminiTenantRequest calls the generic PutGeminiTenant builder with application/json body
-func NewPutGeminiTenantRequest(server string, name string, body PutGeminiTenantJSONRequestBody) (*http.Request, error) {
+func NewPutGeminiTenantRequest(server string, id string, body PutGeminiTenantJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutGeminiTenantRequestWithBody(server, name, "application/json", bodyReader)
+	return NewPutGeminiTenantRequestWithBody(server, id, "application/json", bodyReader)
 }
 
 // NewPutGeminiTenantRequestWithBody generates requests for PutGeminiTenant with any type of body
-func NewPutGeminiTenantRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPutGeminiTenantRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -7104,12 +7158,12 @@ func NewCreateMemoryLayoutRequestWithBody(server string, contentType string, bod
 }
 
 // NewDeleteMemoryLayoutRequest generates requests for DeleteMemoryLayout
-func NewDeleteMemoryLayoutRequest(server string, name string) (*http.Request, error) {
+func NewDeleteMemoryLayoutRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -7138,12 +7192,12 @@ func NewDeleteMemoryLayoutRequest(server string, name string) (*http.Request, er
 }
 
 // NewGetMemoryLayoutRequest generates requests for GetMemoryLayout
-func NewGetMemoryLayoutRequest(server string, name string) (*http.Request, error) {
+func NewGetMemoryLayoutRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -7172,23 +7226,23 @@ func NewGetMemoryLayoutRequest(server string, name string) (*http.Request, error
 }
 
 // NewPutMemoryLayoutRequest calls the generic PutMemoryLayout builder with application/json body
-func NewPutMemoryLayoutRequest(server string, name string, body PutMemoryLayoutJSONRequestBody) (*http.Request, error) {
+func NewPutMemoryLayoutRequest(server string, id string, body PutMemoryLayoutJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutMemoryLayoutRequestWithBody(server, name, "application/json", bodyReader)
+	return NewPutMemoryLayoutRequestWithBody(server, id, "application/json", bodyReader)
 }
 
 // NewPutMemoryLayoutRequestWithBody generates requests for PutMemoryLayout with any type of body
-func NewPutMemoryLayoutRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPutMemoryLayoutRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -7324,12 +7378,12 @@ func NewCreateMiniMaxTenantRequestWithBody(server string, contentType string, bo
 }
 
 // NewDeleteMiniMaxTenantRequest generates requests for DeleteMiniMaxTenant
-func NewDeleteMiniMaxTenantRequest(server string, name string) (*http.Request, error) {
+func NewDeleteMiniMaxTenantRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -7358,12 +7412,12 @@ func NewDeleteMiniMaxTenantRequest(server string, name string) (*http.Request, e
 }
 
 // NewGetMiniMaxTenantRequest generates requests for GetMiniMaxTenant
-func NewGetMiniMaxTenantRequest(server string, name string) (*http.Request, error) {
+func NewGetMiniMaxTenantRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -7392,23 +7446,23 @@ func NewGetMiniMaxTenantRequest(server string, name string) (*http.Request, erro
 }
 
 // NewPutMiniMaxTenantRequest calls the generic PutMiniMaxTenant builder with application/json body
-func NewPutMiniMaxTenantRequest(server string, name string, body PutMiniMaxTenantJSONRequestBody) (*http.Request, error) {
+func NewPutMiniMaxTenantRequest(server string, id string, body PutMiniMaxTenantJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutMiniMaxTenantRequestWithBody(server, name, "application/json", bodyReader)
+	return NewPutMiniMaxTenantRequestWithBody(server, id, "application/json", bodyReader)
 }
 
 // NewPutMiniMaxTenantRequestWithBody generates requests for PutMiniMaxTenant with any type of body
-func NewPutMiniMaxTenantRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPutMiniMaxTenantRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -7439,12 +7493,12 @@ func NewPutMiniMaxTenantRequestWithBody(server string, name string, contentType 
 }
 
 // NewSyncMiniMaxTenantVoicesRequest generates requests for SyncMiniMaxTenantVoices
-func NewSyncMiniMaxTenantVoicesRequest(server string, name string) (*http.Request, error) {
+func NewSyncMiniMaxTenantVoicesRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -7526,9 +7580,9 @@ func NewListModelsRequest(server string, params *ListModelsParams) (*http.Reques
 
 		}
 
-		if params.ProviderName != nil {
+		if params.ProviderId != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "providerName", *params.ProviderName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "providerId", *params.ProviderId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -7846,12 +7900,12 @@ func NewCreateOpenAITenantRequestWithBody(server string, contentType string, bod
 }
 
 // NewDeleteOpenAITenantRequest generates requests for DeleteOpenAITenant
-func NewDeleteOpenAITenantRequest(server string, name string) (*http.Request, error) {
+func NewDeleteOpenAITenantRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -7880,12 +7934,12 @@ func NewDeleteOpenAITenantRequest(server string, name string) (*http.Request, er
 }
 
 // NewGetOpenAITenantRequest generates requests for GetOpenAITenant
-func NewGetOpenAITenantRequest(server string, name string) (*http.Request, error) {
+func NewGetOpenAITenantRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -7914,23 +7968,23 @@ func NewGetOpenAITenantRequest(server string, name string) (*http.Request, error
 }
 
 // NewPutOpenAITenantRequest calls the generic PutOpenAITenant builder with application/json body
-func NewPutOpenAITenantRequest(server string, name string, body PutOpenAITenantJSONRequestBody) (*http.Request, error) {
+func NewPutOpenAITenantRequest(server string, id string, body PutOpenAITenantJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutOpenAITenantRequestWithBody(server, name, "application/json", bodyReader)
+	return NewPutOpenAITenantRequestWithBody(server, id, "application/json", bodyReader)
 }
 
 // NewPutOpenAITenantRequestWithBody generates requests for PutOpenAITenant with any type of body
-func NewPutOpenAITenantRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPutOpenAITenantRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -9915,12 +9969,12 @@ func NewCreateRegistrationTokenRequestWithBody(server string, contentType string
 }
 
 // NewDeleteRegistrationTokenRequest generates requests for DeleteRegistrationToken
-func NewDeleteRegistrationTokenRequest(server string, name string) (*http.Request, error) {
+func NewDeleteRegistrationTokenRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -9949,12 +10003,12 @@ func NewDeleteRegistrationTokenRequest(server string, name string) (*http.Reques
 }
 
 // NewGetRegistrationTokenRequest generates requests for GetRegistrationToken
-func NewGetRegistrationTokenRequest(server string, name string) (*http.Request, error) {
+func NewGetRegistrationTokenRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -9983,23 +10037,23 @@ func NewGetRegistrationTokenRequest(server string, name string) (*http.Request, 
 }
 
 // NewPutRegistrationTokenRequest calls the generic PutRegistrationToken builder with application/json body
-func NewPutRegistrationTokenRequest(server string, name string, body PutRegistrationTokenJSONRequestBody) (*http.Request, error) {
+func NewPutRegistrationTokenRequest(server string, id string, body PutRegistrationTokenJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutRegistrationTokenRequestWithBody(server, name, "application/json", bodyReader)
+	return NewPutRegistrationTokenRequestWithBody(server, id, "application/json", bodyReader)
 }
 
 // NewPutRegistrationTokenRequestWithBody generates requests for PutRegistrationToken with any type of body
-func NewPutRegistrationTokenRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPutRegistrationTokenRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -10030,7 +10084,7 @@ func NewPutRegistrationTokenRequestWithBody(server string, name string, contentT
 }
 
 // NewDeleteResourceRequest generates requests for DeleteResource
-func NewDeleteResourceRequest(server string, kind ResourceKind, name string) (*http.Request, error) {
+func NewDeleteResourceRequest(server string, kind ResourceKind, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -10042,7 +10096,7 @@ func NewDeleteResourceRequest(server string, kind ResourceKind, name string) (*h
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -10071,7 +10125,7 @@ func NewDeleteResourceRequest(server string, kind ResourceKind, name string) (*h
 }
 
 // NewGetResourceRequest generates requests for GetResource
-func NewGetResourceRequest(server string, kind ResourceKind, name string) (*http.Request, error) {
+func NewGetResourceRequest(server string, kind ResourceKind, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -10083,7 +10137,7 @@ func NewGetResourceRequest(server string, kind ResourceKind, name string) (*http
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -10112,18 +10166,18 @@ func NewGetResourceRequest(server string, kind ResourceKind, name string) (*http
 }
 
 // NewPutResourceRequest calls the generic PutResource builder with application/json body
-func NewPutResourceRequest(server string, kind ResourceKind, name string, body PutResourceJSONRequestBody) (*http.Request, error) {
+func NewPutResourceRequest(server string, kind ResourceKind, id string, body PutResourceJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutResourceRequestWithBody(server, kind, name, "application/json", bodyReader)
+	return NewPutResourceRequestWithBody(server, kind, id, "application/json", bodyReader)
 }
 
 // NewPutResourceRequestWithBody generates requests for PutResource with any type of body
-func NewPutResourceRequestWithBody(server string, kind ResourceKind, name string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPutResourceRequestWithBody(server string, kind ResourceKind, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -10135,7 +10189,7 @@ func NewPutResourceRequestWithBody(server string, kind ResourceKind, name string
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -10271,12 +10325,12 @@ func NewCreateRuntimeProfileRequestWithBody(server string, contentType string, b
 }
 
 // NewDeleteRuntimeProfileRequest generates requests for DeleteRuntimeProfile
-func NewDeleteRuntimeProfileRequest(server string, name string) (*http.Request, error) {
+func NewDeleteRuntimeProfileRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -10305,12 +10359,12 @@ func NewDeleteRuntimeProfileRequest(server string, name string) (*http.Request, 
 }
 
 // NewGetRuntimeProfileRequest generates requests for GetRuntimeProfile
-func NewGetRuntimeProfileRequest(server string, name string) (*http.Request, error) {
+func NewGetRuntimeProfileRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -10339,23 +10393,23 @@ func NewGetRuntimeProfileRequest(server string, name string) (*http.Request, err
 }
 
 // NewPutRuntimeProfileRequest calls the generic PutRuntimeProfile builder with application/json body
-func NewPutRuntimeProfileRequest(server string, name string, body PutRuntimeProfileJSONRequestBody) (*http.Request, error) {
+func NewPutRuntimeProfileRequest(server string, id string, body PutRuntimeProfileJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutRuntimeProfileRequestWithBody(server, name, "application/json", bodyReader)
+	return NewPutRuntimeProfileRequestWithBody(server, id, "application/json", bodyReader)
 }
 
 // NewPutRuntimeProfileRequestWithBody generates requests for PutRuntimeProfile with any type of body
-func NewPutRuntimeProfileRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPutRuntimeProfileRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -11432,9 +11486,9 @@ func NewListVoicesRequest(server string, params *ListVoicesParams) (*http.Reques
 
 		}
 
-		if params.ProviderName != nil {
+		if params.ProviderId != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "providerName", *params.ProviderName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "providerId", *params.ProviderId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -11752,12 +11806,12 @@ func NewCreateVolcTenantRequestWithBody(server string, contentType string, body 
 }
 
 // NewDeleteVolcTenantRequest generates requests for DeleteVolcTenant
-func NewDeleteVolcTenantRequest(server string, name string) (*http.Request, error) {
+func NewDeleteVolcTenantRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -11786,12 +11840,12 @@ func NewDeleteVolcTenantRequest(server string, name string) (*http.Request, erro
 }
 
 // NewGetVolcTenantRequest generates requests for GetVolcTenant
-func NewGetVolcTenantRequest(server string, name string) (*http.Request, error) {
+func NewGetVolcTenantRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -11820,23 +11874,23 @@ func NewGetVolcTenantRequest(server string, name string) (*http.Request, error) 
 }
 
 // NewPutVolcTenantRequest calls the generic PutVolcTenant builder with application/json body
-func NewPutVolcTenantRequest(server string, name string, body PutVolcTenantJSONRequestBody) (*http.Request, error) {
+func NewPutVolcTenantRequest(server string, id string, body PutVolcTenantJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutVolcTenantRequestWithBody(server, name, "application/json", bodyReader)
+	return NewPutVolcTenantRequestWithBody(server, id, "application/json", bodyReader)
 }
 
 // NewPutVolcTenantRequestWithBody generates requests for PutVolcTenant with any type of body
-func NewPutVolcTenantRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPutVolcTenantRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -11867,12 +11921,12 @@ func NewPutVolcTenantRequestWithBody(server string, name string, contentType str
 }
 
 // NewSyncVolcTenantVoicesRequest generates requests for SyncVolcTenantVoices
-func NewSyncVolcTenantVoicesRequest(server string, name string) (*http.Request, error) {
+func NewSyncVolcTenantVoicesRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12006,12 +12060,12 @@ func NewCreateWorkflowRequestWithBody(server string, contentType string, body io
 }
 
 // NewDeleteWorkflowRequest generates requests for DeleteWorkflow
-func NewDeleteWorkflowRequest(server string, name string) (*http.Request, error) {
+func NewDeleteWorkflowRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12040,12 +12094,12 @@ func NewDeleteWorkflowRequest(server string, name string) (*http.Request, error)
 }
 
 // NewGetWorkflowRequest generates requests for GetWorkflow
-func NewGetWorkflowRequest(server string, name string) (*http.Request, error) {
+func NewGetWorkflowRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12074,23 +12128,23 @@ func NewGetWorkflowRequest(server string, name string) (*http.Request, error) {
 }
 
 // NewPutWorkflowRequest calls the generic PutWorkflow builder with application/json body
-func NewPutWorkflowRequest(server string, name string, body PutWorkflowJSONRequestBody) (*http.Request, error) {
+func NewPutWorkflowRequest(server string, id string, body PutWorkflowJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutWorkflowRequestWithBody(server, name, "application/json", bodyReader)
+	return NewPutWorkflowRequestWithBody(server, id, "application/json", bodyReader)
 }
 
 // NewPutWorkflowRequestWithBody generates requests for PutWorkflow with any type of body
-func NewPutWorkflowRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPutWorkflowRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12242,12 +12296,12 @@ func NewCreateWorkspaceRequestWithBody(server string, contentType string, body i
 }
 
 // NewDeleteWorkspaceRequest generates requests for DeleteWorkspace
-func NewDeleteWorkspaceRequest(server string, name string) (*http.Request, error) {
+func NewDeleteWorkspaceRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12276,12 +12330,12 @@ func NewDeleteWorkspaceRequest(server string, name string) (*http.Request, error
 }
 
 // NewGetWorkspaceRequest generates requests for GetWorkspace
-func NewGetWorkspaceRequest(server string, name string) (*http.Request, error) {
+func NewGetWorkspaceRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12310,23 +12364,23 @@ func NewGetWorkspaceRequest(server string, name string) (*http.Request, error) {
 }
 
 // NewPutWorkspaceRequest calls the generic PutWorkspace builder with application/json body
-func NewPutWorkspaceRequest(server string, name string, body PutWorkspaceJSONRequestBody) (*http.Request, error) {
+func NewPutWorkspaceRequest(server string, id string, body PutWorkspaceJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutWorkspaceRequestWithBody(server, name, "application/json", bodyReader)
+	return NewPutWorkspaceRequestWithBody(server, id, "application/json", bodyReader)
 }
 
 // NewPutWorkspaceRequestWithBody generates requests for PutWorkspace with any type of body
-func NewPutWorkspaceRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPutWorkspaceRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12357,12 +12411,12 @@ func NewPutWorkspaceRequestWithBody(server string, name string, contentType stri
 }
 
 // NewListWorkspaceHistoryRequest generates requests for ListWorkspaceHistory
-func NewListWorkspaceHistoryRequest(server string, name string, params *ListWorkspaceHistoryParams) (*http.Request, error) {
+func NewListWorkspaceHistoryRequest(server string, id string, params *ListWorkspaceHistoryParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12445,12 +12499,12 @@ func NewListWorkspaceHistoryRequest(server string, name string, params *ListWork
 }
 
 // NewGetWorkspaceHistoryRequest generates requests for GetWorkspaceHistory
-func NewGetWorkspaceHistoryRequest(server string, name string, historyId string) (*http.Request, error) {
+func NewGetWorkspaceHistoryRequest(server string, id string, historyId string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12486,12 +12540,12 @@ func NewGetWorkspaceHistoryRequest(server string, name string, historyId string)
 }
 
 // NewDownloadWorkspaceHistoryAudioRequest generates requests for DownloadWorkspaceHistoryAudio
-func NewDownloadWorkspaceHistoryAudioRequest(server string, name string, historyId string) (*http.Request, error) {
+func NewDownloadWorkspaceHistoryAudioRequest(server string, id string, historyId string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12527,12 +12581,12 @@ func NewDownloadWorkspaceHistoryAudioRequest(server string, name string, history
 }
 
 // NewDeleteWorkspaceIconRequest generates requests for DeleteWorkspaceIcon
-func NewDeleteWorkspaceIconRequest(server string, name string, format DeleteWorkspaceIconParamsFormat) (*http.Request, error) {
+func NewDeleteWorkspaceIconRequest(server string, id string, format DeleteWorkspaceIconParamsFormat) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12568,12 +12622,12 @@ func NewDeleteWorkspaceIconRequest(server string, name string, format DeleteWork
 }
 
 // NewDownloadWorkspaceIconRequest generates requests for DownloadWorkspaceIcon
-func NewDownloadWorkspaceIconRequest(server string, name string, format DownloadWorkspaceIconParamsFormat) (*http.Request, error) {
+func NewDownloadWorkspaceIconRequest(server string, id string, format DownloadWorkspaceIconParamsFormat) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12609,12 +12663,12 @@ func NewDownloadWorkspaceIconRequest(server string, name string, format Download
 }
 
 // NewUploadWorkspaceIconRequestWithBody generates requests for UploadWorkspaceIcon with any type of body
-func NewUploadWorkspaceIconRequestWithBody(server string, name string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader) (*http.Request, error) {
+func NewUploadWorkspaceIconRequestWithBody(server string, id string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12733,15 +12787,15 @@ type ClientWithResponsesInterface interface {
 	CreateCredentialWithResponse(ctx context.Context, body CreateCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCredentialResponse, error)
 
 	// DeleteCredentialWithResponse request
-	DeleteCredentialWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteCredentialResponse, error)
+	DeleteCredentialWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteCredentialResponse, error)
 
 	// GetCredentialWithResponse request
-	GetCredentialWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetCredentialResponse, error)
+	GetCredentialWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetCredentialResponse, error)
 
 	// PutCredentialWithBodyWithResponse request with any body
-	PutCredentialWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutCredentialResponse, error)
+	PutCredentialWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutCredentialResponse, error)
 
-	PutCredentialWithResponse(ctx context.Context, name string, body PutCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*PutCredentialResponse, error)
+	PutCredentialWithResponse(ctx context.Context, id string, body PutCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*PutCredentialResponse, error)
 
 	// ListDashScopeTenantsWithResponse request
 	ListDashScopeTenantsWithResponse(ctx context.Context, params *ListDashScopeTenantsParams, reqEditors ...RequestEditorFn) (*ListDashScopeTenantsResponse, error)
@@ -12752,15 +12806,15 @@ type ClientWithResponsesInterface interface {
 	CreateDashScopeTenantWithResponse(ctx context.Context, body CreateDashScopeTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDashScopeTenantResponse, error)
 
 	// DeleteDashScopeTenantWithResponse request
-	DeleteDashScopeTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteDashScopeTenantResponse, error)
+	DeleteDashScopeTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteDashScopeTenantResponse, error)
 
 	// GetDashScopeTenantWithResponse request
-	GetDashScopeTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetDashScopeTenantResponse, error)
+	GetDashScopeTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetDashScopeTenantResponse, error)
 
 	// PutDashScopeTenantWithBodyWithResponse request with any body
-	PutDashScopeTenantWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutDashScopeTenantResponse, error)
+	PutDashScopeTenantWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutDashScopeTenantResponse, error)
 
-	PutDashScopeTenantWithResponse(ctx context.Context, name string, body PutDashScopeTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDashScopeTenantResponse, error)
+	PutDashScopeTenantWithResponse(ctx context.Context, id string, body PutDashScopeTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDashScopeTenantResponse, error)
 
 	// ListDeepSeekTenantsWithResponse request
 	ListDeepSeekTenantsWithResponse(ctx context.Context, params *ListDeepSeekTenantsParams, reqEditors ...RequestEditorFn) (*ListDeepSeekTenantsResponse, error)
@@ -12771,15 +12825,15 @@ type ClientWithResponsesInterface interface {
 	CreateDeepSeekTenantWithResponse(ctx context.Context, body CreateDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDeepSeekTenantResponse, error)
 
 	// DeleteDeepSeekTenantWithResponse request
-	DeleteDeepSeekTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteDeepSeekTenantResponse, error)
+	DeleteDeepSeekTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteDeepSeekTenantResponse, error)
 
 	// GetDeepSeekTenantWithResponse request
-	GetDeepSeekTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetDeepSeekTenantResponse, error)
+	GetDeepSeekTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetDeepSeekTenantResponse, error)
 
 	// PutDeepSeekTenantWithBodyWithResponse request with any body
-	PutDeepSeekTenantWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutDeepSeekTenantResponse, error)
+	PutDeepSeekTenantWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutDeepSeekTenantResponse, error)
 
-	PutDeepSeekTenantWithResponse(ctx context.Context, name string, body PutDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDeepSeekTenantResponse, error)
+	PutDeepSeekTenantWithResponse(ctx context.Context, id string, body PutDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDeepSeekTenantResponse, error)
 
 	// ListFirmwaresWithResponse request
 	ListFirmwaresWithResponse(ctx context.Context, params *ListFirmwaresParams, reqEditors ...RequestEditorFn) (*ListFirmwaresResponse, error)
@@ -12790,42 +12844,42 @@ type ClientWithResponsesInterface interface {
 	CreateFirmwareWithResponse(ctx context.Context, body CreateFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFirmwareResponse, error)
 
 	// DeleteFirmwareWithResponse request
-	DeleteFirmwareWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteFirmwareResponse, error)
+	DeleteFirmwareWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteFirmwareResponse, error)
 
 	// GetFirmwareWithResponse request
-	GetFirmwareWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetFirmwareResponse, error)
+	GetFirmwareWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetFirmwareResponse, error)
 
 	// PutFirmwareWithBodyWithResponse request with any body
-	PutFirmwareWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutFirmwareResponse, error)
+	PutFirmwareWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutFirmwareResponse, error)
 
-	PutFirmwareWithResponse(ctx context.Context, name string, body PutFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*PutFirmwareResponse, error)
+	PutFirmwareWithResponse(ctx context.Context, id string, body PutFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*PutFirmwareResponse, error)
 
 	// ReleaseFirmwareWithResponse request
-	ReleaseFirmwareWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*ReleaseFirmwareResponse, error)
+	ReleaseFirmwareWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*ReleaseFirmwareResponse, error)
 
 	// RollbackFirmwareWithResponse request
-	RollbackFirmwareWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*RollbackFirmwareResponse, error)
+	RollbackFirmwareWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*RollbackFirmwareResponse, error)
 
 	// DeleteFirmwareArtifactWithResponse request
-	DeleteFirmwareArtifactWithResponse(ctx context.Context, name string, channel DeleteFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*DeleteFirmwareArtifactResponse, error)
+	DeleteFirmwareArtifactWithResponse(ctx context.Context, id string, channel DeleteFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*DeleteFirmwareArtifactResponse, error)
 
 	// DownloadFirmwareArtifactWithResponse request
-	DownloadFirmwareArtifactWithResponse(ctx context.Context, name string, channel DownloadFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*DownloadFirmwareArtifactResponse, error)
+	DownloadFirmwareArtifactWithResponse(ctx context.Context, id string, channel DownloadFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*DownloadFirmwareArtifactResponse, error)
 
 	// UploadFirmwareArtifactWithBodyWithResponse request with any body
-	UploadFirmwareArtifactWithBodyWithResponse(ctx context.Context, name string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadFirmwareArtifactResponse, error)
+	UploadFirmwareArtifactWithBodyWithResponse(ctx context.Context, id string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadFirmwareArtifactResponse, error)
 
 	// DownloadFirmwareArtifactEntryWithResponse request
-	DownloadFirmwareArtifactEntryWithResponse(ctx context.Context, name string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*DownloadFirmwareArtifactEntryResponse, error)
+	DownloadFirmwareArtifactEntryWithResponse(ctx context.Context, id string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*DownloadFirmwareArtifactEntryResponse, error)
 
 	// ListFirmwareArtifactEntriesWithResponse request
-	ListFirmwareArtifactEntriesWithResponse(ctx context.Context, name string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*ListFirmwareArtifactEntriesResponse, error)
+	ListFirmwareArtifactEntriesWithResponse(ctx context.Context, id string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*ListFirmwareArtifactEntriesResponse, error)
 
 	// StatFirmwareArtifactEntryWithResponse request
-	StatFirmwareArtifactEntryWithResponse(ctx context.Context, name string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*StatFirmwareArtifactEntryResponse, error)
+	StatFirmwareArtifactEntryWithResponse(ctx context.Context, id string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*StatFirmwareArtifactEntryResponse, error)
 
 	// TreeFirmwareArtifactEntriesWithResponse request
-	TreeFirmwareArtifactEntriesWithResponse(ctx context.Context, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*TreeFirmwareArtifactEntriesResponse, error)
+	TreeFirmwareArtifactEntriesWithResponse(ctx context.Context, id string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*TreeFirmwareArtifactEntriesResponse, error)
 
 	// ListGameDefsWithResponse request
 	ListGameDefsWithResponse(ctx context.Context, params *ListGameDefsParams, reqEditors ...RequestEditorFn) (*ListGameDefsResponse, error)
@@ -12864,15 +12918,15 @@ type ClientWithResponsesInterface interface {
 	CreateGeminiTenantWithResponse(ctx context.Context, body CreateGeminiTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGeminiTenantResponse, error)
 
 	// DeleteGeminiTenantWithResponse request
-	DeleteGeminiTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteGeminiTenantResponse, error)
+	DeleteGeminiTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteGeminiTenantResponse, error)
 
 	// GetGeminiTenantWithResponse request
-	GetGeminiTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetGeminiTenantResponse, error)
+	GetGeminiTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetGeminiTenantResponse, error)
 
 	// PutGeminiTenantWithBodyWithResponse request with any body
-	PutGeminiTenantWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutGeminiTenantResponse, error)
+	PutGeminiTenantWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutGeminiTenantResponse, error)
 
-	PutGeminiTenantWithResponse(ctx context.Context, name string, body PutGeminiTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutGeminiTenantResponse, error)
+	PutGeminiTenantWithResponse(ctx context.Context, id string, body PutGeminiTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutGeminiTenantResponse, error)
 
 	// StreamServerLogsWithResponse request
 	StreamServerLogsWithResponse(ctx context.Context, params *StreamServerLogsParams, reqEditors ...RequestEditorFn) (*StreamServerLogsResponse, error)
@@ -12886,15 +12940,15 @@ type ClientWithResponsesInterface interface {
 	CreateMemoryLayoutWithResponse(ctx context.Context, body CreateMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMemoryLayoutResponse, error)
 
 	// DeleteMemoryLayoutWithResponse request
-	DeleteMemoryLayoutWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteMemoryLayoutResponse, error)
+	DeleteMemoryLayoutWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteMemoryLayoutResponse, error)
 
 	// GetMemoryLayoutWithResponse request
-	GetMemoryLayoutWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetMemoryLayoutResponse, error)
+	GetMemoryLayoutWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetMemoryLayoutResponse, error)
 
 	// PutMemoryLayoutWithBodyWithResponse request with any body
-	PutMemoryLayoutWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMemoryLayoutResponse, error)
+	PutMemoryLayoutWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMemoryLayoutResponse, error)
 
-	PutMemoryLayoutWithResponse(ctx context.Context, name string, body PutMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMemoryLayoutResponse, error)
+	PutMemoryLayoutWithResponse(ctx context.Context, id string, body PutMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMemoryLayoutResponse, error)
 
 	// ListMiniMaxTenantsWithResponse request
 	ListMiniMaxTenantsWithResponse(ctx context.Context, params *ListMiniMaxTenantsParams, reqEditors ...RequestEditorFn) (*ListMiniMaxTenantsResponse, error)
@@ -12905,18 +12959,18 @@ type ClientWithResponsesInterface interface {
 	CreateMiniMaxTenantWithResponse(ctx context.Context, body CreateMiniMaxTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMiniMaxTenantResponse, error)
 
 	// DeleteMiniMaxTenantWithResponse request
-	DeleteMiniMaxTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteMiniMaxTenantResponse, error)
+	DeleteMiniMaxTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteMiniMaxTenantResponse, error)
 
 	// GetMiniMaxTenantWithResponse request
-	GetMiniMaxTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetMiniMaxTenantResponse, error)
+	GetMiniMaxTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetMiniMaxTenantResponse, error)
 
 	// PutMiniMaxTenantWithBodyWithResponse request with any body
-	PutMiniMaxTenantWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMiniMaxTenantResponse, error)
+	PutMiniMaxTenantWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMiniMaxTenantResponse, error)
 
-	PutMiniMaxTenantWithResponse(ctx context.Context, name string, body PutMiniMaxTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMiniMaxTenantResponse, error)
+	PutMiniMaxTenantWithResponse(ctx context.Context, id string, body PutMiniMaxTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMiniMaxTenantResponse, error)
 
 	// SyncMiniMaxTenantVoicesWithResponse request
-	SyncMiniMaxTenantVoicesWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*SyncMiniMaxTenantVoicesResponse, error)
+	SyncMiniMaxTenantVoicesWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SyncMiniMaxTenantVoicesResponse, error)
 
 	// ListModelsWithResponse request
 	ListModelsWithResponse(ctx context.Context, params *ListModelsParams, reqEditors ...RequestEditorFn) (*ListModelsResponse, error)
@@ -12946,15 +13000,15 @@ type ClientWithResponsesInterface interface {
 	CreateOpenAITenantWithResponse(ctx context.Context, body CreateOpenAITenantJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOpenAITenantResponse, error)
 
 	// DeleteOpenAITenantWithResponse request
-	DeleteOpenAITenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteOpenAITenantResponse, error)
+	DeleteOpenAITenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteOpenAITenantResponse, error)
 
 	// GetOpenAITenantWithResponse request
-	GetOpenAITenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetOpenAITenantResponse, error)
+	GetOpenAITenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetOpenAITenantResponse, error)
 
 	// PutOpenAITenantWithBodyWithResponse request with any body
-	PutOpenAITenantWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutOpenAITenantResponse, error)
+	PutOpenAITenantWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutOpenAITenantResponse, error)
 
-	PutOpenAITenantWithResponse(ctx context.Context, name string, body PutOpenAITenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutOpenAITenantResponse, error)
+	PutOpenAITenantWithResponse(ctx context.Context, id string, body PutOpenAITenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutOpenAITenantResponse, error)
 
 	// ListPeersWithResponse request
 	ListPeersWithResponse(ctx context.Context, params *ListPeersParams, reqEditors ...RequestEditorFn) (*ListPeersResponse, error)
@@ -13086,26 +13140,26 @@ type ClientWithResponsesInterface interface {
 	CreateRegistrationTokenWithResponse(ctx context.Context, body CreateRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRegistrationTokenResponse, error)
 
 	// DeleteRegistrationTokenWithResponse request
-	DeleteRegistrationTokenWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteRegistrationTokenResponse, error)
+	DeleteRegistrationTokenWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteRegistrationTokenResponse, error)
 
 	// GetRegistrationTokenWithResponse request
-	GetRegistrationTokenWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetRegistrationTokenResponse, error)
+	GetRegistrationTokenWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetRegistrationTokenResponse, error)
 
 	// PutRegistrationTokenWithBodyWithResponse request with any body
-	PutRegistrationTokenWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutRegistrationTokenResponse, error)
+	PutRegistrationTokenWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutRegistrationTokenResponse, error)
 
-	PutRegistrationTokenWithResponse(ctx context.Context, name string, body PutRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*PutRegistrationTokenResponse, error)
+	PutRegistrationTokenWithResponse(ctx context.Context, id string, body PutRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*PutRegistrationTokenResponse, error)
 
 	// DeleteResourceWithResponse request
-	DeleteResourceWithResponse(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*DeleteResourceResponse, error)
+	DeleteResourceWithResponse(ctx context.Context, kind ResourceKind, id string, reqEditors ...RequestEditorFn) (*DeleteResourceResponse, error)
 
 	// GetResourceWithResponse request
-	GetResourceWithResponse(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*GetResourceResponse, error)
+	GetResourceWithResponse(ctx context.Context, kind ResourceKind, id string, reqEditors ...RequestEditorFn) (*GetResourceResponse, error)
 
 	// PutResourceWithBodyWithResponse request with any body
-	PutResourceWithBodyWithResponse(ctx context.Context, kind ResourceKind, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutResourceResponse, error)
+	PutResourceWithBodyWithResponse(ctx context.Context, kind ResourceKind, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutResourceResponse, error)
 
-	PutResourceWithResponse(ctx context.Context, kind ResourceKind, name string, body PutResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*PutResourceResponse, error)
+	PutResourceWithResponse(ctx context.Context, kind ResourceKind, id string, body PutResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*PutResourceResponse, error)
 
 	// ListRuntimeProfilesWithResponse request
 	ListRuntimeProfilesWithResponse(ctx context.Context, params *ListRuntimeProfilesParams, reqEditors ...RequestEditorFn) (*ListRuntimeProfilesResponse, error)
@@ -13116,15 +13170,15 @@ type ClientWithResponsesInterface interface {
 	CreateRuntimeProfileWithResponse(ctx context.Context, body CreateRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRuntimeProfileResponse, error)
 
 	// DeleteRuntimeProfileWithResponse request
-	DeleteRuntimeProfileWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteRuntimeProfileResponse, error)
+	DeleteRuntimeProfileWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteRuntimeProfileResponse, error)
 
 	// GetRuntimeProfileWithResponse request
-	GetRuntimeProfileWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetRuntimeProfileResponse, error)
+	GetRuntimeProfileWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetRuntimeProfileResponse, error)
 
 	// PutRuntimeProfileWithBodyWithResponse request with any body
-	PutRuntimeProfileWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutRuntimeProfileResponse, error)
+	PutRuntimeProfileWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutRuntimeProfileResponse, error)
 
-	PutRuntimeProfileWithResponse(ctx context.Context, name string, body PutRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*PutRuntimeProfileResponse, error)
+	PutRuntimeProfileWithResponse(ctx context.Context, id string, body PutRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*PutRuntimeProfileResponse, error)
 
 	// ListContactsWithResponse request
 	ListContactsWithResponse(ctx context.Context, params *ListContactsParams, reqEditors ...RequestEditorFn) (*ListContactsResponse, error)
@@ -13233,18 +13287,18 @@ type ClientWithResponsesInterface interface {
 	CreateVolcTenantWithResponse(ctx context.Context, body CreateVolcTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVolcTenantResponse, error)
 
 	// DeleteVolcTenantWithResponse request
-	DeleteVolcTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteVolcTenantResponse, error)
+	DeleteVolcTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteVolcTenantResponse, error)
 
 	// GetVolcTenantWithResponse request
-	GetVolcTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetVolcTenantResponse, error)
+	GetVolcTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetVolcTenantResponse, error)
 
 	// PutVolcTenantWithBodyWithResponse request with any body
-	PutVolcTenantWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutVolcTenantResponse, error)
+	PutVolcTenantWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutVolcTenantResponse, error)
 
-	PutVolcTenantWithResponse(ctx context.Context, name string, body PutVolcTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutVolcTenantResponse, error)
+	PutVolcTenantWithResponse(ctx context.Context, id string, body PutVolcTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutVolcTenantResponse, error)
 
 	// SyncVolcTenantVoicesWithResponse request
-	SyncVolcTenantVoicesWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*SyncVolcTenantVoicesResponse, error)
+	SyncVolcTenantVoicesWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SyncVolcTenantVoicesResponse, error)
 
 	// ListWorkflowsWithResponse request
 	ListWorkflowsWithResponse(ctx context.Context, params *ListWorkflowsParams, reqEditors ...RequestEditorFn) (*ListWorkflowsResponse, error)
@@ -13255,15 +13309,15 @@ type ClientWithResponsesInterface interface {
 	CreateWorkflowWithResponse(ctx context.Context, body CreateWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWorkflowResponse, error)
 
 	// DeleteWorkflowWithResponse request
-	DeleteWorkflowWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteWorkflowResponse, error)
+	DeleteWorkflowWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteWorkflowResponse, error)
 
 	// GetWorkflowWithResponse request
-	GetWorkflowWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetWorkflowResponse, error)
+	GetWorkflowWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetWorkflowResponse, error)
 
 	// PutWorkflowWithBodyWithResponse request with any body
-	PutWorkflowWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutWorkflowResponse, error)
+	PutWorkflowWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutWorkflowResponse, error)
 
-	PutWorkflowWithResponse(ctx context.Context, name string, body PutWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*PutWorkflowResponse, error)
+	PutWorkflowWithResponse(ctx context.Context, id string, body PutWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*PutWorkflowResponse, error)
 
 	// ListWorkspacesWithResponse request
 	ListWorkspacesWithResponse(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error)
@@ -13274,33 +13328,33 @@ type ClientWithResponsesInterface interface {
 	CreateWorkspaceWithResponse(ctx context.Context, body CreateWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWorkspaceResponse, error)
 
 	// DeleteWorkspaceWithResponse request
-	DeleteWorkspaceWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteWorkspaceResponse, error)
+	DeleteWorkspaceWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteWorkspaceResponse, error)
 
 	// GetWorkspaceWithResponse request
-	GetWorkspaceWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetWorkspaceResponse, error)
+	GetWorkspaceWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetWorkspaceResponse, error)
 
 	// PutWorkspaceWithBodyWithResponse request with any body
-	PutWorkspaceWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutWorkspaceResponse, error)
+	PutWorkspaceWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutWorkspaceResponse, error)
 
-	PutWorkspaceWithResponse(ctx context.Context, name string, body PutWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*PutWorkspaceResponse, error)
+	PutWorkspaceWithResponse(ctx context.Context, id string, body PutWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*PutWorkspaceResponse, error)
 
 	// ListWorkspaceHistoryWithResponse request
-	ListWorkspaceHistoryWithResponse(ctx context.Context, name string, params *ListWorkspaceHistoryParams, reqEditors ...RequestEditorFn) (*ListWorkspaceHistoryResponse, error)
+	ListWorkspaceHistoryWithResponse(ctx context.Context, id string, params *ListWorkspaceHistoryParams, reqEditors ...RequestEditorFn) (*ListWorkspaceHistoryResponse, error)
 
 	// GetWorkspaceHistoryWithResponse request
-	GetWorkspaceHistoryWithResponse(ctx context.Context, name string, historyId string, reqEditors ...RequestEditorFn) (*GetWorkspaceHistoryResponse, error)
+	GetWorkspaceHistoryWithResponse(ctx context.Context, id string, historyId string, reqEditors ...RequestEditorFn) (*GetWorkspaceHistoryResponse, error)
 
 	// DownloadWorkspaceHistoryAudioWithResponse request
-	DownloadWorkspaceHistoryAudioWithResponse(ctx context.Context, name string, historyId string, reqEditors ...RequestEditorFn) (*DownloadWorkspaceHistoryAudioResponse, error)
+	DownloadWorkspaceHistoryAudioWithResponse(ctx context.Context, id string, historyId string, reqEditors ...RequestEditorFn) (*DownloadWorkspaceHistoryAudioResponse, error)
 
 	// DeleteWorkspaceIconWithResponse request
-	DeleteWorkspaceIconWithResponse(ctx context.Context, name string, format DeleteWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*DeleteWorkspaceIconResponse, error)
+	DeleteWorkspaceIconWithResponse(ctx context.Context, id string, format DeleteWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*DeleteWorkspaceIconResponse, error)
 
 	// DownloadWorkspaceIconWithResponse request
-	DownloadWorkspaceIconWithResponse(ctx context.Context, name string, format DownloadWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadWorkspaceIconResponse, error)
+	DownloadWorkspaceIconWithResponse(ctx context.Context, id string, format DownloadWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadWorkspaceIconResponse, error)
 
 	// UploadWorkspaceIconWithBodyWithResponse request with any body
-	UploadWorkspaceIconWithBodyWithResponse(ctx context.Context, name string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWorkspaceIconResponse, error)
+	UploadWorkspaceIconWithBodyWithResponse(ctx context.Context, id string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWorkspaceIconResponse, error)
 }
 
 type ApplyResourceResponse struct {
@@ -13430,6 +13484,7 @@ type PutBadgeDefResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.BadgeDef
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -13525,6 +13580,7 @@ type CreateCredentialResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Credential
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -13598,6 +13654,7 @@ type PutCredentialResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Credential
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -13718,6 +13775,7 @@ type PutDashScopeTenantResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.DashScopeTenant
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -13765,6 +13823,7 @@ type CreateDeepSeekTenantResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.DeepSeekTenant
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -13838,6 +13897,7 @@ type PutDeepSeekTenantResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.DeepSeekTenant
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -13958,6 +14018,7 @@ type PutFirmwareResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Firmware
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14300,6 +14361,7 @@ type PutGameDefResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.GameDef
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -14494,6 +14556,7 @@ type PutGeminiTenantResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.GeminiTenant
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14638,6 +14701,7 @@ type PutMemoryLayoutResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.MemoryLayout
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14758,6 +14822,7 @@ type PutMiniMaxTenantResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.MiniMaxTenant
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14904,6 +14969,7 @@ type PutModelResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Model
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -15025,6 +15091,7 @@ type PutOpenAITenantResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.OpenAITenant
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -15862,6 +15929,7 @@ type PutPetDefResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.PetDef
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -16030,6 +16098,7 @@ type PutRegistrationTokenResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.RegistrationToken
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -16230,6 +16299,7 @@ type PutRuntimeProfileResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.RuntimeProfile
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -16377,7 +16447,7 @@ func (r PutContactResponse) StatusCode() int {
 type ListFriendGroupsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.FriendGroupListResponse
+	JSON200      *AdminFriendGroupListResponse
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -16402,7 +16472,7 @@ func (r ListFriendGroupsResponse) StatusCode() int {
 type CreateFriendGroupResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.FriendGroupObject
+	JSON200      *AdminFriendGroupObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -16427,7 +16497,7 @@ func (r CreateFriendGroupResponse) StatusCode() int {
 type DeleteFriendGroupResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.FriendGroupObject
+	JSON200      *AdminFriendGroupObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -16452,7 +16522,7 @@ func (r DeleteFriendGroupResponse) StatusCode() int {
 type GetFriendGroupResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.FriendGroupObject
+	JSON200      *AdminFriendGroupObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -16477,7 +16547,7 @@ func (r GetFriendGroupResponse) StatusCode() int {
 type PutFriendGroupResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.FriendGroupObject
+	JSON200      *AdminFriendGroupObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -16577,7 +16647,7 @@ func (r PutFriendGroupInviteTokenResponse) StatusCode() int {
 type ListFriendGroupMembersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.FriendGroupMemberListResponse
+	JSON200      *AdminFriendGroupMemberListResponse
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -16602,7 +16672,7 @@ func (r ListFriendGroupMembersResponse) StatusCode() int {
 type CreateFriendGroupMemberResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.FriendGroupMemberObject
+	JSON200      *AdminFriendGroupMemberObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -16627,7 +16697,7 @@ func (r CreateFriendGroupMemberResponse) StatusCode() int {
 type DeleteFriendGroupMemberResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.FriendGroupMemberObject
+	JSON200      *AdminFriendGroupMemberObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -16652,7 +16722,7 @@ func (r DeleteFriendGroupMemberResponse) StatusCode() int {
 type PutFriendGroupMemberResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.FriendGroupMemberObject
+	JSON200      *AdminFriendGroupMemberObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -16874,6 +16944,7 @@ type PutVoiceResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Voice
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -16995,6 +17066,7 @@ type PutVolcTenantResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.VolcTenant
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -17068,6 +17140,7 @@ type CreateWorkflowResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Workflow
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -17141,6 +17214,7 @@ type PutWorkflowResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Workflow
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -17263,6 +17337,7 @@ type PutWorkspaceResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Workspace
 	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -17553,8 +17628,8 @@ func (c *ClientWithResponses) CreateCredentialWithResponse(ctx context.Context, 
 }
 
 // DeleteCredentialWithResponse request returning *DeleteCredentialResponse
-func (c *ClientWithResponses) DeleteCredentialWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteCredentialResponse, error) {
-	rsp, err := c.DeleteCredential(ctx, name, reqEditors...)
+func (c *ClientWithResponses) DeleteCredentialWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteCredentialResponse, error) {
+	rsp, err := c.DeleteCredential(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17562,8 +17637,8 @@ func (c *ClientWithResponses) DeleteCredentialWithResponse(ctx context.Context, 
 }
 
 // GetCredentialWithResponse request returning *GetCredentialResponse
-func (c *ClientWithResponses) GetCredentialWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetCredentialResponse, error) {
-	rsp, err := c.GetCredential(ctx, name, reqEditors...)
+func (c *ClientWithResponses) GetCredentialWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetCredentialResponse, error) {
+	rsp, err := c.GetCredential(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17571,16 +17646,16 @@ func (c *ClientWithResponses) GetCredentialWithResponse(ctx context.Context, nam
 }
 
 // PutCredentialWithBodyWithResponse request with arbitrary body returning *PutCredentialResponse
-func (c *ClientWithResponses) PutCredentialWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutCredentialResponse, error) {
-	rsp, err := c.PutCredentialWithBody(ctx, name, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PutCredentialWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutCredentialResponse, error) {
+	rsp, err := c.PutCredentialWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutCredentialResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutCredentialWithResponse(ctx context.Context, name string, body PutCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*PutCredentialResponse, error) {
-	rsp, err := c.PutCredential(ctx, name, body, reqEditors...)
+func (c *ClientWithResponses) PutCredentialWithResponse(ctx context.Context, id string, body PutCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*PutCredentialResponse, error) {
+	rsp, err := c.PutCredential(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17614,8 +17689,8 @@ func (c *ClientWithResponses) CreateDashScopeTenantWithResponse(ctx context.Cont
 }
 
 // DeleteDashScopeTenantWithResponse request returning *DeleteDashScopeTenantResponse
-func (c *ClientWithResponses) DeleteDashScopeTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteDashScopeTenantResponse, error) {
-	rsp, err := c.DeleteDashScopeTenant(ctx, name, reqEditors...)
+func (c *ClientWithResponses) DeleteDashScopeTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteDashScopeTenantResponse, error) {
+	rsp, err := c.DeleteDashScopeTenant(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17623,8 +17698,8 @@ func (c *ClientWithResponses) DeleteDashScopeTenantWithResponse(ctx context.Cont
 }
 
 // GetDashScopeTenantWithResponse request returning *GetDashScopeTenantResponse
-func (c *ClientWithResponses) GetDashScopeTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetDashScopeTenantResponse, error) {
-	rsp, err := c.GetDashScopeTenant(ctx, name, reqEditors...)
+func (c *ClientWithResponses) GetDashScopeTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetDashScopeTenantResponse, error) {
+	rsp, err := c.GetDashScopeTenant(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17632,16 +17707,16 @@ func (c *ClientWithResponses) GetDashScopeTenantWithResponse(ctx context.Context
 }
 
 // PutDashScopeTenantWithBodyWithResponse request with arbitrary body returning *PutDashScopeTenantResponse
-func (c *ClientWithResponses) PutDashScopeTenantWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutDashScopeTenantResponse, error) {
-	rsp, err := c.PutDashScopeTenantWithBody(ctx, name, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PutDashScopeTenantWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutDashScopeTenantResponse, error) {
+	rsp, err := c.PutDashScopeTenantWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutDashScopeTenantResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutDashScopeTenantWithResponse(ctx context.Context, name string, body PutDashScopeTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDashScopeTenantResponse, error) {
-	rsp, err := c.PutDashScopeTenant(ctx, name, body, reqEditors...)
+func (c *ClientWithResponses) PutDashScopeTenantWithResponse(ctx context.Context, id string, body PutDashScopeTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDashScopeTenantResponse, error) {
+	rsp, err := c.PutDashScopeTenant(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17675,8 +17750,8 @@ func (c *ClientWithResponses) CreateDeepSeekTenantWithResponse(ctx context.Conte
 }
 
 // DeleteDeepSeekTenantWithResponse request returning *DeleteDeepSeekTenantResponse
-func (c *ClientWithResponses) DeleteDeepSeekTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteDeepSeekTenantResponse, error) {
-	rsp, err := c.DeleteDeepSeekTenant(ctx, name, reqEditors...)
+func (c *ClientWithResponses) DeleteDeepSeekTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteDeepSeekTenantResponse, error) {
+	rsp, err := c.DeleteDeepSeekTenant(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17684,8 +17759,8 @@ func (c *ClientWithResponses) DeleteDeepSeekTenantWithResponse(ctx context.Conte
 }
 
 // GetDeepSeekTenantWithResponse request returning *GetDeepSeekTenantResponse
-func (c *ClientWithResponses) GetDeepSeekTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetDeepSeekTenantResponse, error) {
-	rsp, err := c.GetDeepSeekTenant(ctx, name, reqEditors...)
+func (c *ClientWithResponses) GetDeepSeekTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetDeepSeekTenantResponse, error) {
+	rsp, err := c.GetDeepSeekTenant(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17693,16 +17768,16 @@ func (c *ClientWithResponses) GetDeepSeekTenantWithResponse(ctx context.Context,
 }
 
 // PutDeepSeekTenantWithBodyWithResponse request with arbitrary body returning *PutDeepSeekTenantResponse
-func (c *ClientWithResponses) PutDeepSeekTenantWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutDeepSeekTenantResponse, error) {
-	rsp, err := c.PutDeepSeekTenantWithBody(ctx, name, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PutDeepSeekTenantWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutDeepSeekTenantResponse, error) {
+	rsp, err := c.PutDeepSeekTenantWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutDeepSeekTenantResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutDeepSeekTenantWithResponse(ctx context.Context, name string, body PutDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDeepSeekTenantResponse, error) {
-	rsp, err := c.PutDeepSeekTenant(ctx, name, body, reqEditors...)
+func (c *ClientWithResponses) PutDeepSeekTenantWithResponse(ctx context.Context, id string, body PutDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDeepSeekTenantResponse, error) {
+	rsp, err := c.PutDeepSeekTenant(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17736,8 +17811,8 @@ func (c *ClientWithResponses) CreateFirmwareWithResponse(ctx context.Context, bo
 }
 
 // DeleteFirmwareWithResponse request returning *DeleteFirmwareResponse
-func (c *ClientWithResponses) DeleteFirmwareWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteFirmwareResponse, error) {
-	rsp, err := c.DeleteFirmware(ctx, name, reqEditors...)
+func (c *ClientWithResponses) DeleteFirmwareWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteFirmwareResponse, error) {
+	rsp, err := c.DeleteFirmware(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17745,8 +17820,8 @@ func (c *ClientWithResponses) DeleteFirmwareWithResponse(ctx context.Context, na
 }
 
 // GetFirmwareWithResponse request returning *GetFirmwareResponse
-func (c *ClientWithResponses) GetFirmwareWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetFirmwareResponse, error) {
-	rsp, err := c.GetFirmware(ctx, name, reqEditors...)
+func (c *ClientWithResponses) GetFirmwareWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetFirmwareResponse, error) {
+	rsp, err := c.GetFirmware(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17754,16 +17829,16 @@ func (c *ClientWithResponses) GetFirmwareWithResponse(ctx context.Context, name 
 }
 
 // PutFirmwareWithBodyWithResponse request with arbitrary body returning *PutFirmwareResponse
-func (c *ClientWithResponses) PutFirmwareWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutFirmwareResponse, error) {
-	rsp, err := c.PutFirmwareWithBody(ctx, name, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PutFirmwareWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutFirmwareResponse, error) {
+	rsp, err := c.PutFirmwareWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutFirmwareResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutFirmwareWithResponse(ctx context.Context, name string, body PutFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*PutFirmwareResponse, error) {
-	rsp, err := c.PutFirmware(ctx, name, body, reqEditors...)
+func (c *ClientWithResponses) PutFirmwareWithResponse(ctx context.Context, id string, body PutFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*PutFirmwareResponse, error) {
+	rsp, err := c.PutFirmware(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17771,8 +17846,8 @@ func (c *ClientWithResponses) PutFirmwareWithResponse(ctx context.Context, name 
 }
 
 // ReleaseFirmwareWithResponse request returning *ReleaseFirmwareResponse
-func (c *ClientWithResponses) ReleaseFirmwareWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*ReleaseFirmwareResponse, error) {
-	rsp, err := c.ReleaseFirmware(ctx, name, reqEditors...)
+func (c *ClientWithResponses) ReleaseFirmwareWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*ReleaseFirmwareResponse, error) {
+	rsp, err := c.ReleaseFirmware(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17780,8 +17855,8 @@ func (c *ClientWithResponses) ReleaseFirmwareWithResponse(ctx context.Context, n
 }
 
 // RollbackFirmwareWithResponse request returning *RollbackFirmwareResponse
-func (c *ClientWithResponses) RollbackFirmwareWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*RollbackFirmwareResponse, error) {
-	rsp, err := c.RollbackFirmware(ctx, name, reqEditors...)
+func (c *ClientWithResponses) RollbackFirmwareWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*RollbackFirmwareResponse, error) {
+	rsp, err := c.RollbackFirmware(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17789,8 +17864,8 @@ func (c *ClientWithResponses) RollbackFirmwareWithResponse(ctx context.Context, 
 }
 
 // DeleteFirmwareArtifactWithResponse request returning *DeleteFirmwareArtifactResponse
-func (c *ClientWithResponses) DeleteFirmwareArtifactWithResponse(ctx context.Context, name string, channel DeleteFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*DeleteFirmwareArtifactResponse, error) {
-	rsp, err := c.DeleteFirmwareArtifact(ctx, name, channel, reqEditors...)
+func (c *ClientWithResponses) DeleteFirmwareArtifactWithResponse(ctx context.Context, id string, channel DeleteFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*DeleteFirmwareArtifactResponse, error) {
+	rsp, err := c.DeleteFirmwareArtifact(ctx, id, channel, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17798,8 +17873,8 @@ func (c *ClientWithResponses) DeleteFirmwareArtifactWithResponse(ctx context.Con
 }
 
 // DownloadFirmwareArtifactWithResponse request returning *DownloadFirmwareArtifactResponse
-func (c *ClientWithResponses) DownloadFirmwareArtifactWithResponse(ctx context.Context, name string, channel DownloadFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*DownloadFirmwareArtifactResponse, error) {
-	rsp, err := c.DownloadFirmwareArtifact(ctx, name, channel, reqEditors...)
+func (c *ClientWithResponses) DownloadFirmwareArtifactWithResponse(ctx context.Context, id string, channel DownloadFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*DownloadFirmwareArtifactResponse, error) {
+	rsp, err := c.DownloadFirmwareArtifact(ctx, id, channel, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17807,8 +17882,8 @@ func (c *ClientWithResponses) DownloadFirmwareArtifactWithResponse(ctx context.C
 }
 
 // UploadFirmwareArtifactWithBodyWithResponse request with arbitrary body returning *UploadFirmwareArtifactResponse
-func (c *ClientWithResponses) UploadFirmwareArtifactWithBodyWithResponse(ctx context.Context, name string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadFirmwareArtifactResponse, error) {
-	rsp, err := c.UploadFirmwareArtifactWithBody(ctx, name, channel, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UploadFirmwareArtifactWithBodyWithResponse(ctx context.Context, id string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadFirmwareArtifactResponse, error) {
+	rsp, err := c.UploadFirmwareArtifactWithBody(ctx, id, channel, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17816,8 +17891,8 @@ func (c *ClientWithResponses) UploadFirmwareArtifactWithBodyWithResponse(ctx con
 }
 
 // DownloadFirmwareArtifactEntryWithResponse request returning *DownloadFirmwareArtifactEntryResponse
-func (c *ClientWithResponses) DownloadFirmwareArtifactEntryWithResponse(ctx context.Context, name string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*DownloadFirmwareArtifactEntryResponse, error) {
-	rsp, err := c.DownloadFirmwareArtifactEntry(ctx, name, channel, params, reqEditors...)
+func (c *ClientWithResponses) DownloadFirmwareArtifactEntryWithResponse(ctx context.Context, id string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*DownloadFirmwareArtifactEntryResponse, error) {
+	rsp, err := c.DownloadFirmwareArtifactEntry(ctx, id, channel, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17825,8 +17900,8 @@ func (c *ClientWithResponses) DownloadFirmwareArtifactEntryWithResponse(ctx cont
 }
 
 // ListFirmwareArtifactEntriesWithResponse request returning *ListFirmwareArtifactEntriesResponse
-func (c *ClientWithResponses) ListFirmwareArtifactEntriesWithResponse(ctx context.Context, name string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*ListFirmwareArtifactEntriesResponse, error) {
-	rsp, err := c.ListFirmwareArtifactEntries(ctx, name, channel, params, reqEditors...)
+func (c *ClientWithResponses) ListFirmwareArtifactEntriesWithResponse(ctx context.Context, id string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*ListFirmwareArtifactEntriesResponse, error) {
+	rsp, err := c.ListFirmwareArtifactEntries(ctx, id, channel, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17834,8 +17909,8 @@ func (c *ClientWithResponses) ListFirmwareArtifactEntriesWithResponse(ctx contex
 }
 
 // StatFirmwareArtifactEntryWithResponse request returning *StatFirmwareArtifactEntryResponse
-func (c *ClientWithResponses) StatFirmwareArtifactEntryWithResponse(ctx context.Context, name string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*StatFirmwareArtifactEntryResponse, error) {
-	rsp, err := c.StatFirmwareArtifactEntry(ctx, name, channel, params, reqEditors...)
+func (c *ClientWithResponses) StatFirmwareArtifactEntryWithResponse(ctx context.Context, id string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*StatFirmwareArtifactEntryResponse, error) {
+	rsp, err := c.StatFirmwareArtifactEntry(ctx, id, channel, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17843,8 +17918,8 @@ func (c *ClientWithResponses) StatFirmwareArtifactEntryWithResponse(ctx context.
 }
 
 // TreeFirmwareArtifactEntriesWithResponse request returning *TreeFirmwareArtifactEntriesResponse
-func (c *ClientWithResponses) TreeFirmwareArtifactEntriesWithResponse(ctx context.Context, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*TreeFirmwareArtifactEntriesResponse, error) {
-	rsp, err := c.TreeFirmwareArtifactEntries(ctx, name, channel, params, reqEditors...)
+func (c *ClientWithResponses) TreeFirmwareArtifactEntriesWithResponse(ctx context.Context, id string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*TreeFirmwareArtifactEntriesResponse, error) {
+	rsp, err := c.TreeFirmwareArtifactEntries(ctx, id, channel, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17966,8 +18041,8 @@ func (c *ClientWithResponses) CreateGeminiTenantWithResponse(ctx context.Context
 }
 
 // DeleteGeminiTenantWithResponse request returning *DeleteGeminiTenantResponse
-func (c *ClientWithResponses) DeleteGeminiTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteGeminiTenantResponse, error) {
-	rsp, err := c.DeleteGeminiTenant(ctx, name, reqEditors...)
+func (c *ClientWithResponses) DeleteGeminiTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteGeminiTenantResponse, error) {
+	rsp, err := c.DeleteGeminiTenant(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17975,8 +18050,8 @@ func (c *ClientWithResponses) DeleteGeminiTenantWithResponse(ctx context.Context
 }
 
 // GetGeminiTenantWithResponse request returning *GetGeminiTenantResponse
-func (c *ClientWithResponses) GetGeminiTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetGeminiTenantResponse, error) {
-	rsp, err := c.GetGeminiTenant(ctx, name, reqEditors...)
+func (c *ClientWithResponses) GetGeminiTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetGeminiTenantResponse, error) {
+	rsp, err := c.GetGeminiTenant(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -17984,16 +18059,16 @@ func (c *ClientWithResponses) GetGeminiTenantWithResponse(ctx context.Context, n
 }
 
 // PutGeminiTenantWithBodyWithResponse request with arbitrary body returning *PutGeminiTenantResponse
-func (c *ClientWithResponses) PutGeminiTenantWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutGeminiTenantResponse, error) {
-	rsp, err := c.PutGeminiTenantWithBody(ctx, name, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PutGeminiTenantWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutGeminiTenantResponse, error) {
+	rsp, err := c.PutGeminiTenantWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutGeminiTenantResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutGeminiTenantWithResponse(ctx context.Context, name string, body PutGeminiTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutGeminiTenantResponse, error) {
-	rsp, err := c.PutGeminiTenant(ctx, name, body, reqEditors...)
+func (c *ClientWithResponses) PutGeminiTenantWithResponse(ctx context.Context, id string, body PutGeminiTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutGeminiTenantResponse, error) {
+	rsp, err := c.PutGeminiTenant(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18036,8 +18111,8 @@ func (c *ClientWithResponses) CreateMemoryLayoutWithResponse(ctx context.Context
 }
 
 // DeleteMemoryLayoutWithResponse request returning *DeleteMemoryLayoutResponse
-func (c *ClientWithResponses) DeleteMemoryLayoutWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteMemoryLayoutResponse, error) {
-	rsp, err := c.DeleteMemoryLayout(ctx, name, reqEditors...)
+func (c *ClientWithResponses) DeleteMemoryLayoutWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteMemoryLayoutResponse, error) {
+	rsp, err := c.DeleteMemoryLayout(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18045,8 +18120,8 @@ func (c *ClientWithResponses) DeleteMemoryLayoutWithResponse(ctx context.Context
 }
 
 // GetMemoryLayoutWithResponse request returning *GetMemoryLayoutResponse
-func (c *ClientWithResponses) GetMemoryLayoutWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetMemoryLayoutResponse, error) {
-	rsp, err := c.GetMemoryLayout(ctx, name, reqEditors...)
+func (c *ClientWithResponses) GetMemoryLayoutWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetMemoryLayoutResponse, error) {
+	rsp, err := c.GetMemoryLayout(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18054,16 +18129,16 @@ func (c *ClientWithResponses) GetMemoryLayoutWithResponse(ctx context.Context, n
 }
 
 // PutMemoryLayoutWithBodyWithResponse request with arbitrary body returning *PutMemoryLayoutResponse
-func (c *ClientWithResponses) PutMemoryLayoutWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMemoryLayoutResponse, error) {
-	rsp, err := c.PutMemoryLayoutWithBody(ctx, name, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PutMemoryLayoutWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMemoryLayoutResponse, error) {
+	rsp, err := c.PutMemoryLayoutWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutMemoryLayoutResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutMemoryLayoutWithResponse(ctx context.Context, name string, body PutMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMemoryLayoutResponse, error) {
-	rsp, err := c.PutMemoryLayout(ctx, name, body, reqEditors...)
+func (c *ClientWithResponses) PutMemoryLayoutWithResponse(ctx context.Context, id string, body PutMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMemoryLayoutResponse, error) {
+	rsp, err := c.PutMemoryLayout(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18097,8 +18172,8 @@ func (c *ClientWithResponses) CreateMiniMaxTenantWithResponse(ctx context.Contex
 }
 
 // DeleteMiniMaxTenantWithResponse request returning *DeleteMiniMaxTenantResponse
-func (c *ClientWithResponses) DeleteMiniMaxTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteMiniMaxTenantResponse, error) {
-	rsp, err := c.DeleteMiniMaxTenant(ctx, name, reqEditors...)
+func (c *ClientWithResponses) DeleteMiniMaxTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteMiniMaxTenantResponse, error) {
+	rsp, err := c.DeleteMiniMaxTenant(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18106,8 +18181,8 @@ func (c *ClientWithResponses) DeleteMiniMaxTenantWithResponse(ctx context.Contex
 }
 
 // GetMiniMaxTenantWithResponse request returning *GetMiniMaxTenantResponse
-func (c *ClientWithResponses) GetMiniMaxTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetMiniMaxTenantResponse, error) {
-	rsp, err := c.GetMiniMaxTenant(ctx, name, reqEditors...)
+func (c *ClientWithResponses) GetMiniMaxTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetMiniMaxTenantResponse, error) {
+	rsp, err := c.GetMiniMaxTenant(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18115,16 +18190,16 @@ func (c *ClientWithResponses) GetMiniMaxTenantWithResponse(ctx context.Context, 
 }
 
 // PutMiniMaxTenantWithBodyWithResponse request with arbitrary body returning *PutMiniMaxTenantResponse
-func (c *ClientWithResponses) PutMiniMaxTenantWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMiniMaxTenantResponse, error) {
-	rsp, err := c.PutMiniMaxTenantWithBody(ctx, name, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PutMiniMaxTenantWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMiniMaxTenantResponse, error) {
+	rsp, err := c.PutMiniMaxTenantWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutMiniMaxTenantResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutMiniMaxTenantWithResponse(ctx context.Context, name string, body PutMiniMaxTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMiniMaxTenantResponse, error) {
-	rsp, err := c.PutMiniMaxTenant(ctx, name, body, reqEditors...)
+func (c *ClientWithResponses) PutMiniMaxTenantWithResponse(ctx context.Context, id string, body PutMiniMaxTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMiniMaxTenantResponse, error) {
+	rsp, err := c.PutMiniMaxTenant(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18132,8 +18207,8 @@ func (c *ClientWithResponses) PutMiniMaxTenantWithResponse(ctx context.Context, 
 }
 
 // SyncMiniMaxTenantVoicesWithResponse request returning *SyncMiniMaxTenantVoicesResponse
-func (c *ClientWithResponses) SyncMiniMaxTenantVoicesWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*SyncMiniMaxTenantVoicesResponse, error) {
-	rsp, err := c.SyncMiniMaxTenantVoices(ctx, name, reqEditors...)
+func (c *ClientWithResponses) SyncMiniMaxTenantVoicesWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SyncMiniMaxTenantVoicesResponse, error) {
+	rsp, err := c.SyncMiniMaxTenantVoices(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18228,8 +18303,8 @@ func (c *ClientWithResponses) CreateOpenAITenantWithResponse(ctx context.Context
 }
 
 // DeleteOpenAITenantWithResponse request returning *DeleteOpenAITenantResponse
-func (c *ClientWithResponses) DeleteOpenAITenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteOpenAITenantResponse, error) {
-	rsp, err := c.DeleteOpenAITenant(ctx, name, reqEditors...)
+func (c *ClientWithResponses) DeleteOpenAITenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteOpenAITenantResponse, error) {
+	rsp, err := c.DeleteOpenAITenant(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18237,8 +18312,8 @@ func (c *ClientWithResponses) DeleteOpenAITenantWithResponse(ctx context.Context
 }
 
 // GetOpenAITenantWithResponse request returning *GetOpenAITenantResponse
-func (c *ClientWithResponses) GetOpenAITenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetOpenAITenantResponse, error) {
-	rsp, err := c.GetOpenAITenant(ctx, name, reqEditors...)
+func (c *ClientWithResponses) GetOpenAITenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetOpenAITenantResponse, error) {
+	rsp, err := c.GetOpenAITenant(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18246,16 +18321,16 @@ func (c *ClientWithResponses) GetOpenAITenantWithResponse(ctx context.Context, n
 }
 
 // PutOpenAITenantWithBodyWithResponse request with arbitrary body returning *PutOpenAITenantResponse
-func (c *ClientWithResponses) PutOpenAITenantWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutOpenAITenantResponse, error) {
-	rsp, err := c.PutOpenAITenantWithBody(ctx, name, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PutOpenAITenantWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutOpenAITenantResponse, error) {
+	rsp, err := c.PutOpenAITenantWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutOpenAITenantResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutOpenAITenantWithResponse(ctx context.Context, name string, body PutOpenAITenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutOpenAITenantResponse, error) {
-	rsp, err := c.PutOpenAITenant(ctx, name, body, reqEditors...)
+func (c *ClientWithResponses) PutOpenAITenantWithResponse(ctx context.Context, id string, body PutOpenAITenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutOpenAITenantResponse, error) {
+	rsp, err := c.PutOpenAITenant(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18662,8 +18737,8 @@ func (c *ClientWithResponses) CreateRegistrationTokenWithResponse(ctx context.Co
 }
 
 // DeleteRegistrationTokenWithResponse request returning *DeleteRegistrationTokenResponse
-func (c *ClientWithResponses) DeleteRegistrationTokenWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteRegistrationTokenResponse, error) {
-	rsp, err := c.DeleteRegistrationToken(ctx, name, reqEditors...)
+func (c *ClientWithResponses) DeleteRegistrationTokenWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteRegistrationTokenResponse, error) {
+	rsp, err := c.DeleteRegistrationToken(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18671,8 +18746,8 @@ func (c *ClientWithResponses) DeleteRegistrationTokenWithResponse(ctx context.Co
 }
 
 // GetRegistrationTokenWithResponse request returning *GetRegistrationTokenResponse
-func (c *ClientWithResponses) GetRegistrationTokenWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetRegistrationTokenResponse, error) {
-	rsp, err := c.GetRegistrationToken(ctx, name, reqEditors...)
+func (c *ClientWithResponses) GetRegistrationTokenWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetRegistrationTokenResponse, error) {
+	rsp, err := c.GetRegistrationToken(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18680,16 +18755,16 @@ func (c *ClientWithResponses) GetRegistrationTokenWithResponse(ctx context.Conte
 }
 
 // PutRegistrationTokenWithBodyWithResponse request with arbitrary body returning *PutRegistrationTokenResponse
-func (c *ClientWithResponses) PutRegistrationTokenWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutRegistrationTokenResponse, error) {
-	rsp, err := c.PutRegistrationTokenWithBody(ctx, name, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PutRegistrationTokenWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutRegistrationTokenResponse, error) {
+	rsp, err := c.PutRegistrationTokenWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutRegistrationTokenResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutRegistrationTokenWithResponse(ctx context.Context, name string, body PutRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*PutRegistrationTokenResponse, error) {
-	rsp, err := c.PutRegistrationToken(ctx, name, body, reqEditors...)
+func (c *ClientWithResponses) PutRegistrationTokenWithResponse(ctx context.Context, id string, body PutRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*PutRegistrationTokenResponse, error) {
+	rsp, err := c.PutRegistrationToken(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18697,8 +18772,8 @@ func (c *ClientWithResponses) PutRegistrationTokenWithResponse(ctx context.Conte
 }
 
 // DeleteResourceWithResponse request returning *DeleteResourceResponse
-func (c *ClientWithResponses) DeleteResourceWithResponse(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*DeleteResourceResponse, error) {
-	rsp, err := c.DeleteResource(ctx, kind, name, reqEditors...)
+func (c *ClientWithResponses) DeleteResourceWithResponse(ctx context.Context, kind ResourceKind, id string, reqEditors ...RequestEditorFn) (*DeleteResourceResponse, error) {
+	rsp, err := c.DeleteResource(ctx, kind, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18706,8 +18781,8 @@ func (c *ClientWithResponses) DeleteResourceWithResponse(ctx context.Context, ki
 }
 
 // GetResourceWithResponse request returning *GetResourceResponse
-func (c *ClientWithResponses) GetResourceWithResponse(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*GetResourceResponse, error) {
-	rsp, err := c.GetResource(ctx, kind, name, reqEditors...)
+func (c *ClientWithResponses) GetResourceWithResponse(ctx context.Context, kind ResourceKind, id string, reqEditors ...RequestEditorFn) (*GetResourceResponse, error) {
+	rsp, err := c.GetResource(ctx, kind, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18715,16 +18790,16 @@ func (c *ClientWithResponses) GetResourceWithResponse(ctx context.Context, kind 
 }
 
 // PutResourceWithBodyWithResponse request with arbitrary body returning *PutResourceResponse
-func (c *ClientWithResponses) PutResourceWithBodyWithResponse(ctx context.Context, kind ResourceKind, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutResourceResponse, error) {
-	rsp, err := c.PutResourceWithBody(ctx, kind, name, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PutResourceWithBodyWithResponse(ctx context.Context, kind ResourceKind, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutResourceResponse, error) {
+	rsp, err := c.PutResourceWithBody(ctx, kind, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutResourceResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutResourceWithResponse(ctx context.Context, kind ResourceKind, name string, body PutResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*PutResourceResponse, error) {
-	rsp, err := c.PutResource(ctx, kind, name, body, reqEditors...)
+func (c *ClientWithResponses) PutResourceWithResponse(ctx context.Context, kind ResourceKind, id string, body PutResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*PutResourceResponse, error) {
+	rsp, err := c.PutResource(ctx, kind, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18758,8 +18833,8 @@ func (c *ClientWithResponses) CreateRuntimeProfileWithResponse(ctx context.Conte
 }
 
 // DeleteRuntimeProfileWithResponse request returning *DeleteRuntimeProfileResponse
-func (c *ClientWithResponses) DeleteRuntimeProfileWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteRuntimeProfileResponse, error) {
-	rsp, err := c.DeleteRuntimeProfile(ctx, name, reqEditors...)
+func (c *ClientWithResponses) DeleteRuntimeProfileWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteRuntimeProfileResponse, error) {
+	rsp, err := c.DeleteRuntimeProfile(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18767,8 +18842,8 @@ func (c *ClientWithResponses) DeleteRuntimeProfileWithResponse(ctx context.Conte
 }
 
 // GetRuntimeProfileWithResponse request returning *GetRuntimeProfileResponse
-func (c *ClientWithResponses) GetRuntimeProfileWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetRuntimeProfileResponse, error) {
-	rsp, err := c.GetRuntimeProfile(ctx, name, reqEditors...)
+func (c *ClientWithResponses) GetRuntimeProfileWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetRuntimeProfileResponse, error) {
+	rsp, err := c.GetRuntimeProfile(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18776,16 +18851,16 @@ func (c *ClientWithResponses) GetRuntimeProfileWithResponse(ctx context.Context,
 }
 
 // PutRuntimeProfileWithBodyWithResponse request with arbitrary body returning *PutRuntimeProfileResponse
-func (c *ClientWithResponses) PutRuntimeProfileWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutRuntimeProfileResponse, error) {
-	rsp, err := c.PutRuntimeProfileWithBody(ctx, name, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PutRuntimeProfileWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutRuntimeProfileResponse, error) {
+	rsp, err := c.PutRuntimeProfileWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutRuntimeProfileResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutRuntimeProfileWithResponse(ctx context.Context, name string, body PutRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*PutRuntimeProfileResponse, error) {
-	rsp, err := c.PutRuntimeProfile(ctx, name, body, reqEditors...)
+func (c *ClientWithResponses) PutRuntimeProfileWithResponse(ctx context.Context, id string, body PutRuntimeProfileJSONRequestBody, reqEditors ...RequestEditorFn) (*PutRuntimeProfileResponse, error) {
+	rsp, err := c.PutRuntimeProfile(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19133,8 +19208,8 @@ func (c *ClientWithResponses) CreateVolcTenantWithResponse(ctx context.Context, 
 }
 
 // DeleteVolcTenantWithResponse request returning *DeleteVolcTenantResponse
-func (c *ClientWithResponses) DeleteVolcTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteVolcTenantResponse, error) {
-	rsp, err := c.DeleteVolcTenant(ctx, name, reqEditors...)
+func (c *ClientWithResponses) DeleteVolcTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteVolcTenantResponse, error) {
+	rsp, err := c.DeleteVolcTenant(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19142,8 +19217,8 @@ func (c *ClientWithResponses) DeleteVolcTenantWithResponse(ctx context.Context, 
 }
 
 // GetVolcTenantWithResponse request returning *GetVolcTenantResponse
-func (c *ClientWithResponses) GetVolcTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetVolcTenantResponse, error) {
-	rsp, err := c.GetVolcTenant(ctx, name, reqEditors...)
+func (c *ClientWithResponses) GetVolcTenantWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetVolcTenantResponse, error) {
+	rsp, err := c.GetVolcTenant(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19151,16 +19226,16 @@ func (c *ClientWithResponses) GetVolcTenantWithResponse(ctx context.Context, nam
 }
 
 // PutVolcTenantWithBodyWithResponse request with arbitrary body returning *PutVolcTenantResponse
-func (c *ClientWithResponses) PutVolcTenantWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutVolcTenantResponse, error) {
-	rsp, err := c.PutVolcTenantWithBody(ctx, name, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PutVolcTenantWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutVolcTenantResponse, error) {
+	rsp, err := c.PutVolcTenantWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutVolcTenantResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutVolcTenantWithResponse(ctx context.Context, name string, body PutVolcTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutVolcTenantResponse, error) {
-	rsp, err := c.PutVolcTenant(ctx, name, body, reqEditors...)
+func (c *ClientWithResponses) PutVolcTenantWithResponse(ctx context.Context, id string, body PutVolcTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutVolcTenantResponse, error) {
+	rsp, err := c.PutVolcTenant(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19168,8 +19243,8 @@ func (c *ClientWithResponses) PutVolcTenantWithResponse(ctx context.Context, nam
 }
 
 // SyncVolcTenantVoicesWithResponse request returning *SyncVolcTenantVoicesResponse
-func (c *ClientWithResponses) SyncVolcTenantVoicesWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*SyncVolcTenantVoicesResponse, error) {
-	rsp, err := c.SyncVolcTenantVoices(ctx, name, reqEditors...)
+func (c *ClientWithResponses) SyncVolcTenantVoicesWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SyncVolcTenantVoicesResponse, error) {
+	rsp, err := c.SyncVolcTenantVoices(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19203,8 +19278,8 @@ func (c *ClientWithResponses) CreateWorkflowWithResponse(ctx context.Context, bo
 }
 
 // DeleteWorkflowWithResponse request returning *DeleteWorkflowResponse
-func (c *ClientWithResponses) DeleteWorkflowWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteWorkflowResponse, error) {
-	rsp, err := c.DeleteWorkflow(ctx, name, reqEditors...)
+func (c *ClientWithResponses) DeleteWorkflowWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteWorkflowResponse, error) {
+	rsp, err := c.DeleteWorkflow(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19212,8 +19287,8 @@ func (c *ClientWithResponses) DeleteWorkflowWithResponse(ctx context.Context, na
 }
 
 // GetWorkflowWithResponse request returning *GetWorkflowResponse
-func (c *ClientWithResponses) GetWorkflowWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetWorkflowResponse, error) {
-	rsp, err := c.GetWorkflow(ctx, name, reqEditors...)
+func (c *ClientWithResponses) GetWorkflowWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetWorkflowResponse, error) {
+	rsp, err := c.GetWorkflow(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19221,16 +19296,16 @@ func (c *ClientWithResponses) GetWorkflowWithResponse(ctx context.Context, name 
 }
 
 // PutWorkflowWithBodyWithResponse request with arbitrary body returning *PutWorkflowResponse
-func (c *ClientWithResponses) PutWorkflowWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutWorkflowResponse, error) {
-	rsp, err := c.PutWorkflowWithBody(ctx, name, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PutWorkflowWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutWorkflowResponse, error) {
+	rsp, err := c.PutWorkflowWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutWorkflowResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutWorkflowWithResponse(ctx context.Context, name string, body PutWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*PutWorkflowResponse, error) {
-	rsp, err := c.PutWorkflow(ctx, name, body, reqEditors...)
+func (c *ClientWithResponses) PutWorkflowWithResponse(ctx context.Context, id string, body PutWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*PutWorkflowResponse, error) {
+	rsp, err := c.PutWorkflow(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19264,8 +19339,8 @@ func (c *ClientWithResponses) CreateWorkspaceWithResponse(ctx context.Context, b
 }
 
 // DeleteWorkspaceWithResponse request returning *DeleteWorkspaceResponse
-func (c *ClientWithResponses) DeleteWorkspaceWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteWorkspaceResponse, error) {
-	rsp, err := c.DeleteWorkspace(ctx, name, reqEditors...)
+func (c *ClientWithResponses) DeleteWorkspaceWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteWorkspaceResponse, error) {
+	rsp, err := c.DeleteWorkspace(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19273,8 +19348,8 @@ func (c *ClientWithResponses) DeleteWorkspaceWithResponse(ctx context.Context, n
 }
 
 // GetWorkspaceWithResponse request returning *GetWorkspaceResponse
-func (c *ClientWithResponses) GetWorkspaceWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetWorkspaceResponse, error) {
-	rsp, err := c.GetWorkspace(ctx, name, reqEditors...)
+func (c *ClientWithResponses) GetWorkspaceWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetWorkspaceResponse, error) {
+	rsp, err := c.GetWorkspace(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19282,16 +19357,16 @@ func (c *ClientWithResponses) GetWorkspaceWithResponse(ctx context.Context, name
 }
 
 // PutWorkspaceWithBodyWithResponse request with arbitrary body returning *PutWorkspaceResponse
-func (c *ClientWithResponses) PutWorkspaceWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutWorkspaceResponse, error) {
-	rsp, err := c.PutWorkspaceWithBody(ctx, name, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PutWorkspaceWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutWorkspaceResponse, error) {
+	rsp, err := c.PutWorkspaceWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePutWorkspaceResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutWorkspaceWithResponse(ctx context.Context, name string, body PutWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*PutWorkspaceResponse, error) {
-	rsp, err := c.PutWorkspace(ctx, name, body, reqEditors...)
+func (c *ClientWithResponses) PutWorkspaceWithResponse(ctx context.Context, id string, body PutWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*PutWorkspaceResponse, error) {
+	rsp, err := c.PutWorkspace(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19299,8 +19374,8 @@ func (c *ClientWithResponses) PutWorkspaceWithResponse(ctx context.Context, name
 }
 
 // ListWorkspaceHistoryWithResponse request returning *ListWorkspaceHistoryResponse
-func (c *ClientWithResponses) ListWorkspaceHistoryWithResponse(ctx context.Context, name string, params *ListWorkspaceHistoryParams, reqEditors ...RequestEditorFn) (*ListWorkspaceHistoryResponse, error) {
-	rsp, err := c.ListWorkspaceHistory(ctx, name, params, reqEditors...)
+func (c *ClientWithResponses) ListWorkspaceHistoryWithResponse(ctx context.Context, id string, params *ListWorkspaceHistoryParams, reqEditors ...RequestEditorFn) (*ListWorkspaceHistoryResponse, error) {
+	rsp, err := c.ListWorkspaceHistory(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19308,8 +19383,8 @@ func (c *ClientWithResponses) ListWorkspaceHistoryWithResponse(ctx context.Conte
 }
 
 // GetWorkspaceHistoryWithResponse request returning *GetWorkspaceHistoryResponse
-func (c *ClientWithResponses) GetWorkspaceHistoryWithResponse(ctx context.Context, name string, historyId string, reqEditors ...RequestEditorFn) (*GetWorkspaceHistoryResponse, error) {
-	rsp, err := c.GetWorkspaceHistory(ctx, name, historyId, reqEditors...)
+func (c *ClientWithResponses) GetWorkspaceHistoryWithResponse(ctx context.Context, id string, historyId string, reqEditors ...RequestEditorFn) (*GetWorkspaceHistoryResponse, error) {
+	rsp, err := c.GetWorkspaceHistory(ctx, id, historyId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19317,8 +19392,8 @@ func (c *ClientWithResponses) GetWorkspaceHistoryWithResponse(ctx context.Contex
 }
 
 // DownloadWorkspaceHistoryAudioWithResponse request returning *DownloadWorkspaceHistoryAudioResponse
-func (c *ClientWithResponses) DownloadWorkspaceHistoryAudioWithResponse(ctx context.Context, name string, historyId string, reqEditors ...RequestEditorFn) (*DownloadWorkspaceHistoryAudioResponse, error) {
-	rsp, err := c.DownloadWorkspaceHistoryAudio(ctx, name, historyId, reqEditors...)
+func (c *ClientWithResponses) DownloadWorkspaceHistoryAudioWithResponse(ctx context.Context, id string, historyId string, reqEditors ...RequestEditorFn) (*DownloadWorkspaceHistoryAudioResponse, error) {
+	rsp, err := c.DownloadWorkspaceHistoryAudio(ctx, id, historyId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19326,8 +19401,8 @@ func (c *ClientWithResponses) DownloadWorkspaceHistoryAudioWithResponse(ctx cont
 }
 
 // DeleteWorkspaceIconWithResponse request returning *DeleteWorkspaceIconResponse
-func (c *ClientWithResponses) DeleteWorkspaceIconWithResponse(ctx context.Context, name string, format DeleteWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*DeleteWorkspaceIconResponse, error) {
-	rsp, err := c.DeleteWorkspaceIcon(ctx, name, format, reqEditors...)
+func (c *ClientWithResponses) DeleteWorkspaceIconWithResponse(ctx context.Context, id string, format DeleteWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*DeleteWorkspaceIconResponse, error) {
+	rsp, err := c.DeleteWorkspaceIcon(ctx, id, format, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19335,8 +19410,8 @@ func (c *ClientWithResponses) DeleteWorkspaceIconWithResponse(ctx context.Contex
 }
 
 // DownloadWorkspaceIconWithResponse request returning *DownloadWorkspaceIconResponse
-func (c *ClientWithResponses) DownloadWorkspaceIconWithResponse(ctx context.Context, name string, format DownloadWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadWorkspaceIconResponse, error) {
-	rsp, err := c.DownloadWorkspaceIcon(ctx, name, format, reqEditors...)
+func (c *ClientWithResponses) DownloadWorkspaceIconWithResponse(ctx context.Context, id string, format DownloadWorkspaceIconParamsFormat, reqEditors ...RequestEditorFn) (*DownloadWorkspaceIconResponse, error) {
+	rsp, err := c.DownloadWorkspaceIcon(ctx, id, format, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19344,8 +19419,8 @@ func (c *ClientWithResponses) DownloadWorkspaceIconWithResponse(ctx context.Cont
 }
 
 // UploadWorkspaceIconWithBodyWithResponse request with arbitrary body returning *UploadWorkspaceIconResponse
-func (c *ClientWithResponses) UploadWorkspaceIconWithBodyWithResponse(ctx context.Context, name string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWorkspaceIconResponse, error) {
-	rsp, err := c.UploadWorkspaceIconWithBody(ctx, name, format, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UploadWorkspaceIconWithBodyWithResponse(ctx context.Context, id string, format UploadWorkspaceIconParamsFormat, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWorkspaceIconResponse, error) {
+	rsp, err := c.UploadWorkspaceIconWithBody(ctx, id, format, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19594,6 +19669,13 @@ func ParsePutBadgeDefResponse(rsp *http.Response) (*PutBadgeDefResponse, error) 
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -19747,6 +19829,13 @@ func ParseCreateCredentialResponse(rsp *http.Response) (*CreateCredentialRespons
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -19873,6 +19962,13 @@ func ParsePutCredentialResponse(rsp *http.Response) (*PutCredentialResponse, err
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -20074,6 +20170,13 @@ func ParsePutDashScopeTenantResponse(rsp *http.Response) (*PutDashScopeTenantRes
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -20146,6 +20249,13 @@ func ParseCreateDeepSeekTenantResponse(rsp *http.Response) (*CreateDeepSeekTenan
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest externalRef0.ErrorResponse
@@ -20273,6 +20383,13 @@ func ParsePutDeepSeekTenantResponse(rsp *http.Response) (*PutDeepSeekTenantRespo
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -20473,6 +20590,13 @@ func ParsePutFirmwareResponse(rsp *http.Response) (*PutFirmwareResponse, error) 
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -21076,6 +21200,13 @@ func ParsePutGameDefResponse(rsp *http.Response) (*PutGameDefResponse, error) {
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21410,6 +21541,13 @@ func ParsePutGeminiTenantResponse(rsp *http.Response) (*PutGeminiTenantResponse,
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21650,6 +21788,13 @@ func ParsePutMemoryLayoutResponse(rsp *http.Response) (*PutMemoryLayoutResponse,
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21849,6 +21994,13 @@ func ParsePutMiniMaxTenantResponse(rsp *http.Response) (*PutMiniMaxTenantRespons
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -22104,6 +22256,13 @@ func ParsePutModelResponse(rsp *http.Response) (*PutModelResponse, error) {
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22310,6 +22469,13 @@ func ParsePutOpenAITenantResponse(rsp *http.Response) (*PutOpenAITenantResponse,
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -23690,6 +23856,13 @@ func ParsePutPetDefResponse(rsp *http.Response) (*PutPetDefResponse, error) {
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -23969,6 +24142,13 @@ func ParsePutRegistrationTokenResponse(rsp *http.Response) (*PutRegistrationToke
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest externalRef0.ErrorResponse
@@ -24346,6 +24526,13 @@ func ParsePutRuntimeProfileResponse(rsp *http.Response) (*PutRuntimeProfileRespo
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -24608,7 +24795,7 @@ func ParseListFriendGroupsResponse(rsp *http.Response) (*ListFriendGroupsRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.FriendGroupListResponse
+		var dest AdminFriendGroupListResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -24655,7 +24842,7 @@ func ParseCreateFriendGroupResponse(rsp *http.Response) (*CreateFriendGroupRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.FriendGroupObject
+		var dest AdminFriendGroupObject
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -24702,7 +24889,7 @@ func ParseDeleteFriendGroupResponse(rsp *http.Response) (*DeleteFriendGroupRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.FriendGroupObject
+		var dest AdminFriendGroupObject
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -24749,7 +24936,7 @@ func ParseGetFriendGroupResponse(rsp *http.Response) (*GetFriendGroupResponse, e
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.FriendGroupObject
+		var dest AdminFriendGroupObject
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -24796,7 +24983,7 @@ func ParsePutFriendGroupResponse(rsp *http.Response) (*PutFriendGroupResponse, e
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.FriendGroupObject
+		var dest AdminFriendGroupObject
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -24984,7 +25171,7 @@ func ParseListFriendGroupMembersResponse(rsp *http.Response) (*ListFriendGroupMe
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.FriendGroupMemberListResponse
+		var dest AdminFriendGroupMemberListResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -25031,7 +25218,7 @@ func ParseCreateFriendGroupMemberResponse(rsp *http.Response) (*CreateFriendGrou
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.FriendGroupMemberObject
+		var dest AdminFriendGroupMemberObject
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -25078,7 +25265,7 @@ func ParseDeleteFriendGroupMemberResponse(rsp *http.Response) (*DeleteFriendGrou
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.FriendGroupMemberObject
+		var dest AdminFriendGroupMemberObject
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -25125,7 +25312,7 @@ func ParsePutFriendGroupMemberResponse(rsp *http.Response) (*PutFriendGroupMembe
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.FriendGroupMemberObject
+		var dest AdminFriendGroupMemberObject
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -25526,6 +25713,13 @@ func ParsePutVoiceResponse(rsp *http.Response) (*PutVoiceResponse, error) {
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -25733,6 +25927,13 @@ func ParsePutVolcTenantResponse(rsp *http.Response) (*PutVolcTenantResponse, err
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -25860,6 +26061,13 @@ func ParseCreateWorkflowResponse(rsp *http.Response) (*CreateWorkflowResponse, e
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -25986,6 +26194,13 @@ func ParsePutWorkflowResponse(rsp *http.Response) (*PutWorkflowResponse, error) 
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -26200,6 +26415,13 @@ func ParsePutWorkspaceResponse(rsp *http.Response) (*PutWorkspaceResponse, error
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest externalRef0.ErrorResponse
@@ -26498,7 +26720,7 @@ type ServerInterface interface {
 	// Get a BadgeDef
 	// (GET /badge-defs/{id})
 	GetBadgeDef(c *fiber.Ctx, id string) error
-	// Create or update a BadgeDef
+	// Update a BadgeDef
 	// (PUT /badge-defs/{id})
 	PutBadgeDef(c *fiber.Ctx, id string) error
 	// Download BadgeDefPixa
@@ -26514,14 +26736,14 @@ type ServerInterface interface {
 	// (POST /credentials)
 	CreateCredential(c *fiber.Ctx) error
 	// Delete a credential
-	// (DELETE /credentials/{name})
-	DeleteCredential(c *fiber.Ctx, name string) error
+	// (DELETE /credentials/{id})
+	DeleteCredential(c *fiber.Ctx, id string) error
 	// Get a credential
-	// (GET /credentials/{name})
-	GetCredential(c *fiber.Ctx, name string) error
+	// (GET /credentials/{id})
+	GetCredential(c *fiber.Ctx, id string) error
 	// Create or update a credential
-	// (PUT /credentials/{name})
-	PutCredential(c *fiber.Ctx, name string) error
+	// (PUT /credentials/{id})
+	PutCredential(c *fiber.Ctx, id string) error
 	// List all DashScope tenants
 	// (GET /dashscope-tenants)
 	ListDashScopeTenants(c *fiber.Ctx, params ListDashScopeTenantsParams) error
@@ -26529,14 +26751,14 @@ type ServerInterface interface {
 	// (POST /dashscope-tenants)
 	CreateDashScopeTenant(c *fiber.Ctx) error
 	// Delete a DashScope tenant
-	// (DELETE /dashscope-tenants/{name})
-	DeleteDashScopeTenant(c *fiber.Ctx, name string) error
+	// (DELETE /dashscope-tenants/{id})
+	DeleteDashScopeTenant(c *fiber.Ctx, id string) error
 	// Get a DashScope tenant
-	// (GET /dashscope-tenants/{name})
-	GetDashScopeTenant(c *fiber.Ctx, name string) error
-	// Create or update a DashScope tenant
-	// (PUT /dashscope-tenants/{name})
-	PutDashScopeTenant(c *fiber.Ctx, name string) error
+	// (GET /dashscope-tenants/{id})
+	GetDashScopeTenant(c *fiber.Ctx, id string) error
+	// Update a DashScope tenant
+	// (PUT /dashscope-tenants/{id})
+	PutDashScopeTenant(c *fiber.Ctx, id string) error
 	// List all DeepSeek tenants
 	// (GET /deepseek-tenants)
 	ListDeepSeekTenants(c *fiber.Ctx, params ListDeepSeekTenantsParams) error
@@ -26544,14 +26766,14 @@ type ServerInterface interface {
 	// (POST /deepseek-tenants)
 	CreateDeepSeekTenant(c *fiber.Ctx) error
 	// Delete a DeepSeek tenant
-	// (DELETE /deepseek-tenants/{name})
-	DeleteDeepSeekTenant(c *fiber.Ctx, name string) error
+	// (DELETE /deepseek-tenants/{id})
+	DeleteDeepSeekTenant(c *fiber.Ctx, id string) error
 	// Get a DeepSeek tenant
-	// (GET /deepseek-tenants/{name})
-	GetDeepSeekTenant(c *fiber.Ctx, name string) error
+	// (GET /deepseek-tenants/{id})
+	GetDeepSeekTenant(c *fiber.Ctx, id string) error
 	// Create or update a DeepSeek tenant
-	// (PUT /deepseek-tenants/{name})
-	PutDeepSeekTenant(c *fiber.Ctx, name string) error
+	// (PUT /deepseek-tenants/{id})
+	PutDeepSeekTenant(c *fiber.Ctx, id string) error
 	// List firmwares
 	// (GET /firmwares)
 	ListFirmwares(c *fiber.Ctx, params ListFirmwaresParams) error
@@ -26559,41 +26781,41 @@ type ServerInterface interface {
 	// (POST /firmwares)
 	CreateFirmware(c *fiber.Ctx) error
 	// Delete a firmware release line
-	// (DELETE /firmwares/{name})
-	DeleteFirmware(c *fiber.Ctx, name string) error
+	// (DELETE /firmwares/{id})
+	DeleteFirmware(c *fiber.Ctx, id string) error
 	// Get a firmware release line
-	// (GET /firmwares/{name})
-	GetFirmware(c *fiber.Ctx, name string) error
-	// Create or update a firmware release line
-	// (PUT /firmwares/{name})
-	PutFirmware(c *fiber.Ctx, name string) error
+	// (GET /firmwares/{id})
+	GetFirmware(c *fiber.Ctx, id string) error
+	// Update a firmware release line
+	// (PUT /firmwares/{id})
+	PutFirmware(c *fiber.Ctx, id string) error
 	// Promote firmware slots
-	// (POST /firmwares/{name}/@release)
-	ReleaseFirmware(c *fiber.Ctx, name string) error
+	// (POST /firmwares/{id}/@release)
+	ReleaseFirmware(c *fiber.Ctx, id string) error
 	// Rollback firmware stable slot
-	// (POST /firmwares/{name}/@rollback)
-	RollbackFirmware(c *fiber.Ctx, name string) error
+	// (POST /firmwares/{id}/@rollback)
+	RollbackFirmware(c *fiber.Ctx, id string) error
 	// Delete a firmware channel artifact
-	// (DELETE /firmwares/{name}/packages/{channel}/artifact.tar)
-	DeleteFirmwareArtifact(c *fiber.Ctx, name string, channel DeleteFirmwareArtifactParamsChannel) error
+	// (DELETE /firmwares/{id}/packages/{channel}/artifact.tar)
+	DeleteFirmwareArtifact(c *fiber.Ctx, id string, channel DeleteFirmwareArtifactParamsChannel) error
 	// Download a firmware channel artifact tar
-	// (GET /firmwares/{name}/packages/{channel}/artifact.tar)
-	DownloadFirmwareArtifact(c *fiber.Ctx, name string, channel DownloadFirmwareArtifactParamsChannel) error
+	// (GET /firmwares/{id}/packages/{channel}/artifact.tar)
+	DownloadFirmwareArtifact(c *fiber.Ctx, id string, channel DownloadFirmwareArtifactParamsChannel) error
 	// Upload a firmware channel artifact tar
-	// (PUT /firmwares/{name}/packages/{channel}/artifact.tar)
-	UploadFirmwareArtifact(c *fiber.Ctx, name string, channel UploadFirmwareArtifactParamsChannel) error
+	// (PUT /firmwares/{id}/packages/{channel}/artifact.tar)
+	UploadFirmwareArtifact(c *fiber.Ctx, id string, channel UploadFirmwareArtifactParamsChannel) error
 	// Download one firmware artifact entry
-	// (GET /firmwares/{name}/packages/{channel}/artifact/dl)
-	DownloadFirmwareArtifactEntry(c *fiber.Ctx, name string, channel DownloadFirmwareArtifactEntryParamsChannel, params DownloadFirmwareArtifactEntryParams) error
+	// (GET /firmwares/{id}/packages/{channel}/artifact/dl)
+	DownloadFirmwareArtifactEntry(c *fiber.Ctx, id string, channel DownloadFirmwareArtifactEntryParamsChannel, params DownloadFirmwareArtifactEntryParams) error
 	// List firmware artifact entries
-	// (GET /firmwares/{name}/packages/{channel}/artifact/ls)
-	ListFirmwareArtifactEntries(c *fiber.Ctx, name string, channel ListFirmwareArtifactEntriesParamsChannel, params ListFirmwareArtifactEntriesParams) error
+	// (GET /firmwares/{id}/packages/{channel}/artifact/ls)
+	ListFirmwareArtifactEntries(c *fiber.Ctx, id string, channel ListFirmwareArtifactEntriesParamsChannel, params ListFirmwareArtifactEntriesParams) error
 	// Stat a firmware artifact or entry
-	// (GET /firmwares/{name}/packages/{channel}/artifact/stat)
-	StatFirmwareArtifactEntry(c *fiber.Ctx, name string, channel StatFirmwareArtifactEntryParamsChannel, params StatFirmwareArtifactEntryParams) error
+	// (GET /firmwares/{id}/packages/{channel}/artifact/stat)
+	StatFirmwareArtifactEntry(c *fiber.Ctx, id string, channel StatFirmwareArtifactEntryParamsChannel, params StatFirmwareArtifactEntryParams) error
 	// Return firmware artifact tree entries
-	// (GET /firmwares/{name}/packages/{channel}/artifact/tree)
-	TreeFirmwareArtifactEntries(c *fiber.Ctx, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params TreeFirmwareArtifactEntriesParams) error
+	// (GET /firmwares/{id}/packages/{channel}/artifact/tree)
+	TreeFirmwareArtifactEntries(c *fiber.Ctx, id string, channel TreeFirmwareArtifactEntriesParamsChannel, params TreeFirmwareArtifactEntriesParams) error
 	// List GameDefs
 	// (GET /game-defs)
 	ListGameDefs(c *fiber.Ctx, params ListGameDefsParams) error
@@ -26606,7 +26828,7 @@ type ServerInterface interface {
 	// Get a GameDef
 	// (GET /game-defs/{id})
 	GetGameDef(c *fiber.Ctx, id string) error
-	// Create or update a GameDef
+	// Update a GameDef
 	// (PUT /game-defs/{id})
 	PutGameDef(c *fiber.Ctx, id string) error
 	// Delete a GameDef icon
@@ -26625,14 +26847,14 @@ type ServerInterface interface {
 	// (POST /gemini-tenants)
 	CreateGeminiTenant(c *fiber.Ctx) error
 	// Delete a Gemini tenant
-	// (DELETE /gemini-tenants/{name})
-	DeleteGeminiTenant(c *fiber.Ctx, name string) error
+	// (DELETE /gemini-tenants/{id})
+	DeleteGeminiTenant(c *fiber.Ctx, id string) error
 	// Get a Gemini tenant
-	// (GET /gemini-tenants/{name})
-	GetGeminiTenant(c *fiber.Ctx, name string) error
-	// Create or update a Gemini tenant
-	// (PUT /gemini-tenants/{name})
-	PutGeminiTenant(c *fiber.Ctx, name string) error
+	// (GET /gemini-tenants/{id})
+	GetGeminiTenant(c *fiber.Ctx, id string) error
+	// Update a Gemini tenant
+	// (PUT /gemini-tenants/{id})
+	PutGeminiTenant(c *fiber.Ctx, id string) error
 	// Stream server log query results
 	// (GET /logs/stream)
 	StreamServerLogs(c *fiber.Ctx, params StreamServerLogsParams) error
@@ -26643,14 +26865,14 @@ type ServerInterface interface {
 	// (POST /memory-layouts)
 	CreateMemoryLayout(c *fiber.Ctx) error
 	// Delete a memory layout
-	// (DELETE /memory-layouts/{name})
-	DeleteMemoryLayout(c *fiber.Ctx, name string) error
+	// (DELETE /memory-layouts/{id})
+	DeleteMemoryLayout(c *fiber.Ctx, id string) error
 	// Get a memory layout
-	// (GET /memory-layouts/{name})
-	GetMemoryLayout(c *fiber.Ctx, name string) error
-	// Create or update a memory layout
-	// (PUT /memory-layouts/{name})
-	PutMemoryLayout(c *fiber.Ctx, name string) error
+	// (GET /memory-layouts/{id})
+	GetMemoryLayout(c *fiber.Ctx, id string) error
+	// Update a memory layout
+	// (PUT /memory-layouts/{id})
+	PutMemoryLayout(c *fiber.Ctx, id string) error
 	// List all MiniMax tenants
 	// (GET /minimax-tenants)
 	ListMiniMaxTenants(c *fiber.Ctx, params ListMiniMaxTenantsParams) error
@@ -26658,17 +26880,17 @@ type ServerInterface interface {
 	// (POST /minimax-tenants)
 	CreateMiniMaxTenant(c *fiber.Ctx) error
 	// Delete a MiniMax tenant
-	// (DELETE /minimax-tenants/{name})
-	DeleteMiniMaxTenant(c *fiber.Ctx, name string) error
+	// (DELETE /minimax-tenants/{id})
+	DeleteMiniMaxTenant(c *fiber.Ctx, id string) error
 	// Get a MiniMax tenant
-	// (GET /minimax-tenants/{name})
-	GetMiniMaxTenant(c *fiber.Ctx, name string) error
-	// Create or update a MiniMax tenant
-	// (PUT /minimax-tenants/{name})
-	PutMiniMaxTenant(c *fiber.Ctx, name string) error
+	// (GET /minimax-tenants/{id})
+	GetMiniMaxTenant(c *fiber.Ctx, id string) error
+	// Update a MiniMax tenant
+	// (PUT /minimax-tenants/{id})
+	PutMiniMaxTenant(c *fiber.Ctx, id string) error
 	// Sync voices from a MiniMax tenant into the global voice catalog
-	// (POST /minimax-tenants/{name}/@sync-voices)
-	SyncMiniMaxTenantVoices(c *fiber.Ctx, name string) error
+	// (POST /minimax-tenants/{id}/@sync-voices)
+	SyncMiniMaxTenantVoices(c *fiber.Ctx, id string) error
 	// List all models
 	// (GET /models)
 	ListModels(c *fiber.Ctx, params ListModelsParams) error
@@ -26691,14 +26913,14 @@ type ServerInterface interface {
 	// (POST /openai-tenants)
 	CreateOpenAITenant(c *fiber.Ctx) error
 	// Delete an OpenAI-compatible tenant
-	// (DELETE /openai-tenants/{name})
-	DeleteOpenAITenant(c *fiber.Ctx, name string) error
+	// (DELETE /openai-tenants/{id})
+	DeleteOpenAITenant(c *fiber.Ctx, id string) error
 	// Get an OpenAI-compatible tenant
-	// (GET /openai-tenants/{name})
-	GetOpenAITenant(c *fiber.Ctx, name string) error
-	// Create or update an OpenAI-compatible tenant
-	// (PUT /openai-tenants/{name})
-	PutOpenAITenant(c *fiber.Ctx, name string) error
+	// (GET /openai-tenants/{id})
+	GetOpenAITenant(c *fiber.Ctx, id string) error
+	// Update an OpenAI-compatible tenant
+	// (PUT /openai-tenants/{id})
+	PutOpenAITenant(c *fiber.Ctx, id string) error
 	// List all peers
 	// (GET /peers)
 	ListPeers(c *fiber.Ctx, params ListPeersParams) error
@@ -26801,7 +27023,7 @@ type ServerInterface interface {
 	// Get a PetDef
 	// (GET /pet-defs/{id})
 	GetPetDef(c *fiber.Ctx, id string) error
-	// Create or update a PetDef
+	// Update a PetDef
 	// (PUT /pet-defs/{id})
 	PutPetDef(c *fiber.Ctx, id string) error
 	// Download PetDefPixa
@@ -26817,23 +27039,23 @@ type ServerInterface interface {
 	// (POST /registration-tokens)
 	CreateRegistrationToken(c *fiber.Ctx) error
 	// Delete a RegistrationToken
-	// (DELETE /registration-tokens/{name})
-	DeleteRegistrationToken(c *fiber.Ctx, name string) error
+	// (DELETE /registration-tokens/{id})
+	DeleteRegistrationToken(c *fiber.Ctx, id string) error
 	// Get a RegistrationToken
-	// (GET /registration-tokens/{name})
-	GetRegistrationToken(c *fiber.Ctx, name string) error
-	// Create or update a RegistrationToken
-	// (PUT /registration-tokens/{name})
-	PutRegistrationToken(c *fiber.Ctx, name string) error
+	// (GET /registration-tokens/{id})
+	GetRegistrationToken(c *fiber.Ctx, id string) error
+	// Update a RegistrationToken
+	// (PUT /registration-tokens/{id})
+	PutRegistrationToken(c *fiber.Ctx, id string) error
 	// Delete an admin resource
-	// (DELETE /resources/{kind}/{name})
-	DeleteResource(c *fiber.Ctx, kind ResourceKind, name string) error
+	// (DELETE /resources/{kind}/{id})
+	DeleteResource(c *fiber.Ctx, kind ResourceKind, id string) error
 	// Get an admin resource
-	// (GET /resources/{kind}/{name})
-	GetResource(c *fiber.Ctx, kind ResourceKind, name string) error
+	// (GET /resources/{kind}/{id})
+	GetResource(c *fiber.Ctx, kind ResourceKind, id string) error
 	// Create or update an admin resource
-	// (PUT /resources/{kind}/{name})
-	PutResource(c *fiber.Ctx, kind ResourceKind, name string) error
+	// (PUT /resources/{kind}/{id})
+	PutResource(c *fiber.Ctx, kind ResourceKind, id string) error
 	// List RuntimeProfiles
 	// (GET /runtime-profiles)
 	ListRuntimeProfiles(c *fiber.Ctx, params ListRuntimeProfilesParams) error
@@ -26841,14 +27063,14 @@ type ServerInterface interface {
 	// (POST /runtime-profiles)
 	CreateRuntimeProfile(c *fiber.Ctx) error
 	// Delete a RuntimeProfile
-	// (DELETE /runtime-profiles/{name})
-	DeleteRuntimeProfile(c *fiber.Ctx, name string) error
+	// (DELETE /runtime-profiles/{id})
+	DeleteRuntimeProfile(c *fiber.Ctx, id string) error
 	// Get a RuntimeProfile
-	// (GET /runtime-profiles/{name})
-	GetRuntimeProfile(c *fiber.Ctx, name string) error
-	// Create or update a RuntimeProfile
-	// (PUT /runtime-profiles/{name})
-	PutRuntimeProfile(c *fiber.Ctx, name string) error
+	// (GET /runtime-profiles/{id})
+	GetRuntimeProfile(c *fiber.Ctx, id string) error
+	// Update a RuntimeProfile
+	// (PUT /runtime-profiles/{id})
+	PutRuntimeProfile(c *fiber.Ctx, id string) error
 	// List global contacts
 	// (GET /social/contacts)
 	ListContacts(c *fiber.Ctx, params ListContactsParams) error
@@ -26934,17 +27156,17 @@ type ServerInterface interface {
 	// (POST /volc-tenants)
 	CreateVolcTenant(c *fiber.Ctx) error
 	// Delete a Volcengine tenant
-	// (DELETE /volc-tenants/{name})
-	DeleteVolcTenant(c *fiber.Ctx, name string) error
+	// (DELETE /volc-tenants/{id})
+	DeleteVolcTenant(c *fiber.Ctx, id string) error
 	// Get a Volcengine tenant
-	// (GET /volc-tenants/{name})
-	GetVolcTenant(c *fiber.Ctx, name string) error
-	// Create or update a Volcengine tenant
-	// (PUT /volc-tenants/{name})
-	PutVolcTenant(c *fiber.Ctx, name string) error
+	// (GET /volc-tenants/{id})
+	GetVolcTenant(c *fiber.Ctx, id string) error
+	// Update a Volcengine tenant
+	// (PUT /volc-tenants/{id})
+	PutVolcTenant(c *fiber.Ctx, id string) error
 	// Sync voices from a Volcengine tenant into the global voice catalog
-	// (POST /volc-tenants/{name}/@sync-voices)
-	SyncVolcTenantVoices(c *fiber.Ctx, name string) error
+	// (POST /volc-tenants/{id}/@sync-voices)
+	SyncVolcTenantVoices(c *fiber.Ctx, id string) error
 	// List all workflows
 	// (GET /workflows)
 	ListWorkflows(c *fiber.Ctx, params ListWorkflowsParams) error
@@ -26952,14 +27174,14 @@ type ServerInterface interface {
 	// (POST /workflows)
 	CreateWorkflow(c *fiber.Ctx) error
 	// Delete a workflow
-	// (DELETE /workflows/{name})
-	DeleteWorkflow(c *fiber.Ctx, name string) error
+	// (DELETE /workflows/{id})
+	DeleteWorkflow(c *fiber.Ctx, id string) error
 	// Get a workflow
-	// (GET /workflows/{name})
-	GetWorkflow(c *fiber.Ctx, name string) error
+	// (GET /workflows/{id})
+	GetWorkflow(c *fiber.Ctx, id string) error
 	// Create or update a workflow
-	// (PUT /workflows/{name})
-	PutWorkflow(c *fiber.Ctx, name string) error
+	// (PUT /workflows/{id})
+	PutWorkflow(c *fiber.Ctx, id string) error
 	// List all workspaces
 	// (GET /workspaces)
 	ListWorkspaces(c *fiber.Ctx, params ListWorkspacesParams) error
@@ -26967,32 +27189,32 @@ type ServerInterface interface {
 	// (POST /workspaces)
 	CreateWorkspace(c *fiber.Ctx) error
 	// Delete a workspace
-	// (DELETE /workspaces/{name})
-	DeleteWorkspace(c *fiber.Ctx, name string) error
+	// (DELETE /workspaces/{id})
+	DeleteWorkspace(c *fiber.Ctx, id string) error
 	// Get a workspace
-	// (GET /workspaces/{name})
-	GetWorkspace(c *fiber.Ctx, name string) error
-	// Create or update a workspace
-	// (PUT /workspaces/{name})
-	PutWorkspace(c *fiber.Ctx, name string) error
+	// (GET /workspaces/{id})
+	GetWorkspace(c *fiber.Ctx, id string) error
+	// Update a workspace
+	// (PUT /workspaces/{id})
+	PutWorkspace(c *fiber.Ctx, id string) error
 	// List workspace history without requiring an active runtime connection
-	// (GET /workspaces/{name}/history)
-	ListWorkspaceHistory(c *fiber.Ctx, name string, params ListWorkspaceHistoryParams) error
+	// (GET /workspaces/{id}/history)
+	ListWorkspaceHistory(c *fiber.Ctx, id string, params ListWorkspaceHistoryParams) error
 	// Get one workspace history entry
-	// (GET /workspaces/{name}/history/{historyId})
-	GetWorkspaceHistory(c *fiber.Ctx, name string, historyId string) error
+	// (GET /workspaces/{id}/history/{historyId})
+	GetWorkspaceHistory(c *fiber.Ctx, id string, historyId string) error
 	// Download workspace history audio as Ogg Opus
-	// (GET /workspaces/{name}/history/{historyId}/audio.ogg)
-	DownloadWorkspaceHistoryAudio(c *fiber.Ctx, name string, historyId string) error
+	// (GET /workspaces/{id}/history/{historyId}/audio.ogg)
+	DownloadWorkspaceHistoryAudio(c *fiber.Ctx, id string, historyId string) error
 	// Delete a workspace icon
-	// (DELETE /workspaces/{name}/icon/{format})
-	DeleteWorkspaceIcon(c *fiber.Ctx, name string, format DeleteWorkspaceIconParamsFormat) error
+	// (DELETE /workspaces/{id}/icon/{format})
+	DeleteWorkspaceIcon(c *fiber.Ctx, id string, format DeleteWorkspaceIconParamsFormat) error
 	// Download a workspace icon
-	// (GET /workspaces/{name}/icon/{format})
-	DownloadWorkspaceIcon(c *fiber.Ctx, name string, format DownloadWorkspaceIconParamsFormat) error
+	// (GET /workspaces/{id}/icon/{format})
+	DownloadWorkspaceIcon(c *fiber.Ctx, id string, format DownloadWorkspaceIconParamsFormat) error
 	// Upload or replace a workspace icon
-	// (PUT /workspaces/{name}/icon/{format})
-	UploadWorkspaceIcon(c *fiber.Ctx, name string, format UploadWorkspaceIconParamsFormat) error
+	// (PUT /workspaces/{id}/icon/{format})
+	UploadWorkspaceIcon(c *fiber.Ctx, id string, format UploadWorkspaceIconParamsFormat) error
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -27174,15 +27396,15 @@ func (siw *ServerInterfaceWrapper) DeleteCredential(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteCredential(c, name)
+	return siw.Handler.DeleteCredential(c, id)
 }
 
 // GetCredential operation middleware
@@ -27190,15 +27412,15 @@ func (siw *ServerInterfaceWrapper) GetCredential(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.GetCredential(c, name)
+	return siw.Handler.GetCredential(c, id)
 }
 
 // PutCredential operation middleware
@@ -27206,15 +27428,15 @@ func (siw *ServerInterfaceWrapper) PutCredential(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.PutCredential(c, name)
+	return siw.Handler.PutCredential(c, id)
 }
 
 // ListDashScopeTenants operation middleware
@@ -27259,15 +27481,15 @@ func (siw *ServerInterfaceWrapper) DeleteDashScopeTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteDashScopeTenant(c, name)
+	return siw.Handler.DeleteDashScopeTenant(c, id)
 }
 
 // GetDashScopeTenant operation middleware
@@ -27275,15 +27497,15 @@ func (siw *ServerInterfaceWrapper) GetDashScopeTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.GetDashScopeTenant(c, name)
+	return siw.Handler.GetDashScopeTenant(c, id)
 }
 
 // PutDashScopeTenant operation middleware
@@ -27291,15 +27513,15 @@ func (siw *ServerInterfaceWrapper) PutDashScopeTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.PutDashScopeTenant(c, name)
+	return siw.Handler.PutDashScopeTenant(c, id)
 }
 
 // ListDeepSeekTenants operation middleware
@@ -27344,15 +27566,15 @@ func (siw *ServerInterfaceWrapper) DeleteDeepSeekTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteDeepSeekTenant(c, name)
+	return siw.Handler.DeleteDeepSeekTenant(c, id)
 }
 
 // GetDeepSeekTenant operation middleware
@@ -27360,15 +27582,15 @@ func (siw *ServerInterfaceWrapper) GetDeepSeekTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.GetDeepSeekTenant(c, name)
+	return siw.Handler.GetDeepSeekTenant(c, id)
 }
 
 // PutDeepSeekTenant operation middleware
@@ -27376,15 +27598,15 @@ func (siw *ServerInterfaceWrapper) PutDeepSeekTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.PutDeepSeekTenant(c, name)
+	return siw.Handler.PutDeepSeekTenant(c, id)
 }
 
 // ListFirmwares operation middleware
@@ -27429,15 +27651,15 @@ func (siw *ServerInterfaceWrapper) DeleteFirmware(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteFirmware(c, name)
+	return siw.Handler.DeleteFirmware(c, id)
 }
 
 // GetFirmware operation middleware
@@ -27445,15 +27667,15 @@ func (siw *ServerInterfaceWrapper) GetFirmware(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.GetFirmware(c, name)
+	return siw.Handler.GetFirmware(c, id)
 }
 
 // PutFirmware operation middleware
@@ -27461,15 +27683,15 @@ func (siw *ServerInterfaceWrapper) PutFirmware(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.PutFirmware(c, name)
+	return siw.Handler.PutFirmware(c, id)
 }
 
 // ReleaseFirmware operation middleware
@@ -27477,15 +27699,15 @@ func (siw *ServerInterfaceWrapper) ReleaseFirmware(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.ReleaseFirmware(c, name)
+	return siw.Handler.ReleaseFirmware(c, id)
 }
 
 // RollbackFirmware operation middleware
@@ -27493,15 +27715,15 @@ func (siw *ServerInterfaceWrapper) RollbackFirmware(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.RollbackFirmware(c, name)
+	return siw.Handler.RollbackFirmware(c, id)
 }
 
 // DeleteFirmwareArtifact operation middleware
@@ -27509,12 +27731,12 @@ func (siw *ServerInterfaceWrapper) DeleteFirmwareArtifact(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
 	// ------------- Path parameter "channel" -------------
@@ -27525,7 +27747,7 @@ func (siw *ServerInterfaceWrapper) DeleteFirmwareArtifact(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter channel: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteFirmwareArtifact(c, name, channel)
+	return siw.Handler.DeleteFirmwareArtifact(c, id, channel)
 }
 
 // DownloadFirmwareArtifact operation middleware
@@ -27533,12 +27755,12 @@ func (siw *ServerInterfaceWrapper) DownloadFirmwareArtifact(c *fiber.Ctx) error 
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
 	// ------------- Path parameter "channel" -------------
@@ -27549,7 +27771,7 @@ func (siw *ServerInterfaceWrapper) DownloadFirmwareArtifact(c *fiber.Ctx) error 
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter channel: %w", err).Error())
 	}
 
-	return siw.Handler.DownloadFirmwareArtifact(c, name, channel)
+	return siw.Handler.DownloadFirmwareArtifact(c, id, channel)
 }
 
 // UploadFirmwareArtifact operation middleware
@@ -27557,12 +27779,12 @@ func (siw *ServerInterfaceWrapper) UploadFirmwareArtifact(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
 	// ------------- Path parameter "channel" -------------
@@ -27573,7 +27795,7 @@ func (siw *ServerInterfaceWrapper) UploadFirmwareArtifact(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter channel: %w", err).Error())
 	}
 
-	return siw.Handler.UploadFirmwareArtifact(c, name, channel)
+	return siw.Handler.UploadFirmwareArtifact(c, id, channel)
 }
 
 // DownloadFirmwareArtifactEntry operation middleware
@@ -27581,12 +27803,12 @@ func (siw *ServerInterfaceWrapper) DownloadFirmwareArtifactEntry(c *fiber.Ctx) e
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
 	// ------------- Path parameter "channel" -------------
@@ -27621,7 +27843,7 @@ func (siw *ServerInterfaceWrapper) DownloadFirmwareArtifactEntry(c *fiber.Ctx) e
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter path: %w", err).Error())
 	}
 
-	return siw.Handler.DownloadFirmwareArtifactEntry(c, name, channel, params)
+	return siw.Handler.DownloadFirmwareArtifactEntry(c, id, channel, params)
 }
 
 // ListFirmwareArtifactEntries operation middleware
@@ -27629,12 +27851,12 @@ func (siw *ServerInterfaceWrapper) ListFirmwareArtifactEntries(c *fiber.Ctx) err
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
 	// ------------- Path parameter "channel" -------------
@@ -27661,7 +27883,7 @@ func (siw *ServerInterfaceWrapper) ListFirmwareArtifactEntries(c *fiber.Ctx) err
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter path: %w", err).Error())
 	}
 
-	return siw.Handler.ListFirmwareArtifactEntries(c, name, channel, params)
+	return siw.Handler.ListFirmwareArtifactEntries(c, id, channel, params)
 }
 
 // StatFirmwareArtifactEntry operation middleware
@@ -27669,12 +27891,12 @@ func (siw *ServerInterfaceWrapper) StatFirmwareArtifactEntry(c *fiber.Ctx) error
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
 	// ------------- Path parameter "channel" -------------
@@ -27701,7 +27923,7 @@ func (siw *ServerInterfaceWrapper) StatFirmwareArtifactEntry(c *fiber.Ctx) error
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter path: %w", err).Error())
 	}
 
-	return siw.Handler.StatFirmwareArtifactEntry(c, name, channel, params)
+	return siw.Handler.StatFirmwareArtifactEntry(c, id, channel, params)
 }
 
 // TreeFirmwareArtifactEntries operation middleware
@@ -27709,12 +27931,12 @@ func (siw *ServerInterfaceWrapper) TreeFirmwareArtifactEntries(c *fiber.Ctx) err
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
 	// ------------- Path parameter "channel" -------------
@@ -27741,7 +27963,7 @@ func (siw *ServerInterfaceWrapper) TreeFirmwareArtifactEntries(c *fiber.Ctx) err
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter path: %w", err).Error())
 	}
 
-	return siw.Handler.TreeFirmwareArtifactEntries(c, name, channel, params)
+	return siw.Handler.TreeFirmwareArtifactEntries(c, id, channel, params)
 }
 
 // ListGameDefs operation middleware
@@ -27943,15 +28165,15 @@ func (siw *ServerInterfaceWrapper) DeleteGeminiTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteGeminiTenant(c, name)
+	return siw.Handler.DeleteGeminiTenant(c, id)
 }
 
 // GetGeminiTenant operation middleware
@@ -27959,15 +28181,15 @@ func (siw *ServerInterfaceWrapper) GetGeminiTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.GetGeminiTenant(c, name)
+	return siw.Handler.GetGeminiTenant(c, id)
 }
 
 // PutGeminiTenant operation middleware
@@ -27975,15 +28197,15 @@ func (siw *ServerInterfaceWrapper) PutGeminiTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.PutGeminiTenant(c, name)
+	return siw.Handler.PutGeminiTenant(c, id)
 }
 
 // StreamServerLogs operation middleware
@@ -28087,15 +28309,15 @@ func (siw *ServerInterfaceWrapper) DeleteMemoryLayout(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteMemoryLayout(c, name)
+	return siw.Handler.DeleteMemoryLayout(c, id)
 }
 
 // GetMemoryLayout operation middleware
@@ -28103,15 +28325,15 @@ func (siw *ServerInterfaceWrapper) GetMemoryLayout(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.GetMemoryLayout(c, name)
+	return siw.Handler.GetMemoryLayout(c, id)
 }
 
 // PutMemoryLayout operation middleware
@@ -28119,15 +28341,15 @@ func (siw *ServerInterfaceWrapper) PutMemoryLayout(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.PutMemoryLayout(c, name)
+	return siw.Handler.PutMemoryLayout(c, id)
 }
 
 // ListMiniMaxTenants operation middleware
@@ -28172,15 +28394,15 @@ func (siw *ServerInterfaceWrapper) DeleteMiniMaxTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteMiniMaxTenant(c, name)
+	return siw.Handler.DeleteMiniMaxTenant(c, id)
 }
 
 // GetMiniMaxTenant operation middleware
@@ -28188,15 +28410,15 @@ func (siw *ServerInterfaceWrapper) GetMiniMaxTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.GetMiniMaxTenant(c, name)
+	return siw.Handler.GetMiniMaxTenant(c, id)
 }
 
 // PutMiniMaxTenant operation middleware
@@ -28204,15 +28426,15 @@ func (siw *ServerInterfaceWrapper) PutMiniMaxTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.PutMiniMaxTenant(c, name)
+	return siw.Handler.PutMiniMaxTenant(c, id)
 }
 
 // SyncMiniMaxTenantVoices operation middleware
@@ -28220,15 +28442,15 @@ func (siw *ServerInterfaceWrapper) SyncMiniMaxTenantVoices(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.SyncMiniMaxTenantVoices(c, name)
+	return siw.Handler.SyncMiniMaxTenantVoices(c, id)
 }
 
 // ListModels operation middleware
@@ -28259,11 +28481,11 @@ func (siw *ServerInterfaceWrapper) ListModels(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter providerKind: %w", err).Error())
 	}
 
-	// ------------- Optional query parameter "providerName" -------------
+	// ------------- Optional query parameter "providerId" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "providerName", query, &params.ProviderName, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "providerId", query, &params.ProviderId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter providerName: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter providerId: %w", err).Error())
 	}
 
 	// ------------- Optional query parameter "cursor" -------------
@@ -28379,15 +28601,15 @@ func (siw *ServerInterfaceWrapper) DeleteOpenAITenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteOpenAITenant(c, name)
+	return siw.Handler.DeleteOpenAITenant(c, id)
 }
 
 // GetOpenAITenant operation middleware
@@ -28395,15 +28617,15 @@ func (siw *ServerInterfaceWrapper) GetOpenAITenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.GetOpenAITenant(c, name)
+	return siw.Handler.GetOpenAITenant(c, id)
 }
 
 // PutOpenAITenant operation middleware
@@ -28411,15 +28633,15 @@ func (siw *ServerInterfaceWrapper) PutOpenAITenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.PutOpenAITenant(c, name)
+	return siw.Handler.PutOpenAITenant(c, id)
 }
 
 // ListPeers operation middleware
@@ -29461,15 +29683,15 @@ func (siw *ServerInterfaceWrapper) DeleteRegistrationToken(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteRegistrationToken(c, name)
+	return siw.Handler.DeleteRegistrationToken(c, id)
 }
 
 // GetRegistrationToken operation middleware
@@ -29477,15 +29699,15 @@ func (siw *ServerInterfaceWrapper) GetRegistrationToken(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.GetRegistrationToken(c, name)
+	return siw.Handler.GetRegistrationToken(c, id)
 }
 
 // PutRegistrationToken operation middleware
@@ -29493,15 +29715,15 @@ func (siw *ServerInterfaceWrapper) PutRegistrationToken(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.PutRegistrationToken(c, name)
+	return siw.Handler.PutRegistrationToken(c, id)
 }
 
 // DeleteResource operation middleware
@@ -29517,15 +29739,15 @@ func (siw *ServerInterfaceWrapper) DeleteResource(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter kind: %w", err).Error())
 	}
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteResource(c, kind, name)
+	return siw.Handler.DeleteResource(c, kind, id)
 }
 
 // GetResource operation middleware
@@ -29541,15 +29763,15 @@ func (siw *ServerInterfaceWrapper) GetResource(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter kind: %w", err).Error())
 	}
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.GetResource(c, kind, name)
+	return siw.Handler.GetResource(c, kind, id)
 }
 
 // PutResource operation middleware
@@ -29565,15 +29787,15 @@ func (siw *ServerInterfaceWrapper) PutResource(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter kind: %w", err).Error())
 	}
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.PutResource(c, kind, name)
+	return siw.Handler.PutResource(c, kind, id)
 }
 
 // ListRuntimeProfiles operation middleware
@@ -29618,15 +29840,15 @@ func (siw *ServerInterfaceWrapper) DeleteRuntimeProfile(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteRuntimeProfile(c, name)
+	return siw.Handler.DeleteRuntimeProfile(c, id)
 }
 
 // GetRuntimeProfile operation middleware
@@ -29634,15 +29856,15 @@ func (siw *ServerInterfaceWrapper) GetRuntimeProfile(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.GetRuntimeProfile(c, name)
+	return siw.Handler.GetRuntimeProfile(c, id)
 }
 
 // PutRuntimeProfile operation middleware
@@ -29650,15 +29872,15 @@ func (siw *ServerInterfaceWrapper) PutRuntimeProfile(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.PutRuntimeProfile(c, name)
+	return siw.Handler.PutRuntimeProfile(c, id)
 }
 
 // ListContacts operation middleware
@@ -30126,11 +30348,11 @@ func (siw *ServerInterfaceWrapper) ListVoices(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter providerKind: %w", err).Error())
 	}
 
-	// ------------- Optional query parameter "providerName" -------------
+	// ------------- Optional query parameter "providerId" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "providerName", query, &params.ProviderName, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "providerId", query, &params.ProviderId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter providerName: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter providerId: %w", err).Error())
 	}
 
 	// ------------- Optional query parameter "cursor" -------------
@@ -30246,15 +30468,15 @@ func (siw *ServerInterfaceWrapper) DeleteVolcTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteVolcTenant(c, name)
+	return siw.Handler.DeleteVolcTenant(c, id)
 }
 
 // GetVolcTenant operation middleware
@@ -30262,15 +30484,15 @@ func (siw *ServerInterfaceWrapper) GetVolcTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.GetVolcTenant(c, name)
+	return siw.Handler.GetVolcTenant(c, id)
 }
 
 // PutVolcTenant operation middleware
@@ -30278,15 +30500,15 @@ func (siw *ServerInterfaceWrapper) PutVolcTenant(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.PutVolcTenant(c, name)
+	return siw.Handler.PutVolcTenant(c, id)
 }
 
 // SyncVolcTenantVoices operation middleware
@@ -30294,15 +30516,15 @@ func (siw *ServerInterfaceWrapper) SyncVolcTenantVoices(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.SyncVolcTenantVoices(c, name)
+	return siw.Handler.SyncVolcTenantVoices(c, id)
 }
 
 // ListWorkflows operation middleware
@@ -30347,15 +30569,15 @@ func (siw *ServerInterfaceWrapper) DeleteWorkflow(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteWorkflow(c, name)
+	return siw.Handler.DeleteWorkflow(c, id)
 }
 
 // GetWorkflow operation middleware
@@ -30363,15 +30585,15 @@ func (siw *ServerInterfaceWrapper) GetWorkflow(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.GetWorkflow(c, name)
+	return siw.Handler.GetWorkflow(c, id)
 }
 
 // PutWorkflow operation middleware
@@ -30379,15 +30601,15 @@ func (siw *ServerInterfaceWrapper) PutWorkflow(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.PutWorkflow(c, name)
+	return siw.Handler.PutWorkflow(c, id)
 }
 
 // ListWorkspaces operation middleware
@@ -30439,15 +30661,15 @@ func (siw *ServerInterfaceWrapper) DeleteWorkspace(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteWorkspace(c, name)
+	return siw.Handler.DeleteWorkspace(c, id)
 }
 
 // GetWorkspace operation middleware
@@ -30455,15 +30677,15 @@ func (siw *ServerInterfaceWrapper) GetWorkspace(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.GetWorkspace(c, name)
+	return siw.Handler.GetWorkspace(c, id)
 }
 
 // PutWorkspace operation middleware
@@ -30471,15 +30693,15 @@ func (siw *ServerInterfaceWrapper) PutWorkspace(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.PutWorkspace(c, name)
+	return siw.Handler.PutWorkspace(c, id)
 }
 
 // ListWorkspaceHistory operation middleware
@@ -30487,12 +30709,12 @@ func (siw *ServerInterfaceWrapper) ListWorkspaceHistory(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
 	// Parameter object where we will unmarshal all parameters from the context
@@ -30525,7 +30747,7 @@ func (siw *ServerInterfaceWrapper) ListWorkspaceHistory(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter order: %w", err).Error())
 	}
 
-	return siw.Handler.ListWorkspaceHistory(c, name, params)
+	return siw.Handler.ListWorkspaceHistory(c, id, params)
 }
 
 // GetWorkspaceHistory operation middleware
@@ -30533,12 +30755,12 @@ func (siw *ServerInterfaceWrapper) GetWorkspaceHistory(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
 	// ------------- Path parameter "historyId" -------------
@@ -30549,7 +30771,7 @@ func (siw *ServerInterfaceWrapper) GetWorkspaceHistory(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter historyId: %w", err).Error())
 	}
 
-	return siw.Handler.GetWorkspaceHistory(c, name, historyId)
+	return siw.Handler.GetWorkspaceHistory(c, id, historyId)
 }
 
 // DownloadWorkspaceHistoryAudio operation middleware
@@ -30557,12 +30779,12 @@ func (siw *ServerInterfaceWrapper) DownloadWorkspaceHistoryAudio(c *fiber.Ctx) e
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
 	// ------------- Path parameter "historyId" -------------
@@ -30573,7 +30795,7 @@ func (siw *ServerInterfaceWrapper) DownloadWorkspaceHistoryAudio(c *fiber.Ctx) e
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter historyId: %w", err).Error())
 	}
 
-	return siw.Handler.DownloadWorkspaceHistoryAudio(c, name, historyId)
+	return siw.Handler.DownloadWorkspaceHistoryAudio(c, id, historyId)
 }
 
 // DeleteWorkspaceIcon operation middleware
@@ -30581,12 +30803,12 @@ func (siw *ServerInterfaceWrapper) DeleteWorkspaceIcon(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
 	// ------------- Path parameter "format" -------------
@@ -30597,7 +30819,7 @@ func (siw *ServerInterfaceWrapper) DeleteWorkspaceIcon(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
 	}
 
-	return siw.Handler.DeleteWorkspaceIcon(c, name, format)
+	return siw.Handler.DeleteWorkspaceIcon(c, id, format)
 }
 
 // DownloadWorkspaceIcon operation middleware
@@ -30605,12 +30827,12 @@ func (siw *ServerInterfaceWrapper) DownloadWorkspaceIcon(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
 	// ------------- Path parameter "format" -------------
@@ -30621,7 +30843,7 @@ func (siw *ServerInterfaceWrapper) DownloadWorkspaceIcon(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
 	}
 
-	return siw.Handler.DownloadWorkspaceIcon(c, name, format)
+	return siw.Handler.DownloadWorkspaceIcon(c, id, format)
 }
 
 // UploadWorkspaceIcon operation middleware
@@ -30629,12 +30851,12 @@ func (siw *ServerInterfaceWrapper) UploadWorkspaceIcon(c *fiber.Ctx) error {
 
 	var err error
 
-	// ------------- Path parameter "name" -------------
-	var name string
+	// ------------- Path parameter "id" -------------
+	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
 	// ------------- Path parameter "format" -------------
@@ -30645,7 +30867,7 @@ func (siw *ServerInterfaceWrapper) UploadWorkspaceIcon(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
 	}
 
-	return siw.Handler.UploadWorkspaceIcon(c, name, format)
+	return siw.Handler.UploadWorkspaceIcon(c, id, format)
 }
 
 // FiberServerOptions provides options for the Fiber server.
@@ -30689,59 +30911,59 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Post(options.BaseURL+"/credentials", wrapper.CreateCredential)
 
-	router.Delete(options.BaseURL+"/credentials/:name", wrapper.DeleteCredential)
+	router.Delete(options.BaseURL+"/credentials/:id", wrapper.DeleteCredential)
 
-	router.Get(options.BaseURL+"/credentials/:name", wrapper.GetCredential)
+	router.Get(options.BaseURL+"/credentials/:id", wrapper.GetCredential)
 
-	router.Put(options.BaseURL+"/credentials/:name", wrapper.PutCredential)
+	router.Put(options.BaseURL+"/credentials/:id", wrapper.PutCredential)
 
 	router.Get(options.BaseURL+"/dashscope-tenants", wrapper.ListDashScopeTenants)
 
 	router.Post(options.BaseURL+"/dashscope-tenants", wrapper.CreateDashScopeTenant)
 
-	router.Delete(options.BaseURL+"/dashscope-tenants/:name", wrapper.DeleteDashScopeTenant)
+	router.Delete(options.BaseURL+"/dashscope-tenants/:id", wrapper.DeleteDashScopeTenant)
 
-	router.Get(options.BaseURL+"/dashscope-tenants/:name", wrapper.GetDashScopeTenant)
+	router.Get(options.BaseURL+"/dashscope-tenants/:id", wrapper.GetDashScopeTenant)
 
-	router.Put(options.BaseURL+"/dashscope-tenants/:name", wrapper.PutDashScopeTenant)
+	router.Put(options.BaseURL+"/dashscope-tenants/:id", wrapper.PutDashScopeTenant)
 
 	router.Get(options.BaseURL+"/deepseek-tenants", wrapper.ListDeepSeekTenants)
 
 	router.Post(options.BaseURL+"/deepseek-tenants", wrapper.CreateDeepSeekTenant)
 
-	router.Delete(options.BaseURL+"/deepseek-tenants/:name", wrapper.DeleteDeepSeekTenant)
+	router.Delete(options.BaseURL+"/deepseek-tenants/:id", wrapper.DeleteDeepSeekTenant)
 
-	router.Get(options.BaseURL+"/deepseek-tenants/:name", wrapper.GetDeepSeekTenant)
+	router.Get(options.BaseURL+"/deepseek-tenants/:id", wrapper.GetDeepSeekTenant)
 
-	router.Put(options.BaseURL+"/deepseek-tenants/:name", wrapper.PutDeepSeekTenant)
+	router.Put(options.BaseURL+"/deepseek-tenants/:id", wrapper.PutDeepSeekTenant)
 
 	router.Get(options.BaseURL+"/firmwares", wrapper.ListFirmwares)
 
 	router.Post(options.BaseURL+"/firmwares", wrapper.CreateFirmware)
 
-	router.Delete(options.BaseURL+"/firmwares/:name", wrapper.DeleteFirmware)
+	router.Delete(options.BaseURL+"/firmwares/:id", wrapper.DeleteFirmware)
 
-	router.Get(options.BaseURL+"/firmwares/:name", wrapper.GetFirmware)
+	router.Get(options.BaseURL+"/firmwares/:id", wrapper.GetFirmware)
 
-	router.Put(options.BaseURL+"/firmwares/:name", wrapper.PutFirmware)
+	router.Put(options.BaseURL+"/firmwares/:id", wrapper.PutFirmware)
 
-	router.Post(options.BaseURL+"/firmwares/:name/@release", wrapper.ReleaseFirmware)
+	router.Post(options.BaseURL+"/firmwares/:id/@release", wrapper.ReleaseFirmware)
 
-	router.Post(options.BaseURL+"/firmwares/:name/@rollback", wrapper.RollbackFirmware)
+	router.Post(options.BaseURL+"/firmwares/:id/@rollback", wrapper.RollbackFirmware)
 
-	router.Delete(options.BaseURL+"/firmwares/:name/packages/:channel/artifact.tar", wrapper.DeleteFirmwareArtifact)
+	router.Delete(options.BaseURL+"/firmwares/:id/packages/:channel/artifact.tar", wrapper.DeleteFirmwareArtifact)
 
-	router.Get(options.BaseURL+"/firmwares/:name/packages/:channel/artifact.tar", wrapper.DownloadFirmwareArtifact)
+	router.Get(options.BaseURL+"/firmwares/:id/packages/:channel/artifact.tar", wrapper.DownloadFirmwareArtifact)
 
-	router.Put(options.BaseURL+"/firmwares/:name/packages/:channel/artifact.tar", wrapper.UploadFirmwareArtifact)
+	router.Put(options.BaseURL+"/firmwares/:id/packages/:channel/artifact.tar", wrapper.UploadFirmwareArtifact)
 
-	router.Get(options.BaseURL+"/firmwares/:name/packages/:channel/artifact/dl", wrapper.DownloadFirmwareArtifactEntry)
+	router.Get(options.BaseURL+"/firmwares/:id/packages/:channel/artifact/dl", wrapper.DownloadFirmwareArtifactEntry)
 
-	router.Get(options.BaseURL+"/firmwares/:name/packages/:channel/artifact/ls", wrapper.ListFirmwareArtifactEntries)
+	router.Get(options.BaseURL+"/firmwares/:id/packages/:channel/artifact/ls", wrapper.ListFirmwareArtifactEntries)
 
-	router.Get(options.BaseURL+"/firmwares/:name/packages/:channel/artifact/stat", wrapper.StatFirmwareArtifactEntry)
+	router.Get(options.BaseURL+"/firmwares/:id/packages/:channel/artifact/stat", wrapper.StatFirmwareArtifactEntry)
 
-	router.Get(options.BaseURL+"/firmwares/:name/packages/:channel/artifact/tree", wrapper.TreeFirmwareArtifactEntries)
+	router.Get(options.BaseURL+"/firmwares/:id/packages/:channel/artifact/tree", wrapper.TreeFirmwareArtifactEntries)
 
 	router.Get(options.BaseURL+"/game-defs", wrapper.ListGameDefs)
 
@@ -30763,11 +30985,11 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Post(options.BaseURL+"/gemini-tenants", wrapper.CreateGeminiTenant)
 
-	router.Delete(options.BaseURL+"/gemini-tenants/:name", wrapper.DeleteGeminiTenant)
+	router.Delete(options.BaseURL+"/gemini-tenants/:id", wrapper.DeleteGeminiTenant)
 
-	router.Get(options.BaseURL+"/gemini-tenants/:name", wrapper.GetGeminiTenant)
+	router.Get(options.BaseURL+"/gemini-tenants/:id", wrapper.GetGeminiTenant)
 
-	router.Put(options.BaseURL+"/gemini-tenants/:name", wrapper.PutGeminiTenant)
+	router.Put(options.BaseURL+"/gemini-tenants/:id", wrapper.PutGeminiTenant)
 
 	router.Get(options.BaseURL+"/logs/stream", wrapper.StreamServerLogs)
 
@@ -30775,23 +30997,23 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Post(options.BaseURL+"/memory-layouts", wrapper.CreateMemoryLayout)
 
-	router.Delete(options.BaseURL+"/memory-layouts/:name", wrapper.DeleteMemoryLayout)
+	router.Delete(options.BaseURL+"/memory-layouts/:id", wrapper.DeleteMemoryLayout)
 
-	router.Get(options.BaseURL+"/memory-layouts/:name", wrapper.GetMemoryLayout)
+	router.Get(options.BaseURL+"/memory-layouts/:id", wrapper.GetMemoryLayout)
 
-	router.Put(options.BaseURL+"/memory-layouts/:name", wrapper.PutMemoryLayout)
+	router.Put(options.BaseURL+"/memory-layouts/:id", wrapper.PutMemoryLayout)
 
 	router.Get(options.BaseURL+"/minimax-tenants", wrapper.ListMiniMaxTenants)
 
 	router.Post(options.BaseURL+"/minimax-tenants", wrapper.CreateMiniMaxTenant)
 
-	router.Delete(options.BaseURL+"/minimax-tenants/:name", wrapper.DeleteMiniMaxTenant)
+	router.Delete(options.BaseURL+"/minimax-tenants/:id", wrapper.DeleteMiniMaxTenant)
 
-	router.Get(options.BaseURL+"/minimax-tenants/:name", wrapper.GetMiniMaxTenant)
+	router.Get(options.BaseURL+"/minimax-tenants/:id", wrapper.GetMiniMaxTenant)
 
-	router.Put(options.BaseURL+"/minimax-tenants/:name", wrapper.PutMiniMaxTenant)
+	router.Put(options.BaseURL+"/minimax-tenants/:id", wrapper.PutMiniMaxTenant)
 
-	router.Post(options.BaseURL+"/minimax-tenants/:name/@sync-voices", wrapper.SyncMiniMaxTenantVoices)
+	router.Post(options.BaseURL+"/minimax-tenants/:id/@sync-voices", wrapper.SyncMiniMaxTenantVoices)
 
 	router.Get(options.BaseURL+"/models", wrapper.ListModels)
 
@@ -30807,11 +31029,11 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Post(options.BaseURL+"/openai-tenants", wrapper.CreateOpenAITenant)
 
-	router.Delete(options.BaseURL+"/openai-tenants/:name", wrapper.DeleteOpenAITenant)
+	router.Delete(options.BaseURL+"/openai-tenants/:id", wrapper.DeleteOpenAITenant)
 
-	router.Get(options.BaseURL+"/openai-tenants/:name", wrapper.GetOpenAITenant)
+	router.Get(options.BaseURL+"/openai-tenants/:id", wrapper.GetOpenAITenant)
 
-	router.Put(options.BaseURL+"/openai-tenants/:name", wrapper.PutOpenAITenant)
+	router.Put(options.BaseURL+"/openai-tenants/:id", wrapper.PutOpenAITenant)
 
 	router.Get(options.BaseURL+"/peers", wrapper.ListPeers)
 
@@ -30891,27 +31113,27 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Post(options.BaseURL+"/registration-tokens", wrapper.CreateRegistrationToken)
 
-	router.Delete(options.BaseURL+"/registration-tokens/:name", wrapper.DeleteRegistrationToken)
+	router.Delete(options.BaseURL+"/registration-tokens/:id", wrapper.DeleteRegistrationToken)
 
-	router.Get(options.BaseURL+"/registration-tokens/:name", wrapper.GetRegistrationToken)
+	router.Get(options.BaseURL+"/registration-tokens/:id", wrapper.GetRegistrationToken)
 
-	router.Put(options.BaseURL+"/registration-tokens/:name", wrapper.PutRegistrationToken)
+	router.Put(options.BaseURL+"/registration-tokens/:id", wrapper.PutRegistrationToken)
 
-	router.Delete(options.BaseURL+"/resources/:kind/:name", wrapper.DeleteResource)
+	router.Delete(options.BaseURL+"/resources/:kind/:id", wrapper.DeleteResource)
 
-	router.Get(options.BaseURL+"/resources/:kind/:name", wrapper.GetResource)
+	router.Get(options.BaseURL+"/resources/:kind/:id", wrapper.GetResource)
 
-	router.Put(options.BaseURL+"/resources/:kind/:name", wrapper.PutResource)
+	router.Put(options.BaseURL+"/resources/:kind/:id", wrapper.PutResource)
 
 	router.Get(options.BaseURL+"/runtime-profiles", wrapper.ListRuntimeProfiles)
 
 	router.Post(options.BaseURL+"/runtime-profiles", wrapper.CreateRuntimeProfile)
 
-	router.Delete(options.BaseURL+"/runtime-profiles/:name", wrapper.DeleteRuntimeProfile)
+	router.Delete(options.BaseURL+"/runtime-profiles/:id", wrapper.DeleteRuntimeProfile)
 
-	router.Get(options.BaseURL+"/runtime-profiles/:name", wrapper.GetRuntimeProfile)
+	router.Get(options.BaseURL+"/runtime-profiles/:id", wrapper.GetRuntimeProfile)
 
-	router.Put(options.BaseURL+"/runtime-profiles/:name", wrapper.PutRuntimeProfile)
+	router.Put(options.BaseURL+"/runtime-profiles/:id", wrapper.PutRuntimeProfile)
 
 	router.Get(options.BaseURL+"/social/contacts", wrapper.ListContacts)
 
@@ -30969,45 +31191,45 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Post(options.BaseURL+"/volc-tenants", wrapper.CreateVolcTenant)
 
-	router.Delete(options.BaseURL+"/volc-tenants/:name", wrapper.DeleteVolcTenant)
+	router.Delete(options.BaseURL+"/volc-tenants/:id", wrapper.DeleteVolcTenant)
 
-	router.Get(options.BaseURL+"/volc-tenants/:name", wrapper.GetVolcTenant)
+	router.Get(options.BaseURL+"/volc-tenants/:id", wrapper.GetVolcTenant)
 
-	router.Put(options.BaseURL+"/volc-tenants/:name", wrapper.PutVolcTenant)
+	router.Put(options.BaseURL+"/volc-tenants/:id", wrapper.PutVolcTenant)
 
-	router.Post(options.BaseURL+"/volc-tenants/:name/@sync-voices", wrapper.SyncVolcTenantVoices)
+	router.Post(options.BaseURL+"/volc-tenants/:id/@sync-voices", wrapper.SyncVolcTenantVoices)
 
 	router.Get(options.BaseURL+"/workflows", wrapper.ListWorkflows)
 
 	router.Post(options.BaseURL+"/workflows", wrapper.CreateWorkflow)
 
-	router.Delete(options.BaseURL+"/workflows/:name", wrapper.DeleteWorkflow)
+	router.Delete(options.BaseURL+"/workflows/:id", wrapper.DeleteWorkflow)
 
-	router.Get(options.BaseURL+"/workflows/:name", wrapper.GetWorkflow)
+	router.Get(options.BaseURL+"/workflows/:id", wrapper.GetWorkflow)
 
-	router.Put(options.BaseURL+"/workflows/:name", wrapper.PutWorkflow)
+	router.Put(options.BaseURL+"/workflows/:id", wrapper.PutWorkflow)
 
 	router.Get(options.BaseURL+"/workspaces", wrapper.ListWorkspaces)
 
 	router.Post(options.BaseURL+"/workspaces", wrapper.CreateWorkspace)
 
-	router.Delete(options.BaseURL+"/workspaces/:name", wrapper.DeleteWorkspace)
+	router.Delete(options.BaseURL+"/workspaces/:id", wrapper.DeleteWorkspace)
 
-	router.Get(options.BaseURL+"/workspaces/:name", wrapper.GetWorkspace)
+	router.Get(options.BaseURL+"/workspaces/:id", wrapper.GetWorkspace)
 
-	router.Put(options.BaseURL+"/workspaces/:name", wrapper.PutWorkspace)
+	router.Put(options.BaseURL+"/workspaces/:id", wrapper.PutWorkspace)
 
-	router.Get(options.BaseURL+"/workspaces/:name/history", wrapper.ListWorkspaceHistory)
+	router.Get(options.BaseURL+"/workspaces/:id/history", wrapper.ListWorkspaceHistory)
 
-	router.Get(options.BaseURL+"/workspaces/:name/history/:historyId", wrapper.GetWorkspaceHistory)
+	router.Get(options.BaseURL+"/workspaces/:id/history/:historyId", wrapper.GetWorkspaceHistory)
 
-	router.Get(options.BaseURL+"/workspaces/:name/history/:historyId/audio.ogg", wrapper.DownloadWorkspaceHistoryAudio)
+	router.Get(options.BaseURL+"/workspaces/:id/history/:historyId/audio.ogg", wrapper.DownloadWorkspaceHistoryAudio)
 
-	router.Delete(options.BaseURL+"/workspaces/:name/icon/:format", wrapper.DeleteWorkspaceIcon)
+	router.Delete(options.BaseURL+"/workspaces/:id/icon/:format", wrapper.DeleteWorkspaceIcon)
 
-	router.Get(options.BaseURL+"/workspaces/:name/icon/:format", wrapper.DownloadWorkspaceIcon)
+	router.Get(options.BaseURL+"/workspaces/:id/icon/:format", wrapper.DownloadWorkspaceIcon)
 
-	router.Put(options.BaseURL+"/workspaces/:name/icon/:format", wrapper.UploadWorkspaceIcon)
+	router.Put(options.BaseURL+"/workspaces/:id/icon/:format", wrapper.UploadWorkspaceIcon)
 
 }
 
@@ -31232,6 +31454,15 @@ func (response PutBadgeDef400JSONResponse) VisitPutBadgeDefResponse(ctx *fiber.C
 	return ctx.JSON(&response)
 }
 
+type PutBadgeDef404JSONResponse externalRef0.ErrorResponse
+
+func (response PutBadgeDef404JSONResponse) VisitPutBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
 type PutBadgeDef409JSONResponse externalRef0.ErrorResponse
 
 func (response PutBadgeDef409JSONResponse) VisitPutBadgeDefResponse(ctx *fiber.Ctx) error {
@@ -31383,6 +31614,15 @@ func (response CreateCredential400JSONResponse) VisitCreateCredentialResponse(ct
 	return ctx.JSON(&response)
 }
 
+type CreateCredential404JSONResponse externalRef0.ErrorResponse
+
+func (response CreateCredential404JSONResponse) VisitCreateCredentialResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
 type CreateCredential409JSONResponse externalRef0.ErrorResponse
 
 func (response CreateCredential409JSONResponse) VisitCreateCredentialResponse(ctx *fiber.Ctx) error {
@@ -31402,7 +31642,7 @@ func (response CreateCredential500JSONResponse) VisitCreateCredentialResponse(ct
 }
 
 type DeleteCredentialRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type DeleteCredentialResponseObject interface {
@@ -31437,7 +31677,7 @@ func (response DeleteCredential500JSONResponse) VisitDeleteCredentialResponse(ct
 }
 
 type GetCredentialRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type GetCredentialResponseObject interface {
@@ -31472,7 +31712,7 @@ func (response GetCredential500JSONResponse) VisitGetCredentialResponse(ctx *fib
 }
 
 type PutCredentialRequestObject struct {
-	Name string `json:"name"`
+	Id   string `json:"id"`
 	Body *PutCredentialJSONRequestBody
 }
 
@@ -31494,6 +31734,15 @@ type PutCredential400JSONResponse externalRef0.ErrorResponse
 func (response PutCredential400JSONResponse) VisitPutCredentialResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutCredential404JSONResponse externalRef0.ErrorResponse
+
+func (response PutCredential404JSONResponse) VisitPutCredentialResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
@@ -31578,7 +31827,7 @@ func (response CreateDashScopeTenant500JSONResponse) VisitCreateDashScopeTenantR
 }
 
 type DeleteDashScopeTenantRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type DeleteDashScopeTenantResponseObject interface {
@@ -31613,7 +31862,7 @@ func (response DeleteDashScopeTenant500JSONResponse) VisitDeleteDashScopeTenantR
 }
 
 type GetDashScopeTenantRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type GetDashScopeTenantResponseObject interface {
@@ -31648,7 +31897,7 @@ func (response GetDashScopeTenant500JSONResponse) VisitGetDashScopeTenantRespons
 }
 
 type PutDashScopeTenantRequestObject struct {
-	Name string `json:"name"`
+	Id   string `json:"id"`
 	Body *PutDashScopeTenantJSONRequestBody
 }
 
@@ -31670,6 +31919,15 @@ type PutDashScopeTenant400JSONResponse externalRef0.ErrorResponse
 func (response PutDashScopeTenant400JSONResponse) VisitPutDashScopeTenantResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutDashScopeTenant404JSONResponse externalRef0.ErrorResponse
+
+func (response PutDashScopeTenant404JSONResponse) VisitPutDashScopeTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
@@ -31735,6 +31993,15 @@ func (response CreateDeepSeekTenant400JSONResponse) VisitCreateDeepSeekTenantRes
 	return ctx.JSON(&response)
 }
 
+type CreateDeepSeekTenant404JSONResponse externalRef0.ErrorResponse
+
+func (response CreateDeepSeekTenant404JSONResponse) VisitCreateDeepSeekTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
 type CreateDeepSeekTenant409JSONResponse externalRef0.ErrorResponse
 
 func (response CreateDeepSeekTenant409JSONResponse) VisitCreateDeepSeekTenantResponse(ctx *fiber.Ctx) error {
@@ -31754,7 +32021,7 @@ func (response CreateDeepSeekTenant500JSONResponse) VisitCreateDeepSeekTenantRes
 }
 
 type DeleteDeepSeekTenantRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type DeleteDeepSeekTenantResponseObject interface {
@@ -31789,7 +32056,7 @@ func (response DeleteDeepSeekTenant500JSONResponse) VisitDeleteDeepSeekTenantRes
 }
 
 type GetDeepSeekTenantRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type GetDeepSeekTenantResponseObject interface {
@@ -31824,7 +32091,7 @@ func (response GetDeepSeekTenant500JSONResponse) VisitGetDeepSeekTenantResponse(
 }
 
 type PutDeepSeekTenantRequestObject struct {
-	Name string `json:"name"`
+	Id   string `json:"id"`
 	Body *PutDeepSeekTenantJSONRequestBody
 }
 
@@ -31846,6 +32113,15 @@ type PutDeepSeekTenant400JSONResponse externalRef0.ErrorResponse
 func (response PutDeepSeekTenant400JSONResponse) VisitPutDeepSeekTenantResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutDeepSeekTenant404JSONResponse externalRef0.ErrorResponse
+
+func (response PutDeepSeekTenant404JSONResponse) VisitPutDeepSeekTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
@@ -31930,7 +32206,7 @@ func (response CreateFirmware500JSONResponse) VisitCreateFirmwareResponse(ctx *f
 }
 
 type DeleteFirmwareRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type DeleteFirmwareResponseObject interface {
@@ -31965,7 +32241,7 @@ func (response DeleteFirmware500JSONResponse) VisitDeleteFirmwareResponse(ctx *f
 }
 
 type GetFirmwareRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type GetFirmwareResponseObject interface {
@@ -32000,7 +32276,7 @@ func (response GetFirmware500JSONResponse) VisitGetFirmwareResponse(ctx *fiber.C
 }
 
 type PutFirmwareRequestObject struct {
-	Name string `json:"name"`
+	Id   string `json:"id"`
 	Body *PutFirmwareJSONRequestBody
 }
 
@@ -32026,6 +32302,15 @@ func (response PutFirmware400JSONResponse) VisitPutFirmwareResponse(ctx *fiber.C
 	return ctx.JSON(&response)
 }
 
+type PutFirmware404JSONResponse externalRef0.ErrorResponse
+
+func (response PutFirmware404JSONResponse) VisitPutFirmwareResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
 type PutFirmware500JSONResponse externalRef0.ErrorResponse
 
 func (response PutFirmware500JSONResponse) VisitPutFirmwareResponse(ctx *fiber.Ctx) error {
@@ -32036,7 +32321,7 @@ func (response PutFirmware500JSONResponse) VisitPutFirmwareResponse(ctx *fiber.C
 }
 
 type ReleaseFirmwareRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type ReleaseFirmwareResponseObject interface {
@@ -32080,7 +32365,7 @@ func (response ReleaseFirmware500JSONResponse) VisitReleaseFirmwareResponse(ctx 
 }
 
 type RollbackFirmwareRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type RollbackFirmwareResponseObject interface {
@@ -32124,7 +32409,7 @@ func (response RollbackFirmware500JSONResponse) VisitRollbackFirmwareResponse(ct
 }
 
 type DeleteFirmwareArtifactRequestObject struct {
-	Name    string                              `json:"name"`
+	Id      string                              `json:"id"`
 	Channel DeleteFirmwareArtifactParamsChannel `json:"channel"`
 }
 
@@ -32160,7 +32445,7 @@ func (response DeleteFirmwareArtifact500JSONResponse) VisitDeleteFirmwareArtifac
 }
 
 type DownloadFirmwareArtifactRequestObject struct {
-	Name    string                                `json:"name"`
+	Id      string                                `json:"id"`
 	Channel DownloadFirmwareArtifactParamsChannel `json:"channel"`
 }
 
@@ -32206,7 +32491,7 @@ func (response DownloadFirmwareArtifact500JSONResponse) VisitDownloadFirmwareArt
 }
 
 type UploadFirmwareArtifactRequestObject struct {
-	Name    string                              `json:"name"`
+	Id      string                              `json:"id"`
 	Channel UploadFirmwareArtifactParamsChannel `json:"channel"`
 	Body    io.Reader
 }
@@ -32261,7 +32546,7 @@ func (response UploadFirmwareArtifact500JSONResponse) VisitUploadFirmwareArtifac
 }
 
 type DownloadFirmwareArtifactEntryRequestObject struct {
-	Name    string                                     `json:"name"`
+	Id      string                                     `json:"id"`
 	Channel DownloadFirmwareArtifactEntryParamsChannel `json:"channel"`
 	Params  DownloadFirmwareArtifactEntryParams
 }
@@ -32317,7 +32602,7 @@ func (response DownloadFirmwareArtifactEntry500JSONResponse) VisitDownloadFirmwa
 }
 
 type ListFirmwareArtifactEntriesRequestObject struct {
-	Name    string                                   `json:"name"`
+	Id      string                                   `json:"id"`
 	Channel ListFirmwareArtifactEntriesParamsChannel `json:"channel"`
 	Params  ListFirmwareArtifactEntriesParams
 }
@@ -32363,7 +32648,7 @@ func (response ListFirmwareArtifactEntries500JSONResponse) VisitListFirmwareArti
 }
 
 type StatFirmwareArtifactEntryRequestObject struct {
-	Name    string                                 `json:"name"`
+	Id      string                                 `json:"id"`
 	Channel StatFirmwareArtifactEntryParamsChannel `json:"channel"`
 	Params  StatFirmwareArtifactEntryParams
 }
@@ -32409,7 +32694,7 @@ func (response StatFirmwareArtifactEntry500JSONResponse) VisitStatFirmwareArtifa
 }
 
 type TreeFirmwareArtifactEntriesRequestObject struct {
-	Name    string                                   `json:"name"`
+	Id      string                                   `json:"id"`
 	Channel TreeFirmwareArtifactEntriesParamsChannel `json:"channel"`
 	Params  TreeFirmwareArtifactEntriesParams
 }
@@ -32617,6 +32902,15 @@ type PutGameDef400JSONResponse externalRef0.ErrorResponse
 func (response PutGameDef400JSONResponse) VisitPutGameDefResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutGameDef404JSONResponse externalRef0.ErrorResponse
+
+func (response PutGameDef404JSONResponse) VisitPutGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
@@ -32866,7 +33160,7 @@ func (response CreateGeminiTenant500JSONResponse) VisitCreateGeminiTenantRespons
 }
 
 type DeleteGeminiTenantRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type DeleteGeminiTenantResponseObject interface {
@@ -32901,7 +33195,7 @@ func (response DeleteGeminiTenant500JSONResponse) VisitDeleteGeminiTenantRespons
 }
 
 type GetGeminiTenantRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type GetGeminiTenantResponseObject interface {
@@ -32936,7 +33230,7 @@ func (response GetGeminiTenant500JSONResponse) VisitGetGeminiTenantResponse(ctx 
 }
 
 type PutGeminiTenantRequestObject struct {
-	Name string `json:"name"`
+	Id   string `json:"id"`
 	Body *PutGeminiTenantJSONRequestBody
 }
 
@@ -32958,6 +33252,15 @@ type PutGeminiTenant400JSONResponse externalRef0.ErrorResponse
 func (response PutGeminiTenant400JSONResponse) VisitPutGeminiTenantResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutGeminiTenant404JSONResponse externalRef0.ErrorResponse
+
+func (response PutGeminiTenant404JSONResponse) VisitPutGeminiTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
@@ -33096,7 +33399,7 @@ func (response CreateMemoryLayout500JSONResponse) VisitCreateMemoryLayoutRespons
 }
 
 type DeleteMemoryLayoutRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type DeleteMemoryLayoutResponseObject interface {
@@ -33131,7 +33434,7 @@ func (response DeleteMemoryLayout500JSONResponse) VisitDeleteMemoryLayoutRespons
 }
 
 type GetMemoryLayoutRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type GetMemoryLayoutResponseObject interface {
@@ -33166,7 +33469,7 @@ func (response GetMemoryLayout500JSONResponse) VisitGetMemoryLayoutResponse(ctx 
 }
 
 type PutMemoryLayoutRequestObject struct {
-	Name string `json:"name"`
+	Id   string `json:"id"`
 	Body *PutMemoryLayoutJSONRequestBody
 }
 
@@ -33188,6 +33491,15 @@ type PutMemoryLayout400JSONResponse externalRef0.ErrorResponse
 func (response PutMemoryLayout400JSONResponse) VisitPutMemoryLayoutResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutMemoryLayout404JSONResponse externalRef0.ErrorResponse
+
+func (response PutMemoryLayout404JSONResponse) VisitPutMemoryLayoutResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
@@ -33272,7 +33584,7 @@ func (response CreateMiniMaxTenant500JSONResponse) VisitCreateMiniMaxTenantRespo
 }
 
 type DeleteMiniMaxTenantRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type DeleteMiniMaxTenantResponseObject interface {
@@ -33307,7 +33619,7 @@ func (response DeleteMiniMaxTenant500JSONResponse) VisitDeleteMiniMaxTenantRespo
 }
 
 type GetMiniMaxTenantRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type GetMiniMaxTenantResponseObject interface {
@@ -33342,7 +33654,7 @@ func (response GetMiniMaxTenant500JSONResponse) VisitGetMiniMaxTenantResponse(ct
 }
 
 type PutMiniMaxTenantRequestObject struct {
-	Name string `json:"name"`
+	Id   string `json:"id"`
 	Body *PutMiniMaxTenantJSONRequestBody
 }
 
@@ -33368,6 +33680,15 @@ func (response PutMiniMaxTenant400JSONResponse) VisitPutMiniMaxTenantResponse(ct
 	return ctx.JSON(&response)
 }
 
+type PutMiniMaxTenant404JSONResponse externalRef0.ErrorResponse
+
+func (response PutMiniMaxTenant404JSONResponse) VisitPutMiniMaxTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
 type PutMiniMaxTenant500JSONResponse externalRef0.ErrorResponse
 
 func (response PutMiniMaxTenant500JSONResponse) VisitPutMiniMaxTenantResponse(ctx *fiber.Ctx) error {
@@ -33378,7 +33699,7 @@ func (response PutMiniMaxTenant500JSONResponse) VisitPutMiniMaxTenantResponse(ct
 }
 
 type SyncMiniMaxTenantVoicesRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type SyncMiniMaxTenantVoicesResponseObject interface {
@@ -33597,6 +33918,15 @@ func (response PutModel400JSONResponse) VisitPutModelResponse(ctx *fiber.Ctx) er
 	return ctx.JSON(&response)
 }
 
+type PutModel404JSONResponse externalRef0.ErrorResponse
+
+func (response PutModel404JSONResponse) VisitPutModelResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
 type PutModel409JSONResponse externalRef0.ErrorResponse
 
 func (response PutModel409JSONResponse) VisitPutModelResponse(ctx *fiber.Ctx) error {
@@ -33686,7 +34016,7 @@ func (response CreateOpenAITenant500JSONResponse) VisitCreateOpenAITenantRespons
 }
 
 type DeleteOpenAITenantRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type DeleteOpenAITenantResponseObject interface {
@@ -33721,7 +34051,7 @@ func (response DeleteOpenAITenant500JSONResponse) VisitDeleteOpenAITenantRespons
 }
 
 type GetOpenAITenantRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type GetOpenAITenantResponseObject interface {
@@ -33756,7 +34086,7 @@ func (response GetOpenAITenant500JSONResponse) VisitGetOpenAITenantResponse(ctx 
 }
 
 type PutOpenAITenantRequestObject struct {
-	Name string `json:"name"`
+	Id   string `json:"id"`
 	Body *PutOpenAITenantJSONRequestBody
 }
 
@@ -33778,6 +34108,15 @@ type PutOpenAITenant400JSONResponse externalRef0.ErrorResponse
 func (response PutOpenAITenant400JSONResponse) VisitPutOpenAITenantResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutOpenAITenant404JSONResponse externalRef0.ErrorResponse
+
+func (response PutOpenAITenant404JSONResponse) VisitPutOpenAITenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
@@ -35002,6 +35341,15 @@ func (response PutPetDef400JSONResponse) VisitPutPetDefResponse(ctx *fiber.Ctx) 
 	return ctx.JSON(&response)
 }
 
+type PutPetDef404JSONResponse externalRef0.ErrorResponse
+
+func (response PutPetDef404JSONResponse) VisitPutPetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
 type PutPetDef409JSONResponse externalRef0.ErrorResponse
 
 func (response PutPetDef409JSONResponse) VisitPutPetDefResponse(ctx *fiber.Ctx) error {
@@ -35172,7 +35520,7 @@ func (response CreateRegistrationToken500JSONResponse) VisitCreateRegistrationTo
 }
 
 type DeleteRegistrationTokenRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type DeleteRegistrationTokenResponseObject interface {
@@ -35207,7 +35555,7 @@ func (response DeleteRegistrationToken500JSONResponse) VisitDeleteRegistrationTo
 }
 
 type GetRegistrationTokenRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type GetRegistrationTokenResponseObject interface {
@@ -35242,7 +35590,7 @@ func (response GetRegistrationToken500JSONResponse) VisitGetRegistrationTokenRes
 }
 
 type PutRegistrationTokenRequestObject struct {
-	Name string `json:"name"`
+	Id   string `json:"id"`
 	Body *PutRegistrationTokenJSONRequestBody
 }
 
@@ -35268,6 +35616,15 @@ func (response PutRegistrationToken400JSONResponse) VisitPutRegistrationTokenRes
 	return ctx.JSON(&response)
 }
 
+type PutRegistrationToken404JSONResponse externalRef0.ErrorResponse
+
+func (response PutRegistrationToken404JSONResponse) VisitPutRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
 type PutRegistrationToken409JSONResponse externalRef0.ErrorResponse
 
 func (response PutRegistrationToken409JSONResponse) VisitPutRegistrationTokenResponse(ctx *fiber.Ctx) error {
@@ -35288,7 +35645,7 @@ func (response PutRegistrationToken500JSONResponse) VisitPutRegistrationTokenRes
 
 type DeleteResourceRequestObject struct {
 	Kind ResourceKind `json:"kind"`
-	Name string       `json:"name"`
+	Id   string       `json:"id"`
 }
 
 type DeleteResourceResponseObject interface {
@@ -35342,7 +35699,7 @@ func (response DeleteResource500JSONResponse) VisitDeleteResourceResponse(ctx *f
 
 type GetResourceRequestObject struct {
 	Kind ResourceKind `json:"kind"`
-	Name string       `json:"name"`
+	Id   string       `json:"id"`
 }
 
 type GetResourceResponseObject interface {
@@ -35396,7 +35753,7 @@ func (response GetResource501JSONResponse) VisitGetResourceResponse(ctx *fiber.C
 
 type PutResourceRequestObject struct {
 	Kind     ResourceKind `json:"kind"`
-	Name     string       `json:"name"`
+	Id       string       `json:"id"`
 	JSONBody *PutResourceJSONRequestBody
 	Body     io.Reader
 }
@@ -35530,7 +35887,7 @@ func (response CreateRuntimeProfile500JSONResponse) VisitCreateRuntimeProfileRes
 }
 
 type DeleteRuntimeProfileRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type DeleteRuntimeProfileResponseObject interface {
@@ -35565,7 +35922,7 @@ func (response DeleteRuntimeProfile500JSONResponse) VisitDeleteRuntimeProfileRes
 }
 
 type GetRuntimeProfileRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type GetRuntimeProfileResponseObject interface {
@@ -35600,7 +35957,7 @@ func (response GetRuntimeProfile500JSONResponse) VisitGetRuntimeProfileResponse(
 }
 
 type PutRuntimeProfileRequestObject struct {
-	Name string `json:"name"`
+	Id   string `json:"id"`
 	Body *PutRuntimeProfileJSONRequestBody
 }
 
@@ -35622,6 +35979,15 @@ type PutRuntimeProfile400JSONResponse externalRef0.ErrorResponse
 func (response PutRuntimeProfile400JSONResponse) VisitPutRuntimeProfileResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutRuntimeProfile404JSONResponse externalRef0.ErrorResponse
+
+func (response PutRuntimeProfile404JSONResponse) VisitPutRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
@@ -35867,7 +36233,7 @@ type ListFriendGroupsResponseObject interface {
 	VisitListFriendGroupsResponse(ctx *fiber.Ctx) error
 }
 
-type ListFriendGroups200JSONResponse externalRef1.FriendGroupListResponse
+type ListFriendGroups200JSONResponse AdminFriendGroupListResponse
 
 func (response ListFriendGroups200JSONResponse) VisitListFriendGroupsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -35911,7 +36277,7 @@ type CreateFriendGroupResponseObject interface {
 	VisitCreateFriendGroupResponse(ctx *fiber.Ctx) error
 }
 
-type CreateFriendGroup200JSONResponse externalRef1.FriendGroupObject
+type CreateFriendGroup200JSONResponse AdminFriendGroupObject
 
 func (response CreateFriendGroup200JSONResponse) VisitCreateFriendGroupResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -35955,7 +36321,7 @@ type DeleteFriendGroupResponseObject interface {
 	VisitDeleteFriendGroupResponse(ctx *fiber.Ctx) error
 }
 
-type DeleteFriendGroup200JSONResponse externalRef1.FriendGroupObject
+type DeleteFriendGroup200JSONResponse AdminFriendGroupObject
 
 func (response DeleteFriendGroup200JSONResponse) VisitDeleteFriendGroupResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -35999,7 +36365,7 @@ type GetFriendGroupResponseObject interface {
 	VisitGetFriendGroupResponse(ctx *fiber.Ctx) error
 }
 
-type GetFriendGroup200JSONResponse externalRef1.FriendGroupObject
+type GetFriendGroup200JSONResponse AdminFriendGroupObject
 
 func (response GetFriendGroup200JSONResponse) VisitGetFriendGroupResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -36044,7 +36410,7 @@ type PutFriendGroupResponseObject interface {
 	VisitPutFriendGroupResponse(ctx *fiber.Ctx) error
 }
 
-type PutFriendGroup200JSONResponse externalRef1.FriendGroupObject
+type PutFriendGroup200JSONResponse AdminFriendGroupObject
 
 func (response PutFriendGroup200JSONResponse) VisitPutFriendGroupResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -36222,7 +36588,7 @@ type ListFriendGroupMembersResponseObject interface {
 	VisitListFriendGroupMembersResponse(ctx *fiber.Ctx) error
 }
 
-type ListFriendGroupMembers200JSONResponse externalRef1.FriendGroupMemberListResponse
+type ListFriendGroupMembers200JSONResponse AdminFriendGroupMemberListResponse
 
 func (response ListFriendGroupMembers200JSONResponse) VisitListFriendGroupMembersResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -36267,7 +36633,7 @@ type CreateFriendGroupMemberResponseObject interface {
 	VisitCreateFriendGroupMemberResponse(ctx *fiber.Ctx) error
 }
 
-type CreateFriendGroupMember200JSONResponse externalRef1.FriendGroupMemberObject
+type CreateFriendGroupMember200JSONResponse AdminFriendGroupMemberObject
 
 func (response CreateFriendGroupMember200JSONResponse) VisitCreateFriendGroupMemberResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -36312,7 +36678,7 @@ type DeleteFriendGroupMemberResponseObject interface {
 	VisitDeleteFriendGroupMemberResponse(ctx *fiber.Ctx) error
 }
 
-type DeleteFriendGroupMember200JSONResponse externalRef1.FriendGroupMemberObject
+type DeleteFriendGroupMember200JSONResponse AdminFriendGroupMemberObject
 
 func (response DeleteFriendGroupMember200JSONResponse) VisitDeleteFriendGroupMemberResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -36358,7 +36724,7 @@ type PutFriendGroupMemberResponseObject interface {
 	VisitPutFriendGroupMemberResponse(ctx *fiber.Ctx) error
 }
 
-type PutFriendGroupMember200JSONResponse externalRef1.FriendGroupMemberObject
+type PutFriendGroupMember200JSONResponse AdminFriendGroupMemberObject
 
 func (response PutFriendGroupMember200JSONResponse) VisitPutFriendGroupMemberResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -36730,6 +37096,15 @@ func (response PutVoice400JSONResponse) VisitPutVoiceResponse(ctx *fiber.Ctx) er
 	return ctx.JSON(&response)
 }
 
+type PutVoice404JSONResponse externalRef0.ErrorResponse
+
+func (response PutVoice404JSONResponse) VisitPutVoiceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
 type PutVoice409JSONResponse externalRef0.ErrorResponse
 
 func (response PutVoice409JSONResponse) VisitPutVoiceResponse(ctx *fiber.Ctx) error {
@@ -36819,7 +37194,7 @@ func (response CreateVolcTenant500JSONResponse) VisitCreateVolcTenantResponse(ct
 }
 
 type DeleteVolcTenantRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type DeleteVolcTenantResponseObject interface {
@@ -36854,7 +37229,7 @@ func (response DeleteVolcTenant500JSONResponse) VisitDeleteVolcTenantResponse(ct
 }
 
 type GetVolcTenantRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type GetVolcTenantResponseObject interface {
@@ -36889,7 +37264,7 @@ func (response GetVolcTenant500JSONResponse) VisitGetVolcTenantResponse(ctx *fib
 }
 
 type PutVolcTenantRequestObject struct {
-	Name string `json:"name"`
+	Id   string `json:"id"`
 	Body *PutVolcTenantJSONRequestBody
 }
 
@@ -36915,6 +37290,15 @@ func (response PutVolcTenant400JSONResponse) VisitPutVolcTenantResponse(ctx *fib
 	return ctx.JSON(&response)
 }
 
+type PutVolcTenant404JSONResponse externalRef0.ErrorResponse
+
+func (response PutVolcTenant404JSONResponse) VisitPutVolcTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
 type PutVolcTenant500JSONResponse externalRef0.ErrorResponse
 
 func (response PutVolcTenant500JSONResponse) VisitPutVolcTenantResponse(ctx *fiber.Ctx) error {
@@ -36925,7 +37309,7 @@ func (response PutVolcTenant500JSONResponse) VisitPutVolcTenantResponse(ctx *fib
 }
 
 type SyncVolcTenantVoicesRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type SyncVolcTenantVoicesResponseObject interface {
@@ -37029,6 +37413,15 @@ func (response CreateWorkflow400JSONResponse) VisitCreateWorkflowResponse(ctx *f
 	return ctx.JSON(&response)
 }
 
+type CreateWorkflow404JSONResponse externalRef0.ErrorResponse
+
+func (response CreateWorkflow404JSONResponse) VisitCreateWorkflowResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
 type CreateWorkflow409JSONResponse externalRef0.ErrorResponse
 
 func (response CreateWorkflow409JSONResponse) VisitCreateWorkflowResponse(ctx *fiber.Ctx) error {
@@ -37048,7 +37441,7 @@ func (response CreateWorkflow500JSONResponse) VisitCreateWorkflowResponse(ctx *f
 }
 
 type DeleteWorkflowRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type DeleteWorkflowResponseObject interface {
@@ -37083,7 +37476,7 @@ func (response DeleteWorkflow500JSONResponse) VisitDeleteWorkflowResponse(ctx *f
 }
 
 type GetWorkflowRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type GetWorkflowResponseObject interface {
@@ -37118,7 +37511,7 @@ func (response GetWorkflow500JSONResponse) VisitGetWorkflowResponse(ctx *fiber.C
 }
 
 type PutWorkflowRequestObject struct {
-	Name string `json:"name"`
+	Id   string `json:"id"`
 	Body *PutWorkflowJSONRequestBody
 }
 
@@ -37140,6 +37533,15 @@ type PutWorkflow400JSONResponse externalRef0.ErrorResponse
 func (response PutWorkflow400JSONResponse) VisitPutWorkflowResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutWorkflow404JSONResponse externalRef0.ErrorResponse
+
+func (response PutWorkflow404JSONResponse) VisitPutWorkflowResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
@@ -37233,7 +37635,7 @@ func (response CreateWorkspace500JSONResponse) VisitCreateWorkspaceResponse(ctx 
 }
 
 type DeleteWorkspaceRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type DeleteWorkspaceResponseObject interface {
@@ -37277,7 +37679,7 @@ func (response DeleteWorkspace500JSONResponse) VisitDeleteWorkspaceResponse(ctx 
 }
 
 type GetWorkspaceRequestObject struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 }
 
 type GetWorkspaceResponseObject interface {
@@ -37312,7 +37714,7 @@ func (response GetWorkspace500JSONResponse) VisitGetWorkspaceResponse(ctx *fiber
 }
 
 type PutWorkspaceRequestObject struct {
-	Name string `json:"name"`
+	Id   string `json:"id"`
 	Body *PutWorkspaceJSONRequestBody
 }
 
@@ -37338,6 +37740,15 @@ func (response PutWorkspace400JSONResponse) VisitPutWorkspaceResponse(ctx *fiber
 	return ctx.JSON(&response)
 }
 
+type PutWorkspace404JSONResponse externalRef0.ErrorResponse
+
+func (response PutWorkspace404JSONResponse) VisitPutWorkspaceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
 type PutWorkspace409JSONResponse externalRef0.ErrorResponse
 
 func (response PutWorkspace409JSONResponse) VisitPutWorkspaceResponse(ctx *fiber.Ctx) error {
@@ -37357,7 +37768,7 @@ func (response PutWorkspace500JSONResponse) VisitPutWorkspaceResponse(ctx *fiber
 }
 
 type ListWorkspaceHistoryRequestObject struct {
-	Name   string `json:"name"`
+	Id     string `json:"id"`
 	Params ListWorkspaceHistoryParams
 }
 
@@ -37402,7 +37813,7 @@ func (response ListWorkspaceHistory500JSONResponse) VisitListWorkspaceHistoryRes
 }
 
 type GetWorkspaceHistoryRequestObject struct {
-	Name      string `json:"name"`
+	Id        string `json:"id"`
 	HistoryId string `json:"historyId"`
 }
 
@@ -37447,7 +37858,7 @@ func (response GetWorkspaceHistory500JSONResponse) VisitGetWorkspaceHistoryRespo
 }
 
 type DownloadWorkspaceHistoryAudioRequestObject struct {
-	Name      string `json:"name"`
+	Id        string `json:"id"`
 	HistoryId string `json:"historyId"`
 }
 
@@ -37502,7 +37913,7 @@ func (response DownloadWorkspaceHistoryAudio500JSONResponse) VisitDownloadWorksp
 }
 
 type DeleteWorkspaceIconRequestObject struct {
-	Name   string                          `json:"name"`
+	Id     string                          `json:"id"`
 	Format DeleteWorkspaceIconParamsFormat `json:"format"`
 }
 
@@ -37538,7 +37949,7 @@ func (response DeleteWorkspaceIcon500JSONResponse) VisitDeleteWorkspaceIconRespo
 }
 
 type DownloadWorkspaceIconRequestObject struct {
-	Name   string                            `json:"name"`
+	Id     string                            `json:"id"`
 	Format DownloadWorkspaceIconParamsFormat `json:"format"`
 }
 
@@ -37603,7 +38014,7 @@ func (response DownloadWorkspaceIcon500JSONResponse) VisitDownloadWorkspaceIconR
 }
 
 type UploadWorkspaceIconRequestObject struct {
-	Name   string                          `json:"name"`
+	Id     string                          `json:"id"`
 	Format UploadWorkspaceIconParamsFormat `json:"format"`
 	Body   io.Reader
 }
@@ -37674,7 +38085,7 @@ type StrictServerInterface interface {
 	// Get a BadgeDef
 	// (GET /badge-defs/{id})
 	GetBadgeDef(ctx context.Context, request GetBadgeDefRequestObject) (GetBadgeDefResponseObject, error)
-	// Create or update a BadgeDef
+	// Update a BadgeDef
 	// (PUT /badge-defs/{id})
 	PutBadgeDef(ctx context.Context, request PutBadgeDefRequestObject) (PutBadgeDefResponseObject, error)
 	// Download BadgeDefPixa
@@ -37690,13 +38101,13 @@ type StrictServerInterface interface {
 	// (POST /credentials)
 	CreateCredential(ctx context.Context, request CreateCredentialRequestObject) (CreateCredentialResponseObject, error)
 	// Delete a credential
-	// (DELETE /credentials/{name})
+	// (DELETE /credentials/{id})
 	DeleteCredential(ctx context.Context, request DeleteCredentialRequestObject) (DeleteCredentialResponseObject, error)
 	// Get a credential
-	// (GET /credentials/{name})
+	// (GET /credentials/{id})
 	GetCredential(ctx context.Context, request GetCredentialRequestObject) (GetCredentialResponseObject, error)
 	// Create or update a credential
-	// (PUT /credentials/{name})
+	// (PUT /credentials/{id})
 	PutCredential(ctx context.Context, request PutCredentialRequestObject) (PutCredentialResponseObject, error)
 	// List all DashScope tenants
 	// (GET /dashscope-tenants)
@@ -37705,13 +38116,13 @@ type StrictServerInterface interface {
 	// (POST /dashscope-tenants)
 	CreateDashScopeTenant(ctx context.Context, request CreateDashScopeTenantRequestObject) (CreateDashScopeTenantResponseObject, error)
 	// Delete a DashScope tenant
-	// (DELETE /dashscope-tenants/{name})
+	// (DELETE /dashscope-tenants/{id})
 	DeleteDashScopeTenant(ctx context.Context, request DeleteDashScopeTenantRequestObject) (DeleteDashScopeTenantResponseObject, error)
 	// Get a DashScope tenant
-	// (GET /dashscope-tenants/{name})
+	// (GET /dashscope-tenants/{id})
 	GetDashScopeTenant(ctx context.Context, request GetDashScopeTenantRequestObject) (GetDashScopeTenantResponseObject, error)
-	// Create or update a DashScope tenant
-	// (PUT /dashscope-tenants/{name})
+	// Update a DashScope tenant
+	// (PUT /dashscope-tenants/{id})
 	PutDashScopeTenant(ctx context.Context, request PutDashScopeTenantRequestObject) (PutDashScopeTenantResponseObject, error)
 	// List all DeepSeek tenants
 	// (GET /deepseek-tenants)
@@ -37720,13 +38131,13 @@ type StrictServerInterface interface {
 	// (POST /deepseek-tenants)
 	CreateDeepSeekTenant(ctx context.Context, request CreateDeepSeekTenantRequestObject) (CreateDeepSeekTenantResponseObject, error)
 	// Delete a DeepSeek tenant
-	// (DELETE /deepseek-tenants/{name})
+	// (DELETE /deepseek-tenants/{id})
 	DeleteDeepSeekTenant(ctx context.Context, request DeleteDeepSeekTenantRequestObject) (DeleteDeepSeekTenantResponseObject, error)
 	// Get a DeepSeek tenant
-	// (GET /deepseek-tenants/{name})
+	// (GET /deepseek-tenants/{id})
 	GetDeepSeekTenant(ctx context.Context, request GetDeepSeekTenantRequestObject) (GetDeepSeekTenantResponseObject, error)
 	// Create or update a DeepSeek tenant
-	// (PUT /deepseek-tenants/{name})
+	// (PUT /deepseek-tenants/{id})
 	PutDeepSeekTenant(ctx context.Context, request PutDeepSeekTenantRequestObject) (PutDeepSeekTenantResponseObject, error)
 	// List firmwares
 	// (GET /firmwares)
@@ -37735,40 +38146,40 @@ type StrictServerInterface interface {
 	// (POST /firmwares)
 	CreateFirmware(ctx context.Context, request CreateFirmwareRequestObject) (CreateFirmwareResponseObject, error)
 	// Delete a firmware release line
-	// (DELETE /firmwares/{name})
+	// (DELETE /firmwares/{id})
 	DeleteFirmware(ctx context.Context, request DeleteFirmwareRequestObject) (DeleteFirmwareResponseObject, error)
 	// Get a firmware release line
-	// (GET /firmwares/{name})
+	// (GET /firmwares/{id})
 	GetFirmware(ctx context.Context, request GetFirmwareRequestObject) (GetFirmwareResponseObject, error)
-	// Create or update a firmware release line
-	// (PUT /firmwares/{name})
+	// Update a firmware release line
+	// (PUT /firmwares/{id})
 	PutFirmware(ctx context.Context, request PutFirmwareRequestObject) (PutFirmwareResponseObject, error)
 	// Promote firmware slots
-	// (POST /firmwares/{name}/@release)
+	// (POST /firmwares/{id}/@release)
 	ReleaseFirmware(ctx context.Context, request ReleaseFirmwareRequestObject) (ReleaseFirmwareResponseObject, error)
 	// Rollback firmware stable slot
-	// (POST /firmwares/{name}/@rollback)
+	// (POST /firmwares/{id}/@rollback)
 	RollbackFirmware(ctx context.Context, request RollbackFirmwareRequestObject) (RollbackFirmwareResponseObject, error)
 	// Delete a firmware channel artifact
-	// (DELETE /firmwares/{name}/packages/{channel}/artifact.tar)
+	// (DELETE /firmwares/{id}/packages/{channel}/artifact.tar)
 	DeleteFirmwareArtifact(ctx context.Context, request DeleteFirmwareArtifactRequestObject) (DeleteFirmwareArtifactResponseObject, error)
 	// Download a firmware channel artifact tar
-	// (GET /firmwares/{name}/packages/{channel}/artifact.tar)
+	// (GET /firmwares/{id}/packages/{channel}/artifact.tar)
 	DownloadFirmwareArtifact(ctx context.Context, request DownloadFirmwareArtifactRequestObject) (DownloadFirmwareArtifactResponseObject, error)
 	// Upload a firmware channel artifact tar
-	// (PUT /firmwares/{name}/packages/{channel}/artifact.tar)
+	// (PUT /firmwares/{id}/packages/{channel}/artifact.tar)
 	UploadFirmwareArtifact(ctx context.Context, request UploadFirmwareArtifactRequestObject) (UploadFirmwareArtifactResponseObject, error)
 	// Download one firmware artifact entry
-	// (GET /firmwares/{name}/packages/{channel}/artifact/dl)
+	// (GET /firmwares/{id}/packages/{channel}/artifact/dl)
 	DownloadFirmwareArtifactEntry(ctx context.Context, request DownloadFirmwareArtifactEntryRequestObject) (DownloadFirmwareArtifactEntryResponseObject, error)
 	// List firmware artifact entries
-	// (GET /firmwares/{name}/packages/{channel}/artifact/ls)
+	// (GET /firmwares/{id}/packages/{channel}/artifact/ls)
 	ListFirmwareArtifactEntries(ctx context.Context, request ListFirmwareArtifactEntriesRequestObject) (ListFirmwareArtifactEntriesResponseObject, error)
 	// Stat a firmware artifact or entry
-	// (GET /firmwares/{name}/packages/{channel}/artifact/stat)
+	// (GET /firmwares/{id}/packages/{channel}/artifact/stat)
 	StatFirmwareArtifactEntry(ctx context.Context, request StatFirmwareArtifactEntryRequestObject) (StatFirmwareArtifactEntryResponseObject, error)
 	// Return firmware artifact tree entries
-	// (GET /firmwares/{name}/packages/{channel}/artifact/tree)
+	// (GET /firmwares/{id}/packages/{channel}/artifact/tree)
 	TreeFirmwareArtifactEntries(ctx context.Context, request TreeFirmwareArtifactEntriesRequestObject) (TreeFirmwareArtifactEntriesResponseObject, error)
 	// List GameDefs
 	// (GET /game-defs)
@@ -37782,7 +38193,7 @@ type StrictServerInterface interface {
 	// Get a GameDef
 	// (GET /game-defs/{id})
 	GetGameDef(ctx context.Context, request GetGameDefRequestObject) (GetGameDefResponseObject, error)
-	// Create or update a GameDef
+	// Update a GameDef
 	// (PUT /game-defs/{id})
 	PutGameDef(ctx context.Context, request PutGameDefRequestObject) (PutGameDefResponseObject, error)
 	// Delete a GameDef icon
@@ -37801,13 +38212,13 @@ type StrictServerInterface interface {
 	// (POST /gemini-tenants)
 	CreateGeminiTenant(ctx context.Context, request CreateGeminiTenantRequestObject) (CreateGeminiTenantResponseObject, error)
 	// Delete a Gemini tenant
-	// (DELETE /gemini-tenants/{name})
+	// (DELETE /gemini-tenants/{id})
 	DeleteGeminiTenant(ctx context.Context, request DeleteGeminiTenantRequestObject) (DeleteGeminiTenantResponseObject, error)
 	// Get a Gemini tenant
-	// (GET /gemini-tenants/{name})
+	// (GET /gemini-tenants/{id})
 	GetGeminiTenant(ctx context.Context, request GetGeminiTenantRequestObject) (GetGeminiTenantResponseObject, error)
-	// Create or update a Gemini tenant
-	// (PUT /gemini-tenants/{name})
+	// Update a Gemini tenant
+	// (PUT /gemini-tenants/{id})
 	PutGeminiTenant(ctx context.Context, request PutGeminiTenantRequestObject) (PutGeminiTenantResponseObject, error)
 	// Stream server log query results
 	// (GET /logs/stream)
@@ -37819,13 +38230,13 @@ type StrictServerInterface interface {
 	// (POST /memory-layouts)
 	CreateMemoryLayout(ctx context.Context, request CreateMemoryLayoutRequestObject) (CreateMemoryLayoutResponseObject, error)
 	// Delete a memory layout
-	// (DELETE /memory-layouts/{name})
+	// (DELETE /memory-layouts/{id})
 	DeleteMemoryLayout(ctx context.Context, request DeleteMemoryLayoutRequestObject) (DeleteMemoryLayoutResponseObject, error)
 	// Get a memory layout
-	// (GET /memory-layouts/{name})
+	// (GET /memory-layouts/{id})
 	GetMemoryLayout(ctx context.Context, request GetMemoryLayoutRequestObject) (GetMemoryLayoutResponseObject, error)
-	// Create or update a memory layout
-	// (PUT /memory-layouts/{name})
+	// Update a memory layout
+	// (PUT /memory-layouts/{id})
 	PutMemoryLayout(ctx context.Context, request PutMemoryLayoutRequestObject) (PutMemoryLayoutResponseObject, error)
 	// List all MiniMax tenants
 	// (GET /minimax-tenants)
@@ -37834,16 +38245,16 @@ type StrictServerInterface interface {
 	// (POST /minimax-tenants)
 	CreateMiniMaxTenant(ctx context.Context, request CreateMiniMaxTenantRequestObject) (CreateMiniMaxTenantResponseObject, error)
 	// Delete a MiniMax tenant
-	// (DELETE /minimax-tenants/{name})
+	// (DELETE /minimax-tenants/{id})
 	DeleteMiniMaxTenant(ctx context.Context, request DeleteMiniMaxTenantRequestObject) (DeleteMiniMaxTenantResponseObject, error)
 	// Get a MiniMax tenant
-	// (GET /minimax-tenants/{name})
+	// (GET /minimax-tenants/{id})
 	GetMiniMaxTenant(ctx context.Context, request GetMiniMaxTenantRequestObject) (GetMiniMaxTenantResponseObject, error)
-	// Create or update a MiniMax tenant
-	// (PUT /minimax-tenants/{name})
+	// Update a MiniMax tenant
+	// (PUT /minimax-tenants/{id})
 	PutMiniMaxTenant(ctx context.Context, request PutMiniMaxTenantRequestObject) (PutMiniMaxTenantResponseObject, error)
 	// Sync voices from a MiniMax tenant into the global voice catalog
-	// (POST /minimax-tenants/{name}/@sync-voices)
+	// (POST /minimax-tenants/{id}/@sync-voices)
 	SyncMiniMaxTenantVoices(ctx context.Context, request SyncMiniMaxTenantVoicesRequestObject) (SyncMiniMaxTenantVoicesResponseObject, error)
 	// List all models
 	// (GET /models)
@@ -37867,13 +38278,13 @@ type StrictServerInterface interface {
 	// (POST /openai-tenants)
 	CreateOpenAITenant(ctx context.Context, request CreateOpenAITenantRequestObject) (CreateOpenAITenantResponseObject, error)
 	// Delete an OpenAI-compatible tenant
-	// (DELETE /openai-tenants/{name})
+	// (DELETE /openai-tenants/{id})
 	DeleteOpenAITenant(ctx context.Context, request DeleteOpenAITenantRequestObject) (DeleteOpenAITenantResponseObject, error)
 	// Get an OpenAI-compatible tenant
-	// (GET /openai-tenants/{name})
+	// (GET /openai-tenants/{id})
 	GetOpenAITenant(ctx context.Context, request GetOpenAITenantRequestObject) (GetOpenAITenantResponseObject, error)
-	// Create or update an OpenAI-compatible tenant
-	// (PUT /openai-tenants/{name})
+	// Update an OpenAI-compatible tenant
+	// (PUT /openai-tenants/{id})
 	PutOpenAITenant(ctx context.Context, request PutOpenAITenantRequestObject) (PutOpenAITenantResponseObject, error)
 	// List all peers
 	// (GET /peers)
@@ -37977,7 +38388,7 @@ type StrictServerInterface interface {
 	// Get a PetDef
 	// (GET /pet-defs/{id})
 	GetPetDef(ctx context.Context, request GetPetDefRequestObject) (GetPetDefResponseObject, error)
-	// Create or update a PetDef
+	// Update a PetDef
 	// (PUT /pet-defs/{id})
 	PutPetDef(ctx context.Context, request PutPetDefRequestObject) (PutPetDefResponseObject, error)
 	// Download PetDefPixa
@@ -37993,22 +38404,22 @@ type StrictServerInterface interface {
 	// (POST /registration-tokens)
 	CreateRegistrationToken(ctx context.Context, request CreateRegistrationTokenRequestObject) (CreateRegistrationTokenResponseObject, error)
 	// Delete a RegistrationToken
-	// (DELETE /registration-tokens/{name})
+	// (DELETE /registration-tokens/{id})
 	DeleteRegistrationToken(ctx context.Context, request DeleteRegistrationTokenRequestObject) (DeleteRegistrationTokenResponseObject, error)
 	// Get a RegistrationToken
-	// (GET /registration-tokens/{name})
+	// (GET /registration-tokens/{id})
 	GetRegistrationToken(ctx context.Context, request GetRegistrationTokenRequestObject) (GetRegistrationTokenResponseObject, error)
-	// Create or update a RegistrationToken
-	// (PUT /registration-tokens/{name})
+	// Update a RegistrationToken
+	// (PUT /registration-tokens/{id})
 	PutRegistrationToken(ctx context.Context, request PutRegistrationTokenRequestObject) (PutRegistrationTokenResponseObject, error)
 	// Delete an admin resource
-	// (DELETE /resources/{kind}/{name})
+	// (DELETE /resources/{kind}/{id})
 	DeleteResource(ctx context.Context, request DeleteResourceRequestObject) (DeleteResourceResponseObject, error)
 	// Get an admin resource
-	// (GET /resources/{kind}/{name})
+	// (GET /resources/{kind}/{id})
 	GetResource(ctx context.Context, request GetResourceRequestObject) (GetResourceResponseObject, error)
 	// Create or update an admin resource
-	// (PUT /resources/{kind}/{name})
+	// (PUT /resources/{kind}/{id})
 	PutResource(ctx context.Context, request PutResourceRequestObject) (PutResourceResponseObject, error)
 	// List RuntimeProfiles
 	// (GET /runtime-profiles)
@@ -38017,13 +38428,13 @@ type StrictServerInterface interface {
 	// (POST /runtime-profiles)
 	CreateRuntimeProfile(ctx context.Context, request CreateRuntimeProfileRequestObject) (CreateRuntimeProfileResponseObject, error)
 	// Delete a RuntimeProfile
-	// (DELETE /runtime-profiles/{name})
+	// (DELETE /runtime-profiles/{id})
 	DeleteRuntimeProfile(ctx context.Context, request DeleteRuntimeProfileRequestObject) (DeleteRuntimeProfileResponseObject, error)
 	// Get a RuntimeProfile
-	// (GET /runtime-profiles/{name})
+	// (GET /runtime-profiles/{id})
 	GetRuntimeProfile(ctx context.Context, request GetRuntimeProfileRequestObject) (GetRuntimeProfileResponseObject, error)
-	// Create or update a RuntimeProfile
-	// (PUT /runtime-profiles/{name})
+	// Update a RuntimeProfile
+	// (PUT /runtime-profiles/{id})
 	PutRuntimeProfile(ctx context.Context, request PutRuntimeProfileRequestObject) (PutRuntimeProfileResponseObject, error)
 	// List global contacts
 	// (GET /social/contacts)
@@ -38110,16 +38521,16 @@ type StrictServerInterface interface {
 	// (POST /volc-tenants)
 	CreateVolcTenant(ctx context.Context, request CreateVolcTenantRequestObject) (CreateVolcTenantResponseObject, error)
 	// Delete a Volcengine tenant
-	// (DELETE /volc-tenants/{name})
+	// (DELETE /volc-tenants/{id})
 	DeleteVolcTenant(ctx context.Context, request DeleteVolcTenantRequestObject) (DeleteVolcTenantResponseObject, error)
 	// Get a Volcengine tenant
-	// (GET /volc-tenants/{name})
+	// (GET /volc-tenants/{id})
 	GetVolcTenant(ctx context.Context, request GetVolcTenantRequestObject) (GetVolcTenantResponseObject, error)
-	// Create or update a Volcengine tenant
-	// (PUT /volc-tenants/{name})
+	// Update a Volcengine tenant
+	// (PUT /volc-tenants/{id})
 	PutVolcTenant(ctx context.Context, request PutVolcTenantRequestObject) (PutVolcTenantResponseObject, error)
 	// Sync voices from a Volcengine tenant into the global voice catalog
-	// (POST /volc-tenants/{name}/@sync-voices)
+	// (POST /volc-tenants/{id}/@sync-voices)
 	SyncVolcTenantVoices(ctx context.Context, request SyncVolcTenantVoicesRequestObject) (SyncVolcTenantVoicesResponseObject, error)
 	// List all workflows
 	// (GET /workflows)
@@ -38128,13 +38539,13 @@ type StrictServerInterface interface {
 	// (POST /workflows)
 	CreateWorkflow(ctx context.Context, request CreateWorkflowRequestObject) (CreateWorkflowResponseObject, error)
 	// Delete a workflow
-	// (DELETE /workflows/{name})
+	// (DELETE /workflows/{id})
 	DeleteWorkflow(ctx context.Context, request DeleteWorkflowRequestObject) (DeleteWorkflowResponseObject, error)
 	// Get a workflow
-	// (GET /workflows/{name})
+	// (GET /workflows/{id})
 	GetWorkflow(ctx context.Context, request GetWorkflowRequestObject) (GetWorkflowResponseObject, error)
 	// Create or update a workflow
-	// (PUT /workflows/{name})
+	// (PUT /workflows/{id})
 	PutWorkflow(ctx context.Context, request PutWorkflowRequestObject) (PutWorkflowResponseObject, error)
 	// List all workspaces
 	// (GET /workspaces)
@@ -38143,31 +38554,31 @@ type StrictServerInterface interface {
 	// (POST /workspaces)
 	CreateWorkspace(ctx context.Context, request CreateWorkspaceRequestObject) (CreateWorkspaceResponseObject, error)
 	// Delete a workspace
-	// (DELETE /workspaces/{name})
+	// (DELETE /workspaces/{id})
 	DeleteWorkspace(ctx context.Context, request DeleteWorkspaceRequestObject) (DeleteWorkspaceResponseObject, error)
 	// Get a workspace
-	// (GET /workspaces/{name})
+	// (GET /workspaces/{id})
 	GetWorkspace(ctx context.Context, request GetWorkspaceRequestObject) (GetWorkspaceResponseObject, error)
-	// Create or update a workspace
-	// (PUT /workspaces/{name})
+	// Update a workspace
+	// (PUT /workspaces/{id})
 	PutWorkspace(ctx context.Context, request PutWorkspaceRequestObject) (PutWorkspaceResponseObject, error)
 	// List workspace history without requiring an active runtime connection
-	// (GET /workspaces/{name}/history)
+	// (GET /workspaces/{id}/history)
 	ListWorkspaceHistory(ctx context.Context, request ListWorkspaceHistoryRequestObject) (ListWorkspaceHistoryResponseObject, error)
 	// Get one workspace history entry
-	// (GET /workspaces/{name}/history/{historyId})
+	// (GET /workspaces/{id}/history/{historyId})
 	GetWorkspaceHistory(ctx context.Context, request GetWorkspaceHistoryRequestObject) (GetWorkspaceHistoryResponseObject, error)
 	// Download workspace history audio as Ogg Opus
-	// (GET /workspaces/{name}/history/{historyId}/audio.ogg)
+	// (GET /workspaces/{id}/history/{historyId}/audio.ogg)
 	DownloadWorkspaceHistoryAudio(ctx context.Context, request DownloadWorkspaceHistoryAudioRequestObject) (DownloadWorkspaceHistoryAudioResponseObject, error)
 	// Delete a workspace icon
-	// (DELETE /workspaces/{name}/icon/{format})
+	// (DELETE /workspaces/{id}/icon/{format})
 	DeleteWorkspaceIcon(ctx context.Context, request DeleteWorkspaceIconRequestObject) (DeleteWorkspaceIconResponseObject, error)
 	// Download a workspace icon
-	// (GET /workspaces/{name}/icon/{format})
+	// (GET /workspaces/{id}/icon/{format})
 	DownloadWorkspaceIcon(ctx context.Context, request DownloadWorkspaceIconRequestObject) (DownloadWorkspaceIconResponseObject, error)
 	// Upload or replace a workspace icon
-	// (PUT /workspaces/{name}/icon/{format})
+	// (PUT /workspaces/{id}/icon/{format})
 	UploadWorkspaceIcon(ctx context.Context, request UploadWorkspaceIconRequestObject) (UploadWorkspaceIconResponseObject, error)
 }
 
@@ -38490,10 +38901,10 @@ func (sh *strictHandler) CreateCredential(ctx *fiber.Ctx) error {
 }
 
 // DeleteCredential operation middleware
-func (sh *strictHandler) DeleteCredential(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) DeleteCredential(ctx *fiber.Ctx, id string) error {
 	var request DeleteCredentialRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteCredential(ctx.UserContext(), request.(DeleteCredentialRequestObject))
@@ -38517,10 +38928,10 @@ func (sh *strictHandler) DeleteCredential(ctx *fiber.Ctx, name string) error {
 }
 
 // GetCredential operation middleware
-func (sh *strictHandler) GetCredential(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) GetCredential(ctx *fiber.Ctx, id string) error {
 	var request GetCredentialRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetCredential(ctx.UserContext(), request.(GetCredentialRequestObject))
@@ -38544,10 +38955,10 @@ func (sh *strictHandler) GetCredential(ctx *fiber.Ctx, name string) error {
 }
 
 // PutCredential operation middleware
-func (sh *strictHandler) PutCredential(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) PutCredential(ctx *fiber.Ctx, id string) error {
 	var request PutCredentialRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	var body PutCredentialJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
@@ -38635,10 +39046,10 @@ func (sh *strictHandler) CreateDashScopeTenant(ctx *fiber.Ctx) error {
 }
 
 // DeleteDashScopeTenant operation middleware
-func (sh *strictHandler) DeleteDashScopeTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) DeleteDashScopeTenant(ctx *fiber.Ctx, id string) error {
 	var request DeleteDashScopeTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteDashScopeTenant(ctx.UserContext(), request.(DeleteDashScopeTenantRequestObject))
@@ -38662,10 +39073,10 @@ func (sh *strictHandler) DeleteDashScopeTenant(ctx *fiber.Ctx, name string) erro
 }
 
 // GetDashScopeTenant operation middleware
-func (sh *strictHandler) GetDashScopeTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) GetDashScopeTenant(ctx *fiber.Ctx, id string) error {
 	var request GetDashScopeTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetDashScopeTenant(ctx.UserContext(), request.(GetDashScopeTenantRequestObject))
@@ -38689,10 +39100,10 @@ func (sh *strictHandler) GetDashScopeTenant(ctx *fiber.Ctx, name string) error {
 }
 
 // PutDashScopeTenant operation middleware
-func (sh *strictHandler) PutDashScopeTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) PutDashScopeTenant(ctx *fiber.Ctx, id string) error {
 	var request PutDashScopeTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	var body PutDashScopeTenantJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
@@ -38780,10 +39191,10 @@ func (sh *strictHandler) CreateDeepSeekTenant(ctx *fiber.Ctx) error {
 }
 
 // DeleteDeepSeekTenant operation middleware
-func (sh *strictHandler) DeleteDeepSeekTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) DeleteDeepSeekTenant(ctx *fiber.Ctx, id string) error {
 	var request DeleteDeepSeekTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteDeepSeekTenant(ctx.UserContext(), request.(DeleteDeepSeekTenantRequestObject))
@@ -38807,10 +39218,10 @@ func (sh *strictHandler) DeleteDeepSeekTenant(ctx *fiber.Ctx, name string) error
 }
 
 // GetDeepSeekTenant operation middleware
-func (sh *strictHandler) GetDeepSeekTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) GetDeepSeekTenant(ctx *fiber.Ctx, id string) error {
 	var request GetDeepSeekTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetDeepSeekTenant(ctx.UserContext(), request.(GetDeepSeekTenantRequestObject))
@@ -38834,10 +39245,10 @@ func (sh *strictHandler) GetDeepSeekTenant(ctx *fiber.Ctx, name string) error {
 }
 
 // PutDeepSeekTenant operation middleware
-func (sh *strictHandler) PutDeepSeekTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) PutDeepSeekTenant(ctx *fiber.Ctx, id string) error {
 	var request PutDeepSeekTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	var body PutDeepSeekTenantJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
@@ -38925,10 +39336,10 @@ func (sh *strictHandler) CreateFirmware(ctx *fiber.Ctx) error {
 }
 
 // DeleteFirmware operation middleware
-func (sh *strictHandler) DeleteFirmware(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) DeleteFirmware(ctx *fiber.Ctx, id string) error {
 	var request DeleteFirmwareRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteFirmware(ctx.UserContext(), request.(DeleteFirmwareRequestObject))
@@ -38952,10 +39363,10 @@ func (sh *strictHandler) DeleteFirmware(ctx *fiber.Ctx, name string) error {
 }
 
 // GetFirmware operation middleware
-func (sh *strictHandler) GetFirmware(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) GetFirmware(ctx *fiber.Ctx, id string) error {
 	var request GetFirmwareRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetFirmware(ctx.UserContext(), request.(GetFirmwareRequestObject))
@@ -38979,10 +39390,10 @@ func (sh *strictHandler) GetFirmware(ctx *fiber.Ctx, name string) error {
 }
 
 // PutFirmware operation middleware
-func (sh *strictHandler) PutFirmware(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) PutFirmware(ctx *fiber.Ctx, id string) error {
 	var request PutFirmwareRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	var body PutFirmwareJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
@@ -39012,10 +39423,10 @@ func (sh *strictHandler) PutFirmware(ctx *fiber.Ctx, name string) error {
 }
 
 // ReleaseFirmware operation middleware
-func (sh *strictHandler) ReleaseFirmware(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) ReleaseFirmware(ctx *fiber.Ctx, id string) error {
 	var request ReleaseFirmwareRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.ReleaseFirmware(ctx.UserContext(), request.(ReleaseFirmwareRequestObject))
@@ -39039,10 +39450,10 @@ func (sh *strictHandler) ReleaseFirmware(ctx *fiber.Ctx, name string) error {
 }
 
 // RollbackFirmware operation middleware
-func (sh *strictHandler) RollbackFirmware(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) RollbackFirmware(ctx *fiber.Ctx, id string) error {
 	var request RollbackFirmwareRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.RollbackFirmware(ctx.UserContext(), request.(RollbackFirmwareRequestObject))
@@ -39066,10 +39477,10 @@ func (sh *strictHandler) RollbackFirmware(ctx *fiber.Ctx, name string) error {
 }
 
 // DeleteFirmwareArtifact operation middleware
-func (sh *strictHandler) DeleteFirmwareArtifact(ctx *fiber.Ctx, name string, channel DeleteFirmwareArtifactParamsChannel) error {
+func (sh *strictHandler) DeleteFirmwareArtifact(ctx *fiber.Ctx, id string, channel DeleteFirmwareArtifactParamsChannel) error {
 	var request DeleteFirmwareArtifactRequestObject
 
-	request.Name = name
+	request.Id = id
 	request.Channel = channel
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
@@ -39094,10 +39505,10 @@ func (sh *strictHandler) DeleteFirmwareArtifact(ctx *fiber.Ctx, name string, cha
 }
 
 // DownloadFirmwareArtifact operation middleware
-func (sh *strictHandler) DownloadFirmwareArtifact(ctx *fiber.Ctx, name string, channel DownloadFirmwareArtifactParamsChannel) error {
+func (sh *strictHandler) DownloadFirmwareArtifact(ctx *fiber.Ctx, id string, channel DownloadFirmwareArtifactParamsChannel) error {
 	var request DownloadFirmwareArtifactRequestObject
 
-	request.Name = name
+	request.Id = id
 	request.Channel = channel
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
@@ -39122,10 +39533,10 @@ func (sh *strictHandler) DownloadFirmwareArtifact(ctx *fiber.Ctx, name string, c
 }
 
 // UploadFirmwareArtifact operation middleware
-func (sh *strictHandler) UploadFirmwareArtifact(ctx *fiber.Ctx, name string, channel UploadFirmwareArtifactParamsChannel) error {
+func (sh *strictHandler) UploadFirmwareArtifact(ctx *fiber.Ctx, id string, channel UploadFirmwareArtifactParamsChannel) error {
 	var request UploadFirmwareArtifactRequestObject
 
-	request.Name = name
+	request.Id = id
 	request.Channel = channel
 
 	body := ctx.Context().RequestBodyStream()
@@ -39156,10 +39567,10 @@ func (sh *strictHandler) UploadFirmwareArtifact(ctx *fiber.Ctx, name string, cha
 }
 
 // DownloadFirmwareArtifactEntry operation middleware
-func (sh *strictHandler) DownloadFirmwareArtifactEntry(ctx *fiber.Ctx, name string, channel DownloadFirmwareArtifactEntryParamsChannel, params DownloadFirmwareArtifactEntryParams) error {
+func (sh *strictHandler) DownloadFirmwareArtifactEntry(ctx *fiber.Ctx, id string, channel DownloadFirmwareArtifactEntryParamsChannel, params DownloadFirmwareArtifactEntryParams) error {
 	var request DownloadFirmwareArtifactEntryRequestObject
 
-	request.Name = name
+	request.Id = id
 	request.Channel = channel
 	request.Params = params
 
@@ -39185,10 +39596,10 @@ func (sh *strictHandler) DownloadFirmwareArtifactEntry(ctx *fiber.Ctx, name stri
 }
 
 // ListFirmwareArtifactEntries operation middleware
-func (sh *strictHandler) ListFirmwareArtifactEntries(ctx *fiber.Ctx, name string, channel ListFirmwareArtifactEntriesParamsChannel, params ListFirmwareArtifactEntriesParams) error {
+func (sh *strictHandler) ListFirmwareArtifactEntries(ctx *fiber.Ctx, id string, channel ListFirmwareArtifactEntriesParamsChannel, params ListFirmwareArtifactEntriesParams) error {
 	var request ListFirmwareArtifactEntriesRequestObject
 
-	request.Name = name
+	request.Id = id
 	request.Channel = channel
 	request.Params = params
 
@@ -39214,10 +39625,10 @@ func (sh *strictHandler) ListFirmwareArtifactEntries(ctx *fiber.Ctx, name string
 }
 
 // StatFirmwareArtifactEntry operation middleware
-func (sh *strictHandler) StatFirmwareArtifactEntry(ctx *fiber.Ctx, name string, channel StatFirmwareArtifactEntryParamsChannel, params StatFirmwareArtifactEntryParams) error {
+func (sh *strictHandler) StatFirmwareArtifactEntry(ctx *fiber.Ctx, id string, channel StatFirmwareArtifactEntryParamsChannel, params StatFirmwareArtifactEntryParams) error {
 	var request StatFirmwareArtifactEntryRequestObject
 
-	request.Name = name
+	request.Id = id
 	request.Channel = channel
 	request.Params = params
 
@@ -39243,10 +39654,10 @@ func (sh *strictHandler) StatFirmwareArtifactEntry(ctx *fiber.Ctx, name string, 
 }
 
 // TreeFirmwareArtifactEntries operation middleware
-func (sh *strictHandler) TreeFirmwareArtifactEntries(ctx *fiber.Ctx, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params TreeFirmwareArtifactEntriesParams) error {
+func (sh *strictHandler) TreeFirmwareArtifactEntries(ctx *fiber.Ctx, id string, channel TreeFirmwareArtifactEntriesParamsChannel, params TreeFirmwareArtifactEntriesParams) error {
 	var request TreeFirmwareArtifactEntriesRequestObject
 
-	request.Name = name
+	request.Id = id
 	request.Channel = channel
 	request.Params = params
 
@@ -39565,10 +39976,10 @@ func (sh *strictHandler) CreateGeminiTenant(ctx *fiber.Ctx) error {
 }
 
 // DeleteGeminiTenant operation middleware
-func (sh *strictHandler) DeleteGeminiTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) DeleteGeminiTenant(ctx *fiber.Ctx, id string) error {
 	var request DeleteGeminiTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteGeminiTenant(ctx.UserContext(), request.(DeleteGeminiTenantRequestObject))
@@ -39592,10 +40003,10 @@ func (sh *strictHandler) DeleteGeminiTenant(ctx *fiber.Ctx, name string) error {
 }
 
 // GetGeminiTenant operation middleware
-func (sh *strictHandler) GetGeminiTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) GetGeminiTenant(ctx *fiber.Ctx, id string) error {
 	var request GetGeminiTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetGeminiTenant(ctx.UserContext(), request.(GetGeminiTenantRequestObject))
@@ -39619,10 +40030,10 @@ func (sh *strictHandler) GetGeminiTenant(ctx *fiber.Ctx, name string) error {
 }
 
 // PutGeminiTenant operation middleware
-func (sh *strictHandler) PutGeminiTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) PutGeminiTenant(ctx *fiber.Ctx, id string) error {
 	var request PutGeminiTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	var body PutGeminiTenantJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
@@ -39737,10 +40148,10 @@ func (sh *strictHandler) CreateMemoryLayout(ctx *fiber.Ctx) error {
 }
 
 // DeleteMemoryLayout operation middleware
-func (sh *strictHandler) DeleteMemoryLayout(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) DeleteMemoryLayout(ctx *fiber.Ctx, id string) error {
 	var request DeleteMemoryLayoutRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteMemoryLayout(ctx.UserContext(), request.(DeleteMemoryLayoutRequestObject))
@@ -39764,10 +40175,10 @@ func (sh *strictHandler) DeleteMemoryLayout(ctx *fiber.Ctx, name string) error {
 }
 
 // GetMemoryLayout operation middleware
-func (sh *strictHandler) GetMemoryLayout(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) GetMemoryLayout(ctx *fiber.Ctx, id string) error {
 	var request GetMemoryLayoutRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetMemoryLayout(ctx.UserContext(), request.(GetMemoryLayoutRequestObject))
@@ -39791,10 +40202,10 @@ func (sh *strictHandler) GetMemoryLayout(ctx *fiber.Ctx, name string) error {
 }
 
 // PutMemoryLayout operation middleware
-func (sh *strictHandler) PutMemoryLayout(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) PutMemoryLayout(ctx *fiber.Ctx, id string) error {
 	var request PutMemoryLayoutRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	var body PutMemoryLayoutJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
@@ -39882,10 +40293,10 @@ func (sh *strictHandler) CreateMiniMaxTenant(ctx *fiber.Ctx) error {
 }
 
 // DeleteMiniMaxTenant operation middleware
-func (sh *strictHandler) DeleteMiniMaxTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) DeleteMiniMaxTenant(ctx *fiber.Ctx, id string) error {
 	var request DeleteMiniMaxTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteMiniMaxTenant(ctx.UserContext(), request.(DeleteMiniMaxTenantRequestObject))
@@ -39909,10 +40320,10 @@ func (sh *strictHandler) DeleteMiniMaxTenant(ctx *fiber.Ctx, name string) error 
 }
 
 // GetMiniMaxTenant operation middleware
-func (sh *strictHandler) GetMiniMaxTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) GetMiniMaxTenant(ctx *fiber.Ctx, id string) error {
 	var request GetMiniMaxTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetMiniMaxTenant(ctx.UserContext(), request.(GetMiniMaxTenantRequestObject))
@@ -39936,10 +40347,10 @@ func (sh *strictHandler) GetMiniMaxTenant(ctx *fiber.Ctx, name string) error {
 }
 
 // PutMiniMaxTenant operation middleware
-func (sh *strictHandler) PutMiniMaxTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) PutMiniMaxTenant(ctx *fiber.Ctx, id string) error {
 	var request PutMiniMaxTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	var body PutMiniMaxTenantJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
@@ -39969,10 +40380,10 @@ func (sh *strictHandler) PutMiniMaxTenant(ctx *fiber.Ctx, name string) error {
 }
 
 // SyncMiniMaxTenantVoices operation middleware
-func (sh *strictHandler) SyncMiniMaxTenantVoices(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) SyncMiniMaxTenantVoices(ctx *fiber.Ctx, id string) error {
 	var request SyncMiniMaxTenantVoicesRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.SyncMiniMaxTenantVoices(ctx.UserContext(), request.(SyncMiniMaxTenantVoicesRequestObject))
@@ -40199,10 +40610,10 @@ func (sh *strictHandler) CreateOpenAITenant(ctx *fiber.Ctx) error {
 }
 
 // DeleteOpenAITenant operation middleware
-func (sh *strictHandler) DeleteOpenAITenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) DeleteOpenAITenant(ctx *fiber.Ctx, id string) error {
 	var request DeleteOpenAITenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteOpenAITenant(ctx.UserContext(), request.(DeleteOpenAITenantRequestObject))
@@ -40226,10 +40637,10 @@ func (sh *strictHandler) DeleteOpenAITenant(ctx *fiber.Ctx, name string) error {
 }
 
 // GetOpenAITenant operation middleware
-func (sh *strictHandler) GetOpenAITenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) GetOpenAITenant(ctx *fiber.Ctx, id string) error {
 	var request GetOpenAITenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetOpenAITenant(ctx.UserContext(), request.(GetOpenAITenantRequestObject))
@@ -40253,10 +40664,10 @@ func (sh *strictHandler) GetOpenAITenant(ctx *fiber.Ctx, name string) error {
 }
 
 // PutOpenAITenant operation middleware
-func (sh *strictHandler) PutOpenAITenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) PutOpenAITenant(ctx *fiber.Ctx, id string) error {
 	var request PutOpenAITenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	var body PutOpenAITenantJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
@@ -41395,10 +41806,10 @@ func (sh *strictHandler) CreateRegistrationToken(ctx *fiber.Ctx) error {
 }
 
 // DeleteRegistrationToken operation middleware
-func (sh *strictHandler) DeleteRegistrationToken(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) DeleteRegistrationToken(ctx *fiber.Ctx, id string) error {
 	var request DeleteRegistrationTokenRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteRegistrationToken(ctx.UserContext(), request.(DeleteRegistrationTokenRequestObject))
@@ -41422,10 +41833,10 @@ func (sh *strictHandler) DeleteRegistrationToken(ctx *fiber.Ctx, name string) er
 }
 
 // GetRegistrationToken operation middleware
-func (sh *strictHandler) GetRegistrationToken(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) GetRegistrationToken(ctx *fiber.Ctx, id string) error {
 	var request GetRegistrationTokenRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetRegistrationToken(ctx.UserContext(), request.(GetRegistrationTokenRequestObject))
@@ -41449,10 +41860,10 @@ func (sh *strictHandler) GetRegistrationToken(ctx *fiber.Ctx, name string) error
 }
 
 // PutRegistrationToken operation middleware
-func (sh *strictHandler) PutRegistrationToken(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) PutRegistrationToken(ctx *fiber.Ctx, id string) error {
 	var request PutRegistrationTokenRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	var body PutRegistrationTokenJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
@@ -41482,11 +41893,11 @@ func (sh *strictHandler) PutRegistrationToken(ctx *fiber.Ctx, name string) error
 }
 
 // DeleteResource operation middleware
-func (sh *strictHandler) DeleteResource(ctx *fiber.Ctx, kind ResourceKind, name string) error {
+func (sh *strictHandler) DeleteResource(ctx *fiber.Ctx, kind ResourceKind, id string) error {
 	var request DeleteResourceRequestObject
 
 	request.Kind = kind
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteResource(ctx.UserContext(), request.(DeleteResourceRequestObject))
@@ -41510,11 +41921,11 @@ func (sh *strictHandler) DeleteResource(ctx *fiber.Ctx, kind ResourceKind, name 
 }
 
 // GetResource operation middleware
-func (sh *strictHandler) GetResource(ctx *fiber.Ctx, kind ResourceKind, name string) error {
+func (sh *strictHandler) GetResource(ctx *fiber.Ctx, kind ResourceKind, id string) error {
 	var request GetResourceRequestObject
 
 	request.Kind = kind
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetResource(ctx.UserContext(), request.(GetResourceRequestObject))
@@ -41538,11 +41949,11 @@ func (sh *strictHandler) GetResource(ctx *fiber.Ctx, kind ResourceKind, name str
 }
 
 // PutResource operation middleware
-func (sh *strictHandler) PutResource(ctx *fiber.Ctx, kind ResourceKind, name string) error {
+func (sh *strictHandler) PutResource(ctx *fiber.Ctx, kind ResourceKind, id string) error {
 	var request PutResourceRequestObject
 
 	request.Kind = kind
-	request.Name = name
+	request.Id = id
 	if strings.HasPrefix(string(ctx.Request().Header.ContentType()), "application/json") {
 
 		var body PutResourceJSONRequestBody
@@ -41640,10 +42051,10 @@ func (sh *strictHandler) CreateRuntimeProfile(ctx *fiber.Ctx) error {
 }
 
 // DeleteRuntimeProfile operation middleware
-func (sh *strictHandler) DeleteRuntimeProfile(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) DeleteRuntimeProfile(ctx *fiber.Ctx, id string) error {
 	var request DeleteRuntimeProfileRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteRuntimeProfile(ctx.UserContext(), request.(DeleteRuntimeProfileRequestObject))
@@ -41667,10 +42078,10 @@ func (sh *strictHandler) DeleteRuntimeProfile(ctx *fiber.Ctx, name string) error
 }
 
 // GetRuntimeProfile operation middleware
-func (sh *strictHandler) GetRuntimeProfile(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) GetRuntimeProfile(ctx *fiber.Ctx, id string) error {
 	var request GetRuntimeProfileRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetRuntimeProfile(ctx.UserContext(), request.(GetRuntimeProfileRequestObject))
@@ -41694,10 +42105,10 @@ func (sh *strictHandler) GetRuntimeProfile(ctx *fiber.Ctx, name string) error {
 }
 
 // PutRuntimeProfile operation middleware
-func (sh *strictHandler) PutRuntimeProfile(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) PutRuntimeProfile(ctx *fiber.Ctx, id string) error {
 	var request PutRuntimeProfileRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	var body PutRuntimeProfileJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
@@ -42547,10 +42958,10 @@ func (sh *strictHandler) CreateVolcTenant(ctx *fiber.Ctx) error {
 }
 
 // DeleteVolcTenant operation middleware
-func (sh *strictHandler) DeleteVolcTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) DeleteVolcTenant(ctx *fiber.Ctx, id string) error {
 	var request DeleteVolcTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteVolcTenant(ctx.UserContext(), request.(DeleteVolcTenantRequestObject))
@@ -42574,10 +42985,10 @@ func (sh *strictHandler) DeleteVolcTenant(ctx *fiber.Ctx, name string) error {
 }
 
 // GetVolcTenant operation middleware
-func (sh *strictHandler) GetVolcTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) GetVolcTenant(ctx *fiber.Ctx, id string) error {
 	var request GetVolcTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetVolcTenant(ctx.UserContext(), request.(GetVolcTenantRequestObject))
@@ -42601,10 +43012,10 @@ func (sh *strictHandler) GetVolcTenant(ctx *fiber.Ctx, name string) error {
 }
 
 // PutVolcTenant operation middleware
-func (sh *strictHandler) PutVolcTenant(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) PutVolcTenant(ctx *fiber.Ctx, id string) error {
 	var request PutVolcTenantRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	var body PutVolcTenantJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
@@ -42634,10 +43045,10 @@ func (sh *strictHandler) PutVolcTenant(ctx *fiber.Ctx, name string) error {
 }
 
 // SyncVolcTenantVoices operation middleware
-func (sh *strictHandler) SyncVolcTenantVoices(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) SyncVolcTenantVoices(ctx *fiber.Ctx, id string) error {
 	var request SyncVolcTenantVoicesRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.SyncVolcTenantVoices(ctx.UserContext(), request.(SyncVolcTenantVoicesRequestObject))
@@ -42719,10 +43130,10 @@ func (sh *strictHandler) CreateWorkflow(ctx *fiber.Ctx) error {
 }
 
 // DeleteWorkflow operation middleware
-func (sh *strictHandler) DeleteWorkflow(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) DeleteWorkflow(ctx *fiber.Ctx, id string) error {
 	var request DeleteWorkflowRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteWorkflow(ctx.UserContext(), request.(DeleteWorkflowRequestObject))
@@ -42746,10 +43157,10 @@ func (sh *strictHandler) DeleteWorkflow(ctx *fiber.Ctx, name string) error {
 }
 
 // GetWorkflow operation middleware
-func (sh *strictHandler) GetWorkflow(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) GetWorkflow(ctx *fiber.Ctx, id string) error {
 	var request GetWorkflowRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetWorkflow(ctx.UserContext(), request.(GetWorkflowRequestObject))
@@ -42773,10 +43184,10 @@ func (sh *strictHandler) GetWorkflow(ctx *fiber.Ctx, name string) error {
 }
 
 // PutWorkflow operation middleware
-func (sh *strictHandler) PutWorkflow(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) PutWorkflow(ctx *fiber.Ctx, id string) error {
 	var request PutWorkflowRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	var body PutWorkflowJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
@@ -42864,10 +43275,10 @@ func (sh *strictHandler) CreateWorkspace(ctx *fiber.Ctx) error {
 }
 
 // DeleteWorkspace operation middleware
-func (sh *strictHandler) DeleteWorkspace(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) DeleteWorkspace(ctx *fiber.Ctx, id string) error {
 	var request DeleteWorkspaceRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteWorkspace(ctx.UserContext(), request.(DeleteWorkspaceRequestObject))
@@ -42891,10 +43302,10 @@ func (sh *strictHandler) DeleteWorkspace(ctx *fiber.Ctx, name string) error {
 }
 
 // GetWorkspace operation middleware
-func (sh *strictHandler) GetWorkspace(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) GetWorkspace(ctx *fiber.Ctx, id string) error {
 	var request GetWorkspaceRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetWorkspace(ctx.UserContext(), request.(GetWorkspaceRequestObject))
@@ -42918,10 +43329,10 @@ func (sh *strictHandler) GetWorkspace(ctx *fiber.Ctx, name string) error {
 }
 
 // PutWorkspace operation middleware
-func (sh *strictHandler) PutWorkspace(ctx *fiber.Ctx, name string) error {
+func (sh *strictHandler) PutWorkspace(ctx *fiber.Ctx, id string) error {
 	var request PutWorkspaceRequestObject
 
-	request.Name = name
+	request.Id = id
 
 	var body PutWorkspaceJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
@@ -42951,10 +43362,10 @@ func (sh *strictHandler) PutWorkspace(ctx *fiber.Ctx, name string) error {
 }
 
 // ListWorkspaceHistory operation middleware
-func (sh *strictHandler) ListWorkspaceHistory(ctx *fiber.Ctx, name string, params ListWorkspaceHistoryParams) error {
+func (sh *strictHandler) ListWorkspaceHistory(ctx *fiber.Ctx, id string, params ListWorkspaceHistoryParams) error {
 	var request ListWorkspaceHistoryRequestObject
 
-	request.Name = name
+	request.Id = id
 	request.Params = params
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
@@ -42979,10 +43390,10 @@ func (sh *strictHandler) ListWorkspaceHistory(ctx *fiber.Ctx, name string, param
 }
 
 // GetWorkspaceHistory operation middleware
-func (sh *strictHandler) GetWorkspaceHistory(ctx *fiber.Ctx, name string, historyId string) error {
+func (sh *strictHandler) GetWorkspaceHistory(ctx *fiber.Ctx, id string, historyId string) error {
 	var request GetWorkspaceHistoryRequestObject
 
-	request.Name = name
+	request.Id = id
 	request.HistoryId = historyId
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
@@ -43007,10 +43418,10 @@ func (sh *strictHandler) GetWorkspaceHistory(ctx *fiber.Ctx, name string, histor
 }
 
 // DownloadWorkspaceHistoryAudio operation middleware
-func (sh *strictHandler) DownloadWorkspaceHistoryAudio(ctx *fiber.Ctx, name string, historyId string) error {
+func (sh *strictHandler) DownloadWorkspaceHistoryAudio(ctx *fiber.Ctx, id string, historyId string) error {
 	var request DownloadWorkspaceHistoryAudioRequestObject
 
-	request.Name = name
+	request.Id = id
 	request.HistoryId = historyId
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
@@ -43035,10 +43446,10 @@ func (sh *strictHandler) DownloadWorkspaceHistoryAudio(ctx *fiber.Ctx, name stri
 }
 
 // DeleteWorkspaceIcon operation middleware
-func (sh *strictHandler) DeleteWorkspaceIcon(ctx *fiber.Ctx, name string, format DeleteWorkspaceIconParamsFormat) error {
+func (sh *strictHandler) DeleteWorkspaceIcon(ctx *fiber.Ctx, id string, format DeleteWorkspaceIconParamsFormat) error {
 	var request DeleteWorkspaceIconRequestObject
 
-	request.Name = name
+	request.Id = id
 	request.Format = format
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
@@ -43063,10 +43474,10 @@ func (sh *strictHandler) DeleteWorkspaceIcon(ctx *fiber.Ctx, name string, format
 }
 
 // DownloadWorkspaceIcon operation middleware
-func (sh *strictHandler) DownloadWorkspaceIcon(ctx *fiber.Ctx, name string, format DownloadWorkspaceIconParamsFormat) error {
+func (sh *strictHandler) DownloadWorkspaceIcon(ctx *fiber.Ctx, id string, format DownloadWorkspaceIconParamsFormat) error {
 	var request DownloadWorkspaceIconRequestObject
 
-	request.Name = name
+	request.Id = id
 	request.Format = format
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
@@ -43091,10 +43502,10 @@ func (sh *strictHandler) DownloadWorkspaceIcon(ctx *fiber.Ctx, name string, form
 }
 
 // UploadWorkspaceIcon operation middleware
-func (sh *strictHandler) UploadWorkspaceIcon(ctx *fiber.Ctx, name string, format UploadWorkspaceIconParamsFormat) error {
+func (sh *strictHandler) UploadWorkspaceIcon(ctx *fiber.Ctx, id string, format UploadWorkspaceIconParamsFormat) error {
 	var request UploadWorkspaceIconRequestObject
 
-	request.Name = name
+	request.Id = id
 	request.Format = format
 
 	body := ctx.Context().RequestBodyStream()

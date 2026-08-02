@@ -181,7 +181,7 @@ func TestDefaultBuilderBuildsOpenAIGenerator(t *testing.T) {
 		},
 		Tenant: Tenant{
 			Kind:   "openai-tenant",
-			OpenAI: &apitypes.OpenAITenant{Name: "main", CredentialName: "openai-key"},
+			OpenAI: &apitypes.OpenAITenant{Name: "main", CredentialId: "openai-key"},
 		},
 		Credential: apitypes.Credential{
 			Name: "openai-key",
@@ -222,7 +222,7 @@ func TestDefaultBuilderBuildsFirstClassOpenAICompatibleGenerators(t *testing.T) 
 				UseSystemRole:    &trueValue,
 			}),
 			tenant: Tenant{Kind: string(apitypes.ModelProviderKindDeepseekTenant), DeepSeek: &apitypes.DeepSeekTenant{
-				Name: "main", CredentialName: "deepseek-key",
+				Name: "main", CredentialId: "deepseek-key",
 			}},
 			credentialBody: testDeepSeekCredentialBody("sk-deepseek"),
 		},
@@ -235,7 +235,7 @@ func TestDefaultBuilderBuildsFirstClassOpenAICompatibleGenerators(t *testing.T) 
 				UseSystemRole:    &trueValue,
 			}),
 			tenant: Tenant{Kind: string(apitypes.ModelProviderKindMinimaxTenant), MiniMax: &apitypes.MiniMaxTenant{
-				Name: "main", CredentialName: "minimax-key",
+				Name: "main", CredentialId: "minimax-key",
 			}},
 			credentialBody: testMiniMaxCredentialBody("sk-minimax"),
 		},
@@ -302,7 +302,7 @@ func TestDefaultBuilderPreservesDeepSeekEndpointCredentialAndModel(t *testing.T)
 		},
 		Tenant: Tenant{
 			Kind:     string(apitypes.ModelProviderKindDeepseekTenant),
-			DeepSeek: &apitypes.DeepSeekTenant{Name: "main", CredentialName: "deepseek-key", BaseUrl: &baseURL},
+			DeepSeek: &apitypes.DeepSeekTenant{Name: "main", CredentialId: "deepseek-key", BaseUrl: &baseURL},
 		},
 		Credential: apitypes.Credential{Name: "deepseek-key", Body: testDeepSeekCredentialBody(apiKey)},
 	})
@@ -355,8 +355,8 @@ func TestDefaultBuilderBuildsVolcArkGenerator(t *testing.T) {
 		Tenant: Tenant{
 			Kind: "volc-tenant",
 			Volc: &apitypes.VolcTenant{
-				Name:           "main",
-				CredentialName: "volc-key",
+				Name:         "main",
+				CredentialId: "volc-key",
 			},
 		},
 		Credential: apitypes.Credential{
@@ -435,7 +435,7 @@ func TestModelContextForGeneratorMapsThinkingWithoutMutatingInput(t *testing.T) 
 	}
 	mctx := (&genx.ModelContextBuilder{Params: originalParams}).Build()
 	cfg := GeneratorConfig{Model: apitypes.Model{
-		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Name: "main"},
+		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Id: "main"},
 		ProviderData: mustOpenAIModelProviderData(t, apitypes.OpenAITenantModelProviderData{
 			UpstreamModel:   "gpt-test",
 			SupportThinking: new(true),
@@ -463,7 +463,7 @@ func TestModelContextForGeneratorMapsThinkingWithoutMutatingInput(t *testing.T) 
 func TestModelContextForGeneratorRejectsMalformedProviderData(t *testing.T) {
 	mctx := (&genx.ModelContextBuilder{Params: &genx.ModelParams{Thinking: &genx.ThinkingParams{Level: "medium"}}}).Build()
 	_, err := modelContextForGenerator(GeneratorConfig{Model: apitypes.Model{
-		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Name: "main"},
+		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Id: "main"},
 	}}, mctx)
 	if !errors.Is(err, ErrInvalid) {
 		t.Fatalf("modelContextForGenerator() error = %v, want ErrInvalid", err)
@@ -478,7 +478,7 @@ func TestDefaultBuilderRejectsWrongVolcServiceKey(t *testing.T) {
 			Volc: &apitypes.VolcTenant{Name: "main"},
 		},
 		Credential: apitypes.Credential{
-			Name: "volc-key",
+			Id:   "volc-key",
 			Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_api_key": "speech-key"}),
 		},
 	})
@@ -548,8 +548,8 @@ func TestDefaultBuilderBuildsVolcASRTransformer(t *testing.T) {
 		Tenant: Tenant{
 			Kind: "volc-tenant",
 			Volc: &apitypes.VolcTenant{
-				Name:           "main",
-				CredentialName: "volc-token",
+				Name:         "main",
+				CredentialId: "volc-token",
 			},
 		},
 		Credential: apitypes.Credential{
@@ -601,8 +601,8 @@ func TestDefaultBuilderBuildsVolcASRTransformerFromParams(t *testing.T) {
 		Tenant: Tenant{
 			Kind: "volc-tenant",
 			Volc: &apitypes.VolcTenant{
-				Name:           "main",
-				CredentialName: "volc-token",
+				Name:         "main",
+				CredentialId: "volc-token",
 			},
 		},
 		Credential: apitypes.Credential{
@@ -655,8 +655,8 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformer(t *testing.T) {
 		Tenant: Tenant{
 			Kind: "volc-tenant",
 			Volc: &apitypes.VolcTenant{
-				Name:           "main",
-				CredentialName: "volc-token",
+				Name:         "main",
+				CredentialId: "volc-token",
 			},
 		},
 		Credential: apitypes.Credential{
@@ -727,8 +727,8 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformerFromWorkflowParams(t *testin
 		Tenant: Tenant{
 			Kind: "volc-tenant",
 			Volc: &apitypes.VolcTenant{
-				Name:           "main",
-				CredentialName: "volc-token",
+				Name:         "main",
+				CredentialId: "volc-token",
 			},
 		},
 		Credential: apitypes.Credential{
@@ -859,8 +859,8 @@ func TestDefaultBuilderRejectsUnsupportedVolcRealtimeMode(t *testing.T) {
 		Tenant: Tenant{
 			Kind: "volc-tenant",
 			Volc: &apitypes.VolcTenant{
-				Name:           "main",
-				CredentialName: "volc-token",
+				Name:         "main",
+				CredentialId: "volc-token",
 			},
 		},
 		Credential: apitypes.Credential{
@@ -902,8 +902,8 @@ func TestDefaultBuilderRejectsVolcRealtimeMissingUpstreamModel(t *testing.T) {
 		Tenant: Tenant{
 			Kind: "volc-tenant",
 			Volc: &apitypes.VolcTenant{
-				Name:           "main",
-				CredentialName: "volc-token",
+				Name:         "main",
+				CredentialId: "volc-token",
 			},
 		},
 		Credential: apitypes.Credential{
@@ -928,7 +928,7 @@ func TestDefaultBuilderBuildsGeminiGenerator(t *testing.T) {
 		},
 		Tenant: Tenant{
 			Kind:   "gemini-tenant",
-			Gemini: &apitypes.GeminiTenant{Name: "main", CredentialName: "gemini-key"},
+			Gemini: &apitypes.GeminiTenant{Name: "main", CredentialId: "gemini-key"},
 		},
 		Credential: apitypes.Credential{
 			Name: "gemini-key",
@@ -970,7 +970,7 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 				},
 				Tenant: Tenant{
 					Kind: "volc-tenant",
-					Volc: &apitypes.VolcTenant{Name: "main", CredentialName: "volc-token"},
+					Volc: &apitypes.VolcTenant{Name: "main", CredentialId: "volc-token"},
 				},
 				Credential: apitypes.Credential{Name: "volc-token", Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "tok"})},
 			},
@@ -990,7 +990,7 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 				},
 				Tenant: Tenant{
 					Kind:    "minimax-tenant",
-					MiniMax: &apitypes.MiniMaxTenant{Name: "main", CredentialName: "minimax-key", BaseUrl: &baseURL},
+					MiniMax: &apitypes.MiniMaxTenant{Name: "main", CredentialId: "minimax-key", BaseUrl: &baseURL},
 				},
 				Credential: apitypes.Credential{Name: "minimax-key", Body: testMiniMaxCredentialBody("sk-test")},
 			},
@@ -1010,7 +1010,7 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 				},
 				Tenant: Tenant{
 					Kind:    "minimax-tenant",
-					MiniMax: &apitypes.MiniMaxTenant{Name: "main", CredentialName: "minimax-key"},
+					MiniMax: &apitypes.MiniMaxTenant{Name: "main", CredentialId: "minimax-key"},
 				},
 				Credential: apitypes.Credential{Name: "minimax-key", Body: testMiniMaxCredentialBody("sk-test")},
 			},
@@ -1435,7 +1435,7 @@ func TestListAccessibleGeneratorConfigsUsesFilteredModelList(t *testing.T) {
 				Kind: apitypes.ModelKindLlm,
 				Provider: apitypes.ModelProvider{
 					Kind: apitypes.ModelProviderKindOpenaiTenant,
-					Name: "main",
+					Id:   "main",
 				},
 			},
 		}},
@@ -1698,7 +1698,7 @@ func (f fakeModels) model(id string) apitypes.Model {
 		Kind: kind,
 		Provider: apitypes.ModelProvider{
 			Kind: apitypes.ModelProviderKind(providerKind),
-			Name: "main",
+			Id:   "main",
 		},
 	}
 }
@@ -1709,7 +1709,7 @@ func testModel(id string, kind apitypes.ModelKind) apitypes.Model {
 		Kind: kind,
 		Provider: apitypes.ModelProvider{
 			Kind: apitypes.ModelProviderKindOpenaiTenant,
-			Name: "main",
+			Id:   "main",
 		},
 	}
 }
@@ -1805,7 +1805,7 @@ func (f fakeVoices) GetVoice(_ context.Context, request adminhttp.GetVoiceReques
 		Id: request.Id,
 		Provider: apitypes.VoiceProvider{
 			Kind: providerKind,
-			Name: "main",
+			Id:   "main",
 		},
 		ProviderData: &providerData,
 	}), nil
@@ -1816,9 +1816,9 @@ type fakeCredentials struct {
 }
 
 func (f fakeCredentials) GetCredential(_ context.Context, request adminhttp.GetCredentialRequestObject) (adminhttp.GetCredentialResponseObject, error) {
-	*f.events = append(*f.events, "get:credential:"+request.Name)
+	*f.events = append(*f.events, "get:credential:"+request.Id)
 	return adminhttp.GetCredential200JSONResponse(apitypes.Credential{
-		Name: request.Name,
+		Name: request.Id,
 		Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "sk-test"}),
 	}), nil
 }
@@ -1828,33 +1828,33 @@ type fakeTenants struct {
 }
 
 func (f fakeTenants) GetDeepSeekTenant(_ context.Context, request adminhttp.GetDeepSeekTenantRequestObject) (adminhttp.GetDeepSeekTenantResponseObject, error) {
-	*f.events = append(*f.events, "get:tenant:deepseek:"+request.Name)
-	return adminhttp.GetDeepSeekTenant200JSONResponse(apitypes.DeepSeekTenant{Name: request.Name, CredentialName: "deepseek-key"}), nil
+	*f.events = append(*f.events, "get:tenant:deepseek:"+request.Id)
+	return adminhttp.GetDeepSeekTenant200JSONResponse(apitypes.DeepSeekTenant{Name: request.Id, CredentialId: "deepseek-key"}), nil
 }
 
 func (f fakeTenants) GetOpenAITenant(_ context.Context, request adminhttp.GetOpenAITenantRequestObject) (adminhttp.GetOpenAITenantResponseObject, error) {
-	*f.events = append(*f.events, "get:tenant:openai:"+request.Name)
-	return adminhttp.GetOpenAITenant200JSONResponse(apitypes.OpenAITenant{Name: request.Name, CredentialName: "openai-key"}), nil
+	*f.events = append(*f.events, "get:tenant:openai:"+request.Id)
+	return adminhttp.GetOpenAITenant200JSONResponse(apitypes.OpenAITenant{Name: request.Id, CredentialId: "openai-key"}), nil
 }
 
 func (f fakeTenants) GetGeminiTenant(_ context.Context, request adminhttp.GetGeminiTenantRequestObject) (adminhttp.GetGeminiTenantResponseObject, error) {
-	*f.events = append(*f.events, "get:tenant:gemini:"+request.Name)
-	return adminhttp.GetGeminiTenant200JSONResponse(apitypes.GeminiTenant{Name: request.Name, CredentialName: "gemini-key"}), nil
+	*f.events = append(*f.events, "get:tenant:gemini:"+request.Id)
+	return adminhttp.GetGeminiTenant200JSONResponse(apitypes.GeminiTenant{Name: request.Id, CredentialId: "gemini-key"}), nil
 }
 
 func (f fakeTenants) GetDashScopeTenant(_ context.Context, request adminhttp.GetDashScopeTenantRequestObject) (adminhttp.GetDashScopeTenantResponseObject, error) {
-	*f.events = append(*f.events, "get:tenant:dashscope:"+request.Name)
-	return adminhttp.GetDashScopeTenant200JSONResponse(apitypes.DashScopeTenant{Name: request.Name, CredentialName: "dashscope-key"}), nil
+	*f.events = append(*f.events, "get:tenant:dashscope:"+request.Id)
+	return adminhttp.GetDashScopeTenant200JSONResponse(apitypes.DashScopeTenant{Name: request.Id, CredentialId: "dashscope-key"}), nil
 }
 
 func (f fakeTenants) GetMiniMaxTenant(_ context.Context, request adminhttp.GetMiniMaxTenantRequestObject) (adminhttp.GetMiniMaxTenantResponseObject, error) {
-	*f.events = append(*f.events, "get:tenant:minimax:"+request.Name)
-	return adminhttp.GetMiniMaxTenant200JSONResponse(apitypes.MiniMaxTenant{Name: request.Name, CredentialName: "minimax-key"}), nil
+	*f.events = append(*f.events, "get:tenant:minimax:"+request.Id)
+	return adminhttp.GetMiniMaxTenant200JSONResponse(apitypes.MiniMaxTenant{Name: request.Id, CredentialId: "minimax-key"}), nil
 }
 
 func (f fakeTenants) GetVolcTenant(_ context.Context, request adminhttp.GetVolcTenantRequestObject) (adminhttp.GetVolcTenantResponseObject, error) {
-	*f.events = append(*f.events, "get:tenant:volc:"+request.Name)
-	return adminhttp.GetVolcTenant200JSONResponse(apitypes.VolcTenant{Name: request.Name, CredentialName: "volc-token"}), nil
+	*f.events = append(*f.events, "get:tenant:volc:"+request.Id)
+	return adminhttp.GetVolcTenant200JSONResponse(apitypes.VolcTenant{Name: request.Id, CredentialId: "volc-token"}), nil
 }
 
 type responseModels struct {

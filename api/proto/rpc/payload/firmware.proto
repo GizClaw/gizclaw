@@ -44,7 +44,7 @@ message FirmwareFilesDownloadResponse {
   FirmwareArtifact artifact = 1;
   FirmwareChannelName channel = 2;
   FirmwareArtifactEntry file = 3;
-  string firmware_id = 4;
+  string firmware_name = 4;
   string path = 5;
 }
 

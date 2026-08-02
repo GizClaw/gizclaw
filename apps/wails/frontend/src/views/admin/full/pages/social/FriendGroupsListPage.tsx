@@ -10,7 +10,7 @@ import {
   createFriendGroup,
   getFriendGroup,
   listFriendGroups,
-  type FriendGroupObject,
+  type AdminFriendGroupObject,
 } from "@gizclaw/gizclaw/admin";
 import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +47,7 @@ import { FormField } from "@/dashboard";
 import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
 import { formatDate } from "../../lib/format";
-import { friendGroupDetailPath, socialWorkspaceName } from "./social-utils";
+import { friendGroupDetailPath } from "./social-utils";
 
 export function FriendGroupsListPage(): JSX.Element {
   const navigate = useNavigate();
@@ -60,7 +60,7 @@ export function FriendGroupsListPage(): JSX.Element {
     pageNumber,
     prevPage,
     refresh,
-  } = useCursorListPage<FriendGroupObject>(async (query) => {
+  } = useCursorListPage<AdminFriendGroupObject>(async (query) => {
     const result = await expectData(listFriendGroups({ query }));
     return {
       hasNext: result.has_next,
@@ -79,13 +79,13 @@ export function FriendGroupsListPage(): JSX.Element {
   const [busy, setBusy] = useState("");
   const [copiedID, setCopiedID] = useState("");
 
-  const openGroup = (group: FriendGroupObject): void => {
+  const openGroup = (group: AdminFriendGroupObject): void => {
     navigate(friendGroupDetailPath(group));
   };
 
   const handleRowKeyDown = (
     event: KeyboardEvent<HTMLTableRowElement>,
-    group: FriendGroupObject,
+    group: AdminFriendGroupObject,
   ): void => {
     if (isInteractiveTarget(event.target)) {
       return;
@@ -358,9 +358,9 @@ export function FriendGroupsListPage(): JSX.Element {
                       </TableCell>
                       <TableCell
                         className="truncate font-mono text-xs"
-                        title={socialWorkspaceName(group.workspace_name)}
+                        title={group.workspace_id}
                       >
-                        {socialWorkspaceName(group.workspace_name)}
+                        {group.workspace_id}
                       </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">
                         {formatDate(group.updated_at)}

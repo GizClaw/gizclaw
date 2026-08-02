@@ -21,11 +21,15 @@ func (s *Server) PrepareWorkspaceIconDownload(ctx context.Context, params rpcapi
 	if response := s.requireWorkspaceAccess(ctx, "", name); response != nil {
 		return rpcapi.WorkspaceIconDownloadResponse{}, nil, &rpcapi.RPCError{Code: response.Error.Code, Message: response.Error.Message}, nil
 	}
+	item, err := s.getWorkspaceByName(s.ownerContext(ctx), name)
+	if err != nil {
+		return rpcapi.WorkspaceIconDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace not found"}, nil
+	}
 	icons, ok := s.Workspaces.(workspace.WorkspaceIconAdminService)
 	if !ok || icons == nil {
 		return rpcapi.WorkspaceIconDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "workspace icon service not configured"}, nil
 	}
-	resp, err := icons.DownloadWorkspaceIcon(ctx, adminhttp.DownloadWorkspaceIconRequestObject{Name: name, Format: adminhttp.DownloadWorkspaceIconParamsFormat(format)})
+	resp, err := icons.DownloadWorkspaceIcon(ctx, adminhttp.DownloadWorkspaceIconRequestObject{Id: item.Id, Format: adminhttp.DownloadWorkspaceIconParamsFormat(format)})
 	if err != nil {
 		return rpcapi.WorkspaceIconDownloadResponse{}, nil, nil, err
 	}

@@ -23,8 +23,8 @@ export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
 export 'ai.pbenum.dart';
 
-class AliasI18nText extends $pb.GeneratedMessage {
-  factory AliasI18nText({
+class ResourceI18nText extends $pb.GeneratedMessage {
+  factory ResourceI18nText({
     $core.String? displayName,
     $core.String? description,
   }) {
@@ -34,17 +34,17 @@ class AliasI18nText extends $pb.GeneratedMessage {
     return result;
   }
 
-  AliasI18nText._();
+  ResourceI18nText._();
 
-  factory AliasI18nText.fromBuffer($core.List<$core.int> data,
+  factory ResourceI18nText.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory AliasI18nText.fromJson($core.String json,
+  factory ResourceI18nText.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'AliasI18nText',
+      _omitMessageNames ? '' : 'ResourceI18nText',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'displayName')
@@ -52,23 +52,23 @@ class AliasI18nText extends $pb.GeneratedMessage {
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  AliasI18nText clone() => deepCopy();
+  ResourceI18nText clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  AliasI18nText copyWith(void Function(AliasI18nText) updates) =>
-      super.copyWith((message) => updates(message as AliasI18nText))
-          as AliasI18nText;
+  ResourceI18nText copyWith(void Function(ResourceI18nText) updates) =>
+      super.copyWith((message) => updates(message as ResourceI18nText))
+          as ResourceI18nText;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static AliasI18nText create() => AliasI18nText._();
+  static ResourceI18nText create() => ResourceI18nText._();
   @$core.override
-  AliasI18nText createEmptyInstance() => create();
+  ResourceI18nText createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static AliasI18nText getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<AliasI18nText>(create);
-  static AliasI18nText? _defaultInstance;
+  static ResourceI18nText getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ResourceI18nText>(create);
+  static ResourceI18nText? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get displayName => $_getSZ(0);
@@ -91,12 +91,12 @@ class AliasI18nText extends $pb.GeneratedMessage {
 
 class SpeechTranscribeRequest extends $pb.GeneratedMessage {
   factory SpeechTranscribeRequest({
-    $core.String? modelAlias,
+    $core.String? modelName,
     $core.String? contentType,
     $core.String? language,
   }) {
     final result = create();
-    if (modelAlias != null) result.modelAlias = modelAlias;
+    if (modelName != null) result.modelName = modelName;
     if (contentType != null) result.contentType = contentType;
     if (language != null) result.language = language;
     return result;
@@ -115,7 +115,7 @@ class SpeechTranscribeRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'SpeechTranscribeRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'modelAlias')
+    ..aOS(1, _omitFieldNames ? '' : 'modelName')
     ..aOS(2, _omitFieldNames ? '' : 'contentType')
     ..aOS(3, _omitFieldNames ? '' : 'language')
     ..hasRequiredFields = false;
@@ -141,13 +141,13 @@ class SpeechTranscribeRequest extends $pb.GeneratedMessage {
   static SpeechTranscribeRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get modelAlias => $_getSZ(0);
+  $core.String get modelName => $_getSZ(0);
   @$pb.TagNumber(1)
-  set modelAlias($core.String value) => $_setString(0, value);
+  set modelName($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasModelAlias() => $_has(0);
+  $core.bool hasModelName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearModelAlias() => $_clearField(1);
+  void clearModelName() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get contentType => $_getSZ(1);
@@ -225,16 +225,16 @@ class SpeechTranscribeResponse extends $pb.GeneratedMessage {
 
 class SpeechExtractRequest extends $pb.GeneratedMessage {
   factory SpeechExtractRequest({
-    $core.String? asrModelAlias,
-    $core.String? extractModelAlias,
+    $core.String? asrModelName,
+    $core.String? extractModelName,
     $core.String? contentType,
     $core.String? language,
     $core.String? schemaJson,
     $core.String? instruction,
   }) {
     final result = create();
-    if (asrModelAlias != null) result.asrModelAlias = asrModelAlias;
-    if (extractModelAlias != null) result.extractModelAlias = extractModelAlias;
+    if (asrModelName != null) result.asrModelName = asrModelName;
+    if (extractModelName != null) result.extractModelName = extractModelName;
     if (contentType != null) result.contentType = contentType;
     if (language != null) result.language = language;
     if (schemaJson != null) result.schemaJson = schemaJson;
@@ -255,8 +255,8 @@ class SpeechExtractRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'SpeechExtractRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'asrModelAlias')
-    ..aOS(2, _omitFieldNames ? '' : 'extractModelAlias')
+    ..aOS(1, _omitFieldNames ? '' : 'asrModelName')
+    ..aOS(2, _omitFieldNames ? '' : 'extractModelName')
     ..aOS(3, _omitFieldNames ? '' : 'contentType')
     ..aOS(4, _omitFieldNames ? '' : 'language')
     ..aOS(5, _omitFieldNames ? '' : 'schemaJson')
@@ -283,22 +283,22 @@ class SpeechExtractRequest extends $pb.GeneratedMessage {
   static SpeechExtractRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get asrModelAlias => $_getSZ(0);
+  $core.String get asrModelName => $_getSZ(0);
   @$pb.TagNumber(1)
-  set asrModelAlias($core.String value) => $_setString(0, value);
+  set asrModelName($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasAsrModelAlias() => $_has(0);
+  $core.bool hasAsrModelName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearAsrModelAlias() => $_clearField(1);
+  void clearAsrModelName() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get extractModelAlias => $_getSZ(1);
+  $core.String get extractModelName => $_getSZ(1);
   @$pb.TagNumber(2)
-  set extractModelAlias($core.String value) => $_setString(1, value);
+  set extractModelName($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasExtractModelAlias() => $_has(1);
+  $core.bool hasExtractModelName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearExtractModelAlias() => $_clearField(2);
+  void clearExtractModelName() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.String get contentType => $_getSZ(2);
@@ -406,12 +406,12 @@ class SpeechExtractResponse extends $pb.GeneratedMessage {
 
 class SpeechSynthesizeRequest extends $pb.GeneratedMessage {
   factory SpeechSynthesizeRequest({
-    $core.String? voiceAlias,
+    $core.String? voiceName,
     $core.String? text,
     $core.Iterable<$core.String>? acceptedContentTypes,
   }) {
     final result = create();
-    if (voiceAlias != null) result.voiceAlias = voiceAlias;
+    if (voiceName != null) result.voiceName = voiceName;
     if (text != null) result.text = text;
     if (acceptedContentTypes != null)
       result.acceptedContentTypes.addAll(acceptedContentTypes);
@@ -431,7 +431,7 @@ class SpeechSynthesizeRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'SpeechSynthesizeRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'voiceAlias')
+    ..aOS(1, _omitFieldNames ? '' : 'voiceName')
     ..aOS(2, _omitFieldNames ? '' : 'text')
     ..pPS(3, _omitFieldNames ? '' : 'acceptedContentTypes')
     ..hasRequiredFields = false;
@@ -457,13 +457,13 @@ class SpeechSynthesizeRequest extends $pb.GeneratedMessage {
   static SpeechSynthesizeRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get voiceAlias => $_getSZ(0);
+  $core.String get voiceName => $_getSZ(0);
   @$pb.TagNumber(1)
-  set voiceAlias($core.String value) => $_setString(0, value);
+  set voiceName($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasVoiceAlias() => $_has(0);
+  $core.bool hasVoiceName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearVoiceAlias() => $_clearField(1);
+  void clearVoiceName() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get text => $_getSZ(1);
@@ -2353,7 +2353,7 @@ class EinoWorkflowSpec extends $pb.GeneratedMessage {
         subBuilder: $0.Struct.create)
     ..aOM<$0.Struct>(2, _omitFieldNames ? '' : 'limits',
         subBuilder: $0.Struct.create)
-    ..aOM<$0.Struct>(4, _omitFieldNames ? '' : 'conversation',
+    ..aOM<$0.Struct>(3, _omitFieldNames ? '' : 'conversation',
         subBuilder: $0.Struct.create)
     ..hasRequiredFields = false;
 
@@ -2398,15 +2398,15 @@ class EinoWorkflowSpec extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $0.Struct ensureLimits() => $_ensure(1);
 
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(3)
   $0.Struct get conversation => $_getN(2);
-  @$pb.TagNumber(4)
-  set conversation($0.Struct value) => $_setField(4, value);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(3)
+  set conversation($0.Struct value) => $_setField(3, value);
+  @$pb.TagNumber(3)
   $core.bool hasConversation() => $_has(2);
-  @$pb.TagNumber(4)
-  void clearConversation() => $_clearField(4);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(3)
+  void clearConversation() => $_clearField(3);
+  @$pb.TagNumber(3)
   $0.Struct ensureConversation() => $_ensure(2);
 }
 
@@ -4398,7 +4398,7 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
         2, _omitFieldNames ? '' : 'conversation',
         subBuilder: FlowcraftConversationParameters.create)
     ..aOB(3, _omitFieldNames ? '' : 'e2e')
-    ..aE<$1.WorkspaceInputMode>(7, _omitFieldNames ? '' : 'input',
+    ..aE<$1.WorkspaceInputMode>(4, _omitFieldNames ? '' : 'input',
         enumValues: $1.WorkspaceInputMode.values)
     ..hasRequiredFields = false;
 
@@ -4455,14 +4455,14 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearE2e() => $_clearField(3);
 
-  @$pb.TagNumber(7)
+  @$pb.TagNumber(4)
   $1.WorkspaceInputMode get input => $_getN(3);
-  @$pb.TagNumber(7)
-  set input($1.WorkspaceInputMode value) => $_setField(7, value);
-  @$pb.TagNumber(7)
+  @$pb.TagNumber(4)
+  set input($1.WorkspaceInputMode value) => $_setField(4, value);
+  @$pb.TagNumber(4)
   $core.bool hasInput() => $_has(3);
-  @$pb.TagNumber(7)
-  void clearInput() => $_clearField(7);
+  @$pb.TagNumber(4)
+  void clearInput() => $_clearField(4);
 }
 
 class PetWorkflowSpec extends $pb.GeneratedMessage {
@@ -4658,8 +4658,8 @@ enum Model_ProviderData {
 
 class Model extends $pb.GeneratedMessage {
   factory Model({
-    $core.String? alias,
-    $core.Iterable<$core.MapEntry<$core.String, AliasI18nText>>? i18n,
+    $core.String? name,
+    $core.Iterable<$core.MapEntry<$core.String, ResourceI18nText>>? i18n,
     $1.ModelKind? kind,
     OpenAITenantModelProviderData? openaiTenant,
     GeminiTenantModelProviderData? geminiTenant,
@@ -4670,7 +4670,7 @@ class Model extends $pb.GeneratedMessage {
     ModelProviderKind? providerKind,
   }) {
     final result = create();
-    if (alias != null) result.alias = alias;
+    if (name != null) result.name = name;
     if (i18n != null) result.i18n.addEntries(i18n);
     if (kind != null) result.kind = kind;
     if (openaiTenant != null) result.openaiTenant = openaiTenant;
@@ -4694,47 +4694,47 @@ class Model extends $pb.GeneratedMessage {
 
   static const $core.Map<$core.int, Model_ProviderData>
       _Model_ProviderDataByTag = {
-    5: Model_ProviderData.openaiTenant,
-    6: Model_ProviderData.geminiTenant,
-    7: Model_ProviderData.dashscopeTenant,
-    8: Model_ProviderData.volcTenant,
-    9: Model_ProviderData.minimaxTenant,
-    10: Model_ProviderData.deepseekTenant,
+    4: Model_ProviderData.openaiTenant,
+    5: Model_ProviderData.geminiTenant,
+    6: Model_ProviderData.dashscopeTenant,
+    7: Model_ProviderData.volcTenant,
+    8: Model_ProviderData.minimaxTenant,
+    9: Model_ProviderData.deepseekTenant,
     0: Model_ProviderData.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'Model',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..oo(0, [5, 6, 7, 8, 9, 10])
-    ..aOS(1, _omitFieldNames ? '' : 'alias')
-    ..m<$core.String, AliasI18nText>(2, _omitFieldNames ? '' : 'i18n',
+    ..oo(0, [4, 5, 6, 7, 8, 9])
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..m<$core.String, ResourceI18nText>(2, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Model.I18nEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
-        valueCreator: AliasI18nText.create,
-        valueDefaultOrMaker: AliasI18nText.getDefault,
+        valueCreator: ResourceI18nText.create,
+        valueDefaultOrMaker: ResourceI18nText.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..aE<$1.ModelKind>(3, _omitFieldNames ? '' : 'kind',
         enumValues: $1.ModelKind.values)
     ..aOM<OpenAITenantModelProviderData>(
-        5, _omitFieldNames ? '' : 'openaiTenant',
+        4, _omitFieldNames ? '' : 'openaiTenant',
         subBuilder: OpenAITenantModelProviderData.create)
     ..aOM<GeminiTenantModelProviderData>(
-        6, _omitFieldNames ? '' : 'geminiTenant',
+        5, _omitFieldNames ? '' : 'geminiTenant',
         subBuilder: GeminiTenantModelProviderData.create)
     ..aOM<DashScopeTenantModelProviderData>(
-        7, _omitFieldNames ? '' : 'dashscopeTenant',
+        6, _omitFieldNames ? '' : 'dashscopeTenant',
         subBuilder: DashScopeTenantModelProviderData.create)
-    ..aOM<VolcTenantModelProviderData>(8, _omitFieldNames ? '' : 'volcTenant',
+    ..aOM<VolcTenantModelProviderData>(7, _omitFieldNames ? '' : 'volcTenant',
         subBuilder: VolcTenantModelProviderData.create)
     ..aOM<MiniMaxTenantModelProviderData>(
-        9, _omitFieldNames ? '' : 'minimaxTenant',
+        8, _omitFieldNames ? '' : 'minimaxTenant',
         subBuilder: MiniMaxTenantModelProviderData.create)
     ..aOM<DeepSeekTenantModelProviderData>(
-        10, _omitFieldNames ? '' : 'deepseekTenant',
+        9, _omitFieldNames ? '' : 'deepseekTenant',
         subBuilder: DeepSeekTenantModelProviderData.create)
-    ..aE<ModelProviderKind>(11, _omitFieldNames ? '' : 'providerKind',
+    ..aE<ModelProviderKind>(10, _omitFieldNames ? '' : 'providerKind',
         enumValues: ModelProviderKind.values)
     ..hasRequiredFields = false;
 
@@ -4756,33 +4756,33 @@ class Model extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Model>(create);
   static Model? _defaultInstance;
 
+  @$pb.TagNumber(4)
   @$pb.TagNumber(5)
   @$pb.TagNumber(6)
   @$pb.TagNumber(7)
   @$pb.TagNumber(8)
   @$pb.TagNumber(9)
-  @$pb.TagNumber(10)
   Model_ProviderData whichProviderData() =>
       _Model_ProviderDataByTag[$_whichOneof(0)]!;
+  @$pb.TagNumber(4)
   @$pb.TagNumber(5)
   @$pb.TagNumber(6)
   @$pb.TagNumber(7)
   @$pb.TagNumber(8)
   @$pb.TagNumber(9)
-  @$pb.TagNumber(10)
   void clearProviderData() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
-  $core.String get alias => $_getSZ(0);
+  $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
-  set alias($core.String value) => $_setString(0, value);
+  set name($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasAlias() => $_has(0);
+  $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearAlias() => $_clearField(1);
+  void clearName() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $pb.PbMap<$core.String, AliasI18nText> get i18n => $_getMap(1);
+  $pb.PbMap<$core.String, ResourceI18nText> get i18n => $_getMap(1);
 
   @$pb.TagNumber(3)
   $1.ModelKind get kind => $_getN(2);
@@ -4793,83 +4793,83 @@ class Model extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearKind() => $_clearField(3);
 
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(4)
   OpenAITenantModelProviderData get openaiTenant => $_getN(3);
-  @$pb.TagNumber(5)
-  set openaiTenant(OpenAITenantModelProviderData value) => $_setField(5, value);
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(4)
+  set openaiTenant(OpenAITenantModelProviderData value) => $_setField(4, value);
+  @$pb.TagNumber(4)
   $core.bool hasOpenaiTenant() => $_has(3);
-  @$pb.TagNumber(5)
-  void clearOpenaiTenant() => $_clearField(5);
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(4)
+  void clearOpenaiTenant() => $_clearField(4);
+  @$pb.TagNumber(4)
   OpenAITenantModelProviderData ensureOpenaiTenant() => $_ensure(3);
 
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(5)
   GeminiTenantModelProviderData get geminiTenant => $_getN(4);
-  @$pb.TagNumber(6)
-  set geminiTenant(GeminiTenantModelProviderData value) => $_setField(6, value);
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(5)
+  set geminiTenant(GeminiTenantModelProviderData value) => $_setField(5, value);
+  @$pb.TagNumber(5)
   $core.bool hasGeminiTenant() => $_has(4);
-  @$pb.TagNumber(6)
-  void clearGeminiTenant() => $_clearField(6);
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(5)
+  void clearGeminiTenant() => $_clearField(5);
+  @$pb.TagNumber(5)
   GeminiTenantModelProviderData ensureGeminiTenant() => $_ensure(4);
 
-  @$pb.TagNumber(7)
+  @$pb.TagNumber(6)
   DashScopeTenantModelProviderData get dashscopeTenant => $_getN(5);
-  @$pb.TagNumber(7)
+  @$pb.TagNumber(6)
   set dashscopeTenant(DashScopeTenantModelProviderData value) =>
-      $_setField(7, value);
-  @$pb.TagNumber(7)
+      $_setField(6, value);
+  @$pb.TagNumber(6)
   $core.bool hasDashscopeTenant() => $_has(5);
-  @$pb.TagNumber(7)
-  void clearDashscopeTenant() => $_clearField(7);
-  @$pb.TagNumber(7)
+  @$pb.TagNumber(6)
+  void clearDashscopeTenant() => $_clearField(6);
+  @$pb.TagNumber(6)
   DashScopeTenantModelProviderData ensureDashscopeTenant() => $_ensure(5);
 
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(7)
   VolcTenantModelProviderData get volcTenant => $_getN(6);
-  @$pb.TagNumber(8)
-  set volcTenant(VolcTenantModelProviderData value) => $_setField(8, value);
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(7)
+  set volcTenant(VolcTenantModelProviderData value) => $_setField(7, value);
+  @$pb.TagNumber(7)
   $core.bool hasVolcTenant() => $_has(6);
-  @$pb.TagNumber(8)
-  void clearVolcTenant() => $_clearField(8);
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(7)
+  void clearVolcTenant() => $_clearField(7);
+  @$pb.TagNumber(7)
   VolcTenantModelProviderData ensureVolcTenant() => $_ensure(6);
 
-  @$pb.TagNumber(9)
+  @$pb.TagNumber(8)
   MiniMaxTenantModelProviderData get minimaxTenant => $_getN(7);
-  @$pb.TagNumber(9)
+  @$pb.TagNumber(8)
   set minimaxTenant(MiniMaxTenantModelProviderData value) =>
-      $_setField(9, value);
-  @$pb.TagNumber(9)
+      $_setField(8, value);
+  @$pb.TagNumber(8)
   $core.bool hasMinimaxTenant() => $_has(7);
-  @$pb.TagNumber(9)
-  void clearMinimaxTenant() => $_clearField(9);
-  @$pb.TagNumber(9)
+  @$pb.TagNumber(8)
+  void clearMinimaxTenant() => $_clearField(8);
+  @$pb.TagNumber(8)
   MiniMaxTenantModelProviderData ensureMinimaxTenant() => $_ensure(7);
 
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(9)
   DeepSeekTenantModelProviderData get deepseekTenant => $_getN(8);
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(9)
   set deepseekTenant(DeepSeekTenantModelProviderData value) =>
-      $_setField(10, value);
-  @$pb.TagNumber(10)
+      $_setField(9, value);
+  @$pb.TagNumber(9)
   $core.bool hasDeepseekTenant() => $_has(8);
-  @$pb.TagNumber(10)
-  void clearDeepseekTenant() => $_clearField(10);
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(9)
+  void clearDeepseekTenant() => $_clearField(9);
+  @$pb.TagNumber(9)
   DeepSeekTenantModelProviderData ensureDeepseekTenant() => $_ensure(8);
 
-  @$pb.TagNumber(11)
+  @$pb.TagNumber(10)
   ModelProviderKind get providerKind => $_getN(9);
-  @$pb.TagNumber(11)
-  set providerKind(ModelProviderKind value) => $_setField(11, value);
-  @$pb.TagNumber(11)
+  @$pb.TagNumber(10)
+  set providerKind(ModelProviderKind value) => $_setField(10, value);
+  @$pb.TagNumber(10)
   $core.bool hasProviderKind() => $_has(9);
-  @$pb.TagNumber(11)
-  void clearProviderKind() => $_clearField(11);
+  @$pb.TagNumber(10)
+  void clearProviderKind() => $_clearField(10);
 }
 
 class OpenAITenantModelProviderData extends $pb.GeneratedMessage {
@@ -5981,10 +5981,10 @@ class DeepSeekTenantModelProviderData extends $pb.GeneratedMessage {
 
 class ModelGetRequest extends $pb.GeneratedMessage {
   factory ModelGetRequest({
-    $core.String? alias,
+    $core.String? name,
   }) {
     final result = create();
-    if (alias != null) result.alias = alias;
+    if (name != null) result.name = name;
     return result;
   }
 
@@ -6001,7 +6001,7 @@ class ModelGetRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ModelGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'alias')
+    ..aOS(1, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -6024,13 +6024,13 @@ class ModelGetRequest extends $pb.GeneratedMessage {
   static ModelGetRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get alias => $_getSZ(0);
+  $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
-  set alias($core.String value) => $_setString(0, value);
+  set name($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasAlias() => $_has(0);
+  $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearAlias() => $_clearField(1);
+  void clearName() => $_clearField(1);
 }
 
 class ModelGetResponse extends $pb.GeneratedMessage {
@@ -6281,11 +6281,11 @@ class ModelListResponse extends $pb.GeneratedMessage {
 
 class Voice extends $pb.GeneratedMessage {
   factory Voice({
-    $core.String? alias,
-    $core.Iterable<$core.MapEntry<$core.String, AliasI18nText>>? i18n,
+    $core.String? name,
+    $core.Iterable<$core.MapEntry<$core.String, ResourceI18nText>>? i18n,
   }) {
     final result = create();
-    if (alias != null) result.alias = alias;
+    if (name != null) result.name = name;
     if (i18n != null) result.i18n.addEntries(i18n);
     return result;
   }
@@ -6303,13 +6303,13 @@ class Voice extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'Voice',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'alias')
-    ..m<$core.String, AliasI18nText>(2, _omitFieldNames ? '' : 'i18n',
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..m<$core.String, ResourceI18nText>(2, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Voice.I18nEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
-        valueCreator: AliasI18nText.create,
-        valueDefaultOrMaker: AliasI18nText.getDefault,
+        valueCreator: ResourceI18nText.create,
+        valueDefaultOrMaker: ResourceI18nText.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..hasRequiredFields = false;
 
@@ -6332,24 +6332,24 @@ class Voice extends $pb.GeneratedMessage {
   static Voice? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get alias => $_getSZ(0);
+  $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
-  set alias($core.String value) => $_setString(0, value);
+  set name($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasAlias() => $_has(0);
+  $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearAlias() => $_clearField(1);
+  void clearName() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $pb.PbMap<$core.String, AliasI18nText> get i18n => $_getMap(1);
+  $pb.PbMap<$core.String, ResourceI18nText> get i18n => $_getMap(1);
 }
 
 class VoiceGetRequest extends $pb.GeneratedMessage {
   factory VoiceGetRequest({
-    $core.String? alias,
+    $core.String? name,
   }) {
     final result = create();
-    if (alias != null) result.alias = alias;
+    if (name != null) result.name = name;
     return result;
   }
 
@@ -6366,7 +6366,7 @@ class VoiceGetRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'VoiceGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'alias')
+    ..aOS(1, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -6389,13 +6389,13 @@ class VoiceGetRequest extends $pb.GeneratedMessage {
   static VoiceGetRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get alias => $_getSZ(0);
+  $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
-  set alias($core.String value) => $_setString(0, value);
+  set name($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasAlias() => $_has(0);
+  $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearAlias() => $_clearField(1);
+  void clearName() => $_clearField(1);
 }
 
 class VoiceGetResponse extends $pb.GeneratedMessage {
@@ -6646,14 +6646,14 @@ class VoiceListResponse extends $pb.GeneratedMessage {
 
 class Workflow extends $pb.GeneratedMessage {
   factory Workflow({
-    $core.String? alias,
-    $core.Iterable<$core.MapEntry<$core.String, AliasI18nText>>? i18n,
+    $core.String? name,
+    $core.Iterable<$core.MapEntry<$core.String, ResourceI18nText>>? i18n,
     $core.String? collection,
     $1.WorkflowDriver? driver,
     $core.String? workspaceLangPair,
   }) {
     final result = create();
-    if (alias != null) result.alias = alias;
+    if (name != null) result.name = name;
     if (i18n != null) result.i18n.addEntries(i18n);
     if (collection != null) result.collection = collection;
     if (driver != null) result.driver = driver;
@@ -6674,13 +6674,13 @@ class Workflow extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'Workflow',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'alias')
-    ..m<$core.String, AliasI18nText>(2, _omitFieldNames ? '' : 'i18n',
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..m<$core.String, ResourceI18nText>(2, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Workflow.I18nEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
-        valueCreator: AliasI18nText.create,
-        valueDefaultOrMaker: AliasI18nText.getDefault,
+        valueCreator: ResourceI18nText.create,
+        valueDefaultOrMaker: ResourceI18nText.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..aOS(3, _omitFieldNames ? '' : 'collection')
     ..aE<$1.WorkflowDriver>(4, _omitFieldNames ? '' : 'driver',
@@ -6707,16 +6707,16 @@ class Workflow extends $pb.GeneratedMessage {
   static Workflow? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get alias => $_getSZ(0);
+  $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
-  set alias($core.String value) => $_setString(0, value);
+  set name($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasAlias() => $_has(0);
+  $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearAlias() => $_clearField(1);
+  void clearName() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $pb.PbMap<$core.String, AliasI18nText> get i18n => $_getMap(1);
+  $pb.PbMap<$core.String, ResourceI18nText> get i18n => $_getMap(1);
 
   @$pb.TagNumber(3)
   $core.String get collection => $_getSZ(2);
@@ -6748,10 +6748,10 @@ class Workflow extends $pb.GeneratedMessage {
 
 class WorkflowGetRequest extends $pb.GeneratedMessage {
   factory WorkflowGetRequest({
-    $core.String? alias,
+    $core.String? name,
   }) {
     final result = create();
-    if (alias != null) result.alias = alias;
+    if (name != null) result.name = name;
     return result;
   }
 
@@ -6768,7 +6768,7 @@ class WorkflowGetRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'WorkflowGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'alias')
+    ..aOS(1, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -6791,13 +6791,13 @@ class WorkflowGetRequest extends $pb.GeneratedMessage {
   static WorkflowGetRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get alias => $_getSZ(0);
+  $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
-  set alias($core.String value) => $_setString(0, value);
+  set name($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasAlias() => $_has(0);
+  $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearAlias() => $_clearField(1);
+  void clearName() => $_clearField(1);
 }
 
 class WorkflowGetResponse extends $pb.GeneratedMessage {
@@ -7060,8 +7060,8 @@ class WorkflowListResponse extends $pb.GeneratedMessage {
   void clearRuntimeProfileRevision() => $_clearField(5);
 }
 
-class ToolkitPolicyToolIds extends $pb.GeneratedMessage {
-  factory ToolkitPolicyToolIds({
+class ToolkitPolicyToolNames extends $pb.GeneratedMessage {
+  factory ToolkitPolicyToolNames({
     $core.Iterable<$core.String>? value,
   }) {
     final result = create();
@@ -7069,40 +7069,41 @@ class ToolkitPolicyToolIds extends $pb.GeneratedMessage {
     return result;
   }
 
-  ToolkitPolicyToolIds._();
+  ToolkitPolicyToolNames._();
 
-  factory ToolkitPolicyToolIds.fromBuffer($core.List<$core.int> data,
+  factory ToolkitPolicyToolNames.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory ToolkitPolicyToolIds.fromJson($core.String json,
+  factory ToolkitPolicyToolNames.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ToolkitPolicyToolIds',
+      _omitMessageNames ? '' : 'ToolkitPolicyToolNames',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..pPS(1, _omitFieldNames ? '' : 'value')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ToolkitPolicyToolIds clone() => deepCopy();
+  ToolkitPolicyToolNames clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ToolkitPolicyToolIds copyWith(void Function(ToolkitPolicyToolIds) updates) =>
-      super.copyWith((message) => updates(message as ToolkitPolicyToolIds))
-          as ToolkitPolicyToolIds;
+  ToolkitPolicyToolNames copyWith(
+          void Function(ToolkitPolicyToolNames) updates) =>
+      super.copyWith((message) => updates(message as ToolkitPolicyToolNames))
+          as ToolkitPolicyToolNames;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static ToolkitPolicyToolIds create() => ToolkitPolicyToolIds._();
+  static ToolkitPolicyToolNames create() => ToolkitPolicyToolNames._();
   @$core.override
-  ToolkitPolicyToolIds createEmptyInstance() => create();
+  ToolkitPolicyToolNames createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static ToolkitPolicyToolIds getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ToolkitPolicyToolIds>(create);
-  static ToolkitPolicyToolIds? _defaultInstance;
+  static ToolkitPolicyToolNames getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ToolkitPolicyToolNames>(create);
+  static ToolkitPolicyToolNames? _defaultInstance;
 
   @$pb.TagNumber(1)
   $pb.PbList<$core.String> get value => $_getList(0);
@@ -7110,10 +7111,10 @@ class ToolkitPolicyToolIds extends $pb.GeneratedMessage {
 
 class ToolkitPolicy extends $pb.GeneratedMessage {
   factory ToolkitPolicy({
-    ToolkitPolicyToolIds? toolIds,
+    ToolkitPolicyToolNames? toolNames,
   }) {
     final result = create();
-    if (toolIds != null) result.toolIds = toolIds;
+    if (toolNames != null) result.toolNames = toolNames;
     return result;
   }
 
@@ -7130,8 +7131,8 @@ class ToolkitPolicy extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ToolkitPolicy',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<ToolkitPolicyToolIds>(1, _omitFieldNames ? '' : 'toolIds',
-        subBuilder: ToolkitPolicyToolIds.create)
+    ..aOM<ToolkitPolicyToolNames>(1, _omitFieldNames ? '' : 'toolNames',
+        subBuilder: ToolkitPolicyToolNames.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7154,29 +7155,29 @@ class ToolkitPolicy extends $pb.GeneratedMessage {
   static ToolkitPolicy? _defaultInstance;
 
   @$pb.TagNumber(1)
-  ToolkitPolicyToolIds get toolIds => $_getN(0);
+  ToolkitPolicyToolNames get toolNames => $_getN(0);
   @$pb.TagNumber(1)
-  set toolIds(ToolkitPolicyToolIds value) => $_setField(1, value);
+  set toolNames(ToolkitPolicyToolNames value) => $_setField(1, value);
   @$pb.TagNumber(1)
-  $core.bool hasToolIds() => $_has(0);
+  $core.bool hasToolNames() => $_has(0);
   @$pb.TagNumber(1)
-  void clearToolIds() => $_clearField(1);
+  void clearToolNames() => $_clearField(1);
   @$pb.TagNumber(1)
-  ToolkitPolicyToolIds ensureToolIds() => $_ensure(0);
+  ToolkitPolicyToolNames ensureToolNames() => $_ensure(0);
 }
 
 class Tool extends $pb.GeneratedMessage {
   factory Tool({
-    $core.String? alias,
-    $core.Iterable<$core.MapEntry<$core.String, AliasI18nText>>? i18n,
-    $0.Struct? inputSchema,
     $core.String? name,
+    $core.Iterable<$core.MapEntry<$core.String, ResourceI18nText>>? i18n,
+    $0.Struct? inputSchema,
+    $core.String? invokeName,
   }) {
     final result = create();
-    if (alias != null) result.alias = alias;
+    if (name != null) result.name = name;
     if (i18n != null) result.i18n.addEntries(i18n);
     if (inputSchema != null) result.inputSchema = inputSchema;
-    if (name != null) result.name = name;
+    if (invokeName != null) result.invokeName = invokeName;
     return result;
   }
 
@@ -7193,17 +7194,17 @@ class Tool extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'Tool',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'alias')
-    ..m<$core.String, AliasI18nText>(2, _omitFieldNames ? '' : 'i18n',
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..m<$core.String, ResourceI18nText>(2, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Tool.I18nEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
-        valueCreator: AliasI18nText.create,
-        valueDefaultOrMaker: AliasI18nText.getDefault,
+        valueCreator: ResourceI18nText.create,
+        valueDefaultOrMaker: ResourceI18nText.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..aOM<$0.Struct>(3, _omitFieldNames ? '' : 'inputSchema',
         subBuilder: $0.Struct.create)
-    ..aOS(5, _omitFieldNames ? '' : 'name')
+    ..aOS(4, _omitFieldNames ? '' : 'invokeName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7225,16 +7226,16 @@ class Tool extends $pb.GeneratedMessage {
   static Tool? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get alias => $_getSZ(0);
+  $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
-  set alias($core.String value) => $_setString(0, value);
+  set name($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasAlias() => $_has(0);
+  $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearAlias() => $_clearField(1);
+  void clearName() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $pb.PbMap<$core.String, AliasI18nText> get i18n => $_getMap(1);
+  $pb.PbMap<$core.String, ResourceI18nText> get i18n => $_getMap(1);
 
   @$pb.TagNumber(3)
   $0.Struct get inputSchema => $_getN(2);
@@ -7247,14 +7248,14 @@ class Tool extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $0.Struct ensureInputSchema() => $_ensure(2);
 
-  @$pb.TagNumber(5)
-  $core.String get name => $_getSZ(3);
-  @$pb.TagNumber(5)
-  set name($core.String value) => $_setString(3, value);
-  @$pb.TagNumber(5)
-  $core.bool hasName() => $_has(3);
-  @$pb.TagNumber(5)
-  void clearName() => $_clearField(5);
+  @$pb.TagNumber(4)
+  $core.String get invokeName => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set invokeName($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasInvokeName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearInvokeName() => $_clearField(4);
 }
 
 class ToolListRequest extends $pb.GeneratedMessage {
@@ -7423,10 +7424,10 @@ class ToolListResponse extends $pb.GeneratedMessage {
 
 class ToolGetRequest extends $pb.GeneratedMessage {
   factory ToolGetRequest({
-    $core.String? alias,
+    $core.String? name,
   }) {
     final result = create();
-    if (alias != null) result.alias = alias;
+    if (name != null) result.name = name;
     return result;
   }
 
@@ -7443,7 +7444,7 @@ class ToolGetRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ToolGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'alias')
+    ..aOS(1, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7466,13 +7467,13 @@ class ToolGetRequest extends $pb.GeneratedMessage {
   static ToolGetRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get alias => $_getSZ(0);
+  $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
-  set alias($core.String value) => $_setString(0, value);
+  set name($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasAlias() => $_has(0);
+  $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearAlias() => $_clearField(1);
+  void clearName() => $_clearField(1);
 }
 
 class ToolGetResponse extends $pb.GeneratedMessage {
@@ -7560,11 +7561,11 @@ class ToolGetResponse extends $pb.GeneratedMessage {
 class ToolInvokeRequest extends $pb.GeneratedMessage {
   factory ToolInvokeRequest({
     $0.Struct? args,
-    $core.String? name,
+    $core.String? invokeName,
   }) {
     final result = create();
     if (args != null) result.args = args;
-    if (name != null) result.name = name;
+    if (invokeName != null) result.invokeName = invokeName;
     return result;
   }
 
@@ -7581,9 +7582,9 @@ class ToolInvokeRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ToolInvokeRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<$0.Struct>(4, _omitFieldNames ? '' : 'args',
+    ..aOM<$0.Struct>(1, _omitFieldNames ? '' : 'args',
         subBuilder: $0.Struct.create)
-    ..aOS(5, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'invokeName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7605,25 +7606,25 @@ class ToolInvokeRequest extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ToolInvokeRequest>(create);
   static ToolInvokeRequest? _defaultInstance;
 
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(1)
   $0.Struct get args => $_getN(0);
-  @$pb.TagNumber(4)
-  set args($0.Struct value) => $_setField(4, value);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(1)
+  set args($0.Struct value) => $_setField(1, value);
+  @$pb.TagNumber(1)
   $core.bool hasArgs() => $_has(0);
-  @$pb.TagNumber(4)
-  void clearArgs() => $_clearField(4);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(1)
+  void clearArgs() => $_clearField(1);
+  @$pb.TagNumber(1)
   $0.Struct ensureArgs() => $_ensure(0);
 
-  @$pb.TagNumber(5)
-  $core.String get name => $_getSZ(1);
-  @$pb.TagNumber(5)
-  set name($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(5)
-  $core.bool hasName() => $_has(1);
-  @$pb.TagNumber(5)
-  void clearName() => $_clearField(5);
+  @$pb.TagNumber(2)
+  $core.String get invokeName => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set invokeName($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasInvokeName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearInvokeName() => $_clearField(2);
 }
 
 class ToolInvokeResponse extends $pb.GeneratedMessage {

@@ -76,7 +76,7 @@ func (ClientRPCExecutor) Invoke(
 	defer stop()
 
 	var params rpcapi.RPCPayload
-	if err := params.FromToolInvokeRequest(rpcapi.ToolInvokeRequest{Name: name, Args: parameters}); err != nil {
+	if err := params.FromToolInvokeRequest(rpcapi.ToolInvokeRequest{InvokeName: name, Args: parameters}); err != nil {
 		return nil, fmt.Errorf("giztools: encode client Tool request: %w", err)
 	}
 	requestID, err := clientRPCRequestID()

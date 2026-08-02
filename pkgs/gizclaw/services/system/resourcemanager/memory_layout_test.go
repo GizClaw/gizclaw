@@ -40,6 +40,7 @@ func TestMemoryLayoutResourceLifecycle(t *testing.T) {
 	if created.Action != apitypes.ApplyActionCreated {
 		t.Fatalf("Apply(create MemoryLayout) action = %s", created.Action)
 	}
+	resource = withResourceID(t, resource, *created.Id)
 	unchanged, err := manager.Apply(context.Background(), resource)
 	if err != nil {
 		t.Fatalf("Apply(unchanged MemoryLayout) error = %v", err)
@@ -48,7 +49,8 @@ func TestMemoryLayoutResourceLifecycle(t *testing.T) {
 		t.Fatalf("Apply(unchanged MemoryLayout) action = %s", unchanged.Action)
 	}
 
-	got, err := manager.Get(context.Background(), apitypes.ResourceKindMemoryLayout, "pet-memory")
+	id := *created.Id
+	got, err := manager.Get(context.Background(), apitypes.ResourceKindMemoryLayout, id)
 	if err != nil {
 		t.Fatalf("Get(MemoryLayout) error = %v", err)
 	}
@@ -60,7 +62,7 @@ func TestMemoryLayoutResourceLifecycle(t *testing.T) {
 		t.Fatalf("Get(MemoryLayout) extraction model = %q", layout.Spec.Flowcraft.Extraction.Model)
 	}
 
-	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindMemoryLayout, "pet-memory")
+	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindMemoryLayout, id)
 	if err != nil {
 		t.Fatalf("Delete(MemoryLayout) error = %v", err)
 	}
@@ -71,7 +73,7 @@ func TestMemoryLayoutResourceLifecycle(t *testing.T) {
 	if deletedLayout.Metadata.Name != "pet-memory" {
 		t.Fatalf("Delete(MemoryLayout) name = %q", deletedLayout.Metadata.Name)
 	}
-	if _, err := manager.Get(context.Background(), apitypes.ResourceKindMemoryLayout, "pet-memory"); err == nil {
+	if _, err := manager.Get(context.Background(), apitypes.ResourceKindMemoryLayout, id); err == nil {
 		t.Fatal("Get(deleted MemoryLayout) succeeded")
 	}
 }

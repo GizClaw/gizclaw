@@ -118,7 +118,7 @@ message FriendRelationshipUpdated {
 }
 
 message FriendGroupUpdated {
-  string friend_group_id = 1;
+  string friend_group_name = 1;
   string workspace_name = 2;
   FriendGroupChange change = 3;
   int64 revision_unix_ms = 4;

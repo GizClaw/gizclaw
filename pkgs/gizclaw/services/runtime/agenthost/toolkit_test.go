@@ -52,14 +52,16 @@ func TestToolkitInvokerUsesCanonicalCurrentPeerScope(t *testing.T) {
 func TestToolkitInvokerReauthorizesResourceAtInvoke(t *testing.T) {
 	server := &toolkit.Server{Store: kv.NewMemory(nil)}
 	tool := agentHostClientTool("volume_set")
-	putAgentHostTool(t, server, tool)
+	created := putAgentHostTool(t, server, tool)
 	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}}
 	ctx := toolTestContext(t, map[string]string{"volume": "volume_set"}, &recordingClientTools{})
 	if _, err := invoker.ResolveTools(ctx); err != nil {
 		t.Fatal(err)
 	}
 	tool.Enabled = false
-	putAgentHostTool(t, server, tool)
+	if _, err := server.PutTool(t.Context(), created.ID, tool); err != nil {
+		t.Fatalf("PutTool(%q) error = %v", tool.Name, err)
+	}
 	result, err := invoker.InvokeTool(ctx, "volume_set", json.RawMessage(`{"level":1}`))
 	if err != nil || string(result) != `{"error":{"code":"unavailable","message":"tool is unavailable"}}` {
 		t.Fatalf("InvokeTool(disabled) = %s, %v", result, err)
@@ -227,11 +229,13 @@ func toolTestContext(t *testing.T, resources map[string]string, client ClientToo
 	return ctx
 }
 
-func putAgentHostTool(t *testing.T, server *toolkit.Server, tool toolkit.Tool) {
+func putAgentHostTool(t *testing.T, server *toolkit.Server, tool toolkit.Tool) toolkit.Tool {
 	t.Helper()
-	if _, err := server.PutTool(t.Context(), tool); err != nil {
+	created, err := server.CreateTool(t.Context(), tool)
+	if err != nil {
 		t.Fatalf("PutTool(%q) error = %v", tool.Name, err)
 	}
+	return created
 }
 
 func agentHostClientTool(name string) toolkit.Tool {

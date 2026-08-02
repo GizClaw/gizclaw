@@ -306,7 +306,7 @@
         }
       }
     },
-    "/resources/{kind}/{name}": {
+    "/resources/{kind}/{id}": {
       "get": {
         "operationId": "getResource",
         "summary": "Get an admin resource",
@@ -319,10 +319,10 @@
             "$ref": "#/components/parameters/resourceKind"
           },
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Declarative resource metadata.name",
+            "description": "Declarative resource canonical metadata.id",
             "schema": {
               "type": "string"
             }
@@ -340,7 +340,7 @@
             }
           },
           "400": {
-            "description": "Invalid resource kind or name",
+            "description": "Invalid resource kind or ID",
             "content": {
               "application/json": {
                 "schema": {
@@ -393,7 +393,7 @@
             "$ref": "#/components/parameters/resourceKind"
           },
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
             "description": "Declarative resource metadata.name",
@@ -492,7 +492,7 @@
             "$ref": "#/components/parameters/resourceKind"
           },
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
             "description": "Declarative resource metadata.name",
@@ -1196,7 +1196,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/FriendGroupListResponse"
+                  "$ref": "#/components/schemas/AdminFriendGroupListResponse"
                 }
               }
             }
@@ -1255,7 +1255,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/FriendGroupObject"
+                  "$ref": "#/components/schemas/AdminFriendGroupObject"
                 }
               }
             }
@@ -1317,7 +1317,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/FriendGroupObject"
+                  "$ref": "#/components/schemas/AdminFriendGroupObject"
                 }
               }
             }
@@ -1387,7 +1387,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/FriendGroupObject"
+                  "$ref": "#/components/schemas/AdminFriendGroupObject"
                 }
               }
             }
@@ -1447,7 +1447,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/FriendGroupObject"
+                  "$ref": "#/components/schemas/AdminFriendGroupObject"
                 }
               }
             }
@@ -1527,7 +1527,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/FriendGroupMemberListResponse"
+                  "$ref": "#/components/schemas/AdminFriendGroupMemberListResponse"
                 }
               }
             }
@@ -1597,7 +1597,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/FriendGroupMemberObject"
+                  "$ref": "#/components/schemas/AdminFriendGroupMemberObject"
                 }
               }
             }
@@ -1678,7 +1678,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/FriendGroupMemberObject"
+                  "$ref": "#/components/schemas/AdminFriendGroupMemberObject"
                 }
               }
             }
@@ -1747,7 +1747,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/FriendGroupMemberObject"
+                  "$ref": "#/components/schemas/AdminFriendGroupMemberObject"
                 }
               }
             }
@@ -2040,7 +2040,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./shared.json#/components/schemas/MemoryLayout"
+                "$ref": "#/components/schemas/MemoryLayoutUpsert"
               }
             }
           }
@@ -2152,7 +2152,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./shared.json#/components/schemas/Workflow"
+                "$ref": "#/components/schemas/WorkflowUpsert"
               }
             }
           }
@@ -2180,6 +2180,16 @@
           },
           "409": {
             "description": "Workflow already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -2313,7 +2323,7 @@
         }
       }
     },
-    "/firmwares/{name}": {
+    "/firmwares/{id}": {
       "get": {
         "operationId": "getFirmware",
         "summary": "Get a firmware release line",
@@ -2322,10 +2332,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Firmware name",
+            "description": "Firmware ID",
             "schema": {
               "type": "string"
             }
@@ -2366,16 +2376,16 @@
       },
       "put": {
         "operationId": "putFirmware",
-        "summary": "Create or update a firmware release line",
+        "summary": "Update a firmware release line",
         "tags": [
           "Firmwares"
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Firmware name",
+            "description": "Firmware ID",
             "schema": {
               "type": "string"
             }
@@ -2412,6 +2422,16 @@
               }
             }
           },
+          "404": {
+            "description": "Firmware not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error",
             "content": {
@@ -2432,10 +2452,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Firmware name",
+            "description": "Firmware ID",
             "schema": {
               "type": "string"
             }
@@ -2475,7 +2495,7 @@
         }
       }
     },
-    "/firmwares/{name}/@release": {
+    "/firmwares/{id}/@release": {
       "post": {
         "operationId": "releaseFirmware",
         "summary": "Promote firmware slots",
@@ -2485,10 +2505,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Firmware name",
+            "description": "Firmware ID",
             "schema": {
               "type": "string"
             }
@@ -2538,7 +2558,7 @@
         }
       }
     },
-    "/firmwares/{name}/@rollback": {
+    "/firmwares/{id}/@rollback": {
       "post": {
         "operationId": "rollbackFirmware",
         "summary": "Rollback firmware stable slot",
@@ -2548,10 +2568,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Firmware name",
+            "description": "Firmware ID",
             "schema": {
               "type": "string"
             }
@@ -2709,6 +2729,16 @@
               }
             }
           },
+          "404": {
+            "description": "Credential not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error",
             "content": {
@@ -2722,7 +2752,7 @@
         }
       }
     },
-    "/credentials/{name}": {
+    "/credentials/{id}": {
       "get": {
         "operationId": "getCredential",
         "summary": "Get a credential",
@@ -2731,10 +2761,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Credential name",
+            "description": "Credential ID",
             "schema": {
               "type": "string"
             }
@@ -2781,10 +2811,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Credential name",
+            "description": "Credential ID",
             "schema": {
               "type": "string"
             }
@@ -2821,6 +2851,16 @@
               }
             }
           },
+          "404": {
+            "description": "Credential not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error",
             "content": {
@@ -2841,10 +2881,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Credential name",
+            "description": "Credential ID",
             "schema": {
               "type": "string"
             }
@@ -2899,10 +2939,10 @@
             "$ref": "#/components/parameters/modelProviderKind"
           },
           {
-            "name": "providerName",
+            "name": "providerId",
             "in": "query",
             "required": false,
-            "description": "Filter models by provider instance name",
+            "description": "Filter models by canonical provider resource ID",
             "schema": {
               "type": "string"
             }
@@ -3102,6 +3142,16 @@
           },
           "400": {
             "description": "Invalid model payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Model not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -3394,6 +3444,16 @@
               }
             }
           },
+          "404": {
+            "description": "DeepSeek tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error",
             "content": {
@@ -3519,7 +3579,7 @@
         }
       }
     },
-    "/gemini-tenants/{name}": {
+    "/gemini-tenants/{id}": {
       "get": {
         "operationId": "getGeminiTenant",
         "summary": "Get a Gemini tenant",
@@ -3528,10 +3588,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Gemini tenant name",
+            "description": "Gemini tenant ID",
             "schema": {
               "type": "string"
             }
@@ -3572,16 +3632,16 @@
       },
       "put": {
         "operationId": "putGeminiTenant",
-        "summary": "Create or update a Gemini tenant",
+        "summary": "Update a Gemini tenant",
         "tags": [
           "GeminiTenants"
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Gemini tenant name",
+            "description": "Gemini tenant ID",
             "schema": {
               "type": "string"
             }
@@ -3618,6 +3678,16 @@
               }
             }
           },
+          "404": {
+            "description": "Gemini tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error",
             "content": {
@@ -3638,10 +3708,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Gemini tenant name",
+            "description": "Gemini tenant ID",
             "schema": {
               "type": "string"
             }
@@ -3681,7 +3751,7 @@
         }
       }
     },
-    "/dashscope-tenants/{name}": {
+    "/dashscope-tenants/{id}": {
       "get": {
         "operationId": "getDashScopeTenant",
         "summary": "Get a DashScope tenant",
@@ -3690,10 +3760,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "DashScope tenant name",
+            "description": "DashScope tenant ID",
             "schema": {
               "type": "string"
             }
@@ -3734,16 +3804,16 @@
       },
       "put": {
         "operationId": "putDashScopeTenant",
-        "summary": "Create or update a DashScope tenant",
+        "summary": "Update a DashScope tenant",
         "tags": [
           "DashScopeTenants"
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "DashScope tenant name",
+            "description": "DashScope tenant ID",
             "schema": {
               "type": "string"
             }
@@ -3780,6 +3850,16 @@
               }
             }
           },
+          "404": {
+            "description": "DashScope tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error",
             "content": {
@@ -3800,10 +3880,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "DashScope tenant name",
+            "description": "DashScope tenant ID",
             "schema": {
               "type": "string"
             }
@@ -3843,7 +3923,7 @@
         }
       }
     },
-    "/deepseek-tenants/{name}": {
+    "/deepseek-tenants/{id}": {
       "get": {
         "operationId": "getDeepSeekTenant",
         "summary": "Get a DeepSeek tenant",
@@ -3852,10 +3932,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "DeepSeek tenant name",
+            "description": "DeepSeek tenant ID",
             "schema": {
               "type": "string"
             }
@@ -3902,10 +3982,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "DeepSeek tenant name",
+            "description": "DeepSeek tenant ID",
             "schema": {
               "type": "string"
             }
@@ -3942,6 +4022,16 @@
               }
             }
           },
+          "404": {
+            "description": "DeepSeek tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error",
             "content": {
@@ -3962,10 +4052,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "DeepSeek tenant name",
+            "description": "DeepSeek tenant ID",
             "schema": {
               "type": "string"
             }
@@ -4117,7 +4207,7 @@
         }
       }
     },
-    "/openai-tenants/{name}": {
+    "/openai-tenants/{id}": {
       "get": {
         "operationId": "getOpenAITenant",
         "summary": "Get an OpenAI-compatible tenant",
@@ -4126,10 +4216,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "OpenAI-compatible tenant name",
+            "description": "OpenAI-compatible tenant ID",
             "schema": {
               "type": "string"
             }
@@ -4170,16 +4260,16 @@
       },
       "put": {
         "operationId": "putOpenAITenant",
-        "summary": "Create or update an OpenAI-compatible tenant",
+        "summary": "Update an OpenAI-compatible tenant",
         "tags": [
           "OpenAITenants"
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "OpenAI-compatible tenant name",
+            "description": "OpenAI-compatible tenant ID",
             "schema": {
               "type": "string"
             }
@@ -4216,6 +4306,16 @@
               }
             }
           },
+          "404": {
+            "description": "OpenAI-compatible tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error",
             "content": {
@@ -4236,10 +4336,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "OpenAI-compatible tenant name",
+            "description": "OpenAI-compatible tenant ID",
             "schema": {
               "type": "string"
             }
@@ -4391,7 +4491,7 @@
         }
       }
     },
-    "/minimax-tenants/{name}": {
+    "/minimax-tenants/{id}": {
       "get": {
         "operationId": "getMiniMaxTenant",
         "summary": "Get a MiniMax tenant",
@@ -4400,10 +4500,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "MiniMax tenant name",
+            "description": "MiniMax tenant ID",
             "schema": {
               "type": "string"
             }
@@ -4444,16 +4544,16 @@
       },
       "put": {
         "operationId": "putMiniMaxTenant",
-        "summary": "Create or update a MiniMax tenant",
+        "summary": "Update a MiniMax tenant",
         "tags": [
           "MiniMaxTenants"
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "MiniMax tenant name",
+            "description": "MiniMax tenant ID",
             "schema": {
               "type": "string"
             }
@@ -4490,6 +4590,16 @@
               }
             }
           },
+          "404": {
+            "description": "MiniMax tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error",
             "content": {
@@ -4510,10 +4620,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "MiniMax tenant name",
+            "description": "MiniMax tenant ID",
             "schema": {
               "type": "string"
             }
@@ -4553,7 +4663,7 @@
         }
       }
     },
-    "/minimax-tenants/{name}/@sync-voices": {
+    "/minimax-tenants/{id}/@sync-voices": {
       "post": {
         "operationId": "syncMiniMaxTenantVoices",
         "summary": "Sync voices from a MiniMax tenant into the global voice catalog",
@@ -4562,10 +4672,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "MiniMax tenant name",
+            "description": "MiniMax tenant ID",
             "schema": {
               "type": "string"
             }
@@ -4737,7 +4847,7 @@
         }
       }
     },
-    "/volc-tenants/{name}": {
+    "/volc-tenants/{id}": {
       "get": {
         "operationId": "getVolcTenant",
         "summary": "Get a Volcengine tenant",
@@ -4746,10 +4856,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Volcengine tenant name",
+            "description": "Volcengine tenant ID",
             "schema": {
               "type": "string"
             }
@@ -4790,16 +4900,16 @@
       },
       "put": {
         "operationId": "putVolcTenant",
-        "summary": "Create or update a Volcengine tenant",
+        "summary": "Update a Volcengine tenant",
         "tags": [
           "VolcTenants"
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Volcengine tenant name",
+            "description": "Volcengine tenant ID",
             "schema": {
               "type": "string"
             }
@@ -4836,6 +4946,16 @@
               }
             }
           },
+          "404": {
+            "description": "Volcengine tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error",
             "content": {
@@ -4856,10 +4976,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Volcengine tenant name",
+            "description": "Volcengine tenant ID",
             "schema": {
               "type": "string"
             }
@@ -4899,7 +5019,7 @@
         }
       }
     },
-    "/volc-tenants/{name}/@sync-voices": {
+    "/volc-tenants/{id}/@sync-voices": {
       "post": {
         "operationId": "syncVolcTenantVoices",
         "summary": "Sync voices from a Volcengine tenant into the global voice catalog",
@@ -4908,10 +5028,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Volcengine tenant name",
+            "description": "Volcengine tenant ID",
             "schema": {
               "type": "string"
             }
@@ -4986,10 +5106,10 @@
             "$ref": "#/components/parameters/voiceProviderKind"
           },
           {
-            "name": "providerName",
+            "name": "providerId",
             "in": "query",
             "required": false,
-            "description": "Filter voices by provider instance name",
+            "description": "Filter voices by canonical provider resource ID",
             "schema": {
               "type": "string"
             }
@@ -5197,6 +5317,16 @@
               }
             }
           },
+          "404": {
+            "description": "Voice not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "409": {
             "description": "Voice cannot be modified because source is sync",
             "content": {
@@ -5270,7 +5400,7 @@
         }
       }
     },
-    "/memory-layouts/{name}": {
+    "/memory-layouts/{id}": {
       "get": {
         "operationId": "getMemoryLayout",
         "summary": "Get a memory layout",
@@ -5279,10 +5409,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "MemoryLayout name",
+            "description": "MemoryLayout ID",
             "schema": {
               "type": "string"
             }
@@ -5323,16 +5453,16 @@
       },
       "put": {
         "operationId": "putMemoryLayout",
-        "summary": "Create or update a memory layout",
+        "summary": "Update a memory layout",
         "tags": [
           "MemoryLayouts"
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "MemoryLayout name",
+            "description": "MemoryLayout ID",
             "schema": {
               "type": "string"
             }
@@ -5343,7 +5473,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./shared.json#/components/schemas/MemoryLayout"
+                "$ref": "#/components/schemas/MemoryLayoutUpsert"
               }
             }
           }
@@ -5361,6 +5491,16 @@
           },
           "400": {
             "description": "Invalid memory layout payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Memory layout not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -5389,10 +5529,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "MemoryLayout name",
+            "description": "MemoryLayout ID",
             "schema": {
               "type": "string"
             }
@@ -5432,7 +5572,7 @@
         }
       }
     },
-    "/workflows/{name}": {
+    "/workflows/{id}": {
       "get": {
         "operationId": "getWorkflow",
         "summary": "Get a workflow",
@@ -5441,10 +5581,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Workflow name",
+            "description": "Workflow ID",
             "schema": {
               "type": "string"
             }
@@ -5491,10 +5631,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Workflow name",
+            "description": "Workflow ID",
             "schema": {
               "type": "string"
             }
@@ -5505,7 +5645,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./shared.json#/components/schemas/Workflow"
+                "$ref": "#/components/schemas/WorkflowUpsert"
               }
             }
           }
@@ -5523,6 +5663,16 @@
           },
           "400": {
             "description": "Invalid workflow payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -5551,10 +5701,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Workflow name",
+            "description": "Workflow ID",
             "schema": {
               "type": "string"
             }
@@ -5730,7 +5880,7 @@
         }
       }
     },
-    "/workspaces/{name}": {
+    "/workspaces/{id}": {
       "get": {
         "operationId": "getWorkspace",
         "summary": "Get a workspace",
@@ -5739,10 +5889,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Workspace name",
+            "description": "Workspace ID",
             "schema": {
               "type": "string"
             }
@@ -5783,16 +5933,16 @@
       },
       "put": {
         "operationId": "putWorkspace",
-        "summary": "Create or update a workspace",
+        "summary": "Update a workspace",
         "tags": [
           "Workspaces"
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Workspace name",
+            "description": "Workspace ID",
             "schema": {
               "type": "string"
             }
@@ -5821,6 +5971,16 @@
           },
           "400": {
             "description": "Invalid workspace payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workspace not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -5860,10 +6020,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Workspace name",
+            "description": "Workspace ID",
             "schema": {
               "type": "string"
             }
@@ -5913,7 +6073,7 @@
         }
       }
     },
-    "/workspaces/{name}/icon/{format}": {
+    "/workspaces/{id}/icon/{format}": {
       "get": {
         "operationId": "downloadWorkspaceIcon",
         "summary": "Download a workspace icon",
@@ -5922,7 +6082,7 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -5990,7 +6150,7 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -6086,7 +6246,7 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -6140,7 +6300,7 @@
         }
       }
     },
-    "/workspaces/{name}/history": {
+    "/workspaces/{id}/history": {
       "get": {
         "operationId": "listWorkspaceHistory",
         "summary": "List workspace history without requiring an active runtime connection",
@@ -6149,13 +6309,13 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string"
             },
-            "description": "Workspace name"
+            "description": "Workspace ID"
           },
           {
             "name": "cursor",
@@ -6233,7 +6393,7 @@
         }
       }
     },
-    "/workspaces/{name}/history/{historyId}": {
+    "/workspaces/{id}/history/{historyId}": {
       "get": {
         "operationId": "getWorkspaceHistory",
         "summary": "Get one workspace history entry",
@@ -6242,13 +6402,13 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string"
             },
-            "description": "Workspace name"
+            "description": "Workspace ID"
           },
           {
             "name": "historyId",
@@ -6304,7 +6464,7 @@
         }
       }
     },
-    "/workspaces/{name}/history/{historyId}/audio.ogg": {
+    "/workspaces/{id}/history/{historyId}/audio.ogg": {
       "get": {
         "operationId": "downloadWorkspaceHistoryAudio",
         "summary": "Download workspace history audio as Ogg Opus",
@@ -6313,13 +6473,13 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string"
             },
-            "description": "Workspace name"
+            "description": "Workspace ID"
           },
           {
             "name": "historyId",
@@ -7482,7 +7642,7 @@
         }
       }
     },
-    "/firmwares/{name}/packages/{channel}/artifact.tar": {
+    "/firmwares/{id}/packages/{channel}/artifact.tar": {
       "get": {
         "operationId": "downloadFirmwareArtifact",
         "summary": "Download a firmware channel artifact tar",
@@ -7492,10 +7652,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Firmware name",
+            "description": "Firmware ID",
             "schema": {
               "type": "string"
             }
@@ -7559,10 +7719,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Firmware name",
+            "description": "Firmware ID",
             "schema": {
               "type": "string"
             }
@@ -7656,10 +7816,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Firmware name",
+            "description": "Firmware ID",
             "schema": {
               "type": "string"
             }
@@ -7714,7 +7874,7 @@
         }
       }
     },
-    "/firmwares/{name}/packages/{channel}/artifact/ls": {
+    "/firmwares/{id}/packages/{channel}/artifact/ls": {
       "get": {
         "operationId": "listFirmwareArtifactEntries",
         "summary": "List firmware artifact entries",
@@ -7724,10 +7884,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Firmware name",
+            "description": "Firmware ID",
             "schema": {
               "type": "string"
             }
@@ -7801,7 +7961,7 @@
         }
       }
     },
-    "/firmwares/{name}/packages/{channel}/artifact/tree": {
+    "/firmwares/{id}/packages/{channel}/artifact/tree": {
       "get": {
         "operationId": "treeFirmwareArtifactEntries",
         "summary": "Return firmware artifact tree entries",
@@ -7811,10 +7971,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Firmware name",
+            "description": "Firmware ID",
             "schema": {
               "type": "string"
             }
@@ -7888,7 +8048,7 @@
         }
       }
     },
-    "/firmwares/{name}/packages/{channel}/artifact/stat": {
+    "/firmwares/{id}/packages/{channel}/artifact/stat": {
       "get": {
         "operationId": "statFirmwareArtifactEntry",
         "summary": "Stat a firmware artifact or entry",
@@ -7898,10 +8058,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Firmware name",
+            "description": "Firmware ID",
             "schema": {
               "type": "string"
             }
@@ -7975,7 +8135,7 @@
         }
       }
     },
-    "/firmwares/{name}/packages/{channel}/artifact/dl": {
+    "/firmwares/{id}/packages/{channel}/artifact/dl": {
       "get": {
         "operationId": "downloadFirmwareArtifactEntry",
         "summary": "Download one firmware artifact entry",
@@ -7985,10 +8145,10 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "description": "Firmware name",
+            "description": "Firmware ID",
             "schema": {
               "type": "string"
             }
@@ -8228,7 +8388,7 @@
       },
       "put": {
         "operationId": "putPetDef",
-        "summary": "Create or update a PetDef",
+        "summary": "Update a PetDef",
         "tags": [
           "PetDefs"
         ],
@@ -8266,6 +8426,16 @@
           },
           "400": {
             "description": "Invalid PetDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PetDef not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -8512,7 +8682,7 @@
       },
       "put": {
         "operationId": "putBadgeDef",
-        "summary": "Create or update a BadgeDef",
+        "summary": "Update a BadgeDef",
         "tags": [
           "BadgeDefs"
         ],
@@ -8550,6 +8720,16 @@
           },
           "400": {
             "description": "Invalid BadgeDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "BadgeDef not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -8796,7 +8976,7 @@
       },
       "put": {
         "operationId": "putGameDef",
-        "summary": "Create or update a GameDef",
+        "summary": "Update a GameDef",
         "tags": [
           "GameDefs"
         ],
@@ -8834,6 +9014,16 @@
           },
           "400": {
             "description": "Invalid GameDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "GameDef not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -10255,7 +10445,7 @@
         }
       }
     },
-    "/runtime-profiles/{name}": {
+    "/runtime-profiles/{id}": {
       "get": {
         "operationId": "getRuntimeProfile",
         "summary": "Get a RuntimeProfile",
@@ -10264,7 +10454,7 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
             "description": "RuntimeProfile identifier",
@@ -10308,13 +10498,13 @@
       },
       "put": {
         "operationId": "putRuntimeProfile",
-        "summary": "Create or update a RuntimeProfile",
+        "summary": "Update a RuntimeProfile",
         "tags": [
           "RuntimeProfiles"
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
             "description": "RuntimeProfile identifier",
@@ -10354,6 +10544,16 @@
               }
             }
           },
+          "404": {
+            "description": "RuntimeProfile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "409": {
             "description": "RuntimeProfile conflict",
             "content": {
@@ -10384,7 +10584,7 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
             "description": "RuntimeProfile identifier",
@@ -10539,7 +10739,7 @@
         }
       }
     },
-    "/registration-tokens/{name}": {
+    "/registration-tokens/{id}": {
       "get": {
         "operationId": "getRegistrationToken",
         "summary": "Get a RegistrationToken",
@@ -10548,7 +10748,7 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
             "description": "RegistrationToken identifier",
@@ -10592,13 +10792,13 @@
       },
       "put": {
         "operationId": "putRegistrationToken",
-        "summary": "Create or update a RegistrationToken",
+        "summary": "Update a RegistrationToken",
         "tags": [
           "RegistrationTokens"
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
             "description": "RegistrationToken identifier",
@@ -10638,6 +10838,16 @@
               }
             }
           },
+          "404": {
+            "description": "RegistrationToken not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "409": {
             "description": "RegistrationToken conflict",
             "content": {
@@ -10668,7 +10878,7 @@
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
             "description": "RegistrationToken identifier",
@@ -10891,14 +11101,14 @@
       "ModelUpsert": {
         "type": "object",
         "required": [
-          "id",
+          "name",
           "kind",
           "source",
           "provider",
           "provider_data"
         ],
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           },
           "kind": {
@@ -10910,7 +11120,7 @@
           "provider": {
             "$ref": "./shared.json#/components/schemas/ModelProvider"
           },
-          "name": {
+          "display_name": {
             "type": "string"
           },
           "description": {
@@ -10931,7 +11141,7 @@
         "type": "object",
         "required": [
           "name",
-          "credential_name"
+          "credential_id"
         ],
         "properties": {
           "name": {
@@ -10943,7 +11153,7 @@
           "group_id": {
             "type": "string"
           },
-          "credential_name": {
+          "credential_id": {
             "type": "string"
           },
           "base_url": {
@@ -10983,13 +11193,13 @@
         "type": "object",
         "required": [
           "name",
-          "credential_name"
+          "credential_id"
         ],
         "properties": {
           "name": {
             "type": "string"
           },
-          "credential_name": {
+          "credential_id": {
             "type": "string"
           },
           "region": {
@@ -11063,12 +11273,12 @@
       "VoiceUpsert": {
         "type": "object",
         "required": [
-          "id",
+          "name",
           "source",
           "provider"
         ],
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           },
           "source": {
@@ -11077,7 +11287,7 @@
           "provider": {
             "$ref": "./shared.json#/components/schemas/VoiceProvider"
           },
-          "name": {
+          "display_name": {
             "type": "string"
           },
           "description": {
@@ -11091,14 +11301,14 @@
       "MiniMaxSyncVoicesResult": {
         "type": "object",
         "required": [
-          "tenant_name",
+          "tenant_id",
           "synced_at",
           "created_count",
           "updated_count",
           "deleted_count"
         ],
         "properties": {
-          "tenant_name": {
+          "tenant_id": {
             "type": "string"
           },
           "synced_at": {
@@ -11125,14 +11335,14 @@
       "VolcSyncVoicesResult": {
         "type": "object",
         "required": [
-          "tenant_name",
+          "tenant_id",
           "synced_at",
           "created_count",
           "updated_count",
           "deleted_count"
         ],
         "properties": {
-          "tenant_name": {
+          "tenant_id": {
             "type": "string"
           },
           "synced_at": {
@@ -11160,13 +11370,13 @@
         "type": "object",
         "required": [
           "name",
-          "workflow_name"
+          "workflow_id"
         ],
         "properties": {
           "name": {
             "type": "string"
           },
-          "workflow_name": {
+          "workflow_id": {
             "type": "string"
           },
           "labels": {
@@ -11185,6 +11395,38 @@
           },
           "icon": {
             "$ref": "./shared.json#/components/schemas/Icon"
+          }
+        }
+      },
+      "MemoryLayoutUpsert": {
+        "type": "object",
+        "required": [
+          "name",
+          "spec"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "./shared.json#/components/schemas/MemoryLayoutSpec"
+          }
+        }
+      },
+      "WorkflowUpsert": {
+        "type": "object",
+        "required": [
+          "name",
+          "spec"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "./shared.json#/components/schemas/WorkflowSpec"
           }
         }
       },
@@ -11258,13 +11500,13 @@
         "type": "object",
         "required": [
           "name",
-          "credential_name"
+          "credential_id"
         ],
         "properties": {
           "name": {
             "type": "string"
           },
-          "credential_name": {
+          "credential_id": {
             "type": "string"
           },
           "project_id": {
@@ -11312,7 +11554,7 @@
         "type": "object",
         "required": [
           "name",
-          "credential_name"
+          "credential_id"
         ],
         "properties": {
           "name": {
@@ -11321,7 +11563,7 @@
           "kind": {
             "$ref": "./shared.json#/components/schemas/OpenAITenantKind"
           },
-          "credential_name": {
+          "credential_id": {
             "type": "string"
           },
           "base_url": {
@@ -11364,13 +11606,13 @@
         "type": "object",
         "required": [
           "name",
-          "credential_name"
+          "credential_id"
         ],
         "properties": {
           "name": {
             "type": "string"
           },
-          "credential_name": {
+          "credential_id": {
             "type": "string"
           },
           "base_url": {
@@ -11410,13 +11652,13 @@
         "type": "object",
         "required": [
           "name",
-          "credential_name"
+          "credential_id"
         ],
         "properties": {
           "name": {
             "type": "string"
           },
-          "credential_name": {
+          "credential_id": {
             "type": "string"
           },
           "base_url": {
@@ -11459,7 +11701,7 @@
           "owner_public_key",
           "id",
           "peer_public_key",
-          "workspace_name"
+          "workspace_id"
         ],
         "properties": {
           "owner_public_key": {
@@ -11474,7 +11716,7 @@
             "type": "string",
             "minLength": 1
           },
-          "workspace_name": {
+          "workspace_id": {
             "type": "string",
             "minLength": 1
           },
@@ -11493,7 +11735,8 @@
         "additionalProperties": false,
         "required": [
           "owner_public_key",
-          "id"
+          "id",
+          "name"
         ],
         "properties": {
           "owner_public_key": {
@@ -11501,6 +11744,10 @@
             "minLength": 1
           },
           "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
             "type": "string",
             "minLength": 1
           },
@@ -11547,14 +11794,15 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "owner_public_key"
+          "owner_public_key",
+          "name"
         ],
         "properties": {
           "owner_public_key": {
             "type": "string",
             "minLength": 1
           },
-          "id": {
+          "name": {
             "type": "string",
             "minLength": 1
           },
@@ -11644,6 +11892,9 @@
             "type": "string",
             "minLength": 1
           },
+          "display_name": {
+            "type": "string"
+          },
           "description": {
             "type": "string"
           },
@@ -11657,7 +11908,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "name": {
+          "display_name": {
             "type": "string",
             "minLength": 1
           },
@@ -11670,16 +11921,83 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "name",
           "peer_public_key",
           "role"
         ],
         "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
           "peer_public_key": {
             "type": "string",
             "minLength": 1
           },
           "role": {
             "$ref": "./shared/server.json#/components/schemas/FriendGroupMemberRole"
+          }
+        }
+      },
+      "AdminFriendGroupMemberObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "friend_group_id",
+          "name",
+          "peer_public_key",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "friend_group_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "peer_public_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "$ref": "./shared/server.json#/components/schemas/FriendGroupMemberRole"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AdminFriendGroupMemberListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminFriendGroupMemberObject"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
           }
         }
       },
@@ -11782,12 +12100,12 @@
       "PetDefUpsert": {
         "type": "object",
         "required": [
-          "id",
+          "name",
           "spec"
         ],
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           },
           "spec": {
@@ -11798,12 +12116,12 @@
       "BadgeDefUpsert": {
         "type": "object",
         "required": [
-          "id",
+          "name",
           "spec"
         ],
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           },
           "spec": {
@@ -11814,12 +12132,12 @@
       "GameDefUpsert": {
         "type": "object",
         "required": [
-          "id",
+          "name",
           "spec"
         ],
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           },
           "spec": {
@@ -11828,6 +12146,31 @@
           "icon": {
             "$ref": "./shared.json#/components/schemas/Icon"
           }
+        }
+      },
+      "AdminFriendGroupObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "created_by_peer_public_key"],
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "display_name": {"type": "string"},
+          "description": {"type": "string"},
+          "created_by_peer_public_key": {"type": "string"},
+          "workspace_id": {"type": "string"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "AdminFriendGroupListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "has_next"],
+        "properties": {
+          "items": {"type": "array", "items": {"$ref": "#/components/schemas/AdminFriendGroupObject"}},
+          "has_next": {"type": "boolean"},
+          "next_cursor": {"type": "string"}
         }
       },
       "RuntimeProfileList": {
@@ -11895,7 +12238,7 @@
         "required": [
           "name",
           "token",
-          "runtime_profile_name"
+          "runtime_profile_id"
         ],
         "additionalProperties": false,
         "properties": {
@@ -11905,7 +12248,7 @@
           "token": {
             "type": "string"
           },
-          "runtime_profile_name": {
+          "runtime_profile_id": {
             "type": "string"
           },
           "firmware_id": {

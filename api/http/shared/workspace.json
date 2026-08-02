@@ -11,14 +11,18 @@
       "Workspace": {
         "type": "object",
         "required": [
+          "id",
           "name",
-          "workflow_name",
+          "workflow_id",
           "system",
           "created_at",
           "last_active_at",
           "updated_at"
         ],
         "properties": {
+          "id": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
@@ -35,7 +39,7 @@
               "type": "string"
             }
           },
-          "workflow_name": {
+          "workflow_id": {
             "type": "string"
           },
           "system": {

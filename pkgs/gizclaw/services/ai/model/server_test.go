@@ -23,7 +23,7 @@ func TestServerModelCRUDListFiltersAndIndexes(t *testing.T) {
 		Now:   func() time.Time { return now },
 	}
 	first := modelUpsert("qwen-flash", "openai-tenant", "dashscope")
-	first.Name = new("Qwen Flash")
+	first.DisplayName = new("Qwen Flash")
 	first.ProviderData = openAIProviderData("qwen-flash")
 	second := modelUpsert("speech", "openai-tenant", "global")
 
@@ -38,8 +38,8 @@ func TestServerModelCRUDListFiltersAndIndexes(t *testing.T) {
 	if created.CreatedAt != now || created.UpdatedAt != now {
 		t.Fatalf("CreateModel() timestamps = %s %s", created.CreatedAt, created.UpdatedAt)
 	}
-	if created.Name == nil || *created.Name != "Qwen Flash" {
-		t.Fatalf("CreateModel() name = %#v", created.Name)
+	if created.DisplayName == nil || *created.DisplayName != "Qwen Flash" {
+		t.Fatalf("CreateModel() display name = %#v", created.DisplayName)
 	}
 	if resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &first}); err != nil {
 		t.Fatalf("CreateModel(duplicate) error = %v", err)
@@ -62,22 +62,22 @@ func TestServerModelCRUDListFiltersAndIndexes(t *testing.T) {
 	}
 
 	providerKind := adminhttp.ModelProviderKind("openai-tenant")
-	providerName := string("global")
+	providerID := string("global")
 	providerResp, err := srv.ListModels(ctx, adminhttp.ListModelsRequestObject{
-		Params: adminhttp.ListModelsParams{ProviderKind: &providerKind, ProviderName: &providerName},
+		Params: adminhttp.ListModelsParams{ProviderKind: &providerKind, ProviderId: &providerID},
 	})
 	if err != nil {
 		t.Fatalf("ListModels(provider) error = %v", err)
 	}
 	providerListed := requireModelList(t, providerResp)
-	if len(providerListed.Items) != 1 || providerListed.Items[0].Id != "speech" {
+	if len(providerListed.Items) != 1 || providerListed.Items[0].Name != "speech" {
 		t.Fatalf("ListModels(provider) items = %#v", providerListed.Items)
 	}
 
 	updated := first
-	updated.Provider = apitypes.ModelProvider{Kind: "openai-tenant", Name: "global"}
+	updated.Provider = apitypes.ModelProvider{Kind: "openai-tenant", Id: "global"}
 	now = now.Add(time.Minute)
-	putResp, err := srv.PutModel(ctx, adminhttp.PutModelRequestObject{Id: "qwen-flash", Body: &updated})
+	putResp, err := srv.PutModel(ctx, adminhttp.PutModelRequestObject{Id: created.Id, Body: &updated})
 	if err != nil {
 		t.Fatalf("PutModel() error = %v", err)
 	}
@@ -88,21 +88,21 @@ func TestServerModelCRUDListFiltersAndIndexes(t *testing.T) {
 	if put.CreatedAt != created.CreatedAt || put.UpdatedAt != now {
 		t.Fatalf("PutModel() timestamps = %s %s", put.CreatedAt, put.UpdatedAt)
 	}
-	getResp, err := srv.GetModel(ctx, adminhttp.GetModelRequestObject{Id: "qwen-flash"})
+	getResp, err := srv.GetModel(ctx, adminhttp.GetModelRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("GetModel() error = %v", err)
 	}
-	if got, ok := getResp.(adminhttp.GetModel200JSONResponse); !ok || got.Provider.Name != "global" {
+	if got, ok := getResp.(adminhttp.GetModel200JSONResponse); !ok || got.Provider.Id != "global" {
 		t.Fatalf("GetModel() response = %#v", getResp)
 	}
-	deleteResp, err := srv.DeleteModel(ctx, adminhttp.DeleteModelRequestObject{Id: "qwen-flash"})
+	deleteResp, err := srv.DeleteModel(ctx, adminhttp.DeleteModelRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("DeleteModel() error = %v", err)
 	}
 	if _, ok := deleteResp.(adminhttp.DeleteModel200JSONResponse); !ok {
 		t.Fatalf("DeleteModel() response = %#v", deleteResp)
 	}
-	missingResp, err := srv.GetModel(ctx, adminhttp.GetModelRequestObject{Id: "qwen-flash"})
+	missingResp, err := srv.GetModel(ctx, adminhttp.GetModelRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("GetModel(missing) error = %v", err)
 	}
@@ -141,8 +141,15 @@ func TestServerListModelsPagination(t *testing.T) {
 		t.Fatalf("ListModels(second) error = %v", err)
 	}
 	second := requireModelList(t, secondResp)
-	if second.HasNext || second.NextCursor != nil || len(second.Items) != 1 || second.Items[0].Id != "c" {
+	if second.HasNext || second.NextCursor != nil || len(second.Items) != 1 {
 		t.Fatalf("ListModels(second) = %#v", second)
+	}
+	got := map[string]bool{}
+	for _, item := range append(first.Items, second.Items...) {
+		got[item.Name] = true
+	}
+	if !got["a"] || !got["b"] || !got["c"] || len(got) != 3 {
+		t.Fatalf("ListModels pages names = %#v, want a, b, c", got)
 	}
 }
 
@@ -173,9 +180,10 @@ func TestServerRejectsInvalidAndSyncModelWrites(t *testing.T) {
 	}
 	syncModel := apitypes.Model{
 		Id:        "synced",
+		Name:      "synced",
 		Source:    apitypes.ModelSourceSync,
 		Kind:      apitypes.ModelKindLlm,
-		Provider:  apitypes.ModelProvider{Kind: "sync-provider", Name: "main"},
+		Provider:  apitypes.ModelProvider{Kind: "sync-provider", Id: "main"},
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
 	}
@@ -197,11 +205,11 @@ func TestServerModelValidationAndErrorResponses(t *testing.T) {
 		name string
 		body adminhttp.ModelUpsert
 	}{
-		{name: "missing id", body: adminhttp.ModelUpsert{Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceManual, Provider: apitypes.ModelProvider{Kind: "openai-tenant", Name: "main"}}},
-		{name: "missing kind", body: adminhttp.ModelUpsert{Id: "kind", Source: apitypes.ModelSourceManual, Provider: apitypes.ModelProvider{Kind: "openai-tenant", Name: "main"}}},
-		{name: "sync source", body: adminhttp.ModelUpsert{Id: "sync", Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceSync, Provider: apitypes.ModelProvider{Kind: "openai-tenant", Name: "main"}}},
-		{name: "missing provider kind", body: adminhttp.ModelUpsert{Id: "provider", Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceManual, Provider: apitypes.ModelProvider{Name: "main"}}},
-		{name: "missing provider name", body: adminhttp.ModelUpsert{Id: "provider", Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceManual, Provider: apitypes.ModelProvider{Kind: "openai-tenant"}}},
+		{name: "missing id", body: adminhttp.ModelUpsert{Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceManual, Provider: apitypes.ModelProvider{Kind: "openai-tenant", Id: "main"}}},
+		{name: "missing kind", body: adminhttp.ModelUpsert{Name: "kind", Source: apitypes.ModelSourceManual, Provider: apitypes.ModelProvider{Kind: "openai-tenant", Id: "main"}}},
+		{name: "sync source", body: adminhttp.ModelUpsert{Name: "sync", Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceSync, Provider: apitypes.ModelProvider{Kind: "openai-tenant", Id: "main"}}},
+		{name: "missing provider kind", body: adminhttp.ModelUpsert{Name: "provider", Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceManual, Provider: apitypes.ModelProvider{Id: "main"}}},
+		{name: "missing provider name", body: adminhttp.ModelUpsert{Name: "provider", Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceManual, Provider: apitypes.ModelProvider{Kind: "openai-tenant"}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &tc.body})
@@ -217,7 +225,7 @@ func TestServerModelValidationAndErrorResponses(t *testing.T) {
 	base := modelUpsert("manual", "openai-tenant", "main")
 	if resp, err := srv.PutModel(ctx, adminhttp.PutModelRequestObject{Id: "other", Body: &base}); err != nil {
 		t.Fatalf("PutModel(id mismatch) error = %v", err)
-	} else if _, ok := resp.(adminhttp.PutModel400JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.PutModel404JSONResponse); !ok {
 		t.Fatalf("PutModel(id mismatch) response = %#v", resp)
 	}
 	if resp, err := srv.DeleteModel(ctx, adminhttp.DeleteModelRequestObject{Id: "missing"}); err != nil {
@@ -283,32 +291,33 @@ func TestServerValidatesProviderKindAgainstProviderData(t *testing.T) {
 	for _, body := range valid {
 		resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &body})
 		if err != nil {
-			t.Fatalf("CreateModel(%s) error = %v", body.Id, err)
+			t.Fatalf("CreateModel(%s) error = %v", body.Name, err)
 		}
-		if _, ok := resp.(adminhttp.CreateModel200JSONResponse); !ok {
-			t.Fatalf("CreateModel(%s) response = %#v", body.Id, resp)
+		created, ok := resp.(adminhttp.CreateModel200JSONResponse)
+		if !ok {
+			t.Fatalf("CreateModel(%s) response = %#v", body.Name, resp)
 		}
 		description := "updated"
 		body.Description = &description
-		put, err := srv.PutModel(ctx, adminhttp.PutModelRequestObject{Id: body.Id, Body: &body})
+		put, err := srv.PutModel(ctx, adminhttp.PutModelRequestObject{Id: created.Id, Body: &body})
 		if err != nil {
-			t.Fatalf("PutModel(%s) error = %v", body.Id, err)
+			t.Fatalf("PutModel(%s) error = %v", body.Name, err)
 		}
 		if _, ok := put.(adminhttp.PutModel200JSONResponse); !ok {
-			t.Fatalf("PutModel(%s) response = %#v", body.Id, put)
+			t.Fatalf("PutModel(%s) response = %#v", body.Name, put)
 		}
 	}
 
 	deepSeek := valid[len(valid)-1]
 	wrongKind := deepSeek
-	wrongKind.Id = "wrong-kind"
-	wrongKind.Provider = apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Name: "openai-main"}
+	wrongKind.Name = "wrong-kind"
+	wrongKind.Provider = apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Id: "openai-main"}
 	unknownField := modelUpsert("unknown-field", string(apitypes.ModelProviderKindOpenaiTenant), "openai-main")
 	if err := json.Unmarshal([]byte(`{"upstream_model":"gpt-test","vendor_option":true}`), &unknownField.ProviderData); err != nil {
 		t.Fatalf("json.Unmarshal(provider_data) error = %v", err)
 	}
 	wrongModelKind := deepSeek
-	wrongModelKind.Id = "deepseek-embedding"
+	wrongModelKind.Name = "deepseek-embedding"
 	wrongModelKind.Kind = apitypes.ModelKindEmbedding
 	defaultBehavior := modelUpsert("default-behavior", string(apitypes.ModelProviderKindOpenaiTenant), "openai-main")
 	if err := defaultBehavior.ProviderData.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{UpstreamModel: "gpt-test"}); err != nil {
@@ -323,19 +332,19 @@ func TestServerValidatesProviderKindAgainstProviderData(t *testing.T) {
 	}
 
 	missingDashRealtimeUpstream := dashRealtime
-	missingDashRealtimeUpstream.Id = "qwen-realtime-missing-upstream"
+	missingDashRealtimeUpstream.Name = "qwen-realtime-missing-upstream"
 	missingDashRealtimeUpstream.ProviderData = modelProviderData(t, apitypes.DashScopeTenantModelProviderData{ApiMode: &dashScopeRealtimeMode})
 	missingVolcRealtimeDuplexUpstream := volcRealtimeDuplex
-	missingVolcRealtimeDuplexUpstream.Id = "doubao-realtime-duplex-missing-upstream"
+	missingVolcRealtimeDuplexUpstream.Name = "doubao-realtime-duplex-missing-upstream"
 	missingVolcRealtimeDuplexUpstream.ProviderData = modelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: volcRealtimeDuplexMode})
 
 	for _, body := range []adminhttp.ModelUpsert{wrongKind, unknownField, wrongModelKind, missingDashRealtimeUpstream, missingVolcRealtimeDuplexUpstream} {
 		resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &body})
 		if err != nil {
-			t.Fatalf("CreateModel(%s) error = %v", body.Id, err)
+			t.Fatalf("CreateModel(%s) error = %v", body.Name, err)
 		}
 		if _, ok := resp.(adminhttp.CreateModel400JSONResponse); !ok {
-			t.Fatalf("CreateModel(%s) response = %#v, want 400", body.Id, resp)
+			t.Fatalf("CreateModel(%s) response = %#v, want 400", body.Name, resp)
 		}
 	}
 }
@@ -559,8 +568,9 @@ func TestServerListModelsSourceFilterAndSyncedTimePreserved(t *testing.T) {
 	srv := &Server{Store: kv.NewMemory(nil)}
 	previous := apitypes.Model{
 		Id:       "sync-preserved",
+		Name:     "sync-preserved",
 		Kind:     apitypes.ModelKindLlm,
-		Provider: apitypes.ModelProvider{Kind: "openai-tenant", Name: "main"},
+		Provider: apitypes.ModelProvider{Kind: "openai-tenant", Id: "main"},
 		Source:   apitypes.ModelSourceManual,
 		SyncedAt: &syncedAt,
 	}
@@ -593,14 +603,14 @@ func TestServerListModelsSourceFilterAndSyncedTimePreserved(t *testing.T) {
 	}
 }
 
-func modelUpsert(id string, providerKind, providerName string) adminhttp.ModelUpsert {
+func modelUpsert(id string, providerKind, providerID string) adminhttp.ModelUpsert {
 	return adminhttp.ModelUpsert{
-		Id:     string(id),
+		Name:   string(id),
 		Kind:   apitypes.ModelKindLlm,
 		Source: apitypes.ModelSourceManual,
 		Provider: apitypes.ModelProvider{
 			Kind: apitypes.ModelProviderKind(providerKind),
-			Name: string(providerName),
+			Id:   string(providerID),
 		},
 		ProviderData: openAIProviderData(id),
 	}

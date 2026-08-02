@@ -281,7 +281,7 @@ func (s *adminService) ListFriendGroups(ctx context.Context, request adminhttp.L
 	if s == nil || s.FriendGroups == nil {
 		return adminhttp.ListFriendGroups500JSONResponse(apitypes.NewErrorResponse("SOCIAL_FRIEND_GROUP_SERVICE_NOT_CONFIGURED", "friend group service is not configured")), nil
 	}
-	resp, err := s.FriendGroups.AdminListFriendGroups(ctx, rpcapi.FriendGroupListRequest{Cursor: request.Params.Cursor, Limit: request.Params.Limit})
+	resp, err := s.FriendGroups.AdminListFriendGroupObjects(ctx, rpcapi.FriendGroupListRequest{Cursor: request.Params.Cursor, Limit: request.Params.Limit})
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -303,7 +303,7 @@ func (s *adminService) CreateFriendGroup(ctx context.Context, request adminhttp.
 	if request.Body == nil {
 		return adminhttp.CreateFriendGroup400JSONResponse(apitypes.NewErrorResponse("INVALID_FRIEND_GROUP", "request body is required")), nil
 	}
-	item, err := s.FriendGroups.AdminCreateFriendGroup(ctx, request.Body.OwnerPublicKey, request.Body.Name, request.Body.Description)
+	item, err := s.FriendGroups.AdminCreateFriendGroup(ctx, request.Body.OwnerPublicKey, request.Body.Name, request.Body.DisplayName, request.Body.Description)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -322,7 +322,7 @@ func (s *adminService) GetFriendGroup(ctx context.Context, request adminhttp.Get
 	if s == nil || s.FriendGroups == nil {
 		return adminhttp.GetFriendGroup500JSONResponse(apitypes.NewErrorResponse("SOCIAL_FRIEND_GROUP_SERVICE_NOT_CONFIGURED", "friend group service is not configured")), nil
 	}
-	item, err := s.FriendGroups.AdminGetFriendGroup(ctx, request.Id)
+	item, err := s.FriendGroups.AdminGetFriendGroupObject(ctx, request.Id)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -344,7 +344,7 @@ func (s *adminService) PutFriendGroup(ctx context.Context, request adminhttp.Put
 	if request.Body == nil {
 		return adminhttp.PutFriendGroup400JSONResponse(apitypes.NewErrorResponse("INVALID_FRIEND_GROUP", "request body is required")), nil
 	}
-	item, err := s.FriendGroups.AdminPutFriendGroup(ctx, request.Id, request.Body.Name, request.Body.Description)
+	item, err := s.FriendGroups.AdminPutFriendGroup(ctx, request.Id, request.Body.DisplayName, request.Body.Description)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -356,7 +356,11 @@ func (s *adminService) PutFriendGroup(ctx context.Context, request adminhttp.Put
 			return adminhttp.PutFriendGroup400JSONResponse(body), nil
 		}
 	}
-	return adminhttp.PutFriendGroup200JSONResponse(item), nil
+	projected, err := s.FriendGroups.AdminFriendGroupObject(ctx, request.Id, item)
+	if err != nil {
+		return adminhttp.PutFriendGroup500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	return adminhttp.PutFriendGroup200JSONResponse(projected), nil
 }
 
 func (s *adminService) DeleteFriendGroup(ctx context.Context, request adminhttp.DeleteFriendGroupRequestObject) (adminhttp.DeleteFriendGroupResponseObject, error) {
@@ -375,7 +379,11 @@ func (s *adminService) DeleteFriendGroup(ctx context.Context, request adminhttp.
 			return adminhttp.DeleteFriendGroup400JSONResponse(body), nil
 		}
 	}
-	return adminhttp.DeleteFriendGroup200JSONResponse(item), nil
+	projected, err := s.FriendGroups.AdminFriendGroupObject(ctx, request.Id, item)
+	if err != nil {
+		return adminhttp.DeleteFriendGroup500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	return adminhttp.DeleteFriendGroup200JSONResponse(projected), nil
 }
 
 func (s *adminService) ListFriendGroupMembers(ctx context.Context, request adminhttp.ListFriendGroupMembersRequestObject) (adminhttp.ListFriendGroupMembersResponseObject, error) {
@@ -394,7 +402,13 @@ func (s *adminService) ListFriendGroupMembers(ctx context.Context, request admin
 			return adminhttp.ListFriendGroupMembers400JSONResponse(body), nil
 		}
 	}
-	return adminhttp.ListFriendGroupMembers200JSONResponse(resp), nil
+	items := make([]adminhttp.AdminFriendGroupMemberObject, 0, len(resp.Items))
+	for _, item := range resp.Items {
+		items = append(items, adminFriendGroupMemberObject(request.Id, item))
+	}
+	return adminhttp.ListFriendGroupMembers200JSONResponse{
+		Items: items, HasNext: resp.HasNext, NextCursor: resp.NextCursor,
+	}, nil
 }
 
 func (s *adminService) CreateFriendGroupMember(ctx context.Context, request adminhttp.CreateFriendGroupMemberRequestObject) (adminhttp.CreateFriendGroupMemberResponseObject, error) {
@@ -404,7 +418,7 @@ func (s *adminService) CreateFriendGroupMember(ctx context.Context, request admi
 	if request.Body == nil {
 		return adminhttp.CreateFriendGroupMember400JSONResponse(apitypes.NewErrorResponse("INVALID_FRIEND_GROUP_MEMBER", "request body is required")), nil
 	}
-	item, err := s.FriendGroups.AdminPutFriendGroupMember(ctx, request.Id, request.Body.PeerPublicKey, request.Body.Role)
+	item, err := s.FriendGroups.AdminPutFriendGroupMember(ctx, request.Id, request.Body.PeerPublicKey, request.Body.Name, request.Body.Role)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -416,7 +430,7 @@ func (s *adminService) CreateFriendGroupMember(ctx context.Context, request admi
 			return adminhttp.CreateFriendGroupMember400JSONResponse(body), nil
 		}
 	}
-	return adminhttp.CreateFriendGroupMember200JSONResponse(item), nil
+	return adminhttp.CreateFriendGroupMember200JSONResponse(adminFriendGroupMemberObject(request.Id, item)), nil
 }
 
 func (s *adminService) PutFriendGroupMember(ctx context.Context, request adminhttp.PutFriendGroupMemberRequestObject) (adminhttp.PutFriendGroupMemberResponseObject, error) {
@@ -426,7 +440,7 @@ func (s *adminService) PutFriendGroupMember(ctx context.Context, request adminht
 	if request.Body == nil {
 		return adminhttp.PutFriendGroupMember400JSONResponse(apitypes.NewErrorResponse("INVALID_FRIEND_GROUP_MEMBER", "request body is required")), nil
 	}
-	item, err := s.FriendGroups.AdminPutFriendGroupMember(ctx, request.Id, request.PublicKey, request.Body.Role)
+	item, err := s.FriendGroups.AdminPutFriendGroupMember(ctx, request.Id, request.PublicKey, "", request.Body.Role)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -438,7 +452,7 @@ func (s *adminService) PutFriendGroupMember(ctx context.Context, request adminht
 			return adminhttp.PutFriendGroupMember400JSONResponse(body), nil
 		}
 	}
-	return adminhttp.PutFriendGroupMember200JSONResponse(item), nil
+	return adminhttp.PutFriendGroupMember200JSONResponse(adminFriendGroupMemberObject(request.Id, item)), nil
 }
 
 func (s *adminService) DeleteFriendGroupMember(ctx context.Context, request adminhttp.DeleteFriendGroupMemberRequestObject) (adminhttp.DeleteFriendGroupMemberResponseObject, error) {
@@ -457,7 +471,19 @@ func (s *adminService) DeleteFriendGroupMember(ctx context.Context, request admi
 			return adminhttp.DeleteFriendGroupMember400JSONResponse(body), nil
 		}
 	}
-	return adminhttp.DeleteFriendGroupMember200JSONResponse(item), nil
+	return adminhttp.DeleteFriendGroupMember200JSONResponse(adminFriendGroupMemberObject(request.Id, item)), nil
+}
+
+func adminFriendGroupMemberObject(friendGroupID string, item rpcapi.FriendGroupMemberObject) adminhttp.AdminFriendGroupMemberObject {
+	return adminhttp.AdminFriendGroupMemberObject{
+		Id:            socialutil.StringValue(item.Id),
+		FriendGroupId: strings.TrimSpace(friendGroupID),
+		Name:          socialutil.StringValue(item.FriendGroupName),
+		PeerPublicKey: socialutil.StringValue(item.PeerPublicKey),
+		Role:          socialutil.GroupRole(item),
+		CreatedAt:     item.CreatedAt,
+		UpdatedAt:     item.UpdatedAt,
+	}
 }
 
 func (s *adminService) GetFriendGroupInviteToken(ctx context.Context, request adminhttp.GetFriendGroupInviteTokenRequestObject) (adminhttp.GetFriendGroupInviteTokenResponseObject, error) {
@@ -533,7 +559,7 @@ func (s *adminService) ListWorkspaceHistory(ctx context.Context, request adminht
 		order := apitypes.PeerRunHistoryListRequestOrder(*request.Params.Order)
 		req.Order = &order
 	}
-	resp, err := history.AdminListWorkspaceHistory(ctx, request.Name, req)
+	resp, err := history.AdminListWorkspaceHistory(ctx, request.Id, req)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -553,7 +579,7 @@ func (s *adminService) GetWorkspaceHistory(ctx context.Context, request adminhtt
 	if !ok {
 		return adminhttp.GetWorkspaceHistory500JSONResponse(apitypes.NewErrorResponse("WORKSPACE_HISTORY_SERVICE_NOT_CONFIGURED", "workspace history service is not configured")), nil
 	}
-	entry, err := history.AdminGetWorkspaceHistory(ctx, request.Name, request.HistoryId)
+	entry, err := history.AdminGetWorkspaceHistory(ctx, request.Id, request.HistoryId)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -573,7 +599,7 @@ func (s *adminService) DownloadWorkspaceHistoryAudio(ctx context.Context, reques
 	if !ok {
 		return adminhttp.DownloadWorkspaceHistoryAudio500JSONResponse(apitypes.NewErrorResponse("WORKSPACE_HISTORY_SERVICE_NOT_CONFIGURED", "workspace history service is not configured")), nil
 	}
-	r, size, err := history.AdminReadWorkspaceHistoryAudio(ctx, request.Name, request.HistoryId)
+	r, size, err := history.AdminReadWorkspaceHistoryAudio(ctx, request.Id, request.HistoryId)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {

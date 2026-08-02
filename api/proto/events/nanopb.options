@@ -15,7 +15,7 @@ gizclaw.events.v1.TextDone.text max_size:8193
 gizclaw.events.v1.WorkspaceHistoryUpdated.workspace_name max_size:257
 gizclaw.events.v1.FriendRelationshipUpdated.peer_public_key max_size:65
 gizclaw.events.v1.FriendRelationshipUpdated.workspace_name max_size:257
-gizclaw.events.v1.FriendGroupUpdated.friend_group_id max_size:257
+gizclaw.events.v1.FriendGroupUpdated.friend_group_name max_size:257
 gizclaw.events.v1.FriendGroupUpdated.workspace_name max_size:257
 gizclaw.events.v1.FriendGroupUpdated.affected_peer_public_key max_size:65
 gizclaw.events.v1.GameplayRewardUpdated.workspace_name max_size:257

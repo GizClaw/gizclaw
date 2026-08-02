@@ -311,7 +311,7 @@ class _InboundPeerRpcChannel {
         'invalid params',
       );
     }
-    final name = params.name.trim();
+    final name = params.invokeName.trim();
     if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_-]{0,63}$').hasMatch(name)) {
       return _rpcErrorResponse(
         request.id,

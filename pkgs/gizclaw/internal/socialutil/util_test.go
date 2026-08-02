@@ -19,8 +19,8 @@ func TestJSONPagingAndDeletePrefix(t *testing.T) {
 	firstID := "id/a"
 	secondID := "id b"
 
-	first := rpcapi.ContactObject{Id: strPtr(firstID), DisplayName: strPtr("first")}
-	second := rpcapi.ContactObject{Id: strPtr(secondID), DisplayName: strPtr("second")}
+	first := rpcapi.ContactObject{Name: firstID, DisplayName: strPtr("first")}
+	second := rpcapi.ContactObject{Name: secondID, DisplayName: strPtr("second")}
 	if err := WriteJSON(ctx, store, ContactKey(owner, firstID), first); err != nil {
 		t.Fatalf("WriteJSON first: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestJSONPagingAndDeletePrefix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadJSONValue: %v", err)
 	}
-	if StringValue(got.Id) != firstID || StringValue(got.DisplayName) != "first" {
+	if got.Name != firstID || StringValue(got.DisplayName) != "first" {
 		t.Fatalf("ReadJSONValue = %#v, want first contact", got)
 	}
 
@@ -60,20 +60,20 @@ func TestJSONPagingAndDeletePrefix(t *testing.T) {
 
 func TestItemPagingAndVisibility(t *testing.T) {
 	items := []rpcapi.ContactObject{
-		{Id: strPtr("a"), DisplayName: strPtr("first")},
-		{Id: strPtr("b"), DisplayName: strPtr("second")},
-		{Id: strPtr("c"), DisplayName: strPtr("third")},
+		{Name: "a", DisplayName: strPtr("first")},
+		{Name: "b", DisplayName: strPtr("second")},
+		{Name: "c", DisplayName: strPtr("third")},
 	}
 	page := PageItems(items, "a", 1, func(item rpcapi.ContactObject) string {
-		return StringValue(item.Id)
+		return item.Name
 	})
-	if len(page.Items) != 1 || StringValue(page.Items[0].Id) != "b" || !page.HasNext || page.NextCursor == nil || *page.NextCursor != "b" {
+	if len(page.Items) != 1 || page.Items[0].Name != "b" || !page.HasNext || page.NextCursor == nil || *page.NextCursor != "b" {
 		t.Fatalf("PageItems after cursor = %#v, want item b with next cursor", page)
 	}
 	page = PageItems(items, "missing", 2, func(item rpcapi.ContactObject) string {
-		return StringValue(item.Id)
+		return item.Name
 	})
-	if len(page.Items) != 2 || StringValue(page.Items[0].Id) != "a" {
+	if len(page.Items) != 2 || page.Items[0].Name != "a" {
 		t.Fatalf("PageItems missing cursor = %#v, want first page", page)
 	}
 }

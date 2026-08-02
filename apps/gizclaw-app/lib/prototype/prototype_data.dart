@@ -4,33 +4,33 @@ import 'prototype_models.dart';
 
 final demoWorkflows = <Workflow>[
   Workflow(
-    alias: 'doubao-realtime',
+    name: 'doubao-realtime',
     collection: 'assistants',
     driver: WorkflowDriver.WORKFLOW_DRIVER_DOUBAO_REALTIME,
     i18n: {
-      'en': AliasI18nText(
+      'en': ResourceI18nText(
         displayName: 'Doubao',
         description: 'Realtime assistant',
       ),
-      'zh-CN': AliasI18nText(displayName: '豆包', description: '实时智能助手'),
+      'zh-CN': ResourceI18nText(displayName: '豆包', description: '实时智能助手'),
     }.entries,
   ),
   Workflow(
-    alias: 'translate-zh-en-auto',
+    name: 'translate-zh-en-auto',
     collection: 'translates',
     driver: WorkflowDriver.WORKFLOW_DRIVER_AST_TRANSLATE,
     i18n: {
-      'en': AliasI18nText(displayName: 'Chinese / English'),
-      'zh-CN': AliasI18nText(displayName: '中英翻译'),
+      'en': ResourceI18nText(displayName: 'Chinese / English'),
+      'zh-CN': ResourceI18nText(displayName: '中英翻译'),
     }.entries,
   ),
   Workflow(
-    alias: 'journey',
+    name: 'journey',
     collection: 'raids',
     driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
     i18n: {
-      'en': AliasI18nText(displayName: 'Journey'),
-      'zh-CN': AliasI18nText(displayName: '赛博佩特'),
+      'en': ResourceI18nText(displayName: 'Journey'),
+      'zh-CN': ResourceI18nText(displayName: '赛博佩特'),
     }.entries,
   ),
 ];
@@ -38,14 +38,14 @@ final demoWorkflows = <Workflow>[
 const recentWorkspaces = [
   WorkspaceCard(
     name: 'Morning check-in',
-    workflowAlias: 'chatroom',
+    workflowName: 'chatroom',
     collection: 'assistants',
     lastActive: '12 min ago',
     chatroomKind: ChatroomWorkspaceKind.direct,
   ),
   WorkspaceCard(
     name: 'Mobile app plan',
-    workflowAlias: 'journey',
+    workflowName: 'journey',
     collection: 'raids',
     lastActive: 'Yesterday',
   ),
@@ -55,20 +55,20 @@ const workflowWorkspaces = [
   ...recentWorkspaces,
   WorkspaceCard(
     name: 'Builder crew room',
-    workflowAlias: 'chatroom',
+    workflowName: 'chatroom',
     collection: 'assistants',
     lastActive: 'Today',
     chatroomKind: ChatroomWorkspaceKind.group,
   ),
   WorkspaceCard(
     name: 'Hands-free test',
-    workflowAlias: 'doubao-realtime',
+    workflowName: 'doubao-realtime',
     collection: 'assistants',
     lastActive: '2 days ago',
   ),
   WorkspaceCard(
     name: 'Parser pass',
-    workflowAlias: 'translate-zh-en-auto',
+    workflowName: 'translate-zh-en-auto',
     collection: 'translates',
     lastActive: 'Last week',
   ),

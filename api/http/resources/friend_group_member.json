@@ -32,7 +32,7 @@
                 "$ref": "./resource.json#/components/schemas/ResourceMetadata"
               }
             ],
-            "description": "metadata.name must be friend_group_id:peer_public_key; only friend_group_id is a custom ID."
+            "description": "metadata.name is this member's immutable Peer-visible group name; metadata.id is the canonical membership ID returned by the Server."
           },
           "spec": {
             "$ref": "#/components/schemas/FriendGroupMemberSpec"

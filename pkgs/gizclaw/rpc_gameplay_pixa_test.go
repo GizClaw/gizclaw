@@ -31,10 +31,10 @@ func TestRPCServerPetPixaDownloadStreamsBinary(t *testing.T) {
 	pixaPath := "pet-defs/petdef-a/pixa"
 	service := &fakeGameplayPixaDownloadService{
 		petPixaMetadata: rpcapi.PetPixaDownloadResponse{
-			PetId:     "pet-a",
-			PetdefId:  "petdef-a",
-			PixaPath:  &pixaPath,
-			SizeBytes: int64(len(payload)),
+			PetName:    "pet-a",
+			PetDefName: "petdef-a",
+			PixaPath:   &pixaPath,
+			SizeBytes:  int64(len(payload)),
 		},
 		petPixaPayload: payload,
 	}
@@ -49,7 +49,7 @@ func TestRPCServerPetPixaDownloadStreamsBinary(t *testing.T) {
 	}
 	defer stream.Close()
 
-	params, err := newRPCRequestParams(rpcapi.PetPixaDownloadRequest{PetId: "pet-a"}, (*rpcapi.RPCPayload).FromServerPetPixaDownloadRequest)
+	params, err := newRPCRequestParams(rpcapi.PetPixaDownloadRequest{PetName: "pet-a"}, (*rpcapi.RPCPayload).FromServerPetPixaDownloadRequest)
 	if err != nil {
 		t.Fatalf("newRPCRequestParams() error = %v", err)
 	}
@@ -71,7 +71,7 @@ func TestRPCServerPetPixaDownloadStreamsBinary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsServerPetPixaDownloadResponse() error = %v", err)
 	}
-	if gotMetadata.PetId != "pet-a" || gotMetadata.PetdefId != "petdef-a" || gotMetadata.SizeBytes != int64(len(payload)) || gotMetadata.PixaPath == nil || *gotMetadata.PixaPath != pixaPath {
+	if gotMetadata.PetName != "pet-a" || gotMetadata.PetDefName != "petdef-a" || gotMetadata.SizeBytes != int64(len(payload)) || gotMetadata.PixaPath == nil || *gotMetadata.PixaPath != pixaPath {
 		t.Fatalf("metadata = %+v", gotMetadata)
 	}
 
@@ -100,7 +100,7 @@ func TestRPCServerPetPixaDownloadStreamsBinary(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("server did not finish")
 	}
-	if service.petPixaRequest.PetId != "pet-a" {
+	if service.petPixaRequest.PetName != "pet-a" {
 		t.Fatalf("request = %+v", service.petPixaRequest)
 	}
 }
@@ -118,7 +118,7 @@ func TestRPCServerPetPixaDownloadStreamsPublishedAsset(t *testing.T) {
 	}
 	createResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{
 		Body: &adminhttp.PetDefUpsert{
-			Id: "petdef-rpc",
+			Name: "petdef-rpc",
 			Spec: apitypes.PetDefSpec{
 				Character: apitypes.PetDefCharacterSpec{Prompt: "Friendly RPC pet."},
 				Voice:     apitypes.PetDefVoiceSpec{Prompt: "Warm and concise."},
@@ -142,11 +142,12 @@ func TestRPCServerPetPixaDownloadStreamsPublishedAsset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreatePetDef() error = %v", err)
 	}
-	if _, ok := createResp.(adminhttp.CreatePetDef200JSONResponse); !ok {
+	createdPetDef, ok := createResp.(adminhttp.CreatePetDef200JSONResponse)
+	if !ok {
 		t.Fatalf("CreatePetDef() response = %#v", createResp)
 	}
 	uploadResp, err := catalog.UploadPetDefPixa(ctx, adminhttp.UploadPetDefPixaRequestObject{
-		Id:   "petdef-rpc",
+		Id:   createdPetDef.Id,
 		Body: io.NopCloser(bytes.NewReader(publishedBytes)),
 	})
 	if err != nil {
@@ -167,12 +168,13 @@ func TestRPCServerPetPixaDownloadStreamsPublishedAsset(t *testing.T) {
 	owner := caller.String()
 	initialBalance, adoptionCost := int64(1), int64(0)
 	petDefs := map[string]apitypes.RuntimeProfileBinding{
-		"rpc": {ResourceId: "petdef-rpc"},
+		"rpc": {ResourceId: createdPetDef.Id},
 	}
 	pool := []apitypes.RuntimeProfilePetPoolEntry{{
 		PetDef: "rpc", Weight: 1, AdoptionCost: &adoptionCost,
 	}}
 	profile := apitypes.RuntimeProfile{
+		Id:   "runtime-profile-rpc",
 		Name: "rpc-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{PetDefs: &petDefs},
@@ -198,7 +200,7 @@ func TestRPCServerPetPixaDownloadStreamsPublishedAsset(t *testing.T) {
 	adopted, err := runtime.AdoptPet(
 		gameplay.WithRuntimeProfile(ctx, profile),
 		owner,
-		apitypes.PetAdoptRequest{DisplayName: "RPC Pet"},
+		apitypes.PetAdoptRequest{Name: "pet-rpc-name", DisplayName: "RPC Pet"},
 	)
 	if err != nil {
 		t.Fatalf("AdoptPet() error = %v", err)
@@ -223,7 +225,7 @@ func TestRPCServerPetPixaDownloadStreamsPublishedAsset(t *testing.T) {
 	}
 	defer stream.Close()
 	params, err := newRPCRequestParams(
-		rpcapi.PetPixaDownloadRequest{PetId: adopted.Pet.Id},
+		rpcapi.PetPixaDownloadRequest{PetName: adopted.Pet.Name},
 		(*rpcapi.RPCPayload).FromServerPetPixaDownloadRequest,
 	)
 	if err != nil {
@@ -246,7 +248,7 @@ func TestRPCServerPetPixaDownloadStreamsPublishedAsset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsServerPetPixaDownloadResponse() error = %v", err)
 	}
-	if metadata.PetId != adopted.Pet.Id || metadata.PetdefId != "petdef-rpc" || metadata.SizeBytes != int64(len(publishedBytes)) {
+	if metadata.PetName != adopted.Pet.Name || metadata.PetDefName != "rpc" || metadata.SizeBytes != int64(len(publishedBytes)) {
 		t.Fatalf("metadata = %+v", metadata)
 	}
 	var downloaded bytes.Buffer
@@ -323,7 +325,7 @@ func TestWriteRPCDownloadPreservesWriteEOF(t *testing.T) {
 		context.Background(),
 		stream,
 		req,
-		rpcapi.BadgeDefPixaDownloadResponse{Id: "badge"},
+		rpcapi.BadgeDefPixaDownloadResponse{Name: "badge"},
 		(*rpcapi.RPCPayload).FromBadgeDefPixaDownloadResponse,
 		bytes.NewReader([]byte("payload")),
 	)
@@ -371,11 +373,19 @@ func (rpcPixaWorkflowService) GetWorkflow(context.Context, adminhttp.GetWorkflow
 type rpcPixaWorkspaceService struct{}
 
 func (rpcPixaWorkspaceService) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
-	return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName}, true, nil
+	return apitypes.Workspace{Id: "id-" + body.Name, Name: body.Name, WorkflowId: body.WorkflowId}, true, nil
 }
 
 func (rpcPixaWorkspaceService) DeleteSystemWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{Name: name}, nil
+}
+
+func (rpcPixaWorkspaceService) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
+	return adminhttp.GetWorkspace200JSONResponse(apitypes.Workspace{Id: request.Id}), nil
+}
+
+func (rpcPixaWorkspaceService) GetWorkspaceByName(_ context.Context, name string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{Id: "id-" + name, Name: name}, nil
 }
 
 func (f *fakeGameplayPixaDownloadService) PreparePetPixaDownload(_ context.Context, request rpcapi.PetPixaDownloadRequest) (rpcapi.PetPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {

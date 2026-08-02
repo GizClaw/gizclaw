@@ -18,9 +18,25 @@ func (m *Manager) applyFirmware(ctx context.Context, resource apitypes.Resource)
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	name := string(pathParam(item.Metadata.Name))
-	existing, exists, err := m.getFirmware(ctx, name)
+	id, updating, err := resourceUpdateID(item.Metadata)
 	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !updating {
+		createdID, err := m.createFirmware(ctx, firmwareUpsert(item))
+		if err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindFirmware, item.Metadata.Name, createdID), nil
+	}
+	existing, exists, err := m.getFirmware(ctx, id)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if !exists {
+		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindFirmware, id)
+	}
+	if err := validateImmutableResourceName(apitypes.ResourceKindFirmware, id, existing.Name, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {
@@ -29,20 +45,36 @@ func (m *Manager) applyFirmware(ctx context.Context, resource apitypes.Resource)
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindFirmware, item.Metadata.Name), nil
+			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindFirmware, item.Metadata.Name, id), nil
 		}
 	}
-	if err := m.putFirmware(ctx, name, firmwareUpsert(item)); err != nil {
+	if err := m.putFirmware(ctx, id, firmwareUpsert(item)); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindFirmware, item.Metadata.Name), nil
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindFirmware, item.Metadata.Name, id), nil
+}
+
+func (m *Manager) createFirmware(ctx context.Context, body adminhttp.FirmwareUpsert) (string, error) {
+	response, err := m.services.Firmwares.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: &body})
+	if err != nil {
+		return "", err
 	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindFirmware, item.Metadata.Name), nil
+	switch response := response.(type) {
+	case adminhttp.CreateFirmware200JSONResponse:
+		return response.Id, nil
+	case adminhttp.CreateFirmware400JSONResponse:
+		return "", responseError(400, "CREATE_FIRMWARE_FAILED", "failed to create firmware", response)
+	case adminhttp.CreateFirmware409JSONResponse:
+		return "", responseError(409, "CREATE_FIRMWARE_FAILED", "failed to create firmware", response)
+	case adminhttp.CreateFirmware500JSONResponse:
+		return "", responseError(500, "CREATE_FIRMWARE_FAILED", "failed to create firmware", response)
+	default:
+		return "", unexpectedResponse("CreateFirmware", response)
+	}
 }
 
 func (m *Manager) getFirmware(ctx context.Context, name string) (apitypes.Firmware, bool, error) {
-	response, err := m.services.Firmwares.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Name: name})
+	response, err := m.services.Firmwares.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Id: name})
 	if err != nil {
 		return apitypes.Firmware{}, false, err
 	}
@@ -59,7 +91,7 @@ func (m *Manager) getFirmware(ctx context.Context, name string) (apitypes.Firmwa
 }
 
 func (m *Manager) putFirmware(ctx context.Context, name string, body adminhttp.FirmwareUpsert) error {
-	response, err := m.services.Firmwares.PutFirmware(ctx, adminhttp.PutFirmwareRequestObject{Name: name, Body: &body})
+	response, err := m.services.Firmwares.PutFirmware(ctx, adminhttp.PutFirmwareRequestObject{Id: name, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -76,7 +108,7 @@ func (m *Manager) putFirmware(ctx context.Context, name string, body adminhttp.F
 }
 
 func (m *Manager) deleteFirmware(ctx context.Context, name string) (apitypes.Firmware, bool, error) {
-	response, err := m.services.Firmwares.DeleteFirmware(ctx, adminhttp.DeleteFirmwareRequestObject{Name: name})
+	response, err := m.services.Firmwares.DeleteFirmware(ctx, adminhttp.DeleteFirmwareRequestObject{Id: name})
 	if err != nil {
 		return apitypes.Firmware{}, false, err
 	}
@@ -141,7 +173,7 @@ func resourceFromFirmware(item apitypes.Firmware) (apitypes.Resource, error) {
 	return marshalResource(apitypes.FirmwareResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
-		Metadata:   apitypes.ResourceMetadata{Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
 		Spec:       firmwareSpec(item),
 	})
 }

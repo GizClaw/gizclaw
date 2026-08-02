@@ -14,7 +14,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
@@ -24,8 +23,8 @@ import (
 type WorkspaceService interface {
 	CreateSystemWorkspace(context.Context, adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error)
 	DeleteSystemWorkspace(context.Context, string) (apitypes.Workspace, error)
-	GetRetiredSystemWorkspace(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error)
-	RetireSystemWorkspace(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error)
+	GetRetiredSystemWorkspaceByID(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error)
+	RetireSystemWorkspaceByID(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error)
 }
 
 type Server struct {
@@ -59,10 +58,26 @@ type inviteTokenRecord struct {
 }
 
 type retirementIntent struct {
-	FriendGroup rpcapi.FriendGroupObject         `json:"friend_group"`
-	Members     []rpcapi.FriendGroupMemberObject `json:"members"`
-	Workspace   string                           `json:"workspace_name"`
-	DeletedAt   time.Time                        `json:"deleted_at"`
+	FriendGroupID string                           `json:"friend_group_id"`
+	FriendGroup   rpcapi.FriendGroupObject         `json:"friend_group"`
+	Members       []rpcapi.FriendGroupMemberObject `json:"members"`
+	WorkspaceID   string                           `json:"workspace_id"`
+	WorkspaceName string                           `json:"workspace_name"`
+	DeletedAt     time.Time                        `json:"deleted_at"`
+}
+
+type workspaceBinding struct {
+	FriendGroupID string `json:"friend_group_id"`
+	WorkspaceID   string `json:"workspace_id"`
+	WorkspaceName string `json:"workspace_name"`
+}
+
+type retirementReceipt struct {
+	FriendGroupID string    `json:"friend_group_id"`
+	WorkspaceID   string    `json:"workspace_id"`
+	WorkspaceName string    `json:"workspace_name"`
+	Owner         string    `json:"owner"`
+	DeletedAt     time.Time `json:"deleted_at"`
 }
 
 type retiredFriendGroupDataDescriptor struct {
@@ -71,7 +86,11 @@ type retiredFriendGroupDataDescriptor struct {
 	MessageAssetPrefix string   `json:"message_asset_prefix,omitempty"`
 }
 
-var retirementIntentsRoot = kv.Key{"social-retirement-intents", "friend-groups"}
+var (
+	retirementIntentsRoot  = kv.Key{"social-retirement-intents", "friend-groups"}
+	retirementReceiptsRoot = kv.Key{"social-retirement-receipts", "friend-groups"}
+	workspaceBindingsRoot  = kv.Key{"social-workspace-bindings", "friend-groups"}
+)
 
 var errFriendGroupPendingDeletion = errors.New("social: friend group is pending deletion")
 
@@ -95,15 +114,15 @@ func (s *Server) CreateFriendGroup(ctx context.Context, owner string, req rpcapi
 	role := rpcapi.FriendGroupMemberRoleOwner
 	workspaceName := socialutil.GroupWorkspaceName(id)
 	group := rpcapi.FriendGroupObject{
-		Id:                     &id,
-		Name:                   &name,
+		Name:                   name,
+		DisplayName:            req.DisplayName,
 		Description:            socialutil.OptionalString(strings.TrimSpace(socialutil.StringValue(req.Description))),
 		CreatedByPeerPublicKey: &owner,
 		WorkspaceName:          &workspaceName,
 		CreatedAt:              &now,
 		UpdatedAt:              &now,
 	}
-	createdWorkspace, err := s.ensureGroupWorkspace(ctx, workspaceName, owner)
+	workspace, createdWorkspace, err := s.ensureGroupWorkspace(ctx, workspaceName, owner)
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
@@ -113,11 +132,19 @@ func (s *Server) CreateFriendGroup(ctx context.Context, owner string, req rpcapi
 		}
 		return rpcapi.FriendGroupObject{}, err
 	}
-	if _, err := s.writeMember(ctx, id, owner, role); err != nil {
+	if err := s.writeWorkspaceBinding(ctx, workspaceBinding{FriendGroupID: id, WorkspaceID: workspace.Id, WorkspaceName: workspace.Name}); err != nil {
+		_ = friendGroups.Delete(ctx, socialutil.GroupKey(id))
+		if createdWorkspace {
+			_ = s.deleteWorkspace(ctx, workspaceName)
+		}
+		return rpcapi.FriendGroupObject{}, err
+	}
+	if _, err := s.writeMember(ctx, id, owner, role, name); err != nil {
 		if createdWorkspace {
 			_ = s.deleteWorkspace(ctx, workspaceName)
 		}
 		_ = friendGroups.Delete(ctx, socialutil.GroupKey(id))
+		_ = s.deleteWorkspaceBinding(ctx, id)
 		return rpcapi.FriendGroupObject{}, err
 	}
 	group.MyRole = &role
@@ -132,109 +159,118 @@ func (s *Server) CreateFriendGroup(ctx context.Context, owner string, req rpcapi
 	return group, nil
 }
 
-func (s *Server) AdminCreateFriendGroup(ctx context.Context, owner, name string, description *string) (rpcapi.FriendGroupObject, error) {
+func (s *Server) AdminCreateFriendGroup(ctx context.Context, owner, name string, displayName, description *string) (adminhttp.AdminFriendGroupObject, error) {
 	friendGroups, err := s.groupsStore()
 	if err != nil {
-		return rpcapi.FriendGroupObject{}, err
+		return adminhttp.AdminFriendGroupObject{}, err
 	}
 	owner = strings.TrimSpace(owner)
 	name = strings.TrimSpace(name)
 	if owner == "" || name == "" {
-		return rpcapi.FriendGroupObject{}, errors.New("social: friend group owner and name are required")
+		return adminhttp.AdminFriendGroupObject{}, errors.New("social: friend group owner and name are required")
 	}
 	now := s.now()
 	id := s.newID()
 	if err := s.rejectDataPendingDeletion(ctx, id); err != nil {
-		return rpcapi.FriendGroupObject{}, err
+		return adminhttp.AdminFriendGroupObject{}, err
 	}
 	workspaceName := socialutil.GroupWorkspaceName(id)
 	group := rpcapi.FriendGroupObject{
-		Id:                     &id,
-		Name:                   &name,
+		Name:                   name,
+		DisplayName:            socialutil.OptionalString(strings.TrimSpace(socialutil.StringValue(displayName))),
 		Description:            socialutil.OptionalString(strings.TrimSpace(socialutil.StringValue(description))),
 		CreatedByPeerPublicKey: &owner,
 		WorkspaceName:          &workspaceName,
 		CreatedAt:              &now,
 		UpdatedAt:              &now,
 	}
-	createdWorkspace, err := s.ensureGroupWorkspace(ctx, workspaceName, owner)
+	workspace, createdWorkspace, err := s.ensureGroupWorkspace(ctx, workspaceName, owner)
 	if err != nil {
-		return rpcapi.FriendGroupObject{}, err
+		return adminhttp.AdminFriendGroupObject{}, err
+	}
+	if err := s.writeWorkspaceBinding(ctx, workspaceBinding{FriendGroupID: id, WorkspaceID: workspace.Id, WorkspaceName: workspace.Name}); err != nil {
+		_ = friendGroups.Delete(ctx, socialutil.GroupKey(id))
+		if createdWorkspace {
+			_ = s.deleteWorkspace(ctx, workspaceName)
+		}
+		return adminhttp.AdminFriendGroupObject{}, err
 	}
 	if err := socialutil.WriteJSON(ctx, friendGroups, socialutil.GroupKey(id), group); err != nil {
 		if createdWorkspace {
 			_ = s.deleteWorkspace(ctx, workspaceName)
 		}
-		return rpcapi.FriendGroupObject{}, err
+		return adminhttp.AdminFriendGroupObject{}, err
 	}
-	return group, nil
+	return s.adminFriendGroupObject(ctx, id, group)
 }
 
-func (s *Server) AdminApplyFriendGroup(ctx context.Context, friendGroupID, owner, name string, description *string) (rpcapi.FriendGroupObject, error) {
-	friendGroups, err := s.groupsStore()
+func (s *Server) AdminGetFriendGroupObject(ctx context.Context, friendGroupID string) (adminhttp.AdminFriendGroupObject, error) {
+	item, err := s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
-		return rpcapi.FriendGroupObject{}, err
+		return adminhttp.AdminFriendGroupObject{}, err
 	}
-	if err := customid.ValidateField("friend group id", friendGroupID); err != nil {
-		return rpcapi.FriendGroupObject{}, err
+	return s.adminFriendGroupObject(ctx, friendGroupID, item)
+}
+
+func (s *Server) AdminListFriendGroupObjects(ctx context.Context, req rpcapi.FriendGroupListRequest) (adminhttp.AdminFriendGroupListResponse, error) {
+	store, err := s.groupsStore()
+	if err != nil {
+		return adminhttp.AdminFriendGroupListResponse{}, err
 	}
-	owner = strings.TrimSpace(owner)
-	name = strings.TrimSpace(name)
-	if owner == "" || name == "" {
-		return rpcapi.FriendGroupObject{}, errors.New("social: friend group owner and name are required")
+	entries, err := socialutil.ListPage(ctx, store, socialutil.GroupsRoot, socialutil.StringValue(req.Cursor), socialutil.IntValue(req.Limit))
+	if err != nil {
+		return adminhttp.AdminFriendGroupListResponse{}, err
 	}
-	unlock := s.lockGroup(friendGroupID)
-	defer unlock()
-	if err := s.rejectDataPendingDeletion(ctx, friendGroupID); err != nil {
-		return rpcapi.FriendGroupObject{}, err
-	}
-	existing, err := socialutil.ReadJSONValue[rpcapi.FriendGroupObject](ctx, friendGroups, socialutil.GroupKey(friendGroupID))
-	if err == nil {
-		if strings.TrimSpace(socialutil.StringValue(existing.CreatedByPeerPublicKey)) != owner {
-			return rpcapi.FriendGroupObject{}, errors.New("social: friend group owner is immutable")
+	items := make([]adminhttp.AdminFriendGroupObject, 0, len(entries.Items))
+	for _, entry := range entries.Items {
+		var item rpcapi.FriendGroupObject
+		if err := json.Unmarshal(entry.Value, &item); err != nil {
+			return adminhttp.AdminFriendGroupListResponse{}, err
 		}
-		workspaceName := socialutil.GroupWorkspaceName(friendGroupID)
-		if strings.TrimSpace(socialutil.StringValue(existing.WorkspaceName)) != workspaceName {
-			return rpcapi.FriendGroupObject{}, errors.New("social: existing friend group has a different Workspace domain binding")
-		}
-		group, err := s.putFriendGroup(ctx, friendGroupID, &name, description)
+		id := socialutil.UnescapeStoreSegment(entry.Key[len(entry.Key)-1])
+		projected, err := s.adminFriendGroupObject(ctx, id, item)
 		if err != nil {
-			return rpcapi.FriendGroupObject{}, err
+			return adminhttp.AdminFriendGroupListResponse{}, err
 		}
-		s.notifyGroup(
-			ctx,
-			friendGroupID,
-			socialutil.StringValue(group.WorkspaceName),
-			eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_METADATA_UPDATED,
-			s.groupRecipients(ctx, friendGroupID, owner),
-			s.now(),
-		)
-		return group, nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
-		return rpcapi.FriendGroupObject{}, err
+		items = append(items, projected)
 	}
-	now := s.now()
-	workspaceName := socialutil.GroupWorkspaceName(friendGroupID)
-	group := rpcapi.FriendGroupObject{
-		Id:                     &friendGroupID,
-		Name:                   &name,
-		Description:            socialutil.OptionalString(strings.TrimSpace(socialutil.StringValue(description))),
-		CreatedByPeerPublicKey: &owner,
-		WorkspaceName:          &workspaceName,
-		CreatedAt:              &now,
-		UpdatedAt:              &now,
-	}
-	createdWorkspace, err := s.ensureGroupWorkspace(ctx, workspaceName, owner)
+	return adminhttp.AdminFriendGroupListResponse{Items: items, HasNext: entries.HasNext, NextCursor: entries.NextCursor}, nil
+}
+
+func (s *Server) adminFriendGroupObject(ctx context.Context, id string, item rpcapi.FriendGroupObject) (adminhttp.AdminFriendGroupObject, error) {
+	binding, err := s.workspaceBinding(ctx, id)
 	if err != nil {
-		return rpcapi.FriendGroupObject{}, err
+		return adminhttp.AdminFriendGroupObject{}, err
 	}
-	if err := socialutil.WriteJSON(ctx, friendGroups, socialutil.GroupKey(friendGroupID), group); err != nil {
-		if createdWorkspace {
-			_ = s.deleteWorkspace(ctx, workspaceName)
-		}
-		return rpcapi.FriendGroupObject{}, err
+	return adminhttp.AdminFriendGroupObject{
+		Id: id, Name: item.Name, DisplayName: item.DisplayName, Description: item.Description,
+		CreatedByPeerPublicKey: socialutil.StringValue(item.CreatedByPeerPublicKey),
+		WorkspaceId:            &binding.WorkspaceID, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
+	}, nil
+}
+
+func (s *Server) workspaceBinding(ctx context.Context, friendGroupID string) (workspaceBinding, error) {
+	binding, err := s.readWorkspaceBinding(ctx, friendGroupID)
+	if err == nil {
+		return binding, nil
 	}
-	return group, nil
+	if !errors.Is(err, kv.ErrNotFound) {
+		return workspaceBinding{}, err
+	}
+	if intent, intentErr := s.readRetirementIntent(ctx, friendGroupID); intentErr == nil {
+		return workspaceBinding{FriendGroupID: friendGroupID, WorkspaceID: intent.WorkspaceID, WorkspaceName: intent.WorkspaceName}, nil
+	} else if !errors.Is(intentErr, kv.ErrNotFound) {
+		return workspaceBinding{}, intentErr
+	}
+	receipt, receiptErr := s.readRetirementReceipt(ctx, friendGroupID)
+	if receiptErr != nil {
+		return workspaceBinding{}, receiptErr
+	}
+	return workspaceBinding{FriendGroupID: friendGroupID, WorkspaceID: receipt.WorkspaceID, WorkspaceName: receipt.WorkspaceName}, nil
+}
+
+func (s *Server) AdminFriendGroupObject(ctx context.Context, id string, item rpcapi.FriendGroupObject) (adminhttp.AdminFriendGroupObject, error) {
+	return s.adminFriendGroupObject(ctx, id, item)
 }
 
 func (s *Server) lockGroup(friendGroupID string) func() {
@@ -250,9 +286,12 @@ func (s *Server) GetFriendGroup(ctx context.Context, owner string, req rpcapi.Fr
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
-	friendGroupID := strings.TrimSpace(req.Id)
+	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.Name)
+	if err != nil {
+		return rpcapi.FriendGroupObject{}, err
+	}
 	if friendGroupID == "" {
-		return rpcapi.FriendGroupObject{}, errors.New("social: group id is required")
+		return rpcapi.FriendGroupObject{}, errors.New("social: group name is required")
 	}
 	if err := s.requireRead(ctx, owner, friendGroupID); err != nil {
 		return rpcapi.FriendGroupObject{}, err
@@ -261,7 +300,7 @@ func (s *Server) GetFriendGroup(ctx context.Context, owner string, req rpcapi.Fr
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
-	return s.withMyRole(ctx, owner, group)
+	return s.withMyRoleAndName(ctx, owner, friendGroupID, group)
 }
 
 // ResolveFriendGroupWorkspace returns the authoritative system Workspace for
@@ -297,6 +336,14 @@ func (s *Server) ResolveFriendGroupWorkspace(ctx context.Context, owner, friendG
 	return workspaceName, nil
 }
 
+func (s *Server) ResolveFriendGroupWorkspaceByName(ctx context.Context, owner, name string) (string, error) {
+	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, name)
+	if err != nil {
+		return "", err
+	}
+	return s.ResolveFriendGroupWorkspace(ctx, owner, friendGroupID)
+}
+
 func (s *Server) AdminGetFriendGroup(ctx context.Context, friendGroupID string) (rpcapi.FriendGroupObject, error) {
 	store, err := s.groupsStore()
 	if err != nil {
@@ -330,16 +377,14 @@ func (s *Server) ListFriendGroups(ctx context.Context, owner string, req rpcapi.
 		if err := json.Unmarshal(entry.Value, &member); err != nil {
 			return rpcapi.FriendGroupListResponse{}, err
 		}
-		friendGroupID := socialutil.StringValue(member.FriendGroupId)
-		if friendGroupID == "" {
-			friendGroupID = socialutil.UnescapeStoreSegment(entry.Key[len(entry.Key)-1])
-		}
+		friendGroupID := socialutil.UnescapeStoreSegment(entry.Key[len(entry.Key)-1])
 		item, err := socialutil.ReadJSONValue[rpcapi.FriendGroupObject](ctx, store, socialutil.GroupKey(friendGroupID))
 		if err != nil {
 			return rpcapi.FriendGroupListResponse{}, err
 		}
 		role := socialutil.GroupRole(member)
 		item.MyRole = &role
+		item.Name = socialutil.StringValue(member.FriendGroupName)
 		items = append(items, item)
 	}
 	return rpcapi.FriendGroupListResponse{Items: items, HasNext: entries.HasNext, NextCursor: entries.NextCursor}, nil
@@ -364,7 +409,8 @@ func (s *Server) WorkspaceRecipients(ctx context.Context, workspaceName string) 
 		if strings.TrimSpace(socialutil.StringValue(group.WorkspaceName)) != workspaceName {
 			continue
 		}
-		members, err := s.listAllMembers(ctx, socialutil.StringValue(group.Id))
+		friendGroupID := socialutil.UnescapeStoreSegment(entry.Key[len(entry.Key)-1])
+		members, err := s.listAllMembers(ctx, friendGroupID)
 		if err != nil {
 			return nil, err
 		}
@@ -398,16 +444,16 @@ func (s *Server) AdminListFriendGroups(ctx context.Context, req rpcapi.FriendGro
 }
 
 func (s *Server) PutFriendGroup(ctx context.Context, owner string, req rpcapi.FriendGroupPutRequest) (rpcapi.FriendGroupObject, error) {
-	friendGroupID := strings.TrimSpace(req.Id)
-	if friendGroupID == "" {
-		return rpcapi.FriendGroupObject{}, errors.New("social: group id is required")
+	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.Name)
+	if err != nil {
+		return rpcapi.FriendGroupObject{}, err
 	}
 	unlock := s.lockGroup(friendGroupID)
 	defer unlock()
 	if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
-	group, err := s.putFriendGroup(ctx, friendGroupID, req.Name, req.Description)
+	group, err := s.putFriendGroup(ctx, friendGroupID, req.DisplayName, req.Description)
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
@@ -417,17 +463,17 @@ func (s *Server) PutFriendGroup(ctx context.Context, owner string, req rpcapi.Fr
 		socialutil.StringValue(group.WorkspaceName),
 		eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_METADATA_UPDATED,
 	)
-	return s.withMyRole(ctx, owner, group)
+	return s.withMyRoleAndName(ctx, owner, friendGroupID, group)
 }
 
-func (s *Server) AdminPutFriendGroup(ctx context.Context, friendGroupID string, name, description *string) (rpcapi.FriendGroupObject, error) {
+func (s *Server) AdminPutFriendGroup(ctx context.Context, friendGroupID string, displayName, description *string) (rpcapi.FriendGroupObject, error) {
 	friendGroupID = strings.TrimSpace(friendGroupID)
 	if friendGroupID == "" {
 		return rpcapi.FriendGroupObject{}, errors.New("social: group id is required")
 	}
 	unlock := s.lockGroup(friendGroupID)
 	defer unlock()
-	group, err := s.putFriendGroup(ctx, friendGroupID, name, description)
+	group, err := s.putFriendGroup(ctx, friendGroupID, displayName, description)
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
@@ -441,9 +487,9 @@ func (s *Server) AdminPutFriendGroup(ctx context.Context, friendGroupID string, 
 }
 
 func (s *Server) DeleteFriendGroup(ctx context.Context, owner string, req rpcapi.FriendGroupDeleteRequest) (rpcapi.FriendGroupObject, error) {
-	friendGroupID := strings.TrimSpace(req.Id)
-	if friendGroupID == "" {
-		return rpcapi.FriendGroupObject{}, errors.New("social: group id is required")
+	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.Name)
+	if err != nil {
+		return rpcapi.FriendGroupObject{}, err
 	}
 	unlock := s.lockGroup(friendGroupID)
 	defer unlock()
@@ -460,6 +506,7 @@ func (s *Server) DeleteFriendGroup(ctx context.Context, owner string, req rpcapi
 				if completedErr != nil {
 					return rpcapi.FriendGroupObject{}, err
 				}
+				completed.Name = req.Name
 				return completed, nil
 			}
 			return rpcapi.FriendGroupObject{}, intentErr
@@ -487,7 +534,10 @@ func (s *Server) GetFriendGroupInviteToken(ctx context.Context, owner string, re
 	if err != nil {
 		return rpcapi.FriendGroupInviteTokenGetResponse{}, err
 	}
-	friendGroupID := strings.TrimSpace(req.FriendGroupId)
+	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
+	if err != nil {
+		return rpcapi.FriendGroupInviteTokenGetResponse{}, err
+	}
 	unlock := s.lockGroup(friendGroupID)
 	defer unlock()
 	if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
@@ -505,7 +555,10 @@ func (s *Server) CreateFriendGroupInviteToken(ctx context.Context, owner string,
 	if err != nil {
 		return rpcapi.FriendGroupInviteTokenCreateResponse{}, err
 	}
-	friendGroupID := strings.TrimSpace(req.FriendGroupId)
+	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
+	if err != nil {
+		return rpcapi.FriendGroupInviteTokenCreateResponse{}, err
+	}
 	unlock := s.lockGroup(friendGroupID)
 	defer unlock()
 	if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
@@ -537,7 +590,10 @@ func (s *Server) ClearFriendGroupInviteToken(ctx context.Context, owner string, 
 	if err != nil {
 		return rpcapi.FriendGroupInviteTokenClearResponse{}, err
 	}
-	friendGroupID := strings.TrimSpace(req.FriendGroupId)
+	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
+	if err != nil {
+		return rpcapi.FriendGroupInviteTokenClearResponse{}, err
+	}
 	unlock := s.lockGroup(friendGroupID)
 	defer unlock()
 	if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
@@ -610,8 +666,9 @@ func (s *Server) AdminDeleteFriendGroupInviteToken(ctx context.Context, friendGr
 
 func (s *Server) JoinFriendGroup(ctx context.Context, owner string, req rpcapi.FriendGroupJoinRequest) (rpcapi.FriendGroupJoinResponse, error) {
 	owner = strings.TrimSpace(owner)
-	if owner == "" {
-		return rpcapi.FriendGroupJoinResponse{}, errors.New("social: peer public key is required")
+	name := strings.TrimSpace(req.Name)
+	if owner == "" || name == "" {
+		return rpcapi.FriendGroupJoinResponse{}, errors.New("social: peer public key and group name are required")
 	}
 	record, err := s.findGroupInviteToken(ctx, strings.TrimSpace(req.InviteToken))
 	if err != nil {
@@ -621,10 +678,18 @@ func (s *Server) JoinFriendGroup(ctx context.Context, owner string, req rpcapi.F
 	if friendGroupID == "" {
 		return rpcapi.FriendGroupJoinResponse{}, errors.New("social: invite token group is empty")
 	}
+	if existingID, err := s.resolveFriendGroupName(ctx, owner, name); err == nil && existingID != friendGroupID {
+		return rpcapi.FriendGroupJoinResponse{}, errors.New("social: friend group name already exists")
+	} else if err != nil && !errors.Is(err, kv.ErrNotFound) {
+		return rpcapi.FriendGroupJoinResponse{}, err
+	}
 	unlock := s.lockGroup(friendGroupID)
 	defer unlock()
 	if existing, err := s.groupMember(ctx, friendGroupID, owner); err == nil {
-		group, err := s.GetFriendGroup(ctx, owner, rpcapi.FriendGroupGetRequest{Id: friendGroupID})
+		if socialutil.StringValue(existing.FriendGroupName) != name {
+			return rpcapi.FriendGroupJoinResponse{}, errors.New("social: friend group membership name is immutable")
+		}
+		group, err := s.GetFriendGroup(ctx, owner, rpcapi.FriendGroupGetRequest{Name: name})
 		if err != nil {
 			return rpcapi.FriendGroupJoinResponse{}, err
 		}
@@ -632,11 +697,11 @@ func (s *Server) JoinFriendGroup(ctx context.Context, owner string, req rpcapi.F
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.FriendGroupJoinResponse{}, err
 	}
-	member, err := s.writeMember(ctx, friendGroupID, owner, rpcapi.FriendGroupMemberRoleMember)
+	member, err := s.writeMember(ctx, friendGroupID, owner, rpcapi.FriendGroupMemberRoleMember, name)
 	if err != nil {
 		return rpcapi.FriendGroupJoinResponse{}, err
 	}
-	group, err := s.GetFriendGroup(ctx, owner, rpcapi.FriendGroupGetRequest{Id: friendGroupID})
+	group, err := s.GetFriendGroup(ctx, owner, rpcapi.FriendGroupGetRequest{Name: name})
 	if err != nil {
 		s.restoreMember(ctx, friendGroupID, owner, rpcapi.FriendGroupMemberObject{}, kv.ErrNotFound)
 		return rpcapi.FriendGroupJoinResponse{}, err
@@ -652,28 +717,39 @@ func (s *Server) JoinFriendGroup(ctx context.Context, owner string, req rpcapi.F
 }
 
 func (s *Server) AddFriendGroupMember(ctx context.Context, owner string, req rpcapi.FriendGroupMemberAddRequest) (rpcapi.FriendGroupMemberObject, error) {
-	req.FriendGroupId = strings.TrimSpace(req.FriendGroupId)
-	req.PeerPublicKey = strings.TrimSpace(req.PeerPublicKey)
-	if !req.Role.Valid() {
-		return rpcapi.FriendGroupMemberObject{}, errors.New("social: invalid group member role")
-	}
-	unlock := s.lockGroup(req.FriendGroupId)
-	defer unlock()
-	if req.Role == rpcapi.FriendGroupMemberMutableRole("admin") {
-		if err := s.requireRole(ctx, owner, req.FriendGroupId, rpcapi.FriendGroupMemberRoleOwner); err != nil {
-			return rpcapi.FriendGroupMemberObject{}, err
-		}
-	} else if err := s.requireAdmin(ctx, owner, req.FriendGroupId); err != nil {
+	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
+	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
-	current, currentErr := s.groupMember(ctx, req.FriendGroupId, req.PeerPublicKey)
+	memberName := strings.TrimSpace(req.MemberName)
+	req.PeerPublicKey = strings.TrimSpace(req.PeerPublicKey)
+	if memberName == "" || !req.Role.Valid() {
+		return rpcapi.FriendGroupMemberObject{}, errors.New("social: invalid group member role")
+	}
+	if existingID, err := s.resolveFriendGroupName(ctx, req.PeerPublicKey, memberName); err == nil {
+		if existingID != friendGroupID {
+			return rpcapi.FriendGroupMemberObject{}, errors.New("social: friend group name already exists for target member")
+		}
+	} else if !errors.Is(err, kv.ErrNotFound) {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
+	unlock := s.lockGroup(friendGroupID)
+	defer unlock()
+	if req.Role == rpcapi.FriendGroupMemberMutableRole("admin") {
+		if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
+			return rpcapi.FriendGroupMemberObject{}, err
+		}
+	} else if err := s.requireAdmin(ctx, owner, friendGroupID); err != nil {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
+	current, currentErr := s.groupMember(ctx, friendGroupID, req.PeerPublicKey)
 	if currentErr != nil && !errors.Is(currentErr, kv.ErrNotFound) {
 		return rpcapi.FriendGroupMemberObject{}, currentErr
 	}
 	if currentErr == nil && socialutil.GroupRole(current) == rpcapi.FriendGroupMemberRoleOwner {
 		return rpcapi.FriendGroupMemberObject{}, errors.New("social: cannot change owner role")
 	}
-	member, err := s.writeMember(ctx, req.FriendGroupId, req.PeerPublicKey, rpcapi.FriendGroupMemberRole(req.Role))
+	member, err := s.writeMember(ctx, friendGroupID, req.PeerPublicKey, rpcapi.FriendGroupMemberRole(req.Role), memberName)
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
@@ -681,35 +757,38 @@ func (s *Server) AddFriendGroupMember(ctx context.Context, owner string, req rpc
 	if currentErr == nil {
 		change = eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_MEMBER_ROLE_CHANGED
 	}
-	s.notifyCurrentGroup(ctx, req.FriendGroupId, "", change, req.PeerPublicKey)
+	s.notifyCurrentGroup(ctx, friendGroupID, "", change, req.PeerPublicKey)
 	return member, nil
 }
 
 func (s *Server) PutFriendGroupMember(ctx context.Context, owner string, req rpcapi.FriendGroupMemberPutRequest) (rpcapi.FriendGroupMemberObject, error) {
-	req.FriendGroupId = strings.TrimSpace(req.FriendGroupId)
+	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
+	if err != nil {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
 	req.Id = strings.TrimSpace(req.Id)
 	if !req.Role.Valid() {
 		return rpcapi.FriendGroupMemberObject{}, errors.New("social: invalid group member role")
 	}
-	unlock := s.lockGroup(req.FriendGroupId)
+	unlock := s.lockGroup(friendGroupID)
 	defer unlock()
-	if err := s.requireRole(ctx, owner, req.FriendGroupId, rpcapi.FriendGroupMemberRoleOwner); err != nil {
+	if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
-	current, err := s.groupMember(ctx, req.FriendGroupId, req.Id)
+	current, err := s.groupMember(ctx, friendGroupID, req.Id)
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
 	if current.Role != nil && *current.Role == rpcapi.FriendGroupMemberRoleOwner {
 		return rpcapi.FriendGroupMemberObject{}, errors.New("social: cannot change owner role")
 	}
-	member, err := s.writeMember(ctx, req.FriendGroupId, req.Id, rpcapi.FriendGroupMemberRole(req.Role))
+	member, err := s.writeMember(ctx, friendGroupID, req.Id, rpcapi.FriendGroupMemberRole(req.Role))
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
 	s.notifyCurrentGroup(
 		ctx,
-		req.FriendGroupId,
+		friendGroupID,
 		"",
 		eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_MEMBER_ROLE_CHANGED,
 		req.Id,
@@ -718,11 +797,14 @@ func (s *Server) PutFriendGroupMember(ctx context.Context, owner string, req rpc
 }
 
 func (s *Server) DeleteFriendGroupMember(ctx context.Context, owner string, req rpcapi.FriendGroupMemberDeleteRequest) (rpcapi.FriendGroupMemberObject, error) {
-	req.FriendGroupId = strings.TrimSpace(req.FriendGroupId)
+	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
+	if err != nil {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
 	req.Id = strings.TrimSpace(req.Id)
-	unlock := s.lockGroup(req.FriendGroupId)
+	unlock := s.lockGroup(friendGroupID)
 	defer unlock()
-	current, err := s.groupMember(ctx, req.FriendGroupId, req.Id)
+	current, err := s.groupMember(ctx, friendGroupID, req.Id)
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
@@ -731,50 +813,58 @@ func (s *Server) DeleteFriendGroupMember(ctx context.Context, owner string, req 
 	case rpcapi.FriendGroupMemberRoleOwner:
 		return rpcapi.FriendGroupMemberObject{}, errors.New("social: cannot delete friend group owner")
 	case rpcapi.FriendGroupMemberRoleAdmin:
-		if err := s.requireRole(ctx, owner, req.FriendGroupId, rpcapi.FriendGroupMemberRoleOwner); err != nil {
+		if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
 			return rpcapi.FriendGroupMemberObject{}, err
 		}
 	default:
 		if owner != req.Id {
-			if err := s.requireAdmin(ctx, owner, req.FriendGroupId); err != nil {
+			if err := s.requireAdmin(ctx, owner, friendGroupID); err != nil {
 				return rpcapi.FriendGroupMemberObject{}, err
 			}
 		}
 	}
-	recipients := s.groupRecipients(ctx, req.FriendGroupId, req.Id)
+	recipients := s.groupRecipients(ctx, friendGroupID, req.Id)
 	members, err := s.membersStore()
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
-	if err := members.Delete(ctx, socialutil.GroupMemberKey(req.FriendGroupId, req.Id)); err != nil {
+	if err := members.Delete(ctx, socialutil.GroupMemberKey(friendGroupID, req.Id)); err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
 	belongs, err := s.belongsStore()
 	if err != nil {
-		_ = socialutil.WriteJSON(ctx, members, socialutil.GroupMemberKey(req.FriendGroupId, req.Id), current)
+		_ = socialutil.WriteJSON(ctx, members, socialutil.GroupMemberKey(friendGroupID, req.Id), current)
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
-	if err := belongs.Delete(ctx, socialutil.GroupBelongKey(req.Id, req.FriendGroupId)); err != nil && !errors.Is(err, kv.ErrNotFound) {
-		_ = socialutil.WriteJSON(ctx, members, socialutil.GroupMemberKey(req.FriendGroupId, req.Id), current)
+	if err := belongs.Delete(ctx, socialutil.GroupBelongKey(req.Id, friendGroupID)); err != nil && !errors.Is(err, kv.ErrNotFound) {
+		_ = socialutil.WriteJSON(ctx, members, socialutil.GroupMemberKey(friendGroupID, req.Id), current)
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
-	s.notifyGroup(
+	if err := belongs.Delete(ctx, socialutil.GroupNameKey(req.Id, socialutil.StringValue(current.FriendGroupName))); err != nil && !errors.Is(err, kv.ErrNotFound) {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
+	s.notifyGroupWithNames(
 		ctx,
-		req.FriendGroupId,
+		friendGroupID,
 		"",
 		eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_MEMBER_REMOVED,
 		recipients,
 		s.now(),
+		map[string]string{req.Id: socialutil.StringValue(current.FriendGroupName)},
 		req.Id,
 	)
 	return current, nil
 }
 
 func (s *Server) ListFriendGroupMembers(ctx context.Context, owner string, req rpcapi.FriendGroupMemberListRequest) (rpcapi.FriendGroupMemberListResponse, error) {
-	if err := s.requireRead(ctx, owner, socialutil.StringValue(req.FriendGroupId)); err != nil {
+	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, socialutil.StringValue(req.FriendGroupName))
+	if err != nil {
 		return rpcapi.FriendGroupMemberListResponse{}, err
 	}
-	return s.listFriendGroupMembers(ctx, socialutil.StringValue(req.FriendGroupId), socialutil.StringValue(req.Cursor), socialutil.IntValue(req.Limit))
+	if err := s.requireRead(ctx, owner, friendGroupID); err != nil {
+		return rpcapi.FriendGroupMemberListResponse{}, err
+	}
+	return s.listFriendGroupMembers(ctx, friendGroupID, socialutil.StringValue(req.Cursor), socialutil.IntValue(req.Limit))
 }
 
 func (s *Server) AdminListFriendGroupMembers(ctx context.Context, friendGroupID string, req rpcapi.FriendGroupMemberListRequest) (rpcapi.FriendGroupMemberListResponse, error) {
@@ -784,7 +874,7 @@ func (s *Server) AdminListFriendGroupMembers(ctx context.Context, friendGroupID 
 	return s.listFriendGroupMembers(ctx, friendGroupID, socialutil.StringValue(req.Cursor), socialutil.IntValue(req.Limit))
 }
 
-func (s *Server) AdminPutFriendGroupMember(ctx context.Context, friendGroupID, peerID string, role rpcapi.FriendGroupMemberRole) (rpcapi.FriendGroupMemberObject, error) {
+func (s *Server) AdminPutFriendGroupMember(ctx context.Context, friendGroupID, peerID, name string, role rpcapi.FriendGroupMemberRole) (rpcapi.FriendGroupMemberObject, error) {
 	friendGroupID = strings.TrimSpace(friendGroupID)
 	peerID = strings.TrimSpace(peerID)
 	if friendGroupID == "" || peerID == "" {
@@ -802,7 +892,7 @@ func (s *Server) AdminPutFriendGroupMember(ctx context.Context, friendGroupID, p
 	if currentErr != nil && !errors.Is(currentErr, kv.ErrNotFound) {
 		return rpcapi.FriendGroupMemberObject{}, currentErr
 	}
-	member, err := s.writeMember(ctx, friendGroupID, peerID, role)
+	member, err := s.writeMember(ctx, friendGroupID, peerID, role, name)
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
@@ -846,13 +936,17 @@ func (s *Server) AdminDeleteFriendGroupMember(ctx context.Context, friendGroupID
 		_ = socialutil.WriteJSON(ctx, members, socialutil.GroupMemberKey(friendGroupID, peerID), current)
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
-	s.notifyGroup(
+	if err := belongs.Delete(ctx, socialutil.GroupNameKey(peerID, socialutil.StringValue(current.FriendGroupName))); err != nil && !errors.Is(err, kv.ErrNotFound) {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
+	s.notifyGroupWithNames(
 		ctx,
 		friendGroupID,
 		"",
 		eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_MEMBER_REMOVED,
 		recipients,
 		s.now(),
+		map[string]string{peerID: socialutil.StringValue(current.FriendGroupName)},
 		peerID,
 	)
 	return current, nil
@@ -878,7 +972,7 @@ func (s *Server) listFriendGroupMembers(ctx context.Context, friendGroupID, curs
 	return rpcapi.FriendGroupMemberListResponse{Items: items, HasNext: entries.HasNext, NextCursor: entries.NextCursor}, nil
 }
 
-func (s *Server) writeMember(ctx context.Context, friendGroupID, peerID string, role rpcapi.FriendGroupMemberRole) (rpcapi.FriendGroupMemberObject, error) {
+func (s *Server) writeMember(ctx context.Context, friendGroupID, peerID string, role rpcapi.FriendGroupMemberRole, localNames ...string) (rpcapi.FriendGroupMemberObject, error) {
 	members, err := s.membersStore()
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
@@ -895,10 +989,20 @@ func (s *Server) writeMember(ctx context.Context, friendGroupID, peerID string, 
 	if !role.Valid() {
 		return rpcapi.FriendGroupMemberObject{}, errors.New("social: invalid group member role")
 	}
+	localName := ""
+	if len(localNames) > 0 {
+		localName = strings.TrimSpace(localNames[0])
+	}
 	now := s.now()
 	current, currentErr := socialutil.ReadJSONValue[rpcapi.FriendGroupMemberObject](ctx, members, socialutil.GroupMemberKey(friendGroupID, peerID))
 	var item rpcapi.FriendGroupMemberObject
 	if currentErr == nil && current.CreatedAt != nil {
+		if localName == "" {
+			localName = socialutil.StringValue(current.FriendGroupName)
+		}
+		if localName != "" && socialutil.StringValue(current.FriendGroupName) != localName {
+			return rpcapi.FriendGroupMemberObject{}, errors.New("social: friend group membership name is immutable")
+		}
 		nowCreated := *current.CreatedAt
 		current.Role = &role
 		current.UpdatedAt = &now
@@ -908,7 +1012,15 @@ func (s *Server) writeMember(ctx context.Context, friendGroupID, peerID string, 
 		if currentErr != nil && !errors.Is(currentErr, kv.ErrNotFound) {
 			return rpcapi.FriendGroupMemberObject{}, currentErr
 		}
-		item = rpcapi.FriendGroupMemberObject{Id: &peerID, FriendGroupId: &friendGroupID, PeerPublicKey: &peerID, Role: &role, CreatedAt: &now, UpdatedAt: &now}
+		if localName == "" {
+			return rpcapi.FriendGroupMemberObject{}, errors.New("social: friend group membership name is required")
+		}
+		item = rpcapi.FriendGroupMemberObject{Id: &peerID, FriendGroupName: &localName, PeerPublicKey: &peerID, Role: &role, CreatedAt: &now, UpdatedAt: &now}
+	}
+	if existingID, err := belongs.Get(ctx, socialutil.GroupNameKey(peerID, localName)); err == nil && string(existingID) != friendGroupID {
+		return rpcapi.FriendGroupMemberObject{}, errors.New("social: friend group name already exists")
+	} else if err != nil && !errors.Is(err, kv.ErrNotFound) {
+		return rpcapi.FriendGroupMemberObject{}, err
 	}
 	if err := socialutil.WriteJSON(ctx, members, socialutil.GroupMemberKey(friendGroupID, peerID), item); err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
@@ -917,10 +1029,14 @@ func (s *Server) writeMember(ctx context.Context, friendGroupID, peerID string, 
 		s.restoreMember(ctx, friendGroupID, peerID, current, currentErr)
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
+	if err := belongs.Set(ctx, socialutil.GroupNameKey(peerID, socialutil.StringValue(item.FriendGroupName)), []byte(friendGroupID)); err != nil {
+		s.restoreMember(ctx, friendGroupID, peerID, current, currentErr)
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
 	return item, nil
 }
 
-func (s *Server) putFriendGroup(ctx context.Context, friendGroupID string, name, description *string) (rpcapi.FriendGroupObject, error) {
+func (s *Server) putFriendGroup(ctx context.Context, friendGroupID string, displayName, description *string) (rpcapi.FriendGroupObject, error) {
 	store, err := s.groupsStore()
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
@@ -929,12 +1045,8 @@ func (s *Server) putFriendGroup(ctx context.Context, friendGroupID string, name,
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
-	if name != nil {
-		v := strings.TrimSpace(*name)
-		if v == "" {
-			return rpcapi.FriendGroupObject{}, errors.New("social: friend group name is required")
-		}
-		group.Name = &v
+	if displayName != nil {
+		group.DisplayName = socialutil.OptionalString(strings.TrimSpace(*displayName))
 	}
 	if description != nil {
 		group.Description = socialutil.OptionalString(strings.TrimSpace(*description))
@@ -975,7 +1087,14 @@ func (s *Server) deleteFriendGroup(ctx context.Context, friendGroupID string) (r
 	}
 	workspaceName := socialutil.StringValue(group.WorkspaceName)
 	if workspaceName == "" {
-		workspaceName = socialutil.GroupWorkspaceName(friendGroupID)
+		return rpcapi.FriendGroupObject{}, errors.New("social: FriendGroup Workspace name is missing")
+	}
+	binding, err := s.readWorkspaceBinding(ctx, friendGroupID)
+	if err != nil {
+		return rpcapi.FriendGroupObject{}, err
+	}
+	if binding.WorkspaceName != workspaceName {
+		return rpcapi.FriendGroupObject{}, errors.New("social: FriendGroup Workspace binding is inconsistent")
 	}
 	store, err := s.relationshipStore()
 	if err != nil {
@@ -988,10 +1107,12 @@ func (s *Server) deleteFriendGroup(ctx context.Context, friendGroupID string) (r
 		)
 	}
 	intent := retirementIntent{
-		FriendGroup: group,
-		Members:     members,
-		Workspace:   workspaceName,
-		DeletedAt:   s.now(),
+		FriendGroupID: friendGroupID,
+		FriendGroup:   group,
+		Members:       members,
+		WorkspaceID:   binding.WorkspaceID,
+		WorkspaceName: workspaceName,
+		DeletedAt:     s.now(),
 	}
 	data, err := json.Marshal(intent)
 	if err != nil {
@@ -1000,6 +1121,7 @@ func (s *Server) deleteFriendGroup(ctx context.Context, friendGroupID string) (r
 	deleteKeys := []kv.Key{
 		s.relationshipKey(s.GroupRelationshipPrefix, socialutil.GroupKey(friendGroupID)),
 		s.relationshipKey(s.InviteRelationshipPrefix, socialutil.GroupInviteTokenKey(friendGroupID)),
+		workspaceBindingKey(friendGroupID),
 	}
 	for _, member := range members {
 		peerID := strings.TrimSpace(socialutil.StringValue(member.PeerPublicKey))
@@ -1024,10 +1146,13 @@ func (s *Server) completedFriendGroupDeletion(
 	owner string,
 	friendGroupID string,
 ) (rpcapi.FriendGroupObject, error) {
-	workspaceName := socialutil.GroupWorkspaceName(friendGroupID)
-	retired, err := s.Workspaces.GetRetiredSystemWorkspace(
+	receipt, err := s.readRetirementReceipt(ctx, friendGroupID)
+	if err != nil {
+		return rpcapi.FriendGroupObject{}, err
+	}
+	retired, err := s.Workspaces.GetRetiredSystemWorkspaceByID(
 		ctx,
-		workspaceName,
+		receipt.WorkspaceID,
 		apitypes.ChatRoomModeGroup,
 		friendGroupID,
 	)
@@ -1035,15 +1160,15 @@ func (s *Server) completedFriendGroupDeletion(
 		return rpcapi.FriendGroupObject{}, err
 	}
 	if strings.TrimSpace(owner) != "" &&
-		strings.TrimSpace(socialutil.StringValue(retired.OwnerPublicKey)) != strings.TrimSpace(owner) {
+		receipt.Owner != strings.TrimSpace(owner) {
 		return rpcapi.FriendGroupObject{}, kv.ErrNotFound
 	}
 	if err := s.ensureDataPendingDeletion(ctx, friendGroupID, s.now()); err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
 	return rpcapi.FriendGroupObject{
-		Id:                     &friendGroupID,
-		WorkspaceName:          &workspaceName,
+		Name:                   friendGroupID,
+		WorkspaceName:          &receipt.WorkspaceName,
 		CreatedByPeerPublicKey: retired.OwnerPublicKey,
 	}, nil
 }
@@ -1055,9 +1180,9 @@ func (s *Server) completeFriendGroupRetirement(ctx context.Context, friendGroupI
 	if err := s.ensureDataPendingDeletion(ctx, friendGroupID, intent.DeletedAt); err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
-	if _, err := s.Workspaces.RetireSystemWorkspace(
+	if _, err := s.Workspaces.RetireSystemWorkspaceByID(
 		ctx,
-		intent.Workspace,
+		intent.WorkspaceID,
 		apitypes.ChatRoomModeGroup,
 		friendGroupID,
 	); err != nil {
@@ -1067,7 +1192,18 @@ func (s *Server) completeFriendGroupRetirement(ctx context.Context, friendGroupI
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
-	if err := store.Delete(ctx, groupRetirementIntentKey(friendGroupID)); err != nil {
+	receipt := retirementReceipt{
+		FriendGroupID: friendGroupID,
+		WorkspaceID:   intent.WorkspaceID,
+		WorkspaceName: intent.WorkspaceName,
+		Owner:         socialutil.StringValue(intent.FriendGroup.CreatedByPeerPublicKey),
+		DeletedAt:     intent.DeletedAt,
+	}
+	receiptData, err := json.Marshal(receipt)
+	if err != nil {
+		return rpcapi.FriendGroupObject{}, err
+	}
+	if err := store.BatchMutate(ctx, []kv.Entry{{Key: groupRetirementReceiptKey(friendGroupID), Value: receiptData}}, []kv.Key{groupRetirementIntentKey(friendGroupID)}); err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
 	s.notifyFriendGroupRetirement(ctx, friendGroupID, intent)
@@ -1170,8 +1306,7 @@ func (s *Server) ReconcileRetirementIntents(ctx context.Context) error {
 		friendGroupID := strings.TrimSpace(
 			socialutil.UnescapeStoreSegment(entry.Key[len(retirementIntentsRoot)]),
 		)
-		if friendGroupID == "" ||
-			strings.TrimSpace(socialutil.StringValue(intent.FriendGroup.Id)) != friendGroupID {
+		if friendGroupID == "" || strings.TrimSpace(intent.FriendGroupID) != friendGroupID {
 			return fmt.Errorf("social: invalid Friend Group retirement intent %q", friendGroupID)
 		}
 		unlock := s.lockGroup(friendGroupID)
@@ -1195,16 +1330,20 @@ func (s *Server) ReconcileRetirementIntents(ctx context.Context) error {
 
 func (s *Server) notifyFriendGroupRetirement(ctx context.Context, friendGroupID string, intent retirementIntent) {
 	recipients := make([]string, 0, len(intent.Members))
+	recipientNames := make(map[string]string, len(intent.Members))
 	for _, member := range intent.Members {
-		recipients = append(recipients, socialutil.StringValue(member.PeerPublicKey))
+		peerPublicKey := socialutil.StringValue(member.PeerPublicKey)
+		recipients = append(recipients, peerPublicKey)
+		recipientNames[peerPublicKey] = socialutil.StringValue(member.FriendGroupName)
 	}
-	s.notifyGroup(
+	s.notifyGroupWithNames(
 		ctx,
 		friendGroupID,
-		intent.Workspace,
+		intent.WorkspaceName,
 		eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_DELETED,
 		recipients,
 		intent.DeletedAt,
+		recipientNames,
 	)
 }
 
@@ -1254,6 +1393,19 @@ func (s *Server) notifyGroup(
 	at time.Time,
 	affectedPeerPublicKey ...string,
 ) {
+	s.notifyGroupWithNames(ctx, friendGroupID, workspaceName, change, recipients, at, nil, affectedPeerPublicKey...)
+}
+
+func (s *Server) notifyGroupWithNames(
+	ctx context.Context,
+	friendGroupID string,
+	workspaceName string,
+	change eventpb.FriendGroupChange,
+	recipients []string,
+	at time.Time,
+	recipientNames map[string]string,
+	affectedPeerPublicKey ...string,
+) {
 	if s == nil || s.NotifyPeer == nil {
 		return
 	}
@@ -1263,6 +1415,17 @@ func (s *Server) notifyGroup(
 		workspaceName = socialutil.GroupWorkspaceName(friendGroupID)
 	}
 	affectedPeer := firstRecipient(affectedPeerPublicKey)
+	if recipientNames == nil {
+		recipientNames = make(map[string]string)
+	}
+	if members, err := s.listAllMembers(ctx, friendGroupID); err == nil {
+		for _, member := range members {
+			peerPublicKey := socialutil.StringValue(member.PeerPublicKey)
+			if _, exists := recipientNames[peerPublicKey]; !exists {
+				recipientNames[peerPublicKey] = socialutil.StringValue(member.FriendGroupName)
+			}
+		}
+	}
 	seen := make(map[string]struct{}, len(recipients))
 	for _, publicKey := range recipients {
 		publicKey = strings.TrimSpace(publicKey)
@@ -1272,13 +1435,17 @@ func (s *Server) notifyGroup(
 		if _, exists := seen[publicKey]; exists {
 			continue
 		}
+		friendGroupName := strings.TrimSpace(recipientNames[publicKey])
+		if friendGroupName == "" {
+			continue
+		}
 		seen[publicKey] = struct{}{}
 		s.NotifyPeer(ctx, publicKey, &eventpb.PeerEvent{
 			Version: eventpb.Version,
 			Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED,
 			Payload: &eventpb.PeerEvent_FriendGroupUpdated{
 				FriendGroupUpdated: &eventpb.FriendGroupUpdated{
-					FriendGroupId:         friendGroupID,
+					FriendGroupName:       friendGroupName,
 					WorkspaceName:         workspaceName,
 					Change:                change,
 					RevisionUnixMs:        at.UnixMilli(),
@@ -1313,14 +1480,93 @@ func groupRetirementIntentKey(friendGroupID string) kv.Key {
 	return append(append(kv.Key{}, retirementIntentsRoot...), socialutil.EscapeStoreSegment(friendGroupID))
 }
 
-func (s *Server) withMyRole(ctx context.Context, owner string, group rpcapi.FriendGroupObject) (rpcapi.FriendGroupObject, error) {
-	member, err := s.groupMember(ctx, socialutil.StringValue(group.Id), owner)
+func groupRetirementReceiptKey(friendGroupID string) kv.Key {
+	return append(append(kv.Key{}, retirementReceiptsRoot...), socialutil.EscapeStoreSegment(friendGroupID))
+}
+
+func workspaceBindingKey(friendGroupID string) kv.Key {
+	return append(append(kv.Key{}, workspaceBindingsRoot...), socialutil.EscapeStoreSegment(friendGroupID))
+}
+
+func (s *Server) writeWorkspaceBinding(ctx context.Context, binding workspaceBinding) error {
+	if binding.FriendGroupID == "" || binding.WorkspaceID == "" || binding.WorkspaceName == "" {
+		return errors.New("social: FriendGroup Workspace binding identity is required")
+	}
+	store, err := s.relationshipStore()
+	if err != nil {
+		return err
+	}
+	return socialutil.WriteJSON(ctx, store, workspaceBindingKey(binding.FriendGroupID), binding)
+}
+
+func (s *Server) readWorkspaceBinding(ctx context.Context, friendGroupID string) (workspaceBinding, error) {
+	store, err := s.relationshipStore()
+	if err != nil {
+		return workspaceBinding{}, err
+	}
+	binding, err := socialutil.ReadJSONValue[workspaceBinding](ctx, store, workspaceBindingKey(friendGroupID))
+	if err != nil {
+		return workspaceBinding{}, err
+	}
+	if binding.FriendGroupID != friendGroupID || binding.WorkspaceID == "" || binding.WorkspaceName == "" {
+		return workspaceBinding{}, fmt.Errorf("social: invalid FriendGroup Workspace binding %q", friendGroupID)
+	}
+	return binding, nil
+}
+
+func (s *Server) deleteWorkspaceBinding(ctx context.Context, friendGroupID string) error {
+	store, err := s.relationshipStore()
+	if err != nil {
+		return err
+	}
+	err = store.Delete(ctx, workspaceBindingKey(friendGroupID))
+	if errors.Is(err, kv.ErrNotFound) {
+		return nil
+	}
+	return err
+}
+
+func (s *Server) readRetirementReceipt(ctx context.Context, friendGroupID string) (retirementReceipt, error) {
+	store, err := s.relationshipStore()
+	if err != nil {
+		return retirementReceipt{}, err
+	}
+	receipt, err := socialutil.ReadJSONValue[retirementReceipt](ctx, store, groupRetirementReceiptKey(friendGroupID))
+	if err != nil {
+		return retirementReceipt{}, err
+	}
+	if receipt.FriendGroupID != friendGroupID || receipt.WorkspaceID == "" || receipt.WorkspaceName == "" || receipt.Owner == "" || receipt.DeletedAt.IsZero() {
+		return retirementReceipt{}, fmt.Errorf("social: invalid FriendGroup retirement receipt %q", friendGroupID)
+	}
+	return receipt, nil
+}
+
+func (s *Server) withMyRoleAndName(ctx context.Context, owner, friendGroupID string, group rpcapi.FriendGroupObject) (rpcapi.FriendGroupObject, error) {
+	member, err := s.groupMember(ctx, friendGroupID, owner)
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
 	role := socialutil.GroupRole(member)
 	group.MyRole = &role
+	group.Name = socialutil.StringValue(member.FriendGroupName)
 	return group, nil
+}
+
+func (s *Server) resolveFriendGroupName(ctx context.Context, owner, name string) (string, error) {
+	store, err := s.belongsStore()
+	if err != nil {
+		return "", err
+	}
+	owner = strings.TrimSpace(owner)
+	name = strings.TrimSpace(name)
+	if owner == "" || name == "" {
+		return "", kv.ErrNotFound
+	}
+	id, err := store.Get(ctx, socialutil.GroupNameKey(owner, name))
+	if err != nil {
+		return "", err
+	}
+	return string(id), nil
 }
 
 func (s *Server) requireRead(ctx context.Context, owner, friendGroupID string) error {
@@ -1360,28 +1606,32 @@ func (s *Server) requireRole(ctx context.Context, owner, friendGroupID string, r
 	return nil
 }
 
-func (s *Server) ensureGroupWorkspace(ctx context.Context, workspaceName, owner string) (bool, error) {
+func (s *Server) ensureGroupWorkspace(ctx context.Context, workspaceName, owner string) (apitypes.Workspace, bool, error) {
 	created := false
 	if s.Workspaces != nil {
 		if s.RuntimeProfileForOwner == nil {
-			return false, errors.New("social: runtime profile resolver is not configured")
+			return apitypes.Workspace{}, false, errors.New("social: runtime profile resolver is not configured")
 		}
 		profile, err := s.RuntimeProfileForOwner(ctx, owner)
 		if err != nil {
-			return false, err
+			return apitypes.Workspace{}, false, err
 		}
 		body := adminhttp.WorkspaceUpsert{
-			Name:         workspaceName,
-			WorkflowName: profile.Spec.Workflows.System.GroupChatroom,
-			Parameters:   socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeGroup),
+			Name:       workspaceName,
+			WorkflowId: profile.Spec.Workflows.System.GroupChatroom,
+			Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeGroup),
 		}
-		_, wasCreated, err := s.Workspaces.CreateSystemWorkspace(ownership.WithOwner(ctx, owner), body)
+		workspace, wasCreated, err := s.Workspaces.CreateSystemWorkspace(ownership.WithOwner(ctx, owner), body)
 		if err != nil {
-			return false, err
+			return apitypes.Workspace{}, false, err
+		}
+		if workspace.Id == "" || workspace.Name != workspaceName {
+			return apitypes.Workspace{}, false, errors.New("social: created FriendGroup Workspace has invalid identity")
 		}
 		created = wasCreated
+		return workspace, created, nil
 	}
-	return created, nil
+	return apitypes.Workspace{}, created, nil
 }
 
 func (s *Server) workspaceName(ctx context.Context, friendGroupID string) (string, error) {
@@ -1436,6 +1686,7 @@ func (s *Server) restoreMember(ctx context.Context, friendGroupID, peerID string
 	if currentErr == nil {
 		_ = socialutil.WriteJSON(ctx, members, socialutil.GroupMemberKey(friendGroupID, peerID), current)
 		_ = socialutil.WriteJSON(ctx, belongs, socialutil.GroupBelongKey(peerID, friendGroupID), current)
+		_ = belongs.Set(ctx, socialutil.GroupNameKey(peerID, socialutil.StringValue(current.FriendGroupName)), []byte(friendGroupID))
 		return
 	}
 	_ = members.Delete(ctx, socialutil.GroupMemberKey(friendGroupID, peerID))

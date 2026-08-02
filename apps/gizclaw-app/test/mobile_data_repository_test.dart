@@ -16,12 +16,12 @@ void main() {
         workspaces: [
           Workspace(
             name: 'mobile-plan',
-            workflowAlias: 'build-helper',
+            workflowName: 'build-helper',
             lastActiveAt: '2026-07-12T00:00:00Z',
           ),
           Workspace(
             name: 'social-group-a',
-            workflowAlias: 'chatroom',
+            workflowName: 'chatroom',
             parameters: WorkspaceParameters(
               chatRoomWorkspaceParameters: ChatRoomWorkspaceParameters(
                 mode: ChatRoomMode.CHAT_ROOM_MODE_GROUP,
@@ -38,8 +38,8 @@ void main() {
         ],
         friendGroups: [
           FriendGroupObject(
-            id: 'group-a',
-            name: 'Builder Crew',
+            name: 'group-a',
+            displayName: 'Builder Crew',
             description: 'Shipping together',
             workspaceName: 'social-group-a',
             myRole: FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_OWNER,
@@ -60,7 +60,7 @@ void main() {
         (workspace) => workspace.name == 'mobile-plan',
       );
       expect(mobileWorkspace.title, 'mobile-plan');
-      expect(mobileWorkspace.workflowAlias, 'build-helper');
+      expect(mobileWorkspace.workflowName, 'build-helper');
       expect(
         workspaces
             .firstWhere((workspace) => workspace.name == 'social-group-a')
@@ -75,7 +75,7 @@ void main() {
         (await repository.workspaceDocument(
           'server-a',
           'mobile-plan',
-        ))?.workflowAlias,
+        ))?.workflowName,
         'build-helper',
       );
       expect(await repository.workspaceDocument('server-a', 'missing'), isNull);
@@ -100,7 +100,7 @@ void main() {
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
       workspaces: [
-        Workspace(name: 'temporary-room', workflowAlias: 'temporary'),
+        Workspace(name: 'temporary-room', workflowName: 'temporary'),
       ],
     );
     await repository.refresh(
@@ -150,7 +150,7 @@ void main() {
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
-      workspaces: [Workspace(name: 'cached', workflowAlias: 'flow-a')],
+      workspaces: [Workspace(name: 'cached', workflowName: 'flow-a')],
     );
     await repository.refreshWorkspaceSnapshot(
       client: client,
@@ -180,7 +180,7 @@ void main() {
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
-      workspaces: [Workspace(name: 'visible', workflowAlias: 'flow-a')],
+      workspaces: [Workspace(name: 'visible', workflowName: 'flow-a')],
       missingWorkspaceCollections: const {'role-play'},
     );
 
@@ -202,7 +202,7 @@ void main() {
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
-      workspaces: [Workspace(name: 'visible', workflowAlias: 'flow-a')],
+      workspaces: [Workspace(name: 'visible', workflowName: 'flow-a')],
     );
 
     final applied = await repository.refreshWorkspaceSnapshot(
@@ -239,7 +239,7 @@ void main() {
       });
       final repository = MobileDataRepository(database);
       final client = _FakeClient(
-        workspaces: [Workspace(name: 'cached', workflowAlias: 'flow-a')],
+        workspaces: [Workspace(name: 'cached', workflowName: 'flow-a')],
       );
       await repository.refreshWorkspaceSnapshot(
         client: client,
@@ -273,7 +273,7 @@ void main() {
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
-      workspaces: [Workspace(name: 'shared-name', workflowAlias: 'flow-a')],
+      workspaces: [Workspace(name: 'shared-name', workflowName: 'flow-a')],
     );
     for (final serverId in ['server-a', 'server-b']) {
       await repository.refreshWorkspaceSnapshot(
@@ -305,7 +305,7 @@ void main() {
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
-      workspaces: [Workspace(name: 'visible', workflowAlias: 'flow-a')],
+      workspaces: [Workspace(name: 'visible', workflowName: 'flow-a')],
     );
     await repository.refreshWorkspaceSnapshot(
       client: client,
@@ -335,7 +335,7 @@ void main() {
       final repository = MobileDataRepository(database);
       final client = _FakeClient(
         workspaces: [
-          Workspace(name: 'old-workspace', workflowAlias: 'old-workflow'),
+          Workspace(name: 'old-workspace', workflowName: 'old-workflow'),
         ],
         friends: [
           FriendObject(
@@ -354,7 +354,7 @@ void main() {
 
       client.workspaces
         ..clear()
-        ..add(Workspace(name: 'new-workspace', workflowAlias: 'chat'));
+        ..add(Workspace(name: 'new-workspace', workflowName: 'chat'));
       client.failFriends = true;
       client.failFriendGroups = true;
 

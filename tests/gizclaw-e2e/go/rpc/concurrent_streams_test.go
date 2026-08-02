@@ -38,17 +38,17 @@ func TestConcurrentServiceStreams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create Event probe Friend Group: %v", err)
 	}
-	if group.Id == nil || *group.Id == "" {
-		t.Fatalf("Event probe Friend Group has no id: %+v", group)
+	if group.Name == "" {
+		t.Fatalf("Event probe Friend Group has no name: %+v", group)
 	}
-	groupID := *group.Id
+	groupName = group.Name
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cleanupCancel()
 		if _, err := peer.DeleteFriendGroup(
 			cleanupCtx,
 			"concurrent-services.group.delete",
-			rpcapi.FriendGroupDeleteRequest{Id: groupID},
+			rpcapi.FriendGroupDeleteRequest{Name: groupName},
 		); err != nil {
 			t.Errorf("delete Event probe Friend Group: %v", err)
 		}
@@ -100,7 +100,7 @@ func TestConcurrentServiceStreams(t *testing.T) {
 	if err := firstRPC.Close(); err != nil {
 		t.Fatalf("close first RPC stream: %v", err)
 	}
-	requirePeerEventAfterServiceClose(t, peer, eventStream, groupID, groupName)
+	requirePeerEventAfterServiceClose(t, peer, eventStream, groupName)
 
 	requirePingResponse(t, secondRPC, "concurrent-services-second")
 	httpResponse, err := http.ReadResponse(bufio.NewReader(peerHTTP), httpRequest)
@@ -161,12 +161,16 @@ func registerDefaultRuntimeProfile(
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	tokenName := fmt.Sprintf("e2e-gocs-%d", time.Now().UnixNano())
+	profile, found, err := clitest.RuntimeProfileByName(ctx, api, "default-gameplay")
+	if err != nil || !found {
+		t.Fatalf("resolve default gameplay RuntimeProfile: found=%v err=%v", found, err)
+	}
 	response, err := api.CreateRegistrationTokenWithResponse(
 		ctx,
 		adminhttp.RegistrationTokenUpsert{
-			Name:               tokenName,
-			Token:              tokenName,
-			RuntimeProfileName: "default-gameplay",
+			Name:             tokenName,
+			Token:            tokenName,
+			RuntimeProfileId: profile.Id,
 		},
 	)
 	if err != nil {
@@ -184,11 +188,11 @@ func registerDefaultRuntimeProfile(
 		defer cleanupCancel()
 		response, err := api.DeleteRegistrationTokenWithResponse(
 			cleanupCtx,
-			tokenName,
+			response.JSON200.Id,
 		)
 		if err != nil {
 			t.Errorf("delete concurrent-stream registration token: %v", err)
-		} else if response.JSON200 == nil {
+		} else if response.StatusCode() != 204 {
 			t.Errorf(
 				"delete concurrent-stream registration token status %d: %s",
 				response.StatusCode(),
@@ -200,8 +204,8 @@ func registerDefaultRuntimeProfile(
 	if err != nil {
 		t.Fatalf("register concurrent-stream peer: %v", err)
 	}
-	if registered.RuntimeProfileName != "default-gameplay" {
-		t.Fatalf("registered RuntimeProfile = %q, want default-gameplay", registered.RuntimeProfileName)
+	if registered.RuntimeProfileName != profile.Name {
+		t.Fatalf("registered RuntimeProfile = %q, want %q", registered.RuntimeProfileName, profile.Name)
 	}
 }
 
@@ -209,7 +213,6 @@ func requirePeerEventAfterServiceClose(
 	t *testing.T,
 	peer *gizcli.Client,
 	stream net.Conn,
-	groupID string,
 	groupName string,
 ) {
 	t.Helper()
@@ -219,7 +222,7 @@ func requirePeerEventAfterServiceClose(
 	groupPut, err := peer.PutFriendGroup(
 		ctx,
 		"concurrent-services.group.put",
-		rpcapi.FriendGroupPutRequest{Id: groupID, Name: &updatedGroupName},
+		rpcapi.FriendGroupPutRequest{Name: groupName, DisplayName: &updatedGroupName},
 	)
 	if err != nil {
 		t.Fatalf("update Event probe Friend Group: %v", err)
@@ -237,7 +240,7 @@ func requirePeerEventAfterServiceClose(
 		if err != nil {
 			t.Fatalf(
 				"read Peer Event after closing sibling RPC: expected group=%q change=%s revision>=%d; unmatched=%v: %v",
-				groupID,
+				groupName,
 				eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_METADATA_UPDATED,
 				revisionFloor,
 				unmatched,
@@ -246,14 +249,14 @@ func requirePeerEventAfterServiceClose(
 		}
 		update := event.GetFriendGroupUpdated()
 		if event.GetType() != eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED ||
-			update.GetFriendGroupId() != groupID ||
+			update.GetFriendGroupName() != groupName ||
 			update.GetChange() != eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_METADATA_UPDATED ||
 			update.GetRevisionUnixMs() < revisionFloor {
 			if len(unmatched) < cap(unmatched) {
 				unmatched = append(unmatched, fmt.Sprintf(
 					"type=%s group=%q change=%s revision=%d",
 					event.GetType(),
-					update.GetFriendGroupId(),
+					update.GetFriendGroupName(),
 					update.GetChange(),
 					update.GetRevisionUnixMs(),
 				))

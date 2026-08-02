@@ -38,7 +38,7 @@ export function ModelDetailPage(): JSX.Element {
     try {
       const [nextModel, nextResource] = await Promise.all([
         expectData(getModel({ path: { id: modelID } })),
-        expectData(getResource({ path: { kind: "Model", name: modelID } })),
+        expectData(getResource({ path: { kind: "Model", id: modelID } })),
       ]);
       setModel(nextModel);
       setResource(nextResource);
@@ -132,7 +132,7 @@ export function ModelDetailPage(): JSX.Element {
                   ["Internal ID", model.id],
                   ["Kind", model.kind],
                   ["Source", model.source],
-                  ["Provider", `${model.provider.kind}/${model.provider.name}`],
+                  ["Provider", `${model.provider.kind}/${model.provider.id}`],
                   ["Name", model.name],
                   ["Description", model.description],
                 ]}

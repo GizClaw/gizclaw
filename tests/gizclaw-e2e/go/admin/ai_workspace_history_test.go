@@ -16,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
+	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
 func TestAdminAPIWorkspaceHistoryListAndGetFromSocialConversation(t *testing.T) {
@@ -88,10 +89,10 @@ func TestAdminAPISocialWorkspaceHistoryStartsEmptyUntilConversation(t *testing.T
 		t.Fatalf("get shared social friend group: %v", err)
 	}
 	requireStatusOK(t, group, group.Body)
-	if group.JSON200 == nil || group.JSON200.WorkspaceName == nil || *group.JSON200.WorkspaceName == "" {
+	if group.JSON200 == nil || group.JSON200.WorkspaceId == nil || *group.JSON200.WorkspaceId == "" {
 		t.Fatalf("shared social friend group = %#v", group.JSON200)
 	}
-	requireAdminSocialWorkspaceHistoryEmpty(t, env, "friend_group", *group.JSON200.WorkspaceName)
+	requireAdminSocialWorkspaceHistoryEmpty(t, env, "friend_group", *group.JSON200.WorkspaceId)
 }
 
 func requireAdminSocialWorkspaceHistoryEmpty(t *testing.T, env *adminAPIHarness, label, workspaceName string) {
@@ -188,7 +189,7 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 			"zh-CN": {DisplayName: "私聊"},
 		},
 	}
-	profile, err := env.api.PutRuntimeProfileWithResponse(env.ctx, profileName, adminhttp.RuntimeProfileUpsert{
+	profile, err := clitest.UpsertRuntimeProfileByName(env.ctx, env.api, adminhttp.RuntimeProfileUpsert{
 		Name: profileName,
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{},
@@ -207,13 +208,13 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 	if err != nil {
 		t.Fatalf("put workspace history RuntimeProfile: %v", err)
 	}
-	requireStatusOK(t, profile, profile.Body)
-
-	_, _ = env.api.DeleteRegistrationTokenWithResponse(env.ctx, tokenName)
+	if err := clitest.DeleteRegistrationTokenByName(env.ctx, env.api, tokenName); err != nil {
+		t.Fatalf("retire workspace history RegistrationToken: %v", err)
+	}
 	token, err := env.api.CreateRegistrationTokenWithResponse(env.ctx, adminhttp.RegistrationTokenUpsert{
-		Name:               tokenName,
-		Token:              tokenName,
-		RuntimeProfileName: profileName,
+		Name:             tokenName,
+		Token:            tokenName,
+		RuntimeProfileId: profile.Id,
 	})
 	if err != nil {
 		t.Fatalf("create workspace history RegistrationToken: %v", err)
@@ -227,7 +228,7 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 		if err != nil {
 			t.Fatalf("register workspace history peer %d: %v", i, err)
 		}
-		if registered.RuntimeProfileName != profileName {
+		if registered.RuntimeProfileName != profile.Name {
 			t.Fatalf("register workspace history peer %d = %#v", i, registered)
 		}
 	}

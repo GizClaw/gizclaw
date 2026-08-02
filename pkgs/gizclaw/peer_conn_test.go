@@ -98,21 +98,22 @@ func TestPeerConnRejectsRevokedChatroomTurnWithoutPushingAgentInput(t *testing.T
 	caller := giznet.PublicKey{31}
 	other := giznet.PublicKey{32}
 	friends := newTestFriendServer(kv.NewMemory(nil))
-	relation, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String())
+	relation, err := friends.AdminCreateFriend(ctx, caller.String(), other.String())
 	if err != nil {
-		t.Fatalf("AdminCreateFriendResource: %v", err)
+		t.Fatalf("AdminCreateFriend: %v", err)
 	}
+	relationWorkspaceName := socialutil.StringValue(relation.WorkspaceName)
 	friends.Workspaces = &adminGameplayWorkspaceService{}
 	if _, err := friends.DeleteFriend(ctx, caller.String(), rpcapi.FriendDeleteRequest{Id: other.String()}); err != nil {
 		t.Fatalf("DeleteFriend: %v", err)
 	}
 	runs := &peerrun.Server{Store: kv.NewMemory(nil)}
-	if _, err := runs.SetRunAgent(ctx, caller, apitypes.AgentSelection{WorkspaceName: relation.WorkspaceName}); err != nil {
+	if _, err := runs.SetRunAgent(ctx, caller, apitypes.AgentSelection{WorkspaceName: relationWorkspaceName}); err != nil {
 		t.Fatalf("SetRunAgent: %v", err)
 	}
 	manager := &Manager{
 		Workspaces: staticWorkspaceService{workspace: apitypes.Workspace{
-			Name:       relation.WorkspaceName,
+			Name:       relationWorkspaceName,
 			Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
 		}},
 		Friends: friends,
@@ -171,21 +172,22 @@ func TestPeerConnRejectsRevokedChatroomTurnWithoutPushingAgentInput(t *testing.T
 	}); err != nil {
 		t.Fatalf("write revoked input EOS: %v", err)
 	}
-	restored, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String())
+	restored, err := friends.AdminCreateFriend(ctx, caller.String(), other.String())
 	if err != nil {
 		t.Fatalf("restore friend relationship: %v", err)
 	}
-	if restored.WorkspaceName == relation.WorkspaceName {
-		t.Fatalf("restored Workspace = %q, want a new incarnation", restored.WorkspaceName)
+	restoredWorkspaceName := socialutil.StringValue(restored.WorkspaceName)
+	if restoredWorkspaceName == relationWorkspaceName {
+		t.Fatalf("restored Workspace = %q, want a new incarnation", restoredWorkspaceName)
 	}
 	manager.Workspaces = staticWorkspaceService{workspace: apitypes.Workspace{
-		Name:       restored.WorkspaceName,
+		Name:       restoredWorkspaceName,
 		Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
 	}}
 	if _, err := runs.SetRunAgent(
 		ctx,
 		caller,
-		apitypes.AgentSelection{WorkspaceName: restored.WorkspaceName},
+		apitypes.AgentSelection{WorkspaceName: restoredWorkspaceName},
 	); err != nil {
 		t.Fatalf("SetRunAgent restored Workspace: %v", err)
 	}
@@ -283,12 +285,13 @@ func TestPeerConnReauthorizesAudioPacketsAfterChatroomAccessIsRevoked(t *testing
 	caller := giznet.PublicKey{34}
 	other := giznet.PublicKey{35}
 	friends := newTestFriendServer(kv.NewMemory(nil))
-	relation, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String())
+	relation, err := friends.AdminCreateFriend(ctx, caller.String(), other.String())
 	if err != nil {
-		t.Fatalf("AdminCreateFriendResource: %v", err)
+		t.Fatalf("AdminCreateFriend: %v", err)
 	}
+	relationWorkspaceName := socialutil.StringValue(relation.WorkspaceName)
 	runs := &peerrun.Server{Store: kv.NewMemory(nil)}
-	if _, err := runs.SetRunAgent(ctx, caller, apitypes.AgentSelection{WorkspaceName: relation.WorkspaceName}); err != nil {
+	if _, err := runs.SetRunAgent(ctx, caller, apitypes.AgentSelection{WorkspaceName: relationWorkspaceName}); err != nil {
 		t.Fatalf("SetRunAgent: %v", err)
 	}
 	broker := newPeerStreamEventBroker()
@@ -303,7 +306,7 @@ func TestPeerConnReauthorizesAudioPacketsAfterChatroomAccessIsRevoked(t *testing
 		Conn: &testGiznetConn{publicKey: caller},
 		Service: &PeerService{manager: &Manager{
 			Workspaces: staticWorkspaceService{workspace: apitypes.Workspace{
-				Name:       relation.WorkspaceName,
+				Name:       relationWorkspaceName,
 				Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
 			}},
 			Friends: friends,
@@ -337,7 +340,7 @@ func TestPeerConnReauthorizesAudioPacketsAfterChatroomAccessIsRevoked(t *testing
 		Payload: &eventpb.PeerEvent_FriendRelationshipUpdated{
 			FriendRelationshipUpdated: &eventpb.FriendRelationshipUpdated{
 				PeerPublicKey: other.String(),
-				WorkspaceName: relation.WorkspaceName,
+				WorkspaceName: relationWorkspaceName,
 				Change: eventpb.
 					FriendRelationshipChange_FRIEND_RELATIONSHIP_CHANGE_DELETED,
 			},
@@ -358,21 +361,22 @@ func TestPeerConnReauthorizesAudioPacketsAfterChatroomAccessIsRevoked(t *testing
 	if got := denial.GetEos().GetError().GetCode(); got != chatroom.AccessCodeFriendRemoved {
 		t.Fatalf("denial code = %q, want %q", got, chatroom.AccessCodeFriendRemoved)
 	}
-	restored, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String())
+	restored, err := friends.AdminCreateFriend(ctx, caller.String(), other.String())
 	if err != nil {
 		t.Fatalf("restore friend relationship: %v", err)
 	}
-	if restored.WorkspaceName == relation.WorkspaceName {
-		t.Fatalf("restored Workspace = %q, want a new incarnation", restored.WorkspaceName)
+	restoredWorkspaceName := socialutil.StringValue(restored.WorkspaceName)
+	if restoredWorkspaceName == relationWorkspaceName {
+		t.Fatalf("restored Workspace = %q, want a new incarnation", restoredWorkspaceName)
 	}
 	peer.Service.manager.Workspaces = staticWorkspaceService{workspace: apitypes.Workspace{
-		Name:       restored.WorkspaceName,
+		Name:       restoredWorkspaceName,
 		Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
 	}}
 	if _, err := runs.SetRunAgent(
 		ctx,
 		caller,
-		apitypes.AgentSelection{WorkspaceName: restored.WorkspaceName},
+		apitypes.AgentSelection{WorkspaceName: restoredWorkspaceName},
 	); err != nil {
 		t.Fatalf("SetRunAgent restored Workspace: %v", err)
 	}
@@ -461,7 +465,7 @@ func TestPeerConnKeepsGroupAudioWhenAnotherMemberIsRemoved(t *testing.T) {
 		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED,
 		Payload: &eventpb.PeerEvent_FriendGroupUpdated{
 			FriendGroupUpdated: &eventpb.FriendGroupUpdated{
-				FriendGroupId:         "group-a",
+				FriendGroupName:       "group-a",
 				WorkspaceName:         "group-room",
 				Change:                eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_MEMBER_REMOVED,
 				AffectedPeerPublicKey: other.String(),
@@ -658,7 +662,7 @@ func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
 			Caller: keyPair.Public,
 			Models: peerConnModelListerFunc(func(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
 				return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{Items: []apitypes.Model{
-					{Id: "chat", Provider: apitypes.ModelProvider{Name: "main"}},
+					{Id: "chat", Provider: apitypes.ModelProvider{Id: "main"}},
 				}}), nil
 			}),
 			Voices: peerConnVoiceListerFunc(func(_ context.Context, req adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
@@ -668,7 +672,7 @@ func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
 						Id: "voice-a",
 						Provider: apitypes.VoiceProvider{
 							Kind: apitypes.VoiceProviderKindOpenaiTenant,
-							Name: "main",
+							Id:   "main",
 						},
 						Source: apitypes.VoiceSourceManual,
 					},
@@ -716,7 +720,7 @@ func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
 		if params.Limit == nil || *params.Limit != 10 {
 			t.Fatalf("voice limit param = %#v", params.Limit)
 		}
-		if params.Source != nil || params.ProviderKind != nil || params.ProviderName != nil {
+		if params.Source != nil || params.ProviderKind != nil || params.ProviderId != nil {
 			t.Fatalf("unexpected voice filters = %#v", params)
 		}
 

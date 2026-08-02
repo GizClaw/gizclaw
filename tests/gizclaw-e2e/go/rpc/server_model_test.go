@@ -18,11 +18,11 @@ func TestServerModelRPC(t *testing.T) {
 	if len(modelList.Items) == 0 {
 		t.Fatalf("model.list returned no items")
 	}
-	sharedModelObject, err := env.peer.GetModel(env.ctx, "model.get.shared", rpcapi.ModelGetRequest{Alias: "llm"})
+	sharedModelObject, err := env.peer.GetModel(env.ctx, "model.get.shared", rpcapi.ModelGetRequest{Name: "llm"})
 	if err != nil {
 		t.Fatalf("model.get shared: %v", err)
 	}
-	if sharedModelObject.Value.Alias != "llm" || sharedModelObject.Value.Kind != rpcapi.ModelKindLlm {
+	if sharedModelObject.Value.Name != "llm" || sharedModelObject.Value.Kind != rpcapi.ModelKindLlm {
 		t.Fatalf("model.get shared = %#v", sharedModelObject)
 	}
 	assertModelPagination(t, env.ctx, env.peer, "llm", "llm-page")

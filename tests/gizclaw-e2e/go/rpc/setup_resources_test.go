@@ -24,8 +24,9 @@ type sharedSetupRPCHarness struct {
 const (
 	sharedSetupSocialAdminPublicKey  = "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"
 	sharedSetupSocialClientPublicKey = "8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu"
-	sharedSetupSocialGroupID         = "family-circle"
 )
+
+var sharedSetupSocialGroupID string
 
 func newSharedSetupRPCHarness(t *testing.T) *sharedSetupRPCHarness {
 	t.Helper()
@@ -42,22 +43,29 @@ func newSharedSetupRPCHarness(t *testing.T) *sharedSetupRPCHarness {
 	peer := h.ConnectClientFromContext("gear1")
 	t.Cleanup(func() { peer.Close() })
 	registerRuntimeProfile(t, h, peer, "shared-resources", sharedRuntimeProfileSpec(t))
-	profileName, token := provisionRuntimeProfile(t, h, "shared-social-admin", sharedRuntimeProfileSpec(t))
+	profileID, firmwareID, token := provisionRuntimeProfile(t, h, "shared-social-admin", sharedRuntimeProfileSpec(t))
 	admin := h.ConnectClientFromContext("admin-a")
 	t.Cleanup(func() { admin.Close() })
-	registerWithRuntimeProfile(t, admin, "shared-social-admin", profileName, token)
+	registerWithRuntimeProfile(t, admin, "shared-social-admin", profileID, firmwareID, token)
 	applySharedSocialFixtures(t, h)
 	return &sharedSetupRPCHarness{ctx: ctx, h: h, peer: peer}
 }
 
 func applySharedSocialFixtures(t *testing.T, h *clitest.Harness) {
 	t.Helper()
-	const contextName = "shared-social-apply-admin"
-	h.InstallFixedAdminContext(contextName).MustSucceed(t)
-	for _, name := range []string{"00-family-circle.yaml", "10-contacts.yaml"} {
-		path := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "fixtures", "social", name)
-		h.RunCLI("admin", "apply", "--context", contextName, "-f", path).MustSucceed(t)
+	admin := h.ConnectClientFromContext("admin-a")
+	defer admin.Close()
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		t.Fatalf("create shared Social Admin client: %v", err)
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	ids, err := clitest.EnsureSocialFixture(ctx, api, sharedSetupSocialAdminPublicKey, sharedSetupSocialClientPublicKey)
+	if err != nil {
+		t.Fatalf("ensure shared Social fixtures: %v", err)
+	}
+	sharedSetupSocialGroupID = ids.FriendGroupID
 }
 
 func TestSharedSetupRPCResourcesPagination(t *testing.T) {
@@ -96,16 +104,16 @@ func TestSharedSetupRPCSocialFixtures(t *testing.T) {
 		t.Fatalf("shared group my_role = %#v, want member", group.MyRole)
 	}
 
-	gotGroup, err := env.peer.GetFriendGroup(env.ctx, "shared.social.friend_group.get", rpcapi.FriendGroupGetRequest{Id: sharedSetupSocialGroupID})
+	gotGroup, err := env.peer.GetFriendGroup(env.ctx, "shared.social.friend_group.get", rpcapi.FriendGroupGetRequest{Name: sharedSetupSocialGroupID})
 	if err != nil {
 		t.Fatalf("friend_group.get shared fixture: %v", err)
 	}
-	if gotGroup.Name == nil || *gotGroup.Name != "Family Circle" {
+	if gotGroup.Name != sharedSetupSocialGroupID || gotGroup.DisplayName == nil || *gotGroup.DisplayName != "Family Circle" {
 		t.Fatalf("shared group = %#v", gotGroup)
 	}
 
 	members, err := env.peer.ListFriendGroupMembers(env.ctx, "shared.social.friend_group.members.list", rpcapi.FriendGroupMemberListRequest{
-		FriendGroupId: testStringPtr(sharedSetupSocialGroupID),
+		FriendGroupName: testStringPtr(sharedSetupSocialGroupID),
 	})
 	if err != nil {
 		t.Fatalf("friend_group.members.list shared fixture: %v", err)
@@ -130,7 +138,7 @@ func collectWorkflowNames(t *testing.T, ctx context.Context, peer *gizcli.Client
 			t.Fatalf("workflow.list page %d: %v", page, err)
 		}
 		for _, item := range list.Items {
-			names[item.Alias] = true
+			names[item.Name] = true
 		}
 		if !list.HasNext {
 			return names
@@ -180,7 +188,7 @@ func collectModelIDs(t *testing.T, ctx context.Context, peer *gizcli.Client, lim
 			t.Fatalf("model.list page %d: %v", page, err)
 		}
 		for _, item := range list.Items {
-			names[item.Alias] = true
+			names[item.Name] = true
 		}
 		if !list.HasNext {
 			return names
@@ -215,7 +223,7 @@ func requireFriendPeer(t *testing.T, items []rpcapi.FriendObject, peerPublicKey 
 func requireFriendGroupID(t *testing.T, items []rpcapi.FriendGroupObject, id string) rpcapi.FriendGroupObject {
 	t.Helper()
 	for _, item := range items {
-		if item.Id != nil && *item.Id == id {
+		if item.Name == id {
 			return item
 		}
 	}

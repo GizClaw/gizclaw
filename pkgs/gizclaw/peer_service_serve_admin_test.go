@@ -62,10 +62,10 @@ func TestAdminServiceDeletePeerPetUsesGameplayLifecycle(t *testing.T) {
 	}
 	now := time.Date(2026, 7, 16, 12, 0, 0, 0, time.UTC).Format(time.RFC3339Nano)
 	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (
-		owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name,
+		owner_public_key, id, name, runtime_profile_id, pet_def_id, display_name, workspace_id,
 		stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"peer-a", "pet-a", "default", "petdef-a", "Pet A", "pet-pet-a",
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"peer-a", "pet-a", "pet-name", "runtime-profile-default", "petdef-a", "Pet A", "id-pet-pet-a",
 		`{"life":100,"health":100,"satiety":100,"hygiene":100,"mood":100,"energy":100}`, `{"experience":0,"level":1}`, "alive", nil, now, now, now, now,
 	); err != nil {
 		t.Fatalf("insert pet: %v", err)
@@ -130,7 +130,7 @@ func newTestFriendServer(store kv.Store) *friend.Server {
 
 func (s *adminGameplayWorkspaceService) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
 	system := true
-	return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, System: &system}, true, nil
+	return apitypes.Workspace{Id: "id-" + body.Name, Name: body.Name, WorkflowId: body.WorkflowId, System: &system}, true, nil
 }
 
 func (s *adminGameplayWorkspaceService) DeleteSystemWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {
@@ -139,11 +139,27 @@ func (s *adminGameplayWorkspaceService) DeleteSystemWorkspace(_ context.Context,
 	return apitypes.Workspace{Name: name, System: &system}, nil
 }
 
+func (s *adminGameplayWorkspaceService) GetWorkspaceByName(_ context.Context, name string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{Id: "id-" + name, Name: name}, nil
+}
+
+func (s *adminGameplayWorkspaceService) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
+	return adminhttp.GetWorkspace200JSONResponse(apitypes.Workspace{Id: request.Id}), nil
+}
+
 func (s *adminGameplayWorkspaceService) RetireSystemWorkspace(_ context.Context, name string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{Name: name}, nil
 }
 
+func (s *adminGameplayWorkspaceService) RetireSystemWorkspaceByID(_ context.Context, id string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{Id: id}, nil
+}
+
 func (s *adminGameplayWorkspaceService) GetRetiredSystemWorkspace(_ context.Context, _ string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{}, kv.ErrNotFound
+}
+
+func (s *adminGameplayWorkspaceService) GetRetiredSystemWorkspaceByID(_ context.Context, _ string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{}, kv.ErrNotFound
 }
 
@@ -151,7 +167,7 @@ func TestAdminServiceResourceMethodsHandleValidationAndManagerErrors(t *testing.
 	resource := mustPeerServiceResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "minimax-main"},
+		"metadata": {"id": "minimax-id", "name": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
@@ -169,7 +185,7 @@ func TestAdminServiceResourceMethodsHandleValidationAndManagerErrors(t *testing.
 
 	getResp, err := service.GetResource(context.Background(), adminhttp.GetResourceRequestObject{
 		Kind: apitypes.ResourceKindCredential,
-		Name: "minimax-main",
+		Id:   "minimax-main",
 	})
 	if err != nil {
 		t.Fatalf("GetResource() error = %v", err)
@@ -188,7 +204,7 @@ func TestAdminServiceResourceMethodsHandleValidationAndManagerErrors(t *testing.
 
 	putResp, err = service.PutResource(context.Background(), adminhttp.PutResourceRequestObject{
 		Kind:     apitypes.ResourceKindWorkspace,
-		Name:     "minimax-main",
+		Id:       "minimax-id",
 		JSONBody: &resource,
 	})
 	if err != nil {
@@ -200,7 +216,7 @@ func TestAdminServiceResourceMethodsHandleValidationAndManagerErrors(t *testing.
 
 	putResp, err = service.PutResource(context.Background(), adminhttp.PutResourceRequestObject{
 		Kind:     apitypes.ResourceKindCredential,
-		Name:     "minimax-main",
+		Id:       "minimax-id",
 		JSONBody: &resource,
 	})
 	if err != nil {
@@ -212,7 +228,7 @@ func TestAdminServiceResourceMethodsHandleValidationAndManagerErrors(t *testing.
 
 	deleteResp, err := service.DeleteResource(context.Background(), adminhttp.DeleteResourceRequestObject{
 		Kind: apitypes.ResourceKindCredential,
-		Name: "minimax-main",
+		Id:   "minimax-main",
 	})
 	if err != nil {
 		t.Fatalf("DeleteResource() error = %v", err)
@@ -226,21 +242,21 @@ func TestAdminResourceHelpers(t *testing.T) {
 	resource := mustPeerServiceResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "minimax-main"},
+		"metadata": {"id": "minimax-id", "name": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
 		}
 	}`)
 
-	if err := validateResourcePathMatch(resource, apitypes.ResourceKindCredential, "minimax-main"); err != nil {
+	if err := validateResourcePathMatch(resource, apitypes.ResourceKindCredential, "minimax-id"); err != nil {
 		t.Fatalf("validateResourcePathMatch() error = %v", err)
 	}
-	if err := validateResourcePathMatch(resource, apitypes.ResourceKindWorkspace, "minimax-main"); err == nil || !strings.Contains(err.Error(), "kind") {
+	if err := validateResourcePathMatch(resource, apitypes.ResourceKindWorkspace, "minimax-id"); err == nil || !strings.Contains(err.Error(), "kind") {
 		t.Fatalf("validateResourcePathMatch(kind mismatch) error = %v", err)
 	}
-	if err := validateResourcePathMatch(resource, apitypes.ResourceKindCredential, "other"); err == nil || !strings.Contains(err.Error(), "metadata.name") {
-		t.Fatalf("validateResourcePathMatch(name mismatch) error = %v", err)
+	if err := validateResourcePathMatch(resource, apitypes.ResourceKindCredential, "other"); err == nil || !strings.Contains(err.Error(), "metadata.id") {
+		t.Fatalf("validateResourcePathMatch(id mismatch) error = %v", err)
 	}
 
 	status, body := resourceManagerError(&resourcemanager.Error{StatusCode: http.StatusNotFound, Code: "RESOURCE_NOT_FOUND", Message: "missing"})
@@ -290,8 +306,12 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 		Members:           groupStore,
 		Belongs:           groupStore,
 		RelationshipStore: groupStore,
-		Now:               func() time.Time { return time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC) },
-		NewID:             func() string { return "group-a" },
+		Workspaces:        &adminGameplayWorkspaceService{},
+		RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) {
+			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{System: apitypes.RuntimeProfileSystemWorkflows{GroupChatroom: "chatroom"}}}}, nil
+		},
+		Now:   func() time.Time { return time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC) },
+		NewID: func() string { return "group-a" },
 	}
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{Friends: friendService, FriendGroups: groupService}, nil))
@@ -300,7 +320,7 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST friend status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), `"owner_public_key":"peer-a"`) || !strings.Contains(rec.Body.String(), `"peer_public_key":"peer-b"`) || !strings.Contains(rec.Body.String(), `"workspace_name":"social-direct-`) {
+	if !strings.Contains(rec.Body.String(), `"owner_public_key":"peer-a"`) || !strings.Contains(rec.Body.String(), `"peer_public_key":"peer-b"`) || !strings.Contains(rec.Body.String(), `"workspace_id":"id-social-direct-`) {
 		t.Fatalf("POST friend body = %s", rec.Body.String())
 	}
 	rec = serveAdminAsset(app, http.MethodGet, "/social/friends?limit=1", "")
@@ -332,7 +352,7 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), `"created_by_peer_public_key":"peer-a"`) || strings.Contains(rec.Body.String(), "my_role") {
 		t.Fatalf("admin-created group owner projection is invalid: %s", rec.Body.String())
 	}
-	rec = serveAdminJSON(app, http.MethodPost, "/social/friend-groups/group-a/members", `{"peer_public_key":"peer-a","role":"owner"}`)
+	rec = serveAdminJSON(app, http.MethodPost, "/social/friend-groups/group-a/members", `{"name":"owner01","peer_public_key":"peer-a","role":"owner"}`)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"role":"owner"`) {
 		t.Fatalf("POST owner member status=%d body=%s", rec.Code, rec.Body.String())
 	}

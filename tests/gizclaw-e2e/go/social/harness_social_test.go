@@ -111,17 +111,14 @@ func setSocialChatWorkspaceInputMode(t *testing.T, h socialHarness, workspaceNam
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	got, err := api.GetWorkspaceWithResponse(ctx, workspaceName)
-	if err != nil {
+	workspace, found, err := clitest.WorkspaceByName(ctx, api, workspaceName)
+	if err != nil || !found {
 		t.Fatalf("get social workspace %q: %v", workspaceName, err)
 	}
-	if got.JSON200 == nil {
-		t.Fatalf("get social workspace %q status %d: %s", workspaceName, got.StatusCode(), strings.TrimSpace(string(got.Body)))
-	}
-	if got.JSON200.Parameters == nil {
+	if workspace.Parameters == nil {
 		t.Fatalf("get social workspace %q has nil parameters", workspaceName)
 	}
-	typed, err := got.JSON200.Parameters.AsChatRoomWorkspaceParameters()
+	typed, err := workspace.Parameters.AsChatRoomWorkspaceParameters()
 	if err != nil {
 		t.Fatalf("decode social workspace %q parameters: %v", workspaceName, err)
 	}
@@ -131,11 +128,11 @@ func setSocialChatWorkspaceInputMode(t *testing.T, h socialHarness, workspaceNam
 		t.Fatalf("encode social workspace %q parameters: %v", workspaceName, err)
 	}
 	body := adminhttp.WorkspaceUpsert{
-		Name:         string(got.JSON200.Name),
-		WorkflowName: string(got.JSON200.WorkflowName),
-		Parameters:   &params,
+		Name:       workspace.Name,
+		WorkflowId: workspace.WorkflowId,
+		Parameters: &params,
 	}
-	updated, err := api.PutWorkspaceWithResponse(ctx, workspaceName, body)
+	updated, err := api.PutWorkspaceWithResponse(ctx, workspace.Id, body)
 	if err != nil {
 		t.Fatalf("put social workspace %q: %v", workspaceName, err)
 	}
@@ -149,21 +146,21 @@ func assertContactRPCs(t *testing.T, h socialHarness) {
 
 	alice := mustCreateContact(t, h, "peer-a", "Alice", "+1 555 0100")
 	bob := mustCreateContact(t, h, "peer-a", "Bob", "+1 555 0101")
-	got := mustGetContact(t, h, "peer-a", stringValue(alice.Id))
+	got := mustGetContact(t, h, "peer-a", alice.Name)
 	if stringValue(got.DisplayName) != "Alice" {
 		t.Fatalf("contact.get display_name = %q, want Alice", stringValue(got.DisplayName))
 	}
-	updated := mustPutContact(t, h, "peer-a", stringValue(alice.Id), "Alice Zhang", "+1 555 0102")
+	updated := mustPutContact(t, h, "peer-a", alice.Name, "Alice Zhang", "+1 555 0102")
 	if stringValue(updated.DisplayName) != "Alice Zhang" {
 		t.Fatalf("contact.put display_name = %q, want Alice Zhang", stringValue(updated.DisplayName))
 	}
-	if err := getContactError(t, h, "peer-b", stringValue(alice.Id)); err == nil {
+	if err := getContactError(t, h, "peer-b", alice.Name); err == nil {
 		t.Fatal("peer-b unexpectedly read peer-a contact")
 	}
-	assertContactPagination(t, h, []string{stringValue(alice.Id), stringValue(bob.Id)})
-	deleted := mustDeleteContact(t, h, "peer-a", stringValue(bob.Id))
-	if stringValue(deleted.Id) != stringValue(bob.Id) {
-		t.Fatalf("contact.delete id = %q, want %q", stringValue(deleted.Id), stringValue(bob.Id))
+	assertContactPagination(t, h, []string{alice.Name, bob.Name})
+	deleted := mustDeleteContact(t, h, "peer-a", bob.Name)
+	if deleted.Name != bob.Name {
+		t.Fatalf("contact.delete id = %q, want %q", deleted.Name, bob.Name)
 	}
 }
 
@@ -243,7 +240,7 @@ func assertContactPagination(t *testing.T, h socialHarness, wantIDs []string) {
 			t.Fatalf("contact page %d = %#v, want at most %d item", page+1, resp, limit)
 		}
 		for _, item := range resp.Items {
-			got[stringValue(item.Id)] = true
+			got[item.Name] = true
 		}
 		if hasAllIDs(got, wantIDs) {
 			return
@@ -299,7 +296,7 @@ func assertFriendGroupPagination(t *testing.T, h socialHarness, wantIDs []string
 			t.Fatalf("group page %d = %#v, want at most %d item", page+1, resp, limit)
 		}
 		for _, item := range resp.Items {
-			got[stringValue(item.Id)] = true
+			got[item.Name] = true
 		}
 		if hasAllIDs(got, wantIDs) {
 			return
@@ -328,11 +325,11 @@ func assertFriendGroupMemberPagination(t *testing.T, h socialHarness, friendGrou
 	t.Helper()
 
 	limit := 1
-	first := mustListFriendGroupMembers(t, h, "peer-a", rpcapi.FriendGroupMemberListRequest{FriendGroupId: &friendGroupID, Limit: &limit})
+	first := mustListFriendGroupMembers(t, h, "peer-a", rpcapi.FriendGroupMemberListRequest{FriendGroupName: &friendGroupID, Limit: &limit})
 	if len(first.Items) != 1 || !first.HasNext || first.NextCursor == nil {
 		t.Fatalf("friend group member first page = %#v, want one item and next cursor", first)
 	}
-	second := mustListFriendGroupMembers(t, h, "peer-a", rpcapi.FriendGroupMemberListRequest{FriendGroupId: &friendGroupID, Limit: &limit, Cursor: first.NextCursor})
+	second := mustListFriendGroupMembers(t, h, "peer-a", rpcapi.FriendGroupMemberListRequest{FriendGroupName: &friendGroupID, Limit: &limit, Cursor: first.NextCursor})
 	if len(second.Items) != 1 {
 		t.Fatalf("friend group member second page = %#v, want one item", second)
 	}
@@ -367,28 +364,29 @@ func socialRPCError[T any](t *testing.T, h socialHarness, contextName, requestID
 func mustCreateContact(t *testing.T, h socialHarness, contextName, displayName, phoneNumber string) rpcapi.ContactObject {
 	return mustSocialRPC(t, h, contextName, "contact.create", func(ctx context.Context, client *gizcli.Client) (*rpcapi.ContactCreateResponse, error) {
 		return client.CreateContact(ctx, "contact.create", rpcapi.ContactCreateRequest{
+			Name:        strings.ToLower(displayName),
 			DisplayName: &displayName,
 			PhoneNumber: &phoneNumber,
 		})
 	})
 }
 
-func mustGetContact(t *testing.T, h socialHarness, contextName, id string) rpcapi.ContactObject {
+func mustGetContact(t *testing.T, h socialHarness, contextName, name string) rpcapi.ContactObject {
 	return mustSocialRPC(t, h, contextName, "contact.get", func(ctx context.Context, client *gizcli.Client) (*rpcapi.ContactGetResponse, error) {
-		return client.GetContact(ctx, "contact.get", rpcapi.ContactGetRequest{Id: id})
+		return client.GetContact(ctx, "contact.get", rpcapi.ContactGetRequest{Name: name})
 	})
 }
 
-func getContactError(t *testing.T, h socialHarness, contextName, id string) error {
+func getContactError(t *testing.T, h socialHarness, contextName, name string) error {
 	return socialRPCError(t, h, contextName, "contact.get", func(ctx context.Context, client *gizcli.Client) (*rpcapi.ContactGetResponse, error) {
-		return client.GetContact(ctx, "contact.get", rpcapi.ContactGetRequest{Id: id})
+		return client.GetContact(ctx, "contact.get", rpcapi.ContactGetRequest{Name: name})
 	})
 }
 
-func mustPutContact(t *testing.T, h socialHarness, contextName, id, displayName, phoneNumber string) rpcapi.ContactObject {
+func mustPutContact(t *testing.T, h socialHarness, contextName, name, displayName, phoneNumber string) rpcapi.ContactObject {
 	return mustSocialRPC(t, h, contextName, "contact.put", func(ctx context.Context, client *gizcli.Client) (*rpcapi.ContactPutResponse, error) {
 		return client.PutContact(ctx, "contact.put", rpcapi.ContactPutRequest{
-			Id:          id,
+			Name:        name,
 			DisplayName: &displayName,
 			PhoneNumber: &phoneNumber,
 		})
@@ -401,9 +399,9 @@ func mustListContacts(t *testing.T, h socialHarness, contextName string, request
 	})
 }
 
-func mustDeleteContact(t *testing.T, h socialHarness, contextName, id string) rpcapi.ContactObject {
+func mustDeleteContact(t *testing.T, h socialHarness, contextName, name string) rpcapi.ContactObject {
 	return mustSocialRPC(t, h, contextName, "contact.delete", func(ctx context.Context, client *gizcli.Client) (*rpcapi.ContactDeleteResponse, error) {
-		return client.DeleteContact(ctx, "contact.delete", rpcapi.ContactDeleteRequest{Id: id})
+		return client.DeleteContact(ctx, "contact.delete", rpcapi.ContactDeleteRequest{Name: name})
 	})
 }
 
@@ -491,27 +489,27 @@ func mustCreateFriendGroup(t *testing.T, h socialHarness, contextName, name, des
 	})
 }
 
-func mustGetFriendGroup(t *testing.T, h socialHarness, contextName, id string) rpcapi.FriendGroupObject {
+func mustGetFriendGroup(t *testing.T, h socialHarness, contextName, name string) rpcapi.FriendGroupObject {
 	return mustSocialRPC(t, h, contextName, "friend_group.get", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupGetResponse, error) {
-		return client.GetFriendGroup(ctx, "friend_group.get", rpcapi.FriendGroupGetRequest{Id: id})
+		return client.GetFriendGroup(ctx, "friend_group.get", rpcapi.FriendGroupGetRequest{Name: name})
 	})
 }
 
-func getFriendGroupError(t *testing.T, h socialHarness, contextName, id string) error {
+func getFriendGroupError(t *testing.T, h socialHarness, contextName, name string) error {
 	return socialRPCError(t, h, contextName, "friend_group.get", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupGetResponse, error) {
-		return client.GetFriendGroup(ctx, "friend_group.get", rpcapi.FriendGroupGetRequest{Id: id})
+		return client.GetFriendGroup(ctx, "friend_group.get", rpcapi.FriendGroupGetRequest{Name: name})
 	})
 }
 
-func mustPutFriendGroup(t *testing.T, h socialHarness, contextName, id, name string) rpcapi.FriendGroupObject {
+func mustPutFriendGroup(t *testing.T, h socialHarness, contextName, name, displayName string) rpcapi.FriendGroupObject {
 	return mustSocialRPC(t, h, contextName, "friend_group.put", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupPutResponse, error) {
-		return client.PutFriendGroup(ctx, "friend_group.put", rpcapi.FriendGroupPutRequest{Id: id, Name: &name})
+		return client.PutFriendGroup(ctx, "friend_group.put", rpcapi.FriendGroupPutRequest{Name: name, DisplayName: &displayName})
 	})
 }
 
-func mustDeleteFriendGroup(t *testing.T, h socialHarness, contextName, id string) rpcapi.FriendGroupObject {
+func mustDeleteFriendGroup(t *testing.T, h socialHarness, contextName, name string) rpcapi.FriendGroupObject {
 	return mustSocialRPC(t, h, contextName, "friend_group.delete", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupDeleteResponse, error) {
-		return client.DeleteFriendGroup(ctx, "friend_group.delete", rpcapi.FriendGroupDeleteRequest{Id: id})
+		return client.DeleteFriendGroup(ctx, "friend_group.delete", rpcapi.FriendGroupDeleteRequest{Name: name})
 	})
 }
 
@@ -523,46 +521,46 @@ func mustListFriendGroups(t *testing.T, h socialHarness, contextName string, req
 
 func mustGetFriendGroupInviteToken(t *testing.T, h socialHarness, contextName, groupID string) rpcapi.FriendGroupInviteTokenGetResponse {
 	return mustSocialRPC(t, h, contextName, "friend_group.invite_token.get", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupInviteTokenGetResponse, error) {
-		return client.GetFriendGroupInviteToken(ctx, "friend_group.invite_token.get", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupId: groupID})
+		return client.GetFriendGroupInviteToken(ctx, "friend_group.invite_token.get", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupName: groupID})
 	})
 }
 
 func mustCreateFriendGroupInviteToken(t *testing.T, h socialHarness, contextName, groupID string) rpcapi.FriendGroupInviteTokenCreateResponse {
 	return mustSocialRPC(t, h, contextName, "friend_group.invite_token.create", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupInviteTokenCreateResponse, error) {
-		return client.CreateFriendGroupInviteToken(ctx, "friend_group.invite_token.create", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupId: groupID})
+		return client.CreateFriendGroupInviteToken(ctx, "friend_group.invite_token.create", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupName: groupID})
 	})
 }
 
 func mustClearFriendGroupInviteToken(t *testing.T, h socialHarness, contextName, groupID string) rpcapi.FriendGroupInviteTokenClearResponse {
 	return mustSocialRPC(t, h, contextName, "friend_group.invite_token.clear", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupInviteTokenClearResponse, error) {
-		return client.ClearFriendGroupInviteToken(ctx, "friend_group.invite_token.clear", rpcapi.FriendGroupInviteTokenClearRequest{FriendGroupId: groupID})
+		return client.ClearFriendGroupInviteToken(ctx, "friend_group.invite_token.clear", rpcapi.FriendGroupInviteTokenClearRequest{FriendGroupName: groupID})
 	})
 }
 
 func friendGroupInviteTokenError(t *testing.T, h socialHarness, contextName, groupID string) error {
 	return socialRPCError(t, h, contextName, "friend_group.invite_token.create", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupInviteTokenCreateResponse, error) {
-		return client.CreateFriendGroupInviteToken(ctx, "friend_group.invite_token.create", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupId: groupID})
+		return client.CreateFriendGroupInviteToken(ctx, "friend_group.invite_token.create", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupName: groupID})
 	})
 }
 
-func mustJoinFriendGroup(t *testing.T, h socialHarness, contextName, inviteToken string) rpcapi.FriendGroupJoinResponse {
+func mustJoinFriendGroup(t *testing.T, h socialHarness, contextName, name, inviteToken string) rpcapi.FriendGroupJoinResponse {
 	return mustSocialRPC(t, h, contextName, "friend_group.join", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupJoinResponse, error) {
-		return client.JoinFriendGroup(ctx, "friend_group.join", rpcapi.FriendGroupJoinRequest{InviteToken: inviteToken})
+		return client.JoinFriendGroup(ctx, "friend_group.join", rpcapi.FriendGroupJoinRequest{Name: name, InviteToken: inviteToken})
 	})
 }
 
-func joinFriendGroupError(t *testing.T, h socialHarness, contextName, inviteToken string) error {
+func joinFriendGroupError(t *testing.T, h socialHarness, contextName, name, inviteToken string) error {
 	return socialRPCError(t, h, contextName, "friend_group.join", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupJoinResponse, error) {
-		return client.JoinFriendGroup(ctx, "friend_group.join", rpcapi.FriendGroupJoinRequest{InviteToken: inviteToken})
+		return client.JoinFriendGroup(ctx, "friend_group.join", rpcapi.FriendGroupJoinRequest{Name: name, InviteToken: inviteToken})
 	})
 }
 
 func mustAddFriendGroupMember(t *testing.T, h socialHarness, contextName, groupID, peerID string, role rpcapi.FriendGroupMemberMutableRole) rpcapi.FriendGroupMemberObject {
 	return mustSocialRPC(t, h, contextName, "friend_group.members.add", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupMemberAddResponse, error) {
 		return client.AddFriendGroupMember(ctx, "friend_group.members.add", rpcapi.FriendGroupMemberAddRequest{
-			FriendGroupId: groupID,
-			PeerPublicKey: peerID,
-			Role:          role,
+			FriendGroupName: groupID,
+			PeerPublicKey:   peerID,
+			Role:            role,
 		})
 	})
 }
@@ -570,9 +568,9 @@ func mustAddFriendGroupMember(t *testing.T, h socialHarness, contextName, groupI
 func mustPutFriendGroupMember(t *testing.T, h socialHarness, contextName, groupID, peerID string, role rpcapi.FriendGroupMemberMutableRole) rpcapi.FriendGroupMemberObject {
 	return mustSocialRPC(t, h, contextName, "friend_group.members.put", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupMemberPutResponse, error) {
 		return client.PutFriendGroupMember(ctx, "friend_group.members.put", rpcapi.FriendGroupMemberPutRequest{
-			FriendGroupId: groupID,
-			Id:            peerID,
-			Role:          role,
+			FriendGroupName: groupID,
+			Id:              peerID,
+			Role:            role,
 		})
 	})
 }
@@ -580,8 +578,8 @@ func mustPutFriendGroupMember(t *testing.T, h socialHarness, contextName, groupI
 func mustDeleteFriendGroupMember(t *testing.T, h socialHarness, contextName, groupID, peerID string) rpcapi.FriendGroupMemberObject {
 	return mustSocialRPC(t, h, contextName, "friend_group.members.delete", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupMemberDeleteResponse, error) {
 		return client.DeleteFriendGroupMember(ctx, "friend_group.members.delete", rpcapi.FriendGroupMemberDeleteRequest{
-			FriendGroupId: groupID,
-			Id:            peerID,
+			FriendGroupName: groupID,
+			Id:              peerID,
 		})
 	})
 }

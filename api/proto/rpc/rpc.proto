@@ -61,9 +61,6 @@ message RpcRequest {
 }
 
 enum RpcMethod {
-  reserved 64;
-  reserved "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND";
-
   RPC_METHOD_UNSPECIFIED = 0;
   RPC_METHOD_ALL_PING = 1 [(rpc_method) = { name: "all.ping" request: "PingRequest" response: "PingResponse" }];
   RPC_METHOD_ALL_SPEED_TEST_RUN = 2 [(rpc_method) = { name: "all.speed_test.run" request: "SpeedTestRequest" response: "SpeedTestResponse" }];
@@ -128,36 +125,36 @@ enum RpcMethod {
   RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE = 61 [(rpc_method) = { name: "server.friend_group.members.delete" request: "FriendGroupMemberDeleteRequest" response: "FriendGroupMemberDeleteResponse" }];
   RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST = 62 [(rpc_method) = { name: "server.friend_group.messages.list" request: "FriendGroupMessageListRequest" response: "FriendGroupMessageListResponse" }];
   RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET = 63 [(rpc_method) = { name: "server.friend_group.messages.get" request: "FriendGroupMessageGetRequest" response: "FriendGroupMessageGetResponse" }];
-  RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = 65 [(rpc_method) = { name: "server.badge_def.pixa.download" request: "BadgeDefPixaDownloadRequest" response: "BadgeDefPixaDownloadResponse" }];
-  RPC_METHOD_SERVER_PET_LIST = 66 [(rpc_method) = { name: "server.pet.list" request: "ServerPetListRequest" response: "ServerPetListResponse" }];
-  RPC_METHOD_SERVER_PET_GET = 67 [(rpc_method) = { name: "server.pet.get" request: "ServerPetGetRequest" response: "ServerPetGetResponse" }];
-  RPC_METHOD_RUNTIME_ADOPT = 68 [(rpc_method) = { name: "runtime.adopt" request: "RuntimeAdoptRequest" response: "RuntimeAdoptResponse" }];
-  RPC_METHOD_SERVER_PET_PUT = 69 [(rpc_method) = { name: "server.pet.put" request: "ServerPetPutRequest" response: "ServerPetPutResponse" }];
-  RPC_METHOD_SERVER_PET_DELETE = 70 [(rpc_method) = { name: "server.pet.delete" request: "ServerPetDeleteRequest" response: "ServerPetDeleteResponse" }];
-  RPC_METHOD_SERVER_PET_DRIVE = 71 [(rpc_method) = { name: "server.pet.drive" request: "ServerPetDriveRequest" response: "ServerPetDriveResponse" }];
-  RPC_METHOD_SERVER_POINTS_GET = 72 [(rpc_method) = { name: "server.points.get" request: "ServerPointsGetRequest" response: "ServerPointsGetResponse" }];
-  RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST = 73 [(rpc_method) = { name: "server.points.transactions.list" request: "ServerPointsTransactionListRequest" response: "ServerPointsTransactionListResponse" }];
-  RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET = 74 [(rpc_method) = { name: "server.points.transactions.get" request: "ServerPointsTransactionGetRequest" response: "ServerPointsTransactionGetResponse" }];
-  RPC_METHOD_SERVER_BADGE_LIST = 75 [(rpc_method) = { name: "server.badge.list" request: "ServerBadgeListRequest" response: "ServerBadgeListResponse" }];
-  RPC_METHOD_SERVER_BADGE_GET = 76 [(rpc_method) = { name: "server.badge.get" request: "ServerBadgeGetRequest" response: "ServerBadgeGetResponse" }];
-  RPC_METHOD_SERVER_GAME_RESULT_LIST = 77 [(rpc_method) = { name: "server.game_result.list" request: "ServerGameResultListRequest" response: "ServerGameResultListResponse" }];
-  RPC_METHOD_SERVER_GAME_RESULT_GET = 78 [(rpc_method) = { name: "server.game_result.get" request: "ServerGameResultGetRequest" response: "ServerGameResultGetResponse" }];
-  RPC_METHOD_SERVER_REWARD_GRANT_LIST = 79 [(rpc_method) = { name: "server.reward_grant.list" request: "ServerRewardGrantListRequest" response: "ServerRewardGrantListResponse" }];
-  RPC_METHOD_SERVER_REWARD_GRANT_GET = 80 [(rpc_method) = { name: "server.reward_grant.get" request: "ServerRewardGrantGetRequest" response: "ServerRewardGrantGetResponse" }];
-  RPC_METHOD_SERVER_TOOL_LIST = 81 [(rpc_method) = { name: "server.tool.list" request: "ToolListRequest" response: "ToolListResponse" }];
-  RPC_METHOD_SERVER_TOOL_GET = 82 [(rpc_method) = { name: "server.tool.get" request: "ToolGetRequest" response: "ToolGetResponse" }];
-  RPC_METHOD_CLIENT_TOOL_INVOKE = 83 [(rpc_method) = { name: "client.tool.invoke" request: "ToolInvokeRequest" response: "ToolInvokeResponse" }];
-  RPC_METHOD_SERVER_PEER_LOOKUP = 84 [(rpc_method) = { name: "server.peer.lookup" request: "ServerPeerLookupRequest" response: "ServerPeerLookupResponse" }];
-  RPC_METHOD_SERVER_PEER_ASSIGN = 85 [(rpc_method) = { name: "server.peer.assign" request: "ServerPeerAssignRequest" response: "ServerPeerAssignResponse" }];
-  RPC_METHOD_SERVER_ROUTE_RESOLVE = 86 [(rpc_method) = { name: "server.route.resolve" request: "ServerRouteResolveRequest" response: "ServerRouteResolveResponse" }];
-  RPC_METHOD_SERVER_PET_ACTIONS_GET = 87 [(rpc_method) = { name: "server.pet.actions.get" request: "ServerPetActionsGetRequest" response: "ServerPetActionsGetResponse" }];
-  RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD = 88 [(rpc_method) = { name: "server.pet.pixa.download" request: "ServerPetPixaDownloadRequest" response: "ServerPetPixaDownloadResponse" }];
-  RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD = 89 [(rpc_method) = { name: "server.workspace.icon.download" request: "WorkspaceIconDownloadRequest" response: "WorkspaceIconDownloadResponse" }];
-  RPC_METHOD_SERVER_FRIEND_INFO_GET = 90 [(rpc_method) = { name: "server.friend.info.get" request: "FriendInfoGetRequest" response: "FriendInfoGetResponse" }];
-  RPC_METHOD_SERVER_REGISTER = 91 [(rpc_method) = { name: "server.register" request: "ServerRegisterRequest" response: "ServerRegisterResponse" }];
-  RPC_METHOD_SERVER_SPEECH_TRANSCRIBE = 92 [(rpc_method) = { name: "server.speech.transcribe" request: "SpeechTranscribeRequest" response: "SpeechTranscribeResponse" }];
-  RPC_METHOD_SERVER_SPEECH_SYNTHESIZE = 93 [(rpc_method) = { name: "server.speech.synthesize" request: "SpeechSynthesizeRequest" response: "SpeechSynthesizeResponse" }];
-  RPC_METHOD_SERVER_PEER_DELETE = 94 [(rpc_method) = { name: "server.peer.delete" request: "ServerPeerDeleteRequest" response: "ServerPeerDeleteResponse" }];
-  RPC_METHOD_SERVER_SPEECH_EXTRACT = 95 [(rpc_method) = { name: "server.speech.extract" request: "SpeechExtractRequest" response: "SpeechExtractResponse" }];
-  RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET = 96 [(rpc_method) = { name: "server.friend_group.messages.audio.get" request: "FriendGroupMessageAudioGetRequest" response: "FriendGroupMessageAudioGetResponse" }];
+  RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = 64 [(rpc_method) = { name: "server.badge_def.pixa.download" request: "BadgeDefPixaDownloadRequest" response: "BadgeDefPixaDownloadResponse" }];
+  RPC_METHOD_SERVER_PET_LIST = 65 [(rpc_method) = { name: "server.pet.list" request: "ServerPetListRequest" response: "ServerPetListResponse" }];
+  RPC_METHOD_SERVER_PET_GET = 66 [(rpc_method) = { name: "server.pet.get" request: "ServerPetGetRequest" response: "ServerPetGetResponse" }];
+  RPC_METHOD_RUNTIME_ADOPT = 67 [(rpc_method) = { name: "runtime.adopt" request: "RuntimeAdoptRequest" response: "RuntimeAdoptResponse" }];
+  RPC_METHOD_SERVER_PET_PUT = 68 [(rpc_method) = { name: "server.pet.put" request: "ServerPetPutRequest" response: "ServerPetPutResponse" }];
+  RPC_METHOD_SERVER_PET_DELETE = 69 [(rpc_method) = { name: "server.pet.delete" request: "ServerPetDeleteRequest" response: "ServerPetDeleteResponse" }];
+  RPC_METHOD_SERVER_PET_DRIVE = 70 [(rpc_method) = { name: "server.pet.drive" request: "ServerPetDriveRequest" response: "ServerPetDriveResponse" }];
+  RPC_METHOD_SERVER_POINTS_GET = 71 [(rpc_method) = { name: "server.points.get" request: "ServerPointsGetRequest" response: "ServerPointsGetResponse" }];
+  RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST = 72 [(rpc_method) = { name: "server.points.transactions.list" request: "ServerPointsTransactionListRequest" response: "ServerPointsTransactionListResponse" }];
+  RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET = 73 [(rpc_method) = { name: "server.points.transactions.get" request: "ServerPointsTransactionGetRequest" response: "ServerPointsTransactionGetResponse" }];
+  RPC_METHOD_SERVER_BADGE_LIST = 74 [(rpc_method) = { name: "server.badge.list" request: "ServerBadgeListRequest" response: "ServerBadgeListResponse" }];
+  RPC_METHOD_SERVER_BADGE_GET = 75 [(rpc_method) = { name: "server.badge.get" request: "ServerBadgeGetRequest" response: "ServerBadgeGetResponse" }];
+  RPC_METHOD_SERVER_GAME_RESULT_LIST = 76 [(rpc_method) = { name: "server.game_result.list" request: "ServerGameResultListRequest" response: "ServerGameResultListResponse" }];
+  RPC_METHOD_SERVER_GAME_RESULT_GET = 77 [(rpc_method) = { name: "server.game_result.get" request: "ServerGameResultGetRequest" response: "ServerGameResultGetResponse" }];
+  RPC_METHOD_SERVER_REWARD_GRANT_LIST = 78 [(rpc_method) = { name: "server.reward_grant.list" request: "ServerRewardGrantListRequest" response: "ServerRewardGrantListResponse" }];
+  RPC_METHOD_SERVER_REWARD_GRANT_GET = 79 [(rpc_method) = { name: "server.reward_grant.get" request: "ServerRewardGrantGetRequest" response: "ServerRewardGrantGetResponse" }];
+  RPC_METHOD_SERVER_TOOL_LIST = 80 [(rpc_method) = { name: "server.tool.list" request: "ToolListRequest" response: "ToolListResponse" }];
+  RPC_METHOD_SERVER_TOOL_GET = 81 [(rpc_method) = { name: "server.tool.get" request: "ToolGetRequest" response: "ToolGetResponse" }];
+  RPC_METHOD_CLIENT_TOOL_INVOKE = 82 [(rpc_method) = { name: "client.tool.invoke" request: "ToolInvokeRequest" response: "ToolInvokeResponse" }];
+  RPC_METHOD_SERVER_PEER_LOOKUP = 83 [(rpc_method) = { name: "server.peer.lookup" request: "ServerPeerLookupRequest" response: "ServerPeerLookupResponse" }];
+  RPC_METHOD_SERVER_PEER_ASSIGN = 84 [(rpc_method) = { name: "server.peer.assign" request: "ServerPeerAssignRequest" response: "ServerPeerAssignResponse" }];
+  RPC_METHOD_SERVER_ROUTE_RESOLVE = 85 [(rpc_method) = { name: "server.route.resolve" request: "ServerRouteResolveRequest" response: "ServerRouteResolveResponse" }];
+  RPC_METHOD_SERVER_PET_ACTIONS_GET = 86 [(rpc_method) = { name: "server.pet.actions.get" request: "ServerPetActionsGetRequest" response: "ServerPetActionsGetResponse" }];
+  RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD = 87 [(rpc_method) = { name: "server.pet.pixa.download" request: "ServerPetPixaDownloadRequest" response: "ServerPetPixaDownloadResponse" }];
+  RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD = 88 [(rpc_method) = { name: "server.workspace.icon.download" request: "WorkspaceIconDownloadRequest" response: "WorkspaceIconDownloadResponse" }];
+  RPC_METHOD_SERVER_FRIEND_INFO_GET = 89 [(rpc_method) = { name: "server.friend.info.get" request: "FriendInfoGetRequest" response: "FriendInfoGetResponse" }];
+  RPC_METHOD_SERVER_REGISTER = 90 [(rpc_method) = { name: "server.register" request: "ServerRegisterRequest" response: "ServerRegisterResponse" }];
+  RPC_METHOD_SERVER_SPEECH_TRANSCRIBE = 91 [(rpc_method) = { name: "server.speech.transcribe" request: "SpeechTranscribeRequest" response: "SpeechTranscribeResponse" }];
+  RPC_METHOD_SERVER_SPEECH_SYNTHESIZE = 92 [(rpc_method) = { name: "server.speech.synthesize" request: "SpeechSynthesizeRequest" response: "SpeechSynthesizeResponse" }];
+  RPC_METHOD_SERVER_PEER_DELETE = 93 [(rpc_method) = { name: "server.peer.delete" request: "ServerPeerDeleteRequest" response: "ServerPeerDeleteResponse" }];
+  RPC_METHOD_SERVER_SPEECH_EXTRACT = 94 [(rpc_method) = { name: "server.speech.extract" request: "SpeechExtractRequest" response: "SpeechExtractResponse" }];
+  RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET = 95 [(rpc_method) = { name: "server.friend_group.messages.audio.get" request: "FriendGroupMessageAudioGetRequest" response: "FriendGroupMessageAudioGetResponse" }];
 }

@@ -32,7 +32,7 @@ func TestApplyFriendResourceCreatesAndDeletes(t *testing.T) {
 	result, err = manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Friend",
-		"metadata": {"name": "peer-a:peer-b"},
+		"metadata": {"id": "peer-a:peer-b", "name": "peer-a:peer-b"},
 		"spec": {"owner_public_key": "peer-a", "peer_public_key": "peer-b"}
 	}`))
 	if err != nil {
@@ -75,8 +75,8 @@ func TestApplyContactResourceCreatesUpdatesAndDeletes(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Contact",
-		"metadata": {"name": "peer-a:alice001"},
-		"spec": {"owner_public_key": "peer-a", "id": "alice001", "display_name": "Alice", "phone_number": "+1 555 0100"}
+		"metadata": {"name": "alice001"},
+		"spec": {"owner_public_key": "peer-a", "display_name": "Alice", "phone_number": "+1 555 0100"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply(create) returned error: %v", err)
@@ -88,8 +88,8 @@ func TestApplyContactResourceCreatesUpdatesAndDeletes(t *testing.T) {
 	result, err = manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Contact",
-		"metadata": {"name": "peer-a:alice001"},
-		"spec": {"owner_public_key": "peer-a", "id": "alice001", "display_name": "Alice", "phone_number": "+1 555 0100"}
+		"metadata": {"id": "alice001", "name": "alice001"},
+		"spec": {"owner_public_key": "peer-a", "display_name": "Alice", "phone_number": "+1 555 0100"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply(unchanged) returned error: %v", err)
@@ -101,8 +101,8 @@ func TestApplyContactResourceCreatesUpdatesAndDeletes(t *testing.T) {
 	result, err = manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Contact",
-		"metadata": {"name": "peer-a:alice001"},
-		"spec": {"owner_public_key": "peer-a", "id": "alice001", "display_name": "Alice Zhang", "phone_number": "+1 555 0101"}
+		"metadata": {"id": "alice001", "name": "alice001"},
+		"spec": {"owner_public_key": "peer-a", "display_name": "Alice Zhang", "phone_number": "+1 555 0101"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply(update) returned error: %v", err)
@@ -111,7 +111,7 @@ func TestApplyContactResourceCreatesUpdatesAndDeletes(t *testing.T) {
 		t.Fatalf("update action = %q, want updated", result.Action)
 	}
 
-	resource, err := manager.Get(context.Background(), apitypes.ResourceKindContact, "peer-a:alice001")
+	resource, err := manager.Get(context.Background(), apitypes.ResourceKindContact, "alice001")
 	if err != nil {
 		t.Fatalf("Get returned error: %v", err)
 	}
@@ -119,11 +119,11 @@ func TestApplyContactResourceCreatesUpdatesAndDeletes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsContactResource returned error: %v", err)
 	}
-	if got.Spec.OwnerPublicKey != "peer-a" || got.Spec.Id != "alice001" || socialTestString(got.Spec.DisplayName) != "Alice Zhang" {
+	if got.Metadata.Id == nil || *got.Metadata.Id != "alice001" || got.Metadata.Name != "alice001" || got.Spec.OwnerPublicKey != "peer-a" || socialTestString(got.Spec.DisplayName) != "Alice Zhang" {
 		t.Fatalf("contact spec = %+v", got.Spec)
 	}
 
-	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindContact, "peer-a:alice001")
+	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindContact, "alice001")
 	if err != nil {
 		t.Fatalf("Delete returned error: %v", err)
 	}
@@ -131,10 +131,10 @@ func TestApplyContactResourceCreatesUpdatesAndDeletes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("deleted AsContactResource returned error: %v", err)
 	}
-	if deletedContact.Metadata.Name != "peer-a:alice001" {
-		t.Fatalf("deleted metadata.name = %q, want peer-a:alice001", deletedContact.Metadata.Name)
+	if deletedContact.Metadata.Name != "alice001" {
+		t.Fatalf("deleted metadata.name = %q, want alice001", deletedContact.Metadata.Name)
 	}
-	_, err = manager.Get(context.Background(), apitypes.ResourceKindContact, "peer-a:alice001")
+	_, err = manager.Get(context.Background(), apitypes.ResourceKindContact, "alice001")
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
 }
 
@@ -145,7 +145,7 @@ func TestApplyFriendGroupResourceCreatesUpdatesAndDeletes(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
 		"metadata": {"name": "family01"},
-		"spec": {"owner_public_key": "peer-a", "name": "Family", "description": "voice room"}
+		"spec": {"owner_public_key": "peer-a", "display_name": "family01", "description": "voice room"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply(create) returned error: %v", err)
@@ -157,8 +157,8 @@ func TestApplyFriendGroupResourceCreatesUpdatesAndDeletes(t *testing.T) {
 	result, err = manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
-		"metadata": {"name": "family01"},
-		"spec": {"owner_public_key": "peer-a", "name": "Family", "description": "voice room"}
+		"metadata": {"id": "family01", "name": "family01"},
+		"spec": {"owner_public_key": "peer-a", "display_name": "family01", "description": "voice room"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply(unchanged) returned error: %v", err)
@@ -170,8 +170,8 @@ func TestApplyFriendGroupResourceCreatesUpdatesAndDeletes(t *testing.T) {
 	resource, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
-		"metadata": {"name": "family01"},
-		"spec": {"owner_public_key": "peer-a", "name": "Family+", "description": "updated"}
+		"metadata": {"id": "family01", "name": "family01"},
+		"spec": {"owner_public_key": "peer-a", "display_name": "family01", "description": "updated"}
 	}`))
 	if err != nil {
 		t.Fatalf("Put returned error: %v", err)
@@ -180,7 +180,7 @@ func TestApplyFriendGroupResourceCreatesUpdatesAndDeletes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsFriendGroupResource returned error: %v", err)
 	}
-	if group.Spec.Name != "Family+" || group.Spec.Description == nil || *group.Spec.Description != "updated" {
+	if group.Metadata.Name != "family01" || group.Spec.Description == nil || *group.Spec.Description != "updated" {
 		t.Fatalf("friend group spec = %+v", group.Spec)
 	}
 
@@ -206,8 +206,8 @@ func TestApplyFriendGroupMemberResourceCreatesUpdatesAndDeletes(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroupMember",
-		"metadata": {"name": "family01:peer-a"},
-		"spec": {"friend_group_id": "family01", "peer_public_key": "peer-a", "role": "member"}
+		"metadata": {"name": "member01"},
+		"spec": {"friend_group_id": "family01", "peer_public_key": "peer-b", "role": "member"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply(create) returned error: %v", err)
@@ -219,8 +219,8 @@ func TestApplyFriendGroupMemberResourceCreatesUpdatesAndDeletes(t *testing.T) {
 	result, err = manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroupMember",
-		"metadata": {"name": "family01:peer-a"},
-		"spec": {"friend_group_id": "family01", "peer_public_key": "peer-a", "role": "admin"}
+		"metadata": {"id": "family01:peer-b", "name": "member01"},
+		"spec": {"friend_group_id": "family01", "peer_public_key": "peer-b", "role": "admin"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply(update) returned error: %v", err)
@@ -232,8 +232,8 @@ func TestApplyFriendGroupMemberResourceCreatesUpdatesAndDeletes(t *testing.T) {
 	result, err = manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroupMember",
-		"metadata": {"name": "family01:peer-a"},
-		"spec": {"friend_group_id": "family01", "peer_public_key": "peer-a", "role": "admin"}
+		"metadata": {"id": "family01:peer-b", "name": "member01"},
+		"spec": {"friend_group_id": "family01", "peer_public_key": "peer-b", "role": "admin"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply(unchanged) returned error: %v", err)
@@ -242,7 +242,7 @@ func TestApplyFriendGroupMemberResourceCreatesUpdatesAndDeletes(t *testing.T) {
 		t.Fatalf("unchanged action = %q, want unchanged", result.Action)
 	}
 
-	resource, err := manager.Get(context.Background(), apitypes.ResourceKindFriendGroupMember, "family01:peer-a")
+	resource, err := manager.Get(context.Background(), apitypes.ResourceKindFriendGroupMember, "family01:peer-b")
 	if err != nil {
 		t.Fatalf("Get returned error: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestApplyFriendGroupMemberResourceCreatesUpdatesAndDeletes(t *testing.T) {
 		t.Fatalf("member role = %q, want admin", member.Spec.Role)
 	}
 
-	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindFriendGroupMember, "family01:peer-a")
+	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindFriendGroupMember, "family01:peer-b")
 	if err != nil {
 		t.Fatalf("Delete returned error: %v", err)
 	}
@@ -262,10 +262,10 @@ func TestApplyFriendGroupMemberResourceCreatesUpdatesAndDeletes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("deleted AsFriendGroupMemberResource returned error: %v", err)
 	}
-	if deletedMember.Metadata.Name != "family01:peer-a" {
-		t.Fatalf("deleted metadata.name = %q, want family01:peer-a", deletedMember.Metadata.Name)
+	if deletedMember.Metadata.Name != "member01" {
+		t.Fatalf("deleted metadata.name = %q, want member01", deletedMember.Metadata.Name)
 	}
-	_, err = manager.Get(context.Background(), apitypes.ResourceKindFriendGroupMember, "family01:peer-a")
+	_, err = manager.Get(context.Background(), apitypes.ResourceKindFriendGroupMember, "family01:peer-b")
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
 }
 
@@ -290,7 +290,7 @@ func TestApplyFriendGroupInviteTokenResourceCreatesUpdatesAndDeletes(t *testing.
 	result, err = manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroupInviteToken",
-		"metadata": {"name": "family01"},
+		"metadata": {"id": "family01", "name": "family01"},
 		"spec": {"friend_group_id": "family01", "invite_token": "token-b", "expires_at": "`+expiresAt.Add(time.Hour).Format(time.RFC3339Nano)+`"}
 	}`))
 	if err != nil {
@@ -303,7 +303,7 @@ func TestApplyFriendGroupInviteTokenResourceCreatesUpdatesAndDeletes(t *testing.
 	result, err = manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroupInviteToken",
-		"metadata": {"name": "family01"},
+		"metadata": {"id": "family01", "name": "family01"},
 		"spec": {"friend_group_id": "family01", "invite_token": "token-b", "expires_at": "`+expiresAt.Add(time.Hour).Format(time.RFC3339Nano)+`"}
 	}`))
 	if err != nil {
@@ -354,7 +354,7 @@ func TestSocialResourceValidationRejectsMismatchedNames(t *testing.T) {
 	_, err = manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Friend",
-		"metadata": {"name": "peer-a:peer-b"},
+		"metadata": {"id": "peer-a:peer-b", "name": "peer-a:peer-b"},
 		"spec": {"owner_public_key": "peer-a", "peer_public_key": "peer-c"}
 	}`))
 	assertResourceError(t, err, 400, "INVALID_FRIEND_RESOURCE")
@@ -363,7 +363,7 @@ func TestSocialResourceValidationRejectsMismatchedNames(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Contact",
 		"metadata": {"name": "peer-a:alice001"},
-		"spec": {"owner_public_key": "peer-b", "id": "alice001", "display_name": "Alice"}
+		"spec": {"owner_public_key": "peer-b", "display_name": "Alice"}
 	}`))
 	assertResourceError(t, err, 400, "INVALID_CONTACT_RESOURCE")
 
@@ -371,7 +371,7 @@ func TestSocialResourceValidationRejectsMismatchedNames(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Contact",
 		"metadata": {"name": "peer-a:alice001"},
-		"spec": {"owner_public_key": "peer-a", "id": "bob00001", "display_name": "Bob"}
+		"spec": {"owner_public_key": "peer-a", "display_name": "Bob"}
 	}`))
 	assertResourceError(t, err, 400, "INVALID_CONTACT_RESOURCE")
 
@@ -379,15 +379,15 @@ func TestSocialResourceValidationRejectsMismatchedNames(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Contact",
 		"metadata": {"name": "peer-a:alice001"},
-		"spec": {"owner_public_key": "peer-a", "id": "alice001"}
+		"spec": {"owner_public_key": "peer-a"}
 	}`))
 	assertResourceError(t, err, 400, "INVALID_CONTACT_RESOURCE")
 
 	_, err = manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
-		"metadata": {"name": "family01"},
-		"spec": {"owner_public_key": "peer-a", "name": " "}
+		"metadata": {"name": " "},
+		"spec": {"owner_public_key": "peer-a"}
 	}`))
 	assertResourceError(t, err, 400, "INVALID_FRIEND_GROUP_RESOURCE")
 
@@ -431,7 +431,7 @@ func TestSocialResourceValidationRejectsInvalidCustomIDs(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Contact",
 		"metadata": {"name": "peer-a:alice"},
-		"spec": {"owner_public_key": "peer-a", "id": "alice", "display_name": "Alice"}
+		"spec": {"owner_public_key": "peer-a", "display_name": "Alice"}
 	}`))
 	assertResourceError(t, err, 400, "INVALID_CONTACT_RESOURCE")
 
@@ -439,7 +439,7 @@ func TestSocialResourceValidationRejectsInvalidCustomIDs(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
 		"metadata": {"name": "family"},
-		"spec": {"owner_public_key": "peer-a", "name": "Family"}
+		"spec": {"owner_public_key": "peer-a", "display_name": "Family"}
 	}`))
 	assertResourceError(t, err, 400, "INVALID_FRIEND_GROUP_RESOURCE")
 
@@ -474,16 +474,16 @@ func TestSocialResourcesRequireConfiguredServices(t *testing.T) {
 	_, err = manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Contact",
-		"metadata": {"name": "peer-a:alice001"},
-		"spec": {"owner_public_key": "peer-a", "id": "alice001", "display_name": "Alice"}
+		"metadata": {"id": "alice001", "name": "alice001"},
+		"spec": {"owner_public_key": "peer-a", "display_name": "Alice"}
 	}`))
 	assertResourceError(t, err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED")
 
 	_, err = manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
-		"metadata": {"name": "family01"},
-		"spec": {"owner_public_key": "peer-a", "name": "Family"}
+		"metadata": {"id": "family01", "name": "family01"},
+		"spec": {"owner_public_key": "peer-a", "display_name": "family01"}
 	}`))
 	assertResourceError(t, err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED")
 
@@ -493,7 +493,7 @@ func TestSocialResourcesRequireConfiguredServices(t *testing.T) {
 	_, err = manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroupInviteToken",
-		"metadata": {"name": "family01"},
+		"metadata": {"id": "family01", "name": "family01"},
 		"spec": {"friend_group_id": "family01", "invite_token": "token", "expires_at": "2099-01-01T00:00:00Z"}
 	}`))
 	assertResourceError(t, err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED")
@@ -501,7 +501,7 @@ func TestSocialResourcesRequireConfiguredServices(t *testing.T) {
 	_, err = manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Friend",
-		"metadata": {"name": "peer-a:peer-b"},
+		"metadata": {"id": "peer-a:peer-b", "name": "peer-a:peer-b"},
 		"spec": {"owner_public_key": "peer-a", "peer_public_key": "peer-b"}
 	}`))
 	assertResourceError(t, err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED")
@@ -509,23 +509,23 @@ func TestSocialResourcesRequireConfiguredServices(t *testing.T) {
 	_, err = manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Contact",
-		"metadata": {"name": "peer-a:alice001"},
-		"spec": {"owner_public_key": "peer-a", "id": "alice001", "display_name": "Alice"}
+		"metadata": {"id": "alice001", "name": "alice001"},
+		"spec": {"owner_public_key": "peer-a", "display_name": "Alice"}
 	}`))
 	assertResourceError(t, err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED")
 
 	_, err = manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
-		"metadata": {"name": "family01"},
-		"spec": {"owner_public_key": "peer-a", "name": "Family"}
+		"metadata": {"id": "family01", "name": "family01"},
+		"spec": {"owner_public_key": "peer-a", "display_name": "family01"}
 	}`))
 	assertResourceError(t, err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED")
 
 	_, err = manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroupMember",
-		"metadata": {"name": "family01:peer-a"},
+		"metadata": {"id": "family01:peer-a", "name": "member01"},
 		"spec": {"friend_group_id": "family01", "peer_public_key": "peer-a", "role": "member"}
 	}`))
 	assertResourceError(t, err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED")
@@ -561,10 +561,18 @@ func TestSocialResourcesRequireConfiguredServices(t *testing.T) {
 func TestSocialResourcePutAndDeleteBranches(t *testing.T) {
 	manager := newSocialResourceManager(t)
 
-	friend, err := manager.Put(context.Background(), mustResource(t, `{
+	if _, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Friend",
 		"metadata": {"name": "peer-a:peer-b"},
+		"spec": {"owner_public_key": "peer-a", "peer_public_key": "peer-b"}
+	}`)); err != nil {
+		t.Fatalf("Apply friend returned error: %v", err)
+	}
+	friend, err := manager.Put(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Friend",
+		"metadata": {"id": "peer-a:peer-b", "name": "peer-a:peer-b"},
 		"spec": {"owner_public_key": "peer-a", "peer_public_key": "peer-b"}
 	}`))
 	if err != nil {
@@ -574,37 +582,54 @@ func TestSocialResourcePutAndDeleteBranches(t *testing.T) {
 		t.Fatalf("Put friend resource = %#v, err = %v", got, err)
 	}
 
+	if _, err := manager.Apply(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Contact",
+		"metadata": {"name": "alice001"},
+		"spec": {"owner_public_key": "peer-a", "display_name": "Alice"}
+	}`)); err != nil {
+		t.Fatalf("Apply contact returned error: %v", err)
+	}
 	contactResource, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Contact",
-		"metadata": {"name": "peer-a:alice001"},
-		"spec": {"owner_public_key": "peer-a", "id": "alice001", "display_name": "Alice"}
+		"metadata": {"id": "alice001", "name": "alice001"},
+		"spec": {"owner_public_key": "peer-a", "display_name": "Alice"}
 	}`))
 	if err != nil {
 		t.Fatalf("Put contact returned error: %v", err)
 	}
-	if got, err := contactResource.AsContactResource(); err != nil || got.Spec.Id != "alice001" {
+	if got, err := contactResource.AsContactResource(); err != nil || got.Metadata.Id == nil || *got.Metadata.Id != "alice001" || got.Metadata.Name != "alice001" {
 		t.Fatalf("Put contact resource = %#v, err = %v", got, err)
 	}
 
+	createFriendGroup(t, manager, "family01")
 	group, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
-		"metadata": {"name": "family01"},
-		"spec": {"owner_public_key": "peer-a", "name": "Family", "description": "room"}
+		"metadata": {"id": "family01", "name": "family01"},
+		"spec": {"owner_public_key": "peer-a", "display_name": "family01", "description": "room"}
 	}`))
 	if err != nil {
 		t.Fatalf("Put group returned error: %v", err)
 	}
-	if got, err := group.AsFriendGroupResource(); err != nil || got.Spec.Name != "Family" {
+	if got, err := group.AsFriendGroupResource(); err != nil || got.Metadata.Name != "family01" {
 		t.Fatalf("Put group resource = %#v, err = %v", got, err)
 	}
 
+	if _, err := manager.Apply(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "FriendGroupMember",
+		"metadata": {"name": "member01"},
+		"spec": {"friend_group_id": "family01", "peer_public_key": "peer-b", "role": "member"}
+	}`)); err != nil {
+		t.Fatalf("Apply member returned error: %v", err)
+	}
 	member, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroupMember",
-		"metadata": {"name": "family01:peer-a"},
-		"spec": {"friend_group_id": "family01", "peer_public_key": "peer-a", "role": "admin"}
+		"metadata": {"id": "family01:peer-b", "name": "member01"},
+		"spec": {"friend_group_id": "family01", "peer_public_key": "peer-b", "role": "admin"}
 	}`))
 	if err != nil {
 		t.Fatalf("Put member returned error: %v", err)
@@ -614,10 +639,18 @@ func TestSocialResourcePutAndDeleteBranches(t *testing.T) {
 	}
 
 	expiresAt := time.Now().UTC().Add(time.Hour)
-	token, err := manager.Put(context.Background(), mustResource(t, `{
+	if _, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroupInviteToken",
 		"metadata": {"name": "family01"},
+		"spec": {"friend_group_id": "family01", "invite_token": "token-initial", "expires_at": "`+expiresAt.Format(time.RFC3339Nano)+`"}
+	}`)); err != nil {
+		t.Fatalf("Apply invite token returned error: %v", err)
+	}
+	token, err := manager.Put(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "FriendGroupInviteToken",
+		"metadata": {"id": "family01", "name": "family01"},
 		"spec": {"friend_group_id": "family01", "invite_token": "token-a", "expires_at": "`+expiresAt.Format(time.RFC3339Nano)+`"}
 	}`))
 	if err != nil {
@@ -647,11 +680,11 @@ func TestSocialResourcePutAndDeleteBranches(t *testing.T) {
 func createFriendGroup(t *testing.T, manager *Manager, name string) {
 	t.Helper()
 
-	if _, err := manager.Put(context.Background(), mustResource(t, `{
+	if _, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
 		"metadata": {"name": "`+name+`"},
-		"spec": {"owner_public_key": "peer-a", "name": "`+name+`"}
+		"spec": {"owner_public_key": "peer-a", "display_name": "`+name+`"}
 	}`)); err != nil {
 		t.Fatalf("create friend group %s: %v", name, err)
 	}
@@ -665,6 +698,7 @@ func newSocialResourceManager(t *testing.T) *Manager {
 	return New(Services{
 		Contacts: &contact.Server{
 			Store: kv.NewMemory(nil),
+			NewID: func() string { return "alice001" },
 		},
 		Friends: &friend.Server{
 			InviteTokens:           kv.NewMemory(nil),
@@ -680,6 +714,7 @@ func newSocialResourceManager(t *testing.T) *Manager {
 			RelationshipStore:      friendGroupRelationships,
 			Workspaces:             workspaces,
 			RuntimeProfileForOwner: socialRuntimeProfile,
+			NewID:                  func() string { return "family01" },
 		},
 	})
 }
@@ -702,9 +737,10 @@ func (socialWorkspaceService) CreateSystemWorkspace(
 	body adminhttp.WorkspaceUpsert,
 ) (apitypes.Workspace, bool, error) {
 	return apitypes.Workspace{
-		Name:         body.Name,
-		WorkflowName: body.WorkflowName,
-		Parameters:   body.Parameters,
+		Id:         "id-" + body.Name,
+		Name:       body.Name,
+		WorkflowId: body.WorkflowId,
+		Parameters: body.Parameters,
 	}, true, nil
 }
 
@@ -724,7 +760,25 @@ func (socialWorkspaceService) RetireSystemWorkspace(
 	return apitypes.Workspace{Name: name}, nil
 }
 
+func (socialWorkspaceService) RetireSystemWorkspaceByID(
+	_ context.Context,
+	id string,
+	_ apitypes.ChatRoomMode,
+	_ string,
+) (apitypes.Workspace, error) {
+	return apitypes.Workspace{Id: id}, nil
+}
+
 func (socialWorkspaceService) GetRetiredSystemWorkspace(
+	_ context.Context,
+	_ string,
+	_ apitypes.ChatRoomMode,
+	_ string,
+) (apitypes.Workspace, error) {
+	return apitypes.Workspace{}, kv.ErrNotFound
+}
+
+func (socialWorkspaceService) GetRetiredSystemWorkspaceByID(
 	_ context.Context,
 	_ string,
 	_ apitypes.ChatRoomMode,

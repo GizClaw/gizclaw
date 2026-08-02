@@ -100,10 +100,10 @@ func TestAdminResourceShowRegistrationTokenRoundTripsThroughApply(t *testing.T) 
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "RegistrationToken",
-		"metadata": {"name": "desktop-token"},
+		"metadata": {"id": "token-id", "name": "desktop-token"},
 		"spec": {
 			"token": "desktop-token",
-			"runtime_profile_name": "default"
+			"runtime_profile_id": "default"
 		}
 	}`)
 	fake := &fakeResourceClient{
@@ -136,7 +136,7 @@ func TestAdminResourceShowRegistrationTokenRoundTripsThroughApply(t *testing.T) 
 	if err != nil {
 		t.Fatalf("applied resource is not RegistrationToken: %v", err)
 	}
-	if applied.Spec.Token != "desktop-token" || applied.Spec.RuntimeProfileName != "default" {
+	if applied.Spec.Token != "desktop-token" || applied.Spec.RuntimeProfileId != "default" {
 		t.Fatalf("applied RegistrationToken = %#v", applied)
 	}
 }

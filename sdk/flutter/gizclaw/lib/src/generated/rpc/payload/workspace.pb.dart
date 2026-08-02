@@ -2380,11 +2380,11 @@ class ServerReloadRunWorkspaceResponse extends $pb.GeneratedMessage {
 class ServerRunSayRequest extends $pb.GeneratedMessage {
   factory ServerRunSayRequest({
     $core.String? text,
-    $core.String? voiceAlias,
+    $core.String? voiceName,
   }) {
     final result = create();
     if (text != null) result.text = text;
-    if (voiceAlias != null) result.voiceAlias = voiceAlias;
+    if (voiceName != null) result.voiceName = voiceName;
     return result;
   }
 
@@ -2402,7 +2402,7 @@ class ServerRunSayRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'text')
-    ..aOS(2, _omitFieldNames ? '' : 'voiceAlias')
+    ..aOS(2, _omitFieldNames ? '' : 'voiceName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2434,13 +2434,13 @@ class ServerRunSayRequest extends $pb.GeneratedMessage {
   void clearText() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get voiceAlias => $_getSZ(1);
+  $core.String get voiceName => $_getSZ(1);
   @$pb.TagNumber(2)
-  set voiceAlias($core.String value) => $_setString(1, value);
+  set voiceName($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasVoiceAlias() => $_has(1);
+  $core.bool hasVoiceName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearVoiceAlias() => $_clearField(2);
+  void clearVoiceName() => $_clearField(2);
 }
 
 class ServerRunSayResponse extends $pb.GeneratedMessage {
@@ -2959,11 +2959,10 @@ class Workspace extends $pb.GeneratedMessage {
     $core.String? name,
     WorkspaceParameters? parameters,
     $core.String? updatedAt,
-    $core.String? workflowAlias,
+    $core.String? workflowName,
     $2.ToolkitPolicy? toolkit,
     $core.bool? system,
     $3.Icon? icon,
-    $core.String? ownerPublicKey,
     $core.bool? available,
   }) {
     final result = create();
@@ -2972,11 +2971,10 @@ class Workspace extends $pb.GeneratedMessage {
     if (name != null) result.name = name;
     if (parameters != null) result.parameters = parameters;
     if (updatedAt != null) result.updatedAt = updatedAt;
-    if (workflowAlias != null) result.workflowAlias = workflowAlias;
+    if (workflowName != null) result.workflowName = workflowName;
     if (toolkit != null) result.toolkit = toolkit;
     if (system != null) result.system = system;
     if (icon != null) result.icon = icon;
-    if (ownerPublicKey != null) result.ownerPublicKey = ownerPublicKey;
     if (available != null) result.available = available;
     return result;
   }
@@ -3000,12 +2998,11 @@ class Workspace extends $pb.GeneratedMessage {
     ..aOM<WorkspaceParameters>(4, _omitFieldNames ? '' : 'parameters',
         subBuilder: WorkspaceParameters.create)
     ..aOS(5, _omitFieldNames ? '' : 'updatedAt')
-    ..aOS(6, _omitFieldNames ? '' : 'workflowAlias')
+    ..aOS(6, _omitFieldNames ? '' : 'workflowName')
     ..aOM<$2.ToolkitPolicy>(7, _omitFieldNames ? '' : 'toolkit',
         subBuilder: $2.ToolkitPolicy.create)
     ..aOB(8, _omitFieldNames ? '' : 'system')
     ..aOM<$3.Icon>(9, _omitFieldNames ? '' : 'icon', subBuilder: $3.Icon.create)
-    ..aOS(10, _omitFieldNames ? '' : 'ownerPublicKey')
     ..aOB(11, _omitFieldNames ? '' : 'available')
     ..hasRequiredFields = false;
 
@@ -3075,13 +3072,13 @@ class Workspace extends $pb.GeneratedMessage {
   void clearUpdatedAt() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $core.String get workflowAlias => $_getSZ(5);
+  $core.String get workflowName => $_getSZ(5);
   @$pb.TagNumber(6)
-  set workflowAlias($core.String value) => $_setString(5, value);
+  set workflowName($core.String value) => $_setString(5, value);
   @$pb.TagNumber(6)
-  $core.bool hasWorkflowAlias() => $_has(5);
+  $core.bool hasWorkflowName() => $_has(5);
   @$pb.TagNumber(6)
-  void clearWorkflowAlias() => $_clearField(6);
+  void clearWorkflowName() => $_clearField(6);
 
   @$pb.TagNumber(7)
   $2.ToolkitPolicy get toolkit => $_getN(6);
@@ -3114,21 +3111,12 @@ class Workspace extends $pb.GeneratedMessage {
   @$pb.TagNumber(9)
   $3.Icon ensureIcon() => $_ensure(8);
 
-  @$pb.TagNumber(10)
-  $core.String get ownerPublicKey => $_getSZ(9);
-  @$pb.TagNumber(10)
-  set ownerPublicKey($core.String value) => $_setString(9, value);
-  @$pb.TagNumber(10)
-  $core.bool hasOwnerPublicKey() => $_has(9);
-  @$pb.TagNumber(10)
-  void clearOwnerPublicKey() => $_clearField(10);
-
   @$pb.TagNumber(11)
-  $core.bool get available => $_getBF(10);
+  $core.bool get available => $_getBF(9);
   @$pb.TagNumber(11)
-  set available($core.bool value) => $_setBool(10, value);
+  set available($core.bool value) => $_setBool(9, value);
   @$pb.TagNumber(11)
-  $core.bool hasAvailable() => $_has(10);
+  $core.bool hasAvailable() => $_has(9);
   @$pb.TagNumber(11)
   void clearAvailable() => $_clearField(11);
 }
@@ -3137,14 +3125,14 @@ class WorkspaceCreateBody extends $pb.GeneratedMessage {
   factory WorkspaceCreateBody({
     $core.String? name,
     WorkspaceParameters? parameters,
-    $core.String? workflowAlias,
+    $core.String? workflowName,
     $2.ToolkitPolicy? toolkit,
     $core.String? collection,
   }) {
     final result = create();
     if (name != null) result.name = name;
     if (parameters != null) result.parameters = parameters;
-    if (workflowAlias != null) result.workflowAlias = workflowAlias;
+    if (workflowName != null) result.workflowName = workflowName;
     if (toolkit != null) result.toolkit = toolkit;
     if (collection != null) result.collection = collection;
     return result;
@@ -3166,7 +3154,7 @@ class WorkspaceCreateBody extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..aOM<WorkspaceParameters>(2, _omitFieldNames ? '' : 'parameters',
         subBuilder: WorkspaceParameters.create)
-    ..aOS(3, _omitFieldNames ? '' : 'workflowAlias')
+    ..aOS(3, _omitFieldNames ? '' : 'workflowName')
     ..aOM<$2.ToolkitPolicy>(4, _omitFieldNames ? '' : 'toolkit',
         subBuilder: $2.ToolkitPolicy.create)
     ..aOS(5, _omitFieldNames ? '' : 'collection')
@@ -3212,13 +3200,13 @@ class WorkspaceCreateBody extends $pb.GeneratedMessage {
   WorkspaceParameters ensureParameters() => $_ensure(1);
 
   @$pb.TagNumber(3)
-  $core.String get workflowAlias => $_getSZ(2);
+  $core.String get workflowName => $_getSZ(2);
   @$pb.TagNumber(3)
-  set workflowAlias($core.String value) => $_setString(2, value);
+  set workflowName($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasWorkflowAlias() => $_has(2);
+  $core.bool hasWorkflowName() => $_has(2);
   @$pb.TagNumber(3)
-  void clearWorkflowAlias() => $_clearField(3);
+  void clearWorkflowName() => $_clearField(3);
 
   @$pb.TagNumber(4)
   $2.ToolkitPolicy get toolkit => $_getN(3);
@@ -4527,16 +4515,16 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
     2: WorkspaceParameters_Value.doubaoRealtimeWorkspaceParameters,
     3: WorkspaceParameters_Value.asttranslateWorkspaceParameters,
     4: WorkspaceParameters_Value.chatRoomWorkspaceParameters,
-    6: WorkspaceParameters_Value.dashScopeRealtimeWorkspaceParameters,
-    7: WorkspaceParameters_Value.doubaoRealtimeDuplexWorkspaceParameters,
-    8: WorkspaceParameters_Value.einoWorkspaceParameters,
+    5: WorkspaceParameters_Value.dashScopeRealtimeWorkspaceParameters,
+    6: WorkspaceParameters_Value.doubaoRealtimeDuplexWorkspaceParameters,
+    7: WorkspaceParameters_Value.einoWorkspaceParameters,
     0: WorkspaceParameters_Value.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'WorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..oo(0, [1, 2, 3, 4, 6, 7, 8])
+    ..oo(0, [1, 2, 3, 4, 5, 6, 7])
     ..aOM<$2.FlowcraftWorkspaceParameters>(
         1, _omitFieldNames ? '' : 'flowcraftWorkspaceParameters',
         subBuilder: $2.FlowcraftWorkspaceParameters.create)
@@ -4550,13 +4538,13 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
         4, _omitFieldNames ? '' : 'chatRoomWorkspaceParameters',
         subBuilder: $2.ChatRoomWorkspaceParameters.create)
     ..aOM<$2.DashScopeRealtimeWorkspaceParameters>(
-        6, _omitFieldNames ? '' : 'dashScopeRealtimeWorkspaceParameters',
+        5, _omitFieldNames ? '' : 'dashScopeRealtimeWorkspaceParameters',
         subBuilder: $2.DashScopeRealtimeWorkspaceParameters.create)
     ..aOM<$2.DoubaoRealtimeDuplexWorkspaceParameters>(
-        7, _omitFieldNames ? '' : 'doubaoRealtimeDuplexWorkspaceParameters',
+        6, _omitFieldNames ? '' : 'doubaoRealtimeDuplexWorkspaceParameters',
         subBuilder: $2.DoubaoRealtimeDuplexWorkspaceParameters.create)
     ..aOM<$2.EinoWorkspaceParameters>(
-        8, _omitFieldNames ? '' : 'einoWorkspaceParameters',
+        7, _omitFieldNames ? '' : 'einoWorkspaceParameters',
         subBuilder: $2.EinoWorkspaceParameters.create)
     ..hasRequiredFields = false;
 
@@ -4583,18 +4571,18 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   @$pb.TagNumber(3)
   @$pb.TagNumber(4)
+  @$pb.TagNumber(5)
   @$pb.TagNumber(6)
   @$pb.TagNumber(7)
-  @$pb.TagNumber(8)
   WorkspaceParameters_Value whichValue() =>
       _WorkspaceParameters_ValueByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(1)
   @$pb.TagNumber(2)
   @$pb.TagNumber(3)
   @$pb.TagNumber(4)
+  @$pb.TagNumber(5)
   @$pb.TagNumber(6)
   @$pb.TagNumber(7)
-  @$pb.TagNumber(8)
   void clearValue() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -4653,46 +4641,46 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
   $2.ChatRoomWorkspaceParameters ensureChatRoomWorkspaceParameters() =>
       $_ensure(3);
 
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(5)
   $2.DashScopeRealtimeWorkspaceParameters
       get dashScopeRealtimeWorkspaceParameters => $_getN(4);
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(5)
   set dashScopeRealtimeWorkspaceParameters(
           $2.DashScopeRealtimeWorkspaceParameters value) =>
-      $_setField(6, value);
-  @$pb.TagNumber(6)
+      $_setField(5, value);
+  @$pb.TagNumber(5)
   $core.bool hasDashScopeRealtimeWorkspaceParameters() => $_has(4);
-  @$pb.TagNumber(6)
-  void clearDashScopeRealtimeWorkspaceParameters() => $_clearField(6);
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(5)
+  void clearDashScopeRealtimeWorkspaceParameters() => $_clearField(5);
+  @$pb.TagNumber(5)
   $2.DashScopeRealtimeWorkspaceParameters
       ensureDashScopeRealtimeWorkspaceParameters() => $_ensure(4);
 
-  @$pb.TagNumber(7)
+  @$pb.TagNumber(6)
   $2.DoubaoRealtimeDuplexWorkspaceParameters
       get doubaoRealtimeDuplexWorkspaceParameters => $_getN(5);
-  @$pb.TagNumber(7)
+  @$pb.TagNumber(6)
   set doubaoRealtimeDuplexWorkspaceParameters(
           $2.DoubaoRealtimeDuplexWorkspaceParameters value) =>
-      $_setField(7, value);
-  @$pb.TagNumber(7)
+      $_setField(6, value);
+  @$pb.TagNumber(6)
   $core.bool hasDoubaoRealtimeDuplexWorkspaceParameters() => $_has(5);
-  @$pb.TagNumber(7)
-  void clearDoubaoRealtimeDuplexWorkspaceParameters() => $_clearField(7);
-  @$pb.TagNumber(7)
+  @$pb.TagNumber(6)
+  void clearDoubaoRealtimeDuplexWorkspaceParameters() => $_clearField(6);
+  @$pb.TagNumber(6)
   $2.DoubaoRealtimeDuplexWorkspaceParameters
       ensureDoubaoRealtimeDuplexWorkspaceParameters() => $_ensure(5);
 
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(7)
   $2.EinoWorkspaceParameters get einoWorkspaceParameters => $_getN(6);
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(7)
   set einoWorkspaceParameters($2.EinoWorkspaceParameters value) =>
-      $_setField(8, value);
-  @$pb.TagNumber(8)
+      $_setField(7, value);
+  @$pb.TagNumber(7)
   $core.bool hasEinoWorkspaceParameters() => $_has(6);
-  @$pb.TagNumber(8)
-  void clearEinoWorkspaceParameters() => $_clearField(8);
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(7)
+  void clearEinoWorkspaceParameters() => $_clearField(7);
+  @$pb.TagNumber(7)
   $2.EinoWorkspaceParameters ensureEinoWorkspaceParameters() => $_ensure(6);
 }
 

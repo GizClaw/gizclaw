@@ -45,7 +45,7 @@ var (
 // model, and notification capabilities without moving their ownership into
 // Gameplay.
 type WorkspaceRewardEnvironment interface {
-	ListWorkspaceNames(context.Context) ([]string, error)
+	ListWorkspaceIDs(context.Context) ([]string, error)
 	LatestHistoryEntry(context.Context, string) (workspace.HistoryEntry, bool, error)
 	LatestHistoryEntryBefore(context.Context, string, time.Time) (workspace.HistoryEntry, bool, error)
 	ListHistoryEntries(context.Context, string, string, string, int) (workspace.HistoryEntryPage, error)
@@ -72,7 +72,7 @@ type WorkspaceRewardBadgePolicy struct {
 }
 
 type WorkspaceRewardPolicySnapshot struct {
-	RuntimeProfileName     string                                             `json:"runtime_profile_name"`
+	RuntimeProfileId       string                                             `json:"runtime_profile_id"`
 	RuntimeProfileRevision string                                             `json:"runtime_profile_revision"`
 	ModelAlias             string                                             `json:"model_alias"`
 	ModelResourceID        string                                             `json:"model_resource_id"`
@@ -95,14 +95,14 @@ type WorkspaceRewardPolicySnapshot struct {
 }
 
 type WorkspaceRewardUpdate struct {
-	WorkspaceName string
+	WorkspaceID   string
 	RewardGrantID string
 	Revision      time.Time
 }
 
 type workspaceRewardActivity struct {
-	WorkspaceName string
-	Entry         workspace.HistoryEntry
+	WorkspaceID string
+	Entry       workspace.HistoryEntry
 }
 
 type WorkspaceRewardTranscriptEntry struct {
@@ -111,7 +111,7 @@ type WorkspaceRewardTranscriptEntry struct {
 }
 
 type workspaceRewardSource struct {
-	WorkspaceName       string
+	WorkspaceID         string
 	ScheduledCheckpoint string
 	CompletedCheckpoint string
 	CreatedAt           time.Time
@@ -120,10 +120,10 @@ type workspaceRewardSource struct {
 
 type workspaceRewardWindow struct {
 	ID                     string
-	WorkspaceName          string
+	WorkspaceID            string
 	WorkspaceKind          WorkspaceRewardKind
 	BeneficiaryPublicKey   string
-	RuntimeProfileName     string
+	RuntimeProfileId       string
 	RuntimeProfileRevision string
 	Policy                 WorkspaceRewardPolicySnapshot
 	PolicyDigest           string
@@ -218,7 +218,7 @@ func (r *Runtime) SnapshotWorkspaceRewardPolicy(
 		})
 	}
 	snapshot := WorkspaceRewardPolicySnapshot{
-		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+		RuntimeProfileId: profile.Id, RuntimeProfileRevision: profile.Revision,
 		ModelAlias: reward.Evaluation.Model, ModelResourceID: modelBinding.ResourceId,
 		WorkspaceKinds: allowedKinds, QuietPeriod: quietPeriod, MaxWindowAge: maxWindowAge,
 		MaxEntries: reward.Transcript.MaxEntries, MaxTextBytes: reward.Transcript.MaxTextBytes,
@@ -292,11 +292,11 @@ func (r *Runtime) StartWorkspaceRewardDispatcher(parent context.Context) (contex
 				r.releaseWorkspaceRewardClaims(context.WithoutCancel(ctx))
 				return
 			case activity := <-activities:
-				if err := r.ScheduleWorkspaceRewardActivity(ctx, activity.WorkspaceName, activity.Entry); err != nil &&
+				if err := r.ScheduleWorkspaceRewardActivity(ctx, activity.WorkspaceID, activity.Entry); err != nil &&
 					ctx.Err() == nil {
 					slog.Error(
 						"schedule queued Workspace reward",
-						"workspace", activity.WorkspaceName,
+						"workspace", activity.WorkspaceID,
 						"history_id", activity.Entry.ID,
 						"error_class", "schedule",
 						"error", err,
@@ -332,15 +332,15 @@ func (r *Runtime) StartWorkspaceRewardDispatcher(parent context.Context) (contex
 // EnqueueWorkspaceRewardActivity keeps the AgentHost post-append callback
 // bounded and non-blocking. Durable History reconciliation recovers an entry
 // when the in-memory queue is full or the process stops before consuming it.
-func (r *Runtime) EnqueueWorkspaceRewardActivity(workspaceName string, entry workspace.HistoryEntry) error {
+func (r *Runtime) EnqueueWorkspaceRewardActivity(workspaceID string, entry workspace.HistoryEntry) error {
 	if r == nil || r.WorkspaceRewards == nil {
 		return nil
 	}
-	workspaceName = strings.TrimSpace(workspaceName)
-	if workspaceName == "" || strings.TrimSpace(entry.ID) == "" {
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" || strings.TrimSpace(entry.ID) == "" {
 		return errors.New("gameplay: workspace reward activity requires Workspace and History IDs")
 	}
-	activity := workspaceRewardActivity{WorkspaceName: workspaceName, Entry: entry}
+	activity := workspaceRewardActivity{WorkspaceID: workspaceID, Entry: entry}
 	select {
 	case r.workspaceRewardActivityChannel() <- activity:
 	default:
@@ -350,18 +350,18 @@ func (r *Runtime) EnqueueWorkspaceRewardActivity(workspaceName string, entry wor
 
 // ScheduleWorkspaceRewardActivity durably records the exact History high-water
 // from the Server-owned dispatcher. It performs no model invocation.
-func (r *Runtime) ScheduleWorkspaceRewardActivity(ctx context.Context, workspaceName string, entry workspace.HistoryEntry) error {
+func (r *Runtime) ScheduleWorkspaceRewardActivity(ctx context.Context, workspaceID string, entry workspace.HistoryEntry) error {
 	if r == nil || r.WorkspaceRewards == nil {
 		return nil
 	}
-	workspaceName = strings.TrimSpace(workspaceName)
-	if workspaceName == "" || strings.TrimSpace(entry.ID) == "" {
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" || strings.TrimSpace(entry.ID) == "" {
 		return errors.New("gameplay: workspace reward activity requires Workspace and History IDs")
 	}
-	lock := r.workspaceRewardMutex(workspaceName)
+	lock := r.workspaceRewardMutex(workspaceID)
 	lock.Lock()
 	defer lock.Unlock()
-	source, err := r.getWorkspaceRewardSource(ctx, workspaceName)
+	source, err := r.getWorkspaceRewardSource(ctx, workspaceID)
 	if errors.Is(err, sql.ErrNoRows) {
 		now := r.now()
 		activation, activationErr := r.ensureWorkspaceRewardActivation(ctx)
@@ -369,7 +369,7 @@ func (r *Runtime) ScheduleWorkspaceRewardActivity(ctx context.Context, workspace
 			return activationErr
 		}
 		checkpoint := ""
-		latest, ok, latestErr := r.WorkspaceRewards.LatestHistoryEntryBefore(ctx, workspaceName, activation)
+		latest, ok, latestErr := r.WorkspaceRewards.LatestHistoryEntryBefore(ctx, workspaceID, activation)
 		if latestErr != nil {
 			return latestErr
 		}
@@ -377,13 +377,13 @@ func (r *Runtime) ScheduleWorkspaceRewardActivity(ctx context.Context, workspace
 			checkpoint = latest.ID
 		}
 		source = workspaceRewardSource{
-			WorkspaceName: workspaceName, ScheduledCheckpoint: checkpoint,
+			WorkspaceID: workspaceID, ScheduledCheckpoint: checkpoint,
 			CompletedCheckpoint: checkpoint, CreatedAt: now, UpdatedAt: now,
 		}
 		if err := r.insertWorkspaceRewardSource(ctx, source); err != nil {
 			return err
 		}
-		source, err = r.getWorkspaceRewardSource(ctx, workspaceName)
+		source, err = r.getWorkspaceRewardSource(ctx, workspaceID)
 		if err != nil {
 			return err
 		}
@@ -407,7 +407,7 @@ func (r *Runtime) ScheduleWorkspaceRewardActivity(ctx context.Context, workspace
 }
 
 func (r *Runtime) initializeWorkspaceRewardSources(ctx context.Context, activation time.Time) error {
-	names, err := r.WorkspaceRewards.ListWorkspaceNames(ctx)
+	names, err := r.WorkspaceRewards.ListWorkspaceIDs(ctx)
 	if err != nil {
 		return err
 	}
@@ -431,7 +431,7 @@ func (r *Runtime) initializeWorkspaceRewardSources(ctx context.Context, activati
 			if err == nil {
 				now := r.now()
 				err = r.insertWorkspaceRewardSource(ctx, workspaceRewardSource{
-					WorkspaceName: name, ScheduledCheckpoint: checkpoint,
+					WorkspaceID: name, ScheduledCheckpoint: checkpoint,
 					CompletedCheckpoint: checkpoint, CreatedAt: now, UpdatedAt: now,
 				})
 			}
@@ -445,7 +445,7 @@ func (r *Runtime) initializeWorkspaceRewardSources(ctx context.Context, activati
 }
 
 func (r *Runtime) reconcileWorkspaceRewardSources(ctx context.Context) error {
-	names, err := r.WorkspaceRewards.ListWorkspaceNames(ctx)
+	names, err := r.WorkspaceRewards.ListWorkspaceIDs(ctx)
 	if err != nil {
 		return err
 	}
@@ -457,11 +457,11 @@ func (r *Runtime) reconcileWorkspaceRewardSources(ctx context.Context) error {
 	return nil
 }
 
-func (r *Runtime) reconcileWorkspaceRewardSource(ctx context.Context, workspaceName, through string) error {
-	lock := r.workspaceRewardMutex(workspaceName)
+func (r *Runtime) reconcileWorkspaceRewardSource(ctx context.Context, workspaceID, through string) error {
+	lock := r.workspaceRewardMutex(workspaceID)
 	lock.Lock()
 	defer lock.Unlock()
-	source, err := r.getWorkspaceRewardSource(ctx, workspaceName)
+	source, err := r.getWorkspaceRewardSource(ctx, workspaceID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}
@@ -472,7 +472,7 @@ func (r *Runtime) reconcileWorkspaceRewardSource(ctx context.Context, workspaceN
 }
 
 func (r *Runtime) reconcileWorkspaceRewardSourceLocked(ctx context.Context, source *workspaceRewardSource, through string) error {
-	active, err := r.activeWorkspaceRewardWindow(ctx, source.WorkspaceName)
+	active, err := r.activeWorkspaceRewardWindow(ctx, source.WorkspaceID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -481,7 +481,7 @@ func (r *Runtime) reconcileWorkspaceRewardSourceLocked(ctx context.Context, sour
 	}
 	cursor := source.ScheduledCheckpoint
 	for {
-		page, err := r.WorkspaceRewards.ListHistoryEntries(ctx, source.WorkspaceName, cursor, through, workspaceRewardHistoryPageLimit)
+		page, err := r.WorkspaceRewards.ListHistoryEntries(ctx, source.WorkspaceID, cursor, through, workspaceRewardHistoryPageLimit)
 		if err != nil {
 			return err
 		}
@@ -493,7 +493,7 @@ func (r *Runtime) reconcileWorkspaceRewardSourceLocked(ctx context.Context, sour
 			if through != "" && cursor >= through {
 				return nil
 			}
-			active, err = r.activeWorkspaceRewardWindow(ctx, source.WorkspaceName)
+			active, err = r.activeWorkspaceRewardWindow(ctx, source.WorkspaceID)
 			if err == nil && active.State != workspaceRewardPending {
 				return nil
 			}
@@ -509,7 +509,7 @@ func (r *Runtime) reconcileWorkspaceRewardSourceLocked(ctx context.Context, sour
 }
 
 func (r *Runtime) applyWorkspaceRewardEntry(ctx context.Context, source *workspaceRewardSource, entry workspace.HistoryEntry) error {
-	active, err := r.activeWorkspaceRewardWindow(ctx, source.WorkspaceName)
+	active, err := r.activeWorkspaceRewardWindow(ctx, source.WorkspaceID)
 	if err == nil {
 		if active.State != workspaceRewardPending {
 			return nil
@@ -530,7 +530,7 @@ func (r *Runtime) applyWorkspaceRewardEntry(ctx context.Context, source *workspa
 		source.CompletedCheckpoint = entry.ID
 		return r.updateWorkspaceRewardSource(ctx, *source)
 	}
-	kind, policy, err := r.WorkspaceRewards.ResolveWorkspaceRewardPolicy(ctx, source.WorkspaceName, entry.GearID)
+	kind, policy, err := r.WorkspaceRewards.ResolveWorkspaceRewardPolicy(ctx, source.WorkspaceID, entry.GearID)
 	if err != nil {
 		return err
 	}
@@ -540,8 +540,8 @@ func (r *Runtime) applyWorkspaceRewardEntry(ctx context.Context, source *workspa
 	}
 	now := r.now()
 	window := workspaceRewardWindow{
-		ID: r.newID(), WorkspaceName: source.WorkspaceName, WorkspaceKind: kind,
-		BeneficiaryPublicKey: entry.GearID, RuntimeProfileName: policy.RuntimeProfileName,
+		ID: r.newID(), WorkspaceID: source.WorkspaceID, WorkspaceKind: kind,
+		BeneficiaryPublicKey: entry.GearID, RuntimeProfileId: policy.RuntimeProfileId,
 		RuntimeProfileRevision: policy.RuntimeProfileRevision, Policy: *policy,
 		PolicyDigest: policy.Digest, StartHistoryID: entry.ID, HighWaterHistoryID: entry.ID,
 		StartHistoryAt: entry.CreatedAt, HighWaterHistoryAt: entry.CreatedAt,
@@ -587,7 +587,7 @@ func (r *Runtime) dispatchWorkspaceReward(ctx context.Context) (bool, error) {
 	}
 	err = r.processWorkspaceRewardClaim(ctx, window)
 	if err == nil {
-		_ = r.reconcileWorkspaceRewardSource(ctx, window.WorkspaceName, "")
+		_ = r.reconcileWorkspaceRewardSource(ctx, window.WorkspaceID, "")
 		return true, nil
 	}
 	if ctx.Err() != nil {
@@ -611,7 +611,7 @@ func (r *Runtime) blockAndReconcileWorkspaceRewardWindow(
 	if err := r.blockWorkspaceRewardWindow(ctx, window, cause); err != nil {
 		return err
 	}
-	return r.reconcileWorkspaceRewardSource(ctx, window.WorkspaceName, "")
+	return r.reconcileWorkspaceRewardSource(ctx, window.WorkspaceID, "")
 }
 
 func (r *Runtime) processWorkspaceRewardClaim(ctx context.Context, window workspaceRewardWindow) error {
@@ -625,9 +625,9 @@ func (r *Runtime) processWorkspaceRewardClaim(ctx context.Context, window worksp
 		}
 		if outcome == "skipped_over_limit" {
 			slog.Warn("workspace reward skipped",
-				"workspace", window.WorkspaceName,
+				"workspace", window.WorkspaceID,
 				"beneficiary", window.BeneficiaryPublicKey,
-				"profile", window.RuntimeProfileName,
+				"profile", window.RuntimeProfileId,
 				"policy_digest", window.PolicyDigest,
 				"window", window.ID,
 				"state", workspaceRewardCompleted,
@@ -657,9 +657,9 @@ func (r *Runtime) processWorkspaceRewardClaim(ctx context.Context, window worksp
 	}
 	if changed {
 		if err := r.WorkspaceRewards.NotifyWorkspaceReward(context.WithoutCancel(ctx), window.BeneficiaryPublicKey, WorkspaceRewardUpdate{
-			WorkspaceName: window.WorkspaceName, RewardGrantID: grant.Id, Revision: grant.CreatedAt,
+			WorkspaceID: window.WorkspaceID, RewardGrantID: grant.Id, Revision: grant.CreatedAt,
 		}); err != nil {
-			slog.Warn("notify workspace reward", "workspace", window.WorkspaceName, "beneficiary", window.BeneficiaryPublicKey, "window", window.ID, "error_class", "event_delivery", "error", err)
+			slog.Warn("notify workspace reward", "workspace", window.WorkspaceID, "beneficiary", window.BeneficiaryPublicKey, "window", window.ID, "error_class", "event_delivery", "error", err)
 		}
 	}
 	return nil
@@ -669,7 +669,7 @@ func (r *Runtime) workspaceRewardTranscript(
 	ctx context.Context,
 	window workspaceRewardWindow,
 ) ([]WorkspaceRewardTranscriptEntry, string, string, error) {
-	first, err := r.WorkspaceRewards.GetHistoryEntry(ctx, window.WorkspaceName, window.StartHistoryID)
+	first, err := r.WorkspaceRewards.GetHistoryEntry(ctx, window.WorkspaceID, window.StartHistoryID)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("read first History entry: %w", err)
 	}
@@ -681,7 +681,7 @@ func (r *Runtime) workspaceRewardTranscript(
 	cursor := first.ID
 	lastSeenID := first.ID
 	for cursor < window.HighWaterHistoryID {
-		page, err := r.WorkspaceRewards.ListHistoryEntries(ctx, window.WorkspaceName, cursor, window.HighWaterHistoryID, workspaceRewardHistoryPageLimit)
+		page, err := r.WorkspaceRewards.ListHistoryEntries(ctx, window.WorkspaceID, cursor, window.HighWaterHistoryID, workspaceRewardHistoryPageLimit)
 		if err != nil {
 			return nil, "", "", err
 		}

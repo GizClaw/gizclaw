@@ -498,7 +498,6 @@ function itemToResourceRow(item: unknown, prefix: string): PlayResourceRow {
     stringValue(record.name) ??
     stringValue(record.public_key) ??
     stringValue(record.friend_public_key) ??
-    stringValue(record.friend_group_id) ??
     stringValue(record.group_id) ??
     stringValue(metadata.name) ??
     `${prefix}-${hashJSON(item)}`;

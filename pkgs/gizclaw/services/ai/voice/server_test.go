@@ -20,11 +20,11 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 		},
 	}
 	body := adminhttp.VoiceUpsert{
-		Id:     "manual:voice-1",
+		Name:   "manual:voice-1",
 		Source: apitypes.VoiceSourceManual,
 		Provider: apitypes.VoiceProvider{
 			Kind: apitypes.VoiceProviderKind("openai-tenant"),
-			Name: "main",
+			Id:   "main",
 		},
 	}
 	createdResp, err := srv.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &body})
@@ -41,11 +41,11 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 
 	source := adminhttp.VoiceSource(apitypes.VoiceSourceManual)
 	providerKind := adminhttp.VoiceProviderKind("openai-tenant")
-	providerName := "main"
+	providerID := "main"
 	listResp, err := srv.ListVoices(ctx, adminhttp.ListVoicesRequestObject{
 		Params: adminhttp.ListVoicesParams{
 			ProviderKind: &providerKind,
-			ProviderName: &providerName,
+			ProviderId:   &providerID,
 			Source:       &source,
 		},
 	})
@@ -56,13 +56,13 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 	if !ok {
 		t.Fatalf("ListVoices() response = %#v", listResp)
 	}
-	if len(listed.Items) != 1 || listed.Items[0].Id != "manual:voice-1" {
+	if len(listed.Items) != 1 || listed.Items[0].Name != "manual:voice-1" {
 		t.Fatalf("ListVoices() items = %#v", listed.Items)
 	}
 
 	description := "updated"
 	body.Description = &description
-	putResp, err := srv.PutVoice(ctx, adminhttp.PutVoiceRequestObject{Id: "manual:voice-1", Body: &body})
+	putResp, err := srv.PutVoice(ctx, adminhttp.PutVoiceRequestObject{Id: created.Id, Body: &body})
 	if err != nil {
 		t.Fatalf("PutVoice() error = %v", err)
 	}
@@ -77,7 +77,7 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 		t.Fatalf("updated timestamps = %s/%s, want %s", updated.CreatedAt, updated.UpdatedAt, now)
 	}
 
-	getResp, err := srv.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: "manual:voice-1"})
+	getResp, err := srv.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("GetVoice() error = %v", err)
 	}
@@ -85,14 +85,14 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 		t.Fatalf("GetVoice() response = %#v", getResp)
 	}
 
-	deleteResp, err := srv.DeleteVoice(ctx, adminhttp.DeleteVoiceRequestObject{Id: "manual:voice-1"})
+	deleteResp, err := srv.DeleteVoice(ctx, adminhttp.DeleteVoiceRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("DeleteVoice() error = %v", err)
 	}
 	if _, ok := deleteResp.(adminhttp.DeleteVoice200JSONResponse); !ok {
 		t.Fatalf("DeleteVoice() response = %#v", deleteResp)
 	}
-	missingResp, err := srv.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: "manual:voice-1"})
+	missingResp, err := srv.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("GetVoice(missing) error = %v", err)
 	}
@@ -104,7 +104,7 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 func TestProviderDataStringAndLegacyDecode(t *testing.T) {
 	kind := apitypes.VoiceProviderKindMinimaxTenant
 	voice := apitypes.Voice{
-		Provider:     apitypes.VoiceProvider{Kind: kind, Name: "tenant"},
+		Provider:     apitypes.VoiceProvider{Kind: kind, Id: "tenant"},
 		ProviderData: ProviderData(kind, map[string]any{"voice_id": " voice-1 "}),
 	}
 	if got := ProviderDataString(voice, "voice_id"); got != "voice-1" {
@@ -153,9 +153,10 @@ func TestVoiceHelperIndexesAndSemanticEquality(t *testing.T) {
 	})
 	voice := apitypes.Voice{
 		Id:           "manual:voice-1",
-		Name:         &name,
+		Name:         "manual:voice-1",
+		DisplayName:  &name,
 		Description:  &description,
-		Provider:     apitypes.VoiceProvider{Kind: kind, Name: "main"},
+		Provider:     apitypes.VoiceProvider{Kind: kind, Id: "main"},
 		ProviderData: providerData,
 		Source:       apitypes.VoiceSourceManual,
 	}
@@ -191,7 +192,7 @@ func TestVoiceHelperIndexesAndSemanticEquality(t *testing.T) {
 	}
 
 	updated := voice
-	updated.Provider = apitypes.VoiceProvider{Kind: kind, Name: "secondary"}
+	updated.Provider = apitypes.VoiceProvider{Kind: kind, Id: "secondary"}
 	updated.ProviderData = ProviderData(kind, map[string]any{"voice_id": "voice-2"})
 	if err := Write(ctx, store, updated, &voice); err != nil {
 		t.Fatalf("Write(updated) error = %v", err)
@@ -240,11 +241,11 @@ func TestServerVoiceValidationAndPagination(t *testing.T) {
 		t.Fatalf("CreateVoice(nil body) response = %#v", resp)
 	}
 	if resp, err := srv.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &adminhttp.VoiceUpsert{
-		Id:     "manual:bad",
+		Name:   "manual:bad",
 		Source: apitypes.VoiceSource("bad"),
 		Provider: apitypes.VoiceProvider{
 			Kind: "openai-tenant",
-			Name: "main",
+			Id:   "main",
 		},
 	}}); err != nil {
 		t.Fatalf("CreateVoice(invalid source) error = %v", err)
@@ -254,11 +255,14 @@ func TestServerVoiceValidationAndPagination(t *testing.T) {
 
 	first := voiceUpsert("manual:voice-a", "main")
 	second := voiceUpsert("manual:voice-b", "main")
+	createdIDs := map[string]string{}
 	for _, body := range []adminhttp.VoiceUpsert{first, second} {
 		if resp, err := srv.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &body}); err != nil {
-			t.Fatalf("CreateVoice(%s) error = %v", body.Id, err)
-		} else if _, ok := resp.(adminhttp.CreateVoice200JSONResponse); !ok {
-			t.Fatalf("CreateVoice(%s) response = %#v", body.Id, resp)
+			t.Fatalf("CreateVoice(%s) error = %v", body.Name, err)
+		} else if created, ok := resp.(adminhttp.CreateVoice200JSONResponse); !ok {
+			t.Fatalf("CreateVoice(%s) response = %#v", body.Name, resp)
+		} else {
+			createdIDs[body.Name] = created.Id
 		}
 	}
 	if resp, err := srv.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &first}); err != nil {
@@ -301,7 +305,7 @@ func TestServerVoiceValidationAndPagination(t *testing.T) {
 		t.Fatalf("PutVoice(nil body) response = %#v", resp)
 	}
 	mismatch := voiceUpsert("manual:other", "main")
-	if resp, err := srv.PutVoice(ctx, adminhttp.PutVoiceRequestObject{Id: "manual:voice-a", Body: &mismatch}); err != nil {
+	if resp, err := srv.PutVoice(ctx, adminhttp.PutVoiceRequestObject{Id: createdIDs[first.Name], Body: &mismatch}); err != nil {
 		t.Fatalf("PutVoice(id mismatch) error = %v", err)
 	} else if _, ok := resp.(adminhttp.PutVoice400JSONResponse); !ok {
 		t.Fatalf("PutVoice(id mismatch) response = %#v", resp)
@@ -309,7 +313,8 @@ func TestServerVoiceValidationAndPagination(t *testing.T) {
 
 	syncVoice := apitypes.Voice{
 		Id:       "sync:voice",
-		Provider: apitypes.VoiceProvider{Kind: "openai-tenant", Name: "main"},
+		Name:     "sync:voice",
+		Provider: apitypes.VoiceProvider{Kind: "openai-tenant", Id: "main"},
 		Source:   apitypes.VoiceSourceSync,
 	}
 	if err := Write(ctx, store, syncVoice, nil); err != nil {
@@ -338,7 +343,7 @@ func TestVoiceBoundaryBranches(t *testing.T) {
 		t.Fatalf("ProviderDataString(no data) = %q, want empty", got)
 	}
 	if got := ProviderDataString(apitypes.Voice{
-		Provider:     apitypes.VoiceProvider{Kind: kind, Name: "main"},
+		Provider:     apitypes.VoiceProvider{Kind: kind, Id: "main"},
 		ProviderData: ProviderData(apitypes.VoiceProviderKindMinimaxTenant, map[string]any{"voice_type": "system"}),
 	}, "voice_id"); got != "" {
 		t.Fatalf("ProviderDataString(missing key) = %q, want empty", got)
@@ -346,21 +351,21 @@ func TestVoiceBoundaryBranches(t *testing.T) {
 
 	manual := voiceUpsert("manual:with-provider-data", "main")
 	manual.ProviderData = ProviderData(kind, map[string]any{"voice_id": "voice-1"})
-	normalized, err := normalizeVoiceUpsert(manual, manual.Id)
+	normalized, err := normalizeVoiceUpsert(manual, manual.Name)
 	if err != nil {
 		t.Fatalf("normalizeVoiceUpsert(provider data) error = %v", err)
 	}
 	if normalized.ProviderData == nil || ProviderDataString(normalized, "voice_id") != "voice-1" {
 		t.Fatalf("normalized provider data = %#v", normalized.ProviderData)
 	}
-	if _, err := normalizeVoiceUpsert(adminhttp.VoiceUpsert{Id: "manual:missing-source"}, ""); err == nil {
+	if _, err := normalizeVoiceUpsert(adminhttp.VoiceUpsert{Name: "manual:missing-source"}, ""); err == nil {
 		t.Fatalf("normalizeVoiceUpsert(missing source) error = nil, want error")
 	}
 	if _, err := normalizeVoiceUpsert(adminhttp.VoiceUpsert{
-		Id:     "manual:missing-kind",
+		Name:   "manual:missing-kind",
 		Source: apitypes.VoiceSourceManual,
 		Provider: apitypes.VoiceProvider{
-			Name: "main",
+			Id: "main",
 		},
 	}, ""); err == nil {
 		t.Fatalf("normalizeVoiceUpsert(missing provider kind) error = nil, want error")
@@ -368,7 +373,7 @@ func TestVoiceBoundaryBranches(t *testing.T) {
 
 	syncVoice := apitypes.Voice{
 		Id:       "sync:voice",
-		Provider: apitypes.VoiceProvider{Kind: kind, Name: "main"},
+		Provider: apitypes.VoiceProvider{Kind: kind, Id: "main"},
 		Source:   apitypes.VoiceSourceSync,
 	}
 	if !SemanticEqual(syncVoice, syncVoice) {
@@ -412,13 +417,13 @@ func (s customStringer) String() string {
 	return string(s)
 }
 
-func voiceUpsert(id, providerName string) adminhttp.VoiceUpsert {
+func voiceUpsert(id, providerID string) adminhttp.VoiceUpsert {
 	return adminhttp.VoiceUpsert{
-		Id:     id,
+		Name:   id,
 		Source: apitypes.VoiceSourceManual,
 		Provider: apitypes.VoiceProvider{
 			Kind: "openai-tenant",
-			Name: providerName,
+			Id:   providerID,
 		},
 	}
 }

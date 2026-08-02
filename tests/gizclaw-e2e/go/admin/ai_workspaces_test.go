@@ -23,24 +23,23 @@ func TestAdminAPIWorkspacesListGetPaginationAndMutation(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	requireName(t, all, "support-desk-workspace", func(item apitypes.Workspace) string { return item.Name })
+	seed := requireName(t, all, "support-desk-workspace", func(item apitypes.Workspace) string { return item.Name })
 	requirePrefixCount(t, all, "workspace-scenario-", 100, func(item apitypes.Workspace) string { return item.Name })
 
-	get, err := env.api.GetWorkspaceWithResponse(env.ctx, "support-desk-workspace")
+	get, err := env.api.GetWorkspaceWithResponse(env.ctx, seed.Id)
 	if err != nil {
 		t.Fatalf("get workspace: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.WorkflowName != "flowcraft-chat-assistant" {
+	if get.JSON200 == nil || get.JSON200.Id != seed.Id || get.JSON200.Name != seed.Name || get.JSON200.WorkflowId == "" {
 		t.Fatalf("get workspace = %#v", get.JSON200)
 	}
 
 	name := mutationName("workspace")
-	_, _ = env.api.DeleteWorkspaceWithResponse(env.ctx, name)
 	created, err := env.api.CreateWorkspaceWithResponse(env.ctx, adminhttp.WorkspaceUpsert{
-		Name:         name,
-		WorkflowName: "flowcraft-chat-assistant",
-		Parameters:   flowcraftWorkspaceParameters(t, apitypes.WorkspaceInputModePushToTalk),
+		Name:       name,
+		WorkflowId: seed.WorkflowId,
+		Parameters: flowcraftWorkspaceParameters(t, apitypes.WorkspaceInputModePushToTalk),
 	})
 	if err != nil {
 		t.Fatalf("create workspace: %v", err)
@@ -49,7 +48,7 @@ func TestAdminAPIWorkspacesListGetPaginationAndMutation(t *testing.T) {
 	if created.JSON200 == nil || created.JSON200.Name != name {
 		t.Fatalf("created workspace = %#v", created.JSON200)
 	}
-	deleted, err := env.api.DeleteWorkspaceWithResponse(env.ctx, name)
+	deleted, err := env.api.DeleteWorkspaceWithResponse(env.ctx, created.JSON200.Id)
 	if err != nil {
 		t.Fatalf("delete workspace: %v", err)
 	}

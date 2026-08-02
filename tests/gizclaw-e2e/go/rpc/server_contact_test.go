@@ -14,22 +14,23 @@ func TestServerContactRPC(t *testing.T) {
 	aliceName := "Alice"
 	alicePhone := "+1 555 0100"
 	alice, err := env.a.CreateContact(env.ctx, "contact.create.alice", rpcapi.ContactCreateRequest{
+		Name:        "alice",
 		DisplayName: &aliceName,
 		PhoneNumber: &alicePhone,
 	})
 	if err != nil {
 		t.Fatalf("contact.create alice: %v", err)
 	}
-	if alice.Id == nil || *alice.Id == "" {
-		t.Fatalf("contact.create alice id is empty: %#v", alice)
+	if alice.Name != "alice" {
+		t.Fatalf("contact.create alice name = %q", alice.Name)
 	}
 	bobName := "Bob"
-	bob, err := env.a.CreateContact(env.ctx, "contact.create.bob", rpcapi.ContactCreateRequest{DisplayName: &bobName})
+	bob, err := env.a.CreateContact(env.ctx, "contact.create.bob", rpcapi.ContactCreateRequest{Name: "bob", DisplayName: &bobName})
 	if err != nil {
 		t.Fatalf("contact.create bob: %v", err)
 	}
 
-	got, err := env.a.GetContact(env.ctx, "contact.get", rpcapi.ContactGetRequest{Id: *alice.Id})
+	got, err := env.a.GetContact(env.ctx, "contact.get", rpcapi.ContactGetRequest{Name: alice.Name})
 	if err != nil {
 		t.Fatalf("contact.get: %v", err)
 	}
@@ -38,7 +39,7 @@ func TestServerContactRPC(t *testing.T) {
 	}
 	updatedName := "Alice Zhang"
 	updated, err := env.a.PutContact(env.ctx, "contact.put", rpcapi.ContactPutRequest{
-		Id:          *alice.Id,
+		Name:        alice.Name,
 		DisplayName: &updatedName,
 		PhoneNumber: &alicePhone,
 	})
@@ -63,14 +64,14 @@ func TestServerContactRPC(t *testing.T) {
 	if len(second.Items) != 1 || second.HasNext {
 		t.Fatalf("contact.list page2 = %#v", second)
 	}
-	if _, err := env.b.GetContact(env.ctx, "contact.get.denied", rpcapi.ContactGetRequest{Id: *alice.Id}); err == nil {
+	if _, err := env.b.GetContact(env.ctx, "contact.get.denied", rpcapi.ContactGetRequest{Name: alice.Name}); err == nil {
 		t.Fatal("peer-b unexpectedly read peer-a contact")
 	}
-	deleted, err := env.a.DeleteContact(env.ctx, "contact.delete", rpcapi.ContactDeleteRequest{Id: *bob.Id})
+	deleted, err := env.a.DeleteContact(env.ctx, "contact.delete", rpcapi.ContactDeleteRequest{Name: bob.Name})
 	if err != nil {
 		t.Fatalf("contact.delete: %v", err)
 	}
-	if deleted.Id == nil || *deleted.Id != *bob.Id {
-		t.Fatalf("contact.delete id = %#v, want %q", deleted.Id, *bob.Id)
+	if deleted.Name != bob.Name {
+		t.Fatalf("contact.delete name = %#v, want %q", deleted.Name, bob.Name)
 	}
 }

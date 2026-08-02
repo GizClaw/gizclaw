@@ -23,27 +23,26 @@ func TestAdminAPIModelsListGetPaginationAndMutation(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	requireName(t, all, "fake-openai-chat-000", func(item apitypes.Model) string { return item.Id })
-	requirePrefixCount(t, all, "fake-openai-chat-", 70, func(item apitypes.Model) string { return item.Id })
+	seed := requireName(t, all, "fake-openai-chat-000", func(item apitypes.Model) string { return item.Name })
+	requirePrefixCount(t, all, "fake-openai-chat-", 70, func(item apitypes.Model) string { return item.Name })
 
-	get, err := env.api.GetModelWithResponse(env.ctx, "fake-openai-chat-000")
+	get, err := env.api.GetModelWithResponse(env.ctx, seed.Id)
 	if err != nil {
 		t.Fatalf("get model: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.Id != "fake-openai-chat-000" || get.JSON200.Provider.Name != "fake-openai" {
+	if get.JSON200 == nil || get.JSON200.Id != seed.Id || get.JSON200.Name != seed.Name || get.JSON200.Provider.Id == "" {
 		t.Fatalf("get model = %#v", get.JSON200)
 	}
 
-	id := mutationName("model")
-	_, _ = env.api.DeleteModelWithResponse(env.ctx, id)
+	name := mutationName("model")
 	created, err := env.api.CreateModelWithResponse(env.ctx, adminhttp.ModelUpsert{
-		Id:   id,
-		Kind: apitypes.ModelKindLlm,
-		Name: ptr("Admin API mutation model"),
+		Name:        name,
+		Kind:        apitypes.ModelKindLlm,
+		DisplayName: ptr("Admin API mutation model"),
 		Provider: apitypes.ModelProvider{
 			Kind: apitypes.ModelProviderKindOpenaiTenant,
-			Name: "fake-openai",
+			Id:   seed.Provider.Id,
 		},
 		ProviderData: openAIModelProviderData(t, "e2e-admin-mut-upstream"),
 		Source:       apitypes.ModelSourceManual,
@@ -52,10 +51,10 @@ func TestAdminAPIModelsListGetPaginationAndMutation(t *testing.T) {
 		t.Fatalf("create model: %v", err)
 	}
 	requireStatusOK(t, created, created.Body)
-	if created.JSON200 == nil || created.JSON200.Id != id {
+	if created.JSON200 == nil || created.JSON200.Id == "" || created.JSON200.Name != name {
 		t.Fatalf("created model = %#v", created.JSON200)
 	}
-	deleted, err := env.api.DeleteModelWithResponse(env.ctx, id)
+	deleted, err := env.api.DeleteModelWithResponse(env.ctx, created.JSON200.Id)
 	if err != nil {
 		t.Fatalf("delete model: %v", err)
 	}

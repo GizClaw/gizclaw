@@ -12,13 +12,13 @@
         "type": "object",
         "required": [
           "kind",
-          "name"
+          "id"
         ],
         "properties": {
           "kind": {
             "$ref": "./voice_provider_kind.json#/components/schemas/VoiceProviderKind"
           },
-          "name": {
+          "id": {
             "type": "string"
           }
         }

@@ -36,7 +36,7 @@ func (s *Server) handleFirmwareGet(ctx context.Context, req *rpcapi.RPCRequest) 
 	if s.Firmwares == nil {
 		return internalError(req.Id, "firmware service not configured")
 	}
-	response, err := s.Firmwares.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Name: firmwareID})
+	response, err := s.Firmwares.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Id: firmwareID})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -77,6 +77,16 @@ func (s *Server) PrepareFirmwareDownload(ctx context.Context, params rpcapi.Firm
 	if err != nil {
 		return rpcapi.FirmwareFilesDownloadResponse{}, nil, firmwareRPCErrorBody(err), nil
 	}
+	response, err := s.Firmwares.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Id: firmwareID})
+	if err != nil {
+		_ = reader.Close()
+		return rpcapi.FirmwareFilesDownloadResponse{}, nil, nil, err
+	}
+	item, ok := response.(adminhttp.GetFirmware200JSONResponse)
+	if !ok {
+		_ = reader.Close()
+		return rpcapi.FirmwareFilesDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "firmware not found"}, nil
+	}
 	convertedArtifact, err := convertType[rpcapi.FirmwareArtifact](artifact)
 	if err != nil {
 		_ = reader.Close()
@@ -88,11 +98,11 @@ func (s *Server) PrepareFirmwareDownload(ctx context.Context, params rpcapi.Firm
 		return rpcapi.FirmwareFilesDownloadResponse{}, nil, nil, err
 	}
 	return rpcapi.FirmwareFilesDownloadResponse{
-		Artifact:   convertedArtifact,
-		Channel:    params.Channel,
-		File:       convertedEntry,
-		FirmwareId: firmwareID,
-		Path:       params.Path,
+		Artifact:     convertedArtifact,
+		Channel:      params.Channel,
+		File:         convertedEntry,
+		FirmwareName: item.Name,
+		Path:         params.Path,
 	}, reader, nil, nil
 }
 

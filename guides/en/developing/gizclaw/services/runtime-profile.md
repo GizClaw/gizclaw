@@ -164,17 +164,17 @@ deterministic UUID is a public enrollment identifier, not an Admin credential. P
 other deployments still own their RegistrationTokens and may independently install default or
 product-specific profiles and bind explicit tokens to either.
 
-`server.register` associates the connection with the RuntimeProfile, persists the owner's selected RuntimeProfile name and optional Firmware ID, and returns both selections. Owner-bound Workspaces resolve the current revision of that persisted profile name even while the owner is offline; a later successful registration replaces the owner's selection. Neither RegistrationToken nor Peer stores a Firmware channel: stable, beta, develop, or pending selection remains device-owned. Updating or switching the profile changes the environment used by later operations; it does not rewrite Workspace context or persisted aliases.
+`server.register` associates the connection with the RuntimeProfile and persists canonical RuntimeProfile and optional Firmware IDs internally. Its Peer response returns only their scoped names. Owner-bound Workspaces resolve the current revision from the persisted canonical RuntimeProfile ID even while the owner is offline; a later successful registration replaces the owner's selection. Neither RegistrationToken nor Peer stores a Firmware channel: stable, beta, develop, or pending selection remains device-owned. Updating or switching the profile changes the environment used by later operations; it does not rewrite Workspace context or persisted internal bindings.
 
 Public HTTP login may submit the same value through `X-Registration-Token`. Registration success and failure logs do not include the submitted token value.
 
 ## Peer surface and ownership
 
-- Workflow, Model, Voice, and Tool list/get return safe alias projections only. An AST Workflow projection includes its Workspace language-pair default so a client never infers behavior from the dynamic alias. Projections do not expose canonical IDs, providers, tenants, credentials, owners, or execution routing.
-- Workflow list requires a Collection. Workflow get uses the globally unique alias. There is no `source=runtime|owned` selector.
+- Workflow, Model, Voice, and Tool list/get return safe scoped-name projections only. An AST Workflow projection includes its Workspace language-pair default so a client never infers behavior from a dynamic name. Projections do not expose canonical IDs, providers, tenants, credentials, owners, or execution routing.
+- Workflow list requires a Collection. Workflow get uses the name projected by the current RuntimeProfile. There is no `source=runtime|owned` selector.
 - Workflow, Model, Credential, and Tool create/put/delete are not Peer RPC methods. Admin owns canonical resource management.
-- Workspace create requires `collection` and `workflow_alias`; Workspace list requires `collection`. The Server stores Collection as an internal Workspace label and does not return generic labels through Peer RPC.
-- A removed Workflow alias does not hide or delete its Workspace. List/get still return it, while reload/run fails with not found until the alias is restored.
+- Workspace create requires `collection` and `workflow_name`; Workspace list requires `collection`. The Server stores Collection as an internal Workspace label and does not return generic labels through Peer RPC.
+- A removed Workflow binding does not hide or delete its Workspace. List/get still return it, while reload/run fails with not found until the same Peer name is restored.
 - Pet instances remain Peer/domain state. Adoption and all reward values come from `gameplay`; Server config contains only operational settings.
 
 Firmware remains an independent Admin resource and is not part of the RuntimeProfile projection. A RegistrationToken may bind its release-line ID independently of the RuntimeProfile, without binding a channel. Credentials and ProviderTenants remain Server-only dependencies of canonical Model and Voice resources.

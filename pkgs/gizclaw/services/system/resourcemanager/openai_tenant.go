@@ -18,31 +18,35 @@ func (m *Manager) applyOpenAITenant(ctx context.Context, resource apitypes.Resou
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	name := string(pathParam(item.Metadata.Name))
-	existing, exists, err := m.getOpenAITenant(ctx, name)
+	body := openAITenantUpsert(item)
+	return applyNamedResource(ctx, item.Metadata, apitypes.ResourceKindOpenAITenant, item.Spec,
+		m.getOpenAITenant,
+		func(ctx context.Context) (string, error) { return m.createOpenAITenant(ctx, body) },
+		func(ctx context.Context, id string) error { return m.putOpenAITenant(ctx, id, body) },
+		func(value apitypes.OpenAITenant) string { return value.Name }, openAITenantSpec)
+}
+
+func (m *Manager) createOpenAITenant(ctx context.Context, body adminhttp.OpenAITenantUpsert) (string, error) {
+	response, err := m.services.ProviderTenants.CreateOpenAITenant(ctx, adminhttp.CreateOpenAITenantRequestObject{Body: &body})
 	if err != nil {
-		return apitypes.ApplyResult{}, err
+		return "", err
 	}
-	if exists {
-		same, err := semanticEqual(openAITenantSpec(existing), item.Spec)
-		if err != nil {
-			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
-		}
-		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindOpenAITenant, item.Metadata.Name), nil
-		}
+	switch response := response.(type) {
+	case adminhttp.CreateOpenAITenant200JSONResponse:
+		return response.Id, nil
+	case adminhttp.CreateOpenAITenant400JSONResponse:
+		return "", responseError(400, "CREATE_OPENAI_TENANT_FAILED", "failed to create OpenAI tenant", response)
+	case adminhttp.CreateOpenAITenant409JSONResponse:
+		return "", responseError(409, "CREATE_OPENAI_TENANT_FAILED", "failed to create OpenAI tenant", response)
+	case adminhttp.CreateOpenAITenant500JSONResponse:
+		return "", responseError(500, "CREATE_OPENAI_TENANT_FAILED", "failed to create OpenAI tenant", response)
+	default:
+		return "", unexpectedResponse("CreateOpenAITenant", response)
 	}
-	if err := m.putOpenAITenant(ctx, name, openAITenantUpsert(item)); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if exists {
-		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindOpenAITenant, item.Metadata.Name), nil
-	}
-	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindOpenAITenant, item.Metadata.Name), nil
 }
 
 func (m *Manager) getOpenAITenant(ctx context.Context, name string) (apitypes.OpenAITenant, bool, error) {
-	response, err := m.services.ProviderTenants.GetOpenAITenant(ctx, adminhttp.GetOpenAITenantRequestObject{Name: name})
+	response, err := m.services.ProviderTenants.GetOpenAITenant(ctx, adminhttp.GetOpenAITenantRequestObject{Id: name})
 	if err != nil {
 		return apitypes.OpenAITenant{}, false, err
 	}
@@ -59,7 +63,7 @@ func (m *Manager) getOpenAITenant(ctx context.Context, name string) (apitypes.Op
 }
 
 func (m *Manager) putOpenAITenant(ctx context.Context, name string, body adminhttp.OpenAITenantUpsert) error {
-	response, err := m.services.ProviderTenants.PutOpenAITenant(ctx, adminhttp.PutOpenAITenantRequestObject{Name: name, Body: &body})
+	response, err := m.services.ProviderTenants.PutOpenAITenant(ctx, adminhttp.PutOpenAITenantRequestObject{Id: name, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -76,7 +80,7 @@ func (m *Manager) putOpenAITenant(ctx context.Context, name string, body adminht
 }
 
 func (m *Manager) deleteOpenAITenant(ctx context.Context, name string) (apitypes.OpenAITenant, bool, error) {
-	response, err := m.services.ProviderTenants.DeleteOpenAITenant(ctx, adminhttp.DeleteOpenAITenantRequestObject{Name: name})
+	response, err := m.services.ProviderTenants.DeleteOpenAITenant(ctx, adminhttp.DeleteOpenAITenantRequestObject{Id: name})
 	if err != nil {
 		return apitypes.OpenAITenant{}, false, err
 	}
@@ -94,22 +98,22 @@ func (m *Manager) deleteOpenAITenant(ctx context.Context, name string) (apitypes
 
 func openAITenantSpec(item apitypes.OpenAITenant) apitypes.OpenAITenantSpec {
 	return apitypes.OpenAITenantSpec{
-		ApiMode:        &item.ApiMode,
-		BaseUrl:        item.BaseUrl,
-		CredentialName: item.CredentialName,
-		Description:    item.Description,
-		Kind:           &item.Kind,
+		ApiMode:      &item.ApiMode,
+		BaseUrl:      item.BaseUrl,
+		CredentialId: item.CredentialId,
+		Description:  item.Description,
+		Kind:         &item.Kind,
 	}
 }
 
 func openAITenantUpsert(resource apitypes.OpenAITenantResource) adminhttp.OpenAITenantUpsert {
 	return adminhttp.OpenAITenantUpsert{
-		ApiMode:        resource.Spec.ApiMode,
-		BaseUrl:        resource.Spec.BaseUrl,
-		CredentialName: resource.Spec.CredentialName,
-		Description:    resource.Spec.Description,
-		Kind:           resource.Spec.Kind,
-		Name:           string(resource.Metadata.Name),
+		ApiMode:      resource.Spec.ApiMode,
+		BaseUrl:      resource.Spec.BaseUrl,
+		CredentialId: resource.Spec.CredentialId,
+		Description:  resource.Spec.Description,
+		Kind:         resource.Spec.Kind,
+		Name:         string(resource.Metadata.Name),
 	}
 }
 
@@ -117,7 +121,7 @@ func resourceFromOpenAITenant(item apitypes.OpenAITenant) (apitypes.Resource, er
 	return marshalResource(apitypes.OpenAITenantResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.OpenAITenantResourceKind(apitypes.ResourceKindOpenAITenant),
-		Metadata:   apitypes.ResourceMetadata{Name: string(item.Name)},
+		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
 		Spec:       openAITenantSpec(item),
 	})
 }

@@ -45,11 +45,11 @@ func TestClientFirmwareMethodsUseRPCConnection(t *testing.T) {
 	go func() {
 		serveFirmwareRPCResponse(t, listener, rpcapi.RPCMethodServerFirmwareGet, rpcapi.FirmwareGetResponse{Name: "devkit"}, (*rpcapi.RPCPayload).FromFirmwareGetResponse, nil, serverErrCh)
 		serveFirmwareRPCResponse(t, listener, rpcapi.RPCMethodServerFirmwareFilesDownload, rpcapi.FirmwareFilesDownloadResponse{
-			FirmwareId: "devkit",
-			Channel:    rpcapi.FirmwareChannelNameStable,
-			Path:       "firmware.bin",
-			Artifact:   rpcapi.FirmwareArtifact{TarPath: "devkit/stable/artifact/artifact.tar", Size: 1024, ContentType: "application/x-tar"},
-			File:       rpcapi.FirmwareArtifactEntry{Path: "firmware.bin", Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len("firmware-payload"))},
+			FirmwareName: "devkit",
+			Channel:      rpcapi.FirmwareChannelNameStable,
+			Path:         "firmware.bin",
+			Artifact:     rpcapi.FirmwareArtifact{TarPath: "devkit/stable/artifact/artifact.tar", Size: 1024, ContentType: "application/x-tar"},
+			File:         rpcapi.FirmwareArtifactEntry{Path: "firmware.bin", Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len("firmware-payload"))},
 		}, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadResponse, []byte("firmware-payload"), serverErrCh)
 	}()
 
@@ -142,11 +142,11 @@ func TestDownloadFirmwareReadsContinuationMetadata(t *testing.T) {
 			}
 		}
 		resp := resourceResponse(req.Id, rpcapi.FirmwareFilesDownloadResponse{
-			FirmwareId: "devkit",
-			Channel:    rpcapi.FirmwareChannelNameStable,
-			Path:       largePath,
-			Artifact:   rpcapi.FirmwareArtifact{TarPath: "devkit/stable/artifact/artifact.tar", Size: 1024, ContentType: "application/x-tar"},
-			File:       rpcapi.FirmwareArtifactEntry{Path: largePath, Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len(payload))},
+			FirmwareName: "devkit",
+			Channel:      rpcapi.FirmwareChannelNameStable,
+			Path:         largePath,
+			Artifact:     rpcapi.FirmwareArtifact{TarPath: "devkit/stable/artifact/artifact.tar", Size: 1024, ContentType: "application/x-tar"},
+			File:         rpcapi.FirmwareArtifactEntry{Path: largePath, Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len(payload))},
 		}, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadResponse)
 		metadataEOS, err := serverStream.WriteResponseEnvelopeForMethod(req.Method, resp)
 		if err != nil {

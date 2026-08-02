@@ -26,12 +26,15 @@ const (
 
 var (
 	ContactsRoot           = kv.Key{"contacts"}
+	ContactNamesRoot       = kv.Key{"contact-names"}
+	ContactIDsRoot         = kv.Key{"contact-ids"}
 	FriendsRoot            = kv.Key{"friends"}
 	FriendInviteTokensRoot = kv.Key{"friend-invite-tokens"}
 	GroupsRoot             = kv.Key{"friend-groups"}
 	GroupInviteTokensRoot  = kv.Key{"friend-group-invite-tokens"}
 	GroupMembersRoot       = kv.Key{"friend-group-members"}
 	GroupBelongsRoot       = kv.Key{"friend-group-belongs"}
+	GroupNamesRoot         = kv.Key{"friend-group-names"}
 )
 
 type EntryPage struct {
@@ -160,6 +163,14 @@ func ContactKey(owner, id string) kv.Key {
 	return append(OwnerPrefix(ContactsRoot, owner), EscapeStoreSegment(id))
 }
 
+func ContactNameKey(owner, name string) kv.Key {
+	return append(OwnerPrefix(ContactNamesRoot, owner), EscapeStoreSegment(name))
+}
+
+func ContactIDKey(id string) kv.Key {
+	return append(append(kv.Key{}, ContactIDsRoot...), EscapeStoreSegment(id))
+}
+
 func FriendKey(owner, id string) kv.Key {
 	return append(OwnerPrefix(FriendsRoot, owner), EscapeStoreSegment(id))
 }
@@ -182,6 +193,10 @@ func GroupMemberKey(friendGroupID, peerID string) kv.Key {
 
 func GroupBelongKey(peerID, friendGroupID string) kv.Key {
 	return append(append(kv.Key{}, GroupBelongsRoot...), EscapeStoreSegment(peerID), EscapeStoreSegment(friendGroupID))
+}
+
+func GroupNameKey(peerID, name string) kv.Key {
+	return append(append(kv.Key{}, GroupNamesRoot...), EscapeStoreSegment(peerID), EscapeStoreSegment(name))
 }
 
 func RelationID(a, b string) string {

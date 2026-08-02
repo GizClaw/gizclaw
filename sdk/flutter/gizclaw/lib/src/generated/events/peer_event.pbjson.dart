@@ -396,7 +396,7 @@ final $typed_data.Uint8List friendRelationshipUpdatedDescriptor = $convert.base6
 const FriendGroupUpdated$json = {
   '1': 'FriendGroupUpdated',
   '2': [
-    {'1': 'friend_group_id', '3': 1, '4': 1, '5': 9, '10': 'friendGroupId'},
+    {'1': 'friend_group_name', '3': 1, '4': 1, '5': 9, '10': 'friendGroupName'},
     {'1': 'workspace_name', '3': 2, '4': 1, '5': 9, '10': 'workspaceName'},
     {
       '1': 'change',
@@ -419,11 +419,11 @@ const FriendGroupUpdated$json = {
 
 /// Descriptor for `FriendGroupUpdated`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendGroupUpdatedDescriptor = $convert.base64Decode(
-    'ChJGcmllbmRHcm91cFVwZGF0ZWQSJgoPZnJpZW5kX2dyb3VwX2lkGAEgASgJUg1mcmllbmRHcm'
-    '91cElkEiUKDndvcmtzcGFjZV9uYW1lGAIgASgJUg13b3Jrc3BhY2VOYW1lEjwKBmNoYW5nZRgD'
-    'IAEoDjIkLmdpemNsYXcuZXZlbnRzLnYxLkZyaWVuZEdyb3VwQ2hhbmdlUgZjaGFuZ2USKAoQcm'
-    'V2aXNpb25fdW5peF9tcxgEIAEoA1IOcmV2aXNpb25Vbml4TXMSNwoYYWZmZWN0ZWRfcGVlcl9w'
-    'dWJsaWNfa2V5GAUgASgJUhVhZmZlY3RlZFBlZXJQdWJsaWNLZXk=');
+    'ChJGcmllbmRHcm91cFVwZGF0ZWQSKgoRZnJpZW5kX2dyb3VwX25hbWUYASABKAlSD2ZyaWVuZE'
+    'dyb3VwTmFtZRIlCg53b3Jrc3BhY2VfbmFtZRgCIAEoCVINd29ya3NwYWNlTmFtZRI8CgZjaGFu'
+    'Z2UYAyABKA4yJC5naXpjbGF3LmV2ZW50cy52MS5GcmllbmRHcm91cENoYW5nZVIGY2hhbmdlEi'
+    'gKEHJldmlzaW9uX3VuaXhfbXMYBCABKANSDnJldmlzaW9uVW5peE1zEjcKGGFmZmVjdGVkX3Bl'
+    'ZXJfcHVibGljX2tleRgFIAEoCVIVYWZmZWN0ZWRQZWVyUHVibGljS2V5');
 
 @$core.Deprecated('Use gameplayRewardUpdatedDescriptor instead')
 const GameplayRewardUpdated$json = {

@@ -36,7 +36,7 @@ func (c *rpcClient) GetWorkspaceHistoryAudio(ctx context.Context, conn net.Conn,
 
 func (c *rpcClient) GetFriendGroupMessageAudio(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMessageAudioGetRequest, out io.Writer) (FriendGroupMessageAudioGetResult, error) {
 	metadata, n, err := getHistoryAudio(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMessagesAudioGet, request, (*rpcapi.RPCPayload).FromFriendGroupMessageAudioGetRequest, rpcapi.RPCPayload.AsFriendGroupMessageAudioGetResponse, out, func(metadata rpcapi.FriendGroupMessageAudioGetResponse) error {
-		if metadata.FriendGroupId != request.FriendGroupId || metadata.HistoryId != request.HistoryId {
+		if metadata.FriendGroupName != request.FriendGroupName || metadata.HistoryId != request.HistoryId {
 			return fmt.Errorf("friend group message audio metadata identity mismatch")
 		}
 		return validateHistoryAudioMetadata(metadata.MimeType, metadata.SizeBytes)

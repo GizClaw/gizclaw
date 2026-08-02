@@ -3,18 +3,21 @@
 package admin_test
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
 const (
 	e2eSocialAdminPublicKey  = "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"
 	e2eSocialClientPublicKey = "8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu"
-	e2eSocialRelationID      = e2eSocialAdminPublicKey + ":" + e2eSocialClientPublicKey
-	e2eSocialGroupID         = "family-circle"
-	e2eSocialClientMemberID  = e2eSocialGroupID + ":" + e2eSocialClientPublicKey
+)
+
+var (
+	e2eSocialRelationID     string
+	e2eSocialGroupID        string
+	e2eSocialClientMemberID string
 )
 
 func TestAdminAPIResourcesGet(t *testing.T) {
@@ -64,7 +67,7 @@ func TestAdminAPIResourcesGetSocialFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode friend group resource union: %v", err)
 	}
-	if group.Spec.Name != "Family Circle" {
+	if group.Metadata.Name != "family-circle" || group.Spec.DisplayName == nil || *group.Spec.DisplayName != "Family Circle" {
 		t.Fatalf("friend group spec = %+v", group.Spec)
 	}
 
@@ -97,11 +100,11 @@ func TestAdminAPIResourcesGetSocialFixtures(t *testing.T) {
 
 func applyAdminSocialFixtures(t *testing.T, env *adminAPIHarness) {
 	t.Helper()
-	for _, name := range []string{"00-family-circle.yaml", "10-contacts.yaml"} {
-		path := filepath.Join(env.h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "fixtures", "social", name)
-		env.h.RunCLI("admin", "apply", "--context", env.adminContext, "-f", path).MustSucceed(t)
+	ids, err := clitest.EnsureSocialFixture(env.ctx, env.api, e2eSocialAdminPublicKey, e2eSocialClientPublicKey)
+	if err != nil {
+		t.Fatalf("ensure Social fixtures: %v", err)
 	}
-	// The CLI uses the same fixed admin identity, so its connection replaces the
-	// harness connection. Reconnect before reading the resources it applied.
-	env.reconnectAdminAPI(t)
+	e2eSocialRelationID = ids.FriendID
+	e2eSocialGroupID = ids.FriendGroupID
+	e2eSocialClientMemberID = ids.ClientMembershipID
 }

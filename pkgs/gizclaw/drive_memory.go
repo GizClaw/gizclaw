@@ -21,15 +21,15 @@ import (
 
 type driveWorkspaceMemory struct {
 	resolver interface {
-		ResolveMemory(context.Context, string) (agenthost.Spec, error)
+		ResolveMemoryByID(context.Context, string) (agenthost.Spec, error)
 	}
 	stores       *memorystore.Registry
 	serverRoot   string
 	genXForOwner func(context.Context, string) (*peergenx.Service, error)
 }
 
-func (delivery *driveWorkspaceMemory) Snapshot(ctx context.Context, workspaceName string) (gameplay.DriveFactTarget, error) {
-	spec, err := delivery.resolve(ctx, workspaceName)
+func (delivery *driveWorkspaceMemory) Snapshot(ctx context.Context, workspaceID string) (gameplay.DriveFactTarget, error) {
+	spec, err := delivery.resolve(ctx, workspaceID)
 	if err != nil {
 		return gameplay.DriveFactTarget{}, err
 	}
@@ -68,7 +68,7 @@ func (delivery *driveWorkspaceMemory) Wait(ctx context.Context, target gameplay.
 }
 
 func (delivery *driveWorkspaceMemory) open(ctx context.Context, target gameplay.DriveFactTarget) (memory.Store, io.Closer, error) {
-	spec, err := delivery.resolve(ctx, target.WorkspaceName)
+	spec, err := delivery.resolve(ctx, target.WorkspaceID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -92,8 +92,8 @@ func (delivery *driveWorkspaceMemory) open(ctx context.Context, target gameplay.
 		}
 	}
 	request := memorystore.Request{
-		WorkspaceName:   target.WorkspaceName,
-		ProfileName:     target.ProfileName,
+		WorkspaceID:     target.WorkspaceID,
+		ProfileID:       target.ProfileID,
 		ProfileRevision: target.ProfileRevision,
 		BindingName:     target.BindingName,
 		Layout:          *spec.MemoryLayout,
@@ -109,29 +109,29 @@ func (delivery *driveWorkspaceMemory) open(ctx context.Context, target gameplay.
 }
 
 func sameDriveFactTarget(current, submitted gameplay.DriveFactTarget) bool {
-	return current.WorkspaceName == submitted.WorkspaceName &&
-		current.ProfileName == submitted.ProfileName &&
+	return current.WorkspaceID == submitted.WorkspaceID &&
+		current.ProfileID == submitted.ProfileID &&
 		current.BindingName == submitted.BindingName &&
 		current.BindingIdentity == submitted.BindingIdentity
 }
 
-func (delivery *driveWorkspaceMemory) resolve(ctx context.Context, workspaceName string) (agenthost.Spec, error) {
+func (delivery *driveWorkspaceMemory) resolve(ctx context.Context, workspaceID string) (agenthost.Spec, error) {
 	if delivery == nil || delivery.resolver == nil || delivery.stores == nil {
 		return agenthost.Spec{}, fmt.Errorf("%w: Workspace Memory resolver is not configured", memory.ErrInvalidInput)
 	}
-	spec, err := delivery.resolver.ResolveMemory(ctx, workspaceName)
+	spec, err := delivery.resolver.ResolveMemoryByID(ctx, workspaceID)
 	if err != nil {
 		return agenthost.Spec{}, fmt.Errorf("%w: resolve Workspace Memory: %v", memory.ErrInvalidInput, err)
 	}
 	if spec.MemoryBinding == nil || spec.MemoryLayout == nil || strings.TrimSpace(spec.MemoryName) == "" {
-		return agenthost.Spec{}, fmt.Errorf("%w: Workspace %q has no Memory binding", memory.ErrUnsupported, workspaceName)
+		return agenthost.Spec{}, fmt.Errorf("%w: Workspace %q has no Memory binding", memory.ErrUnsupported, workspaceID)
 	}
 	return spec, nil
 }
 
 func driveFactTarget(spec agenthost.Spec) (gameplay.DriveFactTarget, error) {
-	workspaceName := strings.TrimSpace(spec.Workspace.Name)
-	if workspaceName == "" || spec.MemoryBinding == nil || spec.MemoryLayout == nil {
+	workspaceID := strings.TrimSpace(spec.Workspace.Id)
+	if workspaceID == "" || spec.MemoryBinding == nil || spec.MemoryLayout == nil {
 		return gameplay.DriveFactTarget{}, fmt.Errorf("%w: incomplete Workspace Memory binding", memory.ErrInvalidInput)
 	}
 	identityPayload := struct {
@@ -148,7 +148,7 @@ func driveFactTarget(spec agenthost.Spec) (gameplay.DriveFactTarget, error) {
 	}
 	sum := sha256.Sum256(data)
 	return gameplay.DriveFactTarget{
-		WorkspaceName: workspaceName, ProfileName: spec.MemoryProfileName,
+		WorkspaceID: workspaceID, ProfileID: spec.MemoryProfileID,
 		ProfileRevision: spec.MemoryProfileRevision, BindingName: spec.MemoryName,
 		BindingIdentity: hex.EncodeToString(sum[:]),
 	}, nil

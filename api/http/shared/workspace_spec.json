@@ -11,15 +11,15 @@
       "WorkspaceSpec": {
         "type": "object",
         "required": [
-          "workflow_name"
+          "workflow_id"
         ],
         "properties": {
-          "workflow_name": {
+          "workflow_id": {
             "type": "string",
             "minLength": 8,
             "maxLength": 48,
             "pattern": "^[a-z][a-z0-9._-]{6,46}[a-z0-9]$",
-            "description": "Referenced workflow custom ID."
+            "description": "Referenced Workflow canonical ID."
           },
           "parameters": {
             "$ref": "./workspace_parameters.json#/components/schemas/WorkspaceParameters"

@@ -58,7 +58,7 @@ func TestFactoryConstructsWithoutLocalWorkspace(t *testing.T) {
 		}
 	}`)
 	agent, err := (Factory{GenX: peergenx.New(peergenx.Service{})}).NewAgent(context.Background(), agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "workspace-a"},
+		Workspace: apitypes.Workspace{Id: "workspace-id-a", Name: "workspace-a"},
 		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &spec,
 		}},
@@ -159,7 +159,7 @@ func TestFactoryRejectsUnsupportedWorkspaceInput(t *testing.T) {
 		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
 	}
 	_, err := (Factory{GenX: peergenx.New(peergenx.Service{})}).NewAgent(t.Context(), agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "workspace-a", Parameters: &parameters},
+		Workspace: apitypes.Workspace{Id: "workspace-id-a", Name: "workspace-a", Parameters: &parameters},
 		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &spec,
 		}},
@@ -532,7 +532,7 @@ func TestFactoryUsesWorkspaceOwnerGenX(t *testing.T) {
 		return peergenx.New(peergenx.Service{}), nil
 	}}
 	agent, err := factory.NewAgent(t.Context(), agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "workspace-a", OwnerPublicKey: &owner},
+		Workspace: apitypes.Workspace{Id: "workspace-id-a", Name: "workspace-a", OwnerPublicKey: &owner},
 		Workflow:  apitypes.Workflow{Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &spec}},
 	})
 	if err != nil {
@@ -556,7 +556,7 @@ func TestFactoryUsesResolvedWorkspaceMemory(t *testing.T) {
 		}
 	}`)
 	agent, err := (Factory{GenX: peergenx.New(peergenx.Service{})}).NewAgent(t.Context(), agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "workspace-a"},
+		Workspace: apitypes.Workspace{Id: "workspace-id-a", Name: "workspace-a"},
 		Workflow: apitypes.Workflow{Name: "workflow-a", Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &spec,
 		}},

@@ -24,13 +24,13 @@ type workspaceRewardEnvironment struct {
 	workspaces *workspace.Server
 }
 
-func (environment *workspaceRewardEnvironment) ListWorkspaceNames(ctx context.Context) ([]string, error) {
+func (environment *workspaceRewardEnvironment) ListWorkspaceIDs(ctx context.Context) ([]string, error) {
 	if environment == nil || environment.workspaces == nil {
 		return nil, errors.New("gizclaw: Workspace reward source is not configured")
 	}
 	limit := int32(200)
 	var cursor *string
-	var names []string
+	var ids []string
 	for {
 		response, err := environment.workspaces.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{
 			Params: adminhttp.ListWorkspacesParams{Cursor: cursor, Limit: &limit},
@@ -43,12 +43,12 @@ func (environment *workspaceRewardEnvironment) ListWorkspaceNames(ctx context.Co
 			return nil, fmt.Errorf("gizclaw: list Workspaces returned %T", response)
 		}
 		for _, item := range page.Items {
-			if name := strings.TrimSpace(item.Name); name != "" {
-				names = append(names, name)
+			if id := strings.TrimSpace(item.Id); id != "" {
+				ids = append(ids, id)
 			}
 		}
 		if !page.HasNext || page.NextCursor == nil {
-			return names, nil
+			return ids, nil
 		}
 		cursor = page.NextCursor
 	}
@@ -56,51 +56,52 @@ func (environment *workspaceRewardEnvironment) ListWorkspaceNames(ctx context.Co
 
 func (environment *workspaceRewardEnvironment) LatestHistoryEntry(
 	ctx context.Context,
-	workspaceName string,
+	workspaceID string,
 ) (workspace.HistoryEntry, bool, error) {
-	return environment.workspaces.LatestWorkspaceHistoryEntry(ctx, workspaceName)
+	return environment.workspaces.LatestWorkspaceHistoryEntryByID(ctx, workspaceID)
 }
 
 func (environment *workspaceRewardEnvironment) LatestHistoryEntryBefore(
 	ctx context.Context,
-	workspaceName string,
+	workspaceID string,
 	before time.Time,
 ) (workspace.HistoryEntry, bool, error) {
-	return environment.workspaces.LatestWorkspaceHistoryEntryBefore(ctx, workspaceName, before)
+	return environment.workspaces.LatestWorkspaceHistoryEntryBeforeByID(ctx, workspaceID, before)
 }
 
 func (environment *workspaceRewardEnvironment) ListHistoryEntries(
 	ctx context.Context,
-	workspaceName, after, through string,
+	workspaceID, after, through string,
 	limit int,
 ) (workspace.HistoryEntryPage, error) {
-	return environment.workspaces.ListWorkspaceHistoryEntries(ctx, workspaceName, after, through, limit)
+	return environment.workspaces.ListWorkspaceHistoryEntriesByID(ctx, workspaceID, after, through, limit)
 }
 
 func (environment *workspaceRewardEnvironment) GetHistoryEntry(
 	ctx context.Context,
-	workspaceName, historyID string,
+	workspaceID, historyID string,
 ) (workspace.HistoryEntry, error) {
-	return environment.workspaces.GetWorkspaceHistory(ctx, workspaceName, historyID)
+	return environment.workspaces.GetWorkspaceHistoryByID(ctx, workspaceID, historyID)
 }
 
 func (environment *workspaceRewardEnvironment) ResolveWorkspaceRewardPolicy(
 	ctx context.Context,
-	workspaceName, beneficiary string,
+	workspaceID, beneficiary string,
 ) (gameplay.WorkspaceRewardKind, *gameplay.WorkspaceRewardPolicySnapshot, error) {
 	if environment == nil || environment.manager == nil || environment.manager.Gameplay == nil ||
 		environment.manager.RuntimeProfiles == nil || environment.workspaces == nil {
 		return "", nil, errors.New("gizclaw: Workspace reward resolver is not configured")
 	}
-	response, err := environment.workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: workspaceName})
+	response, err := environment.workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Id: workspaceID})
 	if err != nil {
 		return "", nil, err
 	}
 	value, ok := response.(adminhttp.GetWorkspace200JSONResponse)
 	if !ok {
-		return "", nil, fmt.Errorf("gizclaw: get Workspace %q returned %T", workspaceName, response)
+		return "", nil, fmt.Errorf("gizclaw: get Workspace %q returned %T", workspaceID, response)
 	}
-	kind, err := workspaceRewardKind(apitypes.Workspace(value))
+	item := apitypes.Workspace(value)
+	kind, err := workspaceRewardKind(item)
 	if err != nil {
 		return "", nil, err
 	}
@@ -142,7 +143,7 @@ func (environment *workspaceRewardEnvironment) WorkspaceRewardGenerator(
 		policy.ModelAlias: {ResourceId: policy.ModelResourceID},
 	}
 	profile := apitypes.RuntimeProfile{
-		Name: policy.RuntimeProfileName, Revision: policy.RuntimeProfileRevision,
+		Id: policy.RuntimeProfileId, Name: policy.RuntimeProfileId, Revision: policy.RuntimeProfileRevision,
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &models}},
 	}
 	service, err := environment.manager.ownerGenXForProfile(ctx, beneficiary, profile)
@@ -153,7 +154,7 @@ func (environment *workspaceRewardEnvironment) WorkspaceRewardGenerator(
 }
 
 func (environment *workspaceRewardEnvironment) NotifyWorkspaceReward(
-	_ context.Context,
+	ctx context.Context,
 	beneficiary string,
 	update gameplay.WorkspaceRewardUpdate,
 ) error {
@@ -164,12 +165,20 @@ func (environment *workspaceRewardEnvironment) NotifyWorkspaceReward(
 	if err := publicKey.UnmarshalText([]byte(strings.TrimSpace(beneficiary))); err != nil || publicKey.IsZero() {
 		return fmt.Errorf("gizclaw: invalid reward beneficiary public key %q", beneficiary)
 	}
+	response, err := environment.workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Id: update.WorkspaceID})
+	if err != nil {
+		return err
+	}
+	value, ok := response.(adminhttp.GetWorkspace200JSONResponse)
+	if !ok {
+		return fmt.Errorf("gizclaw: get Workspace %q returned %T", update.WorkspaceID, response)
+	}
 	return environment.manager.BroadcastPeerEvent(publicKey, &eventpb.PeerEvent{
 		Version: eventpb.Version,
 		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED,
 		Payload: &eventpb.PeerEvent_GameplayRewardUpdated{
 			GameplayRewardUpdated: &eventpb.GameplayRewardUpdated{
-				WorkspaceName:  update.WorkspaceName,
+				WorkspaceName:  value.Name,
 				RewardGrantId:  update.RewardGrantID,
 				RevisionUnixMs: update.Revision.UnixMilli(),
 			},
@@ -204,21 +213,25 @@ func (m *Manager) ownerGenXForProfile(
 
 func (m *Manager) handleWorkspaceHistoryUpdated(
 	ctx context.Context,
-	workspaceName string,
+	workspaceID string,
 	entry workspace.HistoryEntry,
 ) {
 	if m == nil {
 		return
 	}
 	if m.Gameplay != nil {
-		if err := m.Gameplay.EnqueueWorkspaceRewardActivity(workspaceName, entry); err != nil {
+		workspace, resolveErr := resolveWorkspaceByName(ctx, m.Workspaces, workspaceID)
+		if resolveErr == nil {
+			resolveErr = m.Gameplay.EnqueueWorkspaceRewardActivity(workspace.Id, entry)
+		}
+		if resolveErr != nil {
 			slog.Error("enqueue Workspace reward",
-				"workspace", workspaceName,
+				"workspace", workspaceID,
 				"history_id", entry.ID,
 				"error_class", "enqueue",
-				"error", err,
+				"error", resolveErr,
 			)
 		}
 	}
-	m.broadcastWorkspaceHistoryUpdated(ctx, workspaceName, entry.CreatedAt)
+	m.broadcastWorkspaceHistoryUpdated(ctx, workspaceID, entry.CreatedAt)
 }

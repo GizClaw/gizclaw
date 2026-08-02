@@ -33,8 +33,10 @@ func TestFirmwareResourceApplyShowDelete(t *testing.T) {
 	if result.Action != apitypes.ApplyActionCreated || result.Kind != apitypes.ResourceKindFirmware {
 		t.Fatalf("Apply result = %+v", result)
 	}
+	resource = withResourceID(t, resource, *result.Id)
+	id := *result.Id
 
-	shown, err := manager.Get(ctx, apitypes.ResourceKindFirmware, "devkit")
+	shown, err := manager.Get(ctx, apitypes.ResourceKindFirmware, id)
 	if err != nil {
 		t.Fatalf("Get error = %v", err)
 	}
@@ -54,7 +56,7 @@ func TestFirmwareResourceApplyShowDelete(t *testing.T) {
 		t.Fatalf("Apply unchanged result = %+v", unchanged)
 	}
 
-	deleted, err := manager.Delete(ctx, apitypes.ResourceKindFirmware, "devkit")
+	deleted, err := manager.Delete(ctx, apitypes.ResourceKindFirmware, id)
 	if err != nil {
 		t.Fatalf("Delete error = %v", err)
 	}
@@ -82,13 +84,14 @@ func TestFirmwareResourcePutAndErrors(t *testing.T) {
 	}
 
 	missing := New(Services{})
+	updateResource := withResourceID(t, resource, "firmware-id")
 	if _, err := missing.Apply(ctx, resource); !isResourceError(err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED") {
 		t.Fatalf("Apply missing service error = %v", err)
 	}
 	if _, err := missing.Get(ctx, apitypes.ResourceKindFirmware, "devkit"); !isResourceError(err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED") {
 		t.Fatalf("Get missing service error = %v", err)
 	}
-	if _, err := missing.Put(ctx, resource); !isResourceError(err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED") {
+	if _, err := missing.Put(ctx, updateResource); !isResourceError(err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED") {
 		t.Fatalf("Put missing service error = %v", err)
 	}
 	if _, err := missing.Delete(ctx, apitypes.ResourceKindFirmware, "devkit"); !isResourceError(err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED") {
@@ -102,7 +105,7 @@ func TestFirmwareResourcePutAndErrors(t *testing.T) {
 	if _, err := misconfigured.Get(ctx, apitypes.ResourceKindFirmware, "devkit"); !isResourceError(err, 500, "INTERNAL_ERROR") {
 		t.Fatalf("Get misconfigured service error = %v", err)
 	}
-	if _, err := misconfigured.Put(ctx, resource); !isResourceError(err, 500, "INTERNAL_ERROR") {
+	if _, err := misconfigured.Put(ctx, updateResource); !isResourceError(err, 500, "INTERNAL_ERROR") {
 		t.Fatalf("Put misconfigured service error = %v", err)
 	}
 	if _, err := misconfigured.Delete(ctx, apitypes.ResourceKindFirmware, "devkit"); !isResourceError(err, 500, "INTERNAL_ERROR") {
@@ -116,7 +119,11 @@ func TestFirmwareResourcePutAndErrors(t *testing.T) {
 	if _, err := manager.Delete(ctx, apitypes.ResourceKindFirmware, "missing"); !isResourceError(err, 404, "RESOURCE_NOT_FOUND") {
 		t.Fatalf("Delete missing firmware error = %v", err)
 	}
-	put, err := manager.Put(ctx, resource)
+	created, err := manager.Apply(ctx, resource)
+	if err != nil {
+		t.Fatalf("Apply before Put error = %v", err)
+	}
+	put, err := manager.Put(ctx, withResourceID(t, resource, *created.Id))
 	if err != nil {
 		t.Fatalf("Put error = %v", err)
 	}
@@ -131,7 +138,7 @@ func TestFirmwareResourcePutAndErrors(t *testing.T) {
 	if _, err := unexpected.Get(ctx, apitypes.ResourceKindFirmware, "devkit"); !isResourceError(err, 500, "UNEXPECTED_SERVICE_RESPONSE") {
 		t.Fatalf("Get unexpected service error = %v", err)
 	}
-	if _, err := unexpected.Put(ctx, resource); !isResourceError(err, 500, "UNEXPECTED_SERVICE_RESPONSE") {
+	if _, err := unexpected.Put(ctx, updateResource); !isResourceError(err, 500, "UNEXPECTED_SERVICE_RESPONSE") {
 		t.Fatalf("Put unexpected service error = %v", err)
 	}
 	if _, err := unexpected.Delete(ctx, apitypes.ResourceKindFirmware, "devkit"); !isResourceError(err, 500, "UNEXPECTED_SERVICE_RESPONSE") {
@@ -176,9 +183,11 @@ func TestFirmwareResourceApplyUpdatesChangedSpec(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal second resource: %v", err)
 	}
-	if _, err := manager.Apply(ctx, first); err != nil {
+	created, err := manager.Apply(ctx, first)
+	if err != nil {
 		t.Fatalf("Apply first error = %v", err)
 	}
+	second = withResourceID(t, second, *created.Id)
 	result, err := manager.Apply(ctx, second)
 	if err != nil {
 		t.Fatalf("Apply update error = %v", err)

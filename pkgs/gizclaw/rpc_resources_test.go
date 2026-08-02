@@ -21,13 +21,13 @@ func TestRPCClientSafeResourceMethods(t *testing.T) {
 	workspace := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.WorkspaceGetResponse, error) {
 		return client.GetWorkspace(context.Background(), conn, "workspace-get", rpcapi.WorkspaceGetRequest{Name: "workspace-a"})
 	})
-	if workspace.Value.Name != "workspace-a" || workspace.Value.WorkflowAlias != "flow-a" {
+	if workspace.Value.Name != "workspace-a" || workspace.Value.WorkflowName != "flow-a" {
 		t.Fatalf("GetWorkspace() = %+v", workspace)
 	}
 	created := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.WorkspaceCreateResponse, error) {
-		return client.CreateWorkspace(context.Background(), conn, "workspace-create", rpcapi.WorkspaceCreateRequest{Name: "workspace-a", Collection: "assistants", WorkflowAlias: "flow-a"})
+		return client.CreateWorkspace(context.Background(), conn, "workspace-create", rpcapi.WorkspaceCreateRequest{Name: "workspace-a", Collection: "assistants", WorkflowName: "flow-a"})
 	})
-	if created.WorkflowAlias != "flow-a" {
+	if created.WorkflowName != "flow-a" {
 		t.Fatalf("CreateWorkspace() = %+v", created)
 	}
 	updated := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.WorkspacePutResponse, error) {
@@ -40,26 +40,26 @@ func TestRPCClientSafeResourceMethods(t *testing.T) {
 	workflowList := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.WorkflowListResponse, error) {
 		return client.ListWorkflows(context.Background(), conn, "workflow-list", rpcapi.WorkflowListRequest{Collection: "assistants"})
 	})
-	if len(workflowList.Items) != 1 || workflowList.Items[0].Alias != "flow-a" {
+	if len(workflowList.Items) != 1 || workflowList.Items[0].Name != "flow-a" {
 		t.Fatalf("ListWorkflows() = %+v", workflowList)
 	}
 	workflow := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.WorkflowGetResponse, error) {
-		return client.GetWorkflow(context.Background(), conn, "workflow-get", rpcapi.WorkflowGetRequest{Alias: "flow-a"})
+		return client.GetWorkflow(context.Background(), conn, "workflow-get", rpcapi.WorkflowGetRequest{Name: "flow-a"})
 	})
-	if workflow.Value.Alias != "flow-a" {
+	if workflow.Value.Name != "flow-a" {
 		t.Fatalf("GetWorkflow() = %+v", workflow)
 	}
 
 	modelList := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ModelListResponse, error) {
 		return client.ListModels(context.Background(), conn, "model-list", rpcapi.ModelListRequest{})
 	})
-	if len(modelList.Items) != 1 || modelList.Items[0].Alias != "model-a" {
+	if len(modelList.Items) != 1 || modelList.Items[0].Name != "model-a" {
 		t.Fatalf("ListModels() = %+v", modelList)
 	}
 	model := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ModelGetResponse, error) {
-		return client.GetModel(context.Background(), conn, "model-get", rpcapi.ModelGetRequest{Alias: "model-a"})
+		return client.GetModel(context.Background(), conn, "model-get", rpcapi.ModelGetRequest{Name: "model-a"})
 	})
-	if model.Value.Alias != "model-a" {
+	if model.Value.Name != "model-a" {
 		t.Fatalf("GetModel() = %+v", model)
 	}
 }
@@ -82,7 +82,7 @@ func (f *fakeRPCServerResourceService) Dispatch(_ context.Context, req *rpcapi.R
 		return resourceResponse(req.Id, rpcapi.WorkspaceGetResponse{Value: resourceWorkspace("workspace-a"), RuntimeProfileName: "default", RuntimeProfileRevision: "rev"}, (*rpcapi.RPCPayload).FromWorkspaceGetResponse), true, nil
 	case rpcapi.RPCMethodServerWorkspaceCreate:
 		params, err := req.Params.AsWorkspaceCreateRequest()
-		if err != nil || params.Collection != "assistants" || params.WorkflowAlias != "flow-a" {
+		if err != nil || params.Collection != "assistants" || params.WorkflowName != "flow-a" {
 			f.t.Fatalf("workspace.create params = %+v, %v", params, err)
 		}
 		return resourceResponse(req.Id, resourceWorkspace("workspace-a"), (*rpcapi.RPCPayload).FromWorkspaceCreateResponse), true, nil
@@ -111,21 +111,21 @@ func resourceResponse[T any](id string, value T, encode func(*rpcapi.RPCPayload,
 }
 
 func resourceWorkspace(name string) rpcapi.Workspace {
-	return rpcapi.Workspace{Name: name, WorkflowAlias: "flow-a"}
+	return rpcapi.Workspace{Name: name, WorkflowName: "flow-a"}
 }
 
 func resourceWorkflow(alias string) rpcapi.Workflow {
-	return rpcapi.Workflow{Alias: alias, Collection: "assistants", Driver: rpcapi.WorkflowDriverFlowcraft, I18n: resourceI18n(alias)}
+	return rpcapi.Workflow{Name: alias, Collection: "assistants", Driver: rpcapi.WorkflowDriverFlowcraft, I18n: resourceI18n(alias)}
 }
 
 func resourceModel(alias string) rpcapi.Model {
 	return rpcapi.Model{
-		Alias: alias, Kind: rpcapi.ModelKindLlm, I18n: resourceI18n(alias),
+		Name: alias, Kind: rpcapi.ModelKindLlm, I18n: resourceI18n(alias),
 		ProviderKind: rpcapi.ModelProviderKindOpenaiTenant,
 		OpenAITenant: &rpcapi.OpenAITenantModelProviderData{},
 	}
 }
 
-func resourceI18n(name string) map[string]rpcapi.AliasI18nText {
-	return map[string]rpcapi.AliasI18nText{"en": {DisplayName: name}, "zh-CN": {DisplayName: name}}
+func resourceI18n(name string) map[string]rpcapi.ResourceI18nText {
+	return map[string]rpcapi.ResourceI18nText{"en": {DisplayName: name}, "zh-CN": {DisplayName: name}}
 }

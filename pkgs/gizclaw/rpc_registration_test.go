@@ -32,7 +32,7 @@ func TestRPCRegistrationReplacesSnapshotAndRejectedTokenPreservesIt(t *testing.T
 	}
 
 	response := registerRPC(t, server, tokenA)
-	if response.RuntimeProfileName != "profile-a" || response.FirmwareID != nil {
+	if response.RuntimeProfileName != "profile-a" || response.FirmwareName != nil {
 		t.Fatalf("first registration = %#v", response)
 	}
 	if got := snapshot.Load(); got == nil || got.RuntimeProfile.Name != "profile-a" {
@@ -179,8 +179,8 @@ func TestRPCRegistrationPersistsAndReturnsFirmwareReleaseLine(t *testing.T) {
 	}
 	installTestSystemWorkflowResolver(registrations)
 	profileName := "h106-production"
-	profileResponse, err := registrations.PutRuntimeProfile(ctx, adminhttp.PutRuntimeProfileRequestObject{
-		Name: profileName,
+	registrations.NewID = func() string { return profileName }
+	profileResponse, err := registrations.CreateRuntimeProfile(ctx, adminhttp.CreateRuntimeProfileRequestObject{
 		Body: &adminhttp.RuntimeProfileUpsert{Name: profileName, Spec: apitypes.RuntimeProfileSpec{
 			Workflows: testRuntimeProfileWorkflows(),
 			Resources: apitypes.RuntimeProfileResources{},
@@ -189,12 +189,12 @@ func TestRPCRegistrationPersistsAndReturnsFirmwareReleaseLine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := profileResponse.(adminhttp.PutRuntimeProfile200JSONResponse); !ok {
-		t.Fatalf("PutRuntimeProfile() = %#v", profileResponse)
+	if _, ok := profileResponse.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
+		t.Fatalf("CreateRuntimeProfile() = %#v", profileResponse)
 	}
 	firmwareID := "h106"
 	tokenResponse, err := registrations.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "h106-token", Token: "h106-registration", RuntimeProfileName: profileName, FirmwareId: &firmwareID,
+		Name: "h106-token", Token: "h106-registration", RuntimeProfileId: profileName, FirmwareId: &firmwareID,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -218,7 +218,7 @@ func TestRPCRegistrationPersistsAndReturnsFirmwareReleaseLine(t *testing.T) {
 		},
 	}
 	response := registerRPC(t, server, created.Token)
-	if response.RuntimeProfileName != profileName || response.FirmwareID == nil || *response.FirmwareID != firmwareID {
+	if response.RuntimeProfileName != profileName || response.FirmwareName == nil || *response.FirmwareName != firmwareID {
 		t.Fatalf("server.register = %#v", response)
 	}
 	stored, err := peers.LoadPeer(ctx, publicKey)
@@ -239,7 +239,7 @@ func TestRPCRegistrationFirmwareBindingFailurePreservesSnapshot(t *testing.T) {
 	registrations := firmwareRegistrationServer(t, "h106-production", "h106")
 	firmwareID := "h106"
 	tokenResponse, err := registrations.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "h106-token", Token: "h106-registration", RuntimeProfileName: "h106-production", FirmwareId: &firmwareID,
+		Name: "h106-token", Token: "h106-registration", RuntimeProfileId: "h106-production", FirmwareId: &firmwareID,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -287,7 +287,7 @@ func TestRPCRegistrationOwnerProfileBindingFailurePreservesFirmware(t *testing.T
 	}
 	firmwareID := "h106"
 	tokenResponse, err := registrations.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "h106-token", Token: "h106-registration", RuntimeProfileName: "h106-production", FirmwareId: &firmwareID,
+		Name: "h106-token", Token: "h106-registration", RuntimeProfileId: "h106-production", FirmwareId: &firmwareID,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -380,6 +380,7 @@ func firmwareRegistrationServer(t *testing.T, profileName, firmwareID string) *r
 	t.Helper()
 	server := &runtimeprofile.Server{
 		Store: kv.NewMemory(nil),
+		NewID: func() string { return profileName },
 		ResolveResource: func(_ context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
 			if kind != apitypes.ResourceKindFirmware || name != firmwareID {
 				return apitypes.Resource{}, kv.ErrNotFound
@@ -394,8 +395,7 @@ func firmwareRegistrationServer(t *testing.T, profileName, firmwareID string) *r
 		},
 	}
 	installTestSystemWorkflowResolver(server)
-	response, err := server.PutRuntimeProfile(context.Background(), adminhttp.PutRuntimeProfileRequestObject{
-		Name: profileName,
+	response, err := server.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{
 		Body: &adminhttp.RuntimeProfileUpsert{Name: profileName, Spec: apitypes.RuntimeProfileSpec{
 			Workflows: testRuntimeProfileWorkflows(),
 			Resources: apitypes.RuntimeProfileResources{},
@@ -404,8 +404,8 @@ func firmwareRegistrationServer(t *testing.T, profileName, firmwareID string) *r
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := response.(adminhttp.PutRuntimeProfile200JSONResponse); !ok {
-		t.Fatalf("PutRuntimeProfile() = %#v", response)
+	if _, ok := response.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
+		t.Fatalf("CreateRuntimeProfile() = %#v", response)
 	}
 	return server
 }
@@ -419,8 +419,8 @@ func registrationServerAndToken(t *testing.T, profileName string) (*runtimeprofi
 func createRegistrationToken(t *testing.T, server *runtimeprofile.Server, profileName string) string {
 	t.Helper()
 	ctx := context.Background()
-	profileResponse, err := server.PutRuntimeProfile(ctx, adminhttp.PutRuntimeProfileRequestObject{
-		Name: profileName,
+	server.NewID = func() string { return profileName }
+	profileResponse, err := server.CreateRuntimeProfile(ctx, adminhttp.CreateRuntimeProfileRequestObject{
 		Body: &adminhttp.RuntimeProfileUpsert{
 			Name: profileName,
 			Spec: apitypes.RuntimeProfileSpec{
@@ -432,14 +432,14 @@ func createRegistrationToken(t *testing.T, server *runtimeprofile.Server, profil
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := profileResponse.(adminhttp.PutRuntimeProfile200JSONResponse); !ok {
-		t.Fatalf("put RuntimeProfile = %#v", profileResponse)
+	if _, ok := profileResponse.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
+		t.Fatalf("create RuntimeProfile = %#v", profileResponse)
 	}
 	tokenResponse, err := server.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{
 		Body: &adminhttp.RegistrationTokenUpsert{
-			Name:               "token-" + profileName,
-			Token:              "registration-" + profileName,
-			RuntimeProfileName: profileName,
+			Name:             "token-" + profileName,
+			Token:            "registration-" + profileName,
+			RuntimeProfileId: profileName,
 		},
 	})
 	if err != nil {

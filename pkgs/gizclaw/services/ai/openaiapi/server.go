@@ -280,7 +280,7 @@ func modelListFromResponse(resp adminhttp.ListModelsResponseObject) (adminhttp.M
 }
 
 func openAIModel(model apitypes.Model) openaihttp.Model {
-	owner := strings.TrimSpace(model.Provider.Name)
+	owner := strings.TrimSpace(model.Provider.Id)
 	if owner == "" {
 		owner = strings.TrimSpace(string(model.Provider.Kind))
 	}

@@ -21,15 +21,15 @@ void main() {
 
   test('projects a dynamic workflow with runtime i18n', () {
     final workflow = Workflow(
-      alias: 'journey',
+      name: 'journey',
       collection: 'raids',
       driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
       i18n: {
-        'en': AliasI18nText(
+        'en': ResourceI18nText(
           displayName: 'Journey',
           description: 'A dynamic adventure',
         ),
-        'zh-CN': AliasI18nText(displayName: '赛博佩特', description: '动态大冒险'),
+        'zh-CN': ResourceI18nText(displayName: '赛博佩特', description: '动态大冒险'),
       }.entries,
     );
 
@@ -47,11 +47,11 @@ void main() {
   test('projects AST workspace language metadata independently of alias', () {
     final card = appWorkflowCard(
       Workflow(
-        alias: 'japanese',
+        name: 'japanese',
         collection: 'translates',
         driver: WorkflowDriver.WORKFLOW_DRIVER_AST_TRANSLATE,
         workspaceLangPair: 'zh/ja',
-        i18n: {'en': AliasI18nText(displayName: 'Japanese')}.entries,
+        i18n: {'en': ResourceI18nText(displayName: 'Japanese')}.entries,
       ),
       const Locale('en'),
     );
@@ -70,7 +70,7 @@ void main() {
     for (final entry in drivers.entries) {
       final card = appWorkflowCard(
         Workflow(
-          alias: entry.value.routeKey,
+          name: entry.value.routeKey,
           collection: 'assistants',
           driver: entry.key,
         ),
@@ -83,7 +83,7 @@ void main() {
   test('keeps text-only Eino unavailable in the voice-only app', () {
     final card = appWorkflowCard(
       Workflow(
-        alias: 'eino',
+        name: 'eino',
         collection: 'assistants',
         driver: WorkflowDriver.WORKFLOW_DRIVER_EINO,
       ),
@@ -95,9 +95,9 @@ void main() {
   test('falls back to English and marks unknown drivers unavailable', () {
     final card = appWorkflowCard(
       Workflow(
-        alias: 'future-workflow',
+        name: 'future-workflow',
         collection: 'assistants',
-        i18n: {'en': AliasI18nText(displayName: 'Future Workflow')}.entries,
+        i18n: {'en': ResourceI18nText(displayName: 'Future Workflow')}.entries,
       ),
       const Locale('fr'),
     );

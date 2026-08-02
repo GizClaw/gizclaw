@@ -116,7 +116,7 @@ export function ContactsListPage(): JSX.Element {
         createContact({
           body: {
             display_name: displayName.trim() || undefined,
-            id: contactID.trim() || undefined,
+            name: contactID.trim(),
             owner_public_key: ownerPublicKey.trim(),
             phone_number: phoneNumber.trim() || undefined,
           },
@@ -202,10 +202,10 @@ export function ContactsListPage(): JSX.Element {
                 value={ownerPublicKey}
               />
             </FormField>
-            <FormField label="Contact id">
+            <FormField label="Contact name">
               <Input
                 onChange={(event) => setContactID(event.target.value)}
-                placeholder="Optional owner-scoped id"
+                placeholder="Owner-scoped name"
                 value={contactID}
               />
             </FormField>
@@ -236,6 +236,7 @@ export function ContactsListPage(): JSX.Element {
                 disabled={
                   busy !== "" ||
                   ownerPublicKey.trim() === "" ||
+                  contactID.trim() === "" ||
                   (displayName.trim() === "" && phoneNumber.trim() === "")
                 }
                 onClick={() => void create()}

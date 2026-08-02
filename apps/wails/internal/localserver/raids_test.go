@@ -208,8 +208,8 @@ func TestSelectRaidsDependenciesIncludesOnlyProfileClosure(t *testing.T) {
 	}}
 	index := map[string]map[string]raidsCandidate{
 		"Workflow":     {"journey": {kind: "Workflow", name: "journey"}, "chatroom": {kind: "Workflow", name: "chatroom"}},
-		"Model":        {"chat-model": {kind: "Model", name: "chat-model", providerKind: "volc-tenant", providerName: "volc"}},
-		"Voice":        {"story-voice": {kind: "Voice", name: "story-voice", providerKind: "volc-tenant", providerName: "volc"}},
+		"Model":        {"chat-model": {kind: "Model", name: "chat-model", providerKind: "volc-tenant", providerID: "volc"}},
+		"Voice":        {"story-voice": {kind: "Voice", name: "story-voice", providerKind: "volc-tenant", providerID: "volc"}},
 		"PetDef":       {"petdef-codex": {kind: "PetDef", name: "petdef-codex"}},
 		"MemoryLayout": {"pet-memory": {kind: "MemoryLayout", name: "pet-memory"}},
 		"VolcTenant":   {"volc": {kind: "VolcTenant", name: "volc", credentialName: "volc-credential"}},

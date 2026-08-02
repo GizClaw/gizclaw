@@ -11,6 +11,7 @@ import (
 func TestApplyResourceListRecurses(t *testing.T) {
 	credentials := newFakeCredentials()
 	credentials.items["existing"] = apitypes.Credential{
+		Id:        "existing",
 		Body:      testOpenAICredentialBody("old"),
 		CreatedAt: time.Now().UTC(),
 		Name:      "existing",
@@ -28,7 +29,7 @@ func TestApplyResourceListRecurses(t *testing.T) {
 				{
 					"apiVersion": "gizclaw.admin/v1alpha1",
 					"kind": "Credential",
-					"metadata": {"name": "existing"},
+					"metadata": {"id": "existing", "name": "existing"},
 					"spec": {
 						"provider": "minimax",
 						"body": {"api_key": "old"}
@@ -67,16 +68,16 @@ func TestPutResourceListRecurses(t *testing.T) {
 	credentials := newFakeCredentials()
 	manager := New(Services{Credentials: credentials})
 
-	resource, err := manager.Put(context.Background(), mustResource(t, `{
+	_, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "ResourceList",
-		"metadata": {"name": "bundle"},
+		"metadata": {"id": "bundle", "name": "bundle"},
 		"spec": {
 			"items": [
 				{
 					"apiVersion": "gizclaw.admin/v1alpha1",
 					"kind": "Credential",
-					"metadata": {"name": "created"},
+					"metadata": {"id": "created", "name": "created"},
 					"spec": {
 						"provider": "minimax",
 						"body": {"api_key": "new"}
@@ -85,20 +86,5 @@ func TestPutResourceListRecurses(t *testing.T) {
 			]
 		}
 	}`))
-	if err != nil {
-		t.Fatalf("Put returned error: %v", err)
-	}
-	list, err := resource.AsResourceListResource()
-	if err != nil {
-		t.Fatalf("AsResourceListResource returned error: %v", err)
-	}
-	if list.Metadata.Name != "bundle" {
-		t.Fatalf("metadata.name = %q, want bundle", list.Metadata.Name)
-	}
-	if len(list.Spec.Items) != 1 {
-		t.Fatalf("items len = %d, want 1", len(list.Spec.Items))
-	}
-	if credentials.putCount != 1 {
-		t.Fatalf("putCount = %d, want 1", credentials.putCount)
-	}
+	assertResourceError(t, err, 400, "UNSUPPORTED_RESOURCE_PUT")
 }
