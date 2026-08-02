@@ -133,7 +133,7 @@ func establishmentWithin(summary establishmentSummary, config artifactConfig) bo
 }
 
 func durationFromMilliseconds(value float64) time.Duration {
-	return time.Duration(math.Round(value * float64(time.Millisecond)))
+	return time.Duration(math.Ceil(value * float64(time.Millisecond)))
 }
 
 func sortedEstablishmentAttempts(attempts []establishmentSessionResult) []establishmentSessionResult {

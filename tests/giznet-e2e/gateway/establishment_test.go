@@ -55,9 +55,11 @@ func TestEstablishmentWithinAppliesRateAndDialGates(t *testing.T) {
 		t.Fatal("establishment at each gate did not pass")
 	}
 	for name, summary := range map[string]establishmentSummary{
-		"rate": {UsableSessionsPerSecond: 19.99, Dial: passing.Dial},
-		"p95":  {UsableSessionsPerSecond: 20, Dial: latencySummary{P95: 1001, P99: 5000}},
-		"p99":  {UsableSessionsPerSecond: 20, Dial: latencySummary{P95: 1000, P99: 5001}},
+		"rate":           {UsableSessionsPerSecond: 19.99, Dial: passing.Dial},
+		"p95":            {UsableSessionsPerSecond: 20, Dial: latencySummary{P95: 1001, P99: 5000}},
+		"p95 fractional": {UsableSessionsPerSecond: 20, Dial: latencySummary{P95: 1000.0000001, P99: 5000}},
+		"p99":            {UsableSessionsPerSecond: 20, Dial: latencySummary{P95: 1000, P99: 5001}},
+		"p99 fractional": {UsableSessionsPerSecond: 20, Dial: latencySummary{P95: 1000, P99: 5000.0000001}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if establishmentWithin(summary, config) {
