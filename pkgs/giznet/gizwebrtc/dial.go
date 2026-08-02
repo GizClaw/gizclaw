@@ -60,6 +60,12 @@ func newDialTimingRecorder() *dialTimingRecorder {
 	return &dialTimingRecorder{started: time.Now()}
 }
 
+func (r *dialTimingRecorder) update(update func(*DialTiming)) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	update(&r.timing)
+}
+
 func (r *dialTimingRecorder) startRemoteDescription() {
 	r.mu.Lock()
 	r.remoteStarted = time.Now()
@@ -138,7 +144,9 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 	}
 	started := time.Now()
 	pc, err := api.NewPeerConnection(peerConnectionConfiguration(cfg.ICEServers, cfg.ICETransportPolicy))
-	timing.timing.PeerConnectionConstruction = time.Since(started)
+	timing.update(func(t *DialTiming) {
+		t.PeerConnectionConstruction = time.Since(started)
+	})
 	if err != nil {
 		_ = l.Close()
 		return nil, nil, err
@@ -189,7 +197,9 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 	gatherComplete := webrtc.GatheringCompletePromise(pc)
 	started = time.Now()
 	offer, err := pc.CreateOffer(nil)
-	timing.timing.OfferCreation = time.Since(started)
+	timing.update(func(t *DialTiming) {
+		t.OfferCreation = time.Since(started)
+	})
 	if err != nil {
 		_ = conn.Close()
 		_ = l.Close()
@@ -197,20 +207,28 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 	}
 	started = time.Now()
 	if err := pc.SetLocalDescription(offer); err != nil {
-		timing.timing.SetLocalDescription = time.Since(started)
+		timing.update(func(t *DialTiming) {
+			t.SetLocalDescription = time.Since(started)
+		})
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, err
 	}
-	timing.timing.SetLocalDescription = time.Since(started)
+	timing.update(func(t *DialTiming) {
+		t.SetLocalDescription = time.Since(started)
+	})
 	started = time.Now()
 	if err := waitForGathering(ctx, gatherComplete); err != nil {
-		timing.timing.ICEGathering = time.Since(started)
+		timing.update(func(t *DialTiming) {
+			t.ICEGathering = time.Since(started)
+		})
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, err
 	}
-	timing.timing.ICEGathering = time.Since(started)
+	timing.update(func(t *DialTiming) {
+		t.ICEGathering = time.Since(started)
+	})
 	if pc.LocalDescription() == nil {
 		_ = conn.Close()
 		_ = l.Close()
@@ -218,7 +236,9 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 	}
 	started = time.Now()
 	answerSDP, err := postOffer(ctx, key, serverPK, pc.LocalDescription().SDP, cfg)
-	timing.timing.HTTPSignaling = time.Since(started)
+	timing.update(func(t *DialTiming) {
+		t.HTTPSignaling = time.Since(started)
+	})
 	if err != nil {
 		_ = conn.Close()
 		_ = l.Close()
@@ -227,12 +247,16 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 	timing.startRemoteDescription()
 	started = time.Now()
 	if err := pc.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeAnswer, SDP: answerSDP}); err != nil {
-		timing.timing.SetRemoteDescription = time.Since(started)
+		timing.update(func(t *DialTiming) {
+			t.SetRemoteDescription = time.Since(started)
+		})
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, err
 	}
-	timing.timing.SetRemoteDescription = time.Since(started)
+	timing.update(func(t *DialTiming) {
+		t.SetRemoteDescription = time.Since(started)
+	})
 	if err := waitForPacketChannel(ctx, conn.readyCh); err != nil {
 		_ = conn.Close()
 		_ = l.Close()
@@ -245,7 +269,8 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		sctp.Transport().State() == webrtc.DTLSTransportStateConnected {
 		timing.markDTLSConnected()
 	}
-	timing.timing.DataChannelReady = timing.sinceRemote()
+	dataChannelReady := timing.sinceRemote()
+	timing.update(func(t *DialTiming) { t.DataChannelReady = dataChannelReady })
 	l.enqueueConn(conn)
 	return l, conn, nil
 }
