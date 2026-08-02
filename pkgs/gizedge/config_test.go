@@ -524,7 +524,7 @@ func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 	first := startUpstream("first", "first")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	transport, err := newUpstreamTransport(ctx, cfg, upstreamURL)
+	transport, err := newUpstreamTransport(ctx, cfg, upstreamURL, nil)
 	if err != nil {
 		t.Fatalf("newUpstreamTransport error = %v", err)
 	}
@@ -594,7 +594,16 @@ func TestUpstreamTransportResetsClosedConnectionOnCanceledRequest(t *testing.T) 
 		t.Fatalf("http.NewRequestWithContext error = %v", err)
 	}
 	conn := &failingGiznetConn{dialErr: giznet.ErrConnClosed, state: giznet.PeerStateOffline}
-	transport := &upstreamTransport{conn: conn, connEpoch: 1}
+	selector, err := newUpstreamRelaySelector(testUpstreamRelayConfig(t))
+	if err != nil {
+		t.Fatalf("newUpstreamRelaySelector error = %v", err)
+	}
+	transport := &upstreamTransport{
+		ctx:          context.Background(),
+		conn:         conn,
+		relayAttempt: selector.markSuccess(0),
+		connEpoch:    1,
+	}
 
 	if _, err := transport.RoundTrip(req); !errors.Is(err, giznet.ErrConnClosed) {
 		t.Fatalf("RoundTrip error = %v, want giznet.ErrConnClosed", err)
@@ -602,12 +611,40 @@ func TestUpstreamTransportResetsClosedConnectionOnCanceledRequest(t *testing.T) 
 	if !conn.closed || transport.conn != nil {
 		t.Fatalf("closed upstream remained cached: closed=%t conn=%v", conn.closed, transport.conn)
 	}
+	if selector.members[0].failures != 0 {
+		t.Fatal("canceled request penalized its relay")
+	}
+}
+
+func TestUpstreamTransportReportsPhysicalRelayFailure(t *testing.T) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "http://gizclaw/login", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequestWithContext error = %v", err)
+	}
+	conn := &failingGiznetConn{dialErr: giznet.ErrConnClosed, state: giznet.PeerStateOffline}
+	selector, err := newUpstreamRelaySelector(testUpstreamRelayConfig(t))
+	if err != nil {
+		t.Fatalf("newUpstreamRelaySelector error = %v", err)
+	}
+	transport := &upstreamTransport{
+		ctx:          context.Background(),
+		conn:         conn,
+		relayAttempt: selector.markSuccess(0),
+		connEpoch:    1,
+	}
+
+	if _, err := transport.RoundTrip(req); !errors.Is(err, giznet.ErrConnClosed) {
+		t.Fatalf("RoundTrip error = %v, want giznet.ErrConnClosed", err)
+	}
+	if selector.members[0].failures != 1 {
+		t.Fatalf("relay failure count = %d, want 1", selector.members[0].failures)
+	}
 }
 
 func TestUpstreamTransportDoesNotResetReplacementConnection(t *testing.T) {
 	replacement := &failingGiznetConn{state: giznet.PeerStateEstablished}
 	transport := &upstreamTransport{conn: replacement, connEpoch: 2}
-	transport.resetConn(1)
+	transport.resetConn(1, false)
 	if replacement.closed || transport.conn != replacement {
 		t.Fatal("stale request reset the replacement upstream connection")
 	}
@@ -636,6 +673,7 @@ func edgeHTTPGetBody(t *testing.T, client *http.Client) string {
 
 type failingGiznetConn struct {
 	dialErr error
+	readErr error
 	closed  bool
 	state   giznet.PeerState
 }
@@ -649,7 +687,7 @@ func (c *failingGiznetConn) ListenService(uint64) giznet.ServiceListener {
 }
 
 func (c *failingGiznetConn) CloseService(uint64) error       { return nil }
-func (c *failingGiznetConn) Read([]byte) (byte, int, error)  { return 0, 0, nil }
+func (c *failingGiznetConn) Read([]byte) (byte, int, error)  { return 0, 0, c.readErr }
 func (c *failingGiznetConn) Write(byte, []byte) (int, error) { return 0, nil }
 func (c *failingGiznetConn) PublicKey() giznet.PublicKey     { return giznet.PublicKey{} }
 func (c *failingGiznetConn) PeerInfo() *giznet.PeerInfo      { return &giznet.PeerInfo{State: c.state} }

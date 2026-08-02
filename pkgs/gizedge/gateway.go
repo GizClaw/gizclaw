@@ -63,7 +63,12 @@ type gatewaySession struct {
 	logical *giztunnel.Conn
 }
 
-func newGateway(parent context.Context, cfg Config, upstreamURL *url.URL) (*Gateway, error) {
+func newGateway(
+	parent context.Context,
+	cfg Config,
+	upstreamURL *url.URL,
+	relaySelector *upstreamRelaySelector,
+) (*Gateway, error) {
 	ctx, cancel := context.WithCancel(parent)
 	listener, err := (&gizwebrtc.ListenConfig{
 		ICEUDPAddr:        cfg.Gateway.ICEUDPListen,
@@ -75,7 +80,7 @@ func newGateway(parent context.Context, cfg Config, upstreamURL *url.URL) (*Gate
 		cancel()
 		return nil, fmt.Errorf("edge: start gateway listener: %w", err)
 	}
-	pool := newGatewayPool(ctx, cfg, upstreamURL)
+	pool := newGatewayPool(ctx, cfg, upstreamURL, relaySelector)
 	if err := pool.ensureOne(ctx); err != nil {
 		_ = listener.Close()
 		cancel()
@@ -508,6 +513,7 @@ type gatewayPool struct {
 	ctx         context.Context
 	cfg         Config
 	upstreamURL *url.URL
+	relay       *upstreamRelaySelector
 	newUpstream func(context.Context) (*gatewayUpstream, error)
 
 	mu         sync.Mutex
@@ -519,21 +525,28 @@ type gatewayPool struct {
 }
 
 type gatewayUpstream struct {
-	id       uint64
-	pool     *gatewayPool
-	conn     giznet.Conn
-	listener giznet.Listener
-	packets  *giztunnel.PacketMux
+	id           uint64
+	pool         *gatewayPool
+	conn         giznet.Conn
+	listener     giznet.Listener
+	packets      *giztunnel.PacketMux
+	relayAttempt *upstreamRelayAttempt
 
 	active    int
 	opened    int
 	draining  bool
 	failed    bool
+	closing   atomic.Bool
 	closeOnce sync.Once
 }
 
-func newGatewayPool(ctx context.Context, cfg Config, upstreamURL *url.URL) *gatewayPool {
-	return &gatewayPool{ctx: ctx, cfg: cfg, upstreamURL: upstreamURL}
+func newGatewayPool(
+	ctx context.Context,
+	cfg Config,
+	upstreamURL *url.URL,
+	relay *upstreamRelaySelector,
+) *gatewayPool {
+	return &gatewayPool{ctx: ctx, cfg: cfg, upstreamURL: upstreamURL, relay: relay}
 }
 
 func (p *gatewayPool) ensureOne(ctx context.Context) error {
@@ -716,15 +729,16 @@ func (p *gatewayPool) dial(ctx context.Context) (*gatewayUpstream, error) {
 		entry.pool = p
 		return entry, nil
 	}
-	conn, listener, err := dialUpstream(ctx, p.cfg, p.upstreamURL)
+	conn, listener, relayAttempt, err := dialUpstream(ctx, p.cfg, p.upstreamURL, p.relay)
 	if err != nil {
 		return nil, err
 	}
 	entry := &gatewayUpstream{
-		pool:     p,
-		conn:     conn,
-		listener: listener,
-		packets:  giztunnel.NewPacketMux(conn),
+		pool:         p,
+		conn:         conn,
+		listener:     listener,
+		packets:      giztunnel.NewPacketMux(conn),
+		relayAttempt: relayAttempt,
 	}
 	go entry.readPackets()
 	return entry, nil
@@ -787,6 +801,9 @@ func (e *gatewayUpstream) readPackets() {
 	for {
 		protocol, n, err := e.conn.Read(buf)
 		if err != nil {
+			if !e.closing.Load() && e.pool.contextErr() == nil {
+				e.relayAttempt.reportFailure()
+			}
 			e.pool.markFailed(e)
 			return
 		}
@@ -806,6 +823,7 @@ func (e *gatewayUpstream) close() error {
 	}
 	var err error
 	e.closeOnce.Do(func() {
+		e.closing.Store(true)
 		if e.packets != nil {
 			err = errors.Join(err, e.packets.Close())
 		}

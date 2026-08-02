@@ -43,13 +43,17 @@ func ServeContext(ctx context.Context, root string) error {
 	if err != nil {
 		return err
 	}
+	relaySelector, err := newUpstreamRelaySelector(cfg)
+	if err != nil {
+		return fmt.Errorf("edge: prepare upstream relay selector: %w", err)
+	}
 	turnRuntime, err := startTURN(cfg.TURN)
 	if err != nil {
 		return err
 	}
 	defer turnRuntime.Close()
 
-	upstreamTransport, err := newUpstreamTransport(ctx, cfg, upstreamURL)
+	upstreamTransport, err := newUpstreamTransport(ctx, cfg, upstreamURL, relaySelector)
 	if err != nil {
 		return err
 	}
@@ -57,7 +61,7 @@ func ServeContext(ctx context.Context, root string) error {
 
 	var gateway *Gateway
 	if cfg.Gateway.Enabled {
-		gateway, err = newGateway(ctx, cfg, upstreamURL)
+		gateway, err = newGateway(ctx, cfg, upstreamURL, relaySelector)
 		if err != nil {
 			return err
 		}
@@ -116,20 +120,32 @@ func shutdownHTTPServer(server *http.Server, errCh <-chan error, timeout time.Du
 	return errors.Join(shutdownErr, serveErr)
 }
 
-func dialUpstream(ctx context.Context, cfg Config, upstreamURL *url.URL) (giznet.Conn, giznet.Listener, error) {
+func dialUpstream(
+	ctx context.Context,
+	cfg Config,
+	upstreamURL *url.URL,
+	relaySelector *upstreamRelaySelector,
+) (giznet.Conn, giznet.Listener, *upstreamRelayAttempt, error) {
 	if cfg.Upstream.PublicKey.IsZero() {
-		return nil, nil, fmt.Errorf("edge: missing upstream.public-key")
+		return nil, nil, nil, fmt.Errorf("edge: missing upstream.public-key")
 	}
-	dialCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	dialCtx, cancel := context.WithTimeout(ctx, upstreamDialTimeout)
 	defer cancel()
+	if relaySelector != nil {
+		conn, listener, attempt, err := relaySelector.dialUpstream(dialCtx, cfg, upstreamURL)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("edge: dial upstream server: %w", err)
+		}
+		return conn, listener, attempt, nil
+	}
 	listener, conn, err := gizwebrtc.Dial(dialCtx, cfg.KeyPair, cfg.Upstream.PublicKey, gizwebrtc.DialConfig{
 		SignalingURL:   upstreamSignalingURL(upstreamURL),
 		SecurityPolicy: edgeSecurityPolicy{},
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("edge: dial upstream server: %w", err)
+		return nil, nil, nil, fmt.Errorf("edge: dial upstream server: %w", err)
 	}
-	return conn, listener, nil
+	return conn, listener, nil, nil
 }
 
 func upstreamSignalingURL(upstreamURL *url.URL) string {
@@ -144,15 +160,22 @@ type upstreamTransport struct {
 	ctx         context.Context
 	cfg         Config
 	upstreamURL *url.URL
+	relay       *upstreamRelaySelector
 
-	mu        sync.Mutex
-	conn      giznet.Conn
-	listener  giznet.Listener
-	connEpoch uint64
+	mu           sync.Mutex
+	conn         giznet.Conn
+	listener     giznet.Listener
+	relayAttempt *upstreamRelayAttempt
+	connEpoch    uint64
 }
 
-func newUpstreamTransport(ctx context.Context, cfg Config, upstreamURL *url.URL) (*upstreamTransport, error) {
-	transport := &upstreamTransport{ctx: ctx, cfg: cfg, upstreamURL: upstreamURL}
+func newUpstreamTransport(
+	ctx context.Context,
+	cfg Config,
+	upstreamURL *url.URL,
+	relay *upstreamRelaySelector,
+) (*upstreamTransport, error) {
+	transport := &upstreamTransport{ctx: ctx, cfg: cfg, upstreamURL: upstreamURL, relay: relay}
 	if _, _, err := transport.currentConn(); err != nil {
 		return nil, err
 	}
@@ -167,7 +190,8 @@ func (t *upstreamTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	if !upstreamConnectionFailed(conn, err) {
 		return nil, err
 	}
-	t.resetConn(epoch)
+	reportRelayFailure := req.Context().Err() == nil && t.ctx.Err() == nil
+	t.resetConn(epoch, reportRelayFailure)
 	if req.Context().Err() != nil {
 		return nil, err
 	}
@@ -193,12 +217,13 @@ func (t *upstreamTransport) currentConn() (giznet.Conn, uint64, error) {
 	if t.conn != nil {
 		return t.conn, t.connEpoch, nil
 	}
-	conn, listener, err := dialUpstream(t.ctx, t.cfg, t.upstreamURL)
+	conn, listener, relayAttempt, err := dialUpstream(t.ctx, t.cfg, t.upstreamURL, t.relay)
 	if err != nil {
 		return nil, 0, err
 	}
 	t.conn = conn
 	t.listener = listener
+	t.relayAttempt = relayAttempt
 	t.connEpoch++
 	return conn, t.connEpoch, nil
 }
@@ -214,11 +239,14 @@ func upstreamConnectionFailed(conn giznet.Conn, err error) bool {
 	return info != nil && info.State == giznet.PeerStateOffline
 }
 
-func (t *upstreamTransport) resetConn(epoch uint64) {
+func (t *upstreamTransport) resetConn(epoch uint64, reportRelayFailure bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if epoch == 0 || epoch != t.connEpoch {
 		return
+	}
+	if reportRelayFailure {
+		t.relayAttempt.reportFailure()
 	}
 	t.closeLocked()
 }
@@ -239,6 +267,7 @@ func (t *upstreamTransport) closeLocked() error {
 		errs = append(errs, t.listener.Close())
 		t.listener = nil
 	}
+	t.relayAttempt = nil
 	return errors.Join(errs...)
 }
 

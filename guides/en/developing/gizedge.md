@@ -18,6 +18,7 @@ pkgs/gizedge/
 ├── config.go     # Edge workspace configuration and boundary validation
 ├── edge.go       # public ingress, upstream connections, and request forwarding
 ├── gateway.go    # client termination, logical connections, and bounded upstream pool
+├── upstream_relay.go # shared upstream TURN selection and health
 └── turn.go       # optional TURN server runtime
 ```
 
@@ -80,7 +81,8 @@ The Edge workspace configuration describes the basic information required to run
 
 - The Edge Node's own giznet identity.
 - Public HTTP listen address and external endpoint.
-- The endpoint and public key of a single upstream Server.
+- The endpoint and public key of a single upstream Server, plus an optional
+  relay-only TURN pool for Edge-to-Server PeerConnections.
 - Selection of TLS certificate source.
 - Optional TURN listener, public endpoint, relay address, credential and relay port range.
 - Optional gateway ICE UDP listener, public endpoint, capacity, upstream pool,
@@ -107,6 +109,50 @@ Edge ingress does not have business implementations of Peer HTTP, OpenAI-compati
 The Edge uses `pkgs/giznet/gizwebrtc` to connect to the configured authoritative
 Server. `ServiceEdgeHTTP` carries public HTTP forwarding and
 `ServiceEdgeTunnel` carries gateway logical sessions.
+
+By default, omitting `upstream.ice-transport-policy` and
+`upstream.ice-servers` preserves direct ICE. A relay deployment sets a pool of
+at least two literal-IP TURN/UDP members:
+
+```yaml
+upstream:
+  endpoint: https://server.example.invalid:9820
+  public-key: <authoritative-server-key>
+  ice-transport-policy: relay
+  ice-servers:
+    - urls: [turn:192.0.2.10:3478?transport=udp]
+      username: <turn-rest-key-id>
+      credential: <turn-rest-shared-secret>
+      credential-mode: turn-rest
+    - urls: [turn:192.0.2.11:3478?transport=udp]
+      username: <turn-rest-key-id>
+      credential: <turn-rest-shared-secret>
+      credential-mode: turn-rest
+```
+
+Relay mode passes exactly one pool member and relay-only ICE to each new
+upstream PeerConnection. HTTP forwarding and gateway upstreams share one
+process-local round-robin health selector. A failed relay enters bounded
+exponential backoff; another eligible member is tried within the existing
+30-second connection budget, with at most five seconds per member. There is no
+direct fallback. Successful reconnection clears that member's failure state,
+while request cancellation, Edge shutdown, and individual logical-session
+failure do not penalize it. Established gateway sessions remain pinned and may
+fail with their physical upstream; a fresh client reconnect selects from the
+current healthy pool.
+
+Every pool member has exactly one lowercase `turn:` URL with a literal IPv4 or
+bracketed IPv6 address, an explicit port, and only `transport=udp`. Static mode
+(explicit or default) requires both `username` and `credential`. `turn-rest`
+requires the shared-secret `credential`; its configured username/key ID is
+optional. Invalid, duplicate, partial, hostname-based, TCP, or TLS relay
+configuration fails before the Edge starts a listener.
+
+Relay selection never changes `upstream.endpoint`, `upstream.public-key`, or
+the Server identity used by signaling. The top-level `turn` block is separate:
+it runs a downstream TURN server for device-to-Edge transport and is not a
+member of the Edge-to-Server upstream pool. Relay usernames, credentials, SDP,
+ICE candidate bodies, and business payloads must not be logged.
 
 Each gateway upstream is one WebRTC PeerConnection and SCTP association. Every
 logical session has its own `ServiceEdgeTunnel` DataChannel on its selected
