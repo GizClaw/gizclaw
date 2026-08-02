@@ -18,8 +18,15 @@ const (
 	defaultStreamQueueSize  = 32
 	defaultServiceQueueSize = 16
 	defaultHandshakeTimeout = 10 * time.Second
-	streamChunkSize         = 16 * 1024
+	// Leave room for the tunnel frame and stream ID so one chunk fits exactly
+	// in a stable 32 KiB WebRTC DataChannel write.
+	streamChunkSize = 32*1024 - frameHeaderSize - 8
 )
+
+var streamBufferPool = sync.Pool{New: func() any {
+	buffer := make([]byte, 0, streamChunkSize)
+	return &buffer
+}}
 
 type Config struct {
 	MaxFrameSize       int
@@ -70,6 +77,8 @@ type Conn struct {
 	serviceCh     chan acceptedService
 	nextID        atomic.Uint64
 	localIDParity uint64
+	bufferMu      sync.Mutex
+	bufferWake    chan struct{}
 	buffered      atomic.Int64
 	lastSeen      atomic.Int64
 	closeOnce     sync.Once
@@ -516,25 +525,42 @@ func (c *Conn) touch() {
 	}
 }
 
-func (c *Conn) reserve(size int) bool {
-	if size < 0 {
-		return false
+func (c *Conn) reserve(size int, stop <-chan struct{}) error {
+	if size < 0 || int64(size) > c.cfg.MaxBufferedBytes {
+		return ErrBufferLimit
 	}
 	for {
+		c.bufferMu.Lock()
 		current := c.buffered.Load()
-		next := current + int64(size)
-		if next > c.cfg.MaxBufferedBytes {
-			return false
+		if int64(size) <= c.cfg.MaxBufferedBytes-current {
+			c.buffered.Add(int64(size))
+			c.bufferMu.Unlock()
+			return nil
 		}
-		if c.buffered.CompareAndSwap(current, next) {
-			return true
+		if c.bufferWake == nil {
+			c.bufferWake = make(chan struct{})
+		}
+		wake := c.bufferWake
+		c.bufferMu.Unlock()
+		select {
+		case <-wake:
+		case <-stop:
+			return io.ErrClosedPipe
+		case <-c.closeCh:
+			return c.err()
 		}
 	}
 }
 
 func (c *Conn) release(size int) {
 	if size > 0 {
+		c.bufferMu.Lock()
 		c.buffered.Add(-int64(size))
+		if c.bufferWake != nil {
+			close(c.bufferWake)
+			c.bufferWake = nil
+		}
+		c.bufferMu.Unlock()
 	}
 }
 
@@ -627,38 +653,42 @@ func (s *virtualStream) Read(buf []byte) (int, error) {
 	s.readMu.Lock()
 	defer s.readMu.Unlock()
 	for len(s.readBuf) == 0 {
+		deadline, wake := s.readDeadlineSnapshot()
+		var timer *time.Timer
+		var timerCh <-chan time.Time
+		if !deadline.IsZero() {
+			delay := time.Until(deadline)
+			if delay <= 0 {
+				return 0, os.ErrDeadlineExceeded
+			}
+			timer = time.NewTimer(delay)
+			timerCh = timer.C
+		}
 		select {
 		case data := <-s.readCh:
 			s.readBuf = data
-		default:
-			deadline, wake := s.readDeadlineSnapshot()
-			var timer *time.Timer
-			var timerCh <-chan time.Time
-			if !deadline.IsZero() {
-				delay := time.Until(deadline)
-				if delay <= 0 {
-					return 0, os.ErrDeadlineExceeded
-				}
-				timer = time.NewTimer(delay)
-				timerCh = timer.C
-			}
+		case <-s.remoteCh:
+			// Stream data and the following close frame are handled in
+			// order, but both channels can be ready before this goroutine
+			// is scheduled. Drain the final queued data before reporting
+			// the orderly remote close.
 			select {
 			case data := <-s.readCh:
 				s.readBuf = data
-			case <-s.remoteCh:
+			default:
 				stopTimer(timer)
 				return 0, io.EOF
-			case <-s.conn.closeCh:
-				stopTimer(timer)
-				return 0, s.conn.err()
-			case <-wake:
-				stopTimer(timer)
-				continue
-			case <-timerCh:
-				return 0, os.ErrDeadlineExceeded
 			}
+		case <-s.conn.closeCh:
 			stopTimer(timer)
+			return 0, s.conn.err()
+		case <-wake:
+			stopTimer(timer)
+			continue
+		case <-timerCh:
+			return 0, os.ErrDeadlineExceeded
 		}
+		stopTimer(timer)
 	}
 	n := copy(buf, s.readBuf)
 	s.readBuf = s.readBuf[n:]
@@ -686,6 +716,56 @@ func (s *virtualStream) Write(data []byte) (int, error) {
 			return written, err
 		}
 		written = end
+	}
+	return written, nil
+}
+
+func (s *virtualStream) WriteBuffers(buffers net.Buffers) (int64, error) {
+	if len(buffers) == 0 {
+		return 0, nil
+	}
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
+	chunkSize := min(streamChunkSize, s.conn.cfg.MaxFrameSize-8)
+	if chunkSize <= 0 {
+		return 0, ErrFrameTooLarge
+	}
+	pooled := streamBufferPool.Get().(*[]byte)
+	chunk := (*pooled)[:0]
+	defer func() {
+		*pooled = chunk[:0]
+		streamBufferPool.Put(pooled)
+	}()
+	var written int64
+	flush := func() error {
+		if len(chunk) == 0 {
+			return nil
+		}
+		if s.writeDeadlineExceeded() {
+			return os.ErrDeadlineExceeded
+		}
+		if err := s.conn.send(frameStreamData, encodeStreamData(s.id, chunk)); err != nil {
+			return err
+		}
+		written += int64(len(chunk))
+		chunk = chunk[:0]
+		return nil
+	}
+	for _, buffer := range buffers {
+		for len(buffer) > 0 {
+			count := min(len(buffer), chunkSize-len(chunk))
+			chunk = append(chunk, buffer[:count]...)
+			buffer = buffer[count:]
+			if len(chunk) == chunkSize {
+				if err := flush(); err != nil {
+					return written, err
+				}
+			}
+		}
+	}
+	if err := flush(); err != nil {
+		return written, err
 	}
 	return written, nil
 }
@@ -754,8 +834,8 @@ func (s *virtualStream) deliver(data []byte) error {
 	defer s.deliverMu.Unlock()
 
 	copyData := append([]byte(nil), data...)
-	if !s.conn.reserve(len(copyData)) {
-		return ErrBufferLimit
+	if err := s.conn.reserve(len(copyData), s.remoteCh); err != nil {
+		return err
 	}
 	select {
 	case s.readCh <- copyData:

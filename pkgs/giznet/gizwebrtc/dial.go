@@ -8,11 +8,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/webrtc/v4"
 )
+
+var defaultDialAPI = sync.OnceValues(func() (*webrtc.API, error) {
+	api, _, err := newPionAPI(nil)
+	return api, err
+})
 
 type DialConfig struct {
 	API                *webrtc.API
@@ -22,9 +28,87 @@ type DialConfig struct {
 	ICETransportPolicy webrtc.ICETransportPolicy
 	CipherMode         CipherMode
 	SecurityPolicy     giznet.SecurityPolicy
+	// OnTiming receives one snapshot before Dial returns. Milestones after
+	// SetRemoteDescription are measured from the start of that call.
+	OnTiming func(DialTiming)
+}
+
+// DialTiming reports client-side establishment phases and readiness
+// milestones without exposing Pion objects to callers.
+type DialTiming struct {
+	PeerConnectionConstruction time.Duration
+	OfferCreation              time.Duration
+	SetLocalDescription        time.Duration
+	ICEGathering               time.Duration
+	HTTPSignaling              time.Duration
+	SetRemoteDescription       time.Duration
+	ICEConnected               time.Duration
+	DTLSConnected              time.Duration
+	DataChannelReady           time.Duration
+	Total                      time.Duration
+}
+
+type dialTimingRecorder struct {
+	started       time.Time
+	remoteStarted time.Time
+
+	mu     sync.Mutex
+	timing DialTiming
+}
+
+func newDialTimingRecorder() *dialTimingRecorder {
+	return &dialTimingRecorder{started: time.Now()}
+}
+
+func (r *dialTimingRecorder) update(update func(*DialTiming)) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	update(&r.timing)
+}
+
+func (r *dialTimingRecorder) startRemoteDescription() {
+	r.mu.Lock()
+	r.remoteStarted = time.Now()
+	r.mu.Unlock()
+}
+
+func (r *dialTimingRecorder) sinceRemote() time.Duration {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.remoteStarted.IsZero() {
+		return 0
+	}
+	return time.Since(r.remoteStarted)
+}
+
+func (r *dialTimingRecorder) markICEConnected() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.timing.ICEConnected == 0 && !r.remoteStarted.IsZero() {
+		r.timing.ICEConnected = time.Since(r.remoteStarted)
+	}
+}
+
+func (r *dialTimingRecorder) markDTLSConnected() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.timing.DTLSConnected == 0 && !r.remoteStarted.IsZero() {
+		r.timing.DTLSConnected = time.Since(r.remoteStarted)
+	}
+}
+
+func (r *dialTimingRecorder) snapshot() DialTiming {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.timing.Total = time.Since(r.started)
+	return r.timing
 }
 
 func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, cfg DialConfig) (*Listener, *Conn, error) {
+	timing := newDialTimingRecorder()
+	if cfg.OnTiming != nil {
+		defer func() { cfg.OnTiming(timing.snapshot()) }()
+	}
 	if key == nil {
 		return nil, nil, fmt.Errorf("gizwebrtc: nil key pair")
 	}
@@ -32,7 +116,7 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 	var closers []func() error
 	if api == nil {
 		var err error
-		api, closers, err = newPionAPI(nil)
+		api, err = defaultDialAPI()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -58,7 +142,11 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		_ = l.Close()
 		return nil, nil, err
 	}
+	started := time.Now()
 	pc, err := api.NewPeerConnection(peerConnectionConfiguration(cfg.ICEServers, cfg.ICETransportPolicy))
+	timing.update(func(t *DialTiming) {
+		t.PeerConnectionConstruction = time.Since(started)
+	})
 	if err != nil {
 		_ = l.Close()
 		return nil, nil, err
@@ -85,6 +173,18 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		_ = l.Close()
 		return nil, nil, ErrPacketChannel
 	}
+	pc.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
+		if state == webrtc.ICEConnectionStateConnected || state == webrtc.ICEConnectionStateCompleted {
+			timing.markICEConnected()
+		}
+	})
+	if sctp := pc.SCTP(); sctp != nil && sctp.Transport() != nil {
+		sctp.Transport().OnStateChange(func(state webrtc.DTLSTransportState) {
+			if state == webrtc.DTLSTransportStateConnected {
+				timing.markDTLSConnected()
+			}
+		})
+	}
 	packetDC.OnOpen(func() {
 		raw, err := packetDC.DetachWithDeadline()
 		if err != nil {
@@ -95,43 +195,82 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 	})
 
 	gatherComplete := webrtc.GatheringCompletePromise(pc)
+	started = time.Now()
 	offer, err := pc.CreateOffer(nil)
+	timing.update(func(t *DialTiming) {
+		t.OfferCreation = time.Since(started)
+	})
 	if err != nil {
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, err
 	}
+	started = time.Now()
 	if err := pc.SetLocalDescription(offer); err != nil {
+		timing.update(func(t *DialTiming) {
+			t.SetLocalDescription = time.Since(started)
+		})
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, err
 	}
+	timing.update(func(t *DialTiming) {
+		t.SetLocalDescription = time.Since(started)
+	})
+	started = time.Now()
 	if err := waitForGathering(ctx, gatherComplete); err != nil {
+		timing.update(func(t *DialTiming) {
+			t.ICEGathering = time.Since(started)
+		})
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, err
 	}
+	timing.update(func(t *DialTiming) {
+		t.ICEGathering = time.Since(started)
+	})
 	if pc.LocalDescription() == nil {
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, fmt.Errorf("gizwebrtc: missing local offer")
 	}
+	started = time.Now()
 	answerSDP, err := postOffer(ctx, key, serverPK, pc.LocalDescription().SDP, cfg)
+	timing.update(func(t *DialTiming) {
+		t.HTTPSignaling = time.Since(started)
+	})
 	if err != nil {
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, err
 	}
+	timing.startRemoteDescription()
+	started = time.Now()
 	if err := pc.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeAnswer, SDP: answerSDP}); err != nil {
+		timing.update(func(t *DialTiming) {
+			t.SetRemoteDescription = time.Since(started)
+		})
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, err
 	}
+	timing.update(func(t *DialTiming) {
+		t.SetRemoteDescription = time.Since(started)
+	})
 	if err := waitForPacketChannel(ctx, conn.readyCh); err != nil {
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, err
 	}
+	if state := pc.ICEConnectionState(); state == webrtc.ICEConnectionStateConnected || state == webrtc.ICEConnectionStateCompleted {
+		timing.markICEConnected()
+	}
+	if sctp := pc.SCTP(); sctp != nil && sctp.Transport() != nil &&
+		sctp.Transport().State() == webrtc.DTLSTransportStateConnected {
+		timing.markDTLSConnected()
+	}
+	dataChannelReady := timing.sinceRemote()
+	timing.update(func(t *DialTiming) { t.DataChannelReady = dataChannelReady })
 	l.enqueueConn(conn)
 	return l, conn, nil
 }

@@ -133,7 +133,9 @@ if ! curl -fsS --max-time 1 "http://edge:9821/server-info" >/dev/null 2>&1 ||
   exit 1
 fi
 
-"$setup_dir/reset_data.sh" init
+if [[ "${GIZCLAW_E2E_CAPACITY_ONLY:-}" != "1" ]]; then
+  "$setup_dir/reset_data.sh" init
+fi
 
 echo "gizclaw e2e docker server ready pid=$pid log=$log_file"
 touch "$ready_file"

@@ -7,12 +7,41 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/webrtc/v4"
 )
+
+func TestDefaultDialAPIIsSharedAcrossConcurrentCallers(t *testing.T) {
+	const callers = 32
+	apis := make(chan *webrtc.API, callers)
+	var wg sync.WaitGroup
+	for range callers {
+		wg.Go(func() {
+			api, err := defaultDialAPI()
+			if err != nil {
+				t.Errorf("defaultDialAPI error = %v", err)
+				return
+			}
+			apis <- api
+		})
+	}
+	wg.Wait()
+	close(apis)
+	var first *webrtc.API
+	for api := range apis {
+		if first == nil {
+			first = api
+			continue
+		}
+		if api != first {
+			t.Fatalf("default Dial API was not shared: %p != %p", api, first)
+		}
+	}
+}
 
 func TestAddrNetworkAndString(t *testing.T) {
 	a := addr("gizwebrtc:test")
@@ -304,6 +333,52 @@ func TestICELiteFromConfig(t *testing.T) {
 	}
 }
 
+type recordingICEUDPBufferSetter struct {
+	readSize  int
+	writeSize int
+	readErr   error
+	writeErr  error
+}
+
+func (s *recordingICEUDPBufferSetter) SetReadBuffer(size int) error {
+	s.readSize = size
+	return s.readErr
+}
+
+func (s *recordingICEUDPBufferSetter) SetWriteBuffer(size int) error {
+	s.writeSize = size
+	return s.writeErr
+}
+
+func TestConfigureICEUDPBuffers(t *testing.T) {
+	setter := &recordingICEUDPBufferSetter{}
+	if err := configureICEUDPBuffers(setter); err != nil {
+		t.Fatal(err)
+	}
+	if setter.readSize != iceUDPReadBufferSize || setter.writeSize != iceUDPWriteBufferSize {
+		t.Fatalf(
+			"ICE UDP buffer sizes = %d/%d, want %d/%d",
+			setter.readSize,
+			setter.writeSize,
+			iceUDPReadBufferSize,
+			iceUDPWriteBufferSize,
+		)
+	}
+
+	readErr := errors.New("read buffer")
+	if err := configureICEUDPBuffers(&recordingICEUDPBufferSetter{readErr: readErr}); !errors.Is(err, readErr) {
+		t.Fatalf("read buffer error = %v, want %v", err, readErr)
+	}
+	writeErr := errors.New("write buffer")
+	setter = &recordingICEUDPBufferSetter{writeErr: writeErr}
+	if err := configureICEUDPBuffers(setter); !errors.Is(err, writeErr) {
+		t.Fatalf("write buffer error = %v, want %v", err, writeErr)
+	}
+	if setter.readSize != iceUDPReadBufferSize {
+		t.Fatalf("write failure skipped read buffer sizing: %d", setter.readSize)
+	}
+}
+
 func TestNewPionAPICleansUDPWhenTCPBindFails(t *testing.T) {
 	udpProbe, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {
@@ -536,7 +611,7 @@ func TestSignalingHandlerClosedListenerAndAcceptOfferInvalidSDP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(client) error = %v", err)
 	}
-	if _, _, err := listener.acceptOffer(context.Background(), clientKey.Public, "not sdp"); err == nil {
+	if _, _, _, err := listener.acceptOffer(context.Background(), clientKey.Public, "not sdp"); err == nil {
 		t.Fatal("acceptOffer invalid SDP error = nil")
 	}
 	if err := listener.Close(); err != nil {

@@ -42,6 +42,11 @@ It is a general transport adapter that only connects HTTP and giznet and does no
 
 WebRTC implementation details related to Pion are left in this subdirectory. The upper-layer GizClaw service relies on the giznet boundary and does not directly diffuse WebRTC types to the business layer.
 
+`DialConfig.OnTiming` optionally receives one `DialTiming` snapshot before
+`Dial` returns. It reports client PeerConnection, offer, ICE gathering,
+signaling, remote-description, ICE-connected, DTLS-connected, and DataChannel
+ready timing without exposing mutable Pion objects.
+
 ## Dependencies
 
 ```mermaid

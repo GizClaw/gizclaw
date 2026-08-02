@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -159,11 +160,24 @@ func writeFrame(w io.Writer, typ frameType, payload []byte, maxFrameSize int) er
 	copy(header[:4], frameMagic[:])
 	header[4] = byte(typ)
 	binary.BigEndian.PutUint32(header[5:], uint32(len(payload)))
+	if len(payload) == 0 {
+		return writeAll(w, header[:])
+	}
+	if bw, ok := w.(interface {
+		WriteBuffers(net.Buffers) (int64, error)
+	}); ok {
+		total := int64(len(header) + len(payload))
+		n, err := bw.WriteBuffers(net.Buffers{header[:], payload})
+		if err != nil {
+			return err
+		}
+		if n != total {
+			return io.ErrShortWrite
+		}
+		return nil
+	}
 	if err := writeAll(w, header[:]); err != nil {
 		return err
-	}
-	if len(payload) == 0 {
-		return nil
 	}
 	return writeAll(w, payload)
 }

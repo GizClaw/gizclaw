@@ -4,9 +4,12 @@ import (
 	"errors"
 	"io"
 	"net"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
+
+const bridgeStreamDrainTimeout = 30 * time.Second
 
 // Bridge transparently forwards service streams and packets between two Giznet
 // connections until either side closes.
@@ -65,6 +68,16 @@ func bridgeStream(left, right net.Conn) {
 		done <- struct{}{}
 	}()
 	<-done
+	// A full-close transport can report EOF after its final writes while the
+	// opposite endpoint is still consuming those bytes. Let that endpoint close
+	// in response before forcing teardown, otherwise its queued response can be
+	// discarded by an eager DataChannel close.
+	timer := time.NewTimer(bridgeStreamDrainTimeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+	case <-timer.C:
+	}
 	_ = left.Close()
 	_ = right.Close()
 }

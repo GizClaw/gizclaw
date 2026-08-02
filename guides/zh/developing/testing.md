@@ -115,6 +115,7 @@ LogStore 使用各自入口：
 bash tests/gizclaw-e2e/run_sibling_close_tests.sh
 bash tests/gizclaw-e2e/run_edge_failure_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_100_tests.sh
 
 GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
 GIZCLAW_E2E_VOLC_LOG_REGION=... \
@@ -128,7 +129,16 @@ GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
 入口固定运行本机 one-Server/two-Edge 的 100-session 基线：除保持连接和多轮 ping 外，
 100 个 session 还会同步执行每路 4 MiB upload 和 download，并按共享 wall-clock 记录
 聚合吞吐；单路对照使用 32 MiB sustained payload。machine-readable artifact 写到
-ignored 的 `testdata/`；该入口不属于长时间或更高连接数的容量承诺。
+ignored 的 `testdata/`；该入口不属于长时间或更高连接数的容量承诺。专用 100-session
+burst 入口不设置 ramp，在 3 个全新 stack 上重复测试，报告 establishment rate 与 Dial
+p50/p95/p99，每个 session 分方向传输 1 MiB，并记录 32 MiB 单路 sustained 对照。artifact
+分别记录 key generation、客户端 PeerConnection、offer、ICE gathering、HTTP signaling、
+answer 侧 PeerConnection/SDP/ICE，以及客户端 ICE connected、DTLS connected 和
+DataChannel ready milestone；只有客户端 SCTP connected 边界明确标记为不支持。硬门槛为
+100/100 建连、至少 20 sessions/s、Dial p95 不超过 1 秒
+且 p99 不超过 5 秒，以及上传、
+下载分别至少 200 Mbps aggregate。单路倍率保留为诊断数据；本机单次单路样本波动过大，
+不能作为并发总吞吐的可靠 gate。
 
 ## GenX provider E2E
 

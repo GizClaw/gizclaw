@@ -3,6 +3,7 @@ package gizwebrtc
 import (
 	"errors"
 	"io"
+	"net"
 	"os"
 	"sync"
 	"testing"
@@ -135,6 +136,27 @@ func TestDataChannelConnWriteChunksLargePayload(t *testing.T) {
 	}
 }
 
+func TestDataChannelConnWriteBuffersCoalescesAdjacentProtocolParts(t *testing.T) {
+	raw := &fakeStreamRaw{}
+	conn := newDataChannelConn(raw, nil, addr("local"), addr("remote"))
+	defer conn.Close()
+
+	buffers := net.Buffers{
+		make([]byte, 9),
+		make([]byte, streamChunkSize+8),
+	}
+	n, err := conn.WriteBuffers(buffers)
+	if err != nil {
+		t.Fatalf("WriteBuffers error = %v", err)
+	}
+	if n != streamChunkSize+17 {
+		t.Fatalf("WriteBuffers n = %d, want %d", n, streamChunkSize+17)
+	}
+	if got, want := raw.writeSizes(), []int{streamChunkSize, 17}; !equalInts(got, want) {
+		t.Fatalf("write sizes = %v, want %v", got, want)
+	}
+}
+
 func TestDataChannelConnWriteKeepsTunnelFramesIntact(t *testing.T) {
 	raw := &fakeStreamRaw{}
 	conn := newDataChannelConn(raw, nil, addr("local"), addr("remote"))
@@ -149,12 +171,7 @@ func TestDataChannelConnWriteKeepsTunnelFramesIntact(t *testing.T) {
 	if n != len(payload) {
 		t.Fatalf("Write n = %d, want %d", n, len(payload))
 	}
-	want := []int{
-		tunnelFrameSize,
-		tunnelFrameSize,
-		tunnelFrameSize,
-		tunnelFrameSize,
-	}
+	want := []int{2 * tunnelFrameSize, 2 * tunnelFrameSize}
 	if got := raw.writeSizes(); !equalInts(got, want) {
 		t.Fatalf("write sizes = %v, want %v", got, want)
 	}

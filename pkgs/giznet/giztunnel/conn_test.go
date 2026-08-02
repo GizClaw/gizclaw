@@ -151,6 +151,45 @@ func TestConnMultiplexesServicesAndPackets(t *testing.T) {
 	}
 }
 
+func TestVirtualStreamWriteBuffersCoalescesAdjacentRPCParts(t *testing.T) {
+	clientConn, serverConn, _ := tunnelTestPair(t, Config{})
+	listener := serverConn.ListenService(7)
+	clientStream, err := clientConn.Dial(7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverStream, err := listener.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clientStream.Close()
+	defer serverStream.Close()
+
+	w, ok := clientStream.(interface {
+		WriteBuffers(net.Buffers) (int64, error)
+	})
+	if !ok {
+		t.Fatal("virtual stream does not support vectored writes")
+	}
+	payload := bytes.Repeat([]byte{0x42}, 32*1024)
+	buffers := net.Buffers{[]byte("head"), payload}
+	written, err := w.WriteBuffers(buffers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := append([]byte("head"), payload...)
+	if written != int64(len(want)) {
+		t.Fatalf("WriteBuffers bytes = %d, want %d", written, len(want))
+	}
+	got := make([]byte, len(want))
+	if _, err := io.ReadFull(serverStream, got); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatal("vectored write did not preserve adjacent buffers")
+	}
+}
+
 func TestVirtualStreamReadDeadlineInterruptsRead(t *testing.T) {
 	clientConn, serverConn, _ := tunnelTestPair(t, Config{})
 	listener := serverConn.ListenService(7)
@@ -354,6 +393,96 @@ func TestVirtualStreamBackpressuresUntilReaderDrains(t *testing.T) {
 	}
 	if !bytes.Equal(got, payload) {
 		t.Fatal("drained payload did not match the written bytes")
+	}
+}
+
+func TestConnReserveWaitsForReleasedBudgetOrStreamClose(t *testing.T) {
+	newConn := func() *Conn {
+		return &Conn{
+			cfg:     Config{MaxBufferedBytes: 1},
+			closeCh: make(chan struct{}),
+		}
+	}
+	waitForWaiter := func(t *testing.T, conn *Conn) {
+		t.Helper()
+		deadline := time.Now().Add(time.Second)
+		for time.Now().Before(deadline) {
+			conn.bufferMu.Lock()
+			waiting := conn.bufferWake != nil
+			conn.bufferMu.Unlock()
+			if waiting {
+				return
+			}
+			time.Sleep(time.Millisecond)
+		}
+		t.Fatal("reserve did not wait for buffer budget")
+	}
+
+	t.Run("released budget", func(t *testing.T) {
+		conn := newConn()
+		if err := conn.reserve(1, nil); err != nil {
+			t.Fatal(err)
+		}
+		result := make(chan error, 1)
+		go func() { result <- conn.reserve(1, nil) }()
+		waitForWaiter(t, conn)
+		select {
+		case err := <-result:
+			t.Fatalf("reserve returned before budget release: %v", err)
+		default:
+		}
+		conn.release(1)
+		select {
+		case err := <-result:
+			if err != nil {
+				t.Fatal(err)
+			}
+			conn.release(1)
+		case <-time.After(time.Second):
+			t.Fatal("reserve did not resume after budget release")
+		}
+	})
+
+	t.Run("stream close", func(t *testing.T) {
+		conn := newConn()
+		if err := conn.reserve(1, nil); err != nil {
+			t.Fatal(err)
+		}
+		stop := make(chan struct{})
+		result := make(chan error, 1)
+		go func() { result <- conn.reserve(1, stop) }()
+		waitForWaiter(t, conn)
+		close(stop)
+		select {
+		case err := <-result:
+			if !errors.Is(err, io.ErrClosedPipe) {
+				t.Fatalf("reserve error = %v, want %v", err, io.ErrClosedPipe)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("stream close did not unblock reserve")
+		}
+	})
+}
+
+func TestVirtualStreamReadDrainsQueuedDataBeforeRemoteClose(t *testing.T) {
+	for attempt := range 100 {
+		conn := &Conn{
+			cfg:     Config{StreamQueueSize: 1},
+			closeCh: make(chan struct{}),
+		}
+		stream := newVirtualStream(conn, 1, 1)
+		conn.buffered.Add(3)
+		stream.readCh <- []byte("eos")
+		stream.finishRemote()
+
+		var buf [3]byte
+		n, err := stream.Read(buf[:])
+		if err != nil || n != len(buf) || string(buf[:]) != "eos" {
+			t.Fatalf("attempt %d Read = (%q, %v), want (eos, nil)", attempt, buf[:n], err)
+		}
+		if _, err := stream.Read(buf[:]); !errors.Is(err, io.EOF) {
+			t.Fatalf("attempt %d second Read error = %v, want EOF", attempt, err)
+		}
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -286,10 +287,10 @@ func TestEstablishSessionsClosesEstablishedSessionsWhenRampIsCanceled(t *testing
 		[]edgeMetadata{{endpoint: session.edge}},
 		state,
 		make(chan struct{}, opts.concurrency),
-		func(context.Context, edgeMetadata, int, time.Duration) (*liveSession, error) {
+		func(context.Context, edgeMetadata, int, time.Duration) (*liveSession, establishmentSessionResult, error) {
 			attempts++
 			cancel()
-			return session, nil
+			return session, establishmentSessionResult{}, nil
 		},
 	)
 	if !errors.Is(err, context.Canceled) {
@@ -305,5 +306,36 @@ func TestEstablishSessionsClosesEstablishedSessionsWhenRampIsCanceled(t *testing
 	case <-serveExited:
 	default:
 		t.Fatal("session Serve goroutine was still running")
+	}
+}
+
+func TestPingSessionBatchesPreserveOrderAndConcurrency(t *testing.T) {
+	sessions := make([]*liveSession, 1000)
+	for index := range sessions {
+		sessions[index] = &liveSession{edge: strconv.Itoa(index)}
+	}
+	batches := pingSessionBatches(sessions, 512)
+	if len(batches) != 2 {
+		t.Fatalf("batch count = %d, want 2", len(batches))
+	}
+	if len(batches[0]) != 512 || len(batches[1]) != 488 {
+		t.Fatalf("batch sizes = %d/%d, want 512/488", len(batches[0]), len(batches[1]))
+	}
+	for index, session := range append(batches[0], batches[1]...) {
+		if session.edge != strconv.Itoa(index) {
+			t.Fatalf("session %d edge = %q", index, session.edge)
+		}
+	}
+	if batches := pingSessionBatches(sessions, 0); batches != nil {
+		t.Fatalf("zero-concurrency batches = %v, want nil", batches)
+	}
+}
+
+func TestCounterDelta(t *testing.T) {
+	if got := counterDelta(10, 14); got != 4 {
+		t.Fatalf("counterDelta(10, 14) = %d, want 4", got)
+	}
+	if got := counterDelta(14, 10); got != 0 {
+		t.Fatalf("counterDelta(14, 10) = %d, want 0", got)
 	}
 }

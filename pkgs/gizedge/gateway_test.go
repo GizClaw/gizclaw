@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -258,56 +259,36 @@ func TestGatewayPoolLeastActiveAndCumulativeRotation(t *testing.T) {
 	}
 }
 
-func TestGatewayPoolExpandsBeforeSharingSCTPAssociation(t *testing.T) {
+func TestGatewayPoolExpandsAtSessionCapacity(t *testing.T) {
 	cfg := Config{Gateway: GatewayConfig{
-		MaxUpstreams:        3,
-		SessionsPerUpstream: 2048,
-		StreamsPerUpstream:  8192,
+		MaxUpstreams:        2,
+		SessionsPerUpstream: 2,
+		StreamsPerUpstream:  8,
 	}}
-	first := &gatewayUpstream{active: 1, opened: 1}
-	created := 0
+	first := &gatewayUpstream{active: 2, opened: 2}
+	var created atomic.Int32
 	pool := &gatewayPool{
 		cfg:     cfg,
 		entries: []*gatewayUpstream{first},
 		newUpstream: func(context.Context) (*gatewayUpstream, error) {
-			created++
+			created.Add(1)
 			return &gatewayUpstream{}, nil
 		},
 	}
 	first.pool = pool
 
-	second, releaseSecond, err := pool.acquire(context.Background())
+	selected, release, err := pool.acquire(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer releaseSecond()
-	if second == first || created != 1 || len(pool.entries) != 2 {
-		t.Fatalf("second acquisition reused association: selected=%p first=%p created=%d entries=%d",
-			second, first, created, len(pool.entries))
-	}
-
-	third, releaseThird, err := pool.acquire(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer releaseThird()
-	if third == first || third == second || created != 2 || len(pool.entries) != 3 {
-		t.Fatalf("third acquisition reused association: selected=%p first=%p second=%p created=%d entries=%d",
-			third, first, second, created, len(pool.entries))
-	}
-
-	fourth, releaseFourth, err := pool.acquire(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer releaseFourth()
-	if fourth != first || first.active != 2 {
-		t.Fatalf("full pool did not fall back to least-active association: selected=%p first=%p active=%d",
-			fourth, first, first.active)
+	defer release()
+	if selected == first || created.Load() != 1 || len(pool.entries) != 2 || selected.active != 1 {
+		t.Fatalf("capacity growth selected=%p first=%p created=%d entries=%d active=%d",
+			selected, first, created.Load(), len(pool.entries), selected.active)
 	}
 }
 
-func TestGatewayPoolGrowthFailureUsesExistingCapacity(t *testing.T) {
+func TestGatewayPoolReusesExistingSessionCapacity(t *testing.T) {
 	cfg := Config{Gateway: GatewayConfig{
 		MaxUpstreams:        2,
 		SessionsPerUpstream: 2,
@@ -320,104 +301,116 @@ func TestGatewayPoolGrowthFailureUsesExistingCapacity(t *testing.T) {
 		entries: []*gatewayUpstream{first},
 		newUpstream: func(context.Context) (*gatewayUpstream, error) {
 			attempts++
-			return nil, errors.New("dial unavailable")
+			return nil, errors.New("unexpected growth")
 		},
 	}
 	first.pool = pool
 
 	selected, release, err := pool.acquire(context.Background())
 	if err != nil {
-		t.Fatalf("acquire with existing capacity: %v", err)
+		t.Fatal(err)
 	}
 	if selected != first || first.active != 2 {
 		t.Fatalf("selected=%p first=%p active=%d, want existing association at capacity",
 			selected, first, first.active)
 	}
-	release()
-
-	selected, release, err = pool.acquire(context.Background())
-	if err != nil {
-		t.Fatalf("acquire during growth cooldown: %v", err)
-	}
 	defer release()
-	if selected != first || attempts != 1 {
-		t.Fatalf("cooldown selected=%p first=%p attempts=%d, want existing association without redial",
+	if selected != first || attempts != 0 {
+		t.Fatalf("selected=%p first=%p attempts=%d, want existing association without growth",
 			selected, first, attempts)
 	}
 }
 
-func TestGatewayPoolGrowthDoesNotBlockOtherAdmissions(t *testing.T) {
-	cfg := Config{Gateway: GatewayConfig{
-		MaxUpstreams:        2,
-		SessionsPerUpstream: 2,
-		StreamsPerUpstream:  4,
-	}}
-	first := &gatewayUpstream{active: 1, opened: 1}
-	growthStarted := make(chan struct{})
-	allowGrowth := make(chan struct{})
+func TestGatewayPoolWarmsBoundedAssociations(t *testing.T) {
+	const maxUpstreams = 16
+	first := &gatewayUpstream{}
+	var created atomic.Int32
 	pool := &gatewayPool{
-		cfg:     cfg,
+		cfg:     Config{Gateway: GatewayConfig{MaxUpstreams: maxUpstreams}},
 		entries: []*gatewayUpstream{first},
 		newUpstream: func(context.Context) (*gatewayUpstream, error) {
-			close(growthStarted)
-			<-allowGrowth
+			created.Add(1)
 			return &gatewayUpstream{}, nil
 		},
 	}
 	first.pool = pool
 
-	type acquireResult struct {
-		entry   *gatewayUpstream
-		release func()
-		err     error
+	if err := pool.warm(context.Background()); err != nil {
+		t.Fatal(err)
 	}
-	growthResult := make(chan acquireResult, 1)
-	go func() {
-		entry, release, err := pool.acquire(context.Background())
-		growthResult <- acquireResult{entry: entry, release: release, err: err}
-	}()
-	select {
-	case <-growthStarted:
-	case <-time.After(time.Second):
-		t.Fatal("pool growth did not start")
+	if created.Load() != gatewayPoolWarmUpstreams-1 || len(pool.entries) != gatewayPoolWarmUpstreams {
+		t.Fatalf("warmup created=%d entries=%d, want %d/%d",
+			created.Load(), len(pool.entries), gatewayPoolWarmUpstreams-1, gatewayPoolWarmUpstreams)
+	}
+}
+
+func TestGatewayPoolWarmRequiresTargetAssociations(t *testing.T) {
+	first := &gatewayUpstream{}
+	pool := &gatewayPool{
+		cfg:     Config{Gateway: GatewayConfig{MaxUpstreams: gatewayPoolWarmUpstreams}},
+		entries: []*gatewayUpstream{first},
+		newUpstream: func(context.Context) (*gatewayUpstream, error) {
+			return nil, errors.New("dial unavailable")
+		},
+	}
+	first.pool = pool
+
+	if err := pool.warm(context.Background()); err == nil || !strings.Contains(err.Error(), "warm gateway upstream") {
+		t.Fatalf("warm error = %v, want contextual dial failure", err)
+	}
+	if len(pool.entries) != 1 {
+		t.Fatalf("failed warmup entries = %d, want initial association only", len(pool.entries))
+	}
+}
+
+func TestGatewayPoolReplenishesFailedWarmAssociation(t *testing.T) {
+	entries := make([]*gatewayUpstream, gatewayPoolWarmUpstreams)
+	for index := range entries {
+		entries[index] = &gatewayUpstream{}
+	}
+	firstAttempt := make(chan struct{})
+	replenished := make(chan struct{})
+	var attempts atomic.Int32
+	pool := &gatewayPool{
+		ctx:     t.Context(),
+		cfg:     Config{Gateway: GatewayConfig{MaxUpstreams: 16}},
+		entries: entries,
+		newUpstream: func(context.Context) (*gatewayUpstream, error) {
+			if attempts.Add(1) == 1 {
+				close(firstAttempt)
+				return nil, errors.New("transient dial failure")
+			}
+			close(replenished)
+			return &gatewayUpstream{}, nil
+		},
+	}
+	for _, entry := range entries {
+		entry.pool = pool
 	}
 
-	admissionCtx, cancelAdmission := context.WithTimeout(context.Background(), time.Second)
-	defer cancelAdmission()
-	admissionResult := make(chan acquireResult, 1)
-	go func() {
-		entry, release, err := pool.acquire(admissionCtx)
-		admissionResult <- acquireResult{entry: entry, release: release, err: err}
-	}()
-
-	time.Sleep(20 * time.Millisecond)
-	close(allowGrowth)
-	results := make([]acquireResult, 0, 2)
+	pool.markFailed(entries[0])
 	select {
-	case result := <-growthResult:
-		if result.err != nil {
-			t.Fatalf("growth acquire: %v", result.err)
-		}
-		results = append(results, result)
+	case <-firstAttempt:
 	case <-time.After(time.Second):
-		t.Fatal("growth acquire did not complete")
+		t.Fatal("warm pool did not start replacement association")
 	}
 	select {
-	case result := <-admissionResult:
-		if result.err != nil {
-			t.Fatalf("concurrent acquire: %v", result.err)
+	case <-replenished:
+	case <-time.After(2 * time.Second):
+		t.Fatal("warm pool did not retry replacement association")
+	}
+	deadline := time.Now().Add(time.Second)
+	for {
+		pool.mu.Lock()
+		ready := len(pool.entries) == gatewayPoolWarmUpstreams && pool.growthDone == nil
+		pool.mu.Unlock()
+		if ready {
+			break
 		}
-		results = append(results, result)
-	case <-time.After(time.Second):
-		t.Fatal("concurrent acquire did not complete")
-	}
-	defer results[0].release()
-	defer results[1].release()
-	if results[0].entry == results[1].entry {
-		t.Fatalf("concurrent admissions selected the same association %p", results[0].entry)
-	}
-	if results[0].entry != first && results[1].entry != first {
-		t.Fatalf("concurrent admissions did not retain existing association %p", first)
+		if time.Now().After(deadline) {
+			t.Fatal("warm pool did not finish replacing failed association")
+		}
+		time.Sleep(time.Millisecond)
 	}
 }
 
@@ -428,7 +421,7 @@ func TestGatewayPoolCancelStopsGrowthAndWaiters(t *testing.T) {
 		SessionsPerUpstream: 2,
 		StreamsPerUpstream:  4,
 	}}
-	first := &gatewayUpstream{active: 1, opened: 1}
+	first := &gatewayUpstream{active: 2, opened: 2}
 	growthStarted := make(chan struct{})
 	pool := &gatewayPool{
 		ctx:     poolCtx,
