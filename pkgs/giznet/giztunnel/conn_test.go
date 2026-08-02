@@ -396,6 +396,74 @@ func TestVirtualStreamBackpressuresUntilReaderDrains(t *testing.T) {
 	}
 }
 
+func TestConnReserveWaitsForReleasedBudgetOrStreamClose(t *testing.T) {
+	newConn := func() *Conn {
+		return &Conn{
+			cfg:     Config{MaxBufferedBytes: 1},
+			closeCh: make(chan struct{}),
+		}
+	}
+	waitForWaiter := func(t *testing.T, conn *Conn) {
+		t.Helper()
+		deadline := time.Now().Add(time.Second)
+		for time.Now().Before(deadline) {
+			conn.bufferMu.Lock()
+			waiting := conn.bufferWake != nil
+			conn.bufferMu.Unlock()
+			if waiting {
+				return
+			}
+			time.Sleep(time.Millisecond)
+		}
+		t.Fatal("reserve did not wait for buffer budget")
+	}
+
+	t.Run("released budget", func(t *testing.T) {
+		conn := newConn()
+		if err := conn.reserve(1, nil); err != nil {
+			t.Fatal(err)
+		}
+		result := make(chan error, 1)
+		go func() { result <- conn.reserve(1, nil) }()
+		waitForWaiter(t, conn)
+		select {
+		case err := <-result:
+			t.Fatalf("reserve returned before budget release: %v", err)
+		default:
+		}
+		conn.release(1)
+		select {
+		case err := <-result:
+			if err != nil {
+				t.Fatal(err)
+			}
+			conn.release(1)
+		case <-time.After(time.Second):
+			t.Fatal("reserve did not resume after budget release")
+		}
+	})
+
+	t.Run("stream close", func(t *testing.T) {
+		conn := newConn()
+		if err := conn.reserve(1, nil); err != nil {
+			t.Fatal(err)
+		}
+		stop := make(chan struct{})
+		result := make(chan error, 1)
+		go func() { result <- conn.reserve(1, stop) }()
+		waitForWaiter(t, conn)
+		close(stop)
+		select {
+		case err := <-result:
+			if !errors.Is(err, io.ErrClosedPipe) {
+				t.Fatalf("reserve error = %v, want %v", err, io.ErrClosedPipe)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("stream close did not unblock reserve")
+		}
+	})
+}
+
 func TestVirtualStreamReadDrainsQueuedDataBeforeRemoteClose(t *testing.T) {
 	for attempt := range 100 {
 		conn := &Conn{

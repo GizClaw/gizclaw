@@ -77,6 +77,8 @@ type Conn struct {
 	serviceCh     chan acceptedService
 	nextID        atomic.Uint64
 	localIDParity uint64
+	bufferMu      sync.Mutex
+	bufferWake    chan struct{}
 	buffered      atomic.Int64
 	lastSeen      atomic.Int64
 	closeOnce     sync.Once
@@ -523,25 +525,42 @@ func (c *Conn) touch() {
 	}
 }
 
-func (c *Conn) reserve(size int) bool {
-	if size < 0 {
-		return false
+func (c *Conn) reserve(size int, stop <-chan struct{}) error {
+	if size < 0 || int64(size) > c.cfg.MaxBufferedBytes {
+		return ErrBufferLimit
 	}
 	for {
+		c.bufferMu.Lock()
 		current := c.buffered.Load()
-		next := current + int64(size)
-		if next > c.cfg.MaxBufferedBytes {
-			return false
+		if int64(size) <= c.cfg.MaxBufferedBytes-current {
+			c.buffered.Add(int64(size))
+			c.bufferMu.Unlock()
+			return nil
 		}
-		if c.buffered.CompareAndSwap(current, next) {
-			return true
+		if c.bufferWake == nil {
+			c.bufferWake = make(chan struct{})
+		}
+		wake := c.bufferWake
+		c.bufferMu.Unlock()
+		select {
+		case <-wake:
+		case <-stop:
+			return io.ErrClosedPipe
+		case <-c.closeCh:
+			return c.err()
 		}
 	}
 }
 
 func (c *Conn) release(size int) {
 	if size > 0 {
+		c.bufferMu.Lock()
 		c.buffered.Add(-int64(size))
+		if c.bufferWake != nil {
+			close(c.bufferWake)
+			c.bufferWake = nil
+		}
+		c.bufferMu.Unlock()
 	}
 }
 
@@ -815,8 +834,8 @@ func (s *virtualStream) deliver(data []byte) error {
 	defer s.deliverMu.Unlock()
 
 	copyData := append([]byte(nil), data...)
-	if !s.conn.reserve(len(copyData)) {
-		return ErrBufferLimit
+	if err := s.conn.reserve(len(copyData), s.remoteCh); err != nil {
+		return err
 	}
 	select {
 	case s.readCh <- copyData:
