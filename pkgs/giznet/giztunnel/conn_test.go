@@ -357,6 +357,28 @@ func TestVirtualStreamBackpressuresUntilReaderDrains(t *testing.T) {
 	}
 }
 
+func TestVirtualStreamReadDrainsQueuedDataBeforeRemoteClose(t *testing.T) {
+	for attempt := 0; attempt < 100; attempt++ {
+		conn := &Conn{
+			cfg:     Config{StreamQueueSize: 1},
+			closeCh: make(chan struct{}),
+		}
+		stream := newVirtualStream(conn, 1, 1)
+		conn.buffered.Add(3)
+		stream.readCh <- []byte("eos")
+		stream.finishRemote()
+
+		var buf [3]byte
+		n, err := stream.Read(buf[:])
+		if err != nil || n != len(buf) || string(buf[:]) != "eos" {
+			t.Fatalf("attempt %d Read = (%q, %v), want (eos, nil)", attempt, buf[:n], err)
+		}
+		if _, err := stream.Read(buf[:]); !errors.Is(err, io.EOF) {
+			t.Fatalf("attempt %d second Read error = %v, want EOF", attempt, err)
+		}
+	}
+}
+
 func TestVirtualStreamCloseReleasesBackpressuredData(t *testing.T) {
 	clientConn, serverConn, _ := tunnelTestPair(t, Config{
 		MaxBufferedBytes: 2 * streamChunkSize,

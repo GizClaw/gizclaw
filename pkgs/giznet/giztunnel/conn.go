@@ -627,38 +627,42 @@ func (s *virtualStream) Read(buf []byte) (int, error) {
 	s.readMu.Lock()
 	defer s.readMu.Unlock()
 	for len(s.readBuf) == 0 {
+		deadline, wake := s.readDeadlineSnapshot()
+		var timer *time.Timer
+		var timerCh <-chan time.Time
+		if !deadline.IsZero() {
+			delay := time.Until(deadline)
+			if delay <= 0 {
+				return 0, os.ErrDeadlineExceeded
+			}
+			timer = time.NewTimer(delay)
+			timerCh = timer.C
+		}
 		select {
 		case data := <-s.readCh:
 			s.readBuf = data
-		default:
-			deadline, wake := s.readDeadlineSnapshot()
-			var timer *time.Timer
-			var timerCh <-chan time.Time
-			if !deadline.IsZero() {
-				delay := time.Until(deadline)
-				if delay <= 0 {
-					return 0, os.ErrDeadlineExceeded
-				}
-				timer = time.NewTimer(delay)
-				timerCh = timer.C
-			}
+		case <-s.remoteCh:
+			// Stream data and the following close frame are handled in
+			// order, but both channels can be ready before this goroutine
+			// is scheduled. Drain the final queued data before reporting
+			// the orderly remote close.
 			select {
 			case data := <-s.readCh:
 				s.readBuf = data
-			case <-s.remoteCh:
+			default:
 				stopTimer(timer)
 				return 0, io.EOF
-			case <-s.conn.closeCh:
-				stopTimer(timer)
-				return 0, s.conn.err()
-			case <-wake:
-				stopTimer(timer)
-				continue
-			case <-timerCh:
-				return 0, os.ErrDeadlineExceeded
 			}
+		case <-s.conn.closeCh:
 			stopTimer(timer)
+			return 0, s.conn.err()
+		case <-wake:
+			stopTimer(timer)
+			continue
+		case <-timerCh:
+			return 0, os.ErrDeadlineExceeded
 		}
+		stopTimer(timer)
 	}
 	n := copy(buf, s.readBuf)
 	s.readBuf = s.readBuf[n:]
