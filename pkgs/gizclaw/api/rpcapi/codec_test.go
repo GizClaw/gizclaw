@@ -162,11 +162,7 @@ func TestModelFieldsAreCompactedWithoutCompatibilityReservations(t *testing.T) {
 	}
 }
 
-func TestRPCMethodsAreCompactedWithoutCompatibilityReservations(t *testing.T) {
-	// Issue #690 defines one clean schema reset: mixed-version operation and old
-	// clients are unsupported, and deployment clears all pre-reset state. Dense
-	// reuse of removed assignments is therefore intentional; reserving retired
-	// values would contradict the final contract this descriptor test enforces.
+func TestRPCMethodsIntentionallyReuseRetiredValuesWithoutCompatibilityReservations(t *testing.T) {
 	descriptor := rpcpb.RpcMethod_RPC_METHOD_UNSPECIFIED.Descriptor()
 	badgeDefinition := descriptor.Values().ByName("RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD")
 	if badgeDefinition == nil || badgeDefinition.Number() != 64 {
