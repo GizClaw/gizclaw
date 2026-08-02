@@ -29,7 +29,7 @@ jobs:
     with:
       model: gpt-5.6-terra
       effort: medium
-      max-diff-bytes: 3000000
+      max-diff-bytes: 4000000
       chunk-target-bytes: 180000
       review-instructions: >-
         Review only the pull-request diff and report actionable correctness,
