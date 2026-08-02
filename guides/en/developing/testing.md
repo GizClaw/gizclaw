@@ -126,6 +126,7 @@ fixed entrypoints:
 ```sh
 bash tests/gizclaw-e2e/run_edge_failure_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_100_tests.sh
 
 GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
 GIZCLAW_E2E_VOLC_LOG_REGION=... \
@@ -140,7 +141,15 @@ connection hold and ping rounds, all 100 sessions synchronously upload and
 download 4 MiB each, with aggregate throughput measured over one shared
 wall-clock interval. The single-session control uses a sustained 32 MiB
 payload. The machine-readable artifact is written under ignored `testdata/`;
-this is not a long-soak or higher-session capacity promise.
+this is not a long-soak or higher-session capacity promise. The dedicated
+100-session burst entrypoint repeats three fresh-stack runs with no ramp,
+reports establishment rate and Dial p50/p95/p99, transfers 1 MiB per session
+in each direction, and records a sustained 32 MiB single-session control. Its
+hard gates are 100/100 establishment, at least 20 sessions/s, Dial p95 at most
+1 second and p99 at most 5 seconds, and at least 200 Mbps aggregate in each
+direction. The single-session ratio remains a reported diagnostic because a
+single local sample is too variable to be a reliable concurrent-throughput
+gate.
 
 ## GenX provider E2E
 

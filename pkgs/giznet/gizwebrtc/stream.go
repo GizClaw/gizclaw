@@ -18,6 +18,11 @@ type dataChannelFlow interface {
 	OnBufferedAmountLow(func())
 }
 
+var streamWriteBufferPool = sync.Pool{New: func() any {
+	buffer := make([]byte, 0, streamChunkSize)
+	return &buffer
+}}
+
 type dataChannelConn struct {
 	raw    datachannel.ReadWriteCloserDeadliner
 	flow   dataChannelFlow
@@ -119,6 +124,59 @@ func (c *dataChannelConn) Write(p []byte) (int, error) {
 			return written, io.ErrShortWrite
 		}
 		p = p[chunk:]
+	}
+	return written, nil
+}
+
+func (c *dataChannelConn) WriteBuffers(buffers net.Buffers) (int64, error) {
+	if c == nil || c.raw == nil {
+		return 0, giznet.ErrConnClosed
+	}
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+
+	pooled := streamWriteBufferPool.Get().(*[]byte)
+	chunk := (*pooled)[:0]
+	defer func() {
+		*pooled = chunk[:0]
+		streamWriteBufferPool.Put(pooled)
+	}()
+	var written int64
+	flush := func() error {
+		if len(chunk) == 0 {
+			return nil
+		}
+		if err := c.waitWriteBudget(); err != nil {
+			return err
+		}
+		n, err := c.raw.WriteDataChannel(chunk, false)
+		written += int64(n)
+		if c.tx != nil && n > 0 {
+			c.tx.Add(uint64(n))
+		}
+		if err != nil {
+			return err
+		}
+		if n != len(chunk) {
+			return io.ErrShortWrite
+		}
+		chunk = chunk[:0]
+		return nil
+	}
+	for _, buffer := range buffers {
+		for len(buffer) > 0 {
+			count := min(len(buffer), streamChunkSize-len(chunk))
+			chunk = append(chunk, buffer[:count]...)
+			buffer = buffer[count:]
+			if len(chunk) == streamChunkSize {
+				if err := flush(); err != nil {
+					return written, err
+				}
+			}
+		}
+	}
+	if err := flush(); err != nil {
+		return written, err
 	}
 	return written, nil
 }

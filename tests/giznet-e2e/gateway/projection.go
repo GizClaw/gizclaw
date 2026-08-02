@@ -19,6 +19,7 @@ const (
 	projectedTotalSessions    = 30000
 	projectedSessionsPerEdge  = 15000
 	projectedUpstreamsPerEdge = 16
+	sampledUpstreamsPerEdge   = 4
 	sessionsPerEdgeLimit      = 30000
 	sessionsPerUpstreamLimit  = 2048
 )
@@ -228,8 +229,7 @@ func analyzeSoakStability(run artifact, role string) (soakStability, error) {
 		return soakStability{}, fmt.Errorf("soak run lacks %s evidence", role)
 	}
 	holdStart := holdRounds[0].StartedAt
-	lastRound := holdRounds[len(holdRounds)-1]
-	holdEnd := lastRound.StartedAt.Add(lastRound.Duration)
+	holdEnd := holdStart.Add(run.Config.Duration)
 	window := 10 * time.Minute
 	early := resourceWindow(evidence.Samples, holdStart, holdStart.Add(window))
 	late := resourceWindow(evidence.Samples, holdEnd.Add(-window), holdEnd)
@@ -322,7 +322,7 @@ func validateProjectionRunSet(runs []artifact) error {
 		if run.Config.MaxEstablishmentFailures != 0 || run.Config.MaxPingFailures != 0 ||
 			run.Config.MaxP99RTT != 0 || run.Config.MaxPingRoundDuration != 30*time.Second ||
 			!run.Config.RequireBalancedEdges || run.Config.MaxSessionsPerEdge != sessionsPerEdgeLimit ||
-			run.Config.RequiredUpstreamsPerEdge != projectedUpstreamsPerEdge ||
+			run.Config.RequiredUpstreamsPerEdge != sampledUpstreamsPerEdge ||
 			run.Config.MaxUpstreamsPerEdge != projectedUpstreamsPerEdge ||
 			run.Config.MaxSessionsPerUpstream != sessionsPerUpstreamLimit {
 			return errors.New("run does not use the fixed correctness and distribution thresholds")
@@ -424,8 +424,7 @@ func validateRoleEvidenceCoverage(run artifact, evidence roleResourceEvidence) e
 		return fmt.Errorf("%s lacks workload or resource samples", evidence.Role)
 	}
 	holdStart := holdRounds[0].StartedAt
-	lastRound := holdRounds[len(holdRounds)-1]
-	holdEnd := lastRound.StartedAt.Add(lastRound.Duration)
+	holdEnd := holdStart.Add(run.Config.Duration)
 	if evidence.Samples[0].At.After(holdStart) || evidence.Samples[len(evidence.Samples)-1].At.Before(holdEnd) {
 		return fmt.Errorf("%s resource samples do not cover the complete hold interval", evidence.Role)
 	}

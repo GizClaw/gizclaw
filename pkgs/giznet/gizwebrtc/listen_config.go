@@ -17,7 +17,15 @@ const (
 	CipherModeChaChaPoly CipherMode = "chacha_poly"
 	CipherModeAES256GCM  CipherMode = "aes_256_gcm"
 	CipherModePlaintext  CipherMode = "plaintext"
+
+	iceUDPReadBufferSize  = 4 * 1024 * 1024
+	iceUDPWriteBufferSize = 4 * 1024 * 1024
 )
+
+type iceUDPBufferSetter interface {
+	SetReadBuffer(int) error
+	SetWriteBuffer(int) error
+}
 
 type ListenConfig struct {
 	// API optionally supplies a preconfigured Pion API. When nil, Listen
@@ -134,6 +142,15 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 		if err != nil {
 			return nil, nil, fmt.Errorf("gizwebrtc: listen ICE UDP: %w", err)
 		}
+		bufferedConn, ok := udpConn.(iceUDPBufferSetter)
+		if !ok {
+			_ = udpConn.Close()
+			return nil, nil, fmt.Errorf("gizwebrtc: ICE UDP socket does not support buffer sizing")
+		}
+		if err := configureICEUDPBuffers(bufferedConn); err != nil {
+			_ = udpConn.Close()
+			return nil, nil, err
+		}
 		closers = append(closers, udpConn.Close)
 		settingEngine.SetICEUDPMux(webrtc.NewICEUDPMux(logger, udpConn))
 		networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4)
@@ -178,6 +195,16 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 		webrtc.WithMediaEngine(&mediaEngine),
 		webrtc.WithSettingEngine(settingEngine),
 	), closers, nil
+}
+
+func configureICEUDPBuffers(conn iceUDPBufferSetter) error {
+	if err := conn.SetReadBuffer(iceUDPReadBufferSize); err != nil {
+		return fmt.Errorf("gizwebrtc: size ICE UDP read buffer: %w", err)
+	}
+	if err := conn.SetWriteBuffer(iceUDPWriteBufferSize); err != nil {
+		return fmt.Errorf("gizwebrtc: size ICE UDP write buffer: %w", err)
+	}
+	return nil
 }
 
 func iceLite(c *ListenConfig) bool {

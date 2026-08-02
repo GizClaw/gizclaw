@@ -157,15 +157,18 @@ ICE candidate bodies, and business payloads must not be logged.
 Each gateway upstream is one WebRTC PeerConnection and SCTP association. Every
 logical session has its own `ServiceEdgeTunnel` DataChannel on its selected
 upstream, but those DataChannels still share association-level congestion
-control and scheduling. While `max-upstreams` has room, the pool therefore
-opens a separate upstream for each new active session before sharing an
-association. Once full, it uses least-active selection.
+control and scheduling. At startup the pool opens four upstreams, bounded by
+`max-upstreams`, then assigns sessions by least-active selection. It opens
+another upstream only after every healthy association reaches its configured
+active-session capacity. This bounded warm pool avoids both single-association
+head-of-line congestion and the cold-start cost of eagerly filling all 16
+available slots.
 
 By default, one upstream holds at most 2,048 active logical sessions and enters
-draining after 8,192 cumulatively opened tunnel streams. A growth failure is a
-throughput-optimization failure, not a capacity failure: admission falls back
-to an existing healthy upstream when it still has session capacity. Failure of
-one upstream closes only its pinned sessions.
+draining after 8,192 cumulatively opened tunnel streams. The Edge fails startup
+if it cannot establish the bounded warm pool. Later capacity growth fails only
+the admission that required the unavailable association. Failure of one
+upstream closes only its pinned sessions.
 
 HTTP forwarding and gateway upstreams are long-lived runtime state. The Edge
 package must not copy GizClaw handlers to bypass upstream unavailability.
@@ -183,13 +186,12 @@ exceeding the session or frame bound closes that session. Idle sessions expire
 after five minutes. Shutdown stops admission, drains for 30 seconds, and then
 closes remaining sessions.
 
-For throughput sizing, let `B` be measured single-association throughput and
-`W` be independently measured usable path bandwidth. Reaching 80% path
-utilization initially requires `ceil(0.8 × W / B)` active upstreams, bounded by
-`max-upstreams`. For an observation of `B = 10.10 Mbps` and `W = 200 Mbps`,
-the estimate is 16 upstreams, matching the default. Three
-active sessions are placed on three associations, so aggregate throughput
-should approach three times `B` until another distributed resource saturates.
+`max-upstreams` is a capacity ceiling, not an eager throughput target. A single
+association can serialize a large concurrent burst, while opening every slot
+at once pays multiple independent SCTP cold-start and congestion-recovery
+costs. The bounded four-association warm pool is the measured default for the
+100-session local burst; higher-session tests must measure before changing that
+tradeoff.
 
 At the same defaults, 30,000 mostly idle sessions average 1,875 sessions per
 upstream, below the 2,048 hard limit. This is a capacity-model target, not a

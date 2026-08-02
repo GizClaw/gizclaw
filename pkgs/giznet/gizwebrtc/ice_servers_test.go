@@ -60,8 +60,8 @@ func TestWebRTCICEServersMintTURNRESTCredentials(t *testing.T) {
 		t.Fatalf("servers len = %d, want 1", len(servers))
 	}
 	got := servers[0]
-	if got.Username != "1700086400:edge" {
-		t.Fatalf("username = %q, want 24-hour REST username", got.Username)
+	if got.Username != "1700000600:edge" {
+		t.Fatalf("username = %q, want 10-minute REST username", got.Username)
 	}
 	if got.Credential == "" || got.Credential == "long-term-secret" {
 		t.Fatalf("credential = %q, want minted credential", got.Credential)

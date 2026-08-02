@@ -320,7 +320,9 @@ func (c *Conn) closeWithError(cause error) error {
 	}
 	c.once.Do(func() {
 		c.closeMu.Lock()
-		c.closeErr = cause
+		if cause != nil {
+			c.closeErr = errors.Join(giznet.ErrConnClosed, cause)
+		}
 		c.closeMu.Unlock()
 		c.closed.Store(true)
 		close(c.closeCh)
@@ -438,7 +440,7 @@ func (c *Conn) reservePacketDataChannel(dc *webrtc.DataChannel) bool {
 		_ = c.closeWithError(errors.New("gizwebrtc: packet data channel closed"))
 	})
 	dc.OnError(func(err error) {
-		_ = c.closeWithError(fmt.Errorf("gizwebrtc: packet data channel: %v", err))
+		_ = c.closeWithError(fmt.Errorf("gizwebrtc: packet data channel: %w", err))
 	})
 	return true
 }
@@ -463,7 +465,7 @@ func (c *Conn) readPacketLoop(raw datachannel.ReadWriteCloserDeadliner) {
 			if errors.Is(err, errPacketProtocolIgnored) {
 				continue
 			}
-			_ = c.closeWithError(fmt.Errorf("gizwebrtc: read packet data channel: %v", err))
+			_ = c.closeWithError(fmt.Errorf("gizwebrtc: read packet data channel: %w", err))
 			return
 		}
 		c.enqueuePacket(pkt)
@@ -502,7 +504,7 @@ func (c *Conn) readRemoteOpus(track *webrtc.TrackRemote) {
 	for {
 		pkt, _, err := track.ReadRTP()
 		if err != nil {
-			_ = c.closeWithError(fmt.Errorf("gizwebrtc: read remote opus: %v", err))
+			_ = c.closeWithError(fmt.Errorf("gizwebrtc: read remote opus: %w", err))
 			return
 		}
 		c.enqueueRemoteOpusFrame(pkt.Payload)

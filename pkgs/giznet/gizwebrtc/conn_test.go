@@ -49,6 +49,9 @@ func TestConnReadReportsUnexpectedCloseCause(t *testing.T) {
 	if _, _, err := conn.Read(make([]byte, 1)); !errors.Is(err, want) {
 		t.Fatalf("Read error = %v, want %v", err, want)
 	}
+	if _, _, err := conn.Read(make([]byte, 1)); !errors.Is(err, giznet.ErrConnClosed) {
+		t.Fatalf("Read error = %v, want connection-closed sentinel", err)
+	}
 }
 
 func TestConnReadReportsNormalClose(t *testing.T) {

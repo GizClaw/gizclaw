@@ -287,10 +287,10 @@ func TestEstablishSessionsClosesEstablishedSessionsWhenRampIsCanceled(t *testing
 		[]edgeMetadata{{endpoint: session.edge}},
 		state,
 		make(chan struct{}, opts.concurrency),
-		func(context.Context, edgeMetadata, int, time.Duration) (*liveSession, error) {
+		func(context.Context, edgeMetadata, int, time.Duration) (*liveSession, establishmentSessionResult, error) {
 			attempts++
 			cancel()
-			return session, nil
+			return session, establishmentSessionResult{}, nil
 		},
 	)
 	if !errors.Is(err, context.Canceled) {

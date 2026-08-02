@@ -8,11 +8,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/webrtc/v4"
 )
+
+var defaultDialAPI = sync.OnceValues(func() (*webrtc.API, error) {
+	api, _, err := newPionAPI(nil)
+	return api, err
+})
 
 type DialConfig struct {
 	API                *webrtc.API
@@ -32,7 +38,7 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 	var closers []func() error
 	if api == nil {
 		var err error
-		api, closers, err = newPionAPI(nil)
+		api, err = defaultDialAPI()
 		if err != nil {
 			return nil, nil, err
 		}

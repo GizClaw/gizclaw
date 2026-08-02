@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const extendedArtifactVersion = 6
+const extendedArtifactVersion = 7
 
 var dockerRolePIDFiles = map[string]string{
 	"edge":   "/src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.pid",
@@ -378,14 +378,20 @@ func parseDockerProcessSample(output string) (dockerProcessSample, error) {
 	if values[0] > math.MaxInt64 {
 		return dockerProcessSample{}, errors.New("sample timestamp overflows int64")
 	}
+	if values[1] > math.MaxInt || values[7] > math.MaxInt {
+		return dockerProcessSample{}, errors.New("process ID or open FD count overflows int")
+	}
 	if values[3] == 0 || values[6] == 0 {
 		return dockerProcessSample{}, errors.New("page size and clock ticks must be positive")
+	}
+	if values[2] > math.MaxUint64/values[3] {
+		return dockerProcessSample{}, errors.New("resident byte count overflows uint64")
 	}
 	return dockerProcessSample{
 		Point: roleResourcePoint{
 			At:       time.Unix(0, int64(values[0])),
 			RSSBytes: values[2] * values[3], RSSSource: "proc_pid_statm",
-			CPUSeconds: float64(values[4]+values[5]) / float64(values[6]), CPUSecondsSource: "proc_pid_stat",
+			CPUSeconds: (float64(values[4]) + float64(values[5])) / float64(values[6]), CPUSecondsSource: "proc_pid_stat",
 			OpenFDs: int(values[7]), OpenFDsSource: "proc_pid_fd",
 			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "goroutines"},
 		},

@@ -103,9 +103,9 @@ Direct packet 和 Opus 不写入 control stream。它们使用 `ProtocolTunnelPa
 
 每条 physical upstream 是一条 WebRTC PeerConnection/SCTP association，每个 logical
 session 使用一条独立 tunnel DataChannel。独立 DataChannel 隔离 writer 和
-buffered-amount backpressure，但不会隔离 association 级拥塞控制。Edge 因此会在有
-`max-upstreams` 配额时先扩展 association，再把多个 active sessions 放到同一
-association；pool 满后才按 least-active 复用。
+buffered-amount backpressure，但不会隔离 association 级拥塞控制。Edge 启动时建立最多
+4 条 warm upstream，并按 least-active 复用；只有所有 healthy upstream 都达到配置的
+session 容量后才继续扩展，且始终不超过 `max-upstreams`。
 
 HTTP endpoint 见 [Admin API](/api/)；RPC method 见 [RPC API Reference](./rpc)。
 

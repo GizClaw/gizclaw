@@ -151,6 +151,45 @@ func TestConnMultiplexesServicesAndPackets(t *testing.T) {
 	}
 }
 
+func TestVirtualStreamWriteBuffersCoalescesAdjacentRPCParts(t *testing.T) {
+	clientConn, serverConn, _ := tunnelTestPair(t, Config{})
+	listener := serverConn.ListenService(7)
+	clientStream, err := clientConn.Dial(7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverStream, err := listener.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clientStream.Close()
+	defer serverStream.Close()
+
+	w, ok := clientStream.(interface {
+		WriteBuffers(net.Buffers) (int64, error)
+	})
+	if !ok {
+		t.Fatal("virtual stream does not support vectored writes")
+	}
+	payload := bytes.Repeat([]byte{0x42}, 32*1024)
+	buffers := net.Buffers{[]byte("head"), payload}
+	written, err := w.WriteBuffers(buffers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := append([]byte("head"), payload...)
+	if written != int64(len(want)) {
+		t.Fatalf("WriteBuffers bytes = %d, want %d", written, len(want))
+	}
+	got := make([]byte, len(want))
+	if _, err := io.ReadFull(serverStream, got); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatal("vectored write did not preserve adjacent buffers")
+	}
+}
+
 func TestVirtualStreamReadDeadlineInterruptsRead(t *testing.T) {
 	clientConn, serverConn, _ := tunnelTestPair(t, Config{})
 	listener := serverConn.ListenService(7)
@@ -358,7 +397,7 @@ func TestVirtualStreamBackpressuresUntilReaderDrains(t *testing.T) {
 }
 
 func TestVirtualStreamReadDrainsQueuedDataBeforeRemoteClose(t *testing.T) {
-	for attempt := 0; attempt < 100; attempt++ {
+	for attempt := range 100 {
 		conn := &Conn{
 			cfg:     Config{StreamQueueSize: 1},
 			closeCh: make(chan struct{}),

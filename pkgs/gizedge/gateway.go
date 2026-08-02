@@ -21,8 +21,9 @@ import (
 var ErrGatewayOverCapacity = errors.New("edge: gateway over capacity")
 
 const (
-	gatewayGrowthWaitTimeout = time.Second
-	gatewayGrowthRetryDelay  = 5 * time.Second
+	gatewayPoolWarmUpstreams       = 4
+	gatewayPoolWarmupTimeout       = 5 * time.Second
+	gatewayPoolReplenishRetryDelay = time.Second
 )
 
 type Gateway struct {
@@ -73,6 +74,7 @@ func newGateway(
 	listener, err := (&gizwebrtc.ListenConfig{
 		ICEUDPAddr:        cfg.Gateway.ICEUDPListen,
 		PublicICEUDPAddr:  cfg.Gateway.PublicICEUDP,
+		ICELite:           true,
 		SecurityPolicy:    gatewayClientSecurityPolicy{},
 		AggregateServices: true,
 	}).Listen(cfg.KeyPair)
@@ -82,6 +84,12 @@ func newGateway(
 	}
 	pool := newGatewayPool(ctx, cfg, upstreamURL, relaySelector)
 	if err := pool.ensureOne(ctx); err != nil {
+		_ = listener.Close()
+		cancel()
+		return nil, err
+	}
+	if err := pool.warm(ctx); err != nil {
+		_ = pool.Close()
 		_ = listener.Close()
 		cancel()
 		return nil, err
@@ -520,7 +528,6 @@ type gatewayPool struct {
 	entries    []*gatewayUpstream
 	nextID     uint64
 	growthDone chan struct{}
-	growAfter  time.Time
 	closed     bool
 }
 
@@ -567,6 +574,128 @@ func (p *gatewayPool) ensureOne(ctx context.Context) error {
 	return nil
 }
 
+func (p *gatewayPool) warm(ctx context.Context) error {
+	p.mu.Lock()
+	target := p.warmTarget()
+	remaining := target - len(p.entries)
+	p.mu.Unlock()
+	if remaining <= 0 {
+		return nil
+	}
+
+	warmCtx, cancel := context.WithTimeout(ctx, gatewayPoolWarmupTimeout)
+	defer cancel()
+	errs := make(chan error, remaining)
+	var wg sync.WaitGroup
+	for range remaining {
+		wg.Go(func() {
+			entry, err := p.dial(warmCtx)
+			if err != nil {
+				errs <- fmt.Errorf("edge: warm gateway upstream: %w", err)
+				return
+			}
+			p.mu.Lock()
+			if p.closed || p.contextErr() != nil || len(p.entries) >= target {
+				p.mu.Unlock()
+				_ = entry.close()
+				return
+			}
+			p.nextID++
+			entry.id = p.nextID
+			p.entries = append(p.entries, entry)
+			p.mu.Unlock()
+		})
+	}
+	wg.Wait()
+	close(errs)
+	var err error
+	for warmErr := range errs {
+		err = errors.Join(err, warmErr)
+	}
+	return err
+}
+
+func (p *gatewayPool) warmTarget() int {
+	return min(p.cfg.Gateway.MaxUpstreams, gatewayPoolWarmUpstreams)
+}
+
+func (p *gatewayPool) reserveWarmGrowthLocked() chan struct{} {
+	if p.closed || p.contextErr() != nil || len(p.entries) >= p.warmTarget() || p.growthDone != nil {
+		return nil
+	}
+	done := make(chan struct{})
+	p.growthDone = done
+	return done
+}
+
+func (p *gatewayPool) replenishWarm(done chan struct{}) {
+	ctx := p.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	for {
+		p.mu.Lock()
+		if p.growthDone != done || p.closed || p.contextErr() != nil {
+			if p.growthDone == done {
+				close(done)
+				p.growthDone = nil
+			}
+			p.mu.Unlock()
+			return
+		}
+		p.mu.Unlock()
+
+		growCtx, cancel := context.WithTimeout(ctx, gatewayPoolWarmupTimeout)
+		entry, err := p.dial(growCtx)
+		cancel()
+
+		p.mu.Lock()
+		if p.growthDone != done {
+			p.mu.Unlock()
+			if entry != nil {
+				_ = entry.close()
+			}
+			return
+		}
+		if p.closed || p.contextErr() != nil {
+			close(done)
+			p.growthDone = nil
+			p.mu.Unlock()
+			if entry != nil {
+				_ = entry.close()
+			}
+			return
+		}
+		if err == nil {
+			close(done)
+			p.growthDone = nil
+			if len(p.entries) >= p.warmTarget() {
+				p.mu.Unlock()
+				_ = entry.close()
+				return
+			}
+			p.nextID++
+			entry.id = p.nextID
+			p.entries = append(p.entries, entry)
+			p.mu.Unlock()
+			return
+		}
+		p.mu.Unlock()
+
+		timer := time.NewTimer(gatewayPoolReplenishRetryDelay)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+		}
+	}
+}
+
 func (p *gatewayPool) canAccept() bool {
 	if p == nil {
 		return false
@@ -585,7 +714,6 @@ func (p *gatewayPool) canAccept() bool {
 }
 
 func (p *gatewayPool) acquire(ctx context.Context) (*gatewayUpstream, func(), error) {
-	allowGrowth := true
 	for {
 		p.mu.Lock()
 		if p.closed || p.contextErr() != nil {
@@ -602,16 +730,11 @@ func (p *gatewayPool) acquire(ctx context.Context) (*gatewayUpstream, func(), er
 				selected = entry
 			}
 		}
-		growthAllowed := allowGrowth &&
-			(p.growAfter.IsZero() || !time.Now().Before(p.growAfter))
-		// A PeerConnection is one SCTP association, so all of its DataChannels
-		// share association-level congestion control and scheduling. Expand the
-		// bounded pool before placing a second active session on an association.
-		// Once the pool reaches MaxUpstreams, continue with least-active
-		// selection for capacity and failure isolation.
-		if selected != nil &&
-			(!growthAllowed || selected.active == 0 ||
-				len(p.entries) >= p.cfg.Gateway.MaxUpstreams) {
+		// MaxUpstreams is a capacity ceiling, not a warm-pool target. Reuse a
+		// healthy association until its configured session capacity is reached;
+		// eagerly opening associations gives every cold SCTP path its own small
+		// congestion window and makes modest bursts slower and more expensive.
+		if selected != nil {
 			selected.active++
 			selected.opened++
 			if selected.opened >= p.cfg.Gateway.StreamsPerUpstream {
@@ -630,23 +753,6 @@ func (p *gatewayPool) acquire(ctx context.Context) (*gatewayUpstream, func(), er
 		if p.growthDone != nil {
 			growthDone := p.growthDone
 			p.mu.Unlock()
-			if selected != nil {
-				timer := time.NewTimer(gatewayGrowthWaitTimeout)
-				select {
-				case <-growthDone:
-					timer.Stop()
-					continue
-				case <-timer.C:
-					allowGrowth = false
-					continue
-				case <-ctx.Done():
-					timer.Stop()
-					return nil, nil, ctx.Err()
-				case <-p.contextDone():
-					timer.Stop()
-					return nil, nil, giznet.ErrConnClosed
-				}
-			}
 			select {
 			case <-growthDone:
 				continue
@@ -656,27 +762,20 @@ func (p *gatewayPool) acquire(ctx context.Context) (*gatewayUpstream, func(), er
 				return nil, nil, giznet.ErrConnClosed
 			}
 		}
-		p.growthDone = make(chan struct{})
+		growthDone := make(chan struct{})
+		p.growthDone = growthDone
 		p.mu.Unlock()
 		dialCtx, cancelDial := p.dialContext(ctx)
 		entry, err := p.dial(dialCtx)
 		cancelDial()
 		p.mu.Lock()
-		close(p.growthDone)
-		p.growthDone = nil
+		if p.growthDone == growthDone {
+			close(growthDone)
+			p.growthDone = nil
+		}
 		if err != nil {
-			if selected != nil {
-				p.growAfter = time.Now().Add(gatewayGrowthRetryDelay)
-			}
 			p.mu.Unlock()
-			if ctx.Err() != nil || p.contextErr() != nil || selected == nil {
-				return nil, nil, err
-			}
-			// Pool growth is a throughput optimization. If an existing healthy
-			// association still has capacity, a transient growth failure must
-			// not reject an otherwise admissible session.
-			allowGrowth = false
-			continue
+			return nil, nil, err
 		}
 		if p.closed || p.contextErr() != nil {
 			p.mu.Unlock()
@@ -686,7 +785,6 @@ func (p *gatewayPool) acquire(ctx context.Context) (*gatewayUpstream, func(), er
 		p.nextID++
 		entry.id = p.nextID
 		p.entries = append(p.entries, entry)
-		p.growAfter = time.Time{}
 		p.mu.Unlock()
 	}
 }
@@ -753,9 +851,13 @@ func (p *gatewayPool) release(entry *gatewayUpstream) {
 	if closeEntry {
 		p.removeLocked(entry)
 	}
+	growthDone := p.reserveWarmGrowthLocked()
 	p.mu.Unlock()
 	if closeEntry {
 		_ = entry.close()
+	}
+	if growthDone != nil {
+		go p.replenishWarm(growthDone)
 	}
 }
 
@@ -763,8 +865,12 @@ func (p *gatewayPool) markFailed(entry *gatewayUpstream) {
 	p.mu.Lock()
 	entry.failed = true
 	p.removeLocked(entry)
+	growthDone := p.reserveWarmGrowthLocked()
 	p.mu.Unlock()
 	_ = entry.close()
+	if growthDone != nil {
+		go p.replenishWarm(growthDone)
+	}
 }
 
 func (p *gatewayPool) removeLocked(target *gatewayUpstream) {
@@ -788,6 +894,10 @@ func (p *gatewayPool) Close() error {
 	p.closed = true
 	entries := append([]*gatewayUpstream(nil), p.entries...)
 	p.entries = nil
+	if p.growthDone != nil {
+		close(p.growthDone)
+		p.growthDone = nil
+	}
 	p.mu.Unlock()
 	var err error
 	for _, entry := range entries {

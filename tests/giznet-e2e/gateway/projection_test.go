@@ -182,6 +182,17 @@ func TestAnalyzeSoakStabilityRejectsResourceGrowth(t *testing.T) {
 	}
 }
 
+func TestValidateRoleEvidenceCoverageRequiresConfiguredHoldEnd(t *testing.T) {
+	run := syntheticExtendedRun(
+		capacityEnvironment{}, "sessions-100", 100, 30*time.Second, 5*time.Minute, 1, false,
+	)
+	evidence := run.Extended.Roles["server"]
+	evidence.Samples = evidence.Samples[:len(evidence.Samples)-1]
+	if err := validateRoleEvidenceCoverage(run, evidence); err == nil || !strings.Contains(err.Error(), "complete hold interval") {
+		t.Fatalf("coverage error = %v, want complete hold interval", err)
+	}
+}
+
 func syntheticExtendedRun(
 	environment capacityEnvironment,
 	scenario string,
@@ -230,7 +241,7 @@ func syntheticExtendedRun(
 			Edges: []string{"edge-a", "edge-b"}, Sessions: sessions, Ramp: ramp,
 			Duration: hold, PingInterval: 30 * time.Second, Concurrency: 512,
 			MaxPingRoundDuration: 30 * time.Second, RequireBalancedEdges: true,
-			MaxSessionsPerEdge: 30000, RequiredUpstreamsPerEdge: projectedUpstreamsPerEdge,
+			MaxSessionsPerEdge: 30000, RequiredUpstreamsPerEdge: sampledUpstreamsPerEdge,
 			MaxUpstreamsPerEdge:    16,
 			MaxSessionsPerUpstream: sessionsPerUpstreamLimit,
 			Scenario:               scenario, Repetition: repetition, Soak: soak,
@@ -256,8 +267,8 @@ func syntheticUpstreamDistribution(sessions int) map[string]map[string]int {
 	distribution := map[string]map[string]int{"edge-a": {}, "edge-b": {}}
 	for _, edge := range []string{"edge-a", "edge-b"} {
 		remaining := sessions / 2
-		for index := range projectedUpstreamsPerEdge {
-			assigned := remaining / (projectedUpstreamsPerEdge - index)
+		for index := range sampledUpstreamsPerEdge {
+			assigned := remaining / (sampledUpstreamsPerEdge - index)
 			distribution[edge][fmt.Sprintf("upstream-%d", index)] = assigned
 			remaining -= assigned
 		}

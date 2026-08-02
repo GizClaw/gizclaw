@@ -74,6 +74,17 @@ func TestParseDockerProcessSample(t *testing.T) {
 	if _, err := parseDockerProcessSample("123 invalid"); err == nil {
 		t.Fatal("parseDockerProcessSample accepted malformed output")
 	}
+	for name, sample := range map[string]string{
+		"process ID":     "1 18446744073709551615 1 1 1 1 1 1 1 1",
+		"open FD count":  "1 1 1 1 1 1 1 18446744073709551615 1 1",
+		"resident bytes": "1 1 18446744073709551615 2 1 1 1 1 1 1",
+	} {
+		t.Run(name+" overflow", func(t *testing.T) {
+			if _, err := parseDockerProcessSample(sample); err == nil || !strings.Contains(err.Error(), "overflow") {
+				t.Fatalf("parseDockerProcessSample error = %v, want overflow", err)
+			}
+		})
+	}
 }
 
 func TestDockerProcessSampleScriptReadsLinuxProc(t *testing.T) {

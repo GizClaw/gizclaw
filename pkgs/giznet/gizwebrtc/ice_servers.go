@@ -23,7 +23,7 @@ const (
 	ICECredentialModeStatic   = "static"
 	ICECredentialModeTURNREST = "turn-rest"
 
-	turnCredentialTTL = 24 * time.Hour
+	turnCredentialTTL = 10 * time.Minute
 )
 
 func validateICEServers(servers []ICEServer) error {

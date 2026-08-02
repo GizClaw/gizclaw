@@ -129,14 +129,16 @@ username、credential、SDP、ICE candidate body 或业务 payload。
 每条 gateway upstream 是一条独立的 WebRTC PeerConnection 和 SCTP
 association；每个 logical session 在选中的 upstream 上拥有自己的
 `ServiceEdgeTunnel` DataChannel。多个 DataChannel 仍共享 association 级的拥塞控制和
-调度，因此 pool 在有剩余 `max-upstreams` 配额时，先为新的 active session 建立独立
-upstream，再开始复用已有 association。pool 满后使用 least-active 选择。
+调度。pool 启动时建立 4 条 upstream（不超过 `max-upstreams`），之后按 least-active
+分配 session；只有所有 healthy association 都达到配置的 active-session 容量后才扩展
+下一条 upstream。这个有界 warm pool 同时避免单 association 的队头阻塞，以及一次铺满
+16 条冷 SCTP association 的启动与拥塞收敛成本。
 
 默认每条 upstream 最多保持 2048 个 active logical sessions；一条 upstream 累计打开
 8192 个 tunnel streams 后进入 draining，不再接收新会话，现有会话结束后关闭并由新
-upstream 替换。扩容失败只是吞吐优化失败；只要已有 healthy upstream 仍有 session
-容量，admission 会回退到已有 upstream。单条 upstream 失败只关闭固定在该连接上的会话，
-其他 upstream 和其他 Edge 不受影响。
+upstream 替换。Edge 无法建立有界 warm pool 时启动失败；后续只有确实需要新增
+association 的 admission 会受扩容失败影响。单条 upstream 失败只关闭固定在该连接上的
+会话，其他 upstream 和其他 Edge 不受影响。
 
 HTTP forwarding 和 gateway upstream 都属于长生命周期 runtime 状态。Edge package 不应通过自行复制 GizClaw handler 来规避上游不可用。
 
@@ -175,12 +177,10 @@ burst 把基线抬高而产生 flaky ratio；绝对门槛会拒绝旧的十几 M
 
 容量 artifact 记录 load-driver 的 GOOS、GOARCH、Go version 和 logical CPU，并包含建立失败、周期 ping RTT、每轮及每个 Edge/upstream 的 RTT/失败汇总、unexpected disconnect、identity crossover、RSS、Go/runtime active CPU estimate、FD、heap、收发 bytes，以及 Edge/upstream 分布。upload/download 分别记录单路基线、由共享 wall-clock 计算的 100 路 aggregate Mbps、每路速率分位数、完整字节数、失败，以及每个 Edge/upstream 的聚合结果；不能把各客户端 duration 相加或取最大值替代共享起止区间。每个内存和 CPU 资源点都携带数据源；无法读取 Linux `/proc/self/statm` 时，`rss_bytes` 明确标记为 `go_memstats_sys` fallback，不能作为完整进程 RSS。平台无法读取 FD 时该值为 `-1`。达到 crossover、unexpected disconnect、测速失败、绝对 Mbps 或保留倍率阈值时命令以非零状态退出。500/1,000-session 重复运行、长时间 soak、各进程资源斜率和 30,000-session 理论推算属于独立的扩展容量验收。
 
-吞吐 sizing 以实测的单 association 吞吐 `B` 和同路径可用带宽 `W` 为输入。要达到
-80% 路径利用率，所需 active upstream 数可先估为 `ceil(0.8 × W / B)`，并且必须不大于
-`max-upstreams`。以 `B = 10.10 Mbps`、`W = 200 Mbps` 的观测为例，估算需要 16 条
-active upstream；这与默认上限一致。三个 active sessions 会先分配到三条 association，
-因此在其他资源未饱和时，聚合吞吐应接近三倍单 association 吞吐，而不是继续停在
-10–14 Mbps。
+`max-upstreams` 是容量上限，不是应立即铺满的吞吐目标。单 association 会把大型并发
+burst 串行化；一次打开全部 slot 又会同时支付多条 SCTP 冷启动和拥塞恢复成本。默认的
+4-association 有界 warm pool 来自本机 100-session burst 的实测；更高 session 数的任务
+必须重新测量后再调整这个取舍。
 
 同一组默认值下，30,000 个 mostly-idle sessions 平均为 1,875 sessions/upstream，低于
 2,048 的硬上限。这只是 topology sizing：CPU、memory、FD、建立速率和低频 activity

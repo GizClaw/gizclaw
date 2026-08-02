@@ -18,8 +18,15 @@ const (
 	defaultStreamQueueSize  = 32
 	defaultServiceQueueSize = 16
 	defaultHandshakeTimeout = 10 * time.Second
-	streamChunkSize         = 16 * 1024
+	// Leave room for the tunnel frame and stream ID so one chunk fits exactly
+	// in a stable 32 KiB WebRTC DataChannel write.
+	streamChunkSize = 32*1024 - frameHeaderSize - 8
 )
+
+var streamBufferPool = sync.Pool{New: func() any {
+	buffer := make([]byte, 0, streamChunkSize)
+	return &buffer
+}}
 
 type Config struct {
 	MaxFrameSize       int
@@ -690,6 +697,56 @@ func (s *virtualStream) Write(data []byte) (int, error) {
 			return written, err
 		}
 		written = end
+	}
+	return written, nil
+}
+
+func (s *virtualStream) WriteBuffers(buffers net.Buffers) (int64, error) {
+	if len(buffers) == 0 {
+		return 0, nil
+	}
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
+	chunkSize := min(streamChunkSize, s.conn.cfg.MaxFrameSize-8)
+	if chunkSize <= 0 {
+		return 0, ErrFrameTooLarge
+	}
+	pooled := streamBufferPool.Get().(*[]byte)
+	chunk := (*pooled)[:0]
+	defer func() {
+		*pooled = chunk[:0]
+		streamBufferPool.Put(pooled)
+	}()
+	var written int64
+	flush := func() error {
+		if len(chunk) == 0 {
+			return nil
+		}
+		if s.writeDeadlineExceeded() {
+			return os.ErrDeadlineExceeded
+		}
+		if err := s.conn.send(frameStreamData, encodeStreamData(s.id, chunk)); err != nil {
+			return err
+		}
+		written += int64(len(chunk))
+		chunk = chunk[:0]
+		return nil
+	}
+	for _, buffer := range buffers {
+		for len(buffer) > 0 {
+			count := min(len(buffer), chunkSize-len(chunk))
+			chunk = append(chunk, buffer[:count]...)
+			buffer = buffer[count:]
+			if len(chunk) == chunkSize {
+				if err := flush(); err != nil {
+					return written, err
+				}
+			}
+		}
+	}
+	if err := flush(); err != nil {
+		return written, err
 	}
 	return written, nil
 }

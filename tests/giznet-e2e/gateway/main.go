@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	artifactVersion = 5
+	artifactVersion = 6
 	maxSpeedBytes   = int64(1 << 30)
 )
 
@@ -50,6 +50,9 @@ type options struct {
 	minSpeedAggregateRatio   float64
 	minUploadAggregateMbps   float64
 	minDownloadAggregateMbps float64
+	minEstablishmentRate     float64
+	maxDialP95               time.Duration
+	maxDialP99               time.Duration
 	concurrency              int
 	artifactPath             string
 	maxEstablishmentFailures int
@@ -84,6 +87,7 @@ type artifact struct {
 	UnexpectedDisconnects int                       `json:"unexpected_disconnects"`
 	IdentityCrossover     bool                      `json:"identity_crossover"`
 	RTT                   latencySummary            `json:"rtt_ms"`
+	Establishment         establishmentSummary      `json:"establishment"`
 	PingRounds            []pingRoundSummary        `json:"ping_rounds"`
 	SpeedTest             speedTestSummary          `json:"speed_test"`
 	BytesPerSession       byteSummary               `json:"bytes_per_session"`
@@ -117,6 +121,9 @@ type artifactConfig struct {
 	MinSpeedAggregateRatio   float64       `json:"min_speed_aggregate_ratio"`
 	MinUploadAggregateMbps   float64       `json:"min_upload_aggregate_mbps"`
 	MinDownloadAggregateMbps float64       `json:"min_download_aggregate_mbps"`
+	MinEstablishmentRate     float64       `json:"min_establishment_rate"`
+	MaxDialP95               time.Duration `json:"max_dial_p95"`
+	MaxDialP99               time.Duration `json:"max_dial_p99"`
 	Concurrency              int           `json:"concurrency"`
 	MaxEstablishmentFailures int           `json:"max_establishment_failures"`
 	MaxPingFailures          int           `json:"max_ping_failures"`
@@ -263,6 +270,7 @@ type resultState struct {
 	sessions              []*liveSession
 	rtts                  []time.Duration
 	pingRounds            []pingRoundSummary
+	establishment         establishmentSummary
 	speedTest             speedTestSummary
 	errors                []string
 	edgeDistribution      map[string]int
@@ -274,18 +282,22 @@ type resultState struct {
 }
 
 type upstreamRecorder struct {
-	base http.RoundTripper
-	mu   sync.Mutex
-	id   string
+	base     http.RoundTripper
+	mu       sync.Mutex
+	id       string
+	duration time.Duration
 }
 
 func (r *upstreamRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
+	started := time.Now()
 	resp, err := r.base.RoundTrip(req)
+	duration := time.Since(started)
+	r.mu.Lock()
+	r.duration += duration
 	if err == nil {
-		r.mu.Lock()
 		r.id = resp.Header.Get("X-GizClaw-Gateway-Upstream")
-		r.mu.Unlock()
 	}
+	r.mu.Unlock()
 	return resp, err
 }
 
@@ -293,6 +305,12 @@ func (r *upstreamRecorder) upstreamID() string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.id
+}
+
+func (r *upstreamRecorder) signalingDuration() time.Duration {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.duration
 }
 
 func main() {
@@ -326,8 +344,11 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf(
-		"gateway capacity passed: established=%d p99=%.2fms upload=%.2fMbps download=%.2fMbps artifact=%s\n",
+		"gateway capacity passed: established=%d establishment=%.2f sessions/s dial_p95=%.2fms dial_p99=%.2fms rtt_p99=%.2fms upload=%.2fMbps download=%.2fMbps artifact=%s\n",
 		report.Established,
+		report.Establishment.UsableSessionsPerSecond,
+		report.Establishment.Dial.P95,
+		report.Establishment.Dial.P99,
 		report.RTT.P99,
 		report.SpeedTest.Upload.Concurrent.AggregateMbps,
 		report.SpeedTest.Download.Concurrent.AggregateMbps,
@@ -351,6 +372,9 @@ func parseOptions() (options, error) {
 	flag.Float64Var(&opts.minSpeedAggregateRatio, "min-speed-aggregate-ratio", 0, "minimum concurrent aggregate Mbps divided by single-session baseline Mbps")
 	flag.Float64Var(&opts.minUploadAggregateMbps, "min-upload-aggregate-mbps", 0, "minimum concurrent upload aggregate Mbps")
 	flag.Float64Var(&opts.minDownloadAggregateMbps, "min-download-aggregate-mbps", 0, "minimum concurrent download aggregate Mbps")
+	flag.Float64Var(&opts.minEstablishmentRate, "min-establishment-rate", 0, "minimum usable sessions established per second")
+	flag.DurationVar(&opts.maxDialP95, "max-dial-p95", 0, "optional maximum p95 usable-session Dial duration")
+	flag.DurationVar(&opts.maxDialP99, "max-dial-p99", 0, "optional maximum p99 usable-session Dial duration")
 	flag.IntVar(&opts.concurrency, "concurrency", 512, "maximum concurrent dial and ping operations")
 	flag.StringVar(&opts.artifactPath, "artifact", "gateway-capacity.json", "capacity artifact path")
 	flag.IntVar(&opts.maxEstablishmentFailures, "max-establishment-failures", 0, "accepted dial failures")
@@ -416,8 +440,9 @@ func validateOptions(opts options) error {
 		return errors.New("-speed-baseline-bytes requires positive -speed-bytes")
 	case !nonNegativeFinite(opts.minSpeedAggregateRatio) ||
 		!nonNegativeFinite(opts.minUploadAggregateMbps) ||
-		!nonNegativeFinite(opts.minDownloadAggregateMbps):
-		return errors.New("speed thresholds must be finite and non-negative")
+		!nonNegativeFinite(opts.minDownloadAggregateMbps) ||
+		!nonNegativeFinite(opts.minEstablishmentRate):
+		return errors.New("speed and establishment-rate thresholds must be finite and non-negative")
 	case opts.speedBytes == 0 &&
 		(opts.minSpeedAggregateRatio > 0 ||
 			opts.minUploadAggregateMbps > 0 ||
@@ -425,6 +450,10 @@ func validateOptions(opts options) error {
 		return errors.New("speed thresholds require positive -speed-bytes")
 	case opts.concurrency <= 0:
 		return errors.New("-concurrency must be positive")
+	case opts.maxDialP95 < 0 || opts.maxDialP99 < 0:
+		return errors.New("-max-dial-p95 and -max-dial-p99 must be non-negative")
+	case opts.maxDialP95 > 0 && opts.maxDialP99 > 0 && opts.maxDialP95 > opts.maxDialP99:
+		return errors.New("-max-dial-p95 must not exceed -max-dial-p99")
 	case strings.TrimSpace(opts.artifactPath) == "":
 		return errors.New("-artifact is required")
 	case opts.maxEstablishmentFailures < 0 || opts.maxPingFailures < 0 || opts.maxP99RTT < 0:
@@ -471,6 +500,9 @@ func run(ctx context.Context, opts options) (artifact, error) {
 			MinSpeedAggregateRatio:   opts.minSpeedAggregateRatio,
 			MinUploadAggregateMbps:   opts.minUploadAggregateMbps,
 			MinDownloadAggregateMbps: opts.minDownloadAggregateMbps,
+			MinEstablishmentRate:     opts.minEstablishmentRate,
+			MaxDialP95:               opts.maxDialP95,
+			MaxDialP99:               opts.maxDialP99,
 			Concurrency:              opts.concurrency,
 			MaxEstablishmentFailures: opts.maxEstablishmentFailures,
 			MaxPingFailures:          opts.maxPingFailures,
@@ -559,7 +591,7 @@ type establishSessionFunc func(
 	edgeMetadata,
 	int,
 	time.Duration,
-) (*liveSession, error)
+) (*liveSession, establishmentSessionResult, error)
 
 func establishSessions(
 	ctx context.Context,
@@ -570,9 +602,66 @@ func establishSessions(
 	establishSession establishSessionFunc,
 ) error {
 	var establishWG sync.WaitGroup
+	var attemptsMu sync.Mutex
+	attempts := make([]establishmentSessionResult, 0, opts.sessions)
 	stopRampPings := func() {}
-	if opts.requireRoleResources {
+	if opts.requireRoleResources && opts.ramp > 0 {
 		stopRampPings = startRampPings(ctx, state, opts, sem)
+	}
+	startedAt := time.Now()
+	start := make(chan struct{})
+	var ready sync.WaitGroup
+	if opts.ramp == 0 {
+		ready.Add(opts.sessions)
+	}
+	launch := func(i int) {
+		establishWG.Go(func() {
+			if opts.ramp == 0 {
+				ready.Done()
+				select {
+				case <-start:
+				case <-ctx.Done():
+					return
+				}
+			}
+			attempt := establishmentSessionResult{
+				Index: i,
+				Edge:  edges[i%len(edges)].endpoint,
+			}
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				attempt.StartedAt = time.Now()
+				attempt.Error = ctx.Err().Error()
+				attemptsMu.Lock()
+				attempts = append(attempts, attempt)
+				attemptsMu.Unlock()
+				return
+			}
+			defer func() { <-sem }()
+			attempt.StartedAt = time.Now()
+			edge := edges[i%len(edges)]
+			session, timing, dialErr := establishSession(ctx, edge, i, opts.dialTimeout)
+			attempt.Duration = time.Since(attempt.StartedAt)
+			attempt.Upstream = timing.Upstream
+			attempt.DialDuration = timing.DialDuration
+			attempt.Phases = timing.Phases
+			if dialErr != nil {
+				attempt.Error = dialErr.Error()
+			}
+			attemptsMu.Lock()
+			attempts = append(attempts, attempt)
+			attemptsMu.Unlock()
+			if dialErr != nil {
+				state.recordError(fmt.Sprintf("session %d dial via %s: %v", i, edge.endpoint, dialErr))
+				return
+			}
+			state.addSession(session)
+			state.serveWG.Go(func() {
+				err := session.serve()
+				handleSessionServeExit(state, session, i, err)
+			})
+		})
 	}
 	delay := time.Duration(0)
 	if opts.sessions > 1 {
@@ -586,33 +675,26 @@ func establishSessions(
 				timer.Stop()
 				stopRampPings()
 				establishWG.Wait()
+				state.mu.Lock()
+				state.establishment = summarizeEstablishment(startedAt, time.Now(), attempts)
+				state.mu.Unlock()
 				closeSessions(state)
 				return ctx.Err()
 			case <-timer.C:
 			}
 		}
-		establishWG.Go(func() {
-			select {
-			case sem <- struct{}{}:
-			case <-ctx.Done():
-				return
-			}
-			defer func() { <-sem }()
-			edge := edges[i%len(edges)]
-			session, dialErr := establishSession(ctx, edge, i, opts.dialTimeout)
-			if dialErr != nil {
-				state.recordError(fmt.Sprintf("session %d dial via %s: %v", i, edge.endpoint, dialErr))
-				return
-			}
-			state.addSession(session)
-			state.serveWG.Go(func() {
-				err := session.serve()
-				handleSessionServeExit(state, session, i, err)
-			})
-		})
+		launch(i)
+	}
+	if opts.ramp == 0 {
+		ready.Wait()
+		startedAt = time.Now()
+		close(start)
 	}
 	establishWG.Wait()
 	stopRampPings()
+	state.mu.Lock()
+	state.establishment = summarizeEstablishment(startedAt, time.Now(), attempts)
+	state.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		closeSessions(state)
 		return err
@@ -743,33 +825,59 @@ func normalizeHTTPBase(endpoint string) (string, error) {
 	return strings.TrimSuffix(parsed.String(), "/"), nil
 }
 
-func establish(parent context.Context, edge edgeMetadata, index int, timeout time.Duration) (*liveSession, error) {
+func establish(
+	parent context.Context,
+	edge edgeMetadata,
+	index int,
+	timeout time.Duration,
+) (*liveSession, establishmentSessionResult, error) {
+	timing := establishmentSessionResult{Phases: make(map[string]time.Duration)}
+	keyStarted := time.Now()
 	key, err := giznet.GenerateKeyPair()
+	timing.Phases[phaseKeyGeneration] = time.Since(keyStarted)
 	if err != nil {
-		return nil, err
+		return nil, timing, err
 	}
 	recorder := &upstreamRecorder{base: http.DefaultTransport}
+	var transportDuration time.Duration
 	client := &gizcli.Client{
 		KeyPair: key,
 		DialTransport: func(key *giznet.KeyPair, _ giznet.PublicKey, _ string, policy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
 			ctx, cancel := context.WithTimeout(parent, timeout)
 			defer cancel()
-			return gizwebrtc.Dial(ctx, key, edge.transportKey, gizwebrtc.DialConfig{
+			transportStarted := time.Now()
+			listener, conn, dialErr := gizwebrtc.Dial(ctx, key, edge.transportKey, gizwebrtc.DialConfig{
 				SignalingURL:   edge.signalingURL,
 				HTTPClient:     &http.Client{Transport: recorder, Timeout: timeout},
 				SecurityPolicy: policy,
 			})
+			transportDuration = time.Since(transportStarted)
+			return listener, conn, dialErr
 		},
 	}
+	clientDialStarted := time.Now()
 	if err := client.Dial(edge.serverKey, edge.endpoint); err != nil {
-		return nil, err
+		timing.DialDuration = time.Since(clientDialStarted)
+		timing.Phases[phaseClientDial] = timing.DialDuration
+		timing.Phases[phaseTransportDial] = transportDuration
+		timing.Phases[phaseHTTPSignaling] = recorder.signalingDuration()
+		timing.Phases[phaseTransportOther] = max(transportDuration-recorder.signalingDuration(), 0)
+		timing.Phases[phaseMandatoryEventStream] = max(timing.Phases[phaseClientDial]-transportDuration, 0)
+		return nil, timing, err
 	}
+	timing.DialDuration = time.Since(clientDialStarted)
+	timing.Phases[phaseClientDial] = timing.DialDuration
+	timing.Phases[phaseTransportDial] = transportDuration
+	timing.Phases[phaseHTTPSignaling] = recorder.signalingDuration()
+	timing.Phases[phaseTransportOther] = max(transportDuration-recorder.signalingDuration(), 0)
+	timing.Phases[phaseMandatoryEventStream] = max(timing.Phases[phaseClientDial]-transportDuration, 0)
 	upstream := recorder.upstreamID()
+	timing.Upstream = upstream
 	if upstream == "" {
 		_ = client.Close()
-		return nil, fmt.Errorf("session %d did not receive an upstream assignment", index)
+		return nil, timing, fmt.Errorf("session %d did not receive an upstream assignment", index)
 	}
-	return &liveSession{client: client, edge: edge.endpoint, upstream: upstream}, nil
+	return &liveSession{client: client, edge: edge.endpoint, upstream: upstream}, timing, nil
 }
 
 func pingAll(ctx context.Context, state *resultState, opts options, sem chan struct{}, phase string, round int) {
@@ -1368,6 +1476,7 @@ func finalize(report artifact, state *resultState, resources *resourceSampler, e
 	report.UnexpectedDisconnects = state.unexpectedDisconnects
 	report.IdentityCrossover = state.identityCrossover
 	report.RTT = summarizeLatency(state.rtts)
+	report.Establishment = state.establishment
 	report.PingRounds = append([]pingRoundSummary(nil), state.pingRounds...)
 	report.SpeedTest = state.speedTest
 	report.Errors = append([]string(nil), state.errors...)
@@ -1396,6 +1505,7 @@ func finalize(report artifact, state *resultState, resources *resourceSampler, e
 	report.ResourceUsage = resources.summary()
 	extendedFailed := report.Extended != nil && len(report.Extended.Errors) > 0
 	report.Passed = !extendedFailed && report.EstablishmentFailures <= report.Config.MaxEstablishmentFailures &&
+		establishmentWithin(report.Establishment, report.Config) &&
 		report.PingFailures <= report.Config.MaxPingFailures &&
 		report.UnexpectedDisconnects == 0 && !report.IdentityCrossover &&
 		(report.Config.SpeedBytes == 0 ||
@@ -1467,14 +1577,18 @@ func acceptanceError(report artifact, opts options) error {
 		return nil
 	}
 	return fmt.Errorf(
-		"gateway capacity failed: established=%d/%d dial_failures=%d ping_failures=%d disconnects=%d crossover=%t p99=%.2fms speed=(upload %.2fMbps %.2fx, download %.2fMbps %.2fx) thresholds=(%d,%d,%s,%.2fx,upload %.2fMbps,download %.2fMbps)",
-		report.Established, report.Attempted, report.EstablishmentFailures, report.PingFailures,
-		report.UnexpectedDisconnects, report.IdentityCrossover, report.RTT.P99,
+		"gateway capacity failed: established=%d/%d dial_failures=%d establishment=(%.2f sessions/s,p95 %.2fms,p99 %.2fms) ping_failures=%d disconnects=%d crossover=%t rtt_p99=%.2fms speed=(upload %.2fMbps %.2fx, download %.2fMbps %.2fx) thresholds=(dial_failures %d,rate %.2f sessions/s,p95 %s,p99 %s,ping_failures %d,rtt_p99 %s,%.2fx,upload %.2fMbps,download %.2fMbps)",
+		report.Established, report.Attempted, report.EstablishmentFailures,
+		report.Establishment.UsableSessionsPerSecond,
+		report.Establishment.Dial.P95,
+		report.Establishment.Dial.P99,
+		report.PingFailures, report.UnexpectedDisconnects, report.IdentityCrossover, report.RTT.P99,
 		report.SpeedTest.Upload.Concurrent.AggregateMbps,
 		report.SpeedTest.Upload.AggregateToBaselineRatio,
 		report.SpeedTest.Download.Concurrent.AggregateMbps,
 		report.SpeedTest.Download.AggregateToBaselineRatio,
-		opts.maxEstablishmentFailures, opts.maxPingFailures, opts.maxP99RTT,
+		opts.maxEstablishmentFailures, opts.minEstablishmentRate, opts.maxDialP95, opts.maxDialP99,
+		opts.maxPingFailures, opts.maxP99RTT,
 		opts.minSpeedAggregateRatio,
 		opts.minUploadAggregateMbps,
 		opts.minDownloadAggregateMbps,
