@@ -1,11 +1,14 @@
 package gizwebrtc
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -139,6 +142,96 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 	}
 	if serverInfo == nil || serverInfo.RxBytes < minimumBytes {
 		t.Fatalf("server RxBytes = %#v, want at least %d", serverInfo, minimumBytes)
+	}
+}
+
+func TestInterleavedServiceStreamsDoNotExhaustSCTPReceiveWindow(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(client) error = %v", err)
+	}
+	serverListener, err := (&ListenConfig{
+		CipherMode:     CipherModePlaintext,
+		SecurityPolicy: allowAllPolicy{},
+	}).Listen(serverKey)
+	if err != nil {
+		t.Fatalf("Listen error = %v", err)
+	}
+	defer serverListener.Close()
+	httpServer := httptest.NewServer(serverListener.SignalingHandler())
+	defer httpServer.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	clientListener, clientConn, err := Dial(ctx, clientKey, serverKey.Public, DialConfig{
+		SignalingURL:   httpServer.URL + SignalingPath,
+		CipherMode:     CipherModePlaintext,
+		SecurityPolicy: allowAllPolicy{},
+	})
+	if err != nil {
+		t.Fatalf("Dial error = %v", err)
+	}
+	defer clientListener.Close()
+	defer clientConn.Close()
+	serverConn := acceptConn(t, serverListener)
+	defer serverConn.Close()
+
+	const streamCount = acceptQueueSize
+	clientStreams := make([]net.Conn, streamCount)
+	serverStreams := make([]net.Conn, streamCount)
+	service := serverConn.ListenService(100)
+	defer service.Close()
+	for index := range streamCount {
+		clientStreams[index], err = clientConn.Dial(100)
+		if err != nil {
+			t.Fatalf("Dial stream %d error = %v", index, err)
+		}
+		defer clientStreams[index].Close()
+		serverStreams[index], err = service.Accept()
+		if err != nil {
+			t.Fatalf("Accept stream %d error = %v", index, err)
+		}
+		defer serverStreams[index].Close()
+	}
+
+	payload := bytes.Repeat([]byte{0x5a}, streamWriteHighWater)
+	start := make(chan struct{})
+	errorsCh := make(chan error, streamCount*2)
+	var workers sync.WaitGroup
+	for index := range streamCount {
+		if err := clientStreams[index].SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			t.Fatalf("SetDeadline(client %d) error = %v", index, err)
+		}
+		if err := serverStreams[index].SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			t.Fatalf("SetDeadline(server %d) error = %v", index, err)
+		}
+		workers.Go(func() {
+			<-start
+			if _, err := clientStreams[index].Write(payload); err != nil {
+				errorsCh <- fmt.Errorf("write stream %d: %w", index, err)
+			}
+		})
+		workers.Go(func() {
+			<-start
+			received := make([]byte, len(payload))
+			if _, err := io.ReadFull(serverStreams[index], received); err != nil {
+				errorsCh <- fmt.Errorf("read stream %d: %w", index, err)
+				return
+			}
+			if !bytes.Equal(received, payload) {
+				errorsCh <- fmt.Errorf("read stream %d: payload mismatch", index)
+			}
+		})
+	}
+	close(start)
+	workers.Wait()
+	close(errorsCh)
+	for err := range errorsCh {
+		t.Error(err)
 	}
 }
 

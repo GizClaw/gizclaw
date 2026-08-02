@@ -119,6 +119,9 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 
 	settingEngine := webrtc.SettingEngine{}
 	settingEngine.DetachDataChannels()
+	settingEngine.SetSCTPMaxReceiveBufferSize(sctpReceiveBufferSize)
+	settingEngine.SetSCTPRTOMax(sctpRetransmissionTimeoutMax)
+	settingEngine.SetDTLSRetransmissionInterval(dtlsRetransmissionInterval)
 	settingEngine.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)
 	if iceLite(c) {
 		settingEngine.SetLite(true)

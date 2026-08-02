@@ -236,9 +236,32 @@ is not complete process RSS. Unsupported file-descriptor sampling is reported
 as `-1`. A throughput failure, absolute-Mbps violation, or retention-ratio
 violation also makes the entrypoint exit nonzero.
 
+The fixed 500-session qualification is:
+
+```bash
+bash tests/gizclaw-e2e/run_gateway_capacity_500_tests.sh
+```
+
+It repeats three fresh one-Server/two-Edge stacks with zero ramp and 500
+simultaneous Dials. Each Edge owns 250 sessions and exactly four upstream
+associations. Every run requires 500/500 usable sessions, no failures,
+disconnects, restarts, or identity crossover, at least 20 sessions/s, Dial p95
+at most 1 second and p99 at most 5 seconds, and exactly 500 MiB transferred in
+each direction at least 200 Mbps aggregate. The 32 MiB single-session
+baseline and aggregate ratios are diagnostic only. Publishable artifacts must
+report the clean final PR head.
+
+On 2026-08-02, three clean-head runs on one Darwin/arm64 host with 16 logical
+CPUs, Go 1.26.4, and an OrbStack Linux/aarch64 Docker one-Server/two-Edge
+topology with direct container signaling endpoints all passed. Every run
+established 500/500 usable sessions, reported zero transfer failure or
+unexpected disconnect, and transferred exactly 500 MiB in each direction
+above 200 Mbps. These measurements qualify only that host and topology; they
+do not qualify 1,000 sessions, a soak, or a deployment network.
+
 CPU, memory, file descriptors, establishment rate, and low-rate activity for
 the complete topology must still be fitted from larger samples. Repeated
-500/1,000-session runs, a long soak, per-process resource slopes, and the
+1,000-session runs, a long soak, per-process resource slopes, and the
 30,000-session projection are a separate extended-capacity qualification.
 Repeatable transport and full Edge benchmarks are:
 

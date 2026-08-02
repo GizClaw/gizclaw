@@ -80,6 +80,26 @@ read_gateway_limit() {
     "$script_dir/testdata/edge-workspace/config.yaml.template"
 }
 
+resolve_capacity_edge_endpoint() {
+  local service="$1"
+  local published_endpoint="$2"
+  local container_id container_ip direct_endpoint
+  container_id="$(docker ps -q \
+    --filter "label=com.docker.compose.project=$GIZCLAW_E2E_DOCKER_PROJECT" \
+    --filter "label=com.docker.compose.service=$service")"
+  if [[ -n "$container_id" ]]; then
+    container_ip="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{println .IPAddress}}{{end}}' "$container_id" 2>/dev/null | awk 'NF { print; exit }')"
+    direct_endpoint="${container_ip:+$container_ip:9821}"
+    if [[ -n "$direct_endpoint" ]] && curl -fsS --connect-timeout 1 --max-time 2 "http://$direct_endpoint/server-info" >/dev/null 2>&1; then
+      echo "==> capacity signaling endpoint: service=$service direct=$direct_endpoint" >&2
+      printf '%s\n' "$direct_endpoint"
+      return 0
+    fi
+  fi
+  echo "==> capacity signaling endpoint: service=$service published=$published_endpoint (direct unavailable)" >&2
+  printf '%s\n' "$published_endpoint"
+}
+
 max_sessions_per_edge="$(read_gateway_limit max-sessions)"
 max_upstreams_per_edge="$(read_gateway_limit max-upstreams)"
 max_sessions_per_upstream="$(read_gateway_limit sessions-per-upstream)"
@@ -98,7 +118,7 @@ run_case() {
   local hold="$4"
   local repetition="$5"
   local soak="$6"
-  local project_slug artifact
+  local project_slug artifact capacity_edge_endpoint capacity_edge2_endpoint
   project_slug="$(printf '%s-%s-%s' "$run_id" "$scenario" "$repetition" | tr -cd '[:alnum:]-' | tr '[:upper:]' '[:lower:]')"
   artifact="$runs_dir/${scenario}-run-${repetition}.json"
   current_env="$runtime_state/${scenario}-run-${repetition}.env"
@@ -112,11 +132,14 @@ run_case() {
   source "$current_env"
   set +a
 
+  capacity_edge_endpoint="$(resolve_capacity_edge_endpoint edge "$GIZCLAW_E2E_EDGE_ENDPOINT")"
+  capacity_edge2_endpoint="$(resolve_capacity_edge_endpoint edge2 "$GIZCLAW_E2E_EDGE2_ENDPOINT")"
+
   echo "==> run extended capacity workload: scenario=$scenario repetition=$repetition"
   # Leave reliable SCTP most of the 30-second round to recover while keeping
   # a two-second margin for artifact aggregation and the round deadline.
   (cd "$repo_root" && GOMAXPROCS="$gateway_gomaxprocs" "$gateway_bin" \
-    -edges "$GIZCLAW_E2E_EDGE_ENDPOINT,$GIZCLAW_E2E_EDGE2_ENDPOINT" \
+    -edges "$capacity_edge_endpoint,$capacity_edge2_endpoint" \
     -sessions "$sessions" \
     -ramp "$ramp" \
     -duration "$hold" \
