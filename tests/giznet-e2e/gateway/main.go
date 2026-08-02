@@ -877,6 +877,7 @@ func establish(
 	}
 	recorder := &upstreamRecorder{base: http.DefaultTransport}
 	var transportDuration time.Duration
+	var clientTiming gizwebrtc.DialTiming
 	client := &gizcli.Client{
 		KeyPair: key,
 		DialTransport: func(key *giznet.KeyPair, _ giznet.PublicKey, _ string, policy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
@@ -887,6 +888,9 @@ func establish(
 				SignalingURL:   edge.signalingURL,
 				HTTPClient:     &http.Client{Transport: recorder, Timeout: timeout},
 				SecurityPolicy: policy,
+				OnTiming: func(observation gizwebrtc.DialTiming) {
+					clientTiming = observation
+				},
 			})
 			transportDuration = time.Since(transportStarted)
 			return listener, conn, dialErr
@@ -895,11 +899,11 @@ func establish(
 	clientDialStarted := time.Now()
 	if err := client.Dial(edge.serverKey, edge.endpoint); err != nil {
 		timing.DialDuration = time.Since(clientDialStarted)
-		recordEstablishmentPhases(&timing, transportDuration, recorder)
+		recordEstablishmentPhases(&timing, transportDuration, recorder, clientTiming)
 		return nil, timing, err
 	}
 	timing.DialDuration = time.Since(clientDialStarted)
-	recordEstablishmentPhases(&timing, transportDuration, recorder)
+	recordEstablishmentPhases(&timing, transportDuration, recorder, clientTiming)
 	upstream := recorder.upstreamID()
 	timing.Upstream = upstream
 	if upstream == "" {
@@ -913,6 +917,7 @@ func recordEstablishmentPhases(
 	timing *establishmentSessionResult,
 	transportDuration time.Duration,
 	recorder *upstreamRecorder,
+	clientTiming gizwebrtc.DialTiming,
 ) {
 	if timing == nil || recorder == nil {
 		return
@@ -922,6 +927,14 @@ func recordEstablishmentPhases(
 	timing.Phases[phaseHTTPSignaling] = recorder.signalingDuration()
 	timing.Phases[phaseTransportOther] = max(transportDuration-recorder.signalingDuration(), 0)
 	timing.Phases[phaseMandatoryEventStream] = max(timing.Phases[phaseClientDial]-transportDuration, 0)
+	timing.Phases[phaseClientPeerConnection] = clientTiming.PeerConnectionConstruction
+	timing.Phases[phaseClientOfferCreation] = clientTiming.OfferCreation
+	timing.Phases[phaseClientSetLocal] = clientTiming.SetLocalDescription
+	timing.Phases[phaseClientICEGathering] = clientTiming.ICEGathering
+	timing.Phases[phaseClientSetRemote] = clientTiming.SetRemoteDescription
+	timing.Phases[phaseClientICEConnected] = clientTiming.ICEConnected
+	timing.Phases[phaseClientDTLSConnected] = clientTiming.DTLSConnected
+	timing.Phases[phaseClientDataChannel] = clientTiming.DataChannelReady
 	for phase, duration := range recorder.signalingPhases() {
 		timing.Phases[phase] = duration
 	}

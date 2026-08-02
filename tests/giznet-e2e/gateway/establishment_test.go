@@ -36,8 +36,8 @@ func TestSummarizeEstablishmentReportsRateLatencyAndPhases(t *testing.T) {
 	if phase := got.Phases[phaseKeyGeneration]; !phase.Supported || phase.Latency.Count != 100 {
 		t.Fatalf("key-generation phase = %+v", phase)
 	}
-	if phase := got.Phases[phaseClientICEGathering]; phase.Supported || phase.Reason == "" {
-		t.Fatalf("unsupported ICE phase = %+v", phase)
+	if phase := got.Phases[phaseClientSCTPConnected]; phase.Supported || phase.Reason == "" {
+		t.Fatalf("unsupported SCTP phase = %+v", phase)
 	}
 }
 

@@ -145,7 +145,12 @@ this is not a long-soak or higher-session capacity promise. The dedicated
 100-session burst entrypoint repeats three fresh-stack runs with no ramp,
 reports establishment rate and Dial p50/p95/p99, transfers 1 MiB per session
 in each direction, and records a sustained 32 MiB single-session control. Its
-hard gates are 100/100 establishment, at least 20 sessions/s, Dial p95 at most
+artifact separates key generation, client PeerConnection, offer, ICE
+gathering, HTTP signaling, answer-side PeerConnection/SDP/ICE, and the client
+ICE-connected, DTLS-connected, and DataChannel-ready milestones. Only the
+client SCTP connected boundary is explicitly unsupported. Its hard gates are
+100/100 establishment, at least 20 sessions/s,
+Dial p95 at most
 1 second and p99 at most 5 seconds, and at least 200 Mbps aggregate in each
 direction. The single-session ratio remains a reported diagnostic because a
 single local sample is too variable to be a reliable concurrent-throughput

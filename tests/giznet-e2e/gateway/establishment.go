@@ -14,8 +14,14 @@ const (
 	phaseTransportOther       = "transport_other"
 	phaseMandatoryEventStream = "mandatory_event_stream"
 	phaseClientPeerConnection = "client_peer_connection_construction"
+	phaseClientOfferCreation  = "client_offer_creation"
+	phaseClientSetLocal       = "client_set_local_description"
 	phaseClientICEGathering   = "client_ice_gathering"
-	phaseDTLSSCTPDataChannel  = "dtls_sctp_datachannel"
+	phaseClientSetRemote      = "client_set_remote_description"
+	phaseClientICEConnected   = "client_ice_connected_after_remote"
+	phaseClientDTLSConnected  = "client_dtls_connected_after_remote"
+	phaseClientSCTPConnected  = "client_sctp_connected_after_remote"
+	phaseClientDataChannel    = "client_datachannel_ready_after_remote"
 	phaseServerPeerConnection = "server_peer_connection_construction"
 	phaseServerSetRemote      = "server_set_remote_description"
 	phaseServerCreateAnswer   = "server_create_answer"
@@ -25,9 +31,7 @@ const (
 )
 
 var unsupportedEstablishmentPhases = map[string]string{
-	phaseClientPeerConnection: "Pion does not expose this boundary through the current gizwebrtc Dial contract",
-	phaseClientICEGathering:   "Pion does not expose this boundary through the current gizwebrtc Dial contract",
-	phaseDTLSSCTPDataChannel:  "DTLS, SCTP, and DataChannel readiness are combined in transport_dial",
+	phaseClientSCTPConnected: "Pion does not expose an SCTP state-change boundary through the current Dial path",
 }
 
 var serverTimingPhases = map[string]string{

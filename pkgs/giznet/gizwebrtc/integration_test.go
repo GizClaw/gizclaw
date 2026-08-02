@@ -42,16 +42,27 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	var dialTiming DialTiming
+	timingCalls := 0
 	clientListener, clientConn, err := Dial(ctx, clientKey, serverKey.Public, DialConfig{
 		SignalingURL:   httpServer.URL + SignalingPath,
 		CipherMode:     CipherModePlaintext,
 		SecurityPolicy: allowAllPolicy{},
+		OnTiming: func(timing DialTiming) {
+			dialTiming = timing
+			timingCalls++
+		},
 	})
 	if err != nil {
 		t.Fatalf("Dial error = %v", err)
 	}
 	defer clientListener.Close()
 	defer clientConn.Close()
+	if timingCalls != 1 || dialTiming.Total <= 0 || dialTiming.PeerConnectionConstruction <= 0 ||
+		dialTiming.HTTPSignaling <= 0 || dialTiming.SetRemoteDescription <= 0 ||
+		dialTiming.ICEConnected <= 0 || dialTiming.DTLSConnected <= 0 || dialTiming.DataChannelReady <= 0 {
+		t.Fatalf("Dial timing calls=%d timing=%+v", timingCalls, dialTiming)
+	}
 
 	serverConn := acceptConn(t, serverListener)
 	defer serverConn.Close()
