@@ -50,7 +50,7 @@ require (
 	gonum.org/v1/gonum v0.17.0
 	google.golang.org/genai v1.42.0
 	google.golang.org/protobuf v1.36.11
-	modernc.org/sqlite v1.54.0
+	modernc.org/sqlite v1.55.0
 )
 
 require (
