@@ -46,6 +46,16 @@ flowchart TB
 
 `cmd/internal/storage` 和 `cmd/internal/stores` 负责读取进程配置、选择具体 backend 并把 stores 注入 Server；`pkgs/store` 不读取 GizClaw Server config，也不决定某个领域使用哪个 physical backend。
 
+### 进程 SQLite DSN 契约
+
+`cmd/internal/storage` 接受 modernc SQLite DSN，并继续支持 `_pragma` 等
+modernc 参数。连接的 `busy_timeout`、WAL journal mode 和 foreign-key PRAGMA
+由 GizClaw 负责。`go-sqlite3` 兼容简写 `_busy_timeout`/`_timeout`、
+`_foreign_keys`/`_fk`、`_journal_mode`/`_journal`、
+`_synchronous`/`_sync`、`_auto_vacuum`/`_vacuum` 和 `_query_only` 不受支持，
+并会在打开数据库前被拒绝。这样依赖升级不会静默改变数据库文件或连接行为；
+如需不同策略，应在 storage 所拥有的代码中配置，而不是通过这些 DSN 简写。
+
 ## 放置规则
 
 这里保存可跨领域复用的 storage interface、backend adapter 以及通用 key、query、index、expiration 与 persistence 语义。领域 resource schema、HTTP/RPC、authorization、进程配置和只属于单一领域的 repository 不应放入 `pkgs/store`。

@@ -46,6 +46,19 @@ flowchart TB
 
 `cmd/internal/storage` and `cmd/internal/stores` are responsible for reading the process configuration, selecting specific backends and injecting stores into the Server; `pkgs/store` does not read the GizClaw Server config, nor does it decide which physical backend to use in a certain field.
 
+### Process SQLite DSN contract
+
+`cmd/internal/storage` accepts modernc SQLite DSNs and continues to support
+modernc parameters such as `_pragma`. GizClaw owns the connection's
+`busy_timeout`, WAL journal mode, and foreign-key PRAGMAs. The
+`go-sqlite3`-compatible shorthand parameters `_busy_timeout`/`_timeout`,
+`_foreign_keys`/`_fk`, `_journal_mode`/`_journal`,
+`_synchronous`/`_sync`, `_auto_vacuum`/`_vacuum`, and `_query_only` are not
+supported and are rejected before the database is opened. This prevents a
+dependency update from silently changing database-file or connection behavior;
+configure a different policy in storage-owned code instead of through these DSN
+shortcuts.
+
 ## Placement rules
 
 Storage interfaces, backend adapters, and common key, query, index, expiration, and persistence semantics that can be reused across domains are stored here. Domain resource schema, HTTP/RPC, authorization, process configuration, and repositories belonging only to a single domain should not be placed in `pkgs/store`.

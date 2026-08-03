@@ -545,3 +545,83 @@ func TestCloseEmpty(t *testing.T) {
 		t.Fatalf("Close empty: %v", err)
 	}
 }
+
+func TestSQLSQLiteRejectsNewShorthandDSNParameters(t *testing.T) {
+	keys := []string{
+		"_busy_timeout",
+		"_timeout",
+		"_foreign_keys",
+		"_fk",
+		"_journal_mode",
+		"_journal",
+		"_synchronous",
+		"_sync",
+		"_auto_vacuum",
+		"_vacuum",
+		"_query_only",
+	}
+	forms := map[string]func(string) Config{
+		"structured": func(dsn string) Config {
+			return Config{Kind: KindSQL, SQLite: &SQLConfig{DSN: dsn}}
+		},
+		"legacy": func(dsn string) Config {
+			return Config{Kind: KindSQL, Backend: "sqlite", DSN: dsn}
+		},
+	}
+
+	for _, key := range keys {
+		for form, config := range forms {
+			t.Run(form+"/"+key, func(t *testing.T) {
+				dbPath := filepath.Join(t.TempDir(), "db.sqlite")
+				dsn := "file:" + dbPath + "?" + key + "=1"
+				_, err := New(map[string]Config{"db": config(dsn)})
+				if err == nil {
+					t.Fatal("expected unsupported SQLite DSN parameter error")
+				}
+				var configErr *ConfigError
+				if !errors.As(err, &configErr) {
+					t.Fatalf("error type = %T, want *ConfigError", err)
+				}
+				if configErr.Name != "db" {
+					t.Fatalf("ConfigError.Name = %q, want db", configErr.Name)
+				}
+				if !strings.Contains(err.Error(), key) {
+					t.Fatalf("error %q does not name parameter %q", err, key)
+				}
+				matches, globErr := filepath.Glob(dbPath)
+				if globErr != nil {
+					t.Fatalf("glob database path: %v", globErr)
+				}
+				if len(matches) != 0 {
+					t.Fatalf("database created before DSN rejection: %v", matches)
+				}
+			})
+		}
+	}
+}
+
+func TestSQLSQLiteAllowsExistingModerncDSNParameters(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "db.sqlite")
+	reg, err := New(map[string]Config{
+		"db": {
+			Kind:   KindSQL,
+			SQLite: &SQLConfig{DSN: "file:" + dbPath + "?_pragma=cache_size%3D-2000"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer reg.Close()
+
+	db, err := reg.SQL("db")
+	if err != nil {
+		t.Fatalf("SQL(db): %v", err)
+	}
+	var cacheSize int
+	if err := db.QueryRow(`PRAGMA cache_size`).Scan(&cacheSize); err != nil {
+		t.Fatalf("query cache_size: %v", err)
+	}
+	if cacheSize != -2000 {
+		t.Fatalf("cache_size = %d, want -2000", cacheSize)
+	}
+}

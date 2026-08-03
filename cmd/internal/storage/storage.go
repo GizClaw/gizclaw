@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -305,6 +306,11 @@ func newSQL(name string, cfg Config) (*sqlx.DB, error) {
 	if dsn == "" {
 		return nil, fmt.Errorf("storage: sql %q requires dsn", name)
 	}
+	if backend == "sqlite" {
+		if err := validateSQLiteDSN(dsn); err != nil {
+			return nil, fmt.Errorf("storage: sql %q sqlite dsn: %w", name, err)
+		}
+	}
 	if err := prepareSQLDir(name, cfg); err != nil {
 		return nil, err
 	}
@@ -339,6 +345,35 @@ func configureSQLiteConnection(db *sqlx.DB) error {
 	} {
 		if _, err := db.Exec(stmt); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func validateSQLiteDSN(dsn string) error {
+	queryStart := strings.IndexRune(dsn, '?')
+	if queryStart < 1 {
+		return nil
+	}
+	query, err := url.ParseQuery(dsn[queryStart+1:])
+	if err != nil {
+		return fmt.Errorf("parse query: %w", err)
+	}
+	for _, key := range []string{
+		"_busy_timeout",
+		"_timeout",
+		"_foreign_keys",
+		"_fk",
+		"_journal_mode",
+		"_journal",
+		"_synchronous",
+		"_sync",
+		"_auto_vacuum",
+		"_vacuum",
+		"_query_only",
+	} {
+		if _, ok := query[key]; ok {
+			return fmt.Errorf("query parameter %q is unsupported; GizClaw owns SQLite PRAGMA configuration", key)
 		}
 	}
 	return nil
