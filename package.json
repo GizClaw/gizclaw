@@ -1,6 +1,9 @@
 {
   "name": "gizclaw-go",
   "private": true,
+  "engines": {
+    "node": "^22.13.0 || >=23.5.0"
+  },
   "workspaces": [
     "apps/wails/frontend",
     "sdk/js",
