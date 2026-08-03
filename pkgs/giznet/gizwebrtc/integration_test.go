@@ -134,6 +134,17 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 	if string(buf[:n]) != "hello stream" {
 		t.Fatalf("server stream payload = %q", string(buf[:n]))
 	}
+	contextService := serverConn.ListenService(101)
+	contextStream, err := clientConn.DialContext(ctx, 101)
+	if err != nil {
+		t.Fatalf("client DialContext(service) error = %v", err)
+	}
+	defer contextStream.Close()
+	contextAccepted, err := contextService.Accept()
+	if err != nil {
+		t.Fatalf("server context service Accept error = %v", err)
+	}
+	defer contextAccepted.Close()
 	clientInfo := clientConn.PeerInfo()
 	serverInfo := serverConn.PeerInfo()
 	minimumBytes := uint64(len("packet") + len(opusFrame) + len("hello stream"))

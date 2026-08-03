@@ -672,13 +672,21 @@ func edgeHTTPGetBody(t *testing.T, client *http.Client) string {
 }
 
 type failingGiznetConn struct {
-	dialErr error
-	readErr error
-	closed  bool
-	state   giznet.PeerState
+	dialErr   error
+	readErr   error
+	closed    bool
+	state     giznet.PeerState
+	publicKey giznet.PublicKey
 }
 
 func (c *failingGiznetConn) Dial(uint64) (net.Conn, error) {
+	return nil, c.dialErr
+}
+
+func (c *failingGiznetConn) DialContext(ctx context.Context, _ uint64) (net.Conn, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	return nil, c.dialErr
 }
 
@@ -689,7 +697,7 @@ func (c *failingGiznetConn) ListenService(uint64) giznet.ServiceListener {
 func (c *failingGiznetConn) CloseService(uint64) error       { return nil }
 func (c *failingGiznetConn) Read([]byte) (byte, int, error)  { return 0, 0, c.readErr }
 func (c *failingGiznetConn) Write(byte, []byte) (int, error) { return 0, nil }
-func (c *failingGiznetConn) PublicKey() giznet.PublicKey     { return giznet.PublicKey{} }
+func (c *failingGiznetConn) PublicKey() giznet.PublicKey     { return c.publicKey }
 func (c *failingGiznetConn) PeerInfo() *giznet.PeerInfo      { return &giznet.PeerInfo{State: c.state} }
 
 func (c *failingGiznetConn) Close() error {

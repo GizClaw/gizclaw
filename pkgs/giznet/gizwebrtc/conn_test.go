@@ -1,12 +1,97 @@
 package gizwebrtc
 
 import (
+	"context"
 	"errors"
+	"io"
+	"net"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v4"
 )
+
+type fakeServiceDataChannel struct {
+	mu        sync.Mutex
+	onOpen    func()
+	onClose   func()
+	onError   func(error)
+	raw       datachannel.ReadWriteCloserDeadliner
+	detachErr error
+	ready     chan struct{}
+	readyOnce sync.Once
+	closed    atomic.Int32
+}
+
+type fakeDetachedChannel struct {
+	net.Conn
+}
+
+func (c *fakeDetachedChannel) ReadDataChannel(payload []byte) (int, bool, error) {
+	n, err := c.Read(payload)
+	return n, false, err
+}
+
+func (c *fakeDetachedChannel) WriteDataChannel(payload []byte, _ bool) (int, error) {
+	return c.Write(payload)
+}
+
+func newFakeServiceDataChannel(raw datachannel.ReadWriteCloserDeadliner) *fakeServiceDataChannel {
+	return &fakeServiceDataChannel{raw: raw, ready: make(chan struct{})}
+}
+
+func (d *fakeServiceDataChannel) OnOpen(fn func()) {
+	d.mu.Lock()
+	d.onOpen = fn
+	d.mu.Unlock()
+}
+
+func (d *fakeServiceDataChannel) OnClose(fn func()) {
+	d.mu.Lock()
+	d.onClose = fn
+	d.mu.Unlock()
+}
+
+func (d *fakeServiceDataChannel) OnError(fn func(error)) {
+	d.mu.Lock()
+	d.onError = fn
+	d.mu.Unlock()
+	d.readyOnce.Do(func() { close(d.ready) })
+}
+
+func (d *fakeServiceDataChannel) DetachWithDeadline() (datachannel.ReadWriteCloserDeadliner, error) {
+	return d.raw, d.detachErr
+}
+
+func (d *fakeServiceDataChannel) Close() error {
+	d.closed.Add(1)
+	return nil
+}
+
+func (d *fakeServiceDataChannel) triggerOpen() {
+	d.mu.Lock()
+	fn := d.onOpen
+	d.mu.Unlock()
+	fn()
+}
+
+func (d *fakeServiceDataChannel) triggerClose() {
+	d.mu.Lock()
+	fn := d.onClose
+	d.mu.Unlock()
+	fn()
+}
+
+func (d *fakeServiceDataChannel) triggerError(err error) {
+	d.mu.Lock()
+	fn := d.onError
+	d.mu.Unlock()
+	fn(err)
+}
 
 func TestPeerConnectionStateIsTerminal(t *testing.T) {
 	tests := []struct {
@@ -100,5 +185,107 @@ func TestSelectedICECandidatePairPrefersNominatedTraffic(t *testing.T) {
 	}
 	if pair.ID != "nominated-high" {
 		t.Fatalf("selected pair = %q, want nominated-high", pair.ID)
+	}
+}
+
+func TestDetachWhenOpenResolvesPreOpenEventsOnce(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		trigger func(*fakeServiceDataChannel, context.CancelFunc, chan struct{})
+		want    error
+	}{
+		{
+			name: "context cancellation",
+			trigger: func(_ *fakeServiceDataChannel, cancel context.CancelFunc, _ chan struct{}) {
+				cancel()
+			},
+			want: context.Canceled,
+		},
+		{
+			name: "data channel close",
+			trigger: func(dc *fakeServiceDataChannel, _ context.CancelFunc, _ chan struct{}) {
+				dc.triggerClose()
+			},
+			want: ErrServiceOpen,
+		},
+		{
+			name: "data channel error",
+			trigger: func(dc *fakeServiceDataChannel, _ context.CancelFunc, _ chan struct{}) {
+				dc.triggerError(errors.New("sctp reset"))
+			},
+			want: ErrServiceOpen,
+		},
+		{
+			name: "parent close",
+			trigger: func(_ *fakeServiceDataChannel, _ context.CancelFunc, parent chan struct{}) {
+				close(parent)
+			},
+			want: giznet.ErrConnClosed,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			parent := make(chan struct{})
+			dc := newFakeServiceDataChannel(nil)
+			result := make(chan error, 1)
+			go func() {
+				_, err := detachWhenOpen(ctx, dc, parent, func() error { return giznet.ErrConnClosed })
+				result <- err
+			}()
+			<-dc.ready
+			test.trigger(dc, cancel, parent)
+			select {
+			case err := <-result:
+				if !errors.Is(err, test.want) {
+					t.Fatalf("detachWhenOpen error = %v, want %v", err, test.want)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("detachWhenOpen did not resolve")
+			}
+		})
+	}
+}
+
+func TestDetachWhenOpenClosesLateDetachedChannel(t *testing.T) {
+	raw, peer := net.Pipe()
+	defer peer.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	parent := make(chan struct{})
+	dc := newFakeServiceDataChannel(&fakeDetachedChannel{Conn: raw})
+	result := make(chan error, 1)
+	go func() {
+		_, err := detachWhenOpen(ctx, dc, parent, func() error { return giznet.ErrConnClosed })
+		result <- err
+	}()
+	<-dc.ready
+	cancel()
+	if err := <-result; !errors.Is(err, context.Canceled) {
+		t.Fatalf("detachWhenOpen error = %v, want context canceled", err)
+	}
+	dc.triggerOpen()
+	if _, err := peer.Read(make([]byte, 1)); err == nil ||
+		!errors.Is(err, io.EOF) && !errors.Is(err, io.ErrClosedPipe) && !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("late detached channel read error = %v, want closed channel", err)
+	}
+}
+
+func TestDialContextReturnsCanceledContextBeforeOpeningDataChannel(t *testing.T) {
+	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn := &Conn{
+		pc:        pc,
+		services:  make(map[uint64]*ServiceListener),
+		streams:   make(map[uint64]map[*dataChannelConn]struct{}),
+		closedSvc: make(map[uint64]bool),
+		closeCh:   make(chan struct{}),
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := conn.DialContext(ctx, 100); !errors.Is(err, context.Canceled) {
+		t.Fatalf("DialContext error = %v, want context canceled", err)
 	}
 }

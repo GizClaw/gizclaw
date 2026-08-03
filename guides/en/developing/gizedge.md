@@ -170,6 +170,28 @@ if it cannot establish the bounded warm pool. Later capacity growth fails only
 the admission that required the unavailable association. Failure of one
 upstream closes only its pinned sessions.
 
+Pool eligibility has three states. A selectable association accepts new
+admissions. A draining association accepts none, preserves already established
+logical sessions, and closes after its final pinned session releases. A failed
+association is terminal and closes immediately. A complete ten-second
+`ServiceEdgeTunnel` open timeout, a pre-open DataChannel close or error, a new
+service stream closing before delegated-session acceptance, or a complete
+delegated-session handshake timeout drains a still-nonterminal association
+without penalizing its TURN member; caller cancellation, Edge shutdown, an
+explicit logical-session rejection, and other nonterminal protocol errors do
+not change a healthy association's eligibility. Packet or parent-connection
+failure marks the association failed and reports its relay attempt at most
+once.
+
+A fresh client has one private 30-second logical-session establishment budget
+and may try at most two physical entries before Server acceptance. Each service
+open receives at most ten seconds. An alternate creates a new service stream,
+session ID, and delegated envelope; it does not replay an RPC or move an
+accepted session. Selectable associations count toward warm capacity, while
+`max-upstreams` continues to cap all live selectable and draining physical
+associations. `X-GizClaw-Gateway-Upstream` remains the initially reserved entry
+because signaling writes it before a possible alternate is known.
+
 HTTP forwarding and gateway upstreams are long-lived runtime state. The Edge
 package must not copy GizClaw handlers to bypass upstream unavailability.
 
@@ -185,6 +207,20 @@ slowdown applies backpressure instead of truncating a large reliable stream;
 exceeding the session or frame bound closes that session. Idle sessions expire
 after five minutes. Shutdown stops admission, drains for 30 seconds, and then
 closes remaining sessions.
+
+The composed nonterminal recovery regression uses two digest-pinned Coturn
+members, relay-only upstream ICE, a test-only silent UDP fault boundary, and no
+direct Edge-to-Server UDP path:
+
+```bash
+bash tests/gizclaw-e2e/run_gateway_relay_recovery_tests.sh
+```
+
+It proves that the initial service stream can open locally and then reach its
+complete delegated-session handshake timeout, after which the same client
+completes Register and Ping through the alternate before logical-session
+acceptance. Live relay host failure, drain, capacity, and soak remain deployment
+acceptance rather than package E2E claims.
 
 `max-upstreams` is a capacity ceiling, not an eager throughput target. A single
 association can serialize a large concurrent burst, while opening every slot

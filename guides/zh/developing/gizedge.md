@@ -140,6 +140,23 @@ upstream 替换。Edge 无法建立有界 warm pool 时启动失败；后续只�
 association 的 admission 会受扩容失败影响。单条 upstream 失败只关闭固定在该连接上的
 会话，其他 upstream 和其他 Edge 不受影响。
 
+pool eligibility 有三个状态。selectable association 可以接收新 admission；draining
+association 不再接收新 admission，保留已经建立的 logical session，并在最后一个 pinned
+session 释放后关闭；failed association 是 terminal 状态并立即关闭。仍为 nonterminal 的
+association 如果发生完整十秒的 `ServiceEdgeTunnel` open timeout、DataChannel 在 open 前
+close/error、新 service stream 在 delegated-session acceptance 前关闭，或者完整的
+delegated-session handshake timeout，会进入 draining，但不会惩罚其 TURN member。caller
+cancellation、Edge shutdown、显式 logical-session rejection 和其他 nonterminal protocol
+error 不会改变 healthy association 的 eligibility。packet 或父连接失败会进入 failed，并且
+对应 relay attempt 最多报告一次失败。
+
+fresh client 共享一个私有的三十秒 logical-session establishment budget，并且只允许在
+Server acceptance 前尝试至多两条 physical entry；每次 service open 最多十秒。alternate
+会重新创建 service stream、session ID 和 delegated envelope，不重放 RPC，也不迁移已经
+accepted 的 session。warm capacity 只计算 selectable association，`max-upstreams` 继续限制
+selectable 与 draining 在内的全部 live physical association。由于 signaling response 在可能
+选择 alternate 之前已经写出，`X-GizClaw-Gateway-Upstream` 仍表示最初预留的 entry。
+
 HTTP forwarding 和 gateway upstream 都属于长生命周期 runtime 状态。Edge package 不应通过自行复制 GizClaw handler 来规避上游不可用。
 
 ### Gateway 容量与生命周期
@@ -151,6 +168,18 @@ tunnel 在有界队列上反压该 session 的可靠 stream，不会因为队列
 等大文件；超过 session 总 buffer 或单 frame 上限的输入仍会关闭该 session，而不是无限增长。
 5 分钟无 activity 的 session 默认被回收。进程关闭时先停止新 admission，在 30 秒 drain
 deadline 内保留现有 session，超时后强制关闭。
+
+组合后的 nonterminal recovery 回归使用两个按 digest 固定的真实 Coturn member、relay-only
+upstream ICE、test-only silent UDP fault boundary，并阻断 direct Edge-to-Server UDP path：
+
+```bash
+bash tests/gizclaw-e2e/run_gateway_relay_recovery_tests.sh
+```
+
+该测试证明初次 service stream 可以在本地 open 后达到完整 delegated-session handshake
+timeout，随后同一个 client 在 logical session acceptance 前经 alternate 完成 Register 和
+Ping。真实 relay host failure、drain、capacity 与 soak 仍属于 deployment acceptance，不由
+package E2E 代替。
 
 30,000 是可配置 harness 在具体主机上的容量模型目标，不是每条 upstream、每个 Edge 或任意硬件的无条件保证。harness 为每个 logical session 创建一个真实客户端 WebRTC PeerConnection；因此 load driver 本身也有显著内存、goroutine、FD 和 CPU 成本。达到 30,000 前必须为 load driver、各 Edge 和 Server 分别制定资源预算；单机不足时应在多个 load-driver 进程或主机间分片总 session 数，不能把降低 activity 或改用 synthetic session 当作通过。
 

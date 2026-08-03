@@ -47,6 +47,15 @@ WebRTC implementation details related to Pion are left in this subdirectory. The
 signaling, remote-description, ICE-connected, DTLS-connected, and DataChannel
 ready timing without exposing mutable Pion objects.
 
+`giznet.Conn` keeps its transport-independent `Dial` surface. Transports that
+can cancel a pending service open may additionally implement
+`giznet.ContextDialer`. `gizwebrtc.Conn.DialContext` closes only the pending
+DataChannel when its context completes; it does not close the parent
+PeerConnection. A pre-open DataChannel close or error returns
+`gizwebrtc.ErrServiceOpen`, while a parent close continues to match
+`giznet.ErrConnClosed`. The existing `Dial` method remains a compatibility
+wrapper with a ten-second service-open bound.
+
 General public client associations retain Pion's default SCTP receive window.
 An Edge gateway gives at most 64 currently admitted client associations a 4
 MiB burst window, limiting burst-profile receive credit to 256 MiB per Edge;

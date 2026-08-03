@@ -8,6 +8,9 @@ pid_file="$workspace_dir/gizclaw-edge.pid"
 log_file="$workspace_dir/gizclaw-edge.log"
 ready_file="/tmp/gizclaw-e2e-edge-ready"
 bin_path="$repo_root/tests/gizclaw-e2e/testdata/bin/gizclaw"
+config_template="$repo_root/tests/gizclaw-e2e/testdata/edge-workspace/config.yaml.template"
+# shellcheck disable=SC2016 # envsubst needs literal variable names.
+envsubst_variables='${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_EDGE_ENDPOINT} ${GIZCLAW_E2E_GATEWAY_ENDPOINT} ${GIZCLAW_E2E_EDGE_PRIVATE_KEY} ${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT} ${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_E2E_TURN_RELAY_ADDRESS} ${GIZCLAW_E2E_TURN_REALM} ${GIZCLAW_E2E_TURN_USERNAME} ${GIZCLAW_E2E_TURN_CREDENTIAL} ${GIZCLAW_E2E_TURN_RELAY_MIN_PORT} ${GIZCLAW_E2E_TURN_RELAY_MAX_PORT}'
 
 cd "$repo_root"
 rm -f "$ready_file"
@@ -27,11 +30,35 @@ rm -f "$ready_file"
 : "${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY:=BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T}"
 export GIZCLAW_E2E_EDGE_PRIVATE_KEY GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY
 
-envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_EDGE_ENDPOINT} ${GIZCLAW_E2E_GATEWAY_ENDPOINT} ${GIZCLAW_E2E_EDGE_PRIVATE_KEY} ${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT} ${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_E2E_TURN_RELAY_ADDRESS} ${GIZCLAW_E2E_TURN_REALM} ${GIZCLAW_E2E_TURN_USERNAME} ${GIZCLAW_E2E_TURN_CREDENTIAL} ${GIZCLAW_E2E_TURN_RELAY_MIN_PORT} ${GIZCLAW_E2E_TURN_RELAY_MAX_PORT}' \
-  < "$repo_root/tests/gizclaw-e2e/testdata/edge-workspace/config.yaml.template" \
+if [[ "${GIZCLAW_E2E_GATEWAY_RELAY_RECOVERY:-}" == "1" ]]; then
+  : "${GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP:?missing GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP}"
+  : "${GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP:?missing GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP}"
+  : "${GIZCLAW_E2E_GATEWAY_RELAY_REALM:?missing GIZCLAW_E2E_GATEWAY_RELAY_REALM}"
+  : "${GIZCLAW_E2E_GATEWAY_RELAY_USERNAME:?missing GIZCLAW_E2E_GATEWAY_RELAY_USERNAME}"
+  : "${GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL:?missing GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL}"
+  config_template="$repo_root/tests/gizclaw-e2e/testdata/edge-workspace/config.gateway-relay.yaml.template"
+  # shellcheck disable=SC2016 # envsubst needs literal variable names.
+  envsubst_variables+=' ${GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP} ${GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP} ${GIZCLAW_E2E_GATEWAY_RELAY_REALM} ${GIZCLAW_E2E_GATEWAY_RELAY_USERNAME} ${GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL}'
+fi
+
+envsubst "$envsubst_variables" \
+  < "$config_template" \
   > "$workspace_dir/config.yaml"
 
 "$setup_dir/build.sh" >/dev/null
+
+if [[ "${GIZCLAW_E2E_GATEWAY_RELAY_RECOVERY:-}" == "1" ]]; then
+  for _ in {1..300}; do
+    if [[ -f /run/gizclaw-gateway-fault/ready ]]; then
+      break
+    fi
+    sleep 0.1
+  done
+  if [[ ! -f /run/gizclaw-gateway-fault/ready ]]; then
+    echo "gateway relay fault boundary did not become ready" >&2
+    exit 1
+  fi
+fi
 
 nohup "$bin_path" edge serve "$workspace_dir" >"$log_file" 2>&1 </dev/null &
 pid="$!"
