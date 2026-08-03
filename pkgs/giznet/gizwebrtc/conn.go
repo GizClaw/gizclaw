@@ -615,6 +615,26 @@ type serviceOpenResult struct {
 	err error
 }
 
+type serviceOpenError struct {
+	event string
+	cause error
+}
+
+func (e *serviceOpenError) Error() string {
+	return ErrServiceOpen.Error() + ": " + e.event
+}
+
+func (e *serviceOpenError) Unwrap() []error {
+	return []error{ErrServiceOpen, e.cause}
+}
+
+func newServiceOpenError(event string, cause error) error {
+	if cause == nil {
+		return fmt.Errorf("%w: %s", ErrServiceOpen, event)
+	}
+	return &serviceOpenError{event: event, cause: cause}
+}
+
 func detachWhenOpen(
 	ctx context.Context,
 	dc serviceDataChannel,
@@ -634,7 +654,7 @@ func detachWhenOpen(
 	dc.OnOpen(func() {
 		raw, err := dc.DetachWithDeadline()
 		if err != nil {
-			complete(serviceOpenResult{err: fmt.Errorf("%w: data channel detach failed", ErrServiceOpen)})
+			complete(serviceOpenResult{err: newServiceOpenError("data channel detach failed", err)})
 			return
 		}
 		if !complete(serviceOpenResult{raw: raw}) {
@@ -645,7 +665,7 @@ func detachWhenOpen(
 		complete(serviceOpenResult{err: fmt.Errorf("%w: data channel closed before open", ErrServiceOpen)})
 	})
 	dc.OnError(func(err error) {
-		complete(serviceOpenResult{err: fmt.Errorf("%w: data channel error", ErrServiceOpen)})
+		complete(serviceOpenResult{err: newServiceOpenError("data channel error", err)})
 	})
 
 	select {

@@ -247,6 +247,54 @@ func TestDetachWhenOpenResolvesPreOpenEventsOnce(t *testing.T) {
 	}
 }
 
+func TestDetachWhenOpenPreservesSanitizedFailureCause(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		cause   error
+		prepare func(*fakeServiceDataChannel, error)
+		want    string
+	}{
+		{
+			name:  "detach failure",
+			cause: errors.New("private detach detail"),
+			prepare: func(dc *fakeServiceDataChannel, cause error) {
+				dc.detachErr = cause
+				dc.triggerOpen()
+			},
+			want: "gizwebrtc: service open: data channel detach failed",
+		},
+		{
+			name:  "data channel error",
+			cause: errors.New("private SCTP detail"),
+			prepare: func(dc *fakeServiceDataChannel, cause error) {
+				dc.triggerError(cause)
+			},
+			want: "gizwebrtc: service open: data channel error",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			dc := newFakeServiceDataChannel(nil)
+			result := make(chan error, 1)
+			go func() {
+				_, err := detachWhenOpen(context.Background(), dc, make(chan struct{}), nil)
+				result <- err
+			}()
+			<-dc.ready
+			test.prepare(dc, test.cause)
+			err := <-result
+			if !errors.Is(err, ErrServiceOpen) {
+				t.Fatalf("detachWhenOpen error = %v, want ErrServiceOpen", err)
+			}
+			if !errors.Is(err, test.cause) {
+				t.Fatalf("detachWhenOpen error does not preserve cause %v", test.cause)
+			}
+			if err.Error() != test.want {
+				t.Fatalf("detachWhenOpen error = %q, want sanitized %q", err, test.want)
+			}
+		})
+	}
+}
+
 func TestDetachWhenOpenClosesLateDetachedChannel(t *testing.T) {
 	raw, peer := net.Pipe()
 	defer peer.Close()
