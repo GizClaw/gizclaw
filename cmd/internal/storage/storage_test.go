@@ -572,7 +572,7 @@ func TestSQLSQLiteRejectsNewShorthandDSNParameters(t *testing.T) {
 	for _, key := range keys {
 		for form, config := range forms {
 			t.Run(form+"/"+key, func(t *testing.T) {
-				dbPath := filepath.Join(t.TempDir(), "db.sqlite")
+				dbPath := filepath.Join(t.TempDir(), "missing", "db.sqlite")
 				dsn := "file:" + dbPath + "?" + key + "=1"
 				_, err := New(map[string]Config{"db": config(dsn)})
 				if err == nil {
@@ -594,6 +594,13 @@ func TestSQLSQLiteRejectsNewShorthandDSNParameters(t *testing.T) {
 				}
 				if len(matches) != 0 {
 					t.Fatalf("database created before DSN rejection: %v", matches)
+				}
+				matches, globErr = filepath.Glob(filepath.Dir(dbPath))
+				if globErr != nil {
+					t.Fatalf("glob database parent path: %v", globErr)
+				}
+				if len(matches) != 0 {
+					t.Fatalf("database parent created before DSN rejection: %v", matches)
 				}
 			})
 		}
