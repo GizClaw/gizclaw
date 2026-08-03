@@ -1,6 +1,7 @@
 package giznet
 
 import (
+	"context"
 	"net"
 )
 
@@ -16,6 +17,13 @@ type Conn interface {
 	PublicKey() PublicKey
 	PeerInfo() *PeerInfo
 	Close() error
+}
+
+// ContextDialer is the optional context-aware service-stream dialing surface.
+// Transports implement it when a pending service open can be canceled without
+// closing the parent connection.
+type ContextDialer interface {
+	DialContext(context.Context, uint64) (net.Conn, error)
 }
 
 // ServiceAcceptor is the optional aggregate service-stream accept surface used

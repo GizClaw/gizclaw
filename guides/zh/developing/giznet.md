@@ -47,6 +47,12 @@ WebRTC 与 Pion 相关的实现细节留在这个子目录。上层 GizClaw 服�
 PeerConnection、offer、ICE gathering、signaling、remote description、ICE connected、
 DTLS connected 和 DataChannel ready timing，且不会向调用方暴露可变 Pion 对象。
 
+`giznet.Conn` 保持 transport-independent 的 `Dial` surface。能够取消 pending service open
+的 transport 可以额外实现 `giznet.ContextDialer`。`gizwebrtc.Conn.DialContext` 在 context
+结束时只关闭尚未打开的 DataChannel，不关闭父 PeerConnection。DataChannel 在 open 前 close
+或 error 时返回 `gizwebrtc.ErrServiceOpen`，父连接关闭仍匹配 `giznet.ErrConnClosed`。原有
+`Dial` 保持为十秒 service-open 上限的兼容 wrapper。
+
 普通 public client association 保留 Pion 默认 SCTP receive window。Edge gateway 最多为
 当前已准入的 64 条 client association 提供 4 MiB burst window，把每个 Edge 的 burst
 profile receive credit 限制在 256 MiB；额度释放前，后续 association 仍使用默认窗口。独立的

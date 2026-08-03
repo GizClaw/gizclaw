@@ -196,6 +196,13 @@ func composeOutput(t *testing.T, args ...string) string {
 	project := requiredEnv(t, "GIZCLAW_E2E_DOCKER_PROJECT")
 	composeFile := requiredEnv(t, "GIZCLAW_E2E_DOCKER_COMPOSE_FILE")
 	commandArgs := []string{"compose", "-p", project, "-f", composeFile}
+	if overlay := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY")); overlay != "" {
+		absolute, err := filepath.Abs(overlay)
+		if err != nil {
+			t.Fatal(err)
+		}
+		commandArgs = append(commandArgs, "-f", absolute)
+	}
 	commandArgs = append(commandArgs, args...)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()

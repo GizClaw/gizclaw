@@ -16,6 +16,7 @@
 !server-workspace/config.yaml.template
 !edge-workspace/
 !edge-workspace/config.yaml.template
+!edge-workspace/config.gateway-relay.yaml.template
 !identities/
 !identities/*/
 !identities/*/config.yaml

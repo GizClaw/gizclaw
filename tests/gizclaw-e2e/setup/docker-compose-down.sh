@@ -15,13 +15,28 @@ fi
 
 project="${GIZCLAW_E2E_DOCKER_PROJECT:-}"
 compose_file="${GIZCLAW_E2E_DOCKER_COMPOSE_FILE:-$e2e_dir/docker/docker-compose.yaml}"
+compose_args=(-f "$compose_file")
+if [[ -n "${GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY:-}" ]]; then
+  compose_args+=(-f "$GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY")
+fi
 
 if [[ -z "$project" ]]; then
   echo "missing GIZCLAW_E2E_DOCKER_PROJECT; run docker-compose-up.sh first or set GIZCLAW_E2E_DOCKER_ENV" >&2
   exit 2
 fi
+if [[ ! "$project" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
+  echo "invalid GIZCLAW_E2E_DOCKER_PROJECT: $project" >&2
+  exit 2
+fi
 
-docker compose -p "$project" -f "$compose_file" down -v --rmi local "$@"
+docker compose -p "$project" "${compose_args[@]}" down -v --rmi local "$@"
+
+if [[ "${GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY:-}" == *"docker-compose.gateway-relay.yaml" ]]; then
+  rm -f \
+    "$e2e_dir/testdata/edge-workspace/config.yaml" \
+    "$e2e_dir/testdata/edge-workspace/gizclaw-edge.log" \
+    "$e2e_dir/testdata/edge-workspace/gizclaw-edge.pid"
+fi
 
 state_dir="$e2e_dir/testdata/docker/$project"
 rm -rf "$state_dir"

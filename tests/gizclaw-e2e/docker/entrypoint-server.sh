@@ -33,6 +33,7 @@ container_turn_endpoint="$GIZCLAW_E2E_TURN_ENDPOINT"
 container_turn_username="$GIZCLAW_E2E_TURN_USERNAME"
 container_turn_credential="$GIZCLAW_E2E_TURN_CREDENTIAL"
 # shellcheck source=../setup/credentials.sh
+# shellcheck disable=SC1091
 source "$repo_root/tests/gizclaw-e2e/setup/credentials.sh"
 require_gizclaw_e2e_credentials "$repo_root/tests/gizclaw-e2e/.env"
 export GIZCLAW_E2E_CONFIG_HOME="$container_config_home"
@@ -40,9 +41,18 @@ export GIZCLAW_E2E_SERVER_ENDPOINT="$container_server_endpoint"
 export GIZCLAW_E2E_TURN_ENDPOINT="$container_turn_endpoint"
 export GIZCLAW_E2E_TURN_USERNAME="$container_turn_username"
 export GIZCLAW_E2E_TURN_CREDENTIAL="$container_turn_credential"
+# shellcheck disable=SC2016 # envsubst needs literal variable names.
 envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_E2E_TURN_USERNAME} ${GIZCLAW_E2E_TURN_CREDENTIAL}' \
   < "$repo_root/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template" \
   > "$workspace_dir/config.yaml"
+if [[ "${GIZCLAW_E2E_GATEWAY_RELAY_RECOVERY:-}" == "1" ]]; then
+  awk '
+    /^ice-servers:/ { skip = 1; next }
+    skip && /^edge-nodes:/ { skip = 0 }
+    !skip { print }
+  ' "$workspace_dir/config.yaml" > "$workspace_dir/config.yaml.tmp"
+  mv "$workspace_dir/config.yaml.tmp" "$workspace_dir/config.yaml"
+fi
 if [[ "$server_mode" == "volc-log" ]]; then
   # shellcheck disable=SC2154
   require_gizclaw_e2e_credentials \
@@ -93,6 +103,7 @@ skip_system_log { next }
 fi
 
 "$setup_dir/build.sh" >/dev/null
+# shellcheck disable=SC2016 # Perl replacement syntax is intentionally literal.
 find "$GIZCLAW_E2E_CONFIG_HOME" -type f -name config.yaml -print0 |
   xargs -0 perl -0pi -e 's/^(\s*endpoint:\s*)[^\s]+/${1}127.0.0.1:9820/mg'
 "$setup_dir/reset_data.sh" clear
@@ -119,15 +130,26 @@ if ! curl -fsS --max-time 1 "http://127.0.0.1:9820/server-info" >/dev/null 2>&1;
 fi
 
 touch "$http_ready_file"
+required_edge_urls=("http://edge:9821/server-info")
+if [[ "${GIZCLAW_E2E_SINGLE_EDGE:-}" != "1" ]]; then
+  required_edge_urls+=("http://edge2:9821/server-info")
+fi
+edges_ready() {
+  local edge_url
+  for edge_url in "${required_edge_urls[@]}"; do
+    if ! curl -fsS --max-time 1 "$edge_url" >/dev/null 2>&1; then
+      return 1
+    fi
+  done
+  return 0
+}
 for _ in {1..600}; do
-  if curl -fsS --max-time 1 "http://edge:9821/server-info" >/dev/null 2>&1 &&
-    curl -fsS --max-time 1 "http://edge2:9821/server-info" >/dev/null 2>&1; then
+  if edges_ready; then
     break
   fi
   sleep 0.5
 done
-if ! curl -fsS --max-time 1 "http://edge:9821/server-info" >/dev/null 2>&1 ||
-  ! curl -fsS --max-time 1 "http://edge2:9821/server-info" >/dev/null 2>&1; then
+if ! edges_ready; then
   echo "gizclaw gateway edges did not become reachable from server before data init; log=$log_file" >&2
   tail -80 "$log_file" >&2 || true
   exit 1

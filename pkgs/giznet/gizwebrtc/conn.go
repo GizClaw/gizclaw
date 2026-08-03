@@ -1,6 +1,7 @@
 package gizwebrtc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -16,6 +17,13 @@ import (
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
 )
+
+const serviceOpenTimeout = 10 * time.Second
+
+// ErrServiceOpen reports a DataChannel that closed or failed before becoming
+// an attached service stream. It does not imply that the parent connection is
+// terminal.
+var ErrServiceOpen = errors.New("gizwebrtc: service open")
 
 type Conn struct {
 	pk giznet.PublicKey
@@ -185,7 +193,21 @@ func (c *Conn) EnableServiceAccept() {
 }
 
 func (c *Conn) Dial(service uint64) (net.Conn, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), serviceOpenTimeout)
+	defer cancel()
+	return c.DialContext(ctx, service)
+}
+
+// DialContext opens a service DataChannel and cancels the pending open when
+// ctx completes without closing the parent PeerConnection.
+func (c *Conn) DialContext(ctx context.Context, service uint64) (net.Conn, error) {
+	if ctx == nil {
+		return nil, errors.New("gizwebrtc: nil service-open context")
+	}
 	if err := c.validate(); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	c.serviceMu.Lock()
@@ -198,8 +220,13 @@ func (c *Conn) Dial(service uint64) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	raw, err := detachWhenOpen(dc)
+	raw, err := detachWhenOpen(ctx, dc, c.closeCh, c.parentCloseError)
 	if err != nil {
+		_ = dc.Close()
+		return nil, err
+	}
+	if err := c.validate(); err != nil {
+		_ = raw.Close()
 		_ = dc.Close()
 		return nil, err
 	}
@@ -208,6 +235,13 @@ func (c *Conn) Dial(service uint64) (net.Conn, error) {
 	stream.tx = &c.txBytes
 	c.trackStream(service, stream)
 	return stream, nil
+}
+
+func (c *Conn) parentCloseError() error {
+	if err := c.closeError(); err != nil {
+		return err
+	}
+	return giznet.ErrConnClosed
 }
 
 func (c *Conn) ListenService(service uint64) giznet.ServiceListener {
@@ -568,23 +602,86 @@ func parseServiceLabel(label string) (uint64, bool) {
 	return service, err == nil
 }
 
-func detachWhenOpen(dc *webrtc.DataChannel) (datachannel.ReadWriteCloserDeadliner, error) {
-	ready := make(chan datachannel.ReadWriteCloserDeadliner, 1)
-	errCh := make(chan error, 1)
+type serviceDataChannel interface {
+	OnOpen(func())
+	OnClose(func())
+	OnError(func(error))
+	DetachWithDeadline() (datachannel.ReadWriteCloserDeadliner, error)
+	Close() error
+}
+
+type serviceOpenResult struct {
+	raw datachannel.ReadWriteCloserDeadliner
+	err error
+}
+
+type serviceOpenError struct {
+	event string
+	cause error
+}
+
+func (e *serviceOpenError) Error() string {
+	return ErrServiceOpen.Error() + ": " + e.event
+}
+
+func (e *serviceOpenError) Unwrap() []error {
+	return []error{ErrServiceOpen, e.cause}
+}
+
+func newServiceOpenError(event string, cause error) error {
+	if cause == nil {
+		return fmt.Errorf("%w: %s", ErrServiceOpen, event)
+	}
+	return &serviceOpenError{event: event, cause: cause}
+}
+
+func detachWhenOpen(
+	ctx context.Context,
+	dc serviceDataChannel,
+	parentClose <-chan struct{},
+	parentCloseError func() error,
+) (datachannel.ReadWriteCloserDeadliner, error) {
+	resultCh := make(chan serviceOpenResult, 1)
+	var resultOnce sync.Once
+	complete := func(result serviceOpenResult) bool {
+		won := false
+		resultOnce.Do(func() {
+			won = true
+			resultCh <- result
+		})
+		return won
+	}
 	dc.OnOpen(func() {
 		raw, err := dc.DetachWithDeadline()
 		if err != nil {
-			errCh <- err
+			complete(serviceOpenResult{err: newServiceOpenError("data channel detach failed", err)})
 			return
 		}
-		ready <- raw
+		if !complete(serviceOpenResult{raw: raw}) {
+			_ = raw.Close()
+		}
 	})
+	dc.OnClose(func() {
+		complete(serviceOpenResult{err: fmt.Errorf("%w: data channel closed before open", ErrServiceOpen)})
+	})
+	dc.OnError(func(err error) {
+		complete(serviceOpenResult{err: newServiceOpenError("data channel error", err)})
+	})
+
 	select {
-	case raw := <-ready:
-		return raw, nil
-	case err := <-errCh:
-		return nil, err
-	case <-time.After(10 * time.Second):
-		return nil, fmt.Errorf("gizwebrtc: timeout waiting for data channel open")
+	case result := <-resultCh:
+		return result.raw, result.err
+	case <-ctx.Done():
+		complete(serviceOpenResult{err: ctx.Err()})
+	case <-parentClose:
+		err := giznet.ErrConnClosed
+		if parentCloseError != nil {
+			err = parentCloseError()
+		}
+		complete(serviceOpenResult{err: err})
 	}
+	result := <-resultCh
+	return result.raw, result.err
 }
+
+var _ giznet.ContextDialer = (*Conn)(nil)

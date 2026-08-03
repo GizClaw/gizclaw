@@ -7,6 +7,7 @@ repo_root="$(cd "$e2e_dir/../.." && pwd)"
 docker_dir="$e2e_dir/docker"
 compose_file="$docker_dir/docker-compose.yaml"
 volc_log_compose_file="$docker_dir/docker-compose.volc-log.yaml"
+gateway_relay_compose_file="$docker_dir/docker-compose.gateway-relay.yaml"
 env_file="$e2e_dir/.env"
 state_root="$e2e_dir/testdata/docker"
 default_turn_relay_port_count=100
@@ -14,7 +15,6 @@ default_turn_relay_port_count=100
 # shellcheck source=credentials.sh
 # shellcheck disable=SC1091
 source "$script_dir/credentials.sh"
-require_gizclaw_e2e_credentials "$env_file"
 
 stack_mode="standard"
 topology_mode="full"
@@ -28,11 +28,18 @@ while (($# > 0)); do
       topology_mode="gateway-capacity"
       shift
       ;;
+    --gateway-relay-recovery)
+      topology_mode="gateway-relay-recovery"
+      shift
+      ;;
     *)
       break
       ;;
   esac
 done
+if [[ "$topology_mode" != "gateway-relay-recovery" ]]; then
+  require_gizclaw_e2e_credentials "$env_file"
+fi
 if [[ "$stack_mode" == "volc-log" ]]; then
   # shellcheck disable=SC2154
   require_gizclaw_e2e_credentials "$env_file" "${gizclaw_e2e_volc_log_credentials[@]}"
@@ -45,6 +52,52 @@ if [[ "$topology_mode" == "gateway-capacity" ]]; then
 else
   unset GIZCLAW_E2E_CAPACITY_ONLY
 fi
+
+pick_gateway_relay_subnet() {
+  local project="$1"
+  local existing
+  existing="$(docker network ls -q | xargs -n 50 docker network inspect --format '{{range .IPAM.Config}}{{println .Subnet}}{{end}}' 2>/dev/null || true)"
+  python3 - "$project" "$existing" <<'PY'
+import hashlib
+import ipaddress
+import sys
+
+seed = int.from_bytes(hashlib.sha256(sys.argv[1].encode()).digest()[:4], "big")
+used = []
+for value in sys.argv[2].split():
+    try:
+        used.append(ipaddress.ip_network(value, strict=False))
+    except ValueError:
+        pass
+for offset in range(12 * 256):
+    index = (seed + offset) % (12 * 256)
+    second = 20 + index // 256
+    third = index % 256
+    candidate = ipaddress.ip_network(f"172.{second}.{third}.0/24")
+    if not any(candidate.overlaps(network) for network in used):
+        print(candidate)
+        break
+else:
+    raise SystemExit("no free project-scoped Docker /24 subnet")
+PY
+}
+
+random_gateway_relay_value() {
+  python3 - <<'PY'
+import secrets
+print(secrets.token_hex(24))
+PY
+}
+
+write_gateway_relay_credentials() {
+  local target="$1"
+  : >"$target"
+  local name
+  # shellcheck disable=SC2154 # Declared by credentials.sh.
+  for name in "${gizclaw_e2e_credentials[@]}"; do
+    printf '%s=%s\n' "$name" "$(random_gateway_relay_value)" >>"$target"
+  done
+}
 
 pick_free_tcp_port() {
   local port
@@ -109,7 +162,10 @@ import sys
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 try:
-    sock.bind(("0.0.0.0", int(sys.argv[1])))
+    try:
+        sock.bind(("0.0.0.0", int(sys.argv[1])))
+    except OSError:
+        raise SystemExit(1)
 finally:
     sock.close()
 PY
@@ -273,6 +329,16 @@ GIZCLAW_E2E_DOCKER_GATEWAY_PORT=$GIZCLAW_E2E_DOCKER_GATEWAY_PORT
 GIZCLAW_E2E_DOCKER_GATEWAY2_PORT=$GIZCLAW_E2E_DOCKER_GATEWAY2_PORT
 GIZCLAW_E2E_DOCKER_TURN_PORT=$GIZCLAW_E2E_DOCKER_TURN_PORT
 GIZCLAW_E2E_DOCKER_COMPOSE_FILE=$compose_file
+GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY=${GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY:-}
+GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP=${GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP:-}
+GIZCLAW_E2E_GATEWAY_RELAY_EDGE_IP=${GIZCLAW_E2E_GATEWAY_RELAY_EDGE_IP:-}
+GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP=${GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP:-}
+GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP=${GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP:-}
+GIZCLAW_E2E_GATEWAY_RELAY_SUBNET=${GIZCLAW_E2E_GATEWAY_RELAY_SUBNET:-}
+GIZCLAW_E2E_GATEWAY_RELAY_REALM=${GIZCLAW_E2E_GATEWAY_RELAY_REALM:-}
+GIZCLAW_E2E_GATEWAY_RELAY_USERNAME=${GIZCLAW_E2E_GATEWAY_RELAY_USERNAME:-}
+GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL=${GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL:-}
+GIZCLAW_E2E_GATEWAY_RELAY_ENV_FILE=${GIZCLAW_E2E_GATEWAY_RELAY_ENV_FILE:-}
 EOF
   cp "$state_dir/docker.env" "${GIZCLAW_E2E_DOCKER_ENV:-$state_root/current.env}"
 }
@@ -284,6 +350,9 @@ materialize_runtime_config() {
 
   rm -rf "$state_dir"
   mkdir -p "$state_dir"
+  if [[ "$topology_mode" == "gateway-relay-recovery" ]]; then
+    write_gateway_relay_credentials "$GIZCLAW_E2E_GATEWAY_RELAY_ENV_FILE"
+  fi
   cp -R "$e2e_dir/testdata/identities" "$identities_home"
   cp -R "$e2e_dir/testdata/cmd-config-home" "$config_home"
   rewrite_endpoint_configs "$identities_home" "$GIZCLAW_E2E_EDGE_ENDPOINT"
@@ -304,7 +373,7 @@ wait_http_ready() {
     fi
     if [[ -n "$service" ]]; then
       local container_id container_state exit_code
-      container_id="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" ps -q "$service" 2>/dev/null || true)"
+      container_id="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" ps --all -q "$service" 2>/dev/null || true)"
       if [[ -n "$container_id" ]]; then
         container_state="$(docker inspect --format '{{.State.Status}}' "$container_id" 2>/dev/null || true)"
         exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$container_id" 2>/dev/null || true)"
@@ -333,7 +402,7 @@ wait_docker_ready_file() {
   # window as the server container health check.
   for _ in {1..1500}; do
     local container_id container_state exit_code
-    container_id="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" ps -q "$service" 2>/dev/null || true)"
+    container_id="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" ps --all -q "$service" 2>/dev/null || true)"
     if [[ -n "$container_id" ]]; then
       container_state="$(docker inspect --format '{{.State.Status}}' "$container_id" 2>/dev/null || true)"
       exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$container_id" 2>/dev/null || true)"
@@ -440,12 +509,41 @@ fi
 GIZCLAW_E2E_TURN_REALM="${GIZCLAW_E2E_TURN_REALM:-gizclaw-e2e-edge}"
 GIZCLAW_E2E_TURN_USERNAME="${GIZCLAW_E2E_TURN_USERNAME:-gizclaw-e2e}"
 GIZCLAW_E2E_TURN_CREDENTIAL="${GIZCLAW_E2E_TURN_CREDENTIAL:-gizclaw-e2e-turn}"
+GIZCLAW_E2E_GATEWAY_RELAY_SUBNET="${GIZCLAW_E2E_GATEWAY_RELAY_SUBNET:-}"
+GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP="${GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP:-}"
+GIZCLAW_E2E_GATEWAY_RELAY_EDGE_IP="${GIZCLAW_E2E_GATEWAY_RELAY_EDGE_IP:-}"
+GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP="${GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP:-}"
+GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP="${GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP:-}"
+GIZCLAW_E2E_GATEWAY_RELAY_REALM="${GIZCLAW_E2E_GATEWAY_RELAY_REALM:-}"
+GIZCLAW_E2E_GATEWAY_RELAY_USERNAME="${GIZCLAW_E2E_GATEWAY_RELAY_USERNAME:-}"
+GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL="${GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL:-}"
+if [[ "$topology_mode" == "gateway-relay-recovery" ]]; then
+  GIZCLAW_E2E_GATEWAY_RELAY_SUBNET="${GIZCLAW_E2E_GATEWAY_RELAY_SUBNET:-$(pick_gateway_relay_subnet "$GIZCLAW_E2E_DOCKER_PROJECT")}"
+  gateway_relay_prefix="${GIZCLAW_E2E_GATEWAY_RELAY_SUBNET%.0/24}"
+  GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP="${GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP:-$gateway_relay_prefix.20}"
+  GIZCLAW_E2E_GATEWAY_RELAY_EDGE_IP="${GIZCLAW_E2E_GATEWAY_RELAY_EDGE_IP:-$gateway_relay_prefix.21}"
+  GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP="${GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP:-$gateway_relay_prefix.10}"
+  GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP="${GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP:-$gateway_relay_prefix.11}"
+  GIZCLAW_E2E_GATEWAY_RELAY_REALM="${GIZCLAW_E2E_GATEWAY_RELAY_REALM:-gizclaw-gateway-recovery.invalid}"
+  GIZCLAW_E2E_GATEWAY_RELAY_USERNAME="${GIZCLAW_E2E_GATEWAY_RELAY_USERNAME:-relay-$(random_gateway_relay_value)}"
+  GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL="${GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL:-$(random_gateway_relay_value)}"
+  GIZCLAW_E2E_GATEWAY_RELAY_ENV_FILE="$state_root/$GIZCLAW_E2E_DOCKER_PROJECT/gateway-relay.env"
+  GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY="$gateway_relay_compose_file"
+else
+  GIZCLAW_E2E_GATEWAY_RELAY_ENV_FILE=""
+  GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY=""
+fi
 export GIZCLAW_E2E_DOCKER_PROJECT GIZCLAW_E2E_DOCKER_ADMIN_PORT GIZCLAW_E2E_DOCKER_EDGE_PORT GIZCLAW_E2E_DOCKER_EDGE2_PORT
 export GIZCLAW_E2E_DOCKER_TURN_PORT GIZCLAW_E2E_DOCKER_GATEWAY_PORT GIZCLAW_E2E_DOCKER_GATEWAY2_PORT
 export GIZCLAW_E2E_SERVER_ENDPOINT GIZCLAW_E2E_EDGE_ENDPOINT GIZCLAW_E2E_EDGE2_ENDPOINT
 export GIZCLAW_E2E_GATEWAY_ENDPOINT GIZCLAW_E2E_GATEWAY2_ENDPOINT
 export GIZCLAW_E2E_TURN_ENDPOINT GIZCLAW_E2E_TURN_RELAY_ADDRESS GIZCLAW_E2E_TURN_REALM GIZCLAW_E2E_TURN_USERNAME GIZCLAW_E2E_TURN_CREDENTIAL
 export GIZCLAW_E2E_TURN_RELAY_MIN_PORT GIZCLAW_E2E_TURN_RELAY_MAX_PORT
+export GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY
+export GIZCLAW_E2E_GATEWAY_RELAY_SUBNET GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP GIZCLAW_E2E_GATEWAY_RELAY_EDGE_IP
+export GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP
+export GIZCLAW_E2E_GATEWAY_RELAY_REALM GIZCLAW_E2E_GATEWAY_RELAY_USERNAME GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL
+export GIZCLAW_E2E_GATEWAY_RELAY_ENV_FILE
 export GIZCLAW_E2E_DOCKER_ADMIN_BIND="${GIZCLAW_E2E_DOCKER_ADMIN_BIND:-127.0.0.1}"
 export GIZCLAW_E2E_DOCKER_SERVER_BIND="${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}"
 
@@ -466,12 +564,21 @@ compose_files=(-f "$compose_file")
 if [[ "$stack_mode" == "volc-log" ]]; then
   compose_files+=(-f "$volc_log_compose_file")
 fi
+if [[ "$topology_mode" == "gateway-relay-recovery" ]]; then
+  compose_files+=(-f "$gateway_relay_compose_file")
+fi
 if [[ "$topology_mode" == "gateway-capacity" ]]; then
   if [[ $# -gt 0 ]]; then
     echo "--gateway-capacity does not accept docker compose arguments" >&2
     exit 2
   fi
   docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --build turn server edge edge2
+elif [[ "$topology_mode" == "gateway-relay-recovery" ]]; then
+  if [[ $# -gt 0 ]]; then
+    echo "--gateway-relay-recovery does not accept docker compose arguments" >&2
+    exit 2
+  fi
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --build turn server edge coturn-a coturn-b gateway-fault
 elif [[ $# -gt 0 ]]; then
   docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up "$@"
 else
@@ -479,7 +586,10 @@ else
 fi
 
 edge_tcp_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port --protocol tcp edge 9821 | awk -F: '{print $NF}')"
-edge2_tcp_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port --protocol tcp edge2 9821 | awk -F: '{print $NF}')"
+edge2_tcp_port=""
+if [[ "$topology_mode" != "gateway-relay-recovery" ]]; then
+  edge2_tcp_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port --protocol tcp edge2 9821 | awk -F: '{print $NF}')"
+fi
 desktop_url=""
 if [[ "$topology_mode" == "full" ]]; then
   desktop_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port desktop 4191 | awk -F: '{print $NF}')"
@@ -489,9 +599,11 @@ fi
 wait_docker_ready_file "server" "/tmp/gizclaw-e2e-server-ready" "docker server"
 wait_http_ready "http://$GIZCLAW_E2E_SERVER_ENDPOINT/server-info" "docker server admin" "server"
 wait_http_ready "http://127.0.0.1:${edge_tcp_port}/server-info" "docker edge" "edge"
-wait_http_ready "http://127.0.0.1:${edge2_tcp_port}/server-info" "docker edge2" "edge2"
 wait_docker_ready_file "edge" "/tmp/gizclaw-e2e-edge-ready" "docker edge"
-wait_docker_ready_file "edge2" "/tmp/gizclaw-e2e-edge-ready" "docker edge2"
+if [[ "$topology_mode" != "gateway-relay-recovery" ]]; then
+  wait_http_ready "http://127.0.0.1:${edge2_tcp_port}/server-info" "docker edge2" "edge2"
+  wait_docker_ready_file "edge2" "/tmp/gizclaw-e2e-edge-ready" "docker edge2"
+fi
 server_public_key="$(fetch_server_public_key "http://127.0.0.1:${edge_tcp_port}/server-info")"
 if [[ -z "$server_public_key" ]]; then
   echo "docker edge /server-info did not return server public_key" >&2

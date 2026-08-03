@@ -1,0 +1,123 @@
+services:
+  server:
+    environment:
+      GIZCLAW_E2E_SINGLE_EDGE: "1"
+      GIZCLAW_E2E_CAPACITY_ONLY: "1"
+      GIZCLAW_E2E_GATEWAY_RELAY_RECOVERY: "1"
+      GIZCLAW_E2E_SERVER_ENDPOINT: ${GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP:?set by docker-compose-up.sh}:9820
+    networks:
+      default:
+        ipv4_address: ${GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP:?set by docker-compose-up.sh}
+    volumes:
+      - type: bind
+        source: ${GIZCLAW_E2E_GATEWAY_RELAY_ENV_FILE:?set by docker-compose-up.sh}
+        target: /src/tests/gizclaw-e2e/.env
+        read_only: true
+        bind:
+          create_host_path: false
+
+  edge:
+    depends_on:
+      coturn-a:
+        condition: service_healthy
+      coturn-b:
+        condition: service_healthy
+    environment:
+      GIZCLAW_E2E_GATEWAY_RELAY_RECOVERY: "1"
+      GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP: ${GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP: ${GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_GATEWAY_RELAY_REALM: ${GIZCLAW_E2E_GATEWAY_RELAY_REALM:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_GATEWAY_RELAY_USERNAME: ${GIZCLAW_E2E_GATEWAY_RELAY_USERNAME:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL: ${GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL:?set by docker-compose-up.sh}
+    networks:
+      default:
+        ipv4_address: ${GIZCLAW_E2E_GATEWAY_RELAY_EDGE_IP:?set by docker-compose-up.sh}
+    volumes:
+      - type: bind
+        source: ${GIZCLAW_E2E_GATEWAY_RELAY_ENV_FILE:?set by docker-compose-up.sh}
+        target: /src/tests/gizclaw-e2e/.env
+        read_only: true
+        bind:
+          create_host_path: false
+      - gateway-relay-fault:/run/gizclaw-gateway-fault
+
+  coturn-a:
+    image: coturn/coturn:4.7.0-r0@sha256:99bf5bf6ab1c119862d0c3d2dfb2bbf805a86a131492cab18c148be64ae7d978
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        turnserver --version
+        exec turnserver -n \
+          --listening-port=3478 \
+          --listening-ip="$${GIZCLAW_E2E_GATEWAY_RELAY_TURN_IP}" \
+          --relay-ip="$${GIZCLAW_E2E_GATEWAY_RELAY_TURN_IP}" \
+          --external-ip="$${GIZCLAW_E2E_GATEWAY_RELAY_TURN_IP}" \
+          --min-port=49160 \
+          --max-port=49200 \
+          --fingerprint \
+          --lt-cred-mech \
+          --realm="$${GIZCLAW_E2E_GATEWAY_RELAY_REALM}" \
+          --user="$${GIZCLAW_E2E_GATEWAY_RELAY_USERNAME}:$${GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL}" \
+          --no-cli \
+          --no-tls \
+          --no-dtls \
+          --no-stdout-log \
+          --log-file=/tmp/coturn.log \
+          --simple-log
+    environment:
+      GIZCLAW_E2E_GATEWAY_RELAY_TURN_IP: ${GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_GATEWAY_RELAY_REALM: ${GIZCLAW_E2E_GATEWAY_RELAY_REALM:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_GATEWAY_RELAY_USERNAME: ${GIZCLAW_E2E_GATEWAY_RELAY_USERNAME:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL: ${GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL:?set by docker-compose-up.sh}
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 1s
+      timeout: 1s
+      retries: 30
+    networks:
+      default:
+        ipv4_address: ${GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP:?set by docker-compose-up.sh}
+
+  coturn-b:
+    extends:
+      service: coturn-a
+    environment:
+      GIZCLAW_E2E_GATEWAY_RELAY_TURN_IP: ${GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_GATEWAY_RELAY_REALM: ${GIZCLAW_E2E_GATEWAY_RELAY_REALM:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_GATEWAY_RELAY_USERNAME: ${GIZCLAW_E2E_GATEWAY_RELAY_USERNAME:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL: ${GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL:?set by docker-compose-up.sh}
+    networks:
+      default:
+        ipv4_address: ${GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP:?set by docker-compose-up.sh}
+
+  gateway-fault:
+    image: nicolaka/netshoot:v0.13@sha256:a20c2531bf35436ed3766cd6cfe89d352b050ccc4d7005ce6400adf97503da1b
+    network_mode: service:edge
+    cap_add:
+      - NET_ADMIN
+    depends_on:
+      edge:
+        condition: service_started
+    environment:
+      GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP: ${GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP: ${GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP: ${GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP:?set by docker-compose-up.sh}
+    volumes:
+      - gateway-relay-fault:/run/gizclaw-gateway-fault
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        iptables -I OUTPUT 1 -p udp -d "$${GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP}" -j REJECT
+        iptables -I INPUT 1 -p udp -s "$${GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP}" -j REJECT
+        touch /run/gizclaw-gateway-fault/ready
+        trap 'rm -f /run/gizclaw-gateway-fault/ready' EXIT
+        while :; do sleep 3600; done
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${GIZCLAW_E2E_GATEWAY_RELAY_SUBNET:?set by docker-compose-up.sh}
+
+volumes:
+  gateway-relay-fault:
