@@ -39,6 +39,7 @@ const (
 
 type options struct {
 	edges                    []string
+	signalingBaseFromEdge    bool
 	sessions                 int
 	ramp                     time.Duration
 	duration                 time.Duration
@@ -110,6 +111,7 @@ type hostSummary struct {
 
 type artifactConfig struct {
 	Edges                    []string      `json:"edges"`
+	SignalingBaseFromEdge    bool          `json:"signaling_base_from_edge"`
 	Sessions                 int           `json:"sessions"`
 	Ramp                     time.Duration `json:"ramp"`
 	Duration                 time.Duration `json:"duration"`
@@ -397,6 +399,7 @@ func parseOptions() (options, error) {
 	var rawEdges string
 	opts := options{}
 	flag.StringVar(&rawEdges, "edges", "", "comma-separated Edge HTTP endpoints")
+	flag.BoolVar(&opts.signalingBaseFromEdge, "signaling-base-from-edge", false, "use each -edges address as the signaling base instead of the advertised transport endpoint")
 	flag.IntVar(&opts.sessions, "sessions", 30000, "total logical client sessions")
 	flag.DurationVar(&opts.ramp, "ramp", 5*time.Minute, "session establishment ramp")
 	flag.DurationVar(&opts.duration, "duration", time.Minute, "hold duration after establishment")
@@ -529,7 +532,8 @@ func run(ctx context.Context, opts options) (artifact, error) {
 			GOMAXPROCS: runtime.GOMAXPROCS(0),
 		},
 		Config: artifactConfig{
-			Edges: opts.edges, Sessions: opts.sessions, Ramp: opts.ramp,
+			Edges: opts.edges, SignalingBaseFromEdge: opts.signalingBaseFromEdge,
+			Sessions: opts.sessions, Ramp: opts.ramp,
 			Duration: opts.duration, PingInterval: opts.pingInterval,
 			DialTimeout: opts.dialTimeout, PingTimeout: opts.pingTimeout,
 			SpeedBytes: opts.speedBytes, SpeedBaselineBytes: opts.speedBaselineBytes,
@@ -573,7 +577,7 @@ func run(ctx context.Context, opts options) (artifact, error) {
 		}
 	}
 
-	edges, err := fetchEdges(ctx, opts.edges)
+	edges, err := fetchEdges(ctx, opts.edges, opts.signalingBaseFromEdge)
 	if err != nil {
 		report.Errors = []string{err.Error()}
 		report.FinishedAt = time.Now()
@@ -776,7 +780,7 @@ func handleSessionServeExit(state *resultState, session *liveSession, index int,
 	state.recordDisconnect(message)
 }
 
-func fetchEdges(ctx context.Context, endpoints []string) ([]edgeMetadata, error) {
+func fetchEdges(ctx context.Context, endpoints []string, signalingBaseFromEdge bool) ([]edgeMetadata, error) {
 	edges := make([]edgeMetadata, 0, len(endpoints))
 	var serverKey giznet.PublicKey
 	for _, endpoint := range endpoints {
@@ -830,6 +834,9 @@ func fetchEdges(ctx context.Context, endpoints []string) ([]edgeMetadata, error)
 		transportBase, err := normalizeHTTPBase(info.Transport.Endpoint)
 		if err != nil {
 			return nil, fmt.Errorf("edge %q transport endpoint: %w", endpoint, err)
+		}
+		if signalingBaseFromEdge {
+			transportBase = base
 		}
 		path := info.Transport.SignalingPath
 		if !strings.HasPrefix(path, "/") {

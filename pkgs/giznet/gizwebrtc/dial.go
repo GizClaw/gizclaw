@@ -28,6 +28,10 @@ type DialConfig struct {
 	ICETransportPolicy webrtc.ICETransportPolicy
 	CipherMode         CipherMode
 	SecurityPolicy     giznet.SecurityPolicy
+	// SCTPReceiveBufferSize overrides Pion's default association receive
+	// window. Gateway upstream callers use GatewaySCTPReceiveBufferSize; public
+	// client associations leave this at zero.
+	SCTPReceiveBufferSize uint32
 	// OnTiming receives one snapshot before Dial returns. Milestones after
 	// SetRemoteDescription are measured from the start of that call.
 	OnTiming func(DialTiming)
@@ -114,11 +118,22 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 	}
 	api := cfg.API
 	var closers []func() error
+	if api != nil && cfg.SCTPReceiveBufferSize != 0 {
+		return nil, nil, fmt.Errorf("gizwebrtc: SCTP receive override requires the default Pion API")
+	}
 	if api == nil {
-		var err error
-		api, err = defaultDialAPI()
-		if err != nil {
-			return nil, nil, err
+		if cfg.SCTPReceiveBufferSize == 0 {
+			var err error
+			api, err = defaultDialAPI()
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+			var err error
+			api, closers, err = newPionAPI(&ListenConfig{SCTPReceiveBufferSize: cfg.SCTPReceiveBufferSize})
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 	}
 	l := &Listener{

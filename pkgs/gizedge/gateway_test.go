@@ -839,6 +839,71 @@ func TestGatewayAdmissionRejectsCapacityBeforeHandshake(t *testing.T) {
 	}
 }
 
+func TestGatewayBurstSCTPProfileIsAdmissionBounded(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cfg := Config{Gateway: GatewayConfig{
+		MaxSessions:          gatewayClientBurstSCTPLimit + 2,
+		MaxUpstreams:         1,
+		SessionsPerUpstream:  gatewayClientBurstSCTPLimit + 2,
+		MaxPendingHandshakes: gatewayClientBurstSCTPLimit + 2,
+	}}
+	pool := &gatewayPool{ctx: ctx, cfg: cfg}
+	pool.entries = []*gatewayUpstream{{pool: pool}}
+	gateway := &Gateway{
+		ctx:             ctx,
+		cancel:          cancel,
+		cfg:             cfg,
+		pool:            pool,
+		admissions:      make(map[giznet.PublicKey][]*gatewayAdmission),
+		admissionNotify: make(chan struct{}),
+	}
+
+	reservations := make([]*gatewayAdmission, 0, gatewayClientBurstSCTPLimit+1)
+	for range gatewayClientBurstSCTPLimit + 1 {
+		admission, err := gateway.reserveAdmission()
+		if err != nil {
+			t.Fatal(err)
+		}
+		reservations = append(reservations, admission)
+	}
+	if !reservations[gatewayClientBurstSCTPLimit-1].burstSCTP {
+		t.Fatal("last in-budget admission did not receive the burst profile")
+	}
+	if reservations[gatewayClientBurstSCTPLimit].burstSCTP {
+		t.Fatal("out-of-budget admission received the burst profile")
+	}
+
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	reservations[0].clientKey = clientKey.Public
+	requestCtx := context.WithValue(ctx, gatewayAdmissionContextKey{}, reservations[0])
+	if !gateway.allowBurstSCTP(requestCtx, clientKey.Public) {
+		t.Fatal("matching in-budget signaling request did not select the burst profile")
+	}
+	if gateway.allowBurstSCTP(requestCtx, giznet.PublicKey{}) {
+		t.Fatal("mismatched signaling identity selected the burst profile")
+	}
+
+	reservations[0].releasePending()
+	replacement, err := gateway.reserveAdmission()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !replacement.burstSCTP {
+		t.Fatal("released burst-profile budget was not reusable")
+	}
+	for _, admission := range reservations[1:] {
+		admission.releasePending()
+	}
+	replacement.releasePending()
+	if gateway.burstSCTP != 0 {
+		t.Fatalf("burst SCTP reservations after release = %d, want 0", gateway.burstSCTP)
+	}
+}
+
 func TestGatewayUpstreamReportsOnlyUnplannedPhysicalRelayFailure(t *testing.T) {
 	for _, test := range []struct {
 		name          string

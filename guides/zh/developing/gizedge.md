@@ -175,7 +175,28 @@ burst 把基线抬高而产生 flaky ratio；绝对门槛会拒绝旧的十几 M
 证明当前本机 Docker 拓扑的 100 路并发传输基线，不是
 30,000-session 实测，也不把本机 aggregate Mbps 当作其他网络的带宽承诺。
 
-容量 artifact 记录 load-driver 的 GOOS、GOARCH、Go version 和 logical CPU，并包含建立失败、周期 ping RTT、每轮及每个 Edge/upstream 的 RTT/失败汇总、unexpected disconnect、identity crossover、RSS、Go/runtime active CPU estimate、FD、heap、收发 bytes，以及 Edge/upstream 分布。upload/download 分别记录单路基线、由共享 wall-clock 计算的 100 路 aggregate Mbps、每路速率分位数、完整字节数、失败，以及每个 Edge/upstream 的聚合结果；不能把各客户端 duration 相加或取最大值替代共享起止区间。每个内存和 CPU 资源点都携带数据源；无法读取 Linux `/proc/self/statm` 时，`rss_bytes` 明确标记为 `go_memstats_sys` fallback，不能作为完整进程 RSS。平台无法读取 FD 时该值为 `-1`。达到 crossover、unexpected disconnect、测速失败、绝对 Mbps 或保留倍率阈值时命令以非零状态退出。500/1,000-session 重复运行、长时间 soak、各进程资源斜率和 30,000-session 理论推算属于独立的扩展容量验收。
+容量 artifact 记录 load-driver 的 GOOS、GOARCH、Go version 和 logical CPU，并包含建立失败、周期 ping RTT、每轮及每个 Edge/upstream 的 RTT/失败汇总、unexpected disconnect、identity crossover、RSS、Go/runtime active CPU estimate、FD、heap、收发 bytes，以及 Edge/upstream 分布。upload/download 分别记录单路基线、由共享 wall-clock 计算的 100 路 aggregate Mbps、每路速率分位数、完整字节数、失败，以及每个 Edge/upstream 的聚合结果；不能把各客户端 duration 相加或取最大值替代共享起止区间。每个内存和 CPU 资源点都携带数据源；无法读取 Linux `/proc/self/statm` 时，`rss_bytes` 明确标记为 `go_memstats_sys` fallback，不能作为完整进程 RSS。平台无法读取 FD 时该值为 `-1`。达到 crossover、unexpected disconnect、测速失败、绝对 Mbps 或保留倍率阈值时命令以非零状态退出。
+
+固定的 500-session 验收入口为：
+
+```bash
+bash tests/gizclaw-e2e/run_gateway_capacity_500_tests.sh
+```
+
+它固定在 3 个全新的 one-Server/two-Edge stack 上，以 0 ramp 同时发起 500 个 Dial。每个
+Edge 恰好承载 250 个 session 和 4 条 upstream association。每轮要求 500/500 usable
+sessions，无失败、disconnect、restart 或 identity crossover，至少 20 sessions/s，Dial
+p95 不超过 1 秒且 p99 不超过 5 秒，并且每个方向精确传输 500 MiB、aggregate throughput
+不低于 200 Mbps。32 MiB 单路 baseline 和 aggregate ratio 只作为诊断数据；可发布 artifact
+必须记录最终 clean PR head。
+
+2026-08-02 在一台 Darwin/arm64、16 logical CPUs、Go 1.26.4 的主机上，以 OrbStack
+Linux/aarch64 Docker 运行 one-Server/two-Edge 拓扑并使用 direct container signaling
+endpoint，三轮 clean-head 测试均通过。每轮都建立 500/500 usable sessions，transfer
+failure 和 unexpected disconnect 均为 0，并且每个方向精确传输 500 MiB、速度超过
+200 Mbps。这些结果只验收该主机和拓扑；
+不代表 1,000 sessions、soak 或部署网络已经通过。1,000-session 重复运行、长时间 soak、各进程资源斜率和
+30,000-session 理论推算仍属于独立的扩展容量验收。
 
 `max-upstreams` 是容量上限，不是应立即铺满的吞吐目标。单 association 会把大型并发
 burst 串行化；一次打开全部 slot 又会同时支付多条 SCTP 冷启动和拥塞恢复成本。默认的

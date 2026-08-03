@@ -127,6 +127,7 @@ fixed entrypoints:
 bash tests/gizclaw-e2e/run_edge_failure_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_100_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_500_tests.sh
 
 GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
 GIZCLAW_E2E_VOLC_LOG_REGION=... \
@@ -134,7 +135,7 @@ GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
   bash tests/gizclaw-e2e/run_volc_log_tests.sh
 ```
 
-All five GizClaw entrypoints require the same complete
+All GizClaw entrypoints require the same complete
 `tests/gizclaw-e2e/.env`. The gateway-capacity entrypoint fixes the local
 one-Server/two-Edge selection at the 100-session baseline. In addition to
 connection hold and ping rounds, all 100 sessions synchronously upload and
@@ -155,6 +156,29 @@ Dial p95 at most
 direction. The single-session ratio remains a reported diagnostic because a
 single local sample is too variable to be a reliable concurrent-throughput
 gate.
+
+The dedicated 500-session burst entrypoint uses the same fixed three-fresh-
+stack, zero-ramp contract with concurrency 500. Each run assigns exactly 250
+sessions to each Edge and requires exactly four upstream associations per
+Edge. Hard gates are 500/500 usable sessions, zero establishment, ping,
+disconnect, restart, or identity-crossover failures, at least 20 sessions/s,
+Dial p95 at most 1 second and p99 at most 5 seconds, and exactly 500 MiB
+(500 x 1 MiB) transferred in each direction at no less than 200 Mbps aggregate.
+The 32 MiB single-session measurements and aggregate ratios are diagnostics,
+not gates. Artifacts are written under ignored
+`testdata/gateway-capacity-extended/sessions-500-burst/`; every run records the
+exact repository head and dirty state, so publishable evidence must come from
+the clean final PR head.
+
+When the Docker host exposes container addresses, the capacity script passes
+each Edge container's direct endpoint together with the explicit local
+`-signaling-base-from-edge` override. The gateway runner otherwise retains the
+advertised `transport.endpoint` contract. This avoids published-port proxy
+backlog as a load-generator artifact without changing non-local discovery
+behavior. The script prints the selected endpoint boundary and falls back to
+the published endpoint when direct access is unavailable. WebRTC/ICE still uses
+the configured gateway candidates; the Dial barrier and workload are not paced,
+batched, or preconnected.
 
 ## GenX provider E2E
 

@@ -47,6 +47,25 @@ WebRTC implementation details related to Pion are left in this subdirectory. The
 signaling, remote-description, ICE-connected, DTLS-connected, and DataChannel
 ready timing without exposing mutable Pion objects.
 
+General public client associations retain Pion's default SCTP receive window.
+An Edge gateway gives at most 64 currently admitted client associations a 4
+MiB burst window, limiting burst-profile receive credit to 256 MiB per Edge;
+later associations retain the default until budget is released. The
+32 MiB aggregate window is separately scoped to bounded Edge-to-Server upstream
+associations: Edge dials request it under the configured `max-upstreams` limit,
+and the Server selects it only after the authenticated peer is an active
+`edge-node`. It matches the qualified burst of 64 transferring service streams
+times their 512 KiB per-DataChannel send budget and prevents interleaved partial
+messages from exhausting the receiver window before delivery. A connection
+also admits at most 2,048 remotely opened service DataChannels, matching the
+gateway's active-session ceiling per upstream association; excess channels are
+closed before delivery, so service labels cannot create unbounded queues. SCTP
+retransmission is capped at 250 ms, and DTLS
+flights use a 250 ms initial retransmission interval, so lost handshake flights
+during a burst do not add the one-second defaults. SCTP reliable delivery and
+its retransmission count remain unchanged; DTLS retransmission and exponential
+backoff remain enabled.
+
 ## Dependencies
 
 ```mermaid

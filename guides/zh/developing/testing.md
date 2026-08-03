@@ -116,6 +116,7 @@ bash tests/gizclaw-e2e/run_sibling_close_tests.sh
 bash tests/gizclaw-e2e/run_edge_failure_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_100_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_500_tests.sh
 
 GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
 GIZCLAW_E2E_VOLC_LOG_REGION=... \
@@ -123,7 +124,7 @@ GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
   bash tests/gizclaw-e2e/run_volc_log_tests.sh
 ```
 
-六个 GizClaw 入口都要求同一份完整的 `tests/gizclaw-e2e/.env`。Sibling-close 入口在
+所有 GizClaw 入口都要求同一份完整的 `tests/gizclaw-e2e/.env`。Sibling-close 入口在
 独立 Docker 环境中固定连续运行三次 JavaScript、C/cgo 与 Go 的并发 service/Event
 场景，不接受环境变量改变 selection 或重复次数。Gateway capacity
 入口固定运行本机 one-Server/two-Edge 的 100-session 基线：除保持连接和多轮 ping 外，
@@ -139,6 +140,22 @@ DataChannel ready milestone；只有客户端 SCTP connected 边界明确标记�
 且 p99 不超过 5 秒，以及上传、
 下载分别至少 200 Mbps aggregate。单路倍率保留为诊断数据；本机单次单路样本波动过大，
 不能作为并发总吞吐的可靠 gate。
+
+专用 500-session burst 入口同样固定运行 3 个全新 stack、0 ramp 和 500 concurrency。
+每轮必须给两个 Edge 各分配 250 个 session，并要求每个 Edge 恰好使用 4 条 upstream
+association。硬门槛为 500/500 usable sessions，establishment、ping、disconnect、restart
+和 identity crossover 均为 0，至少 20 sessions/s，Dial p95 不超过 1 秒且 p99 不超过
+5 秒，以及每个方向精确完成 500 MiB（500 x 1 MiB）、aggregate throughput 不低于
+200 Mbps。32 MiB 单路结果与 aggregate ratio 只用于诊断，不作为 gate。artifact 写入
+ignored 的 `testdata/gateway-capacity-extended/sessions-500-burst/`；每轮记录精确 repository
+head 和 dirty state，可发布证据必须来自最终 clean PR head。
+
+如果 Docker host 可直达 container address，capacity script 会同时传入每个 Edge container
+的 direct endpoint 和显式的本机 `-signaling-base-from-edge` override；其他调用仍遵守
+advertised `transport.endpoint` contract。这样不会改变非本机 discovery 行为，同时避免把
+published-port proxy backlog 误判为 load generator 以外的瓶颈。script 会打印选定的
+endpoint boundary，不可直达时回退到 published endpoint。WebRTC/ICE 仍使用配置的 gateway
+candidates，Dial barrier 和 workload 不会被 pacing、batching 或 preconnect。
 
 ## GenX provider E2E
 

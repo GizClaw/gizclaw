@@ -1,6 +1,7 @@
 package gizwebrtc
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -31,6 +32,18 @@ type ListenConfig struct {
 	// API optionally supplies a preconfigured Pion API. When nil, Listen
 	// builds one from the ICE and cipher settings below.
 	API *webrtc.API
+	// SCTPReceiveBufferSize overrides Pion's default association receive
+	// window. Zero retains the Pion default.
+	SCTPReceiveBufferSize uint32
+	// GatewaySCTPPeer selects authenticated, admission-bounded associations
+	// that need a larger SCTP receive window. It is incompatible with a
+	// caller-supplied API because the alternate API must share the listener's
+	// ICE muxes. The request context lets an HTTP admission layer bind the
+	// selection to the reservation for this signaling request.
+	GatewaySCTPPeer func(context.Context, giznet.PublicKey) bool
+	// GatewaySCTPReceiveBufferSize is the receive window selected by
+	// GatewaySCTPPeer. Zero uses the Edge-to-Server burst profile.
+	GatewaySCTPReceiveBufferSize uint32
 
 	// ICEAddr is the UDP/TCP bind address used for shared WebRTC ICE muxes.
 	// If empty, Pion uses its default ephemeral ICE sockets.
@@ -80,22 +93,27 @@ func (c *ListenConfig) Listen(key *giznet.KeyPair) (*Listener, error) {
 		return nil, err
 	}
 	api := c.API
+	var gatewaySCTPAPI *webrtc.API
 	var closers []func() error
+	if api != nil && (c.SCTPReceiveBufferSize != 0 || c.GatewaySCTPPeer != nil) {
+		return nil, fmt.Errorf("gizwebrtc: SCTP receive overrides require the default Pion API")
+	}
 	if api == nil {
 		var err error
-		api, closers, err = newPionAPI(c)
+		api, gatewaySCTPAPI, closers, err = newPionAPIs(c, c.GatewaySCTPPeer != nil)
 		if err != nil {
 			return nil, err
 		}
 	}
 	l := &Listener{
-		key:        key,
-		cfg:        *c,
-		api:        api,
-		closers:    closers,
-		acceptCh:   make(chan giznet.Conn, acceptQueueSize),
-		closeCh:    make(chan struct{}),
-		replaySeen: make(map[string]int64),
+		key:            key,
+		cfg:            *c,
+		api:            api,
+		gatewaySCTPAPI: gatewaySCTPAPI,
+		closers:        closers,
+		acceptCh:       make(chan giznet.Conn, acceptQueueSize),
+		closeCh:        make(chan struct{}),
+		replaySeen:     make(map[string]int64),
 	}
 	if l.cfg.CipherMode == "" {
 		l.cfg.CipherMode = CipherModeChaChaPoly
@@ -104,6 +122,11 @@ func (c *ListenConfig) Listen(key *giznet.KeyPair) (*Listener, error) {
 }
 
 func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
+	api, _, closers, err := newPionAPIs(c, false)
+	return api, closers, err
+}
+
+func newPionAPIs(c *ListenConfig, includeGatewaySCTP bool) (*webrtc.API, *webrtc.API, []func() error, error) {
 	var mediaEngine webrtc.MediaEngine
 	if err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -114,11 +137,16 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 		},
 		PayloadType: 111,
 	}, webrtc.RTPCodecTypeAudio); err != nil {
-		return nil, nil, fmt.Errorf("gizwebrtc: register opus codec: %w", err)
+		return nil, nil, nil, fmt.Errorf("gizwebrtc: register opus codec: %w", err)
 	}
 
 	settingEngine := webrtc.SettingEngine{}
 	settingEngine.DetachDataChannels()
+	if c != nil && c.SCTPReceiveBufferSize != 0 {
+		settingEngine.SetSCTPMaxReceiveBufferSize(c.SCTPReceiveBufferSize)
+	}
+	settingEngine.SetSCTPRTOMax(sctpRetransmissionTimeoutMax)
+	settingEngine.SetDTLSRetransmissionInterval(dtlsRetransmissionInterval)
 	settingEngine.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)
 	if iceLite(c) {
 		settingEngine.SetLite(true)
@@ -130,7 +158,7 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 	var closers []func() error
 	udpAddr, tcpAddr := iceMuxAddrs(c)
 	if c != nil && c.ICETCPListener != nil && tcpAddr != "" {
-		return nil, nil, fmt.Errorf("gizwebrtc: ICETCPListener conflicts with ICEAddr or ICETCPAddr")
+		return nil, nil, nil, fmt.Errorf("gizwebrtc: ICETCPListener conflicts with ICEAddr or ICETCPAddr")
 	}
 	var networkTypes []webrtc.NetworkType
 	if udpAddr != "" {
@@ -140,16 +168,16 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 		logger := logging.NewDefaultLoggerFactory().NewLogger("gizwebrtc")
 		udpConn, err := net.ListenPacket("udp", udpAddr)
 		if err != nil {
-			return nil, nil, fmt.Errorf("gizwebrtc: listen ICE UDP: %w", err)
+			return nil, nil, nil, fmt.Errorf("gizwebrtc: listen ICE UDP: %w", err)
 		}
 		bufferedConn, ok := udpConn.(iceUDPBufferSetter)
 		if !ok {
 			_ = udpConn.Close()
-			return nil, nil, fmt.Errorf("gizwebrtc: ICE UDP socket does not support buffer sizing")
+			return nil, nil, nil, fmt.Errorf("gizwebrtc: ICE UDP socket does not support buffer sizing")
 		}
 		if err := configureICEUDPBuffers(bufferedConn); err != nil {
 			_ = udpConn.Close()
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		closers = append(closers, udpConn.Close)
 		settingEngine.SetICEUDPMux(webrtc.NewICEUDPMux(logger, udpConn))
@@ -172,7 +200,7 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 				for _, closeFn := range closers {
 					_ = closeFn()
 				}
-				return nil, nil, fmt.Errorf("gizwebrtc: listen ICE TCP: %w", err)
+				return nil, nil, nil, fmt.Errorf("gizwebrtc: listen ICE TCP: %w", err)
 			}
 		}
 		if tcpAddr == "" && isLoopbackICEAddr(tcpListener.Addr().String()) {
@@ -191,10 +219,24 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 		})
 	}
 
-	return webrtc.NewAPI(
+	api := webrtc.NewAPI(
 		webrtc.WithMediaEngine(&mediaEngine),
 		webrtc.WithSettingEngine(settingEngine),
-	), closers, nil
+	)
+	var gatewaySCTPAPI *webrtc.API
+	if includeGatewaySCTP {
+		gatewaySettings := settingEngine
+		gatewayReceiveBufferSize := c.GatewaySCTPReceiveBufferSize
+		if gatewayReceiveBufferSize == 0 {
+			gatewayReceiveBufferSize = GatewaySCTPReceiveBufferSize
+		}
+		gatewaySettings.SetSCTPMaxReceiveBufferSize(gatewayReceiveBufferSize)
+		gatewaySCTPAPI = webrtc.NewAPI(
+			webrtc.WithMediaEngine(&mediaEngine),
+			webrtc.WithSettingEngine(gatewaySettings),
+		)
+	}
+	return api, gatewaySCTPAPI, closers, nil
 }
 
 func configureICEUDPBuffers(conn iceUDPBufferSetter) error {

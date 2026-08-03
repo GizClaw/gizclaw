@@ -403,6 +403,13 @@ func webRTCListenConfig(cfg Config, opts gizclaw.PeerListenerOptions, iceTCPList
 		SecurityPolicy:   opts.SecurityPolicy,
 		PeerEventHandler: opts.PeerEventHandler,
 	}
+	if policy, ok := opts.SecurityPolicy.(interface {
+		AllowGatewaySCTP(giznet.PublicKey) bool
+	}); ok {
+		listenConfig.GatewaySCTPPeer = func(_ context.Context, publicKey giznet.PublicKey) bool {
+			return policy.AllowGatewaySCTP(publicKey)
+		}
+	}
 	if gizwebrtc.HasTURNServer(cfg.ICEServers) {
 		listenConfig.ICETransportPolicy = webrtc.ICETransportPolicyRelay
 	}

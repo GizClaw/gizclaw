@@ -194,6 +194,26 @@ func TestConnReservesPacketDataChannelBeforeOpen(t *testing.T) {
 	}
 }
 
+func TestConnBoundsInboundServiceStreams(t *testing.T) {
+	conn := &Conn{}
+	channels := make([]webrtc.DataChannel, maxInboundServiceStreams+1)
+	releases := make([]func(), maxInboundServiceStreams)
+	for index := range maxInboundServiceStreams {
+		var ok bool
+		releases[index], ok = conn.reserveInboundServiceStream(&channels[index])
+		if !ok {
+			t.Fatalf("reserve inbound service stream %d rejected below limit", index)
+		}
+	}
+	if _, ok := conn.reserveInboundServiceStream(&channels[maxInboundServiceStreams]); ok {
+		t.Fatalf("reserve inbound service stream accepted above limit %d", maxInboundServiceStreams)
+	}
+	releases[0]()
+	if _, ok := conn.reserveInboundServiceStream(&channels[maxInboundServiceStreams]); !ok {
+		t.Fatal("reserve inbound service stream did not release closed channel capacity")
+	}
+}
+
 func TestConnNilAndClosedEdges(t *testing.T) {
 	if (*Conn)(nil).PublicKey() != (giznet.PublicKey{}) {
 		t.Fatal("nil PublicKey returned non-zero key")

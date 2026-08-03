@@ -34,6 +34,7 @@ type Conn struct {
 	serviceMu sync.Mutex
 	services  map[uint64]*ServiceListener
 	streams   map[uint64]map[*dataChannelConn]struct{}
+	inbound   map[*webrtc.DataChannel]struct{}
 	closedSvc map[uint64]bool
 	acceptAll atomic.Bool
 	serviceCh chan acceptedService
@@ -382,28 +383,39 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 		_ = dc.Close()
 		return
 	}
+	if label == packetLabel {
+		dc.OnOpen(func() {
+			raw, err := dc.DetachWithDeadline()
+			if err != nil {
+				_ = dc.Close()
+				return
+			}
+			c.setPacket(dc, raw)
+		})
+		return
+	}
+	service, ok := parseServiceLabel(label)
+	if !ok || c.policy != nil && !c.policy.AllowService(c.pk, service) {
+		_ = dc.Close()
+		return
+	}
+	release, ok := c.reserveInboundServiceStream(dc)
+	if !ok {
+		_ = dc.Close()
+		return
+	}
+	dc.OnClose(release)
 	dc.OnOpen(func() {
 		raw, err := dc.DetachWithDeadline()
 		if err != nil {
+			release()
 			_ = dc.Close()
-			return
-		}
-		if label == packetLabel {
-			c.setPacket(dc, raw)
-			return
-		}
-		service, ok := parseServiceLabel(label)
-		if !ok {
-			_ = raw.Close()
-			return
-		}
-		if c.policy != nil && !c.policy.AllowService(c.pk, service) {
-			_ = raw.Close()
 			return
 		}
 		c.serviceMu.Lock()
 		if c.closedSvc[service] {
 			c.serviceMu.Unlock()
+			release()
 			_ = raw.Close()
 			return
 		}
@@ -421,12 +433,41 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 			select {
 			case c.serviceCh <- acceptedService{service: service, stream: stream}:
 			case <-c.closeCh:
+				release()
 				_ = stream.Close()
 			}
 			return
 		}
-		_ = l.enqueue(stream)
+		if err := l.enqueue(stream); err != nil {
+			release()
+		}
 	})
+}
+
+func (c *Conn) reserveInboundServiceStream(dc *webrtc.DataChannel) (func(), bool) {
+	c.serviceMu.Lock()
+	if c.inbound == nil {
+		c.inbound = make(map[*webrtc.DataChannel]struct{})
+	}
+	if len(c.inbound) >= maxInboundServiceStreams {
+		c.serviceMu.Unlock()
+		return nil, false
+	}
+	if _, exists := c.inbound[dc]; exists {
+		c.serviceMu.Unlock()
+		return nil, false
+	}
+	c.inbound[dc] = struct{}{}
+	c.serviceMu.Unlock()
+
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			c.serviceMu.Lock()
+			delete(c.inbound, dc)
+			c.serviceMu.Unlock()
+		})
+	}, true
 }
 
 func (c *Conn) reservePacketDataChannel(dc *webrtc.DataChannel) bool {

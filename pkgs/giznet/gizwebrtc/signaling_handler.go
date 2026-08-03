@@ -138,7 +138,11 @@ func (l *Listener) acceptOffer(
 ) (string, *Conn, signalingTiming, error) {
 	timing := signalingTiming{}
 	started := time.Now()
-	pc, err := l.api.NewPeerConnection(peerConnectionConfiguration(l.cfg.ICEServers, l.cfg.ICETransportPolicy))
+	api := l.api
+	if l.gatewaySCTPAPI != nil && l.cfg.GatewaySCTPPeer != nil && l.cfg.GatewaySCTPPeer(ctx, clientPK) {
+		api = l.gatewaySCTPAPI
+	}
+	pc, err := api.NewPeerConnection(peerConnectionConfiguration(l.cfg.ICEServers, l.cfg.ICETransportPolicy))
 	timing.peerConnection = time.Since(started)
 	if err != nil {
 		return "", nil, timing, err

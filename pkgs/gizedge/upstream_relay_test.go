@@ -196,6 +196,9 @@ func TestUpstreamRelaySelectorDialsOneMemberInStableOrder(t *testing.T) {
 		if dialCfg.ICETransportPolicy != webrtc.ICETransportPolicyRelay {
 			t.Fatalf("ICE transport policy = %v, want relay", dialCfg.ICETransportPolicy)
 		}
+		if dialCfg.SCTPReceiveBufferSize != gizwebrtc.GatewaySCTPReceiveBufferSize {
+			t.Fatalf("SCTP receive buffer = %d, want gateway profile", dialCfg.SCTPReceiveBufferSize)
+		}
 		if len(dialCfg.ICEServers) != 1 || len(dialCfg.ICEServers[0].URLs) != 1 {
 			t.Fatalf("dial ICE servers = %+v, want exactly one member", dialCfg.ICEServers)
 		}

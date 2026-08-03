@@ -246,9 +246,50 @@ func TestFetchEdgesRejectsDuplicateTransportIdentity(t *testing.T) {
 	defer server.Close()
 	endpoint = server.URL
 
-	_, err = fetchEdges(context.Background(), []string{server.URL, server.URL})
+	_, err = fetchEdges(context.Background(), []string{server.URL, server.URL}, false)
 	if err == nil || !strings.Contains(err.Error(), "duplicates transport identity") {
 		t.Fatalf("fetchEdges error = %v, want duplicate transport identity", err)
+	}
+}
+
+func TestFetchEdgesUsesSelectedEndpointForSignaling(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	transportKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		info := apitypes.ServerInfo{
+			PublicKey: serverKey.Public.String(),
+			Transport: &apitypes.ServerInfoTransport{
+				Endpoint:      "https://published.example:9821",
+				Mode:          apitypes.ServerInfoTransportModeEdgeGateway,
+				PublicKey:     transportKey.Public.String(),
+				SignalingPath: "/offer",
+			},
+		}
+		if err := json.NewEncoder(w).Encode(info); err != nil {
+			t.Error(err)
+		}
+	}))
+	defer server.Close()
+
+	edges, err := fetchEdges(context.Background(), []string{server.URL}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := edges[0].signalingURL, "https://published.example:9821/offer"; got != want {
+		t.Fatalf("default signaling URL = %q, want advertised endpoint %q", got, want)
+	}
+	edges, err = fetchEdges(context.Background(), []string{server.URL}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := edges[0].signalingURL, server.URL+"/offer"; got != want {
+		t.Fatalf("overridden signaling URL = %q, want selected endpoint %q", got, want)
 	}
 }
 
