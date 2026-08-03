@@ -17,6 +17,8 @@ rm -f "$docker_env_path"
 export GIZCLAW_E2E_DOCKER_ENV="$docker_env_path"
 full_watchdog_pid=""
 active_command_pid=""
+active_phase=""
+failure_diagnostics_collected=0
 chat_pkg="./tests/gizclaw-e2e/go/chat"
 chat_live_tests=(
   TestPushToTalkRoundtrip
@@ -159,13 +161,113 @@ deadline_exit() {
 		terminate_process_tree_gracefully "$active_command_pid"
 		active_command_pid=""
 	fi
+	collect_failure_diagnostics
 	exit 124
 }
 trap deadline_exit INT TERM
 
+docker_compose_args() {
+	local compose_file="${GIZCLAW_E2E_DOCKER_COMPOSE_FILE:-}"
+	if [[ -z "$compose_file" ]]; then
+		return 1
+	fi
+	printf '%s\n' -f "$compose_file"
+	if [[ -n "${GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY:-}" ]]; then
+		printf '%s\n' -f "$GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY"
+	fi
+}
+
+diagnose_server_info() {
+	local label="$1"
+	local endpoint="$2"
+	if [[ -z "$endpoint" ]]; then
+		return
+	fi
+	local url="$endpoint"
+	if [[ "$url" != http://* && "$url" != https://* ]]; then
+		url="http://$url"
+	fi
+	local result
+	result="$(curl --silent --show-error --output /dev/null \
+		--connect-timeout 2 --max-time 3 \
+		--write-out 'http_code=%{http_code} remote_ip=%{remote_ip} connect_seconds=%{time_connect} total_seconds=%{time_total}' \
+		"${url%/}/server-info" 2>&1)" || true
+	echo "diagnostic server-info $label: $result" >&2
+}
+
+redact_failure_diagnostics() {
+	python3 "$setup_dir/redact_diagnostics.py"
+}
+
+tail_service_log() {
+	local project="$1"
+	local service="$2"
+	local log_path="$3"
+	shift 3
+	echo "==> diagnostic app log service=$service tail=200" >&2
+	docker compose -p "$project" "$@" exec -T "$service" \
+		sh -c 'if test -f "$1"; then tail -n 200 "$1"; else echo "log file unavailable: $1"; fi' \
+		sh "$log_path" 2>&1 | redact_failure_diagnostics >&2 || true
+}
+
+collect_failure_diagnostics() {
+	if [[ "$failure_diagnostics_collected" == "1" ]]; then
+		return
+	fi
+	if [[ ! -f "$docker_env_path" ]]; then
+		return
+	fi
+	failure_diagnostics_collected=1
+	set -a
+	# shellcheck disable=SC1090
+	source "$docker_env_path"
+	set +a
+	local project="${GIZCLAW_E2E_DOCKER_PROJECT:-}"
+	if [[ -z "$project" ]]; then
+		return
+	fi
+	local -a compose_args=()
+	while IFS= read -r arg; do
+		compose_args+=("$arg")
+	done < <(docker_compose_args || true)
+	if ((${#compose_args[@]} == 0)); then
+		return
+	fi
+
+	echo "==> e2e failure diagnostics phase=${active_phase:-unknown} project=$project" >&2
+	docker compose -p "$project" "${compose_args[@]}" ps --all >&2 2>&1 || true
+	local container_ids
+	container_ids="$(docker compose -p "$project" "${compose_args[@]}" ps --all -q 2>/dev/null || true)"
+	if [[ -n "$container_ids" ]]; then
+		# shellcheck disable=SC2086 # Docker expects one argument per container ID.
+		docker stats --no-stream --format \
+			'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.PIDs}}\t{{.NetIO}}' \
+			$container_ids >&2 2>&1 || true
+	fi
+	diagnose_server_info server "${GIZCLAW_E2E_SERVER_ENDPOINT:-}"
+	diagnose_server_info edge "${GIZCLAW_E2E_EDGE_ENDPOINT:-}"
+	diagnose_server_info edge2 "${GIZCLAW_E2E_EDGE2_ENDPOINT:-}"
+
+	tail_service_log "$project" server \
+		/src/tests/gizclaw-e2e/testdata/server-workspace/gizclaw-server.log \
+		"${compose_args[@]}"
+	tail_service_log "$project" edge \
+		/src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.log \
+		"${compose_args[@]}"
+	tail_service_log "$project" edge2 \
+		/src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.log \
+		"${compose_args[@]}"
+	for service in turn server edge edge2 desktop; do
+		echo "==> diagnostic container log service=$service tail=80" >&2
+		docker compose -p "$project" "${compose_args[@]}" logs \
+			--no-color --tail=80 "$service" 2>&1 | redact_failure_diagnostics >&2 || true
+	done
+}
+
 run_timed() {
 	local phase="$1"
 	shift
+	active_phase="$phase"
 	local deadline
 	deadline="$(phase_deadline_seconds "$phase")"
 	require_positive_seconds "deadline for $phase" "$deadline"
@@ -196,6 +298,9 @@ run_timed() {
 	fi
 	rm -f "$marker"
 	echo "==> phase done: $phase status=$status elapsed_seconds=$((SECONDS - started))"
+	if [[ "$status" != "0" ]]; then
+		collect_failure_diagnostics
+	fi
 	return "$status"
 }
 
@@ -291,6 +396,7 @@ run_desktop_tests() {
 validate_deadlines
 start_full_watchdog
 
+run_timed "preflight:diagnostic-redaction" python3 "$setup_dir/redact_diagnostics_test.py"
 run_timed "preflight:npm-ci" prepare_node_dependencies
 run_timed "preflight:nanopb" prepare_nanopb
 

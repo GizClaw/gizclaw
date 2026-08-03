@@ -44,7 +44,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("workspace.get pet workspace: %v", err)
 	}
-	if workspace.Value.Name != adopted.Pet.WorkspaceName || workspace.Value.WorkflowName != "pet-care" {
+	if workspace.Value.Name != adopted.Pet.WorkspaceName || workspace.Value.WorkflowName != "pet" {
 		t.Fatalf("pet workspace = %#v", workspace)
 	}
 	if workspace.Value.Parameters != nil {
@@ -93,7 +93,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	drive, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive", rpcapi.ServerPetDriveRequest{
 		PetName: adopted.Pet.Name,
 		GameResult: &rpcapi.PetDriveGameResultInput{
-			GameName:       "game-starter",
+			GameName:       "starter-game",
 			Score:          &score,
 			MaxScore:       &maxScore,
 			Difficulty:     &difficulty,
@@ -112,7 +112,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if drive.Points.Balance != 80 {
 		t.Fatalf("pet.drive points = %#v", drive.Points)
 	}
-	if drive.GameResult == nil || drive.GameResult.GameDefName != "game-starter" || drive.GameResult.Score == nil || *drive.GameResult.Score != score {
+	if drive.GameResult == nil || drive.GameResult.GameDefName != "starter-game" || drive.GameResult.Score == nil || *drive.GameResult.Score != score {
 		t.Fatalf("pet.drive game result = %#v", drive.GameResult)
 	}
 	if drive.GameResult.MaxScore == nil || *drive.GameResult.MaxScore != maxScore || drive.GameResult.DurationMs == nil || *drive.GameResult.DurationMs != durationMs || drive.GameResult.IdempotencyKey == nil || *drive.GameResult.IdempotencyKey != idempotencyKey {
@@ -127,7 +127,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	duplicate, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive.duplicate", rpcapi.ServerPetDriveRequest{
 		PetName: adopted.Pet.Name,
 		GameResult: &rpcapi.PetDriveGameResultInput{
-			GameName:       "game-starter",
+			GameName:       "starter-game",
 			IdempotencyKey: &idempotencyKey,
 		},
 	})
@@ -162,9 +162,11 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 
 func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
 	env := newSetupGameplayHarness(t, "client-gameplay-chat")
+	petName := "e2e-chat-pet-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
 	adopted, err := env.peer.AdoptPet(env.ctx, "gameplay.chat.pet.adopt", rpcapi.RuntimeAdoptRequest{
 		DisplayName: "Chat Pet",
+		Name:        petName,
 	})
 	if err != nil {
 		t.Fatalf("pet.adopt for chat: %v", err)
@@ -246,9 +248,11 @@ func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
 
 func TestGameplayWorkspaceConversationReward(t *testing.T) {
 	env := newSetupGameplayHarness(t, "client-gameplay-workspace-reward")
+	petName := "e2e-workspace-reward-pet-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
 	adopted, err := env.peer.AdoptPet(env.ctx, "gameplay.workspace.reward.pet.adopt", rpcapi.RuntimeAdoptRequest{
 		DisplayName: "Reward Pet",
+		Name:        petName,
 	})
 	if err != nil {
 		t.Fatalf("pet.adopt for Workspace reward: %v", err)
@@ -314,7 +318,7 @@ func TestGameplayWorkspaceConversationReward(t *testing.T) {
 
 func assertAdoptedStarterPet(t *testing.T, pet rpcapi.Pet) {
 	t.Helper()
-	if pet.PetDefName != "petdef-starter" || pet.DisplayName == "" || pet.WorkspaceName == "" {
+	if pet.PetDefName != "starter-pet" || pet.DisplayName == "" || pet.WorkspaceName == "" {
 		t.Fatalf("adopted pet = %#v", pet)
 	}
 	if pet.RuntimeProfileName != "default-gameplay" {

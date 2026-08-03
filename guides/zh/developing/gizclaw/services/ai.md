@@ -56,7 +56,7 @@ Workflow 描述如何运行 Agent，但不拥有 Agent instance 的在线状态�
 
 #### Flowcraft 组合边界
 
-Flowcraft workflow factory 把扁平的 `spec.flowcraft.graph`、`conversation`、`max_iterations` 和 `voice_adapter` 与 Workspace owner 的 RuntimeProfile alias、History、State、Memory 和 Audio Dock 组装成 Transformer。Workspace `input` 缺省为 `push-to-talk`：该模式由客户端 audio EOS 完成一轮；`realtime` 复用 ASR Transformer 的 definite-utterance transcript EOS，在外层音频输入保持打开时完成一轮。Audio Dock 与 Flowcraft 保留并顺序组合 ASR text delta，不重新解释 provider 断句。`id` 与 `name` 不在 Flowcraft payload 中重复配置，分别由 Workspace 与 Workflow metadata 派生。
+Flowcraft workflow factory 把扁平的 `spec.flowcraft.graph`、`conversation`、`max_iterations` 和 `voice_adapter` 与 Workspace owner 的 RuntimeProfile alias、History、State、Memory 和 Audio Dock 组装成 Transformer。Workspace `input` 缺省为 `push-to-talk`：该模式由客户端 audio EOS 完成一轮；`realtime` 复用 ASR Transformer 的 definite-utterance transcript EOS，在外层音频输入保持打开时完成一轮。客户端显式 audio route EOS 会终结当前 ASR provider session，下一条 route 再打开新 session；没有 route EOS 的连续音频仍由 provider VAD 分段。Audio Dock 与 Flowcraft 保留并顺序组合 ASR text delta，不重新解释 provider 断句。`id` 与 `name` 不在 Flowcraft payload 中重复配置，分别由 Workspace 与 Workflow metadata 派生。
 
 Public `FlowcraftWorkflowSpec` 要求显式 `graph`，Graph 至少有一个 node，且 `entry` 必须引用已定义 node。除 `llm`、inline `script` 与 `passthrough` 外，`memory_recall` 和 `memory_observe` node 负责 Memory 的消费与写入。Workflow 顶层 `memory` 是 RuntimeProfile memory alias；provider extraction、embedding、rerank、lane 与 write policy 属于其 `MemoryLayout`，不再嵌套在 Flowcraft payload。
 

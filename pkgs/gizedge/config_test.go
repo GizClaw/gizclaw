@@ -586,6 +586,24 @@ func TestUpstreamTransportKeepsHealthyConnectionOnCanceledRequest(t *testing.T) 
 	}
 }
 
+func TestUpstreamTransportResetsHealthyConnectionOnServerInfoDeadline(t *testing.T) {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://gizclaw/server-info", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequestWithContext error = %v", err)
+	}
+	conn := &failingGiznetConn{state: giznet.PeerStateEstablished}
+	transport := &upstreamTransport{conn: conn, connEpoch: 1}
+
+	if _, err := transport.RoundTrip(req); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("RoundTrip error = %v, want deadline exceeded", err)
+	}
+	if !conn.closed || transport.conn != nil {
+		t.Fatalf("timed-out discovery retained upstream: closed=%t conn=%v", conn.closed, transport.conn)
+	}
+}
+
 func TestUpstreamTransportResetsClosedConnectionOnCanceledRequest(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -605,8 +623,8 @@ func TestUpstreamTransportResetsClosedConnectionOnCanceledRequest(t *testing.T) 
 		connEpoch:    1,
 	}
 
-	if _, err := transport.RoundTrip(req); !errors.Is(err, giznet.ErrConnClosed) {
-		t.Fatalf("RoundTrip error = %v, want giznet.ErrConnClosed", err)
+	if _, err := transport.RoundTrip(req); !errors.Is(err, context.Canceled) {
+		t.Fatalf("RoundTrip error = %v, want context canceled", err)
 	}
 	if !conn.closed || transport.conn != nil {
 		t.Fatalf("closed upstream remained cached: closed=%t conn=%v", conn.closed, transport.conn)

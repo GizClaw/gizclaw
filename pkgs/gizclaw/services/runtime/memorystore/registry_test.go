@@ -3,6 +3,7 @@ package memorystore
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 
@@ -123,6 +124,25 @@ func TestRegistryIdentityIncludesPhysicalConnection(t *testing.T) {
 	}
 	if firstKey == secondKey {
 		t.Fatal("physical connection did not change registry identity")
+	}
+}
+
+func TestRegistryValidatesLayoutIDForEveryResolve(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry()
+	t.Cleanup(func() { _ = registry.Close() })
+	request := managedTestRequest(t)
+
+	first, err := registry.Resolve(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = first.Closer.Close() })
+
+	request.Layout.Id = "different-layout-id"
+	if _, err := registry.Resolve(t.Context(), request); err == nil ||
+		!strings.Contains(err.Error(), `layout id "different-layout-id" does not match binding layout_id "layout-id"`) {
+		t.Fatalf("Resolve() error = %v", err)
 	}
 }
 
@@ -275,11 +295,12 @@ func managedTestRequest(t *testing.T) Request {
 		BindingName:     "pet-memory",
 		ServerRoot:      t.TempDir(),
 		Layout: apitypes.MemoryLayout{
+			Id:   "layout-id",
 			Name: "pet-memory",
 			Spec: apitypes.MemoryLayoutSpec{Flowcraft: testFlowcraftPolicy()},
 		},
 		Binding: apitypes.RuntimeProfileMemoryBinding{
-			LayoutId:   "pet-memory",
+			LayoutId:   "layout-id",
 			Driver:     apitypes.RuntimeProfileMemoryDriverFlowcraft,
 			Connection: connection,
 		},

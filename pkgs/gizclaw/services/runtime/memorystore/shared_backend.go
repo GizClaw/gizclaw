@@ -88,8 +88,8 @@ type sharedLocalProjection struct {
 }
 
 func openSharedFlowcraft(ctx context.Context, request Request) (sharedBackend, error) {
-	if request.Layout.Name != request.Binding.LayoutId {
-		return nil, fmt.Errorf("memory store: layout %q does not match binding layout_id %q", request.Layout.Name, request.Binding.LayoutId)
+	if err := validateLayoutBinding(request); err != nil {
+		return nil, err
 	}
 	policy := request.Layout.Spec.Flowcraft
 	config, err := flowcraftConfig(policy, request.ModelLoader)

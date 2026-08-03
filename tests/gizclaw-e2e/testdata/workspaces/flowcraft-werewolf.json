@@ -15,6 +15,10 @@
       "graph": {
         "edges": [
           {
+            "from": "prepare_memory_query",
+            "to": "recall_game_memory"
+          },
+          {
             "from": "recall_game_memory",
             "to": "recall_public_memory"
           },
@@ -303,13 +307,20 @@
             "to": "write_game_audit"
           }
         ],
-        "entry": "recall_game_memory",
+        "entry": "prepare_memory_query",
         "name": "werewolf",
         "nodes": [
           {
             "config": {
+              "source": "const input = String(board.getVar(\"input\") || \"\").trim();\nboard.setVar(\"memory_query\", input || \"狼人游戏状态与公开进度\");\n"
+            },
+            "id": "prepare_memory_query",
+            "type": "script"
+          },
+          {
+            "config": {
               "query": {
-                "text_from": "input",
+                "text_from": "memory_query",
                 "kinds": [
                   "state"
                 ],
@@ -331,7 +342,7 @@
           {
             "config": {
               "query": {
-                "text_from": "input",
+                "text_from": "memory_query",
                 "kinds": [
                   "event"
                 ],
@@ -707,6 +718,9 @@
           {
             "config": {
               "observations": [
+                {
+                  "text_from": "werewolf_game_state_text"
+                },
                 {
                   "turns_from": "conversation"
                 }

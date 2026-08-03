@@ -391,7 +391,6 @@ spec:
         type: llm
       - config:
           observations:
-          - turns_from: conversation
           - facts:
             - {text_from: tmp_case_state_line, attributes: {lane: case-state, kind: state, predicate: status, subject: case_state}}
             - {text_from: tmp_progress_badges_line, attributes: {lane: progress-badges, kind: state, predicate: progress, subject: progress_badges}}

@@ -826,6 +826,76 @@ func TestTransformerASRInfoInterruptsPendingAssistantOnce(t *testing.T) {
 	}
 }
 
+func TestTransformerRealtimeBoundsStalledPartialTranscript(t *testing.T) {
+	firstAudioSent := make(chan struct{})
+	eventsDrained := make(chan struct{})
+	events := []*doubaospeech.RealtimeEvent{{Type: doubaospeech.EventASRResponse, Text: "partial transcript"}}
+	for range 50 {
+		events = append(events, &doubaospeech.RealtimeEvent{Type: doubaospeech.EventUsageResponse})
+	}
+	session := &fakeTransformerSession{
+		beforeRecv:       firstAudioSent,
+		firstAudioSent:   firstAudioSent,
+		events:           events,
+		eventInterval:    5 * time.Millisecond,
+		eventsDrained:    eventsDrained,
+		blockAfterEvents: make(chan struct{}),
+	}
+	tfr := newTransformer(nil,
+		withMode(ModeRealtime),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withResponseIdleTimeout(20*time.Millisecond),
+	)
+	input := newBufferStream(4)
+	for _, chunk := range []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+	} {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push(input) error = %v", err)
+		}
+	}
+	output := newBufferStream(8)
+	runtime := newDoubaoRealtimeRuntime(tfr)
+	defer runtime.close()
+	reader := newDoubaoRealtimeInputReader(input)
+	defer reader.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	err := tfr.processSession(ctx, reader, output, session, runtime)
+	if !isDoubaoRealtimeRecoverable(err) || !strings.Contains(err.Error(), "response idle timeout") {
+		t.Fatalf("processSession() error = %v, want recoverable response idle timeout", err)
+	}
+	if !session.isClosed() {
+		t.Fatal("stalled provider session was not closed")
+	}
+	select {
+	case <-eventsDrained:
+		t.Fatal("non-progress usage events kept the response idle deadline alive")
+	default:
+	}
+	if err := output.Close(); err != nil {
+		t.Fatalf("Close(output) error = %v", err)
+	}
+	chunks := drainRealtimeTestOutput(t, output)
+	if !hasRealtimeTestText(chunks, genx.RoleUser, "partial transcript") {
+		t.Fatalf("output missing partial transcript: %#v", chunks)
+	}
+	var transcriptEOS *genx.MessageChunk
+	for _, chunk := range chunks {
+		if chunk != nil && chunk.Role == genx.RoleUser && chunk.Ctrl != nil &&
+			chunk.Ctrl.Label == doubaoRealtimeTranscriptLabel && chunk.Ctrl.EndOfStream {
+			transcriptEOS = chunk
+			break
+		}
+	}
+	if transcriptEOS == nil || !strings.Contains(transcriptEOS.Ctrl.Error, "response idle timeout") {
+		t.Fatalf("transcript EOS = %#v, want response idle timeout", transcriptEOS)
+	}
+}
+
 func TestTransformerSessionLoopRetriesAndReusesDialogID(t *testing.T) {
 	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{
 		{err: errors.New("connect-1")},
@@ -1283,6 +1353,102 @@ func TestTransformerDoesNotReplayAmbiguousAudioAfterReconnect(t *testing.T) {
 	}
 }
 
+func TestTransformerRealtimeInterruptHandsUnreadAudioToReplacementSession(t *testing.T) {
+	firstAudioSent := make(chan struct{})
+	firstEventsDrained := make(chan struct{})
+	first := &fakeTransformerSession{
+		beforeRecv:       firstAudioSent,
+		firstAudioSent:   firstAudioSent,
+		eventsDrained:    firstEventsDrained,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "first transcript"},
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventChatResponse, Text: "first answer"},
+		},
+	}
+	secondAudioSent := make(chan struct{})
+	secondEventsDrained := make(chan struct{})
+	second := &fakeTransformerSession{
+		beforeRecv:       secondAudioSent,
+		firstAudioSent:   secondAudioSent,
+		eventsDrained:    secondEventsDrained,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "second transcript"},
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventChatResponse, Text: "second answer"},
+			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSStarted},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{2, 3}},
+			{Type: doubaospeech.EventTTSFinished},
+		},
+	}
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: first}, {session: second}}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModeRealtime),
+		withDialogID("dialog-1"),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+	)
+	input := newBufferStream(8)
+	output, err := tfr.transform(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	push := func(chunk *genx.MessageChunk) {
+		t.Helper()
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push() error = %v", err)
+		}
+	}
+	push(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}})
+	push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}})
+	push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}})
+	select {
+	case <-firstEventsDrained:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first provider response did not start")
+	}
+
+	push(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}})
+	push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-2"}})
+	push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-2", EndOfStream: true}})
+	select {
+	case <-secondEventsDrained:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("replacement provider response did not complete; opens = %d", opener.callCount())
+	}
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input) error = %v", err)
+	}
+
+	chunks := drainRealtimeTestOutput(t, output)
+	if got := first.interruptCount(); got != 1 {
+		t.Fatalf("first Interrupt calls = %d, want 1", got)
+	}
+	if got := opener.dialogIDs(); !slices.Equal(got, []string{"dialog-1", "dialog-1"}) {
+		t.Fatalf("provider dialog IDs = %v, want stable dialog-1", got)
+	}
+	if got := first.audioFrames(); len(got) != 1 || !bytes.Equal(got[0], []byte{1, 0}) {
+		t.Fatalf("first session audio = %v, want only first turn", got)
+	}
+	if got := second.audioFrames(); len(got) != 1 || !bytes.Equal(got[0], []byte{2, 0}) {
+		t.Fatalf("replacement session audio = %v, want only unread second turn", got)
+	}
+	if !hasRealtimeInterruptedEOS(chunks, "turn-1:rt:1", genx.RoleModel, false) ||
+		!hasRealtimeInterruptedEOS(chunks, "turn-1:rt:1", genx.RoleModel, true) {
+		t.Fatalf("missing interrupted first response EOS: %#v", chunks)
+	}
+	if !hasRealtimeTestText(chunks, genx.RoleUser, "second transcript") ||
+		!hasRealtimeTestText(chunks, genx.RoleModel, "second answer") ||
+		!hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
+		t.Fatalf("replacement response did not complete: %#v", chunks)
+	}
+}
+
 func TestTransformerPTTDiscardsFailedTurnRemainderAfterReconnect(t *testing.T) {
 	first := &fakeTransformerSession{
 		blockAfterEvents: make(chan struct{}),
@@ -1710,6 +1876,7 @@ func (o *fakeTransformerOpener) waitForCalls(want int, timeout time.Duration) bo
 
 type fakeTransformerSession struct {
 	events           []*doubaospeech.RealtimeEvent
+	eventInterval    time.Duration
 	beforeRecv       <-chan struct{}
 	endASR           chan struct{}
 	eventsDrained    chan<- struct{}
@@ -1803,6 +1970,15 @@ func (s *fakeTransformerSession) Recv() iter.Seq2[*doubaospeech.RealtimeEvent, e
 			}
 		}
 		for i, event := range s.events {
+			if i > 0 && s.eventInterval > 0 {
+				timer := time.NewTimer(s.eventInterval)
+				select {
+				case <-timer.C:
+				case <-closed:
+					timer.Stop()
+					return
+				}
+			}
 			if s.eventPaused != nil && i == s.pauseBeforeEvent {
 				s.eventPauseOnce.Do(func() { close(s.eventPaused) })
 				select {
@@ -1884,4 +2060,10 @@ func (s *fakeTransformerSession) textMessages() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]string(nil), s.texts...)
+}
+
+func (s *fakeTransformerSession) isClosed() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.closed
 }

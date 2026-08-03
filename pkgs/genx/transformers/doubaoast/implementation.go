@@ -21,16 +21,20 @@ import (
 )
 
 const (
-	doubaoASTTranslateTranscriptLabel = "transcript"
-	doubaoASTTranslateAssistantLabel  = "assistant"
-	doubaoASTTranslatePTTOutputLimit  = 2 * time.Minute
+	doubaoASTTranslateTranscriptLabel           = "transcript"
+	doubaoASTTranslateAssistantLabel            = "assistant"
+	doubaoASTTranslatePTTOutputLimit            = 2 * time.Minute
+	doubaoASTTranslateRealtimeCompletionTimeout = 45 * time.Second
 
 	doubaoASTTranslateSourceSampleRate = 16000
 	doubaoASTTranslateSourceChannels   = 1
 	doubaoASTTranslateSourceBits       = 16
 )
 
-var errDoubaoASTTranslatePTTOutputLimit = errors.New("doubao ast translate: push-to-talk output audio limit exceeded")
+var (
+	errDoubaoASTTranslatePTTOutputLimit            = errors.New("doubao ast translate: push-to-talk output audio limit exceeded")
+	errDoubaoASTTranslateRealtimeCompletionTimeout = errors.New("doubao ast translate: realtime session completion timeout")
+)
 
 type Transformer struct {
 	client                     *doubaospeech.Client
@@ -46,6 +50,7 @@ type Transformer struct {
 	enableSourceLanguageDetect bool
 	denoise                    *bool
 	realtimePacing             bool
+	realtimeCompletionTimeout  time.Duration
 
 	newSession func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error)
 }
@@ -137,15 +142,22 @@ func withRealtimePacing(enabled bool) option {
 	}
 }
 
+func withRealtimeCompletionTimeout(timeout time.Duration) option {
+	return func(t *Transformer) {
+		t.realtimeCompletionTimeout = timeout
+	}
+}
+
 func newTransformer(client *doubaospeech.Client, opts ...option) *Transformer {
 	t := &Transformer{
-		client:         client,
-		resourceID:     doubaospeech.ResourceASTTranslate,
-		mode:           doubaospeech.ASTTranslateModeS2T,
-		inputMode:      InputModeRealtime,
-		sourceLanguage: "zhen",
-		targetLanguage: "zhen",
-		realtimePacing: true,
+		client:                    client,
+		resourceID:                doubaospeech.ResourceASTTranslate,
+		mode:                      doubaospeech.ASTTranslateModeS2T,
+		inputMode:                 InputModeRealtime,
+		sourceLanguage:            "zhen",
+		targetLanguage:            "zhen",
+		realtimePacing:            true,
+		realtimeCompletionTimeout: doubaoASTTranslateRealtimeCompletionTimeout,
 	}
 	for _, opt := range opts {
 		opt(t)
@@ -182,6 +194,8 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 	var sessionGate *astTranslatePTTOutputGate
 	var recvDone chan error
 	var recvStart chan struct{}
+	var recvFinished chan struct{}
+	var recvCompletionState *atomic.Uint32
 	var streamID string
 	var limitedStreamID string
 	var sessionFinishing bool
@@ -238,6 +252,8 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			sessionGate = nil
 		}
 		done := make(chan error, 1)
+		finished := make(chan struct{})
+		completionState := &atomic.Uint32{}
 		markTerminal := func() {
 			terminalSessionSeq.Store(seq)
 		}
@@ -245,12 +261,16 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		pttGate := sessionGate
 		recvDone = done
 		recvStart = start
+		recvFinished = finished
+		recvCompletionState = completionState
 		go func(activeStreamID string, start <-chan struct{}, eventOutput astTranslateOutput, pttGate *astTranslatePTTOutputGate) {
 			select {
 			case <-ctx.Done():
 				markTerminal()
 				pttGate.Discard()
+				completionState.CompareAndSwap(0, 1)
 				done <- ctx.Err()
+				close(finished)
 				return
 			case <-start:
 			}
@@ -260,7 +280,9 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			} else if err != nil {
 				pttGate.Discard()
 			}
+			completionState.CompareAndSwap(0, 1)
 			done <- err
+			close(finished)
 		}(streamID, start, eventOutput, pttGate)
 		return nil
 	}
@@ -302,6 +324,10 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		}
 		active := session
 		done := recvDone
+		finished := recvFinished
+		completionState := recvCompletionState
+		activeSeq := activeSessionSeq.Load()
+		activeStreamID := streamID
 		if recvStart != nil {
 			close(recvStart)
 			recvStart = nil
@@ -312,10 +338,35 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 				session = nil
 				sessionGate = nil
 				recvDone = nil
+				recvFinished = nil
+				recvCompletionState = nil
 				sessionFinishing = false
 				activeSessionSeq.Store(0)
 				_ = active.Close()
 				return err
+			}
+			if t.inputMode == InputModeRealtime && t.realtimeCompletionTimeout > 0 &&
+				finished != nil && completionState != nil && activeSeq != 0 {
+				timeout := t.realtimeCompletionTimeout
+				go func() {
+					timer := time.NewTimer(timeout)
+					defer timer.Stop()
+					select {
+					case <-ctx.Done():
+						return
+					case <-finished:
+						return
+					case <-timer.C:
+						if !completionState.CompareAndSwap(0, 2) || !activeSessionSeq.CompareAndSwap(activeSeq, 0) {
+							return
+						}
+						timeoutErr := fmt.Errorf("%w after %s for stream %q", errDoubaoASTTranslateRealtimeCompletionTimeout, timeout, activeStreamID)
+						_ = output.CloseWithError(timeoutErr)
+						_ = input.CloseWithError(timeoutErr)
+						cancel()
+						_ = active.Close()
+					}
+				}()
 			}
 		}
 		if !wait {
@@ -324,6 +375,8 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		session = nil
 		sessionGate = nil
 		recvDone = nil
+		recvFinished = nil
+		recvCompletionState = nil
 		sessionFinishing = false
 		if done == nil {
 			activeSessionSeq.Store(0)
@@ -351,6 +404,8 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			session = nil
 			sessionGate = nil
 			recvDone = nil
+			recvFinished = nil
+			recvCompletionState = nil
 			sessionFinishing = false
 			activeSessionSeq.Store(0)
 			_ = active.Close()
@@ -371,6 +426,8 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		session = nil
 		sessionGate = nil
 		recvDone = nil
+		recvFinished = nil
+		recvCompletionState = nil
 		sessionFinishing = false
 		activeSessionSeq.Store(0)
 		if recvStart != nil {
@@ -417,6 +474,8 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		session = nil
 		sessionGate = nil
 		recvDone = nil
+		recvFinished = nil
+		recvCompletionState = nil
 		sessionFinishing = false
 		activeSessionSeq.Store(0)
 		if recvStart != nil {

@@ -20,6 +20,7 @@ import {
   deletePeer,
   deleteRegistrationToken,
   getPeerRuntime,
+  listRuntimeProfiles,
 } from "@gizclaw/gizclaw/admin";
 import {
   FriendGroupChange,
@@ -52,8 +53,9 @@ async function main(): Promise<void> {
     requestTimeoutMs: 10_000,
   });
   const registrationTokenName = `e2e-js-concurrent-stream-${process.pid}-${Date.now()}`;
-  let registrationTokenProvisioned = false;
-  let eventProbeGroupID: string | undefined;
+  const eventProbeGroupCreateName = `${registrationTokenName}-group`;
+  let registrationTokenID: string | undefined;
+  let eventProbeGroupName: string | undefined;
   let eventProbePeerRegistered = false;
   let uplinkTrack: MediaStreamTrack | undefined;
   let testError: unknown;
@@ -87,29 +89,33 @@ async function main(): Promise<void> {
       name: "JavaScript concurrent service Event probe",
     });
     eventProbePeerRegistered = true;
-    await createRegistrationToken({
+    const runtimeProfileID = await resolveRuntimeProfileID(
+      admin,
+      "default-gameplay",
+    );
+    const registrationToken = await createRegistrationToken({
       client: admin,
       body: {
         name: registrationTokenName,
         token: registrationTokenName,
-        runtime_profile_name: "default-gameplay",
+        runtime_profile_id: runtimeProfileID,
       },
       throwOnError: true,
     });
-    registrationTokenProvisioned = true;
+    registrationTokenID = registrationToken.data.id;
     await setupRPC.call("server.register", { token: registrationTokenName });
     await deleteRegistrationToken({
       client: admin,
-      path: { name: registrationTokenName },
+      path: { id: registrationTokenID },
       throwOnError: true,
     });
-    registrationTokenProvisioned = false;
+    registrationTokenID = undefined;
     const eventProbeGroup = await setupRPC.call("server.friend_group.create", {
-      name: "JavaScript concurrent service Event probe",
+      name: eventProbeGroupCreateName,
+      display_name: "JavaScript concurrent service Event probe",
     });
-    assert.equal(typeof eventProbeGroup.id, "string");
-    assert.notEqual(eventProbeGroup.id, "");
-    eventProbeGroupID = eventProbeGroup.id;
+    assert.equal(eventProbeGroup.name, eventProbeGroupCreateName);
+    eventProbeGroupName = eventProbeGroup.name;
 
     const rpcLabel = giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC);
     const httpLabel = giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_HTTP);
@@ -163,7 +169,7 @@ async function main(): Promise<void> {
     await requirePeerEventAfterServiceClose(
       pc,
       eventChannel,
-      eventProbeGroupID,
+      eventProbeGroupName,
     );
 
     const [secondPing, serverInfo] = await remainingResponses;
@@ -206,11 +212,11 @@ async function main(): Promise<void> {
   } catch (error) {
     testError = error;
   } finally {
-    if (registrationTokenProvisioned) {
+    if (registrationTokenID !== undefined) {
       try {
         await deleteRegistrationToken({
           client: admin,
-          path: { name: registrationTokenName },
+          path: { id: registrationTokenID },
           throwOnError: true,
         });
       } catch (error) {
@@ -219,7 +225,7 @@ async function main(): Promise<void> {
     }
     if (eventProbePeerRegistered) {
       try {
-        await deleteEventProbeGroup(pc, identityDir, eventProbeGroupID);
+        await deleteEventProbeGroup(pc, identityDir, eventProbeGroupName);
       } catch (error) {
         cleanupError ??= error;
       }
@@ -248,6 +254,33 @@ async function main(): Promise<void> {
   if (cleanupError != null) throw cleanupError;
 }
 
+async function resolveRuntimeProfileID(
+  client: ReturnType<typeof createAdminAPIClient>,
+  name: string,
+): Promise<string> {
+  const matches: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const response = await listRuntimeProfiles({
+      client,
+      query: { cursor, limit: 200 },
+      throwOnError: true,
+    });
+    for (const item of response.data.items) {
+      if (item.name === name) matches.push(item.id);
+    }
+    cursor = response.data.has_next
+      ? (response.data.next_cursor ?? undefined)
+      : undefined;
+  } while (cursor !== undefined);
+  assert.equal(
+    matches.length,
+    1,
+    `expected exactly one RuntimeProfile named ${JSON.stringify(name)}, found ${matches.length}`,
+  );
+  return matches[0]!;
+}
+
 function oneChannelFactory(
   channel: RTCDataChannel,
   expectedLabel: string,
@@ -266,11 +299,11 @@ function oneChannelFactory(
 async function requirePeerEventAfterServiceClose(
   pc: wrtc.RTCPeerConnection,
   channel: RTCDataChannel,
-  groupID: string,
+  groupName: string,
 ): Promise<void> {
   type EventCandidate = {
     change: FriendGroupChange | undefined;
-    groupID: string | undefined;
+    groupName: string | undefined;
     revisionUnixMs: bigint | undefined;
     type: string;
   };
@@ -287,7 +320,7 @@ async function requirePeerEventAfterServiceClose(
         if (
           revisionFloor != null &&
           candidate.type === "friend_group.updated" &&
-          candidate.groupID === groupID &&
+          candidate.groupName === groupName &&
           candidate.change === FriendGroupChange.METADATA_UPDATED &&
           candidate.revisionUnixMs != null &&
           candidate.revisionUnixMs >= revisionFloor
@@ -301,14 +334,14 @@ async function requirePeerEventAfterServiceClose(
           const update = event.friendGroupUpdated;
           const candidate: EventCandidate = {
             change: update?.change,
-            groupID: update?.friendGroupId,
+            groupName: update?.friendGroupName,
             revisionUnixMs: update?.revisionUnixMs,
             type: event.type,
           };
           if (candidates.length < 5) candidates.push(candidate);
           if (
             candidate.type === "friend_group.updated" &&
-            candidate.groupID === groupID &&
+            candidate.groupName === groupName &&
             candidate.change === FriendGroupChange.METADATA_UPDATED &&
             candidate.revisionUnixMs != null &&
             (newestMatchingCandidate?.revisionUnixMs == null ||
@@ -332,14 +365,14 @@ async function requirePeerEventAfterServiceClose(
             : candidates
                 .map(
                   (candidate) =>
-                    `type=${candidate.type} group=${candidate.groupID ?? "<none>"} ` +
+                    `type=${candidate.type} group=${candidate.groupName ?? "<none>"} ` +
                     `change=${candidate.change ?? "<none>"} ` +
                     `revision=${candidate.revisionUnixMs?.toString() ?? "<none>"}`,
                 )
                 .join("; ");
         reject(
           new Error(
-            `Peer Event timeout after sibling RPC close: expected group=${groupID} ` +
+            `Peer Event timeout after sibling RPC close: expected group=${groupName} ` +
               `change=${FriendGroupChange.METADATA_UPDATED} ` +
               `revision>=${revisionFloor?.toString() ?? "<mutation-pending>"}; ` +
               `candidates=${candidateSummary}`,
@@ -352,8 +385,8 @@ async function requirePeerEventAfterServiceClose(
     });
     const groupPutPromise = eventRPC
       .call("server.friend_group.put", {
-        id: groupID,
-        name: "JavaScript concurrent service Event probe updated",
+        name: groupName,
+        display_name: "JavaScript concurrent service Event probe updated",
       })
       .then((groupPut) => {
         revisionFloor = parseServerRevisionUnixMs(groupPut.updated_at);
@@ -392,7 +425,7 @@ function parseServerRevisionUnixMs(updatedAt: string | undefined): bigint {
 async function deleteEventProbeGroup(
   pc: wrtc.RTCPeerConnection,
   identityDir: string,
-  groupID: string | undefined,
+  groupName: string | undefined,
 ): Promise<void> {
   const cleanupPC =
     pc.connectionState === "connected"
@@ -403,8 +436,8 @@ async function deleteEventProbeGroup(
       cleanupPC as unknown as RTCPeerConnection,
       { requestTimeoutMs: 10_000 },
     );
-    if (groupID != null) {
-      await cleanupRPC.call("server.friend_group.delete", { id: groupID });
+    if (groupName != null) {
+      await cleanupRPC.call("server.friend_group.delete", { name: groupName });
     }
   } finally {
     if (cleanupPC !== pc) closePeerConnection(cleanupPC);

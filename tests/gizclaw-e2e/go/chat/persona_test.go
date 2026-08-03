@@ -157,6 +157,30 @@ func TestTextHelpers(t *testing.T) {
 	}
 }
 
+func TestAssertAssistantAudioASRSimilar(t *testing.T) {
+	expected := "你是3号平民，1号报5号查杀，轮到你发言。1号发言：昨晚死的是4号小满。先听后置位。我2号阿澈发言。昨夜已经公布死亡信息，我先根据1号发言和后续票型观察，不急着定论。轮到3号发言，请用平民视角说一句判断。"
+	boundaryNoisy := "我先根据1号发言和后续。5道33 2号3号平号发民言，撤发一请用1号发言，平民号报五视角5号铲。 是昨夜少说一杀字后，小轮已经据判断到你发言。 公布仙帝死亡讯号，据悉， 票型观察，不急着定论。"
+	if got := lcsRatio(normalizeTranscript(expected), normalizeTranscript(boundaryNoisy)); got < assistantAudioASRMinRatio-assistantAudioASRMultipartMaxRelaxation || got >= assistantAudioASRMinRatio {
+		t.Fatalf("boundary-noisy sequence ratio = %.2f, want multipart-only range", got)
+	}
+	if err := assertTextSimilar("strict", expected, boundaryNoisy, assistantAudioASRMinRatio); err == nil {
+		t.Fatal("strict similarity unexpectedly accepted boundary-noisy multipart ASR")
+	}
+	if err := assertAssistantAudioASRSimilar("multipart", expected, boundaryNoisy, assistantAudioASRMinRatio, 3); err != nil {
+		t.Fatalf("multipart similarity rejected boundary-noisy ASR: %v", err)
+	}
+	if err := assertAssistantAudioASRSimilar("single part", expected, boundaryNoisy, assistantAudioASRMinRatio, 1); err == nil {
+		t.Fatal("single-part similarity accepted boundary-noisy ASR")
+	}
+	if err := assertAssistantAudioASRSimilar("truncated", expected, "你是3号平民1号报5号查杀轮到你发言", assistantAudioASRMinRatio, 3); err == nil {
+		t.Fatal("multipart similarity accepted truncated ASR")
+	}
+	unrelated := strings.Repeat("天地玄黄宇宙洪荒日月盈昃辰宿列张", 6)
+	if err := assertAssistantAudioASRSimilar("unrelated", expected, unrelated, assistantAudioASRMinRatio, 3); err == nil {
+		t.Fatal("multipart similarity accepted unrelated ASR")
+	}
+}
+
 func TestWaitFlowcraftHistoryProgressAcceptsCappedContentChange(t *testing.T) {
 	oldItems := testHistoryEntries("旧回复一", "旧回复二")
 	newItems := testHistoryEntries("旧回复一", "新回复二")
@@ -739,6 +763,33 @@ func TestPersonaDriverRunRoundFailsWhenResponseIsIncomplete(t *testing.T) {
 	defer cancel()
 	_, err := driver.runRound(ctx, 1, conversationMode{})
 	if err == nil || !strings.Contains(err.Error(), "wait response") {
+		t.Fatalf("runRound() error = %v", err)
+	}
+}
+
+func TestPersonaDriverRunRoundStartsIdleTimeoutAfterUplink(t *testing.T) {
+	stream := newFakePeerStream()
+	driver := &personaDriver{
+		cfg: config{OutputDir: t.TempDir(), timeout: 120 * time.Millisecond},
+		transport: &chatTransport{
+			stream:         stream,
+			events:         make(chan timedPeerEvent),
+			opusPackets:    make(chan timedPeerPacket),
+			errs:           make(chan error, 1),
+			packetInterval: time.Millisecond,
+		},
+		generateUtterance: func(context.Context, int) (string, error) {
+			return "你好测试", nil
+		},
+		synthesizeAudio: func(context.Context, string) ([]byte, [][]byte, error) {
+			return []byte("ogg-audio"), [][]byte{{0x11}}, nil
+		},
+	}
+	_, err := driver.runRound(context.Background(), 1, conversationMode{
+		SkipInputASR:          true,
+		SkipAssistantAudioASR: true,
+	})
+	if err == nil || !strings.Contains(err.Error(), "response stream idle timeout after 60ms") {
 		t.Fatalf("runRound() error = %v", err)
 	}
 }

@@ -43,9 +43,6 @@
             "config": {
               "observations": [
                 {
-                  "turns_from": "conversation"
-                },
-                {
                   "facts": [
                     {
                       "attributes": {

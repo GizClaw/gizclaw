@@ -10,7 +10,11 @@ volc_log_compose_file="$docker_dir/docker-compose.volc-log.yaml"
 gateway_relay_compose_file="$docker_dir/docker-compose.gateway-relay.yaml"
 env_file="$e2e_dir/.env"
 state_root="$e2e_dir/testdata/docker"
-default_turn_relay_port_count=100
+# Pion TURN allocations retain their relay port for up to ten minutes after a
+# short-lived E2E client exits. The complete serial matrix can therefore have
+# substantially more allocations alive than active clients at the Admin/Chat
+# boundary. Keep a bounded pool large enough for one uninterrupted full run.
+default_turn_relay_port_count=512
 
 # shellcheck source=credentials.sh
 # shellcheck disable=SC1091

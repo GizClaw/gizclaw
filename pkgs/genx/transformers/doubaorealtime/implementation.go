@@ -31,32 +31,33 @@ import (
 //
 // Internally uses ASR → LLM → TTS pipeline.
 type Transformer struct {
-	client            *doubaospeech.Client
-	realtime          doubaoRealtimeOpener
-	speaker           string
-	format            string
-	sampleRate        int
-	channels          int
-	speechRate        *int
-	loudnessRate      *int
-	inputFormat       string
-	inputSampleRate   int
-	inputChannels     int
-	inputTranscode    bool
-	asrExtra          *doubaospeech.RealtimeASRExtra
-	ttsExtra          *doubaospeech.RealtimeTTSExtra
-	botName           string
-	systemRole        string
-	vadWindowMs       int
-	speakingStyle     string
-	characterManifest string
-	dialogID          string
-	dialogExtra       *doubaospeech.RealtimeDialogExtra
-	model             string // Model version: O, SC, 1.2.1.0 (O2.0), 2.2.0.0 (SC2.0)
-	mode              Mode
-	retryInitial      time.Duration
-	retryMax          time.Duration
-	retryWait         func(context.Context, <-chan struct{}, time.Duration) bool
+	client              *doubaospeech.Client
+	realtime            doubaoRealtimeOpener
+	speaker             string
+	format              string
+	sampleRate          int
+	channels            int
+	speechRate          *int
+	loudnessRate        *int
+	inputFormat         string
+	inputSampleRate     int
+	inputChannels       int
+	inputTranscode      bool
+	asrExtra            *doubaospeech.RealtimeASRExtra
+	ttsExtra            *doubaospeech.RealtimeTTSExtra
+	botName             string
+	systemRole          string
+	vadWindowMs         int
+	speakingStyle       string
+	characterManifest   string
+	dialogID            string
+	dialogExtra         *doubaospeech.RealtimeDialogExtra
+	model               string // Model version: O, SC, 1.2.1.0 (O2.0), 2.2.0.0 (SC2.0)
+	mode                Mode
+	retryInitial        time.Duration
+	retryMax            time.Duration
+	retryWait           func(context.Context, <-chan struct{}, time.Duration) bool
+	responseIdleTimeout time.Duration
 }
 
 var _ genx.Transformer = (*Transformer)(nil)
@@ -73,11 +74,14 @@ const (
 	doubaoRealtimeFixedOutputSampleRate = 24000
 	doubaoRealtimeFixedOutputChannels   = 1
 
-	doubaoRealtimePTTOutputLimit    = 2 * time.Minute
-	doubaoRealtimePTTOutputMaxBytes = 32 << 20
-	doubaoRealtimeRetryInitial      = 100 * time.Millisecond
-	doubaoRealtimeRetryMax          = 5 * time.Second
+	doubaoRealtimePTTOutputLimit      = 2 * time.Minute
+	doubaoRealtimePTTOutputMaxBytes   = 32 << 20
+	doubaoRealtimeRetryInitial        = 100 * time.Millisecond
+	doubaoRealtimeRetryMax            = 5 * time.Second
+	doubaoRealtimeResponseIdleTimeout = time.Minute
 )
+
+var errDoubaoRealtimeInterruptHandoff = errors.New("replace provider session after realtime interruption")
 
 type doubaoRealtimeOpener interface {
 	OpenSession(context.Context, *doubaospeech.RealtimeConfig) (doubaoRealtimeSession, error)
@@ -282,6 +286,12 @@ func withDoubaoRealtimeOpener(opener doubaoRealtimeOpener) option {
 	}
 }
 
+func withResponseIdleTimeout(timeout time.Duration) option {
+	return func(t *Transformer) {
+		t.responseIdleTimeout = timeout
+	}
+}
+
 // newTransformer creates a Transformer.
 //
 // Parameters:
@@ -289,20 +299,21 @@ func withDoubaoRealtimeOpener(opener doubaoRealtimeOpener) option {
 //   - opts: Optional configuration
 func newTransformer(client *doubaospeech.Client, opts ...option) *Transformer {
 	t := &Transformer{
-		client:          client,
-		speaker:         "zh_female_vv_jupiter_bigtts", // O version default voice
-		format:          doubaoRealtimeFixedOutputFormat,
-		sampleRate:      doubaoRealtimeFixedOutputSampleRate,
-		channels:        doubaoRealtimeFixedOutputChannels,
-		inputFormat:     doubaoRealtimeFixedInputFormat,
-		inputSampleRate: doubaoRealtimeFixedInputSampleRate,
-		inputChannels:   doubaoRealtimeFixedInputChannels,
-		inputTranscode:  true,
-		model:           "O",  // Default to O version
-		botName:         "豆包", // Default bot name
-		mode:            ModePushToTalk,
-		retryInitial:    doubaoRealtimeRetryInitial,
-		retryMax:        doubaoRealtimeRetryMax,
+		client:              client,
+		speaker:             "zh_female_vv_jupiter_bigtts", // O version default voice
+		format:              doubaoRealtimeFixedOutputFormat,
+		sampleRate:          doubaoRealtimeFixedOutputSampleRate,
+		channels:            doubaoRealtimeFixedOutputChannels,
+		inputFormat:         doubaoRealtimeFixedInputFormat,
+		inputSampleRate:     doubaoRealtimeFixedInputSampleRate,
+		inputChannels:       doubaoRealtimeFixedInputChannels,
+		inputTranscode:      true,
+		model:               "O",  // Default to O version
+		botName:             "豆包", // Default bot name
+		mode:                ModePushToTalk,
+		retryInitial:        doubaoRealtimeRetryInitial,
+		retryMax:            doubaoRealtimeRetryMax,
+		responseIdleTimeout: doubaoRealtimeResponseIdleTimeout,
 	}
 	for _, opt := range opts {
 		opt(t)
@@ -824,6 +835,11 @@ func (t *Transformer) sessionLoop(ctx context.Context, input genx.Stream, output
 		if err == nil {
 			return
 		}
+		if errors.Is(err, errDoubaoRealtimeInterruptHandoff) {
+			slog.Info("doubao: realtime interruption handed off to replacement provider session")
+			retryDelay = retryInitial
+			continue
+		}
 		if isDoubaoRealtimeRecoverable(err) {
 			runtime.providerLost(t, output, err)
 			if stopForTerminalInput() {
@@ -890,6 +906,13 @@ func (t *Transformer) processSession(
 	session doubaoRealtimeSession,
 	runtime *doubaoRealtimeRuntime,
 ) error {
+	var closeSessionOnce sync.Once
+	closeSession := func() {
+		closeSessionOnce.Do(func() {
+			_ = session.Close()
+		})
+	}
+
 	assistant := runtime.assistant
 	pushToTalk := runtime.pushToTalk
 	pttTurn := runtime.pttTurn
@@ -968,8 +991,72 @@ func (t *Transformer) processSession(
 	}
 	eventsDone := make(chan struct{})
 	eventsResult := make(chan error, 1)
+	responseIdleTimeout := t.responseIdleTimeout
+	if responseIdleTimeout <= 0 {
+		responseIdleTimeout = doubaoRealtimeResponseIdleTimeout
+	}
+	responseIdleTimedOut := make(chan struct{})
+	var responseIdleTimeoutOnce sync.Once
+	var responseIdleMu sync.Mutex
+	var responseIdleTimer *time.Timer
+	var responseIdleGeneration uint64
+	responseIdleActive := false
+	resetResponseIdle := func(start bool) {
+		if t.mode != ModeRealtime {
+			return
+		}
+		responseIdleMu.Lock()
+		if start {
+			responseIdleActive = true
+		}
+		if !responseIdleActive {
+			responseIdleMu.Unlock()
+			return
+		}
+		responseIdleGeneration++
+		generation := responseIdleGeneration
+		if responseIdleTimer != nil {
+			responseIdleTimer.Stop()
+		}
+		responseIdleTimer = time.AfterFunc(responseIdleTimeout, func() {
+			responseIdleMu.Lock()
+			if !responseIdleActive || responseIdleGeneration != generation {
+				responseIdleMu.Unlock()
+				return
+			}
+			responseIdleActive = false
+			responseIdleMu.Unlock()
+			responseIdleTimeoutOnce.Do(func() {
+				close(responseIdleTimedOut)
+				closeSession()
+			})
+		})
+		responseIdleMu.Unlock()
+	}
+	stopResponseIdle := func() {
+		responseIdleMu.Lock()
+		responseIdleActive = false
+		responseIdleGeneration++
+		if responseIdleTimer != nil {
+			responseIdleTimer.Stop()
+			responseIdleTimer = nil
+		}
+		responseIdleMu.Unlock()
+	}
+	responseIdleError := func() error {
+		select {
+		case <-responseIdleTimedOut:
+			return doubaoRealtimeRecoverable(
+				"response idle timeout",
+				fmt.Errorf("no provider progress for %s", responseIdleTimeout),
+			)
+		default:
+			return nil
+		}
+	}
 	go func() {
 		defer close(eventsDone)
+		defer stopResponseIdle()
 		lastTranscriptText := ""
 		transcriptOpen := false
 		closeInputSegment := func(errText string) error {
@@ -1005,6 +1092,9 @@ func (t *Transformer) processSession(
 			}()
 			for event, err := range session.Recv() {
 				if err != nil {
+					if timeoutErr := responseIdleError(); timeoutErr != nil {
+						return timeoutErr
+					}
 					if ctx.Err() != nil {
 						return ctx.Err()
 					}
@@ -1062,6 +1152,7 @@ func (t *Transformer) processSession(
 							return err
 						}
 						transcriptOpen = true
+						resetResponseIdle(true)
 						if t.mode == ModeRealtime && realtimeASRResponseEndsSegment(event, delta) {
 							if err := closeInputSegment(""); err != nil {
 								return err
@@ -1105,6 +1196,7 @@ func (t *Transformer) processSession(
 						continue
 					}
 					assistant.setAccept(true)
+					resetResponseIdle(true)
 					epoch := assistant.nextEpoch()
 					responseStreamID := ""
 					switch {
@@ -1150,6 +1242,7 @@ func (t *Transformer) processSession(
 					if err := pushAssistantOutput(epoch, response, bosChunk); err != nil {
 						return err
 					}
+					resetResponseIdle(true)
 
 					if event.Text != "" {
 						outChunk := &genx.MessageChunk{
@@ -1160,6 +1253,7 @@ func (t *Transformer) processSession(
 						if err := pushAssistantOutput(epoch, response, outChunk); err != nil {
 							return err
 						}
+						resetResponseIdle(true)
 					}
 
 				case doubaospeech.EventChatResponse:
@@ -1222,9 +1316,11 @@ func (t *Transformer) processSession(
 								return err
 							}
 						}
+						resetResponseIdle(true)
 					}
 
 				case doubaospeech.EventTTSFinished:
+					stopResponseIdle()
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
 					if t.mode == ModePushToTalk {
@@ -1299,6 +1395,9 @@ func (t *Transformer) processSession(
 					return doubaoRealtimeRecoverable("session finished", io.EOF)
 				}
 			}
+			if timeoutErr := responseIdleError(); timeoutErr != nil {
+				return timeoutErr
+			}
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
@@ -1307,7 +1406,7 @@ func (t *Transformer) processSession(
 		eventsResult <- receive()
 	}()
 	defer func() {
-		_ = session.Close()
+		closeSession()
 		<-eventsDone
 	}()
 
@@ -1424,11 +1523,15 @@ func (t *Transformer) processSession(
 				slog.Info("doubao: received BOS", "streamID", chunk.Ctrl.StreamID)
 				continue
 			}
-			if _, err := interruptAssistant(chunk.Ctrl.StreamID, false); err != nil {
+			interrupted, err := interruptAssistant(chunk.Ctrl.StreamID, false)
+			if err != nil {
 				return err
 			}
 			streamIDs.beginInput(chunk.Ctrl.StreamID)
 			slog.Info("doubao: received BOS", "streamID", chunk.Ctrl.StreamID)
+			if t.mode == ModeRealtime && interrupted {
+				return doubaoRealtimeRecoverable("interrupt handoff", errDoubaoRealtimeInterruptHandoff)
+			}
 			continue
 		}
 

@@ -33,7 +33,7 @@ test.beforeEach(async ({ page }) => {
       id: "peer-a:peer-b",
       owner_public_key: "peer-a",
       peer_public_key: "peer-b",
-      workspace_name: "friend-workspace",
+      workspace_id: "workspace-friend-000",
     };
     const data = {
       "/credentials": pageResponse([
@@ -140,7 +140,7 @@ test.beforeEach(async ({ page }) => {
       ]),
       "/social/friends": pageResponse([friend]),
       "/social/friends/peer-a/peer-a:peer-b": friend,
-      "/workspaces/friend-workspace/history": pageResponse([
+      "/workspaces/workspace-friend-000/history": pageResponse([
         {
           created_at: "2026-07-01T00:00:00Z",
           id: "20260701T000000Z-1",
@@ -187,7 +187,7 @@ test.beforeEach(async ({ page }) => {
       adminFetchPaths.push(path);
       if (
         path ===
-        "/workspaces/friend-workspace/history/20260701T000000Z-1/audio.ogg"
+        "/workspaces/workspace-friend-000/history/20260701T000000Z-1/audio.ogg"
       ) {
         return ogg();
       }
@@ -407,7 +407,7 @@ test("admin social friend detail loads workspace history and downloads audio", a
   await page.getByRole("link", { name: /peer-a <-> peer-b/ }).click();
 
   await expect(page.getByRole("heading", { name: "peer-a" })).toBeVisible();
-  await expect(page.getByText("friend-workspace").first()).toBeVisible();
+  await expect(page.getByText("workspace-friend-000").first()).toBeVisible();
   await expect(page.getByText("Workspace History")).toBeVisible();
   await expect(page.getByText("你好，开始测试。")).toBeVisible();
 
@@ -423,7 +423,7 @@ test("admin social friend detail loads workspace history and downloads audio", a
         () => window.__GIZCLAW_DESKTOP_TEST_ADMIN_FETCH_PATHS__ ?? [],
       ),
     )
-    .toContain("/workspaces/friend-workspace/history");
+    .toContain("/workspaces/workspace-friend-000/history");
   await expect
     .poll(() =>
       page.evaluate(
@@ -431,7 +431,7 @@ test("admin social friend detail loads workspace history and downloads audio", a
       ),
     )
     .toContain(
-      "/workspaces/friend-workspace/history/20260701T000000Z-1/audio.ogg",
+      "/workspaces/workspace-friend-000/history/20260701T000000Z-1/audio.ogg",
     );
 });
 

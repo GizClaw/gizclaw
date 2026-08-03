@@ -197,22 +197,21 @@ func TestTransformerSendsLastNonEmptyAudioFrame(t *testing.T) {
 	}
 }
 
-func TestTransformerEmitInterimKeepsProviderSessionAcrossLocalEOS(t *testing.T) {
-	session := newFakeDoubaoASRSession()
-	session.sendAudio = func(_ context.Context, data []byte, isLast bool) error {
-		session.sends = append(session.sends, fakeDoubaoASRSend{data: slices.Clone(data), isLast: isLast})
-		if isLast {
-			close(session.result)
-		}
-		return nil
-	}
+func TestTransformerEmitInterimFinalizesEachExplicitAudioRoute(t *testing.T) {
+	first := newFakeDoubaoASRSession()
+	second := newFakeDoubaoASRSession()
 	transformer := newTransformer(Config{
 		Format:         "pcm",
 		EmitInterim:    true,
 		RealtimePacing: new(false),
 	})
+	sessions := []*fakeDoubaoASRSession{first, second}
 	openCalls := 0
 	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+		if openCalls >= len(sessions) {
+			t.Fatalf("opened unexpected provider session %d", openCalls+1)
+		}
+		session := sessions[openCalls]
 		openCalls++
 		return session, nil
 	}
@@ -249,47 +248,58 @@ func TestTransformerEmitInterimKeepsProviderSessionAcrossLocalEOS(t *testing.T) 
 	}
 	_ = collectTransformerChunks(t, output)
 
-	if openCalls != 1 {
-		t.Fatalf("provider session opens = %d, want 1", openCalls)
+	if openCalls != 2 {
+		t.Fatalf("provider session opens = %d, want 2", openCalls)
 	}
-	if len(session.sends) != 4 {
-		t.Fatalf("SendAudio calls = %#v, want three frames and one terminal marker", session.sends)
-	}
-	for i, send := range session.sends {
-		wantLast := i == len(session.sends)-1
-		if send.isLast != wantLast {
-			t.Fatalf("SendAudio[%d].isLast = %t, want %t", i, send.isLast, wantLast)
+	for i, session := range sessions {
+		wantAudioSends := i + 1
+		if len(session.sends) != wantAudioSends+1 {
+			t.Fatalf("session %d SendAudio calls = %#v, want %d audio frames and one terminal marker", i, session.sends, wantAudioSends)
 		}
-		if wantLast && len(send.data) != 0 {
-			t.Fatalf("terminal SendAudio data = %x, want empty marker", send.data)
+		for sendIndex, send := range session.sends {
+			wantLast := sendIndex == len(session.sends)-1
+			if send.isLast != wantLast {
+				t.Fatalf("session %d SendAudio[%d].isLast = %t, want %t", i, sendIndex, send.isLast, wantLast)
+			}
+			if wantLast && len(send.data) != 0 {
+				t.Fatalf("session %d terminal SendAudio data = %x, want empty marker", i, send.data)
+			}
 		}
 	}
 }
 
 func TestTransformerEmitInterimRoutesTranscriptsAcrossLocalStreams(t *testing.T) {
-	session := newFakeDoubaoASRSession()
+	first := newFakeDoubaoASRSession()
+	first.recvErr = &doubaospeech.Error{Code: doubaoASRPacketWaitTimeout, Message: "waiting next packet timeout"}
+	second := newFakeDoubaoASRSession()
 	firstAudioSent := make(chan struct{})
 	secondAudioSent := make(chan struct{})
-	session.sendAudio = func(_ context.Context, data []byte, isLast bool) error {
-		session.sends = append(session.sends, fakeDoubaoASRSend{data: slices.Clone(data), isLast: isLast})
-		if isLast {
-			close(session.result)
+	configureSession := func(session *fakeDoubaoASRSession, audioSent chan struct{}) {
+		session.sendAudio = func(_ context.Context, data []byte, isLast bool) error {
+			session.sends = append(session.sends, fakeDoubaoASRSend{data: slices.Clone(data), isLast: isLast})
+			if isLast {
+				close(session.result)
+				return nil
+			}
+			close(audioSent)
 			return nil
 		}
-		switch data[0] {
-		case 1:
-			close(firstAudioSent)
-		case 2:
-			close(secondAudioSent)
-		}
-		return nil
 	}
+	configureSession(first, firstAudioSent)
+	configureSession(second, secondAudioSent)
 	transformer := newTransformer(Config{
 		Format:         "pcm",
 		EmitInterim:    true,
 		RealtimePacing: new(false),
 	})
+	sessions := []*fakeDoubaoASRSession{first, second}
+	openCalls := 0
 	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+		if openCalls >= len(sessions) {
+			t.Fatalf("opened unexpected provider session %d", openCalls+1)
+		}
+		session := sessions[openCalls]
+		openCalls++
 		return session, nil
 	}
 
@@ -307,7 +317,7 @@ func TestTransformerEmitInterimRoutesTranscriptsAcrossLocalStreams(t *testing.T)
 			t.Fatalf("push %s audio: %v", streamID, err)
 		}
 	}
-	pushResult := func(text string, start, end int) {
+	pushResult := func(session *fakeDoubaoASRSession, text string, start, end int) {
 		t.Helper()
 		session.result <- &doubaospeech.ASRV2Result{
 			Text: text,
@@ -345,7 +355,7 @@ func TestTransformerEmitInterimRoutesTranscriptsAcrossLocalStreams(t *testing.T)
 
 	pushAudio("segment-a", 1)
 	<-firstAudioSent
-	pushResult("first", 0, 1)
+	pushResult(first, "first", 0, 1)
 	assertTranscript("segment-a", "first")
 	if err := input.Push(&genx.MessageChunk{
 		Part: &genx.Blob{MIMEType: "audio/pcm"},
@@ -356,15 +366,20 @@ func TestTransformerEmitInterimRoutesTranscriptsAcrossLocalStreams(t *testing.T)
 
 	pushAudio("segment-b", 2)
 	<-secondAudioSent
-	pushResult("second", 1, 2)
+	pushResult(second, "second", 1, 2)
 	assertTranscript("segment-b", "second")
 	if err := input.Close(); err != nil {
 		t.Fatalf("close input: %v", err)
 	}
 	_ = collectTransformerChunks(t, output)
 
-	if len(session.sends) != 3 || session.sends[0].isLast || session.sends[1].isLast || !session.sends[2].isLast {
-		t.Fatalf("provider sends = %#v, want two non-terminal frames and one terminal marker", session.sends)
+	if openCalls != 2 {
+		t.Fatalf("provider session opens = %d, want 2", openCalls)
+	}
+	for i, session := range sessions {
+		if len(session.sends) != 2 || session.sends[0].isLast || !session.sends[1].isLast || len(session.sends[1].data) != 0 {
+			t.Fatalf("provider session %d sends = %#v, want audio followed by an empty terminal marker", i, session.sends)
+		}
 	}
 }
 
@@ -597,7 +612,8 @@ func TestTransformerRecognizesTurnAfterEmptyRecognition(t *testing.T) {
 
 func TestTransformerRejectsInterimOnlyRecognition(t *testing.T) {
 	session := newFakeDoubaoASRSession()
-	session.sendAudio = func(_ context.Context, _ []byte, isLast bool) error {
+	session.sendAudio = func(_ context.Context, data []byte, isLast bool) error {
+		session.sends = append(session.sends, fakeDoubaoASRSend{data: slices.Clone(data), isLast: isLast})
 		if isLast {
 			session.result <- &doubaospeech.ASRV2Result{
 				Text: "partial text",
@@ -618,7 +634,7 @@ func TestTransformerRejectsInterimOnlyRecognition(t *testing.T) {
 		return session, nil
 	}
 
-	input := newBufferStream(2)
+	input := newBufferStream(3)
 	output, err := transformer.Transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
@@ -628,6 +644,12 @@ func TestTransformerRejectsInterimOnlyRecognition(t *testing.T) {
 		Ctrl: &genx.StreamCtrl{StreamID: "partial-turn"},
 	}); err != nil {
 		t.Fatalf("push audio = %v", err)
+	}
+	if err := input.Push(&genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/pcm"},
+		Ctrl: &genx.StreamCtrl{StreamID: "partial-turn", EndOfStream: true},
+	}); err != nil {
+		t.Fatalf("push audio EOS = %v", err)
 	}
 	if err := input.Close(); err != nil {
 		t.Fatalf("close input = %v", err)
@@ -641,6 +663,9 @@ func TestTransformerRejectsInterimOnlyRecognition(t *testing.T) {
 			}
 			break
 		}
+	}
+	if len(session.sends) != 2 || session.sends[0].isLast || !session.sends[1].isLast {
+		t.Fatalf("provider sends = %#v, want audio followed by a terminal marker", session.sends)
 	}
 }
 

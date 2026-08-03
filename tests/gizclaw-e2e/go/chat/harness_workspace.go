@@ -358,19 +358,33 @@ func fetchChatServerInfo(endpoint string) (chatServerInfo, error) {
 	if endpoint == "" {
 		return chatServerInfo{}, fmt.Errorf("server endpoint is empty")
 	}
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		info, retryable, err := fetchChatServerInfoOnce(endpoint)
+		if err == nil {
+			return info, nil
+		}
+		if !retryable || !time.Now().Before(deadline) {
+			return chatServerInfo{}, err
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func fetchChatServerInfoOnce(endpoint string) (chatServerInfo, bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+endpoint+"/server-info", nil)
 	if err != nil {
-		return chatServerInfo{}, err
+		return chatServerInfo{}, false, err
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return chatServerInfo{}, err
+		return chatServerInfo{}, true, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return chatServerInfo{}, fmt.Errorf("server-info status=%d", resp.StatusCode)
+		return chatServerInfo{}, resp.StatusCode >= http.StatusInternalServerError, fmt.Errorf("server-info status=%d", resp.StatusCode)
 	}
 	var body struct {
 		PublicKey     string                `json:"public_key"`
@@ -385,40 +399,40 @@ func fetchChatServerInfo(endpoint string) (chatServerInfo, error) {
 		} `json:"transport"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return chatServerInfo{}, err
+		return chatServerInfo{}, false, err
 	}
 	if body.Protocol != "" && body.Protocol != "gizclaw-webrtc" {
-		return chatServerInfo{}, fmt.Errorf("server-info protocol=%q", body.Protocol)
+		return chatServerInfo{}, false, fmt.Errorf("server-info protocol=%q", body.Protocol)
 	}
 	publicKey := strings.TrimSpace(body.PublicKey)
 	signalingEndpoint := endpoint
 	signalingPath := strings.TrimSpace(body.SignalingPath)
 	if body.Transport != nil {
 		if strings.TrimSpace(body.Transport.Mode) != "edge-gateway" {
-			return chatServerInfo{}, fmt.Errorf("server-info transport mode=%q", body.Transport.Mode)
+			return chatServerInfo{}, false, fmt.Errorf("server-info transport mode=%q", body.Transport.Mode)
 		}
 		publicKey = strings.TrimSpace(body.Transport.PublicKey)
 		signalingEndpoint = strings.TrimSpace(body.Transport.Endpoint)
 		signalingPath = strings.TrimSpace(body.Transport.SignalingPath)
 		if signalingEndpoint == "" {
-			return chatServerInfo{}, fmt.Errorf("server-info transport endpoint is empty")
+			return chatServerInfo{}, false, fmt.Errorf("server-info transport endpoint is empty")
 		}
 	}
 	serverPK, err := parsePublicKey(publicKey)
 	if err != nil {
-		return chatServerInfo{}, fmt.Errorf("server-info public_key: %w", err)
+		return chatServerInfo{}, false, fmt.Errorf("server-info public_key: %w", err)
 	}
 	if serverPK.IsZero() {
-		return chatServerInfo{}, fmt.Errorf("server-info public_key is zero")
+		return chatServerInfo{}, false, fmt.Errorf("server-info public_key is zero")
 	}
 	if signalingPath == "" {
 		signalingPath = gizwebrtc.SignalingPath
 	}
 	if !strings.HasPrefix(signalingPath, "/") || strings.HasPrefix(signalingPath, "//") {
-		return chatServerInfo{}, fmt.Errorf("server-info signaling_path=%q", signalingPath)
+		return chatServerInfo{}, false, fmt.Errorf("server-info signaling_path=%q", signalingPath)
 	}
 	signalingURL := url.URL{Scheme: "http", Host: signalingEndpoint, Path: signalingPath}
-	return chatServerInfo{PublicKey: serverPK, SignalingURL: signalingURL.String(), ICEServers: body.ICEServers}, nil
+	return chatServerInfo{PublicKey: serverPK, SignalingURL: signalingURL.String(), ICEServers: body.ICEServers}, false, nil
 }
 
 type runControlClient interface {

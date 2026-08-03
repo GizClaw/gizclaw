@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
@@ -110,6 +111,9 @@ type inputEvent struct {
 
 type dockRoute struct {
 	response *streamkit.Response
+	role     genx.Role
+	name     string
+	label    string
 	mu       sync.Mutex
 
 	deferredEOS *genx.MessageChunk
@@ -355,7 +359,13 @@ func (r *dockRun) route(chunk *genx.MessageChunk) (*dockRoute, error) {
 	if err != nil {
 		return nil, err
 	}
-	route := &dockRoute{response: response, ttsPipes: make(map[string]*ttsPipe)}
+	route := &dockRoute{
+		response: response,
+		role:     chunk.Role,
+		name:     chunk.Name,
+		label:    label,
+		ttsPipes: make(map[string]*ttsPipe),
+	}
 	r.routes[streamID] = route
 	return route, nil
 }
@@ -469,8 +479,23 @@ func (r *dockRun) endTTS(route *dockRoute, sourceEOS *genx.MessageChunk) {
 		_ = pipe.input.Close()
 	}
 	go func() {
-		route.ttsDone.Wait()
-		r.finishRoute(route, "")
+		done := make(chan struct{})
+		go func() {
+			route.ttsDone.Wait()
+			close(done)
+		}()
+		timer := time.NewTimer(r.dock.config.TTSCompletionTimeout)
+		defer timer.Stop()
+		select {
+		case <-done:
+			r.finishRoute(route, "")
+		case <-r.invocation.Context().Done():
+			r.abortTTS(route, r.invocation.Context().Err())
+		case <-timer.C:
+			err := fmt.Errorf("audiodock: TTS completion timeout after %s", r.dock.config.TTSCompletionTimeout)
+			r.abortTTS(route, err)
+			r.finishRoute(route, err.Error())
+		}
 	}()
 }
 
@@ -606,10 +631,39 @@ func (r *dockRun) interruptOpenRoutes(errorText string) {
 		}
 		route.finish.Do(func() {
 			route.closed.Store(true)
+			needsControlEOS := route.hasPendingTTSWithoutOutput()
 			r.abortTTS(route, errors.New(errorText))
-			_ = r.invocation.Interrupt(route.response, errorText)
+			if err := r.invocation.Interrupt(route.response, errorText); err != nil {
+				return
+			}
+			if needsControlEOS {
+				_ = r.invocation.Output().Push(&genx.MessageChunk{
+					Role: route.role,
+					Name: route.name,
+					Ctrl: &genx.StreamCtrl{
+						StreamID:    route.response.StreamID(),
+						Label:       route.label,
+						Error:       errorText,
+						EndOfStream: true,
+					},
+				})
+			}
 		})
 	}
+}
+
+func (r *dockRoute) hasPendingTTSWithoutOutput() bool {
+	if r == nil {
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, pipe := range r.ttsPipes {
+		if pipe != nil {
+			return len(r.ttsRoutes) == 0
+		}
+	}
+	return false
 }
 
 func (r *dockRun) beginInputTurn(streamID string) {

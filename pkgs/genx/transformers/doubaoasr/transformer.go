@@ -29,8 +29,8 @@ import (
 //
 // EoS Handling:
 //   - In turn mode, an audio/* EoS marker finishes the current provider session
-//   - With interim output enabled, audio route EoS is local and the provider
-//     session remains open until the outer input stream completes
+//   - With interim output enabled, an explicit audio route EoS also finishes
+//     the provider session while leaving the outer transformer stream open
 //   - Non-audio chunks are passed through unchanged
 //
 // Note: The transformer adapts common audio containers/codecs to Doubao's
@@ -325,6 +325,9 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		err := <-resultsDone
 		<-resultsForwarded
 		clearSession()
+		if t.emitInterim && isRecoverableRealtimeSessionError(err) {
+			return nil
+		}
 		return err
 	}
 
@@ -375,6 +378,10 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			if blob, ok := chunk.Part.(*genx.Blob); ok && isAudioMIME(blob.MIMEType) {
 				if t.emitInterim {
 					activeStreamID = ""
+					if err := finishSession(); err != nil {
+						output.CloseWithError(err)
+						return
+					}
 					continue
 				}
 				historyStreamID := resolveStreamID(chunk)

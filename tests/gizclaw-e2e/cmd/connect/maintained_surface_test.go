@@ -50,7 +50,7 @@ func TestConnectMaintainedSurfaceUserStory(t *testing.T) {
 	}
 
 	missingVoice := h.RunCLI("connect", "say", "hello", "--context", "device-a")
-	if missingVoice.Err == nil || !strings.Contains(missingVoice.Stderr, "voice id is required") {
+	if missingVoice.Err == nil || !strings.Contains(missingVoice.Stderr, "voice name is required") {
 		t.Fatalf("say without --voice = err %v, stderr %q", missingVoice.Err, missingVoice.Stderr)
 	}
 }

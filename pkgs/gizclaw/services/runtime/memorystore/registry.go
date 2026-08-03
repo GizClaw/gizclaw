@@ -33,6 +33,9 @@ func (registry *Registry) Resolve(ctx context.Context, request Request) (Result,
 	if registry == nil {
 		return Build(ctx, request)
 	}
+	if err := validateLayoutBinding(request); err != nil {
+		return Result{}, err
+	}
 	key, err := registryKey(request)
 	if err != nil {
 		return Result{}, err

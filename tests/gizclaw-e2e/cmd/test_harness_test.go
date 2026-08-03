@@ -33,6 +33,43 @@ func TestRetryableRefreshReconnectError(t *testing.T) {
 	}
 }
 
+func TestRetryableRegistrationConnectError(t *testing.T) {
+	for _, err := range []error{
+		errors.New("client stopped before ready"),
+		errors.New("gizclaw: dial: gizwebrtc: wait for packet channel: context deadline exceeded"),
+	} {
+		if !isRetryableRegistrationConnectError(err) {
+			t.Fatalf("isRetryableRegistrationConnectError(%q) = false", err)
+		}
+	}
+	for _, err := range []error{
+		nil,
+		errors.New("timeout waiting for client readiness"),
+		errors.New("gizclaw: dial: gizwebrtc: authentication failed"),
+	} {
+		if isRetryableRegistrationConnectError(err) {
+			t.Fatalf("isRetryableRegistrationConnectError(%v) = true", err)
+		}
+	}
+}
+
+func TestRetryableRegistrationRefreshError(t *testing.T) {
+	retryable := errors.New(`Post "http://gizclaw/peers/peer-a/@refresh": gizhttp: read response: unexpected EOF`)
+	if !isRetryableRegistrationRefreshError(retryable) {
+		t.Fatalf("isRetryableRegistrationRefreshError(%q) = false", retryable)
+	}
+	for _, err := range []error{
+		nil,
+		errors.New(`Get "http://gizclaw/peers/peer-a/@refresh": gizhttp: read response: unexpected EOF`),
+		errors.New(`Post "http://gizclaw/peers/peer-a/@refresh": 502 Bad Gateway`),
+		errors.New(`Post "http://gizclaw/workspaces/demo/@refresh": gizhttp: read response: unexpected EOF`),
+	} {
+		if isRetryableRegistrationRefreshError(err) {
+			t.Fatalf("isRetryableRegistrationRefreshError(%v) = true", err)
+		}
+	}
+}
+
 func TestFetchE2EServerInfoIncludesICEServers(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {

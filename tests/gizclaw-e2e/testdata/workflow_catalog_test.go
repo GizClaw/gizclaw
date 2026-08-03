@@ -29,6 +29,31 @@ type flowcraftGeneratorNode struct {
 	} `json:"config" yaml:"config"`
 }
 
+type flowcraftFixtureGraph struct {
+	Entry         string                 `json:"entry" yaml:"entry"`
+	Edges         []workflowEdge         `json:"edges" yaml:"edges"`
+	Nodes         []flowcraftFixtureNode `json:"nodes" yaml:"nodes"`
+	MaxIterations int                    `json:"max_iterations" yaml:"max_iterations"`
+}
+
+type flowcraftFixtureNode struct {
+	ID     string `json:"id" yaml:"id"`
+	Type   string `json:"type" yaml:"type"`
+	Config struct {
+		Source string `json:"source" yaml:"source"`
+		Query  struct {
+			TextFrom string `json:"text_from" yaml:"text_from"`
+		} `json:"query" yaml:"query"`
+		Observations []struct {
+			TurnsFrom string `json:"turns_from" yaml:"turns_from"`
+			TextFrom  string `json:"text_from" yaml:"text_from"`
+			Facts     []struct {
+				TextFrom string `json:"text_from" yaml:"text_from"`
+			} `json:"facts" yaml:"facts"`
+		} `json:"observations" yaml:"observations"`
+	} `json:"config" yaml:"config"`
+}
+
 var workflowFixtureFiles = []string{
 	"00-ast-translate-tts.yaml",
 	"01-ast-translate-zh-jp.yaml",
@@ -133,6 +158,236 @@ func TestMemoryMigratedFlowcraftFixturesDecodeTypedGraph(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFlowcraftDirectFactFixturesDoNotMixModelExtraction(t *testing.T) {
+	resources := []string{
+		"05-flowcraft-basic.yaml",
+		"06-flowcraft-chat.yaml",
+		"08-flowcraft-journey.yaml",
+		"10-flowcraft-multi-role-storyteller.yaml",
+		"11-flowcraft-murder-mystery.yaml",
+		"12-flowcraft-poetry-adventure-li-bai.yaml",
+		"13-flowcraft-werewolf.yaml",
+		"18-flowcraft-configured-memory.yaml",
+	}
+	for _, filename := range resources {
+		t.Run("resource/"+filename, func(t *testing.T) {
+			assertFlowcraftDirectFactsDoNotMixModelExtraction(t, loadResourceFlowcraftGraph(t, filename))
+		})
+	}
+
+	workspaces := []string{
+		"flowcraft-basic.json",
+		"flowcraft-chat.json",
+		"flowcraft-journey.json",
+		"flowcraft-multi-role-storyteller.json",
+		"flowcraft-murder-mystery.json",
+		"flowcraft-poetry-adventure-li-bai.json",
+		"flowcraft-werewolf.json",
+		"flowcraft-configured-memory.json",
+	}
+	for _, filename := range workspaces {
+		t.Run("workspace/"+filename, func(t *testing.T) {
+			assertFlowcraftDirectFactsDoNotMixModelExtraction(t, loadWorkspaceFlowcraftGraph(t, filename))
+		})
+	}
+}
+
+func assertFlowcraftDirectFactsDoNotMixModelExtraction(t *testing.T, graph flowcraftFixtureGraph) {
+	t.Helper()
+	for _, node := range graph.Nodes {
+		if node.Type != "memory_observe" {
+			continue
+		}
+		factCount := 0
+		turnCount := 0
+		for _, observation := range node.Config.Observations {
+			factCount += len(observation.Facts)
+			if observation.TurnsFrom != "" {
+				turnCount++
+			}
+		}
+		if factCount > 0 && turnCount > 0 {
+			t.Fatalf("memory_observe node %q mixes model extraction with %d direct Facts", node.ID, factCount)
+		}
+	}
+}
+
+func TestFlowcraftJourneyIterationBudgetCoversEveryRoute(t *testing.T) {
+	for _, fixture := range []struct {
+		name  string
+		graph flowcraftFixtureGraph
+	}{
+		{name: "resource", graph: loadResourceFlowcraftGraph(t, "08-flowcraft-journey.yaml")},
+		{name: "workspace", graph: loadWorkspaceFlowcraftGraph(t, "flowcraft-journey.json")},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			longest := longestAcyclicFlowcraftRoute(t, fixture.graph)
+			headroom := fixture.graph.MaxIterations - longest
+			if headroom < 2 || headroom > 8 {
+				t.Fatalf("max_iterations = %d for longest route %d, want bounded headroom in [2, 8]", fixture.graph.MaxIterations, longest)
+			}
+		})
+	}
+}
+
+func TestFlowcraftWerewolfPreparesSelfStartRecallQuery(t *testing.T) {
+	for _, fixture := range []struct {
+		name  string
+		graph flowcraftFixtureGraph
+	}{
+		{name: "resource", graph: loadResourceFlowcraftGraph(t, "13-flowcraft-werewolf.yaml")},
+		{name: "workspace", graph: loadWorkspaceFlowcraftGraph(t, "flowcraft-werewolf.json")},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			if fixture.graph.Entry != "prepare_memory_query" {
+				t.Fatalf("entry = %q, want prepare_memory_query", fixture.graph.Entry)
+			}
+			if !hasFlowcraftFixtureEdge(fixture.graph.Edges, "prepare_memory_query", "recall_game_memory") {
+				t.Fatal("prepare_memory_query does not route to recall_game_memory")
+			}
+			prepare := findFlowcraftFixtureNode(t, fixture.graph.Nodes, "prepare_memory_query")
+			if prepare.Type != "script" || !strings.Contains(prepare.Config.Source, "input || \"狼人游戏状态与公开进度\"") {
+				t.Fatalf("prepare_memory_query does not provide an input fallback: %#v", prepare.Config)
+			}
+			for _, nodeID := range []string{"recall_game_memory", "recall_public_memory"} {
+				node := findFlowcraftFixtureNode(t, fixture.graph.Nodes, nodeID)
+				if node.Type != "memory_recall" || node.Config.Query.TextFrom != "memory_query" {
+					t.Fatalf("node %q query = %q, want memory_query", nodeID, node.Config.Query.TextFrom)
+				}
+			}
+		})
+	}
+}
+
+func TestFlowcraftWerewolfConversationObservationHasSelfStartFallback(t *testing.T) {
+	for _, fixture := range []struct {
+		name  string
+		graph flowcraftFixtureGraph
+	}{
+		{name: "resource", graph: loadResourceFlowcraftGraph(t, "13-flowcraft-werewolf.yaml")},
+		{name: "workspace", graph: loadWorkspaceFlowcraftGraph(t, "flowcraft-werewolf.json")},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			load := findFlowcraftFixtureNode(t, fixture.graph.Nodes, "load_game_state")
+			if !strings.Contains(load.Config.Source, `board.setVar("werewolf_game_state_text"`) {
+				t.Fatal("load_game_state does not prepare werewolf_game_state_text")
+			}
+			observe := findFlowcraftFixtureNode(t, fixture.graph.Nodes, "observe_game_conversation")
+			if len(observe.Config.Observations) != 2 {
+				t.Fatalf("observe_game_conversation observations = %#v", observe.Config.Observations)
+			}
+			var hasTurns, hasState bool
+			for _, source := range observe.Config.Observations {
+				hasTurns = hasTurns || source.TurnsFrom == "conversation"
+				hasState = hasState || source.TextFrom == "werewolf_game_state_text"
+			}
+			if !hasTurns || !hasState {
+				t.Fatalf("observe_game_conversation sources = %#v", observe.Config.Observations)
+			}
+		})
+	}
+}
+
+func hasFlowcraftFixtureEdge(edges []workflowEdge, from, to string) bool {
+	for _, edge := range edges {
+		if edge.From == from && edge.To == to {
+			return true
+		}
+	}
+	return false
+}
+
+func loadResourceFlowcraftGraph(t *testing.T, filename string) flowcraftFixtureGraph {
+	t.Helper()
+	var resource struct {
+		Spec struct {
+			Flowcraft struct {
+				Graph         flowcraftFixtureGraph `yaml:"graph"`
+				MaxIterations int                   `yaml:"max_iterations"`
+			} `yaml:"flowcraft"`
+		} `yaml:"spec"`
+	}
+	raw, err := os.ReadFile(filepath.Join("resources", "04-workflows", filename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := yaml.Unmarshal(raw, &resource); err != nil {
+		t.Fatal(err)
+	}
+	graph := resource.Spec.Flowcraft.Graph
+	graph.MaxIterations = resource.Spec.Flowcraft.MaxIterations
+	return graph
+}
+
+func loadWorkspaceFlowcraftGraph(t *testing.T, filename string) flowcraftFixtureGraph {
+	t.Helper()
+	var workspace struct {
+		Workflow struct {
+			Flowcraft struct {
+				Graph         flowcraftFixtureGraph `json:"graph"`
+				MaxIterations int                   `json:"max_iterations"`
+			} `json:"flowcraft"`
+		} `json:"workflow"`
+	}
+	raw, err := os.ReadFile(filepath.Join("workspaces", filename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &workspace); err != nil {
+		t.Fatal(err)
+	}
+	graph := workspace.Workflow.Flowcraft.Graph
+	graph.MaxIterations = workspace.Workflow.Flowcraft.MaxIterations
+	return graph
+}
+
+func findFlowcraftFixtureNode(t *testing.T, nodes []flowcraftFixtureNode, id string) flowcraftFixtureNode {
+	t.Helper()
+	for _, node := range nodes {
+		if node.ID == id {
+			return node
+		}
+	}
+	t.Fatalf("Flowcraft node %q is missing", id)
+	return flowcraftFixtureNode{}
+}
+
+func longestAcyclicFlowcraftRoute(t *testing.T, graph flowcraftFixtureGraph) int {
+	t.Helper()
+	adjacency := make(map[string][]string, len(graph.Edges))
+	for _, edge := range graph.Edges {
+		adjacency[edge.From] = append(adjacency[edge.From], edge.To)
+	}
+	visiting := make(map[string]bool)
+	memo := make(map[string]int)
+	var visit func(string) int
+	visit = func(node string) int {
+		if node == "__end__" {
+			return 0
+		}
+		if length, ok := memo[node]; ok {
+			return length
+		}
+		if visiting[node] {
+			t.Fatalf("Flowcraft graph contains a cycle through %q", node)
+		}
+		visiting[node] = true
+		longest := -1
+		for _, next := range adjacency[node] {
+			if length := visit(next); length > longest {
+				longest = length
+			}
+		}
+		visiting[node] = false
+		if longest < 0 {
+			t.Fatalf("Flowcraft route from %q does not reach __end__", node)
+		}
+		memo[node] = longest + 1
+		return memo[node]
+	}
+	return visit(graph.Entry)
 }
 
 func TestMemoryLayoutCatalogFixturesDecodeAllProviders(t *testing.T) {

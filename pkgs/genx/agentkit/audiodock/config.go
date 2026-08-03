@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
+
+const defaultTTSCompletionTimeout = time.Minute
 
 // VoiceRequest describes one model output route presented to VoiceResolver.
 // Chunk is a defensive copy of the first text-bearing chunk for the route.
@@ -32,6 +35,9 @@ type Config struct {
 	TTS genx.TransformerMux
 	// ResolveVoice selects a TTS pattern per output route.
 	ResolveVoice VoiceResolver
+	// TTSCompletionTimeout bounds the time between the Agent's text EOS and
+	// completion of every TTS pipe for that response. Zero uses one minute.
+	TTSCompletionTimeout time.Duration
 }
 
 func normalizeConfig(config Config) (Config, error) {
@@ -43,6 +49,9 @@ func normalizeConfig(config Config) (Config, error) {
 	}
 	if config.TTS != nil && config.ResolveVoice == nil {
 		return Config{}, fmt.Errorf("audiodock: TTS requires ResolveVoice")
+	}
+	if config.TTSCompletionTimeout <= 0 {
+		config.TTSCompletionTimeout = defaultTTSCompletionTimeout
 	}
 	return config, nil
 }

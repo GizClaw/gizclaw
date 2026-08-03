@@ -38,7 +38,6 @@ func newIsolatedGameplayHarness(t *testing.T) *isolatedGameplayHarness {
 	h.CreateContext("peer-a").MustSucceed(t)
 	h.RequireClientContextEndpoint("peer-a")
 	h.RegisterContext("peer-a", "--sn", "client-gameplay-peer-a-sn").MustSucceed(t)
-	applyGameplayCatalog(t, h)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
@@ -46,18 +45,6 @@ func newIsolatedGameplayHarness(t *testing.T) *isolatedGameplayHarness {
 	t.Cleanup(func() { peer.Close() })
 	registerGameplayProfile(t, h, peer, "isolated")
 	return &isolatedGameplayHarness{ctx: ctx, h: h, peer: peer}
-}
-
-func applyGameplayCatalog(t *testing.T, h *clitest.Harness) {
-	t.Helper()
-
-	for _, fixture := range []string{
-		filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "resources", "04-workflows", "23-pet-care.yaml"),
-		filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "resources", "07-gameplay", "00-starter-gameplay.yaml"),
-	} {
-		result := h.RunCLI("admin", "apply", "--context", "admin-a", "-f", fixture)
-		result.MustSucceed(t)
-	}
 }
 
 func registerGameplayProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Client, tokenSuffix string) {

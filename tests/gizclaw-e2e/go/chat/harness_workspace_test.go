@@ -76,6 +76,32 @@ func TestFetchChatServerInfoUsesEdgeGatewayTransport(t *testing.T) {
 	}
 }
 
+func TestFetchChatServerInfoRetriesTransientFailure(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts++
+		if attempts == 1 {
+			http.Error(w, "temporary edge upstream failure", http.StatusBadGateway)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"protocol":"gizclaw-webrtc","public_key":%q}`, serverKey.Public.String())
+	}))
+	defer server.Close()
+
+	info, err := fetchChatServerInfo(strings.TrimPrefix(server.URL, "http://"))
+	if err != nil {
+		t.Fatalf("fetchChatServerInfo error = %v", err)
+	}
+	if attempts != 2 || !info.PublicKey.Equal(serverKey.Public) {
+		t.Fatalf("attempts=%d info=%+v", attempts, info)
+	}
+}
+
 func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	cfg := config{Workflow: workflowConfig{Name: "demo.workflow", Parameters: workspaceParameterConfig{Input: "push-to-talk"}}}
 	got, err := workspaceCaseRealtimeRoundtrip.applyConfig(cfg)
@@ -363,15 +389,24 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("flowcraft: read ASR: buffer: read from closed buffer: websocket read: unexpected EOF"),
 		errors.New("ast websocket read: websocket: close 1006 (abnormal closure): unexpected EOF"),
 		errors.New("round 2: transport: timeout; recent events: none"),
+		errors.New("round 1: response stream idle timeout after 1m0s; recent events: event stream=input-1 label=transcript type=text_delta"),
 		errors.New("bytedance: response incomplete: length"),
 		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server processing timeout] node execution timeout (code=55001010)"),
+		errors.New("peer event error: audiodock: TTS completion timeout after 1m0s"),
+		errors.New("peer event error: doubao realtime: response idle timeout: no provider progress for 1m0s"),
+		errors.New("Get \"http://127.0.0.1:20580/server-info\": context deadline exceeded"),
 		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server-side generic error] OperatorWrapper Process failed: big asr recv err. rpc timeout: CallWithTimeout: timeout in business code, timeout_config=3s"),
 		errors.New("peer event error: buffer: read from closed buffer: genx: generate error: flowcraft: read TTS voice \"你好\": flowcraft: send tts stream request: Post \"https://openspeech.bytedance.com/api/v3/tts/unidirectional\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"),
 		errors.New("self-start: assistant audio asr part 2: transcription response.wav size=12345: 400 Bad Request"),
 		errors.New("interrupt second response: assistant audio asr part 1: status code 400"),
+		errors.New("round 1: assistant audio asr part 3: transcription response.wav: giznet: conn closed"),
+		errors.New("self-start: assistant audio asr part 2: gizwebrtc: abort chunk, with following errors: (User Initiated Abort: )"),
+		errors.New("transcription /tmp/round-01-input.ogg size=46711: transcription: Post \"http://gizclaw/v1/audio/transcriptions\": gizhttp: dial service 2: giznet: conn closed"),
+		errors.New("transcription /tmp/input.ogg size=46711: gizwebrtc: abort chunk, with following errors: (User Initiated Abort: )"),
 		errors.New("self-start missing assistant text; recent events: event stream=flowcraft-self-start label=assistant type=eos text=\"\" error="),
 		errors.New("interrupt second stream started before interrupted assistant EOS: stream=audio-e2e-2 label=assistant type=bos"),
 		errors.New("interrupt second transcript mismatch: similarity 0.21 below 0.45"),
+		errors.New("speech model=tts voice=assistant-voice text_chars=11: speech: Post \"http://gizclaw/v1/audio/speech\": gizhttp: dial service 2: giznet: conn closed\ngizwebrtc: read remote opus: EOF"),
 	}
 	for _, err := range retryable {
 		if !isRetryableLiveWorkspaceError(err) {
@@ -386,13 +421,44 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("interrupt first response continued after interruption: stream=audio-e2e-1 text=late"),
 		errors.New("interrupt downlink continued before interrupted assistant EOS"),
 		errors.New("context deadline exceeded"),
+		errors.New("Post \"http://127.0.0.1:20580/server-info\": context deadline exceeded"),
+		errors.New("Get \"http://127.0.0.1:20580/health\": context deadline exceeded"),
 		errors.New("buffer: read from closed buffer: genx: generate error: flowcraft: claw event error: recall ingest: extract: recall two-pass extractor: content llm: bytedance.generate: 15.007s"),
 		errors.New("speech: POST \"http://gizclaw/v1/audio/speech\": 400 Bad Request"),
+		errors.New("giznet: conn closed"),
+		errors.New("gizwebrtc: abort chunk, with following errors: (User Initiated Abort: )"),
+		errors.New("transcription failed: giznet: conn closed"),
+		errors.New("speech response.ogg size=46711: giznet: conn closed"),
+		errors.New("speech: Post \"http://gizclaw/v1/audio/speech\": provider rejected request"),
+		errors.New("speech: Post \"http://other/v1/audio/speech\": gizhttp: dial service 2: giznet: conn closed"),
+		errors.New("speech: Post \"http://gizclaw/v1/audio/speech\": giznet: conn closed"),
 	}
 	for _, err := range notRetryable {
 		if isRetryableLiveWorkspaceError(err) {
 			t.Fatalf("isRetryableLiveWorkspaceError(%v) = true", err)
 		}
+	}
+}
+
+func TestRoundResponseIdleTimerStartsOnProgressAndResets(t *testing.T) {
+	idle := newRoundResponseIdleTimer(80 * time.Millisecond)
+	defer idle.stop()
+	if idle.channel() != nil {
+		t.Fatal("idle timer started before response progress")
+	}
+
+	idle.progress()
+	time.Sleep(50 * time.Millisecond)
+	idle.progress()
+	select {
+	case <-idle.channel():
+		t.Fatal("idle timer was not reset by response progress")
+	case <-time.After(50 * time.Millisecond):
+	}
+	select {
+	case <-idle.channel():
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("idle timer did not fire after progress stopped")
 	}
 }
 

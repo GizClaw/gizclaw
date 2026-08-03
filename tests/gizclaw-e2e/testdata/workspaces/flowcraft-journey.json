@@ -576,9 +576,6 @@
             "config": {
               "observations": [
                 {
-                  "turns_from": "conversation"
-                },
-                {
                   "facts": [
                     {
                       "text_from": "tmp_story_progress_line",
@@ -599,7 +596,7 @@
           }
         ]
       },
-      "max_iterations": 16,
+      "max_iterations": 24,
       "conversation": {
         "starts": "peer"
       }

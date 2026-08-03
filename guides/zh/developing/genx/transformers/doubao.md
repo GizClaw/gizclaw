@@ -88,11 +88,11 @@ Transformer 自己管理 provider call ID、顺序、重复 ID 拒绝和 invocat
 | Realtime | 连续发送 audio，由 provider VAD 划分用户 utterance；输入 EOS 只关闭本地 segment。 |
 | Text | 发送 text chunks，不接受 audio input。 |
 
-长连接生命周期由 transformer 持有。`Transform` 启动后即开始连接，并在 input turn、BOS/EOS 边界和 `Interrupt` 之间复用同一个健康的 Realtime Dialogue session。Provider terminal event、transport error 或 session I/O error 会关闭当前 provider session，并以有上限的指数退避串行重连；只要 transform context 和 output stream 尚未结束，就不限制尝试次数。每个 replacement session 都复用相同的已配置 `DialogID`。
+长连接生命周期由 transformer 持有。`Transform` 启动后即开始连接，并在普通 input turn 和 BOS/EOS 边界之间复用同一个健康的 Realtime Dialogue session。Realtime 模式的 BOS 打断 active response 时会发送 `ClientInterrupt`、关闭该 provider session，并立即使用相同的已配置 `DialogID` 打开 replacement session；新 route 中尚未读取的 audio 只由 replacement 消费。Realtime response 开始后，如果 provider 连续一分钟没有任何进展，transformer 会把它视为 provider loss：向仍打开的 transcript 或 assistant route 发送带 error 的 EOS，关闭 stalled session 并开始重连。Provider terminal event、transport error 或 session I/O error 同样走这条带上限指数退避的 replacement 路径；只要 transform context 和 output stream 尚未结束，就不限制尝试次数。
 
 已经交给失败 session 的 input 不会重放；尚未读取的 input 保留在有界 stream backpressure 之后，由 replacement session 继续消费。Push-to-Talk 中 provider loss 会使当前 turn 失效：丢弃 retained transcript 和 assistant output，在本地持续消费该 turn 剩余 chunks 直到 audio EOS，下一次 BOS 再开始新 turn。
 
-Realtime 模式把 BOS、MIME EOS 和 route EOS 只视为本地 stream boundary；它们不会调用 `EndASR`、注入静音、commit audio、关闭 provider session 或触发重连。Input EOF 仍是 transform 终态：它停止重连，并在已提交的有限 Push-to-Talk 或 Text turn 排空匹配的 Chat/TTS response 后关闭当前 session；没有待完成 response 时直接关闭，且不会触发重建。Provider `ASRInfo` 只在 assistant response pending/active 时幂等调用一次 `Interrupt`；重复 speech-detection event 或 idle 状态下的 speech detection 都在同一个健康 session 内直接忽略。
+Realtime 模式把普通 BOS、MIME EOS 和 route EOS 只视为本地 stream boundary；它们不会调用 `EndASR`、注入静音或 commit audio。唯一由 BOS 触发的 session replacement 是上述 interruption handoff。Input EOF 仍是 transform 终态：它停止重连，并在已提交的有限 Push-to-Talk 或 Text turn 排空匹配的 Chat/TTS response 后关闭当前 session；没有待完成 response 时直接关闭，且不会触发重建。Provider `ASRInfo` 只在 assistant response pending/active 时幂等调用一次 `Interrupt`；重复 speech-detection event 或 idle 状态下的 speech detection 都在同一个健康 session 内直接忽略。
 
 ### doubaorealtime Push-to-Talk 状态机
 

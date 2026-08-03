@@ -176,7 +176,7 @@ func TestServiceResolverUsesCallerRuntimeProfileMemoryForUnownedWorkspace(t *tes
 			"workflow-1": workflow,
 		}},
 		MemoryLayouts: fakeMemoryLayoutService{
-			item: apitypes.MemoryLayout{Name: "pet-layout"},
+			item: apitypes.MemoryLayout{Id: "pet-layout", Name: "pet-layout-name"},
 		},
 	}
 
@@ -214,7 +214,7 @@ func TestServiceResolverResolveMemorySkipsToolkitConstruction(t *testing.T) {
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{"demo": ws}},
 		Workflows:  fakeWorkflowService{items: map[string]apitypes.Workflow{"workflow-1": resolvedWorkflow}},
 		MemoryLayouts: fakeMemoryLayoutService{
-			item: apitypes.MemoryLayout{Name: "pet-layout"},
+			item: apitypes.MemoryLayout{Id: "pet-layout", Name: "pet-layout-name"},
 		},
 	}
 	ctx := withRuntimeProfile(t.Context(), profile)
