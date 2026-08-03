@@ -48,7 +48,7 @@ require (
 	golang.org/x/crypto v0.54.0
 	golang.org/x/sync v0.22.0
 	gonum.org/v1/gonum v0.17.0
-	google.golang.org/genai v1.42.0
+	google.golang.org/genai v1.66.0
 	google.golang.org/protobuf v1.36.11
 	modernc.org/sqlite v1.55.0
 )
