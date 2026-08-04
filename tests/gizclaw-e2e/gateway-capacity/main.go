@@ -1166,7 +1166,6 @@ func runOpusTest(ctx context.Context, state *resultState, opts options) {
 	var started time.Time
 	var wg sync.WaitGroup
 	for index, session := range sessions {
-		index, session := index, session
 		wg.Go(func() {
 			ready.Done()
 			select {

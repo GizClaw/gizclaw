@@ -283,15 +283,17 @@ run_case() {
   edge2_id="$(docker ps -q --filter "label=com.docker.compose.project=$GIZCLAW_E2E_DOCKER_PROJECT" --filter "label=com.docker.compose.service=edge2")"
   edge_log="${artifact%.json}-edge.log"
   edge2_log="${artifact%.json}-edge2.log"
-  docker exec "$edge_id" cat /src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.log >"$edge_log"
-  docker exec "$edge2_id" cat /src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.log >"$edge2_log"
   path_artifact="${artifact%.json}-path.json"
-  "$gateway_bin" \
-    -collect-path-evidence \
-    -upstream-path "$gateway_upstream_path" \
-    -ice-logs "edge=$edge_log,edge2=$edge2_log" \
-    -artifact "$path_artifact"
-  rm -f "$edge_log" "$edge2_log"
+  (
+    trap 'rm -f "$edge_log" "$edge2_log"' EXIT
+    docker exec "$edge_id" cat /src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.log >"$edge_log"
+    docker exec "$edge2_id" cat /src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.log >"$edge2_log"
+    "$gateway_bin" \
+      -collect-path-evidence \
+      -upstream-path "$gateway_upstream_path" \
+      -ice-logs "edge=$edge_log,edge2=$edge2_log" \
+      -artifact "$path_artifact"
+  )
   docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" \
     -f "$GIZCLAW_E2E_DOCKER_COMPOSE_FILE" \
     -f "$GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY" \
