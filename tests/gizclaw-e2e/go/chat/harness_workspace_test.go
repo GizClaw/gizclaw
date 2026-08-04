@@ -394,6 +394,7 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server processing timeout] node execution timeout (code=55001010)"),
 		errors.New("peer event error: audiodock: TTS completion timeout after 1m0s"),
 		errors.New("peer event error: doubao realtime: response idle timeout: no provider progress for 1m0s"),
+		errors.New("peer event error: doubao asr: finalization timeout after 1m0s"),
 		errors.New("Get \"http://127.0.0.1:20580/server-info\": context deadline exceeded"),
 		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server-side generic error] OperatorWrapper Process failed: big asr recv err. rpc timeout: CallWithTimeout: timeout in business code, timeout_config=3s"),
 		errors.New("peer event error: buffer: read from closed buffer: genx: generate error: flowcraft: read TTS voice \"你好\": flowcraft: send tts stream request: Post \"https://openspeech.bytedance.com/api/v3/tts/unidirectional\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"),
@@ -770,6 +771,122 @@ func TestRunWiresClientTransportAndPersonaDriver(t *testing.T) {
 	}
 	if !strings.Contains(output, "workspace=doubao-realtime-workflow-ptt") || !strings.Contains(output, "round=1") {
 		t.Fatalf("run output = %q", output)
+	}
+}
+
+func TestRunRetriesTransientChatRegistrationWithFreshClient(t *testing.T) {
+	restoreRunHooks(t)
+	t.Setenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN", "registration-token")
+
+	clients := []*gizcli.Client{{}, {}}
+	serveDone := []chan error{make(chan error, 1), make(chan error, 1)}
+	for _, done := range serveDone {
+		done <- nil
+	}
+	dialAttempts := 0
+	registerAttempts := 0
+	closed := make(map[*gizcli.Client]int)
+	dialClientForRun = func(config) (*gizcli.Client, <-chan error, error) {
+		client := clients[dialAttempts]
+		done := serveDone[dialAttempts]
+		dialAttempts++
+		return client, done, nil
+	}
+	registerChatClientForRun = func(_ context.Context, client *gizcli.Client, token string) error {
+		registerAttempts++
+		if token != "registration-token" {
+			t.Fatalf("registration token = %q", token)
+		}
+		if registerAttempts == 1 {
+			return errors.New("rpc: decode server register result: abort chunk, with following errors: (User Initiated Abort: )")
+		}
+		if client != clients[1] {
+			t.Fatalf("successful registration reused failed client %p", client)
+		}
+		return nil
+	}
+	closeChatClientForRun = func(client *gizcli.Client, done <-chan error) {
+		closed[client]++
+		<-done
+	}
+	waitChatRegistrationRetryForRun = func(context.Context, time.Duration) error { return nil }
+	ensureWorkspaceForRun = func(_ context.Context, client *gizcli.Client, cfg config) (config, error) {
+		if client != clients[1] {
+			t.Fatalf("workspace client = %p, want fresh client %p", client, clients[1])
+		}
+		return cfg, nil
+	}
+	runWorkspaceCaseForRun = func(*personaDriver, context.Context, workspaceCase) (workspaceCaseResult, error) {
+		return workspaceCaseResult{}, nil
+	}
+
+	cfg := config{timeout: time.Second, Workflow: workflowConfig{Name: "workflow-a"}}
+	if _, err := runLoadedConfigWithResult(cfg, workspaceCaseTextRoundtrip); err != nil {
+		t.Fatalf("runLoadedConfigWithResult() error = %v", err)
+	}
+	if dialAttempts != 2 || registerAttempts != 2 {
+		t.Fatalf("dial/register attempts = %d/%d, want 2/2", dialAttempts, registerAttempts)
+	}
+	if closed[clients[0]] != 1 || closed[clients[1]] != 1 {
+		t.Fatalf("client close counts = %#v, want one close per client", closed)
+	}
+}
+
+func TestDialAndRegisterChatClientDoesNotRetryPermanentError(t *testing.T) {
+	restoreRunHooks(t)
+	client := &gizcli.Client{}
+	done := make(chan error, 1)
+	done <- nil
+	dialAttempts := 0
+	closeAttempts := 0
+	dialClientForRun = func(config) (*gizcli.Client, <-chan error, error) {
+		dialAttempts++
+		return client, done, nil
+	}
+	registerChatClientForRun = func(context.Context, *gizcli.Client, string) error {
+		return errors.New("registration token is invalid")
+	}
+	closeChatClientForRun = func(*gizcli.Client, <-chan error) { closeAttempts++ }
+	waitChatRegistrationRetryForRun = func(context.Context, time.Duration) error {
+		t.Fatal("waited before retrying a permanent registration error")
+		return nil
+	}
+
+	_, _, err := dialAndRegisterChatClientForRun(context.Background(), config{}, "token")
+	if err == nil || !strings.Contains(err.Error(), "registration token is invalid") {
+		t.Fatalf("dialAndRegisterChatClientForRun() error = %v", err)
+	}
+	if dialAttempts != 1 || closeAttempts != 1 {
+		t.Fatalf("dial/close attempts = %d/%d, want 1/1", dialAttempts, closeAttempts)
+	}
+}
+
+func TestDialAndRegisterChatClientStopsAfterFiveTransientErrors(t *testing.T) {
+	restoreRunHooks(t)
+	dialAttempts := 0
+	closeAttempts := 0
+	waitAttempts := 0
+	dialClientForRun = func(config) (*gizcli.Client, <-chan error, error) {
+		dialAttempts++
+		done := make(chan error, 1)
+		done <- nil
+		return &gizcli.Client{}, done, nil
+	}
+	registerChatClientForRun = func(context.Context, *gizcli.Client, string) error {
+		return errors.New("abort chunk, with following errors: (User Initiated Abort: )")
+	}
+	closeChatClientForRun = func(*gizcli.Client, <-chan error) { closeAttempts++ }
+	waitChatRegistrationRetryForRun = func(context.Context, time.Duration) error {
+		waitAttempts++
+		return nil
+	}
+
+	_, _, err := dialAndRegisterChatClientForRun(context.Background(), config{}, "token")
+	if err == nil || !strings.Contains(err.Error(), "User Initiated Abort") {
+		t.Fatalf("dialAndRegisterChatClientForRun() error = %v", err)
+	}
+	if dialAttempts != 5 || closeAttempts != 5 || waitAttempts != 4 {
+		t.Fatalf("dial/close/wait attempts = %d/%d/%d, want 5/5/4", dialAttempts, closeAttempts, waitAttempts)
 	}
 }
 
@@ -1344,6 +1461,9 @@ func restoreRunHooks(t *testing.T) {
 	origTransport := newChatTransportForRun
 	origRun := runWorkspaceCaseForRun
 	origValidate := validateWorkspaceRuntimeForRun
+	origRegister := registerChatClientForRun
+	origClose := closeChatClientForRun
+	origWaitRegistrationRetry := waitChatRegistrationRetryForRun
 	t.Cleanup(func() {
 		dialClientForRun = origDial
 		ensureWorkspaceForRun = origEnsure
@@ -1351,6 +1471,9 @@ func restoreRunHooks(t *testing.T) {
 		newChatTransportForRun = origTransport
 		runWorkspaceCaseForRun = origRun
 		validateWorkspaceRuntimeForRun = origValidate
+		registerChatClientForRun = origRegister
+		closeChatClientForRun = origClose
+		waitChatRegistrationRetryForRun = origWaitRegistrationRetry
 	})
 }
 

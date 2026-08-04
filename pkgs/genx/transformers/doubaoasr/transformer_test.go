@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/mp3"
@@ -29,6 +30,7 @@ type fakeDoubaoASRSession struct {
 	sendAudio func(context.Context, []byte, bool) error
 	recvDone  chan struct{}
 	recvErr   error
+	close     func() error
 }
 
 type fakeDoubaoASROpen struct {
@@ -68,6 +70,9 @@ func TestConfigValidationDefaultsAndCopies(t *testing.T) {
 	}
 	if transformer.chunkSize != 0 || transformer.emitInterim {
 		t.Fatalf("stream defaults = %#v", transformer)
+	}
+	if transformer.finalizeTimeout != time.Minute {
+		t.Fatalf("finalize timeout = %s, want 1m", transformer.finalizeTimeout)
 	}
 
 	enabled := true
@@ -149,7 +154,69 @@ func (s *fakeDoubaoASRSession) Recv() iter.Seq2[*doubaospeech.ASRV2Result, error
 }
 
 func (s *fakeDoubaoASRSession) Close() error {
+	if s.close != nil {
+		return s.close()
+	}
 	return nil
+}
+
+func TestTransformerBoundsSilentProviderFinalization(t *testing.T) {
+	session := newFakeDoubaoASRSession()
+	session.sendAudio = func(_ context.Context, data []byte, isLast bool) error {
+		session.sends = append(session.sends, fakeDoubaoASRSend{data: slices.Clone(data), isLast: isLast})
+		return nil
+	}
+	closed := make(chan struct{})
+	session.close = func() error {
+		select {
+		case <-closed:
+		default:
+			close(closed)
+			close(session.result)
+		}
+		return nil
+	}
+	transformer := newTransformer(Config{
+		Format:         "pcm",
+		EmitInterim:    true,
+		RealtimePacing: new(false),
+	})
+	transformer.finalizeTimeout = 20 * time.Millisecond
+	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+		return session, nil
+	}
+
+	input := newBufferStream(3)
+	output, err := transformer.Transform(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if err := input.Push(&genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}},
+		Ctrl: &genx.StreamCtrl{StreamID: "silent-provider"},
+	}); err != nil {
+		t.Fatalf("push audio = %v", err)
+	}
+	started := time.Now()
+	if err := input.Push(&genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/pcm"},
+		Ctrl: &genx.StreamCtrl{StreamID: "silent-provider", EndOfStream: true},
+	}); err != nil {
+		t.Fatalf("push audio EOS = %v", err)
+	}
+
+	_, err = output.Next()
+	if err == nil || !strings.Contains(err.Error(), "doubao asr: finalization timeout after 20ms") {
+		t.Fatalf("Next() error = %v, want finalization timeout", err)
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("silent provider finalization took %s, want under 1s", elapsed)
+	}
+	select {
+	case <-closed:
+	default:
+		t.Fatal("silent provider session was not closed")
+	}
 }
 
 func TestTransformerSendsLastNonEmptyAudioFrame(t *testing.T) {

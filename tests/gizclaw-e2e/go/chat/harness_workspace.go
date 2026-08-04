@@ -34,6 +34,24 @@ var (
 	newChatTransportForRun         = newChatTransport
 	runWorkspaceCaseForRun         = (*personaDriver).runCase
 	validateWorkspaceRuntimeForRun = validateWorkspaceRuntime
+	registerChatClientForRun       = func(ctx context.Context, client *gizcli.Client, token string) error {
+		_, err := client.Register(ctx, "workspacetest.register", token)
+		return err
+	}
+	closeChatClientForRun = func(client *gizcli.Client, serveDone <-chan error) {
+		_ = client.Close()
+		<-serveDone
+	}
+	waitChatRegistrationRetryForRun = func(ctx context.Context, delay time.Duration) error {
+		timer := time.NewTimer(delay)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			return nil
+		}
+	}
 )
 
 type workspaceCase string
@@ -115,22 +133,15 @@ func runLoadedConfigWithResultAndInspect(
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.timeout)
 	defer cancel()
 
-	client, serveDone, err := dialClientForRun(cfg)
+	client, serveDone, err := dialAndRegisterChatClientForRun(ctx, cfg,
+		strings.TrimSpace(os.Getenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN")))
 	if err != nil {
 		return workspaceCaseResult{}, err
 	}
-	defer func() {
-		_ = client.Close()
-		<-serveDone
-	}()
+	defer closeChatClientForRun(client, serveDone)
 	for name, handler := range cfg.toolHandlers {
 		if err := client.HandleTool(name, handler); err != nil {
 			return workspaceCaseResult{}, fmt.Errorf("mount client Tool %q: %w", name, err)
-		}
-	}
-	if token := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN")); token != "" {
-		if _, err := client.Register(ctx, "workspacetest.register", token); err != nil {
-			return workspaceCaseResult{}, fmt.Errorf("register chat client: %w", err)
 		}
 	}
 
@@ -189,6 +200,48 @@ func runLoadedConfigWithResultAndInspect(
 		}
 	}
 	return result, nil
+}
+
+func dialAndRegisterChatClientForRun(ctx context.Context, cfg config, token string) (*gizcli.Client, <-chan error, error) {
+	const maxAttempts = 5
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		client, serveDone, err := dialClientForRun(cfg)
+		if err != nil {
+			return nil, nil, err
+		}
+		if token == "" {
+			return client, serveDone, nil
+		}
+
+		err = registerChatClientForRun(ctx, client, token)
+		retryable := isRetryableChatRegistrationError(err)
+		result := "pass"
+		if err != nil {
+			result = "fail"
+		}
+		fmt.Printf("chat_registration_attempt attempt=%d result=%s retryable=%t\n", attempt, result, retryable)
+		if err == nil {
+			return client, serveDone, nil
+		}
+
+		closeChatClientForRun(client, serveDone)
+		if !retryable || attempt == maxAttempts {
+			return nil, nil, fmt.Errorf("register chat client: %w", err)
+		}
+		if err := waitChatRegistrationRetryForRun(ctx, time.Duration(attempt)*time.Second); err != nil {
+			return nil, nil, fmt.Errorf("register chat client retry: %w", err)
+		}
+	}
+	panic("unreachable")
+}
+
+func isRetryableChatRegistrationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	text := err.Error()
+	return strings.Contains(text, "abort chunk") && strings.Contains(text, "User Initiated Abort")
 }
 
 func (c workspaceCase) applyConfig(cfg config) (config, error) {

@@ -36,25 +36,29 @@ import (
 // Note: The transformer adapts common audio containers/codecs to Doubao's
 // session format. MP3 and raw PCM input are sent through a PCM ASR session.
 type Transformer struct {
-	client         *doubaospeech.Client
-	format         string
-	sampleRate     int
-	channels       int
-	bits           int
-	language       string
-	enableITN      bool
-	enablePunc     bool
-	hotwords       []string
-	resultType     string // "single" (default) or "full"
-	resourceID     string
-	chunkSize      int
-	realtimePacing bool
-	emitInterim    bool
+	client          *doubaospeech.Client
+	format          string
+	sampleRate      int
+	channels        int
+	bits            int
+	language        string
+	enableITN       bool
+	enablePunc      bool
+	hotwords        []string
+	resultType      string // "single" (default) or "full"
+	resourceID      string
+	chunkSize       int
+	realtimePacing  bool
+	emitInterim     bool
+	finalizeTimeout time.Duration
 
 	newSession func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error)
 }
 
-const doubaoASRPacketWaitTimeout = 45000081
+const (
+	doubaoASRPacketWaitTimeout = 45000081
+	doubaoASRFinalizeTimeout   = time.Minute
+)
 
 var _ genx.Transformer = (*Transformer)(nil)
 
@@ -101,20 +105,21 @@ func New(config Config) (*Transformer, error) {
 
 func newTransformer(config Config) *Transformer {
 	t := &Transformer{
-		client:         config.Client,
-		format:         firstNonEmpty(config.Format, "pcm"),
-		sampleRate:     firstPositive(config.SampleRate, 16000),
-		channels:       firstPositive(config.Channels, 1),
-		bits:           firstPositive(config.Bits, 16),
-		language:       firstNonEmpty(config.Language, "zh-CN"),
-		enableITN:      boolValue(config.EnableITN, true),
-		enablePunc:     boolValue(config.EnablePunctuation, true),
-		hotwords:       slices.Clone(config.Hotwords),
-		resultType:     firstNonEmpty(config.ResultType, "single"),
-		emitInterim:    config.EmitInterim,
-		resourceID:     firstNonEmpty(config.ResourceID, doubaospeech.ResourceASRStream),
-		chunkSize:      config.ChunkSize,
-		realtimePacing: boolValue(config.RealtimePacing, true),
+		client:          config.Client,
+		format:          firstNonEmpty(config.Format, "pcm"),
+		sampleRate:      firstPositive(config.SampleRate, 16000),
+		channels:        firstPositive(config.Channels, 1),
+		bits:            firstPositive(config.Bits, 16),
+		language:        firstNonEmpty(config.Language, "zh-CN"),
+		enableITN:       boolValue(config.EnableITN, true),
+		enablePunc:      boolValue(config.EnablePunctuation, true),
+		hotwords:        slices.Clone(config.Hotwords),
+		resultType:      firstNonEmpty(config.ResultType, "single"),
+		emitInterim:     config.EmitInterim,
+		resourceID:      firstNonEmpty(config.ResourceID, doubaospeech.ResourceASRStream),
+		chunkSize:       config.ChunkSize,
+		realtimePacing:  boolValue(config.RealtimePacing, true),
+		finalizeTimeout: doubaoASRFinalizeTimeout,
 	}
 	return t
 }
@@ -227,9 +232,11 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		resultsForwarded = make(chan struct{})
 		go t.receiveResults(session, sessionSourceChunk, sessionRoute, historyAudio, resultsCh, resultsDone)
 		// Forward results to output as they arrive
+		forwarded := resultsForwarded
+		resultStream := resultsCh
 		go func() {
-			defer close(resultsForwarded)
-			for chunk := range resultsCh {
+			defer close(forwarded)
+			for chunk := range resultStream {
 				output.Push(chunk)
 			}
 		}()
@@ -322,9 +329,31 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			clearSession()
 			return err
 		}
-		err := <-resultsDone
-		<-resultsForwarded
-		clearSession()
+		var err error
+		timer := time.NewTimer(t.finalizeTimeout)
+		select {
+		case err = <-resultsDone:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			<-resultsForwarded
+			clearSession()
+		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			clearSession()
+			return ctx.Err()
+		case <-timer.C:
+			clearSession()
+			return fmt.Errorf("doubao asr: finalization timeout after %s", t.finalizeTimeout)
+		}
 		if t.emitInterim && isRecoverableRealtimeSessionError(err) {
 			return nil
 		}

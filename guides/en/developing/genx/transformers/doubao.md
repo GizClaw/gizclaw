@@ -32,9 +32,11 @@ Each Transformer's typed Config defines stable configuration, while the context 
 
 When a Doubao ASR provider session completes normally without non-whitespace final result text or definite utterance text, `doubaoasr.Transformer` completes that recognition successfully without emitting recognized transcript text. A zero-content terminal chunk required by the existing Stream route remains a successful internal boundary rather than recognized user text.
 
+After an explicit audio EOS, `doubaoasr.Transformer` waits at most one minute for provider finalization. If the provider remains silent, the transformer closes that provider session and terminates the output stream with a `doubao asr: finalization timeout` error instead of inheriting the caller's longer lifecycle deadline.
+
 An interim transcript route that never receives a definite result remains an error. Provider, protocol, cancellation, interrupted-input, malformed-audio, unsupported-format failures, and timeouts other than the exception below retain their normal error propagation.
 
-Continuous ASR with `EmitInterim` treats local audio BOS/EOS only as route boundaries. It sends every audio frame immediately as a non-final packet to the current healthy SAUC session; only outer input EOF sends the terminal marker. A newly opened transcript is bound to the current local audio route, so changing the route does not require replacing the provider session. When an idle SAUC session returns the packet-wait timeout, the transformer reclaims only that completed provider session, keeps the outer Transformer stream open, and creates a replacement session for the next audio frame. Other provider errors still terminate the outer stream.
+Continuous ASR with `EmitInterim` sends every audio frame immediately as a non-final packet to the current healthy SAUC session. An explicit audio EOS sends the terminal marker, finishes that provider session, and leaves the outer Transformer stream open; the next audio route creates a replacement session and binds its transcript independently. A provider packet-wait timeout while finalizing is the expected recoverable post-route boundary. Other provider errors and the one-minute local finalization timeout terminate the outer stream.
 
 ## AST Translate input modes
 

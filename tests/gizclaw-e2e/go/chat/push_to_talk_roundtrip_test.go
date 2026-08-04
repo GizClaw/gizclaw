@@ -326,6 +326,7 @@ func isRetryableLiveWorkspaceError(err error) bool {
 		strings.Contains(text, "stream idle timeout") ||
 		strings.Contains(text, "audiodock: TTS completion timeout") ||
 		strings.Contains(text, "doubao realtime: response idle timeout") ||
+		strings.Contains(text, "doubao asr: finalization timeout") ||
 		strings.Contains(text, "doubao ast translate: realtime session completion timeout") ||
 		strings.Contains(text, "doubaospeech: sami error") ||
 		isRetryableSpeechServiceConnectionClosure(text) ||
