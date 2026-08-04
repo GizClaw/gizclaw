@@ -284,13 +284,17 @@ func TestCloseServiceClosesQueuedAndActiveStreams(t *testing.T) {
 	}
 	queuedRaw := &fakeStreamRaw{}
 	queued := newDataChannelConn(queuedRaw, nil, addr("local"), addr("remote"))
-	conn.trackStream(42, queued)
+	if err := conn.trackStream(42, queued); err != nil {
+		t.Fatalf("track queued stream: %v", err)
+	}
 	if err := serviceListener.enqueue(queued); err != nil {
 		t.Fatalf("enqueue queued stream: %v", err)
 	}
 	activeRaw := &fakeStreamRaw{}
 	active := newDataChannelConn(activeRaw, nil, addr("local"), addr("remote"))
-	conn.trackStream(42, active)
+	if err := conn.trackStream(42, active); err != nil {
+		t.Fatalf("track active stream: %v", err)
+	}
 
 	if err := conn.CloseService(42); err != nil {
 		t.Fatalf("CloseService error = %v", err)
@@ -300,6 +304,60 @@ func TestCloseServiceClosesQueuedAndActiveStreams(t *testing.T) {
 	}
 	if !queuedRaw.closed || !activeRaw.closed {
 		t.Fatalf("queued/active raw closed = %t/%t, want both true", queuedRaw.closed, activeRaw.closed)
+	}
+}
+
+func TestClosedStreamsDoNotAccumulate(t *testing.T) {
+	conn := &Conn{
+		streams:   make(map[uint64]map[*dataChannelConn]struct{}),
+		closedSvc: make(map[uint64]bool),
+		closeCh:   make(chan struct{}),
+	}
+	for index := range 10_000 {
+		stream := newDataChannelConn(&fakeStreamRaw{}, nil, addr("local"), addr("remote"))
+		if err := conn.trackStream(42, stream); err != nil {
+			t.Fatalf("track stream %d: %v", index, err)
+		}
+		if len(conn.streams[42]) != 1 {
+			t.Fatalf("tracked streams after %d opens = %d, want 1", index+1, len(conn.streams[42]))
+		}
+		if err := stream.Close(); err != nil {
+			t.Fatalf("close stream %d: %v", index, err)
+		}
+		if _, ok := conn.streams[42]; ok {
+			t.Fatalf("closed stream service registry was retained after %d closes", index+1)
+		}
+	}
+}
+
+func TestTrackStreamRejectsClosedOwner(t *testing.T) {
+	conn := &Conn{
+		streams:   make(map[uint64]map[*dataChannelConn]struct{}),
+		closedSvc: make(map[uint64]bool),
+		closeCh:   make(chan struct{}),
+	}
+	conn.closed.Store(true)
+	stream := newDataChannelConn(&fakeStreamRaw{}, nil, addr("local"), addr("remote"))
+	if err := conn.trackStream(42, stream); !errors.Is(err, giznet.ErrConnClosed) {
+		t.Fatalf("track stream error = %v, want %v", err, giznet.ErrConnClosed)
+	}
+	if len(conn.streams) != 0 {
+		t.Fatalf("tracked services = %d, want 0", len(conn.streams))
+	}
+}
+
+func TestTrackStreamRejectsClosedService(t *testing.T) {
+	conn := &Conn{
+		streams:   make(map[uint64]map[*dataChannelConn]struct{}),
+		closedSvc: map[uint64]bool{42: true},
+		closeCh:   make(chan struct{}),
+	}
+	stream := newDataChannelConn(&fakeStreamRaw{}, nil, addr("local"), addr("remote"))
+	if err := conn.trackStream(42, stream); !errors.Is(err, giznet.ErrServiceMuxClosed) {
+		t.Fatalf("track stream error = %v, want %v", err, giznet.ErrServiceMuxClosed)
+	}
+	if len(conn.streams) != 0 {
+		t.Fatalf("tracked services = %d, want 0", len(conn.streams))
 	}
 }
 

@@ -73,6 +73,13 @@ PeerConnection. A pre-open DataChannel close or error returns
 `giznet.ErrConnClosed`. The existing `Dial` method remains a compatibility
 wrapper with a ten-second service-open bound.
 
+Every open service DataChannel is registered against its logical service until
+the corresponding `net.Conn` closes. Closing the stream removes it immediately,
+and closing a service or parent connection closes a snapshot outside the
+registry lock. Repeated short-lived RPC streams therefore do not accumulate in
+the parent WebRTC connection, while service and parent shutdown still reject
+new streams and close every stream that remains live.
+
 General public client associations retain Pion's default SCTP receive window.
 An Edge gateway gives at most 64 currently admitted client associations a 4
 MiB burst window, limiting burst-profile receive credit to 256 MiB per Edge;

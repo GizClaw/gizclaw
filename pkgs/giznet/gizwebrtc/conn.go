@@ -233,7 +233,11 @@ func (c *Conn) DialContext(ctx context.Context, service uint64) (net.Conn, error
 	stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
 	stream.rx = &c.rxBytes
 	stream.tx = &c.txBytes
-	c.trackStream(service, stream)
+	if err := c.trackStream(service, stream); err != nil {
+		_ = stream.Close()
+		_ = dc.Close()
+		return nil, err
+	}
 	return stream, nil
 }
 
@@ -264,15 +268,16 @@ func (c *Conn) CloseService(service uint64) error {
 	}
 	c.serviceMu.Lock()
 	c.closedSvc[service] = true
-	if l := c.services[service]; l != nil {
-		_ = l.Close()
-	}
+	listener := c.services[service]
 	streams := make([]*dataChannelConn, 0, len(c.streams[service]))
 	for s := range c.streams[service] {
 		streams = append(streams, s)
 	}
 	delete(c.streams, service)
 	c.serviceMu.Unlock()
+	if listener != nil {
+		_ = listener.Close()
+	}
 	for _, s := range streams {
 		_ = s.Close()
 	}
@@ -362,8 +367,9 @@ func (c *Conn) closeWithError(cause error) error {
 		c.closed.Store(true)
 		close(c.closeCh)
 		c.serviceMu.Lock()
-		for _, l := range c.services {
-			_ = l.Close()
+		listeners := make([]*ServiceListener, 0, len(c.services))
+		for _, listener := range c.services {
+			listeners = append(listeners, listener)
 		}
 		var streams []*dataChannelConn
 		for _, serviceStreams := range c.streams {
@@ -373,6 +379,9 @@ func (c *Conn) closeWithError(cause error) error {
 		}
 		c.streams = make(map[uint64]map[*dataChannelConn]struct{})
 		c.serviceMu.Unlock()
+		for _, listener := range listeners {
+			_ = listener.Close()
+		}
 		for _, s := range streams {
 			_ = s.Close()
 		}
@@ -462,7 +471,11 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 		stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
 		stream.rx = &c.rxBytes
 		stream.tx = &c.txBytes
-		c.trackStream(service, stream)
+		if err := c.trackStream(service, stream); err != nil {
+			release()
+			_ = stream.Close()
+			return
+		}
 		if c.acceptAll.Load() {
 			select {
 			case c.serviceCh <- acceptedService{service: service, stream: stream}:
@@ -554,13 +567,30 @@ func (c *Conn) enqueuePacket(pkt directPacket) {
 	}
 }
 
-func (c *Conn) trackStream(service uint64, s *dataChannelConn) {
+func (c *Conn) trackStream(service uint64, s *dataChannelConn) error {
 	c.serviceMu.Lock()
 	defer c.serviceMu.Unlock()
+	if c.closed.Load() {
+		return c.parentCloseError()
+	}
+	if c.closedSvc[service] {
+		return giznet.ErrServiceMuxClosed
+	}
 	if c.streams[service] == nil {
 		c.streams[service] = make(map[*dataChannelConn]struct{})
 	}
+	s.onClose = func() { c.untrackStream(service, s) }
 	c.streams[service][s] = struct{}{}
+	return nil
+}
+
+func (c *Conn) untrackStream(service uint64, s *dataChannelConn) {
+	c.serviceMu.Lock()
+	defer c.serviceMu.Unlock()
+	delete(c.streams[service], s)
+	if len(c.streams[service]) == 0 {
+		delete(c.streams, service)
+	}
 }
 
 func (c *Conn) writeOpus(payload []byte) (int, error) {

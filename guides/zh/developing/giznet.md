@@ -66,6 +66,12 @@ Coturn relay path。它仍只是本机 Docker transport 诊断，不是 producti
 或 error 时返回 `gizwebrtc.ErrServiceOpen`，父连接关闭仍匹配 `giznet.ErrConnClosed`。原有
 `Dial` 保持为十秒 service-open 上限的兼容 wrapper。
 
+每条已打开的 service DataChannel 都会登记在对应 logical service 下，直到相应的 `net.Conn`
+关闭。Stream 关闭时会立即解除登记；service 或父连接关闭时，则在 registry lock 外关闭已
+截取的 listener 与 stream snapshot。因此反复创建的短生命周期 RPC stream 不会在父
+WebRTC connection 中累积，同时 service 与父连接 shutdown 仍会拒绝新 stream，并关闭所有
+仍存活的 stream。
+
 普通 public client association 保留 Pion 默认 SCTP receive window。Edge gateway 最多为
 当前已准入的 64 条 client association 提供 4 MiB burst window，把每个 Edge 的 burst
 profile receive credit 限制在 256 MiB；额度释放前，后续 association 仍使用默认窗口。独立的

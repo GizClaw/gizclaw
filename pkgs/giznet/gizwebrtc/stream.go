@@ -44,6 +44,7 @@ type dataChannelConn struct {
 	closeCh   chan struct{}
 	closeOnce sync.Once
 	closed    atomic.Bool
+	onClose   func()
 }
 
 func newDataChannelConn(raw datachannel.ReadWriteCloserDeadliner, flow dataChannelFlow, local, remote net.Addr) *dataChannelConn {
@@ -191,6 +192,9 @@ func (c *dataChannelConn) Close() error {
 		close(c.closeCh)
 		c.signalBufferedAmountLow()
 		err = c.raw.Close()
+		if c.onClose != nil {
+			c.onClose()
+		}
 	})
 	return err
 }
