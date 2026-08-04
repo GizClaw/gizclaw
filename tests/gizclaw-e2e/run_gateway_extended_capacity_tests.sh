@@ -13,6 +13,7 @@ runtime_state=""
 coturn_monitor_pid=""
 coturn_monitor_stop=""
 gateway_gomaxprocs="${GIZCLAW_E2E_GATEWAY_GOMAXPROCS:-8}"
+gateway_gogc="${GIZCLAW_E2E_GATEWAY_GOGC:-100}"
 gateway_dial_timeout="${GIZCLAW_E2E_GATEWAY_DIAL_TIMEOUT:-20s}"
 gateway_ping_timeout="${GIZCLAW_E2E_GATEWAY_PING_TIMEOUT:-28s}"
 gateway_speed_bytes="${GIZCLAW_E2E_GATEWAY_SPEED_BYTES:-0}"
@@ -304,7 +305,7 @@ run_case() {
   # Leave reliable SCTP most of the 30-second round to recover while keeping
   # a two-second margin for artifact aggregation and the round deadline.
   set +e
-  (cd "$repo_root" && GOMAXPROCS="$gateway_gomaxprocs" "$gateway_bin" \
+  (cd "$repo_root" && GOGC="$gateway_gogc" GOMAXPROCS="$gateway_gomaxprocs" "$gateway_bin" \
     -edges "$capacity_edge_endpoint,$capacity_edge2_endpoint" \
     -signaling-base-from-edge \
     -sessions "$sessions" \

@@ -12,6 +12,7 @@ export GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH="$gateway_upstream_path"
 export GIZCLAW_E2E_GATEWAY_EXTENDED_ARTIFACT_DIR="${GIZCLAW_E2E_GATEWAY_100_ARTIFACT_DIR:-$script_dir/testdata/gateway-capacity-extended/$gateway_upstream_path/sessions-100-burst}"
 gateway_gomaxprocs="$(getconf _NPROCESSORS_ONLN)"
 export GIZCLAW_E2E_GATEWAY_GOMAXPROCS="$gateway_gomaxprocs"
+export GIZCLAW_E2E_GATEWAY_GOGC=100
 export GIZCLAW_E2E_GATEWAY_DIAL_TIMEOUT=20s
 export GIZCLAW_E2E_GATEWAY_PING_TIMEOUT=28s
 export GIZCLAW_E2E_GATEWAY_SPEED_BYTES=1048576

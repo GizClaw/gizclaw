@@ -239,7 +239,9 @@ Burst 入口要求 clean head，并在三个全新的 one-Server/two-Edge/two-Co
 1,000 个 live session 30 秒，执行 final liveness 后有界清理。每台 Edge 必须通过四条
 gateway upstream 恰好承载 500 个 session；establishment、每方向精确 1 GiB application
 transfer、200 Mbps aggregate、timing、resource、relay selection、十条 allocation、restart
-与 cleanup gate 均沿用较小档位的固定 contract。
+与 cleanup gate 均沿用较小档位的固定 contract。Load driver 固定并记录 `GOGC=200`，
+因为 1,000-way client heap 的默认 GC 会增加实测 tail latency；这个参数不改变 Edge、
+Server 或 Coturn 的 runtime behavior。
 
 Soak 入口先在同一个 clean head 上重跑全部三轮 burst，再用一个新 stack 以相同 zero-ramp
 方式建立 1,000 个 session 并保持 60 分钟。完整 liveness round 每 30 秒开始一次；独立的

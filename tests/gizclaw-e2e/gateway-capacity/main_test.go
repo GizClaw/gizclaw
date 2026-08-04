@@ -119,6 +119,17 @@ func TestNonNegativeFinite(t *testing.T) {
 	}
 }
 
+func TestEffectiveGOGC(t *testing.T) {
+	t.Setenv("GOGC", "")
+	if got := effectiveGOGC(); got != "100" {
+		t.Fatalf("effectiveGOGC() = %q, want default 100", got)
+	}
+	t.Setenv("GOGC", " 200 ")
+	if got := effectiveGOGC(); got != "200" {
+		t.Fatalf("effectiveGOGC() = %q, want 200", got)
+	}
+}
+
 func TestSummarizeSpeedRunUsesSharedWallClock(t *testing.T) {
 	const bytesPerSession = int64(1_000_000)
 	sessions := []*liveSession{
@@ -317,6 +328,8 @@ func TestInitialWorkloadErrorRejectsFailedBurstGate(t *testing.T) {
 	}
 	if err := initialWorkloadError(state, opts); err == nil {
 		t.Fatal("initialWorkloadError accepted failed download gate")
+	} else if !strings.Contains(err.Error(), "download_passed=false") || len(state.errors) != 1 {
+		t.Fatalf("initialWorkloadError = %v, state errors = %v", err, state.errors)
 	}
 	state.speedTest.Download.Passed = true
 	if err := initialWorkloadError(state, opts); err != nil {

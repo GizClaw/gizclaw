@@ -190,8 +190,13 @@ the clean final PR head.
 The dedicated 1,000-session burst entrypoint fixes relay-only upstreams, a
 clean repository head, three fresh stacks, zero ramp, concurrency 1,000, a
 30-second hold, and exactly 500 sessions per Edge across four gateway
-upstreams. Each run retains the 20 sessions/s, Dial p95/p99, exact 1 MiB per
-session and direction, and 200 Mbps gates. A final liveness round runs after
+upstreams. The load driver uses `GOGC=200` and records that value with
+`GOMAXPROCS` in the artifact. This measured harness setting prevents the
+roughly 2 GiB client heap from injecting default-GC tail latency into the
+simultaneous Dial result; it does not change production processes, pacing,
+timeouts, or the release barrier. Each run retains the 20 sessions/s, Dial
+p95/p99, exact 1 MiB per session and direction, and 200 Mbps gates. A final
+liveness round runs after
 the hold. Logical-session close and Serve completion must finish within 30
 seconds, and stopping both Edges must return the fixed ten Coturn allocations
 to zero within 15 seconds. Source-qualified Coturn counters are sampled once
@@ -218,7 +223,9 @@ cleanup.
 The 100- and 500-session burst runners preserve their accepted payloads and
 gates but now use that relay-only upstream topology. Existing workload fields
 remain stable; extended artifact version 11 adds optional final-speed retention
-evidence plus mandatory bounded-cleanup evidence. A sibling `*-coturn.json`
+evidence plus mandatory bounded-cleanup evidence. Extended artifact version
+12 additionally records the load driver's effective `GOGC`; the 100- and
+500-session entrypoints explicitly retain `GOGC=100`. A sibling `*-coturn.json`
 artifact records each Coturn
 member's one-second live allocation and traffic samples, finished-session byte
 counters, traffic delta, and the bounded return to zero after both Edge

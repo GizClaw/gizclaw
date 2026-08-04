@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const extendedArtifactVersion = 11
+const extendedArtifactVersion = 12
 
 var dockerRolePIDFiles = map[string]string{
 	"coturn-a": "/tmp/gizclaw-coturn.pid",

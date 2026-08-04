@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	artifactVersion = 10
+	artifactVersion = 11
 	maxSpeedBytes   = int64(1 << 30)
 )
 
@@ -120,6 +120,7 @@ type hostSummary struct {
 	GoVersion  string `json:"go_version"`
 	LogicalCPU int    `json:"logical_cpu"`
 	GOMAXPROCS int    `json:"go_max_procs"`
+	GOGC       string `json:"go_gc"`
 }
 
 type artifactConfig struct {
@@ -660,7 +661,7 @@ func run(ctx context.Context, opts options) (artifact, error) {
 		Host: hostSummary{
 			GOOS: runtime.GOOS, GOARCH: runtime.GOARCH,
 			GoVersion: runtime.Version(), LogicalCPU: runtime.NumCPU(),
-			GOMAXPROCS: runtime.GOMAXPROCS(0),
+			GOMAXPROCS: runtime.GOMAXPROCS(0), GOGC: effectiveGOGC(),
 		},
 		Config: artifactConfig{
 			Edges: opts.edges, SignalingBaseFromEdge: opts.signalingBaseFromEdge,
@@ -757,6 +758,14 @@ func run(ctx context.Context, opts options) (artifact, error) {
 	return final, acceptanceError(final, opts)
 }
 
+func effectiveGOGC() string {
+	value := strings.TrimSpace(os.Getenv("GOGC"))
+	if value == "" {
+		return "100"
+	}
+	return value
+}
+
 func initialWorkloadError(state *resultState, opts options) error {
 	state.mu.Lock()
 	defer state.mu.Unlock()
@@ -799,7 +808,21 @@ func initialWorkloadError(state *resultState, opts options) error {
 	if passed {
 		return nil
 	}
-	return errors.New("initial burst gates failed; hold was not started")
+	failure := fmt.Sprintf(
+		"initial burst gates failed; hold was not started: established=%d/%d rate=%.2f sessions/s dial_p95=%.2fms dial_p99=%.2fms ping_failures=%d disconnects=%d crossover=%t upload_passed=%t download_passed=%t",
+		report.Established,
+		opts.sessions,
+		report.Establishment.UsableSessionsPerSecond,
+		report.Establishment.Dial.P95,
+		report.Establishment.Dial.P99,
+		report.PingFailures,
+		report.UnexpectedDisconnects,
+		report.IdentityCrossover,
+		report.SpeedTest.Upload.Passed,
+		report.SpeedTest.Download.Passed,
+	)
+	state.appendErrorLocked(failure)
+	return errors.New(failure)
 }
 
 func holdSessions(ctx context.Context, state *resultState, opts options, sem chan struct{}) error {

@@ -243,7 +243,7 @@ func syntheticExtendedRun(
 	run := artifact{
 		Version: extendedArtifactVersion,
 		Host: hostSummary{
-			GOOS: "test", GOARCH: "arm64", GoVersion: "go-test", LogicalCPU: 100_000, GOMAXPROCS: 8,
+			GOOS: "test", GOARCH: "arm64", GoVersion: "go-test", LogicalCPU: 100_000, GOMAXPROCS: 8, GOGC: "100",
 		},
 		Config: artifactConfig{
 			Edges: []string{"edge-a", "edge-b"}, Sessions: sessions, Ramp: ramp,
