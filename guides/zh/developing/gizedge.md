@@ -227,6 +227,29 @@ failure 和 unexpected disconnect 均为 0，并且每个方向精确传输 500 
 不代表 1,000 sessions、soak 或部署网络已经通过。1,000-session 重复运行、长时间 soak、各进程资源斜率和
 30,000-session 理论推算仍属于独立的扩展容量验收。
 
+固定的 relay-only 1,000-session burst 与 soak 入口为：
+
+```bash
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_soak_tests.sh
+```
+
+Burst 入口要求 clean head，并在三个全新的 one-Server/two-Edge/two-Coturn stack 上重复。
+每轮通过同一个 barrier、concurrency 1,000、zero ramp 同时释放 1,000 个 Dial，保持全部
+1,000 个 live session 30 秒，执行 final liveness 后有界清理。每台 Edge 必须通过四条
+gateway upstream 恰好承载 500 个 session；establishment、每方向精确 1 GiB application
+transfer、200 Mbps aggregate、timing、resource、relay selection、十条 allocation、restart
+与 cleanup gate 均沿用较小档位的固定 contract。
+
+Soak 入口先在同一个 clean head 上重跑全部三轮 burst，再用一个新 stack 以相同 zero-ramp
+方式建立 1,000 个 session 并保持 60 分钟。完整 liveness round 每 30 秒开始一次；独立的
+initial/final upload 与 download checkpoint 均对每 session 精确传输 1 MiB、达到至少
+200 Mbps，并要求 final aggregate 保留 initial 的至少 80%。Logical-session cleanup 上限为
+30 秒；Edge 存活期间按一秒间隔读取 source-qualified Coturn counter，要求十条 physical
+TURN allocation 始终保持存在，Edge 关闭后必须在 15 秒内归零。这些命令只验收 artifact
+记录的 host、Docker engine、clean commit 与 topology，不是 30,000-session 或 WAN
+guarantee。
+
 `max-upstreams` 是容量上限，不是应立即铺满的吞吐目标。单 association 会把大型并发
 burst 串行化；一次打开全部 slot 又会同时支付多条 SCTP 冷启动和拥塞恢复成本。默认的
 4-association 有界 warm pool 来自本机 100-session burst 的实测；更高 session 数的任务

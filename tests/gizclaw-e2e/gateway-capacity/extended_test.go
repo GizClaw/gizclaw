@@ -53,6 +53,27 @@ func TestValidateOptionsKeepsPingTimeoutInsideRoundBudget(t *testing.T) {
 	}
 }
 
+func TestValidateOptionsRequiresCompleteFinalSpeedContract(t *testing.T) {
+	opts := validOptionsForTest()
+	opts.minFinalSpeedRetention = 0.8
+	if err := validateOptions(opts); err == nil || !strings.Contains(err.Error(), "requires -soak") {
+		t.Fatalf("validateOptions error = %v, want soak requirement", err)
+	}
+	opts.soak = true
+	opts.duration = time.Hour
+	if err := validateOptions(opts); err == nil || !strings.Contains(err.Error(), "positive -speed-bytes") {
+		t.Fatalf("validateOptions error = %v, want speed requirement", err)
+	}
+	opts.speedBytes = 1 << 20
+	if err := validateOptions(opts); err != nil {
+		t.Fatalf("validateOptions = %v", err)
+	}
+	opts.cleanupTimeout = 0
+	if err := validateOptions(opts); err == nil || !strings.Contains(err.Error(), "cleanup-timeout") {
+		t.Fatalf("validateOptions error = %v, want cleanup timeout requirement", err)
+	}
+}
+
 func TestParseDockerProcessSample(t *testing.T) {
 	at := time.Unix(10, 0)
 	got, err := parseDockerProcessSample("10000000000 123 5 4096 30 10 100 7 999 1024 8 9 1000 2000")
@@ -311,6 +332,6 @@ func validOptionsForTest() options {
 		edges: []string{"edge"}, sessions: 1,
 		pingInterval: time.Second, dialTimeout: time.Second,
 		pingTimeout: time.Second, speedTimeout: time.Second,
-		concurrency: 1, artifactPath: "artifact.json",
+		concurrency: 1, artifactPath: "artifact.json", cleanupTimeout: time.Second,
 	}
 }

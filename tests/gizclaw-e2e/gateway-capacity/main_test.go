@@ -223,6 +223,7 @@ func TestMeasureSpeedDirectionStartsConcurrentRunTogether(t *testing.T) {
 		time.Second,
 		0,
 		0,
+		"test",
 	)
 	if entered.Load() != sessionCount {
 		t.Fatalf("concurrent starts = %d, want %d", entered.Load(), sessionCount)
@@ -251,6 +252,111 @@ func TestSpeedDirectionPassedRequiresRetentionAndAbsoluteFloor(t *testing.T) {
 	summary.Concurrent.AggregateMbps = 200
 	if !speedDirectionPassed(summary, 0.8, 200) {
 		t.Fatal("speedDirectionPassed rejected both thresholds at their configured floors")
+	}
+}
+
+func TestSummarizeSpeedRetentionRequiresBothDirections(t *testing.T) {
+	initial := speedTestSummary{
+		Upload:   speedDirectionSummary{Concurrent: speedRunSummary{AggregateMbps: 250}},
+		Download: speedDirectionSummary{Concurrent: speedRunSummary{AggregateMbps: 300}},
+	}
+	final := speedTestSummary{
+		Upload:   speedDirectionSummary{Concurrent: speedRunSummary{AggregateMbps: 200}, Passed: true},
+		Download: speedDirectionSummary{Concurrent: speedRunSummary{AggregateMbps: 240}, Passed: true},
+	}
+	got := summarizeSpeedRetention(initial, final, 0.8)
+	if !got.Passed || got.UploadRatio != 0.8 || got.DownloadRatio != 0.8 {
+		t.Fatalf("speed retention = %+v", got)
+	}
+	final.Download.Concurrent.AggregateMbps = 239
+	if got := summarizeSpeedRetention(initial, final, 0.8); got.Passed {
+		t.Fatalf("speed retention accepted download ratio %+v", got)
+	}
+	final.Download.Concurrent.AggregateMbps = 240
+	final.Download.Passed = false
+	if got := summarizeSpeedRetention(initial, final, 0.8); got.Passed {
+		t.Fatalf("speed retention accepted failed final checkpoint %+v", got)
+	}
+}
+
+func TestHoldSessionsRecordsFinalRoundWithoutDeadlineOverlap(t *testing.T) {
+	state := &resultState{}
+	opts := options{
+		duration:     12 * time.Millisecond,
+		pingInterval: 5 * time.Millisecond,
+		pingTimeout:  time.Millisecond,
+		concurrency:  1,
+	}
+	if err := holdSessions(t.Context(), state, opts, make(chan struct{}, 1)); err != nil {
+		t.Fatal(err)
+	}
+	if len(state.pingRounds) != 3 {
+		t.Fatalf("ping rounds = %+v, want two hold and one final", state.pingRounds)
+	}
+	if state.pingRounds[0].Phase != "hold" || state.pingRounds[1].Phase != "hold" ||
+		state.pingRounds[2].Phase != "final" {
+		t.Fatalf("ping phases = %+v", state.pingRounds)
+	}
+}
+
+func TestInitialWorkloadErrorRejectsFailedBurstGate(t *testing.T) {
+	state := &resultState{
+		sessions:             []*liveSession{{}},
+		edgeDistribution:     map[string]int{"edge": 1},
+		upstreamDistribution: map[string]map[string]int{"edge": {"upstream": 1}},
+		speedTest: speedTestSummary{
+			Upload:   speedDirectionSummary{Passed: true},
+			Download: speedDirectionSummary{Passed: false},
+		},
+	}
+	opts := options{
+		edges:                    []string{"edge"},
+		sessions:                 1,
+		speedBytes:               1,
+		requiredUpstreamsPerEdge: 1,
+	}
+	if err := initialWorkloadError(state, opts); err == nil {
+		t.Fatal("initialWorkloadError accepted failed download gate")
+	}
+	state.speedTest.Download.Passed = true
+	if err := initialWorkloadError(state, opts); err != nil {
+		t.Fatalf("initialWorkloadError = %v", err)
+	}
+}
+
+func TestCloseSessionsReportsFailureAndIsIdempotent(t *testing.T) {
+	state := &resultState{sessions: []*liveSession{{
+		closeFn: func() error { return errors.New("close failed") },
+	}}}
+	first := closeSessions(state, time.Second)
+	second := closeSessions(state, time.Second)
+	if first.CloseFailures != 1 || first.TimedOut || !first.ServeCompleted || len(first.Errors) != 1 {
+		t.Fatalf("cleanup summary = %+v", first)
+	}
+	if second.CloseFailures != first.CloseFailures || second.StartedAt != first.StartedAt {
+		t.Fatalf("idempotent cleanup = first %+v second %+v", first, second)
+	}
+}
+
+func TestCloseSessionsTimesOut(t *testing.T) {
+	release := make(chan struct{})
+	completed := make(chan struct{})
+	state := &resultState{sessions: []*liveSession{{
+		closeFn: func() error {
+			<-release
+			close(completed)
+			return nil
+		},
+	}}}
+	got := closeSessions(state, time.Millisecond)
+	close(release)
+	if !got.TimedOut || got.ServeCompleted || len(got.Errors) != 1 {
+		t.Fatalf("cleanup timeout = %+v", got)
+	}
+	select {
+	case <-completed:
+	case <-time.After(time.Second):
+		t.Fatal("timed-out cleanup goroutine did not finish")
 	}
 }
 
@@ -351,10 +457,11 @@ func TestEstablishSessionsClosesEstablishedSessionsWhenRampIsCanceled(t *testing
 		upstreamDistribution: make(map[string]map[string]int),
 	}
 	opts := options{
-		sessions:    2,
-		ramp:        time.Hour,
-		dialTimeout: time.Second,
-		concurrency: 1,
+		sessions:       2,
+		ramp:           time.Hour,
+		dialTimeout:    time.Second,
+		concurrency:    1,
+		cleanupTimeout: time.Second,
 	}
 	attempts := 0
 	err := establishSessions(

@@ -10,6 +10,8 @@ artifact_base="${GIZCLAW_E2E_GATEWAY_EXTENDED_ARTIFACT_DIR:-$artifact_root}"
 run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 current_env=""
 runtime_state=""
+coturn_monitor_pid=""
+coturn_monitor_stop=""
 gateway_gomaxprocs="${GIZCLAW_E2E_GATEWAY_GOMAXPROCS:-8}"
 gateway_dial_timeout="${GIZCLAW_E2E_GATEWAY_DIAL_TIMEOUT:-20s}"
 gateway_ping_timeout="${GIZCLAW_E2E_GATEWAY_PING_TIMEOUT:-28s}"
@@ -19,6 +21,7 @@ gateway_speed_timeout="${GIZCLAW_E2E_GATEWAY_SPEED_TIMEOUT:-2m}"
 gateway_min_speed_aggregate_ratio="${GIZCLAW_E2E_GATEWAY_MIN_SPEED_AGGREGATE_RATIO:-0}"
 gateway_min_upload_aggregate_mbps="${GIZCLAW_E2E_GATEWAY_MIN_UPLOAD_AGGREGATE_MBPS:-0}"
 gateway_min_download_aggregate_mbps="${GIZCLAW_E2E_GATEWAY_MIN_DOWNLOAD_AGGREGATE_MBPS:-0}"
+gateway_min_final_speed_retention="${GIZCLAW_E2E_GATEWAY_MIN_FINAL_SPEED_RETENTION:-0}"
 gateway_min_establishment_rate="${GIZCLAW_E2E_GATEWAY_MIN_ESTABLISHMENT_RATE:-0}"
 gateway_max_dial_p95="${GIZCLAW_E2E_GATEWAY_MAX_DIAL_P95:-0}"
 gateway_max_dial_p99="${GIZCLAW_E2E_GATEWAY_MAX_DIAL_P99:-0}"
@@ -26,6 +29,7 @@ gateway_concurrency="${GIZCLAW_E2E_GATEWAY_CONCURRENCY:-512}"
 gateway_required_upstreams_per_edge="${GIZCLAW_E2E_GATEWAY_REQUIRED_UPSTREAMS_PER_EDGE:-4}"
 gateway_upstream_path="${GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH:-relay}"
 gateway_prebuilt="${GIZCLAW_E2E_GATEWAY_PREBUILT:-0}"
+gateway_cleanup_timeout="${GIZCLAW_E2E_GATEWAY_CLEANUP_TIMEOUT:-30s}"
 case "$gateway_upstream_path" in
   direct | relay) ;;
   *)
@@ -78,6 +82,10 @@ cleanup_current() {
 
 cleanup_on_exit() {
   local status="$?"
+  if ! stop_coturn_monitor; then
+    echo "failed to stop the active Coturn allocation monitor" >&2
+    status=1
+  fi
   if ! cleanup_current; then
     echo "failed to clean the active gateway-capacity Docker project; env=$current_env" >&2
     status=1
@@ -138,6 +146,57 @@ numeric_sum() {
 
 numeric_greater() {
   awk -v value="$1" -v baseline="$2" 'BEGIN { exit !(value > baseline) }'
+}
+
+monitor_coturn_allocations() {
+  local expected="$1"
+  local output="$2"
+  local stop_file="$3"
+  local sampled_at a_alloc a_recv a_sent b_alloc b_recv b_sent total
+  : >"$output"
+  while [[ ! -e "$stop_file" ]]; do
+    sampled_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if ! read -r a_alloc a_recv a_sent < <(read_coturn_metrics coturn-a) ||
+      ! read -r b_alloc b_recv b_sent < <(read_coturn_metrics coturn-b); then
+      echo "failed to sample live Coturn allocations at $sampled_at" >&2
+      return 1
+    fi
+    total="$(numeric_sum "$a_alloc" "$b_alloc")"
+    jq -cn \
+      --arg sampled_at "$sampled_at" \
+      --argjson a_alloc "$a_alloc" --argjson a_recv "$a_recv" --argjson a_sent "$a_sent" \
+      --argjson b_alloc "$b_alloc" --argjson b_recv "$b_recv" --argjson b_sent "$b_sent" \
+      --argjson total "$total" \
+      '{
+        sampled_at: $sampled_at,
+        total_allocations: $total,
+        coturn_a: {allocations: $a_alloc, received_bytes: $a_recv, sent_bytes: $a_sent},
+        coturn_b: {allocations: $b_alloc, received_bytes: $b_recv, sent_bytes: $b_sent}
+      }' >>"$output"
+    if [[ "$total" != "$expected" ]]; then
+      echo "Coturn live allocations changed during workload: expected=$expected actual=$total at=$sampled_at" >&2
+      return 1
+    fi
+    for _ in {1..10}; do
+      if [[ -e "$stop_file" ]]; then
+        return 0
+      fi
+      sleep 0.1
+    done
+  done
+}
+
+stop_coturn_monitor() {
+  local status=0
+  if [[ -z "$coturn_monitor_pid" ]]; then
+    return 0
+  fi
+  touch "$coturn_monitor_stop"
+  wait "$coturn_monitor_pid" || status=$?
+  rm -f "$coturn_monitor_stop"
+  coturn_monitor_pid=""
+  coturn_monitor_stop=""
+  return "$status"
 }
 
 wait_coturn_allocations_zero() {
@@ -202,8 +261,9 @@ run_case() {
   local hold="$4"
   local repetition="$5"
   local soak="$6"
-  local project_slug artifact coturn_artifact path_artifact capacity_edge_endpoint capacity_edge2_endpoint
+  local project_slug artifact coturn_artifact coturn_live_artifact path_artifact capacity_edge_endpoint capacity_edge2_endpoint
   local topology_flag expected_allocations edge_log edge2_log edge_id edge2_id
+  local workload_status monitor_status
   local before_a_alloc before_a_recv before_a_sent before_b_alloc before_b_recv before_b_sent
   local after_a_alloc after_a_recv after_a_sent after_b_alloc after_b_recv after_b_sent
   local cleanup_a_alloc cleanup_a_recv cleanup_a_sent cleanup_b_alloc cleanup_b_recv cleanup_b_sent
@@ -231,9 +291,19 @@ run_case() {
   read -r before_a_alloc before_a_recv before_a_sent before_b_alloc before_b_recv before_b_sent \
     < <(wait_coturn_allocation_count "$expected_allocations")
 
+  coturn_live_artifact="${artifact%.json}-coturn-live.ndjson"
+  coturn_monitor_stop="$runtime_state/${scenario}-run-${repetition}-coturn-monitor.stop"
+  rm -f "$coturn_monitor_stop"
+  (
+    trap - EXIT
+    monitor_coturn_allocations "$expected_allocations" "$coturn_live_artifact" "$coturn_monitor_stop"
+  ) &
+  coturn_monitor_pid="$!"
+
   echo "==> run extended capacity workload: scenario=$scenario repetition=$repetition"
   # Leave reliable SCTP most of the 30-second round to recover while keeping
   # a two-second margin for artifact aggregation and the round deadline.
+  set +e
   (cd "$repo_root" && GOMAXPROCS="$gateway_gomaxprocs" "$gateway_bin" \
     -edges "$capacity_edge_endpoint,$capacity_edge2_endpoint" \
     -signaling-base-from-edge \
@@ -249,6 +319,7 @@ run_case() {
     -min-speed-aggregate-ratio "$gateway_min_speed_aggregate_ratio" \
     -min-upload-aggregate-mbps "$gateway_min_upload_aggregate_mbps" \
     -min-download-aggregate-mbps "$gateway_min_download_aggregate_mbps" \
+    -min-final-speed-retention "$gateway_min_final_speed_retention" \
     -min-establishment-rate "$gateway_min_establishment_rate" \
     -max-dial-p95 "$gateway_max_dial_p95" \
     -max-dial-p99 "$gateway_max_dial_p99" \
@@ -271,7 +342,19 @@ run_case() {
     -scenario "$scenario" \
     -repetition "$repetition" \
     -soak="$soak" \
+    -cleanup-timeout "$gateway_cleanup_timeout" \
     -artifact "$artifact")
+  workload_status="$?"
+  stop_coturn_monitor
+  monitor_status="$?"
+  set -e
+  if ((workload_status != 0)); then
+    return "$workload_status"
+  fi
+  if ((monitor_status != 0)); then
+    echo "Coturn live-allocation monitoring failed for scenario=$scenario repetition=$repetition" >&2
+    return "$monitor_status"
+  fi
 
   read -r after_a_alloc after_a_recv after_a_sent < <(read_coturn_metrics coturn-a)
   read -r after_b_alloc after_b_recv after_b_sent < <(read_coturn_metrics coturn-b)
@@ -323,8 +406,9 @@ run_case() {
     --argjson after_b_alloc "$after_b_alloc" --argjson after_b_recv "$after_b_recv" --argjson after_b_sent "$after_b_sent" \
     --argjson cleanup_a_alloc "$cleanup_a_alloc" --argjson cleanup_a_recv "$cleanup_a_recv" --argjson cleanup_a_sent "$cleanup_a_sent" \
     --argjson cleanup_b_alloc "$cleanup_b_alloc" --argjson cleanup_b_recv "$cleanup_b_recv" --argjson cleanup_b_sent "$cleanup_b_sent" \
+    --slurpfile live_samples "$coturn_live_artifact" \
     '{
-      schema_version: 1,
+      schema_version: 2,
       upstream_path: $upstream_path,
       passed: true,
       image: $image,
@@ -340,6 +424,7 @@ run_case() {
         coturn_a: {allocations: $after_a_alloc, received_bytes: $after_a_recv, sent_bytes: $after_a_sent},
         coturn_b: {allocations: $after_b_alloc, received_bytes: $after_b_recv, sent_bytes: $after_b_sent}
       },
+      live_samples: $live_samples,
       cleanup: {
         coturn_a: {allocations: $cleanup_a_alloc, received_bytes: $cleanup_a_recv, sent_bytes: $cleanup_a_sent},
         coturn_b: {allocations: $cleanup_b_alloc, received_bytes: $cleanup_b_recv, sent_bytes: $cleanup_b_sent},
@@ -350,6 +435,7 @@ run_case() {
         sent_bytes: (($cleanup_a_sent + $cleanup_b_sent) - ($before_a_sent + $before_b_sent))
       }
     }' >"$coturn_artifact"
+  rm -f "$coturn_live_artifact"
 
   echo "==> tear down fresh capacity stack: scenario=$scenario repetition=$repetition"
   cleanup_current

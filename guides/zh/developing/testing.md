@@ -124,6 +124,8 @@ bash tests/gizclaw-e2e/run_edge_failure_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_100_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_500_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_soak_tests.sh
 bash tests/gizclaw-e2e/run_turn_relay_tests.sh
 
 GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
@@ -164,10 +166,30 @@ association。硬门槛为 500/500 usable sessions，establishment、ping、disc
 ignored 的 `testdata/gateway-capacity-extended/sessions-500-burst/`；每轮记录精确 repository
 head 和 dirty state，可发布证据必须来自最终 clean PR head。
 
+专用 1,000-session burst 入口固定 relay-only upstream、clean repository head、三个 fresh
+stack、zero ramp、concurrency 1,000、30 秒 hold，以及每台 Edge 通过四条 gateway upstream
+恰好承载 500 个 session。每轮继续执行 20 sessions/s、Dial p95/p99、每 session 每方向
+精确 1 MiB 和 200 Mbps gate，并在 hold 后执行 final liveness。Logical-session close 与
+Serve completion 必须在 30 秒内结束；两台 Edge 停止后，固定十条 Coturn allocation 必须
+在 15 秒内归零。每轮 workload 都按一秒间隔记录 source-qualified Coturn counter；relay
+qualification 中任一 live sample 不是十条 allocation 都直接失败。
+
+1,000-session soak 入口是有序验收，不是替代 workload。它先运行相同的三轮 burst，确认
+repository head 保持 clean 且未变化，再用一个 fresh zero-ramp 1,000-session stack 执行
+60 分钟 hold。Liveness round 每 30 秒开始一次。Artifact 保留现有 `speed_test` 作为 initial
+checkpoint，并新增独立的 `final_speed_test` 与 `speed_retention`；initial/final upload 和
+download 均精确传输 1 GiB、达到至少 200 Mbps，且 final 每个方向保留 initial aggregate
+的至少 80%。Load driver、两台 Edge、两个 Coturn 与 Server 的 source-qualified process
+sample 继续每秒记录；外部 Go heap/goroutine field 无法获取时仍明确为 unsupported。任何
+initial gate 失败都会阻止 hold 开始，cancellation 仍执行有界 session 与 Docker cleanup。
+
 100/500-session burst runner 保留既有 payload 和 gate，但当前都使用上述 relay-only
-upstream 拓扑。主 workload JSON schema 不变；同目录的 `*-coturn.json` sidecar 记录两个
-Coturn member 的 live allocation、finished-session byte counter、traffic delta，以及两个
-Edge 停止后有界归零结果。已合并的 #697/#698 结果仍是历史 direct-upstream 观测；当前
+upstream 拓扑。既有 workload field 保持不变；extended artifact version 11 增加 soak 使用的
+optional final-speed retention evidence，以及 mandatory bounded-cleanup evidence。同目录的
+`*-coturn.json` sidecar 记录两个
+Coturn member 的一秒间隔 live allocation/traffic sample、finished-session byte counter、
+traffic delta，以及两个 Edge 停止后有界归零结果。已合并的 #697/#698 结果仍是历史
+direct-upstream 观测；当前
 Coturn 数据不是 production、WAN 或可移植吞吐 SLA。
 
 标准 Docker `turn` role 使用同一 pinned Coturn image、TURN REST 认证、container-private/

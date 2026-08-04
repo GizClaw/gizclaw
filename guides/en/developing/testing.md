@@ -135,6 +135,8 @@ bash tests/gizclaw-e2e/run_edge_failure_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_100_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_500_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_soak_tests.sh
 bash tests/gizclaw-e2e/run_turn_relay_tests.sh
 
 GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
@@ -185,11 +187,39 @@ not gates. Artifacts are written under ignored
 exact repository head and dirty state, so publishable evidence must come from
 the clean final PR head.
 
+The dedicated 1,000-session burst entrypoint fixes relay-only upstreams, a
+clean repository head, three fresh stacks, zero ramp, concurrency 1,000, a
+30-second hold, and exactly 500 sessions per Edge across four gateway
+upstreams. Each run retains the 20 sessions/s, Dial p95/p99, exact 1 MiB per
+session and direction, and 200 Mbps gates. A final liveness round runs after
+the hold. Logical-session close and Serve completion must finish within 30
+seconds, and stopping both Edges must return the fixed ten Coturn allocations
+to zero within 15 seconds. Source-qualified Coturn counters are sampled once
+per second during every workload, and any live allocation count other than ten
+fails the relay qualification.
+
+The 1,000-session soak entrypoint is intentionally sequential rather than a
+replacement workload. It first runs the same three burst repetitions, verifies
+that the repository head stayed clean and unchanged, then starts one fresh
+zero-ramp 1,000-session stack for a 60-minute hold. Liveness rounds start every
+30 seconds. The artifact keeps the existing `speed_test` as the initial
+checkpoint and adds a distinct `final_speed_test` plus `speed_retention`.
+Initial and final concurrent upload/download each transfer exactly 1 GiB at no
+less than 200 Mbps, and each final direction retains at least 80% of its
+initial aggregate. Source-qualified load-driver, both Edge, both Coturn, and
+Server process samples continue once per second; unsupported external Go heap
+or goroutine fields remain explicit. Any failed initial gate prevents the hold
+from starting, and cancellation still performs bounded session and Docker
+cleanup.
+
 The 100- and 500-session burst runners preserve their accepted payloads and
-gates but now use that relay-only upstream topology. The main workload JSON
-schema remains stable. A sibling `*-coturn.json` artifact records each Coturn
-member's live allocation count, finished-session byte counters, traffic delta,
-and the bounded return to zero after both Edge processes stop. The merged
+gates but now use that relay-only upstream topology. Existing workload fields
+remain stable; extended artifact version 11 adds optional final-speed retention
+evidence plus mandatory bounded-cleanup evidence. A sibling `*-coturn.json`
+artifact records each Coturn
+member's one-second live allocation and traffic samples, finished-session byte
+counters, traffic delta, and the bounded return to zero after both Edge
+processes stop. The merged
 #697/#698 results remain historical direct-upstream observations; current
 Coturn measurements are not a production, WAN, or portable throughput SLA.
 

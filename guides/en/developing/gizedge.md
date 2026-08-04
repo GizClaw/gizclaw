@@ -295,6 +295,33 @@ unexpected disconnect, and transferred exactly 500 MiB in each direction
 above 200 Mbps. These measurements qualify only that host and topology; they
 do not qualify 1,000 sessions, a soak, or a deployment network.
 
+The fixed relay-only 1,000-session burst and soak entrypoints are:
+
+```bash
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_soak_tests.sh
+```
+
+The burst entrypoint requires a clean head and repeats three fresh
+one-Server/two-Edge/two-Coturn stacks. Each run releases 1,000 Dials through
+one barrier with concurrency 1,000 and no ramp, holds the 1,000 live sessions
+for 30 seconds, and performs final liveness before bounded teardown. Each Edge
+must own exactly 500 sessions across four gateway upstreams. The establishment,
+exact 1 GiB-per-direction application transfer, 200 Mbps aggregate, timing,
+resource, relay-selection, ten-allocation, restart, and cleanup gates are the
+same fixed contract as the smaller tiers.
+
+The soak entrypoint first reruns all three burst repetitions on the same clean
+head, then starts one new no-ramp 1,000-session stack and holds it for 60
+minutes. Complete liveness rounds start every 30 seconds. Distinct initial and
+final 1 MiB-per-session upload/download checkpoints must each exceed 200 Mbps,
+and each final direction must retain at least 80% of its initial aggregate.
+Logical-session cleanup has a 30-second bound; the ten physical TURN allocations
+are checked from source-qualified Coturn counters once per second while the
+Edges are alive and must return to zero within 15 seconds after Edge shutdown.
+These commands qualify only their recorded host, Docker engine, clean commit,
+and topology; they are not a 30,000-session or WAN guarantee.
+
 CPU, memory, file descriptors, establishment rate, and low-rate activity for
 the complete topology must still be fitted from larger samples. Repeated
 1,000-session runs, a long soak, per-process resource slopes, and the
