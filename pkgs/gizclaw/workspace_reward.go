@@ -117,6 +117,10 @@ func workspaceRewardKind(item apitypes.Workspace) (gameplay.WorkspaceRewardKind,
 	if item.Parameters == nil {
 		return gameplay.WorkspaceRewardKindWorkflow, nil
 	}
+	discriminator, err := item.Parameters.Discriminator()
+	if err != nil || discriminator != string(apitypes.ChatRoomWorkspaceParametersAgentTypeChatroom) {
+		return gameplay.WorkspaceRewardKindWorkflow, nil
+	}
 	parameters, err := item.Parameters.AsChatRoomWorkspaceParameters()
 	if err != nil || parameters.Mode == nil {
 		return gameplay.WorkspaceRewardKindWorkflow, nil
