@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	artifactVersion = 7
+	artifactVersion = 9
 	maxSpeedBytes   = int64(1 << 30)
 )
 
@@ -73,6 +73,13 @@ type options struct {
 	repetition               int
 	soak                     bool
 	analysisDir              string
+	compareDir               string
+	pathEvidence             bool
+	iceLogs                  string
+	upstreamPath             string
+	opusPackets              int
+	opusPacketBytes          int
+	opusInterval             time.Duration
 }
 
 type artifact struct {
@@ -92,6 +99,7 @@ type artifact struct {
 	Establishment         establishmentSummary      `json:"establishment"`
 	PingRounds            []pingRoundSummary        `json:"ping_rounds"`
 	SpeedTest             speedTestSummary          `json:"speed_test"`
+	Opus                  opusSummary               `json:"opus"`
 	BytesPerSession       byteSummary               `json:"bytes_per_session"`
 	EdgeDistribution      map[string]int            `json:"edge_distribution"`
 	UpstreamDistribution  map[string]map[string]int `json:"upstream_distribution"`
@@ -140,6 +148,40 @@ type artifactConfig struct {
 	Scenario                 string        `json:"scenario,omitempty"`
 	Repetition               int           `json:"repetition,omitempty"`
 	Soak                     bool          `json:"soak,omitempty"`
+	UpstreamPath             string        `json:"upstream_path,omitempty"`
+	OpusPackets              int           `json:"opus_packets"`
+	OpusPacketBytes          int           `json:"opus_packet_bytes"`
+	OpusInterval             time.Duration `json:"opus_interval"`
+}
+
+type opusSummary struct {
+	StartedAt        time.Time                             `json:"started_at"`
+	Duration         time.Duration                         `json:"duration"`
+	Attempted        int                                   `json:"attempted_packets"`
+	Completed        int                                   `json:"completed_packets"`
+	Failures         int                                   `json:"failures"`
+	AttemptedBytes   int64                                 `json:"attempted_bytes"`
+	CompletedBytes   int64                                 `json:"completed_bytes"`
+	PacketsPerSecond float64                               `json:"packets_per_second"`
+	BytesPerSecond   float64                               `json:"bytes_per_second"`
+	WriteLatency     latencySummary                        `json:"write_latency_ms"`
+	Edge             map[string]opusPathSummary            `json:"edge"`
+	Upstream         map[string]map[string]opusPathSummary `json:"upstream"`
+}
+
+type opusPathSummary struct {
+	Attempted        int     `json:"attempted_packets"`
+	Completed        int     `json:"completed_packets"`
+	Failures         int     `json:"failures"`
+	CompletedBytes   int64   `json:"completed_bytes"`
+	PacketsPerSecond float64 `json:"packets_per_second"`
+}
+
+type opusAttempt struct {
+	Latencies []time.Duration
+	Completed int
+	Bytes     int64
+	Err       error
 }
 
 type latencySummary struct {
@@ -256,15 +298,16 @@ type edgeMetadata struct {
 }
 
 type liveSession struct {
-	client   *gizcli.Client
-	edge     string
-	upstream string
-	rxBytes  uint64
-	txBytes  uint64
-	closed   atomic.Bool
-	serveFn  func() error
-	closeFn  func() error
-	speedFn  func(context.Context, string, rpcapi.SpeedTestRequest) (gizcli.SpeedTestResult, error)
+	client        *gizcli.Client
+	edge          string
+	upstream      string
+	rxBytes       uint64
+	txBytes       uint64
+	closed        atomic.Bool
+	serveFn       func() error
+	closeFn       func() error
+	speedFn       func(context.Context, string, rpcapi.SpeedTestRequest) (gizcli.SpeedTestResult, error)
+	packetWriteFn func(byte, []byte) (int, error)
 }
 
 type resultState struct {
@@ -275,6 +318,7 @@ type resultState struct {
 	pingRounds            []pingRoundSummary
 	establishment         establishmentSummary
 	speedTest             speedTestSummary
+	opus                  opusSummary
 	errors                []string
 	edgeDistribution      map[string]int
 	upstreamDistribution  map[string]map[string]int
@@ -371,6 +415,32 @@ func main() {
 		fmt.Printf("gateway capacity analysis complete: qualified=%t artifact=%s\n", report.Qualified, opts.artifactPath)
 		return
 	}
+	if opts.compareDir != "" {
+		report, compareErr := compareRelayCapacityArtifacts(opts.compareDir)
+		if compareErr != nil {
+			fmt.Fprintln(os.Stderr, compareErr)
+			os.Exit(1)
+		}
+		if writeErr := writeJSONArtifact(opts.artifactPath, report); writeErr != nil {
+			fmt.Fprintln(os.Stderr, writeErr)
+			os.Exit(1)
+		}
+		fmt.Printf("gateway relay capacity comparison complete: material=%t artifact=%s\n", report.Material, opts.artifactPath)
+		return
+	}
+	if opts.pathEvidence {
+		report, pathErr := collectICEPathEvidence(opts.upstreamPath, opts.iceLogs)
+		if pathErr != nil {
+			fmt.Fprintln(os.Stderr, pathErr)
+			os.Exit(1)
+		}
+		if writeErr := writeJSONArtifact(opts.artifactPath, report); writeErr != nil {
+			fmt.Fprintln(os.Stderr, writeErr)
+			os.Exit(1)
+		}
+		fmt.Printf("gateway upstream path evidence passed: path=%s artifact=%s\n", opts.upstreamPath, opts.artifactPath)
+		return
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	report, err := run(ctx, opts)
@@ -433,10 +503,26 @@ func parseOptions() (options, error) {
 	flag.IntVar(&opts.repetition, "repetition", 0, "one-based extended-capacity repetition")
 	flag.BoolVar(&opts.soak, "soak", false, "mark this run as the long soak")
 	flag.StringVar(&opts.analysisDir, "analyze-dir", "", "analyze extended run artifacts in this directory")
+	flag.StringVar(&opts.compareDir, "compare-relay-dir", "", "compare the fixed direct/relay run matrix")
+	flag.BoolVar(&opts.pathEvidence, "collect-path-evidence", false, "collect and validate sanitized Edge ICE observations")
+	flag.StringVar(&opts.iceLogs, "ice-logs", "", "comma-separated role=log-file inputs for path evidence")
+	flag.StringVar(&opts.upstreamPath, "upstream-path", "", "qualified Edge upstream path: direct or relay")
+	flag.IntVar(&opts.opusPackets, "opus-packets", 0, "Opus packets sent per session; zero disables the packet lane")
+	flag.IntVar(&opts.opusPacketBytes, "opus-packet-bytes", 3, "non-empty bytes per Opus packet")
+	flag.DurationVar(&opts.opusInterval, "opus-interval", 20*time.Millisecond, "cadence between Opus packets")
 	flag.Parse()
-	if opts.analysisDir != "" {
+	if opts.analysisDir != "" || opts.compareDir != "" {
 		if strings.TrimSpace(opts.artifactPath) == "" {
 			return options{}, errors.New("-artifact is required")
+		}
+		return opts, nil
+	}
+	if opts.pathEvidence {
+		if opts.upstreamPath != "direct" && opts.upstreamPath != "relay" {
+			return options{}, errors.New("path evidence requires -upstream-path direct or relay")
+		}
+		if strings.TrimSpace(opts.iceLogs) == "" || strings.TrimSpace(opts.artifactPath) == "" {
+			return options{}, errors.New("path evidence requires -ice-logs and -artifact")
 		}
 		return opts, nil
 	}
@@ -513,6 +599,16 @@ func validateOptions(opts options) error {
 		return errors.New("-require-role-resources requires -docker-project and -docker-compose-file")
 	case opts.requireRoleResources && (strings.TrimSpace(opts.scenario) == "" || opts.repetition <= 0):
 		return errors.New("-require-role-resources requires -scenario and positive -repetition")
+	case opts.upstreamPath != "" && opts.upstreamPath != "direct" && opts.upstreamPath != "relay":
+		return errors.New("-upstream-path must be direct or relay")
+	case opts.opusPackets < 0:
+		return errors.New("-opus-packets must be non-negative")
+	case opts.opusPackets > 0 && (opts.opusPacketBytes <= 0 || opts.opusInterval <= 0):
+		return errors.New("enabled Opus lane requires positive packet bytes and interval")
+	case opts.opusPackets > 0 && opts.sessions > math.MaxInt/opts.opusPackets:
+		return errors.New("-sessions and -opus-packets overflow packet accounting")
+	case opts.opusPackets > 0 && int64(opts.sessions)*int64(opts.opusPackets) > math.MaxInt64/int64(opts.opusPacketBytes):
+		return errors.New("Opus packet byte accounting overflows int64")
 	}
 	return nil
 }
@@ -557,6 +653,10 @@ func run(ctx context.Context, opts options) (artifact, error) {
 			Scenario:                 opts.scenario,
 			Repetition:               opts.repetition,
 			Soak:                     opts.soak,
+			UpstreamPath:             opts.upstreamPath,
+			OpusPackets:              opts.opusPackets,
+			OpusPacketBytes:          opts.opusPacketBytes,
+			OpusInterval:             opts.opusInterval,
 		},
 		Attempted:            opts.sessions,
 		EdgeDistribution:     make(map[string]int),
@@ -598,6 +698,10 @@ func run(ctx context.Context, opts options) (artifact, error) {
 	}
 
 	pingAll(ctx, state, opts, sem, "hold", 0)
+	if opts.opusPackets > 0 {
+		runOpusTest(ctx, state, opts)
+		pingAll(ctx, state, opts, sem, "post_opus", 0)
+	}
 	if opts.speedBytes > 0 {
 		runSpeedTests(ctx, state, opts)
 	}
@@ -1051,6 +1155,133 @@ func pingSessionBatches(sessions []*liveSession, concurrency int) [][]*liveSessi
 	return batches
 }
 
+func runOpusTest(ctx context.Context, state *resultState, opts options) {
+	state.mu.Lock()
+	sessions := append([]*liveSession(nil), state.sessions...)
+	state.mu.Unlock()
+	attempts := make([]opusAttempt, len(sessions))
+	ready := sync.WaitGroup{}
+	ready.Add(len(sessions))
+	start := make(chan struct{})
+	var started time.Time
+	var wg sync.WaitGroup
+	for index, session := range sessions {
+		wg.Go(func() {
+			ready.Done()
+			select {
+			case <-start:
+			case <-ctx.Done():
+				attempts[index].Err = ctx.Err()
+				return
+			}
+			payload := make([]byte, opts.opusPacketBytes)
+			for payloadIndex := range payload {
+				payload[payloadIndex] = byte(payloadIndex + 1)
+			}
+			for packet := 0; packet < opts.opusPackets; packet++ {
+				if packet > 0 {
+					delay := max(time.Until(started.Add(time.Duration(packet)*opts.opusInterval)), 0)
+					timer := time.NewTimer(delay)
+					select {
+					case <-timer.C:
+					case <-ctx.Done():
+						timer.Stop()
+						attempts[index].Err = ctx.Err()
+						return
+					}
+				}
+				writeStarted := time.Now()
+				n, err := session.writePacket(giznet.ProtocolOpusPacket, payload)
+				attempts[index].Latencies = append(attempts[index].Latencies, time.Since(writeStarted))
+				if err != nil {
+					attempts[index].Err = err
+					return
+				}
+				if n != len(payload) {
+					attempts[index].Err = fmt.Errorf("short Opus write: %d/%d", n, len(payload))
+					return
+				}
+				attempts[index].Completed++
+				attempts[index].Bytes += int64(n)
+			}
+		})
+	}
+	ready.Wait()
+	started = time.Now()
+	close(start)
+	wg.Wait()
+	duration := time.Since(started)
+	summary := summarizeOpus(started, duration, sessions, opts.opusPackets, opts.opusPacketBytes, attempts)
+	state.mu.Lock()
+	state.opus = summary
+	for index, attempt := range attempts {
+		if attempt.Err != nil {
+			state.appendErrorLocked(fmt.Sprintf(
+				"Opus session %d via %s upstream %s completed %d/%d packets: %v",
+				index, sessions[index].edge, sessions[index].upstream, attempt.Completed, opts.opusPackets, attempt.Err,
+			))
+		}
+	}
+	state.mu.Unlock()
+}
+
+func summarizeOpus(
+	started time.Time,
+	duration time.Duration,
+	sessions []*liveSession,
+	packetsPerSession int,
+	packetBytes int,
+	attempts []opusAttempt,
+) opusSummary {
+	expected := len(sessions) * packetsPerSession
+	summary := opusSummary{
+		StartedAt: started, Duration: duration,
+		Attempted: expected, AttemptedBytes: int64(expected) * int64(packetBytes),
+		Edge: make(map[string]opusPathSummary), Upstream: make(map[string]map[string]opusPathSummary),
+	}
+	var latencies []time.Duration
+	for index, session := range sessions {
+		attempt := attempts[index]
+		summary.Completed += attempt.Completed
+		summary.CompletedBytes += attempt.Bytes
+		latencies = append(latencies, attempt.Latencies...)
+		edge := summary.Edge[session.edge]
+		edge.Attempted += packetsPerSession
+		edge.Completed += attempt.Completed
+		edge.CompletedBytes += attempt.Bytes
+		summary.Edge[session.edge] = edge
+		if summary.Upstream[session.edge] == nil {
+			summary.Upstream[session.edge] = make(map[string]opusPathSummary)
+		}
+		upstream := summary.Upstream[session.edge][session.upstream]
+		upstream.Attempted += packetsPerSession
+		upstream.Completed += attempt.Completed
+		upstream.CompletedBytes += attempt.Bytes
+		summary.Upstream[session.edge][session.upstream] = upstream
+	}
+	summary.Failures = summary.Attempted - summary.Completed
+	summary.WriteLatency = summarizeLatency(latencies)
+	seconds := duration.Seconds()
+	if seconds > 0 {
+		summary.PacketsPerSecond = float64(summary.Completed) / seconds
+		summary.BytesPerSecond = float64(summary.CompletedBytes) / seconds
+		for key, path := range summary.Edge {
+			path.PacketsPerSecond = float64(path.Completed) / seconds
+			path.Failures = path.Attempted - path.Completed
+			summary.Edge[key] = path
+		}
+		for edge, upstreams := range summary.Upstream {
+			for key, path := range upstreams {
+				path.PacketsPerSecond = float64(path.Completed) / seconds
+				path.Failures = path.Attempted - path.Completed
+				upstreams[key] = path
+			}
+			summary.Upstream[edge] = upstreams
+		}
+	}
+	return summary
+}
+
 func runSpeedTests(ctx context.Context, state *resultState, opts options) {
 	state.mu.Lock()
 	sessions := append([]*liveSession(nil), state.sessions...)
@@ -1435,6 +1666,20 @@ func (s *liveSession) peerConn() giznet.Conn {
 	return s.client.PeerConn()
 }
 
+func (s *liveSession) writePacket(protocol byte, payload []byte) (int, error) {
+	if s == nil {
+		return 0, errors.New("nil live session")
+	}
+	if s.packetWriteFn != nil {
+		return s.packetWriteFn(protocol, payload)
+	}
+	conn := s.peerConn()
+	if conn == nil {
+		return 0, errors.New("live session is not connected")
+	}
+	return conn.Write(protocol, payload)
+}
+
 func (s *liveSession) byteCounts() (uint64, uint64) {
 	conn := s.peerConn()
 	if conn == nil {
@@ -1544,6 +1789,7 @@ func finalize(report artifact, state *resultState, resources *resourceSampler, e
 	report.Establishment = state.establishment
 	report.PingRounds = append([]pingRoundSummary(nil), state.pingRounds...)
 	report.SpeedTest = state.speedTest
+	report.Opus = state.opus
 	report.Errors = append([]string(nil), state.errors...)
 	if report.Extended != nil {
 		report.Errors = append(report.Errors, report.Extended.Errors...)
@@ -1575,6 +1821,9 @@ func finalize(report artifact, state *resultState, resources *resourceSampler, e
 		report.UnexpectedDisconnects == 0 && !report.IdentityCrossover &&
 		(report.Config.SpeedBytes == 0 ||
 			(report.SpeedTest.Upload.Passed && report.SpeedTest.Download.Passed)) &&
+		(report.Config.OpusPackets == 0 ||
+			(report.Opus.Failures == 0 && report.Opus.Completed == report.Opus.Attempted &&
+				report.Opus.CompletedBytes == report.Opus.AttemptedBytes)) &&
 		(report.Config.MaxP99RTT == 0 || time.Duration(report.RTT.P99*float64(time.Millisecond)) <= report.Config.MaxP99RTT) &&
 		pingRoundsWithin(report.PingRounds, report.Config.MaxPingRoundDuration) &&
 		distributionWithin(report, report.Config)

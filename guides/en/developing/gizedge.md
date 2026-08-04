@@ -332,6 +332,20 @@ The Edge Node can run an optional TURN UDP relay at the same time, providing rel
 
 TURN runtime is only responsible for relay listener, authentication and relay port range. It is not responsible for GizClaw user logins, peer ACLs, route assignments, or business authorization. TURN credential and GizClaw resource credential are not the same type of data.
 
+### Upstream relay qualification
+
+An Edge can connect its control association and bounded gateway upstream pool
+directly to the authoritative Server or force those associations through the
+configured Coturn pool with `ice-transport-policy: relay`. Relay mode selects
+one pool member per Dial and does not fall back to a direct candidate. This is
+an Edge-to-Server product topology; the transport-only Giznet Coturn suite does
+not exercise it.
+
+Successful upstream ownership emits one sanitized selected-ICE observation for
+the control epoch and one for each live gateway entry. The observation is used
+by the gateway capacity qualification described in the Testing Guide. It is
+diagnostic evidence, not a public API or a production performance guarantee.
+
 ## Dependencies
 
 ```mermaid

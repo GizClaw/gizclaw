@@ -55,7 +55,7 @@ func TestValidateOptionsKeepsPingTimeoutInsideRoundBudget(t *testing.T) {
 
 func TestParseDockerProcessSample(t *testing.T) {
 	at := time.Unix(10, 0)
-	got, err := parseDockerProcessSample("10000000000 123 5 4096 30 10 100 7 999 1024")
+	got, err := parseDockerProcessSample("10000000000 123 5 4096 30 10 100 7 999 1024 8 9 1000 2000")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,6 +64,10 @@ func TestParseDockerProcessSample(t *testing.T) {
 	}
 	if got.Point.RSSBytes != 20_480 || got.Point.CPUSeconds != 0.4 || got.Point.OpenFDs != 7 {
 		t.Fatalf("process point = %+v", got.Point)
+	}
+	if got.Point.UDPSockets != 8 || got.Point.UDP6Sockets != 9 ||
+		got.Point.NetworkRXBytes != 1000 || got.Point.NetworkTXBytes != 2000 {
+		t.Fatalf("socket/network point = %+v", got.Point)
 	}
 	if got.Point.GoHeapAllocBytes != nil || got.Point.Goroutines != nil || len(got.Point.UnsupportedMetrics) != 2 {
 		t.Fatalf("unsupported Go metrics = %+v", got.Point)
@@ -75,10 +79,11 @@ func TestParseDockerProcessSample(t *testing.T) {
 		t.Fatal("parseDockerProcessSample accepted malformed output")
 	}
 	for name, sample := range map[string]string{
-		"timestamp":      "18446744073709551615 1 1 1 1 1 1 1 1 1",
-		"process ID":     "1 18446744073709551615 1 1 1 1 1 1 1 1",
-		"open FD count":  "1 1 1 1 1 1 1 18446744073709551615 1 1",
-		"resident bytes": "1 1 18446744073709551615 2 1 1 1 1 1 1",
+		"timestamp":      "18446744073709551615 1 1 1 1 1 1 1 1 1 1 1 1 1",
+		"process ID":     "1 18446744073709551615 1 1 1 1 1 1 1 1 1 1 1 1",
+		"open FD count":  "1 1 1 1 1 1 1 18446744073709551615 1 1 1 1 1 1",
+		"resident bytes": "1 1 18446744073709551615 2 1 1 1 1 1 1 1 1 1 1",
+		"UDP sockets":    "1 1 1 1 1 1 1 1 1 1 18446744073709551615 1 1 1",
 	} {
 		t.Run(name+" overflow", func(t *testing.T) {
 			if _, err := parseDockerProcessSample(sample); err == nil || !strings.Contains(err.Error(), "overflow") {
@@ -87,9 +92,9 @@ func TestParseDockerProcessSample(t *testing.T) {
 		})
 	}
 	for name, sample := range map[string]string{
-		"timestamp":     "-1 1 1 1 1 1 1 1 1 1",
-		"process ID":    "1 -1 1 1 1 1 1 1 1 1",
-		"open FD count": "1 1 1 1 1 1 1 -1 1 1",
+		"timestamp":     "-1 1 1 1 1 1 1 1 1 1 1 1 1 1",
+		"process ID":    "1 -1 1 1 1 1 1 1 1 1 1 1 1 1",
+		"open FD count": "1 1 1 1 1 1 1 -1 1 1 1 1 1 1",
 	} {
 		t.Run(name+" negative", func(t *testing.T) {
 			if _, err := parseDockerProcessSample(sample); err == nil || !strings.Contains(err.Error(), "non-negative") {
@@ -131,6 +136,15 @@ func TestDockerProcessSampleScriptReadsLinuxProc(t *testing.T) {
 	}
 	if sample.ProcessID != os.Getpid() || sample.ProcessStartTicks == 0 || sample.OpenFDLimit == 0 {
 		t.Fatalf("process sample = %+v", sample)
+	}
+}
+
+func TestClassifyTCShaping(t *testing.T) {
+	if got := classifyTCShaping("qdisc noqueue 0: dev lo root refcnt 2"); got.Status != "inactive" {
+		t.Fatalf("ordinary qdisc = %+v", got)
+	}
+	if got := classifyTCShaping("qdisc netem 8001: dev eth0 root limit 1000 delay 10ms"); got.Status != "active" {
+		t.Fatalf("netem qdisc = %+v", got)
 	}
 }
 

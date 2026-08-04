@@ -215,12 +215,17 @@ func syntheticExtendedRun(
 		averageCPU := 0.01 + float64(roleSessions)*0.00001
 		points := make([]roleResourcePoint, 0, int(hold/time.Second)+1)
 		for elapsed := time.Duration(0); elapsed <= hold; elapsed += time.Second {
-			points = append(points, roleResourcePoint{
+			point := roleResourcePoint{
 				At: start.Add(elapsed), RSSBytes: uint64(1000 + roleSessions*10),
 				RSSSource: "test_process_rss", CPUSeconds: averageCPU * elapsed.Seconds(),
 				CPUSecondsSource: "test_process_cpu", OpenFDs: 10 + roleSessions/100,
 				OpenFDsSource: "test_process_fds",
-			})
+			}
+			if role != "load_driver" {
+				point.SocketSource = "proc_pid_net_udp"
+				point.NetworkSource = "proc_pid_net_dev"
+			}
+			points = append(points, point)
 		}
 		imageID := ""
 		if role != "load_driver" {

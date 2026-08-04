@@ -242,6 +242,32 @@ phase percentiles, direct-versus-relay ratios, repository state, Docker engine,
 and the exact pinned Coturn image. These are local transport diagnostics, not
 GizClaw gateway or production performance evidence.
 
+### Edge direct-versus-Coturn capacity
+
+The GizClaw-owned Edge topology has one canonical local qualification command:
+
+```sh
+bash tests/gizclaw-e2e/run_gateway_relay_capacity_tests.sh
+```
+
+It requires a clean repository and the Docker E2E credential file, builds the
+CLI and load driver once, then creates 12 fresh projects: direct and
+relay-only Edge upstreams at 100 and 500 sessions, three repetitions each.
+Both paths keep the same Server, two Edges, two digest-pinned Coturn members,
+fixed subnet, four gateway upstreams per Edge, zero ramp, and 1 MiB upload and
+download per session. Direct requires zero Coturn allocations and traffic;
+relay requires exactly ten live allocations, traffic growth, and return to
+zero after Edge shutdown.
+
+Every session also sends 50 non-empty Opus packets at 20 ms cadence through the
+unreliable packet lane and completes a following RPC Ping. The ignored run
+artifacts contain path proof, timing and throughput, exact packet/byte counts,
+role CPU/RSS/FD/socket/network samples, Coturn evidence, and a validated
+`comparison.json`. This is bounded one-way transport evidence on one local
+Docker host. It does not qualify provider processing, decoded audio, WAN/NAT
+diversity, production Coturn/deployment capacity, 1,000-session soak, or the
+30,000-session product ceiling.
+
 ## LoCoMo Memory Evaluation
 
 `tests/locomo-e2e` is a GizClaw-owned manual evaluation of production

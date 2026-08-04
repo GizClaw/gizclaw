@@ -158,6 +158,20 @@ histogram_quantile(
 )
 ```
 
+## Edge upstream ICE observation
+
+After a live Edge upstream is owned, `edge: upstream ICE selected` correlates
+the selected pair with `upstream_kind=control|gateway`, a bounded upstream ID,
+and connection epoch. Candidate fields are limited to type, UDP/TCP protocol,
+IPv4/IPv6 family, component, state, nomination, supported counters, and an
+optional zero-based relay-member ordinal. These fields have bounded
+cardinality.
+
+The log and derived capacity artifact must never include IP addresses, ports,
+TURN URLs, SDP, candidate IDs or bodies, foundations, priorities, usernames,
+credentials, or mutable Pion values. Absence of a selected pair is a warning;
+configuration alone must not be reported as proof that relay was used.
+
 ## Adding instrumentation
 
 1. Decide whether the question needs one-request evidence, an aggregate trend, or both.

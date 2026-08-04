@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const extendedArtifactVersion = 8
+const extendedArtifactVersion = 10
 
 var dockerRolePIDFiles = map[string]string{
 	"coturn-a": "/tmp/gizclaw-coturn.pid",
@@ -40,6 +40,12 @@ type capacityEnvironment struct {
 	HostMemoryBytes  uint64            `json:"host_memory_bytes"`
 	HostOpenFDLimit  uint64            `json:"host_open_fd_limit"`
 	Docker           dockerEnvironment `json:"docker"`
+	TrafficShaping   shapingEvidence   `json:"traffic_shaping"`
+}
+
+type shapingEvidence struct {
+	Source string `json:"source"`
+	Status string `json:"status"`
 }
 
 type dockerEnvironment struct {
@@ -48,6 +54,8 @@ type dockerEnvironment struct {
 	Architecture    string `json:"architecture"`
 	LogicalCPU      int    `json:"logical_cpu"`
 	MemoryBytes     uint64 `json:"memory_bytes"`
+	ServerVersion   string `json:"server_version"`
+	OrbStackVersion string `json:"orbstack_version"`
 }
 
 type roleResourcePoint struct {
@@ -60,6 +68,12 @@ type roleResourcePoint struct {
 	OpenFDsSource      string    `json:"open_fds_source"`
 	GoHeapAllocBytes   *uint64   `json:"go_heap_alloc_bytes"`
 	Goroutines         *int      `json:"goroutines"`
+	UDPSockets         int       `json:"udp_sockets"`
+	UDP6Sockets        int       `json:"udp6_sockets"`
+	SocketSource       string    `json:"socket_source"`
+	NetworkRXBytes     uint64    `json:"network_rx_bytes"`
+	NetworkTXBytes     uint64    `json:"network_tx_bytes"`
+	NetworkSource      string    `json:"network_source"`
 	UnsupportedMetrics []string  `json:"unsupported_metrics,omitempty"`
 }
 
@@ -78,6 +92,7 @@ type roleResourceEvidence struct {
 	OpenFDLimit       uint64              `json:"open_fd_limit"`
 	Samples           []roleResourcePoint `json:"samples"`
 	Summary           roleResourceSummary `json:"summary"`
+	TrafficShaping    shapingEvidence     `json:"traffic_shaping"`
 }
 
 type dockerProcessSample struct {
@@ -96,6 +111,7 @@ type dockerRoleState struct {
 	processStartTicks uint64
 	openFDLimit       uint64
 	samples           []roleResourcePoint
+	trafficShaping    shapingEvidence
 }
 
 type dockerResourceSampler struct {
@@ -149,7 +165,7 @@ func validateRequiredRoleEvidence(evidence roleResourceEvidence) error {
 	for index, sample := range evidence.Samples {
 		if index > 0 {
 			gap := sample.At.Sub(evidence.Samples[index-1].At)
-			if gap <= 0 || gap > 3*time.Second {
+			if gap <= 0 || gap > 2100*time.Millisecond {
 				return fmt.Errorf("%s resource sample gap is %s", evidence.Role, gap)
 			}
 		}
@@ -161,6 +177,10 @@ func validateRequiredRoleEvidence(evidence roleResourceEvidence) error {
 		}
 		if sample.OpenFDs < 0 || sample.OpenFDsSource == "" || sample.OpenFDsSource == "unsupported" {
 			return fmt.Errorf("%s has unsupported open-file sampling", evidence.Role)
+		}
+		if evidence.Role != "load_driver" &&
+			(sample.SocketSource != "proc_pid_net_udp" || sample.NetworkSource != "proc_pid_net_dev") {
+			return fmt.Errorf("%s has unsupported socket or network sampling", evidence.Role)
 		}
 	}
 	return nil
@@ -224,9 +244,16 @@ func resolveDockerRole(ctx context.Context, project, composeFile, role string) (
 	if !metadata.State.Running {
 		return nil, fmt.Errorf("%s container is not running (status=%s)", role, metadata.State.Status)
 	}
+	trafficShaping, err := readContainerShaping(ctx, containerID)
+	if err != nil {
+		return nil, fmt.Errorf("inspect %s traffic shaping: %w", role, err)
+	}
+	if trafficShaping.Status == "active" {
+		return nil, fmt.Errorf("%s has active traffic shaping", role)
+	}
 	return &dockerRoleState{
 		role: role, containerID: containerID, imageID: metadata.Image,
-		restartCount: metadata.RestartCount,
+		restartCount: metadata.RestartCount, trafficShaping: trafficShaping,
 	}, nil
 }
 
@@ -299,7 +326,10 @@ while true; do
     fi
   done < "/proc/$pid/limits"
   test -n "$fd_limit"
-  printf '%s %s %s %s %s %s %s %s %s %s\n' "$sampled_at" "$pid" "$resident" "$page_size" "$user_ticks" "$system_ticks" "$clock_ticks" "$open_fds" "$start_ticks" "$fd_limit"
+  udp_sockets="$(awk 'NR > 1 { count++ } END { print count + 0 }' "/proc/$pid/net/udp")"
+  udp6_sockets="$(awk 'NR > 1 { count++ } END { print count + 0 }' "/proc/$pid/net/udp6")"
+  read -r network_rx network_tx < <(awk -F '[: ]+' 'NR > 2 { rx += $3; tx += $11 } END { printf "%.0f %.0f\n", rx, tx }' "/proc/$pid/net/dev")
+  printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "$sampled_at" "$pid" "$resident" "$page_size" "$user_ticks" "$system_ticks" "$clock_ticks" "$open_fds" "$start_ticks" "$fd_limit" "$udp_sockets" "$udp6_sockets" "$network_rx" "$network_tx"
   sleep 1
 done
 `
@@ -372,8 +402,8 @@ func (s *dockerResourceSampler) streamDockerRole(
 
 func parseDockerProcessSample(output string) (dockerProcessSample, error) {
 	fields := strings.Fields(output)
-	if len(fields) != 10 {
-		return dockerProcessSample{}, fmt.Errorf("expected 10 fields, got %d", len(fields))
+	if len(fields) != 14 {
+		return dockerProcessSample{}, fmt.Errorf("expected 14 fields, got %d", len(fields))
 	}
 	timestamp, err := strconv.ParseInt(fields[0], 10, 64)
 	if err != nil {
@@ -406,7 +436,7 @@ func parseDockerProcessSample(output string) (dockerProcessSample, error) {
 		return dockerProcessSample{}, errors.New("open FD count must be non-negative")
 	}
 	values := make([]uint64, len(fields))
-	for _, index := range []int{2, 3, 4, 5, 6, 8, 9} {
+	for _, index := range []int{2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13} {
 		value, err := strconv.ParseUint(fields[index], 10, 64)
 		if err != nil {
 			return dockerProcessSample{}, fmt.Errorf("field %d: %w", index, err)
@@ -419,12 +449,17 @@ func parseDockerProcessSample(output string) (dockerProcessSample, error) {
 	if values[2] > math.MaxUint64/values[3] {
 		return dockerProcessSample{}, errors.New("resident byte count overflows uint64")
 	}
+	if values[10] > uint64(math.MaxInt) || values[11] > uint64(math.MaxInt) {
+		return dockerProcessSample{}, errors.New("UDP socket count overflows int")
+	}
 	return dockerProcessSample{
 		Point: roleResourcePoint{
 			At:       time.Unix(0, timestamp),
 			RSSBytes: values[2] * values[3], RSSSource: "proc_pid_statm",
 			CPUSeconds: (float64(values[4]) + float64(values[5])) / float64(values[6]), CPUSecondsSource: "proc_pid_stat",
 			OpenFDs: openFDs, OpenFDsSource: "proc_pid_fd",
+			UDPSockets: int(values[10]), UDP6Sockets: int(values[11]), SocketSource: "proc_pid_net_udp",
+			NetworkRXBytes: values[12], NetworkTXBytes: values[13], NetworkSource: "proc_pid_net_dev",
 			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "goroutines"},
 		},
 		ProcessID: processID, ProcessStartTicks: values[8], OpenFDLimit: values[9],
@@ -460,9 +495,10 @@ func (s *dockerResourceSampler) stop(ctx context.Context) (map[string]roleResour
 		evidence[role] = roleResourceEvidence{
 			Role: role, ContainerID: state.containerID, ImageID: state.imageID,
 			ProcessID: state.processID, ProcessStartTicks: state.processStartTicks,
-			OpenFDLimit: state.openFDLimit,
-			Samples:     append([]roleResourcePoint(nil), state.samples...),
-			Summary:     summarizeRoleResources(state.samples),
+			OpenFDLimit:    state.openFDLimit,
+			Samples:        append([]roleResourcePoint(nil), state.samples...),
+			Summary:        summarizeRoleResources(state.samples),
+			TrafficShaping: state.trafficShaping,
 		}
 	}
 	return evidence, append([]string(nil), s.errors...)
@@ -507,6 +543,22 @@ func summarizeRoleResources(samples []roleResourcePoint) roleResourceSummary {
 			peak.OpenFDs = point.OpenFDs
 			improved = true
 		}
+		if point.UDPSockets > peak.UDPSockets {
+			peak.UDPSockets = point.UDPSockets
+			improved = true
+		}
+		if point.UDP6Sockets > peak.UDP6Sockets {
+			peak.UDP6Sockets = point.UDP6Sockets
+			improved = true
+		}
+		if point.NetworkRXBytes > peak.NetworkRXBytes {
+			peak.NetworkRXBytes = point.NetworkRXBytes
+			improved = true
+		}
+		if point.NetworkTXBytes > peak.NetworkTXBytes {
+			peak.NetworkTXBytes = point.NetworkTXBytes
+			improved = true
+		}
 		if point.GoHeapAllocBytes != nil &&
 			(peak.GoHeapAllocBytes == nil || *point.GoHeapAllocBytes > *peak.GoHeapAllocBytes) {
 			value := *point.GoHeapAllocBytes
@@ -536,12 +588,15 @@ func loadDriverEvidence(samples []resourcePoint) roleResourceEvidence {
 			CPUSeconds: sample.CPUSeconds, CPUSecondsSource: sample.CPUSecondsSource,
 			OpenFDs: sample.OpenFDs, OpenFDsSource: sample.OpenFDsSource,
 			GoHeapAllocBytes: &heap, Goroutines: &goroutines,
+			SocketSource: "unsupported", NetworkSource: "unsupported",
+			UnsupportedMetrics: []string{"udp_sockets", "udp6_sockets", "network_rx_bytes", "network_tx_bytes"},
 		})
 	}
 	limit, _ := hostOpenFDLimit()
 	return roleResourceEvidence{
 		Role: "load_driver", ProcessID: os.Getpid(), OpenFDLimit: limit,
 		Samples: points, Summary: summarizeRoleResources(points),
+		TrafficShaping: shapingEvidence{Source: "host_process", Status: "not_applicable"},
 	}
 }
 
@@ -562,6 +617,10 @@ func readCapacityEnvironment(ctx context.Context) (capacityEnvironment, error) {
 	if err != nil {
 		return capacityEnvironment{}, err
 	}
+	trafficShaping := readHostShaping(ctx)
+	if trafficShaping.Status == "active" {
+		return capacityEnvironment{}, errors.New("host has active traffic shaping")
+	}
 	output, err := exec.CommandContext(ctx, "docker", "info", "--format", "{{json .}}").Output()
 	if err != nil {
 		return capacityEnvironment{}, fmt.Errorf("read Docker capacity: %w", err)
@@ -572,6 +631,7 @@ func readCapacityEnvironment(ctx context.Context) (capacityEnvironment, error) {
 		Architecture    string `json:"Architecture"`
 		NCPU            int    `json:"NCPU"`
 		MemTotal        uint64 `json:"MemTotal"`
+		ServerVersion   string `json:"ServerVersion"`
 	}
 	if err := json.Unmarshal(output, &info); err != nil {
 		return capacityEnvironment{}, fmt.Errorf("decode Docker capacity: %w", err)
@@ -582,11 +642,66 @@ func readCapacityEnvironment(ctx context.Context) (capacityEnvironment, error) {
 	return capacityEnvironment{
 		RepositoryCommit: commit, RepositoryDirty: status != "",
 		HostMemoryBytes: hostMemory, HostOpenFDLimit: fdLimit,
+		TrafficShaping: trafficShaping,
 		Docker: dockerEnvironment{
 			OperatingSystem: info.OperatingSystem, OSType: info.OSType,
 			Architecture: info.Architecture, LogicalCPU: info.NCPU, MemoryBytes: info.MemTotal,
+			ServerVersion: info.ServerVersion, OrbStackVersion: orbStackVersion(ctx, info.OperatingSystem),
 		},
 	}, nil
+}
+
+func readHostShaping(ctx context.Context) shapingEvidence {
+	if runtime.GOOS == "darwin" {
+		output, err := commandText(ctx, "dnctl", "list")
+		if err != nil {
+			return shapingEvidence{Source: "dnctl", Status: "unsupported"}
+		}
+		if output == "" {
+			return shapingEvidence{Source: "dnctl", Status: "inactive"}
+		}
+		return shapingEvidence{Source: "dnctl", Status: "active"}
+	}
+	if runtime.GOOS == "linux" {
+		output, err := commandText(ctx, "tc", "qdisc", "show")
+		if err != nil {
+			return shapingEvidence{Source: "tc_qdisc", Status: "unsupported"}
+		}
+		return classifyTCShaping(output)
+	}
+	return shapingEvidence{Source: "platform", Status: "unsupported"}
+}
+
+func readContainerShaping(ctx context.Context, containerID string) (shapingEvidence, error) {
+	output, err := commandText(ctx, "docker", "exec", containerID, "sh", "-c", "if command -v tc >/dev/null 2>&1; then tc qdisc show; else echo __unsupported__; fi")
+	if err != nil {
+		return shapingEvidence{}, err
+	}
+	if output == "__unsupported__" {
+		return shapingEvidence{Source: "tc_qdisc", Status: "unsupported"}, nil
+	}
+	return classifyTCShaping(output), nil
+}
+
+func classifyTCShaping(output string) shapingEvidence {
+	lower := strings.ToLower(output)
+	for _, owner := range []string{" netem ", " tbf ", " htb ", " cake "} {
+		if strings.Contains(" "+lower+" ", owner) {
+			return shapingEvidence{Source: "tc_qdisc", Status: "active"}
+		}
+	}
+	return shapingEvidence{Source: "tc_qdisc", Status: "inactive"}
+}
+
+func orbStackVersion(ctx context.Context, operatingSystem string) string {
+	if !strings.Contains(strings.ToLower(operatingSystem), "orbstack") {
+		return "unsupported"
+	}
+	version, err := commandText(ctx, "orb", "version")
+	if err != nil || version == "" {
+		return "unsupported"
+	}
+	return version
 }
 
 func commandText(ctx context.Context, name string, args ...string) (string, error) {

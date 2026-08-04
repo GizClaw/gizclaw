@@ -210,6 +210,28 @@ counter；同时写入 ignored JSON artifact，包含 direct/static/REST 各 30 
 percentile、direct-versus-relay ratio、repository state、Docker engine 和精确 Coturn pin。
 这些结果只属于本机 transport 诊断，不是 GizClaw gateway 或 production 性能证据。
 
+### Edge direct 与 Coturn capacity 对照
+
+GizClaw 自有 Edge 拓扑使用一个固定的本机验收入口：
+
+```sh
+bash tests/gizclaw-e2e/run_gateway_relay_capacity_tests.sh
+```
+
+命令要求 clean repository 和 Docker E2E credential file；CLI 与 load driver 只 build 一次，
+随后创建 12 个 fresh project：direct/relay-only 两种 Edge upstream path、100/500 session、
+每组各三次。两种 path 使用相同的 Server、两台 Edge、两个 digest-pinned Coturn member、
+固定 subnet、每台 Edge 四条 gateway upstream、zero ramp，以及每 session 每方向 1 MiB。
+Direct 必须保持 Coturn allocation 和 workload traffic 为零；relay 必须维持正好十条 live
+allocation、证明 traffic 增长，并在 Edge 关闭后归零。
+
+每个 session 还会通过 unreliable packet lane 按 20 ms cadence 发送 50 个 non-empty Opus
+packet，并在之后完成 RPC Ping。Ignored artifacts 记录 path proof、timing/throughput、精确
+packet/byte、各 role CPU/RSS/FD/socket/network、Coturn evidence 和校验后的
+`comparison.json`。这只证明单台本机 Docker host 上的有界 one-way transport，不代表
+provider processing、decoded audio、WAN/NAT diversity、production Coturn/deployment capacity、
+1,000-session soak 或 30,000-session product ceiling。
+
 ## LoCoMo Memory Evaluation
 
 `tests/locomo-e2e` 是 GizClaw 自有的 production `memory.Store` 人工评测，不使用

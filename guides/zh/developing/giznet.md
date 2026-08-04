@@ -47,6 +47,13 @@ WebRTC 与 Pion 相关的实现细节留在这个子目录。上层 GizClaw 服�
 PeerConnection、offer、ICE gathering、signaling、remote description、ICE connected、
 DTLS connected 和 DataChannel ready timing，且不会向调用方暴露可变 Pion 对象。
 
+成功 Dial 时，snapshot 还包含一个 immutable、address-free 的 selected ICE pair：local/remote
+candidate type、protocol、address family、component、nomination/state，以及 Pion 可提供的
+有界 pair counters。它明确不保留 candidate ID、地址、端口、priority、foundation、URL、
+SDP 或 credential；可选 counter 缺失时保持 unsupported，不伪造数值。Callback 与 snapshot
+仍只是 transport diagnostics；`giznet.Conn` 不暴露 Pion object，也不引入 Edge-specific
+contract。
+
 `giznet.Conn` 保持 transport-independent 的 `Dial` surface。能够取消 pending service open
 的 transport 可以额外实现 `giznet.ContextDialer`。`gizwebrtc.Conn.DialContext` 在 context
 结束时只关闭尚未打开的 DataChannel，不关闭父 PeerConnection。DataChannel 在 open 前 close

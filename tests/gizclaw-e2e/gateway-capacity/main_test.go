@@ -44,6 +44,41 @@ func TestSummarizeLatencyUsesNearestRank(t *testing.T) {
 	}
 }
 
+func TestRunOpusUsesSharedBarrierAndExactAccounting(t *testing.T) {
+	const sessionCount = 3
+	var entered atomic.Int32
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	sessions := make([]*liveSession, sessionCount)
+	for index := range sessions {
+		sessions[index] = &liveSession{
+			edge: "edge-a", upstream: "upstream-1",
+			packetWriteFn: func(protocol byte, payload []byte) (int, error) {
+				if protocol != giznet.ProtocolOpusPacket || len(payload) != 3 {
+					t.Fatalf("packet = protocol %d bytes %d", protocol, len(payload))
+				}
+				if entered.Add(1) == sessionCount {
+					releaseOnce.Do(func() { close(release) })
+				}
+				<-release
+				return len(payload), nil
+			},
+		}
+	}
+	state := &resultState{sessions: sessions}
+	runOpusTest(context.Background(), state, options{
+		opusPackets: 2, opusPacketBytes: 3, opusInterval: time.Millisecond,
+	})
+	if state.opus.Attempted != 6 || state.opus.Completed != 6 || state.opus.Failures != 0 ||
+		state.opus.AttemptedBytes != 18 || state.opus.CompletedBytes != 18 {
+		t.Fatalf("Opus summary = %+v", state.opus)
+	}
+	if state.opus.Edge["edge-a"].Completed != 6 ||
+		state.opus.Upstream["edge-a"]["upstream-1"].Completed != 6 {
+		t.Fatalf("Opus path summaries = edge %+v upstream %+v", state.opus.Edge, state.opus.Upstream)
+	}
+}
+
 func TestSummarizeNestedPingMetrics(t *testing.T) {
 	summaries := summarizeNestedLatencyMap(map[string]map[string][]time.Duration{
 		"edge-a": {

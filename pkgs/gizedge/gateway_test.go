@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -42,6 +43,38 @@ const gatewayBenchmarkBytesPerStream = 8 * 1024 * 1024
 type contextDialGiznetConn struct {
 	*failingGiznetConn
 	dialContext func(context.Context, uint64) (net.Conn, error)
+}
+
+func TestLogUpstreamICEIsAddressFree(t *testing.T) {
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	logUpstreamICE("gateway", "3", 3, &upstreamRelayAttempt{member: 1}, &gizwebrtc.ICECandidatePairObservation{
+		Local: gizwebrtc.ICECandidateObservation{
+			Type: "relay", Protocol: "udp", AddressFamily: "ipv4", Component: 1,
+		},
+		Remote: gizwebrtc.ICECandidateObservation{
+			Type: "host", Protocol: "udp", AddressFamily: "ipv4", Component: 1,
+		},
+		State: "succeeded", Nominated: true,
+	})
+
+	got := output.String()
+	for _, want := range []string{
+		`msg="edge: upstream ICE selected"`, "upstream_kind=gateway", "upstream_id=3",
+		"local_candidate_type=relay", "remote_candidate_type=host", "nominated=true", "relay_member=1",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("log output %q does not contain %q", got, want)
+		}
+	}
+	for _, forbidden := range []string{"192.0.2.10", "3478", "shared-secret", "turn:"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("log output contains sensitive network value %q: %q", forbidden, got)
+		}
+	}
 }
 
 func (c *contextDialGiznetConn) DialContext(ctx context.Context, service uint64) (net.Conn, error) {

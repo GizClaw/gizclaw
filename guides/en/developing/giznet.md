@@ -47,6 +47,15 @@ WebRTC implementation details related to Pion are left in this subdirectory. The
 signaling, remote-description, ICE-connected, DTLS-connected, and DataChannel
 ready timing without exposing mutable Pion objects.
 
+On a successful Dial, the snapshot also carries an immutable, address-free
+selected ICE pair. It contains local and remote candidate type, protocol,
+address family, component, nomination/state, and the bounded pair counters
+available from Pion. It deliberately omits candidate IDs, addresses, ports,
+priorities, foundations, URLs, SDP, and credentials. Missing optional counters
+remain explicitly unsupported rather than being synthesized. The callback and
+snapshot remain transport diagnostics; `giznet.Conn` does not expose Pion
+objects or adopt an Edge-specific contract.
+
 `giznet.Conn` keeps its transport-independent `Dial` surface. Transports that
 can cancel a pending service open may additionally implement
 `giznet.ContextDialer`. `gizwebrtc.Conn.DialContext` closes only the pending

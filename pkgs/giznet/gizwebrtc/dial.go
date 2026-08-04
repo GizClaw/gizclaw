@@ -50,6 +50,7 @@ type DialTiming struct {
 	DTLSConnected              time.Duration
 	DataChannelReady           time.Duration
 	Total                      time.Duration
+	SelectedCandidatePair      *ICECandidatePairObservation
 }
 
 type dialTimingRecorder struct {
@@ -285,7 +286,10 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		timing.markDTLSConnected()
 	}
 	dataChannelReady := timing.sinceRemote()
-	timing.update(func(t *DialTiming) { t.DataChannelReady = dataChannelReady })
+	timing.update(func(t *DialTiming) {
+		t.DataChannelReady = dataChannelReady
+		t.SelectedCandidatePair = selectedICEObservation(pc)
+	})
 	l.enqueueConn(conn)
 	return l, conn, nil
 }
