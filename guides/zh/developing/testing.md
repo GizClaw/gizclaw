@@ -173,8 +173,9 @@ stack、zero ramp、concurrency 1,000、30 秒 hold，以及每台 Edge 通过�
 Serve completion 必须在 30 秒内结束；两台 Edge 停止后，固定十条 Coturn allocation 必须
 在 15 秒内归零。每轮 workload 都按一秒间隔记录 source-qualified Coturn counter；relay
 qualification 中任一 live sample 不是十条 allocation 都直接失败。Edge container 获得
-45 秒 stop grace，使 production 30 秒 Gateway drain 能关闭 physical upstream pool；独立的
-15 秒 Coturn 归零上限从两台 Edge 都停止后才开始计算。
+45 秒 stop grace，entrypoint 最多转发并等待 SIGTERM 40 秒，使 production 30 秒 Gateway
+drain 能关闭 physical upstream pool；独立的 15 秒 Coturn 归零上限从两台 Edge 都停止后
+才开始计算。
 
 1,000-session soak 入口是有序验收，不是替代 workload。它先运行相同的三轮 burst，确认
 repository head 保持 clean 且未变化，再用一个 fresh zero-ramp 1,000-session stack 执行

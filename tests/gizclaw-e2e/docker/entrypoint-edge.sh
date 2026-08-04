@@ -87,7 +87,10 @@ shutdown_edge() {
   rm -f "$ready_file"
   if kill -0 "$pid" 2>/dev/null; then
     kill -TERM "$pid" 2>/dev/null || true
-    for _ in {1..100}; do
+    # Gateway.Close may use the configured 30-second drain before closing its
+    # physical upstream pool. Keep this below the capacity runner's 45-second
+    # Compose stop bound while leaving enough time for a graceful close.
+    for _ in {1..400}; do
       if ! kill -0 "$pid" 2>/dev/null; then
         wait "$pid" 2>/dev/null || true
         exit 0

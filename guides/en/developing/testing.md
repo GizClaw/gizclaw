@@ -197,8 +197,9 @@ seconds, and stopping both Edges must return the fixed ten Coturn allocations
 to zero within 15 seconds. Source-qualified Coturn counters are sampled once
 per second during every workload, and any live allocation count other than ten
 fails the relay qualification. Edge containers receive a 45-second stop grace
-so the production 30-second Gateway drain can close its physical upstream pool;
-the separate 15-second Coturn-zero bound starts only after both Edges stop.
+and their entrypoint forwards SIGTERM for up to 40 seconds, so the production
+30-second Gateway drain can close its physical upstream pool. The separate
+15-second Coturn-zero bound starts only after both Edges stop.
 
 The 1,000-session soak entrypoint is intentionally sequential rather than a
 replacement workload. It first runs the same three burst repetitions, verifies
