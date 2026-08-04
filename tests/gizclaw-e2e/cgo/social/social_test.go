@@ -107,9 +107,9 @@ func createCSDKSocialRegistrationToken(
 			t.Errorf("delete C social RegistrationToken: %v", err)
 			return
 		}
-		if cleanupResponse.StatusCode() != 204 {
+		if cleanupResponse.JSON200 == nil || cleanupResponse.JSON200.Id != response.JSON200.Id {
 			t.Errorf(
-				"delete C social RegistrationToken status %d: %s",
+				"delete C social RegistrationToken status %d response: %s",
 				cleanupResponse.StatusCode(),
 				strings.TrimSpace(string(cleanupResponse.Body)),
 			)

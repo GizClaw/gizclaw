@@ -44,7 +44,8 @@ func TestSocialRealtimeHistoryRPC(t *testing.T) {
 		}, "")
 	})
 
-	group := mustCreateFriendGroup(t, h, "peer-a", "realtime", "")
+	groupName := "realtime-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	group := mustCreateFriendGroup(t, h, "peer-a", groupName, "")
 	mustAddFriendGroupMember(t, h, "peer-a", group.Name, peerB, rpcapi.FriendGroupMemberMutableRoleMember)
 	mustAddFriendGroupMember(t, h, "peer-a", group.Name, peerC, rpcapi.FriendGroupMemberMutableRoleMember)
 	setSocialChatWorkspaceInputMode(t, h, stringValue(group.WorkspaceName), realtime)

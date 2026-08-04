@@ -5,6 +5,7 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,17 +33,27 @@ func TestEinoWorkflowInvokesHTTPAndCurrentPeerTools(t *testing.T) {
 	clientToken := fmt.Sprintf("CLIENT_TOOL_OK_%X", runID)
 
 	registrationToken := createChatRegistrationToken(t, workspaceCaseTextRoundtrip)
+	path := filepath.Join("..", "..", "testdata", "workspaces", "eino-memory.json")
+	cfg, err := loadConfig(path, clientContextConfigPath())
+	if err != nil {
+		t.Fatalf("load Eino Tool E2E config: %v", err)
+	}
+	restoreCfg := cfg
+	restoreCfg.workspaceSuffix = fmt.Sprintf("tool-restore-%x", runID)
+	restoreWorkspace, err := prepareChatToolRestoreWorkspace(
+		restoreCfg,
+		workspaceCaseTextRoundtrip,
+		registrationToken,
+	)
+	if err != nil {
+		t.Fatalf("prepare Tool E2E restore Workspace: %v", err)
+	}
 	workflowName := configureChatToolResources(t, runID, map[string]apitypes.ToolSpec{
 		httpTool:   httpTokenToolSpec(t),
 		clientTool: clientTokenToolSpec(t),
 	})
 	t.Setenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN", registrationToken)
 
-	path := filepath.Join("..", "..", "testdata", "workspaces", "eino-memory.json")
-	cfg, err := loadConfig(path, clientContextConfigPath())
-	if err != nil {
-		t.Fatalf("load Eino Tool E2E config: %v", err)
-	}
 	cfg.Workflow.Name = workflowName
 	cfg.Workflow.Memory = ""
 	cfg.workspaceSuffix = fmt.Sprintf("tools-%x", runID)
@@ -70,7 +81,7 @@ func TestEinoWorkflowInvokesHTTPAndCurrentPeerTools(t *testing.T) {
 		clientTool, "current-peer", httpTool, httpToken,
 	)}
 
-	result, err := runLoadedConfigWithResultAndInspect(
+	result, runErr := runLoadedConfigWithResultAndInspect(
 		cfg,
 		workspaceCaseTextRoundtrip,
 		func(ctx context.Context, client *gizcli.Client, _ config) error {
@@ -91,7 +102,13 @@ func TestEinoWorkflowInvokesHTTPAndCurrentPeerTools(t *testing.T) {
 			return nil
 		},
 	)
-	if err != nil {
+	cleanupErr := cleanupChatToolWorkspace(
+		cfg,
+		workspaceCaseTextRoundtrip,
+		registrationToken,
+		restoreWorkspace,
+	)
+	if err := errors.Join(runErr, cleanupErr); err != nil {
 		t.Fatalf("run Eino Tool E2E (client calls=%d): %v", clientCalls.Load(), err)
 	}
 	if clientCalls.Load() != 1 {
@@ -105,6 +122,108 @@ func TestEinoWorkflowInvokesHTTPAndCurrentPeerTools(t *testing.T) {
 		t.Fatalf("Eino Tool E2E response = %q, want HTTP token %q and Client token %q", answer, httpToken, clientToken)
 	}
 	t.Logf("verified http_request=%s client_rpc=%s client_calls=%d", httpToken, clientToken, clientCalls.Load())
+}
+
+func prepareChatToolRestoreWorkspace(
+	fallback config,
+	selectedCase workspaceCase,
+	registrationToken string,
+) (workspace string, resultErr error) {
+	selectedFallback, err := selectedCase.applyConfig(fallback)
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	client, serveDone, err := dialClient(fallback)
+	if err != nil {
+		return "", fmt.Errorf("dial Tool E2E restore client: %w", err)
+	}
+	defer func() {
+		resultErr = errors.Join(resultErr, client.Close())
+		<-serveDone
+	}()
+	if _, err := client.Register(ctx, "tool-e2e.restore.register", registrationToken); err != nil {
+		return "", fmt.Errorf("register Tool E2E restore client: %w", err)
+	}
+	state, err := client.GetServerRunWorkspace(ctx, "tool-e2e.restore.get")
+	if err != nil {
+		return "", fmt.Errorf("read Tool E2E restore Workspace: %w", err)
+	}
+	if current := strings.TrimSpace(state.WorkspaceName); current != "" {
+		workspace, workspaceErr := client.GetWorkspace(
+			ctx,
+			"tool-e2e.restore.workspace.get",
+			rpcapi.WorkspaceGetRequest{Name: current},
+		)
+		if workspaceErr == nil {
+			if _, workflowErr := client.GetWorkflow(
+				ctx,
+				"tool-e2e.restore.workflow.get",
+				rpcapi.WorkflowGetRequest{Name: workspace.Value.WorkflowName},
+			); workflowErr == nil {
+				return current, nil
+			} else if !isRPCNotFound(workflowErr) {
+				return "", fmt.Errorf("validate Tool E2E restore Workflow: %w", workflowErr)
+			}
+		} else if !isRPCNotFound(workspaceErr) {
+			return "", fmt.Errorf("validate Tool E2E restore Workspace: %w", workspaceErr)
+		}
+	}
+	if _, err := ensureWorkspace(ctx, client, selectedFallback); err != nil {
+		return "", fmt.Errorf("create Tool E2E fallback Workspace: %w", err)
+	}
+	if err := selectAndReloadAgent(ctx, client, selectedFallback); err != nil {
+		return "", fmt.Errorf("select Tool E2E fallback Workspace: %w", err)
+	}
+	return selectedFallback.Workspace, nil
+}
+
+func cleanupChatToolWorkspace(
+	cfg config,
+	selectedCase workspaceCase,
+	registrationToken string,
+	restoreWorkspace string,
+) (resultErr error) {
+	selected, err := selectedCase.applyConfig(cfg)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	client, serveDone, err := dialClient(cfg)
+	if err != nil {
+		return fmt.Errorf("dial Tool E2E cleanup client: %w", err)
+	}
+	defer func() {
+		resultErr = errors.Join(resultErr, client.Close())
+		<-serveDone
+	}()
+	if _, err := client.Register(ctx, "tool-e2e.cleanup.register", registrationToken); err != nil {
+		return fmt.Errorf("register Tool E2E cleanup client: %w", err)
+	}
+	if _, err := client.StopServerRun(ctx, "tool-e2e.cleanup.stop"); err != nil {
+		resultErr = errors.Join(resultErr, fmt.Errorf("stop Tool E2E Workspace: %w", err))
+	}
+	if restoreWorkspace == selected.Workspace {
+		resultErr = errors.Join(resultErr, fmt.Errorf("Tool E2E restore Workspace must differ from temporary Workspace %q", selected.Workspace))
+	} else if err := selectAndReloadAgent(ctx, client, config{Workspace: restoreWorkspace}); err != nil {
+		resultErr = errors.Join(
+			resultErr,
+			fmt.Errorf("restore Tool E2E Workspace %q: %w", restoreWorkspace, err),
+		)
+	}
+	if _, err := client.DeleteWorkspace(
+		ctx,
+		"tool-e2e.cleanup.delete",
+		rpcapi.WorkspaceDeleteRequest{Name: selected.Workspace},
+	); err != nil && !isRPCNotFound(err) {
+		resultErr = errors.Join(
+			resultErr,
+			fmt.Errorf("delete Tool E2E Workspace %q: %w", selected.Workspace, err),
+		)
+	}
+	return resultErr
 }
 
 func httpTokenToolSpec(t *testing.T) apitypes.ToolSpec {

@@ -188,10 +188,12 @@ func (t *upstreamTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	if err == nil {
 		return resp, nil
 	}
-	if !upstreamConnectionFailed(conn, err) {
+	connectionFailed := upstreamConnectionFailed(conn, err)
+	discoveryTimedOut := upstreamDiscoveryTimedOut(req, err)
+	if !connectionFailed && !discoveryTimedOut {
 		return nil, err
 	}
-	reportRelayFailure := req.Context().Err() == nil && t.ctx.Err() == nil
+	reportRelayFailure := connectionFailed && req.Context().Err() == nil && t.ctx.Err() == nil
 	t.resetConn(epoch, reportRelayFailure)
 	if req.Context().Err() != nil {
 		return nil, err
@@ -201,6 +203,11 @@ func (t *upstreamTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 	resp, _, _, err = t.roundTrip(req)
 	return resp, err
+}
+
+func upstreamDiscoveryTimedOut(req *http.Request, err error) bool {
+	return req != nil && req.URL != nil && req.URL.Path == "/server-info" &&
+		errors.Is(err, context.DeadlineExceeded)
 }
 
 func (t *upstreamTransport) roundTrip(req *http.Request) (*http.Response, giznet.Conn, uint64, error) {

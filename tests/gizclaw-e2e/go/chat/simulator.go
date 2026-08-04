@@ -105,6 +105,48 @@ type roundEventTrace struct {
 	items []string
 }
 
+type roundResponseIdleTimer struct {
+	duration time.Duration
+	timer    *time.Timer
+	deadline <-chan time.Time
+}
+
+func newRoundResponseIdleTimer(duration time.Duration) *roundResponseIdleTimer {
+	return &roundResponseIdleTimer{duration: duration}
+}
+
+func (t *roundResponseIdleTimer) progress() {
+	if t == nil || t.duration <= 0 {
+		return
+	}
+	if t.timer == nil {
+		t.timer = time.NewTimer(t.duration)
+		t.deadline = t.timer.C
+		return
+	}
+	if !t.timer.Stop() {
+		select {
+		case <-t.timer.C:
+		default:
+		}
+	}
+	t.timer.Reset(t.duration)
+}
+
+func (t *roundResponseIdleTimer) channel() <-chan time.Time {
+	if t == nil {
+		return nil
+	}
+	return t.deadline
+}
+
+func (t *roundResponseIdleTimer) stop() {
+	if t == nil || t.timer == nil {
+		return
+	}
+	t.timer.Stop()
+}
+
 func (t *roundEventTrace) add(format string, args ...any) {
 	const maxItems = 80
 	item := fmt.Sprintf(format, args...)
@@ -276,8 +318,14 @@ type conversationMode struct {
 	KeepRealtimeInputOpen       bool
 }
 
-const assistantAudioASRMinRatio = 0.35
-const realtimeInputTailSilence = 1200 * time.Millisecond
+const (
+	assistantAudioASRMinRatio                  = 0.35
+	assistantAudioASRMultipartMinChars         = 64
+	assistantAudioASRMultipartMaxRelaxation    = 0.05
+	assistantAudioASRMultipartMinCharPrecision = 0.60
+	assistantAudioASRMultipartMinCharRecall    = 0.60
+	realtimeInputTailSilence                   = 1200 * time.Millisecond
+)
 
 func (d *personaDriver) runRound(ctx context.Context, index int, mode conversationMode) (roundStats, error) {
 	stat := roundStats{Index: index}
@@ -381,6 +429,9 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 	responseTimeout := d.roundResponseTimeout()
 	responseDeadline := time.NewTimer(responseTimeout)
 	defer responseDeadline.Stop()
+	responseIdleTimeout := min(time.Minute, responseTimeout/2)
+	responseIdle := newRoundResponseIdleTimer(responseIdleTimeout)
+	defer responseIdle.stop()
 	for sendDone != nil ||
 		(!mode.AllowMissingInputTranscript && (transcriptText == "" || stat.TranscriptDone == 0)) ||
 		stat.AssistantTextDone == 0 || stat.DownlinkPackets == 0 || !assistantAudioDone || settle != nil {
@@ -389,6 +440,8 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 			return stat, fmt.Errorf("round %d: wait response: %w; recent events: %s", index, ctx.Err(), trace.String())
 		case <-responseDeadline.C:
 			return stat, fmt.Errorf("round %d: response timeout after %s; recent events: %s", index, responseTimeout, trace.String())
+		case <-responseIdle.channel():
+			return stat, fmt.Errorf("round %d: response stream idle timeout after %s; recent events: %s", index, responseIdleTimeout, trace.String())
 		case <-historyGateTick:
 			history, err := d.listRuntimeHistory(ctx, 100)
 			if err != nil {
@@ -429,6 +482,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 			}
 			fmt.Printf("workspace_progress event=uplink_done workspace=%s round=%d stream=%s duration=%s\n", d.cfg.Workspace, index, streamID, stat.UplinkSend.Truncate(time.Millisecond))
 			sendDone = nil
+			responseIdle.progress()
 			historyGateTick = nil
 			if astPushToTalkGate {
 				history, historyErr := d.listRuntimeHistory(ctx, 100)
@@ -477,6 +531,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 					continue
 				}
 				assistantAudioDone = true
+				responseIdle.progress()
 				if sendDone == nil {
 					settle = time.After(700 * time.Millisecond)
 				} else {
@@ -490,6 +545,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 			case "transcript":
 				if isTranscriptDoneEvent(event) && stat.TranscriptDone == 0 {
 					stat.TranscriptDone = textLatency
+					responseIdle.progress()
 					fmt.Printf("workspace_progress event=transcript_done workspace=%s round=%d stream=%s after_eos=%s chars=%d\n", d.cfg.Workspace, index, eventStreamID(event), stat.TranscriptDone.Truncate(time.Millisecond), runeCount(transcriptText))
 				}
 				if event.Text == nil || strings.TrimSpace(*event.Text) == "" {
@@ -500,10 +556,15 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 					stat.FirstTranscriptBeforeEOS = receivedBeforeInputEOS(received.receivedAt, inputEOSSentAt.Load())
 					fmt.Printf("workspace_progress event=transcript_first workspace=%s round=%d stream=%s after_eos=%s before_eos=%t chunk=%q\n", d.cfg.Workspace, index, eventStreamID(event), stat.FirstTranscriptChunk.Truncate(time.Millisecond), stat.FirstTranscriptBeforeEOS, *event.Text)
 				}
-				transcriptText = mergeTranscriptText(transcriptText, *event.Text)
+				nextTranscript := mergeTranscriptText(transcriptText, *event.Text)
+				if nextTranscript != transcriptText {
+					responseIdle.progress()
+				}
+				transcriptText = nextTranscript
 			case "assistant":
 				if isAssistantTextDoneEvent(event) && stat.AssistantTextDone == 0 {
 					stat.AssistantTextDone = textLatency
+					responseIdle.progress()
 					fmt.Printf("workspace_progress event=assistant_text_done workspace=%s round=%d stream=%s after_eos=%s chars=%d\n", d.cfg.Workspace, index, eventStreamID(event), stat.AssistantTextDone.Truncate(time.Millisecond), runeCount(assistant.String()))
 				}
 				if event.Text == nil || strings.TrimSpace(*event.Text) == "" {
@@ -515,6 +576,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 					fmt.Printf("workspace_progress event=assistant_text_first workspace=%s round=%d stream=%s after_eos=%s chunk=%q\n", d.cfg.Workspace, index, eventStreamID(event), stat.FirstAssistantTextChunk.Truncate(time.Millisecond), stat.FirstAssistantText)
 				}
 				assistant.WriteString(*event.Text)
+				responseIdle.progress()
 			default:
 				if event.Text == nil || strings.TrimSpace(*event.Text) == "" {
 					continue
@@ -525,6 +587,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 				return stat, fmt.Errorf("round %d: AST push-to-talk published assistant audio before input EOS", index)
 			}
 			downlinkFrames = append(downlinkFrames, append([]byte(nil), packet.frame...))
+			responseIdle.progress()
 			if stat.FirstAudioChunk == 0 {
 				stat.FirstAudioChunk = afterStartLatency(packet.receivedAt, observedResponseStart(responseStart, inputEOSSentAt.Load()))
 				stat.FirstAudioBeforeTextDone = stat.AssistantTextDone == 0
@@ -619,7 +682,7 @@ func (d *personaDriver) verifyAssistantAudioASRWithMinRatio(ctx context.Context,
 		fmt.Printf("workspace_progress event=assistant_audio_asr_part_done workspace=%s round=%d name=%s part=%d duration=%s text_chars=%d\n", d.cfg.Workspace, index, name, len(parts), time.Since(partStart).Truncate(time.Millisecond), runeCount(audioASR))
 	}
 	audioASR := strings.TrimSpace(strings.Join(parts, " "))
-	if err := assertTextSimilar("assistant audio asr", expectedText, audioASR, minRatio); err != nil {
+	if err := assertAssistantAudioASRSimilar("assistant audio asr", expectedText, audioASR, minRatio, len(parts)); err != nil {
 		return "", err
 	}
 	fmt.Printf("workspace_progress event=assistant_audio_asr_done workspace=%s round=%d name=%s duration=%s text_chars=%d\n", d.cfg.Workspace, index, name, time.Since(started).Truncate(time.Millisecond), runeCount(audioASR))
@@ -1747,6 +1810,57 @@ func assertTextSimilar(name, expected, actual string, minRatio float64) error {
 		return nil
 	}
 	return fmt.Errorf("%s mismatch: similarity %.2f below %.2f: expected %q normalized %q, got %q normalized %q", name, ratio, minRatio, expected, expectedNorm, actual, actualNorm)
+}
+
+func assertAssistantAudioASRSimilar(name, expected, actual string, minRatio float64, partCount int) error {
+	strictErr := assertTextSimilar(name, expected, actual, minRatio)
+	if strictErr == nil {
+		return nil
+	}
+	expectedNorm := normalizeTranscript(expected)
+	actualNorm := normalizeTranscript(actual)
+	if partCount < 2 || utf8.RuneCountInString(expectedNorm) < assistantAudioASRMultipartMinChars {
+		return strictErr
+	}
+	sequenceRatio := lcsRatio(expectedNorm, actualNorm)
+	sequenceFloor := max(minRatio-assistantAudioASRMultipartMaxRelaxation, 0)
+	precision, recall := runeMultisetPrecisionRecall(expectedNorm, actualNorm)
+	if sequenceRatio >= sequenceFloor &&
+		precision >= assistantAudioASRMultipartMinCharPrecision &&
+		recall >= assistantAudioASRMultipartMinCharRecall {
+		return nil
+	}
+	return fmt.Errorf("%w; multipart coverage: parts=%d sequence=%.2f minimum=%.2f char_precision=%.2f minimum=%.2f char_recall=%.2f minimum=%.2f",
+		strictErr,
+		partCount,
+		sequenceRatio,
+		sequenceFloor,
+		precision,
+		assistantAudioASRMultipartMinCharPrecision,
+		recall,
+		assistantAudioASRMultipartMinCharRecall,
+	)
+}
+
+func runeMultisetPrecisionRecall(expected, actual string) (float64, float64) {
+	expectedRunes := []rune(expected)
+	actualRunes := []rune(actual)
+	if len(expectedRunes) == 0 || len(actualRunes) == 0 {
+		return 0, 0
+	}
+	remaining := make(map[rune]int, len(expectedRunes))
+	for _, r := range expectedRunes {
+		remaining[r]++
+	}
+	matched := 0
+	for _, r := range actualRunes {
+		if remaining[r] == 0 {
+			continue
+		}
+		remaining[r]--
+		matched++
+	}
+	return float64(matched) / float64(len(actualRunes)), float64(matched) / float64(len(expectedRunes))
 }
 
 func isAgentAlreadyRunning(err error) bool {

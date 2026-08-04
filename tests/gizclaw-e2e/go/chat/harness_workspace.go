@@ -34,6 +34,24 @@ var (
 	newChatTransportForRun         = newChatTransport
 	runWorkspaceCaseForRun         = (*personaDriver).runCase
 	validateWorkspaceRuntimeForRun = validateWorkspaceRuntime
+	registerChatClientForRun       = func(ctx context.Context, client *gizcli.Client, token string) error {
+		_, err := client.Register(ctx, "workspacetest.register", token)
+		return err
+	}
+	closeChatClientForRun = func(client *gizcli.Client, serveDone <-chan error) {
+		_ = client.Close()
+		<-serveDone
+	}
+	waitChatRegistrationRetryForRun = func(ctx context.Context, delay time.Duration) error {
+		timer := time.NewTimer(delay)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			return nil
+		}
+	}
 )
 
 type workspaceCase string
@@ -115,22 +133,15 @@ func runLoadedConfigWithResultAndInspect(
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.timeout)
 	defer cancel()
 
-	client, serveDone, err := dialClientForRun(cfg)
+	client, serveDone, err := dialAndRegisterChatClientForRun(ctx, cfg,
+		strings.TrimSpace(os.Getenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN")))
 	if err != nil {
 		return workspaceCaseResult{}, err
 	}
-	defer func() {
-		_ = client.Close()
-		<-serveDone
-	}()
+	defer closeChatClientForRun(client, serveDone)
 	for name, handler := range cfg.toolHandlers {
 		if err := client.HandleTool(name, handler); err != nil {
 			return workspaceCaseResult{}, fmt.Errorf("mount client Tool %q: %w", name, err)
-		}
-	}
-	if token := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN")); token != "" {
-		if _, err := client.Register(ctx, "workspacetest.register", token); err != nil {
-			return workspaceCaseResult{}, fmt.Errorf("register chat client: %w", err)
 		}
 	}
 
@@ -189,6 +200,48 @@ func runLoadedConfigWithResultAndInspect(
 		}
 	}
 	return result, nil
+}
+
+func dialAndRegisterChatClientForRun(ctx context.Context, cfg config, token string) (*gizcli.Client, <-chan error, error) {
+	const maxAttempts = 5
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		client, serveDone, err := dialClientForRun(cfg)
+		if err != nil {
+			return nil, nil, err
+		}
+		if token == "" {
+			return client, serveDone, nil
+		}
+
+		err = registerChatClientForRun(ctx, client, token)
+		retryable := isRetryableChatRegistrationError(err)
+		result := "pass"
+		if err != nil {
+			result = "fail"
+		}
+		fmt.Printf("chat_registration_attempt attempt=%d result=%s retryable=%t\n", attempt, result, retryable)
+		if err == nil {
+			return client, serveDone, nil
+		}
+
+		closeChatClientForRun(client, serveDone)
+		if !retryable || attempt == maxAttempts {
+			return nil, nil, fmt.Errorf("register chat client: %w", err)
+		}
+		if err := waitChatRegistrationRetryForRun(ctx, time.Duration(attempt)*time.Second); err != nil {
+			return nil, nil, fmt.Errorf("register chat client retry: %w", err)
+		}
+	}
+	panic("unreachable")
+}
+
+func isRetryableChatRegistrationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	text := err.Error()
+	return strings.Contains(text, "abort chunk") && strings.Contains(text, "User Initiated Abort")
 }
 
 func (c workspaceCase) applyConfig(cfg config) (config, error) {
@@ -358,19 +411,33 @@ func fetchChatServerInfo(endpoint string) (chatServerInfo, error) {
 	if endpoint == "" {
 		return chatServerInfo{}, fmt.Errorf("server endpoint is empty")
 	}
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		info, retryable, err := fetchChatServerInfoOnce(endpoint)
+		if err == nil {
+			return info, nil
+		}
+		if !retryable || !time.Now().Before(deadline) {
+			return chatServerInfo{}, err
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func fetchChatServerInfoOnce(endpoint string) (chatServerInfo, bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+endpoint+"/server-info", nil)
 	if err != nil {
-		return chatServerInfo{}, err
+		return chatServerInfo{}, false, err
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return chatServerInfo{}, err
+		return chatServerInfo{}, true, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return chatServerInfo{}, fmt.Errorf("server-info status=%d", resp.StatusCode)
+		return chatServerInfo{}, resp.StatusCode >= http.StatusInternalServerError, fmt.Errorf("server-info status=%d", resp.StatusCode)
 	}
 	var body struct {
 		PublicKey     string                `json:"public_key"`
@@ -385,40 +452,40 @@ func fetchChatServerInfo(endpoint string) (chatServerInfo, error) {
 		} `json:"transport"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return chatServerInfo{}, err
+		return chatServerInfo{}, false, err
 	}
 	if body.Protocol != "" && body.Protocol != "gizclaw-webrtc" {
-		return chatServerInfo{}, fmt.Errorf("server-info protocol=%q", body.Protocol)
+		return chatServerInfo{}, false, fmt.Errorf("server-info protocol=%q", body.Protocol)
 	}
 	publicKey := strings.TrimSpace(body.PublicKey)
 	signalingEndpoint := endpoint
 	signalingPath := strings.TrimSpace(body.SignalingPath)
 	if body.Transport != nil {
 		if strings.TrimSpace(body.Transport.Mode) != "edge-gateway" {
-			return chatServerInfo{}, fmt.Errorf("server-info transport mode=%q", body.Transport.Mode)
+			return chatServerInfo{}, false, fmt.Errorf("server-info transport mode=%q", body.Transport.Mode)
 		}
 		publicKey = strings.TrimSpace(body.Transport.PublicKey)
 		signalingEndpoint = strings.TrimSpace(body.Transport.Endpoint)
 		signalingPath = strings.TrimSpace(body.Transport.SignalingPath)
 		if signalingEndpoint == "" {
-			return chatServerInfo{}, fmt.Errorf("server-info transport endpoint is empty")
+			return chatServerInfo{}, false, fmt.Errorf("server-info transport endpoint is empty")
 		}
 	}
 	serverPK, err := parsePublicKey(publicKey)
 	if err != nil {
-		return chatServerInfo{}, fmt.Errorf("server-info public_key: %w", err)
+		return chatServerInfo{}, false, fmt.Errorf("server-info public_key: %w", err)
 	}
 	if serverPK.IsZero() {
-		return chatServerInfo{}, fmt.Errorf("server-info public_key is zero")
+		return chatServerInfo{}, false, fmt.Errorf("server-info public_key is zero")
 	}
 	if signalingPath == "" {
 		signalingPath = gizwebrtc.SignalingPath
 	}
 	if !strings.HasPrefix(signalingPath, "/") || strings.HasPrefix(signalingPath, "//") {
-		return chatServerInfo{}, fmt.Errorf("server-info signaling_path=%q", signalingPath)
+		return chatServerInfo{}, false, fmt.Errorf("server-info signaling_path=%q", signalingPath)
 	}
 	signalingURL := url.URL{Scheme: "http", Host: signalingEndpoint, Path: signalingPath}
-	return chatServerInfo{PublicKey: serverPK, SignalingURL: signalingURL.String(), ICEServers: body.ICEServers}, nil
+	return chatServerInfo{PublicKey: serverPK, SignalingURL: signalingURL.String(), ICEServers: body.ICEServers}, false, nil
 }
 
 type runControlClient interface {

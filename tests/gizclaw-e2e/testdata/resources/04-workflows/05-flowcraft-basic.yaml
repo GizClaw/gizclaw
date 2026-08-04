@@ -25,7 +25,6 @@ spec:
         type: llm
       - config:
           observations:
-          - turns_from: conversation
           - facts:
             - text_from: input
               attributes:

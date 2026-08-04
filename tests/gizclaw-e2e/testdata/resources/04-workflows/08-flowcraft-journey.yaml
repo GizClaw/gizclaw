@@ -1758,7 +1758,6 @@ spec:
         type: script
       - config:
           observations:
-          - turns_from: conversation
           - facts:
             - text_from: tmp_story_progress_line
               attributes:
@@ -1769,7 +1768,7 @@ spec:
           wait_for_completion: true
         id: observe_story_memory
         type: memory_observe
-    max_iterations: 16
+    max_iterations: 24
     conversation:
       starts: peer
     voice_adapter:

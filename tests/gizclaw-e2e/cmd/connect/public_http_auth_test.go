@@ -32,8 +32,8 @@ func TestPublicHTTPAuthUserStory(t *testing.T) {
 	if err := serverInfoResp.Body.Close(); err != nil {
 		t.Fatalf("close server-info body: %v", err)
 	}
-	if !serverInfo.Ice.Udp || !serverInfo.Ice.Tcp {
-		t.Fatalf("server-info ice = %+v, want udp=true tcp=true", serverInfo.Ice)
+	if !serverInfo.Ice.Udp || serverInfo.Ice.Tcp {
+		t.Fatalf("server-info ice = %+v, want Edge udp=true tcp=false", serverInfo.Ice)
 	}
 
 	_ = h.PublicHTTPLogin("device-http")

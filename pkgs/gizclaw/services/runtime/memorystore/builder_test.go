@@ -43,6 +43,39 @@ func TestManagedBindingRootRejectsUnsafeAndSymlinkPaths(t *testing.T) {
 	}
 }
 
+func TestBuildAcceptsCanonicalLayoutIDWithDifferentName(t *testing.T) {
+	request := managedTestRequest(t)
+	request.Layout.Name = "peer-visible-layout-name"
+
+	result, err := Build(t.Context(), request)
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	if result.Closer != nil {
+		t.Cleanup(func() { _ = result.Closer.Close() })
+	}
+}
+
+func TestBuildRejectsMismatchedCanonicalLayoutID(t *testing.T) {
+	request := managedTestRequest(t)
+	request.Layout.Id = "different-layout-id"
+
+	_, err := Build(t.Context(), request)
+	if err == nil || !strings.Contains(err.Error(), `layout id "different-layout-id" does not match binding layout_id "layout-id"`) {
+		t.Fatalf("Build() error = %v", err)
+	}
+}
+
+func TestBuildRejectsEmptyCanonicalLayoutID(t *testing.T) {
+	request := managedTestRequest(t)
+	request.Layout.Id = ""
+
+	_, err := Build(t.Context(), request)
+	if err == nil || !strings.Contains(err.Error(), `layout id "" does not match binding layout_id "layout-id"`) {
+		t.Fatalf("Build() error = %v", err)
+	}
+}
+
 func TestProjectionSignatureExcludesExtractionAndWritePolicy(t *testing.T) {
 	policy := testFlowcraftPolicy()
 	before, err := projectionSignature(policy)

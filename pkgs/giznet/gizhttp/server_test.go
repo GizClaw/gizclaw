@@ -186,6 +186,57 @@ func TestRoundTripNilConnReturnsError(t *testing.T) {
 	}
 }
 
+func TestRoundTripCancelsPendingContextDialer(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	conn := &contextDialConn{started: make(chan struct{})}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://gizclaw/server-info", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := NewRoundTripper(conn, 7).RoundTrip(req)
+		done <- err
+	}()
+	<-conn.started
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("RoundTrip error = %v, want context canceled", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("RoundTrip did not cancel the pending service open")
+	}
+	if conn.fallbackDialed {
+		t.Fatal("RoundTrip used the non-context Dial fallback")
+	}
+}
+
+type contextDialConn struct {
+	started        chan struct{}
+	fallbackDialed bool
+}
+
+func (c *contextDialConn) Dial(uint64) (net.Conn, error) {
+	c.fallbackDialed = true
+	return nil, errors.New("unexpected Dial")
+}
+
+func (c *contextDialConn) DialContext(ctx context.Context, _ uint64) (net.Conn, error) {
+	close(c.started)
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func (*contextDialConn) ListenService(uint64) giznet.ServiceListener { return nil }
+func (*contextDialConn) CloseService(uint64) error                   { return nil }
+func (*contextDialConn) Read([]byte) (byte, int, error)              { return 0, 0, io.EOF }
+func (*contextDialConn) Write(byte, []byte) (int, error)             { return 0, nil }
+func (*contextDialConn) PublicKey() giznet.PublicKey                 { return giznet.PublicKey{} }
+func (*contextDialConn) PeerInfo() *giznet.PeerInfo                  { return nil }
+func (*contextDialConn) Close() error                                { return nil }
+
 func TestListenerCloseUnblocksAccept(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {

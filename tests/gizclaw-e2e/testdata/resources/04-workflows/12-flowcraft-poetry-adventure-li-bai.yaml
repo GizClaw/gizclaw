@@ -544,7 +544,6 @@ spec:
         type: script
       - config:
           observations:
-          - turns_from: conversation
           - facts:
             - {text_from: tmp_checkpoint_progress_line, attributes: {lane: checkpoint-progress, kind: state, predicate: status, subject: checkpoint_progress}}
             - {text_from: tmp_achievement_log_line, attributes: {lane: achievement-log, kind: event, predicate: recitation, subject: achievement_log}}

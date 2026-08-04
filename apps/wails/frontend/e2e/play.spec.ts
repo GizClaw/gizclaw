@@ -18,10 +18,13 @@ test.beforeEach(async ({ page }) => {
       badges: [
         {
           active: true,
-          badge_def_id: "badge-basic",
+          badge_def_name: "badge-basic",
+          created_at: "2026-07-01T00:00:00Z",
           exp: 125,
-          id: "badge-basic",
           level: 1,
+          name: "badge-basic",
+          progress: 0.25,
+          updated_at: "2026-07-01T00:00:00Z",
         },
       ],
       contacts: [
@@ -91,17 +94,16 @@ test.beforeEach(async ({ page }) => {
       memoryStats: { total: 2 },
       models: [
         {
-          alias: "asr",
+          i18n: {},
           kind: "asr",
+          name: "asr",
           provider_kind: "volc-tenant",
           volc_tenant: { api_mode: "asr", support_text_only: false },
         },
         {
-          alias: "chat",
-          created_at: "2026-07-01T00:00:00Z",
-          id: "fake-openai-chat-000",
+          i18n: {},
           kind: "llm",
-          name: "Fake OpenAI Chat",
+          name: "chat",
           openai_tenant: {
             default_thinking_level: "disabled",
             support_temperature: true,
@@ -109,20 +111,17 @@ test.beforeEach(async ({ page }) => {
             thinking_levels: ["enabled", "disabled", "auto"],
             thinking_param: "thinking.type",
           },
-          provider: { kind: "openai-tenant", name: "fake-openai" },
           provider_kind: "openai-tenant",
-          source: "manual",
-          updated_at: "2026-07-01T00:00:00Z",
         },
       ],
       pets: [
         {
           created_at: "2026-07-01T00:00:00Z",
           display_name: "Starter Pet",
-          id: "pet-main",
           last_active_at: "2026-07-01T00:00:00Z",
           lifecycle: "alive",
-          petdef_id: "petdef-basic",
+          name: "pet-main",
+          pet_def_name: "petdef-basic",
           progression: { experience: 90, level: 3 },
           runtime_profile_name: "default-gameplay",
           state_settled_at: "2026-07-01T00:00:00Z",
@@ -140,6 +139,8 @@ test.beforeEach(async ({ page }) => {
       ],
       points: {
         balance: 100,
+        created_at: "2026-07-01T00:00:00Z",
+        owner_public_key: "peer-main",
         runtime_profile_name: "default-gameplay",
         updated_at: "2026-07-01T00:00:00Z",
       },
@@ -152,19 +153,17 @@ test.beforeEach(async ({ page }) => {
       },
       voices: [
         {
-          alias: "pet",
-          id: "volc-voice-000",
-          name: "Volc Voice",
-          provider: { kind: "volc-tenant", name: "volc-tenant" },
-          source: "sync",
+          i18n: { en: { display_name: "Pet" } },
+          name: "pet",
         },
       ],
       warnings: [],
       workflows: [
         {
-          alias: "flowcraft-chat",
+          collection: "assistants",
+          driver: "flowcraft",
+          i18n: {},
           name: "flowcraft-chat",
-          spec: { driver: "flowcraft" },
         },
       ],
       workspaces: [
@@ -188,14 +187,14 @@ test.beforeEach(async ({ page }) => {
     window.__GIZCLAW_DESKTOP_TEST_PLAY_CLIENT__ = {
       async adoptPet(req) {
         const displayName = String(req.display_name ?? "Adopted Pet");
-        const id = `pet-${snapshot.pets.length + 1}`;
+        const name = String(req.name ?? `pet-${snapshot.pets.length + 1}`);
         const pet = {
           created_at: "2026-07-01T00:00:02Z",
           display_name: displayName,
-          id,
           last_active_at: "2026-07-01T00:00:02Z",
           lifecycle: "alive",
-          petdef_id: "petdef-basic",
+          name,
+          pet_def_name: "petdef-basic",
           progression: { experience: 0, level: 1 },
           runtime_profile_name: "default-gameplay",
           state_settled_at: "2026-07-01T00:00:02Z",
@@ -208,7 +207,7 @@ test.beforeEach(async ({ page }) => {
             energy: 100,
           },
           updated_at: "2026-07-01T00:00:02Z",
-          workspace_name: `pet-${id}`,
+          workspace_name: `pet-${name}`,
         };
         snapshot.pets.push(pet);
         snapshot.points.balance -= 10;
@@ -217,8 +216,11 @@ test.beforeEach(async ({ page }) => {
           created_at: "2026-07-01T00:00:02Z",
           delta: -10,
           id: "txn-adopt-1",
+          owner_public_key: "peer-main",
+          pet_name: name,
           reason: "adopt",
-          source_id: id,
+          runtime_profile_name: "default-gameplay",
+          source_id: name,
           source_type: "pet_adoption",
         });
         actions.push(`adopt:${displayName}`);
@@ -226,12 +228,12 @@ test.beforeEach(async ({ page }) => {
         return pet;
       },
       async deletePet(req) {
-        const index = snapshot.pets.findIndex((pet) => pet.id === req.id);
+        const index = snapshot.pets.findIndex((pet) => pet.name === req.name);
         const [pet] = index >= 0 ? snapshot.pets.splice(index, 1) : [];
         return pet ?? null;
       },
       async drivePet(req) {
-        const pet = findByID(snapshot.pets, req.pet_id);
+        const pet = snapshot.pets.find((item) => item.name === req.pet_name);
         if (pet == null) {
           throw new Error("pet not found");
         }
@@ -245,19 +247,23 @@ test.beforeEach(async ({ page }) => {
             created_at: "2026-07-01T00:00:03Z",
             delta: -10,
             id: "txn-drive-1",
+            owner_public_key: "peer-main",
+            pet_name: req.pet_name,
             reason: "game.play",
+            runtime_profile_name: "default-gameplay",
             source_id: "game-result-1",
             source_type: "game_result",
           });
           gameResult = {
             duration_ms: req.game_result.duration_ms,
-            game_def_id: req.game_result.game_def_id,
+            game_def_name: req.game_result.game_name,
             id: "game-result-1",
             idempotency_key: req.game_result.idempotency_key,
             max_score: req.game_result.max_score,
             occurred_at: "2026-07-01T00:00:03Z",
             outcome: req.game_result.outcome,
-            pet_id: req.pet_id,
+            pet_name: req.pet_name,
+            runtime_profile_name: "default-gameplay",
             score: req.game_result.score,
           };
           snapshot.gameResults.push(gameResult);
@@ -276,15 +282,17 @@ test.beforeEach(async ({ page }) => {
         snapshot.grants.push({
           created_at: "2026-07-01T00:00:03Z",
           id: `reward-grant-${snapshot.grants.length + 1}`,
+          owner_public_key: "peer-main",
           pet_exp_delta: 20,
-          pet_id: req.pet_id,
+          pet_name: req.pet_name,
           points_delta: 0,
           reason: String(req.behavior ?? "game reward"),
-          source_id: gameResult?.id ?? String(req.pet_id),
+          runtime_profile_name: "default-gameplay",
+          source_id: gameResult?.id ?? String(req.pet_name),
           source_type: gameResult == null ? "pet_behavior" : "game_result",
         });
         actions.push(
-          `drive:${req.pet_id}:${req.behavior ?? ""}:${req.idempotency_key ?? req.game_result?.idempotency_key ?? ""}`,
+          `drive:${req.pet_name}:${req.behavior ?? ""}:${req.idempotency_key ?? req.game_result?.idempotency_key ?? ""}`,
         );
         window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ = actions;
         return {
@@ -300,16 +308,16 @@ test.beforeEach(async ({ page }) => {
         };
       },
       async getBadge(req) {
-        return findByID(snapshot.badges, req.id);
+        return snapshot.badges.find((badge) => badge.name === req.name) ?? null;
       },
       async getGameResult(req) {
         return findByID(snapshot.gameResults, req.id);
       },
       async getPet(req) {
-        return findByID(snapshot.pets, req.id);
+        return snapshot.pets.find((pet) => pet.name === req.name) ?? null;
       },
       async getPetActions(req) {
-        const pet = findByID(snapshot.pets, req.id);
+        const pet = snapshot.pets.find((item) => item.name === req.name);
         if (pet == null) {
           throw new Error("pet not found");
         }
@@ -324,9 +332,9 @@ test.beforeEach(async ({ page }) => {
             dead: "idle",
           },
           clip_names: { idle: "idle", bath: "bath" },
-          pet_id: pet.id,
-          petdef_id: pet.petdef_id,
-          petdef_updated_at: "2026-07-01T00:00:00Z",
+          pet_name: pet.name,
+          pet_def_name: pet.pet_def_name,
+          pet_def_updated_at: "2026-07-01T00:00:00Z",
         };
       },
       async getPoints() {
@@ -362,7 +370,7 @@ test.beforeEach(async ({ page }) => {
         return { accepted: true };
       },
       async putPet(req) {
-        const pet = findByID(snapshot.pets, req.id);
+        const pet = snapshot.pets.find((item) => item.name === req.name);
         if (pet != null && req.display_name != null) {
           pet.display_name = String(req.display_name);
         }
@@ -434,7 +442,7 @@ test("play view renders the full desktop play surface", async ({ page }) => {
 
   await page.getByRole("button", { name: /Workflows/ }).click();
   await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Alias" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Name" })).toBeVisible();
   await expect(
     page.getByRole("columnheader", { name: "Display name" }),
   ).toHaveCount(0);
@@ -520,7 +528,9 @@ test("play gameplay panel adopts and drives pets through peer RPC", async ({
   await page.getByPlaceholder("Display name").fill("Test Pet");
   await expect(page.getByRole("button", { name: "Adopt Pet" })).toBeEnabled();
   await page.getByRole("button", { name: "Adopt Pet" }).click();
-  await expect(page.getByText("Test Pet")).toBeVisible();
+  await expect(
+    page.getByRole("cell", { name: "Test Pet", exact: true }),
+  ).toBeVisible();
   await expect
     .poll(() =>
       page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? []),

@@ -52,10 +52,10 @@ func TestFactoryDelegatesNestedWorkflowToRegisteredFactory(t *testing.T) {
 		Factories: registry,
 	}
 	owner := "peer-a"
-	memoryBinding := &apitypes.RuntimeProfileMemoryBinding{LayoutId: "pet-memory", Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft}
-	memoryLayout := &apitypes.MemoryLayout{Name: "pet-memory"}
+	memoryBinding := &apitypes.RuntimeProfileMemoryBinding{LayoutId: "pet-memory-layout-id", Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft}
+	memoryLayout := &apitypes.MemoryLayout{Id: "pet-memory-layout-id", Name: "pet-memory"}
 	agent, err := factory.NewAgent(t.Context(), agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "pet-demo", OwnerPublicKey: &owner},
+		Workspace: apitypes.Workspace{Id: "workspace-id-a", Name: "pet-demo", OwnerPublicKey: &owner},
 		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverPet,
 			Pet: &apitypes.PetWorkflowSpec{
@@ -173,7 +173,7 @@ func TestFactoryInjectsPetContextForEveryReusableDriver(t *testing.T) {
 				},
 				Factories: registry,
 			}).NewAgent(t.Context(), agenthost.Spec{
-				Workspace: apitypes.Workspace{Name: "pet-demo"},
+				Workspace: apitypes.Workspace{Id: "workspace-id-a", Name: "pet-demo"},
 				Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
 					Driver: apitypes.WorkflowDriverPet,
 					Pet:    &testCase.spec,
@@ -207,7 +207,7 @@ func TestFactoryRefreshesNestedBoardInputsWithinLongLivedTransform(t *testing.T)
 		Pets:      pets,
 		Factories: registry,
 	}).NewAgent(t.Context(), agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "pet-demo"},
+		Workspace: apitypes.Workspace{Id: "workspace-id-a", Name: "pet-demo"},
 		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverPet,
 			Pet: &apitypes.PetWorkflowSpec{
@@ -226,8 +226,36 @@ func TestFactoryRefreshesNestedBoardInputsWithinLongLivedTransform(t *testing.T)
 	if pets.calls != 2 {
 		t.Fatalf("ResolvePetContext calls = %d, want 2", pets.calls)
 	}
+	if got := pets.workspaceIDs; len(got) != 2 || got[0] != "workspace-id-a" || got[1] != "workspace-id-a" {
+		t.Fatalf("ResolvePetContext workspace IDs = %#v, want canonical Workspace ID for initial and per-turn resolution", got)
+	}
 	if got := nested.inputs["tmp_pet_attribute_prompt"]; !strings.Contains(got.(string), "当前名字：pet-2") {
 		t.Fatalf("nested BoardInputs() = %#v", nested.inputs)
+	}
+}
+
+func TestFactoryRequiresCanonicalWorkspaceID(t *testing.T) {
+	registry := agenthost.NewRegistry()
+	if err := registry.Register("flowcraft", &captureFactory{}); err != nil {
+		t.Fatal(err)
+	}
+	pets := &sequencedPetContext{}
+	_, err := (Factory{Pets: pets, Factories: registry}).NewAgent(t.Context(), agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "peer-facing-name"},
+		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
+			Driver: apitypes.WorkflowDriverPet,
+			Pet: &apitypes.PetWorkflowSpec{
+				Driver:    apitypes.ReusableWorkflowDriverFlowcraft,
+				Flowcraft: &apitypes.FlowcraftWorkflowSpec{},
+			},
+		}},
+		AgentType: Type,
+	})
+	if err == nil || !strings.Contains(err.Error(), "workspace id is required") {
+		t.Fatalf("NewAgent() error = %v, want missing canonical Workspace ID", err)
+	}
+	if pets.calls != 0 {
+		t.Fatalf("ResolvePetContext calls = %d, want no fallback to peer-facing Workspace name", pets.calls)
 	}
 }
 
@@ -241,11 +269,13 @@ func (s staticPetContext) ResolvePetContext(context.Context, string) (apitypes.P
 }
 
 type sequencedPetContext struct {
-	calls int
+	calls        int
+	workspaceIDs []string
 }
 
-func (s *sequencedPetContext) ResolvePetContext(context.Context, string) (apitypes.Pet, apitypes.PetDef, error) {
+func (s *sequencedPetContext) ResolvePetContext(_ context.Context, workspaceID string) (apitypes.Pet, apitypes.PetDef, error) {
 	s.calls++
+	s.workspaceIDs = append(s.workspaceIDs, workspaceID)
 	return apitypes.Pet{DisplayName: fmt.Sprintf("pet-%d", s.calls)}, apitypes.PetDef{}, nil
 }
 

@@ -36,7 +36,7 @@ func TestSideControlPublicHTTPUserStory(t *testing.T) {
 	}
 	_ = response.Body.Close()
 
-	response = sideControlRequest(t, h, "side-controller", sideLogin.AccessToken, http.MethodPost, "/side-control/contacts", []byte(`{"display_name":"Side Contact"}`))
+	response = sideControlRequest(t, h, "side-controller", sideLogin.AccessToken, http.MethodPost, "/side-control/contacts", []byte(`{"name":"side-contact","display_name":"Side Contact"}`))
 	if response.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(response.Body)
 		_ = response.Body.Close()

@@ -324,13 +324,30 @@ func isRetryableLiveWorkspaceError(err error) bool {
 		strings.Contains(text, "response incomplete: length") ||
 		strings.Contains(text, "doubaospeech: [Server processing timeout] node execution timeout") ||
 		strings.Contains(text, "stream idle timeout") ||
+		strings.Contains(text, "audiodock: TTS completion timeout") ||
+		strings.Contains(text, "doubao realtime: response idle timeout") ||
+		strings.Contains(text, "doubao asr: finalization timeout") ||
+		strings.Contains(text, "doubao ast translate: realtime session completion timeout") ||
 		strings.Contains(text, "doubaospeech: sami error") ||
+		isRetryableSpeechServiceConnectionClosure(text) ||
+		strings.Contains(text, "Get \"") && strings.Contains(text, "/server-info\": context deadline exceeded") ||
 		strings.Contains(text, "doubaospeech: [Server-side generic error]") && strings.Contains(text, "big asr recv err") ||
 		strings.Contains(text, "send tts stream request:") && strings.Contains(text, "Client.Timeout exceeded while awaiting headers") ||
-		strings.Contains(text, "assistant audio asr") && (strings.Contains(text, "400 Bad Request") || strings.Contains(text, "status code 400")) ||
+		strings.Contains(text, "assistant audio asr") && (strings.Contains(text, "400 Bad Request") ||
+			strings.Contains(text, "status code 400") ||
+			strings.Contains(text, "giznet: conn closed") ||
+			strings.Contains(text, "User Initiated Abort")) ||
+		strings.Contains(text, "transcription ") && strings.Contains(text, " size=") &&
+			(strings.Contains(text, "giznet: conn closed") || strings.Contains(text, "User Initiated Abort")) ||
 		strings.Contains(text, "self-start missing assistant text") ||
 		strings.Contains(text, "interrupt second stream started before interrupted assistant EOS") ||
 		strings.Contains(text, "transcript mismatch: similarity")
+}
+
+func isRetryableSpeechServiceConnectionClosure(text string) bool {
+	return strings.Contains(text, `speech: Post "http://gizclaw/v1/audio/speech"`) &&
+		strings.Contains(text, "gizhttp: dial service") &&
+		strings.Contains(text, "giznet: conn closed")
 }
 
 func probeLiveWorkspaceSetup() error {

@@ -60,14 +60,68 @@ func newSocialSimulatorHarness(t *testing.T) *sharedSocialClients {
 
 	h := clitest.NewSetupHarness(t, "client-social")
 	configureSocialAdminContext(t, h)
-	configureSocialPeerContext(t, h, "peer-a", "GIZCLAW_E2E_SOCIAL_PERSON_A_IDENTITY", "social-a", "client-social-peer-a-sn")
-	configureSocialPeerContext(t, h, "peer-b", "GIZCLAW_E2E_SOCIAL_PERSON_B_IDENTITY", "social-b", "client-social-peer-b-sn")
-	for _, peer := range []string{"peer-c", "peer-d"} {
+	runID := time.Now().UnixNano()
+	for _, peer := range []string{"peer-a", "peer-b", "peer-c", "peer-d"} {
 		h.CreateContext(peer).MustSucceed(t)
 		h.RequireClientContextEndpoint(peer)
-		h.RegisterContext(peer, "--sn", "client-social-"+peer+"-sn").MustSucceed(t)
+		h.RegisterContext(peer, "--sn", fmt.Sprintf("client-social-%s-%d", peer, runID)).MustSucceed(t)
 	}
-	return newSharedSocialClients(t, h)
+	shared := newSharedSocialClients(t, h)
+	registerSocialSimulatorProfile(t, shared, runID, "peer-a", "peer-b", "peer-c", "peer-d")
+	return shared
+}
+
+func registerSocialSimulatorProfile(t *testing.T, clients *sharedSocialClients, runID int64, peers ...string) {
+	t.Helper()
+
+	admin := clients.Client("admin-a")
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		t.Fatalf("create social simulator admin client: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	profile, found, err := clitest.RuntimeProfileByName(ctx, api, "default-gameplay")
+	if err != nil || !found {
+		cancel()
+		t.Fatalf("resolve default gameplay RuntimeProfile: found=%v err=%v", found, err)
+	}
+	tokenName := fmt.Sprintf("e2e-go-social-%d", runID)
+	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
+		Name:             tokenName,
+		Token:            tokenName,
+		RuntimeProfileId: profile.Id,
+	})
+	cancel()
+	if err != nil {
+		t.Fatalf("create social simulator RegistrationToken: %v", err)
+	}
+	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == "" {
+		t.Fatalf("create social simulator RegistrationToken status %d: %s", tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
+	}
+	for _, peer := range peers {
+		registerCtx, registerCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		registered, registerErr := clients.Client(peer).Register(registerCtx, "server.register.social", tokenResp.JSON200.Token)
+		registerCancel()
+		if registerErr != nil {
+			t.Fatalf("register %s for social simulator: %v", peer, registerErr)
+		}
+		if registered.RuntimeProfileName != profile.Name {
+			t.Fatalf("register %s for social simulator = %#v, want RuntimeProfile %q", peer, registered, profile.Name)
+		}
+	}
+	tokenID := tokenResp.JSON200.Id
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cleanupCancel()
+		response, cleanupErr := api.DeleteRegistrationTokenWithResponse(cleanupCtx, tokenID)
+		if cleanupErr != nil {
+			t.Errorf("delete social simulator RegistrationToken: %v", cleanupErr)
+			return
+		}
+		if response.JSON200 == nil || response.JSON200.Id != tokenID {
+			t.Errorf("delete social simulator RegistrationToken status %d: %s", response.StatusCode(), strings.TrimSpace(string(response.Body)))
+		}
+	})
 }
 
 func configureSocialAdminContext(t *testing.T, h *clitest.Harness) {
@@ -561,6 +615,7 @@ func mustAddFriendGroupMember(t *testing.T, h socialHarness, contextName, groupI
 			FriendGroupName: groupID,
 			PeerPublicKey:   peerID,
 			Role:            role,
+			MemberName:      groupID,
 		})
 	})
 }

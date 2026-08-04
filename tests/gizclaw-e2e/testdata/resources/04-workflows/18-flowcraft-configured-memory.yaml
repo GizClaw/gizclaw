@@ -39,7 +39,6 @@ spec:
         type: memory_observe
         config:
           observations:
-          - turns_from: conversation
           - facts:
             - text_from: input
               attributes:

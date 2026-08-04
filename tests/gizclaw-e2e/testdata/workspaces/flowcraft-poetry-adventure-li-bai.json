@@ -282,9 +282,6 @@
             "config": {
               "observations": [
                 {
-                  "turns_from": "conversation"
-                },
-                {
                   "facts": [
                     {
                       "text_from": "tmp_checkpoint_progress_line",

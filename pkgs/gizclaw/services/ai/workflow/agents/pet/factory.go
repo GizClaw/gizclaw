@@ -40,8 +40,12 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if workspaceName == "" {
 		return nil, fmt.Errorf("pet: workspace name is required")
 	}
-	if _, _, err := f.Pets.ResolvePetContext(ctx, workspaceName); err != nil {
-		return nil, fmt.Errorf("pet: resolve workspace %q: %w", workspaceName, err)
+	workspaceID := strings.TrimSpace(spec.Workspace.Id)
+	if workspaceID == "" {
+		return nil, fmt.Errorf("pet: workspace id is required")
+	}
+	if _, _, err := f.Pets.ResolvePetContext(ctx, workspaceID); err != nil {
+		return nil, fmt.Errorf("pet: resolve workspace id %q: %w", workspaceID, err)
 	}
 
 	nested := *spec.Workflow.Spec.Pet
@@ -64,9 +68,9 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	spec.AgentType = driver
 	spec.Workspace.Parameters = nil
 	provideInputs := func(turnCtx context.Context) (map[string]any, error) {
-		pet, petDef, err := f.Pets.ResolvePetContext(turnCtx, workspaceName)
+		pet, petDef, err := f.Pets.ResolvePetContext(turnCtx, workspaceID)
 		if err != nil {
-			return nil, fmt.Errorf("resolve workspace %q: %w", workspaceName, err)
+			return nil, fmt.Errorf("resolve workspace id %q: %w", workspaceID, err)
 		}
 		return turnInputs(pet, petDef), nil
 	}

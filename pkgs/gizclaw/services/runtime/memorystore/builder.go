@@ -51,8 +51,8 @@ func Build(ctx context.Context, request Request) (Result, error) {
 	if workspaceID == "" {
 		return Result{}, errors.New("memory store: workspace id is required")
 	}
-	if request.Layout.Name != request.Binding.LayoutId {
-		return Result{}, fmt.Errorf("memory store: layout %q does not match binding layout_id %q", request.Layout.Name, request.Binding.LayoutId)
+	if err := validateLayoutBinding(request); err != nil {
+		return Result{}, err
 	}
 	if strings.TrimSpace(request.BindingName) == "" {
 		return Result{}, errors.New("memory store: binding name is required")
@@ -109,6 +109,17 @@ func Build(ctx context.Context, request Request) (Result, error) {
 	default:
 		return Result{}, fmt.Errorf("memory store: unsupported driver %q", request.Binding.Driver)
 	}
+}
+
+func validateLayoutBinding(request Request) error {
+	if request.Layout.Id == "" || request.Layout.Id != request.Binding.LayoutId {
+		return fmt.Errorf(
+			"memory store: layout id %q does not match binding layout_id %q",
+			request.Layout.Id,
+			request.Binding.LayoutId,
+		)
+	}
+	return nil
 }
 
 func buildFlowcraft(ctx context.Context, request Request) (*memoryflowcraft.Store, io.Closer, error) {

@@ -76,6 +76,32 @@ func TestFetchChatServerInfoUsesEdgeGatewayTransport(t *testing.T) {
 	}
 }
 
+func TestFetchChatServerInfoRetriesTransientFailure(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts++
+		if attempts == 1 {
+			http.Error(w, "temporary edge upstream failure", http.StatusBadGateway)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"protocol":"gizclaw-webrtc","public_key":%q}`, serverKey.Public.String())
+	}))
+	defer server.Close()
+
+	info, err := fetchChatServerInfo(strings.TrimPrefix(server.URL, "http://"))
+	if err != nil {
+		t.Fatalf("fetchChatServerInfo error = %v", err)
+	}
+	if attempts != 2 || !info.PublicKey.Equal(serverKey.Public) {
+		t.Fatalf("attempts=%d info=%+v", attempts, info)
+	}
+}
+
 func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	cfg := config{Workflow: workflowConfig{Name: "demo.workflow", Parameters: workspaceParameterConfig{Input: "push-to-talk"}}}
 	got, err := workspaceCaseRealtimeRoundtrip.applyConfig(cfg)
@@ -363,15 +389,25 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("flowcraft: read ASR: buffer: read from closed buffer: websocket read: unexpected EOF"),
 		errors.New("ast websocket read: websocket: close 1006 (abnormal closure): unexpected EOF"),
 		errors.New("round 2: transport: timeout; recent events: none"),
+		errors.New("round 1: response stream idle timeout after 1m0s; recent events: event stream=input-1 label=transcript type=text_delta"),
 		errors.New("bytedance: response incomplete: length"),
 		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server processing timeout] node execution timeout (code=55001010)"),
+		errors.New("peer event error: audiodock: TTS completion timeout after 1m0s"),
+		errors.New("peer event error: doubao realtime: response idle timeout: no provider progress for 1m0s"),
+		errors.New("peer event error: doubao asr: finalization timeout after 1m0s"),
+		errors.New("Get \"http://127.0.0.1:20580/server-info\": context deadline exceeded"),
 		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server-side generic error] OperatorWrapper Process failed: big asr recv err. rpc timeout: CallWithTimeout: timeout in business code, timeout_config=3s"),
 		errors.New("peer event error: buffer: read from closed buffer: genx: generate error: flowcraft: read TTS voice \"你好\": flowcraft: send tts stream request: Post \"https://openspeech.bytedance.com/api/v3/tts/unidirectional\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"),
 		errors.New("self-start: assistant audio asr part 2: transcription response.wav size=12345: 400 Bad Request"),
 		errors.New("interrupt second response: assistant audio asr part 1: status code 400"),
+		errors.New("round 1: assistant audio asr part 3: transcription response.wav: giznet: conn closed"),
+		errors.New("self-start: assistant audio asr part 2: gizwebrtc: abort chunk, with following errors: (User Initiated Abort: )"),
+		errors.New("transcription /tmp/round-01-input.ogg size=46711: transcription: Post \"http://gizclaw/v1/audio/transcriptions\": gizhttp: dial service 2: giznet: conn closed"),
+		errors.New("transcription /tmp/input.ogg size=46711: gizwebrtc: abort chunk, with following errors: (User Initiated Abort: )"),
 		errors.New("self-start missing assistant text; recent events: event stream=flowcraft-self-start label=assistant type=eos text=\"\" error="),
 		errors.New("interrupt second stream started before interrupted assistant EOS: stream=audio-e2e-2 label=assistant type=bos"),
 		errors.New("interrupt second transcript mismatch: similarity 0.21 below 0.45"),
+		errors.New("speech model=tts voice=assistant-voice text_chars=11: speech: Post \"http://gizclaw/v1/audio/speech\": gizhttp: dial service 2: giznet: conn closed\ngizwebrtc: read remote opus: EOF"),
 	}
 	for _, err := range retryable {
 		if !isRetryableLiveWorkspaceError(err) {
@@ -386,13 +422,44 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("interrupt first response continued after interruption: stream=audio-e2e-1 text=late"),
 		errors.New("interrupt downlink continued before interrupted assistant EOS"),
 		errors.New("context deadline exceeded"),
+		errors.New("Post \"http://127.0.0.1:20580/server-info\": context deadline exceeded"),
+		errors.New("Get \"http://127.0.0.1:20580/health\": context deadline exceeded"),
 		errors.New("buffer: read from closed buffer: genx: generate error: flowcraft: claw event error: recall ingest: extract: recall two-pass extractor: content llm: bytedance.generate: 15.007s"),
 		errors.New("speech: POST \"http://gizclaw/v1/audio/speech\": 400 Bad Request"),
+		errors.New("giznet: conn closed"),
+		errors.New("gizwebrtc: abort chunk, with following errors: (User Initiated Abort: )"),
+		errors.New("transcription failed: giznet: conn closed"),
+		errors.New("speech response.ogg size=46711: giznet: conn closed"),
+		errors.New("speech: Post \"http://gizclaw/v1/audio/speech\": provider rejected request"),
+		errors.New("speech: Post \"http://other/v1/audio/speech\": gizhttp: dial service 2: giznet: conn closed"),
+		errors.New("speech: Post \"http://gizclaw/v1/audio/speech\": giznet: conn closed"),
 	}
 	for _, err := range notRetryable {
 		if isRetryableLiveWorkspaceError(err) {
 			t.Fatalf("isRetryableLiveWorkspaceError(%v) = true", err)
 		}
+	}
+}
+
+func TestRoundResponseIdleTimerStartsOnProgressAndResets(t *testing.T) {
+	idle := newRoundResponseIdleTimer(80 * time.Millisecond)
+	defer idle.stop()
+	if idle.channel() != nil {
+		t.Fatal("idle timer started before response progress")
+	}
+
+	idle.progress()
+	time.Sleep(50 * time.Millisecond)
+	idle.progress()
+	select {
+	case <-idle.channel():
+		t.Fatal("idle timer was not reset by response progress")
+	case <-time.After(50 * time.Millisecond):
+	}
+	select {
+	case <-idle.channel():
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("idle timer did not fire after progress stopped")
 	}
 }
 
@@ -704,6 +771,122 @@ func TestRunWiresClientTransportAndPersonaDriver(t *testing.T) {
 	}
 	if !strings.Contains(output, "workspace=doubao-realtime-workflow-ptt") || !strings.Contains(output, "round=1") {
 		t.Fatalf("run output = %q", output)
+	}
+}
+
+func TestRunRetriesTransientChatRegistrationWithFreshClient(t *testing.T) {
+	restoreRunHooks(t)
+	t.Setenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN", "registration-token")
+
+	clients := []*gizcli.Client{{}, {}}
+	serveDone := []chan error{make(chan error, 1), make(chan error, 1)}
+	for _, done := range serveDone {
+		done <- nil
+	}
+	dialAttempts := 0
+	registerAttempts := 0
+	closed := make(map[*gizcli.Client]int)
+	dialClientForRun = func(config) (*gizcli.Client, <-chan error, error) {
+		client := clients[dialAttempts]
+		done := serveDone[dialAttempts]
+		dialAttempts++
+		return client, done, nil
+	}
+	registerChatClientForRun = func(_ context.Context, client *gizcli.Client, token string) error {
+		registerAttempts++
+		if token != "registration-token" {
+			t.Fatalf("registration token = %q", token)
+		}
+		if registerAttempts == 1 {
+			return errors.New("rpc: decode server register result: abort chunk, with following errors: (User Initiated Abort: )")
+		}
+		if client != clients[1] {
+			t.Fatalf("successful registration reused failed client %p", client)
+		}
+		return nil
+	}
+	closeChatClientForRun = func(client *gizcli.Client, done <-chan error) {
+		closed[client]++
+		<-done
+	}
+	waitChatRegistrationRetryForRun = func(context.Context, time.Duration) error { return nil }
+	ensureWorkspaceForRun = func(_ context.Context, client *gizcli.Client, cfg config) (config, error) {
+		if client != clients[1] {
+			t.Fatalf("workspace client = %p, want fresh client %p", client, clients[1])
+		}
+		return cfg, nil
+	}
+	runWorkspaceCaseForRun = func(*personaDriver, context.Context, workspaceCase) (workspaceCaseResult, error) {
+		return workspaceCaseResult{}, nil
+	}
+
+	cfg := config{timeout: time.Second, Workflow: workflowConfig{Name: "workflow-a"}}
+	if _, err := runLoadedConfigWithResult(cfg, workspaceCaseTextRoundtrip); err != nil {
+		t.Fatalf("runLoadedConfigWithResult() error = %v", err)
+	}
+	if dialAttempts != 2 || registerAttempts != 2 {
+		t.Fatalf("dial/register attempts = %d/%d, want 2/2", dialAttempts, registerAttempts)
+	}
+	if closed[clients[0]] != 1 || closed[clients[1]] != 1 {
+		t.Fatalf("client close counts = %#v, want one close per client", closed)
+	}
+}
+
+func TestDialAndRegisterChatClientDoesNotRetryPermanentError(t *testing.T) {
+	restoreRunHooks(t)
+	client := &gizcli.Client{}
+	done := make(chan error, 1)
+	done <- nil
+	dialAttempts := 0
+	closeAttempts := 0
+	dialClientForRun = func(config) (*gizcli.Client, <-chan error, error) {
+		dialAttempts++
+		return client, done, nil
+	}
+	registerChatClientForRun = func(context.Context, *gizcli.Client, string) error {
+		return errors.New("registration token is invalid")
+	}
+	closeChatClientForRun = func(*gizcli.Client, <-chan error) { closeAttempts++ }
+	waitChatRegistrationRetryForRun = func(context.Context, time.Duration) error {
+		t.Fatal("waited before retrying a permanent registration error")
+		return nil
+	}
+
+	_, _, err := dialAndRegisterChatClientForRun(context.Background(), config{}, "token")
+	if err == nil || !strings.Contains(err.Error(), "registration token is invalid") {
+		t.Fatalf("dialAndRegisterChatClientForRun() error = %v", err)
+	}
+	if dialAttempts != 1 || closeAttempts != 1 {
+		t.Fatalf("dial/close attempts = %d/%d, want 1/1", dialAttempts, closeAttempts)
+	}
+}
+
+func TestDialAndRegisterChatClientStopsAfterFiveTransientErrors(t *testing.T) {
+	restoreRunHooks(t)
+	dialAttempts := 0
+	closeAttempts := 0
+	waitAttempts := 0
+	dialClientForRun = func(config) (*gizcli.Client, <-chan error, error) {
+		dialAttempts++
+		done := make(chan error, 1)
+		done <- nil
+		return &gizcli.Client{}, done, nil
+	}
+	registerChatClientForRun = func(context.Context, *gizcli.Client, string) error {
+		return errors.New("abort chunk, with following errors: (User Initiated Abort: )")
+	}
+	closeChatClientForRun = func(*gizcli.Client, <-chan error) { closeAttempts++ }
+	waitChatRegistrationRetryForRun = func(context.Context, time.Duration) error {
+		waitAttempts++
+		return nil
+	}
+
+	_, _, err := dialAndRegisterChatClientForRun(context.Background(), config{}, "token")
+	if err == nil || !strings.Contains(err.Error(), "User Initiated Abort") {
+		t.Fatalf("dialAndRegisterChatClientForRun() error = %v", err)
+	}
+	if dialAttempts != 5 || closeAttempts != 5 || waitAttempts != 4 {
+		t.Fatalf("dial/close/wait attempts = %d/%d/%d, want 5/5/4", dialAttempts, closeAttempts, waitAttempts)
 	}
 }
 
@@ -1278,6 +1461,9 @@ func restoreRunHooks(t *testing.T) {
 	origTransport := newChatTransportForRun
 	origRun := runWorkspaceCaseForRun
 	origValidate := validateWorkspaceRuntimeForRun
+	origRegister := registerChatClientForRun
+	origClose := closeChatClientForRun
+	origWaitRegistrationRetry := waitChatRegistrationRetryForRun
 	t.Cleanup(func() {
 		dialClientForRun = origDial
 		ensureWorkspaceForRun = origEnsure
@@ -1285,6 +1471,9 @@ func restoreRunHooks(t *testing.T) {
 		newChatTransportForRun = origTransport
 		runWorkspaceCaseForRun = origRun
 		validateWorkspaceRuntimeForRun = origValidate
+		registerChatClientForRun = origRegister
+		closeChatClientForRun = origClose
+		waitChatRegistrationRetryForRun = origWaitRegistrationRetry
 	})
 }
 

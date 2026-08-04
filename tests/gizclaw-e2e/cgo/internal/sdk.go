@@ -1294,8 +1294,9 @@ func CSDKSocialRelationships(
 	}
 
 	var groupCreate rpcpb.FriendGroupCreateResponse
+	groupName := fmt.Sprintf("c-sdk-cross-user-group-%d", time.Now().UnixNano())
 	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_CREATE, &rpcpb.FriendGroupCreateRequest{
-		Name:        "c-sdk-cross-user-group",
+		Name:        groupName,
 		Description: ptr("created by cgo C SDK relationship test"),
 	}, &groupCreate)
 	if groupCreate.GetValue().GetName() == "" || groupCreate.GetValue().GetWorkspaceName() == "" {

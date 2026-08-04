@@ -486,7 +486,7 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 	if err != nil {
 		return Result{Args: append([]string{"register-context", name}, extraArgs...), Err: err, Stderr: err.Error()}
 	}
-	c, closeWait, err := h.connectClientFromContextWithDevice(name, info)
+	c, closeWait, err := h.connectClientForRegistration(name, info)
 	if err != nil {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
@@ -515,8 +515,8 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 			}
 		}
 		admin := c
+		var adminCloseWait func()
 		if h.ContextPublicKey(name) != h.ContextPublicKey(refreshAdminContext) {
-			var adminCloseWait func()
 			admin, adminCloseWait, err = h.connectClientFromContextWithCloseWait(refreshAdminContext)
 			if err != nil {
 				return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
@@ -528,6 +528,24 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 		}
 		refresh, err := adminAPI.RefreshPeerWithResponse(ctx, h.ContextPublicKey(name))
+		if err != nil && isRetryableRegistrationRefreshError(err) {
+			h.t.Logf("retry registration refresh context=%s err=%v", name, err)
+			if adminCloseWait != nil {
+				adminCloseWait()
+			} else {
+				closeWait()
+			}
+			admin, retryAdminCloseWait, retryErr := h.connectClientFromContextWithCloseWait(refreshAdminContext)
+			if retryErr != nil {
+				return Result{Args: []string{"register-context", name}, Err: retryErr, Stderr: retryErr.Error()}
+			}
+			defer retryAdminCloseWait()
+			adminAPI, retryErr = admin.ServerAdminClient()
+			if retryErr != nil {
+				return Result{Args: []string{"register-context", name}, Err: retryErr, Stderr: retryErr.Error()}
+			}
+			refresh, err = adminAPI.RefreshPeerWithResponse(ctx, h.ContextPublicKey(name))
+		}
 		if err != nil {
 			return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 		}
@@ -556,6 +574,39 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
 	return Result{Args: append([]string{"register-context", name}, extraArgs...), Stdout: string(data)}
+}
+
+func (h *Harness) connectClientForRegistration(name string, device apitypes.DeviceInfo) (*gizcli.Client, func(), error) {
+	const attempts = 2
+	var err error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		var client *gizcli.Client
+		var closeWait func()
+		client, closeWait, err = h.connectClientFromContextWithDevice(name, device)
+		if err == nil {
+			return client, closeWait, nil
+		}
+		if attempt == attempts || !isRetryableRegistrationConnectError(err) {
+			return nil, nil, err
+		}
+		h.t.Logf("retry registration connect context=%s attempt=%d err=%v", name, attempt, err)
+		time.Sleep(pollInterval)
+	}
+	return nil, nil, err
+}
+
+func isRetryableRegistrationConnectError(err error) bool {
+	return err != nil && (err.Error() == "client stopped before ready" ||
+		strings.Contains(err.Error(), "gizwebrtc: wait for packet channel: context deadline exceeded"))
+}
+
+func isRetryableRegistrationRefreshError(err error) bool {
+	if err == nil {
+		return false
+	}
+	text := err.Error()
+	return strings.Contains(text, `Post "http://gizclaw/peers/`) &&
+		strings.Contains(text, `/@refresh": gizhttp: read response: unexpected EOF`)
 }
 
 func (h *Harness) connectClientAfterRefresh(name string) (*gizcli.Client, func(), error) {

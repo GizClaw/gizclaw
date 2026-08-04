@@ -32,9 +32,11 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client})
 
 豆包 ASR provider session 正常结束，但 final result text 和 definite utterance text 均不包含非空白内容时，`doubaoasr.Transformer` 将本次识别作为成功的空结果结束，不发送已识别 transcript text。现有 Stream route 所需的零内容 terminal chunk 仍是成功的内部边界，不表示用户产生了已识别文本。
 
+收到显式 audio EOS 后，`doubaoasr.Transformer` 最多等待 provider finalization 一分钟。Provider 始终静默时，transformer 会关闭该 provider session，并以 `doubao asr: finalization timeout` 错误结束 output stream，而不是继承 caller 更长的生命周期 deadline。
+
 已经打开 interim transcript route、但始终没有 definite result 的 session 仍是错误。Provider、protocol、cancellation、interrupted-input、malformed-audio、unsupported-format failure 和下述例外之外的 timeout 继续按原有路径传播错误。
 
-`EmitInterim` 的 continuous ASR 把本地 audio BOS/EOS 只作为 route boundary；每个 audio frame 立即以 non-final packet 发给当前健康 SAUC session，outer input EOF 才发送 terminal marker。新打开的 transcript 绑定当前本地 audio route，因此切换 route 不需要替换 provider session。SAUC 因空闲返回 packet-wait timeout 时，只回收已经结束的 provider session，outer Transformer stream 保持打开，下一帧 audio 创建 replacement session；其他 provider error 仍终止 outer stream。
+`EmitInterim` 的 continuous ASR 会把每个 audio frame 立即以 non-final packet 发给当前健康 SAUC session。显式 audio EOS 发送 terminal marker、结束该 provider session，同时保持 outer Transformer stream 打开；下一条 audio route 创建 replacement session，并独立绑定 transcript。Finalization 期间的 provider packet-wait timeout 是预期的可恢复 route boundary；其他 provider error 和一分钟本地 finalization timeout 仍终止 outer stream。
 
 ## AST Translate 输入模式
 
@@ -88,11 +90,11 @@ Transformer 自己管理 provider call ID、顺序、重复 ID 拒绝和 invocat
 | Realtime | 连续发送 audio，由 provider VAD 划分用户 utterance；输入 EOS 只关闭本地 segment。 |
 | Text | 发送 text chunks，不接受 audio input。 |
 
-长连接生命周期由 transformer 持有。`Transform` 启动后即开始连接，并在 input turn、BOS/EOS 边界和 `Interrupt` 之间复用同一个健康的 Realtime Dialogue session。Provider terminal event、transport error 或 session I/O error 会关闭当前 provider session，并以有上限的指数退避串行重连；只要 transform context 和 output stream 尚未结束，就不限制尝试次数。每个 replacement session 都复用相同的已配置 `DialogID`。
+长连接生命周期由 transformer 持有。`Transform` 启动后即开始连接，并在普通 input turn 和 BOS/EOS 边界之间复用同一个健康的 Realtime Dialogue session。Realtime 模式的 BOS 打断 active response 时会发送 `ClientInterrupt`、关闭该 provider session，并立即使用相同的已配置 `DialogID` 打开 replacement session；新 route 中尚未读取的 audio 只由 replacement 消费。Realtime response 开始后，如果 provider 连续一分钟没有任何进展，transformer 会把它视为 provider loss：向仍打开的 transcript 或 assistant route 发送带 error 的 EOS，关闭 stalled session 并开始重连。Provider terminal event、transport error 或 session I/O error 同样走这条带上限指数退避的 replacement 路径；只要 transform context 和 output stream 尚未结束，就不限制尝试次数。
 
 已经交给失败 session 的 input 不会重放；尚未读取的 input 保留在有界 stream backpressure 之后，由 replacement session 继续消费。Push-to-Talk 中 provider loss 会使当前 turn 失效：丢弃 retained transcript 和 assistant output，在本地持续消费该 turn 剩余 chunks 直到 audio EOS，下一次 BOS 再开始新 turn。
 
-Realtime 模式把 BOS、MIME EOS 和 route EOS 只视为本地 stream boundary；它们不会调用 `EndASR`、注入静音、commit audio、关闭 provider session 或触发重连。Input EOF 仍是 transform 终态：它停止重连，并在已提交的有限 Push-to-Talk 或 Text turn 排空匹配的 Chat/TTS response 后关闭当前 session；没有待完成 response 时直接关闭，且不会触发重建。Provider `ASRInfo` 只在 assistant response pending/active 时幂等调用一次 `Interrupt`；重复 speech-detection event 或 idle 状态下的 speech detection 都在同一个健康 session 内直接忽略。
+Realtime 模式把普通 BOS、MIME EOS 和 route EOS 只视为本地 stream boundary；它们不会调用 `EndASR`、注入静音或 commit audio。唯一由 BOS 触发的 session replacement 是上述 interruption handoff。Input EOF 仍是 transform 终态：它停止重连，并在已提交的有限 Push-to-Talk 或 Text turn 排空匹配的 Chat/TTS response 后关闭当前 session；没有待完成 response 时直接关闭，且不会触发重建。Provider `ASRInfo` 只在 assistant response pending/active 时幂等调用一次 `Interrupt`；重复 speech-detection event 或 idle 状态下的 speech detection 都在同一个健康 session 内直接忽略。
 
 ### doubaorealtime Push-to-Talk 状态机
 

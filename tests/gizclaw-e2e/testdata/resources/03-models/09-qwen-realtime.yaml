@@ -13,4 +13,4 @@ spec:
   description: Qwen realtime speech dialog model
   provider_data:
     api_mode: realtime
-    upstream_model: qwen3-omni-flash-realtime
+    upstream_model: qwen3.5-omni-flash-realtime
