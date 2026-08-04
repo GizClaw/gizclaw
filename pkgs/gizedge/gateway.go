@@ -888,8 +888,11 @@ func (p *gatewayPool) replenishWarm(done chan struct{}) {
 			entry.id = p.nextID
 			p.entries = append(p.entries, entry)
 			needsMore := p.selectableCountLocked() < p.warmTarget() && len(p.entries) < p.cfg.Gateway.MaxUpstreams
-			if !needsMore {
-				close(done)
+			close(done)
+			if needsMore {
+				done = make(chan struct{})
+				p.growthDone = done
+			} else {
 				p.growthDone = nil
 			}
 			p.mu.Unlock()
