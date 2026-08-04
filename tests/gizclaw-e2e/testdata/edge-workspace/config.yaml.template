@@ -16,12 +16,3 @@ gateway:
   sessions-per-upstream: 2048
   streams-per-upstream: 8192
   max-pending-handshakes: 512
-turn:
-  listen: 0.0.0.0:9823
-  public-endpoint: ${GIZCLAW_E2E_TURN_ENDPOINT}
-  relay-address: ${GIZCLAW_E2E_TURN_RELAY_ADDRESS}
-  realm: ${GIZCLAW_E2E_TURN_REALM}
-  username: ${GIZCLAW_E2E_TURN_USERNAME}
-  credential: ${GIZCLAW_E2E_TURN_CREDENTIAL}
-  relay-min-port: ${GIZCLAW_E2E_TURN_RELAY_MIN_PORT}
-  relay-max-port: ${GIZCLAW_E2E_TURN_RELAY_MAX_PORT}
