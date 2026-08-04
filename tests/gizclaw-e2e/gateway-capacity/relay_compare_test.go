@@ -228,6 +228,21 @@ func TestValidateGiznetCoturnDiagnosticAttributesMaterialDelta(t *testing.T) {
 		t.Fatalf("unaligned RTT diagnostic error = %v", err)
 	}
 
+	latencyOnly := diagnostic
+	latencyOnly.Comparisons = []giznetCoturnDiagnosticRatio{{
+		Path: "turn_rest", ClientToListenerMbpsRatio: 0.95, ListenerToClientMbpsRatio: 0.95,
+	}}
+	data, err = json.Marshal(latencyOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validateGiznetCoturnDiagnostic(path, "clean-head", causalRequirements{RTTP95: true}); err != nil {
+		t.Fatalf("latency-only diagnostic rejected: %v", err)
+	}
+
 	data, err = json.Marshal(diagnostic)
 	if err != nil {
 		t.Fatal(err)
