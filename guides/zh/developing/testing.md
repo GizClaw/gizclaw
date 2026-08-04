@@ -185,15 +185,21 @@ repository head 保持 clean 且未变化，再用一个 fresh zero-ramp 1,000-s
 60 分钟 hold。Liveness round 每 30 秒开始一次。Artifact 保留现有 `speed_test` 作为 initial
 checkpoint，并新增独立的 `final_speed_test` 与 `speed_retention`；initial/final upload 和
 download 均精确传输 1 GiB、达到至少 200 Mbps，且 final 每个方向保留 initial aggregate
-的至少 80%。Load driver、两台 Edge、两个 Coturn 与 Server 的 source-qualified process
-sample 继续每秒记录；外部 Go heap/goroutine field 无法获取时仍明确为 unsupported。任何
-initial gate 失败都会阻止 hold 开始，cancellation 仍执行有界 session 与 Docker cleanup。
+及 per-session p50、p95、p99 throughput 的至少 80%。
+
+Extended artifact version 13 记录实际 hold boundary，并验收最初与最后十分钟窗口。每轮
+p99 RTT 的 median、RSS、open FD，以及可获得的 Go heap/goroutine 值，增长最多为 20%。
+CPU 和 network rate 采用相同的相对门槛，并分别设置 0.10 core 与 1,024 bytes/s 的绝对
+噪声下限；UDP 与 UDP6 socket median 增长最多为 20%。Load driver、两台 Edge、两个
+Coturn 与 Server 的 source-qualified process sample 每秒记录，允许的最大 gap 为 2.1 秒；
+cumulative CPU 与 network counter 不得下降。外部 Go runtime field 及 load driver 的
+socket/network field 无法获取时必须逐项明确为 unsupported。任何 initial gate 失败都会
+阻止 hold 开始，cancellation 仍执行有界 session 与 Docker cleanup。
 
 100/500-session burst runner 保留既有 payload 和 gate，但当前都使用上述 relay-only
-upstream 拓扑。既有 workload field 保持不变；extended artifact version 11 增加 soak 使用的
-optional final-speed retention evidence，以及 mandatory bounded-cleanup evidence。Extended
-artifact version 12 另外记录 load driver 的 effective `GOGC`；100/500-session 入口显式保留
-`GOGC=100`。同目录的
+upstream 拓扑。既有 workload field 保持不变；当前 version 13 artifact 包含 optional
+final-speed retention、mandatory bounded-cleanup evidence，以及 load driver 的 effective
+`GOGC`；100/500-session 入口显式保留 `GOGC=100`。同目录的
 `*-coturn.json` sidecar 记录两个
 Coturn member 的一秒间隔 live allocation/traffic sample、finished-session byte counter、
 traffic delta，以及两个 Edge 停止后有界归零结果。已合并的 #697/#698 结果仍是历史

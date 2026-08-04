@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -281,17 +282,33 @@ func TestSpeedDirectionPassedRequiresRetentionAndAbsoluteFloor(t *testing.T) {
 
 func TestSummarizeSpeedRetentionRequiresBothDirections(t *testing.T) {
 	initial := speedTestSummary{
-		Upload:   speedDirectionSummary{Concurrent: speedRunSummary{AggregateMbps: 250}},
-		Download: speedDirectionSummary{Concurrent: speedRunSummary{AggregateMbps: 300}},
+		Upload: speedDirectionSummary{Concurrent: speedRunSummary{
+			AggregateMbps: 250, PerSessionMbps: rateSummary{P50: 1, P95: 2, P99: 4},
+		}},
+		Download: speedDirectionSummary{Concurrent: speedRunSummary{
+			AggregateMbps: 300, PerSessionMbps: rateSummary{P50: 2, P95: 4, P99: 8},
+		}},
 	}
 	final := speedTestSummary{
-		Upload:   speedDirectionSummary{Concurrent: speedRunSummary{AggregateMbps: 200}, Passed: true},
-		Download: speedDirectionSummary{Concurrent: speedRunSummary{AggregateMbps: 240}, Passed: true},
+		Upload: speedDirectionSummary{Concurrent: speedRunSummary{
+			AggregateMbps: 200, PerSessionMbps: rateSummary{P50: 0.8, P95: 1.6, P99: 3.2},
+		}, Passed: true},
+		Download: speedDirectionSummary{Concurrent: speedRunSummary{
+			AggregateMbps: 240, PerSessionMbps: rateSummary{P50: 1.6, P95: 3.2, P99: 6.4},
+		}, Passed: true},
 	}
 	got := summarizeSpeedRetention(initial, final, 0.8)
-	if !got.Passed || got.UploadRatio != 0.8 || got.DownloadRatio != 0.8 {
+	if !got.Passed || got.UploadRatio != 0.8 || got.DownloadRatio != 0.8 ||
+		got.UploadPerSession.P50 != 0.8 || got.UploadPerSession.P95 != 0.8 ||
+		got.UploadPerSession.P99 != 0.8 || got.DownloadPerSession.P50 != 0.8 ||
+		got.DownloadPerSession.P95 != 0.8 || got.DownloadPerSession.P99 != 0.8 {
 		t.Fatalf("speed retention = %+v", got)
 	}
+	final.Download.Concurrent.PerSessionMbps.P99 = 6.39
+	if got := summarizeSpeedRetention(initial, final, 0.8); got.Passed {
+		t.Fatalf("speed retention accepted per-session P99 ratio %+v", got)
+	}
+	final.Download.Concurrent.PerSessionMbps.P99 = 6.4
 	final.Download.Concurrent.AggregateMbps = 239
 	if got := summarizeSpeedRetention(initial, final, 0.8); got.Passed {
 		t.Fatalf("speed retention accepted download ratio %+v", got)
@@ -320,6 +337,33 @@ func TestHoldSessionsRecordsFinalRoundWithoutDeadlineOverlap(t *testing.T) {
 	if state.pingRounds[0].Phase != "hold" || state.pingRounds[1].Phase != "hold" ||
 		state.pingRounds[2].Phase != "final" {
 		t.Fatalf("ping phases = %+v", state.pingRounds)
+	}
+	if state.holdStartedAt.IsZero() || state.holdFinishedAt.Sub(state.holdStartedAt) < opts.duration {
+		t.Fatalf("hold boundaries = %s..%s, want at least %s", state.holdStartedAt, state.holdFinishedAt, opts.duration)
+	}
+}
+
+func TestInitialWorkloadErrorPreservesAggregateFailureAtErrorLimit(t *testing.T) {
+	state := &resultState{
+		sessions:             []*liveSession{{}},
+		edgeDistribution:     map[string]int{"edge": 1},
+		upstreamDistribution: map[string]map[string]int{"edge": {"upstream": 1}},
+		speedTest: speedTestSummary{
+			Upload:   speedDirectionSummary{Passed: true},
+			Download: speedDirectionSummary{Passed: false},
+		},
+	}
+	for index := range 100 {
+		state.appendErrorLocked(fmt.Sprintf("session failure %d", index))
+	}
+	err := initialWorkloadError(state, options{
+		edges: []string{"edge"}, sessions: 1, speedBytes: 1, requiredUpstreamsPerEdge: 1,
+	})
+	if err == nil {
+		t.Fatal("initialWorkloadError accepted failed download gate")
+	}
+	if len(state.errors) != 100 || !strings.HasPrefix(state.errors[0], "initial burst gates failed") {
+		t.Fatalf("state errors = %d first %q", len(state.errors), state.errors[0])
 	}
 }
 

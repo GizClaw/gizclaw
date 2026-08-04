@@ -103,6 +103,9 @@ type artifact struct {
 	SpeedTest             speedTestSummary          `json:"speed_test"`
 	FinalSpeedTest        *speedTestSummary         `json:"final_speed_test,omitempty"`
 	SpeedRetention        *speedRetentionSummary    `json:"speed_retention,omitempty"`
+	HoldStartedAt         time.Time                 `json:"hold_started_at,omitzero"`
+	HoldFinishedAt        time.Time                 `json:"hold_finished_at,omitzero"`
+	SoakStability         *soakQualification        `json:"soak_stability,omitempty"`
 	Opus                  opusSummary               `json:"opus"`
 	BytesPerSession       byteSummary               `json:"bytes_per_session"`
 	EdgeDistribution      map[string]int            `json:"edge_distribution"`
@@ -220,10 +223,18 @@ type speedTestSummary struct {
 }
 
 type speedRetentionSummary struct {
-	Minimum       float64 `json:"minimum"`
-	UploadRatio   float64 `json:"upload_ratio"`
-	DownloadRatio float64 `json:"download_ratio"`
-	Passed        bool    `json:"passed"`
+	Minimum            float64              `json:"minimum"`
+	UploadRatio        float64              `json:"upload_ratio"`
+	DownloadRatio      float64              `json:"download_ratio"`
+	UploadPerSession   rateRetentionSummary `json:"upload_per_session"`
+	DownloadPerSession rateRetentionSummary `json:"download_per_session"`
+	Passed             bool                 `json:"passed"`
+}
+
+type rateRetentionSummary struct {
+	P50 float64 `json:"p50_ratio"`
+	P95 float64 `json:"p95_ratio"`
+	P99 float64 `json:"p99_ratio"`
 }
 
 type cleanupSummary struct {
@@ -347,6 +358,8 @@ type resultState struct {
 	speedRetention        *speedRetentionSummary
 	cleanup               cleanupSummary
 	cleanupOnce           sync.Once
+	holdStartedAt         time.Time
+	holdFinishedAt        time.Time
 	opus                  opusSummary
 	errors                []string
 	edgeDistribution      map[string]int
@@ -511,7 +524,7 @@ func parseOptions() (options, error) {
 	flag.Float64Var(&opts.minSpeedAggregateRatio, "min-speed-aggregate-ratio", 0, "minimum concurrent aggregate Mbps divided by single-session baseline Mbps")
 	flag.Float64Var(&opts.minUploadAggregateMbps, "min-upload-aggregate-mbps", 0, "minimum concurrent upload aggregate Mbps")
 	flag.Float64Var(&opts.minDownloadAggregateMbps, "min-download-aggregate-mbps", 0, "minimum concurrent download aggregate Mbps")
-	flag.Float64Var(&opts.minFinalSpeedRetention, "min-final-speed-retention", 0, "minimum final-to-initial concurrent aggregate throughput ratio per direction")
+	flag.Float64Var(&opts.minFinalSpeedRetention, "min-final-speed-retention", 0, "minimum final-to-initial aggregate and per-session p50/p95/p99 throughput ratio per direction")
 	flag.Float64Var(&opts.minEstablishmentRate, "min-establishment-rate", 0, "minimum usable sessions established per second")
 	flag.DurationVar(&opts.maxDialP95, "max-dial-p95", 0, "optional maximum p95 usable-session Dial duration")
 	flag.DurationVar(&opts.maxDialP99, "max-dial-p99", 0, "optional maximum p99 usable-session Dial duration")
@@ -821,13 +834,16 @@ func initialWorkloadError(state *resultState, opts options) error {
 		report.SpeedTest.Upload.Passed,
 		report.SpeedTest.Download.Passed,
 	)
-	state.appendErrorLocked(failure)
+	state.appendCriticalErrorLocked(failure)
 	return errors.New(failure)
 }
 
 func holdSessions(ctx context.Context, state *resultState, opts options, sem chan struct{}) error {
 	started := time.Now()
 	deadline := started.Add(opts.duration)
+	state.mu.Lock()
+	state.holdStartedAt = started
+	state.mu.Unlock()
 	nextPing := started.Add(opts.pingInterval)
 	round := 1
 	for nextPing.Before(deadline) {
@@ -851,6 +867,9 @@ func holdSessions(ctx context.Context, state *resultState, opts options, sem cha
 	case <-timer.C:
 	}
 
+	state.mu.Lock()
+	state.holdFinishedAt = time.Now()
+	state.mu.Unlock()
 	pingAll(ctx, state, opts, sem, "final", 0)
 	if opts.minFinalSpeedRetention > 0 {
 		final := runSpeedTests(ctx, state, opts, "final")
@@ -1545,8 +1564,33 @@ func summarizeSpeedRetention(initial, final speedTestSummary, minimum float64) s
 	if initial.Download.Concurrent.AggregateMbps > 0 {
 		summary.DownloadRatio = final.Download.Concurrent.AggregateMbps / initial.Download.Concurrent.AggregateMbps
 	}
+	summary.UploadPerSession = summarizeRateRetention(
+		initial.Upload.Concurrent.PerSessionMbps,
+		final.Upload.Concurrent.PerSessionMbps,
+	)
+	summary.DownloadPerSession = summarizeRateRetention(
+		initial.Download.Concurrent.PerSessionMbps,
+		final.Download.Concurrent.PerSessionMbps,
+	)
 	summary.Passed = final.Upload.Passed && final.Download.Passed &&
-		summary.UploadRatio >= minimum && summary.DownloadRatio >= minimum
+		summary.UploadRatio >= minimum && summary.DownloadRatio >= minimum &&
+		summary.UploadPerSession.P50 >= minimum && summary.UploadPerSession.P95 >= minimum &&
+		summary.UploadPerSession.P99 >= minimum && summary.DownloadPerSession.P50 >= minimum &&
+		summary.DownloadPerSession.P95 >= minimum && summary.DownloadPerSession.P99 >= minimum
+	return summary
+}
+
+func summarizeRateRetention(initial, final rateSummary) rateRetentionSummary {
+	var summary rateRetentionSummary
+	if initial.P50 > 0 {
+		summary.P50 = final.P50 / initial.P50
+	}
+	if initial.P95 > 0 {
+		summary.P95 = final.P95 / initial.P95
+	}
+	if initial.P99 > 0 {
+		summary.P99 = final.P99 / initial.P99
+	}
 	return summary
 }
 
@@ -1581,10 +1625,18 @@ func measureSpeedRun(
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	var ready sync.WaitGroup
+	ready.Add(len(sessions))
 	var wg sync.WaitGroup
 	for index, session := range sessions {
 		wg.Go(func() {
-			<-start
+			ready.Done()
+			select {
+			case <-start:
+			case <-runCtx.Done():
+				attempts[index].err = runCtx.Err()
+				return
+			}
 			request := rpcapi.SpeedTestRequest{}
 			switch direction {
 			case "upload":
@@ -1602,6 +1654,7 @@ func measureSpeedRun(
 			)
 		})
 	}
+	ready.Wait()
 	started := time.Now()
 	close(start)
 	wg.Wait()
@@ -1915,6 +1968,15 @@ func (s *resultState) appendErrorLocked(message string) {
 	}
 }
 
+func (s *resultState) appendCriticalErrorLocked(message string) {
+	s.errors = append(s.errors, "")
+	copy(s.errors[1:], s.errors[:len(s.errors)-1])
+	s.errors[0] = message
+	if len(s.errors) > 100 {
+		s.errors = s.errors[:100]
+	}
+}
+
 func closeSessions(state *resultState, timeout time.Duration) cleanupSummary {
 	state.cleanupOnce.Do(func() {
 		started := time.Now()
@@ -1998,6 +2060,8 @@ func finalize(report artifact, state *resultState, resources *resourceSampler, e
 	report.SpeedTest = state.speedTest
 	report.FinalSpeedTest = state.finalSpeedTest
 	report.SpeedRetention = state.speedRetention
+	report.HoldStartedAt = state.holdStartedAt
+	report.HoldFinishedAt = state.holdFinishedAt
 	report.Opus = state.opus
 	report.Errors = append([]string(nil), state.errors...)
 	if report.Extended != nil {
@@ -2026,6 +2090,13 @@ func finalize(report artifact, state *resultState, resources *resourceSampler, e
 	}
 	report.ResourceUsage = resources.summary()
 	report.Cleanup = state.cleanup
+	if report.Config.Soak {
+		stability := summarizeSoakQualification(report)
+		report.SoakStability = &stability
+		for _, reason := range stability.Reasons {
+			report.Errors = append(report.Errors, "soak stability: "+reason)
+		}
+	}
 	extendedFailed := report.Extended != nil && len(report.Extended.Errors) > 0
 	report.Passed = !extendedFailed && report.EstablishmentFailures <= report.Config.MaxEstablishmentFailures &&
 		establishmentWithin(report.Establishment, report.Config) &&
@@ -2035,6 +2106,7 @@ func finalize(report artifact, state *resultState, resources *resourceSampler, e
 			(report.SpeedTest.Upload.Passed && report.SpeedTest.Download.Passed)) &&
 		(report.Config.MinFinalSpeedRetention == 0 ||
 			(report.FinalSpeedTest != nil && report.SpeedRetention != nil && report.SpeedRetention.Passed)) &&
+		(!report.Config.Soak || report.SoakStability != nil && report.SoakStability.Qualified) &&
 		!report.Cleanup.TimedOut && report.Cleanup.CloseFailures == 0 && report.Cleanup.ServeCompleted &&
 		(report.Config.OpusPackets == 0 ||
 			(report.Opus.Failures == 0 && report.Opus.Completed == report.Opus.Attempted &&
@@ -2330,7 +2402,7 @@ func readRSS(fallback uint64, requireProcessFallback bool) (uint64, string) {
 			}
 		}
 	}
-	return fallback, "go_memstats_sys"
+	return fallback, "go_runtime_memory_total"
 }
 
 func readFDCount(requireProcessFallback bool) (int, string) {

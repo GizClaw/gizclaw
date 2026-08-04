@@ -317,17 +317,27 @@ The soak entrypoint first reruns all three burst repetitions on the same clean
 head, then starts one new no-ramp 1,000-session stack and holds it for 60
 minutes. Complete liveness rounds start every 30 seconds. Distinct initial and
 final 1 MiB-per-session upload/download checkpoints must each exceed 200 Mbps,
-and each final direction must retain at least 80% of its initial aggregate.
+and each final direction must retain at least 80% of its initial aggregate and
+of its per-session p50, p95, and p99 throughput.
+
+Artifact version 13 records the actual hold boundaries and compares the first
+and last ten minutes. The median per-round RTT p99, process RSS, open FDs, and
+available Go heap and goroutine medians must not grow by more than 20%. CPU and
+network-rate changes use the same relative bound with absolute noise floors of
+0.10 core and 1,024 bytes/s; UDP/UDP6 socket medians use the 20% bound. These
+checks cover the load driver, both Edges, both Coturn members, and Server, reject
+process-counter resets, and require resource gaps no larger than 2.1 seconds.
+Unavailable external Go runtime metrics and load-driver socket/network metrics
+are named explicitly rather than represented by fabricated values.
+
 Logical-session cleanup has a 30-second bound; the ten physical TURN allocations
 are checked from source-qualified Coturn counters once per second while the
 Edges are alive and must return to zero within 15 seconds after Edge shutdown.
 These commands qualify only their recorded host, Docker engine, clean commit,
 and topology; they are not a 30,000-session or WAN guarantee.
 
-CPU, memory, file descriptors, establishment rate, and low-rate activity for
-the complete topology must still be fitted from larger samples. Repeated
-1,000-session runs, a long soak, per-process resource slopes, and the
-30,000-session projection are a separate extended-capacity qualification.
+This fixed qualification establishes the 1,000-session burst and soak boundary
+only. It does not infer a higher-session capacity projection.
 Repeatable transport and full Edge benchmarks are:
 
 ```bash

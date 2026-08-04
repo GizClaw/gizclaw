@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,7 +19,10 @@ import (
 	"time"
 )
 
-const extendedArtifactVersion = 12
+const (
+	extendedArtifactVersion  = 13
+	maximumResourceSampleGap = 2100 * time.Millisecond
+)
 
 var dockerRolePIDFiles = map[string]string{
 	"coturn-a": "/tmp/gizclaw-coturn.pid",
@@ -164,12 +168,21 @@ func validateRequiredRoleEvidence(evidence roleResourceEvidence) error {
 	}
 	for index, sample := range evidence.Samples {
 		if index > 0 {
-			gap := sample.At.Sub(evidence.Samples[index-1].At)
-			if gap <= 0 || gap > 2100*time.Millisecond {
+			previous := evidence.Samples[index-1]
+			gap := sample.At.Sub(previous.At)
+			if gap <= 0 || gap > maximumResourceSampleGap {
 				return fmt.Errorf("%s resource sample gap is %s", evidence.Role, gap)
 			}
+			if sample.CPUSeconds < previous.CPUSeconds {
+				return fmt.Errorf("%s cumulative CPU counter decreased", evidence.Role)
+			}
+			if evidence.Role != "load_driver" &&
+				(sample.NetworkRXBytes < previous.NetworkRXBytes || sample.NetworkTXBytes < previous.NetworkTXBytes) {
+				return fmt.Errorf("%s cumulative network counter decreased", evidence.Role)
+			}
 		}
-		if sample.RSSBytes == 0 || sample.RSSSource == "go_memstats_sys" || sample.RSSSource == "unsupported" {
+		if sample.RSSBytes == 0 || sample.RSSSource == "go_memstats_sys" ||
+			sample.RSSSource == "go_runtime_memory_total" || sample.RSSSource == "unsupported" {
 			return fmt.Errorf("%s has unsupported process RSS source %q", evidence.Role, sample.RSSSource)
 		}
 		if sample.CPUSecondsSource == "" || sample.CPUSecondsSource == "unsupported" {
@@ -178,12 +191,34 @@ func validateRequiredRoleEvidence(evidence roleResourceEvidence) error {
 		if sample.OpenFDs < 0 || sample.OpenFDsSource == "" || sample.OpenFDsSource == "unsupported" {
 			return fmt.Errorf("%s has unsupported open-file sampling", evidence.Role)
 		}
-		if evidence.Role != "load_driver" &&
-			(sample.SocketSource != "proc_pid_net_udp" || sample.NetworkSource != "proc_pid_net_dev") {
+		if evidence.Role == "load_driver" {
+			if sample.GoHeapAllocBytes == nil || sample.Goroutines == nil {
+				return fmt.Errorf("%s is missing Go heap or goroutine sampling", evidence.Role)
+			}
+			if sample.SocketSource != "unsupported" || sample.NetworkSource != "unsupported" ||
+				!containsAll(sample.UnsupportedMetrics, "udp_sockets", "udp6_sockets", "network_rx_bytes", "network_tx_bytes") {
+				return fmt.Errorf("%s has incomplete unsupported socket or network declarations", evidence.Role)
+			}
+			continue
+		}
+		if sample.GoHeapAllocBytes != nil || sample.Goroutines != nil ||
+			!containsAll(sample.UnsupportedMetrics, "go_heap_alloc_bytes", "goroutines") {
+			return fmt.Errorf("%s has inconsistent unsupported Go runtime declarations", evidence.Role)
+		}
+		if sample.SocketSource != "proc_pid_net_udp" || sample.NetworkSource != "proc_pid_net_dev" {
 			return fmt.Errorf("%s has unsupported socket or network sampling", evidence.Role)
 		}
 	}
 	return nil
+}
+
+func containsAll(values []string, required ...string) bool {
+	for _, value := range required {
+		if !slices.Contains(values, value) {
+			return false
+		}
+	}
+	return true
 }
 
 func startDockerResourceSampler(ctx context.Context, project, composeFile string) (*dockerResourceSampler, error) {

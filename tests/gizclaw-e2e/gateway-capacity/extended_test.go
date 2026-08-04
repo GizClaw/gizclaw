@@ -180,11 +180,18 @@ func TestCountLsofFileDescriptors(t *testing.T) {
 
 func TestValidateRequiredRoleEvidenceRejectsFallbackAndMissingFDs(t *testing.T) {
 	start := time.Unix(1, 0)
+	heap, goroutines := uint64(1), 1
 	evidence := roleResourceEvidence{Role: "load_driver", Samples: []roleResourcePoint{{
 		At: start, RSSBytes: 1, RSSSource: "go_memstats_sys", CPUSecondsSource: "go_runtime", OpenFDs: 1, OpenFDsSource: "lsof_process",
+		GoHeapAllocBytes: &heap, Goroutines: &goroutines, SocketSource: "unsupported", NetworkSource: "unsupported",
+		UnsupportedMetrics: []string{"udp_sockets", "udp6_sockets", "network_rx_bytes", "network_tx_bytes"},
 	}}}
 	if err := validateRequiredRoleEvidence(evidence); err == nil || !strings.Contains(err.Error(), "RSS") {
 		t.Fatalf("validateRequiredRoleEvidence error = %v, want RSS error", err)
+	}
+	evidence.Samples[0].RSSSource = "go_runtime_memory_total"
+	if err := validateRequiredRoleEvidence(evidence); err == nil || !strings.Contains(err.Error(), "RSS") {
+		t.Fatalf("validateRequiredRoleEvidence error = %v, want runtime-memory RSS error", err)
 	}
 	evidence.Samples[0].RSSSource = "ps_rss_kib"
 	evidence.Samples[0].OpenFDs = -1
@@ -197,9 +204,59 @@ func TestValidateRequiredRoleEvidenceRejectsFallbackAndMissingFDs(t *testing.T) 
 	evidence.Samples = append(evidence.Samples, roleResourcePoint{
 		At: start.Add(4 * time.Second), RSSBytes: 1, RSSSource: "ps_rss_kib",
 		CPUSecondsSource: "go_runtime", OpenFDs: 1, OpenFDsSource: "lsof_process",
+		GoHeapAllocBytes: &heap, Goroutines: &goroutines, SocketSource: "unsupported", NetworkSource: "unsupported",
+		UnsupportedMetrics: []string{"udp_sockets", "udp6_sockets", "network_rx_bytes", "network_tx_bytes"},
 	})
 	if err := validateRequiredRoleEvidence(evidence); err == nil || !strings.Contains(err.Error(), "sample gap") {
 		t.Fatalf("validateRequiredRoleEvidence error = %v, want sample-gap error", err)
+	}
+}
+
+func TestValidateRequiredRoleEvidenceRequiresUnsupportedMetricDeclarations(t *testing.T) {
+	start := time.Unix(1, 0)
+	external := roleResourceEvidence{Role: "edge", Samples: []roleResourcePoint{{
+		At: start, RSSBytes: 1, RSSSource: "proc_pid_statm", CPUSecondsSource: "proc_pid_stat",
+		OpenFDs: 1, OpenFDsSource: "proc_pid_fd", SocketSource: "proc_pid_net_udp", NetworkSource: "proc_pid_net_dev",
+	}}}
+	if err := validateRequiredRoleEvidence(external); err == nil || !strings.Contains(err.Error(), "Go runtime declarations") {
+		t.Fatalf("validateRequiredRoleEvidence error = %v, want unsupported Go runtime declaration error", err)
+	}
+
+	heap, goroutines := uint64(1), 1
+	loadDriver := roleResourceEvidence{Role: "load_driver", Samples: []roleResourcePoint{{
+		At: start, RSSBytes: 1, RSSSource: "ps_rss_kib", CPUSecondsSource: "go_runtime",
+		OpenFDs: 1, OpenFDsSource: "lsof_process", GoHeapAllocBytes: &heap, Goroutines: &goroutines,
+		SocketSource: "unsupported", NetworkSource: "unsupported",
+	}}}
+	if err := validateRequiredRoleEvidence(loadDriver); err == nil || !strings.Contains(err.Error(), "unsupported socket or network declarations") {
+		t.Fatalf("validateRequiredRoleEvidence error = %v, want unsupported socket declaration error", err)
+	}
+}
+
+func TestValidateRequiredRoleEvidenceRejectsDecreasingCounters(t *testing.T) {
+	start := time.Unix(1, 0)
+	points := []roleResourcePoint{
+		{
+			At: start, RSSBytes: 1, RSSSource: "proc_pid_statm", CPUSeconds: 2, CPUSecondsSource: "proc_pid_stat",
+			OpenFDs: 1, OpenFDsSource: "proc_pid_fd", SocketSource: "proc_pid_net_udp",
+			NetworkRXBytes: 10, NetworkTXBytes: 10, NetworkSource: "proc_pid_net_dev",
+			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "goroutines"},
+		},
+		{
+			At: start.Add(time.Second), RSSBytes: 1, RSSSource: "proc_pid_statm", CPUSeconds: 1, CPUSecondsSource: "proc_pid_stat",
+			OpenFDs: 1, OpenFDsSource: "proc_pid_fd", SocketSource: "proc_pid_net_udp",
+			NetworkRXBytes: 11, NetworkTXBytes: 11, NetworkSource: "proc_pid_net_dev",
+			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "goroutines"},
+		},
+	}
+	evidence := roleResourceEvidence{Role: "edge", Samples: points}
+	if err := validateRequiredRoleEvidence(evidence); err == nil || !strings.Contains(err.Error(), "CPU counter decreased") {
+		t.Fatalf("validateRequiredRoleEvidence error = %v, want CPU counter error", err)
+	}
+	evidence.Samples[1].CPUSeconds = 3
+	evidence.Samples[1].NetworkRXBytes = 9
+	if err := validateRequiredRoleEvidence(evidence); err == nil || !strings.Contains(err.Error(), "network counter decreased") {
+		t.Fatalf("validateRequiredRoleEvidence error = %v, want network counter error", err)
 	}
 }
 

@@ -214,18 +214,26 @@ zero-ramp 1,000-session stack for a 60-minute hold. Liveness rounds start every
 checkpoint and adds a distinct `final_speed_test` plus `speed_retention`.
 Initial and final concurrent upload/download each transfer exactly 1 GiB at no
 less than 200 Mbps, and each final direction retains at least 80% of its
-initial aggregate. Source-qualified load-driver, both Edge, both Coturn, and
-Server process samples continue once per second; unsupported external Go heap
-or goroutine fields remain explicit. Any failed initial gate prevents the hold
-from starting, and cancellation still performs bounded session and Docker
-cleanup.
+initial aggregate and per-session p50, p95, and p99 throughput.
+
+Extended artifact version 13 records actual hold boundaries and qualifies the
+first and last ten-minute windows. Median round p99 RTT, RSS, open FDs, and
+available Go heap/goroutine values may grow by at most 20%. CPU and network-rate
+comparisons apply the same relative limit with 0.10-core and 1,024-byte/s
+absolute noise floors; UDP and UDP6 socket medians may grow by at most 20%.
+Source-qualified samples cover the load driver, both Edge processes, both
+Coturn processes, and Server once per second, with a maximum accepted gap of
+2.1 seconds. Cumulative CPU and network counters cannot decrease. Unsupported
+external Go runtime fields and load-driver socket/network fields are enumerated
+explicitly. Any failed initial gate prevents the hold from starting, and
+cancellation still performs bounded session and Docker cleanup.
 
 The 100- and 500-session burst runners preserve their accepted payloads and
 gates but now use that relay-only upstream topology. Existing workload fields
-remain stable; extended artifact version 11 adds optional final-speed retention
-evidence plus mandatory bounded-cleanup evidence. Extended artifact version
-12 additionally records the load driver's effective `GOGC`; the 100- and
-500-session entrypoints explicitly retain `GOGC=100`. A sibling `*-coturn.json`
+remain stable. The current version 13 artifact includes optional final-speed
+retention, mandatory bounded-cleanup evidence, and the load driver's effective
+`GOGC`; the 100- and 500-session entrypoints explicitly retain `GOGC=100`. A
+sibling `*-coturn.json`
 artifact records each Coturn
 member's one-second live allocation and traffic samples, finished-session byte
 counters, traffic delta, and the bounded return to zero after both Edge

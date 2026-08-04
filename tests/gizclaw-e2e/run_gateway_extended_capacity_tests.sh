@@ -12,6 +12,7 @@ current_env=""
 runtime_state=""
 coturn_monitor_pid=""
 coturn_monitor_stop=""
+gateway_workload_pid=""
 gateway_gomaxprocs="${GIZCLAW_E2E_GATEWAY_GOMAXPROCS:-8}"
 gateway_gogc="${GIZCLAW_E2E_GATEWAY_GOGC:-100}"
 gateway_dial_timeout="${GIZCLAW_E2E_GATEWAY_DIAL_TIMEOUT:-20s}"
@@ -83,6 +84,11 @@ cleanup_current() {
 
 cleanup_on_exit() {
   local status="$?"
+  if [[ -n "$gateway_workload_pid" ]] && kill -0 "$gateway_workload_pid" 2>/dev/null; then
+    kill -TERM "$gateway_workload_pid" 2>/dev/null || true
+    wait "$gateway_workload_pid" 2>/dev/null || true
+    gateway_workload_pid=""
+  fi
   if ! stop_coturn_monitor; then
     echo "failed to stop the active Coturn allocation monitor" >&2
     status=1
@@ -305,7 +311,7 @@ run_case() {
   # Leave reliable SCTP most of the 30-second round to recover while keeping
   # a two-second margin for artifact aggregation and the round deadline.
   set +e
-  (cd "$repo_root" && GOGC="$gateway_gogc" GOMAXPROCS="$gateway_gomaxprocs" "$gateway_bin" \
+  (cd "$repo_root" && exec env GOGC="$gateway_gogc" GOMAXPROCS="$gateway_gomaxprocs" "$gateway_bin" \
     -edges "$capacity_edge_endpoint,$capacity_edge2_endpoint" \
     -signaling-base-from-edge \
     -sessions "$sessions" \
@@ -344,10 +350,31 @@ run_case() {
     -repetition "$repetition" \
     -soak="$soak" \
     -cleanup-timeout "$gateway_cleanup_timeout" \
-    -artifact "$artifact")
+    -artifact "$artifact") &
+  gateway_workload_pid="$!"
+  monitor_status=0
+  while kill -0 "$gateway_workload_pid" 2>/dev/null; do
+    if ! kill -0 "$coturn_monitor_pid" 2>/dev/null; then
+      wait "$coturn_monitor_pid"
+      monitor_status="$?"
+      coturn_monitor_pid=""
+      if ((monitor_status == 0)); then
+        echo "Coturn live-allocation monitoring stopped before the workload" >&2
+        monitor_status=1
+      fi
+      echo "Coturn live-allocation monitoring failed; canceling scenario=$scenario repetition=$repetition" >&2
+      kill -TERM "$gateway_workload_pid" 2>/dev/null || true
+      break
+    fi
+    sleep 0.1
+  done
+  wait "$gateway_workload_pid"
   workload_status="$?"
-  stop_coturn_monitor
-  monitor_status="$?"
+  gateway_workload_pid=""
+  if [[ -n "$coturn_monitor_pid" ]]; then
+    stop_coturn_monitor
+    monitor_status="$?"
+  fi
   set -e
   if ((workload_status != 0)); then
     return "$workload_status"

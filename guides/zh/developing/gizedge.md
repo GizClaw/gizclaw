@@ -246,7 +246,18 @@ Server 或 Coturn 的 runtime behavior。
 Soak 入口先在同一个 clean head 上重跑全部三轮 burst，再用一个新 stack 以相同 zero-ramp
 方式建立 1,000 个 session 并保持 60 分钟。完整 liveness round 每 30 秒开始一次；独立的
 initial/final upload 与 download checkpoint 均对每 session 精确传输 1 MiB、达到至少
-200 Mbps，并要求 final aggregate 保留 initial 的至少 80%。Logical-session cleanup 上限为
+200 Mbps，并要求 final 每个方向的 aggregate 以及 per-session p50、p95、p99 throughput
+都保留 initial 的至少 80%。
+
+Artifact version 13 记录实际 hold boundary，并比较最初与最后十分钟。每轮 RTT p99 的
+median、process RSS、open FD，以及可获得的 Go heap 与 goroutine median，增长均不得超过
+20%；CPU 与 network rate 同样采用 20% 相对门槛，并分别设置 0.10 core 与 1,024 bytes/s
+绝对噪声下限；UDP/UDP6 socket median 采用 20% 门槛。门槛覆盖 load driver、两台 Edge、
+两个 Coturn 与 Server，拒绝 process counter reset，并要求 resource sample gap 不超过
+2.1 秒。外部进程无法提供的 Go runtime metric，以及 load driver 无法提供的 socket/network
+metric，必须逐项明确标为 unsupported，不得伪造数值。
+
+Logical-session cleanup 上限为
 30 秒；Edge 存活期间按一秒间隔读取 source-qualified Coturn counter，要求十条 physical
 TURN allocation 始终保持存在，Edge 关闭后必须在 15 秒内归零。这些命令只验收 artifact
 记录的 host、Docker engine、clean commit 与 topology，不是 30,000-session 或 WAN
@@ -257,10 +268,8 @@ burst 串行化；一次打开全部 slot 又会同时支付多条 SCTP 冷启�
 4-association 有界 warm pool 来自本机 100-session burst 的实测；更高 session 数的任务
 必须重新测量后再调整这个取舍。
 
-同一组默认值下，30,000 个 mostly-idle sessions 平均为 1,875 sessions/upstream，低于
-2,048 的硬上限。这只是 topology sizing：CPU、memory、FD、建立速率和低频 activity
-仍须通过 100、500、1,000 等递增样本拟合资源斜率，不能由这个除法或一次吞吐 benchmark
-代替。可重复的 transport 与完整 Edge benchmark 命令为：
+这组固定验收只建立 1,000-session burst 与 soak 边界，不据此推导更高 session 数的容量。
+可重复的 transport 与完整 Edge benchmark 命令为：
 
 ```bash
 go test -tags giznet_e2e ./tests/giznet-e2e/webrtc \
