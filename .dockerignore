@@ -2,6 +2,8 @@
 .DS_Store
 
 node_modules
+**/node_modules
+guides/.vitepress/dist
 cmd/ui/node_modules
 cmd/ui/admin/dist
 cmd/ui/play/dist
