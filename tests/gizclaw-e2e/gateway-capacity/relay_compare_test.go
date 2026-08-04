@@ -100,6 +100,9 @@ func TestValidateFrozenRelayRunRejectsWorkloadDrift(t *testing.T) {
 			Upload:   speedDirectionSummary{Concurrent: speedRunSummary{Attempted: 100, Completed: 100, TransferredBytes: 100 << 20}},
 			Download: speedDirectionSummary{Concurrent: speedRunSummary{Attempted: 100, Completed: 100, TransferredBytes: 100 << 20}},
 		},
+		Establishment: establishmentSummary{Phases: map[string]establishmentPhaseSummary{
+			phaseMandatoryEventStream: {Supported: true, Latency: latencySummary{Count: 100}},
+		}},
 		Opus:             opusSummary{Attempted: 5000, Completed: 5000, AttemptedBytes: 15000, CompletedBytes: 15000},
 		EdgeDistribution: map[string]int{"edge-a": 50, "edge-b": 50},
 		UpstreamDistribution: map[string]map[string]int{
@@ -113,6 +116,37 @@ func TestValidateFrozenRelayRunRejectsWorkloadDrift(t *testing.T) {
 	run.Config.SpeedBytes--
 	if err := validateFrozenRelayRun("run.json", run); err == nil || !strings.Contains(err.Error(), "frozen") {
 		t.Fatalf("workload drift error = %v", err)
+	}
+}
+
+func TestMedianPhasesPreservesSupportedAndUnsupportedEvidence(t *testing.T) {
+	runs := []comparisonRun{
+		{Phases: map[string]comparisonPhase{
+			"dial": {Supported: true, P50MS: 10, P95MS: 20, P99MS: 30},
+			"sctp": {Reason: "unsupported"},
+		}},
+		{Phases: map[string]comparisonPhase{
+			"dial": {Supported: true, P50MS: 30, P95MS: 40, P99MS: 50},
+			"sctp": {Reason: "unsupported"},
+		}},
+		{Phases: map[string]comparisonPhase{
+			"dial": {Supported: true, P50MS: 20, P95MS: 30, P99MS: 40},
+			"sctp": {Reason: "unsupported"},
+		}},
+	}
+	median, err := medianPhases(runs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := median["dial"]; !got.Supported || got.P50MS != 20 || got.P95MS != 30 || got.P99MS != 40 {
+		t.Fatalf("dial median = %+v", got)
+	}
+	if got := median["sctp"]; got.Supported || got.Reason != "unsupported" {
+		t.Fatalf("unsupported median = %+v", got)
+	}
+	ratio := ratioPhases(map[string]comparisonPhase{"dial": {Supported: true, P50MS: 30}}, map[string]comparisonPhase{"dial": {Supported: true, P50MS: 20}})
+	if ratio["dial"].P50MS != 1.5 {
+		t.Fatalf("phase ratio = %+v", ratio["dial"])
 	}
 }
 
@@ -135,5 +169,52 @@ func TestValidateCoturnEvidenceSeparatesDirectAndRelay(t *testing.T) {
 	}
 	if err := validateCoturnEvidence("relay", relay); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestValidateGiznetCoturnDiagnosticAttributesMaterialDelta(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "giznet-coturn.json")
+	diagnostic := giznetCoturnDiagnostic{
+		RepositoryHead: "clean-head", DialSamples: 30, RTTSamples: 200,
+		ThroughputRuns: 3, ThroughputBytes: 32 << 20,
+		Paths: []giznetCoturnDiagnosticPath{
+			{Name: "direct", ClientMedianMbps: 800, ListenerMedianMbps: 780},
+			{Name: "static", ClientMedianMbps: 400, ListenerMedianMbps: 500},
+			{
+				Name: "turn_rest", ClientMedianMbps: 480, ListenerMedianMbps: 520,
+				CoturnBefore: coturnCounters{ReceivedBytes: 10, SentBytes: 20},
+				CoturnAfter:  coturnCounters{ReceivedBytes: 210, SentBytes: 240},
+			},
+		},
+		Comparisons: []giznetCoturnDiagnosticRatio{{
+			Path: "turn_rest", ClientToListenerMbpsRatio: 0.6, ListenerToClientMbpsRatio: 2.0 / 3.0,
+		}},
+	}
+	data, err := json.Marshal(diagnostic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	evidence, err := validateGiznetCoturnDiagnostic(path, "clean-head")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if evidence.ClientToListenerRatio != 0.6 || evidence.CoturnReceivedBytesDelta != 200 ||
+		evidence.CoturnSentBytesDelta != 220 || !evidence.ProductEdgeAndServerExcluded {
+		t.Fatalf("causal evidence = %+v", evidence)
+	}
+
+	diagnostic.RepositoryDirty = true
+	data, err = json.Marshal(diagnostic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validateGiznetCoturnDiagnostic(path, "clean-head"); err == nil || !strings.Contains(err.Error(), "dirty") {
+		t.Fatalf("dirty diagnostic error = %v", err)
 	}
 }

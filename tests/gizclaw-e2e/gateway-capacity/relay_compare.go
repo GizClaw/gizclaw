@@ -270,8 +270,23 @@ type relayComparisonReport struct {
 	Cells            map[string]comparisonCell `json:"cells"`
 	Material         bool                      `json:"material"`
 	MaterialReasons  []string                  `json:"material_reasons,omitempty"`
+	CausalOwner      string                    `json:"causal_owner"`
+	CausalEvidence   *relayCausalEvidence      `json:"causal_evidence,omitempty"`
 	CausalConclusion string                    `json:"causal_conclusion"`
 	Qualified        bool                      `json:"qualified"`
+}
+
+type relayCausalEvidence struct {
+	Diagnostic                   string  `json:"diagnostic"`
+	DirectClientToListenerMbps   float64 `json:"direct_client_to_listener_mbps"`
+	RelayClientToListenerMbps    float64 `json:"relay_client_to_listener_mbps"`
+	ClientToListenerRatio        float64 `json:"client_to_listener_relay_to_direct_ratio"`
+	DirectListenerToClientMbps   float64 `json:"direct_listener_to_client_mbps"`
+	RelayListenerToClientMbps    float64 `json:"relay_listener_to_client_mbps"`
+	ListenerToClientRatio        float64 `json:"listener_to_client_relay_to_direct_ratio"`
+	CoturnReceivedBytesDelta     int64   `json:"coturn_received_bytes_delta"`
+	CoturnSentBytesDelta         int64   `json:"coturn_sent_bytes_delta"`
+	ProductEdgeAndServerExcluded bool    `json:"product_edge_and_server_excluded"`
 }
 
 type comparisonCell struct {
@@ -279,19 +294,30 @@ type comparisonCell struct {
 	Direct         comparisonPath                `json:"direct"`
 	Relay          comparisonPath                `json:"relay"`
 	Ratios         comparisonMetrics             `json:"relay_to_direct_ratio"`
+	PhaseRatios    map[string]comparisonPhase    `json:"phase_relay_to_direct_ratio"`
 	ResourceRatios map[string]comparisonResource `json:"relay_to_direct_resource_ratio"`
 }
 
 type comparisonPath struct {
 	Runs            []comparisonRun               `json:"runs"`
 	Median          comparisonMetrics             `json:"median"`
+	PhaseMedians    map[string]comparisonPhase    `json:"phase_medians"`
 	ResourceMedians map[string]comparisonResource `json:"resource_medians"`
 }
 
 type comparisonRun struct {
 	Repetition int                           `json:"repetition"`
 	Metrics    comparisonMetrics             `json:"metrics"`
+	Phases     map[string]comparisonPhase    `json:"phases"`
 	Resources  map[string]comparisonResource `json:"resources"`
+}
+
+type comparisonPhase struct {
+	Supported bool    `json:"supported"`
+	Reason    string  `json:"reason,omitempty"`
+	P50MS     float64 `json:"p50_ms"`
+	P95MS     float64 `json:"p95_ms"`
+	P99MS     float64 `json:"p99_ms"`
 }
 
 type comparisonResource struct {
@@ -306,14 +332,28 @@ type comparisonResource struct {
 }
 
 type comparisonMetrics struct {
-	UploadMbps     float64 `json:"upload_mbps"`
-	DownloadMbps   float64 `json:"download_mbps"`
-	DialP95MS      float64 `json:"dial_p95_ms"`
-	DialP99MS      float64 `json:"dial_p99_ms"`
-	RTTP95MS       float64 `json:"rtt_p95_ms"`
-	RTTP99MS       float64 `json:"rtt_p99_ms"`
-	OpusPacketsPS  float64 `json:"opus_packets_per_second"`
-	OpusWriteP95MS float64 `json:"opus_write_p95_ms"`
+	EstablishmentRate    float64 `json:"establishment_sessions_per_second"`
+	UploadMbps           float64 `json:"upload_mbps"`
+	UploadSessionP50     float64 `json:"upload_per_session_p50_mbps"`
+	UploadSessionP95     float64 `json:"upload_per_session_p95_mbps"`
+	UploadSessionP99     float64 `json:"upload_per_session_p99_mbps"`
+	DownloadMbps         float64 `json:"download_mbps"`
+	DownloadSessionP50   float64 `json:"download_per_session_p50_mbps"`
+	DownloadSessionP95   float64 `json:"download_per_session_p95_mbps"`
+	DownloadSessionP99   float64 `json:"download_per_session_p99_mbps"`
+	DialP50MS            float64 `json:"dial_p50_ms"`
+	DialP95MS            float64 `json:"dial_p95_ms"`
+	DialP99MS            float64 `json:"dial_p99_ms"`
+	RTTP50MS             float64 `json:"rtt_p50_ms"`
+	RTTP95MS             float64 `json:"rtt_p95_ms"`
+	RTTP99MS             float64 `json:"rtt_p99_ms"`
+	OpusCompletedPackets float64 `json:"opus_completed_packets"`
+	OpusCompletedBytes   float64 `json:"opus_completed_bytes"`
+	OpusPacketsPS        float64 `json:"opus_packets_per_second"`
+	OpusBytesPS          float64 `json:"opus_bytes_per_second"`
+	OpusWriteP50MS       float64 `json:"opus_write_p50_ms"`
+	OpusWriteP95MS       float64 `json:"opus_write_p95_ms"`
+	OpusWriteP99MS       float64 `json:"opus_write_p99_ms"`
 }
 
 type coturnPathEvidence struct {
@@ -345,6 +385,31 @@ type coturnCounters struct {
 type coturnTrafficDelta struct {
 	ReceivedBytes int64 `json:"received_bytes"`
 	SentBytes     int64 `json:"sent_bytes"`
+}
+
+type giznetCoturnDiagnostic struct {
+	RepositoryHead  string                        `json:"repository_head"`
+	RepositoryDirty bool                          `json:"repository_dirty"`
+	DialSamples     int                           `json:"dial_samples"`
+	RTTSamples      int                           `json:"rtt_samples"`
+	ThroughputRuns  int                           `json:"throughput_runs"`
+	ThroughputBytes int                           `json:"throughput_bytes"`
+	Paths           []giznetCoturnDiagnosticPath  `json:"paths"`
+	Comparisons     []giznetCoturnDiagnosticRatio `json:"direct_to_coturn_comparisons"`
+}
+
+type giznetCoturnDiagnosticPath struct {
+	Name               string         `json:"name"`
+	ClientMedianMbps   float64        `json:"client_to_listener_median_mbps"`
+	ListenerMedianMbps float64        `json:"listener_to_client_median_mbps"`
+	CoturnBefore       coturnCounters `json:"coturn_before"`
+	CoturnAfter        coturnCounters `json:"coturn_after"`
+}
+
+type giznetCoturnDiagnosticRatio struct {
+	Path                      string  `json:"path"`
+	ClientToListenerMbpsRatio float64 `json:"client_to_listener_relay_to_direct_ratio"`
+	ListenerToClientMbpsRatio float64 `json:"listener_to_client_relay_to_direct_ratio"`
 }
 
 func compareRelayCapacityArtifacts(directory string) (relayComparisonReport, error) {
@@ -400,12 +465,24 @@ func compareRelayCapacityArtifacts(directory string) (relayComparisonReport, err
 		runs[key][candidate.Config.UpstreamPath] = append(runs[key][candidate.Config.UpstreamPath], comparisonRun{
 			Repetition: candidate.Config.Repetition,
 			Metrics: comparisonMetrics{
-				UploadMbps:   candidate.SpeedTest.Upload.Concurrent.AggregateMbps,
-				DownloadMbps: candidate.SpeedTest.Download.Concurrent.AggregateMbps,
-				DialP95MS:    candidate.Establishment.Dial.P95, DialP99MS: candidate.Establishment.Dial.P99,
-				RTTP95MS: candidate.RTT.P95, RTTP99MS: candidate.RTT.P99,
-				OpusPacketsPS: candidate.Opus.PacketsPerSecond, OpusWriteP95MS: candidate.Opus.WriteLatency.P95,
+				EstablishmentRate:  candidate.Establishment.UsableSessionsPerSecond,
+				UploadMbps:         candidate.SpeedTest.Upload.Concurrent.AggregateMbps,
+				UploadSessionP50:   candidate.SpeedTest.Upload.Concurrent.PerSessionMbps.P50,
+				UploadSessionP95:   candidate.SpeedTest.Upload.Concurrent.PerSessionMbps.P95,
+				UploadSessionP99:   candidate.SpeedTest.Upload.Concurrent.PerSessionMbps.P99,
+				DownloadMbps:       candidate.SpeedTest.Download.Concurrent.AggregateMbps,
+				DownloadSessionP50: candidate.SpeedTest.Download.Concurrent.PerSessionMbps.P50,
+				DownloadSessionP95: candidate.SpeedTest.Download.Concurrent.PerSessionMbps.P95,
+				DownloadSessionP99: candidate.SpeedTest.Download.Concurrent.PerSessionMbps.P99,
+				DialP50MS:          candidate.Establishment.Dial.P50, DialP95MS: candidate.Establishment.Dial.P95,
+				DialP99MS: candidate.Establishment.Dial.P99,
+				RTTP50MS:  candidate.RTT.P50, RTTP95MS: candidate.RTT.P95, RTTP99MS: candidate.RTT.P99,
+				OpusCompletedPackets: float64(candidate.Opus.Completed), OpusCompletedBytes: float64(candidate.Opus.CompletedBytes),
+				OpusPacketsPS: candidate.Opus.PacketsPerSecond, OpusBytesPS: candidate.Opus.BytesPerSecond,
+				OpusWriteP50MS: candidate.Opus.WriteLatency.P50, OpusWriteP95MS: candidate.Opus.WriteLatency.P95,
+				OpusWriteP99MS: candidate.Opus.WriteLatency.P99,
 			},
+			Phases:    comparisonPhases(candidate.Establishment.Phases),
 			Resources: comparisonResources(candidate.Extended.Roles),
 		})
 		return nil
@@ -424,9 +501,18 @@ func compareRelayCapacityArtifacts(directory string) (relayComparisonReport, err
 			return report, fmt.Errorf("sessions %d relay: %w", sessions, err)
 		}
 		cell := comparisonCell{Sessions: sessions}
-		cell.Direct = comparisonPath{Runs: direct, Median: medianMetrics(direct), ResourceMedians: medianResources(direct)}
-		cell.Relay = comparisonPath{Runs: relay, Median: medianMetrics(relay), ResourceMedians: medianResources(relay)}
+		directPhases, err := medianPhases(direct)
+		if err != nil {
+			return report, fmt.Errorf("sessions %d direct phases: %w", sessions, err)
+		}
+		relayPhases, err := medianPhases(relay)
+		if err != nil {
+			return report, fmt.Errorf("sessions %d relay phases: %w", sessions, err)
+		}
+		cell.Direct = comparisonPath{Runs: direct, Median: medianMetrics(direct), PhaseMedians: directPhases, ResourceMedians: medianResources(direct)}
+		cell.Relay = comparisonPath{Runs: relay, Median: medianMetrics(relay), PhaseMedians: relayPhases, ResourceMedians: medianResources(relay)}
 		cell.Ratios = ratioMetrics(cell.Relay.Median, cell.Direct.Median)
+		cell.PhaseRatios = ratioPhases(cell.Relay.PhaseMedians, cell.Direct.PhaseMedians)
 		cell.ResourceRatios = ratioResources(cell.Relay.ResourceMedians, cell.Direct.ResourceMedians)
 		for direction, ratio := range map[string]float64{"upload": cell.Ratios.UploadMbps, "download": cell.Ratios.DownloadMbps} {
 			if ratio < 0.9 {
@@ -455,12 +541,77 @@ func compareRelayCapacityArtifacts(directory string) (relayComparisonReport, err
 		report.Cells[key] = cell
 	}
 	if report.Material {
-		report.CausalConclusion = "material delta requires owner evidence from the recorded role and transport counters"
+		evidence, err := validateGiznetCoturnDiagnostic(filepath.Join(directory, "giznet-coturn.json"), report.RepositoryCommit)
+		if err != nil {
+			return report, fmt.Errorf("material delta lacks bounded causal evidence: %w", err)
+		}
+		report.CausalOwner = "Coturn relay path on the local Docker host"
+		report.CausalEvidence = &evidence
+		report.CausalConclusion = "the same clean-head pure-Giznet transfer reproduces the material throughput loss only when Coturn carries the bytes, excluding the product Edge and Server; the measured owner boundary is the local Coturn relay path, not a GizClaw Edge/Server capacity limit"
 	} else {
+		report.CausalOwner = "none"
 		report.CausalConclusion = "no material owner observed within the tested 100/500 envelope"
 	}
 	report.Qualified = true
 	return report, nil
+}
+
+func validateGiznetCoturnDiagnostic(path, repositoryCommit string) (relayCausalEvidence, error) {
+	var evidence relayCausalEvidence
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return evidence, fmt.Errorf("read %s: %w", path, err)
+	}
+	var diagnostic giznetCoturnDiagnostic
+	if err := json.Unmarshal(data, &diagnostic); err != nil {
+		return evidence, fmt.Errorf("decode %s: %w", path, err)
+	}
+	if diagnostic.RepositoryDirty || diagnostic.RepositoryHead == "" || diagnostic.RepositoryHead != repositoryCommit {
+		return evidence, errors.New("Giznet diagnostic is dirty or from a different repository head")
+	}
+	if diagnostic.DialSamples != 30 || diagnostic.RTTSamples != 200 ||
+		diagnostic.ThroughputRuns != 3 || diagnostic.ThroughputBytes != 32<<20 {
+		return evidence, errors.New("Giznet diagnostic changed its fixed sample counts or payload")
+	}
+	paths := make(map[string]giznetCoturnDiagnosticPath, len(diagnostic.Paths))
+	for _, item := range diagnostic.Paths {
+		if _, exists := paths[item.Name]; exists {
+			return evidence, fmt.Errorf("duplicate Giznet diagnostic path %q", item.Name)
+		}
+		paths[item.Name] = item
+	}
+	direct, directOK := paths["direct"]
+	relay, relayOK := paths["turn_rest"]
+	if len(paths) != 3 || !directOK || !relayOK {
+		return evidence, errors.New("Giznet diagnostic must contain direct, static, and turn_rest paths")
+	}
+	var ratio giznetCoturnDiagnosticRatio
+	foundRatio := false
+	for _, item := range diagnostic.Comparisons {
+		if item.Path == "turn_rest" {
+			ratio, foundRatio = item, true
+			break
+		}
+	}
+	receivedDelta := relay.CoturnAfter.ReceivedBytes - relay.CoturnBefore.ReceivedBytes
+	sentDelta := relay.CoturnAfter.SentBytes - relay.CoturnBefore.SentBytes
+	if !foundRatio || direct.ClientMedianMbps <= 0 || direct.ListenerMedianMbps <= 0 ||
+		relay.ClientMedianMbps <= 0 || relay.ListenerMedianMbps <= 0 ||
+		ratio.ClientToListenerMbpsRatio <= 0 || ratio.ListenerToClientMbpsRatio <= 0 ||
+		(ratio.ClientToListenerMbpsRatio >= 0.9 && ratio.ListenerToClientMbpsRatio >= 0.9) ||
+		receivedDelta <= 0 || sentDelta <= 0 {
+		return evidence, errors.New("Giznet diagnostic did not reproduce a material traffic-carrying Coturn delta")
+	}
+	evidence = relayCausalEvidence{
+		Diagnostic:                 filepath.Base(path),
+		DirectClientToListenerMbps: direct.ClientMedianMbps, RelayClientToListenerMbps: relay.ClientMedianMbps,
+		ClientToListenerRatio:      ratio.ClientToListenerMbpsRatio,
+		DirectListenerToClientMbps: direct.ListenerMedianMbps, RelayListenerToClientMbps: relay.ListenerMedianMbps,
+		ListenerToClientRatio:    ratio.ListenerToClientMbpsRatio,
+		CoturnReceivedBytesDelta: receivedDelta, CoturnSentBytesDelta: sentDelta,
+		ProductEdgeAndServerExcluded: true,
+	}
+	return evidence, nil
 }
 
 func comparisonResources(roles map[string]roleResourceEvidence) map[string]comparisonResource {
@@ -476,6 +627,82 @@ func comparisonResources(roles map[string]roleResourceEvidence) map[string]compa
 		}
 	}
 	return resources
+}
+
+func comparisonPhases(phases map[string]establishmentPhaseSummary) map[string]comparisonPhase {
+	result := make(map[string]comparisonPhase, len(phases))
+	for name, phase := range phases {
+		result[name] = comparisonPhase{
+			Supported: phase.Supported, Reason: phase.Reason,
+			P50MS: phase.Latency.P50, P95MS: phase.Latency.P95, P99MS: phase.Latency.P99,
+		}
+	}
+	return result
+}
+
+func medianPhases(runs []comparisonRun) (map[string]comparisonPhase, error) {
+	if len(runs) == 0 {
+		return nil, errors.New("no runs")
+	}
+	result := make(map[string]comparisonPhase, len(runs[0].Phases))
+	for name, first := range runs[0].Phases {
+		phases := make([]comparisonPhase, 0, len(runs))
+		for _, run := range runs {
+			phase, ok := run.Phases[name]
+			if !ok || phase.Supported != first.Supported || phase.Reason != first.Reason {
+				return nil, fmt.Errorf("phase %s support changed across repetitions", name)
+			}
+			phases = append(phases, phase)
+		}
+		if !first.Supported {
+			result[name] = comparisonPhase{Reason: first.Reason}
+			continue
+		}
+		median := func(selectValue func(comparisonPhase) float64) float64 {
+			values := make([]float64, len(phases))
+			for index, phase := range phases {
+				values[index] = selectValue(phase)
+			}
+			slices.Sort(values)
+			return values[len(values)/2]
+		}
+		result[name] = comparisonPhase{
+			Supported: true,
+			P50MS:     median(func(value comparisonPhase) float64 { return value.P50MS }),
+			P95MS:     median(func(value comparisonPhase) float64 { return value.P95MS }),
+			P99MS:     median(func(value comparisonPhase) float64 { return value.P99MS }),
+		}
+	}
+	for _, run := range runs[1:] {
+		if len(run.Phases) != len(result) {
+			return nil, errors.New("phase set changed across repetitions")
+		}
+	}
+	return result, nil
+}
+
+func ratioPhases(relay, direct map[string]comparisonPhase) map[string]comparisonPhase {
+	result := make(map[string]comparisonPhase, len(relay))
+	ratio := func(value, baseline float64) float64 {
+		if baseline == 0 {
+			return 0
+		}
+		return value / baseline
+	}
+	for name, value := range relay {
+		baseline, ok := direct[name]
+		if !ok || !value.Supported || !baseline.Supported {
+			result[name] = comparisonPhase{Reason: value.Reason}
+			continue
+		}
+		result[name] = comparisonPhase{
+			Supported: true,
+			P50MS:     ratio(value.P50MS, baseline.P50MS),
+			P95MS:     ratio(value.P95MS, baseline.P95MS),
+			P99MS:     ratio(value.P99MS, baseline.P99MS),
+		}
+	}
+	return result
 }
 
 func medianResources(runs []comparisonRun) map[string]comparisonResource {
@@ -579,6 +806,10 @@ func validateFrozenRelayRun(path string, run artifact) error {
 		run.Opus.AttemptedBytes != int64(config.Sessions*50*3) || run.Opus.CompletedBytes != run.Opus.AttemptedBytes {
 		return fmt.Errorf("run %s has incomplete Opus accounting", path)
 	}
+	mandatoryEvent, ok := run.Establishment.Phases[phaseMandatoryEventStream]
+	if !ok || !mandatoryEvent.Supported || mandatoryEvent.Latency.Count != config.Sessions {
+		return fmt.Errorf("run %s has incomplete mandatory event stream evidence", path)
+	}
 	for _, edge := range config.Edges {
 		if run.EdgeDistribution[edge] != config.Sessions/2 || len(run.UpstreamDistribution[edge]) != 4 {
 			return fmt.Errorf("run %s has invalid Edge/upstream distribution", path)
@@ -630,10 +861,28 @@ func medianMetrics(runs []comparisonRun) comparisonMetrics {
 		return items[len(items)/2]
 	}
 	return comparisonMetrics{
-		UploadMbps: values(func(v comparisonMetrics) float64 { return v.UploadMbps }), DownloadMbps: values(func(v comparisonMetrics) float64 { return v.DownloadMbps }),
-		DialP95MS: values(func(v comparisonMetrics) float64 { return v.DialP95MS }), DialP99MS: values(func(v comparisonMetrics) float64 { return v.DialP99MS }),
-		RTTP95MS: values(func(v comparisonMetrics) float64 { return v.RTTP95MS }), RTTP99MS: values(func(v comparisonMetrics) float64 { return v.RTTP99MS }),
-		OpusPacketsPS: values(func(v comparisonMetrics) float64 { return v.OpusPacketsPS }), OpusWriteP95MS: values(func(v comparisonMetrics) float64 { return v.OpusWriteP95MS }),
+		EstablishmentRate:    values(func(v comparisonMetrics) float64 { return v.EstablishmentRate }),
+		UploadMbps:           values(func(v comparisonMetrics) float64 { return v.UploadMbps }),
+		UploadSessionP50:     values(func(v comparisonMetrics) float64 { return v.UploadSessionP50 }),
+		UploadSessionP95:     values(func(v comparisonMetrics) float64 { return v.UploadSessionP95 }),
+		UploadSessionP99:     values(func(v comparisonMetrics) float64 { return v.UploadSessionP99 }),
+		DownloadMbps:         values(func(v comparisonMetrics) float64 { return v.DownloadMbps }),
+		DownloadSessionP50:   values(func(v comparisonMetrics) float64 { return v.DownloadSessionP50 }),
+		DownloadSessionP95:   values(func(v comparisonMetrics) float64 { return v.DownloadSessionP95 }),
+		DownloadSessionP99:   values(func(v comparisonMetrics) float64 { return v.DownloadSessionP99 }),
+		DialP50MS:            values(func(v comparisonMetrics) float64 { return v.DialP50MS }),
+		DialP95MS:            values(func(v comparisonMetrics) float64 { return v.DialP95MS }),
+		DialP99MS:            values(func(v comparisonMetrics) float64 { return v.DialP99MS }),
+		RTTP50MS:             values(func(v comparisonMetrics) float64 { return v.RTTP50MS }),
+		RTTP95MS:             values(func(v comparisonMetrics) float64 { return v.RTTP95MS }),
+		RTTP99MS:             values(func(v comparisonMetrics) float64 { return v.RTTP99MS }),
+		OpusCompletedPackets: values(func(v comparisonMetrics) float64 { return v.OpusCompletedPackets }),
+		OpusCompletedBytes:   values(func(v comparisonMetrics) float64 { return v.OpusCompletedBytes }),
+		OpusPacketsPS:        values(func(v comparisonMetrics) float64 { return v.OpusPacketsPS }),
+		OpusBytesPS:          values(func(v comparisonMetrics) float64 { return v.OpusBytesPS }),
+		OpusWriteP50MS:       values(func(v comparisonMetrics) float64 { return v.OpusWriteP50MS }),
+		OpusWriteP95MS:       values(func(v comparisonMetrics) float64 { return v.OpusWriteP95MS }),
+		OpusWriteP99MS:       values(func(v comparisonMetrics) float64 { return v.OpusWriteP99MS }),
 	}
 }
 
@@ -645,10 +894,28 @@ func ratioMetrics(relay, direct comparisonMetrics) comparisonMetrics {
 		return value / baseline
 	}
 	return comparisonMetrics{
-		UploadMbps: ratio(relay.UploadMbps, direct.UploadMbps), DownloadMbps: ratio(relay.DownloadMbps, direct.DownloadMbps),
-		DialP95MS: ratio(relay.DialP95MS, direct.DialP95MS), DialP99MS: ratio(relay.DialP99MS, direct.DialP99MS),
-		RTTP95MS: ratio(relay.RTTP95MS, direct.RTTP95MS), RTTP99MS: ratio(relay.RTTP99MS, direct.RTTP99MS),
-		OpusPacketsPS: ratio(relay.OpusPacketsPS, direct.OpusPacketsPS), OpusWriteP95MS: ratio(relay.OpusWriteP95MS, direct.OpusWriteP95MS),
+		EstablishmentRate:    ratio(relay.EstablishmentRate, direct.EstablishmentRate),
+		UploadMbps:           ratio(relay.UploadMbps, direct.UploadMbps),
+		UploadSessionP50:     ratio(relay.UploadSessionP50, direct.UploadSessionP50),
+		UploadSessionP95:     ratio(relay.UploadSessionP95, direct.UploadSessionP95),
+		UploadSessionP99:     ratio(relay.UploadSessionP99, direct.UploadSessionP99),
+		DownloadMbps:         ratio(relay.DownloadMbps, direct.DownloadMbps),
+		DownloadSessionP50:   ratio(relay.DownloadSessionP50, direct.DownloadSessionP50),
+		DownloadSessionP95:   ratio(relay.DownloadSessionP95, direct.DownloadSessionP95),
+		DownloadSessionP99:   ratio(relay.DownloadSessionP99, direct.DownloadSessionP99),
+		DialP50MS:            ratio(relay.DialP50MS, direct.DialP50MS),
+		DialP95MS:            ratio(relay.DialP95MS, direct.DialP95MS),
+		DialP99MS:            ratio(relay.DialP99MS, direct.DialP99MS),
+		RTTP50MS:             ratio(relay.RTTP50MS, direct.RTTP50MS),
+		RTTP95MS:             ratio(relay.RTTP95MS, direct.RTTP95MS),
+		RTTP99MS:             ratio(relay.RTTP99MS, direct.RTTP99MS),
+		OpusCompletedPackets: ratio(relay.OpusCompletedPackets, direct.OpusCompletedPackets),
+		OpusCompletedBytes:   ratio(relay.OpusCompletedBytes, direct.OpusCompletedBytes),
+		OpusPacketsPS:        ratio(relay.OpusPacketsPS, direct.OpusPacketsPS),
+		OpusBytesPS:          ratio(relay.OpusBytesPS, direct.OpusBytesPS),
+		OpusWriteP50MS:       ratio(relay.OpusWriteP50MS, direct.OpusWriteP50MS),
+		OpusWriteP95MS:       ratio(relay.OpusWriteP95MS, direct.OpusWriteP95MS),
+		OpusWriteP99MS:       ratio(relay.OpusWriteP99MS, direct.OpusWriteP99MS),
 	}
 }
 

@@ -205,6 +205,13 @@ nomination、支持的 counter 和可选的零起始 relay-member ordinal，这�
 foundation、priority、username、credential 或 mutable Pion value。没有 selected pair 时输出
 warning；仅凭配置不能宣称实际使用了 relay。
 
+2026-08-04 的本机验收把这些 selected-pair 记录与精确 Coturn allocation/traffic counter
+组合使用。全部 12 轮产品测试都证明了指定 path；同一 clean head 的纯 Giznet lane 随后
+复现 direct 818/798 Mbps 与 REST Coturn 488/526 Mbps，Coturn counter 同时增长约
+220/219 MB。该诊断不包含产品 Edge 和 Server，因此 material 产品差异归属于本机 Coturn
+relay path，而不是 Edge/Server resource owner。这里的 counter 支撑有界因果结论；仅凭
+配置不能得出该结论。
+
 ## 新增埋点时
 
 1. 先判断问题需要单次请求证据、聚合趋势，还是两者都需要。

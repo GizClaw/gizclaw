@@ -276,6 +276,12 @@ Dial 只选择一个 pool member，不能回退到 direct candidate。这是 Edg
 selected-ICE observation，供 Testing Guide 中的 gateway capacity 验收使用。它是诊断证据，
 不是 public API，也不构成 production performance 保证。
 
+2026-08-04 的本机 12 轮验收中，100/500 session 的 direct 与 relay 全部通过。100 session
+的 direct/Coturn 中位吞吐为 654/578 与 416/568 Mbps，500 session 为 476/612 与
+417/606 Mbps。去掉产品 Edge 和 Server 后，同一 clean head 的纯 Giznet 诊断仍复现了
+material upload 差异，因此结果没有指向 Edge pool、tunnel 或 Server capacity；本次实测
+owner boundary 是本机 Coturn relay path。完整 latency 表和非 production 边界见 Testing Guide。
+
 ## 依赖关系
 
 ```mermaid

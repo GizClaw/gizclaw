@@ -172,6 +172,15 @@ TURN URLs, SDP, candidate IDs or bodies, foundations, priorities, usernames,
 credentials, or mutable Pion values. Absence of a selected pair is a warning;
 configuration alone must not be reported as proof that relay was used.
 
+The 2026-08-04 local qualification combined these selected-pair records with
+exact Coturn allocation and traffic counters. All 12 product runs proved the
+requested path; a same-head pure-Giznet lane then reproduced direct 818/798
+Mbps versus REST Coturn 488/526 Mbps while Coturn counters grew by about
+220/219 MB. Because that diagnostic excludes the product Edge and Server, the
+material product delta is assigned to the local Coturn relay path rather than
+an Edge/Server resource owner. The counters support this bounded causal claim;
+configuration alone would not.
+
 ## Adding instrumentation
 
 1. Decide whether the question needs one-request evidence, an aggregate trend, or both.

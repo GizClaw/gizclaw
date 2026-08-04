@@ -223,7 +223,9 @@ bash tests/gizclaw-e2e/run_gateway_relay_capacity_tests.sh
 每组各三次。两种 path 使用相同的 Server、两台 Edge、两个 digest-pinned Coturn member、
 固定 subnet、每台 Edge 四条 gateway upstream、zero ramp，以及每 session 每方向 1 MiB。
 Direct 必须保持 Coturn allocation 和 workload traffic 为零；relay 必须维持正好十条 live
-allocation、证明 traffic 增长，并在 Edge 关闭后归零。
+allocation、证明 traffic 增长，并在 Edge 关闭后归零。随后命令运行固定的纯 Giznet
+direct/Coturn 诊断；产品 comparison 出现 material 差异时必须提供 same-head 证据。该诊断
+只用于归因，不能替代产品矩阵。
 
 每个 session 还会通过 unreliable packet lane 按 20 ms cadence 发送 50 个 non-empty Opus
 packet，并在之后完成 RPC Ping。Ignored artifacts 记录 path proof、timing/throughput、精确
@@ -231,6 +233,23 @@ packet/byte、各 role CPU/RSS/FD/socket/network、Coturn evidence 和校验后�
 `comparison.json`。这只证明单台本机 Docker host 上的有界 one-way transport，不代表
 provider processing、decoded audio、WAN/NAT diversity、production Coturn/deployment capacity、
 1,000-session soak 或 30,000-session product ceiling。
+
+2026-08-04 的 ARM64 OrbStack 参考实测（Docker 29.4.0、Docker 16 CPU、16.8 GB memory）
+通过全部 12 轮，三次中位数如下：
+
+| Session | Path | Upload | Download | Dial p95 / p99 | RPC RTT p99 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 100 | direct | 654 Mbps | 578 Mbps | 458 / 472 ms | 18 ms |
+| 100 | Coturn | 416 Mbps | 568 Mbps | 452 / 460 ms | 19 ms |
+| 500 | direct | 476 Mbps | 612 Mbps | 714 / 1,120 ms | 287 ms |
+| 500 | Coturn | 417 Mbps | 606 Mbps | 778 / 819 ms | 503 ms |
+
+Relay/direct 的 upload ratio 为 0.636 和 0.876，download ratio 为 0.981 和 0.990。
+Upload 与 500-session RTT 差异属于 material，但所有固定门槛、精确 reliable bytes、Opus
+packet、path selection、allocation 和 cleanup 检查均通过。同一 clean head 的纯 Giznet
+诊断不包含产品 Edge 和 Server，测得 direct 818/798 Mbps、REST Coturn 488/526 Mbps，
+同时 Coturn receive/send counter 增长约 220/219 MB。因此本次实测边界归属于本机 Coturn
+relay path，而不是 GizClaw Edge/Server capacity；它不代表 production Coturn host 或 WAN。
 
 ## LoCoMo Memory Evaluation
 

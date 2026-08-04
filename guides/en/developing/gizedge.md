@@ -346,6 +346,15 @@ the control epoch and one for each live gateway entry. The observation is used
 by the gateway capacity qualification described in the Testing Guide. It is
 diagnostic evidence, not a public API or a production performance guarantee.
 
+In the 2026-08-04 local 12-run qualification, all 100- and 500-session direct
+and relay runs passed. Direct/Coturn median throughput was 654/578 versus
+416/568 Mbps at 100 sessions and 476/612 versus 417/606 Mbps at 500 sessions.
+The material upload delta was also reproduced by the same-head transport-only
+Giznet diagnostic after removing the product Edge and Server, so this result
+does not identify an Edge pool, tunnel, or Server capacity limit. The measured
+owner boundary is the local Coturn relay path; see the Testing Guide for the
+full latency table and non-production boundary.
+
 ## Dependencies
 
 ```mermaid

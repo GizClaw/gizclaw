@@ -45,6 +45,10 @@ run_profile relay 100
 run_profile direct 500
 run_profile relay 500
 
+echo "==> run bounded pure-Giznet direct/Coturn causal diagnostic"
+GIZNET_COTURN_ARTIFACT="$matrix_root/giznet-coturn.json" \
+  bash "$repo_root/tests/giznet-e2e/run_coturn_tests.sh"
+
 echo "==> compare exact 12-run direct/relay matrix"
 "$gateway_bin" \
   -compare-relay-dir "$matrix_root" \

@@ -8,6 +8,7 @@ run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 project="giznet-coturn-$(printf '%s' "$run_id" | tr '[:upper:]' '[:lower:]')"
 project="${project//[^a-z0-9_-]/-}"
 artifact_dir="$script_dir/testdata/coturn/$run_id"
+artifact_path="${GIZNET_COTURN_ARTIFACT:-$artifact_dir/transport.json}"
 
 cleanup() {
   local status="$?"
@@ -134,13 +135,14 @@ GIZNET_COTURN_REST_SECRET="$(random_hex)"
 export GIZNET_COTURN_STATIC_USERNAME GIZNET_COTURN_STATIC_CREDENTIAL
 export GIZNET_COTURN_REST_KEY_ID GIZNET_COTURN_REST_SECRET
 
-mkdir -p "$artifact_dir"
+mkdir -p "$artifact_dir" "$(dirname "$artifact_path")"
 artifact_dir="$(cd "$artifact_dir" && pwd -P)"
+artifact_path="$(cd "$(dirname "$artifact_path")" && pwd -P)/$(basename "$artifact_path")"
 export GIZNET_COTURN_DOCKER_PROJECT="$project"
 export GIZNET_COTURN_COMPOSE_FILE="$compose_file"
 export GIZNET_COTURN_STATIC_URL="turn:127.0.0.1:$GIZNET_COTURN_STATIC_LISTEN_PORT?transport=udp"
 export GIZNET_COTURN_REST_URL="turn:127.0.0.1:$GIZNET_COTURN_REST_LISTEN_PORT?transport=udp"
-export GIZNET_COTURN_ARTIFACT="$artifact_dir/transport.json"
+export GIZNET_COTURN_ARTIFACT="$artifact_path"
 
 echo "==> start pinned Coturn interoperability fixture"
 docker compose -p "$project" -f "$compose_file" up -d --wait coturn-static coturn-rest
