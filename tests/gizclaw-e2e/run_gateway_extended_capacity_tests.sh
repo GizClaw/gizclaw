@@ -47,7 +47,7 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 2
 fi
 
-mkdir -p "$artifact_root" "$script_dir/testdata/docker" "$script_dir/testdata/bin"
+mkdir -p "$artifact_root/direct" "$artifact_root/relay" "$script_dir/testdata/docker" "$script_dir/testdata/bin"
 artifact_root="$(cd "$artifact_root" && pwd -P)"
 if [[ -e "$artifact_base" ]]; then
   artifact_base="$(cd "$artifact_base" && pwd -P)"
