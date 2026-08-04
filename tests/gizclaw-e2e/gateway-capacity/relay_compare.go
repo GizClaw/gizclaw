@@ -287,6 +287,24 @@ type relayCausalEvidence struct {
 	CoturnReceivedBytesDelta     int64   `json:"coturn_received_bytes_delta"`
 	CoturnSentBytesDelta         int64   `json:"coturn_sent_bytes_delta"`
 	ProductEdgeAndServerExcluded bool    `json:"product_edge_and_server_excluded"`
+	DirectDialP95MS              float64 `json:"direct_dial_p95_ms"`
+	RelayDialP95MS               float64 `json:"relay_dial_p95_ms"`
+	DirectDialP99MS              float64 `json:"direct_dial_p99_ms"`
+	RelayDialP99MS               float64 `json:"relay_dial_p99_ms"`
+	DirectRTTP95MS               float64 `json:"direct_rtt_p95_ms"`
+	RelayRTTP95MS                float64 `json:"relay_rtt_p95_ms"`
+	DirectRTTP99MS               float64 `json:"direct_rtt_p99_ms"`
+	RelayRTTP99MS                float64 `json:"relay_rtt_p99_ms"`
+}
+
+type causalRequirements struct {
+	Upload        bool
+	Download      bool
+	DialP95       bool
+	DialP99       bool
+	RTTP95        bool
+	RTTP99        bool
+	ResourceBound bool
 }
 
 type comparisonCell struct {
@@ -400,6 +418,8 @@ type giznetCoturnDiagnostic struct {
 
 type giznetCoturnDiagnosticPath struct {
 	Name               string         `json:"name"`
+	DialTotalMS        latencySummary `json:"dial_total_ms"`
+	RTTMS              latencySummary `json:"rtt_ms"`
 	ClientMedianMbps   float64        `json:"client_to_listener_median_mbps"`
 	ListenerMedianMbps float64        `json:"listener_to_client_median_mbps"`
 	CoturnBefore       coturnCounters `json:"coturn_before"`
@@ -414,6 +434,7 @@ type giznetCoturnDiagnosticRatio struct {
 
 func compareRelayCapacityArtifacts(directory string) (relayComparisonReport, error) {
 	report := relayComparisonReport{Version: relayComparisonVersion, Cells: make(map[string]comparisonCell)}
+	var causalNeeds causalRequirements
 	runs := make(map[string]map[string][]comparisonRun)
 	err := filepath.WalkDir(directory, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -517,6 +538,11 @@ func compareRelayCapacityArtifacts(directory string) (relayComparisonReport, err
 		for direction, ratio := range map[string]float64{"upload": cell.Ratios.UploadMbps, "download": cell.Ratios.DownloadMbps} {
 			if ratio < 0.9 {
 				report.Material = true
+				if direction == "upload" {
+					causalNeeds.Upload = true
+				} else {
+					causalNeeds.Download = true
+				}
 				report.MaterialReasons = append(report.MaterialReasons, fmt.Sprintf("sessions-%d %s relay/direct throughput %.3f < 0.900", sessions, direction, ratio))
 			}
 		}
@@ -526,12 +552,23 @@ func compareRelayCapacityArtifacts(directory string) (relayComparisonReport, err
 		} {
 			if values[1]-values[0] >= 5 && values[1] > values[0]*1.2 {
 				report.Material = true
+				switch metric {
+				case "dial_p95":
+					causalNeeds.DialP95 = true
+				case "dial_p99":
+					causalNeeds.DialP99 = true
+				case "rtt_p95":
+					causalNeeds.RTTP95 = true
+				case "rtt_p99":
+					causalNeeds.RTTP99 = true
+				}
 				report.MaterialReasons = append(report.MaterialReasons, fmt.Sprintf("sessions-%d %s relay %.3fms vs direct %.3fms", sessions, metric, values[1], values[0]))
 			}
 		}
 		for role, resource := range cell.Relay.ResourceMedians {
 			if resource.OpenFDLimit > 0 && resource.PeakOpenFDs >= resource.OpenFDLimit*0.9 {
 				report.Material = true
+				causalNeeds.ResourceBound = true
 				report.MaterialReasons = append(report.MaterialReasons, fmt.Sprintf(
 					"sessions-%d relay %s median open FDs %.0f reached at least 90%% of limit %.0f",
 					sessions, role, resource.PeakOpenFDs, resource.OpenFDLimit,
@@ -541,7 +578,7 @@ func compareRelayCapacityArtifacts(directory string) (relayComparisonReport, err
 		report.Cells[key] = cell
 	}
 	if report.Material {
-		evidence, err := validateGiznetCoturnDiagnostic(filepath.Join(directory, "giznet-coturn.json"), report.RepositoryCommit)
+		evidence, err := validateGiznetCoturnDiagnostic(filepath.Join(directory, "giznet-coturn.json"), report.RepositoryCommit, causalNeeds)
 		if err != nil {
 			return report, fmt.Errorf("material delta lacks bounded causal evidence: %w", err)
 		}
@@ -556,7 +593,7 @@ func compareRelayCapacityArtifacts(directory string) (relayComparisonReport, err
 	return report, nil
 }
 
-func validateGiznetCoturnDiagnostic(path, repositoryCommit string) (relayCausalEvidence, error) {
+func validateGiznetCoturnDiagnostic(path, repositoryCommit string, requirements causalRequirements) (relayCausalEvidence, error) {
 	var evidence relayCausalEvidence
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -602,6 +639,10 @@ func validateGiznetCoturnDiagnostic(path, repositoryCommit string) (relayCausalE
 		receivedDelta <= 0 || sentDelta <= 0 {
 		return evidence, errors.New("Giznet diagnostic did not reproduce a material traffic-carrying Coturn delta")
 	}
+	if direct.DialTotalMS.Count != diagnostic.DialSamples || relay.DialTotalMS.Count != diagnostic.DialSamples ||
+		direct.RTTMS.Count != diagnostic.RTTSamples || relay.RTTMS.Count != diagnostic.RTTSamples {
+		return evidence, errors.New("Giznet diagnostic path summaries changed their fixed sample counts")
+	}
 	evidence = relayCausalEvidence{
 		Diagnostic:                 filepath.Base(path),
 		DirectClientToListenerMbps: direct.ClientMedianMbps, RelayClientToListenerMbps: relay.ClientMedianMbps,
@@ -610,8 +651,41 @@ func validateGiznetCoturnDiagnostic(path, repositoryCommit string) (relayCausalE
 		ListenerToClientRatio:    ratio.ListenerToClientMbpsRatio,
 		CoturnReceivedBytesDelta: receivedDelta, CoturnSentBytesDelta: sentDelta,
 		ProductEdgeAndServerExcluded: true,
+		DirectDialP95MS:              direct.DialTotalMS.P95, RelayDialP95MS: relay.DialTotalMS.P95,
+		DirectDialP99MS: direct.DialTotalMS.P99, RelayDialP99MS: relay.DialTotalMS.P99,
+		DirectRTTP95MS: direct.RTTMS.P95, RelayRTTP95MS: relay.RTTMS.P95,
+		DirectRTTP99MS: direct.RTTMS.P99, RelayRTTP99MS: relay.RTTMS.P99,
+	}
+	if err := validateCausalAlignment(requirements, evidence); err != nil {
+		return relayCausalEvidence{}, err
 	}
 	return evidence, nil
+}
+
+func validateCausalAlignment(requirements causalRequirements, evidence relayCausalEvidence) error {
+	if requirements.Upload && evidence.ClientToListenerRatio >= 0.9 {
+		return errors.New("Giznet diagnostic did not reproduce the material upload phase")
+	}
+	if requirements.Download && evidence.ListenerToClientRatio >= 0.9 {
+		return errors.New("Giznet diagnostic did not reproduce the material download phase")
+	}
+	regressed := func(direct, relay float64) bool {
+		return direct > 0 && relay > direct*1.2
+	}
+	for metric, requiredAndAligned := range map[string][2]bool{
+		"dial_p95": {requirements.DialP95, regressed(evidence.DirectDialP95MS, evidence.RelayDialP95MS)},
+		"dial_p99": {requirements.DialP99, regressed(evidence.DirectDialP99MS, evidence.RelayDialP99MS)},
+		"rtt_p95":  {requirements.RTTP95, regressed(evidence.DirectRTTP95MS, evidence.RelayRTTP95MS)},
+		"rtt_p99":  {requirements.RTTP99, regressed(evidence.DirectRTTP99MS, evidence.RelayRTTP99MS)},
+	} {
+		if requiredAndAligned[0] && !requiredAndAligned[1] {
+			return fmt.Errorf("Giznet diagnostic did not reproduce the material %s phase", metric)
+		}
+	}
+	if requirements.ResourceBound {
+		return errors.New("Giznet diagnostic lacks owner-local resource evidence for the material resource bound")
+	}
+	return nil
 }
 
 func comparisonResources(roles map[string]roleResourceEvidence) map[string]comparisonResource {

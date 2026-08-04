@@ -95,6 +95,8 @@ func TestParseDockerProcessSample(t *testing.T) {
 		"timestamp":     "-1 1 1 1 1 1 1 1 1 1 1 1 1 1",
 		"process ID":    "1 -1 1 1 1 1 1 1 1 1 1 1 1 1",
 		"open FD count": "1 1 1 1 1 1 1 -1 1 1 1 1 1 1",
+		"UDP sockets":   "1 1 1 1 1 1 1 1 1 1 -1 1 1 1",
+		"UDP6 sockets":  "1 1 1 1 1 1 1 1 1 1 1 -1 1 1",
 	} {
 		t.Run(name+" negative", func(t *testing.T) {
 			if _, err := parseDockerProcessSample(sample); err == nil || !strings.Contains(err.Error(), "non-negative") {

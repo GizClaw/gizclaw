@@ -178,10 +178,11 @@ func TestValidateGiznetCoturnDiagnosticAttributesMaterialDelta(t *testing.T) {
 		RepositoryHead: "clean-head", DialSamples: 30, RTTSamples: 200,
 		ThroughputRuns: 3, ThroughputBytes: 32 << 20,
 		Paths: []giznetCoturnDiagnosticPath{
-			{Name: "direct", ClientMedianMbps: 800, ListenerMedianMbps: 780},
-			{Name: "static", ClientMedianMbps: 400, ListenerMedianMbps: 500},
+			{Name: "direct", DialTotalMS: latencySummary{Count: 30, P95: 200, P99: 210}, RTTMS: latencySummary{Count: 200, P95: 1, P99: 2}, ClientMedianMbps: 800, ListenerMedianMbps: 780},
+			{Name: "static", DialTotalMS: latencySummary{Count: 30}, RTTMS: latencySummary{Count: 200}, ClientMedianMbps: 400, ListenerMedianMbps: 500},
 			{
-				Name: "turn_rest", ClientMedianMbps: 480, ListenerMedianMbps: 520,
+				Name: "turn_rest", DialTotalMS: latencySummary{Count: 30, P95: 400, P99: 430}, RTTMS: latencySummary{Count: 200, P95: 2, P99: 3},
+				ClientMedianMbps: 480, ListenerMedianMbps: 520,
 				CoturnBefore: coturnCounters{ReceivedBytes: 10, SentBytes: 20},
 				CoturnAfter:  coturnCounters{ReceivedBytes: 210, SentBytes: 240},
 			},
@@ -197,13 +198,45 @@ func TestValidateGiznetCoturnDiagnosticAttributesMaterialDelta(t *testing.T) {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	evidence, err := validateGiznetCoturnDiagnostic(path, "clean-head")
+	requirements := causalRequirements{Upload: true, Download: true, DialP95: true, DialP99: true, RTTP95: true, RTTP99: true}
+	evidence, err := validateGiznetCoturnDiagnostic(path, "clean-head", requirements)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if evidence.ClientToListenerRatio != 0.6 || evidence.CoturnReceivedBytesDelta != 200 ||
-		evidence.CoturnSentBytesDelta != 220 || !evidence.ProductEdgeAndServerExcluded {
+		evidence.CoturnSentBytesDelta != 220 || !evidence.ProductEdgeAndServerExcluded ||
+		evidence.RelayRTTP95MS != 2 || evidence.RelayDialP99MS != 430 {
 		t.Fatalf("causal evidence = %+v", evidence)
+	}
+	mismatchedDirection := evidence
+	mismatchedDirection.ClientToListenerRatio = 1
+	if err := validateCausalAlignment(causalRequirements{Upload: true}, mismatchedDirection); err == nil || !strings.Contains(err.Error(), "upload") {
+		t.Fatalf("unaligned upload diagnostic error = %v", err)
+	}
+
+	unaligned := diagnostic
+	unaligned.Paths = append([]giznetCoturnDiagnosticPath(nil), diagnostic.Paths...)
+	unaligned.Paths[2].RTTMS.P95 = 1
+	data, err = json.Marshal(unaligned)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validateGiznetCoturnDiagnostic(path, "clean-head", causalRequirements{RTTP95: true}); err == nil || !strings.Contains(err.Error(), "rtt_p95") {
+		t.Fatalf("unaligned RTT diagnostic error = %v", err)
+	}
+
+	data, err = json.Marshal(diagnostic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validateGiznetCoturnDiagnostic(path, "clean-head", causalRequirements{ResourceBound: true}); err == nil || !strings.Contains(err.Error(), "resource") {
+		t.Fatalf("resource diagnostic error = %v", err)
 	}
 
 	diagnostic.RepositoryDirty = true
@@ -214,7 +247,7 @@ func TestValidateGiznetCoturnDiagnosticAttributesMaterialDelta(t *testing.T) {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := validateGiznetCoturnDiagnostic(path, "clean-head"); err == nil || !strings.Contains(err.Error(), "dirty") {
+	if _, err := validateGiznetCoturnDiagnostic(path, "clean-head", requirements); err == nil || !strings.Contains(err.Error(), "dirty") {
 		t.Fatalf("dirty diagnostic error = %v", err)
 	}
 }

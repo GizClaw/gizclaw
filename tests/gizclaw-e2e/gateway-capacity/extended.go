@@ -435,8 +435,25 @@ func parseDockerProcessSample(output string) (dockerProcessSample, error) {
 	if openFDs < 0 {
 		return dockerProcessSample{}, errors.New("open FD count must be non-negative")
 	}
+	udpSockets, err := strconv.Atoi(fields[10])
+	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			return dockerProcessSample{}, fmt.Errorf("UDP socket count overflows int: %w", err)
+		}
+		return dockerProcessSample{}, fmt.Errorf("field 10: %w", err)
+	}
+	udp6Sockets, err := strconv.Atoi(fields[11])
+	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			return dockerProcessSample{}, fmt.Errorf("UDP6 socket count overflows int: %w", err)
+		}
+		return dockerProcessSample{}, fmt.Errorf("field 11: %w", err)
+	}
+	if udpSockets < 0 || udp6Sockets < 0 {
+		return dockerProcessSample{}, errors.New("UDP socket counts must be non-negative")
+	}
 	values := make([]uint64, len(fields))
-	for _, index := range []int{2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13} {
+	for _, index := range []int{2, 3, 4, 5, 6, 8, 9, 12, 13} {
 		value, err := strconv.ParseUint(fields[index], 10, 64)
 		if err != nil {
 			return dockerProcessSample{}, fmt.Errorf("field %d: %w", index, err)
@@ -449,16 +466,13 @@ func parseDockerProcessSample(output string) (dockerProcessSample, error) {
 	if values[2] > math.MaxUint64/values[3] {
 		return dockerProcessSample{}, errors.New("resident byte count overflows uint64")
 	}
-	if values[10] > uint64(math.MaxInt) || values[11] > uint64(math.MaxInt) {
-		return dockerProcessSample{}, errors.New("UDP socket count overflows int")
-	}
 	return dockerProcessSample{
 		Point: roleResourcePoint{
 			At:       time.Unix(0, timestamp),
 			RSSBytes: values[2] * values[3], RSSSource: "proc_pid_statm",
 			CPUSeconds: (float64(values[4]) + float64(values[5])) / float64(values[6]), CPUSecondsSource: "proc_pid_stat",
 			OpenFDs: openFDs, OpenFDsSource: "proc_pid_fd",
-			UDPSockets: int(values[10]), UDP6Sockets: int(values[11]), SocketSource: "proc_pid_net_udp",
+			UDPSockets: udpSockets, UDP6Sockets: udp6Sockets, SocketSource: "proc_pid_net_udp",
 			NetworkRXBytes: values[12], NetworkTXBytes: values[13], NetworkSource: "proc_pid_net_dev",
 			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "goroutines"},
 		},
