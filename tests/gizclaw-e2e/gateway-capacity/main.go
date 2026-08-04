@@ -878,12 +878,7 @@ func holdSessions(ctx context.Context, state *resultState, opts options, sem cha
 		state.finalSpeedTest = &final
 		state.speedRetention = &retention
 		if !retention.Passed {
-			state.appendErrorLocked(fmt.Sprintf(
-				"final speed retention upload=%.3f download=%.3f is below %.3f",
-				retention.UploadRatio,
-				retention.DownloadRatio,
-				retention.Minimum,
-			))
+			state.appendErrorLocked(formatSpeedRetentionFailure(retention))
 		}
 		state.mu.Unlock()
 	}
@@ -1578,6 +1573,21 @@ func summarizeSpeedRetention(initial, final speedTestSummary, minimum float64) s
 		summary.UploadPerSession.P99 >= minimum && summary.DownloadPerSession.P50 >= minimum &&
 		summary.DownloadPerSession.P95 >= minimum && summary.DownloadPerSession.P99 >= minimum
 	return summary
+}
+
+func formatSpeedRetentionFailure(retention speedRetentionSummary) string {
+	return fmt.Sprintf(
+		"final speed retention below %.3f: aggregate(upload=%.3f download=%.3f) per_session(upload_p50=%.3f upload_p95=%.3f upload_p99=%.3f download_p50=%.3f download_p95=%.3f download_p99=%.3f)",
+		retention.Minimum,
+		retention.UploadRatio,
+		retention.DownloadRatio,
+		retention.UploadPerSession.P50,
+		retention.UploadPerSession.P95,
+		retention.UploadPerSession.P99,
+		retention.DownloadPerSession.P50,
+		retention.DownloadPerSession.P95,
+		retention.DownloadPerSession.P99,
+	)
 }
 
 func summarizeRateRetention(initial, final rateSummary) rateRetentionSummary {

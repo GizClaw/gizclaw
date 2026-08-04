@@ -308,11 +308,7 @@ func (h *PeerConn) serveRPC() error {
 			_ = stream.Close()
 			continue
 		}
-		go func(stream net.Conn) {
-			if err := server.Handle(stream); err != nil {
-				_ = stream.Close()
-			}
-		}(stream)
+		go handleRPCStream(stream, server.Handle)
 	}
 }
 
@@ -337,12 +333,15 @@ func (h *PeerConn) serveEdgeRPC() error {
 			_ = stream.Close()
 			continue
 		}
-		go func(stream net.Conn) {
-			if err := server.Handle(stream); err != nil {
-				_ = stream.Close()
-			}
-		}(stream)
+		go handleRPCStream(stream, server.Handle)
 	}
+}
+
+func handleRPCStream(stream net.Conn, handle func(net.Conn) error) {
+	defer func() {
+		_ = stream.Close()
+	}()
+	_ = handle(stream)
 }
 
 func (h *PeerConn) init() {

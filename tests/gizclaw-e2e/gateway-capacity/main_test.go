@@ -320,6 +320,34 @@ func TestSummarizeSpeedRetentionRequiresBothDirections(t *testing.T) {
 	}
 }
 
+func TestFormatSpeedRetentionFailureIncludesEveryGate(t *testing.T) {
+	got := formatSpeedRetentionFailure(speedRetentionSummary{
+		Minimum:       0.8,
+		UploadRatio:   0.9,
+		DownloadRatio: 0.91,
+		UploadPerSession: rateRetentionSummary{
+			P50: 0.81,
+			P95: 0.79,
+			P99: 0.21,
+		},
+		DownloadPerSession: rateRetentionSummary{
+			P50: 1.01,
+			P95: 0.95,
+			P99: 0.92,
+		},
+	})
+	for _, want := range []string{
+		"below 0.800",
+		"aggregate(upload=0.900 download=0.910)",
+		"upload_p50=0.810 upload_p95=0.790 upload_p99=0.210",
+		"download_p50=1.010 download_p95=0.950 download_p99=0.920",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("failure = %q, want substring %q", got, want)
+		}
+	}
+}
+
 func TestHoldSessionsRecordsFinalRoundWithoutDeadlineOverlap(t *testing.T) {
 	state := &resultState{}
 	opts := options{
