@@ -14,7 +14,7 @@ if [[ -n "$(git -C "$repo_root" status --porcelain)" ]]; then
   exit 2
 fi
 repository_head="$(git -C "$repo_root" rev-parse HEAD)"
-mkdir -p "$bin_dir"
+mkdir -p "$script_dir/testdata/bin" "$bin_dir"
 
 echo "==> build capacity binaries once: head=$repository_head"
 (cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
