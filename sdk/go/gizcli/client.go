@@ -43,6 +43,8 @@ type Client struct {
 	serverPK giznet.PublicKey
 	rpc      *rpcClient
 	events   *peerEventSession
+	pingMu   sync.Mutex
+	pingConn net.Conn
 
 	packetMu          sync.RWMutex
 	packetSubscribers map[byte]map[chan []byte]struct{}
@@ -183,10 +185,19 @@ func (c *Client) Close() error {
 	c.rpc = nil
 	c.events = nil
 	c.mu.Unlock()
+	c.pingMu.Lock()
+	pingConn := c.pingConn
+	c.pingConn = nil
+	c.pingMu.Unlock()
 
 	var err error
 	if events != nil {
 		if closeErr := events.close(); closeErr != nil {
+			err = closeErr
+		}
+	}
+	if pingConn != nil {
+		if closeErr := pingConn.Close(); err == nil {
 			err = closeErr
 		}
 	}
@@ -242,19 +253,41 @@ func (c *Client) PeerHTTPClient() (*peerhttp.ClientWithResponses, error) {
 	)
 }
 
-// Ping opens a fresh RPC stream, sends one ping, and closes it.
-//
-// Our current RPC transport uses one giznet service stream per round trip so
-// multiple RPC requests can run concurrently on separate streams. This is closer to
-// HTTP/1.0-style request lifecycles; HTTP/1.1-style stream reuse is not
-// supported yet.
+// Ping sends one request over a client-scoped sequential RPC stream. Reusing
+// the stream avoids repeatedly creating transport resources for health checks.
 func (c *Client) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, error) {
-	stream, err := c.rpcConn()
-	if err != nil {
-		return nil, err
+	if c == nil {
+		return nil, fmt.Errorf("gizclaw: nil client")
 	}
-	defer func() { _ = stream.Close() }()
-	return c.rpcClient().Ping(ctx, stream, id)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, defaultRPCStreamTimeout)
+		defer cancel()
+	}
+
+	c.pingMu.Lock()
+	defer c.pingMu.Unlock()
+	if c.pingConn == nil {
+		conn := c.PeerConn()
+		if conn == nil {
+			return nil, fmt.Errorf("gizclaw: client is not connected")
+		}
+		stream, err := conn.Dial(ServicePeerRPC)
+		if err != nil {
+			return nil, fmt.Errorf("gizclaw: dial rpc stream: %w", err)
+		}
+		c.pingConn = stream
+	}
+
+	response, err := c.rpcClient().Ping(ctx, c.pingConn, id)
+	if err != nil {
+		_ = c.pingConn.Close()
+		c.pingConn = nil
+	}
+	return response, err
 }
 
 func (c *Client) GetServerInfo(ctx context.Context, id string) (*rpcapi.ServerGetInfoResponse, error) {

@@ -15,9 +15,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func TestEdgeRPCServerHandleOneRequestPerDataChannel(t *testing.T) {
+func TestEdgeRPCServerHandlesSequentialRequestsPerDataChannel(t *testing.T) {
 	serverSide, clientSide := net.Pipe()
-	defer clientSide.Close()
 
 	serverErrCh := make(chan error, 1)
 	go func() {
@@ -40,8 +39,15 @@ func TestEdgeRPCServerHandleOneRequestPerDataChannel(t *testing.T) {
 	if resp.Error == nil {
 		t.Fatalf("first response = %#v, want RPC error", resp)
 	}
-	if _, err := callRPC(ctx, clientSide, request("req-2")); err == nil {
-		t.Fatal("second call error = nil, want closed DataChannel")
+	resp, err = callRPC(ctx, clientSide, request("req-2"))
+	if err != nil {
+		t.Fatalf("second call error = %v", err)
+	}
+	if resp.Error == nil {
+		t.Fatalf("second response = %#v, want RPC error", resp)
+	}
+	if err := clientSide.Close(); err != nil {
+		t.Fatalf("client Close() error = %v", err)
 	}
 	if err := <-serverErrCh; err != nil {
 		t.Fatalf("server Handle error = %v", err)

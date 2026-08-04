@@ -51,8 +51,12 @@ func handleRPCWithStreamObserved(
 	}
 	defer stream.Close()
 
-	_, err = handleRPCStreamRequestObserved(stream, dispatch, streamDispatch, observation)
-	return err
+	for {
+		done, err := handleRPCStreamRequestObserved(stream, dispatch, streamDispatch, observation)
+		if err != nil || done {
+			return err
+		}
+	}
 }
 
 func handleRPCStreamRequest(
@@ -139,7 +143,7 @@ func handleRPCStreamRequestObserved(
 			return false, err
 		}
 		if handled {
-			return false, nil
+			return true, nil
 		}
 	}
 	if !requestEOS {
