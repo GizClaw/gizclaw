@@ -146,6 +146,28 @@ wait_coturn_allocations_zero() {
   return 1
 }
 
+wait_coturn_allocation_count() {
+  local expected="$1"
+  local deadline=$((SECONDS + 30))
+  local a_alloc=unknown a_recv=unknown a_sent=unknown
+  local b_alloc=unknown b_recv=unknown b_sent=unknown
+  local total
+  while ((SECONDS <= deadline)); do
+    if read -r a_alloc a_recv a_sent < <(read_coturn_metrics coturn-a) &&
+      read -r b_alloc b_recv b_sent < <(read_coturn_metrics coturn-b); then
+      total="$(numeric_sum "$a_alloc" "$b_alloc")"
+      if [[ "$total" == "$expected" ]]; then
+        printf '%s %s %s %s %s %s\n' \
+          "$a_alloc" "$a_recv" "$a_sent" "$b_alloc" "$b_recv" "$b_sent"
+        return 0
+      fi
+    fi
+    sleep 0.1
+  done
+  echo "Coturn allocations did not reach $expected within 30 seconds: coturn-a=$a_alloc coturn-b=$b_alloc" >&2
+  return 1
+}
+
 max_sessions_per_edge="$(read_gateway_limit max-sessions)"
 max_upstreams_per_edge="$(read_gateway_limit max-upstreams)"
 max_sessions_per_upstream="$(read_gateway_limit sessions-per-upstream)"
@@ -168,7 +190,6 @@ run_case() {
   local before_a_alloc before_a_recv before_a_sent before_b_alloc before_b_recv before_b_sent
   local after_a_alloc after_a_recv after_a_sent after_b_alloc after_b_recv after_b_sent
   local cleanup_a_alloc cleanup_a_recv cleanup_a_sent cleanup_b_alloc cleanup_b_recv cleanup_b_sent
-  local total_live_allocations
   project_slug="$(printf '%s-%s-%s' "$run_id" "$scenario" "$repetition" | tr -cd '[:alnum:]-' | tr '[:upper:]' '[:lower:]')"
   artifact="$runs_dir/${scenario}-run-${repetition}.json"
   current_env="$runtime_state/${scenario}-run-${repetition}.env"
@@ -184,13 +205,8 @@ run_case() {
 
   capacity_edge_endpoint="$(resolve_capacity_edge_endpoint edge "$GIZCLAW_E2E_EDGE_ENDPOINT")"
   capacity_edge2_endpoint="$(resolve_capacity_edge_endpoint edge2 "$GIZCLAW_E2E_EDGE2_ENDPOINT")"
-  read -r before_a_alloc before_a_recv before_a_sent < <(read_coturn_metrics coturn-a)
-  read -r before_b_alloc before_b_recv before_b_sent < <(read_coturn_metrics coturn-b)
-  total_live_allocations="$(numeric_sum "$before_a_alloc" "$before_b_alloc")"
-  if [[ "$total_live_allocations" != "10" ]]; then
-    echo "capacity requires exactly ten Edge upstream allocations (four gateway plus one control per Edge); coturn-a=$before_a_alloc coturn-b=$before_b_alloc" >&2
-    return 1
-  fi
+  read -r before_a_alloc before_a_recv before_a_sent before_b_alloc before_b_recv before_b_sent \
+    < <(wait_coturn_allocation_count 10)
 
   echo "==> run extended capacity workload: scenario=$scenario repetition=$repetition"
   # Leave reliable SCTP most of the 30-second round to recover while keeping
