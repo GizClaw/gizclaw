@@ -3,6 +3,7 @@ package gizedge
 import (
 	"context"
 	"errors"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -207,7 +208,7 @@ func TestUpstreamRelaySelectorDialsOneMemberInStableOrder(t *testing.T) {
 	}
 
 	for range 2 {
-		conn, _, attempt, err := selector.dialUpstream(t.Context(), cfg, upstreamURL)
+		conn, _, attempt, _, err := selector.dialUpstream(t.Context(), cfg, upstreamURL)
 		if err != nil {
 			t.Fatalf("dialUpstream error = %v", err)
 		}
@@ -229,6 +230,47 @@ func TestUpstreamRelaySelectorDialsOneMemberInStableOrder(t *testing.T) {
 	}
 	if second.next != initial {
 		t.Fatalf("stable initial index = %d, want %d", second.next, initial)
+	}
+}
+
+func TestUpstreamRelaySelectorReturnsICEObservation(t *testing.T) {
+	cfg := testUpstreamRelayConfig(t)
+	selector, err := newUpstreamRelaySelector(cfg)
+	if err != nil {
+		t.Fatalf("newUpstreamRelaySelector error = %v", err)
+	}
+	upstreamURL, err := cfg.UpstreamURL()
+	if err != nil {
+		t.Fatalf("UpstreamURL error = %v", err)
+	}
+	want := &gizwebrtc.ICECandidatePairObservation{
+		Local: gizwebrtc.ICECandidateObservation{
+			Type: "relay", Protocol: "udp", AddressFamily: "ipv4", Component: 1,
+		},
+		Remote: gizwebrtc.ICECandidateObservation{
+			Type: "host", Protocol: "udp", AddressFamily: "ipv4", Component: 1,
+		},
+		State: "succeeded", Nominated: true,
+	}
+	selector.dial = func(
+		_ context.Context,
+		_ *giznet.KeyPair,
+		_ giznet.PublicKey,
+		dialCfg gizwebrtc.DialConfig,
+	) (giznet.Listener, giznet.Conn, error) {
+		dialCfg.OnTiming(gizwebrtc.DialTiming{SelectedCandidatePair: want})
+		return nil, &failingGiznetConn{state: giznet.PeerStateEstablished}, nil
+	}
+
+	_, _, attempt, got, err := selector.dialUpstream(t.Context(), cfg, upstreamURL)
+	if err != nil {
+		t.Fatalf("dialUpstream error = %v", err)
+	}
+	if attempt == nil {
+		t.Fatal("relay attempt is nil")
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ICE observation = %+v, want %+v", got, want)
 	}
 }
 
@@ -255,7 +297,7 @@ func TestUpstreamRelaySelectorRetriesOtherMembersAndSanitizesFailure(t *testing.
 		return nil, nil, errors.New("credential=must-not-leak sdp=must-not-leak")
 	}
 
-	_, _, _, err = selector.dialUpstream(t.Context(), cfg, upstreamURL)
+	_, _, _, _, err = selector.dialUpstream(t.Context(), cfg, upstreamURL)
 	if !errors.Is(err, errUpstreamRelaysUnavailable) {
 		t.Fatalf("dialUpstream error = %v, want relay unavailable", err)
 	}
@@ -296,7 +338,7 @@ func TestUpstreamRelaySelectorHonorsCancellationWithoutBackoff(t *testing.T) {
 		return nil, nil, context.Canceled
 	}
 
-	_, _, _, err = selector.dialUpstream(ctx, cfg, upstreamURL)
+	_, _, _, _, err = selector.dialUpstream(ctx, cfg, upstreamURL)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("dialUpstream error = %v, want canceled", err)
 	}
@@ -328,7 +370,7 @@ func TestUpstreamRelaySelectorAttemptTimeoutUsesBackoff(t *testing.T) {
 		return nil, nil, ctx.Err()
 	}
 
-	_, _, _, err = selector.dialUpstream(t.Context(), cfg, upstreamURL)
+	_, _, _, _, err = selector.dialUpstream(t.Context(), cfg, upstreamURL)
 	if !errors.Is(err, errUpstreamRelaysUnavailable) {
 		t.Fatalf("dialUpstream error = %v, want relay unavailable", err)
 	}
@@ -461,7 +503,7 @@ func TestUpstreamRelaySelectorSupportsConcurrentConsumers(t *testing.T) {
 	var wg sync.WaitGroup
 	for range consumers {
 		wg.Go(func() {
-			_, _, attempt, err := selector.dialUpstream(t.Context(), cfg, upstreamURL)
+			_, _, attempt, _, err := selector.dialUpstream(t.Context(), cfg, upstreamURL)
 			if err != nil {
 				errCh <- err
 				return

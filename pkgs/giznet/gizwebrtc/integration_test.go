@@ -63,8 +63,13 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 	defer clientConn.Close()
 	if timingCalls != 1 || dialTiming.Total <= 0 || dialTiming.PeerConnectionConstruction <= 0 ||
 		dialTiming.HTTPSignaling <= 0 || dialTiming.SetRemoteDescription <= 0 ||
-		dialTiming.ICEConnected <= 0 || dialTiming.DTLSConnected <= 0 || dialTiming.DataChannelReady <= 0 {
+		dialTiming.ICEConnected <= 0 || dialTiming.DTLSConnected <= 0 || dialTiming.DataChannelReady <= 0 ||
+		dialTiming.SelectedCandidatePair == nil {
 		t.Fatalf("Dial timing calls=%d timing=%+v", timingCalls, dialTiming)
+	}
+	if pair := dialTiming.SelectedCandidatePair; pair.Local.AddressFamily == "" ||
+		pair.Remote.AddressFamily == "" || pair.Local.Component == 0 || pair.Remote.Component == 0 {
+		t.Fatalf("selected candidate pair = %+v", pair)
 	}
 
 	serverConn := acceptConn(t, serverListener)

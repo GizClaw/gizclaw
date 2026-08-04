@@ -242,6 +242,55 @@ phase percentiles, direct-versus-relay ratios, repository state, Docker engine,
 and the exact pinned Coturn image. These are local transport diagnostics, not
 GizClaw gateway or production performance evidence.
 
+### Edge direct-versus-Coturn capacity
+
+The GizClaw-owned Edge topology has one canonical local qualification command:
+
+```sh
+bash tests/gizclaw-e2e/run_gateway_relay_capacity_tests.sh
+```
+
+It requires a clean repository and the Docker E2E credential file, builds the
+CLI and load driver once, then creates 12 fresh projects: direct and
+relay-only Edge upstreams at 100 and 500 sessions, three repetitions each.
+Both paths keep the same Server, two Edges, two digest-pinned Coturn members,
+fixed subnet, four gateway upstreams per Edge, zero ramp, and 1 MiB upload and
+download per session. Direct requires zero Coturn allocations and traffic;
+relay requires exactly ten live allocations, traffic growth, and return to
+zero after Edge shutdown. It then runs the fixed pure-Giznet direct/Coturn
+diagnostic and requires same-head evidence when the product comparison is
+material; that diagnostic attributes a delta but never replaces the product
+matrix.
+
+Every session also sends 50 non-empty Opus packets at 20 ms cadence through the
+unreliable packet lane and completes a following RPC Ping. The ignored run
+artifacts contain path proof, timing and throughput, exact packet/byte counts,
+role CPU/RSS/FD/socket/network samples, Coturn evidence, and a validated
+`comparison.json`. This is bounded one-way transport evidence on one local
+Docker host. It does not qualify provider processing, decoded audio, WAN/NAT
+diversity, production Coturn/deployment capacity, 1,000-session soak, or the
+30,000-session product ceiling.
+
+The 2026-08-04 ARM64 OrbStack reference run (Docker 29.4.0, 16 Docker CPUs,
+16.8 GB Docker memory) passed all 12 runs and produced these three-run medians:
+
+| Sessions | Path | Upload | Download | Dial p95 / p99 | RPC RTT p99 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 100 | direct | 654 Mbps | 578 Mbps | 458 / 472 ms | 18 ms |
+| 100 | Coturn | 416 Mbps | 568 Mbps | 452 / 460 ms | 19 ms |
+| 500 | direct | 476 Mbps | 612 Mbps | 714 / 1,120 ms | 287 ms |
+| 500 | Coturn | 417 Mbps | 606 Mbps | 778 / 819 ms | 503 ms |
+
+Relay/direct upload ratios were 0.636 and 0.876; download ratios were 0.981
+and 0.990. The upload and 500-session RTT differences are material, while all
+fixed gates, exact reliable bytes, Opus packets, path selection, allocation,
+and cleanup checks passed. A same-head pure-Giznet diagnostic, which excludes
+the product Edge and Server, measured direct at 818/798 Mbps and REST Coturn at
+488/526 Mbps with about 220/219 MB added to Coturn receive/send counters. This
+locates the measured boundary at the local Coturn relay path rather than a
+GizClaw Edge/Server capacity limit. It is not evidence about production Coturn
+hosts or WAN behavior.
+
 ## LoCoMo Memory Evaluation
 
 `tests/locomo-e2e` is a GizClaw-owned manual evaluation of production

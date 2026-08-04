@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -28,6 +29,17 @@ type gatewayAllowAllPolicy struct{}
 
 type gatewayHandshakeTimeoutError struct{}
 
+type gatewayWaitSignalContext struct {
+	context.Context
+	waiting chan struct{}
+	once    sync.Once
+}
+
+func (c *gatewayWaitSignalContext) Done() <-chan struct{} {
+	c.once.Do(func() { close(c.waiting) })
+	return c.Context.Done()
+}
+
 func (gatewayHandshakeTimeoutError) Error() string   { return "handshake timeout" }
 func (gatewayHandshakeTimeoutError) Timeout() bool   { return true }
 func (gatewayHandshakeTimeoutError) Temporary() bool { return true }
@@ -42,6 +54,38 @@ const gatewayBenchmarkBytesPerStream = 8 * 1024 * 1024
 type contextDialGiznetConn struct {
 	*failingGiznetConn
 	dialContext func(context.Context, uint64) (net.Conn, error)
+}
+
+func TestLogUpstreamICEIsAddressFree(t *testing.T) {
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	logUpstreamICE("gateway", "3", 3, &upstreamRelayAttempt{member: 1}, &gizwebrtc.ICECandidatePairObservation{
+		Local: gizwebrtc.ICECandidateObservation{
+			Type: "relay", Protocol: "udp", AddressFamily: "ipv4", Component: 1,
+		},
+		Remote: gizwebrtc.ICECandidateObservation{
+			Type: "host", Protocol: "udp", AddressFamily: "ipv4", Component: 1,
+		},
+		State: "succeeded", Nominated: true,
+	})
+
+	got := output.String()
+	for _, want := range []string{
+		`msg="edge: upstream ICE selected"`, "upstream_kind=gateway", "upstream_id=3",
+		"local_candidate_type=relay", "remote_candidate_type=host", "nominated=true", "relay_member=1",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("log output %q does not contain %q", got, want)
+		}
+	}
+	for _, forbidden := range []string{"192.0.2.10", "3478", "shared-secret", "turn:"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("log output contains sensitive network value %q: %q", forbidden, got)
+		}
+	}
 }
 
 func (c *contextDialGiznetConn) DialContext(ctx context.Context, service uint64) (net.Conn, error) {
@@ -426,6 +470,72 @@ func TestGatewayPoolReplenishesFailedWarmAssociation(t *testing.T) {
 			t.Fatal("warm pool did not finish replacing failed association")
 		}
 		time.Sleep(time.Millisecond)
+	}
+}
+
+func TestGatewayPoolReplenishWarmSignalsEachNewAssociation(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	secondDial := make(chan struct{})
+	replenished := make(chan struct{})
+	var attempts atomic.Int32
+	pool := &gatewayPool{
+		ctx: ctx,
+		cfg: Config{Gateway: GatewayConfig{
+			MaxUpstreams:        gatewayPoolWarmUpstreams,
+			SessionsPerUpstream: 1,
+			StreamsPerUpstream:  1,
+		}},
+		newUpstream: func(ctx context.Context) (*gatewayUpstream, error) {
+			if attempts.Add(1) == 1 {
+				return &gatewayUpstream{}, nil
+			}
+			close(secondDial)
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	}
+	done := make(chan struct{})
+	pool.growthDone = done
+	waiting := make(chan struct{})
+	acquireCtx := &gatewayWaitSignalContext{Context: t.Context(), waiting: waiting}
+	acquired := make(chan *gatewayUpstream, 1)
+	go func() {
+		entry, release, err := pool.acquire(acquireCtx)
+		if err != nil {
+			acquired <- nil
+			return
+		}
+		release()
+		acquired <- entry
+	}()
+	select {
+	case <-waiting:
+	case <-time.After(time.Second):
+		t.Fatal("acquisition did not wait for the active warm replenishment")
+	}
+	go func() {
+		pool.replenishWarm(done)
+		close(replenished)
+	}()
+	select {
+	case <-secondDial:
+	case <-time.After(time.Second):
+		t.Fatal("warm replenishment did not continue toward the target")
+	}
+	select {
+	case entry := <-acquired:
+		if entry == nil {
+			t.Fatal("waiting acquisition failed after the first replenished association")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("waiting acquisition was not signaled after the first replenished association")
+	}
+	cancel()
+	select {
+	case <-replenished:
+	case <-time.After(time.Second):
+		t.Fatal("warm replenishment did not stop after cancellation")
 	}
 }
 

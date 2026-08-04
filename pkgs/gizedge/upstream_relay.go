@@ -110,15 +110,15 @@ func (s *upstreamRelaySelector) dialUpstream(
 	ctx context.Context,
 	cfg Config,
 	upstreamURL *url.URL,
-) (giznet.Conn, giznet.Listener, *upstreamRelayAttempt, error) {
+) (giznet.Conn, giznet.Listener, *upstreamRelayAttempt, *gizwebrtc.ICECandidatePairObservation, error) {
 	attempted := make(map[int]struct{}, len(s.members))
 	for {
 		if err := ctx.Err(); err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		member, generation, retryAfter, ok := s.selectMember(attempted)
 		if !ok {
-			return nil, nil, nil, &upstreamRelaysUnavailableError{
+			return nil, nil, nil, nil, &upstreamRelaysUnavailableError{
 				attempts:   len(attempted),
 				retryAfter: retryAfter,
 			}
@@ -126,20 +126,24 @@ func (s *upstreamRelaySelector) dialUpstream(
 		attempted[member] = struct{}{}
 		server := cloneICEServer(s.members[member].server)
 		attemptCtx, cancel := context.WithTimeout(ctx, s.attemptTimeout)
+		var timing gizwebrtc.DialTiming
 		listener, conn, err := s.dial(attemptCtx, cfg.KeyPair, cfg.Upstream.PublicKey, gizwebrtc.DialConfig{
 			SignalingURL:          upstreamSignalingURL(upstreamURL),
 			ICEServers:            []gizwebrtc.ICEServer{server},
 			ICETransportPolicy:    webrtc.ICETransportPolicyRelay,
 			SecurityPolicy:        edgeSecurityPolicy{},
 			SCTPReceiveBufferSize: gizwebrtc.GatewaySCTPReceiveBufferSize,
+			OnTiming: func(observation gizwebrtc.DialTiming) {
+				timing = observation
+			},
 		})
 		cancel()
 		if err == nil {
 			attempt := s.markSuccess(member)
-			return conn, listener, attempt, nil
+			return conn, listener, attempt, timing.SelectedCandidatePair, nil
 		}
 		if ctx.Err() != nil {
-			return nil, nil, nil, ctx.Err()
+			return nil, nil, nil, nil, ctx.Err()
 		}
 		s.markDialFailure(member, generation)
 	}

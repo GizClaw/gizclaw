@@ -45,7 +45,7 @@ export GIZCLAW_E2E_TURN_CREDENTIAL="$container_turn_credential"
 envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_E2E_TURN_USERNAME} ${GIZCLAW_E2E_TURN_CREDENTIAL}' \
   < "$repo_root/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template" \
   > "$workspace_dir/config.yaml"
-if [[ "${GIZCLAW_E2E_GATEWAY_RELAY:-}" == "1" ]]; then
+if [[ "${GIZCLAW_E2E_CAPACITY_ONLY:-}" == "1" ]]; then
   awk '
     /^ice-servers:/ { skip = 1; next }
     skip && /^edge-nodes:/ { skip = 0 }

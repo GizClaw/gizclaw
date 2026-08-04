@@ -125,28 +125,32 @@ func dialUpstream(
 	cfg Config,
 	upstreamURL *url.URL,
 	relaySelector *upstreamRelaySelector,
-) (giznet.Conn, giznet.Listener, *upstreamRelayAttempt, error) {
+) (giznet.Conn, giznet.Listener, *upstreamRelayAttempt, *gizwebrtc.ICECandidatePairObservation, error) {
 	if cfg.Upstream.PublicKey.IsZero() {
-		return nil, nil, nil, fmt.Errorf("edge: missing upstream.public-key")
+		return nil, nil, nil, nil, fmt.Errorf("edge: missing upstream.public-key")
 	}
 	dialCtx, cancel := context.WithTimeout(ctx, upstreamDialTimeout)
 	defer cancel()
 	if relaySelector != nil {
-		conn, listener, attempt, err := relaySelector.dialUpstream(dialCtx, cfg, upstreamURL)
+		conn, listener, attempt, observation, err := relaySelector.dialUpstream(dialCtx, cfg, upstreamURL)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("edge: dial upstream server: %w", err)
+			return nil, nil, nil, nil, fmt.Errorf("edge: dial upstream server: %w", err)
 		}
-		return conn, listener, attempt, nil
+		return conn, listener, attempt, observation, nil
 	}
+	var timing gizwebrtc.DialTiming
 	listener, conn, err := gizwebrtc.Dial(dialCtx, cfg.KeyPair, cfg.Upstream.PublicKey, gizwebrtc.DialConfig{
 		SignalingURL:          upstreamSignalingURL(upstreamURL),
 		SecurityPolicy:        edgeSecurityPolicy{},
 		SCTPReceiveBufferSize: gizwebrtc.GatewaySCTPReceiveBufferSize,
+		OnTiming: func(observation gizwebrtc.DialTiming) {
+			timing = observation
+		},
 	})
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("edge: dial upstream server: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("edge: dial upstream server: %w", err)
 	}
-	return conn, listener, nil, nil
+	return conn, listener, nil, timing.SelectedCandidatePair, nil
 }
 
 func upstreamSignalingURL(upstreamURL *url.URL) string {
@@ -225,7 +229,7 @@ func (t *upstreamTransport) currentConn() (giznet.Conn, uint64, error) {
 	if t.conn != nil {
 		return t.conn, t.connEpoch, nil
 	}
-	conn, listener, relayAttempt, err := dialUpstream(t.ctx, t.cfg, t.upstreamURL, t.relay)
+	conn, listener, relayAttempt, observation, err := dialUpstream(t.ctx, t.cfg, t.upstreamURL, t.relay)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -233,6 +237,7 @@ func (t *upstreamTransport) currentConn() (giznet.Conn, uint64, error) {
 	t.listener = listener
 	t.relayAttempt = relayAttempt
 	t.connEpoch++
+	logUpstreamICE("control", "control", t.connEpoch, relayAttempt, observation)
 	return conn, t.connEpoch, nil
 }
 

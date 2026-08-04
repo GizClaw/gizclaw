@@ -2,8 +2,14 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+gateway_upstream_path="${GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH:-relay}"
+case "$gateway_upstream_path" in
+  direct | relay) ;;
+  *) echo "GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH must be direct or relay" >&2; exit 2 ;;
+esac
+export GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH="$gateway_upstream_path"
 
-export GIZCLAW_E2E_GATEWAY_EXTENDED_ARTIFACT_DIR="${GIZCLAW_E2E_GATEWAY_500_ARTIFACT_DIR:-$script_dir/testdata/gateway-capacity-extended/sessions-500-burst}"
+export GIZCLAW_E2E_GATEWAY_EXTENDED_ARTIFACT_DIR="${GIZCLAW_E2E_GATEWAY_500_ARTIFACT_DIR:-$script_dir/testdata/gateway-capacity-extended/$gateway_upstream_path/sessions-500-burst}"
 gateway_gomaxprocs="$(getconf _NPROCESSORS_ONLN)"
 export GIZCLAW_E2E_GATEWAY_GOMAXPROCS="$gateway_gomaxprocs"
 export GIZCLAW_E2E_GATEWAY_DIAL_TIMEOUT=20s

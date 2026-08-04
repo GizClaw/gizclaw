@@ -24,6 +24,15 @@ gateway_max_dial_p95="${GIZCLAW_E2E_GATEWAY_MAX_DIAL_P95:-0}"
 gateway_max_dial_p99="${GIZCLAW_E2E_GATEWAY_MAX_DIAL_P99:-0}"
 gateway_concurrency="${GIZCLAW_E2E_GATEWAY_CONCURRENCY:-512}"
 gateway_required_upstreams_per_edge="${GIZCLAW_E2E_GATEWAY_REQUIRED_UPSTREAMS_PER_EDGE:-4}"
+gateway_upstream_path="${GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH:-relay}"
+gateway_prebuilt="${GIZCLAW_E2E_GATEWAY_PREBUILT:-0}"
+case "$gateway_upstream_path" in
+  direct | relay) ;;
+  *)
+    echo "GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH must be direct or relay" >&2
+    exit 2
+    ;;
+esac
 
 # shellcheck source=setup/credentials.sh
 # shellcheck disable=SC1091
@@ -54,7 +63,7 @@ artifact_base="$(cd "$artifact_base" && pwd -P)"
 artifact_set="$artifact_base/$run_id"
 runs_dir="$artifact_set/runs"
 bin_dir="$artifact_set/bin"
-gateway_bin="$bin_dir/gateway-capacity"
+gateway_bin="${GIZCLAW_E2E_GATEWAY_CAPACITY_BIN:-$bin_dir/gateway-capacity}"
 runtime_state="$(mktemp -d "$script_dir/testdata/docker/gateway-capacity.XXXXXX")"
 mkdir -p "$runs_dir" "$bin_dir"
 
@@ -175,9 +184,16 @@ if [[ "$max_sessions_per_edge" != "30000" || "$max_upstreams_per_edge" != "16" |
   echo "extended capacity requires Edge limits 30000/16/2048; configured $max_sessions_per_edge/$max_upstreams_per_edge/$max_sessions_per_upstream" >&2
   exit 2
 fi
-echo "==> build host e2e CLI and extended gateway-capacity runner"
-(cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
-(cd "$repo_root" && go build -o "$gateway_bin" ./tests/gizclaw-e2e/gateway-capacity)
+if [[ "$gateway_prebuilt" == "1" ]]; then
+  if [[ ! -x "$script_dir/testdata/bin/gizclaw" || ! -x "$gateway_bin" ]]; then
+    echo "prebuilt capacity binaries are missing" >&2
+    exit 2
+  fi
+else
+  echo "==> build host e2e CLI and extended gateway-capacity runner"
+  (cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
+  (cd "$repo_root" && go build -o "$gateway_bin" ./tests/gizclaw-e2e/gateway-capacity)
+fi
 
 run_case() {
   local scenario="$1"
@@ -186,17 +202,24 @@ run_case() {
   local hold="$4"
   local repetition="$5"
   local soak="$6"
-  local project_slug artifact coturn_artifact capacity_edge_endpoint capacity_edge2_endpoint
+  local project_slug artifact coturn_artifact path_artifact capacity_edge_endpoint capacity_edge2_endpoint
+  local topology_flag expected_allocations edge_log edge2_log edge_id edge2_id
   local before_a_alloc before_a_recv before_a_sent before_b_alloc before_b_recv before_b_sent
   local after_a_alloc after_a_recv after_a_sent after_b_alloc after_b_recv after_b_sent
   local cleanup_a_alloc cleanup_a_recv cleanup_a_sent cleanup_b_alloc cleanup_b_recv cleanup_b_sent
   project_slug="$(printf '%s-%s-%s' "$run_id" "$scenario" "$repetition" | tr -cd '[:alnum:]-' | tr '[:upper:]' '[:lower:]')"
   artifact="$runs_dir/${scenario}-run-${repetition}.json"
   current_env="$runtime_state/${scenario}-run-${repetition}.env"
-  echo "==> start fresh capacity stack: scenario=$scenario repetition=$repetition sessions=$sessions"
+  topology_flag="--gateway-capacity"
+  expected_allocations=10
+  if [[ "$gateway_upstream_path" == "direct" ]]; then
+    topology_flag="--gateway-capacity-direct"
+    expected_allocations=0
+  fi
+  echo "==> start fresh capacity stack: path=$gateway_upstream_path scenario=$scenario repetition=$repetition sessions=$sessions"
   GIZCLAW_E2E_DOCKER_PROJECT="gizclaw-capacity-$project_slug" \
     GIZCLAW_E2E_DOCKER_ENV="$current_env" \
-    bash "$setup_dir/docker-compose-up.sh" --gateway-capacity
+    bash "$setup_dir/docker-compose-up.sh" "$topology_flag"
 
   set -a
   # shellcheck disable=SC1090
@@ -206,7 +229,7 @@ run_case() {
   capacity_edge_endpoint="$(resolve_capacity_edge_endpoint edge "$GIZCLAW_E2E_EDGE_ENDPOINT")"
   capacity_edge2_endpoint="$(resolve_capacity_edge_endpoint edge2 "$GIZCLAW_E2E_EDGE2_ENDPOINT")"
   read -r before_a_alloc before_a_recv before_a_sent before_b_alloc before_b_recv before_b_sent \
-    < <(wait_coturn_allocation_count 10)
+    < <(wait_coturn_allocation_count "$expected_allocations")
 
   echo "==> run extended capacity workload: scenario=$scenario repetition=$repetition"
   # Leave reliable SCTP most of the 30-second round to recover while keeping
@@ -238,6 +261,10 @@ run_case() {
     -required-upstreams-per-edge "$gateway_required_upstreams_per_edge" \
     -max-upstreams-per-edge "$max_upstreams_per_edge" \
     -max-sessions-per-upstream "$max_sessions_per_upstream" \
+    -upstream-path "$gateway_upstream_path" \
+    -opus-packets 50 \
+    -opus-packet-bytes 3 \
+    -opus-interval 20ms \
     -require-role-resources \
     -docker-project "$GIZCLAW_E2E_DOCKER_PROJECT" \
     -docker-compose-file "$GIZCLAW_E2E_DOCKER_COMPOSE_FILE" \
@@ -248,10 +275,25 @@ run_case() {
 
   read -r after_a_alloc after_a_recv after_a_sent < <(read_coturn_metrics coturn-a)
   read -r after_b_alloc after_b_recv after_b_sent < <(read_coturn_metrics coturn-b)
-  if [[ "$(numeric_sum "$after_a_alloc" "$after_b_alloc")" != "10" ]]; then
-    echo "capacity workload changed the fixed ten-allocation upstream pool" >&2
+  if [[ "$(numeric_sum "$after_a_alloc" "$after_b_alloc")" != "$expected_allocations" ]]; then
+    echo "capacity workload changed the expected $expected_allocations-allocation upstream pool" >&2
     return 1
   fi
+  edge_id="$(docker ps -q --filter "label=com.docker.compose.project=$GIZCLAW_E2E_DOCKER_PROJECT" --filter "label=com.docker.compose.service=edge")"
+  edge2_id="$(docker ps -q --filter "label=com.docker.compose.project=$GIZCLAW_E2E_DOCKER_PROJECT" --filter "label=com.docker.compose.service=edge2")"
+  edge_log="${artifact%.json}-edge.log"
+  edge2_log="${artifact%.json}-edge2.log"
+  path_artifact="${artifact%.json}-path.json"
+  (
+    trap 'rm -f "$edge_log" "$edge2_log"' EXIT
+    docker exec "$edge_id" cat /src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.log >"$edge_log"
+    docker exec "$edge2_id" cat /src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.log >"$edge2_log"
+    "$gateway_bin" \
+      -collect-path-evidence \
+      -upstream-path "$gateway_upstream_path" \
+      -ice-logs "edge=$edge_log,edge2=$edge2_log" \
+      -artifact "$path_artifact"
+  )
   docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" \
     -f "$GIZCLAW_E2E_DOCKER_COMPOSE_FILE" \
     -f "$GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY" \
@@ -259,15 +301,22 @@ run_case() {
   wait_coturn_allocations_zero
   read -r cleanup_a_alloc cleanup_a_recv cleanup_a_sent < <(read_coturn_metrics coturn-a)
   read -r cleanup_b_alloc cleanup_b_recv cleanup_b_sent < <(read_coturn_metrics coturn-b)
-  if ! numeric_greater "$(numeric_sum "$cleanup_a_recv" "$cleanup_b_recv")" "$(numeric_sum "$before_a_recv" "$before_b_recv")" ||
-    ! numeric_greater "$(numeric_sum "$cleanup_a_sent" "$cleanup_b_sent")" "$(numeric_sum "$before_a_sent" "$before_b_sent")"; then
-    echo "capacity workload did not increase both Coturn finished-session byte counters" >&2
+  if [[ "$gateway_upstream_path" == "relay" ]]; then
+    if ! numeric_greater "$(numeric_sum "$cleanup_a_recv" "$cleanup_b_recv")" "$(numeric_sum "$before_a_recv" "$before_b_recv")" ||
+      ! numeric_greater "$(numeric_sum "$cleanup_a_sent" "$cleanup_b_sent")" "$(numeric_sum "$before_a_sent" "$before_b_sent")"; then
+      echo "capacity workload did not increase both Coturn finished-session byte counters" >&2
+      return 1
+    fi
+  elif [[ "$(numeric_sum "$cleanup_a_recv" "$cleanup_b_recv")" != "$(numeric_sum "$before_a_recv" "$before_b_recv")" ||
+    "$(numeric_sum "$cleanup_a_sent" "$cleanup_b_sent")" != "$(numeric_sum "$before_a_sent" "$before_b_sent")" ]]; then
+    echo "direct capacity workload unexpectedly sent traffic through Coturn" >&2
     return 1
   fi
   coturn_artifact="${artifact%.json}-coturn.json"
   jq -n \
     --arg image "coturn/coturn:4.7.0-r0@sha256:99bf5bf6ab1c119862d0c3d2dfb2bbf805a86a131492cab18c148be64ae7d978" \
     --arg version "4.7.0" \
+    --arg upstream_path "$gateway_upstream_path" \
     --argjson before_a_alloc "$before_a_alloc" --argjson before_a_recv "$before_a_recv" --argjson before_a_sent "$before_a_sent" \
     --argjson before_b_alloc "$before_b_alloc" --argjson before_b_recv "$before_b_recv" --argjson before_b_sent "$before_b_sent" \
     --argjson after_a_alloc "$after_a_alloc" --argjson after_a_recv "$after_a_recv" --argjson after_a_sent "$after_a_sent" \
@@ -276,6 +325,8 @@ run_case() {
     --argjson cleanup_b_alloc "$cleanup_b_alloc" --argjson cleanup_b_recv "$cleanup_b_recv" --argjson cleanup_b_sent "$cleanup_b_sent" \
     '{
       schema_version: 1,
+      upstream_path: $upstream_path,
+      passed: true,
       image: $image,
       version: $version,
       expected_gateway_allocations_per_edge: 4,

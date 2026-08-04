@@ -733,6 +733,7 @@ type gatewayUpstream struct {
 	listener     giznet.Listener
 	packets      *giztunnel.PacketMux
 	relayAttempt *upstreamRelayAttempt
+	icePair      *gizwebrtc.ICECandidatePairObservation
 
 	active int
 	opened int
@@ -774,6 +775,7 @@ func (p *gatewayPool) ensureOne(ctx context.Context) error {
 	entry.id = p.nextID
 	p.entries = append(p.entries, entry)
 	p.mu.Unlock()
+	logGatewayUpstreamICE(entry)
 	return nil
 }
 
@@ -808,6 +810,7 @@ func (p *gatewayPool) warm(ctx context.Context) error {
 			entry.id = p.nextID
 			p.entries = append(p.entries, entry)
 			p.mu.Unlock()
+			logGatewayUpstreamICE(entry)
 		})
 	}
 	wg.Wait()
@@ -884,13 +887,19 @@ func (p *gatewayPool) replenishWarm(done chan struct{}) {
 			p.nextID++
 			entry.id = p.nextID
 			p.entries = append(p.entries, entry)
-			if p.selectableCountLocked() < p.warmTarget() && len(p.entries) < p.cfg.Gateway.MaxUpstreams {
-				p.mu.Unlock()
+			needsMore := p.selectableCountLocked() < p.warmTarget() && len(p.entries) < p.cfg.Gateway.MaxUpstreams
+			close(done)
+			if needsMore {
+				done = make(chan struct{})
+				p.growthDone = done
+			} else {
+				p.growthDone = nil
+			}
+			p.mu.Unlock()
+			logGatewayUpstreamICE(entry)
+			if needsMore {
 				continue
 			}
-			close(done)
-			p.growthDone = nil
-			p.mu.Unlock()
 			return
 		}
 		p.mu.Unlock()
@@ -1009,7 +1018,63 @@ func (p *gatewayPool) acquire(ctx context.Context) (*gatewayUpstream, func(), er
 		entry.id = p.nextID
 		p.entries = append(p.entries, entry)
 		p.mu.Unlock()
+		logGatewayUpstreamICE(entry)
 	}
+}
+
+func logGatewayUpstreamICE(entry *gatewayUpstream) {
+	if entry == nil {
+		return
+	}
+	logUpstreamICE("gateway", fmt.Sprintf("%d", entry.id), entry.id, entry.relayAttempt, entry.icePair)
+}
+
+func logUpstreamICE(
+	kind string,
+	id string,
+	epoch uint64,
+	relayAttempt *upstreamRelayAttempt,
+	pair *gizwebrtc.ICECandidatePairObservation,
+) {
+	if pair == nil {
+		slog.Warn("edge: upstream ICE observation unavailable",
+			"upstream_kind", kind,
+			"upstream_id", id,
+			"connection_epoch", epoch,
+		)
+		return
+	}
+	attrs := []any{
+		"upstream_kind", kind,
+		"upstream_id", id,
+		"connection_epoch", epoch,
+		"local_candidate_type", pair.Local.Type,
+		"local_protocol", pair.Local.Protocol,
+		"local_address_family", pair.Local.AddressFamily,
+		"local_component", pair.Local.Component,
+		"remote_candidate_type", pair.Remote.Type,
+		"remote_protocol", pair.Remote.Protocol,
+		"remote_address_family", pair.Remote.AddressFamily,
+		"remote_component", pair.Remote.Component,
+		"pair_state", pair.State,
+		"nominated", pair.Nominated,
+		"counters_supported", pair.CountersSupported,
+		"packets_sent", pair.PacketsSent,
+		"packets_received", pair.PacketsReceived,
+		"bytes_sent", pair.BytesSent,
+		"bytes_received", pair.BytesReceived,
+		"current_rtt_seconds", pair.CurrentRoundTripTime,
+		"requests_sent", pair.RequestsSent,
+		"responses_received", pair.ResponsesReceived,
+		"retransmissions_sent", pair.RetransmissionsSent,
+		"retransmissions_received", pair.RetransmissionsReceived,
+		"packets_discarded_on_send", pair.PacketsDiscardedOnSend,
+		"bytes_discarded_on_send", pair.BytesDiscardedOnSend,
+	}
+	if relayAttempt != nil {
+		attrs = append(attrs, "relay_member", relayAttempt.member)
+	}
+	slog.Info("edge: upstream ICE selected", attrs...)
 }
 
 func (p *gatewayPool) dialContext(ctx context.Context) (context.Context, func()) {
@@ -1056,7 +1121,7 @@ func (p *gatewayPool) dial(ctx context.Context) (*gatewayUpstream, error) {
 		}
 		return entry, nil
 	}
-	conn, listener, relayAttempt, err := dialUpstream(ctx, p.cfg, p.upstreamURL, p.relay)
+	conn, listener, relayAttempt, icePair, err := dialUpstream(ctx, p.cfg, p.upstreamURL, p.relay)
 	if err != nil {
 		return nil, err
 	}
@@ -1066,6 +1131,7 @@ func (p *gatewayPool) dial(ctx context.Context) (*gatewayUpstream, error) {
 		listener:     listener,
 		packets:      giztunnel.NewPacketMux(conn),
 		relayAttempt: relayAttempt,
+		icePair:      icePair,
 	}
 	if _, ok := conn.(giznet.ContextDialer); !ok {
 		_ = entry.close()
