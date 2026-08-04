@@ -377,10 +377,13 @@ run_case() {
       -ice-logs "edge=$edge_log,edge2=$edge2_log" \
       -artifact "$path_artifact"
   )
+  # The production Gateway may use its configured 30-second drain before it
+  # closes the physical upstream pool. Compose's 10-second default can kill an
+  # otherwise healthy Edge before that close reaches Coturn.
   docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" \
     -f "$GIZCLAW_E2E_DOCKER_COMPOSE_FILE" \
     -f "$GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY" \
-    stop edge edge2 >/dev/null
+    stop -t 45 edge edge2 >/dev/null
   wait_coturn_allocations_zero
   read -r cleanup_a_alloc cleanup_a_recv cleanup_a_sent < <(read_coturn_metrics coturn-a)
   read -r cleanup_b_alloc cleanup_b_recv cleanup_b_sent < <(read_coturn_metrics coturn-b)
