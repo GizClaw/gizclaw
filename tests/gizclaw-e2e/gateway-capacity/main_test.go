@@ -106,6 +106,19 @@ func TestActiveCPUSecondsExcludesIdleCapacity(t *testing.T) {
 	}
 }
 
+func TestReadRuntimeResourceMetrics(t *testing.T) {
+	totalMemory, heapAlloc, goroutines, cpuSeconds := readRuntimeResourceMetrics()
+	if totalMemory == 0 || heapAlloc == 0 || goroutines <= 0 || cpuSeconds < 0 {
+		t.Fatalf(
+			"runtime resource metrics = total %d heap %d goroutines %d cpu %f",
+			totalMemory,
+			heapAlloc,
+			goroutines,
+			cpuSeconds,
+		)
+	}
+}
+
 func TestNonNegativeFinite(t *testing.T) {
 	for _, value := range []float64{0, 0.8, 200} {
 		if !nonNegativeFinite(value) {

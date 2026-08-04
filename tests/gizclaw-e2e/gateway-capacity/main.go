@@ -2262,32 +2262,48 @@ func (s *resourceSampler) summary() resourceSummary {
 }
 
 func readResourcePoint(requireProcessFallback bool) resourcePoint {
-	var memory runtime.MemStats
-	runtime.ReadMemStats(&memory)
-	rssBytes, rssSource := readRSS(memory.Sys, requireProcessFallback)
+	totalMemory, heapAlloc, goroutines, cpuSeconds := readRuntimeResourceMetrics()
+	rssBytes, rssSource := readRSS(totalMemory, requireProcessFallback)
 	openFDs, openFDsSource := readFDCount(requireProcessFallback)
 	return resourcePoint{
 		At: time.Now(), RSSBytes: rssBytes, RSSSource: rssSource,
-		CPUSeconds: readActiveCPUSeconds(), CPUSecondsSource: "go_runtime_total_minus_idle",
-		OpenFDs: openFDs, OpenFDsSource: openFDsSource, HeapAllocBytes: memory.HeapAlloc,
-		Goroutines: runtime.NumGoroutine(),
+		CPUSeconds: cpuSeconds, CPUSecondsSource: "go_runtime_total_minus_idle",
+		OpenFDs: openFDs, OpenFDsSource: openFDsSource, HeapAllocBytes: heapAlloc,
+		Goroutines: goroutines,
 	}
 }
 
 func readActiveCPUSeconds() float64 {
+	_, _, _, cpuSeconds := readRuntimeResourceMetrics()
+	return cpuSeconds
+}
+
+func readRuntimeResourceMetrics() (totalMemory uint64, heapAlloc uint64, goroutines int, cpuSeconds float64) {
 	samples := []metrics.Sample{
+		{Name: "/memory/classes/total:bytes"},
+		{Name: "/memory/classes/heap/objects:bytes"},
+		{Name: "/sched/goroutines:goroutines"},
 		{Name: "/cpu/classes/total:cpu-seconds"},
 		{Name: "/cpu/classes/idle:cpu-seconds"},
 	}
 	metrics.Read(samples)
-	if samples[0].Value.Kind() != metrics.KindFloat64 ||
-		samples[1].Value.Kind() != metrics.KindFloat64 {
-		return 0
+	if samples[0].Value.Kind() == metrics.KindUint64 {
+		totalMemory = samples[0].Value.Uint64()
 	}
-	return activeCPUSeconds(
-		samples[0].Value.Float64(),
-		samples[1].Value.Float64(),
-	)
+	if samples[1].Value.Kind() == metrics.KindUint64 {
+		heapAlloc = samples[1].Value.Uint64()
+	}
+	if samples[2].Value.Kind() == metrics.KindUint64 {
+		goroutines = int(min(samples[2].Value.Uint64(), uint64(math.MaxInt)))
+	}
+	if samples[3].Value.Kind() == metrics.KindFloat64 &&
+		samples[4].Value.Kind() == metrics.KindFloat64 {
+		cpuSeconds = activeCPUSeconds(
+			samples[3].Value.Float64(),
+			samples[4].Value.Float64(),
+		)
+	}
+	return totalMemory, heapAlloc, goroutines, cpuSeconds
 }
 
 func activeCPUSeconds(total, idle float64) float64 {
