@@ -1,0 +1,53 @@
+x-coturn: &coturn
+  image: coturn/coturn:4.7.0-r0@sha256:99bf5bf6ab1c119862d0c3d2dfb2bbf805a86a131492cab18c148be64ae7d978
+  entrypoint: ["/usr/local/bin/gizclaw-coturn-entrypoint"]
+  environment:
+    GIZCLAW_COTURN_LISTEN_PORT: "3478"
+    GIZCLAW_COTURN_METRICS_PORT: "9641"
+    GIZCLAW_COTURN_PUBLIC_IP: ${GIZNET_COTURN_PUBLIC_IP:?set by run_coturn_tests.sh}
+  volumes:
+    - type: bind
+      source: ../fixtures/coturn/entrypoint.sh
+      target: /usr/local/bin/gizclaw-coturn-entrypoint
+      read_only: true
+      bind:
+        create_host_path: false
+  healthcheck:
+    test: ["CMD-SHELL", "test -f /tmp/gizclaw-coturn-ready && kill -0 $$(cat /tmp/gizclaw-coturn.pid)"]
+    interval: 1s
+    timeout: 1s
+    retries: 60
+    start_period: 30s
+
+services:
+  coturn-static:
+    <<: *coturn
+    environment:
+      GIZCLAW_COTURN_AUTH_MODE: static
+      GIZCLAW_COTURN_REALM: ${GIZNET_COTURN_STATIC_REALM:?set by run_coturn_tests.sh}
+      GIZCLAW_COTURN_USERNAME: ${GIZNET_COTURN_STATIC_USERNAME:?set by run_coturn_tests.sh}
+      GIZCLAW_COTURN_CREDENTIAL: ${GIZNET_COTURN_STATIC_CREDENTIAL:?set by run_coturn_tests.sh}
+      GIZCLAW_COTURN_LISTEN_PORT: "3478"
+      GIZCLAW_COTURN_RELAY_MIN_PORT: ${GIZNET_COTURN_STATIC_RELAY_MIN_PORT:?set by run_coturn_tests.sh}
+      GIZCLAW_COTURN_RELAY_MAX_PORT: ${GIZNET_COTURN_STATIC_RELAY_MAX_PORT:?set by run_coturn_tests.sh}
+      GIZCLAW_COTURN_METRICS_PORT: "9641"
+      GIZCLAW_COTURN_PUBLIC_IP: ${GIZNET_COTURN_PUBLIC_IP:?set by run_coturn_tests.sh}
+    ports:
+      - "127.0.0.1:${GIZNET_COTURN_STATIC_LISTEN_PORT:?set by run_coturn_tests.sh}:3478/udp"
+      - "${GIZNET_COTURN_PUBLIC_IP:?set by run_coturn_tests.sh}:${GIZNET_COTURN_STATIC_RELAY_MIN_PORT:?set by run_coturn_tests.sh}-${GIZNET_COTURN_STATIC_RELAY_MAX_PORT:?set by run_coturn_tests.sh}:${GIZNET_COTURN_STATIC_RELAY_MIN_PORT:?set by run_coturn_tests.sh}-${GIZNET_COTURN_STATIC_RELAY_MAX_PORT:?set by run_coturn_tests.sh}/udp"
+
+  coturn-rest:
+    <<: *coturn
+    environment:
+      GIZCLAW_COTURN_AUTH_MODE: rest
+      GIZCLAW_COTURN_REALM: ${GIZNET_COTURN_REST_REALM:?set by run_coturn_tests.sh}
+      GIZCLAW_COTURN_USERNAME: ${GIZNET_COTURN_REST_KEY_ID:?set by run_coturn_tests.sh}
+      GIZCLAW_COTURN_CREDENTIAL: ${GIZNET_COTURN_REST_SECRET:?set by run_coturn_tests.sh}
+      GIZCLAW_COTURN_LISTEN_PORT: "3478"
+      GIZCLAW_COTURN_RELAY_MIN_PORT: ${GIZNET_COTURN_REST_RELAY_MIN_PORT:?set by run_coturn_tests.sh}
+      GIZCLAW_COTURN_RELAY_MAX_PORT: ${GIZNET_COTURN_REST_RELAY_MAX_PORT:?set by run_coturn_tests.sh}
+      GIZCLAW_COTURN_METRICS_PORT: "9641"
+      GIZCLAW_COTURN_PUBLIC_IP: ${GIZNET_COTURN_PUBLIC_IP:?set by run_coturn_tests.sh}
+    ports:
+      - "127.0.0.1:${GIZNET_COTURN_REST_LISTEN_PORT:?set by run_coturn_tests.sh}:3478/udp"
+      - "${GIZNET_COTURN_PUBLIC_IP:?set by run_coturn_tests.sh}:${GIZNET_COTURN_REST_RELAY_MIN_PORT:?set by run_coturn_tests.sh}-${GIZNET_COTURN_REST_RELAY_MAX_PORT:?set by run_coturn_tests.sh}:${GIZNET_COTURN_REST_RELAY_MIN_PORT:?set by run_coturn_tests.sh}-${GIZNET_COTURN_REST_RELAY_MAX_PORT:?set by run_coturn_tests.sh}/udp"

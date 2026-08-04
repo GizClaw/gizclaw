@@ -21,9 +21,11 @@ import (
 const extendedArtifactVersion = 8
 
 var dockerRolePIDFiles = map[string]string{
-	"edge":   "/src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.pid",
-	"edge2":  "/src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.pid",
-	"server": "/src/tests/gizclaw-e2e/testdata/server-workspace/gizclaw-server.pid",
+	"coturn-a": "/tmp/gizclaw-coturn.pid",
+	"coturn-b": "/tmp/gizclaw-coturn.pid",
+	"edge":     "/src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.pid",
+	"edge2":    "/src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.pid",
+	"server":   "/src/tests/gizclaw-e2e/testdata/server-workspace/gizclaw-server.pid",
 }
 
 type extendedRunEvidence struct {
@@ -132,7 +134,7 @@ func (s *extendedSamplerState) finish(ctx context.Context, load *resourceSampler
 	roles, errs := s.docker.stop(ctx)
 	loadEvidence := loadDriverEvidence(load.samples())
 	roles["load_driver"] = loadEvidence
-	for _, role := range []string{"load_driver", "edge", "edge2", "server"} {
+	for _, role := range []string{"load_driver", "edge", "edge2", "server", "coturn-a", "coturn-b"} {
 		if err := validateRequiredRoleEvidence(roles[role]); err != nil {
 			errs = append(errs, err.Error())
 		}
@@ -174,7 +176,7 @@ func startDockerResourceSampler(ctx context.Context, project, composeFile string
 		streamContext: streamContext, cancelStreams: cancelStreams,
 		roles: make(map[string]*dockerRoleState),
 	}
-	for _, role := range []string{"edge", "edge2", "server"} {
+	for _, role := range []string{"edge", "edge2", "server", "coturn-a", "coturn-b"} {
 		state, err := resolveDockerRole(ctx, project, composeFile, role)
 		if err != nil {
 			cancelStreams()
@@ -202,7 +204,13 @@ func startDockerResourceSampler(ctx context.Context, project, composeFile string
 }
 
 func resolveDockerRole(ctx context.Context, project, composeFile, role string) (*dockerRoleState, error) {
-	containerID, err := commandText(ctx, "docker", "compose", "-p", project, "-f", composeFile, "ps", "-q", role)
+	_ = composeFile
+	containerID, err := commandText(
+		ctx,
+		"docker", "ps", "-q",
+		"--filter", "label=com.docker.compose.project="+project,
+		"--filter", "label=com.docker.compose.service="+role,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("resolve %s container: %w", role, err)
 	}

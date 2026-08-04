@@ -29,6 +29,10 @@ gateway_required_upstreams_per_edge="${GIZCLAW_E2E_GATEWAY_REQUIRED_UPSTREAMS_PE
 # shellcheck disable=SC1091
 source "$setup_dir/credentials.sh"
 require_gizclaw_e2e_credentials "$env_file"
+if ! command -v jq >/dev/null 2>&1; then
+  echo "extended capacity requires jq to write Coturn evidence" >&2
+  exit 2
+fi
 
 mkdir -p "$artifact_root" "$script_dir/testdata/docker" "$script_dir/testdata/bin"
 artifact_root="$(cd "$artifact_root" && pwd -P)"
@@ -100,6 +104,70 @@ resolve_capacity_edge_endpoint() {
   printf '%s\n' "$published_endpoint"
 }
 
+read_coturn_metrics() {
+  local service="$1"
+  local output
+  output="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" \
+    -f "$GIZCLAW_E2E_DOCKER_COMPOSE_FILE" \
+    -f "$GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY" \
+    exec -T "$service" bash -lc '
+      exec 3<>/dev/tcp/127.0.0.1/9641
+      printf "GET /metrics HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3
+      cat <&3
+    ')"
+  awk '
+    $1 == "turn_total_allocations" || index($1, "turn_total_allocations{") == 1 { allocations += $2 }
+    $1 == "turn_total_traffic_rcvb" || index($1, "turn_total_traffic_rcvb{") == 1 { received += $2 }
+    $1 == "turn_total_traffic_sentb" || index($1, "turn_total_traffic_sentb{") == 1 { sent += $2 }
+    END { printf "%.0f %.0f %.0f\n", allocations, received, sent }
+  ' <<<"$output"
+}
+
+numeric_sum() {
+  awk -v left="$1" -v right="$2" 'BEGIN { printf "%.0f\n", left + right }'
+}
+
+numeric_greater() {
+  awk -v value="$1" -v baseline="$2" 'BEGIN { exit !(value > baseline) }'
+}
+
+wait_coturn_allocations_zero() {
+  local deadline=$((SECONDS + 15))
+  local a_alloc b_alloc
+  while ((SECONDS <= deadline)); do
+    read -r a_alloc _ _ < <(read_coturn_metrics coturn-a)
+    read -r b_alloc _ _ < <(read_coturn_metrics coturn-b)
+    if [[ "$a_alloc" == "0" && "$b_alloc" == "0" ]]; then
+      return 0
+    fi
+    sleep 0.1
+  done
+  echo "Coturn allocations did not return to zero within 15 seconds: coturn-a=$a_alloc coturn-b=$b_alloc" >&2
+  return 1
+}
+
+wait_coturn_allocation_count() {
+  local expected="$1"
+  local deadline=$((SECONDS + 30))
+  local a_alloc=unknown a_recv=unknown a_sent=unknown
+  local b_alloc=unknown b_recv=unknown b_sent=unknown
+  local total
+  while ((SECONDS <= deadline)); do
+    if read -r a_alloc a_recv a_sent < <(read_coturn_metrics coturn-a) &&
+      read -r b_alloc b_recv b_sent < <(read_coturn_metrics coturn-b); then
+      total="$(numeric_sum "$a_alloc" "$b_alloc")"
+      if [[ "$total" == "$expected" ]]; then
+        printf '%s %s %s %s %s %s\n' \
+          "$a_alloc" "$a_recv" "$a_sent" "$b_alloc" "$b_recv" "$b_sent"
+        return 0
+      fi
+    fi
+    sleep 0.1
+  done
+  echo "Coturn allocations did not reach $expected within 30 seconds: coturn-a=$a_alloc coturn-b=$b_alloc" >&2
+  return 1
+}
+
 max_sessions_per_edge="$(read_gateway_limit max-sessions)"
 max_upstreams_per_edge="$(read_gateway_limit max-upstreams)"
 max_sessions_per_upstream="$(read_gateway_limit sessions-per-upstream)"
@@ -109,7 +177,7 @@ if [[ "$max_sessions_per_edge" != "30000" || "$max_upstreams_per_edge" != "16" |
 fi
 echo "==> build host e2e CLI and extended gateway-capacity runner"
 (cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
-(cd "$repo_root" && go build -o "$gateway_bin" ./tests/giznet-e2e/gateway)
+(cd "$repo_root" && go build -o "$gateway_bin" ./tests/gizclaw-e2e/gateway-capacity)
 
 run_case() {
   local scenario="$1"
@@ -118,7 +186,10 @@ run_case() {
   local hold="$4"
   local repetition="$5"
   local soak="$6"
-  local project_slug artifact capacity_edge_endpoint capacity_edge2_endpoint
+  local project_slug artifact coturn_artifact capacity_edge_endpoint capacity_edge2_endpoint
+  local before_a_alloc before_a_recv before_a_sent before_b_alloc before_b_recv before_b_sent
+  local after_a_alloc after_a_recv after_a_sent after_b_alloc after_b_recv after_b_sent
+  local cleanup_a_alloc cleanup_a_recv cleanup_a_sent cleanup_b_alloc cleanup_b_recv cleanup_b_sent
   project_slug="$(printf '%s-%s-%s' "$run_id" "$scenario" "$repetition" | tr -cd '[:alnum:]-' | tr '[:upper:]' '[:lower:]')"
   artifact="$runs_dir/${scenario}-run-${repetition}.json"
   current_env="$runtime_state/${scenario}-run-${repetition}.env"
@@ -134,6 +205,8 @@ run_case() {
 
   capacity_edge_endpoint="$(resolve_capacity_edge_endpoint edge "$GIZCLAW_E2E_EDGE_ENDPOINT")"
   capacity_edge2_endpoint="$(resolve_capacity_edge_endpoint edge2 "$GIZCLAW_E2E_EDGE2_ENDPOINT")"
+  read -r before_a_alloc before_a_recv before_a_sent before_b_alloc before_b_recv before_b_sent \
+    < <(wait_coturn_allocation_count 10)
 
   echo "==> run extended capacity workload: scenario=$scenario repetition=$repetition"
   # Leave reliable SCTP most of the 30-second round to recover while keeping
@@ -172,6 +245,60 @@ run_case() {
     -repetition "$repetition" \
     -soak="$soak" \
     -artifact "$artifact")
+
+  read -r after_a_alloc after_a_recv after_a_sent < <(read_coturn_metrics coturn-a)
+  read -r after_b_alloc after_b_recv after_b_sent < <(read_coturn_metrics coturn-b)
+  if [[ "$(numeric_sum "$after_a_alloc" "$after_b_alloc")" != "10" ]]; then
+    echo "capacity workload changed the fixed ten-allocation upstream pool" >&2
+    return 1
+  fi
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" \
+    -f "$GIZCLAW_E2E_DOCKER_COMPOSE_FILE" \
+    -f "$GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY" \
+    stop edge edge2 >/dev/null
+  wait_coturn_allocations_zero
+  read -r cleanup_a_alloc cleanup_a_recv cleanup_a_sent < <(read_coturn_metrics coturn-a)
+  read -r cleanup_b_alloc cleanup_b_recv cleanup_b_sent < <(read_coturn_metrics coturn-b)
+  if ! numeric_greater "$(numeric_sum "$cleanup_a_recv" "$cleanup_b_recv")" "$(numeric_sum "$before_a_recv" "$before_b_recv")" ||
+    ! numeric_greater "$(numeric_sum "$cleanup_a_sent" "$cleanup_b_sent")" "$(numeric_sum "$before_a_sent" "$before_b_sent")"; then
+    echo "capacity workload did not increase both Coturn finished-session byte counters" >&2
+    return 1
+  fi
+  coturn_artifact="${artifact%.json}-coturn.json"
+  jq -n \
+    --arg image "coturn/coturn:4.7.0-r0@sha256:99bf5bf6ab1c119862d0c3d2dfb2bbf805a86a131492cab18c148be64ae7d978" \
+    --arg version "4.7.0" \
+    --argjson before_a_alloc "$before_a_alloc" --argjson before_a_recv "$before_a_recv" --argjson before_a_sent "$before_a_sent" \
+    --argjson before_b_alloc "$before_b_alloc" --argjson before_b_recv "$before_b_recv" --argjson before_b_sent "$before_b_sent" \
+    --argjson after_a_alloc "$after_a_alloc" --argjson after_a_recv "$after_a_recv" --argjson after_a_sent "$after_a_sent" \
+    --argjson after_b_alloc "$after_b_alloc" --argjson after_b_recv "$after_b_recv" --argjson after_b_sent "$after_b_sent" \
+    --argjson cleanup_a_alloc "$cleanup_a_alloc" --argjson cleanup_a_recv "$cleanup_a_recv" --argjson cleanup_a_sent "$cleanup_a_sent" \
+    --argjson cleanup_b_alloc "$cleanup_b_alloc" --argjson cleanup_b_recv "$cleanup_b_recv" --argjson cleanup_b_sent "$cleanup_b_sent" \
+    '{
+      schema_version: 1,
+      image: $image,
+      version: $version,
+      expected_gateway_allocations_per_edge: 4,
+      expected_control_allocations_per_edge: 1,
+      expected_total_allocations_per_edge: 5,
+      live_before: {
+        coturn_a: {allocations: $before_a_alloc, received_bytes: $before_a_recv, sent_bytes: $before_a_sent},
+        coturn_b: {allocations: $before_b_alloc, received_bytes: $before_b_recv, sent_bytes: $before_b_sent}
+      },
+      after_workload: {
+        coturn_a: {allocations: $after_a_alloc, received_bytes: $after_a_recv, sent_bytes: $after_a_sent},
+        coturn_b: {allocations: $after_b_alloc, received_bytes: $after_b_recv, sent_bytes: $after_b_sent}
+      },
+      cleanup: {
+        coturn_a: {allocations: $cleanup_a_alloc, received_bytes: $cleanup_a_recv, sent_bytes: $cleanup_a_sent},
+        coturn_b: {allocations: $cleanup_b_alloc, received_bytes: $cleanup_b_recv, sent_bytes: $cleanup_b_sent},
+        allocations_returned_to_zero_within_seconds: 15
+      },
+      traffic_delta: {
+        received_bytes: (($cleanup_a_recv + $cleanup_b_recv) - ($before_a_recv + $before_b_recv)),
+        sent_bytes: (($cleanup_a_sent + $cleanup_b_sent) - ($before_a_sent + $before_b_sent))
+      }
+    }' >"$coturn_artifact"
 
   echo "==> tear down fresh capacity stack: scenario=$scenario repetition=$repetition"
   cleanup_current

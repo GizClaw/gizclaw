@@ -23,8 +23,8 @@ gateway:
   enabled: true
   ice-udp-listen: 0.0.0.0:9824
   public-ice-udp: ${GIZCLAW_E2E_GATEWAY_ENDPOINT}
-  max-sessions: 8
-  max-upstreams: 1
-  sessions-per-upstream: 8
-  streams-per-upstream: 32
-  max-pending-handshakes: 8
+  max-sessions: ${GIZCLAW_E2E_GATEWAY_MAX_SESSIONS}
+  max-upstreams: ${GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS}
+  sessions-per-upstream: ${GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM}
+  streams-per-upstream: ${GIZCLAW_E2E_GATEWAY_STREAMS_PER_UPSTREAM}
+  max-pending-handshakes: ${GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES}

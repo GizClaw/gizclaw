@@ -117,6 +117,7 @@ bash tests/gizclaw-e2e/run_edge_failure_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_100_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_500_tests.sh
+bash tests/gizclaw-e2e/run_turn_relay_tests.sh
 
 GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
 GIZCLAW_E2E_VOLC_LOG_REGION=... \
@@ -124,10 +125,16 @@ GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
   bash tests/gizclaw-e2e/run_volc_log_tests.sh
 ```
 
-所有 GizClaw 入口都要求同一份完整的 `tests/gizclaw-e2e/.env`。Sibling-close 入口在
+需要 credential 的 GizClaw 入口（包括 capacity 和 focused Server relay lane）要求同一份
+完整的 `tests/gizclaw-e2e/.env`；隔离的 relay-recovery lane 会生成仅运行时 fixture
+credential，不消费 provider credential。Sibling-close 入口在
 独立 Docker 环境中固定连续运行三次 JavaScript、C/cgo 与 Go 的并发 service/Event
 场景，不接受环境变量改变 selection 或重复次数。Gateway capacity
-入口固定运行本机 one-Server/two-Edge 的 100-session 基线：除保持连接和多轮 ping 外，
+入口固定运行本机 one-Server/two-Edge 的 100-session 基线。client 仍终止在 Edge，
+但每条物理 Edge-to-Server connection 都必须 relay-only 经过两个 digest-pinned Coturn
+4.7.0 member。每个 Edge 持有 4 条 gateway upstream association 和 1 条 control/HTTP
+upstream，因此固定拓扑共有 10 个 live Coturn allocation；逻辑 session 仍只使用每个
+Edge 的 4 条 gateway association。除保持连接和多轮 ping 外，
 100 个 session 还会同步执行每路 4 MiB upload 和 download，并按共享 wall-clock 记录
 聚合吞吐；单路对照使用 32 MiB sustained payload。machine-readable artifact 写到
 ignored 的 `testdata/`；该入口不属于长时间或更高连接数的容量承诺。专用 100-session
@@ -149,6 +156,20 @@ association。硬门槛为 500/500 usable sessions，establishment、ping、disc
 200 Mbps。32 MiB 单路结果与 aggregate ratio 只用于诊断，不作为 gate。artifact 写入
 ignored 的 `testdata/gateway-capacity-extended/sessions-500-burst/`；每轮记录精确 repository
 head 和 dirty state，可发布证据必须来自最终 clean PR head。
+
+100/500-session burst runner 保留既有 payload 和 gate，但当前都使用上述 relay-only
+upstream 拓扑。主 workload JSON schema 不变；同目录的 `*-coturn.json` sidecar 记录两个
+Coturn member 的 live allocation、finished-session byte counter、traffic delta，以及两个
+Edge 停止后有界归零结果。已合并的 #697/#698 结果仍是历史 direct-upstream 观测；当前
+Coturn 数据不是 production、WAN 或可移植吞吐 SLA。
+
+标准 Docker `turn` role 使用同一 pinned Coturn image、TURN REST 认证、container-private/
+host-public IPv4 mapping 与一对一发布的 UDP relay range。`run_turn_relay_tests.sh` 验证
+authoritative ServerInfo 临时凭据能建立 relay-only Server connection、完成产品 Ping、
+推进 Coturn traffic counter 并清理。损坏 client credential 必须失败且不能形成双侧
+allocation pair；authoritative Server 在回答 signaling 时仍可能建立自己合法的单侧
+allocation，最终由 project teardown 清除。这个 focused 产品证据不验证 `pkgs/gizedge`
+中可选的 embedded Pion TURN runtime。
 
 如果 Docker host 可直达 container address，capacity script 会同时传入每个 Edge container
 的 direct endpoint 和显式的本机 `-signaling-base-from-edge` override；其他调用仍遵守
@@ -177,7 +198,17 @@ Provider-free Match parity 与 deterministic duplex behavior 保持为普通测�
 go test -tags giznet_e2e ./tests/giznet-e2e/...
 go test -tags giznet_e2e ./tests/giznet-e2e/webrtc \
   -run '^$' -bench BenchmarkWebRTCHTTPRoundTrip -benchtime=1x
+bash tests/giznet-e2e/run_coturn_tests.sh
 ```
+
+普通 `giznet_e2e` lane 保留不依赖 Docker 的 in-process Pion TURN regression。固定 Coturn
+runner 使用更严格的 `giznet_e2e,giznet_coturn_e2e` selection，只启动 static-auth 和
+TURN REST Coturn role，不启动 GizClaw Server 或 Edge。它通过公开 Giznet API 验证
+relay-only packet/service stream、错误凭据、allocation cleanup 与 finished traffic
+counter；同时写入 ignored JSON artifact，包含 direct/static/REST 各 30 次 Dial、200 次
+64-byte stream RTT、每条 path/每个方向 3 次全新 32 MiB transfer，以及 raw sample、phase
+percentile、direct-versus-relay ratio、repository state、Docker engine 和精确 Coturn pin。
+这些结果只属于本机 transport 诊断，不是 GizClaw gateway 或 production 性能证据。
 
 ## LoCoMo Memory Evaluation
 

@@ -128,6 +128,7 @@ bash tests/gizclaw-e2e/run_edge_failure_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_100_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_500_tests.sh
+bash tests/gizclaw-e2e/run_turn_relay_tests.sh
 
 GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
 GIZCLAW_E2E_VOLC_LOG_REGION=... \
@@ -135,9 +136,16 @@ GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
   bash tests/gizclaw-e2e/run_volc_log_tests.sh
 ```
 
-All GizClaw entrypoints require the same complete
-`tests/gizclaw-e2e/.env`. The gateway-capacity entrypoint fixes the local
-one-Server/two-Edge selection at the 100-session baseline. In addition to
+Credential-backed GizClaw entrypoints, including capacity and the focused
+Server relay lane, require the same complete `tests/gizclaw-e2e/.env`. The
+isolated relay-recovery lane generates runtime-only fixture credentials instead
+of consuming provider credentials. The gateway-capacity entrypoint fixes the local
+one-Server/two-Edge selection at the 100-session baseline. Its clients still
+terminate at Edge, while every physical Edge-to-Server connection is
+relay-only through two digest-pinned Coturn 4.7.0 members. Each Edge holds four
+gateway upstream associations plus one control/HTTP upstream, so the fixed
+topology has ten live Coturn allocations even though logical sessions use only
+the four gateway associations per Edge. In addition to
 connection hold and ping rounds, all 100 sessions synchronously upload and
 download 4 MiB each, with aggregate throughput measured over one shared
 wall-clock interval. The single-session control uses a sustained 32 MiB
@@ -170,6 +178,25 @@ not gates. Artifacts are written under ignored
 exact repository head and dirty state, so publishable evidence must come from
 the clean final PR head.
 
+The 100- and 500-session burst runners preserve their accepted payloads and
+gates but now use that relay-only upstream topology. The main workload JSON
+schema remains stable. A sibling `*-coturn.json` artifact records each Coturn
+member's live allocation count, finished-session byte counters, traffic delta,
+and the bounded return to zero after both Edge processes stop. The merged
+#697/#698 results remain historical direct-upstream observations; current
+Coturn measurements are not a production, WAN, or portable throughput SLA.
+
+The standard Docker `turn` role uses the same pinned Coturn image with TURN
+REST authentication, a private-container/public-host IPv4 mapping, and a
+one-to-one published UDP relay range. Run `run_turn_relay_tests.sh` to verify
+that authoritative ServerInfo temporary credentials create a relay-only
+Server connection, carry a product Ping, advance Coturn traffic counters, and
+clean up. A corrupted client credential must fail without forming the two-sided
+allocation pair; the authoritative Server can still create its own valid
+one-sided allocation while answering signaling, which project teardown removes.
+This focused product evidence does not test the optional embedded Pion TURN
+runtime in `pkgs/gizedge`.
+
 When the Docker host exposes container addresses, the capacity script passes
 each Edge container's direct endpoint together with the explicit local
 `-signaling-base-from-edge` override. The gateway runner otherwise retains the
@@ -200,7 +227,20 @@ tests and run under `go test ./...`.
 go test -tags giznet_e2e ./tests/giznet-e2e/...
 go test -tags giznet_e2e ./tests/giznet-e2e/webrtc \
   -run '^$' -bench BenchmarkWebRTCHTTPRoundTrip -benchtime=1x
+bash tests/giznet-e2e/run_coturn_tests.sh
 ```
+
+The ordinary `giznet_e2e` lane keeps its in-process Pion TURN regression and
+requires no Docker. The fixed Coturn runner adds the stricter
+`giznet_e2e,giznet_coturn_e2e` selection and starts only static-auth and TURN
+REST Coturn roles—never GizClaw Server or Edge. It verifies relay-only packet
+and service streams, invalid credentials, allocation cleanup, and finished
+traffic counters through public Giznet APIs. It also writes an ignored JSON
+artifact with 30 direct/static/REST dials, 200 64-byte stream RTT samples, and
+three fresh 32 MiB transfers per path and direction, including raw samples,
+phase percentiles, direct-versus-relay ratios, repository state, Docker engine,
+and the exact pinned Coturn image. These are local transport diagnostics, not
+GizClaw gateway or production performance evidence.
 
 ## LoCoMo Memory Evaluation
 
