@@ -156,9 +156,10 @@ fi
     simple-log
 } >"$config_file"
 
-version="$(turnserver --version 2>&1 | tail -n 1)"
+version_output="$(turnserver --version 2>&1 | tail -n 1)"
+read -r version _ <<<"$version_output"
 if [[ "$version" != "4.7.0" ]]; then
-  echo "coturn fixture: turnserver version $version, want 4.7.0" >&2
+  echo "coturn fixture: turnserver version $version_output, want 4.7.0" >&2
   exit 1
 fi
 echo "coturn fixture version=$version mode=$GIZCLAW_COTURN_AUTH_MODE"
