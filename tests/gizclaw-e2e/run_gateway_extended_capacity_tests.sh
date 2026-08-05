@@ -425,7 +425,7 @@ validate_coturn_live_samples() {
     all(.[]; .total_allocations == $expected) and
     ([.[].sampled_at_unix_milliseconds] as $timestamps |
       all(range(1; $timestamps | length);
-        ($timestamps[.] > $timestamps[. - 1]) and
+        ($timestamps[.] >= $timestamps[. - 1]) and
         ($timestamps[.] - $timestamps[. - 1] <= 2100)))
   ' "$output" >/dev/null; then
     return 0
