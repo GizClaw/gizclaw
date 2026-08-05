@@ -180,65 +180,157 @@ numeric_greater() {
   awk -v value="$1" -v baseline="$2" 'BEGIN { exit !(value > baseline) }'
 }
 
+stream_coturn_metrics() {
+  local container_id="$1"
+  local stop_file="$2"
+  docker exec "$container_id" bash -s -- "$stop_file" <<'EOF'
+set -euo pipefail
+stop_file="$1"
+while [[ ! -e "$stop_file" ]]; do
+  sampled_at_nanoseconds="${EPOCHREALTIME/./}000"
+  output="$({
+    exec 3<>/dev/tcp/127.0.0.1/9641
+    printf "GET /metrics HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3
+    cat <&3
+  })"
+  read -r allocations received sent < <(awk '
+    $1 == "turn_total_allocations" || index($1, "turn_total_allocations{") == 1 { allocations += $2 }
+    $1 == "turn_total_traffic_rcvb" || index($1, "turn_total_traffic_rcvb{") == 1 { received += $2 }
+    $1 == "turn_total_traffic_sentb" || index($1, "turn_total_traffic_sentb{") == 1 { sent += $2 }
+    END { printf "%.0f %.0f %.0f\n", allocations, received, sent }
+  ' <<<"$output")
+  printf '%s %s %s %s\n' "$sampled_at_nanoseconds" "$allocations" "$received" "$sent"
+  now_nanoseconds="${EPOCHREALTIME/./}000"
+  sleep_milliseconds=$(((sampled_at_nanoseconds + 1000000000 - now_nanoseconds) / 1000000))
+  if ((sleep_milliseconds > 0)); then
+    sleep_seconds="$(awk -v milliseconds="$sleep_milliseconds" 'BEGIN { printf "%.3f", milliseconds / 1000 }')"
+    sleep "$sleep_seconds"
+  fi
+done
+EOF
+}
+
+signal_coturn_monitor_stop() {
+  local stop_file="$1"
+  local a_pid b_pid a_status=0 b_status=0
+  docker exec "$coturn_a_container_id" touch "$stop_file" &
+  a_pid="$!"
+  docker exec "$coturn_b_container_id" touch "$stop_file" &
+  b_pid="$!"
+  wait "$a_pid" || a_status="$?"
+  wait "$b_pid" || b_status="$?"
+  ((a_status == 0 && b_status == 0))
+}
+
+merge_coturn_metric_streams() {
+  local expected="$1"
+  local a_output="$2"
+  local b_output="$3"
+  local output="$4"
+  python3 - "$expected" "$a_output" "$b_output" "$output" <<'PY'
+import datetime
+import json
+import pathlib
+import sys
+
+expected = int(sys.argv[1])
+paths = [pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])]
+output = pathlib.Path(sys.argv[4])
+
+def read_samples(path):
+    samples = []
+    for line in path.read_text().splitlines():
+        timestamp, allocations, received, sent = (int(value) for value in line.split())
+        samples.append((timestamp, allocations, received, sent))
+    return samples
+
+members = [read_samples(path) for path in paths]
+if any(not samples for samples in members):
+    raise SystemExit("Coturn metric stream produced no samples")
+if expected % 2 != 0:
+    raise SystemExit("expected Coturn allocation count must divide evenly between members")
+
+expected_member = expected // 2
+for samples in members:
+    previous = None
+    for timestamp, allocations, _, _ in samples:
+        if allocations != expected_member:
+            raise SystemExit(
+                f"Coturn live allocations changed: expected={expected_member} actual={allocations}"
+            )
+        if previous is not None and (timestamp <= previous or timestamp - previous > 2_100_000_000):
+            raise SystemExit("Coturn member metric stream exceeds the 2.1-second gap")
+        previous = timestamp
+
+paired = []
+a_index = 0
+b_index = 0
+while a_index < len(members[0]) and b_index < len(members[1]):
+    a_sample = members[0][a_index]
+    b_sample = members[1][b_index]
+    difference = a_sample[0] - b_sample[0]
+    if abs(difference) <= 1_000_000_000:
+        paired.append((a_sample, b_sample))
+        a_index += 1
+        b_index += 1
+    elif difference < 0:
+        a_index += 1
+    else:
+        b_index += 1
+if not paired:
+    raise SystemExit("Coturn member metric streams have no overlapping samples")
+
+with output.open("w") as stream:
+    for a_sample, b_sample in paired:
+        timestamp = max(a_sample[0], b_sample[0])
+        sampled_at = datetime.datetime.fromtimestamp(
+            timestamp / 1_000_000_000, datetime.timezone.utc
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        value = {
+            "sampled_at": sampled_at,
+            "sampled_at_unix_milliseconds": timestamp // 1_000_000,
+            "total_allocations": a_sample[1] + b_sample[1],
+            "coturn_a": {
+                "allocations": a_sample[1],
+                "received_bytes": a_sample[2],
+                "sent_bytes": a_sample[3],
+            },
+            "coturn_b": {
+                "allocations": b_sample[1],
+                "received_bytes": b_sample[2],
+                "sent_bytes": b_sample[3],
+            },
+        }
+        stream.write(json.dumps(value, separators=(",", ":")) + "\n")
+PY
+}
+
 monitor_coturn_allocations() (
   local expected="$1"
   local output="$2"
   local stop_file="$3"
-  local sampled_at sampled_at_unix_milliseconds a_alloc a_recv a_sent b_alloc b_recv b_sent total
   local a_output="${output}.coturn-a.tmp" b_output="${output}.coturn-b.tmp"
-  local a_pid b_pid a_status b_status now_milliseconds sleep_milliseconds sleep_seconds
+  local a_pid b_pid a_status=0 b_status=0
   trap 'rm -f "$a_output" "$b_output"' EXIT
-  : >"$output"
-  while [[ ! -e "$stop_file" ]]; do
-    read -r sampled_at sampled_at_unix_milliseconds < <(python3 -c '
-import datetime
-import time
-
-now = time.time()
-print(datetime.datetime.fromtimestamp(now, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), int(now * 1000))
-')
-    read_coturn_metrics coturn-a >"$a_output" &
-    a_pid="$!"
-    read_coturn_metrics coturn-b >"$b_output" &
-    b_pid="$!"
-    a_status=0
-    b_status=0
-    wait "$a_pid" || a_status="$?"
-    wait "$b_pid" || b_status="$?"
-    if ((a_status != 0 || b_status != 0)) ||
-      ! read -r a_alloc a_recv a_sent <"$a_output" ||
-      ! read -r b_alloc b_recv b_sent <"$b_output"; then
-      echo "failed to sample live Coturn allocations at $sampled_at" >&2
-      return 1
-    fi
-    total="$(numeric_sum "$a_alloc" "$b_alloc")"
-    jq -cn \
-      --arg sampled_at "$sampled_at" \
-      --argjson sampled_at_unix_milliseconds "$sampled_at_unix_milliseconds" \
-      --argjson a_alloc "$a_alloc" --argjson a_recv "$a_recv" --argjson a_sent "$a_sent" \
-      --argjson b_alloc "$b_alloc" --argjson b_recv "$b_recv" --argjson b_sent "$b_sent" \
-      --argjson total "$total" \
-      '{
-        sampled_at: $sampled_at,
-        sampled_at_unix_milliseconds: $sampled_at_unix_milliseconds,
-        total_allocations: $total,
-        coturn_a: {allocations: $a_alloc, received_bytes: $a_recv, sent_bytes: $a_sent},
-        coturn_b: {allocations: $b_alloc, received_bytes: $b_recv, sent_bytes: $b_sent}
-      }' >>"$output"
-    if [[ "$total" != "$expected" ]]; then
-      echo "Coturn live allocations changed during workload: expected=$expected actual=$total at=$sampled_at" >&2
-      return 1
-    fi
-    if [[ -e "$stop_file" ]]; then
-      return 0
-    fi
-    now_milliseconds="$(python3 -c 'import time; print(int(time.time() * 1000))')"
-    sleep_milliseconds=$((sampled_at_unix_milliseconds + 1000 - now_milliseconds))
-    if ((sleep_milliseconds > 0)); then
-      sleep_seconds="$(awk -v milliseconds="$sleep_milliseconds" 'BEGIN { printf "%.3f", milliseconds / 1000 }')"
-      sleep "$sleep_seconds"
-    fi
+  : >"$a_output"
+  : >"$b_output"
+  stream_coturn_metrics "$coturn_a_container_id" "$stop_file" >"$a_output" &
+  a_pid="$!"
+  stream_coturn_metrics "$coturn_b_container_id" "$stop_file" >"$b_output" &
+  b_pid="$!"
+  while kill -0 "$a_pid" 2>/dev/null && kill -0 "$b_pid" 2>/dev/null; do
+    sleep 0.1
   done
+  if kill -0 "$a_pid" 2>/dev/null || kill -0 "$b_pid" 2>/dev/null; then
+    signal_coturn_monitor_stop "$stop_file" || true
+  fi
+  wait "$a_pid" || a_status="$?"
+  wait "$b_pid" || b_status="$?"
+  if ((a_status != 0 || b_status != 0)); then
+    echo "Coturn member metric stream failed: coturn-a=$a_status coturn-b=$b_status" >&2
+    return 1
+  fi
+  merge_coturn_metric_streams "$expected" "$a_output" "$b_output" "$output"
 )
 
 stop_coturn_monitor() {
@@ -246,9 +338,10 @@ stop_coturn_monitor() {
   if [[ -z "$coturn_monitor_pid" ]]; then
     return 0
   fi
-  touch "$coturn_monitor_stop"
+  if ! signal_coturn_monitor_stop "$coturn_monitor_stop"; then
+    status=1
+  fi
   wait "$coturn_monitor_pid" || status=$?
-  rm -f "$coturn_monitor_stop"
   coturn_monitor_pid=""
   coturn_monitor_stop=""
   return "$status"
@@ -259,7 +352,7 @@ wait_coturn_monitor_ready() {
   local deadline=$((SECONDS + 10))
   local status=0
   while ((SECONDS <= deadline)); do
-    if [[ -s "$output" ]]; then
+    if [[ -s "${output}.coturn-a.tmp" && -s "${output}.coturn-b.tmp" ]]; then
       return 0
     fi
     if ! kill -0 "$coturn_monitor_pid" 2>/dev/null; then
@@ -270,7 +363,7 @@ wait_coturn_monitor_ready() {
     fi
     sleep 0.1
   done
-  echo "Coturn live-allocation monitor produced no sample within 10 seconds" >&2
+  echo "Coturn live-allocation monitor did not produce samples for both members within 10 seconds" >&2
   return 1
 }
 
@@ -386,8 +479,7 @@ run_case() {
     < <(wait_coturn_allocation_count "$expected_allocations")
 
   coturn_live_artifact="${artifact%.json}-coturn-live.ndjson"
-  coturn_monitor_stop="$runtime_state/${scenario}-run-${repetition}-coturn-monitor.stop"
-  rm -f "$coturn_monitor_stop"
+  coturn_monitor_stop="/tmp/gizclaw-${project_slug}-coturn-monitor.stop"
   (
     trap - EXIT
     monitor_coturn_allocations "$expected_allocations" "$coturn_live_artifact" "$coturn_monitor_stop"

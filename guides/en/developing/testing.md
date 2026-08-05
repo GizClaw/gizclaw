@@ -242,8 +242,10 @@ sibling `*-coturn.json`
 artifact records each Coturn
 member's one-second live allocation and traffic samples, finished-session byte
 counters, traffic delta, and the bounded return to zero after both Edge
-processes stop. It is accepted only after a pre-workload sample and a strictly
-ordered millisecond timeline with no gap above 2.1 seconds. The merged
+processes stop. Each member uses one persistent container-side metric stream so
+host-side Docker process startup is not part of every sample. It is accepted
+only after a pre-workload sample and a strictly ordered millisecond timeline
+with no gap above 2.1 seconds. The merged
 #697/#698 results remain historical direct-upstream observations; current
 Coturn measurements are not a production, WAN, or portable throughput SLA.
 
