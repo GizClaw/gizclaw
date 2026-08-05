@@ -19,7 +19,7 @@ func TestMemoryLayoutResourceLifecycle(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "MemoryLayout",
-		"metadata": {"name": "pet-memory"},
+		"metadata": {"id": "pet-memory"},
 		"spec": {
 			"flowcraft": {
 				"extraction": {"model": "extraction", "mode": "two_pass"},
@@ -70,8 +70,8 @@ func TestMemoryLayoutResourceLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsMemoryLayoutResource(Delete) error = %v", err)
 	}
-	if deletedLayout.Metadata.Name != "pet-memory" {
-		t.Fatalf("Delete(MemoryLayout) name = %q", deletedLayout.Metadata.Name)
+	if metadataID(t, deletedLayout.Metadata) != "pet-memory" {
+		t.Fatalf("Delete(MemoryLayout) name = %q", metadataID(t, deletedLayout.Metadata))
 	}
 	if _, err := manager.Get(context.Background(), apitypes.ResourceKindMemoryLayout, id); err == nil {
 		t.Fatal("Get(deleted MemoryLayout) succeeded")

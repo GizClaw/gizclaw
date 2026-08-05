@@ -25,6 +25,7 @@ export type ApproveRequest = {
 };
 
 export type FirmwareUpsert = {
+    id: string;
     name: string;
     description?: string;
     slots: FirmwareSlots;
@@ -37,7 +38,7 @@ export type FirmwareList = {
 };
 
 export type CredentialUpsert = {
-    name: string;
+    id: string;
     provider: string;
     description?: string;
     body: CredentialBody;
@@ -56,7 +57,7 @@ export type ModelList = {
 };
 
 export type ModelUpsert = {
-    name: string;
+    id: string;
     kind: ModelKind;
     source: ModelSource;
     provider: ModelProvider;
@@ -66,7 +67,7 @@ export type ModelUpsert = {
 };
 
 export type MiniMaxTenantUpsert = {
-    name: string;
+    id: string;
     app_id?: string;
     group_id?: string;
     credential_id: string;
@@ -81,7 +82,7 @@ export type MiniMaxTenantList = {
 };
 
 export type VolcTenantUpsert = {
-    name: string;
+    id: string;
     credential_id: string;
     region?: string;
     endpoint?: string;
@@ -102,7 +103,7 @@ export type VoiceList = {
 };
 
 export type VoiceUpsert = {
-    name: string;
+    id: string;
     source: VoiceSource;
     provider: VoiceProvider;
     display_name?: string;
@@ -127,6 +128,7 @@ export type VolcSyncVoicesResult = {
 };
 
 export type WorkspaceUpsert = {
+    id: string;
     name: string;
     workflow_id: string;
     /**
@@ -141,12 +143,12 @@ export type WorkspaceUpsert = {
 };
 
 export type MemoryLayoutUpsert = {
-    name: string;
+    id: string;
     spec: MemoryLayoutSpec;
 };
 
 export type WorkflowUpsert = {
-    name: string;
+    id: string;
     spec: WorkflowSpec;
 };
 
@@ -169,7 +171,7 @@ export type WorkflowList = {
 };
 
 export type GeminiTenantUpsert = {
-    name: string;
+    id: string;
     credential_id: string;
     project_id?: string;
     location?: string;
@@ -184,7 +186,7 @@ export type GeminiTenantList = {
 };
 
 export type OpenAiTenantUpsert = {
-    name: string;
+    id: string;
     kind?: OpenAiTenantKind;
     credential_id: string;
     base_url?: string;
@@ -199,7 +201,7 @@ export type OpenAiTenantList = {
 };
 
 export type DeepSeekTenantUpsert = {
-    name: string;
+    id: string;
     credential_id: string;
     base_url?: string;
     description?: string;
@@ -212,7 +214,7 @@ export type DeepSeekTenantList = {
 };
 
 export type DashScopeTenantUpsert = {
-    name: string;
+    id: string;
     credential_id: string;
     base_url?: string;
     description?: string;
@@ -250,6 +252,7 @@ export type AdminContactListResponse = {
 };
 
 export type AdminContactCreateRequest = {
+    id: string;
     owner_public_key: string;
     name: string;
     display_name?: string;
@@ -257,6 +260,7 @@ export type AdminContactCreateRequest = {
 };
 
 export type AdminContactPutRequest = {
+    id: string;
     display_name?: string;
     phone_number?: string;
 };
@@ -268,15 +272,18 @@ export type AdminFriendListResponse = {
 };
 
 export type AdminSocialFriendCreateRequest = {
+    id: string;
     owner_public_key: string;
     peer_public_key: string;
 };
 
 export type AdminFriendCreateRequest = {
+    id: string;
     peer_public_key: string;
 };
 
 export type AdminFriendGroupCreateRequest = {
+    id: string;
     name: string;
     display_name?: string;
     description?: string;
@@ -284,11 +291,13 @@ export type AdminFriendGroupCreateRequest = {
 };
 
 export type AdminFriendGroupPutRequest = {
+    id: string;
     display_name?: string;
     description?: string;
 };
 
 export type AdminFriendGroupMemberCreateRequest = {
+    id: string;
     name: string;
     peer_public_key: string;
     role: ServerFriendGroupMemberRole;
@@ -311,10 +320,12 @@ export type AdminFriendGroupMemberListResponse = {
 };
 
 export type AdminFriendGroupMemberPutRequest = {
+    id: string;
     role: ServerFriendGroupMemberRole;
 };
 
 export type AdminFriendGroupInviteTokenPutRequest = {
+    id: string;
     invite_token: string;
     expires_at: string;
 };
@@ -338,17 +349,17 @@ export type GameDefList = {
 };
 
 export type PetDefUpsert = {
-    name: string;
+    id: string;
     spec: PetDefSpec;
 };
 
 export type BadgeDefUpsert = {
-    name: string;
+    id: string;
     spec: BadgeDefSpec;
 };
 
 export type GameDefUpsert = {
-    name: string;
+    id: string;
     spec: GameDefSpec;
     icon?: Icon;
 };
@@ -377,7 +388,7 @@ export type RuntimeProfileList = {
 };
 
 export type RuntimeProfileUpsert = {
-    name: string;
+    id: string;
     spec: RuntimeProfileSpec;
 };
 
@@ -388,11 +399,11 @@ export type RegistrationTokenList = {
 };
 
 export type RegistrationTokenUpsert = {
-    name: string;
+    id: string;
     token: string;
     runtime_profile_id: string;
     /**
-     * Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+     * Optional caller-defined Firmware release-line ID. The device selects its own channel.
      */
     firmware_id?: string;
 };
@@ -408,7 +419,7 @@ export type ContactResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Contact';
     /**
-     * metadata.name is the immutable Peer-visible contact name; metadata.id is omitted on create and required on update.
+     * metadata.id is the caller-supplied canonical Contact ID. spec.name is the immutable owner-scoped Peer-visible contact name.
      */
     metadata: ResourceMetadata;
     spec: ContactSpec;
@@ -419,6 +430,10 @@ export type ContactSpec = {
      * Immutable owner peer public key.
      */
     owner_public_key: string;
+    /**
+     * Immutable owner-scoped Peer-visible contact name.
+     */
+    name: string;
     display_name?: string;
     phone_number?: string;
 };
@@ -460,7 +475,7 @@ export type FriendResource = {
 
 export type FriendSpec = {
     /**
-     * Canonical owner peer public key. metadata.name must be the sorted relation id owner:peer.
+     * Canonical owner peer public key. metadata.id must equal the deterministic relation ID derived from owner_public_key and peer_public_key.
      */
     owner_public_key: string;
     /**
@@ -473,7 +488,7 @@ export type FriendGroupResource = {
     apiVersion: ResourceApiVersion;
     kind: 'FriendGroup';
     /**
-     * metadata.name is the immutable Admin name; metadata.id is omitted on create and required on update.
+     * metadata.id is the caller-supplied canonical FriendGroup ID. spec.name is the immutable owner-scoped Peer-visible group name.
      */
     metadata: ResourceMetadata;
     spec: FriendGroupSpec;
@@ -484,6 +499,10 @@ export type FriendGroupSpec = {
      * Immutable owner Peer public key used to resolve the system Workflow.
      */
     owner_public_key: string;
+    /**
+     * Immutable owner-scoped Peer-visible friend group name.
+     */
+    name: string;
     description?: string;
     display_name?: string;
 };
@@ -492,7 +511,7 @@ export type FriendGroupInviteTokenResource = {
     apiVersion: ResourceApiVersion;
     kind: 'FriendGroupInviteToken';
     /**
-     * metadata.name is the friend group custom ID and must match spec.friend_group_id.
+     * metadata.id is the friend group canonical ID and must equal spec.friend_group_id.
      */
     metadata: ResourceMetadata;
     spec: FriendGroupInviteTokenSpec;
@@ -500,7 +519,7 @@ export type FriendGroupInviteTokenResource = {
 
 export type FriendGroupInviteTokenSpec = {
     /**
-     * Opaque canonical FriendGroup ID returned by the Server. The invite_token value is not a resource ID.
+     * Caller-supplied canonical FriendGroup ID. The invite_token value is not a resource ID.
      */
     friend_group_id: string;
     invite_token: string;
@@ -511,7 +530,7 @@ export type FriendGroupMemberResource = {
     apiVersion: ResourceApiVersion;
     kind: 'FriendGroupMember';
     /**
-     * metadata.name is this member's immutable Peer-visible group name; metadata.id is the canonical membership ID returned by the Server.
+     * metadata.id must equal the deterministic membership ID. spec.name is this member's immutable Peer-visible group name.
      */
     metadata: ResourceMetadata;
     spec: FriendGroupMemberSpec;
@@ -521,10 +540,14 @@ export type FriendGroupMemberRole = 'owner' | 'admin' | 'member';
 
 export type FriendGroupMemberSpec = {
     /**
-     * Opaque canonical FriendGroup ID returned by the Server. The peer_public_key segment is not a resource ID.
+     * Caller-supplied canonical FriendGroup ID. The peer_public_key segment is not a resource ID.
      */
     friend_group_id: string;
     peer_public_key: string;
+    /**
+     * Immutable member-visible owner-scoped friend group name.
+     */
+    name: string;
     role: FriendGroupMemberRole;
 };
 
@@ -586,7 +609,7 @@ export type RegistrationTokenResource = {
         token: string;
         runtime_profile_id: string;
         /**
-         * Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+         * Optional caller-defined Firmware release-line ID. The device selects its own channel.
          */
         firmware_id?: string;
     };
@@ -600,9 +623,8 @@ export type ApplyAction = 'created' | 'updated' | 'unchanged' | 'applied';
 export type ApplyResult = {
     apiVersion: ResourceApiVersion;
     kind: ResourceKind;
-    name: string;
     /**
-     * Canonical Server ID for the concrete resource. Omitted only for virtual ResourceList results.
+     * Caller-supplied canonical ID. Required for every concrete resource and omitted only for the virtual ResourceList result.
      */
     id?: string;
     action: ApplyAction;
@@ -612,6 +634,59 @@ export type ApplyResult = {
      */
     items?: Array<ApplyResult>;
 };
+
+/**
+ * A concrete resource carrying metadata.id. ResourceList is excluded.
+ */
+export type ConcreteResource = ({
+    kind: 'Credential';
+} & CredentialResource) | ({
+    kind: 'Firmware';
+} & FirmwareResource) | ({
+    kind: 'Contact';
+} & ContactResource) | ({
+    kind: 'Friend';
+} & FriendResource) | ({
+    kind: 'FriendGroup';
+} & FriendGroupResource) | ({
+    kind: 'FriendGroupInviteToken';
+} & FriendGroupInviteTokenResource) | ({
+    kind: 'FriendGroupMember';
+} & FriendGroupMemberResource) | ({
+    kind: 'Model';
+} & ModelResource) | ({
+    kind: 'DashScopeTenant';
+} & DashScopeTenantResource) | ({
+    kind: 'DeepSeekTenant';
+} & DeepSeekTenantResource) | ({
+    kind: 'GeminiTenant';
+} & GeminiTenantResource) | ({
+    kind: 'MiniMaxTenant';
+} & MiniMaxTenantResource) | ({
+    kind: 'OpenAITenant';
+} & OpenAiTenantResource) | ({
+    kind: 'VolcTenant';
+} & VolcTenantResource) | ({
+    kind: 'Voice';
+} & VoiceResource) | ({
+    kind: 'Tool';
+} & ToolResource) | ({
+    kind: 'Workflow';
+} & WorkflowResource) | ({
+    kind: 'Workspace';
+} & WorkspaceResource) | ({
+    kind: 'PetDef';
+} & PetDefResource) | ({
+    kind: 'BadgeDef';
+} & BadgeDefResource) | ({
+    kind: 'GameDef';
+} & GameDefResource) | ({
+    kind: 'MemoryLayout';
+} & MemoryLayoutResource) | ({
+    kind: 'RuntimeProfile';
+} & RuntimeProfileResource) | ({
+    kind: 'RegistrationToken';
+} & RegistrationTokenResource);
 
 export type Resource = ({
     kind: 'Credential';
@@ -677,13 +752,9 @@ export type ResourceKind = 'Credential' | 'Firmware' | 'Contact' | 'Friend' | 'F
 
 export type ResourceMetadata = {
     /**
-     * Immutable opaque canonical ID allocated by the Server. Omit on create; include the returned ID for update.
+     * Immutable opaque canonical ID supplied by the caller and persisted exactly as submitted, with a maximum length of 1024 Unicode characters. Leading or trailing whitespace and the standalone URI dot segments . and .. are invalid.
      */
-    id?: string;
-    /**
-     * Immutable resource name. Kind-specific rules apply. Names use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-].
-     */
-    name: string;
+    id: string;
     annotations?: {
         [key: string]: string;
     };
@@ -699,12 +770,14 @@ export type ResourceMetadata = {
 export type ResourceListResource = {
     apiVersion: ResourceApiVersion;
     kind: 'ResourceList';
-    metadata: ResourceMetadata;
     spec: ResourceListSpec;
 };
 
 export type ResourceListSpec = {
-    items: Array<Resource>;
+    /**
+     * Concrete resources only; nested ResourceList envelopes are invalid.
+     */
+    items: Array<ConcreteResource>;
 };
 
 export type RuntimeProfileResource = {
@@ -718,7 +791,7 @@ export type ToolResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Tool';
     /**
-     * metadata.id is the canonical Tool resource ID when updating. metadata.name is the immutable runtime execution name and must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$.
+     * metadata.id is the caller-supplied canonical Tool ID. spec.invoke_name is the distinct immutable runtime execution name.
      */
     metadata: ResourceMetadata;
     spec: ToolSpec;
@@ -742,7 +815,7 @@ export type WorkflowResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Workflow';
     /**
-     * metadata.id is the canonical Workflow ID when updating, and metadata.name is the immutable Workflow name used by Peer RPC projections.
+     * metadata.id is the caller-supplied canonical Workflow ID. RuntimeProfile binding aliases remain the separate Peer-visible selectors.
      */
     metadata: ResourceMetadata;
     spec: WorkflowSpec;
@@ -752,7 +825,7 @@ export type WorkspaceResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Workspace';
     /**
-     * metadata.id is the canonical Workspace ID when updating, metadata.name is the immutable Workspace name, and spec.workflow_id is the canonical Workflow ID.
+     * metadata.id is the caller-supplied canonical Workspace ID, spec.name is the immutable owner-scoped Workspace name, and spec.workflow_id is the canonical Workflow ID.
      */
     metadata: ResourceMetadata;
     spec: WorkspaceSpec;
@@ -761,7 +834,6 @@ export type WorkspaceResource = {
 
 export type Credential = {
     id: string;
-    name: string;
     provider: string;
     body: CredentialBody;
     description?: string;
@@ -831,7 +903,6 @@ export type CredentialSpec = {
 
 export type DashScopeTenant = {
     id: string;
-    name: string;
     credential_id: string;
     base_url?: string;
     description?: string;
@@ -847,7 +918,6 @@ export type DashScopeTenantSpec = {
 
 export type DeepSeekTenant = {
     id: string;
-    name: string;
     credential_id: string;
     base_url?: string;
     description?: string;
@@ -923,6 +993,7 @@ export type FirmwareSlots = {
 };
 
 export type FirmwareSpec = {
+    name: string;
     description?: string;
     slots: FirmwareSpecSlots;
 };
@@ -953,7 +1024,6 @@ export type Badge = {
 
 export type BadgeDef = {
     id: string;
-    name: string;
     spec: BadgeDefSpec;
     pixa_path?: string;
     created_at: string;
@@ -976,7 +1046,6 @@ export type BadgeListResponse = {
 
 export type GameDef = {
     id: string;
-    name: string;
     spec: GameDefSpec;
     icon?: Icon;
     created_at: string;
@@ -1039,7 +1108,6 @@ export type Pet = {
 
 export type PetDef = {
     id: string;
-    name: string;
     spec: PetDefSpec;
     pixa_path?: string;
     created_at: string;
@@ -1194,7 +1262,6 @@ export type RewardGrantListResponse = {
 
 export type GeminiTenant = {
     id: string;
-    name: string;
     credential_id: string;
     project_id?: string;
     location?: string;
@@ -1305,10 +1372,6 @@ export type Mem0MemoryLayoutPolicy = {
 
 export type MemoryLayout = {
     id: string;
-    /**
-     * Immutable MemoryLayout resource name.
-     */
-    name: string;
     spec: MemoryLayoutSpec;
 };
 
@@ -1330,7 +1393,6 @@ export type VolcMem0Strategy = {
 
 export type MiniMaxTenant = {
     id: string;
-    name: string;
     app_id?: string;
     group_id?: string;
     credential_id: string;
@@ -1351,7 +1413,6 @@ export type MiniMaxTenantSpec = {
 
 export type Model = {
     id: string;
-    name: string;
     display_name?: string;
     kind: ModelKind;
     source: ModelSource;
@@ -1488,7 +1549,6 @@ export type ModelSpec = {
 
 export type OpenAiTenant = {
     id: string;
-    name: string;
     kind: OpenAiTenantKind;
     credential_id: string;
     base_url?: string;
@@ -1523,7 +1583,7 @@ export type Peer = {
     device: DeviceInfo;
     auto_registered?: boolean;
     /**
-     * Optional Server-assigned Firmware release-line ID. Channel selection remains device-owned.
+     * Optional configured caller-defined Firmware release-line ID. Channel selection remains device-owned.
      */
     firmware_id?: string;
     created_at: string;
@@ -1626,7 +1686,7 @@ export type Registration = {
     status: PeerRegistrationStatus;
     auto_registered?: boolean;
     /**
-     * Optional Server-assigned Firmware release-line ID. Channel selection remains device-owned.
+     * Optional configured caller-defined Firmware release-line ID. Channel selection remains device-owned.
      */
     firmware_id?: string;
     device?: DeviceInfo;
@@ -1637,11 +1697,10 @@ export type Registration = {
 
 export type RegistrationToken = {
     id: string;
-    name: string;
     token: string;
     runtime_profile_id: string;
     /**
-     * Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+     * Optional caller-defined Firmware release-line ID. The device selects its own channel.
      */
     firmware_id?: string;
     created_at: string;
@@ -1658,7 +1717,6 @@ export type Runtime = {
 
 export type RuntimeProfile = {
     id: string;
-    name: string;
     /**
      * Deterministic opaque revision of the normalized RuntimeProfile spec.
      */
@@ -2044,6 +2102,10 @@ export type ToolJsonSchema = {
 };
 
 export type ClientRpcToolSpec = {
+    /**
+     * Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
+     */
+    invoke_name: string;
     type: 'client_rpc';
     description?: string;
     enabled?: boolean;
@@ -2056,6 +2118,10 @@ export type ClientRpcToolSpec = {
 };
 
 export type HttpToolSpec = {
+    /**
+     * Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
+     */
+    invoke_name: string;
     type: 'http_request';
     description?: string;
     enabled?: boolean;
@@ -2152,7 +2218,7 @@ export type ToolHttpRequest = {
 };
 
 /**
- * Strict Tool declaration selected by type. metadata.name is the only Tool identity.
+ * Strict Tool declaration selected by type. metadata.id is the Admin identity and invoke_name is the immutable runtime execution identity.
  */
 export type ToolSpec = ({
     type: 'http_request';
@@ -2183,14 +2249,13 @@ export type ToolTriggerExample = {
  */
 export type ToolkitPolicy = {
     /**
-     * Allowed canonical Tool resource IDs. RuntimeProfile aliases and Tool names are not accepted.
+     * Allowed canonical Tool resource IDs. RuntimeProfile aliases and Tool invoke names are not accepted.
      */
     tool_ids?: Array<string>;
 };
 
 export type Voice = {
     id: string;
-    name: string;
     display_name?: string;
     source: VoiceSource;
     provider: VoiceProvider;
@@ -2273,7 +2338,6 @@ export type VoiceSpec = {
 
 export type VolcTenant = {
     id: string;
-    name: string;
     credential_id: string;
     region?: string;
     endpoint?: string;
@@ -2294,13 +2358,9 @@ export type VolcTenantSpec = {
 
 export type Workflow = {
     /**
-     * Immutable opaque canonical ID allocated by the Server.
+     * Immutable opaque canonical ID supplied by the caller.
      */
     id: string;
-    /**
-     * Immutable workflow name used by Peer RPC projections.
-     */
-    name: string;
     spec: WorkflowSpec;
 };
 
@@ -3234,6 +3294,10 @@ export type WorkspaceParameters = ({
 
 export type WorkspaceSpec = {
     /**
+     * Immutable owner-scoped Workspace name.
+     */
+    name: string;
+    /**
      * Referenced Workflow canonical ID.
      */
     workflow_id: string;
@@ -3246,6 +3310,59 @@ export type WorkspaceListWritable = {
     next_cursor?: string | null;
     items: Array<WorkspaceWritable>;
 };
+
+/**
+ * A concrete resource carrying metadata.id. ResourceList is excluded.
+ */
+export type ConcreteResourceWritable = ({
+    kind: 'Credential';
+} & CredentialResource) | ({
+    kind: 'Firmware';
+} & FirmwareResource) | ({
+    kind: 'Contact';
+} & ContactResource) | ({
+    kind: 'Friend';
+} & FriendResource) | ({
+    kind: 'FriendGroup';
+} & FriendGroupResource) | ({
+    kind: 'FriendGroupInviteToken';
+} & FriendGroupInviteTokenResource) | ({
+    kind: 'FriendGroupMember';
+} & FriendGroupMemberResource) | ({
+    kind: 'Model';
+} & ModelResource) | ({
+    kind: 'DashScopeTenant';
+} & DashScopeTenantResource) | ({
+    kind: 'DeepSeekTenant';
+} & DeepSeekTenantResource) | ({
+    kind: 'GeminiTenant';
+} & GeminiTenantResource) | ({
+    kind: 'MiniMaxTenant';
+} & MiniMaxTenantResource) | ({
+    kind: 'OpenAITenant';
+} & OpenAiTenantResource) | ({
+    kind: 'VolcTenant';
+} & VolcTenantResource) | ({
+    kind: 'Voice';
+} & VoiceResource) | ({
+    kind: 'Tool';
+} & ToolResourceWritable) | ({
+    kind: 'Workflow';
+} & WorkflowResource) | ({
+    kind: 'Workspace';
+} & WorkspaceResource) | ({
+    kind: 'PetDef';
+} & PetDefResource) | ({
+    kind: 'BadgeDef';
+} & BadgeDefResource) | ({
+    kind: 'GameDef';
+} & GameDefResource) | ({
+    kind: 'MemoryLayout';
+} & MemoryLayoutResource) | ({
+    kind: 'RuntimeProfile';
+} & RuntimeProfileResource) | ({
+    kind: 'RegistrationToken';
+} & RegistrationTokenResource);
 
 export type ResourceWritable = ({
     kind: 'Credential';
@@ -3302,19 +3419,21 @@ export type ResourceWritable = ({
 export type ResourceListResourceWritable = {
     apiVersion: ResourceApiVersion;
     kind: 'ResourceList';
-    metadata: ResourceMetadata;
     spec: ResourceListSpecWritable;
 };
 
 export type ResourceListSpecWritable = {
-    items: Array<ResourceWritable>;
+    /**
+     * Concrete resources only; nested ResourceList envelopes are invalid.
+     */
+    items: Array<ConcreteResourceWritable>;
 };
 
 export type ToolResourceWritable = {
     apiVersion: ResourceApiVersion;
     kind: 'Tool';
     /**
-     * metadata.id is the canonical Tool resource ID when updating. metadata.name is the immutable runtime execution name and must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$.
+     * metadata.id is the caller-supplied canonical Tool ID. spec.invoke_name is the distinct immutable runtime execution name.
      */
     metadata: ResourceMetadata;
     spec: ToolSpecWritable;
@@ -3325,6 +3444,10 @@ export type FriendGroupInviteTokenClearResponseWritable = {
 };
 
 export type HttpToolSpecWritable = {
+    /**
+     * Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
+     */
+    invoke_name: string;
     type: 'http_request';
     description?: string;
     enabled?: boolean;
@@ -3382,7 +3505,7 @@ export type ToolHttpRequestWritable = {
 };
 
 /**
- * Strict Tool declaration selected by type. metadata.name is the only Tool identity.
+ * Strict Tool declaration selected by type. metadata.id is the Admin identity and invoke_name is the immutable runtime execution identity.
  */
 export type ToolSpecWritable = ({
     type: 'http_request';
@@ -3539,7 +3662,7 @@ export type DeleteResourceData = {
          */
         kind: ResourceKind;
         /**
-         * Declarative resource metadata.name
+         * Declarative resource metadata.id
          */
         id: string;
     };
@@ -3631,7 +3754,7 @@ export type PutResourceData = {
          */
         kind: ResourceKind;
         /**
-         * Declarative resource metadata.name
+         * Declarative resource metadata.id
          */
         id: string;
     };
@@ -3731,6 +3854,10 @@ export type CreateContactErrors = {
      * Resource not found
      */
     404: ErrorResponse;
+    /**
+     * Contact ID, name, or phone number already exists
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -3929,6 +4056,10 @@ export type CreateFriendErrors = {
      */
     404: ErrorResponse;
     /**
+     * Friend relation already exists
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -4087,6 +4218,10 @@ export type CreateFriendGroupErrors = {
      * Resource not found
      */
     404: ErrorResponse;
+    /**
+     * Friend group ID already exists
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -4286,6 +4421,10 @@ export type CreateFriendGroupMemberErrors = {
      * Resource not found
      */
     404: ErrorResponse;
+    /**
+     * Friend group member already exists
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */

@@ -94,7 +94,7 @@ func TestServerDeepSeekTenantCRUDAndPagination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDeepSeekTenant() error = %v", err)
 	}
-	if got, ok := getResp.(adminhttp.GetDeepSeekTenant200JSONResponse); !ok || got.Name != "default" {
+	if got, ok := getResp.(adminhttp.GetDeepSeekTenant200JSONResponse); !ok || got.Id != "default" {
 		t.Fatalf("GetDeepSeekTenant() response = %#v", getResp)
 	}
 	deleteResp, err := srv.DeleteDeepSeekTenant(ctx, adminhttp.DeleteDeepSeekTenantRequestObject{Id: created.Id})
@@ -141,9 +141,10 @@ func TestServerDeepSeekTenantValidationAndStoreErrors(t *testing.T) {
 		body adminhttp.DeepSeekTenantUpsert
 	}{
 		{name: "missing name", body: adminhttp.DeepSeekTenantUpsert{CredentialId: "credential"}},
-		{name: "missing credential", body: adminhttp.DeepSeekTenantUpsert{Name: "tenant"}},
-		{name: "relative base URL", body: adminhttp.DeepSeekTenantUpsert{Name: "tenant", CredentialId: "credential", BaseUrl: stringPtr("/v1")}},
-		{name: "non HTTP base URL", body: adminhttp.DeepSeekTenantUpsert{Name: "tenant", CredentialId: "credential", BaseUrl: stringPtr("ftp://deepseek.example.com")}},
+		{name: "missing credential", body: adminhttp.DeepSeekTenantUpsert{Id: "tenant"}},
+		{name: "credential id whitespace", body: adminhttp.DeepSeekTenantUpsert{Id: "tenant", CredentialId: " credential "}},
+		{name: "relative base URL", body: adminhttp.DeepSeekTenantUpsert{Id: "tenant", CredentialId: "credential", BaseUrl: stringPtr("/v1")}},
+		{name: "non HTTP base URL", body: adminhttp.DeepSeekTenantUpsert{Id: "tenant", CredentialId: "credential", BaseUrl: stringPtr("ftp://deepseek.example.com")}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resp, err := srv.CreateDeepSeekTenant(ctx, adminhttp.CreateDeepSeekTenantRequestObject{Body: &tc.body})
@@ -159,7 +160,7 @@ func TestServerDeepSeekTenantValidationAndStoreErrors(t *testing.T) {
 	body := deepSeekTenantUpsert("tenant")
 	if resp, err := srv.PutDeepSeekTenant(ctx, adminhttp.PutDeepSeekTenantRequestObject{Id: "other", Body: &body}); err != nil {
 		t.Fatalf("PutDeepSeekTenant(mismatch) error = %v", err)
-	} else if _, ok := resp.(adminhttp.PutDeepSeekTenant404JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.PutDeepSeekTenant400JSONResponse); !ok {
 		t.Fatalf("PutDeepSeekTenant(mismatch) response = %#v", resp)
 	}
 
@@ -196,7 +197,7 @@ func deepSeekTenantUpsert(name string) adminhttp.DeepSeekTenantUpsert {
 	return adminhttp.DeepSeekTenantUpsert{
 		BaseUrl:      &baseURL,
 		CredentialId: string("credential"),
-		Name:         string(name),
+		Id:           string(name),
 	}
 }
 

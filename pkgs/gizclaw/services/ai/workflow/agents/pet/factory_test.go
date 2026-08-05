@@ -53,7 +53,7 @@ func TestFactoryDelegatesNestedWorkflowToRegisteredFactory(t *testing.T) {
 	}
 	owner := "peer-a"
 	memoryBinding := &apitypes.RuntimeProfileMemoryBinding{LayoutId: "pet-memory-layout-id", Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft}
-	memoryLayout := &apitypes.MemoryLayout{Id: "pet-memory-layout-id", Name: "pet-memory"}
+	memoryLayout := &apitypes.MemoryLayout{Id: "pet-memory-layout-id"}
 	agent, err := factory.NewAgent(t.Context(), agenthost.Spec{
 		Workspace: apitypes.Workspace{Id: "workspace-id-a", Name: "pet-demo", OwnerPublicKey: &owner},
 		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{

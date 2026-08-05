@@ -76,11 +76,10 @@ const resourceKinds: ResourceKind[] = [
 type AdminResourceJSON = {
   apiVersion: "gizclaw.admin/v1alpha1";
   kind: ResourceKind;
-  metadata: {
+  metadata?: {
     annotations?: Record<string, string>;
-    id?: string;
+    id: string;
     labels?: Record<string, string>;
-    name: string;
   };
   spec: unknown;
 };
@@ -97,10 +96,10 @@ export function ResourcesPage(): JSX.Element {
   const [kind, setKind] = useState<ResourceKind>(
     () => parseResourceKind(searchParams.get("kind")) ?? "ResourceList",
   );
-  const [name, setName] = useState(() => searchParams.get("name") ?? "");
+  const [id, setID] = useState(() => searchParams.get("id") ?? "");
   const [resource, setResource] = useState<Resource | null>(null);
   const [resourceText, setResourceText] = useState(() =>
-    JSON.stringify(resourceTemplate(kind, name), null, 2),
+    JSON.stringify(resourceTemplate(kind, id), null, 2),
   );
   const [applyResult, setApplyResult] = useState<ApplyResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -109,14 +108,14 @@ export function ResourcesPage(): JSX.Element {
   const [notice, setNotice] = useState("");
   const [pixaPreview, setPixaPreview] = useState<PixaPreviewState | null>(null);
 
-  const canAddressResource = name.trim() !== "" && kind !== "ResourceList";
+  const canAddressResource = id.trim() !== "" && kind !== "ResourceList";
 
   const syncURL = useCallback(
-    (nextKind: ResourceKind, nextName: string) => {
+    (nextKind: ResourceKind, nextID: string) => {
       const next = new URLSearchParams();
       next.set("kind", nextKind);
-      if (nextName.trim() !== "") {
-        next.set("name", nextName.trim());
+      if (nextID.trim() !== "") {
+        next.set("id", nextID);
       }
       setSearchParams(next, { replace: true });
     },
@@ -124,11 +123,11 @@ export function ResourcesPage(): JSX.Element {
   );
 
   const resetTemplate = useCallback(
-    (nextKind: ResourceKind, nextName: string) => {
+    (nextKind: ResourceKind, nextID: string) => {
       setResource(null);
       setApplyResult(null);
       setResourceText(
-        JSON.stringify(resourceTemplate(nextKind, nextName), null, 2),
+        JSON.stringify(resourceTemplate(nextKind, nextID), null, 2),
       );
     },
     [],
@@ -137,12 +136,12 @@ export function ResourcesPage(): JSX.Element {
   const handleKindChange = (value: string): void => {
     const nextKind = parseResourceKind(value) ?? "ResourceList";
     setKind(nextKind);
-    resetTemplate(nextKind, name);
-    syncURL(nextKind, name);
+    resetTemplate(nextKind, id);
+    syncURL(nextKind, id);
   };
 
-  const handleNameChange = (value: string): void => {
-    setName(value);
+  const handleIDChange = (value: string): void => {
+    setID(value);
     if (resource === null) {
       setResourceText(JSON.stringify(resourceTemplate(kind, value), null, 2));
     }
@@ -162,40 +161,38 @@ export function ResourcesPage(): JSX.Element {
     setNotice("");
     setApplyResult(null);
     try {
-      const next = await expectData(
-        getResource({ path: { kind, id: name.trim() } }),
-      );
+      const next = await expectData(getResource({ path: { kind, id } }));
       setResource(next);
       setResourceText(JSON.stringify(next, null, 2));
-      syncURL(kind, name);
-      setNotice(`Loaded ${kind} ${name.trim()}.`);
+      syncURL(kind, id);
+      setNotice(`Loaded ${kind} ${id}.`);
     } catch (err) {
       setError(toMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [canAddressResource, kind, name]);
+  }, [canAddressResource, kind, id]);
 
   useEffect(() => {
     const nextKind =
       parseResourceKind(searchParams.get("kind")) ?? "ResourceList";
-    const nextName = searchParams.get("name") ?? "";
+    const nextID = searchParams.get("id") ?? "";
     setKind(nextKind);
-    setName(nextName);
-    if (nextName.trim() !== "" && nextKind !== "ResourceList") {
+    setID(nextID);
+    if (nextID.trim() !== "" && nextKind !== "ResourceList") {
       void (async () => {
         setLoading(true);
         setError("");
         try {
           const next = await expectData(
-            getResource({ path: { kind: nextKind, id: nextName.trim() } }),
+            getResource({ path: { kind: nextKind, id: nextID } }),
           );
           setResource(next);
           setResourceText(JSON.stringify(next, null, 2));
         } catch {
           setResource(null);
           setResourceText(
-            JSON.stringify(resourceTemplate(nextKind, nextName), null, 2),
+            JSON.stringify(resourceTemplate(nextKind, nextID), null, 2),
           );
         } finally {
           setLoading(false);
@@ -203,7 +200,7 @@ export function ResourcesPage(): JSX.Element {
       })();
       return;
     }
-    resetTemplate(nextKind, nextName);
+    resetTemplate(nextKind, nextID);
   }, [resetTemplate, searchParams]);
 
   const parseResourceText = (): AdminResourceJSON => {
@@ -215,18 +212,19 @@ export function ResourcesPage(): JSX.Element {
       throw new Error(`Resource kind must be ${kind}.`);
     }
     if (
-      !isRecord(parsed.metadata) ||
-      typeof parsed.metadata.name !== "string" ||
-      parsed.metadata.name.trim() === ""
+      kind !== "ResourceList" &&
+      (!isRecord(parsed.metadata) ||
+        typeof parsed.metadata.id !== "string" ||
+        parsed.metadata.id.trim() === "")
     ) {
-      throw new Error("Resource metadata.name is required.");
+      throw new Error("Resource metadata.id is required.");
     }
     if (
       kind !== "ResourceList" &&
-      typeof parsed.metadata.id === "string" &&
-      parsed.metadata.id !== name.trim()
+      id.trim() !== "" &&
+      (!isRecord(parsed.metadata) || parsed.metadata.id !== id)
     ) {
-      throw new Error(`Resource metadata.id must match ${name.trim()}.`);
+      throw new Error(`Resource metadata.id must match ${id}.`);
     }
     return parsed as AdminResourceJSON;
   };
@@ -242,11 +240,11 @@ export function ResourcesPage(): JSX.Element {
         applyResource({ body: body as Resource }),
       );
       setApplyResult(result);
-      setNotice(`${result.kind} ${result.name} ${result.action}.`);
+      setNotice(`${result.kind} ${result.id ?? ""} ${result.action}.`);
       if (body.kind !== "ResourceList") {
         setKind(body.kind);
         const nextID = result.id ?? "";
-        setName(nextID);
+        setID(nextID);
         syncURL(body.kind, nextID);
       }
     } catch (err) {
@@ -269,13 +267,13 @@ export function ResourcesPage(): JSX.Element {
       const next = await expectData(
         putResource({
           body: body as Resource,
-          path: { kind, id: name.trim() },
+          path: { kind, id },
         }),
       );
       setResource(next);
       setResourceText(JSON.stringify(next, null, 2));
-      syncURL(kind, name);
-      setNotice(`Saved ${kind} ${name.trim()}.`);
+      syncURL(kind, id);
+      setNotice(`Saved ${kind} ${id}.`);
     } catch (err) {
       setError(toMessage(err));
     } finally {
@@ -292,10 +290,10 @@ export function ResourcesPage(): JSX.Element {
       if (!canAddressResource) {
         throw new Error("Enter a resource ID first.");
       }
-      await expectData(deleteResource({ path: { kind, id: name.trim() } }));
+      await expectData(deleteResource({ path: { kind, id } }));
       setResource(null);
-      setResourceText(JSON.stringify(resourceTemplate(kind, name), null, 2));
-      setNotice(`Deleted ${kind} ${name.trim()}.`);
+      setResourceText(JSON.stringify(resourceTemplate(kind, id), null, 2));
+      setNotice(`Deleted ${kind} ${id}.`);
     } catch (err) {
       setError(toMessage(err));
     } finally {
@@ -341,19 +339,19 @@ export function ResourcesPage(): JSX.Element {
         await expectData(
           uploadPetDefPixa({
             body: pixaPreview.blob,
-            path: { id: name.trim() },
+            path: { id },
           }),
         );
       } else {
         await expectData(
           uploadBadgeDefPixa({
             body: pixaPreview.blob,
-            path: { id: name.trim() },
+            path: { id },
           }),
         );
       }
       setPixaPreview(null);
-      setNotice(`${kind} ${name.trim()} pixa uploaded.`);
+      setNotice(`${kind} ${id} pixa uploaded.`);
       await load();
     } catch (err) {
       setError(toMessage(err));
@@ -373,8 +371,8 @@ export function ResourcesPage(): JSX.Element {
     try {
       const blob = await expectData(
         kind === "PetDef"
-          ? downloadPetDefPixa({ path: { id: name.trim() } })
-          : downloadBadgeDefPixa({ path: { id: name.trim() } }),
+          ? downloadPetDefPixa({ path: { id } })
+          : downloadBadgeDefPixa({ path: { id } }),
       );
       const asset = validateResourcePixa(
         await blob.arrayBuffer(),
@@ -402,7 +400,7 @@ export function ResourcesPage(): JSX.Element {
       let source: unknown = resource;
       if (canAddressResource) {
         source = await expectData(
-          getResource({ path: { kind: "PetDef", id: name.trim() } }),
+          getResource({ path: { kind: "PetDef", id } }),
         );
         setResource(source as Resource);
       }
@@ -490,14 +488,14 @@ export function ResourcesPage(): JSX.Element {
               </Select>
             </FormField>
             <FormField
-              description="Canonical resource ID returned by the server. For a new apply, set metadata.name in the JSON."
+              description="Caller-defined immutable resource ID. It must match metadata.id in the JSON."
               label="ID"
             >
               <div className="flex gap-2">
                 <Input
-                  onChange={(event) => handleNameChange(event.target.value)}
+                  onChange={(event) => handleIDChange(event.target.value)}
                   placeholder="resource-id"
-                  value={name}
+                  value={id}
                 />
                 <Button
                   disabled={!canAddressResource || loading}
@@ -608,7 +606,7 @@ export function ResourcesPage(): JSX.Element {
       {resource !== null && iconOwner !== null ? (
         <DomainIconEditor
           icon={resourceIcon(resource)}
-          id={name.trim()}
+          id={id}
           onChanged={load}
           owner={iconOwner}
         />
@@ -740,20 +738,20 @@ function parseResourceKind(value: string | null): ResourceKind | null {
     : null;
 }
 
-function resourceTemplate(kind: ResourceKind, name: string): AdminResourceJSON {
-  const resourceName = name.trim() || resourceNamePlaceholder(kind);
-  return {
+function resourceTemplate(kind: ResourceKind, id: string): AdminResourceJSON {
+  const resourceID = id.trim() === "" ? resourceIDPlaceholder(kind) : id;
+  const resource: AdminResourceJSON = {
     apiVersion: "gizclaw.admin/v1alpha1",
     kind,
-    metadata: { name: resourceName },
     spec: resourceSpecTemplate(kind),
   };
+  if (kind !== "ResourceList") {
+    resource.metadata = { id: resourceID };
+  }
+  return resource;
 }
 
-function resourceNamePlaceholder(kind: ResourceKind): string {
-  if (kind === "ResourceList") {
-    return "bundle";
-  }
+function resourceIDPlaceholder(kind: ResourceKind): string {
   return kind.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
 }
 
@@ -763,10 +761,10 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
       return { items: [] };
     case "Tool":
       return {
-        source: "admin",
+        type: "client_rpc",
+        invoke_name: "tool_example",
         enabled: true,
         input_schema: { type: "object", properties: {} },
-        executor: { kind: "builtin", name: "tool.example" },
       };
     case "RuntimeProfile":
       return {
@@ -945,7 +943,7 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
     case "RegistrationToken":
       return {
         token: "registration-token-value",
-        runtime_profile_name: "runtime-profile-default",
+        runtime_profile_id: "runtime-profile-default",
       };
     case "PetDef":
       return {

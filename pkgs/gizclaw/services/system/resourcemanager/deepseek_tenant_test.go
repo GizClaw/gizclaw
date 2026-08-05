@@ -13,7 +13,7 @@ func TestApplyDeepSeekTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "DeepSeekTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {
 			"credential_id": "deepseek",
 			"base_url": "https://deepseek.example.com"
@@ -39,7 +39,7 @@ func TestApplyDeepSeekTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 	updated := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "DeepSeekTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {
 			"credential_id": "deepseek",
 			"base_url": "https://deepseek.example.com",
@@ -61,7 +61,7 @@ func TestPutGetDeleteDeepSeekTenantResource(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "DeepSeekTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {
 			"credential_id": "deepseek",
 			"base_url": "https://deepseek.example.com"
@@ -82,7 +82,7 @@ func TestPutGetDeleteDeepSeekTenantResource(t *testing.T) {
 		t.Fatalf("AsDeepSeekTenantResource(Put) error = %v", err)
 	}
 	if tenant.Spec.CredentialId != "deepseek" {
-		t.Fatalf("Put(DeepSeekTenant) credential_name = %s", tenant.Spec.CredentialId)
+		t.Fatalf("Put(DeepSeekTenant) credential_id = %s", tenant.Spec.CredentialId)
 	}
 
 	id := *created.Id
@@ -94,8 +94,8 @@ func TestPutGetDeleteDeepSeekTenantResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsDeepSeekTenantResource(Get) error = %v", err)
 	}
-	if gotTenant.Metadata.Name != "default" {
-		t.Fatalf("Get(DeepSeekTenant) metadata.name = %s", gotTenant.Metadata.Name)
+	if metadataID(t, gotTenant.Metadata) != "default" {
+		t.Fatalf("Get(DeepSeekTenant) metadata.id = %s", metadataID(t, gotTenant.Metadata))
 	}
 
 	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindDeepSeekTenant, id)
@@ -106,8 +106,8 @@ func TestPutGetDeleteDeepSeekTenantResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsDeepSeekTenantResource(Delete) error = %v", err)
 	}
-	if deletedTenant.Metadata.Name != "default" {
-		t.Fatalf("Delete(DeepSeekTenant) metadata.name = %s", deletedTenant.Metadata.Name)
+	if metadataID(t, deletedTenant.Metadata) != "default" {
+		t.Fatalf("Delete(DeepSeekTenant) metadata.id = %s", metadataID(t, deletedTenant.Metadata))
 	}
 	_, err = manager.Get(context.Background(), apitypes.ResourceKindDeepSeekTenant, id)
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
@@ -136,7 +136,7 @@ func TestDeepSeekTenantMissingServiceErrors(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "DeepSeekTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {"credential_id": "deepseek"}
 	}`)
 
@@ -159,7 +159,7 @@ func TestApplyDeepSeekTenantRejectsInvalidHeader(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "unsupported",
 		"kind": "DeepSeekTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {"credential_id": "deepseek"}
 	}`)
 	_, err := manager.Apply(context.Background(), resource)

@@ -26,7 +26,7 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	seed := requireName(t, all, "devkit-firmware-main", func(item apitypes.Firmware) string { return item.Name })
+	seed := requireName(t, all, "devkit-firmware-main", func(item apitypes.Firmware) string { return item.Id })
 
 	get, err := env.api.GetFirmwareWithResponse(env.ctx, seed.Id)
 	if err != nil {
@@ -39,6 +39,7 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 
 	name := mutationName("firmware")
 	upsert := adminhttp.FirmwareUpsert{
+		Id:          name,
 		Name:        name,
 		Description: ptr("Admin API mutation firmware"),
 		Slots: apitypes.FirmwareSlots{
@@ -82,6 +83,9 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 	requireStatusOK(t, created, created.Body)
 	if created.JSON200 == nil {
 		t.Fatalf("created firmware = %#v", created.JSON200)
+	}
+	if created.JSON200.Id != name {
+		t.Fatalf("created firmware ID = %q, want caller ID %q", created.JSON200.Id, name)
 	}
 	requireFirmwareSlots(t, created.JSON200.Slots, upsert.Slots)
 	firmwareID := created.JSON200.Id
@@ -147,6 +151,7 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 
 	invalidName := mutationName("firmware-invalid")
 	invalid, err := env.api.CreateFirmwareWithResponse(env.ctx, adminhttp.FirmwareUpsert{
+		Id:   invalidName,
 		Name: invalidName,
 		Slots: apitypes.FirmwareSlots{Stable: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{
 			Url: "https://downloads.example.com:0/firmware/stable.tar.zlib", Sha256: firmwarePackageSHA256, Size: 1,

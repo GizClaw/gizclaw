@@ -310,7 +310,7 @@
       "get": {
         "operationId": "getResource",
         "summary": "Get an admin resource",
-        "description": "Get a named declarative admin resource by kind and name.",
+        "description": "Get a declarative Admin resource by kind and caller-supplied ID.",
         "tags": [
           "Resources"
         ],
@@ -384,7 +384,7 @@
       "put": {
         "operationId": "putResource",
         "summary": "Create or update an admin resource",
-        "description": "Create or update a named declarative admin resource. The request body's kind and metadata.name must match the path parameters.",
+        "description": "Create or update a declarative Admin resource. The request body's kind and metadata.id must match the path parameters.",
         "tags": [
           "Resources"
         ],
@@ -396,7 +396,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "Declarative resource metadata.name",
+            "description": "Declarative resource metadata.id",
             "schema": {
               "type": "string"
             }
@@ -483,7 +483,7 @@
       "delete": {
         "operationId": "deleteResource",
         "summary": "Delete an admin resource",
-        "description": "Delete a named declarative admin resource by kind and name. ResourceList and resources without delete semantics are rejected.",
+        "description": "Delete a declarative Admin resource by kind and caller-supplied ID. ResourceList and resources without delete semantics are rejected.",
         "tags": [
           "Resources"
         ],
@@ -495,7 +495,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "Declarative resource metadata.name",
+            "description": "Declarative resource metadata.id",
             "schema": {
               "type": "string"
             }
@@ -663,6 +663,16 @@
           },
           "404": {
             "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Contact ID, name, or phone number already exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -1010,6 +1020,16 @@
               }
             }
           },
+          "409": {
+            "description": "Friend relation already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error",
             "content": {
@@ -1272,6 +1292,16 @@
           },
           "404": {
             "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Friend group ID already exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -1614,6 +1644,16 @@
           },
           "404": {
             "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Friend group member already exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -10413,10 +10453,16 @@
       "FirmwareUpsert": {
         "type": "object",
         "required": [
+          "id",
           "name",
           "slots"
         ],
         "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+          },
           "name": {
             "type": "string",
             "maxLength": 256
@@ -10454,13 +10500,15 @@
       "CredentialUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "provider",
           "body"
         ],
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "provider": {
             "type": "string"
@@ -10521,15 +10569,17 @@
       "ModelUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "kind",
           "source",
           "provider",
           "provider_data"
         ],
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "kind": {
             "$ref": "./shared.json#/components/schemas/ModelKind"
@@ -10560,12 +10610,14 @@
       "MiniMaxTenantUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "credential_id"
         ],
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "app_id": {
             "type": "string"
@@ -10612,12 +10664,14 @@
       "VolcTenantUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "credential_id"
         ],
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "credential_id": {
             "type": "string"
@@ -10693,13 +10747,15 @@
       "VoiceUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "source",
           "provider"
         ],
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "source": {
             "$ref": "./shared.json#/components/schemas/VoiceSource"
@@ -10789,10 +10845,17 @@
       "WorkspaceUpsert": {
         "type": "object",
         "required": [
+          "id",
           "name",
           "workflow_id"
         ],
         "properties": {
+          "id": {
+            "type": "string",
+	        "minLength": 1,
+	        "maxLength": 1024,
+	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+          },
           "name": {
             "type": "string"
           },
@@ -10821,13 +10884,15 @@
       "MemoryLayoutUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "spec"
         ],
         "additionalProperties": false,
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "spec": {
             "$ref": "./shared.json#/components/schemas/MemoryLayoutSpec"
@@ -10837,13 +10902,15 @@
       "WorkflowUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "spec"
         ],
         "additionalProperties": false,
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "spec": {
             "$ref": "./shared.json#/components/schemas/WorkflowSpec"
@@ -10919,12 +10986,14 @@
       "GeminiTenantUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "credential_id"
         ],
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "credential_id": {
             "type": "string"
@@ -10973,12 +11042,14 @@
       "OpenAITenantUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "credential_id"
         ],
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "kind": {
             "$ref": "./shared.json#/components/schemas/OpenAITenantKind"
@@ -11025,12 +11096,14 @@
       "DeepSeekTenantUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "credential_id"
         ],
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "credential_id": {
             "type": "string"
@@ -11071,12 +11144,14 @@
       "DashScopeTenantUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "credential_id"
         ],
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "credential_id": {
             "type": "string"
@@ -11130,7 +11205,9 @@
           },
           "id": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "peer_public_key": {
             "type": "string",
@@ -11165,7 +11242,9 @@
           },
           "id": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "name": {
             "type": "string",
@@ -11215,9 +11294,16 @@
         "additionalProperties": false,
         "required": [
           "owner_public_key",
+          "id",
           "name"
         ],
         "properties": {
+          "id": {
+            "type": "string",
+	        "minLength": 1,
+	        "maxLength": 1024,
+	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+          },
           "owner_public_key": {
             "type": "string",
             "minLength": 1
@@ -11237,7 +11323,16 @@
       "AdminContactPutRequest": {
         "type": "object",
         "additionalProperties": false,
+        "required": [
+          "id"
+        ],
         "properties": {
+          "id": {
+            "type": "string",
+	        "minLength": 1,
+	        "maxLength": 1024,
+	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+          },
           "display_name": {
             "type": "string"
           },
@@ -11273,10 +11368,17 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "id",
           "owner_public_key",
           "peer_public_key"
         ],
         "properties": {
+          "id": {
+            "type": "string",
+	        "minLength": 1,
+	        "maxLength": 1024,
+	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+          },
           "owner_public_key": {
             "type": "string",
             "minLength": 1
@@ -11291,9 +11393,16 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "id",
           "peer_public_key"
         ],
         "properties": {
+          "id": {
+            "type": "string",
+	        "minLength": 1,
+	        "maxLength": 1024,
+	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+          },
           "peer_public_key": {
             "type": "string",
             "minLength": 1
@@ -11304,10 +11413,17 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "id",
           "name",
           "owner_public_key"
         ],
         "properties": {
+          "id": {
+            "type": "string",
+	        "minLength": 1,
+	        "maxLength": 80,
+	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+          },
           "name": {
             "type": "string",
             "minLength": 1
@@ -11327,7 +11443,16 @@
       "AdminFriendGroupPutRequest": {
         "type": "object",
         "additionalProperties": false,
+        "required": [
+          "id"
+        ],
         "properties": {
+          "id": {
+            "type": "string",
+	        "minLength": 1,
+	        "maxLength": 80,
+	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+          },
           "display_name": {
             "type": "string",
             "minLength": 1
@@ -11341,11 +11466,18 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "id",
           "name",
           "peer_public_key",
           "role"
         ],
         "properties": {
+          "id": {
+            "type": "string",
+	        "minLength": 1,
+	        "maxLength": 1024,
+	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+          },
           "name": {
             "type": "string",
             "minLength": 1
@@ -11425,9 +11557,16 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "id",
           "role"
         ],
         "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+          },
           "role": {
             "$ref": "./shared/server.json#/components/schemas/FriendGroupMemberRole"
           }
@@ -11437,10 +11576,17 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "id",
           "invite_token",
           "expires_at"
         ],
         "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+          },
           "invite_token": {
             "type": "string",
             "minLength": 1
@@ -11520,13 +11666,15 @@
       "PetDefUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "spec"
         ],
         "additionalProperties": false,
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "spec": {
             "$ref": "./shared.json#/components/schemas/PetDefSpec"
@@ -11536,13 +11684,15 @@
       "BadgeDefUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "spec"
         ],
         "additionalProperties": false,
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "spec": {
             "$ref": "./shared.json#/components/schemas/BadgeDefSpec"
@@ -11552,13 +11702,15 @@
       "GameDefUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "spec"
         ],
         "additionalProperties": false,
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "spec": {
             "$ref": "./shared.json#/components/schemas/GameDefSpec"
@@ -11618,13 +11770,15 @@
       "RuntimeProfileUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "spec"
         ],
         "additionalProperties": false,
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "spec": {
             "$ref": "./shared.json#/components/schemas/RuntimeProfileSpec"
@@ -11656,14 +11810,16 @@
       "RegistrationTokenUpsert": {
         "type": "object",
         "required": [
-          "name",
+          "id",
           "token",
           "runtime_profile_id"
         ],
         "additionalProperties": false,
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "token": {
             "type": "string"
@@ -11673,7 +11829,7 @@
           },
           "firmware_id": {
             "type": "string",
-            "description": "Optional Server-assigned Firmware release-line ID. The device selects its own channel."
+            "description": "Optional caller-defined Firmware release-line ID. The device selects its own channel."
           }
         }
       }

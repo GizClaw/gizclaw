@@ -116,7 +116,7 @@ func createGatewayRecoveryRegistrationTokens(t *testing.T, count int) []string {
 	for index := range count {
 		name := fmt.Sprintf("gateway-relay-recovery-%d-%d", time.Now().UnixNano(), index)
 		response, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-			Name:             name,
+			Id:               name,
 			Token:            name,
 			RuntimeProfileId: profileID,
 		})
@@ -163,7 +163,7 @@ func createGatewayRecoveryRuntimeProfile(
 	}
 	name := fmt.Sprintf("gw-relay-profile-%d", time.Now().UnixNano())
 	response, err := api.CreateRuntimeProfileWithResponse(ctx, adminhttp.RuntimeProfileUpsert{
-		Name: name,
+		Id: name,
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{},
 			Workflows: apitypes.RuntimeProfileWorkflows{
@@ -205,7 +205,7 @@ func gatewayRecoveryWorkflow(name string, index int) adminhttp.WorkflowUpsert {
 			},
 		}
 	}
-	return adminhttp.WorkflowUpsert{Name: name, Spec: spec}
+	return adminhttp.WorkflowUpsert{Id: name, Spec: spec}
 }
 
 func registerAndPingGatewayRecovery(t *testing.T, client *gizcli.Client, token, id string) {

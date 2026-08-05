@@ -3,11 +3,12 @@
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit)
 
 `toolkit` owns typed Tool Resource persistence, common validation, defensive
-snapshots, and canonical-ID policy filtering. Admin Tool resources have a
-server-assigned `metadata.id` and immutable `metadata.name`. RuntimeProfile
-bindings and Admin `ToolkitPolicy.tool_ids` store canonical IDs. Peer RPC
-projects each binding key as a scoped Tool `name`; Peer Toolkit policy and
-invocation use only that name and never expose the canonical ID.
+snapshots, and canonical-ID policy filtering. An Admin Tool Resource has a
+caller-supplied immutable `metadata.id`; its runtime execution name is the
+explicit immutable `spec.invoke_name`, not a second Admin identity.
+RuntimeProfile bindings and Admin `ToolkitPolicy.tool_ids` store canonical IDs.
+Peer RPC projects each binding key as a scoped Tool `name`; Peer Toolkit policy
+and invocation use only that scoped name and never expose the canonical ID.
 
 Two Tool types are supported:
 

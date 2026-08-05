@@ -17,7 +17,7 @@ func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource
 	if err != nil {
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_WORKSPACE_RESOURCE", err.Error())
 	}
-	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+	if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	spec, err := normalizeWorkspaceResourceSpec(item.Spec)
@@ -25,28 +25,23 @@ func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_WORKSPACE_RESOURCE", err.Error())
 	}
 	item.Spec = spec
-	id, updating, err := resourceUpdateID(item.Metadata)
-	if err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if !updating {
-		createdID, err := m.createWorkspace(ctx, workspaceUpsert(item))
-		if err != nil {
-			return apitypes.ApplyResult{}, err
-		}
-		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindWorkspace, item.Metadata.Name, createdID), nil
-	}
-	existing, exists, err := m.getWorkspace(ctx, id)
+	id := item.Metadata.Id
+	transportID := servicePathID(id)
+	existing, exists, err := m.getWorkspace(ctx, transportID)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if !exists {
-		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindWorkspace, id)
-	}
-	if err := validateImmutableResourceName(apitypes.ResourceKindWorkspace, id, existing.Name, item.Metadata.Name); err != nil {
-		return apitypes.ApplyResult{}, err
+		createdID, err := m.createWorkspace(ctx, workspaceUpsert(item))
+		if err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindWorkspace, createdID), nil
 	}
 	if exists {
+		if existing.Name != item.Spec.Name {
+			return apitypes.ApplyResult{}, applyError(409, "IMMUTABLE_WORKSPACE_NAME", "Workspace name is immutable")
+		}
 		desiredLabels := item.Metadata.Labels
 		if desiredLabels == nil {
 			desiredLabels = existing.Labels
@@ -65,13 +60,13 @@ func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindWorkspace, item.Metadata.Name, id), nil
+			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindWorkspace, id), nil
 		}
 	}
-	if err := m.putWorkspace(ctx, id, workspaceUpsert(item)); err != nil {
+	if err := m.putWorkspace(ctx, transportID, workspaceUpsert(item)); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindWorkspace, item.Metadata.Name, id), nil
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindWorkspace, id), nil
 }
 
 func (m *Manager) createWorkspace(ctx context.Context, body adminhttp.WorkspaceUpsert) (string, error) {
@@ -157,6 +152,7 @@ func (m *Manager) deleteWorkspace(ctx context.Context, name string) (apitypes.Wo
 
 func workspaceSpec(workspace apitypes.Workspace) apitypes.WorkspaceSpec {
 	return apitypes.WorkspaceSpec{
+		Name:       workspace.Name,
 		Parameters: workspace.Parameters,
 		Toolkit:    workspace.Toolkit,
 		WorkflowId: workspace.WorkflowId,
@@ -165,8 +161,9 @@ func workspaceSpec(workspace apitypes.Workspace) apitypes.WorkspaceSpec {
 
 func workspaceUpsert(resource apitypes.WorkspaceResource) adminhttp.WorkspaceUpsert {
 	return adminhttp.WorkspaceUpsert{
+		Id:         resource.Metadata.Id,
 		Labels:     cloneWorkspaceLabels(resource.Metadata.Labels),
-		Name:       string(resource.Metadata.Name),
+		Name:       resource.Spec.Name,
 		Parameters: resource.Spec.Parameters,
 		Toolkit:    resource.Spec.Toolkit,
 		WorkflowId: resource.Spec.WorkflowId,
@@ -177,7 +174,7 @@ func resourceFromWorkspace(item apitypes.Workspace) (apitypes.Resource, error) {
 	return marshalResource(apitypes.WorkspaceResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.WorkspaceResourceKind(apitypes.ResourceKindWorkspace),
-		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name, Labels: cloneWorkspaceLabels(item.Labels)},
+		Metadata:   apitypes.ResourceMetadata{Id: item.Id, Labels: cloneWorkspaceLabels(item.Labels)},
 		Icon:       item.Icon,
 		Spec:       workspaceSpec(item),
 	})

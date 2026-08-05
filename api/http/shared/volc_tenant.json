@@ -12,16 +12,12 @@
         "type": "object",
         "required": [
           "id",
-          "name",
           "credential_id",
           "created_at",
           "updated_at"
         ],
         "properties": {
           "id": {
-            "type": "string"
-          },
-          "name": {
             "type": "string"
           },
           "credential_id": {

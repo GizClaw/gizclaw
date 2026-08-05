@@ -14,9 +14,9 @@ func TestBuilderResolvesCanonicalIDsAndAppliesPolicy(t *testing.T) {
 	for _, tool := range []Tool{testClientTool("volume_set"), testHTTPTool("get_weather")} {
 		created, err := server.CreateTool(context.Background(), tool)
 		if err != nil {
-			t.Fatalf("PutTool(%q): %v", tool.Name, err)
+			t.Fatalf("PutTool(%q): %v", tool.InvokeName, err)
 		}
-		toolIDs[tool.Name] = created.ID
+		toolIDs[tool.InvokeName] = created.ID
 	}
 	kit, err := (&Builder{Tools: server}).Build(context.Background(), BuildRequest{
 		ProfileTools:  []string{toolIDs["get_weather"], toolIDs["volume_set"], toolIDs["get_weather"]},
@@ -26,7 +26,7 @@ func TestBuilderResolvesCanonicalIDsAndAppliesPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
-	if len(kit.Tools) != 1 || kit.Tools[0].Name != "volume_set" {
+	if len(kit.Tools) != 1 || kit.Tools[0].InvokeName != "volume_set" {
 		t.Fatalf("Build() tools = %#v", kit.Tools)
 	}
 	if _, ok := kit.Find("get_weather"); ok {

@@ -23,8 +23,7 @@ import (
 func TestGetPointsAllowsProfileWithoutPetGameplay(t *testing.T) {
 	initialBalance := int64(25)
 	profile := apitypes.RuntimeProfile{
-		Id:   "runtime-profile-points-only",
-		Name: "points-only",
+		Id: "points-only",
 		Spec: apitypes.RuntimeProfileSpec{Gameplay: &apitypes.RuntimeProfileGameplaySpec{
 			Points: &apitypes.RuntimeProfilePointsSpec{InitialBalance: &initialBalance},
 		}},
@@ -43,10 +42,9 @@ func TestApplyBadgeExpAtomicallyPreservesNegativeDeltaSemantics(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 29, 2, 0, 0, 0, time.UTC)
 	catalog := testCatalog(t, now)
-	catalog.NewID = func() string { return "badge-a" }
 	response, err := catalog.CreateBadgeDef(ctx, adminhttp.CreateBadgeDefRequestObject{
 		Body: &adminhttp.BadgeDefUpsert{
-			Name: "badge-a",
+			Id:   "badge-a",
 			Spec: apitypes.BadgeDefSpec{DisplayName: "Badge A"},
 		},
 	})
@@ -89,7 +87,7 @@ func TestApplyBadgeExpAtomicallyPreservesNegativeDeltaSemantics(t *testing.T) {
 
 func TestListPetWorkspaceNamesMigratesFreshDatabase(t *testing.T) {
 	runtime := &Runtime{DB: testDB(t)}
-	ctx := WithRuntimeProfile(context.Background(), apitypes.RuntimeProfile{Id: "runtime-profile-a", Name: "profile-a"})
+	ctx := WithRuntimeProfile(context.Background(), apitypes.RuntimeProfile{Id: "profile-a"})
 	names, err := runtime.ListPetWorkspaceNames(ctx, "peer-a")
 	if err != nil {
 		t.Fatalf("ListPetWorkspaceNames() error = %v", err)
@@ -101,7 +99,7 @@ func TestListPetWorkspaceNamesMigratesFreshDatabase(t *testing.T) {
 
 func TestOwnerHasPetWorkspaceMigratesFreshDatabase(t *testing.T) {
 	runtime := &Runtime{DB: testDB(t)}
-	ctx := WithRuntimeProfile(context.Background(), apitypes.RuntimeProfile{Id: "runtime-profile-a", Name: "profile-a"})
+	ctx := WithRuntimeProfile(context.Background(), apitypes.RuntimeProfile{Id: "profile-a"})
 	allowed, err := runtime.OwnerHasPetWorkspace(ctx, "peer-a", "pet-workspace")
 	if err != nil {
 		t.Fatalf("OwnerHasPetWorkspace() error = %v", err)
@@ -167,7 +165,7 @@ func assertPetWorkspaceBindingIDs(t *testing.T, ctx context.Context, tx *sqlx.Tx
 
 func TestDeletePetMigratesFreshDatabase(t *testing.T) {
 	runtime := &Runtime{DB: testDB(t)}
-	ctx := WithRuntimeProfile(context.Background(), apitypes.RuntimeProfile{Id: "runtime-profile-a", Name: "profile-a"})
+	ctx := WithRuntimeProfile(context.Background(), apitypes.RuntimeProfile{Id: "profile-a"})
 	if _, err := runtime.DeletePet(ctx, "peer-a", "missing-pet"); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("DeletePet() error = %v, want %v", err, sql.ErrNoRows)
 	}
@@ -474,8 +472,7 @@ func TestRuntimeAdoptCallerIDDoesNotReserveUnaffordableID(t *testing.T) {
 		t.Fatalf("rows after unaffordable adoption: reservations=%d Pets=%d transactions=%d, want all zero", reservations, pets, transactions)
 	}
 	fundedBalance := int64(50)
-	profile.Name = "funded"
-	profile.Id = "runtime-profile-funded"
+	profile.Id = "funded"
 	profile.Spec.Gameplay.Points.InitialBalance = &fundedBalance
 	response, err := runtime.AdoptPet(WithRuntimeProfile(context.Background(), profile), "peer-a", apitypes.PetAdoptRequest{Name: petName, DisplayName: "Pet"})
 	if err != nil {
@@ -669,8 +666,7 @@ func TestRuntimeAdoptCallerIDRejectsInvalidProfileAndRetainedReuse(t *testing.T)
 		t.Fatalf("AdoptPet() error = %v", err)
 	}
 	otherProfile := profile
-	otherProfile.Id = "runtime-profile-other"
-	otherProfile.Name = "other"
+	otherProfile.Id = "other"
 	if _, err := runtime.AdoptPet(WithRuntimeProfile(ctx, otherProfile), "peer-a", apitypes.PetAdoptRequest{Name: petID, DisplayName: "Pet"}); !errors.Is(err, ErrPetIDConflict) {
 		t.Fatalf("AdoptPet(cross-profile) error = %v, want conflict", err)
 	}
@@ -1269,7 +1265,7 @@ func TestRuntimeProfileScopesGameplayLists(t *testing.T) {
 		t.Fatalf("Commit() error = %v", err)
 	}
 
-	profileCtx := WithRuntimeProfile(ctx, apitypes.RuntimeProfile{Id: "profile-a", Name: "Profile A"})
+	profileCtx := WithRuntimeProfile(ctx, apitypes.RuntimeProfile{Id: "profile-a"})
 	pets, err := runtime.ListPets(profileCtx, "peer-a", apitypes.GameplayListRequest{})
 	if err != nil || len(pets.Items) != 1 || pets.Items[0].RuntimeProfileId != "profile-a" {
 		t.Fatalf("ListPets(profile-a) = %#v, %v", pets, err)

@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -87,14 +86,8 @@ func (s *Server) ListPeers(ctx context.Context, request adminhttp.ListPeersReque
 
 // FindPubKeyByIMEI implements `adminhttp.StrictServerInterface.FindPubKeyByIMEI`.
 func (s *Server) FindPubKeyByIMEI(ctx context.Context, request adminhttp.FindPubKeyByIMEIRequestObject) (adminhttp.FindPubKeyByIMEIResponseObject, error) {
-	tac, err := pathUnescape(request.Tac)
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
-	serial, err := pathUnescape(request.Serial)
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	tac := request.Tac
+	serial := request.Serial
 	publicKey, err := s.resolveByIMEI(ctx, tac, serial)
 	if err != nil {
 		return adminhttp.FindPubKeyByIMEI404JSONResponse(apitypes.NewErrorResponse("PEER_IMEI_NOT_FOUND", err.Error())), nil
@@ -104,10 +97,7 @@ func (s *Server) FindPubKeyByIMEI(ctx context.Context, request adminhttp.FindPub
 
 // FindPubKeyBySN implements `adminhttp.StrictServerInterface.FindPubKeyBySN`.
 func (s *Server) FindPubKeyBySN(ctx context.Context, request adminhttp.FindPubKeyBySNRequestObject) (adminhttp.FindPubKeyBySNResponseObject, error) {
-	sn, err := pathUnescape(request.Sn)
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	sn := request.Sn
 	publicKey, err := s.resolveBySN(ctx, sn)
 	if err != nil {
 		return adminhttp.FindPubKeyBySN404JSONResponse(apitypes.NewErrorResponse("PEER_SN_NOT_FOUND", err.Error())), nil
@@ -378,16 +368,8 @@ func turnRESTCredential(secret, username string) string {
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
-func pathUnescape(value string) (string, error) {
-	return url.PathUnescape(value)
-}
-
 func parsePublicKeyParam(value string) (giznet.PublicKey, error) {
-	text, err := pathUnescape(value)
-	if err != nil {
-		return giznet.PublicKey{}, err
-	}
-	return publicKeyFromText(text)
+	return publicKeyFromText(value)
 }
 
 func normalizeListParams(cursor *string, limit *int32) (string, int) {

@@ -67,6 +67,7 @@ export function ContactsListPage(): JSX.Element {
     };
   });
   const [ownerPublicKey, setOwnerPublicKey] = useState("");
+  const [resourceID, setResourceID] = useState("");
   const [contactID, setContactID] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -116,6 +117,7 @@ export function ContactsListPage(): JSX.Element {
         createContact({
           body: {
             display_name: displayName.trim() || undefined,
+            id: resourceID,
             name: contactID.trim(),
             owner_public_key: ownerPublicKey.trim(),
             phone_number: phoneNumber.trim() || undefined,
@@ -123,6 +125,7 @@ export function ContactsListPage(): JSX.Element {
         }),
       );
       setOwnerPublicKey("");
+      setResourceID("");
       setContactID("");
       setDisplayName("");
       setPhoneNumber("");
@@ -202,6 +205,16 @@ export function ContactsListPage(): JSX.Element {
                 value={ownerPublicKey}
               />
             </FormField>
+            <FormField
+              description="Caller-defined immutable Admin resource ID."
+              label="Resource ID"
+            >
+              <Input
+                onChange={(event) => setResourceID(event.target.value)}
+                placeholder="contact-resource-id"
+                value={resourceID}
+              />
+            </FormField>
             <FormField label="Contact name">
               <Input
                 onChange={(event) => setContactID(event.target.value)}
@@ -236,6 +249,7 @@ export function ContactsListPage(): JSX.Element {
                 disabled={
                   busy !== "" ||
                   ownerPublicKey.trim() === "" ||
+                  resourceID.trim() === "" ||
                   contactID.trim() === "" ||
                   (displayName.trim() === "" && phoneNumber.trim() === "")
                 }

@@ -59,7 +59,7 @@ func createCSDKSocialRegistrationToken(
 		t.Fatalf("create C social admin client: %v", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	profile, found, err := clitest.RuntimeProfileByName(ctx, api, "default-gameplay")
+	profile, found, err := clitest.RuntimeProfileByID(ctx, api, "default-gameplay")
 	if err != nil || !found {
 		cancel()
 		admin.Close()
@@ -68,7 +68,7 @@ func createCSDKSocialRegistrationToken(
 	response, err := api.CreateRegistrationTokenWithResponse(
 		ctx,
 		adminhttp.RegistrationTokenUpsert{
-			Name:             tokenName,
+			Id:               tokenName,
 			Token:            tokenName,
 			RuntimeProfileId: profile.Id,
 		},

@@ -21,7 +21,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	ctx := context.Background()
 
 	createDoc := mustDocument(t, `{
-		"name": "demo-assistant",
+		"id": "demo-assistant",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
@@ -68,12 +68,12 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		t.Fatalf("GetWorkflow() response = %#v", getResp)
 	}
 	gotSingle := mustSingle(t, apitypes.Workflow(gotDoc))
-	if gotSingle.Name != "demo-assistant" {
-		t.Fatalf("GetWorkflow() name = %q", gotSingle.Name)
+	if gotSingle.Id != "demo-assistant" {
+		t.Fatalf("GetWorkflow() name = %q", gotSingle.Id)
 	}
 
 	updateDoc := mustDocument(t, `{
-		"name": "demo-assistant",
+		"id": "demo-assistant",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
@@ -125,7 +125,7 @@ func TestServerRejectsUnknownWorkflowDriver(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	doc := adminhttp.WorkflowUpsert{
-		Name: "bad-workflow",
+		Id:   "bad-workflow",
 		Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriver("bad-driver")},
 	}
 
@@ -245,7 +245,7 @@ func TestServerRejectsEmptyFlowcraftSpec(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	empty := apitypes.FlowcraftWorkflowSpec{}
-	doc := adminhttp.WorkflowUpsert{Name: "empty-flowcraft", Spec: apitypes.WorkflowSpec{
+	doc := adminhttp.WorkflowUpsert{Id: "empty-flowcraft", Spec: apitypes.WorkflowSpec{
 		Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &empty,
 	}}
 
@@ -264,7 +264,7 @@ func TestServerAcceptsChatRoomWorkflowSpec(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	doc := mustDocument(t, `{
-		"name": "chatroom",
+		"id": "chatroom",
 		"spec": {
 			"driver": "chatroom",
 			"chatroom": {
@@ -303,7 +303,7 @@ func TestServerRejectsInvalidChatRoomWorkflowSpec(t *testing.T) {
 	ctx := context.Background()
 	cases := map[string]adminhttp.WorkflowUpsert{
 		"missing chatroom": {
-			Name: "missing-chatroom",
+			Id:   "missing-chatroom",
 			Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverChatroom},
 		},
 	}
@@ -325,7 +325,7 @@ func TestServerRejectsInvalidToolkitPolicy(t *testing.T) {
 	ctx := context.Background()
 	toolIDs := []string{""}
 	doc := adminhttp.WorkflowUpsert{
-		Name: "bad-toolkit",
+		Id: "bad-toolkit",
 		Spec: apitypes.WorkflowSpec{
 			Driver:  apitypes.WorkflowDriverFlowcraft,
 			Toolkit: &apitypes.ToolkitPolicy{ToolIds: &toolIDs},
@@ -349,14 +349,14 @@ func TestServerRejectsInvalidToolkitPolicy(t *testing.T) {
 	}
 }
 
-func TestServerNormalizesNestedPetToolkitPolicy(t *testing.T) {
+func TestServerCanonicalizesNestedPetToolkitPolicy(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	toolIDs := []string{" tool-b ", "tool-a", "tool-a"}
+	toolIDs := []string{"tool-b", "tool-a", "tool-a"}
 	doc := adminhttp.WorkflowUpsert{
-		Name: "pet-care",
+		Id: "pet-care",
 		Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverPet,
 			Pet: &apitypes.PetWorkflowSpec{
@@ -382,7 +382,7 @@ func TestServerNormalizesNestedPetToolkitPolicy(t *testing.T) {
 		t.Fatalf("CreateWorkflow() nested tool IDs = %#v", got)
 	}
 
-	invalidIDs := []string{" "}
+	invalidIDs := []string{" tool-a "}
 	doc.Spec.Pet.Toolkit = &apitypes.ToolkitPolicy{ToolIds: &invalidIDs}
 	invalidResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Id: created.Id, Body: &doc})
 	if err != nil {
@@ -420,7 +420,7 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	seed := mustDocument(t, `{
-		"name": "expected-name",
+		"id": "expected-name",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
@@ -431,7 +431,7 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 	}
 	created := createdResponse.(adminhttp.CreateWorkflow200JSONResponse)
 	doc := mustDocument(t, `{
-		"name": "other-name",
+		"id": "other-name",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
@@ -471,7 +471,7 @@ func TestServerRejectsNonCanonicalWorkflowName(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	doc := mustDocument(t, `{
-		"name": " padded-workflow ",
+		"id": " padded-workflow ",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
@@ -494,7 +494,7 @@ func TestServerListWorkflowsPagination(t *testing.T) {
 
 	for _, name := range []string{"alpha001", "beta0001", "gamma001"} {
 		doc := mustDocument(t, fmt.Sprintf(`{
-			"name": %q,
+			"id": %q,
 			"spec": {
 				"driver": "flowcraft",
 				"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}			}
@@ -544,7 +544,7 @@ func TestServerWorkflowConflictAndMissingDelete(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	doc := mustDocument(t, `{
-		"name": "duplicate",
+		"id": "duplicate",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
@@ -575,7 +575,7 @@ func TestServerWorkflowStoreNotConfigured(t *testing.T) {
 	srv := &Server{}
 	ctx := context.Background()
 	doc := mustDocument(t, `{
-		"name": "missing-store",
+		"id": "missing-store",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
@@ -616,8 +616,8 @@ func TestServerRejectsMissingWorkflowRequiredFields(t *testing.T) {
 				Chatroom: &apitypes.ChatRoomWorkflowSpec{},
 			},
 		},
-		"driver": {Name: "bad"},
-		"spec":   {Name: "bad"},
+		"driver": {Id: "bad"},
+		"spec":   {Id: "bad"},
 	} {
 		resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
 		if err != nil {
@@ -635,7 +635,7 @@ func TestServerRejectsUnsupportedWorkflowDriver(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	doc := adminhttp.WorkflowUpsert{
-		Name: "bad-version",
+		Id:   "bad-version",
 		Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriver("example-invalid")},
 	}
 	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
@@ -651,12 +651,12 @@ func TestWorkflowResponseVisitors(t *testing.T) {
 	t.Parallel()
 
 	doc := mustDocument(t, `{
-		"name": "visitor",
+		"id": "visitor",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
-	responseDoc := apitypes.Workflow{Name: doc.Name, Spec: doc.Spec}
+	responseDoc := apitypes.Workflow{Id: doc.Id, Spec: doc.Spec}
 	cases := map[string]func(*fiber.Ctx) error{
 		"create": createWorkflow200Response{doc: responseDoc}.VisitCreateWorkflowResponse,
 		"get":    getWorkflow200Response{doc: responseDoc}.VisitGetWorkflowResponse,
@@ -713,5 +713,5 @@ func workflowDriver(t *testing.T, doc apitypes.Workflow) string {
 func mustSingle(t *testing.T, doc apitypes.Workflow) adminhttp.WorkflowUpsert {
 	t.Helper()
 
-	return adminhttp.WorkflowUpsert{Name: doc.Name, Spec: doc.Spec}
+	return adminhttp.WorkflowUpsert{Id: doc.Id, Spec: doc.Spec}
 }

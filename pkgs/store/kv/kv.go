@@ -84,6 +84,10 @@ type createIfAbsentStore interface {
 	CreateIfAbsent(ctx context.Context, guard Entry, entries []Entry) (existing []byte, created bool, err error)
 }
 
+type createIfAllAbsentStore interface {
+	CreateIfAllAbsent(ctx context.Context, guards []Entry, entries []Entry) (conflict Key, existing []byte, created bool, err error)
+}
+
 type compareAndMutateStore interface {
 	CompareAndMutate(
 		ctx context.Context,
@@ -116,6 +120,16 @@ func SupportsCreateIfAbsent(store Store) bool {
 	return ok
 }
 
+// SupportsCreateIfAllAbsent reports whether store can atomically require
+// several uniqueness keys to be absent before creating one record set.
+func SupportsCreateIfAllAbsent(store Store) bool {
+	if prefixed, ok := store.(*prefixedStore); ok {
+		return SupportsCreateIfAllAbsent(prefixed.base)
+	}
+	_, ok := store.(createIfAllAbsentStore)
+	return ok
+}
+
 // CreateIfAbsent atomically stores guard and entries through the Store's
 // optional conditional-create capability. When guard.Key already exists, it
 // returns its stored value and leaves every key unchanged. The boolean reports
@@ -127,6 +141,21 @@ func CreateIfAbsent(ctx context.Context, store Store, guard Entry, entries []Ent
 		return nil, false, ErrCreateIfAbsentUnsupported
 	}
 	return conditional.CreateIfAbsent(ctx, guard, entries)
+}
+
+// CreateIfAllAbsent atomically checks every guard key and stores all guards
+// and entries only when none of the guards exists. On conflict it returns the
+// first existing guard key and value in input order without changing any key.
+// At least one guard is required; guards win when an entry repeats a guard key.
+func CreateIfAllAbsent(ctx context.Context, store Store, guards []Entry, entries []Entry) (conflict Key, existing []byte, created bool, err error) {
+	conditional, ok := store.(createIfAllAbsentStore)
+	if !ok {
+		return nil, nil, false, ErrCreateIfAbsentUnsupported
+	}
+	if len(guards) == 0 {
+		return nil, nil, false, errors.New("kv: create-if-all-absent requires at least one guard")
+	}
+	return conditional.CreateIfAllAbsent(ctx, guards, entries)
 }
 
 // CompareAndMutate atomically applies entries and deletes when guard still has

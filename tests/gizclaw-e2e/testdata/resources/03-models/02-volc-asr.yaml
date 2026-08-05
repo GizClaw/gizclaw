@@ -2,13 +2,13 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Model
 metadata:
-  name: volc-bigasr-sauc
+  id: volc-bigasr-sauc
 spec:
   kind: asr
   source: manual
   provider:
     kind: volc-tenant
-    name: volc-main
+    id: volc-main
   name: Volc BigASR SAUC
   description: Volc BigASR SAUC model
   provider_data:

@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"net/url"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -26,10 +26,12 @@ import (
 )
 
 var (
-	workspacesRoot        = kv.Key{"by-id"}
-	workspacesByScopeRoot = kv.Key{"by-scope-name"}
-	workflowsRoot         = kv.Key{"by-id"}
-	workspacesByOwnerRoot = kv.Key{"by-owner"}
+	workspacesRoot         = kv.Key{"by-id"}
+	workspacesByScopeRoot  = kv.Key{"by-scope-name"}
+	workflowsRoot          = kv.Key{"by-id"}
+	workspacesByOwnerRoot  = kv.Key{"by-owner"}
+	errWorkspaceIDExists   = errors.New("workspace id already exists")
+	errWorkspaceNameExists = errors.New("workspace name already exists")
 )
 
 const (
@@ -51,6 +53,8 @@ type Server struct {
 	Assets        objectstore.ObjectStore
 	IconLocks     iconasset.Locker
 	NewID         func() string
+
+	createMu sync.Mutex
 }
 
 type ModelService interface {
@@ -95,6 +99,12 @@ type WorkspaceAdminService interface {
 	DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error)
 	GetWorkspace(context.Context, adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error)
 	PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error)
+}
+
+// PeerWorkspaceService is the Peer-facing create surface. Peer callers choose
+// an owner-scoped name; the Server allocates the separate canonical Admin ID.
+type PeerWorkspaceService interface {
+	CreatePeerWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error)
 }
 
 // SystemWorkspaceService is the domain-only Workspace lifecycle surface. It is
@@ -238,11 +248,29 @@ func (s *Server) CreateWorkspace(ctx context.Context, request adminhttp.CreateWo
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
+	if _, err := getWorkspaceByID(ctx, store, normalized.Id); err == nil {
+		return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse("WORKSPACE_ALREADY_EXISTS", fmt.Sprintf("workspace id %q already exists", normalized.Id))), nil
+	} else if !errors.Is(err, kv.ErrNotFound) {
+		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
 	workspace, err := s.createWorkspaceRecord(ctx, store, normalized, false)
 	if err != nil {
+		if errors.Is(err, errWorkspaceIDExists) || errors.Is(err, errWorkspaceNameExists) {
+			return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse("WORKSPACE_ALREADY_EXISTS", err.Error())), nil
+		}
 		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.CreateWorkspace200JSONResponse(workspace), nil
+}
+
+func (s *Server) CreatePeerWorkspace(ctx context.Context, request adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
+	if request.Body == nil {
+		return s.CreateWorkspace(ctx, request)
+	}
+	body := *request.Body
+	body.Id = s.newID()
+	request.Body = &body
+	return s.CreateWorkspace(ctx, request)
 }
 
 func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
@@ -255,6 +283,9 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 	store, err := s.store()
 	if err != nil {
 		return apitypes.Workspace{}, false, err
+	}
+	if strings.TrimSpace(body.Id) == "" {
+		body.Id = s.newID()
 	}
 	normalized, err := normalizeWorkspaceUpsert(body, "")
 	if err != nil {
@@ -307,10 +338,23 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 }
 
 func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, normalized adminhttp.WorkspaceUpsert, system bool) (apitypes.Workspace, error) {
+	s.createMu.Lock()
+	defer s.createMu.Unlock()
+	if _, err := getWorkspaceByID(ctx, store, normalized.Id); err == nil {
+		return apitypes.Workspace{}, fmt.Errorf("%w: %q", errWorkspaceIDExists, normalized.Id)
+	} else if !errors.Is(err, kv.ErrNotFound) {
+		return apitypes.Workspace{}, err
+	}
+	nameKey := workspaceScopeNameKey(optionalWorkspaceOwner(ctx), normalized.Name)
+	if _, err := store.Get(ctx, nameKey); err == nil {
+		return apitypes.Workspace{}, fmt.Errorf("%w: %q", errWorkspaceNameExists, normalized.Name)
+	} else if !errors.Is(err, kv.ErrNotFound) {
+		return apitypes.Workspace{}, err
+	}
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
 		CreatedAt:    now,
-		Id:           s.newID(),
+		Id:           normalized.Id,
 		LastActiveAt: now,
 		Labels:       cloneLabelsOrEmpty(normalized.Labels),
 		Name:         normalized.Name,
@@ -343,21 +387,33 @@ func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, norm
 	if err != nil {
 		return apitypes.Workspace{}, cleanupRuntime(err)
 	}
-	entries := []kv.Entry{{Key: workspaceKey(workspace.Id), Value: data}}
+	guards := []kv.Entry{
+		{Key: workspaceKey(workspace.Id), Value: data},
+		{Key: nameKey, Value: []byte(workspace.Id)},
+	}
+	var entries []kv.Entry
 	if workspace.OwnerPublicKey != nil && !system {
 		entries = append(entries, kv.Entry{Key: workspaceByOwnerKey(*workspace.OwnerPublicKey, workspace.Name), Value: []byte(workspace.Id)})
 	}
-	_, created, err := kv.CreateIfAbsent(ctx, store,
-		kv.Entry{Key: workspaceScopeNameKey(workspace.OwnerPublicKey, workspace.Name), Value: []byte(workspace.Id)},
-		entries,
-	)
+	conflict, _, created, err := kv.CreateIfAllAbsent(ctx, store, guards, entries)
 	if err != nil {
 		return apitypes.Workspace{}, cleanupRuntime(err)
 	}
 	if !created {
-		return apitypes.Workspace{}, cleanupRuntime(fmt.Errorf("workspace %q already exists", workspace.Name))
+		if reflect.DeepEqual(conflict, workspaceKey(workspace.Id)) {
+			return apitypes.Workspace{}, cleanupRuntime(fmt.Errorf("%w: %q", errWorkspaceIDExists, workspace.Id))
+		}
+		return apitypes.Workspace{}, cleanupRuntime(fmt.Errorf("%w: %q", errWorkspaceNameExists, workspace.Name))
 	}
 	return workspace, nil
+}
+
+func optionalWorkspaceOwner(ctx context.Context) *string {
+	owner, ok := ownership.FromContext(ctx)
+	if !ok {
+		return nil
+	}
+	return &owner
 }
 
 func (s *Server) DeleteWorkspace(ctx context.Context, request adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
@@ -365,10 +421,7 @@ func (s *Server) DeleteWorkspace(ctx context.Context, request adminhttp.DeleteWo
 	if err != nil {
 		return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	id := string(request.Id)
 	unlock := s.IconLocks.LockOwner(id)
 	defer unlock()
 	workspace, err := getWorkspaceByID(ctx, store, id)
@@ -710,10 +763,7 @@ func (s *Server) GetWorkspace(ctx context.Context, request adminhttp.GetWorkspac
 	if err != nil {
 		return adminhttp.GetWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	id := string(request.Id)
 	workspace, err := getWorkspaceByID(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
@@ -746,13 +796,13 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	if request.Body == nil {
 		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	id := string(request.Id)
 	normalized, err := normalizeWorkspaceUpsert(*request.Body, "")
 	if err != nil {
 		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
+	}
+	if normalized.Id != id {
+		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("RESOURCE_ID_MISMATCH", "body id must match path id")), nil
 	}
 	store, err := s.store()
 	if err != nil {
@@ -971,6 +1021,10 @@ func workspaceIsSystem(workspace apitypes.Workspace) bool {
 }
 
 func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string) (adminhttp.WorkspaceUpsert, error) {
+	id := in.Id
+	if err := customid.ValidateResourceID(id); err != nil {
+		return adminhttp.WorkspaceUpsert{}, err
+	}
 	name := string(in.Name)
 	if err := customid.ValidateField("name", name); err != nil {
 		return adminhttp.WorkspaceUpsert{}, err
@@ -983,9 +1037,9 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 			return adminhttp.WorkspaceUpsert{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
 		}
 	}
-	workflowID := strings.TrimSpace(string(in.WorkflowId))
-	if workflowID == "" {
-		return adminhttp.WorkspaceUpsert{}, errors.New("workflow_id is required")
+	workflowID := string(in.WorkflowId)
+	if err := customid.ValidateResourceID(workflowID); err != nil {
+		return adminhttp.WorkspaceUpsert{}, fmt.Errorf("workflow_id: %w", err)
 	}
 	policy, err := toolkit.NormalizePolicy(in.Toolkit)
 	if err != nil {
@@ -996,6 +1050,7 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 		return adminhttp.WorkspaceUpsert{}, err
 	}
 	return adminhttp.WorkspaceUpsert{
+		Id:         id,
 		Labels:     labels,
 		Name:       string(name),
 		Parameters: cloneParameters(in.Parameters),

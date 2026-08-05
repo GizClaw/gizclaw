@@ -15,43 +15,15 @@ func (m *Manager) applyMemoryLayout(ctx context.Context, resource apitypes.Resou
 	if err != nil {
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_MEMORY_LAYOUT_RESOURCE", err.Error())
 	}
-	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+	if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	id, updating, err := resourceUpdateID(item.Metadata)
-	if err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if !updating {
-		createdID, err := m.createMemoryLayout(ctx, memoryLayoutFromResource(item))
-		if err != nil {
-			return apitypes.ApplyResult{}, err
-		}
-		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindMemoryLayout, item.Metadata.Name, createdID), nil
-	}
-	existing, exists, err := m.getMemoryLayout(ctx, id)
-	if err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if !exists {
-		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindMemoryLayout, id)
-	}
-	if err := validateImmutableResourceName(apitypes.ResourceKindMemoryLayout, id, existing.Name, item.Metadata.Name); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if exists {
-		same, err := semanticEqual(existing.Spec, item.Spec)
-		if err != nil {
-			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
-		}
-		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindMemoryLayout, item.Metadata.Name, id), nil
-		}
-	}
-	if err := m.putMemoryLayout(ctx, id, memoryLayoutFromResource(item)); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindMemoryLayout, item.Metadata.Name, id), nil
+	body := memoryLayoutFromResource(item)
+	return applyConcreteResource(ctx, item.Metadata, apitypes.ResourceKindMemoryLayout, item.Spec,
+		m.getMemoryLayout,
+		func(ctx context.Context) (string, error) { return m.createMemoryLayout(ctx, body) },
+		func(ctx context.Context, id string) error { return m.putMemoryLayout(ctx, id, body) },
+		func(value apitypes.MemoryLayout) apitypes.MemoryLayoutSpec { return value.Spec })
 }
 
 func (m *Manager) createMemoryLayout(ctx context.Context, body adminhttp.MemoryLayoutUpsert) (string, error) {
@@ -128,11 +100,11 @@ func resourceFromMemoryLayout(item apitypes.MemoryLayout) (apitypes.Resource, er
 	return marshalResource(apitypes.MemoryLayoutResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.MemoryLayoutResourceKindMemoryLayout,
-		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: item.Id},
 		Spec:       item.Spec,
 	})
 }
 
 func memoryLayoutFromResource(item apitypes.MemoryLayoutResource) adminhttp.MemoryLayoutUpsert {
-	return adminhttp.MemoryLayoutUpsert{Name: item.Metadata.Name, Spec: item.Spec}
+	return adminhttp.MemoryLayoutUpsert{Id: item.Metadata.Id, Spec: item.Spec}
 }

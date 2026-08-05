@@ -2,8 +2,9 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Firmware
 metadata:
-  name: devkit-voice-firmware
+  id: devkit-voice-firmware
 spec:
+  name: Devkit Voice
   description: Voice devkit firmware resource entry
   slots:
     stable: {}

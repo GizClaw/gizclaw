@@ -1,20 +1,18 @@
 ---
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
-metadata:
-  name: pet-flowcraft-workflow-models
 spec:
   items:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Model
     metadata:
-      name: pet-flowcraft-workflow-chat
+      id: pet-flowcraft-workflow-chat
     spec:
       kind: llm
       source: manual
       provider:
         kind: volc-tenant
-        name: volc-ark
+        id: volc-ark
       name: Pet Flowcraft Workflow Chat
       description: Operational chat model used by the built-in Pet Flowcraft workflow
       provider_data:
@@ -32,13 +30,13 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Model
     metadata:
-      name: pet-flowcraft-workflow-extract
+      id: pet-flowcraft-workflow-extract
     spec:
       kind: llm
       source: manual
       provider:
         kind: volc-tenant
-        name: volc-ark
+        id: volc-ark
       name: Pet Flowcraft Workflow Extract
       description: Operational extraction model used by the built-in Pet Flowcraft workflow
       provider_data:
@@ -56,13 +54,13 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Model
     metadata:
-      name: pet-flowcraft-workflow-asr
+      id: pet-flowcraft-workflow-asr
     spec:
       kind: asr
       source: manual
       provider:
         kind: volc-tenant
-        name: volc-main
+        id: volc-main
       name: Pet Flowcraft Workflow ASR
       description: Operational speech recognition model used by the built-in Pet Flowcraft workflow
       provider_data:

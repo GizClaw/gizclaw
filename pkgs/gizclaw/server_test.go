@@ -659,7 +659,7 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 		t.Fatalf("init error = %v", err)
 	}
 	modelResponse, err := server.manager.Models.CreateModel(context.Background(), adminhttp.CreateModelRequestObject{Body: &adminhttp.ModelUpsert{
-		Name:   "profile-model",
+		Id:     "profile-model",
 		Kind:   apitypes.ModelKindLlm,
 		Source: apitypes.ModelSourceManual,
 		Provider: apitypes.ModelProvider{
@@ -682,7 +682,7 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	}
 	installTestSystemWorkflowResolver(server.manager.RuntimeProfiles)
 	profileResponse, err := server.manager.RuntimeProfiles.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
-		Name: "public-http-profile",
+		Id: "public-http-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: testRuntimeProfileWorkflows(),
 			Resources: apitypes.RuntimeProfileResources{
@@ -698,7 +698,7 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 		t.Fatalf("CreateRuntimeProfile response = %#v", profileResponse)
 	}
 	tokenResponse, err := server.manager.RuntimeProfiles.CreateRegistrationToken(context.Background(), adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name:             "public-http-token",
+		Id:               "public-http-token",
 		Token:            "public-http-registration",
 		RuntimeProfileId: createdProfile.Id,
 	}})

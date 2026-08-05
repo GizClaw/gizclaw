@@ -2,8 +2,8 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: GeminiTenant
 metadata:
-  name: gemini-main
+  id: gemini-main
 spec:
-  credential_name: gemini-main-credential
+  credential_id: gemini-main-credential
   location: global
   description: Gemini main tenant

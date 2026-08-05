@@ -118,7 +118,7 @@ func TestRPCServerPetPixaDownloadStreamsPublishedAsset(t *testing.T) {
 	}
 	createResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{
 		Body: &adminhttp.PetDefUpsert{
-			Name: "petdef-rpc",
+			Id: "petdef-rpc",
 			Spec: apitypes.PetDefSpec{
 				Character: apitypes.PetDefCharacterSpec{Prompt: "Friendly RPC pet."},
 				Voice:     apitypes.PetDefVoiceSpec{Prompt: "Warm and concise."},
@@ -174,8 +174,7 @@ func TestRPCServerPetPixaDownloadStreamsPublishedAsset(t *testing.T) {
 		PetDef: "rpc", Weight: 1, AdoptionCost: &adoptionCost,
 	}}
 	profile := apitypes.RuntimeProfile{
-		Id:   "runtime-profile-rpc",
-		Name: "rpc-profile",
+		Id: "rpc-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{PetDefs: &petDefs},
 			Workflows: apitypes.RuntimeProfileWorkflows{

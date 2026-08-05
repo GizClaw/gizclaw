@@ -111,7 +111,7 @@ func TestListVoicesReturnsRuntimeProfileVoiceList(t *testing.T) {
 				t.Fatalf("unexpected admin voice filters = %#v", req.Params)
 			}
 			return adminhttp.ListVoices200JSONResponse(adminhttp.VoiceList{
-				Items: []apitypes.Voice{{Id: "voice-a", Name: "voice-a", DisplayName: stringPtr("Voice A")}},
+				Items: []apitypes.Voice{{Id: "voice-a", DisplayName: stringPtr("Voice A")}},
 			}), nil
 		}),
 	}

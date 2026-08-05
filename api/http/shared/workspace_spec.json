@@ -11,9 +11,15 @@
       "WorkspaceSpec": {
         "type": "object",
         "required": [
+          "name",
           "workflow_id"
         ],
         "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Immutable owner-scoped Workspace name."
+          },
           "workflow_id": {
             "type": "string",
             "minLength": 1,

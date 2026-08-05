@@ -14,6 +14,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { encodeRouteParam } from "@/views/admin/full/lib/route-param";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -135,7 +136,7 @@ export function OverviewPage(): JSX.Element {
                 </TableHeader>
                 <TableBody>
                   {latestPeers.map((peer) => {
-                    const path = `/peers/${encodeURIComponent(peer.public_key)}`;
+                    const path = `/peers/${encodeRouteParam(peer.public_key)}`;
                     return (
                       <TableRow
                         className="cursor-pointer hover:bg-muted/40"

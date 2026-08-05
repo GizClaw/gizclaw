@@ -13,10 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-var (
-	deepSeekTenantsRoot       = kv.Key{"by-id"}
-	deepSeekTenantsByNameRoot = kv.Key{"by-name"}
-)
+var deepSeekTenantsRoot = kv.Key{"by-id"}
 
 func (s *Server) ListDeepSeekTenants(ctx context.Context, request adminhttp.ListDeepSeekTenantsRequestObject) (adminhttp.ListDeepSeekTenantsResponseObject, error) {
 	store, err := s.deepSeekTenantStore()
@@ -47,16 +44,15 @@ func (s *Server) CreateDeepSeekTenant(ctx context.Context, request adminhttp.Cre
 	if err != nil {
 		return adminhttp.CreateDeepSeekTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DEEPSEEK_TENANT", err.Error())), nil
 	}
-	tenant.Id = s.newID()
 	now := s.now()
 	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
-	created, err := createNamedTenant(ctx, store, deepSeekTenantKey(tenant.Id), deepSeekTenantNameKey(tenant.Name), tenant.Id, tenant)
+	created, err := createTenant(ctx, store, deepSeekTenantKey(tenant.Id), tenant)
 	if err != nil {
 		return adminhttp.CreateDeepSeekTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if !created {
-		return adminhttp.CreateDeepSeekTenant409JSONResponse(apitypes.NewErrorResponse("DEEPSEEK_TENANT_ALREADY_EXISTS", fmt.Sprintf("DeepSeek tenant %q already exists", tenant.Name))), nil
+		return adminhttp.CreateDeepSeekTenant409JSONResponse(apitypes.NewErrorResponse("DEEPSEEK_TENANT_ALREADY_EXISTS", fmt.Sprintf("DeepSeek tenant %q already exists", tenant.Id))), nil
 	}
 	return adminhttp.CreateDeepSeekTenant200JSONResponse(tenant), nil
 }
@@ -66,10 +62,7 @@ func (s *Server) GetDeepSeekTenant(ctx context.Context, request adminhttp.GetDee
 	if err != nil {
 		return adminhttp.GetDeepSeekTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	id := string(request.Id)
 	tenant, err := getDeepSeekTenant(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
@@ -88,11 +81,8 @@ func (s *Server) PutDeepSeekTenant(ctx context.Context, request adminhttp.PutDee
 	if request.Body == nil {
 		return adminhttp.PutDeepSeekTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DEEPSEEK_TENANT", "request body required")), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
-	tenant, err := normalizeDeepSeekTenantUpsert(*request.Body, "")
+	id := string(request.Id)
+	tenant, err := normalizeDeepSeekTenantUpsert(*request.Body, id)
 	if err != nil {
 		return adminhttp.PutDeepSeekTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DEEPSEEK_TENANT", err.Error())), nil
 	}
@@ -106,10 +96,6 @@ func (s *Server) PutDeepSeekTenant(ctx context.Context, request adminhttp.PutDee
 	now := s.now()
 	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
-	if tenant.Name != previous.Name {
-		return adminhttp.PutDeepSeekTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DEEPSEEK_TENANT", fmt.Sprintf("name %q must match immutable name %q", tenant.Name, previous.Name))), nil
-	}
-	tenant.Id = previous.Id
 	tenant.CreatedAt = previous.CreatedAt
 	if err := writeDeepSeekTenant(ctx, store, tenant); err != nil {
 		return adminhttp.PutDeepSeekTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -122,10 +108,7 @@ func (s *Server) DeleteDeepSeekTenant(ctx context.Context, request adminhttp.Del
 	if err != nil {
 		return adminhttp.DeleteDeepSeekTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	id := string(request.Id)
 	tenant, err := getDeepSeekTenant(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
@@ -133,27 +116,27 @@ func (s *Server) DeleteDeepSeekTenant(ctx context.Context, request adminhttp.Del
 		}
 		return adminhttp.DeleteDeepSeekTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := deleteNamedTenant(ctx, store, deepSeekTenantKey(tenant.Id), deepSeekTenantNameKey(tenant.Name)); err != nil {
+	if err := deleteTenant(ctx, store, deepSeekTenantKey(tenant.Id)); err != nil {
 		return adminhttp.DeleteDeepSeekTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteDeepSeekTenant200JSONResponse(tenant), nil
 }
 
-func normalizeDeepSeekTenantUpsert(in adminhttp.DeepSeekTenantUpsert, expectedName string) (apitypes.DeepSeekTenant, error) {
-	name := strings.TrimSpace(string(in.Name))
-	if name == "" {
-		return apitypes.DeepSeekTenant{}, errors.New("name is required")
+func normalizeDeepSeekTenantUpsert(in adminhttp.DeepSeekTenantUpsert, expectedID string) (apitypes.DeepSeekTenant, error) {
+	id := string(in.Id)
+	if err := validateResourceID(id); err != nil {
+		return apitypes.DeepSeekTenant{}, err
 	}
-	if expectedName != "" && name != expectedName {
-		return apitypes.DeepSeekTenant{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
+	if expectedID != "" && id != expectedID {
+		return apitypes.DeepSeekTenant{}, fmt.Errorf("id %q must match path id %q", id, expectedID)
 	}
-	credentialName := strings.TrimSpace(string(in.CredentialId))
-	if credentialName == "" {
-		return apitypes.DeepSeekTenant{}, errors.New("credential_id is required")
+	credentialID := string(in.CredentialId)
+	if err := validateResourceReference("credential_id", credentialID); err != nil {
+		return apitypes.DeepSeekTenant{}, err
 	}
 	tenant := apitypes.DeepSeekTenant{
-		CredentialId: string(credentialName),
-		Name:         string(name),
+		CredentialId: credentialID,
+		Id:           id,
 	}
 	if in.BaseUrl != nil {
 		baseURL := strings.TrimSpace(*in.BaseUrl)
@@ -211,10 +194,10 @@ func listDeepSeekTenantsPage(ctx context.Context, store kv.Store, cursor string,
 func writeDeepSeekTenant(ctx context.Context, store kv.Store, tenant apitypes.DeepSeekTenant) error {
 	data, err := json.Marshal(tenant)
 	if err != nil {
-		return fmt.Errorf("deepseek tenants: encode tenant %s: %w", tenant.Name, err)
+		return fmt.Errorf("deepseek tenants: encode tenant %s: %w", tenant.Id, err)
 	}
 	if err := store.Set(ctx, deepSeekTenantKey(string(tenant.Id)), data); err != nil {
-		return fmt.Errorf("deepseek tenants: write tenant %s: %w", tenant.Name, err)
+		return fmt.Errorf("deepseek tenants: write tenant %s: %w", tenant.Id, err)
 	}
 	return nil
 }
@@ -233,8 +216,4 @@ func getDeepSeekTenant(ctx context.Context, store kv.Store, id string) (apitypes
 
 func deepSeekTenantKey(id string) kv.Key {
 	return append(append(kv.Key{}, deepSeekTenantsRoot...), escapeStoreSegment(id))
-}
-
-func deepSeekTenantNameKey(name string) kv.Key {
-	return tenantNameKey(deepSeekTenantsByNameRoot, name)
 }

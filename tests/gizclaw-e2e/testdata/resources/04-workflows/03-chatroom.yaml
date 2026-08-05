@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  name: chatroom
+  id: chatroom
 spec:
   driver: chatroom
   chatroom:

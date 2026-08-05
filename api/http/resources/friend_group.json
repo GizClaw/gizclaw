@@ -32,7 +32,7 @@
                 "$ref": "./resource.json#/components/schemas/ResourceMetadata"
               }
             ],
-            "description": "metadata.name is the immutable Admin name; metadata.id is omitted on create and required on update."
+            "description": "metadata.id is the caller-supplied canonical FriendGroup ID. spec.name is the immutable owner-scoped Peer-visible group name."
           },
           "spec": {
             "$ref": "#/components/schemas/FriendGroupSpec"
@@ -42,13 +42,19 @@
       "FriendGroupSpec": {
         "type": "object",
         "required": [
-          "owner_public_key"
+          "owner_public_key",
+          "name"
         ],
         "properties": {
           "owner_public_key": {
             "type": "string",
             "minLength": 1,
             "description": "Immutable owner Peer public key used to resolve the system Workflow."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Immutable owner-scoped Peer-visible friend group name."
           },
           "description": {
             "type": "string"

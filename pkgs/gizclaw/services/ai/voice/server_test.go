@@ -2,11 +2,13 @@ package voice
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -20,7 +22,7 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 		},
 	}
 	body := adminhttp.VoiceUpsert{
-		Name:   "manual:voice-1",
+		Id:     "manual:voice-1",
 		Source: apitypes.VoiceSourceManual,
 		Provider: apitypes.VoiceProvider{
 			Kind: apitypes.VoiceProviderKind("openai-tenant"),
@@ -56,7 +58,7 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 	if !ok {
 		t.Fatalf("ListVoices() response = %#v", listResp)
 	}
-	if len(listed.Items) != 1 || listed.Items[0].Name != "manual:voice-1" {
+	if len(listed.Items) != 1 || listed.Items[0].Id != "manual:voice-1" {
 		t.Fatalf("ListVoices() items = %#v", listed.Items)
 	}
 
@@ -131,8 +133,14 @@ func TestVoiceHelperIndexesAndSemanticEquality(t *testing.T) {
 	store := kv.NewMemory(nil)
 	kind := apitypes.VoiceProviderKindMinimaxTenant
 
-	if got := StableID(kind, "main", "voice-1"); got != "minimax-tenant:main:voice-1" {
+	if got := StableID(kind, "main", "voice-1"); got != "voice-sha256-cba3bcf36024b57a995bfa445ad737b1c00f0619d204db2ac0c59fad26f7bc3d" {
 		t.Fatalf("StableID() = %q", got)
+	}
+	if left, right := StableID(kind, "a:b", "c"), StableID(kind, "a", "b:c"); left == right {
+		t.Fatalf("StableID() collision = %q", left)
+	}
+	if got := StableID(kind, strings.Repeat("tenant", 1024), strings.Repeat("voice", 1024)); len(got) > customid.MaxResourceIDCharacters {
+		t.Fatalf("StableID(long inputs) length = %d", len(got))
 	}
 	if got := ProviderData(kind, map[string]any{"voice_id": " ", "nil": nil}); got != nil {
 		t.Fatalf("ProviderData() = %#v, want nil", got)
@@ -153,7 +161,6 @@ func TestVoiceHelperIndexesAndSemanticEquality(t *testing.T) {
 	})
 	voice := apitypes.Voice{
 		Id:           "manual:voice-1",
-		Name:         "manual:voice-1",
 		DisplayName:  &name,
 		Description:  &description,
 		Provider:     apitypes.VoiceProvider{Kind: kind, Id: "main"},
@@ -241,7 +248,7 @@ func TestServerVoiceValidationAndPagination(t *testing.T) {
 		t.Fatalf("CreateVoice(nil body) response = %#v", resp)
 	}
 	if resp, err := srv.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &adminhttp.VoiceUpsert{
-		Name:   "manual:bad",
+		Id:     "manual:bad",
 		Source: apitypes.VoiceSource("bad"),
 		Provider: apitypes.VoiceProvider{
 			Kind: "openai-tenant",
@@ -252,17 +259,23 @@ func TestServerVoiceValidationAndPagination(t *testing.T) {
 	} else if _, ok := resp.(adminhttp.CreateVoice400JSONResponse); !ok {
 		t.Fatalf("CreateVoice(invalid source) response = %#v", resp)
 	}
+	whitespaceProvider := voiceUpsert("manual:whitespace-provider", " main ")
+	if resp, err := srv.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &whitespaceProvider}); err != nil {
+		t.Fatalf("CreateVoice(whitespace provider id) error = %v", err)
+	} else if _, ok := resp.(adminhttp.CreateVoice400JSONResponse); !ok {
+		t.Fatalf("CreateVoice(whitespace provider id) response = %#v", resp)
+	}
 
 	first := voiceUpsert("manual:voice-a", "main")
 	second := voiceUpsert("manual:voice-b", "main")
 	createdIDs := map[string]string{}
 	for _, body := range []adminhttp.VoiceUpsert{first, second} {
 		if resp, err := srv.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &body}); err != nil {
-			t.Fatalf("CreateVoice(%s) error = %v", body.Name, err)
+			t.Fatalf("CreateVoice(%s) error = %v", body.Id, err)
 		} else if created, ok := resp.(adminhttp.CreateVoice200JSONResponse); !ok {
-			t.Fatalf("CreateVoice(%s) response = %#v", body.Name, resp)
+			t.Fatalf("CreateVoice(%s) response = %#v", body.Id, resp)
 		} else {
-			createdIDs[body.Name] = created.Id
+			createdIDs[body.Id] = created.Id
 		}
 	}
 	if resp, err := srv.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &first}); err != nil {
@@ -305,7 +318,7 @@ func TestServerVoiceValidationAndPagination(t *testing.T) {
 		t.Fatalf("PutVoice(nil body) response = %#v", resp)
 	}
 	mismatch := voiceUpsert("manual:other", "main")
-	if resp, err := srv.PutVoice(ctx, adminhttp.PutVoiceRequestObject{Id: createdIDs[first.Name], Body: &mismatch}); err != nil {
+	if resp, err := srv.PutVoice(ctx, adminhttp.PutVoiceRequestObject{Id: createdIDs[first.Id], Body: &mismatch}); err != nil {
 		t.Fatalf("PutVoice(id mismatch) error = %v", err)
 	} else if _, ok := resp.(adminhttp.PutVoice400JSONResponse); !ok {
 		t.Fatalf("PutVoice(id mismatch) response = %#v", resp)
@@ -313,7 +326,6 @@ func TestServerVoiceValidationAndPagination(t *testing.T) {
 
 	syncVoice := apitypes.Voice{
 		Id:       "sync:voice",
-		Name:     "sync:voice",
 		Provider: apitypes.VoiceProvider{Kind: "openai-tenant", Id: "main"},
 		Source:   apitypes.VoiceSourceSync,
 	}
@@ -351,18 +363,18 @@ func TestVoiceBoundaryBranches(t *testing.T) {
 
 	manual := voiceUpsert("manual:with-provider-data", "main")
 	manual.ProviderData = ProviderData(kind, map[string]any{"voice_id": "voice-1"})
-	normalized, err := normalizeVoiceUpsert(manual, manual.Name)
+	normalized, err := normalizeVoiceUpsert(manual, manual.Id)
 	if err != nil {
 		t.Fatalf("normalizeVoiceUpsert(provider data) error = %v", err)
 	}
 	if normalized.ProviderData == nil || ProviderDataString(normalized, "voice_id") != "voice-1" {
 		t.Fatalf("normalized provider data = %#v", normalized.ProviderData)
 	}
-	if _, err := normalizeVoiceUpsert(adminhttp.VoiceUpsert{Name: "manual:missing-source"}, ""); err == nil {
+	if _, err := normalizeVoiceUpsert(adminhttp.VoiceUpsert{Id: "manual:missing-source"}, ""); err == nil {
 		t.Fatalf("normalizeVoiceUpsert(missing source) error = nil, want error")
 	}
 	if _, err := normalizeVoiceUpsert(adminhttp.VoiceUpsert{
-		Name:   "manual:missing-kind",
+		Id:     "manual:missing-kind",
 		Source: apitypes.VoiceSourceManual,
 		Provider: apitypes.VoiceProvider{
 			Id: "main",
@@ -419,7 +431,7 @@ func (s customStringer) String() string {
 
 func voiceUpsert(id, providerID string) adminhttp.VoiceUpsert {
 	return adminhttp.VoiceUpsert{
-		Name:   id,
+		Id:     id,
 		Source: apitypes.VoiceSourceManual,
 		Provider: apitypes.VoiceProvider{
 			Kind: "openai-tenant",

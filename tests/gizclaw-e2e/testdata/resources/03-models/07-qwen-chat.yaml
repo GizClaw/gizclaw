@@ -2,13 +2,13 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Model
 metadata:
-  name: qwen-plus
+  id: qwen-plus
 spec:
   kind: llm
   source: manual
   provider:
     kind: dashscope-tenant
-    name: qwen-dashscope-main
+    id: qwen-dashscope-main
   name: Qwen Plus
   description: Qwen chat model through DashScope
   provider_data:

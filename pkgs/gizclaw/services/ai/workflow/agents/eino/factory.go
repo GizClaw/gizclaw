@@ -62,7 +62,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	config := genxeino.Config{
 		Agent: genxeino.AgentConfig{
 			ID:        workspaceID,
-			Name:      strings.TrimSpace(spec.Workflow.Name),
+			Name:      strings.TrimSpace(spec.Workflow.Id),
 			ContextID: scope,
 		},
 		Graph:       graph,

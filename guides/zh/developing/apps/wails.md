@@ -25,7 +25,7 @@ Desktop App 不复制 `pkgs/gizclaw` 的服务端业务。`api/http/desktop.json
 
 ## 本地 Server Bootstrap
 
-Raids `v0.3.0` release 通过 commit-addressed GitHub archive 获取，是 `RuntimeProfile/default`、
+Raids `v0.4.0` release 通过 commit-addressed GitHub archive 获取，是 `RuntimeProfile/default`、
 `RegistrationToken/default-runtime` 及该
 Profile 所引用 Credential、Tenant、Model、Voice、MemoryLayout、Workflow 与 PetDef 的声明式来源。
 PetDef 引用的 PIXA 二进制来自固定提交
@@ -65,9 +65,15 @@ restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
 详情中，成功后删除；失败时停止进程并原子改写为带脱敏错误的 `failed`，由用户查看
 目录或删除。启动 Desktop 时只清理被退出或崩溃中断的 `initializing` 目录，保留
 `failed` Pod。新建本地 Pod 的 bootstrap 按依赖顺序逐个执行 create-only manifest。
-Desktop 读取每次 Admin apply 返回的 canonical ID，把后续 foreign-key reference 改写为
-这些 ID，并使用返回的 PetDef ID 上传 PIXA。create 遇到结果不明确的传输错误时不会重试，
-以免创建第二份资源。
+Raids manifest 必须为每个具体 Resource 声明 canonical `metadata.id`，所有 foreign-key
+字段直接引用这些 ID。Desktop 不解析 generic `name`，也不执行 name-to-ID 或下游引用
+改写；它把 manifest 原样 apply，并断言每个具体 apply result 的 ID 与 manifest ID 完全
+相等。PetDef PIXA 使用 manifest 中的 PetDef ID 上传。重复提交同一 manifest 会命中同一
+Resource，不会创建第二个 identity。
+
+Desktop 只接受 v0.4 identity contract；缺少 `metadata.id`、包含 ResourceList metadata、
+或仍依赖 Server-generated ID 的 v0.3 catalog 会在启动 Server 或 apply 任何资源前被拒绝。
+Desktop 不为旧 Raids 格式提供兼容转换或迁移。
 
 状态清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时重放完整 catalog。
 catalog version 早于最终资源 identity Schema 的 local Pod 属于不兼容数据：Desktop 拒绝

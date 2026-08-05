@@ -12,18 +12,18 @@ func (m *Manager) applyPetDef(ctx context.Context, resource apitypes.Resource) (
 	if err != nil {
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_PET_DEF_RESOURCE", err.Error())
 	}
-	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+	if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	body := petDefUpsert(item)
-	return applyNamedResource(ctx, item.Metadata, apitypes.ResourceKindPetDef, item.Spec,
+	return applyConcreteResource(ctx, item.Metadata, apitypes.ResourceKindPetDef, item.Spec,
 		m.getPetDef,
 		func(ctx context.Context) (string, error) {
 			response, err := m.services.GameplayCatalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &body})
 			return createGameplayResponse("CreatePetDef", response, err)
 		},
 		func(ctx context.Context, id string) error { return m.putPetDef(ctx, id, body) },
-		func(value apitypes.PetDef) string { return value.Name }, func(value apitypes.PetDef) apitypes.PetDefSpec { return value.Spec })
+		func(value apitypes.PetDef) apitypes.PetDefSpec { return value.Spec })
 }
 
 func (m *Manager) applyBadgeDef(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
@@ -31,18 +31,18 @@ func (m *Manager) applyBadgeDef(ctx context.Context, resource apitypes.Resource)
 	if err != nil {
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_BADGE_DEF_RESOURCE", err.Error())
 	}
-	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+	if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	body := badgeDefUpsert(item)
-	return applyNamedResource(ctx, item.Metadata, apitypes.ResourceKindBadgeDef, item.Spec,
+	return applyConcreteResource(ctx, item.Metadata, apitypes.ResourceKindBadgeDef, item.Spec,
 		m.getBadgeDef,
 		func(ctx context.Context) (string, error) {
 			response, err := m.services.GameplayCatalog.CreateBadgeDef(ctx, adminhttp.CreateBadgeDefRequestObject{Body: &body})
 			return createGameplayResponse("CreateBadgeDef", response, err)
 		},
 		func(ctx context.Context, id string) error { return m.putBadgeDef(ctx, id, body) },
-		func(value apitypes.BadgeDef) string { return value.Name }, func(value apitypes.BadgeDef) apitypes.BadgeDefSpec { return value.Spec })
+		func(value apitypes.BadgeDef) apitypes.BadgeDefSpec { return value.Spec })
 }
 
 func (m *Manager) applyGameDef(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
@@ -50,18 +50,18 @@ func (m *Manager) applyGameDef(ctx context.Context, resource apitypes.Resource) 
 	if err != nil {
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_GAME_DEF_RESOURCE", err.Error())
 	}
-	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+	if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	body := gameDefUpsert(item)
-	return applyNamedResource(ctx, item.Metadata, apitypes.ResourceKindGameDef, item.Spec,
+	return applyConcreteResource(ctx, item.Metadata, apitypes.ResourceKindGameDef, item.Spec,
 		m.getGameDef,
 		func(ctx context.Context) (string, error) {
 			response, err := m.services.GameplayCatalog.CreateGameDef(ctx, adminhttp.CreateGameDefRequestObject{Body: &body})
 			return createGameplayResponse("CreateGameDef", response, err)
 		},
 		func(ctx context.Context, id string) error { return m.putGameDef(ctx, id, body) },
-		func(value apitypes.GameDef) string { return value.Name }, func(value apitypes.GameDef) apitypes.GameDefSpec { return value.Spec })
+		func(value apitypes.GameDef) apitypes.GameDefSpec { return value.Spec })
 }
 
 func createGameplayResponse(operation string, response any, err error) (string, error) {
@@ -254,22 +254,22 @@ func putGameplayResponse(operation string, response any, err error) error {
 }
 
 func petDefUpsert(resource apitypes.PetDefResource) adminhttp.PetDefUpsert {
-	return adminhttp.PetDefUpsert{Name: resource.Metadata.Name, Spec: resource.Spec}
+	return adminhttp.PetDefUpsert{Id: resource.Metadata.Id, Spec: resource.Spec}
 }
 
 func badgeDefUpsert(resource apitypes.BadgeDefResource) adminhttp.BadgeDefUpsert {
-	return adminhttp.BadgeDefUpsert{Name: resource.Metadata.Name, Spec: resource.Spec}
+	return adminhttp.BadgeDefUpsert{Id: resource.Metadata.Id, Spec: resource.Spec}
 }
 
 func gameDefUpsert(resource apitypes.GameDefResource) adminhttp.GameDefUpsert {
-	return adminhttp.GameDefUpsert{Name: resource.Metadata.Name, Spec: resource.Spec}
+	return adminhttp.GameDefUpsert{Id: resource.Metadata.Id, Spec: resource.Spec}
 }
 
 func resourceFromPetDef(item apitypes.PetDef) (apitypes.Resource, error) {
 	return marshalResource(apitypes.PetDefResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.PetDefResourceKind(apitypes.ResourceKindPetDef),
-		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: item.Id},
 		Spec:       item.Spec,
 	})
 }
@@ -278,7 +278,7 @@ func resourceFromBadgeDef(item apitypes.BadgeDef) (apitypes.Resource, error) {
 	return marshalResource(apitypes.BadgeDefResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.BadgeDefResourceKind(apitypes.ResourceKindBadgeDef),
-		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: item.Id},
 		Spec:       item.Spec,
 	})
 }
@@ -287,7 +287,7 @@ func resourceFromGameDef(item apitypes.GameDef) (apitypes.Resource, error) {
 	return marshalResource(apitypes.GameDefResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.GameDefResourceKind(apitypes.ResourceKindGameDef),
-		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: item.Id},
 		Icon:       item.Icon,
 		Spec:       item.Spec,
 	})

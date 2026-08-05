@@ -5,6 +5,7 @@ import { DashboardTable } from "@/dashboard";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { encodeRouteParam } from "@/views/admin/full/lib/route-param";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -53,7 +54,7 @@ export function ModelsListPage(): JSX.Element {
   });
 
   const openModel = (id: string): void => {
-    navigate(`/ai/models/${encodeURIComponent(id)}`);
+    navigate(`/ai/models/${encodeRouteParam(id)}`);
   };
 
   const handleRowKeyDown = (
@@ -202,9 +203,9 @@ export function ModelsListPage(): JSX.Element {
                     <TableCell className="max-w-[24rem]">
                       <div
                         className="block max-w-full truncate font-medium"
-                        title={model.name?.trim() || model.id}
+                        title={model.display_name?.trim() || model.id}
                       >
-                        {model.name?.trim() || "Unnamed model"}
+                        {model.display_name?.trim() || compactModelID(model.id)}
                       </div>
                       <div
                         className="block truncate text-xs text-muted-foreground"

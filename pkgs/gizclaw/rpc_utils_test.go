@@ -207,11 +207,11 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 				}}
 				profileWorkflows := testRuntimeProfileWorkflows()
 				profileWorkflows.Collections = workflows
-				return &apitypes.RuntimeProfile{Name: "default", Revision: "revision", Spec: apitypes.RuntimeProfileSpec{Workflows: profileWorkflows}}
+				return &apitypes.RuntimeProfile{Id: "default", Revision: "revision", Spec: apitypes.RuntimeProfileSpec{Workflows: profileWorkflows}}
 			},
 			Workspaces: invalidWorkspaceAdminService{},
 			Workflows: fixedWorkflowAdminService{value: apitypes.Workflow{
-				Name: "workflow-a",
+				Id:   "workflow-a",
 				Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverChatroom},
 			}},
 		},
@@ -520,6 +520,10 @@ func (invalidWorkspaceAdminService) ListWorkspaces(context.Context, adminhttp.Li
 }
 
 func (invalidWorkspaceAdminService) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
+	return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "unchanged client message")), nil
+}
+
+func (invalidWorkspaceAdminService) CreatePeerWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
 	return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "unchanged client message")), nil
 }
 

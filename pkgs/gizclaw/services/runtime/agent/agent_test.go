@@ -480,7 +480,7 @@ func (s responseWorkflowService) GetWorkflow(context.Context, adminhttp.GetWorkf
 
 func mustWorkflow(name string) apitypes.Workflow {
 	return apitypes.Workflow{
-		Name: name,
+		Id: name,
 		Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverFlowcraft,
 		},
@@ -491,7 +491,7 @@ func rawWorkflow(t *testing.T, driver apitypes.WorkflowDriver) apitypes.Workflow
 	t.Helper()
 	spec := apitypes.FlowcraftWorkflowSpec{}
 	doc := apitypes.Workflow{
-		Name: "workflow",
+		Id: "workflow",
 		Spec: apitypes.WorkflowSpec{
 			Driver: driver,
 		},

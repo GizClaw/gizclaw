@@ -1,14 +1,13 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
-metadata:
-  name: fake-devkit-firmwares
 spec:
   items:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-000
+    spec:
       name: devkit-firmware-000
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -17,8 +16,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-001
+    spec:
       name: devkit-firmware-001
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -27,8 +27,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-002
+    spec:
       name: devkit-firmware-002
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -37,8 +38,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-003
+    spec:
       name: devkit-firmware-003
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -47,8 +49,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-004
+    spec:
       name: devkit-firmware-004
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -57,8 +60,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-005
+    spec:
       name: devkit-firmware-005
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -67,8 +71,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-006
+    spec:
       name: devkit-firmware-006
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -77,8 +82,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-007
+    spec:
       name: devkit-firmware-007
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -87,8 +93,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-008
+    spec:
       name: devkit-firmware-008
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -97,8 +104,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-009
+    spec:
       name: devkit-firmware-009
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -107,8 +115,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-010
+    spec:
       name: devkit-firmware-010
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -117,8 +126,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-011
+    spec:
       name: devkit-firmware-011
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -127,8 +137,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-012
+    spec:
       name: devkit-firmware-012
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -137,8 +148,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-013
+    spec:
       name: devkit-firmware-013
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -147,8 +159,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-014
+    spec:
       name: devkit-firmware-014
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -157,8 +170,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-015
+    spec:
       name: devkit-firmware-015
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -167,8 +181,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-016
+    spec:
       name: devkit-firmware-016
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -177,8 +192,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-017
+    spec:
       name: devkit-firmware-017
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -187,8 +203,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-018
+    spec:
       name: devkit-firmware-018
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -197,8 +214,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-019
+    spec:
       name: devkit-firmware-019
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -207,8 +225,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-020
+    spec:
       name: devkit-firmware-020
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -217,8 +236,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-021
+    spec:
       name: devkit-firmware-021
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -227,8 +247,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-022
+    spec:
       name: devkit-firmware-022
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -237,8 +258,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-023
+    spec:
       name: devkit-firmware-023
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -247,8 +269,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-024
+    spec:
       name: devkit-firmware-024
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -257,8 +280,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-025
+    spec:
       name: devkit-firmware-025
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -267,8 +291,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-026
+    spec:
       name: devkit-firmware-026
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -277,8 +302,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-027
+    spec:
       name: devkit-firmware-027
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -287,8 +313,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-028
+    spec:
       name: devkit-firmware-028
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -297,8 +324,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-029
+    spec:
       name: devkit-firmware-029
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -307,8 +335,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-030
+    spec:
       name: devkit-firmware-030
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -317,8 +346,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-031
+    spec:
       name: devkit-firmware-031
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -327,8 +357,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-032
+    spec:
       name: devkit-firmware-032
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -337,8 +368,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-033
+    spec:
       name: devkit-firmware-033
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -347,8 +379,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-034
+    spec:
       name: devkit-firmware-034
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -357,8 +390,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-035
+    spec:
       name: devkit-firmware-035
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -367,8 +401,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-036
+    spec:
       name: devkit-firmware-036
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -377,8 +412,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-037
+    spec:
       name: devkit-firmware-037
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -387,8 +423,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-038
+    spec:
       name: devkit-firmware-038
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -397,8 +434,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-039
+    spec:
       name: devkit-firmware-039
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -407,8 +445,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-040
+    spec:
       name: devkit-firmware-040
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -417,8 +456,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-041
+    spec:
       name: devkit-firmware-041
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -427,8 +467,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-042
+    spec:
       name: devkit-firmware-042
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -437,8 +478,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-043
+    spec:
       name: devkit-firmware-043
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -447,8 +489,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-044
+    spec:
       name: devkit-firmware-044
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -457,8 +500,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-045
+    spec:
       name: devkit-firmware-045
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -467,8 +511,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-046
+    spec:
       name: devkit-firmware-046
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -477,8 +522,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-047
+    spec:
       name: devkit-firmware-047
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -487,8 +533,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-048
+    spec:
       name: devkit-firmware-048
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -497,8 +544,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-049
+    spec:
       name: devkit-firmware-049
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -507,8 +555,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-050
+    spec:
       name: devkit-firmware-050
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -517,8 +566,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-051
+    spec:
       name: devkit-firmware-051
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -527,8 +577,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-052
+    spec:
       name: devkit-firmware-052
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -537,8 +588,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-053
+    spec:
       name: devkit-firmware-053
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -547,8 +599,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-054
+    spec:
       name: devkit-firmware-054
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -557,8 +610,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-055
+    spec:
       name: devkit-firmware-055
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -567,8 +621,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-056
+    spec:
       name: devkit-firmware-056
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -577,8 +632,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-057
+    spec:
       name: devkit-firmware-057
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -587,8 +643,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-058
+    spec:
       name: devkit-firmware-058
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -597,8 +654,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-059
+    spec:
       name: devkit-firmware-059
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -607,8 +665,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-060
+    spec:
       name: devkit-firmware-060
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -617,8 +676,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-061
+    spec:
       name: devkit-firmware-061
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -627,8 +687,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-062
+    spec:
       name: devkit-firmware-062
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -637,8 +698,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-063
+    spec:
       name: devkit-firmware-063
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -647,8 +709,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-064
+    spec:
       name: devkit-firmware-064
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -657,8 +720,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-065
+    spec:
       name: devkit-firmware-065
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -667,8 +731,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-066
+    spec:
       name: devkit-firmware-066
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -677,8 +742,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-067
+    spec:
       name: devkit-firmware-067
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -687,8 +753,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-068
+    spec:
       name: devkit-firmware-068
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -697,8 +764,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-069
+    spec:
       name: devkit-firmware-069
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -707,8 +775,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-070
+    spec:
       name: devkit-firmware-070
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -717,8 +786,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-071
+    spec:
       name: devkit-firmware-071
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -727,8 +797,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-072
+    spec:
       name: devkit-firmware-072
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -737,8 +808,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-073
+    spec:
       name: devkit-firmware-073
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -747,8 +819,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-074
+    spec:
       name: devkit-firmware-074
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -757,8 +830,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-075
+    spec:
       name: devkit-firmware-075
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -767,8 +841,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-076
+    spec:
       name: devkit-firmware-076
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -777,8 +852,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-077
+    spec:
       name: devkit-firmware-077
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -787,8 +863,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
+      id: devkit-firmware-078
+    spec:
       name: devkit-firmware-078
-    spec:
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -797,8 +874,9 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Firmware
     metadata:
-      name: devkit-firmware-079
+      id: devkit-firmware-079
     spec:
+      name: devkit-firmware-079
       description: Devkit firmware resource entry
       slots:
         beta: {}

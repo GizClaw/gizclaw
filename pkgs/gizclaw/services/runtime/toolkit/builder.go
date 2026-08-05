@@ -36,7 +36,7 @@ func (b *Builder) Build(ctx context.Context, req BuildRequest) (ToolKit, error) 
 		}
 		tools = append(tools, tool)
 	}
-	sort.Slice(tools, func(i, j int) bool { return tools[i].Name < tools[j].Name })
+	sort.Slice(tools, func(i, j int) bool { return tools[i].InvokeName < tools[j].InvokeName })
 	allowedPolicy := toolIDSet(req.AllowedTools, req.RestrictTools || len(req.AllowedTools) > 0)
 	out := make([]Tool, 0, len(tools))
 	for _, tool := range tools {
@@ -83,7 +83,7 @@ func toolIDSet(ids []string, restrict bool) map[string]bool {
 
 func (tk ToolKit) Find(name string) (Tool, bool) {
 	idx := slices.IndexFunc(tk.Tools, func(tool Tool) bool {
-		return tool.Name == name
+		return tool.InvokeName == name
 	})
 	if idx < 0 {
 		return Tool{}, false

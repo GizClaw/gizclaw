@@ -13,20 +13,15 @@ import (
 
 func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing.T) {
 	ctx := context.Background()
-	ids := []string{"profile-a", "profile-b", "device-a"}
-	profiles := &runtimeprofile.Server{Store: kv.NewMemory(nil), NewID: func() string {
-		id := ids[0]
-		ids = ids[1:]
-		return id
-	}}
+	profiles := &runtimeprofile.Server{Store: kv.NewMemory(nil)}
 	manager := New(Services{
-		Firmwares:       &firmware.Server{Store: kv.NewMemory(nil), NewID: func() string { return "h106" }},
+		Firmwares:       &firmware.Server{Store: kv.NewMemory(nil)},
 		RuntimeProfiles: profiles,
 	})
 	if _, err := manager.Apply(ctx, mustResource(t, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
 		"kind":"RuntimeProfile",
-		"metadata":{"name":"profile-a"},
+		"metadata":{"id":"profile-a"},
 		"spec":{
 			"workflows":{
 				"system":{"friend_chatroom":"chatroom","group_chatroom":"chatroom","pet":"pet-care"},
@@ -40,7 +35,7 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 	if _, err := manager.Apply(ctx, mustResource(t, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
 		"kind":"RuntimeProfile",
-		"metadata":{"name":"profile-b"},
+		"metadata":{"id":"profile-b"},
 		"spec":{
 			"workflows":{
 				"system":{"friend_chatroom":"chatroom","group_chatroom":"chatroom","pet":"pet-care"},
@@ -55,8 +50,8 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 	firmwareResource, err := marshalResource(apitypes.FirmwareResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
-		Metadata:   apitypes.ResourceMetadata{Name: "h106"},
-		Spec:       apitypes.FirmwareSpec{Slots: testFirmwareSpecSlots("stable firmware")},
+		Metadata:   apitypes.ResourceMetadata{Id: "h106"},
+		Spec:       apitypes.FirmwareSpec{Name: "Devkit", Slots: testFirmwareSpecSlots("stable firmware")},
 	})
 	if err != nil {
 		t.Fatalf("marshalResource(Firmware) error = %v", err)
@@ -68,11 +63,10 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 	result, err := manager.Apply(ctx, mustResource(t, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
 		"kind":"ResourceList",
-		"metadata":{"name":"bootstrap"},
 		"spec":{"items":[{
 			"apiVersion":"gizclaw.admin/v1alpha1",
 			"kind":"RegistrationToken",
-			"metadata":{"name":"device-a"},
+			"metadata":{"id":"device-a"},
 			"spec":{"token":"device-token","runtime_profile_id":"profile-a","firmware_id":"h106"}
 		}]}
 	}`))
@@ -142,7 +136,7 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 	if err != nil {
 		t.Fatalf("ResolveRegistration(replacement token) error = %v", err)
 	}
-	if registration.RuntimeProfile.Name != "profile-b" || registration.FirmwareID != nil {
+	if registration.RuntimeProfile.Id != "profile-b" || registration.FirmwareID != nil {
 		t.Fatalf("updated registration = %#v", registration)
 	}
 }
@@ -151,7 +145,7 @@ func TestPutRegistrationTokenRequiresRuntimeProfileService(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
 		"kind":"RegistrationToken",
-		"metadata":{"id":"device-a","name":"device-a"},
+		"metadata":{"id":"device-a"},
 		"spec":{"token":"device-token","runtime_profile_id":"profile-a"}
 	}`)
 	if _, err := New(Services{}).Put(context.Background(), resource); !isResourceError(err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED") {

@@ -19,6 +19,7 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 
 	firmwarePath := filepath.Join(h.SandboxDir, "firmware.json")
 	if err := os.WriteFile(firmwarePath, []byte(`{
+			"id": "devkit",
 			"name": "devkit",
 			"description": "Devkit firmware line",
 			"slots": {
@@ -61,6 +62,9 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 	created := h.RunCLI("admin", "firmwares", "create", "-f", firmwarePath, "--context", "admin-a")
 	created.MustSucceed(t)
 	firmwareID := adminCreatedResourceID(t, created.Stdout)
+	if firmwareID != "devkit" {
+		t.Fatalf("created firmware ID = %q, want caller ID devkit", firmwareID)
+	}
 
 	put := h.RunCLI("admin", "firmwares", "put", firmwareID, "-f", firmwarePath, "--context", "admin-a")
 	put.MustSucceed(t)
@@ -89,7 +93,7 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 
 	resource := h.RunCLI("admin", "show", "Firmware", firmwareID, "--context", "admin-a")
 	resource.MustSucceed(t)
-	assertContains(t, resource.Stdout, `"kind":"Firmware"`, `"name":"devkit"`, `"url":"https://downloads.example.com/devkit/stable.tar.zlib"`)
+	assertContains(t, resource.Stdout, `"kind":"Firmware"`, `"metadata":{"id":"devkit"}`, `"name":"devkit"`, `"url":"https://downloads.example.com/devkit/stable.tar.zlib"`)
 
 	deleted := h.RunCLI("admin", "firmwares", "delete", firmwareID, "--context", "admin-a")
 	deleted.MustSucceed(t)

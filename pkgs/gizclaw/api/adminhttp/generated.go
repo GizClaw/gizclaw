@@ -149,6 +149,7 @@ func (e UploadWorkspaceIconParamsFormat) Valid() bool {
 // AdminContactCreateRequest defines model for AdminContactCreateRequest.
 type AdminContactCreateRequest struct {
 	DisplayName    *string `json:"display_name,omitempty"`
+	Id             string  `json:"id"`
 	Name           string  `json:"name"`
 	OwnerPublicKey string  `json:"owner_public_key"`
 	PhoneNumber    *string `json:"phone_number,omitempty"`
@@ -175,11 +176,13 @@ type AdminContactObject struct {
 // AdminContactPutRequest defines model for AdminContactPutRequest.
 type AdminContactPutRequest struct {
 	DisplayName *string `json:"display_name,omitempty"`
+	Id          string  `json:"id"`
 	PhoneNumber *string `json:"phone_number,omitempty"`
 }
 
 // AdminFriendCreateRequest defines model for AdminFriendCreateRequest.
 type AdminFriendCreateRequest struct {
+	Id            string `json:"id"`
 	PeerPublicKey string `json:"peer_public_key"`
 }
 
@@ -187,6 +190,7 @@ type AdminFriendCreateRequest struct {
 type AdminFriendGroupCreateRequest struct {
 	Description    *string `json:"description,omitempty"`
 	DisplayName    *string `json:"display_name,omitempty"`
+	Id             string  `json:"id"`
 	Name           string  `json:"name"`
 	OwnerPublicKey string  `json:"owner_public_key"`
 }
@@ -194,6 +198,7 @@ type AdminFriendGroupCreateRequest struct {
 // AdminFriendGroupInviteTokenPutRequest defines model for AdminFriendGroupInviteTokenPutRequest.
 type AdminFriendGroupInviteTokenPutRequest struct {
 	ExpiresAt   time.Time `json:"expires_at"`
+	Id          string    `json:"id"`
 	InviteToken string    `json:"invite_token"`
 }
 
@@ -206,6 +211,7 @@ type AdminFriendGroupListResponse struct {
 
 // AdminFriendGroupMemberCreateRequest defines model for AdminFriendGroupMemberCreateRequest.
 type AdminFriendGroupMemberCreateRequest struct {
+	Id            string                             `json:"id"`
 	Name          string                             `json:"name"`
 	PeerPublicKey string                             `json:"peer_public_key"`
 	Role          externalRef1.FriendGroupMemberRole `json:"role"`
@@ -231,6 +237,7 @@ type AdminFriendGroupMemberObject struct {
 
 // AdminFriendGroupMemberPutRequest defines model for AdminFriendGroupMemberPutRequest.
 type AdminFriendGroupMemberPutRequest struct {
+	Id   string                             `json:"id"`
 	Role externalRef1.FriendGroupMemberRole `json:"role"`
 }
 
@@ -250,6 +257,7 @@ type AdminFriendGroupObject struct {
 type AdminFriendGroupPutRequest struct {
 	Description *string `json:"description,omitempty"`
 	DisplayName *string `json:"display_name,omitempty"`
+	Id          string  `json:"id"`
 }
 
 // AdminFriendListResponse defines model for AdminFriendListResponse.
@@ -271,6 +279,7 @@ type AdminFriendObject struct {
 
 // AdminSocialFriendCreateRequest defines model for AdminSocialFriendCreateRequest.
 type AdminSocialFriendCreateRequest struct {
+	Id             string `json:"id"`
 	OwnerPublicKey string `json:"owner_public_key"`
 	PeerPublicKey  string `json:"peer_public_key"`
 }
@@ -289,7 +298,7 @@ type BadgeDefList struct {
 
 // BadgeDefUpsert defines model for BadgeDefUpsert.
 type BadgeDefUpsert struct {
-	Name string                    `json:"name"`
+	Id   string                    `json:"id"`
 	Spec externalRef0.BadgeDefSpec `json:"spec"`
 }
 
@@ -305,7 +314,7 @@ type CredentialUpsert struct {
 	// Body Provider-specific credential payload. The shape is selected by Credential.provider.
 	Body        externalRef0.CredentialBody `json:"body"`
 	Description *string                     `json:"description,omitempty"`
-	Name        string                      `json:"name"`
+	Id          string                      `json:"id"`
 	Provider    string                      `json:"provider"`
 }
 
@@ -321,7 +330,7 @@ type DashScopeTenantUpsert struct {
 	BaseUrl      *string `json:"base_url,omitempty"`
 	CredentialId string  `json:"credential_id"`
 	Description  *string `json:"description,omitempty"`
-	Name         string  `json:"name"`
+	Id           string  `json:"id"`
 }
 
 // DeepSeekTenantList defines model for DeepSeekTenantList.
@@ -336,7 +345,7 @@ type DeepSeekTenantUpsert struct {
 	BaseUrl      *string `json:"base_url,omitempty"`
 	CredentialId string  `json:"credential_id"`
 	Description  *string `json:"description,omitempty"`
-	Name         string  `json:"name"`
+	Id           string  `json:"id"`
 }
 
 // FirmwareList defines model for FirmwareList.
@@ -349,6 +358,7 @@ type FirmwareList struct {
 // FirmwareUpsert defines model for FirmwareUpsert.
 type FirmwareUpsert struct {
 	Description *string                    `json:"description,omitempty"`
+	Id          string                     `json:"id"`
 	Name        string                     `json:"name"`
 	Slots       externalRef0.FirmwareSlots `json:"slots"`
 }
@@ -363,7 +373,7 @@ type GameDefList struct {
 // GameDefUpsert defines model for GameDefUpsert.
 type GameDefUpsert struct {
 	Icon *externalRef0.Icon       `json:"icon,omitempty"`
-	Name string                   `json:"name"`
+	Id   string                   `json:"id"`
 	Spec externalRef0.GameDefSpec `json:"spec"`
 }
 
@@ -379,8 +389,8 @@ type GeminiTenantUpsert struct {
 	BaseUrl      *string `json:"base_url,omitempty"`
 	CredentialId string  `json:"credential_id"`
 	Description  *string `json:"description,omitempty"`
+	Id           string  `json:"id"`
 	Location     *string `json:"location,omitempty"`
-	Name         string  `json:"name"`
 	ProjectId    *string `json:"project_id,omitempty"`
 }
 
@@ -393,7 +403,7 @@ type MemoryLayoutList struct {
 
 // MemoryLayoutUpsert defines model for MemoryLayoutUpsert.
 type MemoryLayoutUpsert struct {
-	Name string                        `json:"name"`
+	Id   string                        `json:"id"`
 	Spec externalRef0.MemoryLayoutSpec `json:"spec"`
 }
 
@@ -420,7 +430,7 @@ type MiniMaxTenantUpsert struct {
 	CredentialId string  `json:"credential_id"`
 	Description  *string `json:"description,omitempty"`
 	GroupId      *string `json:"group_id,omitempty"`
-	Name         string  `json:"name"`
+	Id           string  `json:"id"`
 }
 
 // ModelList defines model for ModelList.
@@ -434,10 +444,10 @@ type ModelList struct {
 type ModelUpsert struct {
 	Description *string `json:"description,omitempty"`
 	DisplayName *string `json:"display_name,omitempty"`
+	Id          string  `json:"id"`
 
 	// Kind Runtime role of a model.
 	Kind     externalRef0.ModelKind     `json:"kind"`
-	Name     string                     `json:"name"`
 	Provider externalRef0.ModelProvider `json:"provider"`
 
 	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
@@ -461,10 +471,10 @@ type OpenAITenantUpsert struct {
 	BaseUrl      *string                           `json:"base_url,omitempty"`
 	CredentialId string                            `json:"credential_id"`
 	Description  *string                           `json:"description,omitempty"`
+	Id           string                            `json:"id"`
 
 	// Kind OpenAI-compatible endpoint kind.
 	Kind *externalRef0.OpenAITenantKind `json:"kind,omitempty"`
-	Name string                         `json:"name"`
 }
 
 // PetDefList defines model for PetDefList.
@@ -476,7 +486,7 @@ type PetDefList struct {
 
 // PetDefUpsert defines model for PetDefUpsert.
 type PetDefUpsert struct {
-	Name string                  `json:"name"`
+	Id   string                  `json:"id"`
 	Spec externalRef0.PetDefSpec `json:"spec"`
 }
 
@@ -508,9 +518,9 @@ type RegistrationTokenList struct {
 
 // RegistrationTokenUpsert defines model for RegistrationTokenUpsert.
 type RegistrationTokenUpsert struct {
-	// FirmwareId Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+	// FirmwareId Optional caller-defined Firmware release-line ID. The device selects its own channel.
 	FirmwareId       *string `json:"firmware_id,omitempty"`
-	Name             string  `json:"name"`
+	Id               string  `json:"id"`
 	RuntimeProfileId string  `json:"runtime_profile_id"`
 	Token            string  `json:"token"`
 }
@@ -524,7 +534,7 @@ type RuntimeProfileList struct {
 
 // RuntimeProfileUpsert defines model for RuntimeProfileUpsert.
 type RuntimeProfileUpsert struct {
-	Name string                          `json:"name"`
+	Id   string                          `json:"id"`
 	Spec externalRef0.RuntimeProfileSpec `json:"spec"`
 }
 
@@ -539,7 +549,7 @@ type VoiceList struct {
 type VoiceUpsert struct {
 	Description *string                    `json:"description,omitempty"`
 	DisplayName *string                    `json:"display_name,omitempty"`
-	Name        string                     `json:"name"`
+	Id          string                     `json:"id"`
 	Provider    externalRef0.VoiceProvider `json:"provider"`
 
 	// ProviderData Provider-specific voice runtime configuration. The shape is selected by Voice.provider.kind.
@@ -570,7 +580,7 @@ type VolcTenantUpsert struct {
 	CredentialId string    `json:"credential_id"`
 	Description  *string   `json:"description,omitempty"`
 	Endpoint     *string   `json:"endpoint,omitempty"`
-	Name         string    `json:"name"`
+	Id           string    `json:"id"`
 	Region       *string   `json:"region,omitempty"`
 	ResourceIds  *[]string `json:"resource_ids,omitempty"`
 }
@@ -584,7 +594,7 @@ type WorkflowList struct {
 
 // WorkflowUpsert defines model for WorkflowUpsert.
 type WorkflowUpsert struct {
-	Name string `json:"name"`
+	Id string `json:"id"`
 
 	// Spec Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
 	Spec externalRef0.WorkflowSpec `json:"spec"`
@@ -600,6 +610,7 @@ type WorkspaceList struct {
 // WorkspaceUpsert defines model for WorkspaceUpsert.
 type WorkspaceUpsert struct {
 	Icon *externalRef0.Icon `json:"icon,omitempty"`
+	Id   string             `json:"id"`
 
 	// Labels Stored Workspace labels. Omission preserves labels on put; an explicit empty object clears them.
 	Labels *map[string]string `json:"labels,omitempty"`
@@ -15466,6 +15477,7 @@ type CreateContactResponse struct {
 	JSON200      *AdminContactObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -15591,6 +15603,7 @@ type CreateFriendGroupResponse struct {
 	JSON200      *AdminFriendGroupObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -15791,6 +15804,7 @@ type CreateFriendGroupMemberResponse struct {
 	JSON200      *AdminFriendGroupMemberObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -15890,6 +15904,7 @@ type CreateFriendResponse struct {
 	JSON200      *AdminFriendObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -23372,6 +23387,13 @@ func ParseCreateContactResponse(rsp *http.Response) (*CreateContactResponse, err
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -23606,6 +23628,13 @@ func ParseCreateFriendGroupResponse(rsp *http.Response) (*CreateFriendGroupRespo
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -23983,6 +24012,13 @@ func ParseCreateFriendGroupMemberResponse(rsp *http.Response) (*CreateFriendGrou
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -24163,6 +24199,13 @@ func ParseCreateFriendResponse(rsp *http.Response) (*CreateFriendResponse, error
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -25941,6 +25984,8 @@ type ServerInterface interface {
 	UploadWorkspaceIcon(c *fiber.Ctx, id string, format UploadWorkspaceIconParamsFormat) error
 }
 
+// Based on oapi-codegen v2.6.0 fiber-middleware.tmpl. Fiber exposes escaped
+// path parameters, so bind them with path semantics exactly once.
 // ServerInterfaceWrapper converts contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
@@ -25999,7 +26044,7 @@ func (siw *ServerInterfaceWrapper) DeleteBadgeDef(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26015,7 +26060,7 @@ func (siw *ServerInterfaceWrapper) GetBadgeDef(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26031,7 +26076,7 @@ func (siw *ServerInterfaceWrapper) PutBadgeDef(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26047,7 +26092,7 @@ func (siw *ServerInterfaceWrapper) DownloadBadgeDefPixa(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26063,7 +26108,7 @@ func (siw *ServerInterfaceWrapper) UploadBadgeDefPixa(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26123,7 +26168,7 @@ func (siw *ServerInterfaceWrapper) DeleteCredential(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26139,7 +26184,7 @@ func (siw *ServerInterfaceWrapper) GetCredential(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26155,7 +26200,7 @@ func (siw *ServerInterfaceWrapper) PutCredential(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26208,7 +26253,7 @@ func (siw *ServerInterfaceWrapper) DeleteDashScopeTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26224,7 +26269,7 @@ func (siw *ServerInterfaceWrapper) GetDashScopeTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26240,7 +26285,7 @@ func (siw *ServerInterfaceWrapper) PutDashScopeTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26293,7 +26338,7 @@ func (siw *ServerInterfaceWrapper) DeleteDeepSeekTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26309,7 +26354,7 @@ func (siw *ServerInterfaceWrapper) GetDeepSeekTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26325,7 +26370,7 @@ func (siw *ServerInterfaceWrapper) PutDeepSeekTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26378,7 +26423,7 @@ func (siw *ServerInterfaceWrapper) DeleteFirmware(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26394,7 +26439,7 @@ func (siw *ServerInterfaceWrapper) GetFirmware(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26410,7 +26455,7 @@ func (siw *ServerInterfaceWrapper) PutFirmware(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26426,7 +26471,7 @@ func (siw *ServerInterfaceWrapper) ReleaseFirmware(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26442,7 +26487,7 @@ func (siw *ServerInterfaceWrapper) RollbackFirmware(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26495,7 +26540,7 @@ func (siw *ServerInterfaceWrapper) DeleteGameDef(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26511,7 +26556,7 @@ func (siw *ServerInterfaceWrapper) GetGameDef(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26527,7 +26572,7 @@ func (siw *ServerInterfaceWrapper) PutGameDef(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26543,7 +26588,7 @@ func (siw *ServerInterfaceWrapper) DeleteGameDefIcon(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26551,7 +26596,7 @@ func (siw *ServerInterfaceWrapper) DeleteGameDefIcon(c *fiber.Ctx) error {
 	// ------------- Path parameter "format" -------------
 	var format DeleteGameDefIconParamsFormat
 
-	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
 	}
@@ -26567,7 +26612,7 @@ func (siw *ServerInterfaceWrapper) DownloadGameDefIcon(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26575,7 +26620,7 @@ func (siw *ServerInterfaceWrapper) DownloadGameDefIcon(c *fiber.Ctx) error {
 	// ------------- Path parameter "format" -------------
 	var format DownloadGameDefIconParamsFormat
 
-	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
 	}
@@ -26591,7 +26636,7 @@ func (siw *ServerInterfaceWrapper) UploadGameDefIcon(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26599,7 +26644,7 @@ func (siw *ServerInterfaceWrapper) UploadGameDefIcon(c *fiber.Ctx) error {
 	// ------------- Path parameter "format" -------------
 	var format UploadGameDefIconParamsFormat
 
-	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
 	}
@@ -26652,7 +26697,7 @@ func (siw *ServerInterfaceWrapper) DeleteGeminiTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26668,7 +26713,7 @@ func (siw *ServerInterfaceWrapper) GetGeminiTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26684,7 +26729,7 @@ func (siw *ServerInterfaceWrapper) PutGeminiTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26796,7 +26841,7 @@ func (siw *ServerInterfaceWrapper) DeleteMemoryLayout(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26812,7 +26857,7 @@ func (siw *ServerInterfaceWrapper) GetMemoryLayout(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26828,7 +26873,7 @@ func (siw *ServerInterfaceWrapper) PutMemoryLayout(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26881,7 +26926,7 @@ func (siw *ServerInterfaceWrapper) DeleteMiniMaxTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26897,7 +26942,7 @@ func (siw *ServerInterfaceWrapper) GetMiniMaxTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26913,7 +26958,7 @@ func (siw *ServerInterfaceWrapper) PutMiniMaxTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -26929,7 +26974,7 @@ func (siw *ServerInterfaceWrapper) SyncMiniMaxTenantVoices(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27003,7 +27048,7 @@ func (siw *ServerInterfaceWrapper) DeleteModel(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27019,7 +27064,7 @@ func (siw *ServerInterfaceWrapper) GetModel(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27035,7 +27080,7 @@ func (siw *ServerInterfaceWrapper) PutModel(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27088,7 +27133,7 @@ func (siw *ServerInterfaceWrapper) DeleteOpenAITenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27104,7 +27149,7 @@ func (siw *ServerInterfaceWrapper) GetOpenAITenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27120,7 +27165,7 @@ func (siw *ServerInterfaceWrapper) PutOpenAITenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27167,7 +27212,7 @@ func (siw *ServerInterfaceWrapper) FindPubKeyByIMEI(c *fiber.Ctx) error {
 	// ------------- Path parameter "tac" -------------
 	var tac string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "tac", c.Params("tac"), &tac, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "tac", c.Params("tac"), &tac, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter tac: %w", err).Error())
 	}
@@ -27175,7 +27220,7 @@ func (siw *ServerInterfaceWrapper) FindPubKeyByIMEI(c *fiber.Ctx) error {
 	// ------------- Path parameter "serial" -------------
 	var serial string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "serial", c.Params("serial"), &serial, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "serial", c.Params("serial"), &serial, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter serial: %w", err).Error())
 	}
@@ -27191,7 +27236,7 @@ func (siw *ServerInterfaceWrapper) FindPubKeyBySN(c *fiber.Ctx) error {
 	// ------------- Path parameter "sn" -------------
 	var sn string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "sn", c.Params("sn"), &sn, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "sn", c.Params("sn"), &sn, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter sn: %w", err).Error())
 	}
@@ -27207,7 +27252,7 @@ func (siw *ServerInterfaceWrapper) DeletePeer(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27223,7 +27268,7 @@ func (siw *ServerInterfaceWrapper) GetPeer(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27239,7 +27284,7 @@ func (siw *ServerInterfaceWrapper) ApprovePeer(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27255,7 +27300,7 @@ func (siw *ServerInterfaceWrapper) BlockPeer(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27271,7 +27316,7 @@ func (siw *ServerInterfaceWrapper) RefreshPeer(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27287,7 +27332,7 @@ func (siw *ServerInterfaceWrapper) ListPeerBadges(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27326,7 +27371,7 @@ func (siw *ServerInterfaceWrapper) GetPeerBadge(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27334,7 +27379,7 @@ func (siw *ServerInterfaceWrapper) GetPeerBadge(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27350,7 +27395,7 @@ func (siw *ServerInterfaceWrapper) ListPeerFriends(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27389,7 +27434,7 @@ func (siw *ServerInterfaceWrapper) CreatePeerFriend(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27405,7 +27450,7 @@ func (siw *ServerInterfaceWrapper) DeletePeerFriend(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27413,7 +27458,7 @@ func (siw *ServerInterfaceWrapper) DeletePeerFriend(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27429,7 +27474,7 @@ func (siw *ServerInterfaceWrapper) GetPeerFriend(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27437,7 +27482,7 @@ func (siw *ServerInterfaceWrapper) GetPeerFriend(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27453,7 +27498,7 @@ func (siw *ServerInterfaceWrapper) ListPeerGameResults(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27492,7 +27537,7 @@ func (siw *ServerInterfaceWrapper) GetPeerGameResult(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27500,7 +27545,7 @@ func (siw *ServerInterfaceWrapper) GetPeerGameResult(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27516,7 +27561,7 @@ func (siw *ServerInterfaceWrapper) GetPeerInfo(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27532,7 +27577,7 @@ func (siw *ServerInterfaceWrapper) PutPeerInfo(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27548,7 +27593,7 @@ func (siw *ServerInterfaceWrapper) ListPeerPets(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27587,7 +27632,7 @@ func (siw *ServerInterfaceWrapper) DeletePeerPet(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27595,7 +27640,7 @@ func (siw *ServerInterfaceWrapper) DeletePeerPet(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27611,7 +27656,7 @@ func (siw *ServerInterfaceWrapper) GetPeerPet(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27619,7 +27664,7 @@ func (siw *ServerInterfaceWrapper) GetPeerPet(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27635,7 +27680,7 @@ func (siw *ServerInterfaceWrapper) GetPeerPoints(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27651,7 +27696,7 @@ func (siw *ServerInterfaceWrapper) ListPeerPointsTransactions(c *fiber.Ctx) erro
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27690,7 +27735,7 @@ func (siw *ServerInterfaceWrapper) GetPeerPointsTransaction(c *fiber.Ctx) error 
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27698,7 +27743,7 @@ func (siw *ServerInterfaceWrapper) GetPeerPointsTransaction(c *fiber.Ctx) error 
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27714,7 +27759,7 @@ func (siw *ServerInterfaceWrapper) ListPeerRewardGrants(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27753,7 +27798,7 @@ func (siw *ServerInterfaceWrapper) GetPeerRewardGrant(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27761,7 +27806,7 @@ func (siw *ServerInterfaceWrapper) GetPeerRewardGrant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -27777,7 +27822,7 @@ func (siw *ServerInterfaceWrapper) GetPeerRuntime(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27793,7 +27838,7 @@ func (siw *ServerInterfaceWrapper) QueryPeerTelemetry(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27884,7 +27929,7 @@ func (siw *ServerInterfaceWrapper) AggregatePeerTelemetry(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -27984,7 +28029,7 @@ func (siw *ServerInterfaceWrapper) GetPeerTelemetryLatest(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -28053,7 +28098,7 @@ func (siw *ServerInterfaceWrapper) DeletePetDef(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28069,7 +28114,7 @@ func (siw *ServerInterfaceWrapper) GetPetDef(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28085,7 +28130,7 @@ func (siw *ServerInterfaceWrapper) PutPetDef(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28101,7 +28146,7 @@ func (siw *ServerInterfaceWrapper) DownloadPetDefPixa(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28117,7 +28162,7 @@ func (siw *ServerInterfaceWrapper) UploadPetDefPixa(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28170,7 +28215,7 @@ func (siw *ServerInterfaceWrapper) DeleteRegistrationToken(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28186,7 +28231,7 @@ func (siw *ServerInterfaceWrapper) GetRegistrationToken(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28202,7 +28247,7 @@ func (siw *ServerInterfaceWrapper) PutRegistrationToken(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28218,7 +28263,7 @@ func (siw *ServerInterfaceWrapper) DeleteResource(c *fiber.Ctx) error {
 	// ------------- Path parameter "kind" -------------
 	var kind ResourceKind
 
-	err = runtime.BindStyledParameterWithOptions("simple", "kind", c.Params("kind"), &kind, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "kind", c.Params("kind"), &kind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter kind: %w", err).Error())
 	}
@@ -28226,7 +28271,7 @@ func (siw *ServerInterfaceWrapper) DeleteResource(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28242,7 +28287,7 @@ func (siw *ServerInterfaceWrapper) GetResource(c *fiber.Ctx) error {
 	// ------------- Path parameter "kind" -------------
 	var kind ResourceKind
 
-	err = runtime.BindStyledParameterWithOptions("simple", "kind", c.Params("kind"), &kind, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "kind", c.Params("kind"), &kind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter kind: %w", err).Error())
 	}
@@ -28250,7 +28295,7 @@ func (siw *ServerInterfaceWrapper) GetResource(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28266,7 +28311,7 @@ func (siw *ServerInterfaceWrapper) PutResource(c *fiber.Ctx) error {
 	// ------------- Path parameter "kind" -------------
 	var kind ResourceKind
 
-	err = runtime.BindStyledParameterWithOptions("simple", "kind", c.Params("kind"), &kind, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "kind", c.Params("kind"), &kind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter kind: %w", err).Error())
 	}
@@ -28274,7 +28319,7 @@ func (siw *ServerInterfaceWrapper) PutResource(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28327,7 +28372,7 @@ func (siw *ServerInterfaceWrapper) DeleteRuntimeProfile(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28343,7 +28388,7 @@ func (siw *ServerInterfaceWrapper) GetRuntimeProfile(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28359,7 +28404,7 @@ func (siw *ServerInterfaceWrapper) PutRuntimeProfile(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28419,7 +28464,7 @@ func (siw *ServerInterfaceWrapper) DeleteContact(c *fiber.Ctx) error {
 	// ------------- Path parameter "ownerPublicKey" -------------
 	var ownerPublicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "ownerPublicKey", c.Params("ownerPublicKey"), &ownerPublicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "ownerPublicKey", c.Params("ownerPublicKey"), &ownerPublicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter ownerPublicKey: %w", err).Error())
 	}
@@ -28427,7 +28472,7 @@ func (siw *ServerInterfaceWrapper) DeleteContact(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28443,7 +28488,7 @@ func (siw *ServerInterfaceWrapper) GetContact(c *fiber.Ctx) error {
 	// ------------- Path parameter "ownerPublicKey" -------------
 	var ownerPublicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "ownerPublicKey", c.Params("ownerPublicKey"), &ownerPublicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "ownerPublicKey", c.Params("ownerPublicKey"), &ownerPublicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter ownerPublicKey: %w", err).Error())
 	}
@@ -28451,7 +28496,7 @@ func (siw *ServerInterfaceWrapper) GetContact(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28467,7 +28512,7 @@ func (siw *ServerInterfaceWrapper) PutContact(c *fiber.Ctx) error {
 	// ------------- Path parameter "ownerPublicKey" -------------
 	var ownerPublicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "ownerPublicKey", c.Params("ownerPublicKey"), &ownerPublicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "ownerPublicKey", c.Params("ownerPublicKey"), &ownerPublicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter ownerPublicKey: %w", err).Error())
 	}
@@ -28475,7 +28520,7 @@ func (siw *ServerInterfaceWrapper) PutContact(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28528,7 +28573,7 @@ func (siw *ServerInterfaceWrapper) DeleteFriendGroup(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28544,7 +28589,7 @@ func (siw *ServerInterfaceWrapper) GetFriendGroup(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28560,7 +28605,7 @@ func (siw *ServerInterfaceWrapper) PutFriendGroup(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28576,7 +28621,7 @@ func (siw *ServerInterfaceWrapper) DeleteFriendGroupInviteToken(c *fiber.Ctx) er
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28592,7 +28637,7 @@ func (siw *ServerInterfaceWrapper) GetFriendGroupInviteToken(c *fiber.Ctx) error
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28608,7 +28653,7 @@ func (siw *ServerInterfaceWrapper) PutFriendGroupInviteToken(c *fiber.Ctx) error
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28624,7 +28669,7 @@ func (siw *ServerInterfaceWrapper) ListFriendGroupMembers(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28663,7 +28708,7 @@ func (siw *ServerInterfaceWrapper) CreateFriendGroupMember(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28679,7 +28724,7 @@ func (siw *ServerInterfaceWrapper) DeleteFriendGroupMember(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28687,7 +28732,7 @@ func (siw *ServerInterfaceWrapper) DeleteFriendGroupMember(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -28703,7 +28748,7 @@ func (siw *ServerInterfaceWrapper) PutFriendGroupMember(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28711,7 +28756,7 @@ func (siw *ServerInterfaceWrapper) PutFriendGroupMember(c *fiber.Ctx) error {
 	// ------------- Path parameter "publicKey" -------------
 	var publicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
 	}
@@ -28764,7 +28809,7 @@ func (siw *ServerInterfaceWrapper) DeleteFriend(c *fiber.Ctx) error {
 	// ------------- Path parameter "ownerPublicKey" -------------
 	var ownerPublicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "ownerPublicKey", c.Params("ownerPublicKey"), &ownerPublicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "ownerPublicKey", c.Params("ownerPublicKey"), &ownerPublicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter ownerPublicKey: %w", err).Error())
 	}
@@ -28772,7 +28817,7 @@ func (siw *ServerInterfaceWrapper) DeleteFriend(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28788,7 +28833,7 @@ func (siw *ServerInterfaceWrapper) GetFriend(c *fiber.Ctx) error {
 	// ------------- Path parameter "ownerPublicKey" -------------
 	var ownerPublicKey string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "ownerPublicKey", c.Params("ownerPublicKey"), &ownerPublicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "ownerPublicKey", c.Params("ownerPublicKey"), &ownerPublicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter ownerPublicKey: %w", err).Error())
 	}
@@ -28796,7 +28841,7 @@ func (siw *ServerInterfaceWrapper) GetFriend(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28870,7 +28915,7 @@ func (siw *ServerInterfaceWrapper) DeleteVoice(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28886,7 +28931,7 @@ func (siw *ServerInterfaceWrapper) GetVoice(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28902,7 +28947,7 @@ func (siw *ServerInterfaceWrapper) PutVoice(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28955,7 +29000,7 @@ func (siw *ServerInterfaceWrapper) DeleteVolcTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28971,7 +29016,7 @@ func (siw *ServerInterfaceWrapper) GetVolcTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -28987,7 +29032,7 @@ func (siw *ServerInterfaceWrapper) PutVolcTenant(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -29003,7 +29048,7 @@ func (siw *ServerInterfaceWrapper) SyncVolcTenantVoices(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -29056,7 +29101,7 @@ func (siw *ServerInterfaceWrapper) DeleteWorkflow(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -29072,7 +29117,7 @@ func (siw *ServerInterfaceWrapper) GetWorkflow(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -29088,7 +29133,7 @@ func (siw *ServerInterfaceWrapper) PutWorkflow(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -29148,7 +29193,7 @@ func (siw *ServerInterfaceWrapper) DeleteWorkspace(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -29164,7 +29209,7 @@ func (siw *ServerInterfaceWrapper) GetWorkspace(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -29180,7 +29225,7 @@ func (siw *ServerInterfaceWrapper) PutWorkspace(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -29196,7 +29241,7 @@ func (siw *ServerInterfaceWrapper) ListWorkspaceHistory(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -29242,7 +29287,7 @@ func (siw *ServerInterfaceWrapper) GetWorkspaceHistory(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -29250,7 +29295,7 @@ func (siw *ServerInterfaceWrapper) GetWorkspaceHistory(c *fiber.Ctx) error {
 	// ------------- Path parameter "historyId" -------------
 	var historyId string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "historyId", c.Params("historyId"), &historyId, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "historyId", c.Params("historyId"), &historyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter historyId: %w", err).Error())
 	}
@@ -29266,7 +29311,7 @@ func (siw *ServerInterfaceWrapper) DownloadWorkspaceHistoryAudio(c *fiber.Ctx) e
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -29274,7 +29319,7 @@ func (siw *ServerInterfaceWrapper) DownloadWorkspaceHistoryAudio(c *fiber.Ctx) e
 	// ------------- Path parameter "historyId" -------------
 	var historyId string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "historyId", c.Params("historyId"), &historyId, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "historyId", c.Params("historyId"), &historyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter historyId: %w", err).Error())
 	}
@@ -29290,7 +29335,7 @@ func (siw *ServerInterfaceWrapper) DeleteWorkspaceIcon(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -29298,7 +29343,7 @@ func (siw *ServerInterfaceWrapper) DeleteWorkspaceIcon(c *fiber.Ctx) error {
 	// ------------- Path parameter "format" -------------
 	var format DeleteWorkspaceIconParamsFormat
 
-	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
 	}
@@ -29314,7 +29359,7 @@ func (siw *ServerInterfaceWrapper) DownloadWorkspaceIcon(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -29322,7 +29367,7 @@ func (siw *ServerInterfaceWrapper) DownloadWorkspaceIcon(c *fiber.Ctx) error {
 	// ------------- Path parameter "format" -------------
 	var format DownloadWorkspaceIconParamsFormat
 
-	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
 	}
@@ -29338,7 +29383,7 @@ func (siw *ServerInterfaceWrapper) UploadWorkspaceIcon(c *fiber.Ctx) error {
 	// ------------- Path parameter "id" -------------
 	var id string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
@@ -29346,7 +29391,7 @@ func (siw *ServerInterfaceWrapper) UploadWorkspaceIcon(c *fiber.Ctx) error {
 	// ------------- Path parameter "format" -------------
 	var format UploadWorkspaceIconParamsFormat
 
-	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "format", c.Params("format"), &format, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter format: %w", err).Error())
 	}
@@ -34219,6 +34264,15 @@ func (response CreateContact404JSONResponse) VisitCreateContactResponse(ctx *fib
 	return ctx.JSON(&response)
 }
 
+type CreateContact409JSONResponse externalRef0.ErrorResponse
+
+func (response CreateContact409JSONResponse) VisitCreateContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type CreateContact500JSONResponse externalRef0.ErrorResponse
 
 func (response CreateContact500JSONResponse) VisitCreateContactResponse(ctx *fiber.Ctx) error {
@@ -34439,6 +34493,15 @@ type CreateFriendGroup404JSONResponse externalRef0.ErrorResponse
 func (response CreateFriendGroup404JSONResponse) VisitCreateFriendGroupResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendGroup409JSONResponse externalRef0.ErrorResponse
+
+func (response CreateFriendGroup409JSONResponse) VisitCreateFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -34799,6 +34862,15 @@ func (response CreateFriendGroupMember404JSONResponse) VisitCreateFriendGroupMem
 	return ctx.JSON(&response)
 }
 
+type CreateFriendGroupMember409JSONResponse externalRef0.ErrorResponse
+
+func (response CreateFriendGroupMember409JSONResponse) VisitCreateFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type CreateFriendGroupMember500JSONResponse externalRef0.ErrorResponse
 
 func (response CreateFriendGroupMember500JSONResponse) VisitCreateFriendGroupMemberResponse(ctx *fiber.Ctx) error {
@@ -34965,6 +35037,15 @@ type CreateFriend404JSONResponse externalRef0.ErrorResponse
 func (response CreateFriend404JSONResponse) VisitCreateFriendResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriend409JSONResponse externalRef0.ErrorResponse
+
+func (response CreateFriend409JSONResponse) VisitCreateFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }

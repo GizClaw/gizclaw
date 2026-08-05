@@ -20,7 +20,7 @@ func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
 
 	firmwarePath := filepath.Join(h.SandboxDir, "firmware.json")
 	writeAdminFixture(t, firmwarePath, `{
-  "name":"devkit",
+  "id":"devkit",
   "slots":{"stable":{},"beta":{},"develop":{},"pending":{}}
 }`)
 	firmware := h.RunCLI("admin", "firmwares", "create", "-f", firmwarePath, "--context", "admin-a")
@@ -31,7 +31,7 @@ func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
 	writeAdminFixture(t, chatroomPath, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
 		"kind":"Workflow",
-		"metadata":{"name":"system-chatroom"},
+		"metadata":{"id":"system-chatroom"},
 		"spec":{"driver":"chatroom","chatroom":{"history":{"ttl":"168h"}}}
 	}`)
 	chatroom := h.RunCLI("admin", "apply", "-f", chatroomPath, "--context", "admin-a")
@@ -42,7 +42,7 @@ func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
 	writeAdminFixture(t, petPath, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
 		"kind":"Workflow",
-		"metadata":{"name":"system-pet-chatroom"},
+		"metadata":{"id":"system-pet-chatroom"},
 		"spec":{"driver":"pet","pet":{"driver":"chatroom","chatroom":{"history":{"ttl":"168h"}}}}
 	}`)
 	pet := h.RunCLI("admin", "apply", "-f", petPath, "--context", "admin-a")
@@ -51,7 +51,7 @@ func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
 
 	profilePath := filepath.Join(h.SandboxDir, "runtime-profile.json")
 	writeAdminFixture(t, profilePath, fmt.Sprintf(`{
-  "name":"device-default",
+  "id":"device-default",
   "spec":{
     "resources":{},
     "workflows":{"system":{"friend_chatroom":%q,"group_chatroom":%q,"pet":%q},"collections":{}}
@@ -64,7 +64,7 @@ func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
 
 	tokenPath := filepath.Join(h.SandboxDir, "registration-token.json")
 	writeAdminFixture(t, tokenPath, fmt.Sprintf(`{
-  "name":"device-default",
+  "id":"device-default",
   "runtime_profile_id":%q,
   "firmware_id":%q,
   "token":"e2e-device-default-token"

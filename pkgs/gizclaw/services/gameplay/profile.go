@@ -89,7 +89,7 @@ func profileRulesFromContext(ctx context.Context, requestedName string) (Profile
 	}
 	return ProfileRules{
 		ID:   profile.Id,
-		Name: profile.Name,
+		Name: profile.Id,
 		Spec: ProfileRulesSpec{
 			Actions: map[apitypes.PetBehavior]apitypes.RuntimeProfilePetActionSpec{
 				apitypes.PetBehaviorFeed:  pet.Actions.Feed,
@@ -113,12 +113,12 @@ func pointsRulesFromContext(ctx context.Context, requestedName string) (ProfileR
 	if err != nil {
 		return ProfileRules{}, err
 	}
-	return ProfileRules{ID: profile.Id, Name: profile.Name, Spec: ProfileRulesSpec{Points: gameplay.Points}}, nil
+	return ProfileRules{ID: profile.Id, Name: profile.Id, Spec: ProfileRulesSpec{Points: gameplay.Points}}, nil
 }
 
 func gameplayProfileFromContext(ctx context.Context, requestedName string) (apitypes.RuntimeProfile, *apitypes.RuntimeProfileGameplaySpec, error) {
 	profile, ok := runtimeProfileFromContext(ctx)
-	if !ok || strings.TrimSpace(profile.Id) == "" || strings.TrimSpace(profile.Name) == "" {
+	if !ok || strings.TrimSpace(profile.Id) == "" {
 		return apitypes.RuntimeProfile{}, nil, errors.New("gameplay: RuntimeProfile is required")
 	}
 	requestedName = strings.TrimSpace(requestedName)

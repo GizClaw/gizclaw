@@ -1,14 +1,12 @@
 ---
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
-metadata:
-  name: starter-gameplay
 spec:
   items:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: PetDef
     metadata:
-      name: petdef-starter
+      id: petdef-starter
     spec:
       character:
         prompt: Starter gameplay test pet with a clear friendly pixel-sprite silhouette.
@@ -36,7 +34,7 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: BadgeDef
     metadata:
-      name: badge-starter
+      id: badge-starter
     spec:
       display_name: Starter Badge
       description: First gameplay badge used by e2e coverage.
@@ -44,7 +42,7 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: GameDef
     metadata:
-      name: game-starter
+      id: game-starter
     spec:
       display_name: Starter Game
       description: Starter score-based game used by e2e coverage.
@@ -54,7 +52,7 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: RuntimeProfile
     metadata:
-      name: default-gameplay
+      id: default-gameplay
     spec:
       workflows:
         system:

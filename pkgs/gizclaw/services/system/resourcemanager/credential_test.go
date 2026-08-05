@@ -2,6 +2,7 @@ package resourcemanager
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -16,7 +17,7 @@ func TestApplyCredentialCreatesResource(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "minimax-main"},
+		"metadata": {"id": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"},
@@ -37,13 +38,43 @@ func TestApplyCredentialCreatesResource(t *testing.T) {
 	}
 }
 
+func TestApplyCredentialPreservesOpaqueIDAcrossHTTPShapedCalls(t *testing.T) {
+	for _, id := range []string{"mini/max", "literal%2Fsegment", "literal%segment"} {
+		t.Run(id, func(t *testing.T) {
+			credentials := newFakeCredentials()
+			manager := New(Services{Credentials: credentials})
+			resource := mustResource(t, fmt.Sprintf(`{
+				"apiVersion":"gizclaw.admin/v1alpha1",
+				"kind":"Credential",
+				"metadata":{"id":%q},
+				"spec":{"provider":"minimax","body":{"api_key":"secret"}}
+			}`, id))
+
+			first, err := manager.Apply(context.Background(), resource)
+			if err != nil {
+				t.Fatalf("first Apply() error = %v", err)
+			}
+			second, err := manager.Apply(context.Background(), resource)
+			if err != nil {
+				t.Fatalf("second Apply() error = %v", err)
+			}
+			if first.Action != apitypes.ApplyActionCreated || second.Action != apitypes.ApplyActionUnchanged {
+				t.Fatalf("Apply() actions = %q, %q", first.Action, second.Action)
+			}
+			if got := credentials.items[id].Id; got != id {
+				t.Fatalf("stored id = %q, want %q", got, id)
+			}
+		})
+	}
+}
+
 func TestApplyCredentialUnchangedSkipsPut(t *testing.T) {
 	credentials := newFakeCredentials()
 	credentials.items["minimax-main"] = apitypes.Credential{
 		Body:        testOpenAICredentialBody("secret"),
 		CreatedAt:   time.Now().UTC(),
 		Description: ptr("primary key"),
-		Name:        "minimax-main",
+		Id:          "minimax-main",
 		Provider:    "minimax",
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -52,7 +83,7 @@ func TestApplyCredentialUnchangedSkipsPut(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"id": "minimax-main", "name": "minimax-main"},
+		"metadata": {"id": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"},
@@ -75,7 +106,7 @@ func TestApplyCredentialUpdatesResource(t *testing.T) {
 	credentials.items["minimax-main"] = apitypes.Credential{
 		Body:      testOpenAICredentialBody("old"),
 		CreatedAt: time.Now().UTC(),
-		Name:      "minimax-main",
+		Id:        "minimax-main",
 		Provider:  "minimax",
 		UpdatedAt: time.Now().UTC(),
 	}
@@ -84,7 +115,7 @@ func TestApplyCredentialUpdatesResource(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"id": "minimax-main", "name": "minimax-main"},
+		"metadata": {"id": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "new"}
@@ -106,7 +137,7 @@ func TestGetCredentialReturnsResource(t *testing.T) {
 	credentials.items["minimax-main"] = apitypes.Credential{
 		Body:      testOpenAICredentialBody("secret"),
 		CreatedAt: time.Now().UTC(),
-		Name:      "minimax-main",
+		Id:        "minimax-main",
 		Provider:  "minimax",
 		UpdatedAt: time.Now().UTC(),
 	}
@@ -123,8 +154,8 @@ func TestGetCredentialReturnsResource(t *testing.T) {
 	if credential.Kind != apitypes.CredentialResourceKind(apitypes.ResourceKindCredential) {
 		t.Fatalf("kind = %q, want Credential", credential.Kind)
 	}
-	if credential.Metadata.Name != "minimax-main" {
-		t.Fatalf("metadata.name = %q, want minimax-main", credential.Metadata.Name)
+	if metadataID(t, credential.Metadata) != "minimax-main" {
+		t.Fatalf("metadata.id = %q, want minimax-main", metadataID(t, credential.Metadata))
 	}
 	if got := testCredentialBodyString(credential.Spec.Body, "api_key"); got != "secret" {
 		t.Fatalf("api_key = %q, want secret", got)
@@ -133,13 +164,13 @@ func TestGetCredentialReturnsResource(t *testing.T) {
 
 func TestPutCredentialWritesAndReturnsResource(t *testing.T) {
 	credentials := newFakeCredentials()
-	credentials.items["minimax-main"] = apitypes.Credential{Id: "minimax-main", Name: "minimax-main"}
+	credentials.items["minimax-main"] = apitypes.Credential{Id: "minimax-main"}
 	manager := New(Services{Credentials: credentials})
 
 	resource, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"id": "minimax-main", "name": "minimax-main"},
+		"metadata": {"id": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
@@ -155,23 +186,45 @@ func TestPutCredentialWritesAndReturnsResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsCredentialResource returned error: %v", err)
 	}
-	if credential.Metadata.Name != "minimax-main" {
-		t.Fatalf("metadata.name = %q, want minimax-main", credential.Metadata.Name)
+	if metadataID(t, credential.Metadata) != "minimax-main" {
+		t.Fatalf("metadata.id = %q, want minimax-main", metadataID(t, credential.Metadata))
 	}
 	if credential.Spec.Provider != "minimax" {
 		t.Fatalf("provider = %q, want minimax", credential.Spec.Provider)
 	}
 }
 
+func TestPutCredentialCreatesAbsentResource(t *testing.T) {
+	credentials := newFakeCredentials()
+	manager := New(Services{Credentials: credentials})
+
+	resource, err := manager.Put(context.Background(), mustResource(t, `{
+		"apiVersion":"gizclaw.admin/v1alpha1",
+		"kind":"Credential",
+		"metadata":{"id":"caller-supplied"},
+		"spec":{"provider":"minimax","body":{"api_key":"secret"}}
+	}`))
+	if err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+	credential, err := resource.AsCredentialResource()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if credential.Metadata.Id != "caller-supplied" || credentials.items["caller-supplied"].Id != "caller-supplied" {
+		t.Fatalf("Put() did not create caller-supplied ID: %#v", credential.Metadata)
+	}
+}
+
 func TestPutCredentialEscapesServicePathName(t *testing.T) {
 	credentials := newFakeCredentials()
-	credentials.items["mini/max%main"] = apitypes.Credential{Id: "mini/max%main", Name: "mini/max%main"}
+	credentials.items["mini/max%main"] = apitypes.Credential{Id: "mini/max%main"}
 	manager := New(Services{Credentials: credentials})
 
 	resource, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"id": "mini/max%main", "name": "mini/max%main"},
+		"metadata": {"id": "mini/max%main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
@@ -184,8 +237,8 @@ func TestPutCredentialEscapesServicePathName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsCredentialResource returned error: %v", err)
 	}
-	if credential.Metadata.Name != "mini/max%main" {
-		t.Fatalf("metadata.name = %q, want mini/max%%main", credential.Metadata.Name)
+	if metadataID(t, credential.Metadata) != "mini/max%main" {
+		t.Fatalf("metadata.id = %q, want mini/max%%main", metadataID(t, credential.Metadata))
 	}
 	if _, ok := credentials.items["mini/max%main"]; !ok {
 		t.Fatal("credential was not stored under unescaped logical name")
@@ -230,7 +283,7 @@ func (f *fakeCredentials) CreateCredential(_ context.Context, request adminhttp.
 	body := *request.Body
 	now := time.Now().UTC()
 	item := apitypes.Credential{
-		Id: body.Name, Name: body.Name, Body: body.Body, CreatedAt: now,
+		Id: body.Id, Body: body.Body, CreatedAt: now,
 		Description: body.Description, Provider: body.Provider, UpdatedAt: now,
 	}
 	f.items[item.Id] = item
@@ -238,7 +291,7 @@ func (f *fakeCredentials) CreateCredential(_ context.Context, request adminhttp.
 }
 
 func (f *fakeCredentials) DeleteCredential(_ context.Context, request adminhttp.DeleteCredentialRequestObject) (adminhttp.DeleteCredentialResponseObject, error) {
-	name := mustUnescapePathParam(string(request.Id))
+	name := string(request.Id)
 	item, ok := f.items[name]
 	if !ok {
 		return adminhttp.DeleteCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", "not found")), nil
@@ -251,7 +304,7 @@ func (f *fakeCredentials) GetCredential(_ context.Context, request adminhttp.Get
 	if f.getStatus == 500 {
 		return adminhttp.GetCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
-	name := mustUnescapePathParam(string(request.Id))
+	name := string(request.Id)
 	item, ok := f.items[name]
 	if !ok {
 		return adminhttp.GetCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", "not found")), nil
@@ -275,7 +328,6 @@ func (f *fakeCredentials) PutCredential(_ context.Context, request adminhttp.Put
 		Body:        body.Body,
 		CreatedAt:   now,
 		Description: body.Description,
-		Name:        body.Name,
 		Provider:    body.Provider,
 		UpdatedAt:   now,
 	}

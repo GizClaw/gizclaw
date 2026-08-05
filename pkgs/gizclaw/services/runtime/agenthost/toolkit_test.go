@@ -60,7 +60,7 @@ func TestToolkitInvokerReauthorizesResourceAtInvoke(t *testing.T) {
 	}
 	tool.Enabled = false
 	if _, err := server.PutTool(t.Context(), created.ID, tool); err != nil {
-		t.Fatalf("PutTool(%q) error = %v", tool.Name, err)
+		t.Fatalf("PutTool(%q) error = %v", tool.InvokeName, err)
 	}
 	result, err := invoker.InvokeTool(ctx, "volume_set", json.RawMessage(`{"level":1}`))
 	if err != nil || string(result) != `{"error":{"code":"unavailable","message":"tool is unavailable"}}` {
@@ -233,14 +233,14 @@ func putAgentHostTool(t *testing.T, server *toolkit.Server, tool toolkit.Tool) t
 	t.Helper()
 	created, err := server.CreateTool(t.Context(), tool)
 	if err != nil {
-		t.Fatalf("PutTool(%q) error = %v", tool.Name, err)
+		t.Fatalf("PutTool(%q) error = %v", tool.InvokeName, err)
 	}
 	return created
 }
 
 func agentHostClientTool(name string) toolkit.Tool {
 	return toolkit.Tool{
-		Name: name, Type: toolkit.ToolTypeClientRPC, Enabled: true,
+		ID: name, InvokeName: name, Type: toolkit.ToolTypeClientRPC, Enabled: true,
 		InputSchema: jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
@@ -254,7 +254,7 @@ func agentHostClientTool(name string) toolkit.Tool {
 func agentHostHTTPTool(name string) toolkit.Tool {
 	pointer := "/data"
 	return toolkit.Tool{
-		Name: name, Type: toolkit.ToolTypeHTTPRequest, Enabled: true,
+		ID: name, InvokeName: name, Type: toolkit.ToolTypeHTTPRequest, Enabled: true,
 		InputSchema: jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{

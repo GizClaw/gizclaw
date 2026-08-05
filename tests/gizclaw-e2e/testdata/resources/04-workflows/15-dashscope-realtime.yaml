@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  name: dashscope-realtime-conversation
+  id: dashscope-realtime-conversation
 spec:
   driver: dashscope-realtime
   dashscope_realtime:

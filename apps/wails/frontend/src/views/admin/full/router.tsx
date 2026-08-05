@@ -57,7 +57,7 @@ export function AppRoutes({
         <Route element={<PeersListPage />} path="peers" />
         <Route element={<PeerDetailPage />} path="peers/:publicKey" />
         <Route element={<FirmwaresListPage />} path="firmwares" />
-        <Route element={<FirmwareCreatePage />} path="firmwares/new" />
+        <Route element={<FirmwareCreatePage />} path="firmwares/-/new" />
         <Route element={<FirmwareDetailPage />} path="firmwares/:name" />
         <Route element={<CredentialsListPage />} path="providers/credentials" />
         <Route

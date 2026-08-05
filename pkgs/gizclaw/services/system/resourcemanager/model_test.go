@@ -16,7 +16,7 @@ func TestApplyModelCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Model",
-		"metadata": {"name": "qwen-flash"},
+		"metadata": {"id": "qwen-flash"},
 		"spec": {
 			"kind": "llm",
 			"provider": {"kind": "openai-tenant", "id": "dashscope"},
@@ -45,7 +45,7 @@ func TestApplyModelCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 	updated := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Model",
-		"metadata": {"name": "qwen-flash"},
+		"metadata": {"id": "qwen-flash"},
 		"spec": {
 			"kind": "llm",
 			"provider": {"kind": "openai-tenant", "id": "dashscope"},
@@ -70,7 +70,7 @@ func TestPutGetDeleteModelResource(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Model",
-		"metadata": {"name": "chat"},
+		"metadata": {"id": "chat"},
 		"spec": {
 			"kind": "llm",
 			"provider": {"kind": "openai-tenant", "id": "openai"},
@@ -105,8 +105,8 @@ func TestPutGetDeleteModelResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsModelResource(Get) error = %v", err)
 	}
-	if gotModel.Metadata.Name != "chat" {
-		t.Fatalf("Get(Model) metadata.name = %s", gotModel.Metadata.Name)
+	if metadataID(t, gotModel.Metadata) != "chat" {
+		t.Fatalf("Get(Model) metadata.id = %s", metadataID(t, gotModel.Metadata))
 	}
 
 	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindModel, id)
@@ -117,8 +117,8 @@ func TestPutGetDeleteModelResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsModelResource(Delete) error = %v", err)
 	}
-	if deletedModel.Metadata.Name != "chat" {
-		t.Fatalf("Delete(Model) metadata.name = %s", deletedModel.Metadata.Name)
+	if metadataID(t, deletedModel.Metadata) != "chat" {
+		t.Fatalf("Delete(Model) metadata.id = %s", metadataID(t, deletedModel.Metadata))
 	}
 	_, err = manager.Get(context.Background(), apitypes.ResourceKindModel, id)
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")

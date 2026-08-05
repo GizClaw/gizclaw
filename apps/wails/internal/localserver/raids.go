@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/goccy/go-yaml"
 )
 
@@ -310,8 +311,8 @@ func buildRaidsCatalog(loadPIXA func(string, uint16, uint16) ([]byte, error), ar
 	}
 	var token struct {
 		Spec struct {
-			Token              string `json:"token"`
-			RuntimeProfileName string `json:"runtime_profile_name"`
+			Token            string `json:"token"`
+			RuntimeProfileID string `json:"runtime_profile_id"`
 		} `json:"spec"`
 	}
 	tokenJSON, err := yaml.YAMLToJSON(tokenCandidate.data)
@@ -321,8 +322,8 @@ func buildRaidsCatalog(loadPIXA func(string, uint16, uint16) ([]byte, error), ar
 	if err := json.Unmarshal(tokenJSON, &token); err != nil {
 		return nil, fmt.Errorf("decode RegistrationToken/%s JSON: %w", defaultRegistrationTokenName, err)
 	}
-	if token.Spec.RuntimeProfileName != defaultRuntimeProfileName {
-		return nil, fmt.Errorf("RegistrationToken/%s targets RuntimeProfile/%s, want %s", defaultRegistrationTokenName, token.Spec.RuntimeProfileName, defaultRuntimeProfileName)
+	if token.Spec.RuntimeProfileID != defaultRuntimeProfileName {
+		return nil, fmt.Errorf("RegistrationToken/%s targets RuntimeProfile/%s, want %s", defaultRegistrationTokenName, token.Spec.RuntimeProfileID, defaultRuntimeProfileName)
 	}
 	if token.Spec.Token != expectedDefaultRegistrationToken {
 		return nil, fmt.Errorf("RegistrationToken/%s has unexpected public token", defaultRegistrationTokenName)
@@ -581,7 +582,7 @@ type resourceHeader struct {
 	APIVersion string `json:"apiVersion"`
 	Kind       string `json:"kind"`
 	Metadata   struct {
-		Name string `json:"name"`
+		ID string `json:"id"`
 	} `json:"metadata"`
 	Spec json.RawMessage `json:"spec"`
 	Name string
@@ -597,10 +598,12 @@ func decodeResource(data []byte) (apitypes.Resource, resourceHeader, error) {
 		return apitypes.Resource{}, resourceHeader{}, err
 	}
 	header.Kind = strings.TrimSpace(header.Kind)
-	header.Metadata.Name = strings.TrimSpace(header.Metadata.Name)
-	header.Name = header.Metadata.Name
+	header.Name = header.Metadata.ID
 	if header.APIVersion != "gizclaw.admin/v1alpha1" || header.Kind == "" || header.Name == "" {
-		return apitypes.Resource{}, resourceHeader{}, errors.New("missing or invalid apiVersion, kind, or metadata.name")
+		return apitypes.Resource{}, resourceHeader{}, errors.New("missing or invalid apiVersion, kind, or metadata.id")
+	}
+	if err := customid.ValidateResourceID(header.Metadata.ID); err != nil {
+		return apitypes.Resource{}, resourceHeader{}, fmt.Errorf("invalid metadata.id: %w", err)
 	}
 	var resource apitypes.Resource
 	if err := json.Unmarshal(jsonData, &resource); err != nil {
@@ -624,27 +627,27 @@ func parseRaidsCandidate(data []byte) (raidsCandidate, error) {
 		var spec struct {
 			Provider struct {
 				Kind string `json:"kind"`
-				Name string `json:"name"`
+				ID   string `json:"id"`
 			} `json:"provider"`
 		}
 		if err := json.Unmarshal(header.Spec, &spec); err != nil {
 			return raidsCandidate{}, fmt.Errorf("decode provider: %w", err)
 		}
 		candidate.providerKind = spec.Provider.Kind
-		candidate.providerID = spec.Provider.Name
+		candidate.providerID = spec.Provider.ID
 		if candidate.providerKind == "" || candidate.providerID == "" {
 			return raidsCandidate{}, fmt.Errorf("%s/%s has no provider reference", header.Kind, header.Name)
 		}
 	case "DashScopeTenant", "DeepSeekTenant", "GeminiTenant", "MiniMaxTenant", "OpenAITenant", "VolcTenant":
 		var spec struct {
-			CredentialId string `json:"credential_name"`
+			CredentialId string `json:"credential_id"`
 		}
 		if err := json.Unmarshal(header.Spec, &spec); err != nil {
 			return raidsCandidate{}, fmt.Errorf("decode tenant: %w", err)
 		}
 		candidate.credentialName = spec.CredentialId
 		if candidate.credentialName == "" {
-			return raidsCandidate{}, fmt.Errorf("%s/%s has no credential_name", header.Kind, header.Name)
+			return raidsCandidate{}, fmt.Errorf("%s/%s has no credential_id", header.Kind, header.Name)
 		}
 	default:
 		return raidsCandidate{}, fmt.Errorf("unsupported Raids resource kind %s", header.Kind)

@@ -50,10 +50,16 @@
       "FirmwareSpec": {
         "type": "object",
         "required": [
+          "name",
           "slots"
         ],
         "additionalProperties": false,
         "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 256,
+            "example": "devkit"
+          },
           "description": {
             "type": "string",
             "example": "Devkit firmware line"

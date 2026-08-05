@@ -15,15 +15,14 @@ func (m *Manager) applyOpenAITenant(ctx context.Context, resource apitypes.Resou
 	if err != nil {
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_OPENAI_TENANT_RESOURCE", err.Error())
 	}
-	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+	if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	body := openAITenantUpsert(item)
-	return applyNamedResource(ctx, item.Metadata, apitypes.ResourceKindOpenAITenant, item.Spec,
+	return applyConcreteResource(ctx, item.Metadata, apitypes.ResourceKindOpenAITenant, item.Spec,
 		m.getOpenAITenant,
 		func(ctx context.Context) (string, error) { return m.createOpenAITenant(ctx, body) },
-		func(ctx context.Context, id string) error { return m.putOpenAITenant(ctx, id, body) },
-		func(value apitypes.OpenAITenant) string { return value.Name }, openAITenantSpec)
+		func(ctx context.Context, id string) error { return m.putOpenAITenant(ctx, id, body) }, openAITenantSpec)
 }
 
 func (m *Manager) createOpenAITenant(ctx context.Context, body adminhttp.OpenAITenantUpsert) (string, error) {
@@ -113,7 +112,7 @@ func openAITenantUpsert(resource apitypes.OpenAITenantResource) adminhttp.OpenAI
 		CredentialId: resource.Spec.CredentialId,
 		Description:  resource.Spec.Description,
 		Kind:         resource.Spec.Kind,
-		Name:         string(resource.Metadata.Name),
+		Id:           resource.Metadata.Id,
 	}
 }
 
@@ -121,7 +120,7 @@ func resourceFromOpenAITenant(item apitypes.OpenAITenant) (apitypes.Resource, er
 	return marshalResource(apitypes.OpenAITenantResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.OpenAITenantResourceKind(apitypes.ResourceKindOpenAITenant),
-		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: item.Id},
 		Spec:       openAITenantSpec(item),
 	})
 }

@@ -2,8 +2,9 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Firmware
 metadata:
-  name: devkit-firmware-main
+  id: devkit-firmware-main
 spec:
+  name: Devkit Main
   description: Devkit firmware resource entry
   slots:
     beta:

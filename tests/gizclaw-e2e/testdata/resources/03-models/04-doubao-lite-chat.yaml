@@ -2,13 +2,13 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Model
 metadata:
-  name: doubao-lite-chat
+  id: doubao-lite-chat
 spec:
   kind: llm
   source: manual
   provider:
     kind: volc-tenant
-    name: volc-ark
+    id: volc-ark
   name: Doubao 2.0 Lite Chat
   description: Volc Ark Doubao 2.0 Lite chat model
   provider_data:

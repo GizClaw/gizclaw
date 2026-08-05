@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  name: flowcraft-werewolf-game
+  id: flowcraft-werewolf-game
 spec:
   driver: flowcraft
   memory: werewolf-memory

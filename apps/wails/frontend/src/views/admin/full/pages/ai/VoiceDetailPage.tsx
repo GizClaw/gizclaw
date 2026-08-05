@@ -105,7 +105,7 @@ export function VoiceDetailPage(): JSX.Element {
             </Badge>
           ) : null
         }
-        title={voice?.name?.trim() || compactVoiceID(voiceID)}
+        title={voice?.display_name?.trim() || compactVoiceID(voiceID)}
       />
 
       {loading ? (
@@ -132,7 +132,7 @@ export function VoiceDetailPage(): JSX.Element {
               <DetailBlock
                 items={[
                   ["Internal ID", voice.id],
-                  ["Name", voice.name],
+                  ["Display name", voice.display_name],
                   ["Description", voice.description],
                   ["Source", voice.source],
                   ["Provider", providerDisplayText(voice)],
@@ -255,7 +255,7 @@ function voiceResourceDescription(voice: Voice): string {
   if (voice.source === "sync") {
     return "JSON returned by the resource API. Synced voice resources are read-only; update them by syncing the provider tenant.";
   }
-  return "JSON returned by the resource API and accepted by admin apply. The resource metadata name is the voice ID.";
+  return "JSON returned by the resource API and accepted by admin apply. The resource metadata.id is the voice ID.";
 }
 
 function shellQuote(value: string): string {

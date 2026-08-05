@@ -275,13 +275,13 @@ func (s *Server) projectPet(ctx context.Context, pet apitypes.Pet) (rpcapi.Pet, 
 
 func (s *Server) runtimeProfileName(id string) (string, error) {
 	profile := s.currentRuntimeProfile()
-	if profile == nil || strings.TrimSpace(profile.Id) == "" || strings.TrimSpace(profile.Name) == "" {
+	if profile == nil || strings.TrimSpace(profile.Id) == "" {
 		return "", errors.New("gameplay: active RuntimeProfile is not available")
 	}
 	if strings.TrimSpace(id) != profile.Id {
 		return "", errors.New("gameplay: resource belongs to a different RuntimeProfile")
 	}
-	return profile.Name, nil
+	return profile.Id, nil
 }
 
 func (s *Server) projectPointsAccount(item apitypes.PointsAccount) (rpcapi.PointsAccount, error) {

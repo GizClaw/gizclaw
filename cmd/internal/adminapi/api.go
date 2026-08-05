@@ -961,7 +961,7 @@ func CreateWorkflow(ctx context.Context, c *gizcli.Client, req apitypes.Workflow
 	if err != nil {
 		return apitypes.Workflow{}, err
 	}
-	resp, err := api.CreateWorkflowWithResponse(ctx, adminhttp.WorkflowUpsert{Name: req.Name, Spec: req.Spec})
+	resp, err := api.CreateWorkflowWithResponse(ctx, adminhttp.WorkflowUpsert{Id: req.Id, Spec: req.Spec})
 	if err != nil {
 		return apitypes.Workflow{}, err
 	}
@@ -991,7 +991,7 @@ func PutWorkflow(ctx context.Context, c *gizcli.Client, id string, req apitypes.
 	if err != nil {
 		return apitypes.Workflow{}, err
 	}
-	resp, err := api.PutWorkflowWithResponse(ctx, id, adminhttp.WorkflowUpsert{Name: req.Name, Spec: req.Spec})
+	resp, err := api.PutWorkflowWithResponse(ctx, id, adminhttp.WorkflowUpsert{Id: req.Id, Spec: req.Spec})
 	if err != nil {
 		return apitypes.Workflow{}, err
 	}

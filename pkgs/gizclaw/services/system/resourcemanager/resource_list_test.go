@@ -14,7 +14,6 @@ func TestApplyResourceListRecurses(t *testing.T) {
 		Id:        "existing",
 		Body:      testOpenAICredentialBody("old"),
 		CreatedAt: time.Now().UTC(),
-		Name:      "existing",
 		Provider:  "minimax",
 		UpdatedAt: time.Now().UTC(),
 	}
@@ -23,13 +22,12 @@ func TestApplyResourceListRecurses(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "ResourceList",
-		"metadata": {"name": "bundle"},
 		"spec": {
 			"items": [
 				{
 					"apiVersion": "gizclaw.admin/v1alpha1",
 					"kind": "Credential",
-					"metadata": {"id": "existing", "name": "existing"},
+					"metadata": {"id": "existing"},
 					"spec": {
 						"provider": "minimax",
 						"body": {"api_key": "old"}
@@ -38,7 +36,7 @@ func TestApplyResourceListRecurses(t *testing.T) {
 				{
 					"apiVersion": "gizclaw.admin/v1alpha1",
 					"kind": "Credential",
-					"metadata": {"name": "created"},
+					"metadata": {"id": "created"},
 					"spec": {
 						"provider": "minimax",
 						"body": {"api_key": "new"}
@@ -71,13 +69,12 @@ func TestPutResourceListRecurses(t *testing.T) {
 	_, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "ResourceList",
-		"metadata": {"id": "bundle", "name": "bundle"},
 		"spec": {
 			"items": [
 				{
 					"apiVersion": "gizclaw.admin/v1alpha1",
 					"kind": "Credential",
-					"metadata": {"id": "created", "name": "created"},
+					"metadata": {"id": "created"},
 					"spec": {
 						"provider": "minimax",
 						"body": {"api_key": "new"}
@@ -87,4 +84,33 @@ func TestPutResourceListRecurses(t *testing.T) {
 		}
 	}`))
 	assertResourceError(t, err, 400, "UNSUPPORTED_RESOURCE_PUT")
+}
+
+func TestApplyResourceListRejectsNestedResourceList(t *testing.T) {
+	manager := New(Services{})
+
+	_, err := manager.Apply(t.Context(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "ResourceList",
+		"spec": {
+			"items": [{
+				"apiVersion": "gizclaw.admin/v1alpha1",
+				"kind": "ResourceList",
+				"spec": {"items": []}
+			}]
+		}
+	}`))
+	assertResourceError(t, err, 400, "INVALID_RESOURCE_LIST")
+}
+
+func TestApplyResourceListRejectsMetadata(t *testing.T) {
+	manager := New(Services{})
+
+	_, err := manager.Apply(t.Context(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "ResourceList",
+		"metadata": {"id": "bundle"},
+		"spec": {"items": []}
+	}`))
+	assertResourceError(t, err, 400, "INVALID_RESOURCE_LIST")
 }

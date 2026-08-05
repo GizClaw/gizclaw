@@ -2,6 +2,7 @@ package resourcemanager
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,8 +18,9 @@ func TestApplyWorkspaceCreatesResource(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
-		"metadata": {"name": "demo"},
+		"metadata": {"id": "demo"},
 		"spec": {
+			"name": "demo",
 			"workflow_id": "workflow",
 			"parameters": {"topic": "demo"}
 		}
@@ -68,8 +70,9 @@ func TestWorkspaceResourceRoundTripsToolkitPolicy(t *testing.T) {
 	_, err = manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
-		"metadata": {"id": "demo", "name": "demo"},
+		"metadata": {"id": "demo"},
 		"spec": {
+			"name": "demo",
 			"workflow_id": "workflow",
 			"toolkit": {"tool_ids": ["system.mode.switch"]}
 		}
@@ -111,8 +114,8 @@ func TestWorkspaceResourceRoundTripsLabelsAndDetectsLabelOnlyUpdate(t *testing.T
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
-		"metadata": {"id": "demo", "name": "demo", "labels": {"collection": "story-teller", "tier": "gold"}},
-		"spec": {"workflow_id": "workflow"}
+		"metadata": {"id": "demo", "labels": {"collection": "story-teller", "tier": "gold"}},
+		"spec": {"name": "demo", "workflow_id": "workflow"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply() error = %v", err)
@@ -146,8 +149,8 @@ func TestGetWorkspaceReturnsResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsWorkspaceResource returned error: %v", err)
 	}
-	if workspace.Metadata.Name != "demo" {
-		t.Fatalf("metadata.name = %q, want demo", workspace.Metadata.Name)
+	if metadataID(t, workspace.Metadata) != "demo" {
+		t.Fatalf("metadata.id = %q, want demo", metadataID(t, workspace.Metadata))
 	}
 	if workspace.Spec.WorkflowId != "workflow" {
 		t.Fatalf("workflow_name = %q, want workflow", workspace.Spec.WorkflowId)
@@ -162,8 +165,9 @@ func TestPutWorkspaceWritesResource(t *testing.T) {
 	_, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
-		"metadata": {"id": "demo", "name": "demo"},
+		"metadata": {"id": "demo"},
 		"spec": {
+			"name": "demo",
 			"workflow_id": "workflow"
 		}
 	}`))
@@ -189,8 +193,9 @@ func TestApplyWorkspaceUnchangedSkipsPut(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
-		"metadata": {"id": "demo", "name": "demo"},
+		"metadata": {"id": "demo"},
 		"spec": {
+			"name": "demo",
 			"workflow_id": "workflow"
 		}
 	}`))
@@ -219,8 +224,8 @@ func TestApplyWorkspaceIgnoresOwnerManagedIcon(t *testing.T) {
 	unchanged, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
-		"metadata": {"id": "demo", "name": "demo"},
-		"spec": {"workflow_id": "workflow"}
+		"metadata": {"id": "demo"},
+		"spec": {"name": "demo", "workflow_id": "workflow"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply without icon returned error: %v", err)
@@ -232,9 +237,9 @@ func TestApplyWorkspaceIgnoresOwnerManagedIcon(t *testing.T) {
 	updated, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
-		"metadata": {"id": "demo", "name": "demo"},
+		"metadata": {"id": "demo"},
 		"icon": {"png": "caller-controlled/icon.png"},
-		"spec": {"workflow_id": "updated-workflow"}
+		"spec": {"name": "demo", "workflow_id": "updated-workflow"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply with projected icon returned error: %v", err)
@@ -248,7 +253,7 @@ func TestApplyWorkspaceIgnoresOwnerManagedIcon(t *testing.T) {
 	}
 }
 
-func TestApplyWorkspaceNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
+func TestApplyWorkspaceCanonicalizesToolkitPolicyBeforeCompare(t *testing.T) {
 	toolIDs := []string{"system.mode.switch", "system.music.play"}
 	workspaces := newFakeWorkspaces()
 	workspaces.items["demo"] = apitypes.Workspace{
@@ -264,10 +269,11 @@ func TestApplyWorkspaceNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
-		"metadata": {"id": "demo", "name": "demo"},
+		"metadata": {"id": "demo"},
 		"spec": {
+			"name": "demo",
 			"workflow_id": "workflow",
-			"toolkit": {"tool_ids": [" system.music.play ", "system.mode.switch", "system.music.play"]}
+			"toolkit": {"tool_ids": ["system.music.play", "system.mode.switch", "system.music.play"]}
 		}
 	}`))
 	if err != nil {
@@ -278,6 +284,20 @@ func TestApplyWorkspaceNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
 	}
 	if workspaces.putCount != 0 {
 		t.Fatalf("putCount = %d, want 0", workspaces.putCount)
+	}
+
+	_, err = manager.Apply(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Workspace",
+		"metadata": {"id": "demo"},
+		"spec": {
+			"name": "demo",
+			"workflow_id": "workflow",
+			"toolkit": {"tool_ids": [" system.music.play "]}
+		}
+	}`))
+	if err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("Apply(whitespace tool ID) error = %v", err)
 	}
 }
 
@@ -295,8 +315,9 @@ func TestApplyWorkspaceUpdatesResource(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
-		"metadata": {"id": "demo", "name": "demo"},
+		"metadata": {"id": "demo"},
 		"spec": {
+			"name": "demo",
 			"workflow_id": "new-workflow"
 		}
 	}`))
@@ -354,7 +375,7 @@ func (f *fakeWorkspaces) CreateWorkspace(_ context.Context, request adminhttp.Cr
 	body := *request.Body
 	now := time.Now().UTC()
 	item := apitypes.Workspace{
-		Id: body.Name, Name: body.Name, CreatedAt: now, LastActiveAt: now,
+		Id: body.Id, Name: body.Name, CreatedAt: now, LastActiveAt: now,
 		Labels: body.Labels, Parameters: body.Parameters, System: new(false),
 		Toolkit: body.Toolkit, UpdatedAt: now, WorkflowId: body.WorkflowId,
 	}

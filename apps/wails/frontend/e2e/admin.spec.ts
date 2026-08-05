@@ -65,15 +65,15 @@ test.beforeEach(async ({ page }) => {
       "/credentials": pageResponse([
         {
           body: { api_key: "set" },
-          name: "fake-openai-credential-000",
+          id: "fake-openai-credential-000",
           provider: "openai",
           updated_at: "2026-07-01T00:00:00Z",
         },
       ]),
       "/dashscope-tenants": pageResponse([
         {
-          credential_name: "dashscope-credential",
-          name: "dashscope-tenant",
+          credential_id: "dashscope-credential",
+          id: "dashscope-tenant",
           updated_at: "2026-07-01T00:00:00Z",
         },
       ]),
@@ -82,24 +82,25 @@ test.beforeEach(async ({ page }) => {
       "/resources/Firmware/devkit-firmware-main": {
         apiVersion: "gizclaw.admin/v1alpha1",
         kind: "Firmware",
-        metadata: { name: "devkit-firmware-main" },
+        metadata: { id: "devkit-firmware-main" },
         spec: {
           description: firmware.description,
+          name: firmware.name,
           slots: firmware.slots,
         },
       },
       "/gemini-tenants": pageResponse([
         {
-          credential_name: "gemini-credential",
-          name: "gemini-tenant",
+          credential_id: "gemini-credential",
+          id: "gemini-tenant",
           updated_at: "2026-07-01T00:00:00Z",
         },
       ]),
       "/minimax-tenants": pageResponse([
         {
-          credential_name: "minimax-credential",
+          credential_id: "minimax-credential",
           group_id: "minimax-group",
-          name: "minimax-tenant",
+          id: "minimax-tenant",
           updated_at: "2026-07-01T00:00:00Z",
         },
       ]),
@@ -107,15 +108,15 @@ test.beforeEach(async ({ page }) => {
         {
           id: "fake-openai-chat-000",
           kind: "chat",
-          name: "Fake OpenAI chat model",
-          provider: { kind: "openai-tenant", name: "openai-tenant" },
+          display_name: "Fake OpenAI chat model",
+          provider: { kind: "openai-tenant", id: "openai-tenant" },
           updated_at: "2026-07-01T00:00:00Z",
         },
       ]),
       "/openai-tenants": pageResponse([
         {
-          credential_name: "openai-credential",
-          name: "openai-tenant",
+          credential_id: "openai-credential",
+          id: "openai-tenant",
           updated_at: "2026-07-01T00:00:00Z",
         },
       ]),
@@ -183,29 +184,30 @@ test.beforeEach(async ({ page }) => {
       "/voices": pageResponse([
         {
           id: "volc-voice-000",
-          name: "Volc Voice",
-          provider: { kind: "volc-tenant", name: "volc-tenant" },
+          display_name: "Volc Voice",
+          provider: { kind: "volc-tenant", id: "volc-tenant" },
           source: "sync",
           updated_at: "2026-07-01T00:00:00Z",
         },
       ]),
       "/volc-tenants": pageResponse([
         {
-          credential_name: "volc-credential",
-          name: "volc-tenant",
+          credential_id: "volc-credential",
+          id: "volc-tenant",
           updated_at: "2026-07-01T00:00:00Z",
         },
       ]),
       "/workflows": pageResponse([
         {
-          name: "openai-chat",
+          id: "openai-chat",
           spec: { driver: "flowcraft" },
         },
       ]),
       "/workspaces": pageResponse([
         {
-          name: "main-workspace",
-          workflow_name: "openai-chat",
+          id: "main-workspace",
+          name: "primary-workspace",
+          workflow_id: "openai-chat",
           updated_at: "2026-07-01T00:00:00Z",
         },
       ]),
@@ -234,8 +236,12 @@ test.beforeEach(async ({ page }) => {
         data["/resources/Firmware/devkit-firmware-main"] = {
           apiVersion: "gizclaw.admin/v1alpha1",
           kind: "Firmware",
-          metadata: { name: firmware.name },
-          spec: { description: firmware.description, slots: firmware.slots },
+          metadata: { id: firmware.id },
+          spec: {
+            description: firmware.description,
+            name: firmware.name,
+            slots: firmware.slots,
+          },
         };
         return json(firmware);
       }
@@ -466,6 +472,7 @@ test("admin view covers provider, AI, social, and settings sections", async ({
 
   await page.getByRole("button", { name: "Workspaces" }).click();
   await expect(page.getByRole("heading", { name: "Workspaces" })).toBeVisible();
+  await expect(page.getByText("primary-workspace")).toBeVisible();
   await expect(page.getByText("main-workspace")).toBeVisible();
 
   await page.getByRole("button", { name: "Contacts" }).click();
@@ -505,8 +512,15 @@ test("admin view covers provider, AI, social, and settings sections", async ({
   await expect(resourceJSON).toHaveValue(/"kind": "RegistrationToken"/);
   await expect(resourceJSON).not.toHaveValue(/"firmware_name"/);
   await expect(resourceJSON).toHaveValue(
-    /"runtime_profile_name": "runtime-profile-default"/,
+    /"runtime_profile_id": "runtime-profile-default"/,
   );
+  await expect(resourceJSON).not.toHaveValue(/"runtime_profile_name"/);
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "Tool" }).click();
+  await expect(resourceJSON).toHaveValue(/"kind": "Tool"/);
+  await expect(resourceJSON).toHaveValue(/"invoke_name": "tool_example"/);
+  await expect(resourceJSON).toHaveValue(/"type": "client_rpc"/);
+  await expect(resourceJSON).not.toHaveValue(/"executor"/);
   await page.getByRole("combobox").click();
   await page.getByRole("option", { name: "PetDef" }).click();
   await expect(resourceJSON).toHaveValue(/"kind": "PetDef"/);

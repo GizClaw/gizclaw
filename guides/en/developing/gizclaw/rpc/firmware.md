@@ -6,6 +6,10 @@ A RegistrationToken may bind one canonical Firmware ID to a Peer. Devices do
 not list or select a firmware release line. They request one channel from the
 bound release line through `server.firmware.get`.
 
+Admin create/apply receives that immutable ID from the caller. The Firmware's
+separate `name` (`spec.name` in a declarative Resource) is peer-visible display
+data, may be updated, and is never indexed or resolved as an Admin ID.
+
 The request contains only `channel`, one of `stable`, `beta`, `develop`, or
 `pending`. The response contains:
 

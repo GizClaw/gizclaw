@@ -86,6 +86,7 @@ func TestAdminAPIContactsListGetCreatePutDelete(t *testing.T) {
 	})
 
 	updated, err := env.api.PutContactWithResponse(env.ctx, env.adminKey, contactID, adminhttp.AdminContactPutRequest{
+		Id:          contactID,
 		DisplayName: ptr("Renamed Contact"),
 		PhoneNumber: ptr(phone + "1"),
 	})

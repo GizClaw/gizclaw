@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Credential
 metadata:
-  name: openai-main-credential
+  id: openai-main-credential
 spec:
   provider: openai
   description: OpenAI-compatible main credential

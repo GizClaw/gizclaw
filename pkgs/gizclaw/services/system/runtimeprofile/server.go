@@ -19,16 +19,13 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 var (
 	profilesRoot        = kv.Key{"runtime-profiles", "by-id"}
-	profilesByNameRoot  = kv.Key{"runtime-profiles", "by-name"}
 	profilesByOwnerRoot = kv.Key{"runtime-profiles", "by-owner"}
 	tokensRoot          = kv.Key{"registration-tokens", "by-id"}
-	tokensByNameRoot    = kv.Key{"registration-tokens", "by-name"}
 	tokensByHashRoot    = kv.Key{"registration-tokens", "by-token-hash"}
 )
 
@@ -48,7 +45,6 @@ var errResourceResolverNotConfigured = errors.New("resource resolver not configu
 type Server struct {
 	Store           kv.Store
 	Now             func() time.Time
-	NewID           func() string
 	ResolveResource func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error)
 	mutationMu      sync.Mutex
 }
@@ -76,25 +72,25 @@ type Registration struct {
 	FirmwareName   *string
 }
 
-// ResolveProfile returns the current persisted revision for a profile name.
-// Registrations pin the name, not a configuration snapshot.
-func (s *Server) ResolveProfile(ctx context.Context, name string) (apitypes.RuntimeProfile, error) {
+// ResolveProfile returns the current persisted revision for a profile ID.
+// Registrations pin the ID, not a configuration snapshot.
+func (s *Server) ResolveProfile(ctx context.Context, id string) (apitypes.RuntimeProfile, error) {
 	store, err := s.store()
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
-	profile, err := GetProfile(ctx, store, strings.TrimSpace(name))
+	profile, err := GetProfile(ctx, store, strings.TrimSpace(id))
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
 	if err := s.validateResources(ctx, profile.Spec); err != nil {
-		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile %q dependencies are invalid: %w", profile.Name, err)
+		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile %q dependencies are invalid: %w", profile.Id, err)
 	}
 	return profile, nil
 }
 
-// BindOwnerProfile records the RuntimeProfile name selected by an authenticated
-// owner's successful registration. The name remains resolvable after that
+// BindOwnerProfile records the RuntimeProfile ID selected by an authenticated
+// owner's successful registration. The ID remains resolvable after that
 // connection closes; ResolveOwnerProfile always loads the current profile
 // revision rather than persisting a configuration snapshot.
 func (s *Server) BindOwnerProfile(ctx context.Context, owner, profileName string) error {
@@ -112,7 +108,7 @@ func (s *Server) BindOwnerProfileAndCommit(ctx context.Context, owner, profileNa
 	owner = strings.TrimSpace(owner)
 	profileName = strings.TrimSpace(profileName)
 	if owner == "" || profileName == "" {
-		return errors.New("runtime profile owner and name are required")
+		return errors.New("runtime profile owner and id are required")
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
@@ -173,7 +169,7 @@ func (s *Server) ResolveOwnerProfile(ctx context.Context, owner string) (apitype
 		return apitypes.RuntimeProfile{}, err
 	}
 	if err := s.validateResources(ctx, profile.Spec); err != nil {
-		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile %q dependencies are invalid: %w", profile.Name, err)
+		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile %q dependencies are invalid: %w", profile.Id, err)
 	}
 	return profile, nil
 }
@@ -214,14 +210,14 @@ func (s *Server) ResolveRegistration(ctx context.Context, rawToken string) (Regi
 		if err != nil {
 			return Registration{}, errors.New("registration firmware_id does not reference a Firmware")
 		}
-		name := strings.TrimSpace(firmware.Metadata.Name)
+		name := strings.TrimSpace(firmware.Metadata.Id)
 		if name == "" {
-			return Registration{}, errors.New("registration Firmware has an empty name")
+			return Registration{}, errors.New("registration Firmware has an empty id")
 		}
 		firmwareName = &name
 	}
 	return Registration{
-		TokenName: item.Name, RuntimeProfile: profile,
+		TokenName: item.Id, RuntimeProfile: profile,
 		FirmwareID: cloneString(item.FirmwareId), FirmwareName: firmwareName,
 	}, nil
 }
@@ -255,7 +251,6 @@ func (s *Server) CreateRuntimeProfile(ctx context.Context, request adminhttp.Cre
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
-	item.Id = s.newID()
 	now := s.now()
 	item.CreatedAt, item.UpdatedAt = now, now
 	if err := setProfileRevision(&item); err != nil {
@@ -265,10 +260,7 @@ func (s *Server) CreateRuntimeProfile(ctx context.Context, request adminhttp.Cre
 	if err != nil {
 		return adminhttp.CreateRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
-	_, created, err := kv.CreateIfAbsent(ctx, store,
-		kv.Entry{Key: profileNameKey(item.Name), Value: []byte(item.Id)},
-		[]kv.Entry{{Key: profileKey(item.Id), Value: encoded}},
-	)
+	_, created, err := kv.CreateIfAbsent(ctx, store, kv.Entry{Key: profileKey(item.Id), Value: encoded}, nil)
 	if err != nil {
 		return adminhttp.CreateRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
@@ -309,7 +301,7 @@ func (s *Server) PutRuntimeProfile(ctx context.Context, request adminhttp.PutRun
 	if err != nil {
 		return nil, err
 	}
-	item, err := normalizeProfile(*request.Body, "")
+	item, err := normalizeProfile(*request.Body, id)
 	if err != nil {
 		return adminhttp.PutRuntimeProfile400JSONResponse(invalid(err.Error())), nil
 	}
@@ -325,11 +317,7 @@ func (s *Server) PutRuntimeProfile(ctx context.Context, request adminhttp.PutRun
 	if getErr != nil {
 		return adminhttp.PutRuntimeProfile500JSONResponse(internalError(getErr)), nil
 	}
-	if item.Name != previous.Name {
-		return adminhttp.PutRuntimeProfile400JSONResponse(invalid(fmt.Sprintf("name %q must match immutable name %q", item.Name, previous.Name))), nil
-	}
 	now := s.now()
-	item.Id = previous.Id
 	item.CreatedAt, item.UpdatedAt = previous.CreatedAt, now
 	if err := writeProfile(ctx, store, item); err != nil {
 		return adminhttp.PutRuntimeProfile500JSONResponse(internalError(err)), nil
@@ -355,7 +343,7 @@ func (s *Server) DeleteRuntimeProfile(ctx context.Context, request adminhttp.Del
 	if err != nil {
 		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
-	if err := store.BatchDelete(ctx, []kv.Key{profileKey(id), profileNameKey(item.Name)}); err != nil {
+	if err := store.Delete(ctx, profileKey(id)); err != nil {
 		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
 	return adminhttp.DeleteRuntimeProfile200JSONResponse(item), nil
@@ -405,15 +393,14 @@ func (s *Server) CreateRegistrationToken(ctx context.Context, request adminhttp.
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	now := s.now()
-	item.Id = s.newID()
 	item.CreatedAt, item.UpdatedAt = now, now
 	encoded, err := json.Marshal(item)
 	if err != nil {
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	_, created, err := kv.CreateIfAbsent(ctx, store,
-		kv.Entry{Key: tokenNameKey(item.Name), Value: []byte(item.Id)},
-		[]kv.Entry{{Key: tokenKey(item.Id), Value: encoded}, {Key: tokenHashKey(digest), Value: []byte(item.Id)}},
+		kv.Entry{Key: tokenKey(item.Id), Value: encoded},
+		[]kv.Entry{{Key: tokenHashKey(digest), Value: []byte(item.Id)}},
 	)
 	if err != nil {
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
@@ -436,7 +423,7 @@ func (s *Server) PutRegistrationToken(ctx context.Context, request adminhttp.Put
 	if err != nil {
 		return nil, err
 	}
-	item, err := normalizeRegistrationToken(*request.Body, "")
+	item, err := normalizeRegistrationToken(*request.Body, id)
 	if err != nil {
 		return adminhttp.PutRegistrationToken400JSONResponse(invalid(err.Error())), nil
 	}
@@ -455,9 +442,6 @@ func (s *Server) PutRegistrationToken(ctx context.Context, request adminhttp.Put
 	if getErr != nil {
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(getErr)), nil
 	}
-	if item.Name != previous.Name {
-		return adminhttp.PutRegistrationToken400JSONResponse(invalid(fmt.Sprintf("name %q must match immutable name %q", item.Name, previous.Name))), nil
-	}
 	if _, err := getProfileByID(ctx, store, item.RuntimeProfileId); err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
 			return adminhttp.PutRegistrationToken400JSONResponse(invalid("runtime_profile_id does not exist")), nil
@@ -471,7 +455,6 @@ func (s *Server) PutRegistrationToken(ctx context.Context, request adminhttp.Put
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	now := s.now()
-	item.Id = previous.Id
 	item.CreatedAt, item.UpdatedAt = previous.CreatedAt, now
 	encoded, err := json.Marshal(item)
 	if err != nil {
@@ -533,18 +516,14 @@ func (s *Server) DeleteRegistrationToken(ctx context.Context, request adminhttp.
 	if err != nil {
 		return adminhttp.DeleteRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	if err := store.BatchDelete(ctx, []kv.Key{tokenKey(id), tokenNameKey(item.Name), tokenHashKey(tokenDigest(item.Token))}); err != nil {
+	if err := store.BatchDelete(ctx, []kv.Key{tokenKey(id), tokenHashKey(tokenDigest(item.Token))}); err != nil {
 		return adminhttp.DeleteRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	return adminhttp.DeleteRegistrationToken200JSONResponse(item), nil
 }
 
-func GetProfile(ctx context.Context, store kv.Store, name string) (apitypes.RuntimeProfile, error) {
-	id, err := store.Get(ctx, profileNameKey(name))
-	if err != nil {
-		return apitypes.RuntimeProfile{}, err
-	}
-	return getProfileByID(ctx, store, string(id))
+func GetProfile(ctx context.Context, store kv.Store, id string) (apitypes.RuntimeProfile, error) {
+	return getProfileByID(ctx, store, id)
 }
 
 func getProfileByID(ctx context.Context, store kv.Store, id string) (apitypes.RuntimeProfile, error) {
@@ -585,32 +564,32 @@ func getRegistrationTokenByID(ctx context.Context, store kv.Store, id string) (a
 	return item, nil
 }
 
-func normalizeRegistrationToken(in adminhttp.RegistrationTokenUpsert, expectedName string) (apitypes.RegistrationToken, error) {
-	name := strings.TrimSpace(in.Name)
-	if err := customid.ValidateRegistrationTokenName(name); err != nil {
+func normalizeRegistrationToken(in adminhttp.RegistrationTokenUpsert, expectedID string) (apitypes.RegistrationToken, error) {
+	id := in.Id
+	if err := customid.ValidateResourceID(id); err != nil {
 		return apitypes.RegistrationToken{}, err
 	}
-	if expectedName != "" && name != expectedName {
-		return apitypes.RegistrationToken{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
+	if expectedID != "" && id != expectedID {
+		return apitypes.RegistrationToken{}, fmt.Errorf("id %q must match path id %q", id, expectedID)
 	}
 	token := strings.TrimSpace(in.Token)
 	if token == "" {
 		return apitypes.RegistrationToken{}, errors.New("token is required")
 	}
-	profileID := strings.TrimSpace(in.RuntimeProfileId)
-	if profileID == "" {
-		return apitypes.RegistrationToken{}, errors.New("runtime_profile_id is required")
+	profileID := in.RuntimeProfileId
+	if err := customid.ValidateResourceID(profileID); err != nil {
+		return apitypes.RegistrationToken{}, fmt.Errorf("runtime_profile_id: %w", err)
 	}
 	var firmwareID *string
 	if in.FirmwareId != nil {
-		value := strings.TrimSpace(*in.FirmwareId)
-		if value == "" {
-			return apitypes.RegistrationToken{}, errors.New("firmware_id must not be empty")
+		value := *in.FirmwareId
+		if err := customid.ValidateResourceID(value); err != nil {
+			return apitypes.RegistrationToken{}, fmt.Errorf("firmware_id: %w", err)
 		}
 		firmwareID = &value
 	}
 	return apitypes.RegistrationToken{
-		Name:             name,
+		Id:               id,
 		Token:            token,
 		RuntimeProfileId: profileID,
 		FirmwareId:       firmwareID,
@@ -635,27 +614,24 @@ func (s *Server) validateRegistrationTokenFirmware(ctx context.Context, item api
 	return nil
 }
 
-func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (apitypes.RuntimeProfile, error) {
-	name := strings.TrimSpace(in.Name)
-	if err := validateProfileName(name); err != nil {
+func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (apitypes.RuntimeProfile, error) {
+	id := in.Id
+	if err := customid.ValidateResourceID(id); err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
-	if expectedName != "" && name != expectedName {
-		return apitypes.RuntimeProfile{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
+	if expectedID != "" && id != expectedID {
+		return apitypes.RuntimeProfile{}, fmt.Errorf("id %q must match path id %q", id, expectedID)
 	}
 	spec := in.Spec
 	allAliases := make(map[string]string)
 	workflowAliases := make(map[string]string)
-	spec.Workflows.System.FriendChatroom = strings.TrimSpace(spec.Workflows.System.FriendChatroom)
-	spec.Workflows.System.GroupChatroom = strings.TrimSpace(spec.Workflows.System.GroupChatroom)
-	spec.Workflows.System.Pet = strings.TrimSpace(spec.Workflows.System.Pet)
 	for path, workflowID := range map[string]string{
 		"workflows.system.friend_chatroom": spec.Workflows.System.FriendChatroom,
 		"workflows.system.group_chatroom":  spec.Workflows.System.GroupChatroom,
 		"workflows.system.pet":             spec.Workflows.System.Pet,
 	} {
-		if workflowID == "" {
-			return apitypes.RuntimeProfile{}, fmt.Errorf("%s requires a Workflow resource ID", path)
+		if err := customid.ValidateResourceID(workflowID); err != nil {
+			return apitypes.RuntimeProfile{}, fmt.Errorf("%s: %w", path, err)
 		}
 	}
 	collections := make(apitypes.RuntimeProfileWorkflowCollections, len(spec.Workflows.Collections))
@@ -761,7 +737,7 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 			return apitypes.RuntimeProfile{}, err
 		}
 	}
-	item := apitypes.RuntimeProfile{Name: name, Spec: spec}
+	item := apitypes.RuntimeProfile{Id: id, Spec: spec}
 	if err := setProfileRevision(&item); err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
@@ -769,9 +745,8 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 }
 
 func normalizeMemoryBinding(binding apitypes.RuntimeProfileMemoryBinding) (apitypes.RuntimeProfileMemoryBinding, error) {
-	binding.LayoutId = strings.TrimSpace(binding.LayoutId)
-	if binding.LayoutId == "" {
-		return binding, errors.New("layout_id is required")
+	if err := customid.ValidateResourceID(binding.LayoutId); err != nil {
+		return binding, fmt.Errorf("layout_id: %w", err)
 	}
 	if !binding.Driver.Valid() {
 		return binding, fmt.Errorf("unsupported driver %q", binding.Driver)
@@ -1430,13 +1405,6 @@ func validateEinoRuntimeAliases(path string, graph apitypes.EinoGraph, requireMo
 	return nil
 }
 
-func validateProfileName(name string) error {
-	if name == "default" {
-		return nil
-	}
-	return customid.ValidateField("name", name)
-}
-
 func normalizeBindingMap(values map[string]apitypes.RuntimeProfileBinding) (map[string]apitypes.RuntimeProfileBinding, error) {
 	out := make(map[string]apitypes.RuntimeProfileBinding, len(values))
 	for alias, binding := range values {
@@ -1444,9 +1412,8 @@ func normalizeBindingMap(values map[string]apitypes.RuntimeProfileBinding) (map[
 		if err := ValidateAlias("resource alias", alias); err != nil {
 			return nil, err
 		}
-		binding.ResourceId = strings.TrimSpace(binding.ResourceId)
-		if binding.ResourceId == "" {
-			return nil, fmt.Errorf("runtime profile binding %q requires resource_id", alias)
+		if err := customid.ValidateResourceID(binding.ResourceId); err != nil {
+			return nil, fmt.Errorf("runtime profile binding %q resource_id: %w", alias, err)
 		}
 		i18n := make(map[string]apitypes.RuntimeProfileI18nText, len(binding.I18n))
 		for locale, text := range binding.I18n {
@@ -1762,29 +1729,16 @@ func (s *Server) now() time.Time {
 	return time.Now().UTC()
 }
 
-func (s *Server) newID() string {
-	if s != nil && s.NewID != nil {
-		return s.NewID()
-	}
-	return socialutil.NewID()
-}
-
 func tokenDigest(raw string) string {
 	digest := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(digest[:])
 }
 
 func profileKey(id string) kv.Key { return append(append(kv.Key{}, profilesRoot...), escape(id)) }
-func profileNameKey(name string) kv.Key {
-	return append(append(kv.Key{}, profilesByNameRoot...), escape(name))
-}
 func ownerProfileKey(owner string) kv.Key {
 	return append(append(kv.Key{}, profilesByOwnerRoot...), escape(owner))
 }
-func tokenKey(id string) kv.Key { return append(append(kv.Key{}, tokensRoot...), escape(id)) }
-func tokenNameKey(name string) kv.Key {
-	return append(append(kv.Key{}, tokensByNameRoot...), escape(name))
-}
+func tokenKey(id string) kv.Key       { return append(append(kv.Key{}, tokensRoot...), escape(id)) }
 func tokenHashKey(hash string) kv.Key { return append(append(kv.Key{}, tokensByHashRoot...), hash) }
 
 func escape(value string) string {
@@ -1793,14 +1747,10 @@ func escape(value string) string {
 }
 
 func pathID(raw string) (string, error) {
-	id, err := url.PathUnescape(raw)
-	if err != nil {
+	if err := customid.ValidateResourceID(raw); err != nil {
 		return "", fmt.Errorf("invalid path id: %w", err)
 	}
-	if strings.TrimSpace(id) == "" {
-		return "", errors.New("path id is required")
-	}
-	return id, nil
+	return raw, nil
 }
 
 func invalid(message string) apitypes.ErrorResponse {

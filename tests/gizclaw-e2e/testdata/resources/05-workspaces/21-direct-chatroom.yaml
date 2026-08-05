@@ -2,8 +2,9 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workspace
 metadata:
-  name: direct-chatroom-workspace
+  id: direct-chatroom-workspace
 spec:
+  name: direct-chatroom-workspace
   parameters:
     agent_type: chatroom
-  workflow_name: chatroom-direct
+  workflow_id: chatroom-direct

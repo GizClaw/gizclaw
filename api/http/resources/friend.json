@@ -43,7 +43,7 @@
         "properties": {
           "owner_public_key": {
             "type": "string",
-            "description": "Canonical owner peer public key. metadata.name must be the sorted relation id owner:peer."
+            "description": "Canonical owner peer public key. metadata.id must equal the deterministic relation ID derived from owner_public_key and peer_public_key."
           },
           "peer_public_key": {
             "type": "string",

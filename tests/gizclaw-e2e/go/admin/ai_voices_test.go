@@ -23,14 +23,14 @@ func TestAdminAPIVoicesListAndGet(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	seed := requireName(t, items, "minimax-narrator-clone", func(item apitypes.Voice) string { return item.Name })
+	seed := requireName(t, items, "minimax-narrator-clone", func(item apitypes.Voice) string { return item.Id })
 
 	get, err := env.api.GetVoiceWithResponse(env.ctx, seed.Id)
 	if err != nil {
 		t.Fatalf("get voice: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.Id != seed.Id || get.JSON200.Name != seed.Name || get.JSON200.Provider.Id == "" {
+	if get.JSON200 == nil || get.JSON200.Id != seed.Id || get.JSON200.Provider.Id == "" {
 		t.Fatalf("get voice = %#v", get.JSON200)
 	}
 }

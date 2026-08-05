@@ -32,7 +32,7 @@
                 "$ref": "./resource.json#/components/schemas/ResourceMetadata"
               }
             ],
-            "description": "metadata.id is the canonical Tool resource ID when updating. metadata.name is the immutable runtime execution name and must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$."
+            "description": "metadata.id is the caller-supplied canonical Tool ID. spec.invoke_name is the distinct immutable runtime execution name."
           },
           "spec": {
             "$ref": "../shared/tool_spec.json#/components/schemas/ToolSpec"

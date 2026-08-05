@@ -6,7 +6,7 @@ func TestResourceMemoryLayoutDiscriminatorRoundTrip(t *testing.T) {
 	resource := Resource{}
 	input := MemoryLayoutResource{
 		ApiVersion: ResourceAPIVersionGizclawAdminv1alpha1,
-		Metadata:   ResourceMetadata{Name: "pet-memory"},
+		Metadata:   ResourceMetadata{Id: "pet-memory"},
 	}
 	if err := resource.FromMemoryLayoutResource(input); err != nil {
 		t.Fatal(err)
@@ -26,7 +26,7 @@ func TestResourceMemoryLayoutDiscriminatorRoundTrip(t *testing.T) {
 	if !ok {
 		t.Fatalf("ValueByDiscriminator() = %T, want MemoryLayoutResource", value)
 	}
-	if layout.Kind != MemoryLayoutResourceKindMemoryLayout || layout.Metadata.Name != "pet-memory" {
+	if layout.Kind != MemoryLayoutResourceKindMemoryLayout || layout.Metadata.Id != "pet-memory" {
 		t.Fatalf("ValueByDiscriminator() = %#v", layout)
 	}
 }

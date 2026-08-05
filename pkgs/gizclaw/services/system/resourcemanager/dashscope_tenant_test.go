@@ -13,7 +13,7 @@ func TestApplyDashScopeTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "DashScopeTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {
 			"credential_id": "dashscope",
 			"base_url": "https://dashscope.example.com"
@@ -39,7 +39,7 @@ func TestApplyDashScopeTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 	updated := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "DashScopeTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {
 			"credential_id": "dashscope",
 			"base_url": "https://dashscope.example.com",
@@ -61,7 +61,7 @@ func TestPutGetDeleteDashScopeTenantResource(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "DashScopeTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {
 			"credential_id": "dashscope",
 			"base_url": "https://dashscope.example.com"
@@ -82,7 +82,7 @@ func TestPutGetDeleteDashScopeTenantResource(t *testing.T) {
 		t.Fatalf("AsDashScopeTenantResource(Put) error = %v", err)
 	}
 	if tenant.Spec.CredentialId != "dashscope" {
-		t.Fatalf("Put(DashScopeTenant) credential_name = %s", tenant.Spec.CredentialId)
+		t.Fatalf("Put(DashScopeTenant) credential_id = %s", tenant.Spec.CredentialId)
 	}
 
 	id := *created.Id
@@ -94,8 +94,8 @@ func TestPutGetDeleteDashScopeTenantResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsDashScopeTenantResource(Get) error = %v", err)
 	}
-	if gotTenant.Metadata.Name != "default" {
-		t.Fatalf("Get(DashScopeTenant) metadata.name = %s", gotTenant.Metadata.Name)
+	if metadataID(t, gotTenant.Metadata) != "default" {
+		t.Fatalf("Get(DashScopeTenant) metadata.id = %s", metadataID(t, gotTenant.Metadata))
 	}
 
 	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindDashScopeTenant, id)
@@ -106,8 +106,8 @@ func TestPutGetDeleteDashScopeTenantResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsDashScopeTenantResource(Delete) error = %v", err)
 	}
-	if deletedTenant.Metadata.Name != "default" {
-		t.Fatalf("Delete(DashScopeTenant) metadata.name = %s", deletedTenant.Metadata.Name)
+	if metadataID(t, deletedTenant.Metadata) != "default" {
+		t.Fatalf("Delete(DashScopeTenant) metadata.id = %s", metadataID(t, deletedTenant.Metadata))
 	}
 	_, err = manager.Get(context.Background(), apitypes.ResourceKindDashScopeTenant, id)
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
@@ -136,7 +136,7 @@ func TestDashScopeTenantMissingServiceErrors(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "DashScopeTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {"credential_id": "dashscope"}
 	}`)
 
@@ -159,7 +159,7 @@ func TestApplyDashScopeTenantRejectsInvalidHeader(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "unsupported",
 		"kind": "DashScopeTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {"credential_id": "dashscope"}
 	}`)
 	_, err := manager.Apply(context.Background(), resource)

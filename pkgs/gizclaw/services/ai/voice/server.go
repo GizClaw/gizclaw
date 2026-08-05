@@ -2,6 +2,9 @@ package voice
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,13 +14,12 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 var (
 	voicesRoot                  = kv.Key{"by-id"}
-	voicesByNameRoot            = kv.Key{"by-name"}
 	voicesBySourceRoot          = kv.Key{"by-source"}
 	voicesByProviderRoot        = kv.Key{"by-provider"}
 	voicesByProviderVoiceIDRoot = kv.Key{"by-provider-voice-id"}
@@ -31,7 +33,6 @@ const (
 type Server struct {
 	Store kv.Store
 	Now   func() time.Time
-	NewID func() string
 }
 
 type VoiceAdminService interface {
@@ -62,7 +63,6 @@ func (s *Server) CreateVoice(ctx context.Context, request adminhttp.CreateVoiceR
 	if err != nil {
 		return adminhttp.CreateVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", err.Error())), nil
 	}
-	voice.Id = s.newID()
 	now := s.now()
 	voice.CreatedAt = now
 	voice.UpdatedAt = now
@@ -71,14 +71,14 @@ func (s *Server) CreateVoice(ctx context.Context, request adminhttp.CreateVoiceR
 		return adminhttp.CreateVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	_, created, err := kv.CreateIfAbsent(ctx, store,
-		kv.Entry{Key: voiceNameKey(voice.Name), Value: []byte(voice.Id)},
-		voiceEntries(voice, data),
+		kv.Entry{Key: voiceKey(voice.Id), Value: data},
+		voiceIndexEntries(voice),
 	)
 	if err != nil {
 		return adminhttp.CreateVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if !created {
-		return adminhttp.CreateVoice409JSONResponse(apitypes.NewErrorResponse("VOICE_ALREADY_EXISTS", fmt.Sprintf("voice %q already exists", voice.Name))), nil
+		return adminhttp.CreateVoice409JSONResponse(apitypes.NewErrorResponse("VOICE_ALREADY_EXISTS", fmt.Sprintf("voice %q already exists", voice.Id))), nil
 	}
 	return adminhttp.CreateVoice200JSONResponse(voice), nil
 }
@@ -124,10 +124,7 @@ func (s *Server) DeleteVoice(ctx context.Context, request adminhttp.DeleteVoiceR
 	if err != nil {
 		return adminhttp.DeleteVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	id := string(request.Id)
 	voice, err := Get(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
@@ -146,10 +143,7 @@ func (s *Server) GetVoice(ctx context.Context, request adminhttp.GetVoiceRequest
 	if err != nil {
 		return adminhttp.GetVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	id := string(request.Id)
 	voice, err := Get(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
@@ -168,11 +162,8 @@ func (s *Server) PutVoice(ctx context.Context, request adminhttp.PutVoiceRequest
 	if request.Body == nil {
 		return adminhttp.PutVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", "request body required")), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
-	voice, err := normalizeVoiceUpsert(*request.Body, "")
+	id := string(request.Id)
+	voice, err := normalizeVoiceUpsert(*request.Body, id)
 	if err != nil {
 		return adminhttp.PutVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", err.Error())), nil
 	}
@@ -186,13 +177,9 @@ func (s *Server) PutVoice(ctx context.Context, request adminhttp.PutVoiceRequest
 	now := s.now()
 	voice.CreatedAt = now
 	voice.UpdatedAt = now
-	if voice.Name != previous.Name {
-		return adminhttp.PutVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", fmt.Sprintf("name %q must match immutable name %q", voice.Name, previous.Name))), nil
-	}
 	if previous.Source == apitypes.VoiceSourceSync {
 		return adminhttp.PutVoice409JSONResponse(apitypes.NewErrorResponse("SYNC_VOICE_READ_ONLY", fmt.Sprintf("voice %q has source sync and cannot be modified via API", previous.Id))), nil
 	}
-	voice.Id = previous.Id
 	voice.CreatedAt = previous.CreatedAt
 	voice.SyncedAt = cloneTime(previous.SyncedAt)
 	if err := Write(ctx, store, voice, &previous); err != nil {
@@ -339,12 +326,18 @@ func RawMapValue(in *map[string]any) any {
 }
 
 func StableID(kind apitypes.VoiceProviderKind, name string, providerVoiceID string) string {
-	return strings.Join([]string{string(kind), string(name), providerVoiceID}, ":")
+	hash := sha256.New()
+	for _, component := range []string{string(kind), name, providerVoiceID} {
+		encodedLength := make([]byte, 8)
+		binary.BigEndian.PutUint64(encodedLength, uint64(len(component)))
+		_, _ = hash.Write(encodedLength)
+		_, _ = hash.Write([]byte(component))
+	}
+	return "voice-sha256-" + hex.EncodeToString(hash.Sum(nil))
 }
 
 func SemanticEqual(left, right apitypes.Voice) bool {
 	return equalStringPtr(left.Description, right.Description) &&
-		left.Name == right.Name &&
 		equalStringPtr(left.DisplayName, right.DisplayName) &&
 		left.Provider.Kind == right.Provider.Kind &&
 		left.Provider.Id == right.Provider.Id &&
@@ -397,14 +390,14 @@ func Write(ctx context.Context, store kv.Store, voice apitypes.Voice, previous *
 	}
 	if previous == nil {
 		_, created, err := kv.CreateIfAbsent(ctx, store,
-			kv.Entry{Key: voiceNameKey(voice.Name), Value: []byte(voice.Id)},
-			entries,
+			kv.Entry{Key: voiceKey(voice.Id), Value: data},
+			voiceIndexEntries(voice),
 		)
 		if err != nil {
 			return fmt.Errorf("voice: create voice %s: %w", voice.Id, err)
 		}
 		if !created {
-			return fmt.Errorf("voice: name %q already exists", voice.Name)
+			return fmt.Errorf("voice: id %q already exists", voice.Id)
 		}
 		return nil
 	}
@@ -417,7 +410,6 @@ func Write(ctx context.Context, store kv.Store, voice apitypes.Voice, previous *
 func Delete(ctx context.Context, store kv.Store, voice apitypes.Voice) error {
 	keys := []kv.Key{
 		voiceKey(string(voice.Id)),
-		voiceNameKey(voice.Name),
 		voiceBySourceKey(string(voice.Source), string(voice.Id)),
 		voiceByProviderKey(string(voice.Provider.Kind), string(voice.Provider.Id), string(voice.Id)),
 	}
@@ -483,13 +475,13 @@ func (s *Server) now() time.Time {
 	return time.Now().UTC()
 }
 
-func normalizeVoiceUpsert(in adminhttp.VoiceUpsert, expectedName string) (apitypes.Voice, error) {
-	name := strings.TrimSpace(string(in.Name))
-	if name == "" {
-		return apitypes.Voice{}, errors.New("name is required")
+func normalizeVoiceUpsert(in adminhttp.VoiceUpsert, expectedID string) (apitypes.Voice, error) {
+	id := string(in.Id)
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.Voice{}, err
 	}
-	if expectedName != "" && name != expectedName {
-		return apitypes.Voice{}, fmt.Errorf("name %q must match immutable name %q", name, expectedName)
+	if expectedID != "" && id != expectedID {
+		return apitypes.Voice{}, fmt.Errorf("id %q must match path id %q", id, expectedID)
 	}
 	source := apitypes.VoiceSource(strings.TrimSpace(string(in.Source)))
 	if source == "" {
@@ -505,12 +497,12 @@ func normalizeVoiceUpsert(in adminhttp.VoiceUpsert, expectedName string) (apityp
 	if providerKind == "" {
 		return apitypes.Voice{}, errors.New("provider.kind is required")
 	}
-	providerID := strings.TrimSpace(string(in.Provider.Id))
-	if providerID == "" {
-		return apitypes.Voice{}, errors.New("provider.id is required")
+	providerID := string(in.Provider.Id)
+	if err := customid.ValidateResourceID(providerID); err != nil {
+		return apitypes.Voice{}, fmt.Errorf("provider.id: %w", err)
 	}
 	voice := apitypes.Voice{
-		Name: name,
+		Id: id,
 		Provider: apitypes.VoiceProvider{
 			Kind: apitypes.VoiceProviderKind(providerKind),
 			Id:   providerID,
@@ -806,13 +798,12 @@ func voiceKey(id string) kv.Key {
 	return append(append(kv.Key{}, voicesRoot...), escapeStoreSegment(id))
 }
 
-func voiceNameKey(name string) kv.Key {
-	return append(append(kv.Key{}, voicesByNameRoot...), escapeStoreSegment(name))
+func voiceEntries(voice apitypes.Voice, data []byte) []kv.Entry {
+	return append([]kv.Entry{{Key: voiceKey(voice.Id), Value: data}}, voiceIndexEntries(voice)...)
 }
 
-func voiceEntries(voice apitypes.Voice, data []byte) []kv.Entry {
+func voiceIndexEntries(voice apitypes.Voice) []kv.Entry {
 	entries := []kv.Entry{
-		{Key: voiceKey(voice.Id), Value: data},
 		{Key: voiceBySourceKey(string(voice.Source), voice.Id), Value: []byte{}},
 		{Key: voiceByProviderKey(string(voice.Provider.Kind), voice.Provider.Id, voice.Id), Value: []byte{}},
 	}
@@ -859,11 +850,4 @@ func unescapeStoreSegment(value string) string {
 		return value
 	}
 	return unescaped
-}
-
-func (s *Server) newID() string {
-	if s != nil && s.NewID != nil {
-		return s.NewID()
-	}
-	return socialutil.NewID()
 }

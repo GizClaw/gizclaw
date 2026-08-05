@@ -13,21 +13,13 @@
         "additionalProperties": false,
         "required": [
           "id",
-          "name",
           "spec"
         ],
         "properties": {
           "id": {
             "type": "string",
             "minLength": 1,
-            "description": "Immutable opaque canonical ID allocated by the Server."
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Immutable workflow name used by Peer RPC projections.",
-            "x-go-type-skip-optional-pointer": true,
-            "example": "demo-assistant"
+            "description": "Immutable opaque canonical ID supplied by the caller."
           },
           "spec": {
             "$ref": "./workflow_spec.json#/components/schemas/WorkflowSpec"

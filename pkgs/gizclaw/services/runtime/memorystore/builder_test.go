@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -17,7 +18,7 @@ func TestManagedBindingRootUsesServerWorkspaceProfileAndAlias(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(root, "data", "memory", "default", "pet-memory")
+	want := filepath.Join(root, "data", "memory", customid.OpaquePathSegment("default"), "pet-memory")
 	if got != want {
 		t.Fatalf("managedBindingRoot() = %q, want %q", got, want)
 	}
@@ -25,9 +26,16 @@ func TestManagedBindingRootUsesServerWorkspaceProfileAndAlias(t *testing.T) {
 
 func TestManagedBindingRootRejectsUnsafeAndSymlinkPaths(t *testing.T) {
 	root := t.TempDir()
-	for _, value := range []string{"", ".", "..", "../escape", "a/b", `a\b`} {
+	for _, value := range []string{"", " profile "} {
 		if _, err := managedBindingRoot(root, value, "memory"); err == nil {
 			t.Errorf("managedBindingRoot(profile=%q) succeeded", value)
+		}
+	}
+	for _, value := range []string{".", "..", "../escape", "a/b", `a\b`} {
+		if got, err := managedBindingRoot(root, value, "memory"); err != nil {
+			t.Errorf("managedBindingRoot(profile=%q) error = %v", value, err)
+		} else if !strings.HasPrefix(got, filepath.Join(root, "data", "memory")+string(filepath.Separator)) {
+			t.Errorf("managedBindingRoot(profile=%q) = %q escaped root", value, got)
 		}
 		if _, err := managedBindingRoot(root, "profile", value); err == nil {
 			t.Errorf("managedBindingRoot(alias=%q) succeeded", value)
@@ -43,9 +51,8 @@ func TestManagedBindingRootRejectsUnsafeAndSymlinkPaths(t *testing.T) {
 	}
 }
 
-func TestBuildAcceptsCanonicalLayoutIDWithDifferentName(t *testing.T) {
+func TestBuildAcceptsCanonicalLayoutID(t *testing.T) {
 	request := managedTestRequest(t)
-	request.Layout.Name = "peer-visible-layout-name"
 
 	result, err := Build(t.Context(), request)
 	if err != nil {

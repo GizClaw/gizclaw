@@ -147,7 +147,7 @@ func (environment *workspaceRewardEnvironment) WorkspaceRewardGenerator(
 		policy.ModelAlias: {ResourceId: policy.ModelResourceID},
 	}
 	profile := apitypes.RuntimeProfile{
-		Id: policy.RuntimeProfileId, Name: policy.RuntimeProfileId, Revision: policy.RuntimeProfileRevision,
+		Id: policy.RuntimeProfileId, Revision: policy.RuntimeProfileRevision,
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &models}},
 	}
 	service, err := environment.manager.ownerGenXForProfile(ctx, beneficiary, profile)

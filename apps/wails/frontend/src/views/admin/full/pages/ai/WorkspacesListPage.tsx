@@ -33,7 +33,7 @@ import { formatDate } from "../../lib/format";
 
 export function WorkspacesListPage(): JSX.Element {
   const navigate = useNavigate();
-  const [copiedName, setCopiedName] = useState("");
+  const [copiedID, setCopiedID] = useState("");
   const {
     error,
     hasNext,
@@ -52,13 +52,13 @@ export function WorkspacesListPage(): JSX.Element {
     };
   });
 
-  const openWorkspace = (name: string): void => {
-    navigate(`/resources?kind=Workspace&name=${encodeURIComponent(name)}`);
+  const openWorkspace = (id: string): void => {
+    navigate(`/resources?kind=Workspace&id=${encodeURIComponent(id)}`);
   };
 
   const handleRowKeyDown = (
     event: KeyboardEvent<HTMLTableRowElement>,
-    name: string,
+    id: string,
   ): void => {
     if (isInteractiveTarget(event.target)) {
       return;
@@ -67,18 +67,18 @@ export function WorkspacesListPage(): JSX.Element {
       return;
     }
     event.preventDefault();
-    openWorkspace(name);
+    openWorkspace(id);
   };
 
-  const copyWorkspaceName = async (
+  const copyWorkspaceID = async (
     event: MouseEvent<HTMLButtonElement>,
-    name: string,
+    id: string,
   ): Promise<void> => {
     event.stopPropagation();
-    await navigator.clipboard.writeText(name);
-    setCopiedName(name);
+    await navigator.clipboard.writeText(id);
+    setCopiedID(id);
     window.setTimeout(() => {
-      setCopiedName((current) => (current === name ? "" : current));
+      setCopiedID((current) => (current === id ? "" : current));
     }, 1500);
   };
 
@@ -157,7 +157,7 @@ export function WorkspacesListPage(): JSX.Element {
             <DashboardTable className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[26%]">Workspace ID</TableHead>
+                  <TableHead className="w-[26%]">Workspace</TableHead>
                   <TableHead>Workflow</TableHead>
                   <TableHead className="w-28 text-right">Parameters</TableHead>
                   <TableHead className="w-40">Created</TableHead>
@@ -168,37 +168,43 @@ export function WorkspacesListPage(): JSX.Element {
                 {items.map((workspace) => (
                   <TableRow
                     className="cursor-pointer hover:bg-muted/40"
-                    key={workspace.name}
-                    onClick={() => openWorkspace(workspace.name)}
-                    onKeyDown={(event) =>
-                      handleRowKeyDown(event, workspace.name)
-                    }
+                    key={workspace.id}
+                    onClick={() => openWorkspace(workspace.id)}
+                    onKeyDown={(event) => handleRowKeyDown(event, workspace.id)}
                     role="link"
                     tabIndex={0}
                   >
                     <TableCell className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span
-                          className="min-w-0 truncate font-medium"
+                      <div className="min-w-0">
+                        <div
+                          className="truncate font-medium"
                           title={workspace.name}
                         >
                           {workspace.name}
-                        </span>
-                        <button
-                          aria-label={`Copy workspace name ${workspace.name}`}
-                          className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          onClick={(event) =>
-                            void copyWorkspaceName(event, workspace.name)
-                          }
-                          title="Copy workspace name"
-                          type="button"
-                        >
-                          {copiedName === workspace.name ? (
-                            <Check className="size-3 shrink-0 text-emerald-600" />
-                          ) : (
-                            <Copy className="size-3 shrink-0" />
-                          )}
-                        </button>
+                        </div>
+                        <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                          <span
+                            className="truncate font-mono"
+                            title={workspace.id}
+                          >
+                            {workspace.id}
+                          </span>
+                          <button
+                            aria-label={`Copy workspace ID ${workspace.id}`}
+                            className="shrink-0 rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            onClick={(event) =>
+                              void copyWorkspaceID(event, workspace.id)
+                            }
+                            title="Copy workspace ID"
+                            type="button"
+                          >
+                            {copiedID === workspace.id ? (
+                              <Check className="size-3 shrink-0 text-emerald-600" />
+                            ) : (
+                              <Copy className="size-3 shrink-0" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell

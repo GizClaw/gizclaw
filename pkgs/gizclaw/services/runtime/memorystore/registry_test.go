@@ -296,7 +296,6 @@ func managedTestRequest(t *testing.T) Request {
 		ServerRoot:      t.TempDir(),
 		Layout: apitypes.MemoryLayout{
 			Id:   "layout-id",
-			Name: "pet-memory",
 			Spec: apitypes.MemoryLayoutSpec{Flowcraft: testFlowcraftPolicy()},
 		},
 		Binding: apitypes.RuntimeProfileMemoryBinding{

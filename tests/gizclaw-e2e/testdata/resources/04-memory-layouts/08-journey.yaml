@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: MemoryLayout
 metadata:
-  name: journey-memory
+  id: journey-memory
 spec:
   flowcraft:
     extraction:

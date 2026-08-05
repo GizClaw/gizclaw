@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
@@ -108,12 +107,8 @@ func (s *adminService) AggregatePeerTelemetry(ctx context.Context, request admin
 }
 
 func parseAdminTelemetryPublicKey(value string) (giznet.PublicKey, error) {
-	text, err := url.PathUnescape(value)
-	if err != nil {
-		return giznet.PublicKey{}, err
-	}
 	var key giznet.PublicKey
-	if err := key.UnmarshalText([]byte(text)); err != nil {
+	if err := key.UnmarshalText([]byte(value)); err != nil {
 		return giznet.PublicKey{}, fmt.Errorf("invalid public key: %w", err)
 	}
 	if key.IsZero() {

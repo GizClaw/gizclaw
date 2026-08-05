@@ -32,7 +32,7 @@
                 "$ref": "./resource.json#/components/schemas/ResourceMetadata"
               }
             ],
-            "description": "metadata.id is the canonical Workspace ID when updating, metadata.name is the immutable Workspace name, and spec.workflow_id is the canonical Workflow ID."
+            "description": "metadata.id is the caller-supplied canonical Workspace ID, spec.name is the immutable owner-scoped Workspace name, and spec.workflow_id is the canonical Workflow ID."
           },
           "spec": {
             "$ref": "../shared/workspace_spec.json#/components/schemas/WorkspaceSpec"

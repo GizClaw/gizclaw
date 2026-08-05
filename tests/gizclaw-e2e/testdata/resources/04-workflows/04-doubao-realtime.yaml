@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  name: doubao-realtime-conversation
+  id: doubao-realtime-conversation
 spec:
   driver: doubao-realtime
   doubao_realtime:

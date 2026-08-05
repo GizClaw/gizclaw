@@ -210,7 +210,7 @@ func einoFactorySpec(t testing.TB) agenthost.Spec {
 	return agenthost.Spec{
 		Workspace: apitypes.Workspace{Id: "workspace-id-a", Name: "workspace-a"},
 		Workflow: apitypes.Workflow{
-			Name: "workflow-a",
+			Id: "workflow-a",
 			Spec: apitypes.WorkflowSpec{
 				Driver: apitypes.WorkflowDriverEino,
 				Eino:   &public,

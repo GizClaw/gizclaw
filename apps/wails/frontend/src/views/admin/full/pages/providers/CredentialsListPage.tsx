@@ -5,6 +5,7 @@ import { DashboardTable } from "@/dashboard";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { Check, Copy, Eye, EyeOff, Plus, RefreshCw } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { encodeRouteParam } from "@/views/admin/full/lib/route-param";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,7 +64,7 @@ export function CredentialsListPage(): JSX.Element {
   });
 
   const openCredential = (name: string): void => {
-    navigate(`/providers/credentials/${encodeURIComponent(name)}`);
+    navigate(`/providers/credentials/${encodeRouteParam(name)}`);
   };
 
   const handleRowKeyDown = (
@@ -204,21 +205,21 @@ export function CredentialsListPage(): JSX.Element {
                             event.stopPropagation();
                             openCredential(credential.id);
                           }}
-                          title={credential.name}
+                          title={credential.id}
                           type="button"
                         >
-                          {credential.name}
+                          {credential.id}
                         </button>
                         <button
-                          aria-label={`Copy credential name ${credential.name}`}
+                          aria-label={`Copy credential ID ${credential.id}`}
                           className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={(event) =>
-                            void copyCredentialName(event, credential.name)
+                            void copyCredentialName(event, credential.id)
                           }
-                          title="Copy credential name"
+                          title="Copy credential ID"
                           type="button"
                         >
-                          {copiedName === credential.name ? (
+                          {copiedName === credential.id ? (
                             <Check className="size-3 shrink-0 text-emerald-600" />
                           ) : (
                             <Copy className="size-3 shrink-0" />
@@ -242,7 +243,7 @@ export function CredentialsListPage(): JSX.Element {
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
-                        aria-label={`View body keys for ${credential.name}`}
+                        aria-label={`View body keys for ${credential.id}`}
                         className="h-8 min-w-fit gap-2 px-2 text-xs"
                         onClick={(event) => openBodyDialog(event, credential)}
                         type="button"
@@ -299,7 +300,7 @@ function CredentialBodyDialog({
           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Credential body
           </div>
-          <DialogTitle>{credential.name}</DialogTitle>
+          <DialogTitle>{credential.id}</DialogTitle>
           <DialogDescription>
             {credential.provider} · {credentialAuthSummary(credential)}
           </DialogDescription>

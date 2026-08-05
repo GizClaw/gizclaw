@@ -107,7 +107,7 @@ export function VolcTenantDetailPage(): JSX.Element {
       const updated = await expectData(
         putVolcTenant({
           body: {
-            name: tenant.name,
+            id: tenant.id,
             credential_id: form.credentialID.trim(),
             region: optionalString(form.region),
             endpoint: optionalString(form.endpoint),
@@ -157,7 +157,7 @@ export function VolcTenantDetailPage(): JSX.Element {
   if (tenantName === "") {
     return (
       <EmptyState
-        description="Missing Volcengine tenant name in the URL."
+        description="Missing Volcengine tenant ID in the URL."
         title="Invalid route"
       />
     );
@@ -213,7 +213,7 @@ export function VolcTenantDetailPage(): JSX.Element {
         description="Volcengine speech tenant configuration and voice sync controls."
         eyebrow="Providers"
         meta={tenant ? <Badge variant="secondary">Volcengine</Badge> : null}
-        title={tenant?.name ?? tenantName}
+        title={tenant?.id ?? tenantName}
       />
 
       {notice !== "" ? <NoticeBanner message={notice} tone="success" /> : null}
@@ -241,7 +241,7 @@ export function VolcTenantDetailPage(): JSX.Element {
             <div className="grid gap-4 xl:grid-cols-2">
               <DetailBlock
                 items={[
-                  ["Name", tenant.name],
+                  ["ID", tenant.id],
                   ["Credential ID", tenant.credential_id],
                   ["Description", tenant.description],
                   ["Last sync", tenant.last_synced_at],
@@ -267,16 +267,16 @@ export function VolcTenantDetailPage(): JSX.Element {
                 <CardTitle>Edit Volcengine Tenant</CardTitle>
                 <CardDescription>
                   Update tenant credential binding and speech sync options. The
-                  tenant name is the resource identity and is not editable here.
+                  tenant ID is the resource identity and is not editable here.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 lg:grid-cols-2">
                   <FormField
                     description="Resource identity. Rename via resource replacement if needed."
-                    label="Name"
+                    label="ID"
                   >
-                    <Input disabled value={tenant.name} />
+                    <Input disabled value={tenant.id} />
                   </FormField>
                   <FormField
                     description="Stored credential used when syncing Volcengine voices."
@@ -298,7 +298,7 @@ export function VolcTenantDetailPage(): JSX.Element {
                       <SelectContent>
                         {credentialOptions.map((credential) => (
                           <SelectItem key={credential.id} value={credential.id}>
-                            {credential.name} · {credential.provider}
+                            {credential.id} · {credential.provider}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -448,7 +448,6 @@ function mergeCredentialOptions(
   return [
     {
       id: currentID,
-      name: currentID,
       provider: "unknown",
       body: {},
       created_at: "",
@@ -459,22 +458,22 @@ function mergeCredentialOptions(
 }
 
 function volcTenantCliCommands(tenant: VolcTenant): string {
-  const name = shellQuote(tenant.name);
+  const id = shellQuote(tenant.id);
   return [
     `# Read this tenant through the Volcengine tenant CLI`,
-    `gizclaw admin volc-tenants --context <admin-cli-context> get ${name}`,
+    `gizclaw admin volc-tenants --context <admin-cli-context> get ${id}`,
     ``,
     `# Re-sync voices from this Volcengine tenant`,
-    `gizclaw admin volc-tenants --context <admin-cli-context> sync-voices ${name}`,
+    `gizclaw admin volc-tenants --context <admin-cli-context> sync-voices ${id}`,
     ``,
     `# Show this declarative tenant resource`,
-    `gizclaw admin --context <admin-cli-context> show VolcTenant ${name}`,
+    `gizclaw admin --context <admin-cli-context> show VolcTenant ${id}`,
     ``,
     `# Apply/update from a JSON file`,
     `gizclaw admin --context <admin-cli-context> apply -f volc-tenant.json`,
     ``,
     `# Delete this tenant resource`,
-    `gizclaw admin --context <admin-cli-context> delete VolcTenant ${name}`,
+    `gizclaw admin --context <admin-cli-context> delete VolcTenant ${id}`,
   ].join("\n");
 }
 

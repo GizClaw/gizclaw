@@ -12,11 +12,11 @@ func FuzzDecodeResourceData(f *testing.F) {
 	}{
 		{
 			path: "credential.json",
-			data: []byte(`{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"name":"minimax-main"},"spec":{"provider":"minimax","body":{"api_key":"secret"}}}`),
+			data: []byte(`{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"id":"minimax-main"},"spec":{"provider":"minimax","body":{"api_key":"secret"}}}`),
 		},
 		{
 			path: "resources.yaml",
-			data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: ResourceList\nmetadata:\n  name: bundle\nspec:\n  items:\n    - apiVersion: gizclaw.admin/v1alpha1\n      kind: Credential\n      metadata:\n        name: nested-credential\n      spec:\n        provider: openai\n        body:\n          api_key: ${GIZCLAW_FUZZ_SECRET:-secret}\n"),
+			data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: ResourceList\nspec:\n  items:\n    - apiVersion: gizclaw.admin/v1alpha1\n      kind: Credential\n      metadata:\n        id: nested-credential\n      spec:\n        provider: openai\n        body:\n          api_key: ${GIZCLAW_FUZZ_SECRET:-secret}\n"),
 		},
 		{path: "bad.json", data: []byte(`{"kind":`)},
 		{path: "bad.yaml", data: []byte("kind: [")},

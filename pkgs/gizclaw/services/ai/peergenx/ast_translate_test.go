@@ -25,7 +25,7 @@ func TestDefaultBuilderBuildsVolcASTTranslateTransformer(t *testing.T) {
 		},
 		Tenant: Tenant{Kind: string(apitypes.ModelProviderKindVolcTenant), Volc: &apitypes.VolcTenant{}},
 		Credential: apitypes.Credential{
-			Name: "volc",
+			Id:   "volc",
 			Body: body,
 		},
 		Params: map[string]any{

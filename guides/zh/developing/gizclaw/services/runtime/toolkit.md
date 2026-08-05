@@ -3,10 +3,11 @@
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit)
 
 `toolkit` 负责 typed Tool Resource 的持久化、公共校验、防御性快照与
-canonical-ID policy 过滤。Admin Tool resource 同时拥有 server-assigned
-`metadata.id` 和 immutable `metadata.name`；RuntimeProfile binding 与 Admin
-`ToolkitPolicy.tool_ids` 保存 canonical ID。Peer RPC 把 binding key 投影为 scoped
-Tool `name`；Peer Toolkit policy 和调用只使用该 name，不暴露 canonical ID。
+canonical-ID policy 过滤。Admin Tool resource 使用 caller-supplied、immutable
+`metadata.id`；运行时执行名是显式的 immutable `spec.invoke_name`，不是第二个
+Admin identity。RuntimeProfile binding 与 Admin `ToolkitPolicy.tool_ids` 保存
+canonical ID。Peer RPC 把 binding key 投影为 scoped Tool `name`；Peer Toolkit
+policy 和调用只使用该 scoped name，不暴露 canonical ID。
 
 目前支持两种 Tool：
 

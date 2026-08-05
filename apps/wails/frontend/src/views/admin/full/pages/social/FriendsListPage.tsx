@@ -115,7 +115,11 @@ export function FriendsListPage(): JSX.Element {
     try {
       const friend = await expectData(
         createFriend({
-          body: { owner_public_key: owner, peer_public_key: peer },
+          body: {
+            id: friendRelationID(owner, peer),
+            owner_public_key: owner,
+            peer_public_key: peer,
+          },
         }),
       );
       setOwnerPublicKey("");

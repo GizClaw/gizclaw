@@ -69,7 +69,11 @@ export function FriendGroupInviteTokenPanel({
     try {
       const current = await expectData(
         putFriendGroupInviteToken({
-          body: { invite_token: token.trim(), expires_at: expiresAt },
+          body: {
+            id: groupID,
+            invite_token: token.trim(),
+            expires_at: expiresAt,
+          },
           path: { id: groupID },
         }),
       );

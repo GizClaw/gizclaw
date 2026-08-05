@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: MemoryLayout
 metadata:
-  name: storyteller-memory
+  id: storyteller-memory
 spec:
   flowcraft:
     extraction:

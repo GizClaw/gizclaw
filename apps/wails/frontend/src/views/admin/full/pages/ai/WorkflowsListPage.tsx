@@ -32,7 +32,7 @@ import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
 
 export function WorkflowsListPage(): JSX.Element {
   const navigate = useNavigate();
-  const [copiedName, setCopiedName] = useState("");
+  const [copiedID, setCopiedID] = useState("");
   const {
     error,
     hasNext,
@@ -51,13 +51,13 @@ export function WorkflowsListPage(): JSX.Element {
     };
   });
 
-  const openWorkflow = (name: string): void => {
-    navigate(`/resources?kind=Workflow&name=${encodeURIComponent(name)}`);
+  const openWorkflow = (id: string): void => {
+    navigate(`/resources?kind=Workflow&id=${encodeURIComponent(id)}`);
   };
 
   const handleRowKeyDown = (
     event: KeyboardEvent<HTMLTableRowElement>,
-    name: string,
+    id: string,
   ): void => {
     if (isInteractiveTarget(event.target)) {
       return;
@@ -66,18 +66,18 @@ export function WorkflowsListPage(): JSX.Element {
       return;
     }
     event.preventDefault();
-    openWorkflow(name);
+    openWorkflow(id);
   };
 
-  const copyWorkflowName = async (
+  const copyWorkflowID = async (
     event: MouseEvent<HTMLButtonElement>,
-    name: string,
+    id: string,
   ): Promise<void> => {
     event.stopPropagation();
-    await navigator.clipboard.writeText(name);
-    setCopiedName(name);
+    await navigator.clipboard.writeText(id);
+    setCopiedID(id);
     window.setTimeout(() => {
-      setCopiedName((current) => (current === name ? "" : current));
+      setCopiedID((current) => (current === id ? "" : current));
     }, 1500);
   };
 
@@ -167,11 +167,9 @@ export function WorkflowsListPage(): JSX.Element {
                 {items.map((workflow) => (
                   <TableRow
                     className="cursor-pointer hover:bg-muted/40"
-                    key={workflow.name}
-                    onClick={() => openWorkflow(workflow.name)}
-                    onKeyDown={(event) =>
-                      handleRowKeyDown(event, workflow.name)
-                    }
+                    key={workflow.id}
+                    onClick={() => openWorkflow(workflow.id)}
+                    onKeyDown={(event) => handleRowKeyDown(event, workflow.id)}
                     role="link"
                     tabIndex={0}
                   >
@@ -182,7 +180,7 @@ export function WorkflowsListPage(): JSX.Element {
                             className="block min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             onClick={(event) => {
                               event.stopPropagation();
-                              openWorkflow(workflow.name);
+                              openWorkflow(workflow.id);
                             }}
                             title={workflowDisplayName(workflow)}
                             type="button"
@@ -192,20 +190,20 @@ export function WorkflowsListPage(): JSX.Element {
                           <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
                             <span
                               className="truncate font-mono"
-                              title={workflow.name}
+                              title={workflow.id}
                             >
-                              {workflow.name}
+                              {workflow.id}
                             </span>
                             <button
-                              aria-label={`Copy workflow name ${workflow.name}`}
+                              aria-label={`Copy workflow ID ${workflow.id}`}
                               className="shrink-0 rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               onClick={(event) =>
-                                void copyWorkflowName(event, workflow.name)
+                                void copyWorkflowID(event, workflow.id)
                               }
-                              title="Copy workflow name"
+                              title="Copy workflow ID"
                               type="button"
                             >
-                              {copiedName === workflow.name ? (
+                              {copiedID === workflow.id ? (
                                 <Check className="size-3 shrink-0 text-emerald-600" />
                               ) : (
                                 <Copy className="size-3 shrink-0" />
@@ -247,7 +245,7 @@ function isInteractiveTarget(target: EventTarget): boolean {
 }
 
 function workflowDisplayName(workflow: Workflow): string {
-  return workflow.name;
+  return workflow.id;
 }
 
 function workflowSpecLabel(workflow: Workflow): string {

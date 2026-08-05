@@ -93,7 +93,7 @@ func TestServerDashScopeTenantCRUDAndPagination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDashScopeTenant() error = %v", err)
 	}
-	if got, ok := getResp.(adminhttp.GetDashScopeTenant200JSONResponse); !ok || got.Name != "default" {
+	if got, ok := getResp.(adminhttp.GetDashScopeTenant200JSONResponse); !ok || got.Id != "default" {
 		t.Fatalf("GetDashScopeTenant() response = %#v", getResp)
 	}
 	deleteResp, err := srv.DeleteDashScopeTenant(ctx, adminhttp.DeleteDashScopeTenantRequestObject{Id: created.Id})
@@ -118,7 +118,7 @@ func TestServerDashScopeTenantValidationAndStoreErrors(t *testing.T) {
 		body adminhttp.DashScopeTenantUpsert
 	}{
 		{name: "missing name", body: adminhttp.DashScopeTenantUpsert{CredentialId: "credential"}},
-		{name: "missing credential", body: adminhttp.DashScopeTenantUpsert{Name: "tenant"}},
+		{name: "missing credential", body: adminhttp.DashScopeTenantUpsert{Id: "tenant"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resp, err := srv.CreateDashScopeTenant(ctx, adminhttp.CreateDashScopeTenantRequestObject{Body: &tc.body})
@@ -134,7 +134,7 @@ func TestServerDashScopeTenantValidationAndStoreErrors(t *testing.T) {
 	body := dashScopeTenantUpsert("tenant")
 	if resp, err := srv.PutDashScopeTenant(ctx, adminhttp.PutDashScopeTenantRequestObject{Id: "other", Body: &body}); err != nil {
 		t.Fatalf("PutDashScopeTenant(mismatch) error = %v", err)
-	} else if _, ok := resp.(adminhttp.PutDashScopeTenant404JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.PutDashScopeTenant400JSONResponse); !ok {
 		t.Fatalf("PutDashScopeTenant(mismatch) response = %#v", resp)
 	}
 
@@ -171,7 +171,7 @@ func dashScopeTenantUpsert(name string) adminhttp.DashScopeTenantUpsert {
 	return adminhttp.DashScopeTenantUpsert{
 		BaseUrl:      &baseURL,
 		CredentialId: string("credential"),
-		Name:         string(name),
+		Id:           string(name),
 	}
 }
 

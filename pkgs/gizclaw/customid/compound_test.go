@@ -1,6 +1,9 @@
 package customid
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestOwnerScopedName(t *testing.T) {
 	if got := OwnerScopedName("owner-key", "contact01"); got != "owner-key:contact01" {
@@ -27,6 +30,37 @@ func TestSplitOwnerScopedNameRejectsInvalidCustomIDSegment(t *testing.T) {
 func TestMembershipName(t *testing.T) {
 	if got := MembershipName("family01", "PeerKeyWithMixedCase"); got != "family01:PeerKeyWithMixedCase" {
 		t.Fatalf("MembershipName = %q", got)
+	}
+}
+
+func TestMembershipNameEscapesOpaqueComponents(t *testing.T) {
+	got := MembershipName("family:blue/team", "Peer:Key/One")
+	if got != "family%3Ablue%2Fteam:Peer%3AKey%2FOne" {
+		t.Fatalf("MembershipName = %q", got)
+	}
+	groupID, memberID, err := SplitMembershipName(got)
+	if err != nil {
+		t.Fatalf("SplitMembershipName: %v", err)
+	}
+	if groupID != "family:blue/team" || memberID != "Peer:Key/One" {
+		t.Fatalf("SplitMembershipName = %q, %q", groupID, memberID)
+	}
+}
+
+func TestValidateMembershipNameBoundsDerivedID(t *testing.T) {
+	groupID := strings.Repeat("😀", MaxFriendGroupIDCharacters)
+	peerID := strings.Repeat("z", 44)
+	if err := ValidateMembershipName(groupID, peerID); err != nil {
+		t.Fatalf("ValidateMembershipName(maximum group ID): %v", err)
+	}
+	if got := MembershipName(groupID, peerID); len(got) > MaxResourceIDCharacters {
+		t.Fatalf("MembershipName length = %d, want <= %d", len(got), MaxResourceIDCharacters)
+	}
+	if err := ValidateMembershipName(strings.Repeat("😀", MaxFriendGroupIDCharacters+1), peerID); err == nil {
+		t.Fatal("ValidateMembershipName accepted oversized FriendGroup ID")
+	}
+	if err := ValidateMembershipName("family", strings.Repeat("/", MaxResourceIDCharacters)); err == nil {
+		t.Fatal("ValidateMembershipName accepted oversized derived ID")
 	}
 }
 

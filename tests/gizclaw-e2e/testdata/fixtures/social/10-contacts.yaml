@@ -1,23 +1,23 @@
 ---
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
-metadata:
-  name: family-circle-contacts
 spec:
   items:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Contact
     metadata:
-      name: living-room
+      id: living-room
     spec:
+      name: living-room
       owner_public_key: 6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee
       display_name: Living Room Device
       phone_number: '+15550100001'
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Contact
     metadata:
-      name: family-admin
+      id: family-admin
     spec:
+      name: family-admin
       owner_public_key: 8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu
       display_name: Family Admin Device
       phone_number: '+15550100002'

@@ -25,6 +25,8 @@ const (
 )
 
 var (
+	ErrResourceAlreadyExists = errors.New("social: resource already exists")
+
 	ContactsRoot           = kv.Key{"contacts"}
 	ContactNamesRoot       = kv.Key{"contact-names"}
 	ContactIDsRoot         = kv.Key{"contact-ids"}

@@ -4,7 +4,6 @@ package admin_test
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -15,7 +14,7 @@ import (
 
 func TestAdminAPISyncVolcTenantVoicesForWorkspaceUse(t *testing.T) {
 	env := newAdminAPIHarness(t)
-	tenant, found, err := clitest.VolcTenantByName(env.ctx, env.api, "volc-main")
+	tenant, found, err := clitest.VolcTenantByID(env.ctx, env.api, "volc-main")
 	if err != nil || !found {
 		t.Fatalf("resolve volc-main tenant: found=%v err=%v", found, err)
 	}
@@ -109,7 +108,7 @@ func TestAdminAPISyncMiniMaxTenantVoices(t *testing.T) {
 		t.Fatalf("list synced MiniMax voices missing JSON200")
 	}
 	if len(voices.JSON200.Items) == 0 && resp.JSON200.CreatedCount+resp.JSON200.UpdatedCount+resp.JSON200.DeletedCount == 0 {
-		t.Fatalf("sync MiniMax tenant %q did not produce or reconcile any voices", tenant.Name)
+		t.Fatalf("sync MiniMax tenant %q did not produce or reconcile any voices", tenant.Id)
 	}
 }
 
@@ -126,7 +125,7 @@ func findRealMiniMaxTenant(t *testing.T, env *adminAPIHarness) (apitypes.MiniMax
 	}
 	for _, want := range []string{"minimax-cn", "minimax-global"} {
 		for _, item := range resp.JSON200.Items {
-			if strings.TrimSpace(item.Name) == want {
+			if item.Id == want {
 				return item, true
 			}
 		}

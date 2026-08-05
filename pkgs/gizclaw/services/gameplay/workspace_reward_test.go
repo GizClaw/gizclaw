@@ -205,10 +205,9 @@ func TestSnapshotWorkspaceRewardPolicyResolvesFrozenResources(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 29, 1, 30, 0, 0, time.UTC)
 	catalog := testCatalog(t, now)
-	catalog.NewID = func() string { return "badge-science" }
 	rewardPrompt := "Reward evidence of scientific reasoning."
 	response, err := catalog.CreateBadgeDef(ctx, adminhttp.CreateBadgeDefRequestObject{
-		Body: &adminhttp.BadgeDefUpsert{Name: "badge-science", Spec: apitypes.BadgeDefSpec{
+		Body: &adminhttp.BadgeDefUpsert{Id: "badge-science", Spec: apitypes.BadgeDefSpec{
 			DisplayName: " Science ", RewardPrompt: &rewardPrompt,
 		}},
 	})
@@ -230,8 +229,7 @@ func TestSnapshotWorkspaceRewardPolicyResolvesFrozenResources(t *testing.T) {
 	}
 	initialBalance := int64(7)
 	profile := apitypes.RuntimeProfile{
-		Id:   "runtime-profile-a",
-		Name: "profile-a", Revision: "revision-a",
+		Id: "profile-a", Revision: "revision-a",
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{
 				Models: &models, BadgeDefs: &badgeDefs,
@@ -344,10 +342,9 @@ func TestWorkspaceRewardWindowSettlesOnceAndEnforcesRollingBudget(t *testing.T) 
 		policy:  &policy, generator: generator,
 	}
 	catalog := testCatalog(t, now)
-	catalog.NewID = func() string { return "badge-science" }
 	rewardPrompt := "Award sound scientific reasoning."
 	response, err := catalog.CreateBadgeDef(ctx, adminhttp.CreateBadgeDefRequestObject{
-		Body: &adminhttp.BadgeDefUpsert{Name: "badge-science", Spec: apitypes.BadgeDefSpec{
+		Body: &adminhttp.BadgeDefUpsert{Id: "badge-science", Spec: apitypes.BadgeDefSpec{
 			DisplayName: "Science", RewardPrompt: &rewardPrompt,
 		}},
 	})
@@ -386,7 +383,7 @@ func TestWorkspaceRewardWindowSettlesOnceAndEnforcesRollingBudget(t *testing.T) 
 	}
 	initialBalance := int64(0)
 	account, err := runtime.GetPoints(WithRuntimeProfile(ctx, apitypes.RuntimeProfile{
-		Id: "runtime-profile-a", Name: "profile-a",
+		Id: "runtime-profile-a",
 		Spec: apitypes.RuntimeProfileSpec{Gameplay: &apitypes.RuntimeProfileGameplaySpec{
 			Points: &apitypes.RuntimeProfilePointsSpec{InitialBalance: &initialBalance},
 		}},
@@ -1251,10 +1248,9 @@ func testConcurrentWorkspaceRewardSettlement(t *testing.T, db *sqlx.DB) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 29, 6, 0, 0, 0, time.UTC)
 	catalog := testCatalog(t, now)
-	catalog.NewID = func() string { return "badge-science" }
 	rewardPrompt := "Reward scientific reasoning."
 	response, err := catalog.CreateBadgeDef(ctx, adminhttp.CreateBadgeDefRequestObject{
-		Body: &adminhttp.BadgeDefUpsert{Name: "badge-science", Spec: apitypes.BadgeDefSpec{
+		Body: &adminhttp.BadgeDefUpsert{Id: "badge-science", Spec: apitypes.BadgeDefSpec{
 			DisplayName: "Science", RewardPrompt: &rewardPrompt,
 		}},
 	})
@@ -1272,7 +1268,7 @@ func testConcurrentWorkspaceRewardSettlement(t *testing.T, db *sqlx.DB) {
 	initialBalance := int64(0)
 	if _, err := runtimes[0].GetPoints(
 		WithRuntimeProfile(ctx, apitypes.RuntimeProfile{
-			Id: "runtime-profile-a", Name: "profile-a",
+			Id: "runtime-profile-a",
 			Spec: apitypes.RuntimeProfileSpec{Gameplay: &apitypes.RuntimeProfileGameplaySpec{
 				Points: &apitypes.RuntimeProfilePointsSpec{InitialBalance: &initialBalance},
 			}},

@@ -3,9 +3,9 @@ package toolkit
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 )
 
 // NormalizePolicy validates and returns a copy of a ToolKit exposure policy.
@@ -19,10 +19,9 @@ func NormalizePolicy(policy *apitypes.ToolkitPolicy) (*apitypes.ToolkitPolicy, e
 	}
 	seen := make(map[string]bool, len(*policy.ToolIds))
 	ids := make([]string, 0, len(*policy.ToolIds))
-	for _, raw := range *policy.ToolIds {
-		id := strings.TrimSpace(raw)
-		if id == "" {
-			return nil, fmt.Errorf("%w: tool_ids contains an empty Tool ID", ErrInvalidTool)
+	for _, id := range *policy.ToolIds {
+		if err := customid.ValidateResourceID(id); err != nil {
+			return nil, fmt.Errorf("%w: tool_ids: %v", ErrInvalidTool, err)
 		}
 		if seen[id] {
 			continue

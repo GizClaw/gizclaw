@@ -107,7 +107,7 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
       const updated = await expectData(
         putMiniMaxTenant({
           body: {
-            name: tenant.name,
+            id: tenant.id,
             app_id: optionalString(form.appID),
             group_id: optionalString(form.groupID),
             credential_id: form.credentialID.trim(),
@@ -157,7 +157,7 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
   if (tenantName === "") {
     return (
       <EmptyState
-        description="Missing MiniMax tenant name in the URL."
+        description="Missing MiniMax tenant ID in the URL."
         title="Invalid route"
       />
     );
@@ -213,7 +213,7 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
         description="MiniMax tenant configuration and voice sync controls."
         eyebrow="Providers"
         meta={tenant ? <Badge variant="secondary">MiniMax</Badge> : null}
-        title={tenant?.name ?? tenantName}
+        title={tenant?.id ?? tenantName}
       />
 
       {notice !== "" ? <NoticeBanner message={notice} tone="success" /> : null}
@@ -241,7 +241,7 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
             <div className="grid gap-4 xl:grid-cols-2">
               <DetailBlock
                 items={[
-                  ["Name", tenant.name],
+                  ["ID", tenant.id],
                   ["Credential ID", tenant.credential_id],
                   ["Description", tenant.description],
                   ["Base URL", tenant.base_url],
@@ -266,17 +266,17 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
               <CardHeader>
                 <CardTitle>Edit MiniMax Tenant</CardTitle>
                 <CardDescription>
-                  Update tenant routing and credential binding. The tenant name
-                  is the resource identity and is not editable here.
+                  Update tenant routing and credential binding. The tenant ID is
+                  the resource identity and is not editable here.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 lg:grid-cols-2">
                   <FormField
                     description="Resource identity. Rename via resource replacement if needed."
-                    label="Name"
+                    label="ID"
                   >
-                    <Input disabled value={tenant.name} />
+                    <Input disabled value={tenant.id} />
                   </FormField>
                   <FormField
                     description="Stored credential used when syncing MiniMax voices."
@@ -298,7 +298,7 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
                       <SelectContent>
                         {credentialOptions.map((credential) => (
                           <SelectItem key={credential.id} value={credential.id}>
-                            {credential.name} · {credential.provider}
+                            {credential.id} · {credential.provider}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -437,7 +437,6 @@ function mergeCredentialOptions(
   return [
     {
       id: currentID,
-      name: currentID,
       provider: "unknown",
       body: {},
       created_at: "",
@@ -448,22 +447,22 @@ function mergeCredentialOptions(
 }
 
 function miniMaxTenantCliCommands(tenant: MiniMaxTenant): string {
-  const name = shellQuote(tenant.name);
+  const id = shellQuote(tenant.id);
   return [
     `# Read this tenant through the MiniMax tenant CLI`,
-    `gizclaw admin minimax-tenants --context <admin-cli-context> get ${name}`,
+    `gizclaw admin minimax-tenants --context <admin-cli-context> get ${id}`,
     ``,
     `# Re-sync voices from this MiniMax tenant`,
-    `gizclaw admin minimax-tenants --context <admin-cli-context> sync-voices ${name}`,
+    `gizclaw admin minimax-tenants --context <admin-cli-context> sync-voices ${id}`,
     ``,
     `# Show this declarative tenant resource`,
-    `gizclaw admin --context <admin-cli-context> show MiniMaxTenant ${name}`,
+    `gizclaw admin --context <admin-cli-context> show MiniMaxTenant ${id}`,
     ``,
     `# Apply/update from a JSON file`,
     `gizclaw admin --context <admin-cli-context> apply -f minimax-tenant.json`,
     ``,
     `# Delete this tenant resource`,
-    `gizclaw admin --context <admin-cli-context> delete MiniMaxTenant ${name}`,
+    `gizclaw admin --context <admin-cli-context> delete MiniMaxTenant ${id}`,
   ].join("\n");
 }
 

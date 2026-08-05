@@ -10,11 +10,11 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
@@ -172,5 +172,5 @@ func (s ObjectRuntimeStore) DeleteWorkspaceRuntime(_ context.Context, workspaceI
 }
 
 func ObjectPrefix(workspaceID string) string {
-	return "workspaces/" + url.PathEscape(workspaceID)
+	return "workspaces/" + customid.OpaquePathSegment(workspaceID)
 }

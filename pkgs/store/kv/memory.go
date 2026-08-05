@@ -3,6 +3,7 @@ package kv
 import (
 	"bytes"
 	"context"
+	"errors"
 	"iter"
 	"sort"
 	"sync"
@@ -238,30 +239,40 @@ func (m *Memory) BatchMutate(ctx context.Context, entries []Entry, keys []Key) e
 }
 
 func (m *Memory) CreateIfAbsent(ctx context.Context, guard Entry, entries []Entry) ([]byte, bool, error) {
+	_, existing, created, err := m.CreateIfAllAbsent(ctx, []Entry{guard}, entries)
+	return existing, created, err
+}
+
+func (m *Memory) CreateIfAllAbsent(ctx context.Context, guards []Entry, entries []Entry) (Key, []byte, bool, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
-	guardKey := string(m.opts.encode(guard.Key))
+	if len(guards) == 0 {
+		return nil, nil, false, errors.New("kv: create-if-all-absent requires at least one guard")
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := ctx.Err(); err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 	now := time.Now()
-	if current, ok := m.data[guardKey]; ok && !current.expired(now) {
-		return append([]byte(nil), current.value...), false, nil
-	}
-	if !guard.Deadline.IsZero() && !guard.Deadline.After(now) {
-		return nil, false, ErrInvalidDeadline
+	for _, guard := range guards {
+		guardKey := string(m.opts.encode(guard.Key))
+		if current, ok := m.data[guardKey]; ok && !current.expired(now) {
+			return cloneKey(guard.Key), append([]byte(nil), current.value...), false, nil
+		}
 	}
 	type preparedEntry struct {
 		key   string
 		entry memoryEntry
 	}
-	prepared := make([]preparedEntry, 0, len(entries))
-	for _, item := range entries {
+	prepared := make([]preparedEntry, 0, len(entries)+len(guards))
+	all := make([]Entry, 0, len(entries)+len(guards))
+	all = append(all, entries...)
+	all = append(all, guards...)
+	for _, item := range all {
 		if !item.Deadline.IsZero() && !item.Deadline.After(now) {
-			return nil, false, ErrInvalidDeadline
+			return nil, nil, false, ErrInvalidDeadline
 		}
 		prepared = append(prepared, preparedEntry{
 			key:   string(m.opts.encode(item.Key)),
@@ -271,8 +282,7 @@ func (m *Memory) CreateIfAbsent(ctx context.Context, guard Entry, entries []Entr
 	for _, item := range prepared {
 		m.data[item.key] = item.entry
 	}
-	m.data[guardKey] = memoryEntry{value: append([]byte(nil), guard.Value...), expiresAt: guard.Deadline}
-	return nil, true, nil
+	return nil, nil, true, nil
 }
 
 func (m *Memory) CompareAndMutate(

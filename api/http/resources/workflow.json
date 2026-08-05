@@ -32,7 +32,7 @@
                 "$ref": "./resource.json#/components/schemas/ResourceMetadata"
               }
             ],
-            "description": "metadata.id is the canonical Workflow ID when updating, and metadata.name is the immutable Workflow name used by Peer RPC projections."
+            "description": "metadata.id is the caller-supplied canonical Workflow ID. RuntimeProfile binding aliases remain the separate Peer-visible selectors."
           },
           "spec": {
             "$ref": "../shared/workflow_spec.json#/components/schemas/WorkflowSpec"

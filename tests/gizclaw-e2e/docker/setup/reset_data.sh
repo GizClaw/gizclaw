@@ -8,7 +8,7 @@ testdata_dir="$e2e_dir/testdata"
 workspace_dir="$testdata_dir/server-workspace"
 resource_dir="$testdata_dir/resources"
 resource_paths="${GIZCLAW_E2E_RESOURCE_PATHS:-}"
-sync_volc_tenant="${GIZCLAW_E2E_SYNC_VOLC_TENANT-volc-main}"
+sync_volc_tenant_id="${GIZCLAW_E2E_SYNC_VOLC_TENANT_ID-volc-main}"
 bin_path="$testdata_dir/bin/gizclaw"
 fixture_apply_bin="$testdata_dir/bin/gizclaw-e2e-fixture-apply"
 env_file="$e2e_dir/.env"
@@ -103,8 +103,8 @@ init_data() {
     --config-home "$config_home"
     --context "$admin_context"
   )
-  if [[ -n "$sync_volc_tenant" ]]; then
-    fixture_args+=(--sync-volc-tenant "$sync_volc_tenant")
+  if [[ -n "$sync_volc_tenant_id" ]]; then
+    fixture_args+=(--sync-volc-tenant-id "$sync_volc_tenant_id")
   fi
   "$fixture_apply_bin" "${fixture_args[@]}" "${resource_files[@]}"
 

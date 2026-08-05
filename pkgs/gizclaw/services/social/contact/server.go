@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -115,7 +117,10 @@ func (s *Server) AdminListContacts(ctx context.Context, owner string, cursor *st
 }
 
 func (s *Server) AdminCreateContact(ctx context.Context, req adminhttp.AdminContactCreateRequest) (adminhttp.AdminContactObject, error) {
-	id := s.newID()
+	id := req.Id
+	if err := customid.ValidateResourceID(id); err != nil {
+		return adminhttp.AdminContactObject{}, fmt.Errorf("social: contact %w", err)
+	}
 	item, err := s.createContact(ctx, req.OwnerPublicKey, id, req.Name, req.DisplayName, req.PhoneNumber)
 	if err != nil {
 		return adminhttp.AdminContactObject{}, err
@@ -123,32 +128,11 @@ func (s *Server) AdminCreateContact(ctx context.Context, req adminhttp.AdminCont
 	return adminContactObject(req.OwnerPublicKey, id, item), nil
 }
 
-func (s *Server) AdminApplyContact(ctx context.Context, owner, id, name string, displayName, phoneNumber *string) (adminhttp.AdminContactObject, error) {
-	id = strings.TrimSpace(id)
-	if id == "" {
-		id = s.newID()
-		item, err := s.createContact(ctx, owner, id, name, displayName, phoneNumber)
-		if err != nil {
-			return adminhttp.AdminContactObject{}, err
-		}
-		return adminContactObject(owner, id, item), nil
+func (s *Server) AdminGetContact(ctx context.Context, owner, id string) (adminhttp.AdminContactObject, error) {
+	if err := customid.ValidateResourceID(id); err != nil {
+		return adminhttp.AdminContactObject{}, fmt.Errorf("social: contact %w", err)
 	}
 	item, err := s.readContactByID(ctx, owner, id)
-	if err != nil {
-		return adminhttp.AdminContactObject{}, err
-	}
-	if item.Name != name {
-		return adminhttp.AdminContactObject{}, errors.New("social: contact name is immutable")
-	}
-	item, err = s.putContactByID(ctx, owner, id, displayName, phoneNumber)
-	if err != nil {
-		return adminhttp.AdminContactObject{}, err
-	}
-	return adminContactObject(owner, id, item), nil
-}
-
-func (s *Server) AdminGetContact(ctx context.Context, owner, id string) (adminhttp.AdminContactObject, error) {
-	item, err := s.readContactByID(ctx, owner, strings.TrimSpace(id))
 	if err != nil {
 		return adminhttp.AdminContactObject{}, err
 	}
@@ -156,11 +140,13 @@ func (s *Server) AdminGetContact(ctx context.Context, owner, id string) (adminht
 }
 
 func (s *Server) AdminGetContactByID(ctx context.Context, id string) (adminhttp.AdminContactObject, error) {
+	if err := customid.ValidateResourceID(id); err != nil {
+		return adminhttp.AdminContactObject{}, fmt.Errorf("social: contact %w", err)
+	}
 	store, err := s.store()
 	if err != nil {
 		return adminhttp.AdminContactObject{}, err
 	}
-	id = strings.TrimSpace(id)
 	owner, err := store.Get(ctx, socialutil.ContactIDKey(id))
 	if err != nil {
 		return adminhttp.AdminContactObject{}, err
@@ -185,7 +171,10 @@ func (s *Server) AdminDeleteContactByID(ctx context.Context, id string) (adminht
 }
 
 func (s *Server) AdminPutContact(ctx context.Context, owner, id string, req adminhttp.AdminContactPutRequest) (adminhttp.AdminContactObject, error) {
-	item, err := s.putContactByID(ctx, owner, strings.TrimSpace(id), req.DisplayName, req.PhoneNumber)
+	if err := customid.ValidateResourceID(id); err != nil {
+		return adminhttp.AdminContactObject{}, fmt.Errorf("social: contact %w", err)
+	}
+	item, err := s.putContactByID(ctx, owner, id, req.DisplayName, req.PhoneNumber)
 	if err != nil {
 		return adminhttp.AdminContactObject{}, err
 	}
@@ -193,7 +182,10 @@ func (s *Server) AdminPutContact(ctx context.Context, owner, id string, req admi
 }
 
 func (s *Server) AdminDeleteContact(ctx context.Context, owner, id string) (adminhttp.AdminContactObject, error) {
-	item, err := s.deleteContactByID(ctx, owner, strings.TrimSpace(id))
+	if err := customid.ValidateResourceID(id); err != nil {
+		return adminhttp.AdminContactObject{}, fmt.Errorf("social: contact %w", err)
+	}
+	item, err := s.deleteContactByID(ctx, owner, id)
 	if err != nil {
 		return adminhttp.AdminContactObject{}, err
 	}
@@ -225,12 +217,12 @@ func (s *Server) createContact(ctx context.Context, owner, id, name string, disp
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
 	if _, err := store.Get(ctx, socialutil.ContactKey(owner, id)); err == nil {
-		return rpcapi.ContactObject{}, errors.New("social: contact id already exists")
+		return rpcapi.ContactObject{}, fmt.Errorf("%w: contact id %q", socialutil.ErrResourceAlreadyExists, id)
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.ContactObject{}, err
 	}
 	if _, err := store.Get(ctx, socialutil.ContactNameKey(owner, name)); err == nil {
-		return rpcapi.ContactObject{}, errors.New("social: contact name already exists")
+		return rpcapi.ContactObject{}, fmt.Errorf("%w: contact name %q", socialutil.ErrResourceAlreadyExists, name)
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.ContactObject{}, err
 	}
@@ -251,11 +243,22 @@ func (s *Server) createContact(ctx context.Context, owner, id, name string, disp
 	if err != nil {
 		return rpcapi.ContactObject{}, err
 	}
-	return item, store.BatchSet(ctx, []kv.Entry{
-		{Key: socialutil.ContactKey(owner, id), Value: data},
-		{Key: socialutil.ContactNameKey(owner, name), Value: []byte(id)},
-		{Key: socialutil.ContactIDKey(id), Value: []byte(strings.TrimSpace(owner))},
-	})
+	_, created, err := kv.CreateIfAbsent(
+		ctx,
+		store,
+		kv.Entry{Key: socialutil.ContactIDKey(id), Value: []byte(strings.TrimSpace(owner))},
+		[]kv.Entry{
+			{Key: socialutil.ContactKey(owner, id), Value: data},
+			{Key: socialutil.ContactNameKey(owner, name), Value: []byte(id)},
+		},
+	)
+	if err != nil {
+		return rpcapi.ContactObject{}, err
+	}
+	if !created {
+		return rpcapi.ContactObject{}, fmt.Errorf("%w: contact id %q", socialutil.ErrResourceAlreadyExists, id)
+	}
+	return item, nil
 }
 
 func (s *Server) PutContact(ctx context.Context, owner string, req rpcapi.ContactPutRequest) (rpcapi.ContactObject, error) {
@@ -343,7 +346,7 @@ func (s *Server) ensureUniquePhone(ctx context.Context, owner, currentID, phone 
 		}
 		entryID := socialutil.UnescapeStoreSegment(entry.Key[len(entry.Key)-1])
 		if entryID != currentID && socialutil.NormalizePhone(socialutil.StringValue(item.PhoneNumber)) == normalized {
-			return errors.New("social: contact phone_number already exists")
+			return fmt.Errorf("%w: contact phone_number", socialutil.ErrResourceAlreadyExists)
 		}
 	}
 	return nil
@@ -397,7 +400,7 @@ func (s *Server) readContactByID(ctx context.Context, owner, id string) (rpcapi.
 func adminContactObject(owner, id string, item rpcapi.ContactObject) adminhttp.AdminContactObject {
 	return adminhttp.AdminContactObject{
 		OwnerPublicKey: strings.TrimSpace(owner),
-		Id:             strings.TrimSpace(id),
+		Id:             id,
 		Name:           item.Name,
 		DisplayName:    item.DisplayName,
 		PhoneNumber:    item.PhoneNumber,

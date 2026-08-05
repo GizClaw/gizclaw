@@ -40,9 +40,9 @@ func TestE2EMemoryLayoutFixturesPassServiceValidation(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, _, err = validate(apitypes.MemoryLayout{
-				Name: typed.Metadata.Name,
+				Id:   typed.Metadata.Id,
 				Spec: typed.Spec,
-			}, typed.Metadata.Name)
+			}, typed.Metadata.Id)
 			if err != nil {
 				t.Fatal(err)
 			}

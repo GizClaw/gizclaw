@@ -3,6 +3,7 @@ package kv_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -30,6 +31,27 @@ func TestSupportsCreateIfAbsent(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := kv.SupportsCreateIfAbsent(tc.store); got != tc.want {
 				t.Fatalf("SupportsCreateIfAbsent() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestSupportsCreateIfAllAbsent(t *testing.T) {
+	supported := kv.NewMemory(nil)
+	unsupported := storeWithoutCreateIfAbsent{Store: supported}
+	for _, tc := range []struct {
+		name  string
+		store kv.Store
+		want  bool
+	}{
+		{name: "supported", store: supported, want: true},
+		{name: "unsupported", store: unsupported},
+		{name: "prefixed supported", store: kv.Prefixed(supported, kv.Key{"supported"}), want: true},
+		{name: "prefixed unsupported", store: kv.Prefixed(unsupported, kv.Key{"unsupported"})},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := kv.SupportsCreateIfAllAbsent(tc.store); got != tc.want {
+				t.Fatalf("SupportsCreateIfAllAbsent() = %v, want %v", got, tc.want)
 			}
 		})
 	}
@@ -201,6 +223,53 @@ func TestCreateIfAbsentGuardWinsEntryCollision(t *testing.T) {
 			}
 			if value, err := store.Get(ctx, guard.Key); err != nil || string(value) != "guard" {
 				t.Fatalf("Get(guard) = %q, %v", value, err)
+			}
+		})
+	}
+}
+
+func TestCreateIfAllAbsentClaimsEveryGuardAtomically(t *testing.T) {
+	for _, fixture := range []struct {
+		name string
+		new  func(*testing.T) kv.Store
+	}{
+		{name: "memory", new: func(*testing.T) kv.Store { return kv.NewMemory(nil) }},
+		{name: "badger", new: func(t *testing.T) kv.Store { return newTestStore(t, nil) }},
+		{
+			name: "prefixed memory",
+			new: func(*testing.T) kv.Store {
+				return kv.Prefixed(kv.NewMemory(nil), kv.Key{"scope"})
+			},
+		},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			store := fixture.new(t)
+			ctx := t.Context()
+			shared := kv.Entry{Key: kv.Key{"by-invoke-name", "shared"}, Value: []byte("winner")}
+			_, _, created, err := kv.CreateIfAllAbsent(ctx, store, []kv.Entry{
+				{Key: kv.Key{"by-id", "winner"}, Value: []byte("record")},
+				shared,
+			}, nil)
+			if err != nil || !created {
+				t.Fatalf("CreateIfAllAbsent(first) = (_, _, %v, %v), want created", created, err)
+			}
+
+			loserID := kv.Key{"by-id", "loser"}
+			conflict, existing, created, err := kv.CreateIfAllAbsent(ctx, store, []kv.Entry{
+				{Key: loserID, Value: []byte("loser-record")},
+				{Key: shared.Key, Value: []byte("loser")},
+			}, []kv.Entry{{Key: kv.Key{"side-effect"}, Value: []byte("loser")}})
+			if err != nil || created {
+				t.Fatalf("CreateIfAllAbsent(second) = (%v, %q, %v, %v), want conflict", conflict, existing, created, err)
+			}
+			if !slices.Equal(conflict, shared.Key) || string(existing) != "winner" {
+				t.Fatalf("CreateIfAllAbsent conflict = (%v, %q), want (%v, winner)", conflict, existing, shared.Key)
+			}
+			if _, err := store.Get(ctx, loserID); !errors.Is(err, kv.ErrNotFound) {
+				t.Fatalf("loser ID error = %v, want not found", err)
+			}
+			if _, err := store.Get(ctx, kv.Key{"side-effect"}); !errors.Is(err, kv.ErrNotFound) {
+				t.Fatalf("side effect error = %v, want not found", err)
 			}
 		})
 	}

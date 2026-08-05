@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: MemoryLayout
 metadata:
-  name: murder-mystery-memory
+  id: murder-mystery-memory
 spec:
   flowcraft:
     extraction:

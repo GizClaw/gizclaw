@@ -2,9 +2,9 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: VolcTenant
 metadata:
-  name: volc-main
+  id: volc-main
 spec:
-  credential_name: volc-main-credential
+  credential_id: volc-main-credential
   description: Volc/Doubao speech tenant
   region: cn-beijing
   resource_ids:

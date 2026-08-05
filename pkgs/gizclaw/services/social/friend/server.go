@@ -14,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -277,15 +278,40 @@ func (s *Server) AdminListFriends(ctx context.Context, cursor *string, limit *in
 	return adminhttp.AdminFriendListResponse{Items: items, HasNext: hasNext, NextCursor: next}, nil
 }
 
-func (s *Server) AdminCreateFriendResource(ctx context.Context, owner string, peerPublicKey string) (adminhttp.AdminFriendObject, error) {
-	item, err := s.AdminCreateFriend(ctx, owner, peerPublicKey)
+func (s *Server) AdminCreateFriendResource(ctx context.Context, id, owner, peerPublicKey string) (adminhttp.AdminFriendObject, error) {
+	if err := customid.ValidateResourceID(id); err != nil {
+		return adminhttp.AdminFriendObject{}, fmt.Errorf("social: friend %w", err)
+	}
+	owner = strings.TrimSpace(owner)
+	peerPublicKey = strings.TrimSpace(peerPublicKey)
+	if id != socialutil.RelationID(owner, peerPublicKey) {
+		return adminhttp.AdminFriendObject{}, errors.New("social: friend id must match the deterministic relation id")
+	}
+	if owner == "" || peerPublicKey == "" || owner == peerPublicKey {
+		return adminhttp.AdminFriendObject{}, errors.New("social: friend peers must be distinct and non-empty")
+	}
+	unlock := s.lockRelation(id)
+	defer unlock()
+	store, err := s.friendsStore()
 	if err != nil {
 		return adminhttp.AdminFriendObject{}, err
 	}
-	return s.adminFriendObject(ctx, strings.TrimSpace(owner), item)
+	if _, active, err := readActiveRelationship(ctx, store, owner, peerPublicKey); err != nil {
+		return adminhttp.AdminFriendObject{}, err
+	} else if active {
+		return adminhttp.AdminFriendObject{}, fmt.Errorf("%w: friend id %q", socialutil.ErrResourceAlreadyExists, id)
+	}
+	item, err := s.createFriend(ctx, owner, peerPublicKey, owner)
+	if err != nil {
+		return adminhttp.AdminFriendObject{}, err
+	}
+	return s.adminFriendObject(ctx, owner, item)
 }
 
 func (s *Server) AdminGetFriend(ctx context.Context, owner, id string) (adminhttp.AdminFriendObject, error) {
+	if err := customid.ValidateResourceID(id); err != nil {
+		return adminhttp.AdminFriendObject{}, fmt.Errorf("social: friend %w", err)
+	}
 	item, err := s.GetFriendRelation(ctx, owner, id)
 	if err != nil {
 		return adminhttp.AdminFriendObject{}, err
@@ -294,7 +320,10 @@ func (s *Server) AdminGetFriend(ctx context.Context, owner, id string) (adminhtt
 }
 
 func (s *Server) AdminDeleteFriend(ctx context.Context, owner, id string) (adminhttp.AdminFriendObject, error) {
-	item, err := s.DeleteFriend(ctx, owner, rpcapi.FriendDeleteRequest{Id: strings.TrimSpace(id)})
+	if err := customid.ValidateResourceID(id); err != nil {
+		return adminhttp.AdminFriendObject{}, fmt.Errorf("social: friend %w", err)
+	}
+	item, err := s.DeleteFriend(ctx, owner, rpcapi.FriendDeleteRequest{Id: id})
 	if err != nil {
 		return adminhttp.AdminFriendObject{}, err
 	}
@@ -934,6 +963,7 @@ func (s *Server) ensureCreationWorkspace(ctx context.Context, intent creationInt
 		return apitypes.Workspace{}, errors.New("social: Workspace creation service not configured")
 	}
 	body := adminhttp.WorkspaceUpsert{
+		Id:         intent.Workspace,
 		Name:       intent.Workspace,
 		WorkflowId: intent.Workflow,
 		Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),

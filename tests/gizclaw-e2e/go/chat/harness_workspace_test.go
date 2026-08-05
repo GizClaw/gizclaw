@@ -563,8 +563,8 @@ func TestSetupWorkflowResourcesCoverWorkspaceConfigs(t *testing.T) {
 			if resource.APIVersion != "gizclaw.admin/v1alpha1" || resource.Kind != "Workflow" {
 				t.Fatalf("resource header = %s/%s", resource.APIVersion, resource.Kind)
 			}
-			if resource.Metadata.Name != wantName {
-				t.Fatalf("resource workflow name = %q, want %q", resource.Metadata.Name, wantName)
+			if resource.Metadata.Id != wantName {
+				t.Fatalf("resource workflow id = %q, want %q", resource.Metadata.Id, wantName)
 			}
 			gotSpec, err := json.Marshal(resource.Spec)
 			if err != nil {
@@ -615,7 +615,7 @@ func loadSetupWorkflowResources(t *testing.T) map[string]setupWorkflowResource {
 		if resource.Kind != "Workflow" {
 			continue
 		}
-		resources[resource.Metadata.Name] = resource
+		resources[resource.Metadata.Id] = resource
 	}
 	return resources
 }

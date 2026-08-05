@@ -97,7 +97,7 @@ func TestServerOpenAITenantCRUDDefaultsAndPagination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetOpenAITenant() error = %v", err)
 	}
-	if got, ok := getResp.(adminhttp.GetOpenAITenant200JSONResponse); !ok || got.Name != "minimax" {
+	if got, ok := getResp.(adminhttp.GetOpenAITenant200JSONResponse); !ok || got.Id != "minimax" {
 		t.Fatalf("GetOpenAITenant() response = %#v", getResp)
 	}
 	deleteResp, err := srv.DeleteOpenAITenant(ctx, adminhttp.DeleteOpenAITenantRequestObject{Id: created.Id})
@@ -122,7 +122,7 @@ func TestServerOpenAITenantValidationAndStoreErrors(t *testing.T) {
 		body adminhttp.OpenAITenantUpsert
 	}{
 		{name: "missing name", body: adminhttp.OpenAITenantUpsert{CredentialId: "credential"}},
-		{name: "missing credential", body: adminhttp.OpenAITenantUpsert{Name: "tenant"}},
+		{name: "missing credential", body: adminhttp.OpenAITenantUpsert{Id: "tenant"}},
 		{name: "bad kind", body: openAITenantUpsertWith("tenant", stringPtr("bad-kind"), nil)},
 		{name: "bad api mode", body: openAITenantUpsertWith("tenant", nil, stringPtr("responses"))},
 	} {
@@ -140,7 +140,7 @@ func TestServerOpenAITenantValidationAndStoreErrors(t *testing.T) {
 	body := openAITenantUpsert("tenant")
 	if resp, err := srv.PutOpenAITenant(ctx, adminhttp.PutOpenAITenantRequestObject{Id: "other", Body: &body}); err != nil {
 		t.Fatalf("PutOpenAITenant(mismatch) error = %v", err)
-	} else if _, ok := resp.(adminhttp.PutOpenAITenant404JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.PutOpenAITenant400JSONResponse); !ok {
 		t.Fatalf("PutOpenAITenant(mismatch) response = %#v", resp)
 	}
 
@@ -178,7 +178,7 @@ func openAITenantUpsert(name string) adminhttp.OpenAITenantUpsert {
 
 func openAITenantUpsertWith(name string, kind, apiMode *string) adminhttp.OpenAITenantUpsert {
 	out := adminhttp.OpenAITenantUpsert{
-		Name:         string(name),
+		Id:           string(name),
 		CredentialId: string("credential"),
 	}
 	if kind != nil {

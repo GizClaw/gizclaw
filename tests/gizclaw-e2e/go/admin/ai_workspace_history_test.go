@@ -192,8 +192,8 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 			"zh-CN": {DisplayName: "私聊"},
 		},
 	}
-	profile, err := clitest.UpsertRuntimeProfileByName(env.ctx, env.api, adminhttp.RuntimeProfileUpsert{
-		Name: profileName,
+	profile, err := clitest.UpsertRuntimeProfile(env.ctx, env.api, adminhttp.RuntimeProfileUpsert{
+		Id: profileName,
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{},
 			Workflows: apitypes.RuntimeProfileWorkflows{
@@ -211,11 +211,11 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 	if err != nil {
 		t.Fatalf("put workspace history RuntimeProfile: %v", err)
 	}
-	if err := clitest.DeleteRegistrationTokenByName(env.ctx, env.api, tokenName); err != nil {
+	if err := clitest.DeleteRegistrationTokenByID(env.ctx, env.api, tokenName); err != nil {
 		t.Fatalf("retire workspace history RegistrationToken: %v", err)
 	}
 	token, err := env.api.CreateRegistrationTokenWithResponse(env.ctx, adminhttp.RegistrationTokenUpsert{
-		Name:             tokenName,
+		Id:               tokenName,
 		Token:            tokenName,
 		RuntimeProfileId: profile.Id,
 	})
@@ -231,7 +231,7 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 		if err != nil {
 			t.Fatalf("register workspace history peer %d: %v", i, err)
 		}
-		if registered.RuntimeProfileName != profile.Name {
+		if registered.RuntimeProfileName != profile.Id {
 			t.Fatalf("register workspace history peer %d = %#v", i, registered)
 		}
 	}

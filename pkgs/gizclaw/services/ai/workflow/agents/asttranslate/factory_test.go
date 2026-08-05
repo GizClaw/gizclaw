@@ -141,7 +141,7 @@ func (emptyStream) Close() error                      { return nil }
 func (emptyStream) CloseWithError(error) error        { return nil }
 
 func astWorkflow(model string, voice *apitypes.ASTTranslateVoiceParameters) apitypes.Workflow {
-	return apitypes.Workflow{Name: "ast", Spec: apitypes.WorkflowSpec{
+	return apitypes.Workflow{Id: "ast", Spec: apitypes.WorkflowSpec{
 		Driver: apitypes.WorkflowDriverAstTranslate,
 		AstTranslate: &apitypes.ASTTranslateWorkflowSpec{
 			TranslationModel: model,

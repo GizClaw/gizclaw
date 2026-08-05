@@ -122,7 +122,7 @@ export function CredentialDetailPage(): JSX.Element {
             <Badge variant="secondary">{credential.provider}</Badge>
           ) : null
         }
-        title={credential?.name ?? credentialName}
+        title={credential?.id ?? credentialName}
       />
 
       {loading ? (
@@ -148,7 +148,7 @@ export function CredentialDetailPage(): JSX.Element {
             <div className="grid gap-4 xl:grid-cols-2">
               <DetailBlock
                 items={[
-                  ["Name", credential.name],
+                  ["ID", credential.id],
                   ["Provider", credential.provider],
                   ["Auth", credentialAuthSummary(credential)],
                   ["Description", credential.description],
@@ -161,7 +161,7 @@ export function CredentialDetailPage(): JSX.Element {
                 items={[
                   ["Body keys", String(Object.keys(credential.body).length)],
                   ["Resource kind", "Credential"],
-                  ["Resource name", credential.name],
+                  ["Resource ID", credential.id],
                 ]}
                 title="Resource Identity"
               />
@@ -257,19 +257,19 @@ function CredentialBodyTable({
 }
 
 function credentialCliCommands(credential: Credential): string {
-  const name = shellQuote(credential.name);
+  const id = shellQuote(credential.id);
   return [
     `# Read this credential through the credential CLI`,
-    `gizclaw admin credentials --context <admin-cli-context> get ${name}`,
+    `gizclaw admin credentials --context <admin-cli-context> get ${id}`,
     ``,
     `# Show this declarative credential resource`,
-    `gizclaw admin --context <admin-cli-context> show Credential ${name}`,
+    `gizclaw admin --context <admin-cli-context> show Credential ${id}`,
     ``,
     `# Apply/update from a JSON file`,
     `gizclaw admin --context <admin-cli-context> apply -f credential.json`,
     ``,
     `# Delete this credential resource`,
-    `gizclaw admin --context <admin-cli-context> delete Credential ${name}`,
+    `gizclaw admin --context <admin-cli-context> delete Credential ${id}`,
   ].join("\n");
 }
 

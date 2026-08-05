@@ -10,4 +10,5 @@ import-mapping:
 output-options:
   skip-prune: true
   user-templates:
+    fiber/fiber-middleware.tmpl: templates/fiber/fiber-middleware.tmpl
     strict/strict-fiber.tmpl: templates/strict/strict-fiber.tmpl

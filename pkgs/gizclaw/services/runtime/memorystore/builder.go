@@ -23,6 +23,7 @@ import (
 	sdkworkspace "github.com/GizClaw/flowcraft/sdk/workspace"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	memoryflowcraft "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft"
 	memorymem0 "github.com/GizClaw/gizclaw-go/pkgs/store/memory/mem0"
@@ -162,15 +163,15 @@ func managedBindingRoot(serverRoot, profileID, bindingName string) (string, erro
 	if serverRoot == "" {
 		return "", errors.New("memory store: flowcraft_bbh requires the Server Workspace root")
 	}
-	if !safePathSegment(profileID) || !safePathSegment(bindingName) {
-		return "", errors.New("memory store: RuntimeProfile id and binding alias must be safe path segments")
+	if strings.TrimSpace(profileID) == "" || strings.TrimSpace(profileID) != profileID || !safePathSegment(bindingName) {
+		return "", errors.New("memory store: RuntimeProfile id is required and binding alias must be a safe path segment")
 	}
 	absoluteRoot, err := filepath.Abs(serverRoot)
 	if err != nil {
 		return "", fmt.Errorf("memory store: resolve Server Workspace root: %w", err)
 	}
 	base := filepath.Join(absoluteRoot, "data", "memory")
-	target := filepath.Join(base, profileID, bindingName)
+	target := filepath.Join(base, customid.OpaquePathSegment(profileID), bindingName)
 	relative, err := filepath.Rel(base, target)
 	if err != nil || relative == "." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
 		return "", errors.New("memory store: managed binding path escapes the Server Workspace root")

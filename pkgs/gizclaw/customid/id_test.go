@@ -53,11 +53,11 @@ func TestValidateRejectsInvalidCustomIDs(t *testing.T) {
 }
 
 func TestValidateFieldAnnotatesFieldName(t *testing.T) {
-	err := ValidateField("metadata.name", "short")
+	err := ValidateField("metadata.id", "short")
 	if err == nil {
 		t.Fatal("ValidateField succeeded")
 	}
-	if got := err.Error(); !strings.Contains(got, "metadata.name:") {
+	if got := err.Error(); !strings.Contains(got, "metadata.id:") {
 		t.Fatalf("ValidateField error = %q, want field prefix", got)
 	}
 }

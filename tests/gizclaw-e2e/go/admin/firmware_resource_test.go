@@ -23,9 +23,10 @@ func TestAdminAPIFirmwareResourceLifecycle(t *testing.T) {
 	firmware := apitypes.FirmwareResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKindFirmware,
-		Metadata:   apitypes.ResourceMetadata{Name: name},
+		Metadata:   apitypes.ResourceMetadata{Id: name},
 		Spec: apitypes.FirmwareSpec{
 			Description: &description,
+			Name:        "Firmware resource E2E",
 			Slots: apitypes.FirmwareSpecSlots{
 				Stable:  firmwareResourceSlot("stable", "https://downloads.example.com/resource/stable.tar.zlib", firmwarePackageSHA256, 4096),
 				Beta:    firmwareResourceSlot("beta", "https://downloads.example.com/resource/beta.tar.zlib", "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", 8192),
@@ -48,6 +49,9 @@ func TestAdminAPIFirmwareResourceLifecycle(t *testing.T) {
 		t.Fatalf("apply Firmware resource = %#v", applied.JSON200)
 	}
 	id = *applied.JSON200.Id
+	if id != name {
+		t.Fatalf("applied Firmware ID = %q, want caller ID %q", id, name)
+	}
 
 	got, err := env.api.GetResourceWithResponse(env.ctx, apitypes.ResourceKindFirmware, id)
 	if err != nil {

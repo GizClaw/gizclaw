@@ -43,6 +43,7 @@ import { EmptyState } from "@/dashboard";
 import { FormField } from "@/dashboard";
 import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
 import { formatDate, formatShortKey } from "../../lib/format";
+import { membershipResourceID } from "../../lib/route-param";
 
 type FriendGroupMemberEditorProps = {
   groupID: string;
@@ -88,6 +89,7 @@ export function FriendGroupMemberEditor({
       await expectData(
         createFriendGroupMember({
           body: {
+            id: membershipResourceID(groupID, peerPublicKey.trim()),
             name: memberName.trim(),
             peer_public_key: peerPublicKey.trim(),
             role,
@@ -120,7 +122,10 @@ export function FriendGroupMemberEditor({
     try {
       await expectData(
         putFriendGroupMember({
-          body: { role: nextRole },
+          body: {
+            id: membershipResourceID(groupID, publicKey),
+            role: nextRole,
+          },
           path: { id: groupID, publicKey },
         }),
       );

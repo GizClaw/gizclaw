@@ -32,7 +32,7 @@
                 "$ref": "./resource.json#/components/schemas/ResourceMetadata"
               }
             ],
-            "description": "metadata.name is the immutable Peer-visible contact name; metadata.id is omitted on create and required on update."
+            "description": "metadata.id is the caller-supplied canonical Contact ID. spec.name is the immutable owner-scoped Peer-visible contact name."
           },
           "spec": {
             "$ref": "#/components/schemas/ContactSpec"
@@ -42,13 +42,19 @@
       "ContactSpec": {
         "type": "object",
         "required": [
-          "owner_public_key"
+          "owner_public_key",
+          "name"
         ],
         "properties": {
           "owner_public_key": {
             "type": "string",
             "minLength": 1,
             "description": "Immutable owner peer public key."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Immutable owner-scoped Peer-visible contact name."
           },
           "display_name": {
             "type": "string"

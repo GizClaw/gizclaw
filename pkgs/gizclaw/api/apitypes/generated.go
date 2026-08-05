@@ -2984,7 +2984,7 @@ type ApplyResult struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion `json:"apiVersion"`
 
-	// Id Canonical Server ID for the concrete resource. Omitted only for virtual ResourceList results.
+	// Id Caller-supplied canonical ID. Required for every concrete resource and omitted only for the virtual ResourceList result.
 	Id *string `json:"id,omitempty"`
 
 	// Items Nested apply results for ResourceList resources.
@@ -2993,7 +2993,6 @@ type ApplyResult struct {
 	// Kind Declarative GizClaw resource kind.
 	Kind    ResourceKind `json:"kind"`
 	Message *string      `json:"message,omitempty"`
-	Name    string       `json:"name"`
 }
 
 // Badge defines model for Badge.
@@ -3013,7 +3012,6 @@ type Badge struct {
 type BadgeDef struct {
 	CreatedAt time.Time    `json:"created_at"`
 	Id        string       `json:"id"`
-	Name      string       `json:"name"`
 	PixaPath  *string      `json:"pixa_path,omitempty"`
 	Spec      BadgeDefSpec `json:"spec"`
 	UpdatedAt time.Time    `json:"updated_at"`
@@ -3104,15 +3102,23 @@ type ClientRPCToolSpec struct {
 	Enabled     *bool   `json:"enabled,omitempty"`
 
 	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
-	InputSchema ToolJSONSchema          `json:"input_schema"`
-	Metadata    *map[string]interface{} `json:"metadata,omitempty"`
-	Triggers    *[]ToolTrigger          `json:"triggers,omitempty"`
-	Type        ClientRPCToolSpecType   `json:"type"`
-	Version     *string                 `json:"version,omitempty"`
+	InputSchema ToolJSONSchema `json:"input_schema"`
+
+	// InvokeName Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
+	InvokeName string                  `json:"invoke_name"`
+	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
+	Triggers   *[]ToolTrigger          `json:"triggers,omitempty"`
+	Type       ClientRPCToolSpecType   `json:"type"`
+	Version    *string                 `json:"version,omitempty"`
 }
 
 // ClientRPCToolSpecType defines model for ClientRPCToolSpec.Type.
 type ClientRPCToolSpecType string
+
+// ConcreteResource A concrete resource carrying metadata.id. ResourceList is excluded.
+type ConcreteResource struct {
+	union json.RawMessage
+}
 
 // ContactResource defines model for ContactResource.
 type ContactResource struct {
@@ -3120,7 +3126,7 @@ type ContactResource struct {
 	ApiVersion ResourceAPIVersion  `json:"apiVersion"`
 	Kind       ContactResourceKind `json:"kind"`
 
-	// Metadata metadata.name is the immutable Peer-visible contact name; metadata.id is omitted on create and required on update.
+	// Metadata metadata.id is the caller-supplied canonical Contact ID. spec.name is the immutable owner-scoped Peer-visible contact name.
 	Metadata ResourceMetadata `json:"metadata"`
 	Spec     ContactSpec      `json:"spec"`
 }
@@ -3131,6 +3137,9 @@ type ContactResourceKind string
 // ContactSpec defines model for ContactSpec.
 type ContactSpec struct {
 	DisplayName *string `json:"display_name,omitempty"`
+
+	// Name Immutable owner-scoped Peer-visible contact name.
+	Name string `json:"name"`
 
 	// OwnerPublicKey Immutable owner peer public key.
 	OwnerPublicKey string  `json:"owner_public_key"`
@@ -3144,7 +3153,6 @@ type Credential struct {
 	CreatedAt   time.Time      `json:"created_at"`
 	Description *string        `json:"description,omitempty"`
 	Id          string         `json:"id"`
-	Name        string         `json:"name"`
 	Provider    string         `json:"provider"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 }
@@ -3274,7 +3282,6 @@ type DashScopeTenant struct {
 	CredentialId string    `json:"credential_id"`
 	Description  *string   `json:"description,omitempty"`
 	Id           string    `json:"id"`
-	Name         string    `json:"name"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
@@ -3334,7 +3341,6 @@ type DeepSeekTenant struct {
 	CredentialId string    `json:"credential_id"`
 	Description  *string   `json:"description,omitempty"`
 	Id           string    `json:"id"`
-	Name         string    `json:"name"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
@@ -4043,6 +4049,7 @@ type FirmwareSlots struct {
 // FirmwareSpec defines model for FirmwareSpec.
 type FirmwareSpec struct {
 	Description *string           `json:"description,omitempty"`
+	Name        string            `json:"name"`
 	Slots       FirmwareSpecSlots `json:"slots"`
 }
 
@@ -4368,7 +4375,7 @@ type FriendGroupInviteTokenResource struct {
 	ApiVersion ResourceAPIVersion                 `json:"apiVersion"`
 	Kind       FriendGroupInviteTokenResourceKind `json:"kind"`
 
-	// Metadata metadata.name is the friend group custom ID and must match spec.friend_group_id.
+	// Metadata metadata.id is the friend group canonical ID and must equal spec.friend_group_id.
 	Metadata ResourceMetadata           `json:"metadata"`
 	Spec     FriendGroupInviteTokenSpec `json:"spec"`
 }
@@ -4380,7 +4387,7 @@ type FriendGroupInviteTokenResourceKind string
 type FriendGroupInviteTokenSpec struct {
 	ExpiresAt time.Time `json:"expires_at"`
 
-	// FriendGroupId Opaque canonical FriendGroup ID returned by the Server. The invite_token value is not a resource ID.
+	// FriendGroupId Caller-supplied canonical FriendGroup ID. The invite_token value is not a resource ID.
 	FriendGroupId string `json:"friend_group_id"`
 	InviteToken   string `json:"invite_token"`
 }
@@ -4391,7 +4398,7 @@ type FriendGroupMemberResource struct {
 	ApiVersion ResourceAPIVersion            `json:"apiVersion"`
 	Kind       FriendGroupMemberResourceKind `json:"kind"`
 
-	// Metadata metadata.name is this member's immutable Peer-visible group name; metadata.id is the canonical membership ID returned by the Server.
+	// Metadata metadata.id must equal the deterministic membership ID. spec.name is this member's immutable Peer-visible group name.
 	Metadata ResourceMetadata      `json:"metadata"`
 	Spec     FriendGroupMemberSpec `json:"spec"`
 }
@@ -4404,8 +4411,11 @@ type FriendGroupMemberRole string
 
 // FriendGroupMemberSpec defines model for FriendGroupMemberSpec.
 type FriendGroupMemberSpec struct {
-	// FriendGroupId Opaque canonical FriendGroup ID returned by the Server. The peer_public_key segment is not a resource ID.
-	FriendGroupId string                `json:"friend_group_id"`
+	// FriendGroupId Caller-supplied canonical FriendGroup ID. The peer_public_key segment is not a resource ID.
+	FriendGroupId string `json:"friend_group_id"`
+
+	// Name Immutable member-visible owner-scoped friend group name.
+	Name          string                `json:"name"`
 	PeerPublicKey string                `json:"peer_public_key"`
 	Role          FriendGroupMemberRole `json:"role"`
 }
@@ -4416,7 +4426,7 @@ type FriendGroupResource struct {
 	ApiVersion ResourceAPIVersion      `json:"apiVersion"`
 	Kind       FriendGroupResourceKind `json:"kind"`
 
-	// Metadata metadata.name is the immutable Admin name; metadata.id is omitted on create and required on update.
+	// Metadata metadata.id is the caller-supplied canonical FriendGroup ID. spec.name is the immutable owner-scoped Peer-visible group name.
 	Metadata ResourceMetadata `json:"metadata"`
 	Spec     FriendGroupSpec  `json:"spec"`
 }
@@ -4428,6 +4438,9 @@ type FriendGroupResourceKind string
 type FriendGroupSpec struct {
 	Description *string `json:"description,omitempty"`
 	DisplayName *string `json:"display_name,omitempty"`
+
+	// Name Immutable owner-scoped Peer-visible friend group name.
+	Name string `json:"name"`
 
 	// OwnerPublicKey Immutable owner Peer public key used to resolve the system Workflow.
 	OwnerPublicKey string `json:"owner_public_key"`
@@ -4447,7 +4460,7 @@ type FriendResourceKind string
 
 // FriendSpec defines model for FriendSpec.
 type FriendSpec struct {
-	// OwnerPublicKey Canonical owner peer public key. metadata.name must be the sorted relation id owner:peer.
+	// OwnerPublicKey Canonical owner peer public key. metadata.id must equal the deterministic relation ID derived from owner_public_key and peer_public_key.
 	OwnerPublicKey string `json:"owner_public_key"`
 
 	// PeerPublicKey Canonical friend peer public key. Applying the resource creates both owner-view rows.
@@ -4459,7 +4472,6 @@ type GameDef struct {
 	CreatedAt time.Time   `json:"created_at"`
 	Icon      *Icon       `json:"icon,omitempty"`
 	Id        string      `json:"id"`
-	Name      string      `json:"name"`
 	Spec      GameDefSpec `json:"spec"`
 	UpdatedAt time.Time   `json:"updated_at"`
 }
@@ -4548,7 +4560,6 @@ type GeminiTenant struct {
 	Description  *string   `json:"description,omitempty"`
 	Id           string    `json:"id"`
 	Location     *string   `json:"location,omitempty"`
-	Name         string    `json:"name"`
 	ProjectId    *string   `json:"project_id,omitempty"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -4602,11 +4613,14 @@ type HTTPToolSpec struct {
 	Http        ToolHTTPRequest `json:"http"`
 
 	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
-	InputSchema ToolJSONSchema          `json:"input_schema"`
-	Metadata    *map[string]interface{} `json:"metadata,omitempty"`
-	Triggers    *[]ToolTrigger          `json:"triggers,omitempty"`
-	Type        HTTPToolSpecType        `json:"type"`
-	Version     *string                 `json:"version,omitempty"`
+	InputSchema ToolJSONSchema `json:"input_schema"`
+
+	// InvokeName Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
+	InvokeName string                  `json:"invoke_name"`
+	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
+	Triggers   *[]ToolTrigger          `json:"triggers,omitempty"`
+	Type       HTTPToolSpecType        `json:"type"`
+	Version    *string                 `json:"version,omitempty"`
 }
 
 // HTTPToolSpecType defines model for HTTPToolSpec.Type.
@@ -4638,10 +4652,7 @@ type Mem0MemoryLayoutPolicy struct {
 
 // MemoryLayout defines model for MemoryLayout.
 type MemoryLayout struct {
-	Id string `json:"id"`
-
-	// Name Immutable MemoryLayout resource name.
-	Name string           `json:"name"`
+	Id   string           `json:"id"`
 	Spec MemoryLayoutSpec `json:"spec"`
 }
 
@@ -4683,7 +4694,6 @@ type MiniMaxTenant struct {
 	GroupId      *string    `json:"group_id,omitempty"`
 	Id           string     `json:"id"`
 	LastSyncedAt *time.Time `json:"last_synced_at,omitempty"`
-	Name         string     `json:"name"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
@@ -4746,7 +4756,6 @@ type Model struct {
 
 	// Kind Runtime role of a model.
 	Kind     ModelKind     `json:"kind"`
-	Name     string        `json:"name"`
 	Provider ModelProvider `json:"provider"`
 
 	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
@@ -4829,7 +4838,6 @@ type OpenAITenant struct {
 
 	// Kind OpenAI-compatible endpoint kind.
 	Kind      OpenAITenantKind `json:"kind"`
-	Name      string           `json:"name"`
 	UpdatedAt time.Time        `json:"updated_at"`
 }
 
@@ -4891,7 +4899,7 @@ type Peer struct {
 	CreatedAt      time.Time  `json:"created_at"`
 	Device         DeviceInfo `json:"device"`
 
-	// FirmwareId Optional Server-assigned Firmware release-line ID. Channel selection remains device-owned.
+	// FirmwareId Optional configured caller-defined Firmware release-line ID. Channel selection remains device-owned.
 	FirmwareId *string                `json:"firmware_id,omitempty"`
 	PublicKey  string                 `json:"public_key"`
 	Role       PeerRole               `json:"role"`
@@ -5167,7 +5175,6 @@ type PetBehavior string
 type PetDef struct {
 	CreatedAt time.Time  `json:"created_at"`
 	Id        string     `json:"id"`
-	Name      string     `json:"name"`
 	PixaPath  *string    `json:"pixa_path,omitempty"`
 	Spec      PetDefSpec `json:"spec"`
 	UpdatedAt time.Time  `json:"updated_at"`
@@ -5400,7 +5407,7 @@ type Registration struct {
 	CreatedAt      time.Time   `json:"created_at"`
 	Device         *DeviceInfo `json:"device,omitempty"`
 
-	// FirmwareId Optional Server-assigned Firmware release-line ID. Channel selection remains device-owned.
+	// FirmwareId Optional configured caller-defined Firmware release-line ID. Channel selection remains device-owned.
 	FirmwareId *string                `json:"firmware_id,omitempty"`
 	PublicKey  string                 `json:"public_key"`
 	Role       PeerRole               `json:"role"`
@@ -5412,10 +5419,9 @@ type Registration struct {
 type RegistrationToken struct {
 	CreatedAt time.Time `json:"created_at"`
 
-	// FirmwareId Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+	// FirmwareId Optional caller-defined Firmware release-line ID. The device selects its own channel.
 	FirmwareId       *string   `json:"firmware_id,omitempty"`
 	Id               string    `json:"id"`
-	Name             string    `json:"name"`
 	RuntimeProfileId string    `json:"runtime_profile_id"`
 	Token            string    `json:"token"`
 	UpdatedAt        time.Time `json:"updated_at"`
@@ -5428,7 +5434,7 @@ type RegistrationTokenResource struct {
 	Kind       RegistrationTokenResourceKind `json:"kind"`
 	Metadata   ResourceMetadata              `json:"metadata"`
 	Spec       struct {
-		// FirmwareId Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+		// FirmwareId Optional caller-defined Firmware release-line ID. The device selects its own channel.
 		FirmwareId       *string `json:"firmware_id,omitempty"`
 		RuntimeProfileId string  `json:"runtime_profile_id"`
 		Token            string  `json:"token"`
@@ -5457,7 +5463,6 @@ type ResourceListResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion       `json:"apiVersion"`
 	Kind       ResourceListResourceKind `json:"kind"`
-	Metadata   ResourceMetadata         `json:"metadata"`
 	Spec       ResourceListSpec         `json:"spec"`
 }
 
@@ -5466,19 +5471,17 @@ type ResourceListResourceKind string
 
 // ResourceListSpec defines model for ResourceListSpec.
 type ResourceListSpec struct {
-	Items []Resource `json:"items"`
+	// Items Concrete resources only; nested ResourceList envelopes are invalid.
+	Items []ConcreteResource `json:"items"`
 }
 
 // ResourceMetadata defines model for ResourceMetadata.
 type ResourceMetadata struct {
 	Annotations *map[string]string `json:"annotations,omitempty"`
 
-	// Id Immutable opaque canonical ID allocated by the Server. Omit on create; include the returned ID for update.
-	Id     *string            `json:"id,omitempty"`
+	// Id Immutable opaque canonical ID supplied by the caller and persisted exactly as submitted, with a maximum length of 1024 Unicode characters. Leading or trailing whitespace and the standalone URI dot segments . and .. are invalid.
+	Id     string             `json:"id"`
 	Labels *map[string]string `json:"labels,omitempty"`
-
-	// Name Immutable resource name. Kind-specific rules apply. Names use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-].
-	Name string `json:"name"`
 
 	// OwnerPublicKey Immutable owner Public Key for Client-created resources. Admin-owned resources omit this field.
 	OwnerPublicKey *string `json:"owner_public_key,omitempty"`
@@ -5649,7 +5652,6 @@ type Runtime struct {
 type RuntimeProfile struct {
 	CreatedAt time.Time `json:"created_at"`
 	Id        string    `json:"id"`
-	Name      string    `json:"name"`
 
 	// Revision Deterministic opaque revision of the normalized RuntimeProfile spec.
 	Revision  string             `json:"revision"`
@@ -6029,8 +6031,8 @@ type Tool struct {
 
 	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
 	InputSchema ToolJSONSchema          `json:"input_schema"`
+	InvokeName  string                  `json:"invoke_name"`
 	Metadata    *map[string]interface{} `json:"metadata,omitempty"`
-	Name        string                  `json:"name"`
 	Triggers    *[]ToolTrigger          `json:"triggers,omitempty"`
 	Type        ToolType                `json:"type"`
 	UpdatedAt   time.Time               `json:"updated_at"`
@@ -6151,17 +6153,17 @@ type ToolResource struct {
 	ApiVersion ResourceAPIVersion `json:"apiVersion"`
 	Kind       ToolResourceKind   `json:"kind"`
 
-	// Metadata metadata.id is the canonical Tool resource ID when updating. metadata.name is the immutable runtime execution name and must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$.
+	// Metadata metadata.id is the caller-supplied canonical Tool ID. spec.invoke_name is the distinct immutable runtime execution name.
 	Metadata ResourceMetadata `json:"metadata"`
 
-	// Spec Strict Tool declaration selected by type. metadata.name is the only Tool identity.
+	// Spec Strict Tool declaration selected by type. metadata.id is the Admin identity and invoke_name is the immutable runtime execution identity.
 	Spec ToolSpec `json:"spec"`
 }
 
 // ToolResourceKind defines model for ToolResource.Kind.
 type ToolResourceKind string
 
-// ToolSpec Strict Tool declaration selected by type. metadata.name is the only Tool identity.
+// ToolSpec Strict Tool declaration selected by type. metadata.id is the Admin identity and invoke_name is the immutable runtime execution identity.
 type ToolSpec struct {
 	union json.RawMessage
 }
@@ -6187,7 +6189,7 @@ type ToolType string
 
 // ToolkitPolicy Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 type ToolkitPolicy struct {
-	// ToolIds Allowed canonical Tool resource IDs. RuntimeProfile aliases and Tool names are not accepted.
+	// ToolIds Allowed canonical Tool resource IDs. RuntimeProfile aliases and Tool invoke names are not accepted.
 	ToolIds *[]string `json:"tool_ids,omitempty"`
 }
 
@@ -6197,7 +6199,6 @@ type Voice struct {
 	Description *string       `json:"description,omitempty"`
 	DisplayName *string       `json:"display_name,omitempty"`
 	Id          string        `json:"id"`
-	Name        string        `json:"name"`
 	Provider    VoiceProvider `json:"provider"`
 
 	// ProviderData Provider-specific voice runtime configuration. The shape is selected by Voice.provider.kind.
@@ -6287,7 +6288,6 @@ type VolcTenant struct {
 	Endpoint     *string    `json:"endpoint,omitempty"`
 	Id           string     `json:"id"`
 	LastSyncedAt *time.Time `json:"last_synced_at,omitempty"`
-	Name         string     `json:"name"`
 	Region       *string    `json:"region,omitempty"`
 	ResourceIds  *[]string  `json:"resource_ids,omitempty"`
 	UpdatedAt    time.Time  `json:"updated_at"`
@@ -6345,11 +6345,8 @@ type VolcTenantVoiceProviderData struct {
 
 // Workflow defines model for Workflow.
 type Workflow struct {
-	// Id Immutable opaque canonical ID allocated by the Server.
+	// Id Immutable opaque canonical ID supplied by the caller.
 	Id string `json:"id"`
-
-	// Name Immutable workflow name used by Peer RPC projections.
-	Name string `json:"name"`
 
 	// Spec Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
 	Spec WorkflowSpec `json:"spec"`
@@ -6367,7 +6364,7 @@ type WorkflowResource struct {
 	ApiVersion ResourceAPIVersion   `json:"apiVersion"`
 	Kind       WorkflowResourceKind `json:"kind"`
 
-	// Metadata metadata.id is the canonical Workflow ID when updating, and metadata.name is the immutable Workflow name used by Peer RPC projections.
+	// Metadata metadata.id is the caller-supplied canonical Workflow ID. RuntimeProfile binding aliases remain the separate Peer-visible selectors.
 	Metadata ResourceMetadata `json:"metadata"`
 
 	// Spec Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
@@ -6442,7 +6439,7 @@ type WorkspaceResource struct {
 	Icon       *Icon                 `json:"icon,omitempty"`
 	Kind       WorkspaceResourceKind `json:"kind"`
 
-	// Metadata metadata.id is the canonical Workspace ID when updating, metadata.name is the immutable Workspace name, and spec.workflow_id is the canonical Workflow ID.
+	// Metadata metadata.id is the caller-supplied canonical Workspace ID, spec.name is the immutable owner-scoped Workspace name, and spec.workflow_id is the canonical Workflow ID.
 	Metadata ResourceMetadata `json:"metadata"`
 	Spec     WorkspaceSpec    `json:"spec"`
 }
@@ -6452,6 +6449,9 @@ type WorkspaceResourceKind string
 
 // WorkspaceSpec defines model for WorkspaceSpec.
 type WorkspaceSpec struct {
+	// Name Immutable owner-scoped Workspace name.
+	Name string `json:"name"`
+
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters *WorkspaceParameters `json:"parameters,omitempty"`
 
@@ -6520,6 +6520,755 @@ func (t ASTTranslateVoiceParameters) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ASTTranslateVoiceParameters) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsCredentialResource returns the union data inside the ConcreteResource as a CredentialResource
+func (t ConcreteResource) AsCredentialResource() (CredentialResource, error) {
+	var body CredentialResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCredentialResource overwrites any union data inside the ConcreteResource as the provided CredentialResource
+func (t *ConcreteResource) FromCredentialResource(v CredentialResource) error {
+	v.Kind = "Credential"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCredentialResource performs a merge with any union data inside the ConcreteResource, using the provided CredentialResource
+func (t *ConcreteResource) MergeCredentialResource(v CredentialResource) error {
+	v.Kind = "Credential"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFirmwareResource returns the union data inside the ConcreteResource as a FirmwareResource
+func (t ConcreteResource) AsFirmwareResource() (FirmwareResource, error) {
+	var body FirmwareResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFirmwareResource overwrites any union data inside the ConcreteResource as the provided FirmwareResource
+func (t *ConcreteResource) FromFirmwareResource(v FirmwareResource) error {
+	v.Kind = "Firmware"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFirmwareResource performs a merge with any union data inside the ConcreteResource, using the provided FirmwareResource
+func (t *ConcreteResource) MergeFirmwareResource(v FirmwareResource) error {
+	v.Kind = "Firmware"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactResource returns the union data inside the ConcreteResource as a ContactResource
+func (t ConcreteResource) AsContactResource() (ContactResource, error) {
+	var body ContactResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactResource overwrites any union data inside the ConcreteResource as the provided ContactResource
+func (t *ConcreteResource) FromContactResource(v ContactResource) error {
+	v.Kind = "Contact"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactResource performs a merge with any union data inside the ConcreteResource, using the provided ContactResource
+func (t *ConcreteResource) MergeContactResource(v ContactResource) error {
+	v.Kind = "Contact"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendResource returns the union data inside the ConcreteResource as a FriendResource
+func (t ConcreteResource) AsFriendResource() (FriendResource, error) {
+	var body FriendResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendResource overwrites any union data inside the ConcreteResource as the provided FriendResource
+func (t *ConcreteResource) FromFriendResource(v FriendResource) error {
+	v.Kind = "Friend"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendResource performs a merge with any union data inside the ConcreteResource, using the provided FriendResource
+func (t *ConcreteResource) MergeFriendResource(v FriendResource) error {
+	v.Kind = "Friend"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupResource returns the union data inside the ConcreteResource as a FriendGroupResource
+func (t ConcreteResource) AsFriendGroupResource() (FriendGroupResource, error) {
+	var body FriendGroupResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupResource overwrites any union data inside the ConcreteResource as the provided FriendGroupResource
+func (t *ConcreteResource) FromFriendGroupResource(v FriendGroupResource) error {
+	v.Kind = "FriendGroup"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupResource performs a merge with any union data inside the ConcreteResource, using the provided FriendGroupResource
+func (t *ConcreteResource) MergeFriendGroupResource(v FriendGroupResource) error {
+	v.Kind = "FriendGroup"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupInviteTokenResource returns the union data inside the ConcreteResource as a FriendGroupInviteTokenResource
+func (t ConcreteResource) AsFriendGroupInviteTokenResource() (FriendGroupInviteTokenResource, error) {
+	var body FriendGroupInviteTokenResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupInviteTokenResource overwrites any union data inside the ConcreteResource as the provided FriendGroupInviteTokenResource
+func (t *ConcreteResource) FromFriendGroupInviteTokenResource(v FriendGroupInviteTokenResource) error {
+	v.Kind = "FriendGroupInviteToken"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupInviteTokenResource performs a merge with any union data inside the ConcreteResource, using the provided FriendGroupInviteTokenResource
+func (t *ConcreteResource) MergeFriendGroupInviteTokenResource(v FriendGroupInviteTokenResource) error {
+	v.Kind = "FriendGroupInviteToken"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupMemberResource returns the union data inside the ConcreteResource as a FriendGroupMemberResource
+func (t ConcreteResource) AsFriendGroupMemberResource() (FriendGroupMemberResource, error) {
+	var body FriendGroupMemberResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupMemberResource overwrites any union data inside the ConcreteResource as the provided FriendGroupMemberResource
+func (t *ConcreteResource) FromFriendGroupMemberResource(v FriendGroupMemberResource) error {
+	v.Kind = "FriendGroupMember"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupMemberResource performs a merge with any union data inside the ConcreteResource, using the provided FriendGroupMemberResource
+func (t *ConcreteResource) MergeFriendGroupMemberResource(v FriendGroupMemberResource) error {
+	v.Kind = "FriendGroupMember"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsModelResource returns the union data inside the ConcreteResource as a ModelResource
+func (t ConcreteResource) AsModelResource() (ModelResource, error) {
+	var body ModelResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelResource overwrites any union data inside the ConcreteResource as the provided ModelResource
+func (t *ConcreteResource) FromModelResource(v ModelResource) error {
+	v.Kind = "Model"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelResource performs a merge with any union data inside the ConcreteResource, using the provided ModelResource
+func (t *ConcreteResource) MergeModelResource(v ModelResource) error {
+	v.Kind = "Model"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDashScopeTenantResource returns the union data inside the ConcreteResource as a DashScopeTenantResource
+func (t ConcreteResource) AsDashScopeTenantResource() (DashScopeTenantResource, error) {
+	var body DashScopeTenantResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDashScopeTenantResource overwrites any union data inside the ConcreteResource as the provided DashScopeTenantResource
+func (t *ConcreteResource) FromDashScopeTenantResource(v DashScopeTenantResource) error {
+	v.Kind = "DashScopeTenant"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDashScopeTenantResource performs a merge with any union data inside the ConcreteResource, using the provided DashScopeTenantResource
+func (t *ConcreteResource) MergeDashScopeTenantResource(v DashScopeTenantResource) error {
+	v.Kind = "DashScopeTenant"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDeepSeekTenantResource returns the union data inside the ConcreteResource as a DeepSeekTenantResource
+func (t ConcreteResource) AsDeepSeekTenantResource() (DeepSeekTenantResource, error) {
+	var body DeepSeekTenantResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDeepSeekTenantResource overwrites any union data inside the ConcreteResource as the provided DeepSeekTenantResource
+func (t *ConcreteResource) FromDeepSeekTenantResource(v DeepSeekTenantResource) error {
+	v.Kind = "DeepSeekTenant"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDeepSeekTenantResource performs a merge with any union data inside the ConcreteResource, using the provided DeepSeekTenantResource
+func (t *ConcreteResource) MergeDeepSeekTenantResource(v DeepSeekTenantResource) error {
+	v.Kind = "DeepSeekTenant"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGeminiTenantResource returns the union data inside the ConcreteResource as a GeminiTenantResource
+func (t ConcreteResource) AsGeminiTenantResource() (GeminiTenantResource, error) {
+	var body GeminiTenantResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGeminiTenantResource overwrites any union data inside the ConcreteResource as the provided GeminiTenantResource
+func (t *ConcreteResource) FromGeminiTenantResource(v GeminiTenantResource) error {
+	v.Kind = "GeminiTenant"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGeminiTenantResource performs a merge with any union data inside the ConcreteResource, using the provided GeminiTenantResource
+func (t *ConcreteResource) MergeGeminiTenantResource(v GeminiTenantResource) error {
+	v.Kind = "GeminiTenant"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMiniMaxTenantResource returns the union data inside the ConcreteResource as a MiniMaxTenantResource
+func (t ConcreteResource) AsMiniMaxTenantResource() (MiniMaxTenantResource, error) {
+	var body MiniMaxTenantResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMiniMaxTenantResource overwrites any union data inside the ConcreteResource as the provided MiniMaxTenantResource
+func (t *ConcreteResource) FromMiniMaxTenantResource(v MiniMaxTenantResource) error {
+	v.Kind = "MiniMaxTenant"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMiniMaxTenantResource performs a merge with any union data inside the ConcreteResource, using the provided MiniMaxTenantResource
+func (t *ConcreteResource) MergeMiniMaxTenantResource(v MiniMaxTenantResource) error {
+	v.Kind = "MiniMaxTenant"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsOpenAITenantResource returns the union data inside the ConcreteResource as a OpenAITenantResource
+func (t ConcreteResource) AsOpenAITenantResource() (OpenAITenantResource, error) {
+	var body OpenAITenantResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromOpenAITenantResource overwrites any union data inside the ConcreteResource as the provided OpenAITenantResource
+func (t *ConcreteResource) FromOpenAITenantResource(v OpenAITenantResource) error {
+	v.Kind = "OpenAITenant"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeOpenAITenantResource performs a merge with any union data inside the ConcreteResource, using the provided OpenAITenantResource
+func (t *ConcreteResource) MergeOpenAITenantResource(v OpenAITenantResource) error {
+	v.Kind = "OpenAITenant"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsVolcTenantResource returns the union data inside the ConcreteResource as a VolcTenantResource
+func (t ConcreteResource) AsVolcTenantResource() (VolcTenantResource, error) {
+	var body VolcTenantResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVolcTenantResource overwrites any union data inside the ConcreteResource as the provided VolcTenantResource
+func (t *ConcreteResource) FromVolcTenantResource(v VolcTenantResource) error {
+	v.Kind = "VolcTenant"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVolcTenantResource performs a merge with any union data inside the ConcreteResource, using the provided VolcTenantResource
+func (t *ConcreteResource) MergeVolcTenantResource(v VolcTenantResource) error {
+	v.Kind = "VolcTenant"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsVoiceResource returns the union data inside the ConcreteResource as a VoiceResource
+func (t ConcreteResource) AsVoiceResource() (VoiceResource, error) {
+	var body VoiceResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVoiceResource overwrites any union data inside the ConcreteResource as the provided VoiceResource
+func (t *ConcreteResource) FromVoiceResource(v VoiceResource) error {
+	v.Kind = "Voice"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVoiceResource performs a merge with any union data inside the ConcreteResource, using the provided VoiceResource
+func (t *ConcreteResource) MergeVoiceResource(v VoiceResource) error {
+	v.Kind = "Voice"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolResource returns the union data inside the ConcreteResource as a ToolResource
+func (t ConcreteResource) AsToolResource() (ToolResource, error) {
+	var body ToolResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolResource overwrites any union data inside the ConcreteResource as the provided ToolResource
+func (t *ConcreteResource) FromToolResource(v ToolResource) error {
+	v.Kind = "Tool"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolResource performs a merge with any union data inside the ConcreteResource, using the provided ToolResource
+func (t *ConcreteResource) MergeToolResource(v ToolResource) error {
+	v.Kind = "Tool"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkflowResource returns the union data inside the ConcreteResource as a WorkflowResource
+func (t ConcreteResource) AsWorkflowResource() (WorkflowResource, error) {
+	var body WorkflowResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkflowResource overwrites any union data inside the ConcreteResource as the provided WorkflowResource
+func (t *ConcreteResource) FromWorkflowResource(v WorkflowResource) error {
+	v.Kind = "Workflow"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkflowResource performs a merge with any union data inside the ConcreteResource, using the provided WorkflowResource
+func (t *ConcreteResource) MergeWorkflowResource(v WorkflowResource) error {
+	v.Kind = "Workflow"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceResource returns the union data inside the ConcreteResource as a WorkspaceResource
+func (t ConcreteResource) AsWorkspaceResource() (WorkspaceResource, error) {
+	var body WorkspaceResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceResource overwrites any union data inside the ConcreteResource as the provided WorkspaceResource
+func (t *ConcreteResource) FromWorkspaceResource(v WorkspaceResource) error {
+	v.Kind = "Workspace"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceResource performs a merge with any union data inside the ConcreteResource, using the provided WorkspaceResource
+func (t *ConcreteResource) MergeWorkspaceResource(v WorkspaceResource) error {
+	v.Kind = "Workspace"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetDefResource returns the union data inside the ConcreteResource as a PetDefResource
+func (t ConcreteResource) AsPetDefResource() (PetDefResource, error) {
+	var body PetDefResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetDefResource overwrites any union data inside the ConcreteResource as the provided PetDefResource
+func (t *ConcreteResource) FromPetDefResource(v PetDefResource) error {
+	v.Kind = "PetDef"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetDefResource performs a merge with any union data inside the ConcreteResource, using the provided PetDefResource
+func (t *ConcreteResource) MergePetDefResource(v PetDefResource) error {
+	v.Kind = "PetDef"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsBadgeDefResource returns the union data inside the ConcreteResource as a BadgeDefResource
+func (t ConcreteResource) AsBadgeDefResource() (BadgeDefResource, error) {
+	var body BadgeDefResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBadgeDefResource overwrites any union data inside the ConcreteResource as the provided BadgeDefResource
+func (t *ConcreteResource) FromBadgeDefResource(v BadgeDefResource) error {
+	v.Kind = "BadgeDef"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeBadgeDefResource performs a merge with any union data inside the ConcreteResource, using the provided BadgeDefResource
+func (t *ConcreteResource) MergeBadgeDefResource(v BadgeDefResource) error {
+	v.Kind = "BadgeDef"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGameDefResource returns the union data inside the ConcreteResource as a GameDefResource
+func (t ConcreteResource) AsGameDefResource() (GameDefResource, error) {
+	var body GameDefResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGameDefResource overwrites any union data inside the ConcreteResource as the provided GameDefResource
+func (t *ConcreteResource) FromGameDefResource(v GameDefResource) error {
+	v.Kind = "GameDef"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGameDefResource performs a merge with any union data inside the ConcreteResource, using the provided GameDefResource
+func (t *ConcreteResource) MergeGameDefResource(v GameDefResource) error {
+	v.Kind = "GameDef"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMemoryLayoutResource returns the union data inside the ConcreteResource as a MemoryLayoutResource
+func (t ConcreteResource) AsMemoryLayoutResource() (MemoryLayoutResource, error) {
+	var body MemoryLayoutResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMemoryLayoutResource overwrites any union data inside the ConcreteResource as the provided MemoryLayoutResource
+func (t *ConcreteResource) FromMemoryLayoutResource(v MemoryLayoutResource) error {
+	v.Kind = "MemoryLayout"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMemoryLayoutResource performs a merge with any union data inside the ConcreteResource, using the provided MemoryLayoutResource
+func (t *ConcreteResource) MergeMemoryLayoutResource(v MemoryLayoutResource) error {
+	v.Kind = "MemoryLayout"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRuntimeProfileResource returns the union data inside the ConcreteResource as a RuntimeProfileResource
+func (t ConcreteResource) AsRuntimeProfileResource() (RuntimeProfileResource, error) {
+	var body RuntimeProfileResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeProfileResource overwrites any union data inside the ConcreteResource as the provided RuntimeProfileResource
+func (t *ConcreteResource) FromRuntimeProfileResource(v RuntimeProfileResource) error {
+	v.Kind = "RuntimeProfile"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeProfileResource performs a merge with any union data inside the ConcreteResource, using the provided RuntimeProfileResource
+func (t *ConcreteResource) MergeRuntimeProfileResource(v RuntimeProfileResource) error {
+	v.Kind = "RuntimeProfile"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRegistrationTokenResource returns the union data inside the ConcreteResource as a RegistrationTokenResource
+func (t ConcreteResource) AsRegistrationTokenResource() (RegistrationTokenResource, error) {
+	var body RegistrationTokenResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRegistrationTokenResource overwrites any union data inside the ConcreteResource as the provided RegistrationTokenResource
+func (t *ConcreteResource) FromRegistrationTokenResource(v RegistrationTokenResource) error {
+	v.Kind = "RegistrationToken"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRegistrationTokenResource performs a merge with any union data inside the ConcreteResource, using the provided RegistrationTokenResource
+func (t *ConcreteResource) MergeRegistrationTokenResource(v RegistrationTokenResource) error {
+	v.Kind = "RegistrationToken"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ConcreteResource) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"kind"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ConcreteResource) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "BadgeDef":
+		return t.AsBadgeDefResource()
+	case "Contact":
+		return t.AsContactResource()
+	case "Credential":
+		return t.AsCredentialResource()
+	case "DashScopeTenant":
+		return t.AsDashScopeTenantResource()
+	case "DeepSeekTenant":
+		return t.AsDeepSeekTenantResource()
+	case "Firmware":
+		return t.AsFirmwareResource()
+	case "Friend":
+		return t.AsFriendResource()
+	case "FriendGroup":
+		return t.AsFriendGroupResource()
+	case "FriendGroupInviteToken":
+		return t.AsFriendGroupInviteTokenResource()
+	case "FriendGroupMember":
+		return t.AsFriendGroupMemberResource()
+	case "GameDef":
+		return t.AsGameDefResource()
+	case "GeminiTenant":
+		return t.AsGeminiTenantResource()
+	case "MemoryLayout":
+		return t.AsMemoryLayoutResource()
+	case "MiniMaxTenant":
+		return t.AsMiniMaxTenantResource()
+	case "Model":
+		return t.AsModelResource()
+	case "OpenAITenant":
+		return t.AsOpenAITenantResource()
+	case "PetDef":
+		return t.AsPetDefResource()
+	case "RegistrationToken":
+		return t.AsRegistrationTokenResource()
+	case "RuntimeProfile":
+		return t.AsRuntimeProfileResource()
+	case "Tool":
+		return t.AsToolResource()
+	case "Voice":
+		return t.AsVoiceResource()
+	case "VolcTenant":
+		return t.AsVolcTenantResource()
+	case "Workflow":
+		return t.AsWorkflowResource()
+	case "Workspace":
+		return t.AsWorkspaceResource()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ConcreteResource) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ConcreteResource) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

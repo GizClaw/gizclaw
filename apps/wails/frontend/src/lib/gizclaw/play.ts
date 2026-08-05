@@ -503,7 +503,6 @@ function itemToHistoryRow(item: unknown): PlayHistoryRow {
 
 function itemToResourceRow(item: unknown, prefix: string): PlayResourceRow {
   const record = isRecord(item) ? item : {};
-  const metadata = isRecord(record.metadata) ? record.metadata : {};
   const id =
     stringValue(record.alias) ??
     stringValue(record.id) ??
@@ -511,7 +510,6 @@ function itemToResourceRow(item: unknown, prefix: string): PlayResourceRow {
     stringValue(record.public_key) ??
     stringValue(record.friend_public_key) ??
     stringValue(record.group_id) ??
-    stringValue(metadata.name) ??
     `${prefix}-${hashJSON(item)}`;
   const title =
     stringValue(record.title) ??
@@ -519,7 +517,6 @@ function itemToResourceRow(item: unknown, prefix: string): PlayResourceRow {
     localizedDisplayName(record.i18n) ??
     stringValue(record.alias) ??
     stringValue(record.name) ??
-    stringValue(metadata.name) ??
     id;
   return {
     ...record,

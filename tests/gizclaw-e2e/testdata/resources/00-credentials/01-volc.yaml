@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Credential
 metadata:
-  name: volc-main-credential
+  id: volc-main-credential
 spec:
   provider: volc
   description: Volc service credential

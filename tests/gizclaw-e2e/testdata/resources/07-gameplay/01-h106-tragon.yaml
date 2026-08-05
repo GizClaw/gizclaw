@@ -1,14 +1,12 @@
 ---
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
-metadata:
-  name: h106-tragon-gameplay
 spec:
   items:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: PetDef
     metadata:
-      name: petdef-tragon
+      id: petdef-tragon
     spec:
       character:
         prompt: Compact blue pixel dragon with a rounded head, small horns, tiny wings, short legs, and playful brave behavior.
@@ -54,7 +52,7 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: RuntimeProfile
     metadata:
-      name: h106-tragon
+      id: h106-tragon
     spec:
       workflows:
         system:

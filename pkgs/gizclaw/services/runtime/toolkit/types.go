@@ -14,10 +14,10 @@ const (
 	ToolTypeClientRPC   ToolType = "client_rpc"
 )
 
-// Tool is the persisted configuration for one canonically named capability.
+// Tool is the persisted configuration for one caller-identified capability.
 type Tool struct {
 	ID          string            `json:"id"`
-	Name        string            `json:"name"`
+	InvokeName  string            `json:"invoke_name"`
 	Type        ToolType          `json:"type"`
 	Description *string           `json:"description,omitempty"`
 	Enabled     bool              `json:"enabled"`

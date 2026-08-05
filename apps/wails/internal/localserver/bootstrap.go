@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/goccy/go-yaml"
 )
 
 const defaultRuntimeProfileName = "default"
@@ -77,23 +76,16 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 	if run == nil {
 		run = runBootstrapCommand
 	}
-	ids := catalogResourceIDs{}
 	apply := func(entry ResourceEntry) error {
 		data, err := fs.ReadFile(catalog.FS, entry.Path)
 		if err != nil {
 			return fmt.Errorf("local server bootstrap: read bundled %s: %w", entry.Path, err)
-		}
-		data, err = resolveCatalogResourceIDs(data, entry, ids)
-		if err != nil {
-			return fmt.Errorf("local server bootstrap: resolve %s/%s: %w", entry.Kind, entry.Name, err)
 		}
 		file, err := writeBootstrapResource(tempDir, entry.Path, data)
 		if err != nil {
 			return err
 		}
 		args := []string{"admin", "apply", "--context", "local", "-f", file}
-		// Create-only manifests cannot be retried safely after an ambiguous
-		// transport failure: a second request would be a distinct create.
 		output, err := run(ctx, executable, args, environment)
 		if err != nil {
 			return fmt.Errorf("local server bootstrap: apply %s/%s from %s: %w", entry.Kind, entry.Name, entry.Path, err)
@@ -102,10 +94,9 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 		if err := json.Unmarshal(output, &result); err != nil {
 			return fmt.Errorf("local server bootstrap: decode apply result for %s/%s: %w", entry.Kind, entry.Name, err)
 		}
-		if result.Kind != apitypes.ResourceKind(entry.Kind) || result.Name != entry.Name || result.Id == nil || strings.TrimSpace(*result.Id) == "" {
+		if result.Kind != apitypes.ResourceKind(entry.Kind) || result.Id == nil || *result.Id != entry.Name {
 			return fmt.Errorf("local server bootstrap: invalid apply result for %s/%s", entry.Kind, entry.Name)
 		}
-		ids.put(entry.Kind, entry.Name, strings.TrimSpace(*result.Id))
 		return nil
 	}
 	resources := make([]ResourceEntry, 0, len(catalog.Resources))
@@ -127,7 +118,7 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 			return err
 		}
 	}
-	if err := b.uploadPetDefPIXAs(ctx, catalog, tempDir, executable, environment, run, ids); err != nil {
+	if err := b.uploadPetDefPIXAs(ctx, catalog, tempDir, executable, environment, run); err != nil {
 		return err
 	}
 	for _, entry := range runtimeProfiles {
@@ -150,213 +141,18 @@ func (b *Bootstrapper) uploadPetDefPIXAs(
 	tempDir, executable string,
 	environment []string,
 	run func(context.Context, string, []string, []string) ([]byte, error),
-	ids catalogResourceIDs,
 ) error {
 	for _, asset := range catalog.PetDefPIXAs {
 		file, err := b.extract(catalog, tempDir, asset.PIXA)
 		if err != nil {
 			return err
 		}
-		petDefID, err := ids.require("PetDef", asset.PetDef)
-		if err != nil {
-			return err
-		}
-		args := []string{"admin", "pet-defs", "upload-pixa", petDefID, "--context", "local", "-f", file}
+		args := []string{"admin", "pet-defs", "upload-pixa", asset.PetDef, "--context", "local", "-f", file}
 		if _, err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
 			return fmt.Errorf("local server bootstrap: upload PetDef/%s PIXA %s: %w", asset.PetDef, asset.PIXA, err)
 		}
 	}
 	return nil
-}
-
-type catalogResourceIDs map[string]map[string]string
-
-func (ids catalogResourceIDs) put(kind, name, id string) {
-	if ids[kind] == nil {
-		ids[kind] = map[string]string{}
-	}
-	ids[kind][name] = id
-}
-
-func (ids catalogResourceIDs) require(kind, name string) (string, error) {
-	id := strings.TrimSpace(ids[kind][strings.TrimSpace(name)])
-	if id == "" {
-		return "", fmt.Errorf("catalog reference %s/%s has not been created", kind, name)
-	}
-	return id, nil
-}
-
-func resolveCatalogResourceIDs(data []byte, entry ResourceEntry, ids catalogResourceIDs) ([]byte, error) {
-	var document map[string]any
-	if err := yaml.Unmarshal(data, &document); err != nil {
-		return nil, err
-	}
-	spec, err := requiredMap(document, "spec")
-	if err != nil {
-		return nil, err
-	}
-	switch entry.Kind {
-	case "DashScopeTenant", "DeepSeekTenant", "GeminiTenant", "MiniMaxTenant", "OpenAITenant", "VolcTenant":
-		if err := replaceCatalogReference(spec, "credential_name", "credential_id", "Credential", ids); err != nil {
-			return nil, err
-		}
-	case "Model", "Voice":
-		provider, err := requiredMap(spec, "provider")
-		if err != nil {
-			return nil, err
-		}
-		providerKind, err := requiredString(provider, "kind")
-		if err != nil {
-			return nil, err
-		}
-		tenantKind, ok := tenantResourceKind(providerKind)
-		if !ok {
-			return nil, fmt.Errorf("unsupported provider kind %q", providerKind)
-		}
-		if err := replaceCatalogReference(provider, "name", "id", tenantKind, ids); err != nil {
-			return nil, err
-		}
-	case "RuntimeProfile":
-		if err := resolveRuntimeProfileCatalogIDs(spec, ids); err != nil {
-			return nil, err
-		}
-	case "RegistrationToken":
-		if err := replaceCatalogReference(spec, "runtime_profile_name", "runtime_profile_id", "RuntimeProfile", ids); err != nil {
-			return nil, err
-		}
-		if _, ok := spec["firmware_name"]; ok {
-			if err := replaceCatalogReference(spec, "firmware_name", "firmware_id", "Firmware", ids); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return yaml.Marshal(document)
-}
-
-func resolveRuntimeProfileCatalogIDs(spec map[string]any, ids catalogResourceIDs) error {
-	if rawWorkflows, exists := spec["workflows"]; exists {
-		workflows, ok := rawWorkflows.(map[string]any)
-		if !ok {
-			return errors.New("workflows must be an object")
-		}
-		if rawSystem, exists := workflows["system"]; exists {
-			system, ok := rawSystem.(map[string]any)
-			if !ok {
-				return errors.New("workflows.system must be an object")
-			}
-			for _, key := range []string{"friend_chatroom", "group_chatroom", "pet"} {
-				if _, exists := system[key]; !exists {
-					continue
-				}
-				name, err := requiredString(system, key)
-				if err != nil {
-					return err
-				}
-				system[key], err = ids.require("Workflow", name)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		if rawCollections, exists := workflows["collections"]; exists {
-			collections, ok := rawCollections.(map[string]any)
-			if !ok {
-				return errors.New("workflows.collections must be an object")
-			}
-			for collectionName, rawCollection := range collections {
-				collection, ok := rawCollection.(map[string]any)
-				if !ok {
-					return fmt.Errorf("workflows.collections.%s must be an object", collectionName)
-				}
-				for bindingName, rawBinding := range collection {
-					binding, ok := rawBinding.(map[string]any)
-					if !ok {
-						return fmt.Errorf("workflows.collections.%s.%s must be an object", collectionName, bindingName)
-					}
-					if err := replaceCatalogReference(binding, "resource_id", "resource_id", "Workflow", ids); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	rawResources, exists := spec["resources"]
-	if !exists {
-		return nil
-	}
-	resources, ok := rawResources.(map[string]any)
-	if !ok {
-		return errors.New("resources must be an object")
-	}
-	for field, kind := range map[string]string{
-		"models": "Model", "voices": "Voice", "tools": "Tool",
-		"pet_defs": "PetDef", "badge_defs": "BadgeDef", "game_defs": "GameDef",
-	} {
-		rawBindings, exists := resources[field]
-		if !exists {
-			continue
-		}
-		bindings, ok := rawBindings.(map[string]any)
-		if !ok {
-			return fmt.Errorf("resources.%s must be an object", field)
-		}
-		for bindingName, rawBinding := range bindings {
-			binding, ok := rawBinding.(map[string]any)
-			if !ok {
-				return fmt.Errorf("resources.%s.%s must be an object", field, bindingName)
-			}
-			if err := replaceCatalogReference(binding, "resource_id", "resource_id", kind, ids); err != nil {
-				return err
-			}
-		}
-	}
-	if rawMemories, exists := resources["memories"]; exists {
-		memories, ok := rawMemories.(map[string]any)
-		if !ok {
-			return errors.New("resources.memories must be an object")
-		}
-		for bindingName, rawBinding := range memories {
-			binding, ok := rawBinding.(map[string]any)
-			if !ok {
-				return fmt.Errorf("resources.memories.%s must be an object", bindingName)
-			}
-			if err := replaceCatalogReference(binding, "layout_id", "layout_id", "MemoryLayout", ids); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func replaceCatalogReference(object map[string]any, sourceKey, targetKey, kind string, ids catalogResourceIDs) error {
-	name, err := requiredString(object, sourceKey)
-	if err != nil {
-		return err
-	}
-	id, err := ids.require(kind, name)
-	if err != nil {
-		return err
-	}
-	delete(object, sourceKey)
-	object[targetKey] = id
-	return nil
-}
-
-func requiredMap(object map[string]any, key string) (map[string]any, error) {
-	value, ok := object[key].(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("%s must be an object", key)
-	}
-	return value, nil
-}
-
-func requiredString(object map[string]any, key string) (string, error) {
-	value, ok := object[key].(string)
-	value = strings.TrimSpace(value)
-	if !ok || value == "" {
-		return "", fmt.Errorf("%s must be a non-empty string", key)
-	}
-	return value, nil
 }
 
 func writeBootstrapResource(root, name string, data []byte) (string, error) {

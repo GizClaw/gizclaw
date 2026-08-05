@@ -5,6 +5,7 @@ import { DashboardTable } from "@/dashboard";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { encodeRouteParam } from "@/views/admin/full/lib/route-param";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -53,7 +54,7 @@ export function VolcTenantsListPage(): JSX.Element {
   });
 
   const openTenant = (name: string): void => {
-    navigate(`/providers/volc-tenants/${encodeURIComponent(name)}`);
+    navigate(`/providers/volc-tenants/${encodeRouteParam(name)}`);
   };
 
   const handleRowKeyDown = (
@@ -173,7 +174,7 @@ export function VolcTenantsListPage(): JSX.Element {
                     className="cursor-pointer hover:bg-muted/40"
                     key={tenant.id}
                     onClick={() => openTenant(tenant.id)}
-                    onKeyDown={(event) => handleRowKeyDown(event, tenant.name)}
+                    onKeyDown={(event) => handleRowKeyDown(event, tenant.id)}
                     role="link"
                     tabIndex={0}
                   >
@@ -185,21 +186,21 @@ export function VolcTenantsListPage(): JSX.Element {
                             event.stopPropagation();
                             openTenant(tenant.id);
                           }}
-                          title={tenant.name}
+                          title={tenant.id}
                           type="button"
                         >
-                          {tenant.name}
+                          {tenant.id}
                         </button>
                         <button
-                          aria-label={`Copy tenant name ${tenant.name}`}
+                          aria-label={`Copy tenant ID ${tenant.id}`}
                           className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={(event) =>
-                            void copyTenantName(event, tenant.name)
+                            void copyTenantName(event, tenant.id)
                           }
-                          title="Copy tenant name"
+                          title="Copy tenant ID"
                           type="button"
                         >
-                          {copiedName === tenant.name ? (
+                          {copiedName === tenant.id ? (
                             <Check className="size-3 shrink-0 text-emerald-600" />
                           ) : (
                             <Copy className="size-3 shrink-0" />

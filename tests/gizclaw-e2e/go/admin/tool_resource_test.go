@@ -29,6 +29,7 @@ func TestAdminAPIToolResourceLifecycle(t *testing.T) {
 	spec := apitypes.ToolSpec{}
 	if err := spec.FromHTTPToolSpec(apitypes.HTTPToolSpec{
 		Type:        apitypes.HTTPToolSpecTypeHttpRequest,
+		InvokeName:  name,
 		InputSchema: jsonschema.Schema{Type: "object", Required: []string{"city"}, Properties: map[string]*jsonschema.Schema{"city": {Type: "string"}}},
 		Http: apitypes.ToolHTTPRequest{
 			Url: "https://weather.example/v1", Method: apitypes.ToolHTTPMethodGET,
@@ -41,7 +42,7 @@ func TestAdminAPIToolResourceLifecycle(t *testing.T) {
 	if err := resource.FromToolResource(apitypes.ToolResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.ToolResourceKindTool,
-		Metadata:   apitypes.ResourceMetadata{Name: name},
+		Metadata:   apitypes.ResourceMetadata{Id: name},
 		Spec:       spec,
 	}); err != nil {
 		t.Fatalf("build Tool resource: %v", err)
@@ -52,7 +53,7 @@ func TestAdminAPIToolResourceLifecycle(t *testing.T) {
 		t.Fatalf("apply Tool resource: %v", err)
 	}
 	requireStatusOK(t, applied, applied.Body)
-	if applied.JSON200 == nil || applied.JSON200.Id == nil || applied.JSON200.Kind != apitypes.ResourceKindTool || applied.JSON200.Name != name {
+	if applied.JSON200 == nil || applied.JSON200.Id == nil || *applied.JSON200.Id != name || applied.JSON200.Kind != apitypes.ResourceKindTool {
 		t.Fatalf("apply Tool resource = %#v", applied.JSON200)
 	}
 	id = *applied.JSON200.Id

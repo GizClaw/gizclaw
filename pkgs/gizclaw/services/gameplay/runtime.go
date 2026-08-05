@@ -1659,7 +1659,7 @@ func (r *Runtime) createPetWorkspace(ctx context.Context, owner, name, workflowN
 	if err := r.validatePetWorkflow(ctx, workflowName); err != nil {
 		return apitypes.Workspace{}, false, err
 	}
-	body := adminhttp.WorkspaceUpsert{Name: name, WorkflowId: workflowName}
+	body := adminhttp.WorkspaceUpsert{Id: name, Name: name, WorkflowId: workflowName}
 	workspace, created, err := r.Workspaces.CreateSystemWorkspace(ownership.WithOwner(ctx, owner), body)
 	if err != nil {
 		return apitypes.Workspace{}, false, err

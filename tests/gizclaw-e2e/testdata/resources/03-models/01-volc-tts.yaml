@@ -2,13 +2,13 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Model
 metadata:
-  name: volc-bigtts
+  id: volc-bigtts
 spec:
   kind: tts
   source: manual
   provider:
     kind: volc-tenant
-    name: volc-main
+    id: volc-main
   name: Volc BigTTS
   description: Volc BigTTS model
   provider_data:

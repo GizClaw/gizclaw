@@ -30,15 +30,24 @@ func TestCatalogEnvironmentUsesSavedThenProcessThenDefault(t *testing.T) {
 
 func TestCatalogRejectsWorkspaceResource(t *testing.T) {
 	_, err := localserver.LoadCatalog(fstest.MapFS{
-		"resources/05-workspaces/00-invalid.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Workspace\nmetadata:\n  name: invalid\n")},
+		"resources/05-workspaces/00-invalid.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Workspace\nmetadata:\n  id: invalid\n")},
 	})
 	if err == nil {
 		t.Fatal("LoadCatalog() error = nil")
 	}
 }
 
+func TestCatalogRejectsMetadataIDWithSurroundingWhitespace(t *testing.T) {
+	_, err := localserver.LoadCatalog(fstest.MapFS{
+		"resources/01-credentials/00-invalid.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  id: ' credential-a '\n")},
+	})
+	if err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("LoadCatalog() error = %v, want exact metadata.id rejection", err)
+	}
+}
+
 func TestCatalogRejectsLegacyAssetsWithDefaultRuntimeProfile(t *testing.T) {
-	profile := []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata:\n  name: default\n")
+	profile := []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata:\n  id: default\n")
 	for name, data := range map[string][]byte{
 		"assets/pets/a.pixa": []byte("asset"),
 		"petdef-pixa.txt":    []byte("pet-a assets/pets/a.pixa\n"),

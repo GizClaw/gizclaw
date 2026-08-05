@@ -10,7 +10,7 @@ import (
 func TestReadUpsertReadsCompleteRegistrationTokenFromStdin(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.SetIn(bytes.NewBufferString(`{
-		"name":"app:com.gizclaw.opensource",
+		"id":"app:com.gizclaw.opensource",
 		"token":"desktop-token",
 		"runtime_profile_id":"default"
 	}`))
@@ -18,7 +18,7 @@ func TestReadUpsertReadsCompleteRegistrationTokenFromStdin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readUpsert() error = %v", err)
 	}
-	if item.Name != "app:com.gizclaw.opensource" || item.Token != "desktop-token" || item.RuntimeProfileId != "default" {
+	if item.Id != "app:com.gizclaw.opensource" || item.Token != "desktop-token" || item.RuntimeProfileId != "default" {
 		t.Fatalf("readUpsert() = %#v", item)
 	}
 }

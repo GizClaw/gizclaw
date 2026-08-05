@@ -18,7 +18,7 @@ func TestAdminResourceCLIUserStoryApplyThenShow(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "minimax-main"},
+		"metadata": {"id": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
@@ -34,7 +34,7 @@ func TestAdminResourceCLIUserStoryApplyThenShow(t *testing.T) {
 			Action:     apitypes.ApplyActionCreated,
 			ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 			Kind:       apitypes.ResourceKindCredential,
-			Name:       "minimax-main",
+			Id:         new("minimax-main"),
 		},
 		getResource: resource,
 	}
@@ -55,7 +55,7 @@ func TestAdminResourceCLIUserStoryApplyThenShow(t *testing.T) {
 	if err := json.Unmarshal(applyOut.Bytes(), &applyResult); err != nil {
 		t.Fatalf("decode apply output: %v", err)
 	}
-	if applyResult.Action != apitypes.ApplyActionCreated || applyResult.Name != "minimax-main" {
+	if applyResult.Action != apitypes.ApplyActionCreated || applyResult.Id == nil || *applyResult.Id != "minimax-main" {
 		t.Fatalf("apply output = %+v", applyResult)
 	}
 
@@ -100,7 +100,7 @@ func TestAdminResourceShowRegistrationTokenRoundTripsThroughApply(t *testing.T) 
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "RegistrationToken",
-		"metadata": {"id": "token-id", "name": "desktop-token"},
+		"metadata": {"id": "token-id"},
 		"spec": {
 			"token": "desktop-token",
 			"runtime_profile_id": "default"
@@ -111,7 +111,7 @@ func TestAdminResourceShowRegistrationTokenRoundTripsThroughApply(t *testing.T) 
 			Action:     apitypes.ApplyActionUnchanged,
 			ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 			Kind:       apitypes.ResourceKindRegistrationToken,
-			Name:       "desktop-token",
+			Id:         new("desktop-token"),
 		},
 		getResource: resource,
 	}
@@ -161,9 +161,10 @@ func TestAdminResourceApplyReadsStdin(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
-		"metadata": {"name": "demo-workspace"},
+		"metadata": {"id": "demo-workspace"},
 		"spec": {
-			"workflow_name": "demo-workflow",
+			"name": "demo-workspace",
+			"workflow_id": "demo-workflow",
 			"parameters": {"mode": "test"}
 		}
 	}`)
@@ -172,7 +173,7 @@ func TestAdminResourceApplyReadsStdin(t *testing.T) {
 			Action:     apitypes.ApplyActionUnchanged,
 			ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 			Kind:       apitypes.ResourceKindWorkspace,
-			Name:       "demo-workspace",
+			Id:         new("demo-workspace"),
 		},
 	}
 	restore := stubResourceClient(fake)
@@ -196,7 +197,7 @@ func TestAdminResourceApplyExpandsProcessEnv(t *testing.T) {
 	if err := os.WriteFile(resourceFile, []byte(`{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "${GIZCLAW_TEST_CREDENTIAL:-fallback-credential}"},
+		"metadata": {"id": "${GIZCLAW_TEST_CREDENTIAL:-fallback-credential}"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "${GIZCLAW_TEST_SECRET}"}
@@ -204,7 +205,7 @@ func TestAdminResourceApplyExpandsProcessEnv(t *testing.T) {
 	}`), 0o644); err != nil {
 		t.Fatalf("write resource: %v", err)
 	}
-	fake := &fakeResourceClient{applyResult: apitypes.ApplyResult{Name: "env-credential"}}
+	fake := &fakeResourceClient{applyResult: apitypes.ApplyResult{Id: new("env-credential")}}
 	restore := stubResourceClient(fake)
 	defer restore()
 
@@ -236,7 +237,7 @@ func TestAdminResourceApplyReadsYAMLFile(t *testing.T) {
 apiVersion: gizclaw.admin/v1alpha1
 kind: Credential
 metadata:
-  name: yaml-credential
+  id: yaml-credential
 spec:
   provider: minimax
   body:
@@ -244,7 +245,7 @@ spec:
 `), 0o644); err != nil {
 		t.Fatalf("write resource: %v", err)
 	}
-	fake := &fakeResourceClient{applyResult: apitypes.ApplyResult{Name: "yaml-credential"}}
+	fake := &fakeResourceClient{applyResult: apitypes.ApplyResult{Id: new("yaml-credential")}}
 	restore := stubResourceClient(fake)
 	defer restore()
 
@@ -270,14 +271,12 @@ func TestAdminResourceYAMLExpansionHandlesNestedValues(t *testing.T) {
 	resource, err := decodeResourceData("resources.yaml", []byte(`
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
-metadata:
-  name: nested-resources
 spec:
   items:
     - apiVersion: gizclaw.admin/v1alpha1
       kind: Credential
       metadata:
-        name: nested-credential
+        id: nested-credential
       spec:
         provider: openai
         body:
@@ -314,7 +313,7 @@ func TestAdminResourceApplyRejectsUnsupportedResourceFileExtension(t *testing.T)
 	if err := os.WriteFile(resourceFile, []byte(`{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "txt-credential"},
+		"metadata": {"id": "txt-credential"},
 		"spec": {"provider": "minimax", "body": {"api_key": "secret"}}
 	}`), 0o644); err != nil {
 		t.Fatalf("write resource: %v", err)
@@ -332,7 +331,7 @@ func TestAdminResourceApplyRejectsUnknownResourceKind(t *testing.T) {
 	_, err := decodeResourceData("unknown.json", []byte(`{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Unknown",
-		"metadata": {"name": "unknown"},
+		"metadata": {"id": "unknown"},
 		"spec": {}
 	}`))
 	if err == nil || !strings.Contains(err.Error(), `unknown resource kind "Unknown"`) {
@@ -344,7 +343,7 @@ func TestAdminResourceApplyAcceptsGeneratedResourceKindAlias(t *testing.T) {
 	resource, err := decodeResourceData("credential.json", []byte(`{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "CredentialResource",
-		"metadata": {"name": "credential-alias"},
+		"metadata": {"id": "credential-alias"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
@@ -370,7 +369,7 @@ func TestAdminResourceApplyRejectsMissingEnv(t *testing.T) {
 	if err := os.WriteFile(resourceFile, []byte(`{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-			"metadata": {"name": "env-credential"},
+			"metadata": {"id": "env-credential"},
 			"spec": {
 				"provider": "minimax",
 				"body": {"api_key": "${GIZCLAW_TEST_MISSING_SECRET}"}
@@ -438,7 +437,7 @@ func TestResourceClientBridgeApplyAndGet(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "minimax-main"},
+		"metadata": {"id": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
@@ -450,7 +449,7 @@ func TestResourceClientBridgeApplyAndGet(t *testing.T) {
 				Action:     apitypes.ApplyActionUpdated,
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 				Kind:       apitypes.ResourceKindCredential,
-				Name:       "minimax-main",
+				Id:         new("minimax-main"),
 			},
 		},
 		deleteResp: &adminhttp.DeleteResourceResponse{
@@ -473,7 +472,7 @@ func TestResourceClientBridgeApplyAndGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyResource error: %v", err)
 	}
-	if result.Action != apitypes.ApplyActionUpdated || result.Name != "minimax-main" {
+	if result.Action != apitypes.ApplyActionUpdated || result.Id == nil || *result.Id != "minimax-main" {
 		t.Fatalf("ApplyResource result = %+v", result)
 	}
 	got, err := bridge.GetResource(context.Background(), apitypes.ResourceKindCredential, "minimax-main")
@@ -511,7 +510,7 @@ func TestResourceClientBridgeStructuredErrors(t *testing.T) {
 	_, err := bridge.ApplyResource(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "minimax-main"},
+		"metadata": {"id": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
@@ -542,7 +541,7 @@ func TestResourceClientBridgePropagatesAPIErrors(t *testing.T) {
 	_, err := bridge.ApplyResource(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "minimax-main"},
+		"metadata": {"id": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
@@ -685,7 +684,7 @@ func resourceKindAndName(resource apitypes.Resource) (apitypes.ResourceKind, str
 	var header struct {
 		Kind     apitypes.ResourceKind `json:"kind"`
 		Metadata struct {
-			Name string `json:"name"`
+			Id string `json:"id"`
 		} `json:"metadata"`
 	}
 	data, err := json.Marshal(resource)
@@ -695,5 +694,5 @@ func resourceKindAndName(resource apitypes.Resource) (apitypes.ResourceKind, str
 	if err := json.Unmarshal(data, &header); err != nil {
 		return "", "", err
 	}
-	return header.Kind, header.Metadata.Name, nil
+	return header.Kind, header.Metadata.Id, nil
 }

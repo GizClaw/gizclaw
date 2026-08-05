@@ -2,6 +2,7 @@ package resourcemanager
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -15,7 +16,7 @@ func TestApplyWorkflowCreatesResource(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workflow",
-		"metadata": {"name": "workflow"},
+		"metadata": {"id": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
@@ -37,7 +38,7 @@ func TestApplyWorkflowCreatesResource(t *testing.T) {
 func TestGetWorkflowReturnsResource(t *testing.T) {
 	workflows := newFakeWorkflows()
 	workflows.items["workflow"] = mustWorkflow(t, `{
-		"name": "workflow",
+		"id": "workflow",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
@@ -52,8 +53,8 @@ func TestGetWorkflowReturnsResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsWorkflowResource returned error: %v", err)
 	}
-	if workflow.Metadata.Name != "workflow" {
-		t.Fatalf("metadata.name = %q, want workflow", workflow.Metadata.Name)
+	if metadataID(t, workflow.Metadata) != "workflow" {
+		t.Fatalf("metadata.id = %q, want workflow", metadataID(t, workflow.Metadata))
 	}
 	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
 		t.Fatalf("spec = %#v", workflow.Spec)
@@ -62,13 +63,13 @@ func TestGetWorkflowReturnsResource(t *testing.T) {
 
 func TestPutWorkflowWritesResource(t *testing.T) {
 	workflows := newFakeWorkflows()
-	workflows.items["workflow"] = mustWorkflow(t, `{"id":"workflow","name":"workflow","spec":{"driver":"flowcraft","flowcraft":{"graph":{"name":"old","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}}`)
+	workflows.items["workflow"] = mustWorkflow(t, `{"id":"workflow","spec":{"driver":"flowcraft","flowcraft":{"graph":{"name":"old","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}}`)
 	manager := New(Services{Workflows: workflows})
 
 	_, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workflow",
-		"metadata": {"id": "workflow", "name": "workflow"},
+		"metadata": {"id": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
@@ -94,7 +95,7 @@ func TestApplyWorkflowUnchangedSkipsPut(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workflow",
-		"metadata": {"id": "workflow", "name": "workflow"},
+		"metadata": {"id": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
@@ -110,7 +111,7 @@ func TestApplyWorkflowUnchangedSkipsPut(t *testing.T) {
 	}
 }
 
-func TestApplyWorkflowNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
+func TestApplyWorkflowCanonicalizesToolkitPolicyBeforeCompare(t *testing.T) {
 	workflows := newFakeWorkflows()
 	workflows.items["workflow"] = mustWorkflow(t, `{
 		"name": "workflow",
@@ -124,10 +125,10 @@ func TestApplyWorkflowNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workflow",
-		"metadata": {"id": "workflow", "name": "workflow"},
+		"metadata": {"id": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
-			"toolkit": {"tool_ids": [" system.music.play ", "system.mode.switch", "system.music.play"]},
+			"toolkit": {"tool_ids": ["system.music.play", "system.mode.switch", "system.music.play"]},
 			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`))
 	if err != nil {
@@ -138,6 +139,19 @@ func TestApplyWorkflowNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
 	}
 	if workflows.putCount != 0 {
 		t.Fatalf("putCount = %d, want 0", workflows.putCount)
+	}
+
+	_, err = manager.Apply(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Workflow",
+		"metadata": {"id": "workflow"},
+		"spec": {
+			"driver": "flowcraft",
+			"toolkit": {"tool_ids": [" system.music.play "]},
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
+	}`))
+	if err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("Apply(whitespace tool ID) error = %v", err)
 	}
 }
 
@@ -154,7 +168,7 @@ func TestApplyWorkflowUpdatesResource(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workflow",
-		"metadata": {"id": "workflow", "name": "workflow"},
+		"metadata": {"id": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {"graph": {"name": "new-assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
@@ -206,7 +220,7 @@ func (f *fakeWorkflows) ListWorkflows(context.Context, adminhttp.ListWorkflowsRe
 func (f *fakeWorkflows) CreateWorkflow(_ context.Context, request adminhttp.CreateWorkflowRequestObject) (adminhttp.CreateWorkflowResponseObject, error) {
 	f.putCount++
 	body := *request.Body
-	item := apitypes.Workflow{Id: body.Name, Name: body.Name, Spec: body.Spec}
+	item := apitypes.Workflow{Id: body.Id, Spec: body.Spec}
 	f.items[item.Id] = item
 	return adminhttp.CreateWorkflow200JSONResponse(item), nil
 }
@@ -240,7 +254,7 @@ func (f *fakeWorkflows) PutWorkflow(_ context.Context, request adminhttp.PutWork
 	}
 	f.putCount++
 	body := *request.Body
-	item := apitypes.Workflow{Id: string(request.Id), Name: body.Name, Spec: body.Spec}
+	item := apitypes.Workflow{Id: string(request.Id), Spec: body.Spec}
 	f.items[string(request.Id)] = item
 	return adminhttp.PutWorkflow200JSONResponse(item), nil
 }

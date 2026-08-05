@@ -1,1087 +1,1205 @@
 ---
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
-metadata:
-  name: fake-flowcraft-scenario-workspaces
 spec:
   items:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-000
+    spec:
       name: workspace-scenario-000
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-000
+      workflow_id: flowcraft-scenario-000
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-001
+    spec:
       name: workspace-scenario-001
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-001
+      workflow_id: flowcraft-scenario-001
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-002
+    spec:
       name: workspace-scenario-002
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-002
+      workflow_id: flowcraft-scenario-002
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-003
+    spec:
       name: workspace-scenario-003
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-003
+      workflow_id: flowcraft-scenario-003
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-004
+    spec:
       name: workspace-scenario-004
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-004
+      workflow_id: flowcraft-scenario-004
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-005
+    spec:
       name: workspace-scenario-005
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-005
+      workflow_id: flowcraft-scenario-005
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-006
+    spec:
       name: workspace-scenario-006
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-006
+      workflow_id: flowcraft-scenario-006
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-007
+    spec:
       name: workspace-scenario-007
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-007
+      workflow_id: flowcraft-scenario-007
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-008
+    spec:
       name: workspace-scenario-008
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-008
+      workflow_id: flowcraft-scenario-008
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-009
+    spec:
       name: workspace-scenario-009
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-009
+      workflow_id: flowcraft-scenario-009
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-010
+    spec:
       name: workspace-scenario-010
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-010
+      workflow_id: flowcraft-scenario-010
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-011
+    spec:
       name: workspace-scenario-011
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-011
+      workflow_id: flowcraft-scenario-011
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-012
+    spec:
       name: workspace-scenario-012
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-012
+      workflow_id: flowcraft-scenario-012
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-013
+    spec:
       name: workspace-scenario-013
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-013
+      workflow_id: flowcraft-scenario-013
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-014
+    spec:
       name: workspace-scenario-014
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-014
+      workflow_id: flowcraft-scenario-014
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-015
+    spec:
       name: workspace-scenario-015
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-015
+      workflow_id: flowcraft-scenario-015
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-016
+    spec:
       name: workspace-scenario-016
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-016
+      workflow_id: flowcraft-scenario-016
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-017
+    spec:
       name: workspace-scenario-017
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-017
+      workflow_id: flowcraft-scenario-017
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-018
+    spec:
       name: workspace-scenario-018
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-018
+      workflow_id: flowcraft-scenario-018
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-019
+    spec:
       name: workspace-scenario-019
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-019
+      workflow_id: flowcraft-scenario-019
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-020
+    spec:
       name: workspace-scenario-020
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-020
+      workflow_id: flowcraft-scenario-020
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-021
+    spec:
       name: workspace-scenario-021
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-021
+      workflow_id: flowcraft-scenario-021
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-022
+    spec:
       name: workspace-scenario-022
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-022
+      workflow_id: flowcraft-scenario-022
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-023
+    spec:
       name: workspace-scenario-023
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-023
+      workflow_id: flowcraft-scenario-023
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-024
+    spec:
       name: workspace-scenario-024
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-024
+      workflow_id: flowcraft-scenario-024
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-025
+    spec:
       name: workspace-scenario-025
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-025
+      workflow_id: flowcraft-scenario-025
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-026
+    spec:
       name: workspace-scenario-026
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-026
+      workflow_id: flowcraft-scenario-026
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-027
+    spec:
       name: workspace-scenario-027
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-027
+      workflow_id: flowcraft-scenario-027
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-028
+    spec:
       name: workspace-scenario-028
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-028
+      workflow_id: flowcraft-scenario-028
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-029
+    spec:
       name: workspace-scenario-029
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-029
+      workflow_id: flowcraft-scenario-029
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-030
+    spec:
       name: workspace-scenario-030
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-030
+      workflow_id: flowcraft-scenario-030
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-031
+    spec:
       name: workspace-scenario-031
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-031
+      workflow_id: flowcraft-scenario-031
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-032
+    spec:
       name: workspace-scenario-032
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-032
+      workflow_id: flowcraft-scenario-032
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-033
+    spec:
       name: workspace-scenario-033
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-033
+      workflow_id: flowcraft-scenario-033
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-034
+    spec:
       name: workspace-scenario-034
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-034
+      workflow_id: flowcraft-scenario-034
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-035
+    spec:
       name: workspace-scenario-035
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-035
+      workflow_id: flowcraft-scenario-035
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-036
+    spec:
       name: workspace-scenario-036
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-036
+      workflow_id: flowcraft-scenario-036
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-037
+    spec:
       name: workspace-scenario-037
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-037
+      workflow_id: flowcraft-scenario-037
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-038
+    spec:
       name: workspace-scenario-038
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-038
+      workflow_id: flowcraft-scenario-038
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-039
+    spec:
       name: workspace-scenario-039
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-039
+      workflow_id: flowcraft-scenario-039
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-040
+    spec:
       name: workspace-scenario-040
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-040
+      workflow_id: flowcraft-scenario-040
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-041
+    spec:
       name: workspace-scenario-041
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-041
+      workflow_id: flowcraft-scenario-041
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-042
+    spec:
       name: workspace-scenario-042
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-042
+      workflow_id: flowcraft-scenario-042
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-043
+    spec:
       name: workspace-scenario-043
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-043
+      workflow_id: flowcraft-scenario-043
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-044
+    spec:
       name: workspace-scenario-044
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-044
+      workflow_id: flowcraft-scenario-044
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-045
+    spec:
       name: workspace-scenario-045
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-045
+      workflow_id: flowcraft-scenario-045
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-046
+    spec:
       name: workspace-scenario-046
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-046
+      workflow_id: flowcraft-scenario-046
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-047
+    spec:
       name: workspace-scenario-047
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-047
+      workflow_id: flowcraft-scenario-047
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-048
+    spec:
       name: workspace-scenario-048
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-048
+      workflow_id: flowcraft-scenario-048
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-049
+    spec:
       name: workspace-scenario-049
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-049
+      workflow_id: flowcraft-scenario-049
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-050
+    spec:
       name: workspace-scenario-050
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-050
+      workflow_id: flowcraft-scenario-050
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-051
+    spec:
       name: workspace-scenario-051
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-051
+      workflow_id: flowcraft-scenario-051
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-052
+    spec:
       name: workspace-scenario-052
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-052
+      workflow_id: flowcraft-scenario-052
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-053
+    spec:
       name: workspace-scenario-053
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-053
+      workflow_id: flowcraft-scenario-053
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-054
+    spec:
       name: workspace-scenario-054
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-054
+      workflow_id: flowcraft-scenario-054
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-055
+    spec:
       name: workspace-scenario-055
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-055
+      workflow_id: flowcraft-scenario-055
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-056
+    spec:
       name: workspace-scenario-056
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-056
+      workflow_id: flowcraft-scenario-056
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-057
+    spec:
       name: workspace-scenario-057
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-057
+      workflow_id: flowcraft-scenario-057
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-058
+    spec:
       name: workspace-scenario-058
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-058
+      workflow_id: flowcraft-scenario-058
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-059
+    spec:
       name: workspace-scenario-059
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-059
+      workflow_id: flowcraft-scenario-059
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-060
+    spec:
       name: workspace-scenario-060
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-060
+      workflow_id: flowcraft-scenario-060
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-061
+    spec:
       name: workspace-scenario-061
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-061
+      workflow_id: flowcraft-scenario-061
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-062
+    spec:
       name: workspace-scenario-062
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-062
+      workflow_id: flowcraft-scenario-062
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-063
+    spec:
       name: workspace-scenario-063
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-063
+      workflow_id: flowcraft-scenario-063
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-064
+    spec:
       name: workspace-scenario-064
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-064
+      workflow_id: flowcraft-scenario-064
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-065
+    spec:
       name: workspace-scenario-065
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-065
+      workflow_id: flowcraft-scenario-065
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-066
+    spec:
       name: workspace-scenario-066
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-066
+      workflow_id: flowcraft-scenario-066
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-067
+    spec:
       name: workspace-scenario-067
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-067
+      workflow_id: flowcraft-scenario-067
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-068
+    spec:
       name: workspace-scenario-068
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-068
+      workflow_id: flowcraft-scenario-068
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-069
+    spec:
       name: workspace-scenario-069
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-069
+      workflow_id: flowcraft-scenario-069
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-070
+    spec:
       name: workspace-scenario-070
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-070
+      workflow_id: flowcraft-scenario-070
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-071
+    spec:
       name: workspace-scenario-071
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-071
+      workflow_id: flowcraft-scenario-071
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-072
+    spec:
       name: workspace-scenario-072
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-072
+      workflow_id: flowcraft-scenario-072
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-073
+    spec:
       name: workspace-scenario-073
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-073
+      workflow_id: flowcraft-scenario-073
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-074
+    spec:
       name: workspace-scenario-074
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-074
+      workflow_id: flowcraft-scenario-074
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-075
+    spec:
       name: workspace-scenario-075
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-075
+      workflow_id: flowcraft-scenario-075
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-076
+    spec:
       name: workspace-scenario-076
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-076
+      workflow_id: flowcraft-scenario-076
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-077
+    spec:
       name: workspace-scenario-077
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-077
+      workflow_id: flowcraft-scenario-077
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-078
+    spec:
       name: workspace-scenario-078
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-078
+      workflow_id: flowcraft-scenario-078
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-079
+    spec:
       name: workspace-scenario-079
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-079
+      workflow_id: flowcraft-scenario-079
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-080
+    spec:
       name: workspace-scenario-080
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-080
+      workflow_id: flowcraft-scenario-080
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-081
+    spec:
       name: workspace-scenario-081
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-081
+      workflow_id: flowcraft-scenario-081
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-082
+    spec:
       name: workspace-scenario-082
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-082
+      workflow_id: flowcraft-scenario-082
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-083
+    spec:
       name: workspace-scenario-083
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-083
+      workflow_id: flowcraft-scenario-083
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-084
+    spec:
       name: workspace-scenario-084
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-084
+      workflow_id: flowcraft-scenario-084
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-085
+    spec:
       name: workspace-scenario-085
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-085
+      workflow_id: flowcraft-scenario-085
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-086
+    spec:
       name: workspace-scenario-086
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-086
+      workflow_id: flowcraft-scenario-086
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-087
+    spec:
       name: workspace-scenario-087
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-087
+      workflow_id: flowcraft-scenario-087
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-088
+    spec:
       name: workspace-scenario-088
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-088
+      workflow_id: flowcraft-scenario-088
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-089
+    spec:
       name: workspace-scenario-089
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-089
+      workflow_id: flowcraft-scenario-089
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-090
+    spec:
       name: workspace-scenario-090
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-090
+      workflow_id: flowcraft-scenario-090
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-091
+    spec:
       name: workspace-scenario-091
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-091
+      workflow_id: flowcraft-scenario-091
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-092
+    spec:
       name: workspace-scenario-092
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-092
+      workflow_id: flowcraft-scenario-092
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-093
+    spec:
       name: workspace-scenario-093
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-093
+      workflow_id: flowcraft-scenario-093
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-094
+    spec:
       name: workspace-scenario-094
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-094
+      workflow_id: flowcraft-scenario-094
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-095
+    spec:
       name: workspace-scenario-095
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-095
+      workflow_id: flowcraft-scenario-095
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-096
+    spec:
       name: workspace-scenario-096
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-096
+      workflow_id: flowcraft-scenario-096
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-097
+    spec:
       name: workspace-scenario-097
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-097
+      workflow_id: flowcraft-scenario-097
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-098
+    spec:
       name: workspace-scenario-098
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-098
+      workflow_id: flowcraft-scenario-098
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-099
+    spec:
       name: workspace-scenario-099
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-099
+      workflow_id: flowcraft-scenario-099
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-100
+    spec:
       name: workspace-scenario-100
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-100
+      workflow_id: flowcraft-scenario-100
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-101
+    spec:
       name: workspace-scenario-101
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-101
+      workflow_id: flowcraft-scenario-101
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-102
+    spec:
       name: workspace-scenario-102
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-102
+      workflow_id: flowcraft-scenario-102
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-103
+    spec:
       name: workspace-scenario-103
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-103
+      workflow_id: flowcraft-scenario-103
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-104
+    spec:
       name: workspace-scenario-104
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-104
+      workflow_id: flowcraft-scenario-104
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-105
+    spec:
       name: workspace-scenario-105
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-105
+      workflow_id: flowcraft-scenario-105
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-106
+    spec:
       name: workspace-scenario-106
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-106
+      workflow_id: flowcraft-scenario-106
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-107
+    spec:
       name: workspace-scenario-107
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-107
+      workflow_id: flowcraft-scenario-107
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-108
+    spec:
       name: workspace-scenario-108
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-108
+      workflow_id: flowcraft-scenario-108
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-109
+    spec:
       name: workspace-scenario-109
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-109
+      workflow_id: flowcraft-scenario-109
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-110
+    spec:
       name: workspace-scenario-110
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-110
+      workflow_id: flowcraft-scenario-110
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-111
+    spec:
       name: workspace-scenario-111
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-111
+      workflow_id: flowcraft-scenario-111
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-112
+    spec:
       name: workspace-scenario-112
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-112
+      workflow_id: flowcraft-scenario-112
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-113
+    spec:
       name: workspace-scenario-113
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-113
+      workflow_id: flowcraft-scenario-113
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-114
+    spec:
       name: workspace-scenario-114
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-114
+      workflow_id: flowcraft-scenario-114
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-115
+    spec:
       name: workspace-scenario-115
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-115
+      workflow_id: flowcraft-scenario-115
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-116
+    spec:
       name: workspace-scenario-116
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-116
+      workflow_id: flowcraft-scenario-116
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-117
+    spec:
       name: workspace-scenario-117
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-117
+      workflow_id: flowcraft-scenario-117
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
+      id: workspace-scenario-118
+    spec:
       name: workspace-scenario-118
-    spec:
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-118
+      workflow_id: flowcraft-scenario-118
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workspace
     metadata:
-      name: workspace-scenario-119
+      id: workspace-scenario-119
     spec:
+      name: workspace-scenario-119
       parameters:
         agent_type: flowcraft
         input: push-to-talk
-      workflow_name: flowcraft-scenario-119
+      workflow_id: flowcraft-scenario-119

@@ -8,7 +8,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: RuntimeProfile
 metadata:
-  name: default
+  id: default
 spec:
   workflows:
     system:
@@ -148,11 +148,11 @@ gameplay:
 奖励。策略在每个 debounce window 开始时冻结，后续 RuntimeProfile 或 BadgeDef
 更新只作用于新 window。它不注册 Admin Tool、built-in Tool 或 Toolkit。
 
-规范化后的 spec 有确定性的 opaque revision。Catalog list/get 响应携带 RuntimeProfile name 与 revision，分页 cursor 与 revision 绑定。每次 list、get、Workspace reload 和 standalone Speech 调用使用一个一致快照；并发更新从下一次操作开始生效。
+规范化后的 spec 有确定性的 opaque revision。Catalog list/get 响应携带 RuntimeProfile ID 与 revision，分页 cursor 与 revision 绑定。每次 list、get、Workspace reload 和 standalone Speech 调用使用一个一致快照；并发更新从下一次操作开始生效。
 
 ## RegistrationToken
 
-`RegistrationToken` 是普通的 Admin binding 资源。必填的 `spec.token` 绑定一个必填 RuntimeProfile name，也可以独立绑定一个 Firmware release-line ID。Admin create、put、get、list、delete、apply 和 show 使用同一份可读状态。Server 持久化完整状态并维护 SHA-256 lookup index；修改 token 时会原子替换 index，重复 apply 相同配置则返回 unchanged。
+`RegistrationToken` 是普通的 Admin binding 资源。它自己的 `metadata.id` 由调用方提供；必填的 `spec.token` 通过 `runtime_profile_id` 绑定一个 RuntimeProfile canonical ID，也可以通过 `firmware_id` 独立绑定一个 Firmware release-line ID。Admin create、put、get、list、delete、apply 和 show 使用同一份可读状态。Server 持久化完整状态并维护 SHA-256 lookup index；修改 token 时会原子替换 index，重复 apply 相同 ID 和配置则返回 unchanged。
 
 RuntimeProfile 与 RegistrationToken 的部署 ownership 相互独立。Raids 提供可复用基础资源及
 公开的 `RuntimeProfile/default`、`RegistrationToken/default-runtime` 契约。Desktop 为本地
@@ -160,7 +160,7 @@ Server 消费这对资源；其中确定性 UUID 是公开注册标识，不是 
 部署仍拥有自己的 RegistrationToken，可独立安装 default 或产品专用 profile，并把显式
 token 绑定到任意一个。
 
-`server.register` 把连接关联到 RuntimeProfile，内部持久化 canonical RuntimeProfile ID 与可选 Firmware ID，Peer response 只返回两者的 scoped name。Owner-bound Workspace 即使在 owner 离线时，也会通过持久化的 canonical RuntimeProfile ID 解析当前 revision；owner 后续成功注册可替换该选择。RegistrationToken 和 Peer 都不保存 Firmware channel；stable、beta、develop 或 pending 由设备自行选择。更新或切换 RuntimeProfile 只改变后续操作使用的环境，不重写 Workspace context 或已经保存的内部 binding。
+`server.register` 把连接关联到 RuntimeProfile，内部持久化 canonical RuntimeProfile ID 与可选 Firmware ID。为保持既有 RPC wire 字段名，response 的 `runtime_profile_name` 与 `firmware_name` 字段直接携带这两个 canonical ID；Server 不再从 Admin name 解析或转换。Owner-bound Workspace 即使在 owner 离线时，也会通过持久化的 canonical RuntimeProfile ID 解析当前 revision；owner 后续成功注册可替换该选择。RegistrationToken 和 Peer 都不保存 Firmware channel；stable、beta、develop 或 pending 由设备自行选择。更新或切换 RuntimeProfile 只改变后续操作使用的环境，不重写 Workspace context 或已经保存的内部 binding。
 
 公开 HTTP login 也可以通过 `X-Registration-Token` 提交同一个值。注册成功或失败日志不包含提交的 token 值。
 

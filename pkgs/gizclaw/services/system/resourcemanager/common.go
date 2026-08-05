@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"reflect"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 )
 
-func applyNamedResource[T any, S any](
+func applyConcreteResource[T any, S any](
 	ctx context.Context,
 	metadata apitypes.ResourceMetadata,
 	kind apitypes.ResourceKind,
@@ -18,41 +18,38 @@ func applyNamedResource[T any, S any](
 	get func(context.Context, string) (T, bool, error),
 	create func(context.Context) (string, error),
 	put func(context.Context, string) error,
-	nameOf func(T) string,
 	specOf func(T) S,
 ) (apitypes.ApplyResult, error) {
-	id, updating, err := resourceUpdateID(metadata)
+	id, err := requireResourceID(metadata)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if !updating {
-		createdID, err := create(ctx)
-		if err != nil {
-			return apitypes.ApplyResult{}, err
-		}
-		return applyResult(apitypes.ApplyActionCreated, kind, metadata.Name, createdID), nil
-	}
-	existing, exists, err := get(ctx, id)
+	transportID := servicePathID(id)
+	existing, exists, err := get(ctx, transportID)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if !exists {
-		return apitypes.ApplyResult{}, notFound(kind, id)
-	}
-	if err := validateImmutableResourceName(kind, id, nameOf(existing), metadata.Name); err != nil {
-		return apitypes.ApplyResult{}, err
+		createdID, err := create(ctx)
+		if err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		if createdID != id {
+			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_ID_MISMATCH", fmt.Sprintf("%s create returned id %q, expected %q", kind, createdID, id))
+		}
+		return applyResult(apitypes.ApplyActionCreated, kind, id), nil
 	}
 	same, err := semanticEqual(specOf(existing), desired)
 	if err != nil {
 		return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 	}
 	if same {
-		return applyResult(apitypes.ApplyActionUnchanged, kind, metadata.Name, id), nil
+		return applyResult(apitypes.ApplyActionUnchanged, kind, id), nil
 	}
-	if err := put(ctx, id); err != nil {
+	if err := put(ctx, transportID); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	return applyResult(apitypes.ApplyActionUpdated, kind, metadata.Name, id), nil
+	return applyResult(apitypes.ApplyActionUpdated, kind, id), nil
 }
 
 func marshalResource(in any) (apitypes.Resource, error) {
@@ -98,43 +95,24 @@ func resourceKind(resource apitypes.Resource) (apitypes.ResourceKind, error) {
 	return header.Kind, nil
 }
 
-func validateResourceHeader(apiVersion apitypes.ResourceAPIVersion, name string) error {
+func validateResourceHeader(apiVersion apitypes.ResourceAPIVersion, metadata apitypes.ResourceMetadata) error {
 	if apiVersion != apitypes.ResourceAPIVersionGizclawAdminv1alpha1 {
 		return applyError(400, "UNSUPPORTED_RESOURCE_VERSION", fmt.Sprintf("unsupported resource apiVersion %q", apiVersion))
 	}
-	if name == "" {
-		return applyError(400, "INVALID_RESOURCE", "metadata.name is required")
-	}
-	return nil
+	_, err := requireResourceID(metadata)
+	return err
 }
 
-func resourceUpdateID(metadata apitypes.ResourceMetadata) (string, bool, error) {
-	if metadata.Id == nil {
-		return "", false, nil
-	}
-	id := *metadata.Id
-	if id == "" {
-		return "", false, applyError(400, "INVALID_RESOURCE", "metadata.id must not be empty")
-	}
-	return id, true, nil
-}
-
-func requireResourceUpdateID(metadata apitypes.ResourceMetadata) (string, error) {
-	id, updating, err := resourceUpdateID(metadata)
-	if err != nil {
-		return "", err
-	}
-	if !updating {
-		return "", applyError(400, "RESOURCE_ID_REQUIRED", "metadata.id is required for update")
+func requireResourceID(metadata apitypes.ResourceMetadata) (string, error) {
+	id := metadata.Id
+	if err := customid.ValidateResourceID(id); err != nil {
+		code := "INVALID_RESOURCE_ID"
+		if id == "" {
+			code = "RESOURCE_ID_REQUIRED"
+		}
+		return "", applyError(400, code, "metadata."+err.Error())
 	}
 	return id, nil
-}
-
-func validateImmutableResourceName(kind apitypes.ResourceKind, id, existingName, desiredName string) error {
-	if existingName != desiredName {
-		return applyError(409, "IMMUTABLE_RESOURCE_NAME", fmt.Sprintf("%s %q is named %q, not %q", kind, id, existingName, desiredName))
-	}
-	return nil
 }
 
 func semanticEqual(left, right any) (bool, error) {
@@ -157,12 +135,11 @@ func normalizeJSON(in any, out *any) error {
 	return json.Unmarshal(data, out)
 }
 
-func applyResult(action apitypes.ApplyAction, kind apitypes.ResourceKind, name string, ids ...string) apitypes.ApplyResult {
+func applyResult(action apitypes.ApplyAction, kind apitypes.ResourceKind, ids ...string) apitypes.ApplyResult {
 	result := apitypes.ApplyResult{
 		Action:     action,
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       kind,
-		Name:       name,
 	}
 	if len(ids) > 0 && ids[0] != "" {
 		result.Id = &ids[0]
@@ -198,6 +175,8 @@ func unexpectedResponse(operation string, response any) *Error {
 	return applyError(500, "UNEXPECTED_SERVICE_RESPONSE", fmt.Sprintf("%s returned unexpected response %T", operation, response))
 }
 
-func pathParam(value string) string {
-	return url.PathEscape(value)
+func servicePathID(value string) string {
+	// Strict service request objects contain decoded path values. HTTP escaping
+	// belongs to the generated client and server transport boundary.
+	return value
 }

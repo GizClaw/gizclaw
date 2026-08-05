@@ -8,13 +8,16 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 )
 
 func TestAdminAPIFriendGroupsMembersAndInviteToken(t *testing.T) {
 	env := newAdminAPIHarness(t)
 	registerAdminHistoryPeers(t, env, env.admin)
 
+	groupID := mutationName("friend-group-id")
 	created, err := env.api.CreateFriendGroupWithResponse(env.ctx, adminhttp.AdminFriendGroupCreateRequest{
+		Id:             groupID,
 		Name:           mutationName("friend-group"),
 		Description:    ptr("Admin API friend group"),
 		OwnerPublicKey: env.adminKey,
@@ -27,7 +30,7 @@ func TestAdminAPIFriendGroupsMembersAndInviteToken(t *testing.T) {
 		created.JSON200.CreatedByPeerPublicKey != env.adminKey {
 		t.Fatalf("created friend group = %#v", created.JSON200)
 	}
-	groupID := created.JSON200.Id
+	groupID = created.JSON200.Id
 	t.Cleanup(func() { _, _ = env.api.DeleteFriendGroupWithResponse(env.ctx, groupID) })
 
 	get, err := env.api.GetFriendGroupWithResponse(env.ctx, groupID)
@@ -40,6 +43,7 @@ func TestAdminAPIFriendGroupsMembersAndInviteToken(t *testing.T) {
 	}
 
 	updated, err := env.api.PutFriendGroupWithResponse(env.ctx, groupID, adminhttp.AdminFriendGroupPutRequest{
+		Id:          groupID,
 		DisplayName: ptr("Renamed Group"),
 		Description: ptr("renamed"),
 	})
@@ -52,6 +56,7 @@ func TestAdminAPIFriendGroupsMembersAndInviteToken(t *testing.T) {
 	}
 
 	member, err := env.api.CreateFriendGroupMemberWithResponse(env.ctx, groupID, adminhttp.AdminFriendGroupMemberCreateRequest{
+		Id:            customid.MembershipName(groupID, env.peerKey),
 		Name:          created.JSON200.Name,
 		PeerPublicKey: env.peerKey,
 		Role:          rpcapi.FriendGroupMemberRoleMember,
@@ -65,6 +70,7 @@ func TestAdminAPIFriendGroupsMembersAndInviteToken(t *testing.T) {
 	}
 
 	updatedMember, err := env.api.PutFriendGroupMemberWithResponse(env.ctx, groupID, env.peerKey, adminhttp.AdminFriendGroupMemberPutRequest{
+		Id:   customid.MembershipName(groupID, env.peerKey),
 		Role: rpcapi.FriendGroupMemberRoleAdmin,
 	})
 	if err != nil {
@@ -95,6 +101,7 @@ func TestAdminAPIFriendGroupsMembersAndInviteToken(t *testing.T) {
 
 	expiresAt := time.Now().UTC().Add(10 * time.Minute)
 	token, err := env.api.PutFriendGroupInviteTokenWithResponse(env.ctx, groupID, adminhttp.AdminFriendGroupInviteTokenPutRequest{
+		Id:          groupID,
 		InviteToken: mutationName("group-token"),
 		ExpiresAt:   expiresAt,
 	})
