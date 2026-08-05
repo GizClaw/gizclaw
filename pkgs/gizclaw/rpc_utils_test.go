@@ -70,6 +70,7 @@ func TestRPCClientPingSingleRequestResponse(t *testing.T) {
 }
 
 func TestRPCServerHandlesSequentialRequestsPerDataChannel(t *testing.T) {
+	const requests = 32
 	serverSide, clientSide := net.Pipe()
 
 	serverErrCh := make(chan error, 1)
@@ -80,19 +81,15 @@ func TestRPCServerHandlesSequentialRequestsPerDataChannel(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	first, err := callRPCPing(ctx, clientSide, "req-1")
-	if err != nil {
-		t.Fatalf("Ping(req-1) error = %v", err)
-	}
-	if first.ServerTime <= 0 {
-		t.Fatalf("server time = %d, want positive", first.ServerTime)
-	}
-	second, err := callRPCPing(ctx, clientSide, "req-2")
-	if err != nil {
-		t.Fatalf("Ping(req-2) error = %v", err)
-	}
-	if second.ServerTime <= 0 {
-		t.Fatalf("second server time = %d, want positive", second.ServerTime)
+	for index := range requests {
+		id := fmt.Sprintf("req-%d", index)
+		response, err := callRPCPing(ctx, clientSide, id)
+		if err != nil {
+			t.Fatalf("Ping(%s) error = %v", id, err)
+		}
+		if response.ServerTime <= 0 {
+			t.Fatalf("Ping(%s) server time = %d, want positive", id, response.ServerTime)
+		}
 	}
 	if err := clientSide.Close(); err != nil {
 		t.Fatalf("client Close() error = %v", err)

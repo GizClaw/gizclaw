@@ -3,6 +3,7 @@ package gizcli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"strings"
 	"sync"
@@ -363,6 +364,7 @@ func TestClientRPCWithoutContextDeadlineUsesDefaultStreamTimeout(t *testing.T) {
 }
 
 func TestClientPingReusesStreamAndCloseReleasesIt(t *testing.T) {
+	const requests = 32
 	serverSide, clientSide := net.Pipe()
 	trackedClientSide := &closeTrackingConn{Conn: clientSide}
 	peer := &pingReusePeerConn{streams: []net.Conn{trackedClientSide}}
@@ -371,7 +373,7 @@ func TestClientPingReusesStreamAndCloseReleasesIt(t *testing.T) {
 
 	serverErrCh := make(chan error, 1)
 	go func() {
-		for range 2 {
+		for range requests {
 			req, err := readRPCRequestWithEOS(serverSide)
 			if err != nil {
 				serverErrCh <- err
@@ -389,7 +391,8 @@ func TestClientPingReusesStreamAndCloseReleasesIt(t *testing.T) {
 		serverErrCh <- nil
 	}()
 
-	for _, id := range []string{"reuse-1", "reuse-2"} {
+	for index := range requests {
+		id := fmt.Sprintf("reuse-%d", index)
 		response, err := client.Ping(t.Context(), id)
 		if err != nil {
 			t.Fatalf("Ping(%q) error = %v", id, err)
