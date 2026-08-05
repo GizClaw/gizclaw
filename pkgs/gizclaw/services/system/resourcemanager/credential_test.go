@@ -2,6 +2,7 @@ package resourcemanager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -35,6 +36,41 @@ func TestApplyCredentialCreatesResource(t *testing.T) {
 	}
 	if credentials.items["minimax-main"].Provider != "minimax" {
 		t.Fatalf("stored provider = %q, want minimax", credentials.items["minimax-main"].Provider)
+	}
+}
+
+func TestApplyCredentialRequiresBodyWhenCreating(t *testing.T) {
+	manager := New(Services{Credentials: newFakeCredentials()})
+	_, err := manager.Apply(t.Context(), mustResource(t, `{
+		"apiVersion":"gizclaw.admin/v1alpha1",
+		"kind":"Credential",
+		"metadata":{"id":"missing-body"},
+		"spec":{"provider":"openai"}
+	}`))
+	assertResourceError(t, err, 400, "INVALID_CREDENTIAL_RESOURCE")
+}
+
+func TestApplyCredentialReconcilesAcceptedRequestAfterLostResponse(t *testing.T) {
+	credentials := newFakeCredentials()
+	credentials.createErrAfterStore = errors.New("injected lost response")
+	manager := New(Services{Credentials: credentials})
+	resource := mustResource(t, `{
+		"apiVersion":"gizclaw.admin/v1alpha1",
+		"kind":"Credential",
+		"metadata":{"id":"retry-stable"},
+		"spec":{"provider":"openai","body":{"api_key":"secret"}}
+	}`)
+
+	if _, err := manager.Apply(t.Context(), resource); !errors.Is(err, credentials.createErrAfterStore) {
+		t.Fatalf("Apply(lost response) error = %v", err)
+	}
+	credentials.createErrAfterStore = nil
+	reconciled, err := manager.Apply(t.Context(), resource)
+	if err != nil || reconciled.Action != apitypes.ApplyActionUnchanged {
+		t.Fatalf("Apply(reconcile) = %#v, %v", reconciled, err)
+	}
+	if credentials.putCount != 1 || len(credentials.items) != 1 || credentials.items["retry-stable"].Id != "retry-stable" {
+		t.Fatalf("reconciled store = %#v, writes = %d", credentials.items, credentials.putCount)
 	}
 }
 
@@ -157,8 +193,33 @@ func TestGetCredentialReturnsResource(t *testing.T) {
 	if metadataID(t, credential.Metadata) != "minimax-main" {
 		t.Fatalf("metadata.id = %q, want minimax-main", metadataID(t, credential.Metadata))
 	}
-	if got := testCredentialBodyString(credential.Spec.Body, "api_key"); got != "secret" {
-		t.Fatalf("api_key = %q, want secret", got)
+	if credential.Spec.Body != nil {
+		t.Fatal("Credential Resource read exposed write-only body")
+	}
+}
+
+func TestApplyCredentialReadbackRetainsWriteOnlyBody(t *testing.T) {
+	credentials := newFakeCredentials()
+	manager := New(Services{Credentials: credentials})
+	desired := mustResource(t, `{
+		"apiVersion":"gizclaw.admin/v1alpha1",
+		"kind":"Credential",
+		"metadata":{"id":"openai-main"},
+		"spec":{"provider":"openai","body":{"api_key":"secret"}}
+	}`)
+	if _, err := manager.Apply(t.Context(), desired); err != nil {
+		t.Fatal(err)
+	}
+	readback, err := manager.Get(t.Context(), apitypes.ResourceKindCredential, "openai-main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	unchanged, err := manager.Apply(t.Context(), readback)
+	if err != nil || unchanged.Action != apitypes.ApplyActionUnchanged {
+		t.Fatalf("Apply(redacted readback) = %#v, %v", unchanged, err)
+	}
+	if got := testCredentialBodyString(credentials.items["openai-main"].Body, "api_key"); got != "secret" {
+		t.Fatalf("stored api_key = %q, want retained secret", got)
 	}
 }
 
@@ -264,10 +325,11 @@ func TestCredentialServiceErrorResponses(t *testing.T) {
 }
 
 type fakeCredentials struct {
-	items     map[string]apitypes.Credential
-	putCount  int
-	getStatus int
-	putStatus int
+	items               map[string]apitypes.Credential
+	createErrAfterStore error
+	putCount            int
+	getStatus           int
+	putStatus           int
 }
 
 func newFakeCredentials() *fakeCredentials {
@@ -287,6 +349,9 @@ func (f *fakeCredentials) CreateCredential(_ context.Context, request adminhttp.
 		Description: body.Description, Provider: body.Provider, UpdatedAt: now,
 	}
 	f.items[item.Id] = item
+	if f.createErrAfterStore != nil {
+		return nil, f.createErrAfterStore
+	}
 	return adminhttp.CreateCredential200JSONResponse(item), nil
 }
 

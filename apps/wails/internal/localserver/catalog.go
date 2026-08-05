@@ -31,7 +31,7 @@ type EnvironmentRequirement struct {
 type ResourceEntry struct {
 	Path string
 	Kind string
-	Name string
+	ID   string
 }
 
 type PetDefPIXA struct {
@@ -106,7 +106,7 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 			return fmt.Errorf("local server catalog: duplicate %s/%s", header.Kind, header.Metadata.ID)
 		}
 		identities[header.Kind][header.Metadata.ID] = true
-		catalog.Resources = append(catalog.Resources, ResourceEntry{Path: name, Kind: header.Kind, Name: header.Metadata.ID})
+		catalog.Resources = append(catalog.Resources, ResourceEntry{Path: name, Kind: header.Kind, ID: header.Metadata.ID})
 		for _, match := range bootstrapEnvPattern.FindAllSubmatch(data, -1) {
 			variable := string(match[1])
 			if variable == "input" {
@@ -135,7 +135,7 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 		catalog.Requirements = append(catalog.Requirements, requirement)
 	}
 	sort.Slice(catalog.Requirements, func(i, j int) bool { return catalog.Requirements[i].Name < catalog.Requirements[j].Name })
-	if len(catalog.Resources) == 1 && catalog.Resources[0].Kind == "RuntimeProfile" && catalog.Resources[0].Name == "default" {
+	if len(catalog.Resources) == 1 && catalog.Resources[0].Kind == "RuntimeProfile" && catalog.Resources[0].ID == "default" {
 		if err := rejectLegacyBootstrapAssets(source); err != nil {
 			return nil, err
 		}

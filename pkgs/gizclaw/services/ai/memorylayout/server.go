@@ -336,6 +336,16 @@ func validate(item apitypes.MemoryLayout, expectedID string) (apitypes.MemoryLay
 	return item, raw, nil
 }
 
+// NormalizeSpec applies the same validation and canonicalization as the
+// MemoryLayout service before callers compare desired and stored specs.
+func NormalizeSpec(id string, spec apitypes.MemoryLayoutSpec) (apitypes.MemoryLayoutSpec, error) {
+	item, _, err := validate(apitypes.MemoryLayout{Id: id, Spec: spec}, id)
+	if err != nil {
+		return apitypes.MemoryLayoutSpec{}, err
+	}
+	return item.Spec, nil
+}
+
 func validateRuntimeAlias(path, value string) error {
 	value = strings.TrimSpace(value)
 	if len(value) == 0 || len(value) > 63 || !runtimeAliasPattern.MatchString(value) {

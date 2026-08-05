@@ -5,6 +5,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/memorylayout"
 )
 
 func (m *Manager) applyMemoryLayout(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
@@ -18,6 +19,11 @@ func (m *Manager) applyMemoryLayout(ctx context.Context, resource apitypes.Resou
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
+	normalized, err := memorylayout.NormalizeSpec(item.Metadata.Id, item.Spec)
+	if err != nil {
+		return apitypes.ApplyResult{}, applyError(400, "INVALID_MEMORY_LAYOUT_RESOURCE", err.Error())
+	}
+	item.Spec = normalized
 	body := memoryLayoutFromResource(item)
 	return applyConcreteResource(ctx, item.Metadata, apitypes.ResourceKindMemoryLayout, item.Spec,
 		m.getMemoryLayout,

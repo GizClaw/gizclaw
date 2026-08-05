@@ -88,14 +88,14 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 		args := []string{"admin", "apply", "--context", "local", "-f", file}
 		output, err := run(ctx, executable, args, environment)
 		if err != nil {
-			return fmt.Errorf("local server bootstrap: apply %s/%s from %s: %w", entry.Kind, entry.Name, entry.Path, err)
+			return fmt.Errorf("local server bootstrap: apply %s/%s from %s: %w", entry.Kind, entry.ID, entry.Path, err)
 		}
 		var result apitypes.ApplyResult
 		if err := json.Unmarshal(output, &result); err != nil {
-			return fmt.Errorf("local server bootstrap: decode apply result for %s/%s: %w", entry.Kind, entry.Name, err)
+			return fmt.Errorf("local server bootstrap: decode apply result for %s/%s: %w", entry.Kind, entry.ID, err)
 		}
-		if result.Kind != apitypes.ResourceKind(entry.Kind) || result.Id == nil || *result.Id != entry.Name {
-			return fmt.Errorf("local server bootstrap: invalid apply result for %s/%s", entry.Kind, entry.Name)
+		if result.Kind != apitypes.ResourceKind(entry.Kind) || result.Id == nil || *result.Id != entry.ID {
+			return fmt.Errorf("local server bootstrap: invalid apply result for %s/%s", entry.Kind, entry.ID)
 		}
 		return nil
 	}
@@ -126,7 +126,7 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 			return err
 		}
 	}
-	if len(registrationTokens) != 1 || registrationTokens[0].Name != defaultRegistrationTokenName {
+	if len(registrationTokens) != 1 || registrationTokens[0].ID != defaultRegistrationTokenName {
 		return fmt.Errorf("local server bootstrap: expected exactly one RegistrationToken/%s", defaultRegistrationTokenName)
 	}
 	if err := apply(registrationTokens[0]); err != nil {

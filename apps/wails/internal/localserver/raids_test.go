@@ -9,6 +9,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -26,8 +27,12 @@ import (
 //go:embed testdata/raids-v0.3.0.tar.gz
 var raidsV030Archive []byte
 
+//go:embed testdata/raids-v0.4.0.tar.gz
+var raidsV040Archive []byte
+
 const (
 	raidsV030ArchiveSHA256 = "27bd688a4f61cac741685af4da871281994d4d7ec3d8103dc37d6d0d222497f9"
+	raidsV040ArchiveSHA256 = "e475d93c4beb55d773dd9d3c52c1262a0b0dd413a7cf5b8e6b890548cc87a6bd"
 )
 
 // The source repository excludes these assets from redistribution. This
@@ -95,6 +100,50 @@ func TestRaidsV030FixtureIsRejectedAsLegacyNameBasedCatalog(t *testing.T) {
 	}
 }
 
+func TestRaidsV040FixtureBuildsCallerDefinedIDCatalog(t *testing.T) {
+	if got := fmt.Sprintf("%x", sha256.Sum256(raidsV040Archive)); got != raidsV040ArchiveSHA256 {
+		t.Fatalf("Raids v0.4.0 fixture SHA-256 = %s, want %s", got, raidsV040ArchiveSHA256)
+	}
+	catalog, err := buildRaidsCatalog(func(_ string, width, height uint16) ([]byte, error) {
+		return testPIXA(width, height), nil
+	}, raidsV040Archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if catalog.DefaultRegistrationToken != expectedDefaultRegistrationToken {
+		t.Fatalf("default RegistrationToken = %q", catalog.DefaultRegistrationToken)
+	}
+	want := map[string]bool{
+		"Credential/volc-credential":                                    false,
+		"VolcTenant/volc-cn-beijing":                                    false,
+		"Model/doubao-seed-2-0-lite":                                    false,
+		"Voice/volc-tenant:volc-cn-beijing:zh_female_vv_jupiter_bigtts": false,
+		"Workflow/flowcraft-chat-assistant":                             false,
+		"MemoryLayout/user-chat-with-assistant":                         false,
+		"PetDef/petdef-codex":                                           false,
+		"RuntimeProfile/default":                                        false,
+		"RegistrationToken/default-runtime":                             false,
+	}
+	for _, entry := range catalog.Resources {
+		key := entry.Kind + "/" + entry.ID
+		if _, ok := want[key]; ok {
+			want[key] = true
+		}
+		data, readErr := fs.ReadFile(catalog.FS, entry.Path)
+		if readErr != nil {
+			t.Fatalf("read %s: %v", entry.Path, readErr)
+		}
+		if bytes.Contains(data, []byte("\n  name:")) {
+			t.Fatalf("selected Raids resource %s contains legacy metadata.name", key)
+		}
+	}
+	for key, found := range want {
+		if !found {
+			t.Errorf("selected Raids catalog is missing %s", key)
+		}
+	}
+}
+
 func TestPinnedPIXARawMediaSmoke(t *testing.T) {
 	if os.Getenv("GIZCLAW_TEST_PINNED_PIXA_MEDIA") != "1" {
 		t.Skip("set GIZCLAW_TEST_PINNED_PIXA_MEDIA=1 to verify the pinned GitHub media responses")
@@ -119,10 +168,10 @@ func TestPinnedPIXARawMediaSmoke(t *testing.T) {
 }
 
 func TestRaidsReleaseUsesCommitAddressedArchive(t *testing.T) {
-	if RaidsVersion != "v0.3.0" {
+	if RaidsVersion != "v0.4.0" {
 		t.Fatalf("RaidsVersion = %q", RaidsVersion)
 	}
-	if len(RaidsCommit) != 40 || RaidsArchiveURL != "https://github.com/GizClaw/raids/archive/"+RaidsCommit+".tar.gz" {
+	if RaidsCommit != "8ddaf0ba14c98a94638f323670e47188d6beb435" || RaidsArchiveURL != "https://github.com/GizClaw/raids/archive/"+RaidsCommit+".tar.gz" {
 		t.Fatalf("Raids archive pin = %q at %q", RaidsCommit, RaidsArchiveURL)
 	}
 	if len(PIXACommit) != 40 || PIXAAssetBaseURL != "https://media.githubusercontent.com/media/GizClaw/pixa/"+PIXACommit+"/assets/codex-pets/" {
@@ -146,13 +195,13 @@ func TestSelectRaidsDependenciesIncludesOnlyProfileClosure(t *testing.T) {
 		Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices, PetDefs: &petDefs, Memories: &memories},
 	}}
 	index := map[string]map[string]raidsCandidate{
-		"Workflow":     {"journey": {kind: "Workflow", name: "journey"}, "chatroom": {kind: "Workflow", name: "chatroom"}},
-		"Model":        {"chat-model": {kind: "Model", name: "chat-model", providerKind: "volc-tenant", providerID: "volc"}},
-		"Voice":        {"story-voice": {kind: "Voice", name: "story-voice", providerKind: "volc-tenant", providerID: "volc"}},
-		"PetDef":       {"petdef-codex": {kind: "PetDef", name: "petdef-codex"}},
-		"MemoryLayout": {"pet-memory": {kind: "MemoryLayout", name: "pet-memory"}},
-		"VolcTenant":   {"volc": {kind: "VolcTenant", name: "volc", credentialName: "volc-credential"}},
-		"Credential":   {"volc-credential": {kind: "Credential", name: "volc-credential"}},
+		"Workflow":     {"journey": {kind: "Workflow", id: "journey"}, "chatroom": {kind: "Workflow", id: "chatroom"}},
+		"Model":        {"chat-model": {kind: "Model", id: "chat-model", providerKind: "volc-tenant", providerID: "volc"}},
+		"Voice":        {"story-voice": {kind: "Voice", id: "story-voice", providerKind: "volc-tenant", providerID: "volc"}},
+		"PetDef":       {"petdef-codex": {kind: "PetDef", id: "petdef-codex"}},
+		"MemoryLayout": {"pet-memory": {kind: "MemoryLayout", id: "pet-memory"}},
+		"VolcTenant":   {"volc": {kind: "VolcTenant", id: "volc", credentialName: "volc-credential"}},
+		"Credential":   {"volc-credential": {kind: "Credential", id: "volc-credential"}},
 	}
 	selected, err := selectRaidsDependencies(profile, index)
 	if err != nil {
@@ -171,7 +220,7 @@ func TestSelectPetDefPIXAsCopiesSelectedLocalAsset(t *testing.T) {
 	selected := map[string]raidsCandidate{
 		"PetDef/petdef-codex": {
 			kind: "PetDef",
-			name: "petdef-codex",
+			id:   "petdef-codex",
 			data: []byte(`
 apiVersion: gizclaw.admin/v1alpha1
 kind: PetDef
@@ -476,7 +525,7 @@ spec:
     strategies: [{name: pet, type: user_preference, custom_instructions: "Keep pet facts."}]
 `)
 	selected := map[string]raidsCandidate{
-		"MemoryLayout/pet-memory": {kind: "MemoryLayout", name: "pet-memory", data: layout},
+		"MemoryLayout/pet-memory": {kind: "MemoryLayout", id: "pet-memory", data: layout},
 	}
 	if err := validateMemoryLayoutAliases(profile, selected); err != nil {
 		t.Fatal(err)
@@ -536,7 +585,7 @@ func TestValidateWorkflowAliasesRejectsMissingMemoryBinding(t *testing.T) {
 	selected := map[string]raidsCandidate{
 		"Workflow/assistant": {
 			kind: "Workflow",
-			name: "assistant",
+			id:   "assistant",
 			data: []byte(`
 spec:
   driver: flowcraft

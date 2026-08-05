@@ -898,7 +898,6 @@ export type VolcCredentialBody = {
 export type CredentialSpec = {
     provider: string;
     description?: string;
-    body: CredentialBody;
 };
 
 export type DashScopeTenant = {
@@ -3311,12 +3310,19 @@ export type WorkspaceListWritable = {
     items: Array<WorkspaceWritable>;
 };
 
+export type CredentialResourceWritable = {
+    apiVersion: ResourceApiVersion;
+    kind: 'Credential';
+    metadata: ResourceMetadata;
+    spec: CredentialSpecWritable;
+};
+
 /**
  * A concrete resource carrying metadata.id. ResourceList is excluded.
  */
 export type ConcreteResourceWritable = ({
     kind: 'Credential';
-} & CredentialResource) | ({
+} & CredentialResourceWritable) | ({
     kind: 'Firmware';
 } & FirmwareResource) | ({
     kind: 'Contact';
@@ -3366,7 +3372,7 @@ export type ConcreteResourceWritable = ({
 
 export type ResourceWritable = ({
     kind: 'Credential';
-} & CredentialResource) | ({
+} & CredentialResourceWritable) | ({
     kind: 'Firmware';
 } & FirmwareResource) | ({
     kind: 'Contact';
@@ -3437,6 +3443,15 @@ export type ToolResourceWritable = {
      */
     metadata: ResourceMetadata;
     spec: ToolSpecWritable;
+};
+
+export type CredentialSpecWritable = {
+    provider: string;
+    description?: string;
+    /**
+     * Write-only provider credential payload. Read responses omit this field; reapplying an omitted body retains the stored secret.
+     */
+    body?: CredentialBody;
 };
 
 export type FriendGroupInviteTokenClearResponseWritable = {

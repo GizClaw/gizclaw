@@ -77,3 +77,36 @@ func TestMemoryLayoutResourceLifecycle(t *testing.T) {
 		t.Fatal("Get(deleted MemoryLayout) succeeded")
 	}
 }
+
+func TestMemoryLayoutResourceApplyComparesNormalizedSpec(t *testing.T) {
+	store, err := kv.NewBadgerInMemory(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	manager := New(Services{MemoryLayouts: &memorylayout.Server{Store: store}})
+	resource := mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "MemoryLayout",
+		"metadata": {"id": "adventure"},
+		"spec": {
+			"flowcraft": {
+				"extraction": {"model": " extraction ", "mode": "two_pass"},
+				"bbh": {"search_overfetch": 2},
+				"lanes": [{"name": " adventure_state ", "kind": "state"}],
+				"write": {"mode": "sync", "tier": "general"}
+			},
+			"mem0": {"custom_instructions": " Keep confirmed state.\n"},
+			"volc_mem0": {"strategies": [{"name": " adventure_state ", "type": "summary", "custom_instructions": " Keep confirmed state.\n"}]}
+		}
+	}`)
+
+	created, err := manager.Apply(t.Context(), resource)
+	if err != nil || created.Action != apitypes.ApplyActionCreated {
+		t.Fatalf("Apply(create normalized MemoryLayout) = %#v, %v", created, err)
+	}
+	unchanged, err := manager.Apply(t.Context(), resource)
+	if err != nil || unchanged.Action != apitypes.ApplyActionUnchanged {
+		t.Fatalf("Apply(reapply normalized MemoryLayout) = %#v, %v", unchanged, err)
+	}
+}

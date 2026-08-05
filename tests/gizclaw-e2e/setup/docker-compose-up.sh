@@ -40,7 +40,7 @@ while (($# > 0)); do
       ;;
     --firmware-only)
       export GIZCLAW_E2E_RESOURCE_PATHS="04-workflows/22-chatroom-direct.yaml 04-workflows/24-pet-chatroom.yaml 06-firmwares/00-devkit-main.yaml"
-      export GIZCLAW_E2E_SYNC_VOLC_TENANT=""
+      export GIZCLAW_E2E_SYNC_VOLC_TENANT_ID=""
       shift
       ;;
     *)

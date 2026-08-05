@@ -17,13 +17,15 @@ type runner struct {
 	bin               string
 	configHome        string
 	context           string
+	expectAction      string
 	syncVolcTenantID  string
 	providerVoicesSet bool
 }
 
 type applyResult struct {
-	ID   string `json:"id"`
-	Kind string `json:"kind"`
+	Action string `json:"action"`
+	ID     string `json:"id"`
+	Kind   string `json:"kind"`
 }
 
 type applyListResult struct {
@@ -34,11 +36,13 @@ func main() {
 	var bin string
 	var configHome string
 	var contextName string
+	var expectAction string
 	var syncVolcTenantID string
 	flag.StringVar(&bin, "bin", "", "path to the gizclaw CLI")
 	flag.StringVar(&configHome, "config-home", "", "CLI XDG config home")
 	flag.StringVar(&contextName, "context", "admin", "admin context name")
-	flag.StringVar(&syncVolcTenantID, "sync-volc-tenant-id", "volc-main", "Volc tenant ID whose voices must be synced before RuntimeProfile apply")
+	flag.StringVar(&expectAction, "expect-action", "", "required action for every apply result (for example created or unchanged)")
+	flag.StringVar(&syncVolcTenantID, "sync-volc-tenant-id", "", "Volc tenant ID whose voices must be synced before RuntimeProfile apply")
 	flag.Parse()
 
 	if strings.TrimSpace(bin) == "" || strings.TrimSpace(configHome) == "" || flag.NArg() == 0 {
@@ -49,6 +53,7 @@ func main() {
 		bin:              bin,
 		configHome:       configHome,
 		context:          contextName,
+		expectAction:     strings.TrimSpace(expectAction),
 		syncVolcTenantID: syncVolcTenantID,
 	}
 	for _, path := range flag.Args() {
@@ -68,7 +73,7 @@ func (r *runner) applyFile(path string) error {
 	if err := yaml.Unmarshal(data, &document); err != nil {
 		return err
 	}
-	if documentContainsKind(document, "RuntimeProfile") && !r.providerVoicesSet {
+	if documentContainsKind(document, "RuntimeProfile") && strings.TrimSpace(r.syncVolcTenantID) != "" && !r.providerVoicesSet {
 		if err := r.syncProviderVoices(); err != nil {
 			return err
 		}
@@ -107,7 +112,7 @@ func (r *runner) applyDocument(document map[string]any, data []byte) error {
 		if err := yaml.Unmarshal(output, &result); err != nil {
 			return fmt.Errorf("decode ResourceList apply result: %w", err)
 		}
-		if err := validateApplyResults(expected, result.Items); err != nil {
+		if err := validateApplyResults(expected, result.Items, r.expectAction); err != nil {
 			return fmt.Errorf("invalid ResourceList apply result: %w: %s", err, strings.TrimSpace(string(output)))
 		}
 		return nil
@@ -116,7 +121,7 @@ func (r *runner) applyDocument(document map[string]any, data []byte) error {
 	if err := yaml.Unmarshal(output, &result); err != nil {
 		return fmt.Errorf("decode apply result: %w", err)
 	}
-	if err := validateApplyResults(expected, []applyResult{result}); err != nil {
+	if err := validateApplyResults(expected, []applyResult{result}, r.expectAction); err != nil {
 		return fmt.Errorf("invalid apply result: %w: %s", err, strings.TrimSpace(string(output)))
 	}
 	return nil
@@ -169,13 +174,16 @@ func resourceID(document map[string]any) (string, error) {
 	return requiredString(metadata, "id")
 }
 
-func validateApplyResults(expected, actual []applyResult) error {
+func validateApplyResults(expected, actual []applyResult, expectAction string) error {
 	if len(actual) != len(expected) {
 		return fmt.Errorf("items = %d, want %d", len(actual), len(expected))
 	}
 	for index := range expected {
-		if actual[index] != expected[index] {
+		if actual[index].Kind != expected[index].Kind || actual[index].ID != expected[index].ID {
 			return fmt.Errorf("items[%d] = %s/%s, want %s/%s", index, actual[index].Kind, actual[index].ID, expected[index].Kind, expected[index].ID)
+		}
+		if expectAction != "" && actual[index].Action != expectAction {
+			return fmt.Errorf("items[%d] action = %q, want %q", index, actual[index].Action, expectAction)
 		}
 	}
 	return nil

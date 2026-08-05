@@ -38,11 +38,19 @@ func TestResourceIdentitiesRejectsLegacyName(t *testing.T) {
 
 func TestValidateApplyResultsRequiresExactCallerIDs(t *testing.T) {
 	expected := []applyResult{{ID: "caller-id", Kind: "Workflow"}}
-	if err := validateApplyResults(expected, expected); err != nil {
+	if err := validateApplyResults(expected, expected, ""); err != nil {
 		t.Fatalf("validateApplyResults exact result: %v", err)
 	}
-	if err := validateApplyResults(expected, []applyResult{{ID: "server-id", Kind: "Workflow"}}); err == nil {
+	if err := validateApplyResults(expected, []applyResult{{ID: "server-id", Kind: "Workflow"}}, ""); err == nil {
 		t.Fatal("validateApplyResults accepted a rewritten ID")
+	}
+}
+
+func TestValidateApplyResultsRequiresExpectedAction(t *testing.T) {
+	expected := []applyResult{{ID: "caller-id", Kind: "Workflow"}}
+	actual := []applyResult{{Action: "updated", ID: "caller-id", Kind: "Workflow"}}
+	if err := validateApplyResults(expected, actual, "unchanged"); err == nil {
+		t.Fatal("validateApplyResults accepted an unexpected action")
 	}
 }
 

@@ -18,6 +18,17 @@ func (m *Manager) applyCredential(ctx context.Context, resource apitypes.Resourc
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
+	if item.Spec.Body == nil {
+		existing, exists, err := m.getCredential(ctx, servicePathID(item.Metadata.Id))
+		if err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		if !exists {
+			return apitypes.ApplyResult{}, applyError(400, "INVALID_CREDENTIAL_RESOURCE", "spec.body is required when creating a credential")
+		}
+		body := existing.Body
+		item.Spec.Body = &body
+	}
 	body := credentialUpsert(item)
 	return applyConcreteResource(ctx, item.Metadata, apitypes.ResourceKindCredential, item.Spec,
 		m.getCredential,
@@ -96,16 +107,21 @@ func (m *Manager) deleteCredential(ctx context.Context, name string) (apitypes.C
 }
 
 func credentialSpec(credential apitypes.Credential) apitypes.CredentialSpec {
+	body := credential.Body
 	return apitypes.CredentialSpec{
-		Body:        credential.Body,
+		Body:        &body,
 		Description: credential.Description,
 		Provider:    credential.Provider,
 	}
 }
 
 func credentialUpsert(resource apitypes.CredentialResource) adminhttp.CredentialUpsert {
+	var body apitypes.CredentialBody
+	if resource.Spec.Body != nil {
+		body = *resource.Spec.Body
+	}
 	return adminhttp.CredentialUpsert{
-		Body:        resource.Spec.Body,
+		Body:        body,
 		Description: resource.Spec.Description,
 		Id:          resource.Metadata.Id,
 		Provider:    resource.Spec.Provider,
@@ -117,6 +133,9 @@ func resourceFromCredential(item apitypes.Credential) (apitypes.Resource, error)
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.CredentialResourceKind(apitypes.ResourceKindCredential),
 		Metadata:   apitypes.ResourceMetadata{Id: item.Id},
-		Spec:       credentialSpec(item),
+		Spec: apitypes.CredentialSpec{
+			Description: item.Description,
+			Provider:    item.Provider,
+		},
 	})
 }

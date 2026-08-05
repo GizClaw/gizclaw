@@ -3176,10 +3176,10 @@ type CredentialResourceKind string
 
 // CredentialSpec defines model for CredentialSpec.
 type CredentialSpec struct {
-	// Body Provider-specific credential payload. The shape is selected by Credential.provider.
-	Body        CredentialBody `json:"body"`
-	Description *string        `json:"description,omitempty"`
-	Provider    string         `json:"provider"`
+	// Body Write-only provider credential payload. Read responses omit this field; reapplying an omitted body retains the stored secret.
+	Body        *CredentialBody `json:"body,omitempty"`
+	Description *string         `json:"description,omitempty"`
+	Provider    string          `json:"provider"`
 }
 
 // DashScopeCredentialBody defines model for DashScopeCredentialBody.

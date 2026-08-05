@@ -250,7 +250,7 @@ pkgs/gizclaw/services/system/publiclogin/server_test.go:455:10: Replace []byte(f
 pkgs/gizclaw/services/system/resourcemanager/common_test.go:148:6: ptr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/system/resourcemanager/credential_body_test.go:13:80: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/system/resourcemanager/credential_body_test.go:9:6: testStringPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/system/resourcemanager/credential_test.go:76:16: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/credential_test.go:112:16: call of ptr(x) can be simplified to new(x)
 pkgs/gizclaw/services/system/resourcemanager/firmware_test.go:268:17: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/system/resourcemanager/firmware_test.go:278:6: stringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:103:17: call of stringPtr(x) can be simplified to new(x)

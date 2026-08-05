@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	RaidsVersion    = "v0.3.0"
-	RaidsCommit     = "2d9a18d2d8096d6e063bde1ce3229d2898c80983"
+	RaidsVersion    = "v0.4.0"
+	RaidsCommit     = "8ddaf0ba14c98a94638f323670e47188d6beb435"
 	RaidsArchiveURL = "https://github.com/GizClaw/raids/archive/" + RaidsCommit + ".tar.gz"
 
 	defaultRegistrationTokenName     = "default-runtime"
@@ -260,7 +260,7 @@ func (r *RaidsResolver) download(ctx context.Context) ([]byte, error) {
 
 type raidsCandidate struct {
 	kind           string
-	name           string
+	id             string
 	data           []byte
 	providerKind   string
 	providerID     string
@@ -288,10 +288,10 @@ func buildRaidsCatalog(loadPIXA func(string, uint16, uint16) ([]byte, error), ar
 		if index[candidate.kind] == nil {
 			index[candidate.kind] = map[string]raidsCandidate{}
 		}
-		if _, exists := index[candidate.kind][candidate.name]; exists {
-			return nil, fmt.Errorf("duplicate %s/%s", candidate.kind, candidate.name)
+		if _, exists := index[candidate.kind][candidate.id]; exists {
+			return nil, fmt.Errorf("duplicate %s/%s", candidate.kind, candidate.id)
 		}
-		index[candidate.kind][candidate.name] = candidate
+		index[candidate.kind][candidate.id] = candidate
 	}
 	profileCandidate, ok := index["RuntimeProfile"][defaultRuntimeProfileName]
 	if !ok {
@@ -344,9 +344,9 @@ func buildRaidsCatalog(loadPIXA func(string, uint16, uint16) ([]byte, error), ar
 	for key, candidate := range selected {
 		resourcePath := raidsCatalogPath(candidate, key)
 		mapFS[resourcePath] = &fstest.MapFile{Data: candidate.data, Mode: 0o444}
-		resources = append(resources, ResourceEntry{Path: resourcePath, Kind: candidate.kind, Name: candidate.name})
+		resources = append(resources, ResourceEntry{Path: resourcePath, Kind: candidate.kind, ID: candidate.id})
 		if err := collectEnvironmentRequirements(candidate.data, requirements); err != nil {
-			return nil, fmt.Errorf("raids catalog: collect environment requirements from %s/%s: %w", candidate.kind, candidate.name, err)
+			return nil, fmt.Errorf("raids catalog: collect environment requirements from %s/%s: %w", candidate.kind, candidate.id, err)
 		}
 	}
 	petDefPIXAs, err := selectPetDefPIXAs(loadPIXA, selected, mapFS)
@@ -354,12 +354,12 @@ func buildRaidsCatalog(loadPIXA func(string, uint16, uint16) ([]byte, error), ar
 		return nil, err
 	}
 	for _, candidate := range []raidsCandidate{profileCandidate, tokenCandidate} {
-		key := candidate.kind + "/" + candidate.name
+		key := candidate.kind + "/" + candidate.id
 		resourcePath := raidsCatalogPath(candidate, key)
 		mapFS[resourcePath] = &fstest.MapFile{Data: candidate.data, Mode: 0o444}
-		resources = append(resources, ResourceEntry{Path: resourcePath, Kind: candidate.kind, Name: candidate.name})
+		resources = append(resources, ResourceEntry{Path: resourcePath, Kind: candidate.kind, ID: candidate.id})
 		if err := collectEnvironmentRequirements(candidate.data, requirements); err != nil {
-			return nil, fmt.Errorf("raids catalog: collect environment requirements from %s/%s: %w", candidate.kind, candidate.name, err)
+			return nil, fmt.Errorf("raids catalog: collect environment requirements from %s/%s: %w", candidate.kind, candidate.id, err)
 		}
 	}
 	sort.Slice(resources, func(i, j int) bool { return resources[i].Path < resources[j].Path })
@@ -385,7 +385,7 @@ func selectPetDefPIXAs(loadPIXA func(string, uint16, uint16) ([]byte, error), se
 	names := make([]string, 0)
 	for _, candidate := range selected {
 		if candidate.kind == "PetDef" {
-			names = append(names, candidate.name)
+			names = append(names, candidate.id)
 		}
 	}
 	if len(names) == 0 {
@@ -537,8 +537,9 @@ func matchesRaidsCategory(category, kind string) bool {
 
 func allowedRaidsPath(name string) bool {
 	switch name {
-	case ".env.example", ".gitignore", "LICENSE", "README.md", "runtime-profile.example.yaml",
-		"scripts/validate_catalog.py", "tests/test_validate_catalog.py":
+	case ".env.example", ".gitignore", "LICENSE", "Makefile", "README.md", "runtime-profile.example.yaml",
+		"scripts/validate_catalog.py", "scripts/validate_pixa.py",
+		"tests/test_validate_catalog.py", "tests/test_validate_pixa.py":
 		return true
 	}
 	if strings.HasPrefix(name, ".github/workflows/") &&
@@ -585,7 +586,7 @@ type resourceHeader struct {
 		ID string `json:"id"`
 	} `json:"metadata"`
 	Spec json.RawMessage `json:"spec"`
-	Name string
+	ID   string
 }
 
 func decodeResource(data []byte) (apitypes.Resource, resourceHeader, error) {
@@ -598,8 +599,8 @@ func decodeResource(data []byte) (apitypes.Resource, resourceHeader, error) {
 		return apitypes.Resource{}, resourceHeader{}, err
 	}
 	header.Kind = strings.TrimSpace(header.Kind)
-	header.Name = header.Metadata.ID
-	if header.APIVersion != "gizclaw.admin/v1alpha1" || header.Kind == "" || header.Name == "" {
+	header.ID = header.Metadata.ID
+	if header.APIVersion != "gizclaw.admin/v1alpha1" || header.Kind == "" || header.ID == "" {
 		return apitypes.Resource{}, resourceHeader{}, errors.New("missing or invalid apiVersion, kind, or metadata.id")
 	}
 	if err := customid.ValidateResourceID(header.Metadata.ID); err != nil {
@@ -620,7 +621,7 @@ func parseRaidsCandidate(data []byte) (raidsCandidate, error) {
 	if err != nil {
 		return raidsCandidate{}, err
 	}
-	candidate := raidsCandidate{kind: header.Kind, name: header.Name, data: data}
+	candidate := raidsCandidate{kind: header.Kind, id: header.ID, data: data}
 	switch header.Kind {
 	case "Credential", "Workflow", "MemoryLayout", "PetDef", "RuntimeProfile", "RegistrationToken":
 	case "Model", "Voice":
@@ -636,7 +637,7 @@ func parseRaidsCandidate(data []byte) (raidsCandidate, error) {
 		candidate.providerKind = spec.Provider.Kind
 		candidate.providerID = spec.Provider.ID
 		if candidate.providerKind == "" || candidate.providerID == "" {
-			return raidsCandidate{}, fmt.Errorf("%s/%s has no provider reference", header.Kind, header.Name)
+			return raidsCandidate{}, fmt.Errorf("%s/%s has no provider reference", header.Kind, header.ID)
 		}
 	case "DashScopeTenant", "DeepSeekTenant", "GeminiTenant", "MiniMaxTenant", "OpenAITenant", "VolcTenant":
 		var spec struct {
@@ -647,7 +648,7 @@ func parseRaidsCandidate(data []byte) (raidsCandidate, error) {
 		}
 		candidate.credentialName = spec.CredentialId
 		if candidate.credentialName == "" {
-			return raidsCandidate{}, fmt.Errorf("%s/%s has no credential_id", header.Kind, header.Name)
+			return raidsCandidate{}, fmt.Errorf("%s/%s has no credential_id", header.Kind, header.ID)
 		}
 	default:
 		return raidsCandidate{}, fmt.Errorf("unsupported Raids resource kind %s", header.Kind)
@@ -694,10 +695,10 @@ func validateResourceKind(resource apitypes.Resource, kind string) error {
 
 func selectRaidsDependencies(profile apitypes.RuntimeProfileResource, index map[string]map[string]raidsCandidate) (map[string]raidsCandidate, error) {
 	selected := map[string]raidsCandidate{}
-	pending := make([]struct{ kind, name string }, 0)
+	pending := make([]struct{ kind, id string }, 0)
 	for _, collection := range profile.Spec.Workflows.Collections {
 		for _, binding := range collection {
-			pending = append(pending, struct{ kind, name string }{"Workflow", binding.ResourceId})
+			pending = append(pending, struct{ kind, id string }{"Workflow", binding.ResourceId})
 		}
 	}
 	for _, resourceID := range []string{
@@ -705,53 +706,53 @@ func selectRaidsDependencies(profile apitypes.RuntimeProfileResource, index map[
 		profile.Spec.Workflows.System.GroupChatroom,
 		profile.Spec.Workflows.System.Pet,
 	} {
-		pending = append(pending, struct{ kind, name string }{"Workflow", resourceID})
+		pending = append(pending, struct{ kind, id string }{"Workflow", resourceID})
 	}
 	if profile.Spec.Resources.Models != nil {
 		for _, binding := range *profile.Spec.Resources.Models {
-			pending = append(pending, struct{ kind, name string }{"Model", binding.ResourceId})
+			pending = append(pending, struct{ kind, id string }{"Model", binding.ResourceId})
 		}
 	}
 	if profile.Spec.Resources.Voices != nil {
 		for _, binding := range *profile.Spec.Resources.Voices {
-			pending = append(pending, struct{ kind, name string }{"Voice", binding.ResourceId})
+			pending = append(pending, struct{ kind, id string }{"Voice", binding.ResourceId})
 		}
 	}
 	if profile.Spec.Resources.PetDefs != nil {
 		for _, binding := range *profile.Spec.Resources.PetDefs {
-			pending = append(pending, struct{ kind, name string }{"PetDef", binding.ResourceId})
+			pending = append(pending, struct{ kind, id string }{"PetDef", binding.ResourceId})
 		}
 	}
 	if profile.Spec.Resources.Memories != nil {
 		for _, binding := range *profile.Spec.Resources.Memories {
-			pending = append(pending, struct{ kind, name string }{"MemoryLayout", binding.LayoutId})
+			pending = append(pending, struct{ kind, id string }{"MemoryLayout", binding.LayoutId})
 		}
 	}
 	for len(pending) != 0 {
 		current := pending[0]
 		pending = pending[1:]
-		current.name = strings.TrimSpace(current.name)
-		if current.name == "" {
+		current.id = strings.TrimSpace(current.id)
+		if current.id == "" {
 			return nil, fmt.Errorf("RuntimeProfile/default has an empty %s resource_id", current.kind)
 		}
-		key := current.kind + "/" + current.name
+		key := current.kind + "/" + current.id
 		if _, exists := selected[key]; exists {
 			continue
 		}
-		candidate, exists := index[current.kind][current.name]
+		candidate, exists := index[current.kind][current.id]
 		if !exists {
-			return nil, fmt.Errorf("RuntimeProfile/default references missing Raids %s/%s", current.kind, current.name)
+			return nil, fmt.Errorf("RuntimeProfile/default references missing Raids %s/%s", current.kind, current.id)
 		}
 		selected[key] = candidate
 		if candidate.providerID != "" {
 			tenantKind, ok := tenantResourceKind(candidate.providerKind)
 			if !ok {
-				return nil, fmt.Errorf("%s/%s has unsupported provider kind %q", candidate.kind, candidate.name, candidate.providerKind)
+				return nil, fmt.Errorf("%s/%s has unsupported provider kind %q", candidate.kind, candidate.id, candidate.providerKind)
 			}
-			pending = append(pending, struct{ kind, name string }{tenantKind, candidate.providerID})
+			pending = append(pending, struct{ kind, id string }{tenantKind, candidate.providerID})
 		}
 		if candidate.credentialName != "" {
-			pending = append(pending, struct{ kind, name string }{"Credential", candidate.credentialName})
+			pending = append(pending, struct{ kind, id string }{"Credential", candidate.credentialName})
 		}
 	}
 	return selected, nil
@@ -782,20 +783,20 @@ func validateWorkflowAliases(profile apitypes.RuntimeProfileResource, selected m
 		}
 		modelAliases, voiceAliases, memoryAlias, err := workflowAliases(candidate.data)
 		if err != nil {
-			return fmt.Errorf("parse Workflow/%s aliases: %w", candidate.name, err)
+			return fmt.Errorf("parse Workflow/%s aliases: %w", candidate.id, err)
 		}
 		for _, alias := range modelAliases {
 			if !models[alias] {
-				return fmt.Errorf("Workflow/%s references missing model alias %q", candidate.name, alias)
+				return fmt.Errorf("Workflow/%s references missing model alias %q", candidate.id, alias)
 			}
 		}
 		for _, alias := range voiceAliases {
 			if !voices[alias] {
-				return fmt.Errorf("Workflow/%s references missing Voice alias %q", candidate.name, alias)
+				return fmt.Errorf("Workflow/%s references missing Voice alias %q", candidate.id, alias)
 			}
 		}
 		if memoryAlias != "" && !memories[memoryAlias] {
-			return fmt.Errorf("Workflow/%s references missing memory alias %q", candidate.name, memoryAlias)
+			return fmt.Errorf("Workflow/%s references missing memory alias %q", candidate.id, memoryAlias)
 		}
 	}
 	return nil

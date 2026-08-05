@@ -31,11 +31,11 @@ func TestBootstrapperAppliesResourcesThenRuntimeProfileAndRegistrationToken(t *t
 			"assets/pets/a.pixa":                            {Data: []byte("pet")},
 		},
 		Resources: []ResourceEntry{
-			{Path: "resources/00-credentials/a.yaml", Kind: "Credential", Name: "a"},
-			{Path: "resources/00-credentials/b.yaml", Kind: "Credential", Name: "b"},
-			{Path: "resources/05-pet-defs/pet-a.yaml", Kind: "PetDef", Name: "pet-a"},
-			{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", Name: "default"},
-			{Path: "resources/08-registration-tokens/default.yaml", Kind: "RegistrationToken", Name: "default-runtime"},
+			{Path: "resources/00-credentials/a.yaml", Kind: "Credential", ID: "a"},
+			{Path: "resources/00-credentials/b.yaml", Kind: "Credential", ID: "b"},
+			{Path: "resources/05-pet-defs/pet-a.yaml", Kind: "PetDef", ID: "pet-a"},
+			{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", ID: "default"},
+			{Path: "resources/08-registration-tokens/default.yaml", Kind: "RegistrationToken", ID: "default-runtime"},
 		},
 		Requirements: []EnvironmentRequirement{
 			{Name: "BOOTSTRAP_SAVED"},
@@ -81,20 +81,20 @@ func TestBootstrapperAppliesResourcesThenRuntimeProfileAndRegistrationToken(t *t
 				if err != nil {
 					t.Fatal(err)
 				}
-				kind, name := "", ""
-				for _, candidate := range []struct{ kind, name string }{
+				kind, id := "", ""
+				for _, candidate := range []struct{ kind, id string }{
 					{"Credential", "a"}, {"Credential", "b"}, {"PetDef", "pet-a"},
 					{"RuntimeProfile", "default"}, {"RegistrationToken", "default-runtime"},
 				} {
-					if strings.Contains(string(data), "kind: "+candidate.kind) && strings.Contains(string(data), "id: "+candidate.name) {
-						kind, name = candidate.kind, candidate.name
+					if strings.Contains(string(data), "kind: "+candidate.kind) && strings.Contains(string(data), "id: "+candidate.id) {
+						kind, id = candidate.kind, candidate.id
 						break
 					}
 				}
 				if kind == "" {
 					t.Fatalf("unexpected apply document = %s", data)
 				}
-				result = fmt.Appendf(nil, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":%q,"id":%q,"action":"created"}`, kind, name)
+				result = fmt.Appendf(nil, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":%q,"id":%q,"action":"created"}`, kind, id)
 			}
 			checkCommand(executable, args, environment)
 			return result, nil
@@ -144,7 +144,7 @@ func TestBootstrapperIdentifiesFailingResourceWithoutEnvironmentValues(t *testin
 	}
 	catalog := &Catalog{
 		FS:        fstest.MapFS{"resources/00-credentials/a.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  id: a\nspec:\n  provider: openai\n  body:\n    api_key: secret\n")}},
-		Resources: []ResourceEntry{{Path: "resources/00-credentials/a.yaml", Kind: "Credential", Name: "a"}},
+		Resources: []ResourceEntry{{Path: "resources/00-credentials/a.yaml", Kind: "Credential", ID: "a"}},
 	}
 	bootstrapper := &Bootstrapper{
 		Catalog:    catalog,

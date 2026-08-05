@@ -48,6 +48,8 @@ Resource spec 中引用另一个 Admin Resource 的字段必须直接保存目�
 
 `ResourceList` 不代表可持久化对象，所以没有 metadata；它的 `spec.items` 是按依赖顺序 apply 的具体 Resource 列表。
 
+`Credential.spec.body` 是 write-only 字段。Apply 与 put 接受它，get、delete 和其他 Resource 读取响应不返回它。用不含 body 的读取结果重新 apply 时，Server 保留已有 credential，不会清空 secret，也不会误报 update。
+
 ### 核心数据与 Display
 
 Resource 的数据首先按语义分为两类：

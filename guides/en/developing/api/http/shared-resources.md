@@ -48,6 +48,8 @@ A Resource spec field that references another Admin Resource stores the target I
 
 `ResourceList` is not a persisted object and therefore has no metadata. Its `spec.items` are concrete Resources applied in dependency order.
 
+`Credential.spec.body` is write-only. Apply and put accept it, while get, delete, and other Resource read responses omit it. Reapplying a read response with no body retains the stored credential instead of clearing it or reporting a false update.
+
 ### Core Data and Display
 
 Resource data is first divided into two categories according to semantics:- Core data describes what a Resource is and what it is associated with, including stable identity, kind, classification, reference, ownership, running configuration and persistence semantics. These fields are involved in business judgment, query, correlation and execution, and cannot be placed in `display`.
