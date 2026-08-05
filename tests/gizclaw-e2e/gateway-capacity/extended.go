@@ -338,9 +338,10 @@ set -euo pipefail
 pid_file="$1"
 page_size="$(getconf PAGESIZE)"
 clock_ticks="$(getconf CLK_TCK)"
+test -n "${EPOCHREALTIME:-}"
 shopt -s nullglob
 while true; do
-  sampled_at="$(date +%s%N)"
+  sampled_at="${EPOCHREALTIME/./}000"
   pid="$(<"$pid_file")"
   test -r "/proc/$pid/statm"
   test -r "/proc/$pid/stat"
@@ -361,9 +362,27 @@ while true; do
     fi
   done < "/proc/$pid/limits"
   test -n "$fd_limit"
-  udp_sockets="$(awk 'NR > 1 { count++ } END { print count + 0 }' "/proc/$pid/net/udp")"
-  udp6_sockets="$(awk 'NR > 1 { count++ } END { print count + 0 }' "/proc/$pid/net/udp6")"
-  read -r network_rx network_tx < <(awk -F '[: ]+' 'NR > 2 { rx += $3; tx += $11 } END { printf "%.0f %.0f\n", rx, tx }' "/proc/$pid/net/dev")
+  udp_sockets=-1
+  while read -r _; do
+    udp_sockets="$((udp_sockets + 1))"
+  done < "/proc/$pid/net/udp"
+  udp6_sockets=-1
+  while read -r _; do
+    udp6_sockets="$((udp6_sockets + 1))"
+  done < "/proc/$pid/net/udp6"
+  network_rx=0
+  network_tx=0
+  network_line=0
+  while IFS= read -r line; do
+    network_line="$((network_line + 1))"
+    if ((network_line <= 2)); then
+      continue
+    fi
+    line="${line/:/ }"
+    read -r _ rx _ _ _ _ _ _ _ tx _ <<< "$line"
+    network_rx="$((network_rx + rx))"
+    network_tx="$((network_tx + tx))"
+  done < "/proc/$pid/net/dev"
   printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "$sampled_at" "$pid" "$resident" "$page_size" "$user_ticks" "$system_ticks" "$clock_ticks" "$open_fds" "$start_ticks" "$fd_limit" "$udp_sockets" "$udp6_sockets" "$network_rx" "$network_tx"
   sleep 1
 done
