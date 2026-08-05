@@ -310,8 +310,9 @@ must own exactly 500 sessions across four gateway upstreams. The establishment,
 exact 1 GiB-per-direction application transfer, 200 Mbps aggregate, timing,
 resource, relay-selection, ten-allocation, restart, and cleanup gates are the
 same fixed contract as the smaller tiers. The load driver fixes and records
-`GOGC=200` because the 1,000-way client heap otherwise adds measured GC tail
-latency; this setting does not alter Edge, Server, or Coturn runtime behavior.
+`GOGC=50` so its 1,000-way client heap is collected in smaller, more frequent
+cycles instead of injecting measured GC CPU and RTT spikes into the long-lived
+workload; this setting does not alter Edge, Server, or Coturn runtime behavior.
 
 The soak entrypoint first reruns all three burst repetitions on the same clean
 head, then starts one new no-ramp 1,000-session stack and holds it for 60
