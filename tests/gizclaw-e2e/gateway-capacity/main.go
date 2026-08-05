@@ -232,9 +232,9 @@ type speedRetentionSummary struct {
 }
 
 type rateRetentionSummary struct {
+	P01 float64 `json:"p01_ratio"`
+	P05 float64 `json:"p05_ratio"`
 	P50 float64 `json:"p50_ratio"`
-	P95 float64 `json:"p95_ratio"`
-	P99 float64 `json:"p99_ratio"`
 }
 
 type cleanupSummary struct {
@@ -294,6 +294,8 @@ type speedSessionResult struct {
 type rateSummary struct {
 	Count int     `json:"count"`
 	Min   float64 `json:"min"`
+	P01   float64 `json:"p01"`
+	P05   float64 `json:"p05"`
 	P50   float64 `json:"p50"`
 	P95   float64 `json:"p95"`
 	P99   float64 `json:"p99"`
@@ -524,7 +526,7 @@ func parseOptions() (options, error) {
 	flag.Float64Var(&opts.minSpeedAggregateRatio, "min-speed-aggregate-ratio", 0, "minimum concurrent aggregate Mbps divided by single-session baseline Mbps")
 	flag.Float64Var(&opts.minUploadAggregateMbps, "min-upload-aggregate-mbps", 0, "minimum concurrent upload aggregate Mbps")
 	flag.Float64Var(&opts.minDownloadAggregateMbps, "min-download-aggregate-mbps", 0, "minimum concurrent download aggregate Mbps")
-	flag.Float64Var(&opts.minFinalSpeedRetention, "min-final-speed-retention", 0, "minimum final-to-initial aggregate and per-session p50/p95/p99 throughput ratio per direction")
+	flag.Float64Var(&opts.minFinalSpeedRetention, "min-final-speed-retention", 0, "minimum final-to-initial aggregate and per-session p01/p05/p50 throughput ratio per direction")
 	flag.Float64Var(&opts.minEstablishmentRate, "min-establishment-rate", 0, "minimum usable sessions established per second")
 	flag.DurationVar(&opts.maxDialP95, "max-dial-p95", 0, "optional maximum p95 usable-session Dial duration")
 	flag.DurationVar(&opts.maxDialP99, "max-dial-p99", 0, "optional maximum p99 usable-session Dial duration")
@@ -1568,38 +1570,45 @@ func summarizeSpeedRetention(initial, final speedTestSummary, minimum float64) s
 		final.Download.Concurrent.PerSessionMbps,
 	)
 	summary.Passed = final.Upload.Passed && final.Download.Passed &&
-		summary.UploadRatio >= minimum && summary.DownloadRatio >= minimum &&
-		summary.UploadPerSession.P50 >= minimum && summary.UploadPerSession.P95 >= minimum &&
-		summary.UploadPerSession.P99 >= minimum && summary.DownloadPerSession.P50 >= minimum &&
-		summary.DownloadPerSession.P95 >= minimum && summary.DownloadPerSession.P99 >= minimum
+		retentionAtLeast(summary.UploadRatio, minimum) && retentionAtLeast(summary.DownloadRatio, minimum) &&
+		retentionAtLeast(summary.UploadPerSession.P01, minimum) &&
+		retentionAtLeast(summary.UploadPerSession.P05, minimum) &&
+		retentionAtLeast(summary.UploadPerSession.P50, minimum) &&
+		retentionAtLeast(summary.DownloadPerSession.P01, minimum) &&
+		retentionAtLeast(summary.DownloadPerSession.P05, minimum) &&
+		retentionAtLeast(summary.DownloadPerSession.P50, minimum)
 	return summary
+}
+
+func retentionAtLeast(value, minimum float64) bool {
+	return value >= minimum || math.Abs(value-minimum) <= 1e-12
 }
 
 func formatSpeedRetentionFailure(retention speedRetentionSummary) string {
 	return fmt.Sprintf(
-		"final speed retention below %.3f: aggregate(upload=%.3f download=%.3f) per_session(upload_p50=%.3f upload_p95=%.3f upload_p99=%.3f download_p50=%.3f download_p95=%.3f download_p99=%.3f)",
+		"final speed retention below %.3f: aggregate(upload=%.3f download=%.3f) per_session(upload_p01=%.3f upload_p05=%.3f upload_p50=%.3f download_p01=%.3f download_p05=%.3f download_p50=%.3f)",
 		retention.Minimum,
 		retention.UploadRatio,
 		retention.DownloadRatio,
+		retention.UploadPerSession.P01,
+		retention.UploadPerSession.P05,
 		retention.UploadPerSession.P50,
-		retention.UploadPerSession.P95,
-		retention.UploadPerSession.P99,
+		retention.DownloadPerSession.P01,
+		retention.DownloadPerSession.P05,
 		retention.DownloadPerSession.P50,
-		retention.DownloadPerSession.P95,
-		retention.DownloadPerSession.P99,
 	)
 }
 
 func summarizeRateRetention(initial, final rateSummary) rateRetentionSummary {
 	var summary rateRetentionSummary
+	if initial.P01 > 0 {
+		summary.P01 = final.P01 / initial.P01
+	}
+	if initial.P05 > 0 {
+		summary.P05 = final.P05 / initial.P05
+	}
 	if initial.P50 > 0 {
 		summary.P50 = final.P50 / initial.P50
-	}
-	if initial.P95 > 0 {
-		summary.P95 = final.P95 / initial.P95
-	}
-	if initial.P99 > 0 {
-		summary.P99 = final.P99 / initial.P99
 	}
 	return summary
 }
@@ -1796,6 +1805,8 @@ func summarizeRates(values []float64) rateSummary {
 	return rateSummary{
 		Count: len(sorted),
 		Min:   sorted[0],
+		P01:   floatPercentile(sorted, 0.01),
+		P05:   floatPercentile(sorted, 0.05),
 		P50:   floatPercentile(sorted, 0.50),
 		P95:   floatPercentile(sorted, 0.95),
 		P99:   floatPercentile(sorted, 0.99),

@@ -318,9 +318,10 @@ head, then starts one new no-ramp 1,000-session stack and holds it for 60
 minutes. Complete liveness rounds start every 30 seconds. Distinct initial and
 final 1 MiB-per-session upload/download checkpoints must each exceed 200 Mbps,
 and each final direction must retain at least 80% of its initial aggregate and
-of its per-session p50, p95, and p99 throughput.
+of its per-session p01, p05, and p50 throughput. The p95 and p99 throughput
+values remain upper-tail diagnostics rather than degradation gates.
 
-Artifact version 13 records the actual hold boundaries and compares the first
+Artifact version 14 records the actual hold boundaries and compares the first
 and last ten minutes. The median per-round RTT p99, process RSS, open FDs, and
 available Go heap and goroutine medians must not grow by more than 20%. CPU and
 network-rate changes use the same relative bound with absolute noise floors of

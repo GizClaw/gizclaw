@@ -246,10 +246,10 @@ Server 或 Coturn 的 runtime behavior。
 Soak 入口先在同一个 clean head 上重跑全部三轮 burst，再用一个新 stack 以相同 zero-ramp
 方式建立 1,000 个 session 并保持 60 分钟。完整 liveness round 每 30 秒开始一次；独立的
 initial/final upload 与 download checkpoint 均对每 session 精确传输 1 MiB、达到至少
-200 Mbps，并要求 final 每个方向的 aggregate 以及 per-session p50、p95、p99 throughput
-都保留 initial 的至少 80%。
+200 Mbps，并要求 final 每个方向的 aggregate 以及 per-session p01、p05、p50 throughput
+都保留 initial 的至少 80%。p95 与 p99 throughput 保留为快尾诊断，不作为退化 gate。
 
-Artifact version 13 记录实际 hold boundary，并比较最初与最后十分钟。每轮 RTT p99 的
+Artifact version 14 记录实际 hold boundary，并比较最初与最后十分钟。每轮 RTT p99 的
 median、process RSS、open FD，以及可获得的 Go heap 与 goroutine median，增长均不得超过
 20%；CPU 与 network rate 同样采用 20% 相对门槛，并分别设置 0.10 core 与 1,024 bytes/s
 绝对噪声下限；UDP/UDP6 socket median 采用 20% 门槛。门槛覆盖 load driver、两台 Edge、

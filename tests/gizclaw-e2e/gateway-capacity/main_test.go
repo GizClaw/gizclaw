@@ -45,6 +45,18 @@ func TestSummarizeLatencyUsesNearestRank(t *testing.T) {
 	}
 }
 
+func TestSummarizeRatesIncludesSlowTail(t *testing.T) {
+	values := make([]float64, 100)
+	for index := range values {
+		values[index] = float64(index + 1)
+	}
+	got := summarizeRates(values)
+	if got.Count != 100 || got.P01 != 1 || got.P05 != 5 || got.P50 != 50 ||
+		got.P95 != 95 || got.P99 != 99 || got.Max != 100 {
+		t.Fatalf("summarizeRates = %+v", got)
+	}
+}
+
 func TestRunOpusUsesSharedBarrierAndExactAccounting(t *testing.T) {
 	const sessionCount = 3
 	var entered atomic.Int32
@@ -283,32 +295,35 @@ func TestSpeedDirectionPassedRequiresRetentionAndAbsoluteFloor(t *testing.T) {
 func TestSummarizeSpeedRetentionRequiresBothDirections(t *testing.T) {
 	initial := speedTestSummary{
 		Upload: speedDirectionSummary{Concurrent: speedRunSummary{
-			AggregateMbps: 250, PerSessionMbps: rateSummary{P50: 1, P95: 2, P99: 4},
+			AggregateMbps: 250, PerSessionMbps: rateSummary{P01: 0.5, P05: 0.75, P50: 1},
 		}},
 		Download: speedDirectionSummary{Concurrent: speedRunSummary{
-			AggregateMbps: 300, PerSessionMbps: rateSummary{P50: 2, P95: 4, P99: 8},
+			AggregateMbps: 300, PerSessionMbps: rateSummary{P01: 1, P05: 1.5, P50: 2},
 		}},
 	}
 	final := speedTestSummary{
 		Upload: speedDirectionSummary{Concurrent: speedRunSummary{
-			AggregateMbps: 200, PerSessionMbps: rateSummary{P50: 0.8, P95: 1.6, P99: 3.2},
+			AggregateMbps: 200, PerSessionMbps: rateSummary{P01: 0.4, P05: 0.6, P50: 0.8},
 		}, Passed: true},
 		Download: speedDirectionSummary{Concurrent: speedRunSummary{
-			AggregateMbps: 240, PerSessionMbps: rateSummary{P50: 1.6, P95: 3.2, P99: 6.4},
+			AggregateMbps: 240, PerSessionMbps: rateSummary{P01: 0.8, P05: 1.2, P50: 1.6},
 		}, Passed: true},
 	}
 	got := summarizeSpeedRetention(initial, final, 0.8)
-	if !got.Passed || got.UploadRatio != 0.8 || got.DownloadRatio != 0.8 ||
-		got.UploadPerSession.P50 != 0.8 || got.UploadPerSession.P95 != 0.8 ||
-		got.UploadPerSession.P99 != 0.8 || got.DownloadPerSession.P50 != 0.8 ||
-		got.DownloadPerSession.P95 != 0.8 || got.DownloadPerSession.P99 != 0.8 {
+	if !got.Passed || !retentionAtLeast(got.UploadRatio, 0.8) || !retentionAtLeast(got.DownloadRatio, 0.8) ||
+		!retentionAtLeast(got.UploadPerSession.P01, 0.8) ||
+		!retentionAtLeast(got.UploadPerSession.P05, 0.8) ||
+		!retentionAtLeast(got.UploadPerSession.P50, 0.8) ||
+		!retentionAtLeast(got.DownloadPerSession.P01, 0.8) ||
+		!retentionAtLeast(got.DownloadPerSession.P05, 0.8) ||
+		!retentionAtLeast(got.DownloadPerSession.P50, 0.8) {
 		t.Fatalf("speed retention = %+v", got)
 	}
-	final.Download.Concurrent.PerSessionMbps.P99 = 6.39
+	final.Download.Concurrent.PerSessionMbps.P01 = 0.79
 	if got := summarizeSpeedRetention(initial, final, 0.8); got.Passed {
-		t.Fatalf("speed retention accepted per-session P99 ratio %+v", got)
+		t.Fatalf("speed retention accepted per-session P01 ratio %+v", got)
 	}
-	final.Download.Concurrent.PerSessionMbps.P99 = 6.4
+	final.Download.Concurrent.PerSessionMbps.P01 = 0.8
 	final.Download.Concurrent.AggregateMbps = 239
 	if got := summarizeSpeedRetention(initial, final, 0.8); got.Passed {
 		t.Fatalf("speed retention accepted download ratio %+v", got)
@@ -326,21 +341,21 @@ func TestFormatSpeedRetentionFailureIncludesEveryGate(t *testing.T) {
 		UploadRatio:   0.9,
 		DownloadRatio: 0.91,
 		UploadPerSession: rateRetentionSummary{
+			P01: 0.79,
+			P05: 0.80,
 			P50: 0.81,
-			P95: 0.79,
-			P99: 0.21,
 		},
 		DownloadPerSession: rateRetentionSummary{
+			P01: 0.92,
+			P05: 0.95,
 			P50: 1.01,
-			P95: 0.95,
-			P99: 0.92,
 		},
 	})
 	for _, want := range []string{
 		"below 0.800",
 		"aggregate(upload=0.900 download=0.910)",
-		"upload_p50=0.810 upload_p95=0.790 upload_p99=0.210",
-		"download_p50=1.010 download_p95=0.950 download_p99=0.920",
+		"upload_p01=0.790 upload_p05=0.800 upload_p50=0.810",
+		"download_p01=0.920 download_p05=0.950 download_p50=1.010",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("failure = %q, want substring %q", got, want)

@@ -214,9 +214,11 @@ zero-ramp 1,000-session stack for a 60-minute hold. Liveness rounds start every
 checkpoint and adds a distinct `final_speed_test` plus `speed_retention`.
 Initial and final concurrent upload/download each transfer exactly 1 GiB at no
 less than 200 Mbps, and each final direction retains at least 80% of its
-initial aggregate and per-session p50, p95, and p99 throughput.
+initial aggregate and per-session p01, p05, and p50 throughput. The lower-tail
+percentiles catch slow-session degradation; p95 and p99 remain upper-tail
+diagnostics and are not retention gates.
 
-Extended artifact version 13 records actual hold boundaries and qualifies the
+Extended artifact version 14 records actual hold boundaries and qualifies the
 first and last ten-minute windows. Median round p99 RTT, RSS, open FDs, and
 available Go heap/goroutine values may grow by at most 20%. CPU and network-rate
 comparisons apply the same relative limit with 0.10-core and 1,024-byte/s
@@ -230,7 +232,7 @@ cancellation still performs bounded session and Docker cleanup.
 
 The 100- and 500-session burst runners preserve their accepted payloads and
 gates but now use that relay-only upstream topology. Existing workload fields
-remain stable. The current version 13 artifact includes optional final-speed
+remain stable. The current version 14 artifact includes optional final-speed
 retention, mandatory bounded-cleanup evidence, and the load driver's effective
 `GOGC`; the 100- and 500-session entrypoints explicitly retain `GOGC=100`. A
 sibling `*-coturn.json`
