@@ -318,6 +318,7 @@ type resourcePoint struct {
 	OpenFDs          int       `json:"open_fds"`
 	OpenFDsSource    string    `json:"open_fds_source,omitempty"`
 	HeapAllocBytes   uint64    `json:"heap_alloc_bytes"`
+	HeapLiveBytes    uint64    `json:"heap_live_bytes"`
 	Goroutines       int       `json:"goroutines"`
 }
 
@@ -2320,6 +2321,10 @@ func (s *resourceSampler) observe(point resourcePoint) {
 		s.data.Peak.HeapAllocBytes = point.HeapAllocBytes
 		improved = true
 	}
+	if point.HeapLiveBytes > s.data.Peak.HeapLiveBytes {
+		s.data.Peak.HeapLiveBytes = point.HeapLiveBytes
+		improved = true
+	}
 	if point.Goroutines > s.data.Peak.Goroutines {
 		s.data.Peak.Goroutines = point.Goroutines
 		improved = true
@@ -2355,26 +2360,28 @@ func (s *resourceSampler) summary() resourceSummary {
 }
 
 func readResourcePoint(requireProcessFallback bool) resourcePoint {
-	totalMemory, heapAlloc, goroutines, cpuSeconds := readRuntimeResourceMetrics()
+	totalMemory, heapAlloc, heapLive, goroutines, cpuSeconds := readRuntimeResourceMetrics()
 	rssBytes, rssSource := readRSS(totalMemory, requireProcessFallback)
 	openFDs, openFDsSource := readFDCount(requireProcessFallback)
 	return resourcePoint{
 		At: time.Now(), RSSBytes: rssBytes, RSSSource: rssSource,
 		CPUSeconds: cpuSeconds, CPUSecondsSource: "go_runtime_total_minus_idle",
 		OpenFDs: openFDs, OpenFDsSource: openFDsSource, HeapAllocBytes: heapAlloc,
-		Goroutines: goroutines,
+		HeapLiveBytes: heapLive,
+		Goroutines:    goroutines,
 	}
 }
 
 func readActiveCPUSeconds() float64 {
-	_, _, _, cpuSeconds := readRuntimeResourceMetrics()
+	_, _, _, _, cpuSeconds := readRuntimeResourceMetrics()
 	return cpuSeconds
 }
 
-func readRuntimeResourceMetrics() (totalMemory uint64, heapAlloc uint64, goroutines int, cpuSeconds float64) {
+func readRuntimeResourceMetrics() (totalMemory uint64, heapAlloc uint64, heapLive uint64, goroutines int, cpuSeconds float64) {
 	samples := []metrics.Sample{
 		{Name: "/memory/classes/total:bytes"},
 		{Name: "/memory/classes/heap/objects:bytes"},
+		{Name: "/gc/heap/live:bytes"},
 		{Name: "/sched/goroutines:goroutines"},
 		{Name: "/cpu/classes/total:cpu-seconds"},
 		{Name: "/cpu/classes/idle:cpu-seconds"},
@@ -2387,16 +2394,19 @@ func readRuntimeResourceMetrics() (totalMemory uint64, heapAlloc uint64, gorouti
 		heapAlloc = samples[1].Value.Uint64()
 	}
 	if samples[2].Value.Kind() == metrics.KindUint64 {
-		goroutines = int(min(samples[2].Value.Uint64(), uint64(math.MaxInt)))
+		heapLive = samples[2].Value.Uint64()
 	}
-	if samples[3].Value.Kind() == metrics.KindFloat64 &&
-		samples[4].Value.Kind() == metrics.KindFloat64 {
+	if samples[3].Value.Kind() == metrics.KindUint64 {
+		goroutines = int(min(samples[3].Value.Uint64(), uint64(math.MaxInt)))
+	}
+	if samples[4].Value.Kind() == metrics.KindFloat64 &&
+		samples[5].Value.Kind() == metrics.KindFloat64 {
 		cpuSeconds = activeCPUSeconds(
-			samples[3].Value.Float64(),
 			samples[4].Value.Float64(),
+			samples[5].Value.Float64(),
 		)
 	}
-	return totalMemory, heapAlloc, goroutines, cpuSeconds
+	return totalMemory, heapAlloc, heapLive, goroutines, cpuSeconds
 }
 
 func activeCPUSeconds(total, idle float64) float64 {

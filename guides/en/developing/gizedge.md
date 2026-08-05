@@ -321,9 +321,11 @@ and each final direction must retain at least 80% of its initial aggregate and
 of its per-session p01, p05, and p50 throughput. The p95 and p99 throughput
 values remain upper-tail diagnostics rather than degradation gates.
 
-Artifact version 14 records the actual hold boundaries and compares the first
-and last ten minutes. The median per-round RTT p99, RSS, open FDs, and available
-Go heap and goroutine medians must not grow by more than 20%. CPU and
+Artifact version 15 records the actual hold boundaries and compares the first
+and last ten minutes. The median per-round RTT p99, RSS, open FDs, completed-GC
+Go live heap, and goroutine medians must not grow by more than 20%. The current
+Go heap-object count is retained as a diagnostic but is not a growth gate,
+because it varies with the normal GC cycle; sampling never forces a GC. CPU and
 network-rate changes use the same relative bound with absolute noise floors of
 0.10 core and 1,024 bytes/s; UDP/UDP6 socket medians use the 20% bound. RSS,
 CPU, and open-FD samples are tied to one process ID and start time. For Docker

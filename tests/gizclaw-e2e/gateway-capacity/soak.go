@@ -40,6 +40,7 @@ type soakRoleWindow struct {
 	AverageCPUCores           float64  `json:"average_cpu_cores"`
 	MedianOpenFDs             float64  `json:"median_open_fds"`
 	MedianGoHeapAllocBytes    *float64 `json:"median_go_heap_alloc_bytes"`
+	MedianGoHeapLiveBytes     *float64 `json:"median_go_heap_live_bytes"`
 	MedianGoroutines          *float64 `json:"median_goroutines"`
 	SocketAndNetworkSupported bool     `json:"socket_and_network_supported"`
 	MedianUDPSockets          float64  `json:"median_udp_sockets,omitempty"`
@@ -55,7 +56,8 @@ type soakRoleStability struct {
 	RSSGrowth           float64        `json:"rss_growth"`
 	CPUCoresGrowth      float64        `json:"cpu_cores_growth"`
 	OpenFDGrowth        float64        `json:"open_fd_growth"`
-	GoHeapGrowth        *float64       `json:"go_heap_growth,omitempty"`
+	GoHeapAllocGrowth   *float64       `json:"go_heap_alloc_growth,omitempty"`
+	GoHeapLiveGrowth    *float64       `json:"go_heap_live_growth,omitempty"`
 	GoroutineGrowth     *float64       `json:"goroutine_growth,omitempty"`
 	UDPSocketGrowth     float64        `json:"udp_socket_growth,omitempty"`
 	UDP6SocketGrowth    float64        `json:"udp6_socket_growth,omitempty"`
@@ -212,9 +214,13 @@ func summarizeSoakRole(
 	}
 	if stability.Early.MedianGoHeapAllocBytes != nil && stability.Late.MedianGoHeapAllocBytes != nil {
 		growth := soakRelativeGrowth(*stability.Early.MedianGoHeapAllocBytes, *stability.Late.MedianGoHeapAllocBytes)
-		stability.GoHeapGrowth = &growth
+		stability.GoHeapAllocGrowth = &growth
+	}
+	if stability.Early.MedianGoHeapLiveBytes != nil && stability.Late.MedianGoHeapLiveBytes != nil {
+		growth := soakRelativeGrowth(*stability.Early.MedianGoHeapLiveBytes, *stability.Late.MedianGoHeapLiveBytes)
+		stability.GoHeapLiveGrowth = &growth
 		if growth > maximumSoakGrowth {
-			stability.Reasons = append(stability.Reasons, fmt.Sprintf("Go-heap growth %.3f exceeds %.2f", growth, maximumSoakGrowth))
+			stability.Reasons = append(stability.Reasons, fmt.Sprintf("Go live-heap growth %.3f exceeds %.2f", growth, maximumSoakGrowth))
 		}
 	}
 	if stability.Early.MedianGoroutines != nil && stability.Late.MedianGoroutines != nil {
@@ -283,6 +289,7 @@ func summarizeSoakRoleWindow(samples []roleResourcePoint, supported bool) soakRo
 		AverageCPUCores:           averageCPUCores(samples),
 		MedianOpenFDs:             medianOf(samples, func(value roleResourcePoint) float64 { return float64(value.OpenFDs) }),
 		MedianGoHeapAllocBytes:    medianOptional(samples, func(value roleResourcePoint) *uint64 { return value.GoHeapAllocBytes }),
+		MedianGoHeapLiveBytes:     medianOptional(samples, func(value roleResourcePoint) *uint64 { return value.GoHeapLiveBytes }),
 		MedianGoroutines:          medianOptional(samples, func(value roleResourcePoint) *int { return value.Goroutines }),
 		SocketAndNetworkSupported: supported,
 		UnsupportedMetrics:        append([]string(nil), samples[0].UnsupportedMetrics...),

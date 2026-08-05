@@ -67,6 +67,42 @@ func TestSummarizeSoakQualificationRejectsWindowGap(t *testing.T) {
 	}
 }
 
+func TestSummarizeSoakQualificationGatesCompletedGCLiveHeap(t *testing.T) {
+	report := stableSoakArtifact()
+	loadDriver := report.Extended.Roles["load_driver"]
+	lateStart := report.HoldFinishedAt.Add(-soakQualificationWindow)
+	for index := range loadDriver.Samples {
+		if !loadDriver.Samples[index].At.Before(lateStart) {
+			alloc, live := uint64(1_000), uint64(400)
+			loadDriver.Samples[index].GoHeapAllocBytes = &alloc
+			loadDriver.Samples[index].GoHeapLiveBytes = &live
+		}
+	}
+	report.Extended.Roles["load_driver"] = loadDriver
+
+	got := summarizeSoakQualification(report)
+	stability := got.Roles["load_driver"]
+	if !got.Qualified || stability.GoHeapAllocGrowth == nil || *stability.GoHeapAllocGrowth <= maximumSoakGrowth {
+		t.Fatalf("current heap growth should be diagnostic only: %+v", stability)
+	}
+	if stability.GoHeapLiveGrowth == nil || *stability.GoHeapLiveGrowth != 0 {
+		t.Fatalf("live heap comparison = %+v, want zero growth", stability.GoHeapLiveGrowth)
+	}
+
+	loadDriver = report.Extended.Roles["load_driver"]
+	for index := range loadDriver.Samples {
+		if !loadDriver.Samples[index].At.Before(lateStart) {
+			live := uint64(800)
+			loadDriver.Samples[index].GoHeapLiveBytes = &live
+		}
+	}
+	report.Extended.Roles["load_driver"] = loadDriver
+	got = summarizeSoakQualification(report)
+	if got.Qualified || !strings.Contains(strings.Join(got.Reasons, "\n"), "Go live-heap growth") {
+		t.Fatalf("growing completed-GC live heap qualified: %+v", got)
+	}
+}
+
 func TestMateriallyGrewUsesTheActualLowBaseline(t *testing.T) {
 	if !materiallyGrew(0.10, 0.25, minimumCPUIncrease) {
 		t.Fatal("materiallyGrew accepted a 150% and 0.15-core increase")
@@ -104,7 +140,7 @@ func stableSoakArtifact() artifact {
 	for _, role := range soakResourceRoles {
 		samples := make([]roleResourcePoint, 0, int(time.Hour/(2*time.Second))+1)
 		for elapsed := time.Duration(0); elapsed <= time.Hour; elapsed += 2 * time.Second {
-			heap, goroutines := uint64(500), 100
+			heap, live, goroutines := uint64(500), uint64(400), 100
 			point := roleResourcePoint{
 				At: start.Add(elapsed), RSSBytes: 1_000_000, RSSSource: "test_process_rss",
 				CPUSeconds: 0.5 * elapsed.Seconds(), CPUSecondsSource: "test_process_cpu",
@@ -112,6 +148,7 @@ func stableSoakArtifact() artifact {
 			}
 			if role == "load_driver" {
 				point.GoHeapAllocBytes = &heap
+				point.GoHeapLiveBytes = &live
 				point.Goroutines = &goroutines
 				point.SocketSource = "unsupported"
 				point.NetworkSource = "unsupported"
@@ -123,7 +160,7 @@ func stableSoakArtifact() artifact {
 				point.NetworkRXBytes = uint64(100_000 * elapsed.Seconds())
 				point.NetworkTXBytes = uint64(80_000 * elapsed.Seconds())
 				point.NetworkSource = "proc_pid_net_dev"
-				point.UnsupportedMetrics = []string{"go_heap_alloc_bytes", "goroutines"}
+				point.UnsupportedMetrics = []string{"go_heap_alloc_bytes", "go_heap_live_bytes", "goroutines"}
 			}
 			samples = append(samples, point)
 		}

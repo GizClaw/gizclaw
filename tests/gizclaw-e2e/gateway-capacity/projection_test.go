@@ -222,8 +222,9 @@ func syntheticExtendedRun(
 				OpenFDsSource: "test_process_fds",
 			}
 			if role == "load_driver" {
-				heap, goroutines := uint64(1), 1
+				heap, live, goroutines := uint64(1), uint64(1), 1
 				point.GoHeapAllocBytes = &heap
+				point.GoHeapLiveBytes = &live
 				point.Goroutines = &goroutines
 				point.SocketSource = "unsupported"
 				point.NetworkSource = "unsupported"
@@ -231,7 +232,7 @@ func syntheticExtendedRun(
 			} else {
 				point.SocketSource = "proc_pid_net_udp"
 				point.NetworkSource = "proc_pid_net_dev"
-				point.UnsupportedMetrics = []string{"go_heap_alloc_bytes", "goroutines"}
+				point.UnsupportedMetrics = []string{"go_heap_alloc_bytes", "go_heap_live_bytes", "goroutines"}
 			}
 			points = append(points, point)
 		}

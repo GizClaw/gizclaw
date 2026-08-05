@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	extendedArtifactVersion  = 14
+	extendedArtifactVersion  = 15
 	maximumResourceSampleGap = 2100 * time.Millisecond
 )
 
@@ -71,6 +71,7 @@ type roleResourcePoint struct {
 	OpenFDs            int       `json:"open_fds"`
 	OpenFDsSource      string    `json:"open_fds_source"`
 	GoHeapAllocBytes   *uint64   `json:"go_heap_alloc_bytes"`
+	GoHeapLiveBytes    *uint64   `json:"go_heap_live_bytes"`
 	Goroutines         *int      `json:"goroutines"`
 	UDPSockets         int       `json:"udp_sockets"`
 	UDP6Sockets        int       `json:"udp6_sockets"`
@@ -192,7 +193,7 @@ func validateRequiredRoleEvidence(evidence roleResourceEvidence) error {
 			return fmt.Errorf("%s has unsupported open-file sampling", evidence.Role)
 		}
 		if evidence.Role == "load_driver" {
-			if sample.GoHeapAllocBytes == nil || sample.Goroutines == nil {
+			if sample.GoHeapAllocBytes == nil || sample.GoHeapLiveBytes == nil || sample.Goroutines == nil {
 				return fmt.Errorf("%s is missing Go heap or goroutine sampling", evidence.Role)
 			}
 			if sample.SocketSource != "unsupported" || sample.NetworkSource != "unsupported" ||
@@ -201,8 +202,8 @@ func validateRequiredRoleEvidence(evidence roleResourceEvidence) error {
 			}
 			continue
 		}
-		if sample.GoHeapAllocBytes != nil || sample.Goroutines != nil ||
-			!containsAll(sample.UnsupportedMetrics, "go_heap_alloc_bytes", "goroutines") {
+		if sample.GoHeapAllocBytes != nil || sample.GoHeapLiveBytes != nil || sample.Goroutines != nil ||
+			!containsAll(sample.UnsupportedMetrics, "go_heap_alloc_bytes", "go_heap_live_bytes", "goroutines") {
 			return fmt.Errorf("%s has inconsistent unsupported Go runtime declarations", evidence.Role)
 		}
 		if sample.SocketSource != "proc_pid_net_udp" || sample.NetworkSource != "proc_pid_net_dev" {
@@ -519,7 +520,7 @@ func parseDockerProcessSample(output string) (dockerProcessSample, error) {
 			OpenFDs: openFDs, OpenFDsSource: "proc_pid_fd",
 			UDPSockets: udpSockets, UDP6Sockets: udp6Sockets, SocketSource: "proc_pid_net_udp",
 			NetworkRXBytes: values[12], NetworkTXBytes: values[13], NetworkSource: "proc_pid_net_dev",
-			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "goroutines"},
+			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "go_heap_live_bytes", "goroutines"},
 		},
 		ProcessID: processID, ProcessStartTicks: values[8], OpenFDLimit: values[9],
 	}, nil
@@ -624,6 +625,12 @@ func summarizeRoleResources(samples []roleResourcePoint) roleResourceSummary {
 			peak.GoHeapAllocBytes = &value
 			improved = true
 		}
+		if point.GoHeapLiveBytes != nil &&
+			(peak.GoHeapLiveBytes == nil || *point.GoHeapLiveBytes > *peak.GoHeapLiveBytes) {
+			value := *point.GoHeapLiveBytes
+			peak.GoHeapLiveBytes = &value
+			improved = true
+		}
 		if point.Goroutines != nil &&
 			(peak.Goroutines == nil || *point.Goroutines > *peak.Goroutines) {
 			value := *point.Goroutines
@@ -640,13 +647,13 @@ func summarizeRoleResources(samples []roleResourcePoint) roleResourceSummary {
 func loadDriverEvidence(samples []resourcePoint) roleResourceEvidence {
 	points := make([]roleResourcePoint, 0, len(samples))
 	for _, sample := range samples {
-		heap, goroutines := sample.HeapAllocBytes, sample.Goroutines
+		heap, live, goroutines := sample.HeapAllocBytes, sample.HeapLiveBytes, sample.Goroutines
 		points = append(points, roleResourcePoint{
 			At:       sample.At,
 			RSSBytes: sample.RSSBytes, RSSSource: sample.RSSSource,
 			CPUSeconds: sample.CPUSeconds, CPUSecondsSource: sample.CPUSecondsSource,
 			OpenFDs: sample.OpenFDs, OpenFDsSource: sample.OpenFDsSource,
-			GoHeapAllocBytes: &heap, Goroutines: &goroutines,
+			GoHeapAllocBytes: &heap, GoHeapLiveBytes: &live, Goroutines: &goroutines,
 			SocketSource: "unsupported", NetworkSource: "unsupported",
 			UnsupportedMetrics: []string{"udp_sockets", "udp6_sockets", "network_rx_bytes", "network_tx_bytes"},
 		})

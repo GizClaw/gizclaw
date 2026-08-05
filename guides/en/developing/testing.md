@@ -218,9 +218,11 @@ initial aggregate and per-session p01, p05, and p50 throughput. The lower-tail
 percentiles catch slow-session degradation; p95 and p99 remain upper-tail
 diagnostics and are not retention gates.
 
-Extended artifact version 14 records actual hold boundaries and qualifies the
-first and last ten-minute windows. Median round p99 RTT, RSS, open FDs, and
-available Go heap/goroutine values may grow by at most 20%. CPU and network-rate
+Extended artifact version 15 records actual hold boundaries and qualifies the
+first and last ten-minute windows. Median round p99 RTT, RSS, open FDs,
+completed-GC Go live heap, and goroutine values may grow by at most 20%. Current
+Go heap-object bytes remain diagnostic and are not gated because they vary with
+the normal GC cycle; the sampler does not force a GC. CPU and network-rate
 comparisons apply the same relative limit with 0.10-core and 1,024-byte/s
 absolute noise floors; UDP and UDP6 socket medians may grow by at most 20%.
 RSS, CPU, and open-FD samples identify one process and start time. The Docker
@@ -235,7 +237,7 @@ cancellation still performs bounded session and Docker cleanup.
 
 The 100- and 500-session burst runners preserve their accepted payloads and
 gates but now use that relay-only upstream topology. Existing workload fields
-remain stable. The current version 14 artifact includes optional final-speed
+remain stable. The current version 15 artifact includes optional final-speed
 retention, mandatory bounded-cleanup evidence, and the load driver's effective
 `GOGC`; the 100- and 500-session entrypoints explicitly retain `GOGC=100`. A
 sibling `*-coturn.json`

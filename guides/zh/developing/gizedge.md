@@ -249,8 +249,10 @@ initial/final upload 与 download checkpoint 均对每 session 精确传输 1 Mi
 200 Mbps，并要求 final 每个方向的 aggregate 以及 per-session p01、p05、p50 throughput
 都保留 initial 的至少 80%。p95 与 p99 throughput 保留为快尾诊断，不作为退化 gate。
 
-Artifact version 14 记录实际 hold boundary，并比较最初与最后十分钟。每轮 RTT p99 的
-median、RSS、open FD，以及可获得的 Go heap 与 goroutine median，增长均不得超过 20%；
+Artifact version 15 记录实际 hold boundary，并比较最初与最后十分钟。每轮 RTT p99 的
+median、RSS、open FD、最近一次 completed GC 的 Go live heap，以及 goroutine median，
+增长均不得超过 20%。当前 Go heap-object bytes 保留为诊断值，但因其会随正常 GC cycle
+波动而不作为增长 gate；采样过程不会强制触发 GC。
 CPU 与 network rate 同样采用 20% 相对门槛，并分别设置 0.10 core 与 1,024 bytes/s 绝对
 噪声下限；UDP/UDP6 socket median 采用 20% 门槛。RSS、CPU 与 open-FD sample 绑定同一
 process ID 和 start time；Docker role 的 `/proc/<pid>/net/{udp,udp6,dev}` 描述 container

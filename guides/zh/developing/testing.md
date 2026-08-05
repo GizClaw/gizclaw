@@ -188,8 +188,10 @@ download 均精确传输 1 GiB、达到至少 200 Mbps，且 final 每个方向�
 及 per-session p01、p05、p50 throughput 的至少 80%。低尾 percentile 用于捕获慢 session
 退化；p95 与 p99 保留为快尾诊断，不作为 retention gate。
 
-Extended artifact version 14 记录实际 hold boundary，并验收最初与最后十分钟窗口。每轮
-p99 RTT 的 median、RSS、open FD，以及可获得的 Go heap/goroutine 值，增长最多为 20%。
+Extended artifact version 15 记录实际 hold boundary，并验收最初与最后十分钟窗口。每轮
+p99 RTT 的 median、RSS、open FD、最近一次 completed GC 的 Go live heap，以及 goroutine
+值，增长最多为 20%。当前 Go heap-object bytes 保留为诊断值，但因其会随正常 GC cycle
+波动而不作为增长 gate；sampler 不会强制触发 GC。
 CPU 和 network rate 采用相同的相对门槛，并分别设置 0.10 core 与 1,024 bytes/s 的绝对
 噪声下限；UDP 与 UDP6 socket median 增长最多为 20%。RSS、CPU 与 open-FD sample 标识
 同一 process 及 start time；Docker role 的 UDP/socket 与 network counter 来自
@@ -200,7 +202,7 @@ Load driver、两台 Edge、两个 Coturn 与 Server 的 source-qualified sample
 任何 initial gate 失败都会阻止 hold 开始，cancellation 仍执行有界 session 与 Docker cleanup。
 
 100/500-session burst runner 保留既有 payload 和 gate，但当前都使用上述 relay-only
-upstream 拓扑。既有 workload field 保持不变；当前 version 14 artifact 包含 optional
+upstream 拓扑。既有 workload field 保持不变；当前 version 15 artifact 包含 optional
 final-speed retention、mandatory bounded-cleanup evidence，以及 load driver 的 effective
 `GOGC`；100/500-session 入口显式保留 `GOGC=100`。同目录的
 `*-coturn.json` sidecar 记录两个

@@ -91,7 +91,7 @@ func TestParseDockerProcessSample(t *testing.T) {
 		got.Point.NetworkRXBytes != 1000 || got.Point.NetworkTXBytes != 2000 {
 		t.Fatalf("socket/network point = %+v", got.Point)
 	}
-	if got.Point.GoHeapAllocBytes != nil || got.Point.Goroutines != nil || len(got.Point.UnsupportedMetrics) != 2 {
+	if got.Point.GoHeapAllocBytes != nil || got.Point.GoHeapLiveBytes != nil || got.Point.Goroutines != nil || len(got.Point.UnsupportedMetrics) != 3 {
 		t.Fatalf("unsupported Go metrics = %+v", got.Point)
 	}
 	if got.Point.At != at {
@@ -183,10 +183,10 @@ func TestCountLsofFileDescriptors(t *testing.T) {
 
 func TestValidateRequiredRoleEvidenceRejectsFallbackAndMissingFDs(t *testing.T) {
 	start := time.Unix(1, 0)
-	heap, goroutines := uint64(1), 1
+	heap, live, goroutines := uint64(1), uint64(1), 1
 	evidence := roleResourceEvidence{Role: "load_driver", Samples: []roleResourcePoint{{
 		At: start, RSSBytes: 1, RSSSource: "go_memstats_sys", CPUSecondsSource: "go_runtime", OpenFDs: 1, OpenFDsSource: "lsof_process",
-		GoHeapAllocBytes: &heap, Goroutines: &goroutines, SocketSource: "unsupported", NetworkSource: "unsupported",
+		GoHeapAllocBytes: &heap, GoHeapLiveBytes: &live, Goroutines: &goroutines, SocketSource: "unsupported", NetworkSource: "unsupported",
 		UnsupportedMetrics: []string{"udp_sockets", "udp6_sockets", "network_rx_bytes", "network_tx_bytes"},
 	}}}
 	if err := validateRequiredRoleEvidence(evidence); err == nil || !strings.Contains(err.Error(), "RSS") {
@@ -207,7 +207,7 @@ func TestValidateRequiredRoleEvidenceRejectsFallbackAndMissingFDs(t *testing.T) 
 	evidence.Samples = append(evidence.Samples, roleResourcePoint{
 		At: start.Add(4 * time.Second), RSSBytes: 1, RSSSource: "ps_rss_kib",
 		CPUSecondsSource: "go_runtime", OpenFDs: 1, OpenFDsSource: "lsof_process",
-		GoHeapAllocBytes: &heap, Goroutines: &goroutines, SocketSource: "unsupported", NetworkSource: "unsupported",
+		GoHeapAllocBytes: &heap, GoHeapLiveBytes: &live, Goroutines: &goroutines, SocketSource: "unsupported", NetworkSource: "unsupported",
 		UnsupportedMetrics: []string{"udp_sockets", "udp6_sockets", "network_rx_bytes", "network_tx_bytes"},
 	})
 	if err := validateRequiredRoleEvidence(evidence); err == nil || !strings.Contains(err.Error(), "sample gap") {
@@ -225,10 +225,10 @@ func TestValidateRequiredRoleEvidenceRequiresUnsupportedMetricDeclarations(t *te
 		t.Fatalf("validateRequiredRoleEvidence error = %v, want unsupported Go runtime declaration error", err)
 	}
 
-	heap, goroutines := uint64(1), 1
+	heap, live, goroutines := uint64(1), uint64(1), 1
 	loadDriver := roleResourceEvidence{Role: "load_driver", Samples: []roleResourcePoint{{
 		At: start, RSSBytes: 1, RSSSource: "ps_rss_kib", CPUSecondsSource: "go_runtime",
-		OpenFDs: 1, OpenFDsSource: "lsof_process", GoHeapAllocBytes: &heap, Goroutines: &goroutines,
+		OpenFDs: 1, OpenFDsSource: "lsof_process", GoHeapAllocBytes: &heap, GoHeapLiveBytes: &live, Goroutines: &goroutines,
 		SocketSource: "unsupported", NetworkSource: "unsupported",
 	}}}
 	if err := validateRequiredRoleEvidence(loadDriver); err == nil || !strings.Contains(err.Error(), "unsupported socket or network declarations") {
@@ -243,13 +243,13 @@ func TestValidateRequiredRoleEvidenceRejectsDecreasingCounters(t *testing.T) {
 			At: start, RSSBytes: 1, RSSSource: "proc_pid_statm", CPUSeconds: 2, CPUSecondsSource: "proc_pid_stat",
 			OpenFDs: 1, OpenFDsSource: "proc_pid_fd", SocketSource: "proc_pid_net_udp",
 			NetworkRXBytes: 10, NetworkTXBytes: 10, NetworkSource: "proc_pid_net_dev",
-			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "goroutines"},
+			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "go_heap_live_bytes", "goroutines"},
 		},
 		{
 			At: start.Add(time.Second), RSSBytes: 1, RSSSource: "proc_pid_statm", CPUSeconds: 1, CPUSecondsSource: "proc_pid_stat",
 			OpenFDs: 1, OpenFDsSource: "proc_pid_fd", SocketSource: "proc_pid_net_udp",
 			NetworkRXBytes: 11, NetworkTXBytes: 11, NetworkSource: "proc_pid_net_dev",
-			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "goroutines"},
+			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "go_heap_live_bytes", "goroutines"},
 		},
 	}
 	evidence := roleResourceEvidence{Role: "edge", Samples: points}
