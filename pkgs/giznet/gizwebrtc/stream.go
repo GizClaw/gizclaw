@@ -23,11 +23,6 @@ var streamWriteBufferPool = sync.Pool{New: func() any {
 	return &buffer
 }}
 
-var streamReadBufferPool = sync.Pool{New: func() any {
-	buffer := make([]byte, maxPacketMessageSize)
-	return &buffer
-}}
-
 type dataChannelConn struct {
 	raw    datachannel.ReadWriteCloserDeadliner
 	flow   dataChannelFlow
@@ -36,8 +31,11 @@ type dataChannelConn struct {
 	rx     *atomic.Uint64
 	tx     *atomic.Uint64
 
-	readMu  sync.Mutex
-	pending []byte
+	readMu sync.Mutex
+	// Keep one message buffer per live stream. A process-wide pool retains a
+	// burst-sized set of 64 KiB buffers and grows the GC scan set over a soak.
+	readBuffer []byte
+	pending    []byte
 
 	writeMu sync.Mutex
 
@@ -74,17 +72,17 @@ func (c *dataChannelConn) Read(p []byte) (int, error) {
 		return 0, giznet.ErrConnClosed
 	}
 	c.readMu.Lock()
+	defer c.readMu.Unlock()
 	if len(c.pending) > 0 {
 		n := copy(p, c.pending)
 		c.pending = c.pending[n:]
-		c.readMu.Unlock()
 		return n, nil
 	}
-	c.readMu.Unlock()
 
-	pooled := streamReadBufferPool.Get().(*[]byte)
-	buf := (*pooled)[:maxPacketMessageSize]
-	defer streamReadBufferPool.Put(pooled)
+	if c.readBuffer == nil {
+		c.readBuffer = make([]byte, maxPacketMessageSize)
+	}
+	buf := c.readBuffer
 	n, _, err := c.raw.ReadDataChannel(buf)
 	if err != nil {
 		if c.closed.Load() {
@@ -100,9 +98,7 @@ func (c *dataChannelConn) Read(p []byte) (int, error) {
 	}
 	copied := copy(p, buf[:n])
 	if copied < n {
-		c.readMu.Lock()
 		c.pending = append(c.pending[:0], buf[copied:n]...)
-		c.readMu.Unlock()
 	}
 	return copied, nil
 }
