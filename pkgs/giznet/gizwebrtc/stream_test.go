@@ -202,6 +202,28 @@ func TestDataChannelConnReadReassemblesMessageAsByteStream(t *testing.T) {
 	}
 }
 
+func TestDataChannelConnReadReusesMessageBuffer(t *testing.T) {
+	raw := &repeatingStreamRaw{message: []byte("ping")}
+	conn := newDataChannelConn(raw, nil, addr("local"), addr("remote"))
+	defer conn.Close()
+
+	buf := make([]byte, len(raw.message))
+	var readErr error
+	allocations := testing.AllocsPerRun(1000, func() {
+		var n int
+		n, readErr = conn.Read(buf)
+		if n != len(raw.message) {
+			readErr = io.ErrShortBuffer
+		}
+	})
+	if readErr != nil {
+		t.Fatalf("Read error = %v", readErr)
+	}
+	if allocations != 0 {
+		t.Fatalf("Read allocations = %f, want 0", allocations)
+	}
+}
+
 func TestDataChannelConnCloseWakesBlockedWriter(t *testing.T) {
 	flow := newFakeDataChannelFlow()
 	flow.setBufferedAmount(streamWriteHighWater)
@@ -422,6 +444,15 @@ type fakeStreamRaw struct {
 	closed        bool
 	readDeadline  time.Time
 	writeDeadline time.Time
+}
+
+type repeatingStreamRaw struct {
+	fakeStreamRaw
+	message []byte
+}
+
+func (r *repeatingStreamRaw) ReadDataChannel(p []byte) (int, bool, error) {
+	return copy(p, r.message), false, nil
 }
 
 func (f *fakeStreamRaw) Read([]byte) (int, error) {

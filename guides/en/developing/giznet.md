@@ -80,6 +80,11 @@ registry lock. Repeated short-lived RPC streams therefore do not accumulate in
 the parent WebRTC connection, while service and parent shutdown still reject
 new streams and close every stream that remains live.
 
+Service-stream reads borrow the fixed 64 KiB detached-DataChannel message
+buffer from a process-wide pool and return it after copying any unread tail
+into the connection-owned pending buffer. Long-lived RPC streams therefore do
+not allocate a new maximum-size message buffer for every small request.
+
 General public client associations retain Pion's default SCTP receive window.
 An Edge gateway gives at most 64 currently admitted client associations a 4
 MiB burst window, limiting burst-profile receive credit to 256 MiB per Edge;

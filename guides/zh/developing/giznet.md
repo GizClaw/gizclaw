@@ -72,6 +72,10 @@ Coturn relay path。它仍只是本机 Docker transport 诊断，不是 producti
 WebRTC connection 中累积，同时 service 与父连接 shutdown 仍会拒绝新 stream，并关闭所有
 仍存活的 stream。
 
+Service stream 读取时会从进程级 pool 借用固定的 64 KiB detached-DataChannel message
+buffer；如果调用方未一次读完，则先把剩余部分复制到 connection 自有 pending buffer，再归还
+message buffer。因此长生命周期 RPC stream 的每个小请求不再重新分配最大尺寸 read buffer。
+
 普通 public client association 保留 Pion 默认 SCTP receive window。Edge gateway 最多为
 当前已准入的 64 条 client association 提供 4 MiB burst window，把每个 Edge 的 burst
 profile receive credit 限制在 256 MiB；额度释放前，后续 association 仍使用默认窗口。独立的

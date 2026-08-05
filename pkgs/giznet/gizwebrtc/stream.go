@@ -23,6 +23,11 @@ var streamWriteBufferPool = sync.Pool{New: func() any {
 	return &buffer
 }}
 
+var streamReadBufferPool = sync.Pool{New: func() any {
+	buffer := make([]byte, maxPacketMessageSize)
+	return &buffer
+}}
+
 type dataChannelConn struct {
 	raw    datachannel.ReadWriteCloserDeadliner
 	flow   dataChannelFlow
@@ -77,7 +82,9 @@ func (c *dataChannelConn) Read(p []byte) (int, error) {
 	}
 	c.readMu.Unlock()
 
-	buf := make([]byte, maxPacketMessageSize)
+	pooled := streamReadBufferPool.Get().(*[]byte)
+	buf := (*pooled)[:maxPacketMessageSize]
+	defer streamReadBufferPool.Put(pooled)
 	n, _, err := c.raw.ReadDataChannel(buf)
 	if err != nil {
 		if c.closed.Load() {
