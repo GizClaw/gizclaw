@@ -90,8 +90,8 @@ profile receive credit 限制在 256 MiB；额度释放前，后续 association 
 messages 在交付前耗尽 receiver window。每条 connection 最多接收远端打开的 2,048 条
 service DataChannel，与 gateway 每条 upstream association 的 active-session 上限一致；
 超出上限的 channel 会在交付前关闭，service label 不能创建无界 queue。SCTP
-retransmission 上限为 250 ms，DTLS flight
-的 initial retransmission interval 为 250 ms，使 burst 中丢失 handshake flight 时不会固定
+retransmission 上限为 150 ms，DTLS flight
+的 initial retransmission interval 为 150 ms，使 burst 中丢失 handshake flight 时不会固定
 增加默认的 1 秒等待。SCTP reliable delivery 和 retransmission count 不变；DTLS
 retransmission 与 exponential backoff 仍然启用。
 

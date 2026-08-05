@@ -103,8 +103,8 @@ messages from exhausting the receiver window before delivery. A connection
 also admits at most 2,048 remotely opened service DataChannels, matching the
 gateway's active-session ceiling per upstream association; excess channels are
 closed before delivery, so service labels cannot create unbounded queues. SCTP
-retransmission is capped at 250 ms, and DTLS
-flights use a 250 ms initial retransmission interval, so lost handshake flights
+retransmission is capped at 150 ms, and DTLS
+flights use a 150 ms initial retransmission interval, so lost handshake flights
 during a burst do not add the one-second defaults. SCTP reliable delivery and
 its retransmission count remain unchanged; DTLS retransmission and exponential
 backoff remain enabled.

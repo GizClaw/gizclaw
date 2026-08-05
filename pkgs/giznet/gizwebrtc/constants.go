@@ -26,11 +26,11 @@ const (
 	// SCTP's one-second initial retransmission is visible in burst DataChannel
 	// setup when an INIT or COOKIE flight is lost. Cap the retry interval while
 	// retaining reliable delivery and the existing retransmission count.
-	sctpRetransmissionTimeoutMax = 250 * time.Millisecond
+	sctpRetransmissionTimeoutMax = 150 * time.Millisecond
 	// A lost DTLS flight otherwise waits Pion's one-second default before
 	// retrying. A shorter interval keeps burst establishment bounded while
 	// retaining DTLS's retransmission and exponential-backoff behavior.
-	dtlsRetransmissionInterval = 250 * time.Millisecond
+	dtlsRetransmissionInterval = 150 * time.Millisecond
 	// Keep stream writes large enough to carry a 32 KiB RPC payload with few
 	// SCTP messages while staying below the unstable maximum message boundary.
 	// The previous 1400-byte split multiplied every tunnel frame into dozens of
