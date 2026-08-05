@@ -370,13 +370,18 @@ func (c *Conn) PeerInfo() *giznet.PeerInfo {
 }
 
 func (c *Conn) Close() error {
-	return c.closeWithError(nil)
+	return c.close(nil, true)
 }
 
 func (c *Conn) closeWithError(cause error) error {
+	return c.close(cause, false)
+}
+
+func (c *Conn) close(cause error, graceful bool) error {
 	if c == nil {
 		return giznet.ErrNilConn
 	}
+	var closeErr error
 	c.once.Do(func() {
 		c.closeMu.Lock()
 		if cause != nil {
@@ -412,9 +417,13 @@ func (c *Conn) closeWithError(cause error) error {
 			_ = c.packetRaw.Close()
 		}
 		c.packetMu.Unlock()
-		_ = c.pc.Close()
+		if graceful {
+			closeErr = c.pc.GracefulClose()
+		} else {
+			closeErr = c.pc.Close()
+		}
 	})
-	return nil
+	return closeErr
 }
 
 func (c *Conn) closeError() error {
