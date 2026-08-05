@@ -115,6 +115,32 @@ func TestPeerConnectionStateIsTerminal(t *testing.T) {
 	}
 }
 
+func TestDrainRTCPReusesBufferUntilReaderCloses(t *testing.T) {
+	reads := 0
+	var first *byte
+	err := drainRTCP(func(buffer []byte) error {
+		reads++
+		if len(buffer) != 1500 {
+			t.Fatalf("RTCP buffer length = %d, want 1500", len(buffer))
+		}
+		if first == nil {
+			first = &buffer[0]
+		} else if first != &buffer[0] {
+			t.Fatal("drainRTCP replaced its read buffer")
+		}
+		if reads == 3 {
+			return io.EOF
+		}
+		return nil
+	})
+	if !errors.Is(err, io.EOF) || reads != 3 {
+		t.Fatalf("drainRTCP = %v after %d reads, want EOF after 3", err, reads)
+	}
+	if err := drainRTCP(nil); err == nil {
+		t.Fatal("drainRTCP accepted a nil reader")
+	}
+}
+
 func TestConnReadReportsUnexpectedCloseCause(t *testing.T) {
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {

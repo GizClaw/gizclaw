@@ -85,6 +85,11 @@ buffer from a process-wide pool and return it after copying any unread tail
 into the connection-owned pending buffer. Long-lived RPC streams therefore do
 not allocate a new maximum-size message buffer for every small request.
 
+Every PeerConnection continuously drains RTCP feedback for its local Opus
+sender into one reused MTU-sized buffer. The reader exits when Pion closes the
+sender with the PeerConnection, so unread receiver reports cannot accumulate
+in the SRTCP packet buffer during long-lived sessions.
+
 General public client associations retain Pion's default SCTP receive window.
 An Edge gateway gives at most 64 currently admitted client associations a 4
 MiB burst window, limiting burst-profile receive credit to 256 MiB per Edge;

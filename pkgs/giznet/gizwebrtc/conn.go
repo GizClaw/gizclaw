@@ -78,9 +78,16 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 	if err != nil {
 		return nil, err
 	}
-	if _, err := pc.AddTrack(audioTrack); err != nil {
+	rtpSender, err := pc.AddTrack(audioTrack)
+	if err != nil {
 		return nil, err
 	}
+	go func() {
+		_ = drainRTCP(func(buffer []byte) error {
+			_, _, err := rtpSender.Read(buffer)
+			return err
+		})
+	}()
 	c := &Conn{
 		pk:         pk,
 		pc:         pc,
@@ -112,6 +119,18 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 		}
 	})
 	return c, nil
+}
+
+func drainRTCP(read func([]byte) error) error {
+	if read == nil {
+		return errors.New("gizwebrtc: nil RTCP reader")
+	}
+	buffer := make([]byte, 1500)
+	for {
+		if err := read(buffer); err != nil {
+			return err
+		}
+	}
 }
 
 func peerConnectionStateIsTerminal(state webrtc.PeerConnectionState) bool {
