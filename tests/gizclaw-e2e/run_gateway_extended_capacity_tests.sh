@@ -159,10 +159,16 @@ monitor_coturn_allocations() {
   local expected="$1"
   local output="$2"
   local stop_file="$3"
-  local sampled_at a_alloc a_recv a_sent b_alloc b_recv b_sent total
+  local sampled_at sampled_at_unix_milliseconds a_alloc a_recv a_sent b_alloc b_recv b_sent total
   : >"$output"
   while [[ ! -e "$stop_file" ]]; do
-    sampled_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    read -r sampled_at sampled_at_unix_milliseconds < <(python3 -c '
+import datetime
+import time
+
+now = time.time()
+print(datetime.datetime.fromtimestamp(now, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), int(now * 1000))
+')
     if ! read -r a_alloc a_recv a_sent < <(read_coturn_metrics coturn-a) ||
       ! read -r b_alloc b_recv b_sent < <(read_coturn_metrics coturn-b); then
       echo "failed to sample live Coturn allocations at $sampled_at" >&2
@@ -171,11 +177,13 @@ monitor_coturn_allocations() {
     total="$(numeric_sum "$a_alloc" "$b_alloc")"
     jq -cn \
       --arg sampled_at "$sampled_at" \
+      --argjson sampled_at_unix_milliseconds "$sampled_at_unix_milliseconds" \
       --argjson a_alloc "$a_alloc" --argjson a_recv "$a_recv" --argjson a_sent "$a_sent" \
       --argjson b_alloc "$b_alloc" --argjson b_recv "$b_recv" --argjson b_sent "$b_sent" \
       --argjson total "$total" \
       '{
         sampled_at: $sampled_at,
+        sampled_at_unix_milliseconds: $sampled_at_unix_milliseconds,
         total_allocations: $total,
         coturn_a: {allocations: $a_alloc, received_bytes: $a_recv, sent_bytes: $a_sent},
         coturn_b: {allocations: $b_alloc, received_bytes: $b_recv, sent_bytes: $b_sent}
@@ -232,14 +240,14 @@ validate_coturn_live_samples() {
   if jq -es --argjson expected "$expected" '
     length > 0 and
     all(.[]; .total_allocations == $expected) and
-    ([.[].sampled_at | fromdateiso8601] as $timestamps |
+    ([.[].sampled_at_unix_milliseconds] as $timestamps |
       all(range(1; $timestamps | length);
         ($timestamps[.] > $timestamps[. - 1]) and
-        ($timestamps[.] - $timestamps[. - 1] <= 2)))
+        ($timestamps[.] - $timestamps[. - 1] <= 2100)))
   ' "$output" >/dev/null; then
     return 0
   fi
-  echo "Coturn live-allocation samples are empty, discontinuous, or differ from expected=$expected" >&2
+  echo "Coturn live-allocation samples are empty, exceed a 2.1-second gap, or differ from expected=$expected" >&2
   return 1
 }
 
@@ -486,7 +494,7 @@ run_case() {
       expected_gateway_allocations_per_edge: 4,
       expected_control_allocations_per_edge: 1,
       expected_total_allocations_per_edge: 5,
-      maximum_live_sample_gap_seconds: 2,
+      maximum_live_sample_gap_seconds: 2.1,
       live_before: {
         coturn_a: {allocations: $before_a_alloc, received_bytes: $before_a_recv, sent_bytes: $before_a_sent},
         coturn_b: {allocations: $before_b_alloc, received_bytes: $before_b_recv, sent_bytes: $before_b_sent}

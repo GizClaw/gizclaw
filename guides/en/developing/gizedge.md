@@ -339,7 +339,7 @@ Logical-session cleanup has a 30-second bound; the ten physical TURN allocations
 are checked from source-qualified Coturn counters once per second while the
 Edges are alive and must return to zero within 15 seconds after Edge shutdown.
 The monitor must produce its first sample before the workload starts, and its
-timestamped samples must be strictly ordered with no gap above two seconds.
+millisecond timestamps must be strictly ordered with no gap above 2.1 seconds.
 These commands qualify only their recorded host, Docker engine, clean commit,
 and topology; they are not a 30,000-session or WAN guarantee.
 

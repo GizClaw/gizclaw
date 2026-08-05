@@ -206,7 +206,7 @@ final-speed retention、mandatory bounded-cleanup evidence，以及 load driver 
 `*-coturn.json` sidecar 记录两个
 Coturn member 的一秒间隔 live allocation/traffic sample、finished-session byte counter、
 traffic delta，以及两个 Edge 停止后有界归零结果。验收要求 workload 前已产出第一条
-sample，timestamp 严格递增且相邻 gap 不超过两秒。已合并的 #697/#698 结果仍是历史
+sample，毫秒 timestamp 严格递增且相邻 gap 不超过 2.1 秒。已合并的 #697/#698 结果仍是历史
 direct-upstream 观测；当前
 Coturn 数据不是 production、WAN 或可移植吞吐 SLA。
 

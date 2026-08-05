@@ -262,7 +262,7 @@ namespace socket/network metric，必须逐项明确标为 unsupported，不得�
 Logical-session cleanup 上限为
 30 秒；Edge 存活期间按一秒间隔读取 source-qualified Coturn counter，要求十条 physical
 TURN allocation 始终保持存在，Edge 关闭后必须在 15 秒内归零。监控必须在 workload
-启动前产出第一条 sample，且 timestamp 严格递增、相邻 gap 不超过两秒。这些命令只验收 artifact
+启动前产出第一条 sample，且毫秒 timestamp 严格递增、相邻 gap 不超过 2.1 秒。这些命令只验收 artifact
 记录的 host、Docker engine、clean commit 与 topology，不是 30,000-session 或 WAN
 guarantee。
 
