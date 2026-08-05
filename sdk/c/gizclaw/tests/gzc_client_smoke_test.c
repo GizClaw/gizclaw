@@ -75,12 +75,17 @@ typedef struct {
   bool service_channel_in_use[16];
   bool peer_rpc_channel[16];
   bool active_rpc_alias_observed;
+  bool active_rpc_alias_cleared_on_terminal;
+  gzc_rtc_channel_state_t terminal_on_send;
   gzc_client_t *client;
   gzc_rtc_channel_t *last_send_channel;
   bool edge_channel_in_use;
   int peer_close_count;
   int close_count;
+  int stale_close_count;
   gzc_rtc_channel_t *last_closed;
+  gzc_rtc_channel_t *terminal_channels[32];
+  size_t terminal_channel_count;
   int ice_server_count;
   bool offer_started;
   bool drain_on_poll;
@@ -241,8 +246,57 @@ static int fake_peer_create(void *userdata, const gzc_webrtc_callbacks_t *callba
   return GZC_OK;
 }
 
+static bool fake_channel_is_terminal(
+    const fake_webrtc_t *fake,
+    const gzc_rtc_channel_t *channel) {
+  for (size_t i = 0; i < fake->terminal_channel_count; i++) {
+    if (fake->terminal_channels[i] == channel) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static void fake_emit_channel_state(
+    fake_webrtc_t *fake,
+    gzc_rtc_channel_t *channel,
+    const gzc_rtc_channel_info_t *info,
+    gzc_rtc_channel_state_t state) {
+  if (state == GZC_RTC_CHANNEL_OPEN) {
+    for (size_t i = 0; i < fake->terminal_channel_count; i++) {
+      if (fake->terminal_channels[i] == channel) {
+        fake->terminal_channel_count--;
+        fake->terminal_channels[i] =
+            fake->terminal_channels[fake->terminal_channel_count];
+        break;
+      }
+    }
+  } else if ((state == GZC_RTC_CHANNEL_CLOSED ||
+              state == GZC_RTC_CHANNEL_ERROR) &&
+             !fake_channel_is_terminal(fake, channel) &&
+             fake->terminal_channel_count <
+                 sizeof(fake->terminal_channels) /
+                     sizeof(fake->terminal_channels[0])) {
+    fake->terminal_channels[fake->terminal_channel_count++] = channel;
+    if (channel == &fake->edge_channel) {
+      fake->edge_channel_in_use = false;
+    }
+    for (size_t i = 0; i < 16u; i++) {
+      if (channel == &fake->service_channels[i]) {
+        fake->service_channel_in_use[i] = false;
+        fake->peer_rpc_channel[i] = false;
+      }
+    }
+  }
+  fake->callbacks.on_channel_state(
+      fake->callbacks.userdata, &fake->peer, channel, info, state);
+}
+
 static void fake_channel_close(gzc_rtc_channel_t *channel) {
   if (global_fake_webrtc != NULL) {
+    if (fake_channel_is_terminal(global_fake_webrtc, channel)) {
+      global_fake_webrtc->stale_close_count++;
+    }
     global_fake_webrtc->close_count++;
     global_fake_webrtc->last_closed = channel;
     if (channel == &global_fake_webrtc->edge_channel) {
@@ -331,6 +385,7 @@ static int test_peer_add_ice_server(gzc_rtc_peer_t *peer, gzc_str_t url, gzc_str
 
 static int test_peer_set_remote_sdp(gzc_rtc_peer_t *peer, gzc_rtc_sdp_type_t type, gzc_str_t sdp) {
   fake_webrtc_t *fake = global_fake_webrtc;
+  (void)peer;
   (void)type;
   (void)sdp;
   gzc_rtc_channel_info_t info;
@@ -339,7 +394,8 @@ static int test_peer_set_remote_sdp(gzc_rtc_peer_t *peer, gzc_rtc_sdp_type_t typ
   info.stream_id = 0;
   info.ordered = false;
   info.reliable = false;
-  fake->callbacks.on_channel_state(fake->callbacks.userdata, peer, &fake->packet_channel, &info, GZC_RTC_CHANNEL_OPEN);
+  fake_emit_channel_state(
+      fake, &fake->packet_channel, &info, GZC_RTC_CHANNEL_OPEN);
   return GZC_OK;
 }
 
@@ -378,7 +434,8 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
       info.stream_id = 0;
       info.ordered = false;
       info.reliable = false;
-      fake->callbacks.on_channel_state(fake->callbacks.userdata, peer, &fake->packet_channel, &info, GZC_RTC_CHANNEL_OPEN);
+      fake_emit_channel_state(
+          fake, &fake->packet_channel, &info, GZC_RTC_CHANNEL_OPEN);
     }
   } else if (config->label.len == strlen("giznet/v1/service/0") &&
              strncmp(config->label.data, "giznet/v1/service/0", config->label.len) == 0) {
@@ -398,7 +455,7 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
       info.stream_id = 1;
       info.ordered = true;
       info.reliable = true;
-      fake->callbacks.on_channel_state(fake->callbacks.userdata, peer, channel, &info, GZC_RTC_CHANNEL_OPEN);
+      fake_emit_channel_state(fake, channel, &info, GZC_RTC_CHANNEL_OPEN);
     }
   } else if (
       (config->label.len == strlen("giznet/v1/service/49") &&
@@ -434,12 +491,7 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
           config->label.data[config->label.len - 1u] == '9' ? 49u : 48u;
       info.ordered = true;
       info.reliable = true;
-      fake->callbacks.on_channel_state(
-          fake->callbacks.userdata,
-          peer,
-          channel,
-          &info,
-          GZC_RTC_CHANNEL_OPEN);
+      fake_emit_channel_state(fake, channel, &info, GZC_RTC_CHANNEL_OPEN);
     }
   } else if (config->label.len == strlen("giznet/v1/service/32") &&
              strncmp(config->label.data, "giznet/v1/service/32", config->label.len) == 0) {
@@ -459,12 +511,7 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
       info.stream_id = 32;
       info.ordered = true;
       info.reliable = true;
-      fake->callbacks.on_channel_state(
-          fake->callbacks.userdata,
-          peer,
-          channel,
-          &info,
-          GZC_RTC_CHANNEL_OPEN);
+      fake_emit_channel_state(fake, channel, &info, GZC_RTC_CHANNEL_OPEN);
     }
   } else {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -1062,13 +1109,32 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
   }
   fake->buffered_amount += len;
   bool service_channel = channel == &fake->edge_channel;
+  bool terminal_emitted = false;
   for (size_t i = 0; i < 16 && !service_channel; i++) {
     service_channel = channel == &fake->service_channels[i];
     if (service_channel && fake->peer_rpc_channel[i] &&
         fake->client != NULL &&
         gzc_client_rpc_channel(fake->client) == channel) {
       fake->active_rpc_alias_observed = true;
+      if (fake->terminal_on_send == GZC_RTC_CHANNEL_CLOSED ||
+          fake->terminal_on_send == GZC_RTC_CHANNEL_ERROR) {
+        gzc_rtc_channel_info_t info;
+        memset(&info, 0, sizeof(info));
+        info.label = gzc_str_from_cstr("giznet/v1/service/0");
+        info.stream_id = 1;
+        info.ordered = true;
+        info.reliable = true;
+        gzc_rtc_channel_state_t terminal = fake->terminal_on_send;
+        fake->terminal_on_send = 0;
+        fake_emit_channel_state(fake, channel, &info, terminal);
+        fake->active_rpc_alias_cleared_on_terminal =
+            gzc_client_rpc_channel(fake->client) == NULL;
+        terminal_emitted = true;
+      }
     }
+  }
+  if (terminal_emitted) {
+    return GZC_ERR_WEBRTC;
   }
   if (!service_channel || is_text) {
     return test_channel_send_frame(channel, data, len, is_text);
@@ -1132,21 +1198,27 @@ static void announce_remote_rpc(fake_webrtc_t *fake, size_t index) {
   fake->remote_channels[index].id = (int)(3 + index);
   fake->callbacks.on_remote_channel(
       fake->callbacks.userdata, &fake->peer, &fake->remote_channels[index], &info);
-  fake->callbacks.on_channel_state(
-      fake->callbacks.userdata, &fake->peer, &fake->remote_channels[index], &info,
-      GZC_RTC_CHANNEL_OPEN);
+  fake_emit_channel_state(
+      fake, &fake->remote_channels[index], &info, GZC_RTC_CHANNEL_OPEN);
 }
 
-static void close_remote_rpc(fake_webrtc_t *fake, size_t index) {
+static void close_remote_rpc_with_state(
+    fake_webrtc_t *fake,
+    size_t index,
+    gzc_rtc_channel_state_t state) {
   gzc_rtc_channel_info_t info;
   memset(&info, 0, sizeof(info));
   info.label = gzc_str_from_cstr("giznet/v1/service/0");
   info.stream_id = (uint16_t)(3 + index);
   info.ordered = true;
   info.reliable = true;
-  fake->callbacks.on_channel_state(
-      fake->callbacks.userdata, &fake->peer, &fake->remote_channels[index], &info,
-      GZC_RTC_CHANNEL_CLOSED);
+  fake_emit_channel_state(
+      fake, &fake->remote_channels[index], &info, state);
+}
+
+static void close_remote_rpc(fake_webrtc_t *fake, size_t index) {
+  close_remote_rpc_with_state(
+      fake, index, GZC_RTC_CHANNEL_CLOSED);
 }
 
 typedef struct {
@@ -1700,6 +1772,76 @@ int main(void) {
   gzc_service_channel_close(same_service_second);
   gzc_service_channel_close(different_service);
 
+  const gzc_rtc_channel_state_t service_terminal_states[] = {
+      GZC_RTC_CHANNEL_CLOSED,
+      GZC_RTC_CHANNEL_ERROR,
+  };
+  for (size_t i = 0;
+       i < sizeof(service_terminal_states) /
+               sizeof(service_terminal_states[0]);
+       i++) {
+    gzc_service_channel_t *terminal_channel = NULL;
+    rc = gzc_client_open_service_channel(
+        client, 49, 1000, &terminal_channel);
+    int close_count_before_terminal = fake_webrtc.close_count;
+    gzc_rtc_channel_info_t info;
+    memset(&info, 0, sizeof(info));
+    info.label = gzc_str_from_cstr("giznet/v1/service/49");
+    info.stream_id = 49;
+    info.ordered = true;
+    info.reliable = true;
+    if (rc == GZC_OK) {
+      fake_emit_channel_state(
+          &fake_webrtc,
+          &fake_webrtc.edge_channel,
+          &info,
+          service_terminal_states[i]);
+      fake_emit_channel_state(
+          &fake_webrtc,
+          &fake_webrtc.edge_channel,
+          &info,
+          service_terminal_states[i]);
+    }
+    if (expect(
+            rc == GZC_OK && terminal_channel != NULL &&
+                gzc_service_channel_send_frame(
+                    terminal_channel, &coexist_eos) == GZC_ERR_CLOSED,
+            "terminal service callback invalidates the borrowed channel") != 0) {
+      return 1;
+    }
+    gzc_service_channel_close(terminal_channel);
+    if (expect(
+            fake_webrtc.close_count == close_count_before_terminal &&
+                fake_webrtc.stale_close_count == 0,
+            "terminal service cleanup skips provider close after duplicate notification") != 0) {
+      return 1;
+    }
+  }
+
+  gzc_service_channel_t *explicit_close_channel = NULL;
+  rc = gzc_client_open_service_channel(
+      client, 49, 1000, &explicit_close_channel);
+  int close_count_before_explicit = fake_webrtc.close_count;
+  gzc_service_channel_close(explicit_close_channel);
+  gzc_rtc_channel_info_t explicit_close_info;
+  memset(&explicit_close_info, 0, sizeof(explicit_close_info));
+  explicit_close_info.label = gzc_str_from_cstr("giznet/v1/service/49");
+  explicit_close_info.stream_id = 49;
+  explicit_close_info.ordered = true;
+  explicit_close_info.reliable = true;
+  fake_emit_channel_state(
+      &fake_webrtc,
+      &fake_webrtc.edge_channel,
+      &explicit_close_info,
+      GZC_RTC_CHANNEL_CLOSED);
+  if (expect(
+          rc == GZC_OK &&
+              fake_webrtc.close_count == close_count_before_explicit + 1 &&
+              fake_webrtc.stale_close_count == 0,
+          "explicit service close remains exactly once before a late terminal callback") != 0) {
+    return 1;
+  }
+
   gzc_service_channel_t *capacity_channels[15] = {0};
   for (size_t i = 0; i < 15u && rc == GZC_OK; i++) {
     rc = gzc_client_open_service_channel(
@@ -2083,6 +2225,32 @@ int main(void) {
     return 1;
   }
   gzc_rpc_response_t response;
+  const gzc_rtc_channel_state_t rpc_terminal_states[] = {
+      GZC_RTC_CHANNEL_CLOSED,
+      GZC_RTC_CHANNEL_ERROR,
+  };
+  for (size_t i = 0;
+       i < sizeof(rpc_terminal_states) / sizeof(rpc_terminal_states[0]);
+       i++) {
+    fake_webrtc.active_rpc_alias_cleared_on_terminal = false;
+    fake_webrtc.terminal_on_send = rpc_terminal_states[i];
+    int close_count_before_rpc_terminal = fake_webrtc.close_count;
+    memset(&response, 0, sizeof(response));
+    rc = gzc_rpc_call(
+        client,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+        gzc_str_from_parts((const char *)params.data, params.len),
+        &response);
+    if (expect(
+            rc == GZC_ERR_WEBRTC &&
+                fake_webrtc.active_rpc_alias_cleared_on_terminal &&
+                gzc_client_rpc_channel(client) == NULL &&
+                fake_webrtc.close_count == close_count_before_rpc_terminal &&
+                fake_webrtc.stale_close_count == 0,
+            "active RPC terminal callback revokes its alias without provider close") != 0) {
+      return 1;
+    }
+  }
   rc = gzc_rpc_call(
       client,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
@@ -3678,9 +3846,13 @@ int main(void) {
       fake_webrtc.opus_callback;
   void *late_opus_callback_userdata =
       fake_webrtc.opus_callback_userdata;
-  fake_webrtc.callbacks.on_channel_state(
-      fake_webrtc.callbacks.userdata,
-      &fake_webrtc.peer,
+  fake_emit_channel_state(
+      &fake_webrtc,
+      &fake_webrtc.packet_channel,
+      NULL,
+      GZC_RTC_CHANNEL_CLOSED);
+  fake_emit_channel_state(
+      &fake_webrtc,
       &fake_webrtc.packet_channel,
       NULL,
       GZC_RTC_CHANNEL_CLOSED);
@@ -3690,7 +3862,8 @@ int main(void) {
   if (expect(
           rc == GZC_ERR_CLOSED &&
               fake_webrtc.peer_close_count ==
-                  peer_close_count_before_failure + 1,
+                  peer_close_count_before_failure + 1 &&
+              fake_webrtc.stale_close_count == 0,
           "mandatory packet failure closes the physical Peer") != 0) {
     return 1;
   }
@@ -3839,7 +4012,38 @@ int main(void) {
     return 1;
   }
   gzc_service_channel_close(custom_channel);
-  close_remote_rpc(&fake_webrtc_custom, 0);
+  close_remote_rpc_with_state(
+      &fake_webrtc_custom, 0, GZC_RTC_CHANNEL_ERROR);
+  close_remote_rpc_with_state(
+      &fake_webrtc_custom, 0, GZC_RTC_CHANNEL_ERROR);
+  gzc_rtc_channel_info_t custom_event_info;
+  memset(&custom_event_info, 0, sizeof(custom_event_info));
+  custom_event_info.label = gzc_str_from_cstr("giznet/v1/service/32");
+  custom_event_info.stream_id = 32;
+  custom_event_info.ordered = true;
+  custom_event_info.reliable = true;
+  int close_count_before_event_terminal = fake_webrtc_custom.close_count;
+  fake_emit_channel_state(
+      &fake_webrtc_custom,
+      &fake_webrtc_custom.service_channels[15],
+      &custom_event_info,
+      GZC_RTC_CHANNEL_ERROR);
+  fake_emit_channel_state(
+      &fake_webrtc_custom,
+      &fake_webrtc_custom.service_channels[15],
+      &custom_event_info,
+      GZC_RTC_CHANNEL_ERROR);
+  rc = gzc_client_poll(client_custom, 0);
+  if (expect(
+          rc == GZC_ERR_CLOSED &&
+              fake_webrtc_custom.close_count ==
+                  close_count_before_event_terminal + 1 &&
+              fake_webrtc_custom.last_closed ==
+                  &fake_webrtc_custom.packet_channel &&
+              fake_webrtc_custom.stale_close_count == 0,
+          "terminal Event callback closes the client without re-closing consumed channels") != 0) {
+    return 1;
+  }
   gzc_client_close(client_custom);
   gzc_client_destroy(client_custom);
   gzc_buf_free(&fake_webrtc_custom.sent, platform);

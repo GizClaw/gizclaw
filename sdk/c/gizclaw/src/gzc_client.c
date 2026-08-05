@@ -261,13 +261,15 @@ static void fail_service_write(
   }
   gzc_service_channel_t *service_channel =
       service_channel_for_rtc(client, channel);
-  if (service_channel != NULL) {
-    service_channel->open = false;
-    service_channel->closed = true;
-    service_channel->close_requested = true;
-    if (service_channel == client->event_channel) {
-      client->closed = true;
-    }
+  if (service_channel == NULL) {
+    /* A synchronous terminal callback may already have consumed this handle. */
+    return;
+  }
+  service_channel->open = false;
+  service_channel->closed = true;
+  service_channel->close_requested = true;
+  if (service_channel == client->event_channel) {
+    client->closed = true;
   }
   if (client->config.webrtc != NULL && client->config.webrtc->channel_close != NULL) {
     client->config.webrtc->channel_close(channel);
@@ -872,44 +874,51 @@ static void on_channel_state(
   if (client == NULL || channel == NULL) {
     return;
   }
-  bool *open_flag = NULL;
-  if (channel == client->packet_channel) {
-    open_flag = &client->packet_channel_open;
-  } else {
-    gzc_service_channel_t *service_channel =
-        service_channel_for_rtc(client, channel);
-    if (service_channel != NULL) {
-      open_flag = &service_channel->open;
-    }
-  }
   for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
     if (channel == client->inbound_channels[i]) {
       if (state == GZC_RTC_CHANNEL_CLOSED || state == GZC_RTC_CHANNEL_ERROR) {
-        gzc_rpc_inbound_destroy(client->inbound[i]);
+        gzc_rpc_inbound_t *inbound = client->inbound[i];
         client->inbound[i] = NULL;
         client->inbound_channels[i] = NULL;
+        gzc_rpc_inbound_destroy(inbound);
       }
       return;
     }
   }
-  if (open_flag == NULL) {
-    return;
+  gzc_service_channel_t *service_channel =
+      service_channel_for_rtc(client, channel);
+  bool *open_flag = NULL;
+  if (channel == client->packet_channel) {
+    open_flag = &client->packet_channel_open;
+  } else if (service_channel != NULL) {
+    open_flag = &service_channel->open;
   }
   if (state == GZC_RTC_CHANNEL_OPEN) {
-    *open_flag = true;
-  } else if (state == GZC_RTC_CHANNEL_CLOSED || state == GZC_RTC_CHANNEL_ERROR) {
-    *open_flag = false;
-    gzc_service_channel_t *service_channel =
-        service_channel_for_rtc(client, channel);
-    if (service_channel != NULL) {
-      service_channel->closed = true;
-      if (service_channel == client->event_channel) {
-        client->closed = true;
-      }
+    if (open_flag != NULL) {
+      *open_flag = true;
     }
-    if (channel == client->packet_channel) {
+    return;
+  }
+  if (state != GZC_RTC_CHANNEL_CLOSED && state != GZC_RTC_CHANNEL_ERROR) {
+    return;
+  }
+  if (client->rpc_channel == channel) {
+    client->rpc_channel = NULL;
+  }
+  if (service_channel != NULL) {
+    service_channel->open = false;
+    service_channel->closed = true;
+    service_channel->close_requested = true;
+    service_channel->rtc = NULL;
+    if (service_channel == client->event_channel) {
       client->closed = true;
     }
+    return;
+  }
+  if (channel == client->packet_channel) {
+    client->packet_channel_open = false;
+    client->packet_channel = NULL;
+    client->closed = true;
   }
 }
 
@@ -1932,10 +1941,10 @@ int gzc_client_open_service_channel(
 }
 
 int gzc_service_channel_send_frame(gzc_service_channel_t *channel, const gzc_rpc_frame_t *frame) {
-  if (channel == NULL || channel->client == NULL || channel->rtc == NULL || frame == NULL) {
+  if (channel == NULL || channel->client == NULL || frame == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  if (channel->closed || !channel->open) {
+  if (channel->closed || !channel->open || channel->rtc == NULL) {
     return GZC_ERR_CLOSED;
   }
   return gzc_client_write_frame_internal(
