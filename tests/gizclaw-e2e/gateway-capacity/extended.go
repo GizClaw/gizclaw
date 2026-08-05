@@ -376,7 +376,12 @@ while true; do
   read -r network_rx network_tx <<< "$network_totals"
   [[ -n "$udp_sockets" && -n "$udp6_sockets" && -n "$network_rx" && -n "$network_tx" ]]
   printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "$sampled_at" "$pid" "$resident" "$page_size" "$user_ticks" "$system_ticks" "$clock_ticks" "$open_fds" "$start_ticks" "$fd_limit" "$udp_sockets" "$udp6_sockets" "$network_rx" "$network_tx"
-  sleep 1
+  now_nanoseconds="${EPOCHREALTIME/./}000"
+  sleep_milliseconds=$(((sampled_at + 1000000000 - now_nanoseconds) / 1000000))
+  if ((sleep_milliseconds > 0)); then
+    sleep_seconds="$(awk -v milliseconds="$sleep_milliseconds" 'BEGIN { printf "%.3f", milliseconds / 1000 }')"
+    sleep "$sleep_seconds"
+  fi
 done
 `
 

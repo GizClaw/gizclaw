@@ -183,11 +183,17 @@ numeric_greater() {
 stream_coturn_metrics() {
   local container_id="$1"
   local stop_file="$2"
-  docker exec -i "$container_id" bash -s -- "$stop_file" <<'EOF'
+  local initial_delay_milliseconds="$3"
+  docker exec -i "$container_id" bash -s -- "$stop_file" "$initial_delay_milliseconds" <<'EOF'
 set -euo pipefail
 stop_file="$1"
+initial_delay_milliseconds="$2"
+if ((initial_delay_milliseconds > 0)); then
+  initial_delay_seconds="$(awk -v milliseconds="$initial_delay_milliseconds" 'BEGIN { printf "%.3f", milliseconds / 1000 }')"
+  sleep "$initial_delay_seconds"
+fi
 while [[ ! -e "$stop_file" ]]; do
-  sampled_at_nanoseconds="${EPOCHREALTIME/./}000"
+  iteration_started_nanoseconds="${EPOCHREALTIME/./}000"
   output="$({
     exec 3<>/dev/tcp/127.0.0.1/9641
     printf "GET /metrics HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3
@@ -199,9 +205,10 @@ while [[ ! -e "$stop_file" ]]; do
     $1 == "turn_total_traffic_sentb" || index($1, "turn_total_traffic_sentb{") == 1 { sent += $2 }
     END { printf "%.0f %.0f %.0f\n", allocations, received, sent }
   ' <<<"$output")
+  sampled_at_nanoseconds="${EPOCHREALTIME/./}000"
   printf '%s %s %s %s\n' "$sampled_at_nanoseconds" "$allocations" "$received" "$sent"
   now_nanoseconds="${EPOCHREALTIME/./}000"
-  sleep_milliseconds=$(((sampled_at_nanoseconds + 1000000000 - now_nanoseconds) / 1000000))
+  sleep_milliseconds=$(((iteration_started_nanoseconds + 1000000000 - now_nanoseconds) / 1000000))
   if ((sleep_milliseconds > 0)); then
     sleep_seconds="$(awk -v milliseconds="$sleep_milliseconds" 'BEGIN { printf "%.3f", milliseconds / 1000 }')"
     sleep "$sleep_seconds"
@@ -225,17 +232,22 @@ signal_coturn_monitor_stop() {
 merge_coturn_metric_streams() {
   local expected="$1"
   local a_output="$2"
-  local b_output="$3"
-  local output="$4"
-  python3 - "$expected" "$a_output" "$b_output" "$output" <<'PY'
+  local a_redundant_output="$3"
+  local b_output="$4"
+  local b_redundant_output="$5"
+  local output="$6"
+  python3 - "$expected" "$a_output" "$a_redundant_output" "$b_output" "$b_redundant_output" "$output" <<'PY'
 import datetime
 import json
 import pathlib
 import sys
 
 expected = int(sys.argv[1])
-paths = [pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])]
-output = pathlib.Path(sys.argv[4])
+member_paths = [
+    [pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])],
+    [pathlib.Path(sys.argv[4]), pathlib.Path(sys.argv[5])],
+]
+output = pathlib.Path(sys.argv[6])
 
 def read_samples(path):
     samples = []
@@ -244,23 +256,47 @@ def read_samples(path):
         samples.append((timestamp, allocations, received, sent))
     return samples
 
-members = [read_samples(path) for path in paths]
-if any(not samples for samples in members):
-    raise SystemExit("Coturn metric stream produced no samples")
 if expected % 2 != 0:
     raise SystemExit("expected Coturn allocation count must divide evenly between members")
 
 expected_member = expected // 2
-for samples in members:
+members = []
+for member_index, paths in enumerate(member_paths):
+    member_samples = []
+    for path in paths:
+        samples = read_samples(path)
+        if not samples:
+            raise SystemExit(f"Coturn metric stream produced no samples: path={path}")
+        previous = None
+        for timestamp, allocations, _, _ in samples:
+            if previous is not None and timestamp <= previous:
+                raise SystemExit(
+                    f"Coturn metric stream is not monotonic: path={path} "
+                    f"previous={previous} actual={timestamp}"
+                )
+            previous = timestamp
+            if allocations != expected_member:
+                raise SystemExit(
+                    f"Coturn live allocations changed: member={member_index} "
+                    f"expected={expected_member} actual={allocations} timestamp={timestamp}"
+                )
+        member_samples.extend(samples)
+    member_samples.sort()
     previous = None
-    for timestamp, allocations, _, _ in samples:
+    for timestamp, allocations, _, _ in member_samples:
         if allocations != expected_member:
             raise SystemExit(
-                f"Coturn live allocations changed: expected={expected_member} actual={allocations}"
+                f"Coturn live allocations changed: member={member_index} "
+                f"expected={expected_member} actual={allocations} timestamp={timestamp}"
             )
-        if previous is not None and (timestamp <= previous or timestamp - previous > 2_100_000_000):
-            raise SystemExit("Coturn member metric stream exceeds the 2.1-second gap")
+        if previous is not None and timestamp - previous > 2_100_000_000:
+            raise SystemExit(
+                f"Coturn member metric stream exceeds the 2.1-second gap: "
+                f"member={member_index} previous={previous} actual={timestamp} "
+                f"gap_nanoseconds={timestamp - previous}"
+            )
         previous = timestamp
+    members.append(member_samples)
 
 paired = []
 a_index = 0
@@ -309,28 +345,41 @@ monitor_coturn_allocations() (
   local expected="$1"
   local output="$2"
   local stop_file="$3"
-  local a_output="${output}.coturn-a.tmp" b_output="${output}.coturn-b.tmp"
-  local a_pid b_pid a_status=0 b_status=0
-  trap 'rm -f "$a_output" "$b_output"' EXIT
+  local a_output="${output}.coturn-a.tmp" a_redundant_output="${output}.coturn-a-redundant.tmp"
+  local b_output="${output}.coturn-b.tmp" b_redundant_output="${output}.coturn-b-redundant.tmp"
+  local stream_failed=false index status
+  local -a pids=() labels=(coturn-a coturn-a-redundant coturn-b coturn-b-redundant)
+  trap 'rm -f "$a_output" "$a_redundant_output" "$b_output" "$b_redundant_output"' EXIT
   : >"$a_output"
+  : >"$a_redundant_output"
   : >"$b_output"
-  stream_coturn_metrics "$coturn_a_container_id" "$stop_file" >"$a_output" &
-  a_pid="$!"
-  stream_coturn_metrics "$coturn_b_container_id" "$stop_file" >"$b_output" &
-  b_pid="$!"
-  while kill -0 "$a_pid" 2>/dev/null && kill -0 "$b_pid" 2>/dev/null; do
+  : >"$b_redundant_output"
+  stream_coturn_metrics "$coturn_a_container_id" "$stop_file" 0 >"$a_output" &
+  pids+=("$!")
+  stream_coturn_metrics "$coturn_a_container_id" "$stop_file" 500 >"$a_redundant_output" &
+  pids+=("$!")
+  stream_coturn_metrics "$coturn_b_container_id" "$stop_file" 0 >"$b_output" &
+  pids+=("$!")
+  stream_coturn_metrics "$coturn_b_container_id" "$stop_file" 500 >"$b_redundant_output" &
+  pids+=("$!")
+  while kill -0 "${pids[0]}" 2>/dev/null && kill -0 "${pids[1]}" 2>/dev/null && \
+    kill -0 "${pids[2]}" 2>/dev/null && kill -0 "${pids[3]}" 2>/dev/null; do
     sleep 0.1
   done
-  if kill -0 "$a_pid" 2>/dev/null || kill -0 "$b_pid" 2>/dev/null; then
-    signal_coturn_monitor_stop "$stop_file" || true
-  fi
-  wait "$a_pid" || a_status="$?"
-  wait "$b_pid" || b_status="$?"
-  if ((a_status != 0 || b_status != 0)); then
-    echo "Coturn member metric stream failed: coturn-a=$a_status coturn-b=$b_status" >&2
+  signal_coturn_monitor_stop "$stop_file" || true
+  for index in "${!pids[@]}"; do
+    status=0
+    wait "${pids[$index]}" || status="$?"
+    if ((status != 0)); then
+      echo "Coturn member metric stream failed: ${labels[$index]}=$status" >&2
+      stream_failed=true
+    fi
+  done
+  if [[ "$stream_failed" == true ]]; then
     return 1
   fi
-  merge_coturn_metric_streams "$expected" "$a_output" "$b_output" "$output"
+  merge_coturn_metric_streams "$expected" "$a_output" "$a_redundant_output" \
+    "$b_output" "$b_redundant_output" "$output"
 )
 
 stop_coturn_monitor() {
@@ -352,7 +401,8 @@ wait_coturn_monitor_ready() {
   local deadline=$((SECONDS + 10))
   local status=0
   while ((SECONDS <= deadline)); do
-    if [[ -s "${output}.coturn-a.tmp" && -s "${output}.coturn-b.tmp" ]]; then
+    if [[ -s "${output}.coturn-a.tmp" && -s "${output}.coturn-a-redundant.tmp" && \
+      -s "${output}.coturn-b.tmp" && -s "${output}.coturn-b-redundant.tmp" ]]; then
       return 0
     fi
     if ! kill -0 "$coturn_monitor_pid" 2>/dev/null; then
