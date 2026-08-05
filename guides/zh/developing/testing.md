@@ -191,11 +191,13 @@ download 均精确传输 1 GiB、达到至少 200 Mbps，且 final 每个方向�
 Extended artifact version 14 记录实际 hold boundary，并验收最初与最后十分钟窗口。每轮
 p99 RTT 的 median、RSS、open FD，以及可获得的 Go heap/goroutine 值，增长最多为 20%。
 CPU 和 network rate 采用相同的相对门槛，并分别设置 0.10 core 与 1,024 bytes/s 的绝对
-噪声下限；UDP 与 UDP6 socket median 增长最多为 20%。Load driver、两台 Edge、两个
-Coturn 与 Server 的 source-qualified process sample 每秒记录，允许的最大 gap 为 2.1 秒；
-cumulative CPU 与 network counter 不得下降。外部 Go runtime field 及 load driver 的
-socket/network field 无法获取时必须逐项明确为 unsupported。任何 initial gate 失败都会
-阻止 hold 开始，cancellation 仍执行有界 session 与 Docker cleanup。
+噪声下限；UDP 与 UDP6 socket median 增长最多为 20%。RSS、CPU 与 open-FD sample 标识
+同一 process 及 start time；Docker role 的 UDP/socket 与 network counter 来自
+`/proc/<pid>/net`，属于 container network namespace 证据，而非 process-only counter。
+Load driver、两台 Edge、两个 Coturn 与 Server 的 source-qualified sample 每秒记录，允许的
+最大 gap 为 2.1 秒；cumulative CPU 与 network counter 不得下降。外部 Go runtime field
+及 load driver 的 namespace socket/network field 无法获取时必须逐项明确为 unsupported。
+任何 initial gate 失败都会阻止 hold 开始，cancellation 仍执行有界 session 与 Docker cleanup。
 
 100/500-session burst runner 保留既有 payload 和 gate，但当前都使用上述 relay-only
 upstream 拓扑。既有 workload field 保持不变；当前 version 14 artifact 包含 optional
@@ -203,7 +205,8 @@ final-speed retention、mandatory bounded-cleanup evidence，以及 load driver 
 `GOGC`；100/500-session 入口显式保留 `GOGC=100`。同目录的
 `*-coturn.json` sidecar 记录两个
 Coturn member 的一秒间隔 live allocation/traffic sample、finished-session byte counter、
-traffic delta，以及两个 Edge 停止后有界归零结果。已合并的 #697/#698 结果仍是历史
+traffic delta，以及两个 Edge 停止后有界归零结果。验收要求 workload 前已产出第一条
+sample，timestamp 严格递增且相邻 gap 不超过两秒。已合并的 #697/#698 结果仍是历史
 direct-upstream 观测；当前
 Coturn 数据不是 production、WAN 或可移植吞吐 SLA。
 

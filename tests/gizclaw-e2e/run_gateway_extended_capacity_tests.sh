@@ -206,6 +206,43 @@ stop_coturn_monitor() {
   return "$status"
 }
 
+wait_coturn_monitor_ready() {
+  local output="$1"
+  local deadline=$((SECONDS + 10))
+  local status=0
+  while ((SECONDS <= deadline)); do
+    if [[ -s "$output" ]]; then
+      return 0
+    fi
+    if ! kill -0 "$coturn_monitor_pid" 2>/dev/null; then
+      wait "$coturn_monitor_pid" || status=$?
+      coturn_monitor_pid=""
+      echo "Coturn live-allocation monitor exited before its first sample: status=$status" >&2
+      return 1
+    fi
+    sleep 0.1
+  done
+  echo "Coturn live-allocation monitor produced no sample within 10 seconds" >&2
+  return 1
+}
+
+validate_coturn_live_samples() {
+  local expected="$1"
+  local output="$2"
+  if jq -es --argjson expected "$expected" '
+    length > 0 and
+    all(.[]; .total_allocations == $expected) and
+    ([.[].sampled_at | fromdateiso8601] as $timestamps |
+      all(range(1; $timestamps | length);
+        ($timestamps[.] > $timestamps[. - 1]) and
+        ($timestamps[.] - $timestamps[. - 1] <= 2)))
+  ' "$output" >/dev/null; then
+    return 0
+  fi
+  echo "Coturn live-allocation samples are empty, discontinuous, or differ from expected=$expected" >&2
+  return 1
+}
+
 wait_coturn_allocations_zero() {
   local deadline=$((SECONDS + 15))
   local a_alloc b_alloc
@@ -306,6 +343,7 @@ run_case() {
     monitor_coturn_allocations "$expected_allocations" "$coturn_live_artifact" "$coturn_monitor_stop"
   ) &
   coturn_monitor_pid="$!"
+  wait_coturn_monitor_ready "$coturn_live_artifact"
 
   echo "==> run extended capacity workload: scenario=$scenario repetition=$repetition"
   # Leave reliable SCTP most of the 30-second round to recover while keeping
@@ -383,6 +421,7 @@ run_case() {
     echo "Coturn live-allocation monitoring failed for scenario=$scenario repetition=$repetition" >&2
     return "$monitor_status"
   fi
+  validate_coturn_live_samples "$expected_allocations" "$coturn_live_artifact"
 
   read -r after_a_alloc after_a_recv after_a_sent < <(read_coturn_metrics coturn-a)
   read -r after_b_alloc after_b_recv after_b_sent < <(read_coturn_metrics coturn-b)
@@ -447,6 +486,7 @@ run_case() {
       expected_gateway_allocations_per_edge: 4,
       expected_control_allocations_per_edge: 1,
       expected_total_allocations_per_edge: 5,
+      maximum_live_sample_gap_seconds: 2,
       live_before: {
         coturn_a: {allocations: $before_a_alloc, received_bytes: $before_a_recv, sent_bytes: $before_a_sent},
         coturn_b: {allocations: $before_b_alloc, received_bytes: $before_b_recv, sent_bytes: $before_b_sent}

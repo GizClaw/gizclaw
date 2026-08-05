@@ -223,10 +223,13 @@ first and last ten-minute windows. Median round p99 RTT, RSS, open FDs, and
 available Go heap/goroutine values may grow by at most 20%. CPU and network-rate
 comparisons apply the same relative limit with 0.10-core and 1,024-byte/s
 absolute noise floors; UDP and UDP6 socket medians may grow by at most 20%.
-Source-qualified samples cover the load driver, both Edge processes, both
-Coturn processes, and Server once per second, with a maximum accepted gap of
-2.1 seconds. Cumulative CPU and network counters cannot decrease. Unsupported
-external Go runtime fields and load-driver socket/network fields are enumerated
+RSS, CPU, and open-FD samples identify one process and start time. The Docker
+roles' UDP counts and network counters come from `/proc/<pid>/net`, which is
+container-network-namespace evidence rather than a process-only counter.
+Source-qualified samples cover the load driver, both Edge roles, both Coturn
+roles, and Server once per second, with a maximum accepted gap of 2.1 seconds.
+Cumulative CPU and network counters cannot decrease. Unsupported external Go
+runtime fields and load-driver namespace socket/network fields are enumerated
 explicitly. Any failed initial gate prevents the hold from starting, and
 cancellation still performs bounded session and Docker cleanup.
 
@@ -239,7 +242,8 @@ sibling `*-coturn.json`
 artifact records each Coturn
 member's one-second live allocation and traffic samples, finished-session byte
 counters, traffic delta, and the bounded return to zero after both Edge
-processes stop. The merged
+processes stop. It is accepted only after a pre-workload sample and a strictly
+ordered timeline with no gap above two seconds. The merged
 #697/#698 results remain historical direct-upstream observations; current
 Coturn measurements are not a production, WAN, or portable throughput SLA.
 

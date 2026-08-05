@@ -250,16 +250,19 @@ initial/final upload 与 download checkpoint 均对每 session 精确传输 1 Mi
 都保留 initial 的至少 80%。p95 与 p99 throughput 保留为快尾诊断，不作为退化 gate。
 
 Artifact version 14 记录实际 hold boundary，并比较最初与最后十分钟。每轮 RTT p99 的
-median、process RSS、open FD，以及可获得的 Go heap 与 goroutine median，增长均不得超过
-20%；CPU 与 network rate 同样采用 20% 相对门槛，并分别设置 0.10 core 与 1,024 bytes/s
-绝对噪声下限；UDP/UDP6 socket median 采用 20% 门槛。门槛覆盖 load driver、两台 Edge、
-两个 Coturn 与 Server，拒绝 process counter reset，并要求 resource sample gap 不超过
-2.1 秒。外部进程无法提供的 Go runtime metric，以及 load driver 无法提供的 socket/network
-metric，必须逐项明确标为 unsupported，不得伪造数值。
+median、RSS、open FD，以及可获得的 Go heap 与 goroutine median，增长均不得超过 20%；
+CPU 与 network rate 同样采用 20% 相对门槛，并分别设置 0.10 core 与 1,024 bytes/s 绝对
+噪声下限；UDP/UDP6 socket median 采用 20% 门槛。RSS、CPU 与 open-FD sample 绑定同一
+process ID 和 start time；Docker role 的 `/proc/<pid>/net/{udp,udp6,dev}` 描述 container
+network namespace，并非只统计该进程持有的 socket 和 traffic。门槛覆盖 load driver、
+两台 Edge、两个 Coturn 与 Server，拒绝 process counter reset，并要求 resource sample gap
+不超过 2.1 秒。外部进程无法提供的 Go runtime metric，以及 load driver 无法提供的
+namespace socket/network metric，必须逐项明确标为 unsupported，不得伪造数值。
 
 Logical-session cleanup 上限为
 30 秒；Edge 存活期间按一秒间隔读取 source-qualified Coturn counter，要求十条 physical
-TURN allocation 始终保持存在，Edge 关闭后必须在 15 秒内归零。这些命令只验收 artifact
+TURN allocation 始终保持存在，Edge 关闭后必须在 15 秒内归零。监控必须在 workload
+启动前产出第一条 sample，且 timestamp 严格递增、相邻 gap 不超过两秒。这些命令只验收 artifact
 记录的 host、Docker engine、clean commit 与 topology，不是 30,000-session 或 WAN
 guarantee。
 

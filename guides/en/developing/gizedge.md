@@ -322,18 +322,24 @@ of its per-session p01, p05, and p50 throughput. The p95 and p99 throughput
 values remain upper-tail diagnostics rather than degradation gates.
 
 Artifact version 14 records the actual hold boundaries and compares the first
-and last ten minutes. The median per-round RTT p99, process RSS, open FDs, and
-available Go heap and goroutine medians must not grow by more than 20%. CPU and
+and last ten minutes. The median per-round RTT p99, RSS, open FDs, and available
+Go heap and goroutine medians must not grow by more than 20%. CPU and
 network-rate changes use the same relative bound with absolute noise floors of
-0.10 core and 1,024 bytes/s; UDP/UDP6 socket medians use the 20% bound. These
-checks cover the load driver, both Edges, both Coturn members, and Server, reject
+0.10 core and 1,024 bytes/s; UDP/UDP6 socket medians use the 20% bound. RSS,
+CPU, and open-FD samples are tied to one process ID and start time. For Docker
+roles, `/proc/<pid>/net/{udp,udp6,dev}` describes the container network
+namespace, not only sockets and traffic owned by that process. These checks
+cover the load driver, both Edges, both Coturn members, and Server, reject
 process-counter resets, and require resource gaps no larger than 2.1 seconds.
-Unavailable external Go runtime metrics and load-driver socket/network metrics
-are named explicitly rather than represented by fabricated values.
+Unavailable external Go runtime metrics and load-driver namespace
+socket/network metrics are named explicitly rather than represented by
+fabricated values.
 
 Logical-session cleanup has a 30-second bound; the ten physical TURN allocations
 are checked from source-qualified Coturn counters once per second while the
 Edges are alive and must return to zero within 15 seconds after Edge shutdown.
+The monitor must produce its first sample before the workload starts, and its
+timestamped samples must be strictly ordered with no gap above two seconds.
 These commands qualify only their recorded host, Docker engine, clean commit,
 and topology; they are not a 30,000-session or WAN guarantee.
 
