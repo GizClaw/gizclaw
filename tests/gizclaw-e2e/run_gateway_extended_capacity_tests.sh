@@ -12,6 +12,8 @@ current_env=""
 runtime_state=""
 coturn_monitor_pid=""
 coturn_monitor_stop=""
+coturn_a_container_id=""
+coturn_b_container_id=""
 gateway_workload_pid=""
 gateway_gomaxprocs="${GIZCLAW_E2E_GATEWAY_GOMAXPROCS:-8}"
 gateway_gogc="${GIZCLAW_E2E_GATEWAY_GOGC:-100}"
@@ -82,6 +84,8 @@ cleanup_current() {
   GIZCLAW_E2E_DOCKER_ENV="$current_env" bash "$setup_dir/docker-compose-down.sh" >/dev/null 2>&1 || return 1
   rm -f "$current_env"
   current_env=""
+  coturn_a_container_id=""
+  coturn_b_container_id=""
 }
 
 cleanup_on_exit() {
@@ -132,11 +136,17 @@ resolve_capacity_edge_endpoint() {
 
 read_coturn_metrics() {
   local service="$1"
-  local output
-  output="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" \
-    -f "$GIZCLAW_E2E_DOCKER_COMPOSE_FILE" \
-    -f "$GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY" \
-    exec -T "$service" bash -lc '
+  local container_id output
+  case "$service" in
+    coturn-a) container_id="$coturn_a_container_id" ;;
+    coturn-b) container_id="$coturn_b_container_id" ;;
+    *) echo "unknown Coturn service: $service" >&2; return 2 ;;
+  esac
+  if [[ -z "$container_id" ]]; then
+    echo "Coturn container ID is unavailable for service=$service" >&2
+    return 1
+  fi
+  output="$(docker exec "$container_id" bash -lc '
       exec 3<>/dev/tcp/127.0.0.1/9641
       printf "GET /metrics HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3
       cat <&3
@@ -147,6 +157,19 @@ read_coturn_metrics() {
     $1 == "turn_total_traffic_sentb" || index($1, "turn_total_traffic_sentb{") == 1 { sent += $2 }
     END { printf "%.0f %.0f %.0f\n", allocations, received, sent }
   ' <<<"$output"
+}
+
+resolve_compose_container_id() {
+  local service="$1"
+  local container_id
+  container_id="$(docker ps -q \
+    --filter "label=com.docker.compose.project=$GIZCLAW_E2E_DOCKER_PROJECT" \
+    --filter "label=com.docker.compose.service=$service")"
+  if [[ -z "$container_id" || "$container_id" == *$'\n'* ]]; then
+    echo "expected one running container for service=$service, got: $container_id" >&2
+    return 1
+  fi
+  printf '%s\n' "$container_id"
 }
 
 numeric_sum() {
@@ -357,6 +380,8 @@ run_case() {
 
   capacity_edge_endpoint="$(resolve_capacity_edge_endpoint edge "$GIZCLAW_E2E_EDGE_ENDPOINT")"
   capacity_edge2_endpoint="$(resolve_capacity_edge_endpoint edge2 "$GIZCLAW_E2E_EDGE2_ENDPOINT")"
+  coturn_a_container_id="$(resolve_compose_container_id coturn-a)"
+  coturn_b_container_id="$(resolve_compose_container_id coturn-b)"
   read -r before_a_alloc before_a_recv before_a_sent before_b_alloc before_b_recv before_b_sent \
     < <(wait_coturn_allocation_count "$expected_allocations")
 
