@@ -222,6 +222,9 @@ func TestDataChannelConnReadReusesMessageBuffer(t *testing.T) {
 	if allocations != 0 {
 		t.Fatalf("Read allocations = %f, want 0", allocations)
 	}
+	if got := len(conn.readBuffer); got != streamChunkSize {
+		t.Fatalf("read buffer size = %d, want %d", got, streamChunkSize)
+	}
 }
 
 func TestDataChannelConnCloseWakesBlockedWriter(t *testing.T) {

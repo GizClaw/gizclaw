@@ -80,7 +80,7 @@ func (c *dataChannelConn) Read(p []byte) (int, error) {
 	}
 
 	if c.readBuffer == nil {
-		c.readBuffer = make([]byte, maxPacketMessageSize)
+		c.readBuffer = make([]byte, streamChunkSize)
 	}
 	buf := c.readBuffer
 	n, _, err := c.raw.ReadDataChannel(buf)
