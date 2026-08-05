@@ -1030,6 +1030,70 @@ func TestWriteFrameRejectsOversizedFrame(t *testing.T) {
 	}
 }
 
+func TestReadFrameIntoReusesPayloadBuffer(t *testing.T) {
+	var encoded bytes.Buffer
+	if err := WriteFrame(&encoded, Frame{Type: FrameTypeBinary, Payload: []byte("payload")}); err != nil {
+		t.Fatalf("WriteFrame() error = %v", err)
+	}
+	buffer := make([]byte, MaxFrameSize)
+	frame, err := ReadFrameInto(&encoded, buffer)
+	if err != nil {
+		t.Fatalf("ReadFrameInto() error = %v", err)
+	}
+	if frame.Type != FrameTypeBinary || string(frame.Payload) != "payload" {
+		t.Fatalf("ReadFrameInto() = %+v", frame)
+	}
+	if &frame.Payload[0] != &buffer[0] {
+		t.Fatal("ReadFrameInto() did not reuse the provided payload buffer")
+	}
+}
+
+func TestReadFrameIntoGrowsSmallPayloadBuffer(t *testing.T) {
+	var encoded bytes.Buffer
+	if err := WriteFrame(&encoded, Frame{Type: FrameTypeBinary, Payload: []byte("payload")}); err != nil {
+		t.Fatalf("WriteFrame() error = %v", err)
+	}
+	buffer := make([]byte, 1)
+	frame, err := ReadFrameInto(&encoded, buffer)
+	if err != nil {
+		t.Fatalf("ReadFrameInto() error = %v", err)
+	}
+	if string(frame.Payload) != "payload" {
+		t.Fatalf("ReadFrameInto() payload = %q", frame.Payload)
+	}
+	if &frame.Payload[0] == &buffer[0] {
+		t.Fatal("ReadFrameInto() reused an undersized payload buffer")
+	}
+}
+
+func TestReadFrameIntoAvoidsPayloadAllocation(t *testing.T) {
+	var encoded bytes.Buffer
+	if err := WriteFrame(&encoded, Frame{Type: FrameTypeBinary, Payload: make([]byte, MaxFrameSize)}); err != nil {
+		t.Fatalf("WriteFrame() error = %v", err)
+	}
+	data := bytes.Clone(encoded.Bytes())
+	reader := bytes.NewReader(data)
+	buffer := make([]byte, MaxFrameSize)
+	var readErr error
+	reusedAllocations := testing.AllocsPerRun(1000, func() {
+		reader.Reset(data)
+		_, readErr = ReadFrameInto(reader, buffer)
+	})
+	if readErr != nil {
+		t.Fatalf("ReadFrameInto() error = %v", readErr)
+	}
+	baselineAllocations := testing.AllocsPerRun(1000, func() {
+		reader.Reset(data)
+		_, readErr = ReadFrame(reader)
+	})
+	if readErr != nil {
+		t.Fatalf("ReadFrame() error = %v", readErr)
+	}
+	if reusedAllocations >= baselineAllocations {
+		t.Fatalf("ReadFrameInto() allocations = %v, want fewer than ReadFrame() allocations = %v", reusedAllocations, baselineAllocations)
+	}
+}
+
 func TestReadFrameRejectsUnknownType(t *testing.T) {
 	var buf bytes.Buffer
 	var hdr [4]byte
