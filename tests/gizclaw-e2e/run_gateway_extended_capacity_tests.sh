@@ -44,10 +44,12 @@ esac
 # shellcheck disable=SC1091
 source "$setup_dir/credentials.sh"
 require_gizclaw_e2e_credentials "$env_file"
-if ! command -v jq >/dev/null 2>&1; then
-  echo "extended capacity requires jq to write Coturn evidence" >&2
-  exit 2
-fi
+for required_command in jq python3; do
+  if ! command -v "$required_command" >/dev/null 2>&1; then
+    echo "extended capacity requires $required_command to write Coturn evidence" >&2
+    exit 2
+  fi
+done
 
 mkdir -p "$artifact_root/direct" "$artifact_root/relay" "$script_dir/testdata/docker" "$script_dir/testdata/bin"
 artifact_root="$(cd "$artifact_root" && pwd -P)"
@@ -155,11 +157,14 @@ numeric_greater() {
   awk -v value="$1" -v baseline="$2" 'BEGIN { exit !(value > baseline) }'
 }
 
-monitor_coturn_allocations() {
+monitor_coturn_allocations() (
   local expected="$1"
   local output="$2"
   local stop_file="$3"
   local sampled_at sampled_at_unix_milliseconds a_alloc a_recv a_sent b_alloc b_recv b_sent total
+  local a_output="${output}.coturn-a.tmp" b_output="${output}.coturn-b.tmp"
+  local a_pid b_pid a_status b_status now_milliseconds sleep_milliseconds sleep_seconds
+  trap 'rm -f "$a_output" "$b_output"' EXIT
   : >"$output"
   while [[ ! -e "$stop_file" ]]; do
     read -r sampled_at sampled_at_unix_milliseconds < <(python3 -c '
@@ -169,8 +174,17 @@ import time
 now = time.time()
 print(datetime.datetime.fromtimestamp(now, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), int(now * 1000))
 ')
-    if ! read -r a_alloc a_recv a_sent < <(read_coturn_metrics coturn-a) ||
-      ! read -r b_alloc b_recv b_sent < <(read_coturn_metrics coturn-b); then
+    read_coturn_metrics coturn-a >"$a_output" &
+    a_pid="$!"
+    read_coturn_metrics coturn-b >"$b_output" &
+    b_pid="$!"
+    a_status=0
+    b_status=0
+    wait "$a_pid" || a_status="$?"
+    wait "$b_pid" || b_status="$?"
+    if ((a_status != 0 || b_status != 0)) ||
+      ! read -r a_alloc a_recv a_sent <"$a_output" ||
+      ! read -r b_alloc b_recv b_sent <"$b_output"; then
       echo "failed to sample live Coturn allocations at $sampled_at" >&2
       return 1
     fi
@@ -192,14 +206,17 @@ print(datetime.datetime.fromtimestamp(now, datetime.timezone.utc).strftime("%Y-%
       echo "Coturn live allocations changed during workload: expected=$expected actual=$total at=$sampled_at" >&2
       return 1
     fi
-    for _ in {1..10}; do
-      if [[ -e "$stop_file" ]]; then
-        return 0
-      fi
-      sleep 0.1
-    done
+    if [[ -e "$stop_file" ]]; then
+      return 0
+    fi
+    now_milliseconds="$(python3 -c 'import time; print(int(time.time() * 1000))')"
+    sleep_milliseconds=$((sampled_at_unix_milliseconds + 1000 - now_milliseconds))
+    if ((sleep_milliseconds > 0)); then
+      sleep_seconds="$(awk -v milliseconds="$sleep_milliseconds" 'BEGIN { printf "%.3f", milliseconds / 1000 }')"
+      sleep "$sleep_seconds"
+    fi
   done
-}
+)
 
 stop_coturn_monitor() {
   local status=0
