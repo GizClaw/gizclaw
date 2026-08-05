@@ -419,6 +419,23 @@ func TestClientPingReusesStreamAndCloseReleasesIt(t *testing.T) {
 	_ = serverSide.Close()
 }
 
+func TestClientPingWaitHonorsContext(t *testing.T) {
+	client := &Client{}
+	client.lockPingUninterruptibly()
+	defer client.unlockPing()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancel()
+	started := time.Now()
+	_, err := client.Ping(ctx, "queued")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Ping() error = %v, want context deadline exceeded", err)
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("Ping() waited %s after its context deadline", elapsed)
+	}
+}
+
 func TestClientPingFailureDiscardsStreamBeforeRedial(t *testing.T) {
 	failedServer, failedClient := net.Pipe()
 	workingServer, workingClient := net.Pipe()

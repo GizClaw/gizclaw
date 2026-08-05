@@ -37,14 +37,15 @@ type Client struct {
 
 	Device apitypes.DeviceInfo
 
-	mu       sync.RWMutex
-	listener giznet.Listener
-	conn     giznet.Conn
-	serverPK giznet.PublicKey
-	rpc      *rpcClient
-	events   *peerEventSession
-	pingMu   sync.Mutex
-	pingConn net.Conn
+	mu           sync.RWMutex
+	listener     giznet.Listener
+	conn         giznet.Conn
+	serverPK     giznet.PublicKey
+	rpc          *rpcClient
+	events       *peerEventSession
+	pingGateOnce sync.Once
+	pingGate     chan struct{}
+	pingConn     net.Conn
 
 	packetMu          sync.RWMutex
 	packetSubscribers map[byte]map[chan []byte]struct{}
@@ -175,6 +176,9 @@ func (c *Client) init(listener giznet.Listener, conn giznet.Conn, serverPK gizne
 
 // Close releases all transport resources.
 func (c *Client) Close() error {
+	c.lockPingUninterruptibly()
+	defer c.unlockPing()
+
 	c.mu.Lock()
 	conn := c.conn
 	listener := c.listener
@@ -185,10 +189,8 @@ func (c *Client) Close() error {
 	c.rpc = nil
 	c.events = nil
 	c.mu.Unlock()
-	c.pingMu.Lock()
 	pingConn := c.pingConn
 	c.pingConn = nil
-	c.pingMu.Unlock()
 
 	var err error
 	if events != nil {
@@ -268,8 +270,10 @@ func (c *Client) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, err
 		defer cancel()
 	}
 
-	c.pingMu.Lock()
-	defer c.pingMu.Unlock()
+	if err := c.lockPing(ctx); err != nil {
+		return nil, err
+	}
+	defer c.unlockPing()
 	if c.pingConn == nil {
 		conn := c.PeerConn()
 		if conn == nil {
@@ -288,6 +292,35 @@ func (c *Client) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, err
 		c.pingConn = nil
 	}
 	return response, err
+}
+
+func (c *Client) initPingGate() {
+	c.pingGateOnce.Do(func() {
+		c.pingGate = make(chan struct{}, 1)
+		c.pingGate <- struct{}{}
+	})
+}
+
+func (c *Client) lockPing(ctx context.Context) error {
+	c.initPingGate()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.pingGate:
+		return nil
+	}
+}
+
+func (c *Client) lockPingUninterruptibly() {
+	c.initPingGate()
+	<-c.pingGate
+}
+
+func (c *Client) unlockPing() {
+	c.pingGate <- struct{}{}
 }
 
 func (c *Client) GetServerInfo(ctx context.Context, id string) (*rpcapi.ServerGetInfoResponse, error) {
