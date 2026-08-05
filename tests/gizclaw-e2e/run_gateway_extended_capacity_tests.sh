@@ -183,7 +183,7 @@ numeric_greater() {
 stream_coturn_metrics() {
   local container_id="$1"
   local stop_file="$2"
-  docker exec "$container_id" bash -s -- "$stop_file" <<'EOF'
+  docker exec -i "$container_id" bash -s -- "$stop_file" <<'EOF'
 set -euo pipefail
 stop_file="$1"
 while [[ ! -e "$stop_file" ]]; do
