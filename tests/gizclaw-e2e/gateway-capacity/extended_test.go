@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -138,6 +139,8 @@ func TestDockerProcessSampleScriptReadsLinuxProc(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, "bash", "-c", dockerProcessSampleScript, "gateway-capacity-sampler-test", pidFile)
+	var stderr bytes.Buffer
+	command.Stderr = &stderr
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		t.Fatal(err)
@@ -151,7 +154,7 @@ func TestDockerProcessSampleScriptReadsLinuxProc(t *testing.T) {
 	}()
 	scanner := bufio.NewScanner(stdout)
 	if !scanner.Scan() {
-		t.Fatalf("sampler produced no output: %v", scanner.Err())
+		t.Fatalf("sampler produced no output: %v: %s", scanner.Err(), strings.TrimSpace(stderr.String()))
 	}
 	sample, err := parseDockerProcessSample(scanner.Text())
 	if err != nil {

@@ -362,27 +362,18 @@ while true; do
     fi
   done < "/proc/$pid/limits"
   test -n "$fd_limit"
-  udp_sockets=-1
-  while read -r _; do
-    udp_sockets="$((udp_sockets + 1))"
-  done < "/proc/$pid/net/udp"
-  udp6_sockets=-1
-  while read -r _; do
-    udp6_sockets="$((udp6_sockets + 1))"
-  done < "/proc/$pid/net/udp6"
-  network_rx=0
-  network_tx=0
-  network_line=0
-  while IFS= read -r line; do
-    network_line="$((network_line + 1))"
-    if ((network_line <= 2)); then
-      continue
-    fi
-    line="${line/:/ }"
-    read -r _ rx _ _ _ _ _ _ _ tx _ <<< "$line"
-    network_rx="$((network_rx + rx))"
-    network_tx="$((network_tx + tx))"
-  done < "/proc/$pid/net/dev"
+  udp_sockets="$(awk 'END { print (NR > 0 ? NR - 1 : 0) }' "/proc/$pid/net/udp")"
+  udp6_sockets="$(awk 'END { print (NR > 0 ? NR - 1 : 0) }' "/proc/$pid/net/udp6")"
+  network_totals="$(awk '
+    NR > 2 {
+      sub(":", "", $1)
+      rx += $2
+      tx += $10
+    }
+    END { printf "%.0f %.0f\n", rx, tx }
+  ' "/proc/$pid/net/dev")"
+  read -r network_rx network_tx <<< "$network_totals"
+  [[ -n "$udp_sockets" && -n "$udp6_sockets" && -n "$network_rx" && -n "$network_tx" ]]
   printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "$sampled_at" "$pid" "$resident" "$page_size" "$user_ticks" "$system_ticks" "$clock_ticks" "$open_fds" "$start_ticks" "$fd_limit" "$udp_sockets" "$udp6_sockets" "$network_rx" "$network_tx"
   sleep 1
 done
