@@ -9,7 +9,7 @@ spec:
   provider:
     kind: volc-tenant
     id: volc-ark
-  name: Doubao 2.0 Lite Chat
+  display_name: Doubao 2.0 Lite Chat
   description: Volc Ark Doubao 2.0 Lite chat model
   provider_data:
     api_mode: chat_completions

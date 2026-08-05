@@ -731,9 +731,11 @@ func selectRaidsDependencies(profile apitypes.RuntimeProfileResource, index map[
 	for len(pending) != 0 {
 		current := pending[0]
 		pending = pending[1:]
-		current.id = strings.TrimSpace(current.id)
 		if current.id == "" {
 			return nil, fmt.Errorf("RuntimeProfile/default has an empty %s resource_id", current.kind)
+		}
+		if err := customid.ValidateResourceID(current.id); err != nil {
+			return nil, fmt.Errorf("RuntimeProfile/default has invalid %s resource_id %q: %w", current.kind, current.id, err)
 		}
 		key := current.kind + "/" + current.id
 		if _, exists := selected[key]; exists {

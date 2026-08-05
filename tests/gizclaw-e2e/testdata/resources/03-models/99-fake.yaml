@@ -8,7 +8,7 @@ spec:
       id: fake-openai-chat-000
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-000
+      display_name: Fake OpenAI chat model fake-openai-chat-000
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -27,7 +27,7 @@ spec:
       id: fake-openai-chat-001
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-001
+      display_name: Fake OpenAI chat model fake-openai-chat-001
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -46,7 +46,7 @@ spec:
       id: fake-openai-chat-002
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-002
+      display_name: Fake OpenAI chat model fake-openai-chat-002
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -65,7 +65,7 @@ spec:
       id: fake-openai-chat-003
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-003
+      display_name: Fake OpenAI chat model fake-openai-chat-003
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -84,7 +84,7 @@ spec:
       id: fake-openai-chat-004
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-004
+      display_name: Fake OpenAI chat model fake-openai-chat-004
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -103,7 +103,7 @@ spec:
       id: fake-openai-chat-005
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-005
+      display_name: Fake OpenAI chat model fake-openai-chat-005
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -122,7 +122,7 @@ spec:
       id: fake-openai-chat-006
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-006
+      display_name: Fake OpenAI chat model fake-openai-chat-006
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -141,7 +141,7 @@ spec:
       id: fake-openai-chat-007
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-007
+      display_name: Fake OpenAI chat model fake-openai-chat-007
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -160,7 +160,7 @@ spec:
       id: fake-openai-chat-008
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-008
+      display_name: Fake OpenAI chat model fake-openai-chat-008
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -179,7 +179,7 @@ spec:
       id: fake-openai-chat-009
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-009
+      display_name: Fake OpenAI chat model fake-openai-chat-009
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -198,7 +198,7 @@ spec:
       id: fake-openai-chat-010
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-010
+      display_name: Fake OpenAI chat model fake-openai-chat-010
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -217,7 +217,7 @@ spec:
       id: fake-openai-chat-011
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-011
+      display_name: Fake OpenAI chat model fake-openai-chat-011
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -236,7 +236,7 @@ spec:
       id: fake-openai-chat-012
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-012
+      display_name: Fake OpenAI chat model fake-openai-chat-012
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -255,7 +255,7 @@ spec:
       id: fake-openai-chat-013
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-013
+      display_name: Fake OpenAI chat model fake-openai-chat-013
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -274,7 +274,7 @@ spec:
       id: fake-openai-chat-014
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-014
+      display_name: Fake OpenAI chat model fake-openai-chat-014
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -293,7 +293,7 @@ spec:
       id: fake-openai-chat-015
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-015
+      display_name: Fake OpenAI chat model fake-openai-chat-015
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -312,7 +312,7 @@ spec:
       id: fake-openai-chat-016
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-016
+      display_name: Fake OpenAI chat model fake-openai-chat-016
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -331,7 +331,7 @@ spec:
       id: fake-openai-chat-017
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-017
+      display_name: Fake OpenAI chat model fake-openai-chat-017
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -350,7 +350,7 @@ spec:
       id: fake-openai-chat-018
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-018
+      display_name: Fake OpenAI chat model fake-openai-chat-018
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -369,7 +369,7 @@ spec:
       id: fake-openai-chat-019
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-019
+      display_name: Fake OpenAI chat model fake-openai-chat-019
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -388,7 +388,7 @@ spec:
       id: fake-openai-chat-020
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-020
+      display_name: Fake OpenAI chat model fake-openai-chat-020
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -407,7 +407,7 @@ spec:
       id: fake-openai-chat-021
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-021
+      display_name: Fake OpenAI chat model fake-openai-chat-021
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -426,7 +426,7 @@ spec:
       id: fake-openai-chat-022
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-022
+      display_name: Fake OpenAI chat model fake-openai-chat-022
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -445,7 +445,7 @@ spec:
       id: fake-openai-chat-023
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-023
+      display_name: Fake OpenAI chat model fake-openai-chat-023
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -464,7 +464,7 @@ spec:
       id: fake-openai-chat-024
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-024
+      display_name: Fake OpenAI chat model fake-openai-chat-024
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -483,7 +483,7 @@ spec:
       id: fake-openai-chat-025
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-025
+      display_name: Fake OpenAI chat model fake-openai-chat-025
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -502,7 +502,7 @@ spec:
       id: fake-openai-chat-026
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-026
+      display_name: Fake OpenAI chat model fake-openai-chat-026
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -521,7 +521,7 @@ spec:
       id: fake-openai-chat-027
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-027
+      display_name: Fake OpenAI chat model fake-openai-chat-027
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -540,7 +540,7 @@ spec:
       id: fake-openai-chat-028
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-028
+      display_name: Fake OpenAI chat model fake-openai-chat-028
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -559,7 +559,7 @@ spec:
       id: fake-openai-chat-029
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-029
+      display_name: Fake OpenAI chat model fake-openai-chat-029
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -578,7 +578,7 @@ spec:
       id: fake-openai-chat-030
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-030
+      display_name: Fake OpenAI chat model fake-openai-chat-030
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -597,7 +597,7 @@ spec:
       id: fake-openai-chat-031
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-031
+      display_name: Fake OpenAI chat model fake-openai-chat-031
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -616,7 +616,7 @@ spec:
       id: fake-openai-chat-032
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-032
+      display_name: Fake OpenAI chat model fake-openai-chat-032
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -635,7 +635,7 @@ spec:
       id: fake-openai-chat-033
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-033
+      display_name: Fake OpenAI chat model fake-openai-chat-033
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -654,7 +654,7 @@ spec:
       id: fake-openai-chat-034
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-034
+      display_name: Fake OpenAI chat model fake-openai-chat-034
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -673,7 +673,7 @@ spec:
       id: fake-openai-chat-035
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-035
+      display_name: Fake OpenAI chat model fake-openai-chat-035
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -692,7 +692,7 @@ spec:
       id: fake-openai-chat-036
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-036
+      display_name: Fake OpenAI chat model fake-openai-chat-036
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -711,7 +711,7 @@ spec:
       id: fake-openai-chat-037
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-037
+      display_name: Fake OpenAI chat model fake-openai-chat-037
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -730,7 +730,7 @@ spec:
       id: fake-openai-chat-038
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-038
+      display_name: Fake OpenAI chat model fake-openai-chat-038
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -749,7 +749,7 @@ spec:
       id: fake-openai-chat-039
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-039
+      display_name: Fake OpenAI chat model fake-openai-chat-039
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -768,7 +768,7 @@ spec:
       id: fake-openai-chat-040
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-040
+      display_name: Fake OpenAI chat model fake-openai-chat-040
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -787,7 +787,7 @@ spec:
       id: fake-openai-chat-041
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-041
+      display_name: Fake OpenAI chat model fake-openai-chat-041
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -806,7 +806,7 @@ spec:
       id: fake-openai-chat-042
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-042
+      display_name: Fake OpenAI chat model fake-openai-chat-042
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -825,7 +825,7 @@ spec:
       id: fake-openai-chat-043
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-043
+      display_name: Fake OpenAI chat model fake-openai-chat-043
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -844,7 +844,7 @@ spec:
       id: fake-openai-chat-044
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-044
+      display_name: Fake OpenAI chat model fake-openai-chat-044
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -863,7 +863,7 @@ spec:
       id: fake-openai-chat-045
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-045
+      display_name: Fake OpenAI chat model fake-openai-chat-045
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -882,7 +882,7 @@ spec:
       id: fake-openai-chat-046
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-046
+      display_name: Fake OpenAI chat model fake-openai-chat-046
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -901,7 +901,7 @@ spec:
       id: fake-openai-chat-047
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-047
+      display_name: Fake OpenAI chat model fake-openai-chat-047
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -920,7 +920,7 @@ spec:
       id: fake-openai-chat-048
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-048
+      display_name: Fake OpenAI chat model fake-openai-chat-048
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -939,7 +939,7 @@ spec:
       id: fake-openai-chat-049
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-049
+      display_name: Fake OpenAI chat model fake-openai-chat-049
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -958,7 +958,7 @@ spec:
       id: fake-openai-chat-050
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-050
+      display_name: Fake OpenAI chat model fake-openai-chat-050
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -977,7 +977,7 @@ spec:
       id: fake-openai-chat-051
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-051
+      display_name: Fake OpenAI chat model fake-openai-chat-051
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -996,7 +996,7 @@ spec:
       id: fake-openai-chat-052
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-052
+      display_name: Fake OpenAI chat model fake-openai-chat-052
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1015,7 +1015,7 @@ spec:
       id: fake-openai-chat-053
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-053
+      display_name: Fake OpenAI chat model fake-openai-chat-053
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1034,7 +1034,7 @@ spec:
       id: fake-openai-chat-054
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-054
+      display_name: Fake OpenAI chat model fake-openai-chat-054
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1053,7 +1053,7 @@ spec:
       id: fake-openai-chat-055
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-055
+      display_name: Fake OpenAI chat model fake-openai-chat-055
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1072,7 +1072,7 @@ spec:
       id: fake-openai-chat-056
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-056
+      display_name: Fake OpenAI chat model fake-openai-chat-056
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1091,7 +1091,7 @@ spec:
       id: fake-openai-chat-057
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-057
+      display_name: Fake OpenAI chat model fake-openai-chat-057
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1110,7 +1110,7 @@ spec:
       id: fake-openai-chat-058
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-058
+      display_name: Fake OpenAI chat model fake-openai-chat-058
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1129,7 +1129,7 @@ spec:
       id: fake-openai-chat-059
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-059
+      display_name: Fake OpenAI chat model fake-openai-chat-059
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1148,7 +1148,7 @@ spec:
       id: fake-openai-chat-060
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-060
+      display_name: Fake OpenAI chat model fake-openai-chat-060
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1167,7 +1167,7 @@ spec:
       id: fake-openai-chat-061
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-061
+      display_name: Fake OpenAI chat model fake-openai-chat-061
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1186,7 +1186,7 @@ spec:
       id: fake-openai-chat-062
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-062
+      display_name: Fake OpenAI chat model fake-openai-chat-062
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1205,7 +1205,7 @@ spec:
       id: fake-openai-chat-063
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-063
+      display_name: Fake OpenAI chat model fake-openai-chat-063
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1224,7 +1224,7 @@ spec:
       id: fake-openai-chat-064
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-064
+      display_name: Fake OpenAI chat model fake-openai-chat-064
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1243,7 +1243,7 @@ spec:
       id: fake-openai-chat-065
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-065
+      display_name: Fake OpenAI chat model fake-openai-chat-065
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1262,7 +1262,7 @@ spec:
       id: fake-openai-chat-066
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-066
+      display_name: Fake OpenAI chat model fake-openai-chat-066
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1281,7 +1281,7 @@ spec:
       id: fake-openai-chat-067
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-067
+      display_name: Fake OpenAI chat model fake-openai-chat-067
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1300,7 +1300,7 @@ spec:
       id: fake-openai-chat-068
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-068
+      display_name: Fake OpenAI chat model fake-openai-chat-068
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1319,7 +1319,7 @@ spec:
       id: fake-openai-chat-069
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-069
+      display_name: Fake OpenAI chat model fake-openai-chat-069
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1338,7 +1338,7 @@ spec:
       id: fake-openai-chat-070
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-070
+      display_name: Fake OpenAI chat model fake-openai-chat-070
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1357,7 +1357,7 @@ spec:
       id: fake-openai-chat-071
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-071
+      display_name: Fake OpenAI chat model fake-openai-chat-071
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1376,7 +1376,7 @@ spec:
       id: fake-openai-chat-072
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-072
+      display_name: Fake OpenAI chat model fake-openai-chat-072
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1395,7 +1395,7 @@ spec:
       id: fake-openai-chat-073
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-073
+      display_name: Fake OpenAI chat model fake-openai-chat-073
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1414,7 +1414,7 @@ spec:
       id: fake-openai-chat-074
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-074
+      display_name: Fake OpenAI chat model fake-openai-chat-074
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1433,7 +1433,7 @@ spec:
       id: fake-openai-chat-075
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-075
+      display_name: Fake OpenAI chat model fake-openai-chat-075
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1452,7 +1452,7 @@ spec:
       id: fake-openai-chat-076
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-076
+      display_name: Fake OpenAI chat model fake-openai-chat-076
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1471,7 +1471,7 @@ spec:
       id: fake-openai-chat-077
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-077
+      display_name: Fake OpenAI chat model fake-openai-chat-077
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1490,7 +1490,7 @@ spec:
       id: fake-openai-chat-078
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-078
+      display_name: Fake OpenAI chat model fake-openai-chat-078
       provider:
         kind: openai-tenant
         id: fake-openai
@@ -1509,7 +1509,7 @@ spec:
       id: fake-openai-chat-079
     spec:
       kind: llm
-      name: Fake OpenAI chat model fake-openai-chat-079
+      display_name: Fake OpenAI chat model fake-openai-chat-079
       provider:
         kind: openai-tenant
         id: fake-openai

@@ -9,7 +9,7 @@ spec:
   provider:
     kind: dashscope-tenant
     id: qwen-dashscope-main
-  name: Qwen Plus
+  display_name: Qwen Plus
   description: Qwen chat model through DashScope
   provider_data:
     upstream_model: qwen-plus

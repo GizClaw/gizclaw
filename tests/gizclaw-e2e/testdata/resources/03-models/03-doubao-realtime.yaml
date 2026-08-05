@@ -9,7 +9,7 @@ spec:
   provider:
     kind: volc-tenant
     id: volc-main
-  name: Doubao Realtime Dialog
+  display_name: Doubao Realtime Dialog
   description: Doubao realtime dialog model
   provider_data:
     api_mode: realtime

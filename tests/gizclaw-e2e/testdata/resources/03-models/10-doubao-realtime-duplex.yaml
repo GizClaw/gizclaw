@@ -9,7 +9,7 @@ spec:
   provider:
     kind: volc-tenant
     id: volc-main
-  name: Doubao Realtime Duplex Dialog
+  display_name: Doubao Realtime Duplex Dialog
   description: Doubao full-duplex realtime speech dialog model
   provider_data:
     api_mode: realtime_duplex

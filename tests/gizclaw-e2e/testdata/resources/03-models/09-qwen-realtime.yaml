@@ -9,7 +9,7 @@ spec:
   provider:
     kind: dashscope-tenant
     id: qwen-dashscope-main
-  name: Qwen Realtime Dialog
+  display_name: Qwen Realtime Dialog
   description: Qwen realtime speech dialog model
   provider_data:
     api_mode: realtime

@@ -13,7 +13,7 @@ spec:
       provider:
         kind: volc-tenant
         id: volc-ark
-      name: Pet Flowcraft Workflow Chat
+      display_name: Pet Flowcraft Workflow Chat
       description: Operational chat model used by the built-in Pet Flowcraft workflow
       provider_data:
         api_mode: chat_completions
@@ -37,7 +37,7 @@ spec:
       provider:
         kind: volc-tenant
         id: volc-ark
-      name: Pet Flowcraft Workflow Extract
+      display_name: Pet Flowcraft Workflow Extract
       description: Operational extraction model used by the built-in Pet Flowcraft workflow
       provider_data:
         api_mode: chat_completions
@@ -61,7 +61,7 @@ spec:
       provider:
         kind: volc-tenant
         id: volc-main
-      name: Pet Flowcraft Workflow ASR
+      display_name: Pet Flowcraft Workflow ASR
       description: Operational speech recognition model used by the built-in Pet Flowcraft workflow
       provider_data:
         api_mode: asr

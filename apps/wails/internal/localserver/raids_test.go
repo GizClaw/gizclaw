@@ -358,6 +358,12 @@ func TestBuildRaidsCatalogRejectsInvalidDefaultContract(t *testing.T) {
 			want:    "references missing Raids Workflow/missing-workflow",
 		},
 		{
+			name:    "whitespace-normalized profile dependency",
+			profile: bytes.ReplaceAll(validProfile, []byte(": chatroom"), []byte(": ' chatroom '")),
+			token:   validToken,
+			want:    "invalid Workflow resource_id",
+		},
+		{
 			name:    "duplicate token identity",
 			profile: validProfile,
 			token:   validToken,

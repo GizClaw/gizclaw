@@ -9,7 +9,7 @@ spec:
   provider:
     kind: openai-tenant
     id: openai-main
-  name: OpenAI GPT-4o Mini
+  display_name: OpenAI GPT-4o Mini
   description: OpenAI-compatible GPT-4o Mini chat model
   provider_data:
     upstream_model: gpt-4o-mini

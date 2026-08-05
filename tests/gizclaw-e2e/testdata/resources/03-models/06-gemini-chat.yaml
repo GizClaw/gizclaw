@@ -9,7 +9,7 @@ spec:
   provider:
     kind: gemini-tenant
     id: gemini-main
-  name: Gemini 2.0 Flash
+  display_name: Gemini 2.0 Flash
   description: Gemini chat model
   provider_data:
     upstream_model: gemini-2.0-flash

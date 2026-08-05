@@ -9,7 +9,7 @@ spec:
   provider:
     kind: volc-tenant
     id: volc-main
-  name: Volc BigASR SAUC
+  display_name: Volc BigASR SAUC
   description: Volc BigASR SAUC model
   provider_data:
     api_mode: asr

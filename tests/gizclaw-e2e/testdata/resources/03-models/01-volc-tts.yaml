@@ -9,7 +9,7 @@ spec:
   provider:
     kind: volc-tenant
     id: volc-main
-  name: Volc BigTTS
+  display_name: Volc BigTTS
   description: Volc BigTTS model
   provider_data:
     api_mode: tts

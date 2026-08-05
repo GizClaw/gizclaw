@@ -5,7 +5,7 @@ metadata:
   id: minimax-narrator-clone
 spec:
   description: MiniMax narrator clone voice
-  name: MiniMax Narrator Clone
+  display_name: MiniMax Narrator Clone
   provider:
     kind: minimax-tenant
     id: minimax-cn

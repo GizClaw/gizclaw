@@ -9,7 +9,7 @@ spec:
   provider:
     kind: volc-tenant
     id: volc-main
-  name: Doubao AST Translate
+  display_name: Doubao AST Translate
   description: Doubao AST realtime translation model
   provider_data:
     api_mode: translation
