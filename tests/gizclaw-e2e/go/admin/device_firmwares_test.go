@@ -3,17 +3,16 @@
 package admin_test
 
 import (
-	"archive/tar"
-	"bytes"
-	"io"
-	"strings"
+	"reflect"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
-func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
+const firmwarePackageSHA256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
 	all := collectAdminPages(t, 20, func(cursor *string, limit int32) ([]apitypes.Firmware, bool, *string) {
@@ -28,144 +27,149 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
 	seed := requireName(t, all, "devkit-firmware-main", func(item apitypes.Firmware) string { return item.Name })
-	requirePrefixCount(t, all, "devkit-firmware-", 70, func(item apitypes.Firmware) string { return item.Name })
 
 	get, err := env.api.GetFirmwareWithResponse(env.ctx, seed.Id)
 	if err != nil {
 		t.Fatalf("get firmware: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.Slots.Stable.Artifact == nil || get.JSON200.Slots.Stable.Artifact.TarPath == "" {
+	if get.JSON200 == nil || get.JSON200.Slots.Stable.Package == nil || get.JSON200.Slots.Stable.Package.Url != "https://firmware.example.invalid/devkit/stable.tar.zlib" {
 		t.Fatalf("get firmware = %#v", get.JSON200)
 	}
 
 	name := mutationName("firmware")
-	created, err := env.api.CreateFirmwareWithResponse(env.ctx, adminhttp.FirmwareUpsert{
+	upsert := adminhttp.FirmwareUpsert{
 		Name:        name,
 		Description: ptr("Admin API mutation firmware"),
-		Slots:       firmwareSlots("Admin API stable firmware"),
-	})
+		Slots: apitypes.FirmwareSlots{
+			Stable: apitypes.FirmwareSlot{
+				Description: ptr("stable package"),
+				Package: &apitypes.FirmwarePackage{
+					Url:    "https://downloads.example.com/firmware/stable.tar.zlib",
+					Sha256: firmwarePackageSHA256,
+					Size:   4096,
+				},
+			},
+			Beta: apitypes.FirmwareSlot{
+				Description: ptr("beta package"),
+				Package: &apitypes.FirmwarePackage{
+					Url:    "https://downloads.example.com/firmware/beta.tar.zlib",
+					Sha256: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+					Size:   6144,
+				},
+			},
+			Develop: apitypes.FirmwareSlot{
+				Package: &apitypes.FirmwarePackage{
+					Url:    "https://downloads.example.com/firmware/develop.tar.zlib",
+					Sha256: "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0",
+					Size:   7168,
+				},
+			},
+			Pending: apitypes.FirmwareSlot{
+				Description: ptr("pending package"),
+				Package: &apitypes.FirmwarePackage{
+					Url:    "https://downloads.example.com/firmware/pending.tar.zlib?build=2",
+					Sha256: firmwarePackageSHA256,
+					Size:   8192,
+				},
+			},
+		},
+	}
+	created, err := env.api.CreateFirmwareWithResponse(env.ctx, upsert)
 	if err != nil {
 		t.Fatalf("create firmware: %v", err)
 	}
 	requireStatusOK(t, created, created.Body)
 	if created.JSON200 == nil {
-		t.Fatalf("created firmware missing JSON200")
+		t.Fatalf("created firmware = %#v", created.JSON200)
 	}
-	t.Cleanup(func() { _, _ = env.api.DeleteFirmwareWithResponse(env.ctx, created.JSON200.Id) })
-
-	payload := adminFirmwareTarPayload(t, map[string]string{
-		"MANIFEST.txt":            "admin api firmware bundle",
-		"firmware/main.bin":       "admin api main firmware payload",
-		"firmware/voice_dsp.bin":  "admin api voice dsp firmware payload",
-		"assets/icons/status.png": "\x89PNG\r\n\x1a\nadmin icon",
-		"config/device.json":      `{"modules":["main","voice_dsp"]}`,
-		"docs/release-notes.txt":  "admin api artifact release notes",
+	requireFirmwareSlots(t, created.JSON200.Slots, upsert.Slots)
+	firmwareID := created.JSON200.Id
+	deleted := false
+	t.Cleanup(func() {
+		if !deleted {
+			_, _ = env.api.DeleteFirmwareWithResponse(env.ctx, firmwareID)
+		}
 	})
-	upload, err := env.api.UploadFirmwareArtifactWithBodyWithResponse(env.ctx, created.JSON200.Id, adminhttp.UploadFirmwareArtifactParamsChannelStable, "application/x-tar", bytes.NewReader(payload))
-	if err != nil {
-		t.Fatalf("upload firmware artifact: %v", err)
-	}
-	requireStatusOK(t, upload, upload.Body)
-	if upload.JSON200 == nil || upload.JSON200.Slots.Stable.Artifact == nil {
-		t.Fatalf("upload firmware artifact = %#v", upload.JSON200)
-	}
-	list, err := env.api.ListFirmwareArtifactEntriesWithResponse(env.ctx, created.JSON200.Id, adminhttp.ListFirmwareArtifactEntriesParamsChannelStable, nil)
-	if err != nil {
-		t.Fatalf("list firmware artifact entries: %v", err)
-	}
-	requireStatusOK(t, list, list.Body)
-	if list.JSON200 == nil || !artifactEntriesContain(list.JSON200.Items, "firmware", "assets", "MANIFEST.txt") {
-		t.Fatalf("artifact list = %#v", list.JSON200)
-	}
-	firmwarePath := "firmware"
-	listFirmware, err := env.api.ListFirmwareArtifactEntriesWithResponse(env.ctx, created.JSON200.Id, adminhttp.ListFirmwareArtifactEntriesParamsChannelStable, &adminhttp.ListFirmwareArtifactEntriesParams{Path: &firmwarePath})
-	if err != nil {
-		t.Fatalf("list firmware artifact firmware dir: %v", err)
-	}
-	requireStatusOK(t, listFirmware, listFirmware.Body)
-	if listFirmware.JSON200 == nil || !artifactEntriesContain(listFirmware.JSON200.Items, "firmware/main.bin", "firmware/voice_dsp.bin") {
-		t.Fatalf("artifact firmware list = %#v", listFirmware.JSON200)
-	}
-	tree, err := env.api.TreeFirmwareArtifactEntriesWithResponse(env.ctx, created.JSON200.Id, adminhttp.TreeFirmwareArtifactEntriesParamsChannel("stable"), nil)
-	if err != nil {
-		t.Fatalf("tree firmware artifact entries: %v", err)
-	}
-	requireStatusOK(t, tree, tree.Body)
-	if tree.JSON200 == nil || !artifactEntriesContain(tree.JSON200.Items, "assets/icons/status.png", "config/device.json", "docs/release-notes.txt", "firmware/main.bin") {
-		t.Fatalf("artifact tree = %#v", tree.JSON200)
-	}
-	statPath := "assets/icons/status.png"
-	stat, err := env.api.StatFirmwareArtifactEntryWithResponse(env.ctx, created.JSON200.Id, adminhttp.StatFirmwareArtifactEntryParamsChannelStable, &adminhttp.StatFirmwareArtifactEntryParams{Path: &statPath})
-	if err != nil {
-		t.Fatalf("stat firmware artifact entry: %v", err)
-	}
-	requireStatusOK(t, stat, stat.Body)
-	if stat.JSON200 == nil || stat.JSON200.Entry == nil || stat.JSON200.Entry.Path != statPath || stat.JSON200.Entry.Size <= 0 || !strings.Contains(ptrValue(stat.JSON200.Entry.ContentType), "image/png") {
-		t.Fatalf("artifact stat = %#v", stat.JSON200)
-	}
-	downloadEntry, err := env.api.DownloadFirmwareArtifactEntryWithResponse(env.ctx, created.JSON200.Id, adminhttp.DownloadFirmwareArtifactEntryParamsChannelStable, &adminhttp.DownloadFirmwareArtifactEntryParams{Path: "firmware/main.bin"})
-	if err != nil {
-		t.Fatalf("download firmware artifact entry: %v", err)
-	}
-	requireStatusOK(t, downloadEntry, downloadEntry.Body)
-	if !bytes.Contains(downloadEntry.Body, []byte("admin api main firmware payload")) {
-		t.Fatalf("artifact entry payload = %q", string(downloadEntry.Body))
-	}
-	downloadTar, err := env.api.DownloadFirmwareArtifactWithResponse(env.ctx, created.JSON200.Id, adminhttp.DownloadFirmwareArtifactParamsChannelStable)
-	if err != nil {
-		t.Fatalf("download firmware artifact tar: %v", err)
-	}
-	requireStatusOK(t, downloadTar, downloadTar.Body)
-	requireTarEntries(t, downloadTar.Body, "firmware/main.bin", "assets/icons/status.png", "config/device.json")
 
-	deletedArtifact, err := env.api.DeleteFirmwareArtifactWithResponse(env.ctx, created.JSON200.Id, adminhttp.DeleteFirmwareArtifactParamsChannelStable)
+	upsert.Description = ptr("Admin API updated firmware")
+	put, err := env.api.PutFirmwareWithResponse(env.ctx, firmwareID, upsert)
 	if err != nil {
-		t.Fatalf("delete firmware artifact: %v", err)
+		t.Fatalf("put firmware: %v", err)
 	}
-	requireStatusOK(t, deletedArtifact, deletedArtifact.Body)
-	if deletedArtifact.JSON200 == nil || deletedArtifact.JSON200.Slots.Stable.Artifact != nil {
-		t.Fatalf("delete firmware artifact = %#v", deletedArtifact.JSON200)
+	requireStatusOK(t, put, put.Body)
+	if put.JSON200 == nil || put.JSON200.Description == nil || *put.JSON200.Description != "Admin API updated firmware" {
+		t.Fatalf("put firmware = %#v", put.JSON200)
 	}
-}
+	requireFirmwareSlots(t, put.JSON200.Slots, upsert.Slots)
 
-func artifactEntriesContain(items []apitypes.FirmwareArtifactEntry, paths ...string) bool {
-	seen := make(map[string]bool, len(items))
-	for _, item := range items {
-		seen[item.Path] = true
+	gotUpdated, err := env.api.GetFirmwareWithResponse(env.ctx, firmwareID)
+	if err != nil {
+		t.Fatalf("get updated firmware: %v", err)
 	}
-	for _, path := range paths {
-		if !seen[path] {
-			return false
-		}
+	requireStatusOK(t, gotUpdated, gotUpdated.Body)
+	if gotUpdated.JSON200 == nil {
+		t.Fatalf("get updated firmware = %#v", gotUpdated.JSON200)
 	}
-	return true
-}
+	requireFirmwareSlots(t, gotUpdated.JSON200.Slots, upsert.Slots)
 
-func requireTarEntries(t *testing.T, payload []byte, paths ...string) {
-	t.Helper()
-	seen := make(map[string]bool, len(paths))
-	tr := tar.NewReader(bytes.NewReader(payload))
-	for {
-		header, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
+	listed := collectAdminPages(t, 20, func(cursor *string, limit int32) ([]apitypes.Firmware, bool, *string) {
+		resp, err := env.api.ListFirmwaresWithResponse(env.ctx, &adminhttp.ListFirmwaresParams{Cursor: cursor, Limit: &limit})
 		if err != nil {
-			t.Fatalf("read artifact tar: %v", err)
+			t.Fatalf("list updated firmwares: %v", err)
 		}
-		seen[header.Name] = true
-	}
-	for _, path := range paths {
-		if !seen[path] {
-			t.Fatalf("artifact tar missing %q; seen=%v", path, seen)
+		requireStatusOK(t, resp, resp.Body)
+		if resp.JSON200 == nil {
+			t.Fatal("list updated firmwares missing JSON200")
 		}
+		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
+	})
+	listedFirmware := requireName(t, listed, name, func(item apitypes.Firmware) string { return item.Name })
+	requireFirmwareSlots(t, listedFirmware.Slots, upsert.Slots)
+
+	released, err := env.api.ReleaseFirmwareWithResponse(env.ctx, created.JSON200.Id)
+	if err != nil {
+		t.Fatalf("release firmware: %v", err)
 	}
+	requireStatusOK(t, released, released.Body)
+	if released.JSON200 == nil || released.JSON200.Slots.Stable.Package == nil || released.JSON200.Slots.Stable.Package.Size != 8192 || released.JSON200.Slots.Beta.Package == nil || released.JSON200.Slots.Beta.Package.Size != 4096 {
+		t.Fatalf("release firmware = %#v", released.JSON200)
+	}
+
+	rolledBack, err := env.api.RollbackFirmwareWithResponse(env.ctx, created.JSON200.Id)
+	if err != nil {
+		t.Fatalf("rollback firmware: %v", err)
+	}
+	requireStatusOK(t, rolledBack, rolledBack.Body)
+	if rolledBack.JSON200 == nil || rolledBack.JSON200.Slots.Stable.Package == nil || rolledBack.JSON200.Slots.Stable.Package.Size != 4096 {
+		t.Fatalf("rollback firmware = %#v", rolledBack.JSON200)
+	}
+
+	invalidName := mutationName("firmware-invalid")
+	invalid, err := env.api.CreateFirmwareWithResponse(env.ctx, adminhttp.FirmwareUpsert{
+		Name: invalidName,
+		Slots: apitypes.FirmwareSlots{Stable: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{
+			Url: "https://downloads.example.com:0/firmware/stable.tar.zlib", Sha256: firmwarePackageSHA256, Size: 1,
+		}}},
+	})
+	if err != nil {
+		t.Fatalf("create invalid firmware request: %v", err)
+	}
+	if invalid.StatusCode() < 400 {
+		t.Fatalf("create invalid firmware status = %d, body = %s", invalid.StatusCode(), invalid.Body)
+	}
+
+	removed, err := env.api.DeleteFirmwareWithResponse(env.ctx, firmwareID)
+	if err != nil {
+		t.Fatalf("delete firmware: %v", err)
+	}
+	requireStatusOK(t, removed, removed.Body)
+	deleted = true
 }
 
-func ptrValue(value *string) string {
-	if value == nil {
-		return ""
+func requireFirmwareSlots(t *testing.T, got, want apitypes.FirmwareSlots) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("firmware slots = %#v, want %#v", got, want)
 	}
-	return *value
 }

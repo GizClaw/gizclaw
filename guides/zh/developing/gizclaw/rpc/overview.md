@@ -9,7 +9,7 @@ RPC 模块负责 GizClaw RPC 的 client/server、dispatch、stream framing 和�
 | [Common](./all) | 所有 RPC connection 共用的 Ping。 | `rpc_all.go` |
 | [Client](./client) | Client-side RPC receiver、Client info 与 identifiers 查询。 | `rpc_client.go` |
 | [Server](./server) | RPC Server composition、dispatch、Server methods 与未实现 method 处理。 | `rpc_server.go` |
-| [Firmware Download](./firmware) | 保留 Firmware streaming RPC 的兼容 framing；当前 peer projection 返回 not found。 | `rpc_firmware.go` |
+| [Firmware Configuration](./firmware) | 解析 caller Peer 绑定的 Firmware，并返回一个 channel 的 external package 配置。 | `services/runtime/peerresource/firmware.go` |
 | [Gameplay Assets](./gameplay-pixa) | Gameplay pixa asset streaming。 | `rpc_gameplay_pixa.go` |
 | [Workspace History](./workspace-history) | History audio streaming。 | `rpc_workspace_history.go` |
 | [Speech Transcription](./transcription) | 独立流式 audio-to-text。 | `rpc_speech.go` |
@@ -31,7 +31,7 @@ flowchart TB
     Stream --> Server["RPC Server<br/>dispatch"]
     Server --> Common["Common"]
     Server --> Runtime["Peer / Runtime / Run / Workspace services"]
-    Server --> Firmware["Firmware Download"]
+    Server --> Firmware["Firmware Configuration"]
     Server --> Gameplay["Gameplay Assets"]
     Server --> History["Workspace History"]
     Server --> Speech["Standalone Speech"]
@@ -44,7 +44,7 @@ flowchart TB
     Utilities --> Stream
 
     Runtime --> RuntimeServices["Runtime services"]
-    Firmware --> Compat["Compatibility response<br/>not found"]
+    Firmware --> FirmwareSvc["Firmware metadata service"]
     Gameplay --> GameplaySvc["Gameplay services"]
     Edge --> Routes["Peer Route service"]
 ```

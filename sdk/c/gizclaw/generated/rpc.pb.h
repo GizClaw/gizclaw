@@ -47,7 +47,6 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_STOP = 20,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_SAY = 21,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET = 22,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD = 23,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_LIST = 24,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET = 25,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE = 26,

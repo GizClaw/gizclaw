@@ -259,22 +259,6 @@ final $typed_data.Uint8List
         'Cj9ET1VCQU9fUkVBTFRJTUVfV09SS1NQQUNFX1BBUkFNRVRFUlNfQUdFTlRfVFlQRV9ET1VCQU'
         '9fUkVBTFRJTUUQAQ==');
 
-@$core.Deprecated('Use firmwareArtifactEntryTypeDescriptor instead')
-const FirmwareArtifactEntryType$json = {
-  '1': 'FirmwareArtifactEntryType',
-  '2': [
-    {'1': 'FIRMWARE_ARTIFACT_ENTRY_TYPE_UNSPECIFIED', '2': 0},
-    {'1': 'FIRMWARE_ARTIFACT_ENTRY_TYPE_FILE', '2': 1},
-    {'1': 'FIRMWARE_ARTIFACT_ENTRY_TYPE_DIR', '2': 2},
-  ],
-};
-
-/// Descriptor for `FirmwareArtifactEntryType`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List firmwareArtifactEntryTypeDescriptor = $convert.base64Decode(
-    'ChlGaXJtd2FyZUFydGlmYWN0RW50cnlUeXBlEiwKKEZJUk1XQVJFX0FSVElGQUNUX0VOVFJZX1'
-    'RZUEVfVU5TUEVDSUZJRUQQABIlCiFGSVJNV0FSRV9BUlRJRkFDVF9FTlRSWV9UWVBFX0ZJTEUQ'
-    'ARIkCiBGSVJNV0FSRV9BUlRJRkFDVF9FTlRSWV9UWVBFX0RJUhAC');
-
 @$core.Deprecated('Use firmwareChannelNameDescriptor instead')
 const FirmwareChannelName$json = {
   '1': 'FirmwareChannelName',

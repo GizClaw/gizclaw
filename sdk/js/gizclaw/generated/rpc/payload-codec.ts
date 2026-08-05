@@ -35,7 +35,6 @@ export type DoubaoRealtimeDuplexWorkspaceParametersAgentType = "" | "doubao-real
 export type DoubaoRealtimeFunctionToolType = "" | "function" | "unspecified" | number;
 export type DoubaoRealtimeWorkspaceParametersAgentType = "" | "doubao-realtime" | "unspecified" | number;
 export type EinoWorkspaceParametersAgentType = "" | "eino" | "unspecified" | number;
-export type FirmwareArtifactEntryType = "" | "dir" | "file" | "unspecified" | number;
 export type FirmwareChannelName = "" | "beta" | "develop" | "pending" | "stable" | "unspecified" | number;
 export type FlowcraftConversationParametersAgentInitiativePolicy = "" | "on_reload" | "once_when_empty" | "unspecified" | number;
 export type FlowcraftConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
@@ -397,52 +396,16 @@ export type EinoWorkspaceParameters = {
   "e2e"?: boolean;
   "conversation"?: FlowcraftConversationParameters;
 };
-export type Firmware = {
-  "created_at": string;
-  "description"?: string;
-  "name": string;
-  "slots": FirmwareSlots;
-  "updated_at": string;
+export type FirmwareGetRequest = {
+  "channel": FirmwareChannelName;
 };
-export type FirmwareArtifact = {
-  "content_type": string;
-  "files_path": string;
-  "manifest_path": string;
+export type FirmwareGetResponse = {
+  "firmware_name": string;
+  "channel": FirmwareChannelName;
+  "description"?: string;
+  "url": string;
   "sha256": string;
   "size": number;
-  "tar_path": string;
-  "uploaded_at": string;
-};
-export type FirmwareArtifactEntry = {
-  "content_type"?: string;
-  "mod_time": string;
-  "mode": number;
-  "path": string;
-  "size": number;
-  "type": FirmwareArtifactEntryType;
-};
-export type FirmwareFilesDownloadRequest = {
-  "channel": FirmwareChannelName;
-  "path": string;
-};
-export type FirmwareFilesDownloadResponse = {
-  "artifact": FirmwareArtifact;
-  "channel": FirmwareChannelName;
-  "file": FirmwareArtifactEntry;
-  "firmware_name": string;
-  "path": string;
-};
-export type FirmwareGetRequest = Record<string, never>;
-export type FirmwareGetResponse = Firmware;
-export type FirmwareSlot = {
-  "artifact"?: FirmwareArtifact;
-  "description"?: string;
-};
-export type FirmwareSlots = {
-  "beta": FirmwareSlot;
-  "develop": FirmwareSlot;
-  "pending": FirmwareSlot;
-  "stable": FirmwareSlot;
 };
 export type FlowcraftConversationParameters = {
   "agent_initiative_policy"?: FlowcraftConversationParametersAgentInitiativePolicy;
@@ -1397,7 +1360,6 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.contact.get": "ContactGetRequest",
   "server.contact.list": "ContactListRequest",
   "server.contact.put": "ContactPutRequest",
-  "server.firmware.files.download": "FirmwareFilesDownloadRequest",
   "server.firmware.get": "FirmwareGetRequest",
   "server.friend_group.create": "FriendGroupCreateRequest",
   "server.friend_group.delete": "FriendGroupDeleteRequest",
@@ -1494,7 +1456,6 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.contact.get": "ContactGetResponse",
   "server.contact.list": "ContactListResponse",
   "server.contact.put": "ContactPutResponse",
-  "server.firmware.files.download": "FirmwareFilesDownloadResponse",
   "server.firmware.get": "FirmwareGetResponse",
   "server.friend_group.create": "FriendGroupCreateResponse",
   "server.friend_group.delete": "FriendGroupDeleteResponse",
@@ -3202,202 +3163,47 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "Firmware": {
-    "fields": [
-      {
-        "name": "created_at",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "description",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "name",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "slots",
-        "number": 4,
-        "type": "FirmwareSlots"
-      },
-      {
-        "name": "updated_at",
-        "number": 5,
-        "type": "string"
-      }
-    ]
-  },
-  "FirmwareArtifact": {
-    "fields": [
-      {
-        "name": "content_type",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "files_path",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "manifest_path",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "sha256",
-        "number": 4,
-        "type": "string"
-      },
-      {
-        "name": "size",
-        "number": 5,
-        "type": "int64"
-      },
-      {
-        "name": "tar_path",
-        "number": 6,
-        "type": "string"
-      },
-      {
-        "name": "uploaded_at",
-        "number": 7,
-        "type": "string"
-      }
-    ]
-  },
-  "FirmwareArtifactEntry": {
-    "fields": [
-      {
-        "name": "content_type",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "mod_time",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "mode",
-        "number": 3,
-        "type": "int32"
-      },
-      {
-        "name": "path",
-        "number": 4,
-        "type": "string"
-      },
-      {
-        "name": "size",
-        "number": 5,
-        "type": "int64"
-      },
-      {
-        "name": "type",
-        "number": 6,
-        "type": "FirmwareArtifactEntryType"
-      }
-    ]
-  },
-  "FirmwareFilesDownloadRequest": {
-    "fields": [
-      {
-        "name": "channel",
-        "number": 1,
-        "type": "FirmwareChannelName"
-      },
-      {
-        "name": "path",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "FirmwareFilesDownloadResponse": {
-    "fields": [
-      {
-        "name": "artifact",
-        "number": 1,
-        "type": "FirmwareArtifact"
-      },
-      {
-        "name": "channel",
-        "number": 2,
-        "type": "FirmwareChannelName"
-      },
-      {
-        "name": "file",
-        "number": 3,
-        "type": "FirmwareArtifactEntry"
-      },
-      {
-        "name": "firmware_name",
-        "number": 4,
-        "type": "string"
-      },
-      {
-        "name": "path",
-        "number": 5,
-        "type": "string"
-      }
-    ]
-  },
   "FirmwareGetRequest": {
-    "fields": []
+    "fields": [
+      {
+        "name": "channel",
+        "number": 1,
+        "type": "FirmwareChannelName"
+      }
+    ]
   },
   "FirmwareGetResponse": {
     "fields": [
       {
-        "name": "value",
+        "name": "firmware_name",
         "number": 1,
-        "type": "Firmware"
-      }
-    ]
-  },
-  "FirmwareSlot": {
-    "fields": [
+        "type": "string"
+      },
       {
-        "name": "artifact",
-        "number": 1,
-        "optional": true,
-        "type": "FirmwareArtifact"
+        "name": "channel",
+        "number": 2,
+        "type": "FirmwareChannelName"
       },
       {
         "name": "description",
-        "number": 2,
+        "number": 3,
         "optional": true,
         "type": "string"
-      }
-    ]
-  },
-  "FirmwareSlots": {
-    "fields": [
-      {
-        "name": "beta",
-        "number": 1,
-        "type": "FirmwareSlot"
       },
       {
-        "name": "develop",
-        "number": 2,
-        "type": "FirmwareSlot"
-      },
-      {
-        "name": "pending",
-        "number": 3,
-        "type": "FirmwareSlot"
-      },
-      {
-        "name": "stable",
+        "name": "url",
         "number": 4,
-        "type": "FirmwareSlot"
+        "type": "string"
+      },
+      {
+        "name": "sha256",
+        "number": 5,
+        "type": "string"
+      },
+      {
+        "name": "size",
+        "number": 6,
+        "type": "int64"
       }
     ]
   },
@@ -7892,18 +7698,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
     "byNumber": {
       "0": "",
       "1": "eino"
-    }
-  },
-  "FirmwareArtifactEntryType": {
-    "byName": {
-      "dir": 2,
-      "file": 1,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "file",
-      "2": "dir"
     }
   },
   "FirmwareChannelName": {

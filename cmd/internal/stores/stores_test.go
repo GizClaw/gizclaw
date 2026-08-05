@@ -865,16 +865,16 @@ func TestObjectStoreWithStoragePrefix(t *testing.T) {
 	defer physical.Close()
 
 	reg, err := NewWithStorage(physical, map[string]Config{
-		"firmware-assets": {Kind: KindObjectStore, Storage: "assets", Prefix: "firmware"},
+		"test-assets": {Kind: KindObjectStore, Storage: "assets", Prefix: "fixtures"},
 	})
 	if err != nil {
 		t.Fatalf("NewWithStorage: %v", err)
 	}
 	defer reg.Close()
 
-	objects, err := reg.ObjectStore("firmware-assets")
+	objects, err := reg.ObjectStore("test-assets")
 	if err != nil {
-		t.Fatalf("ObjectStore(firmware-assets): %v", err)
+		t.Fatalf("ObjectStore(test-assets): %v", err)
 	}
 	if err := objects.Put("stable.bin", strings.NewReader("stable")); err != nil {
 		t.Fatalf("Put: %v", err)
@@ -884,7 +884,7 @@ func TestObjectStoreWithStoragePrefix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage ObjectStore(assets): %v", err)
 	}
-	r, err := base.Get("firmware/stable.bin")
+	r, err := base.Get("fixtures/stable.bin")
 	if err != nil {
 		t.Fatalf("base Get: %v", err)
 	}

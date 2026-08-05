@@ -136,7 +136,6 @@ RPC EOS 结束当前方向的 frame sequence；完整 request/response lifecycle
 | `server.speech.extract` | Client / Device → Server | Request envelope 后上传的有界音频；Server 返回 transcript 与 schema-constrained JSON。 |
 | `server.speech.synthesize` | Server → Client / Device | Response metadata 后返回的有界合成音频。 |
 | `server.workspace.history.audio.get` | Server → Client / Device | Workspace history 音频。 |
-| `server.firmware.files.download` | Server → Client / Device | Firmware artifact 文件。 |
 | `server.workspace.icon.download` | Server → Client / Device | Workspace icon。 |
 | `server.badge_def.pixa.download` | Server → Client / Device | Badge Definition PIXA。 |
 | `server.pet.pixa.download` | Server → Client / Device | Pet PIXA。 |

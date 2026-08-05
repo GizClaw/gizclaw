@@ -57,8 +57,9 @@ type TransportSnapshot struct {
 }
 
 const (
-	RPCFrameEOS        = int(C.GZC_RPC_FRAME_EOS)
-	StatusChannelLimit = int(C.GZC_ERR_CHANNEL_LIMIT)
+	RPCFrameEOS                 = int(C.GZC_RPC_FRAME_EOS)
+	StatusChannelLimit          = int(C.GZC_ERR_CHANNEL_LIMIT)
+	firmwareNameCStringCapacity = 257
 )
 
 type StatusError struct {
@@ -233,7 +234,7 @@ func (c *Client) Register(token string) (Registration, error) {
 	cToken := C.CString(token)
 	defer C.free(unsafe.Pointer(cToken))
 	runtimeProfileName := make([]byte, 256)
-	firmwareName := make([]byte, 256)
+	firmwareName := make([]byte, firmwareNameCStringCapacity)
 	errbuf := make([]byte, 1024)
 	var hasFirmwareName C.int
 	var rpcErrorCode C.int
@@ -267,35 +268,68 @@ func (c *Client) Register(token string) (Registration, error) {
 	return result, nil
 }
 
-// GetFirmware decodes the bound firmware response with C nanopb.
-func (c *Client) GetFirmware() (string, bool, error) {
+// FirmwareConfig is a channel package configuration decoded by C nanopb.
+type FirmwareConfig struct {
+	Name           string
+	Channel        rpcpb.FirmwareChannelName
+	HasDescription bool
+	Description    string
+	URL            string
+	SHA256         string
+	Size           int64
+}
+
+// GetFirmware decodes the selected bound firmware package response with C nanopb.
+func (c *Client) GetFirmware(channel rpcpb.FirmwareChannelName) (FirmwareConfig, error) {
 	if c == nil || c.session == nil {
-		return "", false, fmt.Errorf("closed C SDK client")
+		return FirmwareConfig{}, fmt.Errorf("closed C SDK client")
 	}
-	name := make([]byte, 256)
+	name := make([]byte, firmwareNameCStringCapacity)
+	description := make([]byte, 1025)
+	url := make([]byte, 2049)
+	sha256 := make([]byte, 65)
 	errbuf := make([]byte, 1024)
-	var hasSlots C.int
+	var size C.longlong
+	var responseChannel C.int
+	var hasDescription C.int
 	var rpcErrorCode C.int
 	rc := C.gzc_cgo_session_firmware_get(
 		c.session,
+		C.int(channel),
 		(*C.char)(unsafe.Pointer(&name[0])),
 		C.ulong(len(name)),
-		&hasSlots,
+		&responseChannel,
+		&hasDescription,
+		(*C.char)(unsafe.Pointer(&description[0])),
+		C.ulong(len(description)),
+		(*C.char)(unsafe.Pointer(&url[0])),
+		C.ulong(len(url)),
+		(*C.char)(unsafe.Pointer(&sha256[0])),
+		C.ulong(len(sha256)),
+		&size,
 		&rpcErrorCode,
 		(*C.char)(unsafe.Pointer(&errbuf[0])),
 		C.ulong(len(errbuf)),
 	)
 	if rc == C.GZC_ERR_RPC && rpcErrorCode != 0 {
-		return "", false, &RPCError{
+		return FirmwareConfig{}, &RPCError{
 			Method:  rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET,
 			Code:    rpcpb.RpcErrorCode(rpcErrorCode),
 			Message: cString(errbuf),
 		}
 	}
 	if rc != C.GZC_OK {
-		return "", false, fmt.Errorf("get firmware with C SDK rc=%d: %s", int(rc), cString(errbuf))
+		return FirmwareConfig{}, fmt.Errorf("get firmware with C SDK rc=%d: %s", int(rc), cString(errbuf))
 	}
-	return cString(name), hasSlots != 0, nil
+	return FirmwareConfig{
+		Name:           cString(name),
+		Channel:        rpcpb.FirmwareChannelName(responseChannel),
+		HasDescription: hasDescription != 0,
+		Description:    cString(description),
+		URL:            cString(url),
+		SHA256:         cString(sha256),
+		Size:           int64(size),
+	}, nil
 }
 
 func streamRPCError(method rpcpb.RpcMethod, frames []StreamFrame) error {
@@ -748,64 +782,33 @@ func CSDKSpeedTest(t *testing.T, identityDir string) {
 }
 
 func CSDKFirmwareRPC(t *testing.T, identityDir, registrationToken string) {
-	t.Helper()
-	client := newTestClient(t, identityDir)
-	defer client.Close()
-	registration := registerClient(t, client, registrationToken)
-	requireFirmwareRegistration(t, registration, "devkit-firmware-main")
-	name, hasSlots, err := client.GetFirmware()
-	if err != nil {
-		t.Fatal(err)
+	wants := []FirmwareConfig{
+		{Name: "devkit-firmware-main", Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_STABLE, HasDescription: true, Description: "Devkit stable package", URL: "https://firmware.example.invalid/devkit/stable.tar.zlib", SHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", Size: 4096},
+		{Name: "devkit-firmware-main", Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_BETA, HasDescription: true, Description: "Devkit beta package", URL: "https://firmware.example.invalid/devkit/beta.tar.zlib", SHA256: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", Size: 8192},
+		{Name: "devkit-firmware-main", Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_DEVELOP, URL: "https://firmware.example.invalid/devkit/develop.tar.zlib", SHA256: "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0", Size: 12288},
+		{Name: "devkit-firmware-main", Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_PENDING, HasDescription: true, Description: "Devkit pending package", URL: "https://firmware.example.invalid/devkit/pending.tar.zlib", SHA256: "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210", Size: 16384},
 	}
-	if name != "devkit-firmware-main" || !hasSlots {
-		t.Fatalf("invalid server.firmware.get: name=%q has_slots=%v", name, hasSlots)
-	}
+	CSDKFirmwareRPCPackages(t, identityDir, registrationToken, wants)
 }
 
-func CSDKFirmwareDownload(t *testing.T, identityDir, registrationToken string) {
+func CSDKFirmwareRPCPackage(t *testing.T, identityDir, registrationToken string, want FirmwareConfig) {
+	CSDKFirmwareRPCPackages(t, identityDir, registrationToken, []FirmwareConfig{want})
+}
+
+func CSDKFirmwareRPCPackages(t *testing.T, identityDir, registrationToken string, wants []FirmwareConfig) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
 	defer client.Close()
 	registration := registerClient(t, client, registrationToken)
-	requireFirmwareRegistration(t, registration, "devkit-firmware-main")
-	frames, err := client.CallStream(rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD, &rpcpb.FirmwareFilesDownloadRequest{
-		Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_STABLE,
-		Path:    "firmware/main.bin",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var sawMetadata bool
-	var binaryBytes int
-	var sawMarker bool
-	var sawEOS bool
-	for _, frame := range frames {
-		switch frame.Type {
-		case int(C.GZC_RPC_FRAME_BINARY):
-			if !sawMetadata {
-				var response rpcpb.FirmwareFilesDownloadResponse
-				decodeStreamResponse(t, rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD, frame.Data, &response)
-				if response.GetFirmwareName() != "devkit-firmware-main" || response.GetPath() != "firmware/main.bin" {
-					t.Fatalf("invalid firmware download metadata: %s", response.String())
-				}
-				sawMetadata = true
-				continue
-			}
-			binaryBytes += len(frame.Data)
-			if bytes.Contains(frame.Data, []byte("GIZCLAW_MAIN_FIRMWARE_V1")) {
-				sawMarker = true
-			}
-		case int(C.GZC_RPC_FRAME_EOS):
-			if len(frame.Data) != 0 {
-				t.Fatalf("firmware download EOS has %d payload bytes", len(frame.Data))
-			}
-			sawEOS = true
-		default:
-			t.Fatalf("unexpected firmware download frame type %d", frame.Type)
+	requireFirmwareRegistration(t, registration, wants[0].Name)
+	for _, want := range wants {
+		firmware, err := client.GetFirmware(want.Channel)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-	if !sawMetadata || binaryBytes == 0 || !sawMarker || !sawEOS {
-		t.Fatalf("invalid firmware download stream: saw_metadata=%v binary_bytes=%d saw_marker=%v saw_eos=%v", sawMetadata, binaryBytes, sawMarker, sawEOS)
+		if firmware != want {
+			t.Fatalf("server.firmware.get(%s) = %+v, want %+v", want.Channel, firmware, want)
+		}
 	}
 }
 

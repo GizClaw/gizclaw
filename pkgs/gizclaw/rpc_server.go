@@ -106,8 +106,6 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 		return true, s.handleSpeechExtract(ctx, stream, req)
 	case rpcapi.RPCMethodServerSpeechSynthesize:
 		return true, s.handleSpeechSynthesize(ctx, stream, req)
-	case rpcapi.RPCMethodServerFirmwareFilesDownload:
-		return true, s.handleFirmwareBinDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerPetPixaDownload:
 		return true, s.handlePetPixaDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerBadgeDefPixaDownload:
@@ -244,7 +242,6 @@ func rpcNotImplemented(id string, method rpcapi.RPCMethod) *rpcapi.RPCResponse {
 func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 	switch method {
 	case rpcapi.RPCMethodServerFirmwareGet,
-		rpcapi.RPCMethodServerFirmwareFilesDownload,
 		rpcapi.RPCMethodServerWorkspaceList,
 		rpcapi.RPCMethodServerWorkspaceGet,
 		rpcapi.RPCMethodServerWorkspaceCreate,

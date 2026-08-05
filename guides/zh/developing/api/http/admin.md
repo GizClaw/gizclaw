@@ -17,7 +17,7 @@ Go 生成输出：`pkgs/gizclaw/api/adminhttp`
 | AI | Credential、Model、Voice、Provider Tenant、Workflow、Workspace |
 | Gameplay | Game Rule、Pet、Badge、Points、Result 与 Reward |
 | Social | Contact、Friend 与 Friend Group 管理 |
-| Firmware | Firmware resource、release、rollback 与 artifact |
+| Firmware | Firmware resource、external channel package 配置、release 与 rollback |
 | Observability | Server log stream 与 Peer telemetry query |
 
 Admin OpenAPI 只拥有 HTTP path、request/response 和 wire error。Resource validation、authorization、storage 和领域 lifecycle 由对应 services 与 resource manager 实现。

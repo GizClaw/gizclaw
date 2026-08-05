@@ -2,18 +2,24 @@ import { connectGiznetWebRTCFromEndpoint } from "@gizclaw/gizclaw";
 import {
   RPC_METHODS,
   createPeerRPCClient,
+  type FirmwareGetResponse,
   type PeerRPCClient,
 } from "@gizclaw/gizclaw/rpc";
 import { base64Decode } from "@gizclaw/gizclaw/signaling";
 import type { RuntimeContext } from "../runtime/types";
 
 export interface PlayDataClient {
+  getFirmware(params: {
+    channel: PlayFirmwareChannel;
+  }): Promise<FirmwareGetResponse>;
   loadSnapshot(): Promise<PlaySnapshot>;
   playHistory(historyID: string): Promise<unknown>;
   recallMemory(query: string): Promise<PlayMemoryRecall>;
   reloadWorkspace(): Promise<unknown>;
   setWorkspace(workspaceName: string): Promise<unknown>;
 }
+
+export type PlayFirmwareChannel = "stable" | "beta" | "develop" | "pending";
 
 export interface PlaySession extends PlayDataClient {
   close(): void;
@@ -118,6 +124,7 @@ export async function connectPlaySession(
     close() {
       pc.close();
     },
+    getFirmware: (params) => client.getFirmware(params),
     loadSnapshot: () => client.loadSnapshot(),
     playHistory: (historyID) => client.playHistory(historyID),
     recallMemory: (query) => client.recallMemory(query),
@@ -134,6 +141,9 @@ export function createPlayDataClientFromPeerConnection(
 
 export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
   return {
+    getFirmware(params): Promise<FirmwareGetResponse> {
+      return rpc.call(RPC_METHODS["server.firmware.get"], params);
+    },
     async loadSnapshot(): Promise<PlaySnapshot> {
       const collections = [
         "assistants",
@@ -174,7 +184,9 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
           rpc.call(RPC_METHODS["server.friend_group.list"], {}),
         ),
         captureCall(RPC_METHODS["server.firmware.get"], () =>
-          rpc.call(RPC_METHODS["server.firmware.get"], {}),
+          rpc.call(RPC_METHODS["server.firmware.get"], {
+            channel: "stable",
+          }),
         ),
         captureCall(RPC_METHODS["server.workspace.list"], async () => ({
           ...(await collectCollections(

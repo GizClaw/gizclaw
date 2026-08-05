@@ -46,8 +46,8 @@ their own agents through workspace runtimes.
 - [x] Device registration, configuration, telemetry intake, runtime state
   monitoring, and policy-controlled access.
 - [x] Admin and peer RPC APIs generated from shared OpenAPI/RPC schemas.
-- [x] Firmware catalog, channel-based OTA metadata, artifact upload, and
-  authorized firmware file download.
+- [x] Firmware catalog and channel-based OTA configuration with external HTTPS
+  `.tar.zlib` package URLs and integrity metadata.
 - [x] Social workspace resources for contact, friend, and chatroom-style
   interactions.
 - [x] Gameplay rulesets, point accounts, reward grants, pet adoption, drive

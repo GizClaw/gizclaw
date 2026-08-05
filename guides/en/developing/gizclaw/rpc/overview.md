@@ -9,7 +9,7 @@ The RPC module is responsible for client/server, dispatch, stream framing and do
 | [Common](./all) | Ping common to all RPC connections. | `rpc_all.go` |
 | [Client](./client) | Client-side RPC receiver, Client info and identifiers query. | `rpc_client.go` |
 | [Server](./server) | RPC Server composition, dispatch, Server methods, and handling for unimplemented methods. | `rpc_server.go` |
-| [Firmware Download](./firmware) | Retains Firmware streaming RPC framing for compatibility; the current peer projection returns not found. | `rpc_firmware.go` |
+| [Firmware Configuration](./firmware) | Resolves the caller Peer's bound Firmware and returns one channel's external package configuration. | `services/runtime/peerresource/firmware.go` |
 | [Gameplay Assets](./gameplay-pixa) | Gameplay pixa asset streaming. | `rpc_gameplay_pixa.go` |
 | [Workspace History](./workspace-history) | History audio streaming. | `rpc_workspace_history.go` |
 | [Speech Transcription](./transcription) | Standalone streaming audio-to-text. | `rpc_speech.go` |
@@ -31,7 +31,7 @@ flowchart TB
     Stream --> Server["RPC Server<br/>dispatch"]
     Server --> Common["Common"]
     Server --> Runtime["Peer / Runtime / Run / Workspace services"]
-    Server --> Firmware["Firmware Download"]
+    Server --> Firmware["Firmware Configuration"]
     Server --> Gameplay["Gameplay Assets"]
     Server --> History["Workspace History"]
     Server --> Speech["Standalone Speech"]
@@ -44,7 +44,7 @@ flowchart TB
     Utilities --> Stream
 
     Runtime --> RuntimeServices["Runtime services"]
-    Firmware --> Compat["Compatibility response<br/>not found"]
+    Firmware --> FirmwareSvc["Firmware metadata service"]
     Gameplay --> GameplaySvc["Gameplay services"]
     Edge --> Routes["Peer Route service"]
 ```

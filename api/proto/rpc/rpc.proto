@@ -84,7 +84,6 @@ enum RpcMethod {
   RPC_METHOD_SERVER_RUN_STOP = 20 [(rpc_method) = { name: "server.run.stop" request: "ServerStopRunRequest" response: "ServerStopRunResponse" }];
   RPC_METHOD_SERVER_RUN_SAY = 21 [(rpc_method) = { name: "server.run.say" request: "ServerRunSayRequest" response: "ServerRunSayResponse" }];
   RPC_METHOD_SERVER_FIRMWARE_GET = 22 [(rpc_method) = { name: "server.firmware.get" request: "FirmwareGetRequest" response: "FirmwareGetResponse" }];
-  RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD = 23 [(rpc_method) = { name: "server.firmware.files.download" request: "FirmwareFilesDownloadRequest" response: "FirmwareFilesDownloadResponse" }];
   RPC_METHOD_SERVER_WORKSPACE_LIST = 24 [(rpc_method) = { name: "server.workspace.list" request: "WorkspaceListRequest" response: "WorkspaceListResponse" }];
   RPC_METHOD_SERVER_WORKSPACE_GET = 25 [(rpc_method) = { name: "server.workspace.get" request: "WorkspaceGetRequest" response: "WorkspaceGetResponse" }];
   RPC_METHOD_SERVER_WORKSPACE_CREATE = 26 [(rpc_method) = { name: "server.workspace.create" request: "WorkspaceCreateRequest" response: "WorkspaceCreateResponse" }];

@@ -49,6 +49,7 @@ import {
   encodeRPCRequestPayload,
   encodeRPCResponsePayload,
 } from "./generated/rpc/payload-codec.ts";
+import { RPC_METHOD_IDS, RPC_METHODS } from "./generated/rpc/method-map.ts";
 import { createEdgeRPCClient, createPeerRPCClient } from "./rpc.ts";
 import {
   base58Decode,
@@ -860,12 +861,54 @@ test("RPC payload codec rejects string values for bool fields", () => {
 test("RPC payload codec rejects unknown enum strings", () => {
   assert.throws(
     () =>
-      encodeRPCRequestPayload("server.firmware.files.download", {
+      encodeRPCRequestPayload("server.firmware.get", {
         channel: "stabel",
-        path: "firmware.bin",
       }),
     /unknown protobuf enum value for FirmwareChannelName: stabel/,
   );
+});
+
+test("Firmware RPC generated contract round-trips every channel and field", () => {
+  for (const channel of ["stable", "beta", "develop", "pending"] as const) {
+    const request = { channel };
+    assert.deepEqual(
+      decodeRPCRequestPayload(
+        "server.firmware.get",
+        encodeRPCRequestPayload("server.firmware.get", request),
+      ),
+      request,
+    );
+  }
+
+  const response = {
+    channel: "pending" as const,
+    description: "candidate package",
+    firmware_name: "f".repeat(256),
+    sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    size: Number.MAX_SAFE_INTEGER,
+    url: "https://firmware.example.invalid/devkit/pending.tar.zlib",
+  };
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "server.firmware.get",
+      encodeRPCResponsePayload("server.firmware.get", response),
+    ),
+    response,
+  );
+  const withoutDescription = { ...response };
+  delete (withoutDescription as { description?: string }).description;
+  assert.equal(
+    (
+      decodeRPCResponsePayload(
+        "server.firmware.get",
+        encodeRPCResponsePayload("server.firmware.get", withoutDescription),
+      ) as { description?: string }
+    ).description,
+    undefined,
+  );
+
+  assert.equal(RPC_METHOD_IDS["server.firmware.get"], 22);
+  assert.equal("server.firmware.download" in RPC_METHODS, false);
 });
 
 test("WebRTCRPCClient reassembles response frames split across messages", async () => {
@@ -1613,9 +1656,8 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
 
   await rpc.call("server.run.workspace.set", { workspace_name: "main" });
   await rpc.call("server.run.workspace.history.play", { history_id: "h1" });
-  await rpc.call("server.firmware.files.download", {
+  await rpc.call("server.firmware.get", {
     channel: "stable",
-    path: "firmware.bin",
   });
   await rpc.call("server.friend_group.messages.list", {
     friend_group_name: "group-a",
@@ -1628,8 +1670,8 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
       params: { history_id: "h1" },
     },
     {
-      method: "server.firmware.files.download",
-      params: { channel: "stable", path: "firmware.bin" },
+      method: "server.firmware.get",
+      params: { channel: "stable" },
     },
     {
       method: "server.friend_group.messages.list",

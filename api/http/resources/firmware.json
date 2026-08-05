@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Firmware Resource Schema",
-    "description": "FirmwareResource envelope schema.",
+    "description": "FirmwareResource envelope for per-channel external .tar.zlib package configuration.",
     "version": "1.0.0"
   },
   "paths": {},

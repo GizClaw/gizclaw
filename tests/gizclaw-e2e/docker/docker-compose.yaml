@@ -57,6 +57,8 @@ services:
     environment:
       GIZCLAW_E2E_CONFIG_HOME: /src/tests/gizclaw-e2e/testdata/cmd-config-home
       GIZCLAW_E2E_CAPACITY_ONLY: ${GIZCLAW_E2E_CAPACITY_ONLY:-}
+      GIZCLAW_E2E_RESOURCE_PATHS: ${GIZCLAW_E2E_RESOURCE_PATHS:-}
+      GIZCLAW_E2E_SYNC_VOLC_TENANT: ${GIZCLAW_E2E_SYNC_VOLC_TENANT-volc-main}
       GIZCLAW_E2E_SERVER_ENDPOINT: ${GIZCLAW_E2E_SERVER_ENDPOINT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_TURN_ENDPOINT: ${GIZCLAW_E2E_TURN_ENDPOINT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_TURN_REALM: ${GIZCLAW_E2E_TURN_REALM:?set by docker-compose-up.sh}

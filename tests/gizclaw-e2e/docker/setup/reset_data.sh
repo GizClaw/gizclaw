@@ -7,6 +7,8 @@ e2e_dir="$repo_root/tests/gizclaw-e2e"
 testdata_dir="$e2e_dir/testdata"
 workspace_dir="$testdata_dir/server-workspace"
 resource_dir="$testdata_dir/resources"
+resource_paths="${GIZCLAW_E2E_RESOURCE_PATHS:-}"
+sync_volc_tenant="${GIZCLAW_E2E_SYNC_VOLC_TENANT-volc-main}"
 bin_path="$testdata_dir/bin/gizclaw"
 fixture_apply_bin="$testdata_dir/bin/gizclaw-e2e-fixture-apply"
 env_file="$e2e_dir/.env"
@@ -60,39 +62,51 @@ init_data() {
     "$bin_path" connect set-name "E2E Action Device" --context "$gear2_context" >/dev/null
 
   local resource_files=()
-  local resource_subdir
-  while IFS= read -r resource_subdir; do
-    while IFS= read -r resource_file; do
+  local resource_file resource_subdir
+  if [[ -n "$resource_paths" ]]; then
+    local relative_path
+    for relative_path in $resource_paths; do
+      if [[ "$relative_path" == /* || "$relative_path" == *..* || "$relative_path" != *.yaml ]]; then
+        echo "invalid GIZCLAW_E2E_RESOURCE_PATHS entry: $relative_path" >&2
+        exit 2
+      fi
+      resource_file="$resource_dir/$relative_path"
+      if [[ ! -f "$resource_file" ]]; then
+        echo "missing selected resource fixture: $resource_file" >&2
+        exit 2
+      fi
       resource_files+=("$resource_file")
+    done
+  else
+    while IFS= read -r resource_subdir; do
+      while IFS= read -r resource_file; do
+        resource_files+=("$resource_file")
+      done < <(
+        find "$resource_subdir" -type f -name '*.yaml' -print |
+          sort
+      )
     done < <(
-      find "$resource_subdir" -type f -name '*.yaml' -print |
+      find "$resource_dir" -mindepth 1 -maxdepth 1 -type d -name '[0-9][0-9]-*' -print |
         sort
     )
-  done < <(
-    find "$resource_dir" -mindepth 1 -maxdepth 1 -type d -name '[0-9][0-9]-*' -print |
-      sort
-  )
+  fi
   if [[ ${#resource_files[@]} -eq 0 ]]; then
     echo "no resource fixtures found in $resource_dir" >&2
     exit 2
   fi
 
-  local firmware_asset_path="$repo_root/tests/gizclaw-e2e/testdata/assets/firmware/devkit-firmware-main.tar"
-  if [[ ! -f "$firmware_asset_path" ]]; then
-    echo "missing firmware fixture asset: $firmware_asset_path" >&2
-    exit 2
-  fi
   if [[ ! -x "$fixture_apply_bin" ]]; then
     (cd "$repo_root" && go build -o "$fixture_apply_bin" ./tests/gizclaw-e2e/internal/fixtureapply)
   fi
-  "$fixture_apply_bin" \
-    --bin "$bin_path" \
-    --config-home "$config_home" \
-    --context "$admin_context" \
-    --sync-volc-tenant volc-main \
-    --firmware-name devkit-firmware-main \
-    --firmware-asset "$firmware_asset_path" \
-    "${resource_files[@]}"
+  local fixture_args=(
+    --bin "$bin_path"
+    --config-home "$config_home"
+    --context "$admin_context"
+  )
+  if [[ -n "$sync_volc_tenant" ]]; then
+    fixture_args+=(--sync-volc-tenant "$sync_volc_tenant")
+  fi
+  "$fixture_apply_bin" "${fixture_args[@]}" "${resource_files[@]}"
 
 }
 

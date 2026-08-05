@@ -14,18 +14,29 @@ import (
 )
 
 func TestRegistrationBindsFirmware(t *testing.T) {
-	h := clitest.NewSetupHarness(t, "304-firmware-shared-download")
+	h := clitest.NewSetupHarness(t, "304-firmware-shared-config")
 	h.InstallFixedAdminContext("admin-a").MustSucceed(t)
 	h.CreateContext("device-a").MustSucceed(t)
 	h.RegisterContext("device-a", "--sn", "shared-firmware-device").MustSucceed(t)
 	token := createRuntimeProfileRegistrationToken(t, h)
 
-	getMain := h.RunCLI("connect", "firmware", "get", "--context", "device-a", "--registration-token", token)
-	getMain.MustSucceed(t)
-	assertOutputContains(t, getMain.Stdout, `"name":"devkit-firmware-main"`)
-
-	download := h.RunCLI("connect", "firmware", "download", "--channel", "stable", "--path", "MANIFEST.txt", "--output", h.SandboxDir+"/MANIFEST.txt", "--context", "device-a", "--registration-token", token)
-	download.MustSucceed(t)
+	tests := []struct {
+		channel string
+		url     string
+		size    string
+	}{
+		{"stable", "https://firmware.example.invalid/devkit/stable.tar.zlib", `"size":4096`},
+		{"beta", "https://firmware.example.invalid/devkit/beta.tar.zlib", `"size":8192`},
+		{"develop", "https://firmware.example.invalid/devkit/develop.tar.zlib", `"size":12288`},
+		{"pending", "https://firmware.example.invalid/devkit/pending.tar.zlib", `"size":16384`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.channel, func(t *testing.T) {
+			result := h.RunCLI("connect", "firmware", "get", "--channel", tc.channel, "--context", "device-a", "--registration-token", token)
+			result.MustSucceed(t)
+			assertOutputContains(t, result.Stdout, `"firmware_name":"devkit-firmware-main"`, `"channel":"`+tc.channel+`"`, `"url":"`+tc.url+`"`, tc.size)
+		})
+	}
 }
 
 func createRuntimeProfileRegistrationToken(t *testing.T, h *clitest.Harness) string {

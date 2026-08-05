@@ -162,11 +162,54 @@
       },
       "FirmwareGetRequest": {
         "type": "object",
+        "required": [
+          "channel"
+        ],
         "additionalProperties": false,
-        "properties": {}
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/FirmwareChannelName"
+          }
+        }
       },
       "FirmwareGetResponse": {
-        "$ref": "../shared/firmware.json#/components/schemas/Firmware"
+        "type": "object",
+        "required": [
+          "firmware_name",
+          "channel",
+          "url",
+          "sha256",
+          "size"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "firmware_name": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "channel": {
+            "$ref": "#/components/schemas/FirmwareChannelName"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        }
       },
       "WorkspaceListRequest": {
         "type": "object",
@@ -1518,51 +1561,6 @@
       },
       "FriendGroupMessageGetResponse": {
         "$ref": "#/components/schemas/FriendGroupMessageObject"
-      },
-      "FirmwareFilesDownloadRequest": {
-        "type": "object",
-        "required": [
-          "channel",
-          "path"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "channel": {
-            "$ref": "#/components/schemas/FirmwareChannelName"
-          },
-          "path": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
-      },
-      "FirmwareFilesDownloadResponse": {
-        "type": "object",
-        "required": [
-          "firmware_name",
-          "channel",
-          "path",
-          "file",
-          "artifact"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "firmware_name": {
-            "type": "string"
-          },
-          "channel": {
-            "$ref": "#/components/schemas/FirmwareChannelName"
-          },
-          "path": {
-            "type": "string"
-          },
-          "file": {
-            "$ref": "../shared/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactEntry"
-          },
-          "artifact": {
-            "$ref": "../shared/firmware_artifact.json#/components/schemas/FirmwareArtifact"
-          }
-        }
       },
       "BadgeDefPixaDownloadRequest": {
         "type": "object",

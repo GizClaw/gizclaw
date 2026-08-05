@@ -302,7 +302,7 @@ storage:
   memory:
     kind: keyvalue
     memory: {}
-  fw-files:
+  asset-files:
     kind: objectstore
     fs:
       dir: .
@@ -311,14 +311,14 @@ storage:
     sqlite:
       dir: data/fixture.sqlite
 stores:
-  fw-meta:
+  fixture-meta:
     kind: keyvalue
     storage: memory
     prefix: files-meta
-  fw-assets:
+  fixture-assets:
     kind: objectstore
-    storage: fw-files
-    prefix: firmware
+    storage: asset-files
+    prefix: fixtures
   fixture-sql:
     kind: sql
     storage: fixture-db
@@ -330,11 +330,11 @@ stores:
 	if err != nil {
 		t.Fatalf("prepareWorkspaceConfig error = %v", err)
 	}
-	if got := cfg.Storage["fw-files"].FS.Dir; got != workspace {
-		t.Fatalf("fw dir = %q", got)
+	if got := cfg.Storage["asset-files"].FS.Dir; got != workspace {
+		t.Fatalf("asset dir = %q", got)
 	}
-	if got := cfg.Stores["fw-assets"].Prefix; got != "firmware" {
-		t.Fatalf("fw-assets prefix = %q", got)
+	if got := cfg.Stores["fixture-assets"].Prefix; got != "fixtures" {
+		t.Fatalf("fixture-assets prefix = %q", got)
 	}
 }
 

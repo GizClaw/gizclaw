@@ -112,7 +112,7 @@ typedef struct _gizclaw_rpc_v1_ServerRegisterRequest {
 typedef struct _gizclaw_rpc_v1_ServerRegisterResponse {
     char runtime_profile_name[256];
     bool has_firmware_name;
-    char firmware_name[256];
+    char firmware_name[257];
 } gizclaw_rpc_v1_ServerRegisterResponse;
 
 typedef struct _gizclaw_rpc_v1_ServerPeerDeleteRequest {
@@ -544,7 +544,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_size 0
 #define gizclaw_rpc_v1_ServerPutInfoRequest_size 328
 #define gizclaw_rpc_v1_ServerRegisterRequest_size 258
-#define gizclaw_rpc_v1_ServerRegisterResponse_size 516
+#define gizclaw_rpc_v1_ServerRegisterResponse_size 517
 #define gizclaw_rpc_v1_SpeedTestRequest_size     22
 #define gizclaw_rpc_v1_SpeedTestResponse_size    22
 

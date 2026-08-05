@@ -29,7 +29,7 @@ Server 只允许以下身份打开 Admin HTTP service：
 - 声明式资源：`POST /@apply` 与 `/resources/{kind}/{name}`。
 - Peer：查询、批准、阻止、刷新、设备信息与 runtime。
 - AI 与 Runtime：Credential、Provider Tenant、Model、Voice、Workflow、Workspace、RuntimeProfile 与 RegistrationToken。
-- Firmware 与玩法：Firmware、artifact、GameDef、PetDef、BadgeDef 和 Peer 玩法数据。
+- Firmware 与玩法：Firmware channel package 配置、GameDef、PetDef、BadgeDef 和 Peer 玩法数据。
 - 运维：Peer telemetry 查询与 Server log SSE stream。
 
 完整 path、参数和 response 以 [`api/http/admin.json`](https://github.com/GizClaw/gizclaw/blob/main/api/http/admin.json) 为准。

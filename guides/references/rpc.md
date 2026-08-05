@@ -39,12 +39,11 @@
 
 ## Firmware
 
-Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑定一个 Firmware release-line；设备不列举或选择 Firmware，只在下载时选择 channel。
+Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑定一个 Firmware release-line；设备不列举或选择 Firmware，只请求具体 channel 的 external package 配置。
 
 | ID | Method | 作用 |
 | ---: | --- | --- |
-| 22 | `server.firmware.get` | 根据当前 Peer 绑定的 Firmware name 返回 release-line metadata 与 slots。 |
-| 23 | `server.firmware.files.download` | 按 channel 和 path 流式下载当前 Peer 绑定的 Firmware artifact 文件。 |
+| 22 | `server.firmware.get` | 根据当前 Peer 绑定的 Firmware 和 request channel，返回 HTTPS `.tar.zlib` URL、SHA-256 与 archive size。 |
 
 ## Workspace 与 history
 

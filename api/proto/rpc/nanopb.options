@@ -28,9 +28,13 @@ gizclaw.rpc.v1.FriendGroupMessageObject.sender_peer_public_key max_size:65
 gizclaw.rpc.v1.FriendGroupMessageObject.history_id max_size:256
 gizclaw.rpc.v1.FriendGroupMessageObject.name max_size:257
 gizclaw.rpc.v1.FriendGroupMessageObject.text max_size:8193
+gizclaw.rpc.v1.FirmwareGetResponse.firmware_name max_size:257
+gizclaw.rpc.v1.FirmwareGetResponse.description max_size:1025
+gizclaw.rpc.v1.FirmwareGetResponse.url max_size:2049
+gizclaw.rpc.v1.FirmwareGetResponse.sha256 max_size:65
 gizclaw.rpc.v1.ServerRegisterRequest.token max_size:256
 gizclaw.rpc.v1.ServerRegisterResponse.runtime_profile_name max_size:256
-gizclaw.rpc.v1.ServerRegisterResponse.firmware_name max_size:256
+gizclaw.rpc.v1.ServerRegisterResponse.firmware_name max_size:257
 gizclaw.rpc.v1.SpeechTranscribeRequest.model_name max_size:64
 gizclaw.rpc.v1.SpeechTranscribeRequest.content_type max_size:129
 gizclaw.rpc.v1.SpeechTranscribeRequest.language max_size:33

@@ -23,395 +23,16 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type Firmware struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	CreatedAt     string                 `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	Description   *string                `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Slots         *FirmwareSlots         `protobuf:"bytes,4,opt,name=slots,proto3" json:"slots,omitempty"`
-	UpdatedAt     string                 `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Firmware) Reset() {
-	*x = Firmware{}
-	mi := &file_payload_firmware_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Firmware) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Firmware) ProtoMessage() {}
-
-func (x *Firmware) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_firmware_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Firmware.ProtoReflect.Descriptor instead.
-func (*Firmware) Descriptor() ([]byte, []int) {
-	return file_payload_firmware_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *Firmware) GetCreatedAt() string {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return ""
-}
-
-func (x *Firmware) GetDescription() string {
-	if x != nil && x.Description != nil {
-		return *x.Description
-	}
-	return ""
-}
-
-func (x *Firmware) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *Firmware) GetSlots() *FirmwareSlots {
-	if x != nil {
-		return x.Slots
-	}
-	return nil
-}
-
-func (x *Firmware) GetUpdatedAt() string {
-	if x != nil {
-		return x.UpdatedAt
-	}
-	return ""
-}
-
-type FirmwareArtifact struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ContentType   string                 `protobuf:"bytes,1,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
-	FilesPath     string                 `protobuf:"bytes,2,opt,name=files_path,json=filesPath,proto3" json:"files_path,omitempty"`
-	ManifestPath  string                 `protobuf:"bytes,3,opt,name=manifest_path,json=manifestPath,proto3" json:"manifest_path,omitempty"`
-	Sha256        string                 `protobuf:"bytes,4,opt,name=sha256,proto3" json:"sha256,omitempty"`
-	Size          int64                  `protobuf:"varint,5,opt,name=size,proto3" json:"size,omitempty"`
-	TarPath       string                 `protobuf:"bytes,6,opt,name=tar_path,json=tarPath,proto3" json:"tar_path,omitempty"`
-	UploadedAt    string                 `protobuf:"bytes,7,opt,name=uploaded_at,json=uploadedAt,proto3" json:"uploaded_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *FirmwareArtifact) Reset() {
-	*x = FirmwareArtifact{}
-	mi := &file_payload_firmware_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FirmwareArtifact) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FirmwareArtifact) ProtoMessage() {}
-
-func (x *FirmwareArtifact) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_firmware_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FirmwareArtifact.ProtoReflect.Descriptor instead.
-func (*FirmwareArtifact) Descriptor() ([]byte, []int) {
-	return file_payload_firmware_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *FirmwareArtifact) GetContentType() string {
-	if x != nil {
-		return x.ContentType
-	}
-	return ""
-}
-
-func (x *FirmwareArtifact) GetFilesPath() string {
-	if x != nil {
-		return x.FilesPath
-	}
-	return ""
-}
-
-func (x *FirmwareArtifact) GetManifestPath() string {
-	if x != nil {
-		return x.ManifestPath
-	}
-	return ""
-}
-
-func (x *FirmwareArtifact) GetSha256() string {
-	if x != nil {
-		return x.Sha256
-	}
-	return ""
-}
-
-func (x *FirmwareArtifact) GetSize() int64 {
-	if x != nil {
-		return x.Size
-	}
-	return 0
-}
-
-func (x *FirmwareArtifact) GetTarPath() string {
-	if x != nil {
-		return x.TarPath
-	}
-	return ""
-}
-
-func (x *FirmwareArtifact) GetUploadedAt() string {
-	if x != nil {
-		return x.UploadedAt
-	}
-	return ""
-}
-
-type FirmwareArtifactEntry struct {
-	state         protoimpl.MessageState    `protogen:"open.v1"`
-	ContentType   *string                   `protobuf:"bytes,1,opt,name=content_type,json=contentType,proto3,oneof" json:"content_type,omitempty"`
-	ModTime       string                    `protobuf:"bytes,2,opt,name=mod_time,json=modTime,proto3" json:"mod_time,omitempty"`
-	Mode          int32                     `protobuf:"varint,3,opt,name=mode,proto3" json:"mode,omitempty"`
-	Path          string                    `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
-	Size          int64                     `protobuf:"varint,5,opt,name=size,proto3" json:"size,omitempty"`
-	Type          FirmwareArtifactEntryType `protobuf:"varint,6,opt,name=type,proto3,enum=gizclaw.rpc.v1.FirmwareArtifactEntryType" json:"type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *FirmwareArtifactEntry) Reset() {
-	*x = FirmwareArtifactEntry{}
-	mi := &file_payload_firmware_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FirmwareArtifactEntry) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FirmwareArtifactEntry) ProtoMessage() {}
-
-func (x *FirmwareArtifactEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_firmware_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FirmwareArtifactEntry.ProtoReflect.Descriptor instead.
-func (*FirmwareArtifactEntry) Descriptor() ([]byte, []int) {
-	return file_payload_firmware_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *FirmwareArtifactEntry) GetContentType() string {
-	if x != nil && x.ContentType != nil {
-		return *x.ContentType
-	}
-	return ""
-}
-
-func (x *FirmwareArtifactEntry) GetModTime() string {
-	if x != nil {
-		return x.ModTime
-	}
-	return ""
-}
-
-func (x *FirmwareArtifactEntry) GetMode() int32 {
-	if x != nil {
-		return x.Mode
-	}
-	return 0
-}
-
-func (x *FirmwareArtifactEntry) GetPath() string {
-	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
-func (x *FirmwareArtifactEntry) GetSize() int64 {
-	if x != nil {
-		return x.Size
-	}
-	return 0
-}
-
-func (x *FirmwareArtifactEntry) GetType() FirmwareArtifactEntryType {
-	if x != nil {
-		return x.Type
-	}
-	return FirmwareArtifactEntryType_FIRMWARE_ARTIFACT_ENTRY_TYPE_UNSPECIFIED
-}
-
-type FirmwareFilesDownloadRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Channel       FirmwareChannelName    `protobuf:"varint,1,opt,name=channel,proto3,enum=gizclaw.rpc.v1.FirmwareChannelName" json:"channel,omitempty"`
-	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *FirmwareFilesDownloadRequest) Reset() {
-	*x = FirmwareFilesDownloadRequest{}
-	mi := &file_payload_firmware_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FirmwareFilesDownloadRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FirmwareFilesDownloadRequest) ProtoMessage() {}
-
-func (x *FirmwareFilesDownloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_firmware_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FirmwareFilesDownloadRequest.ProtoReflect.Descriptor instead.
-func (*FirmwareFilesDownloadRequest) Descriptor() ([]byte, []int) {
-	return file_payload_firmware_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *FirmwareFilesDownloadRequest) GetChannel() FirmwareChannelName {
-	if x != nil {
-		return x.Channel
-	}
-	return FirmwareChannelName_FIRMWARE_CHANNEL_NAME_UNSPECIFIED
-}
-
-func (x *FirmwareFilesDownloadRequest) GetPath() string {
-	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
-type FirmwareFilesDownloadResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Artifact      *FirmwareArtifact      `protobuf:"bytes,1,opt,name=artifact,proto3" json:"artifact,omitempty"`
-	Channel       FirmwareChannelName    `protobuf:"varint,2,opt,name=channel,proto3,enum=gizclaw.rpc.v1.FirmwareChannelName" json:"channel,omitempty"`
-	File          *FirmwareArtifactEntry `protobuf:"bytes,3,opt,name=file,proto3" json:"file,omitempty"`
-	FirmwareName  string                 `protobuf:"bytes,4,opt,name=firmware_name,json=firmwareName,proto3" json:"firmware_name,omitempty"`
-	Path          string                 `protobuf:"bytes,5,opt,name=path,proto3" json:"path,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *FirmwareFilesDownloadResponse) Reset() {
-	*x = FirmwareFilesDownloadResponse{}
-	mi := &file_payload_firmware_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FirmwareFilesDownloadResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FirmwareFilesDownloadResponse) ProtoMessage() {}
-
-func (x *FirmwareFilesDownloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_firmware_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FirmwareFilesDownloadResponse.ProtoReflect.Descriptor instead.
-func (*FirmwareFilesDownloadResponse) Descriptor() ([]byte, []int) {
-	return file_payload_firmware_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *FirmwareFilesDownloadResponse) GetArtifact() *FirmwareArtifact {
-	if x != nil {
-		return x.Artifact
-	}
-	return nil
-}
-
-func (x *FirmwareFilesDownloadResponse) GetChannel() FirmwareChannelName {
-	if x != nil {
-		return x.Channel
-	}
-	return FirmwareChannelName_FIRMWARE_CHANNEL_NAME_UNSPECIFIED
-}
-
-func (x *FirmwareFilesDownloadResponse) GetFile() *FirmwareArtifactEntry {
-	if x != nil {
-		return x.File
-	}
-	return nil
-}
-
-func (x *FirmwareFilesDownloadResponse) GetFirmwareName() string {
-	if x != nil {
-		return x.FirmwareName
-	}
-	return ""
-}
-
-func (x *FirmwareFilesDownloadResponse) GetPath() string {
-	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
 type FirmwareGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Channel       FirmwareChannelName    `protobuf:"varint,1,opt,name=channel,proto3,enum=gizclaw.rpc.v1.FirmwareChannelName" json:"channel,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FirmwareGetRequest) Reset() {
 	*x = FirmwareGetRequest{}
-	mi := &file_payload_firmware_proto_msgTypes[5]
+	mi := &file_payload_firmware_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -423,7 +44,7 @@ func (x *FirmwareGetRequest) String() string {
 func (*FirmwareGetRequest) ProtoMessage() {}
 
 func (x *FirmwareGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_firmware_proto_msgTypes[5]
+	mi := &file_payload_firmware_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -436,19 +57,31 @@ func (x *FirmwareGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareGetRequest.ProtoReflect.Descriptor instead.
 func (*FirmwareGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_firmware_proto_rawDescGZIP(), []int{5}
+	return file_payload_firmware_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *FirmwareGetRequest) GetChannel() FirmwareChannelName {
+	if x != nil {
+		return x.Channel
+	}
+	return FirmwareChannelName_FIRMWARE_CHANNEL_NAME_UNSPECIFIED
 }
 
 type FirmwareGetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Firmware              `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	FirmwareName  string                 `protobuf:"bytes,1,opt,name=firmware_name,json=firmwareName,proto3" json:"firmware_name,omitempty"`
+	Channel       FirmwareChannelName    `protobuf:"varint,2,opt,name=channel,proto3,enum=gizclaw.rpc.v1.FirmwareChannelName" json:"channel,omitempty"`
+	Description   *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Url           string                 `protobuf:"bytes,4,opt,name=url,proto3" json:"url,omitempty"`
+	Sha256        string                 `protobuf:"bytes,5,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	Size          int64                  `protobuf:"varint,6,opt,name=size,proto3" json:"size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FirmwareGetResponse) Reset() {
 	*x = FirmwareGetResponse{}
-	mi := &file_payload_firmware_proto_msgTypes[6]
+	mi := &file_payload_firmware_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -460,7 +93,7 @@ func (x *FirmwareGetResponse) String() string {
 func (*FirmwareGetResponse) ProtoMessage() {}
 
 func (x *FirmwareGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_firmware_proto_msgTypes[6]
+	mi := &file_payload_firmware_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -473,190 +106,66 @@ func (x *FirmwareGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareGetResponse.ProtoReflect.Descriptor instead.
 func (*FirmwareGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_firmware_proto_rawDescGZIP(), []int{6}
+	return file_payload_firmware_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *FirmwareGetResponse) GetValue() *Firmware {
+func (x *FirmwareGetResponse) GetFirmwareName() string {
 	if x != nil {
-		return x.Value
+		return x.FirmwareName
 	}
-	return nil
+	return ""
 }
 
-type FirmwareSlot struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Artifact      *FirmwareArtifact      `protobuf:"bytes,1,opt,name=artifact,proto3,oneof" json:"artifact,omitempty"`
-	Description   *string                `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *FirmwareSlot) Reset() {
-	*x = FirmwareSlot{}
-	mi := &file_payload_firmware_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FirmwareSlot) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FirmwareSlot) ProtoMessage() {}
-
-func (x *FirmwareSlot) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_firmware_proto_msgTypes[7]
+func (x *FirmwareGetResponse) GetChannel() FirmwareChannelName {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
+		return x.Channel
 	}
-	return mi.MessageOf(x)
+	return FirmwareChannelName_FIRMWARE_CHANNEL_NAME_UNSPECIFIED
 }
 
-// Deprecated: Use FirmwareSlot.ProtoReflect.Descriptor instead.
-func (*FirmwareSlot) Descriptor() ([]byte, []int) {
-	return file_payload_firmware_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *FirmwareSlot) GetArtifact() *FirmwareArtifact {
-	if x != nil {
-		return x.Artifact
-	}
-	return nil
-}
-
-func (x *FirmwareSlot) GetDescription() string {
+func (x *FirmwareGetResponse) GetDescription() string {
 	if x != nil && x.Description != nil {
 		return *x.Description
 	}
 	return ""
 }
 
-type FirmwareSlots struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Beta          *FirmwareSlot          `protobuf:"bytes,1,opt,name=beta,proto3" json:"beta,omitempty"`
-	Develop       *FirmwareSlot          `protobuf:"bytes,2,opt,name=develop,proto3" json:"develop,omitempty"`
-	Pending       *FirmwareSlot          `protobuf:"bytes,3,opt,name=pending,proto3" json:"pending,omitempty"`
-	Stable        *FirmwareSlot          `protobuf:"bytes,4,opt,name=stable,proto3" json:"stable,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *FirmwareSlots) Reset() {
-	*x = FirmwareSlots{}
-	mi := &file_payload_firmware_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FirmwareSlots) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FirmwareSlots) ProtoMessage() {}
-
-func (x *FirmwareSlots) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_firmware_proto_msgTypes[8]
+func (x *FirmwareGetResponse) GetUrl() string {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
+		return x.Url
 	}
-	return mi.MessageOf(x)
+	return ""
 }
 
-// Deprecated: Use FirmwareSlots.ProtoReflect.Descriptor instead.
-func (*FirmwareSlots) Descriptor() ([]byte, []int) {
-	return file_payload_firmware_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *FirmwareSlots) GetBeta() *FirmwareSlot {
+func (x *FirmwareGetResponse) GetSha256() string {
 	if x != nil {
-		return x.Beta
+		return x.Sha256
 	}
-	return nil
+	return ""
 }
 
-func (x *FirmwareSlots) GetDevelop() *FirmwareSlot {
+func (x *FirmwareGetResponse) GetSize() int64 {
 	if x != nil {
-		return x.Develop
+		return x.Size
 	}
-	return nil
-}
-
-func (x *FirmwareSlots) GetPending() *FirmwareSlot {
-	if x != nil {
-		return x.Pending
-	}
-	return nil
-}
-
-func (x *FirmwareSlots) GetStable() *FirmwareSlot {
-	if x != nil {
-		return x.Stable
-	}
-	return nil
+	return 0
 }
 
 var File_payload_firmware_proto protoreflect.FileDescriptor
 
 const file_payload_firmware_proto_rawDesc = "" +
 	"\n" +
-	"\x16payload/firmware.proto\x12\x0egizclaw.rpc.v1\x1a\x13payload/enums.proto\"\xc8\x01\n" +
-	"\bFirmware\x12\x1d\n" +
-	"\n" +
-	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12%\n" +
-	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\x123\n" +
-	"\x05slots\x18\x04 \x01(\v2\x1d.gizclaw.rpc.v1.FirmwareSlotsR\x05slots\x12\x1d\n" +
-	"\n" +
-	"updated_at\x18\x05 \x01(\tR\tupdatedAtB\x0e\n" +
-	"\f_description\"\xe1\x01\n" +
-	"\x10FirmwareArtifact\x12!\n" +
-	"\fcontent_type\x18\x01 \x01(\tR\vcontentType\x12\x1d\n" +
-	"\n" +
-	"files_path\x18\x02 \x01(\tR\tfilesPath\x12#\n" +
-	"\rmanifest_path\x18\x03 \x01(\tR\fmanifestPath\x12\x16\n" +
-	"\x06sha256\x18\x04 \x01(\tR\x06sha256\x12\x12\n" +
-	"\x04size\x18\x05 \x01(\x03R\x04size\x12\x19\n" +
-	"\btar_path\x18\x06 \x01(\tR\atarPath\x12\x1f\n" +
-	"\vuploaded_at\x18\a \x01(\tR\n" +
-	"uploadedAt\"\xe6\x01\n" +
-	"\x15FirmwareArtifactEntry\x12&\n" +
-	"\fcontent_type\x18\x01 \x01(\tH\x00R\vcontentType\x88\x01\x01\x12\x19\n" +
-	"\bmod_time\x18\x02 \x01(\tR\amodTime\x12\x12\n" +
-	"\x04mode\x18\x03 \x01(\x05R\x04mode\x12\x12\n" +
-	"\x04path\x18\x04 \x01(\tR\x04path\x12\x12\n" +
-	"\x04size\x18\x05 \x01(\x03R\x04size\x12=\n" +
-	"\x04type\x18\x06 \x01(\x0e2).gizclaw.rpc.v1.FirmwareArtifactEntryTypeR\x04typeB\x0f\n" +
-	"\r_content_type\"q\n" +
-	"\x1cFirmwareFilesDownloadRequest\x12=\n" +
-	"\achannel\x18\x01 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameR\achannel\x12\x12\n" +
-	"\x04path\x18\x02 \x01(\tR\x04path\"\x90\x02\n" +
-	"\x1dFirmwareFilesDownloadResponse\x12<\n" +
-	"\bartifact\x18\x01 \x01(\v2 .gizclaw.rpc.v1.FirmwareArtifactR\bartifact\x12=\n" +
-	"\achannel\x18\x02 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameR\achannel\x129\n" +
-	"\x04file\x18\x03 \x01(\v2%.gizclaw.rpc.v1.FirmwareArtifactEntryR\x04file\x12#\n" +
-	"\rfirmware_name\x18\x04 \x01(\tR\ffirmwareName\x12\x12\n" +
-	"\x04path\x18\x05 \x01(\tR\x04path\"\x14\n" +
-	"\x12FirmwareGetRequest\"E\n" +
-	"\x13FirmwareGetResponse\x12.\n" +
-	"\x05value\x18\x01 \x01(\v2\x18.gizclaw.rpc.v1.FirmwareR\x05value\"\x95\x01\n" +
-	"\fFirmwareSlot\x12A\n" +
-	"\bartifact\x18\x01 \x01(\v2 .gizclaw.rpc.v1.FirmwareArtifactH\x00R\bartifact\x88\x01\x01\x12%\n" +
-	"\vdescription\x18\x02 \x01(\tH\x01R\vdescription\x88\x01\x01B\v\n" +
-	"\t_artifactB\x0e\n" +
-	"\f_description\"\xe7\x01\n" +
-	"\rFirmwareSlots\x120\n" +
-	"\x04beta\x18\x01 \x01(\v2\x1c.gizclaw.rpc.v1.FirmwareSlotR\x04beta\x126\n" +
-	"\adevelop\x18\x02 \x01(\v2\x1c.gizclaw.rpc.v1.FirmwareSlotR\adevelop\x126\n" +
-	"\apending\x18\x03 \x01(\v2\x1c.gizclaw.rpc.v1.FirmwareSlotR\apending\x124\n" +
-	"\x06stable\x18\x04 \x01(\v2\x1c.gizclaw.rpc.v1.FirmwareSlotR\x06stableB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
+	"\x16payload/firmware.proto\x12\x0egizclaw.rpc.v1\x1a\x13payload/enums.proto\"S\n" +
+	"\x12FirmwareGetRequest\x12=\n" +
+	"\achannel\x18\x01 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameR\achannel\"\xee\x01\n" +
+	"\x13FirmwareGetResponse\x12#\n" +
+	"\rfirmware_name\x18\x01 \x01(\tR\ffirmwareName\x12=\n" +
+	"\achannel\x18\x02 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameR\achannel\x12%\n" +
+	"\vdescription\x18\x03 \x01(\tH\x00R\vdescription\x88\x01\x01\x12\x10\n" +
+	"\x03url\x18\x04 \x01(\tR\x03url\x12\x16\n" +
+	"\x06sha256\x18\x05 \x01(\tR\x06sha256\x12\x12\n" +
+	"\x04size\x18\x06 \x01(\x03R\x04sizeB\x0e\n" +
+	"\f_descriptionB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
 	file_payload_firmware_proto_rawDescOnce sync.Once
@@ -670,38 +179,20 @@ func file_payload_firmware_proto_rawDescGZIP() []byte {
 	return file_payload_firmware_proto_rawDescData
 }
 
-var file_payload_firmware_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_payload_firmware_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_payload_firmware_proto_goTypes = []any{
-	(*Firmware)(nil),                      // 0: gizclaw.rpc.v1.Firmware
-	(*FirmwareArtifact)(nil),              // 1: gizclaw.rpc.v1.FirmwareArtifact
-	(*FirmwareArtifactEntry)(nil),         // 2: gizclaw.rpc.v1.FirmwareArtifactEntry
-	(*FirmwareFilesDownloadRequest)(nil),  // 3: gizclaw.rpc.v1.FirmwareFilesDownloadRequest
-	(*FirmwareFilesDownloadResponse)(nil), // 4: gizclaw.rpc.v1.FirmwareFilesDownloadResponse
-	(*FirmwareGetRequest)(nil),            // 5: gizclaw.rpc.v1.FirmwareGetRequest
-	(*FirmwareGetResponse)(nil),           // 6: gizclaw.rpc.v1.FirmwareGetResponse
-	(*FirmwareSlot)(nil),                  // 7: gizclaw.rpc.v1.FirmwareSlot
-	(*FirmwareSlots)(nil),                 // 8: gizclaw.rpc.v1.FirmwareSlots
-	(FirmwareArtifactEntryType)(0),        // 9: gizclaw.rpc.v1.FirmwareArtifactEntryType
-	(FirmwareChannelName)(0),              // 10: gizclaw.rpc.v1.FirmwareChannelName
+	(*FirmwareGetRequest)(nil),  // 0: gizclaw.rpc.v1.FirmwareGetRequest
+	(*FirmwareGetResponse)(nil), // 1: gizclaw.rpc.v1.FirmwareGetResponse
+	(FirmwareChannelName)(0),    // 2: gizclaw.rpc.v1.FirmwareChannelName
 }
 var file_payload_firmware_proto_depIdxs = []int32{
-	8,  // 0: gizclaw.rpc.v1.Firmware.slots:type_name -> gizclaw.rpc.v1.FirmwareSlots
-	9,  // 1: gizclaw.rpc.v1.FirmwareArtifactEntry.type:type_name -> gizclaw.rpc.v1.FirmwareArtifactEntryType
-	10, // 2: gizclaw.rpc.v1.FirmwareFilesDownloadRequest.channel:type_name -> gizclaw.rpc.v1.FirmwareChannelName
-	1,  // 3: gizclaw.rpc.v1.FirmwareFilesDownloadResponse.artifact:type_name -> gizclaw.rpc.v1.FirmwareArtifact
-	10, // 4: gizclaw.rpc.v1.FirmwareFilesDownloadResponse.channel:type_name -> gizclaw.rpc.v1.FirmwareChannelName
-	2,  // 5: gizclaw.rpc.v1.FirmwareFilesDownloadResponse.file:type_name -> gizclaw.rpc.v1.FirmwareArtifactEntry
-	0,  // 6: gizclaw.rpc.v1.FirmwareGetResponse.value:type_name -> gizclaw.rpc.v1.Firmware
-	1,  // 7: gizclaw.rpc.v1.FirmwareSlot.artifact:type_name -> gizclaw.rpc.v1.FirmwareArtifact
-	7,  // 8: gizclaw.rpc.v1.FirmwareSlots.beta:type_name -> gizclaw.rpc.v1.FirmwareSlot
-	7,  // 9: gizclaw.rpc.v1.FirmwareSlots.develop:type_name -> gizclaw.rpc.v1.FirmwareSlot
-	7,  // 10: gizclaw.rpc.v1.FirmwareSlots.pending:type_name -> gizclaw.rpc.v1.FirmwareSlot
-	7,  // 11: gizclaw.rpc.v1.FirmwareSlots.stable:type_name -> gizclaw.rpc.v1.FirmwareSlot
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	2, // 0: gizclaw.rpc.v1.FirmwareGetRequest.channel:type_name -> gizclaw.rpc.v1.FirmwareChannelName
+	2, // 1: gizclaw.rpc.v1.FirmwareGetResponse.channel:type_name -> gizclaw.rpc.v1.FirmwareChannelName
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_payload_firmware_proto_init() }
@@ -710,16 +201,14 @@ func file_payload_firmware_proto_init() {
 		return
 	}
 	file_payload_enums_proto_init()
-	file_payload_firmware_proto_msgTypes[0].OneofWrappers = []any{}
-	file_payload_firmware_proto_msgTypes[2].OneofWrappers = []any{}
-	file_payload_firmware_proto_msgTypes[7].OneofWrappers = []any{}
+	file_payload_firmware_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_firmware_proto_rawDesc), len(file_payload_firmware_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

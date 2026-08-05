@@ -9,7 +9,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
-func TestFirmwareHelp(t *testing.T) {
+func TestFirmwareHelpOnlyExposesGet(t *testing.T) {
 	cmd := NewCmd()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
@@ -17,10 +17,8 @@ func TestFirmwareHelp(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"get", "download"} {
-		if !strings.Contains(out.String(), want) {
-			t.Fatalf("firmware help missing %q: %s", want, out.String())
-		}
+	if !strings.Contains(out.String(), "get") || strings.Contains(out.String(), "download") {
+		t.Fatalf("firmware help = %s", out.String())
 	}
 }
 
@@ -32,24 +30,9 @@ func TestFirmwareGetHelp(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"--context", "--timeout"} {
+	for _, want := range []string{"--channel", "--context", "--timeout"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("firmware get help missing %q: %s", want, out.String())
-		}
-	}
-}
-
-func TestFirmwareDownloadHelp(t *testing.T) {
-	cmd := NewCmd()
-	var out bytes.Buffer
-	cmd.SetOut(&out)
-	cmd.SetArgs([]string{"firmware", "download", "--help"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{"--channel", "--path", "--output", "--context", "--timeout"} {
-		if !strings.Contains(out.String(), want) {
-			t.Fatalf("firmware download help missing %q: %s", want, out.String())
 		}
 	}
 }
@@ -57,74 +40,39 @@ func TestFirmwareDownloadHelp(t *testing.T) {
 func TestFirmwareChannelFlag(t *testing.T) {
 	for _, value := range []string{"stable", " beta ", "develop", "pending"} {
 		if _, err := firmwareChannelFlag(value); err != nil {
-			t.Fatalf("firmwareChannelFlag(%q) error = %v", value, err)
+			t.Fatalf("firmwareChannelFlag(%q): %v", value, err)
 		}
 	}
-	if _, err := firmwareChannelFlag("rollback"); err == nil {
-		t.Fatal("firmwareChannelFlag should reject rollback")
+	for _, value := range []string{"", "rollback"} {
+		if _, err := firmwareChannelFlag(value); err == nil {
+			t.Fatalf("firmwareChannelFlag(%q) should fail", value)
+		}
 	}
 }
 
-func TestFirmwareDownloadRejectsInvalidInput(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		args []string
-		want string
-	}{
-		{
-			name: "bad channel",
-			args: []string{"firmware", "download", "--channel", "rollback", "--path", "firmware.bin", "--output", "app.bin"},
-			want: "channel must be one of stable, beta, develop, pending",
-		},
-		{
-			name: "stdout output",
-			args: []string{"firmware", "download", "--channel", "stable", "--path", "firmware.bin", "--output", "-"},
-			want: "output must be a file path",
-		},
-		{
-			name: "missing path",
-			args: []string{"firmware", "download", "--channel", "stable", "--output", "app.bin"},
-			want: "path must not be empty",
-		},
+func TestFirmwareGetRejectsMissingOrInvalidChannel(t *testing.T) {
+	for _, args := range [][]string{
+		{"firmware", "get"},
+		{"firmware", "get", "--channel", "rollback"},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			cmd := NewCmd()
-			cmd.SetArgs(tc.args)
-			err := cmd.Execute()
-			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("firmware download err = %v, want %q", err, tc.want)
-			}
-		})
+		cmd := NewCmd()
+		cmd.SetArgs(args)
+		err := cmd.Execute()
+		if err == nil || !strings.Contains(err.Error(), "channel must be one of") {
+			t.Fatalf("%v error = %v", args, err)
+		}
 	}
 }
 
-func TestFirmwareCommandsPropagateConnectError(t *testing.T) {
+func TestFirmwareGetPropagatesConnectError(t *testing.T) {
 	errConnect := errors.New("connect failed")
 	original := connectFromContext
-	connectFromContext = func(string) (*gizcli.Client, error) {
-		return nil, errConnect
-	}
-	t.Cleanup(func() {
-		connectFromContext = original
-	})
+	connectFromContext = func(string) (*gizcli.Client, error) { return nil, errConnect }
+	t.Cleanup(func() { connectFromContext = original })
 
-	for _, tc := range []struct {
-		name string
-		args []string
-	}{
-		{name: "ping", args: []string{"ping"}},
-		{name: "server-info", args: []string{"server-info"}},
-		{name: "test-speed", args: []string{"test-speed"}},
-		{name: "get", args: []string{"firmware", "get"}},
-		{name: "download", args: []string{"firmware", "download", "--channel", "stable", "--path", "firmware.bin", "--output", "app.bin"}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			cmd := NewCmd()
-			cmd.SetArgs(tc.args)
-			err := cmd.Execute()
-			if !errors.Is(err, errConnect) {
-				t.Fatalf("%v err = %v, want %v", tc.args, err, errConnect)
-			}
-		})
+	cmd := NewCmd()
+	cmd.SetArgs([]string{"firmware", "get", "--channel", "stable"})
+	if err := cmd.Execute(); !errors.Is(err, errConnect) {
+		t.Fatalf("error = %v, want %v", err, errConnect)
 	}
 }

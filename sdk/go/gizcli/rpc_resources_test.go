@@ -149,9 +149,8 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 
 	t.Run("firmware", func(t *testing.T) {
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFirmwareGet, rpcapi.FirmwareGetResponse{}, (*rpcapi.RPCPayload).FromFirmwareGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FirmwareGetResponse, error) {
-			return client.GetFirmware(ctx, conn, "firmware-get")
+			return client.GetFirmware(ctx, conn, "firmware-get", rpcapi.FirmwareGetRequest{Channel: rpcapi.FirmwareChannelNameStable})
 		})
-		runFirmwareDownloadWrapperTest(t, client)
 	})
 
 	t.Run("gameplay pixa", func(t *testing.T) {
@@ -314,58 +313,6 @@ func resourceResponse[T any](id string, value T, encode func(*rpcapi.RPCPayload,
 		panic(err)
 	}
 	return resp
-}
-
-func runFirmwareDownloadWrapperTest(t *testing.T, client *rpcClient) {
-	t.Helper()
-	serverSide, clientSide := net.Pipe()
-	defer serverSide.Close()
-	defer clientSide.Close()
-
-	payload := []byte("firmware-payload")
-	serverErrCh := make(chan error, 1)
-	go func() {
-		req, err := readRPCRequestWithEOS(serverSide)
-		if err != nil {
-			serverErrCh <- err
-			return
-		}
-		if req.Method != rpcapi.RPCMethodServerFirmwareFilesDownload {
-			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerFirmwareFilesDownload}
-			return
-		}
-		resp := resourceResponse(req.Id, rpcapi.FirmwareFilesDownloadResponse{
-			FirmwareName: "devkit",
-			Channel:      rpcapi.FirmwareChannelNameStable,
-			Path:         "firmware.bin",
-			Artifact:     rpcapi.FirmwareArtifact{TarPath: "devkit/stable/artifact/artifact.tar", Size: 1024, ContentType: "application/x-tar"},
-			File:         rpcapi.FirmwareArtifactEntry{Path: "firmware.bin", Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len(payload))},
-		}, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadResponse)
-		if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
-			serverErrCh <- err
-			return
-		}
-		if err := rpcapi.WriteFrame(serverSide, rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload}); err != nil {
-			serverErrCh <- err
-			return
-		}
-		serverErrCh <- rpcapi.WriteEOS(serverSide)
-	}()
-
-	var out bytes.Buffer
-	result, err := client.DownloadFirmware(context.Background(), clientSide, "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
-		Channel: rpcapi.FirmwareChannelNameStable,
-		Path:    "firmware.bin",
-	}, &out)
-	if err != nil {
-		t.Fatalf("firmware download call error = %v", err)
-	}
-	if result.Metadata.File.Path != "firmware.bin" || result.Bytes != int64(len(payload)) || out.String() != string(payload) {
-		t.Fatalf("firmware download result = %#v payload %q", result, out.String())
-	}
-	if err := <-serverErrCh; err != nil {
-		t.Fatalf("firmware download server error = %v", err)
-	}
 }
 
 func runBadgeDefPixaDownloadWrapperTest(t *testing.T, client *rpcClient) {

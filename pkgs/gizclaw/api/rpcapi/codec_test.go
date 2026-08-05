@@ -164,6 +164,9 @@ func TestModelFieldsAreCompactedWithoutCompatibilityReservations(t *testing.T) {
 
 func TestRPCMethodsIntentionallyReuseRetiredValuesWithoutCompatibilityReservations(t *testing.T) {
 	descriptor := rpcpb.RpcMethod_RPC_METHOD_UNSPECIFIED.Descriptor()
+	if method23 := descriptor.Values().ByNumber(23); method23 != nil {
+		t.Fatalf("retired method 23 is still registered as %s", method23.Name())
+	}
 	badgeDefinition := descriptor.Values().ByName("RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD")
 	if badgeDefinition == nil || badgeDefinition.Number() != 64 {
 		t.Fatalf("Badge definition method = %v, want tag 64", badgeDefinition)
@@ -694,6 +697,24 @@ func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
 	_, err = firmwarePayload.AsFirmwareGetRequest()
 	if err != nil {
 		t.Fatalf("AsFirmwareGetRequest() error = %v", err)
+	}
+	firmwareResponse := FirmwareGetResponse{
+		FirmwareName: "devkit",
+		Channel:      FirmwareChannelNameStable,
+		Description:  new("stable package"),
+		Url:          "https://firmware.example/stable.tar.zlib",
+		Sha256:       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		Size:         4096,
+	}
+	if err := firmwarePayload.FromFirmwareGetResponse(firmwareResponse); err != nil {
+		t.Fatalf("FromFirmwareGetResponse() error = %v", err)
+	}
+	decodedFirmware, err := firmwarePayload.AsFirmwareGetResponse()
+	if err != nil {
+		t.Fatalf("AsFirmwareGetResponse() error = %v", err)
+	}
+	if !reflect.DeepEqual(decodedFirmware, firmwareResponse) {
+		t.Fatalf("firmware response round trip = %#v, want %#v", decodedFirmware, firmwareResponse)
 	}
 
 	schemaData, err := proto.Marshal(&rpcpb.DoubaoRealtimeJSONSchema{

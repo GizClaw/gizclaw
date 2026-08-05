@@ -110,8 +110,8 @@
       "Firmware": {
         "$ref": "./shared/firmware.json#/components/schemas/Firmware"
       },
-      "FirmwareArtifact": {
-        "$ref": "./shared/firmware_artifact.json#/components/schemas/FirmwareArtifact"
+      "FirmwarePackage": {
+        "$ref": "./shared/firmware_package.json#/components/schemas/FirmwarePackage"
       },
       "FirmwareSlot": {
         "$ref": "./shared/firmware_slot.json#/components/schemas/FirmwareSlot"
@@ -424,21 +424,6 @@
       },
       "PeerStatus": {
         "$ref": "./shared/peer_status.json#/components/schemas/PeerStatus"
-      },
-      "FirmwareArtifactEntry": {
-        "$ref": "./shared/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactEntry"
-      },
-      "FirmwareArtifactEntryType": {
-        "$ref": "./shared/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactEntryType"
-      },
-      "FirmwareArtifactList": {
-        "$ref": "./shared/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactList"
-      },
-      "FirmwareArtifactStats": {
-        "$ref": "./shared/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactStats"
-      },
-      "FirmwareArtifactTree": {
-        "$ref": "./shared/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactTree"
       },
       "FirmwareSpecSlot": {
         "$ref": "./shared/firmware_spec.json#/components/schemas/FirmwareSpecSlot"
