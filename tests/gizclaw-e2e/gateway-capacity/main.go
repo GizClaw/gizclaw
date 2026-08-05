@@ -15,8 +15,10 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"runtime/metrics"
+	"runtime/pprof"
 	"slices"
 	"strconv"
 	"strings"
@@ -847,6 +849,9 @@ func holdSessions(ctx context.Context, state *resultState, opts options, sem cha
 	state.mu.Lock()
 	state.holdStartedAt = started
 	state.mu.Unlock()
+	if err := writeDiagnosticHeapProfile("hold-start"); err != nil {
+		return err
+	}
 	nextPing := started.Add(opts.pingInterval)
 	round := 1
 	for nextPing.Before(deadline) {
@@ -873,6 +878,9 @@ func holdSessions(ctx context.Context, state *resultState, opts options, sem cha
 	state.mu.Lock()
 	state.holdFinishedAt = time.Now()
 	state.mu.Unlock()
+	if err := writeDiagnosticHeapProfile("hold-finish"); err != nil {
+		return err
+	}
 	pingAll(ctx, state, opts, sem, "final", 0)
 	if opts.minFinalSpeedRetention > 0 {
 		final := runSpeedTests(ctx, state, opts, "final")
@@ -886,6 +894,30 @@ func holdSessions(ctx context.Context, state *resultState, opts options, sem cha
 		state.mu.Unlock()
 	}
 	return ctx.Err()
+}
+
+func writeDiagnosticHeapProfile(checkpoint string) error {
+	dir := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_GATEWAY_HEAP_PROFILE_DIR"))
+	if dir == "" {
+		return nil
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create diagnostic heap profile directory: %w", err)
+	}
+	runtime.GC()
+	profilePath := filepath.Join(dir, checkpoint+".pprof")
+	file, err := os.Create(profilePath)
+	if err != nil {
+		return fmt.Errorf("create diagnostic heap profile %s: %w", checkpoint, err)
+	}
+	if err := pprof.WriteHeapProfile(file); err != nil {
+		_ = file.Close()
+		return fmt.Errorf("write diagnostic heap profile %s: %w", checkpoint, err)
+	}
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("close diagnostic heap profile %s: %w", checkpoint, err)
+	}
+	return nil
 }
 
 type establishSessionFunc func(

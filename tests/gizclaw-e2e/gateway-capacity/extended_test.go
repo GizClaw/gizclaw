@@ -33,6 +33,26 @@ func TestValidateOptionsRequiresCompleteRoleSamplingIdentity(t *testing.T) {
 	}
 }
 
+func TestWriteDiagnosticHeapProfileIsOptIn(t *testing.T) {
+	t.Setenv("GIZCLAW_E2E_GATEWAY_HEAP_PROFILE_DIR", "")
+	if err := writeDiagnosticHeapProfile("disabled"); err != nil {
+		t.Fatalf("writeDiagnosticHeapProfile(disabled) = %v", err)
+	}
+
+	dir := t.TempDir()
+	t.Setenv("GIZCLAW_E2E_GATEWAY_HEAP_PROFILE_DIR", dir)
+	if err := writeDiagnosticHeapProfile("hold-start"); err != nil {
+		t.Fatalf("writeDiagnosticHeapProfile(enabled) = %v", err)
+	}
+	info, err := os.Stat(filepath.Join(dir, "hold-start.pprof"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Size() == 0 {
+		t.Fatal("diagnostic heap profile is empty")
+	}
+}
+
 func TestValidateOptionsKeepsPingTimeoutInsideRoundBudget(t *testing.T) {
 	opts := validOptionsForTest()
 	opts.pingInterval = 30 * time.Second
