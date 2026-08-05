@@ -147,12 +147,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'FirmwareGetRequest',
     responseType: 'FirmwareGetResponse',
   ),
-  'server.firmware.files.download': RpcMethodDescriptor(
-    id: 23,
-    name: 'server.firmware.files.download',
-    requestType: 'FirmwareFilesDownloadRequest',
-    responseType: 'FirmwareFilesDownloadResponse',
-  ),
   'server.workspace.list': RpcMethodDescriptor(
     id: 24,
     name: 'server.workspace.list',
@@ -610,7 +604,6 @@ const rpcMethodNamesById = <int, String>{
   20: 'server.run.stop',
   21: 'server.run.say',
   22: 'server.firmware.get',
-  23: 'server.firmware.files.download',
   24: 'server.workspace.list',
   25: 'server.workspace.get',
   26: 'server.workspace.create',

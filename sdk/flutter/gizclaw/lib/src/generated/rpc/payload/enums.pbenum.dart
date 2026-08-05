@@ -391,32 +391,6 @@ class DoubaoRealtimeWorkspaceParametersAgentType extends $pb.ProtobufEnum {
   const DoubaoRealtimeWorkspaceParametersAgentType._(super.value, super.name);
 }
 
-class FirmwareArtifactEntryType extends $pb.ProtobufEnum {
-  static const FirmwareArtifactEntryType
-      FIRMWARE_ARTIFACT_ENTRY_TYPE_UNSPECIFIED = FirmwareArtifactEntryType._(
-          0, _omitEnumNames ? '' : 'FIRMWARE_ARTIFACT_ENTRY_TYPE_UNSPECIFIED');
-  static const FirmwareArtifactEntryType FIRMWARE_ARTIFACT_ENTRY_TYPE_FILE =
-      FirmwareArtifactEntryType._(
-          1, _omitEnumNames ? '' : 'FIRMWARE_ARTIFACT_ENTRY_TYPE_FILE');
-  static const FirmwareArtifactEntryType FIRMWARE_ARTIFACT_ENTRY_TYPE_DIR =
-      FirmwareArtifactEntryType._(
-          2, _omitEnumNames ? '' : 'FIRMWARE_ARTIFACT_ENTRY_TYPE_DIR');
-
-  static const $core.List<FirmwareArtifactEntryType> values =
-      <FirmwareArtifactEntryType>[
-    FIRMWARE_ARTIFACT_ENTRY_TYPE_UNSPECIFIED,
-    FIRMWARE_ARTIFACT_ENTRY_TYPE_FILE,
-    FIRMWARE_ARTIFACT_ENTRY_TYPE_DIR,
-  ];
-
-  static final $core.List<FirmwareArtifactEntryType?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 2);
-  static FirmwareArtifactEntryType? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const FirmwareArtifactEntryType._(super.value, super.name);
-}
-
 class FirmwareChannelName extends $pb.ProtobufEnum {
   static const FirmwareChannelName FIRMWARE_CHANNEL_NAME_UNSPECIFIED =
       FirmwareChannelName._(

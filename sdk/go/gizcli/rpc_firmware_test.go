@@ -12,177 +12,61 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
-func TestDownloadFirmwareRejectsNilOutput(t *testing.T) {
-	client := &rpcClient{}
-	_, err := client.DownloadFirmware(context.Background(), nil, "firmware-download", rpcapi.FirmwareFilesDownloadRequest{}, nil)
-	if err == nil || !strings.Contains(err.Error(), "firmware download output is required") {
-		t.Fatalf("DownloadFirmware nil output err = %v", err)
-	}
-}
-
-func TestClientFirmwareMethodsRequireConnection(t *testing.T) {
+func TestClientGetFirmwareRequiresConnection(t *testing.T) {
 	client := &Client{}
-	if _, err := client.GetFirmware(context.Background(), "firmware-get"); err == nil || !strings.Contains(err.Error(), "client is not connected") {
+	_, err := client.GetFirmware(context.Background(), "firmware-get", rpcapi.FirmwareGetRequest{Channel: rpcapi.FirmwareChannelNameStable})
+	if err == nil || !strings.Contains(err.Error(), "client is not connected") {
 		t.Fatalf("GetFirmware disconnected err = %v", err)
 	}
-	var out bytes.Buffer
-	if _, err := client.DownloadFirmware(context.Background(), "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
-		Channel: rpcapi.FirmwareChannelNameStable,
-		Path:    "firmware.bin",
-	}, &out); err == nil || !strings.Contains(err.Error(), "client is not connected") {
-		t.Fatalf("DownloadFirmware disconnected err = %v", err)
-	}
 }
 
-func TestClientFirmwareMethodsUseRPCConnection(t *testing.T) {
+func TestClientGetFirmwareUsesRPCConnection(t *testing.T) {
 	client, serverConn, cleanup := connectedFirmwareTestClient(t)
 	defer cleanup()
-
 	listener := serverConn.ListenService(ServicePeerRPC)
 	defer listener.Close()
 
-	serverErrCh := make(chan error, 2)
+	serverErr := make(chan error, 1)
 	go func() {
-		serveFirmwareRPCResponse(t, listener, rpcapi.RPCMethodServerFirmwareGet, rpcapi.FirmwareGetResponse{Name: "devkit"}, (*rpcapi.RPCPayload).FromFirmwareGetResponse, nil, serverErrCh)
-		serveFirmwareRPCResponse(t, listener, rpcapi.RPCMethodServerFirmwareFilesDownload, rpcapi.FirmwareFilesDownloadResponse{
+		stream, err := listener.Accept()
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		request, err := readRPCRequestWithEOS(stream)
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		params, err := request.Params.AsFirmwareGetRequest()
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		if request.Method != rpcapi.RPCMethodServerFirmwareGet || params.Channel != rpcapi.FirmwareChannelNameBeta {
+			serverErr <- &unexpectedRPCMethodError{got: request.Method, want: rpcapi.RPCMethodServerFirmwareGet}
+			return
+		}
+		response := resourceResponse(request.Id, rpcapi.FirmwareGetResponse{
 			FirmwareName: "devkit",
-			Channel:      rpcapi.FirmwareChannelNameStable,
-			Path:         "firmware.bin",
-			Artifact:     rpcapi.FirmwareArtifact{TarPath: "devkit/stable/artifact/artifact.tar", Size: 1024, ContentType: "application/x-tar"},
-			File:         rpcapi.FirmwareArtifactEntry{Path: "firmware.bin", Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len("firmware-payload"))},
-		}, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadResponse, []byte("firmware-payload"), serverErrCh)
+			Channel:      rpcapi.FirmwareChannelNameBeta,
+			Description:  new("beta package"),
+			Url:          "https://firmware.example/beta.tar.zlib",
+			Sha256:       strings.Repeat("a", 64),
+			Size:         123,
+		}, (*rpcapi.RPCPayload).FromFirmwareGetResponse)
+		serverErr <- writeRPCResponseWithEOS(stream, request.Method, response)
 	}()
 
-	got, err := client.GetFirmware(context.Background(), "firmware-get")
+	got, err := client.GetFirmware(context.Background(), "firmware-get", rpcapi.FirmwareGetRequest{Channel: rpcapi.FirmwareChannelNameBeta})
 	if err != nil {
-		t.Fatalf("GetFirmware error = %v", err)
+		t.Fatalf("GetFirmware: %v", err)
 	}
-	if got.Name != "devkit" {
+	if got.FirmwareName != "devkit" || got.Channel != rpcapi.FirmwareChannelNameBeta || got.Description == nil || *got.Description != "beta package" || got.Url != "https://firmware.example/beta.tar.zlib" || got.Sha256 != strings.Repeat("a", 64) || got.Size != 123 {
 		t.Fatalf("GetFirmware = %#v", got)
 	}
-
-	payload := []byte("firmware-payload")
-	var out bytes.Buffer
-	download, err := client.DownloadFirmware(context.Background(), "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
-		Channel: rpcapi.FirmwareChannelNameStable,
-		Path:    "firmware.bin",
-	}, &out)
-	if err != nil {
-		t.Fatalf("DownloadFirmware error = %v", err)
-	}
-	if download.Bytes != int64(len(payload)) || out.String() != string(payload) {
-		t.Fatalf("DownloadFirmware = %#v payload=%q", download, out.String())
-	}
-
-	for i := 0; i < 2; i++ {
-		if err := <-serverErrCh; err != nil {
-			t.Fatalf("server error = %v", err)
-		}
-	}
-}
-
-func TestDownloadFirmwareReturnsRPCError(t *testing.T) {
-	serverSide, clientSide := net.Pipe()
-	defer serverSide.Close()
-	defer clientSide.Close()
-
-	serverErrCh := make(chan error, 1)
-	go func() {
-		req, err := readRPCRequestWithEOS(serverSide)
-		if err != nil {
-			serverErrCh <- err
-			return
-		}
-		resp := rpcapi.Error{
-			RequestID: req.Id,
-			Code:      rpcapi.RPCErrorCodeNotFound,
-			Message:   "firmware artifact not found",
-		}.RPCResponse()
-		serverErrCh <- writeRPCResponseWithEOS(serverSide, req.Method, resp)
-	}()
-
-	client := &rpcClient{}
-	var out bytes.Buffer
-	_, err := client.DownloadFirmware(context.Background(), clientSide, "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
-		Channel: rpcapi.FirmwareChannelNameStable,
-		Path:    "firmware.bin",
-	}, &out)
-	if err == nil || !strings.Contains(err.Error(), "firmware artifact not found") {
-		t.Fatalf("DownloadFirmware RPC error = %v", err)
-	}
-	if err := <-serverErrCh; err != nil {
-		t.Fatalf("server error = %v", err)
-	}
-}
-
-func TestDownloadFirmwareReadsContinuationMetadata(t *testing.T) {
-	serverSide, clientSide := net.Pipe()
-	defer serverSide.Close()
-	defer clientSide.Close()
-
-	largePath := strings.Repeat("firmware/", 9000)
-	payload := []byte("firmware-payload")
-	serverErrCh := make(chan error, 1)
-	go func() {
-		serverStream, err := newRPCStream(context.Background(), serverSide)
-		if err != nil {
-			serverErrCh <- err
-			return
-		}
-		defer serverStream.Close()
-		req, requestEOS, err := serverStream.ReadRequestEnvelope()
-		if err != nil {
-			serverErrCh <- err
-			return
-		}
-		if !requestEOS {
-			if err := serverStream.ReadEOS(); err != nil {
-				serverErrCh <- err
-				return
-			}
-		}
-		resp := resourceResponse(req.Id, rpcapi.FirmwareFilesDownloadResponse{
-			FirmwareName: "devkit",
-			Channel:      rpcapi.FirmwareChannelNameStable,
-			Path:         largePath,
-			Artifact:     rpcapi.FirmwareArtifact{TarPath: "devkit/stable/artifact/artifact.tar", Size: 1024, ContentType: "application/x-tar"},
-			File:         rpcapi.FirmwareArtifactEntry{Path: largePath, Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len(payload))},
-		}, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadResponse)
-		metadataEOS, err := serverStream.WriteResponseEnvelopeForMethod(req.Method, resp)
-		if err != nil {
-			serverErrCh <- err
-			return
-		}
-		if metadataEOS {
-			if err := serverStream.WriteEOS(); err != nil {
-				serverErrCh <- err
-				return
-			}
-		}
-		if err := serverStream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload}); err != nil {
-			serverErrCh <- err
-			return
-		}
-		serverErrCh <- serverStream.WriteEOS()
-	}()
-
-	client := &rpcClient{}
-	var out bytes.Buffer
-	download, err := client.DownloadFirmware(context.Background(), clientSide, "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
-		Channel: rpcapi.FirmwareChannelNameStable,
-		Path:    "firmware.bin",
-	}, &out)
-	if err != nil {
-		t.Fatalf("DownloadFirmware continuation metadata error = %v", err)
-	}
-	if download.Metadata.Path != largePath || download.Metadata.File.Path != largePath {
-		t.Fatalf("DownloadFirmware metadata path len=%d file path len=%d", len(download.Metadata.Path), len(download.Metadata.File.Path))
-	}
-	if download.Bytes != int64(len(payload)) || out.String() != string(payload) {
-		t.Fatalf("DownloadFirmware = %#v payload=%q", download, out.String())
-	}
-	if err := <-serverErrCh; err != nil {
-		t.Fatalf("server error = %v", err)
+	if err := <-serverErr; err != nil {
+		t.Fatalf("server: %v", err)
 	}
 }
 
@@ -190,14 +74,13 @@ func connectedFirmwareTestClient(t *testing.T) (*Client, giznet.Conn, func()) {
 	t.Helper()
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
-		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+		t.Fatalf("GenerateKeyPair(server): %v", err)
 	}
 	clientKey, err := giznet.GenerateKeyPair()
 	if err != nil {
-		t.Fatalf("GenerateKeyPair(client) error = %v", err)
+		t.Fatalf("GenerateKeyPair(client): %v", err)
 	}
 	serverListener, signalingURL := newTestWebRTCServer(t, serverKey, clientSecurityPolicy{})
-
 	accepted := make(chan giznet.Conn, 1)
 	acceptErr := make(chan error, 1)
 	go func() {
@@ -211,75 +94,32 @@ func connectedFirmwareTestClient(t *testing.T) (*Client, giznet.Conn, func()) {
 
 	client := &Client{KeyPair: clientKey, DialTransport: testWebRTCDialTransport()}
 	if err := client.Dial(serverKey.Public, signalingURL); err != nil {
-		t.Fatalf("Dial() error = %v", err)
+		t.Fatalf("Dial: %v", err)
 	}
-
 	var serverConn giznet.Conn
 	select {
 	case serverConn = <-accepted:
 	case err := <-acceptErr:
 		_ = client.Close()
-		t.Fatalf("Accept() error = %v", err)
+		t.Fatalf("Accept: %v", err)
 	case <-time.After(3 * time.Second):
 		_ = client.Close()
-		t.Fatal("Accept() timeout")
+		t.Fatal("Accept timeout")
 	}
-
-	cleanup := func() {
+	return client, serverConn, func() {
 		_ = client.Close()
 		_ = serverConn.Close()
 	}
-	return client, serverConn, cleanup
-}
-
-func serveFirmwareRPCResponse[T any](
-	t *testing.T,
-	listener giznet.ServiceListener,
-	wantMethod rpcapi.RPCMethod,
-	response T,
-	encode func(*rpcapi.RPCPayload, T) error,
-	payload []byte,
-	errCh chan<- error,
-) {
-	t.Helper()
-	stream, err := listener.Accept()
-	if err != nil {
-		errCh <- err
-		return
-	}
-	req, err := readRPCRequestWithEOS(stream)
-	if err != nil {
-		errCh <- err
-		return
-	}
-	if req.Method != wantMethod {
-		errCh <- &unexpectedRPCMethodError{got: req.Method, want: wantMethod}
-		return
-	}
-	resp := resourceResponse(req.Id, response, encode)
-	if err := rpcapi.WriteResponseForMethod(stream, wantMethod, resp); err != nil {
-		errCh <- err
-		return
-	}
-	if payload != nil {
-		if err := rpcapi.WriteFrame(stream, rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload}); err != nil {
-			errCh <- err
-			return
-		}
-	}
-	errCh <- rpcapi.WriteEOS(stream)
 }
 
 func TestCopyBinaryFramesRejectsUnexpectedFrame(t *testing.T) {
 	serverSide, clientSide := net.Pipe()
 	defer serverSide.Close()
 	defer clientSide.Close()
-
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- rpcapi.WriteFrame(serverSide, rpcapi.Frame{Type: rpcapi.FrameTypeText, Payload: []byte(`{}`)})
 	}()
-
 	stream, err := newRPCStream(context.Background(), clientSide)
 	if err != nil {
 		t.Fatal(err)
@@ -288,10 +128,10 @@ func TestCopyBinaryFramesRejectsUnexpectedFrame(t *testing.T) {
 	var out bytes.Buffer
 	_, err = copyBinaryFrames(&out, stream)
 	if err == nil || !strings.Contains(err.Error(), "expected binary frame") {
-		t.Fatalf("copyBinaryFrames unexpected frame err = %v", err)
+		t.Fatalf("copyBinaryFrames err = %v", err)
 	}
 	if err := <-errCh; err != nil {
-		t.Fatalf("writer error = %v", err)
+		t.Fatalf("writer: %v", err)
 	}
 }
 
@@ -308,12 +148,10 @@ func TestCopyBinaryFramesDetectsShortWrite(t *testing.T) {
 	serverSide, clientSide := net.Pipe()
 	defer serverSide.Close()
 	defer clientSide.Close()
-
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- rpcapi.WriteFrame(serverSide, rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte("payload")})
 	}()
-
 	stream, err := newRPCStream(context.Background(), clientSide)
 	if err != nil {
 		t.Fatal(err)
@@ -321,9 +159,9 @@ func TestCopyBinaryFramesDetectsShortWrite(t *testing.T) {
 	defer stream.Close()
 	_, err = copyBinaryFrames(shortWriter{}, stream)
 	if err == nil || !strings.Contains(err.Error(), "short write") {
-		t.Fatalf("copyBinaryFrames short write err = %v", err)
+		t.Fatalf("copyBinaryFrames err = %v", err)
 	}
 	if err := <-errCh; err != nil {
-		t.Fatalf("writer error = %v", err)
+		t.Fatalf("writer: %v", err)
 	}
 }

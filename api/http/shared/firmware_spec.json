@@ -14,7 +14,12 @@
         "properties": {
           "description": {
             "type": "string",
+            "maxLength": 1024,
             "example": "Devkit firmware 1.0.3"
+          },
+          "package": {
+            "$ref": "./firmware_package.json#/components/schemas/FirmwarePackage",
+            "description": "Operator-owned external .tar.zlib package configuration for this channel."
           }
         }
       },

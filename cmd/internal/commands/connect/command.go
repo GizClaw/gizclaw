@@ -303,106 +303,37 @@ func firmwareChannelFlag(value string) (rpcapi.FirmwareChannelName, error) {
 func newFirmwareCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "firmware",
-		Short: "Inspect and download firmware through server RPC",
+		Short: "Inspect firmware channel configuration through server RPC",
 	}
-	cmd.AddCommand(
-		newFirmwareGetCmd(),
-		newFirmwareDownloadCmd(),
-	)
+	cmd.AddCommand(newFirmwareGetCmd())
 	return cmd
 }
 
 func newFirmwareGetCmd() *cobra.Command {
 	var opts connectRPCOptions
-	cmd := &cobra.Command{
-		Use:   "get",
-		Short: "Get the firmware release line bound to this peer",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.GetFirmware(ctx, "firmware.get")
-			})
-		},
-	}
-	opts.addFlags(cmd)
-	return cmd
-}
-
-func newFirmwareDownloadCmd() *cobra.Command {
-	var opts connectRPCOptions
 	var channelValue string
-	var artifactPath string
-	var output string
 	cmd := &cobra.Command{
-		Use:   "download --channel <channel> --path <artifact-path> --output <file>",
-		Short: "Download a file from the firmware release line bound to this peer",
+		Use:   "get --channel <channel>",
+		Short: "Get one channel configuration from the firmware bound to this peer",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.NoArgs(cmd, args); err != nil {
 				return err
 			}
-			for name, value := range map[string]string{
-				"path":   artifactPath,
-				"output": output,
-			} {
-				if err := nonEmptyFlag(name, value); err != nil {
-					return err
-				}
-			}
-			if _, err := firmwareChannelFlag(channelValue); err != nil {
-				return err
-			}
-			if strings.TrimSpace(output) == "-" {
-				return fmt.Errorf("output must be a file path")
-			}
-			return nil
+			_, err := firmwareChannelFlag(channelValue)
+			return err
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := connectFromContext(opts.contextName)
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-			ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
-			defer cancel()
-			if err := registerConnectClient(ctx, c, opts); err != nil {
-				return err
-			}
 			channel, err := firmwareChannelFlag(channelValue)
 			if err != nil {
 				return err
 			}
-			out, err := os.Create(strings.TrimSpace(output))
-			if err != nil {
-				return err
-			}
-			result, err := c.DownloadFirmware(ctx, "firmware.files.download", rpcapi.FirmwareFilesDownloadRequest{
-				Channel: channel,
-				Path:    strings.TrimSpace(artifactPath),
-			}, out)
-			closeErr := out.Close()
-			if err != nil {
-				_ = os.Remove(strings.TrimSpace(output))
-				return err
-			}
-			if closeErr != nil {
-				_ = os.Remove(strings.TrimSpace(output))
-				return closeErr
-			}
-			return json.NewEncoder(cmd.OutOrStdout()).Encode(struct {
-				Metadata rpcapi.FirmwareFilesDownloadResponse `json:"metadata"`
-				Bytes    int64                                `json:"bytes"`
-				Output   string                               `json:"output"`
-			}{
-				Metadata: result.Metadata,
-				Bytes:    result.Bytes,
-				Output:   strings.TrimSpace(output),
+			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
+				return c.GetFirmware(ctx, "firmware.get", rpcapi.FirmwareGetRequest{Channel: channel})
 			})
 		},
 	}
 	opts.addFlags(cmd)
-	cmd.Flags().StringVar(&channelValue, "channel", "stable", "firmware channel")
-	cmd.Flags().StringVar(&artifactPath, "path", "", "artifact file path")
-	cmd.Flags().StringVarP(&output, "output", "o", "", "output file")
+	cmd.Flags().StringVar(&channelValue, "channel", "", "firmware channel")
 	return cmd
 }
 

@@ -6,31 +6,10 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
-PB_BIND(gizclaw_rpc_v1_Firmware, gizclaw_rpc_v1_Firmware, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_FirmwareArtifact, gizclaw_rpc_v1_FirmwareArtifact, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_FirmwareArtifactEntry, gizclaw_rpc_v1_FirmwareArtifactEntry, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_FirmwareFilesDownloadRequest, gizclaw_rpc_v1_FirmwareFilesDownloadRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_FirmwareFilesDownloadResponse, gizclaw_rpc_v1_FirmwareFilesDownloadResponse, AUTO)
-
-
 PB_BIND(gizclaw_rpc_v1_FirmwareGetRequest, gizclaw_rpc_v1_FirmwareGetRequest, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_FirmwareGetResponse, gizclaw_rpc_v1_FirmwareGetResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_FirmwareSlot, gizclaw_rpc_v1_FirmwareSlot, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_FirmwareSlots, gizclaw_rpc_v1_FirmwareSlots, 2)
 
 
 

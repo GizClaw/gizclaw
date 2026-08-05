@@ -389,9 +389,6 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	if srv.PeerStore == nil || srv.CredentialStore == nil || srv.FirmwareStore == nil || srv.MiniMaxTenantStore == nil || srv.VoiceStore == nil || srv.WorkspaceStore == nil || srv.WorkflowStore == nil {
 		t.Fatalf("module stores not wired: %+v", srv)
 	}
-	if srv.FirmwareAssets == nil {
-		t.Fatalf("firmware assets store not wired: %+v", srv.Server)
-	}
 	if srv.AgentHostStore == nil {
 		t.Fatalf("agenthost store not wired: %+v", srv.Server)
 	}
@@ -460,12 +457,6 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 	delete(missingFirmwareCfg.Stores, "firmwares")
 	if _, err := New(missingFirmwareCfg); err == nil || !strings.Contains(err.Error(), "server: firmwares store:") {
 		t.Fatalf("New(missing firmwares store) = %v", err)
-	}
-
-	badFirmwareAssetsCfg := validLayeredConfig(dir)
-	badFirmwareAssetsCfg.Stores["firmware-assets"] = stores.Config{Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmware-assets"}
-	if _, err := New(badFirmwareAssetsCfg); err == nil || !strings.Contains(err.Error(), "server: firmwares assets store:") {
-		t.Fatalf("New(bad firmware assets store) = %v", err)
 	}
 
 	badAgentHostCfg := validLayeredConfig(dir)
@@ -1132,7 +1123,6 @@ func validLayeredConfig(dir string) Config {
 			"peers":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
 			"credentials":                {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
 			"firmwares":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
-			"firmware-assets":            {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "firmwares"},
 			"runtime-profiles":           {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "runtime-profiles"},
 			"memory-layouts":             {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "memory-layouts"},
 			"agenthost":                  {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "agenthost"},

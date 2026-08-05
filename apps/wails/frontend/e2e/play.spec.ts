@@ -313,6 +313,21 @@ test.beforeEach(async ({ page }) => {
       async getGameResult(req) {
         return findByID(snapshot.gameResults, req.id);
       },
+      async getFirmware(req) {
+        const channel = String(req.channel);
+        actions.push(`firmware:${channel}`);
+        window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ = actions;
+        return {
+          channel,
+          description: `${channel} channel package`,
+          firmware_name: "devkit-firmware-main",
+          sha256:
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          size:
+            4096 + ["stable", "beta", "develop", "pending"].indexOf(channel),
+          url: `https://firmware.example.invalid/devkit/${channel}.tar.zlib`,
+        };
+      },
       async getPet(req) {
         return snapshot.pets.find((pet) => pet.name === req.name) ?? null;
       },
@@ -439,6 +454,30 @@ test("play view renders the full desktop play surface", async ({ page }) => {
   await page.getByRole("button", { name: /Firmwares/ }).click();
   await expect(page.getByRole("heading", { name: "Firmwares" })).toBeVisible();
   await expect(page.getByText("devkit-firmware-main")).toBeVisible();
+  await expect(
+    page.getByText("https://firmware.example.invalid/devkit/stable.tar.zlib"),
+  ).toBeVisible();
+
+  await page.getByRole("combobox", { name: "Firmware channel" }).click();
+  await page.getByRole("option", { name: "beta" }).click();
+  await expect(
+    page.getByText("https://firmware.example.invalid/devkit/beta.tar.zlib"),
+  ).toBeVisible();
+  await expect(page.getByText("beta channel package")).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? []),
+    )
+    .toContain("firmware:beta");
+
+  await page.getByRole("button", { name: "Open", exact: true }).click();
+  await expect(page.getByText("beta", { exact: true })).toBeVisible();
+  await expect(page.getByText("4.0 KiB")).toBeVisible();
+  await expect(
+    page.getByText(
+      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    ),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: /Workflows/ }).click();
   await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();

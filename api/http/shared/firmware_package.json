@@ -1,0 +1,43 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Firmware Package Type",
+    "description": "External firmware package configuration schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "FirmwarePackage": {
+        "type": "object",
+        "required": [
+          "url",
+          "sha256",
+          "size"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048,
+            "description": "Operator-owned HTTPS URL for the exact .tar.zlib archive bytes.",
+            "example": "https://firmware.example.com/devkit/1.0.3.tar.zlib"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Lowercase SHA-256 digest of the complete .tar.zlib archive bytes."
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "description": "Exact .tar.zlib archive size in bytes."
+          }
+        }
+      }
+    }
+  }
+}

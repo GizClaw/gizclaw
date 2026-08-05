@@ -359,19 +359,10 @@ func (c *Client) ServerRunSay(ctx context.Context, id string, request rpcapi.Ser
 	})
 }
 
-func (c *Client) GetFirmware(ctx context.Context, id string) (*rpcapi.FirmwareGetResponse, error) {
+func (c *Client) GetFirmware(ctx context.Context, id string, request rpcapi.FirmwareGetRequest) (*rpcapi.FirmwareGetResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FirmwareGetResponse, error) {
-		return client.GetFirmware(ctx, conn, id)
+		return client.GetFirmware(ctx, conn, id, request)
 	})
-}
-
-func (c *Client) DownloadFirmware(ctx context.Context, id string, request rpcapi.FirmwareFilesDownloadRequest, out io.Writer) (FirmwareDownloadResult, error) {
-	stream, err := c.rpcConn()
-	if err != nil {
-		return FirmwareDownloadResult{}, err
-	}
-	defer func() { _ = stream.Close() }()
-	return c.rpcClient().DownloadFirmware(ctx, stream, id, request, out)
 }
 
 func (c *Client) DownloadPetPixa(ctx context.Context, id string, request rpcapi.PetPixaDownloadRequest, out io.Writer) (PetPixaDownloadResult, error) {

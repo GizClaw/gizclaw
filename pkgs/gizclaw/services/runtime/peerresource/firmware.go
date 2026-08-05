@@ -3,13 +3,11 @@ package peerresource
 import (
 	"context"
 	"errors"
-	"io"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -21,89 +19,70 @@ type peerFirmwareBindingService interface {
 
 type firmwarePeerService interface {
 	GetFirmware(context.Context, adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error)
-	PrepareArtifactEntryDownload(context.Context, string, string, string) (apitypes.FirmwareArtifact, apitypes.FirmwareArtifactEntry, io.ReadCloser, error)
 }
 
 func (s *Server) handleFirmwareGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	_, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsFirmwareGetRequest)
-	if !ok {
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsFirmwareGetRequest)
+	if !ok || !params.Channel.Valid() {
 		return invalidParams(req.Id)
 	}
-	firmwareID, err := s.boundFirmwareID(ctx)
+	result, err := s.getFirmwareChannel(ctx, params.Channel)
 	if err != nil {
 		return firmwareRPCError(req.Id, err)
 	}
-	if s.Firmwares == nil {
-		return internalError(req.Id, "firmware service not configured")
-	}
-	response, err := s.Firmwares.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Id: firmwareID})
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	return adminRPCResponse(req.Id, response.VisitGetFirmwareResponse, (*rpcapi.RPCPayload).FromFirmwareGetResponse)
+	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromFirmwareGetResponse)
 }
 
-func (s *Server) handleFirmwareDownload(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsFirmwareFilesDownloadRequest)
-	if !ok {
-		return invalidParams(req.Id)
-	}
-	result, reader, rpcErr, err := s.PrepareFirmwareDownload(ctx, params)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	if reader != nil {
-		_ = reader.Close()
-	}
-	if rpcErr != nil {
-		rpcErr.Message = strings.TrimSpace(rpcErr.Message)
-		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
-	}
-	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadResponse)
-}
-
-func (s *Server) PrepareFirmwareDownload(ctx context.Context, params rpcapi.FirmwareFilesDownloadRequest) (rpcapi.FirmwareFilesDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
-	if !params.Channel.Valid() || strings.TrimSpace(params.Path) == "" {
-		return rpcapi.FirmwareFilesDownloadResponse{}, nil, firmwareRPCErrorBody(errInvalidFirmwareRequest), nil
-	}
+func (s *Server) getFirmwareChannel(ctx context.Context, channel rpcapi.FirmwareChannelName) (rpcapi.FirmwareGetResponse, error) {
 	firmwareID, err := s.boundFirmwareID(ctx)
 	if err != nil {
-		return rpcapi.FirmwareFilesDownloadResponse{}, nil, firmwareRPCErrorBody(err), nil
+		return rpcapi.FirmwareGetResponse{}, err
 	}
 	if s.Firmwares == nil {
-		return rpcapi.FirmwareFilesDownloadResponse{}, nil, nil, errors.New("firmware service not configured")
-	}
-	artifact, entry, reader, err := s.Firmwares.PrepareArtifactEntryDownload(ctx, firmwareID, string(params.Channel), params.Path)
-	if err != nil {
-		return rpcapi.FirmwareFilesDownloadResponse{}, nil, firmwareRPCErrorBody(err), nil
+		return rpcapi.FirmwareGetResponse{}, errors.New("firmware service not configured")
 	}
 	response, err := s.Firmwares.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Id: firmwareID})
 	if err != nil {
-		_ = reader.Close()
-		return rpcapi.FirmwareFilesDownloadResponse{}, nil, nil, err
+		return rpcapi.FirmwareGetResponse{}, err
 	}
-	item, ok := response.(adminhttp.GetFirmware200JSONResponse)
-	if !ok {
-		_ = reader.Close()
-		return rpcapi.FirmwareFilesDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "firmware not found"}, nil
+	var item apitypes.Firmware
+	switch response := response.(type) {
+	case adminhttp.GetFirmware200JSONResponse:
+		item = apitypes.Firmware(response)
+	case adminhttp.GetFirmware404JSONResponse:
+		return rpcapi.FirmwareGetResponse{}, kv.ErrNotFound
+	case adminhttp.GetFirmware500JSONResponse:
+		return rpcapi.FirmwareGetResponse{}, errors.New("firmware lookup failed")
+	default:
+		return rpcapi.FirmwareGetResponse{}, errors.New("unexpected firmware lookup response")
 	}
-	convertedArtifact, err := convertType[rpcapi.FirmwareArtifact](artifact)
-	if err != nil {
-		_ = reader.Close()
-		return rpcapi.FirmwareFilesDownloadResponse{}, nil, nil, err
+	slot := firmwareSlot(item.Slots, channel)
+	if slot.Package == nil {
+		return rpcapi.FirmwareGetResponse{}, errFirmwarePackageNotFound
 	}
-	convertedEntry, err := convertType[rpcapi.FirmwareArtifactEntry](entry)
-	if err != nil {
-		_ = reader.Close()
-		return rpcapi.FirmwareFilesDownloadResponse{}, nil, nil, err
-	}
-	return rpcapi.FirmwareFilesDownloadResponse{
-		Artifact:     convertedArtifact,
-		Channel:      params.Channel,
-		File:         convertedEntry,
+	return rpcapi.FirmwareGetResponse{
 		FirmwareName: item.Name,
-		Path:         params.Path,
-	}, reader, nil, nil
+		Channel:      channel,
+		Description:  slot.Description,
+		Url:          slot.Package.Url,
+		Sha256:       slot.Package.Sha256,
+		Size:         slot.Package.Size,
+	}, nil
+}
+
+func firmwareSlot(slots apitypes.FirmwareSlots, channel rpcapi.FirmwareChannelName) apitypes.FirmwareSlot {
+	switch channel {
+	case rpcapi.FirmwareChannelNameStable:
+		return slots.Stable
+	case rpcapi.FirmwareChannelNameBeta:
+		return slots.Beta
+	case rpcapi.FirmwareChannelNameDevelop:
+		return slots.Develop
+	case rpcapi.FirmwareChannelNamePending:
+		return slots.Pending
+	default:
+		return apitypes.FirmwareSlot{}
+	}
 }
 
 func (s *Server) boundFirmwareID(ctx context.Context) (string, error) {
@@ -124,31 +103,24 @@ func (s *Server) boundFirmwareID(ctx context.Context) (string, error) {
 }
 
 var (
-	errInvalidFirmwareRequest = errors.New("invalid firmware request")
-	errFirmwareNotBound       = errors.New("firmware is not bound to peer")
+	errFirmwareNotBound        = errors.New("firmware is not bound to peer")
+	errFirmwarePackageNotFound = errors.New("firmware package not found")
 )
 
 func firmwareRPCError(id string, err error) *rpcapi.RPCResponse {
 	body := firmwareRPCErrorBody(err)
-	if body == nil {
-		return internalError(id, err.Error())
-	}
 	return rpcapi.Error{RequestID: id, Code: body.Code, Message: body.Message}.RPCResponse()
 }
 
 func firmwareRPCErrorBody(err error) *rpcapi.RPCError {
 	switch {
-	case err == nil:
-		return nil
 	case errors.Is(err, errFirmwareNotBound):
 		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: err.Error()}
 	case errors.Is(err, kv.ErrNotFound):
 		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "firmware not found"}
-	case firmware.IsArtifactNotFoundError(err):
-		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "firmware artifact not found"}
-	case errors.Is(err, errInvalidFirmwareRequest), firmware.IsInvalidArtifactError(err):
-		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}
+	case errors.Is(err, errFirmwarePackageNotFound):
+		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: err.Error()}
 	default:
-		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
+		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "firmware lookup unavailable"}
 	}
 }

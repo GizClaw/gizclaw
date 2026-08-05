@@ -58,10 +58,6 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: memory-layouts
-  firmware-assets:
-    kind: objectstore
-    storage: local-files
-    prefix: firmwares
   agenthost:
     kind: objectstore
     storage: agenthost-files

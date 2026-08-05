@@ -105,8 +105,6 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(21, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_RUN_SAY');
   static const RpcMethod RPC_METHOD_SERVER_FIRMWARE_GET =
       RpcMethod._(22, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FIRMWARE_GET');
-  static const RpcMethod RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD = RpcMethod
-      ._(23, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_LIST =
       RpcMethod._(24, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_LIST');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_GET =
@@ -308,7 +306,6 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_RUN_STOP,
     RPC_METHOD_SERVER_RUN_SAY,
     RPC_METHOD_SERVER_FIRMWARE_GET,
-    RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD,
     RPC_METHOD_SERVER_WORKSPACE_LIST,
     RPC_METHOD_SERVER_WORKSPACE_GET,
     RPC_METHOD_SERVER_WORKSPACE_CREATE,

@@ -211,24 +211,6 @@ func (e DoubaoRealtimeWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
-// Defines values for FirmwareArtifactEntryType.
-const (
-	FirmwareArtifactEntryTypeDir  FirmwareArtifactEntryType = "dir"
-	FirmwareArtifactEntryTypeFile FirmwareArtifactEntryType = "file"
-)
-
-// Valid indicates whether the value is a known member of the FirmwareArtifactEntryType enum.
-func (e FirmwareArtifactEntryType) Valid() bool {
-	switch e {
-	case FirmwareArtifactEntryTypeDir:
-		return true
-	case FirmwareArtifactEntryTypeFile:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for FirmwareChannelName.
 const (
 	FirmwareChannelNameBeta    FirmwareChannelName = "beta"
@@ -573,7 +555,6 @@ const (
 	RPCMethodServerContactGet                   RPCMethod = "server.contact.get"
 	RPCMethodServerContactList                  RPCMethod = "server.contact.list"
 	RPCMethodServerContactPut                   RPCMethod = "server.contact.put"
-	RPCMethodServerFirmwareFilesDownload        RPCMethod = "server.firmware.files.download"
 	RPCMethodServerFirmwareGet                  RPCMethod = "server.firmware.get"
 	RPCMethodServerFriendAdd                    RPCMethod = "server.friend.add"
 	RPCMethodServerFriendDelete                 RPCMethod = "server.friend.delete"
@@ -683,8 +664,6 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerContactList:
 		return true
 	case RPCMethodServerContactPut:
-		return true
-	case RPCMethodServerFirmwareFilesDownload:
 		return true
 	case RPCMethodServerFirmwareGet:
 		return true
@@ -1611,120 +1590,22 @@ type EinoWorkspaceParameters struct {
 
 type EinoWorkspaceParametersAgentType string
 
-// Firmware defines model for Firmware.
-type Firmware struct {
-	CreatedAt   time.Time     `json:"created_at"`
-	Description *string       `json:"description,omitempty"`
-	Name        string        `json:"name"`
-	Slots       FirmwareSlots `json:"slots"`
-	UpdatedAt   time.Time     `json:"updated_at"`
-}
-
-// FirmwareArtifact defines model for FirmwareArtifact.
-type FirmwareArtifact struct {
-	// ContentType Content type for the uploaded artifact.tar.
-	ContentType string `json:"content_type"`
-
-	// FilesPath Server-owned objectstore prefix for extracted artifact files.
-	FilesPath string `json:"files_path"`
-
-	// ManifestPath Server-owned objectstore path for the artifact manifest.
-	ManifestPath string `json:"manifest_path"`
-
-	// Sha256 SHA-256 digest of the uploaded artifact.tar.
-	Sha256 string `json:"sha256"`
-
-	// Size Uploaded artifact.tar size in bytes.
-	Size int64 `json:"size"`
-
-	// TarPath Server-owned objectstore path for the uploaded artifact.tar.
-	TarPath string `json:"tar_path"`
-
-	// UploadedAt Server-owned upload timestamp.
-	UploadedAt time.Time `json:"uploaded_at"`
-}
-
-// FirmwareArtifactEntry defines model for FirmwareArtifactEntry.
-type FirmwareArtifactEntry struct {
-	// ContentType Best-effort content type for file entries.
-	ContentType *string   `json:"content_type,omitempty"`
-	ModTime     time.Time `json:"mod_time"`
-	Mode        int32     `json:"mode"`
-
-	// Path Normalized artifact entry path relative to the tar root.
-	Path string                    `json:"path"`
-	Size int64                     `json:"size"`
-	Type FirmwareArtifactEntryType `json:"type"`
-}
-
-// FirmwareArtifactEntryType defines model for FirmwareArtifactEntryType.
-type FirmwareArtifactEntryType string
-
-// FirmwareArtifactList defines model for FirmwareArtifactList.
-type FirmwareArtifactList struct {
-	Channel    string                  `json:"channel"`
-	FirmwareId string                  `json:"firmware_id"`
-	Items      []FirmwareArtifactEntry `json:"items"`
-	Path       string                  `json:"path"`
-}
-
-// FirmwareArtifactStats defines model for FirmwareArtifactStats.
-type FirmwareArtifactStats struct {
-	Artifact   FirmwareArtifact       `json:"artifact"`
-	Channel    string                 `json:"channel"`
-	Entry      *FirmwareArtifactEntry `json:"entry,omitempty"`
-	FilesCount int64                  `json:"files_count"`
-	FirmwareId string                 `json:"firmware_id"`
-	Path       *string                `json:"path,omitempty"`
-	TotalSize  int64                  `json:"total_size"`
-}
-
-// FirmwareArtifactTree defines model for FirmwareArtifactTree.
-type FirmwareArtifactTree struct {
-	Channel    string `json:"channel"`
-	FirmwareId string `json:"firmware_id"`
-
-	// Items Recursive flat entry list rooted at path.
-	Items []FirmwareArtifactEntry `json:"items"`
-	Path  string                  `json:"path"`
-}
-
 // FirmwareChannelName defines model for FirmwareChannelName.
 type FirmwareChannelName string
 
-// FirmwareFilesDownloadRequest defines model for FirmwareFilesDownloadRequest.
-type FirmwareFilesDownloadRequest struct {
-	Channel FirmwareChannelName `json:"channel"`
-	Path    string              `json:"path"`
-}
-
-// FirmwareFilesDownloadResponse defines model for FirmwareFilesDownloadResponse.
-type FirmwareFilesDownloadResponse struct {
-	Artifact     FirmwareArtifact      `json:"artifact"`
-	Channel      FirmwareChannelName   `json:"channel"`
-	File         FirmwareArtifactEntry `json:"file"`
-	FirmwareName string                `json:"firmware_name"`
-	Path         string                `json:"path"`
-}
-
 // FirmwareGetRequest defines model for FirmwareGetRequest.
-type FirmwareGetRequest struct{}
+type FirmwareGetRequest struct {
+	Channel FirmwareChannelName `json:"channel"`
+}
 
 // FirmwareGetResponse defines model for FirmwareGetResponse.
-type FirmwareGetResponse = Firmware
-
-// FirmwareSlot defines model for FirmwareSlot.
-type FirmwareSlot struct {
-	Artifact    *FirmwareArtifact `json:"artifact,omitempty"`
-	Description *string           `json:"description,omitempty"`
-}
-
-// FirmwareSlots defines model for FirmwareSlots.
-type FirmwareSlots struct {
-	Beta    FirmwareSlot `json:"beta"`
-	Develop FirmwareSlot `json:"develop"`
-	Pending FirmwareSlot `json:"pending"`
-	Stable  FirmwareSlot `json:"stable"`
+type FirmwareGetResponse struct {
+	Channel      FirmwareChannelName `json:"channel"`
+	Description  *string             `json:"description,omitempty"`
+	FirmwareName string              `json:"firmware_name"`
+	Sha256       string              `json:"sha256"`
+	Size         int64               `json:"size"`
+	Url          string              `json:"url"`
 }
 
 // FlowcraftConversationParameters defines model for FlowcraftConversationParameters.
@@ -3922,23 +3803,6 @@ func (t *RPCPayload) MergeFirmwareGetRequest(v FirmwareGetRequest) error {
 	return t.merge("FirmwareGetRequest", v)
 }
 
-// AsFirmwareFilesDownloadRequest decodes the RPCPayload as a FirmwareFilesDownloadRequest
-func (t RPCPayload) AsFirmwareFilesDownloadRequest() (FirmwareFilesDownloadRequest, error) {
-	var body FirmwareFilesDownloadRequest
-	err := t.decode("FirmwareFilesDownloadRequest", &body)
-	return body, err
-}
-
-// FromFirmwareFilesDownloadRequest overwrites any protobuf payload as the provided FirmwareFilesDownloadRequest
-func (t *RPCPayload) FromFirmwareFilesDownloadRequest(v FirmwareFilesDownloadRequest) error {
-	return t.encode("FirmwareFilesDownloadRequest", v)
-}
-
-// MergeFirmwareFilesDownloadRequest performs a merge with any protobuf payload, using the provided FirmwareFilesDownloadRequest
-func (t *RPCPayload) MergeFirmwareFilesDownloadRequest(v FirmwareFilesDownloadRequest) error {
-	return t.merge("FirmwareFilesDownloadRequest", v)
-}
-
 // AsWorkspaceListRequest decodes the RPCPayload as a WorkspaceListRequest
 func (t RPCPayload) AsWorkspaceListRequest() (WorkspaceListRequest, error) {
 	var body WorkspaceListRequest
@@ -5280,23 +5144,6 @@ func (t *RPCPayload) FromFirmwareGetResponse(v FirmwareGetResponse) error {
 // MergeFirmwareGetResponse performs a merge with any protobuf payload, using the provided FirmwareGetResponse
 func (t *RPCPayload) MergeFirmwareGetResponse(v FirmwareGetResponse) error {
 	return t.merge("FirmwareGetResponse", v)
-}
-
-// AsFirmwareFilesDownloadResponse decodes the RPCPayload as a FirmwareFilesDownloadResponse
-func (t RPCPayload) AsFirmwareFilesDownloadResponse() (FirmwareFilesDownloadResponse, error) {
-	var body FirmwareFilesDownloadResponse
-	err := t.decode("FirmwareFilesDownloadResponse", &body)
-	return body, err
-}
-
-// FromFirmwareFilesDownloadResponse overwrites any protobuf payload as the provided FirmwareFilesDownloadResponse
-func (t *RPCPayload) FromFirmwareFilesDownloadResponse(v FirmwareFilesDownloadResponse) error {
-	return t.encode("FirmwareFilesDownloadResponse", v)
-}
-
-// MergeFirmwareFilesDownloadResponse performs a merge with any protobuf payload, using the provided FirmwareFilesDownloadResponse
-func (t *RPCPayload) MergeFirmwareFilesDownloadResponse(v FirmwareFilesDownloadResponse) error {
-	return t.merge("FirmwareFilesDownloadResponse", v)
 }
 
 // AsWorkspaceListResponse decodes the RPCPayload as a WorkspaceListResponse

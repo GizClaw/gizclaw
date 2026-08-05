@@ -1,21 +1,34 @@
 # Firmware RPC
 
-`Implementation file: rpc_firmware.go`
+`Implementation file: services/runtime/peerresource/firmware.go`
 
-A RegistrationToken may bind one canonical Firmware ID to a Peer. The channel is never stored on the token or Peer; the device still chooses `stable`, `beta`, `develop`, or `pending` for each download.
+A RegistrationToken may bind one canonical Firmware ID to a Peer. Devices do
+not list or select a firmware release line. They request one channel from the
+bound release line through `server.firmware.get`.
 
-Devices do not list or select Firmware:
+The request contains only `channel`, one of `stable`, `beta`, `develop`, or
+`pending`. The response contains:
 
-- `server.firmware.get` uses an empty request and returns metadata, slots, and the scoped Firmware `name` for the caller Peer's bound Firmware. It never returns the canonical ID.
-- `server.firmware.files.download` accepts only `channel` and `path`; the Server resolves the same Peer binding and streams that file.
-- A missing binding, missing bound Firmware, or missing artifact returns an explicit not-found error.
+- the peer-visible firmware name and requested channel;
+- the optional channel description;
+- an absolute HTTPS URL for a `.tar.zlib` package (a tar archive compressed as one zlib stream);
+- the SHA-256 and byte size of the exact compressed package.
 
-Firmware catalog, release lines, and artifact ownership remain in `services/device/firmware` and are managed through the Admin surface.
+Peer-visible names, descriptions, and URLs are limited to 256, 1024, and 2048
+UTF-8 bytes respectively. Package size is positive and at most
+`9007199254740991`, so JavaScript SDKs preserve the exact byte count.
 
-## Core structure and main function
+The Peer downloads the URL directly and verifies the compressed bytes. GizClaw
+does not fetch, unpack, proxy, upload, or stream firmware packages. A missing
+binding, bound Firmware, channel package, or invalid channel returns an explicit
+RPC error.
+
+Firmware catalog and release-channel ownership remain in
+`services/device/firmware` and are managed through the Admin surface.
+
+## Core structure
 
 | Symbol | Function |
 | --- | --- |
-| `rpcFirmwareDownloadService` | The minimum interface used by the Firmware download handler. |
-| `handleFirmwareBinDownload` | Parses channel/path, writes metadata, then streams binary frames from the bound Firmware. |
-| `writeReaderBinaryFrames` | Split the reader content and write it into RPC binary frames. |
+| `FirmwareGet` | Validates the requested channel, resolves the Peer binding, and returns that channel package configuration. |
+| `FirmwarePackage` | Admin-side external package contract: HTTPS URL, SHA-256, and compressed size. |

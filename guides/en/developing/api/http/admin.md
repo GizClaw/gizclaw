@@ -17,7 +17,7 @@ See the [Admin API Reference](/api/) for exact endpoints, parameters, requests, 
 | AI | Credential, Model, Voice, Provider Tenant, Workflow, Workspace |
 | Gameplay | Game Rule, Pet, Badge, Points, Result and Reward |
 | Social | Contact, Friend and Friend Group Management |
-| Firmware | Firmware resource, release, rollback and artifact |
+| Firmware | Firmware resource, external channel package configuration, release and rollback |
 | Observability | Server log stream and Peer telemetry query |
 
 Admin OpenAPI only has HTTP path, request/response and wire error. Resource validation, authorization, storage and domain lifecycle are implemented by corresponding services and resource managers.

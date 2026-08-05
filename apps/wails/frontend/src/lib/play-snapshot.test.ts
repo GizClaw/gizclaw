@@ -5,6 +5,32 @@ import type { PeerRPCClient } from "@gizclaw/gizclaw/rpc";
 
 import { createRPCPlayDataClient } from "./gizclaw/play.ts";
 
+test("production Play data client requests the selected Firmware channel", async () => {
+  const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
+  const response = {
+    channel: "pending" as const,
+    firmware_name: "devkit-firmware-main",
+    sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    size: 16384,
+    url: "https://firmware.example.invalid/devkit/pending.tar.zlib",
+  };
+  const rpc = {
+    call: async (method: string, params: Record<string, unknown>) => {
+      calls.push({ method, params });
+      return response;
+    },
+  } as unknown as PeerRPCClient;
+
+  const got = await createRPCPlayDataClient(rpc).getFirmware({
+    channel: "pending",
+  });
+
+  assert.deepEqual(got, response);
+  assert.deepEqual(calls, [
+    { method: "server.firmware.get", params: { channel: "pending" } },
+  ]);
+});
+
 test("snapshot keeps workspaces and workflows when a fixed collection is absent", async () => {
   const workspaceCalls: Array<Record<string, unknown>> = [];
   const workflowCalls: Array<Record<string, unknown>> = [];

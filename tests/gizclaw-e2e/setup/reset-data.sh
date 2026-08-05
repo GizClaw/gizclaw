@@ -192,24 +192,6 @@ apply_resource() {
   run_gizclaw admin apply --context "$admin_context" -f "$resource_file"
 }
 
-delete_firmware_artifact_if_exists() {
-  local firmware_id="$1"
-  local channel="$2"
-  local output status
-  set +e
-  output="$(run_gizclaw admin firmwares delete-artifact "$firmware_id" --channel "$channel" --context "$admin_context" 2>&1)"
-  status=$?
-  set -e
-  if [[ $status -eq 0 ]]; then
-    return 0
-  fi
-  if [[ "$output" == *"FIRMWARE_ARTIFACT_NOT_FOUND"* || "$output" == *"RESOURCE_NOT_FOUND"* || "$output" == *"NOT_FOUND"* || "$output" == *"unexpected status 404"* ]]; then
-    return 0
-  fi
-  printf '%s\n' "$output" >&2
-  return "$status"
-}
-
 init_data() {
   run_gizclaw connect set-name "E2E Admin" --context "$admin_context" >/dev/null
   if [[ -n "$gear1_context" ]]; then
@@ -234,16 +216,6 @@ init_data() {
   done
 
   run_gizclaw admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null
-
-  local firmware_id="devkit-firmware-main"
-  local channel="stable"
-  local asset_path="$testdata_dir/assets/firmware/devkit-firmware-main.tar"
-  if [[ ! -f "$asset_path" ]]; then
-    echo "missing firmware fixture asset: $asset_path" >&2
-    exit 2
-  fi
-  delete_firmware_artifact_if_exists "$firmware_id" "$channel"
-  run_gizclaw admin firmwares upload-artifact "$firmware_id" --channel "$channel" -f "$asset_path" --context "$admin_context" >/dev/null
 }
 
 if [[ "$mode" == "init" || "$mode" == "reset" ]]; then

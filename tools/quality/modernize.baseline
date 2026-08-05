@@ -2,7 +2,7 @@ apps/wails/internal/endpointhealth/prober.go:67:5: if statement can be modernize
 apps/wails/internal/endpointhealth/prober.go:74:3: copying variable is unneeded
 apps/wails/internal/endpointhealth/prober.go:76:3: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/commands/admin/resource.go:379:6: for loop can be modernized using range over int
-cmd/internal/commands/connect/command.go:1028:6: stringPtr can be an inlinable wrapper around new(expr)
+cmd/internal/commands/connect/command.go:959:6: stringPtr can be an inlinable wrapper around new(expr)
 cmd/internal/server/tcp_mux.go:32:2: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/server/tcp_mux.go:67:3: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/server/workspace_test.go:114:72: Replace []byte(fmt.Sprintf...) with fmt.Appendf
@@ -186,31 +186,14 @@ pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:35:3:
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:60:80: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:68:86: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:77:3: copying variable is unneeded
-pkgs/gizclaw/services/device/firmware/artifact.go:574:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/services/device/firmware/artifact.go:574:2: Loop can be simplified using slices.Contains
-pkgs/gizclaw/services/device/firmware/artifact_fuzz_test.go:78:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/services/device/firmware/artifact_fuzz_test.go:78:2: Loop can be simplified using slices.Contains
-pkgs/gizclaw/services/device/firmware/server_test.go:123:80: call of ptr(x) can be simplified to new(x)
-pkgs/gizclaw/services/device/firmware/server_test.go:135:94: call of ptr(x) can be simplified to new(x)
-pkgs/gizclaw/services/device/firmware/server_test.go:178:88: call of ptr(x) can be simplified to new(x)
-pkgs/gizclaw/services/device/firmware/server_test.go:183:100: call of ptr(x) can be simplified to new(x)
-pkgs/gizclaw/services/device/firmware/server_test.go:188:81: call of ptr(x) can be simplified to new(x)
-pkgs/gizclaw/services/device/firmware/server_test.go:191:88: call of ptr(x) can be simplified to new(x)
-pkgs/gizclaw/services/device/firmware/server_test.go:203:92: call of ptr(x) can be simplified to new(x)
-pkgs/gizclaw/services/device/firmware/server_test.go:41:83: call of ptr(x) can be simplified to new(x)
-pkgs/gizclaw/services/device/firmware/server_test.go:472:94: call of ptr(x) can be simplified to new(x)
-pkgs/gizclaw/services/device/firmware/server_test.go:487:82: call of ptr(x) can be simplified to new(x)
-pkgs/gizclaw/services/device/firmware/server_test.go:557:6: ptr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/device/firmware/server_test.go:561:6: int64Ptr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/device/firmware/server_test.go:92:92: call of ptr(x) can be simplified to new(x)
 pkgs/gizclaw/services/gameplay/reward.go:207:6: stringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/runtime/agent/resolver.go:63:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
 pkgs/gizclaw/services/runtime/peer/store_ops.go:398:5: if statement can be modernized using min
 pkgs/gizclaw/services/runtime/peerresource/access.go:610:6: ptr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/runtime/peerresource/server.go:1417:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/services/runtime/peerresource/server.go:1417:83: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/services/runtime/peerresource/server.go:1425:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/services/runtime/peerresource/server.go:1425:81: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1414:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1414:83: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1422:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1422:81: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:503:103: call of intPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:520:19: call of intPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:533:19: call of intPtr(x) can be simplified to new(x)
@@ -274,8 +257,8 @@ pkgs/gizclaw/services/system/resourcemanager/common_test.go:141:6: ptr can be an
 pkgs/gizclaw/services/system/resourcemanager/credential_body_test.go:13:80: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/system/resourcemanager/credential_body_test.go:9:6: testStringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/system/resourcemanager/credential_test.go:45:16: call of ptr(x) can be simplified to new(x)
-pkgs/gizclaw/services/system/resourcemanager/firmware_test.go:293:50: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/system/resourcemanager/firmware_test.go:297:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/system/resourcemanager/firmware_test.go:266:17: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/firmware_test.go:276:6: stringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:105:17: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:218:17: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:221:17: call of stringPtr(x) can be simplified to new(x)
@@ -303,5 +286,4 @@ pkgs/trie/trie.go:118:7: strings.IndexByte can be simplified using strings.Cut
 pkgs/trie/trie.go:48:12: strings.IndexByte can be simplified using strings.Cut
 sdk/go/gizcli/credential_body_test.go:11:78: call of testStringPtr(x) can be simplified to new(x)
 sdk/go/gizcli/credential_body_test.go:7:6: testStringPtr can be an inlinable wrapper around new(expr)
-sdk/go/gizcli/rpc_firmware_test.go:77:6: for loop can be modernized using range over int
 tools/quality/main.go:179:23: Ranging over SplitSeq is more efficient

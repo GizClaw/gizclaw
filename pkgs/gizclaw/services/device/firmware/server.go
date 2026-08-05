@@ -2,10 +2,12 @@ package firmware
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,7 +15,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 var (
@@ -22,15 +23,18 @@ var (
 )
 
 const (
-	defaultListLimit = 50
-	maxListLimit     = 200
+	defaultListLimit                = 50
+	maxListLimit                    = 200
+	maxFirmwareNameBytes            = 256
+	maxFirmwareSlotDescriptionBytes = 1024
+	maxFirmwarePackageURLBytes      = 2048
+	maxFirmwarePackageSize          = int64(1<<53 - 1)
 )
 
 type Server struct {
-	Store  kv.Store
-	Assets objectstore.ObjectStore
-	Now    func() time.Time
-	NewID  func() string
+	Store kv.Store
+	Now   func() time.Time
+	NewID func() string
 }
 
 type FirmwareAdminService interface {
@@ -41,13 +45,6 @@ type FirmwareAdminService interface {
 	PutFirmware(context.Context, adminhttp.PutFirmwareRequestObject) (adminhttp.PutFirmwareResponseObject, error)
 	ReleaseFirmware(context.Context, adminhttp.ReleaseFirmwareRequestObject) (adminhttp.ReleaseFirmwareResponseObject, error)
 	RollbackFirmware(context.Context, adminhttp.RollbackFirmwareRequestObject) (adminhttp.RollbackFirmwareResponseObject, error)
-	DownloadFirmwareArtifact(context.Context, adminhttp.DownloadFirmwareArtifactRequestObject) (adminhttp.DownloadFirmwareArtifactResponseObject, error)
-	UploadFirmwareArtifact(context.Context, adminhttp.UploadFirmwareArtifactRequestObject) (adminhttp.UploadFirmwareArtifactResponseObject, error)
-	DeleteFirmwareArtifact(context.Context, adminhttp.DeleteFirmwareArtifactRequestObject) (adminhttp.DeleteFirmwareArtifactResponseObject, error)
-	ListFirmwareArtifactEntries(context.Context, adminhttp.ListFirmwareArtifactEntriesRequestObject) (adminhttp.ListFirmwareArtifactEntriesResponseObject, error)
-	TreeFirmwareArtifactEntries(context.Context, adminhttp.TreeFirmwareArtifactEntriesRequestObject) (adminhttp.TreeFirmwareArtifactEntriesResponseObject, error)
-	StatFirmwareArtifactEntry(context.Context, adminhttp.StatFirmwareArtifactEntryRequestObject) (adminhttp.StatFirmwareArtifactEntryResponseObject, error)
-	DownloadFirmwareArtifactEntry(context.Context, adminhttp.DownloadFirmwareArtifactEntryRequestObject) (adminhttp.DownloadFirmwareArtifactEntryResponseObject, error)
 }
 
 var _ FirmwareAdminService = (*Server)(nil)
@@ -121,9 +118,6 @@ func (s *Server) DeleteFirmware(ctx context.Context, request adminhttp.DeleteFir
 	if err := store.BatchDelete(ctx, []kv.Key{firmwareKey(id), firmwareNameKey(item.Name)}); err != nil {
 		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := s.deleteAssetPrefix(id); err != nil {
-		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
 	return adminhttp.DeleteFirmware200JSONResponse(item), nil
 }
 
@@ -176,7 +170,6 @@ func (s *Server) PutFirmware(ctx context.Context, request adminhttp.PutFirmwareR
 	item.UpdatedAt = now
 	item.Id = previous.Id
 	item.CreatedAt = previous.CreatedAt
-	mergeArtifactMetadata(previous.Slots, &item.Slots)
 	if err := Write(ctx, store, item); err != nil {
 		return adminhttp.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -199,11 +192,7 @@ func (s *Server) RollbackFirmware(ctx context.Context, request adminhttp.Rollbac
 	return adminhttp.RollbackFirmware200JSONResponse(item), nil
 }
 
-var (
-	errAssetsNotConfigured = errors.New("firmware asset store not configured")
-	errInvalidChannel      = errors.New("invalid firmware channel")
-	errChannelNotFound     = errors.New("firmware channel not found")
-)
+var errInvalidChannel = errors.New("invalid firmware channel")
 
 func (s *Server) updateSlots(ctx context.Context, rawID string, mutate func(apitypes.FirmwareSlots) apitypes.FirmwareSlots) (apitypes.Firmware, error) {
 	store, err := s.store()
@@ -314,6 +303,9 @@ func normalizeFirmwareUpsert(in adminhttp.FirmwareUpsert, expectedName string) (
 	if name == "" {
 		return apitypes.Firmware{}, errors.New("name is required")
 	}
+	if len(name) > maxFirmwareNameBytes {
+		return apitypes.Firmware{}, fmt.Errorf("name must contain at most %d bytes", maxFirmwareNameBytes)
+	}
 	if expectedName != "" && name != expectedName {
 		return apitypes.Firmware{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
 	}
@@ -357,17 +349,56 @@ func normalizeSlot(in apitypes.FirmwareSlot) (apitypes.FirmwareSlot, error) {
 	if in.Description != nil {
 		description := strings.TrimSpace(*in.Description)
 		if description != "" {
+			if len(description) > maxFirmwareSlotDescriptionBytes {
+				return out, fmt.Errorf("description must contain at most %d bytes", maxFirmwareSlotDescriptionBytes)
+			}
 			out.Description = &description
 		}
 	}
+	if in.Package != nil {
+		firmwarePackage, err := normalizePackage(*in.Package)
+		if err != nil {
+			return out, err
+		}
+		out.Package = &firmwarePackage
+	}
 	return out, nil
+}
+
+func normalizePackage(in apitypes.FirmwarePackage) (apitypes.FirmwarePackage, error) {
+	rawURL := strings.TrimSpace(in.Url)
+	if len(rawURL) > maxFirmwarePackageURLBytes {
+		return apitypes.FirmwarePackage{}, fmt.Errorf("package url must contain at most %d bytes", maxFirmwarePackageURLBytes)
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.Fragment != "" {
+		return apitypes.FirmwarePackage{}, errors.New("package url must be an absolute HTTPS URL without userinfo or fragment")
+	}
+	if parsed.Hostname() == "" || strings.HasSuffix(parsed.Host, ":") {
+		return apitypes.FirmwarePackage{}, errors.New("package url must contain a valid HTTPS authority")
+	}
+	if port := parsed.Port(); port != "" {
+		value, portErr := strconv.ParseUint(port, 10, 16)
+		if portErr != nil || value == 0 {
+			return apitypes.FirmwarePackage{}, errors.New("package url must contain a valid HTTPS authority port")
+		}
+	}
+	sha256Value := strings.ToLower(strings.TrimSpace(in.Sha256))
+	decoded, err := hex.DecodeString(sha256Value)
+	if err != nil || len(decoded) != 32 {
+		return apitypes.FirmwarePackage{}, errors.New("package sha256 must contain 64 hexadecimal characters")
+	}
+	if in.Size <= 0 || in.Size > maxFirmwarePackageSize {
+		return apitypes.FirmwarePackage{}, fmt.Errorf("package size must be between 1 and %d", maxFirmwarePackageSize)
+	}
+	return apitypes.FirmwarePackage{Url: rawURL, Sha256: sha256Value, Size: in.Size}, nil
 }
 
 func slotHasPayload(slot apitypes.FirmwareSlot) bool {
 	if slot.Description != nil && strings.TrimSpace(*slot.Description) != "" {
 		return true
 	}
-	if slot.Artifact != nil {
+	if slot.Package != nil {
 		return true
 	}
 	return false
@@ -443,13 +474,6 @@ func (s *Server) store() (kv.Store, error) {
 	return s.Store, nil
 }
 
-func (s *Server) assets() (objectstore.ObjectStore, error) {
-	if s == nil || s.Assets == nil {
-		return nil, errAssetsNotConfigured
-	}
-	return s.Assets, nil
-}
-
 func (s *Server) now() time.Time {
 	if s != nil && s.Now != nil {
 		return s.Now().UTC()
@@ -477,21 +501,4 @@ func slotForChannel(slots *apitypes.FirmwareSlots, channel string) (*apitypes.Fi
 	default:
 		return nil, false
 	}
-}
-
-func (s *Server) deleteAssetPrefix(id string) error {
-	if s == nil || s.Assets == nil {
-		return nil
-	}
-	return s.Assets.DeletePrefix(firmwareAssetPrefix(id))
-}
-
-func firmwareAssetPrefix(id string) string {
-	return objectPathSegment(id)
-}
-
-func objectPathSegment(value string) string {
-	value = strings.TrimSpace(value)
-	replacer := strings.NewReplacer("%", "%25", "/", "%2F", "\\", "%5C", ":", "%3A")
-	return replacer.Replace(value)
 }

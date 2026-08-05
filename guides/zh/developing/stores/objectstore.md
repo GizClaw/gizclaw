@@ -15,7 +15,7 @@
 
 ## 主要用途
 
-Firmware artifacts、workspace history、Agent memory binary data、Gameplay pixa 和 HNSW vector index persistence 都使用 Object Store。
+Workspace history、Agent memory binary data、Gameplay pixa 和 HNSW vector index persistence 使用 Object Store。Firmware OTA package 是 external HTTPS resource，不存放在这里。
 
 ## Ownership 边界
 

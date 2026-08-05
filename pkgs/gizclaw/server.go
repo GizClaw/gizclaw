@@ -59,7 +59,6 @@ type Server struct {
 	PeerRunStore                kv.Store
 	CredentialStore             kv.Store
 	FirmwareStore               kv.Store
-	FirmwareAssets              objectstore.ObjectStore
 	RuntimeProfileStore         kv.Store
 	AgentHostStore              objectstore.ObjectStore
 	MiniMaxCredentialStore      kv.Store
@@ -486,7 +485,7 @@ func (s *Server) init() error {
 		workspaceServer.RuntimeStore = workspace.NewObjectRuntimeStore(s.AgentHostStore)
 	}
 	credentialServer := &credential.Server{Store: credentialStore}
-	firmwareServer := &firmware.Server{Store: firmwareStore, Assets: s.FirmwareAssets}
+	firmwareServer := &firmware.Server{Store: firmwareStore}
 	runtimeProfileServer := &runtimeprofile.Server{Store: runtimeProfileStore}
 	publicLoginServer.RegistrationResolver = runtimeProfileServer.ResolveRegistration
 	publicLoginServer.OwnerProfileBinder = runtimeProfileServer.BindOwnerProfileAndCommit

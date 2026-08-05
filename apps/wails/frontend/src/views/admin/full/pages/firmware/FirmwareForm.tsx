@@ -177,7 +177,7 @@ function SlotsEditTable({
         <TableRow>
           <TableHead className="w-32">Slot</TableHead>
           <TableHead>Description</TableHead>
-          <TableHead className="w-32 text-right">Artifact</TableHead>
+          <TableHead>HTTPS .tar.zlib URL</TableHead>
           <TableHead className="w-24 text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
@@ -190,10 +190,17 @@ function SlotsEditTable({
               <TableCell className="max-w-[26rem] text-sm text-muted-foreground">
                 {slot.description?.trim() || "-"}
               </TableCell>
-              <TableCell className="text-right">
-                <Badge variant="outline">
-                  {slot.artifact == null ? "None" : "Uploaded"}
-                </Badge>
+              <TableCell className="max-w-[30rem]">
+                {slot.package == null ? (
+                  <Badge variant="outline">Not configured</Badge>
+                ) : (
+                  <div
+                    className="truncate font-mono text-xs"
+                    title={slot.package.url}
+                  >
+                    {slot.package.url}
+                  </div>
+                )}
               </TableCell>
               <TableCell className="text-right">
                 <Button
@@ -229,10 +236,48 @@ function SlotEditDialog({
   title: string;
 }): JSX.Element {
   const [description, setDescription] = useState(slot.description ?? "");
+  const [url, setURL] = useState(slot.package?.url ?? "");
+  const [sha256, setSHA256] = useState(slot.package?.sha256 ?? "");
+  const [size, setSize] = useState(
+    slot.package == null ? "" : String(slot.package.size),
+  );
+  const [validationError, setValidationError] = useState("");
 
   const submit = (): void => {
+    const packageURL = optionalString(url);
+    const packageSHA256 = optionalString(sha256);
+    const packageSize = optionalPositiveInteger(size);
+    const hasPackageInput =
+      packageURL != null || packageSHA256 != null || size.trim() !== "";
+    if (utf8Length(description.trim()) > 1024) {
+      setValidationError("Description must contain at most 1024 UTF-8 bytes.");
+      return;
+    }
+    if (
+      hasPackageInput &&
+      (packageURL == null ||
+        !isValidFirmwarePackageURL(packageURL) ||
+        packageSHA256 == null ||
+        !/^[0-9a-fA-F]{64}$/.test(packageSHA256) ||
+        packageSize == null)
+    ) {
+      setValidationError(
+        "Package requires a valid HTTPS URL, a 64-character SHA-256, and a positive integer size.",
+      );
+      return;
+    }
+    const firmwarePackage =
+      packageURL != null && packageSHA256 != null && packageSize != null
+        ? {
+            sha256: packageSHA256.toLowerCase(),
+            size: packageSize,
+            url: packageURL,
+          }
+        : undefined;
+    setValidationError("");
     onSubmit({
       description: optionalString(description),
+      package: firmwarePackage,
     });
   };
 
@@ -265,18 +310,50 @@ function SlotEditDialog({
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Artifact</CardTitle>
+              <CardTitle className="text-base">
+                External .tar.zlib package
+              </CardTitle>
               <CardDescription>
-                Artifacts are uploaded from the firmware detail summary after
-                the slot exists.
+                The device downloads this HTTPS URL directly. SHA-256 and size
+                describe the complete tar archive compressed as one zlib stream.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Badge variant="outline">
-                {slot.artifact == null ? "Not uploaded" : "Uploaded"}
-              </Badge>
+            <CardContent className="grid gap-4">
+              <FormField label="HTTPS URL">
+                <Input
+                  onChange={(event) => setURL(event.target.value)}
+                  placeholder="https://downloads.example.com/firmware/stable.tar.zlib"
+                  type="url"
+                  value={url}
+                />
+              </FormField>
+              <FormField label="SHA-256">
+                <Input
+                  className="font-mono"
+                  maxLength={64}
+                  onChange={(event) => setSHA256(event.target.value)}
+                  placeholder="64 lowercase hexadecimal characters"
+                  value={sha256}
+                />
+              </FormField>
+              <FormField label="Compressed size (bytes)">
+                <Input
+                  min={1}
+                  onChange={(event) => setSize(event.target.value)}
+                  placeholder="1048576"
+                  step={1}
+                  type="number"
+                  value={size}
+                />
+              </FormField>
             </CardContent>
           </Card>
+
+          {validationError === "" ? null : (
+            <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {validationError}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
@@ -344,10 +421,47 @@ function normalizeSlots(
 function slotToUpsert(slot: FirmwareSlot): FirmwareSlot {
   return {
     description: slot.description,
+    package: slot.package,
   };
 }
 
 function optionalString(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed === "" ? undefined : trimmed;
+}
+
+function optionalPositiveInteger(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    return undefined;
+  }
+  const parsed = Number(trimmed);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function isValidFirmwarePackageURL(value: string): boolean {
+  if (utf8Length(value) > 2048) {
+    return false;
+  }
+  try {
+    const parsed = new URL(value);
+    const authority = value.slice("https://".length).split(/[/?#]/, 1)[0];
+    const port = parsed.port === "" ? undefined : Number(parsed.port);
+    return (
+      parsed.protocol === "https:" &&
+      parsed.host !== "" &&
+      parsed.hostname !== "" &&
+      parsed.username === "" &&
+      parsed.password === "" &&
+      parsed.hash === "" &&
+      !authority.endsWith(":") &&
+      (port == null || (Number.isInteger(port) && port >= 1 && port <= 65535))
+    );
+  } catch {
+    return false;
+  }
+}
+
+function utf8Length(value: string): number {
+  return new TextEncoder().encode(value).length;
 }

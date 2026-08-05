@@ -28,12 +28,6 @@ export type FriendGroupObject = Omit<
 > & {
   my_role?: string;
 };
-export type FirmwareSlot = RPCPayload.FirmwareSlot;
-export type FirmwareSlots = Required<RPCPayload.FirmwareSlots>;
-export type Firmware = Omit<RPCPayload.Firmware, "slots"> & {
-  slots: FirmwareSlots;
-};
-export type FirmwareGetResponse = Firmware;
 export type PeerRunRecallHit = Omit<RPCPayload.PeerRunRecallHit, "metadata"> & {
   metadata?: Record<string, unknown>;
 };
@@ -56,12 +50,6 @@ export type RPCMethodName = GeneratedRPCMethodName;
 export type RPCMethodMap = Override<
   GeneratedRPCMethodMap,
   {
-    "server.firmware.get": Override<
-      GeneratedRPCMethodMap["server.firmware.get"],
-      {
-        response: FirmwareGetResponse;
-      }
-    >;
     "server.run.workspace.recall": Override<
       GeneratedRPCMethodMap["server.run.workspace.recall"],
       {

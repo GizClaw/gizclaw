@@ -29,7 +29,7 @@ Ordinary devices and apps must not hold the admin key. Prefer the `gizclaw admin
 - Declarative resources: `POST /@apply` and `/resources/{kind}/{name}`.
 - Peers: query, approve, block, refresh, device information, and runtime.
 - AI and runtime: credentials, provider tenants, models, voices, workflows, workspaces, runtime profiles, and registration tokens.
-- Firmware and gameplay: firmware, artifacts, game definitions, pet definitions, badge definitions, and peer gameplay data.
+- Firmware and gameplay: firmware channel package configuration, game definitions, pet definitions, badge definitions, and peer gameplay data.
 - Operations: peer telemetry queries and the Server log SSE stream.
 
 See [`api/http/admin.json`](https://github.com/GizClaw/gizclaw/blob/main/api/http/admin.json) for the complete paths, parameters, and responses.

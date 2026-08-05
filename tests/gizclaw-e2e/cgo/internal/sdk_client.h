@@ -56,9 +56,18 @@ int gzc_cgo_session_register(
     unsigned long errbuf_len);
 int gzc_cgo_session_firmware_get(
     gzc_cgo_session_t *session,
+    int channel,
     char *out_name,
     unsigned long out_name_len,
-    int *out_has_slots,
+    int *out_channel,
+    int *out_has_description,
+    char *out_description,
+    unsigned long out_description_len,
+    char *out_url,
+    unsigned long out_url_len,
+    char *out_sha256,
+    unsigned long out_sha256_len,
+    long long *out_size,
     int *out_rpc_error_code,
     char *errbuf,
     unsigned long errbuf_len);

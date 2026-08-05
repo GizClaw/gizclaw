@@ -48,6 +48,13 @@ cp tests/gizclaw-e2e/.env.example tests/gizclaw-e2e/.env
 bash tests/gizclaw-e2e/run_tests.sh
 ```
 
+Firmware OTA changes can run their focused live stack and Admin/RPC/CLI/C SDK
+coverage without the unrelated provider-backed suites:
+
+```bash
+bash tests/gizclaw-e2e/run_firmware_tests.sh
+```
+
 The full gate installs locked Node workspaces, initializes nanopb, builds the
 E2E CLI, starts Compose, waits for Server/Desktop, runs JS, Desktop, C/cgo,
 Admin, chat, gameplay, RPC, social, and CLI phases in order, and performs

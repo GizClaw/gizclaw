@@ -40,6 +40,13 @@ cp tests/gizclaw-e2e/.env.example tests/gizclaw-e2e/.env
 bash tests/gizclaw-e2e/run_tests.sh
 ```
 
+Firmware OTA 变更可以只启动所需的 live stack，并执行相关 Admin/RPC/CLI/C SDK
+覆盖，不运行无关的 provider-backed suites：
+
+```bash
+bash tests/gizclaw-e2e/run_firmware_tests.sh
+```
+
 完整 gate 会安装锁定的 Node workspace、初始化 nanopb submodule、构建 E2E CLI、
 启动 Compose、等待 Server/Desktop，然后依次运行 JS、Desktop、C/cgo、Admin、chat、
 gameplay、RPC、social 和 CLI 套件，最后执行有界清理。总 deadline 默认 90 分钟；

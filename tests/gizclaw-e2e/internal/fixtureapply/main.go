@@ -40,14 +40,10 @@ func main() {
 	var configHome string
 	var contextName string
 	var syncVolcTenant string
-	var firmwareName string
-	var firmwareAsset string
 	flag.StringVar(&bin, "bin", "", "path to the gizclaw CLI")
 	flag.StringVar(&configHome, "config-home", "", "CLI XDG config home")
 	flag.StringVar(&contextName, "context", "admin", "admin context name")
 	flag.StringVar(&syncVolcTenant, "sync-volc-tenant", "volc-main", "Volc tenant name whose voices must be synced before RuntimeProfile apply")
-	flag.StringVar(&firmwareName, "firmware-name", "", "firmware name whose asset should be uploaded after apply")
-	flag.StringVar(&firmwareAsset, "firmware-asset", "", "firmware asset to upload after apply")
 	flag.Parse()
 
 	if strings.TrimSpace(bin) == "" || strings.TrimSpace(configHome) == "" || flag.NArg() == 0 {
@@ -64,16 +60,6 @@ func main() {
 	for _, path := range flag.Args() {
 		if err := r.applyFile(path); err != nil {
 			fmt.Fprintf(os.Stderr, "apply fixture %s: %v\n", path, err)
-			os.Exit(1)
-		}
-	}
-	if firmwareName != "" || firmwareAsset != "" {
-		if firmwareName == "" || firmwareAsset == "" {
-			fmt.Fprintln(os.Stderr, "firmware-name and firmware-asset must be set together")
-			os.Exit(2)
-		}
-		if err := r.uploadFirmware(firmwareName, firmwareAsset); err != nil {
-			fmt.Fprintf(os.Stderr, "upload firmware asset: %v\n", err)
 			os.Exit(1)
 		}
 	}
@@ -251,15 +237,6 @@ func recordSyncedVoices(ids resourceIDs, tenantName string, voices []applyResult
 		ids.put("Voice", fixtureName, voice.ID)
 	}
 	return nil
-}
-
-func (r *runner) uploadFirmware(name, asset string) error {
-	firmwareID, err := r.ids.require("Firmware", name)
-	if err != nil {
-		return err
-	}
-	_, err = r.run("admin", "firmwares", "upload-artifact", firmwareID, "--channel", "stable", "-f", asset, "--context", r.context)
-	return err
 }
 
 func (r *runner) run(args ...string) ([]byte, error) {

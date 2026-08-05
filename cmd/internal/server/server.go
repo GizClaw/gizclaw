@@ -258,11 +258,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 				return nil, fmt.Errorf("server: memory layouts store: %w", err)
 			}
 		}
-		if storeExists(cfg, defaultFirmwareAssetsStore) {
-			if gizServer.FirmwareAssets, err = ss.ObjectStore(defaultFirmwareAssetsStore); err != nil {
-				return nil, fmt.Errorf("server: firmwares assets store: %w", err)
-			}
-		}
 		if gizServer.MiniMaxCredentialStore, err = ss.KV(defaultCredentialsStore); err != nil {
 			return nil, fmt.Errorf("server: minimax credentials store: %w", err)
 		}

@@ -19,6 +19,11 @@ test.beforeEach(async ({ page }) => {
       next_cursor: null,
     });
     const adminFetchPaths: string[] = [];
+    const adminFetchRequests: Array<{
+      body?: unknown;
+      method: string;
+      path: string;
+    }> = [];
     const json = (data) =>
       new Response(JSON.stringify(data), {
         headers: { "content-type": "application/json" },
@@ -34,6 +39,27 @@ test.beforeEach(async ({ page }) => {
       owner_public_key: "peer-a",
       peer_public_key: "peer-b",
       workspace_id: "workspace-friend-000",
+    };
+    const firmware = {
+      created_at: "2026-07-01T00:00:00Z",
+      description: "Devkit firmware line",
+      id: "devkit-firmware-main",
+      name: "devkit-firmware-main",
+      slots: {
+        beta: {},
+        develop: {},
+        pending: {},
+        stable: {
+          description: "stable package",
+          package: {
+            sha256:
+              "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            size: 4096,
+            url: "https://firmware.example.invalid/devkit/stable.tar.zlib",
+          },
+        },
+      },
+      updated_at: "2026-07-01T00:00:00Z",
     };
     const data = {
       "/credentials": pageResponse([
@@ -51,13 +77,17 @@ test.beforeEach(async ({ page }) => {
           updated_at: "2026-07-01T00:00:00Z",
         },
       ]),
-      "/firmwares": pageResponse([
-        {
-          name: "devkit-firmware-main",
-          slots: { beta: {}, develop: {}, pending: {}, stable: {} },
-          updated_at: "2026-07-01T00:00:00Z",
+      "/firmwares": pageResponse([firmware]),
+      "/firmwares/devkit-firmware-main": firmware,
+      "/resources/Firmware/devkit-firmware-main": {
+        apiVersion: "gizclaw.admin/v1alpha1",
+        kind: "Firmware",
+        metadata: { name: "devkit-firmware-main" },
+        spec: {
+          description: firmware.description,
+          slots: firmware.slots,
         },
-      ]),
+      },
       "/gemini-tenants": pageResponse([
         {
           credential_name: "gemini-credential",
@@ -182,9 +212,33 @@ test.beforeEach(async ({ page }) => {
     };
     window.__GIZCLAW_DESKTOP_TEST_ADMIN_FETCH_PATHS__ = adminFetchPaths;
     window.__GIZCLAW_DESKTOP_TEST_ADMIN_FETCH__ = async (input) => {
-      const url = new URL(typeof input === "string" ? input : input.url);
+      const request =
+        typeof input === "string" ? new Request(input) : input.clone();
+      const url = new URL(request.url);
       const path = decodeURIComponent(url.pathname);
       adminFetchPaths.push(path);
+      const body =
+        request.method === "GET" || request.method === "HEAD"
+          ? undefined
+          : await request.json();
+      adminFetchRequests.push({ body, method: request.method, path });
+      window.__GIZCLAW_DESKTOP_TEST_ADMIN_FETCH_REQUESTS__ = adminFetchRequests;
+      if (
+        request.method === "PUT" &&
+        path === "/firmwares/devkit-firmware-main"
+      ) {
+        Object.assign(firmware, body, {
+          id: firmware.id,
+          updated_at: "2026-07-01T00:00:01Z",
+        });
+        data["/resources/Firmware/devkit-firmware-main"] = {
+          apiVersion: "gizclaw.admin/v1alpha1",
+          kind: "Firmware",
+          metadata: { name: firmware.name },
+          spec: { description: firmware.description, slots: firmware.slots },
+        };
+        return json(firmware);
+      }
       if (
         path ===
         "/workspaces/workspace-friend-000/history/20260701T000000Z-1/audio.ogg"
@@ -270,6 +324,72 @@ test("admin view renders full resource manager pages", async ({ page }) => {
   await page.getByRole("button", { name: "Friends" }).click();
   await expect(page.getByRole("heading", { name: "Friends" })).toBeVisible();
   await expect(page.getByText("peer-a <-> peer-b")).toBeVisible();
+});
+
+test("admin firmware editor persists and renders an exact channel package", async ({
+  page,
+}) => {
+  await page.goto("/admin.html");
+  await page.getByRole("button", { name: "Firmwares" }).click();
+  await page.getByText("devkit-firmware-main").click();
+  await expect(
+    page.getByRole("heading", { name: "devkit-firmware-main" }),
+  ).toBeVisible();
+
+  await page.getByRole("tab", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Edit beta slot" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("textbox").nth(0).fill("beta package");
+  await dialog
+    .getByRole("textbox")
+    .nth(1)
+    .fill("https://firmware.example.invalid:/devkit/beta.tar.zlib");
+  await dialog
+    .getByRole("textbox")
+    .nth(2)
+    .fill("abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789");
+  await dialog.getByRole("spinbutton").fill("8192");
+  await dialog.getByRole("button", { name: "Save Slot" }).click();
+  await expect(
+    dialog.getByText("Package requires a valid HTTPS URL"),
+  ).toBeVisible();
+  await dialog
+    .getByRole("textbox")
+    .nth(1)
+    .fill("https://firmware.example.invalid/devkit/beta.tar.zlib");
+  await dialog.getByRole("button", { name: "Save Slot" }).click();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window.__GIZCLAW_DESKTOP_TEST_ADMIN_FETCH_REQUESTS__ ?? []).find(
+          (request) =>
+            request.method === "PUT" &&
+            request.path === "/firmwares/devkit-firmware-main",
+        ),
+      ),
+    )
+    .toMatchObject({
+      body: {
+        slots: {
+          beta: {
+            description: "beta package",
+            package: {
+              sha256:
+                "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+              size: 8192,
+              url: "https://firmware.example.invalid/devkit/beta.tar.zlib",
+            },
+          },
+        },
+      },
+    });
+
+  await page.getByRole("tab", { name: "Summary" }).click();
+  await expect(
+    page.getByText("https://firmware.example.invalid/devkit/beta.tar.zlib"),
+  ).toBeVisible();
+  await expect(page.getByText("8.0 KiB")).toBeVisible();
 });
 
 test("admin peer telemetry renders the MapLibre route", async ({ page }) => {
@@ -438,5 +558,10 @@ test("admin social friend detail loads workspace history and downloads audio", a
 declare global {
   interface Window {
     __GIZCLAW_DESKTOP_TEST_ADMIN_FETCH_PATHS__?: string[];
+    __GIZCLAW_DESKTOP_TEST_ADMIN_FETCH_REQUESTS__?: Array<{
+      body?: unknown;
+      method: string;
+      path: string;
+    }>;
   }
 }

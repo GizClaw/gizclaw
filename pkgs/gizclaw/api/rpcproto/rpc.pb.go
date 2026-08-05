@@ -118,7 +118,6 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_RUN_STOP                         RpcMethod = 20
 	RpcMethod_RPC_METHOD_SERVER_RUN_SAY                          RpcMethod = 21
 	RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET                     RpcMethod = 22
-	RpcMethod_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD          RpcMethod = 23
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_LIST                   RpcMethod = 24
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET                    RpcMethod = 25
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE                 RpcMethod = 26
@@ -219,7 +218,6 @@ var (
 		20: "RPC_METHOD_SERVER_RUN_STOP",
 		21: "RPC_METHOD_SERVER_RUN_SAY",
 		22: "RPC_METHOD_SERVER_FIRMWARE_GET",
-		23: "RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD",
 		24: "RPC_METHOD_SERVER_WORKSPACE_LIST",
 		25: "RPC_METHOD_SERVER_WORKSPACE_GET",
 		26: "RPC_METHOD_SERVER_WORKSPACE_CREATE",
@@ -317,7 +315,6 @@ var (
 		"RPC_METHOD_SERVER_RUN_STOP":                         20,
 		"RPC_METHOD_SERVER_RUN_SAY":                          21,
 		"RPC_METHOD_SERVER_FIRMWARE_GET":                     22,
-		"RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD":          23,
 		"RPC_METHOD_SERVER_WORKSPACE_LIST":                   24,
 		"RPC_METHOD_SERVER_WORKSPACE_GET":                    25,
 		"RPC_METHOD_SERVER_WORKSPACE_CREATE":                 26,
@@ -882,7 +879,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1aRPC_ERROR_CODE_BAD_REQUEST\x10\x90\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_FORBIDDEN\x10\x93\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_NOT_FOUND\x10\x94\x03\x12\x1c\n" +
-	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xa1[\n" +
+	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\x8eZ\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -929,9 +926,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x19RPC_METHOD_SERVER_RUN_SAY\x10\x15\x1a?\xc2\xf3\x18;\n" +
 	"\x0eserver.run.say\x12\x13ServerRunSayRequest\x1a\x14ServerRunSayResponse\x12f\n" +
 	"\x1eRPC_METHOD_SERVER_FIRMWARE_GET\x10\x16\x1aB\xc2\xf3\x18>\n" +
-	"\x13server.firmware.get\x12\x12FirmwareGetRequest\x1a\x13FirmwareGetResponse\x12\x90\x01\n" +
-	")RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD\x10\x17\x1aa\xc2\xf3\x18]\n" +
-	"\x1eserver.firmware.files.download\x12\x1cFirmwareFilesDownloadRequest\x1a\x1dFirmwareFilesDownloadResponse\x12n\n" +
+	"\x13server.firmware.get\x12\x12FirmwareGetRequest\x1a\x13FirmwareGetResponse\x12n\n" +
 	" RPC_METHOD_SERVER_WORKSPACE_LIST\x10\x18\x1aH\xc2\xf3\x18D\n" +
 	"\x15server.workspace.list\x12\x14WorkspaceListRequest\x1a\x15WorkspaceListResponse\x12j\n" +
 	"\x1fRPC_METHOD_SERVER_WORKSPACE_GET\x10\x19\x1aE\xc2\xf3\x18A\n" +

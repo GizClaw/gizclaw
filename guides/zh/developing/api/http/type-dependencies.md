@@ -62,7 +62,7 @@ Schema 只有满足以下至少一个条件才能进入 `shared/`：
 | Runtime access | `runtime_profile*.json`、`registration_token.json` | Profile allow list、Gameplay 配置与设备注册 token metadata |
 | Configuration | `configuration.json`、`agent_selection.json`、`refresh_*.json` | 共同配置、Agent selection 与 refresh contracts |
 | Gameplay | `gameplay.json` | Gameplay metadata 与共同规则 values |
-| Firmware | `firmware*.json` | Firmware、slot、artifact、spec 与 selection values |
+| Firmware | `firmware*.json` | Firmware、slot、external package、spec 与 selection values |
 | Credential | `credential*.json` | Credential body、spec 与跨 Resource/API 使用的 values |
 | Model | `model*.json` | Model kind、provider、source、spec 与按 provider kind 区分的强类型 provider data |
 | Voice | `voice*.json` | Voice provider、source、spec 与 provider data |

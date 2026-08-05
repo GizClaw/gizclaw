@@ -364,20 +364,50 @@ int gzc_cgo_session_register(
 
 int gzc_cgo_session_firmware_get(
     gzc_cgo_session_t *session,
+    int channel,
     char *out_name,
     unsigned long out_name_len,
-    int *out_has_slots,
+    int *out_channel,
+    int *out_has_description,
+    char *out_description,
+    unsigned long out_description_len,
+    char *out_url,
+    unsigned long out_url_len,
+    char *out_sha256,
+    unsigned long out_sha256_len,
+    long long *out_size,
     int *out_rpc_error_code,
     char *errbuf,
     unsigned long errbuf_len) {
   if (session == NULL || out_name == NULL || out_name_len == 0 ||
-      out_has_slots == NULL) {
+      out_channel == NULL || out_has_description == NULL ||
+      out_description == NULL || out_description_len == 0 ||
+      out_url == NULL || out_url_len == 0 || out_sha256 == NULL ||
+      out_sha256_len == 0 || out_size == NULL) {
     return fail(errbuf, errbuf_len, "firmware get", GZC_ERR_INVALID_ARGUMENT);
   }
   out_name[0] = 0;
-  *out_has_slots = 0;
+  *out_channel = 0;
+  *out_has_description = 0;
+  out_description[0] = 0;
+  out_url[0] = 0;
+  out_sha256[0] = 0;
+  *out_size = 0;
   if (out_rpc_error_code != NULL) {
     *out_rpc_error_code = 0;
+  }
+
+  gizclaw_rpc_v1_FirmwareGetRequest request =
+      gizclaw_rpc_v1_FirmwareGetRequest_init_zero;
+  request.channel = (gizclaw_rpc_v1_FirmwareChannelName)channel;
+  unsigned char request_payload[gizclaw_rpc_v1_FirmwareGetRequest_size];
+  pb_ostream_t request_stream =
+      pb_ostream_from_buffer(request_payload, sizeof(request_payload));
+  if (!pb_encode(
+          &request_stream,
+          gizclaw_rpc_v1_FirmwareGetRequest_fields,
+          &request)) {
+    return fail(errbuf, errbuf_len, "encode firmware get request", GZC_ERR_RPC);
   }
 
   unsigned char *result_payload = NULL;
@@ -385,8 +415,8 @@ int gzc_cgo_session_firmware_get(
   int rc = gzc_cgo_session_call_rpc_payload(
       session,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET,
-      NULL,
-      0,
+      request_payload,
+      (unsigned long)request_stream.bytes_written,
       &result_payload,
       &result_payload_len,
       out_rpc_error_code,
@@ -396,15 +426,8 @@ int gzc_cgo_session_firmware_get(
     return rc;
   }
 
-  decode_c_string_state_t name_state = {
-      .out = out_name,
-      .out_len = out_name_len,
-      .present = false,
-  };
   gizclaw_rpc_v1_FirmwareGetResponse response =
       gizclaw_rpc_v1_FirmwareGetResponse_init_zero;
-  response.value.name.funcs.decode = decode_c_string;
-  response.value.name.arg = &name_state;
   pb_istream_t response_stream =
       pb_istream_from_buffer(result_payload, (size_t)result_payload_len);
   bool decoded = pb_decode(
@@ -412,10 +435,41 @@ int gzc_cgo_session_firmware_get(
       gizclaw_rpc_v1_FirmwareGetResponse_fields,
       &response);
   free(result_payload);
-  if (!decoded || !response.has_value || !name_state.present) {
+  if (!decoded) {
     return fail(errbuf, errbuf_len, "decode firmware get response", GZC_ERR_RPC);
   }
-  *out_has_slots = response.value.has_slots ? 1 : 0;
+  int copy_rc = copy_c_string(
+      out_name, out_name_len, response.firmware_name, errbuf, errbuf_len,
+      "firmware name");
+  if (copy_rc != GZC_OK) {
+    return copy_rc;
+  }
+  *out_channel = (int)response.channel;
+  *out_has_description = response.has_description ? 1 : 0;
+  if (response.has_description) {
+    copy_rc = copy_c_string(
+        out_description,
+        out_description_len,
+        response.description,
+        errbuf,
+        errbuf_len,
+        "firmware description");
+    if (copy_rc != GZC_OK) {
+      return copy_rc;
+    }
+  }
+  copy_rc = copy_c_string(
+      out_url, out_url_len, response.url, errbuf, errbuf_len, "firmware URL");
+  if (copy_rc != GZC_OK) {
+    return copy_rc;
+  }
+  copy_rc = copy_c_string(
+      out_sha256, out_sha256_len, response.sha256, errbuf, errbuf_len,
+      "firmware SHA-256");
+  if (copy_rc != GZC_OK) {
+    return copy_rc;
+  }
+  *out_size = (long long)response.size;
   if (errbuf != NULL && errbuf_len > 0) {
     errbuf[0] = 0;
   }

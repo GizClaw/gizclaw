@@ -7,7 +7,7 @@ import {
 import {
   RPC_METHODS,
   type ContactObject as RPCContactObject,
-  type Firmware as RPCFirmware,
+  type FirmwareGetResponse as RPCFirmwareGetResponse,
   type FriendGroupInviteTokenGetResponse as RPCFriendGroupInviteTokenGetResponse,
   type FriendGroupMemberMutableRole as RPCFriendGroupMemberMutableRole,
   type FriendGroupMemberObject as RPCFriendGroupMemberObject,
@@ -65,6 +65,7 @@ type PlayDataClientLike = {
   downloadPetPixa?(params: Record<string, unknown>): Promise<unknown>;
   getBadge?(params: Record<string, unknown>): Promise<unknown>;
   getGameResult?(params: Record<string, unknown>): Promise<unknown>;
+  getFirmware(params: { channel: FirmwareChannel }): Promise<unknown>;
   getPet?(params: Record<string, unknown>): Promise<unknown>;
   getPetActions?(params: Record<string, unknown>): Promise<unknown>;
   getPoints?(params: Record<string, unknown>): Promise<unknown>;
@@ -219,7 +220,8 @@ export type FriendGroupObject = RPCFriendGroupObject;
 export type FriendInviteTokenGetResponse = RPCFriendInviteTokenGetResponse;
 export type FriendObject = RPCFriendObject;
 export type BadgeObject = RPCBadge;
-export type Firmware = RPCFirmware;
+export type Firmware = RPCFirmwareGetResponse;
+export type FirmwareChannel = "stable" | "beta" | "develop" | "pending";
 export type GameResultObject = RPCGameResult;
 export type Model = RPCModel;
 export type PetObject = RPCPet;
@@ -485,16 +487,25 @@ export const getPeerWorkspaceHistoryAudio = async (
   };
 };
 
-export const getPeerBoundFirmwarePage = async (): Promise<
-  ApiResult<{ has_next: boolean; items: RPCFirmware[] }>
+export const getPeerBoundFirmwarePage = async (
+  channel: FirmwareChannel,
+): Promise<
+  ApiResult<{ has_next: boolean; items: RPCFirmwareGetResponse[] }>
 > => {
   if (currentDataClient != null) {
-    return snapshotResult("firmwares") as Promise<
-      ApiResult<{ has_next: boolean; items: RPCFirmware[] }>
-    >;
+    const firmware = (await currentDataClient.getFirmware({
+      channel,
+    })) as RPCFirmwareGetResponse | null;
+    return {
+      data: {
+        has_next: false,
+        items: firmware == null ? [] : [firmware],
+      },
+    };
   }
-  const result: ApiResult<RPCFirmware> = await callRPC(
+  const result: ApiResult<RPCFirmwareGetResponse> = await callRPC(
     RPC_METHODS["server.firmware.get"],
+    { body: { channel } },
   );
   if (result.error != null) {
     return { error: result.error };

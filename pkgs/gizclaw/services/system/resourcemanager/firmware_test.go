@@ -44,7 +44,7 @@ func TestFirmwareResourceApplyShowDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsFirmwareResource: %v", err)
 	}
-	if item.Metadata.Name != "devkit" || item.Spec.Slots.Stable.Description == nil || *item.Spec.Slots.Stable.Description != "stable firmware" {
+	if item.Metadata.Name != "devkit" || item.Spec.Slots.Stable.Description == nil || *item.Spec.Slots.Stable.Description != "stable firmware" || item.Spec.Slots.Stable.Package == nil || item.Spec.Slots.Stable.Package.Url != "https://firmware.example/stable.tar.zlib" || item.Spec.Slots.Stable.Package.Size != 4096 {
 		t.Fatalf("shown resource = %+v", item)
 	}
 
@@ -260,37 +260,16 @@ func (unexpectedFirmwareService) RollbackFirmware(context.Context, adminhttp.Rol
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) DownloadFirmwareArtifact(context.Context, adminhttp.DownloadFirmwareArtifactRequestObject) (adminhttp.DownloadFirmwareArtifactResponseObject, error) {
-	return nil, nil
-}
-
-func (unexpectedFirmwareService) UploadFirmwareArtifact(context.Context, adminhttp.UploadFirmwareArtifactRequestObject) (adminhttp.UploadFirmwareArtifactResponseObject, error) {
-	return nil, nil
-}
-
-func (unexpectedFirmwareService) DeleteFirmwareArtifact(context.Context, adminhttp.DeleteFirmwareArtifactRequestObject) (adminhttp.DeleteFirmwareArtifactResponseObject, error) {
-	return nil, nil
-}
-
-func (unexpectedFirmwareService) ListFirmwareArtifactEntries(context.Context, adminhttp.ListFirmwareArtifactEntriesRequestObject) (adminhttp.ListFirmwareArtifactEntriesResponseObject, error) {
-	return nil, nil
-}
-
-func (unexpectedFirmwareService) TreeFirmwareArtifactEntries(context.Context, adminhttp.TreeFirmwareArtifactEntriesRequestObject) (adminhttp.TreeFirmwareArtifactEntriesResponseObject, error) {
-	return nil, nil
-}
-
-func (unexpectedFirmwareService) StatFirmwareArtifactEntry(context.Context, adminhttp.StatFirmwareArtifactEntryRequestObject) (adminhttp.StatFirmwareArtifactEntryResponseObject, error) {
-	return nil, nil
-}
-
-func (unexpectedFirmwareService) DownloadFirmwareArtifactEntry(context.Context, adminhttp.DownloadFirmwareArtifactEntryRequestObject) (adminhttp.DownloadFirmwareArtifactEntryResponseObject, error) {
-	return nil, nil
-}
-
 func testFirmwareSpecSlots(stableDescription string) apitypes.FirmwareSpecSlots {
 	return apitypes.FirmwareSpecSlots{
-		Stable: apitypes.FirmwareSpecSlot{Description: stringPtr(stableDescription)},
+		Stable: apitypes.FirmwareSpecSlot{
+			Description: stringPtr(stableDescription),
+			Package: &apitypes.FirmwarePackage{
+				Url:    "https://firmware.example/stable.tar.zlib",
+				Sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+				Size:   4096,
+			},
+		},
 	}
 }
 

@@ -124,7 +124,6 @@ const (
 	defaultPeersStore                   = "peers"
 	defaultCredentialsStore             = "credentials"
 	defaultFirmwaresStore               = "firmwares"
-	defaultFirmwareAssetsStore          = "firmware-assets"
 	defaultRuntimeProfilesStore         = "runtime-profiles"
 	defaultMemoryLayoutsStore           = "memory-layouts"
 	defaultMiniMaxTenantsStore          = "minimax-tenants"

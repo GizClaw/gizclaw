@@ -133,6 +133,7 @@ import {
   type FriendInviteTokenGetResponse,
   type FriendObject,
   type Firmware,
+  type FirmwareChannel,
   type GameResultObject,
   type Model,
   type PeerRunHistoryEntry,
@@ -6196,34 +6197,51 @@ function WorkflowsPanel(): JSX.Element {
   );
 }
 
-type FirmwareChannelKey = keyof Firmware["slots"];
-
-const firmwareChannels: Array<{ key: FirmwareChannelKey; label: string }> = [
-  { key: "stable", label: "Stable" },
-  { key: "beta", label: "Beta" },
-  { key: "develop", label: "Develop" },
-  { key: "pending", label: "Pending" },
-];
-
 function FirmwaresPanel({
   onOpenFirmware,
 }: {
   onOpenFirmware: (firmware: Firmware) => void;
 }): JSX.Element {
-  const pager = usePagedList<Firmware>(listFirmwaresPage);
+  const [channel, setChannel] = useState<FirmwareChannel>("stable");
+  const loadFirmwares = useCallback(
+    (cursor: string) => listFirmwaresPage(channel, cursor),
+    [channel],
+  );
+  const pager = usePagedList<Firmware>(loadFirmwares);
   return (
     <Card className="max-w-6xl">
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>Firmwares</CardTitle>
-        <PageAction
-          canNext={pager.page.hasNext}
-          canPrevious={pager.page.cursors.length > 1}
-          loading={pager.page.loading}
-          onNext={pager.next}
-          onPrevious={pager.previous}
-          onRefresh={pager.refresh}
-          pageIndex={pager.page.cursors.length}
-        />
+        <div className="flex items-center gap-2">
+          <Select
+            onValueChange={(value) => setChannel(value as FirmwareChannel)}
+            value={channel}
+          >
+            <SelectTrigger aria-label="Firmware channel" className="w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {(["stable", "beta", "develop", "pending"] as const).map(
+                  (value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ),
+                )}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <PageAction
+            canNext={pager.page.hasNext}
+            canPrevious={pager.page.cursors.length > 1}
+            loading={pager.page.loading}
+            onNext={pager.next}
+            onPrevious={pager.previous}
+            onRefresh={pager.refresh}
+            pageIndex={pager.page.cursors.length}
+          />
+        </div>
       </CardHeader>
       <CardContent>
         {pager.error !== "" ? (
@@ -6245,40 +6263,32 @@ function FirmwaresPanel({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-64">Firmware</TableHead>
-                <TableHead className="w-28">Stable</TableHead>
-                <TableHead className="w-28">Beta</TableHead>
-                <TableHead className="w-28">Develop</TableHead>
-                <TableHead className="w-28">Pending</TableHead>
-                <TableHead className="w-40">Updated</TableHead>
+                <TableHead className="w-28">Channel</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="w-28">Size</TableHead>
+                <TableHead>HTTPS .tar.zlib URL</TableHead>
                 <TableHead className="w-24 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {pager.page.items.map((item) => (
-                <TableRow key={item.name}>
+                <TableRow key={`${item.firmware_name}:${String(item.channel)}`}>
                   <TableCell className="min-w-0">
-                    <div className="truncate font-medium" title={item.name}>
-                      {item.name}
-                    </div>
                     <div
-                      className="truncate text-xs text-muted-foreground"
-                      title={item.description ?? ""}
+                      className="truncate font-medium"
+                      title={item.firmware_name}
                     >
-                      {item.description ?? "-"}
+                      {item.firmware_name}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    {firmwareSlotSummary(item.slots.stable)}
-                  </TableCell>
-                  <TableCell>{firmwareSlotSummary(item.slots.beta)}</TableCell>
-                  <TableCell>
-                    {firmwareSlotSummary(item.slots.develop)}
-                  </TableCell>
-                  <TableCell>
-                    {firmwareSlotSummary(item.slots.pending)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(item.updated_at)}
+                  <TableCell>{String(item.channel)}</TableCell>
+                  <TableCell>{item.description ?? "-"}</TableCell>
+                  <TableCell>{formatBytes(item.size)}</TableCell>
+                  <TableCell
+                    className="max-w-80 truncate font-mono text-xs"
+                    title={item.url}
+                  >
+                    {item.url}
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end">
@@ -6323,94 +6333,46 @@ function FirmwareDetailPanel({
             <CardTitle>Info</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-x-6 gap-y-3 text-sm">
-            <WorkspaceInfoItem label="Name" value={firmware.name} />
+            <WorkspaceInfoItem
+              label="Firmware"
+              value={firmware.firmware_name}
+            />
+            <WorkspaceInfoItem
+              label="Channel"
+              value={String(firmware.channel)}
+            />
             <WorkspaceInfoItem
               label="Description"
               value={firmware.description ?? "-"}
-            />
-            <WorkspaceInfoItem
-              label="Created"
-              value={formatDate(firmware.created_at)}
-            />
-            <WorkspaceInfoItem
-              label="Updated"
-              value={formatDate(firmware.updated_at)}
             />
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Artifact Summary</CardTitle>
+            <CardTitle>Verification</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-x-6 gap-y-3 text-sm">
-            {firmwareChannels.map(({ key, label }) => (
-              <WorkspaceInfoItem
-                key={key}
-                label={label}
-                value={firmwareSlotSummary(firmware.slots[key])}
-              />
-            ))}
+            <WorkspaceInfoItem
+              label="Size"
+              value={formatBytes(firmware.size)}
+            />
+            <WorkspaceInfoItem label="SHA-256" value={firmware.sha256} />
           </CardContent>
         </Card>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Channels</CardTitle>
+          <CardTitle>Download URL</CardTitle>
         </CardHeader>
-        <CardContent>
-          <DashboardTable>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-28">Channel</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="w-28">Artifact</TableHead>
-                <TableHead className="w-28">Size</TableHead>
-                <TableHead className="w-40">Uploaded</TableHead>
-                <TableHead>Tar path</TableHead>
-                <TableHead className="w-44">SHA-256</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {firmwareChannels.map(({ key, label }) => {
-                const slot = firmware.slots[key];
-                const artifact = slot.artifact;
-                return (
-                  <TableRow key={key}>
-                    <TableCell className="font-medium">{label}</TableCell>
-                    <TableCell
-                      className="truncate"
-                      title={slot.description ?? ""}
-                    >
-                      {slot.description ?? "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={artifact == null ? "outline" : "secondary"}
-                      >
-                        {artifact == null ? "None" : "Uploaded"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatBytes(artifact?.size)}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(artifact?.uploaded_at)}
-                    </TableCell>
-                    <TableCell
-                      className="truncate font-mono text-xs"
-                      title={artifact?.tar_path ?? ""}
-                    >
-                      {artifact?.tar_path ?? "-"}
-                    </TableCell>
-                    <TableCell
-                      className="truncate font-mono text-xs"
-                      title={artifact?.sha256 ?? ""}
-                    >
-                      {compactID(artifact?.sha256 ?? "-")}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </DashboardTable>
+        <CardContent className="break-all font-mono text-sm">
+          <a
+            className="text-primary hover:underline"
+            href={firmware.url}
+            rel="noreferrer"
+            target="_blank"
+          >
+            {firmware.url}
+          </a>
         </CardContent>
       </Card>
     </div>
@@ -6439,13 +6401,6 @@ function OverviewPanel({ modelCount }: { modelCount: number }): JSX.Element {
       </Card>
     </div>
   );
-}
-
-function firmwareSlotSummary(slot: Firmware["slots"]["stable"]): string {
-  if (slot.artifact != null && slot.artifact.tar_path.trim() !== "") {
-    return "Artifact";
-  }
-  return slot.description?.trim() || "-";
 }
 
 function ModelsPanel({
@@ -6884,8 +6839,11 @@ function listWorkspacesPage(cursor: string): Promise<PageResponse<Workspace>> {
   return expectData(listPeerWorkspaces({ query: pageQuery(cursor) }));
 }
 
-function listFirmwaresPage(_cursor: string): Promise<PageResponse<Firmware>> {
-  return expectData(getPeerBoundFirmwarePage());
+function listFirmwaresPage(
+  channel: FirmwareChannel,
+  _cursor: string,
+): Promise<PageResponse<Firmware>> {
+  return expectData(getPeerBoundFirmwarePage(channel));
 }
 
 function listGameplayPage<T>(

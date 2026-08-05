@@ -296,7 +296,7 @@ const sectionSpecs: SectionSpec[] = [
     title: "Voices",
   },
   {
-    description: "Firmware records and artifacts.",
+    description: "Firmware records and external channel packages.",
     key: "firmwares",
     list: listFirmwares as ListFn,
     title: "Firmwares",

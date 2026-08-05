@@ -15,7 +15,7 @@
 
 ## Main purpose
 
-Firmware artifacts, workspace history, Agent binary memory data, Gameplay pixa, and HNSW vector index persistence all use the Object Store.
+Workspace history, Agent binary memory data, Gameplay pixa, and HNSW vector index persistence use the Object Store. Firmware OTA packages are external HTTPS resources and are not stored here.
 
 ## Ownership Boundary
 

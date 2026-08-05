@@ -1,7 +1,7 @@
 ---
 name: gizclaw-admin-firmware
-version: 1.0.0
-description: "Manage GizClaw firmware depots, channels, metadata, uploads, releases, and rollbacks. Use for admin firmware list/get/get-channel/put-info/upload/release/rollback."
+version: 2.0.0
+description: "Manage GizClaw firmware channel configuration, releases, and rollbacks. Use for admin firmware list/get/create/put/delete/release/rollback."
 metadata:
   requires:
     bins: ["gizclaw"]
@@ -9,54 +9,62 @@ metadata:
 
 # GizClaw Admin Firmware
 
-Use this skill for firmware depot metadata, release archives, channel inspection,
-release promotion, and rollback.
+Use this skill to manage firmware metadata and the external HTTPS `.tar.zlib`
+package configured for each release channel.
 
 ## When To Use
 
-- User asks to list firmware depots or inspect a depot/channel.
-- User wants to write depot metadata.
-- User wants to upload a firmware release archive.
-- User wants to promote or rollback firmware channels.
+- User asks to list or inspect firmware configuration.
+- User wants to configure a channel package URL, SHA-256, or compressed size.
+- User wants to promote or roll back firmware channels.
 
 ## How To Start
 
 1. Determine the admin context and pass `--context <name>` when known.
-2. Identify the target depot and channel from the user request or previous output.
-3. For metadata, create an info JSON file and use `put-info --file`.
-4. For upload, use the release archive path with `upload --file`.
-5. For release/rollback, verify the target depot before running the mutating command.
+2. Identify the target firmware name and channel.
+3. Put the full desired firmware state in a JSON file.
+4. Before release or rollback, inspect the current stable, beta, and pending slots.
 
 ## Commands
 
 ```bash
-<gizclaw> admin firmware list --context <admin-context>
-<gizclaw> admin firmware get <depot> --context <admin-context>
-<gizclaw> admin firmware get-channel <depot> <channel> --context <admin-context>
-<gizclaw> admin firmware put-info <depot> --file <info.json> --context <admin-context>
-<gizclaw> admin firmware upload <depot> <channel> --file <release.tar> --context <admin-context>
-<gizclaw> admin firmware release <depot> --context <admin-context>
-<gizclaw> admin firmware rollback <depot> --context <admin-context>
+<gizclaw> admin firmwares list --context <admin-context>
+<gizclaw> admin firmwares get <firmware> --context <admin-context>
+<gizclaw> admin firmwares create --file <firmware.json> --context <admin-context>
+<gizclaw> admin firmwares put <firmware> --file <firmware.json> --context <admin-context>
+<gizclaw> admin firmwares delete <firmware> --context <admin-context>
+<gizclaw> admin firmwares release <firmware> --context <admin-context>
+<gizclaw> admin firmwares rollback <firmware> --context <admin-context>
 ```
 
-## Payloads
-
-Example depot info file:
+## Payload
 
 ```json
 {
-  "files": [
-    {
-      "path": "image.bin"
-    }
-  ]
+  "name": "devkit",
+  "slots": {
+    "stable": {
+      "description": "stable channel",
+      "package": {
+        "url": "https://downloads.example.com/devkit/stable.tar.zlib",
+        "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "size": 1048576
+      }
+    },
+    "beta": {},
+    "develop": {},
+    "pending": {}
+  }
 }
 ```
 
 ## Behavior Notes
 
-- `put-info` writes depot metadata.
-- `upload` sends a release archive to a specific channel.
-- `get-channel` inspects one channel in one depot.
-- `release` promotes firmware through the server-defined flow: `testing -> beta -> stable -> rollback`.
-- `rollback` promotes rollback content back to `stable`.
+- The server stores configuration only; it does not upload, download, proxy, or
+  unpack firmware packages.
+- `url` must be an absolute HTTPS URL. `sha256` and `size` describe the exact
+  complete `.tar.zlib` archive bytes that the peer downloads directly.
+- `release` moves `pending -> stable`, `stable -> beta`, and `beta -> develop`,
+  then clears `pending`.
+- `rollback` moves `stable -> pending`, `beta -> stable`, and
+  `develop -> beta`, then clears `develop`.
