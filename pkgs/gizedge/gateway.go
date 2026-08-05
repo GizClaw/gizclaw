@@ -613,8 +613,7 @@ func (g *Gateway) removeSession(session *gatewaySession) {
 	g.sessionMu.Lock()
 	delete(g.sessions, session)
 	g.sessionMu.Unlock()
-	_ = session.client.Close()
-	_ = session.logical.Close()
+	_ = session.close()
 }
 
 func (g *Gateway) closeSessions() {
@@ -624,10 +623,25 @@ func (g *Gateway) closeSessions() {
 		sessions = append(sessions, session)
 	}
 	g.sessionMu.Unlock()
+	var closeWG sync.WaitGroup
 	for _, session := range sessions {
-		_ = session.client.Close()
-		_ = session.logical.Close()
+		closeWG.Go(func() { _ = session.close() })
 	}
+	closeWG.Wait()
+}
+
+func (s *gatewaySession) close() error {
+	if s == nil {
+		return nil
+	}
+	var err error
+	if s.client != nil {
+		err = errors.Join(err, s.client.Close())
+	}
+	if s.logical != nil {
+		err = errors.Join(err, s.logical.Close())
+	}
+	return err
 }
 
 func (g *Gateway) Close() error {
@@ -1252,11 +1266,13 @@ func (p *gatewayPool) Close() error {
 		p.growthDone = nil
 	}
 	p.mu.Unlock()
-	var err error
-	for _, entry := range entries {
-		err = errors.Join(err, entry.close())
+	errs := make([]error, len(entries))
+	var closeWG sync.WaitGroup
+	for i, entry := range entries {
+		closeWG.Go(func() { errs[i] = entry.close() })
 	}
-	return err
+	closeWG.Wait()
+	return errors.Join(errs...)
 }
 
 func (e *gatewayUpstream) readPackets() {
