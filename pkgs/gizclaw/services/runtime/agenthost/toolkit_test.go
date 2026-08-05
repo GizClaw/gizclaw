@@ -71,27 +71,30 @@ func TestToolkitInvokerReauthorizesResourceAtInvoke(t *testing.T) {
 func TestToolkitInvokerClientRecoverableErrors(t *testing.T) {
 	server := &toolkit.Server{Store: kv.NewMemory(nil)}
 	created := putAgentHostTool(t, server, agentHostClientTool("volume_set"))
-	invoker := &ToolkitInvoker{
-		Builder:       &toolkit.Builder{Tools: server},
-		ClientTimeout: time.Millisecond,
-	}
 	for _, test := range []struct {
-		name   string
-		client ClientToolInvoker
-		want   string
+		name          string
+		client        ClientToolInvoker
+		clientTimeout time.Duration
+		want          string
 	}{
 		{
-			name:   "unavailable",
-			client: &recordingClientTools{err: giztools.ErrClientToolUnavailable},
-			want:   `{"error":{"code":"unavailable","message":"client tool is unavailable"}}`,
+			name:          "unavailable",
+			client:        &recordingClientTools{err: giztools.ErrClientToolUnavailable},
+			clientTimeout: time.Second,
+			want:          `{"error":{"code":"unavailable","message":"client tool is unavailable"}}`,
 		},
 		{
-			name:   "timeout with no parent deadline",
-			client: &recordingClientTools{wait: true},
-			want:   `{"error":{"code":"timeout","message":"tool execution timed out"}}`,
+			name:          "timeout with no parent deadline",
+			client:        &recordingClientTools{wait: true},
+			clientTimeout: time.Millisecond,
+			want:          `{"error":{"code":"timeout","message":"tool execution timed out"}}`,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			invoker := &ToolkitInvoker{
+				Builder:       &toolkit.Builder{Tools: server},
+				ClientTimeout: test.clientTimeout,
+			}
 			ctx := toolTestContext(t, map[string]string{"volume": created.ID}, test.client)
 			result, err := invoker.InvokeTool(ctx, "volume_set", json.RawMessage(`{"level":1}`))
 			if err != nil || string(result) != test.want {
