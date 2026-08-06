@@ -335,6 +335,11 @@ roles, `/proc/<pid>/net/{udp,udp6,dev}` describes the container network
 namespace, not only sockets and traffic owned by that process. These checks
 cover the load driver, both Edges, both Coturn members, and Server, reject
 process-counter resets, and require resource gaps no larger than 2.1 seconds.
+On Darwin and Linux the load driver uses the operating system's cumulative
+process user-plus-system CPU from `getrusage`; unsupported platforms retain the
+named Go-runtime active-CPU fallback. This avoids treating deferred runtime CPU
+class updates as process-CPU growth while preserving the same qualification
+threshold.
 Unavailable external Go runtime metrics and load-driver namespace
 socket/network metrics are named explicitly rather than represented by
 fabricated values.

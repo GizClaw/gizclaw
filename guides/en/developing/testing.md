@@ -229,6 +229,9 @@ absolute noise floors; UDP and UDP6 socket medians may grow by at most 20%.
 RSS, CPU, and open-FD samples identify one process and start time. The Docker
 roles' UDP counts and network counters come from `/proc/<pid>/net`, which is
 container-network-namespace evidence rather than a process-only counter.
+The load driver's Darwin/Linux CPU counter is cumulative process user plus
+system CPU from `getrusage`; other platforms retain an explicitly named
+Go-runtime active-CPU fallback.
 Source-qualified samples cover the load driver, both Edge roles, both Coturn
 roles, and Server once per second, with a maximum accepted gap of 2.1 seconds.
 Cumulative CPU and network counters cannot decrease. Unsupported external Go

@@ -2395,9 +2395,14 @@ func readResourcePoint(requireProcessFallback bool) resourcePoint {
 	totalMemory, heapAlloc, heapLive, goroutines, cpuSeconds := readRuntimeResourceMetrics()
 	rssBytes, rssSource := readRSS(totalMemory, requireProcessFallback)
 	openFDs, openFDsSource := readFDCount(requireProcessFallback)
+	cpuSecondsSource := "go_runtime_total_minus_idle"
+	if processCPUSeconds, ok := readNativeProcessCPUSeconds(); ok {
+		cpuSeconds = processCPUSeconds
+		cpuSecondsSource = "native_process_rusage"
+	}
 	return resourcePoint{
 		At: time.Now(), RSSBytes: rssBytes, RSSSource: rssSource,
-		CPUSeconds: cpuSeconds, CPUSecondsSource: "go_runtime_total_minus_idle",
+		CPUSeconds: cpuSeconds, CPUSecondsSource: cpuSecondsSource,
 		OpenFDs: openFDs, OpenFDsSource: openFDsSource, HeapAllocBytes: heapAlloc,
 		HeapLiveBytes: heapLive,
 		Goroutines:    goroutines,

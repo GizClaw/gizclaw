@@ -197,6 +197,8 @@ CPU 和 network rate 采用相同的相对门槛，并分别设置 0.10 core 与
 噪声下限；UDP 与 UDP6 socket median 增长最多为 20%。RSS、CPU 与 open-FD sample 标识
 同一 process 及 start time；Docker role 的 UDP/socket 与 network counter 来自
 `/proc/<pid>/net`，属于 container network namespace 证据，而非 process-only counter。
+Darwin 与 Linux 上的 load driver CPU counter 来自 `getrusage` 的累计 process user+system
+CPU；其他平台保留明确标注来源的 Go runtime active-CPU fallback。
 Load driver、两台 Edge、两个 Coturn 与 Server 的 source-qualified sample 每秒记录，允许的
 最大 gap 为 2.1 秒；cumulative CPU 与 network counter 不得下降。外部 Go runtime field
 及 load driver 的 namespace socket/network field 无法获取时必须逐项明确为 unsupported。

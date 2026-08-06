@@ -260,7 +260,10 @@ CPU 与 network rate 同样采用 20% 相对门槛，并分别设置 0.10 core �
 process ID 和 start time；Docker role 的 `/proc/<pid>/net/{udp,udp6,dev}` 描述 container
 network namespace，并非只统计该进程持有的 socket 和 traffic。门槛覆盖 load driver、
 两台 Edge、两个 Coturn 与 Server，拒绝 process counter reset，并要求 resource sample gap
-不超过 2.1 秒。外部进程无法提供的 Go runtime metric，以及 load driver 无法提供的
+不超过 2.1 秒。Darwin 与 Linux 上的 load driver 通过 `getrusage` 记录操作系统累计的
+process user+system CPU；其他平台保留明确标注来源的 Go runtime active-CPU fallback，
+避免把延迟更新的 runtime CPU class 误判为 process CPU 增长，同时不改变验收门槛。
+外部进程无法提供的 Go runtime metric，以及 load driver 无法提供的
 namespace socket/network metric，必须逐项明确标为 unsupported，不得伪造数值。
 
 Logical-session cleanup 上限为
