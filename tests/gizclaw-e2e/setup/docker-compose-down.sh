@@ -35,6 +35,53 @@ if [[ "${GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES:-}" != "1" ]]; then
 fi
 docker compose -p "$project" "${compose_args[@]}" "${down_args[@]}" "$@"
 
+cleanup_project_resources() {
+  local container_id network_id volume_name
+
+  while IFS= read -r container_id; do
+    if [[ -n "$container_id" ]]; then
+      docker container rm --force "$container_id"
+    fi
+  done < <(docker ps -aq --filter "label=com.docker.compose.project=$project")
+
+  while IFS= read -r network_id; do
+    if [[ -n "$network_id" ]]; then
+      docker network rm "$network_id"
+    fi
+  done < <(docker network ls -q --filter "label=com.docker.compose.project=$project")
+
+  while IFS= read -r volume_name; do
+    if [[ -n "$volume_name" ]]; then
+      docker volume rm "$volume_name"
+    fi
+  done < <(docker volume ls -q --filter "label=com.docker.compose.project=$project")
+}
+
+# A canceled `docker compose up` plugin can finish creating a resource after
+# `docker compose down` returns. Require two consecutive empty observations so
+# cleanup completion means that this exact project has actually settled.
+for _ in 1 2 3 4 5; do
+  cleanup_project_resources
+  sleep 1
+  if [[ -z "$(docker ps -aq --filter "label=com.docker.compose.project=$project")" ]] &&
+    [[ -z "$(docker network ls -q --filter "label=com.docker.compose.project=$project")" ]] &&
+    [[ -z "$(docker volume ls -q --filter "label=com.docker.compose.project=$project")" ]]; then
+    sleep 1
+    if [[ -z "$(docker ps -aq --filter "label=com.docker.compose.project=$project")" ]] &&
+      [[ -z "$(docker network ls -q --filter "label=com.docker.compose.project=$project")" ]] &&
+      [[ -z "$(docker volume ls -q --filter "label=com.docker.compose.project=$project")" ]]; then
+      break
+    fi
+  fi
+done
+
+if [[ -n "$(docker ps -aq --filter "label=com.docker.compose.project=$project")" ]] ||
+  [[ -n "$(docker network ls -q --filter "label=com.docker.compose.project=$project")" ]] ||
+  [[ -n "$(docker volume ls -q --filter "label=com.docker.compose.project=$project")" ]]; then
+  echo "Docker resources remain after cleanup: project=$project" >&2
+  exit 1
+fi
+
 if [[ "${GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY:-}" == *"docker-compose.gateway-relay.yaml" ]]; then
   rm -f \
     "$e2e_dir/testdata/edge-workspace/config.yaml" \
