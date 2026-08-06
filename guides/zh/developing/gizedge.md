@@ -258,6 +258,8 @@ initial/final upload 与 download checkpoint 均对每 session 精确传输 1 Mi
 都保留 initial 的至少 80%。p95 与 p99 throughput 保留为快尾诊断，不作为退化 gate。
 Fresh stack 的 HTTP 与 ready-file readiness 等待每 15 秒输出 service state 与 elapsed
 time，不能把 Compose 启动后的静默当成 ready。
+每轮 1,000-session fresh stack 清理后有固定 60 秒稳定窗口，并每 15 秒输出剩余时间，避免
+Docker VM 的延迟资源回收污染下一轮；upload gate 已失败时跳过不再有意义的 download。
 
 Artifact version 15 记录实际 hold boundary，并比较最初与最后十分钟。每轮 RTT p99 的
 median、RSS、open FD、最近一次 completed GC 的 Go live heap，以及 goroutine median，

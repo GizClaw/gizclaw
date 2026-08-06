@@ -232,6 +232,10 @@ diagnostics and are not retention gates.
 Fresh-stack HTTP and ready-file waits likewise print the service state and
 elapsed time every 15 seconds; silence after Compose startup is not readiness
 evidence.
+After each 1,000-session fresh stack is removed, a fixed 60-second stabilization
+window reports its remaining time every 15 seconds so delayed Docker-VM resource
+reclamation is not charged to the next capacity measurement. A failed upload
+gate skips download because the run can no longer qualify.
 
 Extended artifact version 15 records actual hold boundaries and qualifies the
 first and last ten-minute windows. Median round p99 RTT, RSS, open FDs,

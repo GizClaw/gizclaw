@@ -510,6 +510,19 @@ func TestInitialWorkloadErrorPreservesAggregateFailureAtErrorLimit(t *testing.T)
 	}
 }
 
+func TestRunSpeedTestsSkipsDownloadAfterUploadGateFailure(t *testing.T) {
+	state := &resultState{}
+	summary := runSpeedTests(t.Context(), state, options{
+		minUploadAggregateMbps: 200,
+	}, "initial")
+	if summary.Upload.Passed || summary.Download.Direction != "download" || summary.Download.Baseline.Attempted != 0 {
+		t.Fatalf("speed summary = %+v", summary)
+	}
+	if !strings.Contains(strings.Join(state.errors, "\n"), "download was not run") {
+		t.Fatalf("speed errors = %#v, want skipped-download explanation", state.errors)
+	}
+}
+
 func TestInitialWorkloadErrorRejectsFailedBurstGate(t *testing.T) {
 	state := &resultState{
 		sessions:             []*liveSession{{}},

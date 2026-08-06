@@ -39,11 +39,24 @@ export GIZCLAW_E2E_GATEWAY_CLEANUP_TIMEOUT=30s
 # shellcheck disable=SC1091
 source "$script_dir/run_gateway_extended_capacity_tests.sh"
 
+wait_capacity_stack_settle() {
+  local remaining=60
+  while ((remaining > 0)); do
+    echo "==> capacity stack settle heartbeat: status=waiting remaining_seconds=$remaining"
+    sleep 15
+    remaining=$((remaining - 15))
+  done
+  echo "==> capacity stack settle heartbeat: status=ready remaining_seconds=0"
+}
+
 run_1000_burst_repetitions() {
   # Read by run_case from the sourced shared runner.
   # shellcheck disable=SC2034
   gateway_min_final_speed_retention=0
   for repetition in 1 2 3; do
+    if ((repetition > 1)); then
+      wait_capacity_stack_settle
+    fi
     run_case sessions-1000-burst 1000 0s 30s "$repetition" false
   done
 }

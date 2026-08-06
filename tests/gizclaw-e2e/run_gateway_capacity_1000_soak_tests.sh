@@ -17,6 +17,7 @@ run_1000_burst_repetitions
 verify_capacity_head_unchanged
 
 echo "==> run the fixed 60-minute 1,000-session soak"
+wait_capacity_stack_settle
 # Read by run_case from the sourced shared runner.
 # shellcheck disable=SC2034
 gateway_min_final_speed_retention=0.8

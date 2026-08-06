@@ -331,6 +331,9 @@ of its per-session p01, p05, and p50 throughput. The p95 and p99 throughput
 values remain upper-tail diagnostics rather than degradation gates.
 Fresh-stack HTTP and ready-file waits print the service state and elapsed time
 every 15 seconds; silence after Compose startup is not readiness evidence.
+A fixed 60-second stabilization window, with 15-second progress, follows each
+1,000-session fresh-stack teardown so delayed Docker-VM reclamation does not
+pollute the next run. A failed upload gate skips the now-irrelevant download.
 
 Artifact version 15 records the actual hold boundaries and compares the first
 and last ten minutes. The median per-round RTT p99, RSS, open FDs, completed-GC

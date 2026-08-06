@@ -1685,6 +1685,21 @@ func runSpeedTests(ctx context.Context, state *resultState, opts options, checkp
 		opts.minUploadAggregateMbps,
 		checkpoint,
 	)
+	recordSpeedDirectionErrors(state, opts, checkpoint, upload)
+	if !upload.Passed {
+		state.mu.Lock()
+		state.appendErrorLocked(fmt.Sprintf(
+			"speed %s upload gate failed; download was not run because acceptance is already impossible",
+			checkpoint,
+		))
+		state.mu.Unlock()
+		return speedTestSummary{
+			Upload: upload,
+			Download: speedDirectionSummary{
+				Direction: "download",
+			},
+		}
+	}
 	download := measureSpeedDirection(
 		ctx,
 		sessions,
@@ -1696,49 +1711,55 @@ func runSpeedTests(ctx context.Context, state *resultState, opts options, checkp
 		opts.minDownloadAggregateMbps,
 		checkpoint,
 	)
+	recordSpeedDirectionErrors(state, opts, checkpoint, download)
+	return speedTestSummary{Upload: upload, Download: download}
+}
 
+func recordSpeedDirectionErrors(
+	state *resultState,
+	opts options,
+	checkpoint string,
+	direction speedDirectionSummary,
+) {
 	state.mu.Lock()
-	for _, direction := range []speedDirectionSummary{upload, download} {
-		for _, run := range []speedRunSummary{direction.Baseline, direction.Concurrent} {
-			for _, session := range run.Sessions {
-				if session.Error != "" {
-					state.appendErrorLocked(fmt.Sprintf(
-						"speed %s %s session %d via %s upstream %s: %s",
-						checkpoint,
-						direction.Direction,
-						session.Index,
-						session.Edge,
-						session.Upstream,
-						session.Error,
-					))
-				}
+	defer state.mu.Unlock()
+	for _, run := range []speedRunSummary{direction.Baseline, direction.Concurrent} {
+		for _, session := range run.Sessions {
+			if session.Error != "" {
+				state.appendErrorLocked(fmt.Sprintf(
+					"speed %s %s session %d via %s upstream %s: %s",
+					checkpoint,
+					direction.Direction,
+					session.Index,
+					session.Edge,
+					session.Upstream,
+					session.Error,
+				))
 			}
 		}
-		if direction.AggregateToBaselineRatio < opts.minSpeedAggregateRatio {
-			state.appendErrorLocked(fmt.Sprintf(
-				"speed %s %s aggregate ratio %.3f is below %.3f",
-				checkpoint,
-				direction.Direction,
-				direction.AggregateToBaselineRatio,
-				opts.minSpeedAggregateRatio,
-			))
-		}
-		minAggregateMbps := opts.minUploadAggregateMbps
-		if direction.Direction == "download" {
-			minAggregateMbps = opts.minDownloadAggregateMbps
-		}
-		if direction.Concurrent.AggregateMbps < minAggregateMbps {
-			state.appendErrorLocked(fmt.Sprintf(
-				"speed %s %s aggregate %.3f Mbps is below %.3f Mbps",
-				checkpoint,
-				direction.Direction,
-				direction.Concurrent.AggregateMbps,
-				minAggregateMbps,
-			))
-		}
 	}
-	state.mu.Unlock()
-	return speedTestSummary{Upload: upload, Download: download}
+	if direction.AggregateToBaselineRatio < opts.minSpeedAggregateRatio {
+		state.appendErrorLocked(fmt.Sprintf(
+			"speed %s %s aggregate ratio %.3f is below %.3f",
+			checkpoint,
+			direction.Direction,
+			direction.AggregateToBaselineRatio,
+			opts.minSpeedAggregateRatio,
+		))
+	}
+	minAggregateMbps := opts.minUploadAggregateMbps
+	if direction.Direction == "download" {
+		minAggregateMbps = opts.minDownloadAggregateMbps
+	}
+	if direction.Concurrent.AggregateMbps < minAggregateMbps {
+		state.appendErrorLocked(fmt.Sprintf(
+			"speed %s %s aggregate %.3f Mbps is below %.3f Mbps",
+			checkpoint,
+			direction.Direction,
+			direction.Concurrent.AggregateMbps,
+			minAggregateMbps,
+		))
+	}
 }
 
 func measureSpeedDirection(
