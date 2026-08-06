@@ -26,7 +26,7 @@ typedef SenderLabelResolver = String Function(String senderPublicKey);
 
 class WorkspaceChatMessage {
   const WorkspaceChatMessage({
-    required this.id,
+    required this.key,
     required this.incoming,
     required this.text,
     required this.state,
@@ -37,7 +37,7 @@ class WorkspaceChatMessage {
   });
 
   final DateTime? createdAt;
-  final String id;
+  final String key;
   final bool incoming;
   final bool replayAvailable;
   final String? senderLabel;
@@ -47,7 +47,7 @@ class WorkspaceChatMessage {
 
   WorkspaceChatMessage copyWith({String? text, WorkspaceMessageState? state}) {
     return WorkspaceChatMessage(
-      id: id,
+      key: key,
       incoming: incoming,
       replayAvailable: replayAvailable,
       text: text ?? this.text,
@@ -531,20 +531,20 @@ class WorkspaceChatController extends ChangeNotifier {
     final text = event.text ?? '';
     final label = event.label ?? '';
     final transcript = label.toLowerCase().contains('transcript');
-    final id = 'stream-${event.streamId ?? 'assistant'}-$label';
-    var index = _transient.indexWhere((message) => message.id == id);
+    final messageKey = 'stream-${event.streamId ?? 'assistant'}-$label';
+    var index = _transient.indexWhere((message) => message.key == messageKey);
     final done = event.type == 'text.done';
     final accumulatedText = index < 0 ? '' : _transient[index].text;
     final completedText = done && text.startsWith(accumulatedText)
         ? text
         : accumulatedText + text;
     if (index < 0) {
-      _historyNamesAtStreamStart[id] = _cached
-          .map((message) => message.id)
+      _historyNamesAtStreamStart[messageKey] = _cached
+          .map((message) => message.key)
           .toSet();
       _transient.add(
         WorkspaceChatMessage(
-          id: id,
+          key: messageKey,
           incoming: !transcript,
           text: text,
           state: done
@@ -656,7 +656,7 @@ class WorkspaceChatController extends ChangeNotifier {
     _cached = history
         .map(
           (entry) => WorkspaceChatMessage(
-            id: entry.name,
+            key: entry.name,
             incoming: entry.incoming,
             text: entry.text,
             state: WorkspaceMessageState.complete,
@@ -680,13 +680,13 @@ class WorkspaceChatController extends ChangeNotifier {
       if (_cached.any(
         (cached) => _transientMatchesNewHistory(message, cached),
       )) {
-        resolved.add(message.id);
+        resolved.add(message.key);
       }
     }
     if (resolved.isEmpty) return;
-    _transient.removeWhere((message) => resolved.contains(message.id));
-    for (final id in resolved) {
-      _historyNamesAtStreamStart.remove(id);
+    _transient.removeWhere((message) => resolved.contains(message.key));
+    for (final key in resolved) {
+      _historyNamesAtStreamStart.remove(key);
     }
   }
 
@@ -694,8 +694,9 @@ class WorkspaceChatController extends ChangeNotifier {
     WorkspaceChatMessage transient,
     WorkspaceChatMessage cached,
   ) {
-    final historyAtStart = _historyNamesAtStreamStart[transient.id] ?? const {};
-    return !historyAtStart.contains(cached.id) &&
+    final historyAtStart =
+        _historyNamesAtStreamStart[transient.key] ?? const {};
+    return !historyAtStart.contains(cached.key) &&
         cached.incoming == transient.incoming &&
         cached.text == transient.text;
   }

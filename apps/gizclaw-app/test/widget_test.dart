@@ -1772,7 +1772,7 @@ class _ScrollableMessagesChatController extends _ModeSwitchChatController {
   final List<WorkspaceChatMessage> _visibleMessages = List.generate(
     30,
     (index) => WorkspaceChatMessage(
-      id: 'message-$index',
+      key: 'message-$index',
       incoming: index.isEven,
       text: 'Conversation message $index with enough text to fill the list.',
       state: WorkspaceMessageState.complete,
@@ -1786,7 +1786,7 @@ class _ScrollableMessagesChatController extends _ModeSwitchChatController {
   void appendMessage(String text) {
     _visibleMessages.add(
       WorkspaceChatMessage(
-        id: 'message-${_visibleMessages.length}',
+        key: 'message-${_visibleMessages.length}',
         incoming: true,
         text: text,
         state: WorkspaceMessageState.complete,

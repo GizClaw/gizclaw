@@ -350,7 +350,7 @@ class WorkspaceChatPage extends StatefulWidget {
 
 typedef _WorkspaceMessageSnapshot = ({
   int count,
-  String? lastId,
+  String? lastKey,
   String? lastText,
   WorkspaceMessageState? lastState,
 });
@@ -370,7 +370,7 @@ _WorkspaceMessageSnapshot _workspaceMessageSnapshot(
   final last = messages.isEmpty ? null : messages.last;
   return (
     count: messages.length,
-    lastId: last?.id,
+    lastKey: last?.key,
     lastText: last?.text,
     lastState: last?.state,
   );
@@ -1085,9 +1085,9 @@ class _WorkspaceMessageList extends StatelessWidget {
           return _WorkspaceSignalMessage(
             message: message,
             signal: signal,
-            replaying: replayingHistoryName == message.id,
+            replaying: replayingHistoryName == message.key,
             onReplay: message.replayAvailable && onReplay != null
-                ? () => onReplay!(message.id)
+                ? () => onReplay!(message.key)
                 : null,
           );
         },
