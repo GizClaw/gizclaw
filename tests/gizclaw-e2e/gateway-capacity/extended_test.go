@@ -283,6 +283,53 @@ func TestValidateRequiredRoleEvidenceRejectsDecreasingCounters(t *testing.T) {
 	}
 }
 
+func TestExtendedSamplerLiveHealthReportsProgress(t *testing.T) {
+	now := time.Now()
+	sampler := testExtendedSampler(now, time.Second)
+	progress, err := sampler.liveHealth(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if progress.MinimumSamples != 2 || progress.MaximumGap != time.Second || progress.MaximumAge != 0 {
+		t.Fatalf("liveHealth progress = %+v", progress)
+	}
+}
+
+func TestExtendedSamplerLiveHealthRejectsHistoricalGap(t *testing.T) {
+	now := time.Now()
+	sampler := testExtendedSampler(now, maximumResourceSampleGap+time.Millisecond)
+	if _, err := sampler.liveHealth(now); err == nil || !strings.Contains(err.Error(), "sample gap") {
+		t.Fatalf("liveHealth error = %v, want sample-gap error", err)
+	}
+}
+
+func TestExtendedSamplerLiveHealthRejectsStaleStream(t *testing.T) {
+	now := time.Now()
+	sampler := testExtendedSampler(now.Add(-maximumResourceSampleGap-time.Millisecond), time.Second)
+	if _, err := sampler.liveHealth(now); err == nil || !strings.Contains(err.Error(), "stale") {
+		t.Fatalf("liveHealth error = %v, want stale-stream error", err)
+	}
+}
+
+func testExtendedSampler(latest time.Time, gap time.Duration) *extendedSamplerState {
+	roles := make(map[string]*dockerRoleState)
+	for _, role := range []string{"edge", "edge2", "server", "coturn-a", "coturn-b"} {
+		roles[role] = &dockerRoleState{role: role, samples: []roleResourcePoint{
+			testExternalRoleResourcePoint(latest.Add(-gap)),
+			testExternalRoleResourcePoint(latest),
+		}}
+	}
+	return &extendedSamplerState{docker: &dockerResourceSampler{roles: roles}}
+}
+
+func testExternalRoleResourcePoint(at time.Time) roleResourcePoint {
+	return roleResourcePoint{
+		At: at, RSSBytes: 1, RSSSource: "proc_pid_statm", CPUSecondsSource: "proc_pid_stat",
+		OpenFDs: 1, OpenFDsSource: "proc_pid_fd", SocketSource: "proc_pid_net_udp", NetworkSource: "proc_pid_net_dev",
+		UnsupportedMetrics: []string{"go_heap_alloc_bytes", "go_heap_live_bytes", "goroutines"},
+	}
+}
+
 func TestRecordDockerRoleSampleRejectsProcessReplacement(t *testing.T) {
 	state := &dockerRoleState{role: "edge"}
 	first := dockerProcessSample{ProcessID: 10, ProcessStartTicks: 20, OpenFDLimit: 100}

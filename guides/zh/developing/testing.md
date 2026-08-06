@@ -184,9 +184,11 @@ drain 能关闭 physical upstream pool；独立的 15 秒 Coturn 归零上限从
 repository head 保持 clean 且未变化，再用一个 fresh zero-ramp 1,000-session stack 执行
 60 分钟 hold。Liveness round 每 30 秒开始一次；runner 至少每 30 秒以及每轮 liveness
 开始和结束时输出一次 hold heartbeat，包含 established/active session、累计与单轮 ping、
-unexpected disconnect、open FD、RSS 与 goroutine。任何超额 ping failure、unexpected
-disconnect、identity crossover 或过长 ping round 都会使零失败验收不可恢复，因此 runner
-立即失败并执行有界清理，不再等待 hold deadline。Artifact 保留现有 `speed_test` 作为
+unexpected disconnect、open FD、RSS、goroutine，以及 Docker role 的最少 sample 数、
+最大历史 gap 与最大当前 sample age。采样流停更或历史 gap 超过 2.1 秒时也立即失败；
+任何超额 ping failure、unexpected disconnect、identity crossover 或过长 ping round 都会
+使零失败验收不可恢复，因此 runner 立即执行有界清理，不再等待 hold deadline。每个测速
+run 在开始、完成及运行中的每 15 秒输出 progress，避免把无输出误认为健康。Artifact 保留现有 `speed_test` 作为
 initial checkpoint，并新增独立的 `final_speed_test` 与 `speed_retention`；initial/final upload 和
 download 均精确传输 1,000 MiB（1,048,576,000 bytes）、达到至少 200 Mbps，且 final 每个
 方向保留 initial aggregate

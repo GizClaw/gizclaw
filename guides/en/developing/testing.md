@@ -213,10 +213,14 @@ zero-ramp 1,000-session stack for a 60-minute hold. Liveness rounds start every
 30 seconds. The runner prints a hold heartbeat at least every 30 seconds and at
 the start and end of each liveness round. Each line reports established and
 active sessions, cumulative and per-round ping results, unexpected disconnects,
-open FDs, RSS, and goroutines. Any excess ping failure, unexpected disconnect,
-identity crossover, or overlong ping round makes the zero-failure qualification
-irrecoverable, so the runner fails immediately and performs bounded cleanup
-instead of waiting for the hold deadline. The artifact keeps the existing
+open FDs, RSS, goroutines, and the minimum sample count, largest historical gap,
+and largest current sample age across Docker roles. A stalled sample stream or
+a historical gap above 2.1 seconds also fails immediately. Any excess ping
+failure, unexpected disconnect, identity crossover, or overlong ping round makes
+the zero-failure qualification irrecoverable, so the runner performs bounded
+cleanup instead of waiting for the hold deadline. Every speed run prints progress
+at start, completion, and every 15 seconds while active, so missing output is not
+treated as healthy execution. The artifact keeps the existing
 `speed_test` as the initial checkpoint and adds a distinct `final_speed_test`
 plus `speed_retention`.
 Initial and final concurrent upload/download each transfer exactly 1,000 MiB

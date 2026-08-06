@@ -248,8 +248,10 @@ runtime behavior。
 Soak 入口先在同一个 clean head 上重跑全部三轮 burst，再用一个新 stack 以相同 zero-ramp
 方式建立 1,000 个 session 并保持 60 分钟。完整 liveness round 每 30 秒开始一次；独立的
 heartbeat 至少每 30 秒及每轮 liveness 的边界输出 active session、ping、disconnect、
-open FD、RSS 与 goroutine 证据。任一 ping、disconnect、identity 或 round-duration gate
-变为不可恢复时，runner 立即失败并清理；不能把一直安静到 60 分钟 deadline 视为正常运行。
+open FD、RSS、goroutine，以及 Docker role sample 数、历史 gap 与当前 age 证据。任一
+ping、disconnect、identity、round-duration gate 或 2.1 秒 resource sample gap 变为不可恢复
+时，runner 立即失败并清理；测速 run 运行中也至少每 15 秒输出 progress，不能把一直安静到
+60 分钟 deadline 视为正常运行。
 独立的
 initial/final upload 与 download checkpoint 均对每 session 精确传输 1 MiB、达到至少
 200 Mbps，并要求 final 每个方向的 aggregate 以及 per-session p01、p05、p50 throughput

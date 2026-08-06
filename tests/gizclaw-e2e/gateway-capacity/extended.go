@@ -136,6 +136,12 @@ type extendedSamplerState struct {
 	docker      *dockerResourceSampler
 }
 
+type extendedSamplingProgress struct {
+	MinimumSamples int
+	MaximumGap     time.Duration
+	MaximumAge     time.Duration
+}
+
 func startExtendedSampler(ctx context.Context, project, composeFile string) (*extendedSamplerState, error) {
 	startCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -161,6 +167,53 @@ func (s *extendedSamplerState) finish(ctx context.Context, load *resourceSampler
 		}
 	}
 	return &extendedRunEvidence{Environment: s.environment, Roles: roles, Errors: errs}
+}
+
+func (s *extendedSamplerState) liveHealth(now time.Time) (extendedSamplingProgress, error) {
+	if s == nil || s.docker == nil {
+		return extendedSamplingProgress{}, nil
+	}
+
+	s.docker.mu.Lock()
+	errorsSnapshot := append([]string(nil), s.docker.errors...)
+	roles := make(map[string]roleResourceEvidence, len(s.docker.roles))
+	for role, state := range s.docker.roles {
+		roles[role] = roleResourceEvidence{
+			Role:    role,
+			Samples: append([]roleResourcePoint(nil), state.samples...),
+		}
+	}
+	s.docker.mu.Unlock()
+
+	progress := extendedSamplingProgress{MinimumSamples: math.MaxInt}
+	for _, role := range []string{"edge", "edge2", "server", "coturn-a", "coturn-b"} {
+		evidence, ok := roles[role]
+		if !ok {
+			return progress, fmt.Errorf("%s resource sampler is missing", role)
+		}
+		progress.MinimumSamples = min(progress.MinimumSamples, len(evidence.Samples))
+		for index := 1; index < len(evidence.Samples); index++ {
+			progress.MaximumGap = max(progress.MaximumGap, evidence.Samples[index].At.Sub(evidence.Samples[index-1].At))
+		}
+		if err := validateRequiredRoleEvidence(evidence); err != nil {
+			return progress, err
+		}
+		age := now.Sub(evidence.Samples[len(evidence.Samples)-1].At)
+		if age < 0 {
+			return progress, fmt.Errorf("%s latest resource sample is %s in the future", role, -age)
+		}
+		progress.MaximumAge = max(progress.MaximumAge, age)
+		if age > maximumResourceSampleGap {
+			return progress, fmt.Errorf("%s resource sample stream is stale by %s", role, age)
+		}
+	}
+	if len(errorsSnapshot) > 0 {
+		return progress, fmt.Errorf("resource sampler reported: %s", errorsSnapshot[0])
+	}
+	if progress.MinimumSamples == math.MaxInt {
+		progress.MinimumSamples = 0
+	}
+	return progress, nil
 }
 
 func validateRequiredRoleEvidence(evidence roleResourceEvidence) error {

@@ -374,7 +374,7 @@ func TestHoldSessionsRecordsFinalRoundWithoutDeadlineOverlap(t *testing.T) {
 	}
 	resources := newResourceSampler(false)
 	defer resources.stop()
-	if err := holdSessions(t.Context(), state, opts, make(chan struct{}, 1), resources); err != nil {
+	if err := holdSessions(t.Context(), state, opts, make(chan struct{}, 1), resources, nil); err != nil {
 		t.Fatal(err)
 	}
 	if len(state.pingRounds) != 3 {
@@ -456,7 +456,7 @@ func TestHoldSessionsRejectsDisconnectBeforeWaiting(t *testing.T) {
 	started := time.Now()
 	err := holdSessions(t.Context(), state, options{
 		duration: time.Minute, pingInterval: 30 * time.Second,
-	}, make(chan struct{}, 1), nil)
+	}, make(chan struct{}, 1), nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "disconnects=1") {
 		t.Fatalf("holdSessions() = %v, want disconnect failure", err)
 	}
@@ -465,6 +465,24 @@ func TestHoldSessionsRejectsDisconnectBeforeWaiting(t *testing.T) {
 	}
 	if len(state.pingRounds) != 0 {
 		t.Fatalf("ping rounds = %#v, want none", state.pingRounds)
+	}
+}
+
+func TestHoldSessionsRejectsStaleRoleSamplerBeforeWaiting(t *testing.T) {
+	state := &resultState{sessions: []*liveSession{{}}}
+	extended := testExtendedSampler(
+		time.Now().Add(-maximumResourceSampleGap-time.Millisecond),
+		time.Second,
+	)
+	started := time.Now()
+	err := holdSessions(t.Context(), state, options{
+		duration: time.Minute, pingInterval: 30 * time.Second,
+	}, make(chan struct{}, 1), nil, extended)
+	if err == nil || !strings.Contains(err.Error(), "resource sample stream is stale") {
+		t.Fatalf("holdSessions() = %v, want stale role-sampler failure", err)
+	}
+	if time.Since(started) >= time.Second {
+		t.Fatalf("holdSessions took %s, want immediate failure", time.Since(started))
 	}
 }
 
