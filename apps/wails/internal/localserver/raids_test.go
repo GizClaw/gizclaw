@@ -200,7 +200,7 @@ func TestSelectRaidsDependenciesIncludesOnlyProfileClosure(t *testing.T) {
 		"Voice":        {"story-voice": {kind: "Voice", id: "story-voice", providerKind: "volc-tenant", providerID: "volc"}},
 		"PetDef":       {"petdef-codex": {kind: "PetDef", id: "petdef-codex"}},
 		"MemoryLayout": {"pet-memory": {kind: "MemoryLayout", id: "pet-memory"}},
-		"VolcTenant":   {"volc": {kind: "VolcTenant", id: "volc", credentialName: "volc-credential"}},
+		"VolcTenant":   {"volc": {kind: "VolcTenant", id: "volc", credentialID: "volc-credential"}},
 		"Credential":   {"volc-credential": {kind: "Credential", id: "volc-credential"}},
 	}
 	selected, err := selectRaidsDependencies(profile, index)

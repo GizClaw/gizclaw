@@ -30,7 +30,7 @@ const (
 	RaidsCommit     = "8ddaf0ba14c98a94638f323670e47188d6beb435"
 	RaidsArchiveURL = "https://github.com/GizClaw/raids/archive/" + RaidsCommit + ".tar.gz"
 
-	defaultRegistrationTokenName     = "default-runtime"
+	defaultRegistrationTokenID       = "default-runtime"
 	expectedDefaultRegistrationToken = "28c4e4e9-a05f-5a7e-815e-9cf9afb6878f"
 
 	maxRaidsArchiveBytes  = 8 << 20
@@ -259,12 +259,12 @@ func (r *RaidsResolver) download(ctx context.Context) ([]byte, error) {
 }
 
 type raidsCandidate struct {
-	kind           string
-	id             string
-	data           []byte
-	providerKind   string
-	providerID     string
-	credentialName string
+	kind         string
+	id           string
+	data         []byte
+	providerKind string
+	providerID   string
+	credentialID string
 }
 
 func buildRaidsCatalog(loadPIXA func(string, uint16, uint16) ([]byte, error), archive []byte) (*Catalog, error) {
@@ -293,21 +293,21 @@ func buildRaidsCatalog(loadPIXA func(string, uint16, uint16) ([]byte, error), ar
 		}
 		index[candidate.kind][candidate.id] = candidate
 	}
-	profileCandidate, ok := index["RuntimeProfile"][defaultRuntimeProfileName]
+	profileCandidate, ok := index["RuntimeProfile"][defaultRuntimeProfileID]
 	if !ok {
-		return nil, fmt.Errorf("Raids RuntimeProfile/%s is missing", defaultRuntimeProfileName)
+		return nil, fmt.Errorf("Raids RuntimeProfile/%s is missing", defaultRuntimeProfileID)
 	}
 	profileResource, _, err := decodeResource(profileCandidate.data)
 	if err != nil {
-		return nil, fmt.Errorf("decode RuntimeProfile/%s: %w", defaultRuntimeProfileName, err)
+		return nil, fmt.Errorf("decode RuntimeProfile/%s: %w", defaultRuntimeProfileID, err)
 	}
 	profile, err := profileResource.AsRuntimeProfileResource()
 	if err != nil {
-		return nil, fmt.Errorf("decode RuntimeProfile/%s: %w", defaultRuntimeProfileName, err)
+		return nil, fmt.Errorf("decode RuntimeProfile/%s: %w", defaultRuntimeProfileID, err)
 	}
-	tokenCandidate, ok := index["RegistrationToken"][defaultRegistrationTokenName]
+	tokenCandidate, ok := index["RegistrationToken"][defaultRegistrationTokenID]
 	if !ok {
-		return nil, fmt.Errorf("Raids RegistrationToken/%s is missing", defaultRegistrationTokenName)
+		return nil, fmt.Errorf("Raids RegistrationToken/%s is missing", defaultRegistrationTokenID)
 	}
 	var token struct {
 		Spec struct {
@@ -317,16 +317,16 @@ func buildRaidsCatalog(loadPIXA func(string, uint16, uint16) ([]byte, error), ar
 	}
 	tokenJSON, err := yaml.YAMLToJSON(tokenCandidate.data)
 	if err != nil {
-		return nil, fmt.Errorf("decode RegistrationToken/%s YAML: %w", defaultRegistrationTokenName, err)
+		return nil, fmt.Errorf("decode RegistrationToken/%s YAML: %w", defaultRegistrationTokenID, err)
 	}
 	if err := json.Unmarshal(tokenJSON, &token); err != nil {
-		return nil, fmt.Errorf("decode RegistrationToken/%s JSON: %w", defaultRegistrationTokenName, err)
+		return nil, fmt.Errorf("decode RegistrationToken/%s JSON: %w", defaultRegistrationTokenID, err)
 	}
-	if token.Spec.RuntimeProfileID != defaultRuntimeProfileName {
-		return nil, fmt.Errorf("RegistrationToken/%s targets RuntimeProfile/%s, want %s", defaultRegistrationTokenName, token.Spec.RuntimeProfileID, defaultRuntimeProfileName)
+	if token.Spec.RuntimeProfileID != defaultRuntimeProfileID {
+		return nil, fmt.Errorf("RegistrationToken/%s targets RuntimeProfile/%s, want %s", defaultRegistrationTokenID, token.Spec.RuntimeProfileID, defaultRuntimeProfileID)
 	}
 	if token.Spec.Token != expectedDefaultRegistrationToken {
-		return nil, fmt.Errorf("RegistrationToken/%s has unexpected public token", defaultRegistrationTokenName)
+		return nil, fmt.Errorf("RegistrationToken/%s has unexpected public token", defaultRegistrationTokenID)
 	}
 	selected, err := selectRaidsDependencies(profile, index)
 	if err != nil {
@@ -646,8 +646,8 @@ func parseRaidsCandidate(data []byte) (raidsCandidate, error) {
 		if err := json.Unmarshal(header.Spec, &spec); err != nil {
 			return raidsCandidate{}, fmt.Errorf("decode tenant: %w", err)
 		}
-		candidate.credentialName = spec.CredentialId
-		if candidate.credentialName == "" {
+		candidate.credentialID = spec.CredentialId
+		if candidate.credentialID == "" {
 			return raidsCandidate{}, fmt.Errorf("%s/%s has no credential_id", header.Kind, header.ID)
 		}
 	default:
@@ -753,8 +753,8 @@ func selectRaidsDependencies(profile apitypes.RuntimeProfileResource, index map[
 			}
 			pending = append(pending, struct{ kind, id string }{tenantKind, candidate.providerID})
 		}
-		if candidate.credentialName != "" {
-			pending = append(pending, struct{ kind, id string }{"Credential", candidate.credentialName})
+		if candidate.credentialID != "" {
+			pending = append(pending, struct{ kind, id string }{"Credential", candidate.credentialID})
 		}
 	}
 	return selected, nil

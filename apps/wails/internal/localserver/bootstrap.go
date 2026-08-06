@@ -19,7 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
-const defaultRuntimeProfileName = "default"
+const defaultRuntimeProfileID = "default"
 
 // Bootstrapper applies a validated catalog through the packaged companion CLI.
 type Bootstrapper struct {
@@ -126,8 +126,8 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 			return err
 		}
 	}
-	if len(registrationTokens) != 1 || registrationTokens[0].ID != defaultRegistrationTokenName {
-		return fmt.Errorf("local server bootstrap: expected exactly one RegistrationToken/%s", defaultRegistrationTokenName)
+	if len(registrationTokens) != 1 || registrationTokens[0].ID != defaultRegistrationTokenID {
+		return fmt.Errorf("local server bootstrap: expected exactly one RegistrationToken/%s", defaultRegistrationTokenID)
 	}
 	if err := apply(registrationTokens[0]); err != nil {
 		return err
