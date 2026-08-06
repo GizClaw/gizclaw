@@ -40,19 +40,19 @@ cleanup_project_resources() {
 
   while IFS= read -r container_id; do
     if [[ -n "$container_id" ]]; then
-      docker container rm --force "$container_id"
+      docker container rm --force "$container_id" >/dev/null 2>&1 || true
     fi
   done < <(docker ps -aq --filter "label=com.docker.compose.project=$project")
 
   while IFS= read -r network_id; do
     if [[ -n "$network_id" ]]; then
-      docker network rm "$network_id"
+      docker network rm "$network_id" >/dev/null 2>&1 || true
     fi
   done < <(docker network ls -q --filter "label=com.docker.compose.project=$project")
 
   while IFS= read -r volume_name; do
     if [[ -n "$volume_name" ]]; then
-      docker volume rm "$volume_name"
+      docker volume rm "$volume_name" >/dev/null 2>&1 || true
     fi
   done < <(docker volume ls -q --filter "label=com.docker.compose.project=$project")
 }
