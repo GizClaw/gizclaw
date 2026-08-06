@@ -43,7 +43,15 @@ envsubst "$envsubst_variables" \
   < "$config_template" \
   > "$workspace_dir/config.yaml"
 
-"$setup_dir/build.sh" >/dev/null
+if [[ "${GIZCLAW_E2E_PREBUILT_CLI:-}" == "1" ]]; then
+  if [[ ! -x "$bin_path" ]]; then
+    echo "prebuilt Linux GizClaw CLI is missing: $bin_path" >&2
+    exit 1
+  fi
+  echo "using prebuilt Linux GizClaw CLI: $bin_path"
+else
+  "$setup_dir/build.sh" >/dev/null
+fi
 
 if [[ "${GIZCLAW_E2E_GATEWAY_RELAY_RECOVERY:-}" == "1" ]]; then
   for _ in {1..300}; do

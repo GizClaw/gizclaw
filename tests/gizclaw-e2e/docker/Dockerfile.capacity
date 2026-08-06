@@ -1,0 +1,18 @@
+ARG BASE_IMAGE=gizclaw-go:linux-amd64-cn-base
+FROM ${BASE_IMAGE}
+
+WORKDIR /src
+
+# Capacity roles use one native Linux CGO binary built before image packaging.
+# Keep this image independent of source, npm, Go modules, and container startup
+# compilation so every Server and Edge runs the exact same executable.
+COPY --chmod=755 tests/gizclaw-e2e/docker/setup/envsubst.pl /usr/local/bin/envsubst
+COPY --chmod=755 tests/gizclaw-e2e/docker/entrypoint-server.sh tests/gizclaw-e2e/docker/entrypoint-edge.sh /src/tests/gizclaw-e2e/docker/
+COPY --chmod=755 tests/gizclaw-e2e/docker/setup/reset_data.sh /src/tests/gizclaw-e2e/docker/setup/reset_data.sh
+COPY tests/gizclaw-e2e/setup/credentials.sh /src/tests/gizclaw-e2e/setup/credentials.sh
+COPY tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template /src/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template
+COPY tests/gizclaw-e2e/testdata/edge-workspace/config.yaml.template tests/gizclaw-e2e/testdata/edge-workspace/config.gateway-relay.yaml.template /src/tests/gizclaw-e2e/testdata/edge-workspace/
+COPY tests/gizclaw-e2e/testdata/cmd-config-home /src/tests/gizclaw-e2e/testdata/cmd-config-home
+COPY --chmod=755 tests/gizclaw-e2e/testdata/bin/gizclaw-linux /src/tests/gizclaw-e2e/testdata/bin/gizclaw
+
+ENTRYPOINT ["/src/tests/gizclaw-e2e/docker/entrypoint-server.sh"]

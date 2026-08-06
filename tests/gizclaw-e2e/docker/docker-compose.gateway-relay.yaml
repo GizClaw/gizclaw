@@ -31,6 +31,7 @@ x-relay-edge: &relay-edge
     coturn-b:
       condition: service_healthy
   environment: &relay-edge-environment
+    GIZCLAW_E2E_PREBUILT_CLI: "1"
     GIZCLAW_E2E_GATEWAY_RELAY: ${GIZCLAW_E2E_GATEWAY_RELAY_MODE:-1}
     GIZCLAW_E2E_GATEWAY_RELAY_RECOVERY: ${GIZCLAW_E2E_GATEWAY_RELAY_RECOVERY:-}
     GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP: ${GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP:?set by docker-compose-up.sh}
@@ -54,7 +55,13 @@ x-relay-edge: &relay-edge
 services:
   server:
     image: ${GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE:?set by docker-compose-up.sh}
+    build:
+      context: ../../..
+      dockerfile: tests/gizclaw-e2e/docker/Dockerfile.capacity
+      args:
+        BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
     environment:
+      GIZCLAW_E2E_PREBUILT_CLI: "1"
       GIZCLAW_E2E_SINGLE_EDGE: ${GIZCLAW_E2E_SINGLE_EDGE:-}
       GIZCLAW_E2E_CAPACITY_ONLY: "1"
       GIZCLAW_E2E_GATEWAY_RELAY: ${GIZCLAW_E2E_GATEWAY_RELAY_MODE:-1}

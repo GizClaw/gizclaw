@@ -349,8 +349,12 @@ The GizClaw-owned Edge topology has one canonical local qualification command:
 bash tests/gizclaw-e2e/run_gateway_relay_capacity_tests.sh
 ```
 
-It requires a clean repository and the Docker E2E credential file, builds the
-CLI and load driver once, then creates 12 fresh projects: direct and
+It requires a clean repository and the Docker E2E credential file. The CLI is
+CGO-built once in the Linux Go base image matching Docker's native architecture,
+and the load driver is built once on the host. The capacity image only copies
+that Linux CLI, the entrypoints, and required configuration; it does not install
+npm dependencies, download Go modules, or compile again when Server and Edge
+containers start. The command then creates 12 fresh projects: direct and
 relay-only Edge upstreams at 100 and 500 sessions, three repetitions each.
 Both paths keep the same Server, two Edges, two digest-pinned Coturn members,
 fixed subnet, four gateway upstreams per Edge, zero ramp, and 1 MiB upload and

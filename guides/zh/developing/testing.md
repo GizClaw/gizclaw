@@ -291,8 +291,11 @@ GizClaw 自有 Edge 拓扑使用一个固定的本机验收入口：
 bash tests/gizclaw-e2e/run_gateway_relay_capacity_tests.sh
 ```
 
-命令要求 clean repository 和 Docker E2E credential file；CLI 与 load driver 只 build 一次，
-随后创建 12 个 fresh project：direct/relay-only 两种 Edge upstream path、100/500 session、
+命令要求 clean repository 和 Docker E2E credential file；CLI 会在与 Docker 原生架构一致的
+Linux Go 基础容器中以 CGO build 一次，load driver 在 host build 一次。容量镜像只 COPY
+该 Linux CLI、entrypoint 与必要配置，不安装 npm、不下载 Go modules，Server 与两个 Edge
+启动时也不会重新编译。随后命令创建 12 个 fresh project：direct/relay-only 两种 Edge
+upstream path、100/500 session、
 每组各三次。两种 path 使用相同的 Server、两台 Edge、两个 digest-pinned Coturn member、
 固定 subnet、每台 Edge 四条 gateway upstream、zero ramp，以及每 session 每方向 1 MiB。
 Direct 必须保持 Coturn allocation 和 workload traffic 为零；relay 必须维持正好十条 live

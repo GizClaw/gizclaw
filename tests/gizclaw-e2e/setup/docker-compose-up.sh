@@ -641,6 +641,19 @@ if ! docker image inspect "$base_image" >/dev/null 2>&1; then
 fi
 export GIZCLAW_E2E_DOCKER_BASE_IMAGE="$base_image"
 
+if [[ "${capacity_build_required:-0}" == "1" ]]; then
+  if [[ "${GIZCLAW_E2E_GATEWAY_LINUX_PREBUILT:-}" == "1" ]]; then
+    if [[ ! -x "$e2e_dir/testdata/bin/gizclaw-linux" ]]; then
+      echo "prebuilt Linux CGO CLI is missing: $e2e_dir/testdata/bin/gizclaw-linux" >&2
+      exit 2
+    fi
+    echo "==> use prebuilt Linux CGO CLI for capacity image"
+  else
+    GIZCLAW_E2E_DOCKER_BASE_IMAGE="$base_image" bash "$script_dir/build-linux-cgo.sh"
+    export GIZCLAW_E2E_GATEWAY_LINUX_PREBUILT=1
+  fi
+fi
+
 docker_env="$(materialize_runtime_config)"
 echo "==> docker e2e env: $docker_env"
 echo "==> start Docker e2e stack project=$GIZCLAW_E2E_DOCKER_PROJECT server=$GIZCLAW_E2E_SERVER_ENDPOINT edges=$GIZCLAW_E2E_EDGE_ENDPOINT,$GIZCLAW_E2E_EDGE2_ENDPOINT gateways=$GIZCLAW_E2E_GATEWAY_ENDPOINT,$GIZCLAW_E2E_GATEWAY2_ENDPOINT turn=$GIZCLAW_E2E_TURN_ENDPOINT relay=${GIZCLAW_E2E_TURN_RELAY_MIN_PORT}-${GIZCLAW_E2E_TURN_RELAY_MAX_PORT}"

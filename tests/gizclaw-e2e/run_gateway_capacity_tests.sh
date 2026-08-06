@@ -16,9 +16,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "==> build host e2e CLI"
+echo "==> build Linux CGO e2e CLI"
 mkdir -p "$script_dir/testdata/bin"
-(cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
+bash "$setup_dir/build-linux-cgo.sh"
+export GIZCLAW_E2E_GATEWAY_LINUX_PREBUILT=1
 
 echo "==> start Docker e2e stack"
 bash "$setup_dir/docker-compose-up.sh" --gateway-capacity

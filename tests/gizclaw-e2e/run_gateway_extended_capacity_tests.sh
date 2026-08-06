@@ -664,15 +664,16 @@ if [[ "$max_sessions_per_edge" != "30000" || "$max_upstreams_per_edge" != "16" |
   exit 2
 fi
 if [[ "$gateway_prebuilt" == "1" ]]; then
-  if [[ ! -x "$script_dir/testdata/bin/gizclaw" || ! -x "$gateway_bin" ]]; then
+  if [[ ! -x "$script_dir/testdata/bin/gizclaw-linux" || ! -x "$gateway_bin" ]]; then
     echo "prebuilt capacity binaries are missing" >&2
     exit 2
   fi
 else
-  echo "==> build host e2e CLI and extended gateway-capacity runner"
-  (cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
+  echo "==> build Linux CGO e2e CLI and host gateway-capacity runner"
+  bash "$setup_dir/build-linux-cgo.sh"
   (cd "$repo_root" && go build -o "$gateway_bin" ./tests/gizclaw-e2e/gateway-capacity)
 fi
+export GIZCLAW_E2E_GATEWAY_LINUX_PREBUILT=1
 
 run_case() {
   local scenario="$1"
