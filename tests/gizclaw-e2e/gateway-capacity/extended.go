@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	extendedArtifactVersion  = 15
-	maximumResourceSampleGap = 2100 * time.Millisecond
+	extendedArtifactVersion         = 15
+	maximumResourceSampleGap        = 2100 * time.Millisecond
+	maximumResourceSampleFutureSkew = 100 * time.Millisecond
 )
 
 var dockerRolePIDFiles = map[string]string{
@@ -199,9 +200,10 @@ func (s *extendedSamplerState) liveHealth(now time.Time) (extendedSamplingProgre
 			return progress, err
 		}
 		age := now.Sub(evidence.Samples[len(evidence.Samples)-1].At)
-		if age < 0 {
+		if age < -maximumResourceSampleFutureSkew {
 			return progress, fmt.Errorf("%s latest resource sample is %s in the future", role, -age)
 		}
+		age = max(age, 0)
 		progress.MaximumAge = max(progress.MaximumAge, age)
 		if age > maximumResourceSampleGap {
 			return progress, fmt.Errorf("%s resource sample stream is stale by %s", role, age)

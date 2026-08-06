@@ -311,6 +311,26 @@ func TestExtendedSamplerLiveHealthRejectsStaleStream(t *testing.T) {
 	}
 }
 
+func TestExtendedSamplerLiveHealthAllowsConcurrentSampleTimestamp(t *testing.T) {
+	now := time.Now()
+	sampler := testExtendedSampler(now.Add(time.Millisecond), time.Second)
+	progress, err := sampler.liveHealth(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if progress.MaximumAge != 0 {
+		t.Fatalf("liveHealth maximum age = %s, want zero", progress.MaximumAge)
+	}
+}
+
+func TestExtendedSamplerLiveHealthRejectsFutureClockSkew(t *testing.T) {
+	now := time.Now()
+	sampler := testExtendedSampler(now.Add(maximumResourceSampleFutureSkew+time.Millisecond), time.Second)
+	if _, err := sampler.liveHealth(now); err == nil || !strings.Contains(err.Error(), "in the future") {
+		t.Fatalf("liveHealth error = %v, want future-clock error", err)
+	}
+}
+
 func testExtendedSampler(latest time.Time, gap time.Duration) *extendedSamplerState {
 	roles := make(map[string]*dockerRoleState)
 	for _, role := range []string{"edge", "edge2", "server", "coturn-a", "coturn-b"} {
