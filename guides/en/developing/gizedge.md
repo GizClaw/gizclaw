@@ -317,7 +317,12 @@ workload; this setting does not alter Edge, Server, or Coturn runtime behavior.
 
 The soak entrypoint first reruns all three burst repetitions on the same clean
 head, then starts one new no-ramp 1,000-session stack and holds it for 60
-minutes. Complete liveness rounds start every 30 seconds. Distinct initial and
+minutes. Complete liveness rounds start every 30 seconds. A heartbeat is
+printed at least every 30 seconds and at each liveness-round boundary with
+active-session, ping, disconnect, open-FD, RSS, and goroutine evidence. The
+runner fails and cleans up as soon as a ping, disconnect, identity, or
+round-duration gate becomes irrecoverable; silence until the 60-minute deadline
+is not treated as healthy execution. Distinct initial and
 final 1 MiB-per-session upload/download checkpoints must each exceed 200 Mbps,
 and each final direction must retain at least 80% of its initial aggregate and
 of its per-session p01, p05, and p50 throughput. The p95 and p99 throughput

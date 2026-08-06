@@ -210,8 +210,15 @@ The 1,000-session soak entrypoint is intentionally sequential rather than a
 replacement workload. It first runs the same three burst repetitions, verifies
 that the repository head stayed clean and unchanged, then starts one fresh
 zero-ramp 1,000-session stack for a 60-minute hold. Liveness rounds start every
-30 seconds. The artifact keeps the existing `speed_test` as the initial
-checkpoint and adds a distinct `final_speed_test` plus `speed_retention`.
+30 seconds. The runner prints a hold heartbeat at least every 30 seconds and at
+the start and end of each liveness round. Each line reports established and
+active sessions, cumulative and per-round ping results, unexpected disconnects,
+open FDs, RSS, and goroutines. Any excess ping failure, unexpected disconnect,
+identity crossover, or overlong ping round makes the zero-failure qualification
+irrecoverable, so the runner fails immediately and performs bounded cleanup
+instead of waiting for the hold deadline. The artifact keeps the existing
+`speed_test` as the initial checkpoint and adds a distinct `final_speed_test`
+plus `speed_retention`.
 Initial and final concurrent upload/download each transfer exactly 1,000 MiB
 (1,048,576,000 bytes) at no less than 200 Mbps, and each final direction
 retains at least 80% of its

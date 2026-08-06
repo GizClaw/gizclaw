@@ -372,7 +372,9 @@ func TestHoldSessionsRecordsFinalRoundWithoutDeadlineOverlap(t *testing.T) {
 		pingTimeout:  time.Millisecond,
 		concurrency:  1,
 	}
-	if err := holdSessions(t.Context(), state, opts, make(chan struct{}, 1)); err != nil {
+	resources := newResourceSampler(false)
+	defer resources.stop()
+	if err := holdSessions(t.Context(), state, opts, make(chan struct{}, 1), resources); err != nil {
 		t.Fatal(err)
 	}
 	if len(state.pingRounds) != 3 {
@@ -384,6 +386,85 @@ func TestHoldSessionsRecordsFinalRoundWithoutDeadlineOverlap(t *testing.T) {
 	}
 	if state.holdStartedAt.IsZero() || state.holdFinishedAt.Sub(state.holdStartedAt) < opts.duration {
 		t.Fatalf("hold boundaries = %s..%s, want at least %s", state.holdStartedAt, state.holdFinishedAt, opts.duration)
+	}
+}
+
+func TestHoldHealthErrorFailsFastOnIrrecoverableState(t *testing.T) {
+	tests := []struct {
+		name                  string
+		pingFailures          int
+		unexpectedDisconnects int
+		opts                  options
+		round                 pingRoundSummary
+		needle                string
+	}{
+		{
+			name:         "ping failures",
+			pingFailures: 1,
+			opts:         options{maxPingFailures: 0},
+			round:        pingRoundSummary{Phase: "hold", Round: 3, Attempted: 1000, Failures: 1},
+			needle:       "round_ping=999/1000",
+		},
+		{
+			name:                  "disconnect",
+			unexpectedDisconnects: 1,
+			round:                 pingRoundSummary{Phase: "hold", Round: 4},
+			needle:                "active=999",
+		},
+		{
+			name:   "slow round",
+			opts:   options{maxPingRoundDuration: time.Second},
+			round:  pingRoundSummary{Phase: "hold", Round: 5, Duration: time.Second + time.Millisecond},
+			needle: "round_duration=1.001s",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			state := &resultState{
+				sessions:              make([]*liveSession, 1000),
+				pingFailures:          test.pingFailures,
+				unexpectedDisconnects: test.unexpectedDisconnects,
+			}
+			err := holdHealthError(state, test.opts, test.round)
+			if err == nil || !strings.Contains(err.Error(), test.needle) {
+				t.Fatalf("holdHealthError() = %v, want substring %q", err, test.needle)
+			}
+			if len(state.errors) != 1 || state.errors[0] != err.Error() {
+				t.Fatalf("critical errors = %#v, want %q", state.errors, err)
+			}
+		})
+	}
+}
+
+func TestHoldHealthErrorAcceptsHealthyProgress(t *testing.T) {
+	state := &resultState{sessions: make([]*liveSession, 1000), pingFailures: 1}
+	round := pingRoundSummary{
+		Phase: "hold", Round: 2, Attempted: 1000, Duration: 900 * time.Millisecond,
+	}
+	if err := holdHealthError(state, options{
+		maxPingFailures: 1, maxPingRoundDuration: time.Second,
+	}, round); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHoldSessionsRejectsDisconnectBeforeWaiting(t *testing.T) {
+	state := &resultState{
+		sessions:              []*liveSession{{}},
+		unexpectedDisconnects: 1,
+	}
+	started := time.Now()
+	err := holdSessions(t.Context(), state, options{
+		duration: time.Minute, pingInterval: 30 * time.Second,
+	}, make(chan struct{}, 1), nil)
+	if err == nil || !strings.Contains(err.Error(), "disconnects=1") {
+		t.Fatalf("holdSessions() = %v, want disconnect failure", err)
+	}
+	if time.Since(started) >= time.Second {
+		t.Fatalf("holdSessions took %s, want immediate failure", time.Since(started))
+	}
+	if len(state.pingRounds) != 0 {
+		t.Fatalf("ping rounds = %#v, want none", state.pingRounds)
 	}
 }
 

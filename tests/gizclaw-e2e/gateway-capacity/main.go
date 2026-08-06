@@ -766,7 +766,7 @@ func run(ctx context.Context, opts options) (artifact, error) {
 			closeSessions(state, opts.cleanupTimeout)
 			return finalize(report, state, resources, extended), err
 		}
-		if err := holdSessions(ctx, state, opts, sem); err != nil {
+		if err := holdSessions(ctx, state, opts, sem, resources); err != nil {
 			closeSessions(state, opts.cleanupTimeout)
 			return finalize(report, state, resources, extended), err
 		}
@@ -843,7 +843,13 @@ func initialWorkloadError(state *resultState, opts options) error {
 	return errors.New(failure)
 }
 
-func holdSessions(ctx context.Context, state *resultState, opts options, sem chan struct{}) error {
+func holdSessions(
+	ctx context.Context,
+	state *resultState,
+	opts options,
+	sem chan struct{},
+	resources *resourceSampler,
+) error {
 	started := time.Now()
 	deadline := started.Add(opts.duration)
 	state.mu.Lock()
@@ -852,27 +858,43 @@ func holdSessions(ctx context.Context, state *resultState, opts options, sem cha
 	if err := writeDiagnosticHeapProfile("hold-start"); err != nil {
 		return err
 	}
+	heartbeatInterval := min(opts.pingInterval, 30*time.Second)
+	if heartbeatInterval <= 0 {
+		heartbeatInterval = 30 * time.Second
+	}
+	heartbeat := time.NewTicker(heartbeatInterval)
+	defer heartbeat.Stop()
+	if err := holdHealthError(state, opts, pingRoundSummary{Phase: "hold"}); err != nil {
+		writeHoldHeartbeat(state, resources, started, deadline, "failed", "hold", 0, nil)
+		return err
+	}
+	writeHoldHeartbeat(state, resources, started, deadline, "holding", "hold", 0, nil)
 	nextPing := started.Add(opts.pingInterval)
 	round := 1
 	for nextPing.Before(deadline) {
-		timer := time.NewTimer(max(time.Until(nextPing), 0))
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return ctx.Err()
-		case <-timer.C:
+		if err := waitForHoldCheckpoint(
+			ctx, state, opts, resources, started, deadline, nextPing, heartbeat.C,
+		); err != nil {
+			return err
 		}
-		pingAll(ctx, state, opts, sem, "hold", round)
+		writeHoldHeartbeat(state, resources, started, deadline, "pinging", "hold", round, nil)
+		summary := pingAll(ctx, state, opts, sem, "hold", round)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := holdHealthError(state, opts, summary); err != nil {
+			writeHoldHeartbeat(state, resources, started, deadline, "failed", "hold", round, &summary)
+			return err
+		}
+		writeHoldHeartbeat(state, resources, started, deadline, "healthy", "hold", round, &summary)
 		round++
 		nextPing = nextPing.Add(opts.pingInterval)
 	}
 
-	timer := time.NewTimer(max(time.Until(deadline), 0))
-	select {
-	case <-ctx.Done():
-		timer.Stop()
-		return ctx.Err()
-	case <-timer.C:
+	if err := waitForHoldCheckpoint(
+		ctx, state, opts, resources, started, deadline, deadline, heartbeat.C,
+	); err != nil {
+		return err
 	}
 
 	state.mu.Lock()
@@ -881,7 +903,16 @@ func holdSessions(ctx context.Context, state *resultState, opts options, sem cha
 	if err := writeDiagnosticHeapProfile("hold-finish"); err != nil {
 		return err
 	}
-	pingAll(ctx, state, opts, sem, "final", 0)
+	writeHoldHeartbeat(state, resources, started, deadline, "pinging", "final", 0, nil)
+	finalSummary := pingAll(ctx, state, opts, sem, "final", 0)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := holdHealthError(state, opts, finalSummary); err != nil {
+		writeHoldHeartbeat(state, resources, started, deadline, "failed", "final", 0, &finalSummary)
+		return err
+	}
+	writeHoldHeartbeat(state, resources, started, deadline, "healthy", "final", 0, &finalSummary)
 	if opts.minFinalSpeedRetention > 0 {
 		final := runSpeedTests(ctx, state, opts, "final")
 		retention := summarizeSpeedRetention(state.speedTest, final, opts.minFinalSpeedRetention)
@@ -894,6 +925,138 @@ func holdSessions(ctx context.Context, state *resultState, opts options, sem cha
 		state.mu.Unlock()
 	}
 	return ctx.Err()
+}
+
+func waitForHoldCheckpoint(
+	ctx context.Context,
+	state *resultState,
+	opts options,
+	resources *resourceSampler,
+	started time.Time,
+	deadline time.Time,
+	checkpoint time.Time,
+	heartbeat <-chan time.Time,
+) error {
+	timer := time.NewTimer(max(time.Until(checkpoint), 0))
+	defer timer.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			return nil
+		case <-heartbeat:
+			if err := holdHealthError(state, opts, pingRoundSummary{Phase: "hold"}); err != nil {
+				writeHoldHeartbeat(state, resources, started, deadline, "failed", "hold", 0, nil)
+				return err
+			}
+			writeHoldHeartbeat(state, resources, started, deadline, "holding", "hold", 0, nil)
+		}
+	}
+}
+
+type holdProgressSnapshot struct {
+	established           int
+	active                int
+	pings                 int
+	pingFailures          int
+	unexpectedDisconnects int
+	identityCrossover     bool
+}
+
+func (s *resultState) holdProgressSnapshot() holdProgressSnapshot {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	established := len(s.sessions)
+	return holdProgressSnapshot{
+		established:           established,
+		active:                max(established-s.unexpectedDisconnects, 0),
+		pings:                 s.pings,
+		pingFailures:          s.pingFailures,
+		unexpectedDisconnects: s.unexpectedDisconnects,
+		identityCrossover:     s.identityCrossover,
+	}
+}
+
+func writeHoldHeartbeat(
+	state *resultState,
+	resources *resourceSampler,
+	started time.Time,
+	deadline time.Time,
+	status string,
+	phase string,
+	round int,
+	recent *pingRoundSummary,
+) {
+	now := time.Now()
+	progress := state.holdProgressSnapshot()
+	resource := latestResourcePoint(resources)
+	roundAttempted := 0
+	roundSucceeded := 0
+	roundFailures := 0
+	roundP99 := float64(0)
+	if recent != nil {
+		roundAttempted = recent.Attempted
+		roundFailures = recent.Failures
+		roundSucceeded = max(recent.Attempted-recent.Failures, 0)
+		roundP99 = recent.RTT.P99
+	}
+	fmt.Fprintf(
+		os.Stderr,
+		"gateway capacity heartbeat: status=%s phase=%s round=%d elapsed=%s remaining=%s established=%d active=%d total_pings=%d total_failures=%d disconnects=%d crossover=%t round_ping=%d/%d round_failures=%d round_rtt_p99_ms=%.2f open_fds=%d rss_mib=%.1f goroutines=%d\n",
+		status,
+		phase,
+		round,
+		now.Sub(started).Round(time.Second),
+		max(deadline.Sub(now), 0).Round(time.Second),
+		progress.established,
+		progress.active,
+		progress.pings,
+		progress.pingFailures,
+		progress.unexpectedDisconnects,
+		progress.identityCrossover,
+		roundSucceeded,
+		roundAttempted,
+		roundFailures,
+		roundP99,
+		resource.OpenFDs,
+		float64(resource.RSSBytes)/(1024*1024),
+		resource.Goroutines,
+	)
+}
+
+func latestResourcePoint(resources *resourceSampler) resourcePoint {
+	if resources == nil {
+		return readResourcePoint(false)
+	}
+	return resources.latest()
+}
+
+func holdHealthError(state *resultState, opts options, recent pingRoundSummary) error {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	roundTooSlow := opts.maxPingRoundDuration > 0 && recent.Duration > opts.maxPingRoundDuration
+	if state.pingFailures <= opts.maxPingFailures && state.unexpectedDisconnects == 0 &&
+		!state.identityCrossover && !roundTooSlow {
+		return nil
+	}
+	failure := fmt.Sprintf(
+		"hold acceptance became impossible: phase=%s round=%d established=%d active=%d round_ping=%d/%d round_failures=%d round_duration=%s total_ping_failures=%d max_ping_failures=%d disconnects=%d identity_crossover=%t",
+		recent.Phase,
+		recent.Round,
+		len(state.sessions),
+		max(len(state.sessions)-state.unexpectedDisconnects, 0),
+		max(recent.Attempted-recent.Failures, 0),
+		recent.Attempted,
+		recent.Failures,
+		recent.Duration.Round(time.Millisecond),
+		state.pingFailures,
+		opts.maxPingFailures,
+		state.unexpectedDisconnects,
+		state.identityCrossover,
+	)
+	state.appendCriticalErrorLocked(failure)
+	return errors.New(failure)
 }
 
 func writeDiagnosticHeapProfile(checkpoint string) error {
@@ -1238,7 +1401,14 @@ func recordEstablishmentPhases(
 	maps.Copy(timing.Phases, recorder.signalingPhases())
 }
 
-func pingAll(ctx context.Context, state *resultState, opts options, sem chan struct{}, phase string, round int) {
+func pingAll(
+	ctx context.Context,
+	state *resultState,
+	opts options,
+	sem chan struct{},
+	phase string,
+	round int,
+) pingRoundSummary {
 	state.mu.Lock()
 	sessions := append([]*liveSession(nil), state.sessions...)
 	state.mu.Unlock()
@@ -1316,7 +1486,7 @@ func pingAll(ctx context.Context, state *resultState, opts options, sem chan str
 		wg.Wait()
 		sessionOffset += len(batch)
 	}
-	state.recordPingRound(pingRoundSummary{
+	summary := pingRoundSummary{
 		Phase:            phase,
 		Round:            round,
 		StartedAt:        started,
@@ -1328,7 +1498,9 @@ func pingAll(ctx context.Context, state *resultState, opts options, sem chan str
 		EdgeFailures:     edgeFailures,
 		UpstreamRTT:      summarizeNestedLatencyMap(upstreamRTTs),
 		UpstreamFailures: upstreamFailures,
-	})
+	}
+	state.recordPingRound(summary)
+	return summary
 }
 
 func pingSessionBatches(sessions []*liveSession, concurrency int) [][]*liveSession {
@@ -2370,6 +2542,12 @@ func (s *resourceSampler) samples() []resourcePoint {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]resourcePoint(nil), s.points...)
+}
+
+func (s *resourceSampler) latest() resourcePoint {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.points[len(s.points)-1]
 }
 
 func (s *resourceSampler) stop() {
