@@ -455,7 +455,10 @@ test("play view renders the full desktop play surface", async ({ page }) => {
 
   await page.getByRole("button", { name: /Firmwares/ }).click();
   await expect(page.getByRole("heading", { name: "Firmwares" })).toBeVisible();
-  await expect(page.getByText("devkit-firmware-main")).toBeVisible();
+  await expect(
+    page.getByRole("row").filter({ hasText: "stable channel package" }),
+  ).toContainText("stable");
+  await expect(page.getByText("devkit-firmware-main")).toHaveCount(0);
   await expect(
     page.getByText("https://firmware.example.invalid/devkit/stable.tar.zlib"),
   ).toBeVisible();
