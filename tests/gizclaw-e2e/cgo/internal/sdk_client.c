@@ -270,7 +270,8 @@ int gzc_cgo_session_register(
     int *out_rpc_error_code,
     char *errbuf,
     unsigned long errbuf_len) {
-  if (session == NULL || token == NULL) {
+  if (session == NULL || token == NULL || out_runtime_profile_name == NULL ||
+      out_runtime_profile_name_len == 0) {
     return fail(errbuf, errbuf_len, "register", GZC_ERR_INVALID_ARGUMENT);
   }
   if (out_rpc_error_code != NULL) {

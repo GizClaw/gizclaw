@@ -93,7 +93,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -119,6 +119,17 @@ class AppDatabase extends _$AppDatabase {
           workspaceChatEntries,
           workspaceChatEntries.gearId,
         );
+      }
+      if (from < 10) {
+        // These tables are disposable Peer projections. Reset them instead of
+        // retaining the pre-final id-shaped cache schema or decoding it as a
+        // compatibility format.
+        await customStatement('DROP TABLE IF EXISTS workspace_chat_entries');
+        await customStatement('DROP TABLE IF EXISTS friend_entries');
+        await customStatement('DROP TABLE IF EXISTS friend_group_entries');
+        await migrator.createTable(workspaceChatEntries);
+        await migrator.createTable(friendEntries);
+        await migrator.createTable(friendGroupEntries);
       }
     },
   );
