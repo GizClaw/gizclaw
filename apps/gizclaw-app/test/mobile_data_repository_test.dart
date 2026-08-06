@@ -390,9 +390,7 @@ void main() {
           workspaceName: 'friend-workspace-a',
         ),
       ],
-      friendGroups: [
-        FriendGroupObject(workspaceName: 'group-workspace-a'),
-      ],
+      friendGroups: [FriendGroupObject(workspaceName: 'group-workspace-a')],
     );
 
     final warnings = await repository.refresh(
