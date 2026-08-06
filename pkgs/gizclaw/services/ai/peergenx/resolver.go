@@ -11,6 +11,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 )
 
 type Tenant struct {
@@ -123,14 +124,14 @@ func (s *Service) generatorConfigFromListedModel(ctx context.Context, model apit
 	if model.Kind != apitypes.ModelKindLlm {
 		return GeneratorConfig{}, false, nil
 	}
-	tenant, credentialName, err := s.resolveModelTenant(ctx, model)
+	tenant, credentialID, err := s.resolveModelTenant(ctx, model)
 	if err != nil {
 		if errors.Is(err, ErrDenied) {
 			return GeneratorConfig{}, false, nil
 		}
 		return GeneratorConfig{}, false, err
 	}
-	credential, err := s.resolveCredential(ctx, credentialName)
+	credential, err := s.resolveCredential(ctx, credentialID)
 	if err != nil {
 		if errors.Is(err, ErrDenied) {
 			return GeneratorConfig{}, false, nil
@@ -220,28 +221,28 @@ func (s *Service) resolveRealtimeVoiceAlias(ctx context.Context, model apitypes.
 	if voice.ProviderData == nil {
 		return fmt.Errorf("%w: realtime voice alias %q has no provider data", ErrInvalid, alias)
 	}
-	var voiceName string
+	var providerVoiceID string
 	switch model.Provider.Kind {
 	case apitypes.ModelProviderKindDashscopeTenant:
 		providerData, err := voice.ProviderData.AsDashScopeTenantVoiceProviderData()
 		if err != nil {
 			return fmt.Errorf("%w: decode realtime voice alias %q: %v", ErrInvalid, alias, err)
 		}
-		voiceName = strings.TrimSpace(valueOrEmpty(providerData.VoiceId))
+		providerVoiceID = strings.TrimSpace(valueOrEmpty(providerData.VoiceId))
 	case apitypes.ModelProviderKindVolcTenant:
 		providerData, err := voice.ProviderData.AsVolcTenantVoiceProviderData()
 		if err != nil {
 			return fmt.Errorf("%w: decode realtime voice alias %q: %v", ErrInvalid, alias, err)
 		}
-		voiceName = strings.TrimSpace(valueOrEmpty(providerData.VoiceId))
+		providerVoiceID = strings.TrimSpace(valueOrEmpty(providerData.VoiceId))
 	default:
 		return fmt.Errorf("%w: realtime voice alias %q uses unsupported provider %q", ErrInvalid, alias, model.Provider.Kind)
 	}
-	if voiceName == "" {
+	if providerVoiceID == "" {
 		return fmt.Errorf("%w: realtime voice alias %q has no provider voice_id", ErrInvalid, alias)
 	}
-	params["output_voice"] = voiceName
-	params["voice"] = voiceName
+	params["output_voice"] = providerVoiceID
+	params["voice"] = providerVoiceID
 	return nil
 }
 
@@ -259,10 +260,13 @@ func (s *Service) resolveModelAliasID(value string) (string, error) {
 		return value, nil
 	}
 	resolved, ok := resolver.ResolveModelAlias(value)
-	if !ok || strings.TrimSpace(resolved) == "" {
+	if !ok {
 		return "", fmt.Errorf("%w: model alias %q", ErrNotFound, value)
 	}
-	return strings.TrimSpace(resolved), nil
+	if err := customid.ValidateResourceID(resolved); err != nil {
+		return "", fmt.Errorf("%w: model alias %q resolved to invalid id: %v", ErrInvalid, value, err)
+	}
+	return resolved, nil
 }
 
 func (s *Service) resolveVoiceAliasID(value string) (string, error) {
@@ -272,10 +276,13 @@ func (s *Service) resolveVoiceAliasID(value string) (string, error) {
 		return value, nil
 	}
 	resolved, ok := resolver.ResolveVoiceAlias(value)
-	if !ok || strings.TrimSpace(resolved) == "" {
+	if !ok {
 		return "", fmt.Errorf("%w: voice alias %q", ErrNotFound, value)
 	}
-	return strings.TrimSpace(resolved), nil
+	if err := customid.ValidateResourceID(resolved); err != nil {
+		return "", fmt.Errorf("%w: voice alias %q resolved to invalid id: %v", ErrInvalid, value, err)
+	}
+	return resolved, nil
 }
 
 func (s *Service) resolveModel(ctx context.Context, id string) (apitypes.Model, Tenant, apitypes.Credential, error) {
@@ -286,11 +293,11 @@ func (s *Service) resolveModel(ctx context.Context, id string) (apitypes.Model, 
 	if err != nil {
 		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, err
 	}
-	tenant, credentialName, err := s.resolveModelTenant(ctx, model)
+	tenant, credentialID, err := s.resolveModelTenant(ctx, model)
 	if err != nil {
 		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, err
 	}
-	credential, err := s.resolveCredential(ctx, credentialName)
+	credential, err := s.resolveCredential(ctx, credentialID)
 	if err != nil {
 		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, err
 	}
@@ -305,26 +312,25 @@ func (s *Service) resolveVoice(ctx context.Context, id string) (apitypes.Voice, 
 	if err != nil {
 		return apitypes.Voice{}, Tenant{}, apitypes.Credential{}, err
 	}
-	tenant, credentialName, err := s.resolveVoiceTenant(ctx, voice)
+	tenant, credentialID, err := s.resolveVoiceTenant(ctx, voice)
 	if err != nil {
 		return apitypes.Voice{}, Tenant{}, apitypes.Credential{}, err
 	}
-	credential, err := s.resolveCredential(ctx, credentialName)
+	credential, err := s.resolveCredential(ctx, credentialID)
 	if err != nil {
 		return apitypes.Voice{}, Tenant{}, apitypes.Credential{}, err
 	}
 	return voice, tenant, credential, nil
 }
 
-func (s *Service) resolveCredential(ctx context.Context, name string) (apitypes.Credential, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return apitypes.Credential{}, fmt.Errorf("%w: credential name is required", ErrInvalid)
+func (s *Service) resolveCredential(ctx context.Context, id string) (apitypes.Credential, error) {
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.Credential{}, fmt.Errorf("%w: credential id: %v", ErrInvalid, err)
 	}
 	if s == nil || s.Credentials == nil {
 		return apitypes.Credential{}, fmt.Errorf("%w: credential getter is required", ErrNotConfigured)
 	}
-	return s.getCredential(ctx, name)
+	return s.getCredential(ctx, id)
 }
 
 func (s *Service) resolveModelTenant(ctx context.Context, model apitypes.Model) (Tenant, string, error) {
@@ -332,40 +338,40 @@ func (s *Service) resolveModelTenant(ctx context.Context, model apitypes.Model) 
 		return Tenant{}, "", fmt.Errorf("%w: provider tenant getter is required", ErrNotConfigured)
 	}
 	kind := string(model.Provider.Kind)
-	name := strings.TrimSpace(model.Provider.Id)
+	tenantID := string(model.Provider.Id)
 	switch kind {
 	case string(apitypes.ModelProviderKindDeepseekTenant):
-		tenant, err := s.getDeepSeekTenant(ctx, name)
+		tenant, err := s.getDeepSeekTenant(ctx, tenantID)
 		if err != nil {
 			return Tenant{}, "", err
 		}
 		return Tenant{Kind: kind, DeepSeek: &tenant}, tenant.CredentialId, nil
 	case string(apitypes.ModelProviderKindMinimaxTenant):
-		tenant, err := s.getMiniMaxTenant(ctx, name)
+		tenant, err := s.getMiniMaxTenant(ctx, tenantID)
 		if err != nil {
 			return Tenant{}, "", err
 		}
 		return Tenant{Kind: kind, MiniMax: &tenant}, tenant.CredentialId, nil
 	case string(apitypes.ModelProviderKindOpenaiTenant):
-		tenant, err := s.getOpenAITenant(ctx, name)
+		tenant, err := s.getOpenAITenant(ctx, tenantID)
 		if err != nil {
 			return Tenant{}, "", err
 		}
 		return Tenant{Kind: kind, OpenAI: &tenant}, tenant.CredentialId, nil
 	case string(apitypes.ModelProviderKindGeminiTenant):
-		tenant, err := s.getGeminiTenant(ctx, name)
+		tenant, err := s.getGeminiTenant(ctx, tenantID)
 		if err != nil {
 			return Tenant{}, "", err
 		}
 		return Tenant{Kind: kind, Gemini: &tenant}, tenant.CredentialId, nil
 	case string(apitypes.ModelProviderKindDashscopeTenant):
-		tenant, err := s.getDashScopeTenant(ctx, name)
+		tenant, err := s.getDashScopeTenant(ctx, tenantID)
 		if err != nil {
 			return Tenant{}, "", err
 		}
 		return Tenant{Kind: kind, DashScope: &tenant}, tenant.CredentialId, nil
 	case string(apitypes.VoiceProviderKindVolcTenant):
-		tenant, err := s.getVolcTenant(ctx, name)
+		tenant, err := s.getVolcTenant(ctx, tenantID)
 		if err != nil {
 			return Tenant{}, "", err
 		}
@@ -380,16 +386,16 @@ func (s *Service) resolveVoiceTenant(ctx context.Context, voice apitypes.Voice) 
 		return Tenant{}, "", fmt.Errorf("%w: provider tenant getter is required", ErrNotConfigured)
 	}
 	kind := string(voice.Provider.Kind)
-	name := strings.TrimSpace(voice.Provider.Id)
+	tenantID := string(voice.Provider.Id)
 	switch kind {
 	case string(apitypes.VoiceProviderKindMinimaxTenant):
-		tenant, err := s.getMiniMaxTenant(ctx, name)
+		tenant, err := s.getMiniMaxTenant(ctx, tenantID)
 		if err != nil {
 			return Tenant{}, "", err
 		}
 		return Tenant{Kind: kind, MiniMax: &tenant}, tenant.CredentialId, nil
 	case string(apitypes.VoiceProviderKindVolcTenant):
-		tenant, err := s.getVolcTenant(ctx, name)
+		tenant, err := s.getVolcTenant(ctx, tenantID)
 		if err != nil {
 			return Tenant{}, "", err
 		}

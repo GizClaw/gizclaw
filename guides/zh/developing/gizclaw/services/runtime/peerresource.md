@@ -11,7 +11,7 @@ flowchart LR
     Domain["Workspace / Friend / Pet state"] --> RPC
 ```
 
-Workflow list 必须传明确的 Collection，并保持 `workflows.collections` 中的动态成员关系。投影后的 Workflow name 在当前 RuntimeProfile 内唯一，因此 get 只需要 name。Model、Voice 和 Tool catalog 分别来自 RuntimeProfile 对应的 resource map。所有 catalog 响应都携带 RuntimeProfile name 与内容 revision。
+Workflow list 必须传明确的 Collection，并保持 `workflows.collections` 中的动态成员关系。投影后的 Workflow name 在当前 RuntimeProfile 内唯一，因此 get 只需要 name。Model、Voice 和 Tool catalog 分别来自 RuntimeProfile 对应的 resource map。所有 catalog 响应都在 legacy `runtime_profile_name` wire 字段中携带 canonical RuntimeProfile ID，并同时返回内容 revision。
 
 Peer 侧只有 Workspace 状态支持 create/put/delete。真实 Workflow、Model、Credential 和 Tool 统一由 Admin 修改。Workspace create 校验 `collection` 与 `workflow_name`，把 Collection 写成内部 label；list 按 Collection 精确筛选。通用 labels 只是 Admin/storage 细节，不进入 Peer DTO。
 

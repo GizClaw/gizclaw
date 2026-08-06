@@ -61,6 +61,17 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 	if len(listed.Items) != 1 || listed.Items[0].Id != "manual:voice-1" {
 		t.Fatalf("ListVoices() items = %#v", listed.Items)
 	}
+	paddedProviderID := " main "
+	paddedResp, err := srv.ListVoices(ctx, adminhttp.ListVoicesRequestObject{
+		Params: adminhttp.ListVoicesParams{ProviderId: &paddedProviderID},
+	})
+	if err != nil {
+		t.Fatalf("ListVoices(padded provider ID) error = %v", err)
+	}
+	padded := paddedResp.(adminhttp.ListVoices200JSONResponse)
+	if len(padded.Items) != 0 {
+		t.Fatalf("ListVoices(padded provider ID) items = %#v, want empty", padded.Items)
+	}
 
 	description := "updated"
 	body.Description = &description

@@ -51,8 +51,8 @@ import {
 export function FirmwareDetailPage(): JSX.Element {
   const params = useParams();
   const firmwareID = useMemo(
-    () => decodeRouteParam(params.name ?? ""),
-    [params.name],
+    () => decodeRouteParam(params.id ?? ""),
+    [params.id],
   );
   const [firmware, setFirmware] = useState<Firmware | null>(null);
   const [resource, setResource] = useState<Resource | null>(null);

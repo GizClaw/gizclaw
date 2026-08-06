@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
@@ -49,8 +48,7 @@ func (s *Server) GetToolByID(ctx context.Context, id string) (Tool, error) {
 	if err != nil {
 		return Tool{}, err
 	}
-	id = strings.TrimSpace(id)
-	if id == "" {
+	if err := customid.ValidateResourceID(id); err != nil {
 		return Tool{}, ErrToolNotFound
 	}
 	data, err := store.Get(ctx, toolKey(id))

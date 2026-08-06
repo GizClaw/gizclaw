@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -135,6 +136,14 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 	}
 	if first.CreatedAt == nil || first.UpdatedAt == nil {
 		t.Fatalf("created timestamps = created:%v updated:%v", first.CreatedAt, first.UpdatedAt)
+	}
+	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
+		Id:             " padded-id ",
+		OwnerPublicKey: "peer-a",
+		Name:           "padded-id",
+		DisplayName:    strPtr("Padded ID"),
+	}); err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("AdminCreateContact(padded id) error = %v, want exact ID rejection", err)
 	}
 	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		Id:             "id-duplicate-name",

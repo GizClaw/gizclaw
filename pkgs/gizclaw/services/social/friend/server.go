@@ -358,7 +358,9 @@ func (s *Server) WorkspaceRecipientsByID(ctx context.Context, workspaceID string
 	if err != nil {
 		return nil, err
 	}
-	workspaceID = strings.TrimSpace(workspaceID)
+	if err := customid.ValidateResourceID(workspaceID); err != nil {
+		return nil, fmt.Errorf("social: invalid workspace id: %w", err)
+	}
 	seen := make(map[string]struct{})
 	for entry, err := range store.List(ctx, socialutil.FriendsRoot) {
 		if err != nil {

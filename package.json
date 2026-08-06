@@ -15,7 +15,7 @@
     "typescript": "7.0.2"
   },
   "scripts": {
-    "quality:typescript": "tsc --noEmit -p apps/wails/frontend/tsconfig.json && tsc --noEmit -p sdk/js/gizclaw/tsconfig.json",
+    "quality:typescript": "tsc --noEmit -p apps/wails/frontend/tsconfig.json && tsc --noEmit -p sdk/js/gizclaw/tsconfig.json && tsc --noEmit -p tests/gizclaw-e2e/js/tsconfig.json",
     "quality:lint": "oxlint --deny-warnings --ignore-path .prettierignore apps/wails/frontend sdk/js tests/gizclaw-e2e/js",
     "quality:format": "prettier --check apps/wails/frontend sdk/js tests/gizclaw-e2e/js"
   }

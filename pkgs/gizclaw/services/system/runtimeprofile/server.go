@@ -66,7 +66,7 @@ var _ AdminService = (*Server)(nil)
 
 // Registration is the connection-local result of consuming a RegistrationToken.
 type Registration struct {
-	TokenName      string
+	TokenID        string
 	RuntimeProfile apitypes.RuntimeProfile
 	FirmwareID     *string
 	FirmwareName   *string
@@ -79,7 +79,10 @@ func (s *Server) ResolveProfile(ctx context.Context, id string) (apitypes.Runtim
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
-	profile, err := GetProfile(ctx, store, strings.TrimSpace(id))
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile id: %w", err)
+	}
+	profile, err := GetProfile(ctx, store, id)
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
@@ -93,26 +96,28 @@ func (s *Server) ResolveProfile(ctx context.Context, id string) (apitypes.Runtim
 // owner's successful registration. The ID remains resolvable after that
 // connection closes; ResolveOwnerProfile always loads the current profile
 // revision rather than persisting a configuration snapshot.
-func (s *Server) BindOwnerProfile(ctx context.Context, owner, profileName string) error {
-	return s.BindOwnerProfileAndCommit(ctx, owner, profileName, nil)
+func (s *Server) BindOwnerProfile(ctx context.Context, owner, profileID string) error {
+	return s.BindOwnerProfileAndCommit(ctx, owner, profileID, nil)
 }
 
 // BindOwnerProfileAndCommit changes an owner's selected RuntimeProfile and
 // executes commit while the binding is isolated from concurrent readers. If
 // commit fails, the previous binding is restored before the method returns.
-func (s *Server) BindOwnerProfileAndCommit(ctx context.Context, owner, profileName string, commit func() error) error {
+func (s *Server) BindOwnerProfileAndCommit(ctx context.Context, owner, profileID string, commit func() error) error {
 	store, err := s.store()
 	if err != nil {
 		return err
 	}
 	owner = strings.TrimSpace(owner)
-	profileName = strings.TrimSpace(profileName)
-	if owner == "" || profileName == "" {
+	if owner == "" {
 		return errors.New("runtime profile owner and id are required")
+	}
+	if err := customid.ValidateResourceID(profileID); err != nil {
+		return fmt.Errorf("runtime profile id: %w", err)
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
-	if _, err := s.ResolveProfile(ctx, profileName); err != nil {
+	if _, err := s.ResolveProfile(ctx, profileID); err != nil {
 		return err
 	}
 	key := ownerProfileKey(owner)
@@ -120,7 +125,7 @@ func (s *Server) BindOwnerProfileAndCommit(ctx context.Context, owner, profileNa
 	if previousErr != nil && !errors.Is(previousErr, kv.ErrNotFound) {
 		return previousErr
 	}
-	profile, err := GetProfile(ctx, store, profileName)
+	profile, err := GetProfile(ctx, store, profileID)
 	if err != nil {
 		return err
 	}
@@ -210,14 +215,14 @@ func (s *Server) ResolveRegistration(ctx context.Context, rawToken string) (Regi
 		if err != nil {
 			return Registration{}, errors.New("registration firmware_id does not reference a Firmware")
 		}
-		name := strings.TrimSpace(firmware.Metadata.Id)
+		name := strings.TrimSpace(firmware.Spec.Name)
 		if name == "" {
-			return Registration{}, errors.New("registration Firmware has an empty id")
+			return Registration{}, errors.New("registration Firmware has an empty name")
 		}
 		firmwareName = &name
 	}
 	return Registration{
-		TokenName: item.Id, RuntimeProfile: profile,
+		TokenID: item.Id, RuntimeProfile: profile,
 		FirmwareID: cloneString(item.FirmwareId), FirmwareName: firmwareName,
 	}, nil
 }
@@ -1517,7 +1522,7 @@ func normalizePetGameplay(pet *apitypes.RuntimeProfilePetGameplaySpec, resources
 		if !ok {
 			return fmt.Errorf("gameplay.pet.games.%s is not declared in resources.game_defs", alias)
 		}
-		gameDefID := strings.TrimSpace(gameDef.ResourceId)
+		gameDefID := gameDef.ResourceId
 		if previous, duplicate := gameDefAliases[gameDefID]; duplicate {
 			return fmt.Errorf("gameplay.pet.games.%s and gameplay.pet.games.%s resolve to the same GameDef %q", previous, alias, gameDefID)
 		}
@@ -1762,6 +1767,6 @@ func conflict(message string) apitypes.ErrorResponse {
 func internalError(err error) apitypes.ErrorResponse {
 	return apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())
 }
-func notFound(kind, name string) apitypes.ErrorResponse {
-	return apitypes.NewErrorResponse("RESOURCE_NOT_FOUND", fmt.Sprintf("%s %q not found", kind, name))
+func notFound(kind, id string) apitypes.ErrorResponse {
+	return apitypes.NewErrorResponse("RESOURCE_NOT_FOUND", fmt.Sprintf("%s %q not found", kind, id))
 }

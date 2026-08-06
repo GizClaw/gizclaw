@@ -50,9 +50,9 @@ type VolcTenantForm = {
 
 export function VolcTenantDetailPage(): JSX.Element {
   const params = useParams();
-  const tenantName = useMemo(
-    () => decodeRouteParam(params.name ?? ""),
-    [params.name],
+  const tenantID = useMemo(
+    () => decodeRouteParam(params.id ?? ""),
+    [params.id],
   );
   const [tenant, setTenant] = useState<VolcTenant | null>(null);
   const [tenantResource, setTenantResource] = useState<Resource | null>(null);
@@ -65,9 +65,9 @@ export function VolcTenantDetailPage(): JSX.Element {
   const [notice, setNotice] = useState("");
 
   const load = async (): Promise<void> => {
-    if (tenantName === "") {
+    if (tenantID === "") {
       setLoading(false);
-      setError("Missing Volcengine tenant name in the URL.");
+      setError("Missing Volcengine tenant ID in the URL.");
       return;
     }
     setLoading(true);
@@ -75,10 +75,8 @@ export function VolcTenantDetailPage(): JSX.Element {
     setNotice("");
     try {
       const [nextTenant, nextResource, credentialList] = await Promise.all([
-        expectData(getVolcTenant({ path: { id: tenantName } })),
-        expectData(
-          getResource({ path: { kind: "VolcTenant", id: tenantName } }),
-        ),
+        expectData(getVolcTenant({ path: { id: tenantID } })),
+        expectData(getResource({ path: { kind: "VolcTenant", id: tenantID } })),
         expectData(listCredentials({ query: { limit: 200 } })),
       ]);
       setTenant(nextTenant);
@@ -94,7 +92,7 @@ export function VolcTenantDetailPage(): JSX.Element {
 
   useEffect(() => {
     void load();
-  }, [tenantName]);
+  }, [tenantID]);
 
   const save = async (): Promise<void> => {
     if (tenant === null) {
@@ -154,7 +152,7 @@ export function VolcTenantDetailPage(): JSX.Element {
     }
   };
 
-  if (tenantName === "") {
+  if (tenantID === "") {
     return (
       <EmptyState
         description="Missing Volcengine tenant ID in the URL."
@@ -205,7 +203,7 @@ export function VolcTenantDetailPage(): JSX.Element {
         items={[
           { href: "/overview", label: "Overview" },
           { href: "/providers/volc-tenants", label: "Volcengine Tenants" },
-          { label: tenantName },
+          { label: tenantID },
         ]}
       />
 
@@ -213,7 +211,7 @@ export function VolcTenantDetailPage(): JSX.Element {
         description="Volcengine speech tenant configuration and voice sync controls."
         eyebrow="Providers"
         meta={tenant ? <Badge variant="secondary">Volcengine</Badge> : null}
-        title={tenant?.id ?? tenantName}
+        title={tenant?.id ?? tenantID}
       />
 
       {notice !== "" ? <NoticeBanner message={notice} tone="success" /> : null}

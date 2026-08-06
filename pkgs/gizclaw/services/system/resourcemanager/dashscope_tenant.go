@@ -44,8 +44,8 @@ func (m *Manager) createDashScopeTenant(ctx context.Context, body adminhttp.Dash
 	}
 }
 
-func (m *Manager) getDashScopeTenant(ctx context.Context, name string) (apitypes.DashScopeTenant, bool, error) {
-	response, err := m.services.ProviderTenants.GetDashScopeTenant(ctx, adminhttp.GetDashScopeTenantRequestObject{Id: name})
+func (m *Manager) getDashScopeTenant(ctx context.Context, id string) (apitypes.DashScopeTenant, bool, error) {
+	response, err := m.services.ProviderTenants.GetDashScopeTenant(ctx, adminhttp.GetDashScopeTenantRequestObject{Id: id})
 	if err != nil {
 		return apitypes.DashScopeTenant{}, false, err
 	}
@@ -61,8 +61,8 @@ func (m *Manager) getDashScopeTenant(ctx context.Context, name string) (apitypes
 	}
 }
 
-func (m *Manager) putDashScopeTenant(ctx context.Context, name string, body adminhttp.DashScopeTenantUpsert) error {
-	response, err := m.services.ProviderTenants.PutDashScopeTenant(ctx, adminhttp.PutDashScopeTenantRequestObject{Id: name, Body: &body})
+func (m *Manager) putDashScopeTenant(ctx context.Context, id string, body adminhttp.DashScopeTenantUpsert) error {
+	response, err := m.services.ProviderTenants.PutDashScopeTenant(ctx, adminhttp.PutDashScopeTenantRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -78,8 +78,8 @@ func (m *Manager) putDashScopeTenant(ctx context.Context, name string, body admi
 	}
 }
 
-func (m *Manager) deleteDashScopeTenant(ctx context.Context, name string) (apitypes.DashScopeTenant, bool, error) {
-	response, err := m.services.ProviderTenants.DeleteDashScopeTenant(ctx, adminhttp.DeleteDashScopeTenantRequestObject{Id: name})
+func (m *Manager) deleteDashScopeTenant(ctx context.Context, id string) (apitypes.DashScopeTenant, bool, error) {
+	response, err := m.services.ProviderTenants.DeleteDashScopeTenant(ctx, adminhttp.DeleteDashScopeTenantRequestObject{Id: id})
 	if err != nil {
 		return apitypes.DashScopeTenant{}, false, err
 	}

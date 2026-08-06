@@ -94,9 +94,9 @@ func (s *Server) ListModels(ctx context.Context, request adminhttp.ListModelsReq
 		}
 	}
 	if request.Params.ProviderId != nil {
-		name := strings.TrimSpace(string(*request.Params.ProviderId))
-		if name != "" {
-			filters.providerID = &name
+		providerID := string(*request.Params.ProviderId)
+		if providerID != "" {
+			filters.providerID = &providerID
 		}
 	}
 	items, hasNext, nextCursor, err := listModelsPage(ctx, store, filters, cursor, limit)

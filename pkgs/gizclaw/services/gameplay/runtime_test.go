@@ -124,7 +124,7 @@ func TestMigrationCreatesFreshReservationSchemaWithoutVoiceAlias(t *testing.T) {
 	}
 }
 
-func TestPetWorkspaceBindingCanonicalizesIDs(t *testing.T) {
+func TestPetWorkspaceBindingRejectsNonExactIDs(t *testing.T) {
 	ctx := context.Background()
 	runtime := &Runtime{DB: testDB(t)}
 	if err := runtime.Migration(ctx); err != nil {
@@ -139,27 +139,24 @@ func TestPetWorkspaceBindingCanonicalizesIDs(t *testing.T) {
 		CreatedAt:        now,
 	}
 
-	t.Run("insert", func(t *testing.T) {
-		tx, err := runtime.DB.BeginTxx(ctx, nil)
-		if err != nil {
-			t.Fatalf("BeginTxx() error = %v", err)
-		}
-		defer tx.Rollback()
-		if err := insertPetWorkspaceBinding(ctx, tx, pet); err != nil {
-			t.Fatalf("insertPetWorkspaceBinding() error = %v", err)
-		}
-		assertPetWorkspaceBindingIDs(t, ctx, tx, pet.OwnerPublicKey, pet.Id, "profile-a", "workspace-a")
-	})
+	tx, err := runtime.DB.BeginTxx(ctx, nil)
+	if err != nil {
+		t.Fatalf("BeginTxx() error = %v", err)
+	}
+	defer tx.Rollback()
+	if err := insertPetWorkspaceBinding(ctx, tx, pet); err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("insertPetWorkspaceBinding() error = %v, want exact ID rejection", err)
+	}
 }
 
 func assertPetWorkspaceBindingIDs(t *testing.T, ctx context.Context, tx *sqlx.Tx, owner, petID, wantProfile, wantWorkspace string) {
 	t.Helper()
-	var profileName, workspaceID string
-	if err := tx.QueryRowContext(ctx, `SELECT runtime_profile_id, workspace_id FROM gameplay_pet_workspace_bindings WHERE owner_public_key = ? AND pet_id = ?`, owner, petID).Scan(&profileName, &workspaceID); err != nil {
+	var profileID, workspaceID string
+	if err := tx.QueryRowContext(ctx, `SELECT runtime_profile_id, workspace_id FROM gameplay_pet_workspace_bindings WHERE owner_public_key = ? AND pet_id = ?`, owner, petID).Scan(&profileID, &workspaceID); err != nil {
 		t.Fatalf("query Pet Workspace binding: %v", err)
 	}
-	if profileName != wantProfile || workspaceID != wantWorkspace {
-		t.Fatalf("Pet Workspace binding = (%q, %q), want (%q, %q)", profileName, workspaceID, wantProfile, wantWorkspace)
+	if profileID != wantProfile || workspaceID != wantWorkspace {
+		t.Fatalf("Pet Workspace binding = (%q, %q), want (%q, %q)", profileID, workspaceID, wantProfile, wantWorkspace)
 	}
 }
 

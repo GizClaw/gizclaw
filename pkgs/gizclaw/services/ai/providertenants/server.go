@@ -739,7 +739,7 @@ func reconcileTenantVoices(ctx context.Context, store kv.Store, tenant apitypes.
 
 func voiceFromMiniMax(tenantID string, upstream minimax.Voice, now time.Time) apitypes.Voice {
 	providerVoiceID := strings.TrimSpace(upstream.VoiceID)
-	voiceName := voicecatalog.StableID(miniMaxProviderKind, tenantID, providerVoiceID)
+	voiceID := voicecatalog.StableID(miniMaxProviderKind, tenantID, providerVoiceID)
 	description := strings.TrimSpace(strings.Join(upstream.Description, ", "))
 	name := strings.TrimSpace(upstream.VoiceName)
 	voiceType := strings.TrimSpace(upstream.VoiceType)
@@ -754,7 +754,7 @@ func voiceFromMiniMax(tenantID string, upstream minimax.Voice, now time.Time) ap
 	syncedAt := now
 	voice := apitypes.Voice{
 		CreatedAt: now,
-		Id:        voiceName,
+		Id:        voiceID,
 		Provider: apitypes.VoiceProvider{
 			Kind: miniMaxProviderKind,
 			Id:   tenantID,
@@ -789,14 +789,14 @@ func deleteMiniMaxTenantVoices(ctx context.Context, store kv.Store, tenantID str
 	return nil
 }
 
-func getCredential(ctx context.Context, store kv.Store, name string) (apitypes.Credential, error) {
-	data, err := store.Get(ctx, credentialKey(name))
+func getCredential(ctx context.Context, store kv.Store, id string) (apitypes.Credential, error) {
+	data, err := store.Get(ctx, credentialKey(id))
 	if err != nil {
 		return apitypes.Credential{}, err
 	}
 	var credential apitypes.Credential
 	if err := json.Unmarshal(data, &credential); err != nil {
-		return apitypes.Credential{}, fmt.Errorf("mmx: decode credential %s: %w", name, err)
+		return apitypes.Credential{}, fmt.Errorf("mmx: decode credential %s: %w", id, err)
 	}
 	return credential, nil
 }
@@ -821,8 +821,8 @@ func miniMaxTenantKey(id string) kv.Key {
 	return append(append(kv.Key{}, miniMaxTenantsRoot...), escapeStoreSegment(id))
 }
 
-func credentialKey(name string) kv.Key {
-	return append(append(kv.Key{}, credentialsRoot...), escapeStoreSegment(name))
+func credentialKey(id string) kv.Key {
+	return append(append(kv.Key{}, credentialsRoot...), escapeStoreSegment(id))
 }
 
 func escapeStoreSegment(value string) string {

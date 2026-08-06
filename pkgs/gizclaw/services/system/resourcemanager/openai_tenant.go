@@ -44,8 +44,8 @@ func (m *Manager) createOpenAITenant(ctx context.Context, body adminhttp.OpenAIT
 	}
 }
 
-func (m *Manager) getOpenAITenant(ctx context.Context, name string) (apitypes.OpenAITenant, bool, error) {
-	response, err := m.services.ProviderTenants.GetOpenAITenant(ctx, adminhttp.GetOpenAITenantRequestObject{Id: name})
+func (m *Manager) getOpenAITenant(ctx context.Context, id string) (apitypes.OpenAITenant, bool, error) {
+	response, err := m.services.ProviderTenants.GetOpenAITenant(ctx, adminhttp.GetOpenAITenantRequestObject{Id: id})
 	if err != nil {
 		return apitypes.OpenAITenant{}, false, err
 	}
@@ -61,8 +61,8 @@ func (m *Manager) getOpenAITenant(ctx context.Context, name string) (apitypes.Op
 	}
 }
 
-func (m *Manager) putOpenAITenant(ctx context.Context, name string, body adminhttp.OpenAITenantUpsert) error {
-	response, err := m.services.ProviderTenants.PutOpenAITenant(ctx, adminhttp.PutOpenAITenantRequestObject{Id: name, Body: &body})
+func (m *Manager) putOpenAITenant(ctx context.Context, id string, body adminhttp.OpenAITenantUpsert) error {
+	response, err := m.services.ProviderTenants.PutOpenAITenant(ctx, adminhttp.PutOpenAITenantRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -78,8 +78,8 @@ func (m *Manager) putOpenAITenant(ctx context.Context, name string, body adminht
 	}
 }
 
-func (m *Manager) deleteOpenAITenant(ctx context.Context, name string) (apitypes.OpenAITenant, bool, error) {
-	response, err := m.services.ProviderTenants.DeleteOpenAITenant(ctx, adminhttp.DeleteOpenAITenantRequestObject{Id: name})
+func (m *Manager) deleteOpenAITenant(ctx context.Context, id string) (apitypes.OpenAITenant, bool, error) {
+	response, err := m.services.ProviderTenants.DeleteOpenAITenant(ctx, adminhttp.DeleteOpenAITenantRequestObject{Id: id})
 	if err != nil {
 		return apitypes.OpenAITenant{}, false, err
 	}

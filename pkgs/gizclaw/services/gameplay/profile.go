@@ -21,7 +21,6 @@ func WithRuntimeProfile(ctx context.Context, profile apitypes.RuntimeProfile) co
 
 type ProfileRules struct {
 	ID   string
-	Name string
 	Spec ProfileRulesSpec
 }
 
@@ -48,15 +47,15 @@ type ProfilePetPoolEntry struct {
 	Weight       int64
 }
 
-func profileRulesFromContext(ctx context.Context, requestedName string) (ProfileRules, error) {
-	profile, gameplay, err := gameplayProfileFromContext(ctx, requestedName)
+func profileRulesFromContext(ctx context.Context, requestedID string) (ProfileRules, error) {
+	profile, gameplay, err := gameplayProfileFromContext(ctx, requestedID)
 	if err != nil {
 		return ProfileRules{}, err
 	}
 	if gameplay.Pet == nil {
 		return ProfileRules{}, errors.New("gameplay: active RuntimeProfile has no pet gameplay configuration")
 	}
-	petWorkflowID := strings.TrimSpace(profile.Spec.Workflows.System.Pet)
+	petWorkflowID := profile.Spec.Workflows.System.Pet
 	if petWorkflowID == "" {
 		return ProfileRules{}, errors.New("gameplay: active RuntimeProfile has no system Pet Workflow")
 	}
@@ -88,8 +87,7 @@ func profileRulesFromContext(ctx context.Context, requestedName string) (Profile
 		games[gameDefID] = ProfileGameRule{GameDefID: gameDefID, Policy: policy}
 	}
 	return ProfileRules{
-		ID:   profile.Id,
-		Name: profile.Id,
+		ID: profile.Id,
 		Spec: ProfileRulesSpec{
 			Actions: map[apitypes.PetBehavior]apitypes.RuntimeProfilePetActionSpec{
 				apitypes.PetBehaviorFeed:  pet.Actions.Feed,
@@ -108,21 +106,20 @@ func profileRulesFromContext(ctx context.Context, requestedName string) (Profile
 	}, nil
 }
 
-func pointsRulesFromContext(ctx context.Context, requestedName string) (ProfileRules, error) {
-	profile, gameplay, err := gameplayProfileFromContext(ctx, requestedName)
+func pointsRulesFromContext(ctx context.Context, requestedID string) (ProfileRules, error) {
+	profile, gameplay, err := gameplayProfileFromContext(ctx, requestedID)
 	if err != nil {
 		return ProfileRules{}, err
 	}
-	return ProfileRules{ID: profile.Id, Name: profile.Id, Spec: ProfileRulesSpec{Points: gameplay.Points}}, nil
+	return ProfileRules{ID: profile.Id, Spec: ProfileRulesSpec{Points: gameplay.Points}}, nil
 }
 
-func gameplayProfileFromContext(ctx context.Context, requestedName string) (apitypes.RuntimeProfile, *apitypes.RuntimeProfileGameplaySpec, error) {
+func gameplayProfileFromContext(ctx context.Context, requestedID string) (apitypes.RuntimeProfile, *apitypes.RuntimeProfileGameplaySpec, error) {
 	profile, ok := runtimeProfileFromContext(ctx)
-	if !ok || strings.TrimSpace(profile.Id) == "" {
+	if !ok || profile.Id == "" {
 		return apitypes.RuntimeProfile{}, nil, errors.New("gameplay: RuntimeProfile is required")
 	}
-	requestedName = strings.TrimSpace(requestedName)
-	if requestedName != "" && requestedName != profile.Id {
+	if requestedID != "" && requestedID != profile.Id {
 		return apitypes.RuntimeProfile{}, nil, errors.New("gameplay: resource belongs to a different RuntimeProfile")
 	}
 	if profile.Spec.Gameplay == nil {
@@ -136,7 +133,7 @@ func resourceAlias(resources *map[string]apitypes.RuntimeProfileBinding, alias s
 		return "", false
 	}
 	binding, ok := (*resources)[strings.TrimSpace(alias)]
-	value := strings.TrimSpace(binding.ResourceId)
+	value := binding.ResourceId
 	return value, ok && value != ""
 }
 

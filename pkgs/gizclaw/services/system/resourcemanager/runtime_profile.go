@@ -7,11 +7,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
-func (m *Manager) getRuntimeProfile(ctx context.Context, name string) (apitypes.RuntimeProfile, bool, error) {
+func (m *Manager) getRuntimeProfile(ctx context.Context, id string) (apitypes.RuntimeProfile, bool, error) {
 	if m.services.RuntimeProfiles == nil {
 		return apitypes.RuntimeProfile{}, false, missingService("runtime profiles")
 	}
-	response, err := m.services.RuntimeProfiles.GetRuntimeProfile(ctx, adminhttp.GetRuntimeProfileRequestObject{Id: name})
+	response, err := m.services.RuntimeProfiles.GetRuntimeProfile(ctx, adminhttp.GetRuntimeProfileRequestObject{Id: id})
 	if err != nil {
 		return apitypes.RuntimeProfile{}, false, err
 	}
@@ -47,11 +47,11 @@ func (m *Manager) putRuntimeProfile(ctx context.Context, id string, spec apitype
 	}
 }
 
-func (m *Manager) deleteRuntimeProfile(ctx context.Context, name string) (apitypes.RuntimeProfile, bool, error) {
+func (m *Manager) deleteRuntimeProfile(ctx context.Context, id string) (apitypes.RuntimeProfile, bool, error) {
 	if m.services.RuntimeProfiles == nil {
 		return apitypes.RuntimeProfile{}, false, missingService("runtime profiles")
 	}
-	response, err := m.services.RuntimeProfiles.DeleteRuntimeProfile(ctx, adminhttp.DeleteRuntimeProfileRequestObject{Id: name})
+	response, err := m.services.RuntimeProfiles.DeleteRuntimeProfile(ctx, adminhttp.DeleteRuntimeProfileRequestObject{Id: id})
 	if err != nil {
 		return apitypes.RuntimeProfile{}, false, err
 	}

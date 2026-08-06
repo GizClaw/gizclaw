@@ -155,8 +155,8 @@ func missingService(name string) *Error {
 	return applyError(500, "RESOURCE_SERVICE_NOT_CONFIGURED", fmt.Sprintf("%s service is not configured", name))
 }
 
-func notFound(kind apitypes.ResourceKind, name string) *Error {
-	return applyError(404, "RESOURCE_NOT_FOUND", fmt.Sprintf("%s %q not found", kind, name))
+func notFound(kind apitypes.ResourceKind, id string) *Error {
+	return applyError(404, "RESOURCE_NOT_FOUND", fmt.Sprintf("%s %q not found", kind, id))
 }
 
 func responseError(statusCode int, fallbackCode, fallbackMessage string, response any) *Error {

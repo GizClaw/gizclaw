@@ -58,11 +58,11 @@ export function AppRoutes({
         <Route element={<PeerDetailPage />} path="peers/:publicKey" />
         <Route element={<FirmwaresListPage />} path="firmwares" />
         <Route element={<FirmwareCreatePage />} path="firmwares/-/new" />
-        <Route element={<FirmwareDetailPage />} path="firmwares/:name" />
+        <Route element={<FirmwareDetailPage />} path="firmwares/:id" />
         <Route element={<CredentialsListPage />} path="providers/credentials" />
         <Route
           element={<CredentialDetailPage />}
-          path="providers/credentials/:name"
+          path="providers/credentials/:id"
         />
         <Route
           element={<OpenAITenantsListPage />}
@@ -70,7 +70,7 @@ export function AppRoutes({
         />
         <Route
           element={<OpenAITenantDetailPage />}
-          path="providers/openai-tenants/:name"
+          path="providers/openai-tenants/:id"
         />
         <Route
           element={<GeminiTenantsListPage />}
@@ -78,7 +78,7 @@ export function AppRoutes({
         />
         <Route
           element={<GeminiTenantDetailPage />}
-          path="providers/gemini-tenants/:name"
+          path="providers/gemini-tenants/:id"
         />
         <Route
           element={<DashScopeTenantsListPage />}
@@ -86,7 +86,7 @@ export function AppRoutes({
         />
         <Route
           element={<DashScopeTenantDetailPage />}
-          path="providers/dashscope-tenants/:name"
+          path="providers/dashscope-tenants/:id"
         />
         <Route
           element={<DeepSeekTenantsListPage />}
@@ -94,7 +94,7 @@ export function AppRoutes({
         />
         <Route
           element={<DeepSeekTenantDetailPage />}
-          path="providers/deepseek-tenants/:name"
+          path="providers/deepseek-tenants/:id"
         />
         <Route
           element={<MiniMaxTenantsListPage />}
@@ -102,7 +102,7 @@ export function AppRoutes({
         />
         <Route
           element={<MiniMaxTenantDetailPage />}
-          path="providers/minimax-tenants/:name"
+          path="providers/minimax-tenants/:id"
         />
         <Route
           element={<VolcTenantsListPage />}
@@ -110,7 +110,7 @@ export function AppRoutes({
         />
         <Route
           element={<VolcTenantDetailPage />}
-          path="providers/volc-tenants/:name"
+          path="providers/volc-tenants/:id"
         />
         <Route element={<VoicesListPage />} path="ai/voices" />
         <Route element={<VoiceDetailPage />} path="ai/voices/:id" />

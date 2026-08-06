@@ -200,11 +200,13 @@ func (s *Server) createContact(ctx context.Context, owner, id, name string, disp
 	if err := socialutil.RequireOwner(owner); err != nil {
 		return rpcapi.ContactObject{}, err
 	}
-	id = strings.TrimSpace(id)
 	rawName := name
 	name = strings.TrimSpace(name)
-	if id == "" || name == "" {
-		return rpcapi.ContactObject{}, errors.New("social: contact id and name are required")
+	if err := customid.ValidateResourceID(id); err != nil {
+		return rpcapi.ContactObject{}, fmt.Errorf("social: contact id: %w", err)
+	}
+	if name == "" {
+		return rpcapi.ContactObject{}, errors.New("social: contact name is required")
 	}
 	if rawName != name {
 		return rpcapi.ContactObject{}, errors.New("social: contact name must not contain surrounding whitespace")

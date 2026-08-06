@@ -838,7 +838,7 @@ func validateMemoryLayoutAliases(profile apitypes.RuntimeProfileResource, select
 		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
 			continue
 		}
-		candidate, exists := selected["MemoryLayout/"+strings.TrimSpace(binding.LayoutId)]
+		candidate, exists := selected["MemoryLayout/"+binding.LayoutId]
 		if !exists {
 			return fmt.Errorf("RuntimeProfile/default memory alias %q references missing MemoryLayout/%s", alias, binding.LayoutId)
 		}

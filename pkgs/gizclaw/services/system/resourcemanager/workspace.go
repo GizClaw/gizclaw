@@ -97,8 +97,8 @@ func normalizeWorkspaceResourceSpec(spec apitypes.WorkspaceSpec) (apitypes.Works
 	return spec, nil
 }
 
-func (m *Manager) getWorkspace(ctx context.Context, name string) (apitypes.Workspace, bool, error) {
-	response, err := m.services.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Id: name})
+func (m *Manager) getWorkspace(ctx context.Context, id string) (apitypes.Workspace, bool, error) {
+	response, err := m.services.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Workspace{}, false, err
 	}
@@ -114,8 +114,8 @@ func (m *Manager) getWorkspace(ctx context.Context, name string) (apitypes.Works
 	}
 }
 
-func (m *Manager) putWorkspace(ctx context.Context, name string, body adminhttp.WorkspaceUpsert) error {
-	response, err := m.services.Workspaces.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: name, Body: &body})
+func (m *Manager) putWorkspace(ctx context.Context, id string, body adminhttp.WorkspaceUpsert) error {
+	response, err := m.services.Workspaces.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -131,8 +131,8 @@ func (m *Manager) putWorkspace(ctx context.Context, name string, body adminhttp.
 	}
 }
 
-func (m *Manager) deleteWorkspace(ctx context.Context, name string) (apitypes.Workspace, bool, error) {
-	response, err := m.services.Workspaces.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Id: name})
+func (m *Manager) deleteWorkspace(ctx context.Context, id string) (apitypes.Workspace, bool, error) {
+	response, err := m.services.Workspaces.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Workspace{}, false, err
 	}

@@ -54,7 +54,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if spec.Workspace.OwnerPublicKey != nil {
 		owner = strings.TrimSpace(*spec.Workspace.OwnerPublicKey)
 	}
-	workspaceID := strings.TrimSpace(spec.Workspace.Id)
+	workspaceID := spec.Workspace.Id
 	if workspaceID == "" {
 		return nil, fmt.Errorf("eino: workspace id is required")
 	}
@@ -62,7 +62,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	config := genxeino.Config{
 		Agent: genxeino.AgentConfig{
 			ID:        workspaceID,
-			Name:      strings.TrimSpace(spec.Workflow.Id),
+			Name:      spec.Workflow.Id,
 			ContextID: scope,
 		},
 		Graph:       graph,

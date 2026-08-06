@@ -61,9 +61,8 @@ func (s ObjectRuntimeStore) PrepareWorkspace(ctx context.Context, workspaceID st
 }
 
 func (s ObjectRuntimeStore) GetWorkspaceRuntime(_ context.Context, workspaceID string) (Runtime, error) {
-	workspaceID = strings.TrimSpace(workspaceID)
-	if workspaceID == "" {
-		return Runtime{}, fmt.Errorf("workspace: id is required")
+	if err := customid.ValidateResourceID(workspaceID); err != nil {
+		return Runtime{}, fmt.Errorf("workspace: invalid id: %w", err)
 	}
 	if s.Objects == nil {
 		return Runtime{}, fmt.Errorf("workspace: runtime store is required")
@@ -158,9 +157,8 @@ func newRuntimeDialogID() (string, error) {
 }
 
 func (s ObjectRuntimeStore) DeleteWorkspaceRuntime(_ context.Context, workspaceID string) error {
-	workspaceID = strings.TrimSpace(workspaceID)
-	if workspaceID == "" {
-		return fmt.Errorf("workspace: id is required")
+	if err := customid.ValidateResourceID(workspaceID); err != nil {
+		return fmt.Errorf("workspace: invalid id: %w", err)
 	}
 	if s.Objects == nil {
 		return fmt.Errorf("workspace: runtime store is required")

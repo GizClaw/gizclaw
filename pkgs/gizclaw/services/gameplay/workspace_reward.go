@@ -17,6 +17,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 )
 
@@ -336,8 +337,7 @@ func (r *Runtime) EnqueueWorkspaceRewardActivity(workspaceID string, entry works
 	if r == nil || r.WorkspaceRewards == nil {
 		return nil
 	}
-	workspaceID = strings.TrimSpace(workspaceID)
-	if workspaceID == "" || strings.TrimSpace(entry.ID) == "" {
+	if customid.ValidateResourceID(workspaceID) != nil || strings.TrimSpace(entry.ID) == "" {
 		return errors.New("gameplay: workspace reward activity requires Workspace and History IDs")
 	}
 	activity := workspaceRewardActivity{WorkspaceID: workspaceID, Entry: entry}
@@ -354,8 +354,7 @@ func (r *Runtime) ScheduleWorkspaceRewardActivity(ctx context.Context, workspace
 	if r == nil || r.WorkspaceRewards == nil {
 		return nil
 	}
-	workspaceID = strings.TrimSpace(workspaceID)
-	if workspaceID == "" || strings.TrimSpace(entry.ID) == "" {
+	if customid.ValidateResourceID(workspaceID) != nil || strings.TrimSpace(entry.ID) == "" {
 		return errors.New("gameplay: workspace reward activity requires Workspace and History IDs")
 	}
 	lock := r.workspaceRewardMutex(workspaceID)

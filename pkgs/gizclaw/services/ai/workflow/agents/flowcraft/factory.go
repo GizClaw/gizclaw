@@ -58,7 +58,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if workspaceName == "" {
 		return nil, fmt.Errorf("flowcraft: workspace name is required")
 	}
-	workspaceID := strings.TrimSpace(spec.Workspace.Id)
+	workspaceID := spec.Workspace.Id
 	if workspaceID == "" {
 		return nil, fmt.Errorf("flowcraft: workspace id is required")
 	}

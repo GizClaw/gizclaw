@@ -355,9 +355,11 @@ func (s *Server) ResolveFriendGroupWorkspace(ctx context.Context, owner, friendG
 	if err != nil {
 		return "", err
 	}
-	friendGroupID = strings.TrimSpace(friendGroupID)
 	owner = strings.TrimSpace(owner)
-	if friendGroupID == "" || owner == "" {
+	if err := customid.ValidateFriendGroupID(friendGroupID); err != nil {
+		return "", fmt.Errorf("social: invalid group id: %w", err)
+	}
+	if owner == "" {
 		return "", errors.New("social: group id and peer public key are required")
 	}
 	group, err := socialutil.ReadJSONValue[rpcapi.FriendGroupObject](ctx, store, socialutil.GroupKey(friendGroupID))
@@ -456,7 +458,9 @@ func (s *Server) WorkspaceRecipientsByID(ctx context.Context, workspaceID string
 	if err != nil {
 		return nil, err
 	}
-	workspaceID = strings.TrimSpace(workspaceID)
+	if err := customid.ValidateResourceID(workspaceID); err != nil {
+		return nil, fmt.Errorf("social: invalid workspace id: %w", err)
+	}
 	for entry, err := range bindings.List(ctx, workspaceBindingsRoot) {
 		if err != nil {
 			return nil, err
@@ -465,7 +469,7 @@ func (s *Server) WorkspaceRecipientsByID(ctx context.Context, workspaceID string
 		if err := json.Unmarshal(entry.Value, &binding); err != nil {
 			return nil, err
 		}
-		if strings.TrimSpace(binding.WorkspaceID) != workspaceID {
+		if binding.WorkspaceID != workspaceID {
 			continue
 		}
 		members, err := s.listAllMembers(ctx, binding.FriendGroupID)

@@ -36,9 +36,9 @@ import { ResourceCliPanel } from "../../components/ResourceCliPanel";
 
 export function CredentialDetailPage(): JSX.Element {
   const params = useParams();
-  const credentialName = useMemo(
-    () => decodeRouteParam(params.name ?? ""),
-    [params.name],
+  const credentialID = useMemo(
+    () => decodeRouteParam(params.id ?? ""),
+    [params.id],
   );
   const [credential, setCredential] = useState<Credential | null>(null);
   const [credentialResource, setCredentialResource] = useState<Resource | null>(
@@ -49,18 +49,18 @@ export function CredentialDetailPage(): JSX.Element {
   const [revealed, setRevealed] = useState(false);
 
   const load = async (): Promise<void> => {
-    if (credentialName === "") {
+    if (credentialID === "") {
       setLoading(false);
-      setError("Missing credential name in the URL.");
+      setError("Missing credential ID in the URL.");
       return;
     }
     setLoading(true);
     setError("");
     try {
       const [nextCredential, nextResource] = await Promise.all([
-        expectData(getCredential({ path: { id: credentialName } })),
+        expectData(getCredential({ path: { id: credentialID } })),
         expectData(
-          getResource({ path: { kind: "Credential", id: credentialName } }),
+          getResource({ path: { kind: "Credential", id: credentialID } }),
         ),
       ]);
       setCredential(nextCredential);
@@ -74,12 +74,12 @@ export function CredentialDetailPage(): JSX.Element {
 
   useEffect(() => {
     void load();
-  }, [credentialName]);
+  }, [credentialID]);
 
-  if (credentialName === "") {
+  if (credentialID === "") {
     return (
       <EmptyState
-        description="Missing credential name in the URL."
+        description="Missing credential ID in the URL."
         title="Invalid route"
       />
     );
@@ -110,7 +110,7 @@ export function CredentialDetailPage(): JSX.Element {
         items={[
           { href: "/overview", label: "Overview" },
           { href: "/providers/credentials", label: "Credentials" },
-          { label: credentialName },
+          { label: credentialID },
         ]}
       />
 
@@ -122,7 +122,7 @@ export function CredentialDetailPage(): JSX.Element {
             <Badge variant="secondary">{credential.provider}</Badge>
           ) : null
         }
-        title={credential?.id ?? credentialName}
+        title={credential?.id ?? credentialID}
       />
 
       {loading ? (

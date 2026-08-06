@@ -472,7 +472,9 @@ func (s *Server) DeleteSystemWorkspaceByID(ctx context.Context, id string) (apit
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
-	id = strings.TrimSpace(id)
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.Workspace{}, fmt.Errorf("workspace: invalid id: %w", err)
+	}
 	unlock := s.IconLocks.LockOwner(id)
 	defer unlock()
 	workspace, err := getWorkspaceByID(ctx, store, id)
@@ -496,8 +498,10 @@ func (s *Server) RetireSystemWorkspace(ctx context.Context, name string, mode ap
 		return apitypes.Workspace{}, err
 	}
 	name = strings.TrimSpace(name)
-	socialResourceID = strings.TrimSpace(socialResourceID)
-	if !mode.Valid() || socialResourceID == "" {
+	if err := customid.ValidateResourceID(socialResourceID); err != nil {
+		return apitypes.Workspace{}, fmt.Errorf("workspace: invalid social resource id: %w", err)
+	}
+	if !mode.Valid() {
 		return apitypes.Workspace{}, errors.New("workspace: Chatroom retirement mode and social resource id are required")
 	}
 	unlock := s.IconLocks.LockOwner(name)
@@ -521,9 +525,13 @@ func (s *Server) RetireSystemWorkspaceByID(ctx context.Context, id string, mode 
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
-	id = strings.TrimSpace(id)
-	socialResourceID = strings.TrimSpace(socialResourceID)
-	if !mode.Valid() || socialResourceID == "" {
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.Workspace{}, fmt.Errorf("workspace: invalid id: %w", err)
+	}
+	if err := customid.ValidateResourceID(socialResourceID); err != nil {
+		return apitypes.Workspace{}, fmt.Errorf("workspace: invalid social resource id: %w", err)
+	}
+	if !mode.Valid() {
 		return apitypes.Workspace{}, errors.New("workspace: Chatroom retirement mode and social resource id are required")
 	}
 	unlock := s.IconLocks.LockOwner(id)
@@ -590,8 +598,10 @@ func (s *Server) GetRetiredSystemWorkspace(ctx context.Context, name string, mod
 		return apitypes.Workspace{}, err
 	}
 	name = strings.TrimSpace(name)
-	socialResourceID = strings.TrimSpace(socialResourceID)
-	if !mode.Valid() || socialResourceID == "" {
+	if err := customid.ValidateResourceID(socialResourceID); err != nil {
+		return apitypes.Workspace{}, fmt.Errorf("workspace: invalid social resource id: %w", err)
+	}
+	if !mode.Valid() {
 		return apitypes.Workspace{}, errors.New("workspace: Chatroom retirement mode and social resource id are required")
 	}
 	unlock := s.IconLocks.LockOwner(name)
@@ -606,9 +616,13 @@ func (s *Server) GetRetiredSystemWorkspaceByID(ctx context.Context, id string, m
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
-	id = strings.TrimSpace(id)
-	socialResourceID = strings.TrimSpace(socialResourceID)
-	if !mode.Valid() || socialResourceID == "" {
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.Workspace{}, fmt.Errorf("workspace: invalid id: %w", err)
+	}
+	if err := customid.ValidateResourceID(socialResourceID); err != nil {
+		return apitypes.Workspace{}, fmt.Errorf("workspace: invalid social resource id: %w", err)
+	}
+	if !mode.Valid() {
 		return apitypes.Workspace{}, errors.New("workspace: Chatroom retirement mode and social resource id are required")
 	}
 	unlock := s.IconLocks.LockOwner(id)
@@ -694,10 +708,10 @@ func validateChatroomRetirementRecord(
 			err,
 		)
 	}
-	if strings.TrimSpace(descriptor.ID) != record.ResourceID ||
+	if descriptor.ID != record.ResourceID ||
 		strings.TrimSpace(descriptor.Name) != name ||
 		descriptor.WorkspaceKind != mode ||
-		strings.TrimSpace(descriptor.SocialResourceID) != socialResourceID {
+		descriptor.SocialResourceID != socialResourceID {
 		return chatroomRetirementDescriptor{}, fmt.Errorf(
 			"workspace: PendingDeletion for %q does not match %s Chatroom resource %q",
 			name,
@@ -789,7 +803,10 @@ func (s *Server) GetWorkspaceRuntimeByID(ctx context.Context, id string) (Runtim
 	if s == nil || s.RuntimeStore == nil {
 		return Runtime{}, nil
 	}
-	return s.RuntimeStore.GetWorkspaceRuntime(ctx, strings.TrimSpace(id))
+	if err := customid.ValidateResourceID(id); err != nil {
+		return Runtime{}, fmt.Errorf("workspace: invalid id: %w", err)
+	}
+	return s.RuntimeStore.GetWorkspaceRuntime(ctx, id)
 }
 
 func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
@@ -1201,7 +1218,7 @@ func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspa
 		if !present {
 			return errors.New("runtime model bindings not configured")
 		}
-		modelID = strings.TrimSpace(bindings[reference.ModelID])
+		modelID = bindings[reference.ModelID]
 		if modelID == "" {
 			return invalidWorkspaceReference("flowcraft parameter %q references missing runtime Model alias %q", reference.Role, reference.ModelID)
 		}
@@ -1379,7 +1396,7 @@ func (s *Server) validateRuntimeModelAlias(
 	if !present {
 		return apitypes.Model{}, errors.New("runtime model bindings not configured")
 	}
-	modelID := strings.TrimSpace(bindings[alias])
+	modelID := bindings[alias]
 	if modelID == "" {
 		return apitypes.Model{}, invalidWorkspaceReference(
 			"%s %q references missing runtime Model alias %q", subject, role, alias,
@@ -1424,7 +1441,7 @@ func (s *Server) validateRuntimeVoiceCompatibility(
 	if !present {
 		return errors.New("runtime voice bindings not configured")
 	}
-	voiceID := strings.TrimSpace(bindings[alias])
+	voiceID := bindings[alias]
 	if voiceID == "" {
 		return invalidWorkspaceReference(
 			"%s %q references missing runtime Voice alias %q", subject, role, alias,
@@ -1479,7 +1496,7 @@ func (s *Server) validateASTTranslateOverrides(ctx context.Context, workspacePar
 			if !present {
 				return errors.New("runtime model bindings not configured")
 			}
-			modelID := strings.TrimSpace(bindings[alias])
+			modelID := bindings[alias]
 			if modelID == "" {
 				return invalidWorkspaceReference("ast-translate parameter %q references missing runtime Model alias %q", "translation_model", alias)
 			}
@@ -1503,16 +1520,16 @@ func (s *Server) validateASTTranslateOverrides(ctx context.Context, workspacePar
 	if !present {
 		return errors.New("runtime voice bindings not configured")
 	}
-	if strings.TrimSpace(bindings[alias]) == "" {
+	if bindings[alias] == "" {
 		return invalidWorkspaceReference("ast-translate parameter %q references missing runtime Voice alias %q", "voice.tts_voice", alias)
 	}
 	return nil
 }
 
 func resolveWorkflowReference(ctx context.Context, workspace adminhttp.WorkspaceUpsert, _ bool) (string, bool, error) {
-	name := strings.TrimSpace(string(workspace.WorkflowId))
+	workflowID := string(workspace.WorkflowId)
 	_, runtimeBound := ctx.Value(runtimeWorkflowBindingsContextKey{}).(map[string]string)
-	return name, runtimeBound, nil
+	return workflowID, runtimeBound, nil
 }
 
 // FlowcraftModelReference is one effective Model selected for a FlowCraft role.

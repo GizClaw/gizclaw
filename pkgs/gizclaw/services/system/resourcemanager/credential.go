@@ -55,8 +55,8 @@ func (m *Manager) createCredential(ctx context.Context, body adminhttp.Credentia
 	}
 }
 
-func (m *Manager) getCredential(ctx context.Context, name string) (apitypes.Credential, bool, error) {
-	response, err := m.services.Credentials.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Id: name})
+func (m *Manager) getCredential(ctx context.Context, id string) (apitypes.Credential, bool, error) {
+	response, err := m.services.Credentials.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Credential{}, false, err
 	}
@@ -72,8 +72,8 @@ func (m *Manager) getCredential(ctx context.Context, name string) (apitypes.Cred
 	}
 }
 
-func (m *Manager) putCredential(ctx context.Context, name string, body adminhttp.CredentialUpsert) error {
-	response, err := m.services.Credentials.PutCredential(ctx, adminhttp.PutCredentialRequestObject{Id: name, Body: &body})
+func (m *Manager) putCredential(ctx context.Context, id string, body adminhttp.CredentialUpsert) error {
+	response, err := m.services.Credentials.PutCredential(ctx, adminhttp.PutCredentialRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -89,8 +89,8 @@ func (m *Manager) putCredential(ctx context.Context, name string, body adminhttp
 	}
 }
 
-func (m *Manager) deleteCredential(ctx context.Context, name string) (apitypes.Credential, bool, error) {
-	response, err := m.services.Credentials.DeleteCredential(ctx, adminhttp.DeleteCredentialRequestObject{Id: name})
+func (m *Manager) deleteCredential(ctx context.Context, id string) (apitypes.Credential, bool, error) {
+	response, err := m.services.Credentials.DeleteCredential(ctx, adminhttp.DeleteCredentialRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Credential{}, false, err
 	}

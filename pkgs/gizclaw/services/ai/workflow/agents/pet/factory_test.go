@@ -251,7 +251,7 @@ func TestFactoryRequiresCanonicalWorkspaceID(t *testing.T) {
 		}},
 		AgentType: Type,
 	})
-	if err == nil || !strings.Contains(err.Error(), "workspace id is required") {
+	if err == nil || !strings.Contains(err.Error(), "invalid workspace id") {
 		t.Fatalf("NewAgent() error = %v, want missing canonical Workspace ID", err)
 	}
 	if pets.calls != 0 {

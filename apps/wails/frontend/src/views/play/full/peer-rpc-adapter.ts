@@ -550,7 +550,7 @@ async function drainRuntimeCollection<T>(
   const items: T[] = [];
   const seenCursors = new Set<string>();
   let cursor: string | undefined;
-  let runtimeProfileName = "";
+  let runtimeProfileID = "";
   let runtimeProfileRevision = "";
   for (;;) {
     const result = await fetchPage({
@@ -579,7 +579,7 @@ async function drainRuntimeCollection<T>(
       };
     if (
       runtimeProfileRevision !== "" &&
-      (page.runtime_profile_name !== runtimeProfileName ||
+      (page.runtime_profile_name !== runtimeProfileID ||
         page.runtime_profile_revision !== runtimeProfileRevision)
     ) {
       return {
@@ -588,7 +588,7 @@ async function drainRuntimeCollection<T>(
         ),
       };
     }
-    runtimeProfileName = page.runtime_profile_name;
+    runtimeProfileID = page.runtime_profile_name;
     runtimeProfileRevision = page.runtime_profile_revision;
     items.push(...page.items);
     if (!page.has_next) break;
@@ -607,7 +607,7 @@ async function drainRuntimeCollection<T>(
     data: {
       has_next: false,
       items,
-      runtime_profile_name: runtimeProfileName,
+      runtime_profile_name: runtimeProfileID,
       runtime_profile_revision: runtimeProfileRevision,
     },
   };
@@ -619,7 +619,7 @@ function combineRuntimeCollections<T>(
   const failed = results.find((result) => result.error != null);
   if (failed?.error != null) return { error: failed.error };
   const items: T[] = [];
-  let runtimeProfileName = "";
+  let runtimeProfileID = "";
   let runtimeProfileRevision = "";
   for (const result of results) {
     const page = result.data;
@@ -627,7 +627,7 @@ function combineRuntimeCollections<T>(
     if (page.runtime_profile_revision !== "") {
       if (
         runtimeProfileRevision !== "" &&
-        (page.runtime_profile_name !== runtimeProfileName ||
+        (page.runtime_profile_name !== runtimeProfileID ||
           page.runtime_profile_revision !== runtimeProfileRevision)
       ) {
         return {
@@ -636,7 +636,7 @@ function combineRuntimeCollections<T>(
           ),
         };
       }
-      runtimeProfileName = page.runtime_profile_name;
+      runtimeProfileID = page.runtime_profile_name;
       runtimeProfileRevision = page.runtime_profile_revision;
     }
     items.push(...page.items);
@@ -645,7 +645,7 @@ function combineRuntimeCollections<T>(
     data: {
       has_next: false,
       items,
-      runtime_profile_name: runtimeProfileName,
+      runtime_profile_name: runtimeProfileID,
       runtime_profile_revision: runtimeProfileRevision,
     },
   };

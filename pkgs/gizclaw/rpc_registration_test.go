@@ -173,6 +173,7 @@ func TestRPCRegistrationPersistsAndReturnsFirmwareReleaseLine(t *testing.T) {
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 				Kind:       apitypes.FirmwareResourceKindFirmware,
 				Metadata:   apitypes.ResourceMetadata{Id: name},
+				Spec:       apitypes.FirmwareSpec{Name: "H106 Production"},
 			})
 			return resource, err
 		},
@@ -217,7 +218,7 @@ func TestRPCRegistrationPersistsAndReturnsFirmwareReleaseLine(t *testing.T) {
 		},
 	}
 	response := registerRPC(t, server, created.Token)
-	if response.RuntimeProfileName != profileName || response.FirmwareName == nil || *response.FirmwareName != firmwareID {
+	if response.RuntimeProfileName != profileName || response.FirmwareName == nil || *response.FirmwareName != "H106 Production" {
 		t.Fatalf("server.register = %#v", response)
 	}
 	stored, err := peers.LoadPeer(ctx, publicKey)
@@ -388,6 +389,7 @@ func firmwareRegistrationServer(t *testing.T, profileName, firmwareID string) *r
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 				Kind:       apitypes.FirmwareResourceKindFirmware,
 				Metadata:   apitypes.ResourceMetadata{Id: name},
+				Spec:       apitypes.FirmwareSpec{Name: firmwareID},
 			})
 			return resource, err
 		},

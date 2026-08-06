@@ -11,7 +11,7 @@ flowchart LR
     Domain["Workspace / Friend / Pet state"] --> RPC
 ```
 
-Workflow list requires an explicit Collection and preserves the dynamic membership declared under `workflows.collections`. Projected Workflow names are unique within the current RuntimeProfile, so get uses the name alone. Model, Voice, and Tool catalogs come from their respective RuntimeProfile resource maps. Every catalog response includes the RuntimeProfile name and content revision.
+Workflow list requires an explicit Collection and preserves the dynamic membership declared under `workflows.collections`. Projected Workflow names are unique within the current RuntimeProfile, so get uses the name alone. Model, Voice, and Tool catalogs come from their respective RuntimeProfile resource maps. Every catalog response includes the canonical RuntimeProfile ID in the legacy `runtime_profile_name` wire field and the content revision.
 
 Peer resource create/put/delete exists only for Workspace state. Admin owns canonical Workflow, Model, Credential, and Tool mutation. Workspace create validates `collection` plus `workflow_name`, stores Collection as an internal label, and list performs exact Collection filtering. Generic labels remain an Admin/storage detail and are not exposed in the Peer DTO.
 

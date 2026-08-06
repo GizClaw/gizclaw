@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strings"
 )
 
 type BuildRequest struct {
@@ -55,7 +54,6 @@ func orderedToolIDs(profile []string) []string {
 	seen := make(map[string]struct{}, len(profile))
 	out := make([]string, 0, len(profile))
 	for _, id := range profile {
-		id = strings.TrimSpace(id)
 		if id == "" {
 			continue
 		}

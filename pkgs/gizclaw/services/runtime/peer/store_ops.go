@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 
@@ -20,12 +20,11 @@ import (
 // BindFirmware persists the Server-assigned Firmware release line for a Peer.
 // Firmware channel selection remains device-owned and is not stored here.
 func (s *Server) BindFirmware(ctx context.Context, publicKey giznet.PublicKey, firmwareID string) (apitypes.Peer, error) {
-	firmwareID = strings.TrimSpace(firmwareID)
 	if publicKey.IsZero() {
 		return apitypes.Peer{}, fmt.Errorf("peer: empty public key")
 	}
-	if firmwareID == "" {
-		return apitypes.Peer{}, fmt.Errorf("peer: empty firmware id")
+	if err := customid.ValidateResourceID(firmwareID); err != nil {
+		return apitypes.Peer{}, fmt.Errorf("peer: invalid firmware id: %w", err)
 	}
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()

@@ -291,6 +291,7 @@ func TestRegistrationTokenBindsOptionalFirmwareReleaseLine(t *testing.T) {
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 				Kind:       apitypes.FirmwareResourceKindFirmware,
 				Metadata:   apitypes.ResourceMetadata{Id: name},
+				Spec:       apitypes.FirmwareSpec{Name: "H106 Production"},
 			})
 			return resource, err
 		},
@@ -321,6 +322,9 @@ func TestRegistrationTokenBindsOptionalFirmwareReleaseLine(t *testing.T) {
 	}
 	if registration.FirmwareID == nil || *registration.FirmwareID != "h106" {
 		t.Fatalf("ResolveRegistration() = %#v, want h106 firmware binding", registration)
+	}
+	if registration.FirmwareName == nil || *registration.FirmwareName != "H106 Production" {
+		t.Fatalf("ResolveRegistration() = %#v, want peer-visible firmware name", registration)
 	}
 
 	for _, test := range []struct {
@@ -1202,7 +1206,13 @@ func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t 
 	t.Parallel()
 	s := &Server{Store: kv.NewMemory(nil)}
 	createProfile(t, s, "owner-profile", nil)
-	if err := s.BindOwnerProfile(t.Context(), " peer-a ", " owner-profile "); err != nil {
+	if err := s.BindOwnerProfile(t.Context(), "peer-a", " owner-profile "); err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("BindOwnerProfile(whitespace ID) error = %v", err)
+	}
+	if _, err := s.ResolveProfile(t.Context(), " owner-profile "); err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("ResolveProfile(whitespace ID) error = %v", err)
+	}
+	if err := s.BindOwnerProfile(t.Context(), " peer-a ", "owner-profile"); err != nil {
 		t.Fatalf("BindOwnerProfile() error = %v", err)
 	}
 	first, err := s.ResolveOwnerProfile(t.Context(), "peer-a")

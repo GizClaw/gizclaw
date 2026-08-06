@@ -237,7 +237,7 @@ func petClipNames(pixa apitypes.PetDefPixaMetadata) map[string]string {
 }
 
 func (s *Server) projectPet(ctx context.Context, pet apitypes.Pet) (rpcapi.Pet, error) {
-	runtimeProfileName, err := s.runtimeProfileName(pet.RuntimeProfileId)
+	runtimeProfileID, err := s.runtimeProfileID(pet.RuntimeProfileId)
 	if err != nil {
 		return rpcapi.Pet{}, err
 	}
@@ -265,7 +265,7 @@ func (s *Server) projectPet(ctx context.Context, pet apitypes.Pet) (rpcapi.Pet, 
 		return rpcapi.Pet{}, errors.New("gameplay: pet workspace is not available")
 	}
 	return rpcapi.Pet{
-		Name: pet.Name, RuntimeProfileName: runtimeProfileName, PetDefName: petDefName,
+		Name: pet.Name, RuntimeProfileName: runtimeProfileID, PetDefName: petDefName,
 		DisplayName: pet.DisplayName, WorkspaceName: workspace.Name,
 		Stats: stats, Progression: progression, Lifecycle: rpcapi.PetLifecycle(pet.Lifecycle),
 		DiedAt: pet.DiedAt, StateSettledAt: pet.StateSettledAt, LastActiveAt: pet.LastActiveAt,
@@ -273,25 +273,25 @@ func (s *Server) projectPet(ctx context.Context, pet apitypes.Pet) (rpcapi.Pet, 
 	}, nil
 }
 
-func (s *Server) runtimeProfileName(id string) (string, error) {
+func (s *Server) runtimeProfileID(id string) (string, error) {
 	profile := s.currentRuntimeProfile()
-	if profile == nil || strings.TrimSpace(profile.Id) == "" {
+	if profile == nil || profile.Id == "" {
 		return "", errors.New("gameplay: active RuntimeProfile is not available")
 	}
-	if strings.TrimSpace(id) != profile.Id {
+	if id != profile.Id {
 		return "", errors.New("gameplay: resource belongs to a different RuntimeProfile")
 	}
 	return profile.Id, nil
 }
 
 func (s *Server) projectPointsAccount(item apitypes.PointsAccount) (rpcapi.PointsAccount, error) {
-	name, err := s.runtimeProfileName(item.RuntimeProfileId)
+	runtimeProfileID, err := s.runtimeProfileID(item.RuntimeProfileId)
 	if err != nil {
 		return rpcapi.PointsAccount{}, err
 	}
 	return rpcapi.PointsAccount{
 		OwnerPublicKey:     item.OwnerPublicKey,
-		RuntimeProfileName: name,
+		RuntimeProfileName: runtimeProfileID,
 		Balance:            item.Balance,
 		CreatedAt:          item.CreatedAt,
 		UpdatedAt:          item.UpdatedAt,
@@ -311,7 +311,7 @@ func (s *Server) projectPointsTransaction(ctx context.Context, item apitypes.Poi
 	if err != nil {
 		return rpcapi.PointsTransaction{}, err
 	}
-	projected.RuntimeProfileName, err = s.runtimeProfileName(item.RuntimeProfileId)
+	projected.RuntimeProfileName, err = s.runtimeProfileID(item.RuntimeProfileId)
 	if err != nil {
 		return rpcapi.PointsTransaction{}, err
 	}
@@ -330,7 +330,7 @@ func (s *Server) projectGameResult(ctx context.Context, item apitypes.GameResult
 	if err != nil {
 		return rpcapi.GameResult{}, err
 	}
-	projected.RuntimeProfileName, err = s.runtimeProfileName(item.RuntimeProfileId)
+	projected.RuntimeProfileName, err = s.runtimeProfileID(item.RuntimeProfileId)
 	if err != nil {
 		return rpcapi.GameResult{}, err
 	}
@@ -352,7 +352,7 @@ func (s *Server) projectRewardGrant(ctx context.Context, item apitypes.RewardGra
 	if err != nil {
 		return rpcapi.RewardGrant{}, err
 	}
-	projected.RuntimeProfileName, err = s.runtimeProfileName(item.RuntimeProfileId)
+	projected.RuntimeProfileName, err = s.runtimeProfileID(item.RuntimeProfileId)
 	if err != nil {
 		return rpcapi.RewardGrant{}, err
 	}

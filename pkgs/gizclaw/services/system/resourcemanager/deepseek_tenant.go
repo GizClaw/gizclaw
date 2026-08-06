@@ -44,8 +44,8 @@ func (m *Manager) createDeepSeekTenant(ctx context.Context, body adminhttp.DeepS
 	}
 }
 
-func (m *Manager) getDeepSeekTenant(ctx context.Context, name string) (apitypes.DeepSeekTenant, bool, error) {
-	response, err := m.services.ProviderTenants.GetDeepSeekTenant(ctx, adminhttp.GetDeepSeekTenantRequestObject{Id: name})
+func (m *Manager) getDeepSeekTenant(ctx context.Context, id string) (apitypes.DeepSeekTenant, bool, error) {
+	response, err := m.services.ProviderTenants.GetDeepSeekTenant(ctx, adminhttp.GetDeepSeekTenantRequestObject{Id: id})
 	if err != nil {
 		return apitypes.DeepSeekTenant{}, false, err
 	}
@@ -61,8 +61,8 @@ func (m *Manager) getDeepSeekTenant(ctx context.Context, name string) (apitypes.
 	}
 }
 
-func (m *Manager) putDeepSeekTenant(ctx context.Context, name string, body adminhttp.DeepSeekTenantUpsert) error {
-	response, err := m.services.ProviderTenants.PutDeepSeekTenant(ctx, adminhttp.PutDeepSeekTenantRequestObject{Id: name, Body: &body})
+func (m *Manager) putDeepSeekTenant(ctx context.Context, id string, body adminhttp.DeepSeekTenantUpsert) error {
+	response, err := m.services.ProviderTenants.PutDeepSeekTenant(ctx, adminhttp.PutDeepSeekTenantRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -78,8 +78,8 @@ func (m *Manager) putDeepSeekTenant(ctx context.Context, name string, body admin
 	}
 }
 
-func (m *Manager) deleteDeepSeekTenant(ctx context.Context, name string) (apitypes.DeepSeekTenant, bool, error) {
-	response, err := m.services.ProviderTenants.DeleteDeepSeekTenant(ctx, adminhttp.DeleteDeepSeekTenantRequestObject{Id: name})
+func (m *Manager) deleteDeepSeekTenant(ctx context.Context, id string) (apitypes.DeepSeekTenant, bool, error) {
+	response, err := m.services.ProviderTenants.DeleteDeepSeekTenant(ctx, adminhttp.DeleteDeepSeekTenantRequestObject{Id: id})
 	if err != nil {
 		return apitypes.DeepSeekTenant{}, false, err
 	}

@@ -44,8 +44,8 @@ func (m *Manager) createFirmware(ctx context.Context, body adminhttp.FirmwareUps
 	}
 }
 
-func (m *Manager) getFirmware(ctx context.Context, name string) (apitypes.Firmware, bool, error) {
-	response, err := m.services.Firmwares.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Id: name})
+func (m *Manager) getFirmware(ctx context.Context, id string) (apitypes.Firmware, bool, error) {
+	response, err := m.services.Firmwares.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Firmware{}, false, err
 	}
@@ -61,8 +61,8 @@ func (m *Manager) getFirmware(ctx context.Context, name string) (apitypes.Firmwa
 	}
 }
 
-func (m *Manager) putFirmware(ctx context.Context, name string, body adminhttp.FirmwareUpsert) error {
-	response, err := m.services.Firmwares.PutFirmware(ctx, adminhttp.PutFirmwareRequestObject{Id: name, Body: &body})
+func (m *Manager) putFirmware(ctx context.Context, id string, body adminhttp.FirmwareUpsert) error {
+	response, err := m.services.Firmwares.PutFirmware(ctx, adminhttp.PutFirmwareRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -78,8 +78,8 @@ func (m *Manager) putFirmware(ctx context.Context, name string, body adminhttp.F
 	}
 }
 
-func (m *Manager) deleteFirmware(ctx context.Context, name string) (apitypes.Firmware, bool, error) {
-	response, err := m.services.Firmwares.DeleteFirmware(ctx, adminhttp.DeleteFirmwareRequestObject{Id: name})
+func (m *Manager) deleteFirmware(ctx context.Context, id string) (apitypes.Firmware, bool, error) {
+	response, err := m.services.Firmwares.DeleteFirmware(ctx, adminhttp.DeleteFirmwareRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Firmware{}, false, err
 	}

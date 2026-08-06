@@ -118,8 +118,8 @@ func (m *Manager) createVoice(ctx context.Context, body adminhttp.VoiceUpsert) (
 	}
 }
 
-func (m *Manager) getMiniMaxTenant(ctx context.Context, name string) (apitypes.MiniMaxTenant, bool, error) {
-	response, err := m.services.ProviderTenants.GetMiniMaxTenant(ctx, adminhttp.GetMiniMaxTenantRequestObject{Id: name})
+func (m *Manager) getMiniMaxTenant(ctx context.Context, id string) (apitypes.MiniMaxTenant, bool, error) {
+	response, err := m.services.ProviderTenants.GetMiniMaxTenant(ctx, adminhttp.GetMiniMaxTenantRequestObject{Id: id})
 	if err != nil {
 		return apitypes.MiniMaxTenant{}, false, err
 	}
@@ -135,8 +135,8 @@ func (m *Manager) getMiniMaxTenant(ctx context.Context, name string) (apitypes.M
 	}
 }
 
-func (m *Manager) putMiniMaxTenant(ctx context.Context, name string, body adminhttp.MiniMaxTenantUpsert) error {
-	response, err := m.services.ProviderTenants.PutMiniMaxTenant(ctx, adminhttp.PutMiniMaxTenantRequestObject{Id: name, Body: &body})
+func (m *Manager) putMiniMaxTenant(ctx context.Context, id string, body adminhttp.MiniMaxTenantUpsert) error {
+	response, err := m.services.ProviderTenants.PutMiniMaxTenant(ctx, adminhttp.PutMiniMaxTenantRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -152,8 +152,8 @@ func (m *Manager) putMiniMaxTenant(ctx context.Context, name string, body adminh
 	}
 }
 
-func (m *Manager) deleteMiniMaxTenant(ctx context.Context, name string) (apitypes.MiniMaxTenant, bool, error) {
-	response, err := m.services.ProviderTenants.DeleteMiniMaxTenant(ctx, adminhttp.DeleteMiniMaxTenantRequestObject{Id: name})
+func (m *Manager) deleteMiniMaxTenant(ctx context.Context, id string) (apitypes.MiniMaxTenant, bool, error) {
+	response, err := m.services.ProviderTenants.DeleteMiniMaxTenant(ctx, adminhttp.DeleteMiniMaxTenantRequestObject{Id: id})
 	if err != nil {
 		return apitypes.MiniMaxTenant{}, false, err
 	}
@@ -169,8 +169,8 @@ func (m *Manager) deleteMiniMaxTenant(ctx context.Context, name string) (apitype
 	}
 }
 
-func (m *Manager) getVolcTenant(ctx context.Context, name string) (apitypes.VolcTenant, bool, error) {
-	response, err := m.services.ProviderTenants.GetVolcTenant(ctx, adminhttp.GetVolcTenantRequestObject{Id: name})
+func (m *Manager) getVolcTenant(ctx context.Context, id string) (apitypes.VolcTenant, bool, error) {
+	response, err := m.services.ProviderTenants.GetVolcTenant(ctx, adminhttp.GetVolcTenantRequestObject{Id: id})
 	if err != nil {
 		return apitypes.VolcTenant{}, false, err
 	}
@@ -186,8 +186,8 @@ func (m *Manager) getVolcTenant(ctx context.Context, name string) (apitypes.Volc
 	}
 }
 
-func (m *Manager) putVolcTenant(ctx context.Context, name string, body adminhttp.VolcTenantUpsert) error {
-	response, err := m.services.ProviderTenants.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Id: name, Body: &body})
+func (m *Manager) putVolcTenant(ctx context.Context, id string, body adminhttp.VolcTenantUpsert) error {
+	response, err := m.services.ProviderTenants.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -203,8 +203,8 @@ func (m *Manager) putVolcTenant(ctx context.Context, name string, body adminhttp
 	}
 }
 
-func (m *Manager) deleteVolcTenant(ctx context.Context, name string) (apitypes.VolcTenant, bool, error) {
-	response, err := m.services.ProviderTenants.DeleteVolcTenant(ctx, adminhttp.DeleteVolcTenantRequestObject{Id: name})
+func (m *Manager) deleteVolcTenant(ctx context.Context, id string) (apitypes.VolcTenant, bool, error) {
+	response, err := m.services.ProviderTenants.DeleteVolcTenant(ctx, adminhttp.DeleteVolcTenantRequestObject{Id: id})
 	if err != nil {
 		return apitypes.VolcTenant{}, false, err
 	}

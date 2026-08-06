@@ -220,12 +220,12 @@ func (m *Manager) applyFriendGroupMember(ctx context.Context, resource apitypes.
 	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindFriendGroupMember, id), nil
 }
 
-func (m *Manager) getFriend(ctx context.Context, name string) (adminhttp.AdminFriendObject, bool, error) {
-	owner, _, err := friendResourcePeers(name)
+func (m *Manager) getFriend(ctx context.Context, id string) (adminhttp.AdminFriendObject, bool, error) {
+	owner, _, err := friendResourcePeers(id)
 	if err != nil {
 		return adminhttp.AdminFriendObject{}, false, err
 	}
-	item, err := m.services.Friends.AdminGetFriend(ctx, owner, name)
+	item, err := m.services.Friends.AdminGetFriend(ctx, owner, id)
 	if errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.AdminFriendObject{}, false, nil
 	}
@@ -246,8 +246,8 @@ func (m *Manager) getContact(ctx context.Context, id string) (adminhttp.AdminCon
 	return item, true, nil
 }
 
-func (m *Manager) getFriendGroup(ctx context.Context, name string) (rpcapi.FriendGroupObject, bool, error) {
-	item, err := m.services.FriendGroups.AdminGetFriendGroup(ctx, name)
+func (m *Manager) getFriendGroup(ctx context.Context, id string) (rpcapi.FriendGroupObject, bool, error) {
+	item, err := m.services.FriendGroups.AdminGetFriendGroup(ctx, id)
 	if errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.FriendGroupObject{}, false, nil
 	}
@@ -257,8 +257,8 @@ func (m *Manager) getFriendGroup(ctx context.Context, name string) (rpcapi.Frien
 	return item, true, nil
 }
 
-func (m *Manager) getFriendGroupInviteToken(ctx context.Context, name string) (rpcapi.FriendGroupInviteTokenGetResponse, bool, error) {
-	item, err := m.services.FriendGroups.AdminGetFriendGroupInviteToken(ctx, name)
+func (m *Manager) getFriendGroupInviteToken(ctx context.Context, id string) (rpcapi.FriendGroupInviteTokenGetResponse, bool, error) {
+	item, err := m.services.FriendGroups.AdminGetFriendGroupInviteToken(ctx, id)
 	if errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.FriendGroupInviteTokenGetResponse{}, false, nil
 	}
@@ -271,8 +271,8 @@ func (m *Manager) getFriendGroupInviteToken(ctx context.Context, name string) (r
 	return item, true, nil
 }
 
-func (m *Manager) getFriendGroupMember(ctx context.Context, name string) (rpcapi.FriendGroupMemberObject, bool, error) {
-	friendGroupID, peerID, err := friendGroupMemberResourceParts(name)
+func (m *Manager) getFriendGroupMember(ctx context.Context, id string) (rpcapi.FriendGroupMemberObject, bool, error) {
+	friendGroupID, peerID, err := friendGroupMemberResourceParts(id)
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, false, err
 	}
@@ -469,12 +469,12 @@ func validateFriendGroupMemberResource(item apitypes.FriendGroupMemberResource) 
 	return nil
 }
 
-func friendResourcePeers(name string) (string, string, error) {
-	left, right, ok := strings.Cut(strings.TrimSpace(name), ":")
+func friendResourcePeers(id string) (string, string, error) {
+	left, right, ok := strings.Cut(strings.TrimSpace(id), ":")
 	if !ok || strings.TrimSpace(left) == "" || strings.TrimSpace(right) == "" {
 		return "", "", applyError(400, "INVALID_FRIEND_RESOURCE", "metadata.id must be owner_public_key:peer_public_key")
 	}
-	if socialutil.RelationID(left, right) != name {
+	if socialutil.RelationID(left, right) != id {
 		return "", "", applyError(400, "INVALID_FRIEND_RESOURCE", "metadata.id must use sorted relation id order")
 	}
 	return left, right, nil
@@ -484,8 +484,8 @@ func friendGroupMemberResourceName(friendGroupID, peerID string) string {
 	return customid.MembershipName(friendGroupID, peerID)
 }
 
-func friendGroupMemberResourceParts(name string) (string, string, error) {
-	friendGroupID, peerID, err := customid.SplitMembershipName(name)
+func friendGroupMemberResourceParts(id string) (string, string, error) {
+	friendGroupID, peerID, err := customid.SplitMembershipName(id)
 	if err != nil {
 		return "", "", applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", err.Error())
 	}

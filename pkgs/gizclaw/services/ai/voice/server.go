@@ -103,9 +103,9 @@ func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesReq
 		}
 	}
 	if request.Params.ProviderId != nil {
-		name := strings.TrimSpace(string(*request.Params.ProviderId))
-		if name != "" {
-			filters.ProviderId = &name
+		providerID := string(*request.Params.ProviderId)
+		if providerID != "" {
+			filters.ProviderId = &providerID
 		}
 	}
 	items, hasNext, nextCursor, err := listPage(ctx, store, filters, cursor, limit)
@@ -325,9 +325,9 @@ func RawMapValue(in *map[string]any) any {
 	return *in
 }
 
-func StableID(kind apitypes.VoiceProviderKind, name string, providerVoiceID string) string {
+func StableID(kind apitypes.VoiceProviderKind, providerID string, providerVoiceID string) string {
 	hash := sha256.New()
-	for _, component := range []string{string(kind), name, providerVoiceID} {
+	for _, component := range []string{string(kind), providerID, providerVoiceID} {
 		encodedLength := make([]byte, 8)
 		binary.BigEndian.PutUint64(encodedLength, uint64(len(component)))
 		_, _ = hash.Write(encodedLength)
@@ -345,8 +345,8 @@ func SemanticEqual(left, right apitypes.Voice) bool {
 		providerDataEqual(left.ProviderData, right.ProviderData)
 }
 
-func ListProvider(ctx context.Context, store kv.Store, kind apitypes.VoiceProviderKind, name string) ([]apitypes.Voice, error) {
-	prefix := voiceByProviderPrefix(string(kind), string(name))
+func ListProvider(ctx context.Context, store kv.Store, kind apitypes.VoiceProviderKind, providerID string) ([]apitypes.Voice, error) {
+	prefix := voiceByProviderPrefix(string(kind), providerID)
 	items := make([]apitypes.Voice, 0)
 	for entry, err := range store.List(ctx, prefix) {
 		if err != nil {
@@ -824,18 +824,18 @@ func voiceBySourceKey(source, id string) kv.Key {
 	return append(voiceBySourcePrefix(source), escapeStoreSegment(id))
 }
 
-func voiceByProviderPrefix(kind, name string) kv.Key {
+func voiceByProviderPrefix(kind, providerID string) kv.Key {
 	prefix := append(append(kv.Key{}, voicesByProviderRoot...), escapeStoreSegment(kind))
-	return append(prefix, escapeStoreSegment(name))
+	return append(prefix, escapeStoreSegment(providerID))
 }
 
-func voiceByProviderKey(kind, name, id string) kv.Key {
-	return append(voiceByProviderPrefix(kind, name), escapeStoreSegment(id))
+func voiceByProviderKey(kind, providerID, id string) kv.Key {
+	return append(voiceByProviderPrefix(kind, providerID), escapeStoreSegment(id))
 }
 
-func voiceByProviderVoiceIDKey(kind, name, providerVoiceID string) kv.Key {
+func voiceByProviderVoiceIDKey(kind, providerID, providerVoiceID string) kv.Key {
 	key := append(append(kv.Key{}, voicesByProviderVoiceIDRoot...), escapeStoreSegment(kind))
-	key = append(key, escapeStoreSegment(name))
+	key = append(key, escapeStoreSegment(providerID))
 	return append(key, escapeStoreSegment(providerVoiceID))
 }
 

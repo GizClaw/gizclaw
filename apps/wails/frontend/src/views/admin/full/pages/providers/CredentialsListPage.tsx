@@ -44,7 +44,7 @@ export function CredentialsListPage(): JSX.Element {
   const navigate = useNavigate();
   const [selectedCredential, setSelectedCredential] =
     useState<Credential | null>(null);
-  const [copiedName, setCopiedName] = useState("");
+  const [copiedID, setCopiedID] = useState("");
   const {
     error,
     hasNext,
@@ -63,13 +63,13 @@ export function CredentialsListPage(): JSX.Element {
     };
   });
 
-  const openCredential = (name: string): void => {
-    navigate(`/providers/credentials/${encodeRouteParam(name)}`);
+  const openCredential = (id: string): void => {
+    navigate(`/providers/credentials/${encodeRouteParam(id)}`);
   };
 
   const handleRowKeyDown = (
     event: KeyboardEvent<HTMLTableRowElement>,
-    name: string,
+    id: string,
   ): void => {
     if (isInteractiveTarget(event.target)) {
       return;
@@ -78,7 +78,7 @@ export function CredentialsListPage(): JSX.Element {
       return;
     }
     event.preventDefault();
-    openCredential(name);
+    openCredential(id);
   };
 
   const openBodyDialog = (
@@ -89,15 +89,15 @@ export function CredentialsListPage(): JSX.Element {
     setSelectedCredential(credential);
   };
 
-  const copyCredentialName = async (
+  const copyCredentialID = async (
     event: MouseEvent<HTMLButtonElement>,
-    name: string,
+    id: string,
   ): Promise<void> => {
     event.stopPropagation();
-    await navigator.clipboard.writeText(name);
-    setCopiedName(name);
+    await navigator.clipboard.writeText(id);
+    setCopiedID(id);
     window.setTimeout(() => {
-      setCopiedName((current) => (current === name ? "" : current));
+      setCopiedID((current) => (current === id ? "" : current));
     }, 1500);
   };
 
@@ -214,12 +214,12 @@ export function CredentialsListPage(): JSX.Element {
                           aria-label={`Copy credential ID ${credential.id}`}
                           className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={(event) =>
-                            void copyCredentialName(event, credential.id)
+                            void copyCredentialID(event, credential.id)
                           }
                           title="Copy credential ID"
                           type="button"
                         >
-                          {copiedName === credential.id ? (
+                          {copiedID === credential.id ? (
                             <Check className="size-3 shrink-0 text-emerald-600" />
                           ) : (
                             <Copy className="size-3 shrink-0" />

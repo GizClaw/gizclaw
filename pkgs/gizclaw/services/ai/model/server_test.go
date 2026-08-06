@@ -73,6 +73,16 @@ func TestServerModelCRUDListFiltersAndIndexes(t *testing.T) {
 	if len(providerListed.Items) != 1 || providerListed.Items[0].Id != "speech" {
 		t.Fatalf("ListModels(provider) items = %#v", providerListed.Items)
 	}
+	paddedProviderID := " global "
+	paddedProviderResp, err := srv.ListModels(ctx, adminhttp.ListModelsRequestObject{
+		Params: adminhttp.ListModelsParams{ProviderId: &paddedProviderID},
+	})
+	if err != nil {
+		t.Fatalf("ListModels(padded provider ID) error = %v", err)
+	}
+	if items := requireModelList(t, paddedProviderResp).Items; len(items) != 0 {
+		t.Fatalf("ListModels(padded provider ID) items = %#v, want empty", items)
+	}
 
 	updated := first
 	updated.Provider = apitypes.ModelProvider{Kind: "openai-tenant", Id: "global"}

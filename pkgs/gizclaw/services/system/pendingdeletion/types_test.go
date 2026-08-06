@@ -83,9 +83,12 @@ func TestNewRejectsPetWithoutOwner(t *testing.T) {
 	}
 }
 
-func TestNewCanonicalizesLocator(t *testing.T) {
+func TestNewRejectsPaddedResourceIDAndCanonicalizesOwner(t *testing.T) {
 	owner := " peer-a "
-	record, err := New(KindPet, " pet-a ", &owner, ReasonResourceDelete, struct{}{}, time.Time{})
+	if _, err := New(KindPet, " pet-a ", &owner, ReasonResourceDelete, struct{}{}, time.Time{}); err == nil {
+		t.Fatal("New(padded resource id) error = nil")
+	}
+	record, err := New(KindPet, "pet-a", &owner, ReasonResourceDelete, struct{}{}, time.Time{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

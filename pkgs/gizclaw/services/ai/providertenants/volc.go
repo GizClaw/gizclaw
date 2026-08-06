@@ -770,13 +770,13 @@ func reconcileVolcTenantVoices(ctx context.Context, store kv.Store, tenant apity
 
 func voiceFromVolc(tenantID string, upstream volcSpeakerRecord, now time.Time) apitypes.Voice {
 	providerVoiceID := upstream.providerVoiceID()
-	voiceName := voicecatalog.StableID(volcProviderKind, tenantID, providerVoiceID)
+	voiceID := voicecatalog.StableID(volcProviderKind, tenantID, providerVoiceID)
 	name, description, raw := volcVoiceDisplay(upstream)
 	resourceID := strings.TrimSpace(string(upstream.resourceID))
 	syncedAt := now
 	voice := apitypes.Voice{
 		CreatedAt: now,
-		Id:        voiceName,
+		Id:        voiceID,
 		Provider: apitypes.VoiceProvider{
 			Kind: volcProviderKind,
 			Id:   tenantID,

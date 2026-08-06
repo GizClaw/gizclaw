@@ -50,9 +50,9 @@ type MiniMaxTenantForm = {
 
 export function MiniMaxTenantDetailPage(): JSX.Element {
   const params = useParams();
-  const tenantName = useMemo(
-    () => decodeRouteParam(params.name ?? ""),
-    [params.name],
+  const tenantID = useMemo(
+    () => decodeRouteParam(params.id ?? ""),
+    [params.id],
   );
   const [tenant, setTenant] = useState<MiniMaxTenant | null>(null);
   const [tenantResource, setTenantResource] = useState<Resource | null>(null);
@@ -65,9 +65,9 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
   const [notice, setNotice] = useState("");
 
   const load = async (): Promise<void> => {
-    if (tenantName === "") {
+    if (tenantID === "") {
       setLoading(false);
-      setError("Missing MiniMax tenant name in the URL.");
+      setError("Missing MiniMax tenant ID in the URL.");
       return;
     }
     setLoading(true);
@@ -75,9 +75,9 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
     setNotice("");
     try {
       const [nextTenant, nextResource, credentialList] = await Promise.all([
-        expectData(getMiniMaxTenant({ path: { id: tenantName } })),
+        expectData(getMiniMaxTenant({ path: { id: tenantID } })),
         expectData(
-          getResource({ path: { kind: "MiniMaxTenant", id: tenantName } }),
+          getResource({ path: { kind: "MiniMaxTenant", id: tenantID } }),
         ),
         expectData(listCredentials({ query: { limit: 200 } })),
       ]);
@@ -94,7 +94,7 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
 
   useEffect(() => {
     void load();
-  }, [tenantName]);
+  }, [tenantID]);
 
   const save = async (): Promise<void> => {
     if (tenant === null) {
@@ -154,7 +154,7 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
     }
   };
 
-  if (tenantName === "") {
+  if (tenantID === "") {
     return (
       <EmptyState
         description="Missing MiniMax tenant ID in the URL."
@@ -205,7 +205,7 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
         items={[
           { href: "/overview", label: "Overview" },
           { href: "/providers/minimax-tenants", label: "MiniMax Tenants" },
-          { label: tenantName },
+          { label: tenantID },
         ]}
       />
 
@@ -213,7 +213,7 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
         description="MiniMax tenant configuration and voice sync controls."
         eyebrow="Providers"
         meta={tenant ? <Badge variant="secondary">MiniMax</Badge> : null}
-        title={tenant?.id ?? tenantName}
+        title={tenant?.id ?? tenantID}
       />
 
       {notice !== "" ? <NoticeBanner message={notice} tone="success" /> : null}

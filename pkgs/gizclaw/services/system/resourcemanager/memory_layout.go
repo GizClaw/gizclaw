@@ -51,8 +51,8 @@ func (m *Manager) createMemoryLayout(ctx context.Context, body adminhttp.MemoryL
 	}
 }
 
-func (m *Manager) getMemoryLayout(ctx context.Context, name string) (apitypes.MemoryLayout, bool, error) {
-	response, err := m.services.MemoryLayouts.GetMemoryLayout(ctx, adminhttp.GetMemoryLayoutRequestObject{Id: name})
+func (m *Manager) getMemoryLayout(ctx context.Context, id string) (apitypes.MemoryLayout, bool, error) {
+	response, err := m.services.MemoryLayouts.GetMemoryLayout(ctx, adminhttp.GetMemoryLayoutRequestObject{Id: id})
 	if err != nil {
 		return apitypes.MemoryLayout{}, false, err
 	}
@@ -68,8 +68,8 @@ func (m *Manager) getMemoryLayout(ctx context.Context, name string) (apitypes.Me
 	}
 }
 
-func (m *Manager) putMemoryLayout(ctx context.Context, name string, body adminhttp.MemoryLayoutUpsert) error {
-	response, err := m.services.MemoryLayouts.PutMemoryLayout(ctx, adminhttp.PutMemoryLayoutRequestObject{Id: name, Body: &body})
+func (m *Manager) putMemoryLayout(ctx context.Context, id string, body adminhttp.MemoryLayoutUpsert) error {
+	response, err := m.services.MemoryLayouts.PutMemoryLayout(ctx, adminhttp.PutMemoryLayoutRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -85,8 +85,8 @@ func (m *Manager) putMemoryLayout(ctx context.Context, name string, body adminht
 	}
 }
 
-func (m *Manager) deleteMemoryLayout(ctx context.Context, name string) (apitypes.MemoryLayout, bool, error) {
-	response, err := m.services.MemoryLayouts.DeleteMemoryLayout(ctx, adminhttp.DeleteMemoryLayoutRequestObject{Id: name})
+func (m *Manager) deleteMemoryLayout(ctx context.Context, id string) (apitypes.MemoryLayout, bool, error) {
+	response, err := m.services.MemoryLayouts.DeleteMemoryLayout(ctx, adminhttp.DeleteMemoryLayoutRequestObject{Id: id})
 	if err != nil {
 		return apitypes.MemoryLayout{}, false, err
 	}

@@ -8,7 +8,7 @@ The [RPC API Reference](/references/rpc) is the single list of exact method IDs,
 
 Canonical Workflow, Model, Credential, Voice, and Tool resources are Admin-managed. Peer RPC has no Workflow, Model, Credential, or Tool create/put/delete methods and no `source=runtime|owned` selector.
 
-RuntimeProfile binding aliases are grouped under Collections, but the Peer boundary projects each binding as an immutable `name`. `server.workflow.list` requires a Collection; Workflow, Model, Voice, and Tool get/list requests and responses consistently use names. Responses include the RuntimeProfile name and revision; canonical IDs, provider configuration, credentials, ownership, and executor routing stay on the Server.
+RuntimeProfile binding aliases are grouped under Collections, but the Peer boundary projects each binding as an immutable `name`. `server.workflow.list` requires a Collection; Workflow, Model, Voice, and Tool get/list requests and responses consistently use names. Responses retain the legacy `runtime_profile_name` wire field, but its value is the canonical RuntimeProfile ID, alongside the revision; other canonical IDs, provider configuration, credentials, ownership, and executor routing stay on the Server.
 
 Workspace create requires `collection` and `workflow_name`. The Server resolves that Peer name to the current RuntimeProfile binding and records Collection through an internal Workspace label. Workspace list requires Collection and performs exact filtering, but generic labels are not part of the Peer response. Removing the binding does not hide or delete an existing Workspace; reload/run reports not found until the name resolves again.
 

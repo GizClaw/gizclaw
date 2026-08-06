@@ -39,11 +39,11 @@ func (m *Manager) applyRegistrationToken(ctx context.Context, resource apitypes.
 	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindRegistrationToken, id), nil
 }
 
-func (m *Manager) getRegistrationToken(ctx context.Context, name string) (apitypes.RegistrationToken, bool, error) {
+func (m *Manager) getRegistrationToken(ctx context.Context, id string) (apitypes.RegistrationToken, bool, error) {
 	if m.services.RuntimeProfiles == nil {
 		return apitypes.RegistrationToken{}, false, missingService("registration tokens")
 	}
-	response, err := m.services.RuntimeProfiles.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Id: name})
+	response, err := m.services.RuntimeProfiles.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Id: id})
 	if err != nil {
 		return apitypes.RegistrationToken{}, false, err
 	}
@@ -107,11 +107,11 @@ func (m *Manager) createRegistrationToken(ctx context.Context, item apitypes.Reg
 	}
 }
 
-func (m *Manager) deleteRegistrationToken(ctx context.Context, name string) (apitypes.RegistrationToken, bool, error) {
+func (m *Manager) deleteRegistrationToken(ctx context.Context, id string) (apitypes.RegistrationToken, bool, error) {
 	if m.services.RuntimeProfiles == nil {
 		return apitypes.RegistrationToken{}, false, missingService("registration tokens")
 	}
-	response, err := m.services.RuntimeProfiles.DeleteRegistrationToken(ctx, adminhttp.DeleteRegistrationTokenRequestObject{Id: name})
+	response, err := m.services.RuntimeProfiles.DeleteRegistrationToken(ctx, adminhttp.DeleteRegistrationTokenRequestObject{Id: id})
 	if err != nil {
 		return apitypes.RegistrationToken{}, false, err
 	}
@@ -139,8 +139,8 @@ func resourceFromRegistrationToken(item apitypes.RegistrationToken) (apitypes.Re
 	return marshalResource(resource)
 }
 
-func registrationTokenMatches(item apitypes.RegistrationToken, token, runtimeProfileName string, firmwareID *string) bool {
-	if item.Token != strings.TrimSpace(token) || item.RuntimeProfileId != runtimeProfileName {
+func registrationTokenMatches(item apitypes.RegistrationToken, token, runtimeProfileID string, firmwareID *string) bool {
+	if item.Token != strings.TrimSpace(token) || item.RuntimeProfileId != runtimeProfileID {
 		return false
 	}
 	if item.FirmwareId == nil || firmwareID == nil {

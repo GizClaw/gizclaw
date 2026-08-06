@@ -715,7 +715,7 @@ func TestServerSyncMiniMaxTenantVoicesUsesTenantBaseURL(t *testing.T) {
 		t.Fatalf("upstream call count = %d, want 4", callCount.Load())
 	}
 
-	voice := requireStoredVoice(t, srv, ctx, stableVoiceName(miniMaxProviderKind, "tenant-a", "voice-1"))
+	voice := requireStoredVoice(t, srv, ctx, stableVoiceID(miniMaxProviderKind, "tenant-a", "voice-1"))
 	if voice.Source != apitypes.VoiceSourceSync || voiceProviderDataString(voice, "voice_id") != "voice-1" {
 		t.Fatalf("stored sync voice = %#v", voice)
 	}
@@ -970,12 +970,12 @@ func TestServerSyncMiniMaxTenantVoicesReconcile(t *testing.T) {
 		t.Fatalf("second SyncMiniMaxTenantVoices() result = %#v", second)
 	}
 
-	updatedVoice := requireStoredVoice(t, srv, ctx, stableVoiceName(miniMaxProviderKind, "tenant-a", "voice-1"))
+	updatedVoice := requireStoredVoice(t, srv, ctx, stableVoiceID(miniMaxProviderKind, "tenant-a", "voice-1"))
 	if updatedVoice.DisplayName == nil || *updatedVoice.DisplayName != "first-updated" {
 		t.Fatalf("updated sync voice = %#v", updatedVoice)
 	}
 
-	requireMissingVoice(t, srv, ctx, stableVoiceName(miniMaxProviderKind, "tenant-a", "voice-2"))
+	requireMissingVoice(t, srv, ctx, stableVoiceID(miniMaxProviderKind, "tenant-a", "voice-2"))
 
 	requireStoredVoice(t, srv, ctx, manualVoice.Id)
 }
@@ -1063,9 +1063,9 @@ func TestServerSyncMiniMaxTenantVoicesFetchesAllVoiceTypes(t *testing.T) {
 	}
 
 	for _, id := range []string{
-		stableVoiceName(miniMaxProviderKind, "tenant-a", "voice-system-1"),
-		stableVoiceName(miniMaxProviderKind, "tenant-a", "voice-clone-1"),
-		stableVoiceName(miniMaxProviderKind, "tenant-a", "voice-gen-1"),
+		stableVoiceID(miniMaxProviderKind, "tenant-a", "voice-system-1"),
+		stableVoiceID(miniMaxProviderKind, "tenant-a", "voice-clone-1"),
+		stableVoiceID(miniMaxProviderKind, "tenant-a", "voice-gen-1"),
 	} {
 		requireStoredVoice(t, srv, ctx, id)
 	}
@@ -1161,11 +1161,11 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 	if len(fakeClient.requestedResourceIDs) != 1 || !slices.Equal(fakeClient.requestedResourceIDs[0], resourceIDs) {
 		t.Fatalf("BatchListMegaTTSTrainStatus ResourceIDs = %#v, want %#v", fakeClient.requestedResourceIDs, resourceIDs)
 	}
-	publicVoiceID := stableVoiceName(volcProviderKind, "tenant-a", "zh_female_public")
+	publicVoiceID := stableVoiceID(volcProviderKind, "tenant-a", "zh_female_public")
 	for _, id := range []string{
 		publicVoiceID,
-		stableVoiceName(volcProviderKind, "tenant-a", "S_female_1"),
-		stableVoiceName(volcProviderKind, "tenant-a", "S_male_1"),
+		stableVoiceID(volcProviderKind, "tenant-a", "S_female_1"),
+		stableVoiceID(volcProviderKind, "tenant-a", "S_male_1"),
 	} {
 		voice := requireStoredVoice(t, srv, ctx, string(id))
 		if voice.Provider.Kind != volcProviderKind || voice.Provider.Id != created.Id {
@@ -1221,7 +1221,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 	if _, ok := deleteResp.(adminhttp.DeleteVolcTenant200JSONResponse); !ok {
 		t.Fatalf("DeleteVolcTenant() response = %#v", deleteResp)
 	}
-	if _, err := getVoice(ctx, srv.VoiceStore, stableVoiceName(volcProviderKind, "tenant-a", "S_female_1")); err != kv.ErrNotFound {
+	if _, err := getVoice(ctx, srv.VoiceStore, stableVoiceID(volcProviderKind, "tenant-a", "S_female_1")); err != kv.ErrNotFound {
 		t.Fatalf("getVoice() after volc tenant delete err = %v, want kv.ErrNotFound", err)
 	}
 }
@@ -1436,7 +1436,7 @@ func TestServerVolcSyncPublicOnlySkipsTrainStatusAPI(t *testing.T) {
 	if len(fakeClient.requestedResourceIDs) != 0 {
 		t.Fatalf("BatchListMegaTTSTrainStatus requests = %#v, want none", fakeClient.requestedResourceIDs)
 	}
-	voice := requireStoredVoice(t, srv, ctx, stableVoiceName(volcProviderKind, "tenant-a", "public-a"))
+	voice := requireStoredVoice(t, srv, ctx, stableVoiceID(volcProviderKind, "tenant-a", "public-a"))
 	if voiceProviderDataString(voice, "resource_id") != "seed-tts-2.0" {
 		t.Fatalf("resource_id = %q, want seed-tts-2.0", voiceProviderDataString(voice, "resource_id"))
 	}
@@ -1480,11 +1480,11 @@ func TestServerVolcSyncTimbreFallbackMapsICLResourceID(t *testing.T) {
 	if synced, ok := syncResp.(adminhttp.SyncVolcTenantVoices200JSONResponse); !ok || synced.CreatedCount != 2 {
 		t.Fatalf("SyncVolcTenantVoices() response = %#v", syncResp)
 	}
-	icl := requireStoredVoice(t, srv, ctx, stableVoiceName(volcProviderKind, "tenant-a", "ICL_en_female_cc_cm_v1_tob"))
+	icl := requireStoredVoice(t, srv, ctx, stableVoiceID(volcProviderKind, "tenant-a", "ICL_en_female_cc_cm_v1_tob"))
 	if got := voiceProviderDataString(icl, "resource_id"); got != "seed-tts-1.0" {
 		t.Fatalf("ICL resource_id = %q, want seed-tts-1.0", got)
 	}
-	tts := requireStoredVoice(t, srv, ctx, stableVoiceName(volcProviderKind, "tenant-a", "zh_female_vv_uranus_bigtts"))
+	tts := requireStoredVoice(t, srv, ctx, stableVoiceID(volcProviderKind, "tenant-a", "zh_female_vv_uranus_bigtts"))
 	if got := voiceProviderDataString(tts, "resource_id"); got != "seed-tts-2.0" {
 		t.Fatalf("TTS resource_id = %q, want seed-tts-2.0", got)
 	}
@@ -1906,20 +1906,6 @@ func requireStoredVoice(t *testing.T, srv *Server, ctx context.Context, id strin
 		t.Fatalf("voiceStore() error = %v", err)
 	}
 	voice, err := getVoice(ctx, store, id)
-	if errors.Is(err, kv.ErrNotFound) {
-		voice, err = getVoiceByName(ctx, store, id)
-	}
-	if errors.Is(err, kv.ErrNotFound) {
-		parts := strings.SplitN(id, ":", 3)
-		if len(parts) == 3 && parts[1] == "tenant-a" {
-			switch parts[0] {
-			case "volc-tenant":
-				voice, err = getVoiceByName(ctx, store, stableVoiceName(volcProviderKind, volcTenantID(t, srv, ctx, parts[1]), parts[2]))
-			case "minimax-tenant":
-				voice, err = getVoiceByName(ctx, store, stableVoiceName(miniMaxProviderKind, miniMaxTenantID(t, srv, ctx, parts[1]), parts[2]))
-			}
-		}
-	}
 	if err != nil {
 		t.Fatalf("getVoice(%s) error = %v", id, err)
 	}

@@ -20,7 +20,6 @@ import {
   deletePeer,
   deleteRegistrationToken,
   getPeerRuntime,
-  listRuntimeProfiles,
 } from "@gizclaw/gizclaw/admin";
 import {
   FriendGroupChange,
@@ -52,8 +51,9 @@ async function main(): Promise<void> {
   const admin = createAdminAPIClient(adminPC as unknown as RTCPeerConnection, {
     requestTimeoutMs: 10_000,
   });
-  const registrationTokenName = `e2e-js-concurrent-stream-${process.pid}-${Date.now()}`;
-  const eventProbeGroupCreateName = `${registrationTokenName}-group`;
+  const registrationTokenResourceID = `e2e-js-concurrent-stream-${process.pid}-${Date.now()}`;
+  const registrationTokenValue = registrationTokenResourceID;
+  const eventProbeGroupCreateName = `${registrationTokenResourceID}-group`;
   let registrationTokenID: string | undefined;
   let eventProbeGroupName: string | undefined;
   let eventProbePeerRegistered = false;
@@ -89,21 +89,19 @@ async function main(): Promise<void> {
       name: "JavaScript concurrent service Event probe",
     });
     eventProbePeerRegistered = true;
-    const runtimeProfileID = await resolveRuntimeProfileID(
-      admin,
-      "default-gameplay",
-    );
+    const runtimeProfileID = "default-gameplay";
     const registrationToken = await createRegistrationToken({
       client: admin,
       body: {
-        name: registrationTokenName,
-        token: registrationTokenName,
+        id: registrationTokenResourceID,
+        token: registrationTokenValue,
         runtime_profile_id: runtimeProfileID,
       },
       throwOnError: true,
     });
+    assert.equal(registrationToken.data.id, registrationTokenResourceID);
     registrationTokenID = registrationToken.data.id;
-    await setupRPC.call("server.register", { token: registrationTokenName });
+    await setupRPC.call("server.register", { token: registrationTokenValue });
     await deleteRegistrationToken({
       client: admin,
       path: { id: registrationTokenID },
@@ -254,40 +252,13 @@ async function main(): Promise<void> {
   if (cleanupError != null) throw cleanupError;
 }
 
-async function resolveRuntimeProfileID(
-  client: ReturnType<typeof createAdminAPIClient>,
-  name: string,
-): Promise<string> {
-  const matches: string[] = [];
-  let cursor: string | undefined;
-  do {
-    const response = await listRuntimeProfiles({
-      client,
-      query: { cursor, limit: 200 },
-      throwOnError: true,
-    });
-    for (const item of response.data.items) {
-      if (item.name === name) matches.push(item.id);
-    }
-    cursor = response.data.has_next
-      ? (response.data.next_cursor ?? undefined)
-      : undefined;
-  } while (cursor !== undefined);
-  assert.equal(
-    matches.length,
-    1,
-    `expected exactly one RuntimeProfile named ${JSON.stringify(name)}, found ${matches.length}`,
-  );
-  return matches[0]!;
-}
-
 function oneChannelFactory(
   channel: RTCDataChannel,
   expectedLabel: string,
 ): WebRTCRPCDataChannelFactory {
   let used = false;
   return {
-    createDataChannel(label): RTCDataChannel {
+    createDataChannel(label: string): RTCDataChannel {
       assert.equal(label, expectedLabel);
       assert.equal(used, false, `channel ${channel.id} was requested twice`);
       used = true;

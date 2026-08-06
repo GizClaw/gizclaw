@@ -44,8 +44,8 @@ func (m *Manager) createGeminiTenant(ctx context.Context, body adminhttp.GeminiT
 	}
 }
 
-func (m *Manager) getGeminiTenant(ctx context.Context, name string) (apitypes.GeminiTenant, bool, error) {
-	response, err := m.services.ProviderTenants.GetGeminiTenant(ctx, adminhttp.GetGeminiTenantRequestObject{Id: name})
+func (m *Manager) getGeminiTenant(ctx context.Context, id string) (apitypes.GeminiTenant, bool, error) {
+	response, err := m.services.ProviderTenants.GetGeminiTenant(ctx, adminhttp.GetGeminiTenantRequestObject{Id: id})
 	if err != nil {
 		return apitypes.GeminiTenant{}, false, err
 	}
@@ -61,8 +61,8 @@ func (m *Manager) getGeminiTenant(ctx context.Context, name string) (apitypes.Ge
 	}
 }
 
-func (m *Manager) putGeminiTenant(ctx context.Context, name string, body adminhttp.GeminiTenantUpsert) error {
-	response, err := m.services.ProviderTenants.PutGeminiTenant(ctx, adminhttp.PutGeminiTenantRequestObject{Id: name, Body: &body})
+func (m *Manager) putGeminiTenant(ctx context.Context, id string, body adminhttp.GeminiTenantUpsert) error {
+	response, err := m.services.ProviderTenants.PutGeminiTenant(ctx, adminhttp.PutGeminiTenantRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -78,8 +78,8 @@ func (m *Manager) putGeminiTenant(ctx context.Context, name string, body adminht
 	}
 }
 
-func (m *Manager) deleteGeminiTenant(ctx context.Context, name string) (apitypes.GeminiTenant, bool, error) {
-	response, err := m.services.ProviderTenants.DeleteGeminiTenant(ctx, adminhttp.DeleteGeminiTenantRequestObject{Id: name})
+func (m *Manager) deleteGeminiTenant(ctx context.Context, id string) (apitypes.GeminiTenant, bool, error) {
+	response, err := m.services.ProviderTenants.DeleteGeminiTenant(ctx, adminhttp.DeleteGeminiTenantRequestObject{Id: id})
 	if err != nil {
 		return apitypes.GeminiTenant{}, false, err
 	}

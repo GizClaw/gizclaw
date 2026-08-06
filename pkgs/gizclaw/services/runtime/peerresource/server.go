@@ -491,7 +491,7 @@ func workspaceWorkflowName(profile *apitypes.RuntimeProfile, item apitypes.Works
 			{name: "group-chatroom", id: profile.Spec.Workflows.System.GroupChatroom},
 			{name: "pet", id: profile.Spec.Workflows.System.Pet},
 		} {
-			if strings.TrimSpace(alias.id) == strings.TrimSpace(item.WorkflowId) {
+			if alias.id == item.WorkflowId {
 				return alias.name, true
 			}
 		}
@@ -505,7 +505,7 @@ func workspaceWorkflowName(profile *apitypes.RuntimeProfile, item apitypes.Works
 		return "", false
 	}
 	for alias, binding := range bindings {
-		if strings.TrimSpace(binding.ResourceId) == strings.TrimSpace(item.WorkflowId) {
+		if binding.ResourceId == item.WorkflowId {
 			return alias, true
 		}
 	}

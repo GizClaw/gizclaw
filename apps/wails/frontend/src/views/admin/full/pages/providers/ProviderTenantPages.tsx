@@ -361,9 +361,9 @@ function ProviderTenantDetailPage<T extends ProviderTenant>({
   config: ProviderTenantConfig<T>;
 }): JSX.Element {
   const params = useParams();
-  const tenantName = useMemo(
-    () => decodeRouteParam(params.name ?? ""),
-    [params.name],
+  const tenantID = useMemo(
+    () => decodeRouteParam(params.id ?? ""),
+    [params.id],
   );
   const [tenant, setTenant] = useState<T | null>(null);
   const [resource, setResource] = useState<Resource | null>(null);
@@ -371,19 +371,19 @@ function ProviderTenantDetailPage<T extends ProviderTenant>({
   const [error, setError] = useState("");
 
   const load = async (): Promise<void> => {
-    if (tenantName === "") {
+    if (tenantID === "") {
       setLoading(false);
-      setError(`Missing ${config.name} name in the URL.`);
+      setError(`Missing ${config.name} ID in the URL.`);
       return;
     }
     setLoading(true);
     setError("");
     try {
       const [nextTenant, nextResource] = await Promise.all([
-        config.get(tenantName),
+        config.get(tenantID),
         expectData(
           getResource({
-            path: { kind: config.resourceKind, id: tenantName },
+            path: { kind: config.resourceKind, id: tenantID },
           }),
         ),
       ]);
@@ -398,12 +398,12 @@ function ProviderTenantDetailPage<T extends ProviderTenant>({
 
   useEffect(() => {
     void load();
-  }, [tenantName]);
+  }, [tenantID]);
 
-  if (tenantName === "") {
+  if (tenantID === "") {
     return (
       <EmptyState
-        description={`Missing ${config.name} name in the URL.`}
+        description={`Missing ${config.name} ID in the URL.`}
         title="Invalid route"
       />
     );
@@ -434,7 +434,7 @@ function ProviderTenantDetailPage<T extends ProviderTenant>({
         items={[
           { href: "/overview", label: "Overview" },
           { href: config.routeBase, label: config.title },
-          { label: tenantName },
+          { label: tenantID },
         ]}
       />
 
@@ -444,7 +444,7 @@ function ProviderTenantDetailPage<T extends ProviderTenant>({
         meta={
           tenant ? <Badge variant="secondary">{config.kindBadge}</Badge> : null
         }
-        title={tenant?.id ?? tenantName}
+        title={tenant?.id ?? tenantID}
       />
 
       {loading ? (

@@ -60,8 +60,8 @@ func normalizeWorkflowResourceSpec(spec apitypes.WorkflowSpec) (apitypes.Workflo
 	return spec, nil
 }
 
-func (m *Manager) getWorkflow(ctx context.Context, name string) (apitypes.Workflow, bool, error) {
-	response, err := m.services.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: name})
+func (m *Manager) getWorkflow(ctx context.Context, id string) (apitypes.Workflow, bool, error) {
+	response, err := m.services.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Workflow{}, false, err
 	}
@@ -77,8 +77,8 @@ func (m *Manager) getWorkflow(ctx context.Context, name string) (apitypes.Workfl
 	}
 }
 
-func (m *Manager) putWorkflow(ctx context.Context, name string, body adminhttp.WorkflowUpsert) error {
-	response, err := m.services.Workflows.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Id: name, Body: &body})
+func (m *Manager) putWorkflow(ctx context.Context, id string, body adminhttp.WorkflowUpsert) error {
+	response, err := m.services.Workflows.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -94,8 +94,8 @@ func (m *Manager) putWorkflow(ctx context.Context, name string, body adminhttp.W
 	}
 }
 
-func (m *Manager) deleteWorkflow(ctx context.Context, name string) (apitypes.Workflow, bool, error) {
-	response, err := m.services.Workflows.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Id: name})
+func (m *Manager) deleteWorkflow(ctx context.Context, id string) (apitypes.Workflow, bool, error) {
+	response, err := m.services.Workflows.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Workflow{}, false, err
 	}

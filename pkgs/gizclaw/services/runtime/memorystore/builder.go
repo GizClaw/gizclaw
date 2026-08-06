@@ -48,9 +48,8 @@ type Result struct {
 }
 
 func Build(ctx context.Context, request Request) (Result, error) {
-	workspaceID := strings.TrimSpace(request.WorkspaceID)
-	if workspaceID == "" {
-		return Result{}, errors.New("memory store: workspace id is required")
+	if err := customid.ValidateResourceID(request.WorkspaceID); err != nil {
+		return Result{}, fmt.Errorf("memory store: invalid workspace id: %w", err)
 	}
 	if err := validateLayoutBinding(request); err != nil {
 		return Result{}, err

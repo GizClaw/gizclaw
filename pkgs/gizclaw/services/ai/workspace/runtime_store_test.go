@@ -106,4 +106,10 @@ func TestObjectRuntimeStoreValidation(t *testing.T) {
 	if err := store.DeleteWorkspaceRuntime(context.Background(), " "); err == nil || !strings.Contains(err.Error(), "id") {
 		t.Fatalf("DeleteWorkspaceRuntime(empty workspace) error = %v", err)
 	}
+	if _, err := store.PrepareWorkspace(context.Background(), " demo "); err == nil || !strings.Contains(err.Error(), "whitespace") {
+		t.Fatalf("PrepareWorkspace(padded workspace) error = %v", err)
+	}
+	if err := store.DeleteWorkspaceRuntime(context.Background(), " demo "); err == nil || !strings.Contains(err.Error(), "whitespace") {
+		t.Fatalf("DeleteWorkspaceRuntime(padded workspace) error = %v", err)
+	}
 }
