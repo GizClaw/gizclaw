@@ -137,10 +137,12 @@ exponential backoff; another eligible member is tried within the existing
 30-second connection budget, with at most five seconds per member. There is no
 direct fallback. While establishing the required gateway warm pool, the Edge
 also honors the selector's reported backoff and retries temporarily unavailable
-members within one shared 30-second startup budget; configuration, cancellation,
-and other errors still fail immediately. Successful reconnection clears that
-member's failure state, while request cancellation, Edge shutdown, and
-individual logical-session failure do not penalize it. Established gateway
+members within one shared 30-second startup budget. If a five-second warmup
+attempt establishes only part of the pool, the Edge keeps those associations
+and retries only the missing slots within the same budget; configuration,
+cancellation, and other errors still fail immediately. Successful reconnection
+clears that member's failure state, while request cancellation, Edge shutdown,
+and individual logical-session failure do not penalize it. Established gateway
 sessions remain pinned and may fail with their physical upstream; a fresh client
 reconnect selects from the current healthy pool.
 
