@@ -135,11 +135,14 @@ upstream PeerConnection. HTTP forwarding and gateway upstreams share one
 process-local round-robin health selector. A failed relay enters bounded
 exponential backoff; another eligible member is tried within the existing
 30-second connection budget, with at most five seconds per member. There is no
-direct fallback. Successful reconnection clears that member's failure state,
-while request cancellation, Edge shutdown, and individual logical-session
-failure do not penalize it. Established gateway sessions remain pinned and may
-fail with their physical upstream; a fresh client reconnect selects from the
-current healthy pool.
+direct fallback. While establishing the required gateway warm pool, the Edge
+also honors the selector's reported backoff and retries temporarily unavailable
+members within one shared 30-second startup budget; configuration, cancellation,
+and other errors still fail immediately. Successful reconnection clears that
+member's failure state, while request cancellation, Edge shutdown, and
+individual logical-session failure do not penalize it. Established gateway
+sessions remain pinned and may fail with their physical upstream; a fresh client
+reconnect selects from the current healthy pool.
 
 Every pool member has exactly one lowercase `turn:` URL with a literal IPv4 or
 bracketed IPv6 address, an explicit port, and only `transport=udp`. Static mode

@@ -111,9 +111,11 @@ relay mode 为每条新 upstream PeerConnection 只传入一个 pool member 和
 relay-only ICE。HTTP forwarding 与 gateway upstream 共享同一个进程内
 round-robin 健康 selector。relay 失败后进入有上限的指数退避；连接仍在原有 30 秒预算内
 尝试其他 eligible member，每个 member 最多使用 5 秒，并且绝不回退到 direct ICE。
-成功重连会清除该 member 的失败状态；request cancellation、Edge shutdown 或单个
-logical session 失败不会惩罚 relay。已有 gateway session 保持绑定到原 physical
-upstream，可能随其失败；新的 client reconnect 才会从当前 healthy pool 重新选择。
+建立必需的 gateway warm pool 时，Edge 还会遵守 selector 返回的 backoff，并在共享的
+30 秒启动预算内重试暂时不可用的 member；配置、取消和其他错误仍立即失败。成功重连会
+清除该 member 的失败状态；request cancellation、Edge shutdown 或单个 logical session
+失败不会惩罚 relay。已有 gateway session 保持绑定到原 physical upstream，可能随其
+失败；新的 client reconnect 才会从当前 healthy pool 重新选择。
 
 每个 pool member 只允许一个小写 `turn:` URL，地址必须是 literal IPv4 或带方括号的
 IPv6、显式端口，并且 query 只能是 `transport=udp`。static mode（显式或默认）同时要求

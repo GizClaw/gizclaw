@@ -110,12 +110,14 @@ func newGateway(
 		return nil, fmt.Errorf("edge: start gateway listener: %w", err)
 	}
 	pool := newGatewayPool(ctx, cfg, upstreamURL, relaySelector)
-	if err := pool.ensureOne(ctx); err != nil {
+	startupCtx, startupCancel := context.WithTimeout(ctx, upstreamDialTimeout)
+	defer startupCancel()
+	if err := retryGatewayStartupRelay(startupCtx, pool.ensureOne); err != nil {
 		_ = listener.Close()
 		cancel()
 		return nil, err
 	}
-	if err := pool.warm(ctx); err != nil {
+	if err := retryGatewayStartupRelay(startupCtx, pool.warm); err != nil {
 		_ = pool.Close()
 		_ = listener.Close()
 		cancel()
@@ -125,6 +127,31 @@ func newGateway(
 	gateway.pool = pool
 	go gateway.acceptLoop()
 	return gateway, nil
+}
+
+func retryGatewayStartupRelay(ctx context.Context, operation func(context.Context) error) error {
+	for {
+		err := operation(ctx)
+		if err == nil {
+			return nil
+		}
+		var unavailable *upstreamRelaysUnavailableError
+		if !errors.As(err, &unavailable) || unavailable.retryAfter <= 0 {
+			return err
+		}
+		timer := time.NewTimer(unavailable.retryAfter)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			return errors.Join(err, ctx.Err())
+		}
+	}
 }
 
 func (g *Gateway) Handler(next http.Handler) http.Handler {

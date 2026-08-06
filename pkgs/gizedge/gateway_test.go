@@ -415,6 +415,58 @@ func TestGatewayPoolWarmsBoundedAssociations(t *testing.T) {
 	}
 }
 
+func TestRetryGatewayStartupRelayWaitsForEligibleMember(t *testing.T) {
+	var attempts int
+	err := retryGatewayStartupRelay(t.Context(), func(context.Context) error {
+		attempts++
+		if attempts == 1 {
+			return fmt.Errorf("warm gateway upstream: %w", &upstreamRelaysUnavailableError{
+				attempts:   2,
+				retryAfter: time.Millisecond,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("retryGatewayStartupRelay error = %v", err)
+	}
+	if attempts != 2 {
+		t.Fatalf("startup attempts = %d, want 2", attempts)
+	}
+}
+
+func TestRetryGatewayStartupRelayDoesNotRetryOtherErrors(t *testing.T) {
+	want := errors.New("invalid gateway configuration")
+	var attempts int
+	err := retryGatewayStartupRelay(t.Context(), func(context.Context) error {
+		attempts++
+		return want
+	})
+	if !errors.Is(err, want) {
+		t.Fatalf("retryGatewayStartupRelay error = %v, want %v", err, want)
+	}
+	if attempts != 1 {
+		t.Fatalf("startup attempts = %d, want 1", attempts)
+	}
+}
+
+func TestRetryGatewayStartupRelayStopsWhenCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	want := &upstreamRelaysUnavailableError{attempts: 2, retryAfter: time.Hour}
+	var attempts int
+	err := retryGatewayStartupRelay(ctx, func(context.Context) error {
+		attempts++
+		cancel()
+		return want
+	})
+	if !errors.Is(err, want) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("retryGatewayStartupRelay error = %v, want relay unavailable and canceled", err)
+	}
+	if attempts != 1 {
+		t.Fatalf("startup attempts = %d, want 1", attempts)
+	}
+}
+
 func TestGatewayPoolWarmRequiresTargetAssociations(t *testing.T) {
 	first := &gatewayUpstream{}
 	pool := &gatewayPool{
