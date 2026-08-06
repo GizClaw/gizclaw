@@ -147,12 +147,12 @@ func (d *personaDriver) runHumanReviewHistoryReplay(ctx context.Context, target 
 	stats := make([]historyReplayStats, 0, len(items))
 	for i, item := range items {
 		d.drainTransport()
-		fmt.Printf("workspace_progress event=human_review_history_replay_start workspace=%s index=%d history_id=%s text_chars=%d\n", d.cfg.Workspace, i+1, item.Id, runeCount(item.Text))
+		fmt.Printf("workspace_progress event=human_review_history_replay_start workspace=%s index=%d history_name=%s text_chars=%d\n", d.cfg.Workspace, i+1, item.Name, runeCount(item.Text))
 		play, err := d.runtimeClient.PlayServerRunWorkspaceHistory(ctx, fmt.Sprintf("workspacetest.human_review.history.play.%d", i+1), rpcapi.ServerPlayRunWorkspaceHistoryRequest{
-			HistoryId: item.Id,
+			HistoryName: item.Name,
 		})
 		if err != nil {
-			return stats, fmt.Errorf("human review history replay %q: play: %w", item.Id, err)
+			return stats, fmt.Errorf("human review history replay %q: play: %w", item.Name, err)
 		}
 		if play == nil || !play.Accepted {
 			state := ""
@@ -163,16 +163,16 @@ func (d *personaDriver) runHumanReviewHistoryReplay(ctx context.Context, target 
 					message = *play.Message
 				}
 			}
-			return stats, fmt.Errorf("human review history replay %q rejected state=%s: %s", item.Id, state, message)
+			return stats, fmt.Errorf("human review history replay %q rejected state=%s: %s", item.Name, state, message)
 		}
 		replay, err := d.verifyHistoryReplay(ctx, item)
 		if err != nil {
-			return stats, fmt.Errorf("human review history replay %q output: %w", item.Id, err)
+			return stats, fmt.Errorf("human review history replay %q output: %w", item.Name, err)
 		}
 		stats = append(stats, replay)
 		fmt.Printf("human_review_history_replay=%s\n", encodeJSONLine(map[string]any{
 			"index":            i + 1,
-			"history_id":       item.Id,
+			"history_name":     item.Name,
 			"text":             replay.Text,
 			"audio_asr":        replay.AudioASR,
 			"downlink_packets": replay.DownlinkPackets,

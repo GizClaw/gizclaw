@@ -12,10 +12,12 @@ import (
 
 func TestAdminAPIContactsListGetCreatePutDelete(t *testing.T) {
 	env := newAdminAPIHarness(t)
+	contactID := mutationName("contact-id")
 	contactName := mutationName("contact")
 	phone := fmt.Sprintf("+1555%d", time.Now().UnixNano()%1000000000)
 
 	created, err := env.api.CreateContactWithResponse(env.ctx, adminhttp.AdminContactCreateRequest{
+		Id:             contactID,
 		OwnerPublicKey: env.adminKey,
 		Name:           contactName,
 		DisplayName:    ptr("Admin API Contact"),
@@ -25,13 +27,13 @@ func TestAdminAPIContactsListGetCreatePutDelete(t *testing.T) {
 		t.Fatalf("create contact: %v", err)
 	}
 	requireStatusOK(t, created, created.Body)
-	if created.JSON200 == nil || created.JSON200.OwnerPublicKey != env.adminKey || created.JSON200.Id == "" || created.JSON200.Name != contactName {
+	if created.JSON200 == nil || created.JSON200.OwnerPublicKey != env.adminKey || created.JSON200.Id != contactID || created.JSON200.Name != contactName {
 		t.Fatalf("created contact = %#v", created.JSON200)
 	}
-	contactID := created.JSON200.Id
 	t.Cleanup(func() { _, _ = env.api.DeleteContactWithResponse(env.ctx, env.adminKey, contactID) })
 
 	duplicate, err := env.api.CreateContactWithResponse(env.ctx, adminhttp.AdminContactCreateRequest{
+		Id:             mutationName("contact-dup-id"),
 		OwnerPublicKey: env.adminKey,
 		Name:           mutationName("contact-dup"),
 		PhoneNumber:    ptr(phone),

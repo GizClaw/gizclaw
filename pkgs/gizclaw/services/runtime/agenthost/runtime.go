@@ -824,7 +824,7 @@ func (s *Service) PlayWorkspaceHistory(ctx context.Context, req apitypes.PeerRun
 	rt, err := s.currentRuntimeForFeature(ctx)
 	if err != nil {
 		message := err.Error()
-		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unavailable", Message: &message}, nil
+		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryName: req.HistoryName, State: "unavailable", Message: &message}, nil
 	}
 	return rt.agent.PlayHistory(s.gearContext(ctx), req)
 }

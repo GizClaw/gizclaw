@@ -111,8 +111,6 @@ typedef struct _gizclaw_rpc_v1_ServerRegisterRequest {
 
 typedef struct _gizclaw_rpc_v1_ServerRegisterResponse {
     char runtime_profile_name[256];
-    bool has_firmware_name;
-    char firmware_name[257];
 } gizclaw_rpc_v1_ServerRegisterResponse;
 
 typedef struct _gizclaw_rpc_v1_ServerPeerDeleteRequest {
@@ -192,7 +190,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PingRequest_init_default  {0}
 #define gizclaw_rpc_v1_PingResponse_init_default {0}
 #define gizclaw_rpc_v1_ServerRegisterRequest_init_default {""}
-#define gizclaw_rpc_v1_ServerRegisterResponse_init_default {"", false, ""}
+#define gizclaw_rpc_v1_ServerRegisterResponse_init_default {""}
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_init_default {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_init_default {0}
 #define gizclaw_rpc_v1_Runtime_init_default      {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0}
@@ -219,7 +217,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PingRequest_init_zero     {0}
 #define gizclaw_rpc_v1_PingResponse_init_zero    {0}
 #define gizclaw_rpc_v1_ServerRegisterRequest_init_zero {""}
-#define gizclaw_rpc_v1_ServerRegisterResponse_init_zero {"", false, ""}
+#define gizclaw_rpc_v1_ServerRegisterResponse_init_zero {""}
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_init_zero {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_init_zero {0}
 #define gizclaw_rpc_v1_Runtime_init_zero         {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0}
@@ -269,7 +267,6 @@ extern "C" {
 #define gizclaw_rpc_v1_PingResponse_server_time_tag 1
 #define gizclaw_rpc_v1_ServerRegisterRequest_token_tag 1
 #define gizclaw_rpc_v1_ServerRegisterResponse_runtime_profile_name_tag 1
-#define gizclaw_rpc_v1_ServerRegisterResponse_firmware_name_tag 2
 #define gizclaw_rpc_v1_Runtime_last_addr_tag     1
 #define gizclaw_rpc_v1_Runtime_last_seen_at_tag  2
 #define gizclaw_rpc_v1_Runtime_online_tag        3
@@ -391,8 +388,7 @@ X(a, STATIC,   SINGULAR, STRING,   token,             1)
 #define gizclaw_rpc_v1_ServerRegisterRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_ServerRegisterResponse_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, STRING,   runtime_profile_name,   1) \
-X(a, STATIC,   OPTIONAL, STRING,   firmware_name,     2)
+X(a, STATIC,   SINGULAR, STRING,   runtime_profile_name,   1)
 #define gizclaw_rpc_v1_ServerRegisterResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_ServerRegisterResponse_DEFAULT NULL
 
@@ -532,7 +528,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 /* gizclaw_rpc_v1_ServerGetInfoResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerGetStatusResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPutInfoResponse_size depends on runtime parameters */
-#define GIZCLAW_RPC_V1_PAYLOAD_SYSTEM_PB_H_MAX_SIZE gizclaw_rpc_v1_ServerRegisterResponse_size
+#define GIZCLAW_RPC_V1_PAYLOAD_SYSTEM_PB_H_MAX_SIZE gizclaw_rpc_v1_ServerPutInfoRequest_size
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_size 0
 #define gizclaw_rpc_v1_ClientGetInfoRequest_size 0
 #define gizclaw_rpc_v1_DeviceProfile_size        325
@@ -544,7 +540,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_size 0
 #define gizclaw_rpc_v1_ServerPutInfoRequest_size 328
 #define gizclaw_rpc_v1_ServerRegisterRequest_size 258
-#define gizclaw_rpc_v1_ServerRegisterResponse_size 517
+#define gizclaw_rpc_v1_ServerRegisterResponse_size 258
 #define gizclaw_rpc_v1_SpeedTestRequest_size     22
 #define gizclaw_rpc_v1_SpeedTestResponse_size    22
 

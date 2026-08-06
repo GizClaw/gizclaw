@@ -42,6 +42,10 @@ flowchart LR
 
 ## Method 设计
 
+Peer 可见对象的唯一标识统一叫 `name`；引用另一个 Peer 可见对象时使用 `<kind>_name`。对象有 scoped alias 时投影该 alias；没有独立 alias 时，把 canonical Admin ID 或内部记录 ID 原样投影为 `name`。展示文本使用 `display_name`，行为主体使用 `actor_name`。因此业务 DTO 不会在 `id` 和 `name` 之间切换；只有 RPC request、response 和 stream envelope 的 correlation field 继续叫 `id`。
+
+Admin 与持久化模型继续保留 canonical `id` 和 `*_id`。Adapter 必须把内部结构显式投影成 Peer DTO，不能直接持久化 RPC message，也不能依赖 JSON 字段恰好同名。项目尚未发布，受影响的 Protobuf message 直接采用最终字段布局：不保留 reserved compatibility field，不增加 alias、legacy decoder 或 mixed-version support。
+
 - Method name 应稳定并体现领域所有权，不能绑定某个 Go 文件名。
 - Request/response payload 放进对应领域 proto；跨领域 enum 才进入 `enums.proto`。
 - 普通请求响应、长数据 stream 和 direct packet 是不同 transport shape，不应通过可选字段揉成一个消息。

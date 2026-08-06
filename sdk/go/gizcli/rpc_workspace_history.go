@@ -23,7 +23,7 @@ type FriendGroupMessageAudioGetResult struct {
 
 func (c *rpcClient) GetWorkspaceHistoryAudio(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkspaceHistoryAudioGetRequest, out io.Writer) (WorkspaceHistoryAudioGetResult, error) {
 	metadata, n, err := getHistoryAudio(ctx, conn, id, rpcapi.RPCMethodServerWorkspaceHistoryAudioGet, request, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioGetRequest, rpcapi.RPCPayload.AsWorkspaceHistoryAudioGetResponse, out, func(metadata rpcapi.WorkspaceHistoryAudioGetResponse) error {
-		if metadata.WorkspaceName != request.WorkspaceName || metadata.HistoryId != request.HistoryId {
+		if metadata.WorkspaceName != request.WorkspaceName || metadata.HistoryName != request.HistoryName {
 			return fmt.Errorf("workspace history audio metadata identity mismatch")
 		}
 		return validateHistoryAudioMetadata(metadata.MimeType, metadata.SizeBytes)
@@ -36,7 +36,7 @@ func (c *rpcClient) GetWorkspaceHistoryAudio(ctx context.Context, conn net.Conn,
 
 func (c *rpcClient) GetFriendGroupMessageAudio(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMessageAudioGetRequest, out io.Writer) (FriendGroupMessageAudioGetResult, error) {
 	metadata, n, err := getHistoryAudio(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMessagesAudioGet, request, (*rpcapi.RPCPayload).FromFriendGroupMessageAudioGetRequest, rpcapi.RPCPayload.AsFriendGroupMessageAudioGetResponse, out, func(metadata rpcapi.FriendGroupMessageAudioGetResponse) error {
-		if metadata.FriendGroupName != request.FriendGroupName || metadata.HistoryId != request.HistoryId {
+		if metadata.FriendGroupName != request.FriendGroupName || metadata.HistoryName != request.HistoryName {
 			return fmt.Errorf("friend group message audio metadata identity mismatch")
 		}
 		return validateHistoryAudioMetadata(metadata.MimeType, metadata.SizeBytes)

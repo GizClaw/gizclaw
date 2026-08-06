@@ -98,7 +98,6 @@ func (m *Manager) deleteFirmware(ctx context.Context, id string) (apitypes.Firmw
 func firmwareSpec(item apitypes.Firmware) apitypes.FirmwareSpec {
 	return apitypes.FirmwareSpec{
 		Description: item.Description,
-		Name:        item.Name,
 		Slots:       firmwareSpecSlots(item.Slots),
 	}
 }
@@ -107,7 +106,6 @@ func firmwareUpsert(resource apitypes.FirmwareResource) adminhttp.FirmwareUpsert
 	return adminhttp.FirmwareUpsert{
 		Description: resource.Spec.Description,
 		Id:          resource.Metadata.Id,
-		Name:        resource.Spec.Name,
 		Slots:       firmwareRuntimeSlots(resource.Spec.Slots),
 	}
 }

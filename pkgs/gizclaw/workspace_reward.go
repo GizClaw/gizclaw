@@ -182,9 +182,9 @@ func (environment *workspaceRewardEnvironment) NotifyWorkspaceReward(
 		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED,
 		Payload: &eventpb.PeerEvent_GameplayRewardUpdated{
 			GameplayRewardUpdated: &eventpb.GameplayRewardUpdated{
-				WorkspaceName:  value.Name,
-				RewardGrantId:  update.RewardGrantID,
-				RevisionUnixMs: update.Revision.UnixMilli(),
+				WorkspaceName:   value.Name,
+				RewardGrantName: update.RewardGrantID,
+				RevisionUnixMs:  update.Revision.UnixMilli(),
 			},
 		},
 	})

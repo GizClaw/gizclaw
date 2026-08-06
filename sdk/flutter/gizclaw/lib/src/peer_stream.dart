@@ -442,9 +442,9 @@ void _validateMessage(events.PeerEvent message, {bool allowUnknown = false}) {
     case events.PeerEvent_Payload.gameplayRewardUpdated:
       final payload = message.gameplayRewardUpdated;
       if (payload.workspaceName.trim().isEmpty ||
-          payload.rewardGrantId.trim().isEmpty) {
+          payload.rewardGrantName.trim().isEmpty) {
         throw const FormatException(
-          'gameplay reward event requires workspaceName and rewardGrantId',
+          'gameplay reward event requires workspaceName and rewardGrantName',
         );
       }
       break;

@@ -235,7 +235,18 @@ func (s *adminService) ListPeerFriends(ctx context.Context, request adminhttp.Li
 			return adminhttp.ListPeerFriends400JSONResponse(body), nil
 		}
 	}
-	return adminhttp.ListPeerFriends200JSONResponse(resp), nil
+	items := make([]adminhttp.AdminFriendObject, 0, len(resp.Items))
+	for _, peerItem := range resp.Items {
+		peerPublicKey := socialutil.StringValue(peerItem.PeerPublicKey)
+		item, err := s.Friends.AdminGetFriend(ctx, request.PublicKey, socialutil.RelationID(request.PublicKey, peerPublicKey))
+		if err != nil {
+			return adminhttp.ListPeerFriends500JSONResponse(apitypes.NewErrorResponse("SOCIAL_SERVICE_ERROR", err.Error())), nil
+		}
+		items = append(items, item)
+	}
+	return adminhttp.ListPeerFriends200JSONResponse(adminhttp.AdminFriendListResponse{
+		HasNext: resp.HasNext, Items: items, NextCursor: resp.NextCursor,
+	}), nil
 }
 
 func (s *adminService) CreatePeerFriend(ctx context.Context, request adminhttp.CreatePeerFriendRequestObject) (adminhttp.CreatePeerFriendResponseObject, error) {
@@ -257,14 +268,18 @@ func (s *adminService) CreatePeerFriend(ctx context.Context, request adminhttp.C
 			return adminhttp.CreatePeerFriend400JSONResponse(body), nil
 		}
 	}
-	return adminhttp.CreatePeerFriend200JSONResponse(item), nil
+	adminItem, err := s.Friends.AdminGetFriend(ctx, request.PublicKey, socialutil.RelationID(request.PublicKey, socialutil.StringValue(item.PeerPublicKey)))
+	if err != nil {
+		return adminhttp.CreatePeerFriend500JSONResponse(apitypes.NewErrorResponse("SOCIAL_SERVICE_ERROR", err.Error())), nil
+	}
+	return adminhttp.CreatePeerFriend200JSONResponse(adminItem), nil
 }
 
 func (s *adminService) GetPeerFriend(ctx context.Context, request adminhttp.GetPeerFriendRequestObject) (adminhttp.GetPeerFriendResponseObject, error) {
 	if s == nil || s.Friends == nil {
 		return adminhttp.GetPeerFriend500JSONResponse(apitypes.NewErrorResponse("SOCIAL_FRIEND_SERVICE_NOT_CONFIGURED", "friend service is not configured")), nil
 	}
-	item, err := s.Friends.GetFriendRelation(ctx, request.PublicKey, request.Id)
+	item, err := s.Friends.AdminGetFriend(ctx, request.PublicKey, request.Id)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -283,7 +298,7 @@ func (s *adminService) DeletePeerFriend(ctx context.Context, request adminhttp.D
 	if s == nil || s.Friends == nil {
 		return adminhttp.DeletePeerFriend500JSONResponse(apitypes.NewErrorResponse("SOCIAL_FRIEND_SERVICE_NOT_CONFIGURED", "friend service is not configured")), nil
 	}
-	item, err := s.Friends.DeleteFriend(ctx, request.PublicKey, rpcapi.FriendDeleteRequest{Id: request.Id})
+	item, err := s.Friends.AdminDeleteFriend(ctx, request.PublicKey, request.Id)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -625,7 +640,17 @@ func (s *adminService) ListWorkspaceHistory(ctx context.Context, request adminht
 			return adminhttp.ListWorkspaceHistory400JSONResponse(body), nil
 		}
 	}
-	return adminhttp.ListWorkspaceHistory200JSONResponse(toRPCHistoryListResponse(resp)), nil
+	items := make([]adminhttp.AdminWorkspaceHistoryEntry, 0, len(resp.Items))
+	for _, item := range resp.Items {
+		items = append(items, toAdminHistoryEntry(item))
+	}
+	return adminhttp.ListWorkspaceHistory200JSONResponse(adminhttp.AdminWorkspaceHistoryListResponse{
+		Available:  resp.Available,
+		HasNext:    resp.HasNext,
+		Items:      items,
+		Message:    resp.Message,
+		NextCursor: resp.NextCursor,
+	}), nil
 }
 
 func (s *adminService) GetWorkspaceHistory(ctx context.Context, request adminhttp.GetWorkspaceHistoryRequestObject) (adminhttp.GetWorkspaceHistoryResponseObject, error) {
@@ -645,7 +670,7 @@ func (s *adminService) GetWorkspaceHistory(ctx context.Context, request adminhtt
 			return adminhttp.GetWorkspaceHistory400JSONResponse(body), nil
 		}
 	}
-	return adminhttp.GetWorkspaceHistory200JSONResponse(toRPCHistoryEntry(entry.Public())), nil
+	return adminhttp.GetWorkspaceHistory200JSONResponse(toAdminHistoryEntry(entry.Public())), nil
 }
 
 func (s *adminService) DownloadWorkspaceHistoryAudio(ctx context.Context, request adminhttp.DownloadWorkspaceHistoryAudioRequestObject) (adminhttp.DownloadWorkspaceHistoryAudioResponseObject, error) {
@@ -692,10 +717,22 @@ func toRPCHistoryListResponse(resp apitypes.PeerRunHistoryListResponse) rpcapi.W
 
 func toRPCHistoryEntry(item apitypes.PeerRunHistoryEntry) rpcapi.PeerRunHistoryEntry {
 	return rpcapi.PeerRunHistoryEntry{
+		ActorName:       item.ActorName,
 		CreatedAt:       item.CreatedAt,
 		GearId:          item.GearId,
-		Id:              item.Id,
 		Name:            item.Name,
+		ReplayAvailable: item.ReplayAvailable,
+		Text:            item.Text,
+		Type:            rpcapi.PeerRunHistoryEntryType(item.Type),
+	}
+}
+
+func toAdminHistoryEntry(item apitypes.PeerRunHistoryEntry) adminhttp.AdminWorkspaceHistoryEntry {
+	return adminhttp.AdminWorkspaceHistoryEntry{
+		ActorName:       item.ActorName,
+		CreatedAt:       item.CreatedAt,
+		GearId:          item.GearId,
+		Id:              item.Name,
 		ReplayAvailable: item.ReplayAvailable,
 		Text:            item.Text,
 		Type:            rpcapi.PeerRunHistoryEntryType(item.Type),

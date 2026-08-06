@@ -6395,7 +6395,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/WorkspaceHistoryListResponse"
+                  "$ref": "#/components/schemas/AdminWorkspaceHistoryListResponse"
                 }
               }
             }
@@ -6466,7 +6466,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/WorkspaceHistoryGetResponse"
+                  "$ref": "#/components/schemas/AdminWorkspaceHistoryEntry"
                 }
               }
             }
@@ -7434,7 +7434,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/FriendListResponse"
+                  "$ref": "#/components/schemas/AdminFriendListResponse"
                 }
               }
             }
@@ -7504,7 +7504,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/FriendObject"
+                  "$ref": "#/components/schemas/AdminFriendObject"
                 }
               }
             }
@@ -7575,7 +7575,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/FriendObject"
+                  "$ref": "#/components/schemas/AdminFriendObject"
                 }
               }
             }
@@ -7644,7 +7644,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared/server.json#/components/schemas/FriendObject"
+                  "$ref": "#/components/schemas/AdminFriendObject"
                 }
               }
             }
@@ -10454,7 +10454,6 @@
         "type": "object",
         "required": [
           "id",
-          "name",
           "slots"
         ],
         "properties": {
@@ -10462,10 +10461,6 @@
             "type": "string",
             "maxLength": 1024,
             "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
-          },
-          "name": {
-            "type": "string",
-            "maxLength": 256
           },
           "description": {
             "type": "string"
@@ -11186,6 +11181,75 @@
             "items": {
               "$ref": "./shared.json#/components/schemas/DashScopeTenant"
             }
+          }
+        }
+      },
+      "AdminWorkspaceHistoryEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "actor_name",
+          "text",
+          "created_at",
+          "replay_available"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "$ref": "./shared/server.json#/components/schemas/PeerRunHistoryEntryType"
+          },
+          "gear_id": {
+            "type": "string",
+            "description": "Originating gear ID. Required for gear entries and omitted for agent entries.",
+            "minLength": 1
+          },
+          "actor_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "replay_available": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AdminWorkspaceHistoryListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "available",
+          "items",
+          "has_next"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminWorkspaceHistoryEntry"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "next_cursor": {
+            "type": "string"
           }
         }
       },

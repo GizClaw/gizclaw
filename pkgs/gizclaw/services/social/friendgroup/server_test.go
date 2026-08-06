@@ -79,7 +79,7 @@ func TestFriendGroupEventsReachCurrentAndFormerMembers(t *testing.T) {
 	notifications = nil
 	if _, err := s.DeleteFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberDeleteRequest{
 		FriendGroupName: group.Name,
-		Id:              "peer-b",
+		Name:            "peer-b",
 	}); err != nil {
 		t.Fatalf("DeleteFriendGroupMember: %v", err)
 	}
@@ -173,6 +173,39 @@ func TestAdminCreateFriendGroupCreatesOwnerMembership(t *testing.T) {
 	}
 	if got := socialutil.GroupRole(member); got != rpcapi.FriendGroupMemberRoleOwner {
 		t.Fatalf("owner membership role = %q, want owner", got)
+	}
+	members, err := s.membersStore()
+	if err != nil {
+		t.Fatalf("membersStore: %v", err)
+	}
+	storedMember, err := members.Get(ctx, socialutil.GroupMemberKey(group.Id, "peer-a"))
+	if err != nil {
+		t.Fatalf("read persisted FriendGroupMember: %v", err)
+	}
+	var storedFields map[string]json.RawMessage
+	if err := json.Unmarshal(storedMember, &storedFields); err != nil {
+		t.Fatalf("decode persisted FriendGroupMember: %v", err)
+	}
+	if _, ok := storedFields["friend_group_id"]; !ok {
+		t.Fatalf("persisted FriendGroupMember = %s, want canonical friend_group_id", storedMember)
+	}
+	if _, ok := storedFields["id"]; ok {
+		t.Fatalf("persisted FriendGroupMember = %s, unexpectedly stores Peer wire id", storedMember)
+	}
+	if _, ok := storedFields["name"]; ok {
+		t.Fatalf("persisted FriendGroupMember = %s, unexpectedly stores Peer wire name", storedMember)
+	}
+}
+
+func TestLegacyWireFriendGroupMemberRecordIsRejected(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer(t)
+	legacy := []byte(`{"id":"peer-b","name":"peer-b","friend_group_name":"room-b","peer_public_key":"peer-b","role":"member"}`)
+	if err := s.Members.Set(ctx, socialutil.GroupMemberKey("group-a", "peer-b"), legacy); err != nil {
+		t.Fatalf("seed legacy FriendGroupMember wire record: %v", err)
+	}
+	if _, err := s.groupMember(ctx, "group-a", "peer-b"); err == nil || err.Error() != "social: persisted Friend Group member is invalid" {
+		t.Fatalf("groupMember legacy wire record error = %v", err)
 	}
 }
 
@@ -593,20 +626,20 @@ func TestMemberDeleteRoleRules(t *testing.T) {
 	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupName: group.Name, PeerPublicKey: "peer-c", Role: rpcapi.FriendGroupMemberMutableRole("admin"), MemberName: "room-c"}); err != nil {
 		t.Fatalf("AddFriendGroupMember peer-c admin: %v", err)
 	}
-	if _, err := s.DeleteFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: group.Name, Id: "peer-a"}); err == nil {
+	if _, err := s.DeleteFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: group.Name, Name: "peer-a"}); err == nil {
 		t.Fatal("DeleteFriendGroupMember owner error = nil")
 	}
-	if _, err := s.DeleteFriendGroupMember(ctx, "peer-b", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: "room-b", Id: "peer-c"}); err == nil {
+	if _, err := s.DeleteFriendGroupMember(ctx, "peer-b", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: "room-b", Name: "peer-c"}); err == nil {
 		t.Fatal("DeleteFriendGroupMember admin by member error = nil")
 	}
-	deletedAdmin, err := s.DeleteFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: group.Name, Id: "peer-c"})
+	deletedAdmin, err := s.DeleteFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: group.Name, Name: "peer-c"})
 	if err != nil {
 		t.Fatalf("DeleteFriendGroupMember admin by owner: %v", err)
 	}
 	if socialutil.StringValue(deletedAdmin.PeerPublicKey) != "peer-c" {
 		t.Fatalf("deleted admin peer_public_key = %q, want peer-c", socialutil.StringValue(deletedAdmin.PeerPublicKey))
 	}
-	selfDeleted, err := s.DeleteFriendGroupMember(ctx, "peer-b", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: "room-b", Id: "peer-b"})
+	selfDeleted, err := s.DeleteFriendGroupMember(ctx, "peer-b", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: "room-b", Name: "peer-b"})
 	if err != nil {
 		t.Fatalf("DeleteFriendGroupMember self member: %v", err)
 	}
@@ -883,17 +916,20 @@ func assertBelongs(t *testing.T, ctx context.Context, s *Server, peerID, friendG
 	if err != nil {
 		t.Fatalf("belongsStore: %v", err)
 	}
-	item, err := socialutil.ReadJSONValue[rpcapi.FriendGroupMemberObject](ctx, belongs, socialutil.GroupBelongKey(peerID, friendGroupID))
+	item, err := socialutil.ReadJSONValue[friendGroupMemberRecord](ctx, belongs, socialutil.GroupBelongKey(peerID, friendGroupID))
 	if err != nil {
 		t.Fatalf("group belong %s/%s: %v", peerID, friendGroupID, err)
 	}
-	if got := socialutil.StringValue(item.FriendGroupName); got != wantName {
+	if err := item.validate(); err != nil {
+		t.Fatalf("group belong %s/%s is invalid: %v", peerID, friendGroupID, err)
+	}
+	if got := item.FriendGroupName; got != wantName {
 		t.Fatalf("belong friend_group_name = %q, want %q", got, wantName)
 	}
-	if got := socialutil.StringValue(item.PeerPublicKey); got != peerID {
+	if got := item.PeerPublicKey; got != peerID {
 		t.Fatalf("belong peer_public_key = %q, want %q", got, peerID)
 	}
-	if got := socialutil.GroupRole(item); got != wantRole {
+	if got := item.Role; got != wantRole {
 		t.Fatalf("belong role = %q, want %q", got, wantRole)
 	}
 }
@@ -904,7 +940,7 @@ func assertNoBelongs(t *testing.T, ctx context.Context, s *Server, peerID, frien
 	if err != nil {
 		t.Fatalf("belongsStore: %v", err)
 	}
-	if _, err := socialutil.ReadJSONValue[rpcapi.FriendGroupMemberObject](ctx, belongs, socialutil.GroupBelongKey(peerID, friendGroupID)); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := socialutil.ReadJSONValue[friendGroupMemberRecord](ctx, belongs, socialutil.GroupBelongKey(peerID, friendGroupID)); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("group belong %s/%s error = %v, want not found", peerID, friendGroupID, err)
 	}
 }

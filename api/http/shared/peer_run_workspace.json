@@ -62,16 +62,16 @@
       "PeerRunHistoryEntry": {
         "type": "object",
         "required": [
-          "id",
-          "type",
           "name",
+          "type",
+          "actor_name",
           "text",
           "created_at",
           "replay_available"
         ],
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string",
             "minLength": 1
           },
@@ -87,7 +87,7 @@
             "description": "Originating gear id. Required for gear entries and omitted for agent entries.",
             "minLength": 1
           },
-          "name": {
+          "actor_name": {
             "type": "string",
             "minLength": 1
           },
@@ -155,11 +155,11 @@
       "PeerRunHistoryPlayRequest": {
         "type": "object",
         "required": [
-          "history_id"
+          "history_name"
         ],
         "additionalProperties": false,
         "properties": {
-          "history_id": {
+          "history_name": {
             "type": "string",
             "minLength": 1
           }
@@ -169,7 +169,7 @@
         "type": "object",
         "required": [
           "accepted",
-          "history_id",
+          "history_name",
           "state"
         ],
         "additionalProperties": false,
@@ -177,7 +177,7 @@
           "accepted": {
             "type": "boolean"
           },
-          "history_id": {
+          "history_name": {
             "type": "string"
           },
           "state": {
@@ -266,13 +266,13 @@
       "PeerRunRecallHit": {
         "type": "object",
         "required": [
-          "id",
+          "name",
           "score",
           "snippet"
         ],
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           },
           "score": {
@@ -282,7 +282,7 @@
           "source_type": {
             "type": "string"
           },
-          "source_id": {
+          "source_name": {
             "type": "string"
           },
           "snippet": {

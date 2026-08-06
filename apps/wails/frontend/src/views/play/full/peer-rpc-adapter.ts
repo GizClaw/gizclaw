@@ -76,7 +76,7 @@ type PlayDataClientLike = {
   listPets?(params: Record<string, unknown>): Promise<unknown>;
   listPointsTransactions?(params: Record<string, unknown>): Promise<unknown>;
   listRewardGrants?(params: Record<string, unknown>): Promise<unknown>;
-  playHistory?(historyID: string): Promise<unknown>;
+  playHistory?(historyName: string): Promise<unknown>;
   putPet?(params: Record<string, unknown>): Promise<unknown>;
   recallMemory?(query: string): Promise<unknown>;
   reloadWorkspace?(): Promise<unknown>;
@@ -256,20 +256,25 @@ function normalizeInjectedRecallResponse(
   const rawHits = Array.isArray(record.hits) ? record.hits : [];
   return {
     available: record.available !== false,
-    hits: rawHits.map((item, index): PeerRunRecallHit => {
+    hits: rawHits.map((item): PeerRunRecallHit => {
       const hit = isRecord(item) ? item : {};
-      const id = String(hit.id ?? hit.source_id ?? `hit-${index}`);
+      if (typeof hit.name !== "string" || hit.name === "") {
+        throw new Error("Recall hit response is missing its Peer name.");
+      }
+      const name = hit.name;
       const snippet = String(
         hit.snippet ?? hit.text ?? hit.title ?? hit.subtitle ?? "",
       );
       return {
-        id,
+        name,
         score: typeof hit.score === "number" ? hit.score : 0,
         snippet,
         ...(hit.created_at != null
           ? { created_at: String(hit.created_at) }
           : {}),
-        ...(hit.source_id != null ? { source_id: String(hit.source_id) } : {}),
+        ...(hit.source_name != null
+          ? { source_name: String(hit.source_name) }
+          : {}),
         ...(hit.source_type != null
           ? { source_type: String(hit.source_type) }
           : {}),
@@ -429,7 +434,7 @@ export const playPeerRunWorkspaceHistory = async (options: RequestOptions) =>
   currentDataClient
     ? {
         data: await currentDataClient.playHistory?.(
-          String(options.body?.history_id ?? ""),
+          String(options.body?.history_name ?? ""),
         ),
       }
     : callRPC(RPC_METHODS["server.run.workspace.history.play"], options);

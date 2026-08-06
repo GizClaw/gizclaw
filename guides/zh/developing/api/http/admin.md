@@ -28,7 +28,7 @@ Admin OpenAPI 只拥有 HTTP path、request/response 和 wire error。Resource v
 
 `ResourceList` 是唯一例外：它是只用于批量 apply 的虚拟 envelope，本身没有 metadata 或 ID；其中每个具体 item 仍必须声明自己的 `metadata.id`。Apply result 对具体 Resource 返回同一个 ID；ResourceList 顶层 result 不返回 ID。
 
-下游引用只保存目标 Resource 的 canonical ID。调用方可以在提交前构造完整依赖图，因此 apply 不需要先创建资源、记录 Server 返回值，再改写 foreign key。`name` 只存在于明确拥有 scoped name 的 typed contract，例如 Workspace、Contact、FriendGroup、FriendGroupMember 和 peer-visible Firmware release line 的 `spec.name`、Tool 的 `spec.invoke_name`，以及 Peer RPC alias；它不是通用 Admin identity。
+下游引用只保存目标 Resource 的 canonical ID。调用方可以在提交前构造完整依赖图，因此 apply 不需要先创建资源、记录 Server 返回值，再改写 foreign key。`name` 只存在于明确拥有 scoped name 的 typed contract，例如 Workspace、Contact、FriendGroup、FriendGroupMember 的 `spec.name`、Tool 的 `spec.invoke_name`，以及 Peer RPC alias。Firmware 没有独立 name：Admin 使用 caller-supplied ID 定位，Peer firmware method 不暴露 Firmware identity。Typed name 不是通用 Admin identity。
 
 领域派生的 Resource ID 必须可由已知输入确定性计算：Friend 使用排序后的 Peer public key 关系 ID，FriendGroupInviteToken 的 ID 等于 `friend_group_id`，FriendGroupMember 的 ID 是 `<escaped friend_group_id>:<escaped peer_public_key>`，其中各 component 使用 URL path percent-encoding，分隔冒号本身不属于任何 component。为了保证这个派生 ID 仍满足统一的 1024 字符上限，FriendGroup ID 最多包含 80 个 Unicode 字符；同步发现的 Voice 使用对 provider kind、tenant ID 与 provider voice ID 做带长度分隔的 SHA-256 派生 ID。
 

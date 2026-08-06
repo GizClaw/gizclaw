@@ -94,10 +94,10 @@ func (a transformerAgent) ListHistory(context.Context, apitypes.PeerRunHistoryLi
 func (a transformerAgent) PlayHistory(_ context.Context, req apitypes.PeerRunHistoryPlayRequest) (apitypes.PeerRunHistoryPlayResponse, error) {
 	message := unsupportedMessage
 	return apitypes.PeerRunHistoryPlayResponse{
-		Accepted:  false,
-		HistoryId: req.HistoryId,
-		State:     "unsupported",
-		Message:   &message,
+		Accepted:    false,
+		HistoryName: req.HistoryName,
+		State:       "unsupported",
+		Message:     &message,
 	}, nil
 }
 

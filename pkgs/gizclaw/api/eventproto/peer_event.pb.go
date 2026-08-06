@@ -1092,12 +1092,12 @@ func (x *FriendGroupUpdated) GetAffectedPeerPublicKey() string {
 }
 
 type GameplayRewardUpdated struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	WorkspaceName  string                 `protobuf:"bytes,1,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
-	RewardGrantId  string                 `protobuf:"bytes,2,opt,name=reward_grant_id,json=rewardGrantId,proto3" json:"reward_grant_id,omitempty"`
-	RevisionUnixMs int64                  `protobuf:"varint,3,opt,name=revision_unix_ms,json=revisionUnixMs,proto3" json:"revision_unix_ms,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	WorkspaceName   string                 `protobuf:"bytes,1,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
+	RewardGrantName string                 `protobuf:"bytes,2,opt,name=reward_grant_name,json=rewardGrantName,proto3" json:"reward_grant_name,omitempty"`
+	RevisionUnixMs  int64                  `protobuf:"varint,3,opt,name=revision_unix_ms,json=revisionUnixMs,proto3" json:"revision_unix_ms,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GameplayRewardUpdated) Reset() {
@@ -1137,9 +1137,9 @@ func (x *GameplayRewardUpdated) GetWorkspaceName() string {
 	return ""
 }
 
-func (x *GameplayRewardUpdated) GetRewardGrantId() string {
+func (x *GameplayRewardUpdated) GetRewardGrantName() string {
 	if x != nil {
-		return x.RewardGrantId
+		return x.RewardGrantName
 	}
 	return ""
 }
@@ -1216,10 +1216,10 @@ const file_api_proto_events_peer_event_proto_rawDesc = "" +
 	"\x0eworkspace_name\x18\x02 \x01(\tR\rworkspaceName\x12<\n" +
 	"\x06change\x18\x03 \x01(\x0e2$.gizclaw.events.v1.FriendGroupChangeR\x06change\x12(\n" +
 	"\x10revision_unix_ms\x18\x04 \x01(\x03R\x0erevisionUnixMs\x127\n" +
-	"\x18affected_peer_public_key\x18\x05 \x01(\tR\x15affectedPeerPublicKey\"\x90\x01\n" +
+	"\x18affected_peer_public_key\x18\x05 \x01(\tR\x15affectedPeerPublicKey\"\x94\x01\n" +
 	"\x15GameplayRewardUpdated\x12%\n" +
-	"\x0eworkspace_name\x18\x01 \x01(\tR\rworkspaceName\x12&\n" +
-	"\x0freward_grant_id\x18\x02 \x01(\tR\rrewardGrantId\x12(\n" +
+	"\x0eworkspace_name\x18\x01 \x01(\tR\rworkspaceName\x12*\n" +
+	"\x11reward_grant_name\x18\x02 \x01(\tR\x0frewardGrantName\x12(\n" +
 	"\x10revision_unix_ms\x18\x03 \x01(\x03R\x0erevisionUnixMs*\xd8\x02\n" +
 	"\rPeerEventType\x12\x1f\n" +
 	"\x1bPEER_EVENT_TYPE_UNSPECIFIED\x10\x00\x12\x17\n" +

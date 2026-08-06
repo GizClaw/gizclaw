@@ -36,7 +36,9 @@ func TestAdminAPIWorkspacesListGetPaginationAndMutation(t *testing.T) {
 	}
 
 	name := mutationName("workspace")
+	id := mutationName("workspace-id")
 	created, err := env.api.CreateWorkspaceWithResponse(env.ctx, adminhttp.WorkspaceUpsert{
+		Id:         id,
 		Name:       name,
 		WorkflowId: seed.WorkflowId,
 		Parameters: flowcraftWorkspaceParameters(t, apitypes.WorkspaceInputModePushToTalk),
@@ -45,7 +47,7 @@ func TestAdminAPIWorkspacesListGetPaginationAndMutation(t *testing.T) {
 		t.Fatalf("create workspace: %v", err)
 	}
 	requireStatusOK(t, created, created.Body)
-	if created.JSON200 == nil || created.JSON200.Name != name {
+	if created.JSON200 == nil || created.JSON200.Id != id || created.JSON200.Name != name {
 		t.Fatalf("created workspace = %#v", created.JSON200)
 	}
 	deleted, err := env.api.DeleteWorkspaceWithResponse(env.ctx, created.JSON200.Id)

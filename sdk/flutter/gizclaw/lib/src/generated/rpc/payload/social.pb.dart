@@ -867,10 +867,10 @@ class FriendAddResponse extends $pb.GeneratedMessage {
 
 class FriendDeleteRequest extends $pb.GeneratedMessage {
   factory FriendDeleteRequest({
-    $core.String? id,
+    $core.String? name,
   }) {
     final result = create();
-    if (id != null) result.id = id;
+    if (name != null) result.name = name;
     return result;
   }
 
@@ -887,7 +887,7 @@ class FriendDeleteRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'FriendDeleteRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(1, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -910,13 +910,13 @@ class FriendDeleteRequest extends $pb.GeneratedMessage {
   static FriendDeleteRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get id => $_getSZ(0);
+  $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String value) => $_setString(0, value);
+  set name($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasId() => $_has(0);
+  $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => $_clearField(1);
+  void clearName() => $_clearField(1);
 }
 
 class FriendDeleteResponse extends $pb.GeneratedMessage {
@@ -978,11 +978,11 @@ class FriendDeleteResponse extends $pb.GeneratedMessage {
 
 class FriendInfo extends $pb.GeneratedMessage {
   factory FriendInfo({
-    $core.String? name,
+    $core.String? displayName,
     $core.String? emoji,
   }) {
     final result = create();
-    if (name != null) result.name = name;
+    if (displayName != null) result.displayName = displayName;
     if (emoji != null) result.emoji = emoji;
     return result;
   }
@@ -1000,7 +1000,7 @@ class FriendInfo extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'FriendInfo',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(1, _omitFieldNames ? '' : 'displayName')
     ..aOS(2, _omitFieldNames ? '' : 'emoji')
     ..hasRequiredFields = false;
 
@@ -1023,13 +1023,13 @@ class FriendInfo extends $pb.GeneratedMessage {
   static FriendInfo? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get name => $_getSZ(0);
+  $core.String get displayName => $_getSZ(0);
   @$pb.TagNumber(1)
-  set name($core.String value) => $_setString(0, value);
+  set displayName($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasName() => $_has(0);
+  $core.bool hasDisplayName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearName() => $_clearField(1);
+  void clearDisplayName() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get emoji => $_getSZ(1);
@@ -1043,10 +1043,10 @@ class FriendInfo extends $pb.GeneratedMessage {
 
 class FriendInfoGetRequest extends $pb.GeneratedMessage {
   factory FriendInfoGetRequest({
-    $core.String? id,
+    $core.String? name,
   }) {
     final result = create();
-    if (id != null) result.id = id;
+    if (name != null) result.name = name;
     return result;
   }
 
@@ -1063,7 +1063,7 @@ class FriendInfoGetRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'FriendInfoGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(1, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1086,22 +1086,22 @@ class FriendInfoGetRequest extends $pb.GeneratedMessage {
   static FriendInfoGetRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get id => $_getSZ(0);
+  $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String value) => $_setString(0, value);
+  set name($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasId() => $_has(0);
+  $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => $_clearField(1);
+  void clearName() => $_clearField(1);
 }
 
 class FriendInfoGetResponse extends $pb.GeneratedMessage {
   factory FriendInfoGetResponse({
-    $core.String? id,
+    $core.String? name,
     FriendInfo? value,
   }) {
     final result = create();
-    if (id != null) result.id = id;
+    if (name != null) result.name = name;
     if (value != null) result.value = value;
     return result;
   }
@@ -1119,7 +1119,7 @@ class FriendInfoGetResponse extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'FriendInfoGetResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(1, _omitFieldNames ? '' : 'name')
     ..aOM<FriendInfo>(2, _omitFieldNames ? '' : 'value',
         subBuilder: FriendInfo.create)
     ..hasRequiredFields = false;
@@ -1145,13 +1145,13 @@ class FriendInfoGetResponse extends $pb.GeneratedMessage {
   static FriendInfoGetResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get id => $_getSZ(0);
+  $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String value) => $_setString(0, value);
+  set name($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasId() => $_has(0);
+  $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => $_clearField(1);
+  void clearName() => $_clearField(1);
 
   @$pb.TagNumber(2)
   FriendInfo get value => $_getN(1);
@@ -2328,11 +2328,11 @@ class FriendGroupMemberAddResponse extends $pb.GeneratedMessage {
 class FriendGroupMemberDeleteRequest extends $pb.GeneratedMessage {
   factory FriendGroupMemberDeleteRequest({
     $core.String? friendGroupName,
-    $core.String? id,
+    $core.String? name,
   }) {
     final result = create();
     if (friendGroupName != null) result.friendGroupName = friendGroupName;
-    if (id != null) result.id = id;
+    if (name != null) result.name = name;
     return result;
   }
 
@@ -2350,7 +2350,7 @@ class FriendGroupMemberDeleteRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'friendGroupName')
-    ..aOS(2, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2385,13 +2385,13 @@ class FriendGroupMemberDeleteRequest extends $pb.GeneratedMessage {
   void clearFriendGroupName() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get id => $_getSZ(1);
+  $core.String get name => $_getSZ(1);
   @$pb.TagNumber(2)
-  set id($core.String value) => $_setString(1, value);
+  set name($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasId() => $_has(1);
+  $core.bool hasName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearId() => $_clearField(2);
+  void clearName() => $_clearField(2);
 }
 
 class FriendGroupMemberDeleteResponse extends $pb.GeneratedMessage {
@@ -2616,7 +2616,7 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
   factory FriendGroupMemberObject({
     $core.String? createdAt,
     $core.String? friendGroupName,
-    $core.String? id,
+    $core.String? name,
     $core.String? peerPublicKey,
     $0.FriendGroupMemberRole? role,
     $core.String? updatedAt,
@@ -2624,7 +2624,7 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
     if (friendGroupName != null) result.friendGroupName = friendGroupName;
-    if (id != null) result.id = id;
+    if (name != null) result.name = name;
     if (peerPublicKey != null) result.peerPublicKey = peerPublicKey;
     if (role != null) result.role = role;
     if (updatedAt != null) result.updatedAt = updatedAt;
@@ -2646,7 +2646,7 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'createdAt')
     ..aOS(2, _omitFieldNames ? '' : 'friendGroupName')
-    ..aOS(3, _omitFieldNames ? '' : 'id')
+    ..aOS(3, _omitFieldNames ? '' : 'name')
     ..aOS(4, _omitFieldNames ? '' : 'peerPublicKey')
     ..aE<$0.FriendGroupMemberRole>(5, _omitFieldNames ? '' : 'role',
         enumValues: $0.FriendGroupMemberRole.values)
@@ -2692,13 +2692,13 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
   void clearFriendGroupName() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.String get id => $_getSZ(2);
+  $core.String get name => $_getSZ(2);
   @$pb.TagNumber(3)
-  set id($core.String value) => $_setString(2, value);
+  set name($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasId() => $_has(2);
+  $core.bool hasName() => $_has(2);
   @$pb.TagNumber(3)
-  void clearId() => $_clearField(3);
+  void clearName() => $_clearField(3);
 
   @$pb.TagNumber(4)
   $core.String get peerPublicKey => $_getSZ(3);
@@ -2731,12 +2731,12 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
 class FriendGroupMemberPutRequest extends $pb.GeneratedMessage {
   factory FriendGroupMemberPutRequest({
     $core.String? friendGroupName,
-    $core.String? id,
+    $core.String? name,
     $0.FriendGroupMemberMutableRole? role,
   }) {
     final result = create();
     if (friendGroupName != null) result.friendGroupName = friendGroupName;
-    if (id != null) result.id = id;
+    if (name != null) result.name = name;
     if (role != null) result.role = role;
     return result;
   }
@@ -2755,7 +2755,7 @@ class FriendGroupMemberPutRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'friendGroupName')
-    ..aOS(2, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
     ..aE<$0.FriendGroupMemberMutableRole>(3, _omitFieldNames ? '' : 'role',
         enumValues: $0.FriendGroupMemberMutableRole.values)
     ..hasRequiredFields = false;
@@ -2792,13 +2792,13 @@ class FriendGroupMemberPutRequest extends $pb.GeneratedMessage {
   void clearFriendGroupName() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get id => $_getSZ(1);
+  $core.String get name => $_getSZ(1);
   @$pb.TagNumber(2)
-  set id($core.String value) => $_setString(1, value);
+  set name($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasId() => $_has(1);
+  $core.bool hasName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearId() => $_clearField(2);
+  void clearName() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $0.FriendGroupMemberMutableRole get role => $_getN(2);
@@ -2873,11 +2873,11 @@ class FriendGroupMemberPutResponse extends $pb.GeneratedMessage {
 class FriendGroupMessageAudioGetRequest extends $pb.GeneratedMessage {
   factory FriendGroupMessageAudioGetRequest({
     $core.String? friendGroupName,
-    $core.String? historyId,
+    $core.String? historyName,
   }) {
     final result = create();
     if (friendGroupName != null) result.friendGroupName = friendGroupName;
-    if (historyId != null) result.historyId = historyId;
+    if (historyName != null) result.historyName = historyName;
     return result;
   }
 
@@ -2896,7 +2896,7 @@ class FriendGroupMessageAudioGetRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'friendGroupName')
-    ..aOS(2, _omitFieldNames ? '' : 'historyId')
+    ..aOS(2, _omitFieldNames ? '' : 'historyName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2932,25 +2932,25 @@ class FriendGroupMessageAudioGetRequest extends $pb.GeneratedMessage {
   void clearFriendGroupName() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get historyId => $_getSZ(1);
+  $core.String get historyName => $_getSZ(1);
   @$pb.TagNumber(2)
-  set historyId($core.String value) => $_setString(1, value);
+  set historyName($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasHistoryId() => $_has(1);
+  $core.bool hasHistoryName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearHistoryId() => $_clearField(2);
+  void clearHistoryName() => $_clearField(2);
 }
 
 class FriendGroupMessageAudioGetResponse extends $pb.GeneratedMessage {
   factory FriendGroupMessageAudioGetResponse({
     $core.String? friendGroupName,
-    $core.String? historyId,
+    $core.String? historyName,
     $core.String? mimeType,
     $fixnum.Int64? sizeBytes,
   }) {
     final result = create();
     if (friendGroupName != null) result.friendGroupName = friendGroupName;
-    if (historyId != null) result.historyId = historyId;
+    if (historyName != null) result.historyName = historyName;
     if (mimeType != null) result.mimeType = mimeType;
     if (sizeBytes != null) result.sizeBytes = sizeBytes;
     return result;
@@ -2971,7 +2971,7 @@ class FriendGroupMessageAudioGetResponse extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'friendGroupName')
-    ..aOS(2, _omitFieldNames ? '' : 'historyId')
+    ..aOS(2, _omitFieldNames ? '' : 'historyName')
     ..aOS(3, _omitFieldNames ? '' : 'mimeType')
     ..aInt64(4, _omitFieldNames ? '' : 'sizeBytes')
     ..hasRequiredFields = false;
@@ -3009,13 +3009,13 @@ class FriendGroupMessageAudioGetResponse extends $pb.GeneratedMessage {
   void clearFriendGroupName() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get historyId => $_getSZ(1);
+  $core.String get historyName => $_getSZ(1);
   @$pb.TagNumber(2)
-  set historyId($core.String value) => $_setString(1, value);
+  set historyName($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasHistoryId() => $_has(1);
+  $core.bool hasHistoryName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearHistoryId() => $_clearField(2);
+  void clearHistoryName() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.String get mimeType => $_getSZ(2);
@@ -3039,11 +3039,11 @@ class FriendGroupMessageAudioGetResponse extends $pb.GeneratedMessage {
 class FriendGroupMessageGetRequest extends $pb.GeneratedMessage {
   factory FriendGroupMessageGetRequest({
     $core.String? friendGroupName,
-    $core.String? historyId,
+    $core.String? historyName,
   }) {
     final result = create();
     if (friendGroupName != null) result.friendGroupName = friendGroupName;
-    if (historyId != null) result.historyId = historyId;
+    if (historyName != null) result.historyName = historyName;
     return result;
   }
 
@@ -3061,7 +3061,7 @@ class FriendGroupMessageGetRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'friendGroupName')
-    ..aOS(2, _omitFieldNames ? '' : 'historyId')
+    ..aOS(2, _omitFieldNames ? '' : 'historyName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3096,13 +3096,13 @@ class FriendGroupMessageGetRequest extends $pb.GeneratedMessage {
   void clearFriendGroupName() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get historyId => $_getSZ(1);
+  $core.String get historyName => $_getSZ(1);
   @$pb.TagNumber(2)
-  set historyId($core.String value) => $_setString(1, value);
+  set historyName($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasHistoryId() => $_has(1);
+  $core.bool hasHistoryName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearHistoryId() => $_clearField(2);
+  void clearHistoryName() => $_clearField(2);
 }
 
 class FriendGroupMessageGetResponse extends $pb.GeneratedMessage {
@@ -3341,8 +3341,8 @@ class FriendGroupMessageObject extends $pb.GeneratedMessage {
     $core.String? expiresAt,
     $core.String? friendGroupName,
     $core.String? senderPeerPublicKey,
-    $core.String? historyId,
     $core.String? name,
+    $core.String? actorName,
     $core.String? text,
     $0.PeerRunHistoryEntryType? type,
     $core.bool? audioAvailable,
@@ -3353,8 +3353,8 @@ class FriendGroupMessageObject extends $pb.GeneratedMessage {
     if (friendGroupName != null) result.friendGroupName = friendGroupName;
     if (senderPeerPublicKey != null)
       result.senderPeerPublicKey = senderPeerPublicKey;
-    if (historyId != null) result.historyId = historyId;
     if (name != null) result.name = name;
+    if (actorName != null) result.actorName = actorName;
     if (text != null) result.text = text;
     if (type != null) result.type = type;
     if (audioAvailable != null) result.audioAvailable = audioAvailable;
@@ -3378,8 +3378,8 @@ class FriendGroupMessageObject extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'expiresAt')
     ..aOS(3, _omitFieldNames ? '' : 'friendGroupName')
     ..aOS(4, _omitFieldNames ? '' : 'senderPeerPublicKey')
-    ..aOS(5, _omitFieldNames ? '' : 'historyId')
-    ..aOS(6, _omitFieldNames ? '' : 'name')
+    ..aOS(5, _omitFieldNames ? '' : 'name')
+    ..aOS(6, _omitFieldNames ? '' : 'actorName')
     ..aOS(7, _omitFieldNames ? '' : 'text')
     ..aE<$0.PeerRunHistoryEntryType>(8, _omitFieldNames ? '' : 'type',
         enumValues: $0.PeerRunHistoryEntryType.values)
@@ -3443,22 +3443,22 @@ class FriendGroupMessageObject extends $pb.GeneratedMessage {
   void clearSenderPeerPublicKey() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.String get historyId => $_getSZ(4);
+  $core.String get name => $_getSZ(4);
   @$pb.TagNumber(5)
-  set historyId($core.String value) => $_setString(4, value);
+  set name($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
-  $core.bool hasHistoryId() => $_has(4);
+  $core.bool hasName() => $_has(4);
   @$pb.TagNumber(5)
-  void clearHistoryId() => $_clearField(5);
+  void clearName() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $core.String get name => $_getSZ(5);
+  $core.String get actorName => $_getSZ(5);
   @$pb.TagNumber(6)
-  set name($core.String value) => $_setString(5, value);
+  set actorName($core.String value) => $_setString(5, value);
   @$pb.TagNumber(6)
-  $core.bool hasName() => $_has(5);
+  $core.bool hasActorName() => $_has(5);
   @$pb.TagNumber(6)
-  void clearName() => $_clearField(6);
+  void clearActorName() => $_clearField(6);
 
   @$pb.TagNumber(7)
   $core.String get text => $_getSZ(6);
@@ -4210,14 +4210,14 @@ class FriendListResponse extends $pb.GeneratedMessage {
 class FriendObject extends $pb.GeneratedMessage {
   factory FriendObject({
     $core.String? createdAt,
-    $core.String? id,
+    $core.String? name,
     $core.String? peerPublicKey,
     $core.String? updatedAt,
     $core.String? workspaceName,
   }) {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
-    if (id != null) result.id = id;
+    if (name != null) result.name = name;
     if (peerPublicKey != null) result.peerPublicKey = peerPublicKey;
     if (updatedAt != null) result.updatedAt = updatedAt;
     if (workspaceName != null) result.workspaceName = workspaceName;
@@ -4238,7 +4238,7 @@ class FriendObject extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'createdAt')
-    ..aOS(2, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
     ..aOS(3, _omitFieldNames ? '' : 'peerPublicKey')
     ..aOS(4, _omitFieldNames ? '' : 'updatedAt')
     ..aOS(5, _omitFieldNames ? '' : 'workspaceName')
@@ -4273,13 +4273,13 @@ class FriendObject extends $pb.GeneratedMessage {
   void clearCreatedAt() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get id => $_getSZ(1);
+  $core.String get name => $_getSZ(1);
   @$pb.TagNumber(2)
-  set id($core.String value) => $_setString(1, value);
+  set name($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasId() => $_has(1);
+  $core.bool hasName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearId() => $_clearField(2);
+  void clearName() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.String get peerPublicKey => $_getSZ(2);

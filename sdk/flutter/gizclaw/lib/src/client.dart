@@ -153,10 +153,10 @@ class GizClawClient {
     return rpc.call<payload.FriendListResponse>('server.friend.list', request);
   }
 
-  Future<payload.FriendInfoGetResponse> getFriendInfo(String id) {
+  Future<payload.FriendInfoGetResponse> getFriendInfo(String name) {
     return rpc.call<payload.FriendInfoGetResponse>(
       'server.friend.info.get',
-      payload.FriendInfoGetRequest(id: id),
+      payload.FriendInfoGetRequest(name: name),
     );
   }
 
@@ -188,10 +188,10 @@ class GizClawClient {
     );
   }
 
-  Future<payload.FriendDeleteResponse> deleteFriend(String id) {
+  Future<payload.FriendDeleteResponse> deleteFriend(String name) {
     return rpc.call<payload.FriendDeleteResponse>(
       'server.friend.delete',
-      payload.FriendDeleteRequest(id: id),
+      payload.FriendDeleteRequest(name: name),
     );
   }
 
@@ -299,13 +299,13 @@ class GizClawClient {
 
   Future<payload.FriendGroupMemberDeleteResponse> deleteFriendGroupMember(
     String friendGroupName,
-    String id,
+    String name,
   ) {
     return rpc.call<payload.FriendGroupMemberDeleteResponse>(
       'server.friend_group.members.delete',
       payload.FriendGroupMemberDeleteRequest(
         friendGroupName: friendGroupName,
-        id: id,
+        name: name,
       ),
     );
   }
@@ -360,12 +360,12 @@ class GizClawClient {
   }
 
   Future<payload.ServerPlayRunWorkspaceHistoryResponse> playRunWorkspaceHistory(
-    String historyId,
+    String historyName,
   ) {
     return rpc.call<payload.ServerPlayRunWorkspaceHistoryResponse>(
       'server.run.workspace.history.play',
       payload.ServerPlayRunWorkspaceHistoryRequest(
-        value: payload.PeerRunHistoryPlayRequest(historyId: historyId),
+        value: payload.PeerRunHistoryPlayRequest(historyName: historyName),
       ),
     );
   }

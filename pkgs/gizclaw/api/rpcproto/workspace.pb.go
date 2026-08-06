@@ -124,8 +124,8 @@ type PeerRunHistoryEntry struct {
 	state           protoimpl.MessageState  `protogen:"open.v1"`
 	CreatedAt       string                  `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	GearId          *string                 `protobuf:"bytes,2,opt,name=gear_id,json=gearId,proto3,oneof" json:"gear_id,omitempty"`
-	Id              string                  `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"`
-	Name            string                  `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Name            string                  `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	ActorName       string                  `protobuf:"bytes,4,opt,name=actor_name,json=actorName,proto3" json:"actor_name,omitempty"`
 	ReplayAvailable bool                    `protobuf:"varint,5,opt,name=replay_available,json=replayAvailable,proto3" json:"replay_available,omitempty"`
 	Text            string                  `protobuf:"bytes,6,opt,name=text,proto3" json:"text,omitempty"`
 	Type            PeerRunHistoryEntryType `protobuf:"varint,7,opt,name=type,proto3,enum=gizclaw.rpc.v1.PeerRunHistoryEntryType" json:"type,omitempty"`
@@ -177,16 +177,16 @@ func (x *PeerRunHistoryEntry) GetGearId() string {
 	return ""
 }
 
-func (x *PeerRunHistoryEntry) GetId() string {
+func (x *PeerRunHistoryEntry) GetName() string {
 	if x != nil {
-		return x.Id
+		return x.Name
 	}
 	return ""
 }
 
-func (x *PeerRunHistoryEntry) GetName() string {
+func (x *PeerRunHistoryEntry) GetActorName() string {
 	if x != nil {
-		return x.Name
+		return x.ActorName
 	}
 	return ""
 }
@@ -350,7 +350,7 @@ func (x *PeerRunHistoryListResponse) GetNextCursor() string {
 
 type PeerRunHistoryPlayRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	HistoryId     string                 `protobuf:"bytes,1,opt,name=history_id,json=historyId,proto3" json:"history_id,omitempty"`
+	HistoryName   string                 `protobuf:"bytes,1,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -385,9 +385,9 @@ func (*PeerRunHistoryPlayRequest) Descriptor() ([]byte, []int) {
 	return file_payload_workspace_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *PeerRunHistoryPlayRequest) GetHistoryId() string {
+func (x *PeerRunHistoryPlayRequest) GetHistoryName() string {
 	if x != nil {
-		return x.HistoryId
+		return x.HistoryName
 	}
 	return ""
 }
@@ -395,7 +395,7 @@ func (x *PeerRunHistoryPlayRequest) GetHistoryId() string {
 type PeerRunHistoryPlayResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Accepted      bool                   `protobuf:"varint,1,opt,name=accepted,proto3" json:"accepted,omitempty"`
-	HistoryId     string                 `protobuf:"bytes,2,opt,name=history_id,json=historyId,proto3" json:"history_id,omitempty"`
+	HistoryName   string                 `protobuf:"bytes,2,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
 	Message       *string                `protobuf:"bytes,3,opt,name=message,proto3,oneof" json:"message,omitempty"`
 	State         string                 `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -439,9 +439,9 @@ func (x *PeerRunHistoryPlayResponse) GetAccepted() bool {
 	return false
 }
 
-func (x *PeerRunHistoryPlayResponse) GetHistoryId() string {
+func (x *PeerRunHistoryPlayResponse) GetHistoryName() string {
 	if x != nil {
-		return x.HistoryId
+		return x.HistoryName
 	}
 	return ""
 }
@@ -623,11 +623,11 @@ func (x *PeerRunMemoryStatsResponse) GetStorageBytes() int64 {
 type PeerRunRecallHit struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CreatedAt     *string                `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3,oneof" json:"created_at,omitempty"`
-	Id            string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Metadata      *structpb.Struct       `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	Score         float64                `protobuf:"fixed64,4,opt,name=score,proto3" json:"score,omitempty"`
 	Snippet       string                 `protobuf:"bytes,5,opt,name=snippet,proto3" json:"snippet,omitempty"`
-	SourceId      *string                `protobuf:"bytes,6,opt,name=source_id,json=sourceId,proto3,oneof" json:"source_id,omitempty"`
+	SourceName    *string                `protobuf:"bytes,6,opt,name=source_name,json=sourceName,proto3,oneof" json:"source_name,omitempty"`
 	SourceType    *string                `protobuf:"bytes,7,opt,name=source_type,json=sourceType,proto3,oneof" json:"source_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -670,9 +670,9 @@ func (x *PeerRunRecallHit) GetCreatedAt() string {
 	return ""
 }
 
-func (x *PeerRunRecallHit) GetId() string {
+func (x *PeerRunRecallHit) GetName() string {
 	if x != nil {
-		return x.Id
+		return x.Name
 	}
 	return ""
 }
@@ -698,9 +698,9 @@ func (x *PeerRunRecallHit) GetSnippet() string {
 	return ""
 }
 
-func (x *PeerRunRecallHit) GetSourceId() string {
-	if x != nil && x.SourceId != nil {
-		return *x.SourceId
+func (x *PeerRunRecallHit) GetSourceName() string {
+	if x != nil && x.SourceName != nil {
+		return *x.SourceName
 	}
 	return ""
 }
@@ -2870,7 +2870,7 @@ func (x *WorkspaceGetResponse) GetRuntimeProfileRevision() string {
 
 type WorkspaceHistoryAudioGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	HistoryId     string                 `protobuf:"bytes,1,opt,name=history_id,json=historyId,proto3" json:"history_id,omitempty"`
+	HistoryName   string                 `protobuf:"bytes,1,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
 	WorkspaceName string                 `protobuf:"bytes,2,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2906,9 +2906,9 @@ func (*WorkspaceHistoryAudioGetRequest) Descriptor() ([]byte, []int) {
 	return file_payload_workspace_proto_rawDescGZIP(), []int{53}
 }
 
-func (x *WorkspaceHistoryAudioGetRequest) GetHistoryId() string {
+func (x *WorkspaceHistoryAudioGetRequest) GetHistoryName() string {
 	if x != nil {
-		return x.HistoryId
+		return x.HistoryName
 	}
 	return ""
 }
@@ -2922,7 +2922,7 @@ func (x *WorkspaceHistoryAudioGetRequest) GetWorkspaceName() string {
 
 type WorkspaceHistoryAudioGetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	HistoryId     string                 `protobuf:"bytes,1,opt,name=history_id,json=historyId,proto3" json:"history_id,omitempty"`
+	HistoryName   string                 `protobuf:"bytes,1,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
 	MimeType      string                 `protobuf:"bytes,2,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
 	SizeBytes     int64                  `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	WorkspaceName string                 `protobuf:"bytes,4,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
@@ -2960,9 +2960,9 @@ func (*WorkspaceHistoryAudioGetResponse) Descriptor() ([]byte, []int) {
 	return file_payload_workspace_proto_rawDescGZIP(), []int{54}
 }
 
-func (x *WorkspaceHistoryAudioGetResponse) GetHistoryId() string {
+func (x *WorkspaceHistoryAudioGetResponse) GetHistoryName() string {
 	if x != nil {
-		return x.HistoryId
+		return x.HistoryName
 	}
 	return ""
 }
@@ -2990,7 +2990,7 @@ func (x *WorkspaceHistoryAudioGetResponse) GetWorkspaceName() string {
 
 type WorkspaceHistoryGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	HistoryId     string                 `protobuf:"bytes,1,opt,name=history_id,json=historyId,proto3" json:"history_id,omitempty"`
+	HistoryName   string                 `protobuf:"bytes,1,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
 	WorkspaceName string                 `protobuf:"bytes,2,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3026,9 +3026,9 @@ func (*WorkspaceHistoryGetRequest) Descriptor() ([]byte, []int) {
 	return file_payload_workspace_proto_rawDescGZIP(), []int{55}
 }
 
-func (x *WorkspaceHistoryGetRequest) GetHistoryId() string {
+func (x *WorkspaceHistoryGetRequest) GetHistoryName() string {
 	if x != nil {
-		return x.HistoryId
+		return x.HistoryName
 	}
 	return ""
 }
@@ -3610,13 +3610,14 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\apending\x18\x02 \x01(\v2\x1e.gizclaw.rpc.v1.AgentSelectionH\x01R\apending\x88\x01\x01B\t\n" +
 	"\a_activeB\n" +
 	"\n" +
-	"\b_pending\"\xfe\x01\n" +
+	"\b_pending\"\x8d\x02\n" +
 	"\x13PeerRunHistoryEntry\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12\x1c\n" +
-	"\agear_id\x18\x02 \x01(\tH\x00R\x06gearId\x88\x01\x01\x12\x0e\n" +
-	"\x02id\x18\x03 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x04 \x01(\tR\x04name\x12)\n" +
+	"\agear_id\x18\x02 \x01(\tH\x00R\x06gearId\x88\x01\x01\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"actor_name\x18\x04 \x01(\tR\tactorName\x12)\n" +
 	"\x10replay_available\x18\x05 \x01(\bR\x0freplayAvailable\x12\x12\n" +
 	"\x04text\x18\x06 \x01(\tR\x04text\x12;\n" +
 	"\x04type\x18\a \x01(\x0e2'.gizclaw.rpc.v1.PeerRunHistoryEntryTypeR\x04typeB\n" +
@@ -3638,14 +3639,12 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"nextCursor\x88\x01\x01B\n" +
 	"\n" +
 	"\b_messageB\x0e\n" +
-	"\f_next_cursor\":\n" +
-	"\x19PeerRunHistoryPlayRequest\x12\x1d\n" +
-	"\n" +
-	"history_id\x18\x01 \x01(\tR\thistoryId\"\x98\x01\n" +
+	"\f_next_cursor\">\n" +
+	"\x19PeerRunHistoryPlayRequest\x12!\n" +
+	"\fhistory_name\x18\x01 \x01(\tR\vhistoryName\"\x9c\x01\n" +
 	"\x1aPeerRunHistoryPlayResponse\x12\x1a\n" +
-	"\baccepted\x18\x01 \x01(\bR\baccepted\x12\x1d\n" +
-	"\n" +
-	"history_id\x18\x02 \x01(\tR\thistoryId\x12\x1d\n" +
+	"\baccepted\x18\x01 \x01(\bR\baccepted\x12!\n" +
+	"\fhistory_name\x18\x02 \x01(\tR\vhistoryName\x12\x1d\n" +
 	"\amessage\x18\x03 \x01(\tH\x00R\amessage\x88\x01\x01\x12\x14\n" +
 	"\x05state\x18\x04 \x01(\tR\x05stateB\n" +
 	"\n" +
@@ -3672,20 +3671,20 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\r_index_statusB\x12\n" +
 	"\x10_last_updated_atB\n" +
 	"\n" +
-	"\b_message\"\xa0\x02\n" +
+	"\b_message\"\xaa\x02\n" +
 	"\x10PeerRunRecallHit\x12\"\n" +
 	"\n" +
-	"created_at\x18\x01 \x01(\tH\x00R\tcreatedAt\x88\x01\x01\x12\x0e\n" +
-	"\x02id\x18\x02 \x01(\tR\x02id\x123\n" +
+	"created_at\x18\x01 \x01(\tH\x00R\tcreatedAt\x88\x01\x01\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
 	"\bmetadata\x18\x03 \x01(\v2\x17.google.protobuf.StructR\bmetadata\x12\x14\n" +
 	"\x05score\x18\x04 \x01(\x01R\x05score\x12\x18\n" +
-	"\asnippet\x18\x05 \x01(\tR\asnippet\x12 \n" +
-	"\tsource_id\x18\x06 \x01(\tH\x01R\bsourceId\x88\x01\x01\x12$\n" +
+	"\asnippet\x18\x05 \x01(\tR\asnippet\x12$\n" +
+	"\vsource_name\x18\x06 \x01(\tH\x01R\n" +
+	"sourceName\x88\x01\x01\x12$\n" +
 	"\vsource_type\x18\a \x01(\tH\x02R\n" +
 	"sourceType\x88\x01\x01B\r\n" +
-	"\v_created_atB\f\n" +
-	"\n" +
-	"_source_idB\x0e\n" +
+	"\v_created_atB\x0e\n" +
+	"\f_source_nameB\x0e\n" +
 	"\f_source_type\"\x95\x01\n" +
 	"\x14PeerRunRecallRequest\x126\n" +
 	"\afilters\x18\x01 \x01(\v2\x17.google.protobuf.StructH\x00R\afilters\x88\x01\x01\x12\x19\n" +
@@ -3856,21 +3855,18 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x14WorkspaceGetResponse\x12/\n" +
 	"\x05value\x18\x01 \x01(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05value\x120\n" +
 	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
-	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"g\n" +
-	"\x1fWorkspaceHistoryAudioGetRequest\x12\x1d\n" +
-	"\n" +
-	"history_id\x18\x01 \x01(\tR\thistoryId\x12%\n" +
-	"\x0eworkspace_name\x18\x02 \x01(\tR\rworkspaceName\"\xa4\x01\n" +
-	" WorkspaceHistoryAudioGetResponse\x12\x1d\n" +
-	"\n" +
-	"history_id\x18\x01 \x01(\tR\thistoryId\x12\x1b\n" +
+	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"k\n" +
+	"\x1fWorkspaceHistoryAudioGetRequest\x12!\n" +
+	"\fhistory_name\x18\x01 \x01(\tR\vhistoryName\x12%\n" +
+	"\x0eworkspace_name\x18\x02 \x01(\tR\rworkspaceName\"\xa8\x01\n" +
+	" WorkspaceHistoryAudioGetResponse\x12!\n" +
+	"\fhistory_name\x18\x01 \x01(\tR\vhistoryName\x12\x1b\n" +
 	"\tmime_type\x18\x02 \x01(\tR\bmimeType\x12\x1d\n" +
 	"\n" +
 	"size_bytes\x18\x03 \x01(\x03R\tsizeBytes\x12%\n" +
-	"\x0eworkspace_name\x18\x04 \x01(\tR\rworkspaceName\"b\n" +
-	"\x1aWorkspaceHistoryGetRequest\x12\x1d\n" +
-	"\n" +
-	"history_id\x18\x01 \x01(\tR\thistoryId\x12%\n" +
+	"\x0eworkspace_name\x18\x04 \x01(\tR\rworkspaceName\"f\n" +
+	"\x1aWorkspaceHistoryGetRequest\x12!\n" +
+	"\fhistory_name\x18\x01 \x01(\tR\vhistoryName\x12%\n" +
 	"\x0eworkspace_name\x18\x02 \x01(\tR\rworkspaceName\"X\n" +
 	"\x1bWorkspaceHistoryGetResponse\x129\n" +
 	"\x05value\x18\x01 \x01(\v2#.gizclaw.rpc.v1.PeerRunHistoryEntryR\x05value\"\xe8\x01\n" +

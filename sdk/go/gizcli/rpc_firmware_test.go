@@ -48,12 +48,11 @@ func TestClientGetFirmwareUsesRPCConnection(t *testing.T) {
 			return
 		}
 		response := resourceResponse(request.Id, rpcapi.FirmwareGetResponse{
-			FirmwareName: "devkit",
-			Channel:      rpcapi.FirmwareChannelNameBeta,
-			Description:  new("beta package"),
-			Url:          "https://firmware.example/beta.tar.zlib",
-			Sha256:       strings.Repeat("a", 64),
-			Size:         123,
+			Channel:     rpcapi.FirmwareChannelNameBeta,
+			Description: new("beta package"),
+			Url:         "https://firmware.example/beta.tar.zlib",
+			Sha256:      strings.Repeat("a", 64),
+			Size:        123,
 		}, (*rpcapi.RPCPayload).FromFirmwareGetResponse)
 		serverErr <- writeRPCResponseWithEOS(stream, request.Method, response)
 	}()
@@ -62,7 +61,7 @@ func TestClientGetFirmwareUsesRPCConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFirmware: %v", err)
 	}
-	if got.FirmwareName != "devkit" || got.Channel != rpcapi.FirmwareChannelNameBeta || got.Description == nil || *got.Description != "beta package" || got.Url != "https://firmware.example/beta.tar.zlib" || got.Sha256 != strings.Repeat("a", 64) || got.Size != 123 {
+	if got.Channel != rpcapi.FirmwareChannelNameBeta || got.Description == nil || *got.Description != "beta package" || got.Url != "https://firmware.example/beta.tar.zlib" || got.Sha256 != strings.Repeat("a", 64) || got.Size != 123 {
 		t.Fatalf("GetFirmware = %#v", got)
 	}
 	if err := <-serverErr; err != nil {

@@ -61,7 +61,7 @@ func (e *PeerEvent) Validate() error {
 		}
 	case *PeerEvent_GameplayRewardUpdated:
 		if strings.TrimSpace(payload.GameplayRewardUpdated.GetWorkspaceName()) == "" ||
-			strings.TrimSpace(payload.GameplayRewardUpdated.GetRewardGrantId()) == "" {
+			strings.TrimSpace(payload.GameplayRewardUpdated.GetRewardGrantName()) == "" {
 			return fmt.Errorf("%w: gameplay reward", ErrMissingIdentifier)
 		}
 	}

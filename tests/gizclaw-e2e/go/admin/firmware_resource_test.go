@@ -26,7 +26,6 @@ func TestAdminAPIFirmwareResourceLifecycle(t *testing.T) {
 		Metadata:   apitypes.ResourceMetadata{Id: name},
 		Spec: apitypes.FirmwareSpec{
 			Description: &description,
-			Name:        "Firmware resource E2E",
 			Slots: apitypes.FirmwareSpecSlots{
 				Stable:  firmwareResourceSlot("stable", "https://downloads.example.com/resource/stable.tar.zlib", firmwarePackageSHA256, 4096),
 				Beta:    firmwareResourceSlot("beta", "https://downloads.example.com/resource/beta.tar.zlib", "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", 8192),

@@ -43,10 +43,10 @@ func newSharedSetupRPCHarness(t *testing.T) *sharedSetupRPCHarness {
 	peer := h.ConnectClientFromContext("gear1")
 	t.Cleanup(func() { peer.Close() })
 	registerRuntimeProfile(t, h, peer, "shared-resources", sharedRuntimeProfileSpec(t))
-	profileID, firmwareID, token := provisionRuntimeProfile(t, h, "shared-social-admin", sharedRuntimeProfileSpec(t))
+	profileID, token := provisionRuntimeProfile(t, h, "shared-social-admin", sharedRuntimeProfileSpec(t))
 	admin := h.ConnectClientFromContext("admin-a")
 	t.Cleanup(func() { admin.Close() })
-	registerWithRuntimeProfile(t, admin, "shared-social-admin", profileID, firmwareID, token)
+	registerWithRuntimeProfile(t, admin, "shared-social-admin", profileID, token)
 	applySharedSocialFixtures(t, h)
 	return &sharedSetupRPCHarness{ctx: ctx, h: h, peer: peer}
 }

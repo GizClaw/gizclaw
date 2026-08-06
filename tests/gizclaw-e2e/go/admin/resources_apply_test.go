@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 )
 
 func TestAdminAPIApplyResource(t *testing.T) {
@@ -49,12 +50,14 @@ func TestAdminAPIApplySocialResources(t *testing.T) {
 
 	owner, peer := sortedPublicKeys(env.adminKey, env.peerKey)
 	relationID := owner + ":" + peer
+	groupResourceID := mutationName("social-group-id")
 	groupName := mutationName("social-group")
 	expiresAt := time.Now().UTC().Add(30 * time.Minute)
 
 	friendID := applyAndRequire(t, env, apitypes.ResourceKindFriend, relationID, friendResource(t, relationID, owner, peer))
-	groupID := applyAndRequire(t, env, apitypes.ResourceKindFriendGroup, groupName, friendGroupResource(t, groupName, env.adminKey, "E2E Mut Social Group", "created by e2e apply"))
-	memberID := applyAndRequire(t, env, apitypes.ResourceKindFriendGroupMember, groupName, friendGroupMemberResource(t, groupName, groupID, env.peerKey, apitypes.FriendGroupMemberRoleMember))
+	groupID := applyAndRequire(t, env, apitypes.ResourceKindFriendGroup, groupResourceID, friendGroupResource(t, groupResourceID, groupName, env.adminKey, "E2E Mut Social Group", "created by e2e apply"))
+	membershipID := customid.MembershipName(groupID, env.peerKey)
+	memberID := applyAndRequire(t, env, apitypes.ResourceKindFriendGroupMember, membershipID, friendGroupMemberResource(t, membershipID, groupName, groupID, env.peerKey, apitypes.FriendGroupMemberRoleMember))
 	tokenID := applyAndRequire(t, env, apitypes.ResourceKindFriendGroupInviteToken, groupID, friendGroupInviteTokenResource(t, groupID, "e2e-mut-social-token", expiresAt))
 	t.Cleanup(func() {
 		_, _ = env.api.DeleteResourceWithResponse(env.ctx, apitypes.ResourceKindFriendGroupInviteToken, tokenID)
@@ -64,7 +67,7 @@ func TestAdminAPIApplySocialResources(t *testing.T) {
 	})
 }
 
-func TestAdminAPIApplyRejectsInvalidCustomIDResources(t *testing.T) {
+func TestAdminAPIApplyRejectsInvalidResourceIdentities(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
 	for _, tc := range []struct {
@@ -73,15 +76,15 @@ func TestAdminAPIApplyRejectsInvalidCustomIDResources(t *testing.T) {
 	}{
 		{
 			name:     "workflow metadata.id",
-			resource: workflowResource(t, "short"),
+			resource: workflowResource(t, " leading"),
 		},
 		{
-			name:     "friend group metadata.id",
-			resource: friendGroupResource(t, "family", env.adminKey, "Family", "invalid short group id"),
+			name:     "friend group spec.name",
+			resource: friendGroupResource(t, mutationName("family-id"), "family", env.adminKey, "Family", "invalid short group name"),
 		},
 		{
-			name:     "contact id segment",
-			resource: contactResource(t, "alice", env.peerKey),
+			name:     "contact spec.name",
+			resource: contactResource(t, mutationName("alice-id"), "alice", env.peerKey),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -96,28 +99,28 @@ func TestAdminAPIApplyRejectsInvalidCustomIDResources(t *testing.T) {
 	}
 }
 
-func applyAndRequire(t *testing.T, env *adminAPIHarness, kind apitypes.ResourceKind, name string, resource apitypes.Resource) string {
+func applyAndRequire(t *testing.T, env *adminAPIHarness, kind apitypes.ResourceKind, id string, resource apitypes.Resource) string {
 	t.Helper()
 
 	resp, err := env.api.ApplyResourceWithResponse(env.ctx, resource)
 	if err != nil {
-		t.Fatalf("apply %s %s: %v", kind, name, err)
+		t.Fatalf("apply %s %s: %v", kind, id, err)
 	}
 	requireStatusOK(t, resp, resp.Body)
-	if resp.JSON200 == nil || resp.JSON200.Id == nil || *resp.JSON200.Id != name || resp.JSON200.Kind != kind {
-		t.Fatalf("apply %s %s = %#v", kind, name, resp.JSON200)
+	if resp.JSON200 == nil || resp.JSON200.Id == nil || *resp.JSON200.Id != id || resp.JSON200.Kind != kind {
+		t.Fatalf("apply %s %s = %#v", kind, id, resp.JSON200)
 	}
 	return *resp.JSON200.Id
 }
 
-func workflowResource(t *testing.T, name string) apitypes.Resource {
+func workflowResource(t *testing.T, id string) apitypes.Resource {
 	t.Helper()
 
 	var resource apitypes.Resource
 	if err := resource.FromWorkflowResource(apitypes.WorkflowResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.WorkflowResourceKindWorkflow,
-		Metadata:   apitypes.ResourceMetadata{Id: name},
+		Metadata:   apitypes.ResourceMetadata{Id: id},
 		Spec: apitypes.WorkflowSpec{
 			Driver:    apitypes.WorkflowDriverFlowcraft,
 			Flowcraft: testFlowcraftWorkflowSpec(),
@@ -128,16 +131,17 @@ func workflowResource(t *testing.T, name string) apitypes.Resource {
 	return resource
 }
 
-func contactResource(t *testing.T, name, owner string) apitypes.Resource {
+func contactResource(t *testing.T, id, name, owner string) apitypes.Resource {
 	t.Helper()
 
 	var resource apitypes.Resource
 	if err := resource.FromContactResource(apitypes.ContactResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.ContactResourceKindContact,
-		Metadata:   apitypes.ResourceMetadata{Id: name},
+		Metadata:   apitypes.ResourceMetadata{Id: id},
 		Spec: apitypes.ContactSpec{
 			OwnerPublicKey: owner,
+			Name:           name,
 			DisplayName:    ptr("Invalid Contact"),
 		},
 	}); err != nil {
@@ -146,14 +150,14 @@ func contactResource(t *testing.T, name, owner string) apitypes.Resource {
 	return resource
 }
 
-func friendResource(t *testing.T, name, owner, peer string) apitypes.Resource {
+func friendResource(t *testing.T, id, owner, peer string) apitypes.Resource {
 	t.Helper()
 
 	var resource apitypes.Resource
 	if err := resource.FromFriendResource(apitypes.FriendResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FriendResourceKindFriend,
-		Metadata:   apitypes.ResourceMetadata{Id: name},
+		Metadata:   apitypes.ResourceMetadata{Id: id},
 		Spec: apitypes.FriendSpec{
 			OwnerPublicKey: owner,
 			PeerPublicKey:  peer,
@@ -164,16 +168,17 @@ func friendResource(t *testing.T, name, owner, peer string) apitypes.Resource {
 	return resource
 }
 
-func friendGroupResource(t *testing.T, name, owner, displayName, description string) apitypes.Resource {
+func friendGroupResource(t *testing.T, id, name, owner, displayName, description string) apitypes.Resource {
 	t.Helper()
 
 	var resource apitypes.Resource
 	if err := resource.FromFriendGroupResource(apitypes.FriendGroupResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FriendGroupResourceKindFriendGroup,
-		Metadata:   apitypes.ResourceMetadata{Id: name},
+		Metadata:   apitypes.ResourceMetadata{Id: id},
 		Spec: apitypes.FriendGroupSpec{
 			OwnerPublicKey: owner,
+			Name:           name,
 			DisplayName:    ptr(displayName),
 			Description:    ptr(description),
 		},
@@ -183,16 +188,17 @@ func friendGroupResource(t *testing.T, name, owner, displayName, description str
 	return resource
 }
 
-func friendGroupMemberResource(t *testing.T, name, groupID, peer string, role apitypes.FriendGroupMemberRole) apitypes.Resource {
+func friendGroupMemberResource(t *testing.T, id, name, groupID, peer string, role apitypes.FriendGroupMemberRole) apitypes.Resource {
 	t.Helper()
 
 	var resource apitypes.Resource
 	if err := resource.FromFriendGroupMemberResource(apitypes.FriendGroupMemberResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FriendGroupMemberResourceKindFriendGroupMember,
-		Metadata:   apitypes.ResourceMetadata{Id: name},
+		Metadata:   apitypes.ResourceMetadata{Id: id},
 		Spec: apitypes.FriendGroupMemberSpec{
 			FriendGroupId: groupID,
+			Name:          name,
 			PeerPublicKey: peer,
 			Role:          role,
 		},

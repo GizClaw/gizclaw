@@ -29,8 +29,8 @@ typedef struct _gizclaw_rpc_v1_PeerRunAgent {
 typedef struct _gizclaw_rpc_v1_PeerRunHistoryEntry {
     pb_callback_t created_at;
     pb_callback_t gear_id;
-    pb_callback_t id;
     pb_callback_t name;
+    pb_callback_t actor_name;
     bool replay_available;
     pb_callback_t text;
     gizclaw_rpc_v1_PeerRunHistoryEntryType type;
@@ -53,12 +53,12 @@ typedef struct _gizclaw_rpc_v1_PeerRunHistoryListResponse {
 } gizclaw_rpc_v1_PeerRunHistoryListResponse;
 
 typedef struct _gizclaw_rpc_v1_PeerRunHistoryPlayRequest {
-    pb_callback_t history_id;
+    pb_callback_t history_name;
 } gizclaw_rpc_v1_PeerRunHistoryPlayRequest;
 
 typedef struct _gizclaw_rpc_v1_PeerRunHistoryPlayResponse {
     bool accepted;
-    pb_callback_t history_id;
+    pb_callback_t history_name;
     pb_callback_t message;
     pb_callback_t state;
 } gizclaw_rpc_v1_PeerRunHistoryPlayResponse;
@@ -85,12 +85,12 @@ typedef struct _gizclaw_rpc_v1_PeerRunMemoryStatsResponse {
 
 typedef struct _gizclaw_rpc_v1_PeerRunRecallHit {
     pb_callback_t created_at;
-    pb_callback_t id;
+    pb_callback_t name;
     bool has_metadata;
     google_protobuf_Struct metadata;
     double score;
     pb_callback_t snippet;
-    pb_callback_t source_id;
+    pb_callback_t source_name;
     pb_callback_t source_type;
 } gizclaw_rpc_v1_PeerRunRecallHit;
 
@@ -287,19 +287,19 @@ typedef struct _gizclaw_rpc_v1_WorkspaceGetRequest {
 } gizclaw_rpc_v1_WorkspaceGetRequest;
 
 typedef struct _gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest {
-    pb_callback_t history_id;
+    pb_callback_t history_name;
     pb_callback_t workspace_name;
 } gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest;
 
 typedef struct _gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse {
-    pb_callback_t history_id;
+    pb_callback_t history_name;
     pb_callback_t mime_type;
     int64_t size_bytes;
     pb_callback_t workspace_name;
 } gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse;
 
 typedef struct _gizclaw_rpc_v1_WorkspaceHistoryGetRequest {
-    pb_callback_t history_id;
+    pb_callback_t history_name;
     pb_callback_t workspace_name;
 } gizclaw_rpc_v1_WorkspaceHistoryGetRequest;
 
@@ -558,8 +558,8 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerRunAgent_pending_tag  2
 #define gizclaw_rpc_v1_PeerRunHistoryEntry_created_at_tag 1
 #define gizclaw_rpc_v1_PeerRunHistoryEntry_gear_id_tag 2
-#define gizclaw_rpc_v1_PeerRunHistoryEntry_id_tag 3
-#define gizclaw_rpc_v1_PeerRunHistoryEntry_name_tag 4
+#define gizclaw_rpc_v1_PeerRunHistoryEntry_name_tag 3
+#define gizclaw_rpc_v1_PeerRunHistoryEntry_actor_name_tag 4
 #define gizclaw_rpc_v1_PeerRunHistoryEntry_replay_available_tag 5
 #define gizclaw_rpc_v1_PeerRunHistoryEntry_text_tag 6
 #define gizclaw_rpc_v1_PeerRunHistoryEntry_type_tag 7
@@ -571,9 +571,9 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerRunHistoryListResponse_items_tag 3
 #define gizclaw_rpc_v1_PeerRunHistoryListResponse_message_tag 4
 #define gizclaw_rpc_v1_PeerRunHistoryListResponse_next_cursor_tag 5
-#define gizclaw_rpc_v1_PeerRunHistoryPlayRequest_history_id_tag 1
+#define gizclaw_rpc_v1_PeerRunHistoryPlayRequest_history_name_tag 1
 #define gizclaw_rpc_v1_PeerRunHistoryPlayResponse_accepted_tag 1
-#define gizclaw_rpc_v1_PeerRunHistoryPlayResponse_history_id_tag 2
+#define gizclaw_rpc_v1_PeerRunHistoryPlayResponse_history_name_tag 2
 #define gizclaw_rpc_v1_PeerRunHistoryPlayResponse_message_tag 3
 #define gizclaw_rpc_v1_PeerRunHistoryPlayResponse_state_tag 4
 #define gizclaw_rpc_v1_PeerRunMemoryStatsResponse_available_tag 1
@@ -588,11 +588,11 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerRunMemoryStatsResponse_metadata_tag 10
 #define gizclaw_rpc_v1_PeerRunMemoryStatsResponse_storage_bytes_tag 11
 #define gizclaw_rpc_v1_PeerRunRecallHit_created_at_tag 1
-#define gizclaw_rpc_v1_PeerRunRecallHit_id_tag   2
+#define gizclaw_rpc_v1_PeerRunRecallHit_name_tag 2
 #define gizclaw_rpc_v1_PeerRunRecallHit_metadata_tag 3
 #define gizclaw_rpc_v1_PeerRunRecallHit_score_tag 4
 #define gizclaw_rpc_v1_PeerRunRecallHit_snippet_tag 5
-#define gizclaw_rpc_v1_PeerRunRecallHit_source_id_tag 6
+#define gizclaw_rpc_v1_PeerRunRecallHit_source_name_tag 6
 #define gizclaw_rpc_v1_PeerRunRecallHit_source_type_tag 7
 #define gizclaw_rpc_v1_PeerRunRecallRequest_filters_tag 1
 #define gizclaw_rpc_v1_PeerRunRecallRequest_limit_tag 2
@@ -647,13 +647,13 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceIconDownloadResponse_size_bytes_tag 3
 #define gizclaw_rpc_v1_WorkspaceDeleteRequest_name_tag 1
 #define gizclaw_rpc_v1_WorkspaceGetRequest_name_tag 1
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_history_id_tag 1
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_history_name_tag 1
 #define gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_workspace_name_tag 2
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_history_id_tag 1
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_history_name_tag 1
 #define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_mime_type_tag 2
 #define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_size_bytes_tag 3
 #define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_workspace_name_tag 4
-#define gizclaw_rpc_v1_WorkspaceHistoryGetRequest_history_id_tag 1
+#define gizclaw_rpc_v1_WorkspaceHistoryGetRequest_history_name_tag 1
 #define gizclaw_rpc_v1_WorkspaceHistoryGetRequest_workspace_name_tag 2
 #define gizclaw_rpc_v1_WorkspaceHistoryGetResponse_value_tag 1
 #define gizclaw_rpc_v1_WorkspaceHistoryListRequest_cursor_tag 1
@@ -721,8 +721,8 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  pending,           2)
 #define gizclaw_rpc_v1_PeerRunHistoryEntry_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   created_at,        1) \
 X(a, CALLBACK, OPTIONAL, STRING,   gear_id,           2) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                3) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              4) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              3) \
+X(a, CALLBACK, SINGULAR, STRING,   actor_name,        4) \
 X(a, STATIC,   SINGULAR, BOOL,     replay_available,   5) \
 X(a, CALLBACK, SINGULAR, STRING,   text,              6) \
 X(a, STATIC,   SINGULAR, UENUM,    type,              7)
@@ -747,13 +747,13 @@ X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       5)
 #define gizclaw_rpc_v1_PeerRunHistoryListResponse_items_MSGTYPE gizclaw_rpc_v1_PeerRunHistoryEntry
 
 #define gizclaw_rpc_v1_PeerRunHistoryPlayRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   history_id,        1)
+X(a, CALLBACK, SINGULAR, STRING,   history_name,      1)
 #define gizclaw_rpc_v1_PeerRunHistoryPlayRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PeerRunHistoryPlayRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_PeerRunHistoryPlayResponse_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, BOOL,     accepted,          1) \
-X(a, CALLBACK, SINGULAR, STRING,   history_id,        2) \
+X(a, CALLBACK, SINGULAR, STRING,   history_name,      2) \
 X(a, CALLBACK, OPTIONAL, STRING,   message,           3) \
 X(a, CALLBACK, SINGULAR, STRING,   state,             4)
 #define gizclaw_rpc_v1_PeerRunHistoryPlayResponse_CALLBACK pb_default_field_callback
@@ -782,11 +782,11 @@ X(a, STATIC,   SINGULAR, INT64,    storage_bytes,    11)
 
 #define gizclaw_rpc_v1_PeerRunRecallHit_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   created_at,        1) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                2) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              2) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  metadata,          3) \
 X(a, STATIC,   SINGULAR, DOUBLE,   score,             4) \
 X(a, CALLBACK, SINGULAR, STRING,   snippet,           5) \
-X(a, CALLBACK, OPTIONAL, STRING,   source_id,         6) \
+X(a, CALLBACK, OPTIONAL, STRING,   source_name,       6) \
 X(a, CALLBACK, OPTIONAL, STRING,   source_type,       7)
 #define gizclaw_rpc_v1_PeerRunRecallHit_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PeerRunRecallHit_DEFAULT NULL
@@ -1080,13 +1080,13 @@ X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   3)
 #define gizclaw_rpc_v1_WorkspaceGetResponse_value_MSGTYPE gizclaw_rpc_v1_Workspace
 
 #define gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   history_id,        1) \
+X(a, CALLBACK, SINGULAR, STRING,   history_name,      1) \
 X(a, CALLBACK, SINGULAR, STRING,   workspace_name,    2)
 #define gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   history_id,        1) \
+X(a, CALLBACK, SINGULAR, STRING,   history_name,      1) \
 X(a, CALLBACK, SINGULAR, STRING,   mime_type,         2) \
 X(a, STATIC,   SINGULAR, INT64,    size_bytes,        3) \
 X(a, CALLBACK, SINGULAR, STRING,   workspace_name,    4)
@@ -1094,7 +1094,7 @@ X(a, CALLBACK, SINGULAR, STRING,   workspace_name,    4)
 #define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_DEFAULT NULL
 
 #define gizclaw_rpc_v1_WorkspaceHistoryGetRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   history_id,        1) \
+X(a, CALLBACK, SINGULAR, STRING,   history_name,      1) \
 X(a, CALLBACK, SINGULAR, STRING,   workspace_name,    2)
 #define gizclaw_rpc_v1_WorkspaceHistoryGetRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkspaceHistoryGetRequest_DEFAULT NULL

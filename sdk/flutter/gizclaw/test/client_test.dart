@@ -30,10 +30,7 @@ void main() {
             id: request.id,
             payload: encodeRpcResponsePayload(
               'server.register',
-              ServerRegisterResponse(
-                runtimeProfileName: 'profile-a',
-                firmwareName: 'h106',
-              ),
+              ServerRegisterResponse(runtimeProfileName: 'profile-a'),
             ),
           ).writeToBuffer(),
         ),
@@ -43,7 +40,6 @@ void main() {
 
     final response = await future;
     expect(response.runtimeProfileName, 'profile-a');
-    expect(response.firmwareName, 'h106');
   });
 
   test('uploads the local device info to the server', () async {

@@ -211,7 +211,7 @@ void main() {
               request.payload,
             )
             as payload.ServerPlayRunWorkspaceHistoryRequest;
-    expect(body.value.historyId, 'history-voice-1');
+    expect(body.value.historyName, 'history-voice-1');
     _respond(
       factory.channels.single,
       request.id,
@@ -219,7 +219,7 @@ void main() {
       payload.ServerPlayRunWorkspaceHistoryResponse(
         value: payload.PeerRunHistoryPlayResponse(
           accepted: true,
-          historyId: 'history-voice-1',
+          historyName: 'history-voice-1',
           state: 'playing',
         ),
       ),

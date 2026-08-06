@@ -307,13 +307,22 @@ func (s *Server) projectBadge(item apitypes.Badge) (rpcapi.Badge, error) {
 }
 
 func (s *Server) projectPointsTransaction(ctx context.Context, item apitypes.PointsTransaction) (rpcapi.PointsTransaction, error) {
-	projected, err := convertType[rpcapi.PointsTransaction](item)
+	runtimeProfileName, err := s.runtimeProfileID(item.RuntimeProfileId)
 	if err != nil {
 		return rpcapi.PointsTransaction{}, err
 	}
-	projected.RuntimeProfileName, err = s.runtimeProfileID(item.RuntimeProfileId)
-	if err != nil {
-		return rpcapi.PointsTransaction{}, err
+	projected := rpcapi.PointsTransaction{
+		BalanceAfter:       item.BalanceAfter,
+		CreatedAt:          item.CreatedAt,
+		Delta:              item.Delta,
+		GameResultName:     item.GameResultId,
+		Name:               item.Id,
+		OwnerPublicKey:     item.OwnerPublicKey,
+		Reason:             item.Reason,
+		RewardGrantName:    item.RewardGrantId,
+		RuntimeProfileName: runtimeProfileName,
+		SourceName:         item.SourceId,
+		SourceType:         item.SourceType,
 	}
 	if item.PetId != nil {
 		pet, err := s.Gameplay.GetPet(ctx, s.Caller.String(), *item.PetId)
@@ -326,11 +335,7 @@ func (s *Server) projectPointsTransaction(ctx context.Context, item apitypes.Poi
 }
 
 func (s *Server) projectGameResult(ctx context.Context, item apitypes.GameResult) (rpcapi.GameResult, error) {
-	projected, err := convertType[rpcapi.GameResult](item)
-	if err != nil {
-		return rpcapi.GameResult{}, err
-	}
-	projected.RuntimeProfileName, err = s.runtimeProfileID(item.RuntimeProfileId)
+	runtimeProfileName, err := s.runtimeProfileID(item.RuntimeProfileId)
 	if err != nil {
 		return rpcapi.GameResult{}, err
 	}
@@ -342,19 +347,40 @@ func (s *Server) projectGameResult(ctx context.Context, item apitypes.GameResult
 	if !ok {
 		return rpcapi.GameResult{}, errors.New("gameplay: game definition is not available in the active RuntimeProfile")
 	}
-	projected.PetName = pet.Name
-	projected.GameDefName = gameName
-	return projected, nil
+	return rpcapi.GameResult{
+		CreatedAt:          item.CreatedAt,
+		Difficulty:         item.Difficulty,
+		DurationMs:         item.DurationMs,
+		GameDefName:        gameName,
+		Name:               item.Id,
+		IdempotencyKey:     item.IdempotencyKey,
+		MaxScore:           item.MaxScore,
+		OccurredAt:         item.OccurredAt,
+		Outcome:            item.Outcome,
+		Payload:            (*rpcapi.GameplayMetadata)(item.Payload),
+		PetName:            pet.Name,
+		RuntimeProfileName: runtimeProfileName,
+		Score:              item.Score,
+	}, nil
 }
 
 func (s *Server) projectRewardGrant(ctx context.Context, item apitypes.RewardGrant) (rpcapi.RewardGrant, error) {
-	projected, err := convertType[rpcapi.RewardGrant](item)
+	runtimeProfileName, err := s.runtimeProfileID(item.RuntimeProfileId)
 	if err != nil {
 		return rpcapi.RewardGrant{}, err
 	}
-	projected.RuntimeProfileName, err = s.runtimeProfileID(item.RuntimeProfileId)
-	if err != nil {
-		return rpcapi.RewardGrant{}, err
+	projected := rpcapi.RewardGrant{
+		BadgeExpDelta:      item.BadgeExpDelta,
+		CreatedAt:          item.CreatedAt,
+		GameResultName:     item.GameResultId,
+		Name:               item.Id,
+		OwnerPublicKey:     item.OwnerPublicKey,
+		PetExpDelta:        item.PetExpDelta,
+		PointsDelta:        item.PointsDelta,
+		Reason:             item.Reason,
+		RuntimeProfileName: runtimeProfileName,
+		SourceName:         item.SourceId,
+		SourceType:         item.SourceType,
 	}
 	if item.PetId != nil {
 		pet, err := s.Gameplay.GetPet(ctx, s.Caller.String(), *item.PetId)
@@ -633,7 +659,7 @@ func (s *Server) handlePointsTransactionsGet(ctx context.Context, req *rpcapi.RP
 	if failure != nil {
 		return failure
 	}
-	resp, err := runtime.GetPointsTransaction(profileCtx, s.Caller.String(), params.Id)
+	resp, err := runtime.GetPointsTransaction(profileCtx, s.Caller.String(), params.Name)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -745,7 +771,7 @@ func (s *Server) handleGameResultGet(ctx context.Context, req *rpcapi.RPCRequest
 	if failure != nil {
 		return failure
 	}
-	resp, err := runtime.GetGameResult(profileCtx, s.Caller.String(), params.Id)
+	resp, err := runtime.GetGameResult(profileCtx, s.Caller.String(), params.Name)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -801,7 +827,7 @@ func (s *Server) handleRewardGrantGet(ctx context.Context, req *rpcapi.RPCReques
 	if failure != nil {
 		return failure
 	}
-	resp, err := runtime.GetRewardGrant(profileCtx, s.Caller.String(), params.Id)
+	resp, err := runtime.GetRewardGrant(profileCtx, s.Caller.String(), params.Name)
 	if err != nil {
 		return businessError(req.Id, err)
 	}

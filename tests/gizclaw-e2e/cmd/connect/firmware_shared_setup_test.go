@@ -34,7 +34,10 @@ func TestRegistrationBindsFirmware(t *testing.T) {
 		t.Run(tc.channel, func(t *testing.T) {
 			result := h.RunCLI("connect", "firmware", "get", "--channel", tc.channel, "--context", "device-a", "--registration-token", token)
 			result.MustSucceed(t)
-			assertOutputContains(t, result.Stdout, `"firmware_name":"devkit-firmware-main"`, `"channel":"`+tc.channel+`"`, `"url":"`+tc.url+`"`, tc.size)
+			assertOutputContains(t, result.Stdout, `"channel":"`+tc.channel+`"`, `"url":"`+tc.url+`"`, tc.size)
+			if strings.Contains(result.Stdout, `"firmware_name"`) {
+				t.Fatalf("firmware response unexpectedly exposes identity:\n%s", result.Stdout)
+			}
 		})
 	}
 }

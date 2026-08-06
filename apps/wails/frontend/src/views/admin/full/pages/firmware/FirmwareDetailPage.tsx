@@ -182,7 +182,7 @@ export function FirmwareDetailPage(): JSX.Element {
             </Badge>
           ) : null
         }
-        title={firmware?.name ?? firmwareID}
+        title={firmware?.id ?? firmwareID}
       />
 
       {loading ? (
@@ -211,7 +211,6 @@ export function FirmwareDetailPage(): JSX.Element {
             <DetailBlock
               items={[
                 ["ID", firmware.id],
-                ["Name", firmware.name],
                 ["Description", firmware.description],
                 ["Created", firmware.created_at],
                 ["Updated", firmware.updated_at],

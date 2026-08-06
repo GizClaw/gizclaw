@@ -252,39 +252,39 @@ func (a *historyAgent) ListHistory(ctx context.Context, req apitypes.PeerRunHist
 func (a *historyAgent) PlayHistory(ctx context.Context, req apitypes.PeerRunHistoryPlayRequest) (apitypes.PeerRunHistoryPlayResponse, error) {
 	if a == nil || a.history == nil {
 		message := unsupportedMessage
-		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unsupported", Message: &message}, nil
+		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryName: req.HistoryName, State: "unsupported", Message: &message}, nil
 	}
-	entry, err := a.history.Get(ctx, req.HistoryId)
+	entry, err := a.history.Get(ctx, req.HistoryName)
 	if err != nil {
 		if historyIsNotExist(err) {
 			message := "history entry not found"
-			return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "not_found", Message: &message}, nil
+			return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryName: req.HistoryName, State: "not_found", Message: &message}, nil
 		}
 		return apitypes.PeerRunHistoryPlayResponse{}, err
 	}
 	if !entry.ReplayAvailable {
 		message := "history entry has no replayable content"
-		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unsupported", Message: &message}, nil
+		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryName: req.HistoryName, State: "unsupported", Message: &message}, nil
 	}
 	outputState, streamID, ok := a.currentOutput(ctx)
 	if !ok {
 		message := "workspace history replay requires an active output stream"
-		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unavailable", Message: &message}, nil
+		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryName: req.HistoryName, State: "unavailable", Message: &message}, nil
 	}
 	chunks, err := a.replayChunks(ctx, streamID, entry)
 	if err != nil {
 		message := err.Error()
-		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unavailable", Message: &message}, nil
+		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryName: req.HistoryName, State: "unavailable", Message: &message}, nil
 	}
 	if len(chunks) == 0 {
 		message := "history entry has no replayable content"
-		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "empty", Message: &message}, nil
+		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryName: req.HistoryName, State: "empty", Message: &message}, nil
 	}
 	if err := outputState.startReplay(streamID, chunks); err != nil {
 		message := err.Error()
-		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unavailable", Message: &message}, nil
+		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryName: req.HistoryName, State: "unavailable", Message: &message}, nil
 	}
-	return apitypes.PeerRunHistoryPlayResponse{Accepted: true, HistoryId: req.HistoryId, State: "played"}, nil
+	return apitypes.PeerRunHistoryPlayResponse{Accepted: true, HistoryName: req.HistoryName, State: "played"}, nil
 }
 
 func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outputState *historyOutput, input genx.Stream, output *genx.StreamBuilder, recorder *historyRecorder) {

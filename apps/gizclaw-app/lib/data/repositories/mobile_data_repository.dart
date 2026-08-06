@@ -75,16 +75,16 @@ class MobileDataRepository {
       return rows
           .where((row) => row.workspaceName?.isNotEmpty ?? false)
           .map((row) {
-            final info = infos[row.id];
+            final info = infos[row.name];
             return ChatroomWorkspaceMetadata(
               workspaceName: row.workspaceName!,
-              title: (info?.name.trim().isNotEmpty ?? false)
-                  ? info!.name
-                  : row.id,
+              title: (info?.displayName.trim().isNotEmpty ?? false)
+                  ? info!.displayName
+                  : row.name,
               emoji: info?.emoji ?? '',
               kind: ChatroomWorkspaceKind.direct,
               peerPublicKey: row.peerPublicKey,
-              resourceId: row.id,
+              resourceId: row.name,
             );
           })
           .toList(growable: false);
@@ -96,7 +96,7 @@ class MobileDataRepository {
   ) {
     final query = database.select(database.friendGroupEntries)
       ..where((row) => row.serverId.equals(serverId))
-      ..orderBy([(row) => OrderingTerm.asc(row.name)]);
+      ..orderBy([(row) => OrderingTerm.asc(row.displayName)]);
     return query.watch().map(
       (rows) => rows
           .where((row) => row.workspaceName?.isNotEmpty ?? false)
@@ -104,10 +104,12 @@ class MobileDataRepository {
             final group = FriendGroupObject.fromBuffer(row.rawProtobuf);
             return ChatroomWorkspaceMetadata(
               workspaceName: row.workspaceName!,
-              title: row.name.trim().isEmpty ? 'Group chat' : row.name,
+              title: row.displayName.trim().isEmpty
+                  ? 'Group chat'
+                  : row.displayName,
               description: row.description,
               kind: ChatroomWorkspaceKind.group,
-              resourceId: row.id,
+              resourceId: row.name,
               isGroupOwner:
                   group.myRole ==
                   FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_OWNER,
@@ -300,7 +302,7 @@ class MobileDataRepository {
           friends.map((friend) {
             return FriendEntriesCompanion.insert(
               serverId: serverId,
-              id: _friendKey(friend),
+              name: _friendKey(friend),
               peerPublicKey: friend.peerPublicKey,
               workspaceName: Value(
                 friend.hasWorkspaceName() ? friend.workspaceName : null,
@@ -312,9 +314,10 @@ class MobileDataRepository {
         );
       });
       _requireCurrent(isCurrent);
-      final friendIds = friends.map(_friendKey).toSet();
+      final friendNames = friends.map(_friendKey).toSet();
       await (database.delete(database.friendEntries)..where(
-            (row) => row.serverId.equals(serverId) & row.id.isNotIn(friendIds),
+            (row) =>
+                row.serverId.equals(serverId) & row.name.isNotIn(friendNames),
           ))
           .go();
       _requireCurrent(isCurrent);
@@ -335,8 +338,8 @@ class MobileDataRepository {
           groups.map((group) {
             return FriendGroupEntriesCompanion.insert(
               serverId: serverId,
-              id: _friendGroupKey(group),
-              name:
+              name: _friendGroupKey(group),
+              displayName:
                   group.hasDisplayName() && group.displayName.trim().isNotEmpty
                   ? group.displayName
                   : group.name,
@@ -351,9 +354,10 @@ class MobileDataRepository {
         );
       });
       _requireCurrent(isCurrent);
-      final groupIds = groups.map(_friendGroupKey).toSet();
+      final groupNames = groups.map(_friendGroupKey).toSet();
       await (database.delete(database.friendGroupEntries)..where(
-            (row) => row.serverId.equals(serverId) & row.id.isNotIn(groupIds),
+            (row) =>
+                row.serverId.equals(serverId) & row.name.isNotIn(groupNames),
           ))
           .go();
       _requireCurrent(isCurrent);
@@ -424,10 +428,10 @@ Future<Map<String, FriendInfo>> _allFriendInfos(
 }) async {
   final infos = <String, FriendInfo>{...?previous};
   for (final friend in friends) {
-    final id = _friendKey(friend);
+    final name = _friendKey(friend);
     try {
-      final response = await client.getFriendInfo(id);
-      if (response.hasValue()) infos[id] = response.value;
+      final response = await client.getFriendInfo(name);
+      if (response.hasValue()) infos[name] = response.value;
     } catch (_) {
       // Keep the last cached profile when a single friend lookup is transiently unavailable.
     }
@@ -447,17 +451,17 @@ Future<List<FriendGroupObject>> _allFriendGroups(GizClawClient client) async {
 }
 
 String _friendKey(FriendObject friend) {
-  if (friend.id.trim().isNotEmpty) return friend.id.trim();
-  if (friend.peerPublicKey.trim().isNotEmpty) {
-    return friend.peerPublicKey.trim();
+  if (friend.name.isEmpty) {
+    throw StateError('Friend response is missing its Peer name');
   }
-  return friend.workspaceName.trim();
+  return friend.name;
 }
 
 String _friendGroupKey(FriendGroupObject group) {
-  if (group.name.trim().isNotEmpty) return group.name.trim();
-  if (group.workspaceName.trim().isNotEmpty) return group.workspaceName.trim();
-  return '';
+  if (group.name.isEmpty) {
+    throw StateError('Friend Group response is missing its Peer name');
+  }
+  return group.name;
 }
 
 WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {

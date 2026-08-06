@@ -9,7 +9,6 @@ test("production Play data client requests the selected Firmware channel", async
   const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
   const response = {
     channel: "pending" as const,
-    firmware_name: "devkit-firmware-main",
     sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     size: 16384,
     url: "https://firmware.example.invalid/devkit/pending.tar.zlib",
@@ -36,6 +35,15 @@ test("snapshot keeps workspaces and workflows when a fixed collection is absent"
   const workflowCalls: Array<Record<string, unknown>> = [];
   const rpc = {
     call: async (method: string, params: Record<string, unknown>) => {
+      if (method === "server.firmware.get") {
+        return {
+          channel: "stable",
+          sha256:
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          size: 4096,
+          url: "https://firmware.example.invalid/devkit/stable.tar.zlib",
+        };
+      }
       if (
         method !== "server.workspace.list" &&
         method !== "server.workflow.list"
@@ -58,7 +66,7 @@ test("snapshot keeps workspaces and workflows when a fixed collection is absent"
           has_next: true,
           items: [
             {
-              alias: "assistant-first",
+              name: "assistant-first",
               driver: "flowcraft",
               i18n: { en: { display_name: "First assistant" } },
             },
@@ -71,7 +79,7 @@ test("snapshot keeps workspaces and workflows when a fixed collection is absent"
       return {
         items: [
           {
-            alias: "assistant-second",
+            name: "assistant-second",
             driver: "flowcraft",
             i18n: { en: { display_name: "Second assistant" } },
           },
@@ -98,7 +106,7 @@ test("snapshot keeps workspaces and workflows when a fixed collection is absent"
   );
   assert.deepEqual(
     snapshot.workspaces.map(
-      (workspace) => (workspace.raw as { alias: string }).alias,
+      (workspace) => (workspace.raw as { name: string }).name,
     ),
     ["assistant-first", "assistant-second"],
   );
@@ -107,21 +115,18 @@ test("snapshot keeps workspaces and workflows when a fixed collection is absent"
     runtime_profile_revision: "revision-a",
   });
   assert.deepEqual(
-    snapshot.workflows.map(({ alias, driver, id, title }) => ({
-      alias,
+    snapshot.workflows.map(({ driver, id, title }) => ({
       driver,
       id,
       title,
     })),
     [
       {
-        alias: "assistant-first",
         driver: "flowcraft",
         id: "assistant-first",
         title: "First assistant",
       },
       {
-        alias: "assistant-second",
         driver: "flowcraft",
         id: "assistant-second",
         title: "Second assistant",
@@ -130,7 +135,7 @@ test("snapshot keeps workspaces and workflows when a fixed collection is absent"
   );
   assert.deepEqual(
     snapshot.workflows.map(
-      (workflow) => (workflow.raw as { alias: string }).alias,
+      (workflow) => (workflow.raw as { name: string }).name,
     ),
     ["assistant-first", "assistant-second"],
   );
@@ -151,13 +156,22 @@ test("snapshot keeps workspaces and workflows when a fixed collection is absent"
 test("snapshot rejects mixed runtime profile revisions across collections", async () => {
   const rpc = {
     call: async (method: string, params: Record<string, unknown>) => {
+      if (method === "server.firmware.get") {
+        return {
+          channel: "stable",
+          sha256:
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          size: 4096,
+          url: "https://firmware.example.invalid/devkit/stable.tar.zlib",
+        };
+      }
       if (
         method !== "server.workspace.list" &&
         method !== "server.workflow.list"
       )
         return { items: [] };
       return {
-        items: [{ alias: `${String(params.collection)}-item` }],
+        items: [{ name: `${String(params.collection)}-item` }],
         runtime_profile_name: "default",
         runtime_profile_revision:
           params.collection === "assistants" ? "revision-a" : "revision-b",
@@ -174,5 +188,39 @@ test("snapshot rejects mixed runtime profile revisions across collections", asyn
       warning.includes("runtime profile changed"),
     ).length,
     2,
+  );
+});
+
+test("snapshot rejects Peer history without a name", async () => {
+  const rpc = {
+    call: async (method: string) => {
+      if (method === "server.firmware.get") {
+        return {
+          channel: "stable",
+          sha256:
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          size: 4096,
+          url: "https://firmware.example.invalid/devkit/stable.tar.zlib",
+        };
+      }
+      if (method === "server.run.workspace.history") {
+        return {
+          items: [
+            {
+              actor_name: "gear-a",
+              created_at: "2026-08-06T00:00:00Z",
+              text: "missing identity",
+              type: "gear",
+            },
+          ],
+        };
+      }
+      return { items: [] };
+    },
+  } as unknown as PeerRPCClient;
+
+  await assert.rejects(
+    createRPCPlayDataClient(rpc).loadSnapshot(),
+    /history: Peer response is missing name/,
   );
 });

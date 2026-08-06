@@ -1081,12 +1081,12 @@ class FriendGroupUpdated extends $pb.GeneratedMessage {
 class GameplayRewardUpdated extends $pb.GeneratedMessage {
   factory GameplayRewardUpdated({
     $core.String? workspaceName,
-    $core.String? rewardGrantId,
+    $core.String? rewardGrantName,
     $fixnum.Int64? revisionUnixMs,
   }) {
     final result = create();
     if (workspaceName != null) result.workspaceName = workspaceName;
-    if (rewardGrantId != null) result.rewardGrantId = rewardGrantId;
+    if (rewardGrantName != null) result.rewardGrantName = rewardGrantName;
     if (revisionUnixMs != null) result.revisionUnixMs = revisionUnixMs;
     return result;
   }
@@ -1106,7 +1106,7 @@ class GameplayRewardUpdated extends $pb.GeneratedMessage {
           const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.events.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'workspaceName')
-    ..aOS(2, _omitFieldNames ? '' : 'rewardGrantId')
+    ..aOS(2, _omitFieldNames ? '' : 'rewardGrantName')
     ..aInt64(3, _omitFieldNames ? '' : 'revisionUnixMs')
     ..hasRequiredFields = false;
 
@@ -1140,13 +1140,13 @@ class GameplayRewardUpdated extends $pb.GeneratedMessage {
   void clearWorkspaceName() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get rewardGrantId => $_getSZ(1);
+  $core.String get rewardGrantName => $_getSZ(1);
   @$pb.TagNumber(2)
-  set rewardGrantId($core.String value) => $_setString(1, value);
+  set rewardGrantName($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasRewardGrantId() => $_has(1);
+  $core.bool hasRewardGrantName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearRewardGrantId() => $_clearField(2);
+  void clearRewardGrantName() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $fixnum.Int64 get revisionUnixMs => $_getI64(2);

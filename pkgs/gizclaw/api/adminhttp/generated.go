@@ -284,6 +284,28 @@ type AdminSocialFriendCreateRequest struct {
 	PeerPublicKey  string `json:"peer_public_key"`
 }
 
+// AdminWorkspaceHistoryEntry defines model for AdminWorkspaceHistoryEntry.
+type AdminWorkspaceHistoryEntry struct {
+	ActorName string    `json:"actor_name"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// GearId Originating gear ID. Required for gear entries and omitted for agent entries.
+	GearId          *string                              `json:"gear_id,omitempty"`
+	Id              string                               `json:"id"`
+	ReplayAvailable bool                                 `json:"replay_available"`
+	Text            string                               `json:"text"`
+	Type            externalRef1.PeerRunHistoryEntryType `json:"type"`
+}
+
+// AdminWorkspaceHistoryListResponse defines model for AdminWorkspaceHistoryListResponse.
+type AdminWorkspaceHistoryListResponse struct {
+	Available  bool                         `json:"available"`
+	HasNext    bool                         `json:"has_next"`
+	Items      []AdminWorkspaceHistoryEntry `json:"items"`
+	Message    *string                      `json:"message,omitempty"`
+	NextCursor *string                      `json:"next_cursor,omitempty"`
+}
+
 // ApproveRequest defines model for ApproveRequest.
 type ApproveRequest struct {
 	Role externalRef0.PeerRole `json:"role"`
@@ -359,7 +381,6 @@ type FirmwareList struct {
 type FirmwareUpsert struct {
 	Description *string                    `json:"description,omitempty"`
 	Id          string                     `json:"id"`
-	Name        string                     `json:"name"`
 	Slots       externalRef0.FirmwareSlots `json:"slots"`
 }
 
@@ -14476,7 +14497,7 @@ func (r GetPeerBadgeResponse) StatusCode() int {
 type ListPeerFriendsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.FriendListResponse
+	JSON200      *AdminFriendListResponse
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -14501,7 +14522,7 @@ func (r ListPeerFriendsResponse) StatusCode() int {
 type CreatePeerFriendResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.FriendObject
+	JSON200      *AdminFriendObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -14526,7 +14547,7 @@ func (r CreatePeerFriendResponse) StatusCode() int {
 type DeletePeerFriendResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.FriendObject
+	JSON200      *AdminFriendObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -14551,7 +14572,7 @@ func (r DeletePeerFriendResponse) StatusCode() int {
 type GetPeerFriendResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.FriendObject
+	JSON200      *AdminFriendObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -16492,7 +16513,7 @@ func (r PutWorkspaceResponse) StatusCode() int {
 type ListWorkspaceHistoryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.WorkspaceHistoryListResponse
+	JSON200      *AdminWorkspaceHistoryListResponse
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -16517,7 +16538,7 @@ func (r ListWorkspaceHistoryResponse) StatusCode() int {
 type GetWorkspaceHistoryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.WorkspaceHistoryGetResponse
+	JSON200      *AdminWorkspaceHistoryEntry
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -21629,7 +21650,7 @@ func ParseListPeerFriendsResponse(rsp *http.Response) (*ListPeerFriendsResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.FriendListResponse
+		var dest AdminFriendListResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -21676,7 +21697,7 @@ func ParseCreatePeerFriendResponse(rsp *http.Response) (*CreatePeerFriendRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.FriendObject
+		var dest AdminFriendObject
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -21723,7 +21744,7 @@ func ParseDeletePeerFriendResponse(rsp *http.Response) (*DeletePeerFriendRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.FriendObject
+		var dest AdminFriendObject
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -21770,7 +21791,7 @@ func ParseGetPeerFriendResponse(rsp *http.Response) (*GetPeerFriendResponse, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.FriendObject
+		var dest AdminFriendObject
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -25245,7 +25266,7 @@ func ParseListWorkspaceHistoryResponse(rsp *http.Response) (*ListWorkspaceHistor
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.WorkspaceHistoryListResponse
+		var dest AdminWorkspaceHistoryListResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -25292,7 +25313,7 @@ func ParseGetWorkspaceHistoryResponse(rsp *http.Response) (*GetWorkspaceHistoryR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.WorkspaceHistoryGetResponse
+		var dest AdminWorkspaceHistoryEntry
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32632,7 +32653,7 @@ type ListPeerFriendsResponseObject interface {
 	VisitListPeerFriendsResponse(ctx *fiber.Ctx) error
 }
 
-type ListPeerFriends200JSONResponse externalRef1.FriendListResponse
+type ListPeerFriends200JSONResponse AdminFriendListResponse
 
 func (response ListPeerFriends200JSONResponse) VisitListPeerFriendsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -32677,7 +32698,7 @@ type CreatePeerFriendResponseObject interface {
 	VisitCreatePeerFriendResponse(ctx *fiber.Ctx) error
 }
 
-type CreatePeerFriend200JSONResponse externalRef1.FriendObject
+type CreatePeerFriend200JSONResponse AdminFriendObject
 
 func (response CreatePeerFriend200JSONResponse) VisitCreatePeerFriendResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -32722,7 +32743,7 @@ type DeletePeerFriendResponseObject interface {
 	VisitDeletePeerFriendResponse(ctx *fiber.Ctx) error
 }
 
-type DeletePeerFriend200JSONResponse externalRef1.FriendObject
+type DeletePeerFriend200JSONResponse AdminFriendObject
 
 func (response DeletePeerFriend200JSONResponse) VisitDeletePeerFriendResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -32767,7 +32788,7 @@ type GetPeerFriendResponseObject interface {
 	VisitGetPeerFriendResponse(ctx *fiber.Ctx) error
 }
 
-type GetPeerFriend200JSONResponse externalRef1.FriendObject
+type GetPeerFriend200JSONResponse AdminFriendObject
 
 func (response GetPeerFriend200JSONResponse) VisitGetPeerFriendResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -35996,7 +36017,7 @@ type ListWorkspaceHistoryResponseObject interface {
 	VisitListWorkspaceHistoryResponse(ctx *fiber.Ctx) error
 }
 
-type ListWorkspaceHistory200JSONResponse externalRef1.WorkspaceHistoryListResponse
+type ListWorkspaceHistory200JSONResponse AdminWorkspaceHistoryListResponse
 
 func (response ListWorkspaceHistory200JSONResponse) VisitListWorkspaceHistoryResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -36041,7 +36062,7 @@ type GetWorkspaceHistoryResponseObject interface {
 	VisitGetWorkspaceHistoryResponse(ctx *fiber.Ctx) error
 }
 
-type GetWorkspaceHistory200JSONResponse externalRef1.WorkspaceHistoryGetResponse
+type GetWorkspaceHistory200JSONResponse AdminWorkspaceHistoryEntry
 
 func (response GetWorkspaceHistory200JSONResponse) VisitGetWorkspaceHistoryResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")

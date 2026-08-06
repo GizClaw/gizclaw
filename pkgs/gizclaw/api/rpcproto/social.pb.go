@@ -685,7 +685,7 @@ func (x *FriendAddResponse) GetValue() *FriendObject {
 
 type FriendDeleteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -720,9 +720,9 @@ func (*FriendDeleteRequest) Descriptor() ([]byte, []int) {
 	return file_payload_social_proto_rawDescGZIP(), []int{13}
 }
 
-func (x *FriendDeleteRequest) GetId() string {
+func (x *FriendDeleteRequest) GetName() string {
 	if x != nil {
-		return x.Id
+		return x.Name
 	}
 	return ""
 }
@@ -773,7 +773,7 @@ func (x *FriendDeleteResponse) GetValue() *FriendObject {
 
 type FriendInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	DisplayName   *string                `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3,oneof" json:"display_name,omitempty"`
 	Emoji         *string                `protobuf:"bytes,2,opt,name=emoji,proto3,oneof" json:"emoji,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -809,9 +809,9 @@ func (*FriendInfo) Descriptor() ([]byte, []int) {
 	return file_payload_social_proto_rawDescGZIP(), []int{15}
 }
 
-func (x *FriendInfo) GetName() string {
-	if x != nil && x.Name != nil {
-		return *x.Name
+func (x *FriendInfo) GetDisplayName() string {
+	if x != nil && x.DisplayName != nil {
+		return *x.DisplayName
 	}
 	return ""
 }
@@ -825,7 +825,7 @@ func (x *FriendInfo) GetEmoji() string {
 
 type FriendInfoGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -860,16 +860,16 @@ func (*FriendInfoGetRequest) Descriptor() ([]byte, []int) {
 	return file_payload_social_proto_rawDescGZIP(), []int{16}
 }
 
-func (x *FriendInfoGetRequest) GetId() string {
+func (x *FriendInfoGetRequest) GetName() string {
 	if x != nil {
-		return x.Id
+		return x.Name
 	}
 	return ""
 }
 
 type FriendInfoGetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Value         *FriendInfo            `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -905,9 +905,9 @@ func (*FriendInfoGetResponse) Descriptor() ([]byte, []int) {
 	return file_payload_social_proto_rawDescGZIP(), []int{17}
 }
 
-func (x *FriendInfoGetResponse) GetId() string {
+func (x *FriendInfoGetResponse) GetName() string {
 	if x != nil {
-		return x.Id
+		return x.Name
 	}
 	return ""
 }
@@ -1802,7 +1802,7 @@ func (x *FriendGroupMemberAddResponse) GetValue() *FriendGroupMemberObject {
 type FriendGroupMemberDeleteRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	FriendGroupName string                 `protobuf:"bytes,1,opt,name=friend_group_name,json=friendGroupName,proto3" json:"friend_group_name,omitempty"`
-	Id              string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Name            string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1844,9 +1844,9 @@ func (x *FriendGroupMemberDeleteRequest) GetFriendGroupName() string {
 	return ""
 }
 
-func (x *FriendGroupMemberDeleteRequest) GetId() string {
+func (x *FriendGroupMemberDeleteRequest) GetName() string {
 	if x != nil {
-		return x.Id
+		return x.Name
 	}
 	return ""
 }
@@ -2019,7 +2019,7 @@ type FriendGroupMemberObject struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	CreatedAt       *string                `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3,oneof" json:"created_at,omitempty"`
 	FriendGroupName *string                `protobuf:"bytes,2,opt,name=friend_group_name,json=friendGroupName,proto3,oneof" json:"friend_group_name,omitempty"`
-	Id              *string                `protobuf:"bytes,3,opt,name=id,proto3,oneof" json:"id,omitempty"`
+	Name            string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	PeerPublicKey   *string                `protobuf:"bytes,4,opt,name=peer_public_key,json=peerPublicKey,proto3,oneof" json:"peer_public_key,omitempty"`
 	Role            *FriendGroupMemberRole `protobuf:"varint,5,opt,name=role,proto3,enum=gizclaw.rpc.v1.FriendGroupMemberRole,oneof" json:"role,omitempty"`
 	UpdatedAt       *string                `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3,oneof" json:"updated_at,omitempty"`
@@ -2071,9 +2071,9 @@ func (x *FriendGroupMemberObject) GetFriendGroupName() string {
 	return ""
 }
 
-func (x *FriendGroupMemberObject) GetId() string {
-	if x != nil && x.Id != nil {
-		return *x.Id
+func (x *FriendGroupMemberObject) GetName() string {
+	if x != nil {
+		return x.Name
 	}
 	return ""
 }
@@ -2102,7 +2102,7 @@ func (x *FriendGroupMemberObject) GetUpdatedAt() string {
 type FriendGroupMemberPutRequest struct {
 	state           protoimpl.MessageState       `protogen:"open.v1"`
 	FriendGroupName string                       `protobuf:"bytes,1,opt,name=friend_group_name,json=friendGroupName,proto3" json:"friend_group_name,omitempty"`
-	Id              string                       `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Name            string                       `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Role            FriendGroupMemberMutableRole `protobuf:"varint,3,opt,name=role,proto3,enum=gizclaw.rpc.v1.FriendGroupMemberMutableRole" json:"role,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
@@ -2145,9 +2145,9 @@ func (x *FriendGroupMemberPutRequest) GetFriendGroupName() string {
 	return ""
 }
 
-func (x *FriendGroupMemberPutRequest) GetId() string {
+func (x *FriendGroupMemberPutRequest) GetName() string {
 	if x != nil {
-		return x.Id
+		return x.Name
 	}
 	return ""
 }
@@ -2206,7 +2206,7 @@ func (x *FriendGroupMemberPutResponse) GetValue() *FriendGroupMemberObject {
 type FriendGroupMessageAudioGetRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	FriendGroupName string                 `protobuf:"bytes,1,opt,name=friend_group_name,json=friendGroupName,proto3" json:"friend_group_name,omitempty"`
-	HistoryId       string                 `protobuf:"bytes,2,opt,name=history_id,json=historyId,proto3" json:"history_id,omitempty"`
+	HistoryName     string                 `protobuf:"bytes,2,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -2248,9 +2248,9 @@ func (x *FriendGroupMessageAudioGetRequest) GetFriendGroupName() string {
 	return ""
 }
 
-func (x *FriendGroupMessageAudioGetRequest) GetHistoryId() string {
+func (x *FriendGroupMessageAudioGetRequest) GetHistoryName() string {
 	if x != nil {
-		return x.HistoryId
+		return x.HistoryName
 	}
 	return ""
 }
@@ -2258,7 +2258,7 @@ func (x *FriendGroupMessageAudioGetRequest) GetHistoryId() string {
 type FriendGroupMessageAudioGetResponse struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	FriendGroupName string                 `protobuf:"bytes,1,opt,name=friend_group_name,json=friendGroupName,proto3" json:"friend_group_name,omitempty"`
-	HistoryId       string                 `protobuf:"bytes,2,opt,name=history_id,json=historyId,proto3" json:"history_id,omitempty"`
+	HistoryName     string                 `protobuf:"bytes,2,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
 	MimeType        string                 `protobuf:"bytes,3,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
 	SizeBytes       int64                  `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	unknownFields   protoimpl.UnknownFields
@@ -2302,9 +2302,9 @@ func (x *FriendGroupMessageAudioGetResponse) GetFriendGroupName() string {
 	return ""
 }
 
-func (x *FriendGroupMessageAudioGetResponse) GetHistoryId() string {
+func (x *FriendGroupMessageAudioGetResponse) GetHistoryName() string {
 	if x != nil {
-		return x.HistoryId
+		return x.HistoryName
 	}
 	return ""
 }
@@ -2326,7 +2326,7 @@ func (x *FriendGroupMessageAudioGetResponse) GetSizeBytes() int64 {
 type FriendGroupMessageGetRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	FriendGroupName string                 `protobuf:"bytes,1,opt,name=friend_group_name,json=friendGroupName,proto3" json:"friend_group_name,omitempty"`
-	HistoryId       string                 `protobuf:"bytes,2,opt,name=history_id,json=historyId,proto3" json:"history_id,omitempty"`
+	HistoryName     string                 `protobuf:"bytes,2,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -2368,9 +2368,9 @@ func (x *FriendGroupMessageGetRequest) GetFriendGroupName() string {
 	return ""
 }
 
-func (x *FriendGroupMessageGetRequest) GetHistoryId() string {
+func (x *FriendGroupMessageGetRequest) GetHistoryName() string {
 	if x != nil {
-		return x.HistoryId
+		return x.HistoryName
 	}
 	return ""
 }
@@ -2553,8 +2553,8 @@ type FriendGroupMessageObject struct {
 	ExpiresAt           *string                 `protobuf:"bytes,2,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
 	FriendGroupName     string                  `protobuf:"bytes,3,opt,name=friend_group_name,json=friendGroupName,proto3" json:"friend_group_name,omitempty"`
 	SenderPeerPublicKey *string                 `protobuf:"bytes,4,opt,name=sender_peer_public_key,json=senderPeerPublicKey,proto3,oneof" json:"sender_peer_public_key,omitempty"`
-	HistoryId           string                  `protobuf:"bytes,5,opt,name=history_id,json=historyId,proto3" json:"history_id,omitempty"`
-	Name                string                  `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
+	Name                string                  `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`
+	ActorName           string                  `protobuf:"bytes,6,opt,name=actor_name,json=actorName,proto3" json:"actor_name,omitempty"`
 	Text                string                  `protobuf:"bytes,7,opt,name=text,proto3" json:"text,omitempty"`
 	Type                PeerRunHistoryEntryType `protobuf:"varint,8,opt,name=type,proto3,enum=gizclaw.rpc.v1.PeerRunHistoryEntryType" json:"type,omitempty"`
 	AudioAvailable      bool                    `protobuf:"varint,9,opt,name=audio_available,json=audioAvailable,proto3" json:"audio_available,omitempty"`
@@ -2620,16 +2620,16 @@ func (x *FriendGroupMessageObject) GetSenderPeerPublicKey() string {
 	return ""
 }
 
-func (x *FriendGroupMessageObject) GetHistoryId() string {
+func (x *FriendGroupMessageObject) GetName() string {
 	if x != nil {
-		return x.HistoryId
+		return x.Name
 	}
 	return ""
 }
 
-func (x *FriendGroupMessageObject) GetName() string {
+func (x *FriendGroupMessageObject) GetActorName() string {
 	if x != nil {
-		return x.Name
+		return x.ActorName
 	}
 	return ""
 }
@@ -3222,7 +3222,7 @@ func (x *FriendListResponse) GetNextCursor() string {
 type FriendObject struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CreatedAt     *string                `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3,oneof" json:"created_at,omitempty"`
-	Id            *string                `protobuf:"bytes,2,opt,name=id,proto3,oneof" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	PeerPublicKey *string                `protobuf:"bytes,3,opt,name=peer_public_key,json=peerPublicKey,proto3,oneof" json:"peer_public_key,omitempty"`
 	UpdatedAt     *string                `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3,oneof" json:"updated_at,omitempty"`
 	WorkspaceName *string                `protobuf:"bytes,5,opt,name=workspace_name,json=workspaceName,proto3,oneof" json:"workspace_name,omitempty"`
@@ -3267,9 +3267,9 @@ func (x *FriendObject) GetCreatedAt() string {
 	return ""
 }
 
-func (x *FriendObject) GetId() string {
-	if x != nil && x.Id != nil {
-		return *x.Id
+func (x *FriendObject) GetName() string {
+	if x != nil {
+		return x.Name
 	}
 	return ""
 }
@@ -3350,21 +3350,21 @@ const file_payload_social_proto_rawDesc = "" +
 	"\x10FriendAddRequest\x12!\n" +
 	"\finvite_token\x18\x01 \x01(\tR\vinviteToken\"G\n" +
 	"\x11FriendAddResponse\x122\n" +
-	"\x05value\x18\x01 \x01(\v2\x1c.gizclaw.rpc.v1.FriendObjectR\x05value\"%\n" +
-	"\x13FriendDeleteRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"J\n" +
+	"\x05value\x18\x01 \x01(\v2\x1c.gizclaw.rpc.v1.FriendObjectR\x05value\")\n" +
+	"\x13FriendDeleteRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"J\n" +
 	"\x14FriendDeleteResponse\x122\n" +
-	"\x05value\x18\x01 \x01(\v2\x1c.gizclaw.rpc.v1.FriendObjectR\x05value\"S\n" +
+	"\x05value\x18\x01 \x01(\v2\x1c.gizclaw.rpc.v1.FriendObjectR\x05value\"j\n" +
 	"\n" +
-	"FriendInfo\x12\x17\n" +
-	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x19\n" +
-	"\x05emoji\x18\x02 \x01(\tH\x01R\x05emoji\x88\x01\x01B\a\n" +
-	"\x05_nameB\b\n" +
-	"\x06_emoji\"&\n" +
-	"\x14FriendInfoGetRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"Y\n" +
-	"\x15FriendInfoGetResponse\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x120\n" +
+	"FriendInfo\x12&\n" +
+	"\fdisplay_name\x18\x01 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x12\x19\n" +
+	"\x05emoji\x18\x02 \x01(\tH\x01R\x05emoji\x88\x01\x01B\x0f\n" +
+	"\r_display_nameB\b\n" +
+	"\x06_emoji\"*\n" +
+	"\x14FriendInfoGetRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"]\n" +
+	"\x15FriendInfoGetResponse\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x120\n" +
 	"\x05value\x18\x02 \x01(\v2\x1a.gizclaw.rpc.v1.FriendInfoR\x05value\"\x9e\x01\n" +
 	"\x18FriendGroupCreateRequest\x12%\n" +
 	"\vdescription\x18\x01 \x01(\tH\x00R\vdescription\x88\x01\x01\x12\x12\n" +
@@ -3423,10 +3423,10 @@ const file_payload_social_proto_rawDesc = "" +
 	"\vmember_name\x18\x04 \x01(\tR\n" +
 	"memberName\"]\n" +
 	"\x1cFriendGroupMemberAddResponse\x12=\n" +
-	"\x05value\x18\x01 \x01(\v2'.gizclaw.rpc.v1.FriendGroupMemberObjectR\x05value\"\\\n" +
+	"\x05value\x18\x01 \x01(\v2'.gizclaw.rpc.v1.FriendGroupMemberObjectR\x05value\"`\n" +
 	"\x1eFriendGroupMemberDeleteRequest\x12*\n" +
-	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12\x0e\n" +
-	"\x02id\x18\x02 \x01(\tR\x02id\"`\n" +
+	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"`\n" +
 	"\x1fFriendGroupMemberDeleteResponse\x12=\n" +
 	"\x05value\x18\x01 \x01(\v2'.gizclaw.rpc.v1.FriendGroupMemberObjectR\x05value\"\xb2\x01\n" +
 	"\x1cFriendGroupMemberListRequest\x12\x1b\n" +
@@ -3441,43 +3441,39 @@ const file_payload_social_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2'.gizclaw.rpc.v1.FriendGroupMemberObjectR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\xec\x02\n" +
+	"\f_next_cursor\"\xe4\x02\n" +
 	"\x17FriendGroupMemberObject\x12\"\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tH\x00R\tcreatedAt\x88\x01\x01\x12/\n" +
-	"\x11friend_group_name\x18\x02 \x01(\tH\x01R\x0ffriendGroupName\x88\x01\x01\x12\x13\n" +
-	"\x02id\x18\x03 \x01(\tH\x02R\x02id\x88\x01\x01\x12+\n" +
-	"\x0fpeer_public_key\x18\x04 \x01(\tH\x03R\rpeerPublicKey\x88\x01\x01\x12>\n" +
-	"\x04role\x18\x05 \x01(\x0e2%.gizclaw.rpc.v1.FriendGroupMemberRoleH\x04R\x04role\x88\x01\x01\x12\"\n" +
+	"\x11friend_group_name\x18\x02 \x01(\tH\x01R\x0ffriendGroupName\x88\x01\x01\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12+\n" +
+	"\x0fpeer_public_key\x18\x04 \x01(\tH\x02R\rpeerPublicKey\x88\x01\x01\x12>\n" +
+	"\x04role\x18\x05 \x01(\x0e2%.gizclaw.rpc.v1.FriendGroupMemberRoleH\x03R\x04role\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\tH\x05R\tupdatedAt\x88\x01\x01B\r\n" +
+	"updated_at\x18\x06 \x01(\tH\x04R\tupdatedAt\x88\x01\x01B\r\n" +
 	"\v_created_atB\x14\n" +
-	"\x12_friend_group_nameB\x05\n" +
-	"\x03_idB\x12\n" +
+	"\x12_friend_group_nameB\x12\n" +
 	"\x10_peer_public_keyB\a\n" +
 	"\x05_roleB\r\n" +
-	"\v_updated_at\"\x9b\x01\n" +
+	"\v_updated_at\"\x9f\x01\n" +
 	"\x1bFriendGroupMemberPutRequest\x12*\n" +
-	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12\x0e\n" +
-	"\x02id\x18\x02 \x01(\tR\x02id\x12@\n" +
+	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12@\n" +
 	"\x04role\x18\x03 \x01(\x0e2,.gizclaw.rpc.v1.FriendGroupMemberMutableRoleR\x04role\"]\n" +
 	"\x1cFriendGroupMemberPutResponse\x12=\n" +
-	"\x05value\x18\x01 \x01(\v2'.gizclaw.rpc.v1.FriendGroupMemberObjectR\x05value\"n\n" +
+	"\x05value\x18\x01 \x01(\v2'.gizclaw.rpc.v1.FriendGroupMemberObjectR\x05value\"r\n" +
 	"!FriendGroupMessageAudioGetRequest\x12*\n" +
-	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12\x1d\n" +
-	"\n" +
-	"history_id\x18\x02 \x01(\tR\thistoryId\"\xab\x01\n" +
+	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12!\n" +
+	"\fhistory_name\x18\x02 \x01(\tR\vhistoryName\"\xaf\x01\n" +
 	"\"FriendGroupMessageAudioGetResponse\x12*\n" +
-	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12\x1d\n" +
-	"\n" +
-	"history_id\x18\x02 \x01(\tR\thistoryId\x12\x1b\n" +
+	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12!\n" +
+	"\fhistory_name\x18\x02 \x01(\tR\vhistoryName\x12\x1b\n" +
 	"\tmime_type\x18\x03 \x01(\tR\bmimeType\x12\x1d\n" +
 	"\n" +
-	"size_bytes\x18\x04 \x01(\x03R\tsizeBytes\"i\n" +
+	"size_bytes\x18\x04 \x01(\x03R\tsizeBytes\"m\n" +
 	"\x1cFriendGroupMessageGetRequest\x12*\n" +
-	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12\x1d\n" +
-	"\n" +
-	"history_id\x18\x02 \x01(\tR\thistoryId\"_\n" +
+	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12!\n" +
+	"\fhistory_name\x18\x02 \x01(\tR\vhistoryName\"_\n" +
 	"\x1dFriendGroupMessageGetResponse\x12>\n" +
 	"\x05value\x18\x01 \x01(\v2(.gizclaw.rpc.v1.FriendGroupMessageObjectR\x05value\"\xef\x01\n" +
 	"\x1dFriendGroupMessageListRequest\x12\x1b\n" +
@@ -3500,10 +3496,10 @@ const file_payload_social_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\x02 \x01(\tH\x00R\texpiresAt\x88\x01\x01\x12*\n" +
 	"\x11friend_group_name\x18\x03 \x01(\tR\x0ffriendGroupName\x128\n" +
-	"\x16sender_peer_public_key\x18\x04 \x01(\tH\x01R\x13senderPeerPublicKey\x88\x01\x01\x12\x1d\n" +
+	"\x16sender_peer_public_key\x18\x04 \x01(\tH\x01R\x13senderPeerPublicKey\x88\x01\x01\x12\x12\n" +
+	"\x04name\x18\x05 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
-	"history_id\x18\x05 \x01(\tR\thistoryId\x12\x12\n" +
-	"\x04name\x18\x06 \x01(\tR\x04name\x12\x12\n" +
+	"actor_name\x18\x06 \x01(\tR\tactorName\x12\x12\n" +
 	"\x04text\x18\a \x01(\tR\x04text\x12;\n" +
 	"\x04type\x18\b \x01(\x0e2'.gizclaw.rpc.v1.PeerRunHistoryEntryTypeR\x04type\x12'\n" +
 	"\x0faudio_available\x18\t \x01(\bR\x0eaudioAvailableB\r\n" +
@@ -3560,17 +3556,16 @@ const file_payload_social_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2\x1c.gizclaw.rpc.v1.FriendObjectR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\x90\x02\n" +
+	"\f_next_cursor\"\x88\x02\n" +
 	"\fFriendObject\x12\"\n" +
 	"\n" +
-	"created_at\x18\x01 \x01(\tH\x00R\tcreatedAt\x88\x01\x01\x12\x13\n" +
-	"\x02id\x18\x02 \x01(\tH\x01R\x02id\x88\x01\x01\x12+\n" +
-	"\x0fpeer_public_key\x18\x03 \x01(\tH\x02R\rpeerPublicKey\x88\x01\x01\x12\"\n" +
+	"created_at\x18\x01 \x01(\tH\x00R\tcreatedAt\x88\x01\x01\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
+	"\x0fpeer_public_key\x18\x03 \x01(\tH\x01R\rpeerPublicKey\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"updated_at\x18\x04 \x01(\tH\x03R\tupdatedAt\x88\x01\x01\x12*\n" +
-	"\x0eworkspace_name\x18\x05 \x01(\tH\x04R\rworkspaceName\x88\x01\x01B\r\n" +
-	"\v_created_atB\x05\n" +
-	"\x03_idB\x12\n" +
+	"updated_at\x18\x04 \x01(\tH\x02R\tupdatedAt\x88\x01\x01\x12*\n" +
+	"\x0eworkspace_name\x18\x05 \x01(\tH\x03R\rworkspaceName\x88\x01\x01B\r\n" +
+	"\v_created_atB\x12\n" +
 	"\x10_peer_public_keyB\r\n" +
 	"\v_updated_atB\x11\n" +
 	"\x0f_workspace_nameB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"

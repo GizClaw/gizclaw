@@ -462,19 +462,16 @@ test("parseRPCResponse decodes framed protobuf responses", () => {
   });
 });
 
-test("RPC payload codec preserves optional registration firmware release line", () => {
+test("RPC payload codec returns only the runtime profile after registration", () => {
   const payload = encodeRPCResponsePayload("server.register", {
     runtime_profile_name: "h106-production",
-    firmware_name: "h106",
   });
 
   const decoded = decodeRPCResponsePayload("server.register", payload) as {
     runtime_profile_name?: string;
-    firmware_name?: string;
   };
   assert.deepEqual(decoded, {
     runtime_profile_name: "h106-production",
-    firmware_name: "h106",
   });
 });
 
@@ -883,7 +880,6 @@ test("Firmware RPC generated contract round-trips every channel and field", () =
   const response = {
     channel: "pending" as const,
     description: "candidate package",
-    firmware_name: "f".repeat(256),
     sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     size: Number.MAX_SAFE_INTEGER,
     url: "https://firmware.example.invalid/devkit/pending.tar.zlib",
@@ -1006,7 +1002,7 @@ test("WebRTCRPCClient reads metadata plus binary response frames", async () => {
   const promise = client.callBinary<{ mime_type: string; size_bytes: number }>(
     "server.workspace.history.audio.get",
     {
-      history_id: "h1",
+      history_name: "h1",
       workspace_name: "main",
     },
   );
@@ -1031,7 +1027,7 @@ test("WebRTCRPCClient reads metadata plus binary response frames", async () => {
 
   const result = await promise;
   assert.deepEqual(result.result, {
-    history_id: "",
+    history_name: "",
     mime_type: "audio/ogg",
     size_bytes: 5,
     workspace_name: "",
@@ -1478,7 +1474,7 @@ test("WebRTCRPCClient reads continuation metadata plus binary response frames", 
     size_bytes: number;
     workspace_name: string;
   }>("server.workspace.history.audio.get", {
-    history_id: "h1",
+    history_name: "h1",
     workspace_name: "main",
   });
   const channel = pc.lastChannel();
@@ -1514,7 +1510,7 @@ test("WebRTCRPCClient rejects oversized binary metadata continuation frames", as
   });
 
   const promise = client.callBinary("server.workspace.history.audio.get", {
-    history_id: "h1",
+    history_name: "h1",
     workspace_name: "main",
   });
   const channel = pc.lastChannel();
@@ -1535,7 +1531,7 @@ test("WebRTCRPCClient rejects continuation binary RPC errors without body frames
   });
 
   const promise = client.callBinary("server.workspace.history.audio.get", {
-    history_id: "h1",
+    history_name: "h1",
     workspace_name: "main",
   });
   const channel = pc.lastChannel();
@@ -1655,7 +1651,7 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
   const rpc = createPeerRPCClient(client);
 
   await rpc.call("server.run.workspace.set", { workspace_name: "main" });
-  await rpc.call("server.run.workspace.history.play", { history_id: "h1" });
+  await rpc.call("server.run.workspace.history.play", { history_name: "h1" });
   await rpc.call("server.firmware.get", {
     channel: "stable",
   });
@@ -1667,7 +1663,7 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
     { method: "server.run.workspace.set", params: { workspace_name: "main" } },
     {
       method: "server.run.workspace.history.play",
-      params: { history_id: "h1" },
+      params: { history_name: "h1" },
     },
     {
       method: "server.firmware.get",

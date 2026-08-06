@@ -153,8 +153,8 @@ class PeerRunHistoryEntry extends $pb.GeneratedMessage {
   factory PeerRunHistoryEntry({
     $core.String? createdAt,
     $core.String? gearId,
-    $core.String? id,
     $core.String? name,
+    $core.String? actorName,
     $core.bool? replayAvailable,
     $core.String? text,
     $4.PeerRunHistoryEntryType? type,
@@ -162,8 +162,8 @@ class PeerRunHistoryEntry extends $pb.GeneratedMessage {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
     if (gearId != null) result.gearId = gearId;
-    if (id != null) result.id = id;
     if (name != null) result.name = name;
+    if (actorName != null) result.actorName = actorName;
     if (replayAvailable != null) result.replayAvailable = replayAvailable;
     if (text != null) result.text = text;
     if (type != null) result.type = type;
@@ -185,8 +185,8 @@ class PeerRunHistoryEntry extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'createdAt')
     ..aOS(2, _omitFieldNames ? '' : 'gearId')
-    ..aOS(3, _omitFieldNames ? '' : 'id')
-    ..aOS(4, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'name')
+    ..aOS(4, _omitFieldNames ? '' : 'actorName')
     ..aOB(5, _omitFieldNames ? '' : 'replayAvailable')
     ..aOS(6, _omitFieldNames ? '' : 'text')
     ..aE<$4.PeerRunHistoryEntryType>(7, _omitFieldNames ? '' : 'type',
@@ -231,22 +231,22 @@ class PeerRunHistoryEntry extends $pb.GeneratedMessage {
   void clearGearId() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.String get id => $_getSZ(2);
+  $core.String get name => $_getSZ(2);
   @$pb.TagNumber(3)
-  set id($core.String value) => $_setString(2, value);
+  set name($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasId() => $_has(2);
+  $core.bool hasName() => $_has(2);
   @$pb.TagNumber(3)
-  void clearId() => $_clearField(3);
+  void clearName() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.String get name => $_getSZ(3);
+  $core.String get actorName => $_getSZ(3);
   @$pb.TagNumber(4)
-  set name($core.String value) => $_setString(3, value);
+  set actorName($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasName() => $_has(3);
+  $core.bool hasActorName() => $_has(3);
   @$pb.TagNumber(4)
-  void clearName() => $_clearField(4);
+  void clearActorName() => $_clearField(4);
 
   @$pb.TagNumber(5)
   $core.bool get replayAvailable => $_getBF(4);
@@ -457,10 +457,10 @@ class PeerRunHistoryListResponse extends $pb.GeneratedMessage {
 
 class PeerRunHistoryPlayRequest extends $pb.GeneratedMessage {
   factory PeerRunHistoryPlayRequest({
-    $core.String? historyId,
+    $core.String? historyName,
   }) {
     final result = create();
-    if (historyId != null) result.historyId = historyId;
+    if (historyName != null) result.historyName = historyName;
     return result;
   }
 
@@ -477,7 +477,7 @@ class PeerRunHistoryPlayRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'PeerRunHistoryPlayRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'historyId')
+    ..aOS(1, _omitFieldNames ? '' : 'historyName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -501,25 +501,25 @@ class PeerRunHistoryPlayRequest extends $pb.GeneratedMessage {
   static PeerRunHistoryPlayRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get historyId => $_getSZ(0);
+  $core.String get historyName => $_getSZ(0);
   @$pb.TagNumber(1)
-  set historyId($core.String value) => $_setString(0, value);
+  set historyName($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasHistoryId() => $_has(0);
+  $core.bool hasHistoryName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearHistoryId() => $_clearField(1);
+  void clearHistoryName() => $_clearField(1);
 }
 
 class PeerRunHistoryPlayResponse extends $pb.GeneratedMessage {
   factory PeerRunHistoryPlayResponse({
     $core.bool? accepted,
-    $core.String? historyId,
+    $core.String? historyName,
     $core.String? message,
     $core.String? state,
   }) {
     final result = create();
     if (accepted != null) result.accepted = accepted;
-    if (historyId != null) result.historyId = historyId;
+    if (historyName != null) result.historyName = historyName;
     if (message != null) result.message = message;
     if (state != null) result.state = state;
     return result;
@@ -539,7 +539,7 @@ class PeerRunHistoryPlayResponse extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'accepted')
-    ..aOS(2, _omitFieldNames ? '' : 'historyId')
+    ..aOS(2, _omitFieldNames ? '' : 'historyName')
     ..aOS(3, _omitFieldNames ? '' : 'message')
     ..aOS(4, _omitFieldNames ? '' : 'state')
     ..hasRequiredFields = false;
@@ -575,13 +575,13 @@ class PeerRunHistoryPlayResponse extends $pb.GeneratedMessage {
   void clearAccepted() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get historyId => $_getSZ(1);
+  $core.String get historyName => $_getSZ(1);
   @$pb.TagNumber(2)
-  set historyId($core.String value) => $_setString(1, value);
+  set historyName($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasHistoryId() => $_has(1);
+  $core.bool hasHistoryName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearHistoryId() => $_clearField(2);
+  void clearHistoryName() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.String get message => $_getSZ(2);
@@ -823,20 +823,20 @@ class PeerRunMemoryStatsResponse extends $pb.GeneratedMessage {
 class PeerRunRecallHit extends $pb.GeneratedMessage {
   factory PeerRunRecallHit({
     $core.String? createdAt,
-    $core.String? id,
+    $core.String? name,
     $0.Struct? metadata,
     $core.double? score,
     $core.String? snippet,
-    $core.String? sourceId,
+    $core.String? sourceName,
     $core.String? sourceType,
   }) {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
-    if (id != null) result.id = id;
+    if (name != null) result.name = name;
     if (metadata != null) result.metadata = metadata;
     if (score != null) result.score = score;
     if (snippet != null) result.snippet = snippet;
-    if (sourceId != null) result.sourceId = sourceId;
+    if (sourceName != null) result.sourceName = sourceName;
     if (sourceType != null) result.sourceType = sourceType;
     return result;
   }
@@ -855,12 +855,12 @@ class PeerRunRecallHit extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'createdAt')
-    ..aOS(2, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
     ..aOM<$0.Struct>(3, _omitFieldNames ? '' : 'metadata',
         subBuilder: $0.Struct.create)
     ..aD(4, _omitFieldNames ? '' : 'score')
     ..aOS(5, _omitFieldNames ? '' : 'snippet')
-    ..aOS(6, _omitFieldNames ? '' : 'sourceId')
+    ..aOS(6, _omitFieldNames ? '' : 'sourceName')
     ..aOS(7, _omitFieldNames ? '' : 'sourceType')
     ..hasRequiredFields = false;
 
@@ -893,13 +893,13 @@ class PeerRunRecallHit extends $pb.GeneratedMessage {
   void clearCreatedAt() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get id => $_getSZ(1);
+  $core.String get name => $_getSZ(1);
   @$pb.TagNumber(2)
-  set id($core.String value) => $_setString(1, value);
+  set name($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasId() => $_has(1);
+  $core.bool hasName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearId() => $_clearField(2);
+  void clearName() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $0.Struct get metadata => $_getN(2);
@@ -931,13 +931,13 @@ class PeerRunRecallHit extends $pb.GeneratedMessage {
   void clearSnippet() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $core.String get sourceId => $_getSZ(5);
+  $core.String get sourceName => $_getSZ(5);
   @$pb.TagNumber(6)
-  set sourceId($core.String value) => $_setString(5, value);
+  set sourceName($core.String value) => $_setString(5, value);
   @$pb.TagNumber(6)
-  $core.bool hasSourceId() => $_has(5);
+  $core.bool hasSourceName() => $_has(5);
   @$pb.TagNumber(6)
-  void clearSourceId() => $_clearField(6);
+  void clearSourceName() => $_clearField(6);
 
   @$pb.TagNumber(7)
   $core.String get sourceType => $_getSZ(6);
@@ -3821,11 +3821,11 @@ class WorkspaceGetResponse extends $pb.GeneratedMessage {
 
 class WorkspaceHistoryAudioGetRequest extends $pb.GeneratedMessage {
   factory WorkspaceHistoryAudioGetRequest({
-    $core.String? historyId,
+    $core.String? historyName,
     $core.String? workspaceName,
   }) {
     final result = create();
-    if (historyId != null) result.historyId = historyId;
+    if (historyName != null) result.historyName = historyName;
     if (workspaceName != null) result.workspaceName = workspaceName;
     return result;
   }
@@ -3843,7 +3843,7 @@ class WorkspaceHistoryAudioGetRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'WorkspaceHistoryAudioGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'historyId')
+    ..aOS(1, _omitFieldNames ? '' : 'historyName')
     ..aOS(2, _omitFieldNames ? '' : 'workspaceName')
     ..hasRequiredFields = false;
 
@@ -3871,13 +3871,13 @@ class WorkspaceHistoryAudioGetRequest extends $pb.GeneratedMessage {
   static WorkspaceHistoryAudioGetRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get historyId => $_getSZ(0);
+  $core.String get historyName => $_getSZ(0);
   @$pb.TagNumber(1)
-  set historyId($core.String value) => $_setString(0, value);
+  set historyName($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasHistoryId() => $_has(0);
+  $core.bool hasHistoryName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearHistoryId() => $_clearField(1);
+  void clearHistoryName() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get workspaceName => $_getSZ(1);
@@ -3891,13 +3891,13 @@ class WorkspaceHistoryAudioGetRequest extends $pb.GeneratedMessage {
 
 class WorkspaceHistoryAudioGetResponse extends $pb.GeneratedMessage {
   factory WorkspaceHistoryAudioGetResponse({
-    $core.String? historyId,
+    $core.String? historyName,
     $core.String? mimeType,
     $fixnum.Int64? sizeBytes,
     $core.String? workspaceName,
   }) {
     final result = create();
-    if (historyId != null) result.historyId = historyId;
+    if (historyName != null) result.historyName = historyName;
     if (mimeType != null) result.mimeType = mimeType;
     if (sizeBytes != null) result.sizeBytes = sizeBytes;
     if (workspaceName != null) result.workspaceName = workspaceName;
@@ -3918,7 +3918,7 @@ class WorkspaceHistoryAudioGetResponse extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'WorkspaceHistoryAudioGetResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'historyId')
+    ..aOS(1, _omitFieldNames ? '' : 'historyName')
     ..aOS(2, _omitFieldNames ? '' : 'mimeType')
     ..aInt64(3, _omitFieldNames ? '' : 'sizeBytes')
     ..aOS(4, _omitFieldNames ? '' : 'workspaceName')
@@ -3948,13 +3948,13 @@ class WorkspaceHistoryAudioGetResponse extends $pb.GeneratedMessage {
   static WorkspaceHistoryAudioGetResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get historyId => $_getSZ(0);
+  $core.String get historyName => $_getSZ(0);
   @$pb.TagNumber(1)
-  set historyId($core.String value) => $_setString(0, value);
+  set historyName($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasHistoryId() => $_has(0);
+  $core.bool hasHistoryName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearHistoryId() => $_clearField(1);
+  void clearHistoryName() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get mimeType => $_getSZ(1);
@@ -3986,11 +3986,11 @@ class WorkspaceHistoryAudioGetResponse extends $pb.GeneratedMessage {
 
 class WorkspaceHistoryGetRequest extends $pb.GeneratedMessage {
   factory WorkspaceHistoryGetRequest({
-    $core.String? historyId,
+    $core.String? historyName,
     $core.String? workspaceName,
   }) {
     final result = create();
-    if (historyId != null) result.historyId = historyId;
+    if (historyName != null) result.historyName = historyName;
     if (workspaceName != null) result.workspaceName = workspaceName;
     return result;
   }
@@ -4008,7 +4008,7 @@ class WorkspaceHistoryGetRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'WorkspaceHistoryGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'historyId')
+    ..aOS(1, _omitFieldNames ? '' : 'historyName')
     ..aOS(2, _omitFieldNames ? '' : 'workspaceName')
     ..hasRequiredFields = false;
 
@@ -4034,13 +4034,13 @@ class WorkspaceHistoryGetRequest extends $pb.GeneratedMessage {
   static WorkspaceHistoryGetRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get historyId => $_getSZ(0);
+  $core.String get historyName => $_getSZ(0);
   @$pb.TagNumber(1)
-  set historyId($core.String value) => $_setString(0, value);
+  set historyName($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasHistoryId() => $_has(0);
+  $core.bool hasHistoryName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearHistoryId() => $_clearField(1);
+  void clearHistoryName() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get workspaceName => $_getSZ(1);

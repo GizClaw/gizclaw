@@ -95,7 +95,7 @@ void main() {
     final future = client.callBinary(
       'server.workspace.history.audio.get',
       payload.WorkspaceHistoryAudioGetRequest(
-        historyId: 'history-1',
+        historyName: 'history-1',
         workspaceName: 'main',
       ),
       maxBodyBytes: 3,
@@ -110,7 +110,7 @@ void main() {
             payload: encodeRpcResponsePayload(
               'server.workspace.history.audio.get',
               payload.WorkspaceHistoryAudioGetResponse(
-                historyId: 'history-1',
+                historyName: 'history-1',
                 mimeType: 'audio/wav',
                 workspaceName: 'main',
               ),
@@ -357,7 +357,7 @@ void main() {
     final future = client.callBinary(
       'server.workspace.history.audio.get',
       payload.WorkspaceHistoryAudioGetRequest(
-        historyId: 'history-1',
+        historyName: 'history-1',
         workspaceName: 'main',
       ),
     );

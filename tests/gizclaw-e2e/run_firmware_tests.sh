@@ -41,7 +41,7 @@ go test -p 1 -v -tags=gizclaw_e2e -count=1 -timeout=20m \
   -run '^TestRegistrationBindsFirmwareRPC$'
 go test -p 1 -v -tags=gizclaw_e2e -count=1 -timeout=20m \
   ./tests/gizclaw-e2e/cgo/rpc \
-  -run '^(TestCSDKFirmwareRPC|TestCSDKFirmwareRPCMaximumName|TestCSDKFirmwareRequiresBinding)$'
+  -run '^(TestCSDKFirmwareRPC|TestCSDKFirmwareRPCMaximumID|TestCSDKFirmwareRequiresBinding)$'
 go test -p 1 -v -tags=gizclaw_e2e -count=1 -timeout=20m \
   ./tests/gizclaw-e2e/cmd/admin \
   -run '^TestAdminFirmwaresUserStory$'

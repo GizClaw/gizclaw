@@ -27,8 +27,10 @@ func TestEinoWorkflowInvokesHTTPAndCurrentPeerTools(t *testing.T) {
 		t.Fatalf("required e2e setup server is not available: %v", err)
 	}
 	runID := time.Now().UnixNano()
-	httpTool := fmt.Sprintf("e2e_http_token_%x", runID)
-	clientTool := fmt.Sprintf("e2e_client_token_%x", runID)
+	httpToolID := fmt.Sprintf("e2e-http-tool-%x", runID)
+	httpToolName := fmt.Sprintf("e2e_http_token_%x", runID)
+	clientToolID := fmt.Sprintf("e2e-client-tool-%x", runID)
+	clientToolName := fmt.Sprintf("e2e_client_token_%x", runID)
 	httpToken := fmt.Sprintf("HTTP_TOOL_OK_%X", runID)
 	clientToken := fmt.Sprintf("CLIENT_TOOL_OK_%X", runID)
 
@@ -49,18 +51,18 @@ func TestEinoWorkflowInvokesHTTPAndCurrentPeerTools(t *testing.T) {
 		t.Fatalf("prepare Tool E2E restore Workspace: %v", err)
 	}
 	workflowName := configureChatToolResources(t, runID, map[string]apitypes.ToolSpec{
-		httpTool:   httpTokenToolSpec(t),
-		clientTool: clientTokenToolSpec(t),
+		httpToolID:   httpTokenToolSpec(t, httpToolName),
+		clientToolID: clientTokenToolSpec(t, clientToolName),
 	})
 	t.Setenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN", registrationToken)
 
 	cfg.Workflow.Name = workflowName
 	cfg.Workflow.Memory = ""
 	cfg.workspaceSuffix = fmt.Sprintf("tools-%x", runID)
-	cfg.toolIDs = []string{httpTool, clientTool}
+	cfg.toolNames = []string{httpToolName, clientToolName}
 	var clientCalls atomic.Int32
 	cfg.toolHandlers = map[string]gizcli.ToolHandler{
-		clientTool: func(_ context.Context, arguments json.RawMessage) (json.RawMessage, error) {
+		clientToolName: func(_ context.Context, arguments json.RawMessage) (json.RawMessage, error) {
 			var input struct {
 				Key string `json:"key"`
 			}
@@ -78,7 +80,7 @@ func TestEinoWorkflowInvokesHTTPAndCurrentPeerTools(t *testing.T) {
 	cfg.Utterances = []string{fmt.Sprintf(
 		"必须先调用工具 %s，参数 key 必须是 %q；收到结果后再调用工具 %s，参数 value 必须是 %q。"+
 			"两个工具都成功后，只用一句话原样写出两个工具返回的 token，不要猜测。",
-		clientTool, "current-peer", httpTool, httpToken,
+		clientToolName, "current-peer", httpToolName, httpToken,
 	)}
 
 	result, runErr := runLoadedConfigWithResultAndInspect(
@@ -226,7 +228,7 @@ func cleanupChatToolWorkspace(
 	return resultErr
 }
 
-func httpTokenToolSpec(t *testing.T) apitypes.ToolSpec {
+func httpTokenToolSpec(t *testing.T, invokeName string) apitypes.ToolSpec {
 	t.Helper()
 	auth := apitypes.ToolHTTPAuth{}
 	if err := auth.FromToolHTTPAuthNone(apitypes.ToolHTTPAuthNone{
@@ -246,6 +248,7 @@ func httpTokenToolSpec(t *testing.T) apitypes.ToolSpec {
 	if err := spec.FromHTTPToolSpec(apitypes.HTTPToolSpec{
 		Description: &description,
 		InputSchema: exactObjectSchema("value"),
+		InvokeName:  invokeName,
 		Http: apitypes.ToolHTTPRequest{
 			Auth: auth, Method: apitypes.ToolHTTPMethodGET,
 			Url: "https://postman-echo.com/get", Query: &query,
@@ -258,13 +261,14 @@ func httpTokenToolSpec(t *testing.T) apitypes.ToolSpec {
 	return spec
 }
 
-func clientTokenToolSpec(t *testing.T) apitypes.ToolSpec {
+func clientTokenToolSpec(t *testing.T, invokeName string) apitypes.ToolSpec {
 	t.Helper()
 	description := "Ask the currently connected Peer for its private verification token."
 	var spec apitypes.ToolSpec
 	if err := spec.FromClientRPCToolSpec(apitypes.ClientRPCToolSpec{
 		Description: &description,
 		InputSchema: exactObjectSchema("key"),
+		InvokeName:  invokeName,
 	}); err != nil {
 		t.Fatalf("encode Client Tool spec: %v", err)
 	}

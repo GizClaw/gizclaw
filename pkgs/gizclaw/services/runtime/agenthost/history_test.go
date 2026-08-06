@@ -52,7 +52,7 @@ func TestHistoryAgentRecordsOutputText(t *testing.T) {
 		t.Fatalf("history items = %+v", resp.Items)
 	}
 	item := resp.Items[0]
-	if item.Type != apitypes.PeerRunHistoryEntryTypeAgent || item.Name != "assistant" || item.Text != "hello" || !item.ReplayAvailable {
+	if item.Type != apitypes.PeerRunHistoryEntryTypeAgent || item.ActorName != "assistant" || item.Text != "hello" || !item.ReplayAvailable {
 		t.Fatalf("history item = %+v", item)
 	}
 }
@@ -184,7 +184,7 @@ func TestHistoryAgentFinalizesNodeNamedOutputOnRouteEOS(t *testing.T) {
 		t.Fatalf("history items = %+v, want node output finalized before transform close", resp.Items)
 	}
 	item := resp.Items[0]
-	if item.Type != apitypes.PeerRunHistoryEntryTypeAgent || item.Name != "answer" || item.Text != "hello" || !item.ReplayAvailable {
+	if item.Type != apitypes.PeerRunHistoryEntryTypeAgent || item.ActorName != "answer" || item.Text != "hello" || !item.ReplayAvailable {
 		t.Fatalf("history item = %+v", item)
 	}
 }
@@ -208,7 +208,7 @@ func TestHistoryAgentStatusAndUnavailableReplay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Append history: %v", err)
 	}
-	play, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryId: entry.ID})
+	play, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryName: entry.ID})
 	if err != nil {
 		t.Fatalf("PlayHistory() error = %v", err)
 	}
@@ -225,7 +225,7 @@ func TestHistoryAgentStatusAndUnavailableReplay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Append gear history: %v", err)
 	}
-	gearPlay, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryId: gearEntry.ID})
+	gearPlay, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryName: gearEntry.ID})
 	if err != nil {
 		t.Fatalf("PlayHistory(gear) error = %v", err)
 	}
@@ -233,7 +233,7 @@ func TestHistoryAgentStatusAndUnavailableReplay(t *testing.T) {
 		t.Fatalf("PlayHistory(gear) = %+v", gearPlay)
 	}
 
-	missing, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryId: "missing"})
+	missing, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryName: "missing"})
 	if err != nil {
 		t.Fatalf("PlayHistory(missing) error = %v", err)
 	}
@@ -251,7 +251,7 @@ func TestHistoryAgentUnsupportedState(t *testing.T) {
 	if list.Available || list.Message == nil {
 		t.Fatalf("ListHistory() = %+v", list)
 	}
-	play, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryId: "h1"})
+	play, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryName: "h1"})
 	if err != nil {
 		t.Fatalf("PlayHistory() error = %v", err)
 	}
@@ -313,10 +313,10 @@ func TestHistoryAgentRecordsOutputHistoryPCMAudioAsOggOpus(t *testing.T) {
 		t.Fatalf("history items = %+v", resp.Items)
 	}
 	item := resp.Items[0]
-	if item.Type != apitypes.PeerRunHistoryEntryTypeGear || item.GearId == nil || *item.GearId != "gear-a" || item.Name != "transcript" || !item.ReplayAvailable {
+	if item.Type != apitypes.PeerRunHistoryEntryTypeGear || item.GearId == nil || *item.GearId != "gear-a" || item.ActorName != "transcript" || !item.ReplayAvailable {
 		t.Fatalf("history item = %+v", item)
 	}
-	entry, err := history.Get(context.Background(), item.Id)
+	entry, err := history.Get(context.Background(), item.Name)
 	if err != nil {
 		t.Fatalf("Get history: %v", err)
 	}
@@ -495,7 +495,7 @@ func TestHistoryAgentRecordsOutputAudioAsOggOpus(t *testing.T) {
 	if len(resp.Items) != 1 {
 		t.Fatalf("history items = %+v", resp.Items)
 	}
-	entry, err := history.Get(context.Background(), resp.Items[0].Id)
+	entry, err := history.Get(context.Background(), resp.Items[0].Name)
 	if err != nil {
 		t.Fatalf("Get history: %v", err)
 	}
@@ -637,7 +637,7 @@ func TestHistoryRecorderControlEOSFinalizesRouteOnce(t *testing.T) {
 	}
 	got := make(map[string]string, len(resp.Items))
 	for _, item := range resp.Items {
-		got[item.Name] = item.Text
+		got[item.ActorName] = item.Text
 	}
 	if got["assistant"] != "hello" || got["status"] != "working" {
 		t.Fatalf("history items = %+v", resp.Items)
@@ -711,10 +711,10 @@ func TestHistoryAgentMergesOutputHistoryAudioWithTranscript(t *testing.T) {
 		t.Fatalf("history items = %+v", resp.Items)
 	}
 	item := resp.Items[0]
-	if item.Type != apitypes.PeerRunHistoryEntryTypeGear || item.GearId == nil || *item.GearId != "gear-a" || item.Name != "transcript" || item.Text != "hello" || !item.ReplayAvailable {
+	if item.Type != apitypes.PeerRunHistoryEntryTypeGear || item.GearId == nil || *item.GearId != "gear-a" || item.ActorName != "transcript" || item.Text != "hello" || !item.ReplayAvailable {
 		t.Fatalf("history item = %+v", item)
 	}
-	entry, err := history.Get(context.Background(), item.Id)
+	entry, err := history.Get(context.Background(), item.Name)
 	if err != nil {
 		t.Fatalf("Get history: %v", err)
 	}
@@ -935,10 +935,10 @@ func TestHistoryAgentRecordsOutputHistoryAudioByStreamID(t *testing.T) {
 	}
 	for i, want := range []string{"first", "second"} {
 		item := resp.Items[i]
-		if item.Type != apitypes.PeerRunHistoryEntryTypeGear || item.GearId == nil || *item.GearId != "gear-a" || item.Name != "transcript" || item.Text != want || !item.ReplayAvailable {
+		if item.Type != apitypes.PeerRunHistoryEntryTypeGear || item.GearId == nil || *item.GearId != "gear-a" || item.ActorName != "transcript" || item.Text != want || !item.ReplayAvailable {
 			t.Fatalf("history item[%d] = %+v", i, item)
 		}
-		entry, err := history.Get(context.Background(), item.Id)
+		entry, err := history.Get(context.Background(), item.Name)
 		if err != nil {
 			t.Fatalf("Get history[%d]: %v", i, err)
 		}
@@ -982,7 +982,7 @@ func TestHistoryAgentRecordsSplitOggOutput(t *testing.T) {
 	if len(resp.Items) != 1 {
 		t.Fatalf("history items = %+v", resp.Items)
 	}
-	entry, err := history.Get(context.Background(), resp.Items[0].Id)
+	entry, err := history.Get(context.Background(), resp.Items[0].Name)
 	if err != nil {
 		t.Fatalf("Get history: %v", err)
 	}
@@ -1042,7 +1042,7 @@ func TestHistoryAgentRecordsMP3OutputAsOggOpus(t *testing.T) {
 	if len(resp.Items) != 1 {
 		t.Fatalf("history items = %+v", resp.Items)
 	}
-	entry, err := history.Get(context.Background(), resp.Items[0].Id)
+	entry, err := history.Get(context.Background(), resp.Items[0].Name)
 	if err != nil {
 		t.Fatalf("Get history: %v", err)
 	}
@@ -1091,7 +1091,7 @@ func TestHistoryAgentPlayInjectsReplayOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
-	resp, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryId: entry.ID})
+	resp, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryName: entry.ID})
 	if err != nil {
 		t.Fatalf("PlayHistory() error = %v", err)
 	}
@@ -1159,7 +1159,7 @@ func TestHistoryAgentPlayReplaysGearHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
-	resp, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryId: entry.ID})
+	resp, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryName: entry.ID})
 	if err != nil {
 		t.Fatalf("PlayHistory() error = %v", err)
 	}
@@ -1206,7 +1206,7 @@ func TestHistoryAgentPlayRoutesToRequestGearOutput(t *testing.T) {
 	defer outB.Close()
 	defer base.closeAll()
 
-	resp, err := agent.PlayHistory(withHistoryGearID(context.Background(), "gear-a"), apitypes.PeerRunHistoryPlayRequest{HistoryId: entry.ID})
+	resp, err := agent.PlayHistory(withHistoryGearID(context.Background(), "gear-a"), apitypes.PeerRunHistoryPlayRequest{HistoryName: entry.ID})
 	if err != nil {
 		t.Fatalf("PlayHistory() error = %v", err)
 	}
@@ -1278,7 +1278,7 @@ func TestHistoryAgentPlayInterruptsBufferedReplayAfterEnqueue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
-	if resp, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryId: first.ID}); err != nil || !resp.Accepted {
+	if resp, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryName: first.ID}); err != nil || !resp.Accepted {
 		t.Fatalf("PlayHistory(first) = %+v, %v", resp, err)
 	}
 	if text, err := out.Next(); err != nil {
@@ -1299,7 +1299,7 @@ func TestHistoryAgentPlayInterruptsBufferedReplayAfterEnqueue(t *testing.T) {
 	} else if blob, ok := audio.Part.(*genx.Blob); !ok || !bytes.Equal(blob.Data, []byte{1}) {
 		t.Fatalf("first audio = %#v", audio)
 	}
-	if resp, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryId: second.ID}); err != nil || !resp.Accepted {
+	if resp, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryName: second.ID}); err != nil || !resp.Accepted {
 		t.Fatalf("PlayHistory(second) = %+v, %v", resp, err)
 	}
 	var interruptedText, interruptedAudio, foundSecond bool
@@ -1358,7 +1358,7 @@ func TestHistoryAgentPlayInterruptsCurrentAgentOutput(t *testing.T) {
 		t.Fatalf("live audio = %#v", liveAudio)
 	}
 
-	if resp, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryId: entry.ID}); err != nil || !resp.Accepted {
+	if resp, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryName: entry.ID}); err != nil || !resp.Accepted {
 		t.Fatalf("PlayHistory() = %+v, %v", resp, err)
 	}
 	interruptedText, err := out.Next()

@@ -291,7 +291,7 @@ func TestRegistrationTokenBindsOptionalFirmwareReleaseLine(t *testing.T) {
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 				Kind:       apitypes.FirmwareResourceKindFirmware,
 				Metadata:   apitypes.ResourceMetadata{Id: name},
-				Spec:       apitypes.FirmwareSpec{Name: "H106 Production"},
+				Spec:       apitypes.FirmwareSpec{},
 			})
 			return resource, err
 		},
@@ -322,9 +322,6 @@ func TestRegistrationTokenBindsOptionalFirmwareReleaseLine(t *testing.T) {
 	}
 	if registration.FirmwareID == nil || *registration.FirmwareID != "h106" {
 		t.Fatalf("ResolveRegistration() = %#v, want h106 firmware binding", registration)
-	}
-	if registration.FirmwareName == nil || *registration.FirmwareName != "H106 Production" {
-		t.Fatalf("ResolveRegistration() = %#v, want peer-visible firmware name", registration)
 	}
 
 	for _, test := range []struct {

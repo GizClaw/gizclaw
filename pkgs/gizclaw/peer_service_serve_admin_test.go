@@ -504,10 +504,10 @@ func TestAdminWorkspaceHistoryHandlersServePersistedHistoryAndOggAudio(t *testin
 			Available: true,
 			Items: []apitypes.PeerRunHistoryEntry{
 				{
-					Id:              "history-a",
+					Name:            "history-a",
 					Type:            apitypes.PeerRunHistoryEntryTypeGear,
 					GearId:          adminTestStringPtr("gear-a"),
-					Name:            "transcript",
+					ActorName:       "transcript",
 					Text:            "hello",
 					CreatedAt:       time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC),
 					ReplayAvailable: true,

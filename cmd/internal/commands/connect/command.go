@@ -499,7 +499,7 @@ func newFriendDeleteCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.DeleteFriend(ctx, "friend.delete", rpcapi.FriendDeleteRequest{Id: args[0]})
+				return c.DeleteFriend(ctx, "friend.delete", rpcapi.FriendDeleteRequest{Name: args[0]})
 			})
 		},
 	}
@@ -823,7 +823,7 @@ func newFriendGroupMembersPutCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.PutFriendGroupMember(ctx, "friend_group.members.put", rpcapi.FriendGroupMemberPutRequest{FriendGroupName: args[0], Id: args[1], Role: rpcapi.FriendGroupMemberMutableRole(strings.TrimSpace(role))})
+				return c.PutFriendGroupMember(ctx, "friend_group.members.put", rpcapi.FriendGroupMemberPutRequest{FriendGroupName: args[0], Name: args[1], Role: rpcapi.FriendGroupMemberMutableRole(strings.TrimSpace(role))})
 			})
 		},
 	}
@@ -840,7 +840,7 @@ func newFriendGroupMembersDeleteCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.DeleteFriendGroupMember(ctx, "friend_group.members.delete", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: args[0], Id: args[1]})
+				return c.DeleteFriendGroupMember(ctx, "friend_group.members.delete", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: args[0], Name: args[1]})
 			})
 		},
 	}
@@ -885,7 +885,7 @@ func newFriendGroupMessagesGetCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.GetFriendGroupMessage(ctx, "friend_group.messages.get", rpcapi.FriendGroupMessageGetRequest{FriendGroupName: args[0], HistoryId: args[1]})
+				return c.GetFriendGroupMessage(ctx, "friend_group.messages.get", rpcapi.FriendGroupMessageGetRequest{FriendGroupName: args[0], HistoryName: args[1]})
 			})
 		},
 	}
@@ -931,7 +931,7 @@ func newFriendGroupMessagesAudioGetCmd() *cobra.Command {
 						_ = os.Remove(tmpPath)
 					}
 				}()
-				result, err := c.GetFriendGroupMessageAudio(ctx, "friend_group.messages.audio.get", rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupName: args[0], HistoryId: args[1]}, out)
+				result, err := c.GetFriendGroupMessageAudio(ctx, "friend_group.messages.audio.get", rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupName: args[0], HistoryName: args[1]}, out)
 				closeErr := out.Close()
 				if err != nil {
 					return nil, err

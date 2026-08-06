@@ -75,8 +75,8 @@ func TestCSDKFirmwareRPC(t *testing.T) {
 	runRegisteredCSDKRPC(t, "firmware-rpc", cgointernal.CSDKFirmwareRPC)
 }
 
-func TestCSDKFirmwareRPCMaximumName(t *testing.T) {
-	h := clitest.NewSetupHarness(t, "cgo-rpc-firmware-maximum-name")
+func TestCSDKFirmwareRPCMaximumID(t *testing.T) {
+	h := clitest.NewSetupHarness(t, "cgo-rpc-firmware-maximum-id")
 	identityDir := cgointernal.SharedIdentityDir(t, h, "GIZCLAW_E2E_PEER_IDENTITY", "peer")
 	cgointernal.AssertServerAvailable(t, identityDir)
 
@@ -91,25 +91,24 @@ func TestCSDKFirmwareRPCMaximumName(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	suffix := strings.ReplaceAll(time.Now().UTC().Format("20060102150405.000000000"), ".", "")
-	firmwareName := strings.Repeat("f", 256-len(suffix)) + suffix
+	firmwareID := strings.Repeat("f", 256-len(suffix)) + suffix
 	want := cgointernal.FirmwareConfig{
-		Name:    firmwareName,
 		Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_STABLE,
-		URL:     "https://firmware.example.invalid/devkit/maximum-name.tar.zlib",
+		URL:     "https://firmware.example.invalid/devkit/maximum-id.tar.zlib",
 		SHA256:  "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 		Size:    4096,
 	}
 	created, err := api.CreateFirmwareWithResponse(ctx, adminhttp.FirmwareUpsert{
-		Name: firmwareName,
+		Id: firmwareID,
 		Slots: apitypes.FirmwareSlots{Stable: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{
 			Url: want.URL, Sha256: want.SHA256, Size: want.Size,
 		}}},
 	})
 	if err != nil {
-		t.Fatalf("create maximum-name Firmware: %v", err)
+		t.Fatalf("create maximum-ID Firmware: %v", err)
 	}
 	if created.JSON200 == nil {
-		t.Fatalf("create maximum-name Firmware status %d: %s", created.StatusCode(), strings.TrimSpace(string(created.Body)))
+		t.Fatalf("create maximum-ID Firmware status %d: %s", created.StatusCode(), strings.TrimSpace(string(created.Body)))
 	}
 	defer func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -117,7 +116,7 @@ func TestCSDKFirmwareRPCMaximumName(t *testing.T) {
 		_, _ = api.DeleteFirmwareWithResponse(cleanupCtx, created.JSON200.Id)
 	}()
 
-	registrationToken := createCSDKRegistrationToken(t, h, "firmware-rpc-maximum-name", &firmwareName)
+	registrationToken := createCSDKRegistrationToken(t, h, "firmware-rpc-maximum-id", &firmwareID)
 	cgointernal.CSDKFirmwareRPCPackage(t, identityDir, registrationToken, want)
 }
 
@@ -133,12 +132,8 @@ func TestCSDKFirmwareRequiresBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer client.Close()
-	registration, err := client.Register(registrationToken)
-	if err != nil {
+	if _, err := client.Register(registrationToken); err != nil {
 		t.Fatal(err)
-	}
-	if registration.FirmwareName != nil {
-		t.Fatalf("unbound server.register firmware = %q", *registration.FirmwareName)
 	}
 
 	_, err = client.GetFirmware(rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_STABLE)

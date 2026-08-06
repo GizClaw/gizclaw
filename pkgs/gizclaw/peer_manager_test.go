@@ -515,7 +515,7 @@ func TestManagerWorkspaceHistoryEventsUseCurrentDirectChatAccess(t *testing.T) {
 	if _, err := friends.DeleteFriend(
 		ctx,
 		first.String(),
-		rpcapi.FriendDeleteRequest{Id: second.String()},
+		rpcapi.FriendDeleteRequest{Name: second.String()},
 	); err != nil {
 		t.Fatalf("DeleteFriend: %v", err)
 	}
@@ -596,7 +596,7 @@ func TestManagerChatroomAccessUsesAuthoritativeRelationships(t *testing.T) {
 		t.Fatalf("direct Chatroom access denied before relationship deletion: %+v", denial)
 	}
 	friends.Workspaces = &adminGameplayWorkspaceService{}
-	if _, err := friends.DeleteFriend(ctx, caller.String(), rpcapi.FriendDeleteRequest{Id: other.String()}); err != nil {
+	if _, err := friends.DeleteFriend(ctx, caller.String(), rpcapi.FriendDeleteRequest{Name: other.String()}); err != nil {
 		t.Fatalf("DeleteFriend: %v", err)
 	}
 	if denial := manager.chatroomAccessError(ctx, caller, directWorkspace.Name); denial.Code != "CHATROOM_FRIEND_REMOVED" || denial.Retryable {
@@ -640,7 +640,7 @@ func TestManagerChatroomAccessUsesAuthoritativeRelationships(t *testing.T) {
 	}
 	if _, err := groups.DeleteFriendGroupMember(ctx, other.String(), rpcapi.FriendGroupMemberDeleteRequest{
 		FriendGroupName: "room-other",
-		Id:              other.String(),
+		Name:            other.String(),
 	}); err != nil {
 		t.Fatalf("DeleteFriendGroupMember: %v", err)
 	}

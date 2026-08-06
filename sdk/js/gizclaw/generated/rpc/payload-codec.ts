@@ -400,7 +400,6 @@ export type FirmwareGetRequest = {
   "channel": FirmwareChannelName;
 };
 export type FirmwareGetResponse = {
-  "firmware_name": string;
   "channel": FirmwareChannelName;
   "description"?: string;
   "url": string;
@@ -425,7 +424,7 @@ export type FriendAddRequest = {
 };
 export type FriendAddResponse = FriendObject;
 export type FriendDeleteRequest = {
-  "id": string;
+  "name": string;
 };
 export type FriendDeleteResponse = FriendObject;
 export type FriendGroupCreateRequest = {
@@ -486,7 +485,7 @@ export type FriendGroupMemberAddRequest = {
 export type FriendGroupMemberAddResponse = FriendGroupMemberObject;
 export type FriendGroupMemberDeleteRequest = {
   "friend_group_name": string;
-  "id": string;
+  "name": string;
 };
 export type FriendGroupMemberDeleteResponse = FriendGroupMemberObject;
 export type FriendGroupMemberListRequest = {
@@ -502,30 +501,30 @@ export type FriendGroupMemberListResponse = {
 export type FriendGroupMemberObject = {
   "created_at"?: string;
   "friend_group_name"?: string;
-  "id"?: string;
+  "name": string;
   "peer_public_key"?: string;
   "role"?: FriendGroupMemberRole;
   "updated_at"?: string;
 };
 export type FriendGroupMemberPutRequest = {
   "friend_group_name": string;
-  "id": string;
+  "name": string;
   "role": FriendGroupMemberMutableRole;
 };
 export type FriendGroupMemberPutResponse = FriendGroupMemberObject;
 export type FriendGroupMessageAudioGetRequest = {
   "friend_group_name": string;
-  "history_id": string;
+  "history_name": string;
 };
 export type FriendGroupMessageAudioGetResponse = {
   "friend_group_name": string;
-  "history_id": string;
+  "history_name": string;
   "mime_type": string;
   "size_bytes": number;
 };
 export type FriendGroupMessageGetRequest = {
   "friend_group_name": string;
-  "history_id": string;
+  "history_name": string;
 };
 export type FriendGroupMessageGetResponse = FriendGroupMessageObject;
 export type FriendGroupMessageListRequest = {
@@ -544,8 +543,8 @@ export type FriendGroupMessageObject = {
   "expires_at"?: string;
   "friend_group_name": string;
   "sender_peer_public_key"?: string;
-  "history_id": string;
   "name": string;
+  "actor_name": string;
   "text": string;
   "type": PeerRunHistoryEntryType;
   "audio_available": boolean;
@@ -567,14 +566,14 @@ export type FriendGroupPutRequest = {
 };
 export type FriendGroupPutResponse = FriendGroupObject;
 export type FriendInfo = {
-  "name"?: string;
+  "display_name"?: string;
   "emoji"?: string;
 };
 export type FriendInfoGetRequest = {
-  "id": string;
+  "name": string;
 };
 export type FriendInfoGetResponse = {
-  "id": string;
+  "name": string;
   "value": FriendInfo;
 };
 export type FriendInviteTokenClearRequest = Record<string, never>;
@@ -600,7 +599,7 @@ export type FriendListResponse = {
 };
 export type FriendObject = {
   "created_at"?: string;
-  "id"?: string;
+  "name": string;
   "peer_public_key"?: string;
   "updated_at"?: string;
   "workspace_name"?: string;
@@ -610,7 +609,7 @@ export type GameResult = {
   "difficulty"?: string;
   "duration_ms"?: number;
   "game_def_name": string;
-  "id": string;
+  "name": string;
   "idempotency_key"?: string;
   "max_score"?: number;
   "occurred_at": string;
@@ -629,9 +628,6 @@ export type GameRewardSpec = {
   "badge_exp_delta": Record<string, number>;
   "pet_exp_delta": number;
   "reason": string;
-};
-export type GameplayGetRequest = {
-  "id": string;
 };
 export type GameplayListRequest = {
   "cursor"?: string;
@@ -747,8 +743,8 @@ export type PeerRunAgent = {
 export type PeerRunHistoryEntry = {
   "created_at": string;
   "gear_id"?: string;
-  "id": string;
   "name": string;
+  "actor_name": string;
   "replay_available": boolean;
   "text": string;
   "type": PeerRunHistoryEntryType;
@@ -766,11 +762,11 @@ export type PeerRunHistoryListResponse = {
   "next_cursor"?: string;
 };
 export type PeerRunHistoryPlayRequest = {
-  "history_id": string;
+  "history_name": string;
 };
 export type PeerRunHistoryPlayResponse = {
   "accepted": boolean;
-  "history_id": string;
+  "history_name": string;
   "message"?: string;
   "state": string;
 };
@@ -790,11 +786,11 @@ export type PeerRunMemoryStatsResponse = {
 };
 export type PeerRunRecallHit = {
   "created_at"?: string;
-  "id": string;
+  "name": string;
   "metadata": Record<string, unknown>;
   "score": number;
   "snippet": string;
-  "source_id"?: string;
+  "source_name"?: string;
   "source_type"?: string;
 };
 export type PeerRunRecallRequest = {
@@ -972,14 +968,14 @@ export type PointsTransaction = {
   "balance_after": number;
   "created_at": string;
   "delta": number;
-  "game_result_id"?: string;
-  "id": string;
+  "game_result_name"?: string;
+  "name": string;
   "owner_public_key": string;
   "pet_name"?: string;
   "reason": string;
-  "reward_grant_id"?: string;
+  "reward_grant_name"?: string;
   "runtime_profile_name": string;
-  "source_id": string;
+  "source_name": string;
   "source_type": string;
 };
 export type PointsTransactionListResponse = {
@@ -994,15 +990,15 @@ export type ResourceI18nText = {
 export type RewardGrant = {
   "badge_exp_delta": Record<string, number>;
   "created_at": string;
-  "game_result_id"?: string;
-  "id": string;
+  "game_result_name"?: string;
+  "name": string;
   "owner_public_key": string;
   "pet_exp_delta": number;
   "pet_name"?: string;
   "points_delta": number;
   "reason"?: string;
   "runtime_profile_name": string;
-  "source_id": string;
+  "source_name": string;
   "source_type": string;
 };
 export type RewardGrantListResponse = {
@@ -1023,7 +1019,7 @@ export type ServerBadgeGetRequest = GameplayNameGetRequest;
 export type ServerBadgeGetResponse = Badge;
 export type ServerBadgeListRequest = GameplayListRequest;
 export type ServerBadgeListResponse = BadgeListResponse;
-export type ServerGameResultGetRequest = GameplayGetRequest;
+export type ServerGameResultGetRequest = GameplayNameGetRequest;
 export type ServerGameResultGetResponse = GameResult;
 export type ServerGameResultListRequest = GameplayListRequest;
 export type ServerGameResultListResponse = GameResultListResponse;
@@ -1076,7 +1072,7 @@ export type ServerPlayRunWorkspaceHistoryRequest = PeerRunHistoryPlayRequest;
 export type ServerPlayRunWorkspaceHistoryResponse = PeerRunHistoryPlayResponse;
 export type ServerPointsGetRequest = Record<string, never>;
 export type ServerPointsGetResponse = PointsAccount;
-export type ServerPointsTransactionGetRequest = GameplayGetRequest;
+export type ServerPointsTransactionGetRequest = GameplayNameGetRequest;
 export type ServerPointsTransactionGetResponse = PointsTransaction;
 export type ServerPointsTransactionListRequest = GameplayListRequest;
 export type ServerPointsTransactionListResponse = PointsTransactionListResponse;
@@ -1087,13 +1083,12 @@ export type ServerRegisterRequest = {
 };
 export type ServerRegisterResponse = {
   "runtime_profile_name": string;
-  "firmware_name"?: string;
 };
 export type ServerReloadRunRequest = Record<string, never>;
 export type ServerReloadRunResponse = PeerRunStatus;
 export type ServerReloadRunWorkspaceRequest = Record<string, never>;
 export type ServerReloadRunWorkspaceResponse = PeerRunWorkspaceState;
-export type ServerRewardGrantGetRequest = GameplayGetRequest;
+export type ServerRewardGrantGetRequest = GameplayNameGetRequest;
 export type ServerRewardGrantGetResponse = RewardGrant;
 export type ServerRewardGrantListRequest = GameplayListRequest;
 export type ServerRewardGrantListResponse = RewardGrantListResponse;
@@ -1291,17 +1286,17 @@ export type WorkspaceGetResponse = {
   "runtime_profile_revision": string;
 };
 export type WorkspaceHistoryAudioGetRequest = {
-  "history_id": string;
+  "history_name": string;
   "workspace_name": string;
 };
 export type WorkspaceHistoryAudioGetResponse = {
-  "history_id": string;
+  "history_name": string;
   "mime_type": string;
   "size_bytes": number;
   "workspace_name": string;
 };
 export type WorkspaceHistoryGetRequest = {
-  "history_id": string;
+  "history_name": string;
   "workspace_name": string;
 };
 export type WorkspaceHistoryGetResponse = PeerRunHistoryEntry;
@@ -3175,34 +3170,29 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FirmwareGetResponse": {
     "fields": [
       {
-        "name": "firmware_name",
-        "number": 1,
-        "type": "string"
-      },
-      {
         "name": "channel",
-        "number": 2,
+        "number": 1,
         "type": "FirmwareChannelName"
       },
       {
         "name": "description",
-        "number": 3,
+        "number": 2,
         "optional": true,
         "type": "string"
       },
       {
         "name": "url",
-        "number": 4,
+        "number": 3,
         "type": "string"
       },
       {
         "name": "sha256",
-        "number": 5,
+        "number": 4,
         "type": "string"
       },
       {
         "name": "size",
-        "number": 6,
+        "number": 5,
         "type": "int64"
       }
     ]
@@ -3280,7 +3270,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendDeleteRequest": {
     "fields": [
       {
-        "name": "id",
+        "name": "name",
         "number": 1,
         "type": "string"
       }
@@ -3527,7 +3517,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "name",
         "number": 2,
         "type": "string"
       }
@@ -3600,9 +3590,8 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "name",
         "number": 3,
-        "optional": true,
         "type": "string"
       },
       {
@@ -3633,7 +3622,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "name",
         "number": 2,
         "type": "string"
       },
@@ -3661,7 +3650,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "history_id",
+        "name": "history_name",
         "number": 2,
         "type": "string"
       }
@@ -3675,7 +3664,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "history_id",
+        "name": "history_name",
         "number": 2,
         "type": "string"
       },
@@ -3699,7 +3688,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "history_id",
+        "name": "history_name",
         "number": 2,
         "type": "string"
       }
@@ -3787,12 +3776,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "history_id",
+        "name": "name",
         "number": 5,
         "type": "string"
       },
       {
-        "name": "name",
+        "name": "actor_name",
         "number": 6,
         "type": "string"
       },
@@ -3897,7 +3886,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendInfo": {
     "fields": [
       {
-        "name": "name",
+        "name": "display_name",
         "number": 1,
         "optional": true,
         "type": "string"
@@ -3913,7 +3902,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendInfoGetRequest": {
     "fields": [
       {
-        "name": "id",
+        "name": "name",
         "number": 1,
         "type": "string"
       }
@@ -3922,7 +3911,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "FriendInfoGetResponse": {
     "fields": [
       {
-        "name": "id",
+        "name": "name",
         "number": 1,
         "type": "string"
       },
@@ -4021,9 +4010,8 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "name",
         "number": 2,
-        "optional": true,
         "type": "string"
       },
       {
@@ -4042,15 +4030,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "workspace_name",
         "number": 5,
         "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "GameplayGetRequest": {
-    "fields": [
-      {
-        "name": "id",
-        "number": 1,
         "type": "string"
       }
     ]
@@ -4114,7 +4093,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "name",
         "number": 5,
         "type": "string"
       },
@@ -4143,23 +4122,23 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       },
       {
         "name": "payload",
-        "number": 11,
+        "number": 10,
         "optional": true,
         "type": "GameplayMetadata"
       },
       {
         "name": "pet_name",
-        "number": 12,
+        "number": 11,
         "type": "string"
       },
       {
         "name": "runtime_profile_name",
-        "number": 13,
+        "number": 12,
         "type": "string"
       },
       {
         "name": "score",
-        "number": 14,
+        "number": 13,
         "optional": true,
         "type": "int64"
       }
@@ -4698,12 +4677,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "name",
         "number": 3,
         "type": "string"
       },
       {
-        "name": "name",
+        "name": "actor_name",
         "number": 4,
         "type": "string"
       },
@@ -4781,7 +4760,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "PeerRunHistoryPlayRequest": {
     "fields": [
       {
-        "name": "history_id",
+        "name": "history_name",
         "number": 1,
         "type": "string"
       }
@@ -4795,7 +4774,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "bool"
       },
       {
-        "name": "history_id",
+        "name": "history_name",
         "number": 2,
         "type": "string"
       },
@@ -4889,7 +4868,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "name",
         "number": 2,
         "type": "string"
       },
@@ -4909,7 +4888,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "source_id",
+        "name": "source_name",
         "number": 6,
         "optional": true,
         "type": "string"
@@ -5703,13 +5682,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "int64"
       },
       {
-        "name": "game_result_id",
+        "name": "game_result_name",
         "number": 4,
         "optional": true,
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "name",
         "number": 5,
         "type": "string"
       },
@@ -5730,7 +5709,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "reward_grant_id",
+        "name": "reward_grant_name",
         "number": 9,
         "optional": true,
         "type": "string"
@@ -5741,7 +5720,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "source_id",
+        "name": "source_name",
         "number": 11,
         "type": "string"
       },
@@ -5802,13 +5781,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "game_result_id",
+        "name": "game_result_name",
         "number": 3,
         "optional": true,
         "type": "string"
       },
       {
-        "name": "id",
+        "name": "name",
         "number": 4,
         "type": "string"
       },
@@ -5845,7 +5824,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "source_id",
+        "name": "source_name",
         "number": 11,
         "type": "string"
       },
@@ -5968,7 +5947,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "value",
         "number": 1,
-        "type": "GameplayGetRequest"
+        "type": "GameplayNameGetRequest"
       }
     ]
   },
@@ -6316,7 +6295,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "value",
         "number": 1,
-        "type": "GameplayGetRequest"
+        "type": "GameplayNameGetRequest"
       }
     ]
   },
@@ -6380,12 +6359,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "runtime_profile_name",
         "number": 1,
         "type": "string"
-      },
-      {
-        "name": "firmware_name",
-        "number": 2,
-        "optional": true,
-        "type": "string"
       }
     ]
   },
@@ -6418,7 +6391,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "value",
         "number": 1,
-        "type": "GameplayGetRequest"
+        "type": "GameplayNameGetRequest"
       }
     ]
   },
@@ -7285,7 +7258,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "WorkspaceHistoryAudioGetRequest": {
     "fields": [
       {
-        "name": "history_id",
+        "name": "history_name",
         "number": 1,
         "type": "string"
       },
@@ -7299,7 +7272,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "WorkspaceHistoryAudioGetResponse": {
     "fields": [
       {
-        "name": "history_id",
+        "name": "history_name",
         "number": 1,
         "type": "string"
       },
@@ -7323,7 +7296,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "WorkspaceHistoryGetRequest": {
     "fields": [
       {
-        "name": "history_id",
+        "name": "history_name",
         "number": 1,
         "type": "string"
       },

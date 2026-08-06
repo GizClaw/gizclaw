@@ -316,11 +316,11 @@ func registerCDefaultRuntimeProfile(
 	); err != nil {
 		t.Fatalf("register C concurrent-stream peer: %v", err)
 	}
-	if registered.GetRuntimeProfileName() != profile.Name {
+	if registered.GetRuntimeProfileName() != profile.Id {
 		t.Fatalf(
 			"registered C RuntimeProfile = %q, want %q",
 			registered.GetRuntimeProfileName(),
-			profile.Name,
+			profile.Id,
 		)
 	}
 }

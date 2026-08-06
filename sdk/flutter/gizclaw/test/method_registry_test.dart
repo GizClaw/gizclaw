@@ -37,7 +37,6 @@ void main() {
     }
 
     final response = FirmwareGetResponse(
-      firmwareName: List.filled(256, 'f').join(),
       channel: FirmwareChannelName.FIRMWARE_CHANNEL_NAME_PENDING,
       description: 'candidate package',
       url: 'https://firmware.example.invalid/devkit/pending.tar.zlib',
@@ -51,7 +50,6 @@ void main() {
               encodeRpcResponsePayload('server.firmware.get', response),
             )
             as FirmwareGetResponse;
-    expect(decoded.firmwareName, response.firmwareName);
     expect(decoded.channel, response.channel);
     expect(decoded.description, response.description);
     expect(decoded.url, response.url);
@@ -59,7 +57,6 @@ void main() {
     expect(decoded.size, response.size);
 
     final withoutDescription = FirmwareGetResponse(
-      firmwareName: 'devkit',
       channel: FirmwareChannelName.FIRMWARE_CHANNEL_NAME_DEVELOP,
       url: 'https://firmware.example.invalid/devkit/develop.tar.zlib',
       sha256:

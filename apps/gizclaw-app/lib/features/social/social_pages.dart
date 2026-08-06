@@ -814,12 +814,12 @@ class _GroupMembersSheetState extends State<_GroupMembersSheet> {
       );
       if (!mounted) return;
       final existing = _members
-          .map(_memberId)
-          .where((id) => id.isNotEmpty)
+          .map(_memberName)
+          .where((name) => name.isNotEmpty)
           .toSet();
       setState(() {
         for (final member in response.items) {
-          if (existing.add(_memberId(member))) _members.add(member);
+          if (existing.add(_memberName(member))) _members.add(member);
         }
         _hasNext = response.hasNext;
         _nextCursor = response.nextCursor;
@@ -832,9 +832,9 @@ class _GroupMembersSheetState extends State<_GroupMembersSheet> {
   }
 
   bool _canRemove(FriendGroupMemberObject member) {
-    final memberId = _memberId(member);
+    final memberName = _memberName(member);
     final localPeerPublicKey = widget.data.clientPublicKey?.trim() ?? '';
-    if (memberId.isEmpty || memberId == localPeerPublicKey) return false;
+    if (memberName.isEmpty || memberName == localPeerPublicKey) return false;
     if (member.role == FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_OWNER) {
       return false;
     }
@@ -844,8 +844,8 @@ class _GroupMembersSheetState extends State<_GroupMembersSheet> {
   }
 
   Future<void> _removeMember(FriendGroupMemberObject member) async {
-    final memberId = _memberId(member);
-    if (memberId.isEmpty || _loading) return;
+    final memberName = _memberName(member);
+    if (memberName.isEmpty || _loading) return;
     final confirmed = await showCupertinoDialog<bool>(
       context: context,
       builder: (context) => CupertinoAlertDialog(
@@ -874,11 +874,11 @@ class _GroupMembersSheetState extends State<_GroupMembersSheet> {
     try {
       await widget.data.deleteFriendGroupMember(
         widget.group.resourceId,
-        memberId,
+        memberName,
       );
       if (!mounted) return;
       setState(() {
-        _members.removeWhere((item) => _memberId(item) == memberId);
+        _members.removeWhere((item) => _memberName(item) == memberName);
       });
     } catch (error) {
       if (mounted) setState(() => _error = error);
@@ -1599,14 +1599,13 @@ String _formatInviteExpiry(String value) {
   return '${parsed.month}/${parsed.day} ${two(parsed.hour)}:${two(parsed.minute)}';
 }
 
-String _memberId(FriendGroupMemberObject member) {
-  final id = member.id.trim();
-  return id.isEmpty ? member.peerPublicKey.trim() : id;
+String _memberName(FriendGroupMemberObject member) {
+  return member.name.trim();
 }
 
 String _memberLabel(FriendGroupMemberObject member) {
   final value = member.peerPublicKey.trim().isEmpty
-      ? _memberId(member)
+      ? _memberName(member)
       : member.peerPublicKey.trim();
   if (value.length <= 20) return value;
   return '${value.substring(0, 8)}…${value.substring(value.length - 8)}';

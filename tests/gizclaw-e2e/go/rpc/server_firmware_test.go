@@ -34,7 +34,7 @@ func TestRegistrationBindsFirmwareRPC(t *testing.T) {
 			if err != nil {
 				t.Fatalf("firmware.get %s: %v", tc.channel, err)
 			}
-			if got.FirmwareName != sharedFirmware || got.Channel != tc.channel || got.Url != tc.url || got.Sha256 != tc.sha256 || got.Size != tc.size {
+			if got.Channel != tc.channel || got.Url != tc.url || got.Sha256 != tc.sha256 || got.Size != tc.size {
 				t.Fatalf("firmware.get %s = %#v", tc.channel, got)
 			}
 			if tc.description == "" {

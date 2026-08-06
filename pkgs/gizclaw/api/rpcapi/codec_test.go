@@ -12,6 +12,7 @@ import (
 
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -162,6 +163,51 @@ func TestModelFieldsAreCompactedWithoutCompatibilityReservations(t *testing.T) {
 	}
 }
 
+func TestPeerIdentityMessagesUseCompactNameOnlyLayouts(t *testing.T) {
+	tests := []struct {
+		descriptor protoreflect.MessageDescriptor
+		fields     []protoreflect.Name
+	}{
+		{(&rpcpb.FirmwareGetResponse{}).ProtoReflect().Descriptor(), []protoreflect.Name{"channel", "description", "url", "sha256", "size"}},
+		{(&rpcpb.GameResult{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "difficulty", "duration_ms", "game_def_name", "name", "idempotency_key", "max_score", "occurred_at", "outcome", "payload", "pet_name", "runtime_profile_name", "score"}},
+		{(&rpcpb.PointsTransaction{}).ProtoReflect().Descriptor(), []protoreflect.Name{"balance_after", "created_at", "delta", "game_result_name", "name", "owner_public_key", "pet_name", "reason", "reward_grant_name", "runtime_profile_name", "source_name", "source_type"}},
+		{(&rpcpb.RewardGrant{}).ProtoReflect().Descriptor(), []protoreflect.Name{"badge_exp_delta", "created_at", "game_result_name", "name", "owner_public_key", "pet_exp_delta", "pet_name", "points_delta", "reason", "runtime_profile_name", "source_name", "source_type"}},
+		{(&rpcpb.FriendObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "name", "peer_public_key", "updated_at", "workspace_name"}},
+		{(&rpcpb.FriendGroupMemberObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "friend_group_name", "name", "peer_public_key", "role", "updated_at"}},
+		{(&rpcpb.FriendGroupMessageObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "expires_at", "friend_group_name", "sender_peer_public_key", "name", "actor_name", "text", "type", "audio_available"}},
+		{(&rpcpb.PeerRunHistoryEntry{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "gear_id", "name", "actor_name", "replay_available", "text", "type"}},
+		{(&rpcpb.PeerRunRecallHit{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "name", "metadata", "score", "snippet", "source_name", "source_type"}},
+		{(&rpcpb.ServerRegisterResponse{}).ProtoReflect().Descriptor(), []protoreflect.Name{"runtime_profile_name"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.descriptor.Name()), func(t *testing.T) {
+			fields := tt.descriptor.Fields()
+			if fields.Len() != len(tt.fields) {
+				t.Fatalf("field count = %d, want %d", fields.Len(), len(tt.fields))
+			}
+			for i, want := range tt.fields {
+				field := fields.Get(i)
+				if field.Name() != want || field.Number() != protoreflect.FieldNumber(i+1) {
+					t.Fatalf("field %d = %s/%d, want %s/%d", i, field.Name(), field.Number(), want, i+1)
+				}
+			}
+			if tt.descriptor.ReservedRanges().Len() != 0 || tt.descriptor.ReservedNames().Len() != 0 {
+				t.Fatalf("compatibility reservations = ranges:%v names:%v", tt.descriptor.ReservedRanges(), tt.descriptor.ReservedNames())
+			}
+		})
+	}
+
+	for _, descriptor := range []protoreflect.MessageDescriptor{
+		(&rpcpb.FriendObject{}).ProtoReflect().Descriptor(),
+		(&rpcpb.FriendGroupMemberObject{}).ProtoReflect().Descriptor(),
+	} {
+		if descriptor.Fields().ByName("name").HasPresence() {
+			t.Fatalf("%s.name is optional, want required Peer identity", descriptor.Name())
+		}
+	}
+}
+
 func TestRPCMethodsIntentionallyReuseRetiredValuesWithoutCompatibilityReservations(t *testing.T) {
 	descriptor := rpcpb.RpcMethod_RPC_METHOD_UNSPECIFIED.Descriptor()
 	if method23 := descriptor.Values().ByNumber(23); method23 != nil {
@@ -179,7 +225,7 @@ func TestRPCMethodsIntentionallyReuseRetiredValuesWithoutCompatibilityReservatio
 		t.Fatalf("Friend Group message audio registry = descriptor:%v wrapper:%q", audio, RPCMethodServerFriendGroupMessagesAudioGet)
 	}
 
-	request := FriendGroupMessageAudioGetRequest{FriendGroupName: "group-a", HistoryId: "history-a"}
+	request := FriendGroupMessageAudioGetRequest{FriendGroupName: "group-a", HistoryName: "history-a"}
 	var payload RPCPayload
 	if err := payload.FromFriendGroupMessageAudioGetRequest(request); err != nil {
 		t.Fatalf("encode Friend Group audio request: %v", err)
@@ -699,12 +745,11 @@ func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
 		t.Fatalf("AsFirmwareGetRequest() error = %v", err)
 	}
 	firmwareResponse := FirmwareGetResponse{
-		FirmwareName: "devkit",
-		Channel:      FirmwareChannelNameStable,
-		Description:  new("stable package"),
-		Url:          "https://firmware.example/stable.tar.zlib",
-		Sha256:       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-		Size:         4096,
+		Channel:     FirmwareChannelNameStable,
+		Description: new("stable package"),
+		Url:         "https://firmware.example/stable.tar.zlib",
+		Sha256:      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		Size:        4096,
 	}
 	if err := firmwarePayload.FromFirmwareGetResponse(firmwareResponse); err != nil {
 		t.Fatalf("FromFirmwareGetResponse() error = %v", err)

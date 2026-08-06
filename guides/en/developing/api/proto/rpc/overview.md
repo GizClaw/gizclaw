@@ -42,6 +42,10 @@ flowchart LR
 
 ## Method Design
 
+Peer-visible object identity is always named `name`; references to another Peer-visible object use `<kind>_name`. A service projects a scoped alias when the object owns one. Otherwise it projects the canonical Admin or internal record ID verbatim as `name`. Display text uses `display_name`, and actor attribution uses `actor_name`. Business DTOs therefore do not alternate between `id` and `name`; only the RPC request/response/stream envelope correlation fields remain named `id`.
+
+Admin and persistence models retain canonical `id` and `*_id` fields. Adapters must map those internal shapes explicitly to Peer DTOs instead of persisting RPC messages or relying on JSON field-name coincidence. The project is not yet released, so affected Protobuf messages use their final field layout directly: no reserved compatibility fields, aliases, legacy decoders, or mixed-version support are added.
+
 - Method name should be stable and reflect domain ownership, and cannot be bound to a certain Go file name.
 - Request/response payload is put into the corresponding field proto; cross-field enum is entered into `enums.proto`.
 - Ordinary request response, long data stream and direct packet are different transport shapes and should not be combined into one message through optional fields.

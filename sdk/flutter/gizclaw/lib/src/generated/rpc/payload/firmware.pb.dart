@@ -76,7 +76,6 @@ class FirmwareGetRequest extends $pb.GeneratedMessage {
 
 class FirmwareGetResponse extends $pb.GeneratedMessage {
   factory FirmwareGetResponse({
-    $core.String? firmwareName,
     $0.FirmwareChannelName? channel,
     $core.String? description,
     $core.String? url,
@@ -84,7 +83,6 @@ class FirmwareGetResponse extends $pb.GeneratedMessage {
     $fixnum.Int64? size,
   }) {
     final result = create();
-    if (firmwareName != null) result.firmwareName = firmwareName;
     if (channel != null) result.channel = channel;
     if (description != null) result.description = description;
     if (url != null) result.url = url;
@@ -106,13 +104,12 @@ class FirmwareGetResponse extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'FirmwareGetResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'firmwareName')
-    ..aE<$0.FirmwareChannelName>(2, _omitFieldNames ? '' : 'channel',
+    ..aE<$0.FirmwareChannelName>(1, _omitFieldNames ? '' : 'channel',
         enumValues: $0.FirmwareChannelName.values)
-    ..aOS(3, _omitFieldNames ? '' : 'description')
-    ..aOS(4, _omitFieldNames ? '' : 'url')
-    ..aOS(5, _omitFieldNames ? '' : 'sha256')
-    ..aInt64(6, _omitFieldNames ? '' : 'size')
+    ..aOS(2, _omitFieldNames ? '' : 'description')
+    ..aOS(3, _omitFieldNames ? '' : 'url')
+    ..aOS(4, _omitFieldNames ? '' : 'sha256')
+    ..aInt64(5, _omitFieldNames ? '' : 'size')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -135,58 +132,49 @@ class FirmwareGetResponse extends $pb.GeneratedMessage {
   static FirmwareGetResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get firmwareName => $_getSZ(0);
+  $0.FirmwareChannelName get channel => $_getN(0);
   @$pb.TagNumber(1)
-  set firmwareName($core.String value) => $_setString(0, value);
+  set channel($0.FirmwareChannelName value) => $_setField(1, value);
   @$pb.TagNumber(1)
-  $core.bool hasFirmwareName() => $_has(0);
+  $core.bool hasChannel() => $_has(0);
   @$pb.TagNumber(1)
-  void clearFirmwareName() => $_clearField(1);
+  void clearChannel() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $0.FirmwareChannelName get channel => $_getN(1);
+  $core.String get description => $_getSZ(1);
   @$pb.TagNumber(2)
-  set channel($0.FirmwareChannelName value) => $_setField(2, value);
+  set description($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasChannel() => $_has(1);
+  $core.bool hasDescription() => $_has(1);
   @$pb.TagNumber(2)
-  void clearChannel() => $_clearField(2);
+  void clearDescription() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.String get description => $_getSZ(2);
+  $core.String get url => $_getSZ(2);
   @$pb.TagNumber(3)
-  set description($core.String value) => $_setString(2, value);
+  set url($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasDescription() => $_has(2);
+  $core.bool hasUrl() => $_has(2);
   @$pb.TagNumber(3)
-  void clearDescription() => $_clearField(3);
+  void clearUrl() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.String get url => $_getSZ(3);
+  $core.String get sha256 => $_getSZ(3);
   @$pb.TagNumber(4)
-  set url($core.String value) => $_setString(3, value);
+  set sha256($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasUrl() => $_has(3);
+  $core.bool hasSha256() => $_has(3);
   @$pb.TagNumber(4)
-  void clearUrl() => $_clearField(4);
+  void clearSha256() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.String get sha256 => $_getSZ(4);
+  $fixnum.Int64 get size => $_getI64(4);
   @$pb.TagNumber(5)
-  set sha256($core.String value) => $_setString(4, value);
+  set size($fixnum.Int64 value) => $_setInt64(4, value);
   @$pb.TagNumber(5)
-  $core.bool hasSha256() => $_has(4);
+  $core.bool hasSize() => $_has(4);
   @$pb.TagNumber(5)
-  void clearSha256() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $fixnum.Int64 get size => $_getI64(5);
-  @$pb.TagNumber(6)
-  set size($fixnum.Int64 value) => $_setInt64(5, value);
-  @$pb.TagNumber(6)
-  $core.bool hasSize() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearSize() => $_clearField(6);
+  void clearSize() => $_clearField(5);
 }
 
 const $core.bool _omitFieldNames =

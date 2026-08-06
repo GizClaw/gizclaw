@@ -267,16 +267,13 @@ int gzc_cgo_session_register(
     const char *token,
     char *out_runtime_profile_name,
     unsigned long out_runtime_profile_name_len,
-    int *out_has_firmware_name,
-    char *out_firmware_name,
-    unsigned long out_firmware_name_len,
     int *out_rpc_error_code,
     char *errbuf,
     unsigned long errbuf_len) {
-  if (session == NULL || token == NULL || out_has_firmware_name == NULL) {
+  if (session == NULL || token == NULL || out_runtime_profile_name == NULL ||
+      out_runtime_profile_name_len == 0) {
     return fail(errbuf, errbuf_len, "register", GZC_ERR_INVALID_ARGUMENT);
   }
-  *out_has_firmware_name = 0;
   if (out_rpc_error_code != NULL) {
     *out_rpc_error_code = 0;
   }
@@ -341,21 +338,6 @@ int gzc_cgo_session_register(
   if (rc != GZC_OK) {
     return rc;
   }
-  *out_has_firmware_name = response.has_firmware_name ? 1 : 0;
-  if (response.has_firmware_name) {
-    rc = copy_c_string(
-        out_firmware_name,
-        out_firmware_name_len,
-        response.firmware_name,
-        errbuf,
-        errbuf_len,
-        "registration firmware id");
-    if (rc != GZC_OK) {
-      return rc;
-    }
-  } else if (out_firmware_name != NULL && out_firmware_name_len > 0) {
-    out_firmware_name[0] = 0;
-  }
   if (errbuf != NULL && errbuf_len > 0) {
     errbuf[0] = 0;
   }
@@ -365,8 +347,6 @@ int gzc_cgo_session_register(
 int gzc_cgo_session_firmware_get(
     gzc_cgo_session_t *session,
     int channel,
-    char *out_name,
-    unsigned long out_name_len,
     int *out_channel,
     int *out_has_description,
     char *out_description,
@@ -379,14 +359,12 @@ int gzc_cgo_session_firmware_get(
     int *out_rpc_error_code,
     char *errbuf,
     unsigned long errbuf_len) {
-  if (session == NULL || out_name == NULL || out_name_len == 0 ||
-      out_channel == NULL || out_has_description == NULL ||
+  if (session == NULL || out_channel == NULL || out_has_description == NULL ||
       out_description == NULL || out_description_len == 0 ||
       out_url == NULL || out_url_len == 0 || out_sha256 == NULL ||
       out_sha256_len == 0 || out_size == NULL) {
     return fail(errbuf, errbuf_len, "firmware get", GZC_ERR_INVALID_ARGUMENT);
   }
-  out_name[0] = 0;
   *out_channel = 0;
   *out_has_description = 0;
   out_description[0] = 0;
@@ -438,12 +416,7 @@ int gzc_cgo_session_firmware_get(
   if (!decoded) {
     return fail(errbuf, errbuf_len, "decode firmware get response", GZC_ERR_RPC);
   }
-  int copy_rc = copy_c_string(
-      out_name, out_name_len, response.firmware_name, errbuf, errbuf_len,
-      "firmware name");
-  if (copy_rc != GZC_OK) {
-    return copy_rc;
-  }
+  int copy_rc = GZC_OK;
   *out_channel = (int)response.channel;
   *out_has_description = response.has_description ? 1 : 0;
   if (response.has_description) {

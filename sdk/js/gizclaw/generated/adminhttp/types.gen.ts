@@ -26,7 +26,6 @@ export type ApproveRequest = {
 
 export type FirmwareUpsert = {
     id: string;
-    name: string;
     description?: string;
     slots: FirmwareSlots;
 };
@@ -224,6 +223,27 @@ export type DashScopeTenantList = {
     has_next: boolean;
     next_cursor?: string | null;
     items: Array<DashScopeTenant>;
+};
+
+export type AdminWorkspaceHistoryEntry = {
+    id: string;
+    type: PeerRunHistoryEntryType;
+    /**
+     * Originating gear ID. Required for gear entries and omitted for agent entries.
+     */
+    gear_id?: string;
+    actor_name: string;
+    text: string;
+    created_at: string;
+    replay_available: boolean;
+};
+
+export type AdminWorkspaceHistoryListResponse = {
+    available: boolean;
+    items: Array<AdminWorkspaceHistoryEntry>;
+    has_next: boolean;
+    message?: string;
+    next_cursor?: string;
 };
 
 export type AdminFriendObject = {
@@ -957,7 +977,6 @@ export type ErrorResponse = {
 
 export type Firmware = {
     id: string;
-    name: string;
     description?: string;
     slots: FirmwareSlots;
     created_at: string;
@@ -992,7 +1011,6 @@ export type FirmwareSlots = {
 };
 
 export type FirmwareSpec = {
-    name: string;
     description?: string;
     slots: FirmwareSpecSlots;
 };
@@ -1605,27 +1623,6 @@ export type PeerRegistrationStatus = 'unspecified' | 'active' | 'blocked';
 
 export type PeerRole = 'unspecified' | 'admin' | 'server' | 'edge-node' | 'client';
 
-export type PeerRunHistoryEntry = {
-    id: string;
-    type: 'gear' | 'agent';
-    /**
-     * Originating gear id. Required for gear entries and omitted for agent entries.
-     */
-    gear_id?: string;
-    name: string;
-    text: string;
-    created_at: string;
-    replay_available: boolean;
-};
-
-export type PeerRunHistoryListResponse = {
-    available: boolean;
-    items: Array<PeerRunHistoryEntry>;
-    has_next: boolean;
-    next_cursor?: string;
-    message?: string;
-};
-
 /**
  * Bucket aggregate mode for peer telemetry range data.
  */
@@ -2002,19 +1999,7 @@ export type FriendGroupInviteTokenGetResponse = {
 
 export type ServerFriendGroupMemberRole = 'owner' | 'admin' | 'member';
 
-export type FriendListResponse = {
-    items: Array<FriendObject>;
-    has_next: boolean;
-    next_cursor?: string;
-};
-
-export type FriendObject = {
-    id?: string;
-    peer_public_key?: string;
-    workspace_name?: string;
-    created_at?: string;
-    updated_at?: string;
-};
+export type PeerRunHistoryEntryType = 'gear' | 'agent';
 
 export type ServerLogEntry = {
     /**
@@ -7278,7 +7263,7 @@ export type ListWorkspaceHistoryResponses = {
     /**
      * Workspace history list
      */
-    200: PeerRunHistoryListResponse;
+    200: AdminWorkspaceHistoryListResponse;
 };
 
 export type ListWorkspaceHistoryResponse = ListWorkspaceHistoryResponses[keyof ListWorkspaceHistoryResponses];
@@ -7320,7 +7305,7 @@ export type GetWorkspaceHistoryResponses = {
     /**
      * Workspace history entry
      */
-    200: PeerRunHistoryEntry;
+    200: AdminWorkspaceHistoryEntry;
 };
 
 export type GetWorkspaceHistoryResponse = GetWorkspaceHistoryResponses[keyof GetWorkspaceHistoryResponses];
@@ -7908,7 +7893,7 @@ export type ListPeerFriendsResponses = {
     /**
      * Friend list
      */
-    200: FriendListResponse;
+    200: AdminFriendListResponse;
 };
 
 export type ListPeerFriendsResponse = ListPeerFriendsResponses[keyof ListPeerFriendsResponses];
@@ -7946,7 +7931,7 @@ export type CreatePeerFriendResponses = {
     /**
      * Created friend relation
      */
-    200: FriendObject;
+    200: AdminFriendObject;
 };
 
 export type CreatePeerFriendResponse = CreatePeerFriendResponses[keyof CreatePeerFriendResponses];
@@ -7988,7 +7973,7 @@ export type DeletePeerFriendResponses = {
     /**
      * Deleted friend relation
      */
-    200: FriendObject;
+    200: AdminFriendObject;
 };
 
 export type DeletePeerFriendResponse = DeletePeerFriendResponses[keyof DeletePeerFriendResponses];
@@ -8030,7 +8015,7 @@ export type GetPeerFriendResponses = {
     /**
      * Friend relation
      */
-    200: FriendObject;
+    200: AdminFriendObject;
 };
 
 export type GetPeerFriendResponse = GetPeerFriendResponses[keyof GetPeerFriendResponses];

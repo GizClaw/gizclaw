@@ -20,6 +20,8 @@ Pet names are scoped by the authenticated Peer. The first successful adoption of
 
 Different Peers may use the same textual Pet name. Their globally named internal Workspaces remain distinct, and every Pet RPC resolves both the authenticated Peer and Pet name. One Peer cannot address another Peer's Pet. The same Peer cannot reuse a name across RuntimeProfiles or after deleting the Pet because retained adoption history continues to reserve it.
 
+Gameplay records follow the same Peer vocabulary. `GameResult`, `PointsTransaction`, and `RewardGrant` expose their canonical internal record IDs verbatim as `name`, and get operations accept that value through `name`. Cross-record selectors use `game_result_name`, `reward_grant_name`, `source_name`, and `pet_name`; `GAMEPLAY_REWARD_UPDATED.reward_grant_name` is the same value accepted by `server.reward_grant.get`. Admin and persistence surfaces retain canonical `id` fields.
+
 ## Fixed Pet contract
 
 Every Pet has the same `life`, `health`, `satiety`, `hygiene`, `mood`, and `energy` stats in the fixed 0..100 range. Adoption initializes every stat to 100 and progression to `experience = 0`, `level = 1`. The behavior contract is fixed to `feed`, `bathe`, `play`, and `heal`, which raise satiety, hygiene, mood, and health respectively. PetDef does not define stat or behavior semantics. Its `visual.bindings.behaviors` and `visual.bindings.states` bind the fixed contract to that PetDef's PIXA clips. `idle`, `sick`, `dead`, and optional `sleep` are state visuals, not Drive behaviors.
@@ -40,7 +42,7 @@ $$
 
 where weights sum to 1 and $p>1$. Full care stats produce zero deficit and therefore no life loss; lower care stats accelerate life loss. The Server evaluates the piecewise analytic integral, so settlement depends on initial state and elapsed time rather than request frequency.
 
-`server.pet.drive` accepts an empty Drive containing only `pet_id` as a Server-authoritative time tick. It settles the elapsed interval from `state_settled_at`, persists care decay, energy recovery, life loss, and the new checkpoint, and returns the updated Pet without creating a behavior, game result, cost, or reward. Successive new ticks compose to the same state as one tick over the same total interval. When the optional request-level idempotency key is present, retrying that same empty Drive does not settle time again; a new key or no key starts a new tick.
+`server.pet.drive` accepts an empty Drive containing only `pet_name` as a Server-authoritative time tick. It settles the elapsed interval from `state_settled_at`, persists care decay, energy recovery, life loss, and the new checkpoint, and returns the updated Pet without creating a behavior, game result, cost, or reward. Successive new ticks compose to the same state as one tick over the same total interval. When the optional request-level idempotency key is present, retrying that same empty Drive does not settle time again; a new key or no key starts a new tick.
 
 When life reaches zero, the Pet atomically enters `dead` at the formula-derived death checkpoint with an immutable `died_at`, so terminal state is also independent of tick frequency. Behavior and game-result Drives cannot target a dead Pet; an empty Drive returns its unchanged terminal snapshot.
 

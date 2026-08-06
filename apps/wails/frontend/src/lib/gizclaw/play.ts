@@ -13,7 +13,7 @@ export interface PlayDataClient {
     channel: PlayFirmwareChannel;
   }): Promise<FirmwareGetResponse>;
   loadSnapshot(): Promise<PlaySnapshot>;
-  playHistory(historyID: string): Promise<unknown>;
+  playHistory(historyName: string): Promise<unknown>;
   recallMemory(query: string): Promise<PlayMemoryRecall>;
   reloadWorkspace(): Promise<unknown>;
   setWorkspace(workspaceName: string): Promise<unknown>;
@@ -50,8 +50,7 @@ export interface PlayWorkspaceState {
 }
 
 export interface PlayHistoryRow {
-  id: string;
-  name?: string;
+  name: string;
   raw?: unknown;
   text?: string;
   type?: string;
@@ -60,7 +59,6 @@ export interface PlayHistoryRow {
 
 export interface PlayResourceRow {
   [key: string]: unknown;
-  alias?: string;
   driver?: string;
   id: string;
   i18n?: unknown;
@@ -126,7 +124,7 @@ export async function connectPlaySession(
     },
     getFirmware: (params) => client.getFirmware(params),
     loadSnapshot: () => client.loadSnapshot(),
-    playHistory: (historyID) => client.playHistory(historyID),
+    playHistory: (historyName) => client.playHistory(historyName),
     recallMemory: (query) => client.recallMemory(query),
     reloadWorkspace: () => client.reloadWorkspace(),
     setWorkspace: (workspaceName) => client.setWorkspace(workspaceName),
@@ -274,9 +272,9 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
         ),
       };
     },
-    playHistory(historyID: string): Promise<unknown> {
+    playHistory(historyName: string): Promise<unknown> {
       return rpc.call(RPC_METHODS["server.run.workspace.history.play"], {
-        history_id: historyID,
+        history_name: historyName,
       });
     },
     async recallMemory(query: string): Promise<PlayMemoryRecall> {
@@ -479,15 +477,9 @@ function listItems(value: unknown): unknown[] {
 
 function itemToHistoryRow(item: unknown): PlayHistoryRow {
   const record = isRecord(item) ? item : {};
-  const id =
-    stringValue(record.history_id) ??
-    stringValue(record.id) ??
-    stringValue(record.message_id) ??
-    stringValue(record.name) ??
-    `history-${hashJSON(item)}`;
+  const name = requiredPeerIdentity(record, "history");
   return {
-    id,
-    name: stringValue(record.name),
+    name,
     raw: item,
     text:
       stringValue(record.text) ??
@@ -504,23 +496,17 @@ function itemToHistoryRow(item: unknown): PlayHistoryRow {
 function itemToResourceRow(item: unknown, prefix: string): PlayResourceRow {
   const record = isRecord(item) ? item : {};
   const id =
-    stringValue(record.alias) ??
-    stringValue(record.id) ??
-    stringValue(record.name) ??
-    stringValue(record.public_key) ??
-    stringValue(record.friend_public_key) ??
-    stringValue(record.group_id) ??
-    `${prefix}-${hashJSON(item)}`;
+    prefix === "firmware"
+      ? requiredPeerIdentity(record, prefix, "channel")
+      : requiredPeerIdentity(record, prefix);
   const title =
     stringValue(record.title) ??
     stringValue(record.display_name) ??
     localizedDisplayName(record.i18n) ??
-    stringValue(record.alias) ??
     stringValue(record.name) ??
     id;
   return {
     ...record,
-    alias: stringValue(record.alias),
     driver: stringValue(record.driver),
     id,
     i18n: record.i18n,
@@ -575,13 +561,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value != null && !Array.isArray(value);
 }
 
-function hashJSON(value: unknown): string {
-  const text = JSON.stringify(value);
-  let hash = 0;
-  for (let i = 0; i < text.length; i += 1) {
-    hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+function requiredPeerIdentity(
+  record: Record<string, unknown>,
+  kind: string,
+  field = "name",
+): string {
+  const identity = stringValue(record[field]);
+  if (identity == null) {
+    throw new Error(`${kind}: Peer response is missing ${field}`);
   }
-  return hash.toString(16).padStart(8, "0");
+  return identity;
 }
 
 declare global {

@@ -4003,7 +4003,6 @@ type Firmware struct {
 	CreatedAt   time.Time     `json:"created_at"`
 	Description *string       `json:"description,omitempty"`
 	Id          string        `json:"id"`
-	Name        string        `json:"name"`
 	Slots       FirmwareSlots `json:"slots"`
 	UpdatedAt   time.Time     `json:"updated_at"`
 }
@@ -4049,7 +4048,6 @@ type FirmwareSlots struct {
 // FirmwareSpec defines model for FirmwareSpec.
 type FirmwareSpec struct {
 	Description *string           `json:"description,omitempty"`
-	Name        string            `json:"name"`
 	Slots       FirmwareSpecSlots `json:"slots"`
 }
 
@@ -4944,11 +4942,11 @@ type PeerRunAgent struct {
 
 // PeerRunHistoryEntry defines model for PeerRunHistoryEntry.
 type PeerRunHistoryEntry struct {
+	ActorName string    `json:"actor_name"`
 	CreatedAt time.Time `json:"created_at"`
 
 	// GearId Originating gear id. Required for gear entries and omitted for agent entries.
 	GearId          *string                 `json:"gear_id,omitempty"`
-	Id              string                  `json:"id"`
 	Name            string                  `json:"name"`
 	ReplayAvailable bool                    `json:"replay_available"`
 	Text            string                  `json:"text"`
@@ -4979,15 +4977,15 @@ type PeerRunHistoryListResponse struct {
 
 // PeerRunHistoryPlayRequest defines model for PeerRunHistoryPlayRequest.
 type PeerRunHistoryPlayRequest struct {
-	HistoryId string `json:"history_id"`
+	HistoryName string `json:"history_name"`
 }
 
 // PeerRunHistoryPlayResponse defines model for PeerRunHistoryPlayResponse.
 type PeerRunHistoryPlayResponse struct {
-	Accepted  bool    `json:"accepted"`
-	HistoryId string  `json:"history_id"`
-	Message   *string `json:"message,omitempty"`
-	State     string  `json:"state"`
+	Accepted    bool    `json:"accepted"`
+	HistoryName string  `json:"history_name"`
+	Message     *string `json:"message,omitempty"`
+	State       string  `json:"state"`
 }
 
 // PeerRunMemoryStatsRequest defines model for PeerRunMemoryStatsRequest.
@@ -5011,11 +5009,11 @@ type PeerRunMemoryStatsResponse struct {
 // PeerRunRecallHit defines model for PeerRunRecallHit.
 type PeerRunRecallHit struct {
 	CreatedAt  *time.Time              `json:"created_at,omitempty"`
-	Id         string                  `json:"id"`
 	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
+	Name       string                  `json:"name"`
 	Score      float64                 `json:"score"`
 	Snippet    string                  `json:"snippet"`
-	SourceId   *string                 `json:"source_id,omitempty"`
+	SourceName *string                 `json:"source_name,omitempty"`
 	SourceType *string                 `json:"source_type,omitempty"`
 }
 
