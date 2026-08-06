@@ -252,7 +252,7 @@ func (c *Conn) DialContext(ctx context.Context, service uint64) (net.Conn, error
 	stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
 	stream.rx = &c.rxBytes
 	stream.tx = &c.txBytes
-	if err := c.trackStream(service, stream); err != nil {
+	if err := c.trackStream(service, stream, nil); err != nil {
 		_ = stream.Close()
 		_ = dc.Close()
 		return nil, err
@@ -499,7 +499,10 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 		stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
 		stream.rx = &c.rxBytes
 		stream.tx = &c.txBytes
-		if err := c.trackStream(service, stream); err != nil {
+		// A detached channel closes through raw.Close, which does not invoke
+		// the Pion wrapper's OnClose callback. Bind the admission release to
+		// the service stream itself so every unary RPC drops its DataChannel.
+		if err := c.trackStream(service, stream, release); err != nil {
 			release()
 			_ = stream.Close()
 			return
@@ -595,7 +598,7 @@ func (c *Conn) enqueuePacket(pkt directPacket) {
 	}
 }
 
-func (c *Conn) trackStream(service uint64, s *dataChannelConn) error {
+func (c *Conn) trackStream(service uint64, s *dataChannelConn, releaseInbound func()) error {
 	c.serviceMu.Lock()
 	defer c.serviceMu.Unlock()
 	if c.closed.Load() {
@@ -607,7 +610,12 @@ func (c *Conn) trackStream(service uint64, s *dataChannelConn) error {
 	if c.streams[service] == nil {
 		c.streams[service] = make(map[*dataChannelConn]struct{})
 	}
-	s.onClose = func() { c.untrackStream(service, s) }
+	s.onClose = func() {
+		if releaseInbound != nil {
+			releaseInbound()
+		}
+		c.untrackStream(service, s)
+	}
 	c.streams[service][s] = struct{}{}
 	return nil
 }

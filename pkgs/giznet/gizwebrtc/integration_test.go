@@ -357,6 +357,18 @@ func TestServiceStreamsReuseDataChannelIDAfterReset(t *testing.T) {
 		if err := clientStream.Close(); err != nil {
 			t.Errorf("Close client stream %d error = %v", sequence, err)
 		}
+		serverConn.serviceMu.Lock()
+		inboundReservations := len(serverConn.inbound)
+		trackedStreams := len(serverConn.streams[100])
+		serverConn.serviceMu.Unlock()
+		if inboundReservations != 0 || trackedStreams != 0 {
+			t.Fatalf(
+				"closed stream %d retained inbound=%d tracked=%d, want zero",
+				sequence,
+				inboundReservations,
+				trackedStreams,
+			)
+		}
 		return dataChannel, id
 	}
 

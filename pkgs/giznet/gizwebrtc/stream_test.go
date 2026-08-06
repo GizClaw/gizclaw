@@ -309,7 +309,7 @@ func TestCloseServiceClosesQueuedAndActiveStreams(t *testing.T) {
 	}
 	queuedRaw := &fakeStreamRaw{}
 	queued := newDataChannelConn(queuedRaw, nil, addr("local"), addr("remote"))
-	if err := conn.trackStream(42, queued); err != nil {
+	if err := conn.trackStream(42, queued, nil); err != nil {
 		t.Fatalf("track queued stream: %v", err)
 	}
 	if err := serviceListener.enqueue(queued); err != nil {
@@ -317,7 +317,7 @@ func TestCloseServiceClosesQueuedAndActiveStreams(t *testing.T) {
 	}
 	activeRaw := &fakeStreamRaw{}
 	active := newDataChannelConn(activeRaw, nil, addr("local"), addr("remote"))
-	if err := conn.trackStream(42, active); err != nil {
+	if err := conn.trackStream(42, active, nil); err != nil {
 		t.Fatalf("track active stream: %v", err)
 	}
 
@@ -340,7 +340,7 @@ func TestClosedStreamsDoNotAccumulate(t *testing.T) {
 	}
 	for index := range 10_000 {
 		stream := newDataChannelConn(&fakeStreamRaw{}, nil, addr("local"), addr("remote"))
-		if err := conn.trackStream(42, stream); err != nil {
+		if err := conn.trackStream(42, stream, nil); err != nil {
 			t.Fatalf("track stream %d: %v", index, err)
 		}
 		if len(conn.streams[42]) != 1 {
@@ -363,7 +363,7 @@ func TestTrackStreamRejectsClosedOwner(t *testing.T) {
 	}
 	conn.closed.Store(true)
 	stream := newDataChannelConn(&fakeStreamRaw{}, nil, addr("local"), addr("remote"))
-	if err := conn.trackStream(42, stream); !errors.Is(err, giznet.ErrConnClosed) {
+	if err := conn.trackStream(42, stream, nil); !errors.Is(err, giznet.ErrConnClosed) {
 		t.Fatalf("track stream error = %v, want %v", err, giznet.ErrConnClosed)
 	}
 	if len(conn.streams) != 0 {
@@ -378,7 +378,7 @@ func TestTrackStreamRejectsClosedService(t *testing.T) {
 		closeCh:   make(chan struct{}),
 	}
 	stream := newDataChannelConn(&fakeStreamRaw{}, nil, addr("local"), addr("remote"))
-	if err := conn.trackStream(42, stream); !errors.Is(err, giznet.ErrServiceMuxClosed) {
+	if err := conn.trackStream(42, stream, nil); !errors.Is(err, giznet.ErrServiceMuxClosed) {
 		t.Fatalf("track stream error = %v, want %v", err, giznet.ErrServiceMuxClosed)
 	}
 	if len(conn.streams) != 0 {

@@ -344,6 +344,41 @@ func TestDetachWhenOpenClosesLateDetachedChannel(t *testing.T) {
 	}
 }
 
+func TestTrackInboundStreamCloseReleasesAdmissionAndTracking(t *testing.T) {
+	const service = 42
+	conn := &Conn{
+		streams:   make(map[uint64]map[*dataChannelConn]struct{}),
+		closedSvc: make(map[uint64]bool),
+	}
+	dc := &webrtc.DataChannel{}
+	release, ok := conn.reserveInboundServiceStream(dc)
+	if !ok {
+		t.Fatal("reserveInboundServiceStream rejected first channel")
+	}
+	raw, peer := net.Pipe()
+	t.Cleanup(func() { _ = peer.Close() })
+	stream := newDataChannelConn(&fakeDetachedChannel{Conn: raw}, dc, nil, nil)
+	if err := conn.trackStream(service, stream, release); err != nil {
+		t.Fatalf("trackStream error = %v", err)
+	}
+	if got := len(conn.inbound); got != 1 {
+		t.Fatalf("inbound reservations = %d, want 1", got)
+	}
+	if got := len(conn.streams[service]); got != 1 {
+		t.Fatalf("tracked streams = %d, want 1", got)
+	}
+
+	if err := stream.Close(); err != nil {
+		t.Fatalf("stream.Close error = %v", err)
+	}
+	if got := len(conn.inbound); got != 0 {
+		t.Fatalf("inbound reservations after close = %d, want 0", got)
+	}
+	if _, exists := conn.streams[service]; exists {
+		t.Fatal("service stream tracking remained after close")
+	}
+}
+
 func TestDialContextReturnsCanceledContextBeforeOpeningDataChannel(t *testing.T) {
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
