@@ -182,6 +182,7 @@ func setSocialChatWorkspaceInputMode(t *testing.T, h socialHarness, workspaceNam
 		t.Fatalf("encode social workspace %q parameters: %v", workspaceName, err)
 	}
 	body := adminhttp.WorkspaceUpsert{
+		Id:         workspace.Id,
 		Name:       workspace.Name,
 		WorkflowId: workspace.WorkflowId,
 		Parameters: &params,
