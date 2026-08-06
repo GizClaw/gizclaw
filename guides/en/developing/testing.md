@@ -190,11 +190,12 @@ the clean final PR head.
 The dedicated 1,000-session burst entrypoint fixes relay-only upstreams, a
 clean repository head, three fresh stacks, zero ramp, concurrency 1,000, a
 30-second hold, and exactly 500 sessions per Edge across four gateway
-upstreams. The load driver uses `GOGC=50` and records that value with
-`GOMAXPROCS` in the artifact. This measured harness setting collects the
-1,000-way client heap in smaller, more frequent cycles so the load driver does
-not inject its own GC CPU and RTT spikes into the long-lived workload; it does
-not change production processes, pacing, timeouts, or the release barrier. Each
+upstreams. The load driver uses `GOGC=200` and records that value with
+`GOMAXPROCS` in the artifact. This measured harness setting keeps collection
+of the roughly 2 GiB client heap from becoming the limiting stage during the
+synchronized transfer; current process CPU and completed-GC live-heap evidence
+still gate long-lived stability. It does not change production processes,
+pacing, timeouts, or the release barrier. Each
 run retains the 20 sessions/s, Dial p95/p99, exact 1 MiB per session and
 direction, and 200 Mbps gates. A final liveness round runs after the hold.
 Logical-session close and Serve completion must finish within 30

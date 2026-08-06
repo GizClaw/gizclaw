@@ -311,9 +311,10 @@ application transfer of exactly 1,000 MiB (1,048,576,000 bytes) in each
 direction, 200 Mbps aggregate, timing,
 resource, relay-selection, ten-allocation, restart, and cleanup gates are the
 same fixed contract as the smaller tiers. The load driver fixes and records
-`GOGC=50` so its 1,000-way client heap is collected in smaller, more frequent
-cycles instead of injecting measured GC CPU and RTT spikes into the long-lived
-workload; this setting does not alter Edge, Server, or Coturn runtime behavior.
+`GOGC=200` so collection of its roughly 2 GiB client heap does not become the
+limiting stage during synchronized transfer. Current process CPU and
+completed-GC live-heap evidence still gate long-lived stability; this setting
+does not alter Edge, Server, or Coturn runtime behavior.
 
 The soak entrypoint first reruns all three burst repetitions on the same clean
 head, then starts one new no-ramp 1,000-session stack and holds it for 60

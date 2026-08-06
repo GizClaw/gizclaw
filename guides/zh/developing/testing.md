@@ -168,10 +168,10 @@ head 和 dirty state，可发布证据必须来自最终 clean PR head。
 
 专用 1,000-session burst 入口固定 relay-only upstream、clean repository head、三个 fresh
 stack、zero ramp、concurrency 1,000、30 秒 hold，以及每台 Edge 通过四条 gateway upstream
-恰好承载 500 个 session。Load driver 固定 `GOGC=50`，并与 `GOMAXPROCS` 一起写入
-artifact。这个实测 harness 参数让 1,000-way client heap 通过更小、更频繁的 GC cycle
-回收，避免压测进程自身把 GC CPU 与 RTT spike 注入长时间 hold；它不改变
-production process、pacing、timeout 或 release barrier。每轮继续执行 20 sessions/s、Dial p95/p99、每 session 每方向
+恰好承载 500 个 session。Load driver 固定 `GOGC=200`，并与 `GOMAXPROCS` 一起写入
+artifact。这个实测 harness 参数避免约 2 GiB client heap 的回收成为 synchronized
+transfer 的限制环节；长时间稳定性仍由当前 process CPU 与 completed-GC live-heap
+证据把关。它不改变 production process、pacing、timeout 或 release barrier。每轮继续执行 20 sessions/s、Dial p95/p99、每 session 每方向
 精确 1 MiB 和 200 Mbps gate，并在 hold 后执行 final liveness。Logical-session close 与
 Serve completion 必须在 30 秒内结束；两台 Edge 停止后，固定十条 Coturn allocation 必须
 在 15 秒内归零。每轮 workload 都按一秒间隔记录 source-qualified Coturn counter；relay

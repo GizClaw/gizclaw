@@ -240,10 +240,10 @@ Burst 入口要求 clean head，并在三个全新的 one-Server/two-Edge/two-Co
 gateway upstream 恰好承载 500 个 session；establishment、每方向精确 1,000 MiB
 （1,048,576,000 bytes）application transfer、200 Mbps aggregate、timing、resource、relay
 selection、十条 allocation、restart
-与 cleanup gate 均沿用较小档位的固定 contract。Load driver 固定并记录 `GOGC=50`，
-让 1,000-way client heap 通过更小、更频繁的 GC cycle 回收，避免压测进程自身把实测
-GC CPU 与 RTT spike 注入长时间 hold；这个参数不改变 Edge、Server 或 Coturn 的
-runtime behavior。
+与 cleanup gate 均沿用较小档位的固定 contract。Load driver 固定并记录 `GOGC=200`，
+避免约 2 GiB client heap 的回收成为 synchronized transfer 的限制环节。长时间稳定性
+仍由当前 process CPU 与 completed-GC live-heap 证据把关；这个参数不改变 Edge、
+Server 或 Coturn 的 runtime behavior。
 
 Soak 入口先在同一个 clean head 上重跑全部三轮 burst，再用一个新 stack 以相同 zero-ramp
 方式建立 1,000 个 session 并保持 60 分钟。完整 liveness round 每 30 秒开始一次；独立的
