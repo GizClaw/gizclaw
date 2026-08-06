@@ -39,7 +39,7 @@ gateway_required_upstreams_per_edge="${GIZCLAW_E2E_GATEWAY_REQUIRED_UPSTREAMS_PE
 gateway_upstream_path="${GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH:-relay}"
 gateway_prebuilt="${GIZCLAW_E2E_GATEWAY_PREBUILT:-0}"
 gateway_cleanup_timeout="${GIZCLAW_E2E_GATEWAY_CLEANUP_TIMEOUT:-30s}"
-gateway_post_build_settle_seconds="${GIZCLAW_E2E_GATEWAY_POST_BUILD_SETTLE_SECONDS:-0}"
+gateway_post_start_settle_seconds="${GIZCLAW_E2E_GATEWAY_POST_START_SETTLE_SECONDS:-0}"
 case "$gateway_upstream_path" in
   direct | relay) ;;
   *)
@@ -236,7 +236,7 @@ verify_capacity_stack_running() {
       --filter "label=com.docker.compose.project=$GIZCLAW_E2E_DOCKER_PROJECT" \
       --filter "label=com.docker.compose.service=$service")"
     if [[ -z "$container_id" || "$container_id" == *$'\n'* ]]; then
-      echo "capacity stack lost service during post-build settle: service=$service container=$container_id" >&2
+      echo "capacity stack lost service during post-start settle: service=$service container=$container_id" >&2
       return 1
     fi
     health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")"
@@ -245,7 +245,7 @@ verify_capacity_stack_running() {
       continue
     fi
     if [[ "$health" != "healthy" ]]; then
-      echo "capacity stack service lost health during post-build settle: service=$service health=$health" >&2
+      echo "capacity stack service lost health during post-start settle: service=$service health=$health" >&2
       return 1
     fi
   done
@@ -268,17 +268,17 @@ verify_capacity_service_image() {
   echo "==> capacity service image verified: services=server,edge,edge2 image=$capacity_image image_id=$expected_image_id"
 }
 
-wait_capacity_post_build_settle() {
-  local remaining="$gateway_post_build_settle_seconds" health_status
-  if [[ "${GIZCLAW_E2E_DOCKER_IMAGES_BUILT:-0}" != "1" || "$remaining" == "0" ]]; then
+wait_capacity_post_start_settle() {
+  local remaining="$gateway_post_start_settle_seconds" health_status
+  if [[ "$remaining" == "0" ]]; then
     return 0
   fi
   while ((remaining > 0)); do
     health_status=0
     verify_capacity_stack_running || health_status="$?"
     case "$health_status" in
-      0) echo "==> capacity post-build settle heartbeat: status=healthy services=6 remaining_seconds=$remaining image=$capacity_image" ;;
-      2) echo "==> capacity post-build settle heartbeat: status=starting services=6 remaining_seconds=$remaining image=$capacity_image" ;;
+      0) echo "==> capacity post-start settle heartbeat: status=healthy services=6 remaining_seconds=$remaining image=$capacity_image" ;;
+      2) echo "==> capacity post-start settle heartbeat: status=starting services=6 remaining_seconds=$remaining image=$capacity_image" ;;
       *) return "$health_status" ;;
     esac
     sleep 15
@@ -287,13 +287,13 @@ wait_capacity_post_build_settle() {
   health_status=0
   verify_capacity_stack_running || health_status="$?"
   if [[ "$health_status" == "2" ]]; then
-    echo "capacity stack services did not become healthy during post-build settle" >&2
+    echo "capacity stack services did not become healthy during post-start settle" >&2
     return 1
   fi
   if ((health_status != 0)); then
     return "$health_status"
   fi
-  echo "==> capacity post-build settle heartbeat: status=ready services=6 remaining_seconds=0 image=$capacity_image"
+  echo "==> capacity post-start settle heartbeat: status=ready services=6 remaining_seconds=0 image=$capacity_image"
 }
 
 resolve_capacity_edge_endpoint() {
@@ -702,7 +702,7 @@ run_case() {
   set +a
 
   verify_capacity_service_image
-  wait_capacity_post_build_settle
+  wait_capacity_post_start_settle
 
   capacity_edge_endpoint="$(resolve_capacity_edge_endpoint edge "$GIZCLAW_E2E_EDGE_ENDPOINT")"
   capacity_edge2_endpoint="$(resolve_capacity_edge_endpoint edge2 "$GIZCLAW_E2E_EDGE2_ENDPOINT")"

@@ -338,8 +338,9 @@ every 15 seconds; silence after Compose startup is not readiness evidence.
 The ordered qualification builds one run-ID-scoped service image from its clean
 head and reuses that exact image across repetitions. Every repetition still
 gets fresh containers, networks, volumes, ports, and credentials; the runner
-removes only its exact image on exit. A 120-second post-build stabilization
-window reports container health every 15 seconds before the first measurement.
+removes only its exact image on exit. After every fresh stack reaches readiness,
+a 120-second post-start stabilization window reports container health every 15
+seconds before measurement, including repetitions that reuse the image.
 A fixed 120-second stabilization window, with 15-second progress, follows each
 1,000-session fresh-stack teardown so delayed Docker-VM reclamation does not
 pollute the next run. A failed upload gate skips the now-irrelevant download.
