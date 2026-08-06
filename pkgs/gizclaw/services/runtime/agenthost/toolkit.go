@@ -49,7 +49,7 @@ func (i *ToolkitInvoker) ResolveTools(ctx context.Context) ([]genx.ToolDefinitio
 		tool := kit.Tools[index]
 		schema := tool.InputSchema
 		definitions = append(definitions, genx.ToolDefinition{
-			Name:        tool.Name,
+			Name:        tool.InvokeName,
 			Description: stringValue(tool.Description),
 			Argument:    &schema,
 		})
@@ -81,7 +81,7 @@ func (i *ToolkitInvoker) InvokeTool(
 	case toolkit.ToolTypeHTTPRequest:
 		return i.invokeHTTP(ctx, tool, arguments)
 	case toolkit.ToolTypeClientRPC:
-		return invokeClientTool(ctx, scope.client, tool.Name, arguments, i.ClientTimeout)
+		return invokeClientTool(ctx, scope.client, tool.InvokeName, arguments, i.ClientTimeout)
 	default:
 		return nil, fmt.Errorf("agenthost: unsupported Tool type %q", tool.Type)
 	}
@@ -109,18 +109,18 @@ func (i *ToolkitInvoker) invokeHTTP(
 	args json.RawMessage,
 ) (json.RawMessage, error) {
 	if tool.HTTP == nil {
-		return nil, fmt.Errorf("agenthost: Tool %q has no HTTP operation", tool.Name)
+		return nil, fmt.Errorf("agenthost: Tool %q has no HTTP operation", tool.InvokeName)
 	}
 	authorizer, err := i.httpAuthorizer(ctx, tool.HTTP.Auth)
 	if err != nil {
-		return nil, fmt.Errorf("agenthost: Tool %q auth: %w", tool.Name, err)
+		return nil, fmt.Errorf("agenthost: Tool %q auth: %w", tool.InvokeName, err)
 	}
 	result, err := i.HTTP.Invoke(ctx, httpOperation(*tool.HTTP), args, authorizer)
 	if errors.Is(err, context.DeadlineExceeded) {
 		return recoverableToolError("timeout", "tool execution timed out"), nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("agenthost: invoke HTTP Tool %q: %w", tool.Name, err)
+		return nil, fmt.Errorf("agenthost: invoke HTTP Tool %q: %w", tool.InvokeName, err)
 	}
 	return result, nil
 }

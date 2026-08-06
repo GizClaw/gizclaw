@@ -197,8 +197,8 @@ func e2eRuntimeBinding(resourceID string) apitypes.RuntimeProfileBinding {
 
 func registerRuntimeProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Client, contextName string, spec apitypes.RuntimeProfileSpec) {
 	t.Helper()
-	profileID, firmwareID, token := provisionRuntimeProfile(t, h, contextName, spec)
-	registerWithRuntimeProfile(t, peer, contextName, profileID, firmwareID, token)
+	profileID, firmwareName, token := provisionRuntimeProfile(t, h, contextName, spec)
+	registerWithRuntimeProfile(t, peer, contextName, profileID, firmwareName, token)
 }
 
 func provisionRuntimeProfile(t *testing.T, h *clitest.Harness, contextName string, spec apitypes.RuntimeProfileSpec) (string, string, string) {
@@ -211,25 +211,25 @@ func provisionRuntimeProfile(t *testing.T, h *clitest.Harness, contextName strin
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	profileName := "e2e-" + contextName
-	profile, err := clitest.UpsertRuntimeProfileByName(ctx, api, adminhttp.RuntimeProfileUpsert{
-		Name: profileName,
+	profileID := "e2e-" + contextName
+	profile, err := clitest.UpsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
+		Id:   profileID,
 		Spec: spec,
 	})
 	if err != nil {
 		t.Fatalf("put RuntimeProfile for %s: %v", contextName, err)
 	}
-	tokenName := "e2e-token-" + contextName
-	if err := clitest.DeleteRegistrationTokenByName(ctx, api, tokenName); err != nil {
+	tokenID := "e2e-token-" + contextName
+	if err := clitest.DeleteRegistrationTokenByID(ctx, api, tokenID); err != nil {
 		t.Fatalf("retire RegistrationToken for %s: %v", contextName, err)
 	}
-	firmware, found, err := clitest.FirmwareByName(ctx, api, sharedFirmware)
+	firmware, found, err := clitest.FirmwareByID(ctx, api, sharedFirmware)
 	if err != nil || !found {
 		t.Fatalf("resolve Firmware %q: found=%v err=%v", sharedFirmware, found, err)
 	}
 	firmwareID := firmware.Id
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name: tokenName, Token: tokenName, RuntimeProfileId: profile.Id, FirmwareId: &firmwareID,
+		Id: tokenID, Token: tokenID, RuntimeProfileId: profile.Id, FirmwareId: &firmwareID,
 	})
 	if err != nil {
 		t.Fatalf("create RegistrationToken for %s: %v", contextName, err)
@@ -237,10 +237,10 @@ func provisionRuntimeProfile(t *testing.T, h *clitest.Harness, contextName strin
 	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == "" {
 		t.Fatalf("create RegistrationToken for %s status %d: %s", contextName, tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
 	}
-	return profile.Name, firmware.Name, tokenResp.JSON200.Token
+	return profile.Id, firmware.Name, tokenResp.JSON200.Token
 }
 
-func registerWithRuntimeProfile(t *testing.T, peer *gizcli.Client, contextName, profileID, firmwareID, token string) {
+func registerWithRuntimeProfile(t *testing.T, peer *gizcli.Client, contextName, profileID, firmwareName, token string) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -251,7 +251,7 @@ func registerWithRuntimeProfile(t *testing.T, peer *gizcli.Client, contextName, 
 	if registered.RuntimeProfileName != profileID {
 		t.Fatalf("server.register for %s = %#v", contextName, registered)
 	}
-	if registered.FirmwareName == nil || *registered.FirmwareName != firmwareID {
+	if registered.FirmwareName == nil || *registered.FirmwareName != firmwareName {
 		t.Fatalf("server.register firmware for %s = %#v", contextName, registered)
 	}
 }
@@ -268,11 +268,7 @@ func requireBusinessCatalog(t *testing.T, h *clitest.Harness) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	for _, name := range []string{"reward-claim", "pet-action"} {
-		id, err := clitest.ResourceIDByName(ctx, api, "Model", name)
-		if err != nil {
-			t.Fatalf("resolve business model %s: %v", name, err)
-		}
-		resp, err := api.GetModelWithResponse(ctx, id)
+		resp, err := api.GetModelWithResponse(ctx, name)
 		if err != nil {
 			t.Fatalf("business model.get %s: %v", name, err)
 		}
@@ -366,7 +362,7 @@ func adminWorkflow(name, description string) adminhttp.WorkflowUpsert {
 		Graph: apitypes.FlowcraftGraph{Name: description, Entry: "answer", Nodes: []apitypes.FlowcraftNode{node}},
 	}
 	return adminhttp.WorkflowUpsert{
-		Name: name,
+		Id: name,
 		Spec: apitypes.WorkflowSpec{
 			Driver:    apitypes.WorkflowDriverFlowcraft,
 			Flowcraft: &spec,

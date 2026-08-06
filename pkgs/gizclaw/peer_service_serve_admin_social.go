@@ -11,8 +11,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -48,6 +50,9 @@ func (s *adminService) CreateContact(ctx context.Context, request adminhttp.Crea
 	}
 	item, err := s.Contacts.AdminCreateContact(ctx, *request.Body)
 	if err != nil {
+		if errors.Is(err, socialutil.ErrResourceAlreadyExists) {
+			return adminhttp.CreateContact409JSONResponse(apitypes.NewErrorResponse("CONTACT_ALREADY_EXISTS", err.Error())), nil
+		}
 		status, body := adminSocialError(err)
 		switch status {
 		case http.StatusNotFound:
@@ -65,7 +70,9 @@ func (s *adminService) GetContact(ctx context.Context, request adminhttp.GetCont
 	if s == nil || s.Contacts == nil {
 		return adminhttp.GetContact500JSONResponse(apitypes.NewErrorResponse("SOCIAL_CONTACT_SERVICE_NOT_CONFIGURED", "contact service is not configured")), nil
 	}
-	item, err := s.Contacts.AdminGetContact(ctx, request.OwnerPublicKey, request.Id)
+	owner := request.OwnerPublicKey
+	id := request.Id
+	item, err := s.Contacts.AdminGetContact(ctx, owner, id)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -87,7 +94,12 @@ func (s *adminService) PutContact(ctx context.Context, request adminhttp.PutCont
 	if request.Body == nil {
 		return adminhttp.PutContact400JSONResponse(apitypes.NewErrorResponse("INVALID_CONTACT", "request body is required")), nil
 	}
-	item, err := s.Contacts.AdminPutContact(ctx, request.OwnerPublicKey, request.Id, *request.Body)
+	owner := request.OwnerPublicKey
+	id := request.Id
+	if request.Body.Id != id {
+		return adminhttp.PutContact400JSONResponse(apitypes.NewErrorResponse("RESOURCE_ID_MISMATCH", "body id must match path id")), nil
+	}
+	item, err := s.Contacts.AdminPutContact(ctx, owner, id, *request.Body)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -106,7 +118,9 @@ func (s *adminService) DeleteContact(ctx context.Context, request adminhttp.Dele
 	if s == nil || s.Contacts == nil {
 		return adminhttp.DeleteContact500JSONResponse(apitypes.NewErrorResponse("SOCIAL_CONTACT_SERVICE_NOT_CONFIGURED", "contact service is not configured")), nil
 	}
-	item, err := s.Contacts.AdminDeleteContact(ctx, request.OwnerPublicKey, request.Id)
+	owner := request.OwnerPublicKey
+	id := request.Id
+	item, err := s.Contacts.AdminDeleteContact(ctx, owner, id)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -145,8 +159,11 @@ func (s *adminService) CreateFriend(ctx context.Context, request adminhttp.Creat
 	if request.Body == nil {
 		return adminhttp.CreateFriend400JSONResponse(apitypes.NewErrorResponse("INVALID_FRIEND", "request body is required")), nil
 	}
-	item, err := s.Friends.AdminCreateFriendResource(ctx, request.Body.OwnerPublicKey, request.Body.PeerPublicKey)
+	item, err := s.Friends.AdminCreateFriendResource(ctx, request.Body.Id, request.Body.OwnerPublicKey, request.Body.PeerPublicKey)
 	if err != nil {
+		if errors.Is(err, socialutil.ErrResourceAlreadyExists) {
+			return adminhttp.CreateFriend409JSONResponse(apitypes.NewErrorResponse("FRIEND_ALREADY_EXISTS", err.Error())), nil
+		}
 		status, body := adminSocialError(err)
 		switch status {
 		case http.StatusNotFound:
@@ -164,7 +181,9 @@ func (s *adminService) GetFriend(ctx context.Context, request adminhttp.GetFrien
 	if s == nil || s.Friends == nil {
 		return adminhttp.GetFriend500JSONResponse(apitypes.NewErrorResponse("SOCIAL_FRIEND_SERVICE_NOT_CONFIGURED", "friend service is not configured")), nil
 	}
-	item, err := s.Friends.AdminGetFriend(ctx, request.OwnerPublicKey, request.Id)
+	owner := request.OwnerPublicKey
+	id := request.Id
+	item, err := s.Friends.AdminGetFriend(ctx, owner, id)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -183,7 +202,9 @@ func (s *adminService) DeleteFriend(ctx context.Context, request adminhttp.Delet
 	if s == nil || s.Friends == nil {
 		return adminhttp.DeleteFriend500JSONResponse(apitypes.NewErrorResponse("SOCIAL_FRIEND_SERVICE_NOT_CONFIGURED", "friend service is not configured")), nil
 	}
-	item, err := s.Friends.AdminDeleteFriend(ctx, request.OwnerPublicKey, request.Id)
+	owner := request.OwnerPublicKey
+	id := request.Id
+	item, err := s.Friends.AdminDeleteFriend(ctx, owner, id)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -303,8 +324,11 @@ func (s *adminService) CreateFriendGroup(ctx context.Context, request adminhttp.
 	if request.Body == nil {
 		return adminhttp.CreateFriendGroup400JSONResponse(apitypes.NewErrorResponse("INVALID_FRIEND_GROUP", "request body is required")), nil
 	}
-	item, err := s.FriendGroups.AdminCreateFriendGroup(ctx, request.Body.OwnerPublicKey, request.Body.Name, request.Body.DisplayName, request.Body.Description)
+	item, err := s.FriendGroups.AdminCreateFriendGroup(ctx, request.Body.Id, request.Body.OwnerPublicKey, request.Body.Name, request.Body.DisplayName, request.Body.Description)
 	if err != nil {
+		if errors.Is(err, socialutil.ErrResourceAlreadyExists) {
+			return adminhttp.CreateFriendGroup409JSONResponse(apitypes.NewErrorResponse("FRIEND_GROUP_ALREADY_EXISTS", err.Error())), nil
+		}
 		status, body := adminSocialError(err)
 		switch status {
 		case http.StatusNotFound:
@@ -322,7 +346,8 @@ func (s *adminService) GetFriendGroup(ctx context.Context, request adminhttp.Get
 	if s == nil || s.FriendGroups == nil {
 		return adminhttp.GetFriendGroup500JSONResponse(apitypes.NewErrorResponse("SOCIAL_FRIEND_GROUP_SERVICE_NOT_CONFIGURED", "friend group service is not configured")), nil
 	}
-	item, err := s.FriendGroups.AdminGetFriendGroupObject(ctx, request.Id)
+	id := request.Id
+	item, err := s.FriendGroups.AdminGetFriendGroupObject(ctx, id)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -344,7 +369,11 @@ func (s *adminService) PutFriendGroup(ctx context.Context, request adminhttp.Put
 	if request.Body == nil {
 		return adminhttp.PutFriendGroup400JSONResponse(apitypes.NewErrorResponse("INVALID_FRIEND_GROUP", "request body is required")), nil
 	}
-	item, err := s.FriendGroups.AdminPutFriendGroup(ctx, request.Id, request.Body.DisplayName, request.Body.Description)
+	id := request.Id
+	if request.Body.Id != id {
+		return adminhttp.PutFriendGroup400JSONResponse(apitypes.NewErrorResponse("RESOURCE_ID_MISMATCH", "body id must match path id")), nil
+	}
+	item, err := s.FriendGroups.AdminPutFriendGroup(ctx, id, request.Body.DisplayName, request.Body.Description)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -356,7 +385,7 @@ func (s *adminService) PutFriendGroup(ctx context.Context, request adminhttp.Put
 			return adminhttp.PutFriendGroup400JSONResponse(body), nil
 		}
 	}
-	projected, err := s.FriendGroups.AdminFriendGroupObject(ctx, request.Id, item)
+	projected, err := s.FriendGroups.AdminFriendGroupObject(ctx, id, item)
 	if err != nil {
 		return adminhttp.PutFriendGroup500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -367,7 +396,8 @@ func (s *adminService) DeleteFriendGroup(ctx context.Context, request adminhttp.
 	if s == nil || s.FriendGroups == nil {
 		return adminhttp.DeleteFriendGroup500JSONResponse(apitypes.NewErrorResponse("SOCIAL_FRIEND_GROUP_SERVICE_NOT_CONFIGURED", "friend group service is not configured")), nil
 	}
-	item, err := s.FriendGroups.AdminDeleteFriendGroup(ctx, request.Id)
+	id := request.Id
+	item, err := s.FriendGroups.AdminDeleteFriendGroup(ctx, id)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -379,7 +409,7 @@ func (s *adminService) DeleteFriendGroup(ctx context.Context, request adminhttp.
 			return adminhttp.DeleteFriendGroup400JSONResponse(body), nil
 		}
 	}
-	projected, err := s.FriendGroups.AdminFriendGroupObject(ctx, request.Id, item)
+	projected, err := s.FriendGroups.AdminFriendGroupObject(ctx, id, item)
 	if err != nil {
 		return adminhttp.DeleteFriendGroup500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -390,7 +420,8 @@ func (s *adminService) ListFriendGroupMembers(ctx context.Context, request admin
 	if s == nil || s.FriendGroups == nil {
 		return adminhttp.ListFriendGroupMembers500JSONResponse(apitypes.NewErrorResponse("SOCIAL_FRIEND_GROUP_SERVICE_NOT_CONFIGURED", "friend group service is not configured")), nil
 	}
-	resp, err := s.FriendGroups.AdminListFriendGroupMembers(ctx, request.Id, rpcapi.FriendGroupMemberListRequest{Cursor: request.Params.Cursor, Limit: request.Params.Limit})
+	groupID := request.Id
+	resp, err := s.FriendGroups.AdminListFriendGroupMembers(ctx, groupID, rpcapi.FriendGroupMemberListRequest{Cursor: request.Params.Cursor, Limit: request.Params.Limit})
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -404,7 +435,7 @@ func (s *adminService) ListFriendGroupMembers(ctx context.Context, request admin
 	}
 	items := make([]adminhttp.AdminFriendGroupMemberObject, 0, len(resp.Items))
 	for _, item := range resp.Items {
-		items = append(items, adminFriendGroupMemberObject(request.Id, item))
+		items = append(items, adminFriendGroupMemberObject(groupID, item))
 	}
 	return adminhttp.ListFriendGroupMembers200JSONResponse{
 		Items: items, HasNext: resp.HasNext, NextCursor: resp.NextCursor,
@@ -418,8 +449,16 @@ func (s *adminService) CreateFriendGroupMember(ctx context.Context, request admi
 	if request.Body == nil {
 		return adminhttp.CreateFriendGroupMember400JSONResponse(apitypes.NewErrorResponse("INVALID_FRIEND_GROUP_MEMBER", "request body is required")), nil
 	}
-	item, err := s.FriendGroups.AdminPutFriendGroupMember(ctx, request.Id, request.Body.PeerPublicKey, request.Body.Name, request.Body.Role)
+	groupID := request.Id
+	wantID := customid.MembershipName(groupID, request.Body.PeerPublicKey)
+	if request.Body.Id != wantID {
+		return adminhttp.CreateFriendGroupMember400JSONResponse(apitypes.NewErrorResponse("INVALID_FRIEND_GROUP_MEMBER", "id must match friend group and peer public key")), nil
+	}
+	item, err := s.FriendGroups.AdminCreateFriendGroupMember(ctx, groupID, request.Body.PeerPublicKey, request.Body.Name, request.Body.Role)
 	if err != nil {
+		if errors.Is(err, friendgroup.ErrFriendGroupMemberAlreadyExists) {
+			return adminhttp.CreateFriendGroupMember409JSONResponse(apitypes.NewErrorResponse("FRIEND_GROUP_MEMBER_ALREADY_EXISTS", err.Error())), nil
+		}
 		status, body := adminSocialError(err)
 		switch status {
 		case http.StatusNotFound:
@@ -430,7 +469,7 @@ func (s *adminService) CreateFriendGroupMember(ctx context.Context, request admi
 			return adminhttp.CreateFriendGroupMember400JSONResponse(body), nil
 		}
 	}
-	return adminhttp.CreateFriendGroupMember200JSONResponse(adminFriendGroupMemberObject(request.Id, item)), nil
+	return adminhttp.CreateFriendGroupMember200JSONResponse(adminFriendGroupMemberObject(groupID, item)), nil
 }
 
 func (s *adminService) PutFriendGroupMember(ctx context.Context, request adminhttp.PutFriendGroupMemberRequestObject) (adminhttp.PutFriendGroupMemberResponseObject, error) {
@@ -440,7 +479,13 @@ func (s *adminService) PutFriendGroupMember(ctx context.Context, request adminht
 	if request.Body == nil {
 		return adminhttp.PutFriendGroupMember400JSONResponse(apitypes.NewErrorResponse("INVALID_FRIEND_GROUP_MEMBER", "request body is required")), nil
 	}
-	item, err := s.FriendGroups.AdminPutFriendGroupMember(ctx, request.Id, request.PublicKey, "", request.Body.Role)
+	groupID := request.Id
+	publicKey := request.PublicKey
+	wantID := customid.MembershipName(groupID, publicKey)
+	if request.Body.Id != wantID {
+		return adminhttp.PutFriendGroupMember400JSONResponse(apitypes.NewErrorResponse("RESOURCE_ID_MISMATCH", "body id must match the path friend group and peer public key")), nil
+	}
+	item, err := s.FriendGroups.AdminPutFriendGroupMember(ctx, groupID, publicKey, "", request.Body.Role)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -452,14 +497,16 @@ func (s *adminService) PutFriendGroupMember(ctx context.Context, request adminht
 			return adminhttp.PutFriendGroupMember400JSONResponse(body), nil
 		}
 	}
-	return adminhttp.PutFriendGroupMember200JSONResponse(adminFriendGroupMemberObject(request.Id, item)), nil
+	return adminhttp.PutFriendGroupMember200JSONResponse(adminFriendGroupMemberObject(groupID, item)), nil
 }
 
 func (s *adminService) DeleteFriendGroupMember(ctx context.Context, request adminhttp.DeleteFriendGroupMemberRequestObject) (adminhttp.DeleteFriendGroupMemberResponseObject, error) {
 	if s == nil || s.FriendGroups == nil {
 		return adminhttp.DeleteFriendGroupMember500JSONResponse(apitypes.NewErrorResponse("SOCIAL_FRIEND_GROUP_SERVICE_NOT_CONFIGURED", "friend group service is not configured")), nil
 	}
-	item, err := s.FriendGroups.AdminDeleteFriendGroupMember(ctx, request.Id, request.PublicKey)
+	groupID := request.Id
+	publicKey := request.PublicKey
+	item, err := s.FriendGroups.AdminDeleteFriendGroupMember(ctx, groupID, publicKey)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -471,15 +518,16 @@ func (s *adminService) DeleteFriendGroupMember(ctx context.Context, request admi
 			return adminhttp.DeleteFriendGroupMember400JSONResponse(body), nil
 		}
 	}
-	return adminhttp.DeleteFriendGroupMember200JSONResponse(adminFriendGroupMemberObject(request.Id, item)), nil
+	return adminhttp.DeleteFriendGroupMember200JSONResponse(adminFriendGroupMemberObject(groupID, item)), nil
 }
 
 func adminFriendGroupMemberObject(friendGroupID string, item rpcapi.FriendGroupMemberObject) adminhttp.AdminFriendGroupMemberObject {
+	peerPublicKey := socialutil.StringValue(item.PeerPublicKey)
 	return adminhttp.AdminFriendGroupMemberObject{
-		Id:            socialutil.StringValue(item.Id),
-		FriendGroupId: strings.TrimSpace(friendGroupID),
+		Id:            customid.MembershipName(friendGroupID, peerPublicKey),
+		FriendGroupId: friendGroupID,
 		Name:          socialutil.StringValue(item.FriendGroupName),
-		PeerPublicKey: socialutil.StringValue(item.PeerPublicKey),
+		PeerPublicKey: peerPublicKey,
 		Role:          socialutil.GroupRole(item),
 		CreatedAt:     item.CreatedAt,
 		UpdatedAt:     item.UpdatedAt,
@@ -490,7 +538,8 @@ func (s *adminService) GetFriendGroupInviteToken(ctx context.Context, request ad
 	if s == nil || s.FriendGroups == nil {
 		return adminhttp.GetFriendGroupInviteToken500JSONResponse(apitypes.NewErrorResponse("SOCIAL_FRIEND_GROUP_SERVICE_NOT_CONFIGURED", "friend group service is not configured")), nil
 	}
-	resp, err := s.FriendGroups.AdminGetFriendGroupInviteToken(ctx, request.Id)
+	id := request.Id
+	resp, err := s.FriendGroups.AdminGetFriendGroupInviteToken(ctx, id)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -512,7 +561,11 @@ func (s *adminService) PutFriendGroupInviteToken(ctx context.Context, request ad
 	if request.Body == nil {
 		return adminhttp.PutFriendGroupInviteToken400JSONResponse(apitypes.NewErrorResponse("INVALID_FRIEND_GROUP_INVITE_TOKEN", "request body is required")), nil
 	}
-	resp, err := s.FriendGroups.AdminPutFriendGroupInviteToken(ctx, request.Id, request.Body.InviteToken, request.Body.ExpiresAt)
+	id := request.Id
+	if request.Body.Id != id {
+		return adminhttp.PutFriendGroupInviteToken400JSONResponse(apitypes.NewErrorResponse("RESOURCE_ID_MISMATCH", "body id must match path id")), nil
+	}
+	resp, err := s.FriendGroups.AdminPutFriendGroupInviteToken(ctx, id, request.Body.InviteToken, request.Body.ExpiresAt)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
@@ -531,7 +584,8 @@ func (s *adminService) DeleteFriendGroupInviteToken(ctx context.Context, request
 	if s == nil || s.FriendGroups == nil {
 		return adminhttp.DeleteFriendGroupInviteToken500JSONResponse(apitypes.NewErrorResponse("SOCIAL_FRIEND_GROUP_SERVICE_NOT_CONFIGURED", "friend group service is not configured")), nil
 	}
-	resp, err := s.FriendGroups.AdminDeleteFriendGroupInviteToken(ctx, request.Id)
+	id := request.Id
+	resp, err := s.FriendGroups.AdminDeleteFriendGroupInviteToken(ctx, id)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {

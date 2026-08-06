@@ -143,7 +143,7 @@ func seedWorkspace(t *testing.T, srv *Server, name string) {
 	t.Helper()
 
 	seedWorkflow(t, srv, "workflow-1")
-	body := adminhttp.WorkspaceUpsert{Name: name, WorkflowId: "workflow-1"}
+	body := adminhttp.WorkspaceUpsert{Id: name + "-id", Name: name, WorkflowId: "workflow-1"}
 	resp, err := srv.CreateWorkspace(context.Background(), adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatalf("CreateWorkspace() error = %v", err)

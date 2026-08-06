@@ -15,15 +15,14 @@ func (m *Manager) applyGeminiTenant(ctx context.Context, resource apitypes.Resou
 	if err != nil {
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_GEMINI_TENANT_RESOURCE", err.Error())
 	}
-	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+	if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	body := geminiTenantUpsert(item)
-	return applyNamedResource(ctx, item.Metadata, apitypes.ResourceKindGeminiTenant, item.Spec,
+	return applyConcreteResource(ctx, item.Metadata, apitypes.ResourceKindGeminiTenant, item.Spec,
 		m.getGeminiTenant,
 		func(ctx context.Context) (string, error) { return m.createGeminiTenant(ctx, body) },
-		func(ctx context.Context, id string) error { return m.putGeminiTenant(ctx, id, body) },
-		func(value apitypes.GeminiTenant) string { return value.Name }, geminiTenantSpec)
+		func(ctx context.Context, id string) error { return m.putGeminiTenant(ctx, id, body) }, geminiTenantSpec)
 }
 
 func (m *Manager) createGeminiTenant(ctx context.Context, body adminhttp.GeminiTenantUpsert) (string, error) {
@@ -45,8 +44,8 @@ func (m *Manager) createGeminiTenant(ctx context.Context, body adminhttp.GeminiT
 	}
 }
 
-func (m *Manager) getGeminiTenant(ctx context.Context, name string) (apitypes.GeminiTenant, bool, error) {
-	response, err := m.services.ProviderTenants.GetGeminiTenant(ctx, adminhttp.GetGeminiTenantRequestObject{Id: name})
+func (m *Manager) getGeminiTenant(ctx context.Context, id string) (apitypes.GeminiTenant, bool, error) {
+	response, err := m.services.ProviderTenants.GetGeminiTenant(ctx, adminhttp.GetGeminiTenantRequestObject{Id: id})
 	if err != nil {
 		return apitypes.GeminiTenant{}, false, err
 	}
@@ -62,8 +61,8 @@ func (m *Manager) getGeminiTenant(ctx context.Context, name string) (apitypes.Ge
 	}
 }
 
-func (m *Manager) putGeminiTenant(ctx context.Context, name string, body adminhttp.GeminiTenantUpsert) error {
-	response, err := m.services.ProviderTenants.PutGeminiTenant(ctx, adminhttp.PutGeminiTenantRequestObject{Id: name, Body: &body})
+func (m *Manager) putGeminiTenant(ctx context.Context, id string, body adminhttp.GeminiTenantUpsert) error {
+	response, err := m.services.ProviderTenants.PutGeminiTenant(ctx, adminhttp.PutGeminiTenantRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -79,8 +78,8 @@ func (m *Manager) putGeminiTenant(ctx context.Context, name string, body adminht
 	}
 }
 
-func (m *Manager) deleteGeminiTenant(ctx context.Context, name string) (apitypes.GeminiTenant, bool, error) {
-	response, err := m.services.ProviderTenants.DeleteGeminiTenant(ctx, adminhttp.DeleteGeminiTenantRequestObject{Id: name})
+func (m *Manager) deleteGeminiTenant(ctx context.Context, id string) (apitypes.GeminiTenant, bool, error) {
+	response, err := m.services.ProviderTenants.DeleteGeminiTenant(ctx, adminhttp.DeleteGeminiTenantRequestObject{Id: id})
 	if err != nil {
 		return apitypes.GeminiTenant{}, false, err
 	}
@@ -112,7 +111,7 @@ func geminiTenantUpsert(resource apitypes.GeminiTenantResource) adminhttp.Gemini
 		CredentialId: resource.Spec.CredentialId,
 		Description:  resource.Spec.Description,
 		Location:     resource.Spec.Location,
-		Name:         string(resource.Metadata.Name),
+		Id:           resource.Metadata.Id,
 		ProjectId:    resource.Spec.ProjectId,
 	}
 }
@@ -121,7 +120,7 @@ func resourceFromGeminiTenant(item apitypes.GeminiTenant) (apitypes.Resource, er
 	return marshalResource(apitypes.GeminiTenantResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.GeminiTenantResourceKind(apitypes.ResourceKindGeminiTenant),
-		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: item.Id},
 		Spec:       geminiTenantSpec(item),
 	})
 }

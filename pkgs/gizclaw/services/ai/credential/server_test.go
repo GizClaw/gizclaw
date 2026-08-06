@@ -15,7 +15,7 @@ func TestMigrationNoop(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	legacy := []byte(`{
-		"name":"legacy-volc",
+		"id":"legacy-volc",
 		"provider":"volc",
 		"method":"api_key",
 		"description":"legacy credential",
@@ -51,7 +51,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 	ctx := context.Background()
 
 	createBody := mustCredentialUpsert(t, `{
-		"name": "openai-primary",
+		"id": "openai-primary",
 		"provider": "openai",
 		"description": "primary openai credential",
 		"body": {"api_key": "sk-test"}
@@ -64,7 +64,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 	if !ok {
 		t.Fatalf("CreateCredential() response = %#v", createResp)
 	}
-	if created.Name != "openai-primary" || created.Provider != "openai" {
+	if created.Id != "openai-primary" || created.Provider != "openai" {
 		t.Fatalf("CreateCredential() credential = %#v", created)
 	}
 	if testCredentialBodyString(created.Body, "api_key") != "sk-test" {
@@ -87,7 +87,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 	}
 
 	updateBody := mustCredentialUpsert(t, `{
-			"name": "openai-primary",
+			"id": "openai-primary",
 			"provider": "volc",
 			"description": "volc credential",
 			"body": {"ark_api_key": "volc-api-key"}
@@ -136,7 +136,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 	if !ok {
 		t.Fatalf("ListCredentials(new provider) response = %#v", newListResp)
 	}
-	if len(newList.Items) != 1 || newList.Items[0].Name != "openai-primary" {
+	if len(newList.Items) != 1 || newList.Items[0].Id != "openai-primary" {
 		t.Fatalf("ListCredentials(new provider) = %#v", newList)
 	}
 	if testCredentialBodyString(newList.Items[0].Body, "ark_api_key") != "volc-api-key" {
@@ -166,7 +166,7 @@ func TestServerVolcCredentialRoundTrip(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	body := mustCredentialUpsert(t, `{
-		"name": "volc-main",
+		"id": "volc-main",
 		"provider": "volc",
 		"body": {
 			"speech_app_id": "speech-app",
@@ -222,9 +222,9 @@ func TestServerListCredentialsPaginationAndFilter(t *testing.T) {
 	ctx := context.Background()
 
 	for _, raw := range []string{
-		`{"name":"alpha","provider":"openai","body":{"api_key":"a"}}`,
-		`{"name":"beta","provider":"openai","body":{"api_key":"b"}}`,
-		`{"name":"gamma","provider":"minimax","body":{"api_key":"c"}}`,
+		`{"id":"alpha","provider":"openai","body":{"api_key":"a"}}`,
+		`{"id":"beta","provider":"openai","body":{"api_key":"b"}}`,
+		`{"id":"gamma","provider":"minimax","body":{"api_key":"c"}}`,
 	} {
 		body := mustCredentialUpsert(t, raw)
 		if _, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &body}); err != nil {
@@ -266,7 +266,7 @@ func TestServerListCredentialsPaginationAndFilter(t *testing.T) {
 	if !ok {
 		t.Fatalf("ListCredentials(second page) response = %#v", secondResp)
 	}
-	if len(second.Items) != 1 || second.Items[0].Name == first.Items[0].Name || second.HasNext {
+	if len(second.Items) != 1 || second.Items[0].Id == first.Items[0].Id || second.HasNext {
 		t.Fatalf("ListCredentials(second page) = %#v", second)
 	}
 	if testCredentialBodyString(second.Items[0].Body, "api_key") == "" {
@@ -295,7 +295,7 @@ func TestServerRejectsMissingBodyOnCreateAndNewPut(t *testing.T) {
 	ctx := context.Background()
 
 	createBody := mustCredentialUpsert(t, `{
-		"name": "alpha",
+		"id": "alpha",
 		"provider": "openai"
 	}`)
 	createResp, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &createBody})
@@ -307,7 +307,7 @@ func TestServerRejectsMissingBodyOnCreateAndNewPut(t *testing.T) {
 	}
 
 	putBody := mustCredentialUpsert(t, `{
-		"name": "beta",
+		"id": "beta",
 		"provider": "openai"
 	}`)
 	putResp, err := srv.PutCredential(ctx, adminhttp.PutCredentialRequestObject{
@@ -345,7 +345,7 @@ func TestServerValidatesBodyForProvider(t *testing.T) {
 	ctx := context.Background()
 
 	tokenOnly := mustCredentialUpsert(t, `{
-		"name": "token-only",
+		"id": "token-only",
 		"provider": "openai",
 		"body": {"token": "tok-test"}
 	}`)
@@ -358,7 +358,7 @@ func TestServerValidatesBodyForProvider(t *testing.T) {
 	}
 
 	wrongBody := mustCredentialUpsert(t, `{
-		"name": "wrong-body",
+		"id": "wrong-body",
 		"provider": "openai",
 		"body": {"openapi_access_key_id": "ak-test"}
 	}`)
@@ -371,7 +371,7 @@ func TestServerValidatesBodyForProvider(t *testing.T) {
 	}
 
 	emptyObject := mustCredentialUpsert(t, `{
-		"name": "empty-body",
+		"id": "empty-body",
 		"provider": "volc",
 		"body": {}
 	}`)
@@ -384,7 +384,7 @@ func TestServerValidatesBodyForProvider(t *testing.T) {
 	}
 
 	unknownProvider := mustCredentialUpsert(t, `{
-		"name": "unknown-provider",
+		"id": "unknown-provider",
 		"provider": "custom",
 		"body": {"api_key": "sk-test"}
 	}`)
@@ -425,7 +425,7 @@ func TestValidateCredentialBodyProviderShapes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			upsert := mustCredentialUpsert(t, `{"name":"shape","provider":"`+tt.provider+`","body":`+tt.body+`}`)
+			upsert := mustCredentialUpsert(t, `{"id":"shape","provider":"`+tt.provider+`","body":`+tt.body+`}`)
 			err := validateCredentialBody(tt.provider, upsert.Body)
 			if tt.wantErr && err == nil {
 				t.Fatal("validateCredentialBody() error = nil")
@@ -444,7 +444,7 @@ func TestServerPutRetainsExistingSecretForSameMethod(t *testing.T) {
 	ctx := context.Background()
 
 	createBody := mustCredentialUpsert(t, `{
-		"name": "alpha",
+		"id": "alpha",
 		"provider": "openai",
 		"description": "first",
 		"body": {"api_key": "sk-test"}
@@ -456,7 +456,7 @@ func TestServerPutRetainsExistingSecretForSameMethod(t *testing.T) {
 	created := createResp.(adminhttp.CreateCredential200JSONResponse)
 
 	putBody := mustCredentialUpsert(t, `{
-		"name": "alpha",
+		"id": "alpha",
 		"provider": "openai",
 		"description": "second"
 	}`)
@@ -490,7 +490,7 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 	ctx := context.Background()
 
 	seed := mustCredentialUpsert(t, `{
-		"name": "expected",
+		"id": "expected",
 		"provider": "openai",
 		"body": {"api_key": "sk-test"}
 	}`)
@@ -500,7 +500,7 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 	}
 	created := createdResp.(adminhttp.CreateCredential200JSONResponse)
 	body := mustCredentialUpsert(t, `{
-		"name": "other",
+		"id": "other",
 		"provider": "openai",
 		"body": {"api_key": "sk-test"}
 	}`)
@@ -523,7 +523,7 @@ func TestServerCredentialValidationAndMissingPaths(t *testing.T) {
 	ctx := context.Background()
 
 	duplicate := mustCredentialUpsert(t, `{
-		"name": "alpha",
+		"id": "alpha",
 		"provider": "openai",
 		"body": {"api_key": "sk-test"}
 	}`)
@@ -539,7 +539,7 @@ func TestServerCredentialValidationAndMissingPaths(t *testing.T) {
 	}
 
 	missingProvider := mustCredentialUpsert(t, `{
-		"name": "bad",
+		"id": "bad",
 		"body": {"api_key": "sk-test"}
 	}`)
 	badResp, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &missingProvider})

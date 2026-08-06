@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  name: volc-ast-translate-zh-jp
+  id: volc-ast-translate-zh-jp
 spec:
   driver: ast-translate
   ast_translate:

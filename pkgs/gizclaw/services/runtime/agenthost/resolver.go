@@ -10,6 +10,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/memorylayout"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
@@ -67,7 +68,10 @@ func (r ServiceResolver) ResolveMemoryByID(ctx context.Context, workspaceID stri
 	if r.Workflows == nil {
 		return Spec{}, fmt.Errorf("agenthost: workflow service is required")
 	}
-	ws, err := r.getWorkspaceByID(ctx, strings.TrimSpace(workspaceID))
+	if err := customid.ValidateResourceID(workspaceID); err != nil {
+		return Spec{}, fmt.Errorf("agenthost: invalid workspace id: %w", err)
+	}
+	ws, err := r.getWorkspaceByID(ctx, workspaceID)
 	if err != nil {
 		return Spec{}, err
 	}
@@ -134,7 +138,10 @@ func (r ServiceResolver) ResolveByID(ctx context.Context, workspaceID string) (S
 	if r.Workflows == nil {
 		return Spec{}, fmt.Errorf("agenthost: workflow service is required")
 	}
-	ws, err := r.getWorkspaceByID(ctx, strings.TrimSpace(workspaceID))
+	if err := customid.ValidateResourceID(workspaceID); err != nil {
+		return Spec{}, fmt.Errorf("agenthost: invalid workspace id: %w", err)
+	}
+	ws, err := r.getWorkspaceByID(ctx, workspaceID)
 	if err != nil {
 		return Spec{}, err
 	}
@@ -260,9 +267,9 @@ func (r ServiceResolver) resolveMemory(ctx context.Context, workflow apitypes.Wo
 
 func resolveWorkspaceWorkflowName(ctx context.Context, ws apitypes.Workspace) (string, error) {
 	_ = ctx
-	id := strings.TrimSpace(ws.WorkflowId)
-	if id == "" {
-		return "", fmt.Errorf("agenthost: workspace %q has no workflow id", ws.Name)
+	id := ws.WorkflowId
+	if err := customid.ValidateResourceID(id); err != nil {
+		return "", fmt.Errorf("agenthost: workspace %q has an invalid workflow id: %w", ws.Name, err)
 	}
 	return id, nil
 }

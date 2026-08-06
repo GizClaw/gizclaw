@@ -7,8 +7,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
-func TestNormalizePolicyValidatesTrimsAndDeduplicatesToolIDs(t *testing.T) {
-	ids := []string{" system.mode.switch ", "system.music.play", "system.music.play"}
+func TestNormalizePolicyValidatesAndDeduplicatesToolIDs(t *testing.T) {
+	ids := []string{"system.mode.switch", "system.music.play", "system.music.play"}
 	policy, err := NormalizePolicy(&apitypes.ToolkitPolicy{ToolIds: &ids})
 	if err != nil {
 		t.Fatalf("NormalizePolicy() error = %v", err)
@@ -23,6 +23,14 @@ func TestNormalizePolicyValidatesTrimsAndDeduplicatesToolIDs(t *testing.T) {
 	ids[0] = "mutated"
 	if (*policy.ToolIds)[0] != "system.mode.switch" {
 		t.Fatalf("normalized policy aliases input slice: %#v", *policy.ToolIds)
+	}
+}
+
+func TestNormalizePolicyRejectsWhitespaceToolID(t *testing.T) {
+	ids := []string{" system.mode.switch "}
+	_, err := NormalizePolicy(&apitypes.ToolkitPolicy{ToolIds: &ids})
+	if !errors.Is(err, ErrInvalidTool) {
+		t.Fatalf("NormalizePolicy() error = %v, want %v", err, ErrInvalidTool)
 	}
 }
 

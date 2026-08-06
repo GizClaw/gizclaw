@@ -323,7 +323,7 @@ async function collectCollectionPages(
   const items: unknown[] = [];
   const seenCursors = new Set<string>();
   let cursor: string | undefined;
-  let runtimeProfileName = "";
+  let runtimeProfileID = "";
   let runtimeProfileRevision = "";
   for (;;) {
     let page: unknown;
@@ -344,20 +344,20 @@ async function collectCollectionPages(
     const metadata = profileMetadata(page);
     if (
       runtimeProfileRevision !== "" &&
-      (metadata.runtime_profile_name !== runtimeProfileName ||
+      (metadata.runtime_profile_name !== runtimeProfileID ||
         metadata.runtime_profile_revision !== runtimeProfileRevision)
     ) {
       throw new Error(
         `${collection}: runtime profile changed while loading pages`,
       );
     }
-    runtimeProfileName = metadata.runtime_profile_name;
+    runtimeProfileID = metadata.runtime_profile_name;
     runtimeProfileRevision = metadata.runtime_profile_revision;
     items.push(...listItems(page));
     if (!isRecord(page) || page.has_next !== true) {
       return {
         items,
-        runtime_profile_name: runtimeProfileName,
+        runtime_profile_name: runtimeProfileID,
         runtime_profile_revision: runtimeProfileRevision,
       };
     }
@@ -374,25 +374,25 @@ function collectCollections(
   results: RuntimeCollectionResult[],
 ): RuntimeCollectionResult {
   const items: unknown[] = [];
-  let runtimeProfileName = "";
+  let runtimeProfileID = "";
   let runtimeProfileRevision = "";
   for (const result of results) {
     if (result.runtime_profile_revision !== "") {
       if (
         runtimeProfileRevision !== "" &&
-        (result.runtime_profile_name !== runtimeProfileName ||
+        (result.runtime_profile_name !== runtimeProfileID ||
           result.runtime_profile_revision !== runtimeProfileRevision)
       ) {
         throw new Error("runtime profile changed while loading collections");
       }
-      runtimeProfileName = result.runtime_profile_name;
+      runtimeProfileID = result.runtime_profile_name;
       runtimeProfileRevision = result.runtime_profile_revision;
     }
     items.push(...result.items);
   }
   return {
     items,
-    runtime_profile_name: runtimeProfileName,
+    runtime_profile_name: runtimeProfileID,
     runtime_profile_revision: runtimeProfileRevision,
   };
 }
@@ -503,7 +503,6 @@ function itemToHistoryRow(item: unknown): PlayHistoryRow {
 
 function itemToResourceRow(item: unknown, prefix: string): PlayResourceRow {
   const record = isRecord(item) ? item : {};
-  const metadata = isRecord(record.metadata) ? record.metadata : {};
   const id =
     stringValue(record.alias) ??
     stringValue(record.id) ??
@@ -511,7 +510,6 @@ function itemToResourceRow(item: unknown, prefix: string): PlayResourceRow {
     stringValue(record.public_key) ??
     stringValue(record.friend_public_key) ??
     stringValue(record.group_id) ??
-    stringValue(metadata.name) ??
     `${prefix}-${hashJSON(item)}`;
   const title =
     stringValue(record.title) ??
@@ -519,7 +517,6 @@ function itemToResourceRow(item: unknown, prefix: string): PlayResourceRow {
     localizedDisplayName(record.i18n) ??
     stringValue(record.alias) ??
     stringValue(record.name) ??
-    stringValue(metadata.name) ??
     id;
   return {
     ...record,

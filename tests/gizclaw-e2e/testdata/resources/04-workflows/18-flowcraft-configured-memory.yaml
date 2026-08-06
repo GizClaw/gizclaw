@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  name: flowcraft-configured-memory
+  id: flowcraft-configured-memory
 spec:
   driver: flowcraft
   memory: default-memory

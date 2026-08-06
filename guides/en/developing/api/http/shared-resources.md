@@ -40,6 +40,16 @@ A resource schema should express:
 - apply/show metadata that needs to be retained;
 - Explicit references to other resources.
 
+### Identity and references
+
+Every concrete Resource uses strict `ResourceMetadata` with a required, immutable, caller-supplied `id`; generic metadata has no `name`. IDs are unique within a kind. The discriminator and kind-owned storage distinguish different kinds, so the complete locator is `(kind, id)`. The Server neither allocates Admin Resource IDs nor maintains a generic name index.
+
+A Resource spec field that references another Admin Resource stores the target ID directly, including fields such as `credential_id`, `runtime_profile_id`, `firmware_id`, and RuntimeProfile binding `resource_id`. A scoped alias or typed name may exist only when its owner contract explicitly defines it and is never a fallback for canonical ID.
+
+`ResourceList` is not a persisted object and therefore has no metadata. Its `spec.items` are concrete Resources applied in dependency order.
+
+`Credential.spec.body` is write-only. Apply and put accept it, while get, delete, and other Resource read responses omit it. Reapplying a read response with no body retains the stored credential instead of clearing it or reporting a false update.
+
 ### Core Data and Display
 
 Resource data is first divided into two categories according to semantics:- Core data describes what a Resource is and what it is associated with, including stable identity, kind, classification, reference, ownership, running configuration and persistence semantics. These fields are involved in business judgment, query, correlation and execution, and cannot be placed in `display`.

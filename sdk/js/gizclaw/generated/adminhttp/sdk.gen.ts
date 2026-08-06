@@ -40,21 +40,21 @@ export const applyResource = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * Delete an admin resource
  *
- * Delete a named declarative admin resource by kind and name. ResourceList and resources without delete semantics are rejected.
+ * Delete a declarative Admin resource by kind and caller-supplied ID. ResourceList and resources without delete semantics are rejected.
  */
 export const deleteResource = <ThrowOnError extends boolean = false>(options: Options<DeleteResourceData, ThrowOnError>): RequestResult<DeleteResourceResponses, DeleteResourceErrors, ThrowOnError> => (options.client ?? client).delete<DeleteResourceResponses, DeleteResourceErrors, ThrowOnError>({ url: '/resources/{kind}/{id}', ...options });
 
 /**
  * Get an admin resource
  *
- * Get a named declarative admin resource by kind and name.
+ * Get a declarative Admin resource by kind and caller-supplied ID.
  */
 export const getResource = <ThrowOnError extends boolean = false>(options: Options<GetResourceData, ThrowOnError>): RequestResult<GetResourceResponses, GetResourceErrors, ThrowOnError> => (options.client ?? client).get<GetResourceResponses, GetResourceErrors, ThrowOnError>({ url: '/resources/{kind}/{id}', ...options });
 
 /**
  * Create or update an admin resource
  *
- * Create or update a named declarative admin resource. The request body's kind and metadata.name must match the path parameters.
+ * Create or update a declarative Admin resource. The request body's kind and metadata.id must match the path parameters.
  */
 export const putResource = <ThrowOnError extends boolean = false>(options: Options<PutResourceData, ThrowOnError>): RequestResult<PutResourceResponses, PutResourceErrors, ThrowOnError> => (options.client ?? client).put<PutResourceResponses, PutResourceErrors, ThrowOnError>({
     url: '/resources/{kind}/{id}',

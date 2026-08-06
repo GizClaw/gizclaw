@@ -121,7 +121,7 @@ func TestServiceResolverUsesWorkspaceOwnerRuntimeProfile(t *testing.T) {
 	ws.OwnerPublicKey = &owner
 	ws.Labels = &labels
 	profile := apitypes.RuntimeProfile{
-		Name:     "owner-profile",
+		Id:       "owner-profile",
 		Revision: "revision-1",
 		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
 			Collections: apitypes.RuntimeProfileWorkflowCollections{"assistants": {"chat": {ResourceId: "owner-workflow"}}},
@@ -145,8 +145,8 @@ func TestServiceResolverUsesWorkspaceOwnerRuntimeProfile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
-	if spec.Workflow.Name != "owner-workflow" {
-		t.Fatalf("workflow = %q, want owner-workflow", spec.Workflow.Name)
+	if spec.Workflow.Id != "owner-workflow" {
+		t.Fatalf("workflow = %q, want owner-workflow", spec.Workflow.Id)
 	}
 }
 
@@ -161,8 +161,7 @@ func TestServiceResolverUsesCallerRuntimeProfileMemoryForUnownedWorkspace(t *tes
 		},
 	}
 	profile := apitypes.RuntimeProfile{
-		Id:       "caller-profile-id",
-		Name:     "caller-profile",
+		Id:       "caller-profile",
 		Revision: "revision-1",
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{Memories: &bindings},
@@ -176,7 +175,7 @@ func TestServiceResolverUsesCallerRuntimeProfileMemoryForUnownedWorkspace(t *tes
 			"workflow-1": workflow,
 		}},
 		MemoryLayouts: fakeMemoryLayoutService{
-			item: apitypes.MemoryLayout{Id: "pet-layout", Name: "pet-layout-name"},
+			item: apitypes.MemoryLayout{Id: "pet-layout"},
 		},
 	}
 
@@ -185,7 +184,7 @@ func TestServiceResolverUsesCallerRuntimeProfileMemoryForUnownedWorkspace(t *tes
 		t.Fatalf("Resolve() error = %v", err)
 	}
 	if spec.MemoryName != "pet-memory" || spec.MemoryBinding == nil ||
-		spec.MemoryLayout == nil || spec.MemoryProfileID != "caller-profile-id" ||
+		spec.MemoryLayout == nil || spec.MemoryProfileID != "caller-profile" ||
 		spec.MemoryProfileRevision != "revision-1" {
 		t.Fatalf("resolved Memory spec = %#v", spec)
 	}
@@ -205,7 +204,7 @@ func TestServiceResolverResolveMemorySkipsToolkitConstruction(t *testing.T) {
 		},
 	}
 	profile := apitypes.RuntimeProfile{
-		Name: "profile", Revision: "revision",
+		Id: "profile", Revision: "revision",
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{Memories: &bindings},
 		},
@@ -214,7 +213,7 @@ func TestServiceResolverResolveMemorySkipsToolkitConstruction(t *testing.T) {
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{"demo": ws}},
 		Workflows:  fakeWorkflowService{items: map[string]apitypes.Workflow{"workflow-1": resolvedWorkflow}},
 		MemoryLayouts: fakeMemoryLayoutService{
-			item: apitypes.MemoryLayout{Id: "pet-layout", Name: "pet-layout-name"},
+			item: apitypes.MemoryLayout{Id: "pet-layout"},
 		},
 	}
 	ctx := withRuntimeProfile(t.Context(), profile)
@@ -965,7 +964,7 @@ func mustWorkflow(t *testing.T, name string) apitypes.Workflow {
 	t.Helper()
 
 	return apitypes.Workflow{
-		Name: name,
+		Id: name,
 		Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverFlowcraft,
 		},
@@ -975,7 +974,7 @@ func mustWorkflow(t *testing.T, name string) apitypes.Workflow {
 func rawWorkflow(t *testing.T, driver string) apitypes.Workflow {
 	t.Helper()
 	return apitypes.Workflow{
-		Name: "workflow",
+		Id: "workflow",
 		Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriver(driver),
 		},

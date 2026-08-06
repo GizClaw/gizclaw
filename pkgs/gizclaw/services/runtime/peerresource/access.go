@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -138,8 +139,8 @@ func profileBindingsFrom(profile *apitypes.RuntimeProfile, kind profileResourceK
 		for _, bindings := range profile.Spec.Workflows.Collections {
 			for alias, binding := range bindings {
 				alias = strings.TrimSpace(alias)
-				value := strings.TrimSpace(binding.ResourceId)
-				if alias != "" && value != "" {
+				value := binding.ResourceId
+				if alias != "" && customid.ValidateResourceID(value) == nil {
 					out[alias] = value
 				}
 			}
@@ -164,8 +165,8 @@ func profileBindingsFrom(profile *apitypes.RuntimeProfile, kind profileResourceK
 	out := make(map[string]string, len(*values))
 	for alias, binding := range *values {
 		alias = strings.TrimSpace(alias)
-		value := strings.TrimSpace(binding.ResourceId)
-		if alias == "" || value == "" {
+		value := binding.ResourceId
+		if alias == "" || customid.ValidateResourceID(value) != nil {
 			continue
 		}
 		out[alias] = value
@@ -183,7 +184,6 @@ func (s *Server) resolveProfileResourceName(kind profileResourceKind, name strin
 }
 
 func (s *Server) profileResourceName(kind profileResourceKind, id string) (string, bool) {
-	id = strings.TrimSpace(id)
 	for _, name := range s.profileNames(kind) {
 		if s.profileBindings(kind)[name] == id {
 			return name, true
@@ -200,7 +200,7 @@ func (s *Server) ResolveModelAlias(alias string) (string, bool) {
 		return "", false
 	}
 	binding, ok := bindingMap(profile.Spec.Resources.Models)[strings.TrimSpace(alias)]
-	return strings.TrimSpace(binding.ResourceId), ok && strings.TrimSpace(binding.ResourceId) != ""
+	return binding.ResourceId, ok && customid.ValidateResourceID(binding.ResourceId) == nil
 }
 
 // ResolveVoiceAlias resolves an allowed RuntimeProfile alias without exposing
@@ -211,7 +211,7 @@ func (s *Server) ResolveVoiceAlias(alias string) (string, bool) {
 		return "", false
 	}
 	binding, ok := bindingMap(profile.Spec.Resources.Voices)[strings.TrimSpace(alias)]
-	return strings.TrimSpace(binding.ResourceId), ok && strings.TrimSpace(binding.ResourceId) != ""
+	return binding.ResourceId, ok && customid.ValidateResourceID(binding.ResourceId) == nil
 }
 
 func (s *Server) effectiveModels(ctx context.Context) ([]apitypes.Model, error) {
@@ -223,7 +223,7 @@ func (s *Server) effectiveModels(ctx context.Context) ([]apitypes.Model, error) 
 	aliases := sortedBindingAliases(bindings)
 	items := make([]apitypes.Model, 0, len(aliases))
 	for _, alias := range aliases {
-		resourceID := strings.TrimSpace(bindings[alias].ResourceId)
+		resourceID := bindings[alias].ResourceId
 		if resourceID == "" {
 			continue
 		}
@@ -454,7 +454,10 @@ func (s *Server) canAccessWorkspace(ctx context.Context, item apitypes.Workspace
 		return true, nil
 	}
 	workspaceName := strings.TrimSpace(item.Name)
-	workspaceID := strings.TrimSpace(item.Id)
+	workspaceID := item.Id
+	if customid.ValidateResourceID(workspaceID) != nil {
+		return false, nil
+	}
 	owner := s.Caller.String()
 	if s.Friends != nil {
 		recipients, err := s.Friends.WorkspaceRecipientsByID(ctx, workspaceID)

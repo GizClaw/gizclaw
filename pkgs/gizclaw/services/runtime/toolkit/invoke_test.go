@@ -39,7 +39,7 @@ func TestResolveInvokeReauthorizesAndValidatesArguments(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveInvoke(): %v", err)
 	}
-	if resolved.Name != "volume_set" || string(args) != `{"level":7}` {
+	if resolved.InvokeName != "volume_set" || string(args) != `{"level":7}` {
 		t.Fatalf("ResolveInvoke() = %#v %s", resolved, args)
 	}
 

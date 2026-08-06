@@ -19,7 +19,7 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
 
 	createDoc := mustWorkflow(t, `{
-		"name": "demo-assistant",
+		"id": "demo-assistant",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
@@ -47,12 +47,12 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetWorkflow error: %v", err)
 	}
-	if got.Name != "demo-assistant" {
-		t.Fatalf("GetWorkflow name = %q", got.Name)
+	if got.Id != "demo-assistant" {
+		t.Fatalf("GetWorkflow id = %q", got.Id)
 	}
 
 	updateDoc := mustWorkflow(t, `{
-		"name": "demo-assistant",
+		"id": "demo-assistant",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
@@ -108,7 +108,7 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
 
 	workflowDoc := mustWorkflow(t, `{
-		"name": "demo-workflow",
+		"id": "demo-workflow",
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
@@ -121,7 +121,7 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 		t.Fatalf("CreateWorkflow error: %v", err)
 	}
 	if _, err := createModel(context.Background(), admin, adminhttp.ModelUpsert{
-		Name:   "updated",
+		Id:     "updated",
 		Kind:   apitypes.ModelKindLlm,
 		Source: apitypes.ModelSourceManual,
 		Provider: apitypes.ModelProvider{
@@ -134,6 +134,7 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 	}
 
 	createBody := adminhttp.WorkspaceUpsert{
+		Id:         "demo-workspace-id",
 		Name:       "demo-workspace",
 		WorkflowId: workflow.Id,
 		Parameters: testFlowcraftWorkspaceParameters(),
@@ -163,6 +164,7 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 	}
 
 	updated, err := putWorkspace(context.Background(), admin, created.Id, adminhttp.WorkspaceUpsert{
+		Id:         created.Id,
 		Name:       "demo-workspace",
 		WorkflowId: workflow.Id,
 		Parameters: testFlowcraftWorkspaceParameters(),
@@ -190,7 +192,7 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
 
 	createBody := mustCredentialUpsert(t, `{
-		"name": "openai-primary",
+		"id": "openai-primary",
 		"provider": "openai",
 		"description": "primary openai credential",
 		"body": {"api_key": "sk-test"}
@@ -199,7 +201,7 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateCredential error: %v", err)
 	}
-	if created.Name != "openai-primary" {
+	if created.Id != "openai-primary" {
 		t.Fatalf("CreateCredential = %#v", created)
 	}
 	if testCredentialBodyString(created.Body, "api_key") != "sk-test" {
@@ -226,7 +228,7 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 	}
 
 	updateBody := mustCredentialUpsert(t, `{
-			"name": "openai-primary",
+			"id": "openai-primary",
 			"provider": "volc",
 			"description": "volc credential",
 			"body": {"ark_api_key": "volc-api-key"}
@@ -247,7 +249,7 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListCredentials(provider) error: %v", err)
 	}
-	if len(filtered) != 1 || filtered[0].Name != "openai-primary" {
+	if len(filtered) != 1 || filtered[0].Id != "openai-primary" {
 		t.Fatalf("ListCredentials(provider) = %#v", filtered)
 	}
 	if testCredentialBodyString(filtered[0].Body, "ark_api_key") != "volc-api-key" {

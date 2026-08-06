@@ -2,10 +2,10 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: OpenAITenant
 metadata:
-  name: fake-openai
+  id: fake-openai
 spec:
   kind: compatible
-  credential_name: fake-openai-credential-000
+  credential_id: fake-openai-credential-000
   base_url: https://api.fake.invalid/v1
   api_mode: chat_completions
   description: Fake OpenAI-compatible tenant for bulk resource fixtures

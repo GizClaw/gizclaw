@@ -148,7 +148,7 @@ func (s *Server) login(ctx context.Context, request peerhttp.LoginRequestObject,
 				if s.OwnerProfileBinder == nil {
 					return fmt.Errorf("%w: binder is not configured", errOwnerProfileBinding)
 				}
-				if err := s.OwnerProfileBinder(ctx, publicKey.String(), registration.RuntimeProfile.Name, commit); err != nil {
+				if err := s.OwnerProfileBinder(ctx, publicKey.String(), registration.RuntimeProfile.Id, commit); err != nil {
 					return fmt.Errorf("%w: %v", errOwnerProfileBinding, err)
 				}
 				return nil
@@ -168,7 +168,7 @@ func (s *Server) login(ctx context.Context, request peerhttp.LoginRequestObject,
 		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_ASSERTION", err.Error())), nil
 	}
 	if registration != nil {
-		slog.InfoContext(ctx, "public HTTP registration accepted", "peer_public_key", publicKey.String(), "registration_token", registration.TokenName, "runtime_profile", registration.RuntimeProfile.Name)
+		slog.InfoContext(ctx, "public HTTP registration accepted", "peer_public_key", publicKey.String(), "registration_token", registration.TokenID, "runtime_profile", registration.RuntimeProfile.Id)
 	}
 	return peerhttp.Login200JSONResponse(result), nil
 }

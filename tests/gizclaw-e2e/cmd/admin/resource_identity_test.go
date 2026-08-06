@@ -8,25 +8,24 @@ import (
 )
 
 type adminResourceIdentity struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID string `json:"id"`
 }
 
-func adminResourceID(t *testing.T, output, name string) string {
+func adminResourceID(t *testing.T, output, id string) string {
 	t.Helper()
 	var items []adminResourceIdentity
 	if err := json.Unmarshal([]byte(output), &items); err != nil {
 		t.Fatalf("decode admin resource list: %v\n%s", err, output)
 	}
 	for _, item := range items {
-		if item.Name == name {
+		if item.ID == id {
 			if item.ID == "" {
-				t.Fatalf("admin resource %q has an empty canonical ID", name)
+				t.Fatalf("admin resource %q has an empty canonical ID", id)
 			}
 			return item.ID
 		}
 	}
-	t.Fatalf("admin resource %q not found in list:\n%s", name, output)
+	t.Fatalf("admin resource %q not found in list:\n%s", id, output)
 	return ""
 }
 
@@ -36,7 +35,7 @@ func adminFirstResource(t *testing.T, output string) adminResourceIdentity {
 	if err := json.Unmarshal([]byte(output), &items); err != nil {
 		t.Fatalf("decode admin resource list: %v\n%s", err, output)
 	}
-	if len(items) == 0 || items[0].ID == "" || items[0].Name == "" {
+	if len(items) == 0 || items[0].ID == "" {
 		t.Fatalf("admin resource list has no complete identity:\n%s", output)
 	}
 	return items[0]
@@ -72,8 +71,7 @@ func adminAppliedResourceIDs(t *testing.T, output string) map[string]string {
 	t.Helper()
 	var result struct {
 		Items []struct {
-			ID   *string `json:"id"`
-			Name string  `json:"name"`
+			ID *string `json:"id"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal([]byte(output), &result); err != nil {
@@ -82,9 +80,9 @@ func adminAppliedResourceIDs(t *testing.T, output string) map[string]string {
 	ids := make(map[string]string, len(result.Items))
 	for _, item := range result.Items {
 		if item.ID == nil || *item.ID == "" {
-			t.Fatalf("admin apply result for %q has an empty canonical ID:\n%s", item.Name, output)
+			t.Fatalf("admin apply result has an empty canonical ID:\n%s", output)
 		}
-		ids[item.Name] = *item.ID
+		ids[*item.ID] = *item.ID
 	}
 	return ids
 }

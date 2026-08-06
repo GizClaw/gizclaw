@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"regexp"
 	"strings"
 	"sync"
@@ -17,13 +16,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 var (
 	layoutsRoot         = kv.Key{"by-id"}
-	layoutsByNameRoot   = kv.Key{"by-name"}
 	runtimeAliasPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 )
 
@@ -34,7 +31,6 @@ const (
 
 type Server struct {
 	Store      kv.Store
-	NewID      func() string
 	mutationMu sync.Mutex
 }
 
@@ -71,7 +67,7 @@ func (s *Server) ListMemoryLayouts(ctx context.Context, request adminhttp.ListMe
 	}
 	var nextCursor *string
 	if hasNext && len(entries) > 0 {
-		value := entries[len(entries)-1].Key[len(entries[len(entries)-1].Key)-1]
+		value := customid.UnescapeStoreSegment(entries[len(entries)-1].Key[len(entries[len(entries)-1].Key)-1])
 		nextCursor = &value
 	}
 	return adminhttp.ListMemoryLayouts200JSONResponse(adminhttp.MemoryLayoutList{
@@ -90,22 +86,18 @@ func (s *Server) CreateMemoryLayout(ctx context.Context, request adminhttp.Creat
 	if err != nil {
 		return adminhttp.CreateMemoryLayout400JSONResponse(apitypes.NewErrorResponse("INVALID_MEMORY_LAYOUT", err.Error())), nil
 	}
-	item.Id = s.newID()
 	raw, err := json.Marshal(item)
 	if err != nil {
 		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
-	_, created, err := kv.CreateIfAbsent(ctx, s.Store,
-		kv.Entry{Key: layoutNameKey(item.Name), Value: []byte(item.Id)},
-		[]kv.Entry{{Key: layoutKey(item.Id), Value: raw}},
-	)
+	_, created, err := kv.CreateIfAbsent(ctx, s.Store, kv.Entry{Key: layoutKey(item.Id), Value: raw}, nil)
 	if err != nil {
 		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if !created {
-		return adminhttp.CreateMemoryLayout409JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_ALREADY_EXISTS", fmt.Sprintf("memory layout %q already exists", item.Name))), nil
+		return adminhttp.CreateMemoryLayout409JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_ALREADY_EXISTS", fmt.Sprintf("memory layout %q already exists", item.Id))), nil
 	}
 	return adminhttp.CreateMemoryLayout200JSONResponse(item), nil
 }
@@ -152,15 +144,13 @@ func (s *Server) PutMemoryLayout(ctx context.Context, request adminhttp.PutMemor
 	if err != nil {
 		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	previous, err := decode(previousRaw)
-	if err != nil {
+	if _, err := decode(previousRaw); err != nil {
 		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	item, _, err := validate(upsertToLayout(*request.Body), previous.Name)
+	item, _, err := validate(upsertToLayout(*request.Body), id)
 	if err != nil {
 		return adminhttp.PutMemoryLayout400JSONResponse(apitypes.NewErrorResponse("INVALID_MEMORY_LAYOUT", err.Error())), nil
 	}
-	item.Id = previous.Id
 	raw, err := json.Marshal(item)
 	if err != nil {
 		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -192,13 +182,13 @@ func (s *Server) DeleteMemoryLayout(ctx context.Context, request adminhttp.Delet
 	if err != nil {
 		return adminhttp.DeleteMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := s.Store.BatchDelete(ctx, []kv.Key{layoutKey(id), layoutNameKey(item.Name)}); err != nil {
+	if err := s.Store.Delete(ctx, layoutKey(id)); err != nil {
 		return adminhttp.DeleteMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteMemoryLayout200JSONResponse(item), nil
 }
 
-func validate(item apitypes.MemoryLayout, expectedName string) (apitypes.MemoryLayout, []byte, error) {
+func validate(item apitypes.MemoryLayout, expectedID string) (apitypes.MemoryLayout, []byte, error) {
 	// Generated resource values contain pointer, slice, and map fields. Clone
 	// before normalization so validation never mutates a caller-owned request.
 	cloned, err := json.Marshal(item)
@@ -210,11 +200,11 @@ func validate(item apitypes.MemoryLayout, expectedName string) (apitypes.MemoryL
 		return apitypes.MemoryLayout{}, nil, err
 	}
 	item = normalized
-	if err := customid.ValidateField("name", item.Name); err != nil {
+	if err := customid.ValidateResourceID(item.Id); err != nil {
 		return apitypes.MemoryLayout{}, nil, err
 	}
-	if expectedName != "" && item.Name != expectedName {
-		return apitypes.MemoryLayout{}, nil, fmt.Errorf("name %q must match path name %q", item.Name, expectedName)
+	if expectedID != "" && item.Id != expectedID {
+		return apitypes.MemoryLayout{}, nil, fmt.Errorf("id %q must match path id %q", item.Id, expectedID)
 	}
 	item.Spec.Flowcraft.Extraction.Model = strings.TrimSpace(item.Spec.Flowcraft.Extraction.Model)
 	if item.Spec.Flowcraft.Extraction.Model == "" {
@@ -346,6 +336,16 @@ func validate(item apitypes.MemoryLayout, expectedName string) (apitypes.MemoryL
 	return item, raw, nil
 }
 
+// NormalizeSpec applies the same validation and canonicalization as the
+// MemoryLayout service before callers compare desired and stored specs.
+func NormalizeSpec(id string, spec apitypes.MemoryLayoutSpec) (apitypes.MemoryLayoutSpec, error) {
+	item, _, err := validate(apitypes.MemoryLayout{Id: id, Spec: spec}, id)
+	if err != nil {
+		return apitypes.MemoryLayoutSpec{}, err
+	}
+	return item.Spec, nil
+}
+
 func validateRuntimeAlias(path, value string) error {
 	value = strings.TrimSpace(value)
 	if len(value) == 0 || len(value) > 63 || !runtimeAliasPattern.MatchString(value) {
@@ -364,33 +364,18 @@ func decode(raw []byte) (apitypes.MemoryLayout, error) {
 }
 
 func upsertToLayout(in adminhttp.MemoryLayoutUpsert) apitypes.MemoryLayout {
-	return apitypes.MemoryLayout{Name: in.Name, Spec: in.Spec}
-}
-
-func (s *Server) newID() string {
-	if s != nil && s.NewID != nil {
-		return s.NewID()
-	}
-	return socialutil.NewID()
+	return apitypes.MemoryLayout{Id: in.Id, Spec: in.Spec}
 }
 
 func layoutKey(id string) kv.Key {
-	return append(append(kv.Key{}, layoutsRoot...), id)
-}
-
-func layoutNameKey(name string) kv.Key {
-	return append(append(kv.Key{}, layoutsByNameRoot...), name)
+	return append(append(kv.Key{}, layoutsRoot...), customid.EscapeStoreSegment(id))
 }
 
 func pathID(value string) (string, error) {
-	id, err := url.PathUnescape(value)
-	if err != nil {
-		return "", fmt.Errorf("invalid params: %w", err)
+	if err := customid.ValidateResourceID(value); err != nil {
+		return "", fmt.Errorf("invalid path id: %w", err)
 	}
-	if strings.TrimSpace(id) == "" {
-		return "", errors.New("path id is required")
-	}
-	return id, nil
+	return value, nil
 }
 
 func normalizeListParams(cursor *string, limit *int32) (string, int) {
@@ -415,5 +400,5 @@ func cursorAfterKey(cursor string) kv.Key {
 	if cursor == "" {
 		return nil
 	}
-	return append(append(kv.Key{}, layoutsRoot...), cursor)
+	return append(append(kv.Key{}, layoutsRoot...), customid.EscapeStoreSegment(cursor))
 }

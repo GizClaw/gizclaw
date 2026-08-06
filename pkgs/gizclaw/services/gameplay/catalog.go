@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"path"
 	"reflect"
 	"strings"
@@ -16,8 +15,8 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
@@ -30,12 +29,9 @@ const (
 )
 
 var (
-	petDefsRoot         = kv.Key{"by-id"}
-	petDefsByNameRoot   = kv.Key{"by-name"}
-	badgeDefsRoot       = kv.Key{"by-id"}
-	badgeDefsByNameRoot = kv.Key{"by-name"}
-	gameDefsRoot        = kv.Key{"by-id"}
-	gameDefsByNameRoot  = kv.Key{"by-name"}
+	petDefsRoot   = kv.Key{"by-id"}
+	badgeDefsRoot = kv.Key{"by-id"}
+	gameDefsRoot  = kv.Key{"by-id"}
 )
 
 type Catalog struct {
@@ -45,7 +41,6 @@ type Catalog struct {
 	Assets    objectstore.ObjectStore
 	Now       func() time.Time
 	IconLocks iconasset.Locker
-	NewID     func() string
 }
 
 type CatalogAdminService interface {
@@ -101,18 +96,16 @@ func (c *Catalog) CreatePetDef(ctx context.Context, request adminhttp.CreatePetD
 	if err != nil {
 		return adminhttp.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	name := strings.TrimSpace(request.Body.Name)
-	id := c.newID()
-	item, err := c.buildPetDef(id, name, request.Body.Spec, nil, time.Time{})
+	item, err := c.buildPetDef(request.Body.Id, request.Body.Spec, nil, time.Time{})
 	if err != nil {
 		return adminhttp.CreatePetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
-	created, err := createNamedCatalogItem(ctx, store, petDefKey(item.Id), petDefNameKey(item.Name), item.Id, item)
+	created, err := createCatalogItem(ctx, store, petDefKey(item.Id), item)
 	if err != nil {
 		return adminhttp.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if !created {
-		return adminhttp.CreatePetDef409JSONResponse(apitypes.NewErrorResponse("PET_DEF_ALREADY_EXISTS", fmt.Sprintf("pet def %q already exists", item.Name))), nil
+		return adminhttp.CreatePetDef409JSONResponse(apitypes.NewErrorResponse("PET_DEF_ALREADY_EXISTS", fmt.Sprintf("pet def %q already exists", item.Id))), nil
 	}
 	return adminhttp.CreatePetDef200JSONResponse(item), nil
 }
@@ -133,11 +126,11 @@ func (c *Catalog) DeletePetDef(ctx context.Context, request adminhttp.DeletePetD
 		}
 		return adminhttp.DeletePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := store.BatchDelete(ctx, []kv.Key{petDefKey(id), petDefNameKey(item.Name)}); err != nil {
+	if err := store.Delete(ctx, petDefKey(id)); err != nil {
 		return adminhttp.DeletePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if c.Assets != nil {
-		_ = c.Assets.DeletePrefix(path.Join("pet-defs", id))
+		_ = c.Assets.DeletePrefix(catalogAssetPrefix("pet-defs", id))
 	}
 	return adminhttp.DeletePetDef200JSONResponse(item), nil
 }
@@ -181,10 +174,10 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 			pixaPath = nil
 		}
 	}
-	if strings.TrimSpace(request.Body.Name) != previous.Name {
-		return adminhttp.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", fmt.Sprintf("name %q must match immutable name %q", request.Body.Name, previous.Name))), nil
+	if request.Body.Id != id {
+		return adminhttp.PutPetDef400JSONResponse(apitypes.NewErrorResponse("RESOURCE_ID_MISMATCH", fmt.Sprintf("id %q must match path id %q", request.Body.Id, id))), nil
 	}
-	item, err := c.buildPetDefForUpdate(id, previous.Name, request.Body.Spec, previous, true, pixaPath, createdAt)
+	item, err := c.buildPetDefForUpdate(id, request.Body.Spec, previous, true, pixaPath, createdAt)
 	if err != nil {
 		return adminhttp.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
@@ -237,7 +230,7 @@ func (c *Catalog) UploadPetDefPixa(ctx context.Context, request adminhttp.Upload
 	if err := validatePetDefPixa(data, item.Spec.Visual.Pixa.Metadata); err != nil {
 		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF_PIXA", err.Error())), nil
 	}
-	pixaPath := path.Join("pet-defs", item.Id, "pixa")
+	pixaPath := path.Join(catalogAssetPrefix("pet-defs", item.Id), "pixa")
 	if err := c.putAsset(pixaPath, bytes.NewReader(data)); err != nil {
 		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -270,18 +263,16 @@ func (c *Catalog) CreateBadgeDef(ctx context.Context, request adminhttp.CreateBa
 	if err != nil {
 		return adminhttp.CreateBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	name := strings.TrimSpace(request.Body.Name)
-	id := c.newID()
-	item, err := c.buildBadgeDef(id, name, request.Body.Spec, nil, time.Time{})
+	item, err := c.buildBadgeDef(request.Body.Id, request.Body.Spec, nil, time.Time{})
 	if err != nil {
 		return adminhttp.CreateBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", err.Error())), nil
 	}
-	created, err := createNamedCatalogItem(ctx, store, badgeDefKey(item.Id), badgeDefNameKey(item.Name), item.Id, item)
+	created, err := createCatalogItem(ctx, store, badgeDefKey(item.Id), item)
 	if err != nil {
 		return adminhttp.CreateBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if !created {
-		return adminhttp.CreateBadgeDef409JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_ALREADY_EXISTS", fmt.Sprintf("badge def %q already exists", item.Name))), nil
+		return adminhttp.CreateBadgeDef409JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_ALREADY_EXISTS", fmt.Sprintf("badge def %q already exists", item.Id))), nil
 	}
 	return adminhttp.CreateBadgeDef200JSONResponse(item), nil
 }
@@ -302,11 +293,11 @@ func (c *Catalog) DeleteBadgeDef(ctx context.Context, request adminhttp.DeleteBa
 		}
 		return adminhttp.DeleteBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := store.BatchDelete(ctx, []kv.Key{badgeDefKey(id), badgeDefNameKey(item.Name)}); err != nil {
+	if err := store.Delete(ctx, badgeDefKey(id)); err != nil {
 		return adminhttp.DeleteBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if c.Assets != nil {
-		_ = c.Assets.DeletePrefix(path.Join("badge-defs", id))
+		_ = c.Assets.DeletePrefix(catalogAssetPrefix("badge-defs", id))
 	}
 	return adminhttp.DeleteBadgeDef200JSONResponse(item), nil
 }
@@ -347,10 +338,10 @@ func (c *Catalog) PutBadgeDef(ctx context.Context, request adminhttp.PutBadgeDef
 		createdAt = previous.CreatedAt
 		pixaPath = previous.PixaPath
 	}
-	if strings.TrimSpace(request.Body.Name) != previous.Name {
-		return adminhttp.PutBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", fmt.Sprintf("name %q must match immutable name %q", request.Body.Name, previous.Name))), nil
+	if request.Body.Id != id {
+		return adminhttp.PutBadgeDef400JSONResponse(apitypes.NewErrorResponse("RESOURCE_ID_MISMATCH", fmt.Sprintf("id %q must match path id %q", request.Body.Id, id))), nil
 	}
-	item, err := c.buildBadgeDef(id, previous.Name, request.Body.Spec, pixaPath, createdAt)
+	item, err := c.buildBadgeDef(id, request.Body.Spec, pixaPath, createdAt)
 	if err != nil {
 		return adminhttp.PutBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", err.Error())), nil
 	}
@@ -397,7 +388,7 @@ func (c *Catalog) UploadBadgeDefPixa(ctx context.Context, request adminhttp.Uplo
 	if err := validateBadgeDefPixa(data); err != nil {
 		return adminhttp.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF_PIXA", err.Error())), nil
 	}
-	pixaPath := path.Join("badge-defs", item.Id, "pixa")
+	pixaPath := path.Join(catalogAssetPrefix("badge-defs", item.Id), "pixa")
 	if err := c.putAsset(pixaPath, bytes.NewReader(data)); err != nil {
 		return adminhttp.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -433,18 +424,16 @@ func (c *Catalog) CreateGameDef(ctx context.Context, request adminhttp.CreateGam
 	if err != nil {
 		return adminhttp.CreateGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	name := strings.TrimSpace(request.Body.Name)
-	id := c.newID()
-	item, err := c.buildGameDef(id, name, request.Body.Spec, time.Time{})
+	item, err := c.buildGameDef(request.Body.Id, request.Body.Spec, time.Time{})
 	if err != nil {
 		return adminhttp.CreateGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", err.Error())), nil
 	}
-	created, err := createNamedCatalogItem(ctx, store, gameDefKey(item.Id), gameDefNameKey(item.Name), item.Id, item)
+	created, err := createCatalogItem(ctx, store, gameDefKey(item.Id), item)
 	if err != nil {
 		return adminhttp.CreateGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if !created {
-		return adminhttp.CreateGameDef409JSONResponse(apitypes.NewErrorResponse("GAME_DEF_ALREADY_EXISTS", fmt.Sprintf("game def %q already exists", item.Name))), nil
+		return adminhttp.CreateGameDef409JSONResponse(apitypes.NewErrorResponse("GAME_DEF_ALREADY_EXISTS", fmt.Sprintf("game def %q already exists", item.Id))), nil
 	}
 	return adminhttp.CreateGameDef200JSONResponse(item), nil
 }
@@ -477,7 +466,7 @@ func (c *Catalog) DeleteGameDef(ctx context.Context, request adminhttp.DeleteGam
 			}
 		}
 	}
-	if err := store.BatchDelete(ctx, []kv.Key{gameDefKey(id), gameDefNameKey(item.Name)}); err != nil {
+	if err := store.Delete(ctx, gameDefKey(id)); err != nil {
 		return adminhttp.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteGameDef200JSONResponse(item), nil
@@ -522,10 +511,10 @@ func (c *Catalog) PutGameDef(ctx context.Context, request adminhttp.PutGameDefRe
 	if err == nil {
 		createdAt = previous.CreatedAt
 	}
-	if strings.TrimSpace(request.Body.Name) != previous.Name {
-		return adminhttp.PutGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", fmt.Sprintf("name %q must match immutable name %q", request.Body.Name, previous.Name))), nil
+	if request.Body.Id != id {
+		return adminhttp.PutGameDef400JSONResponse(apitypes.NewErrorResponse("RESOURCE_ID_MISMATCH", fmt.Sprintf("id %q must match path id %q", request.Body.Id, id))), nil
 	}
-	item, err := c.buildGameDef(id, previous.Name, request.Body.Spec, createdAt)
+	item, err := c.buildGameDef(id, request.Body.Spec, createdAt)
 	if err != nil {
 		return adminhttp.PutGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", err.Error())), nil
 	}
@@ -584,22 +573,17 @@ func (c *Catalog) GetGameDefByID(ctx context.Context, id string) (apitypes.GameD
 	return item, err
 }
 
-func (c *Catalog) buildPetDef(id, name string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
-	return c.buildPetDefWithValidator(id, name, spec, pixaPath, createdAt, validatePetDef)
+func (c *Catalog) buildPetDef(id string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
+	return c.buildPetDefWithValidator(id, spec, pixaPath, createdAt, validatePetDef)
 }
 
-func (c *Catalog) buildPetDefForUpdate(id, name string, spec apitypes.PetDefSpec, _ apitypes.PetDef, _ bool, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
-	return c.buildPetDef(id, name, spec, pixaPath, createdAt)
+func (c *Catalog) buildPetDefForUpdate(id string, spec apitypes.PetDefSpec, _ apitypes.PetDef, _ bool, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
+	return c.buildPetDef(id, spec, pixaPath, createdAt)
 }
 
-func (c *Catalog) buildPetDefWithValidator(id, name string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time, validate func(apitypes.PetDefSpec) error) (apitypes.PetDef, error) {
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return apitypes.PetDef{}, errors.New("id is required")
-	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return apitypes.PetDef{}, errors.New("name is required")
+func (c *Catalog) buildPetDefWithValidator(id string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time, validate func(apitypes.PetDefSpec) error) (apitypes.PetDef, error) {
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.PetDef{}, err
 	}
 	if err := validate(spec); err != nil {
 		return apitypes.PetDef{}, err
@@ -608,7 +592,7 @@ func (c *Catalog) buildPetDefWithValidator(id, name string, spec apitypes.PetDef
 	if createdAt.IsZero() {
 		createdAt = now
 	}
-	return apitypes.PetDef{Id: id, Name: name, Spec: spec, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
+	return apitypes.PetDef{Id: id, Spec: spec, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
 }
 
 func validatePetDef(spec apitypes.PetDefSpec) error {
@@ -707,14 +691,9 @@ func validatePetDefBindings(visual apitypes.PetDefVisualSpec) error {
 	return nil
 }
 
-func (c *Catalog) buildBadgeDef(id, name string, spec apitypes.BadgeDefSpec, pixaPath *string, createdAt time.Time) (apitypes.BadgeDef, error) {
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return apitypes.BadgeDef{}, errors.New("id is required")
-	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return apitypes.BadgeDef{}, errors.New("name is required")
+func (c *Catalog) buildBadgeDef(id string, spec apitypes.BadgeDefSpec, pixaPath *string, createdAt time.Time) (apitypes.BadgeDef, error) {
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.BadgeDef{}, err
 	}
 	spec.DisplayName = strings.TrimSpace(spec.DisplayName)
 	if spec.DisplayName == "" {
@@ -737,17 +716,12 @@ func (c *Catalog) buildBadgeDef(id, name string, spec apitypes.BadgeDefSpec, pix
 	if createdAt.IsZero() {
 		createdAt = now
 	}
-	return apitypes.BadgeDef{Id: id, Name: name, Spec: spec, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
+	return apitypes.BadgeDef{Id: id, Spec: spec, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
 }
 
-func (c *Catalog) buildGameDef(id, name string, spec apitypes.GameDefSpec, createdAt time.Time) (apitypes.GameDef, error) {
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return apitypes.GameDef{}, errors.New("id is required")
-	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return apitypes.GameDef{}, errors.New("name is required")
+func (c *Catalog) buildGameDef(id string, spec apitypes.GameDefSpec, createdAt time.Time) (apitypes.GameDef, error) {
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.GameDef{}, err
 	}
 	if strings.TrimSpace(spec.DisplayName) == "" {
 		return apitypes.GameDef{}, errors.New("display_name is required")
@@ -756,7 +730,7 @@ func (c *Catalog) buildGameDef(id, name string, spec apitypes.GameDefSpec, creat
 	if createdAt.IsZero() {
 		createdAt = now
 	}
-	return apitypes.GameDef{Id: id, Name: name, Spec: spec, CreatedAt: createdAt, UpdatedAt: now}, nil
+	return apitypes.GameDef{Id: id, Spec: spec, CreatedAt: createdAt, UpdatedAt: now}, nil
 }
 
 func (c *Catalog) store(store kv.Store, name string) (kv.Store, error) {
@@ -771,13 +745,6 @@ func (c *Catalog) now() time.Time {
 		return c.Now().UTC()
 	}
 	return time.Now().UTC()
-}
-
-func (c *Catalog) newID() string {
-	if c != nil && c.NewID != nil {
-		return c.NewID()
-	}
-	return socialutil.NewID()
 }
 
 func (c *Catalog) putAsset(name string, reader io.Reader) error {
@@ -813,28 +780,27 @@ func (c *Catalog) openAsset(name string) (io.ReadCloser, int64, error) {
 	}
 	return reader, size, nil
 }
-func petDefKey(id string) kv.Key   { return append(append(kv.Key(nil), petDefsRoot...), id) }
-func badgeDefKey(id string) kv.Key { return append(append(kv.Key(nil), badgeDefsRoot...), id) }
-func gameDefKey(id string) kv.Key  { return append(append(kv.Key(nil), gameDefsRoot...), id) }
-func petDefNameKey(name string) kv.Key {
-	return append(append(kv.Key(nil), petDefsByNameRoot...), name)
-}
-func badgeDefNameKey(name string) kv.Key {
-	return append(append(kv.Key(nil), badgeDefsByNameRoot...), name)
-}
-func gameDefNameKey(name string) kv.Key {
-	return append(append(kv.Key(nil), gameDefsByNameRoot...), name)
+func petDefKey(id string) kv.Key {
+	return append(append(kv.Key(nil), petDefsRoot...), customid.EscapeStoreSegment(id))
 }
 
-func createNamedCatalogItem(ctx context.Context, store kv.Store, recordKey, nameKey kv.Key, id string, value any) (bool, error) {
+func badgeDefKey(id string) kv.Key {
+	return append(append(kv.Key(nil), badgeDefsRoot...), customid.EscapeStoreSegment(id))
+}
+
+func gameDefKey(id string) kv.Key {
+	return append(append(kv.Key(nil), gameDefsRoot...), customid.EscapeStoreSegment(id))
+}
+
+func catalogAssetPrefix(kind, id string) string {
+	return path.Join(kind, customid.OpaquePathSegment(id))
+}
+func createCatalogItem(ctx context.Context, store kv.Store, recordKey kv.Key, value any) (bool, error) {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return false, err
 	}
-	_, created, err := kv.CreateIfAbsent(ctx, store,
-		kv.Entry{Key: nameKey, Value: []byte(id)},
-		[]kv.Entry{{Key: recordKey, Value: data}},
-	)
+	_, created, err := kv.CreateIfAbsent(ctx, store, kv.Entry{Key: recordKey, Value: data}, nil)
 	return created, err
 }
 
@@ -885,7 +851,7 @@ func paginateEntries(entries []kv.Entry, limit int) ([]kv.Entry, bool, *string) 
 	}
 	var nextCursor *string
 	if hasNext && len(entries) > 0 {
-		cursor := entries[len(entries)-1].Key.String()
+		cursor := customid.UnescapeStoreSegment(entries[len(entries)-1].Key[len(entries[len(entries)-1].Key)-1])
 		nextCursor = &cursor
 	}
 	return entries, hasNext, nextCursor
@@ -909,22 +875,14 @@ func cursorAfterKey(prefix kv.Key, cursor string) kv.Key {
 	if strings.TrimSpace(cursor) == "" {
 		return nil
 	}
-	if strings.Contains(cursor, ":") {
-		return kv.Key(strings.Split(cursor, ":"))
-	}
-	return append(append(kv.Key(nil), prefix...), cursor)
+	return append(append(kv.Key(nil), prefix...), customid.EscapeStoreSegment(cursor))
 }
 
 func pathID(id string) (string, error) {
-	value, err := url.PathUnescape(id)
-	if err != nil {
+	if err := customid.ValidateResourceID(id); err != nil {
 		return "", fmt.Errorf("invalid path id: %w", err)
 	}
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return "", errors.New("id is required")
-	}
-	return value, nil
+	return id, nil
 }
 
 func valueOrZero[T any](v *T) T {

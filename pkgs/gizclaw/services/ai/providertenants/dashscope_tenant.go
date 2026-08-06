@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -13,10 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-var (
-	dashScopeTenantsRoot       = kv.Key{"dashscope-tenants", "by-id"}
-	dashScopeTenantsByNameRoot = kv.Key{"dashscope-tenants", "by-name"}
-)
+var dashScopeTenantsRoot = kv.Key{"dashscope-tenants", "by-id"}
 
 func (s *Server) ListDashScopeTenants(ctx context.Context, request adminhttp.ListDashScopeTenantsRequestObject) (adminhttp.ListDashScopeTenantsResponseObject, error) {
 	store, err := s.store()
@@ -47,16 +43,15 @@ func (s *Server) CreateDashScopeTenant(ctx context.Context, request adminhttp.Cr
 	if err != nil {
 		return adminhttp.CreateDashScopeTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DASHSCOPE_TENANT", err.Error())), nil
 	}
-	tenant.Id = s.newID()
 	now := s.now()
 	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
-	created, err := createNamedTenant(ctx, store, dashScopeTenantKey(tenant.Id), dashScopeTenantNameKey(tenant.Name), tenant.Id, tenant)
+	created, err := createTenant(ctx, store, dashScopeTenantKey(tenant.Id), tenant)
 	if err != nil {
 		return adminhttp.CreateDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if !created {
-		return adminhttp.CreateDashScopeTenant409JSONResponse(apitypes.NewErrorResponse("DASHSCOPE_TENANT_ALREADY_EXISTS", fmt.Sprintf("DashScope tenant %q already exists", tenant.Name))), nil
+		return adminhttp.CreateDashScopeTenant409JSONResponse(apitypes.NewErrorResponse("DASHSCOPE_TENANT_ALREADY_EXISTS", fmt.Sprintf("DashScope tenant %q already exists", tenant.Id))), nil
 	}
 	return adminhttp.CreateDashScopeTenant200JSONResponse(tenant), nil
 }
@@ -66,10 +61,7 @@ func (s *Server) GetDashScopeTenant(ctx context.Context, request adminhttp.GetDa
 	if err != nil {
 		return adminhttp.GetDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	id := string(request.Id)
 	tenant, err := getDashScopeTenant(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
@@ -88,11 +80,8 @@ func (s *Server) PutDashScopeTenant(ctx context.Context, request adminhttp.PutDa
 	if request.Body == nil {
 		return adminhttp.PutDashScopeTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DASHSCOPE_TENANT", "request body required")), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
-	tenant, err := normalizeDashScopeTenantUpsert(*request.Body, "")
+	id := string(request.Id)
+	tenant, err := normalizeDashScopeTenantUpsert(*request.Body, id)
 	if err != nil {
 		return adminhttp.PutDashScopeTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DASHSCOPE_TENANT", err.Error())), nil
 	}
@@ -106,10 +95,6 @@ func (s *Server) PutDashScopeTenant(ctx context.Context, request adminhttp.PutDa
 	now := s.now()
 	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
-	if tenant.Name != previous.Name {
-		return adminhttp.PutDashScopeTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DASHSCOPE_TENANT", fmt.Sprintf("name %q must match immutable name %q", tenant.Name, previous.Name))), nil
-	}
-	tenant.Id = previous.Id
 	tenant.CreatedAt = previous.CreatedAt
 	if err := writeDashScopeTenant(ctx, store, tenant); err != nil {
 		return adminhttp.PutDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -122,10 +107,7 @@ func (s *Server) DeleteDashScopeTenant(ctx context.Context, request adminhttp.De
 	if err != nil {
 		return adminhttp.DeleteDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	id := string(request.Id)
 	tenant, err := getDashScopeTenant(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
@@ -133,27 +115,27 @@ func (s *Server) DeleteDashScopeTenant(ctx context.Context, request adminhttp.De
 		}
 		return adminhttp.DeleteDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := deleteNamedTenant(ctx, store, dashScopeTenantKey(tenant.Id), dashScopeTenantNameKey(tenant.Name)); err != nil {
+	if err := deleteTenant(ctx, store, dashScopeTenantKey(tenant.Id)); err != nil {
 		return adminhttp.DeleteDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteDashScopeTenant200JSONResponse(tenant), nil
 }
 
-func normalizeDashScopeTenantUpsert(in adminhttp.DashScopeTenantUpsert, expectedName string) (apitypes.DashScopeTenant, error) {
-	name := strings.TrimSpace(string(in.Name))
-	if name == "" {
-		return apitypes.DashScopeTenant{}, errors.New("name is required")
+func normalizeDashScopeTenantUpsert(in adminhttp.DashScopeTenantUpsert, expectedID string) (apitypes.DashScopeTenant, error) {
+	id := string(in.Id)
+	if err := validateResourceID(id); err != nil {
+		return apitypes.DashScopeTenant{}, err
 	}
-	if expectedName != "" && name != expectedName {
-		return apitypes.DashScopeTenant{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
+	if expectedID != "" && id != expectedID {
+		return apitypes.DashScopeTenant{}, fmt.Errorf("id %q must match path id %q", id, expectedID)
 	}
-	credentialName := strings.TrimSpace(string(in.CredentialId))
-	if credentialName == "" {
-		return apitypes.DashScopeTenant{}, errors.New("credential_id is required")
+	credentialID := string(in.CredentialId)
+	if err := validateResourceReference("credential_id", credentialID); err != nil {
+		return apitypes.DashScopeTenant{}, err
 	}
 	tenant := apitypes.DashScopeTenant{
-		CredentialId: string(credentialName),
-		Name:         string(name),
+		CredentialId: credentialID,
+		Id:           id,
 	}
 	if in.BaseUrl != nil {
 		baseURL := strings.TrimSpace(*in.BaseUrl)
@@ -207,10 +189,10 @@ func listDashScopeTenantsPage(ctx context.Context, store kv.Store, cursor string
 func writeDashScopeTenant(ctx context.Context, store kv.Store, tenant apitypes.DashScopeTenant) error {
 	data, err := json.Marshal(tenant)
 	if err != nil {
-		return fmt.Errorf("dashscope tenants: encode tenant %s: %w", tenant.Name, err)
+		return fmt.Errorf("dashscope tenants: encode tenant %s: %w", tenant.Id, err)
 	}
 	if err := store.Set(ctx, dashScopeTenantKey(string(tenant.Id)), data); err != nil {
-		return fmt.Errorf("dashscope tenants: write tenant %s: %w", tenant.Name, err)
+		return fmt.Errorf("dashscope tenants: write tenant %s: %w", tenant.Id, err)
 	}
 	return nil
 }
@@ -229,8 +211,4 @@ func getDashScopeTenant(ctx context.Context, store kv.Store, id string) (apitype
 
 func dashScopeTenantKey(id string) kv.Key {
 	return append(append(kv.Key{}, dashScopeTenantsRoot...), escapeStoreSegment(id))
-}
-
-func dashScopeTenantNameKey(name string) kv.Key {
-	return tenantNameKey(dashScopeTenantsByNameRoot, name)
 }

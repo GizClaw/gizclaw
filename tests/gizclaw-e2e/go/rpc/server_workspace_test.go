@@ -23,8 +23,8 @@ func TestServerWorkspaceRPC(t *testing.T) {
 		t.Fatalf("create workflow for workspace test: %v", err)
 	}
 	t.Cleanup(func() { _, _ = admin.DeleteWorkflowWithResponse(env.ctx, response.JSON200.Id) })
-	_, err = clitest.UpsertRuntimeProfileByName(env.ctx, admin, adminhttp.RuntimeProfileUpsert{
-		Name: "e2e-peer-a",
+	_, err = clitest.UpsertRuntimeProfile(env.ctx, admin, adminhttp.RuntimeProfileUpsert{
+		Id:   "e2e-peer-a",
 		Spec: sharedRuntimeProfileSpecWithMutation(t),
 	})
 	if err != nil {
@@ -127,11 +127,9 @@ func TestServerResourceCreatorOwnsConcreteResources(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("build unowned Workspace parameters: %v", err)
 	}
-	workflowID, err := clitest.ResourceIDByName(env.ctx, admin, "Workflow", sharedWorkflow)
-	if err != nil {
-		t.Fatalf("resolve shared Workflow: %v", err)
-	}
+	workflowID := sharedWorkflow
 	created, err := admin.CreateWorkspaceWithResponse(env.ctx, adminhttp.WorkspaceUpsert{
+		Id:         unownedWorkspaceName,
 		Name:       unownedWorkspaceName,
 		WorkflowId: workflowID,
 		Parameters: &adminParameters,

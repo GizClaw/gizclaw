@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -125,12 +124,8 @@ func (s *Server) DeleteWorkspaceIcon(ctx context.Context, request adminhttp.Dele
 }
 
 func workspaceIconParams(rawName, rawFormat string) (string, iconasset.Format, error) {
-	name, err := url.PathUnescape(rawName)
-	if err != nil {
-		return "", "", err
-	}
 	format, err := iconasset.ParseFormat(rawFormat)
-	return name, format, err
+	return rawName, format, err
 }
 
 func (s *Server) workspace(ctx context.Context, id string) (apitypes.Workspace, error) {

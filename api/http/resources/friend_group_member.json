@@ -32,7 +32,7 @@
                 "$ref": "./resource.json#/components/schemas/ResourceMetadata"
               }
             ],
-            "description": "metadata.name is this member's immutable Peer-visible group name; metadata.id is the canonical membership ID returned by the Server."
+            "description": "metadata.id must equal the deterministic membership ID. spec.name is this member's immutable Peer-visible group name."
           },
           "spec": {
             "$ref": "#/components/schemas/FriendGroupMemberSpec"
@@ -44,16 +44,22 @@
         "required": [
           "friend_group_id",
           "peer_public_key",
+          "name",
           "role"
         ],
         "properties": {
           "friend_group_id": {
             "type": "string",
             "minLength": 1,
-            "description": "Opaque canonical FriendGroup ID returned by the Server. The peer_public_key segment is not a resource ID."
+            "description": "Caller-supplied canonical FriendGroup ID. The peer_public_key segment is not a resource ID."
           },
           "peer_public_key": {
             "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Immutable member-visible owner-scoped friend group name."
           },
           "role": {
             "$ref": "#/components/schemas/FriendGroupMemberRole"

@@ -206,7 +206,7 @@ func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) 
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer service not configured"}.RPCResponse(), nil
 	}
 	var firmwareBindingErr error
-	err = s.registrations.BindOwnerProfileAndCommit(ctx, s.callerPublicKey.String(), registration.RuntimeProfile.Name, func() error {
+	err = s.registrations.BindOwnerProfileAndCommit(ctx, s.callerPublicKey.String(), registration.RuntimeProfile.Id, func() error {
 		if registration.FirmwareID != nil {
 			_, firmwareBindingErr = s.peer.BindFirmware(ctx, s.callerPublicKey, *registration.FirmwareID)
 			if firmwareBindingErr != nil {
@@ -226,8 +226,8 @@ func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) 
 		slog.WarnContext(ctx, message, "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "error", err)
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "registration failed"}.RPCResponse(), nil
 	}
-	slog.InfoContext(ctx, "device registration accepted", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "registration_token", registration.TokenName, "runtime_profile", registration.RuntimeProfile.Name)
-	response := rpcapi.ServerRegisterResponse{RuntimeProfileName: registration.RuntimeProfile.Name, FirmwareName: registration.FirmwareName}
+	slog.InfoContext(ctx, "device registration accepted", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "registration_token", registration.TokenID, "runtime_profile", registration.RuntimeProfile.Id)
+	response := rpcapi.ServerRegisterResponse{RuntimeProfileName: registration.RuntimeProfile.Id, FirmwareName: registration.FirmwareName}
 	return newRPCResultResponse(req.Id, response, (*rpcapi.RPCPayload).FromServerRegisterResponse)
 }
 

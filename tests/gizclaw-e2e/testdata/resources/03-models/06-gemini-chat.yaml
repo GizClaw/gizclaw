@@ -2,14 +2,14 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Model
 metadata:
-  name: gemini-2-flash
+  id: gemini-2-flash
 spec:
   kind: llm
   source: manual
   provider:
     kind: gemini-tenant
-    name: gemini-main
-  name: Gemini 2.0 Flash
+    id: gemini-main
+  display_name: Gemini 2.0 Flash
   description: Gemini chat model
   provider_data:
     upstream_model: gemini-2.0-flash

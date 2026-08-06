@@ -6,6 +6,10 @@ RegistrationToken 可以给 Peer 绑定一个 canonical Firmware ID。设备不�
 选择 Firmware release line；它通过 `server.firmware.get` 从已绑定的 release
 line 请求一个具体 channel。
 
+Admin create/apply 的 immutable ID 由 caller 提供。Firmware 独立的 `name`
+（声明式 Resource 中为 `spec.name`）属于 Peer 可见展示数据，可以更新，Server
+不会把它建索引或解析成 Admin ID。
+
 request 只有 `channel`，可选值为 `stable`、`beta`、`develop` 或 `pending`。
 response 包含：
 

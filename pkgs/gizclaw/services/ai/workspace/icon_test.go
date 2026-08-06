@@ -10,6 +10,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
@@ -42,7 +43,7 @@ func TestWorkspaceIconLifecycleAndProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	uploaded, ok := uploadResponse.(adminhttp.UploadWorkspaceIcon200JSONResponse)
-	if !ok || uploaded.Icon == nil || uploaded.Icon.Png == nil || *uploaded.Icon.Png != string(workspaceID)+"/icon.png" {
+	if !ok || uploaded.Icon == nil || uploaded.Icon.Png == nil || *uploaded.Icon.Png != iconasset.ObjectName(workspaceID, iconasset.FormatPNG) {
 		t.Fatalf("UploadWorkspaceIcon() response = %#v", uploadResponse)
 	}
 

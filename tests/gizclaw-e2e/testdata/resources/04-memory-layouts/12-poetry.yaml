@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: MemoryLayout
 metadata:
-  name: poetry-memory
+  id: poetry-memory
 spec:
   flowcraft:
     extraction:

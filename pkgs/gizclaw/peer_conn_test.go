@@ -42,7 +42,7 @@ func TestPeerConnRetireDetachesOnlyItsActiveConnection(t *testing.T) {
 	manager := &Manager{}
 	conn := &testGiznetConn{publicKey: key}
 	manager.SetPeerUp(key, conn)
-	registration := runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Name: "profile-a"}}
+	registration := runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Id: "profile-a"}}
 	if !manager.SetPeerRegistration(key, conn, registration) {
 		t.Fatal("SetPeerRegistration rejected active connection")
 	}

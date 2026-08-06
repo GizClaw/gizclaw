@@ -140,9 +140,9 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	peerKey := giznet.PublicKey{1}
 	peerPublicKey := peerKey.String()
 	ctx := context.Background()
-	sn := "sn-peer"
-	tac := "12345678"
-	serial := "87654321"
+	sn := "sn%2Fpeer"
+	tac := "12%34"
+	serial := "87%2F654321"
 	labelKey := "region"
 	labelValue := "cn"
 

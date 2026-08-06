@@ -5,6 +5,7 @@ import { DashboardTable } from "@/dashboard";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { encodeRouteParam } from "@/views/admin/full/lib/route-param";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -53,7 +54,7 @@ export function VoicesListPage(): JSX.Element {
   });
 
   const openVoice = (id: string): void => {
-    navigate(`/ai/voices/${encodeURIComponent(id)}`);
+    navigate(`/ai/voices/${encodeRouteParam(id)}`);
   };
 
   const handleRowKeyDown = (
@@ -197,7 +198,7 @@ export function VoicesListPage(): JSX.Element {
                     </TableCell>
                     <TableCell className="max-w-[22rem]">
                       <div className="block truncate font-medium">
-                        {voice.name?.trim() || "Unnamed voice"}
+                        {voice.display_name?.trim() || compactVoiceID(voice.id)}
                       </div>
                     </TableCell>
                     <TableCell>

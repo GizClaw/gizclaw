@@ -1,22 +1,21 @@
 ---
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
-metadata:
-  name: family-circle-social-graph
 spec:
   items:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Friend
     metadata:
-      name: 6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee:8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu
+      id: 6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee:8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu
     spec:
       owner_public_key: 6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee
       peer_public_key: 8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu
   - apiVersion: gizclaw.admin/v1alpha1
     kind: FriendGroup
     metadata:
-      name: family-circle
+      id: family-circle
     spec:
+      name: family-circle
       owner_public_key: 6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee
       display_name: Family Circle
       description: Shared family chat group.

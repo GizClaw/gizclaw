@@ -25,7 +25,7 @@ Schema source of desktop bridge DTO; generated through `gen:sdk` of `sdk/js` aft
 
 ## Local Server bootstrap
 
-The public Raids `v0.3.0` release is fetched through its commit-addressed GitHub archive and is the declarative source for `RuntimeProfile/default`,
+The public Raids `v0.4.0` release is fetched through its commit-addressed GitHub archive and is the declarative source for `RuntimeProfile/default`,
 `RegistrationToken/default-runtime`, and the Credential, Tenant, Model, Voice, MemoryLayout, Workflow, and PetDef
 resources referenced by that profile. PIXA assets referenced by PetDefs come from the matching safe basenames in the pinned
 `GizClaw/pixa@5fed581ae87ac3cf4a5a05952d43edebbbed8d9f` commit. Desktop validates and privately caches both
@@ -54,10 +54,17 @@ can reach a Desktop local Server on its LAN-facing address and knows this UUID c
 register into `RuntimeProfile/default`; Admin access still requires the separate Admin identity.
 Each local Server persists its own independent resource instances.
 
-Fresh local Pod bootstrap applies one create-only manifest at a time in dependency order. Desktop
-reads the canonical ID returned by each Admin apply, rewrites later foreign-key references to those
-IDs, and uses the returned PetDef ID for PIXA upload. It does not retry a create after an ambiguous
-transport failure because doing so could create a second resource.
+Fresh local Pod bootstrap applies one create-only manifest at a time in dependency order. Every
+concrete Raids Resource declares its canonical `metadata.id`, and all foreign-key fields directly
+reference those IDs. Desktop neither resolves generic `name` nor performs name-to-ID or downstream
+reference rewriting. It applies each manifest unchanged and requires the concrete apply result ID to
+equal the manifest ID exactly. PIXA upload uses the PetDef ID declared in the manifest. Reapplying the
+same manifest addresses the same Resource instead of creating another identity.
+
+Desktop accepts only the v0.4 identity contract. A v0.3 catalog that lacks `metadata.id`, attaches
+metadata to ResourceList, or depends on Server-generated IDs is rejected before the Server starts or
+any Resource is applied. Desktop provides no compatibility conversion or migration for the old Raids
+format.
 
 Completed local Pods do not replay the bootstrap catalog during start, restart, or Desktop upgrade.
 A local Pod whose catalog version predates the final resource-identity schema is incompatible:

@@ -44,7 +44,7 @@ func (s *Server) handleToolList(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	}
 	return resultResponse(req.Id, rpcapi.ToolListResponse{
 		Items: items, HasNext: hasNext, NextCursor: nextCursor,
-		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+		RuntimeProfileName: profile.Id, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromToolListResponse)
 }
 
@@ -72,14 +72,14 @@ func (s *Server) handleToolGet(ctx context.Context, req *rpcapi.RPCRequest) *rpc
 		return internalError(req.Id, err.Error())
 	}
 	return resultResponse(req.Id, rpcapi.ToolGetResponse{
-		Value: projectTool(params.Name, binding, tool), RuntimeProfileName: profile.Name,
+		Value: projectTool(params.Name, binding, tool), RuntimeProfileName: profile.Id,
 		RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromToolGetResponse)
 }
 
 func projectTool(alias string, binding apitypes.RuntimeProfileBinding, tool toolkit.Tool) rpcapi.Tool {
 	return rpcapi.Tool{
-		Name: alias, InvokeName: tool.Name, I18n: bindingI18n(binding),
+		Name: alias, InvokeName: tool.InvokeName, I18n: bindingI18n(binding),
 		InputSchema: tool.InputSchema,
 	}
 }

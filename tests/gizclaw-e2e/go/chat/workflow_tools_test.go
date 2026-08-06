@@ -338,7 +338,7 @@ func configureChatToolResources(
 		if err := resource.FromToolResource(apitypes.ToolResource{
 			ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 			Kind:       apitypes.ToolResourceKindTool,
-			Metadata:   apitypes.ResourceMetadata{Name: name},
+			Metadata:   apitypes.ResourceMetadata{Id: name},
 			Spec:       spec,
 		}); err != nil {
 			t.Fatalf("encode Tool resource %q: %v", name, err)
@@ -368,7 +368,7 @@ func configureChatToolResources(
 	}
 
 	const profileName = "e2e-chat"
-	current, found, err := clitest.RuntimeProfileByName(ctx, api, profileName)
+	current, found, err := clitest.RuntimeProfileByID(ctx, api, profileName)
 	if err != nil || !found {
 		t.Fatalf("get Tool E2E RuntimeProfile: %v", err)
 	}
@@ -389,7 +389,7 @@ func configureChatToolResources(
 		},
 	}
 	updated, err := api.PutRuntimeProfileWithResponse(ctx, current.Id, adminhttp.RuntimeProfileUpsert{
-		Name: profileName,
+		Id:   profileName,
 		Spec: profileSpec,
 	})
 	if err != nil {
@@ -402,7 +402,7 @@ func configureChatToolResources(
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
 		restored, restoreErr := api.PutRuntimeProfileWithResponse(cleanupCtx, current.Id, adminhttp.RuntimeProfileUpsert{
-			Name: profileName,
+			Id:   profileName,
 			Spec: originalSpec,
 		})
 		if restoreErr != nil {
@@ -478,7 +478,7 @@ func toolE2EWorkflow(t *testing.T, name string) apitypes.WorkflowResource {
 	return apitypes.WorkflowResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.WorkflowResourceKindWorkflow,
-		Metadata:   apitypes.ResourceMetadata{Name: name},
+		Metadata:   apitypes.ResourceMetadata{Id: name},
 		Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverEino,
 			Eino: &apitypes.EinoWorkflowSpec{Graph: apitypes.EinoGraph{

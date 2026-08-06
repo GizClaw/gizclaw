@@ -7,7 +7,6 @@ import (
 
 func TestOpenSharedFlowcraftAcceptsCanonicalLayoutID(t *testing.T) {
 	request := managedTestRequest(t)
-	request.Layout.Name = "peer-visible-layout-name"
 
 	backend, err := openSharedFlowcraft(t.Context(), request)
 	if err != nil {

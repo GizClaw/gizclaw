@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/connection"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
 )
@@ -413,9 +414,9 @@ func parseResourceIDArgs(args []string) (apitypes.ResourceKind, string, error) {
 	if kind == apitypes.ResourceKindResourceList {
 		return "", "", fmt.Errorf("resource kind %q cannot be addressed by ID", kind)
 	}
-	id := strings.TrimSpace(args[1])
-	if id == "" {
-		return "", "", fmt.Errorf("resource ID is required")
+	id := args[1]
+	if err := customid.ValidateResourceID(id); err != nil {
+		return "", "", fmt.Errorf("invalid resource ID: %w", err)
 	}
 	return kind, id, nil
 }

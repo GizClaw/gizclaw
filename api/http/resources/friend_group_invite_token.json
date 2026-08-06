@@ -32,7 +32,7 @@
                 "$ref": "./resource.json#/components/schemas/ResourceMetadata"
               }
             ],
-            "description": "metadata.name is the friend group custom ID and must match spec.friend_group_id."
+            "description": "metadata.id is the friend group canonical ID and must equal spec.friend_group_id."
           },
           "spec": {
             "$ref": "#/components/schemas/FriendGroupInviteTokenSpec"
@@ -50,7 +50,7 @@
           "friend_group_id": {
             "type": "string",
             "minLength": 1,
-            "description": "Opaque canonical FriendGroup ID returned by the Server. The invite_token value is not a resource ID."
+            "description": "Caller-supplied canonical FriendGroup ID. The invite_token value is not a resource ID."
           },
           "invite_token": {
             "type": "string"

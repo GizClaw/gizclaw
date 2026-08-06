@@ -239,8 +239,12 @@ func createFirmware(t *testing.T, server *Server, input adminhttp.FirmwareUpsert
 	return apitypes.Firmware(created)
 }
 
-func firmwareUpsert(name string, stable, beta, develop, pending apitypes.FirmwareSlot) adminhttp.FirmwareUpsert {
-	return adminhttp.FirmwareUpsert{Name: name, Slots: apitypes.FirmwareSlots{Stable: stable, Beta: beta, Develop: develop, Pending: pending}}
+func firmwareUpsert(id string, stable, beta, develop, pending apitypes.FirmwareSlot) adminhttp.FirmwareUpsert {
+	return firmwareUpsertWithName(id, id, stable, beta, develop, pending)
+}
+
+func firmwareUpsertWithName(id, name string, stable, beta, develop, pending apitypes.FirmwareSlot) adminhttp.FirmwareUpsert {
+	return adminhttp.FirmwareUpsert{Id: id, Name: name, Slots: apitypes.FirmwareSlots{Stable: stable, Beta: beta, Develop: develop, Pending: pending}}
 }
 
 func firmwareSlot(description, packageURL string, size int64) apitypes.FirmwareSlot {

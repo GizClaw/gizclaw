@@ -13,7 +13,7 @@ func TestApplyOpenAITenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "OpenAITenant",
-		"metadata": {"name": "minimax"},
+		"metadata": {"id": "minimax"},
 		"spec": {
 			"kind": "compatible",
 			"credential_id": "minimax",
@@ -41,7 +41,7 @@ func TestApplyOpenAITenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 	updated := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "OpenAITenant",
-		"metadata": {"name": "minimax"},
+		"metadata": {"id": "minimax"},
 		"spec": {
 			"kind": "compatible",
 			"credential_id": "minimax",
@@ -65,7 +65,7 @@ func TestPutGetDeleteOpenAITenantResource(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "OpenAITenant",
-		"metadata": {"name": "minimax"},
+		"metadata": {"id": "minimax"},
 		"spec": {
 			"credential_id": "minimax",
 			"base_url": "https://api.minimax.chat/v1"
@@ -86,7 +86,7 @@ func TestPutGetDeleteOpenAITenantResource(t *testing.T) {
 		t.Fatalf("AsOpenAITenantResource(Put) error = %v", err)
 	}
 	if tenant.Spec.CredentialId != "minimax" {
-		t.Fatalf("Put(OpenAITenant) credential_name = %s", tenant.Spec.CredentialId)
+		t.Fatalf("Put(OpenAITenant) credential_id = %s", tenant.Spec.CredentialId)
 	}
 
 	id := *created.Id
@@ -98,8 +98,8 @@ func TestPutGetDeleteOpenAITenantResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsOpenAITenantResource(Get) error = %v", err)
 	}
-	if gotTenant.Metadata.Name != "minimax" {
-		t.Fatalf("Get(OpenAITenant) metadata.name = %s", gotTenant.Metadata.Name)
+	if metadataID(t, gotTenant.Metadata) != "minimax" {
+		t.Fatalf("Get(OpenAITenant) metadata.id = %s", metadataID(t, gotTenant.Metadata))
 	}
 
 	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindOpenAITenant, id)
@@ -110,8 +110,8 @@ func TestPutGetDeleteOpenAITenantResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsOpenAITenantResource(Delete) error = %v", err)
 	}
-	if deletedTenant.Metadata.Name != "minimax" {
-		t.Fatalf("Delete(OpenAITenant) metadata.name = %s", deletedTenant.Metadata.Name)
+	if metadataID(t, deletedTenant.Metadata) != "minimax" {
+		t.Fatalf("Delete(OpenAITenant) metadata.id = %s", metadataID(t, deletedTenant.Metadata))
 	}
 	_, err = manager.Get(context.Background(), apitypes.ResourceKindOpenAITenant, id)
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
@@ -140,7 +140,7 @@ func TestOpenAITenantMissingServiceErrors(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "OpenAITenant",
-		"metadata": {"name": "minimax"},
+		"metadata": {"id": "minimax"},
 		"spec": {"credential_id": "minimax"}
 	}`)
 
@@ -163,7 +163,7 @@ func TestApplyOpenAITenantRejectsInvalidHeader(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "unsupported",
 		"kind": "OpenAITenant",
-		"metadata": {"name": "minimax"},
+		"metadata": {"id": "minimax"},
 		"spec": {"credential_id": "minimax"}
 	}`)
 	_, err := manager.Apply(context.Background(), resource)

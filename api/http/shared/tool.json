@@ -11,7 +11,7 @@
         "type": "object",
         "required": [
           "id",
-          "name",
+          "invoke_name",
           "type",
           "enabled",
           "input_schema",
@@ -23,7 +23,7 @@
           "id": {
             "type": "string"
           },
-          "name": {
+          "invoke_name": {
             "type": "string"
           },
           "type": {

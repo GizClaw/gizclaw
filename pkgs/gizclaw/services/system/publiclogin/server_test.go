@@ -193,13 +193,13 @@ func TestServerLoginStoresRegistrationSnapshot(t *testing.T) {
 			return runtimeprofile.Registration{}, fmt.Errorf("invalid token")
 		}
 		return runtimeprofile.Registration{
-			TokenName:      "app-token",
-			RuntimeProfile: apitypes.RuntimeProfile{Name: "app-profile"},
+			TokenID:        "app-token",
+			RuntimeProfile: apitypes.RuntimeProfile{Id: "app-profile"},
 		}, nil
 	}
-	server.OwnerProfileBinder = func(_ context.Context, owner, profileName string, commit func() error) error {
+	server.OwnerProfileBinder = func(_ context.Context, owner, profileID string, commit func() error) error {
 		boundOwner = owner
-		boundProfile = profileName
+		boundProfile = profileID
 		return commit()
 	}
 	token := "registration-secret"
@@ -221,7 +221,7 @@ func TestServerLoginStoresRegistrationSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AuthenticateSession error = %v", err)
 	}
-	if authenticated.Registration == nil || authenticated.Registration.RuntimeProfile.Name != "app-profile" {
+	if authenticated.Registration == nil || authenticated.Registration.RuntimeProfile.Id != "app-profile" {
 		t.Fatalf("registration = %#v", authenticated.Registration)
 	}
 	if boundOwner != deviceKey.Public.String() || boundProfile != "app-profile" {
@@ -246,8 +246,8 @@ func TestServerLoginOwnerProfileBindingFailureIsRetryable(t *testing.T) {
 	server := NewServer(serverKey, kv.NewMemory(nil))
 	server.RegistrationResolver = func(context.Context, string) (runtimeprofile.Registration, error) {
 		return runtimeprofile.Registration{
-			TokenName:      "app-token",
-			RuntimeProfile: apitypes.RuntimeProfile{Name: "app-profile"},
+			TokenID:        "app-token",
+			RuntimeProfile: apitypes.RuntimeProfile{Id: "app-profile"},
 		}, nil
 	}
 	bindCalls := 0
@@ -301,14 +301,14 @@ func TestServerLoginSessionCommitFailureRollsBackOwnerProfile(t *testing.T) {
 	server := NewServer(serverKey, failingBatchSetStore{Store: kv.NewMemory(nil)})
 	server.RegistrationResolver = func(context.Context, string) (runtimeprofile.Registration, error) {
 		return runtimeprofile.Registration{
-			TokenName:      "app-token",
-			RuntimeProfile: apitypes.RuntimeProfile{Name: "app-profile"},
+			TokenID:        "app-token",
+			RuntimeProfile: apitypes.RuntimeProfile{Id: "app-profile"},
 		}, nil
 	}
 	boundProfile := "previous-profile"
-	server.OwnerProfileBinder = func(_ context.Context, _, profileName string, commit func() error) error {
+	server.OwnerProfileBinder = func(_ context.Context, _, profileID string, commit func() error) error {
 		previous := boundProfile
-		boundProfile = profileName
+		boundProfile = profileID
 		if err := commit(); err != nil {
 			boundProfile = previous
 			return err

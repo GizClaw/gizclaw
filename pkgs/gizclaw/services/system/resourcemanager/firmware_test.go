@@ -17,8 +17,9 @@ func TestFirmwareResourceApplyShowDelete(t *testing.T) {
 	resource, err := marshalResource(apitypes.FirmwareResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
-		Metadata:   apitypes.ResourceMetadata{Name: "devkit"},
+		Metadata:   apitypes.ResourceMetadata{Id: "devkit"},
 		Spec: apitypes.FirmwareSpec{
+			Name:  "Devkit",
 			Slots: testFirmwareSpecSlots("stable firmware"),
 		},
 	})
@@ -44,7 +45,7 @@ func TestFirmwareResourceApplyShowDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsFirmwareResource: %v", err)
 	}
-	if item.Metadata.Name != "devkit" || item.Spec.Slots.Stable.Description == nil || *item.Spec.Slots.Stable.Description != "stable firmware" || item.Spec.Slots.Stable.Package == nil || item.Spec.Slots.Stable.Package.Url != "https://firmware.example/stable.tar.zlib" || item.Spec.Slots.Stable.Package.Size != 4096 {
+	if item.Metadata.Id != "devkit" || item.Spec.Name != "Devkit" || item.Spec.Slots.Stable.Description == nil || *item.Spec.Slots.Stable.Description != "stable firmware" || item.Spec.Slots.Stable.Package == nil || item.Spec.Slots.Stable.Package.Url != "https://firmware.example/stable.tar.zlib" || item.Spec.Slots.Stable.Package.Size != 4096 {
 		t.Fatalf("shown resource = %+v", item)
 	}
 
@@ -64,7 +65,7 @@ func TestFirmwareResourceApplyShowDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("deleted AsFirmwareResource: %v", err)
 	}
-	if deletedItem.Metadata.Name != "devkit" {
+	if deletedItem.Metadata.Id != "devkit" || deletedItem.Spec.Name != "Devkit" {
 		t.Fatalf("deleted resource = %+v", deletedItem)
 	}
 }
@@ -74,8 +75,9 @@ func TestFirmwareResourcePutAndErrors(t *testing.T) {
 	resource, err := marshalResource(apitypes.FirmwareResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
-		Metadata:   apitypes.ResourceMetadata{Name: "devkit"},
+		Metadata:   apitypes.ResourceMetadata{Id: "devkit"},
 		Spec: apitypes.FirmwareSpec{
+			Name:  "Devkit",
 			Slots: testFirmwareSpecSlots("stable firmware"),
 		},
 	})
@@ -127,7 +129,7 @@ func TestFirmwareResourcePutAndErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Put error = %v", err)
 	}
-	if item, err := put.AsFirmwareResource(); err != nil || item.Metadata.Name != "devkit" {
+	if item, err := put.AsFirmwareResource(); err != nil || item.Metadata.Id != "devkit" || item.Spec.Name != "Devkit" {
 		t.Fatalf("Put resource = %+v, err=%v", item, err)
 	}
 
@@ -146,7 +148,7 @@ func TestFirmwareResourcePutAndErrors(t *testing.T) {
 	}
 
 	badRequest := New(Services{Firmwares: firmwareServiceWithPut400{}})
-	if err := badRequest.putFirmware(ctx, "devkit", adminhttp.FirmwareUpsert{Name: "other"}); !isResourceError(err, 400, "INVALID_FIRMWARE") {
+	if err := badRequest.putFirmware(ctx, "devkit", adminhttp.FirmwareUpsert{Id: "other", Name: "Other"}); !isResourceError(err, 400, "INVALID_FIRMWARE") {
 		t.Fatalf("putFirmware bad request error = %v", err)
 	}
 
@@ -154,7 +156,7 @@ func TestFirmwareResourcePutAndErrors(t *testing.T) {
 	if _, _, err := transportError.getFirmware(ctx, "devkit"); err == nil || err.Error() != "transport failed" {
 		t.Fatalf("getFirmware transport error = %v", err)
 	}
-	if err := transportError.putFirmware(ctx, "devkit", adminhttp.FirmwareUpsert{Name: "devkit"}); err == nil || err.Error() != "transport failed" {
+	if err := transportError.putFirmware(ctx, "devkit", adminhttp.FirmwareUpsert{Id: "devkit", Name: "Devkit"}); err == nil || err.Error() != "transport failed" {
 		t.Fatalf("putFirmware transport error = %v", err)
 	}
 	if _, _, err := transportError.deleteFirmware(ctx, "devkit"); err == nil || err.Error() != "transport failed" {
@@ -168,8 +170,8 @@ func TestFirmwareResourceApplyUpdatesChangedSpec(t *testing.T) {
 	first, err := marshalResource(apitypes.FirmwareResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
-		Metadata:   apitypes.ResourceMetadata{Name: "devkit"},
-		Spec:       apitypes.FirmwareSpec{Slots: testFirmwareSpecSlots("stable firmware")},
+		Metadata:   apitypes.ResourceMetadata{Id: "devkit"},
+		Spec:       apitypes.FirmwareSpec{Name: "Devkit", Slots: testFirmwareSpecSlots("stable firmware")},
 	})
 	if err != nil {
 		t.Fatalf("marshal first resource: %v", err)
@@ -177,8 +179,8 @@ func TestFirmwareResourceApplyUpdatesChangedSpec(t *testing.T) {
 	second, err := marshalResource(apitypes.FirmwareResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
-		Metadata:   apitypes.ResourceMetadata{Name: "devkit"},
-		Spec:       apitypes.FirmwareSpec{Slots: testFirmwareSpecSlots("updated stable firmware")},
+		Metadata:   apitypes.ResourceMetadata{Id: "devkit"},
+		Spec:       apitypes.FirmwareSpec{Name: "Devkit 2", Slots: testFirmwareSpecSlots("updated stable firmware")},
 	})
 	if err != nil {
 		t.Fatalf("marshal second resource: %v", err)

@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: MemoryLayout
 metadata:
-  name: werewolf-memory
+  id: werewolf-memory
 spec:
   flowcraft:
     extraction:

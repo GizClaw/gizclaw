@@ -161,14 +161,14 @@ func registerDefaultRuntimeProfile(
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	tokenName := fmt.Sprintf("e2e-gocs-%d", time.Now().UnixNano())
-	profile, found, err := clitest.RuntimeProfileByName(ctx, api, "default-gameplay")
+	profile, found, err := clitest.RuntimeProfileByID(ctx, api, "default-gameplay")
 	if err != nil || !found {
 		t.Fatalf("resolve default gameplay RuntimeProfile: found=%v err=%v", found, err)
 	}
 	response, err := api.CreateRegistrationTokenWithResponse(
 		ctx,
 		adminhttp.RegistrationTokenUpsert{
-			Name:             tokenName,
+			Id:               tokenName,
 			Token:            tokenName,
 			RuntimeProfileId: profile.Id,
 		},
@@ -204,8 +204,8 @@ func registerDefaultRuntimeProfile(
 	if err != nil {
 		t.Fatalf("register concurrent-stream peer: %v", err)
 	}
-	if registered.RuntimeProfileName != profile.Name {
-		t.Fatalf("registered RuntimeProfile = %q, want %q", registered.RuntimeProfileName, profile.Name)
+	if registered.RuntimeProfileName != profile.Id {
+		t.Fatalf("registered RuntimeProfile = %q, want %q", registered.RuntimeProfileName, profile.Id)
 	}
 }
 

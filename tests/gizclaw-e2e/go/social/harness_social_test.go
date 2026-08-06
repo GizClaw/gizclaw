@@ -80,14 +80,14 @@ func registerSocialSimulatorProfile(t *testing.T, clients *sharedSocialClients, 
 		t.Fatalf("create social simulator admin client: %v", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	profile, found, err := clitest.RuntimeProfileByName(ctx, api, "default-gameplay")
+	profile, found, err := clitest.RuntimeProfileByID(ctx, api, "default-gameplay")
 	if err != nil || !found {
 		cancel()
 		t.Fatalf("resolve default gameplay RuntimeProfile: found=%v err=%v", found, err)
 	}
 	tokenName := fmt.Sprintf("e2e-go-social-%d", runID)
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name:             tokenName,
+		Id:               tokenName,
 		Token:            tokenName,
 		RuntimeProfileId: profile.Id,
 	})
@@ -105,8 +105,8 @@ func registerSocialSimulatorProfile(t *testing.T, clients *sharedSocialClients, 
 		if registerErr != nil {
 			t.Fatalf("register %s for social simulator: %v", peer, registerErr)
 		}
-		if registered.RuntimeProfileName != profile.Name {
-			t.Fatalf("register %s for social simulator = %#v, want RuntimeProfile %q", peer, registered, profile.Name)
+		if registered.RuntimeProfileName != profile.Id {
+			t.Fatalf("register %s for social simulator = %#v, want RuntimeProfile %q", peer, registered, profile.Id)
 		}
 	}
 	tokenID := tokenResp.JSON200.Id

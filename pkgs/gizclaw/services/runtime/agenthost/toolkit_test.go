@@ -60,7 +60,7 @@ func TestToolkitInvokerReauthorizesResourceAtInvoke(t *testing.T) {
 	}
 	tool.Enabled = false
 	if _, err := server.PutTool(t.Context(), created.ID, tool); err != nil {
-		t.Fatalf("PutTool(%q) error = %v", tool.Name, err)
+		t.Fatalf("PutTool(%q) error = %v", tool.InvokeName, err)
 	}
 	result, err := invoker.InvokeTool(ctx, "volume_set", json.RawMessage(`{"level":1}`))
 	if err != nil || string(result) != `{"error":{"code":"unavailable","message":"tool is unavailable"}}` {
@@ -71,27 +71,30 @@ func TestToolkitInvokerReauthorizesResourceAtInvoke(t *testing.T) {
 func TestToolkitInvokerClientRecoverableErrors(t *testing.T) {
 	server := &toolkit.Server{Store: kv.NewMemory(nil)}
 	created := putAgentHostTool(t, server, agentHostClientTool("volume_set"))
-	invoker := &ToolkitInvoker{
-		Builder:       &toolkit.Builder{Tools: server},
-		ClientTimeout: time.Millisecond,
-	}
 	for _, test := range []struct {
-		name   string
-		client ClientToolInvoker
-		want   string
+		name          string
+		client        ClientToolInvoker
+		clientTimeout time.Duration
+		want          string
 	}{
 		{
-			name:   "unavailable",
-			client: &recordingClientTools{err: giztools.ErrClientToolUnavailable},
-			want:   `{"error":{"code":"unavailable","message":"client tool is unavailable"}}`,
+			name:          "unavailable",
+			client:        &recordingClientTools{err: giztools.ErrClientToolUnavailable},
+			clientTimeout: time.Second,
+			want:          `{"error":{"code":"unavailable","message":"client tool is unavailable"}}`,
 		},
 		{
-			name:   "timeout with no parent deadline",
-			client: &recordingClientTools{wait: true},
-			want:   `{"error":{"code":"timeout","message":"tool execution timed out"}}`,
+			name:          "timeout with no parent deadline",
+			client:        &recordingClientTools{wait: true},
+			clientTimeout: time.Millisecond,
+			want:          `{"error":{"code":"timeout","message":"tool execution timed out"}}`,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			invoker := &ToolkitInvoker{
+				Builder:       &toolkit.Builder{Tools: server},
+				ClientTimeout: test.clientTimeout,
+			}
 			ctx := toolTestContext(t, map[string]string{"volume": created.ID}, test.client)
 			result, err := invoker.InvokeTool(ctx, "volume_set", json.RawMessage(`{"level":1}`))
 			if err != nil || string(result) != test.want {
@@ -233,14 +236,14 @@ func putAgentHostTool(t *testing.T, server *toolkit.Server, tool toolkit.Tool) t
 	t.Helper()
 	created, err := server.CreateTool(t.Context(), tool)
 	if err != nil {
-		t.Fatalf("PutTool(%q) error = %v", tool.Name, err)
+		t.Fatalf("PutTool(%q) error = %v", tool.InvokeName, err)
 	}
 	return created
 }
 
 func agentHostClientTool(name string) toolkit.Tool {
 	return toolkit.Tool{
-		Name: name, Type: toolkit.ToolTypeClientRPC, Enabled: true,
+		ID: name, InvokeName: name, Type: toolkit.ToolTypeClientRPC, Enabled: true,
 		InputSchema: jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
@@ -254,7 +257,7 @@ func agentHostClientTool(name string) toolkit.Tool {
 func agentHostHTTPTool(name string) toolkit.Tool {
 	pointer := "/data"
 	return toolkit.Tool{
-		Name: name, Type: toolkit.ToolTypeHTTPRequest, Enabled: true,
+		ID: name, InvokeName: name, Type: toolkit.ToolTypeHTTPRequest, Enabled: true,
 		InputSchema: jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{

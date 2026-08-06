@@ -63,7 +63,7 @@ func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesReq
 	aliases := sortedBindingAliases(bindings)
 	items := make([]apitypes.Voice, 0, len(aliases))
 	for _, alias := range aliases {
-		resourceID := strings.TrimSpace(bindings[alias].ResourceId)
+		resourceID := bindings[alias].ResourceId
 		if resourceID == "" {
 			continue
 		}

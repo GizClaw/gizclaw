@@ -2,14 +2,14 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Model
 metadata:
-  name: volc-ast-translate
+  id: volc-ast-translate
 spec:
   kind: translation
   source: manual
   provider:
     kind: volc-tenant
-    name: volc-main
-  name: Doubao AST Translate
+    id: volc-main
+  display_name: Doubao AST Translate
   description: Doubao AST realtime translation model
   provider_data:
     api_mode: translation

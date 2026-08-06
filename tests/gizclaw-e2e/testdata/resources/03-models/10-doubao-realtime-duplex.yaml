@@ -2,14 +2,14 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Model
 metadata:
-  name: doubao-realtime-duplex-dialog
+  id: doubao-realtime-duplex-dialog
 spec:
   kind: realtime-duplex
   source: manual
   provider:
     kind: volc-tenant
-    name: volc-main
-  name: Doubao Realtime Duplex Dialog
+    id: volc-main
+  display_name: Doubao Realtime Duplex Dialog
   description: Doubao full-duplex realtime speech dialog model
   provider_data:
     api_mode: realtime_duplex

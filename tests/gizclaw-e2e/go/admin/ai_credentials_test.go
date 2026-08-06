@@ -23,21 +23,21 @@ func TestAdminAPICredentialsListGetPaginationAndMutation(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	seed := requireName(t, all, "fake-openai-credential-000", func(item apitypes.Credential) string { return item.Name })
-	requirePrefixCount(t, all, "fake-openai-credential-", 40, func(item apitypes.Credential) string { return item.Name })
+	seed := requireName(t, all, "fake-openai-credential-000", func(item apitypes.Credential) string { return item.Id })
+	requirePrefixCount(t, all, "fake-openai-credential-", 40, func(item apitypes.Credential) string { return item.Id })
 
 	get, err := env.api.GetCredentialWithResponse(env.ctx, seed.Id)
 	if err != nil {
 		t.Fatalf("get credential: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.Id != seed.Id || get.JSON200.Name != seed.Name || get.JSON200.Provider != "openai" {
+	if get.JSON200 == nil || get.JSON200.Id != seed.Id || get.JSON200.Provider != "openai" {
 		t.Fatalf("get credential = %#v", get.JSON200)
 	}
 
 	name := mutationName("credential")
 	created, err := env.api.CreateCredentialWithResponse(env.ctx, adminhttp.CredentialUpsert{
-		Name:        name,
+		Id:          name,
 		Provider:    "openai",
 		Description: ptr("Admin API mutation credential"),
 		Body:        openAICredentialBody(t, "sk-e2e-admin-mut"),
@@ -46,7 +46,7 @@ func TestAdminAPICredentialsListGetPaginationAndMutation(t *testing.T) {
 		t.Fatalf("create credential: %v", err)
 	}
 	requireStatusOK(t, created, created.Body)
-	if created.JSON200 == nil || created.JSON200.Name != name {
+	if created.JSON200 == nil || created.JSON200.Id != name {
 		t.Fatalf("created credential = %#v", created.JSON200)
 	}
 	deleted, err := env.api.DeleteCredentialWithResponse(env.ctx, created.JSON200.Id)

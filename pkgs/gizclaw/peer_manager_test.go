@@ -61,7 +61,7 @@ func TestManagerActivatePeerMakesRegistrationReady(t *testing.T) {
 	if _, err := peers.LoadPeer(context.Background(), key); err != nil {
 		t.Fatalf("LoadPeer after activation: %v", err)
 	}
-	registration := runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Name: "profile-early"}}
+	registration := runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Id: "profile-early"}}
 	if !manager.SetPeerRegistration(key, conn, registration) {
 		t.Fatal("registration immediately after activation was rejected")
 	}
@@ -317,7 +317,7 @@ func TestManagerActivatePeerRollsBackReservationOnEnsureFailure(t *testing.T) {
 	}
 	oldConn := &testGiznetConn{publicKey: key}
 	manager.SetPeerUp(key, oldConn)
-	registration := runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Name: "profile"}}
+	registration := runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Id: "profile"}}
 	if !manager.SetPeerRegistration(key, oldConn, registration) {
 		t.Fatal("SetPeerRegistration rejected active connection")
 	}
@@ -329,7 +329,7 @@ func TestManagerActivatePeerRollsBackReservationOnEnsureFailure(t *testing.T) {
 	if got, ok := manager.Peer(key); !ok || got != oldConn {
 		t.Fatalf("active connection after failed replacement = %v, %v", got, ok)
 	}
-	if got, ok := manager.PeerRegistration(key); !ok || got.RuntimeProfile.Name != "profile" {
+	if got, ok := manager.PeerRegistration(key); !ok || got.RuntimeProfile.Id != "profile" {
 		t.Fatalf("registration after failed replacement = %#v, %v", got, ok)
 	}
 	peers.Store = store
@@ -714,7 +714,7 @@ func TestManagerPeerRegistrationFollowsActiveConnection(t *testing.T) {
 	newConn := &testGiznetConn{}
 	oldRegistration := runtimeprofile.Registration{
 		RuntimeProfile: apitypes.RuntimeProfile{
-			Name: "profile-old",
+			Id: "profile-old",
 		},
 	}
 
@@ -722,14 +722,14 @@ func TestManagerPeerRegistrationFollowsActiveConnection(t *testing.T) {
 	if !manager.SetPeerRegistration(key, oldConn, oldRegistration) {
 		t.Fatal("SetPeerRegistration() rejected active connection")
 	}
-	if err := profiles.BindOwnerProfile(t.Context(), key.String(), oldRegistration.RuntimeProfile.Name); err != nil {
+	if err := profiles.BindOwnerProfile(t.Context(), key.String(), oldRegistration.RuntimeProfile.Id); err != nil {
 		t.Fatalf("BindOwnerProfile(old) error = %v", err)
 	}
-	if profile, err := manager.runtimeProfileForOwner(t.Context(), key.String()); err != nil || profile.Name != "profile-old" {
+	if profile, err := manager.runtimeProfileForOwner(t.Context(), key.String()); err != nil || profile.Id != "profile-old" {
 		t.Fatalf("runtimeProfileForOwner() = %#v, %v", profile, err)
 	}
 	resources := (&PeerService{manager: manager}).peerResources(key)
-	if profile := resources.RuntimeProfile(); profile == nil || profile.Name != "profile-old" {
+	if profile := resources.RuntimeProfile(); profile == nil || profile.Id != "profile-old" {
 		t.Fatalf("active RuntimeProfile = %#v", profile)
 	}
 
@@ -742,25 +742,25 @@ func TestManagerPeerRegistrationFollowsActiveConnection(t *testing.T) {
 	}
 	newRegistration := runtimeprofile.Registration{
 		RuntimeProfile: apitypes.RuntimeProfile{
-			Name: "profile-new",
+			Id: "profile-new",
 		},
 	}
 	createRegistrationToken(t, profiles, "profile-new")
 	if !manager.SetPeerRegistration(key, newConn, newRegistration) {
 		t.Fatal("SetPeerRegistration() rejected replacement connection")
 	}
-	if err := profiles.BindOwnerProfile(t.Context(), key.String(), newRegistration.RuntimeProfile.Name); err != nil {
+	if err := profiles.BindOwnerProfile(t.Context(), key.String(), newRegistration.RuntimeProfile.Id); err != nil {
 		t.Fatalf("BindOwnerProfile(new) error = %v", err)
 	}
 	manager.SetPeerDown(key, oldConn)
-	if registration, ok := manager.PeerRegistration(key); !ok || registration.RuntimeProfile.Name != "profile-new" {
+	if registration, ok := manager.PeerRegistration(key); !ok || registration.RuntimeProfile.Id != "profile-new" {
 		t.Fatalf("stale disconnect changed registration = %#v, %v", registration, ok)
 	}
 	manager.SetPeerDown(key, newConn)
 	if _, ok := manager.PeerRegistration(key); ok {
 		t.Fatal("disconnected peer retained registration")
 	}
-	if profile, err := manager.runtimeProfileForOwner(t.Context(), key.String()); err != nil || profile.Name != "profile-new" {
+	if profile, err := manager.runtimeProfileForOwner(t.Context(), key.String()); err != nil || profile.Id != "profile-new" {
 		t.Fatalf("runtimeProfileForOwner(disconnected) = %#v, %v", profile, err)
 	}
 	if manager.SetPeerRegistration(key, newConn, newRegistration) {
@@ -777,7 +777,7 @@ func TestPeerConnRetireSerializesConcurrentRegistration(t *testing.T) {
 	conn := &testGiznetConn{publicKey: key}
 	manager.SetPeerUp(key, conn)
 	peerConn := &PeerConn{Conn: conn, Service: &PeerService{manager: manager}}
-	registration := runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Name: "profile-race"}}
+	registration := runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Id: "profile-race"}}
 	registrationEntered := make(chan struct{})
 	releaseRegistration := make(chan struct{})
 	registrationDone := make(chan bool, 1)
@@ -823,7 +823,7 @@ func TestPeerResourcesForHTTPSessionDoesNotInheritActiveConnectionRegistration(t
 	conn := &testGiznetConn{}
 	activeRegistration := runtimeprofile.Registration{
 		RuntimeProfile: apitypes.RuntimeProfile{
-			Name: "profile-connection",
+			Id: "profile-connection",
 		},
 	}
 	manager.SetPeerUp(key, conn)
@@ -839,22 +839,22 @@ func TestPeerResourcesForHTTPSessionDoesNotInheritActiveConnectionRegistration(t
 
 	sessionRegistration := runtimeprofile.Registration{
 		RuntimeProfile: apitypes.RuntimeProfile{
-			Name: "profile-session",
+			Id: "profile-session",
 		},
 	}
 	createRegistrationToken(t, profiles, "profile-session")
-	if err := profiles.BindOwnerProfile(t.Context(), key.String(), sessionRegistration.RuntimeProfile.Name); err != nil {
+	if err := profiles.BindOwnerProfile(t.Context(), key.String(), sessionRegistration.RuntimeProfile.Id); err != nil {
 		t.Fatalf("BindOwnerProfile(session) error = %v", err)
 	}
 	registered := service.peerResourcesForHTTPSession(key, &sessionRegistration)
-	if profile := registered.RuntimeProfile(); profile == nil || profile.Name != "profile-session" {
+	if profile := registered.RuntimeProfile(); profile == nil || profile.Id != "profile-session" {
 		t.Fatalf("registered HTTP RuntimeProfile = %#v", profile)
 	}
 	createRegistrationToken(t, profiles, "profile-current")
 	if err := profiles.BindOwnerProfile(t.Context(), key.String(), "profile-current"); err != nil {
 		t.Fatalf("BindOwnerProfile(current) error = %v", err)
 	}
-	if profile := registered.RuntimeProfile(); profile == nil || profile.Name != "profile-current" {
+	if profile := registered.RuntimeProfile(); profile == nil || profile.Id != "profile-current" {
 		t.Fatalf("stale HTTP session RuntimeProfile = %#v, want current owner binding", profile)
 	}
 }

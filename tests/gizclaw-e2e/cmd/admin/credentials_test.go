@@ -16,7 +16,7 @@ func TestAdminCredentialsUserStory(t *testing.T) {
 
 	list := h.RunCLI("admin", "credentials", "list", "--context", "admin-a")
 	list.MustSucceed(t)
-	for _, want := range []string{`"name":"fake-openai-credential-000"`, `"name":"fake-openai-credential-049"`} {
+	for _, want := range []string{`"id":"fake-openai-credential-000"`, `"id":"fake-openai-credential-049"`} {
 		if !strings.Contains(list.Stdout, want) {
 			t.Fatalf("credentials list missing %q:\n%s", want, list.Stdout)
 		}
@@ -25,7 +25,7 @@ func TestAdminCredentialsUserStory(t *testing.T) {
 
 	filtered := h.RunCLI("admin", "credentials", "list", "--provider", "openai", "--context", "admin-a")
 	filtered.MustSucceed(t)
-	if !strings.Contains(filtered.Stdout, `"name":"fake-openai-credential-000"`) || strings.Contains(filtered.Stdout, `"provider":"minimax"`) {
+	if !strings.Contains(filtered.Stdout, `"id":"fake-openai-credential-000"`) || strings.Contains(filtered.Stdout, `"provider":"minimax"`) {
 		t.Fatalf("credentials filtered list returned unexpected items:\n%s", filtered.Stdout)
 	}
 

@@ -8,6 +8,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/memorylayout"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
@@ -70,225 +72,225 @@ func New(services Services) *Manager {
 }
 
 // Get loads a concrete resource by canonical ID and returns it as a declarative resource.
-func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, id string) (apitypes.Resource, error) {
 	if m == nil {
 		return apitypes.Resource{}, applyError(500, "RESOURCE_MANAGER_NOT_CONFIGURED", "resource manager is not configured")
 	}
-	if name == "" {
-		return apitypes.Resource{}, applyError(400, "INVALID_RESOURCE", "resource id is required")
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.Resource{}, applyError(400, "INVALID_RESOURCE_ID", err.Error())
 	}
 	switch kind {
 	case apitypes.ResourceKindCredential:
 		if m.services.Credentials == nil {
 			return apitypes.Resource{}, missingService("credentials")
 		}
-		item, exists, err := m.getCredential(ctx, string(pathParam(name)))
+		item, exists, err := m.getCredential(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromCredential(item)
 	case apitypes.ResourceKindFirmware:
 		if m.services.Firmwares == nil {
 			return apitypes.Resource{}, missingService("firmwares")
 		}
-		item, exists, err := m.getFirmware(ctx, string(pathParam(name)))
+		item, exists, err := m.getFirmware(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromFirmware(item)
 	case apitypes.ResourceKindRuntimeProfile:
-		item, exists, err := m.getRuntimeProfile(ctx, string(pathParam(name)))
+		item, exists, err := m.getRuntimeProfile(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromRuntimeProfile(item)
 	case apitypes.ResourceKindRegistrationToken:
-		item, exists, err := m.getRegistrationToken(ctx, string(pathParam(name)))
+		item, exists, err := m.getRegistrationToken(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromRegistrationToken(item)
 	case apitypes.ResourceKindModel:
 		if m.services.Models == nil {
 			return apitypes.Resource{}, missingService("models")
 		}
-		item, exists, err := m.getModel(ctx, string(pathParam(name)))
+		item, exists, err := m.getModel(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromModel(item)
 	case apitypes.ResourceKindTool:
 		if m.services.Tools == nil {
 			return apitypes.Resource{}, missingService("tools")
 		}
-		item, exists, err := m.getTool(ctx, name)
+		item, exists, err := m.getTool(ctx, id)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromTool(item)
 	case apitypes.ResourceKindPetDef:
-		item, exists, err := m.getPetDef(ctx, string(pathParam(name)))
+		item, exists, err := m.getPetDef(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromPetDef(item)
 	case apitypes.ResourceKindBadgeDef:
-		item, exists, err := m.getBadgeDef(ctx, string(pathParam(name)))
+		item, exists, err := m.getBadgeDef(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromBadgeDef(item)
 	case apitypes.ResourceKindGameDef:
-		item, exists, err := m.getGameDef(ctx, string(pathParam(name)))
+		item, exists, err := m.getGameDef(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromGameDef(item)
 	case apitypes.ResourceKindDashScopeTenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
 		}
-		item, exists, err := m.getDashScopeTenant(ctx, string(pathParam(name)))
+		item, exists, err := m.getDashScopeTenant(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromDashScopeTenant(item)
 	case apitypes.ResourceKindDeepSeekTenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
 		}
-		item, exists, err := m.getDeepSeekTenant(ctx, string(pathParam(name)))
+		item, exists, err := m.getDeepSeekTenant(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromDeepSeekTenant(item)
 	case apitypes.ResourceKindMiniMaxTenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
 		}
-		item, exists, err := m.getMiniMaxTenant(ctx, string(pathParam(name)))
+		item, exists, err := m.getMiniMaxTenant(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromMiniMaxTenant(item)
 	case apitypes.ResourceKindGeminiTenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
 		}
-		item, exists, err := m.getGeminiTenant(ctx, string(pathParam(name)))
+		item, exists, err := m.getGeminiTenant(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromGeminiTenant(item)
 	case apitypes.ResourceKindOpenAITenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
 		}
-		item, exists, err := m.getOpenAITenant(ctx, string(pathParam(name)))
+		item, exists, err := m.getOpenAITenant(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromOpenAITenant(item)
 	case apitypes.ResourceKindVolcTenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
 		}
-		item, exists, err := m.getVolcTenant(ctx, string(pathParam(name)))
+		item, exists, err := m.getVolcTenant(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromVolcTenant(item)
 	case apitypes.ResourceKindVoice:
 		if m.services.Voices == nil {
 			return apitypes.Resource{}, missingService("voices")
 		}
-		item, exists, err := m.getVoice(ctx, string(pathParam(name)))
+		item, exists, err := m.getVoice(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromVoice(item)
 	case apitypes.ResourceKindWorkspace:
 		if m.services.Workspaces == nil {
 			return apitypes.Resource{}, missingService("workspaces")
 		}
-		item, exists, err := m.getWorkspace(ctx, string(pathParam(name)))
+		item, exists, err := m.getWorkspace(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromWorkspace(item)
 	case apitypes.ResourceKindWorkflow:
 		if m.services.Workflows == nil {
 			return apitypes.Resource{}, missingService("workflows")
 		}
-		item, exists, err := m.getWorkflow(ctx, string(pathParam(name)))
+		item, exists, err := m.getWorkflow(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
-		return resourceFromWorkflow(name, item)
+		return resourceFromWorkflow(id, item)
 	case apitypes.ResourceKindMemoryLayout:
 		if m.services.MemoryLayouts == nil {
 			return apitypes.Resource{}, missingService("memory layouts")
 		}
-		item, exists, err := m.getMemoryLayout(ctx, string(pathParam(name)))
+		item, exists, err := m.getMemoryLayout(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromMemoryLayout(item)
 	case apitypes.ResourceKindResourceList:
@@ -297,62 +299,62 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if m.services.Friends == nil {
 			return apitypes.Resource{}, missingService("friends")
 		}
-		item, exists, err := m.getFriend(ctx, name)
+		item, exists, err := m.getFriend(ctx, id)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromFriend(item)
 	case apitypes.ResourceKindContact:
 		if m.services.Contacts == nil {
 			return apitypes.Resource{}, missingService("contacts")
 		}
-		item, exists, err := m.getContact(ctx, name)
+		item, exists, err := m.getContact(ctx, id)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromContact(item)
 	case apitypes.ResourceKindFriendGroup:
 		if m.services.FriendGroups == nil {
 			return apitypes.Resource{}, missingService("friend groups")
 		}
-		item, exists, err := m.getFriendGroup(ctx, name)
+		item, exists, err := m.getFriendGroup(ctx, id)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
-		return resourceFromFriendGroup(name, item)
+		return resourceFromFriendGroup(id, item)
 	case apitypes.ResourceKindFriendGroupInviteToken:
 		if m.services.FriendGroups == nil {
 			return apitypes.Resource{}, missingService("friend groups")
 		}
-		item, exists, err := m.getFriendGroupInviteToken(ctx, name)
+		item, exists, err := m.getFriendGroupInviteToken(ctx, id)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
-		return resourceFromFriendGroupInviteToken(name, item)
+		return resourceFromFriendGroupInviteToken(id, item)
 	case apitypes.ResourceKindFriendGroupMember:
 		if m.services.FriendGroups == nil {
 			return apitypes.Resource{}, missingService("friend groups")
 		}
-		item, exists, err := m.getFriendGroupMember(ctx, name)
+		item, exists, err := m.getFriendGroupMember(ctx, id)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
-		friendGroupID, _, err := friendGroupMemberResourceParts(name)
+		friendGroupID, _, err := friendGroupMemberResourceParts(id)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
@@ -367,18 +369,6 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 	if m == nil {
 		return apitypes.Resource{}, applyError(500, "RESOURCE_MANAGER_NOT_CONFIGURED", "resource manager is not configured")
 	}
-	kind, err := resource.Discriminator()
-	if err != nil {
-		return apitypes.Resource{}, applyError(400, "INVALID_RESOURCE", err.Error())
-	}
-	metadata, err := resourceMetadata(resource)
-	if err != nil {
-		return apitypes.Resource{}, err
-	}
-	targetID, err := requireResourceUpdateID(metadata)
-	if err != nil {
-		return apitypes.Resource{}, err
-	}
 	resourceKind, err := resourceKind(resource)
 	if err != nil {
 		return apitypes.Resource{}, err
@@ -386,16 +376,28 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 	if resourceKind == apitypes.ResourceKindResourceList {
 		return apitypes.Resource{}, applyError(400, "UNSUPPORTED_RESOURCE_PUT", "ResourceList is not stored as a concrete resource")
 	}
-	current, err := m.Get(ctx, resourceKind, targetID)
+	metadata, err := resourceMetadata(resource)
 	if err != nil {
 		return apitypes.Resource{}, err
 	}
-	currentMetadata, err := resourceMetadata(current)
+	targetID, err := requireResourceID(metadata)
 	if err != nil {
 		return apitypes.Resource{}, err
 	}
-	if err := validateImmutableResourceName(resourceKind, targetID, currentMetadata.Name, metadata.Name); err != nil {
-		return apitypes.Resource{}, err
+	if _, err := m.Get(ctx, resourceKind, targetID); err != nil {
+		var resourceErr *Error
+		if !errors.As(err, &resourceErr) || resourceErr.StatusCode != 404 {
+			return apitypes.Resource{}, err
+		}
+		if _, err := m.Apply(ctx, resource); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, resourceKind, targetID)
+	}
+	transportID := servicePathID(targetID)
+	kind, err := resource.Discriminator()
+	if err != nil {
+		return apitypes.Resource{}, applyError(400, "INVALID_RESOURCE", err.Error())
 	}
 	switch kind {
 	case string(apitypes.ResourceKindCredential), "CredentialResource":
@@ -406,10 +408,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_CREDENTIAL_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putCredential(ctx, targetID, credentialUpsert(item)); err != nil {
+		if err := m.putCredential(ctx, transportID, credentialUpsert(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindCredential, targetID)
@@ -421,10 +423,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_FIRMWARE_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putFirmware(ctx, targetID, firmwareUpsert(item)); err != nil {
+		if err := m.putFirmware(ctx, transportID, firmwareUpsert(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindFirmware, targetID)
@@ -433,10 +435,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_RUNTIME_PROFILE_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putRuntimeProfile(ctx, targetID, item.Metadata.Name, item.Spec); err != nil {
+		if err := m.putRuntimeProfile(ctx, transportID, item.Spec); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindRuntimeProfile, targetID)
@@ -445,10 +447,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_REGISTRATION_TOKEN_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		return m.putRegistrationToken(ctx, targetID, item)
+		return m.putRegistrationToken(ctx, transportID, item)
 	case string(apitypes.ResourceKindDashScopeTenant), "DashScopeTenantResource":
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
@@ -457,10 +459,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_DASHSCOPE_TENANT_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putDashScopeTenant(ctx, targetID, dashScopeTenantUpsert(item)); err != nil {
+		if err := m.putDashScopeTenant(ctx, transportID, dashScopeTenantUpsert(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindDashScopeTenant, targetID)
@@ -472,10 +474,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_DEEPSEEK_TENANT_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putDeepSeekTenant(ctx, targetID, deepSeekTenantUpsert(item)); err != nil {
+		if err := m.putDeepSeekTenant(ctx, transportID, deepSeekTenantUpsert(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindDeepSeekTenant, targetID)
@@ -487,10 +489,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_MINIMAX_TENANT_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putMiniMaxTenant(ctx, targetID, miniMaxTenantUpsert(item)); err != nil {
+		if err := m.putMiniMaxTenant(ctx, transportID, miniMaxTenantUpsert(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindMiniMaxTenant, targetID)
@@ -502,10 +504,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_GEMINI_TENANT_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putGeminiTenant(ctx, targetID, geminiTenantUpsert(item)); err != nil {
+		if err := m.putGeminiTenant(ctx, transportID, geminiTenantUpsert(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindGeminiTenant, targetID)
@@ -517,10 +519,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_OPENAI_TENANT_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putOpenAITenant(ctx, targetID, openAITenantUpsert(item)); err != nil {
+		if err := m.putOpenAITenant(ctx, transportID, openAITenantUpsert(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindOpenAITenant, targetID)
@@ -532,10 +534,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_MODEL_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putModel(ctx, targetID, modelUpsert(item)); err != nil {
+		if err := m.putModel(ctx, transportID, modelUpsert(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindModel, targetID)
@@ -547,7 +549,7 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_TOOL_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.putToolResource(ctx, targetID, item)
@@ -556,10 +558,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_PET_DEF_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putPetDef(ctx, targetID, petDefUpsert(item)); err != nil {
+		if err := m.putPetDef(ctx, transportID, petDefUpsert(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindPetDef, targetID)
@@ -568,10 +570,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_BADGE_DEF_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putBadgeDef(ctx, targetID, badgeDefUpsert(item)); err != nil {
+		if err := m.putBadgeDef(ctx, transportID, badgeDefUpsert(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindBadgeDef, targetID)
@@ -580,10 +582,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_GAME_DEF_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putGameDef(ctx, targetID, gameDefUpsert(item)); err != nil {
+		if err := m.putGameDef(ctx, transportID, gameDefUpsert(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindGameDef, targetID)
@@ -595,30 +597,15 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_VOLC_TENANT_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putVolcTenant(ctx, targetID, volcTenantUpsert(item)); err != nil {
+		if err := m.putVolcTenant(ctx, transportID, volcTenantUpsert(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindVolcTenant, targetID)
 	case string(apitypes.ResourceKindResourceList), "ResourceListResource":
-		list, err := resource.AsResourceListResource()
-		if err != nil {
-			return apitypes.Resource{}, applyError(400, "INVALID_RESOURCE_LIST", err.Error())
-		}
-		if err := validateResourceHeader(list.ApiVersion, list.Metadata.Name); err != nil {
-			return apitypes.Resource{}, err
-		}
-		items := make([]apitypes.Resource, 0, len(list.Spec.Items))
-		for _, item := range list.Spec.Items {
-			stored, err := m.Put(ctx, item)
-			if err != nil {
-				return apitypes.Resource{}, err
-			}
-			items = append(items, stored)
-		}
-		return resourceFromResourceList(list.Metadata.Name, items)
+		return apitypes.Resource{}, applyError(400, "UNSUPPORTED_RESOURCE_PUT", "ResourceList is not stored as a concrete resource")
 	case string(apitypes.ResourceKindVoice), "VoiceResource":
 		if m.services.Voices == nil {
 			return apitypes.Resource{}, missingService("voices")
@@ -627,10 +614,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_VOICE_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putVoice(ctx, targetID, voiceUpsert(item)); err != nil {
+		if err := m.putVoice(ctx, transportID, voiceUpsert(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindVoice, targetID)
@@ -642,10 +629,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_WORKSPACE_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putWorkspace(ctx, targetID, workspaceUpsert(item)); err != nil {
+		if err := m.putWorkspace(ctx, transportID, workspaceUpsert(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindWorkspace, targetID)
@@ -657,10 +644,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_WORKFLOW_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putWorkflow(ctx, targetID, workflowFromResource(item)); err != nil {
+		if err := m.putWorkflow(ctx, transportID, workflowFromResource(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindWorkflow, targetID)
@@ -672,10 +659,10 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil {
 			return apitypes.Resource{}, applyError(400, "INVALID_MEMORY_LAYOUT_RESOURCE", err.Error())
 		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putMemoryLayout(ctx, targetID, memoryLayoutFromResource(item)); err != nil {
+		if err := m.putMemoryLayout(ctx, transportID, memoryLayoutFromResource(item)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindMemoryLayout, targetID)
@@ -702,7 +689,17 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateContactResource(item); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if _, err := m.services.Contacts.AdminPutContactByID(ctx, targetID, adminhttp.AdminContactPutRequest{DisplayName: item.Spec.DisplayName, PhoneNumber: item.Spec.PhoneNumber}); err != nil {
+		existing, exists, err := m.getContact(ctx, targetID)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(apitypes.ResourceKindContact, targetID)
+		}
+		if existing.Name != item.Spec.Name || existing.OwnerPublicKey != item.Spec.OwnerPublicKey {
+			return apitypes.Resource{}, applyError(409, "IMMUTABLE_CONTACT_IDENTITY", "Contact name and owner are immutable")
+		}
+		if _, err := m.services.Contacts.AdminPutContactByID(ctx, targetID, adminhttp.AdminContactPutRequest{Id: targetID, DisplayName: item.Spec.DisplayName, PhoneNumber: item.Spec.PhoneNumber}); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindContact, targetID)
@@ -717,7 +714,17 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateFriendGroupResource(item); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if _, err := m.services.FriendGroups.AdminPutFriendGroup(ctx, targetID, nil, item.Spec.Description); err != nil {
+		existing, exists, err := m.getFriendGroup(ctx, targetID)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(apitypes.ResourceKindFriendGroup, targetID)
+		}
+		if existing.Name != item.Spec.Name || socialutil.StringValue(existing.CreatedByPeerPublicKey) != item.Spec.OwnerPublicKey {
+			return apitypes.Resource{}, applyError(409, "IMMUTABLE_FRIEND_GROUP_IDENTITY", "FriendGroup name and owner are immutable")
+		}
+		if _, err := m.services.FriendGroups.AdminPutFriendGroup(ctx, targetID, item.Spec.DisplayName, item.Spec.Description); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindFriendGroup, targetID)
@@ -754,7 +761,17 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err != nil || friendGroupID != item.Spec.FriendGroupId || peerID != item.Spec.PeerPublicKey {
 			return apitypes.Resource{}, applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", "metadata.id must match spec friend group and peer")
 		}
-		if _, err := m.services.FriendGroups.AdminPutFriendGroupMember(ctx, friendGroupID, peerID, "", rpcapi.FriendGroupMemberRole(item.Spec.Role)); err != nil {
+		existing, exists, err := m.getFriendGroupMember(ctx, targetID)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(apitypes.ResourceKindFriendGroupMember, targetID)
+		}
+		if socialutil.StringValue(existing.FriendGroupName) != item.Spec.Name {
+			return apitypes.Resource{}, applyError(409, "IMMUTABLE_FRIEND_GROUP_MEMBER_NAME", "FriendGroupMember name is immutable")
+		}
+		if _, err := m.services.FriendGroups.AdminPutFriendGroupMember(ctx, friendGroupID, peerID, item.Spec.Name, rpcapi.FriendGroupMemberRole(item.Spec.Role)); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindFriendGroupMember, targetID)
@@ -764,225 +781,225 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 }
 
 // Delete removes a concrete resource by canonical ID and returns the deleted resource state.
-func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, id string) (apitypes.Resource, error) {
 	if m == nil {
 		return apitypes.Resource{}, applyError(500, "RESOURCE_MANAGER_NOT_CONFIGURED", "resource manager is not configured")
 	}
-	if name == "" {
-		return apitypes.Resource{}, applyError(400, "INVALID_RESOURCE", "resource id is required")
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.Resource{}, applyError(400, "INVALID_RESOURCE_ID", err.Error())
 	}
 	switch kind {
 	case apitypes.ResourceKindCredential:
 		if m.services.Credentials == nil {
 			return apitypes.Resource{}, missingService("credentials")
 		}
-		item, exists, err := m.deleteCredential(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteCredential(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromCredential(item)
 	case apitypes.ResourceKindFirmware:
 		if m.services.Firmwares == nil {
 			return apitypes.Resource{}, missingService("firmwares")
 		}
-		item, exists, err := m.deleteFirmware(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteFirmware(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromFirmware(item)
 	case apitypes.ResourceKindRuntimeProfile:
-		item, exists, err := m.deleteRuntimeProfile(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteRuntimeProfile(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromRuntimeProfile(item)
 	case apitypes.ResourceKindRegistrationToken:
-		item, exists, err := m.deleteRegistrationToken(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteRegistrationToken(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromRegistrationToken(item)
 	case apitypes.ResourceKindModel:
 		if m.services.Models == nil {
 			return apitypes.Resource{}, missingService("models")
 		}
-		item, exists, err := m.deleteModel(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteModel(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromModel(item)
 	case apitypes.ResourceKindTool:
 		if m.services.Tools == nil {
 			return apitypes.Resource{}, missingService("tools")
 		}
-		item, exists, err := m.deleteTool(ctx, name)
+		item, exists, err := m.deleteTool(ctx, id)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromTool(item)
 	case apitypes.ResourceKindPetDef:
-		item, exists, err := m.deletePetDef(ctx, string(pathParam(name)))
+		item, exists, err := m.deletePetDef(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromPetDef(item)
 	case apitypes.ResourceKindBadgeDef:
-		item, exists, err := m.deleteBadgeDef(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteBadgeDef(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromBadgeDef(item)
 	case apitypes.ResourceKindGameDef:
-		item, exists, err := m.deleteGameDef(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteGameDef(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromGameDef(item)
 	case apitypes.ResourceKindDashScopeTenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
 		}
-		item, exists, err := m.deleteDashScopeTenant(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteDashScopeTenant(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromDashScopeTenant(item)
 	case apitypes.ResourceKindDeepSeekTenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
 		}
-		item, exists, err := m.deleteDeepSeekTenant(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteDeepSeekTenant(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromDeepSeekTenant(item)
 	case apitypes.ResourceKindMiniMaxTenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
 		}
-		item, exists, err := m.deleteMiniMaxTenant(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteMiniMaxTenant(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromMiniMaxTenant(item)
 	case apitypes.ResourceKindGeminiTenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
 		}
-		item, exists, err := m.deleteGeminiTenant(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteGeminiTenant(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromGeminiTenant(item)
 	case apitypes.ResourceKindOpenAITenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
 		}
-		item, exists, err := m.deleteOpenAITenant(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteOpenAITenant(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromOpenAITenant(item)
 	case apitypes.ResourceKindVolcTenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
 		}
-		item, exists, err := m.deleteVolcTenant(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteVolcTenant(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromVolcTenant(item)
 	case apitypes.ResourceKindVoice:
 		if m.services.Voices == nil {
 			return apitypes.Resource{}, missingService("voices")
 		}
-		item, exists, err := m.deleteVoice(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteVoice(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromVoice(item)
 	case apitypes.ResourceKindWorkspace:
 		if m.services.Workspaces == nil {
 			return apitypes.Resource{}, missingService("workspaces")
 		}
-		item, exists, err := m.deleteWorkspace(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteWorkspace(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromWorkspace(item)
 	case apitypes.ResourceKindWorkflow:
 		if m.services.Workflows == nil {
 			return apitypes.Resource{}, missingService("workflows")
 		}
-		item, exists, err := m.deleteWorkflow(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteWorkflow(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
-		return resourceFromWorkflow(name, item)
+		return resourceFromWorkflow(id, item)
 	case apitypes.ResourceKindMemoryLayout:
 		if m.services.MemoryLayouts == nil {
 			return apitypes.Resource{}, missingService("memory layouts")
 		}
-		item, exists, err := m.deleteMemoryLayout(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteMemoryLayout(ctx, string(servicePathID(id)))
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromMemoryLayout(item)
 	case apitypes.ResourceKindResourceList:
@@ -991,13 +1008,13 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 		if m.services.Friends == nil {
 			return apitypes.Resource{}, missingService("friends")
 		}
-		owner, _, err := friendResourcePeers(name)
+		owner, _, err := friendResourcePeers(id)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
-		item, err := m.services.Friends.AdminDeleteFriend(ctx, owner, name)
+		item, err := m.services.Friends.AdminDeleteFriend(ctx, owner, id)
 		if errors.Is(err, kv.ErrNotFound) {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		if err != nil {
 			return apitypes.Resource{}, err
@@ -1007,9 +1024,9 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 		if m.services.Contacts == nil {
 			return apitypes.Resource{}, missingService("contacts")
 		}
-		item, err := m.services.Contacts.AdminDeleteContactByID(ctx, name)
+		item, err := m.services.Contacts.AdminDeleteContactByID(ctx, id)
 		if errors.Is(err, kv.ErrNotFound) {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		if err != nil {
 			return apitypes.Resource{}, err
@@ -1019,40 +1036,40 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 		if m.services.FriendGroups == nil {
 			return apitypes.Resource{}, missingService("friend groups")
 		}
-		item, err := m.services.FriendGroups.AdminDeleteFriendGroup(ctx, name)
+		item, err := m.services.FriendGroups.AdminDeleteFriendGroup(ctx, id)
 		if errors.Is(err, kv.ErrNotFound) {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
-		return resourceFromFriendGroup(name, item)
+		return resourceFromFriendGroup(id, item)
 	case apitypes.ResourceKindFriendGroupInviteToken:
 		if m.services.FriendGroups == nil {
 			return apitypes.Resource{}, missingService("friend groups")
 		}
-		item, exists, err := m.getFriendGroupInviteToken(ctx, name)
+		item, exists, err := m.getFriendGroupInviteToken(ctx, id)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
-		if _, err := m.services.FriendGroups.AdminDeleteFriendGroupInviteToken(ctx, name); err != nil {
+		if _, err := m.services.FriendGroups.AdminDeleteFriendGroupInviteToken(ctx, id); err != nil {
 			return apitypes.Resource{}, err
 		}
-		return resourceFromFriendGroupInviteToken(name, item)
+		return resourceFromFriendGroupInviteToken(id, item)
 	case apitypes.ResourceKindFriendGroupMember:
 		if m.services.FriendGroups == nil {
 			return apitypes.Resource{}, missingService("friend groups")
 		}
-		friendGroupID, peerID, err := friendGroupMemberResourceParts(name)
+		friendGroupID, peerID, err := friendGroupMemberResourceParts(id)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
 		item, err := m.services.FriendGroups.AdminDeleteFriendGroupMember(ctx, friendGroupID, peerID)
 		if errors.Is(err, kv.ErrNotFound) {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, notFound(kind, id)
 		}
 		if err != nil {
 			return apitypes.Resource{}, err

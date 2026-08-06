@@ -2,7 +2,9 @@ package contact
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -120,6 +122,7 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 	s := newTestServer()
 
 	first, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
+		Id:             "id-a",
 		OwnerPublicKey: "peer-a",
 		Name:           "alice001",
 		DisplayName:    strPtr("Alice"),
@@ -135,21 +138,47 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 		t.Fatalf("created timestamps = created:%v updated:%v", first.CreatedAt, first.UpdatedAt)
 	}
 	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
+		Id:             " padded-id ",
+		OwnerPublicKey: "peer-a",
+		Name:           "padded-id",
+		DisplayName:    strPtr("Padded ID"),
+	}); err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("AdminCreateContact(padded id) error = %v, want exact ID rejection", err)
+	}
+	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
+		Id:             "id-duplicate-name",
 		OwnerPublicKey: "peer-a",
 		Name:           "alice001",
 		DisplayName:    strPtr("Alice Again"),
-	}); err == nil {
-		t.Fatal("AdminCreateContact duplicate name error = nil")
+	}); !errors.Is(err, socialutil.ErrResourceAlreadyExists) {
+		t.Fatalf("AdminCreateContact duplicate name error = %v, want conflict", err)
 	}
 	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
+		Id:             "id-duplicate-phone",
 		OwnerPublicKey: "peer-a",
 		Name:           "alice-phone",
 		PhoneNumber:    strPtr("+1 (555) 0100"),
-	}); err == nil {
-		t.Fatal("AdminCreateContact duplicate phone error = nil")
+	}); !errors.Is(err, socialutil.ErrResourceAlreadyExists) {
+		t.Fatalf("AdminCreateContact duplicate phone error = %v, want conflict", err)
+	}
+	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
+		Id:             "id-a",
+		OwnerPublicKey: "peer-b",
+		Name:           "other-alice",
+		DisplayName:    strPtr("Other Alice"),
+	}); !errors.Is(err, socialutil.ErrResourceAlreadyExists) {
+		t.Fatalf("AdminCreateContact duplicate global id error = %v, want conflict", err)
+	}
+	byID, err := s.AdminGetContactByID(ctx, "id-a")
+	if err != nil {
+		t.Fatalf("AdminGetContactByID after duplicate global id: %v", err)
+	}
+	if byID.OwnerPublicKey != "peer-a" || byID.Name != "alice001" {
+		t.Fatalf("contact after duplicate global id = %+v, want original peer-a/alice001", byID)
 	}
 
 	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
+		Id:             "id-b",
 		OwnerPublicKey: "peer-a",
 		Name:           "bob00001",
 		DisplayName:    strPtr("Bob"),
@@ -157,6 +186,7 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 		t.Fatalf("AdminCreateContact bob00001: %v", err)
 	}
 	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
+		Id:             "id-c",
 		OwnerPublicKey: "peer-b",
 		Name:           "carol001",
 		DisplayName:    strPtr("Carol"),
@@ -194,6 +224,7 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 	}
 
 	updated, err := s.AdminPutContact(ctx, "peer-a", first.Id, adminhttp.AdminContactPutRequest{
+		Id:          first.Id,
 		DisplayName: strPtr("Alice Zhang"),
 		PhoneNumber: strPtr("+1 555 0101"),
 	})
@@ -210,6 +241,15 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 	if got.Id != first.Id || got.Name != "alice001" || got.OwnerPublicKey != "peer-a" {
 		t.Fatalf("got contact = %+v", got)
 	}
+	if _, err := s.AdminGetContact(ctx, "peer-a", " "+first.Id+" "); err == nil {
+		t.Fatal("AdminGetContact padded id error = nil")
+	}
+	if _, err := s.AdminPutContact(ctx, "peer-a", " "+first.Id+" ", adminhttp.AdminContactPutRequest{Id: first.Id}); err == nil {
+		t.Fatal("AdminPutContact padded id error = nil")
+	}
+	if _, err := s.AdminDeleteContact(ctx, "peer-a", " "+first.Id+" "); err == nil {
+		t.Fatal("AdminDeleteContact padded id error = nil")
+	}
 	deleted, err := s.AdminDeleteContact(ctx, "peer-a", first.Id)
 	if err != nil {
 		t.Fatalf("AdminDeleteContact: %v", err)
@@ -222,52 +262,25 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 	}
 }
 
-func TestAdminApplyContactCreatesWithoutIDAndUpdatesWithMatchingIDName(t *testing.T) {
-	ctx := context.Background()
-	s := newTestServer()
-
-	created, err := s.AdminApplyContact(ctx, "peer-a", "", "alice001", strPtr("Alice"), strPtr("+1 555 0100"))
-	if err != nil {
-		t.Fatalf("AdminApplyContact create: %v", err)
-	}
-	if created.CreatedAt == nil {
-		t.Fatal("created CreatedAt = nil")
-	}
-	createdAt := *created.CreatedAt
-
-	s.Now = func() time.Time { return createdAt.Add(time.Hour) }
-	updated, err := s.AdminApplyContact(ctx, "peer-a", created.Id, created.Name, strPtr("Alice Zhang"), strPtr("+1 555 0101"))
-	if err != nil {
-		t.Fatalf("AdminApplyContact update: %v", err)
-	}
-	if updated.CreatedAt == nil || !updated.CreatedAt.Equal(createdAt) {
-		t.Fatalf("updated CreatedAt = %v, want %v", updated.CreatedAt, createdAt)
-	}
-	if updated.UpdatedAt == nil || !updated.UpdatedAt.After(createdAt) {
-		t.Fatalf("updated UpdatedAt = %v, want after %v", updated.UpdatedAt, createdAt)
-	}
-
-	if _, err := s.AdminApplyContact(ctx, "peer-a", "", "bob00001", strPtr("Bob"), strPtr("+1 (555) 0101")); err == nil {
-		t.Fatal("AdminApplyContact duplicate phone error = nil")
-	}
-	if _, err := s.AdminApplyContact(ctx, "peer-a", created.Id, "other001", strPtr("Alice"), nil); err == nil {
-		t.Fatal("AdminApplyContact accepted mismatched immutable name")
-	}
-}
-
 func TestAdminContactAcceptsShortNameAndRejectsPaddedName(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
 
 	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
+		Id:             "contact-alice",
 		OwnerPublicKey: "peer-a",
 		Name:           "alice",
 		DisplayName:    strPtr("Alice"),
 	}); err != nil {
 		t.Fatalf("AdminCreateContact short Peer name: %v", err)
 	}
-	if _, err := s.AdminApplyContact(ctx, "peer-a", "", " alice001 ", strPtr("Alice"), nil); err == nil {
-		t.Fatal("AdminApplyContact accepted padded name")
+	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
+		Id:             "contact-padded",
+		OwnerPublicKey: "peer-a",
+		Name:           " alice001 ",
+		DisplayName:    strPtr("Alice"),
+	}); err == nil {
+		t.Fatal("AdminCreateContact accepted padded name")
 	}
 }
 

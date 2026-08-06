@@ -40,6 +40,16 @@
 - apply/show 需要保留的 metadata；
 - 与其他 resource 的显式引用。
 
+### Identity 与引用
+
+所有具体 Resource 共享严格的 `ResourceMetadata`，其中 caller-supplied `id` 必填且不可变；通用 metadata 不包含 `name`。同一个 kind 内 ID 唯一，不同 kind 由 discriminator 和各自存储共同区分，因此完整 locator 是 `(kind, id)`。Server 不分配 Admin Resource ID，也不维护 generic name index。
+
+Resource spec 中引用另一个 Admin Resource 的字段必须直接保存目标 ID，例如 `credential_id`、`runtime_profile_id`、`firmware_id` 和 RuntimeProfile binding 的 `resource_id`。Scoped alias 或 typed name 只有在 owner contract 明确定义时才可出现，不能作为 canonical ID 的 fallback。
+
+`ResourceList` 不代表可持久化对象，所以没有 metadata；它的 `spec.items` 是按依赖顺序 apply 的具体 Resource 列表。
+
+`Credential.spec.body` 是 write-only 字段。Apply 与 put 接受它，get、delete 和其他 Resource 读取响应不返回它。用不含 body 的读取结果重新 apply 时，Server 保留已有 credential，不会清空 secret，也不会误报 update。
+
 ### 核心数据与 Display
 
 Resource 的数据首先按语义分为两类：

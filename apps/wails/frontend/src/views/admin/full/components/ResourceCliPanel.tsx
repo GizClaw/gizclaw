@@ -105,11 +105,11 @@ function resourceEditHref(resource: Resource | null): string | null {
   if (kind === null || typeof metadata !== "object" || metadata === null) {
     return null;
   }
-  const name = (metadata as Record<string, unknown>).name;
-  if (typeof name !== "string" || name.trim() === "") {
+  const id = (metadata as Record<string, unknown>).id;
+  if (typeof id !== "string" || id.trim() === "") {
     return null;
   }
-  return `/resources?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}`;
+  return `/resources?kind=${encodeURIComponent(kind)}&id=${encodeURIComponent(id)}`;
 }
 
 function normalizeResourceKind(value: unknown): string | null {

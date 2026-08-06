@@ -30,7 +30,7 @@ func TestDriveFactTargetUsesOpaqueBindingIdentity(t *testing.T) {
 			Driver:   apitypes.RuntimeProfileMemoryDriverMem0,
 			LayoutId: "layout", Connection: connection,
 		},
-		MemoryLayout: &apitypes.MemoryLayout{Id: "layout", Name: "layout-name"},
+		MemoryLayout: &apitypes.MemoryLayout{Id: "layout"},
 	}
 	target, err := driveFactTarget(spec)
 	if err != nil {

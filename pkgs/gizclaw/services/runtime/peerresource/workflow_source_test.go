@@ -72,7 +72,7 @@ func TestAliasGetsHideDanglingCanonicalResourceIDs(t *testing.T) {
 		"narrator": collectionTestBinding("volc-tenant:main:canonical-secret", "Narrator"),
 	}
 	profile := apitypes.RuntimeProfile{
-		Name: "default", Revision: "r1",
+		Id: "default", Revision: "r1",
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices},
 			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
@@ -117,7 +117,7 @@ func TestListModelsProjectsRuntimeAliases(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	models := &model.Server{Store: store}
 	canonical := adminhttp.ModelUpsert{
-		Name: "tenant-model-canonical", Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceManual,
+		Id: "tenant-model-canonical", Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceManual,
 		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Id: "primary"},
 	}
 	var providerData apitypes.ModelProviderData
@@ -193,7 +193,7 @@ func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	voices := &voice.Server{Store: store}
 	canonical := adminhttp.VoiceUpsert{
-		Name: "openai-tenant:primary:canonical-voice", Source: apitypes.VoiceSourceManual,
+		Id: "openai-tenant:primary:canonical-voice", Source: apitypes.VoiceSourceManual,
 		Provider: apitypes.VoiceProvider{Kind: apitypes.VoiceProviderKindOpenaiTenant, Id: "primary"},
 	}
 	response, err := voices.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &canonical})
@@ -298,9 +298,6 @@ func assertAliasNotFound(t *testing.T, response *rpcapi.RPCResponse, message, ca
 
 func createWorkflowForCollectionTest(t *testing.T, ctx context.Context, server *workflow.Server, name string) {
 	t.Helper()
-	previousNewID := server.NewID
-	server.NewID = func() string { return name }
-	defer func() { server.NewID = previousNewID }()
 	var flowcraftSpec apitypes.FlowcraftWorkflowSpec
 	if err := json.Unmarshal([]byte(`{
 		"graph": {
@@ -323,7 +320,7 @@ func createWorkflowForCollectionTest(t *testing.T, ctx context.Context, server *
 			},
 		}
 	}
-	document := adminhttp.WorkflowUpsert{Name: name, Spec: spec}
+	document := adminhttp.WorkflowUpsert{Id: name, Spec: spec}
 	response, err := server.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &document})
 	if err != nil {
 		t.Fatalf("CreateWorkflow(%q) error = %v", name, err)

@@ -86,6 +86,7 @@ export function ContactDetailPage(): JSX.Element {
       const next = await expectData(
         putContact({
           body: {
+            id: contactID,
             display_name: displayName.trim(),
             phone_number: phoneNumber.trim(),
           },

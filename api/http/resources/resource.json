@@ -49,17 +49,16 @@
       "ResourceMetadata": {
         "type": "object",
         "required": [
-          "name"
+          "id"
         ],
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
-            "description": "Immutable opaque canonical ID allocated by the Server. Omit on create; include the returned ID for update.",
-            "minLength": 1
-          },
-          "name": {
-            "type": "string",
-            "description": "Immutable resource name. Kind-specific rules apply. Names use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-]."
+	        "description": "Immutable opaque canonical ID supplied by the caller and persisted exactly as submitted, with a maximum length of 1024 Unicode characters. Leading or trailing whitespace and the standalone URI dot segments . and .. are invalid.",
+	        "minLength": 1,
+	        "maxLength": 1024,
+	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "annotations": {
             "type": "object",
@@ -188,6 +187,112 @@
           }
         }
       },
+      "ConcreteResource": {
+        "description": "A concrete resource carrying metadata.id. ResourceList is excluded.",
+        "oneOf": [
+          {
+            "$ref": "./credential.json#/components/schemas/CredentialResource"
+          },
+          {
+            "$ref": "./firmware.json#/components/schemas/FirmwareResource"
+          },
+          {
+            "$ref": "./contact.json#/components/schemas/ContactResource"
+          },
+          {
+            "$ref": "./friend.json#/components/schemas/FriendResource"
+          },
+          {
+            "$ref": "./friend_group.json#/components/schemas/FriendGroupResource"
+          },
+          {
+            "$ref": "./friend_group_invite_token.json#/components/schemas/FriendGroupInviteTokenResource"
+          },
+          {
+            "$ref": "./friend_group_member.json#/components/schemas/FriendGroupMemberResource"
+          },
+          {
+            "$ref": "./model.json#/components/schemas/ModelResource"
+          },
+          {
+            "$ref": "./dashscope_tenant.json#/components/schemas/DashScopeTenantResource"
+          },
+          {
+            "$ref": "./deepseek_tenant.json#/components/schemas/DeepSeekTenantResource"
+          },
+          {
+            "$ref": "./gemini_tenant.json#/components/schemas/GeminiTenantResource"
+          },
+          {
+            "$ref": "./minimax_tenant.json#/components/schemas/MiniMaxTenantResource"
+          },
+          {
+            "$ref": "./openai_tenant.json#/components/schemas/OpenAITenantResource"
+          },
+          {
+            "$ref": "./volc_tenant.json#/components/schemas/VolcTenantResource"
+          },
+          {
+            "$ref": "./voice.json#/components/schemas/VoiceResource"
+          },
+          {
+            "$ref": "./tool.json#/components/schemas/ToolResource"
+          },
+          {
+            "$ref": "./workflow.json#/components/schemas/WorkflowResource"
+          },
+          {
+            "$ref": "./workspace.json#/components/schemas/WorkspaceResource"
+          },
+          {
+            "$ref": "./pet_def.json#/components/schemas/PetDefResource"
+          },
+          {
+            "$ref": "./badge_def.json#/components/schemas/BadgeDefResource"
+          },
+          {
+            "$ref": "./game_def.json#/components/schemas/GameDefResource"
+          },
+          {
+            "$ref": "./memory_layout.json#/components/schemas/MemoryLayoutResource"
+          },
+          {
+            "$ref": "./runtime_profile.json#/components/schemas/RuntimeProfileResource"
+          },
+          {
+            "$ref": "./registration_token.json#/components/schemas/RegistrationTokenResource"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "Credential": "./credential.json#/components/schemas/CredentialResource",
+            "Firmware": "./firmware.json#/components/schemas/FirmwareResource",
+            "Contact": "./contact.json#/components/schemas/ContactResource",
+            "Friend": "./friend.json#/components/schemas/FriendResource",
+            "FriendGroup": "./friend_group.json#/components/schemas/FriendGroupResource",
+            "FriendGroupInviteToken": "./friend_group_invite_token.json#/components/schemas/FriendGroupInviteTokenResource",
+            "FriendGroupMember": "./friend_group_member.json#/components/schemas/FriendGroupMemberResource",
+            "DashScopeTenant": "./dashscope_tenant.json#/components/schemas/DashScopeTenantResource",
+            "DeepSeekTenant": "./deepseek_tenant.json#/components/schemas/DeepSeekTenantResource",
+            "GeminiTenant": "./gemini_tenant.json#/components/schemas/GeminiTenantResource",
+            "Model": "./model.json#/components/schemas/ModelResource",
+            "MiniMaxTenant": "./minimax_tenant.json#/components/schemas/MiniMaxTenantResource",
+            "OpenAITenant": "./openai_tenant.json#/components/schemas/OpenAITenantResource",
+            "VolcTenant": "./volc_tenant.json#/components/schemas/VolcTenantResource",
+            "Voice": "./voice.json#/components/schemas/VoiceResource",
+            "Tool": "./tool.json#/components/schemas/ToolResource",
+            "Workflow": "./workflow.json#/components/schemas/WorkflowResource",
+            "Workspace": "./workspace.json#/components/schemas/WorkspaceResource",
+            "PetDef": "./pet_def.json#/components/schemas/PetDefResource",
+            "BadgeDef": "./badge_def.json#/components/schemas/BadgeDefResource",
+            "GameDef": "./game_def.json#/components/schemas/GameDefResource",
+            "MemoryLayout": "./memory_layout.json#/components/schemas/MemoryLayoutResource",
+            "RuntimeProfile": "./runtime_profile.json#/components/schemas/RuntimeProfileResource",
+            "RegistrationToken": "./registration_token.json#/components/schemas/RegistrationTokenResource"
+          }
+        }
+      },
       "ApplyAction": {
         "type": "string",
         "description": "Result of applying the resource.",
@@ -203,7 +308,6 @@
         "required": [
           "apiVersion",
           "kind",
-          "name",
           "action"
         ],
         "properties": {
@@ -213,12 +317,10 @@
           "kind": {
             "$ref": "#/components/schemas/ResourceKind"
           },
-          "name": {
-            "type": "string"
-          },
           "id": {
             "type": "string",
-            "description": "Canonical Server ID for the concrete resource. Omitted only for virtual ResourceList results."
+            "minLength": 1,
+            "description": "Caller-supplied canonical ID. Required for every concrete resource and omitted only for the virtual ResourceList result."
           },
           "action": {
             "$ref": "#/components/schemas/ApplyAction"

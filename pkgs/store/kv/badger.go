@@ -272,29 +272,40 @@ func (b *Badger) BatchMutate(ctx context.Context, entries []Entry, keys []Key) e
 }
 
 func (b *Badger) CreateIfAbsent(ctx context.Context, guard Entry, entries []Entry) ([]byte, bool, error) {
+	_, existing, created, err := b.CreateIfAllAbsent(ctx, []Entry{guard}, entries)
+	return existing, created, err
+}
+
+func (b *Badger) CreateIfAllAbsent(ctx context.Context, guards []Entry, entries []Entry) (Key, []byte, bool, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
-	guardKey := b.opts.encode(guard.Key)
+	if len(guards) == 0 {
+		return nil, nil, false, errors.New("kv: create-if-all-absent requires at least one guard")
+	}
 	for {
+		var conflict Key
 		var existing []byte
 		created := false
 		err := b.db.Update(func(txn *badger.Txn) error {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			item, err := txn.Get(guardKey)
-			if err == nil {
-				existing, err = item.ValueCopy(nil)
-				return err
-			}
-			if !errors.Is(err, badger.ErrKeyNotFound) {
-				return err
+			for _, guard := range guards {
+				item, err := txn.Get(b.opts.encode(guard.Key))
+				if err == nil {
+					conflict = cloneKey(guard.Key)
+					existing, err = item.ValueCopy(nil)
+					return err
+				}
+				if !errors.Is(err, badger.ErrKeyNotFound) {
+					return err
+				}
 			}
 			now := time.Now()
-			all := make([]Entry, 0, len(entries)+1)
+			all := make([]Entry, 0, len(entries)+len(guards))
 			all = append(all, entries...)
-			all = append(all, guard)
+			all = append(all, guards...)
 			for _, entry := range all {
 				item := badger.NewEntry(b.opts.encode(entry.Key), entry.Value)
 				if !entry.Deadline.IsZero() {
@@ -314,7 +325,7 @@ func (b *Badger) CreateIfAbsent(ctx context.Context, guard Entry, entries []Entr
 		if errors.Is(err, badger.ErrConflict) && ctx.Err() == nil {
 			continue
 		}
-		return existing, created, err
+		return conflict, existing, created, err
 	}
 }
 

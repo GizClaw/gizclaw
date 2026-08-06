@@ -8,10 +8,10 @@ import (
 	"image/png"
 	"io"
 	"io/fs"
-	"net/url"
 	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
@@ -44,7 +44,7 @@ func ParseFormat(value string) (Format, error) {
 }
 
 func ObjectName(identity string, format Format) string {
-	return url.PathEscape(identity) + "/icon." + string(format)
+	return customid.OpaquePathSegment(identity) + "/icon." + string(format)
 }
 
 func GameDefObjectName(identity string, format Format) string {

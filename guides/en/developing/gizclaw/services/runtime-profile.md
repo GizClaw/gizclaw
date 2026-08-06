@@ -8,7 +8,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: RuntimeProfile
 metadata:
-  name: default
+  id: default
 spec:
   workflows:
     system:
@@ -151,11 +151,11 @@ field also grants no conversation rewards. The policy freezes when each
 debounced window opens, so later RuntimeProfile or BadgeDef updates affect only
 new windows. It does not register an Admin Tool, built-in Tool, or Toolkit.
 
-The normalized spec has an opaque deterministic revision. Catalog list/get responses include the RuntimeProfile name and revision. Pagination cursors are revision-bound. Each list, get, Workspace reload, and standalone Speech call obtains one current profile snapshot; a concurrent update affects the next operation.
+The normalized spec has an opaque deterministic revision. Catalog list/get responses include the RuntimeProfile ID and revision. Pagination cursors are revision-bound. Each list, get, Workspace reload, and standalone Speech call obtains one current profile snapshot; a concurrent update affects the next operation.
 
 ## RegistrationToken
 
-A `RegistrationToken` is an ordinary Admin-managed binding resource. Its required `spec.token` value selects one required RuntimeProfile name and, optionally, one Firmware release-line ID. Admin create, put, get, list, delete, apply, and show all use the same readable state. The Server persists that complete state and maintains a SHA-256 lookup index; changing the token atomically replaces the index, and identical apply input is unchanged.
+A `RegistrationToken` is an ordinary Admin-managed binding resource with caller-supplied `metadata.id`. Its required `spec.token` uses `runtime_profile_id` to select one canonical RuntimeProfile ID and may independently use `firmware_id` to bind one Firmware release-line ID. Admin create, put, get, list, delete, apply, and show all use the same readable state. The Server persists that complete state and maintains a SHA-256 lookup index; changing the token atomically replaces the index, and applying the same ID and configuration is unchanged.
 
 RuntimeProfile and RegistrationToken have independent deployment ownership. Raids provides reusable
 base resources plus the public `RuntimeProfile/default` and
@@ -164,7 +164,7 @@ deterministic UUID is a public enrollment identifier, not an Admin credential. P
 other deployments still own their RegistrationTokens and may independently install default or
 product-specific profiles and bind explicit tokens to either.
 
-`server.register` associates the connection with the RuntimeProfile and persists canonical RuntimeProfile and optional Firmware IDs internally. Its Peer response returns only their scoped names. Owner-bound Workspaces resolve the current revision from the persisted canonical RuntimeProfile ID even while the owner is offline; a later successful registration replaces the owner's selection. Neither RegistrationToken nor Peer stores a Firmware channel: stable, beta, develop, or pending selection remains device-owned. Updating or switching the profile changes the environment used by later operations; it does not rewrite Workspace context or persisted internal bindings.
+`server.register` associates the connection with the RuntimeProfile and persists canonical RuntimeProfile and optional Firmware IDs internally. The existing `runtime_profile_name` wire field carries the canonical RuntimeProfile ID because RuntimeProfile has no separate Peer name. The `firmware_name` wire field instead reports the bound Firmware's independent peer-visible `name` (`spec.name`); the Server resolves the Firmware by `firmware_id` and never uses that name as Admin identity. Owner-bound Workspaces resolve the current revision from the persisted canonical RuntimeProfile ID even while the owner is offline; a later successful registration replaces the owner's selection. Neither RegistrationToken nor Peer stores a Firmware channel: stable, beta, develop, or pending selection remains device-owned. Updating or switching the profile changes the environment used by later operations; it does not rewrite Workspace context or persisted internal bindings.
 
 Public HTTP login may submit the same value through `X-Registration-Token`. Registration success and failure logs do not include the submitted token value.
 

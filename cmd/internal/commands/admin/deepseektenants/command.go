@@ -3,12 +3,12 @@ package deepseektenantscmd
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/adminapi"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/connection"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/spf13/cobra"
 )
 
@@ -38,7 +38,7 @@ func newUpdateCmd(ctxName *string) *cobra.Command {
 }
 
 func newWriteCmd(ctxName *string, update bool) *cobra.Command {
-	var credentialName, baseURL, description string
+	var credentialID, baseURL, description string
 	operation := "create"
 	short := "Create a DeepSeek tenant"
 	if update {
@@ -50,11 +50,14 @@ func newWriteCmd(ctxName *string, update bool) *cobra.Command {
 		Short: short,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name, err := tenantName(args[0])
+			id, err := tenantID(args[0])
 			if err != nil {
 				return err
 			}
-			request := adminhttp.DeepSeekTenantUpsert{Name: name, CredentialId: strings.TrimSpace(credentialName)}
+			if err := customid.ValidateResourceID(credentialID); err != nil {
+				return err
+			}
+			request := adminhttp.DeepSeekTenantUpsert{Id: id, CredentialId: credentialID}
 			if value := strings.TrimSpace(baseURL); value != "" {
 				request.BaseUrl = &value
 			}
@@ -68,7 +71,7 @@ func newWriteCmd(ctxName *string, update bool) *cobra.Command {
 			defer client.Close()
 			var item any
 			if update {
-				item, err = adminapi.PutDeepSeekTenant(context.Background(), client, name, request)
+				item, err = adminapi.PutDeepSeekTenant(context.Background(), client, id, request)
 			} else {
 				item, err = adminapi.CreateDeepSeekTenant(context.Background(), client, request)
 			}
@@ -78,10 +81,10 @@ func newWriteCmd(ctxName *string, update bool) *cobra.Command {
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(item)
 		},
 	}
-	cmd.Flags().StringVar(&credentialName, "credential-name", "", "DeepSeek credential name")
+	cmd.Flags().StringVar(&credentialID, "credential-id", "", "DeepSeek credential ID")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "optional absolute DeepSeek HTTP(S) endpoint")
 	cmd.Flags().StringVar(&description, "description", "", "optional tenant description")
-	_ = cmd.MarkFlagRequired("credential-name")
+	_ = cmd.MarkFlagRequired("credential-id")
 	return cmd
 }
 
@@ -91,7 +94,7 @@ func newDeleteCmd(ctxName *string) *cobra.Command {
 		Short: "Delete a DeepSeek tenant",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name, err := tenantName(args[0])
+			id, err := tenantID(args[0])
 			if err != nil {
 				return err
 			}
@@ -100,7 +103,7 @@ func newDeleteCmd(ctxName *string) *cobra.Command {
 				return err
 			}
 			defer client.Close()
-			item, err := adminapi.DeleteDeepSeekTenant(context.Background(), client, name)
+			item, err := adminapi.DeleteDeepSeekTenant(context.Background(), client, id)
 			if err != nil {
 				return err
 			}
@@ -134,7 +137,7 @@ func newGetCmd(ctxName *string) *cobra.Command {
 		Short: "Get a DeepSeek tenant",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name, err := tenantName(args[0])
+			id, err := tenantID(args[0])
 			if err != nil {
 				return err
 			}
@@ -143,7 +146,7 @@ func newGetCmd(ctxName *string) *cobra.Command {
 				return err
 			}
 			defer c.Close()
-			item, err := adminapi.GetDeepSeekTenant(context.Background(), c, name)
+			item, err := adminapi.GetDeepSeekTenant(context.Background(), c, id)
 			if err != nil {
 				return err
 			}
@@ -152,10 +155,9 @@ func newGetCmd(ctxName *string) *cobra.Command {
 	}
 }
 
-func tenantName(value string) (string, error) {
-	name := strings.TrimSpace(value)
-	if name == "" {
-		return "", errors.New("tenant name must not be empty")
+func tenantID(value string) (string, error) {
+	if err := customid.ValidateResourceID(value); err != nil {
+		return "", err
 	}
-	return name, nil
+	return value, nil
 }

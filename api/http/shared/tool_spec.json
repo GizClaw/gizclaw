@@ -8,7 +8,7 @@
   "components": {
     "schemas": {
       "ToolSpec": {
-        "description": "Strict Tool declaration selected by type. metadata.name is the only Tool identity.",
+        "description": "Strict Tool declaration selected by type. metadata.id is the Admin identity and invoke_name is the immutable runtime execution identity.",
         "oneOf": [
           {
             "$ref": "#/components/schemas/HTTPToolSpec"
@@ -28,12 +28,18 @@
       "HTTPToolSpec": {
         "type": "object",
         "required": [
+          "invoke_name",
           "type",
           "input_schema",
           "http"
         ],
         "additionalProperties": false,
         "properties": {
+          "invoke_name": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,63}$",
+            "description": "Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias."
+          },
           "type": {
             "type": "string",
             "enum": [
@@ -71,11 +77,17 @@
       "ClientRPCToolSpec": {
         "type": "object",
         "required": [
+          "invoke_name",
           "type",
           "input_schema"
         ],
         "additionalProperties": false,
         "properties": {
+          "invoke_name": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,63}$",
+            "description": "Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias."
+          },
           "type": {
             "type": "string",
             "enum": [

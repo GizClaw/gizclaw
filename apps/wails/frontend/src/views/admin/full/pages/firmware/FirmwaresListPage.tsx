@@ -5,6 +5,7 @@ import { DashboardTable } from "@/dashboard";
 import { useState } from "react";
 import { Check, Copy, Plus, RefreshCw } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { encodeRouteParam } from "@/views/admin/full/lib/route-param";
 
 import { listFirmwares, type Firmware } from "@gizclaw/gizclaw/admin";
 import { expectData } from "@/dashboard";
@@ -32,7 +33,7 @@ import { formatDate } from "../../lib/format";
 
 export function FirmwaresListPage(): JSX.Element {
   const navigate = useNavigate();
-  const [copiedName, setCopiedName] = useState("");
+  const [copiedID, setCopiedID] = useState("");
   const {
     error,
     hasNext,
@@ -51,13 +52,13 @@ export function FirmwaresListPage(): JSX.Element {
     };
   });
 
-  const openFirmware = (name: string): void => {
-    navigate(`/firmwares/${encodeURIComponent(name)}`);
+  const openFirmware = (id: string): void => {
+    navigate(`/firmwares/${encodeRouteParam(id)}`);
   };
 
   const handleRowKeyDown = (
     event: KeyboardEvent<HTMLTableRowElement>,
-    name: string,
+    id: string,
   ): void => {
     if (isInteractiveTarget(event.target)) {
       return;
@@ -66,18 +67,18 @@ export function FirmwaresListPage(): JSX.Element {
       return;
     }
     event.preventDefault();
-    openFirmware(name);
+    openFirmware(id);
   };
 
-  const copyFirmwareName = async (
+  const copyFirmwareID = async (
     event: MouseEvent<HTMLButtonElement>,
-    name: string,
+    id: string,
   ): Promise<void> => {
     event.stopPropagation();
-    await navigator.clipboard.writeText(name);
-    setCopiedName(name);
+    await navigator.clipboard.writeText(id);
+    setCopiedID(id);
     window.setTimeout(() => {
-      setCopiedName((current) => (current === name ? "" : current));
+      setCopiedID((current) => (current === id ? "" : current));
     }, 1500);
   };
 
@@ -87,7 +88,7 @@ export function FirmwaresListPage(): JSX.Element {
         actions={
           <>
             <DashboardActionButton asChild>
-              <Link to="/firmwares/new">
+              <Link to="/firmwares/-/new">
                 <Plus className="size-4" />
                 Create
               </Link>
@@ -170,9 +171,7 @@ export function FirmwaresListPage(): JSX.Element {
                     className="cursor-pointer hover:bg-muted/40"
                     key={firmware.id}
                     onClick={() => openFirmware(firmware.id)}
-                    onKeyDown={(event) =>
-                      handleRowKeyDown(event, firmware.name)
-                    }
+                    onKeyDown={(event) => handleRowKeyDown(event, firmware.id)}
                     role="link"
                     tabIndex={0}
                   >
@@ -184,21 +183,21 @@ export function FirmwaresListPage(): JSX.Element {
                             event.stopPropagation();
                             openFirmware(firmware.id);
                           }}
-                          title={firmware.name}
+                          title={firmware.id}
                           type="button"
                         >
-                          {firmware.name}
+                          {firmware.id}
                         </button>
                         <button
-                          aria-label={`Copy firmware name ${firmware.name}`}
+                          aria-label={`Copy firmware ID ${firmware.id}`}
                           className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={(event) =>
-                            void copyFirmwareName(event, firmware.name)
+                            void copyFirmwareID(event, firmware.id)
                           }
-                          title="Copy firmware name"
+                          title="Copy firmware ID"
                           type="button"
                         >
-                          {copiedName === firmware.name ? (
+                          {copiedID === firmware.id ? (
                             <Check className="size-3 shrink-0 text-emerald-600" />
                           ) : (
                             <Copy className="size-3 shrink-0" />

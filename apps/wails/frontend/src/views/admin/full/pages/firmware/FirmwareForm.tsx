@@ -40,6 +40,7 @@ type SlotKey = (typeof slotKeys)[number];
 
 export type FirmwareFormState = {
   description: string;
+  id: string;
   name: string;
   slots: Record<SlotKey, FirmwareSlot>;
 };
@@ -48,7 +49,7 @@ type FirmwareEditorProps = {
   autoSaveSlots?: boolean;
   form: FirmwareFormState;
   infoSaveLabel?: string;
-  showName?: boolean;
+  showID?: boolean;
   onChange: (form: FirmwareFormState) => void;
   onSave: (form: FirmwareFormState) => void;
   saveLabel: string;
@@ -59,7 +60,7 @@ export function FirmwareEditor({
   autoSaveSlots = false,
   form,
   infoSaveLabel,
-  showName = true,
+  showID = true,
   onChange,
   onSave,
   saveLabel,
@@ -88,20 +89,29 @@ export function FirmwareEditor({
           <CardHeader>
             <CardTitle>Firmware Info</CardTitle>
             <CardDescription>
-              Name and operator-facing description.
+              Caller-defined immutable ID, peer-visible name, and
+              operator-facing description.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {showName ? (
-              <FormField label="Name">
+            {showID ? (
+              <FormField label="ID">
                 <Input
                   onChange={(event) =>
-                    onChange({ ...form, name: event.target.value })
+                    onChange({ ...form, id: event.target.value })
                   }
-                  value={form.name}
+                  value={form.id}
                 />
               </FormField>
             ) : null}
+            <FormField label="Name">
+              <Input
+                onChange={(event) =>
+                  onChange({ ...form, name: event.target.value })
+                }
+                value={form.name}
+              />
+            </FormField>
             <FormField label="Description">
               <Textarea
                 className="min-h-28"
@@ -372,7 +382,8 @@ function SlotEditDialog({
 export function emptyFirmwareForm(): FirmwareFormState {
   return {
     description: "Firmware release line",
-    name: "new-firmware",
+    id: "new-firmware",
+    name: "New firmware",
     slots: emptySlots(),
   };
 }
@@ -380,6 +391,7 @@ export function emptyFirmwareForm(): FirmwareFormState {
 export function firmwareToForm(firmware: Firmware): FirmwareFormState {
   return {
     description: firmware.description ?? "",
+    id: firmware.id,
     name: firmware.name,
     slots: normalizeSlots(firmware.slots),
   };
@@ -388,6 +400,7 @@ export function firmwareToForm(firmware: Firmware): FirmwareFormState {
 export function formToUpsert(form: FirmwareFormState): FirmwareUpsert {
   return {
     description: optionalString(form.description),
+    id: form.id,
     name: form.name,
     slots: {
       beta: slotToUpsert(form.slots.beta),

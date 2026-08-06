@@ -9,15 +9,16 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func TestToolResourceLifecycleUsesMetadataName(t *testing.T) {
+func TestToolResourceLifecycleUsesCallerID(t *testing.T) {
 	tools := &toolkit.Server{Store: kv.NewMemory(nil)}
 	manager := New(Services{Tools: tools})
 	resource := mustResource(t, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
 		"kind":"Tool",
-		"metadata":{"name":"volume_set"},
+		"metadata":{"id":"volume_set"},
 		"spec":{
 			"type":"client_rpc",
+			"invoke_name":"volume_set",
 			"description":"Set the current device volume",
 			"input_schema":{
 				"type":"object",
@@ -28,7 +29,7 @@ func TestToolResourceLifecycleUsesMetadataName(t *testing.T) {
 		}
 	}`)
 	created, err := manager.Apply(t.Context(), resource)
-	if err != nil || created.Action != apitypes.ApplyActionCreated || created.Name != "volume_set" {
+	if err != nil || created.Action != apitypes.ApplyActionCreated || created.Id == nil || *created.Id != "volume_set" {
 		t.Fatalf("Apply(create) = %#v, %v", created, err)
 	}
 	id := *created.Id
@@ -40,8 +41,8 @@ func TestToolResourceLifecycleUsesMetadataName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if typed.Metadata.Name != "volume_set" {
-		t.Fatalf("metadata.name = %q", typed.Metadata.Name)
+	if metadataID(t, typed.Metadata) != "volume_set" {
+		t.Fatalf("metadata.id = %q", metadataID(t, typed.Metadata))
 	}
 	if discriminator, err := typed.Spec.Discriminator(); err != nil || discriminator != "client_rpc" {
 		t.Fatalf("spec type = %q, %v", discriminator, err)
@@ -51,7 +52,7 @@ func TestToolResourceLifecycleUsesMetadataName(t *testing.T) {
 		t.Fatal(err)
 	}
 	deletedTool, err := deleted.AsToolResource()
-	if err != nil || deletedTool.Metadata.Name != "volume_set" {
+	if err != nil || metadataID(t, deletedTool.Metadata) != "volume_set" {
 		t.Fatalf("Delete() = %#v, %v", deletedTool, err)
 	}
 	if _, err := manager.Get(t.Context(), apitypes.ResourceKindTool, id); err == nil {
@@ -66,9 +67,10 @@ func TestToolResourceDirectSecretIsWriteOnlyRetainedAndRotated(t *testing.T) {
 		return mustResource(t, `{
 			"apiVersion":"gizclaw.admin/v1alpha1",
 			"kind":"Tool",
-			"metadata":{"name":"weather"},
+			"metadata":{"id":"weather"},
 			"spec":{
 				"type":"http_request",
+				"invoke_name":"weather",
 				"input_schema":{"type":"object"},
 				"http":{
 					"url":"https://weather.example/v1",
@@ -103,6 +105,33 @@ func TestToolResourceDirectSecretIsWriteOnlyRetainedAndRotated(t *testing.T) {
 		t.Fatalf("rotated secret = %#v, %v", stored.HTTP, err)
 	}
 	assertToolSecretRedacted(t, manager, toolID)
+}
+
+func TestToolResourceIdentityConflictsReturnConflict(t *testing.T) {
+	t.Parallel()
+	tools := &toolkit.Server{Store: kv.NewMemory(nil)}
+	manager := New(Services{Tools: tools})
+	resource := func(id, invokeName string) apitypes.Resource {
+		return mustResource(t, `{
+			"apiVersion":"gizclaw.admin/v1alpha1",
+			"kind":"Tool",
+			"metadata":{"id":"`+id+`"},
+			"spec":{
+				"type":"client_rpc",
+				"invoke_name":"`+invokeName+`",
+				"input_schema":{"type":"object"}
+			}
+		}`)
+	}
+	if _, err := manager.Apply(t.Context(), resource("volume-tool", "volume_set")); err != nil {
+		t.Fatalf("Apply(create) error = %v", err)
+	}
+
+	_, err := manager.Apply(t.Context(), resource("volume-tool", "volume_get"))
+	assertResourceError(t, err, 409, "TOOL_CONFLICT")
+
+	_, err = manager.Apply(t.Context(), resource("other-tool", "volume_set"))
+	assertResourceError(t, err, 409, "TOOL_CONFLICT")
 }
 
 func assertToolSecretRedacted(t *testing.T, manager *Manager, id string) {

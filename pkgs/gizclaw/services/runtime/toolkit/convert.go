@@ -9,7 +9,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
-func FromSpec(name string, spec apitypes.ToolSpec) (Tool, error) {
+func FromSpec(id string, spec apitypes.ToolSpec) (Tool, error) {
 	discriminator, err := spec.Discriminator()
 	if err != nil {
 		return Tool{}, fmt.Errorf("%w: decode type: %v", ErrInvalidTool, err)
@@ -20,7 +20,7 @@ func FromSpec(name string, spec apitypes.ToolSpec) (Tool, error) {
 		if err != nil {
 			return Tool{}, fmt.Errorf("%w: decode client_rpc: %v", ErrInvalidTool, err)
 		}
-		tool, err := commonToolFromAPI(name, ToolTypeClientRPC, value.Description, value.Enabled, value.Version, value.InputSchema, value.Triggers, value.Metadata)
+		tool, err := commonToolFromAPI(id, value.InvokeName, ToolTypeClientRPC, value.Description, value.Enabled, value.Version, value.InputSchema, value.Triggers, value.Metadata)
 		if err != nil {
 			return Tool{}, err
 		}
@@ -30,7 +30,7 @@ func FromSpec(name string, spec apitypes.ToolSpec) (Tool, error) {
 		if err != nil {
 			return Tool{}, fmt.Errorf("%w: decode http_request: %v", ErrInvalidTool, err)
 		}
-		tool, err := commonToolFromAPI(name, ToolTypeHTTPRequest, value.Description, value.Enabled, value.Version, value.InputSchema, value.Triggers, value.Metadata)
+		tool, err := commonToolFromAPI(id, value.InvokeName, ToolTypeHTTPRequest, value.Description, value.Enabled, value.Version, value.InputSchema, value.Triggers, value.Metadata)
 		if err != nil {
 			return Tool{}, err
 		}
@@ -62,6 +62,7 @@ func ToSpec(tool Tool) (apitypes.ToolSpec, error) {
 	switch tool.Type {
 	case ToolTypeClientRPC:
 		err = spec.FromClientRPCToolSpec(apitypes.ClientRPCToolSpec{
+			InvokeName:  tool.InvokeName,
 			Description: tool.Description,
 			Enabled:     &enabled,
 			InputSchema: tool.InputSchema,
@@ -75,6 +76,7 @@ func ToSpec(tool Tool) (apitypes.ToolSpec, error) {
 			return apitypes.ToolSpec{}, convertErr
 		}
 		err = spec.FromHTTPToolSpec(apitypes.HTTPToolSpec{
+			InvokeName:  tool.InvokeName,
 			Description: tool.Description,
 			Enabled:     &enabled,
 			Http:        httpConfig,
@@ -115,6 +117,7 @@ func ToRedactedSpec(tool Tool) (apitypes.ToolSpec, error) {
 	switch tool.Type {
 	case ToolTypeClientRPC:
 		err = spec.FromClientRPCToolSpec(apitypes.ClientRPCToolSpec{
+			InvokeName:  tool.InvokeName,
 			Description: tool.Description,
 			Enabled:     &enabled,
 			InputSchema: tool.InputSchema,
@@ -128,6 +131,7 @@ func ToRedactedSpec(tool Tool) (apitypes.ToolSpec, error) {
 			return apitypes.ToolSpec{}, convertErr
 		}
 		err = spec.FromHTTPToolSpec(apitypes.HTTPToolSpec{
+			InvokeName:  tool.InvokeName,
 			Description: tool.Description,
 			Enabled:     &enabled,
 			Http:        httpConfig,
@@ -144,7 +148,8 @@ func ToRedactedSpec(tool Tool) (apitypes.ToolSpec, error) {
 }
 
 func commonToolFromAPI(
-	name string,
+	id string,
+	invokeName string,
 	toolType ToolType,
 	description *string,
 	enabled *bool,
@@ -158,7 +163,8 @@ func commonToolFromAPI(
 		value = *enabled
 	}
 	tool := Tool{
-		Name:        name,
+		ID:          id,
+		InvokeName:  invokeName,
 		Type:        toolType,
 		Description: description,
 		Enabled:     value,

@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  name: flowcraft-chat-assistant
+  id: flowcraft-chat-assistant
 spec:
   driver: flowcraft
   memory: chat-memory

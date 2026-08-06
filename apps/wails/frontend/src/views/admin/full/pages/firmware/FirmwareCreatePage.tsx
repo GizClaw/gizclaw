@@ -1,6 +1,7 @@
 import { ChevronLeft } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { encodeRouteParam } from "@/views/admin/full/lib/route-param";
 
 import { createFirmware } from "@gizclaw/gizclaw/admin";
 import { expectData, toMessage } from "@/dashboard";
@@ -25,7 +26,7 @@ export function FirmwareCreatePage(): JSX.Element {
     try {
       const body = formToUpsert(nextForm);
       const next = await expectData(createFirmware({ body }));
-      navigate(`/firmwares/${encodeURIComponent(next.name)}`);
+      navigate(`/firmwares/${encodeRouteParam(next.id)}`);
     } catch (err) {
       setError(toMessage(err));
     } finally {

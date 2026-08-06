@@ -9,6 +9,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -26,12 +27,12 @@ import (
 //go:embed testdata/raids-v0.3.0.tar.gz
 var raidsV030Archive []byte
 
-//go:embed testdata/transparent-96x104.pixa
-var localPIXARawFixture []byte
+//go:embed testdata/raids-v0.4.0.tar.gz
+var raidsV040Archive []byte
 
 const (
-	raidsV030ArchiveSHA256  = "27bd688a4f61cac741685af4da871281994d4d7ec3d8103dc37d6d0d222497f9"
-	localPIXARawFixtureHash = "5220ea6d6ae36b6c94cf260852fde3b5732fc1ae9bf6c894dd90868e3c75446b"
+	raidsV030ArchiveSHA256 = "27bd688a4f61cac741685af4da871281994d4d7ec3d8103dc37d6d0d222497f9"
+	raidsV040ArchiveSHA256 = "e475d93c4beb55d773dd9d3c52c1262a0b0dd413a7cf5b8e6b890548cc87a6bd"
 )
 
 // The source repository excludes these assets from redistribution. This
@@ -90,68 +91,55 @@ func TestReadRaidsArchiveRejectsUnsafeAndAcceptsPackageFiles(t *testing.T) {
 	}
 }
 
-func TestRaidsV030FixtureBuildsPetDependencyClosure(t *testing.T) {
+func TestRaidsV030FixtureIsRejectedAsLegacyNameBasedCatalog(t *testing.T) {
 	if got := fmt.Sprintf("%x", sha256.Sum256(raidsV030Archive)); got != raidsV030ArchiveSHA256 {
 		t.Fatalf("Raids v0.3.0 fixture SHA-256 = %s, want %s", got, raidsV030ArchiveSHA256)
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(localPIXARawFixture)); got != localPIXARawFixtureHash {
-		t.Fatalf("local PIXA raw fixture SHA-256 = %s, want %s", got, localPIXARawFixtureHash)
+	if _, err := buildRaidsCatalog(nil, raidsV030Archive); err == nil || !strings.Contains(err.Error(), "metadata.id") {
+		t.Fatalf("buildRaidsCatalog(v0.3.0) error = %v, want metadata.id rejection", err)
 	}
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		name := strings.TrimPrefix(request.URL.Path, "/")
-		if _, ok := pinnedPIXARawAssets[name]; !ok {
-			http.NotFound(writer, request)
-			return
-		}
-		_, _ = writer.Write(localPIXARawFixture)
-	}))
-	defer server.Close()
-	pixa, err := newPIXAResolver(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
+}
+
+func TestRaidsV040FixtureBuildsCallerDefinedIDCatalog(t *testing.T) {
+	if got := fmt.Sprintf("%x", sha256.Sum256(raidsV040Archive)); got != raidsV040ArchiveSHA256 {
+		t.Fatalf("Raids v0.4.0 fixture SHA-256 = %s, want %s", got, raidsV040ArchiveSHA256)
 	}
-	pixa.assetBaseURL = server.URL + "/"
-	loadedAssets := map[string]bool{}
-	catalog, err := buildRaidsCatalog(func(name string, width, height uint16) ([]byte, error) {
-		if _, ok := pinnedPIXARawAssets[name]; !ok {
-			return nil, fmt.Errorf("no pinned raw PIXA fixture metadata for %s", name)
-		}
-		data, err := pixa.resolve(t.Context(), name, width, height)
-		if err != nil {
-			return nil, err
-		}
-		loadedAssets[name] = true
-		return data, nil
-	}, raidsV030Archive)
+	catalog, err := buildRaidsCatalog(func(_ string, width, height uint16) ([]byte, error) {
+		return testPIXA(width, height), nil
+	}, raidsV040Archive)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if catalog.DefaultRegistrationToken != expectedDefaultRegistrationToken {
 		t.Fatalf("default RegistrationToken = %q", catalog.DefaultRegistrationToken)
 	}
-	resources := make(map[string]bool, len(catalog.Resources))
-	for _, resource := range catalog.Resources {
-		resources[resource.Kind+"/"+resource.Name] = true
+	want := map[string]bool{
+		"Credential/volc-credential":                                    false,
+		"VolcTenant/volc-cn-beijing":                                    false,
+		"Model/doubao-seed-2-0-lite":                                    false,
+		"Voice/volc-tenant:volc-cn-beijing:zh_female_vv_jupiter_bigtts": false,
+		"Workflow/flowcraft-chat-assistant":                             false,
+		"MemoryLayout/user-chat-with-assistant":                         false,
+		"PetDef/petdef-codex":                                           false,
+		"RuntimeProfile/default":                                        false,
+		"RegistrationToken/default-runtime":                             false,
 	}
-	for _, resource := range []string{
-		"Workflow/pet-care",
-		"MemoryLayout/pet-care",
-		"Model/doubao-seed-2-0-lite",
-		"Model/deepseek-v4-flash",
-		"Model/volc-bigasr-sauc",
-		"RuntimeProfile/default",
-		"RegistrationToken/default-runtime",
-	} {
-		if !resources[resource] {
-			t.Errorf("catalog resources do not include %s", resource)
+	for _, entry := range catalog.Resources {
+		key := entry.Kind + "/" + entry.ID
+		if _, ok := want[key]; ok {
+			want[key] = true
+		}
+		data, readErr := fs.ReadFile(catalog.FS, entry.Path)
+		if readErr != nil {
+			t.Fatalf("read %s: %v", entry.Path, readErr)
+		}
+		if bytes.Contains(data, []byte("\n  name:")) {
+			t.Fatalf("selected Raids resource %s contains legacy metadata.name", key)
 		}
 	}
-	if len(catalog.PetDefPIXAs) != len(pinnedPIXARawAssets) || len(loadedAssets) != len(pinnedPIXARawAssets) {
-		t.Fatalf("PetDef PIXA mappings/loads = %d/%d, want %d", len(catalog.PetDefPIXAs), len(loadedAssets), len(pinnedPIXARawAssets))
-	}
-	for name := range pinnedPIXARawAssets {
-		if !loadedAssets[name] {
-			t.Errorf("PIXA loader did not resolve %s", name)
+	for key, found := range want {
+		if !found {
+			t.Errorf("selected Raids catalog is missing %s", key)
 		}
 	}
 }
@@ -180,10 +168,10 @@ func TestPinnedPIXARawMediaSmoke(t *testing.T) {
 }
 
 func TestRaidsReleaseUsesCommitAddressedArchive(t *testing.T) {
-	if RaidsVersion != "v0.3.0" {
+	if RaidsVersion != "v0.4.0" {
 		t.Fatalf("RaidsVersion = %q", RaidsVersion)
 	}
-	if len(RaidsCommit) != 40 || RaidsArchiveURL != "https://github.com/GizClaw/raids/archive/"+RaidsCommit+".tar.gz" {
+	if RaidsCommit != "8ddaf0ba14c98a94638f323670e47188d6beb435" || RaidsArchiveURL != "https://github.com/GizClaw/raids/archive/"+RaidsCommit+".tar.gz" {
 		t.Fatalf("Raids archive pin = %q at %q", RaidsCommit, RaidsArchiveURL)
 	}
 	if len(PIXACommit) != 40 || PIXAAssetBaseURL != "https://media.githubusercontent.com/media/GizClaw/pixa/"+PIXACommit+"/assets/codex-pets/" {
@@ -207,13 +195,13 @@ func TestSelectRaidsDependenciesIncludesOnlyProfileClosure(t *testing.T) {
 		Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices, PetDefs: &petDefs, Memories: &memories},
 	}}
 	index := map[string]map[string]raidsCandidate{
-		"Workflow":     {"journey": {kind: "Workflow", name: "journey"}, "chatroom": {kind: "Workflow", name: "chatroom"}},
-		"Model":        {"chat-model": {kind: "Model", name: "chat-model", providerKind: "volc-tenant", providerID: "volc"}},
-		"Voice":        {"story-voice": {kind: "Voice", name: "story-voice", providerKind: "volc-tenant", providerID: "volc"}},
-		"PetDef":       {"petdef-codex": {kind: "PetDef", name: "petdef-codex"}},
-		"MemoryLayout": {"pet-memory": {kind: "MemoryLayout", name: "pet-memory"}},
-		"VolcTenant":   {"volc": {kind: "VolcTenant", name: "volc", credentialName: "volc-credential"}},
-		"Credential":   {"volc-credential": {kind: "Credential", name: "volc-credential"}},
+		"Workflow":     {"journey": {kind: "Workflow", id: "journey"}, "chatroom": {kind: "Workflow", id: "chatroom"}},
+		"Model":        {"chat-model": {kind: "Model", id: "chat-model", providerKind: "volc-tenant", providerID: "volc"}},
+		"Voice":        {"story-voice": {kind: "Voice", id: "story-voice", providerKind: "volc-tenant", providerID: "volc"}},
+		"PetDef":       {"petdef-codex": {kind: "PetDef", id: "petdef-codex"}},
+		"MemoryLayout": {"pet-memory": {kind: "MemoryLayout", id: "pet-memory"}},
+		"VolcTenant":   {"volc": {kind: "VolcTenant", id: "volc", credentialID: "volc-credential"}},
+		"Credential":   {"volc-credential": {kind: "Credential", id: "volc-credential"}},
 	}
 	selected, err := selectRaidsDependencies(profile, index)
 	if err != nil {
@@ -232,11 +220,11 @@ func TestSelectPetDefPIXAsCopiesSelectedLocalAsset(t *testing.T) {
 	selected := map[string]raidsCandidate{
 		"PetDef/petdef-codex": {
 			kind: "PetDef",
-			name: "petdef-codex",
+			id:   "petdef-codex",
 			data: []byte(`
 apiVersion: gizclaw.admin/v1alpha1
 kind: PetDef
-metadata: {name: petdef-codex}
+metadata: {id: petdef-codex}
 spec:
   character: {prompt: coding mascot}
   voice: {prompt: concise}
@@ -335,7 +323,7 @@ func TestRaidsResolverCachesValidatedArchive(t *testing.T) {
 
 func TestBuildRaidsCatalogRejectsInvalidDefaultContract(t *testing.T) {
 	validProfile := testRuntimeProfileFS()["resources/07-runtime-profiles/00-default.yaml"].Data
-	validToken := []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RegistrationToken\nmetadata:\n  name: default-runtime\nspec:\n  token: " + expectedDefaultRegistrationToken + "\n  runtime_profile_name: default\n")
+	validToken := []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RegistrationToken\nmetadata:\n  id: default-runtime\nspec:\n  token: " + expectedDefaultRegistrationToken + "\n  runtime_profile_id: default\n")
 	tests := []struct {
 		name    string
 		profile []byte
@@ -348,7 +336,7 @@ func TestBuildRaidsCatalogRejectsInvalidDefaultContract(t *testing.T) {
 		{
 			name:    "wrong token identity",
 			profile: validProfile,
-			token:   bytes.ReplaceAll(validToken, []byte("name: default-runtime"), []byte("name: another-runtime")),
+			token:   bytes.ReplaceAll(validToken, []byte("id: default-runtime"), []byte("id: another-runtime")),
 			want:    "RegistrationToken/default-runtime is missing",
 		},
 		{
@@ -360,7 +348,7 @@ func TestBuildRaidsCatalogRejectsInvalidDefaultContract(t *testing.T) {
 		{
 			name:    "wrong profile target",
 			profile: validProfile,
-			token:   bytes.ReplaceAll(validToken, []byte("runtime_profile_name: default"), []byte("runtime_profile_name: another")),
+			token:   bytes.ReplaceAll(validToken, []byte("runtime_profile_id: default"), []byte("runtime_profile_id: another")),
 			want:    "targets RuntimeProfile/another",
 		},
 		{
@@ -368,6 +356,12 @@ func TestBuildRaidsCatalogRejectsInvalidDefaultContract(t *testing.T) {
 			profile: bytes.ReplaceAll(validProfile, []byte(": chatroom"), []byte(": missing-workflow")),
 			token:   validToken,
 			want:    "references missing Raids Workflow/missing-workflow",
+		},
+		{
+			name:    "whitespace-normalized profile dependency",
+			profile: bytes.ReplaceAll(validProfile, []byte(": chatroom"), []byte(": ' chatroom '")),
+			token:   validToken,
+			want:    "invalid Workflow resource_id",
 		},
 		{
 			name:    "duplicate token identity",
@@ -458,7 +452,7 @@ func TestWorkflowAliasesIncludesFlattenedFlowcraftGraphVoiceAndMemoryAliases(t *
 	models, voices, memoryAlias, err := workflowAliases([]byte(`
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
-metadata: {name: flowcraft-example}
+metadata: {id: flowcraft-example}
 spec:
   driver: flowcraft
   memory: pet-memory
@@ -523,7 +517,7 @@ func TestValidateMemoryLayoutAliasesAcceptsPortableFlowcraftBBH(t *testing.T) {
 	layout := []byte(`
 apiVersion: gizclaw.admin/v1alpha1
 kind: MemoryLayout
-metadata: {name: pet-memory}
+metadata: {id: pet-memory}
 spec:
   flowcraft:
     extraction: {model: extraction, mode: two_pass}
@@ -537,7 +531,7 @@ spec:
     strategies: [{name: pet, type: user_preference, custom_instructions: "Keep pet facts."}]
 `)
 	selected := map[string]raidsCandidate{
-		"MemoryLayout/pet-memory": {kind: "MemoryLayout", name: "pet-memory", data: layout},
+		"MemoryLayout/pet-memory": {kind: "MemoryLayout", id: "pet-memory", data: layout},
 	}
 	if err := validateMemoryLayoutAliases(profile, selected); err != nil {
 		t.Fatal(err)
@@ -597,7 +591,7 @@ func TestValidateWorkflowAliasesRejectsMissingMemoryBinding(t *testing.T) {
 	selected := map[string]raidsCandidate{
 		"Workflow/assistant": {
 			kind: "Workflow",
-			name: "assistant",
+			id:   "assistant",
 			data: []byte(`
 spec:
   driver: flowcraft
@@ -632,7 +626,7 @@ func (roundTrip roundTripperFunc) RoundTrip(request *http.Request) (*http.Respon
 func testRuntimeProfileFS() fstest.MapFS {
 	return fstest.MapFS{
 		"resources/07-runtime-profiles/00-default.yaml": {
-			Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata:\n  name: default\nspec:\n  workflows:\n    system: {friend_chatroom: chatroom, group_chatroom: chatroom, pet: chatroom}\n    collections: {}\n  resources: {}\n"),
+			Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata:\n  id: default\nspec:\n  workflows:\n    system: {friend_chatroom: chatroom, group_chatroom: chatroom, pet: chatroom}\n    collections: {}\n  resources: {}\n"),
 		},
 	}
 }
@@ -655,13 +649,13 @@ func testFlowcraftBBHBinding(t *testing.T, layoutID string) apitypes.RuntimeProf
 func testMinimalRaidsArchive(t *testing.T) []byte {
 	t.Helper()
 	profile := testRuntimeProfileFS()["resources/07-runtime-profiles/00-default.yaml"].Data
-	token := []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RegistrationToken\nmetadata:\n  name: default-runtime\nspec:\n  token: " + expectedDefaultRegistrationToken + "\n  runtime_profile_name: default\n")
+	token := []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RegistrationToken\nmetadata:\n  id: default-runtime\nspec:\n  token: " + expectedDefaultRegistrationToken + "\n  runtime_profile_id: default\n")
 	return testMinimalRaidsArchiveWithRoots(t, profile, token, nil)
 }
 
 func testMinimalRaidsArchiveWithRoots(t *testing.T, profile, token []byte, extra map[string][]byte) []byte {
 	t.Helper()
-	workflow := []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Workflow\nmetadata:\n  name: chatroom\nspec:\n  driver: chatroom\n  chatroom:\n    history: {}\n")
+	workflow := []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Workflow\nmetadata:\n  id: chatroom\nspec:\n  driver: chatroom\n  chatroom:\n    history: {}\n")
 	headers := []tar.Header{
 		{Name: "raids-0.2/", Typeflag: tar.TypeDir},
 		{Name: "raids-0.2/README.md", Mode: 0o600, Size: 4},

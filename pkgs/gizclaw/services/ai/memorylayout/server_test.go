@@ -24,7 +24,7 @@ func TestServerMemoryLayoutLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	createdLayout, ok := created.(adminhttp.CreateMemoryLayout200JSONResponse)
-	if !ok || createdLayout.Name != layout.Name {
+	if !ok || createdLayout.Id != layout.Id {
 		t.Fatalf("CreateMemoryLayout() = %#v", created)
 	}
 	duplicate, err := server.CreateMemoryLayout(ctx, adminhttp.CreateMemoryLayoutRequestObject{Body: &layout})
@@ -65,7 +65,7 @@ func TestServerMemoryLayoutLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if response, ok := deleted.(adminhttp.DeleteMemoryLayout200JSONResponse); !ok || response.Name != layout.Name {
+	if response, ok := deleted.(adminhttp.DeleteMemoryLayout200JSONResponse); !ok || response.Id != layout.Id {
 		t.Fatalf("DeleteMemoryLayout() = %#v", deleted)
 	}
 	missing, err := server.GetMemoryLayout(ctx, adminhttp.GetMemoryLayoutRequestObject{Id: createdLayout.Id})
@@ -74,6 +74,19 @@ func TestServerMemoryLayoutLifecycle(t *testing.T) {
 	}
 	if _, ok := missing.(adminhttp.GetMemoryLayout404JSONResponse); !ok {
 		t.Fatalf("GetMemoryLayout(deleted) = %#v", missing)
+	}
+}
+
+func TestServerMemoryLayoutAcceptsOpaqueIDWithKVSeparator(t *testing.T) {
+	server := newTestServer(t)
+	layout := testLayout(t, "tenant:memory")
+	response, err := server.CreateMemoryLayout(t.Context(), adminhttp.CreateMemoryLayoutRequestObject{Body: &layout})
+	if err != nil {
+		t.Fatalf("CreateMemoryLayout() error = %v", err)
+	}
+	created, ok := response.(adminhttp.CreateMemoryLayout200JSONResponse)
+	if !ok || created.Id != layout.Id {
+		t.Fatalf("CreateMemoryLayout() = %#v", response)
 	}
 }
 
@@ -161,8 +174,8 @@ func TestServerSerializesPutWithDelete(t *testing.T) {
 	if response := <-deleteDone; response == nil {
 		t.Fatal("DeleteMemoryLayout() response = nil")
 	}
-	if _, err := server.Store.Get(t.Context(), layoutNameKey(created.Name)); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("name index after serialized delete error = %v, want kv.ErrNotFound", err)
+	if _, err := server.Store.Get(t.Context(), layoutKey(created.Id)); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("record after serialized delete error = %v, want kv.ErrNotFound", err)
 	}
 }
 
@@ -232,13 +245,13 @@ func TestServerRejectsMemoryLayoutPathMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	created := createdResponse.(adminhttp.CreateMemoryLayout200JSONResponse)
-	layout.Name = "other-memory"
+	layout.Id = "other-memory"
 	response, err := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Id: created.Id, Body: &layout})
 	if err != nil {
 		t.Fatal(err)
 	}
 	invalid, ok := response.(adminhttp.PutMemoryLayout400JSONResponse)
-	if !ok || !strings.Contains(invalid.Error.Message, "must match path name") {
+	if !ok || !strings.Contains(invalid.Error.Message, "must match path id") {
 		t.Fatalf("PutMemoryLayout() = %#v", response)
 	}
 }
@@ -286,7 +299,7 @@ func newTestServer(t *testing.T) *Server {
 func testLayout(t *testing.T, name string) adminhttp.MemoryLayoutUpsert {
 	t.Helper()
 	raw := `{
-		"name":"` + name + `",
+		"id":"` + name + `",
 		"spec":{
 			"flowcraft":{
 				"extraction":{"model":"extraction","mode":"two_pass","stage_timeout":"30s"},

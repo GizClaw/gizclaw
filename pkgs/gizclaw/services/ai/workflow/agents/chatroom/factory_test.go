@@ -791,7 +791,7 @@ func TestAgentTransformRealtimeTranscribesASRSegmentStreams(t *testing.T) {
 
 func validWorkflow() apitypes.Workflow {
 	return apitypes.Workflow{
-		Name: "chatroom",
+		Id: "chatroom",
 		Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverChatroom,
 			Chatroom: &apitypes.ChatRoomWorkflowSpec{

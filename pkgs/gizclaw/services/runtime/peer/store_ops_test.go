@@ -59,7 +59,7 @@ func TestBindFirmwarePersistsReleaseLine(t *testing.T) {
 	if _, err := server.EnsureConnectedPeer(context.Background(), publicKey); err != nil {
 		t.Fatal(err)
 	}
-	bound, err := server.BindFirmware(context.Background(), publicKey, " h106 ")
+	bound, err := server.BindFirmware(context.Background(), publicKey, "h106")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,6 +79,9 @@ func TestBindFirmwarePersistsReleaseLine(t *testing.T) {
 	}
 	if _, err := server.BindFirmware(context.Background(), publicKey, " "); err == nil {
 		t.Fatal("BindFirmware(empty) error = nil")
+	}
+	if _, err := server.BindFirmware(context.Background(), publicKey, " h106 "); err == nil {
+		t.Fatal("BindFirmware(padded id) error = nil")
 	}
 }
 

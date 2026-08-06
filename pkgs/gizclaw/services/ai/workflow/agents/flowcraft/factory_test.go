@@ -480,7 +480,7 @@ func TestBuildRuntimeEmbedderRequiresProviderCredential(t *testing.T) {
 			config: peergenx.EmbeddingConfig{
 				Model:      makeModel(t, apitypes.ModelProviderKindDashscopeTenant, dashScopeData),
 				Tenant:     peergenx.Tenant{Kind: string(apitypes.ModelProviderKindDashscopeTenant), DashScope: &apitypes.DashScopeTenant{}},
-				Credential: apitypes.Credential{Name: "dashscope-empty", Body: testDashScopeCredentialBody("")},
+				Credential: apitypes.Credential{Id: "dashscope-empty", Body: testDashScopeCredentialBody("")},
 			},
 			want: "credential \"dashscope-empty\" has no api_key",
 		},
@@ -489,7 +489,7 @@ func TestBuildRuntimeEmbedderRequiresProviderCredential(t *testing.T) {
 			config: peergenx.EmbeddingConfig{
 				Model:      makeModel(t, apitypes.ModelProviderKindVolcTenant, volcData),
 				Tenant:     peergenx.Tenant{Kind: string(apitypes.ModelProviderKindVolcTenant), Volc: &apitypes.VolcTenant{}},
-				Credential: apitypes.Credential{Name: "volc-empty", Body: testVolcCredentialBodyFromStrings(nil)},
+				Credential: apitypes.Credential{Id: "volc-empty", Body: testVolcCredentialBodyFromStrings(nil)},
 			},
 			want: "credential \"volc-empty\" has no ark_api_key",
 		},
@@ -557,7 +557,7 @@ func TestFactoryUsesResolvedWorkspaceMemory(t *testing.T) {
 	}`)
 	agent, err := (Factory{GenX: peergenx.New(peergenx.Service{})}).NewAgent(t.Context(), agenthost.Spec{
 		Workspace: apitypes.Workspace{Id: "workspace-id-a", Name: "workspace-a"},
-		Workflow: apitypes.Workflow{Name: "workflow-a", Spec: apitypes.WorkflowSpec{
+		Workflow: apitypes.Workflow{Id: "workflow-a", Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &spec,
 		}},
 		Memory: backing, MemoryKind: "mem0",

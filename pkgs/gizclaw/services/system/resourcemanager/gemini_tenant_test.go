@@ -13,7 +13,7 @@ func TestApplyGeminiTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "GeminiTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {
 			"credential_id": "gemini",
 			"project_id": "project-a",
@@ -40,7 +40,7 @@ func TestApplyGeminiTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 	updated := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "GeminiTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {
 			"credential_id": "gemini",
 			"project_id": "project-a",
@@ -63,7 +63,7 @@ func TestPutGetDeleteGeminiTenantResource(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "GeminiTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {
 			"credential_id": "gemini",
 			"project_id": "project-a"
@@ -84,7 +84,7 @@ func TestPutGetDeleteGeminiTenantResource(t *testing.T) {
 		t.Fatalf("AsGeminiTenantResource(Put) error = %v", err)
 	}
 	if tenant.Spec.CredentialId != "gemini" {
-		t.Fatalf("Put(GeminiTenant) credential_name = %s", tenant.Spec.CredentialId)
+		t.Fatalf("Put(GeminiTenant) credential_id = %s", tenant.Spec.CredentialId)
 	}
 
 	id := *created.Id
@@ -96,8 +96,8 @@ func TestPutGetDeleteGeminiTenantResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsGeminiTenantResource(Get) error = %v", err)
 	}
-	if gotTenant.Metadata.Name != "default" {
-		t.Fatalf("Get(GeminiTenant) metadata.name = %s", gotTenant.Metadata.Name)
+	if metadataID(t, gotTenant.Metadata) != "default" {
+		t.Fatalf("Get(GeminiTenant) metadata.id = %s", metadataID(t, gotTenant.Metadata))
 	}
 
 	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindGeminiTenant, id)
@@ -108,8 +108,8 @@ func TestPutGetDeleteGeminiTenantResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsGeminiTenantResource(Delete) error = %v", err)
 	}
-	if deletedTenant.Metadata.Name != "default" {
-		t.Fatalf("Delete(GeminiTenant) metadata.name = %s", deletedTenant.Metadata.Name)
+	if metadataID(t, deletedTenant.Metadata) != "default" {
+		t.Fatalf("Delete(GeminiTenant) metadata.id = %s", metadataID(t, deletedTenant.Metadata))
 	}
 	_, err = manager.Get(context.Background(), apitypes.ResourceKindGeminiTenant, id)
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
@@ -138,7 +138,7 @@ func TestGeminiTenantMissingServiceErrors(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "GeminiTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {"credential_id": "gemini"}
 	}`)
 
@@ -161,7 +161,7 @@ func TestApplyGeminiTenantRejectsInvalidHeader(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "unsupported",
 		"kind": "GeminiTenant",
-		"metadata": {"name": "default"},
+		"metadata": {"id": "default"},
 		"spec": {"credential_id": "gemini"}
 	}`)
 	_, err := manager.Apply(context.Background(), resource)

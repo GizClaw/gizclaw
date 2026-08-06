@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  name: flowcraft-multi-role-storyteller
+  id: flowcraft-multi-role-storyteller
 spec:
   driver: flowcraft
   memory: storyteller-memory

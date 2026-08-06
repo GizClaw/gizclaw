@@ -5,6 +5,7 @@ import { DashboardTable } from "@/dashboard";
 import type { KeyboardEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { encodeRouteParam } from "@/views/admin/full/lib/route-param";
 
 import {
   getDashScopeTenant,
@@ -73,7 +74,7 @@ type ProviderTenantConfig<T extends ProviderTenant> = {
 
 const openAIConfig: ProviderTenantConfig<OpenAiTenant> = {
   detailFields: (tenant) => [
-    ["Name", tenant.name],
+    ["ID", tenant.id],
     ["Endpoint kind", tenant.kind],
     ["API mode", tenant.api_mode],
     ["Credential ID", tenant.credential_id],
@@ -99,7 +100,7 @@ const openAIConfig: ProviderTenantConfig<OpenAiTenant> = {
 
 const geminiConfig: ProviderTenantConfig<GeminiTenant> = {
   detailFields: (tenant) => [
-    ["Name", tenant.name],
+    ["ID", tenant.id],
     ["Credential ID", tenant.credential_id],
     ["Project ID", tenant.project_id],
     ["Location", tenant.location],
@@ -124,7 +125,7 @@ const geminiConfig: ProviderTenantConfig<GeminiTenant> = {
 
 const dashScopeConfig: ProviderTenantConfig<DashScopeTenant> = {
   detailFields: (tenant) => [
-    ["Name", tenant.name],
+    ["ID", tenant.id],
     ["Credential ID", tenant.credential_id],
     ["Base URL", tenant.base_url],
     ["Description", tenant.description],
@@ -147,7 +148,7 @@ const dashScopeConfig: ProviderTenantConfig<DashScopeTenant> = {
 
 const deepSeekConfig: ProviderTenantConfig<DeepSeekTenant> = {
   detailFields: (tenant) => [
-    ["Name", tenant.name],
+    ["ID", tenant.id],
     ["Credential ID", tenant.credential_id],
     ["Base URL", tenant.base_url],
     ["Description", tenant.description],
@@ -225,7 +226,7 @@ function ProviderTenantsListPage<T extends ProviderTenant>({
   });
 
   const openTenant = (name: string): void => {
-    navigate(`${config.routeBase}/${encodeURIComponent(name)}`);
+    navigate(`${config.routeBase}/${encodeRouteParam(name)}`);
   };
 
   const handleRowKeyDown = (
@@ -315,7 +316,7 @@ function ProviderTenantsListPage<T extends ProviderTenant>({
             <DashboardTable>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
+                  <TableHead>ID</TableHead>
                   <TableHead>Credential</TableHead>
                   <TableHead>Endpoint</TableHead>
                   <TableHead>Description</TableHead>
@@ -332,7 +333,7 @@ function ProviderTenantsListPage<T extends ProviderTenant>({
                     role="link"
                     tabIndex={0}
                   >
-                    <TableCell className="font-medium">{tenant.name}</TableCell>
+                    <TableCell className="font-medium">{tenant.id}</TableCell>
                     <TableCell>{tenant.credential_id}</TableCell>
                     <TableCell className="max-w-[18rem] truncate text-sm text-muted-foreground">
                       {formatValue(tenant.base_url)}
@@ -360,9 +361,9 @@ function ProviderTenantDetailPage<T extends ProviderTenant>({
   config: ProviderTenantConfig<T>;
 }): JSX.Element {
   const params = useParams();
-  const tenantName = useMemo(
-    () => decodeRouteParam(params.name ?? ""),
-    [params.name],
+  const tenantID = useMemo(
+    () => decodeRouteParam(params.id ?? ""),
+    [params.id],
   );
   const [tenant, setTenant] = useState<T | null>(null);
   const [resource, setResource] = useState<Resource | null>(null);
@@ -370,19 +371,19 @@ function ProviderTenantDetailPage<T extends ProviderTenant>({
   const [error, setError] = useState("");
 
   const load = async (): Promise<void> => {
-    if (tenantName === "") {
+    if (tenantID === "") {
       setLoading(false);
-      setError(`Missing ${config.name} name in the URL.`);
+      setError(`Missing ${config.name} ID in the URL.`);
       return;
     }
     setLoading(true);
     setError("");
     try {
       const [nextTenant, nextResource] = await Promise.all([
-        config.get(tenantName),
+        config.get(tenantID),
         expectData(
           getResource({
-            path: { kind: config.resourceKind, id: tenantName },
+            path: { kind: config.resourceKind, id: tenantID },
           }),
         ),
       ]);
@@ -397,12 +398,12 @@ function ProviderTenantDetailPage<T extends ProviderTenant>({
 
   useEffect(() => {
     void load();
-  }, [tenantName]);
+  }, [tenantID]);
 
-  if (tenantName === "") {
+  if (tenantID === "") {
     return (
       <EmptyState
-        description={`Missing ${config.name} name in the URL.`}
+        description={`Missing ${config.name} ID in the URL.`}
         title="Invalid route"
       />
     );
@@ -433,7 +434,7 @@ function ProviderTenantDetailPage<T extends ProviderTenant>({
         items={[
           { href: "/overview", label: "Overview" },
           { href: config.routeBase, label: config.title },
-          { label: tenantName },
+          { label: tenantID },
         ]}
       />
 
@@ -443,7 +444,7 @@ function ProviderTenantDetailPage<T extends ProviderTenant>({
         meta={
           tenant ? <Badge variant="secondary">{config.kindBadge}</Badge> : null
         }
-        title={tenant?.name ?? tenantName}
+        title={tenant?.id ?? tenantID}
       />
 
       {loading ? (
@@ -490,19 +491,19 @@ function tenantCliCommands(
   config: ProviderTenantConfig<ProviderTenant>,
   tenant: ProviderTenant,
 ): string {
-  const name = shellQuote(tenant.name);
+  const id = shellQuote(tenant.id);
   return [
     `# Read this tenant through the provider CLI`,
-    `gizclaw admin ${cliTenantCommand(config.resourceKind)} --context <admin-cli-context> get ${name}`,
+    `gizclaw admin ${cliTenantCommand(config.resourceKind)} --context <admin-cli-context> get ${id}`,
     ``,
     `# Show this declarative tenant resource`,
-    `gizclaw admin --context <admin-cli-context> show ${config.resourceKind} ${name}`,
+    `gizclaw admin --context <admin-cli-context> show ${config.resourceKind} ${id}`,
     ``,
     `# Apply/update from a JSON file`,
     `gizclaw admin --context <admin-cli-context> apply -f tenant.json`,
     ``,
     `# Delete this tenant resource`,
-    `gizclaw admin --context <admin-cli-context> delete ${config.resourceKind} ${name}`,
+    `gizclaw admin --context <admin-cli-context> delete ${config.resourceKind} ${id}`,
   ].join("\n");
 }
 

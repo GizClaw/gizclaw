@@ -25,7 +25,7 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "cred-main",
+		Id:        "cred-main",
 		Provider:  "minimax",
 		Body:      testMiniMaxCredentialBody("tok-main"),
 		CreatedAt: srv.now(),
@@ -33,7 +33,7 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 	})
 
 	createBody := mustMiniMaxTenantUpsert(t, `{
-		"name": "tenant-a",
+		"id": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
 		"credential_id": "cred-main",
@@ -48,7 +48,7 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 	if !ok {
 		t.Fatalf("CreateMiniMaxTenant() response = %#v", createResp)
 	}
-	if created.Name != "tenant-a" || created.CredentialId != "cred-main" {
+	if created.Id != "tenant-a" || created.CredentialId != "cred-main" {
 		t.Fatalf("CreateMiniMaxTenant() tenant = %#v", created)
 	}
 	if created.CreatedAt.IsZero() || created.UpdatedAt.IsZero() {
@@ -68,7 +68,7 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 	}
 
 	updateBody := mustMiniMaxTenantUpsert(t, `{
-		"name": "tenant-a",
+		"id": "tenant-a",
 		"app_id": "app-2",
 		"group_id": "group-2",
 		"credential_id": "cred-main",
@@ -100,14 +100,13 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 	if !ok {
 		t.Fatalf("ListMiniMaxTenants() response = %#v", listResp)
 	}
-	if len(listed.Items) != 1 || listed.Items[0].Name != "tenant-a" {
+	if len(listed.Items) != 1 || listed.Items[0].Id != "tenant-a" {
 		t.Fatalf("ListMiniMaxTenants() = %#v", listed)
 	}
 
 	voice := apitypes.Voice{
 		CreatedAt: created.CreatedAt,
 		Id:        "minimax-tenant:tenant-a:voice-1",
-		Name:      "minimax-tenant:tenant-a:voice-1",
 		Provider: apitypes.VoiceProvider{
 			Kind: miniMaxProviderKind,
 			Id:   created.Id,
@@ -129,7 +128,6 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 	manualVoice := apitypes.Voice{
 		CreatedAt: created.CreatedAt,
 		Id:        "manual:tenant-a:voice-2",
-		Name:      "manual:tenant-a:voice-2",
 		Provider: apitypes.VoiceProvider{
 			Kind: miniMaxProviderKind,
 			Id:   created.Id,
@@ -162,7 +160,7 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "cred-main",
+		Id:        "cred-main",
 		Provider:  "minimax",
 		Body:      testMiniMaxCredentialBody("tok-main"),
 		CreatedAt: srv.now(),
@@ -170,12 +168,12 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 	})
 
 	for _, body := range []adminhttp.MiniMaxTenantUpsert{
-		{Name: "alpha", AppId: stringPtr("app-a"), GroupId: stringPtr("group-a"), CredentialId: "cred-main"},
-		{Name: "beta", AppId: stringPtr("app-b"), GroupId: stringPtr("group-b"), CredentialId: "cred-main"},
-		{Name: "gamma", AppId: stringPtr("app-c"), GroupId: stringPtr("group-c"), CredentialId: "cred-main"},
+		{Id: "alpha", AppId: stringPtr("app-a"), GroupId: stringPtr("group-a"), CredentialId: "cred-main"},
+		{Id: "beta", AppId: stringPtr("app-b"), GroupId: stringPtr("group-b"), CredentialId: "cred-main"},
+		{Id: "gamma", AppId: stringPtr("app-c"), GroupId: stringPtr("group-c"), CredentialId: "cred-main"},
 	} {
 		if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &body}); err != nil {
-			t.Fatalf("CreateMiniMaxTenant(%q) error = %v", body.Name, err)
+			t.Fatalf("CreateMiniMaxTenant(%q) error = %v", body.Id, err)
 		}
 	}
 
@@ -208,12 +206,12 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 	if !ok {
 		t.Fatalf("ListMiniMaxTenants(second page) response = %#v", secondResp)
 	}
-	if len(second.Items) != 1 || second.Items[0].Name == first.Items[0].Name {
+	if len(second.Items) != 1 || second.Items[0].Id == first.Items[0].Id {
 		t.Fatalf("ListMiniMaxTenants(second page) = %#v", second)
 	}
 
 	invalidBody := adminhttp.MiniMaxTenantUpsert{
-		Name:         "missing-cred",
+		Id:           "missing-cred",
 		GroupId:      stringPtr("group-x"),
 		CredentialId: "not-found",
 	}
@@ -266,11 +264,11 @@ func TestServerMiniMaxCredentialValidation(t *testing.T) {
 	tenant := apitypes.MiniMaxTenant{
 		CredentialId: "cred-main",
 		GroupId:      stringPtr("group-1"),
-		Name:         "tenant-a",
+		Id:           "tenant-a",
 	}
 
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "cred-main",
+		Id:        "cred-main",
 		Provider:  "openai",
 		Body:      testOpenAICredentialBody("sk-test"),
 		CreatedAt: srv.now(),
@@ -285,7 +283,7 @@ func TestServerMiniMaxCredentialValidation(t *testing.T) {
 	}
 
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "cred-main",
+		Id:        "cred-main",
 		Provider:  "minimax",
 		Body:      apitypes.CredentialBody{},
 		CreatedAt: srv.now(),
@@ -296,7 +294,7 @@ func TestServerMiniMaxCredentialValidation(t *testing.T) {
 	}
 
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "cred-main",
+		Id:        "cred-main",
 		Provider:  "minimax",
 		Body:      testMiniMaxCredentialBody("mmx-key"),
 		CreatedAt: srv.now(),
@@ -386,14 +384,14 @@ func TestServerMiniMaxHelpers(t *testing.T) {
 			t.Fatalf("normalizeMiniMaxVoiceBaseURL(%q) = %q, want %q", tt.raw, got, tt.want)
 		}
 	}
-	apiKey, err := miniMaxAPIKey(apitypes.Credential{Name: "mmx", Body: testMiniMaxCredentialBodyFromStrings(map[string]string{"token": " token-key "})})
+	apiKey, err := miniMaxAPIKey(apitypes.Credential{Id: "mmx", Body: testMiniMaxCredentialBodyFromStrings(map[string]string{"token": " token-key "})})
 	if err != nil {
 		t.Fatalf("miniMaxAPIKey(token fallback) error = %v", err)
 	}
 	if apiKey != "token-key" {
 		t.Fatalf("miniMaxAPIKey(token fallback) = %q, want token-key", apiKey)
 	}
-	if _, err := miniMaxAPIKey(apitypes.Credential{Name: "mmx", Body: testMiniMaxCredentialBodyFromStrings(nil)}); err == nil {
+	if _, err := miniMaxAPIKey(apitypes.Credential{Id: "mmx", Body: testMiniMaxCredentialBodyFromStrings(nil)}); err == nil {
 		t.Fatal("miniMaxAPIKey(missing) error = nil")
 	}
 	if got := testCredentialBodyString(testOpenAICredentialBody("12345"), "api_key"); got != "12345" {
@@ -472,7 +470,7 @@ func TestDecodeVoiceMigratesLegacyProviderFields(t *testing.T) {
 	if err := decodeVoice([]byte(`{
 		"id": "minimax-tenant:tenant-a:voice-1",
 		"source": "sync",
-		"provider": {"kind": "minimax-tenant", "name": "tenant-a"},
+		"provider": {"kind": "minimax-tenant", "id": "tenant-a"},
 		"provider_voice_id": "voice-1",
 		"provider_voice_type": "system",
 		"raw": {"gender": "female"},
@@ -592,7 +590,7 @@ func TestServerMiniMaxTenantValidationAndConflictPaths(t *testing.T) {
 	})
 
 	body := mustMiniMaxTenantUpsert(t, `{
-		"name": "tenant-a",
+		"id": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
 		"credential_id": "cred-main"
@@ -610,7 +608,7 @@ func TestServerMiniMaxTenantValidationAndConflictPaths(t *testing.T) {
 	}
 
 	pathMismatch := mustMiniMaxTenantUpsert(t, `{
-		"name": "other-name",
+		"id": "other-name",
 		"app_id": "app-1",
 		"group_id": "group-1",
 		"credential_id": "cred-main"
@@ -627,7 +625,7 @@ func TestServerMiniMaxTenantValidationAndConflictPaths(t *testing.T) {
 	}
 
 	invalidBaseURL := mustMiniMaxTenantUpsert(t, `{
-		"name": "tenant-b",
+		"id": "tenant-b",
 		"app_id": "app-2",
 		"group_id": "group-2",
 		"credential_id": "cred-main",
@@ -685,14 +683,14 @@ func TestServerSyncMiniMaxTenantVoicesUsesTenantBaseURL(t *testing.T) {
 	srv.MiniMaxBaseURLs = []string{upstream.URL}
 	ctx := context.Background()
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "cred-main",
+		Id:        "cred-main",
 		Provider:  "minimax",
 		Body:      testMiniMaxCredentialBodyFromStrings(map[string]string{"api_key": "mmx-key", "base_url": "https://models.example.invalid"}),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
 	tenantBody := mustMiniMaxTenantUpsert(t, `{
-		"name": "tenant-a",
+		"id": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
 		"credential_id": "cred-main"
@@ -717,7 +715,7 @@ func TestServerSyncMiniMaxTenantVoicesUsesTenantBaseURL(t *testing.T) {
 		t.Fatalf("upstream call count = %d, want 4", callCount.Load())
 	}
 
-	voice := requireStoredVoice(t, srv, ctx, "minimax-tenant:tenant-a:voice-1")
+	voice := requireStoredVoice(t, srv, ctx, stableVoiceID(miniMaxProviderKind, "tenant-a", "voice-1"))
 	if voice.Source != apitypes.VoiceSourceSync || voiceProviderDataString(voice, "voice_id") != "voice-1" {
 		t.Fatalf("stored sync voice = %#v", voice)
 	}
@@ -756,14 +754,14 @@ func TestServerSyncMiniMaxTenantVoicesRetriesTransientEOF(t *testing.T) {
 	srv.MiniMaxBaseURLs = []string{upstream.URL}
 	ctx := context.Background()
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "cred-main",
+		Id:        "cred-main",
 		Provider:  "minimax",
 		Body:      testMiniMaxCredentialBody("mmx-key"),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
 	tenantBody := mustMiniMaxTenantUpsert(t, `{
-		"name": "tenant-a",
+		"id": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
 		"credential_id": "cred-main"
@@ -799,14 +797,14 @@ func TestServerSyncMiniMaxTenantVoicesCredentialRejected(t *testing.T) {
 	srv.MiniMaxBaseURLs = []string{upstream.URL}
 	ctx := context.Background()
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "cred-main",
+		Id:        "cred-main",
 		Provider:  "minimax",
 		Body:      testMiniMaxCredentialBody("bad-key"),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
 	tenantBody := mustMiniMaxTenantUpsert(t, `{
-		"name": "tenant-a",
+		"id": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
 		"credential_id": "cred-main"
@@ -853,14 +851,14 @@ func TestServerSyncMiniMaxTenantVoicesFallsBackAfterRegionalAuthError(t *testing
 	srv := newTestServer(t)
 	ctx := context.Background()
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "cred-main",
+		Id:        "cred-main",
 		Provider:  "minimax",
 		Body:      testMiniMaxCredentialBodyFromStrings(map[string]string{"api_key": "mmx-key", "voice_base_url": success.URL}),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
 	tenantBody := mustMiniMaxTenantUpsert(t, `{
-		"name": "tenant-a",
+		"id": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
 		"credential_id": "cred-main"
@@ -913,14 +911,14 @@ func TestServerSyncMiniMaxTenantVoicesReconcile(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "cred-main",
+		Id:        "cred-main",
 		Provider:  "minimax",
 		Body:      testMiniMaxCredentialBodyFromStrings(map[string]string{"api_key": "mmx-key", "base_url": "https://models.example.invalid"}),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
 	tenantBody := mustMiniMaxTenantUpsert(t, `{
-		"name": "tenant-a",
+		"id": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
 		"credential_id": "cred-main"
@@ -972,12 +970,12 @@ func TestServerSyncMiniMaxTenantVoicesReconcile(t *testing.T) {
 		t.Fatalf("second SyncMiniMaxTenantVoices() result = %#v", second)
 	}
 
-	updatedVoice := requireStoredVoice(t, srv, ctx, "minimax-tenant:tenant-a:voice-1")
+	updatedVoice := requireStoredVoice(t, srv, ctx, stableVoiceID(miniMaxProviderKind, "tenant-a", "voice-1"))
 	if updatedVoice.DisplayName == nil || *updatedVoice.DisplayName != "first-updated" {
 		t.Fatalf("updated sync voice = %#v", updatedVoice)
 	}
 
-	requireMissingVoice(t, srv, ctx, "minimax-tenant:tenant-a:voice-2")
+	requireMissingVoice(t, srv, ctx, stableVoiceID(miniMaxProviderKind, "tenant-a", "voice-2"))
 
 	requireStoredVoice(t, srv, ctx, manualVoice.Id)
 }
@@ -1032,14 +1030,14 @@ func TestServerSyncMiniMaxTenantVoicesFetchesAllVoiceTypes(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "cred-main",
+		Id:        "cred-main",
 		Provider:  "minimax",
 		Body:      testMiniMaxCredentialBodyFromStrings(map[string]string{"api_key": "mmx-key", "base_url": "https://models.example.invalid"}),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
 	tenantBody := mustMiniMaxTenantUpsert(t, `{
-		"name": "tenant-a",
+		"id": "tenant-a",
 		"app_id": "app-1",
 		"group_id": "group-1",
 		"credential_id": "cred-main"
@@ -1065,9 +1063,9 @@ func TestServerSyncMiniMaxTenantVoicesFetchesAllVoiceTypes(t *testing.T) {
 	}
 
 	for _, id := range []string{
-		"minimax-tenant:tenant-a:voice-system-1",
-		"minimax-tenant:tenant-a:voice-clone-1",
-		"minimax-tenant:tenant-a:voice-gen-1",
+		stableVoiceID(miniMaxProviderKind, "tenant-a", "voice-system-1"),
+		stableVoiceID(miniMaxProviderKind, "tenant-a", "voice-clone-1"),
+		stableVoiceID(miniMaxProviderKind, "tenant-a", "voice-gen-1"),
 	} {
 		requireStoredVoice(t, srv, ctx, id)
 	}
@@ -1079,7 +1077,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "volc-main",
+		Id:        "volc-main",
 		Provider:  "volcengine",
 		Body:      testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 		CreatedAt: srv.now(),
@@ -1123,7 +1121,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 
 	resourceIDs := []string{"seed-tts-2.0", "seed-icl-2.0"}
 	createBody := adminhttp.VolcTenantUpsert{
-		Name:         "tenant-a",
+		Id:           "tenant-a",
 		CredentialId: "volc-main",
 		Region:       stringPtr("cn-beijing"),
 		ResourceIds:  &resourceIDs,
@@ -1137,7 +1135,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 	if !ok {
 		t.Fatalf("CreateVolcTenant() response = %#v", createResp)
 	}
-	if created.Name != "tenant-a" || created.CredentialId != "volc-main" {
+	if created.Id != "tenant-a" || created.CredentialId != "volc-main" {
 		t.Fatalf("CreateVolcTenant() tenant = %#v", created)
 	}
 	listResp, err := srv.ListVolcTenants(ctx, adminhttp.ListVolcTenantsRequestObject{})
@@ -1145,7 +1143,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 		t.Fatalf("ListVolcTenants() error = %v", err)
 	}
 	listed, ok := listResp.(adminhttp.ListVolcTenants200JSONResponse)
-	if !ok || len(listed.Items) != 1 || listed.Items[0].Name != "tenant-a" {
+	if !ok || len(listed.Items) != 1 || listed.Items[0].Id != "tenant-a" {
 		t.Fatalf("ListVolcTenants() response = %#v", listResp)
 	}
 
@@ -1163,16 +1161,17 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 	if len(fakeClient.requestedResourceIDs) != 1 || !slices.Equal(fakeClient.requestedResourceIDs[0], resourceIDs) {
 		t.Fatalf("BatchListMegaTTSTrainStatus ResourceIDs = %#v, want %#v", fakeClient.requestedResourceIDs, resourceIDs)
 	}
+	publicVoiceID := stableVoiceID(volcProviderKind, "tenant-a", "zh_female_public")
 	for _, id := range []string{
-		"volc-tenant:tenant-a:zh_female_public",
-		"volc-tenant:tenant-a:S_female_1",
-		"volc-tenant:tenant-a:S_male_1",
+		publicVoiceID,
+		stableVoiceID(volcProviderKind, "tenant-a", "S_female_1"),
+		stableVoiceID(volcProviderKind, "tenant-a", "S_male_1"),
 	} {
 		voice := requireStoredVoice(t, srv, ctx, string(id))
 		if voice.Provider.Kind != volcProviderKind || voice.Provider.Id != created.Id {
 			t.Fatalf("GetVoice(%s) provider = %#v", id, voice.Provider)
 		}
-		if id == "volc-tenant:tenant-a:zh_female_public" && voiceProviderDataString(apitypes.Voice(voice), "resource_id") != "seed-tts-2.0" {
+		if id == publicVoiceID && voiceProviderDataString(apitypes.Voice(voice), "resource_id") != "seed-tts-2.0" {
 			t.Fatalf("GetVoice(%s) resource_id = %q, want seed-tts-2.0", id, voiceProviderDataString(apitypes.Voice(voice), "resource_id"))
 		}
 		for _, removedKey := range []string{"source", "source_api", "speaker_id_prefix"} {
@@ -1222,7 +1221,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 	if _, ok := deleteResp.(adminhttp.DeleteVolcTenant200JSONResponse); !ok {
 		t.Fatalf("DeleteVolcTenant() response = %#v", deleteResp)
 	}
-	if _, err := getVoice(ctx, srv.VoiceStore, "volc-tenant:tenant-a:S_female_1"); err != kv.ErrNotFound {
+	if _, err := getVoice(ctx, srv.VoiceStore, stableVoiceID(volcProviderKind, "tenant-a", "S_female_1")); err != kv.ErrNotFound {
 		t.Fatalf("getVoice() after volc tenant delete err = %v, want kv.ErrNotFound", err)
 	}
 }
@@ -1234,7 +1233,7 @@ func TestServerVolcTenantPutGetAndValidation(t *testing.T) {
 	ctx := context.Background()
 
 	invalidBody := adminhttp.VolcTenantUpsert{
-		Name:         "tenant-a",
+		Id:           "tenant-a",
 		CredentialId: "missing-credential",
 		Endpoint:     stringPtr("not-a-url"),
 	}
@@ -1247,7 +1246,7 @@ func TestServerVolcTenantPutGetAndValidation(t *testing.T) {
 	}
 
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "volc-main",
+		Id:        "volc-main",
 		Provider:  "volc",
 		Body:      testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 		CreatedAt: srv.now(),
@@ -1255,7 +1254,7 @@ func TestServerVolcTenantPutGetAndValidation(t *testing.T) {
 	})
 	resourceIDs := []string{" seed-tts-2.0 ", "", "seed-tts-2.0", "seed-icl-2.0"}
 	body := adminhttp.VolcTenantUpsert{
-		Name:         "tenant-a",
+		Id:           "tenant-a",
 		CredentialId: "volc-main",
 		Endpoint:     stringPtr("https://speech.example.com/"),
 		Region:       stringPtr(" cn-beijing "),
@@ -1314,14 +1313,14 @@ func TestServerVolcTenantErrorResponses(t *testing.T) {
 	}
 
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "volc-main",
+		Id:        "volc-main",
 		Provider:  "volc",
 		Body:      testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
 	createBody := adminhttp.VolcTenantUpsert{
-		Name:         "tenant-a",
+		Id:           "tenant-a",
 		CredentialId: "volc-main",
 	}
 	if _, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
@@ -1334,7 +1333,7 @@ func TestServerVolcTenantErrorResponses(t *testing.T) {
 		t.Fatalf("CreateVolcTenant(duplicate) response = %#v, want 409", resp)
 	}
 	mismatchBody := createBody
-	mismatchBody.Name = "other"
+	mismatchBody.Id = "other"
 	if resp, err := srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Id: tenantID, Body: &mismatchBody}); err != nil {
 		t.Fatalf("PutVolcTenant(mismatch) error = %v", err)
 	} else if _, ok := resp.(adminhttp.PutVolcTenant400JSONResponse); !ok {
@@ -1400,7 +1399,7 @@ func TestServerVolcSyncPublicOnlySkipsTrainStatusAPI(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "volc-main",
+		Id:        "volc-main",
 		Provider:  "volcengine",
 		Body:      testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 		CreatedAt: srv.now(),
@@ -1416,7 +1415,7 @@ func TestServerVolcSyncPublicOnlySkipsTrainStatusAPI(t *testing.T) {
 		return fakeClient, nil
 	}
 	createBody := adminhttp.VolcTenantUpsert{
-		Name:         "tenant-a",
+		Id:           "tenant-a",
 		CredentialId: "volc-main",
 	}
 	if _, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
@@ -1437,7 +1436,7 @@ func TestServerVolcSyncPublicOnlySkipsTrainStatusAPI(t *testing.T) {
 	if len(fakeClient.requestedResourceIDs) != 0 {
 		t.Fatalf("BatchListMegaTTSTrainStatus requests = %#v, want none", fakeClient.requestedResourceIDs)
 	}
-	voice := requireStoredVoice(t, srv, ctx, "volc-tenant:tenant-a:public-a")
+	voice := requireStoredVoice(t, srv, ctx, stableVoiceID(volcProviderKind, "tenant-a", "public-a"))
 	if voiceProviderDataString(voice, "resource_id") != "seed-tts-2.0" {
 		t.Fatalf("resource_id = %q, want seed-tts-2.0", voiceProviderDataString(voice, "resource_id"))
 	}
@@ -1449,7 +1448,7 @@ func TestServerVolcSyncTimbreFallbackMapsICLResourceID(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "volc-main",
+		Id:        "volc-main",
 		Provider:  "volcengine",
 		Body:      testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 		CreatedAt: srv.now(),
@@ -1467,7 +1466,7 @@ func TestServerVolcSyncTimbreFallbackMapsICLResourceID(t *testing.T) {
 	}
 	resourceIDs := []string{"seed-tts-1.0", "seed-tts-2.0", "seed-icl-2.0"}
 	createBody := adminhttp.VolcTenantUpsert{
-		Name:         "tenant-a",
+		Id:           "tenant-a",
 		CredentialId: "volc-main",
 		ResourceIds:  &resourceIDs,
 	}
@@ -1481,11 +1480,11 @@ func TestServerVolcSyncTimbreFallbackMapsICLResourceID(t *testing.T) {
 	if synced, ok := syncResp.(adminhttp.SyncVolcTenantVoices200JSONResponse); !ok || synced.CreatedCount != 2 {
 		t.Fatalf("SyncVolcTenantVoices() response = %#v", syncResp)
 	}
-	icl := requireStoredVoice(t, srv, ctx, "volc-tenant:tenant-a:ICL_en_female_cc_cm_v1_tob")
+	icl := requireStoredVoice(t, srv, ctx, stableVoiceID(volcProviderKind, "tenant-a", "ICL_en_female_cc_cm_v1_tob"))
 	if got := voiceProviderDataString(icl, "resource_id"); got != "seed-tts-1.0" {
 		t.Fatalf("ICL resource_id = %q, want seed-tts-1.0", got)
 	}
-	tts := requireStoredVoice(t, srv, ctx, "volc-tenant:tenant-a:zh_female_vv_uranus_bigtts")
+	tts := requireStoredVoice(t, srv, ctx, stableVoiceID(volcProviderKind, "tenant-a", "zh_female_vv_uranus_bigtts"))
 	if got := voiceProviderDataString(tts, "resource_id"); got != "seed-tts-2.0" {
 		t.Fatalf("TTS resource_id = %q, want seed-tts-2.0", got)
 	}
@@ -1496,7 +1495,7 @@ func TestServerVolcTenantStoreNotConfigured(t *testing.T) {
 
 	srv := &Server{}
 	ctx := context.Background()
-	createBody := adminhttp.VolcTenantUpsert{Name: "tenant-a", CredentialId: "cred"}
+	createBody := adminhttp.VolcTenantUpsert{Id: "tenant-a", CredentialId: "cred"}
 	for name, call := range map[string]func() (any, error){
 		"ListVolcTenants": func() (any, error) {
 			return srv.ListVolcTenants(ctx, adminhttp.ListVolcTenantsRequestObject{})
@@ -1540,14 +1539,14 @@ func TestServerVolcSyncRejectsInvalidCredential(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "volc-main",
+		Id:        "volc-main",
 		Provider:  "volc",
 		Body:      testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak"}),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
 	createBody := adminhttp.VolcTenantUpsert{
-		Name:         "tenant-a",
+		Id:           "tenant-a",
 		CredentialId: "volc-main",
 	}
 	if _, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
@@ -1570,7 +1569,7 @@ func TestVolcCredentialAndResourceHelpers(t *testing.T) {
 	t.Parallel()
 
 	appID, ak, sk, err := volcCredentialValues(apitypes.Credential{
-		Name: "volc-main",
+		Id: "volc-main",
 		Body: testVolcCredentialBodyFromStrings(map[string]string{
 			"speech_app_id":         " app ",
 			"openapi_access_key_id": " ak ",
@@ -1583,7 +1582,7 @@ func TestVolcCredentialAndResourceHelpers(t *testing.T) {
 	if appID != "app" || ak != "ak" || sk != "sk" {
 		t.Fatalf("volcCredentialValues() = %q, %q, %q", appID, ak, sk)
 	}
-	if _, _, _, err := volcCredentialValues(apitypes.Credential{Name: "missing", Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak"})}); err == nil {
+	if _, _, _, err := volcCredentialValues(apitypes.Credential{Id: "missing", Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak"})}); err == nil {
 		t.Fatal("volcCredentialValues(missing secret) error = nil")
 	}
 
@@ -1705,8 +1704,8 @@ func TestTenantReferenceValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("credentialStore() error = %v", err)
 	}
-	miniMaxTenant := apitypes.MiniMaxTenant{Name: "mmx", CredentialId: "mmx-cred"}
-	volcTenant := apitypes.VolcTenant{Name: "volc", CredentialId: "volc-cred"}
+	miniMaxTenant := apitypes.MiniMaxTenant{Id: "mmx", CredentialId: "mmx-cred"}
+	volcTenant := apitypes.VolcTenant{Id: "volc", CredentialId: "volc-cred"}
 
 	if err := validateTenantReferences(ctx, credentialStore, miniMaxTenant); err == nil || !strings.Contains(err.Error(), `credential "mmx-cred" not found`) {
 		t.Fatalf("validateTenantReferences(missing) error = %v", err)
@@ -1716,14 +1715,14 @@ func TestTenantReferenceValidation(t *testing.T) {
 	}
 
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "mmx-cred",
+		Id:        "mmx-cred",
 		Provider:  "minimax",
 		Body:      testMiniMaxCredentialBody("mmx-key"),
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
 	seedCredential(t, srv, apitypes.Credential{
-		Name:      "volc-cred",
+		Id:        "volc-cred",
 		Provider:  "volc",
 		Body:      testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 		CreatedAt: srv.now(),
@@ -1744,25 +1743,25 @@ func TestVolcSpeakerClientForTenantValidation(t *testing.T) {
 	ctx := context.Background()
 	tenant := apitypes.VolcTenant{
 		CredentialId: "volc-main",
-		Name:         "tenant-a",
+		Id:           "tenant-a",
 		Region:       stringPtr("cn-beijing"),
 	}
 	if _, err := srv.volcSpeakerClientForTenant(ctx, apitypes.Credential{
-		Name:     "wrong-provider",
+		Id:       "wrong-provider",
 		Provider: "minimax",
 		Body:     testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 	}, tenant); err == nil || !strings.Contains(err.Error(), "provider must be volcengine") {
 		t.Fatalf("volcSpeakerClientForTenant(wrong provider) error = %v", err)
 	}
 	if _, err := srv.volcSpeakerClientForTenant(ctx, apitypes.Credential{
-		Name:     "missing-secret",
+		Id:       "missing-secret",
 		Provider: "volc",
 		Body:     testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak"}),
 	}, tenant); err == nil || !strings.Contains(err.Error(), "missing openapi_access_key_id/openapi_access_key") {
 		t.Fatalf("volcSpeakerClientForTenant(missing secret) error = %v", err)
 	}
 	client, err := srv.volcSpeakerClientForTenant(ctx, apitypes.Credential{
-		Name:     "volc-main",
+		Id:       "volc-main",
 		Provider: "volcengine",
 		Body:     testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
 	}, tenant)
@@ -1907,20 +1906,6 @@ func requireStoredVoice(t *testing.T, srv *Server, ctx context.Context, id strin
 		t.Fatalf("voiceStore() error = %v", err)
 	}
 	voice, err := getVoice(ctx, store, id)
-	if errors.Is(err, kv.ErrNotFound) {
-		voice, err = getVoiceByName(ctx, store, id)
-	}
-	if errors.Is(err, kv.ErrNotFound) {
-		parts := strings.SplitN(id, ":", 3)
-		if len(parts) == 3 && parts[1] == "tenant-a" {
-			switch parts[0] {
-			case "volc-tenant":
-				voice, err = getVoiceByName(ctx, store, stableVoiceName(volcProviderKind, volcTenantID(t, srv, ctx, parts[1]), parts[2]))
-			case "minimax-tenant":
-				voice, err = getVoiceByName(ctx, store, stableVoiceName(miniMaxProviderKind, miniMaxTenantID(t, srv, ctx, parts[1]), parts[2]))
-			}
-		}
-	}
 	if err != nil {
 		t.Fatalf("getVoice(%s) error = %v", id, err)
 	}
@@ -1942,7 +1927,7 @@ func requireMissingVoice(t *testing.T, srv *Server, ctx context.Context, id stri
 func seedCredential(t *testing.T, srv *Server, credential apitypes.Credential) {
 	t.Helper()
 	if credential.Id == "" {
-		credential.Id = credential.Name
+		t.Fatal("credential id is required")
 	}
 
 	data, err := json.Marshal(credential)
@@ -1958,30 +1943,30 @@ func seedCredential(t *testing.T, srv *Server, credential apitypes.Credential) {
 	}
 }
 
-func miniMaxTenantID(t *testing.T, srv *Server, ctx context.Context, name string) string {
+func miniMaxTenantID(t *testing.T, srv *Server, ctx context.Context, id string) string {
 	t.Helper()
 	store, err := srv.tenantStore()
 	if err != nil {
 		t.Fatal(err)
 	}
-	id, err := store.Get(ctx, miniMaxTenantNameKey(name))
+	_, err = store.Get(ctx, miniMaxTenantKey(id))
 	if err != nil {
-		t.Fatalf("resolve MiniMax tenant %q: %v", name, err)
+		t.Fatalf("resolve MiniMax tenant %q: %v", id, err)
 	}
-	return string(id)
+	return id
 }
 
-func volcTenantID(t *testing.T, srv *Server, ctx context.Context, name string) string {
+func volcTenantID(t *testing.T, srv *Server, ctx context.Context, id string) string {
 	t.Helper()
 	store, err := srv.volcTenantStore()
 	if err != nil {
 		t.Fatal(err)
 	}
-	id, err := store.Get(ctx, volcTenantNameKey(name))
+	_, err = store.Get(ctx, volcTenantKey(id))
 	if err != nil {
-		t.Fatalf("resolve Volc tenant %q: %v", name, err)
+		t.Fatalf("resolve Volc tenant %q: %v", id, err)
 	}
-	return string(id)
+	return id
 }
 
 func mustMiniMaxTenantUpsert(t *testing.T, raw string) adminhttp.MiniMaxTenantUpsert {

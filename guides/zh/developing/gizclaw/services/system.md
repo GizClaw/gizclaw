@@ -37,6 +37,8 @@ services/system/
 
 为 Admin apply、show 和通用 resource 操作提供统一的 declarative resource dispatch。它知道不同 resource kind 应交给哪个领域服务，但不重新实现 credential、workflow、firmware、gameplay 或 social 的业务规则。
 
+每个具体 Resource 必须携带 caller-supplied `metadata.id`。ResourceManager 以 `(kind, id)` 查找和分发，create 时把该 ID 原样交给领域 service，update 时要求期望 ID 与现有 ID 相同；它不生成 ID、不做 name lookup，也不提供 name-to-ID fallback。下游引用在输入中已经是目标 canonical ID。`ResourceList` 只负责按顺序分发 items，顶层没有 ID。
+
 ResourceManager 是跨领域协调层，不是所有 GizClaw resource 的实际 owner。
 
 ## 依赖与边界

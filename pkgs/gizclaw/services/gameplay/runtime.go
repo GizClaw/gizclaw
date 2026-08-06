@@ -549,9 +549,9 @@ func (r *Runtime) preflightPetAdoptionTx(ctx context.Context, tx *sqlx.Tx, owner
 	return nil
 }
 
-func (r *Runtime) awaitCompletedAdoptionResponse(ctx context.Context, owner, runtimeProfileName, workflowName, petID string) (apitypes.PetAdoptResponse, bool, error) {
+func (r *Runtime) awaitCompletedAdoptionResponse(ctx context.Context, owner, runtimeProfileID, workflowName, petID string) (apitypes.PetAdoptResponse, bool, error) {
 	for {
-		response, found, err := r.completedAdoptionResponse(ctx, owner, runtimeProfileName, workflowName, petID)
+		response, found, err := r.completedAdoptionResponse(ctx, owner, runtimeProfileID, workflowName, petID)
 		if err != nil && ctx.Err() != nil {
 			return apitypes.PetAdoptResponse{}, false, nil
 		}
@@ -568,7 +568,7 @@ func (r *Runtime) awaitCompletedAdoptionResponse(ctx context.Context, owner, run
 	}
 }
 
-func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeProfileName, workflowName, petID string) (apitypes.PetAdoptResponse, bool, error) {
+func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeProfileID, workflowName, petID string) (apitypes.PetAdoptResponse, bool, error) {
 	db, err := r.db()
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, false, err
@@ -596,7 +596,7 @@ func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeP
 	if petErr != nil {
 		return apitypes.PetAdoptResponse{}, false, petErr
 	}
-	if pet.RuntimeProfileId != runtimeProfileName {
+	if pet.RuntimeProfileId != runtimeProfileID {
 		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("%w: %q belongs to RuntimeProfile %q", ErrPetIDConflict, petID, pet.RuntimeProfileId)
 	}
 	workspaceName := petWorkspaceName(owner, petID)
@@ -604,16 +604,16 @@ func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeP
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("%w: %q has a different Workspace binding: %v", ErrPetIDConflict, petID, err)
 	}
-	if strings.TrimSpace(boundWorkspace.Id) != strings.TrimSpace(pet.WorkspaceId) {
+	if boundWorkspace.Id != pet.WorkspaceId {
 		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("%w: %q has a different Workspace domain binding", ErrPetIDConflict, petID)
 	}
 	if txnErr != nil {
 		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("load adoption transaction for Pet %q: %w", petID, txnErr)
 	}
-	if txn.RuntimeProfileId != runtimeProfileName {
+	if txn.RuntimeProfileId != runtimeProfileID {
 		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("adoption transaction for Pet %q belongs to RuntimeProfile %q", petID, txn.RuntimeProfileId)
 	}
-	account, err := findPointsAccount(ctx, readTx, owner, runtimeProfileName)
+	account, err := findPointsAccount(ctx, readTx, owner, runtimeProfileID)
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("load points account for Pet %q: %w", petID, err)
 	}
@@ -658,7 +658,7 @@ func (r *Runtime) GetPetByName(ctx context.Context, owner, name string) (apitype
 	query := petSelectSQL() + ` WHERE owner_public_key = ? AND name = ?`
 	args := []any{strings.TrimSpace(owner), strings.TrimSpace(name)}
 	if profile, ok := runtimeProfileFromContext(ctx); ok {
-		if profileID := strings.TrimSpace(profile.Id); profileID != "" {
+		if profileID := profile.Id; profileID != "" {
 			query += ` AND runtime_profile_id = ?`
 			args = append(args, profileID)
 		}
@@ -670,7 +670,7 @@ func profileScopedOwnerIDQuery(ctx context.Context, selectSQL, owner, id string)
 	query := selectSQL + ` WHERE owner_public_key = ? AND id = ?`
 	args := []any{strings.TrimSpace(owner), strings.TrimSpace(id)}
 	if profile, ok := runtimeProfileFromContext(ctx); ok {
-		if profileID := strings.TrimSpace(profile.Id); profileID != "" {
+		if profileID := profile.Id; profileID != "" {
 			query += ` AND runtime_profile_id = ?`
 			args = append(args, profileID)
 		}
@@ -685,9 +685,8 @@ func (r *Runtime) ResolvePetContext(ctx context.Context, workspaceID string) (ap
 	if err != nil {
 		return apitypes.Pet{}, apitypes.PetDef{}, err
 	}
-	workspaceID = strings.TrimSpace(workspaceID)
-	if workspaceID == "" {
-		return apitypes.Pet{}, apitypes.PetDef{}, errors.New("gameplay: workspace id is required")
+	if err := customid.ValidateResourceID(workspaceID); err != nil {
+		return apitypes.Pet{}, apitypes.PetDef{}, fmt.Errorf("gameplay: workspace id: %w", err)
 	}
 	rows, err := db.QueryContext(ctx, db.Rebind(petSelectSQL()+` WHERE workspace_id = ? LIMIT 2`), workspaceID)
 	if err != nil {
@@ -727,7 +726,10 @@ func (r *Runtime) OwnerHasPetDef(ctx context.Context, owner, petDefID string) (b
 		return false, err
 	}
 	var exists int
-	err = db.QueryRowContext(ctx, db.Rebind(`SELECT 1 FROM gameplay_pets WHERE owner_public_key = ? AND pet_def_id = ? LIMIT 1`), owner, strings.TrimSpace(petDefID)).Scan(&exists)
+	if err := customid.ValidateResourceID(petDefID); err != nil {
+		return false, fmt.Errorf("gameplay: pet definition id: %w", err)
+	}
+	err = db.QueryRowContext(ctx, db.Rebind(`SELECT 1 FROM gameplay_pets WHERE owner_public_key = ? AND pet_def_id = ? LIMIT 1`), owner, petDefID).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
@@ -744,7 +746,7 @@ func (r *Runtime) ListPetWorkspaceNames(ctx context.Context, owner string) ([]st
 		return nil, err
 	}
 	profile, ok := runtimeProfileFromContext(ctx)
-	profileID := strings.TrimSpace(profile.Id)
+	profileID := profile.Id
 	if !ok || profileID == "" {
 		return nil, nil
 	}
@@ -790,7 +792,7 @@ func (r *Runtime) OwnerHasPetWorkspace(ctx context.Context, owner, workspaceName
 		return false, err
 	}
 	profile, ok := runtimeProfileFromContext(ctx)
-	profileID := strings.TrimSpace(profile.Id)
+	profileID := profile.Id
 	if !ok || profileID == "" || r.Workspaces == nil {
 		return false, nil
 	}
@@ -981,7 +983,7 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 	}
 	var gameRule ProfileGameRule
 	if hasGame {
-		gameDefID := strings.TrimSpace(req.GameResult.GameDefId)
+		gameDefID := req.GameResult.GameDefId
 		var configured bool
 		gameRule, configured = ruleset.Spec.Games[gameDefID]
 		if !configured {
@@ -1467,18 +1469,18 @@ func listDriveTransactions(ctx context.Context, db *sqlx.DB, owner string, resul
 	return out, rows.Err()
 }
 
-func (r *Runtime) GetPoints(ctx context.Context, owner, runtimeProfileName string) (apitypes.PointsAccount, error) {
+func (r *Runtime) GetPoints(ctx context.Context, owner, runtimeProfileID string) (apitypes.PointsAccount, error) {
 	if err := r.Migration(ctx); err != nil {
 		return apitypes.PointsAccount{}, err
 	}
-	if _, registered := runtimeProfileFromContext(ctx); !registered && strings.TrimSpace(runtimeProfileName) == "" {
+	if _, registered := runtimeProfileFromContext(ctx); !registered && strings.TrimSpace(runtimeProfileID) == "" {
 		db, err := r.db()
 		if err != nil {
 			return apitypes.PointsAccount{}, err
 		}
 		return scanPointsAccount(db.QueryRowContext(ctx, db.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? ORDER BY runtime_profile_id LIMIT 1`), strings.TrimSpace(owner)))
 	}
-	ruleset, err := pointsRulesFromContext(ctx, runtimeProfileName)
+	ruleset, err := pointsRulesFromContext(ctx, runtimeProfileID)
 	if err != nil {
 		return apitypes.PointsAccount{}, err
 	}
@@ -1566,8 +1568,8 @@ func (r *Runtime) GetRewardGrant(ctx context.Context, owner, id string) (apitype
 	return scanRewardGrant(db.QueryRowContext(ctx, db.Rebind(query), args...))
 }
 
-func (r *Runtime) resolveProfileRules(ctx context.Context, name string) (ProfileRules, error) {
-	rules, err := profileRulesFromContext(ctx, name)
+func (r *Runtime) resolveProfileRules(ctx context.Context, requestedID string) (ProfileRules, error) {
+	rules, err := profileRulesFromContext(ctx, requestedID)
 	if err != nil {
 		return ProfileRules{}, err
 	}
@@ -1659,7 +1661,7 @@ func (r *Runtime) createPetWorkspace(ctx context.Context, owner, name, workflowN
 	if err := r.validatePetWorkflow(ctx, workflowName); err != nil {
 		return apitypes.Workspace{}, false, err
 	}
-	body := adminhttp.WorkspaceUpsert{Name: name, WorkflowId: workflowName}
+	body := adminhttp.WorkspaceUpsert{Id: name, Name: name, WorkflowId: workflowName}
 	workspace, created, err := r.Workspaces.CreateSystemWorkspace(ownership.WithOwner(ctx, owner), body)
 	if err != nil {
 		return apitypes.Workspace{}, false, err
@@ -1699,31 +1701,30 @@ func validateExistingPetWorkspace(workspace apitypes.Workspace, owner, workflowN
 	return nil
 }
 
-func (r *Runtime) validatePetWorkflow(ctx context.Context, name string) error {
+func (r *Runtime) validatePetWorkflow(ctx context.Context, workflowID string) error {
 	if r == nil || r.Workflows == nil {
 		return errors.New("gameplay: workflow service is not configured")
 	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return errors.New("gameplay: system Pet Workflow is required")
+	if err := customid.ValidateResourceID(workflowID); err != nil {
+		return fmt.Errorf("gameplay: system Pet Workflow id: %w", err)
 	}
-	resp, err := r.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: name})
+	resp, err := r.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: workflowID})
 	if err != nil {
-		return fmt.Errorf("get pet workflow %q: %w", name, err)
+		return fmt.Errorf("get pet workflow %q: %w", workflowID, err)
 	}
 	switch v := resp.(type) {
 	case adminhttp.GetWorkflow200JSONResponse:
 		doc := apitypes.Workflow(v)
 		if doc.Spec.Driver != apitypes.WorkflowDriverPet {
-			return fmt.Errorf("workflow %q uses driver %q, want %q", name, doc.Spec.Driver, apitypes.WorkflowDriverPet)
+			return fmt.Errorf("workflow %q uses driver %q, want %q", workflowID, doc.Spec.Driver, apitypes.WorkflowDriverPet)
 		}
 		return nil
 	case adminhttp.GetWorkflow404JSONResponse:
-		return fmt.Errorf("get pet workflow %q: %s", name, v.Error.Message)
+		return fmt.Errorf("get pet workflow %q: %s", workflowID, v.Error.Message)
 	case adminhttp.GetWorkflow500JSONResponse:
-		return fmt.Errorf("get pet workflow %q: %s", name, v.Error.Message)
+		return fmt.Errorf("get pet workflow %q: %s", workflowID, v.Error.Message)
 	default:
-		return fmt.Errorf("get pet workflow %q: unexpected response %T", name, resp)
+		return fmt.Errorf("get pet workflow %q: unexpected response %T", workflowID, resp)
 	}
 }
 
@@ -1756,11 +1757,11 @@ func lockPointsAccountTx(ctx context.Context, tx *sqlx.Tx, account *apitypes.Poi
 		account.OwnerPublicKey, account.RuntimeProfileId).Scan(&account.Balance)
 }
 
-func (r *Runtime) applyPointsTx(ctx context.Context, tx *sqlx.Tx, account *apitypes.PointsAccount, delta int64, runtimeProfileName, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID string) (apitypes.PointsTransaction, error) {
-	return r.recordPointsTx(ctx, tx, account, delta, runtimeProfileName, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID, false)
+func (r *Runtime) applyPointsTx(ctx context.Context, tx *sqlx.Tx, account *apitypes.PointsAccount, delta int64, runtimeProfileID, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID string) (apitypes.PointsTransaction, error) {
+	return r.recordPointsTx(ctx, tx, account, delta, runtimeProfileID, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID, false)
 }
 
-func (r *Runtime) recordPointsTx(ctx context.Context, tx *sqlx.Tx, account *apitypes.PointsAccount, delta int64, runtimeProfileName, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID string, recordZero bool) (apitypes.PointsTransaction, error) {
+func (r *Runtime) recordPointsTx(ctx context.Context, tx *sqlx.Tx, account *apitypes.PointsAccount, delta int64, runtimeProfileID, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID string, recordZero bool) (apitypes.PointsTransaction, error) {
 	if delta == 0 && !recordZero {
 		return apitypes.PointsTransaction{}, nil
 	}
@@ -1779,7 +1780,7 @@ func (r *Runtime) recordPointsTx(ctx context.Context, tx *sqlx.Tx, account *apit
 	txn := apitypes.PointsTransaction{
 		Id:               r.newID(),
 		OwnerPublicKey:   account.OwnerPublicKey,
-		RuntimeProfileId: runtimeProfileName,
+		RuntimeProfileId: runtimeProfileID,
 		PetId:            optionalString(petID),
 		GameResultId:     optionalString(gameResultID),
 		RewardGrantId:    optionalString(rewardGrantID),

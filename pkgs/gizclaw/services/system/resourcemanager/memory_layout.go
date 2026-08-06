@@ -5,6 +5,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/memorylayout"
 )
 
 func (m *Manager) applyMemoryLayout(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
@@ -15,43 +16,20 @@ func (m *Manager) applyMemoryLayout(ctx context.Context, resource apitypes.Resou
 	if err != nil {
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_MEMORY_LAYOUT_RESOURCE", err.Error())
 	}
-	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+	if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	id, updating, err := resourceUpdateID(item.Metadata)
+	normalized, err := memorylayout.NormalizeSpec(item.Metadata.Id, item.Spec)
 	if err != nil {
-		return apitypes.ApplyResult{}, err
+		return apitypes.ApplyResult{}, applyError(400, "INVALID_MEMORY_LAYOUT_RESOURCE", err.Error())
 	}
-	if !updating {
-		createdID, err := m.createMemoryLayout(ctx, memoryLayoutFromResource(item))
-		if err != nil {
-			return apitypes.ApplyResult{}, err
-		}
-		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindMemoryLayout, item.Metadata.Name, createdID), nil
-	}
-	existing, exists, err := m.getMemoryLayout(ctx, id)
-	if err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if !exists {
-		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindMemoryLayout, id)
-	}
-	if err := validateImmutableResourceName(apitypes.ResourceKindMemoryLayout, id, existing.Name, item.Metadata.Name); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if exists {
-		same, err := semanticEqual(existing.Spec, item.Spec)
-		if err != nil {
-			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
-		}
-		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindMemoryLayout, item.Metadata.Name, id), nil
-		}
-	}
-	if err := m.putMemoryLayout(ctx, id, memoryLayoutFromResource(item)); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindMemoryLayout, item.Metadata.Name, id), nil
+	item.Spec = normalized
+	body := memoryLayoutFromResource(item)
+	return applyConcreteResource(ctx, item.Metadata, apitypes.ResourceKindMemoryLayout, item.Spec,
+		m.getMemoryLayout,
+		func(ctx context.Context) (string, error) { return m.createMemoryLayout(ctx, body) },
+		func(ctx context.Context, id string) error { return m.putMemoryLayout(ctx, id, body) },
+		func(value apitypes.MemoryLayout) apitypes.MemoryLayoutSpec { return value.Spec })
 }
 
 func (m *Manager) createMemoryLayout(ctx context.Context, body adminhttp.MemoryLayoutUpsert) (string, error) {
@@ -73,8 +51,8 @@ func (m *Manager) createMemoryLayout(ctx context.Context, body adminhttp.MemoryL
 	}
 }
 
-func (m *Manager) getMemoryLayout(ctx context.Context, name string) (apitypes.MemoryLayout, bool, error) {
-	response, err := m.services.MemoryLayouts.GetMemoryLayout(ctx, adminhttp.GetMemoryLayoutRequestObject{Id: name})
+func (m *Manager) getMemoryLayout(ctx context.Context, id string) (apitypes.MemoryLayout, bool, error) {
+	response, err := m.services.MemoryLayouts.GetMemoryLayout(ctx, adminhttp.GetMemoryLayoutRequestObject{Id: id})
 	if err != nil {
 		return apitypes.MemoryLayout{}, false, err
 	}
@@ -90,8 +68,8 @@ func (m *Manager) getMemoryLayout(ctx context.Context, name string) (apitypes.Me
 	}
 }
 
-func (m *Manager) putMemoryLayout(ctx context.Context, name string, body adminhttp.MemoryLayoutUpsert) error {
-	response, err := m.services.MemoryLayouts.PutMemoryLayout(ctx, adminhttp.PutMemoryLayoutRequestObject{Id: name, Body: &body})
+func (m *Manager) putMemoryLayout(ctx context.Context, id string, body adminhttp.MemoryLayoutUpsert) error {
+	response, err := m.services.MemoryLayouts.PutMemoryLayout(ctx, adminhttp.PutMemoryLayoutRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
@@ -107,8 +85,8 @@ func (m *Manager) putMemoryLayout(ctx context.Context, name string, body adminht
 	}
 }
 
-func (m *Manager) deleteMemoryLayout(ctx context.Context, name string) (apitypes.MemoryLayout, bool, error) {
-	response, err := m.services.MemoryLayouts.DeleteMemoryLayout(ctx, adminhttp.DeleteMemoryLayoutRequestObject{Id: name})
+func (m *Manager) deleteMemoryLayout(ctx context.Context, id string) (apitypes.MemoryLayout, bool, error) {
+	response, err := m.services.MemoryLayouts.DeleteMemoryLayout(ctx, adminhttp.DeleteMemoryLayoutRequestObject{Id: id})
 	if err != nil {
 		return apitypes.MemoryLayout{}, false, err
 	}
@@ -128,11 +106,11 @@ func resourceFromMemoryLayout(item apitypes.MemoryLayout) (apitypes.Resource, er
 	return marshalResource(apitypes.MemoryLayoutResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.MemoryLayoutResourceKindMemoryLayout,
-		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: item.Id},
 		Spec:       item.Spec,
 	})
 }
 
 func memoryLayoutFromResource(item apitypes.MemoryLayoutResource) adminhttp.MemoryLayoutUpsert {
-	return adminhttp.MemoryLayoutUpsert{Name: item.Metadata.Name, Spec: item.Spec}
+	return adminhttp.MemoryLayoutUpsert{Id: item.Metadata.Id, Spec: item.Spec}
 }

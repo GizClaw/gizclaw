@@ -141,7 +141,7 @@ func TestGroupWorkspaceBelongsToCreator(t *testing.T) {
 	}
 }
 
-func TestAdminCreateFriendGroupRollsBackWorkspaceOnGroupWriteFailure(t *testing.T) {
+func TestAdminCreateFriendGroupStopsBeforeWorkspaceOnGroupReservationFailure(t *testing.T) {
 	ctx := context.Background()
 	workspaces := &recordingWorkspaceService{}
 	s := newTestServer(t)
@@ -149,18 +149,18 @@ func TestAdminCreateFriendGroupRollsBackWorkspaceOnGroupWriteFailure(t *testing.
 	s.RuntimeProfileForOwner = testRuntimeProfileForOwner
 	s.Groups = failingSetStore{Store: kv.NewMemory(nil)}
 
-	if _, err := s.AdminCreateFriendGroup(ctx, "peer-a", "family", nil, nil); err == nil {
+	if _, err := s.AdminCreateFriendGroup(ctx, "id-a", "peer-a", "family", nil, nil); err == nil {
 		t.Fatal("AdminCreateFriendGroup with failing group store error = nil")
 	}
-	if len(workspaces.deleted) != 1 {
-		t.Fatalf("deleted workspaces = %#v, want one workspace rollback", workspaces.deleted)
+	if len(workspaces.created) != 0 || len(workspaces.deleted) != 0 {
+		t.Fatalf("Workspace mutations = created:%#v deleted:%#v, want none", workspaces.created, workspaces.deleted)
 	}
 }
 
 func TestAdminCreateFriendGroupCreatesOwnerMembership(t *testing.T) {
 	ctx := t.Context()
 	s := newTestServer(t)
-	group, err := s.AdminCreateFriendGroup(ctx, "peer-a", "family", nil, nil)
+	group, err := s.AdminCreateFriendGroup(ctx, "id-a", "peer-a", "family", nil, nil)
 	if err != nil {
 		t.Fatalf("AdminCreateFriendGroup: %v", err)
 	}
@@ -176,6 +176,41 @@ func TestAdminCreateFriendGroupCreatesOwnerMembership(t *testing.T) {
 	}
 }
 
+func TestAdminCreateFriendGroupRejectsIDThatCannotProduceBoundedMembershipID(t *testing.T) {
+	s := newTestServer(t)
+	if _, err := s.AdminCreateFriendGroup(t.Context(), strings.Repeat("😀", 81), "peer-a", "family", nil, nil); err == nil {
+		t.Fatal("AdminCreateFriendGroup accepted oversized FriendGroup ID")
+	}
+}
+
+func TestAdminCreateFriendGroupRejectsDuplicateCallerID(t *testing.T) {
+	ctx := t.Context()
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer(t)
+	s.Workspaces = workspaces
+	s.RuntimeProfileForOwner = testRuntimeProfileForOwner
+	created, err := s.AdminCreateFriendGroup(ctx, "id-a", "peer-a", "family", nil, nil)
+	if err != nil {
+		t.Fatalf("AdminCreateFriendGroup: %v", err)
+	}
+	if _, err := s.AdminCreateFriendGroup(ctx, "id-a", "peer-b", "replacement", nil, nil); !errors.Is(err, socialutil.ErrResourceAlreadyExists) {
+		t.Fatalf("AdminCreateFriendGroup duplicate caller ID error = %v, want conflict", err)
+	}
+	got, err := s.AdminGetFriendGroupObject(ctx, created.Id)
+	if err != nil {
+		t.Fatalf("AdminGetFriendGroupObject after duplicate caller ID: %v", err)
+	}
+	if got.Name != "family" || got.CreatedByPeerPublicKey != "peer-a" {
+		t.Fatalf("FriendGroup after duplicate caller ID = %+v, want original peer-a/family", got)
+	}
+	if len(workspaces.created) != 1 {
+		t.Fatalf("created Workspaces = %d, want 1", len(workspaces.created))
+	}
+	if _, err := s.AdminGetFriendGroupMember(ctx, created.Id, "peer-b"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("duplicate owner membership error = %v, want not found", err)
+	}
+}
+
 func TestAdminCreateFriendGroupRollsBackOnOwnerMembershipWriteFailure(t *testing.T) {
 	ctx := t.Context()
 	groups := kv.NewMemory(nil)
@@ -186,7 +221,7 @@ func TestAdminCreateFriendGroupRollsBackOnOwnerMembershipWriteFailure(t *testing
 	s.Workspaces = workspaces
 	s.RuntimeProfileForOwner = testRuntimeProfileForOwner
 
-	if _, err := s.AdminCreateFriendGroup(ctx, "peer-a", "family", nil, nil); err == nil {
+	if _, err := s.AdminCreateFriendGroup(ctx, "id-a", "peer-a", "family", nil, nil); err == nil {
 		t.Fatal("AdminCreateFriendGroup with failing member store error = nil")
 	}
 	if _, err := groups.Get(ctx, socialutil.GroupKey("id-a")); !errors.Is(err, kv.ErrNotFound) {
@@ -200,7 +235,7 @@ func TestAdminCreateFriendGroupRollsBackOnOwnerMembershipWriteFailure(t *testing
 func TestAdminDeleteFriendGroupMemberRollsBackWhenBelongsDeleteFails(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer(t)
-	group, err := s.AdminCreateFriendGroup(ctx, "peer-a", "family", nil, nil)
+	group, err := s.AdminCreateFriendGroup(ctx, "id-a", "peer-a", "family", nil, nil)
 	if err != nil {
 		t.Fatalf("AdminCreateFriendGroup: %v", err)
 	}
@@ -516,6 +551,9 @@ func TestBelongsStoreFallsBackToMembersStore(t *testing.T) {
 		t.Fatalf("CreateFriendGroup: %v", err)
 	}
 	friendGroupID := mustGroupID(t, s, "peer-a", group.Name)
+	if _, err := s.AdminGetFriendGroup(ctx, " "+friendGroupID+" "); err == nil {
+		t.Fatal("AdminGetFriendGroup padded id error = nil")
+	}
 	assertBelongs(t, ctx, s, "peer-a", friendGroupID, group.Name, rpcapi.FriendGroupMemberRoleOwner)
 
 	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupName: group.Name, PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("member"), MemberName: "room-b"}); err != nil {
@@ -586,7 +624,7 @@ func TestConfigurationErrorsAndHelpers(t *testing.T) {
 	if _, err := empty.ListFriendGroupMembers(ctx, "peer-a", rpcapi.FriendGroupMemberListRequest{FriendGroupName: strPtr("group-a")}); err == nil {
 		t.Fatal("ListFriendGroupMembers without store error = nil")
 	}
-	if _, err := empty.AdminCreateFriendGroup(ctx, "peer-a", "group-a", nil, nil); err == nil {
+	if _, err := empty.AdminCreateFriendGroup(ctx, "group-id", "peer-a", "group-a", nil, nil); err == nil {
 		t.Fatal("AdminCreateFriendGroup without store error = nil")
 	}
 	if _, err := empty.AdminGetFriendGroupMember(ctx, "group-a", "peer-a"); err == nil {
@@ -627,6 +665,12 @@ func TestConfigurationErrorsAndHelpers(t *testing.T) {
 	}
 	if _, err := s.AdminPutFriendGroupMember(ctx, friendGroupID, "peer-b", "room-b", rpcapi.FriendGroupMemberRole("observer")); err == nil {
 		t.Fatal("AdminPutFriendGroupMember invalid role error = nil")
+	}
+	if _, err := s.AdminCreateFriendGroupMember(ctx, friendGroupID, "peer-c", "room-c", rpcapi.FriendGroupMemberRoleMember); err != nil {
+		t.Fatalf("AdminCreateFriendGroupMember error = %v", err)
+	}
+	if _, err := s.AdminCreateFriendGroupMember(ctx, friendGroupID, "peer-c", "room-c", rpcapi.FriendGroupMemberRoleMember); !errors.Is(err, ErrFriendGroupMemberAlreadyExists) {
+		t.Fatalf("AdminCreateFriendGroupMember duplicate error = %v, want %v", err, ErrFriendGroupMemberAlreadyExists)
 	}
 	if _, err := s.AdminPutFriendGroupInviteToken(ctx, friendGroupID, "", s.now().Add(time.Hour)); err == nil {
 		t.Fatal("AdminPutFriendGroupInviteToken empty token error = nil")
@@ -733,6 +777,76 @@ func TestFilteredListsPaginateAfterFilteringAndSortNewestFirst(t *testing.T) {
 
 }
 
+func TestCreateMemberAtomicallyClaimsIdentityAcrossServers(t *testing.T) {
+	t.Parallel()
+
+	primary := newTestServer(t)
+	friendGroupID := "group-atomic"
+	secondary := &Server{
+		Groups:                 primary.Groups,
+		InviteTokens:           primary.InviteTokens,
+		Members:                primary.Members,
+		Belongs:                primary.Belongs,
+		RelationshipStore:      primary.RelationshipStore,
+		Workspaces:             primary.Workspaces,
+		RuntimeProfileForOwner: primary.RuntimeProfileForOwner,
+		Now:                    primary.Now,
+	}
+	servers := []*Server{primary, secondary}
+	roles := []rpcapi.FriendGroupMemberRole{
+		rpcapi.FriendGroupMemberRoleMember,
+		rpcapi.FriendGroupMemberRoleAdmin,
+	}
+	type result struct {
+		member rpcapi.FriendGroupMemberObject
+		err    error
+	}
+	start := make(chan struct{})
+	results := make(chan result, len(servers))
+	for i, server := range servers {
+		go func(server *Server, role rpcapi.FriendGroupMemberRole) {
+			<-start
+			member, err := server.createMember(t.Context(), friendGroupID, "peer-b", role, "room-b")
+			results <- result{member: member, err: err}
+		}(server, roles[i])
+	}
+	close(start)
+
+	var winner rpcapi.FriendGroupMemberObject
+	created := 0
+	conflicts := 0
+	for range servers {
+		result := <-results
+		switch {
+		case result.err == nil:
+			winner = result.member
+			created++
+		case errors.Is(result.err, ErrFriendGroupMemberAlreadyExists):
+			conflicts++
+		default:
+			t.Fatalf("createMember() error = %v", result.err)
+		}
+	}
+	if created != 1 || conflicts != 1 {
+		t.Fatalf("create results = %d created, %d conflicts; want 1 each", created, conflicts)
+	}
+	stored, err := primary.groupMember(t.Context(), friendGroupID, "peer-b")
+	if err != nil {
+		t.Fatalf("groupMember() error = %v", err)
+	}
+	if socialutil.StringValue(stored.FriendGroupName) != "room-b" || stored.Role == nil || winner.Role == nil || *stored.Role != *winner.Role {
+		t.Fatalf("stored member = %#v, winner = %#v", stored, winner)
+	}
+	assertBelongs(t, t.Context(), primary, "peer-b", friendGroupID, "room-b", *winner.Role)
+	groupID, err := primary.Belongs.Get(t.Context(), socialutil.GroupNameKey("peer-b", "room-b"))
+	if err != nil {
+		t.Fatalf("group name index error = %v", err)
+	}
+	if string(groupID) != friendGroupID {
+		t.Fatalf("group name index = %q, want %q", groupID, friendGroupID)
+	}
+}
+
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
 	store := kv.NewMemory(nil)
@@ -801,6 +915,10 @@ type failingSetStore struct {
 
 func (s failingSetStore) Set(context.Context, kv.Key, []byte) error {
 	return errors.New("forced set failure")
+}
+
+func (s failingSetStore) CreateIfAbsent(context.Context, kv.Entry, []kv.Entry) ([]byte, bool, error) {
+	return nil, false, errors.New("forced set failure")
 }
 
 type failingDeleteStore struct {

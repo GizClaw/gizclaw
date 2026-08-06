@@ -545,7 +545,7 @@ func (s *Service) activeWorkspace(run apitypes.PeerRunAgent) string {
 func runtimeProfileFingerprint(profile apitypes.RuntimeProfile) string {
 	data, err := json.Marshal(profile)
 	if err != nil {
-		return profile.Name
+		return profile.Id
 	}
 	digest := sha256.Sum256(data)
 	return fmt.Sprintf("%x", digest[:16])

@@ -14,7 +14,13 @@ func TestManagerRejectsInvalidInputs(t *testing.T) {
 	_, err := manager.Get(context.Background(), apitypes.ResourceKind("Unknown"), "example")
 	assertResourceError(t, err, 400, "UNKNOWN_RESOURCE_KIND")
 	_, err = manager.Get(context.Background(), apitypes.ResourceKindCredential, "")
-	assertResourceError(t, err, 400, "INVALID_RESOURCE")
+	assertResourceError(t, err, 400, "INVALID_RESOURCE_ID")
+	for _, id := range []string{".", "..", " resource "} {
+		_, err = manager.Get(context.Background(), apitypes.ResourceKindCredential, id)
+		assertResourceError(t, err, 400, "INVALID_RESOURCE_ID")
+		_, err = manager.Delete(context.Background(), apitypes.ResourceKindCredential, id)
+		assertResourceError(t, err, 400, "INVALID_RESOURCE_ID")
+	}
 	_, err = manager.Get(context.Background(), apitypes.ResourceKindResourceList, "bundle")
 	assertResourceError(t, err, 400, "UNSUPPORTED_RESOURCE_GET")
 	_, err = manager.Get(context.Background(), apitypes.ResourceKindCredential, "example")
@@ -23,7 +29,7 @@ func TestManagerRejectsInvalidInputs(t *testing.T) {
 	_, err = manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
 		"kind":"Unknown",
-		"metadata":{"id":"example","name":"example"},
+		"metadata":{"id":"example"},
 		"spec":{}
 	}`))
 	assertResourceError(t, err, 400, "UNKNOWN_RESOURCE_KIND")
@@ -39,7 +45,7 @@ func TestManagerRejectsNilReceiver(t *testing.T) {
 	_, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
 		"kind":"Credential",
-		"metadata":{"id":"example","name":"example"},
+		"metadata":{"id":"example"},
 		"spec":{"provider":"minimax","body":{"api_key":"secret"}}
 	}`))
 	assertResourceError(t, err, 500, "RESOURCE_MANAGER_NOT_CONFIGURED")

@@ -20,15 +20,15 @@ Use this skill for MiniMax tenant reads.
 ## How To Start
 
 1. Determine the admin context and pass `--context <name>` when known.
-2. Use `list` first when the tenant name is unknown.
-3. Use `get <name>` for one tenant.
-4. Use `admin credentials get <credential_name>` if the user needs to inspect the referenced credential.
+2. Use `list` first when the tenant ID is unknown.
+3. Use `get <id>` for one tenant.
+4. Use `admin credentials get <credential_id>` if the user needs to inspect the referenced credential.
 
 ## Commands
 
 ```bash
 <gizclaw> admin minimax-tenants list --context <admin-context>
-<gizclaw> admin minimax-tenants get <name> --context <admin-context>
+<gizclaw> admin minimax-tenants get <id> --context <admin-context>
 ```
 
 ## Behavior Notes
@@ -37,4 +37,4 @@ Use this skill for MiniMax tenant reads.
 - Use `../gizclaw-admin-resources/SKILL.md` for declarative
   `MiniMaxTenant` create, update, show, or delete workflows.
 - Voice synchronization remains outside the generic resource apply path.
-- `credential_name` points to an existing credential resource.
+- `credential_id` is the exact caller-supplied ID of an existing Credential.

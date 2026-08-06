@@ -16,7 +16,7 @@ func TestApplyMiniMaxTenantCreatesResource(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "MiniMaxTenant",
-		"metadata": {"name": "main"},
+		"metadata": {"id": "main"},
 		"spec": {
 			"app_id": "app",
 			"group_id": "group",
@@ -45,7 +45,7 @@ func TestApplyVolcTenantCreatesResource(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "VolcTenant",
-		"metadata": {"name": "volc-main"},
+		"metadata": {"id": "volc-main"},
 		"spec": {
 			"credential_id": "volc-cred",
 			"region": "cn-beijing",
@@ -73,7 +73,6 @@ func TestGetVolcTenantReturnsResource(t *testing.T) {
 		CreatedAt:    time.Now().UTC(),
 		CredentialId: "volc-cred",
 		Id:           "volc-main",
-		Name:         "volc-main",
 		Region:       stringPtr("cn-shanghai"),
 		UpdatedAt:    time.Now().UTC(),
 	}
@@ -87,11 +86,11 @@ func TestGetVolcTenantReturnsResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsVolcTenantResource returned error: %v", err)
 	}
-	if tenant.Metadata.Name != "volc-main" {
-		t.Fatalf("metadata.name = %q, want volc-main", tenant.Metadata.Name)
+	if metadataID(t, tenant.Metadata) != "volc-main" {
+		t.Fatalf("metadata.id = %q, want volc-main", metadataID(t, tenant.Metadata))
 	}
 	if tenant.Spec.CredentialId != "volc-cred" {
-		t.Fatalf("credential_name = %q, want volc-cred", tenant.Spec.CredentialId)
+		t.Fatalf("credential_id = %q, want volc-cred", tenant.Spec.CredentialId)
 	}
 }
 
@@ -101,7 +100,6 @@ func TestApplyVolcTenantUnchangedSkipsPut(t *testing.T) {
 		CreatedAt:    time.Now().UTC(),
 		CredentialId: "volc-cred",
 		Id:           "volc-main",
-		Name:         "volc-main",
 		Region:       stringPtr("cn-shanghai"),
 		UpdatedAt:    time.Now().UTC(),
 	}
@@ -110,7 +108,7 @@ func TestApplyVolcTenantUnchangedSkipsPut(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "VolcTenant",
-		"metadata": {"id": "volc-main", "name": "volc-main"},
+		"metadata": {"id": "volc-main"},
 		"spec": {
 			"credential_id": "volc-cred",
 			"region": "cn-shanghai"
@@ -133,7 +131,6 @@ func TestApplyVolcTenantUpdatesResource(t *testing.T) {
 		CreatedAt:    time.Now().UTC(),
 		CredentialId: "volc-cred",
 		Id:           "volc-main",
-		Name:         "volc-main",
 		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
@@ -141,7 +138,7 @@ func TestApplyVolcTenantUpdatesResource(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "VolcTenant",
-		"metadata": {"id": "volc-main", "name": "volc-main"},
+		"metadata": {"id": "volc-main"},
 		"spec": {
 			"credential_id": "volc-cred",
 			"region": "cn-shanghai"
@@ -160,13 +157,13 @@ func TestApplyVolcTenantUpdatesResource(t *testing.T) {
 
 func TestPutVolcTenantWritesAndReturnsResource(t *testing.T) {
 	minimax := newFakeMiniMax()
-	minimax.volcTenants["volc-main"] = apitypes.VolcTenant{Id: "volc-main", Name: "volc-main", CredentialId: "volc-cred"}
+	minimax.volcTenants["volc-main"] = apitypes.VolcTenant{Id: "volc-main", CredentialId: "volc-cred"}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
 	resource, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "VolcTenant",
-		"metadata": {"id": "volc-main", "name": "volc-main"},
+		"metadata": {"id": "volc-main"},
 		"spec": {
 			"credential_id": "volc-cred"
 		}
@@ -181,8 +178,8 @@ func TestPutVolcTenantWritesAndReturnsResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsVolcTenantResource returned error: %v", err)
 	}
-	if tenant.Metadata.Name != "volc-main" {
-		t.Fatalf("metadata.name = %q, want volc-main", tenant.Metadata.Name)
+	if metadataID(t, tenant.Metadata) != "volc-main" {
+		t.Fatalf("metadata.id = %q, want volc-main", metadataID(t, tenant.Metadata))
 	}
 }
 
@@ -191,7 +188,7 @@ func TestDeleteVolcTenantDeletesAndReturnsResource(t *testing.T) {
 	minimax.volcTenants["volc-main"] = apitypes.VolcTenant{
 		CreatedAt:    time.Now().UTC(),
 		CredentialId: "volc-cred",
-		Name:         "volc-main",
+		Id:           "volc-main",
 		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
@@ -204,8 +201,8 @@ func TestDeleteVolcTenantDeletesAndReturnsResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsVolcTenantResource returned error: %v", err)
 	}
-	if tenant.Metadata.Name != "volc-main" {
-		t.Fatalf("metadata.name = %q, want volc-main", tenant.Metadata.Name)
+	if metadataID(t, tenant.Metadata) != "volc-main" {
+		t.Fatalf("metadata.id = %q, want volc-main", metadataID(t, tenant.Metadata))
 	}
 	if _, ok := minimax.volcTenants["volc-main"]; ok {
 		t.Fatal("volc tenant still exists after Delete")
@@ -220,7 +217,6 @@ func TestDeleteMiniMaxTenantDeletesAndReturnsResource(t *testing.T) {
 		CredentialId: "minimax-main",
 		GroupId:      stringPtr("group"),
 		Id:           "main",
-		Name:         "main",
 		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
@@ -233,8 +229,8 @@ func TestDeleteMiniMaxTenantDeletesAndReturnsResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsMiniMaxTenantResource returned error: %v", err)
 	}
-	if tenant.Metadata.Name != "main" {
-		t.Fatalf("metadata.name = %q, want main", tenant.Metadata.Name)
+	if metadataID(t, tenant.Metadata) != "main" {
+		t.Fatalf("metadata.id = %q, want main", metadataID(t, tenant.Metadata))
 	}
 	if _, ok := minimax.tenants["main"]; ok {
 		t.Fatal("minimax tenant still exists after Delete")
@@ -248,7 +244,7 @@ func TestGetMiniMaxTenantReturnsResource(t *testing.T) {
 		CreatedAt:    time.Now().UTC(),
 		CredentialId: "minimax-main",
 		GroupId:      stringPtr("group"),
-		Name:         "main",
+		Id:           "main",
 		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
@@ -261,11 +257,11 @@ func TestGetMiniMaxTenantReturnsResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsMiniMaxTenantResource returned error: %v", err)
 	}
-	if tenant.Metadata.Name != "main" {
-		t.Fatalf("metadata.name = %q, want main", tenant.Metadata.Name)
+	if metadataID(t, tenant.Metadata) != "main" {
+		t.Fatalf("metadata.id = %q, want main", metadataID(t, tenant.Metadata))
 	}
 	if tenant.Spec.CredentialId != "minimax-main" {
-		t.Fatalf("credential_name = %q, want minimax-main", tenant.Spec.CredentialId)
+		t.Fatalf("credential_id = %q, want minimax-main", tenant.Spec.CredentialId)
 	}
 }
 
@@ -277,7 +273,6 @@ func TestApplyMiniMaxTenantUnchangedSkipsPut(t *testing.T) {
 		CredentialId: "minimax-main",
 		GroupId:      stringPtr("group"),
 		Id:           "main",
-		Name:         "main",
 		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
@@ -285,7 +280,7 @@ func TestApplyMiniMaxTenantUnchangedSkipsPut(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "MiniMaxTenant",
-		"metadata": {"id": "main", "name": "main"},
+		"metadata": {"id": "main"},
 		"spec": {
 			"app_id": "new-app",
 			"group_id": "group",
@@ -310,7 +305,6 @@ func TestApplyMiniMaxTenantUpdatesResource(t *testing.T) {
 		CredentialId: "minimax-main",
 		GroupId:      stringPtr("group"),
 		Id:           "main",
-		Name:         "main",
 		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
@@ -318,7 +312,7 @@ func TestApplyMiniMaxTenantUpdatesResource(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "MiniMaxTenant",
-		"metadata": {"id": "main", "name": "main"},
+		"metadata": {"id": "main"},
 		"spec": {
 			"app_id": "app",
 			"group_id": "group",
@@ -341,7 +335,6 @@ func TestApplyVoiceUpdatesResource(t *testing.T) {
 	minimax.voices["voice-1"] = apitypes.Voice{
 		CreatedAt:   time.Now().UTC(),
 		Id:          "voice-1",
-		Name:        "voice-1",
 		DisplayName: ptr("Old"),
 		Provider:    apitypes.VoiceProvider{Kind: "minimax", Id: "main"},
 		Source:      apitypes.VoiceSourceManual,
@@ -352,7 +345,7 @@ func TestApplyVoiceUpdatesResource(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Voice",
-		"metadata": {"id": "voice-1", "name": "voice-1"},
+		"metadata": {"id": "voice-1"},
 		"spec": {
 			"display_name": "New",
 			"provider": {"kind": "minimax", "id": "main"},
@@ -377,7 +370,7 @@ func TestApplyVoiceCreatesResource(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Voice",
-		"metadata": {"name": "voice-1"},
+		"metadata": {"id": "voice-1"},
 		"spec": {
 			"display_name": "Narrator",
 			"provider": {"kind": "minimax", "id": "main"},
@@ -401,7 +394,6 @@ func TestApplyVoiceUnchangedSkipsPut(t *testing.T) {
 	minimax.voices["voice-1"] = apitypes.Voice{
 		CreatedAt:   time.Now().UTC(),
 		Id:          "voice-1",
-		Name:        "voice-1",
 		DisplayName: &name,
 		Provider:    apitypes.VoiceProvider{Kind: "minimax", Id: "main"},
 		Source:      apitypes.VoiceSourceManual,
@@ -412,7 +404,7 @@ func TestApplyVoiceUnchangedSkipsPut(t *testing.T) {
 	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Voice",
-		"metadata": {"id": "voice-1", "name": "voice-1"},
+		"metadata": {"id": "voice-1"},
 		"spec": {
 			"display_name": "Narrator",
 			"provider": {"kind": "minimax", "id": "main"},
@@ -432,13 +424,13 @@ func TestApplyVoiceUnchangedSkipsPut(t *testing.T) {
 
 func TestPutVoiceWritesAndReturnsResource(t *testing.T) {
 	minimax := newFakeMiniMax()
-	minimax.voices["voice-1"] = apitypes.Voice{Id: "voice-1", Name: "voice-1", Provider: apitypes.VoiceProvider{Kind: "minimax", Id: "main"}, Source: apitypes.VoiceSourceManual}
+	minimax.voices["voice-1"] = apitypes.Voice{Id: "voice-1", Provider: apitypes.VoiceProvider{Kind: "minimax", Id: "main"}, Source: apitypes.VoiceSourceManual}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
 	resource, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Voice",
-		"metadata": {"id": "voice-1", "name": "voice-1"},
+		"metadata": {"id": "voice-1"},
 		"spec": {
 			"display_name": "Narrator",
 			"provider": {"kind": "minimax", "id": "main"},
@@ -455,8 +447,8 @@ func TestPutVoiceWritesAndReturnsResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsVoiceResource returned error: %v", err)
 	}
-	if voice.Metadata.Name != "voice-1" {
-		t.Fatalf("metadata.name = %q, want voice-1", voice.Metadata.Name)
+	if metadataID(t, voice.Metadata) != "voice-1" {
+		t.Fatalf("metadata.id = %q, want voice-1", metadataID(t, voice.Metadata))
 	}
 	if voice.Spec.Provider.Id != "main" {
 		t.Fatalf("provider.name = %q, want main", voice.Spec.Provider.Id)
@@ -468,7 +460,6 @@ func TestDeleteVoiceDeletesAndReturnsResource(t *testing.T) {
 	minimax.voices["voice-1"] = apitypes.Voice{
 		CreatedAt: time.Now().UTC(),
 		Id:        "voice-1",
-		Name:      "voice-1",
 		Provider:  apitypes.VoiceProvider{Kind: "local", Id: "manual"},
 		Source:    apitypes.VoiceSourceManual,
 		UpdatedAt: time.Now().UTC(),
@@ -483,8 +474,8 @@ func TestDeleteVoiceDeletesAndReturnsResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsVoiceResource returned error: %v", err)
 	}
-	if voice.Metadata.Name != "voice-1" {
-		t.Fatalf("metadata.name = %q, want voice-1", voice.Metadata.Name)
+	if metadataID(t, voice.Metadata) != "voice-1" {
+		t.Fatalf("metadata.id = %q, want voice-1", metadataID(t, voice.Metadata))
 	}
 	if _, ok := minimax.voices["voice-1"]; ok {
 		t.Fatal("voice still exists after Delete")
@@ -493,13 +484,13 @@ func TestDeleteVoiceDeletesAndReturnsResource(t *testing.T) {
 
 func TestPutMiniMaxTenantWritesAndReturnsResource(t *testing.T) {
 	minimax := newFakeMiniMax()
-	minimax.tenants["main"] = apitypes.MiniMaxTenant{Id: "main", Name: "main", CredentialId: "minimax-main"}
+	minimax.tenants["main"] = apitypes.MiniMaxTenant{Id: "main", CredentialId: "minimax-main"}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
 
 	resource, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "MiniMaxTenant",
-		"metadata": {"id": "main", "name": "main"},
+		"metadata": {"id": "main"},
 		"spec": {
 			"group_id": "group",
 			"credential_id": "minimax-main"
@@ -512,8 +503,8 @@ func TestPutMiniMaxTenantWritesAndReturnsResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsMiniMaxTenantResource returned error: %v", err)
 	}
-	if tenant.Metadata.Name != "main" {
-		t.Fatalf("metadata.name = %q, want main", tenant.Metadata.Name)
+	if metadataID(t, tenant.Metadata) != "main" {
+		t.Fatalf("metadata.id = %q, want main", metadataID(t, tenant.Metadata))
 	}
 }
 
@@ -597,7 +588,7 @@ func TestVolcAndVoiceMissingServiceErrors(t *testing.T) {
 	if _, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "VolcTenant",
-		"metadata": {"name": "volc-main"},
+		"metadata": {"id": "volc-main"},
 		"spec": {"app_id": "app", "credential_name": "cred"}
 	}`)); err == nil {
 		t.Fatal("Apply(VolcTenant) error = nil")
@@ -608,7 +599,7 @@ func TestVolcAndVoiceMissingServiceErrors(t *testing.T) {
 	if _, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Voice",
-		"metadata": {"name": "voice-1"},
+		"metadata": {"id": "voice-1"},
 		"spec": {"source": "manual", "provider": {"kind": "local", "name": "manual"}}
 	}`)); err == nil {
 		t.Fatal("Put(Voice) error = nil")
@@ -729,7 +720,7 @@ func (f *fakeMiniMax) CreateMiniMaxTenant(_ context.Context, request adminhttp.C
 	now := time.Now().UTC()
 	tenant := apitypes.MiniMaxTenant{
 		AppId: body.AppId, BaseUrl: body.BaseUrl, CreatedAt: now, CredentialId: body.CredentialId,
-		Description: body.Description, GroupId: body.GroupId, Id: body.Name, Name: body.Name, UpdatedAt: now,
+		Description: body.Description, GroupId: body.GroupId, Id: body.Id, UpdatedAt: now,
 	}
 	f.tenants[tenant.Id] = tenant
 	return adminhttp.CreateMiniMaxTenant200JSONResponse(tenant), nil
@@ -773,7 +764,6 @@ func (f *fakeMiniMax) PutMiniMaxTenant(_ context.Context, request adminhttp.PutM
 		Description:  body.Description,
 		GroupId:      body.GroupId,
 		Id:           string(request.Id),
-		Name:         body.Name,
 		UpdatedAt:    now,
 	}
 	f.tenants[string(request.Id)] = tenant
@@ -794,7 +784,7 @@ func (f *fakeMiniMax) CreateVolcTenant(_ context.Context, request adminhttp.Crea
 	now := time.Now().UTC()
 	tenant := apitypes.VolcTenant{
 		CreatedAt: now, CredentialId: body.CredentialId, Description: body.Description,
-		Endpoint: body.Endpoint, Id: body.Name, Name: body.Name, Region: body.Region,
+		Endpoint: body.Endpoint, Id: body.Id, Region: body.Region,
 		ResourceIds: body.ResourceIds, UpdatedAt: now,
 	}
 	f.volcTenants[tenant.Id] = tenant
@@ -837,7 +827,6 @@ func (f *fakeMiniMax) PutVolcTenant(_ context.Context, request adminhttp.PutVolc
 		Description:  body.Description,
 		Endpoint:     body.Endpoint,
 		Id:           string(request.Id),
-		Name:         body.Name,
 		Region:       body.Region,
 		ResourceIds:  body.ResourceIds,
 		UpdatedAt:    now,
@@ -856,7 +845,7 @@ func (f *fakeMiniMax) CreateVoice(_ context.Context, request adminhttp.CreateVoi
 	now := time.Now().UTC()
 	voice := apitypes.Voice{
 		CreatedAt: now, Description: body.Description, DisplayName: body.DisplayName,
-		Id: body.Name, Name: body.Name, Provider: body.Provider, ProviderData: body.ProviderData,
+		Id: body.Id, Provider: body.Provider, ProviderData: body.ProviderData,
 		Source: body.Source, UpdatedAt: now,
 	}
 	f.voices[voice.Id] = voice
@@ -904,7 +893,6 @@ func (f *fakeMiniMax) PutVoice(_ context.Context, request adminhttp.PutVoiceRequ
 		Description:  body.Description,
 		DisplayName:  body.DisplayName,
 		Id:           string(request.Id),
-		Name:         body.Name,
 		Provider:     body.Provider,
 		ProviderData: body.ProviderData,
 		Source:       body.Source,

@@ -4,22 +4,21 @@ import type {
   AdminFriendGroupObject,
 } from "@gizclaw/gizclaw/admin";
 
+import {
+  decodeRouteParam,
+  encodeRouteParam,
+} from "@/views/admin/full/lib/route-param";
+
 import { formatShortKey } from "../../lib/format";
 
-export function decodeRouteParam(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
+export { decodeRouteParam };
 
 export function friendDetailPath(friend: AdminFriendObject): string {
-  return `/social/friends/${encodeURIComponent(friend.owner_public_key)}/${encodeURIComponent(friend.id)}`;
+  return `/social/friends/${encodeRouteParam(friend.owner_public_key)}/${encodeRouteParam(friend.id)}`;
 }
 
 export function contactDetailPath(contact: AdminContactObject): string {
-  return `/social/contacts/${encodeURIComponent(contact.owner_public_key)}/${encodeURIComponent(contact.id)}`;
+  return `/social/contacts/${encodeRouteParam(contact.owner_public_key)}/${encodeRouteParam(contact.id)}`;
 }
 
 export function friendRelationID(a: string, b: string): string {
@@ -27,7 +26,7 @@ export function friendRelationID(a: string, b: string): string {
 }
 
 export function friendGroupDetailPath(group: AdminFriendGroupObject): string {
-  return `/social/friend-groups/${encodeURIComponent(group.id)}`;
+  return `/social/friend-groups/${encodeRouteParam(group.id)}`;
 }
 
 export function socialWorkspaceName(value: string | undefined): string {

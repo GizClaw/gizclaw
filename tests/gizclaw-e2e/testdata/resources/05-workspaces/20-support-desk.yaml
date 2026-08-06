@@ -2,9 +2,10 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workspace
 metadata:
-  name: support-desk-workspace
+  id: support-desk-workspace
 spec:
+  name: support-desk-workspace
   parameters:
     agent_type: flowcraft
     input: push-to-talk
-  workflow_name: flowcraft-chat-assistant
+  workflow_id: flowcraft-chat-assistant

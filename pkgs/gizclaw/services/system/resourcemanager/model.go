@@ -15,43 +15,14 @@ func (m *Manager) applyModel(ctx context.Context, resource apitypes.Resource) (a
 	if err != nil {
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_MODEL_RESOURCE", err.Error())
 	}
-	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+	if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	id, updating, err := resourceUpdateID(item.Metadata)
-	if err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if !updating {
-		createdID, err := m.createModel(ctx, modelUpsert(item))
-		if err != nil {
-			return apitypes.ApplyResult{}, err
-		}
-		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindModel, item.Metadata.Name, createdID), nil
-	}
-	existing, exists, err := m.getModel(ctx, id)
-	if err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if !exists {
-		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindModel, id)
-	}
-	if err := validateImmutableResourceName(apitypes.ResourceKindModel, id, existing.Name, item.Metadata.Name); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if exists {
-		same, err := semanticEqual(modelSpec(existing), item.Spec)
-		if err != nil {
-			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
-		}
-		if same {
-			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindModel, item.Metadata.Name, id), nil
-		}
-	}
-	if err := m.putModel(ctx, id, modelUpsert(item)); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindModel, item.Metadata.Name, id), nil
+	body := modelUpsert(item)
+	return applyConcreteResource(ctx, item.Metadata, apitypes.ResourceKindModel, item.Spec,
+		m.getModel,
+		func(ctx context.Context) (string, error) { return m.createModel(ctx, body) },
+		func(ctx context.Context, id string) error { return m.putModel(ctx, id, body) }, modelSpec)
 }
 
 func (m *Manager) createModel(ctx context.Context, body adminhttp.ModelUpsert) (string, error) {
@@ -140,7 +111,7 @@ func modelSpec(model apitypes.Model) apitypes.ModelSpec {
 func modelUpsert(resource apitypes.ModelResource) adminhttp.ModelUpsert {
 	return adminhttp.ModelUpsert{
 		Description:  resource.Spec.Description,
-		Name:         string(resource.Metadata.Name),
+		Id:           resource.Metadata.Id,
 		Kind:         resource.Spec.Kind,
 		DisplayName:  resource.Spec.DisplayName,
 		Provider:     resource.Spec.Provider,
@@ -153,7 +124,7 @@ func resourceFromModel(item apitypes.Model) (apitypes.Resource, error) {
 	return marshalResource(apitypes.ModelResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.ModelResourceKind(apitypes.ResourceKindModel),
-		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: item.Id},
 		Spec:       modelSpec(item),
 	})
 }

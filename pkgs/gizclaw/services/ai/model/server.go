@@ -7,19 +7,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 var (
 	modelsRoot           = kv.Key{"by-id"}
-	modelsByNameRoot     = kv.Key{"by-name"}
 	modelsBySourceRoot   = kv.Key{"by-source"}
 	modelsByProviderRoot = kv.Key{"by-provider"}
 )
@@ -32,7 +30,6 @@ const (
 type Server struct {
 	Store kv.Store
 	Now   func() time.Time
-	NewID func() string
 }
 
 type ModelAdminService interface {
@@ -57,7 +54,6 @@ func (s *Server) CreateModel(ctx context.Context, request adminhttp.CreateModelR
 	if err != nil {
 		return adminhttp.CreateModel400JSONResponse(apitypes.NewErrorResponse("INVALID_MODEL", err.Error())), nil
 	}
-	model.Id = s.newID()
 	now := s.now()
 	model.CreatedAt = now
 	model.UpdatedAt = now
@@ -66,14 +62,14 @@ func (s *Server) CreateModel(ctx context.Context, request adminhttp.CreateModelR
 		return adminhttp.CreateModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	_, created, err := kv.CreateIfAbsent(ctx, store,
-		kv.Entry{Key: modelNameKey(model.Name), Value: []byte(model.Id)},
-		modelEntries(model, data),
+		kv.Entry{Key: modelKey(model.Id), Value: data},
+		modelIndexEntries(model),
 	)
 	if err != nil {
 		return adminhttp.CreateModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if !created {
-		return adminhttp.CreateModel409JSONResponse(apitypes.NewErrorResponse("MODEL_ALREADY_EXISTS", fmt.Sprintf("model %q already exists", model.Name))), nil
+		return adminhttp.CreateModel409JSONResponse(apitypes.NewErrorResponse("MODEL_ALREADY_EXISTS", fmt.Sprintf("model %q already exists", model.Id))), nil
 	}
 	return adminhttp.CreateModel200JSONResponse(model), nil
 }
@@ -98,9 +94,9 @@ func (s *Server) ListModels(ctx context.Context, request adminhttp.ListModelsReq
 		}
 	}
 	if request.Params.ProviderId != nil {
-		name := strings.TrimSpace(string(*request.Params.ProviderId))
-		if name != "" {
-			filters.providerID = &name
+		providerID := string(*request.Params.ProviderId)
+		if providerID != "" {
+			filters.providerID = &providerID
 		}
 	}
 	items, hasNext, nextCursor, err := listModelsPage(ctx, store, filters, cursor, limit)
@@ -119,10 +115,7 @@ func (s *Server) DeleteModel(ctx context.Context, request adminhttp.DeleteModelR
 	if err != nil {
 		return adminhttp.DeleteModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	id := string(request.Id)
 	model, err := getModel(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
@@ -141,10 +134,7 @@ func (s *Server) GetModel(ctx context.Context, request adminhttp.GetModelRequest
 	if err != nil {
 		return adminhttp.GetModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	id := string(request.Id)
 	model, err := getModel(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
@@ -163,11 +153,8 @@ func (s *Server) PutModel(ctx context.Context, request adminhttp.PutModelRequest
 	if request.Body == nil {
 		return adminhttp.PutModel400JSONResponse(apitypes.NewErrorResponse("INVALID_MODEL", "request body required")), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
-	model, err := normalizeModelUpsert(*request.Body, "")
+	id := string(request.Id)
+	model, err := normalizeModelUpsert(*request.Body, id)
 	if err != nil {
 		return adminhttp.PutModel400JSONResponse(apitypes.NewErrorResponse("INVALID_MODEL", err.Error())), nil
 	}
@@ -181,13 +168,9 @@ func (s *Server) PutModel(ctx context.Context, request adminhttp.PutModelRequest
 	now := s.now()
 	model.CreatedAt = now
 	model.UpdatedAt = now
-	if model.Name != previous.Name {
-		return adminhttp.PutModel400JSONResponse(apitypes.NewErrorResponse("INVALID_MODEL", fmt.Sprintf("name %q must match immutable name %q", model.Name, previous.Name))), nil
-	}
 	if previous.Source == apitypes.ModelSourceSync {
 		return adminhttp.PutModel409JSONResponse(apitypes.NewErrorResponse("SYNC_MODEL_READ_ONLY", fmt.Sprintf("model %q has source sync and cannot be modified via API", previous.Id))), nil
 	}
-	model.Id = previous.Id
 	model.CreatedAt = previous.CreatedAt
 	model.SyncedAt = cloneTime(previous.SyncedAt)
 	if err := writeModel(ctx, store, model, &previous); err != nil {
@@ -202,13 +185,13 @@ type modelFilters struct {
 	providerID   *string
 }
 
-func normalizeModelUpsert(in adminhttp.ModelUpsert, expectedName string) (apitypes.Model, error) {
-	name := strings.TrimSpace(string(in.Name))
-	if name == "" {
-		return apitypes.Model{}, errors.New("name is required")
+func normalizeModelUpsert(in adminhttp.ModelUpsert, expectedID string) (apitypes.Model, error) {
+	id := string(in.Id)
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.Model{}, err
 	}
-	if expectedName != "" && name != expectedName {
-		return apitypes.Model{}, fmt.Errorf("name %q must match immutable name %q", name, expectedName)
+	if expectedID != "" && id != expectedID {
+		return apitypes.Model{}, fmt.Errorf("id %q must match path id %q", id, expectedID)
 	}
 	source := apitypes.ModelSource(strings.TrimSpace(string(in.Source)))
 	if source == "" {
@@ -234,13 +217,13 @@ func normalizeModelUpsert(in adminhttp.ModelUpsert, expectedName string) (apityp
 	if !apitypes.ModelProviderKind(providerKind).Valid() {
 		return apitypes.Model{}, fmt.Errorf("unsupported provider.kind %q", providerKind)
 	}
-	providerID := strings.TrimSpace(string(in.Provider.Id))
-	if providerID == "" {
-		return apitypes.Model{}, errors.New("provider.id is required")
+	providerID := string(in.Provider.Id)
+	if err := customid.ValidateResourceID(providerID); err != nil {
+		return apitypes.Model{}, fmt.Errorf("provider.id: %w", err)
 	}
 	model := apitypes.Model{
+		Id:   id,
 		Kind: kind,
-		Name: name,
 		Provider: apitypes.ModelProvider{
 			Kind: apitypes.ModelProviderKind(providerKind),
 			Id:   providerID,
@@ -571,7 +554,6 @@ func staleModelIndexKeys(previous, next apitypes.Model) []kv.Key {
 func deleteModel(ctx context.Context, store kv.Store, model apitypes.Model) error {
 	keys := []kv.Key{
 		modelKey(string(model.Id)),
-		modelNameKey(model.Name),
 		modelBySourceKey(string(model.Source), string(model.Id)),
 		modelByProviderKey(string(model.Provider.Kind), string(model.Provider.Id), string(model.Id)),
 	}
@@ -611,13 +593,12 @@ func modelKey(id string) kv.Key {
 	return append(append(kv.Key{}, modelsRoot...), escapeStoreSegment(id))
 }
 
-func modelNameKey(name string) kv.Key {
-	return append(append(kv.Key{}, modelsByNameRoot...), escapeStoreSegment(name))
+func modelEntries(model apitypes.Model, data []byte) []kv.Entry {
+	return append([]kv.Entry{{Key: modelKey(model.Id), Value: data}}, modelIndexEntries(model)...)
 }
 
-func modelEntries(model apitypes.Model, data []byte) []kv.Entry {
+func modelIndexEntries(model apitypes.Model) []kv.Entry {
 	return []kv.Entry{
-		{Key: modelKey(model.Id), Value: data},
 		{Key: modelBySourceKey(string(model.Source), model.Id), Value: []byte{}},
 		{Key: modelByProviderKey(string(model.Provider.Kind), model.Provider.Id, model.Id), Value: []byte{}},
 	}
@@ -656,15 +637,11 @@ func normalizeListParams(cursor *string, limit *int32) (string, int) {
 }
 
 func escapeStoreSegment(value string) string {
-	return url.PathEscape(value)
+	return customid.EscapeStoreSegment(value)
 }
 
 func unescapeStoreSegment(value string) string {
-	decoded, err := url.PathUnescape(value)
-	if err != nil {
-		return value
-	}
-	return decoded
+	return customid.UnescapeStoreSegment(value)
 }
 
 func cloneModelProviderData(in apitypes.ModelProviderData) (apitypes.ModelProviderData, error) {
@@ -685,11 +662,4 @@ func cloneTime(in *time.Time) *time.Time {
 	}
 	out := *in
 	return &out
-}
-
-func (s *Server) newID() string {
-	if s != nil && s.NewID != nil {
-		return s.NewID()
-	}
-	return socialutil.NewID()
 }

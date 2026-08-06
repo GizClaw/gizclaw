@@ -202,8 +202,8 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 	const profileName = "e2e-chat"
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	profile, err := clitest.UpsertRuntimeProfileByName(ctx, api, adminhttp.RuntimeProfileUpsert{
-		Name: profileName,
+	profile, err := clitest.UpsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
+		Id: profileName,
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
 			Memories: ptr(runtimeMemoryBindings(t)),
 			Models:   ptr(runtimeBindings(modelResources)),
@@ -223,11 +223,11 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 		t.Fatalf("put chat RuntimeProfile: %v", err)
 	}
 	tokenName := "e2e-chat-" + string(selected)
-	if err := clitest.DeleteRegistrationTokenByName(ctx, api, tokenName); err != nil {
+	if err := clitest.DeleteRegistrationTokenByID(ctx, api, tokenName); err != nil {
 		t.Fatalf("retire chat RegistrationToken: %v", err)
 	}
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name:             tokenName,
+		Id:               tokenName,
 		Token:            tokenName,
 		RuntimeProfileId: profile.Id,
 	})

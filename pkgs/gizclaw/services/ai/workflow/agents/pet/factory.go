@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 )
 
@@ -40,9 +41,9 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if workspaceName == "" {
 		return nil, fmt.Errorf("pet: workspace name is required")
 	}
-	workspaceID := strings.TrimSpace(spec.Workspace.Id)
-	if workspaceID == "" {
-		return nil, fmt.Errorf("pet: workspace id is required")
+	workspaceID := spec.Workspace.Id
+	if err := customid.ValidateResourceID(workspaceID); err != nil {
+		return nil, fmt.Errorf("pet: invalid workspace id: %w", err)
 	}
 	if _, _, err := f.Pets.ResolvePetContext(ctx, workspaceID); err != nil {
 		return nil, fmt.Errorf("pet: resolve workspace id %q: %w", workspaceID, err)

@@ -10,16 +10,15 @@
     "schemas": {
       "RegistrationToken": {
         "type": "object",
-        "required": ["id", "name", "token", "runtime_profile_id", "created_at", "updated_at"],
+        "required": ["id", "token", "runtime_profile_id", "created_at", "updated_at"],
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string" },
-          "name": { "type": "string" },
           "token": { "type": "string" },
           "runtime_profile_id": { "type": "string" },
           "firmware_id": {
             "type": "string",
-            "description": "Optional Server-assigned Firmware release-line ID. The device selects its own channel."
+            "description": "Optional caller-defined Firmware release-line ID. The device selects its own channel."
           },
           "created_at": {
             "type": "string",

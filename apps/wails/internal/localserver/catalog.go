@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/goccy/go-yaml"
 )
 
@@ -30,7 +31,7 @@ type EnvironmentRequirement struct {
 type ResourceEntry struct {
 	Path string
 	Kind string
-	Name string
+	ID   string
 }
 
 type PetDefPIXA struct {
@@ -78,7 +79,7 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 		var header struct {
 			Kind     string `yaml:"kind"`
 			Metadata struct {
-				Name string `yaml:"name"`
+				ID string `yaml:"id"`
 			} `yaml:"metadata"`
 			Spec map[string]any `yaml:"spec"`
 		}
@@ -86,9 +87,11 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 			return fmt.Errorf("local server catalog: parse %s: %w", name, err)
 		}
 		header.Kind = strings.TrimSpace(header.Kind)
-		header.Metadata.Name = strings.TrimSpace(header.Metadata.Name)
-		if header.Kind == "" || header.Metadata.Name == "" {
-			return fmt.Errorf("local server catalog: %s must declare kind and metadata.name", name)
+		if header.Kind == "" || header.Metadata.ID == "" {
+			return fmt.Errorf("local server catalog: %s must declare kind and metadata.id", name)
+		}
+		if err := customid.ValidateResourceID(header.Metadata.ID); err != nil {
+			return fmt.Errorf("local server catalog: %s has invalid metadata.id: %w", name, err)
 		}
 		if !apitypes.ResourceKind(header.Kind).Valid() {
 			return fmt.Errorf("local server catalog: %s has unsupported kind %q", name, header.Kind)
@@ -99,11 +102,11 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 		if identities[header.Kind] == nil {
 			identities[header.Kind] = map[string]bool{}
 		}
-		if identities[header.Kind][header.Metadata.Name] {
-			return fmt.Errorf("local server catalog: duplicate %s/%s", header.Kind, header.Metadata.Name)
+		if identities[header.Kind][header.Metadata.ID] {
+			return fmt.Errorf("local server catalog: duplicate %s/%s", header.Kind, header.Metadata.ID)
 		}
-		identities[header.Kind][header.Metadata.Name] = true
-		catalog.Resources = append(catalog.Resources, ResourceEntry{Path: name, Kind: header.Kind, Name: header.Metadata.Name})
+		identities[header.Kind][header.Metadata.ID] = true
+		catalog.Resources = append(catalog.Resources, ResourceEntry{Path: name, Kind: header.Kind, ID: header.Metadata.ID})
 		for _, match := range bootstrapEnvPattern.FindAllSubmatch(data, -1) {
 			variable := string(match[1])
 			if variable == "input" {
@@ -132,7 +135,7 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 		catalog.Requirements = append(catalog.Requirements, requirement)
 	}
 	sort.Slice(catalog.Requirements, func(i, j int) bool { return catalog.Requirements[i].Name < catalog.Requirements[j].Name })
-	if len(catalog.Resources) == 1 && catalog.Resources[0].Kind == "RuntimeProfile" && catalog.Resources[0].Name == "default" {
+	if len(catalog.Resources) == 1 && catalog.Resources[0].Kind == "RuntimeProfile" && catalog.Resources[0].ID == "default" {
 		if err := rejectLegacyBootstrapAssets(source); err != nil {
 			return nil, err
 		}

@@ -40,6 +40,20 @@ func (v aliasVoices) GetCanonicalVoice(ctx context.Context, request adminhttp.Ge
 	return v.fakeVoices.GetVoice(ctx, request)
 }
 
+func TestRuntimeAliasesRejectNonExactCanonicalIDs(t *testing.T) {
+	t.Parallel()
+	svc := New(Service{
+		Models: aliasModels{aliases: map[string]string{"chat": " model-id "}},
+		Voices: aliasVoices{aliases: map[string]string{"narrator": " voice-id "}},
+	})
+	if _, err := svc.resolveModelAliasID("chat"); !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("resolveModelAliasID() error = %v, want exact ID rejection", err)
+	}
+	if _, err := svc.resolveVoiceAliasID("narrator"); !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("resolveVoiceAliasID() error = %v, want exact ID rejection", err)
+	}
+}
+
 func TestExtractResolvesRuntimeProfileAliasesAndValidatesResult(t *testing.T) {
 	events := []string{}
 	builder := &speechExtractionBuilder{

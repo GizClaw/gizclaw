@@ -50,7 +50,7 @@ func normalizeToolDeclaration(tool Tool) (Tool, error) {
 
 func normalizeTool(tool Tool, requireDirectSecrets bool) (Tool, error) {
 	var err error
-	tool.Name, err = normalizeToolName(tool.Name)
+	tool.InvokeName, err = normalizeToolName(tool.InvokeName)
 	if err != nil {
 		return Tool{}, err
 	}
@@ -91,13 +91,13 @@ func normalizeTool(tool Tool, requireDirectSecrets bool) (Tool, error) {
 
 func normalizeToolName(name string) (string, error) {
 	if name == "" {
-		return "", fmt.Errorf("%w: name is required", ErrInvalidTool)
+		return "", fmt.Errorf("%w: invoke_name is required", ErrInvalidTool)
 	}
 	if strings.TrimSpace(name) != name {
-		return "", fmt.Errorf("%w: name must not have surrounding whitespace", ErrInvalidTool)
+		return "", fmt.Errorf("%w: invoke_name must not have surrounding whitespace", ErrInvalidTool)
 	}
 	if !portableToolName.MatchString(name) {
-		return "", fmt.Errorf("%w: name must match %s", ErrInvalidTool, portableToolName)
+		return "", fmt.Errorf("%w: invoke_name must match %s", ErrInvalidTool, portableToolName)
 	}
 	return name, nil
 }

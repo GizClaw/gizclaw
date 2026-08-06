@@ -128,7 +128,7 @@ resource_files() {
   )
 }
 
-resource_names() {
+resource_ids() {
   ruby -ryaml -e '
     def emit(resource)
       return unless resource.is_a?(Hash)
@@ -137,8 +137,8 @@ resource_names() {
         Array(resource.dig("spec", "items")).each { |item| emit(item) }
         return
       end
-      name = resource.dig("metadata", "name")
-      puts "#{kind}\t#{name}" if kind && name
+      id = resource.dig("metadata", "id")
+      puts "#{kind}\t#{id}" if kind && id
     end
     ARGV.each { |path| emit(YAML.load_file(path)) }
   ' "$@"
@@ -146,11 +146,11 @@ resource_names() {
 
 delete_resource() {
   local kind="$1"
-  local name="$2"
+  local id="$2"
 
   local output status
   set +e
-  output="$(run_gizclaw admin delete "$kind" "$name" --context "$admin_context" 2>&1)"
+  output="$(run_gizclaw admin delete "$kind" "$id" --context "$admin_context" 2>&1)"
   status=$?
   set -e
   if [[ $status -eq 0 ]]; then
@@ -178,12 +178,12 @@ clear_data() {
   local line
   while IFS= read -r line; do
     resources+=("$line")
-  done < <(resource_names "${files[@]}")
+  done < <(resource_ids "${files[@]}")
 
-  local i kind name
+  local i kind id
   for ((i=${#resources[@]}-1; i>=0; i--)); do
-    IFS=$'\t' read -r kind name <<<"${resources[$i]}"
-    delete_resource "$kind" "$name"
+    IFS=$'\t' read -r kind id <<<"${resources[$i]}"
+    delete_resource "$kind" "$id"
   done
 }
 

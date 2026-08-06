@@ -3,11 +3,11 @@ package peerresource
 import (
 	"context"
 	"errors"
-	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -96,10 +96,10 @@ func (s *Server) boundFirmwareID(ctx context.Context) (string, error) {
 		}
 		return "", err
 	}
-	if item.FirmwareId == nil || strings.TrimSpace(*item.FirmwareId) == "" {
+	if item.FirmwareId == nil || customid.ValidateResourceID(*item.FirmwareId) != nil {
 		return "", errFirmwareNotBound
 	}
-	return strings.TrimSpace(*item.FirmwareId), nil
+	return *item.FirmwareId, nil
 }
 
 var (

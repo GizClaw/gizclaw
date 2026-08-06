@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  name: doubao-realtime-duplex-conversation
+  id: doubao-realtime-duplex-conversation
 spec:
   driver: doubao-realtime-duplex
   doubao_realtime_duplex:

@@ -5,6 +5,7 @@ import type { KeyboardEvent, MouseEvent } from "react";
 import { Check, Copy, RefreshCw, Search } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { encodeRouteParam } from "@/views/admin/full/lib/route-param";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -77,7 +78,7 @@ export function PeersListPage(): JSX.Element {
 
   const openPeer = useCallback(
     (publicKey: string) => {
-      navigate(`/peers/${encodeURIComponent(publicKey)}`);
+      navigate(`/peers/${encodeRouteParam(publicKey)}`);
     },
     [navigate],
   );

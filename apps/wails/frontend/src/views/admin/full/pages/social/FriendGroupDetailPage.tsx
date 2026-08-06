@@ -80,6 +80,7 @@ export function FriendGroupDetailPage(): JSX.Element {
       const next = await expectData(
         putFriendGroup({
           body: {
+            id: groupID,
             description: description.trim() || undefined,
           },
           path: { id: groupID },

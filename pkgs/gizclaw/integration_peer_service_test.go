@@ -86,7 +86,7 @@ func TestIntegrationAdminResourceAPIs(t *testing.T) {
 	resource := mustAdminResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "minimax-main"},
+		"metadata": {"id": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
@@ -100,8 +100,8 @@ func TestIntegrationAdminResourceAPIs(t *testing.T) {
 	if applyResp.JSON200 == nil || applyResp.JSON200.Action != apitypes.ApplyActionCreated {
 		t.Fatalf("ApplyResource create response status=%d body=%s", applyResp.StatusCode(), string(applyResp.Body))
 	}
-	if applyResp.JSON200.Id == nil || *applyResp.JSON200.Id == "" {
-		t.Fatalf("ApplyResource create response missing canonical id: %s", string(applyResp.Body))
+	if applyResp.JSON200.Id == nil || *applyResp.JSON200.Id != "minimax-main" {
+		t.Fatalf("ApplyResource create response id = %v, want minimax-main: %s", applyResp.JSON200.Id, string(applyResp.Body))
 	}
 	credentialID := *applyResp.JSON200.Id
 
@@ -116,7 +116,7 @@ func TestIntegrationAdminResourceAPIs(t *testing.T) {
 	updatedResource := mustAdminResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"id": "`+credentialID+`", "name": "minimax-main"},
+		"metadata": {"id": "`+credentialID+`"},
 		"spec": {
 			"provider": "minimax",
 			"description": "updated credential",

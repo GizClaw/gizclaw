@@ -28,7 +28,7 @@ func TestServerPutGetListDeleteAndDefensiveCopies(t *testing.T) {
 	}
 	created.InputSchema.Type = "string"
 	created.Metadata[0] = '['
-	got, err := server.GetTool(ctx, tool.Name)
+	got, err := server.GetTool(ctx, tool.InvokeName)
 	if err != nil {
 		t.Fatalf("GetTool(): %v", err)
 	}
@@ -54,8 +54,108 @@ func TestServerPutGetListDeleteAndDefensiveCopies(t *testing.T) {
 	if err := server.DeleteTool(ctx, created.ID); err != nil {
 		t.Fatalf("DeleteTool(): %v", err)
 	}
-	if _, err := server.GetTool(ctx, tool.Name); !errors.Is(err, ErrToolNotFound) {
+	if _, err := server.GetTool(ctx, tool.InvokeName); !errors.Is(err, ErrToolNotFound) {
 		t.Fatalf("GetTool(deleted) = %v", err)
+	}
+}
+
+func TestServerAcceptsOpaqueToolIDWithKVSeparator(t *testing.T) {
+	server := &Server{Store: kv.NewMemory(nil)}
+	tool := testClientTool("volume_set")
+	tool.ID = "tenant:tool"
+	created, err := server.CreateTool(t.Context(), tool)
+	if err != nil {
+		t.Fatalf("CreateTool() error = %v", err)
+	}
+	if created.ID != tool.ID {
+		t.Fatalf("CreateTool().ID = %q, want %q", created.ID, tool.ID)
+	}
+}
+
+func TestServerReportsToolIdentityConflicts(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	server := &Server{Store: kv.NewMemory(nil)}
+	created, err := server.CreateTool(ctx, testClientTool("volume_set"))
+	if err != nil {
+		t.Fatalf("CreateTool() error = %v", err)
+	}
+
+	duplicateID := testClientTool("volume_get")
+	duplicateID.ID = created.ID
+	if _, err := server.CreateTool(ctx, duplicateID); !errors.Is(err, ErrToolConflict) {
+		t.Fatalf("CreateTool(duplicate ID) error = %v, want %v", err, ErrToolConflict)
+	}
+
+	duplicateName := testClientTool(created.InvokeName)
+	duplicateName.ID = "different-id"
+	if _, err := server.CreateTool(ctx, duplicateName); !errors.Is(err, ErrToolConflict) {
+		t.Fatalf("CreateTool(duplicate invoke_name) error = %v, want %v", err, ErrToolConflict)
+	}
+
+	renamed := created
+	renamed.InvokeName = "volume_get"
+	if _, err := server.PutTool(ctx, created.ID, renamed); !errors.Is(err, ErrToolConflict) {
+		t.Fatalf("PutTool(renamed) error = %v, want %v", err, ErrToolConflict)
+	}
+}
+
+func TestCreateToolAtomicallyClaimsIDAndInvokeNameAcrossServers(t *testing.T) {
+	t.Parallel()
+
+	store := kv.NewMemory(nil)
+	servers := []*Server{{Store: store}, {Store: store}}
+	tools := []Tool{testClientTool("shared_tool"), testClientTool("shared_tool")}
+	tools[0].ID = "tool-alpha"
+	tools[1].ID = "tool-beta"
+	type result struct {
+		tool Tool
+		err  error
+	}
+	start := make(chan struct{})
+	results := make(chan result, len(tools))
+	for i, tool := range tools {
+		go func(server *Server, desired Tool) {
+			<-start
+			created, err := server.CreateTool(t.Context(), desired)
+			results <- result{tool: created, err: err}
+		}(servers[i], tool)
+	}
+	close(start)
+
+	var winner Tool
+	created := 0
+	conflicts := 0
+	for range tools {
+		result := <-results
+		switch {
+		case result.err == nil:
+			winner = result.tool
+			created++
+		case errors.Is(result.err, ErrToolConflict):
+			conflicts++
+		default:
+			t.Fatalf("CreateTool() error = %v", result.err)
+		}
+	}
+	if created != 1 || conflicts != 1 {
+		t.Fatalf("create results = %d created, %d conflicts; want 1 each", created, conflicts)
+	}
+	stored, err := servers[0].GetTool(t.Context(), "shared_tool")
+	if err != nil {
+		t.Fatalf("GetTool() error = %v", err)
+	}
+	if stored.ID != winner.ID {
+		t.Fatalf("GetTool().ID = %q, winner = %q", stored.ID, winner.ID)
+	}
+	for _, tool := range tools {
+		_, err := servers[0].GetToolByID(t.Context(), tool.ID)
+		if tool.ID == winner.ID && err != nil {
+			t.Fatalf("winner ID %q lookup error = %v", tool.ID, err)
+		}
+		if tool.ID != winner.ID && !errors.Is(err, ErrToolNotFound) {
+			t.Fatalf("loser ID %q lookup error = %v, want not found", tool.ID, err)
+		}
 	}
 }
 

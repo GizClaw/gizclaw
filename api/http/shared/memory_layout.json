@@ -10,19 +10,12 @@
     "schemas": {
       "MemoryLayout": {
         "type": "object",
-        "required": ["id", "name", "spec"],
+        "required": ["id", "spec"],
         "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
             "minLength": 1
-          },
-          "name": {
-            "type": "string",
-            "minLength": 8,
-            "maxLength": 63,
-            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-            "description": "Immutable MemoryLayout resource name."
           },
           "spec": {
             "$ref": "#/components/schemas/MemoryLayoutSpec"

@@ -307,7 +307,7 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 	}
 	return resultResponse(req.Id, rpcapi.WorkspaceListResponse{
 		Items: page, HasNext: hasNext, NextCursor: nextCursor,
-		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+		RuntimeProfileName: profile.Id, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromWorkspaceListResponse)
 }
 
@@ -491,7 +491,7 @@ func workspaceWorkflowName(profile *apitypes.RuntimeProfile, item apitypes.Works
 			{name: "group-chatroom", id: profile.Spec.Workflows.System.GroupChatroom},
 			{name: "pet", id: profile.Spec.Workflows.System.Pet},
 		} {
-			if strings.TrimSpace(alias.id) == strings.TrimSpace(item.WorkflowId) {
+			if alias.id == item.WorkflowId {
 				return alias.name, true
 			}
 		}
@@ -505,7 +505,7 @@ func workspaceWorkflowName(profile *apitypes.RuntimeProfile, item apitypes.Works
 		return "", false
 	}
 	for alias, binding := range bindings {
-		if strings.TrimSpace(binding.ResourceId) == strings.TrimSpace(item.WorkflowId) {
+		if binding.ResourceId == item.WorkflowId {
 			return alias, true
 		}
 	}
@@ -593,7 +593,7 @@ func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest)
 		return internalError(req.Id, err.Error())
 	}
 	return resultResponse(req.Id, rpcapi.WorkspaceGetResponse{
-		Value: projected, RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+		Value: projected, RuntimeProfileName: profile.Id, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromWorkspaceGetResponse)
 }
 
@@ -641,7 +641,11 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 		),
 		profileBindingsFrom(profile, profileVoices),
 	)
-	adminResp, err := s.Workspaces.CreateWorkspace(workspaceCtx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	creator, ok := s.Workspaces.(workspace.PeerWorkspaceService)
+	if !ok {
+		return internalError(req.Id, "workspace service does not support Peer creation"), true, nil
+	}
+	adminResp, err := creator.CreatePeerWorkspace(workspaceCtx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
@@ -677,7 +681,7 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 		return internalError(req.Id, "runtime profile not configured"), true, nil
 	}
 	body := adminhttp.PutWorkspaceJSONRequestBody{
-		Name: current.Name, WorkflowId: current.WorkflowId,
+		Id: current.Id, Name: current.Name, WorkflowId: current.WorkflowId,
 		Parameters: current.Parameters, Toolkit: current.Toolkit,
 	}
 	if params.Body.Parameters != nil {
@@ -983,7 +987,7 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 	}
 	return resultResponse(req.Id, rpcapi.WorkflowListResponse{
 		Items: items, HasNext: hasNext, NextCursor: nextCursor,
-		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+		RuntimeProfileName: profile.Id, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromWorkflowListResponse)
 }
 
@@ -1042,7 +1046,7 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 	}
 	return resultResponse(req.Id, rpcapi.WorkflowGetResponse{
 		Value:              workflowRPCProjection(result, params.Name, collection, binding),
-		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+		RuntimeProfileName: profile.Id, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromWorkflowGetResponse)
 }
 
@@ -1093,7 +1097,7 @@ func (s *Server) handleModelList(ctx context.Context, req *rpcapi.RPCRequest) *r
 	}
 	return resultResponse(req.Id, rpcapi.ModelListResponse{
 		Items: items, HasNext: hasNext, NextCursor: nextCursor,
-		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+		RuntimeProfileName: profile.Id, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromModelListResponse)
 }
 
@@ -1125,7 +1129,7 @@ func (s *Server) handleModelGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 		return internalError(req.Id, err.Error())
 	}
 	return resultResponse(req.Id, rpcapi.ModelGetResponse{
-		Value: projected, RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+		Value: projected, RuntimeProfileName: profile.Id, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromModelGetResponse)
 }
 
@@ -1247,7 +1251,7 @@ func (s *Server) handleVoiceList(ctx context.Context, req *rpcapi.RPCRequest) *r
 	}
 	return resultResponse(req.Id, rpcapi.VoiceListResponse{
 		Items: items, HasNext: hasNext, NextCursor: nextCursor,
-		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+		RuntimeProfileName: profile.Id, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromVoiceListResponse)
 }
 
@@ -1283,7 +1287,7 @@ func (s *Server) handleVoiceGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	}
 	return resultResponse(req.Id, rpcapi.VoiceGetResponse{
 		Value:              rpcapi.Voice{Name: params.Name, I18n: bindingI18n(binding)},
-		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+		RuntimeProfileName: profile.Id, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromVoiceGetResponse)
 }
 

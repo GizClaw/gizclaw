@@ -17,7 +17,7 @@ func stringPtr(value string) *string { return &value }
 
 func testDoubaoRealtimeWorkflow(spec apitypes.DoubaoRealtimeWorkflowSpec) apitypes.Workflow {
 	return apitypes.Workflow{
-		Name: "demo-workflow",
+		Id: "demo-workflow",
 		Spec: apitypes.WorkflowSpec{
 			Driver:         apitypes.WorkflowDriverDoubaoRealtime,
 			DoubaoRealtime: &spec,

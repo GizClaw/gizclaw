@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/jmoiron/sqlx"
 )
@@ -151,10 +152,16 @@ func insertPet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
 }
 
 func insertPetWorkspaceBinding(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
-	profileName := strings.TrimSpace(pet.RuntimeProfileId)
-	workspaceID := strings.TrimSpace(pet.WorkspaceId)
+	profileID := pet.RuntimeProfileId
+	workspaceID := pet.WorkspaceId
+	if err := customid.ValidateResourceID(profileID); err != nil {
+		return fmt.Errorf("gameplay: runtime profile id: %w", err)
+	}
+	if err := customid.ValidateResourceID(workspaceID); err != nil {
+		return fmt.Errorf("gameplay: workspace id: %w", err)
+	}
 	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_workspace_bindings (owner_public_key, pet_id, runtime_profile_id, workspace_id, created_at) VALUES (?, ?, ?, ?, ?)`),
-		pet.OwnerPublicKey, pet.Id, profileName, workspaceID, formatTime(pet.CreatedAt))
+		pet.OwnerPublicKey, pet.Id, profileID, workspaceID, formatTime(pet.CreatedAt))
 	return err
 }
 
@@ -186,8 +193,8 @@ func scanPetDriveTick(row rowScanner) (petDriveTick, error) {
 	return tick, nil
 }
 
-func findPetDriveTick(ctx context.Context, db queryRebinder, owner, runtimeProfileName, key string) (petDriveTick, error) {
-	return scanPetDriveTick(db.QueryRowContext(ctx, db.Rebind(petDriveTickSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_id = ? AND idempotency_key = ?`), owner, runtimeProfileName, strings.TrimSpace(key)))
+func findPetDriveTick(ctx context.Context, db queryRebinder, owner, runtimeProfileID, key string) (petDriveTick, error) {
+	return scanPetDriveTick(db.QueryRowContext(ctx, db.Rebind(petDriveTickSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_id = ? AND idempotency_key = ?`), owner, runtimeProfileID, strings.TrimSpace(key)))
 }
 
 func insertPetDriveTick(ctx context.Context, tx *sqlx.Tx, tick petDriveTick) (bool, error) {
@@ -215,8 +222,8 @@ func scanPointsAccount(row rowScanner) (apitypes.PointsAccount, error) {
 	return account, nil
 }
 
-func findPointsAccount(ctx context.Context, db queryRebinder, owner, runtimeProfileName string) (apitypes.PointsAccount, error) {
-	return scanPointsAccount(db.QueryRowContext(ctx, db.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_id = ?`), owner, runtimeProfileName))
+func findPointsAccount(ctx context.Context, db queryRebinder, owner, runtimeProfileID string) (apitypes.PointsAccount, error) {
+	return scanPointsAccount(db.QueryRowContext(ctx, db.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_id = ?`), owner, runtimeProfileID))
 }
 
 func insertPointsAccount(ctx context.Context, tx *sqlx.Tx, account apitypes.PointsAccount) (bool, error) {
@@ -335,8 +342,8 @@ func insertGameResult(ctx context.Context, tx *sqlx.Tx, item apitypes.GameResult
 	return err
 }
 
-func findGameResultByIdempotencyKey(ctx context.Context, tx *sqlx.Tx, owner, runtimeProfileName, key string) (apitypes.GameResult, error) {
-	return scanGameResult(tx.QueryRowContext(ctx, tx.Rebind(gameResultSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_id = ? AND idempotency_key = ?`), owner, runtimeProfileName, strings.TrimSpace(key)))
+func findGameResultByIdempotencyKey(ctx context.Context, tx *sqlx.Tx, owner, runtimeProfileID, key string) (apitypes.GameResult, error) {
+	return scanGameResult(tx.QueryRowContext(ctx, tx.Rebind(gameResultSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_id = ? AND idempotency_key = ?`), owner, runtimeProfileID, strings.TrimSpace(key)))
 }
 
 func rewardGrantSelectSQL() string {
@@ -573,7 +580,7 @@ func listOwnerRows[T any](ctx context.Context, r *Runtime, owner, table string, 
 	query := fmt.Sprintf(`SELECT %s FROM %s WHERE owner_public_key = ?`, columns, table)
 	args := []any{owner}
 	if profile, registered := runtimeProfileFromContext(ctx); registered && profileScoped {
-		profileID := strings.TrimSpace(profile.Id)
+		profileID := profile.Id
 		if profileID == "" {
 			return nil, false, nil, errors.New("gameplay: RuntimeProfile is required")
 		}

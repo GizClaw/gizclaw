@@ -10,11 +10,10 @@
     "schemas": {
       "RuntimeProfile": {
         "type": "object",
-        "required": ["id", "name", "revision", "spec", "created_at", "updated_at"],
+        "required": ["id", "revision", "spec", "created_at", "updated_at"],
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string" },
-          "name": { "type": "string" },
           "revision": {
             "type": "string",
             "description": "Deterministic opaque revision of the normalized RuntimeProfile spec."

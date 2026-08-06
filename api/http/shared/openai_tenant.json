@@ -30,7 +30,6 @@
         "type": "object",
         "required": [
           "id",
-          "name",
           "kind",
           "credential_id",
           "api_mode",
@@ -39,9 +38,6 @@
         ],
         "properties": {
           "id": {
-            "type": "string"
-          },
-          "name": {
             "type": "string"
           },
           "kind": {

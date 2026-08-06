@@ -69,6 +69,7 @@ export function FriendGroupsListPage(): JSX.Element {
     };
   });
   const [ownerPublicKey, setOwnerPublicKey] = useState("");
+  const [resourceID, setResourceID] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -113,18 +114,20 @@ export function FriendGroupsListPage(): JSX.Element {
     setBusy("create");
     setNotice(null);
     const owner = ownerPublicKey.trim();
-    const groupID = name.trim();
+    const groupID = resourceID;
     try {
       const group = await expectData(
         createFriendGroup({
           body: {
-            name: groupID,
+            id: groupID,
+            name: name.trim(),
             description: description.trim() || undefined,
             owner_public_key: owner,
           },
         }),
       );
       setOwnerPublicKey("");
+      setResourceID("");
       setName("");
       setDescription("");
       setCreateDialogOpen(false);
@@ -134,7 +137,16 @@ export function FriendGroupsListPage(): JSX.Element {
         const group = await expectData(
           getFriendGroup({ path: { id: groupID } }),
         );
+        if (
+          group.created_by_peer_public_key !== owner ||
+          group.name !== name.trim()
+        ) {
+          throw new Error(
+            "existing friend group has different immutable fields",
+          );
+        }
         setOwnerPublicKey("");
+        setResourceID("");
         setName("");
         setDescription("");
         setCreateDialogOpen(false);
@@ -217,6 +229,16 @@ export function FriendGroupsListPage(): JSX.Element {
                 value={ownerPublicKey}
               />
             </FormField>
+            <FormField
+              description="Caller-defined immutable Admin resource ID."
+              label="Resource ID"
+            >
+              <Input
+                onChange={(event) => setResourceID(event.target.value)}
+                placeholder="family-circle"
+                value={resourceID}
+              />
+            </FormField>
             <FormField label="Name">
               <Input
                 onChange={(event) => setName(event.target.value)}
@@ -245,6 +267,7 @@ export function FriendGroupsListPage(): JSX.Element {
                 disabled={
                   busy !== "" ||
                   ownerPublicKey.trim() === "" ||
+                  resourceID.trim() === "" ||
                   name.trim() === ""
                 }
                 onClick={() => void create()}

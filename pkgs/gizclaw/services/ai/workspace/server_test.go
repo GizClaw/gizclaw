@@ -54,8 +54,8 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 		t.Fatalf("CreateWorkspace() last_active_at = %s, want created_at %s", created.LastActiveAt, created.CreatedAt)
 	}
 	workspaceID := string(created.Id)
-	if workspaceID == "" || workspaceID == created.Name {
-		t.Fatalf("CreateWorkspace() id = %q, want opaque server ID distinct from name", workspaceID)
+	if workspaceID != createBody.Id {
+		t.Fatalf("CreateWorkspace() id = %q, want caller ID %q", workspaceID, createBody.Id)
 	}
 	if len(runtime.prepared) != 1 || runtime.prepared[0] != workspaceID {
 		t.Fatalf("runtime prepared after create = %#v", runtime.prepared)
@@ -165,6 +165,132 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	}
 }
 
+func TestCreateWorkspaceRecordAtomicallyClaimsCallerID(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	servers := []*Server{
+		srv,
+		{Store: srv.Store, RuntimeStore: srv.RuntimeStore},
+	}
+	inputs := []adminhttp.WorkspaceUpsert{
+		{Id: "shared-workspace-id", Name: "workspace-alpha", WorkflowId: "workflow-1"},
+		{Id: "shared-workspace-id", Name: "workspace-beta", WorkflowId: "workflow-1"},
+	}
+	type result struct {
+		workspace apitypes.Workspace
+		err       error
+	}
+	start := make(chan struct{})
+	results := make(chan result, len(inputs))
+	for i, input := range inputs {
+		go func(server *Server, body adminhttp.WorkspaceUpsert) {
+			<-start
+			workspace, err := server.createWorkspaceRecord(t.Context(), server.Store, body, false)
+			results <- result{workspace: workspace, err: err}
+		}(servers[i], input)
+	}
+	close(start)
+
+	var winner apitypes.Workspace
+	created := 0
+	collisions := 0
+	for range inputs {
+		result := <-results
+		switch {
+		case result.err == nil:
+			winner = result.workspace
+			created++
+		case errors.Is(result.err, errWorkspaceIDExists):
+			collisions++
+		default:
+			t.Fatalf("createWorkspaceRecord() error = %v", result.err)
+		}
+	}
+	if created != 1 || collisions != 1 {
+		t.Fatalf("create results = %d created, %d collisions; want 1 each", created, collisions)
+	}
+	stored, err := getWorkspaceByID(t.Context(), srv.Store, "shared-workspace-id")
+	if err != nil {
+		t.Fatalf("getWorkspaceByID() error = %v", err)
+	}
+	if stored.Name != winner.Name {
+		t.Fatalf("stored Workspace name = %q, winner = %q", stored.Name, winner.Name)
+	}
+	for _, input := range inputs {
+		_, err := getWorkspace(t.Context(), srv.Store, input.Name)
+		if input.Name == winner.Name && err != nil {
+			t.Fatalf("winner name %q lookup error = %v", input.Name, err)
+		}
+		if input.Name != winner.Name && !errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf("loser name %q lookup error = %v, want not found", input.Name, err)
+		}
+	}
+}
+
+func TestCreateWorkspaceRecordAtomicallyClaimsScopedName(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	servers := []*Server{
+		srv,
+		{Store: srv.Store, RuntimeStore: srv.RuntimeStore},
+	}
+	inputs := []adminhttp.WorkspaceUpsert{
+		{Id: "workspace-alpha-id", Name: "shared-workspace-name", WorkflowId: "workflow-1"},
+		{Id: "workspace-beta-id", Name: "shared-workspace-name", WorkflowId: "workflow-1"},
+	}
+	type result struct {
+		workspace apitypes.Workspace
+		err       error
+	}
+	start := make(chan struct{})
+	results := make(chan result, len(inputs))
+	for i, input := range inputs {
+		go func(server *Server, body adminhttp.WorkspaceUpsert) {
+			<-start
+			workspace, err := server.createWorkspaceRecord(t.Context(), server.Store, body, false)
+			results <- result{workspace: workspace, err: err}
+		}(servers[i], input)
+	}
+	close(start)
+
+	var winner apitypes.Workspace
+	created := 0
+	conflicts := 0
+	for range inputs {
+		result := <-results
+		switch {
+		case result.err == nil:
+			winner = result.workspace
+			created++
+		case errors.Is(result.err, errWorkspaceNameExists):
+			conflicts++
+		default:
+			t.Fatalf("createWorkspaceRecord() error = %v", result.err)
+		}
+	}
+	if created != 1 || conflicts != 1 {
+		t.Fatalf("create results = %d created, %d conflicts; want 1 each", created, conflicts)
+	}
+	stored, err := getWorkspace(t.Context(), srv.Store, "shared-workspace-name")
+	if err != nil {
+		t.Fatalf("getWorkspace() error = %v", err)
+	}
+	if stored.Id != winner.Id {
+		t.Fatalf("stored Workspace ID = %q, winner = %q", stored.Id, winner.Id)
+	}
+	for _, input := range inputs {
+		_, err := getWorkspaceByID(t.Context(), srv.Store, input.Id)
+		if input.Id == winner.Id && err != nil {
+			t.Fatalf("winner ID %q lookup error = %v", input.Id, err)
+		}
+		if input.Id != winner.Id && !errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf("loser ID %q lookup error = %v, want not found", input.Id, err)
+		}
+	}
+}
+
 func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	t.Parallel()
 
@@ -207,6 +333,7 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 		t.Fatalf("encode updated chatroom parameters: %v", err)
 	}
 	putBody := adminhttp.WorkspaceUpsert{
+		Id:         created.Id,
 		Name:       "friend-chat",
 		WorkflowId: "chatroom",
 		Parameters: &updatedParameters,
@@ -334,7 +461,7 @@ func TestWorkspaceDeleteSerializesWithPut(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	seedWorkflow(t, srv, "workflow-1")
-	body := adminhttp.WorkspaceUpsert{Name: "concurrent", WorkflowId: "workflow-1"}
+	body := adminhttp.WorkspaceUpsert{Id: "concurrent-id", Name: "concurrent", WorkflowId: "workflow-1"}
 	response, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatalf("CreateWorkspace: %v", err)
@@ -471,7 +598,7 @@ func TestServerSystemWorkspaceClassificationComesFromCreationPath(t *testing.T) 
 	srv.RuntimeStore = &recordingRuntimeStore{}
 	ctx := context.Background()
 	seedWorkflow(t, srv, "chatroom")
-	body := adminhttp.WorkspaceUpsert{Name: "friend-user-created", WorkflowId: "chatroom"}
+	body := adminhttp.WorkspaceUpsert{Id: "friend-user-created-id", Name: "friend-user-created", WorkflowId: "chatroom"}
 
 	createResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
@@ -497,10 +624,9 @@ func TestServerCreateWorkspaceDeletesPreparedRuntimeWhenRecordCreationFails(t *t
 	srv := newTestServer(t)
 	runtime := &recordingRuntimeStore{}
 	srv.RuntimeStore = runtime
-	srv.NewID = func() string { return "workspace-failed-create" }
 	seedWorkflow(t, srv, "workflow-1")
 	srv.Store = failingCreateIfAbsentStore{Store: srv.Store, err: errors.New("injected create failure")}
-	body := adminhttp.WorkspaceUpsert{Name: "failed-create", WorkflowId: "workflow-1"}
+	body := adminhttp.WorkspaceUpsert{Id: "workspace-failed-create", Name: "failed-create", WorkflowId: "workflow-1"}
 
 	response, err := srv.CreateWorkspace(t.Context(), adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
@@ -562,6 +688,7 @@ func TestServerListWorkspacesPagination(t *testing.T) {
 
 	for _, name := range []string{"alpha001", "beta0001", "gamma001"} {
 		body := adminhttp.WorkspaceUpsert{
+			Id:         name + "-id",
 			Name:       string(name),
 			WorkflowId: "workflow-1",
 		}
@@ -611,7 +738,7 @@ func TestServerWorkspaceLabelsRoundTripPreserveAndClear(t *testing.T) {
 	seedWorkflow(t, srv, "workflow-1")
 	ctx := context.Background()
 	inputLabels := map[string]string{"collection": "raids", "tier": "Gold"}
-	body := adminhttp.WorkspaceUpsert{Name: "labels01", WorkflowId: "workflow-1", Labels: &inputLabels}
+	body := adminhttp.WorkspaceUpsert{Id: "labels01-id", Name: "labels01", WorkflowId: "workflow-1", Labels: &inputLabels}
 	response, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatalf("CreateWorkspace() error = %v", err)
@@ -633,7 +760,7 @@ func TestServerWorkspaceLabelsRoundTripPreserveAndClear(t *testing.T) {
 		t.Fatalf("stored labels = %#v", stored.Labels)
 	}
 
-	preserve := adminhttp.WorkspaceUpsert{Name: "labels01", WorkflowId: "workflow-1"}
+	preserve := adminhttp.WorkspaceUpsert{Id: workspaceID, Name: "labels01", WorkflowId: "workflow-1"}
 	putResponse, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: workspaceID, Body: &preserve})
 	if err != nil {
 		t.Fatalf("PutWorkspace(preserve) error = %v", err)
@@ -644,7 +771,7 @@ func TestServerWorkspaceLabelsRoundTripPreserveAndClear(t *testing.T) {
 	}
 
 	empty := map[string]string{}
-	clear := adminhttp.WorkspaceUpsert{Name: "labels01", WorkflowId: "workflow-1", Labels: &empty}
+	clear := adminhttp.WorkspaceUpsert{Id: workspaceID, Name: "labels01", WorkflowId: "workflow-1", Labels: &empty}
 	putResponse, err = srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: workspaceID, Body: &clear})
 	if err != nil {
 		t.Fatalf("PutWorkspace(clear) error = %v", err)
@@ -676,7 +803,7 @@ func TestServerWorkspaceLabelValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			srv := newTestServer(t)
 			seedWorkflow(t, srv, "workflow-1")
-			body := adminhttp.WorkspaceUpsert{Name: "invalid1", WorkflowId: "workflow-1", Labels: &test.labels}
+			body := adminhttp.WorkspaceUpsert{Id: "invalid1-id", Name: "invalid1", WorkflowId: "workflow-1", Labels: &test.labels}
 			response, err := srv.CreateWorkspace(context.Background(), adminhttp.CreateWorkspaceRequestObject{Body: &body})
 			if err != nil {
 				t.Fatalf("CreateWorkspace() error = %v", err)
@@ -696,11 +823,6 @@ func TestServerWorkspaceLabelFilteringBeforePagination(t *testing.T) {
 
 	srv := newTestServer(t)
 	ids := []string{"workspace-01", "workspace-02", "workspace-03", "workspace-04"}
-	srv.NewID = func() string {
-		id := ids[0]
-		ids = ids[1:]
-		return id
-	}
 	seedWorkflow(t, srv, "workflow-1")
 	ctx := ownership.WithOwner(context.Background(), "peer-a")
 	fixtures := []struct {
@@ -715,7 +837,8 @@ func TestServerWorkspaceLabelFilteringBeforePagination(t *testing.T) {
 	}
 	for _, fixture := range fixtures {
 		labels := map[string]string{"collection": fixture.collection, "tier": fixture.tier}
-		body := adminhttp.WorkspaceUpsert{Name: fixture.name, WorkflowId: "workflow-1", Labels: &labels}
+		body := adminhttp.WorkspaceUpsert{Id: ids[0], Name: fixture.name, WorkflowId: "workflow-1", Labels: &labels}
+		ids = ids[1:]
 		if _, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body}); err != nil {
 			t.Fatalf("CreateWorkspace(%q) error = %v", fixture.name, err)
 		}
@@ -788,6 +911,19 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 		t.Fatalf("CreateWorkspace(nil body) response = %#v", nilCreateResp)
 	}
 
+	missingID := adminhttp.WorkspaceUpsert{Name: "alpha001", WorkflowId: "workflow-1"}
+	missingIDResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &missingID})
+	if err != nil {
+		t.Fatalf("CreateWorkspace(missing id) error = %v", err)
+	}
+	invalidMissingID, ok := missingIDResp.(adminhttp.CreateWorkspace400JSONResponse)
+	if !ok {
+		t.Fatalf("CreateWorkspace(missing id) response = %#v, want 400", missingIDResp)
+	}
+	if !strings.Contains(invalidMissingID.Error.Message, "id is required") {
+		t.Fatalf("CreateWorkspace(missing id) message = %q", invalidMissingID.Error.Message)
+	}
+
 	missingName := mustWorkspaceUpsert(t, `{
 		"name": " ",
 		"workflow_id": "workflow-1"
@@ -818,6 +954,7 @@ func TestNormalizeWorkspaceUpsertAcceptsOpaqueWorkflowIDs(t *testing.T) {
 
 	for _, workflowID := range []string{"2fa-chat", "Opaque_Workflow_ID", strings.Repeat("a", 80)} {
 		got, err := normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
+			Id:         "runtime-workspace-id",
 			Name:       "runtime-workspace",
 			WorkflowId: workflowID,
 		}, "")
@@ -830,25 +967,24 @@ func TestNormalizeWorkspaceUpsertAcceptsOpaqueWorkflowIDs(t *testing.T) {
 	}
 }
 
-func TestNormalizeWorkspaceUpsertNormalizesWorkflowID(t *testing.T) {
+func TestNormalizeWorkspaceUpsertRejectsInvalidWorkflowID(t *testing.T) {
 	t.Parallel()
 
-	got, err := normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
+	_, err := normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
+		Id:         "runtime-workspace-id",
 		Name:       "runtime-workspace",
 		WorkflowId: "  0123456789abcdef  ",
 	}, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.WorkflowId != "0123456789abcdef" {
-		t.Fatalf("normalizeWorkspaceUpsert() workflow_id = %q", got.WorkflowId)
+	if err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("normalizeWorkspaceUpsert(whitespace workflow_id) error = %v", err)
 	}
 
 	_, err = normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
+		Id:         "runtime-workspace-id",
 		Name:       "runtime-workspace",
 		WorkflowId: "  ",
 	}, "")
-	if err == nil || !strings.Contains(err.Error(), "workflow_id is required") {
+	if err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
 		t.Fatalf("normalizeWorkspaceUpsert(empty workflow_id) error = %v", err)
 	}
 }
@@ -861,6 +997,7 @@ func TestServerRejectsInvalidToolkitPolicy(t *testing.T) {
 	seedWorkflow(t, srv, "workflow-1")
 	toolIDs := []string{""}
 	body := adminhttp.WorkspaceUpsert{
+		Id:         "alpha001-id",
 		Name:       "alpha001",
 		WorkflowId: "workflow-1",
 		Toolkit:    &apitypes.ToolkitPolicy{ToolIds: &toolIDs},
@@ -1466,8 +1603,7 @@ func seedProviderVoice(
 		t.Fatalf("Voices = %T", srv.Voices)
 	}
 	if err := voice.Write(t.Context(), voiceServer.Store, apitypes.Voice{
-		Id:   id,
-		Name: id,
+		Id: id,
 		Provider: apitypes.VoiceProvider{
 			Kind: providerKind,
 			Id:   providerName,
@@ -1485,6 +1621,9 @@ func mustWorkspaceUpsert(t *testing.T, raw string) adminhttp.WorkspaceUpsert {
 	if err := json.Unmarshal([]byte(raw), &upsert); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
+	if upsert.Id == "" {
+		upsert.Id = upsert.Name + "-id"
+	}
 	return upsert
 }
 
@@ -1500,6 +1639,10 @@ type failingCreateIfAbsentStore struct {
 
 func (s failingCreateIfAbsentStore) CreateIfAbsent(context.Context, kv.Entry, []kv.Entry) ([]byte, bool, error) {
 	return nil, false, s.err
+}
+
+func (s failingCreateIfAbsentStore) CreateIfAllAbsent(context.Context, []kv.Entry, []kv.Entry) (kv.Key, []byte, bool, error) {
+	return nil, nil, false, s.err
 }
 
 func (s *recordingRuntimeStore) PrepareWorkspace(_ context.Context, workspace string) (Runtime, error) {

@@ -1056,7 +1056,7 @@ func TestFriendCreationRejectsIncompleteReciprocalRows(t *testing.T) {
 func TestDeleteFriendWithoutWorkspaceRetirementKeepsRelationship(t *testing.T) {
 	ctx := t.Context()
 	s := newTestServer()
-	if _, err := s.AdminCreateFriendResource(ctx, "peer-a", "peer-b"); err != nil {
+	if _, err := s.AdminCreateFriendResource(ctx, socialutil.RelationID("peer-a", "peer-b"), "peer-a", "peer-b"); err != nil {
 		t.Fatalf("AdminCreateFriendResource: %v", err)
 	}
 	s.Workspaces = nil
@@ -1078,7 +1078,7 @@ func TestDeleteFriendBatchFailureKeepsRelationshipAndWorkspace(t *testing.T) {
 	ctx := t.Context()
 	workspaces := &recordingWorkspaceService{}
 	s := newTestServer()
-	if _, err := s.AdminCreateFriendResource(ctx, "peer-a", "peer-b"); err != nil {
+	if _, err := s.AdminCreateFriendResource(ctx, socialutil.RelationID("peer-a", "peer-b"), "peer-a", "peer-b"); err != nil {
 		t.Fatalf("AdminCreateFriendResource: %v", err)
 	}
 	s.Workspaces = workspaces
@@ -1185,7 +1185,7 @@ func TestAdminFriendResourceWrappersAndCursorHelpers(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
 
-	created, err := s.AdminCreateFriendResource(ctx, " peer-c ", "peer-d")
+	created, err := s.AdminCreateFriendResource(ctx, socialutil.RelationID("peer-c", "peer-d"), " peer-c ", "peer-d")
 	if err != nil {
 		t.Fatalf("AdminCreateFriendResource: %v", err)
 	}
@@ -1194,6 +1194,9 @@ func TestAdminFriendResourceWrappersAndCursorHelpers(t *testing.T) {
 	}
 	if created.WorkspaceId == "" || !strings.HasPrefix(created.WorkspaceId, "id-social-direct-") {
 		t.Fatalf("AdminCreateFriendResource workspace ID = %q, want canonical ID", created.WorkspaceId)
+	}
+	if _, err := s.AdminCreateFriendResource(ctx, created.Id, "peer-c", "peer-d"); !errors.Is(err, socialutil.ErrResourceAlreadyExists) {
+		t.Fatalf("AdminCreateFriendResource duplicate error = %v, want conflict", err)
 	}
 	page, err := s.AdminListFriends(ctx, new("malformed/cursor/value"), new(10))
 	if err != nil {
@@ -1228,7 +1231,7 @@ func TestConfigurationAndValidationErrors(t *testing.T) {
 	if _, err := empty.AdminListFriends(ctx, nil, nil); err == nil {
 		t.Fatal("AdminListFriends without store error = nil")
 	}
-	if _, err := empty.AdminCreateFriendResource(ctx, "peer-a", "peer-b"); err == nil {
+	if _, err := empty.AdminCreateFriendResource(ctx, socialutil.RelationID("peer-a", "peer-b"), "peer-a", "peer-b"); err == nil {
 		t.Fatal("AdminCreateFriendResource without store error = nil")
 	}
 	if _, err := empty.AdminGetFriend(ctx, "peer-a", "peer-a:peer-b"); err == nil {

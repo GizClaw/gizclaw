@@ -3,11 +3,18 @@ package resourcemanager
 import (
 	"context"
 	"encoding/json"
-	"net/url"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
+
+func metadataID(t *testing.T, metadata apitypes.ResourceMetadata) string {
+	t.Helper()
+	if metadata.Id == "" {
+		t.Fatal("metadata.id is nil")
+	}
+	return metadata.Id
+}
 
 func TestSemanticEqualNormalizesJSONValues(t *testing.T) {
 	left := map[string]any{
@@ -55,10 +62,10 @@ func TestResponseErrorExtractsErrorResponse(t *testing.T) {
 }
 
 func TestCommonResourceErrors(t *testing.T) {
-	if err := validateResourceHeader(apitypes.ResourceAPIVersion("unsupported"), "name"); err == nil {
+	if err := validateResourceHeader(apitypes.ResourceAPIVersion("unsupported"), apitypes.ResourceMetadata{Id: "name"}); err == nil {
 		t.Fatal("validateResourceHeader unsupported version error = nil, want error")
 	}
-	if err := validateResourceHeader(apitypes.ResourceAPIVersionGizclawAdminv1alpha1, ""); err == nil {
+	if err := validateResourceHeader(apitypes.ResourceAPIVersionGizclawAdminv1alpha1, apitypes.ResourceMetadata{}); err == nil {
 		t.Fatal("validateResourceHeader empty name error = nil, want error")
 	}
 	assertResourceError(t, missingService("credentials"), 500, "RESOURCE_SERVICE_NOT_CONFIGURED")
@@ -140,12 +147,4 @@ func withResourceID(t *testing.T, resource apitypes.Resource, id string) apitype
 
 func ptr[T any](value T) *T {
 	return &value
-}
-
-func mustUnescapePathParam(value string) string {
-	unescaped, err := url.PathUnescape(value)
-	if err != nil {
-		panic(err)
-	}
-	return unescaped
 }

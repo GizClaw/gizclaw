@@ -13,14 +13,11 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-var (
-	firmwaresRoot       = kv.Key{"by-id"}
-	firmwaresByNameRoot = kv.Key{"by-name"}
-)
+var firmwaresRoot = kv.Key{"by-id"}
 
 const (
 	defaultListLimit                = 50
@@ -34,7 +31,6 @@ const (
 type Server struct {
 	Store kv.Store
 	Now   func() time.Time
-	NewID func() string
 }
 
 type FirmwareAdminService interface {
@@ -78,7 +74,6 @@ func (s *Server) CreateFirmware(ctx context.Context, request adminhttp.CreateFir
 	if err != nil {
 		return adminhttp.CreateFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", err.Error())), nil
 	}
-	item.Id = s.newID()
 	now := s.now()
 	item.CreatedAt = now
 	item.UpdatedAt = now
@@ -86,15 +81,12 @@ func (s *Server) CreateFirmware(ctx context.Context, request adminhttp.CreateFir
 	if err != nil {
 		return adminhttp.CreateFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	_, created, err := kv.CreateIfAbsent(ctx, store,
-		kv.Entry{Key: firmwareNameKey(item.Name), Value: []byte(item.Id)},
-		[]kv.Entry{{Key: firmwareKey(item.Id), Value: data}},
-	)
+	_, created, err := kv.CreateIfAbsent(ctx, store, kv.Entry{Key: firmwareKey(item.Id), Value: data}, nil)
 	if err != nil {
 		return adminhttp.CreateFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if !created {
-		return adminhttp.CreateFirmware409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ALREADY_EXISTS", fmt.Sprintf("firmware %q already exists", item.Name))), nil
+		return adminhttp.CreateFirmware409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ALREADY_EXISTS", fmt.Sprintf("firmware %q already exists", item.Id))), nil
 	}
 	return adminhttp.CreateFirmware200JSONResponse(item), nil
 }
@@ -104,10 +96,7 @@ func (s *Server) DeleteFirmware(ctx context.Context, request adminhttp.DeleteFir
 	if err != nil {
 		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	id := string(request.Id)
 	item, err := Get(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
@@ -115,7 +104,7 @@ func (s *Server) DeleteFirmware(ctx context.Context, request adminhttp.DeleteFir
 		}
 		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := store.BatchDelete(ctx, []kv.Key{firmwareKey(id), firmwareNameKey(item.Name)}); err != nil {
+	if err := store.Delete(ctx, firmwareKey(id)); err != nil {
 		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteFirmware200JSONResponse(item), nil
@@ -126,10 +115,7 @@ func (s *Server) GetFirmware(ctx context.Context, request adminhttp.GetFirmwareR
 	if err != nil {
 		return adminhttp.GetFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
+	id := string(request.Id)
 	item, err := Get(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
@@ -148,11 +134,8 @@ func (s *Server) PutFirmware(ctx context.Context, request adminhttp.PutFirmwareR
 	if request.Body == nil {
 		return adminhttp.PutFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", "request body required")), nil
 	}
-	id, err := url.PathUnescape(string(request.Id))
-	if err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
-	item, err := normalizeFirmwareUpsert(*request.Body, "")
+	id := string(request.Id)
+	item, err := normalizeFirmwareUpsert(*request.Body, id)
 	if err != nil {
 		return adminhttp.PutFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", err.Error())), nil
 	}
@@ -163,12 +146,8 @@ func (s *Server) PutFirmware(ctx context.Context, request adminhttp.PutFirmwareR
 	if err != nil {
 		return adminhttp.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if item.Name != previous.Name {
-		return adminhttp.PutFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", fmt.Sprintf("name %q must match immutable name %q", item.Name, previous.Name))), nil
-	}
 	now := s.now()
 	item.UpdatedAt = now
-	item.Id = previous.Id
 	item.CreatedAt = previous.CreatedAt
 	if err := Write(ctx, store, item); err != nil {
 		return adminhttp.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -199,10 +178,7 @@ func (s *Server) updateSlots(ctx context.Context, rawID string, mutate func(apit
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
-	id, err := url.PathUnescape(string(rawID))
-	if err != nil {
-		return apitypes.Firmware{}, fmt.Errorf("invalid params: %w", err)
-	}
+	id := string(rawID)
 	item, err := Get(ctx, store, id)
 	if err != nil {
 		return apitypes.Firmware{}, err
@@ -273,10 +249,10 @@ func Get(ctx context.Context, store kv.Store, id string) (apitypes.Firmware, err
 func Write(ctx context.Context, store kv.Store, item apitypes.Firmware) error {
 	data, err := json.Marshal(item)
 	if err != nil {
-		return fmt.Errorf("firmware: encode %s: %w", item.Name, err)
+		return fmt.Errorf("firmware: encode %s: %w", item.Id, err)
 	}
 	if err := store.Set(ctx, firmwareKey(item.Id), data); err != nil {
-		return fmt.Errorf("firmware: write %s: %w", item.Name, err)
+		return fmt.Errorf("firmware: write %s: %w", item.Id, err)
 	}
 	return nil
 }
@@ -298,7 +274,14 @@ func listFirmwarePage(ctx context.Context, store kv.Store, cursor string, limit 
 	return items, hasNext, nextCursor, nil
 }
 
-func normalizeFirmwareUpsert(in adminhttp.FirmwareUpsert, expectedName string) (apitypes.Firmware, error) {
+func normalizeFirmwareUpsert(in adminhttp.FirmwareUpsert, expectedID string) (apitypes.Firmware, error) {
+	id := in.Id
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.Firmware{}, err
+	}
+	if expectedID != "" && id != expectedID {
+		return apitypes.Firmware{}, fmt.Errorf("id %q must match path id %q", id, expectedID)
+	}
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
 		return apitypes.Firmware{}, errors.New("name is required")
@@ -306,14 +289,12 @@ func normalizeFirmwareUpsert(in adminhttp.FirmwareUpsert, expectedName string) (
 	if len(name) > maxFirmwareNameBytes {
 		return apitypes.Firmware{}, fmt.Errorf("name must contain at most %d bytes", maxFirmwareNameBytes)
 	}
-	if expectedName != "" && name != expectedName {
-		return apitypes.Firmware{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
-	}
 	slots, err := normalizeSlots(in.Slots)
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
 	item := apitypes.Firmware{
+		Id:    id,
 		Name:  name,
 		Slots: slots,
 	}
@@ -404,20 +385,8 @@ func slotHasPayload(slot apitypes.FirmwareSlot) bool {
 	return false
 }
 
-func GetByName(ctx context.Context, store kv.Store, name string) (apitypes.Firmware, error) {
-	id, err := store.Get(ctx, firmwareNameKey(name))
-	if err != nil {
-		return apitypes.Firmware{}, err
-	}
-	return Get(ctx, store, string(id))
-}
-
 func firmwareKey(id string) kv.Key {
 	return append(append(kv.Key{}, firmwaresRoot...), escapeStoreSegment(id))
-}
-
-func firmwareNameKey(name string) kv.Key {
-	return append(append(kv.Key{}, firmwaresByNameRoot...), escapeStoreSegment(name))
 }
 
 func escapeStoreSegment(value string) string {
@@ -479,13 +448,6 @@ func (s *Server) now() time.Time {
 		return s.Now().UTC()
 	}
 	return time.Now().UTC()
-}
-
-func (s *Server) newID() string {
-	if s != nil && s.NewID != nil {
-		return s.NewID()
-	}
-	return socialutil.NewID()
 }
 
 func slotForChannel(slots *apitypes.FirmwareSlots, channel string) (*apitypes.FirmwareSlot, bool) {

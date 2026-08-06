@@ -486,14 +486,14 @@ function itemToRow(item: unknown, section: string): AdminRow {
     stringValue(record.publicKey) ??
     stringValue(record.relation_id) ??
     stringValue(record.group_id) ??
-    stringValue(metadata.name) ??
+    stringValue(metadata.id) ??
     stringValue(spec.name) ??
     `${section}-${hashJSON(item)}`;
   const title =
     stringValue(record.display_name) ??
     stringValue(record.title) ??
     stringValue(record.name) ??
-    stringValue(metadata.name) ??
+    stringValue(metadata.id) ??
     id;
   const subtitle =
     relationSubtitle(record) ??

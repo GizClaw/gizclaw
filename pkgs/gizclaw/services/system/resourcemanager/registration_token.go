@@ -13,45 +13,37 @@ func (m *Manager) applyRegistrationToken(ctx context.Context, resource apitypes.
 	if err != nil {
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_REGISTRATION_TOKEN_RESOURCE", err.Error())
 	}
-	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+	if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	id, updating, err := resourceUpdateID(item.Metadata)
-	if err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if !updating {
-		createdID, err := m.createRegistrationToken(ctx, item)
-		if err != nil {
-			return apitypes.ApplyResult{}, err
-		}
-		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindRegistrationToken, item.Metadata.Name, createdID), nil
-	}
-	previous, exists, err := m.getRegistrationToken(ctx, id)
+	id := item.Metadata.Id
+	transportID := servicePathID(id)
+	previous, exists, err := m.getRegistrationToken(ctx, transportID)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if !exists {
-		return apitypes.ApplyResult{}, notFound(apitypes.ResourceKindRegistrationToken, id)
-	}
-	if err := validateImmutableResourceName(apitypes.ResourceKindRegistrationToken, id, previous.Name, item.Metadata.Name); err != nil {
-		return apitypes.ApplyResult{}, err
+		createdID, err := m.createRegistrationToken(ctx, item)
+		if err != nil {
+			return apitypes.ApplyResult{}, err
+		}
+		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindRegistrationToken, createdID), nil
 	}
 	if registrationTokenMatches(previous, item.Spec.Token, item.Spec.RuntimeProfileId, item.Spec.FirmwareId) {
-		return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindRegistrationToken, item.Metadata.Name, id), nil
+		return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindRegistrationToken, id), nil
 	}
-	_, err = m.putRegistrationToken(ctx, id, item)
+	_, err = m.putRegistrationToken(ctx, transportID, item)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindRegistrationToken, item.Metadata.Name, id), nil
+	return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindRegistrationToken, id), nil
 }
 
-func (m *Manager) getRegistrationToken(ctx context.Context, name string) (apitypes.RegistrationToken, bool, error) {
+func (m *Manager) getRegistrationToken(ctx context.Context, id string) (apitypes.RegistrationToken, bool, error) {
 	if m.services.RuntimeProfiles == nil {
 		return apitypes.RegistrationToken{}, false, missingService("registration tokens")
 	}
-	response, err := m.services.RuntimeProfiles.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Id: name})
+	response, err := m.services.RuntimeProfiles.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Id: id})
 	if err != nil {
 		return apitypes.RegistrationToken{}, false, err
 	}
@@ -72,7 +64,7 @@ func (m *Manager) putRegistrationToken(ctx context.Context, id string, item apit
 		return apitypes.Resource{}, missingService("registration tokens")
 	}
 	body := adminhttp.RegistrationTokenUpsert{
-		Name:             item.Metadata.Name,
+		Id:               item.Metadata.Id,
 		Token:            item.Spec.Token,
 		RuntimeProfileId: item.Spec.RuntimeProfileId,
 		FirmwareId:       item.Spec.FirmwareId,
@@ -96,7 +88,7 @@ func (m *Manager) putRegistrationToken(ctx context.Context, id string, item apit
 }
 
 func (m *Manager) createRegistrationToken(ctx context.Context, item apitypes.RegistrationTokenResource) (string, error) {
-	body := adminhttp.RegistrationTokenUpsert{Name: item.Metadata.Name, Token: item.Spec.Token, RuntimeProfileId: item.Spec.RuntimeProfileId, FirmwareId: item.Spec.FirmwareId}
+	body := adminhttp.RegistrationTokenUpsert{Id: item.Metadata.Id, Token: item.Spec.Token, RuntimeProfileId: item.Spec.RuntimeProfileId, FirmwareId: item.Spec.FirmwareId}
 	response, err := m.services.RuntimeProfiles.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &body})
 	if err != nil {
 		return "", err
@@ -115,11 +107,11 @@ func (m *Manager) createRegistrationToken(ctx context.Context, item apitypes.Reg
 	}
 }
 
-func (m *Manager) deleteRegistrationToken(ctx context.Context, name string) (apitypes.RegistrationToken, bool, error) {
+func (m *Manager) deleteRegistrationToken(ctx context.Context, id string) (apitypes.RegistrationToken, bool, error) {
 	if m.services.RuntimeProfiles == nil {
 		return apitypes.RegistrationToken{}, false, missingService("registration tokens")
 	}
-	response, err := m.services.RuntimeProfiles.DeleteRegistrationToken(ctx, adminhttp.DeleteRegistrationTokenRequestObject{Id: name})
+	response, err := m.services.RuntimeProfiles.DeleteRegistrationToken(ctx, adminhttp.DeleteRegistrationTokenRequestObject{Id: id})
 	if err != nil {
 		return apitypes.RegistrationToken{}, false, err
 	}
@@ -139,7 +131,7 @@ func resourceFromRegistrationToken(item apitypes.RegistrationToken) (apitypes.Re
 	resource := apitypes.RegistrationTokenResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.RegistrationTokenResourceKind(apitypes.ResourceKindRegistrationToken),
-		Metadata:   apitypes.ResourceMetadata{Id: &item.Id, Name: item.Name},
+		Metadata:   apitypes.ResourceMetadata{Id: item.Id},
 	}
 	resource.Spec.Token = item.Token
 	resource.Spec.RuntimeProfileId = item.RuntimeProfileId
@@ -147,12 +139,12 @@ func resourceFromRegistrationToken(item apitypes.RegistrationToken) (apitypes.Re
 	return marshalResource(resource)
 }
 
-func registrationTokenMatches(item apitypes.RegistrationToken, token, runtimeProfileName string, firmwareID *string) bool {
-	if item.Token != strings.TrimSpace(token) || item.RuntimeProfileId != strings.TrimSpace(runtimeProfileName) {
+func registrationTokenMatches(item apitypes.RegistrationToken, token, runtimeProfileID string, firmwareID *string) bool {
+	if item.Token != strings.TrimSpace(token) || item.RuntimeProfileId != runtimeProfileID {
 		return false
 	}
 	if item.FirmwareId == nil || firmwareID == nil {
 		return item.FirmwareId == nil && firmwareID == nil
 	}
-	return *item.FirmwareId == strings.TrimSpace(*firmwareID)
+	return *item.FirmwareId == *firmwareID
 }

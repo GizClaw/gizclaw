@@ -16,18 +16,19 @@
         "properties": {
           "items": {
             "type": "array",
+            "description": "Concrete resources only; nested ResourceList envelopes are invalid.",
             "items": {
-              "$ref": "./resource.json#/components/schemas/Resource"
+              "$ref": "./resource.json#/components/schemas/ConcreteResource"
             }
           }
         }
       },
       "ResourceListResource": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "apiVersion",
           "kind",
-          "metadata",
           "spec"
         ],
         "properties": {
@@ -39,9 +40,6 @@
             "enum": [
               "ResourceList"
             ]
-          },
-          "metadata": {
-            "$ref": "./resource.json#/components/schemas/ResourceMetadata"
           },
           "spec": {
             "$ref": "#/components/schemas/ResourceListSpec"

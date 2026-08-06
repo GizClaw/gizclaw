@@ -542,7 +542,7 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 	loginServer := publiclogin.NewServer(serverKey, mustBadgerInMemory(t, nil))
 	models := &model.Server{Store: kv.NewMemory(nil)}
 	createdModel, err := models.CreateModel(context.Background(), adminhttp.CreateModelRequestObject{Body: &adminhttp.ModelUpsert{
-		Name:   "profile-model",
+		Id:     "profile-model",
 		Kind:   apitypes.ModelKindLlm,
 		Source: apitypes.ModelSourceManual,
 		Provider: apitypes.ModelProvider{
@@ -563,10 +563,10 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 			"en": {DisplayName: "Primary"}, "zh-CN": {DisplayName: "主要模型"},
 		}},
 	}
-	runtimeProfiles := &runtimeprofile.Server{Store: kv.NewMemory(nil), NewID: func() string { return "edge-runtime" }}
+	runtimeProfiles := &runtimeprofile.Server{Store: kv.NewMemory(nil)}
 	profileResponse, err := runtimeProfiles.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{
 		Body: &adminhttp.RuntimeProfileUpsert{
-			Name: "edge-runtime",
+			Id: "edge-runtime",
 			Spec: apitypes.RuntimeProfileSpec{
 				Workflows: testRuntimeProfileWorkflows(),
 				Resources: apitypes.RuntimeProfileResources{Models: &profileModels},
@@ -584,9 +584,9 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 			return runtimeprofile.Registration{}, errors.New("invalid token")
 		}
 		return runtimeprofile.Registration{
-			TokenName: "edge-runtime",
+			TokenID: "edge-runtime",
 			RuntimeProfile: apitypes.RuntimeProfile{
-				Name: "edge-runtime",
+				Id: "edge-runtime",
 				Spec: apitypes.RuntimeProfileSpec{
 					Workflows: testRuntimeProfileWorkflows(),
 					Resources: apitypes.RuntimeProfileResources{Models: &profileModels},

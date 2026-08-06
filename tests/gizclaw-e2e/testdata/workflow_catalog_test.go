@@ -81,7 +81,7 @@ var workflowFixtureFiles = []string{
 type workflowFixture struct {
 	Kind     string `yaml:"kind"`
 	Metadata struct {
-		Name string `yaml:"name"`
+		ID string `yaml:"id"`
 	} `yaml:"metadata"`
 	I18n any `yaml:"i18n"`
 	Icon any `yaml:"icon"`
@@ -99,8 +99,8 @@ func TestWorkflowCatalogFixtures(t *testing.T) {
 			if err := yaml.Unmarshal(raw, &fixture); err != nil {
 				t.Fatal(err)
 			}
-			if fixture.Kind != "Workflow" || fixture.Metadata.Name == "" {
-				t.Fatalf("fixture identity = kind %q name %q", fixture.Kind, fixture.Metadata.Name)
+			if fixture.Kind != "Workflow" || fixture.Metadata.ID == "" {
+				t.Fatalf("fixture identity = kind %q id %q", fixture.Kind, fixture.Metadata.ID)
 			}
 			if fixture.Icon != nil || fixture.I18n != nil {
 				t.Fatalf("Workflow display metadata must be client-owned: icon=%#v i18n=%#v", fixture.Icon, fixture.I18n)

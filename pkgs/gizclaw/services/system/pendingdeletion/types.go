@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/google/uuid"
 )
 
@@ -84,7 +85,6 @@ type Source interface {
 // resource locator. Repeated requests for the same resource therefore address
 // the same deletion event.
 func New(kind Kind, resourceID string, ownerPublicKey *string, reason Reason, descriptor any, now time.Time) (Record, error) {
-	resourceID = strings.TrimSpace(resourceID)
 	ownerPublicKey = cloneString(ownerPublicKey)
 	if ownerPublicKey != nil {
 		*ownerPublicKey = strings.TrimSpace(*ownerPublicKey)
@@ -92,8 +92,8 @@ func New(kind Kind, resourceID string, ownerPublicKey *string, reason Reason, de
 	if !kind.valid() {
 		return Record{}, fmt.Errorf("pending deletion: invalid kind %q", kind)
 	}
-	if resourceID == "" {
-		return Record{}, errors.New("pending deletion: empty resource id")
+	if err := customid.ValidateResourceID(resourceID); err != nil {
+		return Record{}, fmt.Errorf("pending deletion: invalid resource id: %w", err)
 	}
 	if reason == "" {
 		return Record{}, errors.New("pending deletion: empty reason")
@@ -130,12 +130,9 @@ func (r Record) Validate() error {
 	if !r.Kind.valid() {
 		return fmt.Errorf("pending deletion: invalid kind %q", r.Kind)
 	}
-	resourceID := strings.TrimSpace(r.ResourceID)
-	if resourceID == "" {
-		return errors.New("pending deletion: empty resource id")
-	}
-	if resourceID != r.ResourceID {
-		return errors.New("pending deletion: non-canonical resource id")
+	resourceID := r.ResourceID
+	if err := customid.ValidateResourceID(resourceID); err != nil {
+		return fmt.Errorf("pending deletion: invalid resource id: %w", err)
 	}
 	if r.OwnerPublicKey != nil {
 		ownerPublicKey := strings.TrimSpace(*r.OwnerPublicKey)
@@ -174,9 +171,8 @@ func deletionIDForLocator(kind Kind, resourceID string, ownerPublicKey *string) 
 	if !kind.valid() {
 		return "", fmt.Errorf("pending deletion: invalid kind %q", kind)
 	}
-	resourceID = strings.TrimSpace(resourceID)
-	if resourceID == "" {
-		return "", errors.New("pending deletion: empty resource id")
+	if err := customid.ValidateResourceID(resourceID); err != nil {
+		return "", fmt.Errorf("pending deletion: invalid resource id: %w", err)
 	}
 	encode := base64.RawURLEncoding.EncodeToString
 	if kind != KindPet {

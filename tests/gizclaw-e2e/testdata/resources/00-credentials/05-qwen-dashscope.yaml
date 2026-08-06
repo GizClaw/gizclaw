@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Credential
 metadata:
-  name: qwen-dashscope-credential
+  id: qwen-dashscope-credential
 spec:
   provider: dashscope
   description: Qwen/DashScope main credential

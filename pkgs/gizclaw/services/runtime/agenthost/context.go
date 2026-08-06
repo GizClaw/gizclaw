@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 )
 
 type accessContextKey struct{}
@@ -91,9 +92,9 @@ func WithToolExecution(
 	ids := make([]string, 0, len(aliases))
 	seen := make(map[string]string, len(aliases))
 	for _, alias := range aliases {
-		id := strings.TrimSpace((*bindings)[alias].ResourceId)
-		if id == "" {
-			return nil, fmt.Errorf("agenthost: runtime Tool alias %q has an empty resource ID", alias)
+		id := (*bindings)[alias].ResourceId
+		if err := customid.ValidateResourceID(id); err != nil {
+			return nil, fmt.Errorf("agenthost: runtime Tool alias %q has an invalid resource ID: %w", alias, err)
 		}
 		if previous, duplicate := seen[id]; duplicate {
 			return nil, fmt.Errorf(

@@ -8,7 +8,8 @@ import (
 
 func testClientTool(name string) Tool {
 	return Tool{
-		Name:        name,
+		ID:          name,
+		InvokeName:  name,
 		Type:        ToolTypeClientRPC,
 		Description: new("test client tool"),
 		Enabled:     true,
@@ -21,7 +22,8 @@ func testClientTool(name string) Tool {
 
 func testHTTPTool(name string) Tool {
 	return Tool{
-		Name:        name,
+		ID:          name,
+		InvokeName:  name,
 		Type:        ToolTypeHTTPRequest,
 		Description: new("test HTTP tool"),
 		Enabled:     true,

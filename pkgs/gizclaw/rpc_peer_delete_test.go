@@ -436,7 +436,7 @@ func TestManagerDeleteActivePeerRestoresConnectionAfterDeleteFailure(t *testing.
 	transport := &testGiznetConn{publicKey: publicKey}
 	manager.SetPeerUp(publicKey, transport)
 	peerConn := &PeerConn{Conn: transport, Service: &PeerService{manager: manager}}
-	registration := &runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Name: "profile"}}
+	registration := &runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Id: "profile"}}
 	peerConn.registration.Store(registration)
 	if !manager.SetPeerRegistration(publicKey, transport, *registration) {
 		t.Fatal("SetPeerRegistration rejected active connection")
@@ -455,7 +455,7 @@ func TestManagerDeleteActivePeerRestoresConnectionAfterDeleteFailure(t *testing.
 	if got, ok := manager.Peer(publicKey); !ok || got != transport {
 		t.Fatalf("failed delete active connection = %v, %v", got, ok)
 	}
-	if got, ok := manager.PeerRegistration(publicKey); !ok || got.RuntimeProfile.Name != "profile" {
+	if got, ok := manager.PeerRegistration(publicKey); !ok || got.RuntimeProfile.Id != "profile" {
 		t.Fatalf("failed delete Manager registration = %#v, %v", got, ok)
 	}
 }

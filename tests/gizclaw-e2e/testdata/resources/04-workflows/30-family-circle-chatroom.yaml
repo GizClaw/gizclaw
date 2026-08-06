@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  name: family-circle-chatroom
+  id: family-circle-chatroom
 spec:
   chatroom:
     history:

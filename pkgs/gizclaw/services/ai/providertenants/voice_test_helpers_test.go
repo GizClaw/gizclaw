@@ -21,7 +21,7 @@ func providerData(kind apitypes.VoiceProviderKind, values map[string]any) *apity
 	return voicecatalog.ProviderData(kind, values)
 }
 
-func stableVoiceName(kind apitypes.VoiceProviderKind, tenantID, providerVoiceID string) string {
+func stableVoiceID(kind apitypes.VoiceProviderKind, tenantID, providerVoiceID string) string {
 	return voicecatalog.StableID(kind, tenantID, providerVoiceID)
 }
 
@@ -31,15 +31,6 @@ func writeVoice(ctx context.Context, store kv.Store, voice apitypes.Voice, previ
 
 func getVoice(ctx context.Context, store kv.Store, id string) (apitypes.Voice, error) {
 	return voicecatalog.Get(ctx, store, id)
-}
-
-func getVoiceByName(ctx context.Context, store kv.Store, name string) (apitypes.Voice, error) {
-	escaped := strings.ReplaceAll(strings.ReplaceAll(name, "%", "%25"), ":", "%3A")
-	id, err := store.Get(ctx, kv.Key{"by-name", escaped})
-	if err != nil {
-		return apitypes.Voice{}, err
-	}
-	return getVoice(ctx, store, string(id))
 }
 
 func decodeVoice(data []byte, out *apitypes.Voice) error {

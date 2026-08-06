@@ -32,7 +32,7 @@ func TestProfileNamesUsesImmutableSnapshotAndUnregisteredHasNone(t *testing.T) {
 		"duplicate": {ResourceId: "profile-a"}, "empty": {ResourceId: " "},
 	}
 	profile := apitypes.RuntimeProfile{
-		Name: "device",
+		Id:   "device",
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &models}},
 	}
 	server := &Server{RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile }}
@@ -131,14 +131,14 @@ func TestDomainWorkspaceNamesRetainsDeletedPetWorkspaceWithinRuntimeProfile(t *t
 	if err != nil {
 		t.Fatalf("insert pet with empty workspace: %v", err)
 	}
-	profileCtx := gameplay.WithRuntimeProfile(ctx, apitypes.RuntimeProfile{Id: "profile-a", Name: "Profile A"})
+	profileCtx := gameplay.WithRuntimeProfile(ctx, apitypes.RuntimeProfile{Id: "profile-a"})
 	if _, err := runtime.DeletePet(profileCtx, caller.String(), "profile-a-pet"); err != nil {
 		t.Fatalf("DeletePet(profile-a) error = %v", err)
 	}
 	if _, err := db.ExecContext(ctx, `DELETE FROM gameplay_pending_deletions WHERE kind = 'pet' AND owner_public_key = ? AND resource_id = ?`, caller.String(), "profile-a-pet"); err != nil {
 		t.Fatalf("simulate completed pending cleanup: %v", err)
 	}
-	profile := apitypes.RuntimeProfile{Id: "profile-a", Name: "Profile A"}
+	profile := apitypes.RuntimeProfile{Id: "profile-a"}
 	server := &Server{
 		Caller:   caller,
 		Gameplay: runtime,

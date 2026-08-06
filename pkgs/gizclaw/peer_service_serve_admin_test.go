@@ -17,9 +17,12 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/resourcemanager"
@@ -43,6 +46,61 @@ func TestAdminServiceApplyResourceRequiresBody(t *testing.T) {
 	}
 	if got.Error.Code != "INVALID_RESOURCE" {
 		t.Fatalf("ApplyResource() code = %q", got.Error.Code)
+	}
+}
+
+func TestAdminSocialPutRejectsBodyIDMismatch(t *testing.T) {
+	service := &adminService{Contacts: &contact.Server{}, FriendGroups: &friendgroup.Server{}}
+	ctx := t.Context()
+
+	contactResponse, err := service.PutContact(ctx, adminhttp.PutContactRequestObject{
+		OwnerPublicKey: "owner", Id: "contact", Body: &adminhttp.AdminContactPutRequest{Id: "other"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response, ok := contactResponse.(adminhttp.PutContact400JSONResponse); !ok || response.Error.Code != "RESOURCE_ID_MISMATCH" {
+		t.Fatalf("PutContact() = %#v", contactResponse)
+	}
+
+	groupResponse, err := service.PutFriendGroup(ctx, adminhttp.PutFriendGroupRequestObject{
+		Id: "group", Body: &adminhttp.AdminFriendGroupPutRequest{Id: "other"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response, ok := groupResponse.(adminhttp.PutFriendGroup400JSONResponse); !ok || response.Error.Code != "RESOURCE_ID_MISMATCH" {
+		t.Fatalf("PutFriendGroup() = %#v", groupResponse)
+	}
+
+	memberResponse, err := service.PutFriendGroupMember(ctx, adminhttp.PutFriendGroupMemberRequestObject{
+		Id: "group", PublicKey: "peer", Body: &adminhttp.AdminFriendGroupMemberPutRequest{Id: "group:other", Role: rpcapi.FriendGroupMemberRoleMember},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response, ok := memberResponse.(adminhttp.PutFriendGroupMember400JSONResponse); !ok || response.Error.Code != "RESOURCE_ID_MISMATCH" {
+		t.Fatalf("PutFriendGroupMember() = %#v", memberResponse)
+	}
+
+	expiresAt := time.Now().Add(time.Hour)
+	tokenResponse, err := service.PutFriendGroupInviteToken(ctx, adminhttp.PutFriendGroupInviteTokenRequestObject{
+		Id: "group", Body: &adminhttp.AdminFriendGroupInviteTokenPutRequest{Id: "other", InviteToken: "token", ExpiresAt: expiresAt},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response, ok := tokenResponse.(adminhttp.PutFriendGroupInviteToken400JSONResponse); !ok || response.Error.Code != "RESOURCE_ID_MISMATCH" {
+		t.Fatalf("PutFriendGroupInviteToken() = %#v", tokenResponse)
+	}
+}
+
+func TestAdminFriendGroupMemberObjectUsesCanonicalMembershipID(t *testing.T) {
+	peer := "peer:/blue"
+	item := adminFriendGroupMemberObject("group:/red", rpcapi.FriendGroupMemberObject{PeerPublicKey: &peer})
+	want := customid.MembershipName("group:/red", peer)
+	if item.Id != want {
+		t.Fatalf("adminFriendGroupMemberObject().Id = %q, want %q", item.Id, want)
 	}
 }
 
@@ -167,7 +225,7 @@ func TestAdminServiceResourceMethodsHandleValidationAndManagerErrors(t *testing.
 	resource := mustPeerServiceResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"id": "minimax-id", "name": "minimax-main"},
+		"metadata": {"id": "minimax-id"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
@@ -242,7 +300,7 @@ func TestAdminResourceHelpers(t *testing.T) {
 	resource := mustPeerServiceResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"id": "minimax-id", "name": "minimax-main"},
+		"metadata": {"id": "minimax-id"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
@@ -258,7 +316,6 @@ func TestAdminResourceHelpers(t *testing.T) {
 	if err := validateResourcePathMatch(resource, apitypes.ResourceKindCredential, "other"); err == nil || !strings.Contains(err.Error(), "metadata.id") {
 		t.Fatalf("validateResourcePathMatch(id mismatch) error = %v", err)
 	}
-
 	status, body := resourceManagerError(&resourcemanager.Error{StatusCode: http.StatusNotFound, Code: "RESOURCE_NOT_FOUND", Message: "missing"})
 	if status != http.StatusNotFound || body.Error.Code != "RESOURCE_NOT_FOUND" {
 		t.Fatalf("resourceManagerError(resource error) = %d %+v", status, body)
@@ -269,11 +326,34 @@ func TestAdminResourceHelpers(t *testing.T) {
 	}
 }
 
+func TestAdminServicePutResourceComparesTransportDecodedPathID(t *testing.T) {
+	resource := mustPeerServiceResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Credential",
+		"metadata": {"id": "minimax/team%main"},
+		"spec": {
+			"provider": "minimax",
+			"body": {"api_key": "secret"}
+		}
+	}`)
+	response, err := (&adminService{}).PutResource(t.Context(), adminhttp.PutResourceRequestObject{
+		Kind:     apitypes.ResourceKindCredential,
+		Id:       "minimax/team%main",
+		JSONBody: &resource,
+	})
+	if err != nil {
+		t.Fatalf("PutResource() error = %v", err)
+	}
+	if got, ok := response.(adminhttp.PutResource500JSONResponse); !ok || got.Error.Code != "RESOURCE_MANAGER_NOT_CONFIGURED" {
+		t.Fatalf("PutResource() response = %T %+v", response, response)
+	}
+}
+
 func TestResource200JSONResponseSerializesResourceUnion(t *testing.T) {
 	resource := mustPeerServiceResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
-		"metadata": {"name": "minimax-main"},
+		"metadata": {"id": "minimax-main"},
 		"spec": {
 			"provider": "minimax",
 			"body": {"api_key": "secret"}
@@ -316,7 +396,7 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{Friends: friendService, FriendGroups: groupService}, nil))
 
-	rec := serveAdminJSON(app, http.MethodPost, "/social/friends", `{"owner_public_key":"peer-a","peer_public_key":"peer-b"}`)
+	rec := serveAdminJSON(app, http.MethodPost, "/social/friends", `{"id":"peer-a:peer-b","owner_public_key":"peer-a","peer_public_key":"peer-b"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST friend status = %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -345,23 +425,55 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 		t.Fatalf("GET deleted friend status = %d body=%s", rec.Code, rec.Body.String())
 	}
 
-	rec = serveAdminJSON(app, http.MethodPost, "/social/friend-groups", `{"name":"Room","owner_public_key":"peer-a"}`)
+	rec = serveAdminJSON(app, http.MethodPost, "/social/friend-groups", `{"id":"group-a","name":"Room","owner_public_key":"peer-a"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST group status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	if !strings.Contains(rec.Body.String(), `"created_by_peer_public_key":"peer-a"`) || strings.Contains(rec.Body.String(), "my_role") {
 		t.Fatalf("admin-created group owner projection is invalid: %s", rec.Body.String())
 	}
+	rec = serveAdminJSON(app, http.MethodPost, "/social/friend-groups", `{"id":"literal%2Fgroup","name":"Escaped Room","owner_public_key":"peer-c"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST escaped group status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = serveAdminAsset(app, http.MethodGet, "/social/friend-groups/literal%252Fgroup/members", "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"name":"Escaped Room"`) {
+		t.Fatalf("GET escaped group members status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = serveAdminJSON(app, http.MethodPost, "/social/friend-groups", `{"id":"slash/group","name":"Slash Room","owner_public_key":"peer-d"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST slash group status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = serveAdminAsset(app, http.MethodGet, "/social/friend-groups/slash%2Fgroup/members", "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"name":"Slash Room"`) {
+		t.Fatalf("GET slash group members status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = serveAdminJSON(app, http.MethodPost, "/social/friend-groups", `{"id":"plus+group","name":"Plus Room","owner_public_key":"peer-e"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST plus group status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = serveAdminAsset(app, http.MethodGet, "/social/friend-groups/plus+group/members", "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"name":"Plus Room"`) {
+		t.Fatalf("GET plus group members status=%d body=%s", rec.Code, rec.Body.String())
+	}
 	rec = serveAdminAsset(app, http.MethodGet, "/social/friend-groups/group-a/members", "")
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"name":"Room"`) || !strings.Contains(rec.Body.String(), `"role":"owner"`) {
 		t.Fatalf("GET owner member status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	rec = serveAdminJSON(app, http.MethodPut, "/social/friend-groups/group-a/members/peer-a", `{"role":"admin"}`)
+	rec = serveAdminJSON(app, http.MethodPost, "/social/friend-groups/group-a/members", `{"id":"group-a:peer-b","name":"Room B","peer_public_key":"peer-b","role":"member"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST member status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = serveAdminJSON(app, http.MethodPost, "/social/friend-groups/group-a/members", `{"id":"group-a:peer-b","name":"Room B","peer_public_key":"peer-b","role":"member"}`)
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), `"code":"FRIEND_GROUP_MEMBER_ALREADY_EXISTS"`) {
+		t.Fatalf("POST duplicate member status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = serveAdminJSON(app, http.MethodPut, "/social/friend-groups/group-a/members/peer-a", `{"id":"group-a:peer-a","role":"admin"}`)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"role":"admin"`) {
 		t.Fatalf("PUT member status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	expiresAt := time.Date(2026, 6, 13, 0, 5, 0, 0, time.UTC).Format(time.RFC3339)
-	rec = serveAdminJSON(app, http.MethodPut, "/social/friend-groups/group-a/invite-token", `{"invite_token":"token-a","expires_at":"`+expiresAt+`"}`)
+	rec = serveAdminJSON(app, http.MethodPut, "/social/friend-groups/group-a/invite-token", `{"id":"group-a","invite_token":"token-a","expires_at":"`+expiresAt+`"}`)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"invite_token":"token-a"`) {
 		t.Fatalf("PUT token status=%d body=%s", rec.Code, rec.Body.String())
 	}

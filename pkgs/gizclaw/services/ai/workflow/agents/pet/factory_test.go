@@ -53,7 +53,7 @@ func TestFactoryDelegatesNestedWorkflowToRegisteredFactory(t *testing.T) {
 	}
 	owner := "peer-a"
 	memoryBinding := &apitypes.RuntimeProfileMemoryBinding{LayoutId: "pet-memory-layout-id", Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft}
-	memoryLayout := &apitypes.MemoryLayout{Id: "pet-memory-layout-id", Name: "pet-memory"}
+	memoryLayout := &apitypes.MemoryLayout{Id: "pet-memory-layout-id"}
 	agent, err := factory.NewAgent(t.Context(), agenthost.Spec{
 		Workspace: apitypes.Workspace{Id: "workspace-id-a", Name: "pet-demo", OwnerPublicKey: &owner},
 		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
@@ -251,7 +251,7 @@ func TestFactoryRequiresCanonicalWorkspaceID(t *testing.T) {
 		}},
 		AgentType: Type,
 	})
-	if err == nil || !strings.Contains(err.Error(), "workspace id is required") {
+	if err == nil || !strings.Contains(err.Error(), "invalid workspace id") {
 		t.Fatalf("NewAgent() error = %v, want missing canonical Workspace ID", err)
 	}
 	if pets.calls != 0 {

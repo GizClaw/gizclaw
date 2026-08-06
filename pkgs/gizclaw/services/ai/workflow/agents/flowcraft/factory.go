@@ -58,7 +58,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if workspaceName == "" {
 		return nil, fmt.Errorf("flowcraft: workspace name is required")
 	}
-	workspaceID := strings.TrimSpace(spec.Workspace.Id)
+	workspaceID := spec.Workspace.Id
 	if workspaceID == "" {
 		return nil, fmt.Errorf("flowcraft: workspace id is required")
 	}
@@ -132,7 +132,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if f.Memory != nil && f.MemoryKind == string(apitypes.RuntimeProfileMemoryDriverFlowcraft) && spec.MemoryLayout != nil {
 		f.MemoryLaneRecall = flowcraftLaneRecall(spec.MemoryLayout.Spec.Flowcraft.Lanes)
 	}
-	return f.newAgent(ctx, owner, workspaceID, spec.Workflow.Name, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, inputMode, memoryCloser)
+	return f.newAgent(ctx, owner, workspaceID, spec.Workflow.Id, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, inputMode, memoryCloser)
 }
 
 func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName string, public apitypes.FlowcraftWorkflowSpec, toolInvoker genx.ToolInvoker, inputs InputProvider, initiativePolicy string, inputMode apitypes.WorkspaceInputMode, memoryCloser io.Closer) (agenthost.Agent, error) {
@@ -451,7 +451,7 @@ func buildRuntimeEmbedder(config peergenx.EmbeddingConfig) (flowembedding.Embedd
 		}
 		apiKey := firstNonEmpty(body.ApiKey, body.Token)
 		if apiKey == "" {
-			return nil, fmt.Errorf("flowcraft: embedding credential %q has no api_key", config.Credential.Name)
+			return nil, fmt.Errorf("flowcraft: embedding credential %q has no api_key", config.Credential.Id)
 		}
 		var options []option.RequestOption
 		if baseURL := firstNonEmpty(config.Tenant.OpenAI.BaseUrl, body.BaseUrl); baseURL != "" {
@@ -474,7 +474,7 @@ func buildRuntimeEmbedder(config peergenx.EmbeddingConfig) (flowembedding.Embedd
 		modelName = firstNonEmpty(data.UpstreamModel, &modelName)
 		apiKey := firstNonEmpty(body.ApiKey, body.Token)
 		if apiKey == "" {
-			return nil, fmt.Errorf("flowcraft: embedding credential %q has no api_key", config.Credential.Name)
+			return nil, fmt.Errorf("flowcraft: embedding credential %q has no api_key", config.Credential.Id)
 		}
 		return embeddingqwen.New(
 			apiKey,
@@ -497,7 +497,7 @@ func buildRuntimeEmbedder(config peergenx.EmbeddingConfig) (flowembedding.Embedd
 		modelName = firstNonEmpty(data.UpstreamModel, &modelName)
 		apiKey := firstNonEmpty(body.ArkApiKey)
 		if apiKey == "" {
-			return nil, fmt.Errorf("flowcraft: embedding credential %q has no ark_api_key", config.Credential.Name)
+			return nil, fmt.Errorf("flowcraft: embedding credential %q has no ark_api_key", config.Credential.Id)
 		}
 		return embeddingbytedance.New(
 			apiKey,

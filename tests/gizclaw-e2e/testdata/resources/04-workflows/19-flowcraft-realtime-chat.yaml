@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  name: flowcraft-realtime-chat
+  id: flowcraft-realtime-chat
 spec:
   driver: flowcraft
   flowcraft:

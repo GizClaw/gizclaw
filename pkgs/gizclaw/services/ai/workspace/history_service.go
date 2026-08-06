@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -226,9 +227,8 @@ func (s *Server) historyStoreByID(ctx context.Context, workspaceID string) (*His
 	if s == nil {
 		return nil, fmt.Errorf("workspace: nil server")
 	}
-	workspaceID = strings.TrimSpace(workspaceID)
-	if workspaceID == "" {
-		return nil, fmt.Errorf("workspace: id is required")
+	if err := customid.ValidateResourceID(workspaceID); err != nil {
+		return nil, fmt.Errorf("workspace: invalid id: %w", err)
 	}
 	store, err := s.store()
 	if err != nil {

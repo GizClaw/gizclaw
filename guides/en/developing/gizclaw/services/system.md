@@ -37,6 +37,8 @@ Final resource access is decided by RuntimeProfile, ownership, and the relevant 
 
 Provides unified declarative resource dispatch for Admin apply, show, and general resource operations. It knows which domain services should be handed over to different resource kinds, but does not reimplement business rules for credentials, workflow, firmware, gameplay or social.
 
+Every concrete Resource carries a caller-supplied `metadata.id`. ResourceManager looks up and dispatches by `(kind, id)`, passes that ID unchanged to the domain service on create, and requires the desired ID to match the existing ID on update. It never generates an ID, performs a name lookup, or falls back from name to ID. Foreign-key inputs already contain the target canonical ID. `ResourceList` only dispatches its items in order and has no top-level ID.
+
 ResourceManager is the cross-domain coordination layer and is not the actual owner of all GizClaw resources.
 
 ## Dependencies and boundaries

@@ -23,10 +23,7 @@ var (
 func TestAdminAPIResourcesGet(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
-	workflowID, err := clitest.ResourceIDByName(env.ctx, env.api, "Workflow", "flowcraft-chat-assistant")
-	if err != nil {
-		t.Fatalf("resolve workflow resource: %v", err)
-	}
+	workflowID := "flowcraft-chat-assistant"
 	get, err := env.api.GetResourceWithResponse(env.ctx, apitypes.ResourceKindWorkflow, workflowID)
 	if err != nil {
 		t.Fatalf("get workflow resource: %v", err)
@@ -39,8 +36,8 @@ func TestAdminAPIResourcesGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode workflow resource union: %v", err)
 	}
-	if workflow.Metadata.Name != "flowcraft-chat-assistant" {
-		t.Fatalf("workflow resource name = %q", workflow.Metadata.Name)
+	if workflow.Metadata.Id != "flowcraft-chat-assistant" {
+		t.Fatalf("workflow resource id = %q", workflow.Metadata.Id)
 	}
 }
 
@@ -71,7 +68,7 @@ func TestAdminAPIResourcesGetSocialFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode friend group resource union: %v", err)
 	}
-	if group.Metadata.Name != "family-circle" || group.Spec.DisplayName == nil || *group.Spec.DisplayName != "Family Circle" {
+	if group.Metadata.Id != e2eSocialGroupID || group.Spec.Name != "family-circle" || group.Spec.DisplayName == nil || *group.Spec.DisplayName != "Family Circle" {
 		t.Fatalf("friend group spec = %+v", group.Spec)
 	}
 

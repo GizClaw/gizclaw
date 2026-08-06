@@ -174,6 +174,27 @@ func (s *prefixedStore) CreateIfAbsent(ctx context.Context, guard Entry, entries
 	return CreateIfAbsent(ctx, s.base, guard, prefixedEntries)
 }
 
+func (s *prefixedStore) CreateIfAllAbsent(ctx context.Context, guards []Entry, entries []Entry) (Key, []byte, bool, error) {
+	prefixedGuards := make([]Entry, len(guards))
+	for i, guard := range guards {
+		prefixedGuards[i] = Entry{Key: s.prefixedKey(guard.Key), Value: guard.Value, Deadline: guard.Deadline}
+	}
+	prefixedEntries := make([]Entry, len(entries))
+	for i, entry := range entries {
+		prefixedEntries[i] = Entry{Key: s.prefixedKey(entry.Key), Value: entry.Value, Deadline: entry.Deadline}
+	}
+	conflict, existing, created, err := CreateIfAllAbsent(ctx, s.base, prefixedGuards, prefixedEntries)
+	if err != nil || created || conflict == nil {
+		return nil, existing, created, err
+	}
+	for i, guard := range prefixedGuards {
+		if reflect.DeepEqual(conflict, guard.Key) {
+			return cloneKey(guards[i].Key), existing, false, nil
+		}
+	}
+	return conflict, existing, false, nil
+}
+
 func (s *prefixedStore) CompareAndMutate(
 	ctx context.Context,
 	guard Key,

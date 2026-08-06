@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  name: chatroom-direct
+  id: chatroom-direct
 spec:
   chatroom:
     history:

@@ -25,12 +25,12 @@ func TestRegistrationTokenIsReadableAndIndexedByHash(t *testing.T) {
 	}
 	createProfile(t, s, "pet-runtime", map[string]string{
 		"primary":   "model-a",
-		"secondary": " model-b ",
+		"secondary": "model-b",
 		"duplicate": "model-a",
 	})
 
 	response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "pet-board", Token: " device-token ", RuntimeProfileId: "pet-runtime",
+		Id: "pet-board", Token: " device-token ", RuntimeProfileId: "pet-runtime",
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +79,7 @@ func TestRegistrationTokenIsReadableAndIndexedByHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if registration.RuntimeProfile.Name != "pet-runtime" {
+	if registration.RuntimeProfile.Id != "pet-runtime" {
 		t.Fatalf("registration = %#v", registration)
 	}
 	models := *registration.RuntimeProfile.Spec.Resources.Models
@@ -95,7 +95,7 @@ func TestRegistrationTokenCanBeReusedUntilDeleted(t *testing.T) {
 	s := &Server{Store: store}
 	createProfile(t, s, "pet-runtime", nil)
 	response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "pet-board", Token: "reusable-token", RuntimeProfileId: "pet-runtime",
+		Id: "pet-board", Token: "reusable-token", RuntimeProfileId: "pet-runtime",
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -127,7 +127,7 @@ func TestPutRegistrationTokenReplacesTokenAndHashIndexAtomically(t *testing.T) {
 	s := &Server{Store: store, Now: func() time.Time { return now }}
 	createProfile(t, s, "pet-runtime", nil)
 	createResponse, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "pet-board", Token: "old-token", RuntimeProfileId: "pet-runtime",
+		Id: "pet-board", Token: "old-token", RuntimeProfileId: "pet-runtime",
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -137,7 +137,7 @@ func TestPutRegistrationTokenReplacesTokenAndHashIndexAtomically(t *testing.T) {
 	now = now.Add(time.Minute)
 	putResponse, err := s.PutRegistrationToken(ctx, adminhttp.PutRegistrationTokenRequestObject{
 		Id:   created.Id,
-		Body: &adminhttp.RegistrationTokenUpsert{Name: "pet-board", Token: "new-token", RuntimeProfileId: "pet-runtime"},
+		Body: &adminhttp.RegistrationTokenUpsert{Id: "pet-board", Token: "new-token", RuntimeProfileId: "pet-runtime"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -172,7 +172,7 @@ func TestPutRegistrationTokenStoreFailurePreservesRecordAndIndexes(t *testing.T)
 	s := &Server{Store: store}
 	createProfile(t, s, "pet-runtime", nil)
 	createResponse, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "pet-board", Token: "old-token", RuntimeProfileId: "pet-runtime",
+		Id: "pet-board", Token: "old-token", RuntimeProfileId: "pet-runtime",
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -184,7 +184,7 @@ func TestPutRegistrationTokenStoreFailurePreservesRecordAndIndexes(t *testing.T)
 	s.Store = failingBatchMutateStore{Store: store}
 	putResponse, err := s.PutRegistrationToken(ctx, adminhttp.PutRegistrationTokenRequestObject{
 		Id:   created.Id,
-		Body: &adminhttp.RegistrationTokenUpsert{Name: "pet-board", Token: "new-token", RuntimeProfileId: "pet-runtime"},
+		Body: &adminhttp.RegistrationTokenUpsert{Id: "pet-board", Token: "new-token", RuntimeProfileId: "pet-runtime"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -215,8 +215,8 @@ func TestRegistrationTokenCollisionLeavesBothResourcesUnchanged(t *testing.T) {
 	createProfile(t, s, "pet-runtime", nil)
 	createdIDs := map[string]string{}
 	for _, item := range []adminhttp.RegistrationTokenUpsert{
-		{Name: "first-token", Token: " shared-token ", RuntimeProfileId: "pet-runtime"},
-		{Name: "second-token", Token: "second-token", RuntimeProfileId: "pet-runtime"},
+		{Id: "first-token", Token: " shared-token ", RuntimeProfileId: "pet-runtime"},
+		{Id: "second-token", Token: "second-token", RuntimeProfileId: "pet-runtime"},
 	} {
 		response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &item})
 		if err != nil {
@@ -224,11 +224,11 @@ func TestRegistrationTokenCollisionLeavesBothResourcesUnchanged(t *testing.T) {
 		}
 		created, ok := response.(adminhttp.CreateRegistrationToken200JSONResponse)
 		if !ok {
-			t.Fatalf("CreateRegistrationToken(%s) = %#v", item.Name, response)
+			t.Fatalf("CreateRegistrationToken(%s) = %#v", item.Id, response)
 		}
-		createdIDs[item.Name] = created.Id
+		createdIDs[item.Id] = created.Id
 	}
-	conflictingCreate := adminhttp.RegistrationTokenUpsert{Name: "third-token", Token: "shared-token", RuntimeProfileId: "pet-runtime"}
+	conflictingCreate := adminhttp.RegistrationTokenUpsert{Id: "third-token", Token: "shared-token", RuntimeProfileId: "pet-runtime"}
 	response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &conflictingCreate})
 	if err != nil {
 		t.Fatal(err)
@@ -236,7 +236,7 @@ func TestRegistrationTokenCollisionLeavesBothResourcesUnchanged(t *testing.T) {
 	if _, ok := response.(adminhttp.CreateRegistrationToken409JSONResponse); !ok {
 		t.Fatalf("conflicting create = %#v, want 409", response)
 	}
-	conflictingPut := adminhttp.RegistrationTokenUpsert{Name: "second-token", Token: " shared-token ", RuntimeProfileId: "pet-runtime"}
+	conflictingPut := adminhttp.RegistrationTokenUpsert{Id: "second-token", Token: " shared-token ", RuntimeProfileId: "pet-runtime"}
 	putResponse, err := s.PutRegistrationToken(ctx, adminhttp.PutRegistrationTokenRequestObject{Id: createdIDs["second-token"], Body: &conflictingPut})
 	if err != nil {
 		t.Fatal(err)
@@ -266,13 +266,13 @@ func TestRegistrationTokenAcceptsScopedAppName(t *testing.T) {
 	}
 	createProfile(t, s, "app-runtime", nil)
 	response, err := s.CreateRegistrationToken(context.Background(), adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "app:com.gizclaw.opensource", Token: "desktop-token", RuntimeProfileId: "app-runtime",
+		Id: "app:com.gizclaw.opensource", Token: "desktop-token", RuntimeProfileId: "app-runtime",
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	created, ok := response.(adminhttp.CreateRegistrationToken200JSONResponse)
-	if !ok || created.Name != "app:com.gizclaw.opensource" || created.RuntimeProfileId != "app-runtime" {
+	if !ok || created.Id != "app:com.gizclaw.opensource" || created.RuntimeProfileId != "app-runtime" {
 		t.Fatalf("CreateRegistrationToken() = %#v", response)
 	}
 }
@@ -290,15 +290,16 @@ func TestRegistrationTokenBindsOptionalFirmwareReleaseLine(t *testing.T) {
 			err := resource.FromFirmwareResource(apitypes.FirmwareResource{
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 				Kind:       apitypes.FirmwareResourceKindFirmware,
-				Metadata:   apitypes.ResourceMetadata{Name: name},
+				Metadata:   apitypes.ResourceMetadata{Id: name},
+				Spec:       apitypes.FirmwareSpec{Name: "H106 Production"},
 			})
 			return resource, err
 		},
 	}
 	createProfile(t, s, "h106-production", nil)
-	firmwareID := " h106 "
+	firmwareID := "h106"
 	response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "h106-token", Token: "h106-registration", RuntimeProfileId: "h106-production", FirmwareId: &firmwareID,
+		Id: "h106-token", Token: "h106-registration", RuntimeProfileId: "h106-production", FirmwareId: &firmwareID,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -322,17 +323,21 @@ func TestRegistrationTokenBindsOptionalFirmwareReleaseLine(t *testing.T) {
 	if registration.FirmwareID == nil || *registration.FirmwareID != "h106" {
 		t.Fatalf("ResolveRegistration() = %#v, want h106 firmware binding", registration)
 	}
+	if registration.FirmwareName == nil || *registration.FirmwareName != "H106 Production" {
+		t.Fatalf("ResolveRegistration() = %#v, want peer-visible firmware name", registration)
+	}
 
 	for _, test := range []struct {
 		name       string
 		firmwareID string
 	}{
 		{name: "empty-firmware", firmwareID: " "},
+		{name: "whitespace-firmware", firmwareID: " h106 "},
 		{name: "missing-firmware", firmwareID: "missing"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-				Name: test.name, Token: test.name + "-token", RuntimeProfileId: "h106-production", FirmwareId: &test.firmwareID,
+				Id: test.name, Token: test.name + "-token", RuntimeProfileId: "h106-production", FirmwareId: &test.firmwareID,
 			}})
 			if err != nil {
 				t.Fatal(err)
@@ -357,7 +362,7 @@ func TestConcurrentRegistrationTokenCreateKeepsNameAndHashIndexesConsistent(t *t
 	for range attempts {
 		wg.Go(func() {
 			response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-				Name: "pet-board", Token: "concurrent-token", RuntimeProfileId: "pet-runtime",
+				Id: "pet-board", Token: "concurrent-token", RuntimeProfileId: "pet-runtime",
 			}})
 			if err != nil {
 				t.Errorf("CreateRegistrationToken() error = %v", err)
@@ -400,7 +405,7 @@ func TestDanglingRuntimeProfileResourceNamesAreRejected(t *testing.T) {
 		},
 	}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
-		Name: "pet-runtime",
+		Id: "pet-runtime",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{
 				"assistants": {"missing": runtimeProfileTestBinding("missing-workflow")},
@@ -416,16 +421,16 @@ func TestDanglingRuntimeProfileResourceNamesAreRejected(t *testing.T) {
 	}
 }
 
-func TestNormalizeProfileRequiresAndTrimsSystemWorkflowIDs(t *testing.T) {
+func TestNormalizeProfileRequiresExactSystemWorkflowIDs(t *testing.T) {
 	t.Parallel()
 	base := adminhttp.RuntimeProfileUpsert{
-		Name: "test-profile",
+		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
 				System: apitypes.RuntimeProfileSystemWorkflows{
-					FriendChatroom: " chatroom ",
-					GroupChatroom:  " chatroom ",
-					Pet:            " pet-care ",
+					FriendChatroom: "chatroom",
+					GroupChatroom:  "chatroom",
+					Pet:            "pet-care",
 				},
 				Collections: apitypes.RuntimeProfileWorkflowCollections{},
 			},
@@ -437,6 +442,11 @@ func TestNormalizeProfileRequiresAndTrimsSystemWorkflowIDs(t *testing.T) {
 	}
 	if got := normalized.Spec.Workflows.System; got.FriendChatroom != "chatroom" || got.GroupChatroom != "chatroom" || got.Pet != "pet-care" {
 		t.Fatalf("normalized system Workflows = %#v", got)
+	}
+	withWhitespace := base
+	withWhitespace.Spec.Workflows.System.FriendChatroom = " chatroom "
+	if _, err := normalizeProfile(withWhitespace, ""); err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("normalizeProfile(whitespace ID) error = %v", err)
 	}
 	for _, field := range []string{"friend_chatroom", "group_chatroom", "pet"} {
 		invalid := base
@@ -463,14 +473,14 @@ func TestRuntimeProfileRejectsResolverReturningWrongResourceKind(t *testing.T) {
 			err := resource.FromVoiceResource(apitypes.VoiceResource{
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 				Kind:       apitypes.VoiceResourceKindVoice,
-				Metadata:   apitypes.ResourceMetadata{Name: "wrong-kind"},
+				Metadata:   apitypes.ResourceMetadata{Id: "wrong-kind"},
 			})
 			return resource, err
 		},
 	}
 	models := map[string]apitypes.RuntimeProfileBinding{"asr-model": runtimeProfileTestBinding("wrong-kind")}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
-		Name: "test-profile",
+		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{}},
 			Resources: apitypes.RuntimeProfileResources{Models: &models},
@@ -763,7 +773,7 @@ func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
 	models := map[string]apitypes.RuntimeProfileBinding{"assistant": runtimeProfileTestBinding("model-a")}
 	voices := map[string]apitypes.RuntimeProfileBinding{"assistant": runtimeProfileTestBinding("voice-a")}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
-		Name: "test-profile",
+		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{}},
 			Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices},
@@ -780,7 +790,7 @@ func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
 func TestRuntimeProfileRejectsWorkflowCollectionsDuplicatedAfterNormalization(t *testing.T) {
 	t.Parallel()
 	_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{
-		Name: "test-profile",
+		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
 			System: runtimeProfileTestSystemWorkflows(),
 			Collections: apitypes.RuntimeProfileWorkflowCollections{
@@ -799,7 +809,7 @@ func TestRuntimeProfileRejectsInvalidGameplayReferences(t *testing.T) {
 	petDefs := map[string]apitypes.RuntimeProfileBinding{"pet": runtimeProfileTestBinding("petdef-basic")}
 	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "missing", Weight: 1}}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
-		Name: "test-profile",
+		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{}},
 			Resources: apitypes.RuntimeProfileResources{PetDefs: &petDefs},
@@ -971,7 +981,7 @@ func workspaceRewardResourceResolverForTest(
 			err := resource.FromWorkflowResource(apitypes.WorkflowResource{
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 				Kind:       apitypes.WorkflowResourceKindWorkflow,
-				Metadata:   apitypes.ResourceMetadata{Name: name},
+				Metadata:   apitypes.ResourceMetadata{Id: name},
 				Spec:       spec,
 			})
 			return resource, err
@@ -979,7 +989,7 @@ func workspaceRewardResourceResolverForTest(
 			err := resource.FromModelResource(apitypes.ModelResource{
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 				Kind:       apitypes.ModelResourceKindModel,
-				Metadata:   apitypes.ResourceMetadata{Name: name},
+				Metadata:   apitypes.ResourceMetadata{Id: name},
 				Spec:       apitypes.ModelSpec{Kind: modelKind},
 			})
 			return resource, err
@@ -987,7 +997,7 @@ func workspaceRewardResourceResolverForTest(
 			err := resource.FromBadgeDefResource(apitypes.BadgeDefResource{
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 				Kind:       apitypes.BadgeDefResourceKindBadgeDef,
-				Metadata:   apitypes.ResourceMetadata{Name: name},
+				Metadata:   apitypes.ResourceMetadata{Id: name},
 				Spec: apitypes.BadgeDefSpec{
 					DisplayName: "Science", RewardPrompt: rewardPrompt,
 				},
@@ -1014,7 +1024,7 @@ func validWorkspaceRewardProfileForTest() adminhttp.RuntimeProfileUpsert {
 		"science": {MaxExpPerWindow: 5},
 	}
 	return adminhttp.RuntimeProfileUpsert{
-		Name: "workspace-reward-profile",
+		Id: "workspace-reward-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
 				System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{},
@@ -1053,7 +1063,7 @@ func TestRuntimeProfileRequiresPetPolicyForAdoption(t *testing.T) {
 	t.Parallel()
 	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "pet", Weight: 1}}
 	_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{
-		Name: "test-profile",
+		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{}},
 			Gameplay:  &apitypes.RuntimeProfileGameplaySpec{Adoption: &apitypes.RuntimeProfileAdoptionSpec{Pool: &pool}},
@@ -1138,7 +1148,7 @@ func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 	t.Parallel()
 	s := &Server{Store: kv.NewMemory(nil)}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
-		Name: "default",
+		Id: "default",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
 				System:      runtimeProfileTestSystemWorkflows(),
@@ -1150,7 +1160,7 @@ func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 		t.Fatal(err)
 	}
 	created, ok := response.(adminhttp.CreateRuntimeProfile200JSONResponse)
-	if !ok || created.Name != "default" {
+	if !ok || created.Id != "default" {
 		t.Fatalf("CreateRuntimeProfile() = %#v, want RuntimeProfile/default", response)
 	}
 }
@@ -1180,7 +1190,7 @@ func TestResolveProfileRevalidatesCurrentSystemWorkflows(t *testing.T) {
 		if err := resource.FromWorkflowResource(apitypes.WorkflowResource{
 			ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 			Kind:       apitypes.WorkflowResourceKindWorkflow,
-			Metadata:   apitypes.ResourceMetadata{Name: resourceName},
+			Metadata:   apitypes.ResourceMetadata{Id: resourceName},
 			Spec:       spec,
 		}); err != nil {
 			t.Fatal(err)
@@ -1196,14 +1206,20 @@ func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t 
 	t.Parallel()
 	s := &Server{Store: kv.NewMemory(nil)}
 	createProfile(t, s, "owner-profile", nil)
-	if err := s.BindOwnerProfile(t.Context(), " peer-a ", " owner-profile "); err != nil {
+	if err := s.BindOwnerProfile(t.Context(), "peer-a", " owner-profile "); err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("BindOwnerProfile(whitespace ID) error = %v", err)
+	}
+	if _, err := s.ResolveProfile(t.Context(), " owner-profile "); err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("ResolveProfile(whitespace ID) error = %v", err)
+	}
+	if err := s.BindOwnerProfile(t.Context(), " peer-a ", "owner-profile"); err != nil {
 		t.Fatalf("BindOwnerProfile() error = %v", err)
 	}
 	first, err := s.ResolveOwnerProfile(t.Context(), "peer-a")
-	if err != nil || first.Name != "owner-profile" {
+	if err != nil || first.Id != "owner-profile" {
 		t.Fatalf("ResolveOwnerProfile() = %#v, %v", first, err)
 	}
-	updated := adminhttp.RuntimeProfileUpsert{Name: first.Name, Spec: first.Spec}
+	updated := adminhttp.RuntimeProfileUpsert{Id: first.Id, Spec: first.Spec}
 	updated.Spec.Workflows.System.Pet = "pet-care-v2"
 	previousResolver := s.ResolveResource
 	s.ResolveResource = func(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
@@ -1212,7 +1228,7 @@ func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t 
 			err := resource.FromWorkflowResource(apitypes.WorkflowResource{
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 				Kind:       apitypes.WorkflowResourceKindWorkflow,
-				Metadata:   apitypes.ResourceMetadata{Name: name},
+				Metadata:   apitypes.ResourceMetadata{Id: name},
 				Spec: apitypes.WorkflowSpec{
 					Driver: apitypes.WorkflowDriverPet,
 					Pet: &apitypes.PetWorkflowSpec{
@@ -1225,7 +1241,7 @@ func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t 
 		}
 		return previousResolver(ctx, kind, name)
 	}
-	response, err := s.PutRuntimeProfile(t.Context(), adminhttp.PutRuntimeProfileRequestObject{Id: first.Name, Body: &updated})
+	response, err := s.PutRuntimeProfile(t.Context(), adminhttp.PutRuntimeProfileRequestObject{Id: first.Id, Body: &updated})
 	if err != nil {
 		t.Fatalf("PutRuntimeProfile() error = %v", err)
 	}
@@ -1257,7 +1273,7 @@ func TestBindOwnerProfileAndCommitRestoresPreviousBinding(t *testing.T) {
 		t.Fatalf("BindOwnerProfileAndCommit() error = %v, want %v", err, commitErr)
 	}
 	current, err := s.ResolveOwnerProfile(t.Context(), "peer-a")
-	if err != nil || current.Name != "profile-a" {
+	if err != nil || current.Id != "profile-a" {
 		t.Fatalf("ResolveOwnerProfile() = %#v, %v, want profile-a", current, err)
 	}
 
@@ -1290,16 +1306,13 @@ func TestBindOwnerProfileAndCommitRestoresBindingAfterRequestCancellation(t *tes
 		t.Fatalf("BindOwnerProfileAndCommit() error = %v, want %v", err, commitErr)
 	}
 	current, err := s.ResolveOwnerProfile(t.Context(), "peer-a")
-	if err != nil || current.Name != "profile-a" {
+	if err != nil || current.Id != "profile-a" {
 		t.Fatalf("ResolveOwnerProfile() = %#v, %v, want profile-a", current, err)
 	}
 }
 
 func createProfile(t *testing.T, s *Server, name string, models map[string]string) {
 	t.Helper()
-	previousNewID := s.NewID
-	s.NewID = func() string { return name }
-	defer func() { s.NewID = previousNewID }()
 	previousResolver := s.ResolveResource
 	s.ResolveResource = func(ctx context.Context, kind apitypes.ResourceKind, resourceName string) (apitypes.Resource, error) {
 		if kind == apitypes.ResourceKindWorkflow {
@@ -1319,7 +1332,7 @@ func createProfile(t *testing.T, s *Server, name string, models map[string]strin
 			err := resource.FromWorkflowResource(apitypes.WorkflowResource{
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 				Kind:       apitypes.WorkflowResourceKindWorkflow,
-				Metadata:   apitypes.ResourceMetadata{Name: resourceName},
+				Metadata:   apitypes.ResourceMetadata{Id: resourceName},
 				Spec:       spec,
 			})
 			return resource, err
@@ -1329,7 +1342,7 @@ func createProfile(t *testing.T, s *Server, name string, models map[string]strin
 			err := resource.FromModelResource(apitypes.ModelResource{
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 				Kind:       apitypes.ModelResourceKindModel,
-				Metadata:   apitypes.ResourceMetadata{Name: resourceName},
+				Metadata:   apitypes.ResourceMetadata{Id: resourceName},
 				Spec:       apitypes.ModelSpec{Kind: apitypes.ModelKindLlm},
 			})
 			return resource, err
@@ -1348,7 +1361,7 @@ func createProfile(t *testing.T, s *Server, name string, models map[string]strin
 		resources.Models = &bindings
 	}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
-		Name: name, Spec: apitypes.RuntimeProfileSpec{
+		Id: name, Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
 				System:      runtimeProfileTestSystemWorkflows(),
 				Collections: apitypes.RuntimeProfileWorkflowCollections{},
@@ -1485,7 +1498,7 @@ func TestRuntimeProfileRejectsMissingMemoryLayoutWithoutPersistingRevision(t *te
 			err := resource.FromWorkflowResource(apitypes.WorkflowResource{
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 				Kind:       apitypes.WorkflowResourceKindWorkflow,
-				Metadata:   apitypes.ResourceMetadata{Name: name},
+				Metadata:   apitypes.ResourceMetadata{Id: name},
 				Spec:       spec,
 			})
 			return resource, err
@@ -1507,7 +1520,7 @@ func TestRuntimeProfileRejectsMissingMemoryLayoutWithoutPersistingRevision(t *te
 	memories := map[string]apitypes.RuntimeProfileMemoryBinding{"pet-memory": binding}
 	response, err := server.CreateRuntimeProfile(t.Context(), adminhttp.CreateRuntimeProfileRequestObject{
 		Body: &adminhttp.RuntimeProfileUpsert{
-			Name: "default",
+			Id: "default",
 			Spec: apitypes.RuntimeProfileSpec{
 				Workflows: apitypes.RuntimeProfileWorkflows{
 					System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{},

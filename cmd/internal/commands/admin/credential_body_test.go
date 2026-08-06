@@ -6,7 +6,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
-func testCredentialBodyString(body apitypes.CredentialBody, key string) string {
+func testCredentialBodyString(body *apitypes.CredentialBody, key string) string {
+	if body == nil {
+		return ""
+	}
 	data, err := body.MarshalJSON()
 	if err != nil {
 		return ""

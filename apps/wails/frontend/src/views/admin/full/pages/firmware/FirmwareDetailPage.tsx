@@ -50,9 +50,9 @@ import {
 
 export function FirmwareDetailPage(): JSX.Element {
   const params = useParams();
-  const firmwareName = useMemo(
-    () => decodeRouteParam(params.name ?? ""),
-    [params.name],
+  const firmwareID = useMemo(
+    () => decodeRouteParam(params.id ?? ""),
+    [params.id],
   );
   const [firmware, setFirmware] = useState<Firmware | null>(null);
   const [resource, setResource] = useState<Resource | null>(null);
@@ -63,19 +63,17 @@ export function FirmwareDetailPage(): JSX.Element {
   const [error, setError] = useState("");
 
   const load = async (): Promise<void> => {
-    if (firmwareName === "") {
+    if (firmwareID === "") {
       setLoading(false);
-      setError("Missing firmware name in the URL.");
+      setError("Missing firmware ID in the URL.");
       return;
     }
     setLoading(true);
     setError("");
     try {
       const [nextFirmware, nextResource] = await Promise.all([
-        expectData(getFirmware({ path: { id: firmwareName } })),
-        expectData(
-          getResource({ path: { kind: "Firmware", id: firmwareName } }),
-        ),
+        expectData(getFirmware({ path: { id: firmwareID } })),
+        expectData(getResource({ path: { kind: "Firmware", id: firmwareID } })),
       ]);
       setFirmware(nextFirmware);
       setResource(nextResource);
@@ -89,7 +87,7 @@ export function FirmwareDetailPage(): JSX.Element {
 
   useEffect(() => {
     void load();
-  }, [firmwareName]);
+  }, [firmwareID]);
 
   const save = async (nextForm = form): Promise<void> => {
     setSaving(true);
@@ -100,15 +98,15 @@ export function FirmwareDetailPage(): JSX.Element {
       }
       const next = await expectData(
         putFirmware({
-          body: formToUpsert({ ...nextForm, name: firmwareName }),
-          path: { id: firmwareName },
+          body: formToUpsert({ ...nextForm, id: firmwareID }),
+          path: { id: firmwareID },
         }),
       );
       setFirmware(next);
       setForm(firmwareToForm(next));
       setResource(
         await expectData(
-          getResource({ path: { kind: "Firmware", id: firmwareName } }),
+          getResource({ path: { kind: "Firmware", id: firmwareID } }),
         ),
       );
     } catch (err) {
@@ -124,14 +122,14 @@ export function FirmwareDetailPage(): JSX.Element {
     try {
       const next = await expectData(
         action === "release"
-          ? releaseFirmware({ path: { id: firmwareName } })
-          : rollbackFirmware({ path: { id: firmwareName } }),
+          ? releaseFirmware({ path: { id: firmwareID } })
+          : rollbackFirmware({ path: { id: firmwareID } }),
       );
       setFirmware(next);
       setForm(firmwareToForm(next));
       setResource(
         await expectData(
-          getResource({ path: { kind: "Firmware", id: firmwareName } }),
+          getResource({ path: { kind: "Firmware", id: firmwareID } }),
         ),
       );
     } catch (err) {
@@ -141,10 +139,10 @@ export function FirmwareDetailPage(): JSX.Element {
     }
   };
 
-  if (firmwareName === "") {
+  if (firmwareID === "") {
     return (
       <EmptyState
-        description="Missing firmware name in the URL."
+        description="Missing firmware ID in the URL."
         title="Invalid route"
       />
     );
@@ -170,7 +168,7 @@ export function FirmwareDetailPage(): JSX.Element {
         items={[
           { href: "/overview", label: "Overview" },
           { href: "/firmwares", label: "Firmwares" },
-          { label: firmwareName },
+          { label: firmwareID },
         ]}
       />
 
@@ -184,7 +182,7 @@ export function FirmwareDetailPage(): JSX.Element {
             </Badge>
           ) : null
         }
-        title={firmware?.name ?? firmwareName}
+        title={firmware?.name ?? firmwareID}
       />
 
       {loading ? (
@@ -212,6 +210,7 @@ export function FirmwareDetailPage(): JSX.Element {
           <TabsContent className="space-y-4" value="summary">
             <DetailBlock
               items={[
+                ["ID", firmware.id],
                 ["Name", firmware.name],
                 ["Description", firmware.description],
                 ["Created", firmware.created_at],
@@ -268,7 +267,7 @@ export function FirmwareDetailPage(): JSX.Element {
                 onSave={(nextForm) => void save(nextForm)}
                 saveLabel="Save"
                 saving={saving}
-                showName={false}
+                showID={false}
               />
             )}
           </TabsContent>
@@ -348,13 +347,13 @@ function PackageURL({
 }
 
 function firmwareCliCommands(firmware: Firmware): string {
-  const name = shellQuote(firmware.name);
+  const id = shellQuote(firmware.id);
   return [
-    `gizclaw admin firmwares --context <admin-cli-context> get ${name}`,
-    `gizclaw admin firmwares --context <admin-cli-context> put ${name} -f firmware.json`,
-    `gizclaw admin firmwares --context <admin-cli-context> release ${name}`,
-    `gizclaw admin firmwares --context <admin-cli-context> rollback ${name}`,
-    `gizclaw admin --context <admin-cli-context> show Firmware ${name}`,
+    `gizclaw admin firmwares --context <admin-cli-context> get ${id}`,
+    `gizclaw admin firmwares --context <admin-cli-context> put ${id} -f firmware.json`,
+    `gizclaw admin firmwares --context <admin-cli-context> release ${id}`,
+    `gizclaw admin firmwares --context <admin-cli-context> rollback ${id}`,
+    `gizclaw admin --context <admin-cli-context> show Firmware ${id}`,
   ].join("\n");
 }
 

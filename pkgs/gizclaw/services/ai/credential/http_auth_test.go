@@ -14,8 +14,8 @@ func TestHTTPAuthorizerUsesProviderCredentialFields(t *testing.T) {
 	server := newTestServer(t)
 	credentialIDs := map[string]string{}
 	for _, source := range []string{
-		`{"name":"volc-tools","provider":"volc","body":{"ark_api_key":"ark-secret","search_api_key":"search-secret","openapi_access_key_id":"ak","openapi_access_key":"sk"}}`,
-		`{"name":"aliyun-tools","provider":"aliyun","body":{"app_code":"app-code","access_key_id":"aliyun-ak","access_key_secret":"aliyun-sk"}}`,
+		`{"id":"volc-tools","provider":"volc","body":{"ark_api_key":"ark-secret","search_api_key":"search-secret","openapi_access_key_id":"ak","openapi_access_key":"sk"}}`,
+		`{"id":"aliyun-tools","provider":"aliyun","body":{"app_code":"app-code","access_key_id":"aliyun-ak","access_key_secret":"aliyun-sk"}}`,
 	} {
 		body := mustCredentialUpsert(t, source)
 		response, err := server.CreateCredential(t.Context(), adminhttp.CreateCredentialRequestObject{Body: &body})
@@ -26,7 +26,7 @@ func TestHTTPAuthorizerUsesProviderCredentialFields(t *testing.T) {
 		if !ok {
 			t.Fatalf("CreateCredential() = %#v", response)
 		}
-		credentialIDs[created.Name] = created.Id
+		credentialIDs[created.Id] = created.Id
 	}
 	for _, test := range []struct {
 		method     string
@@ -55,7 +55,7 @@ func TestHTTPAuthorizerUsesProviderCredentialFields(t *testing.T) {
 
 func TestHTTPAuthorizerRejectsProviderAliasForVolcMethods(t *testing.T) {
 	server := newTestServer(t)
-	body := mustCredentialUpsert(t, `{"name":"legacy-volc","provider":"volcengine","body":{"ark_api_key":"secret"}}`)
+	body := mustCredentialUpsert(t, `{"id":"legacy-volc","provider":"volcengine","body":{"ark_api_key":"secret"}}`)
 	response, err := server.CreateCredential(t.Context(), adminhttp.CreateCredentialRequestObject{Body: &body})
 	if err != nil {
 		t.Fatal(err)

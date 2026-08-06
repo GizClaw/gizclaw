@@ -2,7 +2,7 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: MemoryLayout
 metadata:
-  name: voice-assistant-memory
+  id: voice-assistant-memory
 spec:
   flowcraft:
     extraction:

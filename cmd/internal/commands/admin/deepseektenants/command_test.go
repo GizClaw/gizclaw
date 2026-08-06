@@ -23,14 +23,14 @@ func TestNewCmdExposesCompleteCRUD(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Find(%q) error = %v", name, err)
 		}
-		flag := child.Flag("credential-name")
+		flag := child.Flag("credential-id")
 		if flag == nil || flag.Annotations[cobraAnnotationBashCompOneRequiredFlag] == nil {
-			t.Fatalf("%s --credential-name is not required", name)
+			t.Fatalf("%s --credential-id is not required", name)
 		}
 	}
 }
 
-func TestTenantCommandsRejectBlankName(t *testing.T) {
+func TestTenantCommandsRejectInvalidID(t *testing.T) {
 	ctxName := ""
 	commands := map[string]func(*string) *cobra.Command{
 		"create": newCreateCmd,
@@ -41,20 +41,16 @@ func TestTenantCommandsRejectBlankName(t *testing.T) {
 	for name, newCommand := range commands {
 		t.Run(name, func(t *testing.T) {
 			err := newCommand(&ctxName).RunE(nil, []string{" \t"})
-			if err == nil || !strings.Contains(err.Error(), "tenant name") {
-				t.Fatalf("RunE() error = %v, want tenant name validation error", err)
+			if err == nil || !strings.Contains(err.Error(), "id") {
+				t.Fatalf("RunE() error = %v, want tenant ID validation error", err)
 			}
 		})
 	}
 }
 
-func TestTenantNameTrimsWhitespace(t *testing.T) {
-	got, err := tenantName("  example  ")
-	if err != nil {
-		t.Fatalf("tenantName() error = %v", err)
-	}
-	if got != "example" {
-		t.Fatalf("tenantName() = %q, want example", got)
+func TestTenantIDRejectsWhitespace(t *testing.T) {
+	if _, err := tenantID("  example  "); err == nil {
+		t.Fatal("tenantID() error = nil")
 	}
 }
 

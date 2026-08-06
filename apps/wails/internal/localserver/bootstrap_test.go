@@ -2,17 +2,13 @@ package localserver
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"testing/fstest"
-
-	"github.com/goccy/go-yaml"
 )
 
 func TestBootstrapperAppliesResourcesThenRuntimeProfileAndRegistrationToken(t *testing.T) {
@@ -27,19 +23,19 @@ func TestBootstrapperAppliesResourcesThenRuntimeProfileAndRegistrationToken(t *t
 	defaultValue := "default"
 	catalog := &Catalog{
 		FS: fstest.MapFS{
-			"resources/00-credentials/a.yaml":               {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: a\nspec: {}\n")},
-			"resources/00-credentials/b.yaml":               {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: b\nspec: {}\n")},
-			"resources/05-pet-defs/pet-a.yaml":              {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: PetDef\nmetadata:\n  name: pet-a\nspec: {}\n")},
-			"resources/07-runtime-profiles/00-default.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata:\n  name: default\nspec: {}\n")},
-			"resources/08-registration-tokens/default.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RegistrationToken\nmetadata:\n  name: default-runtime\nspec:\n  token: public-token\n  runtime_profile_name: default\n")},
+			"resources/00-credentials/a.yaml":               {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  id: a\nspec: {}\n")},
+			"resources/00-credentials/b.yaml":               {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  id: b\nspec: {}\n")},
+			"resources/05-pet-defs/pet-a.yaml":              {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: PetDef\nmetadata:\n  id: pet-a\nspec: {}\n")},
+			"resources/07-runtime-profiles/00-default.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata:\n  id: default\nspec: {}\n")},
+			"resources/08-registration-tokens/default.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RegistrationToken\nmetadata:\n  id: default-runtime\nspec:\n  token: public-token\n  runtime_profile_id: default\n")},
 			"assets/pets/a.pixa":                            {Data: []byte("pet")},
 		},
 		Resources: []ResourceEntry{
-			{Path: "resources/00-credentials/a.yaml", Kind: "Credential", Name: "a"},
-			{Path: "resources/00-credentials/b.yaml", Kind: "Credential", Name: "b"},
-			{Path: "resources/05-pet-defs/pet-a.yaml", Kind: "PetDef", Name: "pet-a"},
-			{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", Name: "default"},
-			{Path: "resources/08-registration-tokens/default.yaml", Kind: "RegistrationToken", Name: "default-runtime"},
+			{Path: "resources/00-credentials/a.yaml", Kind: "Credential", ID: "a"},
+			{Path: "resources/00-credentials/b.yaml", Kind: "Credential", ID: "b"},
+			{Path: "resources/05-pet-defs/pet-a.yaml", Kind: "PetDef", ID: "pet-a"},
+			{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", ID: "default"},
+			{Path: "resources/08-registration-tokens/default.yaml", Kind: "RegistrationToken", ID: "default-runtime"},
 		},
 		Requirements: []EnvironmentRequirement{
 			{Name: "BOOTSTRAP_SAVED"},
@@ -85,20 +81,20 @@ func TestBootstrapperAppliesResourcesThenRuntimeProfileAndRegistrationToken(t *t
 				if err != nil {
 					t.Fatal(err)
 				}
-				kind, name := "", ""
-				for _, candidate := range []struct{ kind, name string }{
+				kind, id := "", ""
+				for _, candidate := range []struct{ kind, id string }{
 					{"Credential", "a"}, {"Credential", "b"}, {"PetDef", "pet-a"},
 					{"RuntimeProfile", "default"}, {"RegistrationToken", "default-runtime"},
 				} {
-					if strings.Contains(string(data), "kind: "+candidate.kind) && strings.Contains(string(data), "name: "+candidate.name) {
-						kind, name = candidate.kind, candidate.name
+					if strings.Contains(string(data), "kind: "+candidate.kind) && strings.Contains(string(data), "id: "+candidate.id) {
+						kind, id = candidate.kind, candidate.id
 						break
 					}
 				}
 				if kind == "" {
 					t.Fatalf("unexpected apply document = %s", data)
 				}
-				result = fmt.Appendf(nil, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":%q,"name":%q,"id":%q,"action":"created"}`, kind, name, name+"-id")
+				result = fmt.Appendf(nil, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":%q,"id":%q,"action":"created"}`, kind, id)
 			}
 			checkCommand(executable, args, environment)
 			return result, nil
@@ -113,7 +109,7 @@ func TestBootstrapperAppliesResourcesThenRuntimeProfileAndRegistrationToken(t *t
 	if !strings.Contains(commands[0], "admin apply") {
 		t.Fatalf("resource apply = %v", commands)
 	}
-	if !strings.Contains(commands[3], "admin pet-defs upload-pixa pet-a-id") {
+	if !strings.Contains(commands[3], "admin pet-defs upload-pixa pet-a") {
 		t.Fatalf("PetDef PIXA upload = %q", commands[3])
 	}
 	if !strings.Contains(commands[4], "admin apply") {
@@ -121,121 +117,6 @@ func TestBootstrapperAppliesResourcesThenRuntimeProfileAndRegistrationToken(t *t
 	}
 	if !strings.Contains(commands[5], "admin apply") {
 		t.Fatalf("RegistrationToken command = %q", commands[5])
-	}
-}
-
-func TestResolveCatalogResourceIDsUsesCanonicalIDs(t *testing.T) {
-	ids := catalogResourceIDs{
-		"Credential":     {"default": "credential-id"},
-		"MiniMaxTenant":  {"default": "tenant-id"},
-		"Workflow":       {"chat": "workflow-id"},
-		"Model":          {"chat": "model-id"},
-		"Voice":          {"voice": "voice-id"},
-		"Tool":           {"clock": "tool-id"},
-		"PetDef":         {"codex": "pet-id"},
-		"BadgeDef":       {"welcome": "badge-id"},
-		"GameDef":        {"quest": "game-id"},
-		"MemoryLayout":   {"default": "memory-layout-id"},
-		"RuntimeProfile": {"default": "runtime-profile-id"},
-		"Firmware":       {"desktop": "firmware-id"},
-	}
-	tests := []struct {
-		name  string
-		entry ResourceEntry
-		input string
-		want  map[string]any
-	}{
-		{
-			name:  "tenant credential",
-			entry: ResourceEntry{Kind: "MiniMaxTenant", Name: "default"},
-			input: "spec:\n  credential_name: default\n",
-			want:  map[string]any{"credential_id": "credential-id"},
-		},
-		{
-			name:  "model provider",
-			entry: ResourceEntry{Kind: "Model", Name: "chat"},
-			input: "spec:\n  provider:\n    kind: minimax-tenant\n    name: default\n",
-			want:  map[string]any{"provider": map[string]any{"kind": "minimax-tenant", "id": "tenant-id"}},
-		},
-		{
-			name:  "runtime profile",
-			entry: ResourceEntry{Kind: "RuntimeProfile", Name: "default"},
-			input: `spec:
-  workflows:
-    system:
-      friend_chatroom: chat
-      group_chatroom: chat
-      pet: chat
-    collections:
-      default:
-        chat:
-          resource_id: chat
-  resources:
-    models:
-      chat:
-        resource_id: chat
-    voices:
-      voice:
-        resource_id: voice
-    tools:
-      clock:
-        resource_id: clock
-    pet_defs:
-      codex:
-        resource_id: codex
-    badge_defs:
-      welcome:
-        resource_id: welcome
-    game_defs:
-      quest:
-        resource_id: quest
-    memories:
-      default:
-        layout_id: default
-`,
-			want: map[string]any{
-				"workflows": map[string]any{
-					"system":      map[string]any{"friend_chatroom": "workflow-id", "group_chatroom": "workflow-id", "pet": "workflow-id"},
-					"collections": map[string]any{"default": map[string]any{"chat": map[string]any{"resource_id": "workflow-id"}}},
-				},
-				"resources": map[string]any{
-					"models":     map[string]any{"chat": map[string]any{"resource_id": "model-id"}},
-					"voices":     map[string]any{"voice": map[string]any{"resource_id": "voice-id"}},
-					"tools":      map[string]any{"clock": map[string]any{"resource_id": "tool-id"}},
-					"pet_defs":   map[string]any{"codex": map[string]any{"resource_id": "pet-id"}},
-					"badge_defs": map[string]any{"welcome": map[string]any{"resource_id": "badge-id"}},
-					"game_defs":  map[string]any{"quest": map[string]any{"resource_id": "game-id"}},
-					"memories":   map[string]any{"default": map[string]any{"layout_id": "memory-layout-id"}},
-				},
-			},
-		},
-		{
-			name:  "registration token",
-			entry: ResourceEntry{Kind: "RegistrationToken", Name: "default-runtime"},
-			input: "spec:\n  runtime_profile_name: default\n  firmware_name: desktop\n",
-			want:  map[string]any{"runtime_profile_id": "runtime-profile-id", "firmware_id": "firmware-id"},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			output, err := resolveCatalogResourceIDs([]byte(tt.input), tt.entry, ids)
-			if err != nil {
-				t.Fatal(err)
-			}
-			jsonData, err := yaml.YAMLToJSON(output)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var document struct {
-				Spec map[string]any `json:"spec"`
-			}
-			if err := json.Unmarshal(jsonData, &document); err != nil {
-				t.Fatal(err)
-			}
-			if !reflect.DeepEqual(document.Spec, tt.want) {
-				t.Fatalf("spec = %v, want %v", document.Spec, tt.want)
-			}
-		})
 	}
 }
 
@@ -262,8 +143,8 @@ func TestBootstrapperIdentifiesFailingResourceWithoutEnvironmentValues(t *testin
 		t.Fatal(err)
 	}
 	catalog := &Catalog{
-		FS:        fstest.MapFS{"resources/00-credentials/a.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: a\nspec:\n  provider: openai\n  body:\n    api_key: secret\n")}},
-		Resources: []ResourceEntry{{Path: "resources/00-credentials/a.yaml", Kind: "Credential", Name: "a"}},
+		FS:        fstest.MapFS{"resources/00-credentials/a.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  id: a\nspec:\n  provider: openai\n  body:\n    api_key: secret\n")}},
+		Resources: []ResourceEntry{{Path: "resources/00-credentials/a.yaml", Kind: "Credential", ID: "a"}},
 	}
 	bootstrapper := &Bootstrapper{
 		Catalog:    catalog,
@@ -293,7 +174,6 @@ func TestBootstrapperIdentifiesRejectedPetDefPIXA(t *testing.T) {
 		func(context.Context, string, []string, []string) ([]byte, error) {
 			return nil, errors.New("visible outer-border pixel")
 		},
-		catalogResourceIDs{"PetDef": {"petdef-codex": "petdef-id"}},
 	)
 	if err == nil || !strings.Contains(err.Error(), "PetDef/petdef-codex") ||
 		!strings.Contains(err.Error(), "assets/pet-defs/codex.pixa") ||

@@ -156,8 +156,8 @@ func registerSocialHumanReviewProfile(t *testing.T, api *adminhttp.ClientWithRes
 	voices := map[string]string{socialHumanReviewVoiceAlias: socialHumanReviewVoiceResource}
 	modelBindings := socialRuntimeBindings(models)
 	voiceBindings := socialRuntimeBindings(voices)
-	profile, err := clitest.UpsertRuntimeProfileByName(ctx, api, adminhttp.RuntimeProfileUpsert{
-		Name: socialHumanReviewRuntimeProfile,
+	profile, err := clitest.UpsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
+		Id: socialHumanReviewRuntimeProfile,
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
 			Models: &modelBindings,
 			Voices: &voiceBindings,
@@ -176,11 +176,11 @@ func registerSocialHumanReviewProfile(t *testing.T, api *adminhttp.ClientWithRes
 		t.Fatalf("put social human-review RuntimeProfile: %v", err)
 	}
 	tokenName := "e2e-social-human-review"
-	if err := clitest.DeleteRegistrationTokenByName(ctx, api, tokenName); err != nil {
+	if err := clitest.DeleteRegistrationTokenByID(ctx, api, tokenName); err != nil {
 		t.Fatalf("retire social human-review RegistrationToken: %v", err)
 	}
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name:             tokenName,
+		Id:               tokenName,
 		Token:            tokenName,
 		RuntimeProfileId: profile.Id,
 	})
@@ -195,7 +195,7 @@ func registerSocialHumanReviewProfile(t *testing.T, api *adminhttp.ClientWithRes
 		if err != nil {
 			t.Fatalf("register %s for social human review: %v", peerName, err)
 		}
-		if registered.RuntimeProfileName != profile.Name {
+		if registered.RuntimeProfileName != profile.Id {
 			t.Fatalf("register %s for social human review = %#v", peerName, registered)
 		}
 	}

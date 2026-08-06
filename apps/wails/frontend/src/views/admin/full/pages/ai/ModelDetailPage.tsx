@@ -103,7 +103,7 @@ export function ModelDetailPage(): JSX.Element {
             </Badge>
           ) : null
         }
-        title={model?.name?.trim() || compactModelID(modelID)}
+        title={model?.display_name?.trim() || compactModelID(modelID)}
       />
 
       {loading ? (
@@ -133,7 +133,7 @@ export function ModelDetailPage(): JSX.Element {
                   ["Kind", model.kind],
                   ["Source", model.source],
                   ["Provider", `${model.provider.kind}/${model.provider.id}`],
-                  ["Name", model.name],
+                  ["Display name", model.display_name],
                   ["Description", model.description],
                 ]}
                 title="Model"
