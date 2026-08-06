@@ -702,9 +702,9 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 		WorkflowName: cfg.Workflow.Name,
 		Parameters:   &parameters,
 	}
-	if cfg.toolIDs != nil {
-		ids := append([]string(nil), cfg.toolIDs...)
-		request.Toolkit = &rpcapi.ToolkitPolicy{ToolNames: &ids}
+	if cfg.toolNames != nil {
+		names := append([]string(nil), cfg.toolNames...)
+		request.Toolkit = &rpcapi.ToolkitPolicy{ToolNames: &names}
 	}
 	return request, nil
 }

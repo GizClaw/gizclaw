@@ -42,7 +42,7 @@ type config struct {
 	timeout          time.Duration `json:"-"`
 	workspaceSuffix  string        `json:"-"`
 	toolHandlers     map[string]gizcli.ToolHandler
-	toolIDs          []string
+	toolNames        []string
 }
 
 type interruptConfig struct {
