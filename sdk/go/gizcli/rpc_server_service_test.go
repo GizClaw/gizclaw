@@ -41,8 +41,8 @@ func TestRPCServerServiceClientWrappers(t *testing.T) {
 	runRPCResultWrapperTest(t, rpcapi.RPCMethodServerRunWorkspaceHistory, rpcapi.ServerListRunWorkspaceHistoryResponse{Available: true, Items: []rpcapi.PeerRunHistoryEntry{}, HasNext: false}, (*rpcapi.RPCPayload).FromServerListRunWorkspaceHistoryResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ServerListRunWorkspaceHistoryResponse, error) {
 		return client.ListServerRunWorkspaceHistory(ctx, conn, "server-run-workspace-history", rpcapi.ServerListRunWorkspaceHistoryRequest{})
 	})
-	runRPCResultWrapperTest(t, rpcapi.RPCMethodServerRunWorkspaceHistoryPlay, rpcapi.ServerPlayRunWorkspaceHistoryResponse{Accepted: true, HistoryId: "h1", State: "playing"}, (*rpcapi.RPCPayload).FromServerPlayRunWorkspaceHistoryResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ServerPlayRunWorkspaceHistoryResponse, error) {
-		return client.PlayServerRunWorkspaceHistory(ctx, conn, "server-run-workspace-history-play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryId: "h1"})
+	runRPCResultWrapperTest(t, rpcapi.RPCMethodServerRunWorkspaceHistoryPlay, rpcapi.ServerPlayRunWorkspaceHistoryResponse{Accepted: true, HistoryName: "h1", State: "playing"}, (*rpcapi.RPCPayload).FromServerPlayRunWorkspaceHistoryResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ServerPlayRunWorkspaceHistoryResponse, error) {
+		return client.PlayServerRunWorkspaceHistory(ctx, conn, "server-run-workspace-history-play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryName: "h1"})
 	})
 	runRPCResultWrapperTest(t, rpcapi.RPCMethodServerRunWorkspaceMemoryStats, rpcapi.ServerGetRunWorkspaceMemoryStatsResponse{Available: true, Enabled: true, ItemCount: 1, StorageBytes: 2}, (*rpcapi.RPCPayload).FromServerGetRunWorkspaceMemoryStatsResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ServerGetRunWorkspaceMemoryStatsResponse, error) {
 		return client.GetServerRunWorkspaceMemoryStats(ctx, conn, "server-run-workspace-memory", rpcapi.ServerGetRunWorkspaceMemoryStatsRequest{})

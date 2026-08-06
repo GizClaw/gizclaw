@@ -42,8 +42,7 @@ func TestFirmwareGetReturnsRequestedChannelConfiguration(t *testing.T) {
 				t.Fatalf("GetFirmware id = %q, want %q", request.Id, firmwareID)
 			}
 			return adminhttp.GetFirmware200JSONResponse(apitypes.Firmware{
-				Id:   firmwareID,
-				Name: "devkit",
+				Id: firmwareID,
 				Slots: apitypes.FirmwareSlots{
 					Stable: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Url: "https://firmware.example/stable.tar.zlib", Sha256: firmwareTestSHA256, Size: 10}},
 					Beta:   apitypes.FirmwareSlot{Description: &description, Package: &apitypes.FirmwarePackage{Url: "https://firmware.example/beta.tar.zlib", Sha256: firmwareTestSHA256, Size: 20}},
@@ -61,7 +60,7 @@ func TestFirmwareGetReturnsRequestedChannelConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsFirmwareGetResponse: %v", err)
 	}
-	if got.FirmwareName != "devkit" || got.Channel != rpcapi.FirmwareChannelNameBeta || got.Description == nil || *got.Description != description {
+	if got.Channel != rpcapi.FirmwareChannelNameBeta || got.Description == nil || *got.Description != description {
 		t.Fatalf("response metadata = %#v", got)
 	}
 	if got.Url != "https://firmware.example/beta.tar.zlib" || got.Sha256 != firmwareTestSHA256 || got.Size != 20 {
@@ -100,7 +99,7 @@ func TestFirmwareGetRejectsEmptyChannelPackage(t *testing.T) {
 			return apitypes.Peer{FirmwareId: &firmwareID}, nil
 		}),
 		Firmwares: firmwarePeerServiceFunc(func(context.Context, adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error) {
-			return adminhttp.GetFirmware200JSONResponse(apitypes.Firmware{Name: "devkit", Slots: apitypes.FirmwareSlots{}}), nil
+			return adminhttp.GetFirmware200JSONResponse(apitypes.Firmware{Id: firmwareID, Slots: apitypes.FirmwareSlots{}}), nil
 		}),
 	}
 	request := firmwareRPCRequest(t, "firmware-get", rpcapi.FirmwareGetRequest{Channel: rpcapi.FirmwareChannelNamePending})

@@ -26,7 +26,7 @@ typedef SenderLabelResolver = String Function(String senderPublicKey);
 
 class WorkspaceChatMessage {
   const WorkspaceChatMessage({
-    required this.id,
+    required this.key,
     required this.incoming,
     required this.text,
     required this.state,
@@ -37,7 +37,7 @@ class WorkspaceChatMessage {
   });
 
   final DateTime? createdAt;
-  final String id;
+  final String key;
   final bool incoming;
   final bool replayAvailable;
   final String? senderLabel;
@@ -47,7 +47,7 @@ class WorkspaceChatMessage {
 
   WorkspaceChatMessage copyWith({String? text, WorkspaceMessageState? state}) {
     return WorkspaceChatMessage(
-      id: id,
+      key: key,
       incoming: incoming,
       replayAvailable: replayAvailable,
       text: text ?? this.text,
@@ -106,7 +106,7 @@ class WorkspaceChatController extends ChangeNotifier {
   Timer? _levelTimer;
   List<WorkspaceChatMessage> _cached = const [];
   final List<WorkspaceChatMessage> _transient = [];
-  final Map<String, Set<String>> _historyIdsAtStreamStart = {};
+  final Map<String, Set<String>> _historyNamesAtStreamStart = {};
   WorkspaceChatState state = WorkspaceChatState.loading;
   Object? lastError;
   bool recording = false;
@@ -118,7 +118,7 @@ class WorkspaceChatController extends ChangeNotifier {
   bool _hasPcmAudioLevels = false;
   final Map<String, _AudioEnergySample> _sentAudioEnergy = {};
   final Map<String, _AudioEnergySample> _receivedAudioEnergy = {};
-  String? replayingHistoryId;
+  String? replayingHistoryName;
   bool _disposed = false;
   bool _inputTrackReleased = false;
   bool _historyRestricted = false;
@@ -458,18 +458,18 @@ class WorkspaceChatController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> replayHistory(String historyId) async {
+  Future<void> replayHistory(String historyName) async {
     final activeClient = client;
     if (_historyRestricted ||
         activeClient == null ||
-        replayingHistoryId != null) {
+        replayingHistoryName != null) {
       return;
     }
-    replayingHistoryId = historyId;
+    replayingHistoryName = historyName;
     lastError = null;
     notifyListeners();
     try {
-      final response = await activeClient.playRunWorkspaceHistory(historyId);
+      final response = await activeClient.playRunWorkspaceHistory(historyName);
       if (!response.value.accepted) {
         final message = response.value.message.trim();
         throw StateError(message.isEmpty ? 'Replay was not accepted' : message);
@@ -477,7 +477,7 @@ class WorkspaceChatController extends ChangeNotifier {
     } catch (error) {
       _handleError(error, changeState: false);
     } finally {
-      replayingHistoryId = null;
+      replayingHistoryName = null;
       notifyListeners();
     }
   }
@@ -531,20 +531,20 @@ class WorkspaceChatController extends ChangeNotifier {
     final text = event.text ?? '';
     final label = event.label ?? '';
     final transcript = label.toLowerCase().contains('transcript');
-    final id = 'stream-${event.streamId ?? 'assistant'}-$label';
-    var index = _transient.indexWhere((message) => message.id == id);
+    final messageKey = 'stream-${event.streamId ?? 'assistant'}-$label';
+    var index = _transient.indexWhere((message) => message.key == messageKey);
     final done = event.type == 'text.done';
     final accumulatedText = index < 0 ? '' : _transient[index].text;
     final completedText = done && text.startsWith(accumulatedText)
         ? text
         : accumulatedText + text;
     if (index < 0) {
-      _historyIdsAtStreamStart[id] = _cached
-          .map((message) => message.id)
+      _historyNamesAtStreamStart[messageKey] = _cached
+          .map((message) => message.key)
           .toSet();
       _transient.add(
         WorkspaceChatMessage(
-          id: id,
+          key: messageKey,
           incoming: !transcript,
           text: text,
           state: done
@@ -623,8 +623,8 @@ class WorkspaceChatController extends ChangeNotifier {
     await historySubscription?.cancel();
     _cached = const [];
     _transient.clear();
-    _historyIdsAtStreamStart.clear();
-    replayingHistoryId = null;
+    _historyNamesAtStreamStart.clear();
+    replayingHistoryName = null;
     notifyListeners();
   }
 
@@ -656,7 +656,7 @@ class WorkspaceChatController extends ChangeNotifier {
     _cached = history
         .map(
           (entry) => WorkspaceChatMessage(
-            id: entry.id,
+            key: entry.name,
             incoming: entry.incoming,
             text: entry.text,
             state: WorkspaceMessageState.complete,
@@ -680,13 +680,13 @@ class WorkspaceChatController extends ChangeNotifier {
       if (_cached.any(
         (cached) => _transientMatchesNewHistory(message, cached),
       )) {
-        resolved.add(message.id);
+        resolved.add(message.key);
       }
     }
     if (resolved.isEmpty) return;
-    _transient.removeWhere((message) => resolved.contains(message.id));
-    for (final id in resolved) {
-      _historyIdsAtStreamStart.remove(id);
+    _transient.removeWhere((message) => resolved.contains(message.key));
+    for (final key in resolved) {
+      _historyNamesAtStreamStart.remove(key);
     }
   }
 
@@ -694,8 +694,9 @@ class WorkspaceChatController extends ChangeNotifier {
     WorkspaceChatMessage transient,
     WorkspaceChatMessage cached,
   ) {
-    final historyAtStart = _historyIdsAtStreamStart[transient.id] ?? const {};
-    return !historyAtStart.contains(cached.id) &&
+    final historyAtStart =
+        _historyNamesAtStreamStart[transient.key] ?? const {};
+    return !historyAtStart.contains(cached.key) &&
         cached.incoming == transient.incoming &&
         cached.text == transient.text;
   }

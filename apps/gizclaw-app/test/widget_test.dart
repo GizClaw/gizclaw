@@ -1618,19 +1618,19 @@ class _GroupInviteController extends MobileDataController {
       items: [
         FriendGroupMemberObject(
           friendGroupName: friendGroupName,
-          id: 'peer-owner',
+          name: 'peer-owner',
           peerPublicKey: 'peer-owner',
           role: FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_OWNER,
         ),
         FriendGroupMemberObject(
           friendGroupName: friendGroupName,
-          id: 'peer-admin',
+          name: 'peer-admin',
           peerPublicKey: 'peer-admin',
           role: FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_ADMIN,
         ),
         FriendGroupMemberObject(
           friendGroupName: friendGroupName,
-          id: 'peer-member',
+          name: 'peer-member',
           peerPublicKey: 'peer-member',
           role: FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_MEMBER,
         ),
@@ -1772,7 +1772,7 @@ class _ScrollableMessagesChatController extends _ModeSwitchChatController {
   final List<WorkspaceChatMessage> _visibleMessages = List.generate(
     30,
     (index) => WorkspaceChatMessage(
-      id: 'message-$index',
+      key: 'message-$index',
       incoming: index.isEven,
       text: 'Conversation message $index with enough text to fill the list.',
       state: WorkspaceMessageState.complete,
@@ -1786,7 +1786,7 @@ class _ScrollableMessagesChatController extends _ModeSwitchChatController {
   void appendMessage(String text) {
     _visibleMessages.add(
       WorkspaceChatMessage(
-        id: 'message-${_visibleMessages.length}',
+        key: 'message-${_visibleMessages.length}',
         incoming: true,
         text: text,
         state: WorkspaceMessageState.complete,

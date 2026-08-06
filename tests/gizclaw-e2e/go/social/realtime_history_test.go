@@ -32,7 +32,7 @@ func TestSocialRealtimeHistoryRPC(t *testing.T) {
 	realtime := apitypes.WorkspaceInputModeRealtime
 
 	if existing, ok := findFriendByPeer(t, h, "peer-a", peerB); ok {
-		mustDeleteFriend(t, h, "peer-a", stringValue(existing.Id))
+		mustDeleteFriend(t, h, "peer-a", existing.Name)
 	}
 	requestAB := createFriendByInviteToken(t, h, "peer-a", "peer-b", peerB)
 	setSocialChatWorkspaceInputMode(t, h, stringValue(requestAB.WorkspaceName), realtime)
@@ -122,41 +122,41 @@ func runSocialRealtimeAudioHistory(t *testing.T, h socialHarness, writerContext,
 		waitForSocialRealtimeHistoryUpdate(t, ctx, reader, updatedCh, readerContext, "writer round "+strconv.Itoa(round))
 
 		entry := waitForWorkspaceHistoryReplayableGear(t, ctx, reader, workspaceName, h.ContextPublicKey(writerContext), seenHistoryIDs)
-		seenHistoryIDs[entry.Id] = struct{}{}
+		seenHistoryIDs[entry.Name] = struct{}{}
 		entries = append(entries, entry)
-		got := getSocialRealtimeHistoryEntry(t, ctx, reader, workspaceName, entry.Id, h.ContextPublicKey(writerContext), round)
-		historyAudio, historyPackets := readSocialHumanReviewHistoryAudio(t, ctx, reader, workspaceName, entry.Id)
+		got := getSocialRealtimeHistoryEntry(t, ctx, reader, workspaceName, entry.Name, h.ContextPublicKey(writerContext), round)
+		historyAudio, historyPackets := readSocialHumanReviewHistoryAudio(t, ctx, reader, workspaceName, entry.Name)
 		if len(historyPackets) == 0 {
-			t.Fatalf("realtime history %q round %d has no audio packets", entry.Id, round)
+			t.Fatalf("realtime history %q round %d has no audio packets", entry.Name, round)
 		}
 		if friendGroupID != "" {
 			assertFriendGroupMessageHistory(
-				t, ctx, writer, reader, friendGroupID, entry.Id,
+				t, ctx, writer, reader, friendGroupID, entry.Name,
 				h.ContextPublicKey(writerContext), historyAudio,
 			)
 		}
-		play, err := reader.PlayServerRunWorkspaceHistory(ctx, "social.realtime.history.play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryId: entry.Id})
+		play, err := reader.PlayServerRunWorkspaceHistory(ctx, "social.realtime.history.play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryName: entry.Name})
 		if err != nil {
-			t.Fatalf("%s realtime history play %q round %d: %v", readerContext, entry.Id, round, err)
+			t.Fatalf("%s realtime history play %q round %d: %v", readerContext, entry.Name, round, err)
 		}
 		if play == nil || !play.Accepted {
 			t.Fatalf("realtime history play round %d = %#v, want accepted", round, play)
 		}
-		replayPackets := waitForSocialRealtimeHistoryReplay(t, ctx, readerOut, entry.Id, got.Text)
+		replayPackets := waitForSocialRealtimeHistoryReplay(t, ctx, readerOut, entry.Name, got.Text)
 		if replayPackets == 0 {
-			t.Fatalf("realtime history replay %q round %d produced no audio packets", entry.Id, round)
+			t.Fatalf("realtime history replay %q round %d produced no audio packets", entry.Name, round)
 		}
 		assertSocialRealtimeWorkspaceUnchanged(t, ctx, reader, readerContext, workspaceName, readerStartedAt, "history replay")
 		if round == 1 {
-			repeat, err := reader.PlayServerRunWorkspaceHistory(ctx, "social.realtime.history.play.repeat", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryId: entry.Id})
+			repeat, err := reader.PlayServerRunWorkspaceHistory(ctx, "social.realtime.history.play.repeat", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryName: entry.Name})
 			if err != nil {
-				t.Fatalf("%s repeat realtime history play %q: %v", readerContext, entry.Id, err)
+				t.Fatalf("%s repeat realtime history play %q: %v", readerContext, entry.Name, err)
 			}
 			if repeat == nil || !repeat.Accepted {
 				t.Fatalf("repeat realtime history play = %#v, want accepted", repeat)
 			}
-			if packets := waitForSocialRealtimeHistoryReplay(t, ctx, readerOut, entry.Id, got.Text); packets == 0 {
-				t.Fatalf("repeat realtime history replay %q produced no audio packets", entry.Id)
+			if packets := waitForSocialRealtimeHistoryReplay(t, ctx, readerOut, entry.Name, got.Text); packets == 0 {
+				t.Fatalf("repeat realtime history replay %q produced no audio packets", entry.Name)
 			}
 			if err := pushSocialRealtimeAudioEOS(ctx, readerStream, "reader-segment-first", readerTimestamp); err != nil {
 				t.Fatalf("%s close first realtime reader segment: %v", readerContext, err)
@@ -188,7 +188,7 @@ func assertFriendGroupMessageHistory(
 	writer *gizcli.Client,
 	reader *gizcli.Client,
 	friendGroupID string,
-	historyID string,
+	historyName string,
 	senderPeerPublicKey string,
 	wantAudio []byte,
 ) {
@@ -202,47 +202,47 @@ func assertFriendGroupMessageHistory(
 		}
 		found := false
 		for _, message := range messages.Items {
-			if message.HistoryId != historyID {
+			if message.Name != historyName {
 				continue
 			}
 			found = true
-			assertFriendGroupMessageProjection(t, name+" list", message, friendGroupID, historyID, senderPeerPublicKey)
+			assertFriendGroupMessageProjection(t, name+" list", message, friendGroupID, historyName, senderPeerPublicKey)
 			break
 		}
 		if !found {
-			t.Fatalf("%s FriendGroup message list does not contain History %q: %#v", name, historyID, messages.Items)
+			t.Fatalf("%s FriendGroup message list does not contain History %q: %#v", name, historyName, messages.Items)
 		}
 
 		message, err := client.GetFriendGroupMessage(ctx, "social.realtime.friend_group.messages.get."+name, rpcapi.FriendGroupMessageGetRequest{
 			FriendGroupName: friendGroupID,
-			HistoryId:       historyID,
+			HistoryName:     historyName,
 		})
 		if err != nil {
-			t.Fatalf("%s FriendGroup message get %q: %v", name, historyID, err)
+			t.Fatalf("%s FriendGroup message get %q: %v", name, historyName, err)
 		}
-		assertFriendGroupMessageProjection(t, name+" get", *message, friendGroupID, historyID, senderPeerPublicKey)
+		assertFriendGroupMessageProjection(t, name+" get", *message, friendGroupID, historyName, senderPeerPublicKey)
 	}
 
 	var out bytes.Buffer
 	result, err := reader.GetFriendGroupMessageAudio(ctx, "social.realtime.friend_group.messages.audio.get", rpcapi.FriendGroupMessageAudioGetRequest{
 		FriendGroupName: friendGroupID,
-		HistoryId:       historyID,
+		HistoryName:     historyName,
 	}, &out)
 	if err != nil {
-		t.Fatalf("reader FriendGroup message audio get %q: %v", historyID, err)
+		t.Fatalf("reader FriendGroup message audio get %q: %v", historyName, err)
 	}
 	if result.Bytes != int64(len(wantAudio)) || !bytes.Equal(out.Bytes(), wantAudio) {
-		t.Fatalf("reader FriendGroup message audio %q = metadata=%#v bytes=%d, want %d exact bytes", historyID, result.Metadata, out.Len(), len(wantAudio))
+		t.Fatalf("reader FriendGroup message audio %q = metadata=%#v bytes=%d, want %d exact bytes", historyName, result.Metadata, out.Len(), len(wantAudio))
 	}
 	if packets := socialHumanReviewOggOpusPackets(t, out.Bytes()); len(packets) == 0 {
-		t.Fatalf("reader FriendGroup message audio %q is not playable Opus", historyID)
+		t.Fatalf("reader FriendGroup message audio %q is not playable Opus", historyName)
 	}
 }
 
-func assertFriendGroupMessageProjection(t *testing.T, phase string, message rpcapi.FriendGroupMessageObject, friendGroupID, historyID, senderPeerPublicKey string) {
+func assertFriendGroupMessageProjection(t *testing.T, phase string, message rpcapi.FriendGroupMessageObject, friendGroupID, historyName, senderPeerPublicKey string) {
 	t.Helper()
 	if message.FriendGroupName != friendGroupID ||
-		message.HistoryId != historyID ||
+		message.Name != historyName ||
 		message.Type != rpcapi.PeerRunHistoryEntryTypeGear ||
 		message.SenderPeerPublicKey == nil ||
 		*message.SenderPeerPublicKey != senderPeerPublicKey ||
@@ -251,20 +251,20 @@ func assertFriendGroupMessageProjection(t *testing.T, phase string, message rpca
 	}
 }
 
-func getSocialRealtimeHistoryEntry(t *testing.T, ctx context.Context, client *gizcli.Client, workspaceName, historyID, gearID string, round int) *rpcapi.WorkspaceHistoryGetResponse {
+func getSocialRealtimeHistoryEntry(t *testing.T, ctx context.Context, client *gizcli.Client, workspaceName, historyName, gearID string, round int) *rpcapi.WorkspaceHistoryGetResponse {
 	t.Helper()
 	got, err := client.GetWorkspaceHistory(ctx, "social.realtime.history.get", rpcapi.WorkspaceHistoryGetRequest{
 		WorkspaceName: workspaceName,
-		HistoryId:     historyID,
+		HistoryName:   historyName,
 	})
 	if err != nil {
-		t.Fatalf("workspace history get %q round %d: %v", historyID, round, err)
+		t.Fatalf("workspace history get %q round %d: %v", historyName, round, err)
 	}
 	if got.Type != rpcapi.PeerRunHistoryEntryTypeGear || got.GearId == nil || *got.GearId != gearID || !got.ReplayAvailable {
 		t.Fatalf("realtime history get round %d = %#v, want replayable gear entry from %s", round, got, gearID)
 	}
 	if strings.TrimSpace(got.Text) == "" {
-		t.Fatalf("realtime history get round %d text is empty for %q", round, historyID)
+		t.Fatalf("realtime history get round %d text is empty for %q", round, historyName)
 	}
 	return got
 }
@@ -295,7 +295,7 @@ func runSocialRealtimeLifecycleProbe(
 	}
 	waitForSocialRealtimeHistoryUpdate(t, ctx, client, updatedCh, gearID, "lifecycle probe "+streamID)
 	entry := waitForWorkspaceHistoryReplayableGear(t, ctx, client, workspaceName, gearID, seenHistoryIDs)
-	seenHistoryIDs[entry.Id] = struct{}{}
+	seenHistoryIDs[entry.Name] = struct{}{}
 	return nextTimestamp, entry
 }
 
@@ -434,7 +434,7 @@ func pushSocialRealtimeAudioEOS(ctx context.Context, stream socialHumanReviewChu
 	})
 }
 
-func waitForSocialRealtimeHistoryReplay(t *testing.T, ctx context.Context, stream genx.Stream, historyID string, wantText string) int {
+func waitForSocialRealtimeHistoryReplay(t *testing.T, ctx context.Context, stream genx.Stream, historyName string, wantText string) int {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -446,13 +446,13 @@ func waitForSocialRealtimeHistoryReplay(t *testing.T, ctx context.Context, strea
 	for {
 		chunk, err := nextWorkspaceHistoryReplayChunk(ctx, stream)
 		if err != nil {
-			t.Fatalf("realtime history replay %q stream read: %v", historyID, err)
+			t.Fatalf("realtime history replay %q stream read: %v", historyName, err)
 		}
 		if !socialChatReplayStreamChunk(chunk, &boundStreamID) {
 			continue
 		}
 		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
-			t.Fatalf("realtime history replay %q stream %q returned error %q", historyID, boundStreamID, chunk.Ctrl.Error)
+			t.Fatalf("realtime history replay %q stream %q returned error %q", historyName, boundStreamID, chunk.Ctrl.Error)
 		}
 		switch part := chunk.Part.(type) {
 		case genx.Text:
@@ -470,7 +470,7 @@ func waitForSocialRealtimeHistoryReplay(t *testing.T, ctx context.Context, strea
 		}
 		if textEOS && audioEOS {
 			if gotText.String() != wantText {
-				t.Fatalf("realtime history replay %q text = %q, want %q", historyID, gotText.String(), wantText)
+				t.Fatalf("realtime history replay %q text = %q, want %q", historyName, gotText.String(), wantText)
 			}
 			return audioPackets
 		}

@@ -160,7 +160,7 @@ Server 消费这对资源；其中确定性 UUID 是公开注册标识，不是 
 部署仍拥有自己的 RegistrationToken，可独立安装 default 或产品专用 profile，并把显式
 token 绑定到任意一个。
 
-`server.register` 把连接关联到 RuntimeProfile，内部持久化 canonical RuntimeProfile ID 与可选 Firmware ID。现有 `runtime_profile_name` wire 字段携带 canonical RuntimeProfile ID，因为 RuntimeProfile 没有独立的 Peer name；`firmware_name` wire 字段则返回所绑定 Firmware 独立的 peer-visible `name`（即 `spec.name`）。Server 始终通过 `firmware_id` 解析 Firmware，不会把该 name 当成 Admin identity。Owner-bound Workspace 即使在 owner 离线时，也会通过持久化的 canonical RuntimeProfile ID 解析当前 revision；owner 后续成功注册可替换该选择。RegistrationToken 和 Peer 都不保存 Firmware channel；stable、beta、develop 或 pending 由设备自行选择。更新或切换 RuntimeProfile 只改变后续操作使用的环境，不重写 Workspace context 或已经保存的内部 binding。
+`server.register` 把连接关联到 RuntimeProfile，内部持久化 canonical RuntimeProfile ID 与可选 Firmware ID。`runtime_profile_name` wire 字段原样携带 canonical RuntimeProfile ID，因为 RuntimeProfile 没有独立的 Peer name；这是正常的 Peer name 投影规则，不是兼容字段。Registration 不返回 Firmware identity；Server 只通过内部 `firmware_id` binding 解析 Firmware，`server.firmware.get` 仅返回所选 channel 的配置。Owner-bound Workspace 即使在 owner 离线时，也会通过持久化的 canonical RuntimeProfile ID 解析当前 revision；owner 后续成功注册可替换该选择。RegistrationToken 和 Peer 都不保存 Firmware channel；stable、beta、develop 或 pending 由设备自行选择。更新或切换 RuntimeProfile 只改变后续操作使用的环境，不重写 Workspace context 或已经保存的内部 binding。
 
 公开 HTTP login 也可以通过 `X-Registration-Token` 提交同一个值。注册成功或失败日志不包含提交的 token 值。
 

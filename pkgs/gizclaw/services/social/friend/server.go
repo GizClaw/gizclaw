@@ -46,7 +46,7 @@ type Server struct {
 var relationMutationMu [64]sync.Mutex
 
 func (s *Server) GetFriendInfo(ctx context.Context, owner string, req rpcapi.FriendInfoGetRequest) (rpcapi.FriendInfoGetResponse, error) {
-	relation, err := s.GetFriendRelation(ctx, owner, req.Id)
+	relation, err := s.GetFriendRelation(ctx, owner, req.Name)
 	if err != nil {
 		return rpcapi.FriendInfoGetResponse{}, err
 	}
@@ -62,7 +62,7 @@ func (s *Server) GetFriendInfo(ctx context.Context, owner string, req rpcapi.Fri
 	if err != nil {
 		return rpcapi.FriendInfoGetResponse{}, err
 	}
-	return rpcapi.FriendInfoGetResponse{Id: id, Value: rpcapi.FriendInfo{Name: info.Name, Emoji: info.Emoji}}, nil
+	return rpcapi.FriendInfoGetResponse{Name: id, Value: rpcapi.FriendInfo{DisplayName: info.Name, Emoji: info.Emoji}}, nil
 }
 
 type inviteTokenRecord struct {
@@ -72,15 +72,50 @@ type inviteTokenRecord struct {
 	ExpiresAt     time.Time `json:"expires_at"`
 }
 
+// friendRecord is the canonical persistence shape for one owner's view of a
+// Friend relationship. Peer RPC objects are projections and are never stored.
+type friendRecord struct {
+	RelationID    string    `json:"relation_id"`
+	PeerPublicKey string    `json:"peer_public_key"`
+	WorkspaceName string    `json:"workspace_name"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+func (record friendRecord) validate() error {
+	if record.RelationID == "" || record.RelationID != strings.TrimSpace(record.RelationID) ||
+		record.PeerPublicKey == "" || record.PeerPublicKey != strings.TrimSpace(record.PeerPublicKey) ||
+		record.WorkspaceName == "" || record.WorkspaceName != strings.TrimSpace(record.WorkspaceName) ||
+		record.CreatedAt.IsZero() || record.UpdatedAt.IsZero() {
+		return errors.New("social: persisted Friend relationship is invalid")
+	}
+	return nil
+}
+
+func (record friendRecord) peerObject() rpcapi.FriendObject {
+	name := record.PeerPublicKey
+	peerPublicKey := record.PeerPublicKey
+	workspaceName := record.WorkspaceName
+	createdAt := record.CreatedAt
+	updatedAt := record.UpdatedAt
+	return rpcapi.FriendObject{
+		Name:          name,
+		PeerPublicKey: &peerPublicKey,
+		WorkspaceName: &workspaceName,
+		CreatedAt:     &createdAt,
+		UpdatedAt:     &updatedAt,
+	}
+}
+
 type retirementIntent struct {
-	RelationID     string              `json:"relation_id"`
-	FirstPeer      string              `json:"first_peer"`
-	SecondPeer     string              `json:"second_peer"`
-	WorkspaceID    string              `json:"workspace_id"`
-	WorkspaceName  string              `json:"workspace_name"`
-	Relationship   rpcapi.FriendObject `json:"relationship"`
-	DeletedAt      time.Time           `json:"deleted_at"`
-	CancelCreation bool                `json:"cancel_creation,omitempty"`
+	RelationID     string       `json:"relation_id"`
+	FirstPeer      string       `json:"first_peer"`
+	SecondPeer     string       `json:"second_peer"`
+	WorkspaceID    string       `json:"workspace_id"`
+	WorkspaceName  string       `json:"workspace_name"`
+	Relationship   friendRecord `json:"relationship"`
+	DeletedAt      time.Time    `json:"deleted_at"`
+	CancelCreation bool         `json:"cancel_creation,omitempty"`
 }
 
 type creationIntent struct {
@@ -257,12 +292,14 @@ func (s *Server) AdminListFriends(ctx context.Context, cursor *string, limit *in
 		if !ok {
 			continue
 		}
-		var item rpcapi.FriendObject
-		if err := json.Unmarshal(entry.Value, &item); err != nil {
+		var record friendRecord
+		if err := json.Unmarshal(entry.Value, &record); err != nil {
 			return adminhttp.AdminFriendListResponse{}, err
 		}
-		item = friendObjectForOwner(owner, item)
-		projected, err := s.adminFriendObject(ctx, owner, item)
+		if err := record.validate(); err != nil {
+			return adminhttp.AdminFriendListResponse{}, err
+		}
+		projected, err := s.adminFriendObject(ctx, owner, record.peerObject())
 		if err != nil {
 			return adminhttp.AdminFriendListResponse{}, err
 		}
@@ -312,22 +349,24 @@ func (s *Server) AdminGetFriend(ctx context.Context, owner, id string) (adminhtt
 	if err := customid.ValidateResourceID(id); err != nil {
 		return adminhttp.AdminFriendObject{}, fmt.Errorf("social: friend %w", err)
 	}
-	item, err := s.GetFriendRelation(ctx, owner, id)
+	owner = strings.TrimSpace(owner)
+	item, err := s.getFriendRelationByID(ctx, owner, id)
 	if err != nil {
 		return adminhttp.AdminFriendObject{}, err
 	}
-	return s.adminFriendObject(ctx, strings.TrimSpace(owner), item)
+	return s.adminFriendObject(ctx, owner, item)
 }
 
 func (s *Server) AdminDeleteFriend(ctx context.Context, owner, id string) (adminhttp.AdminFriendObject, error) {
 	if err := customid.ValidateResourceID(id); err != nil {
 		return adminhttp.AdminFriendObject{}, fmt.Errorf("social: friend %w", err)
 	}
-	item, err := s.DeleteFriend(ctx, owner, rpcapi.FriendDeleteRequest{Id: id})
+	owner = strings.TrimSpace(owner)
+	item, err := s.deleteFriendByRelationID(ctx, owner, id)
 	if err != nil {
 		return adminhttp.AdminFriendObject{}, err
 	}
-	return s.adminFriendObject(ctx, strings.TrimSpace(owner), item)
+	return s.adminFriendObject(ctx, owner, item)
 }
 
 func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.FriendListRequest) (rpcapi.FriendListResponse, error) {
@@ -341,12 +380,14 @@ func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.Frien
 	}
 	items := make([]rpcapi.FriendObject, 0, len(entries.Items))
 	for _, entry := range entries.Items {
-		var item rpcapi.FriendObject
-		if err := json.Unmarshal(entry.Value, &item); err != nil {
+		var record friendRecord
+		if err := json.Unmarshal(entry.Value, &record); err != nil {
 			return rpcapi.FriendListResponse{}, err
 		}
-		item = friendObjectForOwner(owner, item)
-		items = append(items, item)
+		if err := record.validate(); err != nil {
+			return rpcapi.FriendListResponse{}, err
+		}
+		items = append(items, record.peerObject())
 	}
 	return rpcapi.FriendListResponse{Items: items, HasNext: entries.HasNext, NextCursor: entries.NextCursor}, nil
 }
@@ -366,16 +407,18 @@ func (s *Server) WorkspaceRecipientsByID(ctx context.Context, workspaceID string
 		if err != nil {
 			return nil, err
 		}
-		var item rpcapi.FriendObject
-		if err := json.Unmarshal(entry.Value, &item); err != nil {
+		var record friendRecord
+		if err := json.Unmarshal(entry.Value, &record); err != nil {
+			return nil, err
+		}
+		if err := record.validate(); err != nil {
 			return nil, err
 		}
 		if len(entry.Key) < 3 {
 			continue
 		}
 		owner := socialutil.UnescapeStoreSegment(entry.Key[1])
-		relationID := friendRelationID(owner, socialutil.StringValue(item.Id))
-		binding, err := readWorkspaceBinding(ctx, store, relationID)
+		binding, err := readWorkspaceBinding(ctx, store, record.RelationID)
 		if errors.Is(err, kv.ErrNotFound) {
 			continue
 		}
@@ -395,6 +438,14 @@ func (s *Server) WorkspaceRecipientsByID(ctx context.Context, workspaceID string
 }
 
 func (s *Server) DeleteFriend(ctx context.Context, owner string, req rpcapi.FriendDeleteRequest) (rpcapi.FriendObject, error) {
+	owner = strings.TrimSpace(owner)
+	if req.Name == "" || req.Name != strings.TrimSpace(req.Name) {
+		return rpcapi.FriendObject{}, errors.New("social: Friend name is required without surrounding whitespace")
+	}
+	return s.deleteFriendByRelationID(ctx, owner, socialutil.RelationID(owner, req.Name))
+}
+
+func (s *Server) deleteFriendByRelationID(ctx context.Context, owner, relationID string) (rpcapi.FriendObject, error) {
 	if s == nil || s.Workspaces == nil {
 		return rpcapi.FriendObject{}, errors.New("social: Workspace retirement service not configured")
 	}
@@ -402,11 +453,9 @@ func (s *Server) DeleteFriend(ctx context.Context, owner string, req rpcapi.Frie
 	if err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	owner = strings.TrimSpace(owner)
-	relationID := friendRelationID(owner, req.Id)
 	unlock := s.lockRelation(relationID)
 	defer unlock()
-	item, err := s.GetFriendRelation(ctx, owner, req.Id)
+	item, err := s.getFriendRelationByID(ctx, owner, relationID)
 	if err != nil {
 		if !errors.Is(err, kv.ErrNotFound) {
 			return rpcapi.FriendObject{}, err
@@ -469,8 +518,14 @@ func (s *Server) retireActiveFriend(
 		SecondPeer:    second,
 		WorkspaceID:   binding.WorkspaceID,
 		WorkspaceName: workspaceName,
-		Relationship:  item,
-		DeletedAt:     s.now(),
+		Relationship: friendRecord{
+			RelationID:    relationID,
+			PeerPublicKey: other,
+			WorkspaceName: workspaceName,
+			CreatedAt:     socialutil.TimeValue(item.CreatedAt),
+			UpdatedAt:     socialutil.TimeValue(item.UpdatedAt),
+		},
+		DeletedAt: s.now(),
 	}
 	data, err := json.Marshal(intent)
 	if err != nil {
@@ -490,7 +545,7 @@ func (s *Server) retireActiveFriend(
 	if err := s.completeFriendRetirement(ctx, store, intent); err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	return friendObjectForOwner(owner, item), nil
+	return item, nil
 }
 
 func (s *Server) cancelFriendCreation(
@@ -640,36 +695,30 @@ func (s *Server) completedFriendDeletion(
 	return rpcapi.FriendObject{}, kv.ErrNotFound
 }
 
-func (s *Server) GetFriendRelation(ctx context.Context, owner, id string) (rpcapi.FriendObject, error) {
+func (s *Server) GetFriendRelation(ctx context.Context, owner, name string) (rpcapi.FriendObject, error) {
+	owner = strings.TrimSpace(owner)
+	if name == "" || name != strings.TrimSpace(name) {
+		return rpcapi.FriendObject{}, errors.New("social: Friend name is required without surrounding whitespace")
+	}
+	return s.getFriendRelationByID(ctx, owner, socialutil.RelationID(owner, name))
+}
+
+func (s *Server) getFriendRelationByID(ctx context.Context, owner, relationID string) (rpcapi.FriendObject, error) {
 	store, err := s.friendsStore()
 	if err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	item, err := socialutil.ReadJSONValue[rpcapi.FriendObject](ctx, store, socialutil.FriendKey(owner, friendRelationID(owner, id)))
+	record, err := socialutil.ReadJSONValue[friendRecord](ctx, store, socialutil.FriendKey(owner, relationID))
 	if err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	return friendObjectForOwner(owner, item), nil
-}
-
-func friendRelationID(owner, id string) string {
-	id = strings.TrimSpace(id)
-	if strings.Contains(id, ":") {
-		return id
+	if err := record.validate(); err != nil {
+		return rpcapi.FriendObject{}, err
 	}
-	return socialutil.RelationID(owner, id)
-}
-
-func friendObjectForOwner(owner string, item rpcapi.FriendObject) rpcapi.FriendObject {
-	peer := strings.TrimSpace(socialutil.StringValue(item.PeerPublicKey))
-	if peer == "" {
-		peer = relationPeer(owner, socialutil.StringValue(item.Id))
+	if record.RelationID != relationID {
+		return rpcapi.FriendObject{}, errors.New("social: persisted Friend relationship ID does not match its key")
 	}
-	if peer != "" {
-		item.Id = &peer
-		item.PeerPublicKey = &peer
-	}
-	return item
+	return record.peerObject(), nil
 }
 
 func relationPeer(owner, relationID string) string {
@@ -691,12 +740,7 @@ func relationPeer(owner, relationID string) string {
 func (s *Server) adminFriendObject(ctx context.Context, owner string, item rpcapi.FriendObject) (adminhttp.AdminFriendObject, error) {
 	owner = strings.TrimSpace(owner)
 	peerPublicKey := strings.TrimSpace(socialutil.StringValue(item.PeerPublicKey))
-	id := strings.TrimSpace(socialutil.StringValue(item.Id))
-	if peerPublicKey != "" {
-		id = socialutil.RelationID(owner, peerPublicKey)
-	} else if id != "" && !strings.Contains(id, ":") {
-		id = socialutil.RelationID(owner, id)
-	}
+	id := socialutil.RelationID(owner, peerPublicKey)
 	binding, err := s.workspaceBinding(ctx, id)
 	if err != nil {
 		return adminhttp.AdminFriendObject{}, err
@@ -814,12 +858,12 @@ func readActiveRelationship(
 	to string,
 ) (rpcapi.FriendObject, bool, error) {
 	relationID := socialutil.RelationID(from, to)
-	fromItem, fromErr := socialutil.ReadJSONValue[rpcapi.FriendObject](
+	fromItem, fromErr := socialutil.ReadJSONValue[friendRecord](
 		ctx,
 		store,
 		socialutil.FriendKey(from, relationID),
 	)
-	toItem, toErr := socialutil.ReadJSONValue[rpcapi.FriendObject](
+	toItem, toErr := socialutil.ReadJSONValue[friendRecord](
 		ctx,
 		store,
 		socialutil.FriendKey(to, relationID),
@@ -840,10 +884,17 @@ func readActiveRelationship(
 			"social: reciprocal Friend relationship is incomplete",
 		)
 	}
-	fromWorkspace := strings.TrimSpace(socialutil.StringValue(fromItem.WorkspaceName))
-	toWorkspace := strings.TrimSpace(socialutil.StringValue(toItem.WorkspaceName))
-	if strings.TrimSpace(socialutil.StringValue(fromItem.PeerPublicKey)) != to ||
-		strings.TrimSpace(socialutil.StringValue(toItem.PeerPublicKey)) != from ||
+	if err := fromItem.validate(); err != nil {
+		return rpcapi.FriendObject{}, false, err
+	}
+	if err := toItem.validate(); err != nil {
+		return rpcapi.FriendObject{}, false, err
+	}
+	fromWorkspace := strings.TrimSpace(fromItem.WorkspaceName)
+	toWorkspace := strings.TrimSpace(toItem.WorkspaceName)
+	if fromItem.RelationID != relationID || toItem.RelationID != relationID ||
+		strings.TrimSpace(fromItem.PeerPublicKey) != to ||
+		strings.TrimSpace(toItem.PeerPublicKey) != from ||
 		fromWorkspace != toWorkspace {
 		return rpcapi.FriendObject{}, false, errors.New(
 			"social: reciprocal Friend relationship is inconsistent",
@@ -854,7 +905,7 @@ func readActiveRelationship(
 			"social: reciprocal Friend relationship has no Workspace name",
 		)
 	}
-	return friendObjectForOwner(from, fromItem), true, nil
+	return fromItem.peerObject(), true, nil
 }
 
 func (s *Server) getOrCreateCreationIntent(
@@ -993,16 +1044,15 @@ func (s *Server) commitFriendCreation(
 ) (rpcapi.FriendObject, error) {
 	relationID := socialutil.RelationID(from, to)
 	entries := make([]kv.Entry, 0, 2)
-	var ownerRow rpcapi.FriendObject
+	var ownerRow friendRecord
 	now := s.now()
 	for _, row := range []struct{ owner, peer string }{{from, to}, {to, from}} {
-		peer := row.peer
-		item := rpcapi.FriendObject{
-			Id:            &peer,
-			PeerPublicKey: &peer,
-			WorkspaceName: &intent.Workspace,
-			CreatedAt:     &intent.CreatedAt,
-			UpdatedAt:     &now,
+		item := friendRecord{
+			RelationID:    relationID,
+			PeerPublicKey: row.peer,
+			WorkspaceName: intent.Workspace,
+			CreatedAt:     intent.CreatedAt,
+			UpdatedAt:     now,
 		}
 		if row.owner == from {
 			ownerRow = item
@@ -1107,7 +1157,7 @@ func (s *Server) commitFriendCreation(
 	if err := deleteCreationIntent(ctx, store, intent); err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	return ownerRow, nil
+	return ownerRow.peerObject(), nil
 }
 
 func (s *Server) reconcileCreationDecision(
@@ -1568,12 +1618,12 @@ func validateRetirementReceipt(receipt retirementReceipt, relationID string) err
 }
 
 func friendObjectForRetirement(owner string, intent retirementIntent) rpcapi.FriendObject {
-	item := intent.Relationship
+	item := intent.Relationship.peerObject()
 	peer := intent.FirstPeer
 	if owner == intent.FirstPeer {
 		peer = intent.SecondPeer
 	}
-	item.Id = &peer
+	item.Name = peer
 	item.PeerPublicKey = &peer
 	item.WorkspaceName = &intent.WorkspaceName
 	return item
@@ -1585,7 +1635,7 @@ func friendObjectForReceipt(owner string, receipt retirementReceipt) rpcapi.Frie
 		peer = receipt.SecondPeer
 	}
 	return rpcapi.FriendObject{
-		Id:            &peer,
+		Name:          peer,
 		PeerPublicKey: &peer,
 		WorkspaceName: &receipt.WorkspaceName,
 	}

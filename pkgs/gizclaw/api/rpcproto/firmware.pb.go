@@ -69,12 +69,11 @@ func (x *FirmwareGetRequest) GetChannel() FirmwareChannelName {
 
 type FirmwareGetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	FirmwareName  string                 `protobuf:"bytes,1,opt,name=firmware_name,json=firmwareName,proto3" json:"firmware_name,omitempty"`
-	Channel       FirmwareChannelName    `protobuf:"varint,2,opt,name=channel,proto3,enum=gizclaw.rpc.v1.FirmwareChannelName" json:"channel,omitempty"`
-	Description   *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Url           string                 `protobuf:"bytes,4,opt,name=url,proto3" json:"url,omitempty"`
-	Sha256        string                 `protobuf:"bytes,5,opt,name=sha256,proto3" json:"sha256,omitempty"`
-	Size          int64                  `protobuf:"varint,6,opt,name=size,proto3" json:"size,omitempty"`
+	Channel       FirmwareChannelName    `protobuf:"varint,1,opt,name=channel,proto3,enum=gizclaw.rpc.v1.FirmwareChannelName" json:"channel,omitempty"`
+	Description   *string                `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Url           string                 `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`
+	Sha256        string                 `protobuf:"bytes,4,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	Size          int64                  `protobuf:"varint,5,opt,name=size,proto3" json:"size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -107,13 +106,6 @@ func (x *FirmwareGetResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use FirmwareGetResponse.ProtoReflect.Descriptor instead.
 func (*FirmwareGetResponse) Descriptor() ([]byte, []int) {
 	return file_payload_firmware_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *FirmwareGetResponse) GetFirmwareName() string {
-	if x != nil {
-		return x.FirmwareName
-	}
-	return ""
 }
 
 func (x *FirmwareGetResponse) GetChannel() FirmwareChannelName {
@@ -157,14 +149,13 @@ const file_payload_firmware_proto_rawDesc = "" +
 	"\n" +
 	"\x16payload/firmware.proto\x12\x0egizclaw.rpc.v1\x1a\x13payload/enums.proto\"S\n" +
 	"\x12FirmwareGetRequest\x12=\n" +
-	"\achannel\x18\x01 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameR\achannel\"\xee\x01\n" +
-	"\x13FirmwareGetResponse\x12#\n" +
-	"\rfirmware_name\x18\x01 \x01(\tR\ffirmwareName\x12=\n" +
-	"\achannel\x18\x02 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameR\achannel\x12%\n" +
-	"\vdescription\x18\x03 \x01(\tH\x00R\vdescription\x88\x01\x01\x12\x10\n" +
-	"\x03url\x18\x04 \x01(\tR\x03url\x12\x16\n" +
-	"\x06sha256\x18\x05 \x01(\tR\x06sha256\x12\x12\n" +
-	"\x04size\x18\x06 \x01(\x03R\x04sizeB\x0e\n" +
+	"\achannel\x18\x01 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameR\achannel\"\xc9\x01\n" +
+	"\x13FirmwareGetResponse\x12=\n" +
+	"\achannel\x18\x01 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameR\achannel\x12%\n" +
+	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12\x10\n" +
+	"\x03url\x18\x03 \x01(\tR\x03url\x12\x16\n" +
+	"\x06sha256\x18\x04 \x01(\tR\x06sha256\x12\x12\n" +
+	"\x04size\x18\x05 \x01(\x03R\x04sizeB\x0e\n" +
 	"\f_descriptionB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (

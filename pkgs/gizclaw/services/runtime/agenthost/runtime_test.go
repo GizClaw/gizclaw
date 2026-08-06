@@ -716,7 +716,7 @@ func TestServiceWorkspaceFeatureResponsesWithoutActiveWorkspace(t *testing.T) {
 		t.Fatalf("ListWorkspaceHistory() = %+v", history)
 	}
 
-	play, err := svc.PlayWorkspaceHistory(ctx, apitypes.PeerRunHistoryPlayRequest{HistoryId: "h1"})
+	play, err := svc.PlayWorkspaceHistory(ctx, apitypes.PeerRunHistoryPlayRequest{HistoryName: "h1"})
 	if err != nil {
 		t.Fatalf("PlayWorkspaceHistory() error = %v", err)
 	}
@@ -784,11 +784,11 @@ func TestTransformerAgentDefaults(t *testing.T) {
 	if history.Available || len(history.Items) != 0 || history.Message == nil || !strings.Contains(*history.Message, unsupportedMessage) {
 		t.Fatalf("ListHistory() = %+v", history)
 	}
-	play, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryId: "h1"})
+	play, err := agent.PlayHistory(context.Background(), apitypes.PeerRunHistoryPlayRequest{HistoryName: "h1"})
 	if err != nil {
 		t.Fatalf("PlayHistory() error = %v", err)
 	}
-	if play.Accepted || play.HistoryId != "h1" || play.State != "unsupported" || play.Message == nil || !strings.Contains(*play.Message, unsupportedMessage) {
+	if play.Accepted || play.HistoryName != "h1" || play.State != "unsupported" || play.Message == nil || !strings.Contains(*play.Message, unsupportedMessage) {
 		t.Fatalf("PlayHistory() = %+v", play)
 	}
 	memory, err := agent.MemoryStats(context.Background(), apitypes.PeerRunMemoryStatsRequest{})
@@ -926,10 +926,10 @@ func TestServiceReusesWorkspaceRuntimeForMultipleGears(t *testing.T) {
 	if got := secondConsumer.nextText(t); got != secondKey.String() {
 		t.Fatalf("second output = %q, want %q", got, secondKey.String())
 	}
-	if _, err := first.PlayWorkspaceHistory(ctx, apitypes.PeerRunHistoryPlayRequest{HistoryId: "h1"}); err != nil {
+	if _, err := first.PlayWorkspaceHistory(ctx, apitypes.PeerRunHistoryPlayRequest{HistoryName: "h1"}); err != nil {
 		t.Fatalf("first PlayWorkspaceHistory() error = %v", err)
 	}
-	if _, err := second.PlayWorkspaceHistory(ctx, apitypes.PeerRunHistoryPlayRequest{HistoryId: "h2"}); err != nil {
+	if _, err := second.PlayWorkspaceHistory(ctx, apitypes.PeerRunHistoryPlayRequest{HistoryName: "h2"}); err != nil {
 		t.Fatalf("second PlayWorkspaceHistory() error = %v", err)
 	}
 	if got, want := agent.playGearIDs(), []string{firstKey.String(), secondKey.String()}; !slices.Equal(got, want) {
@@ -1548,7 +1548,7 @@ func TestServiceKeepsRuntimeAvailableForRepeatedHistoryReplayAfterRouteEOS(t *te
 		t.Fatalf("RuntimeRevision() after route EOS = %d, want %d", got, revision)
 	}
 	for _, historyID := range []string{"h1", "h1"} {
-		play, err := svc.PlayWorkspaceHistory(ctx, apitypes.PeerRunHistoryPlayRequest{HistoryId: historyID})
+		play, err := svc.PlayWorkspaceHistory(ctx, apitypes.PeerRunHistoryPlayRequest{HistoryName: historyID})
 		if err != nil {
 			t.Fatalf("PlayWorkspaceHistory(%s) error = %v", historyID, err)
 		}
@@ -1929,7 +1929,7 @@ func (a *multiAttachAgent) PlayHistory(ctx context.Context, req apitypes.PeerRun
 	a.mu.Lock()
 	a.playGears = append(a.playGears, historyGearID(ctx))
 	a.mu.Unlock()
-	return apitypes.PeerRunHistoryPlayResponse{Accepted: true, HistoryId: req.HistoryId, State: "played"}, nil
+	return apitypes.PeerRunHistoryPlayResponse{Accepted: true, HistoryName: req.HistoryName, State: "played"}, nil
 }
 
 func (a *multiAttachAgent) MemoryStats(context.Context, apitypes.PeerRunMemoryStatsRequest) (apitypes.PeerRunMemoryStatsResponse, error) {

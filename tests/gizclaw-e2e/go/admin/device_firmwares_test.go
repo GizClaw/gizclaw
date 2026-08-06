@@ -40,7 +40,6 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 	name := mutationName("firmware")
 	upsert := adminhttp.FirmwareUpsert{
 		Id:          name,
-		Name:        name,
 		Description: ptr("Admin API mutation firmware"),
 		Slots: apitypes.FirmwareSlots{
 			Stable: apitypes.FirmwareSlot{
@@ -128,7 +127,7 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	listedFirmware := requireName(t, listed, name, func(item apitypes.Firmware) string { return item.Name })
+	listedFirmware := requireName(t, listed, name, func(item apitypes.Firmware) string { return item.Id })
 	requireFirmwareSlots(t, listedFirmware.Slots, upsert.Slots)
 
 	released, err := env.api.ReleaseFirmwareWithResponse(env.ctx, created.JSON200.Id)
@@ -151,8 +150,7 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 
 	invalidName := mutationName("firmware-invalid")
 	invalid, err := env.api.CreateFirmwareWithResponse(env.ctx, adminhttp.FirmwareUpsert{
-		Id:   invalidName,
-		Name: invalidName,
+		Id: invalidName,
 		Slots: apitypes.FirmwareSlots{Stable: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{
 			Url: "https://downloads.example.com:0/firmware/stable.tar.zlib", Sha256: firmwarePackageSHA256, Size: 1,
 		}}},

@@ -43,12 +43,12 @@ func TestRPCServerPeerMethods(t *testing.T) {
 		},
 		history: apitypes.PeerRunHistoryListResponse{
 			Available: true,
-			Items:     []apitypes.PeerRunHistoryEntry{{Id: "h1", CreatedAt: now, ReplayAvailable: true}},
+			Items:     []apitypes.PeerRunHistoryEntry{{Name: "h1", CreatedAt: now, ReplayAvailable: true}},
 			HasNext:   false,
 		},
-		historyPlay: apitypes.PeerRunHistoryPlayResponse{Accepted: true, HistoryId: "h1", State: "playing"},
+		historyPlay: apitypes.PeerRunHistoryPlayResponse{Accepted: true, HistoryName: "h1", State: "playing"},
 		memoryStats: apitypes.PeerRunMemoryStatsResponse{Available: true, Enabled: true, ItemCount: 2, StorageBytes: 128},
-		recall:      apitypes.PeerRunRecallResponse{Available: true, Hits: []apitypes.PeerRunRecallHit{{Id: "m1", Score: 0.9, Snippet: "hello"}}},
+		recall:      apitypes.PeerRunRecallResponse{Available: true, Hits: []apitypes.PeerRunRecallHit{{Name: "m1", Score: 0.9, Snippet: "hello"}}},
 	}
 	serverGenX := &fakeRPCServerGenXService{}
 	peerRun := &peerrun.Server{Store: kv.NewMemory(nil)}
@@ -155,11 +155,11 @@ func TestRPCServerPeerMethods(t *testing.T) {
 	history := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerListRunWorkspaceHistoryResponse, error) {
 		return client.ListServerRunWorkspaceHistory(context.Background(), conn, "run-workspace-history", rpcapi.ServerListRunWorkspaceHistoryRequest{Limit: intPtr(1)})
 	})
-	if !history.Available || len(history.Items) != 1 || history.Items[0].Id != "h1" || runRuntime.lastHistoryLimit == nil || *runRuntime.lastHistoryLimit != 1 {
+	if !history.Available || len(history.Items) != 1 || history.Items[0].Name != "h1" || runRuntime.lastHistoryLimit == nil || *runRuntime.lastHistoryLimit != 1 {
 		t.Fatalf("ListServerRunWorkspaceHistory() = %+v limit=%v", history, runRuntime.lastHistoryLimit)
 	}
 	play := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerPlayRunWorkspaceHistoryResponse, error) {
-		return client.PlayServerRunWorkspaceHistory(context.Background(), conn, "run-workspace-history-play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryId: "h1"})
+		return client.PlayServerRunWorkspaceHistory(context.Background(), conn, "run-workspace-history-play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryName: "h1"})
 	})
 	if !play.Accepted || runRuntime.lastHistoryPlayID != "h1" {
 		t.Fatalf("PlayServerRunWorkspaceHistory() = %+v id=%q", play, runRuntime.lastHistoryPlayID)
@@ -777,7 +777,7 @@ func (f *fakeRPCPeerRunRuntime) ListWorkspaceHistory(_ context.Context, req apit
 
 func (f *fakeRPCPeerRunRuntime) PlayWorkspaceHistory(_ context.Context, req apitypes.PeerRunHistoryPlayRequest) (apitypes.PeerRunHistoryPlayResponse, error) {
 	f.historyPlayCalls++
-	f.lastHistoryPlayID = req.HistoryId
+	f.lastHistoryPlayID = req.HistoryName
 	if f.err != nil {
 		return apitypes.PeerRunHistoryPlayResponse{}, f.err
 	}

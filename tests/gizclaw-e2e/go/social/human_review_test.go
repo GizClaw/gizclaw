@@ -263,55 +263,55 @@ func runSocialHumanReviewAudioStory(t *testing.T, h socialHarness, playback *soc
 		}
 
 		entry := waitForWorkspaceHistoryReplayableGear(t, ctx, reader, workspaceName, h.ContextPublicKey(writerContext), seenHistoryIDs)
-		seenHistoryIDs[entry.Id] = struct{}{}
+		seenHistoryIDs[entry.Name] = struct{}{}
 		got, err := reader.GetWorkspaceHistory(ctx, "social.human_review.history.get", rpcapi.WorkspaceHistoryGetRequest{
 			WorkspaceName: workspaceName,
-			HistoryId:     entry.Id,
+			HistoryName:   entry.Name,
 		})
 		if err != nil {
-			t.Fatalf("%s workspace history get %q round %d: %v", readerContext, entry.Id, round, err)
+			t.Fatalf("%s workspace history get %q round %d: %v", readerContext, entry.Name, round, err)
 		}
 		if got.Type != rpcapi.PeerRunHistoryEntryTypeGear || got.GearId == nil || *got.GearId != h.ContextPublicKey(writerContext) || !got.ReplayAvailable {
 			t.Fatalf("human-review history get round %d = %#v, want replayable gear entry from %s", round, got, writerContext)
 		}
 		if strings.TrimSpace(got.Text) == "" {
-			t.Fatalf("human-review history get text is empty for %q round %d; ASR transcript was not persisted", entry.Id, round)
+			t.Fatalf("human-review history get text is empty for %q round %d; ASR transcript was not persisted", entry.Name, round)
 		}
-		historyAudio, historyPackets := readSocialHumanReviewHistoryAudio(t, ctx, reader, workspaceName, entry.Id)
-		fmt.Printf("social_human_review history_audio workspace=%s round=%d history_id=%s bytes=%d packets=%d\n", workspaceName, round, entry.Id, len(historyAudio), len(historyPackets))
-		play, err := reader.PlayServerRunWorkspaceHistory(ctx, "social.human_review.history.play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryId: entry.Id})
+		historyAudio, historyPackets := readSocialHumanReviewHistoryAudio(t, ctx, reader, workspaceName, entry.Name)
+		fmt.Printf("social_human_review history_audio workspace=%s round=%d history_name=%s bytes=%d packets=%d\n", workspaceName, round, entry.Name, len(historyAudio), len(historyPackets))
+		play, err := reader.PlayServerRunWorkspaceHistory(ctx, "social.human_review.history.play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryName: entry.Name})
 		if err != nil {
-			t.Fatalf("%s workspace history play %q round %d: %v", readerContext, entry.Id, round, err)
+			t.Fatalf("%s workspace history play %q round %d: %v", readerContext, entry.Name, round, err)
 		}
 		if play == nil || !play.Accepted {
 			t.Fatalf("workspace history play round %d = %#v, want accepted", round, play)
 		}
-		fmt.Printf("social_human_review replay_start workspace=%s round=%d history_id=%s state=%s\n", workspaceName, round, entry.Id, play.State)
+		fmt.Printf("social_human_review replay_start workspace=%s round=%d history_name=%s state=%s\n", workspaceName, round, entry.Name, play.State)
 		packets, err := playback.PlayReplay(ctx, readerOut)
 		if err != nil {
-			t.Fatalf("play replayed social history %q round %d: %v", entry.Id, round, err)
+			t.Fatalf("play replayed social history %q round %d: %v", entry.Name, round, err)
 		}
 		if packets == 0 {
-			t.Fatalf("history replay %q round %d produced no audio packets", entry.Id, round)
+			t.Fatalf("history replay %q round %d produced no audio packets", entry.Name, round)
 		}
-		fmt.Printf("social_human_review replay_done workspace=%s round=%d history_id=%s packets=%d\n", workspaceName, round, entry.Id, packets)
+		fmt.Printf("social_human_review replay_done workspace=%s round=%d history_name=%s packets=%d\n", workspaceName, round, entry.Name, packets)
 	}
 	_ = writerStream.CloseWithError(io.EOF)
 }
 
-func readSocialHumanReviewHistoryAudio(t *testing.T, ctx context.Context, client *gizcli.Client, workspaceName, historyID string) ([]byte, [][]byte) {
+func readSocialHumanReviewHistoryAudio(t *testing.T, ctx context.Context, client *gizcli.Client, workspaceName, historyName string) ([]byte, [][]byte) {
 	t.Helper()
 
 	var out bytes.Buffer
 	result, err := client.GetWorkspaceHistoryAudio(ctx, "social.human_review.history.audio.get", rpcapi.WorkspaceHistoryAudioGetRequest{
 		WorkspaceName: workspaceName,
-		HistoryId:     historyID,
+		HistoryName:   historyName,
 	}, &out)
 	if err != nil {
-		t.Fatalf("workspace history audio get %q: %v", historyID, err)
+		t.Fatalf("workspace history audio get %q: %v", historyName, err)
 	}
 	if result.Bytes <= 0 || out.Len() == 0 {
-		t.Fatalf("workspace history audio get %q returned empty audio: %+v", historyID, result)
+		t.Fatalf("workspace history audio get %q returned empty audio: %+v", historyName, result)
 	}
 	return out.Bytes(), socialHumanReviewOggOpusPackets(t, out.Bytes())
 }
@@ -409,7 +409,7 @@ func waitForWorkspaceHistoryReplayableGear(t *testing.T, ctx context.Context, cl
 		})
 		if err == nil {
 			for _, item := range list.Items {
-				if _, ok := seen[item.Id]; ok {
+				if _, ok := seen[item.Name]; ok {
 					continue
 				}
 				if item.Type == rpcapi.PeerRunHistoryEntryTypeGear && item.GearId != nil && *item.GearId == gearID && item.ReplayAvailable {

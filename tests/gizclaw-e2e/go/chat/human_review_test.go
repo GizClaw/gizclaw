@@ -276,17 +276,17 @@ func TestHumanReviewHistoryReplayTarget(t *testing.T) {
 func TestHumanReviewReplayItemsSelectsOldestReplayableAgentEntries(t *testing.T) {
 	base := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
 	items := []rpcapi.PeerRunHistoryEntry{
-		{Id: "newer", CreatedAt: base.Add(2 * time.Second), Text: "新回复", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeAgent},
-		{Id: "gear", CreatedAt: base.Add(-time.Second), Text: "用户输入", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeGear},
-		{Id: "empty", CreatedAt: base, Text: "  ", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeAgent},
-		{Id: "oldest", CreatedAt: base.Add(time.Second), Text: "旧回复", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeAgent},
-		{Id: "disabled", CreatedAt: base.Add(3 * time.Second), Text: "不可播放", ReplayAvailable: false, Type: rpcapi.PeerRunHistoryEntryTypeAgent},
+		{Name: "newer", CreatedAt: base.Add(2 * time.Second), Text: "新回复", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeAgent},
+		{Name: "gear", CreatedAt: base.Add(-time.Second), Text: "用户输入", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeGear},
+		{Name: "empty", CreatedAt: base, Text: "  ", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeAgent},
+		{Name: "oldest", CreatedAt: base.Add(time.Second), Text: "旧回复", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeAgent},
+		{Name: "disabled", CreatedAt: base.Add(3 * time.Second), Text: "不可播放", ReplayAvailable: false, Type: rpcapi.PeerRunHistoryEntryTypeAgent},
 	}
 	got := humanReviewReplayItems(items, 2)
 	if len(got) != 2 {
 		t.Fatalf("len(humanReviewReplayItems) = %d, want 2", len(got))
 	}
-	if got[0].Id != "oldest" || got[1].Id != "newer" {
-		t.Fatalf("humanReviewReplayItems ids = %q, %q; want oldest, newer", got[0].Id, got[1].Id)
+	if got[0].Name != "oldest" || got[1].Name != "newer" {
+		t.Fatalf("humanReviewReplayItems names = %q, %q; want oldest, newer", got[0].Name, got[1].Name)
 	}
 }

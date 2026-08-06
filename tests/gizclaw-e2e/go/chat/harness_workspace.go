@@ -702,9 +702,9 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 		WorkflowName: cfg.Workflow.Name,
 		Parameters:   &parameters,
 	}
-	if cfg.toolIDs != nil {
-		ids := append([]string(nil), cfg.toolIDs...)
-		request.Toolkit = &rpcapi.ToolkitPolicy{ToolNames: &ids}
+	if cfg.toolNames != nil {
+		names := append([]string(nil), cfg.toolNames...)
+		request.Toolkit = &rpcapi.ToolkitPolicy{ToolNames: &names}
 	}
 	return request, nil
 }
@@ -949,7 +949,7 @@ func validateWorkspaceRuntime(ctx context.Context, driver *personaDriver, client
 		driver.drainTransport()
 	}
 	play, err := client.PlayServerRunWorkspaceHistory(ctx, "workspacetest.runtime.history.play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{
-		HistoryId: historyItem.Id,
+		HistoryName: historyItem.Name,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("runtime rpc history play: %w", err)
@@ -962,7 +962,7 @@ func validateWorkspaceRuntime(ctx context.Context, driver *personaDriver, client
 		return nil, fmt.Errorf("runtime rpc history play rejected state=%s: %s", play.State, message)
 	}
 
-	report.ReplayHistoryID = historyItem.Id
+	report.ReplayHistoryID = historyItem.Name
 	report.ReplayState = play.State
 	if driver != nil {
 		replay, err := driver.verifyHistoryReplayWithOptions(ctx, historyItem, options.Replay)

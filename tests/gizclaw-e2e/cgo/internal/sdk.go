@@ -57,9 +57,8 @@ type TransportSnapshot struct {
 }
 
 const (
-	RPCFrameEOS                 = int(C.GZC_RPC_FRAME_EOS)
-	StatusChannelLimit          = int(C.GZC_ERR_CHANNEL_LIMIT)
-	firmwareNameCStringCapacity = 257
+	RPCFrameEOS        = int(C.GZC_RPC_FRAME_EOS)
+	StatusChannelLimit = int(C.GZC_ERR_CHANNEL_LIMIT)
 )
 
 type StatusError struct {
@@ -75,7 +74,6 @@ func (e *StatusError) Error() string {
 // Registration is the typed result decoded by the C server.register helper.
 type Registration struct {
 	RuntimeProfileName string
-	FirmwareName       *string
 }
 
 // RPCError preserves a server RPC error returned through the C test bridge.
@@ -234,18 +232,13 @@ func (c *Client) Register(token string) (Registration, error) {
 	cToken := C.CString(token)
 	defer C.free(unsafe.Pointer(cToken))
 	runtimeProfileName := make([]byte, 256)
-	firmwareName := make([]byte, firmwareNameCStringCapacity)
 	errbuf := make([]byte, 1024)
-	var hasFirmwareName C.int
 	var rpcErrorCode C.int
 	rc := C.gzc_cgo_session_register(
 		c.session,
 		cToken,
 		(*C.char)(unsafe.Pointer(&runtimeProfileName[0])),
 		C.ulong(len(runtimeProfileName)),
-		&hasFirmwareName,
-		(*C.char)(unsafe.Pointer(&firmwareName[0])),
-		C.ulong(len(firmwareName)),
 		&rpcErrorCode,
 		(*C.char)(unsafe.Pointer(&errbuf[0])),
 		C.ulong(len(errbuf)),
@@ -260,17 +253,11 @@ func (c *Client) Register(token string) (Registration, error) {
 	if rc != C.GZC_OK {
 		return Registration{}, fmt.Errorf("register C SDK client rc=%d: %s", int(rc), cString(errbuf))
 	}
-	result := Registration{RuntimeProfileName: cString(runtimeProfileName)}
-	if hasFirmwareName != 0 {
-		value := cString(firmwareName)
-		result.FirmwareName = &value
-	}
-	return result, nil
+	return Registration{RuntimeProfileName: cString(runtimeProfileName)}, nil
 }
 
 // FirmwareConfig is a channel package configuration decoded by C nanopb.
 type FirmwareConfig struct {
-	Name           string
 	Channel        rpcpb.FirmwareChannelName
 	HasDescription bool
 	Description    string
@@ -284,7 +271,6 @@ func (c *Client) GetFirmware(channel rpcpb.FirmwareChannelName) (FirmwareConfig,
 	if c == nil || c.session == nil {
 		return FirmwareConfig{}, fmt.Errorf("closed C SDK client")
 	}
-	name := make([]byte, firmwareNameCStringCapacity)
 	description := make([]byte, 1025)
 	url := make([]byte, 2049)
 	sha256 := make([]byte, 65)
@@ -296,8 +282,6 @@ func (c *Client) GetFirmware(channel rpcpb.FirmwareChannelName) (FirmwareConfig,
 	rc := C.gzc_cgo_session_firmware_get(
 		c.session,
 		C.int(channel),
-		(*C.char)(unsafe.Pointer(&name[0])),
-		C.ulong(len(name)),
 		&responseChannel,
 		&hasDescription,
 		(*C.char)(unsafe.Pointer(&description[0])),
@@ -322,7 +306,6 @@ func (c *Client) GetFirmware(channel rpcpb.FirmwareChannelName) (FirmwareConfig,
 		return FirmwareConfig{}, fmt.Errorf("get firmware with C SDK rc=%d: %s", int(rc), cString(errbuf))
 	}
 	return FirmwareConfig{
-		Name:           cString(name),
 		Channel:        rpcpb.FirmwareChannelName(responseChannel),
 		HasDescription: hasDescription != 0,
 		Description:    cString(description),
@@ -783,10 +766,10 @@ func CSDKSpeedTest(t *testing.T, identityDir string) {
 
 func CSDKFirmwareRPC(t *testing.T, identityDir, registrationToken string) {
 	wants := []FirmwareConfig{
-		{Name: "devkit-firmware-main", Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_STABLE, HasDescription: true, Description: "Devkit stable package", URL: "https://firmware.example.invalid/devkit/stable.tar.zlib", SHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", Size: 4096},
-		{Name: "devkit-firmware-main", Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_BETA, HasDescription: true, Description: "Devkit beta package", URL: "https://firmware.example.invalid/devkit/beta.tar.zlib", SHA256: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", Size: 8192},
-		{Name: "devkit-firmware-main", Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_DEVELOP, URL: "https://firmware.example.invalid/devkit/develop.tar.zlib", SHA256: "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0", Size: 12288},
-		{Name: "devkit-firmware-main", Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_PENDING, HasDescription: true, Description: "Devkit pending package", URL: "https://firmware.example.invalid/devkit/pending.tar.zlib", SHA256: "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210", Size: 16384},
+		{Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_STABLE, HasDescription: true, Description: "Devkit stable package", URL: "https://firmware.example.invalid/devkit/stable.tar.zlib", SHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", Size: 4096},
+		{Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_BETA, HasDescription: true, Description: "Devkit beta package", URL: "https://firmware.example.invalid/devkit/beta.tar.zlib", SHA256: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", Size: 8192},
+		{Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_DEVELOP, URL: "https://firmware.example.invalid/devkit/develop.tar.zlib", SHA256: "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0", Size: 12288},
+		{Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_PENDING, HasDescription: true, Description: "Devkit pending package", URL: "https://firmware.example.invalid/devkit/pending.tar.zlib", SHA256: "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210", Size: 16384},
 	}
 	CSDKFirmwareRPCPackages(t, identityDir, registrationToken, wants)
 }
@@ -800,7 +783,7 @@ func CSDKFirmwareRPCPackages(t *testing.T, identityDir, registrationToken string
 	client := newTestClient(t, identityDir)
 	defer client.Close()
 	registration := registerClient(t, client, registrationToken)
-	requireFirmwareRegistration(t, registration, wants[0].Name)
+	_ = registration
 	for _, want := range wants {
 		firmware, err := client.GetFirmware(want.Channel)
 		if err != nil {
@@ -1213,7 +1196,7 @@ func CSDKSocialBasic(t *testing.T, identityDir, registrationToken string) {
 		Limit:           ptr(int64(1000)),
 	}, &messageList)
 	for _, message := range messageList.GetItems() {
-		if message.GetFriendGroupName() != groupID || message.GetHistoryId() == "" {
+		if message.GetFriendGroupName() != groupID || message.GetName() == "" {
 			t.Fatalf("invalid server.friend_group.messages.list: %s", messageList.String())
 		}
 	}
@@ -1250,16 +1233,16 @@ func CSDKSocialRelationships(
 	)
 	var friendAdd rpcpb.FriendAddResponse
 	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_ADD, &rpcpb.FriendAddRequest{InviteToken: friendToken.GetInviteToken()}, &friendAdd)
-	if friendAdd.GetValue().GetId() == "" || friendAdd.GetValue().GetWorkspaceName() == "" || friendAdd.GetValue().GetPeerPublicKey() != peerBPublicKey {
+	if friendAdd.GetValue().GetName() == "" || friendAdd.GetValue().GetWorkspaceName() == "" || friendAdd.GetValue().GetPeerPublicKey() != peerBPublicKey {
 		t.Fatalf("invalid server.friend.add: %s", friendAdd.String())
 	}
-	friendID := friendAdd.GetValue().GetId()
+	friendName := friendAdd.GetValue().GetName()
 	friendWorkspace := friendAdd.GetValue().GetWorkspaceName()
 	defer cleanupCSDKRPC(
 		t,
 		clientA,
 		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_DELETE,
-		&rpcpb.FriendDeleteRequest{Id: friendID},
+		&rpcpb.FriendDeleteRequest{Name: friendName},
 		&rpcpb.FriendDeleteResponse{},
 		"Friend relationship",
 	)
@@ -1271,7 +1254,7 @@ func CSDKSocialRelationships(
 		&rpcpb.FriendAddRequest{InviteToken: friendToken.GetInviteToken()},
 		&repeatedFriendAdd,
 	)
-	if repeatedFriendAdd.GetValue().GetId() != friendID ||
+	if repeatedFriendAdd.GetValue().GetName() != friendName ||
 		repeatedFriendAdd.GetValue().GetWorkspaceName() != friendWorkspace ||
 		repeatedFriendAdd.GetValue().GetPeerPublicKey() != peerBPublicKey {
 		t.Fatalf("repeated server.friend.add was not idempotent: %s", repeatedFriendAdd.String())
@@ -1346,7 +1329,7 @@ func CSDKSocialRelationships(
 		Limit:           ptr(int64(1000)),
 	}, &messageList)
 	for _, message := range messageList.GetItems() {
-		if message.GetFriendGroupName() != groupID || message.GetHistoryId() == "" {
+		if message.GetFriendGroupName() != groupID || message.GetName() == "" {
 			t.Fatalf("invalid server.friend_group.messages.list: %s", messageList.String())
 		}
 	}
@@ -1416,13 +1399,6 @@ func cleanupCSDKRPC(
 	t.Helper()
 	if err := client.CallRPC(method, request, response); err != nil {
 		t.Errorf("cleanup C SDK %s: %v", resource, err)
-	}
-}
-
-func requireFirmwareRegistration(t *testing.T, registration Registration, firmwareName string) {
-	t.Helper()
-	if registration.FirmwareName == nil || *registration.FirmwareName != firmwareName {
-		t.Fatalf("server.register firmware = %+v, want %q", registration.FirmwareName, firmwareName)
 	}
 }
 
@@ -1497,7 +1473,7 @@ func contactListContains(items []*rpcpb.ContactObject, id string) bool {
 
 func friendListContains(items []*rpcpb.FriendObject, peerPublicKey, workspaceName string) bool {
 	for _, item := range items {
-		if item.GetId() != "" &&
+		if item.GetName() != "" &&
 			item.GetPeerPublicKey() == peerPublicKey &&
 			item.GetWorkspaceName() == workspaceName {
 			return true

@@ -4,10 +4,13 @@ import test from "node:test";
 import type { PeerRPCClient } from "@gizclaw/gizclaw/rpc";
 
 import {
+  clearPlayDataClient,
   clearPlayRPCClient,
+  configurePlayDataClient,
   configurePlayRPCClient,
   listPeerWorkflows,
   listPeerWorkspaces,
+  recallPeerRunWorkspaceMemory,
 } from "../views/play/full/peer-rpc-adapter.ts";
 
 test("collection fan-out drains every workspace and workflow page", async (t) => {
@@ -35,7 +38,6 @@ test("collection fan-out drains every workspace and workflow page", async (t) =>
           ? [
               {
                 name: `${prefix}-${cursor === "" ? "first" : "second"}`,
-                alias: `${prefix}-${cursor === "" ? "first" : "second"}`,
               },
             ]
           : [],
@@ -61,7 +63,7 @@ test("collection fan-out drains every workspace and workflow page", async (t) =>
   assert.equal(workspaces.data?.has_next, false);
   assert.equal(workflows.error, undefined);
   assert.deepEqual(
-    workflows.data?.items.map((item) => item.alias),
+    workflows.data?.items.map((item) => item.name),
     ["workflow-first", "workflow-second"],
   );
   assert.equal(workflows.data?.has_next, false);
@@ -78,5 +80,21 @@ test("collection fan-out drains every workspace and workflow page", async (t) =>
   assert.equal(
     calls.some((call) => call.params.cursor === "workflow-cursor"),
     true,
+  );
+});
+
+test("injected recall rejects a hit without its Peer name", async (t) => {
+  const client = {
+    loadSnapshot: async () => ({}),
+    recallMemory: async () => ({
+      hits: [{ source_name: "source-record", snippet: "remembered" }],
+    }),
+  };
+  configurePlayDataClient(client);
+  t.after(() => clearPlayDataClient(client));
+
+  await assert.rejects(
+    recallPeerRunWorkspaceMemory({ body: { query: "memory" } }),
+    /missing its Peer name/,
   );
 });

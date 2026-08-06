@@ -378,7 +378,7 @@ func snapshotGameplayHistory(t *testing.T, ctx context.Context, client interface
 	}
 	out := make(map[string]rpcapi.PeerRunHistoryEntry, len(list.Items))
 	for _, item := range list.Items {
-		out[item.Id] = item
+		out[item.Name] = item
 	}
 	return out
 }
@@ -403,7 +403,7 @@ func waitForSingleGameplayTranscript(t *testing.T, ctx context.Context, client i
 				t.Fatalf("one pet audio turn created %d new gear/transcript entries: %#v", len(items), items)
 			}
 			if len(items) == 1 && strings.TrimSpace(items[0].Text) != "" && items[0].ReplayAvailable {
-				if candidate.Id != items[0].Id {
+				if candidate.Name != items[0].Name {
 					candidate = items[0]
 					stableSince = time.Now()
 				} else if time.Since(stableSince) >= 500*time.Millisecond {
@@ -430,11 +430,11 @@ func waitForSingleGameplayTranscript(t *testing.T, ctx context.Context, client i
 func newGameplayTranscriptItems(items []rpcapi.PeerRunHistoryEntry, known map[string]rpcapi.PeerRunHistoryEntry) []rpcapi.PeerRunHistoryEntry {
 	var out []rpcapi.PeerRunHistoryEntry
 	for _, item := range items {
-		if _, ok := known[item.Id]; ok {
+		if _, ok := known[item.Name]; ok {
 			continue
 		}
 		if item.Type == rpcapi.PeerRunHistoryEntryTypeGear &&
-			item.Name == "transcript" &&
+			item.ActorName == "transcript" &&
 			strings.TrimSpace(item.Text) != "" &&
 			item.ReplayAvailable {
 			out = append(out, item)
@@ -444,17 +444,17 @@ func newGameplayTranscriptItems(items []rpcapi.PeerRunHistoryEntry, known map[st
 }
 
 func TestNewGameplayTranscriptItemsSelectsOnlyNewGearTranscripts(t *testing.T) {
-	known := map[string]rpcapi.PeerRunHistoryEntry{"known": {Id: "known"}}
+	known := map[string]rpcapi.PeerRunHistoryEntry{"known": {Name: "known"}}
 	items := []rpcapi.PeerRunHistoryEntry{
-		{Id: "known", Name: "transcript", Type: rpcapi.PeerRunHistoryEntryTypeGear},
-		{Id: "empty-transcript", Name: "transcript", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeGear},
-		{Id: "unreplayable-transcript", Name: "transcript", Text: "你好", Type: rpcapi.PeerRunHistoryEntryTypeGear},
-		{Id: "new-transcript", Name: "transcript", Text: "你好", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeGear},
-		{Id: "new-audio", Name: "audio", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeGear},
-		{Id: "new-agent", Name: "assistant", Type: rpcapi.PeerRunHistoryEntryTypeAgent},
+		{Name: "known", ActorName: "transcript", Type: rpcapi.PeerRunHistoryEntryTypeGear},
+		{Name: "empty-transcript", ActorName: "transcript", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeGear},
+		{Name: "unreplayable-transcript", ActorName: "transcript", Text: "你好", Type: rpcapi.PeerRunHistoryEntryTypeGear},
+		{Name: "new-transcript", ActorName: "transcript", Text: "你好", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeGear},
+		{Name: "new-audio", ActorName: "audio", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeGear},
+		{Name: "new-agent", ActorName: "assistant", Type: rpcapi.PeerRunHistoryEntryTypeAgent},
 	}
 	got := newGameplayTranscriptItems(items, known)
-	if len(got) != 1 || got[0].Id != "new-transcript" {
+	if len(got) != 1 || got[0].Name != "new-transcript" {
 		t.Fatalf("newGameplayTranscriptItems() = %#v", got)
 	}
 }
@@ -463,12 +463,12 @@ func assertGameplayHistoryReplayAudio(t *testing.T, parent context.Context, clie
 	PlayServerRunWorkspaceHistory(context.Context, string, rpcapi.ServerPlayRunWorkspaceHistoryRequest) (*rpcapi.ServerPlayRunWorkspaceHistoryResponse, error)
 }, stream *gizcli.PeerStream, entry rpcapi.PeerRunHistoryEntry) {
 	t.Helper()
-	play, err := client.PlayServerRunWorkspaceHistory(parent, "gameplay.pet.history.play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryId: entry.Id})
+	play, err := client.PlayServerRunWorkspaceHistory(parent, "gameplay.pet.history.play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryName: entry.Name})
 	if err != nil {
-		t.Fatalf("play pet history %q: %v", entry.Id, err)
+		t.Fatalf("play pet history %q: %v", entry.Name, err)
 	}
 	if play == nil || !play.Accepted {
-		t.Fatalf("play pet history %q = %#v, want accepted", entry.Id, play)
+		t.Fatalf("play pet history %q = %#v, want accepted", entry.Name, play)
 	}
 
 	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
@@ -480,10 +480,10 @@ func assertGameplayHistoryReplayAudio(t *testing.T, parent context.Context, clie
 	for !textDone || !audioDone || audioPackets == 0 {
 		chunk, err := nextGameplayStreamChunk(ctx, stream)
 		if err != nil {
-			t.Fatalf("read pet history replay %q: %v", entry.Id, err)
+			t.Fatalf("read pet history replay %q: %v", entry.Name, err)
 		}
 		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
-			t.Fatalf("pet history replay %q returned error %q", entry.Id, chunk.Ctrl.Error)
+			t.Fatalf("pet history replay %q returned error %q", entry.Name, chunk.Ctrl.Error)
 		}
 		if !strings.HasPrefix(gameplayChunkStreamID(chunk), "history-replay-") {
 			continue
@@ -504,7 +504,7 @@ func assertGameplayHistoryReplayAudio(t *testing.T, parent context.Context, clie
 		}
 	}
 	if strings.TrimSpace(replayText.String()) != strings.TrimSpace(entry.Text) {
-		t.Fatalf("pet history replay %q text = %q, want %q", entry.Id, replayText.String(), entry.Text)
+		t.Fatalf("pet history replay %q text = %q, want %q", entry.Name, replayText.String(), entry.Text)
 	}
 }
 

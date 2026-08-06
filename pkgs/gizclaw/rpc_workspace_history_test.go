@@ -20,7 +20,7 @@ func TestRPCServerWorkspaceHistoryAudioGetStreamsBinary(t *testing.T) {
 	service := &fakeWorkspaceHistoryAudioService{
 		metadata: rpcapi.WorkspaceHistoryAudioGetResponse{
 			WorkspaceName: "main",
-			HistoryId:     "h1",
+			HistoryName:   "h1",
 			MimeType:      "audio/opus",
 			SizeBytes:     int64(len(payload)),
 		},
@@ -39,7 +39,7 @@ func TestRPCServerWorkspaceHistoryAudioGetStreamsBinary(t *testing.T) {
 
 	params, err := newRPCRequestParams(rpcapi.WorkspaceHistoryAudioGetRequest{
 		WorkspaceName: "main",
-		HistoryId:     "h1",
+		HistoryName:   "h1",
 	}, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioGetRequest)
 	if err != nil {
 		t.Fatalf("newRPCRequestParams() error = %v", err)
@@ -91,7 +91,7 @@ func TestRPCServerWorkspaceHistoryAudioGetStreamsBinary(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("server did not finish")
 	}
-	if service.request.WorkspaceName != "main" || service.request.HistoryId != "h1" {
+	if service.request.WorkspaceName != "main" || service.request.HistoryName != "h1" {
 		t.Fatalf("request = %+v", service.request)
 	}
 }
@@ -105,7 +105,7 @@ func TestRPCServerFriendGroupMessageAudioGetStreamsBinary(t *testing.T) {
 	service := &fakeFriendGroupMessageAudioService{
 		metadata: rpcapi.FriendGroupMessageAudioGetResponse{
 			FriendGroupName: "group-a",
-			HistoryId:       "history-1",
+			HistoryName:     "history-1",
 			MimeType:        "audio/opus",
 			SizeBytes:       int64(len(payload)),
 		},
@@ -124,7 +124,7 @@ func TestRPCServerFriendGroupMessageAudioGetStreamsBinary(t *testing.T) {
 
 	params, err := newRPCRequestParams(rpcapi.FriendGroupMessageAudioGetRequest{
 		FriendGroupName: "group-a",
-		HistoryId:       "history-1",
+		HistoryName:     "history-1",
 	}, (*rpcapi.RPCPayload).FromFriendGroupMessageAudioGetRequest)
 	if err != nil {
 		t.Fatalf("newRPCRequestParams() error = %v", err)
@@ -176,7 +176,7 @@ func TestRPCServerFriendGroupMessageAudioGetStreamsBinary(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("server did not finish")
 	}
-	if service.request.FriendGroupName != "group-a" || service.request.HistoryId != "history-1" {
+	if service.request.FriendGroupName != "group-a" || service.request.HistoryName != "history-1" {
 		t.Fatalf("request = %+v", service.request)
 	}
 }

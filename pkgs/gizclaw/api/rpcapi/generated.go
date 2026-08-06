@@ -1600,12 +1600,11 @@ type FirmwareGetRequest struct {
 
 // FirmwareGetResponse defines model for FirmwareGetResponse.
 type FirmwareGetResponse struct {
-	Channel      FirmwareChannelName `json:"channel"`
-	Description  *string             `json:"description,omitempty"`
-	FirmwareName string              `json:"firmware_name"`
-	Sha256       string              `json:"sha256"`
-	Size         int64               `json:"size"`
-	Url          string              `json:"url"`
+	Channel     FirmwareChannelName `json:"channel"`
+	Description *string             `json:"description,omitempty"`
+	Sha256      string              `json:"sha256"`
+	Size        int64               `json:"size"`
+	Url         string              `json:"url"`
 }
 
 // FlowcraftConversationParameters defines model for FlowcraftConversationParameters.
@@ -1649,7 +1648,7 @@ type FriendAddResponse = FriendObject
 
 // FriendDeleteRequest defines model for FriendDeleteRequest.
 type FriendDeleteRequest struct {
-	Id string `json:"id"`
+	Name string `json:"name"`
 }
 
 // FriendDeleteResponse defines model for FriendDeleteResponse.
@@ -1657,18 +1656,18 @@ type FriendDeleteResponse = FriendObject
 
 // FriendInfo defines model for FriendInfo.
 type FriendInfo struct {
-	Emoji *string `json:"emoji,omitempty"`
-	Name  *string `json:"name,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
+	Emoji       *string `json:"emoji,omitempty"`
 }
 
 // FriendInfoGetRequest defines model for FriendInfoGetRequest.
 type FriendInfoGetRequest struct {
-	Id string `json:"id"`
+	Name string `json:"name"`
 }
 
 // FriendInfoGetResponse defines model for FriendInfoGetResponse.
 type FriendInfoGetResponse struct {
-	Id    string     `json:"id"`
+	Name  string     `json:"name"`
 	Value FriendInfo `json:"value"`
 }
 
@@ -1767,7 +1766,7 @@ type FriendGroupMemberAddResponse = FriendGroupMemberObject
 // FriendGroupMemberDeleteRequest defines model for FriendGroupMemberDeleteRequest.
 type FriendGroupMemberDeleteRequest struct {
 	FriendGroupName string `json:"friend_group_name"`
-	Id              string `json:"id"`
+	Name            string `json:"name"`
 }
 
 // FriendGroupMemberDeleteResponse defines model for FriendGroupMemberDeleteResponse.
@@ -1794,7 +1793,7 @@ type FriendGroupMemberMutableRole string
 type FriendGroupMemberObject struct {
 	CreatedAt       *time.Time             `json:"created_at,omitempty"`
 	FriendGroupName *string                `json:"friend_group_name,omitempty"`
-	Id              *string                `json:"id,omitempty"`
+	Name            string                 `json:"name"`
 	PeerPublicKey   *string                `json:"peer_public_key,omitempty"`
 	Role            *FriendGroupMemberRole `json:"role,omitempty"`
 	UpdatedAt       *time.Time             `json:"updated_at,omitempty"`
@@ -1803,7 +1802,7 @@ type FriendGroupMemberObject struct {
 // FriendGroupMemberPutRequest defines model for FriendGroupMemberPutRequest.
 type FriendGroupMemberPutRequest struct {
 	FriendGroupName string                       `json:"friend_group_name"`
-	Id              string                       `json:"id"`
+	Name            string                       `json:"name"`
 	Role            FriendGroupMemberMutableRole `json:"role"`
 }
 
@@ -1816,13 +1815,13 @@ type FriendGroupMemberRole string
 // FriendGroupMessageAudioGetRequest defines model for FriendGroupMessageAudioGetRequest.
 type FriendGroupMessageAudioGetRequest struct {
 	FriendGroupName string `json:"friend_group_name"`
-	HistoryId       string `json:"history_id"`
+	HistoryName     string `json:"history_name"`
 }
 
 // FriendGroupMessageAudioGetResponse defines model for FriendGroupMessageAudioGetResponse.
 type FriendGroupMessageAudioGetResponse struct {
 	FriendGroupName string `json:"friend_group_name"`
-	HistoryId       string `json:"history_id"`
+	HistoryName     string `json:"history_name"`
 	MimeType        string `json:"mime_type"`
 	SizeBytes       int64  `json:"size_bytes"`
 }
@@ -1830,7 +1829,7 @@ type FriendGroupMessageAudioGetResponse struct {
 // FriendGroupMessageGetRequest defines model for FriendGroupMessageGetRequest.
 type FriendGroupMessageGetRequest struct {
 	FriendGroupName string `json:"friend_group_name"`
-	HistoryId       string `json:"history_id"`
+	HistoryName     string `json:"history_name"`
 }
 
 // FriendGroupMessageGetResponse defines model for FriendGroupMessageGetResponse.
@@ -1853,11 +1852,11 @@ type FriendGroupMessageListResponse struct {
 
 // FriendGroupMessageObject defines model for FriendGroupMessageObject.
 type FriendGroupMessageObject struct {
+	ActorName           string                  `json:"actor_name"`
 	AudioAvailable      bool                    `json:"audio_available"`
 	CreatedAt           time.Time               `json:"created_at"`
 	ExpiresAt           *time.Time              `json:"expires_at,omitempty"`
 	FriendGroupName     string                  `json:"friend_group_name"`
-	HistoryId           string                  `json:"history_id"`
 	Name                string                  `json:"name"`
 	SenderPeerPublicKey *string                 `json:"sender_peer_public_key,omitempty"`
 	Text                string                  `json:"text"`
@@ -1926,7 +1925,7 @@ type FriendListResponse struct {
 // FriendObject defines model for FriendObject.
 type FriendObject struct {
 	CreatedAt     *time.Time `json:"created_at,omitempty"`
-	Id            *string    `json:"id,omitempty"`
+	Name          string     `json:"name"`
 	PeerPublicKey *string    `json:"peer_public_key,omitempty"`
 	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
 	WorkspaceName *string    `json:"workspace_name,omitempty"`
@@ -1956,7 +1955,7 @@ type GameResult struct {
 	Difficulty         *string           `json:"difficulty,omitempty"`
 	DurationMs         *int64            `json:"duration_ms,omitempty"`
 	GameDefName        string            `json:"game_def_name"`
-	Id                 string            `json:"id"`
+	Name               string            `json:"name"`
 	IdempotencyKey     *string           `json:"idempotency_key,omitempty"`
 	MaxScore           *int64            `json:"max_score,omitempty"`
 	OccurredAt         time.Time         `json:"occurred_at"`
@@ -1979,11 +1978,6 @@ type GameRewardSpec struct {
 	BadgeExpDelta map[string]int64 `json:"badge_exp_delta"`
 	PetExpDelta   int64            `json:"pet_exp_delta"`
 	Reason        string           `json:"reason"`
-}
-
-// GameplayGetRequest defines model for GameplayGetRequest.
-type GameplayGetRequest struct {
-	Id string `json:"id"`
 }
 
 // GameplayNameGetRequest defines model for GameplayNameGetRequest.
@@ -2213,8 +2207,8 @@ type PeerRunHistoryEntry struct {
 	CreatedAt time.Time `json:"created_at"`
 
 	// GearId Originating gear id. Required for gear entries and omitted for agent entries.
+	ActorName       string                  `json:"actor_name"`
 	GearId          *string                 `json:"gear_id,omitempty"`
-	Id              string                  `json:"id"`
 	Name            string                  `json:"name"`
 	ReplayAvailable bool                    `json:"replay_available"`
 	Text            string                  `json:"text"`
@@ -2245,15 +2239,15 @@ type PeerRunHistoryListResponse struct {
 
 // PeerRunHistoryPlayRequest defines model for PeerRunHistoryPlayRequest.
 type PeerRunHistoryPlayRequest struct {
-	HistoryId string `json:"history_id"`
+	HistoryName string `json:"history_name"`
 }
 
 // PeerRunHistoryPlayResponse defines model for PeerRunHistoryPlayResponse.
 type PeerRunHistoryPlayResponse struct {
-	Accepted  bool    `json:"accepted"`
-	HistoryId string  `json:"history_id"`
-	Message   *string `json:"message,omitempty"`
-	State     string  `json:"state"`
+	Accepted    bool    `json:"accepted"`
+	HistoryName string  `json:"history_name"`
+	Message     *string `json:"message,omitempty"`
+	State       string  `json:"state"`
 }
 
 // PeerRunMemoryStatsRequest defines model for PeerRunMemoryStatsRequest.
@@ -2277,11 +2271,11 @@ type PeerRunMemoryStatsResponse struct {
 // PeerRunRecallHit defines model for PeerRunRecallHit.
 type PeerRunRecallHit struct {
 	CreatedAt  *time.Time      `json:"created_at,omitempty"`
-	Id         string          `json:"id"`
 	Metadata   *map[string]any `json:"metadata,omitempty"`
+	Name       string          `json:"name"`
 	Score      float64         `json:"score"`
 	Snippet    string          `json:"snippet"`
-	SourceId   *string         `json:"source_id,omitempty"`
+	SourceName *string         `json:"source_name,omitempty"`
 	SourceType *string         `json:"source_type,omitempty"`
 }
 
@@ -2542,14 +2536,14 @@ type PointsTransaction struct {
 	BalanceAfter       int64     `json:"balance_after"`
 	CreatedAt          time.Time `json:"created_at"`
 	Delta              int64     `json:"delta"`
-	GameResultId       *string   `json:"game_result_id,omitempty"`
-	Id                 string    `json:"id"`
+	GameResultName     *string   `json:"game_result_name,omitempty"`
+	Name               string    `json:"name"`
 	OwnerPublicKey     string    `json:"owner_public_key"`
 	PetName            *string   `json:"pet_name,omitempty"`
 	Reason             string    `json:"reason"`
-	RewardGrantId      *string   `json:"reward_grant_id,omitempty"`
+	RewardGrantName    *string   `json:"reward_grant_name,omitempty"`
 	RuntimeProfileName string    `json:"runtime_profile_name"`
-	SourceId           string    `json:"source_id"`
+	SourceName         string    `json:"source_name"`
 	SourceType         string    `json:"source_type"`
 }
 
@@ -2602,15 +2596,15 @@ type RPCVersion int
 type RewardGrant struct {
 	BadgeExpDelta      map[string]int64 `json:"badge_exp_delta"`
 	CreatedAt          time.Time        `json:"created_at"`
-	GameResultId       *string          `json:"game_result_id,omitempty"`
-	Id                 string           `json:"id"`
+	GameResultName     *string          `json:"game_result_name,omitempty"`
+	Name               string           `json:"name"`
 	OwnerPublicKey     string           `json:"owner_public_key"`
 	PetExpDelta        int64            `json:"pet_exp_delta"`
 	PetName            *string          `json:"pet_name,omitempty"`
 	PointsDelta        int64            `json:"points_delta"`
 	Reason             *string          `json:"reason,omitempty"`
 	RuntimeProfileName string           `json:"runtime_profile_name"`
-	SourceId           string           `json:"source_id"`
+	SourceName         string           `json:"source_name"`
 	SourceType         string           `json:"source_type"`
 }
 
@@ -2643,7 +2637,7 @@ type ServerBadgeListRequest = GameplayListRequest
 type ServerBadgeListResponse = BadgeListResponse
 
 // ServerGameResultGetRequest defines model for ServerGameResultGetRequest.
-type ServerGameResultGetRequest = GameplayGetRequest
+type ServerGameResultGetRequest = GameplayNameGetRequest
 
 // ServerGameResultGetResponse defines model for ServerGameResultGetResponse.
 type ServerGameResultGetResponse = GameResult
@@ -2751,7 +2745,7 @@ type ServerPointsGetRequest = map[string]any
 type ServerPointsGetResponse = PointsAccount
 
 // ServerPointsTransactionGetRequest defines model for ServerPointsTransactionGetRequest.
-type ServerPointsTransactionGetRequest = GameplayGetRequest
+type ServerPointsTransactionGetRequest = GameplayNameGetRequest
 
 // ServerPointsTransactionGetResponse defines model for ServerPointsTransactionGetResponse.
 type ServerPointsTransactionGetResponse = PointsTransaction
@@ -2781,7 +2775,7 @@ type ServerReloadRunWorkspaceRequest = map[string]any
 type ServerReloadRunWorkspaceResponse = PeerRunWorkspaceState
 
 // ServerRewardGrantGetRequest defines model for ServerRewardGrantGetRequest.
-type ServerRewardGrantGetRequest = GameplayGetRequest
+type ServerRewardGrantGetRequest = GameplayNameGetRequest
 
 // ServerRewardGrantGetResponse defines model for ServerRewardGrantGetResponse.
 type ServerRewardGrantGetResponse = RewardGrant
@@ -3111,13 +3105,13 @@ type WorkspaceGetResponse struct {
 
 // WorkspaceHistoryAudioGetRequest defines model for WorkspaceHistoryAudioGetRequest.
 type WorkspaceHistoryAudioGetRequest struct {
-	HistoryId     string `json:"history_id"`
+	HistoryName   string `json:"history_name"`
 	WorkspaceName string `json:"workspace_name"`
 }
 
 // WorkspaceHistoryAudioGetResponse defines model for WorkspaceHistoryAudioGetResponse.
 type WorkspaceHistoryAudioGetResponse struct {
-	HistoryId     string `json:"history_id"`
+	HistoryName   string `json:"history_name"`
 	MimeType      string `json:"mime_type"`
 	SizeBytes     int64  `json:"size_bytes"`
 	WorkspaceName string `json:"workspace_name"`
@@ -3125,7 +3119,7 @@ type WorkspaceHistoryAudioGetResponse struct {
 
 // WorkspaceHistoryGetRequest defines model for WorkspaceHistoryGetRequest.
 type WorkspaceHistoryGetRequest struct {
-	HistoryId     string `json:"history_id"`
+	HistoryName   string `json:"history_name"`
 	WorkspaceName string `json:"workspace_name"`
 }
 

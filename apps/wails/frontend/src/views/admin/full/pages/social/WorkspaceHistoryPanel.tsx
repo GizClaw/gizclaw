@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import {
   downloadWorkspaceHistoryAudio,
   listWorkspaceHistory,
-  type PeerRunHistoryEntry,
+  type AdminWorkspaceHistoryEntry,
 } from "@gizclaw/gizclaw/admin";
 import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +51,7 @@ export function WorkspaceHistoryPanel({
     pageNumber,
     prevPage,
     refresh,
-  } = useCursorListPage<PeerRunHistoryEntry>(async (query) => {
+  } = useCursorListPage<AdminWorkspaceHistoryEntry>(async (query) => {
     if (normalizedWorkspaceID === "") {
       return { hasNext: false, items: [], nextCursor: null };
     }
@@ -186,7 +186,7 @@ export function WorkspaceHistoryPanel({
                     </Badge>
                   </TableCell>
                   <TableCell className="font-mono text-xs">
-                    {entry.name}
+                    {entry.actor_name}
                     {entry.gear_id ? (
                       <div className="mt-1 break-all text-muted-foreground">
                         {entry.gear_id}

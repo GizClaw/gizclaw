@@ -33,7 +33,7 @@ func TestServerWorkspaceHistoryServiceReadPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListWorkspaceHistory() error = %v", err)
 	}
-	if len(list.Items) != 1 || list.Items[0].Id != entry.ID || list.Items[0].Text != "hello" {
+	if len(list.Items) != 1 || list.Items[0].Name != entry.ID || list.Items[0].Text != "hello" {
 		t.Fatalf("ListWorkspaceHistory() = %+v", list)
 	}
 	page, err := srv.ListWorkspaceHistoryPage(ctx, "demo0001", apitypes.PeerRunHistoryListRequest{})

@@ -72,7 +72,7 @@ message FriendAddResponse {
 }
 
 message FriendDeleteRequest {
-  string id = 1;
+  string name = 1;
 }
 
 message FriendDeleteResponse {
@@ -80,16 +80,16 @@ message FriendDeleteResponse {
 }
 
 message FriendInfo {
-  optional string name = 1;
+  optional string display_name = 1;
   optional string emoji = 2;
 }
 
 message FriendInfoGetRequest {
-  string id = 1;
+  string name = 1;
 }
 
 message FriendInfoGetResponse {
-  string id = 1;
+  string name = 1;
   FriendInfo value = 2;
 }
 
@@ -178,7 +178,7 @@ message FriendGroupMemberAddResponse {
 
 message FriendGroupMemberDeleteRequest {
   string friend_group_name = 1;
-  string id = 2;
+  string name = 2;
 }
 
 message FriendGroupMemberDeleteResponse {
@@ -200,7 +200,7 @@ message FriendGroupMemberListResponse {
 message FriendGroupMemberObject {
   optional string created_at = 1;
   optional string friend_group_name = 2;
-  optional string id = 3;
+  string name = 3;
   optional string peer_public_key = 4;
   optional FriendGroupMemberRole role = 5;
   optional string updated_at = 6;
@@ -208,7 +208,7 @@ message FriendGroupMemberObject {
 
 message FriendGroupMemberPutRequest {
   string friend_group_name = 1;
-  string id = 2;
+  string name = 2;
   FriendGroupMemberMutableRole role = 3;
 }
 
@@ -218,19 +218,19 @@ message FriendGroupMemberPutResponse {
 
 message FriendGroupMessageAudioGetRequest {
   string friend_group_name = 1;
-  string history_id = 2;
+  string history_name = 2;
 }
 
 message FriendGroupMessageAudioGetResponse {
   string friend_group_name = 1;
-  string history_id = 2;
+  string history_name = 2;
   string mime_type = 3;
   int64 size_bytes = 4;
 }
 
 message FriendGroupMessageGetRequest {
   string friend_group_name = 1;
-  string history_id = 2;
+  string history_name = 2;
 }
 
 message FriendGroupMessageGetResponse {
@@ -255,8 +255,8 @@ message FriendGroupMessageObject {
   optional string expires_at = 2;
   string friend_group_name = 3;
   optional string sender_peer_public_key = 4;
-  string history_id = 5;
-  string name = 6;
+  string name = 5;
+  string actor_name = 6;
   string text = 7;
   PeerRunHistoryEntryType type = 8;
   bool audio_available = 9;
@@ -318,7 +318,7 @@ message FriendListResponse {
 
 message FriendObject {
   optional string created_at = 1;
-  optional string id = 2;
+  string name = 2;
   optional string peer_public_key = 3;
   optional string updated_at = 4;
   optional string workspace_name = 5;

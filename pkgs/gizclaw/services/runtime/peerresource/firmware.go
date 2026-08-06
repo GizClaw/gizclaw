@@ -61,12 +61,11 @@ func (s *Server) getFirmwareChannel(ctx context.Context, channel rpcapi.Firmware
 		return rpcapi.FirmwareGetResponse{}, errFirmwarePackageNotFound
 	}
 	return rpcapi.FirmwareGetResponse{
-		FirmwareName: item.Name,
-		Channel:      channel,
-		Description:  slot.Description,
-		Url:          slot.Package.Url,
-		Sha256:       slot.Package.Sha256,
-		Size:         slot.Package.Size,
+		Channel:     channel,
+		Description: slot.Description,
+		Url:         slot.Package.Url,
+		Sha256:      slot.Package.Sha256,
+		Size:        slot.Package.Size,
 	}, nil
 }
 

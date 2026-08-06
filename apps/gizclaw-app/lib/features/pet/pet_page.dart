@@ -670,7 +670,7 @@ class _PetConversationDrift extends StatelessWidget {
               ? Alignment.centerLeft
               : Alignment.centerRight;
           return Align(
-            key: ValueKey(message.id),
+            key: ValueKey(message.key),
             alignment: alignment,
             child: FractionallySizedBox(
               widthFactor: 0.77,

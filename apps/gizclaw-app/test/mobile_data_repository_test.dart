@@ -31,7 +31,7 @@ void main() {
         ],
         friends: [
           FriendObject(
-            id: 'friend-a',
+            name: 'friend-a',
             peerPublicKey: 'peer-public-key-a',
             workspaceName: 'social-direct-a',
           ),
@@ -339,7 +339,7 @@ void main() {
         ],
         friends: [
           FriendObject(
-            id: 'friend-a',
+            name: 'friend-a',
             peerPublicKey: 'peer-a',
             workspaceName: 'friend-workspace-a',
           ),
@@ -377,6 +377,33 @@ void main() {
       );
     },
   );
+
+  test('rejects social objects without their Peer name', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(database);
+    final client = _FakeClient(
+      workspaces: const [],
+      friends: [
+        FriendObject(
+          peerPublicKey: 'peer-a',
+          workspaceName: 'friend-workspace-a',
+        ),
+      ],
+      friendGroups: [FriendGroupObject(workspaceName: 'group-workspace-a')],
+    );
+
+    final warnings = await repository.refresh(
+      client: client,
+      endpoint: 'local',
+      isCurrent: () => true,
+      serverId: 'server-a',
+    );
+
+    expect(warnings.map((warning) => warning.scope), ['Friends', 'Groups']);
+    expect(await repository.watchFriendChats('server-a').first, isEmpty);
+    expect(await repository.watchFriendGroupChats('server-a').first, isEmpty);
+  });
 }
 
 class _FakeClient extends GizClawClient {

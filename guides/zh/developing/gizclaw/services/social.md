@@ -21,6 +21,8 @@ services/social/
 
 拥有 friend request 的创建、接受、拒绝，以及 friend relationship 的读取和删除。Friend 关系直接决定双方对 system Workspace 的访问，不创建通用访问 role。
 
+Peer RPC 以 `name` 暴露 Friend relationship 的稳定身份，其值是已由 authenticated caller 限定 scope 的另一方 Peer public key；get/info/delete 接收同一个 `name`。Profile 展示字段是 `FriendInfo.display_name`。确定性的 relationship ID 只保留在内部以及 Admin/persistence surface。
+
 每个好友直聊生命周期拥有一个独立的 system Workspace。稳定 `RelationID` 只标识双方；每次从无关系进入 active 状态时，服务创建新的 opaque incarnation，并从 `(RelationID, incarnation)` 派生新的 Workspace name。持久化 creation intent 固定本次 incarnation、Workspace owner、Workspace name 和 owner RuntimeProfile `workflows.system.friend_chatroom` 选择的 Chatroom Workflow；Workspace 创建与双方 relationship 提交之间发生失败时，重试或启动恢复会复用同一 intent，不会产生第二个 identity。每个 incarnation 还保留一个不可变 decision，通过原子竞争只允许“提交双方 relationship”或“取消创建”其中一方获胜，因此共享 relationship store 的两个服务实例不能同时提交这两个状态。如果 intent 尚未提交 relationship 时收到删除请求，服务会记录 cancellation decision 并删除从未 active 的 Workspace；延迟的创建方竞争失败后也会再次执行这次幂等清理，启动恢复不会重新建立这段关系。所有清理都只在 pair 当前 creation intent 的存储 incarnation 仍匹配时执行原子 compare-and-delete，因此旧生命周期的延迟工作不能移除重新加好友产生的新恢复意图。
 
 Friend relationship 行保存 Peer 可见的精确 Workspace name，内部 binding 则保存用于 retirement、`PendingDeletion`、runtime、history 与 asset cleanup 的 canonical Workspace ID。正式删除好友时，服务在同一个 KV `BatchMutate` 中原子删除双方 relationship 并保存最小的 ID-based retirement intent，提交成功后才进入清理队列；完成后用 compact retirement receipt 保留幂等重试所需的 canonical identity 与不可变 name。重新加好友始终创建新的 Workspace，不查询、清除或复用旧 Workspace 的清理状态。Relationship 或 binding 缺少最终 Schema 要求的 identity 字段时视为无效，不提供旧 identity fallback。创建 invite token 的 Peer 是发起人和不可变 Workspace owner；接受邀请的一方获得访问权但不共享 ownership，Admin 创建使用显式 owner。
@@ -31,7 +33,7 @@ Friend relationship 行保存 Peer 可见的精确 Workspace name，内部 bindi
 
 每个 Friend Group 生命周期拥有一个 system Workspace。创建 rollback 可以立即删除未投入使用的 Workspace；正式删除群组时先在一个共享 relationship store transaction 中原子删除 Group、invite、member 与 belongs 记录并保存 retirement intent。提交成功后，服务先创建一条 Friend Group 数据 `PendingDeletion`，再把 Workspace 放入它自己的 `PendingDeletion`。Workspace History、runtime 与 artifact 都保持物理完整，由各自 ownership 的异步 cleaner 处理。旧版 Friend Group pending-deletion descriptor 可能仍含已退役的 message-store locator；重试只负责兼容解码，不会重新打开或清理这些 store。Peer 创建的群归创建者所有；Admin 创建必须显式给出 owner。成员身份只授予数据访问，不改变 ownership。服务从 owner RuntimeProfile 的 `workflows.system.group_chatroom` 选择真实 Chatroom Workflow。
 
-Conversation 是群消息唯一写入路径。`server.friend_group.messages.list/get/audio.get` 只是绑定 Workspace History 的只读 Social 投影：先加载群组、校验当前成员身份、解析已保存的 Workspace 名，再返回稳定的 History ID 和仍保留的 History 音频。Friend Group 不拥有消息 metadata store、音频 store、独立 TTL 或清理循环。
+Peer membership object 以 `friend_group_name` scope 内的 `name` 作为身份；Admin membership object 继续同时保留 canonical `id` 与 scoped `name`。Conversation 是群消息唯一写入路径。`server.friend_group.messages.list/get/audio.get` 只是绑定 Workspace History 的只读 Social 投影：先加载群组、校验当前成员身份、解析已保存的 Workspace 名，再返回稳定的消息 `name`、`actor_name` 归属与仍保留的 History 音频；get/audio selector 使用 `friend_group_name + history_name`。Friend Group 不拥有消息 metadata store、音频 store、独立 TTL 或清理循环。
 
 relationship 提交与 Workspace retirement 分成两个可重试阶段：第一阶段失败时
 relationship 与 Workspace 都保持可用；第二阶段失败时保留 retirement intent，

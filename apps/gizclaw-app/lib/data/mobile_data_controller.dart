@@ -1127,11 +1127,11 @@ class MobileDataController extends ChangeNotifier {
 
   Future<void> deleteFriendGroupMember(
     String friendGroupName,
-    String memberId,
+    String memberName,
   ) async {
     await _groupClient().deleteFriendGroupMember(
       friendGroupName.trim(),
-      memberId.trim(),
+      memberName.trim(),
     );
     await refresh();
   }

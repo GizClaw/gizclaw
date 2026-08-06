@@ -39,10 +39,9 @@ final $typed_data.Uint8List firmwareGetRequestDescriptor = $convert.base64Decode
 const FirmwareGetResponse$json = {
   '1': 'FirmwareGetResponse',
   '2': [
-    {'1': 'firmware_name', '3': 1, '4': 1, '5': 9, '10': 'firmwareName'},
     {
       '1': 'channel',
-      '3': 2,
+      '3': 1,
       '4': 1,
       '5': 14,
       '6': '.gizclaw.rpc.v1.FirmwareChannelName',
@@ -50,16 +49,16 @@ const FirmwareGetResponse$json = {
     },
     {
       '1': 'description',
-      '3': 3,
+      '3': 2,
       '4': 1,
       '5': 9,
       '9': 0,
       '10': 'description',
       '17': true
     },
-    {'1': 'url', '3': 4, '4': 1, '5': 9, '10': 'url'},
-    {'1': 'sha256', '3': 5, '4': 1, '5': 9, '10': 'sha256'},
-    {'1': 'size', '3': 6, '4': 1, '5': 3, '10': 'size'},
+    {'1': 'url', '3': 3, '4': 1, '5': 9, '10': 'url'},
+    {'1': 'sha256', '3': 4, '4': 1, '5': 9, '10': 'sha256'},
+    {'1': 'size', '3': 5, '4': 1, '5': 3, '10': 'size'},
   ],
   '8': [
     {'1': '_description'},
@@ -68,8 +67,7 @@ const FirmwareGetResponse$json = {
 
 /// Descriptor for `FirmwareGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List firmwareGetResponseDescriptor = $convert.base64Decode(
-    'ChNGaXJtd2FyZUdldFJlc3BvbnNlEiMKDWZpcm13YXJlX25hbWUYASABKAlSDGZpcm13YXJlTm'
-    'FtZRI9CgdjaGFubmVsGAIgASgOMiMuZ2l6Y2xhdy5ycGMudjEuRmlybXdhcmVDaGFubmVsTmFt'
-    'ZVIHY2hhbm5lbBIlCgtkZXNjcmlwdGlvbhgDIAEoCUgAUgtkZXNjcmlwdGlvbogBARIQCgN1cm'
-    'wYBCABKAlSA3VybBIWCgZzaGEyNTYYBSABKAlSBnNoYTI1NhISCgRzaXplGAYgASgDUgRzaXpl'
-    'Qg4KDF9kZXNjcmlwdGlvbg==');
+    'ChNGaXJtd2FyZUdldFJlc3BvbnNlEj0KB2NoYW5uZWwYASABKA4yIy5naXpjbGF3LnJwYy52MS'
+    '5GaXJtd2FyZUNoYW5uZWxOYW1lUgdjaGFubmVsEiUKC2Rlc2NyaXB0aW9uGAIgASgJSABSC2Rl'
+    'c2NyaXB0aW9uiAEBEhAKA3VybBgDIAEoCVIDdXJsEhYKBnNoYTI1NhgEIAEoCVIGc2hhMjU2Eh'
+    'IKBHNpemUYBSABKANSBHNpemVCDgoMX2Rlc2NyaXB0aW9u');

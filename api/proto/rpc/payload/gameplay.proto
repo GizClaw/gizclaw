@@ -40,15 +40,15 @@ message GameResult {
   optional string difficulty = 2;
   optional int64 duration_ms = 3;
   string game_def_name = 4;
-  string id = 5;
+  string name = 5;
   optional string idempotency_key = 6;
   optional int64 max_score = 7;
   string occurred_at = 8;
   optional string outcome = 9;
-  optional GameplayMetadata payload = 11;
-  string pet_name = 12;
-  string runtime_profile_name = 13;
-  optional int64 score = 14;
+  optional GameplayMetadata payload = 10;
+  string pet_name = 11;
+  string runtime_profile_name = 12;
+  optional int64 score = 13;
 }
 
 message GameResultListResponse {
@@ -61,10 +61,6 @@ message GameRewardSpec {
   map<string, int64> badge_exp_delta = 1;
   int64 pet_exp_delta = 2;
   string reason = 3;
-}
-
-message GameplayGetRequest {
-  string id = 1;
 }
 
 message GameplayNameGetRequest {
@@ -224,14 +220,14 @@ message PointsTransaction {
   int64 balance_after = 1;
   string created_at = 2;
   int64 delta = 3;
-  optional string game_result_id = 4;
-  string id = 5;
+  optional string game_result_name = 4;
+  string name = 5;
   string owner_public_key = 6;
   optional string pet_name = 7;
   string reason = 8;
-  optional string reward_grant_id = 9;
+  optional string reward_grant_name = 9;
   string runtime_profile_name = 10;
-  string source_id = 11;
+  string source_name = 11;
   string source_type = 12;
 }
 
@@ -244,15 +240,15 @@ message PointsTransactionListResponse {
 message RewardGrant {
   map<string, int64> badge_exp_delta = 1;
   string created_at = 2;
-  optional string game_result_id = 3;
-  string id = 4;
+  optional string game_result_name = 3;
+  string name = 4;
   string owner_public_key = 5;
   int64 pet_exp_delta = 6;
   optional string pet_name = 7;
   int64 points_delta = 8;
   optional string reason = 9;
   string runtime_profile_name = 10;
-  string source_id = 11;
+  string source_name = 11;
   string source_type = 12;
 }
 
@@ -279,7 +275,7 @@ message ServerBadgeListResponse {
 }
 
 message ServerGameResultGetRequest {
-  GameplayGetRequest value = 1;
+  GameplayNameGetRequest value = 1;
 }
 
 message ServerGameResultGetResponse {
@@ -366,7 +362,7 @@ message ServerPointsGetResponse {
 }
 
 message ServerPointsTransactionGetRequest {
-  GameplayGetRequest value = 1;
+  GameplayNameGetRequest value = 1;
 }
 
 message ServerPointsTransactionGetResponse {
@@ -382,7 +378,7 @@ message ServerPointsTransactionListResponse {
 }
 
 message ServerRewardGrantGetRequest {
-  GameplayGetRequest value = 1;
+  GameplayNameGetRequest value = 1;
 }
 
 message ServerRewardGrantGetResponse {

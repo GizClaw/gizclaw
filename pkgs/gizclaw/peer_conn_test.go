@@ -104,7 +104,7 @@ func TestPeerConnRejectsRevokedChatroomTurnWithoutPushingAgentInput(t *testing.T
 	}
 	relationWorkspaceName := socialutil.StringValue(relation.WorkspaceName)
 	friends.Workspaces = &adminGameplayWorkspaceService{}
-	if _, err := friends.DeleteFriend(ctx, caller.String(), rpcapi.FriendDeleteRequest{Id: other.String()}); err != nil {
+	if _, err := friends.DeleteFriend(ctx, caller.String(), rpcapi.FriendDeleteRequest{Name: other.String()}); err != nil {
 		t.Fatalf("DeleteFriend: %v", err)
 	}
 	runs := &peerrun.Server{Store: kv.NewMemory(nil)}
@@ -334,7 +334,7 @@ func TestPeerConnReauthorizesAudioPacketsAfterChatroomAccessIsRevoked(t *testing
 		t.Fatal("authorized BOS was rejected")
 	}
 	friends.Workspaces = &adminGameplayWorkspaceService{}
-	if _, err := friends.DeleteFriend(ctx, caller.String(), rpcapi.FriendDeleteRequest{Id: other.String()}); err != nil {
+	if _, err := friends.DeleteFriend(ctx, caller.String(), rpcapi.FriendDeleteRequest{Name: other.String()}); err != nil {
 		t.Fatalf("DeleteFriend: %v", err)
 	}
 	peer.observePeerEvent(&eventpb.PeerEvent{

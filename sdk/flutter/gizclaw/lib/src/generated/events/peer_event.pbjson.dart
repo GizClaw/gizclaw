@@ -430,7 +430,7 @@ const GameplayRewardUpdated$json = {
   '1': 'GameplayRewardUpdated',
   '2': [
     {'1': 'workspace_name', '3': 1, '4': 1, '5': 9, '10': 'workspaceName'},
-    {'1': 'reward_grant_id', '3': 2, '4': 1, '5': 9, '10': 'rewardGrantId'},
+    {'1': 'reward_grant_name', '3': 2, '4': 1, '5': 9, '10': 'rewardGrantName'},
     {'1': 'revision_unix_ms', '3': 3, '4': 1, '5': 3, '10': 'revisionUnixMs'},
   ],
 };
@@ -438,5 +438,5 @@ const GameplayRewardUpdated$json = {
 /// Descriptor for `GameplayRewardUpdated`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List gameplayRewardUpdatedDescriptor = $convert.base64Decode(
     'ChVHYW1lcGxheVJld2FyZFVwZGF0ZWQSJQoOd29ya3NwYWNlX25hbWUYASABKAlSDXdvcmtzcG'
-    'FjZU5hbWUSJgoPcmV3YXJkX2dyYW50X2lkGAIgASgJUg1yZXdhcmRHcmFudElkEigKEHJldmlz'
-    'aW9uX3VuaXhfbXMYAyABKANSDnJldmlzaW9uVW5peE1z');
+    'FjZU5hbWUSKgoRcmV3YXJkX2dyYW50X25hbWUYAiABKAlSD3Jld2FyZEdyYW50TmFtZRIoChBy'
+    'ZXZpc2lvbl91bml4X21zGAMgASgDUg5yZXZpc2lvblVuaXhNcw==');

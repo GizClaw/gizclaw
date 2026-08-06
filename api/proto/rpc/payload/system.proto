@@ -85,7 +85,6 @@ message ServerRegisterRequest {
 
 message ServerRegisterResponse {
   string runtime_profile_name = 1;
-  optional string firmware_name = 2;
 }
 
 message ServerPeerDeleteRequest {

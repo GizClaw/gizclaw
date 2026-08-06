@@ -73,12 +73,12 @@ func (d *personaDriver) runRealtimeAutoSplitHistory(ctx context.Context) error {
 	}
 	for i, item := range matched {
 		d.drainTransport()
-		fmt.Printf("workspace_progress event=realtime_auto_split_history_replay_start workspace=%s index=%d history_id=%s text=%q\n", d.cfg.Workspace, i+1, item.Id, item.Text)
+		fmt.Printf("workspace_progress event=realtime_auto_split_history_replay_start workspace=%s index=%d history_name=%s text=%q\n", d.cfg.Workspace, i+1, item.Name, item.Text)
 		play, err := d.runtimeClient.PlayServerRunWorkspaceHistory(ctx, fmt.Sprintf("workspacetest.realtime_auto_split.history.play.%d", i+1), rpcapi.ServerPlayRunWorkspaceHistoryRequest{
-			HistoryId: item.Id,
+			HistoryName: item.Name,
 		})
 		if err != nil {
-			return fmt.Errorf("realtime auto split history replay %q: play: %w", item.Id, err)
+			return fmt.Errorf("realtime auto split history replay %q: play: %w", item.Name, err)
 		}
 		if play == nil || !play.Accepted {
 			state := ""
@@ -89,7 +89,7 @@ func (d *personaDriver) runRealtimeAutoSplitHistory(ctx context.Context) error {
 					message = *play.Message
 				}
 			}
-			return fmt.Errorf("realtime auto split history replay %q rejected state=%s: %s", item.Id, state, message)
+			return fmt.Errorf("realtime auto split history replay %q rejected state=%s: %s", item.Name, state, message)
 		}
 		replay, err := d.verifyHistoryReplayWithOptions(ctx, item, historyReplayVerifyOptions{
 			SkipTextSimilarity:      true,
@@ -97,9 +97,9 @@ func (d *personaDriver) runRealtimeAutoSplitHistory(ctx context.Context) error {
 			AssistantAudioASRReason: "realtime-auto-split-history",
 		})
 		if err != nil {
-			return fmt.Errorf("realtime auto split history replay %q output: %w", item.Id, err)
+			return fmt.Errorf("realtime auto split history replay %q output: %w", item.Name, err)
 		}
-		fmt.Printf("workspace_progress event=realtime_auto_split_history_replay_done workspace=%s index=%d history_id=%s packets=%d audio_asr=%q\n", d.cfg.Workspace, i+1, item.Id, replay.DownlinkPackets, replay.AudioASR)
+		fmt.Printf("workspace_progress event=realtime_auto_split_history_replay_done workspace=%s index=%d history_name=%s packets=%d audio_asr=%q\n", d.cfg.Workspace, i+1, item.Name, replay.DownlinkPackets, replay.AudioASR)
 	}
 	return nil
 }
@@ -207,7 +207,7 @@ func (d *personaDriver) listRealtimeAutoSplitHistory(ctx context.Context) ([]rpc
 func historyIDSet(items []rpcapi.PeerRunHistoryEntry) map[string]struct{} {
 	out := make(map[string]struct{}, len(items))
 	for _, item := range items {
-		out[item.Id] = struct{}{}
+		out[item.Name] = struct{}{}
 	}
 	return out
 }
@@ -215,10 +215,10 @@ func historyIDSet(items []rpcapi.PeerRunHistoryEntry) map[string]struct{} {
 func filterRealtimeAutoSplitGearHistory(items []rpcapi.PeerRunHistoryEntry, before map[string]struct{}, requireReplay bool) []rpcapi.PeerRunHistoryEntry {
 	out := make([]rpcapi.PeerRunHistoryEntry, 0, len(items))
 	for _, item := range items {
-		if _, ok := before[item.Id]; ok {
+		if _, ok := before[item.Name]; ok {
 			continue
 		}
-		if item.Type != rpcapi.PeerRunHistoryEntryTypeGear || item.Name != "transcript" || strings.TrimSpace(item.Text) == "" {
+		if item.Type != rpcapi.PeerRunHistoryEntryTypeGear || item.ActorName != "transcript" || strings.TrimSpace(item.Text) == "" {
 			continue
 		}
 		if requireReplay && !item.ReplayAvailable {
@@ -253,7 +253,7 @@ func matchRealtimeAutoSplitHistory(expected []string, items []rpcapi.PeerRunHist
 func realtimeAutoSplitHistoryCandidateText(items []rpcapi.PeerRunHistoryEntry) string {
 	parts := make([]string, 0, len(items))
 	for _, item := range items {
-		parts = append(parts, fmt.Sprintf("%s:%q", item.Id, item.Text))
+		parts = append(parts, fmt.Sprintf("%s:%q", item.Name, item.Text))
 	}
 	return strings.Join(parts, " | ")
 }

@@ -351,9 +351,9 @@ func (s *HistoryStore) CleanupExpired(ctx context.Context) error {
 
 func (e HistoryEntry) Public() apitypes.PeerRunHistoryEntry {
 	item := apitypes.PeerRunHistoryEntry{
-		Id:              e.ID,
+		Name:            e.ID,
 		Type:            apitypes.PeerRunHistoryEntryType(e.Type),
-		Name:            e.Name,
+		ActorName:       e.Name,
 		Text:            e.Text,
 		CreatedAt:       e.CreatedAt,
 		ReplayAvailable: e.ReplayAvailable,

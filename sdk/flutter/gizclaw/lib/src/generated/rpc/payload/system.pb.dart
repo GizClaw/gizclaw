@@ -1004,12 +1004,10 @@ class ServerRegisterRequest extends $pb.GeneratedMessage {
 class ServerRegisterResponse extends $pb.GeneratedMessage {
   factory ServerRegisterResponse({
     $core.String? runtimeProfileName,
-    $core.String? firmwareName,
   }) {
     final result = create();
     if (runtimeProfileName != null)
       result.runtimeProfileName = runtimeProfileName;
-    if (firmwareName != null) result.firmwareName = firmwareName;
     return result;
   }
 
@@ -1027,7 +1025,6 @@ class ServerRegisterResponse extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'runtimeProfileName')
-    ..aOS(2, _omitFieldNames ? '' : 'firmwareName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1058,15 +1055,6 @@ class ServerRegisterResponse extends $pb.GeneratedMessage {
   $core.bool hasRuntimeProfileName() => $_has(0);
   @$pb.TagNumber(1)
   void clearRuntimeProfileName() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get firmwareName => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set firmwareName($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasFirmwareName() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearFirmwareName() => $_clearField(2);
 }
 
 class ServerPeerDeleteRequest extends $pb.GeneratedMessage {

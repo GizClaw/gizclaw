@@ -40,7 +40,7 @@ class SyncStates extends Table {
 class WorkspaceChatEntries extends Table {
   TextColumn get serverId => text()();
   TextColumn get workspaceName => text()();
-  TextColumn get historyId => text()();
+  TextColumn get historyName => text()();
   TextColumn get role => text()();
   TextColumn get gearId => text().nullable()();
   TextColumn get content => text()();
@@ -49,32 +49,32 @@ class WorkspaceChatEntries extends Table {
   DateTimeColumn get refreshedAt => dateTime()();
 
   @override
-  Set<Column<Object>> get primaryKey => {serverId, workspaceName, historyId};
+  Set<Column<Object>> get primaryKey => {serverId, workspaceName, historyName};
 }
 
 class FriendEntries extends Table {
   TextColumn get serverId => text()();
-  TextColumn get id => text()();
+  TextColumn get name => text()();
   TextColumn get peerPublicKey => text()();
   TextColumn get workspaceName => text().nullable()();
   BlobColumn get rawProtobuf => blob()();
   DateTimeColumn get refreshedAt => dateTime()();
 
   @override
-  Set<Column<Object>> get primaryKey => {serverId, id};
+  Set<Column<Object>> get primaryKey => {serverId, name};
 }
 
 class FriendGroupEntries extends Table {
   TextColumn get serverId => text()();
-  TextColumn get id => text()();
   TextColumn get name => text()();
+  TextColumn get displayName => text()();
   TextColumn get description => text()();
   TextColumn get workspaceName => text().nullable()();
   BlobColumn get rawProtobuf => blob()();
   DateTimeColumn get refreshedAt => dateTime()();
 
   @override
-  Set<Column<Object>> get primaryKey => {serverId, id};
+  Set<Column<Object>> get primaryKey => {serverId, name};
 }
 
 @DriftDatabase(
@@ -93,7 +93,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -119,6 +119,17 @@ class AppDatabase extends _$AppDatabase {
           workspaceChatEntries,
           workspaceChatEntries.gearId,
         );
+      }
+      if (from < 10) {
+        // These tables are disposable Peer projections. Reset them instead of
+        // retaining the pre-final id-shaped cache schema or decoding it as a
+        // compatibility format.
+        await customStatement('DROP TABLE IF EXISTS workspace_chat_entries');
+        await customStatement('DROP TABLE IF EXISTS friend_entries');
+        await customStatement('DROP TABLE IF EXISTS friend_group_entries');
+        await migrator.createTable(workspaceChatEntries);
+        await migrator.createTable(friendEntries);
+        await migrator.createTable(friendGroupEntries);
       }
     },
   );

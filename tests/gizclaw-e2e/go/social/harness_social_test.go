@@ -182,6 +182,7 @@ func setSocialChatWorkspaceInputMode(t *testing.T, h socialHarness, workspaceNam
 		t.Fatalf("encode social workspace %q parameters: %v", workspaceName, err)
 	}
 	body := adminhttp.WorkspaceUpsert{
+		Id:         workspace.Id,
 		Name:       workspace.Name,
 		WorkflowId: workspace.WorkflowId,
 		Parameters: &params,
@@ -279,7 +280,7 @@ func assertFriendInviteTokenFailureCases(t *testing.T, h socialHarness) {
 func assertFriendPagination(t *testing.T, h socialHarness, firstFriend, secondFriend rpcapi.FriendObject) {
 	t.Helper()
 
-	assertFriendPaginationContains(t, h, []string{stringValue(firstFriend.Id), stringValue(secondFriend.Id)})
+	assertFriendPaginationContains(t, h, []string{firstFriend.Name, secondFriend.Name})
 }
 
 func assertContactPagination(t *testing.T, h socialHarness, wantIDs []string) {
@@ -322,7 +323,7 @@ func assertFriendPaginationContains(t *testing.T, h socialHarness, wantIDs []str
 			t.Fatalf("friend page %d = %#v, want at most %d item", page+1, resp, limit)
 		}
 		for _, item := range resp.Items {
-			got[stringValue(item.Id)] = true
+			got[item.Name] = true
 		}
 		if hasAllIDs(got, wantIDs) {
 			return
@@ -527,9 +528,9 @@ func findFriendByPeer(t *testing.T, h socialHarness, contextName, peerID string)
 	return rpcapi.FriendObject{}, false
 }
 
-func mustDeleteFriend(t *testing.T, h socialHarness, contextName, id string) rpcapi.FriendObject {
+func mustDeleteFriend(t *testing.T, h socialHarness, contextName, name string) rpcapi.FriendObject {
 	return mustSocialRPC(t, h, contextName, "friend.delete", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendDeleteResponse, error) {
-		return client.DeleteFriend(ctx, "friend.delete", rpcapi.FriendDeleteRequest{Id: id})
+		return client.DeleteFriend(ctx, "friend.delete", rpcapi.FriendDeleteRequest{Name: name})
 	})
 }
 
@@ -624,7 +625,7 @@ func mustPutFriendGroupMember(t *testing.T, h socialHarness, contextName, groupI
 	return mustSocialRPC(t, h, contextName, "friend_group.members.put", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupMemberPutResponse, error) {
 		return client.PutFriendGroupMember(ctx, "friend_group.members.put", rpcapi.FriendGroupMemberPutRequest{
 			FriendGroupName: groupID,
-			Id:              peerID,
+			Name:            peerID,
 			Role:            role,
 		})
 	})
@@ -634,7 +635,7 @@ func mustDeleteFriendGroupMember(t *testing.T, h socialHarness, contextName, gro
 	return mustSocialRPC(t, h, contextName, "friend_group.members.delete", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupMemberDeleteResponse, error) {
 		return client.DeleteFriendGroupMember(ctx, "friend_group.members.delete", rpcapi.FriendGroupMemberDeleteRequest{
 			FriendGroupName: groupID,
-			Id:              peerID,
+			Name:            peerID,
 		})
 	})
 }
@@ -721,22 +722,22 @@ func sendChatTextAndWaitForHistory(t *testing.T, ctx context.Context, h socialHa
 	entry := waitForWorkspaceHistoryText(t, ctx, reader, workspaceName, text)
 	got, err := reader.GetWorkspaceHistory(ctx, "social.chat.history.get", rpcapi.WorkspaceHistoryGetRequest{
 		WorkspaceName: workspaceName,
-		HistoryId:     entry.Id,
+		HistoryName:   entry.Name,
 	})
 	if err != nil {
-		t.Fatalf("%s workspace history get %q: %v", readerContext, entry.Id, err)
+		t.Fatalf("%s workspace history get %q: %v", readerContext, entry.Name, err)
 	}
 	if got.Text != text || got.Type != rpcapi.PeerRunHistoryEntryTypeGear || got.GearId == nil || *got.GearId != h.ContextPublicKey(writerContext) {
 		t.Fatalf("workspace history get = %#v, want text %q from %s", got, text, writerContext)
 	}
-	play, err := reader.PlayServerRunWorkspaceHistory(ctx, "social.chat.history.play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryId: entry.Id})
+	play, err := reader.PlayServerRunWorkspaceHistory(ctx, "social.chat.history.play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryName: entry.Name})
 	if err != nil {
-		t.Fatalf("%s workspace history play %q: %v", readerContext, entry.Id, err)
+		t.Fatalf("%s workspace history play %q: %v", readerContext, entry.Name, err)
 	}
 	if !play.Accepted {
 		t.Fatalf("workspace history play = %#v, want accepted", play)
 	}
-	waitForWorkspaceHistoryReplayText(t, ctx, replayStream, entry.Id, text)
+	waitForWorkspaceHistoryReplayText(t, ctx, replayStream, entry.Name, text)
 	return entry
 }
 
@@ -756,28 +757,28 @@ func assertWorkspaceHistoryResumeOrder(t *testing.T, ctx context.Context, client
 		second := entries[i+1]
 		next, err := client.ListWorkspaceHistory(ctx, "social.chat.history.list.next", rpcapi.WorkspaceHistoryListRequest{
 			WorkspaceName: workspaceName,
-			Cursor:        &first.Id,
+			Cursor:        &first.Name,
 			Order:         &asc,
 			Limit:         &limit,
 		})
 		if err != nil {
-			t.Fatalf("workspace history list next after %q: %v", first.Id, err)
+			t.Fatalf("workspace history list next after %q: %v", first.Name, err)
 		}
-		if len(next.Items) != 1 || next.Items[0].Id != second.Id {
-			t.Fatalf("workspace history next page = %+v, want %q after %q", next, second.Id, first.Id)
+		if len(next.Items) != 1 || next.Items[0].Name != second.Name {
+			t.Fatalf("workspace history next page = %+v, want %q after %q", next, second.Name, first.Name)
 		}
 
 		prev, err := client.ListWorkspaceHistory(ctx, "social.chat.history.list.prev", rpcapi.WorkspaceHistoryListRequest{
 			WorkspaceName: workspaceName,
-			Cursor:        &second.Id,
+			Cursor:        &second.Name,
 			Order:         &desc,
 			Limit:         &limit,
 		})
 		if err != nil {
-			t.Fatalf("workspace history list previous before %q: %v", second.Id, err)
+			t.Fatalf("workspace history list previous before %q: %v", second.Name, err)
 		}
-		if len(prev.Items) != 1 || prev.Items[0].Id != first.Id {
-			t.Fatalf("workspace history previous page = %+v, want %q before %q", prev, first.Id, second.Id)
+		if len(prev.Items) != 1 || prev.Items[0].Name != first.Name {
+			t.Fatalf("workspace history previous page = %+v, want %q before %q", prev, first.Name, second.Name)
 		}
 	}
 
@@ -790,12 +791,12 @@ func assertWorkspaceHistoryResumeOrder(t *testing.T, ctx context.Context, client
 		t.Fatalf("workspace history list latest desc: %v", err)
 	}
 	last := entries[len(entries)-1]
-	if len(latest.Items) != 1 || latest.Items[0].Id != last.Id {
-		t.Fatalf("workspace history latest desc page = %+v, want %q", latest, last.Id)
+	if len(latest.Items) != 1 || latest.Items[0].Name != last.Name {
+		t.Fatalf("workspace history latest desc page = %+v, want %q", latest, last.Name)
 	}
 }
 
-func waitForWorkspaceHistoryReplayText(t *testing.T, ctx context.Context, stream genx.Stream, historyID string, want string) {
+func waitForWorkspaceHistoryReplayText(t *testing.T, ctx context.Context, stream genx.Stream, historyName string, want string) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -805,20 +806,20 @@ func waitForWorkspaceHistoryReplayText(t *testing.T, ctx context.Context, stream
 	for {
 		chunk, err := nextWorkspaceHistoryReplayChunk(ctx, stream)
 		if err != nil {
-			t.Fatalf("history replay %q stream read: %v", historyID, err)
+			t.Fatalf("history replay %q stream read: %v", historyName, err)
 		}
 		if !socialChatReplayStreamChunk(chunk, &boundStreamID) {
 			continue
 		}
 		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
-			t.Fatalf("history replay %q stream %q returned error %q", historyID, boundStreamID, chunk.Ctrl.Error)
+			t.Fatalf("history replay %q stream %q returned error %q", historyName, boundStreamID, chunk.Ctrl.Error)
 		}
 		if text, ok := chunk.Part.(genx.Text); ok {
 			got.WriteString(string(text))
 		}
 		if chunk.IsEndOfStream() {
 			if got.String() != want {
-				t.Fatalf("history replay %q text = %q, want %q", historyID, got.String(), want)
+				t.Fatalf("history replay %q text = %q, want %q", historyName, got.String(), want)
 			}
 			return
 		}

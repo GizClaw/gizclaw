@@ -45,18 +45,34 @@ func TestGetFriendInfoRequiresCallerRelation(t *testing.T) {
 	s := newTestServer()
 	s.Profiles = profileStub{want: targetKey, info: apitypes.DeviceInfo{Name: &name, Emoji: &emoji}}
 	relationID := socialutil.RelationID(owner, target)
-	if err := socialutil.WriteJSON(ctx, s.Friends, socialutil.FriendKey(owner, relationID), rpcapi.FriendObject{Id: &target, PeerPublicKey: &target}); err != nil {
+	now := s.now()
+	if err := socialutil.WriteJSON(ctx, s.Friends, socialutil.FriendKey(owner, relationID), friendRecord{
+		RelationID: relationID, PeerPublicKey: target, WorkspaceName: "friend-chat", CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.GetFriendInfo(ctx, owner, rpcapi.FriendInfoGetRequest{Id: target})
+	got, err := s.GetFriendInfo(ctx, owner, rpcapi.FriendInfoGetRequest{Name: target})
 	if err != nil {
 		t.Fatalf("GetFriendInfo() error = %v", err)
 	}
-	if got.Id != target || got.Value.Name == nil || *got.Value.Name != name || got.Value.Emoji == nil || *got.Value.Emoji != emoji {
+	if got.Name != target || got.Value.DisplayName == nil || *got.Value.DisplayName != name || got.Value.Emoji == nil || *got.Value.Emoji != emoji {
 		t.Fatalf("GetFriendInfo() = %+v", got)
 	}
-	if _, err := s.GetFriendInfo(ctx, giznet.PublicKey{3}.String(), rpcapi.FriendInfoGetRequest{Id: target}); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := s.GetFriendInfo(ctx, giznet.PublicKey{3}.String(), rpcapi.FriendInfoGetRequest{Name: target}); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("GetFriendInfo() unauthorized error = %v, want not found", err)
+	}
+}
+
+func TestLegacyWireFriendRecordIsRejected(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	relationID := socialutil.RelationID("peer-a", "peer-b")
+	legacy := []byte(`{"id":"peer-b","name":"peer-b","peer_public_key":"peer-b","workspace_name":"friend-chat"}`)
+	if err := s.Friends.Set(ctx, socialutil.FriendKey("peer-a", relationID), legacy); err != nil {
+		t.Fatalf("seed legacy Friend wire record: %v", err)
+	}
+	if _, err := s.ListFriends(ctx, "peer-a", rpcapi.FriendListRequest{}); err == nil || err.Error() != "social: persisted Friend relationship is invalid" {
+		t.Fatalf("ListFriends legacy wire record error = %v", err)
 	}
 }
 
@@ -108,8 +124,30 @@ func TestInviteTokenLifecycleAndAddFriend(t *testing.T) {
 	if socialutil.StringValue(friend.PeerPublicKey) != "peer-b" {
 		t.Fatalf("AddFriend peer_public_key = %q, want peer-b", socialutil.StringValue(friend.PeerPublicKey))
 	}
-	if socialutil.StringValue(friend.Id) != "peer-b" {
-		t.Fatalf("AddFriend id = %q, want peer-b", socialutil.StringValue(friend.Id))
+	if friend.Name != "peer-b" {
+		t.Fatalf("AddFriend name = %q, want peer-b", friend.Name)
+	}
+	friendStore, err := s.friendsStore()
+	if err != nil {
+		t.Fatalf("friendsStore: %v", err)
+	}
+	relationID := socialutil.RelationID("peer-a", "peer-b")
+	storedFriend, err := friendStore.Get(ctx, socialutil.FriendKey("peer-a", relationID))
+	if err != nil {
+		t.Fatalf("read persisted Friend: %v", err)
+	}
+	var storedFields map[string]json.RawMessage
+	if err := json.Unmarshal(storedFriend, &storedFields); err != nil {
+		t.Fatalf("decode persisted Friend: %v", err)
+	}
+	if _, ok := storedFields["relation_id"]; !ok {
+		t.Fatalf("persisted Friend = %s, want canonical relation_id", storedFriend)
+	}
+	if _, ok := storedFields["id"]; ok {
+		t.Fatalf("persisted Friend = %s, unexpectedly stores Peer wire id", storedFriend)
+	}
+	if _, ok := storedFields["name"]; ok {
+		t.Fatalf("persisted Friend = %s, unexpectedly stores Peer wire name", storedFriend)
 	}
 	workspaceName := socialutil.StringValue(friend.WorkspaceName)
 	if workspaceName == "" {
@@ -119,8 +157,8 @@ func TestInviteTokenLifecycleAndAddFriend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddFriend duplicate: %v", err)
 	}
-	if socialutil.StringValue(duplicate.Id) != socialutil.StringValue(friend.Id) {
-		t.Fatalf("duplicate friend id = %q, want %q", socialutil.StringValue(duplicate.Id), socialutil.StringValue(friend.Id))
+	if duplicate.Name != friend.Name {
+		t.Fatalf("duplicate friend name = %q, want %q", duplicate.Name, friend.Name)
 	}
 
 	for _, tc := range []struct{ owner, wantID string }{{"peer-a", "peer-b"}, {"peer-b", "peer-a"}} {
@@ -131,8 +169,8 @@ func TestInviteTokenLifecycleAndAddFriend(t *testing.T) {
 		if len(friends.Items) != 1 {
 			t.Fatalf("ListFriends(%s) len = %d, want 1", tc.owner, len(friends.Items))
 		}
-		if socialutil.StringValue(friends.Items[0].Id) != tc.wantID {
-			t.Fatalf("ListFriends(%s) id = %#v, want %q", tc.owner, friends.Items[0].Id, tc.wantID)
+		if friends.Items[0].Name != tc.wantID {
+			t.Fatalf("ListFriends(%s) name = %#v, want %q", tc.owner, friends.Items[0].Name, tc.wantID)
 		}
 		if socialutil.StringValue(friends.Items[0].WorkspaceName) != workspaceName {
 			t.Fatalf("ListFriends(%s) workspace_name = %#v, want %q", tc.owner, friends.Items[0].WorkspaceName, workspaceName)
@@ -161,7 +199,7 @@ func TestFriendRelationshipEventsReachBothRecipientViews(t *testing.T) {
 	)
 
 	notifications = nil
-	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Id: "peer-b"}); err != nil {
+	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Name: "peer-b"}); err != nil {
 		t.Fatalf("DeleteFriend: %v", err)
 	}
 	assertFriendRelationshipNotifications(
@@ -289,7 +327,7 @@ func TestDeleteFriendIsRelationshipFirstAndRetryable(t *testing.T) {
 	s.Workspaces = workspaces
 	workspaces.retireErr = errors.New("forced retirement failure")
 
-	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Id: "peer-b"}); !errors.Is(err, workspaces.retireErr) {
+	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Name: "peer-b"}); !errors.Is(err, workspaces.retireErr) {
 		t.Fatalf("DeleteFriend first error = %v, want retirement failure", err)
 	}
 	for _, owner := range []string{"peer-a", "peer-b"} {
@@ -325,11 +363,11 @@ func TestDeleteFriendIsRelationshipFirstAndRetryable(t *testing.T) {
 		socialutil.StringValue(friend.WorkspaceName),
 	)
 	notificationCount := len(notifications)
-	retried, err := restarted.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Id: "peer-b"})
+	retried, err := restarted.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Name: "peer-b"})
 	if err != nil {
 		t.Fatalf("DeleteFriend retry after completed retirement: %v", err)
 	}
-	if socialutil.StringValue(retried.Id) != "peer-b" ||
+	if retried.Name != "peer-b" ||
 		socialutil.StringValue(retried.WorkspaceName) != socialutil.StringValue(friend.WorkspaceName) {
 		t.Fatalf("DeleteFriend completed retry = %#v", retried)
 	}
@@ -417,7 +455,7 @@ func TestFriendRecreationUsesNewWorkspaceIncarnation(t *testing.T) {
 		if _, err := s.DeleteFriend(
 			ctx,
 			"peer-a",
-			rpcapi.FriendDeleteRequest{Id: "peer-b"},
+			rpcapi.FriendDeleteRequest{Name: "peer-b"},
 		); err != nil {
 			t.Fatalf("DeleteFriend lifecycle %d: %v", lifecycle, err)
 		}
@@ -466,7 +504,7 @@ func TestAddFriendAfterDeletionKeepsRetiredWorkspaceIsolated(t *testing.T) {
 	if _, err := s.DeleteFriend(
 		ctx,
 		"peer-a",
-		rpcapi.FriendDeleteRequest{Id: "peer-b"},
+		rpcapi.FriendDeleteRequest{Name: "peer-b"},
 	); err != nil {
 		t.Fatalf("DeleteFriend first lifecycle: %v", err)
 	}
@@ -647,7 +685,7 @@ func TestReconcileCommittedDecisionDoesNotRestoreDeletedRelationship(t *testing.
 	if _, err := s.DeleteFriend(
 		ctx,
 		"peer-a",
-		rpcapi.FriendDeleteRequest{Id: "peer-b"},
+		rpcapi.FriendDeleteRequest{Name: "peer-b"},
 	); err != nil {
 		t.Fatalf("DeleteFriend: %v", err)
 	}
@@ -720,7 +758,7 @@ func TestDeleteFriendCancelsFailedCreationBeforeReconciliation(t *testing.T) {
 	deleted, err := s.DeleteFriend(
 		ctx,
 		"peer-a",
-		rpcapi.FriendDeleteRequest{Id: "peer-b"},
+		rpcapi.FriendDeleteRequest{Name: "peer-b"},
 	)
 	if err != nil {
 		t.Fatalf("DeleteFriend pending creation: %v", err)
@@ -864,7 +902,7 @@ func TestCreationCommitCannotWinAfterConcurrentCancellation(t *testing.T) {
 	deleted, err := deleter.DeleteFriend(
 		ctx,
 		"peer-a",
-		rpcapi.FriendDeleteRequest{Id: "peer-b"},
+		rpcapi.FriendDeleteRequest{Name: "peer-b"},
 	)
 	if err != nil {
 		t.Fatalf("DeleteFriend during blocked creation commit: %v", err)
@@ -1061,7 +1099,7 @@ func TestDeleteFriendWithoutWorkspaceRetirementKeepsRelationship(t *testing.T) {
 	}
 	s.Workspaces = nil
 
-	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Id: "peer-b"}); err == nil ||
+	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Name: "peer-b"}); err == nil ||
 		!strings.Contains(err.Error(), "retirement service not configured") {
 		t.Fatalf("DeleteFriend error = %v, want missing retirement service", err)
 	}
@@ -1084,7 +1122,7 @@ func TestDeleteFriendBatchFailureKeepsRelationshipAndWorkspace(t *testing.T) {
 	s.Workspaces = workspaces
 	s.Friends = failingBatchMutateStore{Store: s.Friends}
 
-	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Id: "peer-b"}); err == nil {
+	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Name: "peer-b"}); err == nil {
 		t.Fatal("DeleteFriend with failing BatchMutate error = nil")
 	}
 	for _, pair := range [][2]string{{"peer-a", "peer-b"}, {"peer-b", "peer-a"}} {
@@ -1213,6 +1251,29 @@ func TestAdminFriendResourceWrappersAndCursorHelpers(t *testing.T) {
 	}
 	if after := adminFriendCursorAfter("/missing-owner"); after != nil {
 		t.Fatalf("adminFriendCursorAfter malformed = %#v, want nil", after)
+	}
+	got, err := s.AdminGetFriend(ctx, "peer-c", created.Id)
+	if err != nil {
+		t.Fatalf("AdminGetFriend by canonical ID: %v", err)
+	}
+	if got.Id != created.Id {
+		t.Fatalf("AdminGetFriend ID = %q, want %q", got.Id, created.Id)
+	}
+	if _, err := s.GetFriendRelation(ctx, "peer-c", created.Id); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("GetFriendRelation with canonical ID error = %v, want not found", err)
+	}
+	if _, err := s.DeleteFriend(ctx, "peer-c", rpcapi.FriendDeleteRequest{Name: created.Id}); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("DeleteFriend with canonical ID error = %v, want not found", err)
+	}
+	if _, err := s.AdminGetFriend(ctx, "peer-c", created.Id); err != nil {
+		t.Fatalf("Peer canonical-ID delete changed Admin relationship: %v", err)
+	}
+	deleted, err := s.AdminDeleteFriend(ctx, "peer-c", created.Id)
+	if err != nil {
+		t.Fatalf("AdminDeleteFriend by canonical ID: %v", err)
+	}
+	if deleted.Id != created.Id {
+		t.Fatalf("AdminDeleteFriend ID = %q, want %q", deleted.Id, created.Id)
 	}
 }
 

@@ -12,7 +12,7 @@ void main() {
     final client = _HistoryClient([
       [
         _entry(
-          id: 'gear-1',
+          name: 'gear-1',
           gearId: 'peer-a',
           text: '你好',
           replayAvailable: true,
@@ -21,7 +21,7 @@ void main() {
       ],
       [
         _entry(
-          id: 'agent-1',
+          name: 'agent-1',
           text: '你好，移动端。',
           type: PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_AGENT,
         ),
@@ -59,13 +59,13 @@ void main() {
     final client = _HistoryClient([
       [
         _entry(
-          id: 'mine',
+          name: 'mine',
           gearId: 'peer-a',
           text: 'mine',
           type: PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_GEAR,
         ),
         _entry(
-          id: 'theirs',
+          name: 'theirs',
           gearId: 'peer-b',
           text: 'theirs',
           type: PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_GEAR,
@@ -95,7 +95,7 @@ void main() {
     final client = _HistoryClient([
       [
         _entry(
-          id: 'legacy',
+          name: 'legacy',
           text: 'legacy local turn',
           type: PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_GEAR,
         ),
@@ -123,7 +123,7 @@ void main() {
     final client = _HistoryClient([
       [
         _entry(
-          id: 'old',
+          name: 'old',
           text: 'old',
           type: PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_AGENT,
         ),
@@ -156,7 +156,7 @@ void main() {
     final client = _HistoryClient([
       [
         _entry(
-          id: 'saved',
+          name: 'saved',
           text: 'saved reply',
           type: PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_AGENT,
         ),
@@ -186,15 +186,15 @@ void main() {
 }
 
 PeerRunHistoryEntry _entry({
-  required String id,
+  required String name,
   required String text,
   required PeerRunHistoryEntryType type,
   String? gearId,
   bool replayAvailable = false,
 }) {
   return PeerRunHistoryEntry(
-    id: id,
-    name: type == PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_GEAR
+    name: name,
+    actorName: type == PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_GEAR
         ? 'transcript'
         : 'assistant',
     text: text,

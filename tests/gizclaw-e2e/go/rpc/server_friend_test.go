@@ -32,14 +32,14 @@ func TestServerFriendRPC(t *testing.T) {
 	if len(second.Items) != 1 || second.HasNext {
 		t.Fatalf("friend.list page2 = %#v", second)
 	}
-	if friendAC.Id == nil {
-		t.Fatalf("friend ac id is nil: %#v", friendAC)
+	if friendAC.Name == "" {
+		t.Fatalf("friend ac name is empty: %#v", friendAC)
 	}
-	deleted, err := env.a.DeleteFriend(env.ctx, "friend.delete", rpcapi.FriendDeleteRequest{Id: *friendAC.Id})
+	deleted, err := env.a.DeleteFriend(env.ctx, "friend.delete", rpcapi.FriendDeleteRequest{Name: friendAC.Name})
 	if err != nil {
 		t.Fatalf("friend.delete: %v", err)
 	}
-	if deleted.Id == nil || *deleted.Id != *friendAC.Id {
-		t.Fatalf("friend.delete id = %#v, want %q", deleted.Id, *friendAC.Id)
+	if deleted.Name != friendAC.Name {
+		t.Fatalf("friend.delete name = %#v, want %q", deleted.Name, friendAC.Name)
 	}
 }

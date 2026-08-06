@@ -1226,12 +1226,12 @@ class $WorkspaceChatEntriesTable extends WorkspaceChatEntries
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _historyIdMeta = const VerificationMeta(
-    'historyId',
+  static const VerificationMeta _historyNameMeta = const VerificationMeta(
+    'historyName',
   );
   @override
-  late final GeneratedColumn<String> historyId = GeneratedColumn<String>(
-    'history_id',
+  late final GeneratedColumn<String> historyName = GeneratedColumn<String>(
+    'history_name',
     aliasedName,
     false,
     type: DriftSqlType.string,
@@ -1301,7 +1301,7 @@ class $WorkspaceChatEntriesTable extends WorkspaceChatEntries
   List<GeneratedColumn> get $columns => [
     serverId,
     workspaceName,
-    historyId,
+    historyName,
     role,
     gearId,
     content,
@@ -1340,13 +1340,16 @@ class $WorkspaceChatEntriesTable extends WorkspaceChatEntries
     } else if (isInserting) {
       context.missing(_workspaceNameMeta);
     }
-    if (data.containsKey('history_id')) {
+    if (data.containsKey('history_name')) {
       context.handle(
-        _historyIdMeta,
-        historyId.isAcceptableOrUnknown(data['history_id']!, _historyIdMeta),
+        _historyNameMeta,
+        historyName.isAcceptableOrUnknown(
+          data['history_name']!,
+          _historyNameMeta,
+        ),
       );
     } else if (isInserting) {
-      context.missing(_historyIdMeta);
+      context.missing(_historyNameMeta);
     }
     if (data.containsKey('role')) {
       context.handle(
@@ -1399,7 +1402,11 @@ class $WorkspaceChatEntriesTable extends WorkspaceChatEntries
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {serverId, workspaceName, historyId};
+  Set<GeneratedColumn> get $primaryKey => {
+    serverId,
+    workspaceName,
+    historyName,
+  };
   @override
   WorkspaceChatEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -1412,9 +1419,9 @@ class $WorkspaceChatEntriesTable extends WorkspaceChatEntries
         DriftSqlType.string,
         data['${effectivePrefix}workspace_name'],
       )!,
-      historyId: attachedDatabase.typeMapping.read(
+      historyName: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}history_id'],
+        data['${effectivePrefix}history_name'],
       )!,
       role: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -1453,7 +1460,7 @@ class WorkspaceChatEntry extends DataClass
     implements Insertable<WorkspaceChatEntry> {
   final String serverId;
   final String workspaceName;
-  final String historyId;
+  final String historyName;
   final String role;
   final String? gearId;
   final String content;
@@ -1463,7 +1470,7 @@ class WorkspaceChatEntry extends DataClass
   const WorkspaceChatEntry({
     required this.serverId,
     required this.workspaceName,
-    required this.historyId,
+    required this.historyName,
     required this.role,
     this.gearId,
     required this.content,
@@ -1476,7 +1483,7 @@ class WorkspaceChatEntry extends DataClass
     final map = <String, Expression>{};
     map['server_id'] = Variable<String>(serverId);
     map['workspace_name'] = Variable<String>(workspaceName);
-    map['history_id'] = Variable<String>(historyId);
+    map['history_name'] = Variable<String>(historyName);
     map['role'] = Variable<String>(role);
     if (!nullToAbsent || gearId != null) {
       map['gear_id'] = Variable<String>(gearId);
@@ -1494,7 +1501,7 @@ class WorkspaceChatEntry extends DataClass
     return WorkspaceChatEntriesCompanion(
       serverId: Value(serverId),
       workspaceName: Value(workspaceName),
-      historyId: Value(historyId),
+      historyName: Value(historyName),
       role: Value(role),
       gearId: gearId == null && nullToAbsent
           ? const Value.absent()
@@ -1516,7 +1523,7 @@ class WorkspaceChatEntry extends DataClass
     return WorkspaceChatEntry(
       serverId: serializer.fromJson<String>(json['serverId']),
       workspaceName: serializer.fromJson<String>(json['workspaceName']),
-      historyId: serializer.fromJson<String>(json['historyId']),
+      historyName: serializer.fromJson<String>(json['historyName']),
       role: serializer.fromJson<String>(json['role']),
       gearId: serializer.fromJson<String?>(json['gearId']),
       content: serializer.fromJson<String>(json['content']),
@@ -1531,7 +1538,7 @@ class WorkspaceChatEntry extends DataClass
     return <String, dynamic>{
       'serverId': serializer.toJson<String>(serverId),
       'workspaceName': serializer.toJson<String>(workspaceName),
-      'historyId': serializer.toJson<String>(historyId),
+      'historyName': serializer.toJson<String>(historyName),
       'role': serializer.toJson<String>(role),
       'gearId': serializer.toJson<String?>(gearId),
       'content': serializer.toJson<String>(content),
@@ -1544,7 +1551,7 @@ class WorkspaceChatEntry extends DataClass
   WorkspaceChatEntry copyWith({
     String? serverId,
     String? workspaceName,
-    String? historyId,
+    String? historyName,
     String? role,
     Value<String?> gearId = const Value.absent(),
     String? content,
@@ -1554,7 +1561,7 @@ class WorkspaceChatEntry extends DataClass
   }) => WorkspaceChatEntry(
     serverId: serverId ?? this.serverId,
     workspaceName: workspaceName ?? this.workspaceName,
-    historyId: historyId ?? this.historyId,
+    historyName: historyName ?? this.historyName,
     role: role ?? this.role,
     gearId: gearId.present ? gearId.value : this.gearId,
     content: content ?? this.content,
@@ -1568,7 +1575,9 @@ class WorkspaceChatEntry extends DataClass
       workspaceName: data.workspaceName.present
           ? data.workspaceName.value
           : this.workspaceName,
-      historyId: data.historyId.present ? data.historyId.value : this.historyId,
+      historyName: data.historyName.present
+          ? data.historyName.value
+          : this.historyName,
       role: data.role.present ? data.role.value : this.role,
       gearId: data.gearId.present ? data.gearId.value : this.gearId,
       content: data.content.present ? data.content.value : this.content,
@@ -1585,7 +1594,7 @@ class WorkspaceChatEntry extends DataClass
     return (StringBuffer('WorkspaceChatEntry(')
           ..write('serverId: $serverId, ')
           ..write('workspaceName: $workspaceName, ')
-          ..write('historyId: $historyId, ')
+          ..write('historyName: $historyName, ')
           ..write('role: $role, ')
           ..write('gearId: $gearId, ')
           ..write('content: $content, ')
@@ -1600,7 +1609,7 @@ class WorkspaceChatEntry extends DataClass
   int get hashCode => Object.hash(
     serverId,
     workspaceName,
-    historyId,
+    historyName,
     role,
     gearId,
     content,
@@ -1614,7 +1623,7 @@ class WorkspaceChatEntry extends DataClass
       (other is WorkspaceChatEntry &&
           other.serverId == this.serverId &&
           other.workspaceName == this.workspaceName &&
-          other.historyId == this.historyId &&
+          other.historyName == this.historyName &&
           other.role == this.role &&
           other.gearId == this.gearId &&
           other.content == this.content &&
@@ -1627,7 +1636,7 @@ class WorkspaceChatEntriesCompanion
     extends UpdateCompanion<WorkspaceChatEntry> {
   final Value<String> serverId;
   final Value<String> workspaceName;
-  final Value<String> historyId;
+  final Value<String> historyName;
   final Value<String> role;
   final Value<String?> gearId;
   final Value<String> content;
@@ -1638,7 +1647,7 @@ class WorkspaceChatEntriesCompanion
   const WorkspaceChatEntriesCompanion({
     this.serverId = const Value.absent(),
     this.workspaceName = const Value.absent(),
-    this.historyId = const Value.absent(),
+    this.historyName = const Value.absent(),
     this.role = const Value.absent(),
     this.gearId = const Value.absent(),
     this.content = const Value.absent(),
@@ -1650,7 +1659,7 @@ class WorkspaceChatEntriesCompanion
   WorkspaceChatEntriesCompanion.insert({
     required String serverId,
     required String workspaceName,
-    required String historyId,
+    required String historyName,
     required String role,
     this.gearId = const Value.absent(),
     required String content,
@@ -1660,7 +1669,7 @@ class WorkspaceChatEntriesCompanion
     this.rowid = const Value.absent(),
   }) : serverId = Value(serverId),
        workspaceName = Value(workspaceName),
-       historyId = Value(historyId),
+       historyName = Value(historyName),
        role = Value(role),
        content = Value(content),
        name = Value(name),
@@ -1668,7 +1677,7 @@ class WorkspaceChatEntriesCompanion
   static Insertable<WorkspaceChatEntry> custom({
     Expression<String>? serverId,
     Expression<String>? workspaceName,
-    Expression<String>? historyId,
+    Expression<String>? historyName,
     Expression<String>? role,
     Expression<String>? gearId,
     Expression<String>? content,
@@ -1680,7 +1689,7 @@ class WorkspaceChatEntriesCompanion
     return RawValuesInsertable({
       if (serverId != null) 'server_id': serverId,
       if (workspaceName != null) 'workspace_name': workspaceName,
-      if (historyId != null) 'history_id': historyId,
+      if (historyName != null) 'history_name': historyName,
       if (role != null) 'role': role,
       if (gearId != null) 'gear_id': gearId,
       if (content != null) 'content': content,
@@ -1694,7 +1703,7 @@ class WorkspaceChatEntriesCompanion
   WorkspaceChatEntriesCompanion copyWith({
     Value<String>? serverId,
     Value<String>? workspaceName,
-    Value<String>? historyId,
+    Value<String>? historyName,
     Value<String>? role,
     Value<String?>? gearId,
     Value<String>? content,
@@ -1706,7 +1715,7 @@ class WorkspaceChatEntriesCompanion
     return WorkspaceChatEntriesCompanion(
       serverId: serverId ?? this.serverId,
       workspaceName: workspaceName ?? this.workspaceName,
-      historyId: historyId ?? this.historyId,
+      historyName: historyName ?? this.historyName,
       role: role ?? this.role,
       gearId: gearId ?? this.gearId,
       content: content ?? this.content,
@@ -1726,8 +1735,8 @@ class WorkspaceChatEntriesCompanion
     if (workspaceName.present) {
       map['workspace_name'] = Variable<String>(workspaceName.value);
     }
-    if (historyId.present) {
-      map['history_id'] = Variable<String>(historyId.value);
+    if (historyName.present) {
+      map['history_name'] = Variable<String>(historyName.value);
     }
     if (role.present) {
       map['role'] = Variable<String>(role.value);
@@ -1758,7 +1767,7 @@ class WorkspaceChatEntriesCompanion
     return (StringBuffer('WorkspaceChatEntriesCompanion(')
           ..write('serverId: $serverId, ')
           ..write('workspaceName: $workspaceName, ')
-          ..write('historyId: $historyId, ')
+          ..write('historyName: $historyName, ')
           ..write('role: $role, ')
           ..write('gearId: $gearId, ')
           ..write('content: $content, ')
@@ -1788,10 +1797,10 @@ class $FriendEntriesTable extends FriendEntries
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
-    'id',
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
     aliasedName,
     false,
     type: DriftSqlType.string,
@@ -1845,7 +1854,7 @@ class $FriendEntriesTable extends FriendEntries
   @override
   List<GeneratedColumn> get $columns => [
     serverId,
-    id,
+    name,
     peerPublicKey,
     workspaceName,
     rawProtobuf,
@@ -1871,10 +1880,13 @@ class $FriendEntriesTable extends FriendEntries
     } else if (isInserting) {
       context.missing(_serverIdMeta);
     }
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
     } else if (isInserting) {
-      context.missing(_idMeta);
+      context.missing(_nameMeta);
     }
     if (data.containsKey('peer_public_key')) {
       context.handle(
@@ -1922,7 +1934,7 @@ class $FriendEntriesTable extends FriendEntries
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {serverId, id};
+  Set<GeneratedColumn> get $primaryKey => {serverId, name};
   @override
   FriendEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -1931,9 +1943,9 @@ class $FriendEntriesTable extends FriendEntries
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
       )!,
-      id: attachedDatabase.typeMapping.read(
+      name: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}id'],
+        data['${effectivePrefix}name'],
       )!,
       peerPublicKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -1962,14 +1974,14 @@ class $FriendEntriesTable extends FriendEntries
 
 class FriendEntry extends DataClass implements Insertable<FriendEntry> {
   final String serverId;
-  final String id;
+  final String name;
   final String peerPublicKey;
   final String? workspaceName;
   final Uint8List rawProtobuf;
   final DateTime refreshedAt;
   const FriendEntry({
     required this.serverId,
-    required this.id,
+    required this.name,
     required this.peerPublicKey,
     this.workspaceName,
     required this.rawProtobuf,
@@ -1979,7 +1991,7 @@ class FriendEntry extends DataClass implements Insertable<FriendEntry> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['server_id'] = Variable<String>(serverId);
-    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
     map['peer_public_key'] = Variable<String>(peerPublicKey);
     if (!nullToAbsent || workspaceName != null) {
       map['workspace_name'] = Variable<String>(workspaceName);
@@ -1992,7 +2004,7 @@ class FriendEntry extends DataClass implements Insertable<FriendEntry> {
   FriendEntriesCompanion toCompanion(bool nullToAbsent) {
     return FriendEntriesCompanion(
       serverId: Value(serverId),
-      id: Value(id),
+      name: Value(name),
       peerPublicKey: Value(peerPublicKey),
       workspaceName: workspaceName == null && nullToAbsent
           ? const Value.absent()
@@ -2009,7 +2021,7 @@ class FriendEntry extends DataClass implements Insertable<FriendEntry> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return FriendEntry(
       serverId: serializer.fromJson<String>(json['serverId']),
-      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
       peerPublicKey: serializer.fromJson<String>(json['peerPublicKey']),
       workspaceName: serializer.fromJson<String?>(json['workspaceName']),
       rawProtobuf: serializer.fromJson<Uint8List>(json['rawProtobuf']),
@@ -2021,7 +2033,7 @@ class FriendEntry extends DataClass implements Insertable<FriendEntry> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'serverId': serializer.toJson<String>(serverId),
-      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
       'peerPublicKey': serializer.toJson<String>(peerPublicKey),
       'workspaceName': serializer.toJson<String?>(workspaceName),
       'rawProtobuf': serializer.toJson<Uint8List>(rawProtobuf),
@@ -2031,14 +2043,14 @@ class FriendEntry extends DataClass implements Insertable<FriendEntry> {
 
   FriendEntry copyWith({
     String? serverId,
-    String? id,
+    String? name,
     String? peerPublicKey,
     Value<String?> workspaceName = const Value.absent(),
     Uint8List? rawProtobuf,
     DateTime? refreshedAt,
   }) => FriendEntry(
     serverId: serverId ?? this.serverId,
-    id: id ?? this.id,
+    name: name ?? this.name,
     peerPublicKey: peerPublicKey ?? this.peerPublicKey,
     workspaceName: workspaceName.present
         ? workspaceName.value
@@ -2049,7 +2061,7 @@ class FriendEntry extends DataClass implements Insertable<FriendEntry> {
   FriendEntry copyWithCompanion(FriendEntriesCompanion data) {
     return FriendEntry(
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
-      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
       peerPublicKey: data.peerPublicKey.present
           ? data.peerPublicKey.value
           : this.peerPublicKey,
@@ -2069,7 +2081,7 @@ class FriendEntry extends DataClass implements Insertable<FriendEntry> {
   String toString() {
     return (StringBuffer('FriendEntry(')
           ..write('serverId: $serverId, ')
-          ..write('id: $id, ')
+          ..write('name: $name, ')
           ..write('peerPublicKey: $peerPublicKey, ')
           ..write('workspaceName: $workspaceName, ')
           ..write('rawProtobuf: $rawProtobuf, ')
@@ -2081,7 +2093,7 @@ class FriendEntry extends DataClass implements Insertable<FriendEntry> {
   @override
   int get hashCode => Object.hash(
     serverId,
-    id,
+    name,
     peerPublicKey,
     workspaceName,
     $driftBlobEquality.hash(rawProtobuf),
@@ -2092,7 +2104,7 @@ class FriendEntry extends DataClass implements Insertable<FriendEntry> {
       identical(this, other) ||
       (other is FriendEntry &&
           other.serverId == this.serverId &&
-          other.id == this.id &&
+          other.name == this.name &&
           other.peerPublicKey == this.peerPublicKey &&
           other.workspaceName == this.workspaceName &&
           $driftBlobEquality.equals(other.rawProtobuf, this.rawProtobuf) &&
@@ -2101,7 +2113,7 @@ class FriendEntry extends DataClass implements Insertable<FriendEntry> {
 
 class FriendEntriesCompanion extends UpdateCompanion<FriendEntry> {
   final Value<String> serverId;
-  final Value<String> id;
+  final Value<String> name;
   final Value<String> peerPublicKey;
   final Value<String?> workspaceName;
   final Value<Uint8List> rawProtobuf;
@@ -2109,7 +2121,7 @@ class FriendEntriesCompanion extends UpdateCompanion<FriendEntry> {
   final Value<int> rowid;
   const FriendEntriesCompanion({
     this.serverId = const Value.absent(),
-    this.id = const Value.absent(),
+    this.name = const Value.absent(),
     this.peerPublicKey = const Value.absent(),
     this.workspaceName = const Value.absent(),
     this.rawProtobuf = const Value.absent(),
@@ -2118,20 +2130,20 @@ class FriendEntriesCompanion extends UpdateCompanion<FriendEntry> {
   });
   FriendEntriesCompanion.insert({
     required String serverId,
-    required String id,
+    required String name,
     required String peerPublicKey,
     this.workspaceName = const Value.absent(),
     required Uint8List rawProtobuf,
     required DateTime refreshedAt,
     this.rowid = const Value.absent(),
   }) : serverId = Value(serverId),
-       id = Value(id),
+       name = Value(name),
        peerPublicKey = Value(peerPublicKey),
        rawProtobuf = Value(rawProtobuf),
        refreshedAt = Value(refreshedAt);
   static Insertable<FriendEntry> custom({
     Expression<String>? serverId,
-    Expression<String>? id,
+    Expression<String>? name,
     Expression<String>? peerPublicKey,
     Expression<String>? workspaceName,
     Expression<Uint8List>? rawProtobuf,
@@ -2140,7 +2152,7 @@ class FriendEntriesCompanion extends UpdateCompanion<FriendEntry> {
   }) {
     return RawValuesInsertable({
       if (serverId != null) 'server_id': serverId,
-      if (id != null) 'id': id,
+      if (name != null) 'name': name,
       if (peerPublicKey != null) 'peer_public_key': peerPublicKey,
       if (workspaceName != null) 'workspace_name': workspaceName,
       if (rawProtobuf != null) 'raw_protobuf': rawProtobuf,
@@ -2151,7 +2163,7 @@ class FriendEntriesCompanion extends UpdateCompanion<FriendEntry> {
 
   FriendEntriesCompanion copyWith({
     Value<String>? serverId,
-    Value<String>? id,
+    Value<String>? name,
     Value<String>? peerPublicKey,
     Value<String?>? workspaceName,
     Value<Uint8List>? rawProtobuf,
@@ -2160,7 +2172,7 @@ class FriendEntriesCompanion extends UpdateCompanion<FriendEntry> {
   }) {
     return FriendEntriesCompanion(
       serverId: serverId ?? this.serverId,
-      id: id ?? this.id,
+      name: name ?? this.name,
       peerPublicKey: peerPublicKey ?? this.peerPublicKey,
       workspaceName: workspaceName ?? this.workspaceName,
       rawProtobuf: rawProtobuf ?? this.rawProtobuf,
@@ -2175,8 +2187,8 @@ class FriendEntriesCompanion extends UpdateCompanion<FriendEntry> {
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
-    if (id.present) {
-      map['id'] = Variable<String>(id.value);
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
     }
     if (peerPublicKey.present) {
       map['peer_public_key'] = Variable<String>(peerPublicKey.value);
@@ -2200,7 +2212,7 @@ class FriendEntriesCompanion extends UpdateCompanion<FriendEntry> {
   String toString() {
     return (StringBuffer('FriendEntriesCompanion(')
           ..write('serverId: $serverId, ')
-          ..write('id: $id, ')
+          ..write('name: $name, ')
           ..write('peerPublicKey: $peerPublicKey, ')
           ..write('workspaceName: $workspaceName, ')
           ..write('rawProtobuf: $rawProtobuf, ')
@@ -2228,19 +2240,21 @@ class $FriendGroupEntriesTable extends FriendGroupEntries
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
-    'id',
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
     aliasedName,
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  static const VerificationMeta _displayNameMeta = const VerificationMeta(
+    'displayName',
+  );
   @override
-  late final GeneratedColumn<String> name = GeneratedColumn<String>(
-    'name',
+  late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
+    'display_name',
     aliasedName,
     false,
     type: DriftSqlType.string,
@@ -2294,8 +2308,8 @@ class $FriendGroupEntriesTable extends FriendGroupEntries
   @override
   List<GeneratedColumn> get $columns => [
     serverId,
-    id,
     name,
+    displayName,
     description,
     workspaceName,
     rawProtobuf,
@@ -2321,11 +2335,6 @@ class $FriendGroupEntriesTable extends FriendGroupEntries
     } else if (isInserting) {
       context.missing(_serverIdMeta);
     }
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
-    }
     if (data.containsKey('name')) {
       context.handle(
         _nameMeta,
@@ -2333,6 +2342,17 @@ class $FriendGroupEntriesTable extends FriendGroupEntries
       );
     } else if (isInserting) {
       context.missing(_nameMeta);
+    }
+    if (data.containsKey('display_name')) {
+      context.handle(
+        _displayNameMeta,
+        displayName.isAcceptableOrUnknown(
+          data['display_name']!,
+          _displayNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_displayNameMeta);
     }
     if (data.containsKey('description')) {
       context.handle(
@@ -2380,7 +2400,7 @@ class $FriendGroupEntriesTable extends FriendGroupEntries
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {serverId, id};
+  Set<GeneratedColumn> get $primaryKey => {serverId, name};
   @override
   FriendGroupEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -2389,13 +2409,13 @@ class $FriendGroupEntriesTable extends FriendGroupEntries
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
       )!,
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
       name: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}name'],
+      )!,
+      displayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_name'],
       )!,
       description: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -2425,16 +2445,16 @@ class $FriendGroupEntriesTable extends FriendGroupEntries
 class FriendGroupEntry extends DataClass
     implements Insertable<FriendGroupEntry> {
   final String serverId;
-  final String id;
   final String name;
+  final String displayName;
   final String description;
   final String? workspaceName;
   final Uint8List rawProtobuf;
   final DateTime refreshedAt;
   const FriendGroupEntry({
     required this.serverId,
-    required this.id,
     required this.name,
+    required this.displayName,
     required this.description,
     this.workspaceName,
     required this.rawProtobuf,
@@ -2444,8 +2464,8 @@ class FriendGroupEntry extends DataClass
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['server_id'] = Variable<String>(serverId);
-    map['id'] = Variable<String>(id);
     map['name'] = Variable<String>(name);
+    map['display_name'] = Variable<String>(displayName);
     map['description'] = Variable<String>(description);
     if (!nullToAbsent || workspaceName != null) {
       map['workspace_name'] = Variable<String>(workspaceName);
@@ -2458,8 +2478,8 @@ class FriendGroupEntry extends DataClass
   FriendGroupEntriesCompanion toCompanion(bool nullToAbsent) {
     return FriendGroupEntriesCompanion(
       serverId: Value(serverId),
-      id: Value(id),
       name: Value(name),
+      displayName: Value(displayName),
       description: Value(description),
       workspaceName: workspaceName == null && nullToAbsent
           ? const Value.absent()
@@ -2476,8 +2496,8 @@ class FriendGroupEntry extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return FriendGroupEntry(
       serverId: serializer.fromJson<String>(json['serverId']),
-      id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
+      displayName: serializer.fromJson<String>(json['displayName']),
       description: serializer.fromJson<String>(json['description']),
       workspaceName: serializer.fromJson<String?>(json['workspaceName']),
       rawProtobuf: serializer.fromJson<Uint8List>(json['rawProtobuf']),
@@ -2489,8 +2509,8 @@ class FriendGroupEntry extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'serverId': serializer.toJson<String>(serverId),
-      'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
+      'displayName': serializer.toJson<String>(displayName),
       'description': serializer.toJson<String>(description),
       'workspaceName': serializer.toJson<String?>(workspaceName),
       'rawProtobuf': serializer.toJson<Uint8List>(rawProtobuf),
@@ -2500,16 +2520,16 @@ class FriendGroupEntry extends DataClass
 
   FriendGroupEntry copyWith({
     String? serverId,
-    String? id,
     String? name,
+    String? displayName,
     String? description,
     Value<String?> workspaceName = const Value.absent(),
     Uint8List? rawProtobuf,
     DateTime? refreshedAt,
   }) => FriendGroupEntry(
     serverId: serverId ?? this.serverId,
-    id: id ?? this.id,
     name: name ?? this.name,
+    displayName: displayName ?? this.displayName,
     description: description ?? this.description,
     workspaceName: workspaceName.present
         ? workspaceName.value
@@ -2520,8 +2540,10 @@ class FriendGroupEntry extends DataClass
   FriendGroupEntry copyWithCompanion(FriendGroupEntriesCompanion data) {
     return FriendGroupEntry(
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
-      id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
+      displayName: data.displayName.present
+          ? data.displayName.value
+          : this.displayName,
       description: data.description.present
           ? data.description.value
           : this.description,
@@ -2541,8 +2563,8 @@ class FriendGroupEntry extends DataClass
   String toString() {
     return (StringBuffer('FriendGroupEntry(')
           ..write('serverId: $serverId, ')
-          ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('displayName: $displayName, ')
           ..write('description: $description, ')
           ..write('workspaceName: $workspaceName, ')
           ..write('rawProtobuf: $rawProtobuf, ')
@@ -2554,8 +2576,8 @@ class FriendGroupEntry extends DataClass
   @override
   int get hashCode => Object.hash(
     serverId,
-    id,
     name,
+    displayName,
     description,
     workspaceName,
     $driftBlobEquality.hash(rawProtobuf),
@@ -2566,8 +2588,8 @@ class FriendGroupEntry extends DataClass
       identical(this, other) ||
       (other is FriendGroupEntry &&
           other.serverId == this.serverId &&
-          other.id == this.id &&
           other.name == this.name &&
+          other.displayName == this.displayName &&
           other.description == this.description &&
           other.workspaceName == this.workspaceName &&
           $driftBlobEquality.equals(other.rawProtobuf, this.rawProtobuf) &&
@@ -2576,8 +2598,8 @@ class FriendGroupEntry extends DataClass
 
 class FriendGroupEntriesCompanion extends UpdateCompanion<FriendGroupEntry> {
   final Value<String> serverId;
-  final Value<String> id;
   final Value<String> name;
+  final Value<String> displayName;
   final Value<String> description;
   final Value<String?> workspaceName;
   final Value<Uint8List> rawProtobuf;
@@ -2585,8 +2607,8 @@ class FriendGroupEntriesCompanion extends UpdateCompanion<FriendGroupEntry> {
   final Value<int> rowid;
   const FriendGroupEntriesCompanion({
     this.serverId = const Value.absent(),
-    this.id = const Value.absent(),
     this.name = const Value.absent(),
+    this.displayName = const Value.absent(),
     this.description = const Value.absent(),
     this.workspaceName = const Value.absent(),
     this.rawProtobuf = const Value.absent(),
@@ -2595,23 +2617,23 @@ class FriendGroupEntriesCompanion extends UpdateCompanion<FriendGroupEntry> {
   });
   FriendGroupEntriesCompanion.insert({
     required String serverId,
-    required String id,
     required String name,
+    required String displayName,
     required String description,
     this.workspaceName = const Value.absent(),
     required Uint8List rawProtobuf,
     required DateTime refreshedAt,
     this.rowid = const Value.absent(),
   }) : serverId = Value(serverId),
-       id = Value(id),
        name = Value(name),
+       displayName = Value(displayName),
        description = Value(description),
        rawProtobuf = Value(rawProtobuf),
        refreshedAt = Value(refreshedAt);
   static Insertable<FriendGroupEntry> custom({
     Expression<String>? serverId,
-    Expression<String>? id,
     Expression<String>? name,
+    Expression<String>? displayName,
     Expression<String>? description,
     Expression<String>? workspaceName,
     Expression<Uint8List>? rawProtobuf,
@@ -2620,8 +2642,8 @@ class FriendGroupEntriesCompanion extends UpdateCompanion<FriendGroupEntry> {
   }) {
     return RawValuesInsertable({
       if (serverId != null) 'server_id': serverId,
-      if (id != null) 'id': id,
       if (name != null) 'name': name,
+      if (displayName != null) 'display_name': displayName,
       if (description != null) 'description': description,
       if (workspaceName != null) 'workspace_name': workspaceName,
       if (rawProtobuf != null) 'raw_protobuf': rawProtobuf,
@@ -2632,8 +2654,8 @@ class FriendGroupEntriesCompanion extends UpdateCompanion<FriendGroupEntry> {
 
   FriendGroupEntriesCompanion copyWith({
     Value<String>? serverId,
-    Value<String>? id,
     Value<String>? name,
+    Value<String>? displayName,
     Value<String>? description,
     Value<String?>? workspaceName,
     Value<Uint8List>? rawProtobuf,
@@ -2642,8 +2664,8 @@ class FriendGroupEntriesCompanion extends UpdateCompanion<FriendGroupEntry> {
   }) {
     return FriendGroupEntriesCompanion(
       serverId: serverId ?? this.serverId,
-      id: id ?? this.id,
       name: name ?? this.name,
+      displayName: displayName ?? this.displayName,
       description: description ?? this.description,
       workspaceName: workspaceName ?? this.workspaceName,
       rawProtobuf: rawProtobuf ?? this.rawProtobuf,
@@ -2658,11 +2680,11 @@ class FriendGroupEntriesCompanion extends UpdateCompanion<FriendGroupEntry> {
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
-    if (id.present) {
-      map['id'] = Variable<String>(id.value);
-    }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
+    }
+    if (displayName.present) {
+      map['display_name'] = Variable<String>(displayName.value);
     }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
@@ -2686,8 +2708,8 @@ class FriendGroupEntriesCompanion extends UpdateCompanion<FriendGroupEntry> {
   String toString() {
     return (StringBuffer('FriendGroupEntriesCompanion(')
           ..write('serverId: $serverId, ')
-          ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('displayName: $displayName, ')
           ..write('description: $description, ')
           ..write('workspaceName: $workspaceName, ')
           ..write('rawProtobuf: $rawProtobuf, ')
@@ -3359,7 +3381,7 @@ typedef $$WorkspaceChatEntriesTableCreateCompanionBuilder =
     WorkspaceChatEntriesCompanion Function({
       required String serverId,
       required String workspaceName,
-      required String historyId,
+      required String historyName,
       required String role,
       Value<String?> gearId,
       required String content,
@@ -3372,7 +3394,7 @@ typedef $$WorkspaceChatEntriesTableUpdateCompanionBuilder =
     WorkspaceChatEntriesCompanion Function({
       Value<String> serverId,
       Value<String> workspaceName,
-      Value<String> historyId,
+      Value<String> historyName,
       Value<String> role,
       Value<String?> gearId,
       Value<String> content,
@@ -3401,8 +3423,8 @@ class $$WorkspaceChatEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get historyId => $composableBuilder(
-    column: $table.historyId,
+  ColumnFilters<String> get historyName => $composableBuilder(
+    column: $table.historyName,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3456,8 +3478,8 @@ class $$WorkspaceChatEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get historyId => $composableBuilder(
-    column: $table.historyId,
+  ColumnOrderings<String> get historyName => $composableBuilder(
+    column: $table.historyName,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -3509,8 +3531,10 @@ class $$WorkspaceChatEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<String> get historyId =>
-      $composableBuilder(column: $table.historyId, builder: (column) => column);
+  GeneratedColumn<String> get historyName => $composableBuilder(
+    column: $table.historyName,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get role =>
       $composableBuilder(column: $table.role, builder: (column) => column);
@@ -3578,7 +3602,7 @@ class $$WorkspaceChatEntriesTableTableManager
               ({
                 Value<String> serverId = const Value.absent(),
                 Value<String> workspaceName = const Value.absent(),
-                Value<String> historyId = const Value.absent(),
+                Value<String> historyName = const Value.absent(),
                 Value<String> role = const Value.absent(),
                 Value<String?> gearId = const Value.absent(),
                 Value<String> content = const Value.absent(),
@@ -3589,7 +3613,7 @@ class $$WorkspaceChatEntriesTableTableManager
               }) => WorkspaceChatEntriesCompanion(
                 serverId: serverId,
                 workspaceName: workspaceName,
-                historyId: historyId,
+                historyName: historyName,
                 role: role,
                 gearId: gearId,
                 content: content,
@@ -3602,7 +3626,7 @@ class $$WorkspaceChatEntriesTableTableManager
               ({
                 required String serverId,
                 required String workspaceName,
-                required String historyId,
+                required String historyName,
                 required String role,
                 Value<String?> gearId = const Value.absent(),
                 required String content,
@@ -3613,7 +3637,7 @@ class $$WorkspaceChatEntriesTableTableManager
               }) => WorkspaceChatEntriesCompanion.insert(
                 serverId: serverId,
                 workspaceName: workspaceName,
-                historyId: historyId,
+                historyName: historyName,
                 role: role,
                 gearId: gearId,
                 content: content,
@@ -3654,7 +3678,7 @@ typedef $$WorkspaceChatEntriesTableProcessedTableManager =
 typedef $$FriendEntriesTableCreateCompanionBuilder =
     FriendEntriesCompanion Function({
       required String serverId,
-      required String id,
+      required String name,
       required String peerPublicKey,
       Value<String?> workspaceName,
       required Uint8List rawProtobuf,
@@ -3664,7 +3688,7 @@ typedef $$FriendEntriesTableCreateCompanionBuilder =
 typedef $$FriendEntriesTableUpdateCompanionBuilder =
     FriendEntriesCompanion Function({
       Value<String> serverId,
-      Value<String> id,
+      Value<String> name,
       Value<String> peerPublicKey,
       Value<String?> workspaceName,
       Value<Uint8List> rawProtobuf,
@@ -3686,8 +3710,8 @@ class $$FriendEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get id => $composableBuilder(
-    column: $table.id,
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3726,8 +3750,8 @@ class $$FriendEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get id => $composableBuilder(
-    column: $table.id,
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -3764,8 +3788,8 @@ class $$FriendEntriesTableAnnotationComposer
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
 
-  GeneratedColumn<String> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
 
   GeneratedColumn<String> get peerPublicKey => $composableBuilder(
     column: $table.peerPublicKey,
@@ -3820,7 +3844,7 @@ class $$FriendEntriesTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> serverId = const Value.absent(),
-                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
                 Value<String> peerPublicKey = const Value.absent(),
                 Value<String?> workspaceName = const Value.absent(),
                 Value<Uint8List> rawProtobuf = const Value.absent(),
@@ -3828,7 +3852,7 @@ class $$FriendEntriesTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => FriendEntriesCompanion(
                 serverId: serverId,
-                id: id,
+                name: name,
                 peerPublicKey: peerPublicKey,
                 workspaceName: workspaceName,
                 rawProtobuf: rawProtobuf,
@@ -3838,7 +3862,7 @@ class $$FriendEntriesTableTableManager
           createCompanionCallback:
               ({
                 required String serverId,
-                required String id,
+                required String name,
                 required String peerPublicKey,
                 Value<String?> workspaceName = const Value.absent(),
                 required Uint8List rawProtobuf,
@@ -3846,7 +3870,7 @@ class $$FriendEntriesTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => FriendEntriesCompanion.insert(
                 serverId: serverId,
-                id: id,
+                name: name,
                 peerPublicKey: peerPublicKey,
                 workspaceName: workspaceName,
                 rawProtobuf: rawProtobuf,
@@ -3881,8 +3905,8 @@ typedef $$FriendEntriesTableProcessedTableManager =
 typedef $$FriendGroupEntriesTableCreateCompanionBuilder =
     FriendGroupEntriesCompanion Function({
       required String serverId,
-      required String id,
       required String name,
+      required String displayName,
       required String description,
       Value<String?> workspaceName,
       required Uint8List rawProtobuf,
@@ -3892,8 +3916,8 @@ typedef $$FriendGroupEntriesTableCreateCompanionBuilder =
 typedef $$FriendGroupEntriesTableUpdateCompanionBuilder =
     FriendGroupEntriesCompanion Function({
       Value<String> serverId,
-      Value<String> id,
       Value<String> name,
+      Value<String> displayName,
       Value<String> description,
       Value<String?> workspaceName,
       Value<Uint8List> rawProtobuf,
@@ -3915,13 +3939,13 @@ class $$FriendGroupEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get id => $composableBuilder(
-    column: $table.id,
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get name => $composableBuilder(
-    column: $table.name,
+  ColumnFilters<String> get displayName => $composableBuilder(
+    column: $table.displayName,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3960,13 +3984,13 @@ class $$FriendGroupEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get id => $composableBuilder(
-    column: $table.id,
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get name => $composableBuilder(
-    column: $table.name,
+  ColumnOrderings<String> get displayName => $composableBuilder(
+    column: $table.displayName,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -4003,11 +4027,13 @@ class $$FriendGroupEntriesTableAnnotationComposer
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
 
-  GeneratedColumn<String> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get description => $composableBuilder(
     column: $table.description,
@@ -4071,8 +4097,8 @@ class $$FriendGroupEntriesTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> serverId = const Value.absent(),
-                Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String> displayName = const Value.absent(),
                 Value<String> description = const Value.absent(),
                 Value<String?> workspaceName = const Value.absent(),
                 Value<Uint8List> rawProtobuf = const Value.absent(),
@@ -4080,8 +4106,8 @@ class $$FriendGroupEntriesTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => FriendGroupEntriesCompanion(
                 serverId: serverId,
-                id: id,
                 name: name,
+                displayName: displayName,
                 description: description,
                 workspaceName: workspaceName,
                 rawProtobuf: rawProtobuf,
@@ -4091,8 +4117,8 @@ class $$FriendGroupEntriesTableTableManager
           createCompanionCallback:
               ({
                 required String serverId,
-                required String id,
                 required String name,
+                required String displayName,
                 required String description,
                 Value<String?> workspaceName = const Value.absent(),
                 required Uint8List rawProtobuf,
@@ -4100,8 +4126,8 @@ class $$FriendGroupEntriesTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => FriendGroupEntriesCompanion.insert(
                 serverId: serverId,
-                id: id,
                 name: name,
+                displayName: displayName,
                 description: description,
                 workspaceName: workspaceName,
                 rawProtobuf: rawProtobuf,

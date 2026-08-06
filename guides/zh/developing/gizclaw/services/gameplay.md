@@ -20,6 +20,8 @@ Pet name 由已认证 Peer 限定 scope。第一次成功创建 `(peer, name)` �
 
 不同 Peer 可以使用相同文本 Pet name，其全局命名的内部 Workspace 仍彼此独立；所有 Pet RPC 都同时根据 authenticated Peer 和 Pet name 解析资源，因此一个 Peer 不能访问另一个 Peer 的 Pet。同一 Peer 不能跨 RuntimeProfile 复用 name，也不能在删除 Pet 后复用 name，因为保留的 adoption history 会继续占用该 name。
 
+Gameplay 记录遵循同一套 Peer 词汇。`GameResult`、`PointsTransaction` 和 `RewardGrant` 把 canonical internal record ID 原样投影为 `name`，get 操作通过 `name` 接收同一个值；跨记录引用使用 `game_result_name`、`reward_grant_name`、`source_name` 和 `pet_name`。`GAMEPLAY_REWARD_UPDATED.reward_grant_name` 与 `server.reward_grant.get` 接收的值完全相同。Admin 和 persistence surface 继续保留 canonical `id`。
+
 ## 固定 Pet 契约
 
 所有 Pet 都拥有同一组 `life`、`health`、`satiety`、`hygiene`、`mood`、`energy` 数值，范围固定为 0..100，领养时全部为 100；成长状态固定为 `experience = 0`、`level = 1`。行为 contract 固定为 `feed`、`bathe`、`play`、`heal`，分别增加 satiety、hygiene、mood、health。PetDef 不定义数值和行为语义，只通过 `visual.bindings.behaviors` 和 `visual.bindings.states` 把固定 contract 绑定到自身 PIXA clip；`idle`、`sick`、`dead` 与可选 `sleep` 是状态动画，不是 Drive 行为。
@@ -40,7 +42,7 @@ $$
 
 其中权重和为 1，$p>1$。满状态时缺口为 0，因此 life 不减少；照料数值越低，life 衰减越快。Server 使用分段解析积分，使结果只取决于起始状态和经过时间，不取决于请求频率。
 
-`server.pet.drive` 接受只包含 `pet_id` 的空 Drive，作为由 Server 权威时间驱动的一次 tick。它从 `state_settled_at` 结算经过区间，持久化照料数值衰减、energy 恢复、life 损失和新 checkpoint，并返回更新后的 Pet；它不创建 behavior、game result、cost 或 reward。多个新的连续 tick 与对相同总时长执行一次 tick 得到一致状态。请求携带可选的顶层 idempotency key 时，使用同一 key 重试空 Drive 不会再次结算时间；新 key 或不带 key 表示新的 tick。
+`server.pet.drive` 接受只包含 `pet_name` 的空 Drive，作为由 Server 权威时间驱动的一次 tick。它从 `state_settled_at` 结算经过区间，持久化照料数值衰减、energy 恢复、life 损失和新 checkpoint，并返回更新后的 Pet；它不创建 behavior、game result、cost 或 reward。多个新的连续 tick 与对相同总时长执行一次 tick 得到一致状态。请求携带可选的顶层 idempotency key 时，使用同一 key 重试空 Drive 不会再次结算时间；新 key 或不带 key 表示新的 tick。
 
 life 到 0 时，Pet 在公式计算出的死亡 checkpoint 原子进入 `dead` 并写入不可变 `died_at`，因此终态也不依赖 tick 频率。behavior 和 game-result Drive 不能再作用于 dead Pet；空 Drive 返回其不再变化的终态快照。
 
