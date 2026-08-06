@@ -72,6 +72,18 @@ Coturn relay path。它仍只是本机 Docker transport 诊断，不是 producti
 WebRTC connection 中累积，同时 service 与父连接 shutdown 仍会拒绝新 stream，并关闭所有
 仍存活的 stream。
 
+每个 unary RPC 独占一条有序 service DataChannel：客户端为该请求新建 DataChannel，服务端
+只在其中处理一个请求，响应完成后双方关闭它。已关闭的 DataChannel 不会承载后续 RPC。
+对应的 SCTP stream ID 会一直保留到对端的 stream reset 完成，之后 allocator 才能把这个 ID
+分配给新的 DataChannel；这里复用的是有限的 ID 空间，不是 DataChannel 或 RPC stream。
+
+根 Go module 暂时把 `github.com/pion/sctp` 和 `github.com/pion/webrtc/v4` replace 到固定的
+GizClaw fork pseudo-version，用于报告已完成的 stream reset 并释放 DataChannel ID。Go 不会
+向下游传播依赖 module 的 `replace`，因此把 GizClaw 作为 module 使用的 executable 在上游
+release 同时包含这两项修复前，也必须复制这两条 replacement。选择包含两项修复的上游
+release，并在不使用 fork 时通过 reset/reuse integration test 和 race test 后，才能同时移除
+两条 replacement。
+
 Service stream 读取时会从进程级 pool 借用固定的 64 KiB detached-DataChannel message
 buffer；如果调用方未一次读完，则先把剩余部分复制到 connection 自有 pending buffer，再归还
 message buffer。因此长生命周期 RPC stream 的每个小请求不再重新分配最大尺寸 read buffer。

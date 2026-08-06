@@ -255,6 +255,133 @@ func TestInterleavedServiceStreamsDoNotExhaustSCTPReceiveWindow(t *testing.T) {
 	}
 }
 
+func TestServiceStreamsReuseDataChannelIDAfterReset(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(client) error = %v", err)
+	}
+	serverListener, err := (&ListenConfig{
+		CipherMode:     CipherModePlaintext,
+		SecurityPolicy: allowAllPolicy{},
+	}).Listen(serverKey)
+	if err != nil {
+		t.Fatalf("Listen error = %v", err)
+	}
+	defer serverListener.Close()
+	httpServer := httptest.NewServer(serverListener.SignalingHandler())
+	defer httpServer.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	clientListener, clientConn, err := Dial(ctx, clientKey, serverKey.Public, DialConfig{
+		SignalingURL:   httpServer.URL + SignalingPath,
+		CipherMode:     CipherModePlaintext,
+		SecurityPolicy: allowAllPolicy{},
+	})
+	if err != nil {
+		t.Fatalf("Dial error = %v", err)
+	}
+	defer clientListener.Close()
+	defer clientConn.Close()
+	serverConn := acceptConn(t, serverListener)
+	defer serverConn.Close()
+
+	service := serverConn.ListenService(100)
+	defer service.Close()
+	openExchangeClose := func(sequence int) (*webrtc.DataChannel, uint16) {
+		t.Helper()
+		clientStream, err := clientConn.DialContext(ctx, 100)
+		if err != nil {
+			t.Fatalf("DialContext stream %d error = %v", sequence, err)
+		}
+		serverStream, err := service.Accept()
+		if err != nil {
+			_ = clientStream.Close()
+			t.Fatalf("Accept stream %d error = %v", sequence, err)
+		}
+		stream, ok := clientStream.(*dataChannelConn)
+		if !ok {
+			_ = serverStream.Close()
+			_ = clientStream.Close()
+			t.Fatalf("client stream %d type = %T", sequence, clientStream)
+		}
+		dataChannel, ok := stream.flow.(*webrtc.DataChannel)
+		if !ok || dataChannel == nil {
+			_ = serverStream.Close()
+			_ = clientStream.Close()
+			t.Fatalf("client stream %d DataChannel = %T", sequence, stream.flow)
+		}
+		if dataChannel.ID() == nil {
+			_ = serverStream.Close()
+			_ = clientStream.Close()
+			t.Fatalf("client stream %d DataChannel ID is nil", sequence)
+		}
+		payload := []byte(fmt.Sprintf("request-%d", sequence))
+		if _, err := clientStream.Write(payload); err != nil {
+			_ = serverStream.Close()
+			_ = clientStream.Close()
+			t.Fatalf("Write stream %d error = %v", sequence, err)
+		}
+		received := make([]byte, len(payload))
+		if _, err := io.ReadFull(serverStream, received); err != nil {
+			_ = serverStream.Close()
+			_ = clientStream.Close()
+			t.Fatalf("Read stream %d error = %v", sequence, err)
+		}
+		if !bytes.Equal(received, payload) {
+			t.Errorf("stream %d payload = %q, want %q", sequence, received, payload)
+		}
+		response := []byte(fmt.Sprintf("response-%d", sequence))
+		if _, err := serverStream.Write(response); err != nil {
+			_ = serverStream.Close()
+			_ = clientStream.Close()
+			t.Fatalf("Write response %d error = %v", sequence, err)
+		}
+		received = make([]byte, len(response))
+		if _, err := io.ReadFull(clientStream, received); err != nil {
+			_ = serverStream.Close()
+			_ = clientStream.Close()
+			t.Fatalf("Read response %d error = %v", sequence, err)
+		}
+		if !bytes.Equal(received, response) {
+			t.Errorf("response %d payload = %q, want %q", sequence, received, response)
+		}
+		id := *dataChannel.ID()
+		if err := serverStream.Close(); err != nil {
+			t.Errorf("Close server stream %d error = %v", sequence, err)
+		}
+		if err := clientStream.Close(); err != nil {
+			t.Errorf("Close client stream %d error = %v", sequence, err)
+		}
+		return dataChannel, id
+	}
+
+	firstDataChannel, firstID := openExchangeClose(0)
+	seenDataChannels := map[*webrtc.DataChannel]struct{}{firstDataChannel: {}}
+	const reuseCount = 8
+	reused := 0
+	deadline := time.Now().Add(8 * time.Second)
+	for sequence := 1; time.Now().Before(deadline); sequence++ {
+		dataChannel, id := openExchangeClose(sequence)
+		if _, exists := seenDataChannels[dataChannel]; exists {
+			t.Fatal("reused DataChannel object instead of opening a new channel")
+		}
+		seenDataChannels[dataChannel] = struct{}{}
+		if id == firstID {
+			reused++
+			if reused == reuseCount {
+				return
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("DataChannel ID %d was reused %d times after SCTP reset completion, want %d", firstID, reused, reuseCount)
+}
+
 func TestDialSignalingWithFixedICEPort(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {

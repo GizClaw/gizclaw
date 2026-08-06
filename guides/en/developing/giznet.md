@@ -80,6 +80,23 @@ registry lock. Repeated short-lived RPC streams therefore do not accumulate in
 the parent WebRTC connection, while service and parent shutdown still reject
 new streams and close every stream that remains live.
 
+Each unary RPC owns one ordered service DataChannel: the client creates a new
+DataChannel for the request, the server processes one request on it, and both
+sides close it after the response. A closed DataChannel is never reused for a
+later RPC. Its SCTP stream identifier remains reserved until the peer's stream
+reset completes; only then may the allocator assign that identifier to a new
+DataChannel. This reuses the finite identifier space, not the channel or RPC
+stream.
+
+The root Go module temporarily replaces `github.com/pion/sctp` and
+`github.com/pion/webrtc/v4` with immutable GizClaw fork pseudo-versions that
+report completed stream resets and release DataChannel identifiers. Go does not
+propagate a dependency module's `replace` directives, so executables that
+consume GizClaw as a module must mirror both replacements until upstream
+releases contain both fixes. The replacements must be removed together after
+those releases are selected and the reset/reuse integration and race tests pass
+without the forks.
+
 Service-stream reads borrow the fixed 64 KiB detached-DataChannel message
 buffer from a process-wide pool and return it after copying any unread tail
 into the connection-owned pending buffer. Long-lived RPC streams therefore do
