@@ -229,6 +229,9 @@ retains at least 80% of its
 initial aggregate and per-session p01, p05, and p50 throughput. The lower-tail
 percentiles catch slow-session degradation; p95 and p99 remain upper-tail
 diagnostics and are not retention gates.
+Fresh-stack HTTP and ready-file waits likewise print the service state and
+elapsed time every 15 seconds; silence after Compose startup is not readiness
+evidence.
 
 Extended artifact version 15 records actual hold boundaries and qualifies the
 first and last ten-minute windows. Median round p99 RTT, RSS, open FDs,

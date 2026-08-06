@@ -256,6 +256,8 @@ ping、disconnect、identity、round-duration gate 或 2.1 秒 resource sample g
 initial/final upload 与 download checkpoint 均对每 session 精确传输 1 MiB、达到至少
 200 Mbps，并要求 final 每个方向的 aggregate 以及 per-session p01、p05、p50 throughput
 都保留 initial 的至少 80%。p95 与 p99 throughput 保留为快尾诊断，不作为退化 gate。
+Fresh stack 的 HTTP 与 ready-file readiness 等待每 15 秒输出 service state 与 elapsed
+time，不能把 Compose 启动后的静默当成 ready。
 
 Artifact version 15 记录实际 hold boundary，并比较最初与最后十分钟。每轮 RTT p99 的
 median、RSS、open FD、最近一次 completed GC 的 Go live heap，以及 goroutine median，

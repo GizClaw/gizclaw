@@ -194,6 +194,8 @@ download 均精确传输 1,000 MiB（1,048,576,000 bytes）、达到至少 200 M
 方向保留 initial aggregate
 及 per-session p01、p05、p50 throughput 的至少 80%。低尾 percentile 用于捕获慢 session
 退化；p95 与 p99 保留为快尾诊断，不作为 retention gate。
+Fresh stack 的 HTTP 与 ready-file 等待同样每 15 秒输出 service state 和 elapsed time；
+compose 已启动后的长时间静默不能作为 readiness 证据。
 
 Extended artifact version 15 记录实际 hold boundary，并验收最初与最后十分钟窗口。每轮
 p99 RTT 的 median、RSS、open FD、最近一次 completed GC 的 Go live heap，以及 goroutine

@@ -329,6 +329,8 @@ final 1 MiB-per-session upload/download checkpoints must each exceed 200 Mbps,
 and each final direction must retain at least 80% of its initial aggregate and
 of its per-session p01, p05, and p50 throughput. The p95 and p99 throughput
 values remain upper-tail diagnostics rather than degradation gates.
+Fresh-stack HTTP and ready-file waits print the service state and elapsed time
+every 15 seconds; silence after Compose startup is not readiness evidence.
 
 Artifact version 15 records the actual hold boundaries and compares the first
 and last ten minutes. The median per-round RTT p99, RSS, open FDs, completed-GC

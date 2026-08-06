@@ -388,12 +388,14 @@ wait_http_ready() {
   local url="$1"
   local label="$2"
   local service="${3:-}"
-  for _ in {1..300}; do
+  local attempt container_state
+  for attempt in {1..300}; do
     if curl -fsS --max-time 1 "$url" >/dev/null 2>&1; then
       return 0
     fi
+    container_state="unavailable"
     if [[ -n "$service" ]]; then
-      local container_id container_state exit_code
+      local container_id exit_code
       container_id="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" ps --all -q "$service" 2>/dev/null || true)"
       if [[ -n "$container_id" ]]; then
         container_state="$(docker inspect --format '{{.State.Status}}' "$container_id" 2>/dev/null || true)"
@@ -404,6 +406,9 @@ wait_http_ready() {
           return 1
         fi
       fi
+    fi
+    if ((attempt % 75 == 0)); then
+      echo "==> readiness heartbeat: check=http label=$label service=${service:-none} state=$container_state elapsed_seconds=$((attempt / 5)) url=$url"
     fi
     sleep 0.2
   done
@@ -421,7 +426,8 @@ wait_docker_ready_file() {
   # Full deterministic provisioning includes the shared Workflow catalog and
   # both owner-uploaded icon formats, so allow the same five-minute startup
   # window as the server container health check.
-  for _ in {1..1500}; do
+  local attempt
+  for attempt in {1..1500}; do
     local container_id container_state exit_code
     container_id="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" ps --all -q "$service" 2>/dev/null || true)"
     if [[ -n "$container_id" ]]; then
@@ -435,6 +441,9 @@ wait_docker_ready_file() {
       if docker exec "$container_id" test -f "$ready_file" >/dev/null 2>&1; then
         return 0
       fi
+    fi
+    if ((attempt % 75 == 0)); then
+      echo "==> readiness heartbeat: check=ready-file label=$label service=$service state=${container_state:-unavailable} elapsed_seconds=$((attempt / 5)) marker=$ready_file"
     fi
     sleep 0.2
   done
