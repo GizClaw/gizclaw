@@ -230,7 +230,7 @@ read_gateway_limit() {
 }
 
 verify_capacity_stack_running() {
-  local service container_id health
+  local service container_id health pending_health=0
   for service in turn server edge edge2 coturn-a coturn-b; do
     container_id="$(docker ps -q \
       --filter "label=com.docker.compose.project=$GIZCLAW_E2E_DOCKER_PROJECT" \
@@ -240,11 +240,18 @@ verify_capacity_stack_running() {
       return 1
     fi
     health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")"
+    if [[ "$health" == "starting" ]]; then
+      pending_health=1
+      continue
+    fi
     if [[ "$health" != "healthy" ]]; then
       echo "capacity stack service lost health during post-build settle: service=$service health=$health" >&2
       return 1
     fi
   done
+  if [[ "$pending_health" == "1" ]]; then
+    return 2
+  fi
 }
 
 verify_capacity_service_image() {
@@ -262,17 +269,30 @@ verify_capacity_service_image() {
 }
 
 wait_capacity_post_build_settle() {
-  local remaining="$gateway_post_build_settle_seconds"
+  local remaining="$gateway_post_build_settle_seconds" health_status
   if [[ "${GIZCLAW_E2E_DOCKER_IMAGES_BUILT:-0}" != "1" || "$remaining" == "0" ]]; then
     return 0
   fi
   while ((remaining > 0)); do
-    verify_capacity_stack_running
-    echo "==> capacity post-build settle heartbeat: status=healthy services=6 remaining_seconds=$remaining image=$capacity_image"
+    health_status=0
+    verify_capacity_stack_running || health_status="$?"
+    case "$health_status" in
+      0) echo "==> capacity post-build settle heartbeat: status=healthy services=6 remaining_seconds=$remaining image=$capacity_image" ;;
+      2) echo "==> capacity post-build settle heartbeat: status=starting services=6 remaining_seconds=$remaining image=$capacity_image" ;;
+      *) return "$health_status" ;;
+    esac
     sleep 15
     remaining=$((remaining - 15))
   done
-  verify_capacity_stack_running
+  health_status=0
+  verify_capacity_stack_running || health_status="$?"
+  if [[ "$health_status" == "2" ]]; then
+    echo "capacity stack services did not become healthy during post-build settle" >&2
+    return 1
+  fi
+  if ((health_status != 0)); then
+    return "$health_status"
+  fi
   echo "==> capacity post-build settle heartbeat: status=ready services=6 remaining_seconds=0 image=$capacity_image"
 }
 
