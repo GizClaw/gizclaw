@@ -9,7 +9,7 @@ artifact_root="$script_dir/testdata/gateway-capacity-extended"
 artifact_base="${GIZCLAW_E2E_GATEWAY_EXTENDED_ARTIFACT_DIR:-$artifact_root}"
 run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 capacity_image_tag="$(printf '%s' "$run_id" | tr '[:upper:]' '[:lower:]')"
-capacity_image="gizclaw-capacity:$capacity_image_tag"
+capacity_image="${GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE:-gizclaw-capacity:$capacity_image_tag}"
 export GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE="$capacity_image"
 export GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES=1
 current_env=""
@@ -40,6 +40,7 @@ gateway_upstream_path="${GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH:-relay}"
 gateway_prebuilt="${GIZCLAW_E2E_GATEWAY_PREBUILT:-0}"
 gateway_cleanup_timeout="${GIZCLAW_E2E_GATEWAY_CLEANUP_TIMEOUT:-30s}"
 gateway_post_start_settle_seconds="${GIZCLAW_E2E_GATEWAY_POST_START_SETTLE_SECONDS:-0}"
+gateway_retain_image_on_failure="${GIZCLAW_E2E_GATEWAY_RETAIN_IMAGE_ON_FAILURE:-0}"
 case "$gateway_upstream_path" in
   direct | relay) ;;
   *)
@@ -135,7 +136,9 @@ cleanup_on_exit() {
     echo "failed to clean the active gateway-capacity Docker project; env=$current_env" >&2
     status=1
   fi
-  if ! cleanup_capacity_image; then
+  if ((status != 0)) && [[ "$gateway_retain_image_on_failure" == "1" ]]; then
+    echo "==> capacity image cleanup heartbeat: status=retained-for-retry image=$capacity_image"
+  elif ! cleanup_capacity_image; then
     status=1
   fi
   rmdir "$runtime_state" >/dev/null 2>&1 || true

@@ -13,6 +13,8 @@ if [[ -n "$(git -C "$repo_root" status --porcelain)" ]]; then
   exit 2
 fi
 capacity_repository_head="$(git -C "$repo_root" rev-parse HEAD)"
+export GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE="gizclaw-capacity:head-${capacity_repository_head:0:16}"
+export GIZCLAW_E2E_GATEWAY_RETAIN_IMAGE_ON_FAILURE=1
 
 export GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH=relay
 export GIZCLAW_E2E_GATEWAY_EXTENDED_ARTIFACT_DIR="${GIZCLAW_E2E_GATEWAY_EXTENDED_ARTIFACT_DIR:-${GIZCLAW_E2E_GATEWAY_1000_ARTIFACT_DIR:-$script_dir/testdata/gateway-capacity-extended/relay/sessions-1000-burst}}"

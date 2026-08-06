@@ -198,7 +198,9 @@ Fresh stack 的 HTTP 与 ready-file 等待同样每 15 秒输出 service state �
 compose 已启动后的长时间静默不能作为 readiness 证据。
 在一次有序的 1,000-session 验收中，runner 从要求的 clean head 构建一个按 run ID 隔离的
 service image，并在后续 repetition 中复用这一份完全相同的镜像。每轮仍重新创建 container、
-network、volume、port 与 runtime credential；runner 退出时只删除自己这一份精确镜像。每个
+network、volume、port 与 runtime credential。失败的尝试只保留按 clean HEAD 隔离的镜像，
+使同一 HEAD 的重试无需再次 build；HEAD 改变后使用新 tag，整组验收完成后删除这份精确
+镜像。每个
 fresh stack ready 后、测量前都执行相同的 120 秒稳定窗口，并每 15 秒输出 container health
 心跳；执行首次镜像构建或复用镜像的 repetition 都不例外。
 每个 1,000-session fresh stack 清理完成后保留固定 120 秒稳定窗口，每 15 秒输出剩余时间，

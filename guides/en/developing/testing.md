@@ -236,8 +236,10 @@ evidence.
 Within one ordered 1,000-session qualification, the runner builds one
 run-ID-scoped service image from the required clean head and reuses that exact
 image for later repetitions. Containers, networks, volumes, ports, and runtime
-credentials remain fresh for every repetition, and the runner removes only its
-exact image on exit. After every fresh stack reaches readiness, including the
+credentials remain fresh for every repetition. A failed attempt retains only
+the clean-HEAD-scoped image so a retry on that same head avoids another build;
+a changed head uses a different tag, and a completed qualification removes its
+exact image. After every fresh stack reaches readiness, including the
 one that performed the initial image build, a 120-second stabilization window
 prints 15-second container-health heartbeats before measurement. Repetitions
 that reuse the image follow the same window.
