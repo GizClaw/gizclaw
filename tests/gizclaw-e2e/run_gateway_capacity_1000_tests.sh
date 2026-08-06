@@ -40,7 +40,7 @@ export GIZCLAW_E2E_GATEWAY_CLEANUP_TIMEOUT=30s
 source "$script_dir/run_gateway_extended_capacity_tests.sh"
 
 wait_capacity_stack_settle() {
-  local remaining=60
+  local remaining=120
   while ((remaining > 0)); do
     echo "==> capacity stack settle heartbeat: status=waiting remaining_seconds=$remaining"
     sleep 15
