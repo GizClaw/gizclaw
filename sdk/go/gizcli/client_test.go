@@ -2,11 +2,8 @@ package gizcli
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -16,49 +13,27 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
-type pingReusePeerConn struct {
-	mu         sync.Mutex
-	streams    []net.Conn
-	dialCount  int
-	closeCount int
+type freshPingPeerConn struct {
+	streams []net.Conn
+	dials   int
 }
 
-func (c *pingReusePeerConn) Dial(uint64) (net.Conn, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.dialCount >= len(c.streams) {
+func (c *freshPingPeerConn) Dial(uint64) (net.Conn, error) {
+	if c.dials >= len(c.streams) {
 		return nil, net.ErrClosed
 	}
-	stream := c.streams[c.dialCount]
-	c.dialCount++
+	stream := c.streams[c.dials]
+	c.dials++
 	return stream, nil
 }
 
-func (*pingReusePeerConn) ListenService(uint64) giznet.ServiceListener { return nil }
-func (*pingReusePeerConn) CloseService(uint64) error                   { return nil }
-func (*pingReusePeerConn) Read([]byte) (byte, int, error)              { return 0, 0, net.ErrClosed }
-func (*pingReusePeerConn) Write(byte, []byte) (int, error)             { return 0, net.ErrClosed }
-func (*pingReusePeerConn) PublicKey() giznet.PublicKey                 { return giznet.PublicKey{} }
-func (*pingReusePeerConn) PeerInfo() *giznet.PeerInfo                  { return nil }
-func (c *pingReusePeerConn) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.closeCount++
-	return nil
-}
-
-type closeTrackingConn struct {
-	net.Conn
-	mu         sync.Mutex
-	closeCount int
-}
-
-func (c *closeTrackingConn) Close() error {
-	c.mu.Lock()
-	c.closeCount++
-	c.mu.Unlock()
-	return c.Conn.Close()
-}
+func (*freshPingPeerConn) ListenService(uint64) giznet.ServiceListener { return nil }
+func (*freshPingPeerConn) CloseService(uint64) error                   { return nil }
+func (*freshPingPeerConn) Read([]byte) (byte, int, error)              { return 0, 0, net.ErrClosed }
+func (*freshPingPeerConn) Write(byte, []byte) (int, error)             { return 0, net.ErrClosed }
+func (*freshPingPeerConn) PublicKey() giznet.PublicKey                 { return giznet.PublicKey{} }
+func (*freshPingPeerConn) PeerInfo() *giznet.PeerInfo                  { return nil }
+func (*freshPingPeerConn) Close() error                                { return nil }
 
 func TestClientDialValidation(t *testing.T) {
 	t.Run("nil client", func(t *testing.T) {
@@ -355,44 +330,41 @@ func TestClientRPCWithoutContextDeadlineUsesDefaultStreamTimeout(t *testing.T) {
 	if err == nil {
 		t.Fatal("Ping() error = nil, want timeout")
 	}
-	if !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("Ping() error = %v, want context deadline exceeded", err)
+	if !strings.Contains(err.Error(), "timeout") {
+		t.Fatalf("Ping() error = %v, want timeout", err)
 	}
 	if elapsed := time.Since(start); elapsed > time.Second {
 		t.Fatalf("Ping() elapsed = %s, want bounded by default RPC stream timeout", elapsed)
 	}
 }
 
-func TestClientPingReusesStreamAndCloseReleasesIt(t *testing.T) {
-	const requests = 32
-	serverSide, clientSide := net.Pipe()
-	trackedClientSide := &closeTrackingConn{Conn: clientSide}
-	peer := &pingReusePeerConn{streams: []net.Conn{trackedClientSide}}
+func TestClientPingOpensFreshStreamPerRequest(t *testing.T) {
+	serverOne, clientOne := net.Pipe()
+	serverTwo, clientTwo := net.Pipe()
+	peer := &freshPingPeerConn{streams: []net.Conn{clientOne, clientTwo}}
 	client := &Client{}
 	client.init(nil, peer, giznet.PublicKey{})
 
-	serverErrCh := make(chan error, 1)
-	go func() {
-		for range requests {
-			req, err := readRPCRequestWithEOS(serverSide)
-			if err != nil {
-				serverErrCh <- err
-				return
-			}
-			resp, err := newRPCPingResponse(req.Id, rpcapi.PingResponse{ServerTime: rpcServerTimeForID(req.Id)})
+	servePing := func(stream net.Conn, errCh chan<- error) {
+		defer stream.Close()
+		req, err := readRPCRequestWithEOS(stream)
+		if err == nil {
+			var resp *rpcapi.RPCResponse
+			resp, err = newRPCPingResponse(
+				req.Id,
+				rpcapi.PingResponse{ServerTime: rpcServerTimeForID(req.Id)},
+			)
 			if err == nil {
-				err = writeRPCResponseWithEOS(serverSide, req.Method, resp)
-			}
-			if err != nil {
-				serverErrCh <- err
-				return
+				err = writeRPCResponseWithEOS(stream, req.Method, resp)
 			}
 		}
-		serverErrCh <- nil
-	}()
+		errCh <- err
+	}
+	errCh := make(chan error, 2)
+	go servePing(serverOne, errCh)
+	go servePing(serverTwo, errCh)
 
-	for index := range requests {
-		id := fmt.Sprintf("reuse-%d", index)
+	for _, id := range []string{"fresh-1", "fresh-2"} {
 		response, err := client.Ping(t.Context(), id)
 		if err != nil {
 			t.Fatalf("Ping(%q) error = %v", id, err)
@@ -401,92 +373,14 @@ func TestClientPingReusesStreamAndCloseReleasesIt(t *testing.T) {
 			t.Fatalf("Ping(%q) server_time = %d", id, response.ServerTime)
 		}
 	}
-	if err := <-serverErrCh; err != nil {
-		t.Fatalf("server error = %v", err)
-	}
-	if peer.dialCount != 1 {
-		t.Fatalf("Dial() count = %d, want 1", peer.dialCount)
-	}
-	if err := client.Close(); err != nil {
-		t.Fatalf("Close() error = %v", err)
-	}
-	trackedClientSide.mu.Lock()
-	streamCloseCount := trackedClientSide.closeCount
-	trackedClientSide.mu.Unlock()
-	if streamCloseCount != 1 {
-		t.Fatalf("ping stream Close() count = %d, want 1", streamCloseCount)
-	}
-	if peer.closeCount != 1 {
-		t.Fatalf("peer Close() count = %d, want 1", peer.closeCount)
-	}
-	_ = serverSide.Close()
-}
-
-func TestClientPingWaitHonorsContext(t *testing.T) {
-	client := &Client{}
-	client.lockPingUninterruptibly()
-	defer client.unlockPing()
-
-	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
-	defer cancel()
-	started := time.Now()
-	_, err := client.Ping(ctx, "queued")
-	if !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("Ping() error = %v, want context deadline exceeded", err)
-	}
-	if elapsed := time.Since(started); elapsed > time.Second {
-		t.Fatalf("Ping() waited %s after its context deadline", elapsed)
-	}
-}
-
-func TestClientPingFailureDiscardsStreamBeforeRedial(t *testing.T) {
-	failedServer, failedClient := net.Pipe()
-	workingServer, workingClient := net.Pipe()
-	failedTracked := &closeTrackingConn{Conn: failedClient}
-	workingTracked := &closeTrackingConn{Conn: workingClient}
-	peer := &pingReusePeerConn{streams: []net.Conn{failedTracked, workingTracked}}
-	client := &Client{}
-	client.init(nil, peer, giznet.PublicKey{})
-
-	if err := failedServer.Close(); err != nil {
-		t.Fatalf("failed server Close() error = %v", err)
-	}
-	if _, err := client.Ping(t.Context(), "failed"); err == nil {
-		t.Fatal("Ping(failed) error = nil")
-	}
-	if client.pingConn != nil {
-		t.Fatal("failed Ping retained stream")
-	}
-
-	serverErrCh := make(chan error, 1)
-	go func() {
-		req, err := readRPCRequestWithEOS(workingServer)
-		if err == nil {
-			var resp *rpcapi.RPCResponse
-			resp, err = newRPCPingResponse(req.Id, rpcapi.PingResponse{ServerTime: rpcServerTimeForID(req.Id)})
-			if err == nil {
-				err = writeRPCResponseWithEOS(workingServer, req.Method, resp)
-			}
+	for range 2 {
+		if err := <-errCh; err != nil {
+			t.Fatalf("server error = %v", err)
 		}
-		serverErrCh <- err
-	}()
-	response, err := client.Ping(t.Context(), "redial")
-	if err != nil {
-		t.Fatalf("Ping(redial) error = %v", err)
 	}
-	if response.ServerTime != rpcServerTimeForID("redial") {
-		t.Fatalf("Ping(redial) server_time = %d", response.ServerTime)
+	if peer.dials != 2 {
+		t.Fatalf("Dial() count = %d, want one fresh stream per request", peer.dials)
 	}
-	if err := <-serverErrCh; err != nil {
-		t.Fatalf("server error = %v", err)
-	}
-	if peer.dialCount != 2 {
-		t.Fatalf("Dial() count = %d, want 2", peer.dialCount)
-	}
-	if err := client.Close(); err != nil {
-		t.Fatalf("Close() error = %v", err)
-	}
-	_ = workingServer.Close()
 }
 
 func TestClientSecurityPolicyAllowsExpectedPeerAndService(t *testing.T) {

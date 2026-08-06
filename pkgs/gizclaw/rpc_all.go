@@ -8,9 +8,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
-// Ping opens a fresh RPC stream, sends one ping, and closes it.
-// RPC servers also accept multiple sequential requests on a single stream for
-// firmware clients that keep their service data channel open.
+// Ping opens a fresh RPC stream, sends one ping, and closes it. The RPC
+// transport assigns exactly one request to each service DataChannel.
 func (h *PeerConn) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, error) {
 	stream, err := h.rpcConn()
 	if err != nil {

@@ -37,15 +37,12 @@ type Client struct {
 
 	Device apitypes.DeviceInfo
 
-	mu           sync.RWMutex
-	listener     giznet.Listener
-	conn         giznet.Conn
-	serverPK     giznet.PublicKey
-	rpc          *rpcClient
-	events       *peerEventSession
-	pingGateOnce sync.Once
-	pingGate     chan struct{}
-	pingConn     net.Conn
+	mu       sync.RWMutex
+	listener giznet.Listener
+	conn     giznet.Conn
+	serverPK giznet.PublicKey
+	rpc      *rpcClient
+	events   *peerEventSession
 
 	packetMu          sync.RWMutex
 	packetSubscribers map[byte]map[chan []byte]struct{}
@@ -176,9 +173,6 @@ func (c *Client) init(listener giznet.Listener, conn giznet.Conn, serverPK gizne
 
 // Close releases all transport resources.
 func (c *Client) Close() error {
-	c.lockPingUninterruptibly()
-	defer c.unlockPing()
-
 	c.mu.Lock()
 	conn := c.conn
 	listener := c.listener
@@ -189,17 +183,10 @@ func (c *Client) Close() error {
 	c.rpc = nil
 	c.events = nil
 	c.mu.Unlock()
-	pingConn := c.pingConn
-	c.pingConn = nil
 
 	var err error
 	if events != nil {
 		if closeErr := events.close(); closeErr != nil {
-			err = closeErr
-		}
-	}
-	if pingConn != nil {
-		if closeErr := pingConn.Close(); err == nil {
 			err = closeErr
 		}
 	}
@@ -255,72 +242,17 @@ func (c *Client) PeerHTTPClient() (*peerhttp.ClientWithResponses, error) {
 	)
 }
 
-// Ping sends one request over a client-scoped sequential RPC stream. Reusing
-// the stream avoids repeatedly creating transport resources for health checks.
+// Ping opens a fresh RPC stream, sends one ping, and closes it.
+//
+// Each RPC request owns one giznet service stream. Multiple requests on one
+// stream are not part of the RPC transport contract.
 func (c *Client) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, error) {
-	if c == nil {
-		return nil, fmt.Errorf("gizclaw: nil client")
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if _, ok := ctx.Deadline(); !ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, defaultRPCStreamTimeout)
-		defer cancel()
-	}
-
-	if err := c.lockPing(ctx); err != nil {
+	stream, err := c.rpcConn()
+	if err != nil {
 		return nil, err
 	}
-	defer c.unlockPing()
-	if c.pingConn == nil {
-		conn := c.PeerConn()
-		if conn == nil {
-			return nil, fmt.Errorf("gizclaw: client is not connected")
-		}
-		stream, err := conn.Dial(ServicePeerRPC)
-		if err != nil {
-			return nil, fmt.Errorf("gizclaw: dial rpc stream: %w", err)
-		}
-		c.pingConn = stream
-	}
-
-	response, err := c.rpcClient().Ping(ctx, c.pingConn, id)
-	if err != nil {
-		_ = c.pingConn.Close()
-		c.pingConn = nil
-	}
-	return response, err
-}
-
-func (c *Client) initPingGate() {
-	c.pingGateOnce.Do(func() {
-		c.pingGate = make(chan struct{}, 1)
-		c.pingGate <- struct{}{}
-	})
-}
-
-func (c *Client) lockPing(ctx context.Context) error {
-	c.initPingGate()
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-c.pingGate:
-		return nil
-	}
-}
-
-func (c *Client) lockPingUninterruptibly() {
-	c.initPingGate()
-	<-c.pingGate
-}
-
-func (c *Client) unlockPing() {
-	c.pingGate <- struct{}{}
+	defer func() { _ = stream.Close() }()
+	return c.rpcClient().Ping(ctx, stream, id)
 }
 
 func (c *Client) GetServerInfo(ctx context.Context, id string) (*rpcapi.ServerGetInfoResponse, error) {
