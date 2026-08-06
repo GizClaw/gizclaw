@@ -1126,12 +1126,16 @@ func establishSessions(
 ) error {
 	var establishWG sync.WaitGroup
 	var attemptsMu sync.Mutex
+	var completed atomic.Int64
+	var established atomic.Int64
+	var failed atomic.Int64
 	attempts := make([]establishmentSessionResult, 0, opts.sessions)
 	stopRampPings := func() {}
 	if opts.requireRoleResources && opts.ramp > 0 {
 		stopRampPings = startRampPings(ctx, state, opts, sem)
 	}
 	startedAt := time.Now()
+	stopProgress := startEstablishmentProgress(opts, startedAt, &completed, &established, &failed)
 	start := make(chan struct{})
 	var ready sync.WaitGroup
 	if opts.ramp == 0 {
@@ -1139,6 +1143,7 @@ func establishSessions(
 	}
 	launch := func(i int) {
 		establishWG.Go(func() {
+			defer completed.Add(1)
 			if opts.ramp == 0 {
 				ready.Done()
 				select {
@@ -1176,9 +1181,11 @@ func establishSessions(
 			attempts = append(attempts, attempt)
 			attemptsMu.Unlock()
 			if dialErr != nil {
+				failed.Add(1)
 				state.recordError(fmt.Sprintf("session %d dial via %s: %v", i, edge.endpoint, dialErr))
 				return
 			}
+			established.Add(1)
 			state.addSession(session)
 			state.serveWG.Go(func() {
 				err := session.serve()
@@ -1198,6 +1205,7 @@ func establishSessions(
 				timer.Stop()
 				stopRampPings()
 				establishWG.Wait()
+				stopProgress("canceled")
 				state.mu.Lock()
 				state.establishment = summarizeEstablishment(startedAt, time.Now(), attempts)
 				state.mu.Unlock()
@@ -1215,6 +1223,7 @@ func establishSessions(
 	}
 	establishWG.Wait()
 	stopRampPings()
+	stopProgress("completed")
 	state.mu.Lock()
 	state.establishment = summarizeEstablishment(startedAt, time.Now(), attempts)
 	state.mu.Unlock()
@@ -1223,6 +1232,62 @@ func establishSessions(
 		return err
 	}
 	return nil
+}
+
+func startEstablishmentProgress(
+	opts options,
+	started time.Time,
+	completed *atomic.Int64,
+	established *atomic.Int64,
+	failed *atomic.Int64,
+) func(string) {
+	fmt.Fprintf(
+		os.Stderr,
+		"gateway capacity progress: status=started phase=establish attempted=%d concurrency=%d ramp=%s\n",
+		opts.sessions,
+		opts.concurrency,
+		opts.ramp,
+	)
+	done := make(chan struct{})
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				fmt.Fprintf(
+					os.Stderr,
+					"gateway capacity progress: status=running phase=establish completed=%d/%d established=%d failures=%d elapsed=%s\n",
+					completed.Load(),
+					opts.sessions,
+					established.Load(),
+					failed.Load(),
+					time.Since(started).Round(time.Second),
+				)
+			case <-done:
+				return
+			}
+		}
+	}()
+	var stopOnce sync.Once
+	return func(status string) {
+		stopOnce.Do(func() {
+			close(done)
+			<-stopped
+			fmt.Fprintf(
+				os.Stderr,
+				"gateway capacity progress: status=%s phase=establish completed=%d/%d established=%d failures=%d elapsed=%s\n",
+				status,
+				completed.Load(),
+				opts.sessions,
+				established.Load(),
+				failed.Load(),
+				time.Since(started).Round(time.Millisecond),
+			)
+		})
+	}
 }
 
 func startRampPings(ctx context.Context, state *resultState, opts options, sem chan struct{}) func() {

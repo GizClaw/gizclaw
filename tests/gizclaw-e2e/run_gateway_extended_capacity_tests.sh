@@ -78,10 +78,31 @@ runtime_state="$(mktemp -d "$script_dir/testdata/docker/gateway-capacity.XXXXXX"
 mkdir -p "$runs_dir" "$bin_dir"
 
 cleanup_current() {
+  local cleanup_pid cleanup_status elapsed_seconds last_heartbeat_seconds started_seconds
   if [[ -z "$current_env" || ! -f "$current_env" ]]; then
     return 0
   fi
-  GIZCLAW_E2E_DOCKER_ENV="$current_env" bash "$setup_dir/docker-compose-down.sh" >/dev/null 2>&1 || return 1
+  echo "==> capacity stack cleanup heartbeat: status=started env=$current_env"
+  started_seconds="$SECONDS"
+  last_heartbeat_seconds=0
+  GIZCLAW_E2E_DOCKER_ENV="$current_env" bash "$setup_dir/docker-compose-down.sh" >/dev/null 2>&1 &
+  cleanup_pid="$!"
+  while kill -0 "$cleanup_pid" 2>/dev/null; do
+    sleep 1
+    elapsed_seconds=$((SECONDS - started_seconds))
+    if kill -0 "$cleanup_pid" 2>/dev/null && ((elapsed_seconds >= last_heartbeat_seconds + 15)); then
+      echo "==> capacity stack cleanup heartbeat: status=running elapsed_seconds=$elapsed_seconds env=$current_env"
+      last_heartbeat_seconds="$elapsed_seconds"
+    fi
+  done
+  cleanup_status=0
+  wait "$cleanup_pid" || cleanup_status="$?"
+  elapsed_seconds=$((SECONDS - started_seconds))
+  if ((cleanup_status != 0)); then
+    echo "==> capacity stack cleanup heartbeat: status=failed exit_code=$cleanup_status elapsed_seconds=$elapsed_seconds env=$current_env" >&2
+    return "$cleanup_status"
+  fi
+  echo "==> capacity stack cleanup heartbeat: status=completed elapsed_seconds=$elapsed_seconds env=$current_env"
   rm -f "$current_env"
   current_env=""
   coturn_a_container_id=""
