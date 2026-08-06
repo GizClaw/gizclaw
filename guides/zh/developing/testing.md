@@ -184,7 +184,8 @@ drain 能关闭 physical upstream pool；独立的 15 秒 Coturn 归零上限从
 repository head 保持 clean 且未变化，再用一个 fresh zero-ramp 1,000-session stack 执行
 60 分钟 hold。Liveness round 每 30 秒开始一次。Artifact 保留现有 `speed_test` 作为 initial
 checkpoint，并新增独立的 `final_speed_test` 与 `speed_retention`；initial/final upload 和
-download 均精确传输 1 GiB、达到至少 200 Mbps，且 final 每个方向保留 initial aggregate
+download 均精确传输 1,000 MiB（1,048,576,000 bytes）、达到至少 200 Mbps，且 final 每个
+方向保留 initial aggregate
 及 per-session p01、p05、p50 throughput 的至少 80%。低尾 percentile 用于捕获慢 session
 退化；p95 与 p99 保留为快尾诊断，不作为 retention gate。
 
@@ -209,8 +210,9 @@ final-speed retention、mandatory bounded-cleanup evidence，以及 load driver 
 Coturn member 的一秒间隔 live allocation/traffic sample、finished-session byte counter、
 traffic delta，以及两个 Edge 停止后有界归零结果。每个 member 使用一条长期运行的
 container-side metric stream，避免把 host 侧 Docker process 启动开销计入每次 sample。
-验收要求 workload 前已产出第一条 sample，毫秒 timestamp 严格递增且相邻 gap 不超过
-2.1 秒。已合并的 #697/#698 结果仍是历史
+验收要求 workload 前已产出第一条 sample，毫秒 timestamp 不递减且相邻 gap 不超过
+2.1 秒；只有不同纳秒 sample 截断到同一毫秒时才允许 timestamp 相等。已合并的
+#697/#698 结果仍是历史
 direct-upstream 观测；当前
 Coturn 数据不是 production、WAN 或可移植吞吐 SLA。
 

@@ -237,8 +237,9 @@ bash tests/gizclaw-e2e/run_gateway_capacity_1000_soak_tests.sh
 Burst 入口要求 clean head，并在三个全新的 one-Server/two-Edge/two-Coturn stack 上重复。
 每轮通过同一个 barrier、concurrency 1,000、zero ramp 同时释放 1,000 个 Dial，保持全部
 1,000 个 live session 30 秒，执行 final liveness 后有界清理。每台 Edge 必须通过四条
-gateway upstream 恰好承载 500 个 session；establishment、每方向精确 1 GiB application
-transfer、200 Mbps aggregate、timing、resource、relay selection、十条 allocation、restart
+gateway upstream 恰好承载 500 个 session；establishment、每方向精确 1,000 MiB
+（1,048,576,000 bytes）application transfer、200 Mbps aggregate、timing、resource、relay
+selection、十条 allocation、restart
 与 cleanup gate 均沿用较小档位的固定 contract。Load driver 固定并记录 `GOGC=50`，
 让 1,000-way client heap 通过更小、更频繁的 GC cycle 回收，避免压测进程自身把实测
 GC CPU 与 RTT spike 注入长时间 hold；这个参数不改变 Edge、Server 或 Coturn 的
@@ -265,7 +266,8 @@ namespace socket/network metric，必须逐项明确标为 unsupported，不得�
 Logical-session cleanup 上限为
 30 秒；Edge 存活期间按一秒间隔读取 source-qualified Coturn counter，要求十条 physical
 TURN allocation 始终保持存在，Edge 关闭后必须在 15 秒内归零。监控必须在 workload
-启动前产出第一条 sample，且毫秒 timestamp 严格递增、相邻 gap 不超过 2.1 秒。这些命令只验收 artifact
+启动前产出第一条 sample，且毫秒 timestamp 不递减、相邻 gap 不超过 2.1 秒；只有不同的纳秒
+sample 截断到同一毫秒时才允许 timestamp 相等。这些命令只验收 artifact
 记录的 host、Docker engine、clean commit 与 topology，不是 30,000-session 或 WAN
 guarantee。
 

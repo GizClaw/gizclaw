@@ -307,7 +307,8 @@ one-Server/two-Edge/two-Coturn stacks. Each run releases 1,000 Dials through
 one barrier with concurrency 1,000 and no ramp, holds the 1,000 live sessions
 for 30 seconds, and performs final liveness before bounded teardown. Each Edge
 must own exactly 500 sessions across four gateway upstreams. The establishment,
-exact 1 GiB-per-direction application transfer, 200 Mbps aggregate, timing,
+application transfer of exactly 1,000 MiB (1,048,576,000 bytes) in each
+direction, 200 Mbps aggregate, timing,
 resource, relay-selection, ten-allocation, restart, and cleanup gates are the
 same fixed contract as the smaller tiers. The load driver fixes and records
 `GOGC=50` so its 1,000-way client heap is collected in smaller, more frequent
@@ -342,7 +343,9 @@ Logical-session cleanup has a 30-second bound; the ten physical TURN allocations
 are checked from source-qualified Coturn counters once per second while the
 Edges are alive and must return to zero within 15 seconds after Edge shutdown.
 The monitor must produce its first sample before the workload starts, and its
-millisecond timestamps must be strictly ordered with no gap above 2.1 seconds.
+millisecond timestamps must be non-decreasing with no gap above 2.1 seconds;
+equal values are allowed only when distinct nanosecond samples truncate to the
+same millisecond.
 These commands qualify only their recorded host, Docker engine, clean commit,
 and topology; they are not a 30,000-session or WAN guarantee.
 

@@ -212,8 +212,9 @@ that the repository head stayed clean and unchanged, then starts one fresh
 zero-ramp 1,000-session stack for a 60-minute hold. Liveness rounds start every
 30 seconds. The artifact keeps the existing `speed_test` as the initial
 checkpoint and adds a distinct `final_speed_test` plus `speed_retention`.
-Initial and final concurrent upload/download each transfer exactly 1 GiB at no
-less than 200 Mbps, and each final direction retains at least 80% of its
+Initial and final concurrent upload/download each transfer exactly 1,000 MiB
+(1,048,576,000 bytes) at no less than 200 Mbps, and each final direction
+retains at least 80% of its
 initial aggregate and per-session p01, p05, and p50 throughput. The lower-tail
 percentiles catch slow-session degradation; p95 and p99 remain upper-tail
 diagnostics and are not retention gates.
@@ -246,8 +247,9 @@ member's one-second live allocation and traffic samples, finished-session byte
 counters, traffic delta, and the bounded return to zero after both Edge
 processes stop. Each member uses one persistent container-side metric stream so
 host-side Docker process startup is not part of every sample. It is accepted
-only after a pre-workload sample and a strictly ordered millisecond timeline
-with no gap above 2.1 seconds. The merged
+only after a pre-workload sample and a non-decreasing millisecond timeline
+with no gap above 2.1 seconds. Equal timestamps are accepted only when distinct
+nanosecond samples truncate to the same millisecond. The merged
 #697/#698 results remain historical direct-upstream observations; current
 Coturn measurements are not a production, WAN, or portable throughput SLA.
 
