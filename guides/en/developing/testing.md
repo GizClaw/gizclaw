@@ -233,6 +233,13 @@ diagnostics and are not retention gates.
 Fresh-stack HTTP and ready-file waits likewise print the service state and
 elapsed time every 15 seconds; silence after Compose startup is not readiness
 evidence.
+Within one ordered 1,000-session qualification, the runner builds one
+run-ID-scoped service image from the required clean head and reuses that exact
+image for later repetitions. Containers, networks, volumes, ports, and runtime
+credentials remain fresh for every repetition, and the runner removes only its
+exact image on exit. The initial image build is followed by the same 120-second
+stabilization window with 15-second container-health heartbeats before the first
+measurement.
 After each 1,000-session fresh stack is removed, a fixed 120-second stabilization
 window reports its remaining time every 15 seconds so delayed Docker-VM resource
 reclamation is not charged to the next capacity measurement. A failed upload

@@ -29,7 +29,11 @@ if [[ ! "$project" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
   exit 2
 fi
 
-docker compose -p "$project" "${compose_args[@]}" down -v --rmi local "$@"
+down_args=(down -v)
+if [[ "${GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES:-}" != "1" ]]; then
+  down_args+=(--rmi local)
+fi
+docker compose -p "$project" "${compose_args[@]}" "${down_args[@]}" "$@"
 
 if [[ "${GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY:-}" == *"docker-compose.gateway-relay.yaml" ]]; then
   rm -f \

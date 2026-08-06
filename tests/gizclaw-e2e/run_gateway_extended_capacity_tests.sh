@@ -8,6 +8,10 @@ env_file="$script_dir/.env"
 artifact_root="$script_dir/testdata/gateway-capacity-extended"
 artifact_base="${GIZCLAW_E2E_GATEWAY_EXTENDED_ARTIFACT_DIR:-$artifact_root}"
 run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+capacity_image_tag="$(printf '%s' "$run_id" | tr '[:upper:]' '[:lower:]')"
+capacity_image="gizclaw-capacity:$capacity_image_tag"
+export GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE="$capacity_image"
+export GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES=1
 current_env=""
 runtime_state=""
 coturn_monitor_pid=""
@@ -15,6 +19,7 @@ coturn_monitor_stop=""
 coturn_a_container_id=""
 coturn_b_container_id=""
 gateway_workload_pid=""
+capacity_stack_start_pid=""
 gateway_gomaxprocs="${GIZCLAW_E2E_GATEWAY_GOMAXPROCS:-8}"
 gateway_gogc="${GIZCLAW_E2E_GATEWAY_GOGC:-100}"
 gateway_dial_timeout="${GIZCLAW_E2E_GATEWAY_DIAL_TIMEOUT:-20s}"
@@ -34,6 +39,7 @@ gateway_required_upstreams_per_edge="${GIZCLAW_E2E_GATEWAY_REQUIRED_UPSTREAMS_PE
 gateway_upstream_path="${GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH:-relay}"
 gateway_prebuilt="${GIZCLAW_E2E_GATEWAY_PREBUILT:-0}"
 gateway_cleanup_timeout="${GIZCLAW_E2E_GATEWAY_CLEANUP_TIMEOUT:-30s}"
+gateway_post_build_settle_seconds="${GIZCLAW_E2E_GATEWAY_POST_BUILD_SETTLE_SECONDS:-0}"
 case "$gateway_upstream_path" in
   direct | relay) ;;
   *)
@@ -111,6 +117,11 @@ cleanup_current() {
 
 cleanup_on_exit() {
   local status="$?"
+  if [[ -n "$capacity_stack_start_pid" ]] && kill -0 "$capacity_stack_start_pid" 2>/dev/null; then
+    kill -TERM "$capacity_stack_start_pid" 2>/dev/null || true
+    wait "$capacity_stack_start_pid" 2>/dev/null || true
+    capacity_stack_start_pid=""
+  fi
   if [[ -n "$gateway_workload_pid" ]] && kill -0 "$gateway_workload_pid" 2>/dev/null; then
     kill -TERM "$gateway_workload_pid" 2>/dev/null || true
     wait "$gateway_workload_pid" 2>/dev/null || true
@@ -124,15 +135,145 @@ cleanup_on_exit() {
     echo "failed to clean the active gateway-capacity Docker project; env=$current_env" >&2
     status=1
   fi
+  if ! cleanup_capacity_image; then
+    status=1
+  fi
   rmdir "$runtime_state" >/dev/null 2>&1 || true
   exit "$status"
 }
 trap cleanup_on_exit EXIT
 
+docker_daemon_responsive() {
+  python3 - <<'PY'
+import subprocess
+
+try:
+    subprocess.run(
+        ["docker", "info"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=3,
+        check=True,
+    )
+except (OSError, subprocess.SubprocessError):
+    raise SystemExit(1)
+PY
+}
+
+cleanup_capacity_image() {
+  local cleanup_pid cleanup_status elapsed_seconds last_heartbeat_seconds started_seconds
+  echo "==> capacity image cleanup heartbeat: status=started image=$capacity_image"
+  (
+    if docker image inspect "$capacity_image" >/dev/null 2>&1; then
+      docker image rm "$capacity_image" >/dev/null
+    fi
+  ) &
+  cleanup_pid="$!"
+  started_seconds="$SECONDS"
+  last_heartbeat_seconds=0
+  while kill -0 "$cleanup_pid" 2>/dev/null; do
+    sleep 1
+    elapsed_seconds=$((SECONDS - started_seconds))
+    if kill -0 "$cleanup_pid" 2>/dev/null && ((elapsed_seconds >= last_heartbeat_seconds + 15)); then
+      echo "==> capacity image cleanup heartbeat: status=running elapsed_seconds=$elapsed_seconds image=$capacity_image"
+      last_heartbeat_seconds="$elapsed_seconds"
+    fi
+  done
+  cleanup_status=0
+  wait "$cleanup_pid" || cleanup_status="$?"
+  elapsed_seconds=$((SECONDS - started_seconds))
+  if ((cleanup_status != 0)); then
+    echo "==> capacity image cleanup heartbeat: status=failed exit_code=$cleanup_status elapsed_seconds=$elapsed_seconds image=$capacity_image" >&2
+    return "$cleanup_status"
+  fi
+  echo "==> capacity image cleanup heartbeat: status=completed elapsed_seconds=$elapsed_seconds image=$capacity_image"
+}
+
+start_capacity_stack() {
+  local project="$1"
+  local env_path="$2"
+  local topology_flag="$3"
+  local start_status elapsed_seconds last_heartbeat_seconds started_seconds daemon_status
+  env GIZCLAW_E2E_DOCKER_PROJECT="$project" \
+    GIZCLAW_E2E_DOCKER_ENV="$env_path" \
+    bash "$setup_dir/docker-compose-up.sh" "$topology_flag" &
+  capacity_stack_start_pid="$!"
+  started_seconds="$SECONDS"
+  last_heartbeat_seconds=0
+  while kill -0 "$capacity_stack_start_pid" 2>/dev/null; do
+    sleep 1
+    elapsed_seconds=$((SECONDS - started_seconds))
+    if kill -0 "$capacity_stack_start_pid" 2>/dev/null && ((elapsed_seconds >= last_heartbeat_seconds + 15)); then
+      daemon_status=unresponsive
+      if docker_daemon_responsive; then
+        daemon_status=responsive
+      fi
+      echo "==> capacity stack startup heartbeat: status=running docker_daemon=$daemon_status elapsed_seconds=$elapsed_seconds project=$project"
+      last_heartbeat_seconds="$elapsed_seconds"
+    fi
+  done
+  start_status=0
+  wait "$capacity_stack_start_pid" || start_status="$?"
+  capacity_stack_start_pid=""
+  elapsed_seconds=$((SECONDS - started_seconds))
+  if ((start_status != 0)); then
+    echo "==> capacity stack startup heartbeat: status=failed exit_code=$start_status elapsed_seconds=$elapsed_seconds project=$project" >&2
+    return "$start_status"
+  fi
+  echo "==> capacity stack startup heartbeat: status=completed elapsed_seconds=$elapsed_seconds project=$project"
+}
+
 read_gateway_limit() {
   local key="$1"
   awk -v key="$key:" '$1 == key { print $2; found = 1; exit } END { if (!found) exit 1 }' \
     "$script_dir/testdata/edge-workspace/config.yaml.template"
+}
+
+verify_capacity_stack_running() {
+  local service container_id health
+  for service in turn server edge edge2 coturn-a coturn-b; do
+    container_id="$(docker ps -q \
+      --filter "label=com.docker.compose.project=$GIZCLAW_E2E_DOCKER_PROJECT" \
+      --filter "label=com.docker.compose.service=$service")"
+    if [[ -z "$container_id" || "$container_id" == *$'\n'* ]]; then
+      echo "capacity stack lost service during post-build settle: service=$service container=$container_id" >&2
+      return 1
+    fi
+    health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")"
+    if [[ "$health" != "healthy" ]]; then
+      echo "capacity stack service lost health during post-build settle: service=$service health=$health" >&2
+      return 1
+    fi
+  done
+}
+
+verify_capacity_service_image() {
+  local expected_image_id service container_id actual_image_id
+  expected_image_id="$(docker image inspect --format '{{.Id}}' "$capacity_image")"
+  for service in server edge edge2; do
+    container_id="$(resolve_compose_container_id "$service")"
+    actual_image_id="$(docker inspect --format '{{.Image}}' "$container_id")"
+    if [[ "$actual_image_id" != "$expected_image_id" ]]; then
+      echo "capacity service image mismatch: service=$service expected=$expected_image_id actual=$actual_image_id" >&2
+      return 1
+    fi
+  done
+  echo "==> capacity service image verified: services=server,edge,edge2 image=$capacity_image image_id=$expected_image_id"
+}
+
+wait_capacity_post_build_settle() {
+  local remaining="$gateway_post_build_settle_seconds"
+  if [[ "${GIZCLAW_E2E_DOCKER_IMAGES_BUILT:-0}" != "1" || "$remaining" == "0" ]]; then
+    return 0
+  fi
+  while ((remaining > 0)); do
+    verify_capacity_stack_running
+    echo "==> capacity post-build settle heartbeat: status=healthy services=6 remaining_seconds=$remaining image=$capacity_image"
+    sleep 15
+    remaining=$((remaining - 15))
+  done
+  verify_capacity_stack_running
+  echo "==> capacity post-build settle heartbeat: status=ready services=6 remaining_seconds=0 image=$capacity_image"
 }
 
 resolve_capacity_edge_endpoint() {
@@ -533,14 +674,15 @@ run_case() {
     expected_allocations=0
   fi
   echo "==> start fresh capacity stack: path=$gateway_upstream_path scenario=$scenario repetition=$repetition sessions=$sessions"
-  GIZCLAW_E2E_DOCKER_PROJECT="gizclaw-capacity-$project_slug" \
-    GIZCLAW_E2E_DOCKER_ENV="$current_env" \
-    bash "$setup_dir/docker-compose-up.sh" "$topology_flag"
+  start_capacity_stack "gizclaw-capacity-$project_slug" "$current_env" "$topology_flag"
 
   set -a
   # shellcheck disable=SC1090
   source "$current_env"
   set +a
+
+  verify_capacity_service_image
+  wait_capacity_post_build_settle
 
   capacity_edge_endpoint="$(resolve_capacity_edge_endpoint edge "$GIZCLAW_E2E_EDGE_ENDPOINT")"
   capacity_edge2_endpoint="$(resolve_capacity_edge_endpoint edge2 "$GIZCLAW_E2E_EDGE2_ENDPOINT")"

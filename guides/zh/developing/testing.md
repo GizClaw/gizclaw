@@ -196,6 +196,10 @@ download 均精确传输 1,000 MiB（1,048,576,000 bytes）、达到至少 200 M
 退化；p95 与 p99 保留为快尾诊断，不作为 retention gate。
 Fresh stack 的 HTTP 与 ready-file 等待同样每 15 秒输出 service state 和 elapsed time；
 compose 已启动后的长时间静默不能作为 readiness 证据。
+在一次有序的 1,000-session 验收中，runner 从要求的 clean head 构建一个按 run ID 隔离的
+service image，并在后续 repetition 中复用这一份完全相同的镜像。每轮仍重新创建 container、
+network、volume、port 与 runtime credential；runner 退出时只删除自己这一份精确镜像。首次
+构建后、第一轮测量前也执行相同的 120 秒稳定窗口，并每 15 秒输出 container health 心跳。
 每个 1,000-session fresh stack 清理完成后保留固定 120 秒稳定窗口，每 15 秒输出剩余时间，
 避免把 Docker VM 的延迟资源回收计入下一轮 capacity 测量。任一 upload gate 已失败时不再
 执行 download，因为该轮验收已不可恢复。

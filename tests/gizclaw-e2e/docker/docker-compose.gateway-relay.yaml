@@ -53,6 +53,7 @@ x-relay-edge: &relay-edge
 
 services:
   server:
+    image: ${GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE:?set by docker-compose-up.sh}
     environment:
       GIZCLAW_E2E_SINGLE_EDGE: ${GIZCLAW_E2E_SINGLE_EDGE:-}
       GIZCLAW_E2E_CAPACITY_ONLY: "1"
@@ -72,6 +73,7 @@ services:
 
   edge:
     <<: *relay-edge
+    image: ${GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE:?set by docker-compose-up.sh}
     networks:
       default:
         ipv4_address: ${GIZCLAW_E2E_GATEWAY_RELAY_EDGE_IP:?set by docker-compose-up.sh}
@@ -86,6 +88,7 @@ services:
 
   edge2:
     <<: *relay-edge
+    image: ${GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE:?set by docker-compose-up.sh}
     environment:
       <<: *relay-edge-environment
       GIZCLAW_E2E_EDGE_PRIVATE_KEY: BHu9b5qgfhTtpzKKLCjRWPerv6rtvDowad4AftyFTY6o

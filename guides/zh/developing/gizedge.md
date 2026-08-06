@@ -260,6 +260,10 @@ initial/final upload 与 download checkpoint 均对每 session 精确传输 1 Mi
 都保留 initial 的至少 80%。p95 与 p99 throughput 保留为快尾诊断，不作为退化 gate。
 Fresh stack 的 HTTP 与 ready-file readiness 等待每 15 秒输出 service state 与 elapsed
 time，不能把 Compose 启动后的静默当成 ready。
+有序验收从 clean head 构建一个按 run ID 隔离的 service image，并在各 repetition 间复用这
+一份完全相同的镜像。每轮仍重新创建 container、network、volume、port 与 credential；runner
+退出时只删除自己这一份精确镜像。首次测量前执行 120 秒 post-build 稳定窗口，并每 15 秒
+输出 container health。
 每轮 1,000-session fresh stack 清理后有固定 120 秒稳定窗口，并每 15 秒输出剩余时间，避免
 Docker VM 的延迟资源回收污染下一轮；upload gate 已失败时跳过不再有意义的 download。
 

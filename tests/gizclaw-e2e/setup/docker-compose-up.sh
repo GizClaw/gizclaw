@@ -360,6 +360,9 @@ GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS=${GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS:-}
 GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM=${GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM:-}
 GIZCLAW_E2E_GATEWAY_STREAMS_PER_UPSTREAM=${GIZCLAW_E2E_GATEWAY_STREAMS_PER_UPSTREAM:-}
 GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES=${GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES:-}
+GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE=${GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE:-}
+GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES=${GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES:-}
+GIZCLAW_E2E_DOCKER_IMAGES_BUILT=${GIZCLAW_E2E_DOCKER_IMAGES_BUILT:-}
 EOF
   cp "$state_dir/docker.env" "${GIZCLAW_E2E_DOCKER_ENV:-$state_root/current.env}"
 }
@@ -613,6 +616,21 @@ export GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES
 export GIZCLAW_E2E_DOCKER_ADMIN_BIND="${GIZCLAW_E2E_DOCKER_ADMIN_BIND:-127.0.0.1}"
 export GIZCLAW_E2E_DOCKER_SERVER_BIND="${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}"
 
+capacity_build_required=0
+if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-relay-recovery" ]]; then
+  GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE="${GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE:-$GIZCLAW_E2E_DOCKER_PROJECT-service}"
+  if [[ "${GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES:-}" == "1" ]] &&
+    docker image inspect "$GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE" >/dev/null 2>&1; then
+    GIZCLAW_E2E_DOCKER_IMAGES_BUILT=0
+    echo "==> reuse capacity service image: $GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE"
+  else
+    capacity_build_required=1
+    GIZCLAW_E2E_DOCKER_IMAGES_BUILT=1
+    echo "==> build capacity service image: $GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE"
+  fi
+  export GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE GIZCLAW_E2E_DOCKER_IMAGES_BUILT
+fi
+
 docker_platform="$(docker_native_platform)"
 export DOCKER_DEFAULT_PLATFORM="$docker_platform"
 platform_slug="${docker_platform//\//-}"
@@ -638,13 +656,19 @@ if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-cap
     echo "gateway capacity modes do not accept docker compose arguments" >&2
     exit 2
   fi
-  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --build turn server edge edge2 coturn-a coturn-b
+  if [[ "$capacity_build_required" == "1" ]]; then
+    docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" build server
+  fi
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --no-build turn server edge edge2 coturn-a coturn-b
 elif [[ "$topology_mode" == "gateway-relay-recovery" ]]; then
   if [[ $# -gt 0 ]]; then
     echo "--gateway-relay-recovery does not accept docker compose arguments" >&2
     exit 2
   fi
-  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --build turn server edge coturn-a coturn-b gateway-fault
+  if [[ "$capacity_build_required" == "1" ]]; then
+    docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" build server
+  fi
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --no-build turn server edge coturn-a coturn-b gateway-fault
 elif [[ $# -gt 0 ]]; then
   docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up "$@"
 else
