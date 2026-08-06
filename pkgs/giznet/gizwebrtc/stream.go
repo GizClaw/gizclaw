@@ -32,8 +32,8 @@ type dataChannelConn struct {
 	tx     *atomic.Uint64
 
 	readMu sync.Mutex
-	// Keep one message buffer per live stream. A process-wide pool retains a
-	// burst-sized set of 64 KiB buffers and grows the GC scan set over a soak.
+	// Keep one transport-sized message buffer per live stream. A process-wide
+	// pool would retain the burst high-water mark after short-lived streams close.
 	readBuffer []byte
 	pending    []byte
 
