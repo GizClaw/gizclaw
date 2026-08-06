@@ -60,8 +60,8 @@ github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111 h1:YDuhGJfgRzbB
 github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111/go.mod h1:GYb/V+peMdzoU+4tCfiWnL3Efls+wDgA0rirlPhOFL8=
 github.com/GizClaw/pion-sctp v0.0.0-20260806150545-1314565dcbc5 h1:s+8wtkBW4dwotUFT9gzkA/Ct7nqjk8N6r53+LtvREyM=
 github.com/GizClaw/pion-sctp v0.0.0-20260806150545-1314565dcbc5/go.mod h1:UeyX8aRca892UhRetke5BTkhvISxX/wiBdLl+njo1Lo=
-github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260806150946-660c3dd3ca0f h1:c579oADrGYcDEJ27ruWj4TC/i2+TYoOmbxtnveKHSfk=
-github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260806150946-660c3dd3ca0f/go.mod h1:mQ/8E9tXpASiBzpwCSMeDoqBK+xJaemALRW5pDnYjWI=
+github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260806182201-bc90360474e3 h1:664rOQt2nkp8xQoDQ6/eiUezYvUcAtWQPJaNrzyj3ig=
+github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260806182201-bc90360474e3/go.mod h1:mQ/8E9tXpASiBzpwCSMeDoqBK+xJaemALRW5pDnYjWI=
 github.com/GizClaw/pixa v0.0.0-20260730044130-e59a9ee62701 h1:62RK6cJC++X/hy8LFgb1KFKhLF99tAcl3sd2mwbbqjE=
 github.com/GizClaw/pixa v0.0.0-20260730044130-e59a9ee62701/go.mod h1:vuKKNwc3tWhbZViT5kZjC6x1htocCmdFkb+oqCEpe7s=
 github.com/HdrHistogram/hdrhistogram-go v1.1.0/go.mod h1:yDgFjdqOqDEKOvasDdhWNXYg9BVp4O+o5f6V/ehm6Oo=
