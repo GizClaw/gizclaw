@@ -83,10 +83,10 @@ new streams and close every stream that remains live.
 Each unary RPC owns one ordered service DataChannel: the client creates a new
 DataChannel for the request, the server processes one request on it, and both
 sides close it after the response. A closed DataChannel is never reused for a
-later RPC. Its SCTP stream identifier remains reserved until the peer's stream
-reset completes; only then may the allocator assign that identifier to a new
-DataChannel. This reuses the finite identifier space, not the channel or RPC
-stream.
+later RPC. Its SCTP stream identifier remains reserved until the local outgoing
+reset is acknowledged and the peer's outgoing reset removes the old inbound
+stream; only then may the allocator assign that identifier to a new DataChannel.
+This reuses the finite identifier space, not the channel or RPC stream.
 
 The root Go module temporarily replaces `github.com/pion/sctp` and
 `github.com/pion/webrtc/v4` with immutable GizClaw fork pseudo-versions that

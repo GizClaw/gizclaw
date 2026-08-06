@@ -74,8 +74,9 @@ WebRTC connection 中累积，同时 service 与父连接 shutdown 仍会拒绝�
 
 每个 unary RPC 独占一条有序 service DataChannel：客户端为该请求新建 DataChannel，服务端
 只在其中处理一个请求，响应完成后双方关闭它。已关闭的 DataChannel 不会承载后续 RPC。
-对应的 SCTP stream ID 会一直保留到对端的 stream reset 完成，之后 allocator 才能把这个 ID
-分配给新的 DataChannel；这里复用的是有限的 ID 空间，不是 DataChannel 或 RPC stream。
+对应的 SCTP stream ID 会一直保留，直到本端发出的 reset 已获确认，且对端发出的 reset 已移除
+旧的 inbound stream；之后 allocator 才能把这个 ID 分配给新的 DataChannel。这里复用的是
+有限的 ID 空间，不是 DataChannel 或 RPC stream。
 
 根 Go module 暂时把 `github.com/pion/sctp` 和 `github.com/pion/webrtc/v4` replace 到固定的
 GizClaw fork pseudo-version，用于报告已完成的 stream reset 并释放 DataChannel ID。Go 不会
