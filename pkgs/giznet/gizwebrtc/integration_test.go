@@ -320,7 +320,7 @@ func TestServiceStreamsReuseDataChannelIDAfterReset(t *testing.T) {
 			_ = clientStream.Close()
 			t.Fatalf("client stream %d DataChannel ID is nil", sequence)
 		}
-		payload := []byte(fmt.Sprintf("request-%d", sequence))
+		payload := fmt.Appendf(nil, "request-%d", sequence)
 		if _, err := clientStream.Write(payload); err != nil {
 			_ = serverStream.Close()
 			_ = clientStream.Close()
@@ -335,7 +335,7 @@ func TestServiceStreamsReuseDataChannelIDAfterReset(t *testing.T) {
 		if !bytes.Equal(received, payload) {
 			t.Errorf("stream %d payload = %q, want %q", sequence, received, payload)
 		}
-		response := []byte(fmt.Sprintf("response-%d", sequence))
+		response := fmt.Appendf(nil, "response-%d", sequence)
 		if _, err := serverStream.Write(response); err != nil {
 			_ = serverStream.Close()
 			_ = clientStream.Close()
