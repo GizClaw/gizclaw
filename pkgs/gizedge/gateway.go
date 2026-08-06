@@ -135,7 +135,13 @@ func retryGatewayStartupRelay(ctx context.Context, operation func(context.Contex
 		if err == nil {
 			return nil
 		}
+		if ctx.Err() != nil {
+			return errors.Join(err, ctx.Err())
+		}
 		var unavailable *upstreamRelaysUnavailableError
+		if errors.Is(err, context.DeadlineExceeded) {
+			continue
+		}
 		if !errors.As(err, &unavailable) || unavailable.retryAfter <= 0 {
 			return err
 		}

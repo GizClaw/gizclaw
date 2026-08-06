@@ -435,6 +435,39 @@ func TestRetryGatewayStartupRelayWaitsForEligibleMember(t *testing.T) {
 	}
 }
 
+func TestRetryGatewayStartupRelayRetriesInnerDeadline(t *testing.T) {
+	var attempts int
+	err := retryGatewayStartupRelay(t.Context(), func(context.Context) error {
+		attempts++
+		if attempts == 1 {
+			return fmt.Errorf("warm gateway upstream: %w", context.DeadlineExceeded)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("retryGatewayStartupRelay error = %v", err)
+	}
+	if attempts != 2 {
+		t.Fatalf("startup attempts = %d, want 2", attempts)
+	}
+}
+
+func TestRetryGatewayStartupRelayStopsAtOuterDeadline(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	var attempts int
+	err := retryGatewayStartupRelay(ctx, func(context.Context) error {
+		attempts++
+		cancel()
+		return fmt.Errorf("warm gateway upstream: %w", context.DeadlineExceeded)
+	})
+	if !errors.Is(err, context.Canceled) || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("retryGatewayStartupRelay error = %v, want outer cancellation and inner deadline", err)
+	}
+	if attempts != 1 {
+		t.Fatalf("startup attempts = %d, want 1", attempts)
+	}
+}
+
 func TestRetryGatewayStartupRelayDoesNotRetryOtherErrors(t *testing.T) {
 	want := errors.New("invalid gateway configuration")
 	var attempts int
