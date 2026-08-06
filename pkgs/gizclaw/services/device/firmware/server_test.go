@@ -99,7 +99,7 @@ func TestServerPutReplacesPackageConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DeleteFirmware: %v", err)
 	}
-	if item := apitypes.Firmware(deleteResponse.(adminhttp.DeleteFirmware200JSONResponse)); item.Name != "devkit" {
+	if item := apitypes.Firmware(deleteResponse.(adminhttp.DeleteFirmware200JSONResponse)); item.Id != "devkit" {
 		t.Fatalf("deleted firmware = %#v", item)
 	}
 }
@@ -148,11 +148,6 @@ func TestServerValidatesPeerVisibleStringLengths(t *testing.T) {
 		input   adminhttp.FirmwareUpsert
 		message string
 	}{
-		{
-			name:    "name",
-			input:   firmwareUpsert(strings.Repeat("n", maxFirmwareNameBytes+1), apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}),
-			message: "name must contain at most 256 bytes",
-		},
 		{
 			name: "slot description",
 			input: firmwareUpsert("devkit", apitypes.FirmwareSlot{
@@ -240,11 +235,7 @@ func createFirmware(t *testing.T, server *Server, input adminhttp.FirmwareUpsert
 }
 
 func firmwareUpsert(id string, stable, beta, develop, pending apitypes.FirmwareSlot) adminhttp.FirmwareUpsert {
-	return firmwareUpsertWithName(id, id, stable, beta, develop, pending)
-}
-
-func firmwareUpsertWithName(id, name string, stable, beta, develop, pending apitypes.FirmwareSlot) adminhttp.FirmwareUpsert {
-	return adminhttp.FirmwareUpsert{Id: id, Name: name, Slots: apitypes.FirmwareSlots{Stable: stable, Beta: beta, Develop: develop, Pending: pending}}
+	return adminhttp.FirmwareUpsert{Id: id, Slots: apitypes.FirmwareSlots{Stable: stable, Beta: beta, Develop: develop, Pending: pending}}
 }
 
 func firmwareSlot(description, packageURL string, size int64) apitypes.FirmwareSlot {

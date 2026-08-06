@@ -22,7 +22,6 @@ var firmwaresRoot = kv.Key{"by-id"}
 const (
 	defaultListLimit                = 50
 	maxListLimit                    = 200
-	maxFirmwareNameBytes            = 256
 	maxFirmwareSlotDescriptionBytes = 1024
 	maxFirmwarePackageURLBytes      = 2048
 	maxFirmwarePackageSize          = int64(1<<53 - 1)
@@ -214,9 +213,9 @@ func rollbackSlots(slots apitypes.FirmwareSlots) apitypes.FirmwareSlots {
 
 var errStableEmpty = errors.New("stable slot must not be empty after operation")
 
-func releaseError(name string, err error) adminhttp.ReleaseFirmwareResponseObject {
+func releaseError(id string, err error) adminhttp.ReleaseFirmwareResponseObject {
 	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.ReleaseFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", name)))
+		return adminhttp.ReleaseFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", id)))
 	}
 	if errors.Is(err, errStableEmpty) {
 		return adminhttp.ReleaseFirmware409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_STABLE_EMPTY", err.Error()))
@@ -224,9 +223,9 @@ func releaseError(name string, err error) adminhttp.ReleaseFirmwareResponseObjec
 	return adminhttp.ReleaseFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
 }
 
-func rollbackError(name string, err error) adminhttp.RollbackFirmwareResponseObject {
+func rollbackError(id string, err error) adminhttp.RollbackFirmwareResponseObject {
 	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.RollbackFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", name)))
+		return adminhttp.RollbackFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", id)))
 	}
 	if errors.Is(err, errStableEmpty) {
 		return adminhttp.RollbackFirmware409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_STABLE_EMPTY", err.Error()))
@@ -282,20 +281,12 @@ func normalizeFirmwareUpsert(in adminhttp.FirmwareUpsert, expectedID string) (ap
 	if expectedID != "" && id != expectedID {
 		return apitypes.Firmware{}, fmt.Errorf("id %q must match path id %q", id, expectedID)
 	}
-	name := strings.TrimSpace(in.Name)
-	if name == "" {
-		return apitypes.Firmware{}, errors.New("name is required")
-	}
-	if len(name) > maxFirmwareNameBytes {
-		return apitypes.Firmware{}, fmt.Errorf("name must contain at most %d bytes", maxFirmwareNameBytes)
-	}
 	slots, err := normalizeSlots(in.Slots)
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
 	item := apitypes.Firmware{
 		Id:    id,
-		Name:  name,
 		Slots: slots,
 	}
 	if in.Description != nil {

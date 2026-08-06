@@ -375,7 +375,7 @@ class GameResult extends $pb.GeneratedMessage {
     $core.String? difficulty,
     $fixnum.Int64? durationMs,
     $core.String? gameDefName,
-    $core.String? id,
+    $core.String? name,
     $core.String? idempotencyKey,
     $fixnum.Int64? maxScore,
     $core.String? occurredAt,
@@ -390,7 +390,7 @@ class GameResult extends $pb.GeneratedMessage {
     if (difficulty != null) result.difficulty = difficulty;
     if (durationMs != null) result.durationMs = durationMs;
     if (gameDefName != null) result.gameDefName = gameDefName;
-    if (id != null) result.id = id;
+    if (name != null) result.name = name;
     if (idempotencyKey != null) result.idempotencyKey = idempotencyKey;
     if (maxScore != null) result.maxScore = maxScore;
     if (occurredAt != null) result.occurredAt = occurredAt;
@@ -420,16 +420,16 @@ class GameResult extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'difficulty')
     ..aInt64(3, _omitFieldNames ? '' : 'durationMs')
     ..aOS(4, _omitFieldNames ? '' : 'gameDefName')
-    ..aOS(5, _omitFieldNames ? '' : 'id')
+    ..aOS(5, _omitFieldNames ? '' : 'name')
     ..aOS(6, _omitFieldNames ? '' : 'idempotencyKey')
     ..aInt64(7, _omitFieldNames ? '' : 'maxScore')
     ..aOS(8, _omitFieldNames ? '' : 'occurredAt')
     ..aOS(9, _omitFieldNames ? '' : 'outcome')
-    ..aOM<GameplayMetadata>(11, _omitFieldNames ? '' : 'payload',
+    ..aOM<GameplayMetadata>(10, _omitFieldNames ? '' : 'payload',
         subBuilder: GameplayMetadata.create)
-    ..aOS(12, _omitFieldNames ? '' : 'petName')
-    ..aOS(13, _omitFieldNames ? '' : 'runtimeProfileName')
-    ..aInt64(14, _omitFieldNames ? '' : 'score')
+    ..aOS(11, _omitFieldNames ? '' : 'petName')
+    ..aOS(12, _omitFieldNames ? '' : 'runtimeProfileName')
+    ..aInt64(13, _omitFieldNames ? '' : 'score')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -487,13 +487,13 @@ class GameResult extends $pb.GeneratedMessage {
   void clearGameDefName() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.String get id => $_getSZ(4);
+  $core.String get name => $_getSZ(4);
   @$pb.TagNumber(5)
-  set id($core.String value) => $_setString(4, value);
+  set name($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
-  $core.bool hasId() => $_has(4);
+  $core.bool hasName() => $_has(4);
   @$pb.TagNumber(5)
-  void clearId() => $_clearField(5);
+  void clearName() => $_clearField(5);
 
   @$pb.TagNumber(6)
   $core.String get idempotencyKey => $_getSZ(5);
@@ -531,43 +531,43 @@ class GameResult extends $pb.GeneratedMessage {
   @$pb.TagNumber(9)
   void clearOutcome() => $_clearField(9);
 
-  @$pb.TagNumber(11)
+  @$pb.TagNumber(10)
   GameplayMetadata get payload => $_getN(9);
-  @$pb.TagNumber(11)
-  set payload(GameplayMetadata value) => $_setField(11, value);
-  @$pb.TagNumber(11)
+  @$pb.TagNumber(10)
+  set payload(GameplayMetadata value) => $_setField(10, value);
+  @$pb.TagNumber(10)
   $core.bool hasPayload() => $_has(9);
-  @$pb.TagNumber(11)
-  void clearPayload() => $_clearField(11);
-  @$pb.TagNumber(11)
+  @$pb.TagNumber(10)
+  void clearPayload() => $_clearField(10);
+  @$pb.TagNumber(10)
   GameplayMetadata ensurePayload() => $_ensure(9);
 
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(11)
   $core.String get petName => $_getSZ(10);
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(11)
   set petName($core.String value) => $_setString(10, value);
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(11)
   $core.bool hasPetName() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearPetName() => $_clearField(11);
+
   @$pb.TagNumber(12)
-  void clearPetName() => $_clearField(12);
-
-  @$pb.TagNumber(13)
   $core.String get runtimeProfileName => $_getSZ(11);
-  @$pb.TagNumber(13)
+  @$pb.TagNumber(12)
   set runtimeProfileName($core.String value) => $_setString(11, value);
-  @$pb.TagNumber(13)
+  @$pb.TagNumber(12)
   $core.bool hasRuntimeProfileName() => $_has(11);
-  @$pb.TagNumber(13)
-  void clearRuntimeProfileName() => $_clearField(13);
+  @$pb.TagNumber(12)
+  void clearRuntimeProfileName() => $_clearField(12);
 
-  @$pb.TagNumber(14)
+  @$pb.TagNumber(13)
   $fixnum.Int64 get score => $_getI64(12);
-  @$pb.TagNumber(14)
+  @$pb.TagNumber(13)
   set score($fixnum.Int64 value) => $_setInt64(12, value);
-  @$pb.TagNumber(14)
+  @$pb.TagNumber(13)
   $core.bool hasScore() => $_has(12);
-  @$pb.TagNumber(14)
-  void clearScore() => $_clearField(14);
+  @$pb.TagNumber(13)
+  void clearScore() => $_clearField(13);
 }
 
 class GameResultListResponse extends $pb.GeneratedMessage {
@@ -718,60 +718,6 @@ class GameRewardSpec extends $pb.GeneratedMessage {
   $core.bool hasReason() => $_has(2);
   @$pb.TagNumber(3)
   void clearReason() => $_clearField(3);
-}
-
-class GameplayGetRequest extends $pb.GeneratedMessage {
-  factory GameplayGetRequest({
-    $core.String? id,
-  }) {
-    final result = create();
-    if (id != null) result.id = id;
-    return result;
-  }
-
-  GameplayGetRequest._();
-
-  factory GameplayGetRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory GameplayGetRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'GameplayGetRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'id')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GameplayGetRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GameplayGetRequest copyWith(void Function(GameplayGetRequest) updates) =>
-      super.copyWith((message) => updates(message as GameplayGetRequest))
-          as GameplayGetRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static GameplayGetRequest create() => GameplayGetRequest._();
-  @$core.override
-  GameplayGetRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static GameplayGetRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<GameplayGetRequest>(create);
-  static GameplayGetRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get id => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set id($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasId() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearId() => $_clearField(1);
 }
 
 class GameplayNameGetRequest extends $pb.GeneratedMessage {
@@ -2582,29 +2528,29 @@ class PointsTransaction extends $pb.GeneratedMessage {
     $fixnum.Int64? balanceAfter,
     $core.String? createdAt,
     $fixnum.Int64? delta,
-    $core.String? gameResultId,
-    $core.String? id,
+    $core.String? gameResultName,
+    $core.String? name,
     $core.String? ownerPublicKey,
     $core.String? petName,
     $core.String? reason,
-    $core.String? rewardGrantId,
+    $core.String? rewardGrantName,
     $core.String? runtimeProfileName,
-    $core.String? sourceId,
+    $core.String? sourceName,
     $core.String? sourceType,
   }) {
     final result = create();
     if (balanceAfter != null) result.balanceAfter = balanceAfter;
     if (createdAt != null) result.createdAt = createdAt;
     if (delta != null) result.delta = delta;
-    if (gameResultId != null) result.gameResultId = gameResultId;
-    if (id != null) result.id = id;
+    if (gameResultName != null) result.gameResultName = gameResultName;
+    if (name != null) result.name = name;
     if (ownerPublicKey != null) result.ownerPublicKey = ownerPublicKey;
     if (petName != null) result.petName = petName;
     if (reason != null) result.reason = reason;
-    if (rewardGrantId != null) result.rewardGrantId = rewardGrantId;
+    if (rewardGrantName != null) result.rewardGrantName = rewardGrantName;
     if (runtimeProfileName != null)
       result.runtimeProfileName = runtimeProfileName;
-    if (sourceId != null) result.sourceId = sourceId;
+    if (sourceName != null) result.sourceName = sourceName;
     if (sourceType != null) result.sourceType = sourceType;
     return result;
   }
@@ -2625,14 +2571,14 @@ class PointsTransaction extends $pb.GeneratedMessage {
     ..aInt64(1, _omitFieldNames ? '' : 'balanceAfter')
     ..aOS(2, _omitFieldNames ? '' : 'createdAt')
     ..aInt64(3, _omitFieldNames ? '' : 'delta')
-    ..aOS(4, _omitFieldNames ? '' : 'gameResultId')
-    ..aOS(5, _omitFieldNames ? '' : 'id')
+    ..aOS(4, _omitFieldNames ? '' : 'gameResultName')
+    ..aOS(5, _omitFieldNames ? '' : 'name')
     ..aOS(6, _omitFieldNames ? '' : 'ownerPublicKey')
     ..aOS(7, _omitFieldNames ? '' : 'petName')
     ..aOS(8, _omitFieldNames ? '' : 'reason')
-    ..aOS(9, _omitFieldNames ? '' : 'rewardGrantId')
+    ..aOS(9, _omitFieldNames ? '' : 'rewardGrantName')
     ..aOS(10, _omitFieldNames ? '' : 'runtimeProfileName')
-    ..aOS(11, _omitFieldNames ? '' : 'sourceId')
+    ..aOS(11, _omitFieldNames ? '' : 'sourceName')
     ..aOS(12, _omitFieldNames ? '' : 'sourceType')
     ..hasRequiredFields = false;
 
@@ -2683,22 +2629,22 @@ class PointsTransaction extends $pb.GeneratedMessage {
   void clearDelta() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.String get gameResultId => $_getSZ(3);
+  $core.String get gameResultName => $_getSZ(3);
   @$pb.TagNumber(4)
-  set gameResultId($core.String value) => $_setString(3, value);
+  set gameResultName($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasGameResultId() => $_has(3);
+  $core.bool hasGameResultName() => $_has(3);
   @$pb.TagNumber(4)
-  void clearGameResultId() => $_clearField(4);
+  void clearGameResultName() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.String get id => $_getSZ(4);
+  $core.String get name => $_getSZ(4);
   @$pb.TagNumber(5)
-  set id($core.String value) => $_setString(4, value);
+  set name($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
-  $core.bool hasId() => $_has(4);
+  $core.bool hasName() => $_has(4);
   @$pb.TagNumber(5)
-  void clearId() => $_clearField(5);
+  void clearName() => $_clearField(5);
 
   @$pb.TagNumber(6)
   $core.String get ownerPublicKey => $_getSZ(5);
@@ -2728,13 +2674,13 @@ class PointsTransaction extends $pb.GeneratedMessage {
   void clearReason() => $_clearField(8);
 
   @$pb.TagNumber(9)
-  $core.String get rewardGrantId => $_getSZ(8);
+  $core.String get rewardGrantName => $_getSZ(8);
   @$pb.TagNumber(9)
-  set rewardGrantId($core.String value) => $_setString(8, value);
+  set rewardGrantName($core.String value) => $_setString(8, value);
   @$pb.TagNumber(9)
-  $core.bool hasRewardGrantId() => $_has(8);
+  $core.bool hasRewardGrantName() => $_has(8);
   @$pb.TagNumber(9)
-  void clearRewardGrantId() => $_clearField(9);
+  void clearRewardGrantName() => $_clearField(9);
 
   @$pb.TagNumber(10)
   $core.String get runtimeProfileName => $_getSZ(9);
@@ -2746,13 +2692,13 @@ class PointsTransaction extends $pb.GeneratedMessage {
   void clearRuntimeProfileName() => $_clearField(10);
 
   @$pb.TagNumber(11)
-  $core.String get sourceId => $_getSZ(10);
+  $core.String get sourceName => $_getSZ(10);
   @$pb.TagNumber(11)
-  set sourceId($core.String value) => $_setString(10, value);
+  set sourceName($core.String value) => $_setString(10, value);
   @$pb.TagNumber(11)
-  $core.bool hasSourceId() => $_has(10);
+  $core.bool hasSourceName() => $_has(10);
   @$pb.TagNumber(11)
-  void clearSourceId() => $_clearField(11);
+  void clearSourceName() => $_clearField(11);
 
   @$pb.TagNumber(12)
   $core.String get sourceType => $_getSZ(11);
@@ -2844,22 +2790,22 @@ class RewardGrant extends $pb.GeneratedMessage {
   factory RewardGrant({
     $core.Iterable<$core.MapEntry<$core.String, $fixnum.Int64>>? badgeExpDelta,
     $core.String? createdAt,
-    $core.String? gameResultId,
-    $core.String? id,
+    $core.String? gameResultName,
+    $core.String? name,
     $core.String? ownerPublicKey,
     $fixnum.Int64? petExpDelta,
     $core.String? petName,
     $fixnum.Int64? pointsDelta,
     $core.String? reason,
     $core.String? runtimeProfileName,
-    $core.String? sourceId,
+    $core.String? sourceName,
     $core.String? sourceType,
   }) {
     final result = create();
     if (badgeExpDelta != null) result.badgeExpDelta.addEntries(badgeExpDelta);
     if (createdAt != null) result.createdAt = createdAt;
-    if (gameResultId != null) result.gameResultId = gameResultId;
-    if (id != null) result.id = id;
+    if (gameResultName != null) result.gameResultName = gameResultName;
+    if (name != null) result.name = name;
     if (ownerPublicKey != null) result.ownerPublicKey = ownerPublicKey;
     if (petExpDelta != null) result.petExpDelta = petExpDelta;
     if (petName != null) result.petName = petName;
@@ -2867,7 +2813,7 @@ class RewardGrant extends $pb.GeneratedMessage {
     if (reason != null) result.reason = reason;
     if (runtimeProfileName != null)
       result.runtimeProfileName = runtimeProfileName;
-    if (sourceId != null) result.sourceId = sourceId;
+    if (sourceName != null) result.sourceName = sourceName;
     if (sourceType != null) result.sourceType = sourceType;
     return result;
   }
@@ -2891,15 +2837,15 @@ class RewardGrant extends $pb.GeneratedMessage {
         valueFieldType: $pb.PbFieldType.O6,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..aOS(2, _omitFieldNames ? '' : 'createdAt')
-    ..aOS(3, _omitFieldNames ? '' : 'gameResultId')
-    ..aOS(4, _omitFieldNames ? '' : 'id')
+    ..aOS(3, _omitFieldNames ? '' : 'gameResultName')
+    ..aOS(4, _omitFieldNames ? '' : 'name')
     ..aOS(5, _omitFieldNames ? '' : 'ownerPublicKey')
     ..aInt64(6, _omitFieldNames ? '' : 'petExpDelta')
     ..aOS(7, _omitFieldNames ? '' : 'petName')
     ..aInt64(8, _omitFieldNames ? '' : 'pointsDelta')
     ..aOS(9, _omitFieldNames ? '' : 'reason')
     ..aOS(10, _omitFieldNames ? '' : 'runtimeProfileName')
-    ..aOS(11, _omitFieldNames ? '' : 'sourceId')
+    ..aOS(11, _omitFieldNames ? '' : 'sourceName')
     ..aOS(12, _omitFieldNames ? '' : 'sourceType')
     ..hasRequiredFields = false;
 
@@ -2935,22 +2881,22 @@ class RewardGrant extends $pb.GeneratedMessage {
   void clearCreatedAt() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.String get gameResultId => $_getSZ(2);
+  $core.String get gameResultName => $_getSZ(2);
   @$pb.TagNumber(3)
-  set gameResultId($core.String value) => $_setString(2, value);
+  set gameResultName($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasGameResultId() => $_has(2);
+  $core.bool hasGameResultName() => $_has(2);
   @$pb.TagNumber(3)
-  void clearGameResultId() => $_clearField(3);
+  void clearGameResultName() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.String get id => $_getSZ(3);
+  $core.String get name => $_getSZ(3);
   @$pb.TagNumber(4)
-  set id($core.String value) => $_setString(3, value);
+  set name($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasId() => $_has(3);
+  $core.bool hasName() => $_has(3);
   @$pb.TagNumber(4)
-  void clearId() => $_clearField(4);
+  void clearName() => $_clearField(4);
 
   @$pb.TagNumber(5)
   $core.String get ownerPublicKey => $_getSZ(4);
@@ -3007,13 +2953,13 @@ class RewardGrant extends $pb.GeneratedMessage {
   void clearRuntimeProfileName() => $_clearField(10);
 
   @$pb.TagNumber(11)
-  $core.String get sourceId => $_getSZ(10);
+  $core.String get sourceName => $_getSZ(10);
   @$pb.TagNumber(11)
-  set sourceId($core.String value) => $_setString(10, value);
+  set sourceName($core.String value) => $_setString(10, value);
   @$pb.TagNumber(11)
-  $core.bool hasSourceId() => $_has(10);
+  $core.bool hasSourceName() => $_has(10);
   @$pb.TagNumber(11)
-  void clearSourceId() => $_clearField(11);
+  void clearSourceName() => $_clearField(11);
 
   @$pb.TagNumber(12)
   $core.String get sourceType => $_getSZ(11);
@@ -3332,7 +3278,7 @@ class ServerBadgeListResponse extends $pb.GeneratedMessage {
 
 class ServerGameResultGetRequest extends $pb.GeneratedMessage {
   factory ServerGameResultGetRequest({
-    GameplayGetRequest? value,
+    GameplayNameGetRequest? value,
   }) {
     final result = create();
     if (value != null) result.value = value;
@@ -3352,8 +3298,8 @@ class ServerGameResultGetRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ServerGameResultGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<GameplayGetRequest>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: GameplayGetRequest.create)
+    ..aOM<GameplayNameGetRequest>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: GameplayNameGetRequest.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3378,15 +3324,15 @@ class ServerGameResultGetRequest extends $pb.GeneratedMessage {
   static ServerGameResultGetRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  GameplayGetRequest get value => $_getN(0);
+  GameplayNameGetRequest get value => $_getN(0);
   @$pb.TagNumber(1)
-  set value(GameplayGetRequest value) => $_setField(1, value);
+  set value(GameplayNameGetRequest value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasValue() => $_has(0);
   @$pb.TagNumber(1)
   void clearValue() => $_clearField(1);
   @$pb.TagNumber(1)
-  GameplayGetRequest ensureValue() => $_ensure(0);
+  GameplayNameGetRequest ensureValue() => $_ensure(0);
 }
 
 class ServerGameResultGetResponse extends $pb.GeneratedMessage {
@@ -4593,7 +4539,7 @@ class ServerPointsGetResponse extends $pb.GeneratedMessage {
 
 class ServerPointsTransactionGetRequest extends $pb.GeneratedMessage {
   factory ServerPointsTransactionGetRequest({
-    GameplayGetRequest? value,
+    GameplayNameGetRequest? value,
   }) {
     final result = create();
     if (value != null) result.value = value;
@@ -4614,8 +4560,8 @@ class ServerPointsTransactionGetRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ServerPointsTransactionGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<GameplayGetRequest>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: GameplayGetRequest.create)
+    ..aOM<GameplayNameGetRequest>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: GameplayNameGetRequest.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4642,15 +4588,15 @@ class ServerPointsTransactionGetRequest extends $pb.GeneratedMessage {
   static ServerPointsTransactionGetRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  GameplayGetRequest get value => $_getN(0);
+  GameplayNameGetRequest get value => $_getN(0);
   @$pb.TagNumber(1)
-  set value(GameplayGetRequest value) => $_setField(1, value);
+  set value(GameplayNameGetRequest value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasValue() => $_has(0);
   @$pb.TagNumber(1)
   void clearValue() => $_clearField(1);
   @$pb.TagNumber(1)
-  GameplayGetRequest ensureValue() => $_ensure(0);
+  GameplayNameGetRequest ensureValue() => $_ensure(0);
 }
 
 class ServerPointsTransactionGetResponse extends $pb.GeneratedMessage {
@@ -4841,7 +4787,7 @@ class ServerPointsTransactionListResponse extends $pb.GeneratedMessage {
 
 class ServerRewardGrantGetRequest extends $pb.GeneratedMessage {
   factory ServerRewardGrantGetRequest({
-    GameplayGetRequest? value,
+    GameplayNameGetRequest? value,
   }) {
     final result = create();
     if (value != null) result.value = value;
@@ -4861,8 +4807,8 @@ class ServerRewardGrantGetRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ServerRewardGrantGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<GameplayGetRequest>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: GameplayGetRequest.create)
+    ..aOM<GameplayNameGetRequest>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: GameplayNameGetRequest.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4888,15 +4834,15 @@ class ServerRewardGrantGetRequest extends $pb.GeneratedMessage {
   static ServerRewardGrantGetRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  GameplayGetRequest get value => $_getN(0);
+  GameplayNameGetRequest get value => $_getN(0);
   @$pb.TagNumber(1)
-  set value(GameplayGetRequest value) => $_setField(1, value);
+  set value(GameplayNameGetRequest value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasValue() => $_has(0);
   @$pb.TagNumber(1)
   void clearValue() => $_clearField(1);
   @$pb.TagNumber(1)
-  GameplayGetRequest ensureValue() => $_ensure(0);
+  GameplayNameGetRequest ensureValue() => $_ensure(0);
 }
 
 class ServerRewardGrantGetResponse extends $pb.GeneratedMessage {

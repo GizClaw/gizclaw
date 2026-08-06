@@ -16,7 +16,7 @@
 | 6 | `server.info.put` | 更新当前 Peer 的 name、emoji 等可编辑设备资料，并返回完整资料。 |
 | 7 | `server.runtime.get` | 读取当前 Peer 的在线状态、最后地址、最后在线时间和传输字节统计。 |
 | 8 | `server.status.get` | 读取当前 Peer 最近上报的电量、充电、GNSS、音量、静音等状态。 |
-| 90 | `server.register` | 使用 RegistrationToken 为当前 Peer 选择 RuntimeProfile，持久化并返回 RuntimeProfile name 与可选 Firmware name。 |
+| 90 | `server.register` | 使用 RegistrationToken 为当前 Peer 选择 RuntimeProfile，持久化并返回 RuntimeProfile name；可选 Firmware binding 仅保存在服务端。 |
 | 93 | `server.peer.delete` | 原子创建或复用当前 Peer 的 pending-deletion handoff，同时保留 Peer；立即拒绝当前连接的新工作，尝试返回空 acknowledgement 与 EOS，随后无条件关闭完整连接。 |
 
 ## Agent 与运行中的 Workspace
@@ -61,7 +61,7 @@ Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑
 
 ## Workflow、Model 与 Voice catalog
 
-Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog。RuntimeProfile 内部 binding key 可以是 alias，但 Peer RPC 的字段和 selector 统一使用 `name`。响应携带 RuntimeProfile name 与 revision，不暴露 canonical resource ID、provider、tenant、credential 或 ownership。真实资源统一通过 Admin API 管理。
+Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog。RuntimeProfile 内部 binding key 可以是 alias，但 Peer RPC 的对象 identity 统一使用 `name`，引用统一使用 `<kind>_name`。没有独立 Peer alias 的对象会把 canonical Admin ID 或内部 record ID 原样投影成 `name`。`display_name` 只表示展示文本，`actor_name` 只表示行为主体；业务 DTO 不使用 `id`，RPC envelope 的 correlation `id` 除外。响应携带 RuntimeProfile name 与 revision，不暴露 provider、tenant、credential 或 ownership。真实资源统一通过 Admin API 管理。
 
 | ID | Method | 作用 |
 | ---: | --- | --- |
@@ -107,7 +107,7 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog�
 | 60 | `server.friend_group.members.put` | 修改 Friend Group 成员的 member/admin role。 |
 | 61 | `server.friend_group.members.delete` | 从 Friend Group 删除成员。 |
 | 62 | `server.friend_group.messages.list` | 按 Friend Group 解析其 Workspace，并分页投影 Workspace History。 |
-| 63 | `server.friend_group.messages.get` | 按 History ID 读取 Friend Group Workspace History 投影。 |
+| 63 | `server.friend_group.messages.get` | 按 `history_name` 读取 Friend Group Workspace History 投影。 |
 | 95 | `server.friend_group.messages.audio.get` | 按当前成员的 Friend Group name 返回 Workspace History 音频 metadata，并通过 binary frames 传输音频 bytes。 |
 
 ## Gameplay

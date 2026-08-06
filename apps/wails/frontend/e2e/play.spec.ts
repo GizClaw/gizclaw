@@ -28,7 +28,11 @@ test.beforeEach(async ({ page }) => {
         },
       ],
       contacts: [
-        { id: "contact-main", name: "Main Contact", title: "Main Contact" },
+        {
+          display_name: "Main Contact",
+          name: "contact-main",
+          title: "Main Contact",
+        },
       ],
       credentials: [
         {
@@ -42,30 +46,29 @@ test.beforeEach(async ({ page }) => {
       ],
       firmwares: [
         {
-          id: "devkit-firmware-main",
-          name: "devkit-firmware-main",
+          id: "stable",
+          channel: "stable",
           slots: {
             beta: {},
             develop: {},
             pending: {},
             stable: { description: "stable" },
           },
-          title: "Devkit Firmware",
+          title: "Stable Firmware",
         },
       ],
       friendGroups: [
         {
-          id: "story-group",
+          display_name: "Story Group",
           my_role: "member",
-          name: "Story Group",
+          name: "story-group",
           workspace_name: "story-group-workspace",
         },
       ],
       friends: [
         {
-          id: "peer-b",
+          name: "peer-b",
           peer_public_key: "peer-b",
-          name: "Peer B",
           workspace_name: "friend-workspace",
         },
       ],
@@ -74,8 +77,8 @@ test.beforeEach(async ({ page }) => {
       history: [
         {
           created_at: "2026-07-01T00:00:00Z",
-          id: "20260701T000000Z-1",
-          name: "transcript",
+          name: "20260701T000000Z-1",
+          actor_name: "transcript",
           replay_available: true,
           text: "你好，开始测试。",
           type: "gear",
@@ -83,8 +86,8 @@ test.beforeEach(async ({ page }) => {
         },
         {
           created_at: "2026-07-01T00:00:01Z",
-          id: "20260701T000001Z-2",
-          name: "answer",
+          name: "20260701T000001Z-2",
+          actor_name: "answer",
           replay_available: true,
           text: "收到，我们继续。",
           type: "agent",
@@ -182,8 +185,8 @@ test.beforeEach(async ({ page }) => {
       items,
       next_cursor: null,
     });
-    const findByID = (items, id) =>
-      items.find((item) => item.id === id) ?? null;
+    const findByName = (items, name) =>
+      items.find((item) => item.name === name) ?? null;
     window.__GIZCLAW_DESKTOP_TEST_PLAY_CLIENT__ = {
       async adoptPet(req) {
         const displayName = String(req.display_name ?? "Adopted Pet");
@@ -215,12 +218,12 @@ test.beforeEach(async ({ page }) => {
           balance_after: snapshot.points.balance,
           created_at: "2026-07-01T00:00:02Z",
           delta: -10,
-          id: "txn-adopt-1",
+          name: "txn-adopt-1",
           owner_public_key: "peer-main",
           pet_name: name,
           reason: "adopt",
           runtime_profile_name: "default-gameplay",
-          source_id: name,
+          source_name: name,
           source_type: "pet_adoption",
         });
         actions.push(`adopt:${displayName}`);
@@ -246,18 +249,18 @@ test.beforeEach(async ({ page }) => {
             balance_after: snapshot.points.balance,
             created_at: "2026-07-01T00:00:03Z",
             delta: -10,
-            id: "txn-drive-1",
+            name: "txn-drive-1",
             owner_public_key: "peer-main",
             pet_name: req.pet_name,
             reason: "game.play",
             runtime_profile_name: "default-gameplay",
-            source_id: "game-result-1",
+            source_name: "game-result-1",
             source_type: "game_result",
           });
           gameResult = {
             duration_ms: req.game_result.duration_ms,
             game_def_name: req.game_result.game_name,
-            id: "game-result-1",
+            name: "game-result-1",
             idempotency_key: req.game_result.idempotency_key,
             max_score: req.game_result.max_score,
             occurred_at: "2026-07-01T00:00:03Z",
@@ -281,14 +284,14 @@ test.beforeEach(async ({ page }) => {
         }
         snapshot.grants.push({
           created_at: "2026-07-01T00:00:03Z",
-          id: `reward-grant-${snapshot.grants.length + 1}`,
+          name: `reward-grant-${snapshot.grants.length + 1}`,
           owner_public_key: "peer-main",
           pet_exp_delta: 20,
           pet_name: req.pet_name,
           points_delta: 0,
           reason: String(req.behavior ?? "game reward"),
           runtime_profile_name: "default-gameplay",
-          source_id: gameResult?.id ?? String(req.pet_name),
+          source_name: gameResult?.name ?? String(req.pet_name),
           source_type: gameResult == null ? "pet_behavior" : "game_result",
         });
         actions.push(
@@ -311,7 +314,7 @@ test.beforeEach(async ({ page }) => {
         return snapshot.badges.find((badge) => badge.name === req.name) ?? null;
       },
       async getGameResult(req) {
-        return findByID(snapshot.gameResults, req.id);
+        return findByName(snapshot.gameResults, req.name);
       },
       async getFirmware(req) {
         const channel = String(req.channel);
@@ -320,7 +323,6 @@ test.beforeEach(async ({ page }) => {
         return {
           channel,
           description: `${channel} channel package`,
-          firmware_name: "devkit-firmware-main",
           sha256:
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
           size:
@@ -356,10 +358,10 @@ test.beforeEach(async ({ page }) => {
         return snapshot.points;
       },
       async getPointsTransaction(req) {
-        return findByID(snapshot.pointsTransactions, req.id);
+        return findByName(snapshot.pointsTransactions, req.name);
       },
       async getRewardGrant(req) {
-        return findByID(snapshot.grants, req.id);
+        return findByName(snapshot.grants, req.name);
       },
       async loadSnapshot() {
         return snapshot;
@@ -379,8 +381,8 @@ test.beforeEach(async ({ page }) => {
       async listRewardGrants() {
         return pageResponse(snapshot.grants);
       },
-      async playHistory(historyID) {
-        actions.push(`play:${historyID}`);
+      async playHistory(historyName) {
+        actions.push(`play:${historyName}`);
         window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ = actions;
         return { accepted: true };
       },
@@ -397,10 +399,10 @@ test.beforeEach(async ({ page }) => {
         return {
           hits: [
             {
-              id: "memory-hit-1",
+              name: "memory-hit-1",
               score: 0.95,
               snippet: `Memory Hit: ${query}`,
-              source_id: "memory-hit-1",
+              source_name: "memory-hit-1",
             },
           ],
         };

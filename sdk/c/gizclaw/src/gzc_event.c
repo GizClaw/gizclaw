@@ -86,7 +86,7 @@ static int peer_event_validate(const gzc_peer_event_t *event, int allow_unknown)
                    has_non_space(
                        event->payload.gameplay_reward_updated.workspace_name) &&
                    has_non_space(
-                       event->payload.gameplay_reward_updated.reward_grant_id)
+                       event->payload.gameplay_reward_updated.reward_grant_name)
                ? GZC_OK
                : GZC_ERR_RPC;
   default:

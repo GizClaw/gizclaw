@@ -316,8 +316,8 @@ func TestPeerStreamNextReadsEventsAndRoutesOpus(t *testing.T) {
 		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED,
 		Payload: &eventpb.PeerEvent_GameplayRewardUpdated{
 			GameplayRewardUpdated: &eventpb.GameplayRewardUpdated{
-				WorkspaceName: "workspace-reward",
-				RewardGrantId: "grant-a",
+				WorkspaceName:   "workspace-reward",
+				RewardGrantName: "grant-a",
 			},
 		},
 	}
@@ -326,7 +326,7 @@ func TestPeerStreamNextReadsEventsAndRoutesOpus(t *testing.T) {
 	}
 	select {
 	case event := <-stream.ResourceEvents():
-		if event.GetGameplayRewardUpdated().GetRewardGrantId() != "grant-a" {
+		if event.GetGameplayRewardUpdated().GetRewardGrantName() != "grant-a" {
 			t.Fatalf("reward invalidation = %+v", event)
 		}
 	case <-time.After(time.Second):

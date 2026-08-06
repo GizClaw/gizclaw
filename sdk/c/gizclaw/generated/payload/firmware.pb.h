@@ -16,7 +16,6 @@ typedef struct _gizclaw_rpc_v1_FirmwareGetRequest {
 } gizclaw_rpc_v1_FirmwareGetRequest;
 
 typedef struct _gizclaw_rpc_v1_FirmwareGetResponse {
-    char firmware_name[257];
     gizclaw_rpc_v1_FirmwareChannelName channel;
     bool has_description;
     char description[1025];
@@ -32,18 +31,17 @@ extern "C" {
 
 /* Initializer values for message structs */
 #define gizclaw_rpc_v1_FirmwareGetRequest_init_default {_gizclaw_rpc_v1_FirmwareChannelName_MIN}
-#define gizclaw_rpc_v1_FirmwareGetResponse_init_default {"", _gizclaw_rpc_v1_FirmwareChannelName_MIN, false, "", "", "", 0}
+#define gizclaw_rpc_v1_FirmwareGetResponse_init_default {_gizclaw_rpc_v1_FirmwareChannelName_MIN, false, "", "", "", 0}
 #define gizclaw_rpc_v1_FirmwareGetRequest_init_zero {_gizclaw_rpc_v1_FirmwareChannelName_MIN}
-#define gizclaw_rpc_v1_FirmwareGetResponse_init_zero {"", _gizclaw_rpc_v1_FirmwareChannelName_MIN, false, "", "", "", 0}
+#define gizclaw_rpc_v1_FirmwareGetResponse_init_zero {_gizclaw_rpc_v1_FirmwareChannelName_MIN, false, "", "", "", 0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_FirmwareGetRequest_channel_tag 1
-#define gizclaw_rpc_v1_FirmwareGetResponse_firmware_name_tag 1
-#define gizclaw_rpc_v1_FirmwareGetResponse_channel_tag 2
-#define gizclaw_rpc_v1_FirmwareGetResponse_description_tag 3
-#define gizclaw_rpc_v1_FirmwareGetResponse_url_tag 4
-#define gizclaw_rpc_v1_FirmwareGetResponse_sha256_tag 5
-#define gizclaw_rpc_v1_FirmwareGetResponse_size_tag 6
+#define gizclaw_rpc_v1_FirmwareGetResponse_channel_tag 1
+#define gizclaw_rpc_v1_FirmwareGetResponse_description_tag 2
+#define gizclaw_rpc_v1_FirmwareGetResponse_url_tag 3
+#define gizclaw_rpc_v1_FirmwareGetResponse_sha256_tag 4
+#define gizclaw_rpc_v1_FirmwareGetResponse_size_tag 5
 
 /* Struct field encoding specification for nanopb */
 #define gizclaw_rpc_v1_FirmwareGetRequest_FIELDLIST(X, a) \
@@ -52,12 +50,11 @@ X(a, STATIC,   SINGULAR, UENUM,    channel,           1)
 #define gizclaw_rpc_v1_FirmwareGetRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_FirmwareGetResponse_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, STRING,   firmware_name,     1) \
-X(a, STATIC,   SINGULAR, UENUM,    channel,           2) \
-X(a, STATIC,   OPTIONAL, STRING,   description,       3) \
-X(a, STATIC,   SINGULAR, STRING,   url,               4) \
-X(a, STATIC,   SINGULAR, STRING,   sha256,            5) \
-X(a, STATIC,   SINGULAR, INT64,    size,              6)
+X(a, STATIC,   SINGULAR, UENUM,    channel,           1) \
+X(a, STATIC,   OPTIONAL, STRING,   description,       2) \
+X(a, STATIC,   SINGULAR, STRING,   url,               3) \
+X(a, STATIC,   SINGULAR, STRING,   sha256,            4) \
+X(a, STATIC,   SINGULAR, INT64,    size,              5)
 #define gizclaw_rpc_v1_FirmwareGetResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_FirmwareGetResponse_DEFAULT NULL
 
@@ -71,7 +68,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_FirmwareGetResponse_msg;
 /* Maximum encoded size of messages (where known) */
 #define GIZCLAW_RPC_V1_PAYLOAD_FIRMWARE_PB_H_MAX_SIZE gizclaw_rpc_v1_FirmwareGetResponse_size
 #define gizclaw_rpc_v1_FirmwareGetRequest_size   2
-#define gizclaw_rpc_v1_FirmwareGetResponse_size  3416
+#define gizclaw_rpc_v1_FirmwareGetResponse_size  3157
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -1618,19 +1618,19 @@ class _GroupInviteController extends MobileDataController {
       items: [
         FriendGroupMemberObject(
           friendGroupName: friendGroupName,
-          id: 'peer-owner',
+          name: 'peer-owner',
           peerPublicKey: 'peer-owner',
           role: FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_OWNER,
         ),
         FriendGroupMemberObject(
           friendGroupName: friendGroupName,
-          id: 'peer-admin',
+          name: 'peer-admin',
           peerPublicKey: 'peer-admin',
           role: FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_ADMIN,
         ),
         FriendGroupMemberObject(
           friendGroupName: friendGroupName,
-          id: 'peer-member',
+          name: 'peer-member',
           peerPublicKey: 'peer-member',
           role: FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_MEMBER,
         ),

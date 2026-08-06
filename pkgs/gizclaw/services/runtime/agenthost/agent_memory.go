@@ -99,14 +99,14 @@ func (a *memoryAgent) Recall(ctx context.Context, req apitypes.PeerRunRecallRequ
 	for _, match := range result.Matches {
 		metadata := maps.Clone(match.Fact.Attributes)
 		hit := apitypes.PeerRunRecallHit{
-			Id:        match.Fact.ID,
+			Name:      match.Fact.ID,
 			Score:     match.Score,
 			Snippet:   match.Fact.Text,
 			CreatedAt: &match.Fact.CreatedAt,
 			Metadata:  &metadata,
 		}
 		if len(match.Fact.Sources) > 0 && strings.TrimSpace(match.Fact.Sources[0].ObservationID) != "" {
-			hit.SourceId = &match.Fact.Sources[0].ObservationID
+			hit.SourceName = &match.Fact.Sources[0].ObservationID
 			sourceType := "observation"
 			hit.SourceType = &sourceType
 		}

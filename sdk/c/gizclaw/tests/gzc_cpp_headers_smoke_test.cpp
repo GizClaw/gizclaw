@@ -1,11 +1,9 @@
 #include "gzc.h"
 
 static_assert(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET == 22);
-static_assert(sizeof(gizclaw_rpc_v1_FirmwareGetResponse::firmware_name) == 257);
 static_assert(sizeof(gizclaw_rpc_v1_FirmwareGetResponse::description) == 1025);
 static_assert(sizeof(gizclaw_rpc_v1_FirmwareGetResponse::url) == 2049);
 static_assert(sizeof(gizclaw_rpc_v1_FirmwareGetResponse::sha256) == 65);
-static_assert(sizeof(gizclaw_rpc_v1_ServerRegisterResponse::firmware_name) == 257);
 static_assert(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_LIST == 32);
 static_assert(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_GET == 33);
 static_assert(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_RUNTIME_ADOPT == 67);

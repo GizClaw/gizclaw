@@ -127,6 +127,6 @@ message FriendGroupUpdated {
 
 message GameplayRewardUpdated {
   string workspace_name = 1;
-  string reward_grant_id = 2;
+  string reward_grant_name = 2;
   int64 revision_unix_ms = 3;
 }

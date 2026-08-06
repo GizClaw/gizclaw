@@ -389,9 +389,9 @@ export declare type GameplayRewardUpdated =
     workspaceName: string;
 
     /**
-     * @generated from field: string reward_grant_id = 2;
+     * @generated from field: string reward_grant_name = 2;
      */
-    rewardGrantId: string;
+    rewardGrantName: string;
 
     /**
      * @generated from field: int64 revision_unix_ms = 3;

@@ -434,7 +434,7 @@ func (s *Server) handleFriendGroupMessagesGet(ctx context.Context, req *rpcapi.R
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	if strings.TrimSpace(params.FriendGroupName) == "" || strings.TrimSpace(params.HistoryId) == "" {
+	if strings.TrimSpace(params.FriendGroupName) == "" || strings.TrimSpace(params.HistoryName) == "" {
 		return invalidParams(req.Id)
 	}
 	workspaceID, err := s.FriendGroups.ResolveFriendGroupWorkspaceIDByName(ctx, s.Caller.String(), params.FriendGroupName)
@@ -445,7 +445,7 @@ func (s *Server) handleFriendGroupMessagesGet(ctx context.Context, req *rpcapi.R
 	if resp != nil {
 		return resp
 	}
-	entry, err := history.GetWorkspaceHistoryByID(ctx, workspaceID, params.HistoryId)
+	entry, err := history.GetWorkspaceHistoryByID(ctx, workspaceID, params.HistoryName)
 	if err != nil {
 		return friendGroupHistoryRPCResponse(req.Id, err)
 	}
@@ -463,8 +463,8 @@ func friendGroupHistoryRPCResponse(requestID string, err error) *rpcapi.RPCRespo
 func friendGroupMessageProjection(friendGroupName string, entry workspace.HistoryEntry) rpcapi.FriendGroupMessageObject {
 	item := rpcapi.FriendGroupMessageObject{
 		CreatedAt: entry.CreatedAt, ExpiresAt: entry.ExpiresAt,
-		FriendGroupName: strings.TrimSpace(friendGroupName), HistoryId: entry.ID,
-		Name: entry.Name, Text: entry.Text, Type: rpcapi.PeerRunHistoryEntryType(entry.Type),
+		FriendGroupName: strings.TrimSpace(friendGroupName), Name: entry.ID,
+		ActorName: entry.Name, Text: entry.Text, Type: rpcapi.PeerRunHistoryEntryType(entry.Type),
 	}
 	if item.Type == rpcapi.PeerRunHistoryEntryTypeGear && strings.TrimSpace(entry.GearID) != "" {
 		gearID := strings.TrimSpace(entry.GearID)

@@ -79,6 +79,8 @@ peers := response.JSON200.Items
 
 Peer RPC 在一条 Peer connection 上发送 Protobuf request、response、error 与 stream frame。每次调用都有 request ID、稳定的 method name 和 method-specific payload。调用方应使用生成的 typed method map 或 Go SDK 方法，不要手写 method number 或自行编解码 payload。
 
+Method payload 内可寻址对象的 identity 统一叫 `name`，引用使用 `<kind>_name`。对象没有独立 Peer alias 时，Server 会把 canonical 或内部 record ID 原样放进 `name`，调用方仍只读取 `name` 字段。`display_name` 是展示文本，`actor_name` 是行为主体；RPC envelope 中的 `id` 仅用于 frame correlation，不是业务对象 identity。
+
 Method name 的前缀表示能力提供方：
 
 - `all.*`：Client 与 Server 都提供的通用能力，例如 `all.ping`。

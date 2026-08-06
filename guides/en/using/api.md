@@ -79,6 +79,8 @@ peers := response.JSON200.Items
 
 Peer RPC sends Protobuf requests, responses, errors, and stream frames over a peer connection. Every call has a request ID, a stable method name, and a method-specific payload. Use the generated typed method map or the Go SDK methods instead of hard-coding method numbers or encoding payloads manually.
 
+Inside method payloads, addressable object identity is always `name`, and references use `<kind>_name`. If an object has no separate Peer alias, the Server returns its canonical or internal record ID verbatim in `name`; callers still use the `name` field. `display_name` is presentation text and `actor_name` is attribution. An `id` field in the RPC envelope correlates frames and is not a business-object identity.
+
 A method-name prefix identifies the capability provider:
 
 - `all.*`: common capabilities provided by both Client and Server, such as `all.ping`.

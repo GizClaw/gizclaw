@@ -6,20 +6,18 @@ RegistrationToken 可以给 Peer 绑定一个 canonical Firmware ID。设备不�
 选择 Firmware release line；它通过 `server.firmware.get` 从已绑定的 release
 line 请求一个具体 channel。
 
-Admin create/apply 的 immutable ID 由 caller 提供。Firmware 独立的 `name`
-（声明式 Resource 中为 `spec.name`）属于 Peer 可见展示数据，可以更新，Server
-不会把它建索引或解析成 Admin ID。
+Admin create/apply 的 immutable ID 由 caller 提供。Firmware 没有独立的 `name`
+或 `spec.name`；release-line identity 只用于 Admin binding，不通过 Peer RPC 暴露。
 
 request 只有 `channel`，可选值为 `stable`、`beta`、`develop` 或 `pending`。
 response 包含：
 
-- peer-visible firmware name 和所请求的 channel；
+- 所请求的 channel；
 - 可选的 channel description；
 - `.tar.zlib` package（一个 tar archive 压缩为单个 zlib stream）的绝对 HTTPS URL；
 - 精确对应压缩 package bytes 的 SHA-256 和 byte size。
 
-Peer 可见的 name、description 和 URL 分别最多为 256、1024 和 2048 个 UTF-8
-bytes。Package size 必须为正数且不超过 `9007199254740991`，确保 JavaScript SDK
+Description 和 URL 分别最多为 1024 和 2048 个 UTF-8 bytes。Package size 必须为正数且不超过 `9007199254740991`，确保 JavaScript SDK
 也能精确表示 byte count。
 
 Peer 自己直接下载 URL，并校验压缩后的 bytes。GizClaw 不获取、不解压、不代理、

@@ -37,8 +37,8 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pet.adopt replay: %v", err)
 	}
-	if replayed.Pet.Name != adopted.Pet.Name || replayed.Pet.DisplayName != adopted.Pet.DisplayName || replayed.Transaction.Id != adopted.Transaction.Id || replayed.Points.Balance != adopted.Points.Balance {
-		t.Fatalf("pet.adopt replay = %#v, want Pet name %q, display name %q, transaction ID %q, and Points balance %d", replayed, adopted.Pet.Name, adopted.Pet.DisplayName, adopted.Transaction.Id, adopted.Points.Balance)
+	if replayed.Pet.Name != adopted.Pet.Name || replayed.Pet.DisplayName != adopted.Pet.DisplayName || replayed.Transaction.Name != adopted.Transaction.Name || replayed.Points.Balance != adopted.Points.Balance {
+		t.Fatalf("pet.adopt replay = %#v, want Pet name %q, display name %q, transaction name %q, and Points balance %d", replayed, adopted.Pet.Name, adopted.Pet.DisplayName, adopted.Transaction.Name, adopted.Points.Balance)
 	}
 	workspace, err := env.peer.GetWorkspace(env.ctx, "gameplay.pet.workspace.get", rpcapi.WorkspaceGetRequest{Name: adopted.Pet.WorkspaceName})
 	if err != nil {
@@ -131,7 +131,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 			IdempotencyKey: &idempotencyKey,
 		},
 	})
-	if err != nil || duplicate.GameResult == nil || duplicate.GameResult.Id != drive.GameResult.Id || duplicate.Points.Balance != drive.Points.Balance {
+	if err != nil || duplicate.GameResult == nil || duplicate.GameResult.Name != drive.GameResult.Name || duplicate.Points.Balance != drive.Points.Balance {
 		t.Fatalf("duplicate game result = %#v, %v", duplicate, err)
 	}
 
@@ -145,19 +145,19 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("points.transactions.list: %v", err)
 	}
-	requirePointsTransactionID(t, pointsTransactions.Items, adopted.Transaction.Id)
+	requirePointsTransactionName(t, pointsTransactions.Items, adopted.Transaction.Name)
 
 	results, err := env.peer.ListGameResults(env.ctx, "gameplay.game_result.list", rpcapi.ServerGameResultListRequest{})
 	if err != nil {
 		t.Fatalf("game_result.list: %v", err)
 	}
-	requireGameResultID(t, results.Items, drive.GameResult.Id)
+	requireGameResultName(t, results.Items, drive.GameResult.Name)
 
 	grants, err := env.peer.ListRewardGrants(env.ctx, "gameplay.reward_grant.list", rpcapi.ServerRewardGrantListRequest{})
 	if err != nil {
 		t.Fatalf("reward_grant.list: %v", err)
 	}
-	requireRewardGrantID(t, grants.Items, drive.RewardGrants[0].Id)
+	requireRewardGrantName(t, grants.Items, drive.RewardGrants[0].Name)
 }
 
 func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
@@ -223,20 +223,20 @@ func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
 		}
 
 		entry := waitForSingleGameplayTranscript(t, env.ctx, env.peer, adopted.Pet.WorkspaceName, known)
-		if entry.Id == "" || entry.Text == "" || !entry.ReplayAvailable {
+		if entry.Name == "" || entry.Text == "" || !entry.ReplayAvailable {
 			t.Fatalf("pet audio history round %d = %#v, want combined replayable transcript", round+1, entry)
 		}
-		if round > 0 && entry.Id == entries[round-1].Id {
-			t.Fatalf("pet audio history round %d reused entry %q", round+1, entry.Id)
+		if round > 0 && entry.Name == entries[round-1].Name {
+			t.Fatalf("pet audio history round %d reused entry %q", round+1, entry.Name)
 		}
 		assertGameplayHistoryReplayAudio(t, env.ctx, env.peer, stream, entry)
-		known[entry.Id] = entry
+		known[entry.Name] = entry
 		entries = append(entries, entry)
 	}
 
 	first, err := env.peer.GetWorkspaceHistory(env.ctx, "gameplay.pet.history.first.get", rpcapi.WorkspaceHistoryGetRequest{
 		WorkspaceName: adopted.Pet.WorkspaceName,
-		HistoryId:     entries[0].Id,
+		HistoryName:   entries[0].Name,
 	})
 	if err != nil {
 		t.Fatalf("get first pet audio history after second turn: %v", err)
@@ -283,7 +283,7 @@ func TestGameplayWorkspaceConversationReward(t *testing.T) {
 		t.Fatalf("wait for Workspace reward conversation response: %v", err)
 	}
 	entry := waitForSingleGameplayTranscript(t, env.ctx, env.peer, adopted.Pet.WorkspaceName, known)
-	if entry.Id == "" || entry.Text == "" {
+	if entry.Name == "" || entry.Text == "" {
 		t.Fatalf("Workspace reward conversation History = %#v", entry)
 	}
 
@@ -300,17 +300,17 @@ func TestGameplayWorkspaceConversationReward(t *testing.T) {
 			t.Fatal("timed out waiting for debounced Gameplay reward event")
 		}
 	}
-	if rewardEvent.WorkspaceName != adopted.Pet.WorkspaceName || rewardEvent.RewardGrantId == "" {
+	if rewardEvent.WorkspaceName != adopted.Pet.WorkspaceName || rewardEvent.RewardGrantName == "" {
 		t.Fatalf("Gameplay reward event = %#v", rewardEvent)
 	}
 	reward, err := env.peer.GetRewardGrant(env.ctx, "gameplay.workspace.reward.get", rpcapi.ServerRewardGrantGetRequest{
-		Id: rewardEvent.RewardGrantId,
+		Name: rewardEvent.RewardGrantName,
 	})
 	if err != nil {
 		t.Fatalf("get Workspace RewardGrant: %v", err)
 	}
 	if reward.SourceType != "workspace_history_window" ||
-		reward.PetName != nil || reward.GameResultId != nil ||
+		reward.PetName != nil || reward.GameResultName != nil ||
 		reward.PetExpDelta != 0 || reward.PointsDelta <= 0 {
 		t.Fatalf("Workspace RewardGrant = %#v", reward)
 	}
@@ -383,34 +383,34 @@ func requirePetName(t *testing.T, items []rpcapi.Pet, name string) {
 	t.Fatalf("pet %q not found in %#v", name, items)
 }
 
-func requirePointsTransactionID(t *testing.T, items []rpcapi.PointsTransaction, id string) {
+func requirePointsTransactionName(t *testing.T, items []rpcapi.PointsTransaction, name string) {
 	t.Helper()
 	for _, item := range items {
-		if item.Id == id {
+		if item.Name == name {
 			return
 		}
 	}
-	t.Fatalf("points transaction %q not found in %#v", id, items)
+	t.Fatalf("points transaction %q not found in %#v", name, items)
 }
 
-func requireGameResultID(t *testing.T, items []rpcapi.GameResult, id string) {
+func requireGameResultName(t *testing.T, items []rpcapi.GameResult, name string) {
 	t.Helper()
 	for _, item := range items {
-		if item.Id == id {
+		if item.Name == name {
 			return
 		}
 	}
-	t.Fatalf("game result %q not found in %#v", id, items)
+	t.Fatalf("game result %q not found in %#v", name, items)
 }
 
-func requireRewardGrantID(t *testing.T, items []rpcapi.RewardGrant, id string) {
+func requireRewardGrantName(t *testing.T, items []rpcapi.RewardGrant, name string) {
 	t.Helper()
 	for _, item := range items {
-		if item.Id == id {
+		if item.Name == name {
 			return
 		}
 	}
-	t.Fatalf("reward grant %q not found in %#v", id, items)
+	t.Fatalf("reward grant %q not found in %#v", name, items)
 }
 
 func testStringPtr(v string) *string {

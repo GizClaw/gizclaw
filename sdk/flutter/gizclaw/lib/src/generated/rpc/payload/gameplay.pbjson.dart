@@ -169,7 +169,7 @@ const GameResult$json = {
       '17': true
     },
     {'1': 'game_def_name', '3': 4, '4': 1, '5': 9, '10': 'gameDefName'},
-    {'1': 'id', '3': 5, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'name', '3': 5, '4': 1, '5': 9, '10': 'name'},
     {
       '1': 'idempotency_key',
       '3': 6,
@@ -200,7 +200,7 @@ const GameResult$json = {
     },
     {
       '1': 'payload',
-      '3': 11,
+      '3': 10,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.GameplayMetadata',
@@ -208,15 +208,15 @@ const GameResult$json = {
       '10': 'payload',
       '17': true
     },
-    {'1': 'pet_name', '3': 12, '4': 1, '5': 9, '10': 'petName'},
+    {'1': 'pet_name', '3': 11, '4': 1, '5': 9, '10': 'petName'},
     {
       '1': 'runtime_profile_name',
-      '3': 13,
+      '3': 12,
       '4': 1,
       '5': 9,
       '10': 'runtimeProfileName'
     },
-    {'1': 'score', '3': 14, '4': 1, '5': 3, '9': 6, '10': 'score', '17': true},
+    {'1': 'score', '3': 13, '4': 1, '5': 3, '9': 6, '10': 'score', '17': true},
   ],
   '8': [
     {'1': '_difficulty'},
@@ -233,15 +233,15 @@ const GameResult$json = {
 final $typed_data.Uint8List gameResultDescriptor = $convert.base64Decode(
     'CgpHYW1lUmVzdWx0Eh0KCmNyZWF0ZWRfYXQYASABKAlSCWNyZWF0ZWRBdBIjCgpkaWZmaWN1bH'
     'R5GAIgASgJSABSCmRpZmZpY3VsdHmIAQESJAoLZHVyYXRpb25fbXMYAyABKANIAVIKZHVyYXRp'
-    'b25Nc4gBARIiCg1nYW1lX2RlZl9uYW1lGAQgASgJUgtnYW1lRGVmTmFtZRIOCgJpZBgFIAEoCV'
-    'ICaWQSLAoPaWRlbXBvdGVuY3lfa2V5GAYgASgJSAJSDmlkZW1wb3RlbmN5S2V5iAEBEiAKCW1h'
-    'eF9zY29yZRgHIAEoA0gDUghtYXhTY29yZYgBARIfCgtvY2N1cnJlZF9hdBgIIAEoCVIKb2NjdX'
-    'JyZWRBdBIdCgdvdXRjb21lGAkgASgJSARSB291dGNvbWWIAQESPwoHcGF5bG9hZBgLIAEoCzIg'
-    'LmdpemNsYXcucnBjLnYxLkdhbWVwbGF5TWV0YWRhdGFIBVIHcGF5bG9hZIgBARIZCghwZXRfbm'
-    'FtZRgMIAEoCVIHcGV0TmFtZRIwChRydW50aW1lX3Byb2ZpbGVfbmFtZRgNIAEoCVIScnVudGlt'
-    'ZVByb2ZpbGVOYW1lEhkKBXNjb3JlGA4gASgDSAZSBXNjb3JliAEBQg0KC19kaWZmaWN1bHR5Qg'
-    '4KDF9kdXJhdGlvbl9tc0ISChBfaWRlbXBvdGVuY3lfa2V5QgwKCl9tYXhfc2NvcmVCCgoIX291'
-    'dGNvbWVCCgoIX3BheWxvYWRCCAoGX3Njb3Jl');
+    'b25Nc4gBARIiCg1nYW1lX2RlZl9uYW1lGAQgASgJUgtnYW1lRGVmTmFtZRISCgRuYW1lGAUgAS'
+    'gJUgRuYW1lEiwKD2lkZW1wb3RlbmN5X2tleRgGIAEoCUgCUg5pZGVtcG90ZW5jeUtleYgBARIg'
+    'CgltYXhfc2NvcmUYByABKANIA1IIbWF4U2NvcmWIAQESHwoLb2NjdXJyZWRfYXQYCCABKAlSCm'
+    '9jY3VycmVkQXQSHQoHb3V0Y29tZRgJIAEoCUgEUgdvdXRjb21liAEBEj8KB3BheWxvYWQYCiAB'
+    'KAsyIC5naXpjbGF3LnJwYy52MS5HYW1lcGxheU1ldGFkYXRhSAVSB3BheWxvYWSIAQESGQoIcG'
+    'V0X25hbWUYCyABKAlSB3BldE5hbWUSMAoUcnVudGltZV9wcm9maWxlX25hbWUYDCABKAlSEnJ1'
+    'bnRpbWVQcm9maWxlTmFtZRIZCgVzY29yZRgNIAEoA0gGUgVzY29yZYgBAUINCgtfZGlmZmljdW'
+    'x0eUIOCgxfZHVyYXRpb25fbXNCEgoQX2lkZW1wb3RlbmN5X2tleUIMCgpfbWF4X3Njb3JlQgoK'
+    'CF9vdXRjb21lQgoKCF9wYXlsb2FkQggKBl9zY29yZQ==');
 
 @$core.Deprecated('Use gameResultListResponseDescriptor instead')
 const GameResultListResponse$json = {
@@ -312,18 +312,6 @@ final $typed_data.Uint8List gameRewardSpecDescriptor = $convert.base64Decode(
     'cGV0X2V4cF9kZWx0YRgCIAEoA1ILcGV0RXhwRGVsdGESFgoGcmVhc29uGAMgASgJUgZyZWFzb2'
     '4aQAoSQmFkZ2VFeHBEZWx0YUVudHJ5EhAKA2tleRgBIAEoCVIDa2V5EhQKBXZhbHVlGAIgASgD'
     'UgV2YWx1ZToCOAE=');
-
-@$core.Deprecated('Use gameplayGetRequestDescriptor instead')
-const GameplayGetRequest$json = {
-  '1': 'GameplayGetRequest',
-  '2': [
-    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
-  ],
-};
-
-/// Descriptor for `GameplayGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List gameplayGetRequestDescriptor =
-    $convert.base64Decode('ChJHYW1lcGxheUdldFJlcXVlc3QSDgoCaWQYASABKAlSAmlk');
 
 @$core.Deprecated('Use gameplayNameGetRequestDescriptor instead')
 const GameplayNameGetRequest$json = {
@@ -971,15 +959,15 @@ const PointsTransaction$json = {
     {'1': 'created_at', '3': 2, '4': 1, '5': 9, '10': 'createdAt'},
     {'1': 'delta', '3': 3, '4': 1, '5': 3, '10': 'delta'},
     {
-      '1': 'game_result_id',
+      '1': 'game_result_name',
       '3': 4,
       '4': 1,
       '5': 9,
       '9': 0,
-      '10': 'gameResultId',
+      '10': 'gameResultName',
       '17': true
     },
-    {'1': 'id', '3': 5, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'name', '3': 5, '4': 1, '5': 9, '10': 'name'},
     {'1': 'owner_public_key', '3': 6, '4': 1, '5': 9, '10': 'ownerPublicKey'},
     {
       '1': 'pet_name',
@@ -992,12 +980,12 @@ const PointsTransaction$json = {
     },
     {'1': 'reason', '3': 8, '4': 1, '5': 9, '10': 'reason'},
     {
-      '1': 'reward_grant_id',
+      '1': 'reward_grant_name',
       '3': 9,
       '4': 1,
       '5': 9,
       '9': 2,
-      '10': 'rewardGrantId',
+      '10': 'rewardGrantName',
       '17': true
     },
     {
@@ -1007,27 +995,27 @@ const PointsTransaction$json = {
       '5': 9,
       '10': 'runtimeProfileName'
     },
-    {'1': 'source_id', '3': 11, '4': 1, '5': 9, '10': 'sourceId'},
+    {'1': 'source_name', '3': 11, '4': 1, '5': 9, '10': 'sourceName'},
     {'1': 'source_type', '3': 12, '4': 1, '5': 9, '10': 'sourceType'},
   ],
   '8': [
-    {'1': '_game_result_id'},
+    {'1': '_game_result_name'},
     {'1': '_pet_name'},
-    {'1': '_reward_grant_id'},
+    {'1': '_reward_grant_name'},
   ],
 };
 
 /// Descriptor for `PointsTransaction`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List pointsTransactionDescriptor = $convert.base64Decode(
     'ChFQb2ludHNUcmFuc2FjdGlvbhIjCg1iYWxhbmNlX2FmdGVyGAEgASgDUgxiYWxhbmNlQWZ0ZX'
-    'ISHQoKY3JlYXRlZF9hdBgCIAEoCVIJY3JlYXRlZEF0EhQKBWRlbHRhGAMgASgDUgVkZWx0YRIp'
-    'Cg5nYW1lX3Jlc3VsdF9pZBgEIAEoCUgAUgxnYW1lUmVzdWx0SWSIAQESDgoCaWQYBSABKAlSAm'
-    'lkEigKEG93bmVyX3B1YmxpY19rZXkYBiABKAlSDm93bmVyUHVibGljS2V5Eh4KCHBldF9uYW1l'
-    'GAcgASgJSAFSB3BldE5hbWWIAQESFgoGcmVhc29uGAggASgJUgZyZWFzb24SKwoPcmV3YXJkX2'
-    'dyYW50X2lkGAkgASgJSAJSDXJld2FyZEdyYW50SWSIAQESMAoUcnVudGltZV9wcm9maWxlX25h'
-    'bWUYCiABKAlSEnJ1bnRpbWVQcm9maWxlTmFtZRIbCglzb3VyY2VfaWQYCyABKAlSCHNvdXJjZU'
-    'lkEh8KC3NvdXJjZV90eXBlGAwgASgJUgpzb3VyY2VUeXBlQhEKD19nYW1lX3Jlc3VsdF9pZEIL'
-    'CglfcGV0X25hbWVCEgoQX3Jld2FyZF9ncmFudF9pZA==');
+    'ISHQoKY3JlYXRlZF9hdBgCIAEoCVIJY3JlYXRlZEF0EhQKBWRlbHRhGAMgASgDUgVkZWx0YRIt'
+    'ChBnYW1lX3Jlc3VsdF9uYW1lGAQgASgJSABSDmdhbWVSZXN1bHROYW1liAEBEhIKBG5hbWUYBS'
+    'ABKAlSBG5hbWUSKAoQb3duZXJfcHVibGljX2tleRgGIAEoCVIOb3duZXJQdWJsaWNLZXkSHgoI'
+    'cGV0X25hbWUYByABKAlIAVIHcGV0TmFtZYgBARIWCgZyZWFzb24YCCABKAlSBnJlYXNvbhIvCh'
+    'FyZXdhcmRfZ3JhbnRfbmFtZRgJIAEoCUgCUg9yZXdhcmRHcmFudE5hbWWIAQESMAoUcnVudGlt'
+    'ZV9wcm9maWxlX25hbWUYCiABKAlSEnJ1bnRpbWVQcm9maWxlTmFtZRIfCgtzb3VyY2VfbmFtZR'
+    'gLIAEoCVIKc291cmNlTmFtZRIfCgtzb3VyY2VfdHlwZRgMIAEoCVIKc291cmNlVHlwZUITChFf'
+    'Z2FtZV9yZXN1bHRfbmFtZUILCglfcGV0X25hbWVCFAoSX3Jld2FyZF9ncmFudF9uYW1l');
 
 @$core.Deprecated('Use pointsTransactionListResponseDescriptor instead')
 const PointsTransactionListResponse$json = {
@@ -1078,15 +1066,15 @@ const RewardGrant$json = {
     },
     {'1': 'created_at', '3': 2, '4': 1, '5': 9, '10': 'createdAt'},
     {
-      '1': 'game_result_id',
+      '1': 'game_result_name',
       '3': 3,
       '4': 1,
       '5': 9,
       '9': 0,
-      '10': 'gameResultId',
+      '10': 'gameResultName',
       '17': true
     },
-    {'1': 'id', '3': 4, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'name', '3': 4, '4': 1, '5': 9, '10': 'name'},
     {'1': 'owner_public_key', '3': 5, '4': 1, '5': 9, '10': 'ownerPublicKey'},
     {'1': 'pet_exp_delta', '3': 6, '4': 1, '5': 3, '10': 'petExpDelta'},
     {
@@ -1107,12 +1095,12 @@ const RewardGrant$json = {
       '5': 9,
       '10': 'runtimeProfileName'
     },
-    {'1': 'source_id', '3': 11, '4': 1, '5': 9, '10': 'sourceId'},
+    {'1': 'source_name', '3': 11, '4': 1, '5': 9, '10': 'sourceName'},
     {'1': 'source_type', '3': 12, '4': 1, '5': 9, '10': 'sourceType'},
   ],
   '3': [RewardGrant_BadgeExpDeltaEntry$json],
   '8': [
-    {'1': '_game_result_id'},
+    {'1': '_game_result_name'},
     {'1': '_pet_name'},
     {'1': '_reason'},
   ],
@@ -1132,15 +1120,15 @@ const RewardGrant_BadgeExpDeltaEntry$json = {
 final $typed_data.Uint8List rewardGrantDescriptor = $convert.base64Decode(
     'CgtSZXdhcmRHcmFudBJWCg9iYWRnZV9leHBfZGVsdGEYASADKAsyLi5naXpjbGF3LnJwYy52MS'
     '5SZXdhcmRHcmFudC5CYWRnZUV4cERlbHRhRW50cnlSDWJhZGdlRXhwRGVsdGESHQoKY3JlYXRl'
-    'ZF9hdBgCIAEoCVIJY3JlYXRlZEF0EikKDmdhbWVfcmVzdWx0X2lkGAMgASgJSABSDGdhbWVSZX'
-    'N1bHRJZIgBARIOCgJpZBgEIAEoCVICaWQSKAoQb3duZXJfcHVibGljX2tleRgFIAEoCVIOb3du'
-    'ZXJQdWJsaWNLZXkSIgoNcGV0X2V4cF9kZWx0YRgGIAEoA1ILcGV0RXhwRGVsdGESHgoIcGV0X2'
-    '5hbWUYByABKAlIAVIHcGV0TmFtZYgBARIhCgxwb2ludHNfZGVsdGEYCCABKANSC3BvaW50c0Rl'
-    'bHRhEhsKBnJlYXNvbhgJIAEoCUgCUgZyZWFzb26IAQESMAoUcnVudGltZV9wcm9maWxlX25hbW'
-    'UYCiABKAlSEnJ1bnRpbWVQcm9maWxlTmFtZRIbCglzb3VyY2VfaWQYCyABKAlSCHNvdXJjZUlk'
-    'Eh8KC3NvdXJjZV90eXBlGAwgASgJUgpzb3VyY2VUeXBlGkAKEkJhZGdlRXhwRGVsdGFFbnRyeR'
-    'IQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoA1IFdmFsdWU6AjgBQhEKD19nYW1lX3Jl'
-    'c3VsdF9pZEILCglfcGV0X25hbWVCCQoHX3JlYXNvbg==');
+    'ZF9hdBgCIAEoCVIJY3JlYXRlZEF0Ei0KEGdhbWVfcmVzdWx0X25hbWUYAyABKAlIAFIOZ2FtZV'
+    'Jlc3VsdE5hbWWIAQESEgoEbmFtZRgEIAEoCVIEbmFtZRIoChBvd25lcl9wdWJsaWNfa2V5GAUg'
+    'ASgJUg5vd25lclB1YmxpY0tleRIiCg1wZXRfZXhwX2RlbHRhGAYgASgDUgtwZXRFeHBEZWx0YR'
+    'IeCghwZXRfbmFtZRgHIAEoCUgBUgdwZXROYW1liAEBEiEKDHBvaW50c19kZWx0YRgIIAEoA1IL'
+    'cG9pbnRzRGVsdGESGwoGcmVhc29uGAkgASgJSAJSBnJlYXNvbogBARIwChRydW50aW1lX3Byb2'
+    'ZpbGVfbmFtZRgKIAEoCVIScnVudGltZVByb2ZpbGVOYW1lEh8KC3NvdXJjZV9uYW1lGAsgASgJ'
+    'Ugpzb3VyY2VOYW1lEh8KC3NvdXJjZV90eXBlGAwgASgJUgpzb3VyY2VUeXBlGkAKEkJhZGdlRX'
+    'hwRGVsdGFFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoA1IFdmFsdWU6AjgB'
+    'QhMKEV9nYW1lX3Jlc3VsdF9uYW1lQgsKCV9wZXRfbmFtZUIJCgdfcmVhc29u');
 
 @$core.Deprecated('Use rewardGrantListResponseDescriptor instead')
 const RewardGrantListResponse$json = {
@@ -1268,7 +1256,7 @@ const ServerGameResultGetRequest$json = {
       '3': 1,
       '4': 1,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.GameplayGetRequest',
+      '6': '.gizclaw.rpc.v1.GameplayNameGetRequest',
       '10': 'value'
     },
   ],
@@ -1277,8 +1265,8 @@ const ServerGameResultGetRequest$json = {
 /// Descriptor for `ServerGameResultGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List serverGameResultGetRequestDescriptor =
     $convert.base64Decode(
-        'ChpTZXJ2ZXJHYW1lUmVzdWx0R2V0UmVxdWVzdBI4CgV2YWx1ZRgBIAEoCzIiLmdpemNsYXcucn'
-        'BjLnYxLkdhbWVwbGF5R2V0UmVxdWVzdFIFdmFsdWU=');
+        'ChpTZXJ2ZXJHYW1lUmVzdWx0R2V0UmVxdWVzdBI8CgV2YWx1ZRgBIAEoCzImLmdpemNsYXcucn'
+        'BjLnYxLkdhbWVwbGF5TmFtZUdldFJlcXVlc3RSBXZhbHVl');
 
 @$core.Deprecated('Use serverGameResultGetResponseDescriptor instead')
 const ServerGameResultGetResponse$json = {
@@ -1709,7 +1697,7 @@ const ServerPointsTransactionGetRequest$json = {
       '3': 1,
       '4': 1,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.GameplayGetRequest',
+      '6': '.gizclaw.rpc.v1.GameplayNameGetRequest',
       '10': 'value'
     },
   ],
@@ -1718,8 +1706,8 @@ const ServerPointsTransactionGetRequest$json = {
 /// Descriptor for `ServerPointsTransactionGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List serverPointsTransactionGetRequestDescriptor =
     $convert.base64Decode(
-        'CiFTZXJ2ZXJQb2ludHNUcmFuc2FjdGlvbkdldFJlcXVlc3QSOAoFdmFsdWUYASABKAsyIi5naX'
-        'pjbGF3LnJwYy52MS5HYW1lcGxheUdldFJlcXVlc3RSBXZhbHVl');
+        'CiFTZXJ2ZXJQb2ludHNUcmFuc2FjdGlvbkdldFJlcXVlc3QSPAoFdmFsdWUYASABKAsyJi5naX'
+        'pjbGF3LnJwYy52MS5HYW1lcGxheU5hbWVHZXRSZXF1ZXN0UgV2YWx1ZQ==');
 
 @$core.Deprecated('Use serverPointsTransactionGetResponseDescriptor instead')
 const ServerPointsTransactionGetResponse$json = {
@@ -1793,7 +1781,7 @@ const ServerRewardGrantGetRequest$json = {
       '3': 1,
       '4': 1,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.GameplayGetRequest',
+      '6': '.gizclaw.rpc.v1.GameplayNameGetRequest',
       '10': 'value'
     },
   ],
@@ -1802,8 +1790,8 @@ const ServerRewardGrantGetRequest$json = {
 /// Descriptor for `ServerRewardGrantGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List serverRewardGrantGetRequestDescriptor =
     $convert.base64Decode(
-        'ChtTZXJ2ZXJSZXdhcmRHcmFudEdldFJlcXVlc3QSOAoFdmFsdWUYASABKAsyIi5naXpjbGF3Ln'
-        'JwYy52MS5HYW1lcGxheUdldFJlcXVlc3RSBXZhbHVl');
+        'ChtTZXJ2ZXJSZXdhcmRHcmFudEdldFJlcXVlc3QSPAoFdmFsdWUYASABKAsyJi5naXpjbGF3Ln'
+        'JwYy52MS5HYW1lcGxheU5hbWVHZXRSZXF1ZXN0UgV2YWx1ZQ==');
 
 @$core.Deprecated('Use serverRewardGrantGetResponseDescriptor instead')
 const ServerRewardGrantGetResponse$json = {

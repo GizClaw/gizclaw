@@ -132,7 +132,7 @@ void main() {
       'server.friend.add',
       payload.FriendAddResponse(
         value: payload.FriendObject(
-          id: 'peer-b',
+          name: 'peer-b',
           workspaceName: 'social-direct-a',
         ),
       ),
@@ -144,14 +144,14 @@ void main() {
     final deletePayload =
         decodeRpcRequestPayload('server.friend.delete', deleteRequest.payload)
             as payload.FriendDeleteRequest;
-    expect(deletePayload.id, 'peer-b');
+    expect(deletePayload.name, 'peer-b');
     _respond(
       factory.channels[3],
       deleteRequest.id,
       'server.friend.delete',
-      payload.FriendDeleteResponse(value: payload.FriendObject(id: 'peer-b')),
+      payload.FriendDeleteResponse(value: payload.FriendObject(name: 'peer-b')),
     );
-    expect((await deleteFuture).value.id, 'peer-b');
+    expect((await deleteFuture).value.name, 'peer-b');
 
     final clearFuture = client.clearFriendInviteToken();
     final clearRequest = await _request(factory, 4);
@@ -277,7 +277,7 @@ void main() {
         items: [
           payload.FriendGroupMemberObject(
             friendGroupName: 'group-a',
-            id: 'peer-b',
+            name: 'peer-b',
             peerPublicKey: 'peer-b',
           ),
         ],
@@ -297,7 +297,7 @@ void main() {
             )
             as payload.FriendGroupMemberDeleteRequest;
     expect(removeMemberPayload.friendGroupName, 'group-a');
-    expect(removeMemberPayload.id, 'peer-b');
+    expect(removeMemberPayload.name, 'peer-b');
     _respond(
       factory.channels[1],
       removeMemberRequest.id,
@@ -305,11 +305,11 @@ void main() {
       payload.FriendGroupMemberDeleteResponse(
         value: payload.FriendGroupMemberObject(
           friendGroupName: 'group-a',
-          id: 'peer-b',
+          name: 'peer-b',
         ),
       ),
     );
-    expect((await removeMemberFuture).value.id, 'peer-b');
+    expect((await removeMemberFuture).value.name, 'peer-b');
 
     final deleteGroupFuture = client.deleteFriendGroup('group-a');
     final deleteGroupRequest = await _request(factory, 2);

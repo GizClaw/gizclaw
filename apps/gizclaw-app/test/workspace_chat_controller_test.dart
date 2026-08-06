@@ -304,7 +304,7 @@ void main() {
     final repository = _ControlledHistoryRepository(database)
       ..history = const [
         CachedWorkspaceMessage(
-          id: 'peer-turn',
+          name: 'peer-turn',
           incoming: true,
           text: 'hello',
           createdAt: null,
@@ -508,7 +508,7 @@ void main() {
     final repository = _ControlledHistoryRepository(database)
       ..history = const [
         CachedWorkspaceMessage(
-          id: 'history-old',
+          name: 'history-old',
           incoming: true,
           text: 'OK',
           createdAt: null,
@@ -538,7 +538,7 @@ void main() {
     repository.emit([
       ...repository.history,
       const CachedWorkspaceMessage(
-        id: 'history-new',
+        name: 'history-new',
         incoming: true,
         text: 'OK',
         createdAt: null,
@@ -562,7 +562,7 @@ void main() {
       final repository = _ControlledHistoryRepository(database)
         ..history = const [
           CachedWorkspaceMessage(
-            id: 'history-old',
+            name: 'history-old',
             incoming: true,
             text: 'Earlier reply',
             createdAt: null,
@@ -590,7 +590,7 @@ void main() {
       repository.emit([
         ...repository.history,
         const CachedWorkspaceMessage(
-          id: 'history-new',
+          name: 'history-new',
           incoming: true,
           text: 'New reply',
           createdAt: null,

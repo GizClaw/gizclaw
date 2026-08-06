@@ -175,7 +175,6 @@
       "FirmwareGetResponse": {
         "type": "object",
         "required": [
-          "firmware_name",
           "channel",
           "url",
           "sha256",
@@ -183,10 +182,6 @@
         ],
         "additionalProperties": false,
         "properties": {
-          "firmware_name": {
-            "type": "string",
-            "maxLength": 256
-          },
           "channel": {
             "$ref": "#/components/schemas/FirmwareChannelName"
           },
@@ -362,14 +357,14 @@
             "type": "string",
             "minLength": 1
           },
-          "history_id": {
+          "history_name": {
             "type": "string",
             "minLength": 1
           }
         },
         "required": [
           "workspace_name",
-          "history_id"
+          "history_name"
         ]
       },
       "WorkspaceHistoryGetResponse": {
@@ -383,14 +378,14 @@
             "type": "string",
             "minLength": 1
           },
-          "history_id": {
+          "history_name": {
             "type": "string",
             "minLength": 1
           }
         },
         "required": [
           "workspace_name",
-          "history_id"
+          "history_name"
         ]
       },
       "WorkspaceHistoryAudioGetResponse": {
@@ -400,7 +395,7 @@
           "workspace_name": {
             "type": "string"
           },
-          "history_id": {
+          "history_name": {
             "type": "string"
           },
           "mime_type": {
@@ -413,7 +408,7 @@
         },
         "required": [
           "workspace_name",
-          "history_id",
+          "history_name",
           "mime_type",
           "size_bytes"
         ]
@@ -914,10 +909,14 @@
       },
       "FriendObject": {
         "type": "object",
+        "required": [
+          "name"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": {
-            "type": "string"
+          "name": {
+            "type": "string",
+            "minLength": 1
           },
           "peer_public_key": {
             "type": "string"
@@ -973,12 +972,12 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           }
         },
         "required": [
-          "id"
+          "name"
         ]
       },
       "FriendDeleteResponse": {
@@ -988,7 +987,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "name": {
+          "display_name": {
             "type": "string"
           },
           "emoji": {
@@ -1000,19 +999,19 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           }
         },
         "required": [
-          "id"
+          "name"
         ]
       },
       "FriendInfoGetResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "name": {
             "type": "string"
           },
           "value": {
@@ -1020,7 +1019,7 @@
           }
         },
         "required": [
-          "id",
+          "name",
           "value"
         ]
       },
@@ -1270,10 +1269,14 @@
       },
       "FriendGroupMemberObject": {
         "type": "object",
+        "required": [
+          "name"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": {
-            "type": "string"
+          "name": {
+            "type": "string",
+            "minLength": 1
           },
           "friend_group_name": {
             "type": "string"
@@ -1365,13 +1368,13 @@
           "friend_group_name": {
             "type": "string"
           },
-          "id": {
+          "name": {
             "type": "string"
           }
         },
         "required": [
           "friend_group_name",
-          "id"
+          "name"
         ]
       },
       "FriendGroupMemberDeleteResponse": {
@@ -1381,7 +1384,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "history_id": {
+          "name": {
             "type": "string"
           },
           "friend_group_name": {
@@ -1390,7 +1393,7 @@
           "sender_peer_public_key": {
             "type": "string"
           },
-          "name": {
+          "actor_name": {
             "type": "string"
           },
           "text": {
@@ -1414,8 +1417,8 @@
         "required": [
           "created_at",
           "friend_group_name",
-          "history_id",
           "name",
+          "actor_name",
           "text",
           "type",
           "audio_available"
@@ -1471,13 +1474,13 @@
           "friend_group_name": {
             "type": "string"
           },
-          "history_id": {
+          "history_name": {
             "type": "string"
           }
         },
         "required": [
           "friend_group_name",
-          "history_id"
+          "history_name"
         ]
       },
       "FriendGroupMessageAudioGetResponse": {
@@ -1487,7 +1490,7 @@
           "friend_group_name": {
             "type": "string"
           },
-          "history_id": {
+          "history_name": {
             "type": "string"
           },
           "mime_type": {
@@ -1500,7 +1503,7 @@
         },
         "required": [
           "friend_group_name",
-          "history_id",
+          "history_name",
           "mime_type",
           "size_bytes"
         ]
@@ -1527,7 +1530,7 @@
           "friend_group_name": {
             "type": "string"
           },
-          "id": {
+          "name": {
             "type": "string"
           },
           "role": {
@@ -1536,7 +1539,7 @@
         },
         "required": [
           "friend_group_name",
-          "id",
+          "name",
           "role"
         ]
       },
@@ -1550,13 +1553,13 @@
           "friend_group_name": {
             "type": "string"
           },
-          "history_id": {
+          "history_name": {
             "type": "string"
           }
         },
         "required": [
           "friend_group_name",
-          "history_id"
+          "history_name"
         ]
       },
       "FriendGroupMessageGetResponse": {

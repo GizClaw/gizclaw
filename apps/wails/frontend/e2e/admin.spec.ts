@@ -44,7 +44,6 @@ test.beforeEach(async ({ page }) => {
       created_at: "2026-07-01T00:00:00Z",
       description: "Devkit firmware line",
       id: "devkit-firmware-main",
-      name: "devkit-firmware-main",
       slots: {
         beta: {},
         develop: {},
@@ -85,7 +84,6 @@ test.beforeEach(async ({ page }) => {
         metadata: { id: "devkit-firmware-main" },
         spec: {
           description: firmware.description,
-          name: firmware.name,
           slots: firmware.slots,
         },
       },
@@ -239,7 +237,6 @@ test.beforeEach(async ({ page }) => {
           metadata: { id: firmware.id },
           spec: {
             description: firmware.description,
-            name: firmware.name,
             slots: firmware.slots,
           },
         };
@@ -390,6 +387,16 @@ test("admin firmware editor persists and renders an exact channel package", asyn
         },
       },
     });
+
+  const firmwarePutBody = await page.evaluate(
+    () =>
+      (window.__GIZCLAW_DESKTOP_TEST_ADMIN_FETCH_REQUESTS__ ?? []).find(
+        (request) =>
+          request.method === "PUT" &&
+          request.path === "/firmwares/devkit-firmware-main",
+      )?.body,
+  );
+  expect(firmwarePutBody).not.toHaveProperty("name");
 
   await page.getByRole("tab", { name: "Summary" }).click();
   await expect(

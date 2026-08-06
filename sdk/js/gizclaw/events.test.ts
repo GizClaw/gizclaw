@@ -87,7 +87,7 @@ const events: PeerEvent[] = [
   }),
   peerEvent(PeerEventType.GAMEPLAY_REWARD_UPDATED, "gameplayRewardUpdated", {
     workspaceName: "workflow-a",
-    rewardGrantId: "grant-a",
+    rewardGrantName: "grant-a",
     revisionUnixMs: 7n,
   }),
 ];

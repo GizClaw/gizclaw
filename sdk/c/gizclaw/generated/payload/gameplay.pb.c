@@ -30,9 +30,6 @@ PB_BIND(gizclaw_rpc_v1_GameRewardSpec, gizclaw_rpc_v1_GameRewardSpec, AUTO)
 PB_BIND(gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry, gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_GameplayGetRequest, gizclaw_rpc_v1_GameplayGetRequest, AUTO)
-
-
 PB_BIND(gizclaw_rpc_v1_GameplayNameGetRequest, gizclaw_rpc_v1_GameplayNameGetRequest, AUTO)
 
 

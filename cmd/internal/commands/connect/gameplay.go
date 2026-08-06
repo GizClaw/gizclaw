@@ -329,12 +329,12 @@ func newPointsTransactionListCmd() *cobra.Command {
 func newPointsTransactionGetCmd() *cobra.Command {
 	var opts connectRPCOptions
 	cmd := &cobra.Command{
-		Use:   "get <transaction-id>",
+		Use:   "get <transaction-name>",
 		Short: "Get a points transaction",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.GetPointsTransaction(ctx, "server.points.transactions.get", rpcapi.ServerPointsTransactionGetRequest{Id: args[0]})
+				return c.GetPointsTransaction(ctx, "server.points.transactions.get", rpcapi.ServerPointsTransactionGetRequest{Name: args[0]})
 			})
 		},
 	}
@@ -353,16 +353,16 @@ func newBadgeCmd() *cobra.Command {
 func newGameResultCmd() *cobra.Command {
 	return newListGetGameplayCmd("game-result", "game results", func(ctx context.Context, c *gizcli.Client, cursor string, limit int) (any, error) {
 		return c.ListGameResults(ctx, "server.game_result.list", rpcapi.ServerGameResultListRequest{Cursor: optionalString(cursor), Limit: optionalInt(limit)})
-	}, func(ctx context.Context, c *gizcli.Client, id string) (any, error) {
-		return c.GetGameResult(ctx, "server.game_result.get", rpcapi.ServerGameResultGetRequest{Id: id})
+	}, func(ctx context.Context, c *gizcli.Client, name string) (any, error) {
+		return c.GetGameResult(ctx, "server.game_result.get", rpcapi.ServerGameResultGetRequest{Name: name})
 	})
 }
 
 func newRewardGrantCmd() *cobra.Command {
 	return newListGetGameplayCmd("reward-grant", "reward grants", func(ctx context.Context, c *gizcli.Client, cursor string, limit int) (any, error) {
 		return c.ListRewardGrants(ctx, "server.reward_grant.list", rpcapi.ServerRewardGrantListRequest{Cursor: optionalString(cursor), Limit: optionalInt(limit)})
-	}, func(ctx context.Context, c *gizcli.Client, id string) (any, error) {
-		return c.GetRewardGrant(ctx, "server.reward_grant.get", rpcapi.ServerRewardGrantGetRequest{Id: id})
+	}, func(ctx context.Context, c *gizcli.Client, name string) (any, error) {
+		return c.GetRewardGrant(ctx, "server.reward_grant.get", rpcapi.ServerRewardGrantGetRequest{Name: name})
 	})
 }
 

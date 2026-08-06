@@ -69,7 +69,6 @@ type Registration struct {
 	TokenID        string
 	RuntimeProfile apitypes.RuntimeProfile
 	FirmwareID     *string
-	FirmwareName   *string
 }
 
 // ResolveProfile returns the current persisted revision for a profile ID.
@@ -202,7 +201,6 @@ func (s *Server) ResolveRegistration(ctx context.Context, rawToken string) (Regi
 	if err != nil {
 		return Registration{}, err
 	}
-	var firmwareName *string
 	if item.FirmwareId != nil {
 		if s.ResolveResource == nil {
 			return Registration{}, errResourceResolverNotConfigured
@@ -211,19 +209,13 @@ func (s *Server) ResolveRegistration(ctx context.Context, rawToken string) (Regi
 		if err != nil {
 			return Registration{}, fmt.Errorf("resolve registration firmware: %w", err)
 		}
-		firmware, err := resource.AsFirmwareResource()
-		if err != nil {
+		if _, err := resource.AsFirmwareResource(); err != nil {
 			return Registration{}, errors.New("registration firmware_id does not reference a Firmware")
 		}
-		name := strings.TrimSpace(firmware.Spec.Name)
-		if name == "" {
-			return Registration{}, errors.New("registration Firmware has an empty name")
-		}
-		firmwareName = &name
 	}
 	return Registration{
 		TokenID: item.Id, RuntimeProfile: profile,
-		FirmwareID: cloneString(item.FirmwareId), FirmwareName: firmwareName,
+		FirmwareID: cloneString(item.FirmwareId),
 	}, nil
 }
 

@@ -856,7 +856,7 @@ function GameplayPanel(): JSX.Element {
             "delta",
             "balance_after",
             "source_type",
-            "source_id",
+            "source_name",
             "reason",
             "created_at",
           ]}
@@ -865,8 +865,8 @@ function GameplayPanel(): JSX.Element {
         />
         <GameplayObjectTable
           columns={[
-            "pet_id",
-            "game_def_id",
+            "pet_name",
+            "game_def_name",
             "score",
             "max_score",
             "difficulty",
@@ -880,11 +880,11 @@ function GameplayPanel(): JSX.Element {
         />
         <GameplayObjectTable
           columns={[
-            "pet_id",
+            "pet_name",
             "points_delta",
             "pet_exp_delta",
             "source_type",
-            "source_id",
+            "source_name",
             "reason",
             "created_at",
           ]}
@@ -1230,7 +1230,7 @@ function GameplayObjectTable<T extends Record<string, unknown>>({
           <DashboardTable>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
+                <TableHead>Name</TableHead>
                 {columns.map((column) => (
                   <TableHead key={column}>
                     {column.replaceAll("_", " ")}
@@ -1239,25 +1239,28 @@ function GameplayObjectTable<T extends Record<string, unknown>>({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pager.page.items.map((item) => (
-                <TableRow key={String(item.id ?? JSON.stringify(item))}>
-                  <TableCell
-                    className="max-w-44 truncate font-mono text-xs"
-                    title={String(item.id ?? "")}
-                  >
-                    {String(item.id ?? "-")}
-                  </TableCell>
-                  {columns.map((column) => (
+              {pager.page.items.map((item) => {
+                const name = requiredPeerName(item.name, title);
+                return (
+                  <TableRow key={name}>
                     <TableCell
-                      className="max-w-52 truncate text-sm"
-                      key={column}
-                      title={gameplayCell(item[column])}
+                      className="max-w-44 truncate font-mono text-xs"
+                      title={name}
                     >
-                      {gameplayCell(item[column])}
+                      {name}
                     </TableCell>
-                  ))}
-                </TableRow>
-              ))}
+                    {columns.map((column) => (
+                      <TableCell
+                        className="max-w-52 truncate text-sm"
+                        key={column}
+                        title={gameplayCell(item[column])}
+                      >
+                        {gameplayCell(item[column])}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </DashboardTable>
         )}
@@ -1613,12 +1616,9 @@ function FriendsPanel({
                 <TableBody>
                   {pager.page.items.map((friend) => {
                     const workspaceName = friend.workspace_name ?? "";
+                    const friendName = requiredPeerName(friend.name, "Friend");
                     return (
-                      <TableRow
-                        key={
-                          friend.id ?? friend.peer_public_key ?? workspaceName
-                        }
-                      >
+                      <TableRow key={friendName}>
                         <TableCell className="min-w-0">
                           <div
                             className="truncate font-medium"
@@ -1628,9 +1628,9 @@ function FriendsPanel({
                           </div>
                           <div
                             className="truncate font-mono text-xs text-muted-foreground"
-                            title={friend.id ?? ""}
+                            title={friendName}
                           >
-                            {friend.id ?? "-"}
+                            {friendName}
                           </div>
                         </TableCell>
                         <TableCell
@@ -1890,13 +1890,10 @@ function FriendDetailPanel({
   const history = useWorkspaceHistory(workspaceName, "desc");
 
   const remove = async (): Promise<void> => {
-    const id = friend.id ?? "";
-    if (id === "") {
-      return;
-    }
+    const name = requiredPeerName(friend.name, "Friend");
     setDeleting(true);
     try {
-      await deleteFriend(id);
+      await deleteFriend(name);
       toast.success("Friend deleted");
       onBack();
     } catch (err) {
@@ -1923,7 +1920,7 @@ function FriendDetailPanel({
             Chat
           </Button>
           <Button
-            disabled={deleting || friend.id == null || friend.id === ""}
+            disabled={deleting || friend.name == null || friend.name === ""}
             onClick={() => void remove()}
             type="button"
             variant="destructive"
@@ -1939,7 +1936,7 @@ function FriendDetailPanel({
             <CardTitle>Info</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-x-6 gap-y-3 text-sm">
-            <WorkspaceInfoItem label="Friend ID" value={friend.id ?? "-"} />
+            <WorkspaceInfoItem label="Friend name" value={friend.name ?? "-"} />
             <WorkspaceInfoItem
               label="Peer public key"
               value={friend.peer_public_key ?? "-"}
@@ -1988,7 +1985,7 @@ function FriendDetailPanel({
             history={history.items}
             loading={history.loading}
             onPlay={(entry) =>
-              playWorkspaceHistoryAsset(workspaceName, entry.id)
+              playWorkspaceHistoryAsset(workspaceName, entry.name)
             }
           />
         </CardContent>
@@ -2330,7 +2327,7 @@ function FriendGroupDetailPanel({
                 history={history.items}
                 loading={history.loading}
                 onPlay={(entry) =>
-                  playWorkspaceHistoryAsset(workspaceName, entry.id)
+                  playWorkspaceHistoryAsset(workspaceName, entry.name)
                 }
               />
             </CardContent>
@@ -2501,7 +2498,7 @@ function GroupMembersPanel({
                 <GroupMemberRow
                   canManage={canManage}
                   groupID={groupID}
-                  key={member.id ?? member.peer_public_key ?? ""}
+                  key={requiredPeerName(member.name, "FriendGroupMember")}
                   member={member}
                   onChanged={pager.refresh}
                 />
@@ -2526,15 +2523,15 @@ function GroupMemberRow({
   onChanged: () => void;
 }): JSX.Element {
   const [saving, setSaving] = useState(false);
-  const memberID = member.id ?? "";
+  const memberName = requiredPeerName(member.name, "FriendGroupMember");
   const mutable =
-    canManage && member.role !== "owner" && groupID !== "" && memberID !== "";
+    canManage && member.role !== "owner" && groupID !== "" && memberName !== "";
   const updateRole = async (
     role: FriendGroupMemberMutableRole,
   ): Promise<void> => {
     setSaving(true);
     try {
-      await updateFriendGroupMember(groupID, memberID, role);
+      await updateFriendGroupMember(groupID, memberName, role);
       toast.success("Group member updated");
       onChanged();
     } catch (err) {
@@ -2548,7 +2545,7 @@ function GroupMemberRow({
   const remove = async (): Promise<void> => {
     setSaving(true);
     try {
-      await deleteFriendGroupMember(groupID, memberID);
+      await deleteFriendGroupMember(groupID, memberName);
       toast.success("Group member removed");
       onChanged();
     } catch (err) {
@@ -2877,9 +2874,9 @@ function SocialChatDrawer({
     try {
       requestWorkspaceAudioPlayback();
       await expectData(
-        playPeerRunWorkspaceHistory({ body: { history_id: entry.id } }),
+        playPeerRunWorkspaceHistory({ body: { history_name: entry.name } }),
       );
-      toast.success("History replay started", { description: entry.id });
+      toast.success("History replay started", { description: entry.name });
     } catch (err) {
       toast.error("History replay failed", {
         description: workspaceFeatureMessage(err),
@@ -3199,10 +3196,10 @@ function WorkspaceDrawer({
     try {
       requestWorkspaceAudioPlayback();
       await expectData(
-        playPeerRunWorkspaceHistory({ body: { history_id: entry.id } }),
+        playPeerRunWorkspaceHistory({ body: { history_name: entry.name } }),
       );
       setWorkspaceTab("chat");
-      toast.success("History replay started", { description: entry.id });
+      toast.success("History replay started", { description: entry.name });
     } catch (err) {
       setHistoryError(workspaceFeatureMessage(err));
     }
@@ -4410,10 +4407,10 @@ function WorkspaceHistoryPanel({
                 entry.type === "gear" &&
                 entry.gear_id != null &&
                 entry.gear_id !== ""
-                  ? `${entry.name} / ${entry.gear_id}`
-                  : entry.name;
+                  ? `${entry.actor_name} / ${entry.gear_id}`
+                  : entry.actor_name;
               return (
-                <TableRow key={entry.id}>
+                <TableRow key={entry.name}>
                   <TableCell className="truncate text-muted-foreground">
                     {formatDate(entry.created_at)}
                   </TableCell>
@@ -4423,9 +4420,9 @@ function WorkspaceHistoryPanel({
                   </TableCell>
                   <TableCell
                     className="truncate"
-                    title={entry.text || entry.id}
+                    title={entry.text || entry.name}
                   >
-                    {entry.text || entry.id}
+                    {entry.text || entry.name}
                   </TableCell>
                   <TableCell className="text-right">
                     {replayable ? (
@@ -4573,10 +4570,10 @@ function WorkspaceRecallPanel({
         <ScrollArea className="min-h-0 flex-1 rounded-md border">
           <div className="flex flex-col gap-3 p-4">
             {hits.map((hit) => (
-              <Card key={hit.id}>
+              <Card key={hit.name}>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between gap-3 text-sm">
-                    <span>{hit.source_id ?? hit.id}</span>
+                    <span>{hit.source_name ?? hit.name}</span>
                     <Badge variant="outline">{formatScore(hit.score)}</Badge>
                   </CardTitle>
                 </CardHeader>
@@ -5593,7 +5590,7 @@ function ChatHistoryTimeline({
                 "flex",
                 entry.type === "gear" ? "justify-end" : "justify-start",
               )}
-              key={entry.id}
+              key={entry.name}
             >
               <div
                 className={cn(
@@ -5620,7 +5617,7 @@ function ChatHistoryTimeline({
                   <span>{formatDate(entry.created_at)}</span>
                 </div>
                 <div className="whitespace-pre-wrap break-words">
-                  {entry.text || entry.id}
+                  {entry.text || entry.name}
                 </div>
                 <div className="mt-2 flex justify-end">
                   {entry.replay_available === true ? (
@@ -5728,10 +5725,10 @@ function mergeHistoryEntries(
 ): PeerRunHistoryEntry[] {
   const byID = new Map<string, PeerRunHistoryEntry>();
   for (const item of current) {
-    byID.set(item.id, item);
+    byID.set(item.name, item);
   }
   for (const item of incoming) {
-    byID.set(item.id, item);
+    byID.set(item.name, item);
   }
   return Array.from(byID.values()).sort((left, right) => {
     const delta =
@@ -5743,14 +5740,21 @@ function mergeHistoryEntries(
 
 function historyEntrySource(entry: PeerRunHistoryEntry): string {
   if (entry.type === "gear" && entry.gear_id != null && entry.gear_id !== "") {
-    return `${entry.name} / ${entry.gear_id}`;
+    return `${entry.actor_name} / ${entry.gear_id}`;
   }
-  return entry.name;
+  return entry.actor_name;
+}
+
+function requiredPeerName(value: unknown, kind: string): string {
+  if (typeof value !== "string" || value === "") {
+    throw new Error(`${kind} response is missing its Peer name.`);
+  }
+  return value;
 }
 
 function friendDisplayName(friend: FriendObject): string {
   return compactID(
-    friend.peer_public_key ?? friend.id ?? friend.workspace_name ?? "friend",
+    friend.peer_public_key ?? friend.name ?? friend.workspace_name ?? "friend",
   );
 }
 
@@ -5759,8 +5763,9 @@ function groupDisplayName(group: FriendGroupObject): string {
 }
 
 function friendChatTarget(friend: FriendObject): SocialChatTarget {
+  const name = requiredPeerName(friend.name, "Friend");
   return {
-    id: friend.id ?? friend.peer_public_key ?? friend.workspace_name ?? "",
+    id: name,
     kind: "friend",
     title: friendDisplayName(friend),
     workspaceName: friend.workspace_name ?? "",
@@ -5955,23 +5960,23 @@ function addFriendGroupMember(
 
 function updateFriendGroupMember(
   name: string,
-  memberID: string,
+  memberName: string,
   role: FriendGroupMemberMutableRole,
 ): Promise<FriendGroupMemberObject> {
   return expectData(
     putPeerFriendGroupMember({
-      body: { friend_group_name: name, id: memberID, role },
+      body: { friend_group_name: name, name: memberName, role },
     }),
   ) as Promise<FriendGroupMemberObject>;
 }
 
 function deleteFriendGroupMember(
   name: string,
-  memberID: string,
+  memberName: string,
 ): Promise<FriendGroupMemberObject> {
   return expectData(
     deletePeerFriendGroupMember({
-      body: { friend_group_name: name, id: memberID },
+      body: { friend_group_name: name, name: memberName },
     }),
   ) as Promise<FriendGroupMemberObject>;
 }
@@ -5991,11 +5996,11 @@ function listWorkspaceHistoryPage(
 
 async function playWorkspaceHistoryAsset(
   workspaceName: string,
-  historyID: string,
+  historyName: string,
 ): Promise<void> {
   const blob = (await expectData(
     getPeerWorkspaceHistoryAudio({
-      path: { history_id: historyID, workspace_name: workspaceName },
+      path: { history_name: historyName, workspace_name: workspaceName },
     }),
   )) as Blob;
   const url = URL.createObjectURL(blob);
@@ -6262,7 +6267,6 @@ function FirmwaresPanel({
           <DashboardTable>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-64">Firmware</TableHead>
                 <TableHead className="w-28">Channel</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead className="w-28">Size</TableHead>
@@ -6272,15 +6276,7 @@ function FirmwaresPanel({
             </TableHeader>
             <TableBody>
               {pager.page.items.map((item) => (
-                <TableRow key={`${item.firmware_name}:${String(item.channel)}`}>
-                  <TableCell className="min-w-0">
-                    <div
-                      className="truncate font-medium"
-                      title={item.firmware_name}
-                    >
-                      {item.firmware_name}
-                    </div>
-                  </TableCell>
+                <TableRow key={String(item.channel)}>
                   <TableCell>{String(item.channel)}</TableCell>
                   <TableCell>{item.description ?? "-"}</TableCell>
                   <TableCell>{formatBytes(item.size)}</TableCell>
@@ -6333,10 +6329,6 @@ function FirmwareDetailPanel({
             <CardTitle>Info</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-x-6 gap-y-3 text-sm">
-            <WorkspaceInfoItem
-              label="Firmware"
-              value={firmware.firmware_name}
-            />
             <WorkspaceInfoItem
               label="Channel"
               value={String(firmware.channel)}

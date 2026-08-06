@@ -40,7 +40,7 @@ class SyncStates extends Table {
 class WorkspaceChatEntries extends Table {
   TextColumn get serverId => text()();
   TextColumn get workspaceName => text()();
-  TextColumn get historyId => text()();
+  TextColumn get historyName => text()();
   TextColumn get role => text()();
   TextColumn get gearId => text().nullable()();
   TextColumn get content => text()();
@@ -49,32 +49,32 @@ class WorkspaceChatEntries extends Table {
   DateTimeColumn get refreshedAt => dateTime()();
 
   @override
-  Set<Column<Object>> get primaryKey => {serverId, workspaceName, historyId};
+  Set<Column<Object>> get primaryKey => {serverId, workspaceName, historyName};
 }
 
 class FriendEntries extends Table {
   TextColumn get serverId => text()();
-  TextColumn get id => text()();
+  TextColumn get name => text()();
   TextColumn get peerPublicKey => text()();
   TextColumn get workspaceName => text().nullable()();
   BlobColumn get rawProtobuf => blob()();
   DateTimeColumn get refreshedAt => dateTime()();
 
   @override
-  Set<Column<Object>> get primaryKey => {serverId, id};
+  Set<Column<Object>> get primaryKey => {serverId, name};
 }
 
 class FriendGroupEntries extends Table {
   TextColumn get serverId => text()();
-  TextColumn get id => text()();
   TextColumn get name => text()();
+  TextColumn get displayName => text()();
   TextColumn get description => text()();
   TextColumn get workspaceName => text().nullable()();
   BlobColumn get rawProtobuf => blob()();
   DateTimeColumn get refreshedAt => dateTime()();
 
   @override
-  Set<Column<Object>> get primaryKey => {serverId, id};
+  Set<Column<Object>> get primaryKey => {serverId, name};
 }
 
 @DriftDatabase(

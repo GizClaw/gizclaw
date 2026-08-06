@@ -106,7 +106,7 @@ class WorkspaceChatController extends ChangeNotifier {
   Timer? _levelTimer;
   List<WorkspaceChatMessage> _cached = const [];
   final List<WorkspaceChatMessage> _transient = [];
-  final Map<String, Set<String>> _historyIdsAtStreamStart = {};
+  final Map<String, Set<String>> _historyNamesAtStreamStart = {};
   WorkspaceChatState state = WorkspaceChatState.loading;
   Object? lastError;
   bool recording = false;
@@ -118,7 +118,7 @@ class WorkspaceChatController extends ChangeNotifier {
   bool _hasPcmAudioLevels = false;
   final Map<String, _AudioEnergySample> _sentAudioEnergy = {};
   final Map<String, _AudioEnergySample> _receivedAudioEnergy = {};
-  String? replayingHistoryId;
+  String? replayingHistoryName;
   bool _disposed = false;
   bool _inputTrackReleased = false;
   bool _historyRestricted = false;
@@ -458,18 +458,18 @@ class WorkspaceChatController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> replayHistory(String historyId) async {
+  Future<void> replayHistory(String historyName) async {
     final activeClient = client;
     if (_historyRestricted ||
         activeClient == null ||
-        replayingHistoryId != null) {
+        replayingHistoryName != null) {
       return;
     }
-    replayingHistoryId = historyId;
+    replayingHistoryName = historyName;
     lastError = null;
     notifyListeners();
     try {
-      final response = await activeClient.playRunWorkspaceHistory(historyId);
+      final response = await activeClient.playRunWorkspaceHistory(historyName);
       if (!response.value.accepted) {
         final message = response.value.message.trim();
         throw StateError(message.isEmpty ? 'Replay was not accepted' : message);
@@ -477,7 +477,7 @@ class WorkspaceChatController extends ChangeNotifier {
     } catch (error) {
       _handleError(error, changeState: false);
     } finally {
-      replayingHistoryId = null;
+      replayingHistoryName = null;
       notifyListeners();
     }
   }
@@ -539,7 +539,7 @@ class WorkspaceChatController extends ChangeNotifier {
         ? text
         : accumulatedText + text;
     if (index < 0) {
-      _historyIdsAtStreamStart[id] = _cached
+      _historyNamesAtStreamStart[id] = _cached
           .map((message) => message.id)
           .toSet();
       _transient.add(
@@ -623,8 +623,8 @@ class WorkspaceChatController extends ChangeNotifier {
     await historySubscription?.cancel();
     _cached = const [];
     _transient.clear();
-    _historyIdsAtStreamStart.clear();
-    replayingHistoryId = null;
+    _historyNamesAtStreamStart.clear();
+    replayingHistoryName = null;
     notifyListeners();
   }
 
@@ -656,7 +656,7 @@ class WorkspaceChatController extends ChangeNotifier {
     _cached = history
         .map(
           (entry) => WorkspaceChatMessage(
-            id: entry.id,
+            id: entry.name,
             incoming: entry.incoming,
             text: entry.text,
             state: WorkspaceMessageState.complete,
@@ -686,7 +686,7 @@ class WorkspaceChatController extends ChangeNotifier {
     if (resolved.isEmpty) return;
     _transient.removeWhere((message) => resolved.contains(message.id));
     for (final id in resolved) {
-      _historyIdsAtStreamStart.remove(id);
+      _historyNamesAtStreamStart.remove(id);
     }
   }
 
@@ -694,7 +694,7 @@ class WorkspaceChatController extends ChangeNotifier {
     WorkspaceChatMessage transient,
     WorkspaceChatMessage cached,
   ) {
-    final historyAtStart = _historyIdsAtStreamStart[transient.id] ?? const {};
+    final historyAtStart = _historyNamesAtStreamStart[transient.id] ?? const {};
     return !historyAtStart.contains(cached.id) &&
         cached.incoming == transient.incoming &&
         cached.text == transient.text;

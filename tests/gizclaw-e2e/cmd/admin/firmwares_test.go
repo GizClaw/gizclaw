@@ -20,7 +20,6 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 	firmwarePath := filepath.Join(h.SandboxDir, "firmware.json")
 	if err := os.WriteFile(firmwarePath, []byte(`{
 			"id": "devkit",
-			"name": "devkit",
 			"description": "Devkit firmware line",
 			"slots": {
 				"stable": {
@@ -72,7 +71,8 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 
 	list := h.RunCLI("admin", "firmwares", "list", "--context", "admin-a")
 	list.MustSucceed(t)
-	assertContains(t, list.Stdout, `"name":"devkit"`, `"description":"Devkit firmware line"`)
+	assertContains(t, list.Stdout, `"id":"devkit"`, `"description":"Devkit firmware line"`)
+	assertNotContains(t, list.Stdout, `"name":"devkit"`)
 
 	get := h.RunCLI("admin", "firmwares", "get", firmwareID, "--context", "admin-a")
 	get.MustSucceed(t)
@@ -93,11 +93,22 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 
 	resource := h.RunCLI("admin", "show", "Firmware", firmwareID, "--context", "admin-a")
 	resource.MustSucceed(t)
-	assertContains(t, resource.Stdout, `"kind":"Firmware"`, `"metadata":{"id":"devkit"}`, `"name":"devkit"`, `"url":"https://downloads.example.com/devkit/stable.tar.zlib"`)
+	assertContains(t, resource.Stdout, `"kind":"Firmware"`, `"metadata":{"id":"devkit"}`, `"url":"https://downloads.example.com/devkit/stable.tar.zlib"`)
+	assertNotContains(t, resource.Stdout, `"name":"devkit"`)
 
 	deleted := h.RunCLI("admin", "firmwares", "delete", firmwareID, "--context", "admin-a")
 	deleted.MustSucceed(t)
-	assertContains(t, deleted.Stdout, `"name":"devkit"`)
+	assertContains(t, deleted.Stdout, `"id":"devkit"`)
+	assertNotContains(t, deleted.Stdout, `"name":"devkit"`)
+}
+
+func assertNotContains(t *testing.T, output string, values ...string) {
+	t.Helper()
+	for _, value := range values {
+		if strings.Contains(output, value) {
+			t.Fatalf("output unexpectedly contains %s:\n%s", value, output)
+		}
+	}
 }
 
 func assertContains(t *testing.T, output string, values ...string) {

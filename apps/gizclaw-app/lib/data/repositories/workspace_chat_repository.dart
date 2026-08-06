@@ -5,7 +5,7 @@ import '../database/app_database.dart';
 
 class CachedWorkspaceMessage {
   const CachedWorkspaceMessage({
-    required this.id,
+    required this.name,
     required this.incoming,
     required this.text,
     required this.createdAt,
@@ -14,7 +14,7 @@ class CachedWorkspaceMessage {
   });
 
   final DateTime? createdAt;
-  final String id;
+  final String name;
   final bool incoming;
   final bool replayAvailable;
   final String? senderPublicKey;
@@ -40,13 +40,13 @@ class WorkspaceChatRepository {
       )
       ..orderBy([
         (row) => OrderingTerm.asc(row.createdAt),
-        (row) => OrderingTerm.asc(row.historyId),
+        (row) => OrderingTerm.asc(row.historyName),
       ]);
     return query.watch().map(
       (rows) => rows
           .map(
             (row) => CachedWorkspaceMessage(
-              id: row.historyId,
+              name: row.historyName,
               incoming:
                   row.role != 'gear' ||
                   (localPeerPublicKey != null &&
@@ -56,7 +56,7 @@ class WorkspaceChatRepository {
                   _replayAvailability[_historyKey(
                     serverId,
                     workspaceName,
-                    row.historyId,
+                    row.historyName,
                   )] ??
                   false,
               senderPublicKey: row.role == 'gear'
@@ -95,7 +95,7 @@ class WorkspaceChatRepository {
     } while (cursor != null && cursor.isNotEmpty);
 
     for (final item in items) {
-      _replayAvailability[_historyKey(serverId, workspaceName, item.id)] =
+      _replayAvailability[_historyKey(serverId, workspaceName, item.name)] =
           item.replayAvailable;
     }
 
@@ -109,7 +109,7 @@ class WorkspaceChatRepository {
                 (entry) => WorkspaceChatEntriesCompanion.insert(
                   serverId: serverId,
                   workspaceName: workspaceName,
-                  historyId: entry.id,
+                  historyName: entry.name,
                   role: entry.type.value == 1 ? 'gear' : 'agent',
                   gearId: Value(
                     entry.hasGearId() && entry.gearId.trim().isNotEmpty
@@ -117,7 +117,7 @@ class WorkspaceChatRepository {
                         : null,
                   ),
                   content: entry.text,
-                  name: entry.name,
+                  name: entry.actorName,
                   createdAt: Value(DateTime.tryParse(entry.createdAt)?.toUtc()),
                   refreshedAt: refreshedAt,
                 ),
@@ -125,12 +125,12 @@ class WorkspaceChatRepository {
               .toList(),
         );
       });
-      final ids = items.map((entry) => entry.id).toSet();
+      final names = items.map((entry) => entry.name).toSet();
       await (database.delete(database.workspaceChatEntries)..where(
             (row) =>
                 row.serverId.equals(serverId) &
                 row.workspaceName.equals(workspaceName) &
-                row.historyId.isNotIn(ids),
+                row.historyName.isNotIn(names),
           ))
           .go();
       await database
@@ -146,7 +146,7 @@ class WorkspaceChatRepository {
     return items
         .map(
           (entry) => CachedWorkspaceMessage(
-            id: entry.id,
+            name: entry.name,
             incoming:
                 entry.type.value != 1 ||
                 (localPeerPublicKey != null &&
@@ -168,8 +168,8 @@ class WorkspaceChatRepository {
   }
 }
 
-String _historyKey(String serverId, String workspaceName, String historyId) =>
-    '$serverId\u0000$workspaceName\u0000$historyId';
+String _historyKey(String serverId, String workspaceName, String historyName) =>
+    '$serverId\u0000$workspaceName\u0000$historyName';
 
 String? _nonEmpty(String? value) {
   final normalized = value?.trim() ?? '';

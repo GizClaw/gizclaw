@@ -42,7 +42,7 @@ func (d *personaDriver) verifyHistoryReplayWithOptions(ctx context.Context, item
 	}
 	expected := strings.TrimSpace(item.Text)
 	if expected == "" {
-		return stats, fmt.Errorf("history item %q has no display text", item.Id)
+		return stats, fmt.Errorf("history item %q has no display text", item.Name)
 	}
 	expectedLabel := "assistant"
 	isTextDone := isAssistantTextDoneEvent

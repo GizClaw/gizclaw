@@ -35,11 +35,11 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 			return client.ListWorkspaceHistory(ctx, "workspace-history-list", rpcapi.WorkspaceHistoryListRequest{WorkspaceName: "workspace-a"})
 		}},
 		{"workspace history get", func() (any, error) {
-			return client.GetWorkspaceHistory(ctx, "workspace-history-get", rpcapi.WorkspaceHistoryGetRequest{WorkspaceName: "workspace-a", HistoryId: "history-a"})
+			return client.GetWorkspaceHistory(ctx, "workspace-history-get", rpcapi.WorkspaceHistoryGetRequest{WorkspaceName: "workspace-a", HistoryName: "history-a"})
 		}},
 		{"workspace history audio get", func() (any, error) {
 			var out strings.Builder
-			return client.GetWorkspaceHistoryAudio(ctx, "workspace-history-audio-get", rpcapi.WorkspaceHistoryAudioGetRequest{WorkspaceName: "workspace-a", HistoryId: "history-a"}, &out)
+			return client.GetWorkspaceHistoryAudio(ctx, "workspace-history-audio-get", rpcapi.WorkspaceHistoryAudioGetRequest{WorkspaceName: "workspace-a", HistoryName: "history-a"}, &out)
 		}},
 		{"workflow list", func() (any, error) {
 			return client.ListWorkflows(ctx, "workflow-list", rpcapi.WorkflowListRequest{Collection: "assistants"})
@@ -76,7 +76,7 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 		}},
 		{"friend list", func() (any, error) { return client.ListFriends(ctx, "friend-list", rpcapi.FriendListRequest{}) }},
 		{"friend delete", func() (any, error) {
-			return client.DeleteFriend(ctx, "friend-delete", rpcapi.FriendDeleteRequest{Id: "friend-a"})
+			return client.DeleteFriend(ctx, "friend-delete", rpcapi.FriendDeleteRequest{Name: "friend-a"})
 		}},
 		{"friend group list", func() (any, error) {
 			return client.ListFriendGroups(ctx, "friend-group-list", rpcapi.FriendGroupListRequest{})
@@ -112,16 +112,16 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 			return client.AddFriendGroupMember(ctx, "friend-group-members-add", rpcapi.FriendGroupMemberAddRequest{FriendGroupName: "group-a", PeerPublicKey: "peer-b"})
 		}},
 		{"friend group members put", func() (any, error) {
-			return client.PutFriendGroupMember(ctx, "friend-group-members-put", rpcapi.FriendGroupMemberPutRequest{FriendGroupName: "group-a", Id: "peer-b"})
+			return client.PutFriendGroupMember(ctx, "friend-group-members-put", rpcapi.FriendGroupMemberPutRequest{FriendGroupName: "group-a", Name: "peer-b"})
 		}},
 		{"friend group members delete", func() (any, error) {
-			return client.DeleteFriendGroupMember(ctx, "friend-group-members-delete", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: "group-a", Id: "peer-b"})
+			return client.DeleteFriendGroupMember(ctx, "friend-group-members-delete", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: "group-a", Name: "peer-b"})
 		}},
 		{"friend group messages list", func() (any, error) {
 			return client.ListFriendGroupMessages(ctx, "friend-group-messages-list", rpcapi.FriendGroupMessageListRequest{FriendGroupName: "group-a"})
 		}},
 		{"friend group messages get", func() (any, error) {
-			return client.GetFriendGroupMessage(ctx, "friend-group-messages-get", rpcapi.FriendGroupMessageGetRequest{FriendGroupName: "group-a", HistoryId: "history-a"})
+			return client.GetFriendGroupMessage(ctx, "friend-group-messages-get", rpcapi.FriendGroupMessageGetRequest{FriendGroupName: "group-a", HistoryName: "history-a"})
 		}},
 	}
 

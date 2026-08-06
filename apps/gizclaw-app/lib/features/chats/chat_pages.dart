@@ -359,7 +359,7 @@ typedef _WorkspaceChatViewSnapshot = ({
   WorkspaceChatState? state,
   bool recording,
   Object? error,
-  String? replayingHistoryId,
+  String? replayingHistoryName,
   _WorkspaceMessageSnapshot messages,
 });
 
@@ -382,7 +382,7 @@ _WorkspaceChatViewSnapshot _workspaceChatViewSnapshot(
   state: chat?.state,
   recording: chat?.recording ?? false,
   error: chat?.lastError,
-  replayingHistoryId: chat?.replayingHistoryId,
+  replayingHistoryName: chat?.replayingHistoryName,
   messages: _workspaceMessageSnapshot(chat),
 );
 
@@ -614,7 +614,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
                     state: chat?.state ?? WorkspaceChatState.loading,
                     signal: signal,
                     error: chat?.lastError,
-                    replayingHistoryId: chat?.replayingHistoryId,
+                    replayingHistoryName: chat?.replayingHistoryName,
                     onReplay: isActiveWorkspace ? chat?.replayHistory : null,
                   ),
                 ),
@@ -1003,7 +1003,7 @@ class _WorkspaceMessageList extends StatelessWidget {
     required this.state,
     required this.signal,
     required this.error,
-    required this.replayingHistoryId,
+    required this.replayingHistoryName,
     required this.onReplay,
   });
 
@@ -1011,7 +1011,7 @@ class _WorkspaceMessageList extends StatelessWidget {
   final Object? error;
   final List<WorkspaceChatMessage> messages;
   final ValueChanged<String>? onReplay;
-  final String? replayingHistoryId;
+  final String? replayingHistoryName;
   final _SignalPalette signal;
   final WorkspaceChatState state;
 
@@ -1085,7 +1085,7 @@ class _WorkspaceMessageList extends StatelessWidget {
           return _WorkspaceSignalMessage(
             message: message,
             signal: signal,
-            replaying: replayingHistoryId == message.id,
+            replaying: replayingHistoryName == message.id,
             onReplay: message.replayAvailable && onReplay != null
                 ? () => onReplay!(message.id)
                 : null,

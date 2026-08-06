@@ -197,11 +197,11 @@ func e2eRuntimeBinding(resourceID string) apitypes.RuntimeProfileBinding {
 
 func registerRuntimeProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Client, contextName string, spec apitypes.RuntimeProfileSpec) {
 	t.Helper()
-	profileID, firmwareName, token := provisionRuntimeProfile(t, h, contextName, spec)
-	registerWithRuntimeProfile(t, peer, contextName, profileID, firmwareName, token)
+	profileID, token := provisionRuntimeProfile(t, h, contextName, spec)
+	registerWithRuntimeProfile(t, peer, contextName, profileID, token)
 }
 
-func provisionRuntimeProfile(t *testing.T, h *clitest.Harness, contextName string, spec apitypes.RuntimeProfileSpec) (string, string, string) {
+func provisionRuntimeProfile(t *testing.T, h *clitest.Harness, contextName string, spec apitypes.RuntimeProfileSpec) (string, string) {
 	t.Helper()
 	admin := h.ConnectClientFromContext("admin-a")
 	defer admin.Close()
@@ -237,10 +237,10 @@ func provisionRuntimeProfile(t *testing.T, h *clitest.Harness, contextName strin
 	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == "" {
 		t.Fatalf("create RegistrationToken for %s status %d: %s", contextName, tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
 	}
-	return profile.Id, firmware.Name, tokenResp.JSON200.Token
+	return profile.Id, tokenResp.JSON200.Token
 }
 
-func registerWithRuntimeProfile(t *testing.T, peer *gizcli.Client, contextName, profileID, firmwareName, token string) {
+func registerWithRuntimeProfile(t *testing.T, peer *gizcli.Client, contextName, profileID, token string) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -250,9 +250,6 @@ func registerWithRuntimeProfile(t *testing.T, peer *gizcli.Client, contextName, 
 	}
 	if registered.RuntimeProfileName != profileID {
 		t.Fatalf("server.register for %s = %#v", contextName, registered)
-	}
-	if registered.FirmwareName == nil || *registered.FirmwareName != firmwareName {
-		t.Fatalf("server.register firmware for %s = %#v", contextName, registered)
 	}
 }
 

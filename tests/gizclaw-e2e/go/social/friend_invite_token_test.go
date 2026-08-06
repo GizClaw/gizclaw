@@ -17,9 +17,9 @@ func TestSocialFriendInviteTokenRPC(t *testing.T) {
 	}
 	assertFriendPagination(t, h, friendAB, friendAC)
 
-	deletedFriend := mustDeleteFriend(t, h, "peer-a", stringValue(friendAC.Id))
-	if stringValue(deletedFriend.Id) != stringValue(friendAC.Id) {
-		t.Fatalf("friend.delete id = %q, want %q", stringValue(deletedFriend.Id), stringValue(friendAC.Id))
+	deletedFriend := mustDeleteFriend(t, h, "peer-a", friendAC.Name)
+	if deletedFriend.Name != friendAC.Name {
+		t.Fatalf("friend.delete name = %q, want %q", deletedFriend.Name, friendAC.Name)
 	}
 	assertWorkspaceHistoryDenied(t, h, "peer-c", stringValue(friendAC.WorkspaceName))
 }

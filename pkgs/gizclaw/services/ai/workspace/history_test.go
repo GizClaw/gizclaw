@@ -102,7 +102,7 @@ func TestHistoryStoreListSupportsDescAndMissingCursorBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List asc after missing cursor: %v", err)
 	}
-	if len(resp.Items) != 1 || resp.Items[0].Id != newest.ID {
+	if len(resp.Items) != 1 || resp.Items[0].Name != newest.ID {
 		t.Fatalf("asc after missing cursor = %+v, want newest %q", resp, newest.ID)
 	}
 
@@ -111,7 +111,7 @@ func TestHistoryStoreListSupportsDescAndMissingCursorBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List desc before missing cursor: %v", err)
 	}
-	if len(resp.Items) != 1 || resp.Items[0].Id != oldest.ID {
+	if len(resp.Items) != 1 || resp.Items[0].Name != oldest.ID {
 		t.Fatalf("desc before missing cursor = %+v, want oldest %q", resp, oldest.ID)
 	}
 
@@ -119,7 +119,7 @@ func TestHistoryStoreListSupportsDescAndMissingCursorBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List latest desc page: %v", err)
 	}
-	if !resp.HasNext || resp.NextCursor == nil || *resp.NextCursor != newest.ID || len(resp.Items) != 1 || resp.Items[0].Id != newest.ID {
+	if !resp.HasNext || resp.NextCursor == nil || *resp.NextCursor != newest.ID || len(resp.Items) != 1 || resp.Items[0].Name != newest.ID {
 		t.Fatalf("latest desc page = %+v, want first item and next cursor %q", resp, newest.ID)
 	}
 }

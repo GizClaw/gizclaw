@@ -282,12 +282,12 @@ func (d *personaDriver) allowStableFlowcraftHistory(reason string, history *rpca
 func flowcraftHistoryProgressSignature(items []rpcapi.PeerRunHistoryEntry) string {
 	var b strings.Builder
 	for _, item := range items {
-		b.WriteString(item.Id)
+		b.WriteString(item.Name)
 		b.WriteByte('\x1f')
 		b.WriteString(string(item.Type))
 		appendStringPtr(&b, item.GearId)
 		b.WriteByte('\x1f')
-		b.WriteString(item.Name)
+		b.WriteString(item.ActorName)
 		b.WriteByte('\x1f')
 		b.WriteString(item.Text)
 		fmt.Fprintf(&b, "replay=%t", item.ReplayAvailable)
@@ -449,7 +449,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 			}
 			if eosNanos := inputEOSSentAt.Load(); eosNanos == 0 {
 				if item, ok := firstNewHistoryItem(history.Items, historyBeforeEOS); ok {
-					return stat, fmt.Errorf("round %d: AST push-to-talk published history %q before input EOS", index, item.Id)
+					return stat, fmt.Errorf("round %d: AST push-to-talk published history %q before input EOS", index, item.Name)
 				}
 			} else {
 				historyGateTick = nil
@@ -490,7 +490,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 					return stat, fmt.Errorf("round %d: verify AST push-to-talk history gate: %w", index, historyErr)
 				}
 				if item, ok := firstHistoryItemBeforeEOS(history.Items, historyBeforeEOS, responseStart); ok {
-					return stat, fmt.Errorf("round %d: AST push-to-talk history %q was created before input EOS at %s", index, item.Id, item.CreatedAt.Format(time.RFC3339Nano))
+					return stat, fmt.Errorf("round %d: AST push-to-talk history %q was created before input EOS at %s", index, item.Name, item.CreatedAt.Format(time.RFC3339Nano))
 				}
 				fmt.Printf("workspace_progress event=ast_ptt_output_gate workspace=%s round=%d history=clear eos_at=%s\n", d.cfg.Workspace, index, responseStart.Format(time.RFC3339Nano))
 			}
@@ -1179,14 +1179,14 @@ func (d *personaDriver) listRuntimeHistory(ctx context.Context, limit int) (*rpc
 func historyItemIDs(items []rpcapi.PeerRunHistoryEntry) map[string]struct{} {
 	ids := make(map[string]struct{}, len(items))
 	for _, item := range items {
-		ids[item.Id] = struct{}{}
+		ids[item.Name] = struct{}{}
 	}
 	return ids
 }
 
 func firstNewHistoryItem(items []rpcapi.PeerRunHistoryEntry, before map[string]struct{}) (rpcapi.PeerRunHistoryEntry, bool) {
 	for _, item := range items {
-		if _, ok := before[item.Id]; !ok {
+		if _, ok := before[item.Name]; !ok {
 			return item, true
 		}
 	}
@@ -1198,7 +1198,7 @@ func firstHistoryItemBeforeEOS(items []rpcapi.PeerRunHistoryEntry, before map[st
 		return rpcapi.PeerRunHistoryEntry{}, false
 	}
 	for _, item := range items {
-		if _, ok := before[item.Id]; ok || item.CreatedAt.IsZero() {
+		if _, ok := before[item.Name]; ok || item.CreatedAt.IsZero() {
 			continue
 		}
 		if item.CreatedAt.Before(eosSentAt) {

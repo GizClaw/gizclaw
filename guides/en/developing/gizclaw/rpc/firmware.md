@@ -6,20 +6,20 @@ A RegistrationToken may bind one canonical Firmware ID to a Peer. Devices do
 not list or select a firmware release line. They request one channel from the
 bound release line through `server.firmware.get`.
 
-Admin create/apply receives that immutable ID from the caller. The Firmware's
-separate `name` (`spec.name` in a declarative Resource) is peer-visible display
-data, may be updated, and is never indexed or resolved as an Admin ID.
+Admin create/apply receives that immutable ID from the caller. Firmware has no
+separate `name` or `spec.name`; its release-line identity is needed only for the
+Admin binding and is not exposed by Peer RPC.
 
 The request contains only `channel`, one of `stable`, `beta`, `develop`, or
 `pending`. The response contains:
 
-- the peer-visible firmware name and requested channel;
+- the requested channel;
 - the optional channel description;
 - an absolute HTTPS URL for a `.tar.zlib` package (a tar archive compressed as one zlib stream);
 - the SHA-256 and byte size of the exact compressed package.
 
-Peer-visible names, descriptions, and URLs are limited to 256, 1024, and 2048
-UTF-8 bytes respectively. Package size is positive and at most
+Descriptions and URLs are limited to 1024 and 2048 UTF-8 bytes respectively.
+Package size is positive and at most
 `9007199254740991`, so JavaScript SDKs preserve the exact byte count.
 
 The Peer downloads the URL directly and verifies the compressed bytes. GizClaw

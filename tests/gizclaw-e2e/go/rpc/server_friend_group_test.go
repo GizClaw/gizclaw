@@ -70,7 +70,7 @@ func TestServerFriendGroupRPC(t *testing.T) {
 	}
 	memberB, err := env.a.PutFriendGroupMember(env.ctx, "friend_group.members.put.b", rpcapi.FriendGroupMemberPutRequest{
 		FriendGroupName: group.Name,
-		Id:              env.peer["peer-b"],
+		Name:            env.peer["peer-b"],
 		Role:            rpcapi.FriendGroupMemberMutableRoleAdmin,
 	})
 	if err != nil {
@@ -122,7 +122,7 @@ func TestServerFriendGroupRPC(t *testing.T) {
 		t.Fatalf("friend_group.messages.list: %v", err)
 	}
 	for _, message := range messages.Items {
-		if message.FriendGroupName != peerCGroupName || message.HistoryId == "" {
+		if message.FriendGroupName != peerCGroupName || message.Name == "" {
 			t.Fatalf("friend_group.messages.list item = %#v", message)
 		}
 	}
@@ -130,7 +130,7 @@ func TestServerFriendGroupRPC(t *testing.T) {
 	var audio bytes.Buffer
 	audioResult, err := env.c.GetFriendGroupMessageAudio(env.ctx, "friend_group.messages.audio.get.missing", rpcapi.FriendGroupMessageAudioGetRequest{
 		FriendGroupName: peerCGroupName,
-		HistoryId:       missingHistoryID,
+		HistoryName:     missingHistoryID,
 	}, &audio)
 	if err == nil {
 		t.Fatal("friend_group.messages.audio.get missing unexpectedly succeeded")
@@ -152,7 +152,7 @@ func TestServerFriendGroupRPC(t *testing.T) {
 	if _, err := env.d.GetFriendGroup(env.ctx, "friend_group.get.denied", rpcapi.FriendGroupGetRequest{Name: group.Name}); err == nil {
 		t.Fatal("non-member unexpectedly read group")
 	}
-	if _, err := env.b.DeleteFriendGroupMember(env.ctx, "friend_group.members.delete.c", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: group.Name, Id: env.peer["peer-c"]}); err != nil {
+	if _, err := env.b.DeleteFriendGroupMember(env.ctx, "friend_group.members.delete.c", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: group.Name, Name: env.peer["peer-c"]}); err != nil {
 		t.Fatalf("friend_group.members.delete c: %v", err)
 	}
 	deleted, err := env.a.DeleteFriendGroup(env.ctx, "friend_group.delete", rpcapi.FriendGroupDeleteRequest{Name: secondGroup.Name})

@@ -41,7 +41,6 @@ type SlotKey = (typeof slotKeys)[number];
 export type FirmwareFormState = {
   description: string;
   id: string;
-  name: string;
   slots: Record<SlotKey, FirmwareSlot>;
 };
 
@@ -89,8 +88,7 @@ export function FirmwareEditor({
           <CardHeader>
             <CardTitle>Firmware Info</CardTitle>
             <CardDescription>
-              Caller-defined immutable ID, peer-visible name, and
-              operator-facing description.
+              Caller-defined immutable ID and operator-facing description.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -104,14 +102,6 @@ export function FirmwareEditor({
                 />
               </FormField>
             ) : null}
-            <FormField label="Name">
-              <Input
-                onChange={(event) =>
-                  onChange({ ...form, name: event.target.value })
-                }
-                value={form.name}
-              />
-            </FormField>
             <FormField label="Description">
               <Textarea
                 className="min-h-28"
@@ -383,7 +373,6 @@ export function emptyFirmwareForm(): FirmwareFormState {
   return {
     description: "Firmware release line",
     id: "new-firmware",
-    name: "New firmware",
     slots: emptySlots(),
   };
 }
@@ -392,7 +381,6 @@ export function firmwareToForm(firmware: Firmware): FirmwareFormState {
   return {
     description: firmware.description ?? "",
     id: firmware.id,
-    name: firmware.name,
     slots: normalizeSlots(firmware.slots),
   };
 }
@@ -401,7 +389,6 @@ export function formToUpsert(form: FirmwareFormState): FirmwareUpsert {
   return {
     description: optionalString(form.description),
     id: form.id,
-    name: form.name,
     slots: {
       beta: slotToUpsert(form.slots.beta),
       develop: slotToUpsert(form.slots.develop),

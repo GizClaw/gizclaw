@@ -48,17 +48,12 @@ int gzc_cgo_session_register(
     const char *token,
     char *out_runtime_profile_name,
     unsigned long out_runtime_profile_name_len,
-    int *out_has_firmware_name,
-    char *out_firmware_name,
-    unsigned long out_firmware_name_len,
     int *out_rpc_error_code,
     char *errbuf,
     unsigned long errbuf_len);
 int gzc_cgo_session_firmware_get(
     gzc_cgo_session_t *session,
     int channel,
-    char *out_name,
-    unsigned long out_name_len,
     int *out_channel,
     int *out_has_description,
     char *out_description,

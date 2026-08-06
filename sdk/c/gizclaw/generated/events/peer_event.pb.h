@@ -119,7 +119,7 @@ typedef struct _gizclaw_events_v1_FriendGroupUpdated {
 
 typedef struct _gizclaw_events_v1_GameplayRewardUpdated {
     char workspace_name[257];
-    char reward_grant_id[129];
+    char reward_grant_name[129];
     int64_t revision_unix_ms;
 } gizclaw_events_v1_GameplayRewardUpdated;
 
@@ -244,7 +244,7 @@ extern "C" {
 #define gizclaw_events_v1_FriendGroupUpdated_revision_unix_ms_tag 4
 #define gizclaw_events_v1_FriendGroupUpdated_affected_peer_public_key_tag 5
 #define gizclaw_events_v1_GameplayRewardUpdated_workspace_name_tag 1
-#define gizclaw_events_v1_GameplayRewardUpdated_reward_grant_id_tag 2
+#define gizclaw_events_v1_GameplayRewardUpdated_reward_grant_name_tag 2
 #define gizclaw_events_v1_GameplayRewardUpdated_revision_unix_ms_tag 3
 #define gizclaw_events_v1_PeerEvent_version_tag  1
 #define gizclaw_events_v1_PeerEvent_type_tag     2
@@ -353,7 +353,7 @@ X(a, STATIC,   SINGULAR, STRING,   affected_peer_public_key,   5)
 
 #define gizclaw_events_v1_GameplayRewardUpdated_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, STRING,   workspace_name,    1) \
-X(a, STATIC,   SINGULAR, STRING,   reward_grant_id,   2) \
+X(a, STATIC,   SINGULAR, STRING,   reward_grant_name,   2) \
 X(a, STATIC,   SINGULAR, INT64,    revision_unix_ms,   3)
 #define gizclaw_events_v1_GameplayRewardUpdated_CALLBACK NULL
 #define gizclaw_events_v1_GameplayRewardUpdated_DEFAULT NULL

@@ -130,7 +130,7 @@ Client 应按 `code` 本地化显示，并结束对应的 loading/recording 状�
 `gameplay_reward_updated`：
 
 - `workspace_name`
-- `reward_grant_id`
+- `reward_grant_name`
 - `revision_unix_ms`
 
 ## Four different end boundaries

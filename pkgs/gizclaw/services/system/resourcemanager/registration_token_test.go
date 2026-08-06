@@ -51,7 +51,7 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
 		Metadata:   apitypes.ResourceMetadata{Id: "h106"},
-		Spec:       apitypes.FirmwareSpec{Name: "Devkit", Slots: testFirmwareSpecSlots("stable firmware")},
+		Spec:       apitypes.FirmwareSpec{Slots: testFirmwareSpecSlots("stable firmware")},
 	})
 	if err != nil {
 		t.Fatalf("marshalResource(Firmware) error = %v", err)

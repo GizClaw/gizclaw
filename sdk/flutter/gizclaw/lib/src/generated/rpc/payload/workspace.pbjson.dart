@@ -79,8 +79,8 @@ const PeerRunHistoryEntry$json = {
       '10': 'gearId',
       '17': true
     },
-    {'1': 'id', '3': 3, '4': 1, '5': 9, '10': 'id'},
-    {'1': 'name', '3': 4, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'actor_name', '3': 4, '4': 1, '5': 9, '10': 'actorName'},
     {'1': 'replay_available', '3': 5, '4': 1, '5': 8, '10': 'replayAvailable'},
     {'1': 'text', '3': 6, '4': 1, '5': 9, '10': 'text'},
     {
@@ -100,10 +100,10 @@ const PeerRunHistoryEntry$json = {
 /// Descriptor for `PeerRunHistoryEntry`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List peerRunHistoryEntryDescriptor = $convert.base64Decode(
     'ChNQZWVyUnVuSGlzdG9yeUVudHJ5Eh0KCmNyZWF0ZWRfYXQYASABKAlSCWNyZWF0ZWRBdBIcCg'
-    'dnZWFyX2lkGAIgASgJSABSBmdlYXJJZIgBARIOCgJpZBgDIAEoCVICaWQSEgoEbmFtZRgEIAEo'
-    'CVIEbmFtZRIpChByZXBsYXlfYXZhaWxhYmxlGAUgASgIUg9yZXBsYXlBdmFpbGFibGUSEgoEdG'
-    'V4dBgGIAEoCVIEdGV4dBI7CgR0eXBlGAcgASgOMicuZ2l6Y2xhdy5ycGMudjEuUGVlclJ1bkhp'
-    'c3RvcnlFbnRyeVR5cGVSBHR5cGVCCgoIX2dlYXJfaWQ=');
+    'dnZWFyX2lkGAIgASgJSABSBmdlYXJJZIgBARISCgRuYW1lGAMgASgJUgRuYW1lEh0KCmFjdG9y'
+    'X25hbWUYBCABKAlSCWFjdG9yTmFtZRIpChByZXBsYXlfYXZhaWxhYmxlGAUgASgIUg9yZXBsYX'
+    'lBdmFpbGFibGUSEgoEdGV4dBgGIAEoCVIEdGV4dBI7CgR0eXBlGAcgASgOMicuZ2l6Y2xhdy5y'
+    'cGMudjEuUGVlclJ1bkhpc3RvcnlFbnRyeVR5cGVSBHR5cGVCCgoIX2dlYXJfaWQ=');
 
 @$core.Deprecated('Use peerRunHistoryListRequestDescriptor instead')
 const PeerRunHistoryListRequest$json = {
@@ -187,22 +187,22 @@ final $typed_data.Uint8List peerRunHistoryListResponseDescriptor = $convert.base
 const PeerRunHistoryPlayRequest$json = {
   '1': 'PeerRunHistoryPlayRequest',
   '2': [
-    {'1': 'history_id', '3': 1, '4': 1, '5': 9, '10': 'historyId'},
+    {'1': 'history_name', '3': 1, '4': 1, '5': 9, '10': 'historyName'},
   ],
 };
 
 /// Descriptor for `PeerRunHistoryPlayRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List peerRunHistoryPlayRequestDescriptor =
     $convert.base64Decode(
-        'ChlQZWVyUnVuSGlzdG9yeVBsYXlSZXF1ZXN0Eh0KCmhpc3RvcnlfaWQYASABKAlSCWhpc3Rvcn'
-        'lJZA==');
+        'ChlQZWVyUnVuSGlzdG9yeVBsYXlSZXF1ZXN0EiEKDGhpc3RvcnlfbmFtZRgBIAEoCVILaGlzdG'
+        '9yeU5hbWU=');
 
 @$core.Deprecated('Use peerRunHistoryPlayResponseDescriptor instead')
 const PeerRunHistoryPlayResponse$json = {
   '1': 'PeerRunHistoryPlayResponse',
   '2': [
     {'1': 'accepted', '3': 1, '4': 1, '5': 8, '10': 'accepted'},
-    {'1': 'history_id', '3': 2, '4': 1, '5': 9, '10': 'historyId'},
+    {'1': 'history_name', '3': 2, '4': 1, '5': 9, '10': 'historyName'},
     {
       '1': 'message',
       '3': 3,
@@ -223,8 +223,8 @@ const PeerRunHistoryPlayResponse$json = {
 final $typed_data.Uint8List peerRunHistoryPlayResponseDescriptor =
     $convert.base64Decode(
         'ChpQZWVyUnVuSGlzdG9yeVBsYXlSZXNwb25zZRIaCghhY2NlcHRlZBgBIAEoCFIIYWNjZXB0ZW'
-        'QSHQoKaGlzdG9yeV9pZBgCIAEoCVIJaGlzdG9yeUlkEh0KB21lc3NhZ2UYAyABKAlIAFIHbWVz'
-        'c2FnZYgBARIUCgVzdGF0ZRgEIAEoCVIFc3RhdGVCCgoIX21lc3NhZ2U=');
+        'QSIQoMaGlzdG9yeV9uYW1lGAIgASgJUgtoaXN0b3J5TmFtZRIdCgdtZXNzYWdlGAMgASgJSABS'
+        'B21lc3NhZ2WIAQESFAoFc3RhdGUYBCABKAlSBXN0YXRlQgoKCF9tZXNzYWdl');
 
 @$core.Deprecated('Use peerRunMemoryStatsRequestDescriptor instead')
 const PeerRunMemoryStatsRequest$json = {
@@ -342,7 +342,7 @@ const PeerRunRecallHit$json = {
       '10': 'createdAt',
       '17': true
     },
-    {'1': 'id', '3': 2, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
     {
       '1': 'metadata',
       '3': 3,
@@ -354,12 +354,12 @@ const PeerRunRecallHit$json = {
     {'1': 'score', '3': 4, '4': 1, '5': 1, '10': 'score'},
     {'1': 'snippet', '3': 5, '4': 1, '5': 9, '10': 'snippet'},
     {
-      '1': 'source_id',
+      '1': 'source_name',
       '3': 6,
       '4': 1,
       '5': 9,
       '9': 1,
-      '10': 'sourceId',
+      '10': 'sourceName',
       '17': true
     },
     {
@@ -374,19 +374,19 @@ const PeerRunRecallHit$json = {
   ],
   '8': [
     {'1': '_created_at'},
-    {'1': '_source_id'},
+    {'1': '_source_name'},
     {'1': '_source_type'},
   ],
 };
 
 /// Descriptor for `PeerRunRecallHit`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List peerRunRecallHitDescriptor = $convert.base64Decode(
-    'ChBQZWVyUnVuUmVjYWxsSGl0EiIKCmNyZWF0ZWRfYXQYASABKAlIAFIJY3JlYXRlZEF0iAEBEg'
-    '4KAmlkGAIgASgJUgJpZBIzCghtZXRhZGF0YRgDIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1'
-    'Y3RSCG1ldGFkYXRhEhQKBXNjb3JlGAQgASgBUgVzY29yZRIYCgdzbmlwcGV0GAUgASgJUgdzbm'
-    'lwcGV0EiAKCXNvdXJjZV9pZBgGIAEoCUgBUghzb3VyY2VJZIgBARIkCgtzb3VyY2VfdHlwZRgH'
-    'IAEoCUgCUgpzb3VyY2VUeXBliAEBQg0KC19jcmVhdGVkX2F0QgwKCl9zb3VyY2VfaWRCDgoMX3'
-    'NvdXJjZV90eXBl');
+    'ChBQZWVyUnVuUmVjYWxsSGl0EiIKCmNyZWF0ZWRfYXQYASABKAlIAFIJY3JlYXRlZEF0iAEBEh'
+    'IKBG5hbWUYAiABKAlSBG5hbWUSMwoIbWV0YWRhdGEYAyABKAsyFy5nb29nbGUucHJvdG9idWYu'
+    'U3RydWN0UghtZXRhZGF0YRIUCgVzY29yZRgEIAEoAVIFc2NvcmUSGAoHc25pcHBldBgFIAEoCV'
+    'IHc25pcHBldBIkCgtzb3VyY2VfbmFtZRgGIAEoCUgBUgpzb3VyY2VOYW1liAEBEiQKC3NvdXJj'
+    'ZV90eXBlGAcgASgJSAJSCnNvdXJjZVR5cGWIAQFCDQoLX2NyZWF0ZWRfYXRCDgoMX3NvdXJjZV'
+    '9uYW1lQg4KDF9zb3VyY2VfdHlwZQ==');
 
 @$core.Deprecated('Use peerRunRecallRequestDescriptor instead')
 const PeerRunRecallRequest$json = {
@@ -1468,7 +1468,7 @@ final $typed_data.Uint8List workspaceGetResponseDescriptor = $convert.base64Deco
 const WorkspaceHistoryAudioGetRequest$json = {
   '1': 'WorkspaceHistoryAudioGetRequest',
   '2': [
-    {'1': 'history_id', '3': 1, '4': 1, '5': 9, '10': 'historyId'},
+    {'1': 'history_name', '3': 1, '4': 1, '5': 9, '10': 'historyName'},
     {'1': 'workspace_name', '3': 2, '4': 1, '5': 9, '10': 'workspaceName'},
   ],
 };
@@ -1476,14 +1476,14 @@ const WorkspaceHistoryAudioGetRequest$json = {
 /// Descriptor for `WorkspaceHistoryAudioGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workspaceHistoryAudioGetRequestDescriptor =
     $convert.base64Decode(
-        'Ch9Xb3Jrc3BhY2VIaXN0b3J5QXVkaW9HZXRSZXF1ZXN0Eh0KCmhpc3RvcnlfaWQYASABKAlSCW'
-        'hpc3RvcnlJZBIlCg53b3Jrc3BhY2VfbmFtZRgCIAEoCVINd29ya3NwYWNlTmFtZQ==');
+        'Ch9Xb3Jrc3BhY2VIaXN0b3J5QXVkaW9HZXRSZXF1ZXN0EiEKDGhpc3RvcnlfbmFtZRgBIAEoCV'
+        'ILaGlzdG9yeU5hbWUSJQoOd29ya3NwYWNlX25hbWUYAiABKAlSDXdvcmtzcGFjZU5hbWU=');
 
 @$core.Deprecated('Use workspaceHistoryAudioGetResponseDescriptor instead')
 const WorkspaceHistoryAudioGetResponse$json = {
   '1': 'WorkspaceHistoryAudioGetResponse',
   '2': [
-    {'1': 'history_id', '3': 1, '4': 1, '5': 9, '10': 'historyId'},
+    {'1': 'history_name', '3': 1, '4': 1, '5': 9, '10': 'historyName'},
     {'1': 'mime_type', '3': 2, '4': 1, '5': 9, '10': 'mimeType'},
     {'1': 'size_bytes', '3': 3, '4': 1, '5': 3, '10': 'sizeBytes'},
     {'1': 'workspace_name', '3': 4, '4': 1, '5': 9, '10': 'workspaceName'},
@@ -1493,15 +1493,16 @@ const WorkspaceHistoryAudioGetResponse$json = {
 /// Descriptor for `WorkspaceHistoryAudioGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workspaceHistoryAudioGetResponseDescriptor =
     $convert.base64Decode(
-        'CiBXb3Jrc3BhY2VIaXN0b3J5QXVkaW9HZXRSZXNwb25zZRIdCgpoaXN0b3J5X2lkGAEgASgJUg'
-        'loaXN0b3J5SWQSGwoJbWltZV90eXBlGAIgASgJUghtaW1lVHlwZRIdCgpzaXplX2J5dGVzGAMg'
-        'ASgDUglzaXplQnl0ZXMSJQoOd29ya3NwYWNlX25hbWUYBCABKAlSDXdvcmtzcGFjZU5hbWU=');
+        'CiBXb3Jrc3BhY2VIaXN0b3J5QXVkaW9HZXRSZXNwb25zZRIhCgxoaXN0b3J5X25hbWUYASABKA'
+        'lSC2hpc3RvcnlOYW1lEhsKCW1pbWVfdHlwZRgCIAEoCVIIbWltZVR5cGUSHQoKc2l6ZV9ieXRl'
+        'cxgDIAEoA1IJc2l6ZUJ5dGVzEiUKDndvcmtzcGFjZV9uYW1lGAQgASgJUg13b3Jrc3BhY2VOYW'
+        '1l');
 
 @$core.Deprecated('Use workspaceHistoryGetRequestDescriptor instead')
 const WorkspaceHistoryGetRequest$json = {
   '1': 'WorkspaceHistoryGetRequest',
   '2': [
-    {'1': 'history_id', '3': 1, '4': 1, '5': 9, '10': 'historyId'},
+    {'1': 'history_name', '3': 1, '4': 1, '5': 9, '10': 'historyName'},
     {'1': 'workspace_name', '3': 2, '4': 1, '5': 9, '10': 'workspaceName'},
   ],
 };
@@ -1509,8 +1510,8 @@ const WorkspaceHistoryGetRequest$json = {
 /// Descriptor for `WorkspaceHistoryGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workspaceHistoryGetRequestDescriptor =
     $convert.base64Decode(
-        'ChpXb3Jrc3BhY2VIaXN0b3J5R2V0UmVxdWVzdBIdCgpoaXN0b3J5X2lkGAEgASgJUgloaXN0b3'
-        'J5SWQSJQoOd29ya3NwYWNlX25hbWUYAiABKAlSDXdvcmtzcGFjZU5hbWU=');
+        'ChpXb3Jrc3BhY2VIaXN0b3J5R2V0UmVxdWVzdBIhCgxoaXN0b3J5X25hbWUYASABKAlSC2hpc3'
+        'RvcnlOYW1lEiUKDndvcmtzcGFjZV9uYW1lGAIgASgJUg13b3Jrc3BhY2VOYW1l');
 
 @$core.Deprecated('Use workspaceHistoryGetResponseDescriptor instead')
 const WorkspaceHistoryGetResponse$json = {

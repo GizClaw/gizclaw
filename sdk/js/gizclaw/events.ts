@@ -399,10 +399,10 @@ function validateResourceIdentifiers(event: PeerEvent): void {
     case "gameplayRewardUpdated":
       if (
         event.payload.value.workspaceName.trim() === "" ||
-        event.payload.value.rewardGrantId.trim() === ""
+        event.payload.value.rewardGrantName.trim() === ""
       ) {
         throw new Error(
-          "gameplay reward event requires workspaceName and rewardGrantId",
+          "gameplay reward event requires workspaceName and rewardGrantName",
         );
       }
   }
