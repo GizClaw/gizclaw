@@ -54,6 +54,7 @@ type activePeer struct {
 	events         *peerStreamEventBroker
 	observeEvent   func(*eventpb.PeerEvent)
 	deleting       bool
+	retire         func()
 }
 
 func (m *Manager) activateEdgeTransport(ctx context.Context, conn giznet.Conn) error {
@@ -159,6 +160,55 @@ func NewManager(peersService *peer.Server) *Manager {
 		peers:                make(map[giznet.PublicKey]*activePeer),
 		telemetryStatusLocks: make(map[giznet.PublicKey]*telemetryStatusLock),
 	}
+}
+
+// QuiesceWorkspace delegates the exact Workspace runtime fence to the shared
+// AgentHost registry without exposing connection internals to cleanup code.
+func (m *Manager) QuiesceWorkspace(ctx context.Context, workspaceID string) error {
+	if m == nil || m.AgentHost == nil {
+		return nil
+	}
+	return m.AgentHost.QuiesceWorkspace(ctx, workspaceID)
+}
+
+// QuiescePeer removes every active generation before account-owned cleanup.
+// The durable Peer marker remains the reconnect authority after this returns.
+func (m *Manager) QuiescePeer(_ context.Context, publicKey giznet.PublicKey) error {
+	if m == nil {
+		return nil
+	}
+	m.mu.Lock()
+	state := m.peers[publicKey]
+	if state == nil {
+		m.mu.Unlock()
+		return nil
+	}
+	state.deleting = true
+	state.registration = nil
+	retire := state.retire
+	if state.activating != nil {
+		_ = state.activating.Close()
+		state.activating = nil
+	}
+	m.mu.Unlock()
+	if retire != nil {
+		retire()
+	}
+	return nil
+}
+
+func (m *Manager) RegisterPeerRetirer(publicKey giznet.PublicKey, conn giznet.Conn, retire func()) bool {
+	if m == nil || conn == nil || retire == nil {
+		return false
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	state := m.peers[publicKey]
+	if state == nil || state.conn != conn || state.deleting {
+		return false
+	}
+	state.retire = retire
+	return true
 }
 
 func (m *Manager) telemetryStatusLock(publicKey giznet.PublicKey) *sync.Mutex {

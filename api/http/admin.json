@@ -1107,6 +1107,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       },
@@ -1176,6 +1179,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       }
@@ -1446,6 +1452,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       }
@@ -1718,6 +1727,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       },
@@ -1778,6 +1790,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       }
@@ -2019,6 +2034,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       },
@@ -2088,6 +2106,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       }
@@ -2220,6 +2241,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       },
@@ -2280,6 +2304,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       }
@@ -6542,6 +6569,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/WorkspaceUnavailable"
           }
         }
       },
@@ -6603,6 +6633,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/WorkspaceUnavailable"
           }
         }
       }
@@ -7010,7 +7043,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared.json#/components/schemas/Registration"
+                  "$ref": "#/components/schemas/PeerRegistrationResult"
                 }
               }
             }
@@ -7030,7 +7063,7 @@
       "delete": {
         "operationId": "deletePeer",
         "summary": "Delete a peer",
-        "description": "Writes or reuses a durable pending-deletion handoff for the active Peer registration while retaining the Peer and its indexes. An existing online connection is not forcibly closed by this Admin operation.",
+        "description": "Writes or reuses a durable pending-deletion handoff and immediately fences and disconnects the Peer. A completed retry returns the permanent deleted tombstone.",
         "tags": [
           "Resource"
         ],
@@ -7051,7 +7084,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared.json#/components/schemas/Registration"
+                  "$ref": "#/components/schemas/PeerRegistrationResult"
                 }
               }
             }
@@ -7127,6 +7160,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7169,6 +7205,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7273,6 +7312,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       },
@@ -7352,6 +7394,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7384,6 +7429,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7445,6 +7493,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7555,6 +7606,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7655,6 +7709,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7735,6 +7792,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       },
@@ -7805,6 +7865,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7876,6 +7939,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       },
@@ -7945,6 +8011,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9350,6 +9419,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9412,6 +9484,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       },
@@ -9471,6 +9546,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9543,6 +9621,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9604,6 +9685,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9656,6 +9740,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9728,6 +9815,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9789,6 +9879,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9861,6 +9954,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9922,6 +10018,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9994,6 +10093,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -10055,6 +10157,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -10667,7 +10772,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "./shared.json#/components/schemas/Registration"
+              "$ref": "#/components/schemas/PeerRegistrationResult"
             }
           }
         }
@@ -10694,6 +10799,16 @@
             }
           }
         }
+      },
+      "PeerRegistrationResult": {
+        "oneOf": [
+          {
+            "$ref": "./shared.json#/components/schemas/Registration"
+          },
+          {
+            "$ref": "./shared.json#/components/schemas/RegistrationTombstone"
+          }
+        ]
       },
       "PublicKeyResponse": {
         "type": "object",
@@ -11114,9 +11229,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 1024,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "name": {
             "type": "string"
@@ -11631,9 +11746,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 1024,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "owner_public_key": {
             "type": "string",
@@ -11660,9 +11775,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 1024,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "display_name": {
             "type": "string"
@@ -11706,9 +11821,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 1024,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "owner_public_key": {
             "type": "string",
@@ -11730,9 +11845,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 1024,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "peer_public_key": {
             "type": "string",
@@ -11751,9 +11866,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 80,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "name": {
             "type": "string",
@@ -11780,9 +11895,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 80,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "display_name": {
             "type": "string",
@@ -11805,9 +11920,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 1024,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "name": {
             "type": "string",
@@ -12054,26 +12169,60 @@
       "AdminFriendGroupObject": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "name", "created_by_peer_public_key"],
+        "required": [
+          "id",
+          "name",
+          "created_by_peer_public_key"
+        ],
         "properties": {
-          "id": {"type": "string"},
-          "name": {"type": "string"},
-          "display_name": {"type": "string"},
-          "description": {"type": "string"},
-          "created_by_peer_public_key": {"type": "string"},
-          "workspace_id": {"type": "string"},
-          "created_at": {"type": "string", "format": "date-time"},
-          "updated_at": {"type": "string", "format": "date-time"}
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "created_by_peer_public_key": {
+            "type": "string"
+          },
+          "workspace_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "AdminFriendGroupListResponse": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["items", "has_next"],
+        "required": [
+          "items",
+          "has_next"
+        ],
         "properties": {
-          "items": {"type": "array", "items": {"$ref": "#/components/schemas/AdminFriendGroupObject"}},
-          "has_next": {"type": "boolean"},
-          "next_cursor": {"type": "string"}
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminFriendGroupObject"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
         }
       },
       "RuntimeProfileList": {
@@ -12209,6 +12358,38 @@
         "description": "Filter models by provider kind",
         "schema": {
           "$ref": "./shared.json#/components/schemas/ModelProviderKind"
+        }
+      }
+    },
+    "responses": {
+      "PeerUnavailable": {
+        "description": "Target Peer is pending deletion or permanently deleted",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./shared.json#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "WorkspaceUnavailable": {
+        "description": "Workspace is pending deletion or its owner Peer is unavailable",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./shared.json#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "SocialUnavailable": {
+        "description": "Social resource is unavailable because it or a related Peer is pending deletion or permanently deleted",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./shared.json#/components/schemas/ErrorResponse"
+            }
+          }
         }
       }
     }

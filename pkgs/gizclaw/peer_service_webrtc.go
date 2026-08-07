@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
+	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
@@ -31,6 +34,19 @@ func peerHTTPContentType(ctx context.Context) string {
 }
 
 func (s *peerHTTP) CreateGiznetWebRTCOffer(ctx context.Context, request peerhttp.CreateGiznetWebRTCOfferRequestObject) (peerhttp.CreateGiznetWebRTCOfferResponseObject, error) {
+	var publicKey giznet.PublicKey
+	if s != nil && s.PeerAvailability != nil && publicKey.UnmarshalText([]byte(request.Params.XGiznetPublicKey)) == nil && !publicKey.IsZero() {
+		if err := s.PeerAvailability(ctx, publicKey); err != nil {
+			switch {
+			case errors.Is(err, runtimepeer.ErrPeerPendingDeletion):
+				return peerhttp.CreateGiznetWebRTCOffer409JSONResponse{Error: runtimepeer.PeerPendingDeletionCode}, nil
+			case errors.Is(err, runtimepeer.ErrPeerDeleted):
+				return peerhttp.CreateGiznetWebRTCOffer409JSONResponse{Error: runtimepeer.PeerDeletedCode}, nil
+			case !errors.Is(err, runtimepeer.ErrPeerNotFound):
+				return nil, err
+			}
+		}
+	}
 	var handler http.Handler
 	if s != nil && s.WebRTCSignalingHandler != nil {
 		handler = s.WebRTCSignalingHandler()

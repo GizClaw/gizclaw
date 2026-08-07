@@ -172,3 +172,107 @@ func TestKVTaskTransitionsUseAtomicGuards(t *testing.T) {
 		})
 	}
 }
+
+func TestKVFinalizeUsesMatchingLeaseAndDeletesExactKeys(t *testing.T) {
+	for _, fixture := range []struct {
+		name string
+		new  func(*testing.T) kv.Store
+	}{
+		{name: "memory", new: func(*testing.T) kv.Store { return kv.NewMemory(nil) }},
+		{name: "badger", new: func(t *testing.T) kv.Store {
+			store, err := kv.NewBadgerInMemory(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = store.Close() })
+			return store
+		}},
+		{name: "prefixed", new: func(*testing.T) kv.Store {
+			return kv.Prefixed(kv.NewMemory(nil), kv.Key{"domain"})
+		}},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			ctx := t.Context()
+			store := fixture.new(t)
+			source := KVSource{Store: store, SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+			record, err := New(KindPeer, "peer-a", nil, ReasonPeerDelete, map[string]string{"public_key": "peer-a"}, time.Unix(1, 0))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := CreateOrGet(ctx, store, record); err != nil {
+				t.Fatal(err)
+			}
+			domainKey := kv.Key{"peers", "by-pubkey", "peer-a"}
+			foreignKey := kv.Key{"peers", "by-pubkey", "peer-b"}
+			if err := store.BatchSet(ctx, []kv.Entry{{Key: domainKey, Value: []byte("a")}, {Key: foreignKey, Value: []byte("b")}}); err != nil {
+				t.Fatal(err)
+			}
+			refs, _, err := source.ScanDue(ctx, time.Unix(2, 0), 1, "")
+			if err != nil || len(refs) != 1 {
+				t.Fatalf("ScanDue() = %#v, %v", refs, err)
+			}
+			claim, claimed, err := source.Claim(ctx, refs[0], time.Unix(2, 0), time.Minute)
+			if err != nil || !claimed {
+				t.Fatalf("Claim() = %#v, %v, %v", claim, claimed, err)
+			}
+
+			stale := claim
+			stale.LeaseToken = "stale"
+			if err := source.Finalize(ctx, stale, time.Unix(3, 0), []kv.Key{domainKey}); !errors.Is(err, ErrConflict) {
+				t.Fatalf("Finalize(stale) = %v, want ErrConflict", err)
+			}
+			if _, err := store.Get(ctx, domainKey); err != nil {
+				t.Fatalf("domain key after stale finalize = %v", err)
+			}
+
+			if err := source.Finalize(ctx, claim, time.Unix(3, 0), []kv.Key{domainKey}); err != nil {
+				t.Fatalf("Finalize() = %v", err)
+			}
+			for _, key := range []kv.Key{domainKey, byIDKey(record.DeletionID), byLocatorKey(record.Kind, record.ResourceID), kvTaskKey(record.DeletionID)} {
+				if _, err := store.Get(ctx, key); !errors.Is(err, kv.ErrNotFound) {
+					t.Fatalf("Get(%s) after finalize = %v, want ErrNotFound", key.String(), err)
+				}
+			}
+			if got, err := store.Get(ctx, foreignKey); err != nil || string(got) != "b" {
+				t.Fatalf("foreign key = %q, %v", got, err)
+			}
+			if err := source.Finalize(ctx, claim, time.Unix(3, 0), nil); !errors.Is(err, ErrConflict) {
+				t.Fatalf("Finalize(completed) = %v, want ErrConflict", err)
+			}
+		})
+	}
+}
+
+func TestKVFinalizeRejectsUnsafeDomainKeys(t *testing.T) {
+	ctx := t.Context()
+	store := kv.NewMemory(nil)
+	source := KVSource{Store: store, SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+	record, err := New(KindPeer, "peer-a", nil, ReasonPeerDelete, struct{}{}, time.Unix(1, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := CreateOrGet(ctx, store, record); err != nil {
+		t.Fatal(err)
+	}
+	refs, _, err := source.ScanDue(ctx, time.Unix(2, 0), 1, "")
+	if err != nil || len(refs) != 1 {
+		t.Fatalf("ScanDue() = %#v, %v", refs, err)
+	}
+	claim, claimed, err := source.Claim(ctx, refs[0], time.Unix(2, 0), time.Minute)
+	if err != nil || !claimed {
+		t.Fatalf("Claim() = %#v, %v, %v", claim, claimed, err)
+	}
+	for _, keys := range [][]kv.Key{
+		{nil},
+		{{"peers", ""}},
+		{{"peers", "a"}, {"peers", "a"}},
+		{{"pending-deletion", "by-id", record.DeletionID}},
+	} {
+		if err := source.Finalize(ctx, claim, time.Unix(3, 0), keys); err == nil {
+			t.Fatalf("Finalize(%v) error = nil", keys)
+		}
+	}
+	if _, err := source.GetTask(ctx, record.DeletionID); err != nil {
+		t.Fatalf("task after rejected finalize = %v", err)
+	}
+}

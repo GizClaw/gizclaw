@@ -1,0 +1,32 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Registration Tombstone Type",
+    "description": "Admin-only permanent Peer deletion projection.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "RegistrationTombstone": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "public_key",
+          "status"
+        ],
+        "properties": {
+          "public_key": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "deleted"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

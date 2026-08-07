@@ -291,3 +291,30 @@ func (r *RuntimeRegistry) release(key string, current *workspaceRuntime, generat
 		}
 	}
 }
+
+// Quiesce removes the published generation for one Workspace and closes its
+// agent and coordinator lease. Future acquisition must pass through the
+// product resolver again, where the durable deletion marker is enforced.
+func (r *RuntimeRegistry) Quiesce(workspaceID string) {
+	if r == nil {
+		return
+	}
+	var releases []func()
+	r.mu.Lock()
+	current := r.runtimes[runtimeKey(workspaceID)]
+	if current != nil {
+		delete(r.runtimes, runtimeKey(workspaceID))
+		if current.current != nil && !current.current.closed {
+			current.current.closed = true
+			current.current.retired = true
+			releases = append(releases, current.current.release)
+		}
+		releases = append(releases, current.releaseWorkspace)
+	}
+	r.mu.Unlock()
+	for _, release := range releases {
+		if release != nil {
+			release()
+		}
+	}
+}

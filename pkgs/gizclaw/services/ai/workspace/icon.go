@@ -18,7 +18,7 @@ func (s *Server) DownloadWorkspaceIcon(ctx context.Context, request adminhttp.Do
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	doc, err := s.workspace(ctx, id)
+	doc, err := s.adminWorkspace(ctx, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
 			return adminhttp.DownloadWorkspaceIcon404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "workspace not found")), nil
@@ -60,6 +60,9 @@ func (s *Server) UploadWorkspaceIcon(ctx context.Context, request adminhttp.Uplo
 		if errors.Is(err, kv.ErrNotFound) {
 			return adminhttp.UploadWorkspaceIcon404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "workspace not found")), nil
 		}
+		if response, ok := workspaceUnavailableError(err); ok {
+			return adminhttp.UploadWorkspaceIcon409JSONResponse{WorkspaceUnavailableJSONResponse: adminhttp.WorkspaceUnavailableJSONResponse(response)}, nil
+		}
 		return adminhttp.UploadWorkspaceIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to load workspace icon metadata")), nil
 	}
 	if s.Assets == nil {
@@ -98,6 +101,9 @@ func (s *Server) DeleteWorkspaceIcon(ctx context.Context, request adminhttp.Dele
 		if errors.Is(err, kv.ErrNotFound) {
 			return adminhttp.DeleteWorkspaceIcon404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "workspace not found")), nil
 		}
+		if response, ok := workspaceUnavailableError(err); ok {
+			return adminhttp.DeleteWorkspaceIcon409JSONResponse{WorkspaceUnavailableJSONResponse: adminhttp.WorkspaceUnavailableJSONResponse(response)}, nil
+		}
 		return adminhttp.DeleteWorkspaceIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workspace store not configured")), nil
 	}
 	if s.Assets == nil {
@@ -128,7 +134,38 @@ func workspaceIconParams(rawName, rawFormat string) (string, iconasset.Format, e
 	return rawName, format, err
 }
 
+func workspaceUnavailableError(err error) (apitypes.ErrorResponse, bool) {
+	switch {
+	case errors.Is(err, ErrWorkspacePendingDeletion):
+		return apitypes.NewErrorResponse(WorkspacePendingDeletionCode, err.Error()), true
+	case errors.Is(err, ErrPeerPendingDeletion):
+		return apitypes.NewErrorResponse(PeerPendingDeletionCode, err.Error()), true
+	case errors.Is(err, ErrPeerDeleted):
+		return apitypes.NewErrorResponse(PeerDeletedCode, err.Error()), true
+	default:
+		return apitypes.ErrorResponse{}, false
+	}
+}
+
 func (s *Server) workspace(ctx context.Context, id string) (apitypes.Workspace, error) {
+	store, err := s.store()
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	if err := s.ensureWorkspaceAvailable(ctx, id); err != nil {
+		return apitypes.Workspace{}, err
+	}
+	item, err := getWorkspaceByID(ctx, store, id)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	if err := s.ensureWorkspaceOwnerAvailable(ctx, item); err != nil {
+		return apitypes.Workspace{}, err
+	}
+	return item, nil
+}
+
+func (s *Server) adminWorkspace(ctx context.Context, id string) (apitypes.Workspace, error) {
 	store, err := s.store()
 	if err != nil {
 		return apitypes.Workspace{}, err

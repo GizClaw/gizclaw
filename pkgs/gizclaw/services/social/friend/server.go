@@ -38,12 +38,135 @@ type Server struct {
 	Profiles               ProfileService
 	RuntimeProfileForOwner func(context.Context, string) (apitypes.RuntimeProfile, error)
 	NotifyPeer             func(context.Context, string, *eventpb.PeerEvent)
+	PeerAvailability       func(context.Context, string) error
 
 	Now   func() time.Time
 	NewID func() string
 }
 
+type PeerRetirementFriend struct {
+	RelationID    string `json:"relation_id"`
+	FirstPeer     string `json:"first_peer"`
+	SecondPeer    string `json:"second_peer"`
+	WorkspaceID   string `json:"workspace_id"`
+	WorkspaceName string `json:"workspace_name"`
+}
+
+func (s *Server) SnapshotPeerFriends(ctx context.Context, owner string) ([]PeerRetirementFriend, error) {
+	store, err := s.friendsStore()
+	if err != nil {
+		return nil, err
+	}
+	if err := socialutil.RequireOwner(owner); err != nil {
+		return nil, err
+	}
+	if owner != strings.TrimSpace(owner) {
+		return nil, errors.New("social: Peer public key must be canonical")
+	}
+	unlock := lockAllRelationMutations()
+	defer unlock()
+	var out []PeerRetirementFriend
+	for entry, err := range store.List(ctx, socialutil.OwnerPrefix(socialutil.FriendsRoot, owner)) {
+		if err != nil {
+			return nil, err
+		}
+		var record friendRecord
+		if err := json.Unmarshal(entry.Value, &record); err != nil {
+			return nil, err
+		}
+		if err := record.validate(); err != nil {
+			return nil, err
+		}
+		other := record.PeerPublicKey
+		first, second := owner, other
+		if first > second {
+			first, second = second, first
+		}
+		if record.RelationID != socialutil.RelationID(first, second) {
+			return nil, errors.New("social: Friend relation identity is inconsistent")
+		}
+		binding, err := readWorkspaceBinding(ctx, store, record.RelationID)
+		if err != nil {
+			return nil, err
+		}
+		if binding.WorkspaceName != record.WorkspaceName {
+			return nil, errors.New("social: Friend Workspace binding is inconsistent")
+		}
+		out = append(out, PeerRetirementFriend{
+			RelationID: record.RelationID, FirstPeer: first, SecondPeer: second,
+			WorkspaceID: binding.WorkspaceID, WorkspaceName: binding.WorkspaceName,
+		})
+	}
+	return out, nil
+}
+
+func (s *Server) RetirePeerFriend(ctx context.Context, owner string, snapshot PeerRetirementFriend) error {
+	if owner == "" || owner != strings.TrimSpace(owner) {
+		return errors.New("social: retiring Peer public key must be canonical")
+	}
+	if owner != snapshot.FirstPeer && owner != snapshot.SecondPeer {
+		return errors.New("social: retiring Peer does not belong to Friend snapshot")
+	}
+	if snapshot.RelationID != socialutil.RelationID(snapshot.FirstPeer, snapshot.SecondPeer) ||
+		snapshot.WorkspaceID == "" || snapshot.WorkspaceName == "" {
+		return errors.New("social: invalid Friend Peer retirement snapshot")
+	}
+	store, err := s.friendsStore()
+	if err != nil {
+		return err
+	}
+	other := snapshot.FirstPeer
+	if owner == other {
+		other = snapshot.SecondPeer
+	}
+	active, activeErr := s.getFriendRelationByID(ctx, owner, snapshot.RelationID)
+	if activeErr == nil {
+		if socialutil.StringValue(active.PeerPublicKey) != other || socialutil.StringValue(active.WorkspaceName) != snapshot.WorkspaceName {
+			return errors.New("social: Friend no longer matches Peer retirement snapshot")
+		}
+		binding, err := readWorkspaceBinding(ctx, store, snapshot.RelationID)
+		if err != nil {
+			return err
+		}
+		if binding.WorkspaceID != snapshot.WorkspaceID || binding.WorkspaceName != snapshot.WorkspaceName {
+			return errors.New("social: Friend Workspace no longer matches Peer retirement snapshot")
+		}
+	} else if !errors.Is(activeErr, kv.ErrNotFound) {
+		return activeErr
+	} else {
+		receipt, err := readRetirementReceipt(ctx, store, snapshot.RelationID)
+		if err != nil {
+			return err
+		}
+		if receipt.FirstPeer != snapshot.FirstPeer || receipt.SecondPeer != snapshot.SecondPeer ||
+			receipt.WorkspaceID != snapshot.WorkspaceID || receipt.WorkspaceName != snapshot.WorkspaceName {
+			return errors.New("social: completed Friend retirement does not match snapshot")
+		}
+		return nil
+	}
+	_, err = s.deleteFriendByRelationID(context.WithValue(ctx, peerRetirementContextKey{}, true), owner, snapshot.RelationID)
+	return err
+}
+
 var relationMutationMu [64]sync.Mutex
+
+func lockAllRelationMutations() func() {
+	for index := range relationMutationMu {
+		relationMutationMu[index].Lock()
+	}
+	return func() {
+		for index := len(relationMutationMu) - 1; index >= 0; index-- {
+			relationMutationMu[index].Unlock()
+		}
+	}
+}
+
+type peerRetirementContextKey struct{}
+
+func peerRetirementFromContext(ctx context.Context) bool {
+	value, _ := ctx.Value(peerRetirementContextKey{}).(bool)
+	return value
+}
 
 func (s *Server) GetFriendInfo(ctx context.Context, owner string, req rpcapi.FriendInfoGetRequest) (rpcapi.FriendInfoGetResponse, error) {
 	relation, err := s.GetFriendRelation(ctx, owner, req.Name)
@@ -486,6 +609,14 @@ func (s *Server) deleteFriendByRelationID(ctx context.Context, owner, relationID
 		}
 		return friendObjectForRetirement(owner, intent), nil
 	}
+	if !peerRetirementFromContext(ctx) && s.PeerAvailability != nil {
+		if err := s.PeerAvailability(ctx, owner); err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		if err := s.PeerAvailability(ctx, socialutil.StringValue(item.PeerPublicKey)); err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+	}
 	return s.retireActiveFriend(ctx, store, owner, relationID, item)
 }
 
@@ -822,6 +953,14 @@ func (s *Server) createFriend(
 		}
 		if active {
 			return existing, nil
+		}
+		if s.PeerAvailability != nil {
+			if err := s.PeerAvailability(ctx, from); err != nil {
+				return rpcapi.FriendObject{}, err
+			}
+			if err := s.PeerAvailability(ctx, to); err != nil {
+				return rpcapi.FriendObject{}, err
+			}
 		}
 		intent, err := s.getOrCreateCreationIntent(
 			ctx,

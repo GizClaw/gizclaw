@@ -44,7 +44,7 @@ export function OverviewPage(): JSX.Element {
   const dashboard = useOverviewData();
   const latestPeers = dashboard.peers.slice(0, 5);
   const autoCount = dashboard.peers.filter(
-    (peer) => peer.auto_registered,
+    (peer) => peer.status !== "deleted" && peer.auto_registered,
   ).length;
   const openPath = (path: string) => {
     navigate(path);
@@ -149,7 +149,9 @@ export function OverviewPage(): JSX.Element {
                         <TableCell className="font-medium">
                           {formatShortKey(peer.public_key)}
                         </TableCell>
-                        <TableCell>{peer.role}</TableCell>
+                        <TableCell>
+                          {peer.status === "deleted" ? "—" : peer.role}
+                        </TableCell>
                         <TableCell>
                           <StatusBadge status={peer.status} />
                         </TableCell>

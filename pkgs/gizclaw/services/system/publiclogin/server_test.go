@@ -535,6 +535,36 @@ func TestParseLoginAssertionRejectsMalformedParts(t *testing.T) {
 	}
 }
 
+func TestPrimaryLoginRechecksAvailabilityInsideCredentialLock(t *testing.T) {
+	serverKey := generateTestKeyPair(t)
+	deviceKey := generateTestKeyPair(t)
+	manager := NewSessionManager(kv.NewMemory(nil))
+	assertion, err := NewLoginAssertion(deviceKey, serverKey.Public, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	authorizer := func(context.Context, giznet.PublicKey) error {
+		calls++
+		if calls == 2 {
+			return ErrPeerDeletionPending
+		}
+		return nil
+	}
+	if _, err := manager.login(t.Context(), serverKey, deviceKey.Public, assertion, authorizer); !errors.Is(err, ErrPeerDeletionPending) {
+		t.Fatalf("login() error = %v, want pending deletion", err)
+	}
+	if calls != 2 {
+		t.Fatalf("authorizer calls = %d, want pre-lock and in-lock checks", calls)
+	}
+	for entry, err := range manager.Store.List(t.Context(), nil) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Fatalf("rejected login persisted %v", entry.Key)
+	}
+}
+
 type errReader struct{}
 
 func (errReader) Read([]byte) (int, error) {

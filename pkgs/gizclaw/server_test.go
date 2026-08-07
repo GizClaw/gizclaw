@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
+	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -609,6 +610,49 @@ func TestPeerHTTPWebRTCSignalingUnavailable(t *testing.T) {
 	}
 	if payload.Error != "webrtc_signaling_listener_unavailable" {
 		t.Fatalf("error = %q", payload.Error)
+	}
+}
+
+func TestPeerHTTPWebRTCSignalingRejectsRetiringPeerBeforeHandler(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		err  error
+		code string
+	}{
+		{name: "pending", err: runtimepeer.ErrPeerPendingDeletion, code: runtimepeer.PeerPendingDeletionCode},
+		{name: "deleted", err: runtimepeer.ErrPeerDeleted, code: runtimepeer.PeerDeletedCode},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			called := false
+			service := &peerHTTP{
+				PeerAvailability: func(context.Context, giznet.PublicKey) error { return tc.err },
+				WebRTCSignalingHandler: func() http.Handler {
+					return http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true })
+				},
+			}
+			response, err := service.CreateGiznetWebRTCOffer(t.Context(), peerhttp.CreateGiznetWebRTCOfferRequestObject{
+				Params: peerhttp.CreateGiznetWebRTCOfferParams{
+					XGiznetPublicKey: keyPair.Public.String(),
+					XGiznetTimestamp: 1,
+					XGiznetNonce:     "nonce",
+				},
+				Body: strings.NewReader("encrypted-offer"),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			conflict, ok := response.(peerhttp.CreateGiznetWebRTCOffer409JSONResponse)
+			if !ok || conflict.Error != tc.code {
+				t.Fatalf("response = %#v, want 409 %q", response, tc.code)
+			}
+			if called {
+				t.Fatal("signaling handler was called for a retiring Peer")
+			}
+		})
 	}
 }
 

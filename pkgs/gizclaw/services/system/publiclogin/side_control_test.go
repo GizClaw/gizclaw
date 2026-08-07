@@ -252,6 +252,31 @@ func TestDeviceTokenManagementRequiresPrimaryPrincipal(t *testing.T) {
 	}
 }
 
+func TestDeviceTokenCreationRechecksAvailabilityInsideCredentialLock(t *testing.T) {
+	manager := NewSessionManager(kv.NewMemory(nil))
+	target := generateTestKeyPair(t).Public
+	calls := 0
+	manager.Authorizer = func(context.Context, giznet.PublicKey) error {
+		calls++
+		if calls == 2 {
+			return ErrPeerDeletionPending
+		}
+		return nil
+	}
+	if _, err := manager.CreateSideControlDeviceToken(t.Context(), target); !errors.Is(err, ErrPeerDeletionPending) {
+		t.Fatalf("CreateSideControlDeviceToken() error = %v, want pending deletion", err)
+	}
+	if calls != 2 {
+		t.Fatalf("authorizer calls = %d, want pre-lock and in-lock checks", calls)
+	}
+	for entry, err := range manager.Store.List(t.Context(), nil) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Fatalf("rejected device token persisted %v", entry.Key)
+	}
+}
+
 func loginSideController(t *testing.T, server *Server, controller *giznet.KeyPair, deviceToken string) peerhttp.Login200JSONResponse {
 	t.Helper()
 	assertion, err := NewLoginAssertion(controller, server.KeyPair.Public, time.Minute)

@@ -367,7 +367,7 @@ func TestPeerServiceEdgeLoginRequiresActiveClientBeforeBypass(t *testing.T) {
 	}
 	handler := service.edgeHTTPHandler(service.sessions)
 
-	login := func(t *testing.T, keyPair *giznet.KeyPair) int {
+	login := func(t *testing.T, keyPair *giznet.KeyPair) (int, string) {
 		t.Helper()
 		assertion, err := publiclogin.NewLoginAssertion(keyPair, serverKey.Public, time.Minute)
 		if err != nil {
@@ -378,19 +378,68 @@ func TestPeerServiceEdgeLoginRequiresActiveClientBeforeBypass(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer "+assertion)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
-		return rec.Code
+		return rec.Code, rec.Body.String()
 	}
 
-	if got := login(t, clientKey); got != http.StatusOK {
-		t.Fatalf("active edge login status = %d, want %d", got, http.StatusOK)
+	if got, body := login(t, clientKey); got != http.StatusOK {
+		t.Fatalf("active edge login status = %d body=%s, want %d", got, body, http.StatusOK)
 	}
 
 	unregisteredKey, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(unregistered) error = %v", err)
 	}
-	if got := login(t, unregisteredKey); got != http.StatusUnauthorized {
-		t.Fatalf("unregistered edge login status = %d, want %d", got, http.StatusUnauthorized)
+	if got, body := login(t, unregisteredKey); got != http.StatusUnauthorized {
+		t.Fatalf("unregistered edge login status = %d body=%s, want %d", got, body, http.StatusUnauthorized)
+	}
+
+	if _, err := peersServer.DeletePeer(context.Background(), adminhttp.DeletePeerRequestObject{PublicKey: clientKey.Public.String()}); err != nil {
+		t.Fatalf("DeletePeer error = %v", err)
+	}
+	if got, body := login(t, clientKey); got != http.StatusConflict || !strings.Contains(body, `"code":"`+peer.PeerPendingDeletionCode+`"`) {
+		t.Fatalf("pending edge login status = %d body=%s, want %d %s", got, body, http.StatusConflict, peer.PeerPendingDeletionCode)
+	}
+
+	if err := peersServer.Store.Set(context.Background(), kv.Key{"by-pubkey", clientKey.Public.String()}, []byte(`{"version":1,"state":"deleted"}`)); err != nil {
+		t.Fatalf("write Peer tombstone error = %v", err)
+	}
+	if got, body := login(t, clientKey); got != http.StatusConflict || !strings.Contains(body, `"code":"`+peer.PeerDeletedCode+`"`) {
+		t.Fatalf("deleted edge login status = %d body=%s, want %d %s", got, body, http.StatusConflict, peer.PeerDeletedCode)
+	}
+}
+
+func TestPeerHTTPExistingSessionRejectedImmediatelyAfterMarker(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	peers := &peer.Server{Store: mustBadgerInMemory(t, nil), ServerPublicKey: serverKey.Public}
+	if _, err := peers.SavePeer(t.Context(), apitypes.Peer{
+		PublicKey: clientKey.Public.String(), Role: apitypes.PeerRoleClient,
+		Status: apitypes.PeerRegistrationStatusActive, Device: apitypes.DeviceInfo{},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	loginServer := publiclogin.NewServer(serverKey, mustBadgerInMemory(t, nil))
+	token := issuePeerHTTPSession(t, loginServer, clientKey, serverKey.Public)
+	service := &PeerService{
+		manager: NewManager(peers), sessions: loginServer.SessionManager(),
+		public: &peerHTTP{PeerHTTPService: peers, Self: peers, PeerHTTP: loginServer},
+	}
+	if _, err := peers.DeletePeer(t.Context(), adminhttp.DeletePeerRequestObject{PublicKey: clientKey.Public.String()}); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/me", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set(publiclogin.PublicKeyHeader, clientKey.Public.String())
+	rec := httptest.NewRecorder()
+	service.publicHTTPHandler(service.sessions).ServeHTTP(rec, req)
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), `"code":"`+peer.PeerPendingDeletionCode+`"`) {
+		t.Fatalf("existing session status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 

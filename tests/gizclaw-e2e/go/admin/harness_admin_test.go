@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -35,7 +36,7 @@ type adminAPIHarness struct {
 func newAdminAPIHarness(t *testing.T) *adminAPIHarness {
 	t.Helper()
 
-	h := clitest.NewSetupHarness(t, "client-admin")
+	h := newAdminSetupHarness(t)
 	h.InstallFixedAdminContext(adminAPIAdminContext).MustSucceed(t)
 	h.RequireAdminContextEndpoint(adminAPIAdminContext)
 	h.CreateContext("admin-api-peer").MustSucceed(t)
@@ -70,6 +71,18 @@ func newAdminAPIHarness(t *testing.T) *adminAPIHarness {
 		peerKey:      peerKey,
 		peerSN:       peerSN,
 	}
+}
+
+func newAdminSetupHarness(t *testing.T) *clitest.Harness {
+	t.Helper()
+
+	sandboxDir := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_ADMIN_SANDBOX"))
+	if sandboxDir == "" {
+		return clitest.NewSetupHarness(t, "client-admin")
+	}
+	h := clitest.NewPersistentHarnessForRoot(t, "tests/gizclaw-e2e/cmd", "client-admin", sandboxDir)
+	h.UseSetupServer()
+	return h
 }
 
 func (h *adminAPIHarness) reconnectAdminAPI(t *testing.T) {

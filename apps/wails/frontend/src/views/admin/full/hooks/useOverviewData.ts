@@ -4,13 +4,13 @@ import { expectData, toMessage } from "@/dashboard";
 import { listPeers } from "@gizclaw/gizclaw/admin";
 import { getServerInfo, type ServerInfo } from "@gizclaw/gizclaw/peerhttp";
 
-import type { Registration } from "@gizclaw/gizclaw/admin";
+import type { PeerRegistrationResult } from "@gizclaw/gizclaw/admin";
 
 import { PEER_PAGE_LIMIT } from "./usePeersPage";
 
 export interface OverviewData {
   error: string;
-  peers: Registration[];
+  peers: PeerRegistrationResult[];
   loading: boolean;
   serverInfo: ServerInfo | null;
 }

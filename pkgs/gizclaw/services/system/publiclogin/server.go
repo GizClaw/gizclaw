@@ -17,6 +17,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
+	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -40,6 +41,8 @@ var (
 	errInvalidSession        = errors.New("publiclogin: invalid session")
 	errOwnerProfileBinding   = errors.New("publiclogin: owner profile binding failed")
 	ErrPublicKeyMismatch     = errors.New("publiclogin: public key mismatch")
+	ErrPeerDeletionPending   = errors.New("publiclogin: Peer deletion pending")
+	ErrPeerDeleted           = errors.New("publiclogin: Peer deleted")
 )
 
 type loginAssertionHeader struct {
@@ -100,6 +103,7 @@ func (s *Server) SessionManager() *SessionManager {
 	if s.sessions == nil || s.sessions.Store != s.Store {
 		s.sessions = NewSessionManager(s.Store)
 	}
+	s.sessions.Authorizer = s.SessionAuthorizer
 	return s.sessions
 }
 
@@ -161,6 +165,12 @@ func (s *Server) login(ctx context.Context, request peerhttp.LoginRequestObject,
 		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_GRANT", "unsupported login grant")), nil
 	}
 	if err != nil {
+		if errors.Is(err, ErrPeerDeletionPending) {
+			return peerhttp.Login409JSONResponse{ConflictJSONResponse: peerhttp.ConflictJSONResponse(apitypes.NewErrorResponse(runtimepeer.PeerPendingDeletionCode, err.Error()))}, nil
+		}
+		if errors.Is(err, ErrPeerDeleted) {
+			return peerhttp.Login409JSONResponse{ConflictJSONResponse: peerhttp.ConflictJSONResponse(apitypes.NewErrorResponse("PEER_DELETED", err.Error()))}, nil
+		}
 		if errors.Is(err, errOwnerProfileBinding) {
 			slog.ErrorContext(ctx, "public HTTP RuntimeProfile owner binding failed", "peer_public_key", publicKey.String(), "error", err)
 			return nil, err
@@ -174,7 +184,8 @@ func (s *Server) login(ctx context.Context, request peerhttp.LoginRequestObject,
 }
 
 type SessionManager struct {
-	Store kv.Store
+	Store      kv.Store
+	Authorizer SessionAuthorizer
 
 	mu  sync.Mutex
 	now func() time.Time
@@ -257,6 +268,11 @@ func (m *SessionManager) loginWithRegistration(ctx context.Context, serverKeyPai
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if authorizer != nil {
+		if err := authorizer(ctx, publicKey); err != nil {
+			return peerhttp.LoginResult{}, err
+		}
+	}
 	if _, err := m.Store.Get(ctx, assertionKey(claims)); err == nil {
 		return peerhttp.LoginResult{}, fmt.Errorf("%w: replayed assertion", errInvalidLoginAssertion)
 	} else if !errors.Is(err, kv.ErrNotFound) {
@@ -287,6 +303,11 @@ func (m *SessionManager) loginWithRegistration(ctx context.Context, serverKeyPai
 			{
 				Key:      sessionKey(token),
 				Value:    body,
+				Deadline: expiresAt,
+			},
+			{
+				Key:      primarySessionOwnerKey(publicKey, token),
+				Value:    []byte{1},
 				Deadline: expiresAt,
 			},
 		})
@@ -357,7 +378,22 @@ func (m *SessionManager) AuthenticateSession(header string) (AuthenticatedSessio
 			return AuthenticatedSession{}, errInvalidSession
 		}
 	}
+	if err := m.authorize(context.Background(), principal.PublicKey); err != nil {
+		return AuthenticatedSession{}, err
+	}
+	if !principal.TargetPublicKey.IsZero() {
+		if err := m.authorize(context.Background(), principal.TargetPublicKey); err != nil {
+			return AuthenticatedSession{}, err
+		}
+	}
 	return AuthenticatedSession{Principal: principal, Registration: sess.Registration}, nil
+}
+
+func (m *SessionManager) authorize(ctx context.Context, publicKey giznet.PublicKey) error {
+	if m != nil && m.Authorizer != nil {
+		return m.Authorizer(ctx, publicKey)
+	}
+	return nil
 }
 
 func (m *SessionManager) AuthenticateHeaders(authorization, publicKeyHeader string) (giznet.PublicKey, error) {
@@ -407,6 +443,14 @@ func sessionKey(token string) kv.Key {
 
 func assertionKey(claims LoginAssertionClaims) kv.Key {
 	return kv.Key{"assertions", claims.Iss, claims.Nonce}
+}
+
+func primarySessionOwnerPrefix(owner giznet.PublicKey) kv.Key {
+	return kv.Key{"session-owners", owner.String()}
+}
+
+func primarySessionOwnerKey(owner giznet.PublicKey, token string) kv.Key {
+	return append(primarySessionOwnerPrefix(owner), token)
 }
 
 func verifyLoginAssertion(serverKeyPair *giznet.KeyPair, publicKey giznet.PublicKey, token string, now time.Time) (LoginAssertionClaims, error) {

@@ -45,6 +45,10 @@ export GIZCLAW_E2E_TURN_CREDENTIAL="$container_turn_credential"
 envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_E2E_TURN_USERNAME} ${GIZCLAW_E2E_TURN_CREDENTIAL}' \
   < "$repo_root/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template" \
   > "$workspace_dir/config.yaml"
+if [[ "${GIZCLAW_E2E_PERSISTENT_KV:-}" == "1" ]]; then
+  perl -0pi -e 's/  memory:\n    kind: keyvalue\n    memory: \{\}/  persistent:\n    kind: keyvalue\n    badger:\n      dir: data\/state.badger/; s/storage: memory/storage: persistent/g' \
+    "$workspace_dir/config.yaml"
+fi
 if [[ "${GIZCLAW_E2E_CAPACITY_ONLY:-}" == "1" ]]; then
   awk '
     /^ice-servers:/ { skip = 1; next }
@@ -106,7 +110,11 @@ fi
 # shellcheck disable=SC2016 # Perl replacement syntax is intentionally literal.
 find "$GIZCLAW_E2E_CONFIG_HOME" -type f -name config.yaml -print0 |
   xargs -0 perl -0pi -e 's/^(\s*endpoint:\s*)[^\s]+/${1}127.0.0.1:9820/mg'
-"$setup_dir/reset_data.sh" clear
+preserve_restart="${GIZCLAW_E2E_PRESERVE_DATA_ON_RESTART:-}"
+initialized_file="$workspace_dir/.gizclaw-e2e-initialized"
+if [[ "$preserve_restart" != "1" || ! -f "$initialized_file" ]]; then
+  "$setup_dir/reset_data.sh" clear
+fi
 
 nohup "$bin_path" serve --force "$workspace_dir" >"$log_file" 2>&1 </dev/null &
 pid="$!"
@@ -155,8 +163,11 @@ if ! edges_ready; then
   exit 1
 fi
 
-if [[ "${GIZCLAW_E2E_CAPACITY_ONLY:-}" != "1" ]]; then
+if [[ "${GIZCLAW_E2E_CAPACITY_ONLY:-}" != "1" && ( "$preserve_restart" != "1" || ! -f "$initialized_file" ) ]]; then
   "$setup_dir/reset_data.sh" init
+fi
+if [[ "$preserve_restart" == "1" ]]; then
+  touch "$initialized_file"
 fi
 
 echo "gizclaw e2e docker server ready pid=$pid log=$log_file"

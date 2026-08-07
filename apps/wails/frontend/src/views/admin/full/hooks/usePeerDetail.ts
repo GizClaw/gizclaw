@@ -6,13 +6,13 @@ import {
   getPeerInfo,
   getPeerRuntime,
   type DeviceInfo,
-  type Registration,
+  type PeerRegistrationResult,
   type Runtime,
 } from "@gizclaw/gizclaw/admin";
 
 export interface PeerDetail {
   info: DeviceInfo | null;
-  registration: Registration | null;
+  registration: PeerRegistrationResult | null;
   runtime: Runtime | null;
 }
 
@@ -40,6 +40,14 @@ export function usePeerDetail(
     setState({ data: null, error: "", loading: true });
     try {
       const registration = await expectData(getPeer({ path: { publicKey } }));
+      if (registration.status === "deleted") {
+        setState({
+          data: { info: null, registration, runtime: null },
+          error: "",
+          loading: false,
+        });
+        return;
+      }
       const [info, runtime] = await Promise.all([
         loadOptional(() => expectData(getPeerInfo({ path: { publicKey } }))),
         loadOptional(() => expectData(getPeerRuntime({ path: { publicKey } }))),

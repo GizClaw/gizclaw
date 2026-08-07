@@ -53,11 +53,20 @@ func authenticateFiberPrincipal(ctx *fiber.Ctx, sessions *publiclogin.SessionMan
 func writeFiberSessionError(ctx *fiber.Ctx, err error) {
 	code := "INVALID_SESSION"
 	message := "missing or invalid bearer session"
+	status := http.StatusUnauthorized
 	if errors.Is(err, publiclogin.ErrPublicKeyMismatch) {
 		code = "PUBLIC_KEY_MISMATCH"
 		message = "x-public-key does not match bearer session"
+	} else if errors.Is(err, publiclogin.ErrPeerDeletionPending) {
+		code = "PEER_PENDING_DELETION"
+		message = err.Error()
+		status = http.StatusConflict
+	} else if errors.Is(err, publiclogin.ErrPeerDeleted) {
+		code = "PEER_DELETED"
+		message = err.Error()
+		status = http.StatusConflict
 	}
-	ctx.Status(http.StatusUnauthorized)
+	ctx.Status(status)
 	_ = ctx.JSON(map[string]any{"error": map[string]string{"code": code, "message": message}})
 }
 
@@ -75,9 +84,21 @@ func authenticateHTTPSessionState(w http.ResponseWriter, r *http.Request, sessio
 	authenticated, err := sessions.AuthenticateHeadersSession(r.Header.Get("Authorization"), r.Header.Get(publiclogin.PublicKeyHeader))
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
+		status := http.StatusUnauthorized
+		if errors.Is(err, publiclogin.ErrPeerDeletionPending) || errors.Is(err, publiclogin.ErrPeerDeleted) {
+			status = http.StatusConflict
+		}
+		w.WriteHeader(status)
 		if errors.Is(err, publiclogin.ErrPublicKeyMismatch) {
 			_, _ = io.WriteString(w, `{"error":{"code":"PUBLIC_KEY_MISMATCH","message":"x-public-key does not match bearer session"}}`)
+			return publiclogin.AuthenticatedSession{}, false
+		}
+		if errors.Is(err, publiclogin.ErrPeerDeletionPending) {
+			_, _ = io.WriteString(w, `{"error":{"code":"PEER_PENDING_DELETION","message":"Peer deletion pending"}}`)
+			return publiclogin.AuthenticatedSession{}, false
+		}
+		if errors.Is(err, publiclogin.ErrPeerDeleted) {
+			_, _ = io.WriteString(w, `{"error":{"code":"PEER_DELETED","message":"Peer deleted"}}`)
 			return publiclogin.AuthenticatedSession{}, false
 		}
 		_, _ = io.WriteString(w, `{"error":{"code":"INVALID_SESSION","message":"missing or invalid bearer session"}}`)

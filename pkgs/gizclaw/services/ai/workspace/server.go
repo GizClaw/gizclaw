@@ -42,17 +42,27 @@ const (
 	maxWorkspaceLabelValueBytes        = 128
 	SystemWorkspaceDeleteForbiddenCode = "SYSTEM_WORKSPACE_DELETE_FORBIDDEN"
 	SystemWorkspaceUpdateForbiddenCode = "SYSTEM_WORKSPACE_UPDATE_FORBIDDEN"
+	WorkspacePendingDeletionCode       = "WORKSPACE_PENDING_DELETION"
+	PeerPendingDeletionCode            = "PEER_PENDING_DELETION"
+	PeerDeletedCode                    = "PEER_DELETED"
+)
+
+var (
+	ErrWorkspacePendingDeletion = errors.New("workspace: pending deletion")
+	ErrPeerPendingDeletion      = errors.New("workspace: owner Peer pending deletion")
+	ErrPeerDeleted              = errors.New("workspace: owner Peer deleted")
 )
 
 type Server struct {
-	Store         kv.Store
-	WorkflowStore kv.Store
-	Models        ModelService
-	Voices        VoiceService
-	RuntimeStore  RuntimeStore
-	Assets        objectstore.ObjectStore
-	IconLocks     iconasset.Locker
-	NewID         func() string
+	Store            kv.Store
+	WorkflowStore    kv.Store
+	Models           ModelService
+	Voices           VoiceService
+	RuntimeStore     RuntimeStore
+	Assets           objectstore.ObjectStore
+	IconLocks        iconasset.Locker
+	NewID            func() string
+	PeerAvailability func(context.Context, string) error
 
 	createMu sync.Mutex
 }
@@ -134,6 +144,14 @@ type chatroomRetirementDescriptor struct {
 	HasIcon          bool                  `json:"has_icon"`
 }
 
+type workspaceDeletionDescriptor struct {
+	ID             string  `json:"id"`
+	Name           string  `json:"name"`
+	OwnerPublicKey *string `json:"owner_public_key,omitempty"`
+	HasIcon        bool    `json:"has_icon"`
+	System         bool    `json:"system,omitempty"`
+}
+
 // WorkspaceLifecycleService combines the public administration surface with
 // the domain-only system Workspace lifecycle surface.
 type WorkspaceLifecycleService interface {
@@ -208,6 +226,9 @@ func (s *Server) ListWorkspacesByOwnerAndLabels(ctx context.Context, owner strin
 		if err != nil {
 			return nil, err
 		}
+		if err := s.ensureWorkspaceAvailable(ctx, item.Id); err != nil {
+			return nil, err
+		}
 		if !workspaceMatchesLabels(item, selector) {
 			continue
 		}
@@ -231,8 +252,17 @@ func (s *Server) CreateWorkspace(ctx context.Context, request adminhttp.CreateWo
 	if err != nil {
 		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
 	}
+	if err := s.ensureContextPeerAvailable(ctx); err != nil {
+		return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse(peerAvailabilityCode(err), err.Error())), nil
+	}
 	unlock := s.IconLocks.LockRecord(string(normalized.Name))
 	defer unlock()
+	if err := s.ensureWorkspaceAvailable(ctx, normalized.Id); err != nil {
+		if errors.Is(err, ErrWorkspacePendingDeletion) {
+			return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse(WorkspacePendingDeletionCode, err.Error())), nil
+		}
+		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
 	workflowStore, err := s.workflowStore()
 	if err != nil {
 		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -280,6 +310,11 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 	}
 	owner = strings.TrimSpace(owner)
 	ctx = ownership.WithOwner(ctx, owner)
+	if s.PeerAvailability != nil {
+		if err := s.PeerAvailability(ctx, owner); err != nil {
+			return apitypes.Workspace{}, false, err
+		}
+	}
 	store, err := s.store()
 	if err != nil {
 		return apitypes.Workspace{}, false, err
@@ -293,6 +328,9 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 	}
 	unlock := s.IconLocks.LockRecord(string(normalized.Name))
 	defer unlock()
+	if err := s.ensureWorkspaceAvailable(ctx, normalized.Id); err != nil {
+		return apitypes.Workspace{}, false, err
+	}
 	existingID, err := workspaceIDByName(ctx, store, normalized.Name)
 	if err == nil {
 		retiring, pendingErr := pendingdeletion.HasLocator(
@@ -340,6 +378,9 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, normalized adminhttp.WorkspaceUpsert, system bool) (apitypes.Workspace, error) {
 	s.createMu.Lock()
 	defer s.createMu.Unlock()
+	if err := s.ensureContextPeerAvailable(ctx); err != nil {
+		return apitypes.Workspace{}, err
+	}
 	if _, err := getWorkspaceByID(ctx, store, normalized.Id); err == nil {
 		return apitypes.Workspace{}, fmt.Errorf("%w: %q", errWorkspaceIDExists, normalized.Id)
 	} else if !errors.Is(err, kv.ErrNotFound) {
@@ -436,6 +477,9 @@ func (s *Server) DeleteWorkspace(ctx context.Context, request adminhttp.DeleteWo
 			SystemWorkspaceDeleteForbiddenCode,
 			fmt.Sprintf("system workspace %q cannot be deleted through the generic Workspace lifecycle", workspace.Name),
 		)), nil
+	}
+	if err := s.ensureWorkspaceOwnerAvailable(ctx, workspace); err != nil {
+		return adminhttp.DeleteWorkspace409JSONResponse(apitypes.NewErrorResponse(peerAvailabilityCode(err), err.Error())), nil
 	}
 	if err := s.fastDeleteWorkspaceRecord(ctx, store, workspace); err != nil {
 		return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -746,12 +790,7 @@ func (s *Server) deleteWorkspaceRecord(ctx context.Context, store kv.Store, work
 }
 
 func (s *Server) fastDeleteWorkspaceRecord(ctx context.Context, store kv.Store, workspace apitypes.Workspace) error {
-	descriptor := struct {
-		ID             string  `json:"id"`
-		Name           string  `json:"name"`
-		OwnerPublicKey *string `json:"owner_public_key,omitempty"`
-		HasIcon        bool    `json:"has_icon"`
-	}{
+	descriptor := workspaceDeletionDescriptor{
 		ID:             workspace.Id,
 		Name:           workspace.Name,
 		OwnerPublicKey: cloneString(workspace.OwnerPublicKey),
@@ -762,6 +801,29 @@ func (s *Server) fastDeleteWorkspaceRecord(ctx context.Context, store kv.Store, 
 		workspace.Id,
 		workspace.OwnerPublicKey,
 		pendingdeletion.ReasonResourceDelete,
+		descriptor,
+		time.Now(),
+	)
+	if err != nil {
+		return err
+	}
+	_, _, err = pendingdeletion.CreateOrGet(ctx, store, record)
+	return err
+}
+
+func (s *Server) retirePeerPetWorkspaceRecord(ctx context.Context, store kv.Store, item apitypes.Workspace, owner string) error {
+	if item.OwnerPublicKey == nil || *item.OwnerPublicKey != owner || !workspaceIsSystem(item) {
+		return errors.New("workspace: invalid Peer-owned Pet system Workspace")
+	}
+	descriptor := workspaceDeletionDescriptor{
+		ID: item.Id, Name: item.Name, OwnerPublicKey: cloneString(item.OwnerPublicKey),
+		HasIcon: item.Icon != nil, System: true,
+	}
+	record, err := pendingdeletion.New(
+		pendingdeletion.KindWorkspace,
+		item.Id,
+		item.OwnerPublicKey,
+		pendingdeletion.ReasonPeerDelete,
 		descriptor,
 		time.Now(),
 	)
@@ -795,7 +857,17 @@ func (s *Server) GetWorkspaceByName(ctx context.Context, name string) (apitypes.
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
-	return getWorkspace(ctx, store, strings.TrimSpace(name))
+	item, err := getWorkspace(ctx, store, strings.TrimSpace(name))
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	if err := s.ensureWorkspaceAvailable(ctx, item.Id); err != nil {
+		return apitypes.Workspace{}, err
+	}
+	if err := s.ensureWorkspaceOwnerAvailable(ctx, item); err != nil {
+		return apitypes.Workspace{}, err
+	}
+	return item, nil
 }
 
 // GetWorkspaceRuntimeByID returns runtime state by canonical Workspace ID.
@@ -805,6 +877,20 @@ func (s *Server) GetWorkspaceRuntimeByID(ctx context.Context, id string) (Runtim
 	}
 	if err := customid.ValidateResourceID(id); err != nil {
 		return Runtime{}, fmt.Errorf("workspace: invalid id: %w", err)
+	}
+	if err := s.ensureWorkspaceAvailable(ctx, id); err != nil {
+		return Runtime{}, err
+	}
+	store, err := s.store()
+	if err != nil {
+		return Runtime{}, err
+	}
+	item, err := getWorkspaceByID(ctx, store, id)
+	if err != nil {
+		return Runtime{}, err
+	}
+	if err := s.ensureWorkspaceOwnerAvailable(ctx, item); err != nil {
+		return Runtime{}, err
 	}
 	return s.RuntimeStore.GetWorkspaceRuntime(ctx, id)
 }
@@ -827,12 +913,21 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	}
 	unlock := s.IconLocks.LockRecord(id)
 	defer unlock()
+	if err := s.ensureWorkspaceAvailable(ctx, id); err != nil {
+		if errors.Is(err, ErrWorkspacePendingDeletion) {
+			return adminhttp.PutWorkspace409JSONResponse(apitypes.NewErrorResponse(WorkspacePendingDeletionCode, err.Error())), nil
+		}
+		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
 	previous, previousErr := getWorkspaceByID(ctx, store, id)
 	if errors.Is(previousErr, kv.ErrNotFound) {
 		return adminhttp.PutWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", fmt.Sprintf("workspace %q not found", id))), nil
 	}
 	if previousErr != nil {
 		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", previousErr.Error())), nil
+	}
+	if err := s.ensureWorkspaceOwnerAvailable(ctx, previous); err != nil {
+		return adminhttp.PutWorkspace409JSONResponse(apitypes.NewErrorResponse(peerAvailabilityCode(err), err.Error())), nil
 	}
 	if normalized.Name != previous.Name {
 		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", fmt.Sprintf("name %q must match immutable name %q", normalized.Name, previous.Name))), nil
@@ -887,6 +982,31 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.PutWorkspace200JSONResponse(workspace), nil
+}
+
+func (s *Server) ensureWorkspaceOwnerAvailable(ctx context.Context, value apitypes.Workspace) error {
+	if s == nil || s.PeerAvailability == nil || value.OwnerPublicKey == nil {
+		return nil
+	}
+	return s.PeerAvailability(ctx, *value.OwnerPublicKey)
+}
+
+func (s *Server) ensureContextPeerAvailable(ctx context.Context) error {
+	if s == nil || s.PeerAvailability == nil {
+		return nil
+	}
+	owner, ok := ownership.FromContext(ctx)
+	if !ok || strings.TrimSpace(owner) == "" {
+		return nil
+	}
+	return s.PeerAvailability(ctx, owner)
+}
+
+func peerAvailabilityCode(err error) string {
+	if errors.Is(err, ErrPeerDeleted) {
+		return PeerDeletedCode
+	}
+	return PeerPendingDeletionCode
 }
 
 func writeWorkspace(ctx context.Context, store kv.Store, workspace apitypes.Workspace) error {
@@ -1035,6 +1155,21 @@ func validateStoredWorkspace(workspace apitypes.Workspace) (apitypes.Workspace, 
 
 func workspaceIsSystem(workspace apitypes.Workspace) bool {
 	return workspace.System != nil && *workspace.System
+}
+
+func (s *Server) ensureWorkspaceAvailable(ctx context.Context, id string) error {
+	store, err := s.store()
+	if err != nil {
+		return err
+	}
+	pending, err := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindWorkspace, id)
+	if err != nil {
+		return err
+	}
+	if pending {
+		return fmt.Errorf("%w: Workspace %q cannot be used", ErrWorkspacePendingDeletion, id)
+	}
+	return nil
 }
 
 func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string) (adminhttp.WorkspaceUpsert, error) {

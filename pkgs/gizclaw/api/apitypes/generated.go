@@ -2161,6 +2161,21 @@ func (e RegistrationTokenResourceKind) Valid() bool {
 	}
 }
 
+// Defines values for RegistrationTombstoneStatus.
+const (
+	RegistrationTombstoneStatusDeleted RegistrationTombstoneStatus = "deleted"
+)
+
+// Valid indicates whether the value is a known member of the RegistrationTombstoneStatus enum.
+func (e RegistrationTombstoneStatus) Valid() bool {
+	switch e {
+	case RegistrationTombstoneStatusDeleted:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ResourceAPIVersion.
 const (
 	ResourceAPIVersionGizclawAdminv1alpha1 ResourceAPIVersion = "gizclaw.admin/v1alpha1"
@@ -5521,6 +5536,15 @@ type RegistrationTokenResource struct {
 
 // RegistrationTokenResourceKind defines model for RegistrationTokenResource.Kind.
 type RegistrationTokenResourceKind string
+
+// RegistrationTombstone defines model for RegistrationTombstone.
+type RegistrationTombstone struct {
+	PublicKey string                      `json:"public_key"`
+	Status    RegistrationTombstoneStatus `json:"status"`
+}
+
+// RegistrationTombstoneStatus defines model for RegistrationTombstone.Status.
+type RegistrationTombstoneStatus string
 
 // Resource defines model for Resource.
 type Resource struct {

@@ -14,6 +14,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -55,6 +57,8 @@ func (s *adminService) CreateContact(ctx context.Context, request adminhttp.Crea
 		}
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.CreateContact409JSONResponse(body), nil
 		case http.StatusNotFound:
 			return adminhttp.CreateContact404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -103,6 +107,8 @@ func (s *adminService) PutContact(ctx context.Context, request adminhttp.PutCont
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.PutContact409JSONResponse{SocialUnavailableJSONResponse: adminhttp.SocialUnavailableJSONResponse(body)}, nil
 		case http.StatusNotFound:
 			return adminhttp.PutContact404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -124,6 +130,8 @@ func (s *adminService) DeleteContact(ctx context.Context, request adminhttp.Dele
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.DeleteContact409JSONResponse{SocialUnavailableJSONResponse: adminhttp.SocialUnavailableJSONResponse(body)}, nil
 		case http.StatusNotFound:
 			return adminhttp.DeleteContact404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -166,6 +174,8 @@ func (s *adminService) CreateFriend(ctx context.Context, request adminhttp.Creat
 		}
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.CreateFriend409JSONResponse(body), nil
 		case http.StatusNotFound:
 			return adminhttp.CreateFriend404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -208,6 +218,8 @@ func (s *adminService) DeleteFriend(ctx context.Context, request adminhttp.Delet
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.DeleteFriend409JSONResponse{SocialUnavailableJSONResponse: adminhttp.SocialUnavailableJSONResponse(body)}, nil
 		case http.StatusNotFound:
 			return adminhttp.DeleteFriend404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -260,6 +272,8 @@ func (s *adminService) CreatePeerFriend(ctx context.Context, request adminhttp.C
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.CreatePeerFriend409JSONResponse{PeerUnavailableJSONResponse: adminhttp.PeerUnavailableJSONResponse(body)}, nil
 		case http.StatusNotFound:
 			return adminhttp.CreatePeerFriend404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -302,6 +316,8 @@ func (s *adminService) DeletePeerFriend(ctx context.Context, request adminhttp.D
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.DeletePeerFriend409JSONResponse{PeerUnavailableJSONResponse: adminhttp.PeerUnavailableJSONResponse(body)}, nil
 		case http.StatusNotFound:
 			return adminhttp.DeletePeerFriend404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -346,6 +362,8 @@ func (s *adminService) CreateFriendGroup(ctx context.Context, request adminhttp.
 		}
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.CreateFriendGroup409JSONResponse(body), nil
 		case http.StatusNotFound:
 			return adminhttp.CreateFriendGroup404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -392,6 +410,8 @@ func (s *adminService) PutFriendGroup(ctx context.Context, request adminhttp.Put
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.PutFriendGroup409JSONResponse{SocialUnavailableJSONResponse: adminhttp.SocialUnavailableJSONResponse(body)}, nil
 		case http.StatusNotFound:
 			return adminhttp.PutFriendGroup404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -416,6 +436,8 @@ func (s *adminService) DeleteFriendGroup(ctx context.Context, request adminhttp.
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.DeleteFriendGroup409JSONResponse{SocialUnavailableJSONResponse: adminhttp.SocialUnavailableJSONResponse(body)}, nil
 		case http.StatusNotFound:
 			return adminhttp.DeleteFriendGroup404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -476,6 +498,8 @@ func (s *adminService) CreateFriendGroupMember(ctx context.Context, request admi
 		}
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.CreateFriendGroupMember409JSONResponse(body), nil
 		case http.StatusNotFound:
 			return adminhttp.CreateFriendGroupMember404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -504,6 +528,8 @@ func (s *adminService) PutFriendGroupMember(ctx context.Context, request adminht
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.PutFriendGroupMember409JSONResponse{SocialUnavailableJSONResponse: adminhttp.SocialUnavailableJSONResponse(body)}, nil
 		case http.StatusNotFound:
 			return adminhttp.PutFriendGroupMember404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -525,6 +551,8 @@ func (s *adminService) DeleteFriendGroupMember(ctx context.Context, request admi
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.DeleteFriendGroupMember409JSONResponse{SocialUnavailableJSONResponse: adminhttp.SocialUnavailableJSONResponse(body)}, nil
 		case http.StatusNotFound:
 			return adminhttp.DeleteFriendGroupMember404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -584,6 +612,8 @@ func (s *adminService) PutFriendGroupInviteToken(ctx context.Context, request ad
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.PutFriendGroupInviteToken409JSONResponse{SocialUnavailableJSONResponse: adminhttp.SocialUnavailableJSONResponse(body)}, nil
 		case http.StatusNotFound:
 			return adminhttp.PutFriendGroupInviteToken404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -604,6 +634,8 @@ func (s *adminService) DeleteFriendGroupInviteToken(ctx context.Context, request
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {
+		case http.StatusConflict:
+			return adminhttp.DeleteFriendGroupInviteToken409JSONResponse{SocialUnavailableJSONResponse: adminhttp.SocialUnavailableJSONResponse(body)}, nil
 		case http.StatusNotFound:
 			return adminhttp.DeleteFriendGroupInviteToken404JSONResponse(body), nil
 		case http.StatusInternalServerError:
@@ -741,6 +773,20 @@ func toAdminHistoryEntry(item apitypes.PeerRunHistoryEntry) adminhttp.AdminWorks
 
 func adminSocialError(err error) (int, apitypes.ErrorResponse) {
 	switch {
+	case errors.Is(err, workspace.ErrWorkspacePendingDeletion):
+		return http.StatusConflict, apitypes.NewErrorResponse(workspace.WorkspacePendingDeletionCode, err.Error())
+	case errors.Is(err, workspace.ErrPeerPendingDeletion):
+		return http.StatusConflict, apitypes.NewErrorResponse(workspace.PeerPendingDeletionCode, err.Error())
+	case errors.Is(err, workspace.ErrPeerDeleted):
+		return http.StatusConflict, apitypes.NewErrorResponse(workspace.PeerDeletedCode, err.Error())
+	case errors.Is(err, runtimepeer.ErrPeerPendingDeletion):
+		return http.StatusConflict, apitypes.NewErrorResponse(runtimepeer.PeerPendingDeletionCode, err.Error())
+	case errors.Is(err, runtimepeer.ErrPeerDeleted):
+		return http.StatusConflict, apitypes.NewErrorResponse(runtimepeer.PeerDeletedCode, err.Error())
+	case errors.Is(err, contact.ErrPeerPendingDeletion):
+		return http.StatusConflict, apitypes.NewErrorResponse(contact.PeerPendingDeletionCode, err.Error())
+	case errors.Is(err, contact.ErrPeerDeleted):
+		return http.StatusConflict, apitypes.NewErrorResponse(contact.PeerDeletedCode, err.Error())
 	case errors.Is(err, kv.ErrNotFound), errors.Is(err, fs.ErrNotExist):
 		return http.StatusNotFound, apitypes.NewErrorResponse("SOCIAL_RESOURCE_NOT_FOUND", err.Error())
 	case strings.Contains(err.Error(), "not configured"),

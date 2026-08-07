@@ -80,6 +80,9 @@
       "PeerRegistrationStatus": {
         "$ref": "./shared/peer_registration_status.json#/components/schemas/PeerRegistrationStatus"
       },
+      "RegistrationTombstone": {
+        "$ref": "./shared/registration_tombstone.json#/components/schemas/RegistrationTombstone"
+      },
       "PendingDeletionKind": {
         "$ref": "./shared/pending_deletion.json#/components/schemas/PendingDeletionKind"
       },

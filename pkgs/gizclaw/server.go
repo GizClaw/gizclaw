@@ -26,6 +26,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
@@ -427,8 +428,14 @@ func (s *Server) init() error {
 	if !kv.SupportsCreateIfAbsent(peerStore) {
 		return fmt.Errorf("gizclaw: peer store: %w", kv.ErrCreateIfAbsentUnsupported)
 	}
+	if !kv.SupportsCompareAndMutate(peerStore) {
+		return fmt.Errorf("gizclaw: peer store: %w", kv.ErrCompareAndMutateUnsupported)
+	}
 	if !kv.SupportsCreateIfAbsent(workspaceStore) {
 		return fmt.Errorf("gizclaw: workspace store: %w", kv.ErrCreateIfAbsentUnsupported)
+	}
+	if !kv.SupportsCompareAndMutate(workspaceStore) {
+		return fmt.Errorf("gizclaw: workspace store: %w", kv.ErrCompareAndMutateUnsupported)
 	}
 	if !kv.SupportsCreateIfAbsent(friendStore) {
 		return fmt.Errorf("gizclaw: friend store: %w", kv.ErrCreateIfAbsentUnsupported)
@@ -445,10 +452,14 @@ func (s *Server) init() error {
 			kv.ErrCreateIfAbsentUnsupported,
 		)
 	}
+	if !kv.SupportsCompareAndMutate(friendGroupRelationshipStore) {
+		return fmt.Errorf(
+			"gizclaw: friend group relationship store: %w",
+			kv.ErrCompareAndMutateUnsupported,
+		)
+	}
 
 	publicLoginServer := publiclogin.NewServer(&s.LocalStatic, publicLoginStore)
-	publicLoginServer.SessionAuthorizer = s.PublicLoginAuthorizer
-	sessions := publicLoginServer.SessionManager()
 	peersServer := &peer.Server{
 		Store:           peerStore,
 		BuildCommit:     s.BuildCommit,
@@ -459,6 +470,29 @@ func (s *Server) init() error {
 		ICEServers:      s.ICEServers,
 	}
 	manager := NewManager(peersServer)
+	peerAvailability := func(ctx context.Context, publicKey giznet.PublicKey) error {
+		err := peersServer.EnsureAvailable(ctx, publicKey)
+		if errors.Is(err, peer.ErrPeerNotFound) {
+			return nil
+		}
+		if errors.Is(err, peer.ErrPeerPendingDeletion) {
+			return publiclogin.ErrPeerDeletionPending
+		}
+		if errors.Is(err, peer.ErrPeerDeleted) {
+			return publiclogin.ErrPeerDeleted
+		}
+		return err
+	}
+	publicLoginServer.SessionAuthorizer = func(ctx context.Context, publicKey giznet.PublicKey) error {
+		if err := peerAvailability(ctx, publicKey); err != nil {
+			return err
+		}
+		if s.PublicLoginAuthorizer != nil {
+			return s.PublicLoginAuthorizer(ctx, publicKey)
+		}
+		return nil
+	}
+	sessions := publicLoginServer.SessionManager()
 	notifyPeer := func(_ context.Context, publicKey string, event *eventpb.PeerEvent) {
 		var recipient giznet.PublicKey
 		if err := recipient.UnmarshalText([]byte(publicKey)); err != nil || recipient.IsZero() {
@@ -490,6 +524,21 @@ func (s *Server) init() error {
 	workspaceServer := &workspace.Server{
 		Store: workspaceStore, WorkflowStore: workflowStore,
 		Models: modelServer, Voices: voiceServer, Assets: s.WorkspaceAssets,
+		PeerAvailability: func(ctx context.Context, publicKey string) error {
+			key, err := parsePeerPublicKey(publicKey)
+			if err != nil {
+				return err
+			}
+			err = peersServer.EnsureAvailable(ctx, key)
+			switch {
+			case errors.Is(err, peer.ErrPeerPendingDeletion):
+				return workspace.ErrPeerPendingDeletion
+			case errors.Is(err, peer.ErrPeerDeleted):
+				return workspace.ErrPeerDeleted
+			default:
+				return err
+			}
+		},
 	}
 	if s.AgentHostStore != nil {
 		workspaceServer.RuntimeStore = workspace.NewObjectRuntimeStore(s.AgentHostStore)
@@ -502,6 +551,21 @@ func (s *Server) init() error {
 	toolServer := &toolkit.Server{Store: toolStore}
 	contactServer := &contact.Server{
 		Store: contactStore,
+		PeerAvailability: func(ctx context.Context, publicKey string) error {
+			key, err := parsePeerPublicKey(publicKey)
+			if err != nil {
+				return err
+			}
+			err = peersServer.EnsureAvailable(ctx, key)
+			switch {
+			case errors.Is(err, peer.ErrPeerPendingDeletion):
+				return contact.ErrPeerPendingDeletion
+			case errors.Is(err, peer.ErrPeerDeleted):
+				return contact.ErrPeerDeleted
+			default:
+				return err
+			}
+		},
 	}
 	friendServer := &friend.Server{
 		InviteTokens:           friendInviteTokenStore,
@@ -510,6 +574,13 @@ func (s *Server) init() error {
 		Profiles:               peersServer,
 		RuntimeProfileForOwner: manager.runtimeProfileForOwner,
 		NotifyPeer:             notifyPeer,
+		PeerAvailability: func(ctx context.Context, publicKey string) error {
+			key, err := parsePeerPublicKey(publicKey)
+			if err != nil {
+				return err
+			}
+			return peersServer.EnsureAvailable(ctx, key)
+		},
 	}
 	friendGroupServer := &friendgroup.Server{
 		Groups:                   friendGroupStore,
@@ -524,6 +595,13 @@ func (s *Server) init() error {
 		Workspaces:               workspaceServer,
 		RuntimeProfileForOwner:   manager.runtimeProfileForOwner,
 		NotifyPeer:               notifyPeer,
+		PeerAvailability: func(ctx context.Context, publicKey string) error {
+			key, err := parsePeerPublicKey(publicKey)
+			if err != nil {
+				return err
+			}
+			return peersServer.EnsureAvailable(ctx, key)
+		},
 	}
 	providerTenantsServer := &providertenants.Server{
 		ModelStore:          modelStore,
@@ -544,6 +622,13 @@ func (s *Server) init() error {
 		Catalog:    gameplayCatalog,
 		Workflows:  workflowServer,
 		Workspaces: workspaceServer,
+		PeerAvailability: func(ctx context.Context, publicKey string) error {
+			key, err := parsePeerPublicKey(publicKey)
+			if err != nil {
+				return err
+			}
+			return peersServer.EnsureAvailable(ctx, key)
+		},
 	}
 	if s.GameplayDB != nil {
 		if err := gameplayRuntime.Migration(context.Background()); err != nil {
@@ -551,6 +636,32 @@ func (s *Server) init() error {
 		}
 	}
 	pendingDeletionRegistry := pendingdeletion.NewRegistry()
+	workspacePendingDeletionSource := workspace.NewPendingDeletionSource(workspaceStore)
+	var gameplayWorkspaceCleanup workspace.GameplayWorkspaceCleanup
+	if s.GameplayDB != nil {
+		gameplayWorkspaceCleanup = gameplayRuntime
+	}
+	if err := pendingDeletionRegistry.Register(
+		workspacePendingDeletionSource,
+		workspace.DeletionHandler{
+			Server:   workspaceServer,
+			Source:   workspacePendingDeletionSource,
+			Quiescer: manager,
+			Gameplay: gameplayWorkspaceCleanup,
+		},
+	); err != nil {
+		return fmt.Errorf("gizclaw: register Workspace pending deletion: %w", err)
+	}
+	friendGroupPendingDeletionSource := friendgroup.NewPendingDeletionSource(friendGroupRelationshipStore)
+	if err := pendingDeletionRegistry.Register(
+		friendGroupPendingDeletionSource,
+		friendgroup.DeletionHandler{
+			Server: friendGroupServer,
+			Source: friendGroupPendingDeletionSource,
+		},
+	); err != nil {
+		return fmt.Errorf("gizclaw: register Friend Group pending deletion: %w", err)
+	}
 	if s.GameplayDB != nil {
 		if err := pendingDeletionRegistry.Register(
 			gameplay.PendingDeletionSource{DB: s.GameplayDB},
@@ -558,6 +669,19 @@ func (s *Server) init() error {
 		); err != nil {
 			return fmt.Errorf("gizclaw: register Gameplay pending deletion: %w", err)
 		}
+	}
+	peerPendingDeletionSource := peer.PendingDeletionSource(peerStore)
+	if err := pendingDeletionRegistry.Register(
+		peerPendingDeletionSource,
+		peer.DeletionHandler{
+			Server: peersServer, Source: peerPendingDeletionSource,
+			Social:     social.PeerRetirement{Contacts: contactServer, Friends: friendServer, FriendGroups: friendGroupServer},
+			Workspaces: workspaceServer, Gameplay: gameplay.PeerRetirement{Runtime: gameplayRuntime},
+			Sessions: sessions, RuntimeProfiles: runtimeProfileServer, Quiescer: manager,
+			WorkspaceLookup: workspacePendingDeletionSource, FriendGroupLookup: friendGroupPendingDeletionSource,
+		},
+	); err != nil {
+		return fmt.Errorf("gizclaw: register Peer pending deletion: %w", err)
 	}
 	pendingDeletionConfig := s.PendingDeletionConfig
 	if pendingDeletionConfig == (pendingdeletion.Config{}) {
@@ -640,6 +764,7 @@ func (s *Server) init() error {
 		manager:  manager,
 		sessions: sessions,
 		admin: &adminService{
+			Peers:                       peersServer,
 			CredentialAdminService:      credentialServer,
 			FirmwareAdminService:        firmwareServer,
 			AdminService:                runtimeProfileServer,
@@ -663,12 +788,13 @@ func (s *Server) init() error {
 			PendingDeletions:            pendingDeletionAdmin,
 		},
 		public: &peerHTTP{
-			PeerHTTPService: peersServer,
-			Self:            peersServer,
-			Status:          manager.PeerRun,
-			Telemetry:       &peertelemetry.AdminService{Metrics: s.MetricsStore},
-			Contacts:        contactServer,
-			PeerHTTP:        publicLoginServer,
+			PeerHTTPService:  peersServer,
+			Self:             peersServer,
+			Status:           manager.PeerRun,
+			Telemetry:        &peertelemetry.AdminService{Metrics: s.MetricsStore},
+			Contacts:         contactServer,
+			PeerHTTP:         publicLoginServer,
+			PeerAvailability: peersServer.EnsureAvailable,
 			WebRTCSignalingHandler: func() http.Handler {
 				return s.WebRTCSignalingHandler
 			},
@@ -701,4 +827,12 @@ func moduleStore(configured, fallback kv.Store, defaultPrefix string) kv.Store {
 		return fallback
 	}
 	return kv.Prefixed(fallback, kv.Key{defaultPrefix})
+}
+
+func parsePeerPublicKey(value string) (giznet.PublicKey, error) {
+	var publicKey giznet.PublicKey
+	if err := publicKey.UnmarshalText([]byte(value)); err != nil || publicKey.IsZero() || publicKey.String() != value {
+		return giznet.PublicKey{}, fmt.Errorf("gizclaw: invalid canonical Peer public key")
+	}
+	return publicKey, nil
 }

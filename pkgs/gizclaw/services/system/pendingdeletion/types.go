@@ -87,9 +87,6 @@ type LookupSource interface {
 // the same deletion event.
 func New(kind Kind, resourceID string, ownerPublicKey *string, reason Reason, descriptor any, now time.Time) (Record, error) {
 	ownerPublicKey = cloneString(ownerPublicKey)
-	if ownerPublicKey != nil {
-		*ownerPublicKey = strings.TrimSpace(*ownerPublicKey)
-	}
 	if !kind.valid() {
 		return Record{}, fmt.Errorf("pending deletion: invalid kind %q", kind)
 	}
@@ -183,8 +180,11 @@ func deletionIDForLocator(kind Kind, resourceID string, ownerPublicKey *string) 
 	if ownerPublicKey == nil || strings.TrimSpace(*ownerPublicKey) == "" {
 		return "", errors.New("pending deletion: Pet requires owner public key")
 	}
+	if *ownerPublicKey != strings.TrimSpace(*ownerPublicKey) {
+		return "", errors.New("pending deletion: non-canonical owner public key")
+	}
 	locator := string(kind) + "\x00" +
-		encode([]byte(strings.TrimSpace(*ownerPublicKey))) + "\x00" +
+		encode([]byte(*ownerPublicKey)) + "\x00" +
 		encode([]byte(resourceID))
 	return uuid.NewSHA1(deletionIDNamespace, []byte(locator)).String(), nil
 }

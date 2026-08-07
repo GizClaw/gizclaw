@@ -633,7 +633,13 @@ func listPeers(ctx context.Context, c *gizcli.Client) ([]apitypes.Registration, 
 		if resp.JSON200 == nil {
 			return nil, responseError(resp.StatusCode(), resp.Body, resp.JSON500)
 		}
-		items = append(items, resp.JSON200.Items...)
+		for _, result := range resp.JSON200.Items {
+			item, decodeErr := result.AsExternalRef0Registration()
+			if decodeErr != nil {
+				return nil, decodeErr
+			}
+			items = append(items, item)
+		}
 		if !resp.JSON200.HasNext || resp.JSON200.NextCursor == nil || *resp.JSON200.NextCursor == "" {
 			return items, nil
 		}
@@ -652,7 +658,7 @@ func getPeer(ctx context.Context, c *gizcli.Client, publicKey string) (apitypes.
 		return apitypes.Registration{}, err
 	}
 	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
+		return adminhttp.PeerRegistrationResult(*resp.JSON200).AsExternalRef0Registration()
 	}
 	return apitypes.Registration{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
 }
@@ -757,7 +763,7 @@ func deletePeer(ctx context.Context, c *gizcli.Client, publicKey string) (apityp
 		return apitypes.Registration{}, err
 	}
 	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
+		return adminhttp.PeerRegistrationResult(*resp.JSON200).AsExternalRef0Registration()
 	}
 	return apitypes.Registration{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
 }

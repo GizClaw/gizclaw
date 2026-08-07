@@ -83,6 +83,10 @@ func (s *CmdServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *CmdServer) authorizePrivateHTTPIngress(w http.ResponseWriter, r *http.Request) bool {
 	principal, err := s.Server.AuthenticateHTTPSessionPrincipalHeaders(r.Header.Get("Authorization"), r.Header.Get(publiclogin.PublicKeyHeader))
 	if err != nil {
+		if errors.Is(err, gizclaw.ErrPrivateHTTPIngressDenied) {
+			writePrivateHTTPIngressDenied(w)
+			return false
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		if errors.Is(err, publiclogin.ErrPublicKeyMismatch) {

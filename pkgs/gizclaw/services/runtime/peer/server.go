@@ -23,15 +23,19 @@ import (
 )
 
 var (
-	ErrPeerNotFound      = errors.New("peer: peer not found")
-	ErrPeerAlreadyExists = errors.New("peer: peer already exists")
-	ErrInvalidInfo       = errors.New("peer: invalid device info")
+	ErrPeerNotFound        = errors.New("peer: peer not found")
+	ErrPeerAlreadyExists   = errors.New("peer: peer already exists")
+	ErrInvalidInfo         = errors.New("peer: invalid device info")
+	ErrPeerPendingDeletion = errors.New("peer: deletion pending")
+	ErrPeerDeleted         = errors.New("peer: deleted")
 )
 
 const (
-	defaultListLimit  = 50
-	maxListLimit      = 200
-	turnCredentialTTL = 10 * time.Minute
+	PeerPendingDeletionCode = "PEER_PENDING_DELETION"
+	PeerDeletedCode         = "PEER_DELETED"
+	defaultListLimit        = 50
+	maxListLimit            = 200
+	turnCredentialTTL       = 10 * time.Minute
 )
 
 type PeerManager interface {
@@ -77,11 +81,11 @@ var _ PeerHTTPService = (*Server)(nil)
 // ListPeers implements `adminhttp.StrictServerInterface.ListPeers`.
 func (s *Server) ListPeers(ctx context.Context, request adminhttp.ListPeersRequestObject) (adminhttp.ListPeersResponseObject, error) {
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
-	items, hasNext, nextCursor, err := s.listPage(ctx, cursor, limit)
+	items, hasNext, nextCursor, err := s.listAdminPage(ctx, cursor, limit)
 	if err != nil {
 		return adminhttp.ListPeers500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminhttp.ListPeers200JSONResponse(toAdminRegistrationList(items, hasNext, nextCursor)), nil
+	return adminhttp.ListPeers200JSONResponse{Items: items, HasNext: hasNext, NextCursor: nextCursor}, nil
 }
 
 // FindPubKeyByIMEI implements `adminhttp.StrictServerInterface.FindPubKeyByIMEI`.
@@ -113,12 +117,15 @@ func (s *Server) DeletePeer(ctx context.Context, request adminhttp.DeletePeerReq
 	}
 	peer, err := s.delete(ctx, publicKey, pendingdeletion.ReasonAdminDelete)
 	if err != nil {
+		if errors.Is(err, ErrPeerDeleted) {
+			return adminhttp.DeletePeer200JSONResponse(toAdminTombstoneResult(publicKey.String())), nil
+		}
 		if errors.Is(err, ErrPeerNotFound) {
 			return adminhttp.DeletePeer404JSONResponse(apitypes.NewErrorResponse("PEER_NOT_FOUND", err.Error())), nil
 		}
 		return adminhttp.DeletePeer500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminhttp.DeletePeer200JSONResponse(toAdminRegistration(peer)), nil
+	return adminhttp.DeletePeer200JSONResponse(toAdminRegistrationResult(peer)), nil
 }
 
 // GetPeer implements `adminhttp.StrictServerInterface.GetPeer`.
@@ -129,9 +136,12 @@ func (s *Server) GetPeer(ctx context.Context, request adminhttp.GetPeerRequestOb
 	}
 	peer, err := s.get(ctx, publicKey)
 	if err != nil {
+		if errors.Is(err, ErrPeerDeleted) {
+			return adminhttp.GetPeer200JSONResponse(toAdminTombstoneResult(publicKey.String())), nil
+		}
 		return adminhttp.GetPeer404JSONResponse(apitypes.NewErrorResponse("PEER_NOT_FOUND", err.Error())), nil
 	}
-	return adminhttp.GetPeer200JSONResponse(toAdminRegistration(peer)), nil
+	return adminhttp.GetPeer200JSONResponse(toAdminRegistrationResult(peer)), nil
 }
 
 // GetPeerInfo implements `adminhttp.StrictServerInterface.GetPeerInfo`.

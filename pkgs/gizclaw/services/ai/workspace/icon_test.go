@@ -101,6 +101,53 @@ func TestWorkspaceIconLifecycleAndProjection(t *testing.T) {
 	}
 }
 
+func TestWorkspaceIconAdminReadRemainsAvailableWhileMutationsAreFenced(t *testing.T) {
+	srv := newTestServer(t)
+	srv.Assets = objectstore.Dir(t.TempDir())
+	ctx := context.Background()
+	seedWorkflow(t, srv, "workflow-icon-fence")
+	body := mustWorkspaceUpsert(t, `{
+		"name": "workspace-icon-fence",
+		"workflow_id": "workflow-icon-fence",
+		"parameters": {"mode": "demo"}
+	}`)
+	createdResponse, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created := createdResponse.(adminhttp.CreateWorkspace200JSONResponse)
+	icon := workspaceIconPNG(t)
+	if response, err := srv.UploadWorkspaceIcon(ctx, adminhttp.UploadWorkspaceIconRequestObject{
+		Id: created.Id, Format: adminhttp.UploadWorkspaceIconParamsFormatPng, Body: bytes.NewReader(icon),
+	}); err != nil {
+		t.Fatal(err)
+	} else if _, ok := response.(adminhttp.UploadWorkspaceIcon200JSONResponse); !ok {
+		t.Fatalf("UploadWorkspaceIcon() response = %#v", response)
+	}
+	if response, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Id: created.Id}); err != nil {
+		t.Fatal(err)
+	} else if _, ok := response.(adminhttp.DeleteWorkspace200JSONResponse); !ok {
+		t.Fatalf("DeleteWorkspace() response = %#v", response)
+	}
+	if response, err := srv.DownloadWorkspaceIcon(ctx, adminhttp.DownloadWorkspaceIconRequestObject{Id: created.Id, Format: adminhttp.Png}); err != nil {
+		t.Fatal(err)
+	} else if _, ok := response.(adminhttp.DownloadWorkspaceIcon200ImagepngResponse); !ok {
+		t.Fatalf("DownloadWorkspaceIcon() while pending = %#v", response)
+	}
+	if response, err := srv.UploadWorkspaceIcon(ctx, adminhttp.UploadWorkspaceIconRequestObject{
+		Id: created.Id, Format: adminhttp.UploadWorkspaceIconParamsFormatPng, Body: bytes.NewReader(icon),
+	}); err != nil {
+		t.Fatal(err)
+	} else if conflict, ok := response.(adminhttp.UploadWorkspaceIcon409JSONResponse); !ok || conflict.Error.Code != WorkspacePendingDeletionCode {
+		t.Fatalf("UploadWorkspaceIcon() while pending = %#v", response)
+	}
+	if response, err := srv.DeleteWorkspaceIcon(ctx, adminhttp.DeleteWorkspaceIconRequestObject{Id: created.Id, Format: adminhttp.DeleteWorkspaceIconParamsFormatPng}); err != nil {
+		t.Fatal(err)
+	} else if conflict, ok := response.(adminhttp.DeleteWorkspaceIcon409JSONResponse); !ok || conflict.Error.Code != WorkspacePendingDeletionCode {
+		t.Fatalf("DeleteWorkspaceIcon() while pending = %#v", response)
+	}
+}
+
 func workspaceIconPNG(t *testing.T) []byte {
 	t.Helper()
 	var out bytes.Buffer

@@ -718,6 +718,60 @@ func TestRuntimeRegistrySharesAgentAndClosesOnFinalRelease(t *testing.T) {
 	}
 }
 
+func TestRuntimeRegistryQuiesceClosesOnlyExactWorkspace(t *testing.T) {
+	t.Parallel()
+	resolver := mutableWorkspaceResolver{idByPattern: map[string]string{"first": "workspace-a", "second": "workspace-b"}}
+	host := New(resolver)
+	var mu sync.Mutex
+	closed := map[string]int{}
+	if err := host.Register("shared", agentFactoryFunc(func(_ context.Context, spec Spec) (Agent, error) {
+		id := spec.Workspace.Id
+		return &closeTrackingAgent{
+			Agent: NewTransformerAgent(passthroughTransformer{}),
+			close: func() {
+				mu.Lock()
+				closed[id]++
+				mu.Unlock()
+			},
+		}, nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+	_, releaseFirst, err := host.OpenAgent(t.Context(), "first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, releaseSecond, err := host.OpenAgent(t.Context(), "second")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := host.QuiesceWorkspace(t.Context(), "workspace-a"); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	if closed["workspace-a"] != 1 || closed["workspace-b"] != 0 {
+		mu.Unlock()
+		t.Fatalf("close counts after quiesce = %#v", closed)
+	}
+	mu.Unlock()
+	releaseFirst()
+	releaseSecond()
+	mu.Lock()
+	defer mu.Unlock()
+	if closed["workspace-a"] != 1 || closed["workspace-b"] != 1 {
+		t.Fatalf("final close counts = %#v", closed)
+	}
+}
+
+type mutableWorkspaceResolver struct {
+	idByPattern map[string]string
+}
+
+func (r mutableWorkspaceResolver) Resolve(_ context.Context, pattern string) (Spec, error) {
+	id := r.idByPattern[pattern]
+	return Spec{Workspace: apitypes.Workspace{Id: id, Name: pattern}, AgentType: "shared"}, nil
+}
+
 func TestRuntimeRegistryReloadPreservesOldGenerationOnConstructorFailure(t *testing.T) {
 	t.Parallel()
 	spec := Spec{Workspace: apitypes.Workspace{Name: "demo"}, AgentType: "reloadable"}

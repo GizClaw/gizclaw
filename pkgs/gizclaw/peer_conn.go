@@ -170,6 +170,14 @@ func (h *PeerConn) serve() error {
 		_ = oldConn.Close()
 	}
 	h.init()
+	if !h.Service.manager.RegisterPeerRetirer(h.Conn.PublicKey(), h.Conn, func() {
+		if h.retiring.CompareAndSwap(false, true) {
+			h.registration.Store(nil)
+		}
+	}) {
+		_ = h.close()
+		return ErrPeerConnRetiring
+	}
 	if h.events != nil {
 		_ = h.Service.manager.SetPeerEventBroker(
 			h.Conn.PublicKey(),

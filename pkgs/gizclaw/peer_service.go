@@ -50,6 +50,7 @@ type peerHTTP struct {
 	Contacts  peerHTTPContactService
 	publiclogin.PeerHTTP
 	WebRTCSignalingHandler func() http.Handler
+	PeerAvailability       func(context.Context, giznet.PublicKey) error
 }
 
 type peerHTTPSelfService interface {

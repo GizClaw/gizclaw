@@ -61,6 +61,9 @@ func (s KVSource) ScanDue(ctx context.Context, now time.Time, limit int, cursor 
 		}
 		deletionID := entry.Key[len(entry.Key)-1]
 		task, _, err := s.loadTask(ctx, deletionID)
+		if errors.Is(err, ErrNotFound) {
+			continue
+		}
 		if err != nil {
 			return nil, "", err
 		}
@@ -172,6 +175,9 @@ func (s KVSource) ListTasks(ctx context.Context, options SourceListOptions) ([]T
 			continue
 		}
 		task, _, err := s.loadTask(ctx, entry.Key[len(entry.Key)-1])
+		if errors.Is(err, ErrNotFound) {
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -211,6 +217,137 @@ func (s KVSource) Retry(ctx context.Context, deletionID string, now time.Time) (
 		return Task{}, ErrConflict
 	}
 	return task, nil
+}
+
+// Finalize atomically removes caller-owned domain keys together with the exact
+// marker, locator, and mutable task state for a live KV-backed claim.
+func (s KVSource) Finalize(ctx context.Context, claim Claim, now time.Time, deleteKeys []kv.Key) error {
+	return s.FinalizeWithEntries(ctx, claim, now, nil, deleteKeys)
+}
+
+// FinalizeWithEntries atomically replaces caller-owned domain records while
+// consuming the exact marker and task. It is used for permanent tombstones.
+func (s KVSource) FinalizeWithEntries(ctx context.Context, claim Claim, now time.Time, entries []kv.Entry, deleteKeys []kv.Key) error {
+	if err := s.validateTaskSource(); err != nil {
+		return err
+	}
+	if err := ValidateTask(claim.Task); err != nil {
+		return err
+	}
+	if claim.Source != s.Name() || !s.owns(claim.Record.Kind) {
+		return ErrConflict
+	}
+	task, raw, err := s.loadTaskForMutation(ctx, claim.Record.DeletionID)
+	if errors.Is(err, ErrNotFound) {
+		return ErrConflict
+	}
+	if err != nil {
+		return err
+	}
+	if task.MarkerFingerprint != claim.MarkerFingerprint || task.Status != StatusRunning ||
+		task.LeaseToken != claim.LeaseToken || !task.LeaseDeadline.After(now) {
+		return ErrConflict
+	}
+	locatorRecord, err := GetByLocator(ctx, s.Store, claim.Record.Kind, claim.Record.ResourceID)
+	if errors.Is(err, kv.ErrNotFound) {
+		return ErrConflict
+	}
+	if err != nil {
+		return err
+	}
+	if locatorRecord.DeletionID != claim.Record.DeletionID {
+		return ErrConflict
+	}
+	fingerprint, err := StoredFingerprint(locatorRecord)
+	if err != nil {
+		return err
+	}
+	if fingerprint != claim.MarkerFingerprint {
+		return ErrConflict
+	}
+
+	keys, err := kvFinalizeDeleteKeys(claim.Record, deleteKeys)
+	if err != nil {
+		return err
+	}
+	seen := make(map[string]struct{}, len(keys)+len(entries))
+	for _, key := range keys {
+		seen[kvKeyIdentity(key)] = struct{}{}
+	}
+	for _, entry := range entries {
+		if err := validateFinalizeDomainKey(entry.Key); err != nil {
+			return err
+		}
+		identity := kvKeyIdentity(entry.Key)
+		if _, exists := seen[identity]; exists {
+			return fmt.Errorf("pending deletion: duplicate KV finalization key %q", entry.Key.String())
+		}
+		seen[identity] = struct{}{}
+	}
+	matched, err := kv.CompareAndMutate(ctx, s.Store, kvTaskKey(claim.Record.DeletionID), raw, entries, keys)
+	if err != nil {
+		return err
+	}
+	if !matched {
+		return ErrConflict
+	}
+	return nil
+}
+
+func validateFinalizeDomainKey(key kv.Key) error {
+	if len(key) == 0 {
+		return fmt.Errorf("pending deletion: empty KV finalization key")
+	}
+	if slices.Contains(key, "") {
+		return fmt.Errorf("pending deletion: empty KV finalization key segment")
+	}
+	if len(key) >= len(root) && slices.Equal(key[:len(root)], root) {
+		return fmt.Errorf("pending deletion: domain finalization key enters the pending-deletion namespace")
+	}
+	return nil
+}
+
+func kvKeyIdentity(key kv.Key) string {
+	encoded, _ := json.Marshal([]string(key))
+	return string(encoded)
+}
+
+func kvFinalizeDeleteKeys(record Record, domainKeys []kv.Key) ([]kv.Key, error) {
+	seen := make(map[string]struct{}, len(domainKeys)+4)
+	keys := make([]kv.Key, 0, len(domainKeys)+4)
+	appendKey := func(key kv.Key, domain bool) error {
+		if domain {
+			if err := validateFinalizeDomainKey(key); err != nil {
+				return err
+			}
+		} else if len(key) == 0 {
+			return fmt.Errorf("pending deletion: empty KV finalization key")
+		}
+		identity := kvKeyIdentity(key)
+		if _, exists := seen[identity]; exists {
+			return fmt.Errorf("pending deletion: duplicate KV finalization key %q", identity)
+		}
+		seen[identity] = struct{}{}
+		keys = append(keys, append(kv.Key(nil), key...))
+		return nil
+	}
+	for _, key := range domainKeys {
+		if err := appendKey(key, true); err != nil {
+			return nil, err
+		}
+	}
+	commonKeys := []kv.Key{
+		byIDKey(record.DeletionID),
+		byLocatorKey(record.Kind, record.ResourceID),
+		append(legacyByLocatorPrefix(record.Kind, record.ResourceID), record.DeletionID),
+		kvTaskKey(record.DeletionID),
+	}
+	for _, key := range commonKeys {
+		if err := appendKey(key, false); err != nil {
+			return nil, err
+		}
+	}
+	return keys, nil
 }
 
 func (s KVSource) transition(ctx context.Context, claim Claim, now time.Time, mutate func(*Task)) error {

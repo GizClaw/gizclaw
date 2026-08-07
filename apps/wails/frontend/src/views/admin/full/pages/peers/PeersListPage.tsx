@@ -25,7 +25,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import type { DeviceInfo, Runtime } from "@gizclaw/gizclaw/admin";
+import type {
+  DeviceInfo,
+  PeerRegistrationResult,
+  Runtime,
+} from "@gizclaw/gizclaw/admin";
 import { EmptyState } from "@/dashboard";
 import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { StatusBadge } from "@/dashboard";
@@ -33,13 +37,6 @@ import { usePeersPage } from "../../hooks/usePeersPage";
 import { formatDate } from "../../lib/format";
 
 dayjs.extend(relativeTime);
-
-interface NamedRegistration {
-  name?: string | null;
-  device?: {
-    name?: string | null;
-  } | null;
-}
 
 export function PeersListPage(): JSX.Element {
   const navigate = useNavigate();
@@ -268,23 +265,27 @@ export function PeersListPage(): JSX.Element {
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-start gap-1.5">
-                            <Badge
-                              title={
-                                peer.auto_registered
-                                  ? "Auto registered"
-                                  : "Manual registration"
-                              }
-                              variant="secondary"
-                            >
-                              {peer.auto_registered ? "A" : "M"}
-                            </Badge>
+                            {peer.status !== "deleted" ? (
+                              <Badge
+                                title={
+                                  peer.auto_registered
+                                    ? "Auto registered"
+                                    : "Manual registration"
+                                }
+                                variant="secondary"
+                              >
+                                {peer.auto_registered ? "A" : "M"}
+                              </Badge>
+                            ) : null}
                             <StatusBadge status={peer.status} />
-                            <Badge
-                              title={`Role: ${peer.role}`}
-                              variant="outline"
-                            >
-                              {peer.role}
-                            </Badge>
+                            {peer.status !== "deleted" ? (
+                              <Badge
+                                title={`Role: ${peer.role}`}
+                                variant="outline"
+                              >
+                                {peer.role}
+                              </Badge>
+                            ) : null}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -294,7 +295,9 @@ export function PeersListPage(): JSX.Element {
                           <PeerEndpoint runtime={runtime} />
                         </TableCell>
                         <TableCell className="text-right text-sm text-muted-foreground">
-                          {formatDate(peer.updated_at)}
+                          {peer.status === "deleted"
+                            ? "Permanent tombstone"
+                            : formatDate(peer.updated_at)}
                         </TableCell>
                       </TableRow>
                     );
@@ -320,12 +323,13 @@ export function PeersListPage(): JSX.Element {
 }
 
 function peerDisplayName(
-  peer: NamedRegistration,
+  peer: PeerRegistrationResult,
   info: DeviceInfo | null | undefined,
 ): string {
-  return (
-    peer.name?.trim() || peer.device?.name?.trim() || info?.name?.trim() || ""
-  );
+  if (peer.status === "deleted") {
+    return "Deleted Peer";
+  }
+  return peer.device?.name?.trim() || info?.name?.trim() || "";
 }
 
 function PeerRuntime({

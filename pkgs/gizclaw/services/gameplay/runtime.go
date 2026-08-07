@@ -54,6 +54,7 @@ type Runtime struct {
 	DriveFacts           DriveFactMemory
 	WorkspaceRewards     WorkspaceRewardEnvironment
 	PendingDeletionWake  func()
+	PeerAvailability     func(context.Context, string) error
 	Now                  func() time.Time
 	NewID                func() string
 	PickWeight           func(total int64) int64
@@ -66,6 +67,7 @@ type Runtime struct {
 	workspaceRewardWake  chan struct{}
 	workspaceRewardQueue chan workspaceRewardActivity
 	workspaceRewardLocks [64]sync.Mutex
+	accountMu            [64]sync.Mutex
 }
 
 type WorkflowService interface {
@@ -363,6 +365,12 @@ func migrateGameplaySchema(ctx context.Context, db sqlDialectExecutor) error {
 
 func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAdoptRequest) (apitypes.PetAdoptResponse, error) {
 	if err := requireOwner(owner); err != nil {
+		return apitypes.PetAdoptResponse{}, err
+	}
+	accountMu := r.accountMutex(owner)
+	accountMu.Lock()
+	defer accountMu.Unlock()
+	if err := r.ensurePeerAvailable(ctx, owner); err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
@@ -848,6 +856,12 @@ func (r *Runtime) OwnerHasPetWorkspace(ctx context.Context, owner, workspaceName
 }
 
 func (r *Runtime) PutPet(ctx context.Context, owner string, req apitypes.PetPutRequest) (apitypes.Pet, error) {
+	accountMu := r.accountMutex(owner)
+	accountMu.Lock()
+	defer accountMu.Unlock()
+	if err := r.ensurePeerAvailable(ctx, owner); err != nil {
+		return apitypes.Pet{}, err
+	}
 	pet, err := r.GetPet(ctx, owner, req.Id)
 	if err != nil {
 		return apitypes.Pet{}, err
@@ -893,6 +907,14 @@ func (r *Runtime) DeletePetByName(ctx context.Context, owner, name string) (apit
 }
 
 func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet, error) {
+	if !accountRetirementFromContext(ctx) {
+		accountMu := r.accountMutex(owner)
+		accountMu.Lock()
+		defer accountMu.Unlock()
+		if err := r.ensurePeerAvailable(ctx, owner); err != nil {
+			return apitypes.Pet{}, err
+		}
+	}
 	if err := r.Migration(ctx); err != nil {
 		return apitypes.Pet{}, err
 	}
@@ -991,6 +1013,12 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 }
 
 func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDriveRequest) (apitypes.PetDriveResponse, error) {
+	accountMu := r.accountMutex(owner)
+	accountMu.Lock()
+	defer accountMu.Unlock()
+	if err := r.ensurePeerAvailable(ctx, owner); err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
 	if err := r.Migration(ctx); err != nil {
 		return apitypes.PetDriveResponse{}, err
 	}
@@ -1923,6 +1951,19 @@ func (r *Runtime) adoptionMutex(key string) *sync.Mutex {
 	hash := fnv.New32a()
 	_, _ = hash.Write([]byte(key))
 	return &r.adoptMu[hash.Sum32()%uint32(len(r.adoptMu))]
+}
+
+func (r *Runtime) accountMutex(owner string) *sync.Mutex {
+	hash := fnv.New32a()
+	_, _ = hash.Write([]byte(strings.TrimSpace(owner)))
+	return &r.accountMu[hash.Sum32()%uint32(len(r.accountMu))]
+}
+
+func (r *Runtime) ensurePeerAvailable(ctx context.Context, owner string) error {
+	if r != nil && r.PeerAvailability != nil {
+		return r.PeerAvailability(ctx, strings.TrimSpace(owner))
+	}
+	return nil
 }
 
 func sqlColumnExists(ctx context.Context, db sqlDialectExecutor, table, column string) (bool, error) {

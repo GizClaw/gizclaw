@@ -4,7 +4,12 @@ import { expectData, toMessage } from "@/dashboard";
 import { getPeerInfo, getPeerRuntime, listPeers } from "@gizclaw/gizclaw/admin";
 import { getServerInfo, type ServerInfo } from "@gizclaw/gizclaw/peerhttp";
 
-import type { DeviceInfo, Registration, Runtime } from "@gizclaw/gizclaw/admin";
+import type {
+  DeviceInfo,
+  PeerRegistrationResult,
+  Registration,
+  Runtime,
+} from "@gizclaw/gizclaw/admin";
 
 export const PEER_PAGE_LIMIT = 50;
 
@@ -20,7 +25,7 @@ export interface PeerListState {
 
 export interface PeersPageState {
   error: string;
-  peers: Registration[];
+  peers: PeerRegistrationResult[];
   infos: PeerInfoMap;
   loading: boolean;
   runtimes: PeerRuntimeMap;
@@ -32,7 +37,7 @@ export function usePeersPage(): {
   peerList: PeerListState;
   peerPageNumber: number;
   filter: string;
-  filteredPeers: Registration[];
+  filteredPeers: PeerRegistrationResult[];
   loadDashboard: (
     cursor: string | null,
     history: Array<string | null>,
@@ -118,17 +123,19 @@ export function usePeersPage(): {
       return dashboard.peers;
     }
     const query = filter.trim().toLowerCase();
-    return dashboard.peers.filter((peer) =>
-      [
-        peer.public_key,
-        peerDeviceName(peer, dashboard.infos[peer.public_key]),
-        peer.role,
-        peer.status,
-        peer.auto_registered ? "auto" : "manual",
-        dashboard.runtimes[peer.public_key]?.online ? "online" : "offline",
-        dashboard.runtimes[peer.public_key]?.last_addr ?? "",
-      ].some((value) => value.toLowerCase().includes(query)),
-    );
+    return dashboard.peers.filter((peer) => {
+      const values = [peer.public_key, peer.status];
+      if (peer.status !== "deleted") {
+        values.push(
+          peerDeviceName(peer, dashboard.infos[peer.public_key]),
+          peer.role,
+          peer.auto_registered ? "auto" : "manual",
+          dashboard.runtimes[peer.public_key]?.online ? "online" : "offline",
+          dashboard.runtimes[peer.public_key]?.last_addr ?? "",
+        );
+      }
+      return values.some((value) => value.toLowerCase().includes(query));
+    });
   }, [dashboard.peers, dashboard.infos, dashboard.runtimes, filter]);
 
   const nextPage = useCallback(() => {
@@ -166,9 +173,14 @@ export function usePeersPage(): {
   };
 }
 
-async function loadPeerInfos(peers: Registration[]): Promise<PeerInfoMap> {
+async function loadPeerInfos(
+  peers: PeerRegistrationResult[],
+): Promise<PeerInfoMap> {
   const entries = await Promise.all(
     peers.map(async (peer): Promise<[string, DeviceInfo | null]> => {
+      if (peer.status === "deleted") {
+        return [peer.public_key, null];
+      }
       if (peer.device !== undefined) {
         return [peer.public_key, peer.device];
       }
@@ -186,10 +198,13 @@ async function loadPeerInfos(peers: Registration[]): Promise<PeerInfoMap> {
 }
 
 async function loadPeerRuntimes(
-  peers: Registration[],
+  peers: PeerRegistrationResult[],
 ): Promise<PeerRuntimeMap> {
   const entries = await Promise.all(
     peers.map(async (peer): Promise<[string, Runtime | null]> => {
+      if (peer.status === "deleted") {
+        return [peer.public_key, null];
+      }
       try {
         const runtime = await expectData(
           getPeerRuntime({ path: { publicKey: peer.public_key } }),

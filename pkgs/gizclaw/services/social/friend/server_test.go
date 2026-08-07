@@ -1277,6 +1277,82 @@ func TestAdminFriendResourceWrappersAndCursorHelpers(t *testing.T) {
 	}
 }
 
+func TestPeerRetirementSnapshotsAndRetiresReciprocalFriend(t *testing.T) {
+	s := newTestServer()
+	created, err := s.AdminCreateFriendResource(t.Context(), socialutil.RelationID("peer-a", "peer-b"), "peer-a", "peer-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := s.AdminCreateFriendResource(t.Context(), socialutil.RelationID("peer-c", "peer-d"), "peer-c", "peer-d")
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := s.SnapshotPeerFriends(t.Context(), "peer-a")
+	if err != nil || len(snapshot) != 1 || snapshot[0].RelationID != created.Id || snapshot[0].WorkspaceID != created.WorkspaceId {
+		t.Fatalf("SnapshotPeerFriends() = %#v, %v", snapshot, err)
+	}
+	if err := s.RetirePeerFriend(t.Context(), "peer-a", snapshot[0]); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RetirePeerFriend(t.Context(), "peer-a", snapshot[0]); err != nil {
+		t.Fatalf("replayed RetirePeerFriend() error = %v", err)
+	}
+	for _, owner := range []string{"peer-a", "peer-b"} {
+		if _, err := s.AdminGetFriend(t.Context(), owner, created.Id); !errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf("retired Friend owner %q error = %v", owner, err)
+		}
+	}
+	if _, err := s.AdminGetFriend(t.Context(), "peer-c", foreign.Id); err != nil {
+		t.Fatalf("foreign Friend removed: %v", err)
+	}
+}
+
+func TestFriendCreationFailsClosedWhenTargetUnavailable(t *testing.T) {
+	s := newTestServer()
+	wantErr := errors.New("PEER_PENDING_DELETION")
+	s.PeerAvailability = func(_ context.Context, publicKey string) error {
+		if publicKey == "peer-b" {
+			return wantErr
+		}
+		return nil
+	}
+	_, err := s.AdminCreateFriendResource(t.Context(), socialutil.RelationID("peer-a", "peer-b"), "peer-a", "peer-b")
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("AdminCreateFriendResource() error = %v, want target fence", err)
+	}
+	if len(s.Workspaces.(*recordingWorkspaceService).created) != 0 {
+		t.Fatalf("Workspaces created before target fence = %#v", s.Workspaces.(*recordingWorkspaceService).created)
+	}
+}
+
+func TestFriendDeletionRejectsUnavailablePeerButRetirementBypassesFence(t *testing.T) {
+	s := newTestServer()
+	created, err := s.AdminCreateFriendResource(t.Context(), socialutil.RelationID("peer-a", "peer-b"), "peer-a", "peer-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := s.SnapshotPeerFriends(t.Context(), "peer-a")
+	if err != nil || len(snapshot) != 1 {
+		t.Fatalf("SnapshotPeerFriends() = %#v, %v", snapshot, err)
+	}
+	wantErr := errors.New("PEER_PENDING_DELETION")
+	s.PeerAvailability = func(_ context.Context, publicKey string) error {
+		if publicKey == "peer-a" {
+			return wantErr
+		}
+		return nil
+	}
+	if _, err := s.AdminDeleteFriend(t.Context(), "peer-a", created.Id); !errors.Is(err, wantErr) {
+		t.Fatalf("AdminDeleteFriend() error = %v, want Peer fence", err)
+	}
+	if _, err := s.AdminGetFriend(t.Context(), "peer-a", created.Id); err != nil {
+		t.Fatalf("fenced deletion changed retained Friend: %v", err)
+	}
+	if err := s.RetirePeerFriend(t.Context(), "peer-a", snapshot[0]); err != nil {
+		t.Fatalf("RetirePeerFriend() error = %v", err)
+	}
+}
+
 func TestConfigurationAndValidationErrors(t *testing.T) {
 	ctx := context.Background()
 	empty := &Server{}

@@ -87,12 +87,16 @@ func stubPeerCommandClients(t *testing.T) func() {
 		Role:      apitypes.PeerRoleClient,
 		Status:    apitypes.PeerRegistrationStatusActive,
 	}
-	connectFromContext = func(string) (*gizcli.Client, error) { return &gizcli.Client{}, nil }
-	listPeers = func(context.Context, *gizcli.Client) ([]apitypes.Registration, error) {
-		return []apitypes.Registration{registration}, nil
+	registrationResult := adminhttp.PeerRegistrationResult{}
+	if err := registrationResult.FromExternalRef0Registration(registration); err != nil {
+		t.Fatal(err)
 	}
-	getPeer = func(context.Context, *gizcli.Client, string) (apitypes.Registration, error) {
-		return registration, nil
+	connectFromContext = func(string) (*gizcli.Client, error) { return &gizcli.Client{}, nil }
+	listPeers = func(context.Context, *gizcli.Client) ([]adminhttp.PeerRegistrationResult, error) {
+		return []adminhttp.PeerRegistrationResult{registrationResult}, nil
+	}
+	getPeer = func(context.Context, *gizcli.Client, string) (adminhttp.PeerRegistrationResult, error) {
+		return registrationResult, nil
 	}
 	findPubKeyBySN = func(context.Context, *gizcli.Client, string) (string, error) { return "device-pk", nil }
 	findPubKeyByIMEI = func(context.Context, *gizcli.Client, string, string) (string, error) {
@@ -111,8 +115,8 @@ func stubPeerCommandClients(t *testing.T) func() {
 		online := true
 		return apitypes.Runtime{Online: online}, nil
 	}
-	deletePeer = func(context.Context, *gizcli.Client, string) (apitypes.Registration, error) {
-		return registration, nil
+	deletePeer = func(context.Context, *gizcli.Client, string) (adminhttp.PeerRegistrationResult, error) {
+		return registrationResult, nil
 	}
 	refreshPeer = func(context.Context, *gizcli.Client, string) (adminhttp.RefreshResult, error) {
 		return adminhttp.RefreshResult{Peer: apitypes.Peer{PublicKey: devicePublicKey.String()}}, nil
