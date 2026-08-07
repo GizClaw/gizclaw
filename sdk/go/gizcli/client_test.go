@@ -2,6 +2,7 @@ package gizcli
 
 import (
 	"context"
+	"errors"
 	"net"
 	"strings"
 	"testing"
@@ -11,12 +12,20 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
 type freshPingPeerConn struct {
 	streams []net.Conn
 	dials   int
 }
+
+type diagnosticConn struct {
+	net.Conn
+	diagnostics gizwebrtc.StreamDiagnostics
+}
+
+func (c diagnosticConn) DiagnosticString() string { return c.diagnostics.String() }
 
 func (c *freshPingPeerConn) Dial(uint64) (net.Conn, error) {
 	if c.dials >= len(c.streams) {
@@ -381,6 +390,53 @@ func TestClientPingOpensFreshStreamPerRequest(t *testing.T) {
 	if peer.dials != 2 {
 		t.Fatalf("Dial() count = %d, want one fresh stream per request", peer.dials)
 	}
+}
+
+func TestClientPingFailureIncludesPreCloseDataChannelDiagnostics(t *testing.T) {
+	server, clientStream := net.Pipe()
+	streamID := uint16(17)
+	peer := &freshPingPeerConn{streams: []net.Conn{diagnosticConn{
+		Conn: clientStream,
+		diagnostics: gizwebrtc.StreamDiagnostics{
+			ID: &streamID, ReadyState: "open", TXBytes: 48,
+		},
+	}}}
+	client := &Client{}
+	client.init(nil, peer, giznet.PublicKey{})
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		defer server.Close()
+		_, _ = readRPCRequestWithEOS(server)
+		var buffer [1]byte
+		_, _ = server.Read(buffer[:])
+	}()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
+	defer cancel()
+	_, err := client.Ping(ctx, "diagnostic-timeout")
+	if err == nil {
+		t.Fatal("Ping() error = nil")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Ping() error = %v, want context deadline", err)
+	}
+	var observed interface{ TransportDiagnostics() string }
+	if !errors.As(err, &observed) {
+		t.Fatalf("Ping() error = %T, want transport diagnostics", err)
+	}
+	if got := observed.TransportDiagnostics(); got != "id=17 ready_state=open buffered_amount=0 rx_bytes=0 tx_bytes=48 closed=false" {
+		t.Fatalf("TransportDiagnostics() = %q", got)
+	}
+	for _, want := range []string{
+		"context deadline exceeded",
+		"data_channel={id=17 ready_state=open buffered_amount=0 rx_bytes=0 tx_bytes=48 closed=false}",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("Ping() error = %q, want substring %q", err, want)
+		}
+	}
+	<-serverDone
 }
 
 func TestClientSecurityPolicyAllowsExpectedPeerAndService(t *testing.T) {

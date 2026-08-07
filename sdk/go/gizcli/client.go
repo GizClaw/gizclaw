@@ -30,6 +30,19 @@ var (
 	defaultAdminHTTPClientTimeout = 2 * time.Minute
 )
 
+type transportDiagnosticError struct {
+	err         error
+	diagnostics string
+}
+
+func (e *transportDiagnosticError) Error() string {
+	return fmt.Sprintf("%v: data_channel={%s}", e.err, e.diagnostics)
+}
+
+func (e *transportDiagnosticError) Unwrap() error { return e.err }
+
+func (e *transportDiagnosticError) TransportDiagnostics() string { return e.diagnostics }
+
 // Client holds device-side peer client configuration.
 type Client struct {
 	KeyPair       *giznet.KeyPair
@@ -252,7 +265,14 @@ func (c *Client) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, err
 		return nil, err
 	}
 	defer func() { _ = stream.Close() }()
-	return c.rpcClient().Ping(ctx, stream, id)
+	response, err := c.rpcClient().Ping(ctx, stream, id)
+	if err == nil {
+		return response, nil
+	}
+	if observed, ok := stream.(interface{ DiagnosticString() string }); ok {
+		return nil, &transportDiagnosticError{err: err, diagnostics: observed.DiagnosticString()}
+	}
+	return nil, err
 }
 
 func (c *Client) GetServerInfo(ctx context.Context, id string) (*rpcapi.ServerGetInfoResponse, error) {

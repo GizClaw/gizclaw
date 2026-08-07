@@ -21,6 +21,17 @@ import (
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
+type testTransportDiagnosticError struct {
+	err         error
+	diagnostics string
+}
+
+func (e testTransportDiagnosticError) Error() string { return e.err.Error() }
+
+func (e testTransportDiagnosticError) Unwrap() error { return e.err }
+
+func (e testTransportDiagnosticError) TransportDiagnostics() string { return e.diagnostics }
+
 func TestNormalizeHTTPBase(t *testing.T) {
 	got, err := normalizeHTTPBase("edge.example:9821/path?ignored=1")
 	if err != nil {
@@ -386,6 +397,65 @@ func TestHoldSessionsRecordsFinalRoundWithoutDeadlineOverlap(t *testing.T) {
 	}
 	if state.holdStartedAt.IsZero() || state.holdFinishedAt.Sub(state.holdStartedAt) < opts.duration {
 		t.Fatalf("hold boundaries = %s..%s, want at least %s", state.holdStartedAt, state.holdFinishedAt, opts.duration)
+	}
+}
+
+func TestPingAllRecordsFailureDiagnosticWithoutCountingProbe(t *testing.T) {
+	tests := []struct {
+		name           string
+		probeErr       error
+		probeSucceeded bool
+	}{
+		{name: "fresh stream succeeds", probeSucceeded: true},
+		{name: "fresh stream also fails", probeErr: errors.New("probe timeout")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var calls atomic.Int32
+			session := &liveSession{
+				edge: "edge-a", upstream: "upstream-1",
+				pingFn: func(_ context.Context, id string) (*rpcapi.PingResponse, error) {
+					if calls.Add(1) == 1 {
+						if strings.HasSuffix(id, "-diagnostic") {
+							t.Fatalf("first Ping id = %q, want acceptance request", id)
+						}
+						return nil, testTransportDiagnosticError{
+							err: errors.New("response timeout"), diagnostics: "id=23 ready_state=open",
+						}
+					}
+					if !strings.HasSuffix(id, "-diagnostic") {
+						t.Fatalf("probe Ping id = %q, want diagnostic suffix", id)
+					}
+					if test.probeErr != nil {
+						return nil, test.probeErr
+					}
+					return &rpcapi.PingResponse{}, nil
+				},
+			}
+			state := &resultState{sessions: []*liveSession{session}}
+			summary := pingAll(t.Context(), state, options{
+				concurrency: 1, pingTimeout: 50 * time.Millisecond,
+			}, make(chan struct{}, 1), "hold", 1)
+
+			if calls.Load() != 2 {
+				t.Fatalf("Ping calls = %d, want acceptance request plus diagnostic probe", calls.Load())
+			}
+			if summary.Attempted != 1 || summary.Failures != 1 || state.pings != 1 || state.pingFailures != 1 {
+				t.Fatalf("summary = %+v, pings=%d failures=%d", summary, state.pings, state.pingFailures)
+			}
+			if len(state.pingFailureDiagnostics) != 1 {
+				t.Fatalf("diagnostics = %#v, want one", state.pingFailureDiagnostics)
+			}
+			diagnostic := state.pingFailureDiagnostics[0]
+			if diagnostic.ProbeSucceeded != test.probeSucceeded || diagnostic.ParentState != "unknown" ||
+				diagnostic.DataChannel != "id=23 ready_state=open" || diagnostic.FailedRXDelta != 0 ||
+				diagnostic.FailedTXDelta != 0 {
+				t.Fatalf("diagnostic = %+v", diagnostic)
+			}
+			if test.probeErr != nil && !strings.Contains(diagnostic.ProbeError, test.probeErr.Error()) {
+				t.Fatalf("probe error = %q, want %q", diagnostic.ProbeError, test.probeErr)
+			}
+		})
 	}
 }
 

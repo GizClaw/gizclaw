@@ -349,8 +349,13 @@ A fixed 120-second stabilization window, with 15-second progress, follows each
 1,000-session fresh-stack teardown so delayed Docker-VM reclamation does not
 pollute the next run. A failed upload gate skips the now-irrelevant download.
 
-Artifact version 16 records the actual hold boundaries and compares the first
-and last ten minutes. The median per-round RTT p99, RSS, open FDs, completed-GC
+Artifact version 17 records the actual hold boundaries and compares the first
+and last ten minutes. On a Ping failure, the artifact also records the failed
+request's pre-close DataChannel ID, state, buffered amount, byte counts, and
+parent-association state, then performs one bounded diagnostic Ping on a fresh
+DataChannel over the same association. The diagnostic Ping is excluded from
+acceptance counts and never changes the original failure into a pass.
+The median per-round RTT p99, RSS, open FDs, completed-GC
 Go live heap, and goroutine medians must not grow by more than 20%. The current
 Go heap-object count is retained as a diagnostic but is not a growth gate,
 because it varies with the normal GC cycle; sampling never forces a GC. CPU and

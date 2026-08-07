@@ -2,6 +2,7 @@ package gizwebrtc
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/datachannel"
+	"github.com/pion/webrtc/v4"
 )
 
 type dataChannelFlow interface {
@@ -19,18 +21,54 @@ type dataChannelFlow interface {
 	OnBufferedAmountLow(func())
 }
 
+type dataChannelDiagnosticFlow interface {
+	ID() *uint16
+	ReadyState() webrtc.DataChannelState
+}
+
+// StreamDiagnostics is a bounded, address-free snapshot of one detached
+// DataChannel stream. It is captured before a failed RPC closes the stream so
+// transport stalls can be distinguished from errors that occur while opening
+// or writing the request.
+type StreamDiagnostics struct {
+	ID             *uint16
+	ReadyState     string
+	BufferedAmount uint64
+	RXBytes        uint64
+	TXBytes        uint64
+	Closed         bool
+}
+
+func (d StreamDiagnostics) String() string {
+	id := "unknown"
+	if d.ID != nil {
+		id = fmt.Sprint(*d.ID)
+	}
+	return fmt.Sprintf(
+		"id=%s ready_state=%s buffered_amount=%d rx_bytes=%d tx_bytes=%d closed=%t",
+		id,
+		d.ReadyState,
+		d.BufferedAmount,
+		d.RXBytes,
+		d.TXBytes,
+		d.Closed,
+	)
+}
+
 var streamWriteBufferPool = sync.Pool{New: func() any {
 	buffer := make([]byte, 0, streamChunkSize)
 	return &buffer
 }}
 
 type dataChannelConn struct {
-	raw    datachannel.ReadWriteCloserDeadliner
-	flow   dataChannelFlow
-	local  net.Addr
-	remote net.Addr
-	rx     *atomic.Uint64
-	tx     *atomic.Uint64
+	raw      datachannel.ReadWriteCloserDeadliner
+	flow     dataChannelFlow
+	local    net.Addr
+	remote   net.Addr
+	rx       *atomic.Uint64
+	tx       *atomic.Uint64
+	streamRX atomic.Uint64
+	streamTX atomic.Uint64
 
 	readMu sync.Mutex
 	// Start at the normal service-message size and grow only when SCTP reports a
@@ -107,6 +145,7 @@ func (c *dataChannelConn) Read(p []byte) (int, error) {
 	if c.rx != nil {
 		c.rx.Add(uint64(n))
 	}
+	c.streamRX.Add(uint64(n))
 	copied := copy(p, buf[:n])
 	if copied < n {
 		c.pending = append(c.pending[:0], buf[copied:n]...)
@@ -131,6 +170,9 @@ func (c *dataChannelConn) Write(p []byte) (int, error) {
 		written += n
 		if c.tx != nil && n > 0 {
 			c.tx.Add(uint64(n))
+		}
+		if n > 0 {
+			c.streamTX.Add(uint64(n))
 		}
 		if err != nil {
 			return written, err
@@ -168,6 +210,9 @@ func (c *dataChannelConn) WriteBuffers(buffers net.Buffers) (int64, error) {
 		written += int64(n)
 		if c.tx != nil && n > 0 {
 			c.tx.Add(uint64(n))
+		}
+		if n > 0 {
+			c.streamTX.Add(uint64(n))
 		}
 		if err != nil {
 			return err
@@ -211,6 +256,37 @@ func (c *dataChannelConn) Close() error {
 		}
 	})
 	return err
+}
+
+// Diagnostics returns the current request-scoped DataChannel state without
+// addresses, payloads, credentials, or other unbounded values.
+func (c *dataChannelConn) Diagnostics() StreamDiagnostics {
+	if c == nil {
+		return StreamDiagnostics{ReadyState: "unknown", Closed: true}
+	}
+	diagnostics := StreamDiagnostics{
+		ReadyState: "unknown",
+		RXBytes:    c.streamRX.Load(),
+		TXBytes:    c.streamTX.Load(),
+		Closed:     c.closed.Load(),
+	}
+	if c.flow != nil {
+		diagnostics.BufferedAmount = c.flow.BufferedAmount()
+	}
+	if flow, ok := c.flow.(dataChannelDiagnosticFlow); ok {
+		if id := flow.ID(); id != nil {
+			value := *id
+			diagnostics.ID = &value
+		}
+		diagnostics.ReadyState = flow.ReadyState().String()
+	}
+	return diagnostics
+}
+
+// DiagnosticString exposes the bounded snapshot without requiring transport
+// consumers to depend on the concrete WebRTC diagnostics type.
+func (c *dataChannelConn) DiagnosticString() string {
+	return c.Diagnostics().String()
 }
 
 func (c *dataChannelConn) LocalAddr() net.Addr {
