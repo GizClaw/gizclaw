@@ -47,6 +47,14 @@ Firmware OTA 变更可以只启动所需的 live stack，并执行相关 Admin/R
 bash tests/gizclaw-e2e/run_firmware_tests.sh
 ```
 
+Gameplay Pet 物理删除变更使用固定的 production vertical-slice 入口。该入口校验统一的
+credential file，启动隔离的 Docker stack，只运行 Pet managed deletion 场景，并在
+成功或失败后清理 project；它不运行无关的 provider-backed gameplay 场景：
+
+```bash
+bash tests/gizclaw-e2e/run_gameplay_deletion_tests.sh
+```
+
 完整 gate 会安装锁定的 Node workspace、初始化 nanopb submodule、构建 E2E CLI、
 启动 Compose、等待 Server/Desktop，然后依次运行 JS、Desktop、C/cgo、Admin、chat、
 gameplay、RPC、social 和 CLI 套件，最后执行有界清理。总 deadline 默认 90 分钟；
