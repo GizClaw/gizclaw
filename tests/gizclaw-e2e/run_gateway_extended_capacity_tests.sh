@@ -798,6 +798,14 @@ run_case() {
   fi
   set -e
   if ((workload_status != 0)); then
+    echo "==> capture failed capacity service logs: scenario=$scenario repetition=$repetition"
+    for service in server edge edge2 turn coturn-a coturn-b; do
+      docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" \
+        -f "$GIZCLAW_E2E_DOCKER_COMPOSE_FILE" \
+        -f "$GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY" \
+        logs --no-color --timestamps "$service" \
+        >"${artifact%.json}-${service}.log" 2>&1 || true
+    done
     return "$workload_status"
   fi
   if ((monitor_status != 0)); then

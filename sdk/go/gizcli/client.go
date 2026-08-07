@@ -561,9 +561,15 @@ func (c *Client) rejectDuplicateEventStreams() error {
 }
 
 func isPeerPacketReadClosed(err error) bool {
+	if errors.Is(err, giznet.ErrConnClosed) && err != giznet.ErrConnClosed {
+		// gizwebrtc joins ErrConnClosed with the concrete PeerConnection failure.
+		// Preserve that cause so Serve callers can distinguish a failed transport
+		// from an intentional close.
+		return false
+	}
 	return errors.Is(err, io.EOF) ||
 		errors.Is(err, net.ErrClosed) ||
-		errors.Is(err, giznet.ErrConnClosed) ||
+		err == giznet.ErrConnClosed ||
 		errors.Is(err, giznet.ErrClosed) ||
 		errors.Is(err, giznet.ErrServiceMuxClosed)
 }

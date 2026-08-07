@@ -280,6 +280,7 @@ func TestIsPeerPacketReadClosed(t *testing.T) {
 		{name: "eof", err: io.EOF, want: true},
 		{name: "net closed", err: net.ErrClosed, want: true},
 		{name: "conn closed", err: giznet.ErrConnClosed, want: true},
+		{name: "conn failure cause", err: errors.Join(giznet.ErrConnClosed, errors.New("peer failed"))},
 		{name: "udp closed", err: giznet.ErrClosed, want: true},
 		{name: "service mux closed", err: giznet.ErrServiceMuxClosed, want: true},
 		{name: "wrapped", err: errors.Join(errors.New("read failed"), giznet.ErrClosed), want: true},
