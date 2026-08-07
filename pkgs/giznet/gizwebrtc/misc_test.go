@@ -421,29 +421,42 @@ func (s *recordingICEUDPBufferSetter) SetWriteBuffer(size int) error {
 
 func TestConfigureICEUDPBuffers(t *testing.T) {
 	setter := &recordingICEUDPBufferSetter{}
-	if err := configureICEUDPBuffers(setter); err != nil {
+	if err := configureICEUDPBuffers(setter, listenerICEUDPReadBufferSize, listenerICEUDPWriteBufferSize); err != nil {
 		t.Fatal(err)
 	}
-	if setter.readSize != iceUDPReadBufferSize || setter.writeSize != iceUDPWriteBufferSize {
+	if setter.readSize != listenerICEUDPReadBufferSize || setter.writeSize != listenerICEUDPWriteBufferSize {
 		t.Fatalf(
 			"ICE UDP buffer sizes = %d/%d, want %d/%d",
 			setter.readSize,
 			setter.writeSize,
-			iceUDPReadBufferSize,
-			iceUDPWriteBufferSize,
+			listenerICEUDPReadBufferSize,
+			listenerICEUDPWriteBufferSize,
+		)
+	}
+	setter = &recordingICEUDPBufferSetter{}
+	if err := configureICEUDPBuffers(setter, dialICEUDPReadBufferSize, dialICEUDPWriteBufferSize); err != nil {
+		t.Fatal(err)
+	}
+	if setter.readSize != dialICEUDPReadBufferSize || setter.writeSize != dialICEUDPWriteBufferSize {
+		t.Fatalf(
+			"Dial ICE UDP buffer sizes = %d/%d, want %d/%d",
+			setter.readSize,
+			setter.writeSize,
+			dialICEUDPReadBufferSize,
+			dialICEUDPWriteBufferSize,
 		)
 	}
 
 	readErr := errors.New("read buffer")
-	if err := configureICEUDPBuffers(&recordingICEUDPBufferSetter{readErr: readErr}); !errors.Is(err, readErr) {
+	if err := configureICEUDPBuffers(&recordingICEUDPBufferSetter{readErr: readErr}, 1, 2); !errors.Is(err, readErr) {
 		t.Fatalf("read buffer error = %v, want %v", err, readErr)
 	}
 	writeErr := errors.New("write buffer")
 	setter = &recordingICEUDPBufferSetter{writeErr: writeErr}
-	if err := configureICEUDPBuffers(setter); !errors.Is(err, writeErr) {
+	if err := configureICEUDPBuffers(setter, 1, 2); !errors.Is(err, writeErr) {
 		t.Fatalf("write buffer error = %v, want %v", err, writeErr)
 	}
-	if setter.readSize != iceUDPReadBufferSize {
+	if setter.readSize != 1 {
 		t.Fatalf("write failure skipped read buffer sizing: %d", setter.readSize)
 	}
 }

@@ -15,7 +15,11 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-const dialICEUDPAddr = "0.0.0.0:0"
+const (
+	dialICEUDPAddr            = "0.0.0.0:0"
+	dialICEUDPReadBufferSize  = 256 * 1024
+	dialICEUDPWriteBufferSize = 256 * 1024
+)
 
 type DialConfig struct {
 	API                *webrtc.API
@@ -289,11 +293,14 @@ func newDialPionAPI(sctpReceiveBufferSize uint32) (*webrtc.API, []func() error, 
 	// that connection then share one OS-unique source port instead of allocating
 	// the same ephemeral port independently on different local interfaces. This
 	// prevents a NAT from collapsing those candidates onto an indistinguishable
-	// remote tuple while keeping mux address ownership request-scoped.
-	return newPionAPI(&ListenConfig{
+	// remote tuple while keeping mux address ownership request-scoped. A private
+	// client socket uses bounded 256 KiB buffers instead of the 4 MiB buffers
+	// reserved for shared listener sockets.
+	api, _, closers, err := newPionAPIsWithICEUDPBuffers(&ListenConfig{
 		ICEUDPAddr:            dialICEUDPAddr,
 		SCTPReceiveBufferSize: sctpReceiveBufferSize,
-	})
+	}, false, dialICEUDPReadBufferSize, dialICEUDPWriteBufferSize)
+	return api, closers, err
 }
 
 func waitForGathering(ctx context.Context, gatherComplete <-chan struct{}) error {

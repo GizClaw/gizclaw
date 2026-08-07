@@ -128,6 +128,8 @@ PeerConnection. All local-interface host candidates for that connection share
 one OS-unique source port, so NAT cannot collapse independently allocated
 per-interface ports onto one remote tuple. The mux is not shared between
 PeerConnections because Pion routes post-STUN packets by remote address.
+Each private client socket requests 256 KiB read and write buffers; the 4 MiB
+buffers remain limited to listener sockets shared by many PeerConnections.
 SCTP retransmission is capped at 150 ms, and DTLS
 flights use a 150 ms initial retransmission interval, so lost handshake flights
 during a burst do not add the one-second defaults. SCTP reliable delivery and

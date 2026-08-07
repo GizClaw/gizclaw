@@ -19,8 +19,8 @@ const (
 	CipherModeAES256GCM  CipherMode = "aes_256_gcm"
 	CipherModePlaintext  CipherMode = "plaintext"
 
-	iceUDPReadBufferSize  = 4 * 1024 * 1024
-	iceUDPWriteBufferSize = 4 * 1024 * 1024
+	listenerICEUDPReadBufferSize  = 4 * 1024 * 1024
+	listenerICEUDPWriteBufferSize = 4 * 1024 * 1024
 )
 
 type iceUDPBufferSetter interface {
@@ -127,6 +127,20 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 }
 
 func newPionAPIs(c *ListenConfig, includeGatewaySCTP bool) (*webrtc.API, *webrtc.API, []func() error, error) {
+	return newPionAPIsWithICEUDPBuffers(
+		c,
+		includeGatewaySCTP,
+		listenerICEUDPReadBufferSize,
+		listenerICEUDPWriteBufferSize,
+	)
+}
+
+func newPionAPIsWithICEUDPBuffers(
+	c *ListenConfig,
+	includeGatewaySCTP bool,
+	iceUDPReadBufferSize int,
+	iceUDPWriteBufferSize int,
+) (*webrtc.API, *webrtc.API, []func() error, error) {
 	var mediaEngine webrtc.MediaEngine
 	if err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -176,7 +190,7 @@ func newPionAPIs(c *ListenConfig, includeGatewaySCTP bool) (*webrtc.API, *webrtc
 			_ = udpConn.Close()
 			return nil, nil, nil, fmt.Errorf("gizwebrtc: ICE UDP socket does not support buffer sizing")
 		}
-		if err := configureICEUDPBuffers(bufferedConn); err != nil {
+		if err := configureICEUDPBuffers(bufferedConn, iceUDPReadBufferSize, iceUDPWriteBufferSize); err != nil {
 			_ = udpConn.Close()
 			return nil, nil, nil, err
 		}
@@ -240,11 +254,11 @@ func newPionAPIs(c *ListenConfig, includeGatewaySCTP bool) (*webrtc.API, *webrtc
 	return api, gatewaySCTPAPI, closers, nil
 }
 
-func configureICEUDPBuffers(conn iceUDPBufferSetter) error {
-	if err := conn.SetReadBuffer(iceUDPReadBufferSize); err != nil {
+func configureICEUDPBuffers(conn iceUDPBufferSetter, readSize int, writeSize int) error {
+	if err := conn.SetReadBuffer(readSize); err != nil {
 		return fmt.Errorf("gizwebrtc: size ICE UDP read buffer: %w", err)
 	}
-	if err := conn.SetWriteBuffer(iceUDPWriteBufferSize); err != nil {
+	if err := conn.SetWriteBuffer(writeSize); err != nil {
 		return fmt.Errorf("gizwebrtc: size ICE UDP write buffer: %w", err)
 	}
 	return nil

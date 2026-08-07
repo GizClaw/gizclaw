@@ -109,7 +109,9 @@ service DataChannel，与 gateway 每条 upstream association 的 active-session
 默认客户端 Dial 为每条 PeerConnection 独占一个 wildcard IPv4 UDP mux 和 socket。同一
 connection 的所有本地网卡 host candidates 共用一个由 OS 保证唯一的 source port，避免
 NAT 把各网卡独立分配的相同端口折叠成同一个 remote tuple。这个 mux 不跨
-PeerConnection 共享，因为 Pion 在 STUN 之后按 remote address 分发 packet。SCTP
+PeerConnection 共享，因为 Pion 在 STUN 之后按 remote address 分发 packet。每个客户端
+私有 socket 的 read/write buffer 都请求 256 KiB；4 MiB buffer 只用于被多条
+PeerConnection 共享的 listener socket。SCTP
 retransmission 上限为 150 ms，DTLS flight
 的 initial retransmission interval 为 150 ms，使 burst 中丢失 handshake flight 时不会固定
 增加默认的 1 秒等待。SCTP reliable delivery 和 retransmission count 不变；DTLS
