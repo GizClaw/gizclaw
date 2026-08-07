@@ -1,6 +1,7 @@
 package gizwebrtc
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"net"
@@ -202,6 +203,28 @@ func TestDataChannelConnReadReassemblesMessageAsByteStream(t *testing.T) {
 	}
 }
 
+func TestDataChannelConnReadPreservesMaximumMessageSize(t *testing.T) {
+	message := make([]byte, maxPacketMessageSize)
+	for index := range message {
+		message[index] = byte(index)
+	}
+	raw := &fakeStreamRaw{reads: [][]byte{message}}
+	conn := newDataChannelConn(raw, nil, addr("local"), addr("remote"))
+	defer conn.Close()
+
+	got := make([]byte, len(message))
+	n, err := io.ReadFull(conn, got)
+	if err != nil {
+		t.Fatalf("ReadFull error = %v", err)
+	}
+	if n != len(message) || !bytes.Equal(got, message) {
+		t.Fatalf("ReadFull read %d bytes, want the complete %d-byte message", n, len(message))
+	}
+	if got := raw.readCount(); got != 1 {
+		t.Fatalf("raw read count = %d, want 1", got)
+	}
+}
+
 func TestDataChannelConnReadReusesMessageBuffer(t *testing.T) {
 	raw := &repeatingStreamRaw{message: []byte("ping")}
 	conn := newDataChannelConn(raw, nil, addr("local"), addr("remote"))
@@ -222,8 +245,8 @@ func TestDataChannelConnReadReusesMessageBuffer(t *testing.T) {
 	if allocations != 0 {
 		t.Fatalf("Read allocations = %f, want 0", allocations)
 	}
-	if got := len(conn.readBuffer); got != streamChunkSize {
-		t.Fatalf("read buffer size = %d, want %d", got, streamChunkSize)
+	if got := len(conn.readBuffer); got != maxPacketMessageSize {
+		t.Fatalf("read buffer size = %d, want %d", got, maxPacketMessageSize)
 	}
 }
 

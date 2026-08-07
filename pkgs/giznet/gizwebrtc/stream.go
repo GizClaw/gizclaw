@@ -32,8 +32,9 @@ type dataChannelConn struct {
 	tx     *atomic.Uint64
 
 	readMu sync.Mutex
-	// Keep one transport-sized message buffer per live stream. A process-wide
-	// pool would retain the burst high-water mark after short-lived streams close.
+	// Keep one maximum-sized message buffer per live stream so reads preserve the
+	// supported DataChannel message boundary. A process-wide pool would retain
+	// the burst high-water mark after short-lived streams close.
 	readBuffer []byte
 	pending    []byte
 
@@ -80,7 +81,7 @@ func (c *dataChannelConn) Read(p []byte) (int, error) {
 	}
 
 	if c.readBuffer == nil {
-		c.readBuffer = make([]byte, streamChunkSize)
+		c.readBuffer = make([]byte, maxPacketMessageSize)
 	}
 	buf := c.readBuffer
 	n, _, err := c.raw.ReadDataChannel(buf)

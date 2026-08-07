@@ -85,9 +85,11 @@ release 同时包含这两项修复前，也必须复制这两条 replacement。
 release，并在不使用 fork 时通过 reset/reuse integration test 和 race test 后，才能同时移除
 两条 replacement。
 
-Service stream 读取时会从进程级 pool 借用固定的 64 KiB detached-DataChannel message
-buffer；如果调用方未一次读完，则先把剩余部分复制到 connection 自有 pending buffer，再归还
-message buffer。因此长生命周期 RPC stream 的每个小请求不再重新分配最大尺寸 read buffer。
+Service stream 在首次读取时为该条活跃 stream 惰性分配固定的 64 KiB
+detached-DataChannel message buffer，之后的读取重复使用它；如果调用方未一次读完，
+则把剩余部分复制到该 stream 自有的 pending buffer。Buffer 随 stream 关闭释放，
+因此既不会为每次小读取重复分配最大尺寸 buffer，也不会由进程级 pool 保留短时 burst
+的高水位。
 
 每个 PeerConnection 会用一个重复使用的 MTU 大小 buffer 持续读取本地 Opus sender 的 RTCP
 feedback；Pion 随 PeerConnection 关闭 sender 时 reader 随即退出。因此长连接中未消费的

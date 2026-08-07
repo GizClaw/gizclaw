@@ -97,10 +97,12 @@ releases contain both fixes. The replacements must be removed together after
 those releases are selected and the reset/reuse integration and race tests pass
 without the forks.
 
-Service-stream reads borrow the fixed 64 KiB detached-DataChannel message
-buffer from a process-wide pool and return it after copying any unread tail
-into the connection-owned pending buffer. Long-lived RPC streams therefore do
-not allocate a new maximum-size message buffer for every small request.
+Each live service stream lazily allocates one fixed 64 KiB detached-DataChannel
+message buffer on its first read and reuses it for subsequent reads. Any unread
+tail is copied into that stream's pending buffer. The message buffer is
+released when the stream closes, avoiding both a maximum-size allocation for
+every small read and a process-wide pool that retains a short burst's high-water
+mark.
 
 Every PeerConnection continuously drains RTCP feedback for its local Opus
 sender into one reused MTU-sized buffer. The reader exits when Pion closes the
