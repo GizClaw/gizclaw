@@ -178,16 +178,18 @@ func (o *fakeDashScopeOpener) count() int {
 }
 
 type fakeDashScopeSession struct {
-	mu              sync.Mutex
-	eventCalls      int
-	events          []*dashscope.RealtimeEvent
-	eventsDrained   chan struct{}
-	eventsDrainOnce sync.Once
-	updateConfig    *dashscope.SessionConfig
-	submitted       []dashScopeSubmittedToolResult
-	submitErr       error
-	createErr       error
-	responseCreates int
+	mu                   sync.Mutex
+	eventCalls           int
+	events               []*dashscope.RealtimeEvent
+	eventsDrained        chan struct{}
+	eventsDrainOnce      sync.Once
+	updateConfig         *dashscope.SessionConfig
+	submitted            []dashScopeSubmittedToolResult
+	submitErr            error
+	createErr            error
+	responseCreates      int
+	pendingToolResponses int
+	toolResponseCreates  int
 }
 
 func (s *fakeDashScopeSession) UpdateSession(config *dashscope.SessionConfig) error {
@@ -207,6 +209,10 @@ func (s *fakeDashScopeSession) CreateResponse(*dashscope.ResponseCreateOptions) 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.responseCreates++
+	if s.pendingToolResponses > 0 {
+		s.pendingToolResponses--
+		s.toolResponseCreates++
+	}
 	return s.createErr
 }
 func (s *fakeDashScopeSession) SubmitFunctionCallOutput(callID, output string) error {
@@ -216,6 +222,7 @@ func (s *fakeDashScopeSession) SubmitFunctionCallOutput(callID, output string) e
 		return s.submitErr
 	}
 	s.submitted = append(s.submitted, dashScopeSubmittedToolResult{callID: callID, output: output})
+	s.pendingToolResponses++
 	return nil
 }
 func (s *fakeDashScopeSession) CancelResponse() error { return nil }
