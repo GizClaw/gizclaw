@@ -207,7 +207,7 @@ fresh stack ready 后、测量前都执行相同的 120 秒稳定窗口，并每
 避免把 Docker VM 的延迟资源回收计入下一轮 capacity 测量。任一 upload gate 已失败时不再
 执行 download，因为该轮验收已不可恢复。
 
-Extended artifact version 16 记录实际 hold boundary，并验收最初与最后十分钟窗口。每轮
+Extended artifact version 18 记录实际 hold boundary，并验收最初与最后十分钟窗口。每轮
 p99 RTT 的 median、RSS、open FD、最近一次 completed GC 的 Go live heap，以及 goroutine
 值，增长最多为 20%。当前 Go heap-object bytes 保留为诊断值，但因其会随正常 GC cycle
 波动而不作为增长 gate；sampler 不会强制触发 GC。
@@ -223,7 +223,7 @@ Load driver、两台 Edge、两个 Coturn 与 Server 的 source-qualified sample
 任何 initial gate 失败都会阻止 hold 开始，cancellation 仍执行有界 session 与 Docker cleanup。
 
 100/500-session burst runner 保留既有 payload 和 gate，但当前都使用上述 relay-only
-upstream 拓扑。既有 workload field 保持不变；当前 version 16 artifact 包含 optional
+upstream 拓扑。既有 workload field 保持不变；当前 version 18 artifact 包含 optional
 final-speed retention、mandatory bounded-cleanup evidence，以及 load driver 的 effective
 `GOGC`；100/500-session 入口显式保留 `GOGC=100`。同目录的
 `*-coturn.json` sidecar 记录两个
@@ -236,26 +236,33 @@ container-side metric stream，避免把 host 侧 Docker process 启动开销计
 direct-upstream 观测；当前
 Coturn 数据不是 production、WAN 或可移植吞吐 SLA。
 
-2026-08-07 relay qualification 使用 clean production/workload head
-`633c80468170151fc0d2814973dac85167ddcbb5`，运行环境为 Darwin/arm64、16 logical
-CPUs、Go 1.26.4 与 OrbStack Linux/aarch64 Docker。三轮 fresh-stack burst 都建立
-1,000/1,000 sessions、每个 Edge 500 sessions、failure 为 0；Dial p95/p99 分别为
-720.86/921.02 ms、679.88/814.14 ms、819.28/1,003.19 ms，upload/download 分别为
-419.47/408.65、373.99/440.99、389.04/412.13 Mbps。每轮每方向精确传输 1,000 MiB，
-保持十条 relay allocation 存活，并完成有界 session 与 Coturn 清理。后续仅测试与文档的
-commit 不改变该 binary。
+2026-08-07 的权威验收在 clean executable head
+`a2ff5b791a5c60c3b80052204717ac277e43c885` 上只运行一次
+`run_gateway_capacity_1000_soak_tests.sh`。Host 为 Darwin/arm64、16 logical CPUs、
+Go 1.26.4 与 64 GiB RAM；隔离的 service image 运行在 OrbStack 2.2.1 Linux/aarch64
+Docker，配置 16 logical CPUs 与 15.67 GiB RAM。三轮 prerequisite fresh-stack burst
+均建立 1,000/1,000 sessions、每个 Edge 恰好 500 sessions、failure 为 0；establishment
+rate 分别为 159.90、1,118.18、158.99 sessions/s，Dial p95/p99 分别为
+681.57/776.75 ms、749.00/806.92 ms、589.81/669.13 ms，同步 upload/download 分别为
+453.54/482.89、415.54/455.50、484.35/413.58 Mbps。每轮每方向精确传输
+1,000 MiB、保持十条 relay allocation 存活，并通过有界 session 与 Coturn 清理。
 
-修复后的 60 分钟结果仍不完整。修复前的完整 run
-`c494d84aa78a847116bfe405a6ddbee4627b8558` 完成 122,000 次成功 Ping 且没有
-disconnect，但两个 Edge 的 RSS 增长 20.11% 与 23.39%，因此失败。对应 SCTP scheduler
-retention 已在 `GizClaw/pion-sctp@cb2d223c9f55` 删除；sampled retained site 消失，
-sampled in-use memory 从约 9.0 MiB 降至 4.6 MiB。修复后的
-`633c80468170151fc0d2814973dac85167ddcbb5` run 通过全部三轮 prerequisite burst，建立
-全部 1,000 个 soak session，initial upload/download 为 427.62/455.88 Mbps，随后第一轮
-Ping 出现一个 timeout（999/1,000），association 仍 active 且 disconnect 为 0，runner
-立即 fail-fast。受控丢包 coverage 连续 20 次通过，9,000 次真实 request-scoped
-DataChannel generation 也通过，因此没有依据修改代码，也没有通过重复运行追求偶然 pass。
-缺失的修复后完整 60 分钟 resource window 是明确的剩余风险。
+新的 soak stack 随后以 1,074.63 sessions/s 建立 1,000/1,000 sessions，Dial p95/p99
+为 718.53/838.54 ms。60 分钟内 122,000 次验收 Ping 全部完成；Ping failure、disconnect、
+identity crossover、process/container exit 与 restart 均为 0，aggregate RTT p99 为
+474.93 ms。Initial upload/download 为 415.51/425.25 Mbps，final upload/download 为
+424.20/524.18 Mbps；final aggregate retention 为 102.09%/123.26%，per-session
+p01/p05/p50 中最低 retention 为 96.66%，全部 throughput gate 通过。
+
+Late median round-p99 RTT 下降 11.11%。两个 Edge 的 late-window RSS 分别增长 10.89%
+与 16.49%，load driver 为 -52.64%，Server 为 -0.65%，两个 Coturn member 均约为
+-2.78%；load driver 的 completed-GC live heap 增长 10.98%，FD 与 goroutine median
+不变。六个角色全部通过其支持的 RSS、CPU、FD、heap、goroutine、UDP/UDP6 与 network-rate
+gate；每个角色至少提供 3,679 个一秒 sample，最大 gap 为 1.033 秒。两个 Edge 全程保持
+relay-only；Coturn sidecar 记录 received 2,414,392,388 bytes、sent 2,381,483,034 bytes；
+logical-session cleanup 在 45.55 ms 内完成且 close failure 为 0，两个 Coturn member 均在
+15 秒上限内从五条 allocation 归零。后续 documentation-only commit 不改变这份已验收
+executable。
 
 标准 Docker `turn` role 使用同一 pinned Coturn image、TURN REST 认证、container-private/
 host-public IPv4 mapping 与一对一发布的 UDP relay range。`run_turn_relay_tests.sh` 验证

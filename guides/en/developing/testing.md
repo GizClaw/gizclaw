@@ -248,7 +248,7 @@ window reports its remaining time every 15 seconds so delayed Docker-VM resource
 reclamation is not charged to the next capacity measurement. A failed upload
 gate skips download because the run can no longer qualify.
 
-Extended artifact version 16 records actual hold boundaries and qualifies the
+Extended artifact version 18 records actual hold boundaries and qualifies the
 first and last ten-minute windows. Median round p99 RTT, RSS, open FDs,
 completed-GC Go live heap, and goroutine values may grow by at most 20%. Current
 Go heap-object bytes remain diagnostic and are not gated because they vary with
@@ -270,7 +270,7 @@ cancellation still performs bounded session and Docker cleanup.
 
 The 100- and 500-session burst runners preserve their accepted payloads and
 gates but now use that relay-only upstream topology. Existing workload fields
-remain stable. The current version 16 artifact includes optional final-speed
+remain stable. The current version 18 artifact includes optional final-speed
 retention, mandatory bounded-cleanup evidence, and the load driver's effective
 `GOGC`; the 100- and 500-session entrypoints explicitly retain `GOGC=100`. A
 sibling `*-coturn.json`
@@ -285,31 +285,38 @@ nanosecond samples truncate to the same millisecond. The merged
 #697/#698 results remain historical direct-upstream observations; current
 Coturn measurements are not a production, WAN, or portable throughput SLA.
 
-The 2026-08-07 relay qualification used clean production/workload head
-`633c80468170151fc0d2814973dac85167ddcbb5` on Darwin/arm64 with 16 logical
-CPUs, Go 1.26.4, and OrbStack Linux/aarch64 Docker. Its three fresh-stack burst
-runs passed with 1,000/1,000 sessions, 500 sessions per Edge, zero failures,
-Dial p95/p99 values of 720.86/921.02 ms, 679.88/814.14 ms, and
-819.28/1,003.19 ms, and upload/download rates of 419.47/408.65,
-373.99/440.99, and 389.04/412.13 Mbps. Each run transferred exactly 1,000 MiB
-per direction, kept all ten relay allocations live, and completed bounded
-session and Coturn cleanup. Later test-only and documentation commits do not
-change that binary.
+The authoritative 2026-08-07 qualification ran
+`run_gateway_capacity_1000_soak_tests.sh` once on clean executable head
+`a2ff5b791a5c60c3b80052204717ac277e43c885`. The host was Darwin/arm64 with 16
+logical CPUs, Go 1.26.4, and 64 GiB RAM; the isolated service image ran on
+OrbStack 2.2.1 Linux/aarch64 Docker with 16 logical CPUs and 15.67 GiB RAM.
+The three prerequisite fresh-stack bursts each established 1,000/1,000
+sessions, exactly 500 per Edge, with zero failures. Their establishment rates
+were 159.90, 1,118.18, and 158.99 sessions/s; Dial p95/p99 values were
+681.57/776.75 ms, 749.00/806.92 ms, and 589.81/669.13 ms; synchronized
+upload/download rates were 453.54/482.89, 415.54/455.50, and 484.35/413.58
+Mbps. Each direction transferred exactly 1,000 MiB, all ten relay allocations
+remained live, and bounded session and Coturn cleanup passed.
 
-The post-fix 60-minute result remains incomplete. A complete pre-fix run at
-`c494d84aa78a847116bfe405a6ddbee4627b8558` had 122,000 successful Pings and
-zero disconnects but failed Edge RSS growth at 20.11% and 23.39%. The owning
-SCTP scheduler retention was removed in `GizClaw/pion-sctp@cb2d223c9f55`, with
-the sampled retained site disappearing and sampled in-use memory falling from
-about 9.0 MiB to 4.6 MiB. The post-fix run at
-`633c80468170151fc0d2814973dac85167ddcbb5` passed all three prerequisite
-bursts, established all 1,000 soak sessions, and measured initial
-427.62/455.88 Mbps upload/download, then failed fast on one first-round Ping
-timeout (999/1,000) while the association remained active and disconnects
-stayed zero. Focused loss coverage passed 20 times and 9,000 real
-request-scoped DataChannel generations passed, so no code change was justified
-and the runner was not repeated for a chance pass. The missing complete
-post-fix 60-minute resource windows remain explicit residual risk.
+The fresh soak then established 1,000/1,000 sessions at 1,074.63 sessions/s,
+with Dial p95/p99 of 718.53/838.54 ms. All 122,000 accepted Pings completed over
+60 minutes with zero Ping failures, disconnects, identity crossovers, exits, or
+restarts; aggregate RTT p99 was 474.93 ms. Initial upload/download were
+415.51/425.25 Mbps and final upload/download were 424.20/524.18 Mbps. Final
+aggregate retention was 102.09%/123.26%; the lowest accepted per-session
+p01/p05/p50 retention was 96.66%, so every throughput gate passed.
+
+The late median round-p99 RTT fell by 11.11%. Late-window RSS growth was 10.89%
+and 16.49% for the two Edges, -52.64% for the load driver, -0.65% for Server,
+and about -2.78% for both Coturn members. The load driver's completed-GC live
+heap grew 10.98%; its FD and goroutine medians were unchanged. All six roles
+passed their supported RSS, CPU, FD, heap, goroutine, UDP/UDP6, and network-rate
+gates. Each role supplied at least 3,679 one-second samples with a maximum gap
+of 1.033 seconds. Both Edges remained relay-only, the Coturn sidecar recorded
+2,414,392,388 received and 2,381,483,034 sent bytes, logical-session cleanup
+completed in 45.55 ms with no close failure, and both Coturn members returned
+from five to zero allocations within the 15-second bound. Documentation-only
+commits after this result do not change the qualified executable.
 
 The standard Docker `turn` role uses the same pinned Coturn image with TURN
 REST authentication, a private-container/public-host IPv4 mapping, and a

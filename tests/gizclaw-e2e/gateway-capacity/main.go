@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	artifactVersion = 12
+	artifactVersion = 14
 	maxSpeedBytes   = int64(1 << 30)
 )
 
@@ -87,36 +87,37 @@ type options struct {
 }
 
 type artifact struct {
-	Version               int                       `json:"version"`
-	StartedAt             time.Time                 `json:"started_at"`
-	FinishedAt            time.Time                 `json:"finished_at"`
-	Host                  hostSummary               `json:"host"`
-	Config                artifactConfig            `json:"config"`
-	Attempted             int                       `json:"attempted"`
-	Established           int                       `json:"established"`
-	EstablishmentFailures int                       `json:"establishment_failures"`
-	PingsAttempted        int                       `json:"pings_attempted"`
-	PingFailures          int                       `json:"ping_failures"`
-	UnexpectedDisconnects int                       `json:"unexpected_disconnects"`
-	IdentityCrossover     bool                      `json:"identity_crossover"`
-	RTT                   latencySummary            `json:"rtt_ms"`
-	Establishment         establishmentSummary      `json:"establishment"`
-	PingRounds            []pingRoundSummary        `json:"ping_rounds"`
-	SpeedTest             speedTestSummary          `json:"speed_test"`
-	FinalSpeedTest        *speedTestSummary         `json:"final_speed_test,omitempty"`
-	SpeedRetention        *speedRetentionSummary    `json:"speed_retention,omitempty"`
-	HoldStartedAt         time.Time                 `json:"hold_started_at,omitzero"`
-	HoldFinishedAt        time.Time                 `json:"hold_finished_at,omitzero"`
-	SoakStability         *soakQualification        `json:"soak_stability,omitempty"`
-	Opus                  opusSummary               `json:"opus"`
-	BytesPerSession       byteSummary               `json:"bytes_per_session"`
-	EdgeDistribution      map[string]int            `json:"edge_distribution"`
-	UpstreamDistribution  map[string]map[string]int `json:"upstream_distribution"`
-	ResourceUsage         resourceSummary           `json:"resource_usage"`
-	Cleanup               cleanupSummary            `json:"cleanup"`
-	Extended              *extendedRunEvidence      `json:"extended,omitempty"`
-	Errors                []string                  `json:"errors,omitempty"`
-	Passed                bool                      `json:"passed"`
+	Version                int                       `json:"version"`
+	StartedAt              time.Time                 `json:"started_at"`
+	FinishedAt             time.Time                 `json:"finished_at"`
+	Host                   hostSummary               `json:"host"`
+	Config                 artifactConfig            `json:"config"`
+	Attempted              int                       `json:"attempted"`
+	Established            int                       `json:"established"`
+	EstablishmentFailures  int                       `json:"establishment_failures"`
+	PingsAttempted         int                       `json:"pings_attempted"`
+	PingFailures           int                       `json:"ping_failures"`
+	PingFailureDiagnostics []pingFailureDiagnostic   `json:"ping_failure_diagnostics,omitempty"`
+	UnexpectedDisconnects  int                       `json:"unexpected_disconnects"`
+	IdentityCrossover      bool                      `json:"identity_crossover"`
+	RTT                    latencySummary            `json:"rtt_ms"`
+	Establishment          establishmentSummary      `json:"establishment"`
+	PingRounds             []pingRoundSummary        `json:"ping_rounds"`
+	SpeedTest              speedTestSummary          `json:"speed_test"`
+	FinalSpeedTest         *speedTestSummary         `json:"final_speed_test,omitempty"`
+	SpeedRetention         *speedRetentionSummary    `json:"speed_retention,omitempty"`
+	HoldStartedAt          time.Time                 `json:"hold_started_at,omitzero"`
+	HoldFinishedAt         time.Time                 `json:"hold_finished_at,omitzero"`
+	SoakStability          *soakQualification        `json:"soak_stability,omitempty"`
+	Opus                   opusSummary               `json:"opus"`
+	BytesPerSession        byteSummary               `json:"bytes_per_session"`
+	EdgeDistribution       map[string]int            `json:"edge_distribution"`
+	UpstreamDistribution   map[string]map[string]int `json:"upstream_distribution"`
+	ResourceUsage          resourceSummary           `json:"resource_usage"`
+	Cleanup                cleanupSummary            `json:"cleanup"`
+	Extended               *extendedRunEvidence      `json:"extended,omitempty"`
+	Errors                 []string                  `json:"errors,omitempty"`
+	Passed                 bool                      `json:"passed"`
 }
 
 type hostSummary struct {
@@ -217,6 +218,25 @@ type pingRoundSummary struct {
 	EdgeFailures     map[string]int                       `json:"edge_failures"`
 	UpstreamRTT      map[string]map[string]latencySummary `json:"upstream_rtt_ms"`
 	UpstreamFailures map[string]map[string]int            `json:"upstream_failures"`
+}
+
+type pingFailureDiagnostic struct {
+	ID                   string        `json:"id"`
+	Edge                 string        `json:"edge"`
+	Upstream             string        `json:"upstream"`
+	Error                string        `json:"error"`
+	DataChannel          string        `json:"data_channel,omitempty"`
+	ParentTransport      string        `json:"parent_transport,omitempty"`
+	ParentState          string        `json:"parent_state"`
+	FailedRXDelta        uint64        `json:"failed_rx_delta"`
+	FailedTXDelta        uint64        `json:"failed_tx_delta"`
+	ProbeID              string        `json:"probe_id"`
+	ProbeSucceeded       bool          `json:"probe_succeeded"`
+	ProbeRTT             time.Duration `json:"probe_rtt"`
+	ProbeRXDelta         uint64        `json:"probe_rx_delta"`
+	ProbeTXDelta         uint64        `json:"probe_tx_delta"`
+	ProbeError           string        `json:"probe_error,omitempty"`
+	ProbeParentTransport string        `json:"probe_parent_transport,omitempty"`
 }
 
 type speedTestSummary struct {
@@ -349,30 +369,32 @@ type liveSession struct {
 	closeFn       func() error
 	speedFn       func(context.Context, string, rpcapi.SpeedTestRequest) (gizcli.SpeedTestResult, error)
 	packetWriteFn func(byte, []byte) (int, error)
+	pingFn        func(context.Context, string) (*rpcapi.PingResponse, error)
 }
 
 type resultState struct {
-	mu                    sync.Mutex
-	serveWG               sync.WaitGroup
-	sessions              []*liveSession
-	rtts                  []time.Duration
-	pingRounds            []pingRoundSummary
-	establishment         establishmentSummary
-	speedTest             speedTestSummary
-	finalSpeedTest        *speedTestSummary
-	speedRetention        *speedRetentionSummary
-	cleanup               cleanupSummary
-	cleanupOnce           sync.Once
-	holdStartedAt         time.Time
-	holdFinishedAt        time.Time
-	opus                  opusSummary
-	errors                []string
-	edgeDistribution      map[string]int
-	upstreamDistribution  map[string]map[string]int
-	pings                 int
-	pingFailures          int
-	unexpectedDisconnects int
-	identityCrossover     bool
+	mu                     sync.Mutex
+	serveWG                sync.WaitGroup
+	sessions               []*liveSession
+	rtts                   []time.Duration
+	pingRounds             []pingRoundSummary
+	establishment          establishmentSummary
+	speedTest              speedTestSummary
+	finalSpeedTest         *speedTestSummary
+	speedRetention         *speedRetentionSummary
+	cleanup                cleanupSummary
+	cleanupOnce            sync.Once
+	holdStartedAt          time.Time
+	holdFinishedAt         time.Time
+	opus                   opusSummary
+	errors                 []string
+	edgeDistribution       map[string]int
+	upstreamDistribution   map[string]map[string]int
+	pings                  int
+	pingFailures           int
+	pingFailureDiagnostics []pingFailureDiagnostic
+	unexpectedDisconnects  int
+	identityCrossover      bool
 }
 
 type upstreamRecorder struct {
@@ -1539,20 +1561,25 @@ func pingAll(
 				pingStarted := time.Now()
 				id := fmt.Sprintf("gateway-capacity-%s-%d-%d", phase, round, index)
 				rxBefore, txBefore := session.byteCounts()
-				_, err := session.client.Ping(pingCtx, id)
+				_, err := session.ping(pingCtx, id)
 				rxAfter, txAfter := session.byteCounts()
 				rtt := time.Since(pingStarted)
 				cancel()
 				if err != nil {
+					failedRXDelta := counterDelta(rxBefore, rxAfter)
+					failedTXDelta := counterDelta(txBefore, txAfter)
 					err = fmt.Errorf(
 						"id=%s edge=%s upstream=%s rx_delta=%d tx_delta=%d: %w",
 						id,
 						session.edge,
 						session.upstream,
-						counterDelta(rxBefore, rxAfter),
-						counterDelta(txBefore, txAfter),
+						failedRXDelta,
+						failedTXDelta,
 						err,
 					)
+					state.recordPingFailureDiagnostic(diagnosePingFailure(
+						ctx, session, opts.pingTimeout, id, err, failedRXDelta, failedTXDelta,
+					))
 				}
 				state.recordPing(rtt, err)
 				roundMu.Lock()
@@ -1594,6 +1621,61 @@ func pingAll(
 	}
 	state.recordPingRound(summary)
 	return summary
+}
+
+func diagnosePingFailure(
+	ctx context.Context,
+	session *liveSession,
+	pingTimeout time.Duration,
+	id string,
+	failure error,
+	failedRXDelta, failedTXDelta uint64,
+) pingFailureDiagnostic {
+	diagnostic := pingFailureDiagnostic{
+		ID: id, Edge: session.edge, Upstream: session.upstream, Error: failure.Error(),
+		ParentState: "unknown", FailedRXDelta: failedRXDelta, FailedTXDelta: failedTXDelta,
+		ProbeID: id + "-diagnostic",
+	}
+	var observed interface{ TransportDiagnostics() string }
+	if errors.As(failure, &observed) {
+		diagnostic.DataChannel = observed.TransportDiagnostics()
+	}
+	var parentObserved interface{ ParentTransportDiagnostics() string }
+	if errors.As(failure, &parentObserved) {
+		diagnostic.ParentTransport = parentObserved.ParentTransportDiagnostics()
+	}
+	if conn := session.peerConn(); conn != nil {
+		if peer := conn.PeerInfo(); peer != nil {
+			diagnostic.ParentState = peer.State.String()
+		}
+	}
+	probeTimeout := min(pingTimeout, 2*time.Second)
+	if probeTimeout <= 0 {
+		probeTimeout = 2 * time.Second
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+	rxBefore, txBefore := session.byteCounts()
+	started := time.Now()
+	_, probeErr := session.ping(probeCtx, diagnostic.ProbeID)
+	diagnostic.ProbeRTT = time.Since(started)
+	if conn := session.peerConn(); conn != nil {
+		if observed, ok := conn.(interface{ DiagnosticString() string }); ok {
+			diagnostic.ProbeParentTransport = observed.DiagnosticString()
+		}
+	}
+	rxAfter, txAfter := session.byteCounts()
+	diagnostic.ProbeRXDelta = counterDelta(rxBefore, rxAfter)
+	diagnostic.ProbeTXDelta = counterDelta(txBefore, txAfter)
+	if probeErr != nil {
+		diagnostic.ProbeError = probeErr.Error()
+		if diagnostic.ProbeParentTransport == "" && errors.As(probeErr, &parentObserved) {
+			diagnostic.ProbeParentTransport = parentObserved.ParentTransportDiagnostics()
+		}
+		return diagnostic
+	}
+	diagnostic.ProbeSucceeded = true
+	return diagnostic
 }
 
 func pingSessionBatches(sessions []*liveSession, concurrency int) [][]*liveSession {
@@ -2286,6 +2368,19 @@ func (s *liveSession) speedTest(
 	return s.client.SpeedTest(ctx, id, request)
 }
 
+func (s *liveSession) ping(ctx context.Context, id string) (*rpcapi.PingResponse, error) {
+	if s == nil {
+		return nil, errors.New("nil live session")
+	}
+	if s.pingFn != nil {
+		return s.pingFn(ctx, id)
+	}
+	if s.client == nil {
+		return nil, errors.New("live session has no client")
+	}
+	return s.client.Ping(ctx, id)
+}
+
 func (s *resultState) recordPing(rtt time.Duration, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -2305,6 +2400,12 @@ func (s *resultState) recordPingRound(round pingRoundSummary) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.pingRounds = append(s.pingRounds, round)
+}
+
+func (s *resultState) recordPingFailureDiagnostic(diagnostic pingFailureDiagnostic) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pingFailureDiagnostics = append(s.pingFailureDiagnostics, diagnostic)
 }
 
 func (s *resultState) recordError(message string) {
@@ -2410,6 +2511,9 @@ func finalize(report artifact, state *resultState, resources *resourceSampler, e
 	report.EstablishmentFailures = report.Attempted - report.Established
 	report.PingsAttempted = state.pings
 	report.PingFailures = state.pingFailures
+	report.PingFailureDiagnostics = append(
+		[]pingFailureDiagnostic(nil), state.pingFailureDiagnostics...,
+	)
 	report.UnexpectedDisconnects = state.unexpectedDisconnects
 	report.IdentityCrossover = state.identityCrossover
 	report.RTT = summarizeLatency(state.rtts)

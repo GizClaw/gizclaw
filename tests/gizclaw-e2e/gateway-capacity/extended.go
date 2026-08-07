@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	extendedArtifactVersion         = 16
+	extendedArtifactVersion         = 18
 	maximumResourceSampleGap        = 2100 * time.Millisecond
 	maximumResourceSampleFutureSkew = 100 * time.Millisecond
 )

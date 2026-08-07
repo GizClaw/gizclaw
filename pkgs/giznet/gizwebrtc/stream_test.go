@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/pion/webrtc/v4"
 )
 
 func TestDataChannelConnWriteWaitsForBufferedAmountLow(t *testing.T) {
@@ -116,6 +117,57 @@ func TestDataChannelConnWriteDeadlineExpiresWhileWaitingForBackpressure(t *testi
 	}
 	if got := raw.writeCount(); got != 0 {
 		t.Fatalf("write count after deadline = %d, want 0", got)
+	}
+}
+
+func TestDataChannelConnDiagnosticsCaptureStreamStateAndBytes(t *testing.T) {
+	raw := &fakeStreamRaw{reads: [][]byte{[]byte("pong")}}
+	flow := &fakeDiagnosticDataChannelFlow{
+		fakeDataChannelFlow: newFakeDataChannelFlow(),
+		id:                  42,
+		state:               webrtc.DataChannelStateOpen,
+	}
+	flow.setBufferedAmount(7)
+	conn := newDataChannelConn(raw, flow, addr("local"), addr("remote"))
+	if _, err := conn.Write([]byte("ping")); err != nil {
+		t.Fatalf("Write error = %v", err)
+	}
+	buffer := make([]byte, 4)
+	if _, err := io.ReadFull(conn, buffer); err != nil {
+		t.Fatalf("Read error = %v", err)
+	}
+
+	diagnostics := conn.Diagnostics()
+	if diagnostics.ID == nil || *diagnostics.ID != 42 || diagnostics.ReadyState != "open" ||
+		diagnostics.BufferedAmount != 7 || diagnostics.RXBytes != 4 || diagnostics.TXBytes != 4 ||
+		diagnostics.Closed {
+		t.Fatalf("Diagnostics() = %+v", diagnostics)
+	}
+	if got := diagnostics.String(); got != "id=42 ready_state=open buffered_amount=7 rx_bytes=4 tx_bytes=4 closed=false" {
+		t.Fatalf("Diagnostics().String() = %q", got)
+	}
+	if got := conn.DiagnosticString(); got != diagnostics.String() {
+		t.Fatalf("DiagnosticString() = %q, want %q", got, diagnostics.String())
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatalf("Close error = %v", err)
+	}
+	if diagnostics := conn.Diagnostics(); !diagnostics.Closed {
+		t.Fatalf("closed Diagnostics() = %+v", diagnostics)
+	}
+}
+
+func TestDataChannelConnDiagnosticsCaptureRemoteClose(t *testing.T) {
+	flow := &fakeDiagnosticDataChannelFlow{
+		fakeDataChannelFlow: newFakeDataChannelFlow(),
+		id:                  42,
+		state:               webrtc.DataChannelStateClosed,
+	}
+	conn := newDataChannelConn(&fakeStreamRaw{}, flow, addr("local"), addr("remote"))
+
+	diagnostics := conn.Diagnostics()
+	if !diagnostics.Closed || diagnostics.ReadyState != "closed" {
+		t.Fatalf("Diagnostics() = %+v, want remote closed state", diagnostics)
 	}
 }
 
@@ -519,6 +571,16 @@ type fakeDataChannelFlow struct {
 	threshold uint64
 	onLow     func()
 }
+
+type fakeDiagnosticDataChannelFlow struct {
+	*fakeDataChannelFlow
+	id    uint16
+	state webrtc.DataChannelState
+}
+
+func (f *fakeDiagnosticDataChannelFlow) ID() *uint16 { return &f.id }
+
+func (f *fakeDiagnosticDataChannelFlow) ReadyState() webrtc.DataChannelState { return f.state }
 
 func newFakeDataChannelFlow() *fakeDataChannelFlow {
 	return &fakeDataChannelFlow{}

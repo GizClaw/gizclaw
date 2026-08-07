@@ -159,6 +159,13 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 	if serverInfo == nil || serverInfo.RxBytes < minimumBytes {
 		t.Fatalf("server RxBytes = %#v, want at least %d", serverInfo, minimumBytes)
 	}
+	diagnostics := clientConn.Diagnostics()
+	if diagnostics.PeerConnectionState != webrtc.PeerConnectionStateConnected.String() ||
+		diagnostics.ICEConnectionState != webrtc.ICEConnectionStateConnected.String() ||
+		diagnostics.SCTPTransportState != webrtc.SCTPTransportStateConnected.String() ||
+		diagnostics.SCTPBytesSent == 0 || diagnostics.SCTPBytesReceived == 0 {
+		t.Fatalf("client parent diagnostics = %+v", diagnostics)
+	}
 }
 
 func TestInterleavedServiceStreamsDoNotExhaustSCTPReceiveWindow(t *testing.T) {

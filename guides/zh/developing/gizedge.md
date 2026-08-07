@@ -269,7 +269,12 @@ post-start 稳定窗口，并每 15 秒输出 container health；复用镜像的
 每轮 1,000-session fresh stack 清理后有固定 120 秒稳定窗口，并每 15 秒输出剩余时间，避免
 Docker VM 的延迟资源回收污染下一轮；upload gate 已失败时跳过不再有意义的 download。
 
-Artifact version 16 记录实际 hold boundary，并比较最初与最后十分钟。每轮 RTT p99 的
+Artifact version 18 记录实际 hold boundary，并比较最初与最后十分钟。Ping 失败时，
+artifact 还会记录失败请求关闭前的 DataChannel ID、状态、buffered amount、收发字节数和
+parent association 状态，同时记录不含地址的 PeerConnection、ICE、SCTP 状态，以及 ICE
+包/字节和 SCTP 字节计数；随后在同一 association 上使用另一条全新的 DataChannel 执行一次
+有界诊断 Ping，并再次记录 parent 计数。诊断 Ping 不计入验收请求数，也不会把原始失败改判为通过。
+每轮 RTT p99 的
 median、RSS、open FD、最近一次 completed GC 的 Go live heap，以及 goroutine median，
 增长均不得超过 20%。当前 Go heap-object bytes 保留为诊断值，但因其会随正常 GC cycle
 波动而不作为增长 gate；采样过程不会强制触发 GC。
@@ -292,31 +297,28 @@ sample 截断到同一毫秒时才允许 timestamp 相等。这些命令只验�
 记录的 host、Docker engine、clean commit 与 topology，不是 30,000-session 或 WAN
 guarantee。
 
-2026-08-07，clean production/workload head
-`633c80468170151fc0d2814973dac85167ddcbb5` 在一台 Darwin/arm64、16 logical CPUs、
-Go 1.26.4、OrbStack Linux/aarch64 Docker 主机上通过三轮 relay-only burst。三轮均建立
-1,000/1,000 sessions，establishment rate 分别为 869.05、890.26、530.63 sessions/s；
-Dial p95/p99 分别为 720.86/921.02 ms、679.88/814.14 ms、819.28/1,003.19 ms；同步
-upload/download throughput 分别为 419.47/408.65 Mbps、373.99/440.99 Mbps、
-389.04/412.13 Mbps。每轮都给两个 Edge 各分配 500 sessions、每方向精确传输
-1,000 MiB、保持十条 relay allocation 存活，correctness、liveness、disconnect、identity、
-container exit 和 restart failure 均为 0，并在有界清理中使两个 Coturn member 的
-allocation 归零。后续仅测试与文档的 commit 不改变这份已验收 binary。
+2026-08-07，clean executable head
+`a2ff5b791a5c60c3b80052204717ac277e43c885` 在一台 Darwin/arm64、16 logical CPUs、
+Go 1.26.4、64 GiB RAM 的主机上只执行一次有序 relay-only 验收；service image 运行在
+OrbStack 2.2.1 Linux/aarch64 Docker，配置 16 logical CPUs 与 15.67 GiB RAM。三轮
+fresh-stack burst prerequisite 均建立 1,000/1,000 sessions，establishment rate 分别为
+159.90、1,118.18、158.99 sessions/s；Dial p95/p99 分别为 681.57/776.75 ms、
+749.00/806.92 ms、589.81/669.13 ms，同步 upload/download throughput 分别为
+453.54/482.89、415.54/455.50、484.35/413.58 Mbps。每轮均给两个 Edge 各分配
+500 sessions、每方向精确传输 1,000 MiB、保持十条 relay allocation 存活，并在没有
+correctness、liveness、exit 或 restart failure 的情况下完成有界清理。
 
-该 production head 的 60 分钟 soak 尚未通过。较早的完整 run
-`c494d84aa78a847116bfe405a6ddbee4627b8558` 完成 122,000 次 Ping，failure 与
-disconnect 均为 0，但两个 Edge 的 late median RSS 分别增长 20.11% 和 23.39%，超过
-20% gate。Heap profile 把 retained state 定位到 SCTP weighted-fair scheduler 的
-per-stream finish map；`GizClaw/pion-sctp@cb2d223c9f55` 在 stream queue 排空时释放该
-entry，修复后 sampled retained scheduler site 消失，total sampled in-use memory 从约
-9.0 MiB 降至 4.6 MiB。修复后的
-`633c80468170151fc0d2814973dac85167ddcbb5` soak 建立全部 1,000 sessions，并通过
-initial 427.62/455.88 Mbps upload/download checkpoint，但第一轮 hold 有一个 request
-timeout（Ping 999/1,000），association 仍 active 且 disconnect 为 0；fail-fast runner
-没有等待 60 分钟，而是立即完成有界清理。受控 response DATA 丢包连续 20 次通过，
-9,000 次真实 request-scoped DataChannel generation 的 integration coverage 也通过，
-因此没有定位到可修复的代码缺陷，也没有通过重复运行碰运气。剩余风险是缺少完整的修复后
-60 分钟 resource window；zero-failure soak gate 仍未验收。
+新的 60 分钟 soak stack 随后以 1,074.63 sessions/s 建立 1,000/1,000 sessions，Dial
+p95/p99 为 718.53/838.54 ms；122,000 次验收 Ping 全部完成，failure、disconnect 与
+identity crossover 均为 0。Initial upload/download 为 415.51/425.25 Mbps，final
+upload/download 为 424.20/524.18 Mbps；aggregate retention 为 102.09%/123.26%，
+per-session 验收 percentile 中最低 retention 为 96.66%。Late median round-p99 RTT
+下降 11.11%。两个 Edge 的 late-window RSS 分别增长 10.89% 与 16.49%，load driver
+为 -52.64%，Server 为 -0.65%，两个 Coturn member 均约为 -2.78%；load driver 的
+completed-GC live heap 增长 10.98%。六角色全部通过支持的资源 gate，每个角色至少提供
+3,679 个一秒 sample，最大 gap 为 1.033 秒。两个 Edge 全程保持 relay-only；logical
+cleanup 在 45.55 ms 内无失败完成，两个 Coturn member 均在 15 秒内从五条 allocation
+归零。后续 documentation-only commit 不改变这份已验收 executable。
 
 `max-upstreams` 是容量上限，不是应立即铺满的吞吐目标。单 association 会把大型并发
 burst 串行化；一次打开全部 slot 又会同时支付多条 SCTP 冷启动和拥塞恢复成本。默认的
