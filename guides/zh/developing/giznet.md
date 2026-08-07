@@ -105,7 +105,11 @@ profile receive credit 限制在 256 MiB；额度释放前，后续 association 
 的 service streams 各自 512 KiB 的 DataChannel send budget 一致，避免 interleaved partial
 messages 在交付前耗尽 receiver window。每条 connection 最多接收远端打开的 2,048 条
 service DataChannel，与 gateway 每条 upstream association 的 active-session 上限一致；
-超出上限的 channel 会在交付前关闭，service label 不能创建无界 queue。SCTP
+超出上限的 channel 会在交付前关闭，service label 不能创建无界 queue。
+默认客户端 Dial 为每条 PeerConnection 独占一个 wildcard IPv4 UDP mux 和 socket。同一
+connection 的所有本地网卡 host candidates 共用一个由 OS 保证唯一的 source port，避免
+NAT 把各网卡独立分配的相同端口折叠成同一个 remote tuple。这个 mux 不跨
+PeerConnection 共享，因为 Pion 在 STUN 之后按 remote address 分发 packet。SCTP
 retransmission 上限为 150 ms，DTLS flight
 的 initial retransmission interval 为 150 ms，使 burst 中丢失 handshake flight 时不会固定
 增加默认的 1 秒等待。SCTP reliable delivery 和 retransmission count 不变；DTLS

@@ -15,10 +15,7 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-var defaultDialAPI = sync.OnceValues(func() (*webrtc.API, error) {
-	api, _, err := newPionAPI(nil)
-	return api, err
-})
+const dialICEUDPAddr = "0.0.0.0:0"
 
 type DialConfig struct {
 	API                *webrtc.API
@@ -123,18 +120,10 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		return nil, nil, fmt.Errorf("gizwebrtc: SCTP receive override requires the default Pion API")
 	}
 	if api == nil {
-		if cfg.SCTPReceiveBufferSize == 0 {
-			var err error
-			api, err = defaultDialAPI()
-			if err != nil {
-				return nil, nil, err
-			}
-		} else {
-			var err error
-			api, closers, err = newPionAPI(&ListenConfig{SCTPReceiveBufferSize: cfg.SCTPReceiveBufferSize})
-			if err != nil {
-				return nil, nil, err
-			}
+		var err error
+		api, closers, err = newDialPionAPI(cfg.SCTPReceiveBufferSize)
+		if err != nil {
+			return nil, nil, err
 		}
 	}
 	l := &Listener{
@@ -293,6 +282,18 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 	})
 	l.enqueueConn(conn)
 	return l, conn, nil
+}
+
+func newDialPionAPI(sctpReceiveBufferSize uint32) (*webrtc.API, []func() error, error) {
+	// Bind one wildcard UDP socket per PeerConnection. All host candidates for
+	// that connection then share one OS-unique source port instead of allocating
+	// the same ephemeral port independently on different local interfaces. This
+	// prevents a NAT from collapsing those candidates onto an indistinguishable
+	// remote tuple while keeping mux address ownership request-scoped.
+	return newPionAPI(&ListenConfig{
+		ICEUDPAddr:            dialICEUDPAddr,
+		SCTPReceiveBufferSize: sctpReceiveBufferSize,
+	})
 }
 
 func waitForGathering(ctx context.Context, gatherComplete <-chan struct{}) error {

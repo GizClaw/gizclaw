@@ -122,8 +122,13 @@ times their 512 KiB per-DataChannel send budget and prevents interleaved partial
 messages from exhausting the receiver window before delivery. A connection
 also admits at most 2,048 remotely opened service DataChannels, matching the
 gateway's active-session ceiling per upstream association; excess channels are
-closed before delivery, so service labels cannot create unbounded queues. SCTP
-retransmission is capped at 150 ms, and DTLS
+closed before delivery, so service labels cannot create unbounded queues.
+The default client Dial owns one wildcard IPv4 UDP mux and socket per
+PeerConnection. All local-interface host candidates for that connection share
+one OS-unique source port, so NAT cannot collapse independently allocated
+per-interface ports onto one remote tuple. The mux is not shared between
+PeerConnections because Pion routes post-STUN packets by remote address.
+SCTP retransmission is capped at 150 ms, and DTLS
 flights use a 150 ms initial retransmission interval, so lost handshake flights
 during a burst do not add the one-second defaults. SCTP reliable delivery and
 its retransmission count remain unchanged; DTLS retransmission and exponential

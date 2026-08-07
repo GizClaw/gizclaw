@@ -7,38 +7,87 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"sync"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/pion/ice/v4"
 	"github.com/pion/webrtc/v4"
 )
 
-func TestDefaultDialAPIIsSharedAcrossConcurrentCallers(t *testing.T) {
-	const callers = 32
-	apis := make(chan *webrtc.API, callers)
-	var wg sync.WaitGroup
-	for range callers {
-		wg.Go(func() {
-			api, err := defaultDialAPI()
-			if err != nil {
-				t.Errorf("defaultDialAPI error = %v", err)
-				return
+func TestDialPionAPIOwnsOneUniqueUDPPortPerConnection(t *testing.T) {
+	const connections = 16
+	ports := make(map[int]struct{}, connections)
+	for connection := range connections {
+		api, closers, err := newDialPionAPI(0)
+		if err != nil {
+			t.Fatalf("newDialPionAPI connection %d error = %v", connection, err)
+		}
+		pc, err := api.NewPeerConnection(webrtc.Configuration{})
+		if err != nil {
+			closeAll(t, closers)
+			t.Fatalf("NewPeerConnection connection %d error = %v", connection, err)
+		}
+		t.Cleanup(func() {
+			if err := pc.Close(); err != nil {
+				t.Errorf("PeerConnection close connection %d error = %v", connection, err)
 			}
-			apis <- api
+			closeAll(t, closers)
 		})
+		if _, err := pc.CreateDataChannel(packetLabel, nil); err != nil {
+			t.Fatalf("CreateDataChannel connection %d error = %v", connection, err)
+		}
+		gathered := webrtc.GatheringCompletePromise(pc)
+		offer, err := pc.CreateOffer(nil)
+		if err == nil {
+			err = pc.SetLocalDescription(offer)
+		}
+		if err != nil {
+			t.Fatalf("gather connection %d error = %v", connection, err)
+		}
+		select {
+		case <-gathered:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("gather connection %d timeout", connection)
+		}
+		candidatePorts := localUDPHostCandidatePorts(t, pc.LocalDescription().SDP)
+		if len(candidatePorts) != 1 {
+			t.Fatalf("connection %d candidate ports = %v, want one shared port", connection, candidatePorts)
+		}
+		for port := range candidatePorts {
+			if _, duplicate := ports[port]; duplicate {
+				t.Fatalf("connection %d reused active UDP port %d", connection, port)
+			}
+			ports[port] = struct{}{}
+		}
 	}
-	wg.Wait()
-	close(apis)
-	var first *webrtc.API
-	for api := range apis {
-		if first == nil {
-			first = api
+}
+
+func localUDPHostCandidatePorts(t *testing.T, rawSDP string) map[int]struct{} {
+	t.Helper()
+	ports := make(map[int]struct{})
+	for line := range strings.SplitSeq(strings.ReplaceAll(rawSDP, "\r\n", "\n"), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "a=candidate:") {
 			continue
 		}
-		if api != first {
-			t.Fatalf("default Dial API was not shared: %p != %p", api, first)
+		candidate, err := ice.UnmarshalCandidate(strings.TrimPrefix(line, "a="))
+		if err != nil {
+			t.Fatalf("UnmarshalCandidate(%q) error = %v", line, err)
+		}
+		if candidate.Type() == ice.CandidateTypeHost && candidate.NetworkType() == ice.NetworkTypeUDP4 {
+			ports[candidate.Port()] = struct{}{}
+		}
+	}
+	return ports
+}
+
+func closeAll(t *testing.T, closers []func() error) {
+	t.Helper()
+	for _, closeFn := range closers {
+		if err := closeFn(); err != nil {
+			t.Errorf("close owned ICE transport error = %v", err)
 		}
 	}
 }
