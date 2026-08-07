@@ -3,6 +3,7 @@ package gizwebrtc
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -86,6 +87,36 @@ func TestSignalingHandlerRejectsUnauthorizedCiphertextAndReplay(t *testing.T) {
 	rec = httptest.NewRecorder()
 	listener.SignalingHandler().ServeHTTP(rec, req)
 	assertSignalingStatus(t, rec, http.StatusConflict, "replayed_nonce")
+}
+
+func TestCheckReplayPrunesPeriodicallyAndExpiresExactKey(t *testing.T) {
+	key := mustKeyPair(t)
+	listener := &Listener{replaySeen: make(map[string]int64)}
+	const now = int64(10_000)
+	if err := listener.checkReplay(key.Public, "nonce", now); err != nil {
+		t.Fatalf("first checkReplay error = %v", err)
+	}
+	if err := listener.checkReplay(key.Public, "nonce", now+1); !errors.Is(err, ErrSignalingReplay) {
+		t.Fatalf("duplicate checkReplay error = %v, want %v", err, ErrSignalingReplay)
+	}
+	if err := listener.checkReplay(key.Public, "nonce", now+signalingReplayTTL+1); err != nil {
+		t.Fatalf("expired checkReplay error = %v", err)
+	}
+
+	listener.replaySeen["stale"] = now
+	listener.replayNextPrune = now + 2*signalingReplayTTL
+	if err := listener.checkReplay(key.Public, "another", now+signalingReplayTTL+2); err != nil {
+		t.Fatalf("checkReplay before prune deadline error = %v", err)
+	}
+	if _, ok := listener.replaySeen["stale"]; !ok {
+		t.Fatal("checkReplay pruned the map before its scheduled deadline")
+	}
+	if err := listener.checkReplay(key.Public, "third", now+2*signalingReplayTTL); err != nil {
+		t.Fatalf("checkReplay at prune deadline error = %v", err)
+	}
+	if _, ok := listener.replaySeen["stale"]; ok {
+		t.Fatal("checkReplay retained an expired entry at the prune deadline")
+	}
 }
 
 func TestSignalingHandlerRejectsInvalidSDPAndForbiddenPeer(t *testing.T) {
