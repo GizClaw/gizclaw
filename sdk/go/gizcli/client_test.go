@@ -2,6 +2,7 @@ package gizcli
 
 import (
 	"context"
+	"errors"
 	"net"
 	"strings"
 	"testing"
@@ -11,7 +12,39 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
+
+type freshPingPeerConn struct {
+	streams     []net.Conn
+	dials       int
+	diagnostics string
+}
+
+type diagnosticConn struct {
+	net.Conn
+	diagnostics gizwebrtc.StreamDiagnostics
+}
+
+func (c diagnosticConn) DiagnosticString() string { return c.diagnostics.String() }
+
+func (c *freshPingPeerConn) Dial(uint64) (net.Conn, error) {
+	if c.dials >= len(c.streams) {
+		return nil, net.ErrClosed
+	}
+	stream := c.streams[c.dials]
+	c.dials++
+	return stream, nil
+}
+
+func (*freshPingPeerConn) ListenService(uint64) giznet.ServiceListener { return nil }
+func (*freshPingPeerConn) CloseService(uint64) error                   { return nil }
+func (*freshPingPeerConn) Read([]byte) (byte, int, error)              { return 0, 0, net.ErrClosed }
+func (*freshPingPeerConn) Write(byte, []byte) (int, error)             { return 0, net.ErrClosed }
+func (*freshPingPeerConn) PublicKey() giznet.PublicKey                 { return giznet.PublicKey{} }
+func (*freshPingPeerConn) PeerInfo() *giznet.PeerInfo                  { return nil }
+func (*freshPingPeerConn) Close() error                                { return nil }
+func (c *freshPingPeerConn) DiagnosticString() string                  { return c.diagnostics }
 
 func TestClientDialValidation(t *testing.T) {
 	t.Run("nil client", func(t *testing.T) {
@@ -314,6 +347,106 @@ func TestClientRPCWithoutContextDeadlineUsesDefaultStreamTimeout(t *testing.T) {
 	if elapsed := time.Since(start); elapsed > time.Second {
 		t.Fatalf("Ping() elapsed = %s, want bounded by default RPC stream timeout", elapsed)
 	}
+}
+
+func TestClientPingOpensFreshStreamPerRequest(t *testing.T) {
+	serverOne, clientOne := net.Pipe()
+	serverTwo, clientTwo := net.Pipe()
+	peer := &freshPingPeerConn{streams: []net.Conn{clientOne, clientTwo}}
+	client := &Client{}
+	client.init(nil, peer, giznet.PublicKey{})
+
+	servePing := func(stream net.Conn, errCh chan<- error) {
+		defer stream.Close()
+		req, err := readRPCRequestWithEOS(stream)
+		if err == nil {
+			var resp *rpcapi.RPCResponse
+			resp, err = newRPCPingResponse(
+				req.Id,
+				rpcapi.PingResponse{ServerTime: rpcServerTimeForID(req.Id)},
+			)
+			if err == nil {
+				err = writeRPCResponseWithEOS(stream, req.Method, resp)
+			}
+		}
+		errCh <- err
+	}
+	errCh := make(chan error, 2)
+	go servePing(serverOne, errCh)
+	go servePing(serverTwo, errCh)
+
+	for _, id := range []string{"fresh-1", "fresh-2"} {
+		response, err := client.Ping(t.Context(), id)
+		if err != nil {
+			t.Fatalf("Ping(%q) error = %v", id, err)
+		}
+		if response.ServerTime != rpcServerTimeForID(id) {
+			t.Fatalf("Ping(%q) server_time = %d", id, response.ServerTime)
+		}
+	}
+	for range 2 {
+		if err := <-errCh; err != nil {
+			t.Fatalf("server error = %v", err)
+		}
+	}
+	if peer.dials != 2 {
+		t.Fatalf("Dial() count = %d, want one fresh stream per request", peer.dials)
+	}
+}
+
+func TestClientPingFailureIncludesPreCloseDataChannelDiagnostics(t *testing.T) {
+	server, clientStream := net.Pipe()
+	streamID := uint16(17)
+	peer := &freshPingPeerConn{diagnostics: "peer_state=connected sctp_rx_bytes=202", streams: []net.Conn{diagnosticConn{
+		Conn: clientStream,
+		diagnostics: gizwebrtc.StreamDiagnostics{
+			ID: &streamID, ReadyState: "open", TXBytes: 48,
+		},
+	}}}
+	client := &Client{}
+	client.init(nil, peer, giznet.PublicKey{})
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		defer server.Close()
+		_, _ = readRPCRequestWithEOS(server)
+		var buffer [1]byte
+		_, _ = server.Read(buffer[:])
+	}()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
+	defer cancel()
+	_, err := client.Ping(ctx, "diagnostic-timeout")
+	if err == nil {
+		t.Fatal("Ping() error = nil")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Ping() error = %v, want context deadline", err)
+	}
+	var observed interface{ TransportDiagnostics() string }
+	if !errors.As(err, &observed) {
+		t.Fatalf("Ping() error = %T, want transport diagnostics", err)
+	}
+	if got := observed.TransportDiagnostics(); got != "id=17 ready_state=open buffered_amount=0 rx_bytes=0 tx_bytes=48 closed=false" {
+		t.Fatalf("TransportDiagnostics() = %q", got)
+	}
+	var parent interface{ ParentTransportDiagnostics() string }
+	if !errors.As(err, &parent) {
+		t.Fatalf("Ping() error = %T, want parent transport diagnostics", err)
+	}
+	if got := parent.ParentTransportDiagnostics(); got != peer.diagnostics {
+		t.Fatalf("ParentTransportDiagnostics() = %q, want %q", got, peer.diagnostics)
+	}
+	for _, want := range []string{
+		"context deadline exceeded",
+		"data_channel={id=17 ready_state=open buffered_amount=0 rx_bytes=0 tx_bytes=48 closed=false}",
+		"parent={peer_state=connected sctp_rx_bytes=202}",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("Ping() error = %q, want substring %q", err, want)
+		}
+	}
+	<-serverDone
 }
 
 func TestClientSecurityPolicyAllowsExpectedPeerAndService(t *testing.T) {

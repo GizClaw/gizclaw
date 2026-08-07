@@ -360,6 +360,9 @@ GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS=${GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS:-}
 GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM=${GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM:-}
 GIZCLAW_E2E_GATEWAY_STREAMS_PER_UPSTREAM=${GIZCLAW_E2E_GATEWAY_STREAMS_PER_UPSTREAM:-}
 GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES=${GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES:-}
+GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE=${GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE:-}
+GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES=${GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES:-}
+GIZCLAW_E2E_DOCKER_IMAGES_BUILT=${GIZCLAW_E2E_DOCKER_IMAGES_BUILT:-}
 EOF
   cp "$state_dir/docker.env" "${GIZCLAW_E2E_DOCKER_ENV:-$state_root/current.env}"
 }
@@ -388,12 +391,14 @@ wait_http_ready() {
   local url="$1"
   local label="$2"
   local service="${3:-}"
-  for _ in {1..300}; do
+  local attempt container_state
+  for attempt in {1..300}; do
     if curl -fsS --max-time 1 "$url" >/dev/null 2>&1; then
       return 0
     fi
+    container_state="unavailable"
     if [[ -n "$service" ]]; then
-      local container_id container_state exit_code
+      local container_id exit_code
       container_id="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" ps --all -q "$service" 2>/dev/null || true)"
       if [[ -n "$container_id" ]]; then
         container_state="$(docker inspect --format '{{.State.Status}}' "$container_id" 2>/dev/null || true)"
@@ -404,6 +409,9 @@ wait_http_ready() {
           return 1
         fi
       fi
+    fi
+    if ((attempt % 75 == 0)); then
+      echo "==> readiness heartbeat: check=http label=$label service=${service:-none} state=$container_state elapsed_seconds=$((attempt / 5)) url=$url"
     fi
     sleep 0.2
   done
@@ -421,7 +429,8 @@ wait_docker_ready_file() {
   # Full deterministic provisioning includes the shared Workflow catalog and
   # both owner-uploaded icon formats, so allow the same five-minute startup
   # window as the server container health check.
-  for _ in {1..1500}; do
+  local attempt
+  for attempt in {1..1500}; do
     local container_id container_state exit_code
     container_id="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" ps --all -q "$service" 2>/dev/null || true)"
     if [[ -n "$container_id" ]]; then
@@ -435,6 +444,9 @@ wait_docker_ready_file() {
       if docker exec "$container_id" test -f "$ready_file" >/dev/null 2>&1; then
         return 0
       fi
+    fi
+    if ((attempt % 75 == 0)); then
+      echo "==> readiness heartbeat: check=ready-file label=$label service=$service state=${container_state:-unavailable} elapsed_seconds=$((attempt / 5)) marker=$ready_file"
     fi
     sleep 0.2
   done
@@ -604,6 +616,21 @@ export GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES
 export GIZCLAW_E2E_DOCKER_ADMIN_BIND="${GIZCLAW_E2E_DOCKER_ADMIN_BIND:-127.0.0.1}"
 export GIZCLAW_E2E_DOCKER_SERVER_BIND="${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}"
 
+capacity_build_required=0
+if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-relay-recovery" ]]; then
+  GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE="${GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE:-$GIZCLAW_E2E_DOCKER_PROJECT-service}"
+  if [[ "${GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES:-}" == "1" ]] &&
+    docker image inspect "$GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE" >/dev/null 2>&1; then
+    GIZCLAW_E2E_DOCKER_IMAGES_BUILT=0
+    echo "==> reuse capacity service image: $GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE"
+  else
+    capacity_build_required=1
+    GIZCLAW_E2E_DOCKER_IMAGES_BUILT=1
+    echo "==> build capacity service image: $GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE"
+  fi
+  export GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE GIZCLAW_E2E_DOCKER_IMAGES_BUILT
+fi
+
 docker_platform="$(docker_native_platform)"
 export DOCKER_DEFAULT_PLATFORM="$docker_platform"
 platform_slug="${docker_platform//\//-}"
@@ -613,6 +640,19 @@ if ! docker image inspect "$base_image" >/dev/null 2>&1; then
   docker build --platform="$docker_platform" -f "$repo_root/build/Dockerfile.cn.base" -t "$base_image" "$repo_root/build"
 fi
 export GIZCLAW_E2E_DOCKER_BASE_IMAGE="$base_image"
+
+if [[ "${capacity_build_required:-0}" == "1" ]]; then
+  if [[ "${GIZCLAW_E2E_GATEWAY_LINUX_PREBUILT:-}" == "1" ]]; then
+    if [[ ! -x "$e2e_dir/testdata/bin/gizclaw-linux" ]]; then
+      echo "prebuilt Linux CGO CLI is missing: $e2e_dir/testdata/bin/gizclaw-linux" >&2
+      exit 2
+    fi
+    echo "==> use prebuilt Linux CGO CLI for capacity image"
+  else
+    GIZCLAW_E2E_DOCKER_BASE_IMAGE="$base_image" bash "$script_dir/build-linux-cgo.sh"
+    export GIZCLAW_E2E_GATEWAY_LINUX_PREBUILT=1
+  fi
+fi
 
 docker_env="$(materialize_runtime_config)"
 echo "==> docker e2e env: $docker_env"
@@ -629,13 +669,19 @@ if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-cap
     echo "gateway capacity modes do not accept docker compose arguments" >&2
     exit 2
   fi
-  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --build turn server edge edge2 coturn-a coturn-b
+  if [[ "$capacity_build_required" == "1" ]]; then
+    docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" build server
+  fi
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --no-build turn server edge edge2 coturn-a coturn-b
 elif [[ "$topology_mode" == "gateway-relay-recovery" ]]; then
   if [[ $# -gt 0 ]]; then
     echo "--gateway-relay-recovery does not accept docker compose arguments" >&2
     exit 2
   fi
-  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --build turn server edge coturn-a coturn-b gateway-fault
+  if [[ "$capacity_build_required" == "1" ]]; then
+    docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" build server
+  fi
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --no-build turn server edge coturn-a coturn-b gateway-fault
 elif [[ $# -gt 0 ]]; then
   docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up "$@"
 else

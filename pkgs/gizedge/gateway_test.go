@@ -56,6 +56,18 @@ type contextDialGiznetConn struct {
 	dialContext func(context.Context, uint64) (net.Conn, error)
 }
 
+type blockingCloseGiznetConn struct {
+	failingGiznetConn
+	entered chan<- struct{}
+	release <-chan struct{}
+}
+
+func (c *blockingCloseGiznetConn) Close() error {
+	c.entered <- struct{}{}
+	<-c.release
+	return nil
+}
+
 func TestLogUpstreamICEIsAddressFree(t *testing.T) {
 	var output bytes.Buffer
 	previous := slog.Default()
@@ -400,6 +412,91 @@ func TestGatewayPoolWarmsBoundedAssociations(t *testing.T) {
 	if created.Load() != gatewayPoolWarmUpstreams-1 || len(pool.entries) != gatewayPoolWarmUpstreams {
 		t.Fatalf("warmup created=%d entries=%d, want %d/%d",
 			created.Load(), len(pool.entries), gatewayPoolWarmUpstreams-1, gatewayPoolWarmUpstreams)
+	}
+}
+
+func TestRetryGatewayStartupRelayWaitsForEligibleMember(t *testing.T) {
+	var attempts int
+	err := retryGatewayStartupRelay(t.Context(), func(context.Context) error {
+		attempts++
+		if attempts == 1 {
+			return fmt.Errorf("warm gateway upstream: %w", &upstreamRelaysUnavailableError{
+				attempts:   2,
+				retryAfter: time.Millisecond,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("retryGatewayStartupRelay error = %v", err)
+	}
+	if attempts != 2 {
+		t.Fatalf("startup attempts = %d, want 2", attempts)
+	}
+}
+
+func TestRetryGatewayStartupRelayRetriesInnerDeadline(t *testing.T) {
+	var attempts int
+	err := retryGatewayStartupRelay(t.Context(), func(context.Context) error {
+		attempts++
+		if attempts == 1 {
+			return fmt.Errorf("warm gateway upstream: %w", context.DeadlineExceeded)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("retryGatewayStartupRelay error = %v", err)
+	}
+	if attempts != 2 {
+		t.Fatalf("startup attempts = %d, want 2", attempts)
+	}
+}
+
+func TestRetryGatewayStartupRelayStopsAtOuterDeadline(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	var attempts int
+	err := retryGatewayStartupRelay(ctx, func(context.Context) error {
+		attempts++
+		cancel()
+		return fmt.Errorf("warm gateway upstream: %w", context.DeadlineExceeded)
+	})
+	if !errors.Is(err, context.Canceled) || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("retryGatewayStartupRelay error = %v, want outer cancellation and inner deadline", err)
+	}
+	if attempts != 1 {
+		t.Fatalf("startup attempts = %d, want 1", attempts)
+	}
+}
+
+func TestRetryGatewayStartupRelayDoesNotRetryOtherErrors(t *testing.T) {
+	want := errors.New("invalid gateway configuration")
+	var attempts int
+	err := retryGatewayStartupRelay(t.Context(), func(context.Context) error {
+		attempts++
+		return want
+	})
+	if !errors.Is(err, want) {
+		t.Fatalf("retryGatewayStartupRelay error = %v, want %v", err, want)
+	}
+	if attempts != 1 {
+		t.Fatalf("startup attempts = %d, want 1", attempts)
+	}
+}
+
+func TestRetryGatewayStartupRelayStopsWhenCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	want := &upstreamRelaysUnavailableError{attempts: 2, retryAfter: time.Hour}
+	var attempts int
+	err := retryGatewayStartupRelay(ctx, func(context.Context) error {
+		attempts++
+		cancel()
+		return want
+	})
+	if !errors.Is(err, want) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("retryGatewayStartupRelay error = %v, want relay unavailable and canceled", err)
+	}
+	if attempts != 1 {
+		t.Fatalf("startup attempts = %d, want 1", attempts)
 	}
 }
 
@@ -1251,6 +1348,66 @@ func TestGatewayAdmissionMatchesAcceptedClientIdentity(t *testing.T) {
 		t.Fatalf("claimed admission = %p, want %p", got, first)
 	}
 	got.releaseActive()
+}
+
+func TestGatewayCloseSessionsStartsEveryCloseConcurrently(t *testing.T) {
+	const sessionCount = 8
+	entered := make(chan struct{}, sessionCount)
+	release := make(chan struct{})
+	gateway := &Gateway{sessions: make(map[*gatewaySession]struct{}, sessionCount)}
+	for range sessionCount {
+		conn := &blockingCloseGiznetConn{entered: entered, release: release}
+		gateway.sessions[&gatewaySession{client: conn}] = struct{}{}
+	}
+
+	done := make(chan struct{})
+	go func() {
+		gateway.closeSessions()
+		close(done)
+	}()
+	for range sessionCount {
+		select {
+		case <-entered:
+		case <-time.After(time.Second):
+			t.Fatal("session closes were serialized")
+		}
+	}
+	close(release)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("closeSessions did not wait for every close")
+	}
+}
+
+func TestGatewayPoolCloseStartsEveryUpstreamCloseConcurrently(t *testing.T) {
+	const upstreamCount = 4
+	entered := make(chan struct{}, upstreamCount)
+	release := make(chan struct{})
+	pool := &gatewayPool{entries: make([]*gatewayUpstream, 0, upstreamCount)}
+	for range upstreamCount {
+		conn := &blockingCloseGiznetConn{entered: entered, release: release}
+		pool.entries = append(pool.entries, &gatewayUpstream{pool: pool, conn: conn})
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- pool.Close() }()
+	for range upstreamCount {
+		select {
+		case <-entered:
+		case <-time.After(time.Second):
+			t.Fatal("upstream closes were serialized")
+		}
+	}
+	close(release)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Close() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("pool Close did not wait for every upstream close")
+	}
 }
 
 func TestGatewayAdmissionRejectsCapacityBeforeHandshake(t *testing.T) {

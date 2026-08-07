@@ -586,7 +586,7 @@ func (s *fakeDashScopeSession) toolState() (
 		}
 		config = &clone
 	}
-	return config, append([]dashScopeSubmittedToolResult(nil), s.submitted...), s.responseCreates
+	return config, append([]dashScopeSubmittedToolResult(nil), s.submitted...), s.toolResponseCreates
 }
 
 func dashScopeSingleToolEvents(callID string) []*dashscope.RealtimeEvent {

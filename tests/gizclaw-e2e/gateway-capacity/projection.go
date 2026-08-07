@@ -374,7 +374,7 @@ func validateProjectionRunSet(runs []artifact) error {
 		}
 		currentHost := run.Host
 		if currentHost.GOOS == "" || currentHost.GOARCH == "" || currentHost.GoVersion == "" ||
-			currentHost.LogicalCPU <= 0 || currentHost.GOMAXPROCS != 8 {
+			currentHost.LogicalCPU <= 0 || currentHost.GOMAXPROCS != 8 || currentHost.GOGC == "" {
 			return fmt.Errorf("scenario %q repetition %d lacks a complete load-driver identity", run.Config.Scenario, run.Config.Repetition)
 		}
 		if host == nil {

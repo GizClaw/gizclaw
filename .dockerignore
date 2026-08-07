@@ -2,6 +2,8 @@
 .DS_Store
 
 node_modules
+**/node_modules
+guides/.vitepress/dist
 cmd/ui/node_modules
 cmd/ui/admin/dist
 cmd/ui/play/dist
@@ -17,6 +19,9 @@ tests/gizclaw-e2e/.env
 tests/gizclaw-e2e/setup/.env
 tests/gizclaw-e2e/.testbench
 tests/gizclaw-e2e/testdata/bin
+!tests/gizclaw-e2e/testdata/bin/
+tests/gizclaw-e2e/testdata/bin/*
+!tests/gizclaw-e2e/testdata/bin/gizclaw-linux
 tests/gizclaw-e2e/testdata/docker
 tests/gizclaw-e2e/testdata/gateway-capacity-extended
 tests/gizclaw-e2e/testdata/server-workspace/data

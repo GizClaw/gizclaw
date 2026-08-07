@@ -4,41 +4,91 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"sync"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/pion/ice/v4"
 	"github.com/pion/webrtc/v4"
 )
 
-func TestDefaultDialAPIIsSharedAcrossConcurrentCallers(t *testing.T) {
-	const callers = 32
-	apis := make(chan *webrtc.API, callers)
-	var wg sync.WaitGroup
-	for range callers {
-		wg.Go(func() {
-			api, err := defaultDialAPI()
-			if err != nil {
-				t.Errorf("defaultDialAPI error = %v", err)
-				return
+func TestDialPionAPIOwnsOneUniqueUDPPortPerConnection(t *testing.T) {
+	const connections = 16
+	ports := make(map[int]struct{}, connections)
+	for connection := range connections {
+		api, closers, err := newDialPionAPI(0)
+		if err != nil {
+			t.Fatalf("newDialPionAPI connection %d error = %v", connection, err)
+		}
+		pc, err := api.NewPeerConnection(webrtc.Configuration{})
+		if err != nil {
+			closeAll(t, closers)
+			t.Fatalf("NewPeerConnection connection %d error = %v", connection, err)
+		}
+		t.Cleanup(func() {
+			if err := pc.Close(); err != nil {
+				t.Errorf("PeerConnection close connection %d error = %v", connection, err)
 			}
-			apis <- api
+			closeAll(t, closers)
 		})
+		if _, err := pc.CreateDataChannel(packetLabel, nil); err != nil {
+			t.Fatalf("CreateDataChannel connection %d error = %v", connection, err)
+		}
+		gathered := webrtc.GatheringCompletePromise(pc)
+		offer, err := pc.CreateOffer(nil)
+		if err == nil {
+			err = pc.SetLocalDescription(offer)
+		}
+		if err != nil {
+			t.Fatalf("gather connection %d error = %v", connection, err)
+		}
+		select {
+		case <-gathered:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("gather connection %d timeout", connection)
+		}
+		candidatePorts := localUDPHostCandidatePorts(t, pc.LocalDescription().SDP)
+		if len(candidatePorts) != 1 {
+			t.Fatalf("connection %d candidate ports = %v, want one shared port", connection, candidatePorts)
+		}
+		for port := range candidatePorts {
+			if _, duplicate := ports[port]; duplicate {
+				t.Fatalf("connection %d reused active UDP port %d", connection, port)
+			}
+			ports[port] = struct{}{}
+		}
 	}
-	wg.Wait()
-	close(apis)
-	var first *webrtc.API
-	for api := range apis {
-		if first == nil {
-			first = api
+}
+
+func localUDPHostCandidatePorts(t *testing.T, rawSDP string) map[int]struct{} {
+	t.Helper()
+	ports := make(map[int]struct{})
+	for line := range strings.SplitSeq(strings.ReplaceAll(rawSDP, "\r\n", "\n"), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "a=candidate:") {
 			continue
 		}
-		if api != first {
-			t.Fatalf("default Dial API was not shared: %p != %p", api, first)
+		candidate, err := ice.UnmarshalCandidate(strings.TrimPrefix(line, "a="))
+		if err != nil {
+			t.Fatalf("UnmarshalCandidate(%q) error = %v", line, err)
+		}
+		if candidate.Type() == ice.CandidateTypeHost && candidate.NetworkType() == ice.NetworkTypeUDP4 {
+			ports[candidate.Port()] = struct{}{}
+		}
+	}
+	return ports
+}
+
+func closeAll(t *testing.T, closers []func() error) {
+	t.Helper()
+	for _, closeFn := range closers {
+		if err := closeFn(); err != nil {
+			t.Errorf("close owned ICE transport error = %v", err)
 		}
 	}
 }
@@ -372,29 +422,42 @@ func (s *recordingICEUDPBufferSetter) SetWriteBuffer(size int) error {
 
 func TestConfigureICEUDPBuffers(t *testing.T) {
 	setter := &recordingICEUDPBufferSetter{}
-	if err := configureICEUDPBuffers(setter); err != nil {
+	if err := configureICEUDPBuffers(setter, listenerICEUDPReadBufferSize, listenerICEUDPWriteBufferSize); err != nil {
 		t.Fatal(err)
 	}
-	if setter.readSize != iceUDPReadBufferSize || setter.writeSize != iceUDPWriteBufferSize {
+	if setter.readSize != listenerICEUDPReadBufferSize || setter.writeSize != listenerICEUDPWriteBufferSize {
 		t.Fatalf(
 			"ICE UDP buffer sizes = %d/%d, want %d/%d",
 			setter.readSize,
 			setter.writeSize,
-			iceUDPReadBufferSize,
-			iceUDPWriteBufferSize,
+			listenerICEUDPReadBufferSize,
+			listenerICEUDPWriteBufferSize,
+		)
+	}
+	setter = &recordingICEUDPBufferSetter{}
+	if err := configureICEUDPBuffers(setter, dialICEUDPReadBufferSize, dialICEUDPWriteBufferSize); err != nil {
+		t.Fatal(err)
+	}
+	if setter.readSize != dialICEUDPReadBufferSize || setter.writeSize != dialICEUDPWriteBufferSize {
+		t.Fatalf(
+			"Dial ICE UDP buffer sizes = %d/%d, want %d/%d",
+			setter.readSize,
+			setter.writeSize,
+			dialICEUDPReadBufferSize,
+			dialICEUDPWriteBufferSize,
 		)
 	}
 
 	readErr := errors.New("read buffer")
-	if err := configureICEUDPBuffers(&recordingICEUDPBufferSetter{readErr: readErr}); !errors.Is(err, readErr) {
+	if err := configureICEUDPBuffers(&recordingICEUDPBufferSetter{readErr: readErr}, 1, 2); !errors.Is(err, readErr) {
 		t.Fatalf("read buffer error = %v, want %v", err, readErr)
 	}
 	writeErr := errors.New("write buffer")
 	setter = &recordingICEUDPBufferSetter{writeErr: writeErr}
-	if err := configureICEUDPBuffers(setter); !errors.Is(err, writeErr) {
+	if err := configureICEUDPBuffers(setter, 1, 2); !errors.Is(err, writeErr) {
 		t.Fatalf("write buffer error = %v, want %v", err, writeErr)
 	}
-	if setter.readSize != iceUDPReadBufferSize {
+	if setter.readSize != 1 {
 		t.Fatalf("write failure skipped read buffer sizing: %d", setter.readSize)
 	}
 }
@@ -560,8 +623,17 @@ func TestPostOfferRejectsEmptySignalingURLAndDialRejectsNilKey(t *testing.T) {
 	if _, err := postOffer(context.Background(), serverKey, serverKey.Public, "offer", DialConfig{}); err == nil {
 		t.Fatal("postOffer empty URL error = nil")
 	}
-	if _, _, err := Dial(nil, nil, serverKey.Public, DialConfig{}); err == nil {
+	timingCalls := 0
+	if _, _, err := Dial(nil, nil, serverKey.Public, DialConfig{OnTiming: func(timing DialTiming) {
+		timingCalls++
+		if timing.Attempts != 0 {
+			t.Errorf("nil-key timing = %+v", timing)
+		}
+	}}); err == nil {
 		t.Fatal("Dial nil key error = nil")
+	}
+	if timingCalls != 1 {
+		t.Fatalf("nil-key timing calls = %d, want 1", timingCalls)
 	}
 }
 
@@ -590,6 +662,99 @@ func TestWaitForPacketChannelRespectsContext(t *testing.T) {
 	close(ready)
 	if err := waitForPacketChannel(context.Background(), ready); err != nil {
 		t.Fatalf("waitForPacketChannel ready error = %v", err)
+	}
+}
+
+func TestDialWithAttemptsRetriesOneFreshDefaultICEAttempt(t *testing.T) {
+	var calls int
+	var callbackCalls int
+	var observed DialTiming
+	listener, conn, err := dialWithAttempts(
+		context.Background(),
+		new(giznet.KeyPair),
+		giznet.PublicKey{},
+		DialConfig{OnTiming: func(timing DialTiming) {
+			callbackCalls++
+			observed = timing
+		}},
+		time.Second,
+		func(ctx context.Context, _ *giznet.KeyPair, _ giznet.PublicKey, cfg DialConfig, packetChannelTimeout time.Duration) (*Listener, *Conn, error) {
+			calls++
+			if _, ok := ctx.Deadline(); ok {
+				t.Fatal("attempt-local timeout unexpectedly bounded non-ICE Dial phases")
+			}
+			cfg.OnTiming(DialTiming{HTTPSignaling: time.Duration(calls) * time.Millisecond})
+			if calls == 1 {
+				if packetChannelTimeout != time.Second {
+					t.Fatalf("first packet channel timeout = %s, want 1s", packetChannelTimeout)
+				}
+				return nil, nil, fmt.Errorf("%w: injected tuple collision", errDialICEAttempt)
+			}
+			if packetChannelTimeout != 0 {
+				t.Fatalf("second packet channel timeout = %s, want no attempt-local timeout", packetChannelTimeout)
+			}
+			return &Listener{}, &Conn{}, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("dialWithAttempts error = %v", err)
+	}
+	if listener == nil || conn == nil {
+		t.Fatal("dialWithAttempts returned nil success values")
+	}
+	if calls != 2 || callbackCalls != 1 || observed.Attempts != 2 {
+		t.Fatalf("calls/callbacks/attempts = %d/%d/%d, want 2/1/2", calls, callbackCalls, observed.Attempts)
+	}
+	if observed.HTTPSignaling != 3*time.Millisecond || observed.Total <= 0 {
+		t.Fatalf("combined timing = %+v", observed)
+	}
+}
+
+func TestDialWithAttemptsDoesNotRetryCallerAPI(t *testing.T) {
+	var calls int
+	var observed DialTiming
+	wantErr := fmt.Errorf("%w: injected caller API failure", errDialICEAttempt)
+	_, _, err := dialWithAttempts(
+		context.Background(),
+		new(giznet.KeyPair),
+		giznet.PublicKey{},
+		DialConfig{API: &webrtc.API{}, OnTiming: func(timing DialTiming) { observed = timing }},
+		time.Second,
+		func(_ context.Context, _ *giznet.KeyPair, _ giznet.PublicKey, cfg DialConfig, _ time.Duration) (*Listener, *Conn, error) {
+			calls++
+			cfg.OnTiming(DialTiming{})
+			return nil, nil, wantErr
+		},
+	)
+	if !errors.Is(err, errDialICEAttempt) {
+		t.Fatalf("dialWithAttempts error = %v, want %v", err, errDialICEAttempt)
+	}
+	if calls != 1 || observed.Attempts != 1 {
+		t.Fatalf("calls/attempts = %d/%d, want 1/1", calls, observed.Attempts)
+	}
+}
+
+func TestDialWithAttemptsDoesNotRetryCanceledParent(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var calls int
+	_, _, err := dialWithAttempts(
+		ctx,
+		new(giznet.KeyPair),
+		giznet.PublicKey{},
+		DialConfig{},
+		time.Second,
+		func(_ context.Context, _ *giznet.KeyPair, _ giznet.PublicKey, cfg DialConfig, _ time.Duration) (*Listener, *Conn, error) {
+			calls++
+			cancel()
+			cfg.OnTiming(DialTiming{})
+			return nil, nil, fmt.Errorf("%w: %w", errDialICEAttempt, context.Canceled)
+		},
+	)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("dialWithAttempts error = %v, want %v", err, context.Canceled)
+	}
+	if calls != 1 {
+		t.Fatalf("calls = %d, want 1", calls)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -897,6 +898,29 @@ func TestPeerConnMandatoryEventStreamTimesOutAndClosesConnection(t *testing.T) {
 	case <-listener.closed:
 	default:
 		t.Fatal("missing mandatory Event stream did not close its listener")
+	}
+}
+
+func TestHandleRPCStreamAlwaysClosesStream(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		handleErr error
+	}{
+		{name: "normal EOF"},
+		{name: "handler error", handleErr: errors.New("handle failed")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server, client := net.Pipe()
+			defer client.Close()
+
+			handleRPCStream(server, func(net.Conn) error {
+				return test.handleErr
+			})
+
+			if _, err := client.Read(make([]byte, 1)); !errors.Is(err, io.EOF) {
+				t.Fatalf("peer read error = %v, want EOF", err)
+			}
+		})
 	}
 }
 

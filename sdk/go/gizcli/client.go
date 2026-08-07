@@ -30,6 +30,25 @@ var (
 	defaultAdminHTTPClientTimeout = 2 * time.Minute
 )
 
+type transportDiagnosticError struct {
+	err               error
+	diagnostics       string
+	parentDiagnostics string
+}
+
+func (e *transportDiagnosticError) Error() string {
+	if e.parentDiagnostics == "" {
+		return fmt.Sprintf("%v: data_channel={%s}", e.err, e.diagnostics)
+	}
+	return fmt.Sprintf("%v: data_channel={%s} parent={%s}", e.err, e.diagnostics, e.parentDiagnostics)
+}
+
+func (e *transportDiagnosticError) Unwrap() error { return e.err }
+
+func (e *transportDiagnosticError) TransportDiagnostics() string { return e.diagnostics }
+
+func (e *transportDiagnosticError) ParentTransportDiagnostics() string { return e.parentDiagnostics }
+
 // Client holds device-side peer client configuration.
 type Client struct {
 	KeyPair       *giznet.KeyPair
@@ -244,17 +263,30 @@ func (c *Client) PeerHTTPClient() (*peerhttp.ClientWithResponses, error) {
 
 // Ping opens a fresh RPC stream, sends one ping, and closes it.
 //
-// Our current RPC transport uses one giznet service stream per round trip so
-// multiple RPC requests can run concurrently on separate streams. This is closer to
-// HTTP/1.0-style request lifecycles; HTTP/1.1-style stream reuse is not
-// supported yet.
+// Each RPC request owns one giznet service stream. Multiple requests on one
+// stream are not part of the RPC transport contract.
 func (c *Client) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, error) {
 	stream, err := c.rpcConn()
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = stream.Close() }()
-	return c.rpcClient().Ping(ctx, stream, id)
+	response, err := c.rpcClient().Ping(ctx, stream, id)
+	if err == nil {
+		return response, nil
+	}
+	if observed, ok := stream.(interface{ DiagnosticString() string }); ok {
+		parentDiagnostics := ""
+		if parent, ok := c.PeerConn().(interface{ DiagnosticString() string }); ok {
+			parentDiagnostics = parent.DiagnosticString()
+		}
+		return nil, &transportDiagnosticError{
+			err:               err,
+			diagnostics:       observed.DiagnosticString(),
+			parentDiagnostics: parentDiagnostics,
+		}
+	}
+	return nil, err
 }
 
 func (c *Client) GetServerInfo(ctx context.Context, id string) (*rpcapi.ServerGetInfoResponse, error) {
@@ -563,6 +595,11 @@ func (c *Client) rejectDuplicateEventStreams() error {
 }
 
 func isPeerPacketReadClosed(err error) bool {
+	if errors.Is(err, giznet.ErrConnFailed) {
+		// Preserve the concrete transport cause so Serve callers can distinguish a
+		// failed connection from an intentional or remote graceful close.
+		return false
+	}
 	return errors.Is(err, io.EOF) ||
 		errors.Is(err, net.ErrClosed) ||
 		errors.Is(err, giznet.ErrConnClosed) ||

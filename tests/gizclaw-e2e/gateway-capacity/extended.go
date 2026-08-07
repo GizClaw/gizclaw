@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,7 +19,11 @@ import (
 	"time"
 )
 
-const extendedArtifactVersion = 10
+const (
+	extendedArtifactVersion         = 18
+	maximumResourceSampleGap        = 2100 * time.Millisecond
+	maximumResourceSampleFutureSkew = 100 * time.Millisecond
+)
 
 var dockerRolePIDFiles = map[string]string{
 	"coturn-a": "/tmp/gizclaw-coturn.pid",
@@ -67,6 +72,7 @@ type roleResourcePoint struct {
 	OpenFDs            int       `json:"open_fds"`
 	OpenFDsSource      string    `json:"open_fds_source"`
 	GoHeapAllocBytes   *uint64   `json:"go_heap_alloc_bytes"`
+	GoHeapLiveBytes    *uint64   `json:"go_heap_live_bytes"`
 	Goroutines         *int      `json:"goroutines"`
 	UDPSockets         int       `json:"udp_sockets"`
 	UDP6Sockets        int       `json:"udp6_sockets"`
@@ -111,6 +117,7 @@ type dockerRoleState struct {
 	processStartTicks uint64
 	openFDLimit       uint64
 	samples           []roleResourcePoint
+	maximumSampleGap  time.Duration
 	trafficShaping    shapingEvidence
 }
 
@@ -129,6 +136,12 @@ type dockerResourceSampler struct {
 type extendedSamplerState struct {
 	environment capacityEnvironment
 	docker      *dockerResourceSampler
+}
+
+type extendedSamplingProgress struct {
+	MinimumSamples int
+	MaximumGap     time.Duration
+	MaximumAge     time.Duration
 }
 
 func startExtendedSampler(ctx context.Context, project, composeFile string) (*extendedSamplerState, error) {
@@ -158,32 +171,118 @@ func (s *extendedSamplerState) finish(ctx context.Context, load *resourceSampler
 	return &extendedRunEvidence{Environment: s.environment, Roles: roles, Errors: errs}
 }
 
+func (s *extendedSamplerState) liveHealth(now time.Time) (extendedSamplingProgress, error) {
+	if s == nil || s.docker == nil {
+		return extendedSamplingProgress{}, nil
+	}
+
+	s.docker.mu.Lock()
+	defer s.docker.mu.Unlock()
+	progress := extendedSamplingProgress{MinimumSamples: math.MaxInt}
+	for _, role := range []string{"edge", "edge2", "server", "coturn-a", "coturn-b"} {
+		state, ok := s.docker.roles[role]
+		if !ok {
+			return progress, fmt.Errorf("%s resource sampler is missing", role)
+		}
+		progress.MinimumSamples = min(progress.MinimumSamples, len(state.samples))
+		progress.MaximumGap = max(progress.MaximumGap, state.maximumSampleGap)
+		if len(state.samples) == 0 {
+			return progress, fmt.Errorf("%s has no resource samples", role)
+		}
+		latest := state.samples[len(state.samples)-1]
+		var previous *roleResourcePoint
+		if len(state.samples) > 1 {
+			previous = &state.samples[len(state.samples)-2]
+		}
+		if err := validateRoleResourcePoint(role, latest, previous); err != nil {
+			return progress, err
+		}
+		age := now.Sub(latest.At)
+		if age < -maximumResourceSampleFutureSkew {
+			return progress, fmt.Errorf("%s latest resource sample is %s in the future", role, -age)
+		}
+		age = max(age, 0)
+		progress.MaximumAge = max(progress.MaximumAge, age)
+		if age > maximumResourceSampleGap {
+			return progress, fmt.Errorf("%s resource sample stream is stale by %s", role, age)
+		}
+	}
+	if len(s.docker.errors) > 0 {
+		return progress, fmt.Errorf("resource sampler reported: %s", s.docker.errors[0])
+	}
+	if progress.MinimumSamples == math.MaxInt {
+		progress.MinimumSamples = 0
+	}
+	return progress, nil
+}
+
 func validateRequiredRoleEvidence(evidence roleResourceEvidence) error {
 	if len(evidence.Samples) == 0 {
 		return fmt.Errorf("%s has no resource samples", evidence.Role)
 	}
 	for index, sample := range evidence.Samples {
+		var previous *roleResourcePoint
 		if index > 0 {
-			gap := sample.At.Sub(evidence.Samples[index-1].At)
-			if gap <= 0 || gap > 2100*time.Millisecond {
-				return fmt.Errorf("%s resource sample gap is %s", evidence.Role, gap)
-			}
+			previous = &evidence.Samples[index-1]
 		}
-		if sample.RSSBytes == 0 || sample.RSSSource == "go_memstats_sys" || sample.RSSSource == "unsupported" {
-			return fmt.Errorf("%s has unsupported process RSS source %q", evidence.Role, sample.RSSSource)
-		}
-		if sample.CPUSecondsSource == "" || sample.CPUSecondsSource == "unsupported" {
-			return fmt.Errorf("%s has unsupported CPU source", evidence.Role)
-		}
-		if sample.OpenFDs < 0 || sample.OpenFDsSource == "" || sample.OpenFDsSource == "unsupported" {
-			return fmt.Errorf("%s has unsupported open-file sampling", evidence.Role)
-		}
-		if evidence.Role != "load_driver" &&
-			(sample.SocketSource != "proc_pid_net_udp" || sample.NetworkSource != "proc_pid_net_dev") {
-			return fmt.Errorf("%s has unsupported socket or network sampling", evidence.Role)
+		if err := validateRoleResourcePoint(evidence.Role, sample, previous); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func validateRoleResourcePoint(role string, sample roleResourcePoint, previous *roleResourcePoint) error {
+	if previous != nil {
+		gap := sample.At.Sub(previous.At)
+		if gap <= 0 || gap > maximumResourceSampleGap {
+			return fmt.Errorf("%s resource sample gap is %s", role, gap)
+		}
+		if sample.CPUSeconds < previous.CPUSeconds {
+			return fmt.Errorf("%s cumulative CPU counter decreased", role)
+		}
+		if role != "load_driver" &&
+			(sample.NetworkRXBytes < previous.NetworkRXBytes || sample.NetworkTXBytes < previous.NetworkTXBytes) {
+			return fmt.Errorf("%s cumulative network counter decreased", role)
+		}
+	}
+	if sample.RSSBytes == 0 || sample.RSSSource == "go_memstats_sys" ||
+		sample.RSSSource == "go_runtime_memory_total" || sample.RSSSource == "unsupported" {
+		return fmt.Errorf("%s has unsupported process RSS source %q", role, sample.RSSSource)
+	}
+	if sample.CPUSecondsSource == "" || sample.CPUSecondsSource == "unsupported" {
+		return fmt.Errorf("%s has unsupported CPU source", role)
+	}
+	if sample.OpenFDs < 0 || sample.OpenFDsSource == "" || sample.OpenFDsSource == "unsupported" {
+		return fmt.Errorf("%s has unsupported open-file sampling", role)
+	}
+	if role == "load_driver" {
+		if sample.GoHeapAllocBytes == nil || sample.GoHeapLiveBytes == nil || sample.Goroutines == nil {
+			return fmt.Errorf("%s is missing Go heap or goroutine sampling", role)
+		}
+		if sample.SocketSource != "unsupported" || sample.NetworkSource != "unsupported" ||
+			!containsAll(sample.UnsupportedMetrics, "udp_sockets", "udp6_sockets", "network_rx_bytes", "network_tx_bytes") {
+			return fmt.Errorf("%s has incomplete unsupported socket or network declarations", role)
+		}
+		return nil
+	}
+	if sample.GoHeapAllocBytes != nil || sample.GoHeapLiveBytes != nil || sample.Goroutines != nil ||
+		!containsAll(sample.UnsupportedMetrics, "go_heap_alloc_bytes", "go_heap_live_bytes", "goroutines") {
+		return fmt.Errorf("%s has inconsistent unsupported Go runtime declarations", role)
+	}
+	if sample.SocketSource != "proc_pid_net_udp" || sample.NetworkSource != "proc_pid_net_dev" {
+		return fmt.Errorf("%s has unsupported socket or network sampling", role)
+	}
+	return nil
+}
+
+func containsAll(values []string, required ...string) bool {
+	for _, value := range required {
+		if !slices.Contains(values, value) {
+			return false
+		}
+	}
+	return true
 }
 
 func startDockerResourceSampler(ctx context.Context, project, composeFile string) (*dockerResourceSampler, error) {
@@ -282,20 +381,28 @@ func inspectContainer(ctx context.Context, containerID string) (containerMetadat
 }
 
 func recordDockerRoleSample(state *dockerRoleState, sample dockerProcessSample) error {
-	var err error
+	var errs []error
 	if state.processID != 0 &&
 		(state.processID != sample.ProcessID || state.processStartTicks != sample.ProcessStartTicks) {
-		err = fmt.Errorf(
+		errs = append(errs, fmt.Errorf(
 			"%s process changed from pid=%d start=%d to pid=%d start=%d",
 			state.role, state.processID, state.processStartTicks,
 			sample.ProcessID, sample.ProcessStartTicks,
-		)
+		))
+	}
+	var previous *roleResourcePoint
+	if len(state.samples) > 0 {
+		previous = &state.samples[len(state.samples)-1]
+		state.maximumSampleGap = max(state.maximumSampleGap, sample.Point.At.Sub(previous.At))
+	}
+	if err := validateRoleResourcePoint(state.role, sample.Point, previous); err != nil {
+		errs = append(errs, err)
 	}
 	state.processID = sample.ProcessID
 	state.processStartTicks = sample.ProcessStartTicks
 	state.openFDLimit = sample.OpenFDLimit
 	state.samples = append(state.samples, sample.Point)
-	return err
+	return errors.Join(errs...)
 }
 
 const dockerProcessSampleScript = `
@@ -303,9 +410,10 @@ set -euo pipefail
 pid_file="$1"
 page_size="$(getconf PAGESIZE)"
 clock_ticks="$(getconf CLK_TCK)"
+test -n "${EPOCHREALTIME:-}"
 shopt -s nullglob
 while true; do
-  sampled_at="$(date +%s%N)"
+  sampled_at="${EPOCHREALTIME/./}000"
   pid="$(<"$pid_file")"
   test -r "/proc/$pid/statm"
   test -r "/proc/$pid/stat"
@@ -326,11 +434,25 @@ while true; do
     fi
   done < "/proc/$pid/limits"
   test -n "$fd_limit"
-  udp_sockets="$(awk 'NR > 1 { count++ } END { print count + 0 }' "/proc/$pid/net/udp")"
-  udp6_sockets="$(awk 'NR > 1 { count++ } END { print count + 0 }' "/proc/$pid/net/udp6")"
-  read -r network_rx network_tx < <(awk -F '[: ]+' 'NR > 2 { rx += $3; tx += $11 } END { printf "%.0f %.0f\n", rx, tx }' "/proc/$pid/net/dev")
+  udp_sockets="$(awk 'END { print (NR > 0 ? NR - 1 : 0) }' "/proc/$pid/net/udp")"
+  udp6_sockets="$(awk 'END { print (NR > 0 ? NR - 1 : 0) }' "/proc/$pid/net/udp6")"
+  network_totals="$(awk '
+    NR > 2 {
+      sub(":", "", $1)
+      rx += $2
+      tx += $10
+    }
+    END { printf "%.0f %.0f\n", rx, tx }
+  ' "/proc/$pid/net/dev")"
+  read -r network_rx network_tx <<< "$network_totals"
+  [[ -n "$udp_sockets" && -n "$udp6_sockets" && -n "$network_rx" && -n "$network_tx" ]]
   printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "$sampled_at" "$pid" "$resident" "$page_size" "$user_ticks" "$system_ticks" "$clock_ticks" "$open_fds" "$start_ticks" "$fd_limit" "$udp_sockets" "$udp6_sockets" "$network_rx" "$network_tx"
-  sleep 1
+  now_nanoseconds="${EPOCHREALTIME/./}000"
+  sleep_milliseconds=$(((sampled_at + 1000000000 - now_nanoseconds) / 1000000))
+  if ((sleep_milliseconds > 0)); then
+    sleep_seconds="$(awk -v milliseconds="$sleep_milliseconds" 'BEGIN { printf "%.3f", milliseconds / 1000 }')"
+    sleep "$sleep_seconds"
+  fi
 done
 `
 
@@ -474,7 +596,7 @@ func parseDockerProcessSample(output string) (dockerProcessSample, error) {
 			OpenFDs: openFDs, OpenFDsSource: "proc_pid_fd",
 			UDPSockets: udpSockets, UDP6Sockets: udp6Sockets, SocketSource: "proc_pid_net_udp",
 			NetworkRXBytes: values[12], NetworkTXBytes: values[13], NetworkSource: "proc_pid_net_dev",
-			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "goroutines"},
+			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "go_heap_live_bytes", "goroutines"},
 		},
 		ProcessID: processID, ProcessStartTicks: values[8], OpenFDLimit: values[9],
 	}, nil
@@ -579,6 +701,12 @@ func summarizeRoleResources(samples []roleResourcePoint) roleResourceSummary {
 			peak.GoHeapAllocBytes = &value
 			improved = true
 		}
+		if point.GoHeapLiveBytes != nil &&
+			(peak.GoHeapLiveBytes == nil || *point.GoHeapLiveBytes > *peak.GoHeapLiveBytes) {
+			value := *point.GoHeapLiveBytes
+			peak.GoHeapLiveBytes = &value
+			improved = true
+		}
 		if point.Goroutines != nil &&
 			(peak.Goroutines == nil || *point.Goroutines > *peak.Goroutines) {
 			value := *point.Goroutines
@@ -595,13 +723,13 @@ func summarizeRoleResources(samples []roleResourcePoint) roleResourceSummary {
 func loadDriverEvidence(samples []resourcePoint) roleResourceEvidence {
 	points := make([]roleResourcePoint, 0, len(samples))
 	for _, sample := range samples {
-		heap, goroutines := sample.HeapAllocBytes, sample.Goroutines
+		heap, live, goroutines := sample.HeapAllocBytes, sample.HeapLiveBytes, sample.Goroutines
 		points = append(points, roleResourcePoint{
 			At:       sample.At,
 			RSSBytes: sample.RSSBytes, RSSSource: sample.RSSSource,
 			CPUSeconds: sample.CPUSeconds, CPUSecondsSource: sample.CPUSecondsSource,
 			OpenFDs: sample.OpenFDs, OpenFDsSource: sample.OpenFDsSource,
-			GoHeapAllocBytes: &heap, Goroutines: &goroutines,
+			GoHeapAllocBytes: &heap, GoHeapLiveBytes: &live, Goroutines: &goroutines,
 			SocketSource: "unsupported", NetworkSource: "unsupported",
 			UnsupportedMetrics: []string{"udp_sockets", "udp6_sockets", "network_rx_bytes", "network_tx_bytes"},
 		})

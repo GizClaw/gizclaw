@@ -106,7 +106,15 @@ skip_system_log { next }
   mv "$workspace_dir/config.yaml.tmp" "$workspace_dir/config.yaml"
 fi
 
-"$setup_dir/build.sh" >/dev/null
+if [[ "${GIZCLAW_E2E_PREBUILT_CLI:-}" == "1" ]]; then
+  if [[ ! -x "$bin_path" ]]; then
+    echo "prebuilt Linux GizClaw CLI is missing: $bin_path" >&2
+    exit 1
+  fi
+  echo "using prebuilt Linux GizClaw CLI: $bin_path"
+else
+  "$setup_dir/build.sh" >/dev/null
+fi
 # shellcheck disable=SC2016 # Perl replacement syntax is intentionally literal.
 find "$GIZCLAW_E2E_CONFIG_HOME" -type f -name config.yaml -print0 |
   xargs -0 perl -0pi -e 's/^(\s*endpoint:\s*)[^\s]+/${1}127.0.0.1:9820/mg'

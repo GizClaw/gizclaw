@@ -15,8 +15,10 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"runtime/metrics"
+	"runtime/pprof"
 	"slices"
 	"strconv"
 	"strings"
@@ -33,7 +35,7 @@ import (
 )
 
 const (
-	artifactVersion = 9
+	artifactVersion = 14
 	maxSpeedBytes   = int64(1 << 30)
 )
 
@@ -52,6 +54,7 @@ type options struct {
 	minSpeedAggregateRatio   float64
 	minUploadAggregateMbps   float64
 	minDownloadAggregateMbps float64
+	minFinalSpeedRetention   float64
 	minEstablishmentRate     float64
 	maxDialP95               time.Duration
 	maxDialP99               time.Duration
@@ -80,33 +83,41 @@ type options struct {
 	opusPackets              int
 	opusPacketBytes          int
 	opusInterval             time.Duration
+	cleanupTimeout           time.Duration
 }
 
 type artifact struct {
-	Version               int                       `json:"version"`
-	StartedAt             time.Time                 `json:"started_at"`
-	FinishedAt            time.Time                 `json:"finished_at"`
-	Host                  hostSummary               `json:"host"`
-	Config                artifactConfig            `json:"config"`
-	Attempted             int                       `json:"attempted"`
-	Established           int                       `json:"established"`
-	EstablishmentFailures int                       `json:"establishment_failures"`
-	PingsAttempted        int                       `json:"pings_attempted"`
-	PingFailures          int                       `json:"ping_failures"`
-	UnexpectedDisconnects int                       `json:"unexpected_disconnects"`
-	IdentityCrossover     bool                      `json:"identity_crossover"`
-	RTT                   latencySummary            `json:"rtt_ms"`
-	Establishment         establishmentSummary      `json:"establishment"`
-	PingRounds            []pingRoundSummary        `json:"ping_rounds"`
-	SpeedTest             speedTestSummary          `json:"speed_test"`
-	Opus                  opusSummary               `json:"opus"`
-	BytesPerSession       byteSummary               `json:"bytes_per_session"`
-	EdgeDistribution      map[string]int            `json:"edge_distribution"`
-	UpstreamDistribution  map[string]map[string]int `json:"upstream_distribution"`
-	ResourceUsage         resourceSummary           `json:"resource_usage"`
-	Extended              *extendedRunEvidence      `json:"extended,omitempty"`
-	Errors                []string                  `json:"errors,omitempty"`
-	Passed                bool                      `json:"passed"`
+	Version                int                       `json:"version"`
+	StartedAt              time.Time                 `json:"started_at"`
+	FinishedAt             time.Time                 `json:"finished_at"`
+	Host                   hostSummary               `json:"host"`
+	Config                 artifactConfig            `json:"config"`
+	Attempted              int                       `json:"attempted"`
+	Established            int                       `json:"established"`
+	EstablishmentFailures  int                       `json:"establishment_failures"`
+	PingsAttempted         int                       `json:"pings_attempted"`
+	PingFailures           int                       `json:"ping_failures"`
+	PingFailureDiagnostics []pingFailureDiagnostic   `json:"ping_failure_diagnostics,omitempty"`
+	UnexpectedDisconnects  int                       `json:"unexpected_disconnects"`
+	IdentityCrossover      bool                      `json:"identity_crossover"`
+	RTT                    latencySummary            `json:"rtt_ms"`
+	Establishment          establishmentSummary      `json:"establishment"`
+	PingRounds             []pingRoundSummary        `json:"ping_rounds"`
+	SpeedTest              speedTestSummary          `json:"speed_test"`
+	FinalSpeedTest         *speedTestSummary         `json:"final_speed_test,omitempty"`
+	SpeedRetention         *speedRetentionSummary    `json:"speed_retention,omitempty"`
+	HoldStartedAt          time.Time                 `json:"hold_started_at,omitzero"`
+	HoldFinishedAt         time.Time                 `json:"hold_finished_at,omitzero"`
+	SoakStability          *soakQualification        `json:"soak_stability,omitempty"`
+	Opus                   opusSummary               `json:"opus"`
+	BytesPerSession        byteSummary               `json:"bytes_per_session"`
+	EdgeDistribution       map[string]int            `json:"edge_distribution"`
+	UpstreamDistribution   map[string]map[string]int `json:"upstream_distribution"`
+	ResourceUsage          resourceSummary           `json:"resource_usage"`
+	Cleanup                cleanupSummary            `json:"cleanup"`
+	Extended               *extendedRunEvidence      `json:"extended,omitempty"`
+	Errors                 []string                  `json:"errors,omitempty"`
+	Passed                 bool                      `json:"passed"`
 }
 
 type hostSummary struct {
@@ -115,6 +126,7 @@ type hostSummary struct {
 	GoVersion  string `json:"go_version"`
 	LogicalCPU int    `json:"logical_cpu"`
 	GOMAXPROCS int    `json:"go_max_procs"`
+	GOGC       string `json:"go_gc"`
 }
 
 type artifactConfig struct {
@@ -132,6 +144,7 @@ type artifactConfig struct {
 	MinSpeedAggregateRatio   float64       `json:"min_speed_aggregate_ratio"`
 	MinUploadAggregateMbps   float64       `json:"min_upload_aggregate_mbps"`
 	MinDownloadAggregateMbps float64       `json:"min_download_aggregate_mbps"`
+	MinFinalSpeedRetention   float64       `json:"min_final_speed_retention"`
 	MinEstablishmentRate     float64       `json:"min_establishment_rate"`
 	MaxDialP95               time.Duration `json:"max_dial_p95"`
 	MaxDialP99               time.Duration `json:"max_dial_p99"`
@@ -152,6 +165,7 @@ type artifactConfig struct {
 	OpusPackets              int           `json:"opus_packets"`
 	OpusPacketBytes          int           `json:"opus_packet_bytes"`
 	OpusInterval             time.Duration `json:"opus_interval"`
+	CleanupTimeout           time.Duration `json:"cleanup_timeout"`
 }
 
 type opusSummary struct {
@@ -206,9 +220,53 @@ type pingRoundSummary struct {
 	UpstreamFailures map[string]map[string]int            `json:"upstream_failures"`
 }
 
+type pingFailureDiagnostic struct {
+	ID                   string        `json:"id"`
+	Edge                 string        `json:"edge"`
+	Upstream             string        `json:"upstream"`
+	Error                string        `json:"error"`
+	DataChannel          string        `json:"data_channel,omitempty"`
+	ParentTransport      string        `json:"parent_transport,omitempty"`
+	ParentState          string        `json:"parent_state"`
+	FailedRXDelta        uint64        `json:"failed_rx_delta"`
+	FailedTXDelta        uint64        `json:"failed_tx_delta"`
+	ProbeID              string        `json:"probe_id"`
+	ProbeSucceeded       bool          `json:"probe_succeeded"`
+	ProbeRTT             time.Duration `json:"probe_rtt"`
+	ProbeRXDelta         uint64        `json:"probe_rx_delta"`
+	ProbeTXDelta         uint64        `json:"probe_tx_delta"`
+	ProbeError           string        `json:"probe_error,omitempty"`
+	ProbeParentTransport string        `json:"probe_parent_transport,omitempty"`
+}
+
 type speedTestSummary struct {
 	Upload   speedDirectionSummary `json:"upload"`
 	Download speedDirectionSummary `json:"download"`
+}
+
+type speedRetentionSummary struct {
+	Minimum            float64              `json:"minimum"`
+	UploadRatio        float64              `json:"upload_ratio"`
+	DownloadRatio      float64              `json:"download_ratio"`
+	UploadPerSession   rateRetentionSummary `json:"upload_per_session"`
+	DownloadPerSession rateRetentionSummary `json:"download_per_session"`
+	Passed             bool                 `json:"passed"`
+}
+
+type rateRetentionSummary struct {
+	P01 float64 `json:"p01_ratio"`
+	P05 float64 `json:"p05_ratio"`
+	P50 float64 `json:"p50_ratio"`
+}
+
+type cleanupSummary struct {
+	StartedAt      time.Time     `json:"started_at"`
+	Duration       time.Duration `json:"duration"`
+	Attempted      int           `json:"attempted"`
+	CloseFailures  int           `json:"close_failures"`
+	ServeCompleted bool          `json:"serve_completed"`
+	TimedOut       bool          `json:"timed_out"`
+	Errors         []string      `json:"errors,omitempty"`
 }
 
 type speedDirectionSummary struct {
@@ -258,6 +316,8 @@ type speedSessionResult struct {
 type rateSummary struct {
 	Count int     `json:"count"`
 	Min   float64 `json:"min"`
+	P01   float64 `json:"p01"`
+	P05   float64 `json:"p05"`
 	P50   float64 `json:"p50"`
 	P95   float64 `json:"p95"`
 	P99   float64 `json:"p99"`
@@ -280,6 +340,7 @@ type resourcePoint struct {
 	OpenFDs          int       `json:"open_fds"`
 	OpenFDsSource    string    `json:"open_fds_source,omitempty"`
 	HeapAllocBytes   uint64    `json:"heap_alloc_bytes"`
+	HeapLiveBytes    uint64    `json:"heap_live_bytes"`
 	Goroutines       int       `json:"goroutines"`
 }
 
@@ -308,24 +369,32 @@ type liveSession struct {
 	closeFn       func() error
 	speedFn       func(context.Context, string, rpcapi.SpeedTestRequest) (gizcli.SpeedTestResult, error)
 	packetWriteFn func(byte, []byte) (int, error)
+	pingFn        func(context.Context, string) (*rpcapi.PingResponse, error)
 }
 
 type resultState struct {
-	mu                    sync.Mutex
-	serveWG               sync.WaitGroup
-	sessions              []*liveSession
-	rtts                  []time.Duration
-	pingRounds            []pingRoundSummary
-	establishment         establishmentSummary
-	speedTest             speedTestSummary
-	opus                  opusSummary
-	errors                []string
-	edgeDistribution      map[string]int
-	upstreamDistribution  map[string]map[string]int
-	pings                 int
-	pingFailures          int
-	unexpectedDisconnects int
-	identityCrossover     bool
+	mu                     sync.Mutex
+	serveWG                sync.WaitGroup
+	sessions               []*liveSession
+	rtts                   []time.Duration
+	pingRounds             []pingRoundSummary
+	establishment          establishmentSummary
+	speedTest              speedTestSummary
+	finalSpeedTest         *speedTestSummary
+	speedRetention         *speedRetentionSummary
+	cleanup                cleanupSummary
+	cleanupOnce            sync.Once
+	holdStartedAt          time.Time
+	holdFinishedAt         time.Time
+	opus                   opusSummary
+	errors                 []string
+	edgeDistribution       map[string]int
+	upstreamDistribution   map[string]map[string]int
+	pings                  int
+	pingFailures           int
+	pingFailureDiagnostics []pingFailureDiagnostic
+	unexpectedDisconnects  int
+	identityCrossover      bool
 }
 
 type upstreamRecorder struct {
@@ -482,6 +551,7 @@ func parseOptions() (options, error) {
 	flag.Float64Var(&opts.minSpeedAggregateRatio, "min-speed-aggregate-ratio", 0, "minimum concurrent aggregate Mbps divided by single-session baseline Mbps")
 	flag.Float64Var(&opts.minUploadAggregateMbps, "min-upload-aggregate-mbps", 0, "minimum concurrent upload aggregate Mbps")
 	flag.Float64Var(&opts.minDownloadAggregateMbps, "min-download-aggregate-mbps", 0, "minimum concurrent download aggregate Mbps")
+	flag.Float64Var(&opts.minFinalSpeedRetention, "min-final-speed-retention", 0, "minimum final-to-initial aggregate and per-session p01/p05/p50 throughput ratio per direction")
 	flag.Float64Var(&opts.minEstablishmentRate, "min-establishment-rate", 0, "minimum usable sessions established per second")
 	flag.DurationVar(&opts.maxDialP95, "max-dial-p95", 0, "optional maximum p95 usable-session Dial duration")
 	flag.DurationVar(&opts.maxDialP99, "max-dial-p99", 0, "optional maximum p99 usable-session Dial duration")
@@ -510,6 +580,7 @@ func parseOptions() (options, error) {
 	flag.IntVar(&opts.opusPackets, "opus-packets", 0, "Opus packets sent per session; zero disables the packet lane")
 	flag.IntVar(&opts.opusPacketBytes, "opus-packet-bytes", 3, "non-empty bytes per Opus packet")
 	flag.DurationVar(&opts.opusInterval, "opus-interval", 20*time.Millisecond, "cadence between Opus packets")
+	flag.DurationVar(&opts.cleanupTimeout, "cleanup-timeout", 30*time.Second, "maximum logical-session close and Serve wait")
 	flag.Parse()
 	if opts.analysisDir != "" || opts.compareDir != "" {
 		if strings.TrimSpace(opts.artifactPath) == "" {
@@ -567,6 +638,7 @@ func validateOptions(opts options) error {
 	case !nonNegativeFinite(opts.minSpeedAggregateRatio) ||
 		!nonNegativeFinite(opts.minUploadAggregateMbps) ||
 		!nonNegativeFinite(opts.minDownloadAggregateMbps) ||
+		!nonNegativeFinite(opts.minFinalSpeedRetention) ||
 		!nonNegativeFinite(opts.minEstablishmentRate):
 		return errors.New("speed and establishment-rate thresholds must be finite and non-negative")
 	case opts.speedBytes == 0 &&
@@ -574,6 +646,8 @@ func validateOptions(opts options) error {
 			opts.minUploadAggregateMbps > 0 ||
 			opts.minDownloadAggregateMbps > 0):
 		return errors.New("speed thresholds require positive -speed-bytes")
+	case opts.minFinalSpeedRetention > 0 && (!opts.soak || opts.duration <= 0 || opts.speedBytes == 0):
+		return errors.New("-min-final-speed-retention requires -soak, positive -duration, and positive -speed-bytes")
 	case opts.concurrency <= 0:
 		return errors.New("-concurrency must be positive")
 	case opts.maxDialP95 < 0 || opts.maxDialP99 < 0:
@@ -609,6 +683,8 @@ func validateOptions(opts options) error {
 		return errors.New("-sessions and -opus-packets overflow packet accounting")
 	case opts.opusPackets > 0 && int64(opts.sessions)*int64(opts.opusPackets) > math.MaxInt64/int64(opts.opusPacketBytes):
 		return errors.New("Opus packet byte accounting overflows int64")
+	case opts.cleanupTimeout <= 0:
+		return errors.New("-cleanup-timeout must be positive")
 	}
 	return nil
 }
@@ -625,7 +701,7 @@ func run(ctx context.Context, opts options) (artifact, error) {
 		Host: hostSummary{
 			GOOS: runtime.GOOS, GOARCH: runtime.GOARCH,
 			GoVersion: runtime.Version(), LogicalCPU: runtime.NumCPU(),
-			GOMAXPROCS: runtime.GOMAXPROCS(0),
+			GOMAXPROCS: runtime.GOMAXPROCS(0), GOGC: effectiveGOGC(),
 		},
 		Config: artifactConfig{
 			Edges: opts.edges, SignalingBaseFromEdge: opts.signalingBaseFromEdge,
@@ -637,6 +713,7 @@ func run(ctx context.Context, opts options) (artifact, error) {
 			MinSpeedAggregateRatio:   opts.minSpeedAggregateRatio,
 			MinUploadAggregateMbps:   opts.minUploadAggregateMbps,
 			MinDownloadAggregateMbps: opts.minDownloadAggregateMbps,
+			MinFinalSpeedRetention:   opts.minFinalSpeedRetention,
 			MinEstablishmentRate:     opts.minEstablishmentRate,
 			MaxDialP95:               opts.maxDialP95,
 			MaxDialP99:               opts.maxDialP99,
@@ -657,6 +734,7 @@ func run(ctx context.Context, opts options) (artifact, error) {
 			OpusPackets:              opts.opusPackets,
 			OpusPacketBytes:          opts.opusPacketBytes,
 			OpusInterval:             opts.opusInterval,
+			CleanupTimeout:           opts.cleanupTimeout,
 		},
 		Attempted:            opts.sessions,
 		EdgeDistribution:     make(map[string]int),
@@ -703,32 +781,354 @@ func run(ctx context.Context, opts options) (artifact, error) {
 		pingAll(ctx, state, opts, sem, "post_opus", 0)
 	}
 	if opts.speedBytes > 0 {
-		runSpeedTests(ctx, state, opts)
+		state.speedTest = runSpeedTests(ctx, state, opts, "initial")
 	}
 	if opts.duration > 0 {
-		deadline := time.NewTimer(opts.duration)
-		ticker := time.NewTicker(opts.pingInterval)
-		defer deadline.Stop()
-		defer ticker.Stop()
-		round := 1
-		for {
-			select {
-			case <-ctx.Done():
-				closeSessions(state)
-				return finalize(report, state, resources, extended), ctx.Err()
-			case <-deadline.C:
-				closeSessions(state)
-				final := finalize(report, state, resources, extended)
-				return final, acceptanceError(final, opts)
-			case <-ticker.C:
-				pingAll(ctx, state, opts, sem, "hold", round)
-				round++
-			}
+		if err := initialWorkloadError(state, opts); err != nil {
+			closeSessions(state, opts.cleanupTimeout)
+			return finalize(report, state, resources, extended), err
+		}
+		if err := holdSessions(ctx, state, opts, sem, resources, extended); err != nil {
+			closeSessions(state, opts.cleanupTimeout)
+			return finalize(report, state, resources, extended), err
 		}
 	}
-	closeSessions(state)
+	closeSessions(state, opts.cleanupTimeout)
 	final := finalize(report, state, resources, extended)
 	return final, acceptanceError(final, opts)
+}
+
+func effectiveGOGC() string {
+	value := strings.TrimSpace(os.Getenv("GOGC"))
+	if value == "" {
+		return "100"
+	}
+	return value
+}
+
+func initialWorkloadError(state *resultState, opts options) error {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	report := artifact{
+		Established:           len(state.sessions),
+		Establishment:         state.establishment,
+		PingFailures:          state.pingFailures,
+		UnexpectedDisconnects: state.unexpectedDisconnects,
+		IdentityCrossover:     state.identityCrossover,
+		RTT:                   summarizeLatency(state.rtts),
+		PingRounds:            state.pingRounds,
+		SpeedTest:             state.speedTest,
+		Opus:                  state.opus,
+		EdgeDistribution:      state.edgeDistribution,
+		UpstreamDistribution:  state.upstreamDistribution,
+	}
+	report.EstablishmentFailures = opts.sessions - report.Established
+	passed := report.EstablishmentFailures <= opts.maxEstablishmentFailures &&
+		establishmentWithin(report.Establishment, artifactConfig{
+			MinEstablishmentRate: opts.minEstablishmentRate,
+			MaxDialP95:           opts.maxDialP95,
+			MaxDialP99:           opts.maxDialP99,
+		}) &&
+		report.PingFailures <= opts.maxPingFailures &&
+		report.UnexpectedDisconnects == 0 && !report.IdentityCrossover &&
+		(opts.speedBytes == 0 || (report.SpeedTest.Upload.Passed && report.SpeedTest.Download.Passed)) &&
+		(opts.opusPackets == 0 ||
+			(report.Opus.Failures == 0 && report.Opus.Completed == report.Opus.Attempted &&
+				report.Opus.CompletedBytes == report.Opus.AttemptedBytes)) &&
+		(opts.maxP99RTT == 0 || time.Duration(report.RTT.P99*float64(time.Millisecond)) <= opts.maxP99RTT) &&
+		pingRoundsWithin(report.PingRounds, opts.maxPingRoundDuration) &&
+		distributionWithin(report, artifactConfig{
+			Edges:                    opts.edges,
+			RequireBalancedEdges:     opts.requireBalancedEdges,
+			MaxSessionsPerEdge:       opts.maxSessionsPerEdge,
+			RequiredUpstreamsPerEdge: opts.requiredUpstreamsPerEdge,
+			MaxUpstreamsPerEdge:      opts.maxUpstreamsPerEdge,
+			MaxSessionsPerUpstream:   opts.maxSessionsPerUpstream,
+		})
+	if passed {
+		return nil
+	}
+	failure := fmt.Sprintf(
+		"initial burst gates failed; hold was not started: established=%d/%d rate=%.2f sessions/s dial_p95=%.2fms dial_p99=%.2fms ping_failures=%d disconnects=%d crossover=%t upload_passed=%t download_passed=%t",
+		report.Established,
+		opts.sessions,
+		report.Establishment.UsableSessionsPerSecond,
+		report.Establishment.Dial.P95,
+		report.Establishment.Dial.P99,
+		report.PingFailures,
+		report.UnexpectedDisconnects,
+		report.IdentityCrossover,
+		report.SpeedTest.Upload.Passed,
+		report.SpeedTest.Download.Passed,
+	)
+	state.appendCriticalErrorLocked(failure)
+	return errors.New(failure)
+}
+
+func holdSessions(
+	ctx context.Context,
+	state *resultState,
+	opts options,
+	sem chan struct{},
+	resources *resourceSampler,
+	extended *extendedSamplerState,
+) error {
+	started := time.Now()
+	deadline := started.Add(opts.duration)
+	state.mu.Lock()
+	state.holdStartedAt = started
+	state.mu.Unlock()
+	if err := writeDiagnosticHeapProfile("hold-start"); err != nil {
+		return err
+	}
+	heartbeatInterval := min(opts.pingInterval, 30*time.Second)
+	if heartbeatInterval <= 0 {
+		heartbeatInterval = 30 * time.Second
+	}
+	heartbeat := time.NewTicker(heartbeatInterval)
+	defer heartbeat.Stop()
+	if err := holdCheckpointHealthError(state, opts, extended, pingRoundSummary{Phase: "hold"}); err != nil {
+		writeHoldHeartbeat(state, resources, extended, started, deadline, "failed", "hold", 0, nil)
+		return err
+	}
+	writeHoldHeartbeat(state, resources, extended, started, deadline, "holding", "hold", 0, nil)
+	nextPing := started.Add(opts.pingInterval)
+	round := 1
+	for nextPing.Before(deadline) {
+		if err := waitForHoldCheckpoint(
+			ctx, state, opts, resources, extended, started, deadline, nextPing, heartbeat.C,
+		); err != nil {
+			return err
+		}
+		writeHoldHeartbeat(state, resources, extended, started, deadline, "pinging", "hold", round, nil)
+		summary := pingAll(ctx, state, opts, sem, "hold", round)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := holdCheckpointHealthError(state, opts, extended, summary); err != nil {
+			writeHoldHeartbeat(state, resources, extended, started, deadline, "failed", "hold", round, &summary)
+			return err
+		}
+		writeHoldHeartbeat(state, resources, extended, started, deadline, "healthy", "hold", round, &summary)
+		round++
+		nextPing = nextPing.Add(opts.pingInterval)
+	}
+
+	if err := waitForHoldCheckpoint(
+		ctx, state, opts, resources, extended, started, deadline, deadline, heartbeat.C,
+	); err != nil {
+		return err
+	}
+
+	state.mu.Lock()
+	state.holdFinishedAt = time.Now()
+	state.mu.Unlock()
+	if err := writeDiagnosticHeapProfile("hold-finish"); err != nil {
+		return err
+	}
+	writeHoldHeartbeat(state, resources, extended, started, deadline, "pinging", "final", 0, nil)
+	finalSummary := pingAll(ctx, state, opts, sem, "final", 0)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := holdCheckpointHealthError(state, opts, extended, finalSummary); err != nil {
+		writeHoldHeartbeat(state, resources, extended, started, deadline, "failed", "final", 0, &finalSummary)
+		return err
+	}
+	writeHoldHeartbeat(state, resources, extended, started, deadline, "healthy", "final", 0, &finalSummary)
+	if opts.minFinalSpeedRetention > 0 {
+		final := runSpeedTests(ctx, state, opts, "final")
+		retention := summarizeSpeedRetention(state.speedTest, final, opts.minFinalSpeedRetention)
+		state.mu.Lock()
+		state.finalSpeedTest = &final
+		state.speedRetention = &retention
+		if !retention.Passed {
+			state.appendErrorLocked(formatSpeedRetentionFailure(retention))
+		}
+		state.mu.Unlock()
+	}
+	return ctx.Err()
+}
+
+func waitForHoldCheckpoint(
+	ctx context.Context,
+	state *resultState,
+	opts options,
+	resources *resourceSampler,
+	extended *extendedSamplerState,
+	started time.Time,
+	deadline time.Time,
+	checkpoint time.Time,
+	heartbeat <-chan time.Time,
+) error {
+	timer := time.NewTimer(max(time.Until(checkpoint), 0))
+	defer timer.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			return nil
+		case <-heartbeat:
+			if err := holdCheckpointHealthError(state, opts, extended, pingRoundSummary{Phase: "hold"}); err != nil {
+				writeHoldHeartbeat(state, resources, extended, started, deadline, "failed", "hold", 0, nil)
+				return err
+			}
+			writeHoldHeartbeat(state, resources, extended, started, deadline, "holding", "hold", 0, nil)
+		}
+	}
+}
+
+type holdProgressSnapshot struct {
+	established           int
+	active                int
+	pings                 int
+	pingFailures          int
+	unexpectedDisconnects int
+	identityCrossover     bool
+}
+
+func (s *resultState) holdProgressSnapshot() holdProgressSnapshot {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	established := len(s.sessions)
+	return holdProgressSnapshot{
+		established:           established,
+		active:                max(established-s.unexpectedDisconnects, 0),
+		pings:                 s.pings,
+		pingFailures:          s.pingFailures,
+		unexpectedDisconnects: s.unexpectedDisconnects,
+		identityCrossover:     s.identityCrossover,
+	}
+}
+
+func writeHoldHeartbeat(
+	state *resultState,
+	resources *resourceSampler,
+	extended *extendedSamplerState,
+	started time.Time,
+	deadline time.Time,
+	status string,
+	phase string,
+	round int,
+	recent *pingRoundSummary,
+) {
+	now := time.Now()
+	progress := state.holdProgressSnapshot()
+	resource := latestResourcePoint(resources)
+	sampling, _ := extended.liveHealth(now)
+	roundAttempted := 0
+	roundSucceeded := 0
+	roundFailures := 0
+	roundP99 := float64(0)
+	if recent != nil {
+		roundAttempted = recent.Attempted
+		roundFailures = recent.Failures
+		roundSucceeded = max(recent.Attempted-recent.Failures, 0)
+		roundP99 = recent.RTT.P99
+	}
+	fmt.Fprintf(
+		os.Stderr,
+		"gateway capacity heartbeat: status=%s phase=%s round=%d elapsed=%s remaining=%s established=%d active=%d total_pings=%d total_failures=%d disconnects=%d crossover=%t round_ping=%d/%d round_failures=%d round_rtt_p99_ms=%.2f open_fds=%d rss_mib=%.1f goroutines=%d role_samples_min=%d role_max_gap=%s role_max_age=%s\n",
+		status,
+		phase,
+		round,
+		now.Sub(started).Round(time.Second),
+		max(deadline.Sub(now), 0).Round(time.Second),
+		progress.established,
+		progress.active,
+		progress.pings,
+		progress.pingFailures,
+		progress.unexpectedDisconnects,
+		progress.identityCrossover,
+		roundSucceeded,
+		roundAttempted,
+		roundFailures,
+		roundP99,
+		resource.OpenFDs,
+		float64(resource.RSSBytes)/(1024*1024),
+		resource.Goroutines,
+		sampling.MinimumSamples,
+		sampling.MaximumGap.Round(time.Millisecond),
+		sampling.MaximumAge.Round(time.Millisecond),
+	)
+}
+
+func latestResourcePoint(resources *resourceSampler) resourcePoint {
+	if resources == nil {
+		return readResourcePoint(false)
+	}
+	return resources.latest()
+}
+
+func holdHealthError(state *resultState, opts options, recent pingRoundSummary) error {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	roundTooSlow := opts.maxPingRoundDuration > 0 && recent.Duration > opts.maxPingRoundDuration
+	if state.pingFailures <= opts.maxPingFailures && state.unexpectedDisconnects == 0 &&
+		!state.identityCrossover && !roundTooSlow {
+		return nil
+	}
+	failure := fmt.Sprintf(
+		"hold acceptance became impossible: phase=%s round=%d established=%d active=%d round_ping=%d/%d round_failures=%d round_duration=%s total_ping_failures=%d max_ping_failures=%d disconnects=%d identity_crossover=%t",
+		recent.Phase,
+		recent.Round,
+		len(state.sessions),
+		max(len(state.sessions)-state.unexpectedDisconnects, 0),
+		max(recent.Attempted-recent.Failures, 0),
+		recent.Attempted,
+		recent.Failures,
+		recent.Duration.Round(time.Millisecond),
+		state.pingFailures,
+		opts.maxPingFailures,
+		state.unexpectedDisconnects,
+		state.identityCrossover,
+	)
+	state.appendCriticalErrorLocked(failure)
+	return errors.New(failure)
+}
+
+func holdCheckpointHealthError(
+	state *resultState,
+	opts options,
+	extended *extendedSamplerState,
+	recent pingRoundSummary,
+) error {
+	if err := holdHealthError(state, opts, recent); err != nil {
+		return err
+	}
+	if _, err := extended.liveHealth(time.Now()); err != nil {
+		failure := fmt.Sprintf("hold resource evidence became invalid: %v", err)
+		state.mu.Lock()
+		state.appendCriticalErrorLocked(failure)
+		state.mu.Unlock()
+		return errors.New(failure)
+	}
+	return nil
+}
+
+func writeDiagnosticHeapProfile(checkpoint string) error {
+	dir := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_GATEWAY_HEAP_PROFILE_DIR"))
+	if dir == "" {
+		return nil
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create diagnostic heap profile directory: %w", err)
+	}
+	runtime.GC()
+	profilePath := filepath.Join(dir, checkpoint+".pprof")
+	file, err := os.Create(profilePath)
+	if err != nil {
+		return fmt.Errorf("create diagnostic heap profile %s: %w", checkpoint, err)
+	}
+	if err := pprof.WriteHeapProfile(file); err != nil {
+		_ = file.Close()
+		return fmt.Errorf("write diagnostic heap profile %s: %w", checkpoint, err)
+	}
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("close diagnostic heap profile %s: %w", checkpoint, err)
+	}
+	return nil
 }
 
 type establishSessionFunc func(
@@ -748,12 +1148,16 @@ func establishSessions(
 ) error {
 	var establishWG sync.WaitGroup
 	var attemptsMu sync.Mutex
+	var completed atomic.Int64
+	var established atomic.Int64
+	var failed atomic.Int64
 	attempts := make([]establishmentSessionResult, 0, opts.sessions)
 	stopRampPings := func() {}
 	if opts.requireRoleResources && opts.ramp > 0 {
 		stopRampPings = startRampPings(ctx, state, opts, sem)
 	}
 	startedAt := time.Now()
+	stopProgress := startEstablishmentProgress(opts, startedAt, &completed, &established, &failed)
 	start := make(chan struct{})
 	var ready sync.WaitGroup
 	if opts.ramp == 0 {
@@ -761,6 +1165,7 @@ func establishSessions(
 	}
 	launch := func(i int) {
 		establishWG.Go(func() {
+			defer completed.Add(1)
 			if opts.ramp == 0 {
 				ready.Done()
 				select {
@@ -790,6 +1195,7 @@ func establishSessions(
 			attempt.Duration = time.Since(attempt.StartedAt)
 			attempt.Upstream = timing.Upstream
 			attempt.DialDuration = timing.DialDuration
+			attempt.DialAttempts = timing.DialAttempts
 			attempt.Phases = timing.Phases
 			if dialErr != nil {
 				attempt.Error = dialErr.Error()
@@ -798,9 +1204,11 @@ func establishSessions(
 			attempts = append(attempts, attempt)
 			attemptsMu.Unlock()
 			if dialErr != nil {
+				failed.Add(1)
 				state.recordError(fmt.Sprintf("session %d dial via %s: %v", i, edge.endpoint, dialErr))
 				return
 			}
+			established.Add(1)
 			state.addSession(session)
 			state.serveWG.Go(func() {
 				err := session.serve()
@@ -820,10 +1228,11 @@ func establishSessions(
 				timer.Stop()
 				stopRampPings()
 				establishWG.Wait()
+				stopProgress("canceled")
 				state.mu.Lock()
 				state.establishment = summarizeEstablishment(startedAt, time.Now(), attempts)
 				state.mu.Unlock()
-				closeSessions(state)
+				closeSessions(state, opts.cleanupTimeout)
 				return ctx.Err()
 			case <-timer.C:
 			}
@@ -837,14 +1246,71 @@ func establishSessions(
 	}
 	establishWG.Wait()
 	stopRampPings()
+	stopProgress("completed")
 	state.mu.Lock()
 	state.establishment = summarizeEstablishment(startedAt, time.Now(), attempts)
 	state.mu.Unlock()
 	if err := ctx.Err(); err != nil {
-		closeSessions(state)
+		closeSessions(state, opts.cleanupTimeout)
 		return err
 	}
 	return nil
+}
+
+func startEstablishmentProgress(
+	opts options,
+	started time.Time,
+	completed *atomic.Int64,
+	established *atomic.Int64,
+	failed *atomic.Int64,
+) func(string) {
+	fmt.Fprintf(
+		os.Stderr,
+		"gateway capacity progress: status=started phase=establish attempted=%d concurrency=%d ramp=%s\n",
+		opts.sessions,
+		opts.concurrency,
+		opts.ramp,
+	)
+	done := make(chan struct{})
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				fmt.Fprintf(
+					os.Stderr,
+					"gateway capacity progress: status=running phase=establish completed=%d/%d established=%d failures=%d elapsed=%s\n",
+					completed.Load(),
+					opts.sessions,
+					established.Load(),
+					failed.Load(),
+					time.Since(started).Round(time.Second),
+				)
+			case <-done:
+				return
+			}
+		}
+	}()
+	var stopOnce sync.Once
+	return func(status string) {
+		stopOnce.Do(func() {
+			close(done)
+			<-stopped
+			fmt.Fprintf(
+				os.Stderr,
+				"gateway capacity progress: status=%s phase=establish completed=%d/%d established=%d failures=%d elapsed=%s\n",
+				status,
+				completed.Load(),
+				opts.sessions,
+				established.Load(),
+				failed.Load(),
+				time.Since(started).Round(time.Millisecond),
+			)
+		})
+	}
 }
 
 func startRampPings(ctx context.Context, state *resultState, opts options, sem chan struct{}) func() {
@@ -1046,10 +1512,18 @@ func recordEstablishmentPhases(
 	timing.Phases[phaseClientICEConnected] = clientTiming.ICEConnected
 	timing.Phases[phaseClientDTLSConnected] = clientTiming.DTLSConnected
 	timing.Phases[phaseClientDataChannel] = clientTiming.DataChannelReady
+	timing.DialAttempts = clientTiming.Attempts
 	maps.Copy(timing.Phases, recorder.signalingPhases())
 }
 
-func pingAll(ctx context.Context, state *resultState, opts options, sem chan struct{}, phase string, round int) {
+func pingAll(
+	ctx context.Context,
+	state *resultState,
+	opts options,
+	sem chan struct{},
+	phase string,
+	round int,
+) pingRoundSummary {
 	state.mu.Lock()
 	sessions := append([]*liveSession(nil), state.sessions...)
 	state.mu.Unlock()
@@ -1087,20 +1561,25 @@ func pingAll(ctx context.Context, state *resultState, opts options, sem chan str
 				pingStarted := time.Now()
 				id := fmt.Sprintf("gateway-capacity-%s-%d-%d", phase, round, index)
 				rxBefore, txBefore := session.byteCounts()
-				_, err := session.client.Ping(pingCtx, id)
+				_, err := session.ping(pingCtx, id)
 				rxAfter, txAfter := session.byteCounts()
 				rtt := time.Since(pingStarted)
 				cancel()
 				if err != nil {
+					failedRXDelta := counterDelta(rxBefore, rxAfter)
+					failedTXDelta := counterDelta(txBefore, txAfter)
 					err = fmt.Errorf(
 						"id=%s edge=%s upstream=%s rx_delta=%d tx_delta=%d: %w",
 						id,
 						session.edge,
 						session.upstream,
-						counterDelta(rxBefore, rxAfter),
-						counterDelta(txBefore, txAfter),
+						failedRXDelta,
+						failedTXDelta,
 						err,
 					)
+					state.recordPingFailureDiagnostic(diagnosePingFailure(
+						ctx, session, opts.pingTimeout, id, err, failedRXDelta, failedTXDelta,
+					))
 				}
 				state.recordPing(rtt, err)
 				roundMu.Lock()
@@ -1127,7 +1606,7 @@ func pingAll(ctx context.Context, state *resultState, opts options, sem chan str
 		wg.Wait()
 		sessionOffset += len(batch)
 	}
-	state.recordPingRound(pingRoundSummary{
+	summary := pingRoundSummary{
 		Phase:            phase,
 		Round:            round,
 		StartedAt:        started,
@@ -1139,7 +1618,64 @@ func pingAll(ctx context.Context, state *resultState, opts options, sem chan str
 		EdgeFailures:     edgeFailures,
 		UpstreamRTT:      summarizeNestedLatencyMap(upstreamRTTs),
 		UpstreamFailures: upstreamFailures,
-	})
+	}
+	state.recordPingRound(summary)
+	return summary
+}
+
+func diagnosePingFailure(
+	ctx context.Context,
+	session *liveSession,
+	pingTimeout time.Duration,
+	id string,
+	failure error,
+	failedRXDelta, failedTXDelta uint64,
+) pingFailureDiagnostic {
+	diagnostic := pingFailureDiagnostic{
+		ID: id, Edge: session.edge, Upstream: session.upstream, Error: failure.Error(),
+		ParentState: "unknown", FailedRXDelta: failedRXDelta, FailedTXDelta: failedTXDelta,
+		ProbeID: id + "-diagnostic",
+	}
+	var observed interface{ TransportDiagnostics() string }
+	if errors.As(failure, &observed) {
+		diagnostic.DataChannel = observed.TransportDiagnostics()
+	}
+	var parentObserved interface{ ParentTransportDiagnostics() string }
+	if errors.As(failure, &parentObserved) {
+		diagnostic.ParentTransport = parentObserved.ParentTransportDiagnostics()
+	}
+	if conn := session.peerConn(); conn != nil {
+		if peer := conn.PeerInfo(); peer != nil {
+			diagnostic.ParentState = peer.State.String()
+		}
+	}
+	probeTimeout := min(pingTimeout, 2*time.Second)
+	if probeTimeout <= 0 {
+		probeTimeout = 2 * time.Second
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+	rxBefore, txBefore := session.byteCounts()
+	started := time.Now()
+	_, probeErr := session.ping(probeCtx, diagnostic.ProbeID)
+	diagnostic.ProbeRTT = time.Since(started)
+	if conn := session.peerConn(); conn != nil {
+		if observed, ok := conn.(interface{ DiagnosticString() string }); ok {
+			diagnostic.ProbeParentTransport = observed.DiagnosticString()
+		}
+	}
+	rxAfter, txAfter := session.byteCounts()
+	diagnostic.ProbeRXDelta = counterDelta(rxBefore, rxAfter)
+	diagnostic.ProbeTXDelta = counterDelta(txBefore, txAfter)
+	if probeErr != nil {
+		diagnostic.ProbeError = probeErr.Error()
+		if diagnostic.ProbeParentTransport == "" && errors.As(probeErr, &parentObserved) {
+			diagnostic.ProbeParentTransport = parentObserved.ParentTransportDiagnostics()
+		}
+		return diagnostic
+	}
+	diagnostic.ProbeSucceeded = true
+	return diagnostic
 }
 
 func pingSessionBatches(sessions []*liveSession, concurrency int) [][]*liveSession {
@@ -1282,7 +1818,7 @@ func summarizeOpus(
 	return summary
 }
 
-func runSpeedTests(ctx context.Context, state *resultState, opts options) {
+func runSpeedTests(ctx context.Context, state *resultState, opts options, checkpoint string) speedTestSummary {
 	state.mu.Lock()
 	sessions := append([]*liveSession(nil), state.sessions...)
 	state.mu.Unlock()
@@ -1296,7 +1832,23 @@ func runSpeedTests(ctx context.Context, state *resultState, opts options) {
 		opts.speedTimeout,
 		opts.minSpeedAggregateRatio,
 		opts.minUploadAggregateMbps,
+		checkpoint,
 	)
+	recordSpeedDirectionErrors(state, opts, checkpoint, upload)
+	if !upload.Passed {
+		state.mu.Lock()
+		state.appendErrorLocked(fmt.Sprintf(
+			"speed %s upload gate failed; download was not run because acceptance is already impossible",
+			checkpoint,
+		))
+		state.mu.Unlock()
+		return speedTestSummary{
+			Upload: upload,
+			Download: speedDirectionSummary{
+				Direction: "download",
+			},
+		}
+	}
 	download := measureSpeedDirection(
 		ctx,
 		sessions,
@@ -1306,47 +1858,57 @@ func runSpeedTests(ctx context.Context, state *resultState, opts options) {
 		opts.speedTimeout,
 		opts.minSpeedAggregateRatio,
 		opts.minDownloadAggregateMbps,
+		checkpoint,
 	)
+	recordSpeedDirectionErrors(state, opts, checkpoint, download)
+	return speedTestSummary{Upload: upload, Download: download}
+}
 
+func recordSpeedDirectionErrors(
+	state *resultState,
+	opts options,
+	checkpoint string,
+	direction speedDirectionSummary,
+) {
 	state.mu.Lock()
-	state.speedTest = speedTestSummary{Upload: upload, Download: download}
-	for _, direction := range []speedDirectionSummary{upload, download} {
-		for _, run := range []speedRunSummary{direction.Baseline, direction.Concurrent} {
-			for _, session := range run.Sessions {
-				if session.Error != "" {
-					state.appendErrorLocked(fmt.Sprintf(
-						"speed %s session %d via %s upstream %s: %s",
-						direction.Direction,
-						session.Index,
-						session.Edge,
-						session.Upstream,
-						session.Error,
-					))
-				}
+	defer state.mu.Unlock()
+	for _, run := range []speedRunSummary{direction.Baseline, direction.Concurrent} {
+		for _, session := range run.Sessions {
+			if session.Error != "" {
+				state.appendErrorLocked(fmt.Sprintf(
+					"speed %s %s session %d via %s upstream %s: %s",
+					checkpoint,
+					direction.Direction,
+					session.Index,
+					session.Edge,
+					session.Upstream,
+					session.Error,
+				))
 			}
 		}
-		if direction.AggregateToBaselineRatio < opts.minSpeedAggregateRatio {
-			state.appendErrorLocked(fmt.Sprintf(
-				"speed %s aggregate ratio %.3f is below %.3f",
-				direction.Direction,
-				direction.AggregateToBaselineRatio,
-				opts.minSpeedAggregateRatio,
-			))
-		}
-		minAggregateMbps := opts.minUploadAggregateMbps
-		if direction.Direction == "download" {
-			minAggregateMbps = opts.minDownloadAggregateMbps
-		}
-		if direction.Concurrent.AggregateMbps < minAggregateMbps {
-			state.appendErrorLocked(fmt.Sprintf(
-				"speed %s aggregate %.3f Mbps is below %.3f Mbps",
-				direction.Direction,
-				direction.Concurrent.AggregateMbps,
-				minAggregateMbps,
-			))
-		}
 	}
-	state.mu.Unlock()
+	if direction.AggregateToBaselineRatio < opts.minSpeedAggregateRatio {
+		state.appendErrorLocked(fmt.Sprintf(
+			"speed %s %s aggregate ratio %.3f is below %.3f",
+			checkpoint,
+			direction.Direction,
+			direction.AggregateToBaselineRatio,
+			opts.minSpeedAggregateRatio,
+		))
+	}
+	minAggregateMbps := opts.minUploadAggregateMbps
+	if direction.Direction == "download" {
+		minAggregateMbps = opts.minDownloadAggregateMbps
+	}
+	if direction.Concurrent.AggregateMbps < minAggregateMbps {
+		state.appendErrorLocked(fmt.Sprintf(
+			"speed %s %s aggregate %.3f Mbps is below %.3f Mbps",
+			checkpoint,
+			direction.Direction,
+			direction.Concurrent.AggregateMbps,
+			minAggregateMbps,
+		))
+	}
 }
 
 func measureSpeedDirection(
@@ -1358,6 +1920,7 @@ func measureSpeedDirection(
 	timeout time.Duration,
 	minAggregateRatio float64,
 	minAggregateMbps float64,
+	checkpoint string,
 ) speedDirectionSummary {
 	summary := speedDirectionSummary{
 		Direction:                 direction,
@@ -1373,7 +1936,7 @@ func measureSpeedDirection(
 		direction,
 		baselineBytesPerSession,
 		timeout,
-		"baseline",
+		checkpoint+".baseline",
 	)
 	summary.Concurrent = measureSpeedRun(
 		ctx,
@@ -1381,13 +1944,73 @@ func measureSpeedDirection(
 		direction,
 		concurrentBytesPerSession,
 		timeout,
-		"concurrent",
+		checkpoint+".concurrent",
 	)
 	if summary.Baseline.AggregateMbps > 0 {
 		summary.AggregateToBaselineRatio =
 			summary.Concurrent.AggregateMbps / summary.Baseline.AggregateMbps
 	}
 	summary.Passed = speedDirectionPassed(summary, minAggregateRatio, minAggregateMbps)
+	return summary
+}
+
+func summarizeSpeedRetention(initial, final speedTestSummary, minimum float64) speedRetentionSummary {
+	summary := speedRetentionSummary{Minimum: minimum}
+	if initial.Upload.Concurrent.AggregateMbps > 0 {
+		summary.UploadRatio = final.Upload.Concurrent.AggregateMbps / initial.Upload.Concurrent.AggregateMbps
+	}
+	if initial.Download.Concurrent.AggregateMbps > 0 {
+		summary.DownloadRatio = final.Download.Concurrent.AggregateMbps / initial.Download.Concurrent.AggregateMbps
+	}
+	summary.UploadPerSession = summarizeRateRetention(
+		initial.Upload.Concurrent.PerSessionMbps,
+		final.Upload.Concurrent.PerSessionMbps,
+	)
+	summary.DownloadPerSession = summarizeRateRetention(
+		initial.Download.Concurrent.PerSessionMbps,
+		final.Download.Concurrent.PerSessionMbps,
+	)
+	summary.Passed = final.Upload.Passed && final.Download.Passed &&
+		retentionAtLeast(summary.UploadRatio, minimum) && retentionAtLeast(summary.DownloadRatio, minimum) &&
+		retentionAtLeast(summary.UploadPerSession.P01, minimum) &&
+		retentionAtLeast(summary.UploadPerSession.P05, minimum) &&
+		retentionAtLeast(summary.UploadPerSession.P50, minimum) &&
+		retentionAtLeast(summary.DownloadPerSession.P01, minimum) &&
+		retentionAtLeast(summary.DownloadPerSession.P05, minimum) &&
+		retentionAtLeast(summary.DownloadPerSession.P50, minimum)
+	return summary
+}
+
+func retentionAtLeast(value, minimum float64) bool {
+	return value >= minimum || math.Abs(value-minimum) <= 1e-12
+}
+
+func formatSpeedRetentionFailure(retention speedRetentionSummary) string {
+	return fmt.Sprintf(
+		"final speed retention below %.3f: aggregate(upload=%.3f download=%.3f) per_session(upload_p01=%.3f upload_p05=%.3f upload_p50=%.3f download_p01=%.3f download_p05=%.3f download_p50=%.3f)",
+		retention.Minimum,
+		retention.UploadRatio,
+		retention.DownloadRatio,
+		retention.UploadPerSession.P01,
+		retention.UploadPerSession.P05,
+		retention.UploadPerSession.P50,
+		retention.DownloadPerSession.P01,
+		retention.DownloadPerSession.P05,
+		retention.DownloadPerSession.P50,
+	)
+}
+
+func summarizeRateRetention(initial, final rateSummary) rateRetentionSummary {
+	var summary rateRetentionSummary
+	if initial.P01 > 0 {
+		summary.P01 = final.P01 / initial.P01
+	}
+	if initial.P05 > 0 {
+		summary.P05 = final.P05 / initial.P05
+	}
+	if initial.P50 > 0 {
+		summary.P50 = final.P50 / initial.P50
+	}
 	return summary
 }
 
@@ -1418,14 +2041,24 @@ func measureSpeedRun(
 	runName string,
 ) speedRunSummary {
 	attempts := make([]speedAttempt, len(sessions))
+	var completed atomic.Int64
 	start := make(chan struct{})
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	var ready sync.WaitGroup
+	ready.Add(len(sessions))
 	var wg sync.WaitGroup
 	for index, session := range sessions {
 		wg.Go(func() {
-			<-start
+			defer completed.Add(1)
+			ready.Done()
+			select {
+			case <-start:
+			case <-runCtx.Done():
+				attempts[index].err = runCtx.Err()
+				return
+			}
 			request := rpcapi.SpeedTestRequest{}
 			switch direction {
 			case "upload":
@@ -1443,11 +2076,28 @@ func measureSpeedRun(
 			)
 		})
 	}
+	ready.Wait()
 	started := time.Now()
+	fmt.Fprintf(os.Stderr, "gateway capacity progress: status=started phase=speed run=%s direction=%s attempted=%d bytes_per_session=%d timeout=%s\n", runName, direction, len(sessions), bytesPerSession, timeout)
 	close(start)
-	wg.Wait()
-	elapsed := time.Since(started)
-	return summarizeSpeedRun(started, elapsed, sessions, direction, bytesPerSession, attempts)
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-done:
+			elapsed := time.Since(started)
+			summary := summarizeSpeedRun(started, elapsed, sessions, direction, bytesPerSession, attempts)
+			fmt.Fprintf(os.Stderr, "gateway capacity progress: status=completed phase=speed run=%s direction=%s completed=%d/%d failures=%d aggregate_mbps=%.3f elapsed=%s\n", runName, direction, summary.Completed, summary.Attempted, summary.Failures, summary.AggregateMbps, elapsed.Round(time.Millisecond))
+			return summary
+		case <-ticker.C:
+			fmt.Fprintf(os.Stderr, "gateway capacity progress: status=running phase=speed run=%s direction=%s completed=%d/%d elapsed=%s\n", runName, direction, completed.Load(), len(sessions), time.Since(started).Round(time.Second))
+		}
+	}
 }
 
 func summarizeSpeedRun(
@@ -1574,6 +2224,8 @@ func summarizeRates(values []float64) rateSummary {
 	return rateSummary{
 		Count: len(sorted),
 		Min:   sorted[0],
+		P01:   floatPercentile(sorted, 0.01),
+		P05:   floatPercentile(sorted, 0.05),
 		P50:   floatPercentile(sorted, 0.50),
 		P95:   floatPercentile(sorted, 0.95),
 		P99:   floatPercentile(sorted, 0.99),
@@ -1716,6 +2368,19 @@ func (s *liveSession) speedTest(
 	return s.client.SpeedTest(ctx, id, request)
 }
 
+func (s *liveSession) ping(ctx context.Context, id string) (*rpcapi.PingResponse, error) {
+	if s == nil {
+		return nil, errors.New("nil live session")
+	}
+	if s.pingFn != nil {
+		return s.pingFn(ctx, id)
+	}
+	if s.client == nil {
+		return nil, errors.New("live session has no client")
+	}
+	return s.client.Ping(ctx, id)
+}
+
 func (s *resultState) recordPing(rtt time.Duration, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1737,6 +2402,12 @@ func (s *resultState) recordPingRound(round pingRoundSummary) {
 	s.pingRounds = append(s.pingRounds, round)
 }
 
+func (s *resultState) recordPingFailureDiagnostic(diagnostic pingFailureDiagnostic) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pingFailureDiagnostics = append(s.pingFailureDiagnostics, diagnostic)
+}
+
 func (s *resultState) recordError(message string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1756,20 +2427,77 @@ func (s *resultState) appendErrorLocked(message string) {
 	}
 }
 
-func closeSessions(state *resultState) {
-	state.mu.Lock()
-	sessions := append([]*liveSession(nil), state.sessions...)
-	state.mu.Unlock()
-	for _, session := range sessions {
-		if conn := session.peerConn(); conn != nil {
-			if peer := conn.PeerInfo(); peer != nil {
-				session.rxBytes = peer.RxBytes
-				session.txBytes = peer.TxBytes
+func (s *resultState) appendCriticalErrorLocked(message string) {
+	s.errors = append(s.errors, "")
+	copy(s.errors[1:], s.errors[:len(s.errors)-1])
+	s.errors[0] = message
+	if len(s.errors) > 100 {
+		s.errors = s.errors[:100]
+	}
+}
+
+func closeSessions(state *resultState, timeout time.Duration) cleanupSummary {
+	state.cleanupOnce.Do(func() {
+		started := time.Now()
+		state.mu.Lock()
+		sessions := append([]*liveSession(nil), state.sessions...)
+		state.mu.Unlock()
+		for _, session := range sessions {
+			if conn := session.peerConn(); conn != nil {
+				if peer := conn.PeerInfo(); peer != nil {
+					session.rxBytes = peer.RxBytes
+					session.txBytes = peer.TxBytes
+				}
 			}
 		}
-		_ = session.close()
-	}
-	state.serveWG.Wait()
+
+		closeErrors := make(chan string, len(sessions))
+		done := make(chan struct{})
+		go func() {
+			var closeWG sync.WaitGroup
+			for index, session := range sessions {
+				closeWG.Go(func() {
+					if err := session.close(); err != nil {
+						closeErrors <- fmt.Sprintf("session %d close: %v", index, err)
+					}
+				})
+			}
+			closeWG.Wait()
+			state.serveWG.Wait()
+			close(done)
+		}()
+
+		summary := cleanupSummary{StartedAt: started, Attempted: len(sessions)}
+		timer := time.NewTimer(timeout)
+		select {
+		case <-done:
+			timer.Stop()
+			summary.ServeCompleted = true
+		case <-timer.C:
+			summary.TimedOut = true
+			summary.Errors = append(summary.Errors, fmt.Sprintf("logical-session cleanup exceeded %s", timeout))
+		}
+		for {
+			select {
+			case message := <-closeErrors:
+				summary.CloseFailures++
+				summary.Errors = append(summary.Errors, message)
+			default:
+				goto closeErrorsDrained
+			}
+		}
+	closeErrorsDrained:
+		summary.Duration = time.Since(started)
+		state.mu.Lock()
+		state.cleanup = summary
+		for _, message := range summary.Errors {
+			state.appendErrorLocked(message)
+		}
+		state.mu.Unlock()
+	})
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	return state.cleanup
 }
 
 func finalize(report artifact, state *resultState, resources *resourceSampler, extended *extendedSamplerState) artifact {
@@ -1783,12 +2511,19 @@ func finalize(report artifact, state *resultState, resources *resourceSampler, e
 	report.EstablishmentFailures = report.Attempted - report.Established
 	report.PingsAttempted = state.pings
 	report.PingFailures = state.pingFailures
+	report.PingFailureDiagnostics = append(
+		[]pingFailureDiagnostic(nil), state.pingFailureDiagnostics...,
+	)
 	report.UnexpectedDisconnects = state.unexpectedDisconnects
 	report.IdentityCrossover = state.identityCrossover
 	report.RTT = summarizeLatency(state.rtts)
 	report.Establishment = state.establishment
 	report.PingRounds = append([]pingRoundSummary(nil), state.pingRounds...)
 	report.SpeedTest = state.speedTest
+	report.FinalSpeedTest = state.finalSpeedTest
+	report.SpeedRetention = state.speedRetention
+	report.HoldStartedAt = state.holdStartedAt
+	report.HoldFinishedAt = state.holdFinishedAt
 	report.Opus = state.opus
 	report.Errors = append([]string(nil), state.errors...)
 	if report.Extended != nil {
@@ -1797,11 +2532,13 @@ func finalize(report artifact, state *resultState, resources *resourceSampler, e
 	var rx, tx uint64
 	for _, session := range state.sessions {
 		sessionRx, sessionTx := session.rxBytes, session.txBytes
-		if conn := session.peerConn(); conn != nil {
-			peer := conn.PeerInfo()
-			if peer != nil {
-				sessionRx = peer.RxBytes
-				sessionTx = peer.TxBytes
+		if state.cleanup.StartedAt.IsZero() {
+			if conn := session.peerConn(); conn != nil {
+				peer := conn.PeerInfo()
+				if peer != nil {
+					sessionRx = peer.RxBytes
+					sessionTx = peer.TxBytes
+				}
 			}
 		}
 		rx += sessionRx
@@ -1814,6 +2551,14 @@ func finalize(report artifact, state *resultState, resources *resourceSampler, e
 		report.BytesPerSession.TxMean = float64(tx) / float64(report.Established)
 	}
 	report.ResourceUsage = resources.summary()
+	report.Cleanup = state.cleanup
+	if report.Config.Soak {
+		stability := summarizeSoakQualification(report)
+		report.SoakStability = &stability
+		for _, reason := range stability.Reasons {
+			report.Errors = append(report.Errors, "soak stability: "+reason)
+		}
+	}
 	extendedFailed := report.Extended != nil && len(report.Extended.Errors) > 0
 	report.Passed = !extendedFailed && report.EstablishmentFailures <= report.Config.MaxEstablishmentFailures &&
 		establishmentWithin(report.Establishment, report.Config) &&
@@ -1821,6 +2566,10 @@ func finalize(report artifact, state *resultState, resources *resourceSampler, e
 		report.UnexpectedDisconnects == 0 && !report.IdentityCrossover &&
 		(report.Config.SpeedBytes == 0 ||
 			(report.SpeedTest.Upload.Passed && report.SpeedTest.Download.Passed)) &&
+		(report.Config.MinFinalSpeedRetention == 0 ||
+			(report.FinalSpeedTest != nil && report.SpeedRetention != nil && report.SpeedRetention.Passed)) &&
+		(!report.Config.Soak || report.SoakStability != nil && report.SoakStability.Qualified) &&
+		!report.Cleanup.TimedOut && report.Cleanup.CloseFailures == 0 && report.Cleanup.ServeCompleted &&
 		(report.Config.OpusPackets == 0 ||
 			(report.Opus.Failures == 0 && report.Opus.Completed == report.Opus.Attempted &&
 				report.Opus.CompletedBytes == report.Opus.AttemptedBytes)) &&
@@ -1891,7 +2640,7 @@ func acceptanceError(report artifact, opts options) error {
 		return nil
 	}
 	return fmt.Errorf(
-		"gateway capacity failed: established=%d/%d dial_failures=%d establishment=(%.2f sessions/s,p95 %.2fms,p99 %.2fms) ping_failures=%d disconnects=%d crossover=%t rtt_p99=%.2fms speed=(upload %.2fMbps %.2fx, download %.2fMbps %.2fx) thresholds=(dial_failures %d,rate %.2f sessions/s,p95 %s,p99 %s,ping_failures %d,rtt_p99 %s,%.2fx,upload %.2fMbps,download %.2fMbps)",
+		"gateway capacity failed: established=%d/%d dial_failures=%d establishment=(%.2f sessions/s,p95 %.2fms,p99 %.2fms) ping_failures=%d disconnects=%d crossover=%t rtt_p99=%.2fms speed=(upload %.2fMbps %.2fx, download %.2fMbps %.2fx) cleanup=(duration %s,failures %d,timeout %t) thresholds=(dial_failures %d,rate %.2f sessions/s,p95 %s,p99 %s,ping_failures %d,rtt_p99 %s,%.2fx,upload %.2fMbps,download %.2fMbps,final-retention %.2fx)",
 		report.Established, report.Attempted, report.EstablishmentFailures,
 		report.Establishment.UsableSessionsPerSecond,
 		report.Establishment.Dial.P95,
@@ -1901,11 +2650,15 @@ func acceptanceError(report artifact, opts options) error {
 		report.SpeedTest.Upload.AggregateToBaselineRatio,
 		report.SpeedTest.Download.Concurrent.AggregateMbps,
 		report.SpeedTest.Download.AggregateToBaselineRatio,
+		report.Cleanup.Duration,
+		report.Cleanup.CloseFailures,
+		report.Cleanup.TimedOut,
 		opts.maxEstablishmentFailures, opts.minEstablishmentRate, opts.maxDialP95, opts.maxDialP99,
 		opts.maxPingFailures, opts.maxP99RTT,
 		opts.minSpeedAggregateRatio,
 		opts.minUploadAggregateMbps,
 		opts.minDownloadAggregateMbps,
+		opts.minFinalSpeedRetention,
 	)
 }
 
@@ -2008,6 +2761,10 @@ func (s *resourceSampler) observe(point resourcePoint) {
 		s.data.Peak.HeapAllocBytes = point.HeapAllocBytes
 		improved = true
 	}
+	if point.HeapLiveBytes > s.data.Peak.HeapLiveBytes {
+		s.data.Peak.HeapLiveBytes = point.HeapLiveBytes
+		improved = true
+	}
 	if point.Goroutines > s.data.Peak.Goroutines {
 		s.data.Peak.Goroutines = point.Goroutines
 		improved = true
@@ -2021,6 +2778,12 @@ func (s *resourceSampler) samples() []resourcePoint {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]resourcePoint(nil), s.points...)
+}
+
+func (s *resourceSampler) latest() resourcePoint {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.points[len(s.points)-1]
 }
 
 func (s *resourceSampler) stop() {
@@ -2043,32 +2806,58 @@ func (s *resourceSampler) summary() resourceSummary {
 }
 
 func readResourcePoint(requireProcessFallback bool) resourcePoint {
-	var memory runtime.MemStats
-	runtime.ReadMemStats(&memory)
-	rssBytes, rssSource := readRSS(memory.Sys, requireProcessFallback)
+	totalMemory, heapAlloc, heapLive, goroutines, cpuSeconds := readRuntimeResourceMetrics()
+	rssBytes, rssSource := readRSS(totalMemory, requireProcessFallback)
 	openFDs, openFDsSource := readFDCount(requireProcessFallback)
+	cpuSecondsSource := "go_runtime_total_minus_idle"
+	if processCPUSeconds, ok := readNativeProcessCPUSeconds(); ok {
+		cpuSeconds = processCPUSeconds
+		cpuSecondsSource = "native_process_rusage"
+	}
 	return resourcePoint{
 		At: time.Now(), RSSBytes: rssBytes, RSSSource: rssSource,
-		CPUSeconds: readActiveCPUSeconds(), CPUSecondsSource: "go_runtime_total_minus_idle",
-		OpenFDs: openFDs, OpenFDsSource: openFDsSource, HeapAllocBytes: memory.HeapAlloc,
-		Goroutines: runtime.NumGoroutine(),
+		CPUSeconds: cpuSeconds, CPUSecondsSource: cpuSecondsSource,
+		OpenFDs: openFDs, OpenFDsSource: openFDsSource, HeapAllocBytes: heapAlloc,
+		HeapLiveBytes: heapLive,
+		Goroutines:    goroutines,
 	}
 }
 
 func readActiveCPUSeconds() float64 {
+	_, _, _, _, cpuSeconds := readRuntimeResourceMetrics()
+	return cpuSeconds
+}
+
+func readRuntimeResourceMetrics() (totalMemory uint64, heapAlloc uint64, heapLive uint64, goroutines int, cpuSeconds float64) {
 	samples := []metrics.Sample{
+		{Name: "/memory/classes/total:bytes"},
+		{Name: "/memory/classes/heap/objects:bytes"},
+		{Name: "/gc/heap/live:bytes"},
+		{Name: "/sched/goroutines:goroutines"},
 		{Name: "/cpu/classes/total:cpu-seconds"},
 		{Name: "/cpu/classes/idle:cpu-seconds"},
 	}
 	metrics.Read(samples)
-	if samples[0].Value.Kind() != metrics.KindFloat64 ||
-		samples[1].Value.Kind() != metrics.KindFloat64 {
-		return 0
+	if samples[0].Value.Kind() == metrics.KindUint64 {
+		totalMemory = samples[0].Value.Uint64()
 	}
-	return activeCPUSeconds(
-		samples[0].Value.Float64(),
-		samples[1].Value.Float64(),
-	)
+	if samples[1].Value.Kind() == metrics.KindUint64 {
+		heapAlloc = samples[1].Value.Uint64()
+	}
+	if samples[2].Value.Kind() == metrics.KindUint64 {
+		heapLive = samples[2].Value.Uint64()
+	}
+	if samples[3].Value.Kind() == metrics.KindUint64 {
+		goroutines = int(min(samples[3].Value.Uint64(), uint64(math.MaxInt)))
+	}
+	if samples[4].Value.Kind() == metrics.KindFloat64 &&
+		samples[5].Value.Kind() == metrics.KindFloat64 {
+		cpuSeconds = activeCPUSeconds(
+			samples[4].Value.Float64(),
+			samples[5].Value.Float64(),
+		)
+	}
+	return totalMemory, heapAlloc, heapLive, goroutines, cpuSeconds
 }
 
 func activeCPUSeconds(total, idle float64) float64 {
@@ -2095,7 +2884,7 @@ func readRSS(fallback uint64, requireProcessFallback bool) (uint64, string) {
 			}
 		}
 	}
-	return fallback, "go_memstats_sys"
+	return fallback, "go_runtime_memory_total"
 }
 
 func readFDCount(requireProcessFallback bool) (int, string) {

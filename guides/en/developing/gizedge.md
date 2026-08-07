@@ -135,11 +135,16 @@ upstream PeerConnection. HTTP forwarding and gateway upstreams share one
 process-local round-robin health selector. A failed relay enters bounded
 exponential backoff; another eligible member is tried within the existing
 30-second connection budget, with at most five seconds per member. There is no
-direct fallback. Successful reconnection clears that member's failure state,
-while request cancellation, Edge shutdown, and individual logical-session
-failure do not penalize it. Established gateway sessions remain pinned and may
-fail with their physical upstream; a fresh client reconnect selects from the
-current healthy pool.
+direct fallback. While establishing the required gateway warm pool, the Edge
+also honors the selector's reported backoff and retries temporarily unavailable
+members within one shared 30-second startup budget. If a five-second warmup
+attempt establishes only part of the pool, the Edge keeps those associations
+and retries only the missing slots within the same budget; configuration,
+cancellation, and other errors still fail immediately. Successful reconnection
+clears that member's failure state, while request cancellation, Edge shutdown,
+and individual logical-session failure do not penalize it. Established gateway
+sessions remain pinned and may fail with their physical upstream; a fresh client
+reconnect selects from the current healthy pool.
 
 Every pool member has exactly one lowercase `turn:` URL with a literal IPv4 or
 bracketed IPv6 address, an explicit port, and only `transport=udp`. Static mode
@@ -295,10 +300,123 @@ unexpected disconnect, and transferred exactly 500 MiB in each direction
 above 200 Mbps. These measurements qualify only that host and topology; they
 do not qualify 1,000 sessions, a soak, or a deployment network.
 
-CPU, memory, file descriptors, establishment rate, and low-rate activity for
-the complete topology must still be fitted from larger samples. Repeated
-1,000-session runs, a long soak, per-process resource slopes, and the
-30,000-session projection are a separate extended-capacity qualification.
+The fixed relay-only 1,000-session burst and soak entrypoints are:
+
+```bash
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_soak_tests.sh
+```
+
+The burst entrypoint requires a clean head and repeats three fresh
+one-Server/two-Edge/two-Coturn stacks. Each run releases 1,000 Dials through
+one barrier with concurrency 1,000 and no ramp, holds the 1,000 live sessions
+for 30 seconds, and performs final liveness before bounded teardown. Each Edge
+must own exactly 500 sessions across four gateway upstreams. The establishment,
+application transfer of exactly 1,000 MiB (1,048,576,000 bytes) in each
+direction, 200 Mbps aggregate, timing,
+resource, relay-selection, ten-allocation, restart, and cleanup gates are the
+same fixed contract as the smaller tiers. The load driver fixes and records
+`GOGC=200` so collection of its roughly 2 GiB client heap does not become the
+limiting stage during synchronized transfer. Current process CPU and
+completed-GC live-heap evidence still gate long-lived stability; this setting
+does not alter Edge, Server, or Coturn runtime behavior.
+
+The soak entrypoint first reruns all three burst repetitions on the same clean
+head, then starts one new no-ramp 1,000-session stack and holds it for 60
+minutes. Complete liveness rounds start every 30 seconds. A heartbeat is
+printed at least every 30 seconds and at each liveness-round boundary with
+active-session, ping, disconnect, open-FD, RSS, goroutine, Docker-role sample
+count, historical-gap, and current-age evidence. The runner fails and cleans up
+as soon as a ping, disconnect, identity, round-duration, or 2.1-second resource
+sample-gap gate becomes irrecoverable. Speed runs also print progress at least
+every 15 seconds while active; silence until the 60-minute deadline is not treated
+as healthy execution. Distinct initial and
+final 1 MiB-per-session upload/download checkpoints must each exceed 200 Mbps,
+and each final direction must retain at least 80% of its initial aggregate and
+of its per-session p01, p05, and p50 throughput. The p95 and p99 throughput
+values remain upper-tail diagnostics rather than degradation gates.
+Fresh-stack HTTP and ready-file waits print the service state and elapsed time
+every 15 seconds; silence after Compose startup is not readiness evidence.
+The ordered qualification builds one run-ID-scoped service image from its clean
+head and reuses that exact image across repetitions. Every repetition still
+gets fresh containers, networks, volumes, ports, and credentials. Failed
+attempts retain only the clean-HEAD-scoped image for same-head retries; changing
+the head changes the tag, and a completed qualification removes the exact
+image. After every fresh stack reaches readiness,
+a 120-second post-start stabilization window reports container health every 15
+seconds before measurement, including repetitions that reuse the image.
+A fixed 120-second stabilization window, with 15-second progress, follows each
+1,000-session fresh-stack teardown so delayed Docker-VM reclamation does not
+pollute the next run. A failed upload gate skips the now-irrelevant download.
+
+Artifact version 18 records the actual hold boundaries and compares the first
+and last ten minutes. On a Ping failure, the artifact also records the failed
+request's pre-close DataChannel ID, state, buffered amount, byte counts, and
+parent-association state. It also captures address-free PeerConnection, ICE,
+and SCTP states plus ICE packet/byte and SCTP byte counters, then performs one
+bounded diagnostic Ping on a fresh DataChannel over the same association and
+captures the parent counters again. The diagnostic Ping is excluded from
+acceptance counts and never changes the original failure into a pass.
+The median per-round RTT p99, RSS, open FDs, completed-GC
+Go live heap, and goroutine medians must not grow by more than 20%. The current
+Go heap-object count is retained as a diagnostic but is not a growth gate,
+because it varies with the normal GC cycle; sampling never forces a GC. CPU and
+network-rate changes use the same relative bound with absolute noise floors of
+0.10 core and 1,024 bytes/s; UDP/UDP6 socket medians use the 20% bound. RSS,
+CPU, and open-FD samples are tied to one process ID and start time. For Docker
+roles, `/proc/<pid>/net/{udp,udp6,dev}` describes the container network
+namespace, not only sockets and traffic owned by that process. These checks
+cover the load driver, both Edges, both Coturn members, and Server, reject
+process-counter resets, and require resource gaps no larger than 2.1 seconds.
+On Darwin and Linux the load driver uses the operating system's cumulative
+process user-plus-system CPU from `getrusage`; unsupported platforms retain the
+named Go-runtime active-CPU fallback. This avoids treating deferred runtime CPU
+class updates as process-CPU growth while preserving the same qualification
+threshold.
+Unavailable external Go runtime metrics and load-driver namespace
+socket/network metrics are named explicitly rather than represented by
+fabricated values.
+
+Logical-session cleanup has a 30-second bound; the ten physical TURN allocations
+are checked from source-qualified Coturn counters once per second while the
+Edges are alive and must return to zero within 15 seconds after Edge shutdown.
+The monitor must produce its first sample before the workload starts, and its
+millisecond timestamps must be non-decreasing with no gap above 2.1 seconds;
+equal values are allowed only when distinct nanosecond samples truncate to the
+same millisecond.
+These commands qualify only their recorded host, Docker engine, clean commit,
+and topology; they are not a 30,000-session or WAN guarantee.
+
+On 2026-08-07, clean executable head
+`a2ff5b791a5c60c3b80052204717ac277e43c885` completed the ordered relay-only
+qualification once on a Darwin/arm64 host with 16 logical CPUs, Go 1.26.4, and
+64 GiB RAM, using OrbStack 2.2.1 Linux/aarch64 Docker with 16 logical CPUs and
+15.67 GiB RAM. The three fresh-stack burst prerequisites established
+1,000/1,000 sessions at 159.90, 1,118.18, and 158.99 sessions/s. Their Dial
+p95/p99 values were 681.57/776.75 ms, 749.00/806.92 ms, and 589.81/669.13 ms;
+synchronized upload/download throughput was 453.54/482.89, 415.54/455.50, and
+484.35/413.58 Mbps. Every run assigned 500 sessions to each Edge, transferred
+exactly 1,000 MiB per direction, kept all ten relay allocations live, and
+completed bounded cleanup with no correctness, liveness, exit, or restart
+failure.
+
+The fresh 60-minute soak then established 1,000/1,000 sessions at 1,074.63
+sessions/s with Dial p95/p99 of 718.53/838.54 ms. It completed 122,000 accepted
+Pings with no failure, disconnect, or identity crossover. Initial
+upload/download were 415.51/425.25 Mbps and final upload/download were
+424.20/524.18 Mbps; aggregate retention was 102.09%/123.26%, and the lowest
+accepted per-session retention was 96.66%. Late median round-p99 RTT fell by
+11.11%. Late-window RSS growth was 10.89% and 16.49% on the two Edges, -52.64%
+on the load driver, -0.65% on Server, and about -2.78% on both Coturn members;
+the load driver's completed-GC live heap grew 10.98%. Every supported six-role
+resource gate passed, with at least 3,679 one-second samples per role and a
+maximum gap of 1.033 seconds. Both Edges remained relay-only, logical cleanup
+finished in 45.55 ms with no close failure, and both Coturn members returned
+from five to zero allocations within 15 seconds. Documentation-only commits
+after this result do not change the qualified executable.
+
+This fixed qualification establishes the 1,000-session burst and soak boundary
+only. It does not infer a higher-session capacity projection.
 Repeatable transport and full Edge benchmarks are:
 
 ```bash

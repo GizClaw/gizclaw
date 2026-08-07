@@ -146,5 +146,5 @@ func TestEstablishSessionsReleasesBurstTogether(t *testing.T) {
 	if state.establishment.Dial.Count != sessionCount || len(state.establishment.Sessions) != sessionCount {
 		t.Fatalf("establishment summary = %+v", state.establishment)
 	}
-	closeSessions(state)
+	closeSessions(state, time.Second)
 }

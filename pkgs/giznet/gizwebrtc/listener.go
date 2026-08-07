@@ -10,6 +10,8 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
+const signalingReplayTTL = int64((5 * time.Minute) / time.Second)
+
 type Listener struct {
 	key            *giznet.KeyPair
 	cfg            ListenConfig
@@ -23,8 +25,9 @@ type Listener struct {
 	once     sync.Once
 	closed   atomic.Bool
 
-	replayMu   sync.Mutex
-	replaySeen map[string]int64
+	replayMu        sync.Mutex
+	replaySeen      map[string]int64
+	replayNextPrune int64
 }
 
 func (l *Listener) Accept() (giznet.Conn, error) {
@@ -69,17 +72,25 @@ func (l *Listener) enqueueConn(conn *Conn) {
 }
 
 func (l *Listener) checkReplay(pk giznet.PublicKey, nonce string, now int64) error {
-	const ttl = int64((5 * time.Minute) / time.Second)
 	key := pk.String() + ":" + nonce
 	l.replayMu.Lock()
 	defer l.replayMu.Unlock()
-	for k, seen := range l.replaySeen {
-		if now-seen > ttl {
-			delete(l.replaySeen, k)
+	if seen, ok := l.replaySeen[key]; ok {
+		if now-seen <= signalingReplayTTL {
+			return ErrSignalingReplay
 		}
+		delete(l.replaySeen, key)
 	}
-	if _, ok := l.replaySeen[key]; ok {
-		return ErrSignalingReplay
+	if l.replayNextPrune == 0 || now >= l.replayNextPrune {
+		for k, seen := range l.replaySeen {
+			if now-seen > signalingReplayTTL {
+				delete(l.replaySeen, k)
+			}
+		}
+		l.replayNextPrune = now + signalingReplayTTL
+	}
+	if l.replaySeen == nil {
+		l.replaySeen = make(map[string]int64)
 	}
 	l.replaySeen[key] = now
 	return nil

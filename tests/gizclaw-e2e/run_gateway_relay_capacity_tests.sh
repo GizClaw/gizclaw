@@ -17,10 +17,11 @@ repository_head="$(git -C "$repo_root" rev-parse HEAD)"
 mkdir -p "$script_dir/testdata/bin" "$bin_dir"
 
 echo "==> build capacity binaries once: head=$repository_head"
-(cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
+bash "$script_dir/setup/build-linux-cgo.sh"
 (cd "$repo_root" && go build -o "$gateway_bin" ./tests/gizclaw-e2e/gateway-capacity)
 
 export GIZCLAW_E2E_GATEWAY_PREBUILT=1
+export GIZCLAW_E2E_GATEWAY_LINUX_PREBUILT=1
 export GIZCLAW_E2E_GATEWAY_CAPACITY_BIN="$gateway_bin"
 
 run_profile() {

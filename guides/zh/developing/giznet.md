@@ -66,6 +66,36 @@ Coturn relay path。它仍只是本机 Docker transport 诊断，不是 producti
 或 error 时返回 `gizwebrtc.ErrServiceOpen`，父连接关闭仍匹配 `giznet.ErrConnClosed`。原有
 `Dial` 保持为十秒 service-open 上限的兼容 wrapper。
 
+每条已打开的 service DataChannel 都会登记在对应 logical service 下，直到相应的 `net.Conn`
+关闭。Stream 关闭时会立即解除登记；service 或父连接关闭时，则在 registry lock 外关闭已
+截取的 listener 与 stream snapshot。因此反复创建的短生命周期 RPC stream 不会在父
+WebRTC connection 中累积，同时 service 与父连接 shutdown 仍会拒绝新 stream，并关闭所有
+仍存活的 stream。
+
+每个 unary RPC 独占一条有序 service DataChannel：客户端为该请求新建 DataChannel，服务端
+只在其中处理一个请求，响应完成后双方关闭它。已关闭的 DataChannel 不会承载后续 RPC。
+对应的 SCTP stream ID 会一直保留，直到本端发出的 reset 已获确认，且对端发出的 reset 已移除
+旧的 inbound stream；之后 allocator 才能把这个 ID 分配给新的 DataChannel。这里复用的是
+有限的 ID 空间，不是 DataChannel 或 RPC stream。
+
+根 Go module 暂时把 `github.com/pion/sctp` 和 `github.com/pion/webrtc/v4` replace 到固定的
+GizClaw fork pseudo-version，用于报告已完成的 stream reset 并释放 DataChannel ID。Go 不会
+向下游传播依赖 module 的 `replace`，因此把 GizClaw 作为 module 使用的 executable 在上游
+release 同时包含这两项修复前，也必须复制这两条 replacement。选择包含两项修复的上游
+release，并在不使用 fork 时通过 reset/reuse integration test 和 race test 后，才能同时移除
+两条 replacement。
+
+Service stream 在首次读取时惰性分配 32 KiB detached-DataChannel message
+buffer，之后的读取重复使用它。如果 SCTP 报告当前排队 message 更大，该 stream
+会在不消费 message 的情况下把 buffer 增长到最大 64 KiB 并重试。如果调用方未一次
+读完，则把剩余部分复制到该 stream 自有的 pending buffer。Buffer 随 stream 关闭
+释放，因此既不会让每条小 message stream 都保留最大尺寸 buffer，也不会由进程级
+pool 保留短时 burst 的高水位。
+
+每个 PeerConnection 会用一个重复使用的 MTU 大小 buffer 持续读取本地 Opus sender 的 RTCP
+feedback；Pion 随 PeerConnection 关闭 sender 时 reader 随即退出。因此长连接中未消费的
+receiver report 不会在 SRTCP packet buffer 内持续累积。
+
 普通 public client association 保留 Pion 默认 SCTP receive window。Edge gateway 最多为
 当前已准入的 64 条 client association 提供 4 MiB burst window，把每个 Edge 的 burst
 profile receive credit 限制在 256 MiB；额度释放前，后续 association 仍使用默认窗口。独立的
@@ -75,11 +105,25 @@ profile receive credit 限制在 256 MiB；额度释放前，后续 association 
 的 service streams 各自 512 KiB 的 DataChannel send budget 一致，避免 interleaved partial
 messages 在交付前耗尽 receiver window。每条 connection 最多接收远端打开的 2,048 条
 service DataChannel，与 gateway 每条 upstream association 的 active-session 上限一致；
-超出上限的 channel 会在交付前关闭，service label 不能创建无界 queue。SCTP
-retransmission 上限为 250 ms，DTLS flight
-的 initial retransmission interval 为 250 ms，使 burst 中丢失 handshake flight 时不会固定
+超出上限的 channel 会在交付前关闭，service label 不能创建无界 queue。
+默认客户端 Dial 为每条 PeerConnection 独占一个 wildcard IPv4 UDP mux 和 socket。同一
+connection 的所有本地网卡 host candidates 共用一个由 OS 保证唯一的 source port，避免
+NAT 把各网卡独立分配的相同端口折叠成同一个 remote tuple。这个 mux 不跨
+PeerConnection 共享，因为 Pion 在 STUN 之后按 remote address 分发 packet。每个客户端
+私有 socket 的 read/write buffer 都请求 256 KiB；4 MiB buffer 只用于被多条
+PeerConnection 共享的 listener socket。设置 remote description 后，默认 Dial 会给第一次
+ICE attempt 6 秒来打开 packet DataChannel；如果等待超时且调用方 context 仍有效，它会
+关闭该 PeerConnection 及其 socket，并且只用一个全新的本地 tuple 再尝试一次，不继续
+使用已经失效的 NAT mapping。调用方提供 Pion API 时，transport ownership 在调用方，
+仍然只尝试一次。Capacity artifact 会记录每条 session 的 attempt 次数。SCTP
+retransmission 上限为 150 ms，DTLS flight
+的 initial retransmission interval 为 150 ms，使 burst 中丢失 handshake flight 时不会固定
 增加默认的 1 秒等待。SCTP reliable delivery 和 retransmission count 不变；DTLS
-retransmission 与 exponential backoff 仍然启用。
+retransmission 与 exponential backoff 仍然启用。ICE candidate pair 保留 25 次 binding
+request 机会，按 Pion 的 200 ms check interval 约为 5 秒，避免同步 burst 期间的
+短时 relay 丢包永久淘汰有效 pair；整个 handshake 仍由调用方的 Dial context 限定。
+packet DataChannel 超时时会输出最终 PeerConnection、ICE、DTLS、SCTP 状态和
+candidate-pair 计数，用于诊断。
 
 ### giztunnel
 

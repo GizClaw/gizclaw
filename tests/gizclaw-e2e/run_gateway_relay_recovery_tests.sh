@@ -21,7 +21,8 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$script_dir/testdata/bin"
-(cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
+bash "$setup_dir/build-linux-cgo.sh"
+export GIZCLAW_E2E_GATEWAY_LINUX_PREBUILT=1
 bash "$setup_dir/docker-compose-up.sh" --gateway-relay-recovery
 set -a
 # shellcheck disable=SC1090
