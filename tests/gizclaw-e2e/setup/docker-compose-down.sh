@@ -33,7 +33,11 @@ down_args=(down -v)
 if [[ "${GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES:-}" != "1" ]]; then
   down_args+=(--rmi local)
 fi
-docker compose -p "$project" "${compose_args[@]}" "${down_args[@]}" "$@"
+compose_down_status=0
+docker compose -p "$project" "${compose_args[@]}" "${down_args[@]}" "$@" || compose_down_status="$?"
+if ((compose_down_status != 0)); then
+  echo "docker compose down returned $compose_down_status; continuing project-scoped cleanup: project=$project" >&2
+fi
 
 cleanup_project_resources() {
   local container_id network_id volume_name
