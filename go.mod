@@ -4,7 +4,7 @@ go 1.26.4
 
 replace github.com/pion/sctp => github.com/GizClaw/pion-sctp v0.0.0-20260807053818-db7098874774
 
-replace github.com/pion/webrtc/v4 => github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260807054219-ca8a5eb8f3d7
+replace github.com/pion/webrtc/v4 => github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260807060210-28a2f4d6ffef
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.47.0
