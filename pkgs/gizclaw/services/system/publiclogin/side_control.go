@@ -299,6 +299,9 @@ func (m *SessionManager) loginSideControl(ctx context.Context, serverKeyPair *gi
 	if err != nil {
 		return peerhttp.LoginResult{}, err
 	}
+	// m.mu has been held since the assertion and device-token lookup above.
+	// CleanupPeer takes the same lock, so the final availability checks and
+	// credential commit are serialized with peer credential cleanup.
 	if err := m.authorize(ctx, controller); err != nil {
 		return peerhttp.LoginResult{}, err
 	}
