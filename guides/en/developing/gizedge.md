@@ -387,36 +387,33 @@ same millisecond.
 These commands qualify only their recorded host, Docker engine, clean commit,
 and topology; they are not a 30,000-session or WAN guarantee.
 
-On 2026-08-07, clean production/workload head
-`633c80468170151fc0d2814973dac85167ddcbb5` passed all three relay-only burst
-repetitions on one Darwin/arm64 host with 16 logical CPUs, Go 1.26.4, and
-OrbStack Linux/aarch64 Docker. The runs established 1,000/1,000 sessions at
-869.05, 890.26, and 530.63 sessions/s. Their Dial p95/p99 values were
-720.86/921.02 ms, 679.88/814.14 ms, and 819.28/1,003.19 ms; synchronized
-upload/download throughput was 419.47/408.65 Mbps, 373.99/440.99 Mbps, and
-389.04/412.13 Mbps. Every run assigned 500 sessions to each Edge, transferred
-exactly 1,000 MiB per direction, kept all ten relay allocations live, reported
-zero correctness, liveness, disconnect, identity, exit, or restart failure,
-and returned both Coturn members to zero allocations during bounded cleanup.
-Later test-only and documentation commits do not change the qualified binary.
+On 2026-08-07, clean executable head
+`a2ff5b791a5c60c3b80052204717ac277e43c885` completed the ordered relay-only
+qualification once on a Darwin/arm64 host with 16 logical CPUs, Go 1.26.4, and
+64 GiB RAM, using OrbStack 2.2.1 Linux/aarch64 Docker with 16 logical CPUs and
+15.67 GiB RAM. The three fresh-stack burst prerequisites established
+1,000/1,000 sessions at 159.90, 1,118.18, and 158.99 sessions/s. Their Dial
+p95/p99 values were 681.57/776.75 ms, 749.00/806.92 ms, and 589.81/669.13 ms;
+synchronized upload/download throughput was 453.54/482.89, 415.54/455.50, and
+484.35/413.58 Mbps. Every run assigned 500 sessions to each Edge, transferred
+exactly 1,000 MiB per direction, kept all ten relay allocations live, and
+completed bounded cleanup with no correctness, liveness, exit, or restart
+failure.
 
-The 60-minute soak is not yet qualified on that production head. An earlier
-complete run on `c494d84aa78a847116bfe405a6ddbee4627b8558` finished 122,000
-Pings with zero failures or disconnects, but late median RSS grew by 20.11%
-and 23.39% on the two Edges, exceeding the 20% gate. Heap profiles traced
-retained state to the SCTP weighted-fair scheduler's per-stream finish map;
-`GizClaw/pion-sctp@cb2d223c9f55` releases that entry when a stream queue drains,
-and the sampled retained scheduler site disappeared while total sampled
-in-use memory fell from about 9.0 MiB to 4.6 MiB. A post-fix soak at
-`633c80468170151fc0d2814973dac85167ddcbb5` established all 1,000 sessions and
-passed the initial 427.62/455.88 Mbps upload/download checkpoints, but the
-first hold round had one request timeout (999/1,000 Pings) with the association
-still active and zero disconnects. The fail-fast runner cleaned up rather than
-waiting 60 minutes. Controlled response-DATA loss passed 20 repetitions and
-9,000 real request-scoped DataChannel generations passed integration coverage,
-so no code defect was identified and the soak was not retried to obtain a
-luckier outcome. The residual risk is the missing complete post-fix 60-minute
-resource window; the zero-failure soak gates remain unaccepted.
+The fresh 60-minute soak then established 1,000/1,000 sessions at 1,074.63
+sessions/s with Dial p95/p99 of 718.53/838.54 ms. It completed 122,000 accepted
+Pings with no failure, disconnect, or identity crossover. Initial
+upload/download were 415.51/425.25 Mbps and final upload/download were
+424.20/524.18 Mbps; aggregate retention was 102.09%/123.26%, and the lowest
+accepted per-session retention was 96.66%. Late median round-p99 RTT fell by
+11.11%. Late-window RSS growth was 10.89% and 16.49% on the two Edges, -52.64%
+on the load driver, -0.65% on Server, and about -2.78% on both Coturn members;
+the load driver's completed-GC live heap grew 10.98%. Every supported six-role
+resource gate passed, with at least 3,679 one-second samples per role and a
+maximum gap of 1.033 seconds. Both Edges remained relay-only, logical cleanup
+finished in 45.55 ms with no close failure, and both Coturn members returned
+from five to zero allocations within 15 seconds. Documentation-only commits
+after this result do not change the qualified executable.
 
 This fixed qualification establishes the 1,000-session burst and soak boundary
 only. It does not infer a higher-session capacity projection.
