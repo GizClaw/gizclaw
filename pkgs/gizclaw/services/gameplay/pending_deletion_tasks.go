@@ -74,12 +74,12 @@ func (s PendingDeletionSource) ScanDue(ctx context.Context, now time.Time, limit
 		return nil, "", fmt.Errorf("gameplay: pending deletion scan limit must be positive")
 	}
 	rows, err := s.DB.QueryxContext(ctx, s.DB.Rebind(pendingDeletionTaskSelectSQL()+`
-		WHERE deletion_id > ? AND (
+		WHERE kind = ? AND deletion_id > ? AND (
 			(task_status IN (?, ?) AND next_attempt_at <= ?)
 			OR (task_status = ? AND lease_deadline <= ?)
 		)
 		ORDER BY deletion_id LIMIT ?`),
-		cursor, pendingdeletion.StatusQueued, pendingdeletion.StatusRetryWait, formatPendingDeletionTime(now),
+		pendingdeletion.KindPet, cursor, pendingdeletion.StatusQueued, pendingdeletion.StatusRetryWait, formatPendingDeletionTime(now),
 		pendingdeletion.StatusRunning, formatPendingDeletionTime(now), limit)
 	if err != nil {
 		return nil, "", err
@@ -121,12 +121,12 @@ func (s PendingDeletionSource) Claim(ctx context.Context, ref pendingdeletion.Re
 	deadline := now.Add(leaseDuration)
 	result, err := s.DB.ExecContext(ctx, s.DB.Rebind(`UPDATE gameplay_pending_deletions
 		SET task_status = ?, lease_token = ?, lease_deadline = ?, updated_at = ?
-		WHERE deletion_id = ? AND marker_fingerprint = ? AND (
+		WHERE deletion_id = ? AND kind = ? AND marker_fingerprint = ? AND (
 			(task_status IN (?, ?) AND next_attempt_at <= ?)
 			OR (task_status = ? AND lease_deadline <= ?)
 		)`),
 		pendingdeletion.StatusRunning, token, formatPendingDeletionTime(deadline), formatPendingDeletionTime(now),
-		ref.DeletionID, ref.MarkerFingerprint,
+		ref.DeletionID, pendingdeletion.KindPet, ref.MarkerFingerprint,
 		pendingdeletion.StatusQueued, pendingdeletion.StatusRetryWait, formatPendingDeletionTime(now),
 		pendingdeletion.StatusRunning, formatPendingDeletionTime(now))
 	if err != nil {
@@ -189,9 +189,9 @@ func (s PendingDeletionSource) conditionalTaskUpdate(ctx context.Context, claim 
 		return errors.New("gameplay: database not configured")
 	}
 	query := `UPDATE gameplay_pending_deletions SET ` + setClause + `
-		WHERE deletion_id = ? AND marker_fingerprint = ? AND task_status = ?
+		WHERE deletion_id = ? AND kind = ? AND marker_fingerprint = ? AND task_status = ?
 			AND lease_token = ? AND lease_deadline > ?`
-	args = append(args, claim.Record.DeletionID, claim.MarkerFingerprint, pendingdeletion.StatusRunning, claim.LeaseToken, formatPendingDeletionTime(now))
+	args = append(args, claim.Record.DeletionID, pendingdeletion.KindPet, claim.MarkerFingerprint, pendingdeletion.StatusRunning, claim.LeaseToken, formatPendingDeletionTime(now))
 	result, err := s.DB.ExecContext(ctx, s.DB.Rebind(query), args...)
 	if err != nil {
 		return err
@@ -210,7 +210,7 @@ func (s PendingDeletionSource) GetTask(ctx context.Context, deletionID string) (
 	if s.DB == nil {
 		return pendingdeletion.Task{}, errors.New("gameplay: database not configured")
 	}
-	task, err := scanPendingDeletionTask(s.DB.QueryRowxContext(ctx, s.DB.Rebind(pendingDeletionTaskSelectSQL()+` WHERE deletion_id = ?`), deletionID))
+	task, err := scanPendingDeletionTask(s.DB.QueryRowxContext(ctx, s.DB.Rebind(pendingDeletionTaskSelectSQL()+` WHERE deletion_id = ? AND kind = ?`), deletionID, pendingdeletion.KindPet))
 	if errors.Is(err, sql.ErrNoRows) {
 		return pendingdeletion.Task{}, pendingdeletion.ErrNotFound
 	}
@@ -224,14 +224,12 @@ func (s PendingDeletionSource) ListTasks(ctx context.Context, options pendingdel
 	if options.Limit <= 0 {
 		return nil, fmt.Errorf("gameplay: pending deletion list limit must be positive")
 	}
-	conditions := []string{"1 = 1"}
-	args := []any{}
+	conditions := []string{"kind = ?"}
+	args := []any{pendingdeletion.KindPet}
 	if len(options.Kinds) > 0 {
 		if !options.Kinds[pendingdeletion.KindPet] {
 			return nil, nil
 		}
-		conditions = append(conditions, "kind = ?")
-		args = append(args, pendingdeletion.KindPet)
 	}
 	if len(options.Statuses) > 0 {
 		statuses := make([]pendingdeletion.Status, 0, len(options.Statuses))
@@ -294,7 +292,7 @@ func (s PendingDeletionSource) ActiveStats(ctx context.Context, _ time.Time) (in
 	}
 	var depth int64
 	var oldest sql.NullString
-	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*), MIN(task_created_at) FROM gameplay_pending_deletions`).Scan(&depth, &oldest); err != nil {
+	if err := s.DB.QueryRowContext(ctx, s.DB.Rebind(`SELECT COUNT(*), MIN(task_created_at) FROM gameplay_pending_deletions WHERE kind = ?`), pendingdeletion.KindPet).Scan(&depth, &oldest); err != nil {
 		return 0, time.Time{}, err
 	}
 	if !oldest.Valid || oldest.String == "" {
@@ -319,8 +317,8 @@ func (s PendingDeletionSource) Retry(ctx context.Context, deletionID string, now
 	result, err := tx.ExecContext(ctx, tx.Rebind(`UPDATE gameplay_pending_deletions
 		SET task_status = ?, failure_count = 0, next_attempt_at = ?, lease_token = '', lease_deadline = '',
 			last_error_code = '', last_error_message = '', updated_at = ?
-		WHERE deletion_id = ? AND task_status = ?`),
-		pendingdeletion.StatusQueued, formatPendingDeletionTime(now), formatPendingDeletionTime(now), deletionID, pendingdeletion.StatusFailed)
+		WHERE deletion_id = ? AND kind = ? AND task_status = ?`),
+		pendingdeletion.StatusQueued, formatPendingDeletionTime(now), formatPendingDeletionTime(now), deletionID, pendingdeletion.KindPet, pendingdeletion.StatusFailed)
 	if err != nil {
 		return pendingdeletion.Task{}, err
 	}
@@ -329,7 +327,7 @@ func (s PendingDeletionSource) Retry(ctx context.Context, deletionID string, now
 		return pendingdeletion.Task{}, err
 	}
 	if rows == 1 {
-		task, err := scanPendingDeletionTask(tx.QueryRowxContext(ctx, tx.Rebind(pendingDeletionTaskSelectSQL()+` WHERE deletion_id = ?`), deletionID))
+		task, err := scanPendingDeletionTask(tx.QueryRowxContext(ctx, tx.Rebind(pendingDeletionTaskSelectSQL()+` WHERE deletion_id = ? AND kind = ?`), deletionID, pendingdeletion.KindPet))
 		if err != nil {
 			return pendingdeletion.Task{}, err
 		}
@@ -339,7 +337,7 @@ func (s PendingDeletionSource) Retry(ctx context.Context, deletionID string, now
 		return task, nil
 	}
 	var status pendingdeletion.Status
-	err = tx.QueryRowContext(ctx, tx.Rebind(`SELECT task_status FROM gameplay_pending_deletions WHERE deletion_id = ?`), deletionID).Scan(&status)
+	err = tx.QueryRowContext(ctx, tx.Rebind(`SELECT task_status FROM gameplay_pending_deletions WHERE deletion_id = ? AND kind = ?`), deletionID, pendingdeletion.KindPet).Scan(&status)
 	if errors.Is(err, sql.ErrNoRows) {
 		return pendingdeletion.Task{}, pendingdeletion.ErrNotFound
 	}

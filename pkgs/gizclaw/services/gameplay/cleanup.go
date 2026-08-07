@@ -112,7 +112,7 @@ func (h PetDeletionHandler) finalize(ctx context.Context, claim pendingdeletion.
 		return err
 	}
 	defer tx.Rollback()
-	current, err := scanPendingDeletionTask(tx.QueryRowxContext(ctx, tx.Rebind(pendingDeletionTaskSelectSQL()+` WHERE deletion_id = ?`), claim.Record.DeletionID))
+	current, err := scanPendingDeletionTask(tx.QueryRowxContext(ctx, tx.Rebind(pendingDeletionTaskSelectSQL()+` WHERE deletion_id = ? AND kind = ?`), claim.Record.DeletionID, pendingdeletion.KindPet))
 	if errors.Is(err, sql.ErrNoRows) {
 		return pendingdeletion.ErrConflict
 	}
@@ -178,9 +178,9 @@ func (h PetDeletionHandler) finalize(ctx context.Context, claim pendingdeletion.
 	}
 
 	markerResult, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM gameplay_pending_deletions
-		WHERE deletion_id = ? AND marker_fingerprint = ? AND task_status = ?
+		WHERE deletion_id = ? AND kind = ? AND marker_fingerprint = ? AND task_status = ?
 			AND lease_token = ? AND lease_deadline > ?`),
-		claim.Record.DeletionID, claim.MarkerFingerprint, pendingdeletion.StatusRunning,
+		claim.Record.DeletionID, pendingdeletion.KindPet, claim.MarkerFingerprint, pendingdeletion.StatusRunning,
 		claim.LeaseToken, formatPendingDeletionTime(now))
 	if err != nil {
 		return err

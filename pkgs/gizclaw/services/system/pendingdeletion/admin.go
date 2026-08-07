@@ -164,6 +164,9 @@ func (a *Admin) Retry(ctx context.Context, sourceName, deletionID string) (Task,
 	if err != nil {
 		return Task{}, err
 	}
+	if err := ValidateTask(task); err != nil {
+		return Task{}, fmt.Errorf("pending deletion: source returned invalid retried task: %v", err)
+	}
 	if a.wake != nil {
 		a.wake()
 	}

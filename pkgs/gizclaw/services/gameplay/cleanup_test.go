@@ -285,3 +285,45 @@ func TestMalformedStoredMarkerBecomesTerminalInsteadOfBlockingSource(t *testing.
 		time.Sleep(5 * time.Millisecond)
 	}
 }
+
+func TestPendingDeletionSourceNeverOwnsNonPetRows(t *testing.T) {
+	ctx, runtime, now := newPetRuntime(t)
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatal(err)
+	}
+	deletionID := uuid.NewString()
+	storedAt := formatPendingDeletionTime(*now)
+	if _, err := runtime.DB.ExecContext(ctx, `INSERT INTO gameplay_pending_deletions (
+		deletion_id, kind, owner_public_key, resource_id, reason, deleted_at,
+		descriptor_version, descriptor_json, marker_fingerprint, task_created_at, task_status,
+		task_phase, failure_count, next_attempt_at, lease_token, lease_deadline,
+		last_error_code, last_error_message, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, '{}', 'foreign-fingerprint', ?, ?, ?, 0, ?, '', '', '', '', ?)`,
+		deletionID, pendingdeletion.KindWorkspace, "owner", "workspace-foreign",
+		pendingdeletion.ReasonResourceDelete, storedAt, pendingdeletion.DescriptorVersion,
+		storedAt, pendingdeletion.StatusQueued, pendingdeletion.PhaseValidate, storedAt, storedAt); err != nil {
+		t.Fatal(err)
+	}
+	source := PendingDeletionSource{DB: runtime.DB}
+	refs, _, err := source.ScanDue(ctx, now.Add(time.Second), 10, "")
+	if err != nil || len(refs) != 0 {
+		t.Fatalf("ScanDue() = %#v, %v, want no foreign rows", refs, err)
+	}
+	tasks, err := source.ListTasks(ctx, pendingdeletion.SourceListOptions{Limit: 10})
+	if err != nil || len(tasks) != 0 {
+		t.Fatalf("ListTasks() = %#v, %v, want no foreign rows", tasks, err)
+	}
+	if _, err := source.GetTask(ctx, deletionID); !errors.Is(err, pendingdeletion.ErrNotFound) {
+		t.Fatalf("GetTask() error = %v, want ErrNotFound", err)
+	}
+	depth, _, err := source.ActiveStats(ctx, now.Add(time.Second))
+	if err != nil || depth != 0 {
+		t.Fatalf("ActiveStats() depth = %d, error = %v, want 0", depth, err)
+	}
+	if _, err := runtime.DB.ExecContext(ctx, `UPDATE gameplay_pending_deletions SET task_status = ? WHERE deletion_id = ?`, pendingdeletion.StatusFailed, deletionID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := source.Retry(ctx, deletionID, now.Add(time.Second)); !errors.Is(err, pendingdeletion.ErrNotFound) {
+		t.Fatalf("Retry() error = %v, want ErrNotFound", err)
+	}
+}

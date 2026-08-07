@@ -9,6 +9,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
+type invalidRetrySource struct{ KVSource }
+
+func (invalidRetrySource) Retry(context.Context, string, time.Time) (Task, error) {
+	return Task{}, nil
+}
+
 func TestAdminAggregatesFilterBoundPagesAndRetriesFailedTask(t *testing.T) {
 	ctx := context.Background()
 	registry := NewRegistry()
@@ -85,5 +91,23 @@ func TestAdminEmptyRegistry(t *testing.T) {
 	result, err := NewAdmin(NewRegistry(), nil).List(context.Background(), ListRequest{})
 	if err != nil || len(result.Tasks) != 0 || result.NextCursor != "" {
 		t.Fatalf("List() = %#v, %v", result, err)
+	}
+}
+
+func TestAdminRejectsInvalidRetriedTaskWithoutWaking(t *testing.T) {
+	registry := NewRegistry()
+	source := invalidRetrySource{KVSource: KVSource{
+		Store: kv.NewMemory(nil), SourceName: "invalid_retry", OwnedKinds: []Kind{KindPeer},
+	}}
+	if err := registry.Register(source, &registryTestHandler{kind: KindPeer}); err != nil {
+		t.Fatal(err)
+	}
+	wakes := 0
+	_, err := NewAdmin(registry, func() { wakes++ }).Retry(t.Context(), source.Name(), "10000000-0000-4000-8000-000000000001")
+	if err == nil || errors.Is(err, ErrInvalid) {
+		t.Fatalf("Retry() error = %v, want internal source error", err)
+	}
+	if wakes != 0 {
+		t.Fatalf("retry wakes = %d, want 0", wakes)
 	}
 }
