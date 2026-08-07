@@ -157,6 +157,20 @@ func TestDataChannelConnDiagnosticsCaptureStreamStateAndBytes(t *testing.T) {
 	}
 }
 
+func TestDataChannelConnDiagnosticsCaptureRemoteClose(t *testing.T) {
+	flow := &fakeDiagnosticDataChannelFlow{
+		fakeDataChannelFlow: newFakeDataChannelFlow(),
+		id:                  42,
+		state:               webrtc.DataChannelStateClosed,
+	}
+	conn := newDataChannelConn(&fakeStreamRaw{}, flow, addr("local"), addr("remote"))
+
+	diagnostics := conn.Diagnostics()
+	if !diagnostics.Closed || diagnostics.ReadyState != "closed" {
+		t.Fatalf("Diagnostics() = %+v, want remote closed state", diagnostics)
+	}
+}
+
 func TestDataChannelConnWriteChunksLargePayload(t *testing.T) {
 	raw := &fakeStreamRaw{}
 	conn := newDataChannelConn(raw, nil, addr("local"), addr("remote"))

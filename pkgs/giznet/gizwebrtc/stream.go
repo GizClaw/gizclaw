@@ -278,7 +278,9 @@ func (c *dataChannelConn) Diagnostics() StreamDiagnostics {
 			value := *id
 			diagnostics.ID = &value
 		}
-		diagnostics.ReadyState = flow.ReadyState().String()
+		state := flow.ReadyState()
+		diagnostics.ReadyState = state.String()
+		diagnostics.Closed = diagnostics.Closed || state == webrtc.DataChannelStateClosed
 	}
 	return diagnostics
 }
