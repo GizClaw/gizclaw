@@ -207,7 +207,7 @@ fresh stack ready 后、测量前都执行相同的 120 秒稳定窗口，并每
 避免把 Docker VM 的延迟资源回收计入下一轮 capacity 测量。任一 upload gate 已失败时不再
 执行 download，因为该轮验收已不可恢复。
 
-Extended artifact version 15 记录实际 hold boundary，并验收最初与最后十分钟窗口。每轮
+Extended artifact version 16 记录实际 hold boundary，并验收最初与最后十分钟窗口。每轮
 p99 RTT 的 median、RSS、open FD、最近一次 completed GC 的 Go live heap，以及 goroutine
 值，增长最多为 20%。当前 Go heap-object bytes 保留为诊断值，但因其会随正常 GC cycle
 波动而不作为增长 gate；sampler 不会强制触发 GC。
@@ -223,7 +223,7 @@ Load driver、两台 Edge、两个 Coturn 与 Server 的 source-qualified sample
 任何 initial gate 失败都会阻止 hold 开始，cancellation 仍执行有界 session 与 Docker cleanup。
 
 100/500-session burst runner 保留既有 payload 和 gate，但当前都使用上述 relay-only
-upstream 拓扑。既有 workload field 保持不变；当前 version 15 artifact 包含 optional
+upstream 拓扑。既有 workload field 保持不变；当前 version 16 artifact 包含 optional
 final-speed retention、mandatory bounded-cleanup evidence，以及 load driver 的 effective
 `GOGC`；100/500-session 入口显式保留 `GOGC=100`。同目录的
 `*-coturn.json` sidecar 记录两个
@@ -235,6 +235,27 @@ container-side metric stream，避免把 host 侧 Docker process 启动开销计
 #697/#698 结果仍是历史
 direct-upstream 观测；当前
 Coturn 数据不是 production、WAN 或可移植吞吐 SLA。
+
+2026-08-07 relay qualification 使用 clean production/workload head
+`633c80468170151fc0d2814973dac85167ddcbb5`，运行环境为 Darwin/arm64、16 logical
+CPUs、Go 1.26.4 与 OrbStack Linux/aarch64 Docker。三轮 fresh-stack burst 都建立
+1,000/1,000 sessions、每个 Edge 500 sessions、failure 为 0；Dial p95/p99 分别为
+720.86/921.02 ms、679.88/814.14 ms、819.28/1,003.19 ms，upload/download 分别为
+419.47/408.65、373.99/440.99、389.04/412.13 Mbps。每轮每方向精确传输 1,000 MiB，
+保持十条 relay allocation 存活，并完成有界 session 与 Coturn 清理。后续仅测试与文档的
+commit 不改变该 binary。
+
+修复后的 60 分钟结果仍不完整。修复前的完整 run
+`c494d84aa78a847116bfe405a6ddbee4627b8558` 完成 122,000 次成功 Ping 且没有
+disconnect，但两个 Edge 的 RSS 增长 20.11% 与 23.39%，因此失败。对应 SCTP scheduler
+retention 已在 `GizClaw/pion-sctp@cb2d223c9f55` 删除；sampled retained site 消失，
+sampled in-use memory 从约 9.0 MiB 降至 4.6 MiB。修复后的
+`633c80468170151fc0d2814973dac85167ddcbb5` run 通过全部三轮 prerequisite burst，建立
+全部 1,000 个 soak session，initial upload/download 为 427.62/455.88 Mbps，随后第一轮
+Ping 出现一个 timeout（999/1,000），association 仍 active 且 disconnect 为 0，runner
+立即 fail-fast。受控丢包 coverage 连续 20 次通过，9,000 次真实 request-scoped
+DataChannel generation 也通过，因此没有依据修改代码，也没有通过重复运行追求偶然 pass。
+缺失的修复后完整 60 分钟 resource window 是明确的剩余风险。
 
 标准 Docker `turn` role 使用同一 pinned Coturn image、TURN REST 认证、container-private/
 host-public IPv4 mapping 与一对一发布的 UDP relay range。`run_turn_relay_tests.sh` 验证

@@ -349,7 +349,7 @@ A fixed 120-second stabilization window, with 15-second progress, follows each
 1,000-session fresh-stack teardown so delayed Docker-VM reclamation does not
 pollute the next run. A failed upload gate skips the now-irrelevant download.
 
-Artifact version 15 records the actual hold boundaries and compares the first
+Artifact version 16 records the actual hold boundaries and compares the first
 and last ten minutes. The median per-round RTT p99, RSS, open FDs, completed-GC
 Go live heap, and goroutine medians must not grow by more than 20%. The current
 Go heap-object count is retained as a diagnostic but is not a growth gate,
@@ -379,6 +379,37 @@ equal values are allowed only when distinct nanosecond samples truncate to the
 same millisecond.
 These commands qualify only their recorded host, Docker engine, clean commit,
 and topology; they are not a 30,000-session or WAN guarantee.
+
+On 2026-08-07, clean production/workload head
+`633c80468170151fc0d2814973dac85167ddcbb5` passed all three relay-only burst
+repetitions on one Darwin/arm64 host with 16 logical CPUs, Go 1.26.4, and
+OrbStack Linux/aarch64 Docker. The runs established 1,000/1,000 sessions at
+869.05, 890.26, and 530.63 sessions/s. Their Dial p95/p99 values were
+720.86/921.02 ms, 679.88/814.14 ms, and 819.28/1,003.19 ms; synchronized
+upload/download throughput was 419.47/408.65 Mbps, 373.99/440.99 Mbps, and
+389.04/412.13 Mbps. Every run assigned 500 sessions to each Edge, transferred
+exactly 1,000 MiB per direction, kept all ten relay allocations live, reported
+zero correctness, liveness, disconnect, identity, exit, or restart failure,
+and returned both Coturn members to zero allocations during bounded cleanup.
+Later test-only and documentation commits do not change the qualified binary.
+
+The 60-minute soak is not yet qualified on that production head. An earlier
+complete run on `c494d84aa78a847116bfe405a6ddbee4627b8558` finished 122,000
+Pings with zero failures or disconnects, but late median RSS grew by 20.11%
+and 23.39% on the two Edges, exceeding the 20% gate. Heap profiles traced
+retained state to the SCTP weighted-fair scheduler's per-stream finish map;
+`GizClaw/pion-sctp@cb2d223c9f55` releases that entry when a stream queue drains,
+and the sampled retained scheduler site disappeared while total sampled
+in-use memory fell from about 9.0 MiB to 4.6 MiB. A post-fix soak at
+`633c80468170151fc0d2814973dac85167ddcbb5` established all 1,000 sessions and
+passed the initial 427.62/455.88 Mbps upload/download checkpoints, but the
+first hold round had one request timeout (999/1,000 Pings) with the association
+still active and zero disconnects. The fail-fast runner cleaned up rather than
+waiting 60 minutes. Controlled response-DATA loss passed 20 repetitions and
+9,000 real request-scoped DataChannel generations passed integration coverage,
+so no code defect was identified and the soak was not retried to obtain a
+luckier outcome. The residual risk is the missing complete post-fix 60-minute
+resource window; the zero-failure soak gates remain unaccepted.
 
 This fixed qualification establishes the 1,000-session burst and soak boundary
 only. It does not infer a higher-session capacity projection.
