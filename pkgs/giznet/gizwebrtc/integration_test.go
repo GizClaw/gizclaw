@@ -255,7 +255,7 @@ func TestInterleavedServiceStreamsDoNotExhaustSCTPReceiveWindow(t *testing.T) {
 	}
 }
 
-func TestServiceStreamsReuseDataChannelIDAfterReset(t *testing.T) {
+func TestServiceStreamsRotateDataChannelIDsAfterReset(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(server) error = %v", err)
@@ -374,24 +374,19 @@ func TestServiceStreamsReuseDataChannelIDAfterReset(t *testing.T) {
 
 	firstDataChannel, firstID := openExchangeClose(0)
 	seenDataChannels := map[*webrtc.DataChannel]struct{}{firstDataChannel: {}}
-	const reuseCount = 8
-	reused := 0
-	deadline := time.Now().Add(8 * time.Second)
-	for sequence := 1; time.Now().Before(deadline); sequence++ {
+	seenIDs := map[uint16]struct{}{firstID: {}}
+	const streamCount = 8
+	for sequence := 1; sequence <= streamCount; sequence++ {
 		dataChannel, id := openExchangeClose(sequence)
 		if _, exists := seenDataChannels[dataChannel]; exists {
 			t.Fatal("reused DataChannel object instead of opening a new channel")
 		}
 		seenDataChannels[dataChannel] = struct{}{}
-		if id == firstID {
-			reused++
-			if reused == reuseCount {
-				return
-			}
+		if _, exists := seenIDs[id]; exists {
+			t.Fatalf("DataChannel ID %d was immediately reused after reset", id)
 		}
-		time.Sleep(10 * time.Millisecond)
+		seenIDs[id] = struct{}{}
 	}
-	t.Fatalf("DataChannel ID %d was reused %d times after SCTP reset completion, want %d", firstID, reused, reuseCount)
 }
 
 func TestDialSignalingWithFixedICEPort(t *testing.T) {
