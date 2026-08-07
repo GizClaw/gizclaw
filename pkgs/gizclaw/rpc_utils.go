@@ -44,14 +44,24 @@ func handleRPCWithStreamObserved(
 	if conn == nil {
 		return errors.New("rpc: nil conn")
 	}
-	defer conn.Close()
 	stream, err := newRPCStream(context.Background(), conn)
 	if err != nil {
+		_ = conn.Close()
 		return err
 	}
+	// Close the logical transport before running rpcStream terminal callbacks.
+	// Peer self-deletion relies on this ordering so its response can be flushed
+	// before the callback retires the entire Peer association.
 	defer stream.Close()
+	defer conn.Close()
 
 	_, err = handleRPCStreamRequestObserved(stream, dispatch, streamDispatch, observation)
+	if err == nil {
+		// A terminal RPC can require the caller to close its request-scoped
+		// transport after reading the response. This acknowledges that queued
+		// DataChannel frames arrived before a larger Peer transport is retired.
+		stream.waitUntilPeerCloses(5 * time.Second)
+	}
 	return err
 }
 

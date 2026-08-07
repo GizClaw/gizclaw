@@ -231,8 +231,16 @@ func TestRPCPeerDeleteAcknowledgesBeforeTerminalAction(t *testing.T) {
 	}
 	select {
 	case <-terminal:
+		t.Fatal("terminal action ran before the caller acknowledged the response")
+	default:
+	}
+	if err := clientSide.Close(); err != nil {
+		t.Fatalf("close acknowledged delete RPC stream: %v", err)
+	}
+	select {
+	case <-terminal:
 	case <-time.After(time.Second):
-		t.Fatal("terminal action was not called after response")
+		t.Fatal("terminal action was not called after the caller closed the RPC stream")
 	}
 	if _, err := peers.LoadPeer(context.Background(), publicKey); err != nil {
 		t.Fatalf("LoadPeer after self-delete: %v", err)
@@ -240,7 +248,6 @@ func TestRPCPeerDeleteAcknowledgesBeforeTerminalAction(t *testing.T) {
 	if pending, err := pendingdeletion.HasLocator(context.Background(), store, pendingdeletion.KindPeer, publicKey.String()); err != nil || !pending {
 		t.Fatalf("peer pending deletion = %v, error = %v", pending, err)
 	}
-	_ = clientSide.Close()
 	select {
 	case err := <-serverErr:
 		if err != nil {
@@ -283,6 +290,9 @@ func TestRPCPeerDeleteClosesAfterWriteFailure(t *testing.T) {
 			}
 			if !peerConn.isRetiring() {
 				t.Fatal("peer was not marked retiring after durable delete")
+			}
+			if err := stream.Close(); err != nil {
+				t.Fatalf("close failed delete RPC stream: %v", err)
 			}
 			if !peerConn.isClosed() || !transport.closed.Load() {
 				t.Fatal("full Giznet connection was not closed after write failure")
@@ -336,8 +346,16 @@ func TestRPCPeerDeleteRejectsNewWorkWhileAcknowledgementIsPending(t *testing.T) 
 	}
 	select {
 	case <-closed:
+		t.Fatal("terminal close ran before the logical RPC stream closed")
 	default:
-		t.Fatal("terminal close was not called")
+	}
+	if err := stream.Close(); err != nil {
+		t.Fatalf("close delete RPC stream: %v", err)
+	}
+	select {
+	case <-closed:
+	default:
+		t.Fatal("terminal close was not called after the logical RPC stream closed")
 	}
 }
 

@@ -1413,6 +1413,53 @@ func TestServiceConsumerErrorSetsStatus(t *testing.T) {
 	}
 }
 
+func TestServiceWorkspaceQuiescenceSetsStoppedStatus(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	done := make(chan struct{})
+	hookCh := make(chan error, 1)
+	svc := testService(t, publicKey, store, &fakeHost{output: &sliceStream{doneErr: genx.ErrDone}})
+	svc.Consumer = StreamConsumerFunc(func(context.Context, genx.Stream) error {
+		defer close(done)
+		return errWorkspaceQuiesced
+	})
+	svc.OnConsumerError = func(_ context.Context, _ string, err error) {
+		hookCh <- err
+	}
+	if _, err := svc.Reload(ctx); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	<-done
+	deadline := time.After(time.Second)
+	for {
+		status, err := svc.Status(ctx)
+		if err != nil {
+			t.Fatalf("Status() error = %v", err)
+		}
+		if status.State == apitypes.PeerRunStatusStateStopped {
+			if status.WorkspaceName == nil || *status.WorkspaceName != "demo" {
+				t.Fatalf("Status().WorkspaceName = %v, want demo", status.WorkspaceName)
+			}
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("Status() after Workspace quiescence = %+v, want stopped", status)
+		default:
+			time.Sleep(time.Millisecond)
+		}
+	}
+	select {
+	case err := <-hookCh:
+		t.Fatalf("OnConsumerError() error = %v, want no call", err)
+	default:
+	}
+}
+
 func TestServiceTreatsActiveOutputCompletionAsFailure(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)

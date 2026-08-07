@@ -40,7 +40,7 @@ func (s *rpcServer) handlePeerDelete(ctx context.Context, stream *rpcStream, req
 		s.onPeerRetiring()
 	}
 	if s.onPeerDeleted != nil {
-		defer s.onPeerDeleted()
+		stream.afterCloseDo(s.onPeerDeleted)
 	}
 	resp, err := newRPCResultResponse(req.Id, rpcapi.ServerPeerDeleteResponse{}, (*rpcapi.RPCPayload).FromServerPeerDeleteResponse)
 	if err != nil {
@@ -52,5 +52,6 @@ func (s *rpcServer) handlePeerDelete(ctx context.Context, stream *rpcStream, req
 	if err := stream.WriteEOS(); err != nil {
 		return err
 	}
+	stream.waitForPeerCloseBeforeClose()
 	return nil
 }

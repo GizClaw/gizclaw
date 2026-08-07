@@ -47,9 +47,9 @@ source "$GIZCLAW_E2E_DOCKER_ENV"
 set +a
 export GIZCLAW_E2E_ADMIN_SANDBOX="$script_dir/testdata/docker/$GIZCLAW_E2E_DOCKER_PROJECT/pending-deletion-admin"
 
-(cd "$repo_root" && go test -count=1 -v -tags gizclaw_e2e -timeout 5m \
-	-run '^TestPeerDeletionFinalizesPermanentTombstone$' \
-	./tests/gizclaw-e2e/go/admin)
+(cd "$repo_root" && go test -count=1 -v -tags gizclaw_e2e -timeout 12m \
+	-run '^(TestPetDeletionDuringContinuousRPCUse|TestWorkspaceDeletionQuiescesRunningRuntime|TestFriendGroupDeletionQuiescesEveryMemberRuntime|TestPeerSelfDeletionStopsActiveConnectionAndRuntime|TestAdminPeerDeletionStopsActiveSession)$' \
+	./tests/gizclaw-e2e/go/delete)
 
 compose_file="$script_dir/docker/docker-compose.yaml"
 docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" restart server >/dev/null
@@ -73,7 +73,7 @@ wait_for_server_info "$GIZCLAW_E2E_EDGE2_ENDPOINT" edge2
 (cd "$repo_root" && GIZCLAW_E2E_VERIFY_PEER_DELETION_RESTART=1 \
 	go test -count=1 -v -tags gizclaw_e2e -timeout 2m \
 	-run '^TestPeerDeletionSurvivesServerRestart$' \
-	./tests/gizclaw-e2e/go/admin)
+	./tests/gizclaw-e2e/go/delete)
 
 project="$GIZCLAW_E2E_DOCKER_PROJECT"
 state_dir="$script_dir/testdata/docker/$project"
