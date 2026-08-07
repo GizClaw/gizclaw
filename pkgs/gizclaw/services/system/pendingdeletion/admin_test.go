@@ -15,6 +15,16 @@ func (invalidRetrySource) Retry(context.Context, string, time.Time) (Task, error
 	return Task{}, nil
 }
 
+type invalidReadSource struct{ KVSource }
+
+func (invalidReadSource) GetTask(context.Context, string) (Task, error) {
+	return Task{}, nil
+}
+
+func (invalidReadSource) ListTasks(context.Context, SourceListOptions) ([]Task, error) {
+	return []Task{{}}, nil
+}
+
 func TestAdminAggregatesFilterBoundPagesAndRetriesFailedTask(t *testing.T) {
 	ctx := context.Background()
 	registry := NewRegistry()
@@ -109,5 +119,22 @@ func TestAdminRejectsInvalidRetriedTaskWithoutWaking(t *testing.T) {
 	}
 	if wakes != 0 {
 		t.Fatalf("retry wakes = %d, want 0", wakes)
+	}
+}
+
+func TestAdminTreatsInvalidPersistedTasksAsInternalErrors(t *testing.T) {
+	registry := NewRegistry()
+	source := invalidReadSource{KVSource: KVSource{
+		Store: kv.NewMemory(nil), SourceName: "invalid_read", OwnedKinds: []Kind{KindPeer},
+	}}
+	if err := registry.Register(source, &registryTestHandler{kind: KindPeer}); err != nil {
+		t.Fatal(err)
+	}
+	admin := NewAdmin(registry, nil)
+	if _, err := admin.List(t.Context(), ListRequest{Source: source.Name()}); err == nil || errors.Is(err, ErrInvalid) {
+		t.Fatalf("List() error = %v, want internal source error", err)
+	}
+	if _, err := admin.Get(t.Context(), source.Name(), "10000000-0000-4000-8000-000000000001"); err == nil || errors.Is(err, ErrInvalid) {
+		t.Fatalf("Get() error = %v, want internal source error", err)
 	}
 }

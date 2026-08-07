@@ -116,7 +116,7 @@ func (a *Admin) List(ctx context.Context, request ListRequest) (ListResult, erro
 		}
 		for _, task := range tasks {
 			if validateErr := ValidateTask(task); validateErr != nil {
-				return ListResult{}, validateErr
+				return ListResult{}, fmt.Errorf("pending deletion: source %q returned invalid task: %v", source.Name(), validateErr)
 			}
 		}
 		all = append(all, tasks...)
@@ -148,7 +148,10 @@ func (a *Admin) Get(ctx context.Context, sourceName, deletionID string) (Task, e
 	if err != nil {
 		return Task{}, err
 	}
-	return task, ValidateTask(task)
+	if err := ValidateTask(task); err != nil {
+		return Task{}, fmt.Errorf("pending deletion: source %q returned invalid task: %v", source.Name(), err)
+	}
+	return task, nil
 }
 
 // Retry requeues one failed active task.
