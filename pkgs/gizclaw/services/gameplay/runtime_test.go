@@ -109,6 +109,39 @@ func TestOwnerHasPetWorkspaceMigratesFreshDatabase(t *testing.T) {
 	}
 }
 
+func TestResolvePetNameUsesRetainedAdoptionReservationWithinRuntimeProfile(t *testing.T) {
+	ctx := context.Background()
+	runtime := &Runtime{DB: testDB(t)}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	tx, err := runtime.DB.BeginTxx(ctx, nil)
+	if err != nil {
+		t.Fatalf("BeginTxx() error = %v", err)
+	}
+	defer tx.Rollback()
+	reservation := petAdoptionReservation{
+		OwnerPublicKey: "peer-a", PetID: "deleted-pet-id", Name: "profile-a-pet", RuntimeProfileId: "profile-a",
+		PetDefID: "petdef-a", WorkspaceName: "workspace-a", WorkflowID: "workflow-a", CreatedAt: time.Date(2026, 8, 7, 12, 0, 0, 0, time.UTC),
+	}
+	if err := insertPetAdoptionReservation(ctx, tx, reservation); err != nil {
+		t.Fatalf("insertPetAdoptionReservation(%q) error = %v", reservation.Name, err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("Commit() error = %v", err)
+	}
+
+	profileCtx := WithRuntimeProfile(ctx, apitypes.RuntimeProfile{Id: "profile-a"})
+	name, err := runtime.ResolvePetName(profileCtx, "peer-a", "deleted-pet-id")
+	if err != nil || name != "profile-a-pet" {
+		t.Fatalf("ResolvePetName(profile-a) = %q, %v, want profile-a-pet", name, err)
+	}
+	missingCtx := WithRuntimeProfile(ctx, apitypes.RuntimeProfile{Id: "profile-missing"})
+	if _, err := runtime.ResolvePetName(missingCtx, "peer-a", "deleted-pet-id"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("ResolvePetName(profile-missing) error = %v, want not found", err)
+	}
+}
+
 func TestMigrationCreatesFreshReservationSchemaWithoutVoiceAlias(t *testing.T) {
 	ctx := context.Background()
 	runtime := &Runtime{DB: testDB(t)}

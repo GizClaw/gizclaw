@@ -654,6 +654,34 @@ func (r *Runtime) GetPet(ctx context.Context, owner, id string) (apitypes.Pet, e
 	return scanPet(db.QueryRowContext(ctx, db.Rebind(query), args...))
 }
 
+// ResolvePetName returns the immutable resource name for a current or deleted
+// Pet. Completed adoption reservations are retained so historical gameplay
+// records remain projectable after the Pet row is physically deleted.
+func (r *Runtime) ResolvePetName(ctx context.Context, owner, id string) (string, error) {
+	pet, err := r.GetPet(ctx, owner, id)
+	if err == nil {
+		return pet.Name, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return "", err
+	}
+	db, err := r.db()
+	if err != nil {
+		return "", err
+	}
+	query := `SELECT name FROM gameplay_pet_adoption_reservations WHERE owner_public_key = ? AND pet_id = ?`
+	args := []any{strings.TrimSpace(owner), strings.TrimSpace(id)}
+	if profile, ok := runtimeProfileFromContext(ctx); ok {
+		if profileID := profile.Id; profileID != "" {
+			query += ` AND runtime_profile_id = ?`
+			args = append(args, profileID)
+		}
+	}
+	var name string
+	err = db.QueryRowContext(ctx, db.Rebind(query), args...).Scan(&name)
+	return name, err
+}
+
 func (r *Runtime) GetPetByName(ctx context.Context, owner, name string) (apitypes.Pet, error) {
 	db, err := r.db()
 	if err != nil {
