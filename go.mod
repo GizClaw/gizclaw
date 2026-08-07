@@ -2,9 +2,9 @@ module github.com/GizClaw/gizclaw-go
 
 go 1.26.4
 
-replace github.com/pion/sctp => github.com/GizClaw/pion-sctp v0.0.0-20260806150545-1314565dcbc5
+replace github.com/pion/sctp => github.com/GizClaw/pion-sctp v0.0.0-20260807033615-feaa3689bd19
 
-replace github.com/pion/webrtc/v4 => github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260806182201-bc90360474e3
+replace github.com/pion/webrtc/v4 => github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260807034320-0b3ceb45f5a5
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.47.0
