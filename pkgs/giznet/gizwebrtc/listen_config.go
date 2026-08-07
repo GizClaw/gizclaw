@@ -197,8 +197,9 @@ func newPionAPIsWithICEUDPBuffers(
 			_ = udpConn.Close()
 			return nil, nil, nil, err
 		}
-		closers = append(closers, udpConn.Close)
-		settingEngine.SetICEUDPMux(webrtc.NewICEUDPMux(logger, udpConn))
+		udpMux := webrtc.NewICEUDPMux(logger, udpConn)
+		closers = append(closers, udpMux.Close)
+		settingEngine.SetICEUDPMux(udpMux)
 		networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4)
 	}
 
