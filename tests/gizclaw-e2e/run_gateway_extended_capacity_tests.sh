@@ -806,6 +806,24 @@ run_case() {
         logs --no-color --timestamps "$service" \
         >"${artifact%.json}-${service}.log" 2>&1 || true
     done
+    for service in server edge edge2; do
+      service_id="$(docker ps -q \
+        --filter "label=com.docker.compose.project=$GIZCLAW_E2E_DOCKER_PROJECT" \
+        --filter "label=com.docker.compose.service=$service")"
+      if [[ -z "$service_id" ]]; then
+        continue
+      fi
+      case "$service" in
+        server)
+          service_log=/src/tests/gizclaw-e2e/testdata/server-workspace/gizclaw-server.log
+          ;;
+        edge | edge2)
+          service_log=/src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.log
+          ;;
+      esac
+      docker exec "$service_id" cat "$service_log" \
+        >"${artifact%.json}-${service}-app.log" 2>&1 || true
+    done
     return "$workload_status"
   fi
   if ((monitor_status != 0)); then
