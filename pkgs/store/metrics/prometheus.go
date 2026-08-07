@@ -397,7 +397,7 @@ func parseRequiredURL(field, value string) (string, error) {
 }
 
 func sampleLabels(sample Sample) []prompb.Label {
-	labels := make([]prompb.Label, 0, len(sample.Labels)+1)
+	labels := make([]prompb.Label, 0, len(sample.Labels))
 	labels = append(labels, prompb.Label{Name: "__name__", Value: sample.Name})
 	names := make([]string, 0, len(sample.Labels))
 	for name := range sample.Labels {
