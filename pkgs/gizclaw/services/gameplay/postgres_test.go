@@ -131,7 +131,8 @@ func TestPostgresGameplayContract(t *testing.T) {
 	}
 
 	runtime.NewID = sequentialIDs("pet-postgres-2", "adopt-txn-2")
-	if _, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{Name: "pet-second", DisplayName: "Pet"}); err != nil {
+	secondAdoption, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{Name: "pet-second", DisplayName: "Pet"})
+	if err != nil {
 		t.Fatalf("AdoptPet(second) error = %v", err)
 	}
 	limit := 1
@@ -183,7 +184,7 @@ func TestPostgresGameplayContract(t *testing.T) {
 	if _, err := source.GetTask(ctx, claim.Record.DeletionID); !errors.Is(err, pendingdeletion.ErrNotFound) {
 		t.Fatalf("GetTask() after cleanup error = %v, want ErrNotFound", err)
 	}
-	if points, err := runtime.GetPoints(ctx, "peer-postgres", profile.Id); err != nil || points.Balance != 25 {
+	if points, err := runtime.GetPoints(ctx, "peer-postgres", profile.Id); err != nil || points.Balance != secondAdoption.Points.Balance {
 		t.Fatalf("GetPoints() after cleanup = %#v, %v", points, err)
 	}
 	if result, err := runtime.GetGameResult(ctx, "peer-postgres", drive.GameResult.Id); err != nil || result.Id != drive.GameResult.Id {
