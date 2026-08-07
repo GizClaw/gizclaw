@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,10 +16,17 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-var defaultDialAPI = sync.OnceValues(func() (*webrtc.API, error) {
-	api, _, err := newPionAPI(nil)
-	return api, err
-})
+const (
+	dialICEUDPAddr            = "0.0.0.0:0"
+	dialICEUDPReadBufferSize  = 256 * 1024
+	dialICEUDPWriteBufferSize = 256 * 1024
+	// Pion sends 25 binding requests over about five seconds. One additional
+	// second lets the final response and DataChannel open before changing tuple.
+	dialInitialAttemptTimeout = 6 * time.Second
+	dialMaxAttempts           = 2
+)
+
+var errDialICEAttempt = errors.New("gizwebrtc: ICE establishment attempt")
 
 type DialConfig struct {
 	API                *webrtc.API
@@ -40,6 +48,8 @@ type DialConfig struct {
 // DialTiming reports client-side establishment phases and readiness
 // milestones without exposing Pion objects to callers.
 type DialTiming struct {
+	// Attempts is the number of fresh PeerConnections and local UDP tuples used.
+	Attempts                   int
 	PeerConnectionConstruction time.Duration
 	OfferCreation              time.Duration
 	SetLocalDescription        time.Duration
@@ -51,6 +61,21 @@ type DialTiming struct {
 	DataChannelReady           time.Duration
 	Total                      time.Duration
 	SelectedCandidatePair      *ICECandidatePairObservation
+}
+
+func (t *DialTiming) add(attempt DialTiming) {
+	t.PeerConnectionConstruction += attempt.PeerConnectionConstruction
+	t.OfferCreation += attempt.OfferCreation
+	t.SetLocalDescription += attempt.SetLocalDescription
+	t.ICEGathering += attempt.ICEGathering
+	t.HTTPSignaling += attempt.HTTPSignaling
+	t.SetRemoteDescription += attempt.SetRemoteDescription
+	t.ICEConnected += attempt.ICEConnected
+	t.DTLSConnected += attempt.DTLSConnected
+	t.DataChannelReady += attempt.DataChannelReady
+	if attempt.SelectedCandidatePair != nil {
+		t.SelectedCandidatePair = attempt.SelectedCandidatePair
+	}
 }
 
 type dialTimingRecorder struct {
@@ -109,13 +134,85 @@ func (r *dialTimingRecorder) snapshot() DialTiming {
 	return r.timing
 }
 
+type dialAttemptFunc func(
+	context.Context,
+	*giznet.KeyPair,
+	giznet.PublicKey,
+	DialConfig,
+	time.Duration,
+) (*Listener, *Conn, error)
+
 func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, cfg DialConfig) (*Listener, *Conn, error) {
+	return dialWithAttempts(ctx, key, serverPK, cfg, dialInitialAttemptTimeout, dialAttempt)
+}
+
+func dialWithAttempts(
+	ctx context.Context,
+	key *giznet.KeyPair,
+	serverPK giznet.PublicKey,
+	cfg DialConfig,
+	initialAttemptTimeout time.Duration,
+	attempt dialAttemptFunc,
+) (*Listener, *Conn, error) {
+	started := time.Now()
+	combined := DialTiming{}
+	callback := cfg.OnTiming
+	cfg.OnTiming = func(observation DialTiming) {
+		combined.add(observation)
+	}
+	if key == nil {
+		combined.Total = time.Since(started)
+		if callback != nil {
+			callback(combined)
+		}
+		return nil, nil, fmt.Errorf("gizwebrtc: nil key pair")
+	}
+	maxAttempts := dialMaxAttempts
+	if cfg.API != nil {
+		maxAttempts = 1
+	}
+	var firstErr error
+	for attemptIndex := range maxAttempts {
+		packetChannelTimeout := time.Duration(0)
+		if attemptIndex == 0 && maxAttempts > 1 {
+			packetChannelTimeout = initialAttemptTimeout
+		}
+		listener, conn, err := attempt(ctx, key, serverPK, cfg, packetChannelTimeout)
+		combined.Attempts = attemptIndex + 1
+		if err == nil {
+			combined.Total = time.Since(started)
+			if callback != nil {
+				callback(combined)
+			}
+			return listener, conn, nil
+		}
+		if attemptIndex == 0 {
+			firstErr = err
+		}
+		if attemptIndex+1 == maxAttempts || ctx.Err() != nil || !errors.Is(err, errDialICEAttempt) {
+			combined.Total = time.Since(started)
+			if callback != nil {
+				callback(combined)
+			}
+			if attemptIndex > 0 {
+				return nil, nil, fmt.Errorf("gizwebrtc: dial failed after %d ICE attempts: first: %v; last: %w", attemptIndex+1, firstErr, err)
+			}
+			return nil, nil, err
+		}
+	}
+	return nil, nil, errors.New("gizwebrtc: no ICE dial attempt configured")
+}
+
+func dialAttempt(
+	ctx context.Context,
+	key *giznet.KeyPair,
+	serverPK giznet.PublicKey,
+	cfg DialConfig,
+	packetChannelTimeout time.Duration,
+) (*Listener, *Conn, error) {
 	timing := newDialTimingRecorder()
 	if cfg.OnTiming != nil {
 		defer func() { cfg.OnTiming(timing.snapshot()) }()
-	}
-	if key == nil {
-		return nil, nil, fmt.Errorf("gizwebrtc: nil key pair")
 	}
 	api := cfg.API
 	var closers []func() error
@@ -123,18 +220,10 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		return nil, nil, fmt.Errorf("gizwebrtc: SCTP receive override requires the default Pion API")
 	}
 	if api == nil {
-		if cfg.SCTPReceiveBufferSize == 0 {
-			var err error
-			api, err = defaultDialAPI()
-			if err != nil {
-				return nil, nil, err
-			}
-		} else {
-			var err error
-			api, closers, err = newPionAPI(&ListenConfig{SCTPReceiveBufferSize: cfg.SCTPReceiveBufferSize})
-			if err != nil {
-				return nil, nil, err
-			}
+		var err error
+		api, closers, err = newDialPionAPI(cfg.SCTPReceiveBufferSize)
+		if err != nil {
+			return nil, nil, err
 		}
 	}
 	l := &Listener{
@@ -273,7 +362,14 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 	timing.update(func(t *DialTiming) {
 		t.SetRemoteDescription = time.Since(started)
 	})
-	if err := waitForPacketChannel(ctx, conn.readyCh); err != nil {
+	packetCtx := ctx
+	cancelPacketWait := func() {}
+	if packetChannelTimeout > 0 {
+		packetCtx, cancelPacketWait = context.WithTimeout(ctx, packetChannelTimeout)
+	}
+	defer cancelPacketWait()
+	if err := waitForPacketChannel(packetCtx, conn.readyCh); err != nil {
+		err = fmt.Errorf("%w: %w: %s", errDialICEAttempt, err, peerConnectionStateDetails(pc))
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, err
@@ -294,6 +390,21 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 	return l, conn, nil
 }
 
+func newDialPionAPI(sctpReceiveBufferSize uint32) (*webrtc.API, []func() error, error) {
+	// Bind one wildcard UDP socket per PeerConnection. All host candidates for
+	// that connection then share one OS-unique source port instead of allocating
+	// the same ephemeral port independently on different local interfaces. This
+	// prevents a NAT from collapsing those candidates onto an indistinguishable
+	// remote tuple while keeping mux address ownership request-scoped. A private
+	// client socket uses bounded 256 KiB buffers instead of the 4 MiB buffers
+	// reserved for shared listener sockets.
+	api, _, closers, err := newPionAPIsWithICEUDPBuffers(&ListenConfig{
+		ICEUDPAddr:            dialICEUDPAddr,
+		SCTPReceiveBufferSize: sctpReceiveBufferSize,
+	}, false, dialICEUDPReadBufferSize, dialICEUDPWriteBufferSize)
+	return api, closers, err
+}
+
 func waitForGathering(ctx context.Context, gatherComplete <-chan struct{}) error {
 	select {
 	case <-gatherComplete:
@@ -310,6 +421,46 @@ func waitForPacketChannel(ctx context.Context, ready <-chan struct{}) error {
 	case <-ctx.Done():
 		return fmt.Errorf("gizwebrtc: wait for packet channel: %w", ctx.Err())
 	}
+}
+
+func peerConnectionStateDetails(pc *webrtc.PeerConnection) string {
+	if pc == nil {
+		return "peer_connection_state=unavailable"
+	}
+	dtlsState := "unavailable"
+	sctpState := "unavailable"
+	if sctp := pc.SCTP(); sctp != nil {
+		sctpState = sctp.State().String()
+		if dtls := sctp.Transport(); dtls != nil {
+			dtlsState = dtls.State().String()
+		}
+	}
+	detail := fmt.Sprintf(
+		"peer_connection_state=%s ice_state=%s ice_gathering_state=%s signaling_state=%s dtls_state=%s sctp_state=%s",
+		pc.ConnectionState(),
+		pc.ICEConnectionState(),
+		pc.ICEGatheringState(),
+		pc.SignalingState(),
+		dtlsState,
+		sctpState,
+	)
+	pair, ok := selectedICECandidatePair(pc.GetStats())
+	if !ok {
+		return detail + " ice_pair=unavailable"
+	}
+	return fmt.Sprintf(
+		"%s ice_pair_state=%s nominated=%t packets_sent=%d packets_received=%d requests_sent=%d responses_received=%d requests_received=%d responses_sent=%d packets_discarded_on_send=%d",
+		detail,
+		pair.State,
+		pair.Nominated,
+		pair.PacketsSent,
+		pair.PacketsReceived,
+		pair.RequestsSent,
+		pair.ResponsesReceived,
+		pair.RequestsReceived,
+		pair.ResponsesSent,
+		pair.PacketsDiscardedOnSend,
+	)
 }
 
 func postOffer(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, offerSDP string, cfg DialConfig) (string, error) {

@@ -19,8 +19,8 @@ const (
 	CipherModeAES256GCM  CipherMode = "aes_256_gcm"
 	CipherModePlaintext  CipherMode = "plaintext"
 
-	iceUDPReadBufferSize  = 4 * 1024 * 1024
-	iceUDPWriteBufferSize = 4 * 1024 * 1024
+	listenerICEUDPReadBufferSize  = 4 * 1024 * 1024
+	listenerICEUDPWriteBufferSize = 4 * 1024 * 1024
 )
 
 type iceUDPBufferSetter interface {
@@ -127,6 +127,20 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 }
 
 func newPionAPIs(c *ListenConfig, includeGatewaySCTP bool) (*webrtc.API, *webrtc.API, []func() error, error) {
+	return newPionAPIsWithICEUDPBuffers(
+		c,
+		includeGatewaySCTP,
+		listenerICEUDPReadBufferSize,
+		listenerICEUDPWriteBufferSize,
+	)
+}
+
+func newPionAPIsWithICEUDPBuffers(
+	c *ListenConfig,
+	includeGatewaySCTP bool,
+	iceUDPReadBufferSize int,
+	iceUDPWriteBufferSize int,
+) (*webrtc.API, *webrtc.API, []func() error, error) {
 	var mediaEngine webrtc.MediaEngine
 	if err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -145,8 +159,12 @@ func newPionAPIs(c *ListenConfig, includeGatewaySCTP bool) (*webrtc.API, *webrtc
 	if c != nil && c.SCTPReceiveBufferSize != 0 {
 		settingEngine.SetSCTPMaxReceiveBufferSize(c.SCTPReceiveBufferSize)
 	}
-	settingEngine.SetSCTPRTOMax(sctpRetransmissionTimeoutMax)
+	// SetSCTPRTOMax would also cap the established association's DATA/T3 timer
+	// and cause spurious congestion-window collapse during synchronized soak
+	// traffic. Limit only T1-init and T1-cookie instead.
+	settingEngine.SetSCTPHandshakeRTOMax(sctpHandshakeRetransmissionTimeoutMax)
 	settingEngine.SetDTLSRetransmissionInterval(dtlsRetransmissionInterval)
+	settingEngine.SetICEMaxBindingRequests(iceMaxBindingRequests)
 	settingEngine.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)
 	if iceLite(c) {
 		settingEngine.SetLite(true)
@@ -175,12 +193,13 @@ func newPionAPIs(c *ListenConfig, includeGatewaySCTP bool) (*webrtc.API, *webrtc
 			_ = udpConn.Close()
 			return nil, nil, nil, fmt.Errorf("gizwebrtc: ICE UDP socket does not support buffer sizing")
 		}
-		if err := configureICEUDPBuffers(bufferedConn); err != nil {
+		if err := configureICEUDPBuffers(bufferedConn, iceUDPReadBufferSize, iceUDPWriteBufferSize); err != nil {
 			_ = udpConn.Close()
 			return nil, nil, nil, err
 		}
-		closers = append(closers, udpConn.Close)
-		settingEngine.SetICEUDPMux(webrtc.NewICEUDPMux(logger, udpConn))
+		udpMux := webrtc.NewICEUDPMux(logger, udpConn)
+		closers = append(closers, udpMux.Close)
+		settingEngine.SetICEUDPMux(udpMux)
 		networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4)
 	}
 
@@ -239,11 +258,11 @@ func newPionAPIs(c *ListenConfig, includeGatewaySCTP bool) (*webrtc.API, *webrtc
 	return api, gatewaySCTPAPI, closers, nil
 }
 
-func configureICEUDPBuffers(conn iceUDPBufferSetter) error {
-	if err := conn.SetReadBuffer(iceUDPReadBufferSize); err != nil {
+func configureICEUDPBuffers(conn iceUDPBufferSetter, readSize int, writeSize int) error {
+	if err := conn.SetReadBuffer(readSize); err != nil {
 		return fmt.Errorf("gizwebrtc: size ICE UDP read buffer: %w", err)
 	}
-	if err := conn.SetWriteBuffer(iceUDPWriteBufferSize); err != nil {
+	if err := conn.SetWriteBuffer(writeSize); err != nil {
 		return fmt.Errorf("gizwebrtc: size ICE UDP write buffer: %w", err)
 	}
 	return nil

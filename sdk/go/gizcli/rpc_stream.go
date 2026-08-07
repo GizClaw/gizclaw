@@ -106,10 +106,14 @@ func (s *rpcStream) ReadEOS() error {
 }
 
 func (s *rpcStream) ReadFrame() (rpcapi.Frame, error) {
+	return s.ReadFrameInto(nil)
+}
+
+func (s *rpcStream) ReadFrameInto(payload []byte) (rpcapi.Frame, error) {
 	if err := s.Context().Err(); err != nil {
 		return rpcapi.Frame{}, err
 	}
-	frame, err := rpcapi.ReadFrame(s.conn)
+	frame, err := rpcapi.ReadFrameInto(s.conn, payload)
 	if err != nil {
 		return rpcapi.Frame{}, s.normalizeIOError(err)
 	}

@@ -257,9 +257,10 @@ func writeBinaryFrames(stream *rpcStream, total int64) (int64, error) {
 }
 
 func readBinaryFrames(stream *rpcStream) (int64, error) {
+	payload := make([]byte, rpcSpeedTestFrameSize)
 	var read int64
 	for {
-		frame, err := stream.ReadFrame()
+		frame, err := stream.ReadFrameInto(payload)
 		if err != nil {
 			return read, err
 		}

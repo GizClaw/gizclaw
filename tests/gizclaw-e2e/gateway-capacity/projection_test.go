@@ -221,9 +221,18 @@ func syntheticExtendedRun(
 				CPUSecondsSource: "test_process_cpu", OpenFDs: 10 + roleSessions/100,
 				OpenFDsSource: "test_process_fds",
 			}
-			if role != "load_driver" {
+			if role == "load_driver" {
+				heap, live, goroutines := uint64(1), uint64(1), 1
+				point.GoHeapAllocBytes = &heap
+				point.GoHeapLiveBytes = &live
+				point.Goroutines = &goroutines
+				point.SocketSource = "unsupported"
+				point.NetworkSource = "unsupported"
+				point.UnsupportedMetrics = []string{"udp_sockets", "udp6_sockets", "network_rx_bytes", "network_tx_bytes"}
+			} else {
 				point.SocketSource = "proc_pid_net_udp"
 				point.NetworkSource = "proc_pid_net_dev"
+				point.UnsupportedMetrics = []string{"go_heap_alloc_bytes", "go_heap_live_bytes", "goroutines"}
 			}
 			points = append(points, point)
 		}
@@ -243,7 +252,7 @@ func syntheticExtendedRun(
 	run := artifact{
 		Version: extendedArtifactVersion,
 		Host: hostSummary{
-			GOOS: "test", GOARCH: "arm64", GoVersion: "go-test", LogicalCPU: 100_000, GOMAXPROCS: 8,
+			GOOS: "test", GOARCH: "arm64", GoVersion: "go-test", LogicalCPU: 100_000, GOMAXPROCS: 8, GOGC: "100",
 		},
 		Config: artifactConfig{
 			Edges: []string{"edge-a", "edge-b"}, Sessions: sessions, Ramp: ramp,

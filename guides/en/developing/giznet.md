@@ -73,6 +73,43 @@ PeerConnection. A pre-open DataChannel close or error returns
 `giznet.ErrConnClosed`. The existing `Dial` method remains a compatibility
 wrapper with a ten-second service-open bound.
 
+Every open service DataChannel is registered against its logical service until
+the corresponding `net.Conn` closes. Closing the stream removes it immediately,
+and closing a service or parent connection closes a snapshot outside the
+registry lock. Repeated short-lived RPC streams therefore do not accumulate in
+the parent WebRTC connection, while service and parent shutdown still reject
+new streams and close every stream that remains live.
+
+Each unary RPC owns one ordered service DataChannel: the client creates a new
+DataChannel for the request, the server processes one request on it, and both
+sides close it after the response. A closed DataChannel is never reused for a
+later RPC. Its SCTP stream identifier remains reserved until the local outgoing
+reset is acknowledged and the peer's outgoing reset removes the old inbound
+stream; only then may the allocator assign that identifier to a new DataChannel.
+This reuses the finite identifier space, not the channel or RPC stream.
+
+The root Go module temporarily replaces `github.com/pion/sctp` and
+`github.com/pion/webrtc/v4` with immutable GizClaw fork pseudo-versions that
+report completed stream resets and release DataChannel identifiers. Go does not
+propagate a dependency module's `replace` directives, so executables that
+consume GizClaw as a module must mirror both replacements until upstream
+releases contain both fixes. The replacements must be removed together after
+those releases are selected and the reset/reuse integration and race tests pass
+without the forks.
+
+Each live service stream lazily allocates a 32 KiB detached-DataChannel message
+buffer on its first read and reuses it for subsequent reads. If SCTP reports a
+larger queued message, the stream grows the buffer up to the supported 64 KiB
+maximum and retries without consuming the message. Any unread tail is copied
+into that stream's pending buffer. The message buffer is released when the
+stream closes, avoiding both a maximum-size allocation for every small-message
+stream and a process-wide pool that retains a short burst's high-water mark.
+
+Every PeerConnection continuously drains RTCP feedback for its local Opus
+sender into one reused MTU-sized buffer. The reader exits when Pion closes the
+sender with the PeerConnection, so unread receiver reports cannot accumulate
+in the SRTCP packet buffer during long-lived sessions.
+
 General public client associations retain Pion's default SCTP receive window.
 An Edge gateway gives at most 64 currently admitted client associations a 4
 MiB burst window, limiting burst-profile receive credit to 256 MiB per Edge;
@@ -85,12 +122,31 @@ times their 512 KiB per-DataChannel send budget and prevents interleaved partial
 messages from exhausting the receiver window before delivery. A connection
 also admits at most 2,048 remotely opened service DataChannels, matching the
 gateway's active-session ceiling per upstream association; excess channels are
-closed before delivery, so service labels cannot create unbounded queues. SCTP
-retransmission is capped at 250 ms, and DTLS
-flights use a 250 ms initial retransmission interval, so lost handshake flights
+closed before delivery, so service labels cannot create unbounded queues.
+The default client Dial owns one wildcard IPv4 UDP mux and socket per
+PeerConnection. All local-interface host candidates for that connection share
+one OS-unique source port, so NAT cannot collapse independently allocated
+per-interface ports onto one remote tuple. The mux is not shared between
+PeerConnections because Pion routes post-STUN packets by remote address.
+Each private client socket requests 256 KiB read and write buffers; the 4 MiB
+buffers remain limited to listener sockets shared by many PeerConnections.
+After setting the remote description, the default Dial gives its first ICE
+attempt six seconds to open the packet DataChannel. If that wait expires while
+the caller context is still live, Dial closes that PeerConnection and its socket
+and makes exactly one fresh attempt; this changes the local tuple instead of
+reusing a poisoned NAT mapping. A caller-supplied Pion API remains
+single-attempt because its transport ownership is external. Capacity artifacts
+report the number of attempts per session.
+SCTP retransmission is capped at 150 ms, and DTLS
+flights use a 150 ms initial retransmission interval, so lost handshake flights
 during a burst do not add the one-second defaults. SCTP reliable delivery and
 its retransmission count remain unchanged; DTLS retransmission and exponential
-backoff remain enabled.
+backoff remain enabled. ICE candidate pairs remain eligible for 25 binding
+requests, about five seconds at Pion's 200 ms check interval, so transient relay
+packet loss during a synchronized burst does not permanently discard a valid
+pair. The caller's Dial context still bounds the whole handshake. A packet
+DataChannel timeout reports the final PeerConnection, ICE, DTLS, SCTP, and
+candidate-pair counters for diagnosis.
 
 ## Dependencies
 

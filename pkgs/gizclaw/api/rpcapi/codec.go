@@ -80,6 +80,12 @@ type buffersWriter interface {
 
 // ReadFrame reads a typed RPC frame.
 func ReadFrame(r io.Reader) (Frame, error) {
+	return ReadFrameInto(r, nil)
+}
+
+// ReadFrameInto reads a typed RPC frame, reusing payload when it has enough
+// capacity. The returned payload aliases payload until the caller reuses it.
+func ReadFrameInto(r io.Reader, payload []byte) (Frame, error) {
 	var hdr [4]byte
 	if _, err := io.ReadFull(r, hdr[:]); err != nil {
 		return Frame{}, err
@@ -92,11 +98,15 @@ func ReadFrame(r io.Reader) (Frame, error) {
 	if frameType == FrameTypeEOS && length != 0 {
 		return Frame{}, fmt.Errorf("rpc: EOS frame must be empty")
 	}
-	buf := make([]byte, length)
-	if _, err := io.ReadFull(r, buf); err != nil {
+	if cap(payload) < int(length) {
+		payload = make([]byte, length)
+	} else {
+		payload = payload[:length]
+	}
+	if _, err := io.ReadFull(r, payload); err != nil {
 		return Frame{}, err
 	}
-	return Frame{Type: frameType, Payload: buf}, nil
+	return Frame{Type: frameType, Payload: payload}, nil
 }
 
 // ReadFrames reads frames until EOS. EOF before EOS is returned as an error.

@@ -244,10 +244,8 @@ func (c *Client) PeerHTTPClient() (*peerhttp.ClientWithResponses, error) {
 
 // Ping opens a fresh RPC stream, sends one ping, and closes it.
 //
-// Our current RPC transport uses one giznet service stream per round trip so
-// multiple RPC requests can run concurrently on separate streams. This is closer to
-// HTTP/1.0-style request lifecycles; HTTP/1.1-style stream reuse is not
-// supported yet.
+// Each RPC request owns one giznet service stream. Multiple requests on one
+// stream are not part of the RPC transport contract.
 func (c *Client) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, error) {
 	stream, err := c.rpcConn()
 	if err != nil {
@@ -563,6 +561,11 @@ func (c *Client) rejectDuplicateEventStreams() error {
 }
 
 func isPeerPacketReadClosed(err error) bool {
+	if errors.Is(err, giznet.ErrConnFailed) {
+		// Preserve the concrete transport cause so Serve callers can distinguish a
+		// failed connection from an intentional or remote graceful close.
+		return false
+	}
 	return errors.Is(err, io.EOF) ||
 		errors.Is(err, net.ErrClosed) ||
 		errors.Is(err, giznet.ErrConnClosed) ||

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -32,6 +33,26 @@ func TestValidateOptionsRequiresCompleteRoleSamplingIdentity(t *testing.T) {
 	}
 }
 
+func TestWriteDiagnosticHeapProfileIsOptIn(t *testing.T) {
+	t.Setenv("GIZCLAW_E2E_GATEWAY_HEAP_PROFILE_DIR", "")
+	if err := writeDiagnosticHeapProfile("disabled"); err != nil {
+		t.Fatalf("writeDiagnosticHeapProfile(disabled) = %v", err)
+	}
+
+	dir := t.TempDir()
+	t.Setenv("GIZCLAW_E2E_GATEWAY_HEAP_PROFILE_DIR", dir)
+	if err := writeDiagnosticHeapProfile("hold-start"); err != nil {
+		t.Fatalf("writeDiagnosticHeapProfile(enabled) = %v", err)
+	}
+	info, err := os.Stat(filepath.Join(dir, "hold-start.pprof"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Size() == 0 {
+		t.Fatal("diagnostic heap profile is empty")
+	}
+}
+
 func TestValidateOptionsKeepsPingTimeoutInsideRoundBudget(t *testing.T) {
 	opts := validOptionsForTest()
 	opts.pingInterval = 30 * time.Second
@@ -53,6 +74,27 @@ func TestValidateOptionsKeepsPingTimeoutInsideRoundBudget(t *testing.T) {
 	}
 }
 
+func TestValidateOptionsRequiresCompleteFinalSpeedContract(t *testing.T) {
+	opts := validOptionsForTest()
+	opts.minFinalSpeedRetention = 0.8
+	if err := validateOptions(opts); err == nil || !strings.Contains(err.Error(), "requires -soak") {
+		t.Fatalf("validateOptions error = %v, want soak requirement", err)
+	}
+	opts.soak = true
+	opts.duration = time.Hour
+	if err := validateOptions(opts); err == nil || !strings.Contains(err.Error(), "positive -speed-bytes") {
+		t.Fatalf("validateOptions error = %v, want speed requirement", err)
+	}
+	opts.speedBytes = 1 << 20
+	if err := validateOptions(opts); err != nil {
+		t.Fatalf("validateOptions = %v", err)
+	}
+	opts.cleanupTimeout = 0
+	if err := validateOptions(opts); err == nil || !strings.Contains(err.Error(), "cleanup-timeout") {
+		t.Fatalf("validateOptions error = %v, want cleanup timeout requirement", err)
+	}
+}
+
 func TestParseDockerProcessSample(t *testing.T) {
 	at := time.Unix(10, 0)
 	got, err := parseDockerProcessSample("10000000000 123 5 4096 30 10 100 7 999 1024 8 9 1000 2000")
@@ -69,7 +111,7 @@ func TestParseDockerProcessSample(t *testing.T) {
 		got.Point.NetworkRXBytes != 1000 || got.Point.NetworkTXBytes != 2000 {
 		t.Fatalf("socket/network point = %+v", got.Point)
 	}
-	if got.Point.GoHeapAllocBytes != nil || got.Point.Goroutines != nil || len(got.Point.UnsupportedMetrics) != 2 {
+	if got.Point.GoHeapAllocBytes != nil || got.Point.GoHeapLiveBytes != nil || got.Point.Goroutines != nil || len(got.Point.UnsupportedMetrics) != 3 {
 		t.Fatalf("unsupported Go metrics = %+v", got.Point)
 	}
 	if got.Point.At != at {
@@ -117,6 +159,8 @@ func TestDockerProcessSampleScriptReadsLinuxProc(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, "bash", "-c", dockerProcessSampleScript, "gateway-capacity-sampler-test", pidFile)
+	var stderr bytes.Buffer
+	command.Stderr = &stderr
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		t.Fatal(err)
@@ -130,7 +174,7 @@ func TestDockerProcessSampleScriptReadsLinuxProc(t *testing.T) {
 	}()
 	scanner := bufio.NewScanner(stdout)
 	if !scanner.Scan() {
-		t.Fatalf("sampler produced no output: %v", scanner.Err())
+		t.Fatalf("sampler produced no output: %v: %s", scanner.Err(), strings.TrimSpace(stderr.String()))
 	}
 	sample, err := parseDockerProcessSample(scanner.Text())
 	if err != nil {
@@ -159,11 +203,18 @@ func TestCountLsofFileDescriptors(t *testing.T) {
 
 func TestValidateRequiredRoleEvidenceRejectsFallbackAndMissingFDs(t *testing.T) {
 	start := time.Unix(1, 0)
+	heap, live, goroutines := uint64(1), uint64(1), 1
 	evidence := roleResourceEvidence{Role: "load_driver", Samples: []roleResourcePoint{{
 		At: start, RSSBytes: 1, RSSSource: "go_memstats_sys", CPUSecondsSource: "go_runtime", OpenFDs: 1, OpenFDsSource: "lsof_process",
+		GoHeapAllocBytes: &heap, GoHeapLiveBytes: &live, Goroutines: &goroutines, SocketSource: "unsupported", NetworkSource: "unsupported",
+		UnsupportedMetrics: []string{"udp_sockets", "udp6_sockets", "network_rx_bytes", "network_tx_bytes"},
 	}}}
 	if err := validateRequiredRoleEvidence(evidence); err == nil || !strings.Contains(err.Error(), "RSS") {
 		t.Fatalf("validateRequiredRoleEvidence error = %v, want RSS error", err)
+	}
+	evidence.Samples[0].RSSSource = "go_runtime_memory_total"
+	if err := validateRequiredRoleEvidence(evidence); err == nil || !strings.Contains(err.Error(), "RSS") {
+		t.Fatalf("validateRequiredRoleEvidence error = %v, want runtime-memory RSS error", err)
 	}
 	evidence.Samples[0].RSSSource = "ps_rss_kib"
 	evidence.Samples[0].OpenFDs = -1
@@ -176,19 +227,143 @@ func TestValidateRequiredRoleEvidenceRejectsFallbackAndMissingFDs(t *testing.T) 
 	evidence.Samples = append(evidence.Samples, roleResourcePoint{
 		At: start.Add(4 * time.Second), RSSBytes: 1, RSSSource: "ps_rss_kib",
 		CPUSecondsSource: "go_runtime", OpenFDs: 1, OpenFDsSource: "lsof_process",
+		GoHeapAllocBytes: &heap, GoHeapLiveBytes: &live, Goroutines: &goroutines, SocketSource: "unsupported", NetworkSource: "unsupported",
+		UnsupportedMetrics: []string{"udp_sockets", "udp6_sockets", "network_rx_bytes", "network_tx_bytes"},
 	})
 	if err := validateRequiredRoleEvidence(evidence); err == nil || !strings.Contains(err.Error(), "sample gap") {
 		t.Fatalf("validateRequiredRoleEvidence error = %v, want sample-gap error", err)
 	}
 }
 
+func TestValidateRequiredRoleEvidenceRequiresUnsupportedMetricDeclarations(t *testing.T) {
+	start := time.Unix(1, 0)
+	external := roleResourceEvidence{Role: "edge", Samples: []roleResourcePoint{{
+		At: start, RSSBytes: 1, RSSSource: "proc_pid_statm", CPUSecondsSource: "proc_pid_stat",
+		OpenFDs: 1, OpenFDsSource: "proc_pid_fd", SocketSource: "proc_pid_net_udp", NetworkSource: "proc_pid_net_dev",
+	}}}
+	if err := validateRequiredRoleEvidence(external); err == nil || !strings.Contains(err.Error(), "Go runtime declarations") {
+		t.Fatalf("validateRequiredRoleEvidence error = %v, want unsupported Go runtime declaration error", err)
+	}
+
+	heap, live, goroutines := uint64(1), uint64(1), 1
+	loadDriver := roleResourceEvidence{Role: "load_driver", Samples: []roleResourcePoint{{
+		At: start, RSSBytes: 1, RSSSource: "ps_rss_kib", CPUSecondsSource: "go_runtime",
+		OpenFDs: 1, OpenFDsSource: "lsof_process", GoHeapAllocBytes: &heap, GoHeapLiveBytes: &live, Goroutines: &goroutines,
+		SocketSource: "unsupported", NetworkSource: "unsupported",
+	}}}
+	if err := validateRequiredRoleEvidence(loadDriver); err == nil || !strings.Contains(err.Error(), "unsupported socket or network declarations") {
+		t.Fatalf("validateRequiredRoleEvidence error = %v, want unsupported socket declaration error", err)
+	}
+}
+
+func TestValidateRequiredRoleEvidenceRejectsDecreasingCounters(t *testing.T) {
+	start := time.Unix(1, 0)
+	points := []roleResourcePoint{
+		{
+			At: start, RSSBytes: 1, RSSSource: "proc_pid_statm", CPUSeconds: 2, CPUSecondsSource: "proc_pid_stat",
+			OpenFDs: 1, OpenFDsSource: "proc_pid_fd", SocketSource: "proc_pid_net_udp",
+			NetworkRXBytes: 10, NetworkTXBytes: 10, NetworkSource: "proc_pid_net_dev",
+			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "go_heap_live_bytes", "goroutines"},
+		},
+		{
+			At: start.Add(time.Second), RSSBytes: 1, RSSSource: "proc_pid_statm", CPUSeconds: 1, CPUSecondsSource: "proc_pid_stat",
+			OpenFDs: 1, OpenFDsSource: "proc_pid_fd", SocketSource: "proc_pid_net_udp",
+			NetworkRXBytes: 11, NetworkTXBytes: 11, NetworkSource: "proc_pid_net_dev",
+			UnsupportedMetrics: []string{"go_heap_alloc_bytes", "go_heap_live_bytes", "goroutines"},
+		},
+	}
+	evidence := roleResourceEvidence{Role: "edge", Samples: points}
+	if err := validateRequiredRoleEvidence(evidence); err == nil || !strings.Contains(err.Error(), "CPU counter decreased") {
+		t.Fatalf("validateRequiredRoleEvidence error = %v, want CPU counter error", err)
+	}
+	evidence.Samples[1].CPUSeconds = 3
+	evidence.Samples[1].NetworkRXBytes = 9
+	if err := validateRequiredRoleEvidence(evidence); err == nil || !strings.Contains(err.Error(), "network counter decreased") {
+		t.Fatalf("validateRequiredRoleEvidence error = %v, want network counter error", err)
+	}
+}
+
+func TestExtendedSamplerLiveHealthReportsProgress(t *testing.T) {
+	now := time.Now()
+	sampler := testExtendedSampler(now, time.Second)
+	progress, err := sampler.liveHealth(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if progress.MinimumSamples != 2 || progress.MaximumGap != time.Second || progress.MaximumAge != 0 {
+		t.Fatalf("liveHealth progress = %+v", progress)
+	}
+}
+
+func TestExtendedSamplerLiveHealthRejectsHistoricalGap(t *testing.T) {
+	now := time.Now()
+	sampler := testExtendedSampler(now, maximumResourceSampleGap+time.Millisecond)
+	if _, err := sampler.liveHealth(now); err == nil || !strings.Contains(err.Error(), "sample gap") {
+		t.Fatalf("liveHealth error = %v, want sample-gap error", err)
+	}
+}
+
+func TestExtendedSamplerLiveHealthRejectsStaleStream(t *testing.T) {
+	now := time.Now()
+	sampler := testExtendedSampler(now.Add(-maximumResourceSampleGap-time.Millisecond), time.Second)
+	if _, err := sampler.liveHealth(now); err == nil || !strings.Contains(err.Error(), "stale") {
+		t.Fatalf("liveHealth error = %v, want stale-stream error", err)
+	}
+}
+
+func TestExtendedSamplerLiveHealthAllowsConcurrentSampleTimestamp(t *testing.T) {
+	now := time.Now()
+	sampler := testExtendedSampler(now.Add(time.Millisecond), time.Second)
+	progress, err := sampler.liveHealth(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if progress.MaximumAge != 0 {
+		t.Fatalf("liveHealth maximum age = %s, want zero", progress.MaximumAge)
+	}
+}
+
+func TestExtendedSamplerLiveHealthRejectsFutureClockSkew(t *testing.T) {
+	now := time.Now()
+	sampler := testExtendedSampler(now.Add(maximumResourceSampleFutureSkew+time.Millisecond), time.Second)
+	if _, err := sampler.liveHealth(now); err == nil || !strings.Contains(err.Error(), "in the future") {
+		t.Fatalf("liveHealth error = %v, want future-clock error", err)
+	}
+}
+
+func testExtendedSampler(latest time.Time, gap time.Duration) *extendedSamplerState {
+	roles := make(map[string]*dockerRoleState)
+	for _, role := range []string{"edge", "edge2", "server", "coturn-a", "coturn-b"} {
+		roles[role] = &dockerRoleState{role: role, maximumSampleGap: gap, samples: []roleResourcePoint{
+			testExternalRoleResourcePoint(latest.Add(-gap)),
+			testExternalRoleResourcePoint(latest),
+		}}
+	}
+	return &extendedSamplerState{docker: &dockerResourceSampler{roles: roles}}
+}
+
+func testExternalRoleResourcePoint(at time.Time) roleResourcePoint {
+	return roleResourcePoint{
+		At: at, RSSBytes: 1, RSSSource: "proc_pid_statm", CPUSecondsSource: "proc_pid_stat",
+		OpenFDs: 1, OpenFDsSource: "proc_pid_fd", SocketSource: "proc_pid_net_udp", NetworkSource: "proc_pid_net_dev",
+		UnsupportedMetrics: []string{"go_heap_alloc_bytes", "go_heap_live_bytes", "goroutines"},
+	}
+}
+
 func TestRecordDockerRoleSampleRejectsProcessReplacement(t *testing.T) {
 	state := &dockerRoleState{role: "edge"}
-	first := dockerProcessSample{ProcessID: 10, ProcessStartTicks: 20, OpenFDLimit: 100}
+	started := time.Now()
+	first := dockerProcessSample{
+		Point:     testExternalRoleResourcePoint(started),
+		ProcessID: 10, ProcessStartTicks: 20, OpenFDLimit: 100,
+	}
 	if err := recordDockerRoleSample(state, first); err != nil {
 		t.Fatal(err)
 	}
-	second := dockerProcessSample{ProcessID: 11, ProcessStartTicks: 21, OpenFDLimit: 100}
+	second := dockerProcessSample{
+		Point:     testExternalRoleResourcePoint(started.Add(time.Second)),
+		ProcessID: 11, ProcessStartTicks: 21, OpenFDLimit: 100,
+	}
 	if err := recordDockerRoleSample(state, second); err == nil || !strings.Contains(err.Error(), "process changed") {
 		t.Fatalf("recordDockerRoleSample error = %v", err)
 	}
@@ -311,6 +486,6 @@ func validOptionsForTest() options {
 		edges: []string{"edge"}, sessions: 1,
 		pingInterval: time.Second, dialTimeout: time.Second,
 		pingTimeout: time.Second, speedTimeout: time.Second,
-		concurrency: 1, artifactPath: "artifact.json",
+		concurrency: 1, artifactPath: "artifact.json", cleanupTimeout: time.Second,
 	}
 }

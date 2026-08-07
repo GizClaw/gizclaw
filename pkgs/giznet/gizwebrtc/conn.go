@@ -78,9 +78,16 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 	if err != nil {
 		return nil, err
 	}
-	if _, err := pc.AddTrack(audioTrack); err != nil {
+	rtpSender, err := pc.AddTrack(audioTrack)
+	if err != nil {
 		return nil, err
 	}
+	go func() {
+		_ = drainRTCP(func(buffer []byte) error {
+			_, _, err := rtpSender.Read(buffer)
+			return err
+		})
+	}()
 	c := &Conn{
 		pk:         pk,
 		pc:         pc,
@@ -108,14 +115,34 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 	})
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		if peerConnectionStateIsTerminal(state) {
-			_ = c.closeWithError(peerConnectionCloseError(pc, state))
+			_ = c.closeWithError(peerConnectionTerminalCause(pc, state))
 		}
 	})
 	return c, nil
 }
 
+func drainRTCP(read func([]byte) error) error {
+	if read == nil {
+		return errors.New("gizwebrtc: nil RTCP reader")
+	}
+	buffer := make([]byte, 1500)
+	for {
+		if err := read(buffer); err != nil {
+			return err
+		}
+	}
+}
+
 func peerConnectionStateIsTerminal(state webrtc.PeerConnectionState) bool {
 	return state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed
+}
+
+func peerConnectionTerminalCause(pc *webrtc.PeerConnection, state webrtc.PeerConnectionState) error {
+	cause := peerConnectionCloseError(pc, state)
+	if state == webrtc.PeerConnectionStateFailed {
+		return errors.Join(giznet.ErrConnFailed, cause)
+	}
+	return cause
 }
 
 func peerConnectionCloseError(pc *webrtc.PeerConnection, state webrtc.PeerConnectionState) error {
@@ -233,7 +260,11 @@ func (c *Conn) DialContext(ctx context.Context, service uint64) (net.Conn, error
 	stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
 	stream.rx = &c.rxBytes
 	stream.tx = &c.txBytes
-	c.trackStream(service, stream)
+	if err := c.trackStream(service, stream, nil); err != nil {
+		_ = stream.Close()
+		_ = dc.Close()
+		return nil, err
+	}
 	return stream, nil
 }
 
@@ -264,15 +295,16 @@ func (c *Conn) CloseService(service uint64) error {
 	}
 	c.serviceMu.Lock()
 	c.closedSvc[service] = true
-	if l := c.services[service]; l != nil {
-		_ = l.Close()
-	}
+	listener := c.services[service]
 	streams := make([]*dataChannelConn, 0, len(c.streams[service]))
 	for s := range c.streams[service] {
 		streams = append(streams, s)
 	}
 	delete(c.streams, service)
 	c.serviceMu.Unlock()
+	if listener != nil {
+		_ = listener.Close()
+	}
 	for _, s := range streams {
 		_ = s.Close()
 	}
@@ -346,13 +378,18 @@ func (c *Conn) PeerInfo() *giznet.PeerInfo {
 }
 
 func (c *Conn) Close() error {
-	return c.closeWithError(nil)
+	return c.close(nil)
 }
 
 func (c *Conn) closeWithError(cause error) error {
+	return c.close(cause)
+}
+
+func (c *Conn) close(cause error) error {
 	if c == nil {
 		return giznet.ErrNilConn
 	}
+	var closeErr error
 	c.once.Do(func() {
 		c.closeMu.Lock()
 		if cause != nil {
@@ -362,8 +399,9 @@ func (c *Conn) closeWithError(cause error) error {
 		c.closed.Store(true)
 		close(c.closeCh)
 		c.serviceMu.Lock()
-		for _, l := range c.services {
-			_ = l.Close()
+		listeners := make([]*ServiceListener, 0, len(c.services))
+		for _, listener := range c.services {
+			listeners = append(listeners, listener)
 		}
 		var streams []*dataChannelConn
 		for _, serviceStreams := range c.streams {
@@ -373,6 +411,9 @@ func (c *Conn) closeWithError(cause error) error {
 		}
 		c.streams = make(map[uint64]map[*dataChannelConn]struct{})
 		c.serviceMu.Unlock()
+		for _, listener := range listeners {
+			_ = listener.Close()
+		}
 		for _, s := range streams {
 			_ = s.Close()
 		}
@@ -384,9 +425,9 @@ func (c *Conn) closeWithError(cause error) error {
 			_ = c.packetRaw.Close()
 		}
 		c.packetMu.Unlock()
-		_ = c.pc.Close()
+		closeErr = c.pc.Close()
 	})
-	return nil
+	return closeErr
 }
 
 func (c *Conn) closeError() error {
@@ -462,7 +503,14 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 		stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
 		stream.rx = &c.rxBytes
 		stream.tx = &c.txBytes
-		c.trackStream(service, stream)
+		// A detached channel closes through raw.Close, which does not invoke
+		// the Pion wrapper's OnClose callback. Bind the admission release to
+		// the service stream itself so every unary RPC drops its DataChannel.
+		if err := c.trackStream(service, stream, release); err != nil {
+			release()
+			_ = stream.Close()
+			return
+		}
 		if c.acceptAll.Load() {
 			select {
 			case c.serviceCh <- acceptedService{service: service, stream: stream}:
@@ -554,13 +602,35 @@ func (c *Conn) enqueuePacket(pkt directPacket) {
 	}
 }
 
-func (c *Conn) trackStream(service uint64, s *dataChannelConn) {
+func (c *Conn) trackStream(service uint64, s *dataChannelConn, releaseInbound func()) error {
 	c.serviceMu.Lock()
 	defer c.serviceMu.Unlock()
+	if c.closed.Load() {
+		return c.parentCloseError()
+	}
+	if c.closedSvc[service] {
+		return giznet.ErrServiceMuxClosed
+	}
 	if c.streams[service] == nil {
 		c.streams[service] = make(map[*dataChannelConn]struct{})
 	}
+	s.onClose = func() {
+		if releaseInbound != nil {
+			releaseInbound()
+		}
+		c.untrackStream(service, s)
+	}
 	c.streams[service][s] = struct{}{}
+	return nil
+}
+
+func (c *Conn) untrackStream(service uint64, s *dataChannelConn) {
+	c.serviceMu.Lock()
+	defer c.serviceMu.Unlock()
+	delete(c.streams[service], s)
+	if len(c.streams[service]) == 0 {
+		delete(c.streams, service)
+	}
 }
 
 func (c *Conn) writeOpus(payload []byte) (int, error) {

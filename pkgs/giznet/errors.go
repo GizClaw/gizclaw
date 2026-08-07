@@ -7,6 +7,7 @@ var (
 	ErrNilConn     = errors.New("giznet: nil conn")
 	ErrClosed      = errors.New("giznet: listener closed")
 	ErrConnClosed  = errors.New("giznet: conn closed")
+	ErrConnFailed  = errors.New("giznet: conn failed")
 
 	ErrPacketTooLarge = errors.New("giznet: packet too large")
 	ErrPacketBuffer   = errors.New("giznet: packet buffer too small")

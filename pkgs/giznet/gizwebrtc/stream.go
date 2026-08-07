@@ -1,6 +1,7 @@
 package gizwebrtc
 
 import (
+	"errors"
 	"io"
 	"net"
 	"os"
@@ -31,8 +32,13 @@ type dataChannelConn struct {
 	rx     *atomic.Uint64
 	tx     *atomic.Uint64
 
-	readMu  sync.Mutex
-	pending []byte
+	readMu sync.Mutex
+	// Start at the normal service-message size and grow only when SCTP reports a
+	// larger queued message. The short-buffer read does not consume that message,
+	// so retrying preserves the supported DataChannel message boundary without
+	// retaining a maximum-sized buffer for every small-message stream.
+	readBuffer []byte
+	pending    []byte
 
 	writeMu sync.Mutex
 
@@ -44,6 +50,7 @@ type dataChannelConn struct {
 	closeCh   chan struct{}
 	closeOnce sync.Once
 	closed    atomic.Bool
+	onClose   func()
 }
 
 func newDataChannelConn(raw datachannel.ReadWriteCloserDeadliner, flow dataChannelFlow, local, remote net.Addr) *dataChannelConn {
@@ -68,16 +75,26 @@ func (c *dataChannelConn) Read(p []byte) (int, error) {
 		return 0, giznet.ErrConnClosed
 	}
 	c.readMu.Lock()
+	defer c.readMu.Unlock()
+	// Keep readMu held through the raw read, any adaptive resize and retry, and
+	// the pending-tail update. net.Conn permits concurrent callers, but one SCTP
+	// stream still has a single ordered receive sequence.
 	if len(c.pending) > 0 {
 		n := copy(p, c.pending)
 		c.pending = c.pending[n:]
-		c.readMu.Unlock()
 		return n, nil
 	}
-	c.readMu.Unlock()
 
-	buf := make([]byte, maxPacketMessageSize)
+	if c.readBuffer == nil {
+		c.readBuffer = make([]byte, streamChunkSize)
+	}
+	buf := c.readBuffer
 	n, _, err := c.raw.ReadDataChannel(buf)
+	if errors.Is(err, io.ErrShortBuffer) && n > len(buf) && n <= maxPacketMessageSize {
+		c.readBuffer = make([]byte, n)
+		buf = c.readBuffer
+		n, _, err = c.raw.ReadDataChannel(buf)
+	}
 	if err != nil {
 		if c.closed.Load() {
 			return 0, io.EOF
@@ -92,9 +109,7 @@ func (c *dataChannelConn) Read(p []byte) (int, error) {
 	}
 	copied := copy(p, buf[:n])
 	if copied < n {
-		c.readMu.Lock()
 		c.pending = append(c.pending[:0], buf[copied:n]...)
-		c.readMu.Unlock()
 	}
 	return copied, nil
 }
@@ -191,6 +206,9 @@ func (c *dataChannelConn) Close() error {
 		close(c.closeCh)
 		c.signalBufferedAmountLow()
 		err = c.raw.Close()
+		if c.onClose != nil {
+			c.onClose()
+		}
 	})
 	return err
 }

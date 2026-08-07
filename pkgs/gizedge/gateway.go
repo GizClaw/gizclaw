@@ -110,12 +110,14 @@ func newGateway(
 		return nil, fmt.Errorf("edge: start gateway listener: %w", err)
 	}
 	pool := newGatewayPool(ctx, cfg, upstreamURL, relaySelector)
-	if err := pool.ensureOne(ctx); err != nil {
+	startupCtx, startupCancel := context.WithTimeout(ctx, upstreamDialTimeout)
+	defer startupCancel()
+	if err := retryGatewayStartupRelay(startupCtx, pool.ensureOne); err != nil {
 		_ = listener.Close()
 		cancel()
 		return nil, err
 	}
-	if err := pool.warm(ctx); err != nil {
+	if err := retryGatewayStartupRelay(startupCtx, pool.warm); err != nil {
 		_ = pool.Close()
 		_ = listener.Close()
 		cancel()
@@ -125,6 +127,37 @@ func newGateway(
 	gateway.pool = pool
 	go gateway.acceptLoop()
 	return gateway, nil
+}
+
+func retryGatewayStartupRelay(ctx context.Context, operation func(context.Context) error) error {
+	for {
+		err := operation(ctx)
+		if err == nil {
+			return nil
+		}
+		if ctx.Err() != nil {
+			return errors.Join(err, ctx.Err())
+		}
+		var unavailable *upstreamRelaysUnavailableError
+		if errors.Is(err, context.DeadlineExceeded) {
+			continue
+		}
+		if !errors.As(err, &unavailable) || unavailable.retryAfter <= 0 {
+			return err
+		}
+		timer := time.NewTimer(unavailable.retryAfter)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			return errors.Join(err, ctx.Err())
+		}
+	}
 }
 
 func (g *Gateway) Handler(next http.Handler) http.Handler {
@@ -613,8 +646,7 @@ func (g *Gateway) removeSession(session *gatewaySession) {
 	g.sessionMu.Lock()
 	delete(g.sessions, session)
 	g.sessionMu.Unlock()
-	_ = session.client.Close()
-	_ = session.logical.Close()
+	_ = session.close()
 }
 
 func (g *Gateway) closeSessions() {
@@ -624,10 +656,25 @@ func (g *Gateway) closeSessions() {
 		sessions = append(sessions, session)
 	}
 	g.sessionMu.Unlock()
+	var closeWG sync.WaitGroup
 	for _, session := range sessions {
-		_ = session.client.Close()
-		_ = session.logical.Close()
+		closeWG.Go(func() { _ = session.close() })
 	}
+	closeWG.Wait()
+}
+
+func (s *gatewaySession) close() error {
+	if s == nil {
+		return nil
+	}
+	var err error
+	if s.client != nil {
+		err = errors.Join(err, s.client.Close())
+	}
+	if s.logical != nil {
+		err = errors.Join(err, s.logical.Close())
+	}
+	return err
 }
 
 func (g *Gateway) Close() error {
@@ -1252,11 +1299,13 @@ func (p *gatewayPool) Close() error {
 		p.growthDone = nil
 	}
 	p.mu.Unlock()
-	var err error
-	for _, entry := range entries {
-		err = errors.Join(err, entry.close())
+	errs := make([]error, len(entries))
+	var closeWG sync.WaitGroup
+	for i, entry := range entries {
+		closeWG.Go(func() { errs[i] = entry.close() })
 	}
-	return err
+	closeWG.Wait()
+	return errors.Join(errs...)
 }
 
 func (e *gatewayUpstream) readPackets() {

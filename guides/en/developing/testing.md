@@ -135,6 +135,8 @@ bash tests/gizclaw-e2e/run_edge_failure_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_100_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_500_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_soak_tests.sh
 bash tests/gizclaw-e2e/run_turn_relay_tests.sh
 
 GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
@@ -185,13 +187,129 @@ not gates. Artifacts are written under ignored
 exact repository head and dirty state, so publishable evidence must come from
 the clean final PR head.
 
+The dedicated 1,000-session burst entrypoint fixes relay-only upstreams, a
+clean repository head, three fresh stacks, zero ramp, concurrency 1,000, a
+30-second hold, and exactly 500 sessions per Edge across four gateway
+upstreams. The load driver uses `GOGC=200` and records that value with
+`GOMAXPROCS` in the artifact. This measured harness setting keeps collection
+of the roughly 2 GiB client heap from becoming the limiting stage during the
+synchronized transfer; current process CPU and completed-GC live-heap evidence
+still gate long-lived stability. It does not change production processes,
+pacing, timeouts, or the release barrier. Each
+run retains the 20 sessions/s, Dial p95/p99, exact 1 MiB per session and
+direction, and 200 Mbps gates. A final liveness round runs after the hold.
+Logical-session close and Serve completion must finish within 30
+seconds, and stopping both Edges must return the fixed ten Coturn allocations
+to zero within 15 seconds. Source-qualified Coturn counters are sampled once
+per second during every workload, and any live allocation count other than ten
+fails the relay qualification. Edge containers receive a 45-second stop grace
+and their entrypoint forwards SIGTERM for up to 40 seconds, so the production
+30-second Gateway drain can close its physical upstream pool. The separate
+15-second Coturn-zero bound starts only after both Edges stop.
+
+The 1,000-session soak entrypoint is intentionally sequential rather than a
+replacement workload. It first runs the same three burst repetitions, verifies
+that the repository head stayed clean and unchanged, then starts one fresh
+zero-ramp 1,000-session stack for a 60-minute hold. Liveness rounds start every
+30 seconds. The runner prints a hold heartbeat at least every 30 seconds and at
+the start and end of each liveness round. Each line reports established and
+active sessions, cumulative and per-round ping results, unexpected disconnects,
+open FDs, RSS, goroutines, and the minimum sample count, largest historical gap,
+and largest current sample age across Docker roles. A stalled sample stream or
+a historical gap above 2.1 seconds also fails immediately. Any excess ping
+failure, unexpected disconnect, identity crossover, or overlong ping round makes
+the zero-failure qualification irrecoverable, so the runner performs bounded
+cleanup instead of waiting for the hold deadline. Every speed run prints progress
+at start, completion, and every 15 seconds while active, so missing output is not
+treated as healthy execution. The artifact keeps the existing
+`speed_test` as the initial checkpoint and adds a distinct `final_speed_test`
+plus `speed_retention`.
+Initial and final concurrent upload/download each transfer exactly 1,000 MiB
+(1,048,576,000 bytes) at no less than 200 Mbps, and each final direction
+retains at least 80% of its
+initial aggregate and per-session p01, p05, and p50 throughput. The lower-tail
+percentiles catch slow-session degradation; p95 and p99 remain upper-tail
+diagnostics and are not retention gates.
+Fresh-stack HTTP and ready-file waits likewise print the service state and
+elapsed time every 15 seconds; silence after Compose startup is not readiness
+evidence.
+Within one ordered 1,000-session qualification, the runner builds one
+run-ID-scoped service image from the required clean head and reuses that exact
+image for later repetitions. Containers, networks, volumes, ports, and runtime
+credentials remain fresh for every repetition. A failed attempt retains only
+the clean-HEAD-scoped image so a retry on that same head avoids another build;
+a changed head uses a different tag, and a completed qualification removes its
+exact image. After every fresh stack reaches readiness, including the
+one that performed the initial image build, a 120-second stabilization window
+prints 15-second container-health heartbeats before measurement. Repetitions
+that reuse the image follow the same window.
+After each 1,000-session fresh stack is removed, a fixed 120-second stabilization
+window reports its remaining time every 15 seconds so delayed Docker-VM resource
+reclamation is not charged to the next capacity measurement. A failed upload
+gate skips download because the run can no longer qualify.
+
+Extended artifact version 16 records actual hold boundaries and qualifies the
+first and last ten-minute windows. Median round p99 RTT, RSS, open FDs,
+completed-GC Go live heap, and goroutine values may grow by at most 20%. Current
+Go heap-object bytes remain diagnostic and are not gated because they vary with
+the normal GC cycle; the sampler does not force a GC. CPU and network-rate
+comparisons apply the same relative limit with 0.10-core and 1,024-byte/s
+absolute noise floors; UDP and UDP6 socket medians may grow by at most 20%.
+RSS, CPU, and open-FD samples identify one process and start time. The Docker
+roles' UDP counts and network counters come from `/proc/<pid>/net`, which is
+container-network-namespace evidence rather than a process-only counter.
+The load driver's Darwin/Linux CPU counter is cumulative process user plus
+system CPU from `getrusage`; other platforms retain an explicitly named
+Go-runtime active-CPU fallback.
+Source-qualified samples cover the load driver, both Edge roles, both Coturn
+roles, and Server once per second, with a maximum accepted gap of 2.1 seconds.
+Cumulative CPU and network counters cannot decrease. Unsupported external Go
+runtime fields and load-driver namespace socket/network fields are enumerated
+explicitly. Any failed initial gate prevents the hold from starting, and
+cancellation still performs bounded session and Docker cleanup.
+
 The 100- and 500-session burst runners preserve their accepted payloads and
-gates but now use that relay-only upstream topology. The main workload JSON
-schema remains stable. A sibling `*-coturn.json` artifact records each Coturn
-member's live allocation count, finished-session byte counters, traffic delta,
-and the bounded return to zero after both Edge processes stop. The merged
+gates but now use that relay-only upstream topology. Existing workload fields
+remain stable. The current version 16 artifact includes optional final-speed
+retention, mandatory bounded-cleanup evidence, and the load driver's effective
+`GOGC`; the 100- and 500-session entrypoints explicitly retain `GOGC=100`. A
+sibling `*-coturn.json`
+artifact records each Coturn
+member's one-second live allocation and traffic samples, finished-session byte
+counters, traffic delta, and the bounded return to zero after both Edge
+processes stop. Each member uses one persistent container-side metric stream so
+host-side Docker process startup is not part of every sample. It is accepted
+only after a pre-workload sample and a non-decreasing millisecond timeline
+with no gap above 2.1 seconds. Equal timestamps are accepted only when distinct
+nanosecond samples truncate to the same millisecond. The merged
 #697/#698 results remain historical direct-upstream observations; current
 Coturn measurements are not a production, WAN, or portable throughput SLA.
+
+The 2026-08-07 relay qualification used clean production/workload head
+`633c80468170151fc0d2814973dac85167ddcbb5` on Darwin/arm64 with 16 logical
+CPUs, Go 1.26.4, and OrbStack Linux/aarch64 Docker. Its three fresh-stack burst
+runs passed with 1,000/1,000 sessions, 500 sessions per Edge, zero failures,
+Dial p95/p99 values of 720.86/921.02 ms, 679.88/814.14 ms, and
+819.28/1,003.19 ms, and upload/download rates of 419.47/408.65,
+373.99/440.99, and 389.04/412.13 Mbps. Each run transferred exactly 1,000 MiB
+per direction, kept all ten relay allocations live, and completed bounded
+session and Coturn cleanup. Later test-only and documentation commits do not
+change that binary.
+
+The post-fix 60-minute result remains incomplete. A complete pre-fix run at
+`c494d84aa78a847116bfe405a6ddbee4627b8558` had 122,000 successful Pings and
+zero disconnects but failed Edge RSS growth at 20.11% and 23.39%. The owning
+SCTP scheduler retention was removed in `GizClaw/pion-sctp@cb2d223c9f55`, with
+the sampled retained site disappearing and sampled in-use memory falling from
+about 9.0 MiB to 4.6 MiB. The post-fix run at
+`633c80468170151fc0d2814973dac85167ddcbb5` passed all three prerequisite
+bursts, established all 1,000 soak sessions, and measured initial
+427.62/455.88 Mbps upload/download, then failed fast on one first-round Ping
+timeout (999/1,000) while the association remained active and disconnects
+stayed zero. Focused loss coverage passed 20 times and 9,000 real
+request-scoped DataChannel generations passed, so no code change was justified
+and the runner was not repeated for a chance pass. The missing complete
+post-fix 60-minute resource windows remain explicit residual risk.
 
 The standard Docker `turn` role uses the same pinned Coturn image with TURN
 REST authentication, a private-container/public-host IPv4 mapping, and a
@@ -257,8 +375,12 @@ The GizClaw-owned Edge topology has one canonical local qualification command:
 bash tests/gizclaw-e2e/run_gateway_relay_capacity_tests.sh
 ```
 
-It requires a clean repository and the Docker E2E credential file, builds the
-CLI and load driver once, then creates 12 fresh projects: direct and
+It requires a clean repository and the Docker E2E credential file. The CLI is
+CGO-built once in the Linux Go base image matching Docker's native architecture,
+and the load driver is built once on the host. The capacity image only copies
+that Linux CLI, the entrypoints, and required configuration; it does not install
+npm dependencies, download Go modules, or compile again when Server and Edge
+containers start. The command then creates 12 fresh projects: direct and
 relay-only Edge upstreams at 100 and 500 sessions, three repetitions each.
 Both paths keep the same Server, two Edges, two digest-pinned Coturn members,
 fixed subnet, four gateway upstreams per Edge, zero ramp, and 1 MiB upload and

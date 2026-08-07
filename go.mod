@@ -2,6 +2,10 @@ module github.com/GizClaw/gizclaw-go
 
 go 1.26.4
 
+replace github.com/pion/sctp => github.com/GizClaw/pion-sctp v0.0.0-20260807094155-cb2d223c9f55
+
+replace github.com/pion/webrtc/v4 => github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260807105346-69086b0b86b0
+
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.47.0
 	github.com/GizClaw/dashscope-realtime-go v0.0.0-20260719062052-bf38cd23188e
@@ -155,9 +159,9 @@ require (
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.17 // indirect
 	github.com/pion/sctp v1.11.1 // indirect
-	github.com/pion/srtp/v3 v3.0.12 // indirect
+	github.com/pion/srtp/v3 v3.0.13 // indirect
 	github.com/pion/stun/v3 v3.1.6 // indirect
-	github.com/pion/transport/v4 v4.0.2 // indirect
+	github.com/pion/transport/v4 v4.1.0 // indirect
 	github.com/pion/turn/v5 v5.0.12 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect

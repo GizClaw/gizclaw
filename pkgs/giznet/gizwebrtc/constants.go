@@ -23,14 +23,19 @@ const (
 	// upstream associations. Public client associations retain Pion's default
 	// receive window.
 	GatewaySCTPReceiveBufferSize = sctpBurstServiceStreams * streamWriteHighWater
-	// SCTP's one-second initial retransmission is visible in burst DataChannel
-	// setup when an INIT or COOKIE flight is lost. Cap the retry interval while
-	// retaining reliable delivery and the existing retransmission count.
-	sctpRetransmissionTimeoutMax = 250 * time.Millisecond
+	// A lost SCTP INIT or COOKIE flight otherwise waits Pion's one-second
+	// default before retrying. Keep only the handshake timers short; established
+	// DATA/T3 timers retain the RFC-compliant association defaults.
+	sctpHandshakeRetransmissionTimeoutMax = 150 * time.Millisecond
 	// A lost DTLS flight otherwise waits Pion's one-second default before
 	// retrying. A shorter interval keeps burst establishment bounded while
 	// retaining DTLS's retransmission and exponential-backoff behavior.
-	dtlsRetransmissionInterval = 250 * time.Millisecond
+	dtlsRetransmissionInterval = 150 * time.Millisecond
+	// The ICE agent checks candidate pairs every 200 ms. Pion's default of seven
+	// requests can permanently discard an otherwise valid relay pair during a
+	// 1,000-session synchronized burst. Keep retrying for about five seconds;
+	// the caller's Dial context remains the authoritative overall bound.
+	iceMaxBindingRequests = 25
 	// Keep stream writes large enough to carry a 32 KiB RPC payload with few
 	// SCTP messages while staying below the unstable maximum message boundary.
 	// The previous 1400-byte split multiplied every tunnel frame into dozens of

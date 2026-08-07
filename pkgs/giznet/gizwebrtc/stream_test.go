@@ -1,7 +1,9 @@
 package gizwebrtc
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -202,6 +204,106 @@ func TestDataChannelConnReadReassemblesMessageAsByteStream(t *testing.T) {
 	}
 }
 
+func TestDataChannelConnReadPreservesMaximumMessageSize(t *testing.T) {
+	message := make([]byte, maxPacketMessageSize)
+	for index := range message {
+		message[index] = byte(index)
+	}
+	raw := &fakeStreamRaw{reads: [][]byte{message}}
+	conn := newDataChannelConn(raw, nil, addr("local"), addr("remote"))
+	defer conn.Close()
+
+	got := make([]byte, len(message))
+	n, err := io.ReadFull(conn, got)
+	if err != nil {
+		t.Fatalf("ReadFull error = %v", err)
+	}
+	if n != len(message) || !bytes.Equal(got, message) {
+		t.Fatalf("ReadFull read %d bytes, want the complete %d-byte message", n, len(message))
+	}
+	if got := raw.readCount(); got != 2 {
+		t.Fatalf("raw read count = %d, want one sizing read and one retry", got)
+	}
+}
+
+func TestDataChannelConnReadReusesMessageBuffer(t *testing.T) {
+	raw := &repeatingStreamRaw{message: []byte("ping")}
+	conn := newDataChannelConn(raw, nil, addr("local"), addr("remote"))
+	defer conn.Close()
+
+	buf := make([]byte, len(raw.message))
+	var readErr error
+	allocations := testing.AllocsPerRun(1000, func() {
+		var n int
+		n, readErr = conn.Read(buf)
+		if n != len(raw.message) {
+			readErr = io.ErrShortBuffer
+		}
+	})
+	if readErr != nil {
+		t.Fatalf("Read error = %v", readErr)
+	}
+	if allocations != 0 {
+		t.Fatalf("Read allocations = %f, want 0", allocations)
+	}
+	if got := len(conn.readBuffer); got != streamChunkSize {
+		t.Fatalf("read buffer size = %d, want %d", got, streamChunkSize)
+	}
+}
+
+func TestDataChannelConnConcurrentReadsSerializeAdaptiveBuffer(t *testing.T) {
+	const readers = 32
+	reads := make([][]byte, readers)
+	for index := range reads {
+		reads[index] = bytes.Repeat([]byte{byte(index + 1)}, maxPacketMessageSize)
+	}
+	raw := &fakeStreamRaw{reads: reads}
+	conn := newDataChannelConn(raw, nil, addr("local"), addr("remote"))
+	defer conn.Close()
+
+	type readResult struct {
+		marker byte
+		err    error
+	}
+	start := make(chan struct{})
+	results := make(chan readResult, readers)
+	var workers sync.WaitGroup
+	for range readers {
+		workers.Go(func() {
+			<-start
+			buffer := make([]byte, maxPacketMessageSize)
+			n, err := io.ReadFull(conn, buffer)
+			if err == nil && n != len(buffer) {
+				err = fmt.Errorf("read %d bytes, want %d", n, len(buffer))
+			}
+			if err == nil && !bytes.Equal(buffer, bytes.Repeat(buffer[:1], len(buffer))) {
+				err = errors.New("read combined bytes from different DataChannel messages")
+			}
+			results <- readResult{marker: buffer[0], err: err}
+		})
+	}
+	close(start)
+	workers.Wait()
+	close(results)
+
+	seen := make(map[byte]bool, readers)
+	for result := range results {
+		if result.err != nil {
+			t.Fatal(result.err)
+		}
+		if result.marker == 0 || seen[result.marker] {
+			t.Fatalf("duplicate or empty message marker %d", result.marker)
+		}
+		seen[result.marker] = true
+	}
+	if len(seen) != readers {
+		t.Fatalf("read %d distinct messages, want %d", len(seen), readers)
+	}
+	if got := raw.readCount(); got != readers+1 {
+		t.Fatalf("raw read count = %d, want one sizing read plus %d messages", got, readers)
+	}
+}
+
 func TestDataChannelConnCloseWakesBlockedWriter(t *testing.T) {
 	flow := newFakeDataChannelFlow()
 	flow.setBufferedAmount(streamWriteHighWater)
@@ -284,13 +386,17 @@ func TestCloseServiceClosesQueuedAndActiveStreams(t *testing.T) {
 	}
 	queuedRaw := &fakeStreamRaw{}
 	queued := newDataChannelConn(queuedRaw, nil, addr("local"), addr("remote"))
-	conn.trackStream(42, queued)
+	if err := conn.trackStream(42, queued, nil); err != nil {
+		t.Fatalf("track queued stream: %v", err)
+	}
 	if err := serviceListener.enqueue(queued); err != nil {
 		t.Fatalf("enqueue queued stream: %v", err)
 	}
 	activeRaw := &fakeStreamRaw{}
 	active := newDataChannelConn(activeRaw, nil, addr("local"), addr("remote"))
-	conn.trackStream(42, active)
+	if err := conn.trackStream(42, active, nil); err != nil {
+		t.Fatalf("track active stream: %v", err)
+	}
 
 	if err := conn.CloseService(42); err != nil {
 		t.Fatalf("CloseService error = %v", err)
@@ -300,6 +406,98 @@ func TestCloseServiceClosesQueuedAndActiveStreams(t *testing.T) {
 	}
 	if !queuedRaw.closed || !activeRaw.closed {
 		t.Fatalf("queued/active raw closed = %t/%t, want both true", queuedRaw.closed, activeRaw.closed)
+	}
+	if queued := len(serviceListener.ch); queued != 0 {
+		t.Fatalf("queued stream references after CloseService = %d, want 0", queued)
+	}
+}
+
+func TestServiceListenerCloseDrainsConcurrentEnqueues(t *testing.T) {
+	conn := &Conn{closeCh: make(chan struct{})}
+	listener := newServiceListener(conn, 42)
+	const streams = serviceQueueSize * 2
+	raws := make([]*fakeStreamRaw, streams)
+	var enqueues sync.WaitGroup
+	for index := range streams {
+		raw := &fakeStreamRaw{}
+		raws[index] = raw
+		stream := newDataChannelConn(raw, nil, addr("local"), addr("remote"))
+		enqueues.Go(func() {
+			_ = listener.enqueue(stream)
+		})
+	}
+	deadline := time.Now().Add(time.Second)
+	for len(listener.ch) != serviceQueueSize && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if queued := len(listener.ch); queued != serviceQueueSize {
+		t.Fatalf("queued streams before Close = %d, want %d", queued, serviceQueueSize)
+	}
+	if err := listener.Close(); err != nil {
+		t.Fatalf("Close error = %v", err)
+	}
+	enqueues.Wait()
+	if queued := len(listener.ch); queued != 0 {
+		t.Fatalf("queued stream references after Close = %d, want 0", queued)
+	}
+	for index, raw := range raws {
+		if !raw.closed {
+			t.Fatalf("stream %d was not closed", index)
+		}
+	}
+}
+
+func TestClosedStreamsDoNotAccumulate(t *testing.T) {
+	conn := &Conn{
+		streams:   make(map[uint64]map[*dataChannelConn]struct{}),
+		closedSvc: make(map[uint64]bool),
+		closeCh:   make(chan struct{}),
+	}
+	for index := range 10_000 {
+		stream := newDataChannelConn(&fakeStreamRaw{}, nil, addr("local"), addr("remote"))
+		if err := conn.trackStream(42, stream, nil); err != nil {
+			t.Fatalf("track stream %d: %v", index, err)
+		}
+		if len(conn.streams[42]) != 1 {
+			t.Fatalf("tracked streams after %d opens = %d, want 1", index+1, len(conn.streams[42]))
+		}
+		if err := stream.Close(); err != nil {
+			t.Fatalf("close stream %d: %v", index, err)
+		}
+		if _, ok := conn.streams[42]; ok {
+			t.Fatalf("closed stream service registry was retained after %d closes", index+1)
+		}
+	}
+}
+
+func TestTrackStreamRejectsClosedOwner(t *testing.T) {
+	conn := &Conn{
+		streams:   make(map[uint64]map[*dataChannelConn]struct{}),
+		closedSvc: make(map[uint64]bool),
+		closeCh:   make(chan struct{}),
+	}
+	conn.closed.Store(true)
+	stream := newDataChannelConn(&fakeStreamRaw{}, nil, addr("local"), addr("remote"))
+	if err := conn.trackStream(42, stream, nil); !errors.Is(err, giznet.ErrConnClosed) {
+		t.Fatalf("track stream error = %v, want %v", err, giznet.ErrConnClosed)
+	}
+	if len(conn.streams) != 0 {
+		t.Fatalf("tracked services = %d, want 0", len(conn.streams))
+	}
+}
+
+func TestTrackStreamRejectsClosedService(t *testing.T) {
+	conn := &Conn{
+		streams:   make(map[uint64]map[*dataChannelConn]struct{}),
+		closedSvc: map[uint64]bool{42: true},
+		closeCh:   make(chan struct{}),
+	}
+	stream := newDataChannelConn(&fakeStreamRaw{}, nil, addr("local"), addr("remote"))
+	if err := conn.trackStream(42, stream, nil); !errors.Is(err, giznet.ErrServiceMuxClosed) {
+		t.Fatalf("track stream error = %v, want %v", err, giznet.ErrServiceMuxClosed)
+	}
+	if len(conn.streams) != 0 {
+		t.Fatalf("tracked services = %d, want 0", len(conn.streams))
 	}
 }
 
@@ -366,6 +564,15 @@ type fakeStreamRaw struct {
 	writeDeadline time.Time
 }
 
+type repeatingStreamRaw struct {
+	fakeStreamRaw
+	message []byte
+}
+
+func (r *repeatingStreamRaw) ReadDataChannel(p []byte) (int, bool, error) {
+	return copy(p, r.message), false, nil
+}
+
 func (f *fakeStreamRaw) Read([]byte) (int, error) {
 	return 0, io.EOF
 }
@@ -382,6 +589,9 @@ func (f *fakeStreamRaw) ReadDataChannel(p []byte) (int, bool, error) {
 		return 0, false, io.EOF
 	}
 	msg := f.reads[0]
+	if len(p) < len(msg) {
+		return len(msg), false, io.ErrShortBuffer
+	}
 	f.reads = f.reads[1:]
 	return copy(p, msg), false, nil
 }

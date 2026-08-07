@@ -111,8 +111,11 @@ relay mode 为每条新 upstream PeerConnection 只传入一个 pool member 和
 relay-only ICE。HTTP forwarding 与 gateway upstream 共享同一个进程内
 round-robin 健康 selector。relay 失败后进入有上限的指数退避；连接仍在原有 30 秒预算内
 尝试其他 eligible member，每个 member 最多使用 5 秒，并且绝不回退到 direct ICE。
-成功重连会清除该 member 的失败状态；request cancellation、Edge shutdown 或单个
-logical session 失败不会惩罚 relay。已有 gateway session 保持绑定到原 physical
+建立必需的 gateway warm pool 时，Edge 还会遵守 selector 返回的 backoff，并在共享的
+30 秒启动预算内重试暂时不可用的 member。如果 5 秒 warmup 只建立了部分 pool，Edge 会
+保留已经成功的 association，并在同一预算内只补齐缺少的 slot；配置、取消和其他错误仍
+立即失败。成功重连会清除该 member 的失败状态；request cancellation、Edge shutdown 或
+单个 logical session 失败不会惩罚 relay。已有 gateway session 保持绑定到原 physical
 upstream，可能随其失败；新的 client reconnect 才会从当前 healthy pool 重新选择。
 
 每个 pool member 只允许一个小写 `turn:` URL，地址必须是 literal IPv4 或带方括号的
@@ -227,15 +230,101 @@ failure 和 unexpected disconnect 均为 0，并且每个方向精确传输 500 
 不代表 1,000 sessions、soak 或部署网络已经通过。1,000-session 重复运行、长时间 soak、各进程资源斜率和
 30,000-session 理论推算仍属于独立的扩展容量验收。
 
+固定的 relay-only 1,000-session burst 与 soak 入口为：
+
+```bash
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_soak_tests.sh
+```
+
+Burst 入口要求 clean head，并在三个全新的 one-Server/two-Edge/two-Coturn stack 上重复。
+每轮通过同一个 barrier、concurrency 1,000、zero ramp 同时释放 1,000 个 Dial，保持全部
+1,000 个 live session 30 秒，执行 final liveness 后有界清理。每台 Edge 必须通过四条
+gateway upstream 恰好承载 500 个 session；establishment、每方向精确 1,000 MiB
+（1,048,576,000 bytes）application transfer、200 Mbps aggregate、timing、resource、relay
+selection、十条 allocation、restart
+与 cleanup gate 均沿用较小档位的固定 contract。Load driver 固定并记录 `GOGC=200`，
+避免约 2 GiB client heap 的回收成为 synchronized transfer 的限制环节。长时间稳定性
+仍由当前 process CPU 与 completed-GC live-heap 证据把关；这个参数不改变 Edge、
+Server 或 Coturn 的 runtime behavior。
+
+Soak 入口先在同一个 clean head 上重跑全部三轮 burst，再用一个新 stack 以相同 zero-ramp
+方式建立 1,000 个 session 并保持 60 分钟。完整 liveness round 每 30 秒开始一次；独立的
+heartbeat 至少每 30 秒及每轮 liveness 的边界输出 active session、ping、disconnect、
+open FD、RSS、goroutine，以及 Docker role sample 数、历史 gap 与当前 age 证据。任一
+ping、disconnect、identity、round-duration gate 或 2.1 秒 resource sample gap 变为不可恢复
+时，runner 立即失败并清理；测速 run 运行中也至少每 15 秒输出 progress，不能把一直安静到
+60 分钟 deadline 视为正常运行。
+独立的
+initial/final upload 与 download checkpoint 均对每 session 精确传输 1 MiB、达到至少
+200 Mbps，并要求 final 每个方向的 aggregate 以及 per-session p01、p05、p50 throughput
+都保留 initial 的至少 80%。p95 与 p99 throughput 保留为快尾诊断，不作为退化 gate。
+Fresh stack 的 HTTP 与 ready-file readiness 等待每 15 秒输出 service state 与 elapsed
+time，不能把 Compose 启动后的静默当成 ready。
+有序验收从 clean head 构建一个按 run ID 隔离的 service image，并在各 repetition 间复用这
+一份完全相同的镜像。每轮仍重新创建 container、network、volume、port 与 credential；runner
+失败时只保留按 clean HEAD 隔离的镜像供同一 HEAD 重试；HEAD 改变后 tag 随之改变，整组
+验收完成后删除这份精确镜像。每个 fresh stack ready 后、测量前都执行 120 秒
+post-start 稳定窗口，并每 15 秒输出 container health；复用镜像的 repetition 也不例外。
+每轮 1,000-session fresh stack 清理后有固定 120 秒稳定窗口，并每 15 秒输出剩余时间，避免
+Docker VM 的延迟资源回收污染下一轮；upload gate 已失败时跳过不再有意义的 download。
+
+Artifact version 16 记录实际 hold boundary，并比较最初与最后十分钟。每轮 RTT p99 的
+median、RSS、open FD、最近一次 completed GC 的 Go live heap，以及 goroutine median，
+增长均不得超过 20%。当前 Go heap-object bytes 保留为诊断值，但因其会随正常 GC cycle
+波动而不作为增长 gate；采样过程不会强制触发 GC。
+CPU 与 network rate 同样采用 20% 相对门槛，并分别设置 0.10 core 与 1,024 bytes/s 绝对
+噪声下限；UDP/UDP6 socket median 采用 20% 门槛。RSS、CPU 与 open-FD sample 绑定同一
+process ID 和 start time；Docker role 的 `/proc/<pid>/net/{udp,udp6,dev}` 描述 container
+network namespace，并非只统计该进程持有的 socket 和 traffic。门槛覆盖 load driver、
+两台 Edge、两个 Coturn 与 Server，拒绝 process counter reset，并要求 resource sample gap
+不超过 2.1 秒。Darwin 与 Linux 上的 load driver 通过 `getrusage` 记录操作系统累计的
+process user+system CPU；其他平台保留明确标注来源的 Go runtime active-CPU fallback，
+避免把延迟更新的 runtime CPU class 误判为 process CPU 增长，同时不改变验收门槛。
+外部进程无法提供的 Go runtime metric，以及 load driver 无法提供的
+namespace socket/network metric，必须逐项明确标为 unsupported，不得伪造数值。
+
+Logical-session cleanup 上限为
+30 秒；Edge 存活期间按一秒间隔读取 source-qualified Coturn counter，要求十条 physical
+TURN allocation 始终保持存在，Edge 关闭后必须在 15 秒内归零。监控必须在 workload
+启动前产出第一条 sample，且毫秒 timestamp 不递减、相邻 gap 不超过 2.1 秒；只有不同的纳秒
+sample 截断到同一毫秒时才允许 timestamp 相等。这些命令只验收 artifact
+记录的 host、Docker engine、clean commit 与 topology，不是 30,000-session 或 WAN
+guarantee。
+
+2026-08-07，clean production/workload head
+`633c80468170151fc0d2814973dac85167ddcbb5` 在一台 Darwin/arm64、16 logical CPUs、
+Go 1.26.4、OrbStack Linux/aarch64 Docker 主机上通过三轮 relay-only burst。三轮均建立
+1,000/1,000 sessions，establishment rate 分别为 869.05、890.26、530.63 sessions/s；
+Dial p95/p99 分别为 720.86/921.02 ms、679.88/814.14 ms、819.28/1,003.19 ms；同步
+upload/download throughput 分别为 419.47/408.65 Mbps、373.99/440.99 Mbps、
+389.04/412.13 Mbps。每轮都给两个 Edge 各分配 500 sessions、每方向精确传输
+1,000 MiB、保持十条 relay allocation 存活，correctness、liveness、disconnect、identity、
+container exit 和 restart failure 均为 0，并在有界清理中使两个 Coturn member 的
+allocation 归零。后续仅测试与文档的 commit 不改变这份已验收 binary。
+
+该 production head 的 60 分钟 soak 尚未通过。较早的完整 run
+`c494d84aa78a847116bfe405a6ddbee4627b8558` 完成 122,000 次 Ping，failure 与
+disconnect 均为 0，但两个 Edge 的 late median RSS 分别增长 20.11% 和 23.39%，超过
+20% gate。Heap profile 把 retained state 定位到 SCTP weighted-fair scheduler 的
+per-stream finish map；`GizClaw/pion-sctp@cb2d223c9f55` 在 stream queue 排空时释放该
+entry，修复后 sampled retained scheduler site 消失，total sampled in-use memory 从约
+9.0 MiB 降至 4.6 MiB。修复后的
+`633c80468170151fc0d2814973dac85167ddcbb5` soak 建立全部 1,000 sessions，并通过
+initial 427.62/455.88 Mbps upload/download checkpoint，但第一轮 hold 有一个 request
+timeout（Ping 999/1,000），association 仍 active 且 disconnect 为 0；fail-fast runner
+没有等待 60 分钟，而是立即完成有界清理。受控 response DATA 丢包连续 20 次通过，
+9,000 次真实 request-scoped DataChannel generation 的 integration coverage 也通过，
+因此没有定位到可修复的代码缺陷，也没有通过重复运行碰运气。剩余风险是缺少完整的修复后
+60 分钟 resource window；zero-failure soak gate 仍未验收。
+
 `max-upstreams` 是容量上限，不是应立即铺满的吞吐目标。单 association 会把大型并发
 burst 串行化；一次打开全部 slot 又会同时支付多条 SCTP 冷启动和拥塞恢复成本。默认的
 4-association 有界 warm pool 来自本机 100-session burst 的实测；更高 session 数的任务
 必须重新测量后再调整这个取舍。
 
-同一组默认值下，30,000 个 mostly-idle sessions 平均为 1,875 sessions/upstream，低于
-2,048 的硬上限。这只是 topology sizing：CPU、memory、FD、建立速率和低频 activity
-仍须通过 100、500、1,000 等递增样本拟合资源斜率，不能由这个除法或一次吞吐 benchmark
-代替。可重复的 transport 与完整 Edge benchmark 命令为：
+这组固定验收只建立 1,000-session burst 与 soak 边界，不据此推导更高 session 数的容量。
+可重复的 transport 与完整 Edge benchmark 命令为：
 
 ```bash
 go test -tags giznet_e2e ./tests/giznet-e2e/webrtc \

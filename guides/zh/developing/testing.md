@@ -124,6 +124,8 @@ bash tests/gizclaw-e2e/run_edge_failure_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_100_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_500_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_1000_soak_tests.sh
 bash tests/gizclaw-e2e/run_turn_relay_tests.sh
 
 GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
@@ -164,11 +166,96 @@ association。硬门槛为 500/500 usable sessions，establishment、ping、disc
 ignored 的 `testdata/gateway-capacity-extended/sessions-500-burst/`；每轮记录精确 repository
 head 和 dirty state，可发布证据必须来自最终 clean PR head。
 
+专用 1,000-session burst 入口固定 relay-only upstream、clean repository head、三个 fresh
+stack、zero ramp、concurrency 1,000、30 秒 hold，以及每台 Edge 通过四条 gateway upstream
+恰好承载 500 个 session。Load driver 固定 `GOGC=200`，并与 `GOMAXPROCS` 一起写入
+artifact。这个实测 harness 参数避免约 2 GiB client heap 的回收成为 synchronized
+transfer 的限制环节；长时间稳定性仍由当前 process CPU 与 completed-GC live-heap
+证据把关。它不改变 production process、pacing、timeout 或 release barrier。每轮继续执行 20 sessions/s、Dial p95/p99、每 session 每方向
+精确 1 MiB 和 200 Mbps gate，并在 hold 后执行 final liveness。Logical-session close 与
+Serve completion 必须在 30 秒内结束；两台 Edge 停止后，固定十条 Coturn allocation 必须
+在 15 秒内归零。每轮 workload 都按一秒间隔记录 source-qualified Coturn counter；relay
+qualification 中任一 live sample 不是十条 allocation 都直接失败。Edge container 获得
+45 秒 stop grace，entrypoint 最多转发并等待 SIGTERM 40 秒，使 production 30 秒 Gateway
+drain 能关闭 physical upstream pool；独立的 15 秒 Coturn 归零上限从两台 Edge 都停止后
+才开始计算。
+
+1,000-session soak 入口是有序验收，不是替代 workload。它先运行相同的三轮 burst，确认
+repository head 保持 clean 且未变化，再用一个 fresh zero-ramp 1,000-session stack 执行
+60 分钟 hold。Liveness round 每 30 秒开始一次；runner 至少每 30 秒以及每轮 liveness
+开始和结束时输出一次 hold heartbeat，包含 established/active session、累计与单轮 ping、
+unexpected disconnect、open FD、RSS、goroutine，以及 Docker role 的最少 sample 数、
+最大历史 gap 与最大当前 sample age。采样流停更或历史 gap 超过 2.1 秒时也立即失败；
+任何超额 ping failure、unexpected disconnect、identity crossover 或过长 ping round 都会
+使零失败验收不可恢复，因此 runner 立即执行有界清理，不再等待 hold deadline。每个测速
+run 在开始、完成及运行中的每 15 秒输出 progress，避免把无输出误认为健康。Artifact 保留现有 `speed_test` 作为
+initial checkpoint，并新增独立的 `final_speed_test` 与 `speed_retention`；initial/final upload 和
+download 均精确传输 1,000 MiB（1,048,576,000 bytes）、达到至少 200 Mbps，且 final 每个
+方向保留 initial aggregate
+及 per-session p01、p05、p50 throughput 的至少 80%。低尾 percentile 用于捕获慢 session
+退化；p95 与 p99 保留为快尾诊断，不作为 retention gate。
+Fresh stack 的 HTTP 与 ready-file 等待同样每 15 秒输出 service state 和 elapsed time；
+compose 已启动后的长时间静默不能作为 readiness 证据。
+在一次有序的 1,000-session 验收中，runner 从要求的 clean head 构建一个按 run ID 隔离的
+service image，并在后续 repetition 中复用这一份完全相同的镜像。每轮仍重新创建 container、
+network、volume、port 与 runtime credential。失败的尝试只保留按 clean HEAD 隔离的镜像，
+使同一 HEAD 的重试无需再次 build；HEAD 改变后使用新 tag，整组验收完成后删除这份精确
+镜像。每个
+fresh stack ready 后、测量前都执行相同的 120 秒稳定窗口，并每 15 秒输出 container health
+心跳；执行首次镜像构建或复用镜像的 repetition 都不例外。
+每个 1,000-session fresh stack 清理完成后保留固定 120 秒稳定窗口，每 15 秒输出剩余时间，
+避免把 Docker VM 的延迟资源回收计入下一轮 capacity 测量。任一 upload gate 已失败时不再
+执行 download，因为该轮验收已不可恢复。
+
+Extended artifact version 16 记录实际 hold boundary，并验收最初与最后十分钟窗口。每轮
+p99 RTT 的 median、RSS、open FD、最近一次 completed GC 的 Go live heap，以及 goroutine
+值，增长最多为 20%。当前 Go heap-object bytes 保留为诊断值，但因其会随正常 GC cycle
+波动而不作为增长 gate；sampler 不会强制触发 GC。
+CPU 和 network rate 采用相同的相对门槛，并分别设置 0.10 core 与 1,024 bytes/s 的绝对
+噪声下限；UDP 与 UDP6 socket median 增长最多为 20%。RSS、CPU 与 open-FD sample 标识
+同一 process 及 start time；Docker role 的 UDP/socket 与 network counter 来自
+`/proc/<pid>/net`，属于 container network namespace 证据，而非 process-only counter。
+Darwin 与 Linux 上的 load driver CPU counter 来自 `getrusage` 的累计 process user+system
+CPU；其他平台保留明确标注来源的 Go runtime active-CPU fallback。
+Load driver、两台 Edge、两个 Coturn 与 Server 的 source-qualified sample 每秒记录，允许的
+最大 gap 为 2.1 秒；cumulative CPU 与 network counter 不得下降。外部 Go runtime field
+及 load driver 的 namespace socket/network field 无法获取时必须逐项明确为 unsupported。
+任何 initial gate 失败都会阻止 hold 开始，cancellation 仍执行有界 session 与 Docker cleanup。
+
 100/500-session burst runner 保留既有 payload 和 gate，但当前都使用上述 relay-only
-upstream 拓扑。主 workload JSON schema 不变；同目录的 `*-coturn.json` sidecar 记录两个
-Coturn member 的 live allocation、finished-session byte counter、traffic delta，以及两个
-Edge 停止后有界归零结果。已合并的 #697/#698 结果仍是历史 direct-upstream 观测；当前
+upstream 拓扑。既有 workload field 保持不变；当前 version 16 artifact 包含 optional
+final-speed retention、mandatory bounded-cleanup evidence，以及 load driver 的 effective
+`GOGC`；100/500-session 入口显式保留 `GOGC=100`。同目录的
+`*-coturn.json` sidecar 记录两个
+Coturn member 的一秒间隔 live allocation/traffic sample、finished-session byte counter、
+traffic delta，以及两个 Edge 停止后有界归零结果。每个 member 使用一条长期运行的
+container-side metric stream，避免把 host 侧 Docker process 启动开销计入每次 sample。
+验收要求 workload 前已产出第一条 sample，毫秒 timestamp 不递减且相邻 gap 不超过
+2.1 秒；只有不同纳秒 sample 截断到同一毫秒时才允许 timestamp 相等。已合并的
+#697/#698 结果仍是历史
+direct-upstream 观测；当前
 Coturn 数据不是 production、WAN 或可移植吞吐 SLA。
+
+2026-08-07 relay qualification 使用 clean production/workload head
+`633c80468170151fc0d2814973dac85167ddcbb5`，运行环境为 Darwin/arm64、16 logical
+CPUs、Go 1.26.4 与 OrbStack Linux/aarch64 Docker。三轮 fresh-stack burst 都建立
+1,000/1,000 sessions、每个 Edge 500 sessions、failure 为 0；Dial p95/p99 分别为
+720.86/921.02 ms、679.88/814.14 ms、819.28/1,003.19 ms，upload/download 分别为
+419.47/408.65、373.99/440.99、389.04/412.13 Mbps。每轮每方向精确传输 1,000 MiB，
+保持十条 relay allocation 存活，并完成有界 session 与 Coturn 清理。后续仅测试与文档的
+commit 不改变该 binary。
+
+修复后的 60 分钟结果仍不完整。修复前的完整 run
+`c494d84aa78a847116bfe405a6ddbee4627b8558` 完成 122,000 次成功 Ping 且没有
+disconnect，但两个 Edge 的 RSS 增长 20.11% 与 23.39%，因此失败。对应 SCTP scheduler
+retention 已在 `GizClaw/pion-sctp@cb2d223c9f55` 删除；sampled retained site 消失，
+sampled in-use memory 从约 9.0 MiB 降至 4.6 MiB。修复后的
+`633c80468170151fc0d2814973dac85167ddcbb5` run 通过全部三轮 prerequisite burst，建立
+全部 1,000 个 soak session，initial upload/download 为 427.62/455.88 Mbps，随后第一轮
+Ping 出现一个 timeout（999/1,000），association 仍 active 且 disconnect 为 0，runner
+立即 fail-fast。受控丢包 coverage 连续 20 次通过，9,000 次真实 request-scoped
+DataChannel generation 也通过，因此没有依据修改代码，也没有通过重复运行追求偶然 pass。
+缺失的修复后完整 60 分钟 resource window 是明确的剩余风险。
 
 标准 Docker `turn` role 使用同一 pinned Coturn image、TURN REST 认证、container-private/
 host-public IPv4 mapping 与一对一发布的 UDP relay range。`run_turn_relay_tests.sh` 验证
@@ -225,8 +312,11 @@ GizClaw 自有 Edge 拓扑使用一个固定的本机验收入口：
 bash tests/gizclaw-e2e/run_gateway_relay_capacity_tests.sh
 ```
 
-命令要求 clean repository 和 Docker E2E credential file；CLI 与 load driver 只 build 一次，
-随后创建 12 个 fresh project：direct/relay-only 两种 Edge upstream path、100/500 session、
+命令要求 clean repository 和 Docker E2E credential file；CLI 会在与 Docker 原生架构一致的
+Linux Go 基础容器中以 CGO build 一次，load driver 在 host build 一次。容量镜像只 COPY
+该 Linux CLI、entrypoint 与必要配置，不安装 npm、不下载 Go modules，Server 与两个 Edge
+启动时也不会重新编译。随后命令创建 12 个 fresh project：direct/relay-only 两种 Edge
+upstream path、100/500 session、
 每组各三次。两种 path 使用相同的 Server、两台 Edge、两个 digest-pinned Coturn member、
 固定 subnet、每台 Edge 四条 gateway upstream、zero ramp，以及每 session 每方向 1 MiB。
 Direct 必须保持 Coturn allocation 和 workload traffic 为零；relay 必须维持正好十条 live
