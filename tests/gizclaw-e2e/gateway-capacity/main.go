@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	artifactVersion = 13
+	artifactVersion = 14
 	maxSpeedBytes   = int64(1 << 30)
 )
 
@@ -221,20 +221,22 @@ type pingRoundSummary struct {
 }
 
 type pingFailureDiagnostic struct {
-	ID             string        `json:"id"`
-	Edge           string        `json:"edge"`
-	Upstream       string        `json:"upstream"`
-	Error          string        `json:"error"`
-	DataChannel    string        `json:"data_channel,omitempty"`
-	ParentState    string        `json:"parent_state"`
-	FailedRXDelta  uint64        `json:"failed_rx_delta"`
-	FailedTXDelta  uint64        `json:"failed_tx_delta"`
-	ProbeID        string        `json:"probe_id"`
-	ProbeSucceeded bool          `json:"probe_succeeded"`
-	ProbeRTT       time.Duration `json:"probe_rtt"`
-	ProbeRXDelta   uint64        `json:"probe_rx_delta"`
-	ProbeTXDelta   uint64        `json:"probe_tx_delta"`
-	ProbeError     string        `json:"probe_error,omitempty"`
+	ID                   string        `json:"id"`
+	Edge                 string        `json:"edge"`
+	Upstream             string        `json:"upstream"`
+	Error                string        `json:"error"`
+	DataChannel          string        `json:"data_channel,omitempty"`
+	ParentTransport      string        `json:"parent_transport,omitempty"`
+	ParentState          string        `json:"parent_state"`
+	FailedRXDelta        uint64        `json:"failed_rx_delta"`
+	FailedTXDelta        uint64        `json:"failed_tx_delta"`
+	ProbeID              string        `json:"probe_id"`
+	ProbeSucceeded       bool          `json:"probe_succeeded"`
+	ProbeRTT             time.Duration `json:"probe_rtt"`
+	ProbeRXDelta         uint64        `json:"probe_rx_delta"`
+	ProbeTXDelta         uint64        `json:"probe_tx_delta"`
+	ProbeError           string        `json:"probe_error,omitempty"`
+	ProbeParentTransport string        `json:"probe_parent_transport,omitempty"`
 }
 
 type speedTestSummary struct {
@@ -1638,6 +1640,10 @@ func diagnosePingFailure(
 	if errors.As(failure, &observed) {
 		diagnostic.DataChannel = observed.TransportDiagnostics()
 	}
+	var parentObserved interface{ ParentTransportDiagnostics() string }
+	if errors.As(failure, &parentObserved) {
+		diagnostic.ParentTransport = parentObserved.ParentTransportDiagnostics()
+	}
 	if conn := session.peerConn(); conn != nil {
 		if peer := conn.PeerInfo(); peer != nil {
 			diagnostic.ParentState = peer.State.String()
@@ -1653,11 +1659,19 @@ func diagnosePingFailure(
 	started := time.Now()
 	_, probeErr := session.ping(probeCtx, diagnostic.ProbeID)
 	diagnostic.ProbeRTT = time.Since(started)
+	if conn := session.peerConn(); conn != nil {
+		if observed, ok := conn.(interface{ DiagnosticString() string }); ok {
+			diagnostic.ProbeParentTransport = observed.DiagnosticString()
+		}
+	}
 	rxAfter, txAfter := session.byteCounts()
 	diagnostic.ProbeRXDelta = counterDelta(rxBefore, rxAfter)
 	diagnostic.ProbeTXDelta = counterDelta(txBefore, txAfter)
 	if probeErr != nil {
 		diagnostic.ProbeError = probeErr.Error()
+		if diagnostic.ProbeParentTransport == "" && errors.As(probeErr, &parentObserved) {
+			diagnostic.ProbeParentTransport = parentObserved.ParentTransportDiagnostics()
+		}
 		return diagnostic
 	}
 	diagnostic.ProbeSucceeded = true

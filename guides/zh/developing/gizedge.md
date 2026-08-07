@@ -269,10 +269,11 @@ post-start 稳定窗口，并每 15 秒输出 container health；复用镜像的
 每轮 1,000-session fresh stack 清理后有固定 120 秒稳定窗口，并每 15 秒输出剩余时间，避免
 Docker VM 的延迟资源回收污染下一轮；upload gate 已失败时跳过不再有意义的 download。
 
-Artifact version 17 记录实际 hold boundary，并比较最初与最后十分钟。Ping 失败时，
+Artifact version 18 记录实际 hold boundary，并比较最初与最后十分钟。Ping 失败时，
 artifact 还会记录失败请求关闭前的 DataChannel ID、状态、buffered amount、收发字节数和
-parent association 状态，并在同一 association 上使用另一条全新的 DataChannel 执行一次
-有界诊断 Ping。诊断 Ping 不计入验收请求数，也不会把原始失败改判为通过。
+parent association 状态，同时记录不含地址的 PeerConnection、ICE、SCTP 状态，以及 ICE
+包/字节和 SCTP 字节计数；随后在同一 association 上使用另一条全新的 DataChannel 执行一次
+有界诊断 Ping，并再次记录 parent 计数。诊断 Ping 不计入验收请求数，也不会把原始失败改判为通过。
 每轮 RTT p99 的
 median、RSS、open FD、最近一次 completed GC 的 Go live heap，以及 goroutine median，
 增长均不得超过 20%。当前 Go heap-object bytes 保留为诊断值，但因其会随正常 GC cycle

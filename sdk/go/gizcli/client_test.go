@@ -16,8 +16,9 @@ import (
 )
 
 type freshPingPeerConn struct {
-	streams []net.Conn
-	dials   int
+	streams     []net.Conn
+	dials       int
+	diagnostics string
 }
 
 type diagnosticConn struct {
@@ -43,6 +44,7 @@ func (*freshPingPeerConn) Write(byte, []byte) (int, error)             { return 
 func (*freshPingPeerConn) PublicKey() giznet.PublicKey                 { return giznet.PublicKey{} }
 func (*freshPingPeerConn) PeerInfo() *giznet.PeerInfo                  { return nil }
 func (*freshPingPeerConn) Close() error                                { return nil }
+func (c *freshPingPeerConn) DiagnosticString() string                  { return c.diagnostics }
 
 func TestClientDialValidation(t *testing.T) {
 	t.Run("nil client", func(t *testing.T) {
@@ -395,7 +397,7 @@ func TestClientPingOpensFreshStreamPerRequest(t *testing.T) {
 func TestClientPingFailureIncludesPreCloseDataChannelDiagnostics(t *testing.T) {
 	server, clientStream := net.Pipe()
 	streamID := uint16(17)
-	peer := &freshPingPeerConn{streams: []net.Conn{diagnosticConn{
+	peer := &freshPingPeerConn{diagnostics: "peer_state=connected sctp_rx_bytes=202", streams: []net.Conn{diagnosticConn{
 		Conn: clientStream,
 		diagnostics: gizwebrtc.StreamDiagnostics{
 			ID: &streamID, ReadyState: "open", TXBytes: 48,
@@ -428,9 +430,17 @@ func TestClientPingFailureIncludesPreCloseDataChannelDiagnostics(t *testing.T) {
 	if got := observed.TransportDiagnostics(); got != "id=17 ready_state=open buffered_amount=0 rx_bytes=0 tx_bytes=48 closed=false" {
 		t.Fatalf("TransportDiagnostics() = %q", got)
 	}
+	var parent interface{ ParentTransportDiagnostics() string }
+	if !errors.As(err, &parent) {
+		t.Fatalf("Ping() error = %T, want parent transport diagnostics", err)
+	}
+	if got := parent.ParentTransportDiagnostics(); got != peer.diagnostics {
+		t.Fatalf("ParentTransportDiagnostics() = %q, want %q", got, peer.diagnostics)
+	}
 	for _, want := range []string{
 		"context deadline exceeded",
 		"data_channel={id=17 ready_state=open buffered_amount=0 rx_bytes=0 tx_bytes=48 closed=false}",
+		"parent={peer_state=connected sctp_rx_bytes=202}",
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("Ping() error = %q, want substring %q", err, want)

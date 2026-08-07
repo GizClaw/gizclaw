@@ -22,8 +22,9 @@ import (
 )
 
 type testTransportDiagnosticError struct {
-	err         error
-	diagnostics string
+	err               error
+	diagnostics       string
+	parentDiagnostics string
 }
 
 func (e testTransportDiagnosticError) Error() string { return e.err.Error() }
@@ -31,6 +32,10 @@ func (e testTransportDiagnosticError) Error() string { return e.err.Error() }
 func (e testTransportDiagnosticError) Unwrap() error { return e.err }
 
 func (e testTransportDiagnosticError) TransportDiagnostics() string { return e.diagnostics }
+
+func (e testTransportDiagnosticError) ParentTransportDiagnostics() string {
+	return e.parentDiagnostics
+}
 
 func TestNormalizeHTTPBase(t *testing.T) {
 	got, err := normalizeHTTPBase("edge.example:9821/path?ignored=1")
@@ -420,7 +425,9 @@ func TestPingAllRecordsFailureDiagnosticWithoutCountingProbe(t *testing.T) {
 							t.Fatalf("first Ping id = %q, want acceptance request", id)
 						}
 						return nil, testTransportDiagnosticError{
-							err: errors.New("response timeout"), diagnostics: "id=23 ready_state=open",
+							err:               errors.New("response timeout"),
+							diagnostics:       "id=23 ready_state=open",
+							parentDiagnostics: "peer_state=connected sctp_rx_bytes=77",
 						}
 					}
 					if !strings.HasSuffix(id, "-diagnostic") {
@@ -449,7 +456,8 @@ func TestPingAllRecordsFailureDiagnosticWithoutCountingProbe(t *testing.T) {
 			diagnostic := state.pingFailureDiagnostics[0]
 			if diagnostic.ProbeSucceeded != test.probeSucceeded || diagnostic.ParentState != "unknown" ||
 				diagnostic.DataChannel != "id=23 ready_state=open" || diagnostic.FailedRXDelta != 0 ||
-				diagnostic.FailedTXDelta != 0 {
+				diagnostic.FailedTXDelta != 0 ||
+				diagnostic.ParentTransport != "peer_state=connected sctp_rx_bytes=77" {
 				t.Fatalf("diagnostic = %+v", diagnostic)
 			}
 			if test.probeErr != nil && !strings.Contains(diagnostic.ProbeError, test.probeErr.Error()) {
