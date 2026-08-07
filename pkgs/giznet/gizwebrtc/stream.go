@@ -76,6 +76,9 @@ func (c *dataChannelConn) Read(p []byte) (int, error) {
 	}
 	c.readMu.Lock()
 	defer c.readMu.Unlock()
+	// Keep readMu held through the raw read, any adaptive resize and retry, and
+	// the pending-tail update. net.Conn permits concurrent callers, but one SCTP
+	// stream still has a single ordered receive sequence.
 	if len(c.pending) > 0 {
 		n := copy(p, c.pending)
 		c.pending = c.pending[n:]

@@ -3,6 +3,7 @@ package gizwebrtc
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -247,6 +248,59 @@ func TestDataChannelConnReadReusesMessageBuffer(t *testing.T) {
 	}
 	if got := len(conn.readBuffer); got != streamChunkSize {
 		t.Fatalf("read buffer size = %d, want %d", got, streamChunkSize)
+	}
+}
+
+func TestDataChannelConnConcurrentReadsSerializeAdaptiveBuffer(t *testing.T) {
+	const readers = 32
+	reads := make([][]byte, readers)
+	for index := range reads {
+		reads[index] = bytes.Repeat([]byte{byte(index + 1)}, maxPacketMessageSize)
+	}
+	raw := &fakeStreamRaw{reads: reads}
+	conn := newDataChannelConn(raw, nil, addr("local"), addr("remote"))
+	defer conn.Close()
+
+	type readResult struct {
+		marker byte
+		err    error
+	}
+	start := make(chan struct{})
+	results := make(chan readResult, readers)
+	var workers sync.WaitGroup
+	for range readers {
+		workers.Go(func() {
+			<-start
+			buffer := make([]byte, maxPacketMessageSize)
+			n, err := io.ReadFull(conn, buffer)
+			if err == nil && n != len(buffer) {
+				err = fmt.Errorf("read %d bytes, want %d", n, len(buffer))
+			}
+			if err == nil && !bytes.Equal(buffer, bytes.Repeat(buffer[:1], len(buffer))) {
+				err = errors.New("read combined bytes from different DataChannel messages")
+			}
+			results <- readResult{marker: buffer[0], err: err}
+		})
+	}
+	close(start)
+	workers.Wait()
+	close(results)
+
+	seen := make(map[byte]bool, readers)
+	for result := range results {
+		if result.err != nil {
+			t.Fatal(result.err)
+		}
+		if result.marker == 0 || seen[result.marker] {
+			t.Fatalf("duplicate or empty message marker %d", result.marker)
+		}
+		seen[result.marker] = true
+	}
+	if len(seen) != readers {
+		t.Fatalf("read %d distinct messages, want %d", len(seen), readers)
+	}
+	if got := raw.readCount(); got != readers+1 {
+		t.Fatalf("raw read count = %d, want one sizing read plus %d messages", got, readers)
 	}
 }
 
