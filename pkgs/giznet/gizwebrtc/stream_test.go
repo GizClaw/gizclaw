@@ -407,6 +407,44 @@ func TestCloseServiceClosesQueuedAndActiveStreams(t *testing.T) {
 	if !queuedRaw.closed || !activeRaw.closed {
 		t.Fatalf("queued/active raw closed = %t/%t, want both true", queuedRaw.closed, activeRaw.closed)
 	}
+	if queued := len(serviceListener.ch); queued != 0 {
+		t.Fatalf("queued stream references after CloseService = %d, want 0", queued)
+	}
+}
+
+func TestServiceListenerCloseDrainsConcurrentEnqueues(t *testing.T) {
+	conn := &Conn{closeCh: make(chan struct{})}
+	listener := newServiceListener(conn, 42)
+	const streams = serviceQueueSize * 2
+	raws := make([]*fakeStreamRaw, streams)
+	var enqueues sync.WaitGroup
+	for index := range streams {
+		raw := &fakeStreamRaw{}
+		raws[index] = raw
+		stream := newDataChannelConn(raw, nil, addr("local"), addr("remote"))
+		enqueues.Go(func() {
+			_ = listener.enqueue(stream)
+		})
+	}
+	deadline := time.Now().Add(time.Second)
+	for len(listener.ch) != serviceQueueSize && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if queued := len(listener.ch); queued != serviceQueueSize {
+		t.Fatalf("queued streams before Close = %d, want %d", queued, serviceQueueSize)
+	}
+	if err := listener.Close(); err != nil {
+		t.Fatalf("Close error = %v", err)
+	}
+	enqueues.Wait()
+	if queued := len(listener.ch); queued != 0 {
+		t.Fatalf("queued stream references after Close = %d, want 0", queued)
+	}
+	for index, raw := range raws {
+		if !raw.closed {
+			t.Fatalf("stream %d was not closed", index)
+		}
+	}
 }
 
 func TestClosedStreamsDoNotAccumulate(t *testing.T) {

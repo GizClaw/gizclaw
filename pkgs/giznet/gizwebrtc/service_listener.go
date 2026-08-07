@@ -13,6 +13,10 @@ type ServiceListener struct {
 	ch      chan net.Conn
 	closeCh chan struct{}
 	once    sync.Once
+
+	enqueueMu sync.Mutex
+	closed    bool
+	enqueues  sync.WaitGroup
 }
 
 func newServiceListener(conn *Conn, service uint64) *ServiceListener {
@@ -47,12 +51,16 @@ func (l *ServiceListener) Accept() (net.Conn, error) {
 }
 
 func (l *ServiceListener) enqueue(c net.Conn) error {
-	select {
-	case <-l.closeCh:
+	l.enqueueMu.Lock()
+	if l.closed {
+		l.enqueueMu.Unlock()
 		_ = c.Close()
 		return giznet.ErrServiceMuxClosed
-	default:
 	}
+	l.enqueues.Add(1)
+	l.enqueueMu.Unlock()
+	defer l.enqueues.Done()
+
 	select {
 	case <-l.conn.closeCh:
 		_ = c.Close()
@@ -76,7 +84,19 @@ func (l *ServiceListener) Close() error {
 		return nil
 	}
 	l.once.Do(func() {
+		l.enqueueMu.Lock()
+		l.closed = true
 		close(l.closeCh)
+		l.enqueueMu.Unlock()
+		l.enqueues.Wait()
+		for {
+			select {
+			case c := <-l.ch:
+				_ = c.Close()
+			default:
+				return
+			}
+		}
 	})
 	return nil
 }
