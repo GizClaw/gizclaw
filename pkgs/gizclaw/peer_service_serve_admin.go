@@ -25,6 +25,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/resourcemanager"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -45,13 +46,14 @@ type adminService struct {
 	gameplay.CatalogAdminService
 	gameplay.GameDefIconAdminService
 	runtimeprofile.AdminService
-	Contacts        *contact.Server
-	Friends         *friend.Server
-	FriendGroups    *friendgroup.Server
-	Gameplay        *gameplay.Runtime
-	ResourceManager *resourcemanager.Manager
-	ServerLogs      ServerLogQueryService
-	PeerTelemetry   *peertelemetry.AdminService
+	Contacts         *contact.Server
+	Friends          *friend.Server
+	FriendGroups     *friendgroup.Server
+	Gameplay         *gameplay.Runtime
+	ResourceManager  *resourcemanager.Manager
+	ServerLogs       ServerLogQueryService
+	PeerTelemetry    *peertelemetry.AdminService
+	PendingDeletions *pendingdeletion.Admin
 }
 
 var _ adminhttp.StrictServerInterface = (*adminService)(nil)

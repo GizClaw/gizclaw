@@ -1,0 +1,118 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Pending Deletion Types",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "PendingDeletionKind": {
+        "type": "string",
+        "enum": [
+          "peer",
+          "workspace",
+          "friend_group",
+          "pet"
+        ]
+      },
+      "PendingDeletionStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "retry_wait",
+          "failed"
+        ]
+      },
+      "PendingDeletionTask": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "deletion_id",
+          "kind",
+          "resource_id",
+          "status",
+          "phase",
+          "failure_count",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "deletion_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PendingDeletionKind"
+          },
+          "resource_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "description": "Domain-approved safe locator. Owner identities and descriptors are never returned."
+          },
+          "status": {
+            "$ref": "#/components/schemas/PendingDeletionStatus"
+          },
+          "phase": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "failure_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "next_attempt_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lease_deadline": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_error_code": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "last_error_message": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PendingDeletionList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PendingDeletionTask"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

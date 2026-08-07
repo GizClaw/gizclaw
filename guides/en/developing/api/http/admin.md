@@ -18,7 +18,7 @@ See the [Admin API Reference](/api/) for exact endpoints, parameters, requests, 
 | Gameplay | Game Rule, Pet, Badge, Points, Result and Reward |
 | Social | Contact, Friend and Friend Group Management |
 | Firmware | Firmware resource, external channel package configuration, release and rollback |
-| Observability | Server log stream and Peer telemetry query |
+| Observability | Server log stream, Peer telemetry query, and active pending-deletion operations |
 
 Admin OpenAPI only has HTTP path, request/response and wire error. Resource validation, authorization, storage and domain lifecycle are implemented by corresponding services and resource managers.
 
@@ -36,7 +36,9 @@ This contract gives declarative providers such as Terraform a stable `<kind>/<id
 
 ## Pending-deletion operations
 
-`DELETE /peers/{publicKey}`, `DELETE /workspaces/{name}`, and `DELETE /peers/{publicKey}/pets/{id}` atomically create or reuse one domain pending-deletion handoff while returning the retained active projection. They do not expose the handoff record, and the marker does not change authorization, reads, lists, or mutations. Peer Admin deletion does not force-close an online Peer. Workspace deletion accepts only user-created Workspaces and returns `SYSTEM_WORKSPACE_DELETE_FORBIDDEN` for a system Workspace. Pet deletion retains its bound system Workspace. Physical cleanup and pending inspection/retry APIs are owned by the cleanup service, not these delete operations.
+`DELETE /peers/{publicKey}`, `DELETE /workspaces/{name}`, and `DELETE /peers/{publicKey}/pets/{id}` atomically create or reuse one domain pending-deletion handoff while returning the retained active projection. They do not expose the handoff record, and the marker does not change authorization, reads, lists, or mutations. Peer Admin deletion does not force-close an online Peer. Workspace deletion accepts only user-created Workspaces and returns `SYSTEM_WORKSPACE_DELETE_FORBIDDEN` for a system Workspace. Pet deletion retains its bound system Workspace.
+
+Operators inspect active cleanup work through `GET /pending-deletions` and `GET /pending-deletions/{deletionId}?source=...`. `POST /pending-deletions/{deletionId}/retry?source=...` requeues only a `failed` task; retrying any other active state returns `409`. List cursors are opaque and bind every filter except `limit`. Responses expose a domain-approved locator and bounded failure metadata, but never owner identities, descriptors, payloads, credentials, lease tokens, marker fingerprints, raw backend errors, or stack traces. Successful finalization immediately removes the task, so get and retry then return `404`; there is no completion receipt or history endpoint.
 
 ## Resource dependency
 

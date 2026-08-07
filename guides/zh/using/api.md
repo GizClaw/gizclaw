@@ -30,7 +30,7 @@ Server 只允许以下身份打开 Admin HTTP service：
 - Peer：查询、批准、阻止、刷新、设备信息与 runtime。
 - AI 与 Runtime：Credential、Provider Tenant、Model、Voice、Workflow、Workspace、RuntimeProfile 与 RegistrationToken。
 - Firmware 与玩法：Firmware channel package 配置、GameDef、PetDef、BadgeDef 和 Peer 玩法数据。
-- 运维：Peer telemetry 查询与 Server log SSE stream。
+- 运维：Peer telemetry 查询、Server log SSE stream 与 active pending-deletion 查看/重试。
 
 完整 path、参数和 response 以 [`api/http/admin.json`](https://github.com/GizClaw/gizclaw/blob/main/api/http/admin.json) 为准。
 
@@ -51,6 +51,10 @@ const peers = await listPeers({
 ```
 
 `createAdminAPIClient` 把生成的 OpenAPI client 绑定到现有 Peer connection。生成的 operation 函数提供 path、query、body 和 response 类型；对非成功响应，可使用 `throwOnError: true`，或显式检查返回的 `data`、`error` 与底层 `Response`。
+
+### Pending-deletion 运维
+
+先用 `listPendingDeletions` 查看 active task，再把返回的 `source` 与 `deletion_id` 一起传给 `getPendingDeletion` 或 `retryPendingDeletion`。只有 `failed` work 可以 retry；`queued`、`running` 与 `retry_wait` 返回 `409`。物理删除成功后 task 会立即移除，get/retry 返回 `404`，不存在可查询的 completion receipt。Operator response 只包含 `resource_id`、有界 error code/message、status 与时间；owner identity、descriptor、payload、lease token、fingerprint 和原始 backend error 会被刻意省略。
 
 ### Go
 

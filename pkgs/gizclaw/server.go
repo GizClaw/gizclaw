@@ -29,6 +29,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/resourcemanager"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
@@ -86,6 +87,7 @@ type Server struct {
 	WorkspaceAssets             objectstore.ObjectStore
 	GameplayDB                  *sqlx.DB
 	MetricsStore                metrics.Store
+	PendingDeletionConfig       pendingdeletion.Config
 	ServerLogQuery              ServerLogQueryService
 	FlowcraftHistory            logstore.MutableStore
 	FlowcraftState              kv.Store
@@ -101,17 +103,18 @@ type Server struct {
 	WebRTCSignalingHandler      http.Handler
 	EdgeNodes                   []giznet.PublicKey
 
-	manager             *Manager
-	peerService         *PeerService
-	sessions            *publiclogin.SessionManager
-	listenerMu          sync.RWMutex
-	listeners           []giznet.Listener
-	closed              bool
-	httpHandler         http.Handler
-	driveFactStop       context.CancelFunc
-	driveFactDone       <-chan struct{}
-	workspaceRewardStop context.CancelFunc
-	workspaceRewardDone <-chan struct{}
+	manager                  *Manager
+	peerService              *PeerService
+	sessions                 *publiclogin.SessionManager
+	listenerMu               sync.RWMutex
+	listeners                []giznet.Listener
+	closed                   bool
+	httpHandler              http.Handler
+	driveFactStop            context.CancelFunc
+	driveFactDone            <-chan struct{}
+	workspaceRewardStop      context.CancelFunc
+	workspaceRewardDone      <-chan struct{}
+	pendingDeletionProcessor *pendingdeletion.Processor
 }
 
 type PeerListenerOptions struct {
@@ -168,6 +171,9 @@ func (s *Server) Listen() error {
 	if err := s.startWorkspaceRewardDispatcher(); err != nil {
 		_ = s.Close()
 		return err
+	}
+	if s.pendingDeletionProcessor != nil {
+		s.pendingDeletionProcessor.Start(context.Background())
 	}
 	return nil
 }
@@ -287,6 +293,10 @@ func (s *Server) Close() error {
 	if s.workspaceRewardDone != nil {
 		<-s.workspaceRewardDone
 		s.workspaceRewardDone = nil
+	}
+	if s.pendingDeletionProcessor != nil {
+		s.pendingDeletionProcessor.Close()
+		s.pendingDeletionProcessor = nil
 	}
 	if s.manager != nil && s.manager.MemoryStores != nil {
 		errs = append(errs, s.manager.MemoryStores.Close())
@@ -540,6 +550,30 @@ func (s *Server) init() error {
 			return err
 		}
 	}
+	pendingDeletionRegistry := pendingdeletion.NewRegistry()
+	if s.GameplayDB != nil {
+		if err := pendingDeletionRegistry.Register(
+			gameplay.PendingDeletionSource{DB: s.GameplayDB},
+			gameplay.PetDeletionHandler{DB: s.GameplayDB},
+		); err != nil {
+			return fmt.Errorf("gizclaw: register Gameplay pending deletion: %w", err)
+		}
+	}
+	pendingDeletionConfig := s.PendingDeletionConfig
+	if pendingDeletionConfig == (pendingdeletion.Config{}) {
+		pendingDeletionConfig = pendingdeletion.DefaultConfig()
+	}
+	pendingDeletionProcessor, err := pendingdeletion.NewProcessor(
+		pendingDeletionRegistry,
+		pendingDeletionConfig,
+		s.MetricsStore,
+	)
+	if err != nil {
+		return fmt.Errorf("gizclaw: pending deletion processor: %w", err)
+	}
+	gameplayRuntime.PendingDeletionWake = pendingDeletionProcessor.Wake
+	pendingDeletionAdmin := pendingdeletion.NewAdmin(pendingDeletionRegistry, pendingDeletionProcessor.Wake)
+	s.pendingDeletionProcessor = pendingDeletionProcessor
 	manager.Tools = toolServer
 	manager.ToolBuilder = &toolkit.Builder{Tools: toolServer}
 	agentResolver := agenthost.ServiceResolver{
@@ -626,6 +660,7 @@ func (s *Server) init() error {
 			ResourceManager:             resourceManager,
 			ServerLogs:                  s.ServerLogQuery,
 			PeerTelemetry:               &peertelemetry.AdminService{Metrics: s.MetricsStore},
+			PendingDeletions:            pendingDeletionAdmin,
 		},
 		public: &peerHTTP{
 			PeerHTTPService: peersServer,

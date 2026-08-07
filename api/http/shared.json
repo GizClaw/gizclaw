@@ -80,6 +80,18 @@
       "PeerRegistrationStatus": {
         "$ref": "./shared/peer_registration_status.json#/components/schemas/PeerRegistrationStatus"
       },
+      "PendingDeletionKind": {
+        "$ref": "./shared/pending_deletion.json#/components/schemas/PendingDeletionKind"
+      },
+      "PendingDeletionStatus": {
+        "$ref": "./shared/pending_deletion.json#/components/schemas/PendingDeletionStatus"
+      },
+      "PendingDeletionTask": {
+        "$ref": "./shared/pending_deletion.json#/components/schemas/PendingDeletionTask"
+      },
+      "PendingDeletionList": {
+        "$ref": "./shared/pending_deletion.json#/components/schemas/PendingDeletionList"
+      },
       "HardwareInfo": {
         "$ref": "./shared/hardware_info.json#/components/schemas/HardwareInfo"
       },

@@ -18,6 +18,7 @@ import (
 	externalRef1 "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/gofiber/fiber/v2"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for DeleteGameDefIconParamsFormat.
@@ -915,6 +916,33 @@ type GetPeerTelemetryLatestParams struct {
 	Fields *string `form:"fields,omitempty" json:"fields,omitempty"`
 }
 
+// ListPendingDeletionsParams defines parameters for ListPendingDeletions.
+type ListPendingDeletionsParams struct {
+	Source *string                             `form:"source,omitempty" json:"source,omitempty"`
+	Kind   *externalRef0.PendingDeletionKind   `form:"kind,omitempty" json:"kind,omitempty"`
+	Status *externalRef0.PendingDeletionStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// StartTimeMs Inclusive creation-time lower bound in Unix milliseconds.
+	StartTimeMs *int64 `form:"start_time_ms,omitempty" json:"start_time_ms,omitempty"`
+
+	// EndTimeMs Exclusive creation-time upper bound in Unix milliseconds.
+	EndTimeMs *int64 `form:"end_time_ms,omitempty" json:"end_time_ms,omitempty"`
+	Limit     *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque cursor bound to every filter; limit may change.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// GetPendingDeletionParams defines parameters for GetPendingDeletion.
+type GetPendingDeletionParams struct {
+	Source string `form:"source" json:"source"`
+}
+
+// RetryPendingDeletionParams defines parameters for RetryPendingDeletion.
+type RetryPendingDeletionParams struct {
+	Source string `form:"source" json:"source"`
+}
+
 // ListPetDefsParams defines parameters for ListPetDefs.
 type ListPetDefsParams struct {
 	// Cursor Opaque cursor returned by the previous list response
@@ -1609,6 +1637,15 @@ type ClientInterface interface {
 
 	// GetPeerTelemetryLatest request
 	GetPeerTelemetryLatest(ctx context.Context, publicKey string, params *GetPeerTelemetryLatestParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPendingDeletions request
+	ListPendingDeletions(ctx context.Context, params *ListPendingDeletionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPendingDeletion request
+	GetPendingDeletion(ctx context.Context, deletionId openapi_types.UUID, params *GetPendingDeletionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RetryPendingDeletion request
+	RetryPendingDeletion(ctx context.Context, deletionId openapi_types.UUID, params *RetryPendingDeletionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPetDefs request
 	ListPetDefs(ctx context.Context, params *ListPetDefsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3303,6 +3340,42 @@ func (c *Client) AggregatePeerTelemetry(ctx context.Context, publicKey string, p
 
 func (c *Client) GetPeerTelemetryLatest(ctx context.Context, publicKey string, params *GetPeerTelemetryLatestParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPeerTelemetryLatestRequest(c.Server, publicKey, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListPendingDeletions(ctx context.Context, params *ListPendingDeletionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPendingDeletionsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPendingDeletion(ctx context.Context, deletionId openapi_types.UUID, params *GetPendingDeletionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPendingDeletionRequest(c.Server, deletionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RetryPendingDeletion(ctx context.Context, deletionId openapi_types.UUID, params *RetryPendingDeletionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRetryPendingDeletionRequest(c.Server, deletionId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -8914,6 +8987,255 @@ func NewGetPeerTelemetryLatestRequest(server string, publicKey string, params *G
 	return req, nil
 }
 
+// NewListPendingDeletionsRequest generates requests for ListPendingDeletions
+func NewListPendingDeletionsRequest(server string, params *ListPendingDeletionsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pending-deletions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Source != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", *params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Kind != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "kind", *params.Kind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.StartTimeMs != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time_ms", *params.StartTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.EndTimeMs != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time_ms", *params.EndTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPendingDeletionRequest generates requests for GetPendingDeletion
+func NewGetPendingDeletionRequest(server string, deletionId openapi_types.UUID, params *GetPendingDeletionParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "deletionId", deletionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pending-deletions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRetryPendingDeletionRequest generates requests for RetryPendingDeletion
+func NewRetryPendingDeletionRequest(server string, deletionId openapi_types.UUID, params *RetryPendingDeletionParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "deletionId", deletionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pending-deletions/%s/retry", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListPetDefsRequest generates requests for ListPetDefs
 func NewListPetDefsRequest(server string, params *ListPetDefsParams) (*http.Request, error) {
 	var err error
@@ -12426,6 +12748,15 @@ type ClientWithResponsesInterface interface {
 	// GetPeerTelemetryLatestWithResponse request
 	GetPeerTelemetryLatestWithResponse(ctx context.Context, publicKey string, params *GetPeerTelemetryLatestParams, reqEditors ...RequestEditorFn) (*GetPeerTelemetryLatestResponse, error)
 
+	// ListPendingDeletionsWithResponse request
+	ListPendingDeletionsWithResponse(ctx context.Context, params *ListPendingDeletionsParams, reqEditors ...RequestEditorFn) (*ListPendingDeletionsResponse, error)
+
+	// GetPendingDeletionWithResponse request
+	GetPendingDeletionWithResponse(ctx context.Context, deletionId openapi_types.UUID, params *GetPendingDeletionParams, reqEditors ...RequestEditorFn) (*GetPendingDeletionResponse, error)
+
+	// RetryPendingDeletionWithResponse request
+	RetryPendingDeletionWithResponse(ctx context.Context, deletionId openapi_types.UUID, params *RetryPendingDeletionParams, reqEditors ...RequestEditorFn) (*RetryPendingDeletionResponse, error)
+
 	// ListPetDefsWithResponse request
 	ListPetDefsWithResponse(ctx context.Context, params *ListPetDefsParams, reqEditors ...RequestEditorFn) (*ListPetDefsResponse, error)
 
@@ -14970,6 +15301,81 @@ func (r GetPeerTelemetryLatestResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetPeerTelemetryLatestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListPendingDeletionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PendingDeletionList
+	JSON400      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPendingDeletionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPendingDeletionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetPendingDeletionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PendingDeletionTask
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPendingDeletionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPendingDeletionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RetryPendingDeletionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PendingDeletionTask
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r RetryPendingDeletionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RetryPendingDeletionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -17718,6 +18124,33 @@ func (c *ClientWithResponses) GetPeerTelemetryLatestWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseGetPeerTelemetryLatestResponse(rsp)
+}
+
+// ListPendingDeletionsWithResponse request returning *ListPendingDeletionsResponse
+func (c *ClientWithResponses) ListPendingDeletionsWithResponse(ctx context.Context, params *ListPendingDeletionsParams, reqEditors ...RequestEditorFn) (*ListPendingDeletionsResponse, error) {
+	rsp, err := c.ListPendingDeletions(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPendingDeletionsResponse(rsp)
+}
+
+// GetPendingDeletionWithResponse request returning *GetPendingDeletionResponse
+func (c *ClientWithResponses) GetPendingDeletionWithResponse(ctx context.Context, deletionId openapi_types.UUID, params *GetPendingDeletionParams, reqEditors ...RequestEditorFn) (*GetPendingDeletionResponse, error) {
+	rsp, err := c.GetPendingDeletion(ctx, deletionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPendingDeletionResponse(rsp)
+}
+
+// RetryPendingDeletionWithResponse request returning *RetryPendingDeletionResponse
+func (c *ClientWithResponses) RetryPendingDeletionWithResponse(ctx context.Context, deletionId openapi_types.UUID, params *RetryPendingDeletionParams, reqEditors ...RequestEditorFn) (*RetryPendingDeletionResponse, error) {
+	rsp, err := c.RetryPendingDeletion(ctx, deletionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRetryPendingDeletionResponse(rsp)
 }
 
 // ListPetDefsWithResponse request returning *ListPetDefsResponse
@@ -22449,6 +22882,147 @@ func ParseGetPeerTelemetryLatestResponse(rsp *http.Response) (*GetPeerTelemetryL
 	return response, nil
 }
 
+// ParseListPendingDeletionsResponse parses an HTTP response from a ListPendingDeletionsWithResponse call
+func ParseListPendingDeletionsResponse(rsp *http.Response) (*ListPendingDeletionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPendingDeletionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PendingDeletionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPendingDeletionResponse parses an HTTP response from a GetPendingDeletionWithResponse call
+func ParseGetPendingDeletionResponse(rsp *http.Response) (*GetPendingDeletionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPendingDeletionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PendingDeletionTask
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRetryPendingDeletionResponse parses an HTTP response from a RetryPendingDeletionWithResponse call
+func ParseRetryPendingDeletionResponse(rsp *http.Response) (*RetryPendingDeletionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RetryPendingDeletionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PendingDeletionTask
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListPetDefsResponse parses an HTTP response from a ListPetDefsWithResponse call
 func ParseListPetDefsResponse(rsp *http.Response) (*ListPetDefsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -25799,6 +26373,15 @@ type ServerInterface interface {
 	// Get latest sampled telemetry values for a peer
 	// (GET /peers/{publicKey}/telemetry/latest)
 	GetPeerTelemetryLatest(c *fiber.Ctx, publicKey string, params GetPeerTelemetryLatestParams) error
+	// List active pending-deletion tasks
+	// (GET /pending-deletions)
+	ListPendingDeletions(c *fiber.Ctx, params ListPendingDeletionsParams) error
+	// Get one active pending-deletion task
+	// (GET /pending-deletions/{deletionId})
+	GetPendingDeletion(c *fiber.Ctx, deletionId openapi_types.UUID, params GetPendingDeletionParams) error
+	// Retry one failed active pending-deletion task
+	// (POST /pending-deletions/{deletionId}/retry)
+	RetryPendingDeletion(c *fiber.Ctx, deletionId openapi_types.UUID, params RetryPendingDeletionParams) error
 	// List PetDefs
 	// (GET /pet-defs)
 	ListPetDefs(c *fiber.Ctx, params ListPetDefsParams) error
@@ -28074,6 +28657,152 @@ func (siw *ServerInterfaceWrapper) GetPeerTelemetryLatest(c *fiber.Ctx) error {
 	return siw.Handler.GetPeerTelemetryLatest(c, publicKey, params)
 }
 
+// ListPendingDeletions operation middleware
+func (siw *ServerInterfaceWrapper) ListPendingDeletions(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPendingDeletionsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", query, &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter source: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", query, &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter kind: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", query, &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter status: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "start_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "start_time_ms", query, &params.StartTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter start_time_ms: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "end_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "end_time_ms", query, &params.EndTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter end_time_ms: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	return siw.Handler.ListPendingDeletions(c, params)
+}
+
+// GetPendingDeletion operation middleware
+func (siw *ServerInterfaceWrapper) GetPendingDeletion(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "deletionId" -------------
+	var deletionId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "deletionId", c.Params("deletionId"), &deletionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter deletionId: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPendingDeletionParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "source" -------------
+
+	if paramValue := c.Query("source"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument source is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "source", query, &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter source: %w", err).Error())
+	}
+
+	return siw.Handler.GetPendingDeletion(c, deletionId, params)
+}
+
+// RetryPendingDeletion operation middleware
+func (siw *ServerInterfaceWrapper) RetryPendingDeletion(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "deletionId" -------------
+	var deletionId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "deletionId", c.Params("deletionId"), &deletionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter deletionId: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RetryPendingDeletionParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "source" -------------
+
+	if paramValue := c.Query("source"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument source is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "source", query, &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter source: %w", err).Error())
+	}
+
+	return siw.Handler.RetryPendingDeletion(c, deletionId, params)
+}
+
 // ListPetDefs operation middleware
 func (siw *ServerInterfaceWrapper) ListPetDefs(c *fiber.Ctx) error {
 
@@ -29630,6 +30359,12 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Get(options.BaseURL+"/peers/:publicKey/telemetry/aggregate", wrapper.AggregatePeerTelemetry)
 
 	router.Get(options.BaseURL+"/peers/:publicKey/telemetry/latest", wrapper.GetPeerTelemetryLatest)
+
+	router.Get(options.BaseURL+"/pending-deletions", wrapper.ListPendingDeletions)
+
+	router.Get(options.BaseURL+"/pending-deletions/:deletionId", wrapper.GetPendingDeletion)
+
+	router.Post(options.BaseURL+"/pending-deletions/:deletionId/retry", wrapper.RetryPendingDeletion)
 
 	router.Get(options.BaseURL+"/pet-defs", wrapper.ListPetDefs)
 
@@ -33379,6 +34114,140 @@ func (response GetPeerTelemetryLatest500JSONResponse) VisitGetPeerTelemetryLates
 	return ctx.JSON(&response)
 }
 
+type ListPendingDeletionsRequestObject struct {
+	Params ListPendingDeletionsParams
+}
+
+type ListPendingDeletionsResponseObject interface {
+	VisitListPendingDeletionsResponse(ctx *fiber.Ctx) error
+}
+
+type ListPendingDeletions200JSONResponse externalRef0.PendingDeletionList
+
+func (response ListPendingDeletions200JSONResponse) VisitListPendingDeletionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListPendingDeletions400JSONResponse externalRef0.ErrorResponse
+
+func (response ListPendingDeletions400JSONResponse) VisitListPendingDeletionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ListPendingDeletions500JSONResponse externalRef0.ErrorResponse
+
+func (response ListPendingDeletions500JSONResponse) VisitListPendingDeletionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetPendingDeletionRequestObject struct {
+	DeletionId openapi_types.UUID `json:"deletionId"`
+	Params     GetPendingDeletionParams
+}
+
+type GetPendingDeletionResponseObject interface {
+	VisitGetPendingDeletionResponse(ctx *fiber.Ctx) error
+}
+
+type GetPendingDeletion200JSONResponse externalRef0.PendingDeletionTask
+
+func (response GetPendingDeletion200JSONResponse) VisitGetPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetPendingDeletion400JSONResponse externalRef0.ErrorResponse
+
+func (response GetPendingDeletion400JSONResponse) VisitGetPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type GetPendingDeletion404JSONResponse externalRef0.ErrorResponse
+
+func (response GetPendingDeletion404JSONResponse) VisitGetPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetPendingDeletion500JSONResponse externalRef0.ErrorResponse
+
+func (response GetPendingDeletion500JSONResponse) VisitGetPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type RetryPendingDeletionRequestObject struct {
+	DeletionId openapi_types.UUID `json:"deletionId"`
+	Params     RetryPendingDeletionParams
+}
+
+type RetryPendingDeletionResponseObject interface {
+	VisitRetryPendingDeletionResponse(ctx *fiber.Ctx) error
+}
+
+type RetryPendingDeletion200JSONResponse externalRef0.PendingDeletionTask
+
+func (response RetryPendingDeletion200JSONResponse) VisitRetryPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type RetryPendingDeletion400JSONResponse externalRef0.ErrorResponse
+
+func (response RetryPendingDeletion400JSONResponse) VisitRetryPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type RetryPendingDeletion404JSONResponse externalRef0.ErrorResponse
+
+func (response RetryPendingDeletion404JSONResponse) VisitRetryPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type RetryPendingDeletion409JSONResponse externalRef0.ErrorResponse
+
+func (response RetryPendingDeletion409JSONResponse) VisitRetryPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type RetryPendingDeletion500JSONResponse externalRef0.ErrorResponse
+
+func (response RetryPendingDeletion500JSONResponse) VisitRetryPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type ListPetDefsRequestObject struct {
 	Params ListPetDefsParams
 }
@@ -36596,6 +37465,15 @@ type StrictServerInterface interface {
 	// Get latest sampled telemetry values for a peer
 	// (GET /peers/{publicKey}/telemetry/latest)
 	GetPeerTelemetryLatest(ctx context.Context, request GetPeerTelemetryLatestRequestObject) (GetPeerTelemetryLatestResponseObject, error)
+	// List active pending-deletion tasks
+	// (GET /pending-deletions)
+	ListPendingDeletions(ctx context.Context, request ListPendingDeletionsRequestObject) (ListPendingDeletionsResponseObject, error)
+	// Get one active pending-deletion task
+	// (GET /pending-deletions/{deletionId})
+	GetPendingDeletion(ctx context.Context, request GetPendingDeletionRequestObject) (GetPendingDeletionResponseObject, error)
+	// Retry one failed active pending-deletion task
+	// (POST /pending-deletions/{deletionId}/retry)
+	RetryPendingDeletion(ctx context.Context, request RetryPendingDeletionRequestObject) (RetryPendingDeletionResponseObject, error)
 	// List PetDefs
 	// (GET /pet-defs)
 	ListPetDefs(ctx context.Context, request ListPetDefsRequestObject) (ListPetDefsResponseObject, error)
@@ -39548,6 +40426,89 @@ func (sh *strictHandler) GetPeerTelemetryLatest(ctx *fiber.Ctx, publicKey string
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(GetPeerTelemetryLatestResponseObject); ok {
 		if err := validResponse.VisitGetPeerTelemetryLatestResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListPendingDeletions operation middleware
+func (sh *strictHandler) ListPendingDeletions(ctx *fiber.Ctx, params ListPendingDeletionsParams) error {
+	var request ListPendingDeletionsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPendingDeletions(ctx.UserContext(), request.(ListPendingDeletionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPendingDeletions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListPendingDeletionsResponseObject); ok {
+		if err := validResponse.VisitListPendingDeletionsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetPendingDeletion operation middleware
+func (sh *strictHandler) GetPendingDeletion(ctx *fiber.Ctx, deletionId openapi_types.UUID, params GetPendingDeletionParams) error {
+	var request GetPendingDeletionRequestObject
+
+	request.DeletionId = deletionId
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPendingDeletion(ctx.UserContext(), request.(GetPendingDeletionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPendingDeletion")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetPendingDeletionResponseObject); ok {
+		if err := validResponse.VisitGetPendingDeletionResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// RetryPendingDeletion operation middleware
+func (sh *strictHandler) RetryPendingDeletion(ctx *fiber.Ctx, deletionId openapi_types.UUID, params RetryPendingDeletionParams) error {
+	var request RetryPendingDeletionRequestObject
+
+	request.DeletionId = deletionId
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.RetryPendingDeletion(ctx.UserContext(), request.(RetryPendingDeletionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RetryPendingDeletion")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(RetryPendingDeletionResponseObject); ok {
+		if err := validResponse.VisitRetryPendingDeletionResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

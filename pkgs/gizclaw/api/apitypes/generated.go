@@ -10,6 +10,7 @@ import (
 
 	jsonschema "github.com/google/jsonschema-go/jsonschema"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for ASTTranslateMode.
@@ -2019,6 +2020,54 @@ func (e PeerTelemetryOrder) Valid() bool {
 	case PeerTelemetryOrderAsc:
 		return true
 	case PeerTelemetryOrderDesc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PendingDeletionKind.
+const (
+	PendingDeletionKindFriendGroup PendingDeletionKind = "friend_group"
+	PendingDeletionKindPeer        PendingDeletionKind = "peer"
+	PendingDeletionKindPet         PendingDeletionKind = "pet"
+	PendingDeletionKindWorkspace   PendingDeletionKind = "workspace"
+)
+
+// Valid indicates whether the value is a known member of the PendingDeletionKind enum.
+func (e PendingDeletionKind) Valid() bool {
+	switch e {
+	case PendingDeletionKindFriendGroup:
+		return true
+	case PendingDeletionKindPeer:
+		return true
+	case PendingDeletionKindPet:
+		return true
+	case PendingDeletionKindWorkspace:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PendingDeletionStatus.
+const (
+	PendingDeletionStatusFailed    PendingDeletionStatus = "failed"
+	PendingDeletionStatusQueued    PendingDeletionStatus = "queued"
+	PendingDeletionStatusRetryWait PendingDeletionStatus = "retry_wait"
+	PendingDeletionStatusRunning   PendingDeletionStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the PendingDeletionStatus enum.
+func (e PendingDeletionStatus) Valid() bool {
+	switch e {
+	case PendingDeletionStatusFailed:
+		return true
+	case PendingDeletionStatusQueued:
+		return true
+	case PendingDeletionStatusRetryWait:
+		return true
+	case PendingDeletionStatusRunning:
 		return true
 	default:
 		return false
@@ -5132,6 +5181,37 @@ type PeerTelemetryValue struct {
 	Field            PeerTelemetryField `json:"field"`
 	ObservedAtUnixMs int64              `json:"observed_at_unix_ms"`
 	Value            float64            `json:"value"`
+}
+
+// PendingDeletionKind defines model for PendingDeletionKind.
+type PendingDeletionKind string
+
+// PendingDeletionList defines model for PendingDeletionList.
+type PendingDeletionList struct {
+	Items      []PendingDeletionTask `json:"items"`
+	NextCursor *string               `json:"next_cursor,omitempty"`
+}
+
+// PendingDeletionStatus defines model for PendingDeletionStatus.
+type PendingDeletionStatus string
+
+// PendingDeletionTask defines model for PendingDeletionTask.
+type PendingDeletionTask struct {
+	CreatedAt        time.Time           `json:"created_at"`
+	DeletionId       openapi_types.UUID  `json:"deletion_id"`
+	FailureCount     int32               `json:"failure_count"`
+	Kind             PendingDeletionKind `json:"kind"`
+	LastErrorCode    *string             `json:"last_error_code,omitempty"`
+	LastErrorMessage *string             `json:"last_error_message,omitempty"`
+	LeaseDeadline    *time.Time          `json:"lease_deadline,omitempty"`
+	NextAttemptAt    *time.Time          `json:"next_attempt_at,omitempty"`
+	Phase            string              `json:"phase"`
+
+	// ResourceId Domain-approved safe locator. Owner identities and descriptors are never returned.
+	ResourceId string                `json:"resource_id"`
+	Source     string                `json:"source"`
+	Status     PendingDeletionStatus `json:"status"`
+	UpdatedAt  time.Time             `json:"updated_at"`
 }
 
 // Pet defines model for Pet.

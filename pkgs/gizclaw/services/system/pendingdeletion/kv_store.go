@@ -14,7 +14,9 @@ var root = kv.Key{"pending-deletion"}
 
 // KVSource exposes pending deletion records stored in a KV backend.
 type KVSource struct {
-	Store kv.Store
+	Store      kv.Store
+	SourceName string
+	OwnedKinds []Kind
 }
 
 // Get loads one deletion event by ID.
@@ -36,6 +38,7 @@ func (s KVSource) HasLocator(ctx context.Context, locator Locator) (bool, error)
 	return HasLocator(ctx, s.Store, locator.Kind, locator.ResourceID)
 }
 
+var _ LookupSource = KVSource{}
 var _ Source = KVSource{}
 
 // KVEntries returns the durable record entry. CreateOrGet adds the unique

@@ -30,7 +30,7 @@ Ordinary devices and apps must not hold the admin key. Prefer the `gizclaw admin
 - Peers: query, approve, block, refresh, device information, and runtime.
 - AI and runtime: credentials, provider tenants, models, voices, workflows, workspaces, runtime profiles, and registration tokens.
 - Firmware and gameplay: firmware channel package configuration, game definitions, pet definitions, badge definitions, and peer gameplay data.
-- Operations: peer telemetry queries and the Server log SSE stream.
+- Operations: peer telemetry queries, the Server log SSE stream, and active pending-deletion inspection/retry.
 
 See [`api/http/admin.json`](https://github.com/GizClaw/gizclaw/blob/main/api/http/admin.json) for the complete paths, parameters, and responses.
 
@@ -51,6 +51,10 @@ const peers = await listPeers({
 ```
 
 `createAdminAPIClient` binds the generated OpenAPI client to the existing peer connection. Generated operation functions provide typed paths, queries, bodies, and responses. For non-success responses, use `throwOnError: true` or explicitly inspect `data`, `error`, and the underlying `Response`.
+
+### Pending-deletion operations
+
+Use `listPendingDeletions` to inspect active tasks, then pass both the returned `source` and `deletion_id` to `getPendingDeletion` or `retryPendingDeletion`. Retry is accepted only for `failed` work. `queued`, `running`, and `retry_wait` return `409`. After physical deletion succeeds, the task is removed immediately and get/retry returns `404`; a successful deletion has no receipt to query. Treat `resource_id`, bounded error code/message, status, and timestamps as operator data. Owner identity, descriptors, payloads, lease tokens, fingerprints, and raw backend errors are intentionally absent.
 
 ### Go
 

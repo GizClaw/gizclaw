@@ -68,6 +68,10 @@
       "description": "Server log query operations"
     },
     {
+      "name": "PendingDeletion",
+      "description": "Managed pending-deletion inspection and retry operations"
+    },
+    {
       "name": "GameplayDebug",
       "description": "Admin read-only peer gameplay runtime inspection"
     },
@@ -105,6 +109,269 @@
     }
   ],
   "paths": {
+    "/pending-deletions": {
+      "get": {
+        "operationId": "listPendingDeletions",
+        "summary": "List active pending-deletion tasks",
+        "tags": [
+          "PendingDeletion"
+        ],
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "./shared.json#/components/schemas/PendingDeletionKind"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "./shared.json#/components/schemas/PendingDeletionStatus"
+            }
+          },
+          {
+            "name": "start_time_ms",
+            "in": "query",
+            "required": false,
+            "description": "Inclusive creation-time lower bound in Unix milliseconds.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "end_time_ms",
+            "in": "query",
+            "required": false,
+            "description": "Exclusive creation-time upper bound in Unix milliseconds.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor bound to every filter; limit may change.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active pending-deletion task page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/PendingDeletionList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filter or cursor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pending-deletions/{deletionId}": {
+      "get": {
+        "operationId": "getPendingDeletion",
+        "summary": "Get one active pending-deletion task",
+        "tags": [
+          "PendingDeletion"
+        ],
+        "parameters": [
+          {
+            "name": "deletionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active pending-deletion task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/PendingDeletionTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid source or deletion ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Active task not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pending-deletions/{deletionId}/retry": {
+      "post": {
+        "operationId": "retryPendingDeletion",
+        "summary": "Retry one failed active pending-deletion task",
+        "tags": [
+          "PendingDeletion"
+        ],
+        "parameters": [
+          {
+            "name": "deletionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Requeued pending-deletion task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/PendingDeletionTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid source or deletion ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Active task not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Task is not failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/logs/stream": {
       "get": {
         "operationId": "streamServerLogs",

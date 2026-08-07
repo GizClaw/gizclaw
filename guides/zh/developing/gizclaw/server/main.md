@@ -32,6 +32,14 @@ agent_host:
 
 每个 Workspace Agent generation 根据当前 RuntimeProfile snapshot 解析 memory alias。构造失败会使 Agent 初始化或 reload 显式失败。Server shutdown 关闭共享 Memory registry；Workspace reload 与最后一个 Agent 引用释放会关闭该 generation 的 lease，但不迁移、合并、复制或删除持久数据。
 
+## Pending-deletion processor
+
+Server 初始化会验证 pending-deletion source 与 handler registry，但不会启动后台任务。`Server.Listen` 启动一次立即扫描和有界 worker pool；`Server.Close` 取消 scan 与 active attempt，等待全部 processor goroutine 退出，然后 command layer 才能关闭 store。领域持久化 store 是 queue 的唯一事实来源；producer wake signal 与内存 dispatch channel 只用于降低延迟，因此重启和周期扫描仍能恢复已提交但 signal 丢失的 work。
+
+首个 production registration 是 `source=gameplay`，只声明 `kind=pet`，并且仅在配置 `GameplayDB` 时存在。Peer、Workspace 与 Friend Group 在对应领域 handler 实现前不会注册。非法、重复、不完整或 backend capability 不满足要求的 registration 会让初始化失败。
+
+可选顶层 `pending_deletion` 配置的默认值为：`scan_interval: 30s`、`page_size: 100`、`dispatch_capacity: 256`、`workers: 4`、`lease_duration: 2m`、`attempt_timeout: 90s`、`retry_initial: 5s`、`retry_max: 30m`、`max_attempts: 10`。Duration 与 count 必须为正且有界；attempt timeout 必须短于 lease；retry initial 不能大于 retry max；严格配置解析会拒绝未知字段。系统没有 completion retention 配置。
+
 ## 核心结构与主函数
 
 | 符号 | 作用 |

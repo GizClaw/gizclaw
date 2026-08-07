@@ -53,6 +53,7 @@ type Runtime struct {
 	Workspaces           workspace.SystemWorkspaceService
 	DriveFacts           DriveFactMemory
 	WorkspaceRewards     WorkspaceRewardEnvironment
+	PendingDeletionWake  func()
 	Now                  func() time.Time
 	NewID                func() string
 	PickWeight           func(total int64) int64
@@ -318,6 +319,9 @@ func migrateGameplaySchema(ctx context.Context, db sqlDialectExecutor) error {
 		WHERE locator_rank = 1
 			AND NOT EXISTS (SELECT 1 FROM gameplay_pending_deletion_locators LIMIT 1)
 		ON CONFLICT (kind, owner_public_key, resource_id) DO NOTHING`); err != nil {
+		return err
+	}
+	if err := migratePendingDeletionTasks(ctx, db); err != nil {
 		return err
 	}
 	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_game_results_idempotency_idx ON gameplay_game_results(owner_public_key, runtime_profile_id, idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''`); err != nil {
@@ -830,8 +834,16 @@ func (r *Runtime) PutPet(ctx context.Context, owner string, req apitypes.PetPutR
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
-	if _, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_pets SET display_name = ?, updated_at = ? WHERE owner_public_key = ? AND id = ? AND runtime_profile_id = ?`), pet.DisplayName, formatTime(pet.UpdatedAt), owner, pet.Id, pet.RuntimeProfileId); err != nil {
+	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_pets SET display_name = ?, updated_at = ? WHERE owner_public_key = ? AND id = ? AND runtime_profile_id = ?`), pet.DisplayName, formatTime(pet.UpdatedAt), owner, pet.Id, pet.RuntimeProfileId)
+	if err != nil {
 		return apitypes.Pet{}, err
+	}
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return apitypes.Pet{}, err
+	}
+	if updated != 1 {
+		return apitypes.Pet{}, sql.ErrNoRows
 	}
 	return pet, nil
 }
@@ -870,13 +882,7 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
-	descriptor := struct {
-		OwnerPublicKey string `json:"owner_public_key"`
-		PetID          string `json:"pet_id"`
-		RuntimeProfile string `json:"runtime_profile_id"`
-		PetDefID       string `json:"pet_def_id"`
-		WorkspaceID    string `json:"workspace_id"`
-	}{
+	descriptor := petDeletionDescriptor{
 		OwnerPublicKey: pet.OwnerPublicKey,
 		PetID:          pet.Id,
 		RuntimeProfile: pet.RuntimeProfileId,
@@ -884,6 +890,10 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 		WorkspaceID:    pet.WorkspaceId,
 	}
 	record, err := pendingdeletion.New(pendingdeletion.KindPet, pet.Id, &pet.OwnerPublicKey, pendingdeletion.ReasonResourceDelete, descriptor, r.now())
+	if err != nil {
+		return apitypes.Pet{}, err
+	}
+	fingerprint, err := pendingdeletion.Fingerprint(record)
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
@@ -926,13 +936,28 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 		if err := tx.Commit(); err != nil {
 			return apitypes.Pet{}, fmt.Errorf("delete pet %q reuse pending deletion commit: %w", pet.Id, err)
 		}
+		if r.PendingDeletionWake != nil {
+			r.PendingDeletionWake()
+		}
 		return pet, nil
 	}
-	if _, err := tx.ExecContext(ctx, db.Rebind(`INSERT INTO gameplay_pending_deletions (deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`), record.DeletionID, record.Kind, pet.OwnerPublicKey, record.ResourceID, record.Reason, formatTime(record.DeletedAt), record.DescriptorVersion, string(record.Descriptor)); err != nil {
+	if _, err := tx.ExecContext(ctx, db.Rebind(`INSERT INTO gameplay_pending_deletions (
+		deletion_id, kind, owner_public_key, resource_id, reason, deleted_at,
+		descriptor_version, descriptor_json, marker_fingerprint, task_created_at, task_status,
+		task_phase, failure_count, next_attempt_at, lease_token, lease_deadline,
+		last_error_code, last_error_message, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, '', '', '', '', ?)`),
+		record.DeletionID, record.Kind, pet.OwnerPublicKey, record.ResourceID,
+		record.Reason, formatPendingDeletionTime(record.DeletedAt), record.DescriptorVersion,
+		string(record.Descriptor), fingerprint, formatPendingDeletionTime(record.DeletedAt), pendingdeletion.StatusQueued,
+		pendingdeletion.PhaseValidate, formatPendingDeletionTime(record.DeletedAt), formatPendingDeletionTime(record.DeletedAt)); err != nil {
 		return apitypes.Pet{}, fmt.Errorf("delete pet %q pending deletion: %w", pet.Id, err)
 	}
 	if err := tx.Commit(); err != nil {
 		return apitypes.Pet{}, fmt.Errorf("delete pet %q commit: %w", pet.Id, err)
+	}
+	if r.PendingDeletionWake != nil {
+		r.PendingDeletionWake()
 	}
 	return pet, nil
 }

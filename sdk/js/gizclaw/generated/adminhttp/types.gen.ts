@@ -1676,6 +1676,34 @@ export type PeerTelemetryValue = {
     observed_at_unix_ms: number;
 };
 
+export type PendingDeletionKind = 'peer' | 'workspace' | 'friend_group' | 'pet';
+
+export type PendingDeletionList = {
+    items: Array<PendingDeletionTask>;
+    next_cursor?: string;
+};
+
+export type PendingDeletionStatus = 'queued' | 'running' | 'retry_wait' | 'failed';
+
+export type PendingDeletionTask = {
+    source: string;
+    deletion_id: string;
+    kind: PendingDeletionKind;
+    /**
+     * Domain-approved safe locator. Owner identities and descriptors are never returned.
+     */
+    resource_id: string;
+    status: PendingDeletionStatus;
+    phase: string;
+    failure_count: number;
+    next_attempt_at?: string;
+    lease_deadline?: string;
+    last_error_code?: string;
+    last_error_message?: string;
+    created_at: string;
+    updated_at: string;
+};
+
 export type Registration = {
     public_key: string;
     role: PeerRole;
@@ -3558,6 +3586,130 @@ export type ModelSource2 = ModelSource;
  * Filter models by provider kind
  */
 export type ModelProviderKind2 = ModelProviderKind;
+
+export type ListPendingDeletionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        source?: string;
+        kind?: PendingDeletionKind;
+        status?: PendingDeletionStatus;
+        /**
+         * Inclusive creation-time lower bound in Unix milliseconds.
+         */
+        start_time_ms?: number;
+        /**
+         * Exclusive creation-time upper bound in Unix milliseconds.
+         */
+        end_time_ms?: number;
+        limit?: number;
+        /**
+         * Opaque cursor bound to every filter; limit may change.
+         */
+        cursor?: string;
+    };
+    url: '/pending-deletions';
+};
+
+export type ListPendingDeletionsErrors = {
+    /**
+     * Invalid filter or cursor
+     */
+    400: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListPendingDeletionsError = ListPendingDeletionsErrors[keyof ListPendingDeletionsErrors];
+
+export type ListPendingDeletionsResponses = {
+    /**
+     * Active pending-deletion task page
+     */
+    200: PendingDeletionList;
+};
+
+export type ListPendingDeletionsResponse = ListPendingDeletionsResponses[keyof ListPendingDeletionsResponses];
+
+export type GetPendingDeletionData = {
+    body?: never;
+    path: {
+        deletionId: string;
+    };
+    query: {
+        source: string;
+    };
+    url: '/pending-deletions/{deletionId}';
+};
+
+export type GetPendingDeletionErrors = {
+    /**
+     * Invalid source or deletion ID
+     */
+    400: ErrorResponse;
+    /**
+     * Active task not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetPendingDeletionError = GetPendingDeletionErrors[keyof GetPendingDeletionErrors];
+
+export type GetPendingDeletionResponses = {
+    /**
+     * Active pending-deletion task
+     */
+    200: PendingDeletionTask;
+};
+
+export type GetPendingDeletionResponse = GetPendingDeletionResponses[keyof GetPendingDeletionResponses];
+
+export type RetryPendingDeletionData = {
+    body?: never;
+    path: {
+        deletionId: string;
+    };
+    query: {
+        source: string;
+    };
+    url: '/pending-deletions/{deletionId}/retry';
+};
+
+export type RetryPendingDeletionErrors = {
+    /**
+     * Invalid source or deletion ID
+     */
+    400: ErrorResponse;
+    /**
+     * Active task not found
+     */
+    404: ErrorResponse;
+    /**
+     * Task is not failed
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type RetryPendingDeletionError = RetryPendingDeletionErrors[keyof RetryPendingDeletionErrors];
+
+export type RetryPendingDeletionResponses = {
+    /**
+     * Requeued pending-deletion task
+     */
+    200: PendingDeletionTask;
+};
+
+export type RetryPendingDeletionResponse = RetryPendingDeletionResponses[keyof RetryPendingDeletionResponses];
 
 export type StreamServerLogsData = {
     body?: never;

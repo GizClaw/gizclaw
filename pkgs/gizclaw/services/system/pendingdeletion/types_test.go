@@ -147,3 +147,33 @@ func TestNewUsesCurrentTimeWhenTimestampIsZero(t *testing.T) {
 		t.Fatalf("DeletedAt = %s, want current time", record.DeletedAt)
 	}
 }
+
+func TestDeterministicIdentityAndStoredFingerprint(t *testing.T) {
+	owner := "peer-a"
+	record, err := New(KindPet, "pet-a", &owner, ReasonResourceDelete, struct{}{}, time.Unix(1, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	deterministic, err := DeterministicDeletionID(Locator{Kind: KindPet, ResourceID: "pet-a", OwnerPublicKey: &owner})
+	if err != nil || deterministic != record.DeletionID || !IsDeterministic(record) {
+		t.Fatalf("deterministic ID = %q, %v; record = %#v", deterministic, err, record)
+	}
+	fingerprint, err := Fingerprint(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := StoredFingerprint(record)
+	if err != nil || stored != fingerprint {
+		t.Fatalf("StoredFingerprint(valid) = %q, %v, want %q", stored, err, fingerprint)
+	}
+	legacy := record
+	legacy.DeletionID = uuid.NewString()
+	if IsDeterministic(legacy) {
+		t.Fatal("IsDeterministic(legacy) = true")
+	}
+	malformed := legacy
+	malformed.Descriptor = json.RawMessage("{")
+	if stored, err := StoredFingerprint(malformed); err != nil || stored == "" {
+		t.Fatalf("StoredFingerprint(malformed) = %q, %v", stored, err)
+	}
+}

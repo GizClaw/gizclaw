@@ -179,16 +179,21 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	}
 
 	cmdSrv := &CmdServer{stores: ss, ownsStores: ownsStores, AdminPublicKey: cfg.AdminPublicKey, ServeToClients: cfg.ServeToClients}
+	pendingDeletionConfig, err := cfg.PendingDeletion.processorConfig()
+	if err != nil {
+		return nil, fmt.Errorf("server: pending_deletion: %w", err)
+	}
 	var gizServer *gizclaw.Server
 	gizServer = &gizclaw.Server{
-		LocalStatic:    *cfg.KeyPair,
-		PeerStore:      peersKV,
-		MemoryRoot:     cfg.WorkspaceRoot,
-		BuildCommit:    BuildCommit,
-		PublicEndpoint: cfg.Endpoint,
-		PublicICETCP:   newOpts.ICETCPListener != nil,
-		EdgeNodes:      cfg.EdgeNodes,
-		ICEServers:     cfg.ICEServers,
+		LocalStatic:           *cfg.KeyPair,
+		PeerStore:             peersKV,
+		MemoryRoot:            cfg.WorkspaceRoot,
+		BuildCommit:           BuildCommit,
+		PublicEndpoint:        cfg.Endpoint,
+		PublicICETCP:          newOpts.ICETCPListener != nil,
+		EdgeNodes:             cfg.EdgeNodes,
+		PendingDeletionConfig: pendingDeletionConfig,
+		ICEServers:            cfg.ICEServers,
 		PeerListenerFactories: []gizclaw.PeerListenerFactory{
 			func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
 				listenConfig := webRTCListenConfig(cfg, opts, newOpts.ICETCPListener)
