@@ -79,8 +79,7 @@ type Processor struct {
 	started bool
 	active  atomic.Int64
 
-	scanCursors map[string]string
-	scanStart   int
+	scanStart int
 }
 
 // NewProcessor validates and constructs a stopped processor.
@@ -181,22 +180,17 @@ func (p *Processor) scan(ctx context.Context, dispatch chan<- dispatchItem) {
 	if len(sources) == 0 {
 		return
 	}
-	if p.scanCursors == nil {
-		p.scanCursors = make(map[string]string, len(sources))
-	}
 	start := p.scanStart % len(sources)
 	p.scanStart = (start + 1) % len(sources)
 	// Read at most one page per source in one invocation. A deep or sparse
-	// source therefore cannot monopolize the scanner; its in-memory cursor is
-	// resumed on a later timer or wake and resets after that traversal ends.
+	// source therefore cannot monopolize the scanner. Every invocation starts
+	// at the due-index beginning so newly inserted earlier keys cannot starve.
 	for offset := range len(sources) {
 		i := (start + offset) % len(sources)
 		source := sources[i]
-		cursor := p.scanCursors[source.Name()]
-		refs, next, err := source.ScanDue(ctx, p.now().UTC(), p.config.PageSize, cursor)
+		refs, _, err := source.ScanDue(ctx, p.now().UTC(), p.config.PageSize, "")
 		if err != nil {
 			p.observe(source.Name(), "", "", "", "scan_error")
-			delete(p.scanCursors, source.Name())
 			continue
 		}
 		for _, ref := range refs {
@@ -208,11 +202,6 @@ func (p *Processor) scan(ctx context.Context, dispatch chan<- dispatchItem) {
 				p.scanStart = (i + 1) % len(sources)
 				return
 			}
-		}
-		if next == "" || next == cursor {
-			delete(p.scanCursors, source.Name())
-		} else {
-			p.scanCursors[source.Name()] = next
 		}
 	}
 }

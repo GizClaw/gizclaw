@@ -39,10 +39,10 @@ func (s *scanTestSource) ScanDue(_ context.Context, _ time.Time, _ int, cursor s
 	return s.pages[page], next, nil
 }
 
-func TestProcessorScanReadsSourcesRoundRobin(t *testing.T) {
+func TestProcessorScanRestartsAtBeginningAndRotatesSources(t *testing.T) {
 	first := &scanTestSource{name: "first", pages: [][]Reference{
-		{{Source: "first", DeletionID: "first-1"}},
-		{{Source: "first", DeletionID: "first-2"}},
+		{{Source: "first", DeletionID: "first-9"}},
+		{{Source: "first", DeletionID: "first-0"}},
 	}}
 	second := &scanTestSource{name: "second", pages: [][]Reference{
 		{{Source: "second", DeletionID: "second-1"}},
@@ -61,14 +61,14 @@ func TestProcessorScanReadsSourcesRoundRobin(t *testing.T) {
 	}
 	processor.scan(context.Background(), dispatch)
 	got := []string{(<-dispatch).ref.DeletionID, (<-dispatch).ref.DeletionID, (<-dispatch).ref.DeletionID}
-	want := []string{"first-1", "second-1", "first-2"}
+	want := []string{"first-9", "second-1", "first-0"}
 	for i := range want {
 		if got[i] != want[i] {
 			t.Fatalf("dispatch order = %v, want %v", got, want)
 		}
 	}
-	if len(first.cursors) != 2 || first.cursors[0] != "" || first.cursors[1] != "first-1" {
-		t.Fatalf("first source cursors = %v, want [empty first-1]", first.cursors)
+	if len(first.cursors) != 2 || first.cursors[0] != "" || first.cursors[1] != "" {
+		t.Fatalf("first source cursors = %v, want both empty", first.cursors)
 	}
 }
 
