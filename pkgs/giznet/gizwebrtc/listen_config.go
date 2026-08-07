@@ -147,6 +147,7 @@ func newPionAPIs(c *ListenConfig, includeGatewaySCTP bool) (*webrtc.API, *webrtc
 	}
 	settingEngine.SetSCTPRTOMax(sctpRetransmissionTimeoutMax)
 	settingEngine.SetDTLSRetransmissionInterval(dtlsRetransmissionInterval)
+	settingEngine.SetICEMaxBindingRequests(iceMaxBindingRequests)
 	settingEngine.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)
 	if iceLite(c) {
 		settingEngine.SetLite(true)

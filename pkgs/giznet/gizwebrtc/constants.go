@@ -31,6 +31,11 @@ const (
 	// retrying. A shorter interval keeps burst establishment bounded while
 	// retaining DTLS's retransmission and exponential-backoff behavior.
 	dtlsRetransmissionInterval = 150 * time.Millisecond
+	// The ICE agent checks candidate pairs every 200 ms. Pion's default of seven
+	// requests can permanently discard an otherwise valid relay pair during a
+	// 1,000-session synchronized burst. Keep retrying for about five seconds;
+	// the caller's Dial context remains the authoritative overall bound.
+	iceMaxBindingRequests = 25
 	// Keep stream writes large enough to carry a 32 KiB RPC payload with few
 	// SCTP messages while staying below the unstable maximum message boundary.
 	// The previous 1400-byte split multiplied every tunnel frame into dozens of

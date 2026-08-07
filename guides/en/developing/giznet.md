@@ -127,7 +127,12 @@ retransmission is capped at 150 ms, and DTLS
 flights use a 150 ms initial retransmission interval, so lost handshake flights
 during a burst do not add the one-second defaults. SCTP reliable delivery and
 its retransmission count remain unchanged; DTLS retransmission and exponential
-backoff remain enabled.
+backoff remain enabled. ICE candidate pairs remain eligible for 25 binding
+requests, about five seconds at Pion's 200 ms check interval, so transient relay
+packet loss during a synchronized burst does not permanently discard a valid
+pair. The caller's Dial context still bounds the whole handshake. A packet
+DataChannel timeout reports the final PeerConnection, ICE, DTLS, SCTP, and
+candidate-pair counters for diagnosis.
 
 ## Dependencies
 

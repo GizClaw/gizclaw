@@ -373,6 +373,10 @@ stream_coturn_metrics() {
 set -euo pipefail
 stop_file="$1"
 initial_delay_milliseconds="$2"
+if [[ -z "${EPOCHREALTIME:-}" ]]; then
+  echo "coturn metrics stream requires Bash EPOCHREALTIME" >&2
+  exit 1
+fi
 if ((initial_delay_milliseconds > 0)); then
   initial_delay_seconds="$(awk -v milliseconds="$initial_delay_milliseconds" 'BEGIN { printf "%.3f", milliseconds / 1000 }')"
   sleep "$initial_delay_seconds"

@@ -109,7 +109,11 @@ service DataChannel，与 gateway 每条 upstream association 的 active-session
 retransmission 上限为 150 ms，DTLS flight
 的 initial retransmission interval 为 150 ms，使 burst 中丢失 handshake flight 时不会固定
 增加默认的 1 秒等待。SCTP reliable delivery 和 retransmission count 不变；DTLS
-retransmission 与 exponential backoff 仍然启用。
+retransmission 与 exponential backoff 仍然启用。ICE candidate pair 保留 25 次 binding
+request 机会，按 Pion 的 200 ms check interval 约为 5 秒，避免同步 burst 期间的
+短时 relay 丢包永久淘汰有效 pair；整个 handshake 仍由调用方的 Dial context 限定。
+packet DataChannel 超时时会输出最终 PeerConnection、ICE、DTLS、SCTP 状态和
+candidate-pair 计数，用于诊断。
 
 ### giztunnel
 

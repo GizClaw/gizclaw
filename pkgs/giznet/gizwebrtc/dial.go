@@ -274,6 +274,7 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		t.SetRemoteDescription = time.Since(started)
 	})
 	if err := waitForPacketChannel(ctx, conn.readyCh); err != nil {
+		err = fmt.Errorf("%w: %s", err, peerConnectionStateDetails(pc))
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, err
@@ -310,6 +311,46 @@ func waitForPacketChannel(ctx context.Context, ready <-chan struct{}) error {
 	case <-ctx.Done():
 		return fmt.Errorf("gizwebrtc: wait for packet channel: %w", ctx.Err())
 	}
+}
+
+func peerConnectionStateDetails(pc *webrtc.PeerConnection) string {
+	if pc == nil {
+		return "peer_connection_state=unavailable"
+	}
+	dtlsState := "unavailable"
+	sctpState := "unavailable"
+	if sctp := pc.SCTP(); sctp != nil {
+		sctpState = sctp.State().String()
+		if dtls := sctp.Transport(); dtls != nil {
+			dtlsState = dtls.State().String()
+		}
+	}
+	detail := fmt.Sprintf(
+		"peer_connection_state=%s ice_state=%s ice_gathering_state=%s signaling_state=%s dtls_state=%s sctp_state=%s",
+		pc.ConnectionState(),
+		pc.ICEConnectionState(),
+		pc.ICEGatheringState(),
+		pc.SignalingState(),
+		dtlsState,
+		sctpState,
+	)
+	pair, ok := selectedICECandidatePair(pc.GetStats())
+	if !ok {
+		return detail + " ice_pair=unavailable"
+	}
+	return fmt.Sprintf(
+		"%s ice_pair_state=%s nominated=%t packets_sent=%d packets_received=%d requests_sent=%d responses_received=%d requests_received=%d responses_sent=%d packets_discarded_on_send=%d",
+		detail,
+		pair.State,
+		pair.Nominated,
+		pair.PacketsSent,
+		pair.PacketsReceived,
+		pair.RequestsSent,
+		pair.ResponsesReceived,
+		pair.RequestsReceived,
+		pair.ResponsesSent,
+		pair.PacketsDiscardedOnSend,
+	)
 }
 
 func postOffer(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, offerSDP string, cfg DialConfig) (string, error) {
