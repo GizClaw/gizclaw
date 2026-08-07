@@ -85,11 +85,13 @@ if ((build_status != 0)); then
   exit "$build_status"
 fi
 mv "$temporary_output" "$output_path"
+output_sha256="$(shasum -a 256 "$output_path" | awk '{print $1}')"
 
 docker run --rm \
   --platform "$docker_platform" \
-  --volume "$output_path:/usr/local/bin/gizclaw:ro" \
+  --env GIZCLAW_E2E_EXPECTED_BINARY_SHA256="$output_sha256" \
+  --volume "$output_dir:/gizclaw-bin:ro" \
   --entrypoint bash \
   "$base_image" \
-  -lc 'set -e; test -x /usr/local/bin/gizclaw; ldd /usr/local/bin/gizclaw; /usr/local/bin/gizclaw --help >/dev/null'
+  -lc 'set -e; binary=/gizclaw-bin/gizclaw-linux; test -x "$binary"; test "$(sha256sum "$binary" | awk '\''{print $1}'\'')" = "$GIZCLAW_E2E_EXPECTED_BINARY_SHA256"; ldd "$binary"; "$binary" --help >/dev/null'
 echo "==> Linux CGO build passed: platform=$docker_platform bytes=$(wc -c < "$output_path" | tr -d ' ') output=$output_path"
