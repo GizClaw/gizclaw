@@ -159,10 +159,10 @@ func newPionAPIsWithICEUDPBuffers(
 	if c != nil && c.SCTPReceiveBufferSize != 0 {
 		settingEngine.SetSCTPMaxReceiveBufferSize(c.SCTPReceiveBufferSize)
 	}
-	// Keep Pion's RFC-compliant SCTP RTO bounds. SetSCTPRTOMax also caps the
-	// established association's DATA/T3 timer, so using the shorter handshake
-	// retry interval here causes spurious congestion-window collapse under a
-	// synchronized long-lived workload.
+	// SetSCTPRTOMax would also cap the established association's DATA/T3 timer
+	// and cause spurious congestion-window collapse during synchronized soak
+	// traffic. Limit only T1-init and T1-cookie instead.
+	settingEngine.SetSCTPHandshakeRTOMax(sctpHandshakeRetransmissionTimeoutMax)
 	settingEngine.SetDTLSRetransmissionInterval(dtlsRetransmissionInterval)
 	settingEngine.SetICEMaxBindingRequests(iceMaxBindingRequests)
 	settingEngine.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)

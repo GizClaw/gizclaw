@@ -23,6 +23,10 @@ const (
 	// upstream associations. Public client associations retain Pion's default
 	// receive window.
 	GatewaySCTPReceiveBufferSize = sctpBurstServiceStreams * streamWriteHighWater
+	// A lost SCTP INIT or COOKIE flight otherwise waits Pion's one-second
+	// default before retrying. Keep only the handshake timers short; established
+	// DATA/T3 timers retain the RFC-compliant association defaults.
+	sctpHandshakeRetransmissionTimeoutMax = 150 * time.Millisecond
 	// A lost DTLS flight otherwise waits Pion's one-second default before
 	// retrying. A shorter interval keeps burst establishment bounded while
 	// retaining DTLS's retransmission and exponential-backoff behavior.

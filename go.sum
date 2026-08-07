@@ -58,10 +58,10 @@ github.com/GizClaw/flowcraft/sdkx v0.4.10 h1:YKjuRxE9iN2R2baOckfbH0f87d0P0Qkltip
 github.com/GizClaw/flowcraft/sdkx v0.4.10/go.mod h1:1a2Rw1uxXqTCypP+j0zHfszwtOhlsiXwgQSM4k4LMrw=
 github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111 h1:YDuhGJfgRzbBCsN5YHS99K4v1GVsUk05DeK/11r6fug=
 github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111/go.mod h1:GYb/V+peMdzoU+4tCfiWnL3Efls+wDgA0rirlPhOFL8=
-github.com/GizClaw/pion-sctp v0.0.0-20260807033615-feaa3689bd19 h1:o4mHQmK7t1n2GvM9T4bV962N0XJpDFnMDIs4Q9bSjd0=
-github.com/GizClaw/pion-sctp v0.0.0-20260807033615-feaa3689bd19/go.mod h1:UeyX8aRca892UhRetke5BTkhvISxX/wiBdLl+njo1Lo=
-github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260807034320-0b3ceb45f5a5 h1:Vc3o9PKd1g439NwigAuCE8w6k6Nz2/D0ttVcqWw34vw=
-github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260807034320-0b3ceb45f5a5/go.mod h1:B6fd6wD6CY7FsWsIXGTJhPFWTHyROxR8WL38u9PnV+4=
+github.com/GizClaw/pion-sctp v0.0.0-20260807053818-db7098874774 h1:PGYsxXpcdkBAv4knL4o0Ja6kdfVsHB+jyvUSwqDs034=
+github.com/GizClaw/pion-sctp v0.0.0-20260807053818-db7098874774/go.mod h1:UeyX8aRca892UhRetke5BTkhvISxX/wiBdLl+njo1Lo=
+github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260807054219-ca8a5eb8f3d7 h1:49u5Dr8wlBcCdLTPn5rJ2Y3PqqITWrEWtv4VFqDHqPQ=
+github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260807054219-ca8a5eb8f3d7/go.mod h1:/XCjlny5SyJecBkFvmkX6FYAEoE1XLSkaSY3MtMdjBI=
 github.com/GizClaw/pixa v0.0.0-20260730044130-e59a9ee62701 h1:62RK6cJC++X/hy8LFgb1KFKhLF99tAcl3sd2mwbbqjE=
 github.com/GizClaw/pixa v0.0.0-20260730044130-e59a9ee62701/go.mod h1:vuKKNwc3tWhbZViT5kZjC6x1htocCmdFkb+oqCEpe7s=
 github.com/HdrHistogram/hdrhistogram-go v1.1.0/go.mod h1:yDgFjdqOqDEKOvasDdhWNXYg9BVp4O+o5f6V/ehm6Oo=
