@@ -256,6 +256,7 @@ func TestInterleavedServiceStreamsDoNotExhaustSCTPReceiveWindow(t *testing.T) {
 }
 
 func TestServiceStreamsRotateDataChannelIDsAfterReset(t *testing.T) {
+	const negotiatedStreams = uint16(8)
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(server) error = %v", err)
@@ -267,6 +268,7 @@ func TestServiceStreamsRotateDataChannelIDsAfterReset(t *testing.T) {
 	serverListener, err := (&ListenConfig{
 		CipherMode:     CipherModePlaintext,
 		SecurityPolicy: allowAllPolicy{},
+		API:            newLimitedSCTPAPI(negotiatedStreams),
 	}).Listen(serverKey)
 	if err != nil {
 		t.Fatalf("Listen error = %v", err)
@@ -275,12 +277,13 @@ func TestServiceStreamsRotateDataChannelIDsAfterReset(t *testing.T) {
 	httpServer := httptest.NewServer(serverListener.SignalingHandler())
 	defer httpServer.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	clientListener, clientConn, err := Dial(ctx, clientKey, serverKey.Public, DialConfig{
 		SignalingURL:   httpServer.URL + SignalingPath,
 		CipherMode:     CipherModePlaintext,
 		SecurityPolicy: allowAllPolicy{},
+		API:            newLimitedSCTPAPI(negotiatedStreams),
 	})
 	if err != nil {
 		t.Fatalf("Dial error = %v", err)
@@ -292,11 +295,28 @@ func TestServiceStreamsRotateDataChannelIDsAfterReset(t *testing.T) {
 
 	service := serverConn.ListenService(100)
 	defer service.Close()
-	openExchangeClose := func(sequence int) (*webrtc.DataChannel, uint16) {
+	type streamPair struct {
+		client      net.Conn
+		server      net.Conn
+		dataChannel *webrtc.DataChannel
+		id          uint16
+	}
+	openExchange := func(sequence int) streamPair {
 		t.Helper()
-		clientStream, err := clientConn.DialContext(ctx, 100)
-		if err != nil {
-			t.Fatalf("DialContext stream %d error = %v", sequence, err)
+		var clientStream net.Conn
+		for {
+			clientStream, err = clientConn.DialContext(ctx, 100)
+			if err == nil {
+				break
+			}
+			if !errors.Is(err, webrtc.ErrMaxDataChannelID) {
+				t.Fatalf("DialContext stream %d error = %v", sequence, err)
+			}
+			select {
+			case <-ctx.Done():
+				t.Fatalf("wait for reset-complete ID release for stream %d: %v", sequence, ctx.Err())
+			case <-time.After(time.Millisecond):
+			}
 		}
 		serverStream, err := service.Accept()
 		if err != nil {
@@ -350,43 +370,62 @@ func TestServiceStreamsRotateDataChannelIDsAfterReset(t *testing.T) {
 		if !bytes.Equal(received, response) {
 			t.Errorf("response %d payload = %q, want %q", sequence, received, response)
 		}
-		id := *dataChannel.ID()
-		if err := serverStream.Close(); err != nil {
+		return streamPair{
+			client:      clientStream,
+			server:      serverStream,
+			dataChannel: dataChannel,
+			id:          *dataChannel.ID(),
+		}
+	}
+	closePair := func(sequence int, pair streamPair) {
+		t.Helper()
+		if err := pair.server.Close(); err != nil {
 			t.Errorf("Close server stream %d error = %v", sequence, err)
 		}
-		if err := clientStream.Close(); err != nil {
+		if err := pair.client.Close(); err != nil {
 			t.Errorf("Close client stream %d error = %v", sequence, err)
 		}
-		serverConn.serviceMu.Lock()
-		inboundReservations := len(serverConn.inbound)
-		trackedStreams := len(serverConn.streams[100])
-		serverConn.serviceMu.Unlock()
-		if inboundReservations != 0 || trackedStreams != 0 {
-			t.Fatalf(
-				"closed stream %d retained inbound=%d tracked=%d, want zero",
-				sequence,
-				inboundReservations,
-				trackedStreams,
-			)
-		}
-		return dataChannel, id
 	}
 
-	firstDataChannel, firstID := openExchangeClose(0)
-	seenDataChannels := map[*webrtc.DataChannel]struct{}{firstDataChannel: {}}
-	seenIDs := map[uint16]struct{}{firstID: {}}
-	const streamCount = 8
-	for sequence := 1; sequence <= streamCount; sequence++ {
-		dataChannel, id := openExchangeClose(sequence)
-		if _, exists := seenDataChannels[dataChannel]; exists {
+	first := openExchange(0)
+	sibling := openExchange(1)
+	if first.id == sibling.id {
+		t.Fatalf("concurrent DataChannels share ID %d", first.id)
+	}
+	closePair(0, first)
+
+	const localIDCount = int(negotiatedStreams / 2)
+	var replacement *streamPair
+	for sequence := 2; sequence < 2+localIDCount*2; sequence++ {
+		candidate := openExchange(sequence)
+		if candidate.dataChannel == first.dataChannel || candidate.dataChannel == sibling.dataChannel {
 			t.Fatal("reused DataChannel object instead of opening a new channel")
 		}
-		seenDataChannels[dataChannel] = struct{}{}
-		if _, exists := seenIDs[id]; exists {
-			t.Fatalf("DataChannel ID %d was immediately reused after reset", id)
+		if candidate.id == first.id {
+			replacement = &candidate
+			break
 		}
-		seenIDs[id] = struct{}{}
+		closePair(sequence, candidate)
 	}
+	if replacement == nil {
+		t.Fatalf("DataChannel ID %d was not reused after reset completion", first.id)
+	}
+
+	siblingPayload := []byte("sibling-still-active")
+	if _, err := sibling.client.Write(siblingPayload); err != nil {
+		t.Fatalf("Write active sibling after ID reuse: %v", err)
+	}
+	received := make([]byte, len(siblingPayload))
+	if _, err := io.ReadFull(sibling.server, received); err != nil {
+		t.Fatalf("Read active sibling after ID reuse: %v", err)
+	}
+	if !bytes.Equal(received, siblingPayload) {
+		t.Fatalf("active sibling payload = %q, want %q", received, siblingPayload)
+	}
+
+	closePair(100, *replacement)
+	closePair(1, sibling)
+	requireServiceStreamsReleased(t, serverConn, 100)
 }
 
 func TestDialSignalingWithFixedICEPort(t *testing.T) {
@@ -566,6 +605,36 @@ func newTCPOnlyClientAPI() *webrtc.API {
 	settingEngine.SetIncludeLoopbackCandidate(true)
 	settingEngine.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeTCP4})
 	return webrtc.NewAPI(webrtc.WithSettingEngine(settingEngine))
+}
+
+func newLimitedSCTPAPI(streams uint16) *webrtc.API {
+	settingEngine := webrtc.SettingEngine{}
+	settingEngine.DetachDataChannels()
+	settingEngine.SetIncludeLoopbackCandidate(true)
+	settingEngine.SetSCTPNumStreams(streams, streams)
+	return webrtc.NewAPI(webrtc.WithSettingEngine(settingEngine))
+}
+
+func requireServiceStreamsReleased(t *testing.T, conn *Conn, service uint64) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		conn.serviceMu.Lock()
+		inboundReservations := len(conn.inbound)
+		trackedStreams := len(conn.streams[service])
+		conn.serviceMu.Unlock()
+		if inboundReservations == 0 && trackedStreams == 0 {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf(
+				"closed streams retained inbound=%d tracked=%d, want zero",
+				inboundReservations,
+				trackedStreams,
+			)
+		}
+		time.Sleep(time.Millisecond)
+	}
 }
 
 func readDirectPacketWithTimeout(t *testing.T, conn *Conn) (byte, []byte) {
