@@ -2,12 +2,74 @@ package pendingdeletion
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+type invalidStoredMarkerHandler struct{}
+
+func (invalidStoredMarkerHandler) Kind() Kind { return KindPeer }
+
+func (invalidStoredMarkerHandler) Handle(_ context.Context, claim Claim) error {
+	if err := ValidateTask(claim.Task); err != nil {
+		return Terminal("invalid_marker", "stored marker is invalid", err)
+	}
+	return errors.New("expected invalid stored marker")
+}
+
+func TestKVMalformedLegacyMarkerBecomesTerminal(t *testing.T) {
+	ctx := t.Context()
+	store := kv.NewMemory(nil)
+	record, err := New(KindPeer, "peer-malformed", nil, ReasonPeerDelete, struct{}{}, time.Now().Add(-time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	record.DescriptorVersion++
+	encoded, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set(ctx, byIDKey(record.DeletionID), encoded); err != nil {
+		t.Fatal(err)
+	}
+	source := KVSource{Store: store, SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+	registry := NewRegistry()
+	if err := registry.Register(source, invalidStoredMarkerHandler{}); err != nil {
+		t.Fatal(err)
+	}
+	processor, err := NewProcessor(registry, Config{
+		ScanInterval: 5 * time.Millisecond, PageSize: 1, DispatchCapacity: 1, Workers: 1,
+		LeaseDuration: time.Second, AttemptTimeout: 500 * time.Millisecond,
+		RetryInitial: time.Millisecond, RetryMax: time.Second, MaxAttempts: 3,
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	processor.Start(ctx)
+	t.Cleanup(processor.Close)
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		task, err := source.GetTask(ctx, record.DeletionID)
+		if err == nil && task.Status == StatusFailed {
+			if task.LastErrorCode != "invalid_marker" || task.FailureCount != 1 {
+				t.Fatalf("failed task = %#v", task)
+			}
+			break
+		}
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			t.Fatal(err)
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("malformed legacy marker did not become terminal")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
 
 func TestKVTaskTransitionsUseAtomicGuards(t *testing.T) {
 	for _, fixture := range []struct {

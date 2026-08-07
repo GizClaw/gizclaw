@@ -14,17 +14,19 @@ import (
 
 type scanTestSource struct {
 	Source
-	name  string
-	pages [][]Reference
-	mu    sync.Mutex
-	calls int
+	name    string
+	pages   [][]Reference
+	mu      sync.Mutex
+	calls   int
+	cursors []string
 }
 
 func (s *scanTestSource) Name() string  { return s.name }
 func (s *scanTestSource) Kinds() []Kind { return []Kind{KindPeer} }
-func (s *scanTestSource) ScanDue(context.Context, time.Time, int, string) ([]Reference, string, error) {
+func (s *scanTestSource) ScanDue(_ context.Context, _ time.Time, _ int, cursor string) ([]Reference, string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.cursors = append(s.cursors, cursor)
 	page := s.calls
 	s.calls++
 	if page >= len(s.pages) {
@@ -54,12 +56,19 @@ func TestProcessorScanReadsSourcesRoundRobin(t *testing.T) {
 	processor := &Processor{registry: registry, config: Config{PageSize: 1}, now: time.Now}
 	dispatch := make(chan dispatchItem, 3)
 	processor.scan(context.Background(), dispatch)
+	if got := len(dispatch); got != 2 {
+		t.Fatalf("first scan dispatch count = %d, want 2", got)
+	}
+	processor.scan(context.Background(), dispatch)
 	got := []string{(<-dispatch).ref.DeletionID, (<-dispatch).ref.DeletionID, (<-dispatch).ref.DeletionID}
 	want := []string{"first-1", "second-1", "first-2"}
 	for i := range want {
 		if got[i] != want[i] {
 			t.Fatalf("dispatch order = %v, want %v", got, want)
 		}
+	}
+	if len(first.cursors) != 2 || first.cursors[0] != "" || first.cursors[1] != "first-1" {
+		t.Fatalf("first source cursors = %v, want [empty first-1]", first.cursors)
 	}
 }
 

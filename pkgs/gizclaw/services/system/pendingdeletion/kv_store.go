@@ -191,6 +191,17 @@ func validateLocatorRecord(record Record, kind Kind, resourceID string) error {
 
 // Get loads and validates one KV-backed deletion event by ID.
 func Get(ctx context.Context, store kv.Store, deletionID string) (Record, error) {
+	record, err := getStoredRecord(ctx, store, deletionID)
+	if err != nil {
+		return Record{}, err
+	}
+	if err := record.Validate(); err != nil {
+		return Record{}, fmt.Errorf("pending deletion: validate %s: %w", deletionID, err)
+	}
+	return record, nil
+}
+
+func getStoredRecord(ctx context.Context, store kv.Store, deletionID string) (Record, error) {
 	if store == nil {
 		return Record{}, errors.New("pending deletion: KV store not configured")
 	}
@@ -208,9 +219,6 @@ func Get(ctx context.Context, store kv.Store, deletionID string) (Record, error)
 			deletionID,
 			record.DeletionID,
 		)
-	}
-	if err := record.Validate(); err != nil {
-		return Record{}, fmt.Errorf("pending deletion: validate %s: %w", deletionID, err)
 	}
 	return record, nil
 }

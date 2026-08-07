@@ -192,6 +192,21 @@ func ValidateTask(task Task) error {
 	if err != nil || fingerprint != task.MarkerFingerprint {
 		return fmt.Errorf("%w: marker fingerprint mismatch", ErrInvalid)
 	}
+	return validateTaskState(task)
+}
+
+func validateStoredTask(task Task) error {
+	if strings.TrimSpace(task.Source) == "" || task.Source != strings.TrimSpace(task.Source) {
+		return fmt.Errorf("%w: invalid source", ErrInvalid)
+	}
+	fingerprint, err := StoredFingerprint(task.Record)
+	if err != nil || fingerprint != task.MarkerFingerprint {
+		return fmt.Errorf("%w: stored marker fingerprint mismatch", ErrInvalid)
+	}
+	return validateTaskState(task)
+}
+
+func validateTaskState(task Task) error {
 	switch task.Status {
 	case StatusQueued, StatusRunning, StatusRetryWait, StatusFailed:
 	default:

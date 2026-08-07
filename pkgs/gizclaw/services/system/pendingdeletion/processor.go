@@ -78,6 +78,9 @@ type Processor struct {
 	wake    chan struct{}
 	started bool
 	active  atomic.Int64
+
+	scanCursors map[string]string
+	scanStart   int
 }
 
 // NewProcessor validates and constructs a stopped processor.
@@ -175,42 +178,41 @@ func (p *Processor) scan(ctx context.Context, dispatch chan<- dispatchItem) {
 	for _, source := range sources {
 		p.observeSourceStats(ctx, source)
 	}
-	cursors := make([]string, len(sources))
-	active := make([]bool, len(sources))
-	remaining := len(sources)
-	for i := range active {
-		active[i] = true
+	if len(sources) == 0 {
+		return
 	}
-	// Read at most one page from each source per round. Cursors live only for
-	// this scan, so a deep source cannot starve another and the next scan always
-	// begins at the durable due index's start.
-	for remaining > 0 {
-		for i, source := range sources {
-			if !active[i] {
-				continue
+	if p.scanCursors == nil {
+		p.scanCursors = make(map[string]string, len(sources))
+	}
+	start := p.scanStart % len(sources)
+	p.scanStart = (start + 1) % len(sources)
+	// Read at most one page per source in one invocation. A deep or sparse
+	// source therefore cannot monopolize the scanner; its in-memory cursor is
+	// resumed on a later timer or wake and resets after that traversal ends.
+	for offset := range len(sources) {
+		i := (start + offset) % len(sources)
+		source := sources[i]
+		cursor := p.scanCursors[source.Name()]
+		refs, next, err := source.ScanDue(ctx, p.now().UTC(), p.config.PageSize, cursor)
+		if err != nil {
+			p.observe(source.Name(), "", "", "", "scan_error")
+			delete(p.scanCursors, source.Name())
+			continue
+		}
+		for _, ref := range refs {
+			select {
+			case dispatch <- dispatchItem{source: source, ref: ref}:
+			case <-ctx.Done():
+				return
+			default:
+				p.scanStart = (i + 1) % len(sources)
+				return
 			}
-			refs, next, err := source.ScanDue(ctx, p.now().UTC(), p.config.PageSize, cursors[i])
-			if err != nil {
-				p.observe(source.Name(), "", "", "", "scan_error")
-				active[i] = false
-				remaining--
-				continue
-			}
-			for _, ref := range refs {
-				select {
-				case dispatch <- dispatchItem{source: source, ref: ref}:
-				case <-ctx.Done():
-					return
-				default:
-					return
-				}
-			}
-			if next == "" || next == cursors[i] {
-				active[i] = false
-				remaining--
-				continue
-			}
-			cursors[i] = next
+		}
+		if next == "" || next == cursor {
+			delete(p.scanCursors, source.Name())
+		} else {
+			p.scanCursors[source.Name()] = next
 		}
 	}
 }

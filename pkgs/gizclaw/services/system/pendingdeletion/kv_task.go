@@ -251,9 +251,9 @@ func (s KVSource) loadTaskForMutation(ctx context.Context, deletionID string) (T
 		return Task{}, nil, err
 	}
 	if created {
-		current, currentErr := Get(ctx, s.Store, deletionID)
+		current, currentErr := getStoredRecord(ctx, s.Store, deletionID)
 		if currentErr == nil {
-			currentFingerprint, fingerprintErr := Fingerprint(current)
+			currentFingerprint, fingerprintErr := StoredFingerprint(current)
 			if fingerprintErr != nil {
 				currentErr = fingerprintErr
 			} else if currentFingerprint != task.MarkerFingerprint {
@@ -279,7 +279,7 @@ func (s KVSource) loadTaskForMutation(ctx context.Context, deletionID string) (T
 }
 
 func (s KVSource) loadTask(ctx context.Context, deletionID string) (Task, []byte, error) {
-	record, err := Get(ctx, s.Store, deletionID)
+	record, err := getStoredRecord(ctx, s.Store, deletionID)
 	if errors.Is(err, kv.ErrNotFound) {
 		return Task{}, nil, ErrNotFound
 	}
@@ -291,7 +291,7 @@ func (s KVSource) loadTask(ctx context.Context, deletionID string) (Task, []byte
 	}
 	raw, err := s.Store.Get(ctx, kvTaskKey(deletionID))
 	if errors.Is(err, kv.ErrNotFound) {
-		fingerprint, fingerprintErr := Fingerprint(record)
+		fingerprint, fingerprintErr := StoredFingerprint(record)
 		if fingerprintErr != nil {
 			return Task{}, nil, fingerprintErr
 		}
@@ -320,7 +320,7 @@ func (s KVSource) decodeTask(record Record, raw []byte) (Task, []byte, error) {
 		LeaseDeadline: parseKVTaskTime(state.LeaseDeadline), LastErrorCode: state.LastErrorCode,
 		LastErrorMessage: state.LastErrorMessage, UpdatedAt: parseKVTaskTime(state.UpdatedAt),
 	}
-	if err := ValidateTask(task); err != nil {
+	if err := validateStoredTask(task); err != nil {
 		return Task{}, nil, err
 	}
 	return task, append([]byte(nil), raw...), nil
