@@ -334,7 +334,7 @@ func TestExtendedSamplerLiveHealthRejectsFutureClockSkew(t *testing.T) {
 func testExtendedSampler(latest time.Time, gap time.Duration) *extendedSamplerState {
 	roles := make(map[string]*dockerRoleState)
 	for _, role := range []string{"edge", "edge2", "server", "coturn-a", "coturn-b"} {
-		roles[role] = &dockerRoleState{role: role, samples: []roleResourcePoint{
+		roles[role] = &dockerRoleState{role: role, maximumSampleGap: gap, samples: []roleResourcePoint{
 			testExternalRoleResourcePoint(latest.Add(-gap)),
 			testExternalRoleResourcePoint(latest),
 		}}
@@ -352,11 +352,18 @@ func testExternalRoleResourcePoint(at time.Time) roleResourcePoint {
 
 func TestRecordDockerRoleSampleRejectsProcessReplacement(t *testing.T) {
 	state := &dockerRoleState{role: "edge"}
-	first := dockerProcessSample{ProcessID: 10, ProcessStartTicks: 20, OpenFDLimit: 100}
+	started := time.Now()
+	first := dockerProcessSample{
+		Point:     testExternalRoleResourcePoint(started),
+		ProcessID: 10, ProcessStartTicks: 20, OpenFDLimit: 100,
+	}
 	if err := recordDockerRoleSample(state, first); err != nil {
 		t.Fatal(err)
 	}
-	second := dockerProcessSample{ProcessID: 11, ProcessStartTicks: 21, OpenFDLimit: 100}
+	second := dockerProcessSample{
+		Point:     testExternalRoleResourcePoint(started.Add(time.Second)),
+		ProcessID: 11, ProcessStartTicks: 21, OpenFDLimit: 100,
+	}
 	if err := recordDockerRoleSample(state, second); err == nil || !strings.Contains(err.Error(), "process changed") {
 		t.Fatalf("recordDockerRoleSample error = %v", err)
 	}

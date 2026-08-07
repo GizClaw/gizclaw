@@ -97,12 +97,13 @@ releases contain both fixes. The replacements must be removed together after
 those releases are selected and the reset/reuse integration and race tests pass
 without the forks.
 
-Each live service stream lazily allocates one fixed 64 KiB detached-DataChannel
-message buffer on its first read and reuses it for subsequent reads. Any unread
-tail is copied into that stream's pending buffer. The message buffer is
-released when the stream closes, avoiding both a maximum-size allocation for
-every small read and a process-wide pool that retains a short burst's high-water
-mark.
+Each live service stream lazily allocates a 32 KiB detached-DataChannel message
+buffer on its first read and reuses it for subsequent reads. If SCTP reports a
+larger queued message, the stream grows the buffer up to the supported 64 KiB
+maximum and retries without consuming the message. Any unread tail is copied
+into that stream's pending buffer. The message buffer is released when the
+stream closes, avoiding both a maximum-size allocation for every small-message
+stream and a process-wide pool that retains a short burst's high-water mark.
 
 Every PeerConnection continuously drains RTCP feedback for its local Opus
 sender into one reused MTU-sized buffer. The reader exits when Pion closes the

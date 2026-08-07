@@ -85,11 +85,12 @@ release 同时包含这两项修复前，也必须复制这两条 replacement。
 release，并在不使用 fork 时通过 reset/reuse integration test 和 race test 后，才能同时移除
 两条 replacement。
 
-Service stream 在首次读取时为该条活跃 stream 惰性分配固定的 64 KiB
-detached-DataChannel message buffer，之后的读取重复使用它；如果调用方未一次读完，
-则把剩余部分复制到该 stream 自有的 pending buffer。Buffer 随 stream 关闭释放，
-因此既不会为每次小读取重复分配最大尺寸 buffer，也不会由进程级 pool 保留短时 burst
-的高水位。
+Service stream 在首次读取时惰性分配 32 KiB detached-DataChannel message
+buffer，之后的读取重复使用它。如果 SCTP 报告当前排队 message 更大，该 stream
+会在不消费 message 的情况下把 buffer 增长到最大 64 KiB 并重试。如果调用方未一次
+读完，则把剩余部分复制到该 stream 自有的 pending buffer。Buffer 随 stream 关闭
+释放，因此既不会让每条小 message stream 都保留最大尺寸 buffer，也不会由进程级
+pool 保留短时 burst 的高水位。
 
 每个 PeerConnection 会用一个重复使用的 MTU 大小 buffer 持续读取本地 Opus sender 的 RTCP
 feedback；Pion 随 PeerConnection 关闭 sender 时 reader 随即退出。因此长连接中未消费的

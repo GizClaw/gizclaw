@@ -1,6 +1,7 @@
 package gizwebrtc
 
 import (
+	"errors"
 	"io"
 	"net"
 	"os"
@@ -32,9 +33,10 @@ type dataChannelConn struct {
 	tx     *atomic.Uint64
 
 	readMu sync.Mutex
-	// Keep one maximum-sized message buffer per live stream so reads preserve the
-	// supported DataChannel message boundary. A process-wide pool would retain
-	// the burst high-water mark after short-lived streams close.
+	// Start at the normal service-message size and grow only when SCTP reports a
+	// larger queued message. The short-buffer read does not consume that message,
+	// so retrying preserves the supported DataChannel message boundary without
+	// retaining a maximum-sized buffer for every small-message stream.
 	readBuffer []byte
 	pending    []byte
 
@@ -81,10 +83,15 @@ func (c *dataChannelConn) Read(p []byte) (int, error) {
 	}
 
 	if c.readBuffer == nil {
-		c.readBuffer = make([]byte, maxPacketMessageSize)
+		c.readBuffer = make([]byte, streamChunkSize)
 	}
 	buf := c.readBuffer
 	n, _, err := c.raw.ReadDataChannel(buf)
+	if errors.Is(err, io.ErrShortBuffer) && n > len(buf) && n <= maxPacketMessageSize {
+		c.readBuffer = make([]byte, n)
+		buf = c.readBuffer
+		n, _, err = c.raw.ReadDataChannel(buf)
+	}
 	if err != nil {
 		if c.closed.Load() {
 			return 0, io.EOF

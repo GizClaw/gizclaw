@@ -220,8 +220,8 @@ func TestDataChannelConnReadPreservesMaximumMessageSize(t *testing.T) {
 	if n != len(message) || !bytes.Equal(got, message) {
 		t.Fatalf("ReadFull read %d bytes, want the complete %d-byte message", n, len(message))
 	}
-	if got := raw.readCount(); got != 1 {
-		t.Fatalf("raw read count = %d, want 1", got)
+	if got := raw.readCount(); got != 2 {
+		t.Fatalf("raw read count = %d, want one sizing read and one retry", got)
 	}
 }
 
@@ -245,8 +245,8 @@ func TestDataChannelConnReadReusesMessageBuffer(t *testing.T) {
 	if allocations != 0 {
 		t.Fatalf("Read allocations = %f, want 0", allocations)
 	}
-	if got := len(conn.readBuffer); got != maxPacketMessageSize {
-		t.Fatalf("read buffer size = %d, want %d", got, maxPacketMessageSize)
+	if got := len(conn.readBuffer); got != streamChunkSize {
+		t.Fatalf("read buffer size = %d, want %d", got, streamChunkSize)
 	}
 }
 
@@ -497,6 +497,9 @@ func (f *fakeStreamRaw) ReadDataChannel(p []byte) (int, bool, error) {
 		return 0, false, io.EOF
 	}
 	msg := f.reads[0]
+	if len(p) < len(msg) {
+		return len(msg), false, io.ErrShortBuffer
+	}
 	f.reads = f.reads[1:]
 	return copy(p, msg), false, nil
 }
