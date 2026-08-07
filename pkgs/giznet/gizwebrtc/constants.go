@@ -23,10 +23,6 @@ const (
 	// upstream associations. Public client associations retain Pion's default
 	// receive window.
 	GatewaySCTPReceiveBufferSize = sctpBurstServiceStreams * streamWriteHighWater
-	// SCTP's one-second initial retransmission is visible in burst DataChannel
-	// setup when an INIT or COOKIE flight is lost. Cap the retry interval while
-	// retaining reliable delivery and the existing retransmission count.
-	sctpRetransmissionTimeoutMax = 150 * time.Millisecond
 	// A lost DTLS flight otherwise waits Pion's one-second default before
 	// retrying. A shorter interval keeps burst establishment bounded while
 	// retaining DTLS's retransmission and exponential-backoff behavior.
