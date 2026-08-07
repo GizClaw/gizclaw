@@ -16,6 +16,7 @@ type scanTestSource struct {
 	Source
 	name    string
 	pages   [][]Reference
+	nexts   []string
 	mu      sync.Mutex
 	calls   int
 	cursors []string
@@ -33,13 +34,15 @@ func (s *scanTestSource) ScanDue(_ context.Context, _ time.Time, _ int, cursor s
 		return nil, "", nil
 	}
 	next := ""
-	if page+1 < len(s.pages) {
+	if page < len(s.nexts) {
+		next = s.nexts[page]
+	} else if page+1 < len(s.pages) && len(s.pages[page]) > 0 {
 		next = s.pages[page][len(s.pages[page])-1].DeletionID
 	}
 	return s.pages[page], next, nil
 }
 
-func TestProcessorScanRestartsAtBeginningAndRotatesSources(t *testing.T) {
+func TestProcessorScanAdvancesBoundedSourceCursorsAndRotatesSources(t *testing.T) {
 	first := &scanTestSource{name: "first", pages: [][]Reference{
 		{{Source: "first", DeletionID: "first-9"}},
 		{{Source: "first", DeletionID: "first-0"}},
@@ -67,8 +70,40 @@ func TestProcessorScanRestartsAtBeginningAndRotatesSources(t *testing.T) {
 			t.Fatalf("dispatch order = %v, want %v", got, want)
 		}
 	}
-	if len(first.cursors) != 2 || first.cursors[0] != "" || first.cursors[1] != "" {
-		t.Fatalf("first source cursors = %v, want both empty", first.cursors)
+	if len(first.cursors) != 2 || first.cursors[0] != "" || first.cursors[1] != "first-9" {
+		t.Fatalf("first source cursors = %v, want initial and advanced cursors", first.cursors)
+	}
+	processor.scan(t.Context(), dispatch)
+	if len(dispatch) != 0 {
+		t.Fatal("tail reset unexpectedly redispatched exhausted pages")
+	}
+	if len(first.cursors) != 3 || first.cursors[2] != "" {
+		t.Fatalf("first source cursors = %v, want reset after reaching tail", first.cursors)
+	}
+}
+
+func TestProcessorScanPassesSparsePageBeforeLaterDueWork(t *testing.T) {
+	source := &scanTestSource{
+		name:  "peer",
+		pages: [][]Reference{nil, {{Source: "peer", DeletionID: "due-later"}}},
+		nexts: []string{"future-first", ""},
+	}
+	registry := NewRegistry()
+	if err := registry.Register(source, &registryTestHandler{kind: KindPeer}); err != nil {
+		t.Fatal(err)
+	}
+	processor := &Processor{registry: registry, config: Config{PageSize: 1}, now: time.Now}
+	dispatch := make(chan dispatchItem, 1)
+	processor.scan(t.Context(), dispatch)
+	if len(dispatch) != 0 {
+		t.Fatal("sparse first page unexpectedly dispatched work")
+	}
+	processor.scan(t.Context(), dispatch)
+	if len(dispatch) != 1 || (<-dispatch).ref.DeletionID != "due-later" {
+		t.Fatal("later due work was not reached after advancing the source cursor")
+	}
+	if got := source.cursors; len(got) != 2 || got[0] != "" || got[1] != "future-first" {
+		t.Fatalf("source cursors = %v, want bounded forward progress", got)
 	}
 }
 

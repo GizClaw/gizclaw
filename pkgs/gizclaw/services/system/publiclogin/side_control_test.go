@@ -277,6 +277,40 @@ func TestDeviceTokenCreationRechecksAvailabilityInsideCredentialLock(t *testing.
 	}
 }
 
+func TestSideControlLoginRechecksAvailabilityAtCredentialCommit(t *testing.T) {
+	serverKey := generateTestKeyPair(t)
+	controller := generateTestKeyPair(t)
+	target := generateTestKeyPair(t).Public
+	manager := NewSessionManager(kv.NewMemory(nil))
+	token, err := manager.CreateSideControlDeviceToken(t.Context(), target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertion, err := NewLoginAssertion(controller, serverKey.Public, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	manager.Authorizer = func(context.Context, giznet.PublicKey) error {
+		calls++
+		if calls == 3 {
+			return ErrPeerDeletionPending
+		}
+		return nil
+	}
+	if _, err := manager.loginSideControl(t.Context(), serverKey, controller.Public, assertion, token.Token); !errors.Is(err, ErrPeerDeletionPending) {
+		t.Fatalf("loginSideControl() error = %v, want pending deletion", err)
+	}
+	if calls != 3 {
+		t.Fatalf("authorizer calls = %d, want validation plus commit-boundary recheck", calls)
+	}
+
+	manager.Authorizer = nil
+	if _, err := manager.loginSideControl(t.Context(), serverKey, controller.Public, assertion, token.Token); err != nil {
+		t.Fatalf("rejected login mutated assertion or device token: %v", err)
+	}
+}
+
 func loginSideController(t *testing.T, server *Server, controller *giznet.KeyPair, deviceToken string) peerhttp.Login200JSONResponse {
 	t.Helper()
 	assertion, err := NewLoginAssertion(controller, server.KeyPair.Public, time.Minute)

@@ -79,7 +79,8 @@ type Processor struct {
 	started bool
 	active  atomic.Int64
 
-	scanStart int
+	scanStart   int
+	scanCursors map[string]string
 }
 
 // NewProcessor validates and constructs a stopped processor.
@@ -91,11 +92,12 @@ func NewProcessor(registry *Registry, config Config, metricsStore metrics.Store)
 		return nil, err
 	}
 	return &Processor{
-		registry: registry,
-		config:   config,
-		metrics:  metricsStore,
-		now:      time.Now,
-		wake:     make(chan struct{}, 1),
+		registry:    registry,
+		config:      config,
+		metrics:     metricsStore,
+		now:         time.Now,
+		wake:        make(chan struct{}, 1),
+		scanCursors: make(map[string]string),
 	}, nil
 }
 
@@ -113,6 +115,8 @@ func (p *Processor) Start(parent context.Context) {
 	p.cancel = cancel
 	p.done = make(chan struct{})
 	p.started = true
+	p.scanStart = 0
+	p.scanCursors = make(map[string]string)
 	go p.run(ctx, p.done)
 }
 
@@ -183,12 +187,18 @@ func (p *Processor) scan(ctx context.Context, dispatch chan<- dispatchItem) {
 	start := p.scanStart % len(sources)
 	p.scanStart = (start + 1) % len(sources)
 	// Read at most one page per source in one invocation. A deep or sparse
-	// source therefore cannot monopolize the scanner. Every invocation starts
-	// at the due-index beginning so newly inserted earlier keys cannot starve.
+	// source therefore cannot monopolize the scanner. In-memory cursors advance
+	// across invocations and reset after the source tail, so non-due or
+	// foreign-kind records cannot permanently hide later due work. A fresh
+	// processor lifecycle always restarts discovery from the beginning.
+	if p.scanCursors == nil {
+		p.scanCursors = make(map[string]string)
+	}
 	for offset := range len(sources) {
 		i := (start + offset) % len(sources)
 		source := sources[i]
-		refs, _, err := source.ScanDue(ctx, p.now().UTC(), p.config.PageSize, "")
+		cursor := p.scanCursors[source.Name()]
+		refs, next, err := source.ScanDue(ctx, p.now().UTC(), p.config.PageSize, cursor)
 		if err != nil {
 			p.observe(source.Name(), "", "", "", "scan_error")
 			continue
@@ -202,6 +212,11 @@ func (p *Processor) scan(ctx context.Context, dispatch chan<- dispatchItem) {
 				p.scanStart = (i + 1) % len(sources)
 				return
 			}
+		}
+		if next == "" {
+			delete(p.scanCursors, source.Name())
+		} else {
+			p.scanCursors[source.Name()] = next
 		}
 	}
 }

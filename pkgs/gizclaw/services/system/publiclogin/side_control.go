@@ -299,6 +299,12 @@ func (m *SessionManager) loginSideControl(ctx context.Context, serverKeyPair *gi
 	if err != nil {
 		return peerhttp.LoginResult{}, err
 	}
+	if err := m.authorize(ctx, controller); err != nil {
+		return peerhttp.LoginResult{}, err
+	}
+	if err := m.authorize(ctx, target); err != nil {
+		return peerhttp.LoginResult{}, err
+	}
 	if err := m.Store.BatchSet(ctx, []kv.Entry{
 		{Key: assertionKey(claims), Value: []byte("used"), Deadline: time.Unix(claims.Exp, 0)},
 		{Key: recordKey, Value: recordBody, Deadline: time.UnixMilli(record.ExpiresAt)},
