@@ -6,7 +6,8 @@ e2e_dir="$(cd "$script_dir/.." && pwd)"
 repo_root="$(cd "$e2e_dir/../.." && pwd)"
 output_dir="$e2e_dir/testdata/bin"
 output_path="$output_dir/gizclaw-linux"
-temporary_output="$output_path.tmp.$$"
+verification_dir=""
+temporary_output=""
 build_pid=""
 builder_suffix="$(printf '%s-%s' "${USER:-user}" "$$" | tr -cd '[:alnum:]-' | tr '[:upper:]' '[:lower:]')"
 builder_container="gizclaw-linux-cgo-$builder_suffix"
@@ -17,7 +18,10 @@ cleanup_build() {
     wait "$build_pid" 2>/dev/null || true
   fi
   docker rm -f "$builder_container" >/dev/null 2>&1 || true
-  rm -f "$temporary_output"
+  if [[ -n "$verification_dir" ]]; then
+    rm -f "$temporary_output"
+    rmdir "$verification_dir" >/dev/null 2>&1 || true
+  fi
 }
 trap cleanup_build EXIT
 trap 'exit 130' INT
@@ -50,7 +54,9 @@ fi
 
 module_cache="$(go env GOMODCACHE)"
 mkdir -p "$output_dir"
-rm -f "$temporary_output"
+verification_dir="$(mktemp -d "$output_dir/.gizclaw-verify.XXXXXX")"
+temporary_output="$verification_dir/gizclaw-linux"
+temporary_output_relative="${temporary_output#"$repo_root/"}"
 
 echo "==> Linux CGO build started: platform=$docker_platform image=$base_image output=$output_path"
 docker run --rm \
@@ -65,7 +71,7 @@ docker run --rm \
   --workdir /src \
   --entrypoint bash \
   "$base_image" \
-  -lc "CGO_ENABLED=1 GOOS=linux go build -trimpath -o '/src/tests/gizclaw-e2e/testdata/bin/$(basename "$temporary_output")' ./cmd/gizclaw" &
+  -lc "CGO_ENABLED=1 GOOS=linux go build -trimpath -o '/src/$temporary_output_relative' ./cmd/gizclaw" &
 build_pid="$!"
 build_started="$SECONDS"
 last_heartbeat=0
@@ -84,14 +90,21 @@ if ((build_status != 0)); then
   echo "Linux CGO build failed: exit_code=$build_status" >&2
   exit "$build_status"
 fi
-mv "$temporary_output" "$output_path"
-output_sha256="$(shasum -a 256 "$output_path" | awk '{print $1}')"
+if command -v sha256sum >/dev/null 2>&1; then
+  output_sha256="$(sha256sum "$temporary_output" | awk '{print $1}')"
+elif command -v shasum >/dev/null 2>&1; then
+  output_sha256="$(shasum -a 256 "$temporary_output" | awk '{print $1}')"
+else
+  echo "Linux CGO verification requires sha256sum or shasum" >&2
+  exit 2
+fi
 
 docker run --rm \
   --platform "$docker_platform" \
   --env GIZCLAW_E2E_EXPECTED_BINARY_SHA256="$output_sha256" \
-  --volume "$output_dir:/gizclaw-bin:ro" \
+  --volume "$verification_dir:/gizclaw-bin:ro" \
   --entrypoint bash \
   "$base_image" \
   -lc 'set -e; binary=/gizclaw-bin/gizclaw-linux; test -x "$binary"; test "$(sha256sum "$binary" | awk '\''{print $1}'\'')" = "$GIZCLAW_E2E_EXPECTED_BINARY_SHA256"; ldd "$binary"; "$binary" --help >/dev/null'
+mv "$temporary_output" "$output_path"
 echo "==> Linux CGO build passed: platform=$docker_platform bytes=$(wc -c < "$output_path" | tr -d ' ') output=$output_path"
