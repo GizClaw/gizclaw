@@ -115,7 +115,7 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 	})
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		if peerConnectionStateIsTerminal(state) {
-			_ = c.closeWithError(peerConnectionCloseError(pc, state))
+			_ = c.closeWithError(peerConnectionTerminalCause(pc, state))
 		}
 	})
 	return c, nil
@@ -135,6 +135,14 @@ func drainRTCP(read func([]byte) error) error {
 
 func peerConnectionStateIsTerminal(state webrtc.PeerConnectionState) bool {
 	return state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed
+}
+
+func peerConnectionTerminalCause(pc *webrtc.PeerConnection, state webrtc.PeerConnectionState) error {
+	cause := peerConnectionCloseError(pc, state)
+	if state == webrtc.PeerConnectionStateFailed {
+		return errors.Join(giznet.ErrConnFailed, cause)
+	}
+	return cause
 }
 
 func peerConnectionCloseError(pc *webrtc.PeerConnection, state webrtc.PeerConnectionState) error {
