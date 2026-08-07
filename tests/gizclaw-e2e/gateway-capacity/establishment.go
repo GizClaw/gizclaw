@@ -66,6 +66,7 @@ type establishmentSessionResult struct {
 	StartedAt    time.Time                `json:"started_at"`
 	Duration     time.Duration            `json:"duration"`
 	DialDuration time.Duration            `json:"dial_duration"`
+	DialAttempts int                      `json:"dial_attempts"`
 	Phases       map[string]time.Duration `json:"phases"`
 	Error        string                   `json:"error,omitempty"`
 }

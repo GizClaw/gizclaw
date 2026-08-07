@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -622,8 +623,17 @@ func TestPostOfferRejectsEmptySignalingURLAndDialRejectsNilKey(t *testing.T) {
 	if _, err := postOffer(context.Background(), serverKey, serverKey.Public, "offer", DialConfig{}); err == nil {
 		t.Fatal("postOffer empty URL error = nil")
 	}
-	if _, _, err := Dial(nil, nil, serverKey.Public, DialConfig{}); err == nil {
+	timingCalls := 0
+	if _, _, err := Dial(nil, nil, serverKey.Public, DialConfig{OnTiming: func(timing DialTiming) {
+		timingCalls++
+		if timing.Attempts != 0 {
+			t.Errorf("nil-key timing = %+v", timing)
+		}
+	}}); err == nil {
 		t.Fatal("Dial nil key error = nil")
+	}
+	if timingCalls != 1 {
+		t.Fatalf("nil-key timing calls = %d, want 1", timingCalls)
 	}
 }
 
@@ -652,6 +662,99 @@ func TestWaitForPacketChannelRespectsContext(t *testing.T) {
 	close(ready)
 	if err := waitForPacketChannel(context.Background(), ready); err != nil {
 		t.Fatalf("waitForPacketChannel ready error = %v", err)
+	}
+}
+
+func TestDialWithAttemptsRetriesOneFreshDefaultICEAttempt(t *testing.T) {
+	var calls int
+	var callbackCalls int
+	var observed DialTiming
+	listener, conn, err := dialWithAttempts(
+		context.Background(),
+		new(giznet.KeyPair),
+		giznet.PublicKey{},
+		DialConfig{OnTiming: func(timing DialTiming) {
+			callbackCalls++
+			observed = timing
+		}},
+		time.Second,
+		func(ctx context.Context, _ *giznet.KeyPair, _ giznet.PublicKey, cfg DialConfig, packetChannelTimeout time.Duration) (*Listener, *Conn, error) {
+			calls++
+			if _, ok := ctx.Deadline(); ok {
+				t.Fatal("attempt-local timeout unexpectedly bounded non-ICE Dial phases")
+			}
+			cfg.OnTiming(DialTiming{HTTPSignaling: time.Duration(calls) * time.Millisecond})
+			if calls == 1 {
+				if packetChannelTimeout != time.Second {
+					t.Fatalf("first packet channel timeout = %s, want 1s", packetChannelTimeout)
+				}
+				return nil, nil, fmt.Errorf("%w: injected tuple collision", errDialICEAttempt)
+			}
+			if packetChannelTimeout != 0 {
+				t.Fatalf("second packet channel timeout = %s, want no attempt-local timeout", packetChannelTimeout)
+			}
+			return &Listener{}, &Conn{}, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("dialWithAttempts error = %v", err)
+	}
+	if listener == nil || conn == nil {
+		t.Fatal("dialWithAttempts returned nil success values")
+	}
+	if calls != 2 || callbackCalls != 1 || observed.Attempts != 2 {
+		t.Fatalf("calls/callbacks/attempts = %d/%d/%d, want 2/1/2", calls, callbackCalls, observed.Attempts)
+	}
+	if observed.HTTPSignaling != 3*time.Millisecond || observed.Total <= 0 {
+		t.Fatalf("combined timing = %+v", observed)
+	}
+}
+
+func TestDialWithAttemptsDoesNotRetryCallerAPI(t *testing.T) {
+	var calls int
+	var observed DialTiming
+	wantErr := fmt.Errorf("%w: injected caller API failure", errDialICEAttempt)
+	_, _, err := dialWithAttempts(
+		context.Background(),
+		new(giznet.KeyPair),
+		giznet.PublicKey{},
+		DialConfig{API: &webrtc.API{}, OnTiming: func(timing DialTiming) { observed = timing }},
+		time.Second,
+		func(_ context.Context, _ *giznet.KeyPair, _ giznet.PublicKey, cfg DialConfig, _ time.Duration) (*Listener, *Conn, error) {
+			calls++
+			cfg.OnTiming(DialTiming{})
+			return nil, nil, wantErr
+		},
+	)
+	if !errors.Is(err, errDialICEAttempt) {
+		t.Fatalf("dialWithAttempts error = %v, want %v", err, errDialICEAttempt)
+	}
+	if calls != 1 || observed.Attempts != 1 {
+		t.Fatalf("calls/attempts = %d/%d, want 1/1", calls, observed.Attempts)
+	}
+}
+
+func TestDialWithAttemptsDoesNotRetryCanceledParent(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var calls int
+	_, _, err := dialWithAttempts(
+		ctx,
+		new(giznet.KeyPair),
+		giznet.PublicKey{},
+		DialConfig{},
+		time.Second,
+		func(_ context.Context, _ *giznet.KeyPair, _ giznet.PublicKey, cfg DialConfig, _ time.Duration) (*Listener, *Conn, error) {
+			calls++
+			cancel()
+			cfg.OnTiming(DialTiming{})
+			return nil, nil, fmt.Errorf("%w: %w", errDialICEAttempt, context.Canceled)
+		},
+	)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("dialWithAttempts error = %v, want %v", err, context.Canceled)
+	}
+	if calls != 1 {
+		t.Fatalf("calls = %d, want 1", calls)
 	}
 }
 

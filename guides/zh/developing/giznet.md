@@ -111,7 +111,11 @@ connection 的所有本地网卡 host candidates 共用一个由 OS 保证唯一
 NAT 把各网卡独立分配的相同端口折叠成同一个 remote tuple。这个 mux 不跨
 PeerConnection 共享，因为 Pion 在 STUN 之后按 remote address 分发 packet。每个客户端
 私有 socket 的 read/write buffer 都请求 256 KiB；4 MiB buffer 只用于被多条
-PeerConnection 共享的 listener socket。SCTP
+PeerConnection 共享的 listener socket。设置 remote description 后，默认 Dial 会给第一次
+ICE attempt 6 秒来打开 packet DataChannel；如果等待超时且调用方 context 仍有效，它会
+关闭该 PeerConnection 及其 socket，并且只用一个全新的本地 tuple 再尝试一次，不继续
+使用已经失效的 NAT mapping。调用方提供 Pion API 时，transport ownership 在调用方，
+仍然只尝试一次。Capacity artifact 会记录每条 session 的 attempt 次数。SCTP
 retransmission 上限为 150 ms，DTLS flight
 的 initial retransmission interval 为 150 ms，使 burst 中丢失 handshake flight 时不会固定
 增加默认的 1 秒等待。SCTP reliable delivery 和 retransmission count 不变；DTLS

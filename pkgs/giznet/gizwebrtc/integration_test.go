@@ -61,7 +61,7 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 	}
 	defer clientListener.Close()
 	defer clientConn.Close()
-	if timingCalls != 1 || dialTiming.Total <= 0 || dialTiming.PeerConnectionConstruction <= 0 ||
+	if timingCalls != 1 || dialTiming.Attempts != 1 || dialTiming.Total <= 0 || dialTiming.PeerConnectionConstruction <= 0 ||
 		dialTiming.HTTPSignaling <= 0 || dialTiming.SetRemoteDescription <= 0 ||
 		dialTiming.ICEConnected <= 0 || dialTiming.DTLSConnected <= 0 || dialTiming.DataChannelReady <= 0 ||
 		dialTiming.SelectedCandidatePair == nil {

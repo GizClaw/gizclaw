@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	artifactVersion = 11
+	artifactVersion = 12
 	maxSpeedBytes   = int64(1 << 30)
 )
 
@@ -1173,6 +1173,7 @@ func establishSessions(
 			attempt.Duration = time.Since(attempt.StartedAt)
 			attempt.Upstream = timing.Upstream
 			attempt.DialDuration = timing.DialDuration
+			attempt.DialAttempts = timing.DialAttempts
 			attempt.Phases = timing.Phases
 			if dialErr != nil {
 				attempt.Error = dialErr.Error()
@@ -1489,6 +1490,7 @@ func recordEstablishmentPhases(
 	timing.Phases[phaseClientICEConnected] = clientTiming.ICEConnected
 	timing.Phases[phaseClientDTLSConnected] = clientTiming.DTLSConnected
 	timing.Phases[phaseClientDataChannel] = clientTiming.DataChannelReady
+	timing.DialAttempts = clientTiming.Attempts
 	maps.Copy(timing.Phases, recorder.signalingPhases())
 }
 

@@ -130,6 +130,13 @@ per-interface ports onto one remote tuple. The mux is not shared between
 PeerConnections because Pion routes post-STUN packets by remote address.
 Each private client socket requests 256 KiB read and write buffers; the 4 MiB
 buffers remain limited to listener sockets shared by many PeerConnections.
+After setting the remote description, the default Dial gives its first ICE
+attempt six seconds to open the packet DataChannel. If that wait expires while
+the caller context is still live, Dial closes that PeerConnection and its socket
+and makes exactly one fresh attempt; this changes the local tuple instead of
+reusing a poisoned NAT mapping. A caller-supplied Pion API remains
+single-attempt because its transport ownership is external. Capacity artifacts
+report the number of attempts per session.
 SCTP retransmission is capped at 150 ms, and DTLS
 flights use a 150 ms initial retransmission interval, so lost handshake flights
 during a burst do not add the one-second defaults. SCTP reliable delivery and
