@@ -44,7 +44,7 @@ Connect GizClaw peer or provider-backed generation capabilities to the unified G
 
 Have product resources for each AI provider tenant, such as provider endpoint, account-level configuration, and information required for voice synchronization. It can rely on specific provider SDKs, but it cannot allow provider-specific fields to proliferate into unrelated areas.
 
-Server composition injects distinct explicit Stores for generic, MiniMax, DeepSeek, and Volc tenant records, plus credential, model, and voice lookup. Reusing one Store is allowed only when the `services.provider_tenants` fields name it explicitly. ProviderTenants never derives one dependency from another and performs no fallback.
+Server configuration assigns ProviderTenants one root Store; generic, MiniMax, DeepSeek, and Volc tenant records use code-owned internal scopes. The Credential and Voice capabilities it consumes are supplied by their owning Services instead of repeating their backing Stores under `services.provider_tenants`; the unused legacy `model_store` binding is removed.
 
 ### [voice](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/voice)
 
@@ -80,7 +80,7 @@ The nested driver owns Graph, conversation, model, voice, and toolkit configurat
 
 Has workspace resources, workspace runtime storage and history. The Workspace is the persistence boundary for instantiating the Agent environment; the running Agent, input and output, and connection streams are the responsibility of the Runtime domain.
 
-The Workspace resource Store, Workflow lookup Store, and asset ObjectStore are separate explicit dependencies. `services.workspace.workflow_store` may deliberately reuse `services.workflow.store`, but an omitted Workflow Store never falls back to the Workspace Store.
+Workspace configuration explicitly assigns one resource Store and one asset ObjectStore. Workflow lookup is supplied by the Workflow Service instead of repeating its backing Store under `services.workspace`.
 
 Workspace also owns the immutable `system` lifecycle classification. Generic creation stores `system: false`; domain-owned creation stores `system: true` together with one immutable `owner_public_key`. Generic put may change only a Chatroom system Workspace's input mode; it rejects changes to the owner, Workflow, domain mode, history/transcript policy, labels, or toolkit, and Pet system Workspaces therefore have no mutable execution configuration. Generic delete always rejects system Workspaces. Deleting a user Workspace atomically creates or reuses one `kind=workspace` PendingDeletion and immediately rejects selection, runtime, history/icon access, and mutations for that Workspace; Admin Workspace get/list can still inspect the retained record. The production handler quiesces runtime, removes exact Gameplay/History/runtime/icon/object/filesystem artifacts, verifies absence, and atomically removes the Workspace, indexes, and mutable task state. The internal system lifecycle surface remains restricted to the owning Social or Gameplay service; Social relationship or Peer retirement creates the same handoff for selected system Workspaces.
 

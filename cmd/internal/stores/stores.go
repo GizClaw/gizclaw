@@ -14,25 +14,21 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/vecstore"
 	"github.com/jmoiron/sqlx"
 )
 
 // Kind constants for logical store categories.
 const (
-	KindKeyValue     = storage.KindKeyValue
-	KindVecStore     = storage.KindVecStore
-	KindGraph        = "graph"
+	KindKeyValue     = "keyvalue"
 	KindMetrics      = "metrics"
 	KindLogImmutable = "log.immutable"
 	KindLogMutable   = "log.mutable"
-	KindObjectStore  = storage.KindObjectStore
-	KindSQL          = storage.KindSQL
+	KindObjectStore  = "objectstore"
+	KindSQL          = "sql"
 )
 
 // Config is the YAML representation of a single logical store entry.
@@ -43,16 +39,12 @@ const (
 //	    storage: main-kv
 //	    prefix: peers
 type Config struct {
-	Kind    string `yaml:"kind"`
-	Storage string `yaml:"storage"` // reference to a physical storage backend
-	Prefix  string `yaml:"prefix"`  // slash-separated logical key prefix for KV stores
-
-	Backend string `yaml:"backend"` // graph implementation selector
-	Store   string `yaml:"store"`   // graph backend "kv": reference to a logical keyvalue store
-
-	ClickHouse *ClickHouseConfig `yaml:"clickhouse"`
-	Memory     *struct{}         `yaml:"memory"`
-	Volc       *VolcConfig       `yaml:"volc"`
+	Kind     string `yaml:"kind"`
+	Storage  string `yaml:"storage"` // reference to a physical storage backend
+	Prefix   string `yaml:"prefix"`  // slash-separated logical key prefix for KV stores
+	Database string `yaml:"database"`
+	Table    string `yaml:"table"`
+	TopicID  string `yaml:"topic_id"`
 }
 
 // ConfigError identifies the logical Store entry whose construction failed.
@@ -67,27 +59,14 @@ func (e *ConfigError) Error() string { return e.Err.Error() }
 // Unwrap exposes the underlying construction error.
 func (e *ConfigError) Unwrap() error { return e.Err }
 
-// ClickHouseConfig selects logical database/table scope on a physical SQL
-// connector.
-type ClickHouseConfig struct {
-	Database string `yaml:"database"`
-	Table    string `yaml:"table"`
-}
-
-// VolcConfig selects one logical topic on a physical Volc TLS connector.
-type VolcConfig struct {
-	TopicID string `yaml:"topic_id"`
-}
-
 // Stores holds named logical store instances created eagerly by NewWithStorage.
 type Stores struct {
 	storage      *storage.Storage
 	ownsStorage  bool
 	kvs          map[string]kv.Store
-	vecs         map[string]vecstore.Index
 	objects      map[string]objectstore.ObjectStore
-	graphs       map[string]graph.Graph
 	metrics      map[string]metrics.Store
+	metricRoots  map[string]metrics.Store
 	logs         map[string]logstore.ImmutableStore
 	mutableLogs  map[string]struct{}
 	sqls         map[string]*sqlx.DB
@@ -120,10 +99,9 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 	s := &Stores{
 		storage:     physical,
 		kvs:         make(map[string]kv.Store),
-		vecs:        make(map[string]vecstore.Index),
 		objects:     make(map[string]objectstore.ObjectStore),
-		graphs:      make(map[string]graph.Graph),
 		metrics:     make(map[string]metrics.Store),
+		metricRoots: make(map[string]metrics.Store),
 		logs:        make(map[string]logstore.ImmutableStore),
 		mutableLogs: make(map[string]struct{}),
 		sqls:        make(map[string]*sqlx.DB),
@@ -135,10 +113,6 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 		}
 	}()
 
-	var graphCfgs []struct {
-		name string
-		cfg  Config
-	}
 	names := make([]string, 0, len(configs))
 	for name := range configs {
 		names = append(names, name)
@@ -159,12 +133,6 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 				return nil, &ConfigError{Name: name, Err: err}
 			}
 			s.kvs[name] = st
-		case KindVecStore:
-			st, err := s.newVecStore(name, cfg)
-			if err != nil {
-				return nil, &ConfigError{Name: name, Err: err}
-			}
-			s.vecs[name] = st
 		case KindSQL:
 			st, err := s.newSQL(name, cfg)
 			if err != nil {
@@ -177,18 +145,12 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 				return nil, &ConfigError{Name: name, Err: err}
 			}
 			s.objects[name] = st
-		case KindGraph:
-			graphCfgs = append(graphCfgs, struct {
-				name string
-				cfg  Config
-			}{name, cfg})
 		case KindMetrics:
 			st, err := s.newMetrics(name, cfg)
 			if err != nil {
 				return nil, &ConfigError{Name: name, Err: err}
 			}
 			s.metrics[name] = st
-			s.logicClosers = append(s.logicClosers, st)
 		case KindLogImmutable, KindLogMutable:
 			st, err := s.newLog(name, cfg)
 			if err != nil {
@@ -204,15 +166,6 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 		}
 	}
 
-	for _, g := range graphCfgs {
-		st, err := s.newGraph(g.name, g.cfg)
-		if err != nil {
-			return nil, &ConfigError{Name: g.name, Err: err}
-		}
-		s.graphs[g.name] = st
-		s.logicClosers = append(s.logicClosers, st)
-	}
-
 	ok = true
 	return s, nil
 }
@@ -224,79 +177,35 @@ func validateKindFields(name string, cfg Config) error {
 		}
 		return fmt.Errorf("stores: %s %q does not support %s", cfg.Kind, name, field)
 	}
-	providerFields := []struct {
-		set   bool
-		field string
-	}{
-		{cfg.ClickHouse != nil, "clickhouse"},
-		{cfg.Memory != nil, "memory"},
-		{cfg.Volc != nil, "volc"},
-	}
 	switch cfg.Kind {
 	case KindKeyValue, KindObjectStore:
-		if err := invalid(cfg.Backend != "", "backend"); err != nil {
-			return err
-		}
-		if err := invalid(cfg.Store != "", "store"); err != nil {
-			return err
-		}
-		for _, field := range providerFields {
-			if err := invalid(field.set, field.field); err != nil {
+		for _, field := range []struct {
+			set  bool
+			name string
+		}{
+			{cfg.Database != "", "database"}, {cfg.Table != "", "table"}, {cfg.TopicID != "", "topic_id"},
+		} {
+			if err := invalid(field.set, field.name); err != nil {
 				return err
 			}
 		}
-	case KindVecStore, KindSQL:
+	case KindSQL:
 		if err := invalid(cfg.Prefix != "", "prefix"); err != nil {
 			return err
 		}
-		if err := invalid(cfg.Backend != "", "backend"); err != nil {
-			return err
-		}
-		if err := invalid(cfg.Store != "", "store"); err != nil {
-			return err
-		}
-		for _, field := range providerFields {
-			if err := invalid(field.set, field.field); err != nil {
-				return err
-			}
-		}
-	case KindGraph:
-		if err := invalid(cfg.Storage != "", "storage"); err != nil {
-			return err
-		}
-		for _, field := range providerFields {
-			if err := invalid(field.set, field.field); err != nil {
-				return err
-			}
+		if cfg.Database != "" || cfg.Table != "" || cfg.TopicID != "" {
+			return fmt.Errorf("stores: sql %q does not support logical scope", name)
 		}
 	case KindMetrics:
 		if err := invalid(cfg.Prefix != "", "prefix"); err != nil {
 			return err
 		}
-		if err := invalid(cfg.Backend != "", "backend"); err != nil {
-			return err
-		}
-		if err := invalid(cfg.Store != "", "store"); err != nil {
-			return err
-		}
-		if err := invalid(cfg.Volc != nil, "volc"); err != nil {
+		if err := invalid(cfg.TopicID != "", "topic_id"); err != nil {
 			return err
 		}
 	case KindLogImmutable, KindLogMutable:
 		if err := invalid(cfg.Prefix != "", "prefix"); err != nil {
 			return err
-		}
-		if err := invalid(cfg.Backend != "", "backend"); err != nil {
-			return err
-		}
-		if err := invalid(cfg.Store != "", "store"); err != nil {
-			return err
-		}
-		if err := invalid(cfg.Memory != nil, "memory"); err != nil {
-			return err
-		}
-		if cfg.Kind == KindLogMutable && cfg.Volc != nil {
-			return fmt.Errorf("stores: %s %q does not support volc; use a mutable ClickHouse backend", cfg.Kind, name)
 		}
 	}
 	return nil
@@ -361,24 +270,6 @@ func (r *Stores) KV(name string) (kv.Store, error) {
 	s, ok := r.kvs[name]
 	if !ok {
 		return nil, fmt.Errorf("stores: kv %q not found", name)
-	}
-	return s, nil
-}
-
-// VecStore returns the named vecstore.Index.
-func (r *Stores) VecStore(name string) (vecstore.Index, error) {
-	s, ok := r.vecs[name]
-	if !ok {
-		return nil, fmt.Errorf("stores: vecstore %q not found", name)
-	}
-	return s, nil
-}
-
-// Graph returns the named graph.Graph.
-func (r *Stores) Graph(name string) (graph.Graph, error) {
-	s, ok := r.graphs[name]
-	if !ok {
-		return nil, fmt.Errorf("stores: graph %q not found", name)
 	}
 	return s, nil
 }
@@ -463,6 +354,13 @@ func (r *Stores) newKV(name string, cfg Config) (kv.Store, error) {
 	if cfg.Storage == "" {
 		return nil, fmt.Errorf("stores: keyvalue %q requires storage reference", name)
 	}
+	kind, err := r.storage.Kind(cfg.Storage)
+	if err != nil {
+		return nil, fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)
+	}
+	if kind != storage.KindBadger && kind != storage.KindMemory {
+		return nil, fmt.Errorf("stores: keyvalue %q does not support storage %q kind %q", name, cfg.Storage, kind)
+	}
 	base, err := r.storage.KV(cfg.Storage)
 	if err != nil {
 		return nil, fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)
@@ -477,121 +375,109 @@ func (r *Stores) newKV(name string, cfg Config) (kv.Store, error) {
 	return kv.Prefixed(base, prefix), nil
 }
 
-func (r *Stores) newVecStore(name string, cfg Config) (vecstore.Index, error) {
-	if cfg.Storage == "" {
-		return nil, fmt.Errorf("stores: vecstore %q requires storage reference", name)
-	}
-	st, err := r.storage.VecStore(cfg.Storage)
-	if err != nil {
-		return nil, fmt.Errorf("stores: vecstore %q resolve storage %q: %w", name, cfg.Storage, err)
-	}
-	return st, nil
-}
-
-func (r *Stores) newGraph(name string, cfg Config) (graph.Graph, error) {
-	switch cfg.Backend {
-	case "kv":
-		if cfg.Store == "" {
-			return nil, fmt.Errorf("stores: graph %q (kv) requires store reference", name)
-		}
-		kvStore, err := r.kvByName(cfg.Store)
-		if err != nil {
-			return nil, fmt.Errorf("stores: graph %q resolve kv %q: %w", name, cfg.Store, err)
-		}
-		prefix, err := parseKeyPrefix(cfg.Prefix)
-		if err != nil {
-			return nil, fmt.Errorf("stores: graph %q prefix: %w", name, err)
-		}
-		if len(prefix) == 0 {
-			prefix = kv.Key{name}
-		}
-		return graph.NewKVGraph(kvStore, prefix), nil
-	default:
-		return nil, fmt.Errorf("stores: graph %q unknown backend %q", name, cfg.Backend)
-	}
-}
-
 func (r *Stores) newMetrics(name string, cfg Config) (metrics.Store, error) {
-	memory := cfg.Memory != nil
-	count := 0
-	if memory {
-		count++
+	if cfg.Storage == "" {
+		return nil, fmt.Errorf("stores: metrics %q requires storage reference", name)
 	}
-	if cfg.Storage != "" {
-		count++
+	kind, err := r.storage.Kind(cfg.Storage)
+	if err != nil {
+		return nil, fmt.Errorf("stores: metrics %q resolve storage %q: %w", name, cfg.Storage, err)
 	}
-	if count != 1 {
-		return nil, fmt.Errorf("stores: metrics %q requires exactly one of memory or storage", name)
-	}
-	if memory {
-		return metrics.NewMemoryStore(), nil
-	}
-	if cfg.ClickHouse == nil {
+	switch kind {
+	case storage.KindMemory:
+		if cfg.Table != "" || cfg.Database != "" {
+			return nil, fmt.Errorf("stores: metrics %q memory storage does not support table or database", name)
+		}
+		if st, ok := r.metricRoots[cfg.Storage]; ok {
+			return st, nil
+		}
+		st := metrics.NewMemoryStore()
+		r.metricRoots[cfg.Storage] = st
+		r.logicClosers = append(r.logicClosers, st)
+		return st, nil
+	case storage.KindPrometheus:
+		if cfg.Table != "" || cfg.Database != "" {
+			return nil, fmt.Errorf("stores: metrics %q prometheus storage does not support table or database", name)
+		}
 		connector, err := r.storage.Prometheus(cfg.Storage)
 		if err != nil {
 			return nil, fmt.Errorf("stores: metrics %q resolve prometheus storage %q: %w", name, cfg.Storage, err)
 		}
-		return connector.Store()
+		st, err := connector.Store()
+		if err != nil {
+			return nil, fmt.Errorf("stores: metrics %q prometheus: %w", name, err)
+		}
+		r.logicClosers = append(r.logicClosers, st)
+		return st, nil
+	case storage.KindClickHouse:
+		if cfg.Database != "" {
+			return nil, fmt.Errorf("stores: metrics %q clickhouse database must be selected by the dsn", name)
+		}
+		db, err := r.storage.SQL(cfg.Storage)
+		if err != nil {
+			return nil, fmt.Errorf("stores: metrics %q resolve clickhouse storage %q: %w", name, cfg.Storage, err)
+		}
+		st, err := metrics.NewClickHouseStoreWithDB(db.DB, os.ExpandEnv(cfg.Table))
+		if err != nil {
+			return nil, fmt.Errorf("stores: metrics %q clickhouse: %w", name, err)
+		}
+		r.logicClosers = append(r.logicClosers, st)
+		return st, nil
+	default:
+		return nil, fmt.Errorf("stores: metrics %q does not support storage %q kind %q", name, cfg.Storage, kind)
 	}
-	if cfg.ClickHouse.Database != "" {
-		return nil, fmt.Errorf("stores: metrics %q clickhouse database must be selected by the dsn", name)
-	}
-	db, err := r.storage.SQL(cfg.Storage)
-	if err != nil {
-		return nil, fmt.Errorf("stores: metrics %q resolve sql storage %q: %w", name, cfg.Storage, err)
-	}
-	st, err := metrics.NewClickHouseStoreWithDB(db.DB, os.ExpandEnv(cfg.ClickHouse.Table))
-	if err != nil {
-		return nil, fmt.Errorf("stores: metrics %q clickhouse: %w", name, err)
-	}
-	return st, nil
 }
 
 func (r *Stores) newLog(name string, cfg Config) (logstore.ImmutableStore, error) {
-	backendCount := 0
-	if cfg.Volc != nil {
-		backendCount++
-	}
-	if cfg.ClickHouse != nil {
-		backendCount++
-	}
-	if backendCount != 1 {
-		return nil, fmt.Errorf("stores: log %q requires exactly one of volc or clickhouse", name)
-	}
 	if cfg.Storage == "" {
 		return nil, fmt.Errorf("stores: log %q requires storage reference", name)
 	}
-	if cfg.Prefix != "" || cfg.Backend != "" || cfg.Store != "" || cfg.Memory != nil {
-		return nil, fmt.Errorf("stores: log %q contains fields owned by another store kind", name)
+	kind, err := r.storage.Kind(cfg.Storage)
+	if err != nil {
+		return nil, fmt.Errorf("stores: log %q resolve storage %q: %w", name, cfg.Storage, err)
 	}
-	if cfg.ClickHouse != nil {
-		clickhouse := *cfg.ClickHouse
-		clickhouse.Database = os.ExpandEnv(clickhouse.Database)
-		clickhouse.Table = os.ExpandEnv(clickhouse.Table)
+	switch kind {
+	case storage.KindClickHouse:
 		db, err := r.storage.SQL(cfg.Storage)
 		if err != nil {
-			return nil, fmt.Errorf("stores: log %q resolve sql storage %q: %w", name, cfg.Storage, err)
+			return nil, fmt.Errorf("stores: log %q resolve clickhouse storage %q: %w", name, cfg.Storage, err)
 		}
-		store, err := logstore.NewClickHouseStoreWithDB(db.DB, clickhouse.Database, clickhouse.Table)
+		store, err := logstore.NewClickHouseStoreWithDB(db.DB, os.ExpandEnv(cfg.Database), os.ExpandEnv(cfg.Table))
 		if err != nil {
 			return nil, fmt.Errorf("stores: log %q clickhouse: %w", name, err)
 		}
 		return store, nil
+	case storage.KindVolcTLS:
+		if cfg.Kind == KindLogMutable {
+			return nil, fmt.Errorf("stores: %s %q does not support volc-tls", cfg.Kind, name)
+		}
+		if cfg.Database != "" || cfg.Table != "" {
+			return nil, fmt.Errorf("stores: log %q volc-tls storage does not support database or table", name)
+		}
+		connector, err := r.storage.VolcTLS(cfg.Storage)
+		if err != nil {
+			return nil, fmt.Errorf("stores: log %q resolve volc-tls storage %q: %w", name, cfg.Storage, err)
+		}
+		st, err := connector.Store(os.ExpandEnv(cfg.TopicID))
+		if err != nil {
+			return nil, fmt.Errorf("stores: log %q volc-tls: %w", name, err)
+		}
+		return st, nil
+	default:
+		return nil, fmt.Errorf("stores: %s %q does not support storage %q kind %q", cfg.Kind, name, cfg.Storage, kind)
 	}
-	connector, err := r.storage.VolcTLS(cfg.Storage)
-	if err != nil {
-		return nil, fmt.Errorf("stores: log %q resolve volc-tls storage %q: %w", name, cfg.Storage, err)
-	}
-	st, err := connector.Store(os.ExpandEnv(cfg.Volc.TopicID))
-	if err != nil {
-		return nil, fmt.Errorf("stores: log %q volc: %w", name, err)
-	}
-	return st, nil
 }
 
 func (r *Stores) newSQL(name string, cfg Config) (*sqlx.DB, error) {
 	if cfg.Storage == "" {
 		return nil, fmt.Errorf("stores: sql %q requires storage reference", name)
+	}
+	kind, err := r.storage.Kind(cfg.Storage)
+	if err != nil {
+		return nil, fmt.Errorf("stores: sql %q resolve storage %q: %w", name, cfg.Storage, err)
+	}
+	if kind != storage.KindSQLite && kind != storage.KindPostgreSQL && kind != storage.KindClickHouse {
+		return nil, fmt.Errorf("stores: sql %q does not support storage %q kind %q", name, cfg.Storage, kind)
 	}
 	db, err := r.storage.SQL(cfg.Storage)
 	if err != nil {
@@ -604,10 +490,18 @@ func (r *Stores) newObjectStore(name string, cfg Config) (objectstore.ObjectStor
 	if cfg.Storage == "" {
 		return nil, fmt.Errorf("stores: objectstore %q requires storage reference", name)
 	}
-	st, err := r.storage.ObjectStore(cfg.Storage)
+	kind, err := r.storage.Kind(cfg.Storage)
 	if err != nil {
 		return nil, fmt.Errorf("stores: objectstore %q resolve storage %q: %w", name, cfg.Storage, err)
 	}
+	if kind != storage.KindFilesystemDir {
+		return nil, fmt.Errorf("stores: objectstore %q does not support storage %q kind %q", name, cfg.Storage, kind)
+	}
+	dir, err := r.storage.Dir(cfg.Storage)
+	if err != nil {
+		return nil, fmt.Errorf("stores: objectstore %q resolve storage %q: %w", name, cfg.Storage, err)
+	}
+	st := objectstore.Dir(dir)
 	prefix, err := parseObjectPrefix(cfg.Prefix)
 	if err != nil {
 		return nil, fmt.Errorf("stores: objectstore %q prefix: %w", name, err)
@@ -618,27 +512,8 @@ func (r *Stores) newObjectStore(name string, cfg Config) (objectstore.ObjectStor
 	return prefixedObjectStore{base: st, prefix: prefix}, nil
 }
 
-func (r *Stores) kvByName(name string) (kv.Store, error) {
-	s, ok := r.kvs[name]
-	if !ok {
-		return nil, fmt.Errorf("stores: kv %q not found", name)
-	}
-	return s, nil
-}
-
 func needsPhysicalStorage(configs map[string]Config) bool {
-	for _, cfg := range configs {
-		switch cfg.Kind {
-		case KindGraph:
-		case KindMetrics:
-			if cfg.Memory == nil {
-				return true
-			}
-		default:
-			return true
-		}
-	}
-	return false
+	return len(configs) != 0
 }
 
 func parseKeyPrefix(path string) (kv.Key, error) {

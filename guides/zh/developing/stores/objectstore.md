@@ -30,9 +30,8 @@ Server Config 中的 `storage` 拥有物理 filesystem 目录，逻辑 ObjectSto
 ```yaml
 storage:
   files:
-    kind: objectstore
-    fs:
-      dir: data/files
+    kind: filesystem.dir
+    dir: data/files
 stores:
   workspace-assets:
     kind: objectstore
@@ -41,6 +40,5 @@ stores:
 services:
   workspace:
     store: workspaces
-    workflow_store: workflows
     assets_store: workspace-assets
 ```

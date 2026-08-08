@@ -14,8 +14,8 @@ func TestServerDeepSeekTenantCRUDAndPagination(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 5, 21, 9, 0, 0, 0, time.UTC)
 	srv := &Server{
-		DeepSeekTenantStore: kv.NewMemory(nil),
-		Now:                 func() time.Time { return now },
+		Store: kv.NewMemory(nil),
+		Now:   func() time.Time { return now },
 	}
 
 	body := deepSeekTenantUpsert("default")
@@ -113,9 +113,8 @@ func TestServerDeepSeekTenantCRUDAndPagination(t *testing.T) {
 
 func TestServerDeepSeekTenantUsesDedicatedStore(t *testing.T) {
 	ctx := context.Background()
-	dedicated := kv.NewMemory(nil)
-	modelStore := kv.NewMemory(nil)
-	srv := &Server{DeepSeekTenantStore: dedicated, ModelStore: modelStore}
+	root := kv.NewMemory(nil)
+	srv := &Server{Store: root}
 	body := deepSeekTenantUpsert("isolated")
 	response, err := srv.CreateDeepSeekTenant(ctx, adminhttp.CreateDeepSeekTenantRequestObject{Body: &body})
 	if err != nil {
@@ -125,17 +124,25 @@ func TestServerDeepSeekTenantUsesDedicatedStore(t *testing.T) {
 	if !ok {
 		t.Fatalf("CreateDeepSeekTenant() response = %#v", response)
 	}
-	if _, err := dedicated.Get(ctx, deepSeekTenantKey(created.Id)); err != nil {
-		t.Fatalf("dedicated store Get() error = %v", err)
+	deepSeekStore, err := srv.deepSeekTenantStore()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := modelStore.Get(ctx, deepSeekTenantKey(created.Id)); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("model store Get() error = %v, want ErrNotFound", err)
+	if _, err := deepSeekStore.Get(ctx, deepSeekTenantKey(created.Id)); err != nil {
+		t.Fatalf("DeepSeek scope Get() error = %v", err)
+	}
+	genericStore, err := srv.store()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := genericStore.Get(ctx, deepSeekTenantKey(created.Id)); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("generic scope Get() error = %v, want ErrNotFound", err)
 	}
 }
 
 func TestServerDeepSeekTenantValidationAndStoreErrors(t *testing.T) {
 	ctx := context.Background()
-	srv := &Server{DeepSeekTenantStore: kv.NewMemory(nil)}
+	srv := &Server{Store: kv.NewMemory(nil)}
 	for _, tc := range []struct {
 		name string
 		body adminhttp.DeepSeekTenantUpsert

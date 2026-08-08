@@ -57,57 +57,42 @@ type Server struct {
 	PeerListeners         []giznet.Listener
 	PeerListenerFactories []PeerListenerFactory
 
-	PeerStore                   kv.Store
-	PeerRouteStore              kv.Store
-	PeerRunStore                kv.Store
-	CredentialStore             kv.Store
-	FirmwareStore               kv.Store
-	RuntimeProfileStore         kv.Store
-	AgentHostStore              objectstore.ObjectStore
-	MiniMaxCredentialStore      kv.Store
-	ProviderTenantStore         kv.Store
-	ProviderModelStore          kv.Store
-	ProviderVoiceStore          kv.Store
-	MiniMaxTenantStore          kv.Store
-	DeepSeekTenantStore         kv.Store
-	VolcTenantStore             kv.Store
-	ModelStore                  kv.Store
-	VoiceStore                  kv.Store
-	MemoryLayoutStore           kv.Store
-	WorkspaceStore              kv.Store
-	WorkflowStore               kv.Store
-	WorkspaceWorkflowStore      kv.Store
-	ToolStore                   kv.Store
-	PublicLoginStore            kv.Store
-	ContactStore                kv.Store
-	FriendInviteTokenStore      kv.Store
-	FriendStore                 kv.Store
-	FriendGroupStore            kv.Store
-	FriendGroupInviteTokenStore kv.Store
-	FriendGroupMemberStore      kv.Store
-	FriendGroupBelongStore      kv.Store
-	PetDefStore                 kv.Store
-	BadgeDefStore               kv.Store
-	GameDefStore                kv.Store
-	GameplayAssets              objectstore.ObjectStore
-	WorkspaceAssets             objectstore.ObjectStore
-	GameplayDB                  *sqlx.DB
-	MetricsStore                metrics.Store
-	PendingDeletionConfig       pendingdeletion.Config
-	ServerLogQuery              ServerLogQueryService
-	FlowcraftHistory            logstore.MutableStore
-	FlowcraftState              kv.Store
-	MemoryRoot                  string
-	SpeechLimits                SpeechLimits
-	ClientToolTimeout           time.Duration
-	ToolHTTPExecutor            giztools.HTTPExecutor
-	BuildCommit                 string
-	PublicEndpoint              string
-	PublicICETCP                bool
-	PublicLoginAuthorizer       publiclogin.SessionAuthorizer
-	ICEServers                  []gizwebrtc.ICEServer
-	WebRTCSignalingHandler      http.Handler
-	EdgeNodes                   []giznet.PublicKey
+	PeerStore              kv.Store
+	CredentialStore        kv.Store
+	FirmwareStore          kv.Store
+	RuntimeProfileStore    kv.Store
+	AgentHostStore         objectstore.ObjectStore
+	ProviderTenantStore    kv.Store
+	ModelStore             kv.Store
+	VoiceStore             kv.Store
+	MemoryLayoutStore      kv.Store
+	WorkspaceStore         kv.Store
+	WorkflowStore          kv.Store
+	ToolStore              kv.Store
+	PublicLoginStore       kv.Store
+	ContactStore           kv.Store
+	FriendStore            kv.Store
+	FriendGroupStore       kv.Store
+	GameplayStore          kv.Store
+	GameplayAssets         objectstore.ObjectStore
+	WorkspaceAssets        objectstore.ObjectStore
+	GameplayDB             *sqlx.DB
+	MetricsStore           metrics.Store
+	PendingDeletionConfig  pendingdeletion.Config
+	ServerLogQuery         ServerLogQueryService
+	FlowcraftHistory       logstore.MutableStore
+	FlowcraftState         kv.Store
+	MemoryRoot             string
+	SpeechLimits           SpeechLimits
+	ClientToolTimeout      time.Duration
+	ToolHTTPExecutor       giztools.HTTPExecutor
+	BuildCommit            string
+	PublicEndpoint         string
+	PublicICETCP           bool
+	PublicLoginAuthorizer  publiclogin.SessionAuthorizer
+	ICEServers             []gizwebrtc.ICEServer
+	WebRTCSignalingHandler http.Handler
+	EdgeNodes              []giznet.PublicKey
 
 	manager                  *Manager
 	peerService              *PeerService
@@ -349,20 +334,13 @@ func (s *Server) init() error {
 		name  string
 		store kv.Store
 	}{
-		{"peer route", s.PeerRouteStore}, {"peer run", s.PeerRunStore},
 		{"public login", s.PublicLoginStore}, {"credential", s.CredentialStore},
 		{"firmware", s.FirmwareStore}, {"runtime profile", s.RuntimeProfileStore},
 		{"model", s.ModelStore}, {"voice", s.VoiceStore}, {"memory layout", s.MemoryLayoutStore},
-		{"provider tenant", s.ProviderTenantStore}, {"minimax tenant", s.MiniMaxTenantStore},
-		{"deepseek tenant", s.DeepSeekTenantStore}, {"volc tenant", s.VolcTenantStore},
-		{"provider credential", s.MiniMaxCredentialStore}, {"provider model", s.ProviderModelStore},
-		{"provider voice", s.ProviderVoiceStore}, {"workflow", s.WorkflowStore},
-		{"workspace", s.WorkspaceStore}, {"workspace workflow", s.WorkspaceWorkflowStore},
+		{"provider tenant", s.ProviderTenantStore}, {"workflow", s.WorkflowStore},
+		{"workspace", s.WorkspaceStore},
 		{"tool", s.ToolStore}, {"contact", s.ContactStore},
-		{"friend invite token", s.FriendInviteTokenStore}, {"friend", s.FriendStore},
-		{"friend group", s.FriendGroupStore}, {"friend group invite token", s.FriendGroupInviteTokenStore},
-		{"friend group member", s.FriendGroupMemberStore}, {"friend group belong", s.FriendGroupBelongStore},
-		{"pet definition", s.PetDefStore}, {"badge definition", s.BadgeDefStore}, {"game definition", s.GameDefStore},
+		{"friend", s.FriendStore}, {"friend group", s.FriendGroupStore}, {"gameplay", s.GameplayStore},
 	} {
 		if required.store == nil {
 			return fmt.Errorf("gizclaw: nil %s store", required.name)
@@ -378,29 +356,26 @@ func (s *Server) init() error {
 		return errors.New("gizclaw: nil gameplay database store")
 	}
 
-	peerStore := s.PeerStore
+	peerStore := kv.Prefixed(s.PeerStore, kv.Key{"records"})
+	peerRouteStore := kv.Prefixed(s.PeerStore, kv.Key{"routes"})
+	peerRunStore := kv.Prefixed(s.PeerStore, kv.Key{"runs"})
 	credentialStore := s.CredentialStore
 	firmwareStore := s.FirmwareStore
 	runtimeProfileStore := s.RuntimeProfileStore
-	miniMaxCredentialStore := s.MiniMaxCredentialStore
-	miniMaxTenantStore := s.MiniMaxTenantStore
-	deepSeekTenantStore := s.DeepSeekTenantStore
-	volcTenantStore := s.VolcTenantStore
 	modelStore := s.ModelStore
 	voiceStore := s.VoiceStore
 	memoryLayoutStore := s.MemoryLayoutStore
 	workspaceStore := s.WorkspaceStore
 	workflowStore := s.WorkflowStore
 	toolStore := s.ToolStore
-	peerRunStore := s.PeerRunStore
 	publicLoginStore := s.PublicLoginStore
 	contactStore := s.ContactStore
-	friendInviteTokenStore := s.FriendInviteTokenStore
-	friendStore := s.FriendStore
-	friendGroupStore := s.FriendGroupStore
-	friendGroupInviteTokenStore := s.FriendGroupInviteTokenStore
-	friendGroupMemberStore := s.FriendGroupMemberStore
-	friendGroupBelongStore := s.FriendGroupBelongStore
+	friendInviteTokenStore := kv.Prefixed(s.FriendStore, kv.Key{"invite-tokens"})
+	friendStore := kv.Prefixed(s.FriendStore, kv.Key{"friends"})
+	friendGroupStore := kv.Prefixed(s.FriendGroupStore, kv.Key{"groups"})
+	friendGroupInviteTokenStore := kv.Prefixed(s.FriendGroupStore, kv.Key{"invite-tokens"})
+	friendGroupMemberStore := kv.Prefixed(s.FriendGroupStore, kv.Key{"members"})
+	friendGroupBelongStore := kv.Prefixed(s.FriendGroupStore, kv.Key{"belongs"})
 	friendGroupRelationshipStore, friendGroupRelationshipPrefixes, ok := kv.SharedAtomicStore(
 		friendGroupStore,
 		friendGroupInviteTokenStore,
@@ -414,10 +389,9 @@ func (s *Server) init() error {
 	friendGroupInvitePrefix := friendGroupRelationshipPrefixes[1]
 	friendGroupMemberPrefix := friendGroupRelationshipPrefixes[2]
 	friendGroupBelongPrefix := friendGroupRelationshipPrefixes[3]
-	petDefStore := s.PetDefStore
-	badgeDefStore := s.BadgeDefStore
-	gameDefStore := s.GameDefStore
-	peerRouteStore := s.PeerRouteStore
+	petDefStore := kv.Prefixed(s.GameplayStore, kv.Key{"pet-defs"})
+	badgeDefStore := kv.Prefixed(s.GameplayStore, kv.Key{"badge-defs"})
+	gameDefStore := kv.Prefixed(s.GameplayStore, kv.Key{"game-defs"})
 	if !kv.SupportsCreateIfAbsent(peerStore) {
 		return fmt.Errorf("gizclaw: peer store: %w", kv.ErrCreateIfAbsentUnsupported)
 	}
@@ -515,7 +489,7 @@ func (s *Server) init() error {
 	memoryLayoutServer := &memorylayout.Server{Store: memoryLayoutStore}
 	workflowServer := &workflow.Server{Store: workflowStore}
 	workspaceServer := &workspace.Server{
-		Store: workspaceStore, WorkflowStore: s.WorkspaceWorkflowStore,
+		Store: workspaceStore, Workflows: workflowServer,
 		Models: modelServer, Voices: voiceServer, Assets: s.WorkspaceAssets,
 		PeerAvailability: func(ctx context.Context, publicKey string) error {
 			key, err := parsePeerPublicKey(publicKey)
@@ -597,13 +571,9 @@ func (s *Server) init() error {
 		},
 	}
 	providerTenantsServer := &providertenants.Server{
-		Store:               s.ProviderTenantStore,
-		ModelStore:          s.ProviderModelStore,
-		TenantStore:         miniMaxTenantStore,
-		DeepSeekTenantStore: deepSeekTenantStore,
-		VolcTenantStore:     volcTenantStore,
-		VoiceStore:          s.ProviderVoiceStore,
-		CredentialStore:     miniMaxCredentialStore,
+		Store:       s.ProviderTenantStore,
+		Voices:      voiceServer,
+		Credentials: credentialServer,
 	}
 	gameplayCatalog := &gameplay.Catalog{
 		PetDefs:   petDefStore,

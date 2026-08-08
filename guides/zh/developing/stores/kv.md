@@ -27,9 +27,8 @@
 ```yaml
 storage:
   state:
-    kind: keyvalue
-    badger:
-      dir: data/kv
+    kind: badger
+    dir: data/kv
 stores:
   peer-records:
     kind: keyvalue
@@ -38,6 +37,6 @@ stores:
 services:
   peer:
     store: peer-records
-    route_store: peer-routes
-    run_store: peer-run
 ```
+
+Peer route 与 run state 使用代码内置 prefix，不再由 operator 分别绑定 Store。

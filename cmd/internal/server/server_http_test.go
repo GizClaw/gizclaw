@@ -21,6 +21,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/pion/webrtc/v4"
 )
@@ -58,7 +59,7 @@ func TestCmdServerPrivateIngressRequiresAuthorizedSession(t *testing.T) {
 	}
 	defer srv.Close()
 
-	peers := &peer.Server{Store: srv.Server.PeerStore}
+	peers := &peer.Server{Store: kv.Prefixed(srv.Server.PeerStore, kv.Key{"records"})}
 	for _, item := range []apitypes.Peer{
 		{
 			PublicKey: adminKey.Public.String(),
@@ -251,7 +252,7 @@ func TestSideControlDirectTCPWhenServeToClientsEnabled(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 	defer srv.Close()
-	peers := &peer.Server{Store: srv.Server.PeerStore}
+	peers := &peer.Server{Store: kv.Prefixed(srv.Server.PeerStore, kv.Key{"records"})}
 	if _, err := peers.SavePeer(context.Background(), apitypes.Peer{
 		PublicKey: targetKey.Public.String(),
 		Role:      apitypes.PeerRoleClient,
@@ -402,11 +403,9 @@ func cmdServerTestCreateDeviceTokenURL(t *testing.T, baseURL, accessToken string
 func TestNewWithOptionsWiresPrometheusMetricsStore(t *testing.T) {
 	cfg := validLayeredConfig(t.TempDir())
 	cfg.Storage["prometheus"] = storage.Config{
-		Kind: storage.KindPrometheus,
-		Prometheus: &metrics.PrometheusConfig{
-			RemoteWriteURL: "http://127.0.0.1:1/api/v1/write",
-			QueryURL:       "http://127.0.0.1:1",
-		},
+		Kind:           storage.KindPrometheus,
+		RemoteWriteURL: "http://127.0.0.1:1/api/v1/write",
+		QueryURL:       "http://127.0.0.1:1",
 	}
 	cfg.Stores["test-metrics"] = stores.Config{Kind: stores.KindMetrics, Storage: "prometheus"}
 	cfg.Services.Metrics = &SingleStoreConfig{Store: "test-metrics"}
@@ -422,7 +421,7 @@ func TestNewWithOptionsWiresPrometheusMetricsStore(t *testing.T) {
 
 func TestNewWithOptionsInstallsAndFlushesMetricsRecorder(t *testing.T) {
 	cfg := validLayeredConfig(t.TempDir())
-	cfg.Stores["test-metrics"] = stores.Config{Kind: stores.KindMetrics, Memory: &struct{}{}}
+	cfg.Stores["test-metrics"] = stores.Config{Kind: stores.KindMetrics, Storage: "memory"}
 	cfg.Services.Metrics = &SingleStoreConfig{Store: "test-metrics"}
 	srv, err := newWithOptions(cfg, newServerOptions{})
 	if err != nil {
@@ -496,7 +495,7 @@ func TestNewWithOptionsConcurrentMetricsInstallPreservesExistingRecorder(t *test
 	})
 
 	cfg := validLayeredConfig(t.TempDir())
-	cfg.Stores["test-metrics"] = stores.Config{Kind: stores.KindMetrics, Memory: &struct{}{}}
+	cfg.Stores["test-metrics"] = stores.Config{Kind: stores.KindMetrics, Storage: "memory"}
 	cfg.Services.Metrics = &SingleStoreConfig{Store: "test-metrics"}
 	_, err = newWithOptions(cfg, newServerOptions{})
 	if !errors.Is(err, gizmetrics.ErrAlreadyInstalled) {

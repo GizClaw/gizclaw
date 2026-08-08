@@ -24,8 +24,9 @@ import (
 )
 
 var (
-	miniMaxTenantsRoot = kv.Key{"by-id"}
-	credentialsRoot    = kv.Key{"by-id"}
+	miniMaxTenantsRoot    = kv.Key{"by-id"}
+	credentialsRoot       = kv.Key{"by-id"}
+	errCredentialNotFound = errors.New("credential not found")
 )
 
 const (
@@ -42,16 +43,18 @@ var fallbackMiniMaxBaseURLs = []string{
 
 type Server struct {
 	Store                    kv.Store
-	ModelStore               kv.Store
-	TenantStore              kv.Store
-	DeepSeekTenantStore      kv.Store
-	VolcTenantStore          kv.Store
-	VoiceStore               kv.Store
-	CredentialStore          kv.Store
+	Voices                   voicecatalog.ProviderVoiceService
+	Credentials              CredentialService
 	HTTPClient               *http.Client
 	MiniMaxBaseURLs          []string
 	VolcSpeakerClientFactory VolcSpeakerClientFactory
 	Now                      func() time.Time
+}
+
+// CredentialService resolves Credential resources without exposing the
+// Credential service's backing Store.
+type CredentialService interface {
+	GetCredential(context.Context, adminhttp.GetCredentialRequestObject) (adminhttp.GetCredentialResponseObject, error)
 }
 
 type ProviderTenantsAdminService interface {
@@ -120,11 +123,11 @@ func (s *Server) CreateMiniMaxTenant(ctx context.Context, request adminhttp.Crea
 	if err != nil {
 		return adminhttp.CreateMiniMaxTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_MINIMAX_TENANT", err.Error())), nil
 	}
-	credentialStore, err := s.credentialStore()
+	credentials, err := s.credentialService()
 	if err != nil {
 		return adminhttp.CreateMiniMaxTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := validateTenantReferences(ctx, credentialStore, tenant); err != nil {
+	if err := validateTenantReferences(ctx, credentials, tenant); err != nil {
 		return adminhttp.CreateMiniMaxTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_MINIMAX_TENANT", err.Error())), nil
 	}
 	now := s.now()
@@ -153,11 +156,11 @@ func (s *Server) DeleteMiniMaxTenant(ctx context.Context, request adminhttp.Dele
 		}
 		return adminhttp.DeleteMiniMaxTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	voiceStore, err := s.voiceStore()
+	voices, err := s.voiceService()
 	if err != nil {
 		return adminhttp.DeleteMiniMaxTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := deleteMiniMaxTenantVoices(ctx, voiceStore, tenant.Id); err != nil {
+	if err := deleteMiniMaxTenantVoices(ctx, voices, tenant.Id); err != nil {
 		return adminhttp.DeleteMiniMaxTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := deleteTenant(ctx, store, miniMaxTenantKey(tenant.Id)); err != nil {
@@ -195,11 +198,11 @@ func (s *Server) PutMiniMaxTenant(ctx context.Context, request adminhttp.PutMini
 	if err != nil {
 		return adminhttp.PutMiniMaxTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_MINIMAX_TENANT", err.Error())), nil
 	}
-	credentialStore, err := s.credentialStore()
+	credentials, err := s.credentialService()
 	if err != nil {
 		return adminhttp.PutMiniMaxTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := validateTenantReferences(ctx, credentialStore, tenant); err != nil {
+	if err := validateTenantReferences(ctx, credentials, tenant); err != nil {
 		return adminhttp.PutMiniMaxTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_MINIMAX_TENANT", err.Error())), nil
 	}
 	previous, err := getMiniMaxTenant(ctx, store, id)
@@ -224,11 +227,11 @@ func (s *Server) SyncMiniMaxTenantVoices(ctx context.Context, request adminhttp.
 	if err != nil {
 		return adminhttp.SyncMiniMaxTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	voiceStore, err := s.voiceStore()
+	voices, err := s.voiceService()
 	if err != nil {
 		return adminhttp.SyncMiniMaxTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	credentialStore, err := s.credentialStore()
+	credentials, err := s.credentialService()
 	if err != nil {
 		return adminhttp.SyncMiniMaxTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -240,7 +243,7 @@ func (s *Server) SyncMiniMaxTenantVoices(ctx context.Context, request adminhttp.
 		}
 		return adminhttp.SyncMiniMaxTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	credential, err := s.miniMaxCredentialForTenant(ctx, credentialStore, tenant)
+	credential, err := s.miniMaxCredentialForTenant(ctx, credentials, tenant)
 	if err != nil {
 		return adminhttp.SyncMiniMaxTenantVoices400JSONResponse(apitypes.NewErrorResponse("INVALID_MINIMAX_TENANT", err.Error())), nil
 	}
@@ -252,7 +255,7 @@ func (s *Server) SyncMiniMaxTenantVoices(ctx context.Context, request adminhttp.
 		return adminhttp.SyncMiniMaxTenantVoices502JSONResponse(apitypes.NewErrorResponse("MINIMAX_SYNC_FAILED", err.Error())), nil
 	}
 	now := s.now()
-	createdCount, updatedCount, deletedCount, err := reconcileTenantVoices(ctx, voiceStore, tenant, upstream, now)
+	createdCount, updatedCount, deletedCount, err := reconcileTenantVoices(ctx, voices, tenant, upstream, now)
 	if err != nil {
 		return adminhttp.SyncMiniMaxTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -332,14 +335,9 @@ func normalizeMiniMaxTenantUpsert(in adminhttp.MiniMaxTenantUpsert, expectedID s
 	return tenant, nil
 }
 
-func validateTenantReferences(ctx context.Context, store kv.Store, tenant apitypes.MiniMaxTenant) error {
-	if _, err := store.Get(ctx, credentialKey(string(tenant.CredentialId))); err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
-			return fmt.Errorf("credential %q not found", tenant.CredentialId)
-		}
-		return err
-	}
-	return nil
+func validateTenantReferences(ctx context.Context, service CredentialService, tenant apitypes.MiniMaxTenant) error {
+	_, err := getCredentialFromService(ctx, service, string(tenant.CredentialId))
+	return err
 }
 
 func writeMiniMaxTenant(ctx context.Context, store kv.Store, tenant apitypes.MiniMaxTenant) error {
@@ -365,8 +363,8 @@ func getMiniMaxTenant(ctx context.Context, store kv.Store, id string) (apitypes.
 	return tenant, nil
 }
 
-func (s *Server) miniMaxClientForTenant(ctx context.Context, store kv.Store, tenant apitypes.MiniMaxTenant) (*minimax.Client, error) {
-	credential, err := s.miniMaxCredentialForTenant(ctx, store, tenant)
+func (s *Server) miniMaxClientForTenant(ctx context.Context, credentials CredentialService, tenant apitypes.MiniMaxTenant) (*minimax.Client, error) {
+	credential, err := s.miniMaxCredentialForTenant(ctx, credentials, tenant)
 	if err != nil {
 		return nil, err
 	}
@@ -377,12 +375,9 @@ func (s *Server) miniMaxClientForTenant(ctx context.Context, store kv.Store, ten
 	return s.newMiniMaxClient(apiKey, s.miniMaxBaseURLCandidates(tenant, credential)[0])
 }
 
-func (s *Server) miniMaxCredentialForTenant(ctx context.Context, store kv.Store, tenant apitypes.MiniMaxTenant) (apitypes.Credential, error) {
-	credential, err := getCredential(ctx, store, string(tenant.CredentialId))
+func (s *Server) miniMaxCredentialForTenant(ctx context.Context, service CredentialService, tenant apitypes.MiniMaxTenant) (apitypes.Credential, error) {
+	credential, err := getCredentialFromService(ctx, service, string(tenant.CredentialId))
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
-			return apitypes.Credential{}, fmt.Errorf("credential %q not found", tenant.CredentialId)
-		}
 		return apitypes.Credential{}, err
 	}
 	provider := strings.TrimSpace(string(credential.Provider))
@@ -678,63 +673,16 @@ func cloneMiniMaxRaw(in map[string]json.RawMessage) map[string]json.RawMessage {
 	return out
 }
 
-func reconcileTenantVoices(ctx context.Context, store kv.Store, tenant apitypes.MiniMaxTenant, upstream []minimax.Voice, now time.Time) (int32, int32, int32, error) {
-	existing, err := voicecatalog.ListProvider(ctx, store, miniMaxProviderKind, tenant.Id)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	existingByProviderVoiceID := make(map[string]apitypes.Voice, len(existing))
-	for _, voice := range existing {
-		if voice.Source != apitypes.VoiceSourceSync {
-			continue
-		}
-		providerVoiceID := voicecatalog.ProviderDataString(voice, "voice_id")
-		if providerVoiceID == "" {
-			continue
-		}
-		existingByProviderVoiceID[providerVoiceID] = voice
-	}
-
-	seen := make(map[string]struct{}, len(upstream))
-	var createdCount, updatedCount int32
+func reconcileTenantVoices(ctx context.Context, service voicecatalog.ProviderVoiceService, tenant apitypes.MiniMaxTenant, upstream []minimax.Voice, now time.Time) (int32, int32, int32, error) {
+	desired := make([]apitypes.Voice, 0, len(upstream))
 	for _, upstreamVoice := range upstream {
 		providerVoiceID := strings.TrimSpace(upstreamVoice.VoiceID)
 		if providerVoiceID == "" {
 			return 0, 0, 0, errors.New("MiniMax returned voice without voice_id")
 		}
-		seen[providerVoiceID] = struct{}{}
-		record := voiceFromMiniMax(tenant.Id, upstreamVoice, now)
-		if previous, ok := existingByProviderVoiceID[providerVoiceID]; ok {
-			record.Id = previous.Id
-			record.CreatedAt = previous.CreatedAt
-			if voicecatalog.SemanticEqual(previous, record) {
-				record.UpdatedAt = previous.UpdatedAt
-			} else {
-				updatedCount++
-			}
-			previousCopy := previous
-			if err := voicecatalog.Write(ctx, store, record, &previousCopy); err != nil {
-				return 0, 0, 0, err
-			}
-			continue
-		}
-		createdCount++
-		if err := voicecatalog.Write(ctx, store, record, nil); err != nil {
-			return 0, 0, 0, err
-		}
+		desired = append(desired, voiceFromMiniMax(tenant.Id, upstreamVoice, now))
 	}
-
-	var deletedCount int32
-	for providerVoiceID, voice := range existingByProviderVoiceID {
-		if _, ok := seen[providerVoiceID]; ok {
-			continue
-		}
-		if err := voicecatalog.Delete(ctx, store, voice); err != nil {
-			return 0, 0, 0, err
-		}
-		deletedCount++
-	}
-	return createdCount, updatedCount, deletedCount, nil
+	return service.ReconcileProviderVoices(ctx, miniMaxProviderKind, tenant.Id, desired)
 }
 
 func voiceFromMiniMax(tenantID string, upstream minimax.Voice, now time.Time) apitypes.Voice {
@@ -773,20 +721,8 @@ func voiceFromMiniMax(tenantID string, upstream minimax.Voice, now time.Time) ap
 	return voice
 }
 
-func deleteMiniMaxTenantVoices(ctx context.Context, store kv.Store, tenantID string) error {
-	voices, err := voicecatalog.ListProvider(ctx, store, miniMaxProviderKind, tenantID)
-	if err != nil {
-		return err
-	}
-	for _, voice := range voices {
-		if voice.Source != apitypes.VoiceSourceSync {
-			continue
-		}
-		if err := voicecatalog.Delete(ctx, store, voice); err != nil {
-			return err
-		}
-	}
-	return nil
+func deleteMiniMaxTenantVoices(ctx context.Context, service voicecatalog.ProviderVoiceService, tenantID string) error {
+	return service.DeleteProviderVoices(ctx, miniMaxProviderKind, tenantID)
 }
 
 func getCredential(ctx context.Context, store kv.Store, id string) (apitypes.Credential, error) {
@@ -799,6 +735,26 @@ func getCredential(ctx context.Context, store kv.Store, id string) (apitypes.Cre
 		return apitypes.Credential{}, fmt.Errorf("mmx: decode credential %s: %w", id, err)
 	}
 	return credential, nil
+}
+
+func getCredentialFromService(ctx context.Context, service CredentialService, id string) (apitypes.Credential, error) {
+	if service == nil {
+		return apitypes.Credential{}, errors.New("credential service not configured")
+	}
+	response, err := service.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Id: id})
+	if err != nil {
+		return apitypes.Credential{}, err
+	}
+	switch response := response.(type) {
+	case adminhttp.GetCredential200JSONResponse:
+		return apitypes.Credential(response), nil
+	case adminhttp.GetCredential404JSONResponse:
+		return apitypes.Credential{}, fmt.Errorf("credential %q not found: %w", id, errCredentialNotFound)
+	case adminhttp.GetCredential500JSONResponse:
+		return apitypes.Credential{}, fmt.Errorf("get credential %q: %s", id, response.Error.Message)
+	default:
+		return apitypes.Credential{}, fmt.Errorf("get credential %q: unexpected response %T", id, response)
+	}
 }
 
 func rawMessagesToMap(raw map[string]json.RawMessage) *map[string]any {
@@ -939,33 +895,33 @@ func (s *Server) store() (kv.Store, error) {
 	if s == nil || s.Store == nil {
 		return nil, errors.New("provider tenant store not configured")
 	}
-	return s.Store, nil
+	return kv.Prefixed(s.Store, kv.Key{"generic"}), nil
 }
 
 func (s *Server) tenantStore() (kv.Store, error) {
-	if s == nil || s.TenantStore == nil {
-		return nil, errors.New("MiniMax tenant store not configured")
+	if s == nil || s.Store == nil {
+		return nil, errors.New("provider tenant store not configured")
 	}
-	return s.TenantStore, nil
+	return kv.Prefixed(s.Store, kv.Key{"minimax"}), nil
 }
 
 func (s *Server) deepSeekTenantStore() (kv.Store, error) {
-	if s == nil || s.DeepSeekTenantStore == nil {
-		return nil, errors.New("DeepSeek tenant store not configured")
+	if s == nil || s.Store == nil {
+		return nil, errors.New("provider tenant store not configured")
 	}
-	return s.DeepSeekTenantStore, nil
+	return kv.Prefixed(s.Store, kv.Key{"deepseek"}), nil
 }
 
-func (s *Server) voiceStore() (kv.Store, error) {
-	if s == nil || s.VoiceStore == nil {
-		return nil, errors.New("MiniMax voice store not configured")
+func (s *Server) voiceService() (voicecatalog.ProviderVoiceService, error) {
+	if s == nil || s.Voices == nil {
+		return nil, errors.New("voice service not configured")
 	}
-	return s.VoiceStore, nil
+	return s.Voices, nil
 }
 
-func (s *Server) credentialStore() (kv.Store, error) {
-	if s == nil || s.CredentialStore == nil {
-		return nil, errors.New("MiniMax credential store not configured")
+func (s *Server) credentialService() (CredentialService, error) {
+	if s == nil || s.Credentials == nil {
+		return nil, errors.New("credential service not configured")
 	}
-	return s.CredentialStore, nil
+	return s.Credentials, nil
 }

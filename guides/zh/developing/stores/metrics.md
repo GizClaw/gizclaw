@@ -14,10 +14,9 @@
 storage:
   monitoring:
     kind: prometheus
-    prometheus:
-      remote_write_url: ${PROMETHEUS_REMOTE_WRITE_URL}
-      query_url: ${PROMETHEUS_QUERY_URL}
-      bearer_token: ${PROMETHEUS_BEARER_TOKEN}
+    remote_write_url: ${PROMETHEUS_REMOTE_WRITE_URL}
+    query_url: ${PROMETHEUS_QUERY_URL}
+    bearer_token: ${PROMETHEUS_BEARER_TOKEN}
 stores:
   telemetry:
     kind: metrics
@@ -32,15 +31,13 @@ ClickHouse 是物理 SQL connector。DSN 与 pool 只配置一次；每个逻辑
 ```yaml
 storage:
   analytics:
-    kind: sql
-    clickhouse:
-      dsn: ${CLICKHOUSE_DSN}
+    kind: clickhouse
+    dsn: ${CLICKHOUSE_DSN}
 stores:
   telemetry:
     kind: metrics
     storage: analytics
-    clickhouse:
-      table: gizclaw_metrics
+    table: gizclaw_metrics
 ```
 
-本机测试可让 `kind: metrics` 直接使用 `memory: {}`，因为它没有外部基础设施。旧 backend 字段和 `stores` 下的 provider connection 字段无效。
+本机测试可配置一个无属性的 `storage.kind: memory`，再让 `stores.kind: metrics` 引用它。旧 backend 字段和 `stores` 下的 provider connection 字段无效。

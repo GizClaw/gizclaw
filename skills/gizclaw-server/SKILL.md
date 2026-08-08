@@ -87,9 +87,8 @@ endpoint: gizclaw.example.com:9820
 
 storage:
   main-kv:
-    kind: keyvalue
-    badger:
-      dir: data/kv
+    kind: badger
+    dir: data/kv
 
 stores:
   peer-records:
@@ -100,23 +99,22 @@ stores:
 services:
   peer:
     store: peer-records
-    route_store: peer-routes
-    run_store: peer-run
 ```
 
 Config rules:
 
 - Registry keys are exact, case-sensitive operator-defined names; they have no reserved service meaning.
 - Required service bindings never default from a Store name, kind, prefix, or another Store.
-- Physical KV drivers are `memory` and `badger`; SQL drivers are `sqlite`, `postgres`, and `clickhouse`; filesystem ObjectStore uses `fs`.
+- Concrete physical kinds are `badger`, `memory`, `filesystem.dir`, `sqlite`, `postgresql`, `clickhouse`, `prometheus`, and `volc-tls`; no nested driver selector is accepted.
 - Prometheus and Volc TLS are physical connector kinds. Their endpoints and credentials belong under `storage`.
-- The eight logical Store kinds are `keyvalue`, `sql`, `objectstore`, `vecstore`, `graph`, `metrics`, `log.immutable`, and `log.mutable`.
-- `stores.kind: graph` may reference another logical keyvalue Store; in-process Metrics may use `memory: {}`.
+- The six logical Store kinds are `keyvalue`, `sql`, `objectstore`, `metrics`, `log.immutable`, and `log.mutable`.
+- In-process keyvalue or Metrics Stores reference a physical `storage.kind: memory`. Public vecstore and graph packages remain available but are not Server Store kinds.
 - `memory.Store` is selected through RuntimeProfile and MemoryLayout and is not a Server Store kind.
 - Relative physical paths are resolved from the workspace. Logical Store values are not rewritten.
 - `services.agent_host`, `services.metrics`, and `services.system_log` are optional; all other built-in service blocks are required.
 - `services.system_log` defaults to info-level stderr when omitted.
-- Old top-level pseudo-service blocks, one-layer Stores, generic `kind: log`, and `gizclaw migrate` are unsupported. Stop and recreate incompatible development services; do not attempt an automatic data migration.
+- Service-internal collections use code-owned prefixes; expanded bindings such as `route_store`, `invite_token_store`, and `member_store` are unsupported.
+- Old top-level pseudo-service blocks, nested Storage drivers, one-layer Stores, generic `kind: log`, and `gizclaw migrate` are unsupported. Stop and recreate incompatible development services; do not attempt an automatic data migration.
 
 Service-managed edit flow:
 

@@ -17,7 +17,7 @@ func TestClickHousePhysicalPoolSupportsScopedMetricsAndLogs(t *testing.T) {
 		t.Skip("GIZCLAW_TEST_CLICKHOUSE_DSN is not set")
 	}
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"analytics": {Kind: physicalstorage.KindSQL, ClickHouse: &physicalstorage.SQLConfig{DSN: dsn}},
+		"analytics": {Kind: physicalstorage.KindClickHouse, DSN: dsn},
 	})
 	if err != nil {
 		t.Fatalf("storage.New() error = %v", err)
@@ -35,15 +35,15 @@ func TestClickHousePhysicalPoolSupportsScopedMetricsAndLogs(t *testing.T) {
 	registry, err := NewWithStorage(physical, map[string]Config{
 		"metrics": {
 			Kind: KindMetrics, Storage: "analytics",
-			ClickHouse: &ClickHouseConfig{Table: "gizclaw_metrics_shared_test"},
+			Table: "gizclaw_metrics_shared_test",
 		},
 		"audit": {
 			Kind: KindLogImmutable, Storage: "analytics",
-			ClickHouse: &ClickHouseConfig{Table: "gizclaw_log_immutable_shared_test"},
+			Table: "gizclaw_log_immutable_shared_test",
 		},
 		"history": {
 			Kind: KindLogMutable, Storage: "analytics",
-			ClickHouse: &ClickHouseConfig{Table: "gizclaw_log_mutable_shared_test"},
+			Table: "gizclaw_log_mutable_shared_test",
 		},
 	})
 	if err != nil {

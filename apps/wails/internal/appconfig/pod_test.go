@@ -58,12 +58,9 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	type workspaceDir struct {
-		Dir string `yaml:"dir"`
-	}
 	type workspaceStorage struct {
-		Kind   string        `yaml:"kind"`
-		Badger *workspaceDir `yaml:"badger"`
+		Kind string `yaml:"kind"`
+		Dir  string `yaml:"dir"`
 	}
 	type workspaceStore struct {
 		Kind    string `yaml:"kind"`
@@ -97,7 +94,7 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 	if !workspace.ServeToClients || workspace.AdminPublicKey == "" || len(workspace.EdgeNodes) != 0 {
 		t.Fatalf("workspace admin key/edge nodes = %q/%v", workspace.AdminPublicKey, workspace.EdgeNodes)
 	}
-	if storage := workspace.Storage["local-kv"]; storage.Kind != "keyvalue" || storage.Badger == nil || storage.Badger.Dir != "data/kv" {
+	if storage := workspace.Storage["local-kv"]; storage.Kind != "badger" || storage.Dir != "data/kv" {
 		t.Fatalf("workspace local-kv storage = %+v", storage)
 	}
 	if peers := workspace.Stores["peers"]; peers.Kind != "keyvalue" || peers.Storage != "local-kv" || peers.Prefix != "peers" {
@@ -111,7 +108,7 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 			t.Fatalf("workspace contains forbidden default %q", forbidden)
 		}
 	}
-	for _, required := range []string{"peers", "peer-routes", "peer-run", "public-login", "flowcraft-state", "credentials", "firmwares", "runtime-profiles", "models", "memory-layouts", "provider-tenants", "minimax-tenants", "deepseek-tenants", "volc-tenants", "voices", "workspaces", "workflows", "tools"} {
+	for _, required := range []string{"peers", "public-login", "flowcraft-state", "credentials", "firmwares", "runtime-profiles", "models", "memory-layouts", "provider-tenants", "voices", "workspaces", "workflows", "tools"} {
 		if _, ok := workspace.Stores[required]; !ok {
 			t.Fatalf("workspace required store %q is missing", required)
 		}

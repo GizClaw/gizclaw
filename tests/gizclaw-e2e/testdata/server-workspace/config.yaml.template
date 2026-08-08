@@ -15,33 +15,23 @@ edge-nodes:
 admin-public-key: "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"
 storage:
   memory:
-    kind: keyvalue
-    memory: {}
+    kind: memory
+  metrics-memory:
+    kind: memory
   local-files:
-    kind: objectstore
-    fs:
-      dir: data/objects
+    kind: filesystem.dir
+    dir: data/objects
   agenthost-files:
-    kind: objectstore
-    fs:
-      dir: data/agenthost
+    kind: filesystem.dir
+    dir: data/agenthost
   gameplay-db:
-    kind: sql
-    sqlite:
-      dir: data/gameplay.sqlite
+    kind: sqlite
+    dir: data/gameplay.sqlite
 stores:
   peers:
     kind: keyvalue
     storage: memory
     prefix: peers
-  peer-routes:
-    kind: keyvalue
-    storage: memory
-    prefix: peer-routes
-  peer-run:
-    kind: keyvalue
-    storage: memory
-    prefix: peer-run
   public-login:
     kind: keyvalue
     storage: memory
@@ -69,22 +59,10 @@ stores:
   agenthost:
     kind: objectstore
     storage: agenthost-files
-  minimax-tenants:
-    kind: keyvalue
-    storage: memory
-    prefix: minimax-tenants
   provider-tenants:
     kind: keyvalue
     storage: memory
     prefix: provider-tenants
-  deepseek-tenants:
-    kind: keyvalue
-    storage: memory
-    prefix: deepseek-tenants
-  volc-tenants:
-    kind: keyvalue
-    storage: memory
-    prefix: volc-tenants
   models:
     kind: keyvalue
     storage: memory
@@ -105,18 +83,10 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: tools
-  pet-defs:
+  gameplay:
     kind: keyvalue
     storage: memory
-    prefix: pet-defs
-  badge-defs:
-    kind: keyvalue
-    storage: memory
-    prefix: badge-defs
-  game-defs:
-    kind: keyvalue
-    storage: memory
-    prefix: game-defs
+    prefix: gameplay
   gameplay-assets:
     kind: objectstore
     storage: local-files
@@ -132,10 +102,6 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: contacts
-  friend-invite-tokens:
-    kind: keyvalue
-    storage: memory
-    prefix: friend-invite-tokens
   friends:
     kind: keyvalue
     storage: memory
@@ -144,26 +110,12 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: friend-groups
-  friend-group-invite-tokens:
-    kind: keyvalue
-    storage: memory
-    prefix: friend-group-invite-tokens
-  friend-group-members:
-    kind: keyvalue
-    storage: memory
-    prefix: friend-group-members
-  friend-group-belongs:
-    kind: keyvalue
-    storage: memory
-    prefix: friend-group-belongs
   metrics:
     kind: metrics
-    memory: {}
+    storage: metrics-memory
 services:
   peer:
     store: peers
-    route_store: peer-routes
-    run_store: peer-run
   public_login:
     store: public-login
   credential:
@@ -179,18 +131,11 @@ services:
   memory_layout:
     store: memory-layouts
   provider_tenants:
-    generic_store: provider-tenants
-    minimax_tenant_store: minimax-tenants
-    deepseek_tenant_store: deepseek-tenants
-    volc_tenant_store: volc-tenants
-    credential_store: credentials
-    model_store: models
-    voice_store: voices
+    store: provider-tenants
   workflow:
     store: workflows
   workspace:
     store: workspaces
-    workflow_store: workflows
     assets_store: workspace-assets
   toolkit:
     store: tools
@@ -198,16 +143,10 @@ services:
     store: contacts
   friend:
     store: friends
-    invite_token_store: friend-invite-tokens
   friend_group:
     store: friend-groups
-    invite_token_store: friend-group-invite-tokens
-    member_store: friend-group-members
-    belong_store: friend-group-belongs
   gameplay:
-    pet_def_store: pet-defs
-    badge_def_store: badge-defs
-    game_def_store: game-defs
+    store: gameplay
     assets_store: gameplay-assets
     database_store: gameplay-db
   agent_host:

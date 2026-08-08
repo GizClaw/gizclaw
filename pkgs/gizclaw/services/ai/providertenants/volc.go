@@ -69,11 +69,11 @@ func (s *Server) CreateVolcTenant(ctx context.Context, request adminhttp.CreateV
 	if err != nil {
 		return adminhttp.CreateVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
-	credentialStore, err := s.credentialStore()
+	credentials, err := s.credentialService()
 	if err != nil {
 		return adminhttp.CreateVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := validateVolcTenantReferences(ctx, credentialStore, tenant); err != nil {
+	if err := validateVolcTenantReferences(ctx, credentials, tenant); err != nil {
 		return adminhttp.CreateVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
 	now := s.now()
@@ -102,11 +102,11 @@ func (s *Server) DeleteVolcTenant(ctx context.Context, request adminhttp.DeleteV
 		}
 		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	voiceStore, err := s.voiceStore()
+	voices, err := s.voiceService()
 	if err != nil {
 		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := deleteVolcTenantVoices(ctx, voiceStore, tenant.Id); err != nil {
+	if err := deleteVolcTenantVoices(ctx, voices, tenant.Id); err != nil {
 		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := deleteTenant(ctx, store, volcTenantKey(tenant.Id)); err != nil {
@@ -144,11 +144,11 @@ func (s *Server) PutVolcTenant(ctx context.Context, request adminhttp.PutVolcTen
 	if err != nil {
 		return adminhttp.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
-	credentialStore, err := s.credentialStore()
+	credentials, err := s.credentialService()
 	if err != nil {
 		return adminhttp.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := validateVolcTenantReferences(ctx, credentialStore, tenant); err != nil {
+	if err := validateVolcTenantReferences(ctx, credentials, tenant); err != nil {
 		return adminhttp.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
 	previous, err := getVolcTenant(ctx, store, id)
@@ -173,11 +173,11 @@ func (s *Server) SyncVolcTenantVoices(ctx context.Context, request adminhttp.Syn
 	if err != nil {
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	voiceStore, err := s.voiceStore()
+	voices, err := s.voiceService()
 	if err != nil {
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	credentialStore, err := s.credentialStore()
+	credentials, err := s.credentialService()
 	if err != nil {
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -189,9 +189,9 @@ func (s *Server) SyncVolcTenantVoices(ctx context.Context, request adminhttp.Syn
 		}
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	credential, err := getCredential(ctx, credentialStore, string(tenant.CredentialId))
+	credential, err := getCredentialFromService(ctx, credentials, string(tenant.CredentialId))
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, errCredentialNotFound) {
 			return adminhttp.SyncVolcTenantVoices400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", fmt.Sprintf("credential %q not found", tenant.CredentialId))), nil
 		}
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -209,7 +209,7 @@ func (s *Server) SyncVolcTenantVoices(ctx context.Context, request adminhttp.Syn
 		return adminhttp.SyncVolcTenantVoices502JSONResponse(apitypes.NewErrorResponse("VOLC_SYNC_FAILED", err.Error())), nil
 	}
 	now := s.now()
-	createdCount, updatedCount, deletedCount, err := reconcileVolcTenantVoices(ctx, voiceStore, tenant, upstream, now)
+	createdCount, updatedCount, deletedCount, err := reconcileVolcTenantVoices(ctx, voices, tenant, upstream, now)
 	if err != nil {
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -291,14 +291,9 @@ func normalizeVolcTenantUpsert(in adminhttp.VolcTenantUpsert, expectedID string)
 	return tenant, nil
 }
 
-func validateVolcTenantReferences(ctx context.Context, store kv.Store, tenant apitypes.VolcTenant) error {
-	if _, err := store.Get(ctx, credentialKey(string(tenant.CredentialId))); err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
-			return fmt.Errorf("credential %q not found", tenant.CredentialId)
-		}
-		return err
-	}
-	return nil
+func validateVolcTenantReferences(ctx context.Context, service CredentialService, tenant apitypes.VolcTenant) error {
+	_, err := getCredentialFromService(ctx, service, string(tenant.CredentialId))
+	return err
 }
 
 func writeVolcTenant(ctx context.Context, store kv.Store, tenant apitypes.VolcTenant) error {
@@ -709,63 +704,16 @@ func (r volcSpeakerRecord) providerVoiceID() string {
 	return ""
 }
 
-func reconcileVolcTenantVoices(ctx context.Context, store kv.Store, tenant apitypes.VolcTenant, upstream []volcSpeakerRecord, now time.Time) (int32, int32, int32, error) {
-	existing, err := voicecatalog.ListProvider(ctx, store, volcProviderKind, tenant.Id)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	existingByProviderVoiceID := make(map[string]apitypes.Voice, len(existing))
-	for _, voice := range existing {
-		if voice.Source != apitypes.VoiceSourceSync {
-			continue
-		}
-		providerVoiceID := voicecatalog.ProviderDataString(voice, "voice_id")
-		if providerVoiceID == "" {
-			continue
-		}
-		existingByProviderVoiceID[providerVoiceID] = voice
-	}
-
-	seen := make(map[string]struct{}, len(upstream))
-	var createdCount, updatedCount int32
+func reconcileVolcTenantVoices(ctx context.Context, service voicecatalog.ProviderVoiceService, tenant apitypes.VolcTenant, upstream []volcSpeakerRecord, now time.Time) (int32, int32, int32, error) {
+	desired := make([]apitypes.Voice, 0, len(upstream))
 	for _, upstreamVoice := range upstream {
 		providerVoiceID := upstreamVoice.providerVoiceID()
 		if providerVoiceID == "" {
 			return 0, 0, 0, errors.New("Volcengine returned voice without speaker id")
 		}
-		seen[providerVoiceID] = struct{}{}
-		record := voiceFromVolc(tenant.Id, upstreamVoice, now)
-		if previous, ok := existingByProviderVoiceID[providerVoiceID]; ok {
-			record.Id = previous.Id
-			record.CreatedAt = previous.CreatedAt
-			if voicecatalog.SemanticEqual(previous, record) {
-				record.UpdatedAt = previous.UpdatedAt
-			} else {
-				updatedCount++
-			}
-			previousCopy := previous
-			if err := voicecatalog.Write(ctx, store, record, &previousCopy); err != nil {
-				return 0, 0, 0, err
-			}
-			continue
-		}
-		createdCount++
-		if err := voicecatalog.Write(ctx, store, record, nil); err != nil {
-			return 0, 0, 0, err
-		}
+		desired = append(desired, voiceFromVolc(tenant.Id, upstreamVoice, now))
 	}
-
-	var deletedCount int32
-	for providerVoiceID, voice := range existingByProviderVoiceID {
-		if _, ok := seen[providerVoiceID]; ok {
-			continue
-		}
-		if err := voicecatalog.Delete(ctx, store, voice); err != nil {
-			return 0, 0, 0, err
-		}
-		deletedCount++
-	}
-	return createdCount, updatedCount, deletedCount, nil
+	return service.ReconcileProviderVoices(ctx, volcProviderKind, tenant.Id, desired)
 }
 
 func voiceFromVolc(tenantID string, upstream volcSpeakerRecord, now time.Time) apitypes.Voice {
@@ -847,20 +795,8 @@ func (r volcSpeakerRecord) statusText() string {
 	return strings.TrimSpace(r.status.InstanceStatus)
 }
 
-func deleteVolcTenantVoices(ctx context.Context, store kv.Store, tenantID string) error {
-	voices, err := voicecatalog.ListProvider(ctx, store, volcProviderKind, tenantID)
-	if err != nil {
-		return err
-	}
-	for _, voice := range voices {
-		if voice.Source != apitypes.VoiceSourceSync {
-			continue
-		}
-		if err := voicecatalog.Delete(ctx, store, voice); err != nil {
-			return err
-		}
-	}
-	return nil
+func deleteVolcTenantVoices(ctx context.Context, service voicecatalog.ProviderVoiceService, tenantID string) error {
+	return service.DeleteProviderVoices(ctx, volcProviderKind, tenantID)
 }
 
 func volcTenantResourceIDs(tenant apitypes.VolcTenant) []string {
@@ -974,8 +910,8 @@ func volcTenantKey(id string) kv.Key {
 }
 
 func (s *Server) volcTenantStore() (kv.Store, error) {
-	if s == nil || s.VolcTenantStore == nil {
-		return nil, errors.New("Volcengine tenant store not configured")
+	if s == nil || s.Store == nil {
+		return nil, errors.New("provider tenant store not configured")
 	}
-	return s.VolcTenantStore, nil
+	return kv.Prefixed(s.Store, kv.Key{"volc"}), nil
 }

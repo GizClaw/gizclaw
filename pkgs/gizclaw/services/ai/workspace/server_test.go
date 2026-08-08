@@ -1274,10 +1274,7 @@ func TestValidateRealtimeOverridesRejectInvalidOptions(t *testing.T) {
 func TestServerValidatesRuntimeASTTranslateAliases(t *testing.T) {
 	t.Parallel()
 	srv := newTestServer(t)
-	store, err := srv.workflowStore()
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := testWorkflowStore(t, srv)
 	if err := store.Set(context.Background(), workflowReferenceKey("ast-workflow"), []byte(`{"name":"ast-workflow","spec":{"driver":"ast-translate","ast_translate":{"translation_model":"translate-model","lang_pair":"auto"}}}`)); err != nil {
 		t.Fatal(err)
 	}
@@ -1328,10 +1325,7 @@ func TestServerValidatesRuntimeASTTranslateAliases(t *testing.T) {
 func TestServerValidatesNewRealtimeWorkspaceOverrides(t *testing.T) {
 	t.Parallel()
 	srv := newTestServer(t)
-	store, err := srv.workflowStore()
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := testWorkflowStore(t, srv)
 	for name, body := range map[string]string{
 		"dash-workflow":   `{"name":"dash-workflow","spec":{"driver":"dashscope-realtime","dashscope_realtime":{"model":"dash-default","voice":"dash-default-voice"}}}`,
 		"duplex-workflow": `{"name":"duplex-workflow","spec":{"driver":"doubao-realtime-duplex","doubao_realtime_duplex":{"model":"duplex-default","voice":"duplex-default-voice"}}}`,
@@ -1468,10 +1462,7 @@ func TestServerValidatesNewRealtimeWorkspaceOverrides(t *testing.T) {
 func TestServerRejectsWrongEinoWorkspaceParameterVariant(t *testing.T) {
 	t.Parallel()
 	srv := newTestServer(t)
-	store, err := srv.workflowStore()
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := testWorkflowStore(t, srv)
 	if err := store.Set(t.Context(), workflowReferenceKey("eino-workflow"), []byte(
 		`{"name":"eino-workflow","spec":{"driver":"eino","eino":{"graph":{"name":"eino","compile":{"node_trigger_mode":"any_predecessor"},"state":{"fields":[]},"nodes":[],"edges":[],"branches":[],"outputs":[]}}}}`,
 	)); err != nil {
@@ -1496,24 +1487,52 @@ func TestServerStoreHelpers(t *testing.T) {
 	if _, err := nilServer.store(); err == nil {
 		t.Fatal("nil server store() error = nil")
 	}
-	if _, err := nilServer.workflowStore(); err == nil {
-		t.Fatal("nil server workflowStore() error = nil")
+	if _, err := nilServer.getWorkflow(t.Context(), "missing"); err == nil {
+		t.Fatal("nil server getWorkflow() error = nil")
 	}
-	if _, err := (&Server{}).workflowStore(); err == nil {
-		t.Fatal("empty server workflowStore() error = nil")
+	if _, err := (&Server{}).getWorkflow(t.Context(), "missing"); err == nil {
+		t.Fatal("empty server getWorkflow() error = nil")
 	}
 
 	base := kv.NewMemory(nil)
 	srv := &Server{Store: base}
-	if _, err := srv.workflowStore(); err == nil {
-		t.Fatal("workflowStore missing explicit Store error = nil")
+	if _, err := srv.getWorkflow(t.Context(), "missing"); err == nil {
+		t.Fatal("getWorkflow missing service error = nil")
 	}
 
 	workflows := kv.NewMemory(nil)
-	srv.WorkflowStore = workflows
-	if got, err := srv.workflowStore(); err != nil || got != workflows {
-		t.Fatalf("workflowStore explicit = %v, %v", got, err)
+	srv.Workflows = testWorkflowService{store: workflows}
+	if _, err := srv.getWorkflow(t.Context(), "missing"); !isInvalidWorkspaceReference(err) {
+		t.Fatalf("getWorkflow missing resource error = %v", err)
 	}
+}
+
+type testWorkflowService struct {
+	store kv.Store
+}
+
+func (s testWorkflowService) GetWorkflow(ctx context.Context, request adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
+	data, err := s.store.Get(ctx, workflowReferenceKey(request.Id))
+	if errors.Is(err, kv.ErrNotFound) {
+		return adminhttp.GetWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", "workflow not found")), nil
+	}
+	if err != nil {
+		return adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	var value apitypes.Workflow
+	if err := json.Unmarshal(data, &value); err != nil {
+		return adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	return adminhttp.GetWorkflow200JSONResponse(value), nil
+}
+
+func testWorkflowStore(t *testing.T, srv *Server) kv.Store {
+	t.Helper()
+	service, ok := srv.Workflows.(testWorkflowService)
+	if !ok {
+		t.Fatalf("Workflows = %T", srv.Workflows)
+	}
+	return service.store
 }
 
 func newTestServer(t *testing.T) *Server {
@@ -1525,20 +1544,17 @@ func newTestServer(t *testing.T) *Server {
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	return &Server{
-		Store:         kv.Prefixed(store, kv.Key{"workspaces"}),
-		WorkflowStore: kv.Prefixed(store, kv.Key{"workflows"}),
-		Models:        &model.Server{Store: kv.Prefixed(store, kv.Key{"models"})},
-		Voices:        &voice.Server{Store: kv.Prefixed(store, kv.Key{"voices"})},
+		Store:     kv.Prefixed(store, kv.Key{"workspaces"}),
+		Workflows: testWorkflowService{store: kv.Prefixed(store, kv.Key{"workflows"})},
+		Models:    &model.Server{Store: kv.Prefixed(store, kv.Key{"models"})},
+		Voices:    &voice.Server{Store: kv.Prefixed(store, kv.Key{"voices"})},
 	}
 }
 
 func seedWorkflow(t *testing.T, srv *Server, name string) {
 	t.Helper()
 
-	store, err := srv.workflowStore()
-	if err != nil {
-		t.Fatalf("workflow store: %v", err)
-	}
+	store := testWorkflowStore(t, srv)
 	if err := store.Set(context.Background(), workflowReferenceKey(name), []byte(`{}`)); err != nil {
 		t.Fatalf("seed workflow %q: %v", name, err)
 	}
@@ -1547,10 +1563,7 @@ func seedWorkflow(t *testing.T, srv *Server, name string) {
 func seedFlowcraftWorkflow(t *testing.T, srv *Server, name, generateModel string) {
 	t.Helper()
 
-	store, err := srv.workflowStore()
-	if err != nil {
-		t.Fatalf("workflow store: %v", err)
-	}
+	store := testWorkflowStore(t, srv)
 	body := fmt.Appendf(nil, `{"name":%q,"spec":{"driver":"flowcraft","flowcraft":{"graph":{"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":%q}}]}}}}`, name, generateModel)
 	if err := store.Set(context.Background(), workflowReferenceKey(name), body); err != nil {
 		t.Fatalf("seed flowcraft workflow %q: %v", name, err)

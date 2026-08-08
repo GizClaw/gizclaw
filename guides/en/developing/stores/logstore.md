@@ -29,17 +29,15 @@ Every logical Log Store declares `log.immutable` or `log.mutable`. `Stores.Log` 
 storage:
   volc-logs:
     kind: volc-tls
-    volc:
-      endpoint: ${VOLC_TLS_ENDPOINT}
-      region: ${VOLC_TLS_REGION}
-      access_key_id: ${VOLC_TLS_ACCESS_KEY_ID}
-      access_key_secret: ${VOLC_TLS_ACCESS_KEY_SECRET}
+    endpoint: ${VOLC_TLS_ENDPOINT}
+    region: ${VOLC_TLS_REGION}
+    access_key_id: ${VOLC_TLS_ACCESS_KEY_ID}
+    access_key_secret: ${VOLC_TLS_ACCESS_KEY_SECRET}
 stores:
   logs:
     kind: log.immutable
     storage: volc-logs
-    volc:
-      topic_id: ${VOLC_TLS_TOPIC_ID}
+    topic_id: ${VOLC_TLS_TOPIC_ID}
 ```
 
 The operator provisions the topic, logset, retention, and index. Store construction calls only `DescribeIndex`; it never calls `CreateIndex` or `ModifyIndex`. The required index disables full-text and automatic indexing and enables phrase indexing. `id`, `stream`, `kind`, and `level` are case-sensitive non-tokenized text; `msg` is case-sensitive text with an ASCII-whitespace delimiter and Chinese terms enabled; `attributes` is case-sensitive JSON with `IndexAll=true`; `payload` must remain unindexed. `DescribeIndex` may return the logical message delimiter as the literal escaped text ` \t\r\n`; the validator accepts that exact provider representation as equivalent without accepting other delimiter spellings. The operator decides whether to rebuild historical data after enabling phrase indexing on an existing topic.
@@ -59,16 +57,14 @@ For `Streams=[system]` and `Kinds=[log]`, the driver also includes old records w
 ```yaml
 storage:
   analytics:
-    kind: sql
-    clickhouse:
-      dsn: ${CLICKHOUSE_DSN}
+    kind: clickhouse
+    dsn: ${CLICKHOUSE_DSN}
 stores:
   flowcraft-history:
     kind: log.mutable
     storage: analytics
-    clickhouse:
-      database: gizclaw
-      table: flowcraft_history
+    database: gizclaw
+    table: flowcraft_history
 ```
 
 The driver creates and validates a dedicated `MergeTree` table, partitioned by month and ordered by `(timestamp, stream, id)`. `Append` serializes duplicate checks and synchronous batch insertion within one store instance, then returns keys only after commit. `Query` translates the structured contract directly to parameterized ClickHouse SQL and pages by `(timestamp, stream, id)` without a separate index. `Replace` uses a synchronous `ALTER UPDATE`, and `Delete` uses a synchronous `ALTER DELETE`; both target exactly one `(stream, id)` pair. The driver rejects duplicate keys instead of silently mutating multiple rows.

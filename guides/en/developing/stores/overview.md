@@ -48,20 +48,28 @@ flowchart TB
 
 ### Server composition contract
 
-`storage` is the dynamic inventory of physical Data Connectors. It owns driver/provider configuration, DSNs or endpoints, credentials, pools and clients, readiness, and lifecycle. `stores` is a second dynamic inventory that borrows those connectors and exposes logical interfaces with prefix, table, database, or topic scope. The fixed typed `services` block binds built-in consumers to named compatible Stores. Registry names are exact and have no reserved service meaning.
+`storage` is the dynamic inventory of physical Data Connectors. Each `kind` directly identifies one concrete backend and owns its path, DSN, endpoint, credentials, pool or client, readiness, and lifecycle. `stores` combines a Store kind with a Storage kind to construct a logical interface scoped by prefix, table, database, or topic. The fixed typed `services` block binds built-in consumers to named compatible Stores. Registry names are exact and have no reserved service meaning.
 
 | Store kind | Interface and scope |
 | --- | --- |
 | `keyvalue` | `kv.Store`; optional key prefix over a physical KV connector |
 | `sql` | borrowed `*sqlx.DB` physical pool; service owns its schema |
 | `objectstore` | `objectstore.ObjectStore`; optional object prefix |
-| `vecstore` | `vecstore.Index` over a physical vector connector |
-| `graph` | `graph.Graph` composed over another logical keyvalue Store |
-| `metrics` | `metrics.Store`; in-process memory or a physical Prometheus/ClickHouse connector |
+| `metrics` | `metrics.Store`; `memory`, Prometheus, or ClickHouse Storage |
 | `log.immutable` | `logstore.ImmutableStore`; Volc topic or ClickHouse table |
 | `log.mutable` | `logstore.MutableStore`; ClickHouse table |
 
-ClickHouse is a physical `sql` connector. Prometheus and Volc TLS are physical provider connectors. Logical Stores contain only connector references and scope. Multiple Stores may borrow one connector; closing a logical Store does not close the shared connector. Memory connections selected through RuntimeProfile and MemoryLayout remain outside this registry.
+| Storage kind | Physical configuration |
+| --- | --- |
+| `badger` | `dir` |
+| `memory` | no properties |
+| `filesystem.dir` | `dir` |
+| `sqlite` | exactly one of `dir` or `dsn` |
+| `postgresql`, `clickhouse` | `dsn` |
+| `prometheus` | remote-write/query URLs and optional bearer token |
+| `volc-tls` | endpoint, region, and credentials |
+
+Multiple Stores may borrow one connector; closing a logical Store does not close the shared connector. Keyvalue Stores sharing one `memory` Storage use one `*kv.Memory` root and atomic boundary. `vecstore` and `graph` have no built-in Server consumer, so they are not command-layer Store kinds; their public packages and constructors remain available. Memory connections selected through RuntimeProfile and MemoryLayout remain outside this registry.
 
 ### Process SQLite DSN contract
 

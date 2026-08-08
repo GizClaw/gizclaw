@@ -3,15 +3,12 @@ package storage
 import (
 	"context"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/goccy/go-yaml"
 )
 
 func TestNewNilConfigs(t *testing.T) {
@@ -19,49 +16,165 @@ func TestNewNilConfigs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	defer s.Close()
+	t.Cleanup(func() { _ = s.Close() })
 	if _, err := s.KV("anything"); err == nil {
-		t.Fatal("expected error for empty storage registry")
+		t.Fatal("KV(anything) error = nil")
 	}
 }
 
-func TestNewUnknownKind(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: "nosql"},
-	}); err == nil {
-		t.Fatal("expected error for unknown kind")
+func TestNewRejectsUnknownKindAndEmptyName(t *testing.T) {
+	for name, configs := range map[string]map[string]Config{
+		"unknown kind": {"x": {Kind: "nosql"}},
+		"empty name":   {"": {Kind: KindMemory}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := New(configs)
+			if err == nil {
+				t.Fatal("New() error = nil")
+			}
+			var configErr *ConfigError
+			if !errors.As(err, &configErr) {
+				t.Fatalf("New() error = %v, want ConfigError", err)
+			}
+		})
 	}
 }
 
-func TestNewRejectsEmptyConnectorName(t *testing.T) {
-	_, err := New(map[string]Config{"": {Kind: KindKeyValue, Memory: &MemoryConfig{}}})
-	if err == nil || !strings.Contains(err.Error(), "connector name must not be empty") {
-		t.Fatalf("New() error = %v", err)
+func TestConcreteKindsRejectForeignFields(t *testing.T) {
+	for name, cfg := range map[string]Config{
+		"memory dir":         {Kind: KindMemory, Dir: "data"},
+		"badger dsn":         {Kind: KindBadger, Dir: "data", DSN: "unused"},
+		"filesystem dsn":     {Kind: KindFilesystemDir, Dir: "data", DSN: "unused"},
+		"postgresql dir":     {Kind: KindPostgreSQL, DSN: "postgres://example.invalid/db", Dir: "data"},
+		"clickhouse dir":     {Kind: KindClickHouse, DSN: "clickhouse://example.invalid/db", Dir: "data"},
+		"prometheus dsn":     {Kind: KindPrometheus, DSN: "unused"},
+		"volc-tls query url": {Kind: KindVolcTLS, QueryURL: "unused"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := New(map[string]Config{"storage": cfg}); err == nil {
+				t.Fatal("New() error = nil")
+			}
+		})
 	}
 }
 
-func TestSQLExpandsPhysicalDSNEnvironment(t *testing.T) {
+func TestMemoryKVIsSharedMemoryInstance(t *testing.T) {
+	registry, err := New(map[string]Config{"memory": {Kind: KindMemory}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+
+	first, err := registry.KV("memory")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := registry.KV("memory")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second {
+		t.Fatal("KV(memory) returned different roots")
+	}
+	if _, ok := first.(*kv.Memory); !ok {
+		t.Fatalf("KV(memory) = %T, want *kv.Memory", first)
+	}
+	if err := first.Set(t.Context(), kv.Key{"key"}, []byte("value")); err != nil {
+		t.Fatal(err)
+	}
+	value, err := second.Get(t.Context(), kv.Key{"key"})
+	if err != nil || string(value) != "value" {
+		t.Fatalf("Get() = %q, %v", value, err)
+	}
+}
+
+func TestBadgerKV(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "badger")
+	registry, err := New(map[string]Config{"badger": {Kind: KindBadger, Dir: dir}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	store, err := registry.KV("badger")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set(t.Context(), kv.Key{"key"}, []byte("value")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFilesystemDirDescriptor(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "objects")
+	registry, err := New(map[string]Config{"objects": {Kind: KindFilesystemDir, Dir: dir}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	got, err := registry.Dir("objects")
+	if err != nil || got != dir {
+		t.Fatalf("Dir(objects) = %q, %v; want %q", got, err, dir)
+	}
+	if _, err := os.Stat(dir); err != nil {
+		t.Fatalf("Stat(%q): %v", dir, err)
+	}
+	if _, err := registry.KV("objects"); err == nil {
+		t.Fatal("KV(objects) error = nil")
+	}
+}
+
+func TestSQLiteDirAndDSN(t *testing.T) {
+	for name, cfg := range map[string]Config{
+		"dir": {Kind: KindSQLite, Dir: filepath.Join(t.TempDir(), "dir.sqlite")},
+		"dsn": {Kind: KindSQLite, DSN: filepath.Join(t.TempDir(), "dsn.sqlite")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			registry, err := New(map[string]Config{"database": cfg})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = registry.Close() })
+			db, err := registry.SQL("database")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if db.DriverName() != "sqlite" {
+				t.Fatalf("DriverName() = %q", db.DriverName())
+			}
+		})
+	}
+}
+
+func TestSQLiteRequiresExactlyOneLocation(t *testing.T) {
+	for _, cfg := range []Config{
+		{Kind: KindSQLite},
+		{Kind: KindSQLite, Dir: "data.sqlite", DSN: ":memory:"},
+	} {
+		if _, err := New(map[string]Config{"database": cfg}); err == nil {
+			t.Fatalf("New(%+v) error = nil", cfg)
+		}
+	}
+}
+
+func TestSQLExpandsDSNEnvironment(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "expanded.sqlite")
 	t.Setenv("GIZCLAW_TEST_SQLITE_DSN", dbPath)
 	registry, err := New(map[string]Config{
-		"database": {Kind: KindSQL, SQLite: &SQLConfig{DSN: "${GIZCLAW_TEST_SQLITE_DSN}"}},
+		"database": {Kind: KindSQLite, DSN: "${GIZCLAW_TEST_SQLITE_DSN}"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = registry.Close() })
 	if _, err := os.Stat(dbPath); err != nil {
-		t.Fatalf("expanded SQLite database was not created: %v", err)
+		t.Fatalf("Stat(%q): %v", dbPath, err)
 	}
 }
 
 func TestSQLConnectionErrorsDoNotExposeDSNSecrets(t *testing.T) {
 	const secret = "leaked-password"
 	_, err := New(map[string]Config{
-		"database": {
-			Kind:     KindSQL,
-			Postgres: &SQLConfig{DSN: "postgres://user:" + secret + "@%"},
-		},
+		"database": {Kind: KindPostgreSQL, DSN: "postgres://user:" + secret + "@%"},
 	})
 	if err == nil {
 		t.Fatal("New() error = nil")
@@ -71,550 +184,38 @@ func TestSQLConnectionErrorsDoNotExposeDSNSecrets(t *testing.T) {
 	}
 }
 
-func TestSQLRejectsDriverSpecificForeignFields(t *testing.T) {
-	for name, config := range map[string]Config{
-		"sqlite-both": {
-			Kind: KindSQL, SQLite: &SQLConfig{DSN: ":memory:", Dir: "data.sqlite"},
-		},
-		"postgres-dir": {
-			Kind: KindSQL, Postgres: &SQLConfig{DSN: "postgres://example.invalid/db", Dir: "data.sqlite"},
-		},
-		"clickhouse-dir": {
-			Kind: KindSQL, ClickHouse: &SQLConfig{DSN: "clickhouse://example.invalid/db", Dir: "data.sqlite"},
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			if _, err := New(map[string]Config{"database": config}); err == nil {
-				t.Fatalf("New(%+v) error = nil", config)
-			}
-		})
-	}
-}
-
-func TestKVMemory(t *testing.T) {
-	reg, err := New(map[string]Config{
-		"mem": {Kind: KindKeyValue, Memory: &MemoryConfig{}},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	s, err := reg.KV("mem")
-	if err != nil {
-		t.Fatalf("KV(mem): %v", err)
-	}
-
-	ctx := context.Background()
-	if err := s.Set(ctx, kv.Key{"a"}, []byte("1")); err != nil {
-		t.Fatalf("Set: %v", err)
-	}
-	got, err := s.Get(ctx, kv.Key{"a"})
-	if err != nil {
-		t.Fatalf("Get: %v", err)
-	}
-	if string(got) != "1" {
-		t.Fatalf("Get = %q, want %q", got, "1")
-	}
-
-	s2, err := reg.KV("mem")
-	if err != nil {
-		t.Fatalf("KV(mem) second call: %v", err)
-	}
-	if s != s2 {
-		t.Fatal("expected same instance on second call")
-	}
-}
-
-func TestKVMemoryDriverBlock(t *testing.T) {
-	reg, err := New(map[string]Config{
-		"mem": {Kind: KindKeyValue, Memory: &MemoryConfig{}},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-	if _, err := reg.KV("mem"); err != nil {
-		t.Fatalf("KV(mem): %v", err)
-	}
-}
-
-func TestKVBadger(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "badger")
-	reg, err := New(map[string]Config{
-		"bg": {Kind: KindKeyValue, Badger: &BadgerConfig{Dir: dir}},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	s, err := reg.KV("bg")
-	if err != nil {
-		t.Fatalf("KV(bg): %v", err)
-	}
-	ctx := context.Background()
-	if err := s.Set(ctx, kv.Key{"k"}, []byte("v")); err != nil {
-		t.Fatalf("Set: %v", err)
-	}
-	got, err := s.Get(ctx, kv.Key{"k"})
-	if err != nil {
-		t.Fatalf("Get: %v", err)
-	}
-	if string(got) != "v" {
-		t.Fatalf("Get = %q", got)
-	}
-}
-
-func TestKVBadgerDriverBlock(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "badger")
-	reg, err := New(map[string]Config{
-		"bg": {Kind: KindKeyValue, Badger: &BadgerConfig{Dir: dir}},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-	if _, err := reg.KV("bg"); err != nil {
-		t.Fatalf("KV(bg): %v", err)
-	}
-}
-
-func TestNewRejectsWrongDriverBlockForKind(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"bad": {Kind: KindKeyValue, FS: &FSConfig{Dir: t.TempDir()}},
-	}); err == nil {
-		t.Fatal("expected error for wrong driver block")
-	}
-	if _, err := New(map[string]Config{
-		"bad": {Kind: KindKeyValue, Memory: &MemoryConfig{}, Badger: &BadgerConfig{Dir: t.TempDir()}},
-	}); err == nil {
-		t.Fatal("expected error for multiple driver blocks")
-	}
-	if _, err := New(map[string]Config{
-		"bad": {Kind: KindObjectStore, Badger: &BadgerConfig{Dir: t.TempDir()}},
-	}); err == nil {
-		t.Fatal("expected error for objectstore with badger driver")
-	}
-	if _, err := New(map[string]Config{
-		"bad": {Kind: KindSQL, FS: &FSConfig{Dir: t.TempDir()}},
-	}); err == nil {
-		t.Fatal("expected error for sql with fs driver")
-	}
-}
-
-func TestNewRejectsMissingDriverBlock(t *testing.T) {
-	tests := []struct {
-		name string
-		cfg  Config
-	}{
-		{name: "keyvalue", cfg: Config{Kind: KindKeyValue}},
-		{name: "vecstore", cfg: Config{Kind: KindVecStore}},
-		{name: "objectstore", cfg: Config{Kind: KindObjectStore}},
-		{name: "sql", cfg: Config{Kind: KindSQL}},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := New(map[string]Config{"bad": tc.cfg})
-			if err == nil {
-				t.Fatal("expected error for missing driver")
-			}
-			var configErr *ConfigError
-			if !errors.As(err, &configErr) || configErr.Name != "bad" {
-				t.Fatalf("error = %v, ConfigError = %+v", err, configErr)
-			}
-		})
-	}
-}
-
-func TestKVNotFound(t *testing.T) {
-	reg, err := New(map[string]Config{
-		"vec": {Kind: KindVecStore, Memory: &MemoryConfig{}},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	if _, err := reg.KV("missing"); err == nil {
-		t.Fatal("expected error for missing backend")
-	}
-	if _, err := reg.KV("vec"); err == nil {
-		t.Fatal("expected error for wrong kind lookup")
-	}
-}
-
-func TestNewKVRejectsWrongDriver(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: KindKeyValue, FS: &FSConfig{Dir: t.TempDir()}},
-	}); err == nil {
-		t.Fatal("expected error for wrong kv driver")
-	}
-}
-
-func TestNewKVBadgerNoDir(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: KindKeyValue, Badger: &BadgerConfig{}},
-	}); err == nil {
-		t.Fatal("expected error for badger without dir")
-	}
-}
-
-func TestVecStoreMemory(t *testing.T) {
-	reg, err := New(map[string]Config{
-		"vec": {Kind: KindVecStore, Memory: &MemoryConfig{}},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	idx, err := reg.VecStore("vec")
-	if err != nil {
-		t.Fatalf("VecStore(vec): %v", err)
-	}
-	if err := idx.Insert("a", []float32{1, 0, 0}); err != nil {
-		t.Fatalf("Insert: %v", err)
-	}
-	if idx.Len() != 1 {
-		t.Fatalf("Len = %d", idx.Len())
-	}
-}
-
-func TestVecStoreNotFound(t *testing.T) {
-	reg, err := New(map[string]Config{
-		"kv": {Kind: KindKeyValue, Memory: &MemoryConfig{}},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	if _, err := reg.VecStore("missing"); err == nil {
-		t.Fatal("expected error for missing backend")
-	}
-	if _, err := reg.VecStore("kv"); err == nil {
-		t.Fatal("expected error for wrong kind lookup")
-	}
-}
-
-func TestNewVecStoreRejectsWrongDriver(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: KindVecStore, Badger: &BadgerConfig{Dir: t.TempDir()}},
-	}); err == nil {
-		t.Fatal("expected error for wrong vecstore driver")
-	}
-}
-
-func TestObjectStoreFilesystemDriverBlock(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "objects")
-	reg, err := New(map[string]Config{
-		"objects": {Kind: KindObjectStore, FS: &FSConfig{Dir: dir}},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	objects, err := reg.ObjectStore("objects")
-	if err != nil {
-		t.Fatalf("ObjectStore(objects): %v", err)
-	}
-	if err := objects.Put("firmware/stable.bin", strings.NewReader("stable")); err != nil {
-		t.Fatalf("Put: %v", err)
-	}
-	r, err := objects.Get("firmware/stable.bin")
-	if err != nil {
-		t.Fatalf("Get: %v", err)
-	}
-	got, err := io.ReadAll(r)
-	if closeErr := r.Close(); closeErr != nil && err == nil {
-		err = closeErr
-	}
-	if err != nil {
-		t.Fatalf("ReadAll: %v", err)
-	}
-	if string(got) != "stable" {
-		t.Fatalf("Get = %q, want stable", got)
-	}
-}
-
-func TestObjectStoreRejectsLegacyFilesystemDriverName(t *testing.T) {
-	var cfg struct {
-		Storage map[string]Config `yaml:"storage"`
-	}
-	data := []byte(`
-storage:
-  objects:
-    kind: objectstore
-    filesystem:
-      dir: objects
-`)
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		t.Fatalf("Unmarshal: %v", err)
-	}
-	if _, err := New(cfg.Storage); err == nil {
-		t.Fatal("expected error for objectstore filesystem driver alias")
-	}
-}
-
-func TestObjectStoreNotFound(t *testing.T) {
-	reg, err := New(map[string]Config{
-		"kv": {Kind: KindKeyValue, Memory: &MemoryConfig{}},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	if _, err := reg.ObjectStore("missing"); err == nil {
-		t.Fatal("expected error for missing backend")
-	}
-	if _, err := reg.ObjectStore("kv"); err == nil {
-		t.Fatal("expected error for wrong kind lookup")
-	}
-}
-
-func TestSQLSQLiteUsesDirAsDSN(t *testing.T) {
-	reg, err := New(map[string]Config{
-		"db": {Kind: KindSQL, SQLite: &SQLConfig{Dir: filepath.Join(t.TempDir(), "db.sqlite")}},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	if _, err := reg.SQL("db"); err != nil {
-		t.Fatalf("SQL(db): %v", err)
-	}
-}
-
-func TestSQLSQLiteCreatesParentDir(t *testing.T) {
-	reg, err := New(map[string]Config{
-		"db": {
-			Kind:   KindSQL,
-			SQLite: &SQLConfig{Dir: filepath.Join(t.TempDir(), "data", "db.sqlite")},
-		},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	if _, err := reg.SQL("db"); err != nil {
-		t.Fatalf("SQL(db): %v", err)
-	}
-}
-
-func TestSQLSQLiteConfiguresConnection(t *testing.T) {
-	reg, err := New(map[string]Config{
-		"db": {
-			Kind:   KindSQL,
-			SQLite: &SQLConfig{Dir: filepath.Join(t.TempDir(), "data", "db.sqlite")},
-		},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	db, err := reg.SQL("db")
-	if err != nil {
-		t.Fatalf("SQL(db): %v", err)
-	}
-	if got := db.Stats().MaxOpenConnections; got != 1 {
-		t.Fatalf("MaxOpenConnections = %d, want 1", got)
-	}
-
-	var busyTimeout int
-	if err := db.QueryRow(`PRAGMA busy_timeout`).Scan(&busyTimeout); err != nil {
-		t.Fatalf("query busy_timeout: %v", err)
-	}
-	if busyTimeout != 5000 {
-		t.Fatalf("busy_timeout = %d, want 5000", busyTimeout)
-	}
-
-	var journalMode string
-	if err := db.QueryRow(`PRAGMA journal_mode`).Scan(&journalMode); err != nil {
-		t.Fatalf("query journal_mode: %v", err)
-	}
-	if !strings.EqualFold(journalMode, "wal") {
-		t.Fatalf("journal_mode = %q, want wal", journalMode)
-	}
-}
-
-func TestSQLSQLiteConcurrentWrites(t *testing.T) {
-	reg, err := New(map[string]Config{
-		"db": {
-			Kind:   KindSQL,
-			SQLite: &SQLConfig{Dir: filepath.Join(t.TempDir(), "data", "db.sqlite")},
-		},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	db, err := reg.SQL("db")
-	if err != nil {
-		t.Fatalf("SQL(db): %v", err)
-	}
-	if _, err := db.Exec(`CREATE TABLE writes (id INTEGER PRIMARY KEY, worker INTEGER NOT NULL, seq INTEGER NOT NULL)`); err != nil {
-		t.Fatalf("create table: %v", err)
-	}
-
-	const workers = 12
-	const writesPerWorker = 25
-	var wg sync.WaitGroup
-	errs := make(chan error, workers)
-	for worker := range workers {
-		wg.Go(func() {
-			for seq := range writesPerWorker {
-				if _, err := db.Exec(`INSERT INTO writes (worker, seq) VALUES (?, ?)`, worker, seq); err != nil {
-					errs <- err
-					return
-				}
-			}
-		})
-	}
-	wg.Wait()
-	close(errs)
-	for err := range errs {
-		t.Fatalf("concurrent write: %v", err)
-	}
-
-	var count int
-	if err := db.QueryRow(`SELECT count(*) FROM writes`).Scan(&count); err != nil {
-		t.Fatalf("count writes: %v", err)
-	}
-	if want := workers * writesPerWorker; count != want {
-		t.Fatalf("write count = %d, want %d", count, want)
-	}
-}
-
-func TestSQLNotFound(t *testing.T) {
-	reg, err := New(map[string]Config{
-		"kv": {Kind: KindKeyValue, Memory: &MemoryConfig{}},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	if _, err := reg.SQL("missing"); err == nil {
-		t.Fatal("expected error for missing backend")
-	}
-	if _, err := reg.SQL("kv"); err == nil {
-		t.Fatal("expected error for wrong kind lookup")
-	}
-}
-
-func TestNewSQLNoBackend(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: KindSQL},
-	}); err == nil {
-		t.Fatal("expected error for empty backend")
-	}
-}
-
-func TestNewSQLNoDSN(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: KindSQL, Postgres: &SQLConfig{}},
-	}); err == nil {
-		t.Fatal("expected error for missing dsn")
-	}
-}
-
-func TestCloseEmpty(t *testing.T) {
-	s, err := New(nil)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	if err := s.Close(); err != nil {
-		t.Fatalf("Close empty: %v", err)
-	}
-}
-
-func TestSQLSQLiteRejectsNewShorthandDSNParameters(t *testing.T) {
-	keys := []string{
-		"_busy_timeout",
-		"_timeout",
-		"_foreign_keys",
-		"_fk",
-		"_journal_mode",
-		"_journal",
-		"_synchronous",
-		"_sync",
-		"_auto_vacuum",
-		"_vacuum",
-		"_query_only",
-	}
-	forms := map[string]func(string) Config{
-		"structured": func(dsn string) Config {
-			return Config{Kind: KindSQL, SQLite: &SQLConfig{DSN: dsn}}
-		},
-	}
-
-	for _, key := range keys {
-		for form, config := range forms {
-			t.Run(form+"/"+key, func(t *testing.T) {
-				dbPath := filepath.Join(t.TempDir(), "missing", "db.sqlite")
-				dsn := "file:" + dbPath + "?" + key + "=1"
-				_, err := New(map[string]Config{"db": config(dsn)})
-				if err == nil {
-					t.Fatal("expected unsupported SQLite DSN parameter error")
-				}
-				var configErr *ConfigError
-				if !errors.As(err, &configErr) {
-					t.Fatalf("error type = %T, want *ConfigError", err)
-				}
-				if configErr.Name != "db" {
-					t.Fatalf("ConfigError.Name = %q, want db", configErr.Name)
-				}
-				if !strings.Contains(err.Error(), key) {
-					t.Fatalf("error %q does not name parameter %q", err, key)
-				}
-				matches, globErr := filepath.Glob(dbPath)
-				if globErr != nil {
-					t.Fatalf("glob database path: %v", globErr)
-				}
-				if len(matches) != 0 {
-					t.Fatalf("database created before DSN rejection: %v", matches)
-				}
-				matches, globErr = filepath.Glob(filepath.Dir(dbPath))
-				if globErr != nil {
-					t.Fatalf("glob database parent path: %v", globErr)
-				}
-				if len(matches) != 0 {
-					t.Fatalf("database parent created before DSN rejection: %v", matches)
-				}
+func TestSQLiteRejectsDriverOwnedPragmaAliases(t *testing.T) {
+	for _, parameter := range []string{"_busy_timeout", "_timeout", "_foreign_keys", "_fk", "_journal_mode", "_journal"} {
+		t.Run(parameter, func(t *testing.T) {
+			_, err := New(map[string]Config{
+				"database": {Kind: KindSQLite, DSN: "file:test.sqlite?" + parameter + "=1"},
 			})
-		}
+			if err == nil || !strings.Contains(err.Error(), "unsupported") {
+				t.Fatalf("New() error = %v", err)
+			}
+		})
 	}
 }
 
-func TestSQLSQLiteAllowsExistingModerncDSNParameters(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "db.sqlite")
-	reg, err := New(map[string]Config{
-		"db": {
-			Kind:   KindSQL,
-			SQLite: &SQLConfig{DSN: "file:" + dbPath + "?_pragma=cache_size%3D-2000"},
-		},
-	})
+func TestCloseClosesSQL(t *testing.T) {
+	registry, err := New(map[string]Config{"database": {Kind: KindSQLite, DSN: ":memory:"}})
 	if err != nil {
-		t.Fatalf("New: %v", err)
+		t.Fatal(err)
 	}
-	defer reg.Close()
-
-	db, err := reg.SQL("db")
+	db, err := registry.SQL("database")
 	if err != nil {
-		t.Fatalf("SQL(db): %v", err)
+		t.Fatal(err)
 	}
-	var cacheSize int
-	if err := db.QueryRow(`PRAGMA cache_size`).Scan(&cacheSize); err != nil {
-		t.Fatalf("query cache_size: %v", err)
+	if err := registry.Close(); err != nil {
+		t.Fatal(err)
 	}
-	if cacheSize != -2000 {
-		t.Fatalf("cache_size = %d, want -2000", cacheSize)
+	if _, err := registry.SQL("database"); err == nil {
+		t.Fatal("SQL(database) after Close() error = nil")
+	}
+	if _, err := registry.Kind("database"); err == nil {
+		t.Fatal("Kind(database) after Close() error = nil")
+	}
+	if err := db.PingContext(context.Background()); err == nil {
+		t.Fatal("PingContext() after Close() error = nil")
 	}
 }

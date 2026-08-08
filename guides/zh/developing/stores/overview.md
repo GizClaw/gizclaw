@@ -48,20 +48,28 @@ flowchart TB
 
 ### Server 组合契约
 
-`storage` 是动态的物理 Data Connector 清单，拥有 driver/provider 配置、DSN 或 endpoint、credential、pool/client、readiness 与 lifecycle。`stores` 是第二个动态清单，它借用 connector，并通过 prefix、table、database 或 topic scope 暴露逻辑接口。固定类型的 `services` block 把内置消费者绑定到具备兼容能力的命名 Store。Registry 名称精确匹配，不具有任何保留 service 语义。
+`storage` 是动态的物理 Data Connector 清单。每个 `kind` 直接标识一个具体 backend，并拥有对应路径、DSN、endpoint、credential、pool/client、readiness 与 lifecycle。`stores` 根据 Store kind 与 Storage kind 的组合构造逻辑接口，并通过 prefix、table、database 或 topic scope 隔离数据。固定类型的 `services` block 把内置消费者绑定到具备兼容能力的命名 Store。Registry 名称精确匹配，不具有任何保留 service 语义。
 
 | Store kind | 接口与 scope |
 | --- | --- |
 | `keyvalue` | `kv.Store`；物理 KV connector 上可选的 key prefix |
 | `sql` | 借用物理 `*sqlx.DB` pool；schema 由 service 拥有 |
 | `objectstore` | `objectstore.ObjectStore`；可选 object prefix |
-| `vecstore` | 物理 vector connector 上的 `vecstore.Index` |
-| `graph` | 基于另一个逻辑 keyvalue Store 组合的 `graph.Graph` |
-| `metrics` | `metrics.Store`；进程内 memory 或物理 Prometheus/ClickHouse connector |
+| `metrics` | `metrics.Store`；`memory`、Prometheus 或 ClickHouse Storage |
 | `log.immutable` | `logstore.ImmutableStore`；Volc topic 或 ClickHouse table |
 | `log.mutable` | `logstore.MutableStore`；ClickHouse table |
 
-ClickHouse 是物理 `sql` connector；Prometheus 与 Volc TLS 是物理 provider connector。逻辑 Store 只包含 connector 引用和 scope。多个 Store 可以借用同一个 connector；关闭逻辑 Store 不会关闭共享 connector。RuntimeProfile 与 MemoryLayout 选择的 Memory connection 仍在此 registry 之外。
+| Storage kind | 物理配置 |
+| --- | --- |
+| `badger` | `dir` |
+| `memory` | 无属性 |
+| `filesystem.dir` | `dir` |
+| `sqlite` | `dir` 或 `dsn` 二选一 |
+| `postgresql`、`clickhouse` | `dsn` |
+| `prometheus` | remote-write/query URL 与可选 bearer token |
+| `volc-tls` | endpoint、region 与 credential |
+
+多个 Store 可以借用同一个 connector；关闭逻辑 Store 不会关闭共享 connector。共享一个 `memory` Storage 的 keyvalue Store 使用同一 `*kv.Memory` 根与原子边界。`vecstore` 与 `graph` 没有内置 Server 消费者，因此不属于命令层 Store 配置；对应公共 package 与构造函数仍保留。RuntimeProfile 与 MemoryLayout 选择的 Memory connection 仍在此 registry 之外。
 
 ### 进程 SQLite DSN 契约
 

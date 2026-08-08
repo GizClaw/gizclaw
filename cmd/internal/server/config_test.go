@@ -20,6 +20,7 @@ import (
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func testPublicKey(fill byte) giznet.PublicKey {
@@ -247,7 +248,7 @@ func TestParseConfigRejectsNonStringServiceStoreReferences(t *testing.T) {
 		want string
 	}{
 		{"services:\n  peer:\n    store: 42\n", "services.peer.store must be a string"},
-		{"services:\n  provider_tenants:\n    model_store: []\n", "services.provider_tenants.model_store must be a string"},
+		{"services:\n  provider_tenants:\n    store: []\n", "services.provider_tenants.store must be a string"},
 		{"services:\n  metrics:\n    store: true\n", "services.metrics.store must be a string"},
 		{"services:\n  system_log:\n    query_store: 42\n", "services.system_log.query_store must be a string"},
 		{"services:\n  system_log:\n    sinks:\n      - kind: store\n        store: {}\n", "services.system_log.sinks[0].store must be a string"},
@@ -258,6 +259,22 @@ func TestParseConfigRejectsNonStringServiceStoreReferences(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), test.want) {
 			t.Errorf("parseConfigData(%q) error = %v, want %q", test.yaml, err, test.want)
 		}
+	}
+}
+
+func TestParseConfigRejectsPre795StorageStoreAndServiceShapes(t *testing.T) {
+	for name, data := range map[string]string{
+		"nested badger":                 "storage:\n  state:\n    kind: keyvalue\n    badger:\n      dir: data/kv\n",
+		"nested sqlite":                 "storage:\n  database:\n    kind: sql\n    sqlite:\n      dir: data/db.sqlite\n",
+		"nested clickhouse Store":       "stores:\n  metrics:\n    kind: metrics\n    storage: analytics\n    clickhouse:\n      table: metrics\n",
+		"expanded peer service":         "services:\n  peer:\n    store: peers\n    route_store: routes\n",
+		"expanded friend group service": "services:\n  friend_group:\n    store: groups\n    member_store: members\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := parseConfigData([]byte(data)); err == nil {
+				t.Fatal("parseConfigData() error = nil")
+			}
+		})
 	}
 }
 
@@ -467,16 +484,16 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = srv.Close() })
 
-	if srv.PeerStore == nil || srv.CredentialStore == nil || srv.FirmwareStore == nil || srv.MiniMaxTenantStore == nil || srv.VoiceStore == nil || srv.WorkspaceStore == nil || srv.WorkflowStore == nil {
+	if srv.PeerStore == nil || srv.CredentialStore == nil || srv.FirmwareStore == nil || srv.ProviderTenantStore == nil || srv.VoiceStore == nil || srv.WorkspaceStore == nil || srv.WorkflowStore == nil {
 		t.Fatalf("module stores not wired: %+v", srv)
 	}
 	if srv.AgentHostStore == nil {
 		t.Fatalf("agenthost store not wired: %+v", srv.Server)
 	}
-	if srv.ContactStore == nil || srv.FriendInviteTokenStore == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil || srv.FriendGroupInviteTokenStore == nil || srv.FriendGroupMemberStore == nil {
+	if srv.ContactStore == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil {
 		t.Fatalf("social stores not wired: %+v", srv.Server)
 	}
-	if srv.PetDefStore == nil || srv.BadgeDefStore == nil || srv.GameDefStore == nil || srv.GameplayAssets == nil || srv.WorkspaceAssets == nil || srv.GameplayDB == nil {
+	if srv.GameplayStore == nil || srv.GameplayAssets == nil || srv.WorkspaceAssets == nil || srv.GameplayDB == nil {
 		t.Fatalf("gameplay stores not wired: %+v", srv.Server)
 	}
 }
@@ -487,7 +504,7 @@ func TestNewPreservesPostgresDialectThroughLayeredStorage(t *testing.T) {
 		t.Skip("GIZCLAW_TEST_POSTGRES_DSN is not set")
 	}
 	cfg := validLayeredConfig(t.TempDir())
-	cfg.Storage["gameplay-db"] = storage.Config{Kind: storage.KindSQL, Postgres: &storage.SQLConfig{DSN: dsn}}
+	cfg.Storage["gameplay-db"] = storage.Config{Kind: storage.KindPostgreSQL, DSN: dsn}
 
 	srv, err := New(cfg)
 	if err != nil {
@@ -517,7 +534,7 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 	dir := t.TempDir()
 
 	storageErrCfg := validLayeredConfig(dir)
-	storageErrCfg.Storage["memory"] = storage.Config{Kind: storage.KindKeyValue}
+	storageErrCfg.Storage["memory"] = storage.Config{Kind: storage.KindBadger}
 	if _, err := New(storageErrCfg); err == nil || !strings.Contains(err.Error(), "server: stores:") {
 		t.Fatalf("New(storage error) = %v", err)
 	}
@@ -547,8 +564,8 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 	}
 
 	missingTenantCfg := validLayeredConfig(dir)
-	delete(missingTenantCfg.Stores, "minimax-tenants")
-	if _, err := New(missingTenantCfg); err == nil || !strings.Contains(err.Error(), "services.provider_tenants.minimax_tenant_store") {
+	delete(missingTenantCfg.Stores, "provider-tenants")
+	if _, err := New(missingTenantCfg); err == nil || !strings.Contains(err.Error(), "services.provider_tenants.store") {
 		t.Fatalf("New(missing tenant store) = %v", err)
 	}
 
@@ -701,7 +718,7 @@ func TestNewBootstrapsConfiguredEdgeNodes(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = srv.Close() })
 
-	peerStore := &runtimepeer.Server{Store: srv.Server.PeerStore}
+	peerStore := &runtimepeer.Server{Store: kv.Prefixed(srv.Server.PeerStore, kv.Key{"records"})}
 	peer, err := peerStore.LoadPeer(context.Background(), edgeKey.Public)
 	if err != nil {
 		t.Fatalf("LoadPeer error = %v", err)
@@ -786,20 +803,18 @@ stores:
   flowcraft-history:
     kind: log.mutable
     storage: analytics
-    clickhouse:
-      database: default
-      table: gizclaw_flowcraft_history
+    database: default
+    table: gizclaw_flowcraft_history
 `))
 	if err != nil {
 		t.Fatal(err)
 	}
 	store := cfg.Stores["flowcraft-history"]
-	if store.Kind != stores.KindLogMutable || store.ClickHouse == nil {
+	if store.Kind != stores.KindLogMutable {
 		t.Fatalf("flowcraft history store = %+v", store)
 	}
-	if store.ClickHouse.Database != "default" ||
-		store.ClickHouse.Table != "gizclaw_flowcraft_history" {
-		t.Fatalf("clickhouse config = %+v", store.ClickHouse)
+	if store.Database != "default" || store.Table != "gizclaw_flowcraft_history" {
+		t.Fatalf("clickhouse config = %+v", store)
 	}
 }
 
@@ -842,11 +857,9 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 		t.Fatalf("storage count = %d, want 5", len(cfg.Storage))
 	}
 	for _, name := range []string{
-		"logs", "metrics", "flowcraft-history", "flowcraft-state", "peers", "peer-routes", "peer-run",
+		"logs", "metrics", "flowcraft-history", "flowcraft-state", "peers",
 		"public-login", "credentials", "firmwares", "runtime-profiles", "models", "voices", "memory-layouts",
-		"provider-tenants", "minimax-tenants", "deepseek-tenants", "volc-tenants", "workflows", "workspaces",
-		"tools", "contacts", "friend-invite-tokens", "friends", "friend-groups", "friend-group-invite-tokens",
-		"friend-group-members", "friend-group-belongs", "pet-defs", "badge-defs", "game-defs", "agenthost",
+		"provider-tenants", "workflows", "workspaces", "tools", "contacts", "friends", "friend-groups", "gameplay", "agenthost",
 		"workspace-assets", "gameplay-assets", "gameplay-db",
 	} {
 		if _, exists := cfg.Stores[name]; !exists {
@@ -872,37 +885,22 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 	}
 	services := cfg.Services
 	expect("services.peer.store", services.Peer.Store, stores.KindKeyValue)
-	expect("services.peer.route_store", services.Peer.RouteStore, stores.KindKeyValue)
-	expect("services.peer.run_store", services.Peer.RunStore, stores.KindKeyValue)
 	for path, name := range map[string]string{
-		"services.public_login.store":                     services.PublicLogin.Store,
-		"services.credential.store":                       services.Credential.Store,
-		"services.firmware.store":                         services.Firmware.Store,
-		"services.runtime_profile.store":                  services.RuntimeProfile.Store,
-		"services.model.store":                            services.Model.Store,
-		"services.voice.store":                            services.Voice.Store,
-		"services.memory_layout.store":                    services.MemoryLayout.Store,
-		"services.provider_tenants.generic_store":         services.ProviderTenants.GenericStore,
-		"services.provider_tenants.minimax_tenant_store":  services.ProviderTenants.MiniMaxTenantStore,
-		"services.provider_tenants.deepseek_tenant_store": services.ProviderTenants.DeepSeekTenantStore,
-		"services.provider_tenants.volc_tenant_store":     services.ProviderTenants.VolcTenantStore,
-		"services.provider_tenants.credential_store":      services.ProviderTenants.CredentialStore,
-		"services.provider_tenants.model_store":           services.ProviderTenants.ModelStore,
-		"services.provider_tenants.voice_store":           services.ProviderTenants.VoiceStore,
-		"services.workflow.store":                         services.Workflow.Store,
-		"services.workspace.store":                        services.Workspace.Store,
-		"services.workspace.workflow_store":               services.Workspace.WorkflowStore,
-		"services.toolkit.store":                          services.Toolkit.Store,
-		"services.contact.store":                          services.Contact.Store,
-		"services.friend.store":                           services.Friend.Store,
-		"services.friend.invite_token_store":              services.Friend.InviteTokenStore,
-		"services.friend_group.store":                     services.FriendGroup.Store,
-		"services.friend_group.invite_token_store":        services.FriendGroup.InviteTokenStore,
-		"services.friend_group.member_store":              services.FriendGroup.MemberStore,
-		"services.friend_group.belong_store":              services.FriendGroup.BelongStore,
-		"services.gameplay.pet_def_store":                 services.Gameplay.PetDefStore,
-		"services.gameplay.badge_def_store":               services.Gameplay.BadgeDefStore,
-		"services.gameplay.game_def_store":                services.Gameplay.GameDefStore,
+		"services.public_login.store":     services.PublicLogin.Store,
+		"services.credential.store":       services.Credential.Store,
+		"services.firmware.store":         services.Firmware.Store,
+		"services.runtime_profile.store":  services.RuntimeProfile.Store,
+		"services.model.store":            services.Model.Store,
+		"services.voice.store":            services.Voice.Store,
+		"services.memory_layout.store":    services.MemoryLayout.Store,
+		"services.provider_tenants.store": services.ProviderTenants.Store,
+		"services.workflow.store":         services.Workflow.Store,
+		"services.workspace.store":        services.Workspace.Store,
+		"services.toolkit.store":          services.Toolkit.Store,
+		"services.contact.store":          services.Contact.Store,
+		"services.friend.store":           services.Friend.Store,
+		"services.friend_group.store":     services.FriendGroup.Store,
+		"services.gameplay.store":         services.Gameplay.Store,
 	} {
 		expect(path, name, stores.KindKeyValue)
 	}
@@ -1131,7 +1129,7 @@ func TestNewUsesExplicitServiceBindings(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
-	if srv.PeerStore == nil || srv.PeerRouteStore == nil || srv.WorkspaceWorkflowStore == nil {
+	if srv.PeerStore == nil || srv.WorkflowStore == nil {
 		t.Fatalf("explicit service Stores were not wired: %+v", srv.Server)
 	}
 }
@@ -1159,42 +1157,31 @@ func validLayeredConfig(dir string) Config {
 		Listen:   "127.0.0.1:1234",
 		Endpoint: "127.0.0.1:1234",
 		Storage: map[string]storage.Config{
-			"memory":      {Kind: storage.KindKeyValue, Memory: &storage.MemoryConfig{}},
-			"local-files": {Kind: storage.KindObjectStore, FS: &storage.FSConfig{Dir: dir}},
-			"gameplay-db": {Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: filepath.Join(dir, "gameplay.sqlite")}},
+			"memory":      {Kind: storage.KindMemory},
+			"local-files": {Kind: storage.KindFilesystemDir, Dir: dir},
+			"gameplay-db": {Kind: storage.KindSQLite, Dir: filepath.Join(dir, "gameplay.sqlite")},
 		},
 		Stores: map[string]stores.Config{
-			"peers":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
-			"peer-routes":                {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peer-routes"},
-			"peer-run":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peer-run"},
-			"public-login":               {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "public-login"},
-			"credentials":                {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
-			"firmwares":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
-			"runtime-profiles":           {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "runtime-profiles"},
-			"memory-layouts":             {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "memory-layouts"},
-			"agenthost":                  {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "agenthost"},
-			"minimax-tenants":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "minimax-tenants"},
-			"provider-tenants":           {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "provider-tenants"},
-			"deepseek-tenants":           {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "deepseek-tenants"},
-			"volc-tenants":               {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "volc-tenants"},
-			"models":                     {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "models"},
-			"voices":                     {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "voices"},
-			"workspaces":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workspaces"},
-			"workflows":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workflows"},
-			"tools":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "tools"},
-			"contacts":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "contacts"},
-			"friend-invite-tokens":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-invite-tokens"},
-			"friends":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friends"},
-			"friend-groups":              {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-groups"},
-			"friend-group-invite-tokens": {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-invite-tokens"},
-			"friend-group-members":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-members"},
-			"friend-group-belongs":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-belongs"},
-			"pet-defs":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pet-defs"},
-			"badge-defs":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "badge-defs"},
-			"game-defs":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "game-defs"},
-			"gameplay-assets":            {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "gameplay"},
-			"workspace-assets":           {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspaces"},
-			"gameplay-db":                {Kind: stores.KindSQL, Storage: "gameplay-db"},
+			"peers":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
+			"public-login":     {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "public-login"},
+			"credentials":      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
+			"firmwares":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
+			"runtime-profiles": {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "runtime-profiles"},
+			"memory-layouts":   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "memory-layouts"},
+			"agenthost":        {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "agenthost"},
+			"provider-tenants": {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "provider-tenants"},
+			"models":           {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "models"},
+			"voices":           {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "voices"},
+			"workspaces":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workspaces"},
+			"workflows":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workflows"},
+			"tools":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "tools"},
+			"contacts":         {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "contacts"},
+			"friends":          {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friends"},
+			"friend-groups":    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-groups"},
+			"gameplay":         {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "gameplay"},
+			"gameplay-assets":  {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "gameplay"},
+			"workspace-assets": {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspaces"},
+			"gameplay-db":      {Kind: stores.KindSQL, Storage: "gameplay-db"},
 		},
 		Services: validServicesConfig(),
 	}
@@ -1202,31 +1189,23 @@ func validLayeredConfig(dir string) Config {
 
 func validServicesConfig() *ServicesConfig {
 	return &ServicesConfig{
-		Peer:           &PeerStoresConfig{Store: "peers", RouteStore: "peer-routes", RunStore: "peer-run"},
-		PublicLogin:    &SingleStoreConfig{Store: "public-login"},
-		Credential:     &SingleStoreConfig{Store: "credentials"},
-		Firmware:       &SingleStoreConfig{Store: "firmwares"},
-		RuntimeProfile: &SingleStoreConfig{Store: "runtime-profiles"},
-		Model:          &SingleStoreConfig{Store: "models"},
-		Voice:          &SingleStoreConfig{Store: "voices"},
-		MemoryLayout:   &SingleStoreConfig{Store: "memory-layouts"},
-		ProviderTenants: &ProviderTenantStoresConfig{
-			GenericStore: "provider-tenants", MiniMaxTenantStore: "minimax-tenants",
-			DeepSeekTenantStore: "deepseek-tenants", VolcTenantStore: "volc-tenants",
-			CredentialStore: "credentials", ModelStore: "models", VoiceStore: "voices",
-		},
-		Workflow:  &SingleStoreConfig{Store: "workflows"},
-		Workspace: &WorkspaceStoresConfig{Store: "workspaces", WorkflowStore: "workflows", AssetsStore: "workspace-assets"},
-		Toolkit:   &SingleStoreConfig{Store: "tools"},
-		Contact:   &SingleStoreConfig{Store: "contacts"},
-		Friend:    &FriendStoresConfig{Store: "friends", InviteTokenStore: "friend-invite-tokens"},
-		FriendGroup: &FriendGroupStoresConfig{
-			Store: "friend-groups", InviteTokenStore: "friend-group-invite-tokens",
-			MemberStore: "friend-group-members", BelongStore: "friend-group-belongs",
-		},
+		Peer:            &SingleStoreConfig{Store: "peers"},
+		PublicLogin:     &SingleStoreConfig{Store: "public-login"},
+		Credential:      &SingleStoreConfig{Store: "credentials"},
+		Firmware:        &SingleStoreConfig{Store: "firmwares"},
+		RuntimeProfile:  &SingleStoreConfig{Store: "runtime-profiles"},
+		Model:           &SingleStoreConfig{Store: "models"},
+		Voice:           &SingleStoreConfig{Store: "voices"},
+		MemoryLayout:    &SingleStoreConfig{Store: "memory-layouts"},
+		ProviderTenants: &SingleStoreConfig{Store: "provider-tenants"},
+		Workflow:        &SingleStoreConfig{Store: "workflows"},
+		Workspace:       &WorkspaceStoresConfig{Store: "workspaces", AssetsStore: "workspace-assets"},
+		Toolkit:         &SingleStoreConfig{Store: "tools"},
+		Contact:         &SingleStoreConfig{Store: "contacts"},
+		Friend:          &SingleStoreConfig{Store: "friends"},
+		FriendGroup:     &SingleStoreConfig{Store: "friend-groups"},
 		Gameplay: &GameplayStoresConfig{
-			PetDefStore: "pet-defs", BadgeDefStore: "badge-defs", GameDefStore: "game-defs",
-			AssetsStore: "gameplay-assets", DatabaseStore: "gameplay-db",
+			Store: "gameplay", AssetsStore: "gameplay-assets", DatabaseStore: "gameplay-db",
 		},
 		AgentHost: &AgentHostConfig{RuntimeStore: "agenthost"},
 	}

@@ -68,8 +68,8 @@ func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 		cfg.Listen = "127.0.0.1:39001"
 		cfg.Endpoint = "127.0.0.1:39001"
 		cfg.AdminPublicKey = adminKP.Public
-		cfg.Storage["local-files"] = storage.Config{Kind: storage.KindObjectStore, FS: &storage.FSConfig{Dir: "."}}
-		cfg.Storage["gameplay-db"] = storage.Config{Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: "data/gameplay.sqlite"}}
+		cfg.Storage["local-files"] = storage.Config{Kind: storage.KindFilesystemDir, Dir: "."}
+		cfg.Storage["gameplay-db"] = storage.Config{Kind: storage.KindSQLite, Dir: "data/gameplay.sqlite"}
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -95,10 +95,10 @@ func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 	if cfg.AdminPublicKey != adminKey {
 		t.Fatalf("AdminPublicKey = %v", cfg.AdminPublicKey)
 	}
-	if got := cfg.Storage["local-files"].FS.Dir; got != workspace {
+	if got := cfg.Storage["local-files"].Dir; got != workspace {
 		t.Fatalf("local-files dir = %q", got)
 	}
-	if got := cfg.Storage["gameplay-db"].SQLite.Dir; got != filepath.Join(workspace, "data", "gameplay.sqlite") {
+	if got := cfg.Storage["gameplay-db"].Dir; got != filepath.Join(workspace, "data", "gameplay.sqlite") {
 		t.Fatalf("gameplay db dir = %q", got)
 	}
 }
@@ -284,8 +284,8 @@ func TestPrepareWorkspaceConfigLoadError(t *testing.T) {
 func TestPrepareWorkspaceConfigResolvesRelativeStoreDirs(t *testing.T) {
 	workspace := t.TempDir()
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
-		cfg.Storage["local-files"] = storage.Config{Kind: storage.KindObjectStore, FS: &storage.FSConfig{Dir: "."}}
-		cfg.Storage["gameplay-db"] = storage.Config{Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: "data/fixture.sqlite"}}
+		cfg.Storage["local-files"] = storage.Config{Kind: storage.KindFilesystemDir, Dir: "."}
+		cfg.Storage["gameplay-db"] = storage.Config{Kind: storage.KindSQLite, Dir: "data/fixture.sqlite"}
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -295,10 +295,10 @@ func TestPrepareWorkspaceConfigResolvesRelativeStoreDirs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepareWorkspaceConfig error = %v", err)
 	}
-	if got := cfg.Storage["local-files"].FS.Dir; got != workspace {
+	if got := cfg.Storage["local-files"].Dir; got != workspace {
 		t.Fatalf("asset dir = %q", got)
 	}
-	if got := cfg.Storage["gameplay-db"].SQLite.Dir; got != filepath.Join(workspace, "data", "fixture.sqlite") {
+	if got := cfg.Storage["gameplay-db"].Dir; got != filepath.Join(workspace, "data", "fixture.sqlite") {
 		t.Fatalf("gameplay-db dir = %q", got)
 	}
 	if got := cfg.Stores["workspace-assets"].Prefix; got != "workspaces" {
@@ -334,12 +334,12 @@ func TestResolveWorkspaceStorageConfigsPreservesAbsoluteDirs(t *testing.T) {
 
 	gotStorage := resolveWorkspaceStorageConfigs(root, map[string]storage.Config{
 		"fw": {
-			Kind: storage.KindObjectStore,
-			FS:   &storage.FSConfig{Dir: absoluteDir},
+			Kind: storage.KindFilesystemDir,
+			Dir:  absoluteDir,
 		},
 	})
-	if gotStorage["fw"].FS.Dir != absoluteDir {
-		t.Fatalf("fw storage dir = %q, want %q", gotStorage["fw"].FS.Dir, absoluteDir)
+	if gotStorage["fw"].Dir != absoluteDir {
+		t.Fatalf("fw storage dir = %q, want %q", gotStorage["fw"].Dir, absoluteDir)
 	}
 }
 
@@ -362,7 +362,7 @@ func TestServeContextUsesBootstrapLoggerOnStoreStartupFailure(t *testing.T) {
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
 		cfg.Listen = "127.0.0.1:0"
 		cfg.Endpoint = "127.0.0.1:9820"
-		cfg.Storage["memory"] = storage.Config{Kind: storage.KindKeyValue}
+		cfg.Storage["memory"] = storage.Config{Kind: storage.KindBadger}
 		cfg.Services.SystemLog = &logging.Config{Level: "debug"}
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
@@ -444,7 +444,7 @@ func restoreLoggingInstaller(t *testing.T, fn func(logging.Config, ...logging.St
 func TestServeReturnsServerBuildError(t *testing.T) {
 	workspace := t.TempDir()
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
-		cfg.Storage["memory"] = storage.Config{Kind: storage.KindKeyValue}
+		cfg.Storage["memory"] = storage.Config{Kind: storage.KindBadger}
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -459,8 +459,8 @@ func TestServeReturnsServerBuildError(t *testing.T) {
 func TestServeContextClosesStoresWhenPIDAcquireFails(t *testing.T) {
 	workspace := t.TempDir()
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
-		cfg.Storage["memory"] = storage.Config{Kind: storage.KindKeyValue, Badger: &storage.BadgerConfig{Dir: "data/kv"}}
-		cfg.Storage["local-files"] = storage.Config{Kind: storage.KindObjectStore, FS: &storage.FSConfig{Dir: "."}}
+		cfg.Storage["memory"] = storage.Config{Kind: storage.KindBadger, Dir: "data/kv"}
+		cfg.Storage["local-files"] = storage.Config{Kind: storage.KindFilesystemDir, Dir: "."}
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile config error = %v", err)
@@ -475,7 +475,7 @@ func TestServeContextClosesStoresWhenPIDAcquireFails(t *testing.T) {
 	}
 
 	reopened, err := storage.New(map[string]storage.Config{
-		"memory": {Kind: storage.KindKeyValue, Badger: &storage.BadgerConfig{Dir: filepath.Join(workspace, "data", "kv")}},
+		"memory": {Kind: storage.KindBadger, Dir: filepath.Join(workspace, "data", "kv")},
 	})
 	if err != nil {
 		t.Fatalf("storage should be closed after PID error, reopen: %v", err)

@@ -51,69 +51,38 @@ type AgentHostFlowcraftConfig struct {
 // ServicesConfig is the fixed service-to-Store binding schema. Unlike the
 // storage and stores registries, service names are not operator-defined.
 type ServicesConfig struct {
-	Peer            *PeerStoresConfig           `yaml:"peer"`
-	PublicLogin     *SingleStoreConfig          `yaml:"public_login"`
-	Credential      *SingleStoreConfig          `yaml:"credential"`
-	Firmware        *SingleStoreConfig          `yaml:"firmware"`
-	RuntimeProfile  *SingleStoreConfig          `yaml:"runtime_profile"`
-	Model           *SingleStoreConfig          `yaml:"model"`
-	Voice           *SingleStoreConfig          `yaml:"voice"`
-	MemoryLayout    *SingleStoreConfig          `yaml:"memory_layout"`
-	ProviderTenants *ProviderTenantStoresConfig `yaml:"provider_tenants"`
-	Workflow        *SingleStoreConfig          `yaml:"workflow"`
-	Workspace       *WorkspaceStoresConfig      `yaml:"workspace"`
-	Toolkit         *SingleStoreConfig          `yaml:"toolkit"`
-	Contact         *SingleStoreConfig          `yaml:"contact"`
-	Friend          *FriendStoresConfig         `yaml:"friend"`
-	FriendGroup     *FriendGroupStoresConfig    `yaml:"friend_group"`
-	Gameplay        *GameplayStoresConfig       `yaml:"gameplay"`
-	AgentHost       *AgentHostConfig            `yaml:"agent_host"`
-	Metrics         *SingleStoreConfig          `yaml:"metrics"`
-	SystemLog       *logging.Config             `yaml:"system_log"`
+	Peer            *SingleStoreConfig     `yaml:"peer"`
+	PublicLogin     *SingleStoreConfig     `yaml:"public_login"`
+	Credential      *SingleStoreConfig     `yaml:"credential"`
+	Firmware        *SingleStoreConfig     `yaml:"firmware"`
+	RuntimeProfile  *SingleStoreConfig     `yaml:"runtime_profile"`
+	Model           *SingleStoreConfig     `yaml:"model"`
+	Voice           *SingleStoreConfig     `yaml:"voice"`
+	MemoryLayout    *SingleStoreConfig     `yaml:"memory_layout"`
+	ProviderTenants *SingleStoreConfig     `yaml:"provider_tenants"`
+	Workflow        *SingleStoreConfig     `yaml:"workflow"`
+	Workspace       *WorkspaceStoresConfig `yaml:"workspace"`
+	Toolkit         *SingleStoreConfig     `yaml:"toolkit"`
+	Contact         *SingleStoreConfig     `yaml:"contact"`
+	Friend          *SingleStoreConfig     `yaml:"friend"`
+	FriendGroup     *SingleStoreConfig     `yaml:"friend_group"`
+	Gameplay        *GameplayStoresConfig  `yaml:"gameplay"`
+	AgentHost       *AgentHostConfig       `yaml:"agent_host"`
+	Metrics         *SingleStoreConfig     `yaml:"metrics"`
+	SystemLog       *logging.Config        `yaml:"system_log"`
 }
 
 type SingleStoreConfig struct {
 	Store string `yaml:"store"`
 }
 
-type PeerStoresConfig struct {
-	Store      string `yaml:"store"`
-	RouteStore string `yaml:"route_store"`
-	RunStore   string `yaml:"run_store"`
-}
-
-type ProviderTenantStoresConfig struct {
-	GenericStore        string `yaml:"generic_store"`
-	MiniMaxTenantStore  string `yaml:"minimax_tenant_store"`
-	DeepSeekTenantStore string `yaml:"deepseek_tenant_store"`
-	VolcTenantStore     string `yaml:"volc_tenant_store"`
-	CredentialStore     string `yaml:"credential_store"`
-	ModelStore          string `yaml:"model_store"`
-	VoiceStore          string `yaml:"voice_store"`
-}
-
 type WorkspaceStoresConfig struct {
-	Store         string `yaml:"store"`
-	WorkflowStore string `yaml:"workflow_store"`
-	AssetsStore   string `yaml:"assets_store"`
-}
-
-type FriendStoresConfig struct {
-	Store            string `yaml:"store"`
-	InviteTokenStore string `yaml:"invite_token_store"`
-}
-
-type FriendGroupStoresConfig struct {
-	Store            string `yaml:"store"`
-	InviteTokenStore string `yaml:"invite_token_store"`
-	MemberStore      string `yaml:"member_store"`
-	BelongStore      string `yaml:"belong_store"`
+	Store       string `yaml:"store"`
+	AssetsStore string `yaml:"assets_store"`
 }
 
 type GameplayStoresConfig struct {
-	PetDefStore   string `yaml:"pet_def_store"`
-	BadgeDefStore string `yaml:"badge_def_store"`
-	GameDefStore  string `yaml:"game_def_store"`
+	Store         string `yaml:"store"`
 	AssetsStore   string `yaml:"assets_store"`
 	DatabaseStore string `yaml:"database_store"`
 }
@@ -794,8 +763,6 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 	}
 	references = append(references,
 		reference{"services.peer.store", cfg.Peer.Store},
-		reference{"services.peer.route_store", cfg.Peer.RouteStore},
-		reference{"services.peer.run_store", cfg.Peer.RunStore},
 		reference{"services.public_login.store", cfg.PublicLogin.Store},
 		reference{"services.credential.store", cfg.Credential.Store},
 		reference{"services.firmware.store", cfg.Firmware.Store},
@@ -803,28 +770,15 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 		reference{"services.model.store", cfg.Model.Store},
 		reference{"services.voice.store", cfg.Voice.Store},
 		reference{"services.memory_layout.store", cfg.MemoryLayout.Store},
-		reference{"services.provider_tenants.generic_store", cfg.ProviderTenants.GenericStore},
-		reference{"services.provider_tenants.minimax_tenant_store", cfg.ProviderTenants.MiniMaxTenantStore},
-		reference{"services.provider_tenants.deepseek_tenant_store", cfg.ProviderTenants.DeepSeekTenantStore},
-		reference{"services.provider_tenants.volc_tenant_store", cfg.ProviderTenants.VolcTenantStore},
-		reference{"services.provider_tenants.credential_store", cfg.ProviderTenants.CredentialStore},
-		reference{"services.provider_tenants.model_store", cfg.ProviderTenants.ModelStore},
-		reference{"services.provider_tenants.voice_store", cfg.ProviderTenants.VoiceStore},
+		reference{"services.provider_tenants.store", cfg.ProviderTenants.Store},
 		reference{"services.workflow.store", cfg.Workflow.Store},
 		reference{"services.workspace.store", cfg.Workspace.Store},
-		reference{"services.workspace.workflow_store", cfg.Workspace.WorkflowStore},
 		reference{"services.workspace.assets_store", cfg.Workspace.AssetsStore},
 		reference{"services.toolkit.store", cfg.Toolkit.Store},
 		reference{"services.contact.store", cfg.Contact.Store},
 		reference{"services.friend.store", cfg.Friend.Store},
-		reference{"services.friend.invite_token_store", cfg.Friend.InviteTokenStore},
 		reference{"services.friend_group.store", cfg.FriendGroup.Store},
-		reference{"services.friend_group.invite_token_store", cfg.FriendGroup.InviteTokenStore},
-		reference{"services.friend_group.member_store", cfg.FriendGroup.MemberStore},
-		reference{"services.friend_group.belong_store", cfg.FriendGroup.BelongStore},
-		reference{"services.gameplay.pet_def_store", cfg.Gameplay.PetDefStore},
-		reference{"services.gameplay.badge_def_store", cfg.Gameplay.BadgeDefStore},
-		reference{"services.gameplay.game_def_store", cfg.Gameplay.GameDefStore},
+		reference{"services.gameplay.store", cfg.Gameplay.Store},
 		reference{"services.gameplay.assets_store", cfg.Gameplay.AssetsStore},
 		reference{"services.gameplay.database_store", cfg.Gameplay.DatabaseStore},
 	)
@@ -917,6 +871,11 @@ func validateConfigShape(data []byte) error {
 			}
 		}
 	}
+	if value, exists := document["storage"]; exists {
+		if err := validateStorageConfigShape(value); err != nil {
+			return err
+		}
+	}
 	if systemLogValue, exists := document["system_log"]; exists {
 		mapping, ok := systemLogValue.(map[string]any)
 		if !ok {
@@ -971,13 +930,11 @@ func validateConfigShape(data []byte) error {
 		}
 		allowedFields := map[string]map[string]struct{}{
 			stores.KindKeyValue:     {"kind": {}, "storage": {}, "prefix": {}},
-			stores.KindVecStore:     {"kind": {}, "storage": {}},
 			stores.KindObjectStore:  {"kind": {}, "storage": {}, "prefix": {}},
 			stores.KindSQL:          {"kind": {}, "storage": {}},
-			stores.KindGraph:        {"kind": {}, "backend": {}, "store": {}, "prefix": {}},
-			stores.KindMetrics:      {"kind": {}, "storage": {}, "memory": {}, "clickhouse": {}},
-			stores.KindLogImmutable: {"kind": {}, "storage": {}, "volc": {}, "clickhouse": {}},
-			stores.KindLogMutable:   {"kind": {}, "storage": {}, "volc": {}, "clickhouse": {}},
+			stores.KindMetrics:      {"kind": {}, "storage": {}, "table": {}, "database": {}},
+			stores.KindLogImmutable: {"kind": {}, "storage": {}, "topic_id": {}, "database": {}, "table": {}},
+			stores.KindLogMutable:   {"kind": {}, "storage": {}, "database": {}, "table": {}},
 		}
 		allowed, knownKind := allowedFields[kind]
 		if !knownKind {
@@ -988,35 +945,38 @@ func validateConfigShape(data []byte) error {
 				return fmt.Errorf("server: stores.%s field %q is invalid for kind %s", name, field, kind)
 			}
 		}
-		if volcValue, exists := mapping["volc"]; exists {
-			volcMapping, ok := volcValue.(map[string]any)
-			if !ok {
-				return fmt.Errorf("server: stores.%s.volc must be a mapping", name)
-			}
-			for field := range volcMapping {
-				switch field {
-				case "topic_id":
-				default:
-					return fmt.Errorf("server: stores.%s.volc has unknown field %q", name, field)
-				}
-			}
-		}
-		if kind != stores.KindLogImmutable && kind != stores.KindLogMutable && kind != stores.KindMetrics {
-			continue
-		}
-		clickhouseValue, exists := mapping["clickhouse"]
-		if !exists {
-			continue
-		}
-		clickhouseMapping, ok := clickhouseValue.(map[string]any)
+	}
+	return nil
+}
+
+func validateStorageConfigShape(value any) error {
+	registry, ok := value.(map[string]any)
+	if !ok {
+		return fmt.Errorf("server: storage must be a mapping")
+	}
+	allowedByKind := map[string]map[string]struct{}{
+		storage.KindBadger:        {"kind": {}, "dir": {}},
+		storage.KindMemory:        {"kind": {}},
+		storage.KindFilesystemDir: {"kind": {}, "dir": {}},
+		storage.KindSQLite:        {"kind": {}, "dir": {}, "dsn": {}},
+		storage.KindPostgreSQL:    {"kind": {}, "dsn": {}},
+		storage.KindClickHouse:    {"kind": {}, "dsn": {}},
+		storage.KindPrometheus:    {"kind": {}, "remote_write_url": {}, "query_url": {}, "bearer_token": {}},
+		storage.KindVolcTLS:       {"kind": {}, "endpoint": {}, "region": {}, "access_key_id": {}, "access_key_secret": {}},
+	}
+	for name, entry := range registry {
+		mapping, ok := entry.(map[string]any)
 		if !ok {
-			return fmt.Errorf("server: stores.%s.clickhouse must be a mapping", name)
+			return fmt.Errorf("server: storage.%s must be a mapping", name)
 		}
-		for field := range clickhouseMapping {
-			switch field {
-			case "database", "table":
-			default:
-				return fmt.Errorf("server: stores.%s.clickhouse has unknown field %q", name, field)
+		kind := fmt.Sprint(mapping["kind"])
+		allowed, known := allowedByKind[kind]
+		if !known {
+			continue
+		}
+		for field := range mapping {
+			if _, ok := allowed[field]; !ok {
+				return fmt.Errorf("server: storage.%s field %q is invalid for kind %s", name, field, kind)
 			}
 		}
 	}
@@ -1025,7 +985,7 @@ func validateConfigShape(data []byte) error {
 
 func validateServicesConfigShape(services map[string]any) error {
 	stringFields := map[string][]string{
-		"peer":             {"store", "route_store", "run_store"},
+		"peer":             {"store"},
 		"public_login":     {"store"},
 		"credential":       {"store"},
 		"firmware":         {"store"},
@@ -1033,14 +993,14 @@ func validateServicesConfigShape(services map[string]any) error {
 		"model":            {"store"},
 		"voice":            {"store"},
 		"memory_layout":    {"store"},
-		"provider_tenants": {"generic_store", "minimax_tenant_store", "deepseek_tenant_store", "volc_tenant_store", "credential_store", "model_store", "voice_store"},
+		"provider_tenants": {"store"},
 		"workflow":         {"store"},
-		"workspace":        {"store", "workflow_store", "assets_store"},
+		"workspace":        {"store", "assets_store"},
 		"toolkit":          {"store"},
 		"contact":          {"store"},
-		"friend":           {"store", "invite_token_store"},
-		"friend_group":     {"store", "invite_token_store", "member_store", "belong_store"},
-		"gameplay":         {"pet_def_store", "badge_def_store", "game_def_store", "assets_store", "database_store"},
+		"friend":           {"store"},
+		"friend_group":     {"store"},
+		"gameplay":         {"store", "assets_store", "database_store"},
 		"metrics":          {"store"},
 	}
 	for service, fields := range stringFields {
