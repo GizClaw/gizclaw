@@ -22,14 +22,14 @@ Registry 名称精确匹配并区分大小写。Server 不会赋予 `peers`、`m
 
 | Service 字段 | 所需能力 |
 | --- | --- |
-| Peer、login、credential、firmware、RuntimeProfile、model、voice、MemoryLayout、provider tenants、workflow、toolkit、contact、friend 与 Friend Group 引用 | `keyvalue` |
+| Peer、login、credential、firmware、RuntimeProfile、model、voice、MemoryLayout、provider tenants、workflow、toolkit、contact、friend 与 Friend Group | 各一个 `keyvalue`；内部 collection prefix 由代码拥有 |
 | `services.workspace.assets_store`、`services.gameplay.assets_store`、`services.agent_host.runtime_store` | `objectstore` |
 | `services.gameplay.database_store` | `sql` |
 | `services.agent_host.flowcraft.history_store` | `log.mutable` |
 | `services.metrics.store` | `metrics` |
 | `services.system_log.query_store` 与 Store sink | immutable Log 能力 |
 
-四个 Friend Group relationship Store 必须共享一个原子 KV transaction boundary。共享 ObjectStore 必须使用非空、规范且互不重叠的 prefix。引用缺失、kind 不兼容、Flowcraft History 不可变或出现未知字段时，Server 会在打开 listener 前失败。
+Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service Store 上的代码内置 scope，因此天然共享一个原子 KV transaction boundary。共享 ObjectStore 必须使用非空、规范且互不重叠的 prefix。引用缺失、kind 不兼容、Flowcraft History 不可变或出现未知字段时，Server 会在打开 listener 前失败。
 
 启动顺序依次为严格解析配置、打开物理 connector、构造逻辑 Store、解析 service 能力、由活跃 SQL 服务校验 schema、安装日志与 metrics，最后才打开 listener。逻辑 Store 不关闭借用的 connector；关闭时先释放逻辑 wrapper，再关闭物理 connector。
 
@@ -37,11 +37,11 @@ Registry 名称精确匹配并区分大小写。Server 不会赋予 `peers`、`m
 
 ### 完整配置
 
-下面的开发部署使用 Badger 保存 KV 状态、SQLite 保存 Gameplay SQL、filesystem ObjectStore、Volc TLS 日志，以及由 Metrics 和 Flowcraft History 共享的一个 ClickHouse pool。生产环境可以把 `storage.gameplay-db.sqlite` 换成 `postgres.dsn` block，而无需修改逻辑 Store 或 service binding。
+下面的开发部署使用 Badger 保存 KV 状态、SQLite 保存 Gameplay SQL、filesystem ObjectStore、Volc TLS 日志，以及由 Metrics 和 Flowcraft History 共享的一个 ClickHouse pool。生产环境可以把 `storage.gameplay-db.kind` 改为 `postgresql` 并将 `dir` 改为 `dsn`，无需修改逻辑 Store 或 service binding。
 
 <<< ../../../../snippets/server-storage-stores-services.yaml{yaml}
 
-`memory.Store` 仍由 RuntimeProfile 与 MemoryLayout 选择；`stores.kind: memory` 无效。完整契约见 [Memory Store](/zh/developing/stores/memory)。
+`memory.Store` 仍由 RuntimeProfile 与 MemoryLayout 选择；`stores.kind: memory` 无效。物理 `storage.kind: memory` 只为兼容的 keyvalue 或 metrics Store 提供进程内 backend。完整契约见 [Memory Store](/zh/developing/stores/memory)。
 
 每个 Workspace Agent generation 根据当前 RuntimeProfile snapshot 解析 memory alias。构造失败会使 Agent 初始化或 reload 显式失败。Server shutdown 关闭共享 Memory registry；Workspace reload 与最后一个 Agent 引用释放会关闭该 generation 的 lease，但不迁移、合并、复制或删除持久数据。
 

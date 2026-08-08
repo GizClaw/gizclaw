@@ -66,9 +66,7 @@ type renderedWorkspace struct {
 
 type renderedStorage struct {
 	Kind string `yaml:"kind"`
-	FS   struct {
-		Dir string `yaml:"dir"`
-	} `yaml:"fs"`
+	Dir  string `yaml:"dir"`
 }
 
 type renderedStore struct {
@@ -111,7 +109,7 @@ func assertLocalRuntimeStore(t *testing.T, config renderedWorkspace) {
 	if !ok {
 		t.Fatalf("storage.%s is missing", store.Storage)
 	}
-	if storage.Kind != "objectstore" || storage.FS.Dir != "data/objects" {
+	if storage.Kind != "filesystem.dir" || storage.Dir != "data/objects" {
 		t.Fatalf("storage.%s = %+v", store.Storage, storage)
 	}
 	flowcraft, ok := agentHost["flowcraft"].(map[string]any)
@@ -127,7 +125,7 @@ func assertLocalRuntimeStore(t *testing.T, config renderedWorkspace) {
 func assertServiceStoreBindings(t *testing.T, config renderedWorkspace) {
 	t.Helper()
 	expected := map[string]map[string]string{
-		"peer":             {"store": "keyvalue", "route_store": "keyvalue", "run_store": "keyvalue"},
+		"peer":             {"store": "keyvalue"},
 		"public_login":     {"store": "keyvalue"},
 		"credential":       {"store": "keyvalue"},
 		"firmware":         {"store": "keyvalue"},
@@ -135,14 +133,14 @@ func assertServiceStoreBindings(t *testing.T, config renderedWorkspace) {
 		"model":            {"store": "keyvalue"},
 		"voice":            {"store": "keyvalue"},
 		"memory_layout":    {"store": "keyvalue"},
-		"provider_tenants": {"generic_store": "keyvalue", "minimax_tenant_store": "keyvalue", "deepseek_tenant_store": "keyvalue", "volc_tenant_store": "keyvalue", "credential_store": "keyvalue", "model_store": "keyvalue", "voice_store": "keyvalue"},
+		"provider_tenants": {"store": "keyvalue"},
 		"workflow":         {"store": "keyvalue"},
-		"workspace":        {"store": "keyvalue", "workflow_store": "keyvalue", "assets_store": "objectstore"},
+		"workspace":        {"store": "keyvalue", "assets_store": "objectstore"},
 		"toolkit":          {"store": "keyvalue"},
 		"contact":          {"store": "keyvalue"},
-		"friend":           {"store": "keyvalue", "invite_token_store": "keyvalue"},
-		"friend_group":     {"store": "keyvalue", "invite_token_store": "keyvalue", "member_store": "keyvalue", "belong_store": "keyvalue"},
-		"gameplay":         {"pet_def_store": "keyvalue", "badge_def_store": "keyvalue", "game_def_store": "keyvalue", "assets_store": "objectstore", "database_store": "sql"},
+		"friend":           {"store": "keyvalue"},
+		"friend_group":     {"store": "keyvalue"},
+		"gameplay":         {"store": "keyvalue", "assets_store": "objectstore", "database_store": "sql"},
 		"metrics":          {"store": "metrics"},
 	}
 	for service, fields := range expected {

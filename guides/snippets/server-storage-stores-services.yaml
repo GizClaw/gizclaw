@@ -6,56 +6,50 @@ listen: 0.0.0.0:9820
 endpoint: gizclaw.example.com:9820
 serve-to-clients: true
 
-# Dynamic physical Data Connector registry.
+# Dynamic registry of physical locations and connections. Each kind names the
+# concrete backend directly; there is no nested driver selector.
 storage:
   main-kv:
-    kind: keyvalue
-    badger:
-      dir: data/kv
+    kind: badger
+    dir: data/kv
 
   gameplay-db:
-    kind: sql
-    sqlite:
-      dir: data/gameplay.sqlite
+    kind: sqlite
+    dir: data/gameplay.sqlite
 
   local-assets:
-    kind: objectstore
-    fs:
-      dir: data/files
+    kind: filesystem.dir
+    dir: data/files
 
   volc-logs:
     kind: volc-tls
-    volc:
-      endpoint: ${GIZCLAW_VOLC_LOG_ENDPOINT}
-      region: ${GIZCLAW_VOLC_LOG_REGION}
-      access_key_id: ${GIZCLAW_VOLC_LOG_ACCESS_KEY_ID}
-      access_key_secret: ${GIZCLAW_VOLC_LOG_ACCESS_KEY_SECRET}
+    endpoint: ${GIZCLAW_VOLC_LOG_ENDPOINT}
+    region: ${GIZCLAW_VOLC_LOG_REGION}
+    access_key_id: ${GIZCLAW_VOLC_LOG_ACCESS_KEY_ID}
+    access_key_secret: ${GIZCLAW_VOLC_LOG_ACCESS_KEY_SECRET}
 
   analytics:
-    kind: sql
-    clickhouse:
-      dsn: ${GIZCLAW_CLICKHOUSE_DSN}
+    kind: clickhouse
+    dsn: ${GIZCLAW_CLICKHOUSE_DSN}
 
-# Dynamic logical data-access registry.
+# Dynamic registry of logical data-access interfaces. Provider-specific scope
+# is expressed directly on the Store.
 stores:
   logs:
     kind: log.immutable
     storage: volc-logs
-    volc:
-      topic_id: ${GIZCLAW_VOLC_LOG_TOPIC_ID}
+    topic_id: ${GIZCLAW_VOLC_LOG_TOPIC_ID}
 
   metrics:
     kind: metrics
     storage: analytics
-    clickhouse:
-      table: gizclaw_metrics
+    table: gizclaw_metrics
 
   flowcraft-history:
     kind: log.mutable
     storage: analytics
-    clickhouse:
-      database: default
-      table: gizclaw_flowcraft_history
+    database: default
+    table: gizclaw_flowcraft_history
 
   flowcraft-state:
     kind: keyvalue
@@ -66,16 +60,6 @@ stores:
     kind: keyvalue
     storage: main-kv
     prefix: peers
-
-  peer-routes:
-    kind: keyvalue
-    storage: main-kv
-    prefix: peer-routes
-
-  peer-run:
-    kind: keyvalue
-    storage: main-kv
-    prefix: peer-run
 
   public-login:
     kind: keyvalue
@@ -117,21 +101,6 @@ stores:
     storage: main-kv
     prefix: provider-tenants
 
-  minimax-tenants:
-    kind: keyvalue
-    storage: main-kv
-    prefix: minimax-tenants
-
-  deepseek-tenants:
-    kind: keyvalue
-    storage: main-kv
-    prefix: deepseek-tenants
-
-  volc-tenants:
-    kind: keyvalue
-    storage: main-kv
-    prefix: volc-tenants
-
   workflows:
     kind: keyvalue
     storage: main-kv
@@ -152,11 +121,6 @@ stores:
     storage: main-kv
     prefix: contacts
 
-  friend-invite-tokens:
-    kind: keyvalue
-    storage: main-kv
-    prefix: friend-invite-tokens
-
   friends:
     kind: keyvalue
     storage: main-kv
@@ -167,35 +131,10 @@ stores:
     storage: main-kv
     prefix: friend-groups
 
-  friend-group-invite-tokens:
+  gameplay:
     kind: keyvalue
     storage: main-kv
-    prefix: friend-group-invite-tokens
-
-  friend-group-members:
-    kind: keyvalue
-    storage: main-kv
-    prefix: friend-group-members
-
-  friend-group-belongs:
-    kind: keyvalue
-    storage: main-kv
-    prefix: friend-group-belongs
-
-  pet-defs:
-    kind: keyvalue
-    storage: main-kv
-    prefix: pet-defs
-
-  badge-defs:
-    kind: keyvalue
-    storage: main-kv
-    prefix: badge-defs
-
-  game-defs:
-    kind: keyvalue
-    storage: main-kv
-    prefix: game-defs
+    prefix: gameplay
 
   agenthost:
     kind: objectstore
@@ -216,83 +155,51 @@ stores:
     kind: sql
     storage: gameplay-db
 
-# Fixed, strictly typed service-to-Store bindings.
+# Fixed service schema. Internal collections and indexes are code-owned; each
+# service names only one Store per capability it consumes.
 services:
   peer:
     store: peers
-    route_store: peer-routes
-    run_store: peer-run
-
   public_login:
     store: public-login
-
   credential:
     store: credentials
-
   firmware:
     store: firmwares
-
   runtime_profile:
     store: runtime-profiles
-
   model:
     store: models
-
   voice:
     store: voices
-
   memory_layout:
     store: memory-layouts
-
   provider_tenants:
-    generic_store: provider-tenants
-    minimax_tenant_store: minimax-tenants
-    deepseek_tenant_store: deepseek-tenants
-    volc_tenant_store: volc-tenants
-    credential_store: credentials
-    model_store: models
-    voice_store: voices
-
+    store: provider-tenants
   workflow:
     store: workflows
-
   workspace:
     store: workspaces
-    workflow_store: workflows
     assets_store: workspace-assets
-
   toolkit:
     store: tools
-
   contact:
     store: contacts
-
   friend:
     store: friends
-    invite_token_store: friend-invite-tokens
-
   friend_group:
     store: friend-groups
-    invite_token_store: friend-group-invite-tokens
-    member_store: friend-group-members
-    belong_store: friend-group-belongs
-
   gameplay:
-    pet_def_store: pet-defs
-    badge_def_store: badge-defs
-    game_def_store: game-defs
+    store: gameplay
     assets_store: gameplay-assets
     database_store: gameplay-db
-
   agent_host:
     runtime_store: agenthost
     flowcraft:
       state_store: flowcraft-state
       history_store: flowcraft-history
-
   metrics:
     store: metrics
-
   system_log:
     level: info
     query_store: logs

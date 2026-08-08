@@ -28,8 +28,6 @@ func completeTestServer(t testing.TB, server *Server) *Server {
 		}
 	}
 	set(&server.PeerStore, "peers")
-	set(&server.PeerRouteStore, "peer-routes")
-	set(&server.PeerRunStore, "peer-run")
 	set(&server.PublicLoginStore, "public-login")
 	set(&server.CredentialStore, "credentials")
 	set(&server.FirmwareStore, "firmwares")
@@ -38,28 +36,13 @@ func completeTestServer(t testing.TB, server *Server) *Server {
 	set(&server.VoiceStore, "voices")
 	set(&server.MemoryLayoutStore, "memory-layouts")
 	set(&server.ProviderTenantStore, "provider-tenants")
-	set(&server.MiniMaxTenantStore, "minimax-tenants")
-	set(&server.DeepSeekTenantStore, "deepseek-tenants")
-	set(&server.VolcTenantStore, "volc-tenants")
-	set(&server.MiniMaxCredentialStore, "provider-credentials")
-	set(&server.ProviderModelStore, "provider-models")
-	set(&server.ProviderVoiceStore, "provider-voices")
 	set(&server.WorkflowStore, "workflows")
 	set(&server.WorkspaceStore, "workspaces")
-	if server.WorkspaceWorkflowStore == nil {
-		server.WorkspaceWorkflowStore = server.WorkflowStore
-	}
 	set(&server.ToolStore, "tools")
 	set(&server.ContactStore, "contacts")
-	set(&server.FriendInviteTokenStore, "friend-invite-tokens")
 	set(&server.FriendStore, "friends")
 	set(&server.FriendGroupStore, "friend-groups")
-	set(&server.FriendGroupInviteTokenStore, "friend-group-invite-tokens")
-	set(&server.FriendGroupMemberStore, "friend-group-members")
-	set(&server.FriendGroupBelongStore, "friend-group-belongs")
-	set(&server.PetDefStore, "pet-defs")
-	set(&server.BadgeDefStore, "badge-defs")
-	set(&server.GameDefStore, "game-defs")
+	set(&server.GameplayStore, "gameplay")
 	if server.WorkspaceAssets == nil {
 		server.WorkspaceAssets = objectstore.Dir(t.TempDir())
 	}

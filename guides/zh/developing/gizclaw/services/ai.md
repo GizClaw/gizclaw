@@ -44,7 +44,7 @@ services/ai/
 
 拥有各 AI provider tenant 的产品资源，例如 provider endpoint、account-level 配置和 voice 同步所需信息。它可以依赖具体 provider SDK，但不能让 provider-specific 字段扩散到无关领域。
 
-Server 组合会为 generic、MiniMax、DeepSeek 与 Volc tenant record，以及 credential、model、voice lookup 注入各自显式 Store。只有 `services.provider_tenants` 的多个字段明确引用同一 Store 时才允许复用。ProviderTenants 不会从另一个依赖派生 Store，也不执行 fallback。
+Server 配置只为 ProviderTenants 指定一个根 Store；generic、MiniMax、DeepSeek 与 Volc tenant record 使用代码拥有的内部 scope。它实际消费的 Credential 与 Voice 由各自 Service 组合提供，不再由 `services.provider_tenants` 重复配置底层 Store；旧 `model_store` 没有消费者，直接移除。
 
 ### [voice](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/voice)
 
@@ -80,7 +80,7 @@ Eino Graph 也通过 typed `memory_recall` 与 `memory_observe` node 消费同�
 
 拥有 workspace 资源、workspace runtime storage 和 history。Workspace 是实例化 Agent 环境的持久化边界；运行中的 Agent、输入输出和 connection stream 由 Runtime 领域负责。
 
-Workspace resource Store、Workflow lookup Store 与 asset ObjectStore 是三个显式依赖。`services.workspace.workflow_store` 可以有意复用 `services.workflow.store`，但省略 Workflow Store 时绝不会 fallback 到 Workspace Store。
+Workspace 配置显式指定一个 resource Store 与一个 asset ObjectStore；Workflow lookup 由 Workflow Service 组合提供，不再通过 `services.workspace` 重复配置 Workflow Store。
 
 Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入 `system: false`；领域拥有的创建同时写入 `system: true` 与唯一且不可变的 `owner_public_key`。通用 put 只能修改 Chatroom system Workspace 的 input mode；owner、Workflow、领域 mode、history/transcript policy、labels 或 toolkit 的变化都会被拒绝，因此 Pet system Workspace 没有可变的执行配置。通用 delete 始终拒绝 system Workspace。删除用户 Workspace 时，会原子创建或复用一条 `kind=workspace` PendingDeletion，并立即拒绝该 Workspace 的选择、运行、history/icon 与 mutation；Admin Workspace get/list 仍可诊断 retained record。Production handler quiesce runtime，删除 exact Gameplay/History/runtime/icon/object/filesystem artifact，验证 absent 后原子删除 Workspace、index 与 mutable task state。内部 system lifecycle surface 只提供给拥有该 Workspace 的 Social 或 Gameplay service；Social relationship 或 Peer retirement 为选中的 system Workspace 创建同样的 handoff。
 

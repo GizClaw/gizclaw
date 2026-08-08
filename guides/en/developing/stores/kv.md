@@ -27,9 +27,8 @@ A physical `storage` entry opens Memory or Badger once. Each logical `stores.kin
 ```yaml
 storage:
   state:
-    kind: keyvalue
-    badger:
-      dir: data/kv
+    kind: badger
+    dir: data/kv
 stores:
   peer-records:
     kind: keyvalue
@@ -38,6 +37,6 @@ stores:
 services:
   peer:
     store: peer-records
-    route_store: peer-routes
-    run_store: peer-run
 ```
+
+Peer routes and run state use code-owned prefixes rather than separate operator Store bindings.

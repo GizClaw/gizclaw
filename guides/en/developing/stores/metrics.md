@@ -14,10 +14,9 @@ In Server Config, Prometheus connection URLs, bearer token, and reusable HTTP cl
 storage:
   monitoring:
     kind: prometheus
-    prometheus:
-      remote_write_url: ${PROMETHEUS_REMOTE_WRITE_URL}
-      query_url: ${PROMETHEUS_QUERY_URL}
-      bearer_token: ${PROMETHEUS_BEARER_TOKEN}
+    remote_write_url: ${PROMETHEUS_REMOTE_WRITE_URL}
+    query_url: ${PROMETHEUS_QUERY_URL}
+    bearer_token: ${PROMETHEUS_BEARER_TOKEN}
 stores:
   telemetry:
     kind: metrics
@@ -32,15 +31,13 @@ ClickHouse is a physical SQL connector. The DSN and pool are configured once; ea
 ```yaml
 storage:
   analytics:
-    kind: sql
-    clickhouse:
-      dsn: ${CLICKHOUSE_DSN}
+    kind: clickhouse
+    dsn: ${CLICKHOUSE_DSN}
 stores:
   telemetry:
     kind: metrics
     storage: analytics
-    clickhouse:
-      table: gizclaw_metrics
+    table: gizclaw_metrics
 ```
 
-For local tests, `kind: metrics` may use `memory: {}` directly because it has no external infrastructure. Legacy backend fields and provider connection fields under `stores` are invalid.
+For local tests, configure a property-free `storage.kind: memory` and reference it from `stores.kind: metrics`. Legacy backend fields and provider connection fields under `stores` are invalid.

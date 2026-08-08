@@ -9,9 +9,9 @@ func FuzzParseConfigData(f *testing.F) {
 		[]byte("admin-public-key: \"not-a-key\"\n"),
 		[]byte("log:\n  level: debug\n"),
 		[]byte("friend_groups: {}\n"),
-		[]byte("storage:\n  memory:\n    kind: keyvalue\n    memory: {}\nstores:\n  peers:\n    kind: keyvalue\n    storage: memory\n    prefix: peers\n"),
-		[]byte("services:\n  peer:\n    store: peers\n    route_store: peer-routes\n    run_store: peer-run\n"),
-		[]byte("storage:\n  analytics:\n    kind: sql\n    clickhouse:\n      dsn: ${DSN}\nstores:\n  history:\n    kind: log.mutable\n    storage: analytics\n    clickhouse:\n      database: default\n      table: history\nservices:\n  agent_host:\n    flowcraft:\n      history_store: history\n"),
+		[]byte("storage:\n  memory:\n    kind: memory\nstores:\n  peers:\n    kind: keyvalue\n    storage: memory\n    prefix: peers\n"),
+		[]byte("services:\n  peer:\n    store: peers\n"),
+		[]byte("storage:\n  analytics:\n    kind: clickhouse\n    dsn: ${DSN}\nstores:\n  history:\n    kind: log.mutable\n    storage: analytics\n    database: default\n    table: history\nservices:\n  agent_host:\n    flowcraft:\n      history_store: history\n"),
 		[]byte("listen: ["),
 	} {
 		f.Add(seed)

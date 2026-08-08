@@ -434,6 +434,40 @@ func TestVoiceBoundaryBranches(t *testing.T) {
 	}
 }
 
+func TestServerReconcileProviderVoices(t *testing.T) {
+	ctx := t.Context()
+	srv := &Server{Store: kv.NewMemory(nil)}
+	kind := apitypes.VoiceProviderKind("minimax-tenant")
+	now := time.Date(2026, 8, 8, 1, 2, 3, 0, time.UTC)
+	makeVoice := func(id, upstreamID, name string) apitypes.Voice {
+		return apitypes.Voice{
+			Id: id, Provider: apitypes.VoiceProvider{Kind: kind, Id: "tenant"},
+			ProviderData: ProviderData(kind, map[string]any{"voice_id": upstreamID}),
+			Source:       apitypes.VoiceSourceSync, DisplayName: &name, CreatedAt: now, UpdatedAt: now,
+		}
+	}
+	first := makeVoice("voice-a", "upstream-a", "A")
+	if created, updated, deleted, err := srv.ReconcileProviderVoices(ctx, kind, "tenant", []apitypes.Voice{first}); err != nil || created != 1 || updated != 0 || deleted != 0 {
+		t.Fatalf("first reconcile = %d, %d, %d, %v", created, updated, deleted, err)
+	}
+	second := makeVoice("replacement-id", "upstream-a", "B")
+	if created, updated, deleted, err := srv.ReconcileProviderVoices(ctx, kind, "tenant", []apitypes.Voice{second}); err != nil || created != 0 || updated != 1 || deleted != 0 {
+		t.Fatalf("update reconcile = %d, %d, %d, %v", created, updated, deleted, err)
+	}
+	stored, err := Get(ctx, srv.Store, first.Id)
+	if err != nil || stored.DisplayName == nil || *stored.DisplayName != "B" {
+		t.Fatalf("Get(%q) = %#v, %v", first.Id, stored, err)
+	}
+	if created, updated, deleted, err := srv.ReconcileProviderVoices(ctx, kind, "tenant", nil); err != nil || created != 0 || updated != 0 || deleted != 1 {
+		t.Fatalf("delete reconcile = %d, %d, %d, %v", created, updated, deleted, err)
+	}
+	invalid := makeVoice("wrong", "wrong", "wrong")
+	invalid.Provider.Id = "other"
+	if _, _, _, err := srv.ReconcileProviderVoices(ctx, kind, "tenant", []apitypes.Voice{invalid}); err == nil {
+		t.Fatal("ReconcileProviderVoices(invalid owner) error = nil")
+	}
+}
+
 type customStringer string
 
 func (s customStringer) String() string {

@@ -246,7 +246,8 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		}
 		cmdSrv.metricsShutdown = metricsShutdown
 	}
-	if err := bootstrapEdgeNodes(context.Background(), &runtimepeer.Server{Store: gizServer.PeerStore}, cfg.EdgeNodes); err != nil {
+	peerRecords := kv.Prefixed(gizServer.PeerStore, kv.Key{"records"})
+	if err := bootstrapEdgeNodes(context.Background(), &runtimepeer.Server{Store: peerRecords}, cfg.EdgeNodes); err != nil {
 		return nil, err
 	}
 	return cmdSrv, nil
@@ -364,18 +365,11 @@ func resolveMetricsStore(registry *stores.Stores, path, name string) (metrics.St
 
 func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg *ServicesConfig) error {
 	var err error
-	server.PeerStore, err = resolveKVStore(registry, "services.peer.store", cfg.Peer.Store)
+	peerRoot, err := resolveKVStore(registry, "services.peer.store", cfg.Peer.Store)
 	if err != nil {
 		return err
 	}
-	server.PeerRouteStore, err = resolveKVStore(registry, "services.peer.route_store", cfg.Peer.RouteStore)
-	if err != nil {
-		return err
-	}
-	server.PeerRunStore, err = resolveKVStore(registry, "services.peer.run_store", cfg.Peer.RunStore)
-	if err != nil {
-		return err
-	}
+	server.PeerStore = peerRoot
 	server.PublicLoginStore, err = resolveKVStore(registry, "services.public_login.store", cfg.PublicLogin.Store)
 	if err != nil {
 		return err
@@ -404,34 +398,11 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 	if err != nil {
 		return err
 	}
-	server.ProviderTenantStore, err = resolveKVStore(registry, "services.provider_tenants.generic_store", cfg.ProviderTenants.GenericStore)
+	providerRoot, err := resolveKVStore(registry, "services.provider_tenants.store", cfg.ProviderTenants.Store)
 	if err != nil {
 		return err
 	}
-	server.MiniMaxTenantStore, err = resolveKVStore(registry, "services.provider_tenants.minimax_tenant_store", cfg.ProviderTenants.MiniMaxTenantStore)
-	if err != nil {
-		return err
-	}
-	server.DeepSeekTenantStore, err = resolveKVStore(registry, "services.provider_tenants.deepseek_tenant_store", cfg.ProviderTenants.DeepSeekTenantStore)
-	if err != nil {
-		return err
-	}
-	server.VolcTenantStore, err = resolveKVStore(registry, "services.provider_tenants.volc_tenant_store", cfg.ProviderTenants.VolcTenantStore)
-	if err != nil {
-		return err
-	}
-	server.MiniMaxCredentialStore, err = resolveKVStore(registry, "services.provider_tenants.credential_store", cfg.ProviderTenants.CredentialStore)
-	if err != nil {
-		return err
-	}
-	server.ProviderModelStore, err = resolveKVStore(registry, "services.provider_tenants.model_store", cfg.ProviderTenants.ModelStore)
-	if err != nil {
-		return err
-	}
-	server.ProviderVoiceStore, err = resolveKVStore(registry, "services.provider_tenants.voice_store", cfg.ProviderTenants.VoiceStore)
-	if err != nil {
-		return err
-	}
+	server.ProviderTenantStore = providerRoot
 	server.WorkflowStore, err = resolveKVStore(registry, "services.workflow.store", cfg.Workflow.Store)
 	if err != nil {
 		return err
@@ -440,11 +411,6 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 	if err != nil {
 		return err
 	}
-	workspaceWorkflow, err := resolveKVStore(registry, "services.workspace.workflow_store", cfg.Workspace.WorkflowStore)
-	if err != nil {
-		return err
-	}
-	server.WorkspaceWorkflowStore = workspaceWorkflow
 	server.WorkspaceAssets, err = resolveObjectStore(registry, "services.workspace.assets_store", cfg.Workspace.AssetsStore)
 	if err != nil {
 		return err
@@ -457,45 +423,21 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 	if err != nil {
 		return err
 	}
-	server.FriendStore, err = resolveKVStore(registry, "services.friend.store", cfg.Friend.Store)
+	friendRoot, err := resolveKVStore(registry, "services.friend.store", cfg.Friend.Store)
 	if err != nil {
 		return err
 	}
-	server.FriendInviteTokenStore, err = resolveKVStore(registry, "services.friend.invite_token_store", cfg.Friend.InviteTokenStore)
+	server.FriendStore = friendRoot
+	friendGroupRoot, err := resolveKVStore(registry, "services.friend_group.store", cfg.FriendGroup.Store)
 	if err != nil {
 		return err
 	}
-	server.FriendGroupStore, err = resolveKVStore(registry, "services.friend_group.store", cfg.FriendGroup.Store)
+	server.FriendGroupStore = friendGroupRoot
+	gameplayRoot, err := resolveKVStore(registry, "services.gameplay.store", cfg.Gameplay.Store)
 	if err != nil {
 		return err
 	}
-	server.FriendGroupInviteTokenStore, err = resolveKVStore(registry, "services.friend_group.invite_token_store", cfg.FriendGroup.InviteTokenStore)
-	if err != nil {
-		return err
-	}
-	server.FriendGroupMemberStore, err = resolveKVStore(registry, "services.friend_group.member_store", cfg.FriendGroup.MemberStore)
-	if err != nil {
-		return err
-	}
-	server.FriendGroupBelongStore, err = resolveKVStore(registry, "services.friend_group.belong_store", cfg.FriendGroup.BelongStore)
-	if err != nil {
-		return err
-	}
-	if _, _, ok := kv.SharedAtomicStore(server.FriendGroupStore, server.FriendGroupInviteTokenStore, server.FriendGroupMemberStore, server.FriendGroupBelongStore); !ok {
-		return fmt.Errorf("server: services.friend_group Stores must share one atomic transaction boundary")
-	}
-	server.PetDefStore, err = resolveKVStore(registry, "services.gameplay.pet_def_store", cfg.Gameplay.PetDefStore)
-	if err != nil {
-		return err
-	}
-	server.BadgeDefStore, err = resolveKVStore(registry, "services.gameplay.badge_def_store", cfg.Gameplay.BadgeDefStore)
-	if err != nil {
-		return err
-	}
-	server.GameDefStore, err = resolveKVStore(registry, "services.gameplay.game_def_store", cfg.Gameplay.GameDefStore)
-	if err != nil {
-		return err
-	}
+	server.GameplayStore = gameplayRoot
 	server.GameplayAssets, err = resolveObjectStore(registry, "services.gameplay.assets_store", cfg.Gameplay.AssetsStore)
 	if err != nil {
 		return err

@@ -112,12 +112,9 @@ func TestServerInitRequiresAtomicStoreCapabilities(t *testing.T) {
 		{
 			name: "friend group relationship store",
 			server: &Server{
-				LocalStatic:                 *keyPair,
-				PeerStore:                   kv.NewMemory(nil),
-				FriendGroupStore:            kv.Prefixed(friendGroupStore, kv.Key{"groups"}),
-				FriendGroupInviteTokenStore: kv.Prefixed(friendGroupStore, kv.Key{"invites"}),
-				FriendGroupMemberStore:      kv.Prefixed(friendGroupStore, kv.Key{"members"}),
-				FriendGroupBelongStore:      kv.Prefixed(friendGroupStore, kv.Key{"belongs"}),
+				LocalStatic:      *keyPair,
+				PeerStore:        kv.NewMemory(nil),
+				FriendGroupStore: friendGroupStore,
 			},
 			wantMessage: "friend group relationship store",
 		},
@@ -152,7 +149,7 @@ func TestServerInitReconcilesFriendCreationIntents(t *testing.T) {
 		t.Fatalf("GenerateKeyPair() error = %v", err)
 	}
 	friendStore := mustBadgerInMemory(t, nil)
-	if err := friendStore.Set(
+	if err := kv.Prefixed(friendStore, kv.Key{"friends"}).Set(
 		t.Context(),
 		kv.Key{"friend-creation-intents", "invalid"},
 		[]byte("{"),
@@ -171,37 +168,15 @@ func TestServerInitReconcilesFriendCreationIntents(t *testing.T) {
 	}
 }
 
-func TestServerInitRequiresAtomicFriendGroupRelationshipBoundary(t *testing.T) {
+func TestServerInitDerivesFriendGroupRelationshipViews(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair() error = %v", err)
 	}
 	server := &Server{
-		LocalStatic:            *keyPair,
-		PeerStore:              kv.NewMemory(nil),
-		FriendGroupStore:       kv.NewMemory(nil),
-		FriendGroupMemberStore: kv.NewMemory(nil),
-	}
-	completeTestServer(t, server)
-	err = server.init()
-	if err == nil || !strings.Contains(err.Error(), "friend group relationship stores must share one atomic transaction boundary") {
-		t.Fatalf("init() error = %v, want atomic friend group relationship boundary error", err)
-	}
-}
-
-func TestServerInitAcceptsPrefixedFriendGroupRelationshipViews(t *testing.T) {
-	keyPair, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair() error = %v", err)
-	}
-	base := kv.NewMemory(nil)
-	server := &Server{
-		LocalStatic:                 *keyPair,
-		PeerStore:                   kv.NewMemory(nil),
-		FriendGroupStore:            kv.Prefixed(base, kv.Key{"social", "groups"}),
-		FriendGroupInviteTokenStore: kv.Prefixed(base, kv.Key{"social", "invites"}),
-		FriendGroupMemberStore:      kv.Prefixed(base, kv.Key{"social", "members"}),
-		FriendGroupBelongStore:      kv.Prefixed(base, kv.Key{"social", "belongs"}),
+		LocalStatic:      *keyPair,
+		PeerStore:        kv.NewMemory(nil),
+		FriendGroupStore: kv.NewMemory(nil),
 	}
 	completeTestServer(t, server)
 	if err := server.init(); err != nil {

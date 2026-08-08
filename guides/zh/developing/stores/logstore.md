@@ -29,17 +29,15 @@
 storage:
   volc-logs:
     kind: volc-tls
-    volc:
-      endpoint: ${VOLC_TLS_ENDPOINT}
-      region: ${VOLC_TLS_REGION}
-      access_key_id: ${VOLC_TLS_ACCESS_KEY_ID}
-      access_key_secret: ${VOLC_TLS_ACCESS_KEY_SECRET}
+    endpoint: ${VOLC_TLS_ENDPOINT}
+    region: ${VOLC_TLS_REGION}
+    access_key_id: ${VOLC_TLS_ACCESS_KEY_ID}
+    access_key_secret: ${VOLC_TLS_ACCESS_KEY_SECRET}
 stores:
   logs:
     kind: log.immutable
     storage: volc-logs
-    volc:
-      topic_id: ${VOLC_TLS_TOPIC_ID}
+    topic_id: ${VOLC_TLS_TOPIC_ID}
 ```
 
 Topic、logset、retention 和 index 都由 operator 预先创建。构造 store 时只调用 `DescribeIndex`，不会调用 `CreateIndex` 或 `ModifyIndex`。必需配置为：关闭 full-text 和 auto-index，启用 phrase index；`id`、`stream`、`kind`、`level` 是 case-sensitive non-tokenized text；`msg` 是 case-sensitive、ASCII whitespace delimiter、包含中文的 text；`attributes` 是 case-sensitive、`IndexAll=true` 的 JSON；`payload` 不得建立 index。`DescribeIndex` 可能把这个逻辑 delimiter 返回成字面转义文本 ` \t\r\n`；validator 仅把这个精确的 provider 表示视为等价形式，不接受其他 delimiter 写法。已有 topic 后续启用 phrase index 时，历史数据是否 rebuild 由 operator 决定。
@@ -59,16 +57,14 @@ Generic record 的 provider source 为 `gizclaw`、filename 为 `logstore`；pro
 ```yaml
 storage:
   analytics:
-    kind: sql
-    clickhouse:
-      dsn: ${CLICKHOUSE_DSN}
+    kind: clickhouse
+    dsn: ${CLICKHOUSE_DSN}
 stores:
   flowcraft-history:
     kind: log.mutable
     storage: analytics
-    clickhouse:
-      database: gizclaw
-      table: flowcraft_history
+    database: gizclaw
+    table: flowcraft_history
 ```
 
 Driver 会创建并校验独立 `MergeTree` 表，按月分区，并按 `(timestamp, stream, id)` 排序。`Append` 会在同一 store instance 内串行执行查重与同步 batch insert，只在 commit 后返回 key；`Query` 把结构化 contract 直接转换为参数化 ClickHouse SQL，通过 `(timestamp, stream, id)` 分页，不建立额外分页索引。`Replace` 使用同步 `ALTER UPDATE`，`Delete` 使用同步 `ALTER DELETE`；二者都只针对一个 `(stream, id)`。发现重复 key 时会报错，不会静默修改多行。

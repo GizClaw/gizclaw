@@ -22,14 +22,14 @@ The main capability groups are:
 
 | Service fields | Capability |
 | --- | --- |
-| Peer, login, credential, firmware, RuntimeProfile, model, voice, MemoryLayout, provider tenants, workflow, toolkit, contact, friend, and Friend Group references | `keyvalue` |
+| Peer, login, credential, firmware, RuntimeProfile, model, voice, MemoryLayout, provider tenants, workflow, toolkit, contact, friend, and Friend Group | one `keyvalue` each; code owns internal collection prefixes |
 | `services.workspace.assets_store`, `services.gameplay.assets_store`, `services.agent_host.runtime_store` | `objectstore` |
 | `services.gameplay.database_store` | `sql` |
 | `services.agent_host.flowcraft.history_store` | `log.mutable` |
 | `services.metrics.store` | `metrics` |
 | `services.system_log.query_store` and Store sinks | immutable Log capability |
 
-The four Friend Group relationship Stores must share one atomic KV transaction boundary. Shared ObjectStores require non-empty, clean, non-overlapping prefixes. Missing references, wrong kinds, immutable Flowcraft History, and unknown fields fail before listeners open.
+Friend Group groups, invite tokens, members, and belongs are code-owned scopes over one Service Store, so they share one atomic KV transaction boundary. Shared ObjectStores require non-empty, clean, non-overlapping prefixes. Missing references, wrong kinds, immutable Flowcraft History, and unknown fields fail before listeners open.
 
 Startup strictly parses the configuration, opens physical connectors, builds logical Stores, resolves service capabilities, lets active SQL-backed services validate their schemas, installs logging and metrics, and only then opens listeners. Logical Stores never close borrowed connectors. Shutdown closes logical wrappers before physical connectors.
 
@@ -37,11 +37,11 @@ The old one-layer Store configuration, top-level pseudo-service blocks, implicit
 
 ### Complete configuration
 
-The following development deployment uses Badger for KV state, SQLite for Gameplay SQL, a filesystem ObjectStore, Volc TLS logs, and one ClickHouse pool shared by Metrics and Flowcraft History. Production can replace `storage.gameplay-db.sqlite` with a `postgres.dsn` block without changing the logical Store or service binding.
+The following development deployment uses Badger for KV state, SQLite for Gameplay SQL, a filesystem ObjectStore, Volc TLS logs, and one ClickHouse pool shared by Metrics and Flowcraft History. Production can change `storage.gameplay-db.kind` to `postgresql` and replace `dir` with `dsn` without changing the logical Store or service binding.
 
 <<< ../../../../snippets/server-storage-stores-services.yaml{yaml}
 
-`memory.Store` remains selected by RuntimeProfile and MemoryLayout; `stores.kind: memory` is invalid. See [Memory Store](/en/developing/stores/memory).
+`memory.Store` remains selected by RuntimeProfile and MemoryLayout; `stores.kind: memory` is invalid. Physical `storage.kind: memory` only provides an in-process backend to compatible keyvalue or metrics Stores. See [Memory Store](/en/developing/stores/memory).
 
 Each Workspace Agent generation resolves its memory alias from the current RuntimeProfile snapshot. Construction failure fails Agent initialization or reload explicitly. Server shutdown closes the shared Memory registry. Workspace reload and release of the final Agent reference close that generation's lease without migrating, merging, copying, or deleting durable data.
 

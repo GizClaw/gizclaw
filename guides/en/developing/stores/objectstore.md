@@ -28,9 +28,8 @@ The Object Store treats directories as an implementation detail and does not pro
 ```yaml
 storage:
   files:
-    kind: objectstore
-    fs:
-      dir: data/files
+    kind: filesystem.dir
+    dir: data/files
 stores:
   workspace-assets:
     kind: objectstore
@@ -39,6 +38,5 @@ stores:
 services:
   workspace:
     store: workspaces
-    workflow_store: workflows
     assets_store: workspace-assets
 ```

@@ -18,7 +18,7 @@ func TestWorkspaceRemainsVisibleWhenRuntimeAliasDisappears(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	workflows := &workflow.Server{Store: store}
 	createWorkflowForCollectionTest(t, ctx, workflows, "canonical-workflow")
-	workspaces := &workspace.Server{Store: store, WorkflowStore: store}
+	workspaces := &workspace.Server{Store: store, Workflows: workflows}
 	profile := runtimeProfileWithWorkspaceAlias("r1")
 	server := &Server{
 		Caller:     giznet.PublicKey{1},
@@ -65,9 +65,11 @@ func TestWorkspaceListRejectsUnknownRuntimeCollection(t *testing.T) {
 	store := kv.NewMemory(nil)
 	t.Cleanup(func() { _ = store.Close() })
 	profile := runtimeProfileWithWorkspaceAlias("r1")
+	workflows := &workflow.Server{Store: store}
 	server := &Server{
 		Caller:     giznet.PublicKey{1},
-		Workspaces: &workspace.Server{Store: store, WorkflowStore: store},
+		Workspaces: &workspace.Server{Store: store, Workflows: workflows},
+		Workflows:  workflows,
 		RuntimeProfile: func() *apitypes.RuntimeProfile {
 			return &profile
 		},

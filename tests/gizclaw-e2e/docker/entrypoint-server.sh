@@ -46,7 +46,8 @@ envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_
   < "$repo_root/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template" \
   > "$workspace_dir/config.yaml"
 if [[ "${GIZCLAW_E2E_PERSISTENT_KV:-}" == "1" ]]; then
-  perl -0pi -e 's/  memory:\n    kind: keyvalue\n    memory: \{\}/  persistent:\n    kind: keyvalue\n    badger:\n      dir: data\/state.badger/; s/storage: memory/storage: persistent/g' \
+
+  perl -0pi -e 's/  memory:\n    kind: memory/  memory:\n    kind: badger\n    dir: data\/state.badger/' \
     "$workspace_dir/config.yaml"
 fi
 if [[ "${GIZCLAW_E2E_CAPACITY_ONLY:-}" == "1" ]]; then
@@ -81,11 +82,10 @@ function quote_yaml(value) {
 /^stores:/ {
   print "  volc-logs:"
   print "    kind: volc-tls"
-  print "    volc:"
-  print "      endpoint: " quote_yaml(endpoint)
-  print "      region: " quote_yaml(region)
-  print "      access_key_id: " quote_yaml(access_key_id)
-  print "      access_key_secret: " quote_yaml(access_key_secret)
+  print "    endpoint: " quote_yaml(endpoint)
+  print "    region: " quote_yaml(region)
+  print "    access_key_id: " quote_yaml(access_key_id)
+  print "    access_key_secret: " quote_yaml(access_key_secret)
   print ""
   print $0
   next
@@ -94,8 +94,7 @@ function quote_yaml(value) {
   print "  logs:"
   print "    kind: log.immutable"
   print "    storage: volc-logs"
-  print "    volc:"
-  print "      topic_id: " quote_yaml(topic_id)
+  print "    topic_id: " quote_yaml(topic_id)
   print ""
   print $0
   next

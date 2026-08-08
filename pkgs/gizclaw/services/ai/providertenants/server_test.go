@@ -16,6 +16,8 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
+	voicecatalog "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -118,10 +120,7 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 		SyncedAt:  new(created.CreatedAt),
 		UpdatedAt: created.CreatedAt,
 	}
-	voiceStore, err := srv.voiceStore()
-	if err != nil {
-		t.Fatalf("voiceStore() error = %v", err)
-	}
+	voiceStore := testVoiceStore(t, srv)
 	if err := writeVoice(ctx, voiceStore, voice, nil); err != nil {
 		t.Fatalf("writeVoice() error = %v", err)
 	}
@@ -274,11 +273,7 @@ func TestServerMiniMaxCredentialValidation(t *testing.T) {
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
-	credentialStore, err := srv.credentialStore()
-	if err != nil {
-		t.Fatalf("credentialStore() error = %v", err)
-	}
-	if _, err := srv.miniMaxClientForTenant(ctx, credentialStore, tenant); err == nil {
+	if _, err := srv.miniMaxClientForTenant(ctx, srv.Credentials, tenant); err == nil {
 		t.Fatalf("miniMaxClientForTenant(openai provider) error = nil, want error")
 	}
 
@@ -289,7 +284,7 @@ func TestServerMiniMaxCredentialValidation(t *testing.T) {
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
-	if _, err := srv.miniMaxClientForTenant(ctx, credentialStore, tenant); err == nil {
+	if _, err := srv.miniMaxClientForTenant(ctx, srv.Credentials, tenant); err == nil {
 		t.Fatalf("miniMaxClientForTenant(missing api key) error = nil, want error")
 	}
 
@@ -300,7 +295,7 @@ func TestServerMiniMaxCredentialValidation(t *testing.T) {
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
-	client, err := srv.miniMaxClientForTenant(ctx, credentialStore, tenant)
+	client, err := srv.miniMaxClientForTenant(ctx, srv.Credentials, tenant)
 	if err != nil {
 		t.Fatalf("miniMaxClientForTenant() error = %v", err)
 	}
@@ -309,7 +304,7 @@ func TestServerMiniMaxCredentialValidation(t *testing.T) {
 	}
 	missingTenant := tenant
 	missingTenant.CredentialId = "missing-cred"
-	if _, err := srv.miniMaxCredentialForTenant(ctx, credentialStore, missingTenant); err == nil || !strings.Contains(err.Error(), `credential "missing-cred" not found`) {
+	if _, err := srv.miniMaxCredentialForTenant(ctx, srv.Credentials, missingTenant); err == nil || !strings.Contains(err.Error(), `credential "missing-cred" not found`) {
 		t.Fatalf("miniMaxCredentialForTenant(missing) error = %v", err)
 	}
 
@@ -512,11 +507,11 @@ func TestServerMiniMaxStoreHelpers(t *testing.T) {
 	if _, err := nilServer.tenantStore(); err == nil {
 		t.Fatal("nil server tenantStore() error = nil")
 	}
-	if _, err := nilServer.voiceStore(); err == nil {
-		t.Fatal("nil server voiceStore() error = nil")
+	if _, err := nilServer.voiceService(); err == nil {
+		t.Fatal("nil server voiceService() error = nil")
 	}
-	if _, err := nilServer.credentialStore(); err == nil {
-		t.Fatal("nil server credentialStore() error = nil")
+	if _, err := nilServer.credentialService(); err == nil {
+		t.Fatal("nil server credentialService() error = nil")
 	}
 	if _, err := nilServer.volcTenantStore(); err == nil {
 		t.Fatal("nil server volcTenantStore() error = nil")
@@ -524,41 +519,37 @@ func TestServerMiniMaxStoreHelpers(t *testing.T) {
 	if _, err := (&Server{}).tenantStore(); err == nil {
 		t.Fatal("empty server tenantStore() error = nil")
 	}
-	if _, err := (&Server{}).voiceStore(); err == nil {
-		t.Fatal("empty server voiceStore() error = nil")
+	if _, err := (&Server{}).voiceService(); err == nil {
+		t.Fatal("empty server voiceService() error = nil")
 	}
-	if _, err := (&Server{}).credentialStore(); err == nil {
-		t.Fatal("empty server credentialStore() error = nil")
+	if _, err := (&Server{}).credentialService(); err == nil {
+		t.Fatal("empty server credentialService() error = nil")
 	}
 	if _, err := (&Server{}).volcTenantStore(); err == nil {
 		t.Fatal("empty server volcTenantStore() error = nil")
 	}
 
-	srv := &Server{}
-	tenantStore := kv.NewMemory(nil)
-	volcTenantStore := kv.NewMemory(nil)
+	srv := &Server{Store: kv.NewMemory(nil)}
 	voiceStore := kv.NewMemory(nil)
 	credentialStore := kv.NewMemory(nil)
-	srv.TenantStore = tenantStore
-	srv.VolcTenantStore = volcTenantStore
-	srv.VoiceStore = voiceStore
-	srv.CredentialStore = credentialStore
-	if got, err := srv.tenantStore(); err != nil || got != tenantStore {
-		t.Fatalf("tenantStore explicit = %v, %v", got, err)
+	srv.Voices = &voicecatalog.Server{Store: voiceStore}
+	srv.Credentials = &credential.Server{Store: credentialStore}
+	if _, err := srv.tenantStore(); err != nil {
+		t.Fatalf("tenantStore() error = %v", err)
 	}
-	if got, err := srv.voiceStore(); err != nil || got != voiceStore {
-		t.Fatalf("voiceStore explicit = %v, %v", got, err)
+	if got, err := srv.voiceService(); err != nil || got != srv.Voices {
+		t.Fatalf("voiceService explicit = %v, %v", got, err)
 	}
-	if got, err := srv.credentialStore(); err != nil || got != credentialStore {
-		t.Fatalf("credentialStore explicit = %v, %v", got, err)
+	if got, err := srv.credentialService(); err != nil || got != srv.Credentials {
+		t.Fatalf("credentialService explicit = %v, %v", got, err)
 	}
-	if got, err := srv.volcTenantStore(); err != nil || got != volcTenantStore {
-		t.Fatalf("volcTenantStore explicit = %v, %v", got, err)
+	if _, err := srv.volcTenantStore(); err != nil {
+		t.Fatalf("volcTenantStore() error = %v", err)
 	}
 
-	srv.VolcTenantStore = nil
+	srv.Store = nil
 	if _, err := srv.volcTenantStore(); err == nil {
-		t.Fatal("volcTenantStore missing explicit Store error = nil")
+		t.Fatal("volcTenantStore missing root Store error = nil")
 	}
 }
 
@@ -923,10 +914,7 @@ func TestServerSyncMiniMaxTenantVoicesReconcile(t *testing.T) {
 		Source:    apitypes.VoiceSourceManual,
 		UpdatedAt: srv.now(),
 	}
-	voiceStore, err := srv.voiceStore()
-	if err != nil {
-		t.Fatalf("voiceStore() error = %v", err)
-	}
+	voiceStore := testVoiceStore(t, srv)
 	if err := writeVoice(ctx, voiceStore, manualVoice, nil); err != nil {
 		t.Fatalf("writeVoice(manual) error = %v", err)
 	}
@@ -1207,7 +1195,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 	if _, ok := deleteResp.(adminhttp.DeleteVolcTenant200JSONResponse); !ok {
 		t.Fatalf("DeleteVolcTenant() response = %#v", deleteResp)
 	}
-	if _, err := getVoice(ctx, srv.VoiceStore, stableVoiceID(volcProviderKind, "tenant-a", "S_female_1")); err != kv.ErrNotFound {
+	if _, err := getVoice(ctx, testVoiceStore(t, srv), stableVoiceID(volcProviderKind, "tenant-a", "S_female_1")); err != kv.ErrNotFound {
 		t.Fatalf("getVoice() after volc tenant delete err = %v, want kv.ErrNotFound", err)
 	}
 }
@@ -1686,17 +1674,13 @@ func TestTenantReferenceValidation(t *testing.T) {
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	credentialStore, err := srv.credentialStore()
-	if err != nil {
-		t.Fatalf("credentialStore() error = %v", err)
-	}
 	miniMaxTenant := apitypes.MiniMaxTenant{Id: "mmx", CredentialId: "mmx-cred"}
 	volcTenant := apitypes.VolcTenant{Id: "volc", CredentialId: "volc-cred"}
 
-	if err := validateTenantReferences(ctx, credentialStore, miniMaxTenant); err == nil || !strings.Contains(err.Error(), `credential "mmx-cred" not found`) {
+	if err := validateTenantReferences(ctx, srv.Credentials, miniMaxTenant); err == nil || !strings.Contains(err.Error(), `credential "mmx-cred" not found`) {
 		t.Fatalf("validateTenantReferences(missing) error = %v", err)
 	}
-	if err := validateVolcTenantReferences(ctx, credentialStore, volcTenant); err == nil || !strings.Contains(err.Error(), `credential "volc-cred" not found`) {
+	if err := validateVolcTenantReferences(ctx, srv.Credentials, volcTenant); err == nil || !strings.Contains(err.Error(), `credential "volc-cred" not found`) {
 		t.Fatalf("validateVolcTenantReferences(missing) error = %v", err)
 	}
 
@@ -1714,10 +1698,10 @@ func TestTenantReferenceValidation(t *testing.T) {
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
-	if err := validateTenantReferences(ctx, credentialStore, miniMaxTenant); err != nil {
+	if err := validateTenantReferences(ctx, srv.Credentials, miniMaxTenant); err != nil {
 		t.Fatalf("validateTenantReferences() error = %v", err)
 	}
-	if err := validateVolcTenantReferences(ctx, credentialStore, volcTenant); err != nil {
+	if err := validateVolcTenantReferences(ctx, srv.Credentials, volcTenant); err != nil {
 		t.Fatalf("validateVolcTenantReferences() error = %v", err)
 	}
 }
@@ -1820,6 +1804,25 @@ func TestVolcMegaTTSTrainStatusPagePreservesRawStatus(t *testing.T) {
 	}
 }
 
+func TestSyncVolcTenantVoicesReportsMissingCredential(t *testing.T) {
+	srv := newTestServer(t)
+	store, err := srv.volcTenantStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tenant := apitypes.VolcTenant{Id: "missing-credential", CredentialId: "missing"}
+	if err := writeVolcTenant(t.Context(), store, tenant); err != nil {
+		t.Fatal(err)
+	}
+	response, err := srv.SyncVolcTenantVoices(t.Context(), adminhttp.SyncVolcTenantVoicesRequestObject{Id: tenant.Id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := response.(adminhttp.SyncVolcTenantVoices400JSONResponse); !ok {
+		t.Fatalf("SyncVolcTenantVoices() response = %#v, want 400", response)
+	}
+}
+
 type fakeVolcSpeakerClient struct {
 	speakers             []volcSpeaker
 	speakersErr          error
@@ -1875,26 +1878,37 @@ func newTestServer(t *testing.T) *Server {
 
 	fixed := time.Date(2026, 4, 22, 12, 0, 0, 0, time.UTC)
 	return &Server{
-		Store:               kv.Prefixed(store, kv.Key{"provider-tenants"}),
-		ModelStore:          kv.Prefixed(store, kv.Key{"models"}),
-		TenantStore:         kv.Prefixed(store, kv.Key{"minimax-tenants"}),
-		DeepSeekTenantStore: kv.Prefixed(store, kv.Key{"deepseek-tenants"}),
-		VolcTenantStore:     kv.Prefixed(store, kv.Key{"volc-tenants"}),
-		VoiceStore:          kv.Prefixed(store, kv.Key{"voices"}),
-		CredentialStore:     kv.Prefixed(store, kv.Key{"credentials"}),
+		Store:       kv.Prefixed(store, kv.Key{"provider-tenants"}),
+		Voices:      &voicecatalog.Server{Store: kv.Prefixed(store, kv.Key{"voices"})},
+		Credentials: &credential.Server{Store: kv.Prefixed(store, kv.Key{"credentials"})},
 		Now: func() time.Time {
 			return fixed
 		},
 	}
 }
 
+func testVoiceStore(t *testing.T, srv *Server) kv.Store {
+	t.Helper()
+	service, ok := srv.Voices.(*voicecatalog.Server)
+	if !ok {
+		t.Fatalf("Voices = %T", srv.Voices)
+	}
+	return service.Store
+}
+
+func testCredentialStore(t *testing.T, srv *Server) kv.Store {
+	t.Helper()
+	service, ok := srv.Credentials.(*credential.Server)
+	if !ok {
+		t.Fatalf("Credentials = %T", srv.Credentials)
+	}
+	return service.Store
+}
+
 func requireStoredVoice(t *testing.T, srv *Server, ctx context.Context, id string) apitypes.Voice {
 	t.Helper()
 
-	store, err := srv.voiceStore()
-	if err != nil {
-		t.Fatalf("voiceStore() error = %v", err)
-	}
+	store := testVoiceStore(t, srv)
 	voice, err := getVoice(ctx, store, id)
 	if err != nil {
 		t.Fatalf("getVoice(%s) error = %v", id, err)
@@ -1905,10 +1919,7 @@ func requireStoredVoice(t *testing.T, srv *Server, ctx context.Context, id strin
 func requireMissingVoice(t *testing.T, srv *Server, ctx context.Context, id string) {
 	t.Helper()
 
-	store, err := srv.voiceStore()
-	if err != nil {
-		t.Fatalf("voiceStore() error = %v", err)
-	}
+	store := testVoiceStore(t, srv)
 	if _, err := getVoice(ctx, store, id); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("getVoice(%s) err = %v, want kv.ErrNotFound", id, err)
 	}
@@ -1924,10 +1935,7 @@ func seedCredential(t *testing.T, srv *Server, credential apitypes.Credential) {
 	if err != nil {
 		t.Fatalf("json.Marshal(credential) error = %v", err)
 	}
-	store, err := srv.credentialStore()
-	if err != nil {
-		t.Fatalf("credentialStore() error = %v", err)
-	}
+	store := testCredentialStore(t, srv)
 	if err := store.Set(context.Background(), credentialKey(credential.Id), data); err != nil {
 		t.Fatalf("Store.Set(credential) error = %v", err)
 	}

@@ -55,7 +55,7 @@ var (
 
 type Server struct {
 	Store            kv.Store
-	WorkflowStore    kv.Store
+	Workflows        WorkflowService
 	Models           ModelService
 	Voices           VoiceService
 	RuntimeStore     RuntimeStore
@@ -65,6 +65,12 @@ type Server struct {
 	PeerAvailability func(context.Context, string) error
 
 	createMu sync.Mutex
+}
+
+// WorkflowService resolves Workflow resources without exposing the owning
+// service's backing Store.
+type WorkflowService interface {
+	GetWorkflow(context.Context, adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error)
 }
 
 type ModelService interface {
@@ -263,11 +269,7 @@ func (s *Server) CreateWorkspace(ctx context.Context, request adminhttp.CreateWo
 		}
 		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	workflowStore, err := s.workflowStore()
-	if err != nil {
-		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	if err := s.validateReferences(ctx, workflowStore, normalized, true); err != nil {
+	if err := s.validateReferences(ctx, normalized, true); err != nil {
 		if isInvalidWorkspaceReference(err) {
 			return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
 		}
@@ -351,11 +353,7 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return apitypes.Workspace{}, false, err
 	}
-	workflowStore, err := s.workflowStore()
-	if err != nil {
-		return apitypes.Workspace{}, false, err
-	}
-	if err := s.validateReferences(ctx, workflowStore, normalized, true); err != nil {
+	if err := s.validateReferences(ctx, normalized, true); err != nil {
 		return apitypes.Workspace{}, false, err
 	}
 	existing, err := getWorkspace(ctx, store, string(normalized.Name))
@@ -939,11 +937,7 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 			fmt.Sprintf("system workspace %q only permits changing the chat input mode", previous.Name),
 		)), nil
 	}
-	workflowStore, err := s.workflowStore()
-	if err != nil {
-		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	if err := s.validateReferences(ctx, workflowStore, normalized, true); err != nil {
+	if err := s.validateReferences(ctx, normalized, true); err != nil {
 		if isInvalidWorkspaceReference(err) {
 			return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
 		}
@@ -1299,21 +1293,14 @@ func workspaceMatchesLabels(workspace apitypes.Workspace, selector map[string]st
 	return true
 }
 
-func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspace adminhttp.WorkspaceUpsert, directWorkflow bool) error {
+func (s *Server) validateReferences(ctx context.Context, workspace adminhttp.WorkspaceUpsert, directWorkflow bool) error {
 	workflowName, runtimeAlias, err := resolveWorkflowReference(ctx, workspace, directWorkflow)
 	if err != nil {
 		return err
 	}
-	data, err := store.Get(ctx, workflowReferenceKey(workflowName))
+	workflow, err := s.getWorkflow(ctx, workflowName)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
-			return invalidWorkspaceReference("workflow %q not found", workflowName)
-		}
 		return err
-	}
-	var workflow apitypes.Workflow
-	if err := json.Unmarshal(data, &workflow); err != nil {
-		return fmt.Errorf("decode workflow %q: %w", workflowName, err)
 	}
 	if workflow.Spec.Driver == apitypes.WorkflowDriverAstTranslate && runtimeAlias {
 		return s.validateASTTranslateOverrides(ctx, workspace.Parameters)
@@ -1883,9 +1870,22 @@ func (s *Server) store() (kv.Store, error) {
 	return s.Store, nil
 }
 
-func (s *Server) workflowStore() (kv.Store, error) {
-	if s == nil || s.WorkflowStore == nil {
-		return nil, errors.New("workflow store not configured")
+func (s *Server) getWorkflow(ctx context.Context, id string) (apitypes.Workflow, error) {
+	if s == nil || s.Workflows == nil {
+		return apitypes.Workflow{}, errors.New("workflow service not configured")
 	}
-	return s.WorkflowStore, nil
+	response, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: id})
+	if err != nil {
+		return apitypes.Workflow{}, err
+	}
+	switch response := response.(type) {
+	case adminhttp.GetWorkflow200JSONResponse:
+		return apitypes.Workflow(response), nil
+	case adminhttp.GetWorkflow404JSONResponse:
+		return apitypes.Workflow{}, invalidWorkspaceReference("workflow %q not found", id)
+	case adminhttp.GetWorkflow500JSONResponse:
+		return apitypes.Workflow{}, fmt.Errorf("get workflow %q: %s", id, response.Error.Message)
+	default:
+		return apitypes.Workflow{}, fmt.Errorf("get workflow %q: unexpected response %T", id, response)
+	}
 }

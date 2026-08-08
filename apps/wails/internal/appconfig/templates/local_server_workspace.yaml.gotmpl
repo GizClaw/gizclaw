@@ -8,36 +8,26 @@ admin-public-key: {{ quote .AdminPublicKey }}
 {{ end }}
 
 storage:
+  process-memory:
+    kind: memory
+
   local-kv:
-    kind: keyvalue
-    badger:
-      dir: data/kv
+    kind: badger
+    dir: data/kv
 
   local-files:
-    kind: objectstore
-    fs:
-      dir: data/objects
+    kind: filesystem.dir
+    dir: data/objects
 
   gameplay-db:
-    kind: sql
-    sqlite:
-      dir: data/gameplay.sqlite
+    kind: sqlite
+    dir: data/gameplay.sqlite
 
 stores:
   peers:
     kind: keyvalue
     storage: local-kv
     prefix: peers
-
-  peer-routes:
-    kind: keyvalue
-    storage: local-kv
-    prefix: peer-routes
-
-  peer-run:
-    kind: keyvalue
-    storage: local-kv
-    prefix: peer-run
 
   public-login:
     kind: keyvalue
@@ -84,21 +74,6 @@ stores:
     storage: local-kv
     prefix: provider-tenants
 
-  minimax-tenants:
-    kind: keyvalue
-    storage: local-kv
-    prefix: minimax-tenants
-
-  deepseek-tenants:
-    kind: keyvalue
-    storage: local-kv
-    prefix: deepseek-tenants
-
-  volc-tenants:
-    kind: keyvalue
-    storage: local-kv
-    prefix: volc-tenants
-
   workflows:
     kind: keyvalue
     storage: local-kv
@@ -119,11 +94,6 @@ stores:
     storage: local-kv
     prefix: contacts
 
-  friend-invite-tokens:
-    kind: keyvalue
-    storage: local-kv
-    prefix: friend-invite-tokens
-
   friends:
     kind: keyvalue
     storage: local-kv
@@ -134,35 +104,10 @@ stores:
     storage: local-kv
     prefix: friend-groups
 
-  friend-group-invite-tokens:
+  gameplay:
     kind: keyvalue
     storage: local-kv
-    prefix: friend-group-invite-tokens
-
-  friend-group-members:
-    kind: keyvalue
-    storage: local-kv
-    prefix: friend-group-members
-
-  friend-group-belongs:
-    kind: keyvalue
-    storage: local-kv
-    prefix: friend-group-belongs
-
-  pet-defs:
-    kind: keyvalue
-    storage: local-kv
-    prefix: pet-defs
-
-  badge-defs:
-    kind: keyvalue
-    storage: local-kv
-    prefix: badge-defs
-
-  game-defs:
-    kind: keyvalue
-    storage: local-kv
-    prefix: game-defs
+    prefix: gameplay
 
   agenthost:
     kind: objectstore
@@ -185,13 +130,11 @@ stores:
 
   metrics:
     kind: metrics
-    memory: {}
+    storage: process-memory
 
 services:
   peer:
     store: peers
-    route_store: peer-routes
-    run_store: peer-run
 
   public_login:
     store: public-login
@@ -215,20 +158,13 @@ services:
     store: memory-layouts
 
   provider_tenants:
-    generic_store: provider-tenants
-    minimax_tenant_store: minimax-tenants
-    deepseek_tenant_store: deepseek-tenants
-    volc_tenant_store: volc-tenants
-    credential_store: credentials
-    model_store: models
-    voice_store: voices
+    store: provider-tenants
 
   workflow:
     store: workflows
 
   workspace:
     store: workspaces
-    workflow_store: workflows
     assets_store: workspace-assets
 
   toolkit:
@@ -239,18 +175,12 @@ services:
 
   friend:
     store: friends
-    invite_token_store: friend-invite-tokens
 
   friend_group:
     store: friend-groups
-    invite_token_store: friend-group-invite-tokens
-    member_store: friend-group-members
-    belong_store: friend-group-belongs
 
   gameplay:
-    pet_def_store: pet-defs
-    badge_def_store: badge-defs
-    game_def_store: game-defs
+    store: gameplay
     assets_store: gameplay-assets
     database_store: gameplay-db
 

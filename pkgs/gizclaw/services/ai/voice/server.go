@@ -44,7 +44,108 @@ type VoiceAdminService interface {
 	PutVoice(context.Context, adminhttp.PutVoiceRequestObject) (adminhttp.PutVoiceResponseObject, error)
 }
 
+// ProviderVoiceService owns synchronized provider Voice persistence for
+// services that discover voices from an external provider.
+type ProviderVoiceService interface {
+	ReconcileProviderVoices(context.Context, apitypes.VoiceProviderKind, string, []apitypes.Voice) (created, updated, deleted int32, err error)
+	DeleteProviderVoices(context.Context, apitypes.VoiceProviderKind, string) error
+}
+
 var _ VoiceAdminService = (*Server)(nil)
+var _ ProviderVoiceService = (*Server)(nil)
+
+// ReconcileProviderVoices makes synchronized voices for one provider tenant
+// match desired while preserving stable IDs and creation timestamps.
+func (s *Server) ReconcileProviderVoices(ctx context.Context, kind apitypes.VoiceProviderKind, providerID string, desired []apitypes.Voice) (int32, int32, int32, error) {
+	store, err := s.store()
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	seen := make(map[string]struct{}, len(desired))
+	for _, candidate := range desired {
+		if candidate.Provider.Kind != kind || string(candidate.Provider.Id) != providerID || candidate.Source != apitypes.VoiceSourceSync {
+			return 0, 0, 0, fmt.Errorf("provider voice %q does not belong to %s tenant %q", candidate.Id, kind, providerID)
+		}
+		providerVoiceID := ProviderDataString(candidate, "voice_id")
+		if providerVoiceID == "" {
+			return 0, 0, 0, errors.New("provider voice is missing voice_id")
+		}
+		if _, duplicate := seen[providerVoiceID]; duplicate {
+			return 0, 0, 0, fmt.Errorf("duplicate provider voice_id %q", providerVoiceID)
+		}
+		seen[providerVoiceID] = struct{}{}
+	}
+	existing, err := ListProvider(ctx, store, kind, providerID)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	existingByProviderVoiceID := make(map[string]apitypes.Voice, len(existing))
+	for _, current := range existing {
+		if current.Source != apitypes.VoiceSourceSync {
+			continue
+		}
+		providerVoiceID := ProviderDataString(current, "voice_id")
+		if providerVoiceID != "" {
+			existingByProviderVoiceID[providerVoiceID] = current
+		}
+	}
+
+	var created, updated int32
+	for _, candidate := range desired {
+		providerVoiceID := ProviderDataString(candidate, "voice_id")
+		if previous, ok := existingByProviderVoiceID[providerVoiceID]; ok {
+			candidate.Id = previous.Id
+			candidate.CreatedAt = previous.CreatedAt
+			if SemanticEqual(previous, candidate) {
+				candidate.UpdatedAt = previous.UpdatedAt
+			} else {
+				updated++
+			}
+			previousCopy := previous
+			if err := Write(ctx, store, candidate, &previousCopy); err != nil {
+				return 0, 0, 0, err
+			}
+			continue
+		}
+		created++
+		if err := Write(ctx, store, candidate, nil); err != nil {
+			return 0, 0, 0, err
+		}
+	}
+
+	var deleted int32
+	for providerVoiceID, current := range existingByProviderVoiceID {
+		if _, ok := seen[providerVoiceID]; ok {
+			continue
+		}
+		if err := Delete(ctx, store, current); err != nil {
+			return 0, 0, 0, err
+		}
+		deleted++
+	}
+	return created, updated, deleted, nil
+}
+
+// DeleteProviderVoices removes synchronized voices owned by one provider
+// tenant while leaving manually managed voices untouched.
+func (s *Server) DeleteProviderVoices(ctx context.Context, kind apitypes.VoiceProviderKind, providerID string) error {
+	store, err := s.store()
+	if err != nil {
+		return err
+	}
+	voices, err := ListProvider(ctx, store, kind, providerID)
+	if err != nil {
+		return err
+	}
+	for _, current := range voices {
+		if current.Source == apitypes.VoiceSourceSync {
+			if err := Delete(ctx, store, current); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
 
 type Filters struct {
 	Source       *string
