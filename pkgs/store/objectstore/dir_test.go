@@ -49,6 +49,38 @@ func TestDirPutGetListDelete(t *testing.T) {
 	}
 }
 
+func TestDirGetKeepsTransientRootUntilReaderClose(t *testing.T) {
+	store := Dir(t.TempDir())
+	if err := store.Put("object.txt", strings.NewReader("value")); err != nil {
+		t.Fatal(err)
+	}
+
+	reader, err := store.Get("object.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrapped, ok := reader.(*dirReadCloser)
+	if !ok {
+		t.Fatalf("Get() reader type = %T, want *dirReadCloser", reader)
+	}
+	if _, err := wrapped.root.Stat("."); err != nil {
+		t.Fatalf("transient root before reader close: %v", err)
+	}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "value" {
+		t.Fatalf("Get() data = %q, want value", data)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := wrapped.root.Stat("."); err == nil {
+		t.Fatal("transient root remains open after reader close")
+	}
+}
+
 func TestDirDeletePrefix(t *testing.T) {
 	store := Dir(t.TempDir())
 	for _, name := range []string{"alpha/a.bin", "alpha/nested/b.bin", "beta/icon.png"} {

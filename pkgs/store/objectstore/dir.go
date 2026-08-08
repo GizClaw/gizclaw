@@ -31,13 +31,22 @@ func (d Dir) Get(name string) (reader io.ReadCloser, err error) {
 		return nil, err
 	}
 	reader, err = store.Get(name)
-	if closeErr := root.Close(); closeErr != nil {
-		if reader != nil {
-			_ = reader.Close()
+	if err != nil {
+		if closeErr := root.Close(); closeErr != nil {
+			return nil, errors.Join(err, closeErr)
 		}
-		return nil, errors.Join(err, closeErr)
+		return nil, err
 	}
-	return reader, err
+	return &dirReadCloser{ReadCloser: reader, root: root}, nil
+}
+
+type dirReadCloser struct {
+	io.ReadCloser
+	root *os.Root
+}
+
+func (r *dirReadCloser) Close() error {
+	return errors.Join(r.ReadCloser.Close(), r.root.Close())
 }
 
 func (d Dir) Put(name string, reader io.Reader) error {

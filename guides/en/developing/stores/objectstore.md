@@ -11,7 +11,7 @@
 | `ObjectStore` | Define Get, Put, expiration, Delete, DeletePrefix and List. |
 | `ObjectInfo` | Returns object name, size and deadline. |
 | `LocalDirProvider` | Allows callers to identify the local filesystem backend. |
-| `Dir` | Path-based convenience entrypoint; transiently opens an `os.Root` for each direct call and delegates to the shared `Root` implementation. |
+| `Dir` | Path-based convenience entrypoint; transiently opens an `os.Root` and delegates to `Root`; a `Get` reader closes that Root when the reader closes. |
 | `Root` / `NewRoot` | The single filesystem ObjectStore implementation; borrows a physical `*os.Root` for rooted operations without closing it. |
 
 ## Main purpose
