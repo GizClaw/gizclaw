@@ -14,7 +14,7 @@ import (
 
 func TestKeyValueUsesCompatiblePhysicalStorage(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"memory": {Kind: physicalstorage.KindMemory},
+		"memory": physicalstorage.MemoryConfig{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -43,7 +43,7 @@ func TestKeyValueUsesCompatiblePhysicalStorage(t *testing.T) {
 
 func TestKeyValueBadgerStoresSharePhysicalAtomicRoot(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"badger": {Kind: physicalstorage.KindBadger, Dir: t.TempDir()},
+		"badger": physicalstorage.BadgerConfig{Dir: t.TempDir()},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -73,7 +73,7 @@ func TestKeyValueBadgerStoresSharePhysicalAtomicRoot(t *testing.T) {
 
 func TestKeyValueRejectsIncompatibleStorage(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"objects": {Kind: physicalstorage.KindFilesystemDir, Dir: t.TempDir()},
+		"objects": physicalstorage.FilesystemDirConfig{Dir: t.TempDir()},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -89,9 +89,9 @@ func TestKeyValueRejectsIncompatibleStorage(t *testing.T) {
 
 func TestStoreKindsRejectIncompatibleStorageKinds(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"memory":   {Kind: physicalstorage.KindMemory},
-		"files":    {Kind: physicalstorage.KindFilesystemDir, Dir: t.TempDir()},
-		"database": {Kind: physicalstorage.KindSQLite, DSN: ":memory:"},
+		"memory":   physicalstorage.MemoryConfig{},
+		"files":    physicalstorage.FilesystemDirConfig{Dir: t.TempDir()},
+		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -121,7 +121,7 @@ func TestStoreKindsRejectIncompatibleStorageKinds(t *testing.T) {
 func TestObjectStoreConstructedFromFilesystemDir(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "objects")
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"files": {Kind: physicalstorage.KindFilesystemDir, Dir: dir},
+		"files": physicalstorage.FilesystemDirConfig{Dir: dir},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -157,7 +157,7 @@ func TestObjectStoreConstructedFromFilesystemDir(t *testing.T) {
 
 func TestSQLUsesCompatibleDatabaseStorage(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"database": {Kind: physicalstorage.KindSQLite, DSN: ":memory:"},
+		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -184,7 +184,7 @@ func TestSQLUsesCompatibleDatabaseStorage(t *testing.T) {
 
 func TestMetricsMemoryStoresAreIndependent(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"memory": {Kind: physicalstorage.KindMemory},
+		"memory": physicalstorage.MemoryConfig{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -216,7 +216,7 @@ func TestMetricsMemoryStoresAreIndependent(t *testing.T) {
 
 func TestRemovedCommandStoreKindsAreRejected(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"memory": {Kind: physicalstorage.KindMemory},
+		"memory": physicalstorage.MemoryConfig{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -236,7 +236,7 @@ func TestRemovedCommandStoreKindsAreRejected(t *testing.T) {
 
 func TestLogicalScopeFieldsAreKindSpecific(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"memory": {Kind: physicalstorage.KindMemory},
+		"memory": physicalstorage.MemoryConfig{},
 	})
 	if err != nil {
 		t.Fatal(err)

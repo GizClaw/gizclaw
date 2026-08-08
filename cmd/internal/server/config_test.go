@@ -500,17 +500,63 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 
 func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
 	t.Setenv("GIZCLAW_TEST_CONFIG_VALUE", "expanded")
-	physical := storageFileConfig{
-		Kind: storage.KindPrometheus, Dir: "${GIZCLAW_TEST_CONFIG_VALUE}/dir", DSN: "${GIZCLAW_TEST_CONFIG_VALUE}/dsn",
-		RemoteWriteURL: "${GIZCLAW_TEST_CONFIG_VALUE}/write", QueryURL: "${GIZCLAW_TEST_CONFIG_VALUE}/query", BearerToken: "${GIZCLAW_TEST_CONFIG_VALUE}/token",
-		Endpoint: "${GIZCLAW_TEST_CONFIG_VALUE}/endpoint", Region: "${GIZCLAW_TEST_CONFIG_VALUE}/region", AccessKeyID: "${GIZCLAW_TEST_CONFIG_VALUE}/id", AccessKeySecret: "${GIZCLAW_TEST_CONFIG_VALUE}/secret",
-	}.runtimeConfig()
-	if physical != (storage.Config{
-		Kind: storage.KindPrometheus, Dir: "expanded/dir", DSN: "expanded/dsn",
-		RemoteWriteURL: "expanded/write", QueryURL: "expanded/query", BearerToken: "expanded/token",
-		Endpoint: "expanded/endpoint", Region: "expanded/region", AccessKeyID: "expanded/id", AccessKeySecret: "expanded/secret",
-	}) {
-		t.Fatalf("storage runtime config = %+v", physical)
+	tests := map[string]struct {
+		file storageFileConfig
+		want storage.Config
+	}{
+		"badger": {
+			file: storageFileConfig{Kind: storage.KindBadger, Dir: "${GIZCLAW_TEST_CONFIG_VALUE}/dir"},
+			want: storage.BadgerConfig{Dir: "expanded/dir"},
+		},
+		"memory": {
+			file: storageFileConfig{Kind: storage.KindMemory},
+			want: storage.MemoryConfig{},
+		},
+		"filesystem.dir": {
+			file: storageFileConfig{Kind: storage.KindFilesystemDir, Dir: "${GIZCLAW_TEST_CONFIG_VALUE}/dir"},
+			want: storage.FilesystemDirConfig{Dir: "expanded/dir"},
+		},
+		"sqlite": {
+			file: storageFileConfig{Kind: storage.KindSQLite, Dir: "${GIZCLAW_TEST_CONFIG_VALUE}/dir", DSN: "${GIZCLAW_TEST_CONFIG_VALUE}/dsn"},
+			want: storage.SQLiteConfig{Dir: "expanded/dir", DSN: "expanded/dsn"},
+		},
+		"postgresql": {
+			file: storageFileConfig{Kind: storage.KindPostgreSQL, DSN: "${GIZCLAW_TEST_CONFIG_VALUE}/dsn"},
+			want: storage.PostgreSQLConfig{DSN: "expanded/dsn"},
+		},
+		"clickhouse": {
+			file: storageFileConfig{Kind: storage.KindClickHouse, DSN: "${GIZCLAW_TEST_CONFIG_VALUE}/dsn"},
+			want: storage.ClickHouseConfig{DSN: "expanded/dsn"},
+		},
+		"prometheus": {
+			file: storageFileConfig{
+				Kind: storage.KindPrometheus, RemoteWriteURL: "${GIZCLAW_TEST_CONFIG_VALUE}/write",
+				QueryURL: "${GIZCLAW_TEST_CONFIG_VALUE}/query", BearerToken: "${GIZCLAW_TEST_CONFIG_VALUE}/token",
+			},
+			want: storage.PrometheusConfig{RemoteWriteURL: "expanded/write", QueryURL: "expanded/query", BearerToken: "expanded/token"},
+		},
+		"volc-tls": {
+			file: storageFileConfig{
+				Kind: storage.KindVolcTLS, Endpoint: "${GIZCLAW_TEST_CONFIG_VALUE}/endpoint",
+				Region: "${GIZCLAW_TEST_CONFIG_VALUE}/region", AccessKeyID: "${GIZCLAW_TEST_CONFIG_VALUE}/id",
+				AccessKeySecret: "${GIZCLAW_TEST_CONFIG_VALUE}/secret",
+			},
+			want: storage.VolcTLSConfig{
+				Endpoint: "expanded/endpoint", Region: "expanded/region",
+				AccessKeyID: "expanded/id", AccessKeySecret: "expanded/secret",
+			},
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			physical, err := test.file.runtimeConfig()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if physical != test.want {
+				t.Fatalf("storage runtime config = %#v, want %#v", physical, test.want)
+			}
+		})
 	}
 	logical := (storeFileConfig{
 		Kind: stores.KindLogImmutable, Storage: "storage", Prefix: "prefix",
@@ -524,13 +570,20 @@ func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
 	}
 }
 
+func TestStorageFileConfigRejectsUnknownKind(t *testing.T) {
+	_, err := (storageFileConfig{Kind: "unknown"}).runtimeConfig()
+	if err == nil || !strings.Contains(err.Error(), "unknown storage kind") {
+		t.Fatalf("runtimeConfig() error = %v", err)
+	}
+}
+
 func TestNewPreservesPostgresDialectThroughLayeredStorage(t *testing.T) {
 	dsn := strings.TrimSpace(os.Getenv("GIZCLAW_TEST_POSTGRES_DSN"))
 	if dsn == "" {
 		t.Skip("GIZCLAW_TEST_POSTGRES_DSN is not set")
 	}
 	cfg := validLayeredConfig(t.TempDir())
-	cfg.Storage["gameplay-db"] = storage.Config{Kind: storage.KindPostgreSQL, DSN: dsn}
+	cfg.Storage["gameplay-db"] = storage.PostgreSQLConfig{DSN: dsn}
 
 	srv, err := New(cfg)
 	if err != nil {
@@ -560,7 +613,7 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 	dir := t.TempDir()
 
 	storageErrCfg := validLayeredConfig(dir)
-	storageErrCfg.Storage["memory"] = storage.Config{Kind: storage.KindBadger}
+	storageErrCfg.Storage["memory"] = storage.BadgerConfig{}
 	if _, err := New(storageErrCfg); err == nil || !strings.Contains(err.Error(), "server: stores:") {
 		t.Fatalf("New(storage error) = %v", err)
 	}
@@ -1183,9 +1236,9 @@ func validLayeredConfig(dir string) Config {
 		Listen:   "127.0.0.1:1234",
 		Endpoint: "127.0.0.1:1234",
 		Storage: map[string]storage.Config{
-			"memory":      {Kind: storage.KindMemory},
-			"local-files": {Kind: storage.KindFilesystemDir, Dir: dir},
-			"gameplay-db": {Kind: storage.KindSQLite, Dir: filepath.Join(dir, "gameplay.sqlite")},
+			"memory":      storage.MemoryConfig{},
+			"local-files": storage.FilesystemDirConfig{Dir: dir},
+			"gameplay-db": storage.SQLiteConfig{Dir: filepath.Join(dir, "gameplay.sqlite")},
 		},
 		Stores: map[string]stores.Config{
 			"peers":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},

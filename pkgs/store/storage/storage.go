@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net"
 	"net/http"
 	"net/url"
@@ -28,37 +27,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Kind constants identify concrete physical storage backends.
-const (
-	KindBadger        = "badger"
-	KindMemory        = "memory"
-	KindFilesystemDir = "filesystem.dir"
-	KindSQLite        = "sqlite"
-	KindPostgreSQL    = "postgresql"
-	KindClickHouse    = "clickhouse"
-	KindPrometheus    = "prometheus"
-	KindVolcTLS       = "volc-tls"
+var (
+	errNilConfig         = errors.New("storage: config must not be nil")
+	errUnsupportedConfig = errors.New("storage: unsupported config type")
 )
-
-// Config describes one physical storage backend. Serialization belongs to
-// callers such as cmd/internal/server.
-//
-//	storage:
-//	  main-kv:
-//	    kind: badger
-//	    dir: data/kv
-type Config struct {
-	Kind            string
-	Dir             string
-	DSN             string
-	RemoteWriteURL  string
-	QueryURL        string
-	BearerToken     string
-	Endpoint        string
-	Region          string
-	AccessKeyID     string
-	AccessKeySecret string
-}
 
 // Memory marks a process-local physical slot. Logical Store constructors use
 // the marker to create independent in-memory backends.
@@ -76,7 +48,7 @@ func (e *ConfigError) Error() string { return e.Err.Error() }
 // Unwrap exposes the underlying construction error.
 func (e *ConfigError) Unwrap() error { return e.Err }
 
-// Storage owns physical backend instances and lazy in-process allocations.
+// Storage owns physical backend instances and configured memory markers.
 type Storage struct {
 	mu         sync.Mutex
 	closed     bool
@@ -100,7 +72,7 @@ type prometheusResource struct {
 // are used as provided by the caller.
 func New(configs map[string]Config) (*Storage, error) {
 	s := &Storage{
-		configs:    maps.Clone(configs),
+		configs:    make(map[string]Config, len(configs)),
 		badgers:    make(map[string]*badger.DB),
 		dirs:       make(map[string]*os.Root),
 		sqls:       make(map[string]*sqlx.DB),
@@ -154,7 +126,7 @@ func (s *Storage) Memory(name string) (Memory, error) {
 	if s.closed {
 		return Memory{}, errors.New("storage: registry is closed")
 	}
-	if cfg, ok := s.configs[name]; !ok || cfg.Kind != KindMemory {
+	if cfg, ok := s.configs[name]; !ok || cfg.storageKind() != KindMemory {
 		return Memory{}, fmt.Errorf("storage: memory %q not found", name)
 	}
 	return Memory{}, nil
@@ -185,7 +157,7 @@ func (s *Storage) Kind(name string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("storage: %q not found", name)
 	}
-	return cfg.Kind, nil
+	return cfg.storageKind(), nil
 }
 
 // FilesystemDir returns the named rooted filesystem handle.
@@ -268,23 +240,24 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 	if !ok {
 		return fmt.Errorf("storage: %q not configured", name)
 	}
+	cfg, normalizeErr := normalizeConfig(cfg)
+	if normalizeErr != nil {
+		return &ConfigError{Name: name, Err: fmt.Errorf("storage: %q: %w", name, normalizeErr)}
+	}
+	s.configs[name] = cfg
 	states[name] = building
 	var err error
-	switch cfg.Kind {
-	case KindBadger:
+	switch cfg := cfg.(type) {
+	case BadgerConfig:
 		var st *badger.DB
-		if err = validateFields(name, cfg, "dir"); err == nil {
-			st, err = newBadger(name, cfg.Dir)
-		}
+		st, err = newBadger(name, cfg.Dir)
 		if err == nil {
 			s.badgers[name] = st
 			s.closers = append(s.closers, st)
 		}
-	case KindMemory:
-		err = validateFields(name, cfg)
-	case KindFilesystemDir:
-		err = validateFields(name, cfg, "dir")
-		if err == nil && cfg.Dir == "" {
+	case MemoryConfig:
+	case FilesystemDirConfig:
+		if cfg.Dir == "" {
 			err = fmt.Errorf("storage: filesystem.dir %q requires dir", name)
 		}
 		if err == nil {
@@ -301,14 +274,28 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 				s.closers = append(s.closers, root)
 			}
 		}
-	case KindSQLite, KindPostgreSQL, KindClickHouse:
+	case SQLiteConfig:
 		var st *sqlx.DB
-		st, err = newSQL(name, cfg)
+		st, err = newSQLite(name, cfg)
 		if err == nil {
 			s.sqls[name] = st
 			s.closers = append(s.closers, st)
 		}
-	case KindPrometheus:
+	case PostgreSQLConfig:
+		var st *sqlx.DB
+		st, err = newSQL(name, KindPostgreSQL, cfg.DSN)
+		if err == nil {
+			s.sqls[name] = st
+			s.closers = append(s.closers, st)
+		}
+	case ClickHouseConfig:
+		var st *sqlx.DB
+		st, err = newSQL(name, KindClickHouse, cfg.DSN)
+		if err == nil {
+			s.sqls[name] = st
+			s.closers = append(s.closers, st)
+		}
+	case PrometheusConfig:
 		var resource prometheusResource
 		resource, err = newPrometheus(name, cfg)
 		if err == nil {
@@ -317,7 +304,7 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 				s.closers = append(s.closers, closeIdleAdapter{closer})
 			}
 		}
-	case KindVolcTLS:
+	case VolcTLSConfig:
 		var client tls.Client
 		client, err = newVolcTLS(name, cfg)
 		if err == nil {
@@ -327,7 +314,7 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 			}
 		}
 	default:
-		err = fmt.Errorf("storage: %q has unknown kind %q", name, cfg.Kind)
+		err = fmt.Errorf("storage: %q: %w", name, errUnsupportedConfig)
 	}
 	if err != nil {
 		return &ConfigError{Name: name, Err: err}
@@ -350,27 +337,27 @@ func newBadger(name, dir string) (*badger.DB, error) {
 	return db, nil
 }
 
-func newSQL(name string, cfg Config) (*sqlx.DB, error) {
-	allowed := []string{"dsn"}
-	if cfg.Kind == KindSQLite {
-		allowed = append(allowed, "dir")
-	}
-	if err := validateFields(name, cfg, allowed...); err != nil {
-		return nil, err
-	}
-	if cfg.Kind == KindSQLite && (cfg.DSN == "") == (cfg.Dir == "") {
+func newSQLite(name string, cfg SQLiteConfig) (*sqlx.DB, error) {
+	if (cfg.DSN == "") == (cfg.Dir == "") {
 		return nil, fmt.Errorf("storage: sqlite %q requires exactly one of dsn or dir", name)
 	}
-	if cfg.Kind != KindSQLite && cfg.DSN == "" {
-		return nil, fmt.Errorf("storage: %s %q requires dsn", cfg.Kind, name)
+	dsn := cfg.DSN
+	if dsn == "" {
+		dsn = cfg.Dir
 	}
-	backend := cfg.Kind
+	if err := prepareSQLDir(name, cfg.Dir); err != nil {
+		return nil, err
+	}
+	return newSQL(name, KindSQLite, dsn)
+}
+
+func newSQL(name, kind, dsn string) (*sqlx.DB, error) {
+	if dsn == "" {
+		return nil, fmt.Errorf("storage: %s %q requires dsn", kind, name)
+	}
+	backend := kind
 	if backend == KindPostgreSQL {
 		backend = "postgres"
-	}
-	dsn := cfg.DSN
-	if cfg.Kind == KindSQLite && dsn == "" {
-		dsn = cfg.Dir
 	}
 	if backend == KindSQLite || backend == KindClickHouse {
 		sqlx.BindDriver(backend, sqlx.QUESTION)
@@ -378,16 +365,10 @@ func newSQL(name string, cfg Config) (*sqlx.DB, error) {
 	if sqlx.BindType(backend) == sqlx.UNKNOWN {
 		return nil, fmt.Errorf("storage: sql %q unsupported dialect %q", name, backend)
 	}
-	if dsn == "" {
-		return nil, fmt.Errorf("storage: sql %q requires dsn", name)
-	}
 	if backend == KindSQLite {
 		if err := validateSQLiteDSN(dsn); err != nil {
 			return nil, fmt.Errorf("storage: sql %q sqlite dsn: %w", name, err)
 		}
-	}
-	if err := prepareSQLDir(name, cfg); err != nil {
-		return nil, err
 	}
 	db, err := sqlx.Open(backend, dsn)
 	if err != nil {
@@ -462,8 +443,7 @@ func validateSQLiteDSN(dsn string) error {
 	return nil
 }
 
-func prepareSQLDir(name string, cfg Config) error {
-	dir := cfg.Dir
+func prepareSQLDir(name, dir string) error {
 	if dir == "" {
 		return nil
 	}
@@ -477,40 +457,7 @@ func prepareSQLDir(name string, cfg Config) error {
 	return nil
 }
 
-func validateFields(name string, cfg Config, allowed ...string) error {
-	allowedSet := make(map[string]struct{}, len(allowed))
-	for _, field := range allowed {
-		allowedSet[field] = struct{}{}
-	}
-	fields := []struct {
-		name string
-		set  bool
-	}{
-		{"dir", cfg.Dir != ""},
-		{"dsn", cfg.DSN != ""},
-		{"remote_write_url", cfg.RemoteWriteURL != ""},
-		{"query_url", cfg.QueryURL != ""},
-		{"bearer_token", cfg.BearerToken != ""},
-		{"endpoint", cfg.Endpoint != ""},
-		{"region", cfg.Region != ""},
-		{"access_key_id", cfg.AccessKeyID != ""},
-		{"access_key_secret", cfg.AccessKeySecret != ""},
-	}
-	for _, field := range fields {
-		if !field.set {
-			continue
-		}
-		if _, ok := allowedSet[field.name]; !ok {
-			return fmt.Errorf("storage: %s %q does not support %s", cfg.Kind, name, field.name)
-		}
-	}
-	return nil
-}
-
-func newPrometheus(name string, cfg Config) (prometheusResource, error) {
-	if err := validateFields(name, cfg, "remote_write_url", "query_url", "bearer_token"); err != nil {
-		return prometheusResource{}, err
-	}
+func newPrometheus(name string, cfg PrometheusConfig) (prometheusResource, error) {
 	remoteWriteURL := strings.TrimSpace(cfg.RemoteWriteURL)
 	queryURL := strings.TrimSpace(cfg.QueryURL)
 	bearerToken := cfg.BearerToken
@@ -548,10 +495,7 @@ func newPrometheus(name string, cfg Config) (prometheusResource, error) {
 	return prometheusResource{client: client, remoteWriteURL: remoteWriteURL}, nil
 }
 
-func newVolcTLS(name string, cfg Config) (tls.Client, error) {
-	if err := validateFields(name, cfg, "endpoint", "region", "access_key_id", "access_key_secret"); err != nil {
-		return nil, err
-	}
+func newVolcTLS(name string, cfg VolcTLSConfig) (tls.Client, error) {
 	endpoint := strings.TrimSpace(cfg.Endpoint)
 	region := strings.TrimSpace(cfg.Region)
 	accessKeyID := strings.TrimSpace(cfg.AccessKeyID)

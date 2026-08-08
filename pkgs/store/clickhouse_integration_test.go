@@ -17,7 +17,7 @@ func TestClickHousePhysicalPoolSupportsScopedMetricsAndLogs(t *testing.T) {
 		t.Skip("GIZCLAW_TEST_CLICKHOUSE_DSN is not set")
 	}
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"analytics": {Kind: physicalstorage.KindClickHouse, DSN: dsn},
+		"analytics": physicalstorage.ClickHouseConfig{DSN: dsn},
 	})
 	if err != nil {
 		t.Fatalf("storage.New() error = %v", err)

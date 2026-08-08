@@ -104,11 +104,43 @@ func resolveWorkspaceStorageConfigs(root string, cfgs map[string]storage.Config)
 
 	resolved := make(map[string]storage.Config, len(cfgs))
 	for name, cfg := range cfgs {
-		switch cfg.Kind {
-		case storage.KindBadger, storage.KindFilesystemDir, storage.KindSQLite:
+		switch cfg := cfg.(type) {
+		case storage.BadgerConfig:
 			cfg.Dir = resolveWorkspaceDir(root, cfg.Dir)
+			resolved[name] = cfg
+		case *storage.BadgerConfig:
+			if cfg == nil {
+				resolved[name] = cfg
+				continue
+			}
+			copy := *cfg
+			copy.Dir = resolveWorkspaceDir(root, copy.Dir)
+			resolved[name] = copy
+		case storage.FilesystemDirConfig:
+			cfg.Dir = resolveWorkspaceDir(root, cfg.Dir)
+			resolved[name] = cfg
+		case *storage.FilesystemDirConfig:
+			if cfg == nil {
+				resolved[name] = cfg
+				continue
+			}
+			copy := *cfg
+			copy.Dir = resolveWorkspaceDir(root, copy.Dir)
+			resolved[name] = copy
+		case storage.SQLiteConfig:
+			cfg.Dir = resolveWorkspaceDir(root, cfg.Dir)
+			resolved[name] = cfg
+		case *storage.SQLiteConfig:
+			if cfg == nil {
+				resolved[name] = cfg
+				continue
+			}
+			copy := *cfg
+			copy.Dir = resolveWorkspaceDir(root, copy.Dir)
+			resolved[name] = copy
+		default:
+			resolved[name] = cfg
 		}
-		resolved[name] = cfg
 	}
 	return resolved
 }

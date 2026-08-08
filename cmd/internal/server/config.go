@@ -180,12 +180,35 @@ type storageFileConfig struct {
 	AccessKeySecret string `yaml:"access_key_secret"`
 }
 
-func (cfg storageFileConfig) runtimeConfig() storage.Config {
-	return storage.Config{
-		Kind: cfg.Kind, Dir: os.ExpandEnv(cfg.Dir), DSN: os.ExpandEnv(cfg.DSN),
-		RemoteWriteURL: os.ExpandEnv(cfg.RemoteWriteURL), QueryURL: os.ExpandEnv(cfg.QueryURL),
-		BearerToken: os.ExpandEnv(cfg.BearerToken), Endpoint: os.ExpandEnv(cfg.Endpoint), Region: os.ExpandEnv(cfg.Region),
-		AccessKeyID: os.ExpandEnv(cfg.AccessKeyID), AccessKeySecret: os.ExpandEnv(cfg.AccessKeySecret),
+func (cfg storageFileConfig) runtimeConfig() (storage.Config, error) {
+	switch cfg.Kind {
+	case storage.KindBadger:
+		return storage.BadgerConfig{Dir: os.ExpandEnv(cfg.Dir)}, nil
+	case storage.KindMemory:
+		return storage.MemoryConfig{}, nil
+	case storage.KindFilesystemDir:
+		return storage.FilesystemDirConfig{Dir: os.ExpandEnv(cfg.Dir)}, nil
+	case storage.KindSQLite:
+		return storage.SQLiteConfig{Dir: os.ExpandEnv(cfg.Dir), DSN: os.ExpandEnv(cfg.DSN)}, nil
+	case storage.KindPostgreSQL:
+		return storage.PostgreSQLConfig{DSN: os.ExpandEnv(cfg.DSN)}, nil
+	case storage.KindClickHouse:
+		return storage.ClickHouseConfig{DSN: os.ExpandEnv(cfg.DSN)}, nil
+	case storage.KindPrometheus:
+		return storage.PrometheusConfig{
+			RemoteWriteURL: os.ExpandEnv(cfg.RemoteWriteURL),
+			QueryURL:       os.ExpandEnv(cfg.QueryURL),
+			BearerToken:    os.ExpandEnv(cfg.BearerToken),
+		}, nil
+	case storage.KindVolcTLS:
+		return storage.VolcTLSConfig{
+			Endpoint:        os.ExpandEnv(cfg.Endpoint),
+			Region:          os.ExpandEnv(cfg.Region),
+			AccessKeyID:     os.ExpandEnv(cfg.AccessKeyID),
+			AccessKeySecret: os.ExpandEnv(cfg.AccessKeySecret),
+		}, nil
+	default:
+		return nil, fmt.Errorf("server: unknown storage kind %q", cfg.Kind)
 	}
 }
 
@@ -507,7 +530,11 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 		cfg.Stores = runtimeStoreConfigs(fileCfg.Stores)
 	}
 	if len(cfg.Storage) == 0 {
-		cfg.Storage = runtimeStorageConfigs(fileCfg.Storage)
+		var err error
+		cfg.Storage, err = runtimeStorageConfigs(fileCfg.Storage)
+		if err != nil {
+			return Config{}, err
+		}
 	}
 	if cfg.Services == nil {
 		cfg.Services = fileCfg.Services
@@ -519,15 +546,19 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	return cfg, nil
 }
 
-func runtimeStorageConfigs(configs map[string]storageFileConfig) map[string]storage.Config {
+func runtimeStorageConfigs(configs map[string]storageFileConfig) (map[string]storage.Config, error) {
 	if len(configs) == 0 {
-		return nil
+		return nil, nil
 	}
 	out := make(map[string]storage.Config, len(configs))
 	for name, cfg := range configs {
-		out[name] = cfg.runtimeConfig()
+		runtime, err := cfg.runtimeConfig()
+		if err != nil {
+			return nil, fmt.Errorf("server: storage.%s: %w", name, err)
+		}
+		out[name] = runtime
 	}
-	return out
+	return out, nil
 }
 
 func runtimeStoreConfigs(configs map[string]storeFileConfig) map[string]store.Config {

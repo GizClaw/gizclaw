@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 )
@@ -21,10 +20,10 @@ func TestNewNilConfigs(t *testing.T) {
 	}
 }
 
-func TestNewRejectsUnknownKindAndEmptyName(t *testing.T) {
+func TestNewRejectsNilConfigAndEmptyName(t *testing.T) {
 	for name, configs := range map[string]map[string]Config{
-		"unknown kind": {"x": {Kind: "nosql"}},
-		"empty name":   {"": {Kind: KindMemory}},
+		"nil config": {"x": (*BadgerConfig)(nil)},
+		"empty name": {"": MemoryConfig{}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := New(configs)
@@ -39,26 +38,8 @@ func TestNewRejectsUnknownKindAndEmptyName(t *testing.T) {
 	}
 }
 
-func TestConcreteKindsRejectForeignFields(t *testing.T) {
-	for name, cfg := range map[string]Config{
-		"memory dir":         {Kind: KindMemory, Dir: "data"},
-		"badger dsn":         {Kind: KindBadger, Dir: "data", DSN: "unused"},
-		"filesystem dsn":     {Kind: KindFilesystemDir, Dir: "data", DSN: "unused"},
-		"postgresql dir":     {Kind: KindPostgreSQL, DSN: "postgres://example.invalid/db", Dir: "data"},
-		"clickhouse dir":     {Kind: KindClickHouse, DSN: "clickhouse://example.invalid/db", Dir: "data"},
-		"prometheus dsn":     {Kind: KindPrometheus, DSN: "unused"},
-		"volc-tls query url": {Kind: KindVolcTLS, QueryURL: "unused"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			if _, err := New(map[string]Config{"storage": cfg}); err == nil {
-				t.Fatal("New() error = nil")
-			}
-		})
-	}
-}
-
 func TestMemoryIsMarker(t *testing.T) {
-	registry, err := New(map[string]Config{"memory": {Kind: KindMemory}})
+	registry, err := New(map[string]Config{"memory": MemoryConfig{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +52,7 @@ func TestMemoryIsMarker(t *testing.T) {
 
 func TestBadgerKV(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "badger")
-	registry, err := New(map[string]Config{"badger": {Kind: KindBadger, Dir: dir}})
+	registry, err := New(map[string]Config{"badger": BadgerConfig{Dir: dir}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +68,7 @@ func TestBadgerKV(t *testing.T) {
 
 func TestFilesystemDirDescriptor(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "objects")
-	registry, err := New(map[string]Config{"objects": {Kind: KindFilesystemDir, Dir: dir}})
+	registry, err := New(map[string]Config{"objects": FilesystemDirConfig{Dir: dir}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,8 +87,8 @@ func TestFilesystemDirDescriptor(t *testing.T) {
 
 func TestSQLiteDirAndDSN(t *testing.T) {
 	for name, cfg := range map[string]Config{
-		"dir": {Kind: KindSQLite, Dir: filepath.Join(t.TempDir(), "dir.sqlite")},
-		"dsn": {Kind: KindSQLite, DSN: filepath.Join(t.TempDir(), "dsn.sqlite")},
+		"dir": SQLiteConfig{Dir: filepath.Join(t.TempDir(), "dir.sqlite")},
+		"dsn": SQLiteConfig{DSN: filepath.Join(t.TempDir(), "dsn.sqlite")},
 	} {
 		t.Run(name, func(t *testing.T) {
 			registry, err := New(map[string]Config{"database": cfg})
@@ -128,8 +109,8 @@ func TestSQLiteDirAndDSN(t *testing.T) {
 
 func TestSQLiteRequiresExactlyOneLocation(t *testing.T) {
 	for _, cfg := range []Config{
-		{Kind: KindSQLite},
-		{Kind: KindSQLite, Dir: "data.sqlite", DSN: ":memory:"},
+		SQLiteConfig{},
+		SQLiteConfig{Dir: "data.sqlite", DSN: ":memory:"},
 	} {
 		if _, err := New(map[string]Config{"database": cfg}); err == nil {
 			t.Fatalf("New(%+v) error = nil", cfg)
@@ -143,7 +124,7 @@ func TestSQLPreservesLiteralDSNEnvironmentReferences(t *testing.T) {
 	t.Setenv("GIZCLAW_TEST_SQLITE_DSN", filepath.Join(dir, "expanded.sqlite"))
 	const literalPath = "$GIZCLAW_TEST_SQLITE_DSN"
 	registry, err := New(map[string]Config{
-		"database": {Kind: KindSQLite, DSN: literalPath},
+		"database": SQLiteConfig{DSN: literalPath},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +141,7 @@ func TestSQLPreservesLiteralDSNEnvironmentReferences(t *testing.T) {
 func TestSQLConnectionErrorsDoNotExposeDSNSecrets(t *testing.T) {
 	const secret = "leaked-password"
 	_, err := New(map[string]Config{
-		"database": {Kind: KindPostgreSQL, DSN: "postgres://user:" + secret + "@%"},
+		"database": PostgreSQLConfig{DSN: "postgres://user:" + secret + "@%"},
 	})
 	if err == nil {
 		t.Fatal("New() error = nil")
@@ -174,7 +155,7 @@ func TestSQLiteRejectsDriverOwnedPragmaAliases(t *testing.T) {
 	for _, parameter := range []string{"_busy_timeout", "_timeout", "_foreign_keys", "_fk", "_journal_mode", "_journal"} {
 		t.Run(parameter, func(t *testing.T) {
 			_, err := New(map[string]Config{
-				"database": {Kind: KindSQLite, DSN: "file:test.sqlite?" + parameter + "=1"},
+				"database": SQLiteConfig{DSN: "file:test.sqlite?" + parameter + "=1"},
 			})
 			if err == nil || !strings.Contains(err.Error(), "unsupported") {
 				t.Fatalf("New() error = %v", err)
@@ -184,7 +165,7 @@ func TestSQLiteRejectsDriverOwnedPragmaAliases(t *testing.T) {
 }
 
 func TestCloseClosesSQL(t *testing.T) {
-	registry, err := New(map[string]Config{"database": {Kind: KindSQLite, DSN: ":memory:"}})
+	registry, err := New(map[string]Config{"database": SQLiteConfig{DSN: ":memory:"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,14 +184,5 @@ func TestCloseClosesSQL(t *testing.T) {
 	}
 	if err := db.PingContext(context.Background()); err == nil {
 		t.Fatal("PingContext() after Close() error = nil")
-	}
-}
-
-func TestConfigHasNoSerializationTags(t *testing.T) {
-	typeOf := reflect.TypeFor[Config]()
-	for field := range typeOf.Fields() {
-		if field.Tag.Get("yaml") != "" || field.Tag.Get("json") != "" || field.Tag.Get("mapstructure") != "" {
-			t.Fatalf("Config.%s has serialization tag %q", field.Name, field.Tag)
-		}
 	}
 }

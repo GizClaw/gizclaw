@@ -12,6 +12,7 @@ pkgs/store/
 ├── memory/       # Observation extraction, fact recall, and provider adapters
 ├── metrics/      # Time-series sample write and query
 ├── objectstore/  # Prefix-addressable binary object storage
+├── storage/      # Typed physical connection configs, instances, and lifecycle
 ├── vecid/        # Vector locality-sensitive identity registry
 └── vecstore/     # Vector similarity index
 ```
@@ -68,6 +69,25 @@ flowchart TB
 | `postgresql`, `clickhouse` | `dsn` |
 | `prometheus` | remote-write/query URLs and optional bearer token |
 | `volc-tls` | endpoint, region, and credentials |
+
+The public Go API does not use one generic property bag containing `Kind` and
+every backend field. `storage.Config` is a package-sealed configuration
+interface, and each backend exposes only its own valid fields:
+
+```go
+physical, err := storage.New(map[string]storage.Config{
+	"main": storage.PostgreSQLConfig{DSN: postgresDSN},
+	"cache": storage.BadgerConfig{Dir: cacheDir},
+	"local": storage.MemoryConfig{},
+})
+```
+
+The concrete implementations are `BadgerConfig`, `MemoryConfig`,
+`FilesystemDirConfig`, `SQLiteConfig`, `PostgreSQLConfig`, `ClickHouseConfig`,
+`PrometheusConfig`, and `VolcTLSConfig`. A Go caller therefore cannot pass a
+directory to PostgreSQL or a DSN/provider credential to Badger.
+`cmd/internal/server` retains the flat YAML DTO and explicitly converts each
+`kind` to its concrete Go type; YAML fields never enter the public config types.
 
 Multiple Stores may borrow one connector. The caller closes logical `Stores` first and physical `Storage` second. `memory` is a stateless marker; every keyvalue or metrics Store that references it creates an independent instance. `vecstore` and `graph` have no built-in Server consumer, so they are not command-layer Store kinds; their public packages and constructors remain available. Memory connections selected through RuntimeProfile and MemoryLayout remain outside this registry.
 

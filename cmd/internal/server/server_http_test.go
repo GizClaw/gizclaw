@@ -402,8 +402,7 @@ func cmdServerTestCreateDeviceTokenURL(t *testing.T, baseURL, accessToken string
 
 func TestNewWithOptionsWiresPrometheusMetricsStore(t *testing.T) {
 	cfg := validLayeredConfig(t.TempDir())
-	cfg.Storage["prometheus"] = storage.Config{
-		Kind:           storage.KindPrometheus,
+	cfg.Storage["prometheus"] = storage.PrometheusConfig{
 		RemoteWriteURL: "http://127.0.0.1:1/api/v1/write",
 		QueryURL:       "http://127.0.0.1:1",
 	}
