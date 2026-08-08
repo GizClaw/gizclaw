@@ -1,0 +1,66 @@
+{
+  "server": {
+    "addr": "127.0.0.1:9820",
+    "public_key": "DMEgkcGSxSrzqpNs3KYHknfpZo41Tkfuv1qi1qjivGJc",
+    "cipher_mode": "chacha_poly"
+  },
+  "agent": "doubao-realtime",
+  "models": {
+    "llm": "llm",
+    "tts": "tts",
+    "asr": "asr",
+    "realtime": "realtime"
+  },
+  "workflow": {
+    "name": "doubao-realtime-conversation",
+    "description": "Doubao realtime eight-turn response quality regression",
+    "model": "realtime",
+    "instructions": "你是中文语音测试助手。必须记住本轮对话中用户给出的事实与更正，严格遵守每轮指定的回答格式和长度，不补充无关内容。",
+    "audio": {
+      "input": {
+        "format": {
+          "type": "speech_opus",
+          "rate": 16000
+        }
+      },
+      "output": {
+        "format": {
+          "type": "ogg_opus",
+          "rate": 24000
+        },
+        "voice": "doubao-assistant",
+        "speed": 0,
+        "loudness": 0
+      }
+    },
+    "parameters": {
+      "input": "push-to-talk"
+    }
+  },
+  "voice": "assistant-voice",
+  "rounds": 8,
+  "timeout": "900s",
+  "persona": "You are a deterministic Chinese voice test user. Speak each supplied utterance verbatim and do not add context.",
+  "utterances": [
+    "请记住两个事实：项目代号苍穹，当前城市苏州。只回答收到。",
+    "项目代号是什么？只回答代号。",
+    "当前城市是哪座？只回答城市。",
+    "更正：当前城市改为杭州。只回答已更正。",
+    "那里现在是哪座城市？只回答城市。",
+    "项目进度如何？只回答顺利两个字。",
+    "同时说出项目代号和当前城市，格式是代号横线城市。",
+    "总结最初项目代号和更正后的城市，不能提旧城市，十个字以内。"
+  ],
+  "quality": {
+    "rounds": [
+      {"contains_any": ["收到", "记住"], "max_runes": 6},
+      {"contains_all": ["苍穹"], "max_runes": 6},
+      {"contains_all": ["苏州"], "max_runes": 6},
+      {"contains_any": ["更正", "好的"], "max_runes": 8},
+      {"contains_all": ["杭州"], "excludes": ["苏州"], "max_runes": 6},
+      {"contains_all": ["顺利"], "max_runes": 4},
+      {"contains_all": ["苍穹", "杭州"], "excludes": ["苏州"], "max_runes": 12},
+      {"contains_all": ["苍穹", "杭州"], "excludes": ["苏州"], "max_runes": 12}
+    ]
+  }
+}

@@ -27,6 +27,7 @@ func allWorkspaceConfigPaths(t testing.TB) []string {
 	paths := workspaceConfigCatalogPaths(t)
 	specialized := map[string]struct{}{
 		"dashscope-realtime.json":          {},
+		"doubao-realtime-quality.json":     {},
 		"doubao-realtime-duplex.json":      {},
 		"eino-memory.json":                 {},
 		"flowcraft-configured-memory.json": {},

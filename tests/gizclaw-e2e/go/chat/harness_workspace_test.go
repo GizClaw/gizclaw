@@ -196,6 +196,51 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	if !workspaceCasePushToTalkRoundtrip.runtimeValidationOptions().SkipReplay {
 		t.Fatal("catalog smoke unexpectedly replays history")
 	}
+	quality, err := workspaceCaseDoubaoRealtimeQuality.applyConfig(config{
+		Rounds:   8,
+		Workflow: workflowConfig{Name: "doubao-realtime-conversation"},
+	})
+	if err != nil {
+		t.Fatalf("applyConfig(quality) error = %v", err)
+	}
+	if quality.Rounds != 8 || quality.workspaceMode() != "push_to_talk" || quality.Workspace != "doubao-realtime-conversation-quality" {
+		t.Fatalf("quality config rounds/mode/workspace = %d/%q/%q", quality.Rounds, quality.workspaceMode(), quality.Workspace)
+	}
+}
+
+func TestDoubaoRealtimeQualityValidationIsNonRetryable(t *testing.T) {
+	err := validateDoubaoRealtimeQuality(
+		[]roundStats{{AssistantText: "旧城市苏州"}},
+		[]doubaoRealtimeQualityRound{{ContainsAll: []string{"杭州"}, Excludes: []string{"苏州"}}},
+	)
+	if err == nil || !strings.Contains(err.Error(), "does not contain") {
+		t.Fatalf("validateDoubaoRealtimeQuality() error = %v", err)
+	}
+	if isRetryableLiveWorkspaceError(err) {
+		t.Fatalf("semantic quality failure marked retryable: %v", err)
+	}
+}
+
+func TestDoubaoRealtimeQualityFixtureKeepsEightTurns(t *testing.T) {
+	path := selectedWorkspaceConfigPaths(t, "doubao-realtime-quality.json")[0]
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile(%s) error = %v", path, err)
+	}
+	var cfg config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("decode config: %v", err)
+	}
+	quality, err := loadDoubaoRealtimeQualityFixture(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Rounds != 8 || len(cfg.Utterances) != 8 || len(quality.Quality.Rounds) != 8 {
+		t.Fatalf("fixture rounds/utterances/quality = %d/%d/%d, want 8/8/8", cfg.Rounds, len(cfg.Utterances), len(quality.Quality.Rounds))
+	}
+	if strings.TrimSpace(cfg.Workflow.Instructions) == "" || cfg.Workflow.Parameters.Input != "push-to-talk" {
+		t.Fatalf("fixture instructions/input = %q/%q", cfg.Workflow.Instructions, cfg.Workflow.Parameters.Input)
+	}
 }
 
 func TestWorkspaceCaseKeepsReplayValidationInDedicatedCase(t *testing.T) {

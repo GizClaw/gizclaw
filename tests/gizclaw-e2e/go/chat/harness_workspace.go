@@ -58,6 +58,7 @@ type workspaceCase string
 
 const (
 	workspaceCasePushToTalkRoundtrip   workspaceCase = "push-to-talk-roundtrip"
+	workspaceCaseDoubaoRealtimeQuality workspaceCase = "doubao-realtime-quality"
 	workspaceCasePushToTalkInterrupt   workspaceCase = "push-to-talk-interrupt"
 	workspaceCaseRealtimeRoundtrip     workspaceCase = "realtime-roundtrip"
 	workspaceCaseFlowcraftRealtimeChat workspaceCase = "flowcraft-realtime-chat-roundtrip"
@@ -253,7 +254,7 @@ func (c workspaceCase) applyConfig(cfg config) (config, error) {
 		cfg.Workspace = compactWorkspaceName(cfg.Workspace + "-" + cfg.workspaceSuffix)
 	}
 	switch c {
-	case workspaceCasePushToTalkRoundtrip, workspaceCasePushToTalkInterrupt, workspaceCaseHistoryReplay, workspaceCaseHumanReview:
+	case workspaceCasePushToTalkRoundtrip, workspaceCaseDoubaoRealtimeQuality, workspaceCasePushToTalkInterrupt, workspaceCaseHistoryReplay, workspaceCaseHumanReview:
 		cfg.Workflow.Parameters.Input = string(rpcapi.WorkspaceInputModePushToTalk)
 		if c == workspaceCasePushToTalkRoundtrip {
 			cfg.Rounds = 1
@@ -287,6 +288,8 @@ func (c workspaceCase) workspaceIDSuffix() string {
 	switch c {
 	case workspaceCasePushToTalkRoundtrip:
 		return "ptt"
+	case workspaceCaseDoubaoRealtimeQuality:
+		return "quality"
 	case workspaceCasePushToTalkInterrupt:
 		return "ptt-int"
 	case workspaceCaseRealtimeRoundtrip:
@@ -338,6 +341,9 @@ func compactWorkspaceName(name string) string {
 func (d *personaDriver) runCase(ctx context.Context, selected workspaceCase) (workspaceCaseResult, error) {
 	switch selected {
 	case workspaceCasePushToTalkRoundtrip:
+		rounds, err := d.runPushToTalkRoundtrip(ctx)
+		return workspaceCaseResult{Rounds: rounds}, err
+	case workspaceCaseDoubaoRealtimeQuality:
 		rounds, err := d.runPushToTalkRoundtrip(ctx)
 		return workspaceCaseResult{Rounds: rounds}, err
 	case workspaceCaseRealtimeRoundtrip:

@@ -524,7 +524,10 @@ func (b DefaultBuilder) buildVolcRealtime(cfg TransformerConfig) (genx.Transform
 
 	client := doubaospeech.NewClient(appID, clientOpts...)
 	config := doubaorealtime.Config{Client: client, Model: modelName, Mode: mode}
-	if value := mapString(data, "instructions", "system_role"); value != "" {
+	if value := mapString(data, "instructions"); value != "" {
+		config.Instructions = value
+	}
+	if value := mapString(data, "system_role"); value != "" {
 		config.SystemRole = value
 	}
 	if value := mapString(data, "dialog_id"); value != "" {

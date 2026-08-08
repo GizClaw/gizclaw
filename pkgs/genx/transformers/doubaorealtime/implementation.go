@@ -46,6 +46,7 @@ type Transformer struct {
 	asrExtra            *doubaospeech.RealtimeASRExtra
 	ttsExtra            *doubaospeech.RealtimeTTSExtra
 	botName             string
+	instructions        string
 	systemRole          string
 	vadWindowMs         int
 	speakingStyle       string
@@ -189,6 +190,13 @@ func withBotName(botName string) option {
 	}
 }
 
+// withInstructions sets the model-aware initial dialogue instruction.
+func withInstructions(instructions string) option {
+	return func(t *Transformer) {
+		t.instructions = instructions
+	}
+}
+
 // withSystemRole sets the system role/prompt.
 func withSystemRole(systemRole string) option {
 	return func(t *Transformer) {
@@ -263,7 +271,7 @@ func withSearchAPIKey(apiKey string) option {
 }
 
 // WithModel sets the model version.
-// Valid values: "O" (default), "SC", "1.2.1.0" (O2.0), "2.2.0.0" (SC2.0)
+// Valid values include "O", "SC", "1.2.1.1" (O2.0), and "2.2.0.0" (SC2.0).
 func withModel(model string) option {
 	return func(t *Transformer) {
 		t.model = model
@@ -308,8 +316,6 @@ func newTransformer(client *doubaospeech.Client, opts ...option) *Transformer {
 		inputSampleRate:     doubaoRealtimeFixedInputSampleRate,
 		inputChannels:       doubaoRealtimeFixedInputChannels,
 		inputTranscode:      true,
-		model:               "O",  // Default to O version
-		botName:             "豆包", // Default bot name
 		mode:                ModePushToTalk,
 		retryInitial:        doubaoRealtimeRetryInitial,
 		retryMax:            doubaoRealtimeRetryMax,
@@ -370,6 +376,7 @@ func (t *Transformer) realtimeConfig() *doubaospeech.RealtimeConfig {
 		asrExtra.EndSmoothWindowMS = t.vadWindowMs
 	}
 	config := &doubaospeech.RealtimeConfig{
+		Instructions: t.instructions,
 		ASR: doubaospeech.RealtimeASRConfig{
 			AudioInfo: &doubaospeech.RealtimeASRAudioInfo{
 				Format:     doubaospeech.AudioFormat(doubaoRealtimeAudioFormat(t.inputFormat)),
@@ -920,6 +927,7 @@ func (t *Transformer) processSession(
 	pttResponses := &doubaoRealtimePTTResponses{}
 	var pttControl sync.Mutex
 	textResponses := &doubaoRealtimeTextResponses{}
+	var realtimeSpoken *doubaoRealtimeSpokenResponse
 	streamIDs := runtime.streamIDs
 	audioInputs := runtime.audioInputs
 
@@ -960,6 +968,9 @@ func (t *Transformer) processSession(
 		if !interrupted {
 			return false, nil
 		}
+		if t.mode != ModePushToTalk {
+			return true, nil
+		}
 		if err := session.Interrupt(ctx); err != nil {
 			return true, doubaoRealtimeRecoverable("interrupt response", err)
 		}
@@ -986,6 +997,70 @@ func (t *Transformer) processSession(
 		assistant.nextEpoch()
 		if interruptErr := session.Interrupt(ctx); interruptErr != nil {
 			return doubaoRealtimeRecoverable("interrupt response after push-to-talk output limit", interruptErr)
+		}
+		return nil
+	}
+	spokenResponse := func(response *doubaoRealtimePTTResponse) *doubaoRealtimeSpokenResponse {
+		if response != nil {
+			return &response.spoken
+		}
+		if t.mode == ModeText {
+			current := textResponses.current()
+			if current == nil {
+				return nil
+			}
+			return &current.spoken
+		}
+		if realtimeSpoken == nil {
+			realtimeSpoken = &doubaoRealtimeSpokenResponse{}
+		}
+		return realtimeSpoken
+	}
+	applySpokenTransition := func(
+		epoch uint64,
+		response *doubaoRealtimePTTResponse,
+		streamID string,
+		transition doubaoRealtimeSpokenTransition,
+	) error {
+		if transition.openAudio {
+			bos := &genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: &genx.Blob{MIMEType: t.outputMIMEType()},
+				Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, BeginOfStream: true},
+			}
+			if err := pushAssistantOutput(epoch, response, bos); err != nil {
+				return err
+			}
+		}
+		for _, text := range transition.text {
+			chunk := &genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: genx.Text(text),
+				Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel},
+			}
+			if err := pushAssistantOutput(epoch, response, chunk); err != nil {
+				return err
+			}
+		}
+		if transition.closeText {
+			eos := &genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: genx.Text(""),
+				Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true},
+			}
+			if err := pushAssistantOutput(epoch, response, eos); err != nil {
+				return err
+			}
+		}
+		if transition.closeAudio {
+			eos := &genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: &genx.Blob{MIMEType: t.outputMIMEType()},
+				Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true},
+			}
+			if err := pushAssistantOutput(epoch, response, eos); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -1115,8 +1190,12 @@ func (t *Transformer) processSession(
 				case doubaospeech.EventASRInfo:
 					slog.Info("doubao: ASR info - speech detected")
 					if t.mode == ModeRealtime {
-						if _, err := interruptAssistant(streamID, false); err != nil {
+						interrupted, err := interruptAssistant(streamID, false)
+						if err != nil {
 							return err
+						}
+						if interrupted {
+							return doubaoRealtimeRecoverable("interrupt handoff", errDoubaoRealtimeInterruptHandoff)
 						}
 					}
 
@@ -1198,6 +1277,7 @@ func (t *Transformer) processSession(
 					assistant.setAccept(true)
 					resetResponseIdle(true)
 					epoch := assistant.nextEpoch()
+					realtimeSpoken = &doubaoRealtimeSpokenResponse{}
 					responseStreamID := ""
 					switch {
 					case transcriptOpen:
@@ -1233,28 +1313,14 @@ func (t *Transformer) processSession(
 						}
 						epoch = markAssistantStarted(streamID)
 					}
-					slog.Info("doubao: TTS started, sending BOS", "streamID", streamID)
-					bosChunk := &genx.MessageChunk{
-						Role: genx.RoleModel,
-						Part: &genx.Blob{MIMEType: t.outputMIMEType()},
-						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, BeginOfStream: true},
+					state := spokenResponse(response)
+					if state == nil {
+						continue
 					}
-					if err := pushAssistantOutput(epoch, response, bosChunk); err != nil {
+					if err := applySpokenTransition(epoch, response, streamID, state.ttsStarted(event.Text)); err != nil {
 						return err
 					}
 					resetResponseIdle(true)
-
-					if event.Text != "" {
-						outChunk := &genx.MessageChunk{
-							Role: genx.RoleModel,
-							Part: genx.Text(event.Text),
-							Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel},
-						}
-						if err := pushAssistantOutput(epoch, response, outChunk); err != nil {
-							return err
-						}
-						resetResponseIdle(true)
-					}
 
 				case doubaospeech.EventChatResponse:
 					var response *doubaoRealtimePTTResponse
@@ -1270,17 +1336,12 @@ func (t *Transformer) processSession(
 					} else if !assistant.acceptsOutput() {
 						continue
 					}
-					text := strings.TrimSpace(event.Text)
-					if text != "" {
-						slog.Debug("doubao: chat response", "text", text)
-						outChunk := &genx.MessageChunk{
-							Role: genx.RoleModel,
-							Part: genx.Text(text),
-							Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel},
-						}
-						if err := pushAssistantOutput(epoch, response, outChunk); err != nil {
-							return err
-						}
+					state := spokenResponse(response)
+					if state == nil {
+						continue
+					}
+					if err := applySpokenTransition(epoch, response, streamID, state.chat(event.Text)); err != nil {
+						return err
 					}
 
 				case doubaospeech.EventTTSAudioData:
@@ -1301,6 +1362,13 @@ func (t *Transformer) processSession(
 						textResponses.markTTSStarted()
 					}
 					if len(event.Audio) > 0 {
+						state := spokenResponse(response)
+						if state == nil {
+							continue
+						}
+						if err := applySpokenTransition(epoch, response, streamID, state.audioStarted()); err != nil {
+							return err
+						}
 						slog.Debug("doubao: audio received", "len", len(event.Audio))
 						blobs, err := t.outputAudioBlobs(event.Audio)
 						if err != nil {
@@ -1336,13 +1404,11 @@ func (t *Transformer) processSession(
 						}
 						continue
 					}
-					slog.Info("doubao: TTS finished, sending EOS", "streamID", streamID)
-					eosChunk := &genx.MessageChunk{
-						Role: genx.RoleModel,
-						Part: &genx.Blob{MIMEType: t.outputMIMEType()},
-						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true},
+					state := spokenResponse(response)
+					if state == nil {
+						continue
 					}
-					if err := pushAssistantOutput(epoch, response, eosChunk); err != nil {
+					if err := applySpokenTransition(epoch, response, streamID, state.finishTTS()); err != nil {
 						return err
 					}
 					if t.mode == ModePushToTalk {
@@ -1370,17 +1436,11 @@ func (t *Transformer) processSession(
 						}
 						continue
 					}
-					slog.Debug("doubao: chat ended")
-					doneChunk := &genx.MessageChunk{
-						Role: genx.RoleModel,
-						Part: genx.Text(""),
-						Ctrl: &genx.StreamCtrl{
-							StreamID:    streamID,
-							Label:       doubaoRealtimeAssistantLabel,
-							EndOfStream: true,
-						},
+					state := spokenResponse(response)
+					if state == nil {
+						continue
 					}
-					if err := pushAssistantOutput(epoch, response, doneChunk); err != nil {
+					if err := applySpokenTransition(epoch, response, streamID, state.finishChat()); err != nil {
 						return err
 					}
 					if response != nil {

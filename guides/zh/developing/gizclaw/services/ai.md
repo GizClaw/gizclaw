@@ -56,6 +56,10 @@ Server 配置只为 ProviderTenants 指定一个根 Store；generic、MiniMax、
 
 Workflow 描述如何运行 Agent，但不拥有 Agent instance 的在线状态和 stream lifecycle。
 
+#### Doubao Realtime 组合边界
+
+Doubao Realtime factory 拥有产品层 precedence，不解释 provider model family。非空的 Workspace `parameters.instructions` 覆盖 Workflow instruction，两者不会拼接。Factory 加入 runtime `DialogID`，再把最终 instruction、选中的 RuntimeProfile model 和 audio 配置交给 immutable GenX transformer。`peergenx` 只把语义值映射到 `Config.Instructions`；只有 `doubao-speech-go` 负责选择 O20 `dialog.system_role` 或 SC20 `dialog.character_manifest`。精确 provider 字段仍是显式、相互独立的选项，`prompt.system` 不是 Workflow instruction 的 fallback。
+
 #### Flowcraft 组合边界
 
 Flowcraft workflow factory 把扁平的 `spec.flowcraft.graph`、`conversation`、`max_iterations` 和 `voice_adapter` 与 Workspace owner 的 RuntimeProfile alias、History、State、Memory 和 Audio Dock 组装成 Transformer。Workspace `input` 缺省为 `push-to-talk`：该模式由客户端 audio EOS 完成一轮；`realtime` 复用 ASR Transformer 的 definite-utterance transcript EOS，在外层音频输入保持打开时完成一轮。客户端显式 audio route EOS 会终结当前 ASR provider session，下一条 route 再打开新 session；没有 route EOS 的连续音频仍由 provider VAD 分段。Audio Dock 与 Flowcraft 保留并顺序组合 ASR text delta，不重新解释 provider 断句。`id` 与 `name` 不在 Flowcraft payload 中重复配置，分别由 Workspace 与 Workflow metadata 派生。

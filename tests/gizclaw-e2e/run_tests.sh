@@ -22,6 +22,7 @@ failure_diagnostics_collected=0
 chat_pkg="./tests/gizclaw-e2e/go/chat"
 chat_live_tests=(
   TestPushToTalkRoundtrip
+  TestDoubaoRealtimeResponseQuality
   TestHistoryReplay
   TestRealtimeRoundtrip
   TestFlowcraftRealtimeChatRoundtrip
@@ -37,6 +38,7 @@ chat_live_tests=(
 )
 chat_standard_live_patterns=(
   '^TestPushToTalkRoundtrip$'
+  '^TestDoubaoRealtimeResponseQuality$'
   '^TestRealtimeRoundtrip$'
   '^TestFlowcraftRealtimeChatRoundtrip$'
   '^TestHistoryReplay$'
