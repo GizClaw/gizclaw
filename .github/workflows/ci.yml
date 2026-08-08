@@ -77,14 +77,14 @@ jobs:
           package="${RUNNER_TEMP}/gizclaw_0.0.0_amd64.deb"
           build/package-deb.sh \
             --binary "$BINARY" \
-            --tag v0.0.0 \
+            --version 0.0.0 \
             --source-commit "$source_commit" \
             --source-epoch "$source_epoch" \
             --architecture amd64 \
             --output "$package"
           build/check-deb.sh \
             --package "$package" \
-            --tag v0.0.0 \
+            --version 0.0.0 \
             --source-commit "$source_commit" \
             --architecture amd64
 

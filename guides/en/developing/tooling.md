@@ -105,29 +105,32 @@ explicit errors instead of placeholder output.
 
 ## Repository Releases
 
-The repository publishes two deliberately different GitHub Release contracts.
-They are not interchangeable:
+The repository publishes the same release asset classes through two channels:
 
-- `main-latest` is a mutable snapshot moved by every push to `main`. It contains
-  exactly `gizclaw-linux-amd64`, `gizclaw-linux-arm64`,
-  `gizclaw-darwin-amd64`, and `gizclaw-darwin-arm64`.
-- A canonical protected tag `vMAJOR.MINOR.PATCH` publishes a formal,
-  non-prerelease version. It contains exactly the two Debian packages
-  `gizclaw_<version>_{amd64,arm64}.deb`, the two Darwin executables,
-  `release-manifest.json`, and `SHA256SUMS`. Formal Releases do not contain raw
-  Linux executables.
+- `latest` is a mutable snapshot replaced by every push to `main`.
+- A canonical protected tag `vMAJOR.MINOR.PATCH` publishes an immutable formal,
+  non-prerelease version.
 
-The Git tag is the only source version. It is the Go module version and GitHub
-Release tag; removing its leading `v` gives the Debian package version. Formal
-tags must be stable canonical SemVer, without leading zeroes, prerelease
-identifiers, or build metadata. Both annotated and lightweight tags resolve to
-their full peeled commit, and that commit must already be reachable from the
-current protected `main` head.
+Both channels contain exactly two Debian packages, the two Darwin executables,
+`release-manifest.json`, and `SHA256SUMS`; neither channel publishes raw Linux
+executables. A formal Release uses `<version>` from its tag in
+`gizclaw_<version>_{amd64,arm64}.deb`. A `latest` package uses the
+deterministic Debian version
+`0.0.0~main.<source-epoch>+<12-character-source-commit>` so each moving snapshot
+still has package metadata bound to its exact source commit.
+
+For formal releases, the Git tag is the only source version. It is both the Go
+module version and GitHub Release tag; removing its leading `v` gives the Debian
+package version. Formal tags must be stable canonical SemVer, without leading
+zeroes, prerelease identifiers, or build metadata. Both annotated and
+lightweight tags resolve to their full peeled commit, and that commit must
+already be reachable from the current protected `main` head. The mutable
+`latest` tag is a snapshot pointer, not a Go module SemVer.
 
 Before creating the first formal tag, a repository administrator must activate
 a tag ruleset for `refs/tags/v*` that permits creation while restricting update
 and deletion. Repository-wide immutable Releases must remain disabled because
-they would also lock the required moving `main-latest` Release. The publication
+they would also lock the required moving `latest` Release. The publication
 workflow checks these conditions and fails before creating a formal Release; it
 does not own repository administration.
 
@@ -140,7 +143,7 @@ Silicon runners. Windows, universal macOS binaries, application bundles,
 installers, notarization, and package-manager repository publication are not
 part of this repository release contract.
 
-Download and verify a formal Release without trusting filenames alone:
+Download and verify a Release without trusting filenames alone:
 
 ```sh
 tag=v1.2.3
@@ -150,12 +153,13 @@ chmod +x ".tmp/$tag"/gizclaw-darwin-*
 build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
 ```
 
-`release-manifest.json` binds every payload name, platform, architecture, byte
-size, and SHA-256 to the full source commit. Debian entries also bind package
-metadata and `/usr/bin/gizclaw`. A rerun accepts an existing formal Release only
-when its published metadata and all six downloaded files match byte-for-byte.
-Any draft, partial, moved, or mismatched Release fails closed. A failed first
-upload can leave a draft; an administrator must inspect and delete that draft
-before retrying. The workflow never deletes or overwrites a published SemVer
-Release. Downstream Homebrew and APT channels independently own their signing,
-hosting, retention, and live installation acceptance.
+`release-manifest.json` identifies the snapshot or stable channel and binds
+every payload name, platform, architecture, byte size, and SHA-256 to the full
+source commit. Debian entries also bind package metadata and
+`/usr/bin/gizclaw`. A formal rerun accepts an existing Release only when its
+published metadata and all six downloaded files match byte-for-byte. Any draft,
+partial, moved, or mismatched formal Release fails closed. A failed first upload
+can leave a draft; an administrator must inspect and delete that draft before
+retrying. The workflow never deletes or overwrites a published SemVer Release.
+Downstream Homebrew and APT channels independently own their signing, hosting,
+retention, and live installation acceptance.

@@ -4,7 +4,7 @@
 set -euo pipefail
 
 binary=
-tag=
+version=
 source_commit=
 source_epoch=
 architecture=
@@ -13,7 +13,7 @@ output=
 while (($# > 0)); do
   case "$1" in
     --binary) binary="${2:-}"; shift 2 ;;
-    --tag) tag="${2:-}"; shift 2 ;;
+    --version) version="${2:-}"; shift 2 ;;
     --source-commit) source_commit="${2:-}"; shift 2 ;;
     --source-epoch) source_epoch="${2:-}"; shift 2 ;;
     --architecture) architecture="${2:-}"; shift 2 ;;
@@ -23,16 +23,16 @@ while (($# > 0)); do
 done
 
 usage() {
-  echo "usage: $0 --binary PATH --tag vMAJOR.MINOR.PATCH --source-commit SHA --source-epoch UNIX --architecture amd64|arm64 --output PATH" >&2
+  echo "usage: $0 --binary PATH --version DEBIAN_VERSION --source-commit SHA --source-epoch UNIX --architecture amd64|arm64 --output PATH" >&2
   exit 2
 }
 
-[[ -n "$binary" && -n "$tag" && -n "$source_commit" && -n "$source_epoch" && -n "$architecture" && -n "$output" ]] || usage
-[[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
-  echo "tag must be a canonical stable vMAJOR.MINOR.PATCH" >&2
+[[ -n "$binary" && -n "$version" && -n "$source_commit" && -n "$source_epoch" && -n "$architecture" && -n "$output" ]] || usage
+if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ &&
+      ! "$version" =~ ^0\.0\.0~main\.[0-9]+\+[0-9a-f]{12}$ ]]; then
+  echo "version must be a stable SemVer or canonical main snapshot Debian version" >&2
   exit 2
-}
-version="${tag#v}"
+fi
 [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "source commit must be full lowercase hex" >&2; exit 2; }
 [[ "$source_epoch" =~ ^[0-9]+$ ]] || { echo "source epoch must be a non-negative integer" >&2; exit 2; }
 case "$architecture" in amd64 | arm64) ;; *) echo "unsupported architecture: $architecture" >&2; exit 2 ;; esac
@@ -96,7 +96,7 @@ Architecture: $architecture
 Maintainer: GizClaw <opensource@gizclaw.com>
 Depends: $dependencies
 Description: GizClaw server and edge runtime
- GizClaw command-line runtime built from a protected source tag.
+ GizClaw command-line runtime built from an exact source commit.
 X-GizClaw-Source-Commit: $source_commit
 EOF
 

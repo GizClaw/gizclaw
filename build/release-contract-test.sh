@@ -14,8 +14,13 @@ snapshot_publisher="$(awk '/^  publish-snapshot:/{selected=1} /^  publish-semver
 semver_publisher="$(awk '/^  publish-semver:/{selected=1} selected' "$release_workflow")"
 grep -Fq 'tags:' "$release_workflow"
 grep -Fq -- '- "v*"' "$release_workflow"
-grep -Fq 'gh release delete main-latest --yes --cleanup-tag' <<<"$snapshot_publisher"
-if grep -Eq 'gh release (delete|upload)|cleanup-tag|clobber|gh release .*main-latest|refs/tags/main-latest' <<<"$semver_publisher"; then
+grep -Fq 'gh release delete latest --yes --cleanup-tag' <<<"$snapshot_publisher"
+if grep -Fq 'Stage mutable snapshot executable' "$release_workflow" ||
+   grep -Fq '".tmp/release/gizclaw-linux-' "$release_workflow"; then
+  echo "release workflow must package Linux executables as Debian assets for every release channel" >&2
+  exit 1
+fi
+if grep -Eq 'gh release (delete|upload)|cleanup-tag|clobber|gh release .*latest|refs/tags/latest' <<<"$semver_publisher"; then
   echo "SemVer publisher contains a forbidden mutation or snapshot reference" >&2
   exit 1
 fi
@@ -34,6 +39,7 @@ trap 'rm -rf "$fixture_root"' EXIT
 tag=v0.0.0
 version=0.0.0
 source_commit=1111111111111111111111111111111111111111
+snapshot_version=0.0.0~main.1+111111111111
 fixture_binary="$(type -P true)"
 [[ -n "$fixture_binary" ]] || { echo "could not locate the true executable" >&2; exit 2; }
 
@@ -70,9 +76,12 @@ EOF
 make_snapshot() {
   local directory="$1"
   mkdir -p "$directory"
-  for name in gizclaw-linux-amd64 gizclaw-linux-arm64 gizclaw-darwin-amd64 gizclaw-darwin-arm64; do
-    install -m 0755 "$fixture_binary" "$directory/$name"
-  done
+  make_fixture_deb amd64 "$directory/gizclaw_${snapshot_version}_amd64.deb" gizclaw "$snapshot_version"
+  make_fixture_deb arm64 "$directory/gizclaw_${snapshot_version}_arm64.deb" gizclaw "$snapshot_version"
+  install -m 0755 "$fixture_binary" "$directory/gizclaw-darwin-amd64"
+  install -m 0755 "$fixture_binary" "$directory/gizclaw-darwin-arm64"
+  "$repo_root/build/build-release-manifest.sh" \
+    --asset-dir "$directory" --tag latest --debian-version "$snapshot_version" --source-commit "$source_commit"
 }
 
 make_formal_payloads() {
@@ -86,27 +95,34 @@ make_formal_payloads() {
 
 snapshot="$fixture_root/snapshot"
 make_snapshot "$snapshot"
-"$repo_root/build/check-release.sh" snapshot "$snapshot"
+"$repo_root/build/check-release.sh" snapshot "$snapshot" "$snapshot_version" "$source_commit"
 
 snapshot_extra="$fixture_root/snapshot-extra"
 cp -a "$snapshot" "$snapshot_extra"
 touch "$snapshot_extra/unexpected"
-expect_failure "snapshot extra asset" "$repo_root/build/check-release.sh" snapshot "$snapshot_extra"
+expect_failure "snapshot extra asset" "$repo_root/build/check-release.sh" \
+  snapshot "$snapshot_extra" "$snapshot_version" "$source_commit"
 
 snapshot_missing="$fixture_root/snapshot-missing"
 cp -a "$snapshot" "$snapshot_missing"
 rm "$snapshot_missing/gizclaw-darwin-amd64"
-expect_failure "snapshot missing Intel macOS asset" "$repo_root/build/check-release.sh" snapshot "$snapshot_missing"
+expect_failure "snapshot missing Intel macOS asset" "$repo_root/build/check-release.sh" \
+  snapshot "$snapshot_missing" "$snapshot_version" "$source_commit"
 
 snapshot_symlink="$fixture_root/snapshot-symlink"
 cp -a "$snapshot" "$snapshot_symlink"
-rm "$snapshot_symlink/gizclaw-linux-amd64"
-ln -s gizclaw-linux-arm64 "$snapshot_symlink/gizclaw-linux-amd64"
-expect_failure "snapshot symlink" "$repo_root/build/check-release.sh" snapshot "$snapshot_symlink"
+rm "$snapshot_symlink/gizclaw-darwin-amd64"
+ln -s gizclaw-darwin-arm64 "$snapshot_symlink/gizclaw-darwin-amd64"
+expect_failure "snapshot symlink" "$repo_root/build/check-release.sh" \
+  snapshot "$snapshot_symlink" "$snapshot_version" "$source_commit"
+
+expect_failure "snapshot version is not canonical" "$repo_root/build/check-release.sh" \
+  snapshot "$snapshot" 0.0.0-main.1+111111111111 "$source_commit"
 
 payloads="$fixture_root/formal"
 make_formal_payloads "$payloads"
-"$repo_root/build/build-release-manifest.sh" --asset-dir "$payloads" --tag "$tag" --source-commit "$source_commit"
+"$repo_root/build/build-release-manifest.sh" \
+  --asset-dir "$payloads" --tag "$tag" --debian-version "$version" --source-commit "$source_commit"
 "$repo_root/build/check-release.sh" semver "$payloads" "$tag" "$source_commit"
 
 release_assets='[]'
@@ -150,7 +166,8 @@ expect_failure "prerelease collision" "$repo_root/build/check-release.sh" \
 payloads_second="$fixture_root/formal-second"
 cp -a "$payloads" "$payloads_second"
 rm "$payloads_second/release-manifest.json" "$payloads_second/SHA256SUMS"
-"$repo_root/build/build-release-manifest.sh" --asset-dir "$payloads_second" --tag "$tag" --source-commit "$source_commit"
+"$repo_root/build/build-release-manifest.sh" \
+  --asset-dir "$payloads_second" --tag "$tag" --debian-version "$version" --source-commit "$source_commit"
 cmp "$payloads/release-manifest.json" "$payloads_second/release-manifest.json"
 cmp "$payloads/SHA256SUMS" "$payloads_second/SHA256SUMS"
 
@@ -202,27 +219,36 @@ make_formal_payloads "$wrong_metadata"
 rm "$wrong_metadata/gizclaw_${version}_amd64.deb"
 make_fixture_deb amd64 "$wrong_metadata/gizclaw_${version}_amd64.deb" wrong-package
 expect_failure "invalid Debian package metadata" "$repo_root/build/build-release-manifest.sh" \
-  --asset-dir "$wrong_metadata" --tag "$tag" --source-commit "$source_commit"
+  --asset-dir "$wrong_metadata" --tag "$tag" --debian-version "$version" --source-commit "$source_commit"
 
 wrong_deb_arch="$fixture_root/wrong-deb-architecture"
 make_formal_payloads "$wrong_deb_arch"
 rm "$wrong_deb_arch/gizclaw_${version}_amd64.deb"
 make_fixture_deb arm64 "$wrong_deb_arch/gizclaw_${version}_amd64.deb"
-"$repo_root/build/build-release-manifest.sh" --asset-dir "$wrong_deb_arch" --tag "$tag" --source-commit "$source_commit"
+"$repo_root/build/build-release-manifest.sh" \
+  --asset-dir "$wrong_deb_arch" --tag "$tag" --debian-version "$version" --source-commit "$source_commit"
 expect_failure "wrong Debian architecture" "$repo_root/build/check-release.sh" semver "$wrong_deb_arch" "$tag" "$source_commit"
 
 if [[ "$(uname -s)" == Linux && "$(dpkg --print-architecture)" == amd64 ]]; then
+  snapshot_package="$fixture_root/snapshot-package/gizclaw_${snapshot_version}_amd64.deb"
+  "$repo_root/build/package-deb.sh" \
+    --binary "$fixture_binary" --version "$snapshot_version" --source-commit "$source_commit" --source-epoch 1 \
+    --architecture amd64 --output "$snapshot_package"
+  "$repo_root/build/check-deb.sh" \
+    --package "$snapshot_package" --version "$snapshot_version" --source-commit "$source_commit" \
+    --architecture amd64 --skip-runtime
+
   package_one="$fixture_root/package-one/gizclaw_${version}_amd64.deb"
   package_two="$fixture_root/package-two/gizclaw_${version}_amd64.deb"
   "$repo_root/build/package-deb.sh" \
-    --binary "$fixture_binary" --tag "$tag" --source-commit "$source_commit" --source-epoch 1 \
+    --binary "$fixture_binary" --version "$version" --source-commit "$source_commit" --source-epoch 1 \
     --architecture amd64 --output "$package_one"
   "$repo_root/build/package-deb.sh" \
-    --binary "$fixture_binary" --tag "$tag" --source-commit "$source_commit" --source-epoch 1 \
+    --binary "$fixture_binary" --version "$version" --source-commit "$source_commit" --source-epoch 1 \
     --architecture amd64 --output "$package_two"
   cmp "$package_one" "$package_two"
   "$repo_root/build/check-deb.sh" \
-    --package "$package_one" --tag "$tag" --source-commit "$source_commit" --architecture amd64 --skip-runtime
+    --package "$package_one" --version "$version" --source-commit "$source_commit" --architecture amd64 --skip-runtime
   wrong_dependencies_root="$fixture_root/wrong-dependencies-root"
   wrong_dependencies_package="$fixture_root/wrong-dependencies/gizclaw_${version}_amd64.deb"
   mkdir -p "$(dirname "$wrong_dependencies_package")"
@@ -230,9 +256,9 @@ if [[ "$(uname -s)" == Linux && "$(dpkg --print-architecture)" == amd64 ]]; then
   sed -i 's/^Depends: .*/Depends: libc6/' "$wrong_dependencies_root/DEBIAN/control"
   dpkg-deb --build --root-owner-group "$wrong_dependencies_root" "$wrong_dependencies_package" >/dev/null
   expect_failure "hand-maintained Debian dependencies" "$repo_root/build/check-deb.sh" \
-    --package "$wrong_dependencies_package" --tag "$tag" --source-commit "$source_commit" --architecture amd64 --skip-runtime
+    --package "$wrong_dependencies_package" --version "$version" --source-commit "$source_commit" --architecture amd64 --skip-runtime
   expect_failure "package output overwrite" "$repo_root/build/package-deb.sh" \
-    --binary "$fixture_binary" --tag "$tag" --source-commit "$source_commit" --source-epoch 1 \
+    --binary "$fixture_binary" --version "$version" --source-commit "$source_commit" --source-epoch 1 \
     --architecture amd64 --output "$package_one"
 fi
 

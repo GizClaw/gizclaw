@@ -100,25 +100,29 @@ commit/describe。Native package 是否可用仍以对应 package 的 build/runt
 
 ## 仓库发布
 
-仓库发布两种用途明确不同的 GitHub Release，二者不能互相替代：
+仓库通过两个 channel 发布相同类型的 Release 资产：
 
-- `main-latest` 是随每次 `main` push 移动的 snapshot，资产严格为
-  `gizclaw-linux-amd64`、`gizclaw-linux-arm64`、`gizclaw-darwin-amd64` 和
-  `gizclaw-darwin-arm64`。
-- canonical protected tag `vMAJOR.MINOR.PATCH` 发布正式、非 prerelease 版本，
-  资产严格为两个 `gizclaw_<version>_{amd64,arm64}.deb`、两个 Darwin
-  executable、`release-manifest.json` 和 `SHA256SUMS`。正式 Release 不发布
-  Linux raw executable。
+- `latest` 是每次 `main` push 都会替换的可变 snapshot。
+- canonical protected tag `vMAJOR.MINOR.PATCH` 发布不可变的正式、非
+  prerelease 版本。
 
-Git tag 是唯一 source version：它同时是 Go module version 与 GitHub Release
-tag；仅在生成 Debian version 时移除开头的 `v`。正式 tag 必须是 stable
-canonical SemVer，不允许数字前导零、prerelease 或 build metadata。Annotated 与
-lightweight tag 都 peel 到完整 source commit，且该 commit 必须已能从当前受保护的
-`main` head 到达。
+两个 channel 都严格包含两个 Debian package、两个 Darwin executable、
+`release-manifest.json` 和 `SHA256SUMS`，都不发布 Linux raw executable。正式
+Release 的 `gizclaw_<version>_{amd64,arm64}.deb` 从 tag 取得 `<version>`；
+`latest` 使用确定性的 Debian version
+`0.0.0~main.<source-epoch>+<12-character-source-commit>`，使每个滚动 snapshot
+的 package metadata 仍绑定到精确 source commit。
+
+对于正式 Release，Git tag 是唯一 source version：它同时是 Go module version 与
+GitHub Release tag；仅在生成 Debian version 时移除开头的 `v`。正式 tag 必须是
+stable canonical SemVer，不允许数字前导零、prerelease 或 build metadata。
+Annotated 与 lightweight tag 都 peel 到完整 source commit，且该 commit 必须已能
+从当前受保护的 `main` head 到达。可变的 `latest` tag 只是 snapshot pointer，
+不是 Go module SemVer。
 
 创建第一个正式 tag 前，repository administrator 必须启用目标为
 `refs/tags/v*` 的 tag ruleset：允许创建，但限制更新和删除。Repository-wide
-immutable Releases 必须保持关闭，否则也会锁定必须移动的 `main-latest` Release。
+immutable Releases 必须保持关闭，否则也会锁定必须移动的 `latest` Release。
 发布 workflow 会在创建正式 Release 前检查这些条件，但不持有或执行仓库管理权限。
 
 每个 Debian package 只拥有 root/root、mode `0755` 的 `/usr/bin/gizclaw`。
@@ -129,7 +133,7 @@ Intel 与 Apple Silicon runner 上构建和执行。Windows、macOS universal bi
 application bundle、installer、notarization 以及 package-manager repository 发布
 不属于本仓库的 Release contract。
 
-下载正式 Release 后，应同时验证 checksum、manifest 与 source identity，不能只信任
+下载 Release 后，应同时验证 checksum、manifest 与 source identity，不能只信任
 文件名：
 
 ```sh
@@ -140,10 +144,11 @@ chmod +x ".tmp/$tag"/gizclaw-darwin-*
 build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
 ```
 
-`release-manifest.json` 将每个 payload 的名称、平台、架构、字节数和 SHA-256 绑定到
-完整 source commit；Debian entry 还绑定 package metadata 与
-`/usr/bin/gizclaw`。Rerun 只有在现有正式 Release 的 published metadata 与全部六个
-下载文件逐字节一致时才是 idempotent success。Draft、partial、tag moved 或任何
-mismatch 都会 fail closed。首次上传失败可能留下 draft，必须由 administrator 检查并
-删除后才能重试；workflow 从不删除或覆盖已发布的 SemVer Release。下游 Homebrew 与
-APT channel 各自负责签名、托管、保留策略和 live installation acceptance。
+`release-manifest.json` 标识 snapshot 或 stable channel，并将每个 payload 的名称、
+平台、架构、字节数和 SHA-256 绑定到完整 source commit；Debian entry 还绑定 package
+metadata 与 `/usr/bin/gizclaw`。Formal rerun 只有在现有 Release 的 published
+metadata 与全部六个下载文件逐字节一致时才是 idempotent success。Draft、partial、
+tag moved 或任何 mismatch 都会 fail closed。首次上传失败可能留下 draft，必须由
+administrator 检查并删除后才能重试；workflow 从不删除或覆盖已发布的 SemVer
+Release。下游 Homebrew 与 APT channel 各自负责签名、托管、保留策略和 live
+installation acceptance。

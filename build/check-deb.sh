@@ -4,7 +4,7 @@
 set -euo pipefail
 
 package_path=
-tag=
+version=
 source_commit=
 architecture=
 skip_runtime=false
@@ -12,7 +12,7 @@ skip_runtime=false
 while (($# > 0)); do
   case "$1" in
     --package) package_path="${2:-}"; shift 2 ;;
-    --tag) tag="${2:-}"; shift 2 ;;
+    --version) version="${2:-}"; shift 2 ;;
     --source-commit) source_commit="${2:-}"; shift 2 ;;
     --architecture) architecture="${2:-}"; shift 2 ;;
     --skip-runtime) skip_runtime=true; shift ;;
@@ -20,12 +20,15 @@ while (($# > 0)); do
   esac
 done
 
-[[ -n "$package_path" && -n "$tag" && -n "$source_commit" && -n "$architecture" ]] || {
-  echo "usage: $0 --package PATH --tag vMAJOR.MINOR.PATCH --source-commit SHA --architecture amd64|arm64 [--skip-runtime]" >&2
+[[ -n "$package_path" && -n "$version" && -n "$source_commit" && -n "$architecture" ]] || {
+  echo "usage: $0 --package PATH --version DEBIAN_VERSION --source-commit SHA --architecture amd64|arm64 [--skip-runtime]" >&2
   exit 2
 }
-[[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "invalid canonical SemVer tag" >&2; exit 2; }
-version="${tag#v}"
+if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ &&
+      ! "$version" =~ ^0\.0\.0~main\.[0-9]+\+[0-9a-f]{12}$ ]]; then
+  echo "invalid stable or main snapshot Debian version" >&2
+  exit 2
+fi
 [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source commit" >&2; exit 2; }
 case "$architecture" in amd64 | arm64) ;; *) echo "unsupported architecture: $architecture" >&2; exit 2 ;; esac
 [[ -f "$package_path" && ! -L "$package_path" && -s "$package_path" ]] || { echo "package is not a regular non-empty file" >&2; exit 1; }

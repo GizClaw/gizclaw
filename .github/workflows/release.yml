@@ -61,6 +61,10 @@ jobs:
           fi
 
           source_epoch="$(git show -s --format=%ct "$source_commit")"
+          if [[ "$mode" != semver ]]; then
+            tag=latest
+            version="0.0.0~main.${source_epoch}+${source_commit:0:12}"
+          fi
           {
             echo "mode=$mode"
             echo "source_commit=$source_commit"
@@ -98,7 +102,6 @@ jobs:
         run: git submodule update --init --depth=1 third_party/nanopb/upstream
 
       - name: Install Debian validation tools
-        if: needs.prepare.outputs.mode == 'semver'
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y binutils dpkg-dev
@@ -119,19 +122,9 @@ jobs:
             ubuntu:24.04 \
             sh -c '/gizclaw --help >/dev/null'
 
-      - name: Stage mutable snapshot executable
-        if: needs.prepare.outputs.mode != 'semver'
+      - name: Build and validate Debian package
         env:
           BINARY: ${{ runner.temp }}/gizclaw-linux-${{ matrix.arch }}
-        run: |
-          mkdir -p .tmp/release
-          install -m 0755 "$BINARY" ".tmp/release/gizclaw-linux-${{ matrix.arch }}"
-
-      - name: Build and validate formal Debian package
-        if: needs.prepare.outputs.mode == 'semver'
-        env:
-          BINARY: ${{ runner.temp }}/gizclaw-linux-${{ matrix.arch }}
-          TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
           SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
           SOURCE_EPOCH: ${{ needs.prepare.outputs.source_epoch }}
@@ -140,14 +133,14 @@ jobs:
           package=".tmp/release/gizclaw_${VERSION}_${{ matrix.arch }}.deb"
           build/package-deb.sh \
             --binary "$BINARY" \
-            --tag "$TAG" \
+            --version "$VERSION" \
             --source-commit "$SOURCE_COMMIT" \
             --source-epoch "$SOURCE_EPOCH" \
             --architecture "${{ matrix.arch }}" \
             --output "$package"
           build/check-deb.sh \
             --package "$package" \
-            --tag "$TAG" \
+            --version "$VERSION" \
             --source-commit "$SOURCE_COMMIT" \
             --architecture "${{ matrix.arch }}"
 
@@ -230,7 +223,7 @@ jobs:
           if-no-files-found: error
 
   publish-snapshot:
-    name: Publish main-latest Snapshot
+    name: Publish latest Snapshot
     needs:
       - prepare
       - linux
@@ -251,7 +244,11 @@ jobs:
         with:
           path: .tmp/download
 
-      - name: Build closed snapshot staging directory
+      - name: Build and validate closed snapshot staging directory
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
         run: |
           set -euo pipefail
           install -d -m 0700 .tmp/publish
@@ -259,30 +256,38 @@ jobs:
             name="$(basename "$artifact")"
             test ! -e ".tmp/publish/$name"
             test -f "$artifact" && test ! -L "$artifact" && test -s "$artifact"
-            install -m 0755 "$artifact" ".tmp/publish/$name"
+            mode=0644
+            [[ "$name" != gizclaw-darwin-* ]] || mode=0755
+            install -m "$mode" "$artifact" ".tmp/publish/$name"
           done < <(find .tmp/download -type f -print0)
-          build/check-release.sh snapshot .tmp/publish
+          build/build-release-manifest.sh \
+            --asset-dir .tmp/publish \
+            --tag "$TAG" \
+            --debian-version "$VERSION" \
+            --source-commit "$SOURCE_COMMIT"
+          build/check-release.sh snapshot .tmp/publish "$VERSION" "$SOURCE_COMMIT"
 
-      - name: Replace mutable main-latest Release
+      - name: Replace mutable latest Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
-          if gh release view main-latest >/dev/null 2>&1; then
-            gh release delete main-latest --yes --cleanup-tag
+          if gh release view latest >/dev/null 2>&1; then
+            gh release delete latest --yes --cleanup-tag
           fi
-          gh release create main-latest .tmp/publish/* \
+          gh release create latest .tmp/publish/* \
             --target "$SOURCE_COMMIT" \
-            --title "main latest ${SOURCE_COMMIT::7}" \
-            --notes "Mutable automated snapshot for ${SOURCE_COMMIT}."
-          remote_tag_commit="$(git ls-remote origin refs/tags/main-latest | awk '{print $1}')"
+            --title "latest ${SOURCE_COMMIT::7}" \
+            --notes "Mutable automated snapshot of main at ${SOURCE_COMMIT}."
+          remote_tag_commit="$(git ls-remote origin refs/tags/latest | awk '{print $1}')"
           test "$remote_tag_commit" = "$SOURCE_COMMIT"
-          remote_dir="$(mktemp -d "${RUNNER_TEMP}/main-latest.XXXXXX")"
-          gh release download main-latest --dir "$remote_dir"
-          chmod 0755 "$remote_dir"/gizclaw-*
-          build/check-release.sh snapshot "$remote_dir"
+          remote_dir="$(mktemp -d "${RUNNER_TEMP}/latest.XXXXXX")"
+          gh release download latest --dir "$remote_dir"
+          chmod 0755 "$remote_dir"/gizclaw-darwin-*
+          build/check-release.sh snapshot "$remote_dir" "$VERSION" "$SOURCE_COMMIT"
           for local_asset in .tmp/publish/*; do
             cmp "$local_asset" "$remote_dir/$(basename "$local_asset")"
           done
@@ -328,6 +333,7 @@ jobs:
           build/build-release-manifest.sh \
             --asset-dir .tmp/publish \
             --tag "$TAG" \
+            --debian-version "${TAG#v}" \
             --source-commit "$SOURCE_COMMIT"
           build/check-release.sh semver .tmp/publish "$TAG" "$SOURCE_COMMIT"
 
@@ -342,7 +348,7 @@ jobs:
           test "$(gh api "repos/$GH_REPO/branches/main" --jq .protected)" = true
           immutable_enabled="$(gh api "repos/$GH_REPO/immutable-releases" --jq .enabled)"
           test "$immutable_enabled" = false || {
-            echo "repository-wide immutable Releases conflict with mutable main-latest" >&2
+            echo "repository-wide immutable Releases conflict with mutable latest" >&2
             exit 1
           }
 

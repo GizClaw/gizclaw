@@ -10,22 +10,35 @@ tag="${3:-}"
 source_commit="${4:-}"
 release_json="${5:-}"
 case "$requested_mode" in
-  snapshot | semver) ;;
+  snapshot)
+    mode=release
+    version="$tag"
+    tag=latest
+    release_channel=snapshot
+    go_module_version=
+    ;;
+  semver)
+    mode=release
+    release_channel=stable
+    go_module_version="$tag"
+    ;;
   draft | published)
-    mode=semver
+    mode=release
+    release_channel=stable
+    go_module_version="$tag"
     [[ -f "$release_json" && ! -L "$release_json" ]] || { echo "remote Release JSON must be a regular file" >&2; exit 2; }
     ;;
   *)
-    echo "usage: $0 snapshot DIR | $0 semver DIR TAG SOURCE_COMMIT | $0 draft|published DIR TAG SOURCE_COMMIT RELEASE_JSON" >&2
+    echo "usage: $0 snapshot DIR DEBIAN_VERSION SOURCE_COMMIT | $0 semver DIR TAG SOURCE_COMMIT | $0 draft|published DIR TAG SOURCE_COMMIT RELEASE_JSON" >&2
     exit 2
     ;;
 esac
-[[ "$mode" == snapshot || "$mode" == semver ]] || {
+[[ "$mode" == release ]] || {
   echo "invalid release mode" >&2
   exit 2
 }
 [[ -d "$asset_dir" && ! -L "$asset_dir" ]] || { echo "asset directory must be regular" >&2; exit 2; }
-for command_name in diff dpkg-deb jq sha256sum; do
+for command_name in cmp dpkg-deb jq sha256sum; do
   command -v "$command_name" >/dev/null 2>&1 || { echo "required command not found: $command_name" >&2; exit 2; }
 done
 
@@ -34,7 +47,7 @@ assert_inventory() {
   actual_names="$(find "$asset_dir" -mindepth 1 -maxdepth 1 -exec basename {} \; | LC_ALL=C sort)"
   [[ "$actual_names" == "$expected_names" ]] || {
     echo "$mode inventory is incomplete or contains unexpected files" >&2
-    diff -u <(printf '%s\n' "$expected_names") <(printf '%s\n' "$actual_names") >&2 || true
+    printf 'expected:\n%s\nactual:\n%s\n' "$expected_names" "$actual_names" >&2
     return 1
   }
   while IFS= read -r name; do
@@ -45,35 +58,35 @@ assert_inventory() {
   done <<<"$expected_names"
 }
 
-if [[ "$mode" == snapshot ]]; then
-  snapshot_expected="$(printf '%s\n' \
-    gizclaw-darwin-amd64 gizclaw-darwin-arm64 gizclaw-linux-amd64 gizclaw-linux-arm64 | LC_ALL=C sort)"
-  assert_inventory "$snapshot_expected"
-  while IFS= read -r name; do [[ -x "$asset_dir/$name" ]] || { echo "snapshot asset is not executable: $name" >&2; exit 1; }; done <<<"$snapshot_expected"
-  printf '%s\n' "validated main-latest snapshot"
-  exit 0
+if [[ "$requested_mode" == snapshot ]]; then
+  [[ "$version" =~ ^0\.0\.0~main\.[0-9]+\+[0-9a-f]{12}$ ]] || { echo "invalid canonical main snapshot Debian version" >&2; exit 2; }
+else
+  [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "invalid canonical SemVer tag" >&2; exit 2; }
+  version="${tag#v}"
 fi
-
-[[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "invalid canonical SemVer tag" >&2; exit 2; }
 [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source commit" >&2; exit 2; }
-version="${tag#v}"
-formal_expected="$(printf '%s\n' \
+release_expected="$(printf '%s\n' \
   SHA256SUMS \
   gizclaw-darwin-amd64 \
   gizclaw-darwin-arm64 \
   "gizclaw_${version}_amd64.deb" \
   "gizclaw_${version}_arm64.deb" \
   release-manifest.json | LC_ALL=C sort)"
-assert_inventory "$formal_expected"
+assert_inventory "$release_expected"
 
 manifest="$asset_dir/release-manifest.json"
 jq -e \
-  --arg tag "$tag" --arg version "$version" --arg source_commit "$source_commit" '
-  keys == ["assets","debian_version","go_module","go_module_version","repository","schema_version","source_commit","tag","workflow"] and
-  .schema_version == 1 and
+  --arg release_channel "$release_channel" \
+  --arg tag "$tag" --arg go_module_version "$go_module_version" \
+  --arg version "$version" --arg source_commit "$source_commit" '
+  keys == ["assets","debian_version","go_module","go_module_version","release_channel","repository","schema_version","source_commit","tag","workflow"] and
+  .schema_version == 2 and
   .repository == "GizClaw/gizclaw" and
   .go_module == "github.com/GizClaw/gizclaw-go" and
-  .tag == $tag and .go_module_version == $tag and .debian_version == $version and
+  .release_channel == $release_channel and
+  .tag == $tag and
+  .go_module_version == (if $go_module_version == "" then null else $go_module_version end) and
+  .debian_version == $version and
   .source_commit == $source_commit and .workflow == ".github/workflows/release.yml" and
   (.assets | length == 4) and
   ([.assets[].name] == ([.assets[].name] | sort)) and
@@ -119,7 +132,7 @@ checksums_expected="$(
     printf '%s  %s\n' "$(sha256sum "$asset_dir/$name" | awk '{print $1}')" "$name"
   done < <(printf '%s\n%s\n' "$expected_payloads" release-manifest.json | LC_ALL=C sort)
 )"
-if ! diff -u <(printf '%s\n' "$checksums_expected") "$asset_dir/SHA256SUMS" >/dev/null; then
+if ! cmp -s <(printf '%s\n' "$checksums_expected") "$asset_dir/SHA256SUMS"; then
   echo "SHA256SUMS mismatch" >&2
   exit 1
 fi
@@ -131,7 +144,7 @@ for deb_arch in amd64 arm64; do
   [[ "$(dpkg-deb --field "$deb" Architecture)" == "$deb_arch" ]]
   [[ "$(dpkg-deb --field "$deb" X-GizClaw-Source-Commit)" == "$source_commit" ]]
 done
-if [[ "$requested_mode" == semver ]]; then
+if [[ "$requested_mode" == snapshot || "$requested_mode" == semver ]]; then
   for darwin_arch in amd64 arm64; do
     [[ -x "$asset_dir/gizclaw-darwin-$darwin_arch" ]] || { echo "local Darwin asset is not executable" >&2; exit 1; }
   done
