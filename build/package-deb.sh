@@ -37,7 +37,7 @@ version="${tag#v}"
 [[ "$source_epoch" =~ ^[0-9]+$ ]] || { echo "source epoch must be a non-negative integer" >&2; exit 2; }
 case "$architecture" in amd64 | arm64) ;; *) echo "unsupported architecture: $architecture" >&2; exit 2 ;; esac
 
-for command_name in dpkg-deb dpkg-shlibdeps file readelf; do
+for command_name in dpkg-deb dpkg-shlibdeps readelf; do
   command -v "$command_name" >/dev/null 2>&1 || {
     echo "required command not found: $command_name" >&2
     exit 2

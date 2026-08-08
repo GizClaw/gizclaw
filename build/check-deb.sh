@@ -104,7 +104,7 @@ docker run --rm --platform "linux/$architecture" \
     export DEBIAN_FRONTEND=noninteractive
     package="/packages/$1"
     expected_version="$2"
-    version_format="${Version}"
+    version_format="\${Version}"
     apt-get update >/dev/null
     apt-get install --no-install-recommends -y "$package" >/dev/null
     test "$(dpkg-query -W -f="$version_format" gizclaw)" = "$expected_version"
