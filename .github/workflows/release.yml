@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*"
   workflow_dispatch:
 
 concurrency:
@@ -11,10 +13,67 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  prepare:
+    name: Select Release Contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      mode: ${{ steps.contract.outputs.mode }}
+      source_commit: ${{ steps.contract.outputs.source_commit }}
+      source_epoch: ${{ steps.contract.outputs.source_epoch }}
+      tag: ${{ steps.contract.outputs.tag }}
+      version: ${{ steps.contract.outputs.version }}
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Resolve immutable build identity
+        id: contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode=validation
+          source_commit="$(git rev-parse 'HEAD^{commit}')"
+          tag=
+          version=
+
+          if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
+            mode=snapshot
+            test "$source_commit" = "$GITHUB_SHA"
+          elif [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/tags/* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+            [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
+              echo "formal release tags must be canonical stable SemVer" >&2
+              exit 1
+            }
+            mode=semver
+            version="${tag#v}"
+            source_commit="$(git rev-parse "refs/tags/$tag^{commit}")"
+            git fetch --force --no-tags origin refs/heads/main:refs/remotes/origin/main
+            git merge-base --is-ancestor "$source_commit" refs/remotes/origin/main || {
+              echo "formal release commit is not reachable from the current protected main head" >&2
+              exit 1
+            }
+          fi
+
+          source_epoch="$(git show -s --format=%ct "$source_commit")"
+          {
+            echo "mode=$mode"
+            echo "source_commit=$source_commit"
+            echo "source_epoch=$source_epoch"
+            echo "tag=$tag"
+            echo "version=$version"
+          } >>"$GITHUB_OUTPUT"
+
   linux:
-    name: Linux ${{ matrix.arch }} Release Binary
+    name: Linux ${{ matrix.arch }} Release Asset
+    needs: prepare
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 60
+    timeout-minutes: 75
     permissions:
       contents: read
     strategy:
@@ -26,9 +85,10 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     steps:
-      - name: Check out repository
+      - name: Check out selected source commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
           lfs: true
 
       - name: Ensure Git LFS assets are available
@@ -37,36 +97,89 @@ jobs:
       - name: Initialize nanopb submodule
         run: git submodule update --init --depth=1 third_party/nanopb/upstream
 
-      - name: Build gizclaw Linux ${{ matrix.arch }} binary
+      - name: Install Debian validation tools
+        if: needs.prepare.outputs.mode == 'semver'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y binutils dpkg-dev
+
+      - name: Build native Linux executable
         env:
           PLATFORM: linux/${{ matrix.arch }}
+          OUTPUT: ${{ runner.temp }}/gizclaw-linux-${{ matrix.arch }}
         run: ./build/build-linux.sh
 
-      - name: Verify release binary on Ubuntu 24.04
+      - name: Verify native Linux executable
+        env:
+          BINARY: ${{ runner.temp }}/gizclaw-linux-${{ matrix.arch }}
         run: |
-          file .tmp/deploy/gizclaw-linux-${{ matrix.arch }}
+          file "$BINARY"
           docker run --rm --platform linux/${{ matrix.arch }} \
-            -v "$PWD/.tmp/deploy:/out:ro" \
+            --volume "$BINARY:/gizclaw:ro" \
             ubuntu:24.04 \
-            sh -lc 'ldd /out/gizclaw-linux-${{ matrix.arch }} && /out/gizclaw-linux-${{ matrix.arch }} --help >/dev/null'
+            sh -c '/gizclaw --help >/dev/null'
 
-      - name: Upload workflow artifact
+      - name: Stage mutable snapshot executable
+        if: needs.prepare.outputs.mode != 'semver'
+        env:
+          BINARY: ${{ runner.temp }}/gizclaw-linux-${{ matrix.arch }}
+        run: |
+          mkdir -p .tmp/release
+          install -m 0755 "$BINARY" ".tmp/release/gizclaw-linux-${{ matrix.arch }}"
+
+      - name: Build and validate formal Debian package
+        if: needs.prepare.outputs.mode == 'semver'
+        env:
+          BINARY: ${{ runner.temp }}/gizclaw-linux-${{ matrix.arch }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+          SOURCE_EPOCH: ${{ needs.prepare.outputs.source_epoch }}
+        run: |
+          mkdir -p .tmp/release
+          package=".tmp/release/gizclaw_${VERSION}_${{ matrix.arch }}.deb"
+          build/package-deb.sh \
+            --binary "$BINARY" \
+            --tag "$TAG" \
+            --source-commit "$SOURCE_COMMIT" \
+            --source-epoch "$SOURCE_EPOCH" \
+            --architecture "${{ matrix.arch }}" \
+            --output "$package"
+          build/check-deb.sh \
+            --package "$package" \
+            --tag "$TAG" \
+            --source-commit "$SOURCE_COMMIT" \
+            --architecture "${{ matrix.arch }}"
+
+      - name: Upload Linux release asset
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: gizclaw-linux-${{ matrix.arch }}
-          path: .tmp/deploy/gizclaw-linux-${{ matrix.arch }}
+          name: linux-${{ matrix.arch }}
+          path: .tmp/release/*
           if-no-files-found: error
 
   darwin:
-    name: Darwin arm64 Release Binary
-    runs-on: macos-latest
-    timeout-minutes: 30
+    name: Darwin ${{ matrix.arch }} Release Asset
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            machine: x86_64
+            runner: macos-15-intel
+          - arch: arm64
+            machine: arm64
+            runner: macos-15
     steps:
-      - name: Check out repository
+      - name: Check out selected source commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
           lfs: true
 
       - name: Ensure Git LFS assets are available
@@ -75,8 +188,8 @@ jobs:
       - name: Initialize nanopb submodule
         run: git submodule update --init --depth=1 third_party/nanopb/upstream
 
-      - name: Verify arm64 macOS runner
-        run: test "$(uname -m)" = "arm64"
+      - name: Verify native macOS runner
+        run: test "$(uname -m)" = "${{ matrix.machine }}"
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
@@ -87,75 +200,243 @@ jobs:
       - name: Install UI dependencies
         run: npm ci
 
-      - name: Build gizclaw Darwin arm64 binary
+      - name: Build native macOS executable
         env:
           CGO_ENABLED: "1"
           GOOS: darwin
-          GOARCH: arm64
+          GOARCH: ${{ matrix.arch }}
         run: |
-          mkdir -p .tmp/deploy
-          go build -trimpath -o .tmp/deploy/gizclaw-darwin-arm64 ./cmd/gizclaw
+          mkdir -p .tmp/release
+          go build -trimpath -o ".tmp/release/gizclaw-darwin-${{ matrix.arch }}" ./cmd/gizclaw
 
-      - name: Verify release binary on macOS
+      - name: Verify native macOS executable
+        env:
+          BINARY: .tmp/release/gizclaw-darwin-${{ matrix.arch }}
         run: |
-          file .tmp/deploy/gizclaw-darwin-arm64
-          .tmp/deploy/gizclaw-darwin-arm64 --help >/dev/null
+          test -f "$BINARY" && test ! -L "$BINARY" && test -x "$BINARY" && test -s "$BINARY"
+          file "$BINARY"
+          test "$(lipo -archs "$BINARY")" = "${{ matrix.machine }}"
+          if strings "$BINARY" | grep -F "$GITHUB_WORKSPACE"; then
+            echo "macOS executable contains the checkout path" >&2
+            exit 1
+          fi
+          "$BINARY" --help >/dev/null
 
-      - name: Upload workflow artifact
+      - name: Upload Darwin release asset
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: gizclaw-darwin-arm64
-          path: .tmp/deploy/gizclaw-darwin-arm64
+          name: darwin-${{ matrix.arch }}
+          path: .tmp/release/gizclaw-darwin-${{ matrix.arch }}
           if-no-files-found: error
 
-  publish:
-    name: Publish Release
+  publish-snapshot:
+    name: Publish main-latest Snapshot
     needs:
+      - prepare
       - linux
       - darwin
+    if: needs.prepare.outputs.mode == 'snapshot'
     runs-on: ubuntu-24.04
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
-      - name: Download release artifacts
+      - name: Check out release contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
+
+      - name: Download workflow artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          path: .tmp/release
+          path: .tmp/download
 
-      - name: Publish GitHub Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
+      - name: Build closed snapshot staging directory
         run: |
-          short_sha="${GITHUB_SHA::7}"
-          tag="main-latest"
-          assets=(
-            ".tmp/release/gizclaw-linux-amd64/gizclaw-linux-amd64#gizclaw-linux-amd64" \
-            ".tmp/release/gizclaw-linux-arm64/gizclaw-linux-arm64#gizclaw-linux-arm64" \
-            ".tmp/release/gizclaw-darwin-arm64/gizclaw-darwin-arm64#gizclaw-darwin-arm64"
-          )
+          set -euo pipefail
+          install -d -m 0700 .tmp/publish
+          while IFS= read -r -d '' artifact; do
+            name="$(basename "$artifact")"
+            test ! -e ".tmp/publish/$name"
+            test -f "$artifact" && test ! -L "$artifact" && test -s "$artifact"
+            install -m 0755 "$artifact" ".tmp/publish/$name"
+          done < <(find .tmp/download -type f -print0)
+          build/check-release.sh snapshot .tmp/publish
 
-          if gh release view "$tag" >/dev/null 2>&1; then
-            gh release delete "$tag" --yes --cleanup-tag
+      - name: Replace mutable main-latest Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          if gh release view main-latest >/dev/null 2>&1; then
+            gh release delete main-latest --yes --cleanup-tag
+          fi
+          gh release create main-latest .tmp/publish/* \
+            --target "$SOURCE_COMMIT" \
+            --title "main latest ${SOURCE_COMMIT::7}" \
+            --notes "Mutable automated snapshot for ${SOURCE_COMMIT}."
+          remote_tag_commit="$(git ls-remote origin refs/tags/main-latest | awk '{print $1}')"
+          test "$remote_tag_commit" = "$SOURCE_COMMIT"
+          remote_dir="$(mktemp -d "${RUNNER_TEMP}/main-latest.XXXXXX")"
+          gh release download main-latest --dir "$remote_dir"
+          chmod 0755 "$remote_dir"/gizclaw-*
+          build/check-release.sh snapshot "$remote_dir"
+          for local_asset in .tmp/publish/*; do
+            cmp "$local_asset" "$remote_dir/$(basename "$local_asset")"
+          done
+
+  publish-semver:
+    name: Publish Protected SemVer Release
+    needs:
+      - prepare
+      - linux
+      - darwin
+    if: needs.prepare.outputs.mode == 'semver'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Check out tagged source and history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
+          fetch-depth: 0
+
+      - name: Download workflow artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          path: .tmp/download
+
+      - name: Build and validate closed formal staging directory
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          install -d -m 0700 .tmp/publish
+          while IFS= read -r -d '' artifact; do
+            name="$(basename "$artifact")"
+            test ! -e ".tmp/publish/$name"
+            test -f "$artifact" && test ! -L "$artifact" && test -s "$artifact"
+            mode=0644
+            [[ "$name" != gizclaw-darwin-* ]] || mode=0755
+            install -m "$mode" "$artifact" ".tmp/publish/$name"
+          done < <(find .tmp/download -type f -print0)
+          build/build-release-manifest.sh \
+            --asset-dir .tmp/publish \
+            --tag "$TAG" \
+            --source-commit "$SOURCE_COMMIT"
+          build/check-release.sh semver .tmp/publish "$TAG" "$SOURCE_COMMIT"
+
+      - name: Verify current protected source and formal tag ruleset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GH_REPO/branches/main" --jq .protected)" = true
+          immutable_enabled="$(gh api "repos/$GH_REPO/immutable-releases" --jq .enabled)"
+          test "$immutable_enabled" = false || {
+            echo "repository-wide immutable Releases conflict with mutable main-latest" >&2
+            exit 1
+          }
+
+          ruleset_ok=false
+          creation_blocked=false
+          mapfile -t ruleset_ids < <(
+            gh api --paginate "repos/$GH_REPO/rulesets" \
+              --jq '.[] | select(.target == "tag" and .enforcement == "active") | .id'
+          )
+          for ruleset_id in "${ruleset_ids[@]}"; do
+            ruleset="$(gh api "repos/$GH_REPO/rulesets/$ruleset_id")"
+            if jq -e '
+              (.conditions.ref_name.include | index("refs/tags/v*") != null) and
+              (.conditions.ref_name.exclude | length == 0) and
+              ([.rules[].type] | index("creation") != null)
+            ' <<<"$ruleset" >/dev/null; then
+              creation_blocked=true
+            fi
+            if jq -e '
+              (.conditions.ref_name.include | index("refs/tags/v*") != null) and
+              (.conditions.ref_name.exclude | length == 0) and
+              ([.rules[].type] | index("update") != null) and
+              ([.rules[].type] | index("deletion") != null) and
+              ([.rules[].type] | index("creation") == null)
+            ' <<<"$ruleset" >/dev/null; then
+              ruleset_ok=true
+            fi
+          done
+          if [[ "$ruleset_ok" != true || "$creation_blocked" != false ]]; then
+            echo "an active refs/tags/v* ruleset allowing creation and restricting update and deletion is required" >&2
+            exit 1
           fi
 
-          gh release create "$tag" "${assets[@]}" \
-            --target "$GITHUB_SHA" \
-            --title "main latest ${short_sha}" \
-            --notes "Automated release for ${GITHUB_SHA}."
+          remote_tag_commit="$(
+            git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}" |
+              awk '$2 ~ /\^\{\}$/ { peeled=$1 } $2 !~ /\^\{\}$/ { direct=$1 } END { print peeled ? peeled : direct }'
+          )"
+          test "$remote_tag_commit" = "$SOURCE_COMMIT"
+          git fetch --force --no-tags origin refs/heads/main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$SOURCE_COMMIT" refs/remotes/origin/main
 
-      - name: Prune legacy automated releases
+      - name: Publish or verify formal Release without replacement
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
         run: |
-          mapfile -t old_tags < <(
-            gh release list --limit 100 --order desc --json tagName \
-              --jq '.[] | select(.tagName | startswith("main-build-")) | .tagName'
-          )
+          set -euo pipefail
 
-          for tag in "${old_tags[@]}"; do
-            gh release delete "$tag" --yes --cleanup-tag
-          done
+          verify_remote() {
+            local state="$1" release_json="$2" remote_dir
+            remote_dir="$(mktemp -d "${RUNNER_TEMP}/gizclaw-release.XXXXXX")"
+            gh release download "$TAG" --dir "$remote_dir"
+            build/check-release.sh "$state" "$remote_dir" "$TAG" "$SOURCE_COMMIT" "$release_json"
+            for local_asset in .tmp/publish/*; do
+              cmp "$local_asset" "$remote_dir/$(basename "$local_asset")"
+            done
+          }
+
+          release_json="${RUNNER_TEMP}/release.json"
+          release_raw="${RUNNER_TEMP}/release.raw.json"
+          release_error="${RUNNER_TEMP}/release.error"
+          if gh api "repos/$GH_REPO/releases/tags/$TAG" >"$release_raw" 2>"$release_error"; then
+            jq '{tag_name,target_commitish,draft,prerelease,assets:[.assets[] | {name,size}]}' \
+              "$release_raw" >"$release_json"
+            verify_remote published "$release_json"
+            echo "existing published Release is an exact idempotent match"
+            exit 0
+          fi
+          if ! grep -q 'HTTP 404' "$release_error"; then
+            cat "$release_error" >&2
+            exit 1
+          fi
+
+          gh release create "$TAG" .tmp/publish/* \
+            --draft \
+            --verify-tag \
+            --target "$SOURCE_COMMIT" \
+            --title "$TAG" \
+            --notes "Formal GizClaw $TAG release from $SOURCE_COMMIT."
+          gh api "repos/$GH_REPO/releases/tags/$TAG" >"$release_raw"
+          jq '{tag_name,target_commitish,draft,prerelease,assets:[.assets[] | {name,size}]}' \
+            "$release_raw" >"$release_json"
+          verify_remote draft "$release_json"
+
+          gh release edit "$TAG" --draft=false
+          gh api "repos/$GH_REPO/releases/tags/$TAG" >"$release_raw"
+          jq '{tag_name,target_commitish,draft,prerelease,assets:[.assets[] | {name,size}]}' \
+            "$release_raw" >"$release_json"
+          verify_remote published "$release_json"
+
+          remote_tag_commit="$(
+            git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}" |
+              awk '$2 ~ /\^\{\}$/ { peeled=$1 } $2 !~ /\^\{\}$/ { direct=$1 } END { print peeled ? peeled : direct }'
+          )"
+          test "$remote_tag_commit" = "$SOURCE_COMMIT"
