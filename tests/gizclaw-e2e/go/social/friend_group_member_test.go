@@ -12,6 +12,7 @@ func TestSocialFriendGroupMemberRPC(t *testing.T) {
 	h := newSocialSimulatorHarness(t)
 	peerB := h.ContextPublicKey("peer-b")
 	peerC := h.ContextPublicKey("peer-c")
+	peerCClient := h.Client("peer-c")
 
 	group := mustCreateFriendGroup(t, h, "peer-a", "family", "voice room")
 	if group.MyRole == nil || *group.MyRole != rpcapi.FriendGroupMemberRoleOwner {
@@ -40,9 +41,10 @@ func TestSocialFriendGroupMemberRPC(t *testing.T) {
 		t.Fatalf("member b role = %v, want admin", memberB.Role)
 	}
 	mustClearFriendGroupInviteToken(t, h, "peer-a", group.Name)
-	if err := joinFriendGroupError(t, h, "peer-c", group.Name, token.InviteToken); err == nil {
+	if err := joinFriendGroupError(t, peerCClient, group.Name, token.InviteToken); err == nil {
 		t.Fatal("join with cleared group invite token unexpectedly succeeded")
 	}
+	assertFriendGroupClientConnection(t, peerCClient, "friend-group-cleared-token")
 	memberC := mustAddFriendGroupMember(t, h, "peer-b", group.Name, peerC, rpcapi.FriendGroupMemberMutableRoleMember)
 	if stringValue(memberC.PeerPublicKey) != peerC {
 		t.Fatalf("member c peer_public_key = %q, want %q", stringValue(memberC.PeerPublicKey), peerC)

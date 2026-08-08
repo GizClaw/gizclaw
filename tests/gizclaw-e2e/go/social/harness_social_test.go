@@ -4,6 +4,7 @@ package social_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -256,24 +257,77 @@ func createFriendByInviteToken(t *testing.T, h socialHarness, fromContext, toCon
 	return rpcapi.FriendObject{}
 }
 
-func assertFriendInviteTokenFailureCases(t *testing.T, h socialHarness) {
+func assertFriendInviteTokenFailureCases(t *testing.T, h socialHarness, peerB string) rpcapi.FriendObject {
 	t.Helper()
 
-	if err := addFriendError(t, h, "peer-a", ""); err == nil {
-		t.Fatal("friend.add without invite token unexpectedly succeeded")
-	}
-	if err := addFriendError(t, h, "peer-a", "missing-token"); err == nil {
-		t.Fatal("friend.add with missing invite token unexpectedly succeeded")
-	}
-	self := mustCreateFriendInviteToken(t, h, "peer-a")
-	if err := addFriendError(t, h, "peer-a", self.InviteToken); err == nil {
-		t.Fatal("friend.add with self invite token unexpectedly succeeded")
-	}
-	mustClearFriendInviteToken(t, h, "peer-a")
+	client := h.Client("peer-a")
+	assertFriendAddRPCError(t, client, "friend.add.empty", "", rpcapi.RPCErrorCodeBadRequest, "friend invite token is required")
+	assertFriendAddRPCError(t, client, "friend.add.whitespace", " \t\n", rpcapi.RPCErrorCodeBadRequest, "friend invite token is required")
+	assertFriendAddRPCError(t, client, "friend.add.unknown", "missing-token", rpcapi.RPCErrorCodeNotFound, "friend invite token not found")
+	assertFriendAddRPCError(t, client, "friend.add.malformed", "not/a/token?!", rpcapi.RPCErrorCodeNotFound, "friend invite token not found")
+
 	target := mustCreateFriendInviteToken(t, h, "peer-b")
+	assertFriendAddRPCError(t, client, "friend.add.wrapped", " "+target.InviteToken+" ", rpcapi.RPCErrorCodeNotFound, "friend invite token not found")
 	mustClearFriendInviteToken(t, h, "peer-b")
-	if err := addFriendError(t, h, "peer-a", target.InviteToken); err == nil {
-		t.Fatal("friend.add with cleared invite token unexpectedly succeeded")
+	assertFriendAddRPCError(t, client, "friend.add.cleared", target.InviteToken, rpcapi.RPCErrorCodeNotFound, "friend invite token not found")
+
+	self := mustCreateFriendInviteToken(t, h, "peer-a")
+	assertFriendAddRPCError(t, client, "friend.add.self", self.InviteToken, rpcapi.RPCErrorCodeConflict, "cannot add self as friend")
+	mustClearFriendInviteToken(t, h, "peer-a")
+
+	valid := mustCreateFriendInviteToken(t, h, "peer-b")
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	added, err := client.AddFriend(ctx, "friend.add.valid", rpcapi.FriendAddRequest{InviteToken: valid.InviteToken})
+	cancel()
+	mustClearFriendInviteToken(t, h, "peer-b")
+	if err != nil {
+		t.Fatalf("friend.add.valid: %v", err)
+	}
+	if added == nil || stringValue(added.PeerPublicKey) != peerB {
+		t.Fatalf("friend.add.valid = %#v, want Peer %q", added, peerB)
+	}
+	return *added
+}
+
+func assertFriendAddRPCError(t *testing.T, client *gizcli.Client, requestID, inviteToken string, wantCode rpcapi.RPCErrorCode, wantMessage string) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	_, err := client.AddFriend(ctx, requestID, rpcapi.FriendAddRequest{InviteToken: inviteToken})
+	cancel()
+	var rpcErr rpcapi.Error
+	if !errors.As(err, &rpcErr) {
+		t.Fatalf("%s error = %T %v, want rpcapi.Error", requestID, err, err)
+	}
+	if rpcErr.RequestID != requestID || rpcErr.Code != wantCode || rpcErr.Message != wantMessage {
+		t.Fatalf("%s error = %#v, want id/code/message %q/%d/%q", requestID, rpcErr, requestID, wantCode, wantMessage)
+	}
+	assertSocialClientConnection(t, client, requestID)
+}
+
+func assertSocialClientConnection(t *testing.T, client *gizcli.Client, requestID string) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if ping, err := client.Ping(ctx, requestID+".ping"); err != nil || ping == nil {
+		t.Fatalf("%s Ping on retained client = %#v, %v", requestID, ping, err)
+	}
+	if friends, err := client.ListFriends(ctx, requestID+".list", rpcapi.FriendListRequest{}); err != nil || friends == nil {
+		t.Fatalf("%s ListFriends on retained client = %#v, %v", requestID, friends, err)
+	}
+}
+
+func assertFriendGroupClientConnection(t *testing.T, client *gizcli.Client, requestID string) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if ping, err := client.Ping(ctx, requestID+".ping"); err != nil || ping == nil {
+		t.Fatalf("%s Ping on retained client = %#v, %v", requestID, ping, err)
+	}
+	if groups, err := client.ListFriendGroups(ctx, requestID+".list", rpcapi.FriendGroupListRequest{}); err != nil || groups == nil {
+		t.Fatalf("%s ListFriendGroups on retained client = %#v, %v", requestID, groups, err)
 	}
 }
 
@@ -493,12 +547,6 @@ func addFriend(t *testing.T, h socialHarness, contextName, inviteToken string) (
 	return client.AddFriend(ctx, "friend.add", rpcapi.FriendAddRequest{InviteToken: inviteToken})
 }
 
-func addFriendError(t *testing.T, h socialHarness, contextName, inviteToken string) error {
-	return socialRPCError(t, h, contextName, "friend.add", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendAddResponse, error) {
-		return client.AddFriend(ctx, "friend.add", rpcapi.FriendAddRequest{InviteToken: inviteToken})
-	})
-}
-
 func mustListFriends(t *testing.T, h socialHarness, contextName string, request rpcapi.FriendListRequest) rpcapi.FriendListResponse {
 	return mustSocialRPC(t, h, contextName, "friend.list", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendListResponse, error) {
 		return client.ListFriends(ctx, "friend.list", request)
@@ -604,10 +652,13 @@ func mustJoinFriendGroup(t *testing.T, h socialHarness, contextName, name, invit
 	})
 }
 
-func joinFriendGroupError(t *testing.T, h socialHarness, contextName, name, inviteToken string) error {
-	return socialRPCError(t, h, contextName, "friend_group.join", func(ctx context.Context, client *gizcli.Client) (*rpcapi.FriendGroupJoinResponse, error) {
-		return client.JoinFriendGroup(ctx, "friend_group.join", rpcapi.FriendGroupJoinRequest{Name: name, InviteToken: inviteToken})
-	})
+func joinFriendGroupError(t *testing.T, client *gizcli.Client, name, inviteToken string) error {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	_, err := client.JoinFriendGroup(ctx, "friend_group.join", rpcapi.FriendGroupJoinRequest{Name: name, InviteToken: inviteToken})
+	return err
 }
 
 func mustAddFriendGroupMember(t *testing.T, h socialHarness, contextName, groupID, peerID string, role rpcapi.FriendGroupMemberMutableRole) rpcapi.FriendGroupMemberObject {
