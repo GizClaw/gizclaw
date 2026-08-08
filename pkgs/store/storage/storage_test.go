@@ -5,10 +5,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestNewNilConfigs(t *testing.T) {
@@ -17,8 +16,8 @@ func TestNewNilConfigs(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 	t.Cleanup(func() { _ = s.Close() })
-	if _, err := s.KV("anything"); err == nil {
-		t.Fatal("KV(anything) error = nil")
+	if _, err := s.Memory("anything"); err == nil {
+		t.Fatal("Memory(anything) error = nil")
 	}
 }
 
@@ -58,33 +57,15 @@ func TestConcreteKindsRejectForeignFields(t *testing.T) {
 	}
 }
 
-func TestMemoryKVIsSharedMemoryInstance(t *testing.T) {
+func TestMemoryIsMarker(t *testing.T) {
 	registry, err := New(map[string]Config{"memory": {Kind: KindMemory}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = registry.Close() })
 
-	first, err := registry.KV("memory")
-	if err != nil {
+	if _, err := registry.Memory("memory"); err != nil {
 		t.Fatal(err)
-	}
-	second, err := registry.KV("memory")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if first != second {
-		t.Fatal("KV(memory) returned different roots")
-	}
-	if _, ok := first.(*kv.Memory); !ok {
-		t.Fatalf("KV(memory) = %T, want *kv.Memory", first)
-	}
-	if err := first.Set(t.Context(), kv.Key{"key"}, []byte("value")); err != nil {
-		t.Fatal(err)
-	}
-	value, err := second.Get(t.Context(), kv.Key{"key"})
-	if err != nil || string(value) != "value" {
-		t.Fatalf("Get() = %q, %v", value, err)
 	}
 }
 
@@ -95,12 +76,12 @@ func TestBadgerKV(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = registry.Close() })
-	store, err := registry.KV("badger")
+	db, err := registry.Badger("badger")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Set(t.Context(), kv.Key{"key"}, []byte("value")); err != nil {
-		t.Fatal(err)
+	if db == nil {
+		t.Fatal("Badger(badger) = nil")
 	}
 }
 
@@ -111,15 +92,15 @@ func TestFilesystemDirDescriptor(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = registry.Close() })
-	got, err := registry.Dir("objects")
-	if err != nil || got != dir {
-		t.Fatalf("Dir(objects) = %q, %v; want %q", got, err, dir)
+	got, err := registry.FilesystemDir("objects")
+	if err != nil || got.Name() != dir {
+		t.Fatalf("FilesystemDir(objects) = %v, %v; want %q", got, err, dir)
 	}
 	if _, err := os.Stat(dir); err != nil {
 		t.Fatalf("Stat(%q): %v", dir, err)
 	}
-	if _, err := registry.KV("objects"); err == nil {
-		t.Fatal("KV(objects) error = nil")
+	if _, err := registry.Badger("objects"); err == nil {
+		t.Fatal("Badger(objects) error = nil")
 	}
 }
 
@@ -217,5 +198,14 @@ func TestCloseClosesSQL(t *testing.T) {
 	}
 	if err := db.PingContext(context.Background()); err == nil {
 		t.Fatal("PingContext() after Close() error = nil")
+	}
+}
+
+func TestConfigHasNoSerializationTags(t *testing.T) {
+	typeOf := reflect.TypeFor[Config]()
+	for field := range typeOf.Fields() {
+		if field.Tag.Get("yaml") != "" || field.Tag.Get("json") != "" || field.Tag.Get("mapstructure") != "" {
+			t.Fatalf("Config.%s has serialization tag %q", field.Name, field.Tag)
+		}
 	}
 }

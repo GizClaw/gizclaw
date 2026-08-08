@@ -41,7 +41,7 @@ The following development deployment uses Badger for KV state, SQLite for Gamepl
 
 <<< ../../../../snippets/server-storage-stores-services.yaml{yaml}
 
-`memory.Store` remains selected by RuntimeProfile and MemoryLayout; `stores.kind: memory` is invalid. Physical `storage.kind: memory` only provides an in-process backend to compatible keyvalue or metrics Stores. See [Memory Store](/en/developing/stores/memory).
+`memory.Store` remains selected by RuntimeProfile and MemoryLayout; `stores.kind: memory` is invalid. Physical `storage.kind: memory` is a stateless marker, and every compatible keyvalue or metrics Store creates an independent in-process backend. See [Memory Store](/en/developing/stores/memory).
 
 Each Workspace Agent generation resolves its memory alias from the current RuntimeProfile snapshot. Construction failure fails Agent initialization or reload explicitly. Server shutdown closes the shared Memory registry. Workspace reload and release of the final Agent reference close that generation's lease without migrating, merging, copying, or deleting durable data.
 

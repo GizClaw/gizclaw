@@ -18,7 +18,7 @@
 
 | Driver | Capability | 说明 |
 | --- | --- | --- |
-| Volc TLS | `ImmutableStore` | Managed producer 和 SearchLogs 查询；不支持 mutation |
+| Volc TLS | `ImmutableStore` | 同一 TLS SDK client 上的 PutLogsV2 与 SearchLogs；不支持 mutation |
 | ClickHouse | `MutableStore` | 独立 MergeTree 表与同步 replace/delete mutation |
 
 每个逻辑 Log Store 都必须声明 `log.immutable` 或 `log.mutable`。`Stores.Log` 接受两种声明，`Stores.MutableLog` 只接受 `log.mutable`。Volc TLS 不能满足可变 Flowcraft History。物理连接 ownership 始终属于 `storage`。
@@ -44,11 +44,11 @@ Topic、logset、retention 和 index 都由 operator 预先创建。构造 store
 
 Operator-owned schema 和 search behavior 可参考 Volc TLS 的 [CreateIndex](https://www.volcengine.com/docs/6470/112187)、[query syntax](https://www.volcengine.com/docs/6470/1206705) 和 [phrase query](https://www.volcengine.com/docs/6470/1206697)。
 
-Provider layout 固定使用 `id`、`stream`、`kind`、`level`、`msg`，把 dotted attributes 展开为 nested `attributes` JSON，并保存可选 payload。提交前，driver 会把超出 producer 限制的 message、severity、attribute 与 payload value 自动截断，同时保留 `Stream`、`ID`、`Kind` 与时间。JSON payload 会先压缩，再按 value 边界缩短 string，保证 payload 结构合法且领域 envelope 仍可解码。无法安全缩小的 record 会返回错误。`Append` 返回 producer 已接受的 key；部分失败时也会返回已接受前缀。
+Provider layout 固定使用 `id`、`stream`、`kind`、`level`、`msg`，把 dotted attributes 展开为 nested `attributes` JSON，并保存可选 payload。提交前，driver 会把超出单批限制的 message、severity、attribute 与 payload value 自动截断，同时保留 `Stream`、`ID`、`Kind` 与时间。JSON payload 会先压缩，再按 value 边界缩短 string。同步 `PutLogsV2` 按最多 4096 条、512 KiB 分批顺序提交；只有整批成功才返回该批 key，失败时返回此前成功批次构成的输入前缀。
 
 Generic record 的 provider source 为 `gizclaw`、filename 为 `logstore`；process log 的 `source=gizclaw`、`path=slog` 仍是 logical attribute。Record timestamp 会保留可用的 nanoseconds，而 SearchLogs range 和 ordering 使用 milliseconds。
 
-查询使用 SearchLogs search expression 和 provider Context，不使用 SQL analysis。`Text` 使用 key-value phrase 形式 `msg:#"..."`，已验证的 attribute name 以 `attributes.request_id` 这类 JSON dotted path 输出。Provider call 最长 30 秒，并服从更短的 caller deadline；Store 和 Admin API 不返回 provider error body。一个物理 connector 拥有并 flush producer；topic-scoped Store 只借用它。
+查询使用 SearchLogs search expression 和 provider Context，不使用 SQL analysis。`Text` 使用 key-value phrase 形式 `msg:#"..."`，已验证的 attribute name 以 `attributes.request_id` 这类 JSON dotted path 输出。Provider call 最长 30 秒，并服从更短的 caller deadline；Store 和 Admin API 不返回 provider error body。物理 Storage 只持有一个 TLS SDK client，topic-scoped Store 用同一个 client 读写，不创建 producer 或第二个 client。
 
 当查询固定为 `Streams=[system]`、`Kinds=[log]` 时，driver 也会匹配 provider source 为 `gizclaw`、filename 为 `slog` 的旧记录。新旧记录共用 provider-side ordering 和 cursor，不会分别查询后再合并。这只是 record compatibility；已移除的 Server `log` 配置仍不兼容。
 

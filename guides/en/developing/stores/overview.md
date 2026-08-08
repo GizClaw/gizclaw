@@ -44,7 +44,7 @@ flowchart TB
     VecID["vecid"] --> Voiceprint["audio/voiceprint"]
 ```
 
-`cmd/internal/storage` and `cmd/internal/stores` are responsible for reading the process configuration, selecting specific backends and injecting stores into the Server; `pkgs/store` does not read the GizClaw Server config, nor does it decide which physical backend to use in a certain field.
+`cmd/internal/server` exclusively owns YAML DTOs, strict decoding, environment expansion, and workspace-relative path resolution, then passes plain Go configurations to public packages. `pkgs/store/storage` opens and owns physical resources. The root `pkgs/store` package validates Storage/Store combinations and constructs logical Stores. Neither public package reads YAML or JSON or selects service bindings.
 
 ### Server composition contract
 
@@ -69,11 +69,11 @@ flowchart TB
 | `prometheus` | remote-write/query URLs and optional bearer token |
 | `volc-tls` | endpoint, region, and credentials |
 
-Multiple Stores may borrow one connector; closing a logical Store does not close the shared connector. Keyvalue Stores sharing one `memory` Storage use one `*kv.Memory` root and atomic boundary. `vecstore` and `graph` have no built-in Server consumer, so they are not command-layer Store kinds; their public packages and constructors remain available. Memory connections selected through RuntimeProfile and MemoryLayout remain outside this registry.
+Multiple Stores may borrow one connector. The caller closes logical `Stores` first and physical `Storage` second. `memory` is a stateless marker; every keyvalue or metrics Store that references it creates an independent instance. `vecstore` and `graph` have no built-in Server consumer, so they are not command-layer Store kinds; their public packages and constructors remain available. Memory connections selected through RuntimeProfile and MemoryLayout remain outside this registry.
 
 ### Process SQLite DSN contract
 
-`cmd/internal/storage` accepts modernc SQLite DSNs and continues to support
+`pkgs/store/storage` accepts modernc SQLite DSNs and continues to support
 modernc parameters such as `_pragma`. GizClaw owns the connection's
 `busy_timeout`, WAL journal mode, and foreign-key PRAGMAs. The
 `go-sqlite3`-compatible shorthand parameters `_busy_timeout`/`_timeout`,

@@ -17,9 +17,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/volcengine/volc-sdk-golang/service/tls"
-	"github.com/volcengine/volc-sdk-golang/service/tls/common"
 	"github.com/volcengine/volc-sdk-golang/service/tls/pb"
-	"github.com/volcengine/volc-sdk-golang/service/tls/producer"
 )
 
 const (
@@ -30,44 +28,38 @@ const (
 	volcSecondsUpperBound     = int64(10_000_000_000)
 	volcNanosecondsLowerBound = int64(1_000_000_000_000_000)
 	volcDefaultMaxLogBytes    = 512 * 1024
+	volcMaxBatchRecords       = 4096
 )
 
 // VolcConfig configures a Volc TLS log store. The topic and compatible index
 // must be provisioned by the operator before the process starts.
 type VolcConfig struct {
-	Endpoint        string `yaml:"endpoint"`
-	Region          string `yaml:"region"`
-	TopicID         string `yaml:"topic_id"`
-	AccessKeyID     string `yaml:"access_key_id"`
-	AccessKeySecret string `yaml:"access_key_secret"`
+	Endpoint        string
+	Region          string
+	TopicID         string
+	AccessKeyID     string
+	AccessKeySecret string
 }
 
 // VolcConnectorConfig configures one physical Volc TLS connection shared by
 // multiple topic-scoped logical Log Stores.
 type VolcConnectorConfig struct {
-	Endpoint        string `yaml:"endpoint"`
-	Region          string `yaml:"region"`
-	AccessKeyID     string `yaml:"access_key_id"`
-	AccessKeySecret string `yaml:"access_key_secret"`
-}
-
-type volcProducer interface {
-	SendLog(shardHash, topic, source, filename string, log *pb.Log, callback producer.CallBack) error
-	Start()
-	Close()
-	ForceClose()
+	Endpoint        string
+	Region          string
+	AccessKeyID     string
+	AccessKeySecret string
 }
 
 type volcClient interface {
 	DescribeIndex(*tls.DescribeIndexRequest) (*tls.DescribeIndexResponse, error)
 	SearchLogsV2(*tls.SearchLogsRequest) (*tls.SearchLogsResponse, error)
+	PutLogsV2(*tls.PutLogsV2Request) (*tls.CommonResponse, error)
 }
 
 // VolcStore persists records in one externally provisioned Volc TLS topic.
 type VolcStore struct {
 	topicID       string
 	client        volcClient
-	writer        volcProducer
 	close         sync.Once
 	closed        atomic.Bool
 	maxLogBytes   int
@@ -75,13 +67,13 @@ type VolcStore struct {
 	ownsConnector bool
 }
 
-// VolcConnector owns the query client and producer for a physical Volc TLS
-// connection. Topic selection belongs to logical Stores.
+// VolcConnector wraps one physical Volc TLS SDK client. Topic selection belongs
+// to logical Stores.
 type VolcConnector struct {
-	client volcClient
-	writer volcProducer
-	close  sync.Once
-	closed atomic.Bool
+	client    volcClient
+	close     sync.Once
+	closed    atomic.Bool
+	closeIdle func()
 }
 
 // NewVolcConnector opens one reusable physical Volc TLS connector.
@@ -108,25 +100,26 @@ func NewVolcConnector(config VolcConnectorConfig) (*VolcConnector, error) {
 	retryPolicy := client.GetRetryPolicy()
 	retryPolicy.TotalTimeout = volcQueryTimeout
 	client.SetRetryPolicy(retryPolicy)
-	producerConfig := producer.GetDefaultProducerConfig()
-	producerConfig.ClientConfig = common.ClientConfig{
-		Endpoint:        config.Endpoint,
-		AccessKeyID:     config.AccessKeyID,
-		AccessKeySecret: config.AccessKeySecret,
-		Region:          config.Region,
+	connector := &VolcConnector{client: client}
+	if httpClient := client.GetHttpClient(); httpClient != nil {
+		connector.closeIdle = httpClient.CloseIdleConnections
 	}
-	producerConfig.EnableNanosecond = true
-	producerConfig.MaxBlockSec = int(volcQueryTimeout / time.Second)
-	writer := producer.NewProducer(producerConfig)
-	writer.Start()
-	return &VolcConnector{client: client, writer: writer}, nil
+	return connector, nil
+}
+
+// NewVolcConnectorWithClient creates a connector that borrows client.
+func NewVolcConnectorWithClient(client tls.Client) (*VolcConnector, error) {
+	if client == nil {
+		return nil, errors.New("logstore: volc client is nil")
+	}
+	return &VolcConnector{client: client}, nil
 }
 
 // Store validates topic scope and returns a logical Store borrowing this
 // connector. Closing the Store does not close the connector.
 func (c *VolcConnector) Store(topicID string) (*VolcStore, error) {
 	topicID = strings.TrimSpace(topicID)
-	if c == nil || c.client == nil || c.writer == nil || c.closed.Load() {
+	if c == nil || c.client == nil || c.closed.Load() {
 		return nil, errors.New("logstore: volc connector is not initialized")
 	}
 	if topicID == "" {
@@ -136,20 +129,20 @@ func (c *VolcConnector) Store(topicID string) (*VolcStore, error) {
 		return nil, err
 	}
 	return &VolcStore{
-		topicID: topicID, client: c.client, writer: c.writer,
+		topicID: topicID, client: c.client,
 		maxLogBytes: volcDefaultMaxLogBytes, connector: c,
 	}, nil
 }
 
-// Close flushes and closes the physical producer exactly once.
+// Close releases direct-constructor HTTP idle connections exactly once.
 func (c *VolcConnector) Close() error {
 	if c == nil {
 		return nil
 	}
 	c.close.Do(func() {
 		c.closed.Store(true)
-		if c.writer != nil {
-			c.writer.Close()
+		if c.closeIdle != nil {
+			c.closeIdle()
 		}
 	})
 	return nil
@@ -180,12 +173,12 @@ func NewVolcStore(config VolcConfig) (*VolcStore, error) {
 	return store, nil
 }
 
-// Append validates the complete batch before accepting records into the Volc producer.
+// Append validates the complete batch and writes sequential bounded batches.
 func (s *VolcStore) Append(ctx context.Context, records []Record) ([]RecordKey, error) {
 	if len(records) == 0 {
 		return []RecordKey{}, nil
 	}
-	if s == nil || s.writer == nil || s.topicID == "" {
+	if s == nil || s.client == nil || s.topicID == "" {
 		return nil, errors.New("logstore: volc store is not initialized")
 	}
 	if s.closed.Load() {
@@ -196,22 +189,46 @@ func (s *VolcStore) Append(ctx context.Context, records []Record) ([]RecordKey, 
 			return nil, err
 		}
 	}
-	keys := make([]RecordKey, 0, len(records))
+	items := make([]*pb.Log, 0, len(records))
 	for index, record := range records {
+		item, err := s.volcRecordForAppend(record)
+		if err != nil {
+			return nil, fmt.Errorf("logstore: encode Volc record %d: %w", index, err)
+		}
+		items = append(items, item)
+	}
+	keys := make([]RecordKey, 0, len(records))
+	for start := 0; start < len(items); {
 		if err := ctx.Err(); err != nil {
 			return keys, err
 		}
-		item, err := s.volcRecordForAppend(record)
-		if err != nil {
-			return keys, fmt.Errorf("logstore: encode Volc record %d: %w", index, err)
+		end := start
+		totalBytes := 0
+		for end < len(items) && end-start < volcMaxBatchRecords {
+			size := items[end].Size()
+			if end > start && totalBytes+size > volcDefaultMaxLogBytes {
+				break
+			}
+			totalBytes += size
+			end++
+		}
+		batch := make([]tls.Log, 0, end-start)
+		for _, item := range items[start:end] {
+			batch = append(batch, tlsLog(item))
 		}
 		callCtx, cancel := cappedContext(ctx, volcQueryTimeout)
-		err = callVolcSend(callCtx, s.writer, s.topicID, item)
+		err := callVolcPut(callCtx, s.client, &tls.PutLogsV2Request{
+			TopicID: s.topicID, Source: "gizclaw", FileName: "logstore",
+			Logs: batch, EnableNanosecond: true,
+		})
 		cancel()
 		if err != nil {
-			return keys, newVolcOperationError(fmt.Sprintf("append record %d", index), err)
+			return keys, newVolcOperationError(fmt.Sprintf("append records %d-%d", start, end-1), err)
 		}
-		keys = append(keys, record.Key())
+		for _, record := range records[start:end] {
+			keys = append(keys, record.Key())
+		}
+		start = end
 	}
 	return keys, nil
 }
@@ -228,7 +245,7 @@ func (s *VolcStore) volcRecordForAppend(record Record) (*pb.Log, error) {
 		if err != nil {
 			return nil, err
 		}
-		if producer.GetLogSize(item) <= limit {
+		if item.Size() <= limit {
 			return item, nil
 		}
 		switch {
@@ -467,8 +484,7 @@ func (s *VolcStore) Query(ctx context.Context, query Query) (Page, error) {
 }
 
 // Close closes a directly constructed Store's owned connector once. A
-// topic-scoped Store returned by VolcConnector.Store leaves the connector and
-// producer open.
+// topic-scoped Store returned by VolcConnector.Store leaves the connector open.
 func (s *VolcStore) Close() error {
 	if s == nil {
 		return nil
@@ -477,10 +493,6 @@ func (s *VolcStore) Close() error {
 		s.closed.Store(true)
 		if s.ownsConnector && s.connector != nil {
 			_ = s.connector.Close()
-		} else if s.connector == nil && s.writer != nil {
-			// Tests and package-internal adapters may construct a standalone
-			// Store directly; it still owns its writer.
-			s.writer.Close()
 		}
 	})
 	return nil
@@ -771,10 +783,11 @@ func callVolcSearch(ctx context.Context, client volcClient, request *tls.SearchL
 	}
 }
 
-func callVolcSend(ctx context.Context, writer volcProducer, topicID string, item *pb.Log) error {
+func callVolcPut(ctx context.Context, client volcClient, request *tls.PutLogsV2Request) error {
 	done := make(chan error, 1)
 	go func() {
-		done <- writer.SendLog("", topicID, "gizclaw", "logstore", item, nil)
+		_, err := client.PutLogsV2(request)
+		done <- err
 	}()
 	select {
 	case <-ctx.Done():
@@ -782,6 +795,17 @@ func callVolcSend(ctx context.Context, writer volcProducer, topicID string, item
 	case err := <-done:
 		return err
 	}
+}
+
+func tlsLog(item *pb.Log) tls.Log {
+	contents := make([]tls.LogContent, 0, len(item.Contents))
+	for _, content := range item.Contents {
+		if content != nil {
+			contents = append(contents, tls.LogContent{Key: content.Key, Value: content.Value})
+		}
+	}
+	nanoseconds := item.GetTimeNs()
+	return tls.Log{Contents: contents, Time: item.Time, TimeNs: &nanoseconds}
 }
 
 func cappedContext(ctx context.Context, limit time.Duration) (context.Context, context.CancelFunc) {

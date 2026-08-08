@@ -44,7 +44,7 @@ flowchart TB
     VecID["vecid"] --> Voiceprint["audio/voiceprint"]
 ```
 
-`cmd/internal/storage` 和 `cmd/internal/stores` 负责读取进程配置、选择具体 backend 并把 stores 注入 Server；`pkgs/store` 不读取 GizClaw Server config，也不决定某个领域使用哪个 physical backend。
+`cmd/internal/server` 独占 YAML DTO、严格解析、环境变量展开和 workspace 相对路径解析，再把普通 Go 配置传给公共包。`pkgs/store/storage` 打开并持有物理资源；根包 `pkgs/store` 校验 Storage/Store 组合并构造逻辑 Store。两个公共包都不读取 YAML 或 JSON，也不决定 service binding。
 
 ### Server 组合契约
 
@@ -69,11 +69,11 @@ flowchart TB
 | `prometheus` | remote-write/query URL 与可选 bearer token |
 | `volc-tls` | endpoint、region 与 credential |
 
-多个 Store 可以借用同一个 connector；关闭逻辑 Store 不会关闭共享 connector。共享一个 `memory` Storage 的 keyvalue Store 使用同一 `*kv.Memory` 根与原子边界。`vecstore` 与 `graph` 没有内置 Server 消费者，因此不属于命令层 Store 配置；对应公共 package 与构造函数仍保留。RuntimeProfile 与 MemoryLayout 选择的 Memory connection 仍在此 registry 之外。
+多个 Store 可以借用同一个 connector；调用方必须先关闭逻辑 `Stores`，再关闭物理 `Storage`。`memory` 只是无状态 marker，每个引用它的 keyvalue 或 metrics Store 都创建独立实例。`vecstore` 与 `graph` 没有内置 Server 消费者，因此不属于命令层 Store 配置；对应公共 package 与构造函数仍保留。RuntimeProfile 与 MemoryLayout 选择的 Memory connection 仍在此 registry 之外。
 
 ### 进程 SQLite DSN 契约
 
-`cmd/internal/storage` 接受 modernc SQLite DSN，并继续支持 `_pragma` 等
+`pkgs/store/storage` 接受 modernc SQLite DSN，并继续支持 `_pragma` 等
 modernc 参数。连接的 `busy_timeout`、WAL journal mode 和 foreign-key PRAGMA
 由 GizClaw 负责。`go-sqlite3` 兼容简写 `_busy_timeout`/`_timeout`、
 `_foreign_keys`/`_fk`、`_journal_mode`/`_journal`、

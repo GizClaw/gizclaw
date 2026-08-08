@@ -109,6 +109,8 @@ Config rules:
 - Prometheus and Volc TLS are physical connector kinds. Their endpoints and credentials belong under `storage`.
 - The six logical Store kinds are `keyvalue`, `sql`, `objectstore`, `metrics`, `log.immutable`, and `log.mutable`.
 - In-process keyvalue or Metrics Stores reference a physical `storage.kind: memory`. Public vecstore and graph packages remain available but are not Server Store kinds.
+- `memory` is a stateless marker; every logical Store entry creates its own in-process backend.
+- `cmd/internal/server` owns YAML DTO decoding and explicit conversion. `pkgs/store/storage` owns typed physical resources, while root `pkgs/store` builds logical Stores and never closes the physical registry.
 - `memory.Store` is selected through RuntimeProfile and MemoryLayout and is not a Server Store kind.
 - Relative physical paths are resolved from the workspace. Logical Store values are not rewritten.
 - `services.agent_host`, `services.metrics`, and `services.system_log` are optional; all other built-in service blocks are required.

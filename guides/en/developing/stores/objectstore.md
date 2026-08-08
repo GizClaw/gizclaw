@@ -12,6 +12,7 @@
 | `ObjectInfo` | Returns object name, size and deadline. |
 | `LocalDirProvider` | Allows callers to identify the local filesystem backend. |
 | `Dir` | Securely map object keys to specified directories and maintain expiration metadata. |
+| `Root` / `NewRoot` | Borrow a physical `*os.Root` for rooted filesystem operations without closing it. |
 
 ## Main purpose
 
@@ -23,7 +24,7 @@ The Object Store treats directories as an implementation detail and does not pro
 
 ## Server composition
 
-`storage` owns the physical filesystem directory. Logical ObjectStores borrow it and select an object prefix. When several logical Stores share one connector, every prefix must be non-empty, clean, and non-overlapping. Asset and AgentHost consumers are then bound explicitly through `services`; closing a scoped Store does not close or invalidate the physical connector.
+`storage` opens and owns one physical `*os.Root`. Logical ObjectStores borrow the same rooted handle and select an object prefix; `os.Root` rejects absolute paths, `..`, and escaping symlinks. When several logical Stores share one connector, every prefix must be non-empty, clean, and non-overlapping. Asset and AgentHost consumers are then bound explicitly through `services`; closing a scoped Store does not close or invalidate the physical connector.
 
 ```yaml
 storage:

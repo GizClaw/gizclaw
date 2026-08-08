@@ -8,7 +8,7 @@
 
 `Store` 拥有 backend-neutral sample 与 query contract。`MemoryStore` 是进程内实现；`PrometheusStore` 使用 remote write 和 HTTP query API；`ClickHouseStore` 拥有一张经过校验的 MergeTree table。Telemetry mapping、label cardinality、identity exposure 与 authorization 仍由调用 service 拥有。
 
-在 Server Config 中，Prometheus URL、bearer token 与可复用 HTTP client 属于一个物理 `storage.kind: prometheus` connector。逻辑 Metrics Store 只引用它：
+在 Server Config 中，Prometheus URL、bearer token 与可复用的官方 `api.Client` 属于一个物理 `storage.kind: prometheus` connector。查询和 remote write 都通过这个 client 的 `Do`，逻辑 Metrics Store 只借用它：
 
 ```yaml
 storage:
@@ -40,4 +40,4 @@ stores:
     table: gizclaw_metrics
 ```
 
-本机测试可配置一个无属性的 `storage.kind: memory`，再让 `stores.kind: metrics` 引用它。旧 backend 字段和 `stores` 下的 provider connection 字段无效。
+本机测试可配置一个无属性的 `storage.kind: memory`，再让 `stores.kind: metrics` 引用它。每个逻辑 Store 会得到独立的 `MemoryStore`；memory marker 本身不缓存实例。旧 backend 字段和 `stores` 下的 provider connection 字段无效。

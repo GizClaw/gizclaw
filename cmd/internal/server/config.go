@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
-	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
-	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	store "github.com/GizClaw/gizclaw-go/pkgs/store"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/goccy/go-yaml"
 )
 
@@ -26,7 +26,7 @@ type Config struct {
 	ICEServers      []gizwebrtc.ICEServer
 	AdminPublicKey  giznet.PublicKey
 	Storage         map[string]storage.Config
-	Stores          map[string]stores.Config
+	Stores          map[string]store.Config
 	Services        *ServicesConfig
 	Friends         FriendsConfig
 	FriendGroups    FriendGroupsConfig
@@ -167,21 +167,59 @@ type IdentityConfig struct {
 	PrivateKey giznet.Key `yaml:"private-key"`
 }
 
+type storageFileConfig struct {
+	Kind            string `yaml:"kind"`
+	Dir             string `yaml:"dir"`
+	DSN             string `yaml:"dsn"`
+	RemoteWriteURL  string `yaml:"remote_write_url"`
+	QueryURL        string `yaml:"query_url"`
+	BearerToken     string `yaml:"bearer_token"`
+	Endpoint        string `yaml:"endpoint"`
+	Region          string `yaml:"region"`
+	AccessKeyID     string `yaml:"access_key_id"`
+	AccessKeySecret string `yaml:"access_key_secret"`
+}
+
+func (cfg storageFileConfig) runtimeConfig() storage.Config {
+	return storage.Config{
+		Kind: cfg.Kind, Dir: cfg.Dir, DSN: cfg.DSN,
+		RemoteWriteURL: cfg.RemoteWriteURL, QueryURL: cfg.QueryURL,
+		BearerToken: cfg.BearerToken, Endpoint: cfg.Endpoint, Region: cfg.Region,
+		AccessKeyID: cfg.AccessKeyID, AccessKeySecret: cfg.AccessKeySecret,
+	}
+}
+
+type storeFileConfig struct {
+	Kind     string `yaml:"kind"`
+	Storage  string `yaml:"storage"`
+	Prefix   string `yaml:"prefix"`
+	Database string `yaml:"database"`
+	Table    string `yaml:"table"`
+	TopicID  string `yaml:"topic_id"`
+}
+
+func (cfg storeFileConfig) runtimeConfig() store.Config {
+	return store.Config{
+		Kind: cfg.Kind, Storage: cfg.Storage, Prefix: cfg.Prefix,
+		Database: cfg.Database, Table: cfg.Table, TopicID: cfg.TopicID,
+	}
+}
+
 type ConfigFile struct {
-	Identity        IdentityConfig            `yaml:"identity"`
-	Listen          string                    `yaml:"listen"`
-	Endpoint        string                    `yaml:"endpoint"`
-	ServeToClients  bool                      `yaml:"serve-to-clients"`
-	EdgeNodes       []giznet.PublicKey        `yaml:"edge-nodes"`
-	ICEServers      []gizwebrtc.ICEServer     `yaml:"ice-servers"`
-	AdminPublicKey  giznet.PublicKey          `yaml:"admin-public-key"`
-	Storage         map[string]storage.Config `yaml:"storage"`
-	Stores          map[string]stores.Config  `yaml:"stores"`
-	Services        *ServicesConfig           `yaml:"services"`
-	Friends         FriendsConfig             `yaml:"friends"`
-	FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
-	Speech          SpeechConfig              `yaml:"speech"`
-	PendingDeletion PendingDeletionConfig     `yaml:"pending_deletion"`
+	Identity        IdentityConfig               `yaml:"identity"`
+	Listen          string                       `yaml:"listen"`
+	Endpoint        string                       `yaml:"endpoint"`
+	ServeToClients  bool                         `yaml:"serve-to-clients"`
+	EdgeNodes       []giznet.PublicKey           `yaml:"edge-nodes"`
+	ICEServers      []gizwebrtc.ICEServer        `yaml:"ice-servers"`
+	AdminPublicKey  giznet.PublicKey             `yaml:"admin-public-key"`
+	Storage         map[string]storageFileConfig `yaml:"storage"`
+	Stores          map[string]storeFileConfig   `yaml:"stores"`
+	Services        *ServicesConfig              `yaml:"services"`
+	Friends         FriendsConfig                `yaml:"friends"`
+	FriendGroups    FriendGroupsConfig           `yaml:"friend_groups"`
+	Speech          SpeechConfig                 `yaml:"speech"`
+	PendingDeletion PendingDeletionConfig        `yaml:"pending_deletion"`
 }
 
 const maxSpeechExtractionRequestTimeout = 120 * time.Second
@@ -216,20 +254,20 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		return ConfigFile{}, fmt.Errorf("server: system_tasks is not supported; configure Pet model aliases in the RuntimeProfile")
 	}
 	var raw struct {
-		Identity        *IdentityConfig           `yaml:"identity"`
-		Listen          string                    `yaml:"listen"`
-		Endpoint        string                    `yaml:"endpoint"`
-		ServeToClients  *bool                     `yaml:"serve-to-clients"`
-		EdgeNodes       []giznet.PublicKey        `yaml:"edge-nodes"`
-		ICEServers      []gizwebrtc.ICEServer     `yaml:"ice-servers"`
-		AdminPublicKey  *giznet.PublicKey         `yaml:"admin-public-key"`
-		Storage         map[string]storage.Config `yaml:"storage"`
-		Stores          map[string]stores.Config  `yaml:"stores"`
-		Services        *ServicesConfig           `yaml:"services"`
-		Friends         FriendsConfig             `yaml:"friends"`
-		FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
-		Speech          speechFileConfig          `yaml:"speech"`
-		PendingDeletion pendingDeletionFileConfig `yaml:"pending_deletion"`
+		Identity        *IdentityConfig              `yaml:"identity"`
+		Listen          string                       `yaml:"listen"`
+		Endpoint        string                       `yaml:"endpoint"`
+		ServeToClients  *bool                        `yaml:"serve-to-clients"`
+		EdgeNodes       []giznet.PublicKey           `yaml:"edge-nodes"`
+		ICEServers      []gizwebrtc.ICEServer        `yaml:"ice-servers"`
+		AdminPublicKey  *giznet.PublicKey            `yaml:"admin-public-key"`
+		Storage         map[string]storageFileConfig `yaml:"storage"`
+		Stores          map[string]storeFileConfig   `yaml:"stores"`
+		Services        *ServicesConfig              `yaml:"services"`
+		Friends         FriendsConfig                `yaml:"friends"`
+		FriendGroups    FriendGroupsConfig           `yaml:"friend_groups"`
+		Speech          speechFileConfig             `yaml:"speech"`
+		PendingDeletion pendingDeletionFileConfig    `yaml:"pending_deletion"`
 	}
 	if err := yaml.UnmarshalWithOptions(data, &raw, yaml.DisallowUnknownField()); err != nil {
 		return ConfigFile{}, err
@@ -466,10 +504,10 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 		cfg.EdgeNodes = fileCfg.EdgeNodes
 	}
 	if len(cfg.Stores) == 0 {
-		cfg.Stores = fileCfg.Stores
+		cfg.Stores = runtimeStoreConfigs(fileCfg.Stores)
 	}
 	if len(cfg.Storage) == 0 {
-		cfg.Storage = fileCfg.Storage
+		cfg.Storage = runtimeStorageConfigs(fileCfg.Storage)
 	}
 	if cfg.Services == nil {
 		cfg.Services = fileCfg.Services
@@ -479,6 +517,28 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	cfg.Speech = mergeSpeechConfig(cfg.Speech, fileCfg.Speech)
 	cfg.PendingDeletion = mergePendingDeletionConfig(cfg.PendingDeletion, fileCfg.PendingDeletion)
 	return cfg, nil
+}
+
+func runtimeStorageConfigs(configs map[string]storageFileConfig) map[string]storage.Config {
+	if len(configs) == 0 {
+		return nil
+	}
+	out := make(map[string]storage.Config, len(configs))
+	for name, cfg := range configs {
+		out[name] = cfg.runtimeConfig()
+	}
+	return out
+}
+
+func runtimeStoreConfigs(configs map[string]storeFileConfig) map[string]store.Config {
+	if len(configs) == 0 {
+		return nil
+	}
+	out := make(map[string]store.Config, len(configs))
+	for name, cfg := range configs {
+		out[name] = cfg.runtimeConfig()
+	}
+	return out
 }
 
 func mergeFriendsConfig(runtime FriendsConfig, file FriendsConfig) FriendsConfig {
@@ -926,15 +986,15 @@ func validateConfigShape(data []byte) error {
 			return fmt.Errorf("server: stores.%s kind %q is no longer supported; configure MemoryLayout resources and RuntimeProfile memory bindings instead", name, kind)
 		}
 		if kind == "log" {
-			return fmt.Errorf("server: stores.%s kind %q is not supported; use %s or %s", name, kind, stores.KindLogImmutable, stores.KindLogMutable)
+			return fmt.Errorf("server: stores.%s kind %q is not supported; use %s or %s", name, kind, store.KindLogImmutable, store.KindLogMutable)
 		}
 		allowedFields := map[string]map[string]struct{}{
-			stores.KindKeyValue:     {"kind": {}, "storage": {}, "prefix": {}},
-			stores.KindObjectStore:  {"kind": {}, "storage": {}, "prefix": {}},
-			stores.KindSQL:          {"kind": {}, "storage": {}},
-			stores.KindMetrics:      {"kind": {}, "storage": {}, "table": {}, "database": {}},
-			stores.KindLogImmutable: {"kind": {}, "storage": {}, "topic_id": {}, "database": {}, "table": {}},
-			stores.KindLogMutable:   {"kind": {}, "storage": {}, "database": {}, "table": {}},
+			store.KindKeyValue:     {"kind": {}, "storage": {}, "prefix": {}},
+			store.KindObjectStore:  {"kind": {}, "storage": {}, "prefix": {}},
+			store.KindSQL:          {"kind": {}, "storage": {}},
+			store.KindMetrics:      {"kind": {}, "storage": {}, "table": {}, "database": {}},
+			store.KindLogImmutable: {"kind": {}, "storage": {}, "topic_id": {}, "database": {}, "table": {}},
+			store.KindLogMutable:   {"kind": {}, "storage": {}, "database": {}, "table": {}},
 		}
 		allowed, knownKind := allowedFields[kind]
 		if !knownKind {

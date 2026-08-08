@@ -13,14 +13,14 @@ import (
 	"text/template"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
-	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
-	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
 
 func testPublicKey(fill byte) giznet.PublicKey {
@@ -495,6 +495,31 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	}
 	if srv.GameplayStore == nil || srv.GameplayAssets == nil || srv.WorkspaceAssets == nil || srv.GameplayDB == nil {
 		t.Fatalf("gameplay stores not wired: %+v", srv.Server)
+	}
+}
+
+func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
+	physical := storageFileConfig{
+		Kind: storage.KindPrometheus, Dir: "dir", DSN: "dsn",
+		RemoteWriteURL: "write", QueryURL: "query", BearerToken: "token",
+		Endpoint: "endpoint", Region: "region", AccessKeyID: "id", AccessKeySecret: "secret",
+	}.runtimeConfig()
+	if physical != (storage.Config{
+		Kind: storage.KindPrometheus, Dir: "dir", DSN: "dsn",
+		RemoteWriteURL: "write", QueryURL: "query", BearerToken: "token",
+		Endpoint: "endpoint", Region: "region", AccessKeyID: "id", AccessKeySecret: "secret",
+	}) {
+		t.Fatalf("storage runtime config = %+v", physical)
+	}
+	logical := (storeFileConfig{
+		Kind: stores.KindLogImmutable, Storage: "storage", Prefix: "prefix",
+		Database: "database", Table: "table", TopicID: "topic",
+	}).runtimeConfig()
+	if logical != (stores.Config{
+		Kind: stores.KindLogImmutable, Storage: "storage", Prefix: "prefix",
+		Database: "database", Table: "table", TopicID: "topic",
+	}) {
+		t.Fatalf("store runtime config = %+v", logical)
 	}
 }
 

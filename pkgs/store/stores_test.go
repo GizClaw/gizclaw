@@ -1,14 +1,15 @@
-package stores
+package store
 
 import (
 	"io"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
-	physicalstorage "github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
+	physicalstorage "github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
 
 func TestKeyValueUsesCompatiblePhysicalStorage(t *testing.T) {
@@ -18,10 +19,40 @@ func TestKeyValueUsesCompatiblePhysicalStorage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	registry, err := NewWithOwnedStorage(physical, map[string]Config{
+	t.Cleanup(func() { _ = physical.Close() })
+	registry, err := New(map[string]Config{
 		"first":  {Kind: KindKeyValue, Storage: "memory", Prefix: "first"},
 		"second": {Kind: KindKeyValue, Storage: "memory", Prefix: "second"},
+	}, physical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	first, err := registry.KV("first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := registry.KV("second")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, ok := kv.SharedAtomicStore(first, second); ok {
+		t.Fatal("memory-backed logical Stores unexpectedly share an instance")
+	}
+}
+
+func TestKeyValueBadgerStoresSharePhysicalAtomicRoot(t *testing.T) {
+	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+		"badger": {Kind: physicalstorage.KindBadger, Dir: t.TempDir()},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = physical.Close() })
+	registry, err := New(map[string]Config{
+		"first":  {Kind: KindKeyValue, Storage: "badger", Prefix: "first"},
+		"second": {Kind: KindKeyValue, Storage: "badger", Prefix: "second"},
+	}, physical)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,9 +69,6 @@ func TestKeyValueUsesCompatiblePhysicalStorage(t *testing.T) {
 	if !ok || root == nil || len(prefixes) != 2 {
 		t.Fatalf("SharedAtomicStore() = %T, %v, %v", root, prefixes, ok)
 	}
-	if _, ok := root.(*kv.Memory); !ok {
-		t.Fatalf("root = %T, want *kv.Memory", root)
-	}
 }
 
 func TestKeyValueRejectsIncompatibleStorage(t *testing.T) {
@@ -51,11 +79,11 @@ func TestKeyValueRejectsIncompatibleStorage(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = physical.Close() })
-	_, err = NewWithStorage(physical, map[string]Config{
+	_, err = New(map[string]Config{
 		"kv": {Kind: KindKeyValue, Storage: "objects"},
-	})
+	}, physical)
 	if err == nil || !strings.Contains(err.Error(), `storage "objects" kind "filesystem.dir"`) {
-		t.Fatalf("NewWithStorage() error = %v", err)
+		t.Fatalf("New() error = %v", err)
 	}
 }
 
@@ -82,9 +110,9 @@ func TestStoreKindsRejectIncompatibleStorageKinds(t *testing.T) {
 		{"log.mutable", Config{Kind: KindLogMutable, Storage: "memory"}, physicalstorage.KindMemory},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := NewWithStorage(physical, map[string]Config{"store": test.config})
+			_, err := New(map[string]Config{"store": test.config}, physical)
 			if err == nil || !strings.Contains(err.Error(), `kind "`+test.storageKind+`"`) {
-				t.Fatalf("NewWithStorage() error = %v", err)
+				t.Fatalf("New() error = %v", err)
 			}
 		})
 	}
@@ -98,9 +126,10 @@ func TestObjectStoreConstructedFromFilesystemDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	registry, err := NewWithOwnedStorage(physical, map[string]Config{
+	t.Cleanup(func() { _ = physical.Close() })
+	registry, err := New(map[string]Config{
 		"assets": {Kind: KindObjectStore, Storage: "files", Prefix: "assets"},
-	})
+	}, physical)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,6 +140,9 @@ func TestObjectStoreConstructedFromFilesystemDir(t *testing.T) {
 	}
 	if err := assets.Put("file.txt", strings.NewReader("value")); err != nil {
 		t.Fatal(err)
+	}
+	if err := assets.Put("/absolute.txt", strings.NewReader("value")); err == nil {
+		t.Fatal("prefixed ObjectStore accepted an absolute name")
 	}
 	reader, err := assets.Get("file.txt")
 	if err != nil {
@@ -130,9 +162,10 @@ func TestSQLUsesCompatibleDatabaseStorage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	registry, err := NewWithOwnedStorage(physical, map[string]Config{
+	t.Cleanup(func() { _ = physical.Close() })
+	registry, err := New(map[string]Config{
 		"database": {Kind: KindSQL, Storage: "database"},
-	})
+	}, physical)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,19 +174,26 @@ func TestSQLUsesCompatibleDatabaseStorage(t *testing.T) {
 	if err != nil || db.DriverName() != "sqlite" {
 		t.Fatalf("SQL(database) = %v, %v", db, err)
 	}
+	if err := registry.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Ping(); err != nil {
+		t.Fatalf("Stores.Close closed borrowed SQL pool: %v", err)
+	}
 }
 
-func TestMetricsMemoryRootIsShared(t *testing.T) {
+func TestMetricsMemoryStoresAreIndependent(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
 		"memory": {Kind: physicalstorage.KindMemory},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	registry, err := NewWithOwnedStorage(physical, map[string]Config{
+	t.Cleanup(func() { _ = physical.Close() })
+	registry, err := New(map[string]Config{
 		"first":  {Kind: KindMetrics, Storage: "memory"},
 		"second": {Kind: KindMetrics, Storage: "memory"},
-	})
+	}, physical)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,8 +206,8 @@ func TestMetricsMemoryRootIsShared(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first != second {
-		t.Fatal("metrics stores over one memory Storage do not share a root")
+	if first == second {
+		t.Fatal("metrics stores over one memory Storage share an instance")
 	}
 	if _, ok := first.(*metrics.MemoryStore); !ok {
 		t.Fatalf("Metrics(first) = %T, want *metrics.MemoryStore", first)
@@ -184,11 +224,11 @@ func TestRemovedCommandStoreKindsAreRejected(t *testing.T) {
 	defer physical.Close()
 	for _, kind := range []string{"vecstore", "graph"} {
 		t.Run(kind, func(t *testing.T) {
-			_, err := NewWithStorage(physical, map[string]Config{
+			_, err := New(map[string]Config{
 				"removed": {Kind: kind, Storage: "memory"},
-			})
+			}, physical)
 			if err == nil || !strings.Contains(err.Error(), "unknown kind") {
-				t.Fatalf("NewWithStorage() error = %v", err)
+				t.Fatalf("New() error = %v", err)
 			}
 		})
 	}
@@ -208,17 +248,26 @@ func TestLogicalScopeFieldsAreKindSpecific(t *testing.T) {
 		"sql topic":      {Kind: KindSQL, Storage: "memory", TopicID: "topic"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := NewWithStorage(physical, map[string]Config{"store": cfg}); err == nil {
-				t.Fatal("NewWithStorage() error = nil")
+			if _, err := New(map[string]Config{"store": cfg}, physical); err == nil {
+				t.Fatal("New() error = nil")
 			}
 		})
 	}
 }
 
 func TestNilPhysicalStorage(t *testing.T) {
-	if _, err := NewWithStorage(nil, map[string]Config{
+	if _, err := New(map[string]Config{
 		"store": {Kind: KindKeyValue, Storage: "memory"},
-	}); err == nil {
-		t.Fatal("NewWithStorage(nil) error = nil")
+	}, nil); err == nil {
+		t.Fatal("New(nil) error = nil")
+	}
+}
+
+func TestConfigHasNoSerializationTags(t *testing.T) {
+	typeOf := reflect.TypeFor[Config]()
+	for field := range typeOf.Fields() {
+		if field.Tag.Get("yaml") != "" || field.Tag.Get("json") != "" || field.Tag.Get("mapstructure") != "" {
+			t.Fatalf("Config.%s has serialization tag %q", field.Name, field.Tag)
+		}
 	}
 }

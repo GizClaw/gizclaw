@@ -1,7 +1,7 @@
-// Package stores provides a configuration-driven registry for logical stores.
-// Logical stores reference physical backends from cmd/internal/storage and can
+// Package store provides a configuration-driven registry for logical stores.
+// Logical stores reference physical backends from store/storage and can
 // expose scoped views such as prefixed KV stores.
-package stores
+package store
 
 import (
 	"errors"
@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -31,7 +31,7 @@ const (
 	KindSQL          = "sql"
 )
 
-// Config is the YAML representation of a single logical store entry.
+// Config describes one logical Store entry. Serialization belongs to callers.
 //
 //	stores:
 //	  peers:
@@ -39,12 +39,12 @@ const (
 //	    storage: main-kv
 //	    prefix: peers
 type Config struct {
-	Kind     string `yaml:"kind"`
-	Storage  string `yaml:"storage"` // reference to a physical storage backend
-	Prefix   string `yaml:"prefix"`  // slash-separated logical key prefix for KV stores
-	Database string `yaml:"database"`
-	Table    string `yaml:"table"`
-	TopicID  string `yaml:"topic_id"`
+	Kind     string
+	Storage  string // reference to a physical storage backend
+	Prefix   string // slash-separated logical key prefix for KV stores
+	Database string
+	Table    string
+	TopicID  string
 }
 
 // ConfigError identifies the logical Store entry whose construction failed.
@@ -59,37 +59,22 @@ func (e *ConfigError) Error() string { return e.Err.Error() }
 // Unwrap exposes the underlying construction error.
 func (e *ConfigError) Unwrap() error { return e.Err }
 
-// Stores holds named logical store instances created eagerly by NewWithStorage.
+// Stores holds named logical store instances created eagerly by New.
 type Stores struct {
 	storage      *storage.Storage
-	ownsStorage  bool
 	kvs          map[string]kv.Store
+	kvRoots      map[string]kv.Store
 	objects      map[string]objectstore.ObjectStore
 	metrics      map[string]metrics.Store
-	metricRoots  map[string]metrics.Store
 	logs         map[string]logstore.ImmutableStore
 	mutableLogs  map[string]struct{}
 	sqls         map[string]*sqlx.DB
 	logicClosers []io.Closer
 }
 
-// NewWithOwnedStorage creates logical stores and transfers ownership of the
-// provided physical storage registry to the returned Stores.
-func NewWithOwnedStorage(physical *storage.Storage, configs map[string]Config) (*Stores, error) {
-	s, err := NewWithStorage(physical, configs)
-	if err != nil {
-		if physical == nil {
-			return nil, err
-		}
-		return nil, errors.Join(err, physical.Close())
-	}
-	s.ownsStorage = true
-	return s, nil
-}
-
-// NewWithStorage creates logical stores on top of already-opened physical
-// storage backends. The caller owns the physical storage lifecycle.
-func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stores, error) {
+// New creates logical stores on top of already-opened physical storage
+// backends. The caller always owns the physical storage lifecycle.
+func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) {
 	if physical == nil && needsPhysicalStorage(configs) {
 		return nil, fmt.Errorf("stores: storage registry is nil")
 	}
@@ -99,9 +84,9 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 	s := &Stores{
 		storage:     physical,
 		kvs:         make(map[string]kv.Store),
+		kvRoots:     make(map[string]kv.Store),
 		objects:     make(map[string]objectstore.ObjectStore),
 		metrics:     make(map[string]metrics.Store),
-		metricRoots: make(map[string]metrics.Store),
 		logs:        make(map[string]logstore.ImmutableStore),
 		mutableLogs: make(map[string]struct{}),
 		sqls:        make(map[string]*sqlx.DB),
@@ -329,8 +314,7 @@ func (r *Stores) MutableLog(name string) (logstore.MutableStore, error) {
 	return mutable, nil
 }
 
-// Close releases logical stores, then any physical storage owned by this
-// registry. Stores created with NewWithStorage do not own physical storage.
+// Close releases logical stores. Physical storage is always caller-owned.
 func (r *Stores) Close() error {
 	var errs []error
 	for i := len(r.logicClosers) - 1; i >= 0; i-- {
@@ -339,12 +323,6 @@ func (r *Stores) Close() error {
 		}
 	}
 	r.logicClosers = nil
-	if r.ownsStorage && r.storage != nil {
-		if err := r.storage.Close(); err != nil {
-			errs = append(errs, err)
-		}
-		r.storage = nil
-	}
 	return errors.Join(errs...)
 }
 
@@ -361,9 +339,27 @@ func (r *Stores) newKV(name string, cfg Config) (kv.Store, error) {
 	if kind != storage.KindBadger && kind != storage.KindMemory {
 		return nil, fmt.Errorf("stores: keyvalue %q does not support storage %q kind %q", name, cfg.Storage, kind)
 	}
-	base, err := r.storage.KV(cfg.Storage)
-	if err != nil {
-		return nil, fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)
+	var base kv.Store
+	switch kind {
+	case storage.KindBadger:
+		if existing := r.kvRoots[cfg.Storage]; existing != nil {
+			base = existing
+			break
+		}
+		db, err := r.storage.Badger(cfg.Storage)
+		if err != nil {
+			return nil, fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)
+		}
+		base, err = kv.NewBadgerWithDB(db, nil)
+		if err != nil {
+			return nil, fmt.Errorf("stores: keyvalue %q use badger storage %q: %w", name, cfg.Storage, err)
+		}
+		r.kvRoots[cfg.Storage] = base
+	case storage.KindMemory:
+		if _, err := r.storage.Memory(cfg.Storage); err != nil {
+			return nil, fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)
+		}
+		base = kv.NewMemory(nil)
 	}
 	prefix, err := parseKeyPrefix(cfg.Prefix)
 	if err != nil {
@@ -385,23 +381,26 @@ func (r *Stores) newMetrics(name string, cfg Config) (metrics.Store, error) {
 	}
 	switch kind {
 	case storage.KindMemory:
+		if _, err := r.storage.Memory(cfg.Storage); err != nil {
+			return nil, fmt.Errorf("stores: metrics %q resolve memory storage %q: %w", name, cfg.Storage, err)
+		}
 		if cfg.Table != "" || cfg.Database != "" {
 			return nil, fmt.Errorf("stores: metrics %q memory storage does not support table or database", name)
 		}
-		if st, ok := r.metricRoots[cfg.Storage]; ok {
-			return st, nil
-		}
 		st := metrics.NewMemoryStore()
-		r.metricRoots[cfg.Storage] = st
 		r.logicClosers = append(r.logicClosers, st)
 		return st, nil
 	case storage.KindPrometheus:
 		if cfg.Table != "" || cfg.Database != "" {
 			return nil, fmt.Errorf("stores: metrics %q prometheus storage does not support table or database", name)
 		}
-		connector, err := r.storage.Prometheus(cfg.Storage)
+		client, remoteWriteURL, err := r.storage.Prometheus(cfg.Storage)
 		if err != nil {
 			return nil, fmt.Errorf("stores: metrics %q resolve prometheus storage %q: %w", name, cfg.Storage, err)
+		}
+		connector, err := metrics.NewPrometheusConnectorWithClient(client, remoteWriteURL)
+		if err != nil {
+			return nil, fmt.Errorf("stores: metrics %q prometheus: %w", name, err)
 		}
 		st, err := connector.Store()
 		if err != nil {
@@ -454,9 +453,13 @@ func (r *Stores) newLog(name string, cfg Config) (logstore.ImmutableStore, error
 		if cfg.Database != "" || cfg.Table != "" {
 			return nil, fmt.Errorf("stores: log %q volc-tls storage does not support database or table", name)
 		}
-		connector, err := r.storage.VolcTLS(cfg.Storage)
+		client, err := r.storage.VolcTLS(cfg.Storage)
 		if err != nil {
 			return nil, fmt.Errorf("stores: log %q resolve volc-tls storage %q: %w", name, cfg.Storage, err)
+		}
+		connector, err := logstore.NewVolcConnectorWithClient(client)
+		if err != nil {
+			return nil, fmt.Errorf("stores: log %q volc-tls: %w", name, err)
 		}
 		st, err := connector.Store(os.ExpandEnv(cfg.TopicID))
 		if err != nil {
@@ -497,11 +500,14 @@ func (r *Stores) newObjectStore(name string, cfg Config) (objectstore.ObjectStor
 	if kind != storage.KindFilesystemDir {
 		return nil, fmt.Errorf("stores: objectstore %q does not support storage %q kind %q", name, cfg.Storage, kind)
 	}
-	dir, err := r.storage.Dir(cfg.Storage)
+	root, err := r.storage.FilesystemDir(cfg.Storage)
 	if err != nil {
 		return nil, fmt.Errorf("stores: objectstore %q resolve storage %q: %w", name, cfg.Storage, err)
 	}
-	st := objectstore.Dir(dir)
+	st, err := objectstore.NewRoot(root)
+	if err != nil {
+		return nil, fmt.Errorf("stores: objectstore %q filesystem.dir: %w", name, err)
+	}
 	prefix, err := parseObjectPrefix(cfg.Prefix)
 	if err != nil {
 		return nil, fmt.Errorf("stores: objectstore %q prefix: %w", name, err)
@@ -558,31 +564,59 @@ type prefixedObjectStore struct {
 }
 
 func (s prefixedObjectStore) Get(name string) (io.ReadCloser, error) {
-	return s.base.Get(s.name(name))
+	name, err := s.name(name)
+	if err != nil {
+		return nil, err
+	}
+	return s.base.Get(name)
 }
 
 func (s prefixedObjectStore) Put(name string, r io.Reader) error {
-	return s.base.Put(s.name(name), r)
+	name, err := s.name(name)
+	if err != nil {
+		return err
+	}
+	return s.base.Put(name, r)
 }
 
 func (s prefixedObjectStore) PutWithDeadline(name string, r io.Reader, deadline time.Time) error {
-	return s.base.PutWithDeadline(s.name(name), r, deadline)
+	name, err := s.name(name)
+	if err != nil {
+		return err
+	}
+	return s.base.PutWithDeadline(name, r, deadline)
 }
 
 func (s prefixedObjectStore) PutWithTTL(name string, r io.Reader, ttl time.Duration) error {
-	return s.base.PutWithTTL(s.name(name), r, ttl)
+	name, err := s.name(name)
+	if err != nil {
+		return err
+	}
+	return s.base.PutWithTTL(name, r, ttl)
 }
 
 func (s prefixedObjectStore) Delete(name string) error {
-	return s.base.Delete(s.name(name))
+	name, err := s.name(name)
+	if err != nil {
+		return err
+	}
+	return s.base.Delete(name)
 }
 
 func (s prefixedObjectStore) DeletePrefix(prefix string) error {
-	return s.base.DeletePrefix(s.name(prefix))
+	prefix, err := s.name(prefix)
+	if err != nil {
+		return err
+	}
+	return s.base.DeletePrefix(prefix)
 }
 
 func (s prefixedObjectStore) List(prefix string) ([]objectstore.ObjectInfo, error) {
-	items, err := s.base.List(s.name(prefix))
+	prefix, err := s.name(prefix)
+	if err != nil {
+		return nil, err
+	}
+	items, err := s.base.List(prefix)
 	if err != nil {
 		return nil, err
 	}
@@ -608,10 +642,13 @@ func (s prefixedObjectStore) LocalDir() (string, bool) {
 	return filepath.Join(dir, filepath.FromSlash(s.prefix)), true
 }
 
-func (s prefixedObjectStore) name(name string) string {
+func (s prefixedObjectStore) name(name string) (string, error) {
+	if strings.HasPrefix(name, "/") || filepath.IsAbs(filepath.FromSlash(name)) {
+		return "", fmt.Errorf("stores: invalid absolute object name %q", name)
+	}
 	name = strings.Trim(name, "/")
 	if name == "" {
-		return s.prefix
+		return s.prefix, nil
 	}
-	return s.prefix + "/" + name
+	return s.prefix + "/" + name, nil
 }

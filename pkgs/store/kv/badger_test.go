@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/dgraph-io/badger/v4"
 )
 
 func newBadgerStore(t *testing.T, opts *kv.Options) kv.Store {
@@ -366,6 +367,24 @@ func TestBadgerPersistence(t *testing.T) {
 	}
 	if string(got) != "value" {
 		t.Fatalf("Get = %q, want %q", got, "value")
+	}
+}
+
+func TestBadgerWithDBBorrowsDatabase(t *testing.T) {
+	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true).WithLogger(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	store, err := kv.NewBadgerWithDB(db, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.View(func(*badger.Txn) error { return nil }); err != nil {
+		t.Fatalf("borrowed database was closed: %v", err)
 	}
 }
 

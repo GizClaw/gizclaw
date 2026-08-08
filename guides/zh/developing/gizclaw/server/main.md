@@ -41,7 +41,7 @@ Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service 
 
 <<< ../../../../snippets/server-storage-stores-services.yaml{yaml}
 
-`memory.Store` 仍由 RuntimeProfile 与 MemoryLayout 选择；`stores.kind: memory` 无效。物理 `storage.kind: memory` 只为兼容的 keyvalue 或 metrics Store 提供进程内 backend。完整契约见 [Memory Store](/zh/developing/stores/memory)。
+`memory.Store` 仍由 RuntimeProfile 与 MemoryLayout 选择；`stores.kind: memory` 无效。物理 `storage.kind: memory` 是无状态 marker；每个兼容的 keyvalue 或 metrics Store 都创建独立进程内 backend。完整契约见 [Memory Store](/zh/developing/stores/memory)。
 
 每个 Workspace Agent generation 根据当前 RuntimeProfile snapshot 解析 memory alias。构造失败会使 Agent 初始化或 reload 显式失败。Server shutdown 关闭共享 Memory registry；Workspace reload 与最后一个 Agent 引用释放会关闭该 generation 的 lease，但不迁移、合并、复制或删除持久数据。
 
