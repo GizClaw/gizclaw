@@ -354,12 +354,30 @@ jobs:
 
           ruleset_ok=false
           creation_blocked=false
-          mapfile -t ruleset_ids < <(
-            gh api --paginate "repos/$GH_REPO/rulesets" \
-              --jq '.[] | select(.target == "tag" and .enforcement == "active") | .id'
-          )
+          ruleset_ids=()
+          rulesets_page=1
+          while true; do
+            rulesets="$(curl \
+              --fail-with-body \
+              --silent \
+              --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GH_REPO/rulesets?includes_parents=true&per_page=100&page=$rulesets_page")"
+            while IFS= read -r ruleset_id; do
+              ruleset_ids+=("$ruleset_id")
+            done < <(jq -r '.[] | select(.target == "tag" and .enforcement == "active") | .id' <<<"$rulesets")
+            [[ "$(jq 'length' <<<"$rulesets")" -eq 100 ]] || break
+            ((rulesets_page += 1))
+          done
           for ruleset_id in "${ruleset_ids[@]}"; do
-            ruleset="$(gh api "repos/$GH_REPO/rulesets/$ruleset_id")"
+            ruleset="$(curl \
+              --fail-with-body \
+              --silent \
+              --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GH_REPO/rulesets/$ruleset_id")"
             if jq -e '
               (.conditions.ref_name.include | index("refs/tags/v*") != null) and
               (.conditions.ref_name.exclude | length == 0) and

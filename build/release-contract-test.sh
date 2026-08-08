@@ -24,6 +24,12 @@ if grep -Eq 'gh release (delete|upload)|cleanup-tag|clobber|gh release .*latest|
   echo "SemVer publisher contains a forbidden mutation or snapshot reference" >&2
   exit 1
 fi
+if grep -Eq 'gh api .*rulesets' <<<"$semver_publisher"; then
+  echo "SemVer publisher must not query public rulesets with the permission-limited Actions token" >&2
+  exit 1
+fi
+grep -Fq "\"\$GITHUB_API_URL/repos/\$GH_REPO/rulesets?includes_parents=true&per_page=100&page=\$rulesets_page\"" \
+  <<<"$semver_publisher"
 draft_transition="gh release edit \"\$TAG\" --draft=false"
 [[ "$(grep -Fc "$draft_transition" <<<"$semver_publisher")" -eq 1 ]] || {
   echo "SemVer publisher must contain exactly one draft-to-published transition" >&2
