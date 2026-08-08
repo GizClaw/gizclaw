@@ -1138,6 +1138,21 @@ static void fail_pending_rpc_requests(gzc_client_t *client, int status) {
   }
 }
 
+static void expire_pending_rpc_requests(gzc_client_t *client) {
+  if (client == NULL) {
+    return;
+  }
+  const int64_t instant_ms = now_ms(client);
+  for (gzc_service_channel_t *channel = client->service_channels;
+       channel != NULL;
+       channel = channel->next) {
+    if (channel->rpc_request != NULL) {
+      gzc_rpc_request_expire_internal(
+          channel->rpc_request, instant_ms);
+    }
+  }
+}
+
 static int wait_until(gzc_client_t *client, bool *flag, int timeout_ms) {
   const int64_t start = now_ms(client);
   while (!*flag) {
@@ -1545,6 +1560,10 @@ int gzc_client_poll(gzc_client_t *client, int timeout_ms) {
     return GZC_ERR_UNSUPPORTED;
   }
   client->dispatch_error = GZC_OK;
+  expire_pending_rpc_requests(client);
+  if (client->service_write_depth == 0u) {
+    release_terminal_rpc_requests(client);
+  }
   int backend_timeout_ms = timeout_ms;
   for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
     backend_timeout_ms =
@@ -1554,6 +1573,7 @@ int gzc_client_poll(gzc_client_t *client, int timeout_ms) {
     }
   }
   int rc = client->config.webrtc->peer_poll(client->peer, backend_timeout_ms);
+  expire_pending_rpc_requests(client);
   if (rc != GZC_OK) {
     fail_pending_rpc_requests(client, rc);
   }

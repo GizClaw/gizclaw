@@ -2689,9 +2689,33 @@ int main(void) {
       0) {
     return 1;
   }
+  clock.instant_ms += 1001;
+  rc = gzc_client_poll(client, 0);
+  if (expect(
+          rc == GZC_OK &&
+              gzc_rpc_request_result(
+                  capacity_requests[0], &async_response_first) ==
+                  GZC_ERR_TIMEOUT,
+          "client polling expires unattended unary requests") != 0) {
+    return 1;
+  }
+  rc = gzc_rpc_request_start(
+      client,
+      0u,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      1000,
+      &overflow_request);
+  if (expect(
+          rc == GZC_OK && overflow_request != NULL,
+          "poll-expired unary requests release channel capacity before result inspection") !=
+      0) {
+    return 1;
+  }
   for (size_t i = 0; i < 15u; i++) {
     gzc_rpc_request_destroy(capacity_requests[i]);
   }
+  gzc_rpc_request_destroy(overflow_request);
   fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;
 
   gzc_buf_t list_payload;

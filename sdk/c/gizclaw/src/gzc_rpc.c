@@ -126,6 +126,14 @@ void gzc_rpc_request_transport_error_internal(
   (void)request_terminalize(request, status);
 }
 
+void gzc_rpc_request_expire_internal(
+    gzc_rpc_request_t *request,
+    int64_t now_ms) {
+  if (request != NULL && now_ms >= request->deadline_ms) {
+    (void)request_terminalize(request, GZC_ERR_TIMEOUT);
+  }
+}
+
 static void request_release_channel(gzc_rpc_request_t *request) {
   if (request == NULL || request->client == NULL || request->channel == NULL) {
     return;
@@ -211,6 +219,10 @@ int gzc_rpc_request_feed_internal(
     size_t len) {
   if (request == NULL || (data == NULL && len != 0u)) {
     return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (request->client != NULL) {
+    gzc_rpc_request_expire_internal(
+        request, gzc_client_instant_ms_internal(request->client));
   }
   if (gzc_rpc_request_terminal_internal(request)) {
     return request->status;
@@ -660,12 +672,12 @@ int gzc_rpc_request_result(
   if (request == NULL || out_response == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  if (!gzc_rpc_request_terminal_internal(request) &&
-      request->client != NULL &&
-      gzc_client_instant_ms_internal(request->client) >=
-          request->deadline_ms) {
-    (void)request_terminalize(request, GZC_ERR_TIMEOUT);
-    request_release_channel(request);
+  if (!gzc_rpc_request_terminal_internal(request) && request->client != NULL) {
+    gzc_rpc_request_expire_internal(
+        request, gzc_client_instant_ms_internal(request->client));
+    if (gzc_rpc_request_terminal_internal(request)) {
+      request_release_channel(request);
+    }
   }
   if (!gzc_rpc_request_terminal_internal(request)) {
     return GZC_ERR_WOULD_BLOCK;

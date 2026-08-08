@@ -37,6 +37,9 @@ void gzc_rpc_request_client_closed_internal(gzc_rpc_request_t *request);
 void gzc_rpc_request_transport_error_internal(
     gzc_rpc_request_t *request,
     int status);
+void gzc_rpc_request_expire_internal(
+    gzc_rpc_request_t *request,
+    int64_t now_ms);
 bool gzc_rpc_request_terminal_internal(const gzc_rpc_request_t *request);
 void gzc_rpc_request_detach_internal(
     gzc_rpc_request_t *request,
