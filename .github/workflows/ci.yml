@@ -274,6 +274,32 @@ jobs:
       - name: Run C SDK smoke test
         run: /tmp/gzc_client_smoke_test
 
+      - name: Compile C SDK sanitizer smoke test
+        if: matrix.os == 'ubuntu-latest'
+        run: >-
+          cc -std=c11 -Wall -Wextra -Werror
+          -fsanitize=address,undefined -fno-omit-frame-pointer -g
+          -I sdk/c/gizclaw/include
+          -I sdk/c/gizclaw/generated
+          -I third_party/nanopb/upstream
+          sdk/c/gizclaw/tests/gzc_client_smoke_test.c
+          sdk/c/gizclaw/src/*.c
+          sdk/c/gizclaw/generated/*.pb.c
+          sdk/c/gizclaw/generated/events/*.pb.c
+          sdk/c/gizclaw/generated/google/protobuf/*.pb.c
+          sdk/c/gizclaw/generated/payload/*.pb.c
+          third_party/nanopb/upstream/pb_common.c
+          third_party/nanopb/upstream/pb_decode.c
+          third_party/nanopb/upstream/pb_encode.c
+          -o /tmp/gzc_client_sanitizer_smoke_test
+
+      - name: Run C SDK sanitizer smoke test
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: /tmp/gzc_client_sanitizer_smoke_test
+
       - name: Compile C++ SDK headers
         run: >-
           c++ -std=c++17 -Wall -Wextra -Werror

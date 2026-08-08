@@ -27,7 +27,8 @@ typedef enum {
   FAKE_RESPONSE_SPEECH_TRANSCRIBE = 5,
   FAKE_RESPONSE_SPEECH_SYNTHESIZE = 6,
   FAKE_RESPONSE_SPEECH_EXTRACT = 7,
-  FAKE_RESPONSE_SPEED_TEST = 8
+  FAKE_RESPONSE_SPEED_TEST = 8,
+  FAKE_RESPONSE_DEFERRED_PROTO = 9
 } fake_response_mode_t;
 
 typedef struct {
@@ -68,6 +69,7 @@ typedef struct {
   int fail_send_call;
   int would_block_send_call;
   int poll_count;
+  int poll_result_once;
   int last_poll_timeout_ms;
   int create_channel_count;
   size_t next_service_channel;
@@ -529,6 +531,11 @@ static int test_peer_poll(gzc_rtc_peer_t *peer, int timeout_ms) {
     fake->clock->instant_ms += timeout_ms > 0 ? timeout_ms : 1;
     fake->clock->unix_ms -= 1000;
   }
+  if (fake->poll_result_once != GZC_OK) {
+    int rc = fake->poll_result_once;
+    fake->poll_result_once = GZC_OK;
+    return rc;
+  }
   if (fake->pending_opus_len != 0u && fake->opus_callback != NULL) {
     size_t len = fake->pending_opus_len;
     fake->pending_opus_len = 0u;
@@ -599,6 +606,57 @@ static int append_test_proto_varint(const gzc_platform_t *platform, gzc_buf_t *o
     return rc;
   }
   return append_test_varint(platform, out, value);
+}
+
+static int send_deferred_rpc_response(
+    fake_webrtc_t *fake,
+    gzc_rtc_channel_t *channel,
+    int64_t server_time,
+    bool fail_request_allocation) {
+  gzc_buf_t result;
+  gzc_buf_t response;
+  gzc_buf_t framed;
+  gzc_buf_init(&result);
+  gzc_buf_init(&response);
+  gzc_buf_init(&framed);
+  int rc = append_test_proto_varint(
+      fake->platform, &result, 1, (uint64_t)server_time);
+  if (rc == GZC_OK) {
+    rc = append_test_proto_bytes(
+        fake->platform, &response, 1, (const uint8_t *)"1", 1u);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_proto_bytes(
+        fake->platform, &response, 2, result.data, result.len);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(
+        fake->platform,
+        &framed,
+        GZC_RPC_FRAME_BINARY,
+        response.data,
+        response.len);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(
+        fake->platform, &framed, GZC_RPC_FRAME_EOS, NULL, 0u);
+  }
+  if (rc == GZC_OK) {
+    fail_next_realloc = fail_request_allocation;
+    fake->callbacks.on_channel_message(
+        fake->callbacks.userdata,
+        &fake->peer,
+        channel,
+        NULL,
+        framed.data,
+        framed.len,
+        false);
+    fail_next_realloc = false;
+  }
+  gzc_buf_free(&result, fake->platform);
+  gzc_buf_free(&response, fake->platform);
+  gzc_buf_free(&framed, fake->platform);
+  return rc;
 }
 
 static int encode_test_pb_message(
@@ -887,6 +945,9 @@ static int test_channel_send_frame(gzc_rtc_channel_t *channel, const uint8_t *da
       return GZC_ERR_RPC;
     }
     fake->speed_upload_eos_seen = true;
+    return GZC_OK;
+  }
+  if (fake->response_mode == FAKE_RESPONSE_DEFERRED_PROTO) {
     return GZC_OK;
   }
   if ((fake->response_mode == FAKE_RESPONSE_SPEECH_TRANSCRIBE ||
@@ -1615,7 +1676,7 @@ int main(void) {
              "monotonic instant clock is required") != 0) {
     return 1;
   }
-  if (expect(GZC_API_VERSION == 4, "C API version 4") != 0 ||
+  if (expect(GZC_API_VERSION == 5, "C API version 5") != 0 ||
       expect(GZC_ERR_CHANNEL_LIMIT == -12,
              "channel-limit status value") != 0 ||
       expect(strcmp(gzc_status_string(GZC_ERR_CHANNEL_LIMIT),
@@ -2342,6 +2403,294 @@ int main(void) {
       &response);
   if (expect(rc == GZC_ERR_RPC, "rpc call rejects oversized continuation response") != 0) {
     return 1;
+  }
+  fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;
+
+  fake_webrtc.response_mode = FAKE_RESPONSE_DEFERRED_PROTO;
+  gzc_rpc_request_t *async_requests[2] = {NULL, NULL};
+  gzc_rtc_channel_t *async_channels[2] = {NULL, NULL};
+  for (size_t i = 0; i < 2u; i++) {
+    rc = gzc_rpc_request_start(
+        client,
+        0u,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+        gzc_str_from_parts((const char *)params.data, params.len),
+        1000,
+        &async_requests[i]);
+    async_channels[i] = fake_webrtc.last_send_channel;
+    if (expect(
+            rc == GZC_OK && async_requests[i] != NULL &&
+                async_channels[i] != NULL &&
+                gzc_client_rpc_channel(client) == NULL,
+            "public unary request does not claim the legacy RPC alias") != 0) {
+      return 1;
+    }
+  }
+  gzc_rpc_response_t async_response_first;
+  gzc_rpc_response_t async_response_second;
+  if (expect(
+          gzc_rpc_request_result(
+              async_requests[0], &async_response_first) ==
+                  GZC_ERR_WOULD_BLOCK &&
+              gzc_rpc_request_result(
+                  async_requests[1], &async_response_second) ==
+                  GZC_ERR_WOULD_BLOCK,
+          "concurrent unary requests remain pending without caller polling") !=
+      0) {
+    return 1;
+  }
+  rc = send_deferred_rpc_response(
+      &fake_webrtc, async_channels[1], 202, false);
+  if (rc == GZC_OK) {
+    rc = gzc_client_poll(client, 0);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_request_result(
+        async_requests[1], &async_response_second);
+  }
+  gzc_str_t second_result_view = async_response_second.result_payload;
+  rc = rc == GZC_OK
+           ? send_deferred_rpc_response(
+                 &fake_webrtc, async_channels[0], 101, false)
+           : rc;
+  if (rc == GZC_OK) {
+    rc = gzc_client_poll(client, 0);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_request_result(
+        async_requests[0], &async_response_first);
+  }
+  gizclaw_rpc_v1_PingResponse async_first_ping =
+      gizclaw_rpc_v1_PingResponse_init_zero;
+  gizclaw_rpc_v1_PingResponse async_second_ping =
+      gizclaw_rpc_v1_PingResponse_init_zero;
+  if (rc == GZC_OK) {
+    rc = decode_test_pb_message(
+        async_response_first.result_payload,
+        gizclaw_rpc_v1_PingResponse_fields,
+        &async_first_ping);
+  }
+  if (rc == GZC_OK) {
+    rc = decode_test_pb_message(
+        second_result_view,
+        gizclaw_rpc_v1_PingResponse_fields,
+        &async_second_ping);
+  }
+  if (expect(
+          rc == GZC_OK && async_first_ping.server_time == 101 &&
+              async_second_ping.server_time == 202,
+          "request-owned response views survive sibling completion") != 0) {
+    return 1;
+  }
+  gzc_rpc_request_destroy(async_requests[0]);
+  gzc_rpc_request_destroy(async_requests[1]);
+
+  fake_webrtc.response_mode = FAKE_RESPONSE_PROTO_ERROR;
+  gzc_rpc_request_t *remote_error_request = NULL;
+  rc = gzc_rpc_request_start(
+      client,
+      0u,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      1000,
+      &remote_error_request);
+  memset(&async_response_first, 0, sizeof(async_response_first));
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_request_result(
+        remote_error_request, &async_response_first);
+  }
+  if (expect(
+          rc == GZC_OK && async_response_first.has_error &&
+              async_response_first.error.code == 7,
+          "remote unary RPC errors remain successful transport results") != 0) {
+    return 1;
+  }
+  gzc_rpc_request_destroy(remote_error_request);
+  fake_webrtc.response_mode = FAKE_RESPONSE_DEFERRED_PROTO;
+
+  gzc_rpc_request_t *failed_request = NULL;
+  gzc_rpc_request_t *healthy_request = NULL;
+  rc = gzc_rpc_request_start(
+      client,
+      0u,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      1000,
+      &failed_request);
+  gzc_rtc_channel_t *failed_channel = fake_webrtc.last_send_channel;
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_request_start(
+        client,
+        0u,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+        gzc_str_from_parts((const char *)params.data, params.len),
+        1000,
+        &healthy_request);
+  }
+  gzc_rtc_channel_t *healthy_channel = fake_webrtc.last_send_channel;
+  if (rc == GZC_OK) {
+    rc = send_deferred_rpc_response(
+        &fake_webrtc, failed_channel, 303, true);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_client_poll(client, 0);
+  }
+  if (expect(
+          rc == GZC_OK &&
+              gzc_rpc_request_result(
+                  failed_request, &async_response_first) ==
+                  GZC_ERR_NO_MEMORY,
+          "request-local allocation failure remains local") != 0) {
+    return 1;
+  }
+  rc = send_deferred_rpc_response(
+      &fake_webrtc, healthy_channel, 404, false);
+  if (rc == GZC_OK) {
+    rc = gzc_client_poll(client, 0);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_request_result(
+        healthy_request, &async_response_second);
+  }
+  if (expect(rc == GZC_OK, "sibling unary request survives local OOM") != 0) {
+    return 1;
+  }
+  gzc_rpc_request_destroy(failed_request);
+  gzc_rpc_request_destroy(healthy_request);
+
+  gzc_rpc_request_t *cancelled_request = NULL;
+  rc = gzc_rpc_request_start(
+      client,
+      0u,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      1000,
+      &cancelled_request);
+  gzc_rpc_request_cancel(cancelled_request);
+  gzc_rpc_request_cancel(cancelled_request);
+  if (expect(
+          rc == GZC_OK &&
+              gzc_rpc_request_result(
+                  cancelled_request, &async_response_first) ==
+                  GZC_ERR_CLOSED,
+          "unary request cancellation is idempotent") != 0) {
+    return 1;
+  }
+  gzc_rpc_request_destroy(cancelled_request);
+  gzc_rpc_request_destroy(NULL);
+
+  gzc_rpc_request_t *remote_closed_request = NULL;
+  rc = gzc_rpc_request_start(
+      client,
+      0u,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      1000,
+      &remote_closed_request);
+  gzc_rtc_channel_t *remote_closed_channel = fake_webrtc.last_send_channel;
+  if (rc == GZC_OK) {
+    fake_emit_channel_state(
+        &fake_webrtc,
+        remote_closed_channel,
+        NULL,
+        GZC_RTC_CHANNEL_CLOSED);
+    rc = gzc_client_poll(client, 0);
+  }
+  if (expect(
+          rc == GZC_OK &&
+              gzc_rpc_request_result(
+                  remote_closed_request, &async_response_first) ==
+                  GZC_ERR_CLOSED,
+          "remote close before response EOS terminates only its request") != 0) {
+    return 1;
+  }
+  gzc_rpc_request_destroy(remote_closed_request);
+
+  gzc_rpc_request_t *transport_failed_request = NULL;
+  rc = gzc_rpc_request_start(
+      client,
+      0u,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      1000,
+      &transport_failed_request);
+  fake_webrtc.poll_result_once = GZC_ERR_WEBRTC;
+  if (rc == GZC_OK) {
+    rc = gzc_client_poll(client, 0);
+  }
+  if (expect(
+          rc == GZC_ERR_WEBRTC &&
+              gzc_rpc_request_result(
+                  transport_failed_request, &async_response_first) ==
+                  GZC_ERR_WEBRTC,
+          "client poll transport error terminates pending unary requests") !=
+      0) {
+    return 1;
+  }
+  gzc_rpc_request_destroy(transport_failed_request);
+  rc = GZC_OK;
+
+  gzc_rpc_request_t *timeout_request = NULL;
+  rc = gzc_rpc_request_start(
+      client,
+      0u,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      5,
+      &timeout_request);
+  clock.instant_ms += 10;
+  if (expect(
+          rc == GZC_OK &&
+              gzc_rpc_request_result(
+                  timeout_request, &async_response_first) ==
+                  GZC_ERR_TIMEOUT,
+          "unary request result enforces its total deadline without polling") !=
+      0) {
+    return 1;
+  }
+  gzc_rpc_request_destroy(timeout_request);
+
+  gzc_rpc_request_t *capacity_requests[15] = {0};
+  for (size_t i = 0; i < 15u && rc == GZC_OK; i++) {
+    rc = gzc_rpc_request_start(
+        client,
+        0u,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+        gzc_str_from_parts((const char *)params.data, params.len),
+        1000,
+        &capacity_requests[i]);
+  }
+  gzc_rpc_request_t *overflow_request = NULL;
+  if (expect(rc == GZC_OK, "15 concurrent unary request handles coexist") !=
+          0 ||
+      expect(
+          gzc_rpc_request_start(
+              client,
+              0u,
+              gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+              gzc_str_from_parts((const char *)params.data, params.len),
+              1000,
+              &overflow_request) == GZC_ERR_CHANNEL_LIMIT &&
+              overflow_request == NULL,
+          "unary request capacity reports channel limit") != 0) {
+    return 1;
+  }
+  gzc_rpc_request_cancel(capacity_requests[0]);
+  gzc_rpc_request_destroy(capacity_requests[0]);
+  capacity_requests[0] = NULL;
+  rc = gzc_rpc_request_start(
+      client,
+      0u,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      1000,
+      &capacity_requests[0]);
+  if (expect(rc == GZC_OK, "cancelled unary request releases its channel slot") !=
+      0) {
+    return 1;
+  }
+  for (size_t i = 0; i < 15u; i++) {
+    gzc_rpc_request_destroy(capacity_requests[i]);
   }
   fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;
 
@@ -3842,6 +4191,20 @@ int main(void) {
           "acquire Event handle before connection close") != 0) {
     return 1;
   }
+  fake_webrtc.response_mode = FAKE_RESPONSE_DEFERRED_PROTO;
+  gzc_rpc_request_t *client_lifetime_request = NULL;
+  rc = gzc_rpc_request_start(
+      client,
+      0u,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      1000,
+      &client_lifetime_request);
+  if (expect(
+          rc == GZC_OK && client_lifetime_request != NULL,
+          "pending unary request exists before client destruction") != 0) {
+    return 1;
+  }
   gzc_rtc_opus_frame_cb late_opus_callback =
       fake_webrtc.opus_callback;
   void *late_opus_callback_userdata =
@@ -3902,6 +4265,13 @@ int main(void) {
              "poll reports closed client") != 0) {
     return 1;
   }
+  if (expect(
+          gzc_rpc_request_result(
+              client_lifetime_request, &response) == GZC_ERR_CLOSED,
+          "client close invalidates but does not free a unary request handle") !=
+      0) {
+    return 1;
+  }
   if (expect(fake_webrtc.opus_unregister_count == 2,
              "Opus callback unregistered before peer close") != 0) {
     return 1;
@@ -3943,6 +4313,7 @@ int main(void) {
     return 1;
   }
   gzc_client_destroy(client);
+  gzc_rpc_request_destroy(client_lifetime_request);
 
   fake_webrtc_t fake_webrtc_custom;
   memset(&fake_webrtc_custom, 0, sizeof(fake_webrtc_custom));

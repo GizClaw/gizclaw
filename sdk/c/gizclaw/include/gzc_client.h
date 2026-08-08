@@ -102,7 +102,8 @@ int gzc_client_set_webrtc_media(
 int gzc_client_connect(gzc_client_t *client);
 /*
  * Drives queued WebRTC callbacks and inbound RPC work on the caller's thread.
- * Applications serving server-initiated RPCs must call this repeatedly.
+ * Exactly one serialized caller owns polling; the same loop advances every
+ * outstanding gzc_rpc_request_t and server-initiated RPC.
  */
 int gzc_client_poll(gzc_client_t *client, int timeout_ms);
 int gzc_client_close(gzc_client_t *client);

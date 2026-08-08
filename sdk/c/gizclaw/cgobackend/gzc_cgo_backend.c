@@ -714,7 +714,8 @@ void gzc_cgo_emit_channel_state(gzc_cgo_backend_t *backend, int channel_id, gzc_
       channel,
       &info,
       state);
-  if (channel->remote &&
+  /* Terminal state transfers slot cleanup to the backend for local channels. */
+  if (channel != &backend->packet_channel &&
       (state == GZC_RTC_CHANNEL_CLOSED || state == GZC_RTC_CHANNEL_ERROR)) {
     channel->in_use = false;
     channel->id = 0;

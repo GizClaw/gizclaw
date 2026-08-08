@@ -149,7 +149,7 @@ RPC EOS 结束当前方向的 frame sequence；完整 request/response lifecycle
 HTTP、RPC 与 Event 的上层 framing 不因 DataChannel 分片而改变；DataChannel message boundary 不是上层 frame boundary。所有 reliable、ordered `giznet/v1/service/<id>` DataChannel 都遵守同一写入模型：
 
 - 每个 channel 只有一个串行 writer，并发逻辑写入的 bytes 不会交错。
-- 原生 DataChannel message 上限按 SDK 资源边界选择：Go、JavaScript 与 Flutter 使用 16 KiB，嵌入式 C API v4 使用 4 KiB；接收端按连续 byte stream 重组 HTTP 或 RPC/Event frame。
+- 原生 DataChannel message 上限按 SDK 资源边界选择：Go、JavaScript 与 Flutter 使用 16 KiB，嵌入式 C API v5 使用 4 KiB；接收端按连续 byte stream 重组 HTTP 或 RPC/Event frame。
 - writer 在 buffered amount 到达 high-water 时停止入队，只在 buffered-amount-low 通知后确认队列不高于 low-water 才恢复。
 - 写入完成只表示全部 bytes 已被本地 WebRTC 发送队列接受，不表示远端已经接收或处理。
 - close、error、send failure 以及调用路径已有的 timeout/cancellation 会唤醒并终止 active/queued writes。部分逻辑写入失败后，该 service channel 必须关闭，剩余 bytes 不会换新 channel 重试。
@@ -159,8 +159,16 @@ HTTP、RPC 与 Event 的上层 framing 不因 DataChannel 分片而改变；Data
 | Go server | 1 MiB | 256 KiB | 16 KiB |
 | JavaScript | 1 MiB | 256 KiB | 16 KiB |
 | Flutter | 1 MiB | 256 KiB | 16 KiB |
-| C API v4 default | 256 KiB | 64 KiB | 4 KiB |
+| C API v5 default | 256 KiB | 64 KiB | 4 KiB |
 
 C 调用方可以通过 `gzc_client_config_t.service_write_high_water_bytes` 与 `service_write_low_water_bytes` 调大阈值；自定义 high-water 不得小于 4 KiB，且 low-water 必须小于 high-water。`write_timeout_ms` 使用 platform 的单调 `time_instant_ms` 计算完整同步逻辑写入的 elapsed time。同步 C API 只在调用期间借用 caller buffer。
+
+C API v5 的 `gzc_rpc_request_start` 为每个 unary 请求创建独立 service
+DataChannel。调用方仍是唯一的 `gzc_client_poll` owner；poll 会按 DataChannel
+identity 把任意交错到达的 response 分发给对应 request。`result` 本身不 poll，
+pending 返回 `GZC_ERR_WOULD_BLOCK`。完成、取消、超时、远端关闭或 client 关闭只
+终止并释放该 request 的 channel，不关闭 sibling channel 或 Peer connection。
+response view 由 request 持有，直到 `gzc_rpc_request_destroy`；platform allocator
+必须比 request handle 活得更久。
 
 Unreliable/unordered direct packet DataChannel、Telemetry packet 与 RTP media 不使用 service writer，也不继承上述 water marks。BOS/EOS 等业务边界仍由各自上层协议定义。

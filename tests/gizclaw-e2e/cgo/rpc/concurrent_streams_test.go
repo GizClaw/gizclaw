@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"slices"
 	"testing"
 	"time"
@@ -137,6 +138,120 @@ func TestCSDKRPCDataChannelLifecycleLocal(t *testing.T) {
 		t.Fatalf("open replacement channel: %v", err)
 	}
 	channels[0] = replacement
+}
+
+func TestCSDKConcurrentUnaryRPCRequests(t *testing.T) {
+	fixture := cgointernal.NewServerRPCFixture(t)
+	listener := fixture.Conn.ListenService(0)
+	defer listener.Close()
+
+	serverErr := make(chan error, 1)
+	go func() {
+		streams := make([]net.Conn, 0, 3)
+		requests := make([]*rpcapi.RPCRequest, 0, 3)
+		for range 3 {
+			stream, err := listener.Accept()
+			if err != nil {
+				serverErr <- err
+				return
+			}
+			request, err := rpcapi.ReadRequest(stream)
+			if err == nil {
+				err = rpcapi.ReadEOS(stream)
+			}
+			if err != nil {
+				_ = stream.Close()
+				serverErr <- err
+				return
+			}
+			streams = append(streams, stream)
+			requests = append(requests, request)
+		}
+		for _, index := range []int{2, 0, 1} {
+			var result rpcapi.RPCPayload
+			err := result.FromPingResponse(rpcapi.PingResponse{
+				ServerTime: int64((index + 1) * 100),
+			})
+			if err == nil {
+				err = rpcapi.WriteResponseForMethod(
+					streams[index],
+					requests[index].Method,
+					&rpcapi.RPCResponse{
+						V: rpcapi.RPCVersionV1, Id: requests[index].Id, Result: &result,
+					},
+				)
+			}
+			if err == nil {
+				err = rpcapi.WriteEOS(streams[index])
+			}
+			closeErr := streams[index].Close()
+			if err != nil {
+				serverErr <- err
+				return
+			}
+			if closeErr != nil {
+				serverErr <- closeErr
+				return
+			}
+		}
+		serverErr <- nil
+	}()
+
+	baseline := requireTransportSnapshot(t, fixture.Client)
+	requests := make([]*cgointernal.RPCRequest, 0, 3)
+	for index := range 3 {
+		request, err := fixture.Client.StartRPCRequest(
+			0,
+			rpcpb.RpcMethod_RPC_METHOD_ALL_PING,
+			&rpcpb.PingRequest{ClientSendTime: int64(index + 1)},
+			10*time.Second,
+		)
+		if err != nil {
+			t.Fatalf("start unary request %d: %v", index, err)
+		}
+		requests = append(requests, request)
+		defer request.Close()
+	}
+	afterStart := requireTransportSnapshot(t, fixture.Client)
+	requireStableMandatoryCTransports(t, baseline, afterStart)
+	if len(afterStart.RPCChannelIDs) != 3 || afterStart.ActiveRPCChannelID != 0 {
+		t.Fatalf("concurrent public unary channels = %+v", afterStart)
+	}
+
+	responses := make([]rpcpb.PingResponse, 3)
+	done := make([]bool, 3)
+	deadline := time.Now().Add(10 * time.Second)
+	for !done[0] || !done[1] || !done[2] {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for concurrent unary results: %v", done)
+		}
+		if err := fixture.Client.Poll(10 * time.Millisecond); err != nil {
+			t.Fatal(err)
+		}
+		for index := range requests {
+			if done[index] {
+				continue
+			}
+			ready, err := requests[index].Result(&responses[index])
+			if err != nil {
+				t.Fatalf("unary result %d: %v", index, err)
+			}
+			done[index] = ready
+		}
+	}
+	for index := range responses {
+		if responses[index].ServerTime != int64((index+1)*100) {
+			t.Fatalf("concurrent unary responses = %+v", responses)
+		}
+	}
+	if err := <-serverErr; err != nil {
+		t.Fatalf("concurrent unary server: %v", err)
+	}
+	afterResult := requireTransportSnapshot(t, fixture.Client)
+	requireStableMandatoryCTransports(t, baseline, afterResult)
+	if len(afterResult.RPCChannelIDs) != 0 || afterResult.ActiveRPCChannelID != 0 {
+		t.Fatalf("completed unary requests left channels: %+v", afterResult)
+	}
 }
 
 func TestCSDKConcurrentServiceStreams(t *testing.T) {
