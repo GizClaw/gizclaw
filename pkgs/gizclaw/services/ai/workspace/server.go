@@ -1884,14 +1884,8 @@ func (s *Server) store() (kv.Store, error) {
 }
 
 func (s *Server) workflowStore() (kv.Store, error) {
-	if s == nil {
+	if s == nil || s.WorkflowStore == nil {
 		return nil, errors.New("workflow store not configured")
 	}
-	if s.WorkflowStore != nil {
-		return s.WorkflowStore, nil
-	}
-	if s.Store == nil {
-		return nil, errors.New("workflow store not configured")
-	}
-	return s.Store, nil
+	return s.WorkflowStore, nil
 }

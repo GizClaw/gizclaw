@@ -1,11 +1,16 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+	"text/template"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
@@ -15,7 +20,6 @@ import (
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func testPublicKey(fill byte) giznet.PublicKey {
@@ -63,8 +67,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.ServeToClients {
 		t.Fatal("ServeToClients should default to false")
 	}
-	if cfg.SystemLog.Level != "info" {
-		t.Fatalf("SystemLog.Level = %q, want info", cfg.SystemLog.Level)
+	if cfg.systemLogConfig().Level != "info" {
+		t.Fatalf("SystemLog.Level = %q, want info", cfg.systemLogConfig().Level)
 	}
 	if cfg.Speech.Transcription.MaxAudioBytes != 2*1024*1024 ||
 		cfg.Speech.Transcription.MaxAudioDuration != "60s" ||
@@ -98,6 +102,7 @@ func TestParsePendingDeletionConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mergeFileConfig() error = %v", err)
 	}
+	merged.Services = validServicesConfig()
 	prepared, err := prepareConfig(merged)
 	if err != nil {
 		t.Fatalf("prepareConfig() error = %v", err)
@@ -126,6 +131,7 @@ func TestPendingDeletionConfigRejectsInvalidInput(t *testing.T) {
 		})
 	}
 	cfg := DefaultConfig()
+	cfg.Services = validServicesConfig()
 	cfg.PendingDeletion.AttemptTimeout = "2m"
 	if _, err := prepareConfig(cfg); err == nil || !strings.Contains(err.Error(), "attempt timeout must be shorter") {
 		t.Fatalf("prepareConfig() error = %v", err)
@@ -150,7 +156,7 @@ func TestParseConfigAgentHostPresence(t *testing.T) {
 		},
 		{
 			name: "present empty",
-			yaml: "agent_host: {}",
+			yaml: "services:\n  agent_host: {}",
 			check: func(t *testing.T, cfg *AgentHostConfig) {
 				t.Helper()
 				if cfg == nil {
@@ -163,7 +169,7 @@ func TestParseConfigAgentHostPresence(t *testing.T) {
 		},
 		{
 			name: "present partial",
-			yaml: "agent_host:\n  flowcraft:\n    state_store: state\n",
+			yaml: "services:\n  agent_host:\n    flowcraft:\n      state_store: state\n",
 			check: func(t *testing.T, cfg *AgentHostConfig) {
 				t.Helper()
 				if cfg == nil || cfg.Flowcraft == nil || cfg.Flowcraft.StateStore != "state" {
@@ -177,11 +183,12 @@ func TestParseConfigAgentHostPresence(t *testing.T) {
 		{
 			name: "complete",
 			yaml: `
-agent_host:
-  runtime_store: runtime
-  flowcraft:
-    state_store: state
-    history_store: history
+services:
+  agent_host:
+    runtime_store: runtime
+    flowcraft:
+      state_store: state
+      history_store: history
 `,
 			check: func(t *testing.T, cfg *AgentHostConfig) {
 				t.Helper()
@@ -202,7 +209,11 @@ agent_host:
 			if err != nil {
 				t.Fatalf("parseConfigData() error = %v", err)
 			}
-			test.check(t, cfg.AgentHost)
+			if cfg.Services == nil {
+				test.check(t, nil)
+			} else {
+				test.check(t, cfg.Services.AgentHost)
+			}
 		})
 	}
 }
@@ -213,19 +224,12 @@ func TestParseConfigRejectsInvalidAgentHost(t *testing.T) {
 		yaml string
 		want string
 	}{
-		{"null block", "agent_host:\n", "agent_host must be a mapping"},
-		{"sequence block", "agent_host: []\n", "agent_host must be a mapping"},
-		{"unknown field", "agent_host:\n  runtime: store\n", `agent_host has unknown field "runtime"`},
-		{"non-string runtime", "agent_host:\n  runtime_store: 42\n", "agent_host.runtime_store must be a string"},
-		{"empty runtime", "agent_host:\n  runtime_store: \"\"\n", "agent_host.runtime_store must not be empty"},
-		{"whitespace runtime", "agent_host:\n  runtime_store: \"  \"\n", "agent_host.runtime_store must not be empty"},
-		{"non-mapping flowcraft", "agent_host:\n  flowcraft: false\n", "agent_host.flowcraft must be a mapping"},
-		{"unknown flowcraft field", "agent_host:\n  flowcraft:\n    memories: memory\n", `agent_host.flowcraft has unknown field "memories"`},
-		{"non-string state", "agent_host:\n  flowcraft:\n    state_store: {}\n", "agent_host.flowcraft.state_store must be a string"},
-		{"empty history", "agent_host:\n  flowcraft:\n    history_store: \"\"\n", "agent_host.flowcraft.history_store must not be empty"},
-		{"legacy memory objects", "agent_host:\n  flowcraft:\n    memory_objects_store: old\n", `agent_host.flowcraft has unknown field "memory_objects_store"`},
-		{"legacy flowcraft memory", "agent_host:\n  flowcraft:\n    memory_store: old\n", `agent_host.flowcraft has unknown field "memory_store"`},
-		{"legacy eino block", "agent_host:\n  eino: {}\n", `agent_host has unknown field "eino"`},
+		{"legacy top-level", "agent_host: {}\n", `unknown field "agent_host"`},
+		{"unknown field", "services:\n  agent_host:\n    runtime: store\n", `unknown field "runtime"`},
+		{"non-string runtime", "services:\n  agent_host:\n    runtime_store: 42\n", "services.agent_host.runtime_store must be a string"},
+		{"unknown flowcraft field", "services:\n  agent_host:\n    flowcraft:\n      memories: memory\n", `unknown field "memories"`},
+		{"non-string state", "services:\n  agent_host:\n    flowcraft:\n      state_store: {}\n", "services.agent_host.flowcraft.state_store must be a string"},
+		{"legacy memory objects", "services:\n  agent_host:\n    flowcraft:\n      memory_objects_store: old\n", `unknown field "memory_objects_store"`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -237,6 +241,26 @@ func TestParseConfigRejectsInvalidAgentHost(t *testing.T) {
 	}
 }
 
+func TestParseConfigRejectsNonStringServiceStoreReferences(t *testing.T) {
+	tests := []struct {
+		yaml string
+		want string
+	}{
+		{"services:\n  peer:\n    store: 42\n", "services.peer.store must be a string"},
+		{"services:\n  provider_tenants:\n    model_store: []\n", "services.provider_tenants.model_store must be a string"},
+		{"services:\n  metrics:\n    store: true\n", "services.metrics.store must be a string"},
+		{"services:\n  system_log:\n    query_store: 42\n", "services.system_log.query_store must be a string"},
+		{"services:\n  system_log:\n    sinks:\n      - kind: store\n        store: {}\n", "services.system_log.sinks[0].store must be a string"},
+		{"services:\n  workspace: named-store\n", "services.workspace must be a mapping"},
+	}
+	for _, test := range tests {
+		_, err := parseConfigData([]byte(test.yaml))
+		if err == nil || !strings.Contains(err.Error(), test.want) {
+			t.Errorf("parseConfigData(%q) error = %v, want %q", test.yaml, err, test.want)
+		}
+	}
+}
+
 func TestMergeFileConfigAgentHostBlock(t *testing.T) {
 	fileBlock := &AgentHostConfig{
 		RuntimeStore: "file-runtime",
@@ -245,32 +269,35 @@ func TestMergeFileConfigAgentHostBlock(t *testing.T) {
 			HistoryStore: "file-history",
 		},
 	}
-	retained, err := mergeFileConfig(Config{}, ConfigFile{AgentHost: fileBlock})
+	fileServices := &ServicesConfig{AgentHost: fileBlock}
+	retained, err := mergeFileConfig(Config{}, ConfigFile{Services: fileServices})
 	if err != nil {
 		t.Fatalf("mergeFileConfig(retain) error = %v", err)
 	}
-	if retained.AgentHost != fileBlock {
-		t.Fatalf("mergeFileConfig(retain) AgentHost = %+v", retained.AgentHost)
+	if retained.Services != fileServices {
+		t.Fatalf("mergeFileConfig(retain) Services = %+v", retained.Services)
 	}
 
 	runtimeBlock := &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{StateStore: "runtime-state"}}
-	replaced, err := mergeFileConfig(Config{AgentHost: runtimeBlock}, ConfigFile{AgentHost: fileBlock})
+	runtimeServices := &ServicesConfig{AgentHost: runtimeBlock}
+	replaced, err := mergeFileConfig(Config{Services: runtimeServices}, ConfigFile{Services: fileServices})
 	if err != nil {
 		t.Fatalf("mergeFileConfig(replace) error = %v", err)
 	}
-	if replaced.AgentHost != runtimeBlock {
-		t.Fatalf("mergeFileConfig(replace) AgentHost = %+v, want runtime block", replaced.AgentHost)
+	if replaced.Services != runtimeServices {
+		t.Fatalf("mergeFileConfig(replace) Services = %+v, want runtime block", replaced.Services)
 	}
-	if replaced.AgentHost.RuntimeStore != "" || replaced.AgentHost.Flowcraft.HistoryStore != "" {
-		t.Fatalf("mergeFileConfig(replace) field-merged blocks: %+v", replaced.AgentHost)
+	if replaced.Services.AgentHost.RuntimeStore != "" || replaced.Services.AgentHost.Flowcraft.HistoryStore != "" {
+		t.Fatalf("mergeFileConfig(replace) field-merged blocks: %+v", replaced.Services)
 	}
 }
 
 func TestValidateAgentHostRejectsProgrammaticWhitespaceReference(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.AgentHost = &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{StateStore: " "}}
+	cfg.Services = validServicesConfig()
+	cfg.Services.AgentHost = &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{StateStore: " "}}
 	err := cfg.validate()
-	if err == nil || !strings.Contains(err.Error(), "agent_host.flowcraft.state_store must not be whitespace-only") {
+	if err == nil || !strings.Contains(err.Error(), "services.agent_host.flowcraft.state_store must not be whitespace-only") {
 		t.Fatalf("validate() error = %v", err)
 	}
 }
@@ -490,7 +517,7 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 	dir := t.TempDir()
 
 	storageErrCfg := validLayeredConfig(dir)
-	storageErrCfg.Storage["memory"] = storage.Config{Kind: storage.KindKeyValue, Backend: "redis"}
+	storageErrCfg.Storage["memory"] = storage.Config{Kind: storage.KindKeyValue}
 	if _, err := New(storageErrCfg); err == nil || !strings.Contains(err.Error(), "server: stores:") {
 		t.Fatalf("New(storage error) = %v", err)
 	}
@@ -503,13 +530,13 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 
 	missingCredentialCfg := validLayeredConfig(dir)
 	delete(missingCredentialCfg.Stores, "credentials")
-	if _, err := New(missingCredentialCfg); err == nil || !strings.Contains(err.Error(), "server: credentials store:") {
+	if _, err := New(missingCredentialCfg); err == nil || !strings.Contains(err.Error(), "services.credential.store") {
 		t.Fatalf("New(missing credentials store) = %v", err)
 	}
 
 	missingFirmwareCfg := validLayeredConfig(dir)
 	delete(missingFirmwareCfg.Stores, "firmwares")
-	if _, err := New(missingFirmwareCfg); err == nil || !strings.Contains(err.Error(), "server: firmwares store:") {
+	if _, err := New(missingFirmwareCfg); err == nil || !strings.Contains(err.Error(), "services.firmware.store") {
 		t.Fatalf("New(missing firmwares store) = %v", err)
 	}
 
@@ -521,36 +548,44 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 
 	missingTenantCfg := validLayeredConfig(dir)
 	delete(missingTenantCfg.Stores, "minimax-tenants")
-	if _, err := New(missingTenantCfg); err == nil || !strings.Contains(err.Error(), "server: minimax tenants store:") {
+	if _, err := New(missingTenantCfg); err == nil || !strings.Contains(err.Error(), "services.provider_tenants.minimax_tenant_store") {
 		t.Fatalf("New(missing tenant store) = %v", err)
 	}
 
 	missingVoicesCfg := validLayeredConfig(dir)
 	delete(missingVoicesCfg.Stores, "voices")
-	if _, err := New(missingVoicesCfg); err == nil || !strings.Contains(err.Error(), "server: voices store:") {
+	if _, err := New(missingVoicesCfg); err == nil || !strings.Contains(err.Error(), "services.voice.store") {
 		t.Fatalf("New(missing voices store) = %v", err)
 	}
 
 	missingWorkspacesCfg := validLayeredConfig(dir)
 	delete(missingWorkspacesCfg.Stores, "workspaces")
-	if _, err := New(missingWorkspacesCfg); err == nil || !strings.Contains(err.Error(), "server: workspaces store:") {
+	if _, err := New(missingWorkspacesCfg); err == nil || !strings.Contains(err.Error(), "services.workspace.store") {
 		t.Fatalf("New(missing workspaces store) = %v", err)
 	}
 
 	missingWorkflowsCfg := validLayeredConfig(dir)
 	delete(missingWorkflowsCfg.Stores, "workflows")
-	if _, err := New(missingWorkflowsCfg); err == nil || !strings.Contains(err.Error(), "server: workflows store:") {
+	if _, err := New(missingWorkflowsCfg); err == nil || !strings.Contains(err.Error(), "services.workflow.store") {
 		t.Fatalf("New(missing workflows store) = %v", err)
+	}
+
+	missingLogSinkCfg := validLayeredConfig(dir)
+	missingLogSinkCfg.Services.SystemLog = &logging.Config{Sinks: []logging.SinkConfig{{Kind: logging.SinkStore, Store: "missing-logs"}}}
+	if _, err := New(missingLogSinkCfg); err == nil || !strings.Contains(err.Error(), "services.system_log.sinks[0].store") {
+		t.Fatalf("New(missing system log sink) = %v", err)
+	}
+
+	wrongLogSinkCfg := validLayeredConfig(dir)
+	wrongLogSinkCfg.Services.SystemLog = &logging.Config{Sinks: []logging.SinkConfig{{Kind: logging.SinkStore, Store: "metrics"}}}
+	if _, err := New(wrongLogSinkCfg); err == nil || !strings.Contains(err.Error(), "logstore.ImmutableStore") {
+		t.Fatalf("New(wrong system log sink) = %v", err)
 	}
 
 }
 
 func TestNewLeavesLogQueryUnconfiguredWithoutQueryStore(t *testing.T) {
-	disabledCfg := Config{
-		Listen:   "127.0.0.1:1234",
-		Endpoint: "127.0.0.1:1234",
-		Stores:   map[string]stores.Config{"peers": {Kind: stores.KindKeyValue, Backend: "memory"}},
-	}
+	disabledCfg := validLayeredConfig(t.TempDir())
 	disabled, err := New(disabledCfg)
 	if err != nil {
 		t.Fatalf("New(disabled) error = %v", err)
@@ -562,11 +597,7 @@ func TestNewLeavesLogQueryUnconfiguredWithoutQueryStore(t *testing.T) {
 }
 
 func TestNewWiresPeerListenerFactory(t *testing.T) {
-	srv, err := New(Config{
-		Listen:   "127.0.0.1:1234",
-		Endpoint: "127.0.0.1:1234",
-		Stores:   map[string]stores.Config{"peers": {Kind: stores.KindKeyValue, Backend: "memory"}},
-	})
+	srv, err := New(validLayeredConfig(t.TempDir()))
 	if err != nil {
 		t.Fatalf("New error = %v", err)
 	}
@@ -577,12 +608,12 @@ func TestNewWiresPeerListenerFactory(t *testing.T) {
 	}
 }
 
-func TestConfigValidateRequiresStores(t *testing.T) {
+func TestConfigValidateRequiresServices(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Listen = "127.0.0.1:9820"
 	cfg.Endpoint = "127.0.0.1:9820"
-	if err := cfg.validate(); err != nil {
-		t.Fatalf("validate should allow default store names without service bindings: %v", err)
+	if err := cfg.validate(); err == nil || !strings.Contains(err.Error(), "services is required") {
+		t.Fatalf("validate error = %v, want required services", err)
 	}
 }
 
@@ -680,39 +711,17 @@ func TestNewBootstrapsConfiguredEdgeNodes(t *testing.T) {
 	}
 }
 
-func TestNewBootstrapsConfiguredEdgeNodesWithLegacySharedStore(t *testing.T) {
-	edgeKey := testKeyPair(t, 0x14)
-	srv, err := New(Config{
-		EdgeNodes: []giznet.PublicKey{edgeKey.Public},
-		Stores: map[string]stores.Config{
-			"peers": {Kind: stores.KindKeyValue, Backend: "memory"},
-		},
-	})
-	if err != nil {
-		t.Fatalf("New error = %v", err)
-	}
-	t.Cleanup(func() { _ = srv.Close() })
-
-	peerStore := &runtimepeer.Server{Store: kv.Prefixed(srv.Server.PeerStore, kv.Key{"peers"})}
-	peer, err := peerStore.LoadPeer(context.Background(), edgeKey.Public)
-	if err != nil {
-		t.Fatalf("LoadPeer error = %v", err)
-	}
-	if peer.Role != apitypes.PeerRoleEdgeNode || peer.Status != apitypes.PeerRegistrationStatusActive {
-		t.Fatalf("bootstrapped legacy edge peer = %+v", peer)
-	}
-}
-
 func TestLoadConfigReadsSystemLogConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	data := `
-system_log:
-  level: debug
-  query_store: logs
-  sinks:
-    - kind: stderr
-    - kind: store
-      store: logs
+services:
+  system_log:
+    level: debug
+    query_store: logs
+    sinks:
+      - kind: stderr
+      - kind: store
+        store: logs
 `
 	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -722,8 +731,8 @@ system_log:
 	if err != nil {
 		t.Fatalf("LoadConfig error = %v", err)
 	}
-	if cfg.SystemLog.Level != "debug" || cfg.SystemLog.QueryStore != "logs" || len(cfg.SystemLog.Sinks) != 2 {
-		t.Fatalf("SystemLog = %+v", cfg.SystemLog)
+	if cfg.Services == nil || cfg.Services.SystemLog == nil || cfg.Services.SystemLog.Level != "debug" || cfg.Services.SystemLog.QueryStore != "logs" || len(cfg.Services.SystemLog.Sinks) != 2 {
+		t.Fatalf("Services = %+v", cfg.Services)
 	}
 }
 
@@ -736,7 +745,7 @@ func TestLoadConfigRejectsLegacyAndInvalidSystemLogConfig(t *testing.T) {
 		t.Fatalf("LoadConfig legacy log err = %v", err)
 	}
 
-	if err := os.WriteFile(path, []byte("system_log:\n  level: verbose\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("services:\n  system_log:\n    level: verbose\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile enabled error = %v", err)
 	}
 	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), "system_log.level") {
@@ -749,9 +758,9 @@ func TestParseConfigRejectsUnknownLoggingFields(t *testing.T) {
 		"log: null\n",
 		"log: disabled\nsystem_log:\n  sinks:\n    - kind: stderr\n",
 		"system_log: null\n",
-		"system_log: stderr\n",
-		"system_log:\n  unknown: true\n",
-		"system_log:\n  sinks:\n    - kind: stderr\n      path: file.log\n",
+		"services:\n  system_log: stderr\n",
+		"services:\n  system_log:\n    unknown: true\n",
+		"services:\n  system_log:\n    sinks:\n      - kind: stderr\n        path: file.log\n",
 		"stores:\n  logs:\n    kind: log\n    clickhouse:\n      dsn: x\n      unknown: y\n",
 		"stores:\n  logs:\n    kind: log\n    volc:\n      endpoint: x\n      unknown: y\n",
 		"stores:\n  agent-memory:\n    kind: memory\n    storage: x\n    flowcraft: {}\n",
@@ -775,9 +784,9 @@ func TestParseConfigReadsFlowcraftHistoryClickHouse(t *testing.T) {
 	cfg, err := parseConfigData([]byte(`
 stores:
   flowcraft-history:
-    kind: log
+    kind: log.mutable
+    storage: analytics
     clickhouse:
-      dsn: clickhouse://localhost/default
       database: default
       table: gizclaw_flowcraft_history
 `))
@@ -785,11 +794,10 @@ stores:
 		t.Fatal(err)
 	}
 	store := cfg.Stores["flowcraft-history"]
-	if store.Kind != stores.KindLog || store.ClickHouse == nil {
+	if store.Kind != stores.KindLogMutable || store.ClickHouse == nil {
 		t.Fatalf("flowcraft history store = %+v", store)
 	}
-	if store.ClickHouse.DSN != "clickhouse://localhost/default" ||
-		store.ClickHouse.Database != "default" ||
+	if store.ClickHouse.Database != "default" ||
 		store.ClickHouse.Table != "gizclaw_flowcraft_history" {
 		t.Fatalf("clickhouse config = %+v", store.ClickHouse)
 	}
@@ -804,10 +812,173 @@ func TestE2ELogConfigFixturesUseReadablePlaceholders(t *testing.T) {
 			if err != nil {
 				t.Fatalf("LoadConfig(%s) error = %v", path, err)
 			}
-			if cfg.SystemLog.Level != "info" || len(cfg.SystemLog.Sinks) != 1 || cfg.SystemLog.Sinks[0].Kind != logging.SinkStderr {
-				t.Fatalf("fixture system log = %+v, want info stderr", cfg.SystemLog)
+			if cfg.Services == nil || cfg.Services.SystemLog == nil || cfg.Services.SystemLog.Level != "info" || len(cfg.Services.SystemLog.Sinks) != 1 || cfg.Services.SystemLog.Sinks[0].Kind != logging.SinkStderr {
+				t.Fatalf("fixture services = %+v, want info stderr", cfg.Services)
 			}
 		})
+	}
+}
+
+func TestParseCompleteServerConfigurationExample(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "guides", "snippets", "server-storage-stores-services.yaml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverKey := testKeyPair(t, 0x71)
+	adminKey := testKeyPair(t, 0x72)
+	data = []byte(strings.NewReplacer(
+		"${GIZCLAW_SERVER_PRIVATE_KEY}", serverKey.Private.String(),
+		"${GIZCLAW_ADMIN_PUBLIC_KEY}", adminKey.Public.String(),
+	).Replace(string(data)))
+	cfg, err := parseConfigData(data)
+	if err != nil {
+		t.Fatalf("parseConfigData(%s) error = %v", path, err)
+	}
+	if cfg.Services == nil || cfg.Services.AgentHost == nil || cfg.Services.AgentHost.Flowcraft == nil || cfg.Services.Metrics == nil || cfg.Services.SystemLog == nil {
+		t.Fatalf("complete services block = %+v", cfg.Services)
+	}
+	if len(cfg.Storage) != 5 {
+		t.Fatalf("storage count = %d, want 5", len(cfg.Storage))
+	}
+	for _, name := range []string{
+		"logs", "metrics", "flowcraft-history", "flowcraft-state", "peers", "peer-routes", "peer-run",
+		"public-login", "credentials", "firmwares", "runtime-profiles", "models", "voices", "memory-layouts",
+		"provider-tenants", "minimax-tenants", "deepseek-tenants", "volc-tenants", "workflows", "workspaces",
+		"tools", "contacts", "friend-invite-tokens", "friends", "friend-groups", "friend-group-invite-tokens",
+		"friend-group-members", "friend-group-belongs", "pet-defs", "badge-defs", "game-defs", "agenthost",
+		"workspace-assets", "gameplay-assets", "gameplay-db",
+	} {
+		if _, exists := cfg.Stores[name]; !exists {
+			t.Fatalf("stores.%s is missing", name)
+		}
+	}
+	assertCompleteServerConfigInventory(t, cfg)
+}
+
+func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
+	t.Helper()
+	consumed := make(map[string]struct{}, len(cfg.Stores))
+	expect := func(path, name string, kinds ...string) {
+		t.Helper()
+		store, exists := cfg.Stores[name]
+		if !exists {
+			t.Fatalf("%s references missing stores.%s", path, name)
+		}
+		if !slices.Contains(kinds, store.Kind) {
+			t.Fatalf("%s references stores.%s kind %q, want one of %v", path, name, store.Kind, kinds)
+		}
+		consumed[name] = struct{}{}
+	}
+	services := cfg.Services
+	expect("services.peer.store", services.Peer.Store, stores.KindKeyValue)
+	expect("services.peer.route_store", services.Peer.RouteStore, stores.KindKeyValue)
+	expect("services.peer.run_store", services.Peer.RunStore, stores.KindKeyValue)
+	for path, name := range map[string]string{
+		"services.public_login.store":                     services.PublicLogin.Store,
+		"services.credential.store":                       services.Credential.Store,
+		"services.firmware.store":                         services.Firmware.Store,
+		"services.runtime_profile.store":                  services.RuntimeProfile.Store,
+		"services.model.store":                            services.Model.Store,
+		"services.voice.store":                            services.Voice.Store,
+		"services.memory_layout.store":                    services.MemoryLayout.Store,
+		"services.provider_tenants.generic_store":         services.ProviderTenants.GenericStore,
+		"services.provider_tenants.minimax_tenant_store":  services.ProviderTenants.MiniMaxTenantStore,
+		"services.provider_tenants.deepseek_tenant_store": services.ProviderTenants.DeepSeekTenantStore,
+		"services.provider_tenants.volc_tenant_store":     services.ProviderTenants.VolcTenantStore,
+		"services.provider_tenants.credential_store":      services.ProviderTenants.CredentialStore,
+		"services.provider_tenants.model_store":           services.ProviderTenants.ModelStore,
+		"services.provider_tenants.voice_store":           services.ProviderTenants.VoiceStore,
+		"services.workflow.store":                         services.Workflow.Store,
+		"services.workspace.store":                        services.Workspace.Store,
+		"services.workspace.workflow_store":               services.Workspace.WorkflowStore,
+		"services.toolkit.store":                          services.Toolkit.Store,
+		"services.contact.store":                          services.Contact.Store,
+		"services.friend.store":                           services.Friend.Store,
+		"services.friend.invite_token_store":              services.Friend.InviteTokenStore,
+		"services.friend_group.store":                     services.FriendGroup.Store,
+		"services.friend_group.invite_token_store":        services.FriendGroup.InviteTokenStore,
+		"services.friend_group.member_store":              services.FriendGroup.MemberStore,
+		"services.friend_group.belong_store":              services.FriendGroup.BelongStore,
+		"services.gameplay.pet_def_store":                 services.Gameplay.PetDefStore,
+		"services.gameplay.badge_def_store":               services.Gameplay.BadgeDefStore,
+		"services.gameplay.game_def_store":                services.Gameplay.GameDefStore,
+	} {
+		expect(path, name, stores.KindKeyValue)
+	}
+	expect("services.workspace.assets_store", services.Workspace.AssetsStore, stores.KindObjectStore)
+	expect("services.gameplay.assets_store", services.Gameplay.AssetsStore, stores.KindObjectStore)
+	expect("services.gameplay.database_store", services.Gameplay.DatabaseStore, stores.KindSQL)
+	expect("services.agent_host.runtime_store", services.AgentHost.RuntimeStore, stores.KindObjectStore)
+	expect("services.agent_host.flowcraft.state_store", services.AgentHost.Flowcraft.StateStore, stores.KindKeyValue)
+	expect("services.agent_host.flowcraft.history_store", services.AgentHost.Flowcraft.HistoryStore, stores.KindLogMutable)
+	expect("services.metrics.store", services.Metrics.Store, stores.KindMetrics)
+	if services.SystemLog.QueryStore != "" {
+		expect("services.system_log.query_store", services.SystemLog.QueryStore, stores.KindLogImmutable, stores.KindLogMutable)
+	}
+	for index, sink := range services.SystemLog.Sinks {
+		if sink.Kind == logging.SinkStore {
+			expect(fmt.Sprintf("services.system_log.sinks[%d].store", index), sink.Store, stores.KindLogImmutable, stores.KindLogMutable)
+		}
+	}
+
+	physicalConsumers := make(map[string]struct{}, len(cfg.Storage))
+	for name, store := range cfg.Stores {
+		if _, exists := consumed[name]; !exists {
+			t.Fatalf("stores.%s has no explicit service consumer", name)
+		}
+		if store.Storage == "" {
+			continue
+		}
+		if _, exists := cfg.Storage[store.Storage]; !exists {
+			t.Fatalf("stores.%s references missing storage.%s", name, store.Storage)
+		}
+		physicalConsumers[store.Storage] = struct{}{}
+	}
+	for name := range cfg.Storage {
+		if _, exists := physicalConsumers[name]; !exists {
+			t.Fatalf("storage.%s has no logical Store consumer", name)
+		}
+	}
+}
+
+func TestWailsWorkspaceTemplateUsesStrictServerConfiguration(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "apps", "wails", "internal", "appconfig", "templates", "local_server_workspace.yaml.gotmpl")
+	source, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	quote := func(value string) string {
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(encoded)
+	}
+	tmpl, err := template.New("workspace").Funcs(template.FuncMap{"quote": quote}).Option("missingkey=error").Parse(string(source))
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := testKeyPair(t, 0x73)
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, struct {
+		PrivateKey     string
+		Listen         string
+		Endpoint       string
+		ServeToClients bool
+		AdminPublicKey string
+	}{
+		PrivateKey: key.Private.String(), Listen: "0.0.0.0:19820",
+		Endpoint: "127.0.0.1:19820", ServeToClients: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := parseConfigData(rendered.Bytes())
+	if err != nil {
+		t.Fatalf("rendered Wails template does not satisfy Server parsing: %v", err)
+	}
+	if err := validateServicesConfig(cfg.Services); err != nil {
+		t.Fatalf("rendered Wails services are incomplete: %v", err)
 	}
 }
 
@@ -927,7 +1098,7 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 }
 
 func TestPrepareConfigGeneratesKeyPairAndDefaultPorts(t *testing.T) {
-	cfg, err := prepareConfig(Config{})
+	cfg, err := prepareConfig(Config{Services: validServicesConfig()})
 	if err != nil {
 		t.Fatalf("prepareConfig error = %v", err)
 	}
@@ -943,224 +1114,43 @@ func TestPrepareConfigGeneratesKeyPairAndDefaultPorts(t *testing.T) {
 	}
 }
 
-func TestNewRejectsUnknownStores(t *testing.T) {
-	_, err := New(Config{
-		Stores: map[string]stores.Config{
-			"peers": {Kind: "keyvalue", Backend: "unknown"},
-		},
-	})
-	if err == nil || !strings.Contains(err.Error(), "server: stores:") {
-		t.Fatalf("New error = %v", err)
+func TestNewUsesExplicitServiceBindings(t *testing.T) {
+	cfg := validLayeredConfig(t.TempDir())
+	cfg.Storage["renamed-kv-connector"] = cfg.Storage["memory"]
+	delete(cfg.Storage, "memory")
+	for name, store := range cfg.Stores {
+		if store.Storage == "memory" {
+			store.Storage = "renamed-kv-connector"
+			cfg.Stores[name] = store
+		}
 	}
-}
-
-func TestNewRejectsMissingDefaultPeerStore(t *testing.T) {
-	_, err := New(Config{
-		Stores: map[string]stores.Config{
-			"mem": {Kind: "keyvalue", Backend: "memory"},
-		},
-	})
-	if err == nil || !strings.Contains(err.Error(), "server: peers store:") {
-		t.Fatalf("New error = %v", err)
-	}
-
-}
-
-func TestNewRejectsNonMutableFlowcraftHistoryStore(t *testing.T) {
-	_, err := New(Config{
-		Stores: map[string]stores.Config{
-			defaultPeersStore:   {Kind: stores.KindKeyValue, Backend: "memory"},
-			"flowcraft-history": {Kind: stores.KindKeyValue, Backend: "memory"},
-		},
-		AgentHost: &AgentHostConfig{
-			Flowcraft: &AgentHostFlowcraftConfig{HistoryStore: "flowcraft-history"},
-		},
-	})
-	if err == nil || !strings.Contains(err.Error(), `agent_host.flowcraft.history_store "flowcraft-history" requires logstore.MutableStore`) {
-		t.Fatalf("New error = %v", err)
-	}
-}
-
-func TestNewResolvesExplicitAgentHostStoresInOneLayerConfig(t *testing.T) {
-	root := t.TempDir()
-	srv, err := New(Config{
-		Stores: map[string]stores.Config{
-			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
-			"runtime":         {Kind: stores.KindObjectStore, Backend: "fs", Dir: filepath.Join(root, "runtime")},
-			"state":           {Kind: stores.KindKeyValue, Backend: "memory"},
-		},
-		AgentHost: &AgentHostConfig{
-			RuntimeStore: "runtime",
-			Flowcraft: &AgentHostFlowcraftConfig{
-				StateStore: "state",
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("New() error = %v", err)
-	}
-	t.Cleanup(func() { _ = srv.Close() })
-	if srv.AgentHostStore == nil || srv.FlowcraftState == nil {
-		t.Fatalf("explicit stores not wired: %+v", srv.Server)
-	}
-	if srv.FlowcraftHistory != nil {
-		t.Fatalf("FlowcraftHistory = %T, want nil", srv.FlowcraftHistory)
-	}
-}
-
-func TestNewResolvesExplicitAgentHostStoresInLayeredConfig(t *testing.T) {
-	root := t.TempDir()
-	cfg := validLayeredConfig(root)
-	cfg.Stores["runtime-explicit"] = stores.Config{Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "runtime-explicit"}
-	cfg.Stores["state-explicit"] = stores.Config{Kind: stores.KindKeyValue, Storage: "memory", Prefix: "state-explicit"}
-	cfg.AgentHost = &AgentHostConfig{
-		RuntimeStore: "runtime-explicit",
-		Flowcraft: &AgentHostFlowcraftConfig{
-			StateStore: "state-explicit",
-		},
-	}
+	cfg.Stores["renamed-peers"] = stores.Config{Kind: stores.KindKeyValue, Storage: "renamed-kv-connector", Prefix: "renamed-peers"}
+	cfg.Services.Peer.Store = "renamed-peers"
 	srv, err := New(cfg)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
-	if srv.AgentHostStore == nil || srv.FlowcraftState == nil {
-		t.Fatalf("explicit layered stores not wired: %+v", srv.Server)
+	if srv.PeerStore == nil || srv.PeerRouteStore == nil || srv.WorkspaceWorkflowStore == nil {
+		t.Fatalf("explicit service Stores were not wired: %+v", srv.Server)
 	}
 }
 
-func TestNewAgentHostBindsOnlyReferencedStores(t *testing.T) {
-	root := t.TempDir()
-	srv, err := New(Config{
-		Stores: map[string]stores.Config{
-			defaultPeersStore:   {Kind: stores.KindKeyValue, Backend: "memory"},
-			"agenthost":         {Kind: stores.KindObjectStore, Backend: "fs", Dir: filepath.Join(root, "unbound-runtime")},
-			"flowcraft-history": {Kind: stores.KindKeyValue, Backend: "memory"},
-			"state":             {Kind: stores.KindKeyValue, Backend: "memory"},
-		},
-		AgentHost: &AgentHostConfig{
-			Flowcraft: &AgentHostFlowcraftConfig{StateStore: "state"},
-		},
-	})
-	if err != nil {
+func TestNewRejectsServiceCapabilityMismatch(t *testing.T) {
+	cfg := validLayeredConfig(t.TempDir())
+	cfg.Services.Peer.Store = "workspace-assets"
+	_, err := New(cfg)
+	if err == nil || !strings.Contains(err.Error(), `services.peer.store "workspace-assets" requires kv.Store`) {
 		t.Fatalf("New() error = %v", err)
 	}
-	t.Cleanup(func() { _ = srv.Close() })
-	if srv.FlowcraftState == nil {
-		t.Fatalf("explicit partial block not wired: %+v", srv.Server)
-	}
-	if srv.AgentHostStore != nil || srv.FlowcraftHistory != nil {
-		t.Fatalf("unreferenced stores were bound: %+v", srv.Server)
-	}
 }
 
-func TestNewDoesNotBindAgentHostStoreWithoutConfig(t *testing.T) {
-	srv, err := New(Config{
-		Stores: map[string]stores.Config{
-			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
-			"agenthost":       {Kind: stores.KindObjectStore, Backend: "fs", Dir: t.TempDir()},
-		},
-	})
-	if err != nil {
+func TestNewRejectsMissingRequiredServiceBlock(t *testing.T) {
+	cfg := validLayeredConfig(t.TempDir())
+	cfg.Services.Peer = nil
+	_, err := New(cfg)
+	if err == nil || !strings.Contains(err.Error(), "services.peer is required") {
 		t.Fatalf("New() error = %v", err)
-	}
-	t.Cleanup(func() { _ = srv.Close() })
-	if srv.AgentHostStore != nil {
-		t.Fatalf("AgentHostStore = %T, want nil", srv.AgentHostStore)
-	}
-}
-
-func TestNewRejectsInvalidExplicitAgentHostStoreReferences(t *testing.T) {
-	tests := []struct {
-		name      string
-		agentHost *AgentHostConfig
-		want      string
-	}{
-		{
-			name:      "missing runtime",
-			agentHost: &AgentHostConfig{RuntimeStore: "missing"},
-			want:      `agent_host.runtime_store "missing" requires objectstore.ObjectStore`,
-		},
-		{
-			name:      "wrong runtime kind",
-			agentHost: &AgentHostConfig{RuntimeStore: defaultPeersStore},
-			want:      `agent_host.runtime_store "peers" requires objectstore.ObjectStore`,
-		},
-		{
-			name:      "missing state",
-			agentHost: &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{StateStore: "missing"}},
-			want:      `agent_host.flowcraft.state_store "missing" requires kv.Store`,
-		},
-		{
-			name:      "wrong state kind",
-			agentHost: &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{StateStore: "objects"}},
-			want:      `agent_host.flowcraft.state_store "objects" requires kv.Store`,
-		},
-		{
-			name:      "missing history",
-			agentHost: &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{HistoryStore: "missing"}},
-			want:      `agent_host.flowcraft.history_store "missing" requires logstore.MutableStore`,
-		},
-		{
-			name:      "wrong history kind",
-			agentHost: &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{HistoryStore: defaultPeersStore}},
-			want:      `agent_host.flowcraft.history_store "peers" requires logstore.MutableStore`,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			_, err := New(Config{
-				Stores: map[string]stores.Config{
-					defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
-					"objects":         {Kind: stores.KindObjectStore, Backend: "fs", Dir: t.TempDir()},
-				},
-				AgentHost: test.agentHost,
-			})
-			if err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("New() error = %v, want %q", err, test.want)
-			}
-		})
-	}
-}
-
-func TestNewContextualizesExplicitAgentHostStoreBuildFailures(t *testing.T) {
-	tests := []struct {
-		name string
-		cfg  Config
-		want string
-	}{
-		{
-			name: "one-layer physical runtime backend",
-			cfg: Config{
-				Stores: map[string]stores.Config{
-					defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
-					"runtime":         {Kind: stores.KindObjectStore, Backend: "fs"},
-				},
-				AgentHost: &AgentHostConfig{RuntimeStore: "runtime"},
-			},
-			want: `agent_host.runtime_store "runtime" requires objectstore.ObjectStore`,
-		},
-		{
-			name: "logical history backend",
-			cfg: Config{
-				Stores: map[string]stores.Config{
-					defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
-					"history":         {Kind: stores.KindLog},
-				},
-				AgentHost: &AgentHostConfig{
-					Flowcraft: &AgentHostFlowcraftConfig{HistoryStore: "history"},
-				},
-			},
-			want: `agent_host.flowcraft.history_store "history" requires logstore.MutableStore`,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			_, err := New(test.cfg)
-			if err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("New() error = %v, want %q", err, test.want)
-			}
-		})
 	}
 }
 
@@ -1175,27 +1165,68 @@ func validLayeredConfig(dir string) Config {
 		},
 		Stores: map[string]stores.Config{
 			"peers":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
+			"peer-routes":                {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peer-routes"},
+			"peer-run":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peer-run"},
+			"public-login":               {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "public-login"},
 			"credentials":                {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
 			"firmwares":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
 			"runtime-profiles":           {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "runtime-profiles"},
 			"memory-layouts":             {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "memory-layouts"},
 			"agenthost":                  {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "agenthost"},
 			"minimax-tenants":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "minimax-tenants"},
+			"provider-tenants":           {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "provider-tenants"},
+			"deepseek-tenants":           {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "deepseek-tenants"},
+			"volc-tenants":               {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "volc-tenants"},
+			"models":                     {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "models"},
 			"voices":                     {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "voices"},
 			"workspaces":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workspaces"},
 			"workflows":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workflows"},
+			"tools":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "tools"},
 			"contacts":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "contacts"},
 			"friend-invite-tokens":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-invite-tokens"},
 			"friends":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friends"},
 			"friend-groups":              {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-groups"},
 			"friend-group-invite-tokens": {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-invite-tokens"},
 			"friend-group-members":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-members"},
+			"friend-group-belongs":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-belongs"},
 			"pet-defs":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pet-defs"},
 			"badge-defs":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "badge-defs"},
 			"game-defs":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "game-defs"},
 			"gameplay-assets":            {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "gameplay"},
 			"workspace-assets":           {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspaces"},
 			"gameplay-db":                {Kind: stores.KindSQL, Storage: "gameplay-db"},
+		},
+		Services: validServicesConfig(),
+	}
+}
+
+func validServicesConfig() *ServicesConfig {
+	return &ServicesConfig{
+		Peer:           &PeerStoresConfig{Store: "peers", RouteStore: "peer-routes", RunStore: "peer-run"},
+		PublicLogin:    &SingleStoreConfig{Store: "public-login"},
+		Credential:     &SingleStoreConfig{Store: "credentials"},
+		Firmware:       &SingleStoreConfig{Store: "firmwares"},
+		RuntimeProfile: &SingleStoreConfig{Store: "runtime-profiles"},
+		Model:          &SingleStoreConfig{Store: "models"},
+		Voice:          &SingleStoreConfig{Store: "voices"},
+		MemoryLayout:   &SingleStoreConfig{Store: "memory-layouts"},
+		ProviderTenants: &ProviderTenantStoresConfig{
+			GenericStore: "provider-tenants", MiniMaxTenantStore: "minimax-tenants",
+			DeepSeekTenantStore: "deepseek-tenants", VolcTenantStore: "volc-tenants",
+			CredentialStore: "credentials", ModelStore: "models", VoiceStore: "voices",
+		},
+		Workflow:  &SingleStoreConfig{Store: "workflows"},
+		Workspace: &WorkspaceStoresConfig{Store: "workspaces", WorkflowStore: "workflows", AssetsStore: "workspace-assets"},
+		Toolkit:   &SingleStoreConfig{Store: "tools"},
+		Contact:   &SingleStoreConfig{Store: "contacts"},
+		Friend:    &FriendStoresConfig{Store: "friends", InviteTokenStore: "friend-invite-tokens"},
+		FriendGroup: &FriendGroupStoresConfig{
+			Store: "friend-groups", InviteTokenStore: "friend-group-invite-tokens",
+			MemberStore: "friend-group-members", BelongStore: "friend-group-belongs",
+		},
+		Gameplay: &GameplayStoresConfig{
+			PetDefStore: "pet-defs", BadgeDefStore: "badge-defs", GameDefStore: "game-defs",
+			AssetsStore: "gameplay-assets", DatabaseStore: "gameplay-db",
 		},
 		AgentHost: &AgentHostConfig{RuntimeStore: "agenthost"},
 	}

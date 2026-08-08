@@ -18,62 +18,60 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/goccy/go-yaml"
 )
+
+func validWorkspaceConfigData(t *testing.T, mutate func(*ConfigFile)) []byte {
+	t.Helper()
+	runtime := validLayeredConfig(".")
+	cfg := ConfigFile{
+		Listen:   runtime.Listen,
+		Endpoint: runtime.Endpoint,
+		Storage:  runtime.Storage,
+		Stores:   runtime.Stores,
+		Services: runtime.Services,
+	}
+	if mutate != nil {
+		mutate(&cfg)
+	}
+	var identity *IdentityConfig
+	if !cfg.Identity.PrivateKey.IsZero() {
+		identity = &cfg.Identity
+	}
+	raw := struct {
+		Identity       *IdentityConfig           `yaml:"identity,omitempty"`
+		Listen         string                    `yaml:"listen,omitempty"`
+		Endpoint       string                    `yaml:"endpoint,omitempty"`
+		ServeToClients bool                      `yaml:"serve-to-clients,omitempty"`
+		AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key,omitempty"`
+		Storage        map[string]storage.Config `yaml:"storage"`
+		Stores         map[string]stores.Config  `yaml:"stores"`
+		Services       *ServicesConfig           `yaml:"services"`
+	}{
+		Identity: identity, Listen: cfg.Listen, Endpoint: cfg.Endpoint,
+		ServeToClients: cfg.ServeToClients, AdminPublicKey: cfg.AdminPublicKey,
+		Storage: cfg.Storage, Stores: cfg.Stores, Services: cfg.Services,
+	}
+	data, err := yaml.MarshalWithOptions(raw, yaml.OmitEmpty())
+	if err != nil {
+		t.Fatalf("yaml.Marshal() error = %v", err)
+	}
+	return data
+}
 
 func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 	workspace := t.TempDir()
 	serverKP := testKeyPair(t, 0xcd)
-	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), fmt.Appendf(nil, `
-identity:
-  private-key: %q
-listen: "127.0.0.1:39001"
-endpoint: "127.0.0.1:39001"
-admin-public-key: %q
-storage:
-  memory:
-    kind: keyvalue
-    memory: {}
-  local-files:
-    kind: objectstore
-    fs:
-      dir: .
-  gameplay-db:
-    kind: sql
-    sqlite:
-      dir: data/gameplay.sqlite
-stores:
-  peers:
-    kind: keyvalue
-    storage: memory
-    prefix: peers
-  credentials:
-    kind: keyvalue
-    storage: memory
-    prefix: credentials
-  firmwares:
-    kind: keyvalue
-    storage: memory
-    prefix: firmwares
-  minimax-tenants:
-    kind: keyvalue
-    storage: memory
-    prefix: minimax-tenants
-  voices:
-    kind: keyvalue
-    storage: memory
-    prefix: voices
-  workspaces:
-    kind: keyvalue
-    storage: memory
-    prefix: workspaces
-  workflows:
-    kind: keyvalue
-    storage: memory
-    prefix: workflows
-  gameplay-db:
-    kind: sql
-    storage: gameplay-db
-`, serverKP.Private.String(), testKeyPair(t, 0xab).Public.String()), 0o644); err != nil {
+	adminKP := testKeyPair(t, 0xab)
+	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
+		cfg.Identity.PrivateKey = serverKP.Private
+		cfg.Listen = "127.0.0.1:39001"
+		cfg.Endpoint = "127.0.0.1:39001"
+		cfg.AdminPublicKey = adminKP.Public
+		cfg.Storage["local-files"] = storage.Config{Kind: storage.KindObjectStore, FS: &storage.FSConfig{Dir: "."}}
+		cfg.Storage["gameplay-db"] = storage.Config{Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: "data/gameplay.sqlite"}}
+	})
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
@@ -93,12 +91,9 @@ stores:
 	if cfg.Endpoint != "127.0.0.1:39001" {
 		t.Fatalf("Endpoint = %q", cfg.Endpoint)
 	}
-	adminKey := testKeyPair(t, 0xab).Public
+	adminKey := adminKP.Public
 	if cfg.AdminPublicKey != adminKey {
 		t.Fatalf("AdminPublicKey = %v", cfg.AdminPublicKey)
-	}
-	if got := cfg.Storage["memory"].Dir; got != "" {
-		t.Fatalf("memory store dir = %q", got)
 	}
 	if got := cfg.Storage["local-files"].FS.Dir; got != workspace {
 		t.Fatalf("local-files dir = %q", got)
@@ -111,15 +106,12 @@ stores:
 func TestServeContextServerInfoReportsTCPICE(t *testing.T) {
 	addr := localTCPUDPAddr(t)
 	workspace := t.TempDir()
-	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), fmt.Appendf(nil, `
-listen: %q
-endpoint: %q
-serve-to-clients: true
-stores:
-  peers:
-    kind: keyvalue
-    backend: memory
-`, addr, addr), 0o644); err != nil {
+	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
+		cfg.Listen = addr
+		cfg.Endpoint = addr
+		cfg.ServeToClients = true
+	})
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
@@ -147,14 +139,11 @@ stores:
 func TestServeContextDefaultKeepsTCPMuxAndRequiresPrivateAuth(t *testing.T) {
 	addr := localTCPUDPAddr(t)
 	workspace := t.TempDir()
-	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), fmt.Appendf(nil, `
-listen: %q
-endpoint: %q
-stores:
-  peers:
-    kind: keyvalue
-    backend: memory
-`, addr, addr), 0o644); err != nil {
+	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
+		cfg.Listen = addr
+		cfg.Endpoint = addr
+	})
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
@@ -250,14 +239,11 @@ func waitForServerInfo(t *testing.T, url string) apitypes.ServerInfo {
 func TestPrepareWorkspaceConfigUsesDefaultPorts(t *testing.T) {
 	workspace := t.TempDir()
 	configPath := filepath.Join(workspace, workspaceConfigFile)
-	if err := os.WriteFile(configPath, []byte(`
-stores:
-  mem:
-    kind: keyvalue
-    backend: memory
-peers:
-  store: mem
-`), 0o644); err != nil {
+	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
+		cfg.Listen = ""
+		cfg.Endpoint = ""
+	})
+	if err := os.WriteFile(configPath, data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
@@ -297,32 +283,11 @@ func TestPrepareWorkspaceConfigLoadError(t *testing.T) {
 
 func TestPrepareWorkspaceConfigResolvesRelativeStoreDirs(t *testing.T) {
 	workspace := t.TempDir()
-	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(`
-storage:
-  memory:
-    kind: keyvalue
-    memory: {}
-  asset-files:
-    kind: objectstore
-    fs:
-      dir: .
-  fixture-db:
-    kind: sql
-    sqlite:
-      dir: data/fixture.sqlite
-stores:
-  fixture-meta:
-    kind: keyvalue
-    storage: memory
-    prefix: files-meta
-  fixture-assets:
-    kind: objectstore
-    storage: asset-files
-    prefix: fixtures
-  fixture-sql:
-    kind: sql
-    storage: fixture-db
-`), 0o644); err != nil {
+	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
+		cfg.Storage["local-files"] = storage.Config{Kind: storage.KindObjectStore, FS: &storage.FSConfig{Dir: "."}}
+		cfg.Storage["gameplay-db"] = storage.Config{Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: "data/fixture.sqlite"}}
+	})
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
@@ -330,11 +295,14 @@ stores:
 	if err != nil {
 		t.Fatalf("prepareWorkspaceConfig error = %v", err)
 	}
-	if got := cfg.Storage["asset-files"].FS.Dir; got != workspace {
+	if got := cfg.Storage["local-files"].FS.Dir; got != workspace {
 		t.Fatalf("asset dir = %q", got)
 	}
-	if got := cfg.Stores["fixture-assets"].Prefix; got != "fixtures" {
-		t.Fatalf("fixture-assets prefix = %q", got)
+	if got := cfg.Storage["gameplay-db"].SQLite.Dir; got != filepath.Join(workspace, "data", "fixture.sqlite") {
+		t.Fatalf("gameplay-db dir = %q", got)
+	}
+	if got := cfg.Stores["workspace-assets"].Prefix; got != "workspaces" {
+		t.Fatalf("workspace-assets prefix = %q", got)
 	}
 }
 
@@ -343,12 +311,6 @@ func TestPrepareWorkspaceConfigIdentityError(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(`
 identity:
   private-key: not-a-key
-stores:
-  mem:
-    kind: keyvalue
-    backend: memory
-peers:
-  store: mem
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
@@ -366,7 +328,7 @@ func TestWriteWorkspaceIdentityReadError(t *testing.T) {
 	}
 }
 
-func TestResolveWorkspaceStoreConfigsPreservesAbsoluteDirs(t *testing.T) {
+func TestResolveWorkspaceStorageConfigsPreservesAbsoluteDirs(t *testing.T) {
 	root := t.TempDir()
 	absoluteDir := filepath.Join(t.TempDir(), "files")
 
@@ -378,17 +340,6 @@ func TestResolveWorkspaceStoreConfigsPreservesAbsoluteDirs(t *testing.T) {
 	})
 	if gotStorage["fw"].FS.Dir != absoluteDir {
 		t.Fatalf("fw storage dir = %q, want %q", gotStorage["fw"].FS.Dir, absoluteDir)
-	}
-
-	gotStores := resolveWorkspaceStoreConfigs(root, map[string]stores.Config{
-		"kv": {
-			Kind:    stores.KindKeyValue,
-			Backend: "badger",
-			Dir:     absoluteDir,
-		},
-	})
-	if gotStores["kv"].Dir != absoluteDir {
-		t.Fatalf("kv store dir = %q, want %q", gotStores["kv"].Dir, absoluteDir)
 	}
 }
 
@@ -408,18 +359,13 @@ func TestForceServeReturnsWorkspaceLoadError(t *testing.T) {
 
 func TestServeContextUsesBootstrapLoggerOnStoreStartupFailure(t *testing.T) {
 	workspace := t.TempDir()
-	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(`
-listen: 127.0.0.1:0
-endpoint: 127.0.0.1:9820
-system_log:
-  level: debug
-stores:
-  bad:
-    kind: keyvalue
-    backend: unknown
-peers:
-  store: bad
-`), 0o644); err != nil {
+	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
+		cfg.Listen = "127.0.0.1:0"
+		cfg.Endpoint = "127.0.0.1:9820"
+		cfg.Storage["memory"] = storage.Config{Kind: storage.KindKeyValue}
+		cfg.Services.SystemLog = &logging.Config{Level: "debug"}
+	})
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
@@ -443,14 +389,11 @@ peers:
 
 func TestServeContextClosesLoggerOnShutdown(t *testing.T) {
 	workspace := t.TempDir()
-	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(`
-listen: 127.0.0.1:0
-endpoint: 127.0.0.1:9820
-stores:
-  peers:
-    kind: keyvalue
-    backend: memory
-`), 0o644); err != nil {
+	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
+		cfg.Listen = "127.0.0.1:0"
+		cfg.Endpoint = "127.0.0.1:9820"
+	})
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
@@ -500,14 +443,10 @@ func restoreLoggingInstaller(t *testing.T, fn func(logging.Config, ...logging.St
 
 func TestServeReturnsServerBuildError(t *testing.T) {
 	workspace := t.TempDir()
-	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(`
-stores:
-  bad:
-    kind: keyvalue
-    backend: unknown
-peers:
-  store: bad
-`), 0o644); err != nil {
+	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
+		cfg.Storage["memory"] = storage.Config{Kind: storage.KindKeyValue}
+	})
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
@@ -519,46 +458,11 @@ peers:
 
 func TestServeContextClosesStoresWhenPIDAcquireFails(t *testing.T) {
 	workspace := t.TempDir()
-	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(`
-storage:
-  main-kv:
-    kind: keyvalue
-    badger:
-      dir: data/kv
-  local-files:
-    kind: objectstore
-    fs:
-      dir: .
-stores:
-  peers:
-    kind: keyvalue
-    storage: main-kv
-    prefix: peers
-  credentials:
-    kind: keyvalue
-    storage: main-kv
-    prefix: credentials
-  firmwares:
-    kind: keyvalue
-    storage: main-kv
-    prefix: firmwares
-  minimax-tenants:
-    kind: keyvalue
-    storage: main-kv
-    prefix: minimax-tenants
-  voices:
-    kind: keyvalue
-    storage: main-kv
-    prefix: voices
-  workspaces:
-    kind: keyvalue
-    storage: main-kv
-    prefix: workspaces
-  workflows:
-    kind: keyvalue
-    storage: main-kv
-    prefix: workflows
-`), 0o644); err != nil {
+	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
+		cfg.Storage["memory"] = storage.Config{Kind: storage.KindKeyValue, Badger: &storage.BadgerConfig{Dir: "data/kv"}}
+		cfg.Storage["local-files"] = storage.Config{Kind: storage.KindObjectStore, FS: &storage.FSConfig{Dir: "."}}
+	})
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile config error = %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(workspace, workspacePIDFile), fmt.Appendf(nil, "%d\n", os.Getpid()), 0o644); err != nil {
@@ -571,7 +475,7 @@ stores:
 	}
 
 	reopened, err := storage.New(map[string]storage.Config{
-		"main-kv": {Kind: storage.KindKeyValue, Badger: &storage.BadgerConfig{Dir: filepath.Join(workspace, "data", "kv")}},
+		"memory": {Kind: storage.KindKeyValue, Badger: &storage.BadgerConfig{Dir: filepath.Join(workspace, "data", "kv")}},
 	})
 	if err != nil {
 		t.Fatalf("storage should be closed after PID error, reopen: %v", err)

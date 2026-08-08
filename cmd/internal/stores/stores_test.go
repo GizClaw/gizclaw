@@ -2,8 +2,6 @@ package stores
 
 import (
 	"context"
-	"database/sql"
-	"database/sql/driver"
 	"errors"
 	"io"
 	"net/http"
@@ -18,942 +16,339 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
-	"github.com/goccy/go-yaml"
-	"github.com/jmoiron/sqlx"
 )
 
-type fakeDriver struct{}
-
-func (fakeDriver) Open(_ string) (driver.Conn, error) { return fakeConn{}, nil }
-
-type fakeConn struct{}
-
-func (fakeConn) Prepare(_ string) (driver.Stmt, error) { return nil, nil }
-func (fakeConn) Close() error                          { return nil }
-func (fakeConn) Begin() (driver.Tx, error)             { return nil, nil }
-func (fakeConn) Ping(_ context.Context) error          { return nil }
-
-type fakePingFailDriver struct{}
-
-func (fakePingFailDriver) Open(_ string) (driver.Conn, error) { return fakePingFailConn{}, nil }
-
-type fakePingFailConn struct{}
-
-func (fakePingFailConn) Prepare(_ string) (driver.Stmt, error) { return nil, nil }
-func (fakePingFailConn) Close() error                          { return nil }
-func (fakePingFailConn) Begin() (driver.Tx, error)             { return nil, nil }
-func (fakePingFailConn) Ping(_ context.Context) error          { return errors.New("ping refused") }
-
-func init() {
-	sql.Register("fake", fakeDriver{})
-	sql.Register("fake_ping_fail", fakePingFailDriver{})
-	sqlx.BindDriver("fake", sqlx.QUESTION)
-	sqlx.BindDriver("fake_ping_fail", sqlx.QUESTION)
-}
-
-type fakeLogStore struct{ closes int }
-
-func (*fakeLogStore) Append(_ context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
-	keys := make([]logstore.RecordKey, len(records))
-	for index, record := range records {
-		keys[index] = record.Key()
-	}
-	return keys, nil
-}
-func (*fakeLogStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
-	return logstore.Page{}, nil
-}
-func (s *fakeLogStore) Close() error { s.closes++; return nil }
-
-type fakeMutableLogStore struct{ fakeLogStore }
-
-func (*fakeMutableLogStore) Replace(context.Context, logstore.Record) error { return nil }
-func (*fakeMutableLogStore) Delete(context.Context, logstore.RecordKey) error {
-	return nil
-}
-
-func TestLogStoreRegistry(t *testing.T) {
-	want := &fakeLogStore{}
-	old := openVolcLogStore
-	openVolcLogStore = func(logstore.VolcConfig) (logstore.ImmutableStore, error) { return want, nil }
-	t.Cleanup(func() { openVolcLogStore = old })
-	registry, err := NewWithStorage(nil, map[string]Config{"logs": {Kind: KindLog, Volc: &logstore.VolcConfig{Endpoint: "endpoint"}}})
-	if err != nil {
-		t.Fatalf("NewWithStorage() error = %v", err)
-	}
-	got, err := registry.Log("logs")
-	if err != nil || got != want {
-		t.Fatalf("Log() = %v, %v", got, err)
-	}
-	if _, err := registry.Metrics("logs"); err == nil {
-		t.Fatal("wrong-kind lookup succeeded")
-	}
-	if err := registry.Close(); err != nil {
-		t.Fatal(err)
-	}
-	_ = registry.Close()
-	if want.closes != 1 {
-		t.Fatalf("close count = %d", want.closes)
-	}
-}
-
-func TestMutableLogStoreRegistry(t *testing.T) {
-	t.Setenv("GIZCLAW_TEST_CLICKHOUSE_DSN", "clickhouse://example")
-	want := &fakeMutableLogStore{}
-	var gotConfig logstore.ClickHouseConfig
-	old := openClickHouseLogStore
-	openClickHouseLogStore = func(config logstore.ClickHouseConfig) (logstore.MutableStore, error) {
-		gotConfig = config
-		return want, nil
-	}
-	t.Cleanup(func() { openClickHouseLogStore = old })
-	registry, err := NewWithStorage(nil, map[string]Config{"history": {
-		Kind: KindLog,
-		ClickHouse: &ClickHouseConfig{
-			DSN:      "$GIZCLAW_TEST_CLICKHOUSE_DSN",
-			Database: "default",
-			Table:    "history",
-		},
-	}})
-	if err != nil {
-		t.Fatalf("NewWithStorage() error = %v", err)
-	}
-	mutable, err := registry.MutableLog("history")
-	if err != nil || mutable != want {
-		t.Fatalf("MutableLog() = %v, %v", mutable, err)
-	}
-	if gotConfig.DSN != "clickhouse://example" || gotConfig.Database != "default" || gotConfig.Table != "history" {
-		t.Fatalf("clickhouse config = %+v", gotConfig)
-	}
-	if err := registry.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if want.closes != 1 {
-		t.Fatalf("close count = %d", want.closes)
-	}
-}
-
-func TestMutableLogRejectsImmutableDriver(t *testing.T) {
-	old := openVolcLogStore
-	openVolcLogStore = func(logstore.VolcConfig) (logstore.ImmutableStore, error) {
-		return &fakeLogStore{}, nil
-	}
-	t.Cleanup(func() { openVolcLogStore = old })
-	registry, err := NewWithStorage(nil, map[string]Config{"history": {
-		Kind: KindLog,
-		Volc: &logstore.VolcConfig{Endpoint: "endpoint"},
-	}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = registry.Close() })
-	if _, err := registry.MutableLog("history"); err == nil || !strings.Contains(err.Error(), "does not support mutable records") {
-		t.Fatalf("MutableLog() error = %v", err)
-	}
-}
-
-func TestLogStoreRegistryValidatesBackendsAndClosesPartialConstruction(t *testing.T) {
-	if _, err := NewWithStorage(nil, map[string]Config{"logs": {Kind: KindLog}}); err == nil {
-		t.Fatal("missing Volc backend was accepted")
-	} else {
-		var configErr *ConfigError
-		if !errors.As(err, &configErr) || configErr.Name != "logs" {
-			t.Fatalf("error = %v, ConfigError = %+v", err, configErr)
-		}
-	}
-	if _, err := NewWithStorage(nil, map[string]Config{"logs": {Kind: KindLog, Volc: &logstore.VolcConfig{}, Memory: &struct{}{}}}); err == nil {
-		t.Fatal("mixed backend fields were accepted")
-	}
-	if _, err := NewWithStorage(nil, map[string]Config{"logs": {
-		Kind:       KindLog,
-		Volc:       &logstore.VolcConfig{},
-		ClickHouse: &ClickHouseConfig{},
-	}}); err == nil {
-		t.Fatal("multiple log backends were accepted")
-	}
-
-	first := &fakeLogStore{}
-	calls := 0
-	old := openVolcLogStore
-	openVolcLogStore = func(logstore.VolcConfig) (logstore.ImmutableStore, error) {
-		calls++
-		if calls == 1 {
-			return first, nil
-		}
-		return nil, errors.New("open failed")
-	}
-	t.Cleanup(func() { openVolcLogStore = old })
-	_, err := NewWithStorage(nil, map[string]Config{
-		"first":  {Kind: KindLog, Volc: &logstore.VolcConfig{Endpoint: "first"}},
-		"second": {Kind: KindLog, Volc: &logstore.VolcConfig{Endpoint: "second"}},
-	})
-	if err == nil || first.closes != 1 {
-		t.Fatalf("construction error = %v, first closes = %d", err, first.closes)
-	}
-}
-
-func TestLogStoreRegistryExpandsVolcEnvironment(t *testing.T) {
-	t.Setenv("GIZCLAW_TEST_VOLC_TOPIC", "expanded-topic")
-	var got logstore.VolcConfig
-	old := openVolcLogStore
-	openVolcLogStore = func(config logstore.VolcConfig) (logstore.ImmutableStore, error) {
-		got = config
-		return &fakeLogStore{}, nil
-	}
-	t.Cleanup(func() { openVolcLogStore = old })
-	registry, err := NewWithStorage(nil, map[string]Config{"logs": {
-		Kind: KindLog, Volc: &logstore.VolcConfig{TopicID: "$GIZCLAW_TEST_VOLC_TOPIC"},
-	}})
-	if err != nil {
-		t.Fatalf("NewWithStorage() error = %v", err)
-	}
-	t.Cleanup(func() { _ = registry.Close() })
-	if got.TopicID != "expanded-topic" {
-		t.Fatalf("topic = %q", got.TopicID)
-	}
-	if _, exists := legacyStorageConfigs(map[string]Config{"logs": {Kind: KindLog}})["logs"]; exists {
-		t.Fatal("logical LogStore was projected as physical storage")
-	}
-}
-
-func TestLegacyStorageConfigsProjectsFilesystemObjectStore(t *testing.T) {
-	dir := t.TempDir()
-	projected := legacyStorageConfigs(map[string]Config{
-		"objects": {Kind: KindObjectStore, Backend: "fs", Dir: dir},
-	})["objects"]
-	if projected.Kind != physicalstorage.KindObjectStore || projected.FS == nil || projected.FS.Dir != dir {
-		t.Fatalf("legacyStorageConfigs() = %+v", projected)
-	}
-	if projected.Backend != "" || projected.Dir != "" {
-		t.Fatalf("legacyStorageConfigs() retained legacy object fields: %+v", projected)
-	}
-
-	registry, err := New(map[string]Config{
-		"objects": {Kind: KindObjectStore, Backend: "fs", Dir: dir},
-	})
-	if err != nil {
-		t.Fatalf("New() error = %v", err)
-	}
-	t.Cleanup(func() { _ = registry.Close() })
-	if _, err := registry.ObjectStore("objects"); err != nil {
-		t.Fatalf("ObjectStore() error = %v", err)
-	}
-}
-
-func mustStores(t *testing.T, dataDir string, yml []byte) *Stores {
+func newPhysical(t *testing.T, configs map[string]physicalstorage.Config) *physicalstorage.Storage {
 	t.Helper()
-	var wrapper struct {
-		Stores map[string]Config `yaml:"stores"`
-	}
-	if err := yaml.Unmarshal(yml, &wrapper); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	s, err := New(resolveTestConfigs(dataDir, wrapper.Stores))
+	registry, err := physicalstorage.New(configs)
 	if err != nil {
-		t.Fatalf("New: %v", err)
+		t.Fatalf("storage.New() error = %v", err)
 	}
-	return s
+	t.Cleanup(func() { _ = registry.Close() })
+	return registry
 }
 
-func resolveTestConfigs(baseDir string, configs map[string]Config) map[string]Config {
-	if len(configs) == 0 {
-		return nil
-	}
-	resolved := make(map[string]Config, len(configs))
-	for name, cfg := range configs {
-		if cfg.Dir != "" && baseDir != "" && !filepath.IsAbs(cfg.Dir) {
-			cfg.Dir = filepath.Join(baseDir, cfg.Dir)
-		}
-		resolved[name] = cfg
-	}
-	return resolved
-}
-
-// --- New ---
-
-func TestNewNilConfigs(t *testing.T) {
-	s, err := New(nil)
+func TestNewWithStorageAcceptsEmptyRegistry(t *testing.T) {
+	registry, err := NewWithStorage(nil, nil)
 	if err != nil {
-		t.Fatalf("New: %v", err)
+		t.Fatalf("NewWithStorage() error = %v", err)
 	}
-	defer s.Close()
-	if _, err := s.KV("anything"); err == nil {
-		t.Fatal("expected error for empty stores")
-	}
-}
-
-func TestNewUnknownKind(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: "nosql", Backend: "magic"},
-	}); err == nil {
-		t.Fatal("expected error for unknown kind")
+	t.Cleanup(func() { _ = registry.Close() })
+	if _, err := registry.KV("missing"); err == nil {
+		t.Fatal("KV(missing) succeeded")
 	}
 }
 
-func TestNewWithStorageRequiresRegistry(t *testing.T) {
+func TestNewWithStorageRejectsUnknownKindAndMissingRegistry(t *testing.T) {
+	if _, err := NewWithStorage(nil, map[string]Config{"bad": {Kind: "nosql"}}); err == nil {
+		t.Fatal("unknown kind was accepted")
+	}
 	if _, err := NewWithStorage(nil, map[string]Config{
-		"kv": {Kind: KindKeyValue, Storage: "main"},
-	}); err == nil {
-		t.Fatal("expected error for nil storage registry")
+		"peers": {Kind: KindKeyValue, Storage: "main"},
+	}); err == nil || !strings.Contains(err.Error(), "storage registry is nil") {
+		t.Fatalf("missing storage registry error = %v", err)
 	}
 }
 
-func TestNewRelativeDir(t *testing.T) {
-	dir := t.TempDir()
-	s, err := New(resolveTestConfigs(dir, map[string]Config{
-		"bg": {Kind: KindKeyValue, Backend: "badger", Dir: "bg-data"},
-	}))
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer s.Close()
-	if _, err := s.KV("bg"); err != nil {
-		t.Fatalf("KV(bg): %v", err)
-	}
-}
-
-// --- KV ---
-
-func TestKVMemory(t *testing.T) {
-	reg := mustStores(t, t.TempDir(), []byte(`
-stores:
-  mem:
-    kind: keyvalue
-    backend: memory
-`))
-	defer reg.Close()
-
-	s, err := reg.KV("mem")
-	if err != nil {
-		t.Fatalf("KV(mem): %v", err)
-	}
-
-	ctx := context.Background()
-	if err := s.Set(ctx, kv.Key{"a"}, []byte("1")); err != nil {
-		t.Fatalf("Set: %v", err)
-	}
-	got, err := s.Get(ctx, kv.Key{"a"})
-	if err != nil {
-		t.Fatalf("Get: %v", err)
-	}
-	if string(got) != "1" {
-		t.Fatalf("Get = %q, want %q", got, "1")
-	}
-
-	s2, err := reg.KV("mem")
-	if err != nil {
-		t.Fatalf("KV(mem) second call: %v", err)
-	}
-	if s != s2 {
-		t.Fatal("expected same instance on second call")
-	}
-}
-
-func TestKVWithStoragePrefix(t *testing.T) {
-	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"main": {Kind: physicalstorage.KindKeyValue, Backend: "memory"},
+func TestNewWithStorageRejectsEmptyStoreNameAndForeignKindFields(t *testing.T) {
+	physical := newPhysical(t, map[string]physicalstorage.Config{
+		"main": {Kind: physicalstorage.KindKeyValue, Memory: &physicalstorage.MemoryConfig{}},
 	})
-	if err != nil {
-		t.Fatalf("storage.New: %v", err)
+	if _, err := NewWithStorage(physical, map[string]Config{
+		"": {Kind: KindKeyValue, Storage: "main"},
+	}); err == nil || !strings.Contains(err.Error(), "Store name must not be empty") {
+		t.Fatalf("empty name error = %v", err)
 	}
-	defer physical.Close()
+	if _, err := NewWithStorage(physical, map[string]Config{
+		"peers": {Kind: KindKeyValue, Storage: "main", ClickHouse: &ClickHouseConfig{Table: "ignored"}},
+	}); err == nil || !strings.Contains(err.Error(), "does not support clickhouse") {
+		t.Fatalf("foreign field error = %v", err)
+	}
+}
 
-	reg, err := NewWithStorage(physical, map[string]Config{
+func TestKVStoresScopeOnePhysicalConnector(t *testing.T) {
+	physical := newPhysical(t, map[string]physicalstorage.Config{
+		"main": {Kind: physicalstorage.KindKeyValue, Memory: &physicalstorage.MemoryConfig{}},
+	})
+	registry, err := NewWithStorage(physical, map[string]Config{
 		"peers":       {Kind: KindKeyValue, Storage: "main", Prefix: "peers"},
 		"credentials": {Kind: KindKeyValue, Storage: "main", Prefix: "credentials/by-name"},
 	})
 	if err != nil {
-		t.Fatalf("NewWithStorage: %v", err)
+		t.Fatalf("NewWithStorage() error = %v", err)
 	}
-	defer reg.Close()
+	t.Cleanup(func() { _ = registry.Close() })
 
-	peers, err := reg.KV("peers")
+	peers, err := registry.KV("peers")
 	if err != nil {
-		t.Fatalf("KV(peers): %v", err)
+		t.Fatal(err)
 	}
-	credentials, err := reg.KV("credentials")
+	credentials, err := registry.KV("credentials")
 	if err != nil {
-		t.Fatalf("KV(credentials): %v", err)
+		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if err := peers.Set(ctx, kv.Key{"abc"}, []byte("peer")); err != nil {
-		t.Fatalf("Set peer: %v", err)
+	if err := peers.Set(ctx, kv.Key{"p1"}, []byte("peer")); err != nil {
+		t.Fatal(err)
 	}
-	if err := credentials.Set(ctx, kv.Key{"mini-max"}, []byte("secret")); err != nil {
-		t.Fatalf("Set credential: %v", err)
+	if err := credentials.Set(ctx, kv.Key{"provider"}, []byte("secret")); err != nil {
+		t.Fatal(err)
 	}
-
 	base, err := physical.KV("main")
 	if err != nil {
-		t.Fatalf("storage KV(main): %v", err)
+		t.Fatal(err)
 	}
-	if got, err := base.Get(ctx, kv.Key{"peers", "abc"}); err != nil || string(got) != "peer" {
+	if got, err := base.Get(ctx, kv.Key{"peers", "p1"}); err != nil || string(got) != "peer" {
 		t.Fatalf("base peer = %q, %v", got, err)
 	}
-	if got, err := base.Get(ctx, kv.Key{"credentials", "by-name", "mini-max"}); err != nil || string(got) != "secret" {
+	if got, err := base.Get(ctx, kv.Key{"credentials", "by-name", "provider"}); err != nil || string(got) != "secret" {
 		t.Fatalf("base credential = %q, %v", got, err)
 	}
-	if _, err := credentials.Get(ctx, kv.Key{"abc"}); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("credentials should not see peer key, got %v", err)
+	if _, err := credentials.Get(ctx, kv.Key{"p1"}); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("credentials saw peer key: %v", err)
 	}
 }
 
-func TestKVWithStorageInvalidPrefix(t *testing.T) {
-	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"main": {Kind: physicalstorage.KindKeyValue, Backend: "memory"},
-	})
-	if err != nil {
-		t.Fatalf("storage.New: %v", err)
-	}
-	defer physical.Close()
-
-	if _, err := NewWithStorage(physical, map[string]Config{
-		"bad": {Kind: KindKeyValue, Storage: "main", Prefix: "bad:prefix"},
-	}); err == nil {
-		t.Fatal("expected error for invalid prefix")
-	}
-	if _, err := NewWithStorage(physical, map[string]Config{
-		"bad": {Kind: KindKeyValue, Storage: "main", Prefix: "bad//prefix"},
-	}); err == nil {
-		t.Fatal("expected error for empty prefix segment")
-	}
-}
-
-func TestKVBadger(t *testing.T) {
-	dir := t.TempDir()
-	reg := mustStores(t, dir, []byte(`
-stores:
-  bg:
-    kind: keyvalue
-    backend: badger
-    dir: bg-data
-`))
-	defer reg.Close()
-
-	s, err := reg.KV("bg")
-	if err != nil {
-		t.Fatalf("KV(bg): %v", err)
-	}
-	ctx := context.Background()
-	if err := s.Set(ctx, kv.Key{"k"}, []byte("v")); err != nil {
-		t.Fatalf("Set: %v", err)
-	}
-	got, err := s.Get(ctx, kv.Key{"k"})
-	if err != nil {
-		t.Fatalf("Get: %v", err)
-	}
-	if string(got) != "v" {
-		t.Fatalf("Get = %q", got)
-	}
-}
-
-func TestKVBadgerAbsoluteDir(t *testing.T) {
-	absDir := filepath.Join(t.TempDir(), "abs-badger")
-	reg := mustStores(t, t.TempDir(), []byte(`
-stores:
-  bg-abs:
-    kind: keyvalue
-    backend: badger
-    dir: `+absDir+`
-`))
-	defer reg.Close()
-
-	if _, err := reg.KV("bg-abs"); err != nil {
-		t.Fatalf("KV(bg-abs): %v", err)
-	}
-}
-
-func TestKVNotFound(t *testing.T) {
-	reg := mustStores(t, t.TempDir(), []byte(`
-stores:
-  mem:
-    kind: keyvalue
-    backend: memory
-  vec:
-    kind: vecstore
-    backend: memory
-`))
-	defer reg.Close()
-
-	if _, err := reg.KV("missing"); err == nil {
-		t.Fatal("expected error for missing store")
-	}
-	if _, err := reg.KV("vec"); err == nil {
-		t.Fatal("expected error for wrong kind lookup")
-	}
-}
-
-func TestKVWithStorageWrongKindReference(t *testing.T) {
-	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+func TestKVStoreRejectsInvalidOrWrongPhysicalStorage(t *testing.T) {
+	physical := newPhysical(t, map[string]physicalstorage.Config{
+		"main":    {Kind: physicalstorage.KindKeyValue, Memory: &physicalstorage.MemoryConfig{}},
 		"objects": {Kind: physicalstorage.KindObjectStore, FS: &physicalstorage.FSConfig{Dir: t.TempDir()}},
 	})
-	if err != nil {
-		t.Fatalf("storage.New: %v", err)
+	tests := []Config{
+		{Kind: KindKeyValue},
+		{Kind: KindKeyValue, Storage: "main", Prefix: "bad:prefix"},
+		{Kind: KindKeyValue, Storage: "main", Prefix: "bad//prefix"},
+		{Kind: KindKeyValue, Storage: "objects"},
 	}
-	defer physical.Close()
-
-	if _, err := NewWithStorage(physical, map[string]Config{
-		"kv": {Kind: KindKeyValue, Storage: "objects"},
-	}); err == nil {
-		t.Fatal("expected error for keyvalue store referencing object storage")
-	}
-}
-
-func TestNewKVUnknownBackend(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: KindKeyValue, Backend: "redis"},
-	}); err == nil {
-		t.Fatal("expected error for unknown kv backend")
-	}
-}
-
-func TestNewKVBadgerNoDir(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: KindKeyValue, Backend: "badger"},
-	}); err == nil {
-		t.Fatal("expected error for badger without dir")
-	}
-}
-
-// --- VecStore ---
-
-func TestVecStoreMemory(t *testing.T) {
-	reg := mustStores(t, t.TempDir(), []byte(`
-stores:
-  vec:
-    kind: vecstore
-    backend: memory
-`))
-	defer reg.Close()
-
-	idx, err := reg.VecStore("vec")
-	if err != nil {
-		t.Fatalf("VecStore(vec): %v", err)
-	}
-	if err := idx.Insert("a", []float32{1, 0, 0}); err != nil {
-		t.Fatalf("Insert: %v", err)
-	}
-	if idx.Len() != 1 {
-		t.Fatalf("Len = %d", idx.Len())
-	}
-
-	idx2, err := reg.VecStore("vec")
-	if err != nil {
-		t.Fatalf("VecStore(vec) second: %v", err)
-	}
-	if idx != idx2 {
-		t.Fatal("expected same instance")
-	}
-}
-
-func TestVecStoreNotFound(t *testing.T) {
-	reg := mustStores(t, t.TempDir(), []byte(`
-stores:
-  kv:
-    kind: keyvalue
-    backend: memory
-`))
-	defer reg.Close()
-
-	if _, err := reg.VecStore("missing"); err == nil {
-		t.Fatal("expected error for missing")
-	}
-	if _, err := reg.VecStore("kv"); err == nil {
-		t.Fatal("expected error for wrong kind lookup")
-	}
-}
-
-func TestNewVecStoreUnknownBackend(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: KindVecStore, Backend: "qdrant"},
-	}); err == nil {
-		t.Fatal("expected error for unknown vecstore backend")
-	}
-}
-
-// --- Graph ---
-
-func TestGraphKV(t *testing.T) {
-	reg := mustStores(t, t.TempDir(), []byte(`
-stores:
-  mem:
-    kind: keyvalue
-    backend: memory
-  g:
-    kind: graph
-    backend: kv
-    store: mem
-`))
-	defer reg.Close()
-
-	g, err := reg.Graph("g")
-	if err != nil {
-		t.Fatalf("Graph(g): %v", err)
-	}
-	ctx := context.Background()
-	if err := g.SetEntity(ctx, graph.Entity{Label: "alice"}); err != nil {
-		t.Fatalf("SetEntity: %v", err)
-	}
-	e, err := g.GetEntity(ctx, "alice")
-	if err != nil {
-		t.Fatalf("GetEntity: %v", err)
-	}
-	if e.Label != "alice" {
-		t.Fatalf("Label = %q", e.Label)
-	}
-
-	g2, err := reg.Graph("g")
-	if err != nil {
-		t.Fatalf("Graph(g) second: %v", err)
-	}
-	if g != g2 {
-		t.Fatal("expected same instance")
-	}
-}
-
-func TestGraphNotFound(t *testing.T) {
-	reg := mustStores(t, t.TempDir(), []byte(`
-stores:
-  kv:
-    kind: keyvalue
-    backend: memory
-`))
-	defer reg.Close()
-
-	if _, err := reg.Graph("missing"); err == nil {
-		t.Fatal("expected error for missing")
-	}
-	if _, err := reg.Graph("kv"); err == nil {
-		t.Fatal("expected error for wrong kind lookup")
-	}
-}
-
-func TestNewGraphNoStoreRef(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"g": {Kind: KindGraph, Backend: "kv"},
-	}); err == nil {
-		t.Fatal("expected error for missing store reference")
-	}
-}
-
-func TestNewGraphBadStoreRef(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"g": {Kind: KindGraph, Backend: "kv", Store: "nonexistent"},
-	}); err == nil {
-		t.Fatal("expected error for undefined kv reference")
-	}
-}
-
-func TestNewGraphWrongKindRef(t *testing.T) {
-	if _, err := New(resolveTestConfigs(t.TempDir(), map[string]Config{
-		"vec": {Kind: KindVecStore, Backend: "memory"},
-		"g":   {Kind: KindGraph, Backend: "kv", Store: "vec"},
-	})); err == nil {
-		t.Fatal("expected error for kv ref pointing at non-kv store")
-	}
-}
-
-func TestNewGraphUnknownBackend(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"g": {Kind: KindGraph, Backend: "neo4j"},
-	}); err == nil {
-		t.Fatal("expected error for unknown graph backend")
-	}
-}
-
-// --- Metrics ---
-
-func TestMetricsPrometheus(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/query" {
-			t.Fatalf("path = %q", r.URL.Path)
+	for index, config := range tests {
+		if _, err := NewWithStorage(physical, map[string]Config{"bad": config}); err == nil {
+			t.Fatalf("case %d was accepted", index)
 		}
-		if got := r.Header.Get("Authorization"); got != "Bearer token" {
-			t.Fatalf("Authorization = %q", got)
+	}
+}
+
+func TestVecStoreUsesPhysicalConnector(t *testing.T) {
+	physical := newPhysical(t, map[string]physicalstorage.Config{
+		"vectors": {Kind: physicalstorage.KindVecStore, Memory: &physicalstorage.MemoryConfig{}},
+	})
+	registry, err := NewWithStorage(physical, map[string]Config{
+		"memory": {Kind: KindVecStore, Storage: "vectors"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	index, err := registry.VecStore("memory")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := index.Insert("a", []float32{1, 0, 0}); err != nil {
+		t.Fatal(err)
+	}
+	if index.Len() != 1 {
+		t.Fatalf("Len() = %d, want 1", index.Len())
+	}
+	if _, err := registry.KV("memory"); err == nil {
+		t.Fatal("wrong-kind lookup succeeded")
+	}
+}
+
+func TestGraphUsesLogicalKVStore(t *testing.T) {
+	physical := newPhysical(t, map[string]physicalstorage.Config{
+		"main": {Kind: physicalstorage.KindKeyValue, Memory: &physicalstorage.MemoryConfig{}},
+	})
+	registry, err := NewWithStorage(physical, map[string]Config{
+		"entities": {Kind: KindKeyValue, Storage: "main", Prefix: "entities"},
+		"graph":    {Kind: KindGraph, Backend: "kv", Store: "entities"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	g, err := registry.Graph("graph")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := g.SetEntity(context.Background(), graph.Entity{Label: "alice"}); err != nil {
+		t.Fatal(err)
+	}
+	entity, err := g.GetEntity(context.Background(), "alice")
+	if err != nil || entity.Label != "alice" {
+		t.Fatalf("GetEntity() = %+v, %v", entity, err)
+	}
+}
+
+func TestGraphRejectsInvalidLogicalReference(t *testing.T) {
+	physical := newPhysical(t, map[string]physicalstorage.Config{
+		"vectors": {Kind: physicalstorage.KindVecStore, Memory: &physicalstorage.MemoryConfig{}},
+	})
+	for _, configs := range []map[string]Config{
+		{"graph": {Kind: KindGraph, Backend: "kv"}},
+		{"graph": {Kind: KindGraph, Backend: "neo4j"}},
+		{"vectors": {Kind: KindVecStore, Storage: "vectors"}, "graph": {Kind: KindGraph, Backend: "kv", Store: "vectors"}},
+	} {
+		if _, err := NewWithStorage(physical, configs); err == nil {
+			t.Fatalf("invalid graph config was accepted: %+v", configs)
+		}
+	}
+}
+
+func TestMetricsMemoryStore(t *testing.T) {
+	registry, err := NewWithStorage(nil, map[string]Config{
+		"metrics": {Kind: KindMetrics, Memory: &struct{}{}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	store, err := registry.Metrics("metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sampleTime := time.Unix(10, 0).UTC()
+	if err := store.Append(context.Background(), []metrics.Sample{{
+		Name: "gizclaw_peer_battery_percent", Labels: map[string]string{"peer_id": "p1"},
+		Timestamp: sampleTime, Value: 82,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	series, err := store.Latest(context.Background(), metrics.LatestQuery{
+		Selector: metrics.Selector{Name: "gizclaw_peer_battery_percent"}, At: sampleTime, Lookback: time.Minute,
+	})
+	if err != nil || len(series) != 1 || series[0].Points[0].Value != 82 {
+		t.Fatalf("Latest() = %+v, %v", series, err)
+	}
+}
+
+func TestMetricsPrometheusUsesPhysicalConnector(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/api/v1/query" {
+			t.Fatalf("path = %q", request.URL.Path)
+		}
+		if request.Header.Get("Authorization") != "Bearer token" {
+			t.Fatalf("Authorization = %q", request.Header.Get("Authorization"))
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"gizclaw_peer_battery_percent","peer_id":"p1"},"value":[10,"82"]}]}}`)
 	}))
 	defer server.Close()
-
-	var wrapper struct {
-		Stores map[string]Config `yaml:"stores"`
-	}
-	if err := yaml.Unmarshal([]byte(`
-stores:
-  metrics:
-    kind: metrics
-    prometheus:
-      remote_write_url: `+server.URL+`/api/v1/write
-      query_url: `+server.URL+`
-      bearer_token: token
-`), &wrapper); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	reg, err := New(wrapper.Stores)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	st, err := reg.Metrics("metrics")
-	if err != nil {
-		t.Fatalf("Metrics(metrics): %v", err)
-	}
-	series, err := st.Latest(context.Background(), metrics.LatestQuery{Selector: metrics.Selector{Name: "gizclaw_peer_battery_percent"}, At: time.Unix(11, 0), Lookback: time.Minute})
-	if err != nil {
-		t.Fatalf("Query: %v", err)
-	}
-	if len(series) != 1 || series[0].Name != "gizclaw_peer_battery_percent" || series[0].Labels["peer_id"] != "p1" {
-		t.Fatalf("series = %+v", series)
-	}
-}
-
-func TestMetricsNotFound(t *testing.T) {
-	reg := mustStores(t, t.TempDir(), []byte(`
-stores:
-  mem:
-    kind: keyvalue
-    backend: memory
-`))
-	defer reg.Close()
-
-	if _, err := reg.Metrics("missing"); err == nil {
-		t.Fatal("expected error for missing metrics store")
-	}
-	if _, err := reg.Metrics("mem"); err == nil {
-		t.Fatal("expected error for wrong kind lookup")
-	}
-}
-
-func TestNewMetricsRequiresPrometheusConfig(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"metrics": {Kind: KindMetrics},
-	}); err == nil || !strings.Contains(err.Error(), "requires exactly one") {
-		t.Fatalf("New metrics missing prometheus err = %v", err)
-	}
-	if _, err := New(map[string]Config{
-		"metrics": {Kind: KindMetrics, Prometheus: &metrics.PrometheusConfig{QueryURL: "http://example.test"}},
-	}); err == nil || !strings.Contains(err.Error(), "remote_write_url is required") {
-		t.Fatalf("New metrics missing remote_write_url err = %v", err)
-	}
-}
-
-func TestNewMetricsRejectsMultipleBackends(t *testing.T) {
-	_, err := New(map[string]Config{"metrics": {Kind: KindMetrics, Memory: &struct{}{}, Prometheus: &metrics.PrometheusConfig{}}})
-	if err == nil || !strings.Contains(err.Error(), "requires exactly one") {
-		t.Fatalf("New metrics multiple backends err = %v", err)
-	}
-}
-
-func TestMetricsMemory(t *testing.T) {
-	var wrapper struct {
-		Stores map[string]Config `yaml:"stores"`
-	}
-	if err := yaml.Unmarshal([]byte(`
-stores:
-  metrics:
-    kind: metrics
-    memory: {}
-`), &wrapper); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	reg, err := New(wrapper.Stores)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	st, err := reg.Metrics("metrics")
-	if err != nil {
-		t.Fatalf("Metrics(metrics): %v", err)
-	}
-	if err := st.Append(context.Background(), []metrics.Sample{{
-		Name:      "gizclaw_peer_battery_percent",
-		Labels:    map[string]string{"peer_id": "p1"},
-		Timestamp: time.Unix(10, 0).UTC(),
-		Value:     82,
-	}}); err != nil {
-		t.Fatalf("Append: %v", err)
-	}
-	series, err := st.Latest(context.Background(), metrics.LatestQuery{
-		Selector: metrics.Selector{Name: "gizclaw_peer_battery_percent", Matchers: []metrics.LabelMatcher{{Name: "peer_id", Op: metrics.MatchEqual, Value: "p1"}}},
-		At:       time.Unix(10, 0).UTC(), Lookback: time.Minute,
+	physical := newPhysical(t, map[string]physicalstorage.Config{
+		"prometheus": {
+			Kind: physicalstorage.KindPrometheus,
+			Prometheus: &metrics.PrometheusConfig{
+				RemoteWriteURL: server.URL + "/api/v1/write", QueryURL: server.URL, BearerToken: "token",
+			},
+		},
+	})
+	registry, err := NewWithStorage(physical, map[string]Config{
+		"metrics": {Kind: KindMetrics, Storage: "prometheus"},
 	})
 	if err != nil {
-		t.Fatalf("Query: %v", err)
+		t.Fatal(err)
 	}
-	if len(series) != 1 || len(series[0].Points) != 1 || series[0].Points[0].Value != 82 {
-		t.Fatalf("series = %+v", series)
-	}
-}
-
-// --- SQL ---
-
-func TestSQL(t *testing.T) {
-	reg := mustStores(t, t.TempDir(), []byte(`
-stores:
-  db:
-    kind: sql
-    backend: fake
-    dsn: test
-`))
-	defer reg.Close()
-
-	db, err := reg.SQL("db")
+	t.Cleanup(func() { _ = registry.Close() })
+	store, err := registry.Metrics("metrics")
 	if err != nil {
-		t.Fatalf("SQL(db): %v", err)
+		t.Fatal(err)
 	}
-	if db == nil {
-		t.Fatal("expected non-nil *sqlx.DB")
+	series, err := store.Latest(context.Background(), metrics.LatestQuery{
+		Selector: metrics.Selector{Name: "gizclaw_peer_battery_percent"}, At: time.Unix(11, 0), Lookback: time.Minute,
+	})
+	if err != nil || len(series) != 1 || series[0].Labels["peer_id"] != "p1" {
+		t.Fatalf("Latest() = %+v, %v", series, err)
 	}
+}
 
-	db2, err := reg.SQL("db")
+func TestMetricsRejectsAmbiguousOrWrongBackend(t *testing.T) {
+	physical := newPhysical(t, map[string]physicalstorage.Config{
+		"main": {Kind: physicalstorage.KindKeyValue, Memory: &physicalstorage.MemoryConfig{}},
+	})
+	for _, config := range []Config{
+		{Kind: KindMetrics},
+		{Kind: KindMetrics, Storage: "main", Memory: &struct{}{}},
+		{Kind: KindMetrics, Storage: "main"},
+	} {
+		if _, err := NewWithStorage(physical, map[string]Config{"metrics": config}); err == nil {
+			t.Fatalf("invalid metrics config was accepted: %+v", config)
+		}
+	}
+}
+
+func TestSQLStoreBorrowsPhysicalPool(t *testing.T) {
+	physical := newPhysical(t, map[string]physicalstorage.Config{
+		"database": {Kind: physicalstorage.KindSQL, SQLite: &physicalstorage.SQLConfig{Dir: filepath.Join(t.TempDir(), "db.sqlite")}},
+	})
+	registry, err := NewWithStorage(physical, map[string]Config{
+		"history": {Kind: KindSQL, Storage: "database"},
+	})
 	if err != nil {
-		t.Fatalf("SQL(db) second: %v", err)
+		t.Fatal(err)
 	}
-	if db != db2 {
-		t.Fatal("expected same instance")
-	}
-}
-
-func TestSQLWithDSN(t *testing.T) {
-	reg := mustStores(t, t.TempDir(), []byte(`
-stores:
-  db:
-    kind: sql
-    backend: fake
-    dsn: mydb
-`))
-	defer reg.Close()
-
-	db, err := reg.SQL("db")
+	t.Cleanup(func() { _ = registry.Close() })
+	logical, err := registry.SQL("history")
 	if err != nil {
-		t.Fatalf("SQL(db) with dsn: %v", err)
+		t.Fatal(err)
 	}
-	if db == nil {
-		t.Fatal("expected non-nil *sqlx.DB")
+	base, err := physical.SQL("database")
+	if err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestSQLNotFound(t *testing.T) {
-	reg := mustStores(t, t.TempDir(), []byte(`
-stores:
-  kv:
-    kind: keyvalue
-    backend: memory
-`))
-	defer reg.Close()
-
-	if _, err := reg.SQL("missing"); err == nil {
-		t.Fatal("expected error for missing")
-	}
-	if _, err := reg.SQL("kv"); err == nil {
-		t.Fatal("expected error for wrong kind lookup")
+	if logical != base {
+		t.Fatal("logical SQL store did not borrow the physical pool")
 	}
 }
 
-// --- ObjectStore ---
-
-func TestObjectStoreWithStoragePrefix(t *testing.T) {
-	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+func TestObjectStoreScopesAndListsPhysicalConnector(t *testing.T) {
+	physical := newPhysical(t, map[string]physicalstorage.Config{
 		"assets": {Kind: physicalstorage.KindObjectStore, FS: &physicalstorage.FSConfig{Dir: t.TempDir()}},
 	})
-	if err != nil {
-		t.Fatalf("storage.New: %v", err)
-	}
-	defer physical.Close()
-
-	reg, err := NewWithStorage(physical, map[string]Config{
-		"test-assets": {Kind: KindObjectStore, Storage: "assets", Prefix: "fixtures"},
+	registry, err := NewWithStorage(physical, map[string]Config{
+		"firmware": {Kind: KindObjectStore, Storage: "assets", Prefix: "firmware"},
+		"gameplay": {Kind: KindObjectStore, Storage: "assets", Prefix: "gameplay"},
 	})
 	if err != nil {
-		t.Fatalf("NewWithStorage: %v", err)
+		t.Fatal(err)
 	}
-	defer reg.Close()
-
-	objects, err := reg.ObjectStore("test-assets")
+	t.Cleanup(func() { _ = registry.Close() })
+	firmware, err := registry.ObjectStore("firmware")
 	if err != nil {
-		t.Fatalf("ObjectStore(test-assets): %v", err)
+		t.Fatal(err)
 	}
-	if err := objects.Put("stable.bin", strings.NewReader("stable")); err != nil {
-		t.Fatalf("Put: %v", err)
+	if err := firmware.Put("stable.bin", strings.NewReader("stable")); err != nil {
+		t.Fatal(err)
 	}
-
 	base, err := physical.ObjectStore("assets")
 	if err != nil {
-		t.Fatalf("storage ObjectStore(assets): %v", err)
+		t.Fatal(err)
 	}
-	r, err := base.Get("fixtures/stable.bin")
+	reader, err := base.Get("firmware/stable.bin")
 	if err != nil {
-		t.Fatalf("base Get: %v", err)
+		t.Fatal(err)
 	}
-	got, err := io.ReadAll(r)
-	if closeErr := r.Close(); closeErr != nil && err == nil {
-		err = closeErr
+	data, readErr := io.ReadAll(reader)
+	closeErr := reader.Close()
+	if readErr != nil || closeErr != nil || string(data) != "stable" {
+		t.Fatalf("read = %q, %v, close = %v", data, readErr, closeErr)
 	}
-	if err != nil {
-		t.Fatalf("ReadAll: %v", err)
-	}
-	if string(got) != "stable" {
-		t.Fatalf("base object = %q, want stable", got)
-	}
-
-	items, err := objects.List("")
-	if err != nil {
-		t.Fatalf("List: %v", err)
-	}
-	if len(items) != 1 || items[0].Name != "stable.bin" {
-		t.Fatalf("List = %#v, want stable.bin", items)
+	items, err := firmware.List("")
+	if err != nil || len(items) != 1 || items[0].Name != "stable.bin" {
+		t.Fatalf("List() = %+v, %v", items, err)
 	}
 }
 
 func TestSharedObjectStorePrefixesMustBeNonEmptyAndDisjoint(t *testing.T) {
-	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+	physical := newPhysical(t, map[string]physicalstorage.Config{
 		"assets": {Kind: physicalstorage.KindObjectStore, FS: &physicalstorage.FSConfig{Dir: t.TempDir()}},
 	})
-	if err != nil {
-		t.Fatalf("storage.New: %v", err)
-	}
-	defer physical.Close()
-
 	tests := []struct {
 		name   string
 		stores map[string]Config
 		want   string
 	}{
-		{
-			name: "empty",
-			stores: map[string]Config{
-				"a": {Kind: KindObjectStore, Storage: "assets"},
-				"b": {Kind: KindObjectStore, Storage: "assets", Prefix: "b"},
-			},
-			want: "requires a non-empty prefix",
-		},
-		{
-			name: "same",
-			stores: map[string]Config{
-				"a": {Kind: KindObjectStore, Storage: "assets", Prefix: "icons"},
-				"b": {Kind: KindObjectStore, Storage: "assets", Prefix: "icons"},
-			},
-			want: "overlapping prefixes",
-		},
-		{
-			name: "parent child",
-			stores: map[string]Config{
-				"a": {Kind: KindObjectStore, Storage: "assets", Prefix: "icons"},
-				"b": {Kind: KindObjectStore, Storage: "assets", Prefix: "icons/workflows"},
-			},
-			want: "overlapping prefixes",
-		},
-		{
-			name: "unclean",
-			stores: map[string]Config{
-				"a": {Kind: KindObjectStore, Storage: "assets", Prefix: "/icons/"},
-				"b": {Kind: KindObjectStore, Storage: "assets", Prefix: "other"},
-			},
-			want: "is not clean",
-		},
+		{"empty", map[string]Config{"a": {Kind: KindObjectStore, Storage: "assets"}, "b": {Kind: KindObjectStore, Storage: "assets", Prefix: "b"}}, "requires a non-empty prefix"},
+		{"same", map[string]Config{"a": {Kind: KindObjectStore, Storage: "assets", Prefix: "icons"}, "b": {Kind: KindObjectStore, Storage: "assets", Prefix: "icons"}}, "overlapping prefixes"},
+		{"parent-child", map[string]Config{"a": {Kind: KindObjectStore, Storage: "assets", Prefix: "icons"}, "b": {Kind: KindObjectStore, Storage: "assets", Prefix: "icons/workflows"}}, "overlapping prefixes"},
+		{"unclean", map[string]Config{"a": {Kind: KindObjectStore, Storage: "assets", Prefix: "/icons/"}}, "is not clean"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -963,209 +358,103 @@ func TestSharedObjectStorePrefixesMustBeNonEmptyAndDisjoint(t *testing.T) {
 			}
 		})
 	}
-
-	reg, err := NewWithStorage(physical, map[string]Config{
-		"gameplay": {Kind: KindObjectStore, Storage: "assets", Prefix: "gameplay"},
-		"peers":    {Kind: KindObjectStore, Storage: "assets", Prefix: "peers"},
-	})
-	if err != nil {
-		t.Fatalf("NewWithStorage(disjoint): %v", err)
-	}
-	defer reg.Close()
 }
 
-func TestSharedObjectStorePrefixErrorNamesEveryOverlappingStore(t *testing.T) {
-	err := validateObjectStorePrefixes(map[string]Config{
-		"a-runtime": {
-			Kind: KindObjectStore, Storage: "objects", Prefix: "shared",
-		},
-		"z-memory": {
-			Kind: KindObjectStore, Storage: "objects", Prefix: "shared/memory",
-		},
-	})
-	if err == nil {
-		t.Fatal("overlapping prefixes were accepted")
+type fakeMutableLogStore struct{}
+
+func (*fakeMutableLogStore) Append(_ context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
+	keys := make([]logstore.RecordKey, len(records))
+	for index, record := range records {
+		keys[index] = record.Key()
 	}
-	for _, name := range []string{"a-runtime", "z-memory"} {
-		found := false
-		for current := err; current != nil; {
-			var configError *ConfigError
-			if !errors.As(current, &configError) {
-				break
-			}
-			if configError.Name == name {
-				found = true
-				break
-			}
-			current = configError.Err
+	return keys, nil
+}
+func (*fakeMutableLogStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
+	return logstore.Page{}, nil
+}
+func (*fakeMutableLogStore) Replace(context.Context, logstore.Record) error   { return nil }
+func (*fakeMutableLogStore) Delete(context.Context, logstore.RecordKey) error { return nil }
+func (*fakeMutableLogStore) Close() error                                     { return nil }
+
+func TestMutableLogRequiresMutableDeclaration(t *testing.T) {
+	store := &fakeMutableLogStore{}
+	registry := &Stores{
+		logs:        map[string]logstore.ImmutableStore{"immutable": store, "mutable": store},
+		mutableLogs: map[string]struct{}{"mutable": {}},
+	}
+	if _, err := registry.MutableLog("immutable"); err == nil || !strings.Contains(err.Error(), KindLogMutable) {
+		t.Fatalf("MutableLog(immutable) error = %v", err)
+	}
+	if got, err := registry.MutableLog("mutable"); err != nil || got != store {
+		t.Fatalf("MutableLog(mutable) = %v, %v", got, err)
+	}
+}
+
+func TestLogConfigRequiresPhysicalConnectorAndScope(t *testing.T) {
+	physical := newPhysical(t, map[string]physicalstorage.Config{
+		"main": {Kind: physicalstorage.KindKeyValue, Memory: &physicalstorage.MemoryConfig{}},
+	})
+	for _, config := range []Config{
+		{Kind: KindLogImmutable},
+		{Kind: KindLogImmutable, Storage: "main"},
+		{Kind: KindLogImmutable, Storage: "main", Volc: &VolcConfig{}, ClickHouse: &ClickHouseConfig{}},
+		{Kind: KindLogImmutable, Storage: "main", Volc: &VolcConfig{TopicID: "logs"}},
+		{Kind: KindLogMutable, Storage: "main", Volc: &VolcConfig{TopicID: "logs"}},
+	} {
+		if _, err := NewWithStorage(physical, map[string]Config{"logs": config}); err == nil {
+			t.Fatalf("invalid log config was accepted: %+v", config)
 		}
-		if !found {
-			t.Fatalf("error %v does not identify logical store %q", err, name)
-		}
-	}
-}
-
-func TestObjectStoreNotFound(t *testing.T) {
-	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"assets": {Kind: physicalstorage.KindObjectStore, FS: &physicalstorage.FSConfig{Dir: t.TempDir()}},
-	})
-	if err != nil {
-		t.Fatalf("storage.New: %v", err)
-	}
-	defer physical.Close()
-
-	reg, err := NewWithStorage(physical, map[string]Config{
-		"assets": {Kind: KindObjectStore, Storage: "assets"},
-	})
-	if err != nil {
-		t.Fatalf("NewWithStorage: %v", err)
-	}
-	defer reg.Close()
-
-	if _, err := reg.ObjectStore("missing"); err == nil {
-		t.Fatal("expected error for missing store")
-	}
-	if _, err := reg.ObjectStore("assets"); err != nil {
-		t.Fatalf("ObjectStore(assets): %v", err)
-	}
-}
-
-func TestNewObjectStoreBadStorageReference(t *testing.T) {
-	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"kv":     {Kind: physicalstorage.KindKeyValue, Memory: &physicalstorage.MemoryConfig{}},
-		"assets": {Kind: physicalstorage.KindObjectStore, FS: &physicalstorage.FSConfig{Dir: t.TempDir()}},
-	})
-	if err != nil {
-		t.Fatalf("storage.New: %v", err)
-	}
-	defer physical.Close()
-
-	if _, err := NewWithStorage(physical, map[string]Config{
-		"objects": {Kind: KindObjectStore, Storage: "kv"},
-	}); err == nil {
-		t.Fatal("expected error for objectstore referencing keyvalue storage")
-	}
-	if _, err := NewWithStorage(physical, map[string]Config{
-		"objects": {Kind: KindObjectStore, Storage: "missing"},
-	}); err == nil {
-		t.Fatal("expected error for missing objectstore storage")
-	}
-	if _, err := NewWithStorage(physical, map[string]Config{
-		"objects": {Kind: KindObjectStore, Storage: "assets", Prefix: "../bad"},
-	}); err == nil {
-		t.Fatal("expected error for invalid objectstore prefix")
-	}
-}
-
-func TestNewSQLNoBackend(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: KindSQL, DSN: "x"},
-	}); err == nil {
-		t.Fatal("expected error for empty backend")
-	}
-}
-
-func TestNewSQLNoDSN(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: KindSQL, Backend: "fake"},
-	}); err == nil {
-		t.Fatal("expected error for missing dsn")
-	}
-}
-
-func TestNewSQLBadDriver(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: KindSQL, Backend: "nonexistent_driver", DSN: "x"},
-	}); err == nil {
-		t.Fatal("expected error for unregistered driver")
-	}
-}
-
-func TestNewSQLPingFail(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: KindSQL, Backend: "fake_ping_fail", DSN: "x"},
-	}); err == nil {
-		t.Fatal("expected error for ping failure")
-	}
-}
-
-// --- Close ---
-
-func TestCloseOrder(t *testing.T) {
-	dir := t.TempDir()
-	reg := mustStores(t, dir, []byte(`
-stores:
-  bg:
-    kind: keyvalue
-    backend: badger
-    dir: close-test
-  g:
-    kind: graph
-    backend: kv
-    store: bg
-`))
-
-	if err := reg.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
 	}
 }
 
 func TestNewWithOwnedStorageClosesPhysicalRegistry(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "badger")
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"memory": {Kind: physicalstorage.KindKeyValue, Memory: &physicalstorage.MemoryConfig{}},
+		"main": {Kind: physicalstorage.KindKeyValue, Badger: &physicalstorage.BadgerConfig{Dir: dir}},
 	})
 	if err != nil {
-		t.Fatalf("storage.New: %v", err)
+		t.Fatal(err)
 	}
-
-	reg, err := NewWithOwnedStorage(physical, map[string]Config{
-		"kv": {Kind: KindKeyValue, Storage: "memory"},
+	registry, err := NewWithOwnedStorage(physical, map[string]Config{
+		"peers": {Kind: KindKeyValue, Storage: "main", Prefix: "peers"},
 	})
 	if err != nil {
-		t.Fatalf("NewWithOwnedStorage: %v", err)
+		t.Fatal(err)
 	}
-	if !reg.ownsStorage {
-		t.Fatal("expected registry to own physical storage")
+	if !registry.ownsStorage {
+		t.Fatal("registry did not own physical storage")
 	}
-	if err := reg.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
+	if err := registry.Close(); err != nil {
+		t.Fatal(err)
 	}
-	if reg.storage != nil {
-		t.Fatal("expected Close to release physical storage reference")
+	reopened, err := physicalstorage.New(map[string]physicalstorage.Config{
+		"main": {Kind: physicalstorage.KindKeyValue, Badger: &physicalstorage.BadgerConfig{Dir: dir}},
+	})
+	if err != nil {
+		t.Fatalf("physical storage was not closed: %v", err)
 	}
+	_ = reopened.Close()
 }
 
 func TestNewWithOwnedStorageClosesPhysicalOnError(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "kv")
+	dir := filepath.Join(t.TempDir(), "badger")
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"badger": {Kind: physicalstorage.KindKeyValue, Badger: &physicalstorage.BadgerConfig{Dir: dir}},
+		"main": {Kind: physicalstorage.KindKeyValue, Badger: &physicalstorage.BadgerConfig{Dir: dir}},
 	})
 	if err != nil {
-		t.Fatalf("storage.New: %v", err)
+		t.Fatal(err)
 	}
-
 	_, err = NewWithOwnedStorage(physical, map[string]Config{
-		"kv": {Kind: KindKeyValue, Storage: "badger", Prefix: "bad:prefix"},
+		"bad": {Kind: KindKeyValue, Storage: "main", Prefix: "bad:prefix"},
 	})
 	if err == nil {
-		t.Fatal("expected NewWithOwnedStorage error")
+		t.Fatal("invalid logical store was accepted")
 	}
-
 	reopened, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"badger": {Kind: physicalstorage.KindKeyValue, Badger: &physicalstorage.BadgerConfig{Dir: dir}},
+		"main": {Kind: physicalstorage.KindKeyValue, Badger: &physicalstorage.BadgerConfig{Dir: dir}},
 	})
 	if err != nil {
-		t.Fatalf("storage should be closed after constructor error, reopen: %v", err)
+		t.Fatalf("physical storage was not closed after error: %v", err)
 	}
-	defer reopened.Close()
-}
-
-func TestCloseEmpty(t *testing.T) {
-	s, err := New(nil)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	if err := s.Close(); err != nil {
-		t.Fatalf("Close empty: %v", err)
-	}
+	_ = reopened.Close()
 }

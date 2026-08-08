@@ -125,9 +125,11 @@ Server；投影逻辑必须支持空的 `remote_servers`。
 Local Server 的完整 workspace 默认值由 binary 内嵌的
 `internal/appconfig/templates/local_server_workspace.yaml.gotmpl` 拥有；运行时不读取
 source tree。Renderer 保留已生成的 Server identity，更新 listen、LAN endpoint、Admin
-key 和 store inventory，并以 `0600` 原子写入。模板显式使用 info-level stderr
-`system_log`，不创建 LogStore、Volc credential、store sink 或 `query_store`；需要持久化和
-查询日志时由用户显式配置。
+key 和 Store inventory，并以 `0600` 原子写入。模板输出最终三层契约：动态物理
+`storage`、动态逻辑 `stores` 和完整的固定 `services` 绑定。它使用 info-level stderr
+`services.system_log`，不创建 LogStore、Volc credential、Store sink 或 `query_store`；需要
+持久化和查询日志时由用户显式配置。模板不提供兼容 decoder 或数据迁移路径；不兼容的
+开发 Pod 必须重新创建。
 
 目录和密钥文件必须保持私有权限。写入采用同目录临时文件、同步、rename 的
 原子替换流程。前端响应只能包含 `admin_configured`、`play_configured` 等状态，

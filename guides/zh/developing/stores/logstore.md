@@ -21,20 +21,25 @@
 | Volc TLS | `ImmutableStore` | Managed producer 和 SearchLogs 查询；不支持 mutation |
 | ClickHouse | `MutableStore` | 独立 MergeTree 表与同步 replace/delete mutation |
 
-每个 named log store 配置必须且只能选择一个 driver。
+每个逻辑 Log Store 都必须声明 `log.immutable` 或 `log.mutable`。`Stores.Log` 接受两种声明，`Stores.MutableLog` 只接受 `log.mutable`。Volc TLS 不能满足可变 Flowcraft History。物理连接 ownership 始终属于 `storage`。
 
 ### Volc TLS
 
 ```yaml
-stores:
-  logs:
-    kind: log
+storage:
+  volc-logs:
+    kind: volc-tls
     volc:
       endpoint: ${VOLC_TLS_ENDPOINT}
       region: ${VOLC_TLS_REGION}
-      topic_id: ${VOLC_TLS_TOPIC_ID}
       access_key_id: ${VOLC_TLS_ACCESS_KEY_ID}
       access_key_secret: ${VOLC_TLS_ACCESS_KEY_SECRET}
+stores:
+  logs:
+    kind: log.immutable
+    storage: volc-logs
+    volc:
+      topic_id: ${VOLC_TLS_TOPIC_ID}
 ```
 
 Topic、logset、retention 和 index 都由 operator 预先创建。构造 store 时只调用 `DescribeIndex`，不会调用 `CreateIndex` 或 `ModifyIndex`。必需配置为：关闭 full-text 和 auto-index，启用 phrase index；`id`、`stream`、`kind`、`level` 是 case-sensitive non-tokenized text；`msg` 是 case-sensitive、ASCII whitespace delimiter、包含中文的 text；`attributes` 是 case-sensitive、`IndexAll=true` 的 JSON；`payload` 不得建立 index。`DescribeIndex` 可能把这个逻辑 delimiter 返回成字面转义文本 ` \t\r\n`；validator 仅把这个精确的 provider 表示视为等价形式，不接受其他 delimiter 写法。已有 topic 后续启用 phrase index 时，历史数据是否 rebuild 由 operator 决定。
@@ -45,41 +50,47 @@ Provider layout 固定使用 `id`、`stream`、`kind`、`level`、`msg`，把 do
 
 Generic record 的 provider source 为 `gizclaw`、filename 为 `logstore`；process log 的 `source=gizclaw`、`path=slog` 仍是 logical attribute。Record timestamp 会保留可用的 nanoseconds，而 SearchLogs range 和 ordering 使用 milliseconds。
 
-查询使用 SearchLogs search expression 和 provider Context，不使用 SQL analysis。`Text` 使用 key-value phrase 形式 `msg:#"..."`，已验证的 attribute name 以 `attributes.request_id` 这类 JSON dotted path 输出。Provider call 最长 30 秒，并服从更短的 caller deadline；Store 和 Admin API 不返回 provider error body。`Close` 会 flush managed producer，且只有 registry 拥有它的生命周期。
+查询使用 SearchLogs search expression 和 provider Context，不使用 SQL analysis。`Text` 使用 key-value phrase 形式 `msg:#"..."`，已验证的 attribute name 以 `attributes.request_id` 这类 JSON dotted path 输出。Provider call 最长 30 秒，并服从更短的 caller deadline；Store 和 Admin API 不返回 provider error body。一个物理 connector 拥有并 flush producer；topic-scoped Store 只借用它。
 
 当查询固定为 `Streams=[system]`、`Kinds=[log]` 时，driver 也会匹配 provider source 为 `gizclaw`、filename 为 `slog` 的旧记录。新旧记录共用 provider-side ordering 和 cursor，不会分别查询后再合并。这只是 record compatibility；已移除的 Server `log` 配置仍不兼容。
 
 ### ClickHouse
 
 ```yaml
-stores:
-  flowcraft-history:
-    kind: log
+storage:
+  analytics:
+    kind: sql
     clickhouse:
       dsn: ${CLICKHOUSE_DSN}
+stores:
+  flowcraft-history:
+    kind: log.mutable
+    storage: analytics
+    clickhouse:
       database: gizclaw
       table: flowcraft_history
 ```
 
 Driver 会创建并校验独立 `MergeTree` 表，按月分区，并按 `(timestamp, stream, id)` 排序。`Append` 会在同一 store instance 内串行执行查重与同步 batch insert，只在 commit 后返回 key；`Query` 把结构化 contract 直接转换为参数化 ClickHouse SQL，通过 `(timestamp, stream, id)` 分页，不建立额外分页索引。`Replace` 使用同步 `ALTER UPDATE`，`Delete` 使用同步 `ALTER DELETE`；二者都只针对一个 `(stream, id)`。发现重复 key 时会报错，不会静默修改多行。
 
-DSN 已选择 database 时可以省略 `database` 字段。ClickHouse driver 不额外施加本地 payload 大小限制；service limit、retention 和 table policy 仍由 operator 负责。Named-store registry 拥有 connection lifecycle。
+物理 DSN 已选择 database 时可以省略逻辑 `database` 字段。ClickHouse driver 不额外施加本地 payload 大小限制；service limit、retention 和 table policy 仍由 operator 负责。逻辑 Metrics 与 Log Store 可以共享一个物理 pool，但不拥有它。
 
 ## Process logging
 
-`system_log` 是 Server 自身的 `slog` pipeline，不是产品 record 写入 API：
+`services.system_log` 是 Server 自身的 `slog` pipeline，不是产品 record 写入 API：
 
 ```yaml
-system_log:
-  level: info
-  query_store: logs
-  sinks:
-    - kind: stderr
-    - kind: store
-      store: logs
-    - kind: store
-      store: audit-logs
-      level: warn
+services:
+  system_log:
+    level: info
+    query_store: logs
+    sinks:
+      - kind: stderr
+      - kind: store
+        store: logs
+      - kind: store
+        store: audit-logs
+        level: warn
 ```
 
-Sink 按顺序执行，每个 sink 可覆盖 level；fanout 会尝试所有 enabled sink 并汇总 error。Store sink 固定写入 `Stream=system`、`Kind=log`，但不拥有 named store 的生命周期。`query_store` 必须指向同一配置中的一个 store sink；未设置时 Admin log endpoint 返回 `LOG_QUERY_NOT_CONFIGURED`。缺少整个 `system_log` 时默认是 info-level stderr。旧的 top-level `log` 配置会直接报错，不自动转换。
+Sink 按顺序执行，每个 sink 可覆盖 level；fanout 会尝试所有 enabled sink 并汇总 error。Store sink 固定写入 `Stream=system`、`Kind=log`，但不拥有 named store 的生命周期。`query_store` 必须指向同一配置中的一个 Store sink；未设置时 Admin log endpoint 返回 `LOG_QUERY_NOT_CONFIGURED`。缺少 `services.system_log` 时默认是 info-level stderr。旧的 top-level `log` 与 `system_log` 配置会直接报错，不自动转换。

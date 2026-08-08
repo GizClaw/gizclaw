@@ -19,3 +19,25 @@
 ## Ownership Boundary
 
 `kv` Only defines the byte payload and hierarchical key semantics, and does not explain the field type of the payload. Serialization, resource validation, secondary index, and cross-record consistency are the responsibility of the domain service using it. Callers should use stable prefixes to isolate data and cannot rely on the internal key layout of other fields.
+
+## Server composition
+
+A physical `storage` entry opens Memory or Badger once. Each logical `stores.kind: keyvalue` entry names that connector and may add a slash-separated prefix. A fixed `services` field then names the logical Store; neither the Store name nor prefix selects a service implicitly. Multiple services may explicitly reuse one Store. No SQL-backed KV adapter or generic KV table is provided.
+
+```yaml
+storage:
+  state:
+    kind: keyvalue
+    badger:
+      dir: data/kv
+stores:
+  peer-records:
+    kind: keyvalue
+    storage: state
+    prefix: peers
+services:
+  peer:
+    store: peer-records
+    route_store: peer-routes
+    run_store: peer-run
+```

@@ -19,8 +19,9 @@ type ClickHouseConfig struct {
 
 // ClickHouseStore persists metrics in a ClickHouse MergeTree table.
 type ClickHouseStore struct {
-	db    *sql.DB
-	table string
+	db     *sql.DB
+	table  string
+	ownsDB bool
 }
 
 var clickHouseTableRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
@@ -35,22 +36,55 @@ func NewClickHouseStore(cfg ClickHouseConfig) (*ClickHouseStore, error) {
 	}
 	db, err := sql.Open("clickhouse", cfg.DSN)
 	if err != nil {
-		return nil, fmt.Errorf("metrics: open clickhouse: %w", err)
+		return nil, &clickHouseOperationError{operation: "open", err: err}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err = db.PingContext(ctx); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("metrics: ping clickhouse: %w", err)
+		return nil, &clickHouseOperationError{operation: "ping", err: err}
 	}
-	ddl := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (metric String, series_key String, labels Map(String, String), timestamp DateTime64(3, 'UTC'), value Float64) ENGINE = MergeTree PARTITION BY toYYYYMM(timestamp) ORDER BY (metric, series_key, timestamp)", cfg.Table)
-	if _, err = db.ExecContext(ctx, ddl); err != nil {
+	store, err := newClickHouseStore(ctx, db, cfg.Table)
+	if err != nil {
 		db.Close()
+		return nil, err
+	}
+	store.ownsDB = true
+	return store, nil
+}
+
+type clickHouseOperationError struct {
+	operation string
+	err       error
+}
+
+func (e *clickHouseOperationError) Error() string {
+	return "metrics: clickhouse " + e.operation + " failed"
+}
+
+func (e *clickHouseOperationError) Unwrap() error { return e.err }
+
+// NewClickHouseStoreWithDB builds a table-scoped metrics Store over a borrowed
+// ClickHouse pool. Closing the Store does not close db.
+func NewClickHouseStoreWithDB(db *sql.DB, table string) (*ClickHouseStore, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return newClickHouseStore(ctx, db, table)
+}
+
+func newClickHouseStore(ctx context.Context, db *sql.DB, table string) (*ClickHouseStore, error) {
+	if db == nil {
+		return nil, fmt.Errorf("metrics: clickhouse db is required")
+	}
+	if !clickHouseTableRE.MatchString(table) {
+		return nil, fmt.Errorf("metrics: invalid clickhouse table %q", table)
+	}
+	ddl := fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (metric String, series_key String, labels Map(String, String), timestamp DateTime64(3, 'UTC'), value Float64) ENGINE = MergeTree PARTITION BY toYYYYMM(timestamp) ORDER BY (metric, series_key, timestamp)", table)
+	if _, err := db.ExecContext(ctx, ddl); err != nil {
 		return nil, fmt.Errorf("metrics: create clickhouse table: %w", err)
 	}
-	store := &ClickHouseStore{db: db, table: cfg.Table}
+	store := &ClickHouseStore{db: db, table: table}
 	if err := store.checkSchema(ctx); err != nil {
-		db.Close()
 		return nil, err
 	}
 	return store, nil
@@ -302,9 +336,10 @@ func appendSeriesPoint(items map[string]*Series, name string, labels map[string]
 	item.Points = append(item.Points, point)
 }
 
-// Close closes the ClickHouse connection pool.
+// Close closes only a connection pool opened by NewClickHouseStore. Stores
+// built with NewClickHouseStoreWithDB leave the borrowed pool open.
 func (s *ClickHouseStore) Close() error {
-	if s == nil || s.db == nil {
+	if s == nil || s.db == nil || !s.ownsDB {
 		return nil
 	}
 	return s.db.Close()

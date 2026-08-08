@@ -268,6 +268,59 @@ jobs:
           ./cmd/internal/server
           ./pkgs/gizclaw/services/gameplay
 
+  clickhouse:
+    name: ClickHouse Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:25.8
+        env:
+          CLICKHOUSE_USER: gizclaw
+          CLICKHOUSE_PASSWORD: gizclaw
+          CLICKHOUSE_DB: default
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "clickhouse-client --user gizclaw --password gizclaw --query 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      GIZCLAW_TEST_CLICKHOUSE_DSN: clickhouse://gizclaw:gizclaw@127.0.0.1:9000/default
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          lfs: true
+
+      - name: Ensure Git LFS assets are available
+        run: git lfs pull
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Require ClickHouse test DSN
+        run: test -n "$GIZCLAW_TEST_CLICKHOUSE_DSN"
+
+      - name: Run ClickHouse integration tests
+        env:
+          GOFLAGS: -mod=readonly
+        run: >-
+          go test -tags=integration -count=1 -p 1
+          ./cmd/internal/storage
+          ./cmd/internal/stores
+          ./pkgs/store/metrics
+          ./pkgs/store/logstore
+
   nested-go-modules:
     name: Nested Go Modules
     runs-on: ubuntu-latest

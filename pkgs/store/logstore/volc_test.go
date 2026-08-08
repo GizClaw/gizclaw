@@ -119,6 +119,40 @@ func compatibleVolcIndex() *tls.DescribeIndexResponse {
 	return &tls.DescribeIndexResponse{KeyValue: &values, EnablePhraseIndex: true}
 }
 
+func TestVolcConnectorScopesTopicsAndClosesProducerOnce(t *testing.T) {
+	producer := &fakeVolcProducer{}
+	connector := &VolcConnector{
+		client: &fakeVolcClient{index: compatibleVolcIndex()},
+		writer: producer,
+	}
+	first, err := connector.Store("topic-one")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := connector.Store("topic-two")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.topicID == second.topicID || first.writer != second.writer {
+		t.Fatalf("topic stores = %+v, %+v", first, second)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if producer.closed != 0 {
+		t.Fatal("closing borrowed topic Store closed connector producer")
+	}
+	if err := connector.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := connector.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if producer.closed != 1 {
+		t.Fatalf("producer close count = %d, want 1", producer.closed)
+	}
+}
+
 func TestValidateVolcIndex(t *testing.T) {
 	if err := validateVolcIndex(&fakeVolcClient{index: compatibleVolcIndex()}, "topic"); err != nil {
 		t.Fatalf("validateVolcIndex() error = %v", err)

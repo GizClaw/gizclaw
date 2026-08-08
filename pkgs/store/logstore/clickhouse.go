@@ -36,6 +36,7 @@ type ClickHouseStore struct {
 	database  string
 	table     string
 	qualified string
+	ownsDB    bool
 
 	appendMu  sync.Mutex
 	closeOnce sync.Once
@@ -59,42 +60,77 @@ func NewClickHouseStore(config ClickHouseConfig) (*ClickHouseStore, error) {
 	}
 	db, err := sql.Open("clickhouse", config.DSN)
 	if err != nil {
-		return nil, fmt.Errorf("logstore: open clickhouse: %w", err)
+		return nil, &clickHouseOperationError{operation: "open", err: err}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), clickHouseTimeout)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("logstore: ping clickhouse: %w", err)
+		return nil, &clickHouseOperationError{operation: "ping", err: err}
 	}
-	database := config.Database
+	store, err := newClickHouseStore(ctx, db, config.Database, config.Table)
+	if err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	store.ownsDB = true
+	return store, nil
+}
+
+type clickHouseOperationError struct {
+	operation string
+	err       error
+}
+
+func (e *clickHouseOperationError) Error() string {
+	return "logstore: clickhouse " + e.operation + " failed"
+}
+
+func (e *clickHouseOperationError) Unwrap() error { return e.err }
+
+// NewClickHouseStoreWithDB builds a table-scoped mutable Log Store over a
+// borrowed ClickHouse pool. Closing the Store does not close db.
+func NewClickHouseStoreWithDB(db *sql.DB, database, table string) (*ClickHouseStore, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), clickHouseTimeout)
+	defer cancel()
+	return newClickHouseStore(ctx, db, database, table)
+}
+
+func newClickHouseStore(ctx context.Context, db *sql.DB, database, table string) (*ClickHouseStore, error) {
+	if db == nil {
+		return nil, errors.New("logstore: clickhouse db is required")
+	}
+	database = strings.TrimSpace(database)
+	table = strings.TrimSpace(table)
+	if database != "" && !clickHouseIdentifierRE.MatchString(database) {
+		return nil, fmt.Errorf("logstore: invalid clickhouse database %q", database)
+	}
+	if !clickHouseIdentifierRE.MatchString(table) {
+		return nil, fmt.Errorf("logstore: invalid clickhouse table %q", table)
+	}
 	if database == "" {
 		if err := db.QueryRowContext(ctx, "SELECT currentDatabase()").Scan(&database); err != nil {
-			_ = db.Close()
 			return nil, fmt.Errorf("logstore: resolve clickhouse database: %w", err)
 		}
 	}
 	if !clickHouseIdentifierRE.MatchString(database) {
-		_ = db.Close()
 		return nil, fmt.Errorf("logstore: invalid current clickhouse database %q", database)
 	}
-	qualified := quoteClickHouseIdentifier(database) + "." + quoteClickHouseIdentifier(config.Table)
+	qualified := quoteClickHouseIdentifier(database) + "." + quoteClickHouseIdentifier(table)
 	ddl := fmt.Sprintf(
 		"CREATE TABLE IF NOT EXISTS %s (id String, timestamp DateTime64(9, 'UTC'), stream String, kind String, severity String, message String, attributes Map(String, String), payload String) ENGINE = MergeTree PARTITION BY toYYYYMM(timestamp) ORDER BY (timestamp, stream, id)",
 		qualified,
 	)
 	if _, err := db.ExecContext(ctx, ddl); err != nil {
-		_ = db.Close()
 		return nil, fmt.Errorf("logstore: create clickhouse table: %w", err)
 	}
 	store := &ClickHouseStore{
 		db:        db,
 		database:  database,
-		table:     config.Table,
+		table:     table,
 		qualified: qualified,
 	}
 	if err := store.checkSchema(ctx); err != nil {
-		_ = db.Close()
 		return nil, err
 	}
 	return store, nil
@@ -437,13 +473,14 @@ func (store *ClickHouseStore) ready() error {
 	return nil
 }
 
-// Close closes the ClickHouse connection pool once.
+// Close closes an owned ClickHouse connection pool once. A Store built with
+// NewClickHouseStoreWithDB leaves its borrowed pool open.
 func (store *ClickHouseStore) Close() error {
 	if store == nil {
 		return nil
 	}
 	store.closeOnce.Do(func() {
-		if store.db != nil {
+		if store.db != nil && store.ownsDB {
 			store.closeErr = store.db.Close()
 		}
 	})
@@ -551,9 +588,8 @@ func buildClickHouseWhere(query clickHouseBoundQuery, position *clickHousePositi
 		if query.Order == OrderDesc {
 			operator = "<"
 		}
-		value := time.Unix(0, position.TimeUnixNano).UTC()
-		parts = append(parts, "(timestamp "+operator+" ? OR (timestamp = ? AND (stream "+operator+" ? OR (stream = ? AND id "+operator+" ?))))")
-		args = append(args, value, value, position.Stream, position.Stream, position.ID)
+		parts = append(parts, "(timestamp "+operator+" fromUnixTimestamp64Nano(?) OR (timestamp = fromUnixTimestamp64Nano(?) AND (stream "+operator+" ? OR (stream = ? AND id "+operator+" ?))))")
+		args = append(args, position.TimeUnixNano, position.TimeUnixNano, position.Stream, position.Stream, position.ID)
 	}
 	return strings.Join(parts, " AND "), args
 }

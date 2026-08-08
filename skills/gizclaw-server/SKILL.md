@@ -73,35 +73,50 @@ Use this skill for server process management and server workspace configuration.
 
 The server reads `<workspace>/config.yaml`. Relative paths inside the config are resolved from the workspace directory.
 
-Minimal persistent config:
+Server configuration has three layers:
+
+- `storage` is a dynamic registry of physical connectors and owns DSNs, endpoints, credentials, pools/clients, readiness, and close.
+- `stores` is a dynamic registry of logical data-access interfaces and owns prefix, table, database, or topic scope.
+- `services` is a fixed typed structure that explicitly binds every built-in consumer to compatible named Stores.
+
+Use `guides/snippets/server-storage-stores-services.yaml` as the complete configuration reference. A reduced fragment looks like this, but a runnable Server still requires every core `services` block from the complete reference:
 
 ```yaml
-listen: ":9820"
-stores:
-  gears:
+listen: 0.0.0.0:9820
+endpoint: gizclaw.example.com:9820
+
+storage:
+  main-kv:
     kind: keyvalue
-    backend: badger
-    dir: gears
-  firmware:
-    kind: filestore
-    backend: filesystem
-    dir: firmware
-gears:
-  store: gears
-depots:
-  store: firmware
+    badger:
+      dir: data/kv
+
+stores:
+  peer-records:
+    kind: keyvalue
+    storage: main-kv
+    prefix: peers
+
+services:
+  peer:
+    store: peer-records
+    route_store: peer-routes
+    run_store: peer-run
 ```
 
 Config rules:
 
-- `listen` is the UDP listen address. Default is `:9820`.
-- `stores` defines named storage backends.
-- `gears.store` references a `kind: keyvalue` store, commonly `memory` for tests or `badger` for persistence.
-- `depots.store` references a `kind: filestore` store, usually `backend: filesystem`.
-- `dir` is used by `badger` and `filesystem`; relative paths are under the workspace.
-- SQL stores can use `backend: sqlite` with `dir`, or `backend: postgres` with `dsn`.
-- Graph stores with `backend: kv` use `store` to reference a keyvalue store.
-- Memory stores lose data after restart.
+- Registry keys are exact, case-sensitive operator-defined names; they have no reserved service meaning.
+- Required service bindings never default from a Store name, kind, prefix, or another Store.
+- Physical KV drivers are `memory` and `badger`; SQL drivers are `sqlite`, `postgres`, and `clickhouse`; filesystem ObjectStore uses `fs`.
+- Prometheus and Volc TLS are physical connector kinds. Their endpoints and credentials belong under `storage`.
+- The eight logical Store kinds are `keyvalue`, `sql`, `objectstore`, `vecstore`, `graph`, `metrics`, `log.immutable`, and `log.mutable`.
+- `stores.kind: graph` may reference another logical keyvalue Store; in-process Metrics may use `memory: {}`.
+- `memory.Store` is selected through RuntimeProfile and MemoryLayout and is not a Server Store kind.
+- Relative physical paths are resolved from the workspace. Logical Store values are not rewritten.
+- `services.agent_host`, `services.metrics`, and `services.system_log` are optional; all other built-in service blocks are required.
+- `services.system_log` defaults to info-level stderr when omitted.
+- Old top-level pseudo-service blocks, one-layer Stores, generic `kind: log`, and `gizclaw migrate` are unsupported. Stop and recreate incompatible development services; do not attempt an automatic data migration.
 
 Service-managed edit flow:
 

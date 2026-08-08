@@ -2,6 +2,7 @@ package logging
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -47,6 +48,13 @@ func TestPrepareConfigRejectsInvalidShapes(t *testing.T) {
 		if _, err := PrepareConfig(cfg); err == nil {
 			t.Fatalf("case %d: PrepareConfig() error = nil", index)
 		}
+	}
+}
+
+func TestPrepareConfigErrorsUseFixedServicePath(t *testing.T) {
+	_, err := PrepareConfig(Config{Level: "verbose"})
+	if err == nil || !strings.Contains(err.Error(), "services.system_log.level") {
+		t.Fatalf("PrepareConfig() error = %v", err)
 	}
 }
 

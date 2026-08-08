@@ -42,6 +42,15 @@ type VolcConfig struct {
 	AccessKeySecret string `yaml:"access_key_secret"`
 }
 
+// VolcConnectorConfig configures one physical Volc TLS connection shared by
+// multiple topic-scoped logical Log Stores.
+type VolcConnectorConfig struct {
+	Endpoint        string `yaml:"endpoint"`
+	Region          string `yaml:"region"`
+	AccessKeyID     string `yaml:"access_key_id"`
+	AccessKeySecret string `yaml:"access_key_secret"`
+}
+
 type volcProducer interface {
 	SendLog(shardHash, topic, source, filename string, log *pb.Log, callback producer.CallBack) error
 	Start()
@@ -56,29 +65,49 @@ type volcClient interface {
 
 // VolcStore persists records in one externally provisioned Volc TLS topic.
 type VolcStore struct {
-	topicID     string
-	client      volcClient
-	writer      volcProducer
-	close       sync.Once
-	closed      atomic.Bool
-	maxLogBytes int
+	topicID       string
+	client        volcClient
+	writer        volcProducer
+	close         sync.Once
+	closed        atomic.Bool
+	maxLogBytes   int
+	connector     *VolcConnector
+	ownsConnector bool
 }
 
-// NewVolcStore validates the topic index without mutating it and starts the
-// producer used by the store.
-func NewVolcStore(config VolcConfig) (*VolcStore, error) {
-	config, err := validateVolcConfig(config)
-	if err != nil {
-		return nil, err
+// VolcConnector owns the query client and producer for a physical Volc TLS
+// connection. Topic selection belongs to logical Stores.
+type VolcConnector struct {
+	client volcClient
+	writer volcProducer
+	close  sync.Once
+	closed atomic.Bool
+}
+
+// NewVolcConnector opens one reusable physical Volc TLS connector.
+func NewVolcConnector(config VolcConnectorConfig) (*VolcConnector, error) {
+	config.Endpoint = strings.TrimSpace(config.Endpoint)
+	config.Region = strings.TrimSpace(config.Region)
+	config.AccessKeyID = strings.TrimSpace(config.AccessKeyID)
+	config.AccessKeySecret = strings.TrimSpace(config.AccessKeySecret)
+	for _, field := range []struct {
+		name  string
+		value string
+	}{
+		{name: "endpoint", value: config.Endpoint},
+		{name: "region", value: config.Region},
+		{name: "access_key_id", value: config.AccessKeyID},
+		{name: "access_key_secret", value: config.AccessKeySecret},
+	} {
+		if field.value == "" {
+			return nil, fmt.Errorf("logstore: volc %s is required", field.name)
+		}
 	}
 	client := tls.NewClient(config.Endpoint, config.AccessKeyID, config.AccessKeySecret, "", config.Region)
 	client.SetTimeout(volcQueryTimeout)
 	retryPolicy := client.GetRetryPolicy()
 	retryPolicy.TotalTimeout = volcQueryTimeout
 	client.SetRetryPolicy(retryPolicy)
-	if err := validateVolcIndex(client, config.TopicID); err != nil {
-		return nil, err
-	}
 	producerConfig := producer.GetDefaultProducerConfig()
 	producerConfig.ClientConfig = common.ClientConfig{
 		Endpoint:        config.Endpoint,
@@ -90,12 +119,65 @@ func NewVolcStore(config VolcConfig) (*VolcStore, error) {
 	producerConfig.MaxBlockSec = int(volcQueryTimeout / time.Second)
 	writer := producer.NewProducer(producerConfig)
 	writer.Start()
+	return &VolcConnector{client: client, writer: writer}, nil
+}
+
+// Store validates topic scope and returns a logical Store borrowing this
+// connector. Closing the Store does not close the connector.
+func (c *VolcConnector) Store(topicID string) (*VolcStore, error) {
+	topicID = strings.TrimSpace(topicID)
+	if c == nil || c.client == nil || c.writer == nil || c.closed.Load() {
+		return nil, errors.New("logstore: volc connector is not initialized")
+	}
+	if topicID == "" {
+		return nil, errors.New("logstore: volc topic_id is required")
+	}
+	if err := validateVolcIndex(c.client, topicID); err != nil {
+		return nil, err
+	}
 	return &VolcStore{
-		topicID:     config.TopicID,
-		client:      client,
-		writer:      writer,
-		maxLogBytes: volcDefaultMaxLogBytes,
+		topicID: topicID, client: c.client, writer: c.writer,
+		maxLogBytes: volcDefaultMaxLogBytes, connector: c,
 	}, nil
+}
+
+// Close flushes and closes the physical producer exactly once.
+func (c *VolcConnector) Close() error {
+	if c == nil {
+		return nil
+	}
+	c.close.Do(func() {
+		c.closed.Store(true)
+		if c.writer != nil {
+			c.writer.Close()
+		}
+	})
+	return nil
+}
+
+// NewVolcStore validates the topic index without mutating it and starts the
+// producer used by the store.
+func NewVolcStore(config VolcConfig) (*VolcStore, error) {
+	config, err := validateVolcConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	connector, err := NewVolcConnector(VolcConnectorConfig{
+		Endpoint:        config.Endpoint,
+		AccessKeyID:     config.AccessKeyID,
+		AccessKeySecret: config.AccessKeySecret,
+		Region:          config.Region,
+	})
+	if err != nil {
+		return nil, err
+	}
+	store, err := connector.Store(config.TopicID)
+	if err != nil {
+		_ = connector.Close()
+		return nil, err
+	}
+	store.ownsConnector = true
+	return store, nil
 }
 
 // Append validates the complete batch before accepting records into the Volc producer.
@@ -384,14 +466,20 @@ func (s *VolcStore) Query(ctx context.Context, query Query) (Page, error) {
 	return page, nil
 }
 
-// Close flushes and closes the Volc producer once.
+// Close closes a directly constructed Store's owned connector once. A
+// topic-scoped Store returned by VolcConnector.Store leaves the connector and
+// producer open.
 func (s *VolcStore) Close() error {
 	if s == nil {
 		return nil
 	}
 	s.close.Do(func() {
 		s.closed.Store(true)
-		if s.writer != nil {
+		if s.ownsConnector && s.connector != nil {
+			_ = s.connector.Close()
+		} else if s.connector == nil && s.writer != nil {
+			// Tests and package-internal adapters may construct a standalone
+			// Store directly; it still owns its writer.
 			s.writer.Close()
 		}
 	})

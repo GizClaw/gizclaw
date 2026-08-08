@@ -936,69 +936,36 @@ func (s *Server) now() time.Time {
 }
 
 func (s *Server) store() (kv.Store, error) {
-	if s == nil {
-		return nil, errors.New("provider tenant store not configured")
-	}
-	if s.ModelStore != nil {
-		return s.ModelStore, nil
-	}
-	if s.Store == nil {
+	if s == nil || s.Store == nil {
 		return nil, errors.New("provider tenant store not configured")
 	}
 	return s.Store, nil
 }
 
 func (s *Server) tenantStore() (kv.Store, error) {
-	if s == nil {
+	if s == nil || s.TenantStore == nil {
 		return nil, errors.New("MiniMax tenant store not configured")
 	}
-	if s.TenantStore != nil {
-		return s.TenantStore, nil
-	}
-	if s.Store == nil {
-		return nil, errors.New("MiniMax tenant store not configured")
-	}
-	return s.Store, nil
+	return s.TenantStore, nil
 }
 
 func (s *Server) deepSeekTenantStore() (kv.Store, error) {
-	if s == nil {
+	if s == nil || s.DeepSeekTenantStore == nil {
 		return nil, errors.New("DeepSeek tenant store not configured")
 	}
-	if s.DeepSeekTenantStore != nil {
-		return s.DeepSeekTenantStore, nil
-	}
-	if s.ModelStore != nil {
-		return kv.Prefixed(s.ModelStore, kv.Key{"deepseek-tenants"}), nil
-	}
-	if s.Store == nil {
-		return nil, errors.New("DeepSeek tenant store not configured")
-	}
-	return kv.Prefixed(s.Store, kv.Key{"deepseek-tenants"}), nil
+	return s.DeepSeekTenantStore, nil
 }
 
 func (s *Server) voiceStore() (kv.Store, error) {
-	if s == nil {
+	if s == nil || s.VoiceStore == nil {
 		return nil, errors.New("MiniMax voice store not configured")
 	}
-	if s.VoiceStore != nil {
-		return s.VoiceStore, nil
-	}
-	if s.Store == nil {
-		return nil, errors.New("MiniMax voice store not configured")
-	}
-	return s.Store, nil
+	return s.VoiceStore, nil
 }
 
 func (s *Server) credentialStore() (kv.Store, error) {
-	if s == nil {
+	if s == nil || s.CredentialStore == nil {
 		return nil, errors.New("MiniMax credential store not configured")
 	}
-	if s.CredentialStore != nil {
-		return s.CredentialStore, nil
-	}
-	if s.Store == nil {
-		return nil, errors.New("MiniMax credential store not configured")
-	}
-	return s.Store, nil
+	return s.CredentialStore, nil
 }

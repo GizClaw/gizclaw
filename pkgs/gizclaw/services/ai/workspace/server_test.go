@@ -1505,8 +1505,8 @@ func TestServerStoreHelpers(t *testing.T) {
 
 	base := kv.NewMemory(nil)
 	srv := &Server{Store: base}
-	if got, err := srv.workflowStore(); err != nil || got != base {
-		t.Fatalf("workflowStore fallback = %v, %v", got, err)
+	if _, err := srv.workflowStore(); err == nil {
+		t.Fatal("workflowStore missing explicit Store error = nil")
 	}
 
 	workflows := kv.NewMemory(nil)

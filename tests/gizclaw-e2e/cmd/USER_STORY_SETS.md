@@ -11,7 +11,6 @@ These tests execute `testdata/bin/gizclaw` through `os/exec`. They should not us
 - `context`: saved context lifecycle commands.
 - `serve`: foreground server workspace lifecycle.
 - `service`: service-managed server lifecycle guardrails.
-- `migrate`: workspace migration command behavior.
 - `connect`: device/client-facing connect commands.
 - `admin`: admin CLI resource and peer-management commands.
 - `edge`: edge-node ingress help, validation, and bounded lifecycle behavior.

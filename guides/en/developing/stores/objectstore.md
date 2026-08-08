@@ -20,3 +20,25 @@ Workspace history, Agent binary memory data, Gameplay pixa, and HNSW vector inde
 ## Ownership Boundary
 
 The Object Store treats directories as an implementation detail and does not provide any filesystem operations. Resource metadata, content type, authorization, and version rules belong to the calling domain; objectstore only owns the binary object lifecycle.
+
+## Server composition
+
+`storage` owns the physical filesystem directory. Logical ObjectStores borrow it and select an object prefix. When several logical Stores share one connector, every prefix must be non-empty, clean, and non-overlapping. Asset and AgentHost consumers are then bound explicitly through `services`; closing a scoped Store does not close or invalidate the physical connector.
+
+```yaml
+storage:
+  files:
+    kind: objectstore
+    fs:
+      dir: data/files
+stores:
+  workspace-assets:
+    kind: objectstore
+    storage: files
+    prefix: workspaces
+services:
+  workspace:
+    store: workspaces
+    workflow_store: workflows
+    assets_store: workspace-assets
+```

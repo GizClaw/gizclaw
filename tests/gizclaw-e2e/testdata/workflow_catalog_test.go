@@ -87,6 +87,77 @@ type workflowFixture struct {
 	Icon any `yaml:"icon"`
 }
 
+func TestServerWorkspaceFixtureHasNoImplicitOrUnconsumedStoreEntries(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("server-workspace", "config.yaml.template"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	if err := yaml.Unmarshal(raw, &config); err != nil {
+		t.Fatal(err)
+	}
+	storage, ok := config["storage"].(map[string]any)
+	if !ok {
+		t.Fatalf("storage = %#v", config["storage"])
+	}
+	stores, ok := config["stores"].(map[string]any)
+	if !ok {
+		t.Fatalf("stores = %#v", config["stores"])
+	}
+	services, ok := config["services"].(map[string]any)
+	if !ok {
+		t.Fatalf("services = %#v", config["services"])
+	}
+	for _, legacy := range []string{"agent_host", "system_log", "peers", "credentials", "firmwares", "minimax", "workspaces", "workflows", "history"} {
+		if _, exists := config[legacy]; exists {
+			t.Fatalf("legacy top-level binding %q remains", legacy)
+		}
+	}
+
+	referencedStores := map[string]struct{}{}
+	collectFixtureReferences(services, stores, referencedStores)
+	referencedStorage := map[string]struct{}{}
+	for name, value := range stores {
+		if _, exists := referencedStores[name]; !exists {
+			t.Fatalf("stores.%s has no explicit service consumer", name)
+		}
+		store, ok := value.(map[string]any)
+		if !ok {
+			t.Fatalf("stores.%s = %#v", name, value)
+		}
+		if connector, ok := store["storage"].(string); ok && connector != "" {
+			referencedStorage[connector] = struct{}{}
+		}
+	}
+	for name := range storage {
+		if _, exists := referencedStorage[name]; !exists {
+			t.Fatalf("storage.%s has no logical Store consumer", name)
+		}
+	}
+	workspace := services["workspace"].(map[string]any)
+	gameplay := services["gameplay"].(map[string]any)
+	if workspace["assets_store"] != "workspace-assets" || gameplay["assets_store"] != "gameplay-assets" {
+		t.Fatalf("owner asset bindings = workspace:%v gameplay:%v", workspace["assets_store"], gameplay["assets_store"])
+	}
+}
+
+func collectFixtureReferences(value any, stores map[string]any, references map[string]struct{}) {
+	switch current := value.(type) {
+	case map[string]any:
+		for _, child := range current {
+			collectFixtureReferences(child, stores, references)
+		}
+	case []any:
+		for _, child := range current {
+			collectFixtureReferences(child, stores, references)
+		}
+	case string:
+		if _, exists := stores[current]; exists {
+			references[current] = struct{}{}
+		}
+	}
+}
+
 func TestWorkflowCatalogFixtures(t *testing.T) {
 	workflowDir := filepath.Join("resources", "04-workflows")
 	for _, filename := range workflowFixtureFiles {

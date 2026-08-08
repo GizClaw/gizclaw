@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -81,4 +82,80 @@ func TestPrometheusConfigValidation(t *testing.T) {
 	if _, err := NewPrometheusStore(PrometheusConfig{}); err == nil {
 		t.Fatal("expected error")
 	}
+}
+
+func TestPrometheusConnectorReturnsIndependentBorrowedStores(t *testing.T) {
+	connector, err := NewPrometheusConnector(PrometheusConfig{
+		RemoteWriteURL: "https://prometheus.example.test/api/v1/write",
+		QueryURL:       "https://prometheus.example.test",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := connector.Store()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := connector.Store()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second || first.client != second.client {
+		t.Fatalf("stores do not borrow one connector client: %p, %p", first, second)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := connector.Store(); err != nil {
+		t.Fatalf("closing one logical Store invalidated connector: %v", err)
+	}
+	if err := connector.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPrometheusProviderErrorsDoNotExposeResponseBodies(t *testing.T) {
+	const secret = "response-contains-bearer-secret"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, secret, http.StatusUnauthorized)
+	}))
+	t.Cleanup(server.Close)
+	store, err := NewPrometheusStore(PrometheusConfig{RemoteWriteURL: server.URL, QueryURL: server.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sample := Sample{Name: "requests", Timestamp: time.Now().UTC(), Value: 1}
+	if err := store.Append(context.Background(), []Sample{sample}); err == nil || strings.Contains(err.Error(), secret) {
+		t.Fatalf("Append() error = %v", err)
+	}
+	_, err = store.Latest(context.Background(), LatestQuery{
+		Selector: Selector{Name: "requests"}, At: time.Now().UTC(), Lookback: time.Minute,
+	})
+	if err == nil || strings.Contains(err.Error(), secret) {
+		t.Fatalf("Latest() error = %v", err)
+	}
+}
+
+func TestPrometheusTransportErrorsRemainInspectableWithoutExposingSecrets(t *testing.T) {
+	providerErr := errors.New("transport contains bearer-secret")
+	store, err := NewPrometheusStore(PrometheusConfig{
+		RemoteWriteURL: "https://prometheus.example.test/write",
+		QueryURL:       "https://prometheus.example.test",
+		HTTPClient: &http.Client{Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
+			return nil, providerErr
+		})},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = store.Append(context.Background(), []Sample{{Name: "requests", Timestamp: time.Now().UTC(), Value: 1}})
+	if !errors.Is(err, providerErr) || strings.Contains(err.Error(), "bearer-secret") {
+		t.Fatalf("Append() error = %v", err)
+	}
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
 }

@@ -2,33 +2,46 @@
 
 `实现文件：server.go`
 
-定义可复用的 `Server` composition root：接收 identity、Peer listener、stores 与运行配置；初始化各领域 service；启动 HTTP 和 Peer listener；处理 Peer event；管理后台 cleanup、关闭顺序和 module store fallback。
+定义可复用的 `Server` composition root：接收 identity、Peer listeners、显式 Store 能力与运行配置；初始化各领域 service；启动 HTTP 和 Peer listeners；处理 Peer event 并管理关闭流程。Server 不再包含 Store 名称或 prefix fallback。
 
 它可以组合多个领域，但单一领域的 resource、validation、storage 和 lifecycle 应留在 `services/<domain>`。进程配置与启动属于 `cmd/internal/server`。
 
-## AgentHost Store 绑定
+## Storage、Store 与 Service 组合
 
-Server Config 使用 `stores` 中的逻辑名称绑定 AgentHost 持久化能力：
+Server 配置明确分为三层：
 
-```yaml
-agent_host:
-  runtime_store: agenthost
-  flowcraft:
-    state_store: flowcraft-state
-    history_store: flowcraft-history
-```
-
-这些引用同时适用于分层的 `storage` 加 `stores` 布局和受支持的单层 `stores` 布局。Backend 配置仍属于被引用的 Store；`agent_host` 不接受目录、DSN、credential、prefix、scope 或 inline backend。
-
-| 字段 | 必需 capability | 支持的 backend |
+| 层 | 结构 | Ownership |
 | --- | --- | --- |
-| `agent_host.runtime_store` | `objectstore.ObjectStore` | filesystem ObjectStore |
-| `agent_host.flowcraft.state_store` | `kv.Store` | Memory 或 Badger KV |
-| `agent_host.flowcraft.history_store` | `logstore.MutableStore` | ClickHouse LogStore；不可变的 Volc LogStore 会被拒绝 |
+| `storage` | 动态 map | 物理连接、credential、pool/client 构造、readiness 与关闭 |
+| `stores` | 动态 map | 逻辑接口 kind 与 prefix/table/topic scope |
+| `services` | 固定类型结构 | 内置服务用于引用兼容 Store 的固定字段 |
 
-`agent_host` 是这些绑定的唯一依据。省略整个 block 或某个内层引用会禁用对应可选能力；Store 名称本身不具有保留绑定语义。未知名称、错误 Store kind、不可变 History Store、未知字段或空引用都会让 Server 构造失败，不会 fallback。
+Registry 名称精确匹配并区分大小写。Server 不会赋予 `peers`、`metrics` 等名称任何内置含义；每个内置消费者都通过固定的 `services` 字段绑定。核心 service block 必填，`services.agent_host`、`services.metrics` 与 `services.system_log` 可选；省略 SystemLog 时使用 info-level stderr。
 
-`agent_host.flowcraft.memory_store`、`agent_host.eino.memory_store`、`memory_objects_store` 以及 `stores.kind: memory` 都不是合法 Server Config；严格 parser 会拒绝这些旧字段。Memory policy 由 Admin `MemoryLayout` 管理，实际连接由 RuntimeProfile `resources.memories` 管理。Server 只提供 MemoryLayout KV store 与 Server Workspace root；`flowcraft_bbh` 在后者下面构造 managed persistence。完整 contract 见 [Memory Store](/zh/developing/stores/memory)。
+主要能力分组如下：
+
+| Service 字段 | 所需能力 |
+| --- | --- |
+| Peer、login、credential、firmware、RuntimeProfile、model、voice、MemoryLayout、provider tenants、workflow、toolkit、contact、friend 与 Friend Group 引用 | `keyvalue` |
+| `services.workspace.assets_store`、`services.gameplay.assets_store`、`services.agent_host.runtime_store` | `objectstore` |
+| `services.gameplay.database_store` | `sql` |
+| `services.agent_host.flowcraft.history_store` | `log.mutable` |
+| `services.metrics.store` | `metrics` |
+| `services.system_log.query_store` 与 Store sink | immutable Log 能力 |
+
+四个 Friend Group relationship Store 必须共享一个原子 KV transaction boundary。共享 ObjectStore 必须使用非空、规范且互不重叠的 prefix。引用缺失、kind 不兼容、Flowcraft History 不可变或出现未知字段时，Server 会在打开 listener 前失败。
+
+启动顺序依次为严格解析配置、打开物理 connector、构造逻辑 Store、解析 service 能力、由活跃 SQL 服务校验 schema、安装日志与 metrics，最后才打开 listener。逻辑 Store 不关闭借用的 connector；关闭时先释放逻辑 wrapper，再关闭物理 connector。
+
+旧的一层 Store 配置、顶层伪 service block、隐式 Store 名称、通用 `kind: log` 和 `gizclaw migrate` 命令均不受支持。开发环境应使用当前配置重新创建，不导入或转换旧数据。Gameplay 与 ClickHouse Store 初始化表仍属于活跃 schema lifecycle，不属于旧数据迁移。
+
+### 完整配置
+
+下面的开发部署使用 Badger 保存 KV 状态、SQLite 保存 Gameplay SQL、filesystem ObjectStore、Volc TLS 日志，以及由 Metrics 和 Flowcraft History 共享的一个 ClickHouse pool。生产环境可以把 `storage.gameplay-db.sqlite` 换成 `postgres.dsn` block，而无需修改逻辑 Store 或 service binding。
+
+<<< ../../../../snippets/server-storage-stores-services.yaml{yaml}
+
+`memory.Store` 仍由 RuntimeProfile 与 MemoryLayout 选择；`stores.kind: memory` 无效。完整契约见 [Memory Store](/zh/developing/stores/memory)。
 
 每个 Workspace Agent generation 根据当前 RuntimeProfile snapshot 解析 memory alias。构造失败会使 Agent 初始化或 reload 显式失败。Server shutdown 关闭共享 Memory registry；Workspace reload 与最后一个 Agent 引用释放会关闭该 generation 的 lease，但不迁移、合并、复制或删除持久数据。
 
