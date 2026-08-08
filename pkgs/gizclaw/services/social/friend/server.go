@@ -1819,13 +1819,11 @@ func (s *Server) findInviteToken(ctx context.Context, inviteToken string) (invit
 			continue
 		}
 		if strings.TrimSpace(record.InviteToken) == "" || record.CreatedAt.IsZero() ||
-			!record.CreatedAt.Before(record.ExpiresAt) {
+			!record.CreatedAt.Before(record.ExpiresAt) || record.PeerPublicKey == "" ||
+			record.PeerPublicKey != strings.TrimSpace(record.PeerPublicKey) {
 			return inviteTokenRecord{}, inviteTokenLookupError(errors.New("social: persisted Friend invite token is invalid"))
 		}
 		if record.InviteToken == inviteToken {
-			if record.PeerPublicKey == "" || record.PeerPublicKey != strings.TrimSpace(record.PeerPublicKey) {
-				return inviteTokenRecord{}, inviteTokenLookupError(errors.New("social: persisted Friend invite token is invalid"))
-			}
 			return record, nil
 		}
 	}

@@ -1476,10 +1476,10 @@ func TestAddFriendRejectsCorruptInviteTokenRecords(t *testing.T) {
 			token: "token",
 		},
 		{
-			name: "invalid matched owner",
+			name: "invalid nonmatching owner",
 			value: mustJSON(t, inviteTokenRecord{
 				PeerPublicKey: " peer-b ",
-				InviteToken:   "token",
+				InviteToken:   "different-token",
 				CreatedAt:     time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC),
 				ExpiresAt:     time.Date(2026, 6, 13, 0, 5, 0, 0, time.UTC),
 			}),
