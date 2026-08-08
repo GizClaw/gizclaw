@@ -5,10 +5,21 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestBackendConfigsHaveNoSerializationTags(t *testing.T) {
+	for _, typeOf := range []reflect.Type{reflect.TypeFor[PrometheusConfig](), reflect.TypeFor[ClickHouseConfig]()} {
+		for field := range typeOf.Fields() {
+			if field.Tag.Get("yaml") != "" || field.Tag.Get("json") != "" || field.Tag.Get("mapstructure") != "" {
+				t.Fatalf("%s.%s has serialization tag %q", typeOf.Name(), field.Name, field.Tag)
+			}
+		}
+	}
+}
 
 func TestPrometheusLatestTranslatesSelectorPrivately(t *testing.T) {
 	t.Parallel()

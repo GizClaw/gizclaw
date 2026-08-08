@@ -1,6 +1,6 @@
 //go:build integration
 
-package stores
+package store
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	physicalstorage "github.com/GizClaw/gizclaw-go/cmd/internal/storage"
+	physicalstorage "github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
 
 func TestClickHousePhysicalPoolSupportsScopedMetricsAndLogs(t *testing.T) {
@@ -17,7 +17,7 @@ func TestClickHousePhysicalPoolSupportsScopedMetricsAndLogs(t *testing.T) {
 		t.Skip("GIZCLAW_TEST_CLICKHOUSE_DSN is not set")
 	}
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"analytics": {Kind: physicalstorage.KindClickHouse, DSN: dsn},
+		"analytics": physicalstorage.ClickHouseConfig{DSN: dsn},
 	})
 	if err != nil {
 		t.Fatalf("storage.New() error = %v", err)
@@ -32,7 +32,7 @@ func TestClickHousePhysicalPoolSupportsScopedMetricsAndLogs(t *testing.T) {
 		_, _ = db.ExecContext(context.Background(), "DROP TABLE IF EXISTS "+table)
 	}
 
-	registry, err := NewWithStorage(physical, map[string]Config{
+	registry, err := New(map[string]Config{
 		"metrics": {
 			Kind: KindMetrics, Storage: "analytics",
 			Table: "gizclaw_metrics_shared_test",
@@ -45,9 +45,9 @@ func TestClickHousePhysicalPoolSupportsScopedMetricsAndLogs(t *testing.T) {
 			Kind: KindLogMutable, Storage: "analytics",
 			Table: "gizclaw_log_mutable_shared_test",
 		},
-	})
+	}, physical)
 	if err != nil {
-		t.Fatalf("NewWithStorage() error = %v", err)
+		t.Fatalf("New() error = %v", err)
 	}
 	t.Cleanup(func() { _ = registry.Close() })
 	if _, err := registry.Metrics("metrics"); err != nil {

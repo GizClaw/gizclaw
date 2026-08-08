@@ -18,7 +18,7 @@ A `Record` requires an `ID`, time, `Stream`, and `Kind`, and can carry severity,
 
 | Driver | Capability | Notes |
 | --- | --- | --- |
-| Volc TLS | `ImmutableStore` | Managed producer and SearchLogs query; mutations are unsupported |
+| Volc TLS | `ImmutableStore` | PutLogsV2 and SearchLogs over one TLS SDK client; mutations are unsupported |
 | ClickHouse | `MutableStore` | Dedicated MergeTree table with synchronous replace and delete mutations |
 
 Every logical Log Store declares `log.immutable` or `log.mutable`. `Stores.Log` accepts both declarations, while `Stores.MutableLog` accepts only `log.mutable`. Volc TLS cannot satisfy mutable Flowcraft History. Physical connection ownership remains under `storage`.
@@ -44,11 +44,11 @@ The operator provisions the topic, logset, retention, and index. Store construct
 
 See Volc TLS [CreateIndex](https://www.volcengine.com/docs/6470/112187), [query syntax](https://www.volcengine.com/docs/6470/1206705), and [phrase query](https://www.volcengine.com/docs/6470/1206697) references for the operator-owned schema and search behavior.
 
-The provider layout uses `id`, `stream`, `kind`, `level`, and `msg`, expands dotted attributes into nested `attributes` JSON, and stores the optional payload. Before submission, the driver truncates oversized message, severity, attribute, and payload values to the producer limit while preserving `Stream`, `ID`, `Kind`, and time. JSON payloads are compacted and string values are shortened at value boundaries so the payload remains structurally valid and domain envelopes remain decodable. A record that cannot be reduced safely is rejected. `Append` returns the keys accepted by the producer, including the accepted prefix on a partial failure.
+The provider layout uses `id`, `stream`, `kind`, `level`, and `msg`, expands dotted attributes into nested `attributes` JSON, and stores the optional payload. Before submission, the driver truncates oversized message, severity, attribute, and payload values while preserving `Stream`, `ID`, `Kind`, and time. Synchronous `PutLogsV2` calls submit sequential batches of at most 4096 records and 512 KiB. Keys are accepted only after a complete batch succeeds, so a failure returns the input prefix covered by earlier successful batches.
 
 Generic records use provider source `gizclaw` and filename `logstore`; process-log `source=gizclaw` and `path=slog` remain logical attributes. Record timestamps retain nanoseconds when available, while SearchLogs ranges and ordering use milliseconds.
 
-Queries use SearchLogs search expressions and provider Context, never SQL analysis. `Text` uses the key-value phrase form `msg:#"..."`; validated attribute names are emitted as JSON dotted paths such as `attributes.request_id`. Provider calls are capped at 30 seconds and honor shorter caller deadlines. Provider error bodies are not returned through the Store or Admin API. One physical connector owns and flushes its producer; topic-scoped Stores borrow it.
+Queries use SearchLogs search expressions and provider Context, never SQL analysis. `Text` uses the key-value phrase form `msg:#"..."`; validated attribute names are emitted as JSON dotted paths such as `attributes.request_id`. Provider calls are capped at 30 seconds and honor shorter caller deadlines. Provider error bodies are not returned through the Store or Admin API. Physical Storage owns one TLS SDK client; topic-scoped Stores use that same client for reads and writes without creating a producer or second client.
 
 For `Streams=[system]` and `Kinds=[log]`, the driver also includes old records whose provider source is `gizclaw` and filename is `slog`. They participate in the same provider-side ordering and cursor instead of being fetched and merged separately. This is record compatibility only; the removed Server `log` configuration remains unsupported.
 

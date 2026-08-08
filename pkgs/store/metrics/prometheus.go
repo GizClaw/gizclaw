@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
+	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/prometheus/prompb"
 )
 
@@ -26,28 +28,27 @@ const (
 
 // PrometheusConfig configures a Prometheus remote-write/query backend.
 type PrometheusConfig struct {
-	RemoteWriteURL string       `yaml:"remote_write_url"`
-	QueryURL       string       `yaml:"query_url"`
-	BearerToken    string       `yaml:"bearer_token"`
-	HTTPClient     *http.Client `yaml:"-"`
+	RemoteWriteURL string
+	QueryURL       string
+	BearerToken    string
+	HTTPClient     *http.Client
 }
 
 // PrometheusStore writes samples through remote write and reads them through
 // the Prometheus HTTP query API.
 type PrometheusStore struct {
 	remoteWriteURL string
-	queryURL       string
-	bearerToken    string
-	client         *http.Client
+	client         api.Client
+	connector      *PrometheusConnector
+	ownsConnector  bool
 }
 
 // PrometheusConnector owns the reusable physical HTTP connection settings for
 // one or more logical Metrics Stores.
 type PrometheusConnector struct {
 	remoteWriteURL string
-	queryURL       string
-	bearerToken    string
-	client         *http.Client
+	client         api.Client
+	ownsClient     bool
 }
 
 // NewPrometheusConnector validates a physical Prometheus connector.
@@ -60,34 +61,76 @@ func NewPrometheusConnector(cfg PrometheusConfig) (*PrometheusConnector, error) 
 	if err != nil {
 		return nil, err
 	}
-	client := cfg.HTTPClient
-	if client == nil {
-		client = &http.Client{Timeout: 30 * time.Second}
+	httpClient := cfg.HTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{
+			Transport: &http.Transport{
+				Proxy:                 http.ProxyFromEnvironment,
+				DialContext:           (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+				ForceAttemptHTTP2:     true,
+				MaxIdleConns:          100,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: time.Second,
+			},
+			Timeout: 30 * time.Second,
+		}
+	}
+	if cfg.BearerToken != "" {
+		next := httpClient.Transport
+		if next == nil {
+			next = http.DefaultTransport
+		}
+		clone := *httpClient
+		clone.Transport = prometheusBearerRoundTripper{token: cfg.BearerToken, next: next}
+		httpClient = &clone
+	}
+	client, err := api.NewClient(api.Config{Address: queryURL, Client: httpClient})
+	if err != nil {
+		return nil, fmt.Errorf("metrics: prometheus client: %w", err)
 	}
 	return &PrometheusConnector{
 		remoteWriteURL: remoteWriteURL,
-		queryURL:       strings.TrimRight(queryURL, "/"),
-		bearerToken:    cfg.BearerToken,
 		client:         client,
+		ownsClient:     true,
 	}, nil
+}
+
+// NewPrometheusConnectorWithClient creates a connector that borrows client.
+func NewPrometheusConnectorWithClient(client api.Client, remoteWriteURL string) (*PrometheusConnector, error) {
+	if client == nil {
+		return nil, errors.New("metrics: prometheus client is nil")
+	}
+	remoteWriteURL, err := parseRequiredURL("remote_write_url", remoteWriteURL)
+	if err != nil {
+		return nil, err
+	}
+	return &PrometheusConnector{client: client, remoteWriteURL: remoteWriteURL}, nil
 }
 
 // Store returns a logical Metrics Store borrowing this connector.
 func (c *PrometheusConnector) Store() (*PrometheusStore, error) {
-	if c == nil || c.client == nil || c.remoteWriteURL == "" || c.queryURL == "" {
+	if c == nil || c.client == nil || c.remoteWriteURL == "" {
 		return nil, errors.New("metrics: prometheus connector is not initialized")
 	}
 	return &PrometheusStore{
 		remoteWriteURL: c.remoteWriteURL,
-		queryURL:       c.queryURL,
-		bearerToken:    c.bearerToken,
 		client:         c.client,
+		connector:      c,
 	}, nil
 }
 
 // Close releases connector-owned resources. HTTP transports remain reusable
 // and caller-owned, so there is currently nothing to close.
-func (c *PrometheusConnector) Close() error { return nil }
+func (c *PrometheusConnector) Close() error {
+	if c != nil && c.ownsClient {
+		if closer, ok := c.client.(api.CloseIdler); ok {
+			closer.CloseIdleConnections()
+		}
+		c.ownsClient = false
+	}
+	return nil
+}
 
 // NewPrometheusStore creates a Prometheus remote-write/query metrics store.
 func NewPrometheusStore(cfg PrometheusConfig) (*PrometheusStore, error) {
@@ -95,7 +138,13 @@ func NewPrometheusStore(cfg PrometheusConfig) (*PrometheusStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	return connector.Store()
+	store, err := connector.Store()
+	if err != nil {
+		_ = connector.Close()
+		return nil, err
+	}
+	store.ownsConnector = true
+	return store, nil
 }
 
 // Append writes samples through the Prometheus remote write protocol.
@@ -127,13 +176,10 @@ func (s *PrometheusStore) Append(ctx context.Context, samples []Sample) error {
 	httpReq.Header.Set("Content-Type", "application/x-protobuf")
 	httpReq.Header.Set("Content-Encoding", "snappy")
 	httpReq.Header.Set("X-Prometheus-Remote-Write-Version", remoteWriteVersion)
-	s.authorize(httpReq)
-
-	resp, err := s.client.Do(httpReq)
+	resp, _, err := s.client.Do(ctx, httpReq)
 	if err != nil {
 		return &prometheusOperationError{operation: "remote write request", err: err}
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("metrics: remote write status %d", resp.StatusCode)
 	}
@@ -371,29 +417,30 @@ func samplesFromSeries(series SeriesSet) []Sample {
 	return out
 }
 
-// Close releases resources. The default HTTP client has no owned resources to
-// close, so Close is currently a no-op.
 func (s *PrometheusStore) Close() error {
+	if s != nil && s.ownsConnector && s.connector != nil {
+		s.ownsConnector = false
+		return s.connector.Close()
+	}
 	return nil
 }
 
 func (s *PrometheusStore) query(ctx context.Context, path string, values url.Values) (SeriesSet, error) {
-	endpoint := s.queryURL + path + "?" + values.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	endpoint := s.client.URL(path, nil)
+	endpoint.RawQuery = values.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("metrics: create query request: %w", err)
 	}
-	s.authorize(req)
-	resp, err := s.client.Do(req)
+	resp, body, err := s.client.Do(ctx, req)
 	if err != nil {
 		return nil, &prometheusOperationError{operation: "query request", err: err}
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("metrics: query status %d", resp.StatusCode)
 	}
 	var decoded prometheusResponse
-	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
+	if err := json.Unmarshal(body, &decoded); err != nil {
 		return nil, fmt.Errorf("metrics: decode query response: %w", err)
 	}
 	if decoded.Status != "success" {
@@ -402,10 +449,16 @@ func (s *PrometheusStore) query(ctx context.Context, path string, values url.Val
 	return decoded.Data.series()
 }
 
-func (s *PrometheusStore) authorize(req *http.Request) {
-	if s.bearerToken != "" {
-		req.Header.Set("Authorization", "Bearer "+s.bearerToken)
-	}
+type prometheusBearerRoundTripper struct {
+	token string
+	next  http.RoundTripper
+}
+
+func (r prometheusBearerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	clone := req.Clone(req.Context())
+	clone.Header = req.Header.Clone()
+	clone.Header.Set("Authorization", "Bearer "+r.token)
+	return r.next.RoundTrip(clone)
 }
 
 func parseRequiredURL(field, value string) (string, error) {

@@ -12,14 +12,13 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 func TestWorkspaceDeletionHandlerRemovesOwnedDataAndPreservesForeignData(t *testing.T) {
 	ctx := t.Context()
 	srv := newTestServer(t)
-	runtimeObjects := objectstore.Dir(t.TempDir())
-	assetObjects := objectstore.Dir(t.TempDir())
+	runtimeObjects := newTestObjectStore(t)
+	assetObjects := newTestObjectStore(t)
 	srv.RuntimeStore = NewObjectRuntimeStore(runtimeObjects)
 	srv.Assets = assetObjects
 	now := time.Date(2026, 8, 7, 1, 0, 0, 0, time.UTC)

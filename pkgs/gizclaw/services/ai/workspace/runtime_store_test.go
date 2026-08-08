@@ -7,13 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 func TestObjectRuntimeStorePrepareWorkspaceCreatesLocalDir(t *testing.T) {
 	root := t.TempDir()
-	store := NewObjectRuntimeStore(objectstore.Dir(root))
+	store := NewObjectRuntimeStore(newTestObjectStoreAt(t, root))
 
 	rt, err := store.PrepareWorkspace(context.Background(), "demo ws")
 	if err != nil {
@@ -46,7 +44,7 @@ func TestObjectPrefixIsolatesOpaqueWorkspaceIDs(t *testing.T) {
 
 func TestObjectRuntimeStorePersistsDialogID(t *testing.T) {
 	root := t.TempDir()
-	store := NewObjectRuntimeStore(objectstore.Dir(root))
+	store := NewObjectRuntimeStore(newTestObjectStoreAt(t, root))
 
 	rt, err := store.PrepareWorkspace(context.Background(), "demo")
 	if err != nil {
@@ -79,7 +77,7 @@ func TestObjectRuntimeStorePersistsDialogID(t *testing.T) {
 
 func TestObjectRuntimeStoreDeleteWorkspaceRuntimeRemovesPrefix(t *testing.T) {
 	root := t.TempDir()
-	objects := objectstore.Dir(root)
+	objects := newTestObjectStoreAt(t, root)
 	store := NewObjectRuntimeStore(objects)
 
 	prefix := ObjectPrefix("demo")
@@ -99,7 +97,7 @@ func TestObjectRuntimeStoreValidation(t *testing.T) {
 		t.Fatalf("PrepareWorkspace(nil store) error = %v", err)
 	}
 
-	store := NewObjectRuntimeStore(objectstore.Dir(t.TempDir()))
+	store := NewObjectRuntimeStore(newTestObjectStore(t))
 	if _, err := store.PrepareWorkspace(context.Background(), " "); err == nil || !strings.Contains(err.Error(), "id") {
 		t.Fatalf("PrepareWorkspace(empty workspace) error = %v", err)
 	}

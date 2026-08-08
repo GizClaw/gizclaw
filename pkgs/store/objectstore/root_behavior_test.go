@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-func TestDirPutGetListDelete(t *testing.T) {
-	store := Dir(t.TempDir())
+func TestRootPutGetListDelete(t *testing.T) {
+	store := newTestRoot(t)
 
 	if err := store.Put("a/b.txt", reader("hello")); err != nil {
 		t.Fatalf("Put: %v", err)
@@ -49,8 +49,8 @@ func TestDirPutGetListDelete(t *testing.T) {
 	}
 }
 
-func TestDirDeletePrefix(t *testing.T) {
-	store := Dir(t.TempDir())
+func TestRootDeletePrefix(t *testing.T) {
+	store := newTestRoot(t)
 	for _, name := range []string{"alpha/a.bin", "alpha/nested/b.bin", "beta/icon.png"} {
 		if err := store.Put(name, reader(name)); err != nil {
 			t.Fatalf("Put(%q): %v", name, err)
@@ -69,8 +69,8 @@ func TestDirDeletePrefix(t *testing.T) {
 	}
 }
 
-func TestDirReplaceMissingAndEmptyPrefix(t *testing.T) {
-	store := Dir(t.TempDir())
+func TestRootReplaceMissingAndEmptyPrefix(t *testing.T) {
+	store := newTestRoot(t)
 	if err := store.Put("asset.txt", strings.NewReader("old")); err != nil {
 		t.Fatalf("first Put: %v", err)
 	}
@@ -109,9 +109,9 @@ func TestDirReplaceMissingAndEmptyPrefix(t *testing.T) {
 	}
 }
 
-func TestDirPutFailureKeepsExistingObjectAndRemovesTemp(t *testing.T) {
+func TestRootPutFailureKeepsExistingObjectAndRemovesTemp(t *testing.T) {
 	root := t.TempDir()
-	store := Dir(root)
+	store := newTestRootAt(t, root)
 	if err := store.Put("asset.txt", strings.NewReader("old")); err != nil {
 		t.Fatalf("initial Put: %v", err)
 	}
@@ -143,9 +143,9 @@ func TestDirPutFailureKeepsExistingObjectAndRemovesTemp(t *testing.T) {
 	}
 }
 
-func TestDirPutFailureDoesNotCreateNewObject(t *testing.T) {
+func TestRootPutFailureDoesNotCreateNewObject(t *testing.T) {
 	root := t.TempDir()
-	store := Dir(root)
+	store := newTestRootAt(t, root)
 	if err := store.Put("new.txt", &failingReader{data: []byte("partial")}); err == nil {
 		t.Fatal("Put error = nil")
 	}
@@ -155,9 +155,9 @@ func TestDirPutFailureDoesNotCreateNewObject(t *testing.T) {
 	assertNoPutTemps(t, root)
 }
 
-func TestDirListDoesNotExposeInProgressPut(t *testing.T) {
+func TestRootListDoesNotExposeInProgressPut(t *testing.T) {
 	root := t.TempDir()
-	store := Dir(root)
+	store := newTestRootAt(t, root)
 	reader, writer := io.Pipe()
 	putErr := make(chan error, 1)
 	go func() {
@@ -168,7 +168,7 @@ func TestDirListDoesNotExposeInProgressPut(t *testing.T) {
 	}
 	deadline := time.Now().Add(time.Second)
 	for {
-		matches, err := filepath.Glob(filepath.Join(store.metadataRoot(), "put", putTempPrefix+"*"))
+		matches, err := filepath.Glob(filepath.Join(store.root.Name(), metadataRoot, "put", putTempPrefix+"*"))
 		if err != nil {
 			t.Fatalf("Glob temp files: %v", err)
 		}
@@ -195,14 +195,14 @@ func TestDirListDoesNotExposeInProgressPut(t *testing.T) {
 	}
 }
 
-func TestDirMetadataFailureRestoresExistingObjectAndDeadline(t *testing.T) {
+func TestRootMetadataFailureRestoresExistingObjectAndDeadline(t *testing.T) {
 	root := t.TempDir()
-	store := Dir(root)
+	store := newTestRootAt(t, root)
 	oldDeadline := time.Now().Add(time.Hour).UTC()
 	if err := store.PutWithDeadline("asset.txt", strings.NewReader("old"), oldDeadline); err != nil {
 		t.Fatalf("initial PutWithDeadline: %v", err)
 	}
-	metadataDir := filepath.Dir(store.metadataPath("asset.txt"))
+	metadataDir := filepath.Dir(filepath.Join(root, filepath.FromSlash(store.metadataPath("asset.txt"))))
 	if err := os.Chmod(metadataDir, 0o500); err != nil {
 		t.Fatalf("Chmod metadata dir: %v", err)
 	}
@@ -237,8 +237,8 @@ func TestDirMetadataFailureRestoresExistingObjectAndDeadline(t *testing.T) {
 	assertNoPutTemps(t, root)
 }
 
-func TestDirPutWithTTLRecordsDeadline(t *testing.T) {
-	store := Dir(t.TempDir())
+func TestRootPutWithTTLRecordsDeadline(t *testing.T) {
+	store := newTestRoot(t)
 	ttl := time.Hour
 	before := time.Now()
 	if err := store.PutWithTTL("history/audio.opus", strings.NewReader("audio"), ttl); err != nil {
@@ -259,8 +259,8 @@ func TestDirPutWithTTLRecordsDeadline(t *testing.T) {
 	}
 }
 
-func TestDirGetRemovesExpiredObject(t *testing.T) {
-	store := Dir(t.TempDir())
+func TestRootGetRemovesExpiredObject(t *testing.T) {
+	store := newTestRoot(t)
 	name := "history/get.opus"
 	if err := store.Put(name, strings.NewReader("audio")); err != nil {
 		t.Fatalf("Put: %v", err)
@@ -276,11 +276,11 @@ func TestDirGetRemovesExpiredObject(t *testing.T) {
 	if !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("Get expired object error = %v, want fs.ErrNotExist", err)
 	}
-	assertDirObjectRemoved(t, store, name)
+	assertRootObjectRemoved(t, store, name)
 }
 
-func TestDirListRemovesExpiredObject(t *testing.T) {
-	store := Dir(t.TempDir())
+func TestRootListRemovesExpiredObject(t *testing.T) {
+	store := newTestRoot(t)
 	name := "history/list.opus"
 	if err := store.Put(name, strings.NewReader("audio")); err != nil {
 		t.Fatalf("Put: %v", err)
@@ -296,11 +296,11 @@ func TestDirListRemovesExpiredObject(t *testing.T) {
 	if len(items) != 0 {
 		t.Fatalf("List expired object = %#v, want empty", items)
 	}
-	assertDirObjectRemoved(t, store, name)
+	assertRootObjectRemoved(t, store, name)
 }
 
-func TestDirPutClearsObjectDeadline(t *testing.T) {
-	store := Dir(t.TempDir())
+func TestRootPutClearsObjectDeadline(t *testing.T) {
+	store := newTestRoot(t)
 	if err := store.PutWithDeadline("history/audio.opus", strings.NewReader("old"), time.Now().Add(time.Hour)); err != nil {
 		t.Fatalf("PutWithDeadline: %v", err)
 	}
@@ -317,15 +317,15 @@ func TestDirPutClearsObjectDeadline(t *testing.T) {
 	}
 }
 
-func TestDirPutWithTTLRejectsNonPositiveTTL(t *testing.T) {
-	store := Dir(t.TempDir())
+func TestRootPutWithTTLRejectsNonPositiveTTL(t *testing.T) {
+	store := newTestRoot(t)
 	if err := store.PutWithTTL("history/audio.opus", strings.NewReader("audio"), 0); err == nil {
 		t.Fatal("PutWithTTL ttl=0 error = nil")
 	}
 }
 
-func TestDirDeletePrefixRemovesObjectDeadlines(t *testing.T) {
-	store := Dir(t.TempDir())
+func TestRootDeletePrefixRemovesObjectDeadlines(t *testing.T) {
+	store := newTestRoot(t)
 	if err := store.PutWithDeadline("history/a.opus", strings.NewReader("a"), time.Now().Add(time.Hour)); err != nil {
 		t.Fatalf("PutWithDeadline(a): %v", err)
 	}
@@ -356,8 +356,8 @@ func TestDirDeletePrefixRemovesObjectDeadlines(t *testing.T) {
 	}
 }
 
-func TestDirRejectsInvalidObjectNames(t *testing.T) {
-	store := Dir(t.TempDir())
+func TestRootRejectsInvalidObjectNames(t *testing.T) {
+	store := newTestRoot(t)
 	for _, name := range []string{"", "/", "../outside", "a/../b", "/tmp/object", ".objectstore-meta/expires/x"} {
 		t.Run(name, func(t *testing.T) {
 			if err := store.Put(name, reader("data")); err == nil {
@@ -379,8 +379,8 @@ func TestDirRejectsInvalidObjectNames(t *testing.T) {
 	}
 }
 
-func TestDirNormalizesObjectNames(t *testing.T) {
-	store := Dir(t.TempDir())
+func TestRootNormalizesObjectNames(t *testing.T) {
+	store := newTestRoot(t)
 	if err := store.Put("./a//b.txt", strings.NewReader("hello")); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
@@ -398,8 +398,8 @@ func TestDirNormalizesObjectNames(t *testing.T) {
 	}
 }
 
-func TestDirAllowsObjectNamesStartingWithPutTempPrefix(t *testing.T) {
-	store := Dir(t.TempDir())
+func TestRootAllowsObjectNamesStartingWithPutTempPrefix(t *testing.T) {
+	store := newTestRoot(t)
 	name := putTempPrefix + "public/asset.txt"
 	if err := store.Put(name, strings.NewReader("data")); err != nil {
 		t.Fatalf("Put: %v", err)
@@ -425,8 +425,8 @@ func TestDirAllowsObjectNamesStartingWithPutTempPrefix(t *testing.T) {
 	}
 }
 
-func TestDirPutDoesNotReplacePrefixDirectory(t *testing.T) {
-	store := Dir(t.TempDir())
+func TestRootPutDoesNotReplacePrefixDirectory(t *testing.T) {
+	store := newTestRoot(t)
 	if err := store.Put("a/b", strings.NewReader("nested")); err != nil {
 		t.Fatalf("Put nested object: %v", err)
 	}
@@ -480,9 +480,29 @@ func assertNoPutTemps(t *testing.T, root string) {
 	}
 }
 
-func assertDirObjectRemoved(t *testing.T, store Dir, name string) {
+func newTestRoot(t testing.TB) *Root {
 	t.Helper()
-	for _, path := range []string{store.join(name), store.metadataPath(name)} {
+	return newTestRootAt(t, t.TempDir())
+}
+
+func newTestRootAt(t testing.TB, dir string) *Root {
+	t.Helper()
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = root.Close() })
+	store, err := NewRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return store
+}
+
+func assertRootObjectRemoved(t *testing.T, store *Root, name string) {
+	t.Helper()
+	for _, path := range []string{name, store.metadataPath(name)} {
+		path = filepath.Join(store.root.Name(), filepath.FromSlash(path))
 		if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
 			t.Errorf("Stat(%q) error = %v, want fs.ErrNotExist", path, err)
 		}

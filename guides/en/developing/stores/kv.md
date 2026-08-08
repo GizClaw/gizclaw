@@ -22,7 +22,7 @@
 
 ## Server composition
 
-A physical `storage` entry opens Memory or Badger once. Each logical `stores.kind: keyvalue` entry names that connector and may add a slash-separated prefix. A fixed `services` field then names the logical Store; neither the Store name nor prefix selects a service implicitly. Multiple services may explicitly reuse one Store. No SQL-backed KV adapter or generic KV table is provided.
+A `storage.kind: badger` entry opens one `*badger.DB`; logical Stores borrow it through `NewBadgerWithDB`. `storage.kind: memory` is only a marker, and every logical keyvalue Store creates an independent `*kv.Memory`. Each `stores.kind: keyvalue` entry may add a slash-separated prefix, and fixed `services` fields name the logical Store. No SQL-backed KV adapter or generic KV table is provided.
 
 ```yaml
 storage:

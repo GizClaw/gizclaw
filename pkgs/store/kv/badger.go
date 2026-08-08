@@ -12,8 +12,9 @@ import (
 
 // Badger is a persistent Store backed by BadgerDB.
 type Badger struct {
-	db   *badger.DB
-	opts *Options
+	db     *badger.DB
+	opts   *Options
+	ownsDB bool
 }
 
 // NewBadger opens (or creates) a BadgerDB store at dir.
@@ -24,6 +25,15 @@ func NewBadger(dir string, opts *Options) (*Badger, error) {
 	db, err := badger.Open(dbOpts)
 	if err != nil {
 		return nil, err
+	}
+	return &Badger{db: db, opts: opts, ownsDB: true}, nil
+}
+
+// NewBadgerWithDB creates a Store that borrows an already-open Badger DB.
+// Closing the returned Store does not close db.
+func NewBadgerWithDB(db *badger.DB, opts *Options) (*Badger, error) {
+	if db == nil {
+		return nil, errors.New("kv: badger db is nil")
 	}
 	return &Badger{db: db, opts: opts}, nil
 }
@@ -391,6 +401,10 @@ func (b *Badger) CompareAndMutate(
 }
 
 func (b *Badger) Close() error {
+	if b == nil || !b.ownsDB || b.db == nil {
+		return nil
+	}
+	b.ownsDB = false
 	return b.db.Close()
 }
 
@@ -419,7 +433,7 @@ func NewBadgerWithOptions(dbOpts badger.Options, opts *Options) (*Badger, error)
 	if err != nil {
 		return nil, err
 	}
-	return &Badger{db: db, opts: opts}, nil
+	return &Badger{db: db, opts: opts, ownsDB: true}, nil
 }
 
 // NewBadgerInMemory creates an in-memory BadgerDB store (no disk persistence).

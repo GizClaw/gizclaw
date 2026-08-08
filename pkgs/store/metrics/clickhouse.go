@@ -13,8 +13,8 @@ import (
 
 // ClickHouseConfig configures a ClickHouse metrics backend.
 type ClickHouseConfig struct {
-	DSN   string `yaml:"dsn"`
-	Table string `yaml:"table"`
+	DSN   string
+	Table string
 }
 
 // ClickHouseStore persists metrics in a ClickHouse MergeTree table.

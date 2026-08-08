@@ -5,13 +5,12 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 func TestEmbedMetaModelMismatch(t *testing.T) {
 	ctx := context.Background()
 	store := mustBadgerInMemory(t, &kv.Options{Separator: testSep})
-	fs := objectstore.Dir(t.TempDir())
+	fs := newTestObjectStore(t)
 
 	baseEmb := newMockEmbedder()
 	if _, err := NewHost(ctx, HostConfig{Store: store, Embedder: baseEmb, ObjectStore: fs, Separator: testSep}); err != nil {
@@ -28,7 +27,7 @@ func TestEmbedMetaModelMismatch(t *testing.T) {
 func TestEmbedMetaDimensionMismatch(t *testing.T) {
 	ctx := context.Background()
 	store := mustBadgerInMemory(t, &kv.Options{Separator: testSep})
-	fs := objectstore.Dir(t.TempDir())
+	fs := newTestObjectStore(t)
 
 	baseEmb := newMockEmbedder()
 	if _, err := NewHost(ctx, HostConfig{Store: store, Embedder: baseEmb, ObjectStore: fs, Separator: testSep}); err != nil {
@@ -47,7 +46,7 @@ func TestOpenWithEmbedderModelMismatchAgainstHost(t *testing.T) {
 	store := mustBadgerInMemory(t, &kv.Options{Separator: testSep})
 
 	hostEmb := newMockEmbedder()
-	host, err := NewHost(ctx, HostConfig{Store: store, Embedder: hostEmb, ObjectStore: objectstore.Dir(t.TempDir()), Separator: testSep})
+	host, err := NewHost(ctx, HostConfig{Store: store, Embedder: hostEmb, ObjectStore: newTestObjectStore(t), Separator: testSep})
 	if err != nil {
 		t.Fatalf("new host: %v", err)
 	}

@@ -41,6 +41,7 @@ require (
 	github.com/pion/sdp/v3 v3.0.19
 	github.com/pion/turn/v4 v4.1.4
 	github.com/pion/webrtc/v4 v4.2.18
+	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/prometheus v0.313.1
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/spf13/cobra v1.10.2

@@ -12,6 +12,7 @@ pkgs/store/
 ├── memory/       # Observation extraction, fact recall, and provider adapters
 ├── metrics/      # Time-series sample write and query
 ├── objectstore/  # Prefix-addressable binary object storage
+├── storage/      # Typed physical connection configs, instances, and lifecycle
 ├── vecid/        # Vector locality-sensitive identity registry
 └── vecstore/     # Vector similarity index
 ```
@@ -44,7 +45,7 @@ flowchart TB
     VecID["vecid"] --> Voiceprint["audio/voiceprint"]
 ```
 
-`cmd/internal/storage` and `cmd/internal/stores` are responsible for reading the process configuration, selecting specific backends and injecting stores into the Server; `pkgs/store` does not read the GizClaw Server config, nor does it decide which physical backend to use in a certain field.
+`cmd/internal/server` exclusively owns YAML DTOs, strict decoding, environment expansion, and workspace-relative path resolution, then passes plain Go configurations to public packages. `pkgs/store/storage` opens and owns physical resources. The root `pkgs/store` package validates Storage/Store combinations and constructs logical Stores. Neither public package reads YAML or JSON or selects service bindings.
 
 ### Server composition contract
 
@@ -69,11 +70,30 @@ flowchart TB
 | `prometheus` | remote-write/query URLs and optional bearer token |
 | `volc-tls` | endpoint, region, and credentials |
 
-Multiple Stores may borrow one connector; closing a logical Store does not close the shared connector. Keyvalue Stores sharing one `memory` Storage use one `*kv.Memory` root and atomic boundary. `vecstore` and `graph` have no built-in Server consumer, so they are not command-layer Store kinds; their public packages and constructors remain available. Memory connections selected through RuntimeProfile and MemoryLayout remain outside this registry.
+The public Go API does not use one generic property bag containing `Kind` and
+every backend field. `storage.Config` is a package-sealed configuration
+interface, and each backend exposes only its own valid fields:
+
+```go
+physical, err := storage.New(map[string]storage.Config{
+	"main": storage.PostgreSQLConfig{DSN: postgresDSN},
+	"cache": storage.BadgerConfig{Dir: cacheDir},
+	"local": storage.MemoryConfig{},
+})
+```
+
+The concrete implementations are `BadgerConfig`, `MemoryConfig`,
+`FilesystemDirConfig`, `SQLiteConfig`, `PostgreSQLConfig`, `ClickHouseConfig`,
+`PrometheusConfig`, and `VolcTLSConfig`. A Go caller therefore cannot pass a
+directory to PostgreSQL or a DSN/provider credential to Badger.
+`cmd/internal/server` retains the flat YAML DTO and explicitly converts each
+`kind` to its concrete Go type; YAML fields never enter the public config types.
+
+Multiple Stores may borrow one connector. The caller closes logical `Stores` first and physical `Storage` second. `memory` is a stateless marker; every keyvalue or metrics Store that references it creates an independent instance. `vecstore` and `graph` have no built-in Server consumer, so they are not command-layer Store kinds; their public packages and constructors remain available. Memory connections selected through RuntimeProfile and MemoryLayout remain outside this registry.
 
 ### Process SQLite DSN contract
 
-`cmd/internal/storage` accepts modernc SQLite DSNs and continues to support
+`pkgs/store/storage` accepts modernc SQLite DSNs and continues to support
 modernc parameters such as `_pragma`. GizClaw owns the connection's
 `busy_timeout`, WAL journal mode, and foreign-key PRAGMAs. The
 `go-sqlite3`-compatible shorthand parameters `_busy_timeout`/`_timeout`,
