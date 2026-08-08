@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"os"
@@ -96,24 +97,6 @@ func writeWorkspaceIdentity(configPath string, privateKey giznet.Key) error {
 	return os.WriteFile(configPath, []byte(prefix+string(data)), 0o600)
 }
 
-func prepareWorkspaceMigrationConfig(workspace string) (Config, error) {
-	root, err := resolveWorkspaceRoot(workspace)
-	if err != nil {
-		return Config{}, err
-	}
-	fileCfg, err := LoadConfig(filepath.Join(root, workspaceConfigFile))
-	if err != nil {
-		return Config{}, fmt.Errorf("server: load config: %w", err)
-	}
-	cfg, err := mergeFileConfig(Config{}, fileCfg)
-	if err != nil {
-		return Config{}, err
-	}
-	cfg.Storage = resolveWorkspaceStorageConfigs(root, cfg.Storage)
-	cfg.Stores = resolveWorkspaceStoreConfigs(root, cfg.Stores)
-	return cfg, nil
-}
-
 func resolveWorkspaceStorageConfigs(root string, cfgs map[string]storage.Config) map[string]storage.Config {
 	if len(cfgs) == 0 {
 		return nil
@@ -121,7 +104,6 @@ func resolveWorkspaceStorageConfigs(root string, cfgs map[string]storage.Config)
 
 	resolved := make(map[string]storage.Config, len(cfgs))
 	for name, cfg := range cfgs {
-		cfg.Dir = resolveWorkspaceDir(root, cfg.Dir)
 		if cfg.Badger != nil {
 			cfg.Badger.Dir = resolveWorkspaceDir(root, cfg.Badger.Dir)
 		}
@@ -149,12 +131,7 @@ func resolveWorkspaceStoreConfigs(root string, cfgs map[string]stores.Config) ma
 	}
 
 	resolved := make(map[string]stores.Config, len(cfgs))
-	for name, cfg := range cfgs {
-		if cfg.Dir != "" && !filepath.IsAbs(cfg.Dir) {
-			cfg.Dir = filepath.Join(root, cfg.Dir)
-		}
-		resolved[name] = cfg
-	}
+	maps.Copy(resolved, cfgs)
 	return resolved
 }
 
@@ -186,35 +163,20 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 	if err != nil {
 		return err
 	}
-	storeRegistry, err := newStoreRegistryContext(ctx, cfg)
+	storeRegistry, err := newStoreRegistry(cfg)
 	if err != nil {
 		return fmt.Errorf("server: stores: %w", err)
 	}
 	defer func() {
 		err = errors.Join(err, storeRegistry.Close())
 	}()
-	closeLogger, err := installConfiguredLogger(cfg.SystemLog, storeRegistry)
+	closeLogger, err := installConfiguredLogger(cfg.systemLogConfig(), storeRegistry)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		err = errors.Join(err, closeLogger())
 	}()
-	migrator, err := newMigratorWithStores(cfg, storeRegistry, false)
-	if err != nil {
-		return err
-	}
-	if err := migrator.Migrate(ctx); err != nil {
-		_ = migrator.Close()
-		if ctxErr := ctx.Err(); ctxErr != nil && errors.Is(err, ctxErr) {
-			return nil
-		}
-		return err
-	}
-	if err := migrator.Close(); err != nil {
-		return err
-	}
-
 	publicListener, err := net.Listen("tcp", cfg.PublicAPIListenAddr())
 	if err != nil {
 		return fmt.Errorf("server: listen tcp mux: %w", err)

@@ -12,13 +12,13 @@ import (
 )
 
 func TestClickHouseStoreIntegration(t *testing.T) {
-	dsn := os.Getenv("CLICKHOUSE_TEST_DSN")
+	dsn := os.Getenv("GIZCLAW_TEST_CLICKHOUSE_DSN")
 	if dsn == "" {
-		t.Skip("CLICKHOUSE_TEST_DSN is not set")
+		t.Skip("GIZCLAW_TEST_CLICKHOUSE_DSN is not set")
 	}
 	store, err := NewClickHouseStore(ClickHouseConfig{
 		DSN:      dsn,
-		Database: os.Getenv("CLICKHOUSE_TEST_DATABASE"),
+		Database: os.Getenv("GIZCLAW_TEST_CLICKHOUSE_DATABASE"),
 		Table:    "gizclaw_logstore_test",
 	})
 	if err != nil {

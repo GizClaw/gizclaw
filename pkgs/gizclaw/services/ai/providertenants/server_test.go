@@ -534,21 +534,7 @@ func TestServerMiniMaxStoreHelpers(t *testing.T) {
 		t.Fatal("empty server volcTenantStore() error = nil")
 	}
 
-	base := kv.NewMemory(nil)
-	srv := &Server{Store: base}
-	if got, err := srv.tenantStore(); err != nil || got != base {
-		t.Fatalf("tenantStore fallback = %v, %v", got, err)
-	}
-	if got, err := srv.voiceStore(); err != nil || got != base {
-		t.Fatalf("voiceStore fallback = %v, %v", got, err)
-	}
-	if got, err := srv.credentialStore(); err != nil || got != base {
-		t.Fatalf("credentialStore fallback = %v, %v", got, err)
-	}
-	if got, err := srv.volcTenantStore(); err != nil || got != base {
-		t.Fatalf("volcTenantStore fallback = %v, %v", got, err)
-	}
-
+	srv := &Server{}
 	tenantStore := kv.NewMemory(nil)
 	volcTenantStore := kv.NewMemory(nil)
 	voiceStore := kv.NewMemory(nil)
@@ -571,8 +557,8 @@ func TestServerMiniMaxStoreHelpers(t *testing.T) {
 	}
 
 	srv.VolcTenantStore = nil
-	if got, err := srv.volcTenantStore(); err != nil || got != tenantStore {
-		t.Fatalf("volcTenantStore tenant fallback = %v, %v", got, err)
+	if _, err := srv.volcTenantStore(); err == nil {
+		t.Fatal("volcTenantStore missing explicit Store error = nil")
 	}
 }
 
@@ -1889,9 +1875,13 @@ func newTestServer(t *testing.T) *Server {
 
 	fixed := time.Date(2026, 4, 22, 12, 0, 0, 0, time.UTC)
 	return &Server{
-		TenantStore:     kv.Prefixed(store, kv.Key{"minimax-tenants"}),
-		VoiceStore:      kv.Prefixed(store, kv.Key{"voices"}),
-		CredentialStore: kv.Prefixed(store, kv.Key{"credentials"}),
+		Store:               kv.Prefixed(store, kv.Key{"provider-tenants"}),
+		ModelStore:          kv.Prefixed(store, kv.Key{"models"}),
+		TenantStore:         kv.Prefixed(store, kv.Key{"minimax-tenants"}),
+		DeepSeekTenantStore: kv.Prefixed(store, kv.Key{"deepseek-tenants"}),
+		VolcTenantStore:     kv.Prefixed(store, kv.Key{"volc-tenants"}),
+		VoiceStore:          kv.Prefixed(store, kv.Key{"voices"}),
+		CredentialStore:     kv.Prefixed(store, kv.Key{"credentials"}),
 		Now: func() time.Time {
 			return fixed
 		},

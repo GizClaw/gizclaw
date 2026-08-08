@@ -18,6 +18,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 const (
@@ -73,10 +76,10 @@ func startTestServerWithCipherMode(t *testing.T, cipherMode gizwebrtc.CipherMode
 		t.Fatalf("GenerateKeyPair(server) error: %v", err)
 	}
 
-	srv := &gizclaw.Server{
+	srv := completeExternalTestServer(t, &gizclaw.Server{
 		LocalStatic: *keyPair,
 		PeerStore:   mustBadgerInMemory(t, nil),
-	}
+	})
 	var signalingServer *httptest.Server
 	srv.PeerListenerFactories = []gizclaw.PeerListenerFactory{
 		func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
@@ -122,6 +125,59 @@ func startTestServerWithCipherMode(t *testing.T, cipherMode gizwebrtc.CipherMode
 	t.Cleanup(func() { _ = ts.server.Close() })
 	t.Cleanup(signalingServer.Close)
 	return ts
+}
+
+func completeExternalTestServer(t testing.TB, server *gizclaw.Server) *gizclaw.Server {
+	t.Helper()
+	base := mustBadgerInMemory(t, nil)
+	set := func(target *kv.Store, prefix string) {
+		if *target == nil {
+			*target = kv.Prefixed(base, kv.Key{prefix})
+		}
+	}
+	set(&server.PeerStore, "peers")
+	set(&server.PeerRouteStore, "peer-routes")
+	set(&server.PeerRunStore, "peer-run")
+	set(&server.PublicLoginStore, "public-login")
+	set(&server.CredentialStore, "credentials")
+	set(&server.FirmwareStore, "firmwares")
+	set(&server.RuntimeProfileStore, "runtime-profiles")
+	set(&server.ModelStore, "models")
+	set(&server.VoiceStore, "voices")
+	set(&server.MemoryLayoutStore, "memory-layouts")
+	set(&server.ProviderTenantStore, "provider-tenants")
+	set(&server.MiniMaxTenantStore, "minimax-tenants")
+	set(&server.DeepSeekTenantStore, "deepseek-tenants")
+	set(&server.VolcTenantStore, "volc-tenants")
+	set(&server.MiniMaxCredentialStore, "provider-credentials")
+	set(&server.ProviderModelStore, "provider-models")
+	set(&server.ProviderVoiceStore, "provider-voices")
+	set(&server.WorkflowStore, "workflows")
+	set(&server.WorkspaceStore, "workspaces")
+	if server.WorkspaceWorkflowStore == nil {
+		server.WorkspaceWorkflowStore = server.WorkflowStore
+	}
+	set(&server.ToolStore, "tools")
+	set(&server.ContactStore, "contacts")
+	set(&server.FriendInviteTokenStore, "friend-invite-tokens")
+	set(&server.FriendStore, "friends")
+	set(&server.FriendGroupStore, "friend-groups")
+	set(&server.FriendGroupInviteTokenStore, "friend-group-invite-tokens")
+	set(&server.FriendGroupMemberStore, "friend-group-members")
+	set(&server.FriendGroupBelongStore, "friend-group-belongs")
+	set(&server.PetDefStore, "pet-defs")
+	set(&server.BadgeDefStore, "badge-defs")
+	set(&server.GameDefStore, "game-defs")
+	server.WorkspaceAssets = objectstore.Dir(t.TempDir())
+	server.GameplayAssets = objectstore.Dir(t.TempDir())
+	db, err := sqlx.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("open test gameplay database: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = db.Close() })
+	server.GameplayDB = db
+	return server
 }
 
 func newTestClient(t *testing.T, ts *testServer) *gizcli.Client {

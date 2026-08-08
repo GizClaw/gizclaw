@@ -23,7 +23,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
@@ -124,6 +123,7 @@ func TestServerInitRequiresAtomicStoreCapabilities(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			completeTestServer(t, tc.server)
 			err := tc.server.init()
 			if !errors.Is(err, kv.ErrCreateIfAbsentUnsupported) || !strings.Contains(err.Error(), tc.wantMessage) {
 				t.Fatalf("init() error = %v, want %q wrapping ErrCreateIfAbsentUnsupported", err, tc.wantMessage)
@@ -135,6 +135,7 @@ func TestServerInitRequiresAtomicStoreCapabilities(t *testing.T) {
 		PeerStore:   kv.NewMemory(nil),
 		FriendStore: storeWithoutAtomicCompare{Store: kv.NewMemory(nil)},
 	}
+	completeTestServer(t, compareServer)
 	err = compareServer.init()
 	if !errors.Is(err, kv.ErrCompareAndMutateUnsupported) ||
 		!strings.Contains(err.Error(), "friend store") {
@@ -163,6 +164,7 @@ func TestServerInitReconcilesFriendCreationIntents(t *testing.T) {
 		PeerStore:   mustBadgerInMemory(t, nil),
 		FriendStore: friendStore,
 	}
+	completeTestServer(t, server)
 	err = server.init()
 	if err == nil || !strings.Contains(err.Error(), "reconcile Friend creation intents") {
 		t.Fatalf("init() error = %v, want Friend creation reconciliation error", err)
@@ -180,7 +182,7 @@ func TestServerInitRequiresAtomicFriendGroupRelationshipBoundary(t *testing.T) {
 		FriendGroupStore:       kv.NewMemory(nil),
 		FriendGroupMemberStore: kv.NewMemory(nil),
 	}
-
+	completeTestServer(t, server)
 	err = server.init()
 	if err == nil || !strings.Contains(err.Error(), "friend group relationship stores must share one atomic transaction boundary") {
 		t.Fatalf("init() error = %v, want atomic friend group relationship boundary error", err)
@@ -201,7 +203,7 @@ func TestServerInitAcceptsPrefixedFriendGroupRelationshipViews(t *testing.T) {
 		FriendGroupMemberStore:      kv.Prefixed(base, kv.Key{"social", "members"}),
 		FriendGroupBelongStore:      kv.Prefixed(base, kv.Key{"social", "belongs"}),
 	}
-
+	completeTestServer(t, server)
 	if err := server.init(); err != nil {
 		t.Fatalf("init() error = %v", err)
 	}
@@ -223,151 +225,6 @@ func TestServerListenValidatesReceiverAndLocalStatic(t *testing.T) {
 	})
 }
 
-func TestServerInitKeepsLegacyPeerPrefixWithMetricsStore(t *testing.T) {
-	keyPair, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair() error = %v", err)
-	}
-	baseStore := kv.NewMemory(nil)
-	server := &Server{
-		LocalStatic:  *keyPair,
-		PeerStore:    baseStore,
-		MetricsStore: metrics.NewMemoryStore(),
-	}
-	if err := server.init(); err != nil {
-		t.Fatalf("init() error = %v", err)
-	}
-
-	peerKeyPair, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(peer) error = %v", err)
-	}
-	if _, err := server.manager.Peers.EnsureConnectedPeer(context.Background(), peerKeyPair.Public); err != nil {
-		t.Fatalf("EnsureConnectedPeer() error = %v", err)
-	}
-	if _, err := baseStore.Get(context.Background(), kv.Key{"peers", "by-pubkey", peerKeyPair.Public.String()}); err != nil {
-		t.Fatalf("prefixed peer key missing: %v", err)
-	}
-	if _, err := baseStore.Get(context.Background(), kv.Key{"by-pubkey", peerKeyPair.Public.String()}); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("root peer key error = %v, want ErrNotFound", err)
-	}
-}
-
-func TestServerInitKeepsLegacyPeerPrefixWithObjectStores(t *testing.T) {
-	tests := []struct {
-		name      string
-		configure func(*Server, objectstore.ObjectStore)
-	}{
-		{name: "workspace", configure: func(server *Server, store objectstore.ObjectStore) { server.WorkspaceAssets = store }},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			keyPair, err := giznet.GenerateKeyPair()
-			if err != nil {
-				t.Fatalf("GenerateKeyPair() error = %v", err)
-			}
-			baseStore := kv.NewMemory(nil)
-			server := &Server{LocalStatic: *keyPair, PeerStore: baseStore}
-			tc.configure(server, objectstore.Dir(t.TempDir()))
-			if err := server.init(); err != nil {
-				t.Fatalf("init() error = %v", err)
-			}
-
-			peerKeyPair, err := giznet.GenerateKeyPair()
-			if err != nil {
-				t.Fatalf("GenerateKeyPair(peer) error = %v", err)
-			}
-			if _, err := server.manager.Peers.EnsureConnectedPeer(context.Background(), peerKeyPair.Public); err != nil {
-				t.Fatalf("EnsureConnectedPeer() error = %v", err)
-			}
-			if _, err := baseStore.Get(context.Background(), kv.Key{"peers", "by-pubkey", peerKeyPair.Public.String()}); err != nil {
-				t.Fatalf("prefixed peer key missing: %v", err)
-			}
-			if _, err := baseStore.Get(context.Background(), kv.Key{"by-pubkey", peerKeyPair.Public.String()}); !errors.Is(err, kv.ErrNotFound) {
-				t.Fatalf("root peer key error = %v, want ErrNotFound", err)
-			}
-		})
-	}
-}
-
-func TestServerInitPreservesExistingModularPeerLayout(t *testing.T) {
-	tests := []struct {
-		name      string
-		configure func(*Server, kv.Store, objectstore.ObjectStore)
-	}{
-		{name: "agent host", configure: func(server *Server, _ kv.Store, objects objectstore.ObjectStore) { server.AgentHostStore = objects }},
-		{name: "gameplay", configure: func(server *Server, _ kv.Store, objects objectstore.ObjectStore) { server.GameplayAssets = objects }},
-		{name: "flowcraft state", configure: func(server *Server, state kv.Store, _ objectstore.ObjectStore) { server.FlowcraftState = state }},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			keyPair, err := giznet.GenerateKeyPair()
-			if err != nil {
-				t.Fatalf("GenerateKeyPair() error = %v", err)
-			}
-			baseStore := kv.NewMemory(nil)
-			server := &Server{LocalStatic: *keyPair, PeerStore: baseStore}
-			tc.configure(server, kv.NewMemory(nil), objectstore.Dir(t.TempDir()))
-			if err := server.init(); err != nil {
-				t.Fatalf("init() error = %v", err)
-			}
-
-			peerKeyPair, err := giznet.GenerateKeyPair()
-			if err != nil {
-				t.Fatalf("GenerateKeyPair(peer) error = %v", err)
-			}
-			if _, err := server.manager.Peers.EnsureConnectedPeer(context.Background(), peerKeyPair.Public); err != nil {
-				t.Fatalf("EnsureConnectedPeer() error = %v", err)
-			}
-			if _, err := baseStore.Get(context.Background(), kv.Key{"by-pubkey", peerKeyPair.Public.String()}); err != nil {
-				t.Fatalf("root peer key missing: %v", err)
-			}
-			if _, err := baseStore.Get(context.Background(), kv.Key{"peers", "by-pubkey", peerKeyPair.Public.String()}); !errors.Is(err, kv.ErrNotFound) {
-				t.Fatalf("prefixed peer key error = %v, want ErrNotFound", err)
-			}
-		})
-	}
-}
-
-func TestServerInitAgentHostStoresDoNotInferFlowcraftBindings(t *testing.T) {
-	keyPair, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair() error = %v", err)
-	}
-	peerStore := kv.NewMemory(nil)
-	server := &Server{
-		LocalStatic:    *keyPair,
-		PeerStore:      peerStore,
-		AgentHostStore: objectstore.Dir(t.TempDir()),
-	}
-	if err := server.init(); err != nil {
-		t.Fatalf("init() error = %v", err)
-	}
-	if server.EffectivePeerStore() != peerStore {
-		t.Fatal("AgentHost Store activated the legacy shared Peer KV layout")
-	}
-	if server.manager.FlowcraftState != nil {
-		t.Fatalf("FlowcraftState = %T, want nil", server.manager.FlowcraftState)
-	}
-}
-
-func TestServerInitDoesNotInstallImplicitFlowcraftStores(t *testing.T) {
-	keyPair, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair() error = %v", err)
-	}
-	server := &Server{
-		LocalStatic: *keyPair,
-		PeerStore:   kv.NewMemory(nil),
-	}
-	if err := server.init(); err != nil {
-		t.Fatalf("init() error = %v", err)
-	}
-	if server.manager.FlowcraftState != nil {
-		t.Fatalf("FlowcraftState = %T, want nil", server.manager.FlowcraftState)
-	}
-}
-
 func TestServerServeReturnsNilAfterClose(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -379,6 +236,7 @@ func TestServerServeReturnsNilAfterClose(t *testing.T) {
 		PeerStore:     mustBadgerInMemory(t, nil),
 		PeerListeners: []giznet.Listener{newTestGiznetListener()},
 	}
+	completeTestServer(t, server)
 	if err := server.Listen(); err != nil {
 		t.Fatalf("Listen() error = %v", err)
 	}
@@ -447,6 +305,7 @@ func TestServerListenProcessesExistingPetDeletion(t *testing.T) {
 		GameplayDB:    db,
 		PeerListeners: []giznet.Listener{newTestGiznetListener()},
 	}
+	completeTestServer(t, server)
 	if err := server.Listen(); err != nil {
 		t.Fatalf("Listen() error = %v", err)
 	}
@@ -491,6 +350,7 @@ func TestServerCanListenAgainAfterClose(t *testing.T) {
 		PeerStore:     mustBadgerInMemory(t, nil),
 		PeerListeners: []giznet.Listener{first},
 	}
+	completeTestServer(t, server)
 	if err := server.Listen(); err != nil {
 		t.Fatalf("first Listen() error = %v", err)
 	}
@@ -549,6 +409,7 @@ func TestPeerHTTPWebRTCSignalingUsesGeneratedRoute(t *testing.T) {
 			_, _ = w.Write([]byte("encrypted-answer"))
 		}),
 	}
+	completeTestServer(t, server)
 	if err := server.init(); err != nil {
 		t.Fatalf("init error = %v", err)
 	}
@@ -587,6 +448,7 @@ func TestPeerHTTPWebRTCSignalingUnavailable(t *testing.T) {
 		LocalStatic: *keyPair,
 		PeerStore:   mustBadgerInMemory(t, nil),
 	}
+	completeTestServer(t, server)
 	if err := server.init(); err != nil {
 		t.Fatalf("init error = %v", err)
 	}
@@ -673,6 +535,7 @@ func TestPeerHTTPWebRTCSignalingPreservesContentType(t *testing.T) {
 			_, _ = w.Write([]byte(`{"error":"unsupported_media_type"}`))
 		}),
 	}
+	completeTestServer(t, server)
 	if err := server.init(); err != nil {
 		t.Fatalf("init error = %v", err)
 	}
@@ -734,6 +597,7 @@ func TestServerInitConfiguresPeerRunService(t *testing.T) {
 		LocalStatic: *keyPair,
 		PeerStore:   mustBadgerInMemory(t, nil),
 	}
+	completeTestServer(t, server)
 	if err := server.init(); err != nil {
 		t.Fatalf("init() error = %v", err)
 	}
@@ -757,6 +621,7 @@ func TestServerInitConfiguresWorkspaceRuntimeStore(t *testing.T) {
 		PeerStore:      mustBadgerInMemory(t, nil),
 		AgentHostStore: objectstore.Dir(t.TempDir()),
 	}
+	completeTestServer(t, server)
 	if err := server.init(); err != nil {
 		t.Fatalf("init() error = %v", err)
 	}
@@ -780,6 +645,7 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 		PeerStore:   mustBadgerInMemory(t, nil),
 		BuildCommit: "test-build",
 	}
+	completeTestServer(t, server)
 	if err := server.init(); err != nil {
 		t.Fatalf("init error = %v", err)
 	}

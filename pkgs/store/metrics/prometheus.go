@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"maps"
 	"math"
 	"net/http"
@@ -23,7 +22,6 @@ import (
 
 const (
 	remoteWriteVersion = "0.1.0"
-	maxErrorBodyBytes  = 4096
 )
 
 // PrometheusConfig configures a Prometheus remote-write/query backend.
@@ -43,8 +41,17 @@ type PrometheusStore struct {
 	client         *http.Client
 }
 
-// NewPrometheusStore creates a Prometheus remote-write/query metrics store.
-func NewPrometheusStore(cfg PrometheusConfig) (*PrometheusStore, error) {
+// PrometheusConnector owns the reusable physical HTTP connection settings for
+// one or more logical Metrics Stores.
+type PrometheusConnector struct {
+	remoteWriteURL string
+	queryURL       string
+	bearerToken    string
+	client         *http.Client
+}
+
+// NewPrometheusConnector validates a physical Prometheus connector.
+func NewPrometheusConnector(cfg PrometheusConfig) (*PrometheusConnector, error) {
 	remoteWriteURL, err := parseRequiredURL("remote_write_url", cfg.RemoteWriteURL)
 	if err != nil {
 		return nil, err
@@ -57,12 +64,38 @@ func NewPrometheusStore(cfg PrometheusConfig) (*PrometheusStore, error) {
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
 	}
-	return &PrometheusStore{
+	return &PrometheusConnector{
 		remoteWriteURL: remoteWriteURL,
 		queryURL:       strings.TrimRight(queryURL, "/"),
 		bearerToken:    cfg.BearerToken,
 		client:         client,
 	}, nil
+}
+
+// Store returns a logical Metrics Store borrowing this connector.
+func (c *PrometheusConnector) Store() (*PrometheusStore, error) {
+	if c == nil || c.client == nil || c.remoteWriteURL == "" || c.queryURL == "" {
+		return nil, errors.New("metrics: prometheus connector is not initialized")
+	}
+	return &PrometheusStore{
+		remoteWriteURL: c.remoteWriteURL,
+		queryURL:       c.queryURL,
+		bearerToken:    c.bearerToken,
+		client:         c.client,
+	}, nil
+}
+
+// Close releases connector-owned resources. HTTP transports remain reusable
+// and caller-owned, so there is currently nothing to close.
+func (c *PrometheusConnector) Close() error { return nil }
+
+// NewPrometheusStore creates a Prometheus remote-write/query metrics store.
+func NewPrometheusStore(cfg PrometheusConfig) (*PrometheusStore, error) {
+	connector, err := NewPrometheusConnector(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return connector.Store()
 }
 
 // Append writes samples through the Prometheus remote write protocol.
@@ -98,11 +131,11 @@ func (s *PrometheusStore) Append(ctx context.Context, samples []Sample) error {
 
 	resp, err := s.client.Do(httpReq)
 	if err != nil {
-		return fmt.Errorf("metrics: remote write request: %w", err)
+		return &prometheusOperationError{operation: "remote write request", err: err}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("metrics: remote write status %d: %s", resp.StatusCode, readLimitedBody(resp.Body))
+		return fmt.Errorf("metrics: remote write status %d", resp.StatusCode)
 	}
 	return nil
 }
@@ -353,21 +386,18 @@ func (s *PrometheusStore) query(ctx context.Context, path string, values url.Val
 	s.authorize(req)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("metrics: query request: %w", err)
+		return nil, &prometheusOperationError{operation: "query request", err: err}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("metrics: query status %d: %s", resp.StatusCode, readLimitedBody(resp.Body))
+		return nil, fmt.Errorf("metrics: query status %d", resp.StatusCode)
 	}
 	var decoded prometheusResponse
 	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
 		return nil, fmt.Errorf("metrics: decode query response: %w", err)
 	}
 	if decoded.Status != "success" {
-		if decoded.Error != "" {
-			return nil, fmt.Errorf("metrics: query failed: %s: %s", decoded.ErrorType, decoded.Error)
-		}
-		return nil, fmt.Errorf("metrics: query failed with status %q", decoded.Status)
+		return nil, errors.New("metrics: query failed")
 	}
 	return decoded.Data.series()
 }
@@ -385,7 +415,7 @@ func parseRequiredURL(field, value string) (string, error) {
 	}
 	parsed, err := url.Parse(value)
 	if err != nil {
-		return "", fmt.Errorf("metrics: prometheus %s: %w", field, err)
+		return "", fmt.Errorf("metrics: prometheus %s is invalid", field)
 	}
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return "", fmt.Errorf("metrics: prometheus %s must use http or https", field)
@@ -395,6 +425,17 @@ func parseRequiredURL(field, value string) (string, error) {
 	}
 	return parsed.String(), nil
 }
+
+type prometheusOperationError struct {
+	operation string
+	err       error
+}
+
+func (e *prometheusOperationError) Error() string {
+	return "metrics: prometheus " + e.operation + " failed"
+}
+
+func (e *prometheusOperationError) Unwrap() error { return e.err }
 
 func sampleLabels(sample Sample) []prompb.Label {
 	labels := make([]prompb.Label, 0, len(sample.Labels))
@@ -408,14 +449,6 @@ func sampleLabels(sample Sample) []prompb.Label {
 		labels = append(labels, prompb.Label{Name: name, Value: sample.Labels[name]})
 	}
 	return labels
-}
-
-func readLimitedBody(r io.Reader) string {
-	data, err := io.ReadAll(io.LimitReader(r, maxErrorBodyBytes))
-	if err != nil {
-		return "read response body: " + err.Error()
-	}
-	return strings.TrimSpace(string(data))
 }
 
 func formatPrometheusTime(t time.Time) string {

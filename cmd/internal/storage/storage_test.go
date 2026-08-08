@@ -2,10 +2,9 @@ package storage
 
 import (
 	"context"
-	"database/sql"
-	"database/sql/driver"
 	"errors"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -13,39 +12,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/goccy/go-yaml"
-	"github.com/jmoiron/sqlx"
 )
-
-type fakeDriver struct{}
-
-func (fakeDriver) Open(_ string) (driver.Conn, error) { return fakeConn{}, nil }
-
-type fakeConn struct{}
-
-func (fakeConn) Prepare(_ string) (driver.Stmt, error) { return nil, nil }
-func (fakeConn) Close() error                          { return nil }
-func (fakeConn) Begin() (driver.Tx, error)             { return nil, nil }
-func (fakeConn) Ping(_ context.Context) error          { return nil }
-
-type fakePingFailDriver struct{}
-
-func (fakePingFailDriver) Open(_ string) (driver.Conn, error) {
-	return fakePingFailConn{}, nil
-}
-
-type fakePingFailConn struct{}
-
-func (fakePingFailConn) Prepare(_ string) (driver.Stmt, error) { return nil, nil }
-func (fakePingFailConn) Close() error                          { return nil }
-func (fakePingFailConn) Begin() (driver.Tx, error)             { return nil, nil }
-func (fakePingFailConn) Ping(_ context.Context) error          { return errors.New("ping refused") }
-
-func init() {
-	sql.Register("storage_fake", fakeDriver{})
-	sql.Register("storage_fake_ping_fail", fakePingFailDriver{})
-	sqlx.BindDriver("storage_fake", sqlx.QUESTION)
-	sqlx.BindDriver("storage_fake_ping_fail", sqlx.QUESTION)
-}
 
 func TestNewNilConfigs(t *testing.T) {
 	s, err := New(nil)
@@ -60,15 +27,73 @@ func TestNewNilConfigs(t *testing.T) {
 
 func TestNewUnknownKind(t *testing.T) {
 	if _, err := New(map[string]Config{
-		"x": {Kind: "nosql", Backend: "magic"},
+		"x": {Kind: "nosql"},
 	}); err == nil {
 		t.Fatal("expected error for unknown kind")
 	}
 }
 
+func TestNewRejectsEmptyConnectorName(t *testing.T) {
+	_, err := New(map[string]Config{"": {Kind: KindKeyValue, Memory: &MemoryConfig{}}})
+	if err == nil || !strings.Contains(err.Error(), "connector name must not be empty") {
+		t.Fatalf("New() error = %v", err)
+	}
+}
+
+func TestSQLExpandsPhysicalDSNEnvironment(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "expanded.sqlite")
+	t.Setenv("GIZCLAW_TEST_SQLITE_DSN", dbPath)
+	registry, err := New(map[string]Config{
+		"database": {Kind: KindSQL, SQLite: &SQLConfig{DSN: "${GIZCLAW_TEST_SQLITE_DSN}"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	if _, err := os.Stat(dbPath); err != nil {
+		t.Fatalf("expanded SQLite database was not created: %v", err)
+	}
+}
+
+func TestSQLConnectionErrorsDoNotExposeDSNSecrets(t *testing.T) {
+	const secret = "leaked-password"
+	_, err := New(map[string]Config{
+		"database": {
+			Kind:     KindSQL,
+			Postgres: &SQLConfig{DSN: "postgres://user:" + secret + "@%"},
+		},
+	})
+	if err == nil {
+		t.Fatal("New() error = nil")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Fatalf("New() exposed DSN secret: %v", err)
+	}
+}
+
+func TestSQLRejectsDriverSpecificForeignFields(t *testing.T) {
+	for name, config := range map[string]Config{
+		"sqlite-both": {
+			Kind: KindSQL, SQLite: &SQLConfig{DSN: ":memory:", Dir: "data.sqlite"},
+		},
+		"postgres-dir": {
+			Kind: KindSQL, Postgres: &SQLConfig{DSN: "postgres://example.invalid/db", Dir: "data.sqlite"},
+		},
+		"clickhouse-dir": {
+			Kind: KindSQL, ClickHouse: &SQLConfig{DSN: "clickhouse://example.invalid/db", Dir: "data.sqlite"},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := New(map[string]Config{"database": config}); err == nil {
+				t.Fatalf("New(%+v) error = nil", config)
+			}
+		})
+	}
+}
+
 func TestKVMemory(t *testing.T) {
 	reg, err := New(map[string]Config{
-		"mem": {Kind: KindKeyValue, Backend: "memory"},
+		"mem": {Kind: KindKeyValue, Memory: &MemoryConfig{}},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -117,7 +142,7 @@ func TestKVMemoryDriverBlock(t *testing.T) {
 func TestKVBadger(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "badger")
 	reg, err := New(map[string]Config{
-		"bg": {Kind: KindKeyValue, Backend: "badger", Dir: dir},
+		"bg": {Kind: KindKeyValue, Badger: &BadgerConfig{Dir: dir}},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -204,7 +229,7 @@ func TestNewRejectsMissingDriverBlock(t *testing.T) {
 
 func TestKVNotFound(t *testing.T) {
 	reg, err := New(map[string]Config{
-		"vec": {Kind: KindVecStore, Backend: "memory"},
+		"vec": {Kind: KindVecStore, Memory: &MemoryConfig{}},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -219,17 +244,17 @@ func TestKVNotFound(t *testing.T) {
 	}
 }
 
-func TestNewKVUnknownBackend(t *testing.T) {
+func TestNewKVRejectsWrongDriver(t *testing.T) {
 	if _, err := New(map[string]Config{
-		"x": {Kind: KindKeyValue, Backend: "redis"},
+		"x": {Kind: KindKeyValue, FS: &FSConfig{Dir: t.TempDir()}},
 	}); err == nil {
-		t.Fatal("expected error for unknown kv backend")
+		t.Fatal("expected error for wrong kv driver")
 	}
 }
 
 func TestNewKVBadgerNoDir(t *testing.T) {
 	if _, err := New(map[string]Config{
-		"x": {Kind: KindKeyValue, Backend: "badger"},
+		"x": {Kind: KindKeyValue, Badger: &BadgerConfig{}},
 	}); err == nil {
 		t.Fatal("expected error for badger without dir")
 	}
@@ -237,7 +262,7 @@ func TestNewKVBadgerNoDir(t *testing.T) {
 
 func TestVecStoreMemory(t *testing.T) {
 	reg, err := New(map[string]Config{
-		"vec": {Kind: KindVecStore, Backend: "memory"},
+		"vec": {Kind: KindVecStore, Memory: &MemoryConfig{}},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -258,7 +283,7 @@ func TestVecStoreMemory(t *testing.T) {
 
 func TestVecStoreNotFound(t *testing.T) {
 	reg, err := New(map[string]Config{
-		"kv": {Kind: KindKeyValue, Backend: "memory"},
+		"kv": {Kind: KindKeyValue, Memory: &MemoryConfig{}},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -273,11 +298,11 @@ func TestVecStoreNotFound(t *testing.T) {
 	}
 }
 
-func TestNewVecStoreUnknownBackend(t *testing.T) {
+func TestNewVecStoreRejectsWrongDriver(t *testing.T) {
 	if _, err := New(map[string]Config{
-		"x": {Kind: KindVecStore, Backend: "qdrant"},
+		"x": {Kind: KindVecStore, Badger: &BadgerConfig{Dir: t.TempDir()}},
 	}); err == nil {
-		t.Fatal("expected error for unknown vecstore backend")
+		t.Fatal("expected error for wrong vecstore driver")
 	}
 }
 
@@ -335,7 +360,7 @@ storage:
 
 func TestObjectStoreNotFound(t *testing.T) {
 	reg, err := New(map[string]Config{
-		"kv": {Kind: KindKeyValue, Backend: "memory"},
+		"kv": {Kind: KindKeyValue, Memory: &MemoryConfig{}},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -350,27 +375,9 @@ func TestObjectStoreNotFound(t *testing.T) {
 	}
 }
 
-func TestSQL(t *testing.T) {
-	reg, err := New(map[string]Config{
-		"db": {Kind: KindSQL, Backend: "storage_fake", DSN: "test"},
-	})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	defer reg.Close()
-
-	db, err := reg.SQL("db")
-	if err != nil {
-		t.Fatalf("SQL(db): %v", err)
-	}
-	if db == nil {
-		t.Fatal("expected non-nil *sqlx.DB")
-	}
-}
-
 func TestSQLSQLiteUsesDirAsDSN(t *testing.T) {
 	reg, err := New(map[string]Config{
-		"db": {Kind: KindSQL, Backend: "sqlite", Dir: filepath.Join(t.TempDir(), "db.sqlite")},
+		"db": {Kind: KindSQL, SQLite: &SQLConfig{Dir: filepath.Join(t.TempDir(), "db.sqlite")}},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -487,7 +494,7 @@ func TestSQLSQLiteConcurrentWrites(t *testing.T) {
 
 func TestSQLNotFound(t *testing.T) {
 	reg, err := New(map[string]Config{
-		"kv": {Kind: KindKeyValue, Backend: "memory"},
+		"kv": {Kind: KindKeyValue, Memory: &MemoryConfig{}},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -504,7 +511,7 @@ func TestSQLNotFound(t *testing.T) {
 
 func TestNewSQLNoBackend(t *testing.T) {
 	if _, err := New(map[string]Config{
-		"x": {Kind: KindSQL, DSN: "x"},
+		"x": {Kind: KindSQL},
 	}); err == nil {
 		t.Fatal("expected error for empty backend")
 	}
@@ -512,25 +519,9 @@ func TestNewSQLNoBackend(t *testing.T) {
 
 func TestNewSQLNoDSN(t *testing.T) {
 	if _, err := New(map[string]Config{
-		"x": {Kind: KindSQL, Backend: "storage_fake"},
+		"x": {Kind: KindSQL, Postgres: &SQLConfig{}},
 	}); err == nil {
 		t.Fatal("expected error for missing dsn")
-	}
-}
-
-func TestNewSQLBadDriver(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: KindSQL, Backend: "nonexistent_driver", DSN: "x"},
-	}); err == nil {
-		t.Fatal("expected error for unregistered driver")
-	}
-}
-
-func TestNewSQLPingFail(t *testing.T) {
-	if _, err := New(map[string]Config{
-		"x": {Kind: KindSQL, Backend: "storage_fake_ping_fail", DSN: "x"},
-	}); err == nil {
-		t.Fatal("expected error for ping failure")
 	}
 }
 
@@ -561,9 +552,6 @@ func TestSQLSQLiteRejectsNewShorthandDSNParameters(t *testing.T) {
 	forms := map[string]func(string) Config{
 		"structured": func(dsn string) Config {
 			return Config{Kind: KindSQL, SQLite: &SQLConfig{DSN: dsn}}
-		},
-		"legacy": func(dsn string) Config {
-			return Config{Kind: KindSQL, Backend: "sqlite", DSN: dsn}
 		},
 	}
 

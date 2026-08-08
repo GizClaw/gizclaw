@@ -46,6 +46,23 @@ flowchart TB
 
 `cmd/internal/storage` and `cmd/internal/stores` are responsible for reading the process configuration, selecting specific backends and injecting stores into the Server; `pkgs/store` does not read the GizClaw Server config, nor does it decide which physical backend to use in a certain field.
 
+### Server composition contract
+
+`storage` is the dynamic inventory of physical Data Connectors. It owns driver/provider configuration, DSNs or endpoints, credentials, pools and clients, readiness, and lifecycle. `stores` is a second dynamic inventory that borrows those connectors and exposes logical interfaces with prefix, table, database, or topic scope. The fixed typed `services` block binds built-in consumers to named compatible Stores. Registry names are exact and have no reserved service meaning.
+
+| Store kind | Interface and scope |
+| --- | --- |
+| `keyvalue` | `kv.Store`; optional key prefix over a physical KV connector |
+| `sql` | borrowed `*sqlx.DB` physical pool; service owns its schema |
+| `objectstore` | `objectstore.ObjectStore`; optional object prefix |
+| `vecstore` | `vecstore.Index` over a physical vector connector |
+| `graph` | `graph.Graph` composed over another logical keyvalue Store |
+| `metrics` | `metrics.Store`; in-process memory or a physical Prometheus/ClickHouse connector |
+| `log.immutable` | `logstore.ImmutableStore`; Volc topic or ClickHouse table |
+| `log.mutable` | `logstore.MutableStore`; ClickHouse table |
+
+ClickHouse is a physical `sql` connector. Prometheus and Volc TLS are physical provider connectors. Logical Stores contain only connector references and scope. Multiple Stores may borrow one connector; closing a logical Store does not close the shared connector. Memory connections selected through RuntimeProfile and MemoryLayout remain outside this registry.
+
 ### Process SQLite DSN contract
 
 `cmd/internal/storage` accepts modernc SQLite DSNs and continues to support

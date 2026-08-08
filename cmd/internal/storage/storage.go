@@ -10,13 +10,17 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/vecstore"
 	"github.com/jmoiron/sqlx"
 
+	_ "github.com/ClickHouse/clickhouse-go/v2"
 	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
 )
@@ -27,6 +31,8 @@ const (
 	KindVecStore    = "vecstore"
 	KindObjectStore = "objectstore"
 	KindSQL         = "sql"
+	KindPrometheus  = "prometheus"
+	KindVolcTLS     = "volc-tls"
 )
 
 // Config is the YAML representation of a physical storage backend.
@@ -37,16 +43,15 @@ const (
 //	    badger:
 //	      dir: data/kv
 type Config struct {
-	Kind     string        `yaml:"kind"`
-	Memory   *MemoryConfig `yaml:"memory"`
-	Badger   *BadgerConfig `yaml:"badger"`
-	FS       *FSConfig     `yaml:"fs"`
-	SQLite   *SQLConfig    `yaml:"sqlite"`
-	Postgres *SQLConfig    `yaml:"postgres"`
-	Backend  string        `yaml:"backend"` // legacy driver field
-	Dir      string        `yaml:"dir"`     // legacy driver dir field
-	Dim      int           `yaml:"dim"`     // legacy vecstore dimension field
-	DSN      string        `yaml:"dsn"`     // legacy sql connection string field
+	Kind       string                        `yaml:"kind"`
+	Memory     *MemoryConfig                 `yaml:"memory"`
+	Badger     *BadgerConfig                 `yaml:"badger"`
+	FS         *FSConfig                     `yaml:"fs"`
+	SQLite     *SQLConfig                    `yaml:"sqlite"`
+	Postgres   *SQLConfig                    `yaml:"postgres"`
+	ClickHouse *SQLConfig                    `yaml:"clickhouse"`
+	Prometheus *metrics.PrometheusConfig     `yaml:"prometheus"`
+	Volc       *logstore.VolcConnectorConfig `yaml:"volc"`
 }
 
 // ConfigError identifies the physical storage entry whose construction failed.
@@ -78,21 +83,25 @@ type SQLConfig struct {
 
 // Storage holds physical backend instances created eagerly by New.
 type Storage struct {
-	kvs     map[string]kv.Store
-	vecs    map[string]vecstore.Index
-	objects map[string]objectstore.ObjectStore
-	sqls    map[string]*sqlx.DB
-	closers []io.Closer
+	kvs        map[string]kv.Store
+	vecs       map[string]vecstore.Index
+	objects    map[string]objectstore.ObjectStore
+	sqls       map[string]*sqlx.DB
+	prometheus map[string]*metrics.PrometheusConnector
+	volcs      map[string]*logstore.VolcConnector
+	closers    []io.Closer
 }
 
 // New creates a Storage registry and eagerly instantiates every configured
 // physical backend. Dir fields are used as provided by the caller.
 func New(configs map[string]Config) (*Storage, error) {
 	s := &Storage{
-		kvs:     make(map[string]kv.Store),
-		vecs:    make(map[string]vecstore.Index),
-		objects: make(map[string]objectstore.ObjectStore),
-		sqls:    make(map[string]*sqlx.DB),
+		kvs:        make(map[string]kv.Store),
+		vecs:       make(map[string]vecstore.Index),
+		objects:    make(map[string]objectstore.ObjectStore),
+		sqls:       make(map[string]*sqlx.DB),
+		prometheus: make(map[string]*metrics.PrometheusConnector),
+		volcs:      make(map[string]*logstore.VolcConnector),
 	}
 	ok := false
 	defer func() {
@@ -102,7 +111,15 @@ func New(configs map[string]Config) (*Storage, error) {
 	}()
 
 	states := make(map[string]buildState, len(configs))
+	names := make([]string, 0, len(configs))
 	for name := range configs {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	for _, name := range names {
+		if name == "" {
+			return nil, &ConfigError{Name: name, Err: errors.New("storage: connector name must not be empty")}
+		}
 		if err := s.build(name, configs, states); err != nil {
 			return nil, err
 		}
@@ -146,6 +163,24 @@ func (s *Storage) ObjectStore(name string) (objectstore.ObjectStore, error) {
 		return nil, fmt.Errorf("storage: objectstore %q not found", name)
 	}
 	return st, nil
+}
+
+// Prometheus returns the named physical Prometheus connector.
+func (s *Storage) Prometheus(name string) (*metrics.PrometheusConnector, error) {
+	connector, ok := s.prometheus[name]
+	if !ok {
+		return nil, fmt.Errorf("storage: prometheus %q not found", name)
+	}
+	return connector, nil
+}
+
+// VolcTLS returns the named physical Volc TLS connector.
+func (s *Storage) VolcTLS(name string) (*logstore.VolcConnector, error) {
+	connector, ok := s.volcs[name]
+	if !ok {
+		return nil, fmt.Errorf("storage: volc-tls %q not found", name)
+	}
+	return connector, nil
 }
 
 // Close releases all opened physical backends in reverse creation order.
@@ -208,6 +243,20 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 			s.sqls[name] = st
 			s.closers = append(s.closers, st)
 		}
+	case KindPrometheus:
+		var connector *metrics.PrometheusConnector
+		connector, err = newPrometheus(name, cfg)
+		if err == nil {
+			s.prometheus[name] = connector
+			s.closers = append(s.closers, connector)
+		}
+	case KindVolcTLS:
+		var connector *logstore.VolcConnector
+		connector, err = newVolcTLS(name, cfg)
+		if err == nil {
+			s.volcs[name] = connector
+			s.closers = append(s.closers, connector)
+		}
 	default:
 		err = fmt.Errorf("storage: %q has unknown kind %q", name, cfg.Kind)
 	}
@@ -219,26 +268,16 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 }
 
 func newKV(name string, cfg Config) (kv.Store, error) {
-	if blocks := driverBlocks(cfg); len(blocks) > 0 {
-		if err := validateDriverBlocks(name, KindKeyValue, blocks, "memory", "badger"); err != nil {
-			return nil, err
-		}
-		switch {
-		case cfg.Memory != nil:
-			return kv.NewBadgerInMemory(nil)
-		case cfg.Badger != nil:
-			return newBadgerKV(name, cfg.Badger.Dir)
-		}
+	if err := validateDriverBlocks(name, KindKeyValue, driverBlocks(cfg), "memory", "badger"); err != nil {
+		return nil, err
 	}
-	switch cfg.Backend {
-	case "memory":
+	switch {
+	case cfg.Memory != nil:
 		return kv.NewBadgerInMemory(nil)
-	case "badger":
-		return newBadgerKV(name, cfg.Dir)
-	case "":
-		return nil, fmt.Errorf("storage: keyvalue %q requires driver", name)
+	case cfg.Badger != nil:
+		return newBadgerKV(name, cfg.Badger.Dir)
 	default:
-		return nil, fmt.Errorf("storage: keyvalue %q unknown backend %q", name, cfg.Backend)
+		return nil, fmt.Errorf("storage: keyvalue %q requires driver", name)
 	}
 }
 
@@ -253,20 +292,10 @@ func newBadgerKV(name, dir string) (kv.Store, error) {
 }
 
 func newVecStore(name string, cfg Config) (vecstore.Index, error) {
-	if blocks := driverBlocks(cfg); len(blocks) > 0 {
-		if err := validateDriverBlocks(name, KindVecStore, blocks, "memory"); err != nil {
-			return nil, err
-		}
-		return vecstore.NewMemory(), nil
+	if err := validateDriverBlocks(name, KindVecStore, driverBlocks(cfg), "memory"); err != nil {
+		return nil, err
 	}
-	switch cfg.Backend {
-	case "memory":
-		return vecstore.NewMemory(), nil
-	case "":
-		return nil, fmt.Errorf("storage: vecstore %q requires driver", name)
-	default:
-		return nil, fmt.Errorf("storage: vecstore %q unknown backend %q", name, cfg.Backend)
-	}
+	return vecstore.NewMemory(), nil
 }
 
 func newObjectStore(name string, cfg Config) (objectstore.ObjectStore, error) {
@@ -288,16 +317,15 @@ func newObjectStore(name string, cfg Config) (objectstore.ObjectStore, error) {
 }
 
 func newSQL(name string, cfg Config) (*sqlx.DB, error) {
-	if blocks := driverBlocks(cfg); len(blocks) > 0 {
-		if err := validateDriverBlocks(name, KindSQL, blocks, "sqlite", "postgres"); err != nil {
-			return nil, err
-		}
+	if err := validateDriverBlocks(name, KindSQL, driverBlocks(cfg), "sqlite", "postgres", "clickhouse"); err != nil {
+		return nil, err
+	}
+	if err := validateSQLDriverFields(name, cfg); err != nil {
+		return nil, err
 	}
 	backend, dsn := sqlDriverConfig(cfg)
-	if backend == "" {
-		return nil, fmt.Errorf("storage: sql %q requires backend (driver name)", name)
-	}
-	if backend == "sqlite" {
+	dsn = os.ExpandEnv(dsn)
+	if backend == "sqlite" || backend == "clickhouse" {
 		sqlx.BindDriver(backend, sqlx.QUESTION)
 	}
 	if sqlx.BindType(backend) == sqlx.UNKNOWN {
@@ -316,7 +344,7 @@ func newSQL(name string, cfg Config) (*sqlx.DB, error) {
 	}
 	db, err := sqlx.Open(backend, dsn)
 	if err != nil {
-		return nil, fmt.Errorf("storage: sql %q open: %w", name, err)
+		return nil, &externalOperationError{operation: fmt.Sprintf("storage: sql %q open", name), err: err}
 	}
 	if backend == "sqlite" {
 		configureSQLitePool(db)
@@ -327,10 +355,36 @@ func newSQL(name string, cfg Config) (*sqlx.DB, error) {
 	}
 	if err := db.Ping(); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("storage: sql %q ping: %w", name, err)
+		return nil, &externalOperationError{operation: fmt.Sprintf("storage: sql %q ping", name), err: err}
 	}
 	return db, nil
 }
+
+func validateSQLDriverFields(name string, cfg Config) error {
+	switch {
+	case cfg.SQLite != nil:
+		if cfg.SQLite.DSN != "" && cfg.SQLite.Dir != "" {
+			return fmt.Errorf("storage: sql %q sqlite requires exactly one of dsn or dir", name)
+		}
+	case cfg.Postgres != nil:
+		if cfg.Postgres.Dir != "" {
+			return fmt.Errorf("storage: sql %q postgres does not support dir", name)
+		}
+	case cfg.ClickHouse != nil:
+		if cfg.ClickHouse.Dir != "" {
+			return fmt.Errorf("storage: sql %q clickhouse does not support dir", name)
+		}
+	}
+	return nil
+}
+
+type externalOperationError struct {
+	operation string
+	err       error
+}
+
+func (e *externalOperationError) Error() string { return e.operation + " failed" }
+func (e *externalOperationError) Unwrap() error { return e.err }
 
 func configureSQLitePool(db *sqlx.DB) {
 	db.SetMaxOpenConns(1)
@@ -383,8 +437,6 @@ func prepareSQLDir(name string, cfg Config) error {
 	var dir string
 	if cfg.SQLite != nil && cfg.SQLite.DSN == "" {
 		dir = cfg.SQLite.Dir
-	} else if cfg.Backend == "sqlite" && cfg.DSN == "" {
-		dir = cfg.Dir
 	}
 	if dir == "" {
 		return nil
@@ -416,6 +468,15 @@ func driverBlocks(cfg Config) []string {
 	if cfg.Postgres != nil {
 		blocks = append(blocks, "postgres")
 	}
+	if cfg.ClickHouse != nil {
+		blocks = append(blocks, "clickhouse")
+	}
+	if cfg.Prometheus != nil {
+		blocks = append(blocks, "prometheus")
+	}
+	if cfg.Volc != nil {
+		blocks = append(blocks, "volc")
+	}
 	return blocks
 }
 
@@ -445,9 +506,39 @@ func sqlDriverConfig(cfg Config) (string, string) {
 	if cfg.Postgres != nil {
 		return "postgres", cfg.Postgres.DSN
 	}
-	dsn := cfg.DSN
-	if cfg.Backend == "sqlite" && dsn == "" && cfg.Dir != "" {
-		dsn = cfg.Dir
+	if cfg.ClickHouse != nil {
+		return "clickhouse", cfg.ClickHouse.DSN
 	}
-	return cfg.Backend, dsn
+	return "", ""
+}
+
+func newPrometheus(name string, cfg Config) (*metrics.PrometheusConnector, error) {
+	if err := validateDriverBlocks(name, KindPrometheus, driverBlocks(cfg), "prometheus"); err != nil {
+		return nil, err
+	}
+	config := *cfg.Prometheus
+	config.RemoteWriteURL = os.ExpandEnv(config.RemoteWriteURL)
+	config.QueryURL = os.ExpandEnv(config.QueryURL)
+	config.BearerToken = os.ExpandEnv(config.BearerToken)
+	connector, err := metrics.NewPrometheusConnector(config)
+	if err != nil {
+		return nil, fmt.Errorf("storage: prometheus %q: %w", name, err)
+	}
+	return connector, nil
+}
+
+func newVolcTLS(name string, cfg Config) (*logstore.VolcConnector, error) {
+	if err := validateDriverBlocks(name, KindVolcTLS, driverBlocks(cfg), "volc"); err != nil {
+		return nil, err
+	}
+	config := *cfg.Volc
+	config.Endpoint = os.ExpandEnv(config.Endpoint)
+	config.Region = os.ExpandEnv(config.Region)
+	config.AccessKeyID = os.ExpandEnv(config.AccessKeyID)
+	config.AccessKeySecret = os.ExpandEnv(config.AccessKeySecret)
+	connector, err := logstore.NewVolcConnector(config)
+	if err != nil {
+		return nil, fmt.Errorf("storage: volc-tls %q: %w", name, err)
+	}
+	return connector, nil
 }

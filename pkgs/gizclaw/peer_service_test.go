@@ -132,6 +132,7 @@ func TestIntegrationPeerServiceServeConnClientCloseUnblocksAndMarksPeerOffline(t
 		PeerStore:   mustBadgerInMemory(t, nil),
 		BuildCommit: "test-build",
 	}
+	completeTestServer(t, server)
 	if err := server.init(); err != nil {
 		t.Fatalf("init error = %v", err)
 	}
@@ -227,6 +228,7 @@ func TestIntegrationPeerServiceServeConnReplacesSameKeyConnection(t *testing.T) 
 		PeerStore:   mustBadgerInMemory(t, nil),
 		BuildCommit: "test-build",
 	}
+	completeTestServer(t, server)
 	if err := server.init(); err != nil {
 		t.Fatalf("init error = %v", err)
 	}

@@ -40,7 +40,6 @@ export input='${input}'
 
 clear_data() {
   rm -rf "$workspace_dir/data" "$workspace_dir/gizclaw-server.log" "$workspace_dir/gizclaw-server.pid" "$workspace_dir/serve.pid"
-  "$bin_path" migrate --workspace "$workspace_dir"
 }
 
 if [[ "$mode" == "init" || "$mode" == "reset" ]]; then

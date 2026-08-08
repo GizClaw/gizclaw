@@ -78,12 +78,14 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 		EdgeNodes      []any                       `yaml:"edge-nodes"`
 		Storage        map[string]workspaceStorage `yaml:"storage"`
 		Stores         map[string]workspaceStore   `yaml:"stores"`
-		SystemLog      struct {
-			Level string `yaml:"level"`
-			Sinks []struct {
-				Kind string `yaml:"kind"`
-			} `yaml:"sinks"`
-		} `yaml:"system_log"`
+		Services       struct {
+			SystemLog struct {
+				Level string `yaml:"level"`
+				Sinks []struct {
+					Kind string `yaml:"kind"`
+				} `yaml:"sinks"`
+			} `yaml:"system_log"`
+		} `yaml:"services"`
 	}
 	if err := yaml.Unmarshal(workspaceData, &workspace); err != nil {
 		t.Fatal(err)
@@ -101,15 +103,15 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 	if peers := workspace.Stores["peers"]; peers.Kind != "keyvalue" || peers.Storage != "local-kv" || peers.Prefix != "peers" {
 		t.Fatalf("workspace peers store = %+v", peers)
 	}
-	if workspace.SystemLog.Level != "info" || len(workspace.SystemLog.Sinks) != 1 || workspace.SystemLog.Sinks[0].Kind != "stderr" {
-		t.Fatalf("workspace system log = %+v", workspace.SystemLog)
+	if workspace.Services.SystemLog.Level != "info" || len(workspace.Services.SystemLog.Sinks) != 1 || workspace.Services.SystemLog.Sinks[0].Kind != "stderr" {
+		t.Fatalf("workspace system log = %+v", workspace.Services.SystemLog)
 	}
 	for _, forbidden := range []string{"query_store:", "kind: log", "volc:", "access_key_secret:"} {
 		if strings.Contains(string(workspaceData), forbidden) {
 			t.Fatalf("workspace contains forbidden default %q", forbidden)
 		}
 	}
-	for _, required := range []string{"credentials", "firmwares", "runtime-profiles", "minimax-tenants", "voices", "workspaces", "workflows"} {
+	for _, required := range []string{"peers", "peer-routes", "peer-run", "public-login", "flowcraft-state", "credentials", "firmwares", "runtime-profiles", "models", "memory-layouts", "provider-tenants", "minimax-tenants", "deepseek-tenants", "volc-tenants", "voices", "workspaces", "workflows", "tools"} {
 		if _, ok := workspace.Stores[required]; !ok {
 			t.Fatalf("workspace required store %q is missing", required)
 		}
@@ -122,6 +124,9 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 			t.Fatalf("workspace %s store = %+v", name, store)
 		}
 	}
+	rendered := readRenderedWorkspace(t, filepath.Join(podDir, "workspace", "config.yaml"))
+	assertLocalRuntimeStore(t, rendered)
+	assertServiceStoreBindings(t, rendered)
 }
 
 func TestStoreRemotePodHasNoWorkspaceAndPerServerAdminContexts(t *testing.T) {

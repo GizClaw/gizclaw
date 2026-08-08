@@ -101,9 +101,12 @@ Server; projection logic must support empty `remote_servers`.
 The complete local Server workspace defaults are owned by the binary-embedded
 `internal/appconfig/templates/local_server_workspace.yaml.gotmpl`; runtime does not read the source
 tree. The renderer preserves the generated Server identity, refreshes listen, LAN endpoint, Admin
-key, and store inventory, and atomically writes the file with mode `0600`. The template explicitly
-uses an info-level stderr `system_log` and creates no LogStore, Volc credential, store sink, or
-`query_store`; persisted and queryable logging requires explicit user configuration.
+key, and Store inventory, and atomically writes the file with mode `0600`. The template emits the
+final three-layer contract: dynamic physical `storage`, dynamic logical `stores`, and the complete
+fixed `services` bindings. It uses `services.system_log` with info-level stderr and creates no
+LogStore, Volc credential, Store sink, or `query_store`; persisted and queryable logging requires
+explicit user configuration. The template has no compatibility decoder or data migration path;
+an incompatible development Pod must be recreated.
 
 Directories and key files must remain private. Write using temporary files in the same directory, synchronization, rename
 Atomic replacement process. The front-end response can only contain statuses such as `admin_configured`, `play_configured`, etc.

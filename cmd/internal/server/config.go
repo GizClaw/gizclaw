@@ -27,8 +27,7 @@ type Config struct {
 	AdminPublicKey  giznet.PublicKey
 	Storage         map[string]storage.Config
 	Stores          map[string]stores.Config
-	AgentHost       *AgentHostConfig
-	SystemLog       logging.Config
+	Services        *ServicesConfig
 	Friends         FriendsConfig
 	FriendGroups    FriendGroupsConfig
 	Speech          SpeechConfig
@@ -47,6 +46,76 @@ type AgentHostConfig struct {
 type AgentHostFlowcraftConfig struct {
 	StateStore   string `yaml:"state_store"`
 	HistoryStore string `yaml:"history_store"`
+}
+
+// ServicesConfig is the fixed service-to-Store binding schema. Unlike the
+// storage and stores registries, service names are not operator-defined.
+type ServicesConfig struct {
+	Peer            *PeerStoresConfig           `yaml:"peer"`
+	PublicLogin     *SingleStoreConfig          `yaml:"public_login"`
+	Credential      *SingleStoreConfig          `yaml:"credential"`
+	Firmware        *SingleStoreConfig          `yaml:"firmware"`
+	RuntimeProfile  *SingleStoreConfig          `yaml:"runtime_profile"`
+	Model           *SingleStoreConfig          `yaml:"model"`
+	Voice           *SingleStoreConfig          `yaml:"voice"`
+	MemoryLayout    *SingleStoreConfig          `yaml:"memory_layout"`
+	ProviderTenants *ProviderTenantStoresConfig `yaml:"provider_tenants"`
+	Workflow        *SingleStoreConfig          `yaml:"workflow"`
+	Workspace       *WorkspaceStoresConfig      `yaml:"workspace"`
+	Toolkit         *SingleStoreConfig          `yaml:"toolkit"`
+	Contact         *SingleStoreConfig          `yaml:"contact"`
+	Friend          *FriendStoresConfig         `yaml:"friend"`
+	FriendGroup     *FriendGroupStoresConfig    `yaml:"friend_group"`
+	Gameplay        *GameplayStoresConfig       `yaml:"gameplay"`
+	AgentHost       *AgentHostConfig            `yaml:"agent_host"`
+	Metrics         *SingleStoreConfig          `yaml:"metrics"`
+	SystemLog       *logging.Config             `yaml:"system_log"`
+}
+
+type SingleStoreConfig struct {
+	Store string `yaml:"store"`
+}
+
+type PeerStoresConfig struct {
+	Store      string `yaml:"store"`
+	RouteStore string `yaml:"route_store"`
+	RunStore   string `yaml:"run_store"`
+}
+
+type ProviderTenantStoresConfig struct {
+	GenericStore        string `yaml:"generic_store"`
+	MiniMaxTenantStore  string `yaml:"minimax_tenant_store"`
+	DeepSeekTenantStore string `yaml:"deepseek_tenant_store"`
+	VolcTenantStore     string `yaml:"volc_tenant_store"`
+	CredentialStore     string `yaml:"credential_store"`
+	ModelStore          string `yaml:"model_store"`
+	VoiceStore          string `yaml:"voice_store"`
+}
+
+type WorkspaceStoresConfig struct {
+	Store         string `yaml:"store"`
+	WorkflowStore string `yaml:"workflow_store"`
+	AssetsStore   string `yaml:"assets_store"`
+}
+
+type FriendStoresConfig struct {
+	Store            string `yaml:"store"`
+	InviteTokenStore string `yaml:"invite_token_store"`
+}
+
+type FriendGroupStoresConfig struct {
+	Store            string `yaml:"store"`
+	InviteTokenStore string `yaml:"invite_token_store"`
+	MemberStore      string `yaml:"member_store"`
+	BelongStore      string `yaml:"belong_store"`
+}
+
+type GameplayStoresConfig struct {
+	PetDefStore   string `yaml:"pet_def_store"`
+	BadgeDefStore string `yaml:"badge_def_store"`
+	GameDefStore  string `yaml:"game_def_store"`
+	AssetsStore   string `yaml:"assets_store"`
+	DatabaseStore string `yaml:"database_store"`
 }
 
 type FriendsConfig struct{}
@@ -139,41 +208,14 @@ type ConfigFile struct {
 	AdminPublicKey  giznet.PublicKey          `yaml:"admin-public-key"`
 	Storage         map[string]storage.Config `yaml:"storage"`
 	Stores          map[string]stores.Config  `yaml:"stores"`
-	AgentHost       *AgentHostConfig          `yaml:"agent_host"`
-	SystemLog       logging.Config            `yaml:"system_log"`
+	Services        *ServicesConfig           `yaml:"services"`
 	Friends         FriendsConfig             `yaml:"friends"`
 	FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
 	Speech          SpeechConfig              `yaml:"speech"`
 	PendingDeletion PendingDeletionConfig     `yaml:"pending_deletion"`
 }
 
-const (
-	defaultPeersStore                   = "peers"
-	defaultCredentialsStore             = "credentials"
-	defaultFirmwaresStore               = "firmwares"
-	defaultRuntimeProfilesStore         = "runtime-profiles"
-	defaultMemoryLayoutsStore           = "memory-layouts"
-	defaultMiniMaxTenantsStore          = "minimax-tenants"
-	defaultDeepSeekTenantsStore         = "deepseek-tenants"
-	defaultVoicesStore                  = "voices"
-	defaultWorkspacesStore              = "workspaces"
-	defaultWorkflowsStore               = "workflows"
-	defaultContactsStore                = "contacts"
-	defaultFriendInviteTokensStore      = "friend-invite-tokens"
-	defaultFriendsStore                 = "friends"
-	defaultFriendGroupsStore            = "friend-groups"
-	defaultFriendGroupInviteTokensStore = "friend-group-invite-tokens"
-	defaultFriendGroupMembersStore      = "friend-group-members"
-	defaultFriendGroupBelongsStore      = "friend-group-belongs"
-	defaultPetDefsStore                 = "pet-defs"
-	defaultBadgeDefsStore               = "badge-defs"
-	defaultGameDefsStore                = "game-defs"
-	defaultGameplayAssetsStore          = "gameplay-assets"
-	defaultWorkspaceAssetsStore         = "workspace-assets"
-	defaultGameplayDBStore              = "gameplay-db"
-	defaultMetricsStore                 = "metrics"
-	maxSpeechExtractionRequestTimeout   = 120 * time.Second
-)
+const maxSpeechExtractionRequestTimeout = 120 * time.Second
 
 func LoadConfig(path string) (ConfigFile, error) {
 	data, err := os.ReadFile(path)
@@ -214,23 +256,25 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		AdminPublicKey  *giznet.PublicKey         `yaml:"admin-public-key"`
 		Storage         map[string]storage.Config `yaml:"storage"`
 		Stores          map[string]stores.Config  `yaml:"stores"`
-		AgentHost       *AgentHostConfig          `yaml:"agent_host"`
-		SystemLog       logging.Config            `yaml:"system_log"`
+		Services        *ServicesConfig           `yaml:"services"`
 		Friends         FriendsConfig             `yaml:"friends"`
 		FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
 		Speech          speechFileConfig          `yaml:"speech"`
 		PendingDeletion pendingDeletionFileConfig `yaml:"pending_deletion"`
 	}
-	if err := yaml.Unmarshal(data, &raw); err != nil {
+	if err := yaml.UnmarshalWithOptions(data, &raw, yaml.DisallowUnknownField()); err != nil {
 		return ConfigFile{}, err
 	}
 	adminPublicKey, err := resolveAdminPublicKey(raw.AdminPublicKey)
 	if err != nil {
 		return ConfigFile{}, err
 	}
-	logCfg, err := logging.PrepareConfig(raw.SystemLog)
-	if err != nil {
-		return ConfigFile{}, fmt.Errorf("server: %w", err)
+	if raw.Services != nil && raw.Services.SystemLog != nil {
+		logCfg, err := logging.PrepareConfig(*raw.Services.SystemLog)
+		if err != nil {
+			return ConfigFile{}, fmt.Errorf("server: %w", err)
+		}
+		raw.Services.SystemLog = &logCfg
 	}
 	var identity IdentityConfig
 	if raw.Identity != nil {
@@ -263,8 +307,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		AdminPublicKey:  adminPublicKey,
 		Storage:         raw.Storage,
 		Stores:          raw.Stores,
-		AgentHost:       raw.AgentHost,
-		SystemLog:       logCfg,
+		Services:        raw.Services,
 		Friends:         raw.Friends,
 		FriendGroups:    raw.FriendGroups,
 		Speech:          speech,
@@ -413,9 +456,8 @@ func resolveAdminPublicKey(publicKey *giznet.PublicKey) (giznet.PublicKey, error
 
 func DefaultConfig() Config {
 	return Config{
-		Listen:    "0.0.0.0:9820",
-		Endpoint:  "0.0.0.0:9820",
-		SystemLog: logging.DefaultConfig(),
+		Listen:   "0.0.0.0:9820",
+		Endpoint: "0.0.0.0:9820",
 		Speech: SpeechConfig{
 			Transcription: SpeechTranscriptionConfig{MaxAudioBytes: 2097152, MaxAudioDuration: "60s", RequestTimeout: "75s"},
 			Extraction: SpeechExtractionConfig{
@@ -460,11 +502,8 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if len(cfg.Storage) == 0 {
 		cfg.Storage = fileCfg.Storage
 	}
-	if cfg.AgentHost == nil {
-		cfg.AgentHost = fileCfg.AgentHost
-	}
-	if cfg.SystemLog.IsZero() {
-		cfg.SystemLog = fileCfg.SystemLog
+	if cfg.Services == nil {
+		cfg.Services = fileCfg.Services
 	}
 	cfg.Friends = mergeFriendsConfig(cfg.Friends, fileCfg.Friends)
 	cfg.FriendGroups = mergeFriendGroupsConfig(cfg.FriendGroups, fileCfg.FriendGroups)
@@ -564,11 +603,13 @@ func prepareConfig(cfg Config) (Config, error) {
 	}
 	cfg.Speech = mergeSpeechConfig(cfg.Speech, defaults.Speech)
 	cfg.PendingDeletion = mergePendingDeletionConfig(cfg.PendingDeletion, defaults.PendingDeletion)
-	logCfg, err := logging.PrepareConfig(cfg.SystemLog)
-	if err != nil {
-		return Config{}, fmt.Errorf("server: %w", err)
+	if cfg.Services != nil && cfg.Services.SystemLog != nil {
+		logCfg, err := logging.PrepareConfig(*cfg.Services.SystemLog)
+		if err != nil {
+			return Config{}, fmt.Errorf("server: %w", err)
+		}
+		cfg.Services.SystemLog = &logCfg
 	}
-	cfg.SystemLog = logCfg
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
 	}
@@ -588,9 +629,6 @@ func (cfg Config) validate() error {
 	}
 	if err := validateHostPort("endpoint", cfg.Endpoint); err != nil {
 		return err
-	}
-	if _, err := logging.PrepareConfig(cfg.SystemLog); err != nil {
-		return fmt.Errorf("server: %w", err)
 	}
 	for i, publicKey := range cfg.EdgeNodes {
 		if publicKey.IsZero() {
@@ -637,7 +675,7 @@ func (cfg Config) validate() error {
 	if _, err := parsePositiveConfigDuration(cfg.Speech.Synthesis.RequestTimeout); err != nil {
 		return fmt.Errorf("server: speech.synthesis.request_timeout: %w", err)
 	}
-	if err := validateAgentHostConfig(cfg.AgentHost); err != nil {
+	if err := validateServicesConfig(cfg.Services); err != nil {
 		return err
 	}
 	processorConfig, err := cfg.PendingDeletion.processorConfig()
@@ -717,22 +755,113 @@ func (cfg PendingDeletionConfig) processorConfigAllowZero() (pendingdeletion.Con
 	return pendingdeletion.Config{ScanInterval: scan, PageSize: cfg.PageSize, DispatchCapacity: cfg.DispatchCapacity, Workers: cfg.Workers, LeaseDuration: lease, AttemptTimeout: attempt, RetryInitial: initial, RetryMax: maximum, MaxAttempts: cfg.MaxAttempts}, nil
 }
 
-func validateAgentHostConfig(cfg *AgentHostConfig) error {
+func validateServicesConfig(cfg *ServicesConfig) error {
 	if cfg == nil {
+		return fmt.Errorf("server: services is required")
+	}
+	type reference struct{ path, value string }
+	references := make([]reference, 0, 40)
+	requireBlock := func(path string, present bool) error {
+		if !present {
+			return fmt.Errorf("server: %s is required", path)
+		}
 		return nil
 	}
-	if err := validateStoreReference("agent_host.runtime_store", cfg.RuntimeStore); err != nil {
-		return err
-	}
-	if cfg.Flowcraft != nil {
-		if err := validateStoreReference("agent_host.flowcraft.state_store", cfg.Flowcraft.StateStore); err != nil {
+	for _, block := range []struct {
+		path    string
+		present bool
+	}{
+		{"services.peer", cfg.Peer != nil},
+		{"services.public_login", cfg.PublicLogin != nil},
+		{"services.credential", cfg.Credential != nil},
+		{"services.firmware", cfg.Firmware != nil},
+		{"services.runtime_profile", cfg.RuntimeProfile != nil},
+		{"services.model", cfg.Model != nil},
+		{"services.voice", cfg.Voice != nil},
+		{"services.memory_layout", cfg.MemoryLayout != nil},
+		{"services.provider_tenants", cfg.ProviderTenants != nil},
+		{"services.workflow", cfg.Workflow != nil},
+		{"services.workspace", cfg.Workspace != nil},
+		{"services.toolkit", cfg.Toolkit != nil},
+		{"services.contact", cfg.Contact != nil},
+		{"services.friend", cfg.Friend != nil},
+		{"services.friend_group", cfg.FriendGroup != nil},
+		{"services.gameplay", cfg.Gameplay != nil},
+	} {
+		if err := requireBlock(block.path, block.present); err != nil {
 			return err
 		}
-		if err := validateStoreReference("agent_host.flowcraft.history_store", cfg.Flowcraft.HistoryStore); err != nil {
+	}
+	references = append(references,
+		reference{"services.peer.store", cfg.Peer.Store},
+		reference{"services.peer.route_store", cfg.Peer.RouteStore},
+		reference{"services.peer.run_store", cfg.Peer.RunStore},
+		reference{"services.public_login.store", cfg.PublicLogin.Store},
+		reference{"services.credential.store", cfg.Credential.Store},
+		reference{"services.firmware.store", cfg.Firmware.Store},
+		reference{"services.runtime_profile.store", cfg.RuntimeProfile.Store},
+		reference{"services.model.store", cfg.Model.Store},
+		reference{"services.voice.store", cfg.Voice.Store},
+		reference{"services.memory_layout.store", cfg.MemoryLayout.Store},
+		reference{"services.provider_tenants.generic_store", cfg.ProviderTenants.GenericStore},
+		reference{"services.provider_tenants.minimax_tenant_store", cfg.ProviderTenants.MiniMaxTenantStore},
+		reference{"services.provider_tenants.deepseek_tenant_store", cfg.ProviderTenants.DeepSeekTenantStore},
+		reference{"services.provider_tenants.volc_tenant_store", cfg.ProviderTenants.VolcTenantStore},
+		reference{"services.provider_tenants.credential_store", cfg.ProviderTenants.CredentialStore},
+		reference{"services.provider_tenants.model_store", cfg.ProviderTenants.ModelStore},
+		reference{"services.provider_tenants.voice_store", cfg.ProviderTenants.VoiceStore},
+		reference{"services.workflow.store", cfg.Workflow.Store},
+		reference{"services.workspace.store", cfg.Workspace.Store},
+		reference{"services.workspace.workflow_store", cfg.Workspace.WorkflowStore},
+		reference{"services.workspace.assets_store", cfg.Workspace.AssetsStore},
+		reference{"services.toolkit.store", cfg.Toolkit.Store},
+		reference{"services.contact.store", cfg.Contact.Store},
+		reference{"services.friend.store", cfg.Friend.Store},
+		reference{"services.friend.invite_token_store", cfg.Friend.InviteTokenStore},
+		reference{"services.friend_group.store", cfg.FriendGroup.Store},
+		reference{"services.friend_group.invite_token_store", cfg.FriendGroup.InviteTokenStore},
+		reference{"services.friend_group.member_store", cfg.FriendGroup.MemberStore},
+		reference{"services.friend_group.belong_store", cfg.FriendGroup.BelongStore},
+		reference{"services.gameplay.pet_def_store", cfg.Gameplay.PetDefStore},
+		reference{"services.gameplay.badge_def_store", cfg.Gameplay.BadgeDefStore},
+		reference{"services.gameplay.game_def_store", cfg.Gameplay.GameDefStore},
+		reference{"services.gameplay.assets_store", cfg.Gameplay.AssetsStore},
+		reference{"services.gameplay.database_store", cfg.Gameplay.DatabaseStore},
+	)
+	for _, ref := range references {
+		if strings.TrimSpace(ref.value) == "" {
+			return fmt.Errorf("server: %s is required and must not be whitespace-only", ref.path)
+		}
+	}
+	if cfg.AgentHost != nil {
+		if err := validateStoreReference("services.agent_host.runtime_store", cfg.AgentHost.RuntimeStore); err != nil {
 			return err
+		}
+		if cfg.AgentHost.Flowcraft != nil {
+			if err := validateStoreReference("services.agent_host.flowcraft.state_store", cfg.AgentHost.Flowcraft.StateStore); err != nil {
+				return err
+			}
+			if err := validateStoreReference("services.agent_host.flowcraft.history_store", cfg.AgentHost.Flowcraft.HistoryStore); err != nil {
+				return err
+			}
+		}
+	}
+	if cfg.Metrics != nil && strings.TrimSpace(cfg.Metrics.Store) == "" {
+		return fmt.Errorf("server: services.metrics.store is required and must not be whitespace-only")
+	}
+	if cfg.SystemLog != nil {
+		if _, err := logging.PrepareConfig(*cfg.SystemLog); err != nil {
+			return fmt.Errorf("server: %w", err)
 		}
 	}
 	return nil
+}
+
+func (cfg Config) systemLogConfig() logging.Config {
+	if cfg.Services == nil || cfg.Services.SystemLog == nil {
+		return logging.DefaultConfig()
+	}
+	return *cfg.Services.SystemLog
 }
 
 func validateStoreReference(path, value string) error {
@@ -759,10 +888,19 @@ func validateConfigShape(data []byte) error {
 		return err
 	}
 	if _, legacy := document["log"]; legacy {
-		return fmt.Errorf("server: top-level log configuration was removed; configure stores and system_log instead")
+		return fmt.Errorf("server: top-level log configuration was removed; configure stores and services.system_log instead")
 	}
 	if agentHostValue, exists := document["agent_host"]; exists {
-		if err := validateAgentHostConfigShape(agentHostValue); err != nil {
+		if err := validateAgentHostConfigShape("agent_host", agentHostValue); err != nil {
+			return err
+		}
+	}
+	if servicesValue, exists := document["services"]; exists {
+		services, ok := servicesValue.(map[string]any)
+		if !ok {
+			return fmt.Errorf("server: services must be a mapping")
+		}
+		if err := validateServicesConfigShape(services); err != nil {
 			return err
 		}
 	}
@@ -828,12 +966,26 @@ func validateConfigShape(data []byte) error {
 		if kind == "memory" {
 			return fmt.Errorf("server: stores.%s kind %q is no longer supported; configure MemoryLayout resources and RuntimeProfile memory bindings instead", name, kind)
 		}
-		if kind != stores.KindLog {
+		if kind == "log" {
+			return fmt.Errorf("server: stores.%s kind %q is not supported; use %s or %s", name, kind, stores.KindLogImmutable, stores.KindLogMutable)
+		}
+		allowedFields := map[string]map[string]struct{}{
+			stores.KindKeyValue:     {"kind": {}, "storage": {}, "prefix": {}},
+			stores.KindVecStore:     {"kind": {}, "storage": {}},
+			stores.KindObjectStore:  {"kind": {}, "storage": {}, "prefix": {}},
+			stores.KindSQL:          {"kind": {}, "storage": {}},
+			stores.KindGraph:        {"kind": {}, "backend": {}, "store": {}, "prefix": {}},
+			stores.KindMetrics:      {"kind": {}, "storage": {}, "memory": {}, "clickhouse": {}},
+			stores.KindLogImmutable: {"kind": {}, "storage": {}, "volc": {}, "clickhouse": {}},
+			stores.KindLogMutable:   {"kind": {}, "storage": {}, "volc": {}, "clickhouse": {}},
+		}
+		allowed, knownKind := allowedFields[kind]
+		if !knownKind {
 			continue
 		}
 		for field := range mapping {
-			if field != "kind" && field != "volc" && field != "clickhouse" {
-				return fmt.Errorf("server: stores.%s field %q is invalid for kind log", name, field)
+			if _, ok := allowed[field]; !ok {
+				return fmt.Errorf("server: stores.%s field %q is invalid for kind %s", name, field, kind)
 			}
 		}
 		if volcValue, exists := mapping["volc"]; exists {
@@ -843,11 +995,14 @@ func validateConfigShape(data []byte) error {
 			}
 			for field := range volcMapping {
 				switch field {
-				case "endpoint", "region", "topic_id", "access_key_id", "access_key_secret":
+				case "topic_id":
 				default:
 					return fmt.Errorf("server: stores.%s.volc has unknown field %q", name, field)
 				}
 			}
+		}
+		if kind != stores.KindLogImmutable && kind != stores.KindLogMutable && kind != stores.KindMetrics {
+			continue
 		}
 		clickhouseValue, exists := mapping["clickhouse"]
 		if !exists {
@@ -859,7 +1014,7 @@ func validateConfigShape(data []byte) error {
 		}
 		for field := range clickhouseMapping {
 			switch field {
-			case "dsn", "database", "table":
+			case "database", "table":
 			default:
 				return fmt.Errorf("server: stores.%s.clickhouse has unknown field %q", name, field)
 			}
@@ -868,38 +1023,127 @@ func validateConfigShape(data []byte) error {
 	return nil
 }
 
-func validateAgentHostConfigShape(value any) error {
+func validateServicesConfigShape(services map[string]any) error {
+	stringFields := map[string][]string{
+		"peer":             {"store", "route_store", "run_store"},
+		"public_login":     {"store"},
+		"credential":       {"store"},
+		"firmware":         {"store"},
+		"runtime_profile":  {"store"},
+		"model":            {"store"},
+		"voice":            {"store"},
+		"memory_layout":    {"store"},
+		"provider_tenants": {"generic_store", "minimax_tenant_store", "deepseek_tenant_store", "volc_tenant_store", "credential_store", "model_store", "voice_store"},
+		"workflow":         {"store"},
+		"workspace":        {"store", "workflow_store", "assets_store"},
+		"toolkit":          {"store"},
+		"contact":          {"store"},
+		"friend":           {"store", "invite_token_store"},
+		"friend_group":     {"store", "invite_token_store", "member_store", "belong_store"},
+		"gameplay":         {"pet_def_store", "badge_def_store", "game_def_store", "assets_store", "database_store"},
+		"metrics":          {"store"},
+	}
+	for service, fields := range stringFields {
+		value, exists := services[service]
+		if !exists || value == nil {
+			continue
+		}
+		mapping, ok := value.(map[string]any)
+		if !ok {
+			return fmt.Errorf("server: services.%s must be a mapping", service)
+		}
+		for _, field := range fields {
+			if reference, exists := mapping[field]; exists {
+				if err := validateFileStoreReference("services."+service+"."+field, reference); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if value, exists := services["agent_host"]; exists {
+		if err := validateAgentHostConfigShape("services.agent_host", value); err != nil {
+			return err
+		}
+	}
+	if value, exists := services["system_log"]; exists {
+		if err := validateSystemLogConfigShape("services.system_log", value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateSystemLogConfigShape(path string, value any) error {
+	mapping, ok := value.(map[string]any)
+	if !ok {
+		return fmt.Errorf("server: %s must be a mapping", path)
+	}
+	for _, field := range []string{"level", "query_store"} {
+		if reference, exists := mapping[field]; exists {
+			if err := validateFileStoreReference(path+"."+field, reference); err != nil {
+				return err
+			}
+		}
+	}
+	sinksValue, exists := mapping["sinks"]
+	if !exists || sinksValue == nil {
+		return nil
+	}
+	sinks, ok := sinksValue.([]any)
+	if !ok {
+		return fmt.Errorf("server: %s.sinks must be a sequence", path)
+	}
+	for index, sinkValue := range sinks {
+		sink, ok := sinkValue.(map[string]any)
+		if !ok {
+			return fmt.Errorf("server: %s.sinks[%d] must be a mapping", path, index)
+		}
+		for _, field := range []string{"kind", "store", "level"} {
+			if reference, exists := sink[field]; exists {
+				if err := validateFileStoreReference(fmt.Sprintf("%s.sinks[%d].%s", path, index, field), reference); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func validateAgentHostConfigShape(path string, value any) error {
 	agentHost, ok := value.(map[string]any)
 	if !ok {
-		return fmt.Errorf("server: agent_host must be a mapping")
+		return fmt.Errorf("server: %s must be a mapping", path)
 	}
 	for field := range agentHost {
 		switch field {
 		case "runtime_store", "flowcraft":
 		default:
-			return fmt.Errorf("server: agent_host has unknown field %q", field)
+			return fmt.Errorf("server: %s has unknown field %q", path, field)
 		}
 	}
 	if runtimeStore, exists := agentHost["runtime_store"]; exists {
-		if err := validateFileStoreReference("agent_host.runtime_store", runtimeStore); err != nil {
+		if err := validateFileStoreReference(path+".runtime_store", runtimeStore); err != nil {
 			return err
 		}
 	}
 	if flowcraftValue, exists := agentHost["flowcraft"]; exists {
+		if flowcraftValue == nil {
+			return nil
+		}
 		flowcraft, ok := flowcraftValue.(map[string]any)
 		if !ok {
-			return fmt.Errorf("server: agent_host.flowcraft must be a mapping")
+			return fmt.Errorf("server: %s.flowcraft must be a mapping", path)
 		}
 		for field := range flowcraft {
 			switch field {
 			case "state_store", "history_store":
 			default:
-				return fmt.Errorf("server: agent_host.flowcraft has unknown field %q", field)
+				return fmt.Errorf("server: %s.flowcraft has unknown field %q", path, field)
 			}
 		}
 		for _, field := range []string{"state_store", "history_store"} {
 			if reference, exists := flowcraft[field]; exists {
-				if err := validateFileStoreReference("agent_host.flowcraft."+field, reference); err != nil {
+				if err := validateFileStoreReference(path+".flowcraft."+field, reference); err != nil {
 					return err
 				}
 			}

@@ -78,29 +78,40 @@ function quote_yaml(value) {
   gsub(/"/, "\\\"", value)
   return "\"" value "\""
 }
- /^system_log:/ {
-  print "system_log:"
-  print "  level: info"
-  print "  query_store: logs"
-  print "  sinks:"
-  print "    - kind: stderr"
-  print "    - kind: store"
-  print "      store: logs"
-  skip_system_log = 1
-  next
-}
-skip_system_log && /^storage:/ { skip_system_log = 0 }
-skip_system_log { next }
-/^  peers:/ {
-  print "  logs:"
-  print "    kind: log"
+/^stores:/ {
+  print "  volc-logs:"
+  print "    kind: volc-tls"
   print "    volc:"
   print "      endpoint: " quote_yaml(endpoint)
   print "      region: " quote_yaml(region)
-  print "      topic_id: " quote_yaml(topic_id)
   print "      access_key_id: " quote_yaml(access_key_id)
   print "      access_key_secret: " quote_yaml(access_key_secret)
+  print ""
+  print $0
+  next
 }
+/^services:/ {
+  print "  logs:"
+  print "    kind: log.immutable"
+  print "    storage: volc-logs"
+  print "    volc:"
+  print "      topic_id: " quote_yaml(topic_id)
+  print ""
+  print $0
+  next
+}
+/^  system_log:/ {
+  print "  system_log:"
+  print "    level: info"
+  print "    query_store: logs"
+  print "    sinks:"
+  print "      - kind: stderr"
+  print "      - kind: store"
+  print "        store: logs"
+  skip_system_log = 1
+  next
+}
+skip_system_log { next }
 { print }
   ' "$workspace_dir/config.yaml" > "$workspace_dir/config.yaml.tmp"
   mv "$workspace_dir/config.yaml.tmp" "$workspace_dir/config.yaml"

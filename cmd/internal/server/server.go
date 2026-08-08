@@ -11,6 +11,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 
+	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
@@ -19,6 +20,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/jmoiron/sqlx"
 	"github.com/pion/webrtc/v4"
 )
 
@@ -141,7 +147,6 @@ func isPublicHTTPLoginRoute(method, path string) bool {
 type newServerOptions struct {
 	ICETCPListener net.Listener
 	Stores         *stores.Stores
-	StoreOptions   stores.Options
 }
 
 func New(cfg Config) (srv *CmdServer, err error) {
@@ -156,9 +161,9 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	ss := newOpts.Stores
 	ownsStores := false
 	if ss == nil {
-		ss, err = newStoreRegistryWithOptions(cfg, newOpts.StoreOptions)
+		ss, err = newStoreRegistry(cfg)
 		if err != nil {
-			return nil, fmt.Errorf("server: stores: %w", contextualizeAgentHostStoreBuildError(cfg, err))
+			return nil, fmt.Errorf("server: stores: %w", err)
 		}
 		ownsStores = true
 	}
@@ -177,11 +182,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		}
 	}()
 
-	peersKV, err := ss.KV(defaultPeersStore)
-	if err != nil {
-		return nil, fmt.Errorf("server: peers store: %w", err)
-	}
-
 	cmdSrv := &CmdServer{stores: ss, ownsStores: ownsStores, AdminPublicKey: cfg.AdminPublicKey, ServeToClients: cfg.ServeToClients}
 	pendingDeletionConfig, err := cfg.PendingDeletion.processorConfig()
 	if err != nil {
@@ -190,7 +190,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	var gizServer *gizclaw.Server
 	gizServer = &gizclaw.Server{
 		LocalStatic:           *cfg.KeyPair,
-		PeerStore:             peersKV,
 		MemoryRoot:            cfg.WorkspaceRoot,
 		BuildCommit:           BuildCommit,
 		PublicEndpoint:        cfg.Endpoint,
@@ -210,17 +209,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 			},
 		},
 	}
-	if cfg.SystemLog.QueryStore != "" {
-		logQuery, err := ss.Log(cfg.SystemLog.QueryStore)
-		if err != nil {
-			return nil, fmt.Errorf("server: log query store %q: %w", cfg.SystemLog.QueryStore, err)
-		}
-		gizServer.ServerLogQuery, err = gizclaw.NewServerLogQueryService(logQuery)
-		if err != nil {
-			return nil, fmt.Errorf("server: initialize log query service: %w", err)
-		}
-	}
-	if err := configureAgentHostStores(gizServer, ss, cfg); err != nil {
+	if err := configureServiceStores(gizServer, ss, cfg.Services); err != nil {
 		return nil, err
 	}
 	cmdSrv.Server = gizServer
@@ -250,120 +239,14 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	if !cfg.ServeToClients {
 		gizServer.PublicLoginAuthorizer = gizclaw.PrivateHTTPIngressLoginAuthorizer(gizServer)
 	}
-	if len(cfg.Storage) > 0 {
-		if gizServer.CredentialStore, err = ss.KV(defaultCredentialsStore); err != nil {
-			return nil, fmt.Errorf("server: credentials store: %w", err)
-		}
-		if gizServer.FirmwareStore, err = ss.KV(defaultFirmwaresStore); err != nil {
-			return nil, fmt.Errorf("server: firmwares store: %w", err)
-		}
-		if storeExists(cfg, defaultRuntimeProfilesStore) {
-			if gizServer.RuntimeProfileStore, err = ss.KV(defaultRuntimeProfilesStore); err != nil {
-				return nil, fmt.Errorf("server: runtime profiles store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultMemoryLayoutsStore) {
-			if gizServer.MemoryLayoutStore, err = ss.KV(defaultMemoryLayoutsStore); err != nil {
-				return nil, fmt.Errorf("server: memory layouts store: %w", err)
-			}
-		}
-		if gizServer.MiniMaxCredentialStore, err = ss.KV(defaultCredentialsStore); err != nil {
-			return nil, fmt.Errorf("server: minimax credentials store: %w", err)
-		}
-		if gizServer.MiniMaxTenantStore, err = ss.KV(defaultMiniMaxTenantsStore); err != nil {
-			return nil, fmt.Errorf("server: minimax tenants store: %w", err)
-		}
-		if storeExists(cfg, defaultDeepSeekTenantsStore) {
-			if gizServer.DeepSeekTenantStore, err = ss.KV(defaultDeepSeekTenantsStore); err != nil {
-				return nil, fmt.Errorf("server: deepseek tenants store: %w", err)
-			}
-		}
-		if gizServer.VoiceStore, err = ss.KV(defaultVoicesStore); err != nil {
-			return nil, fmt.Errorf("server: voices store: %w", err)
-		}
-		if gizServer.WorkspaceStore, err = ss.KV(defaultWorkspacesStore); err != nil {
-			return nil, fmt.Errorf("server: workspaces store: %w", err)
-		}
-		if gizServer.WorkflowStore, err = ss.KV(defaultWorkflowsStore); err != nil {
-			return nil, fmt.Errorf("server: workflows store: %w", err)
-		}
-		if storeExists(cfg, defaultContactsStore) {
-			if gizServer.ContactStore, err = ss.KV(defaultContactsStore); err != nil {
-				return nil, fmt.Errorf("server: contacts store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultFriendInviteTokensStore) {
-			if gizServer.FriendInviteTokenStore, err = ss.KV(defaultFriendInviteTokensStore); err != nil {
-				return nil, fmt.Errorf("server: friend invite tokens store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultFriendsStore) {
-			if gizServer.FriendStore, err = ss.KV(defaultFriendsStore); err != nil {
-				return nil, fmt.Errorf("server: friends store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultFriendGroupsStore) {
-			if gizServer.FriendGroupStore, err = ss.KV(defaultFriendGroupsStore); err != nil {
-				return nil, fmt.Errorf("server: friend_groups store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultFriendGroupInviteTokensStore) {
-			if gizServer.FriendGroupInviteTokenStore, err = ss.KV(defaultFriendGroupInviteTokensStore); err != nil {
-				return nil, fmt.Errorf("server: friend group invite tokens store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultFriendGroupMembersStore) {
-			if gizServer.FriendGroupMemberStore, err = ss.KV(defaultFriendGroupMembersStore); err != nil {
-				return nil, fmt.Errorf("server: friend group members store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultFriendGroupBelongsStore) {
-			if gizServer.FriendGroupBelongStore, err = ss.KV(defaultFriendGroupBelongsStore); err != nil {
-				return nil, fmt.Errorf("server: friend group belongs store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultPetDefsStore) {
-			if gizServer.PetDefStore, err = ss.KV(defaultPetDefsStore); err != nil {
-				return nil, fmt.Errorf("server: pet defs store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultBadgeDefsStore) {
-			if gizServer.BadgeDefStore, err = ss.KV(defaultBadgeDefsStore); err != nil {
-				return nil, fmt.Errorf("server: badge defs store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultGameDefsStore) {
-			if gizServer.GameDefStore, err = ss.KV(defaultGameDefsStore); err != nil {
-				return nil, fmt.Errorf("server: game defs store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultGameplayAssetsStore) {
-			if gizServer.GameplayAssets, err = ss.ObjectStore(defaultGameplayAssetsStore); err != nil {
-				return nil, fmt.Errorf("server: gameplay assets store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultWorkspaceAssetsStore) {
-			if gizServer.WorkspaceAssets, err = ss.ObjectStore(defaultWorkspaceAssetsStore); err != nil {
-				return nil, fmt.Errorf("server: workspace assets store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultGameplayDBStore) {
-			if gizServer.GameplayDB, err = ss.SQL(defaultGameplayDBStore); err != nil {
-				return nil, fmt.Errorf("server: gameplay db store: %w", err)
-			}
-		}
-	}
-	if storeExists(cfg, defaultMetricsStore) {
-		if gizServer.MetricsStore, err = ss.Metrics(defaultMetricsStore); err != nil {
-			return nil, fmt.Errorf("server: metrics store: %w", err)
-		}
+	if gizServer.MetricsStore != nil {
 		metricsShutdown, err = gizmetrics.InstallStore(gizServer.MetricsStore)
 		if err != nil {
 			return nil, fmt.Errorf("server: install metrics recorder: %w", err)
 		}
 		cmdSrv.metricsShutdown = metricsShutdown
 	}
-	if err := bootstrapEdgeNodes(context.Background(), &runtimepeer.Server{Store: gizServer.EffectivePeerStore()}, cfg.EdgeNodes); err != nil {
+	if err := bootstrapEdgeNodes(context.Background(), &runtimepeer.Server{Store: gizServer.PeerStore}, cfg.EdgeNodes); err != nil {
 		return nil, err
 	}
 	return cmdSrv, nil
@@ -435,116 +318,242 @@ func publicICEAddr(cfg Config) string {
 	return cfg.Endpoint
 }
 
-func storeExists(cfg Config, name string) bool {
-	_, ok := cfg.Stores[name]
-	return ok
+func serviceStoreReferenceError(path, name, capability string, err error) error {
+	return fmt.Errorf("server: %s %q requires %s: %w", path, name, capability, err)
 }
 
-func configureAgentHostStores(server *gizclaw.Server, registry *stores.Stores, cfg Config) error {
-	if cfg.AgentHost == nil {
-		return nil
+func resolveKVStore(registry *stores.Stores, path, name string) (kv.Store, error) {
+	store, err := registry.KV(name)
+	if err != nil {
+		return nil, serviceStoreReferenceError(path, name, "kv.Store", err)
 	}
+	return store, nil
+}
 
-	if name := cfg.AgentHost.RuntimeStore; name != "" {
-		runtimeStore, err := registry.ObjectStore(name)
-		if err != nil {
-			return agentHostStoreReferenceError("agent_host.runtime_store", name, "objectstore.ObjectStore", err)
-		}
-		server.AgentHostStore = runtimeStore
+func resolveObjectStore(registry *stores.Stores, path, name string) (objectstore.ObjectStore, error) {
+	store, err := registry.ObjectStore(name)
+	if err != nil {
+		return nil, serviceStoreReferenceError(path, name, "objectstore.ObjectStore", err)
 	}
-	if flowcraft := cfg.AgentHost.Flowcraft; flowcraft != nil {
-		if name := flowcraft.StateStore; name != "" {
-			stateStore, err := registry.KV(name)
+	return store, nil
+}
+
+func resolveSQLStore(registry *stores.Stores, path, name string) (*sqlx.DB, error) {
+	store, err := registry.SQL(name)
+	if err != nil {
+		return nil, serviceStoreReferenceError(path, name, "*sqlx.DB", err)
+	}
+	return store, nil
+}
+
+func resolveMutableLogStore(registry *stores.Stores, path, name string) (logstore.MutableStore, error) {
+	store, err := registry.MutableLog(name)
+	if err != nil {
+		return nil, serviceStoreReferenceError(path, name, "logstore.MutableStore", err)
+	}
+	return store, nil
+}
+
+func resolveMetricsStore(registry *stores.Stores, path, name string) (metrics.Store, error) {
+	store, err := registry.Metrics(name)
+	if err != nil {
+		return nil, serviceStoreReferenceError(path, name, "metrics.Store", err)
+	}
+	return store, nil
+}
+
+func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg *ServicesConfig) error {
+	var err error
+	server.PeerStore, err = resolveKVStore(registry, "services.peer.store", cfg.Peer.Store)
+	if err != nil {
+		return err
+	}
+	server.PeerRouteStore, err = resolveKVStore(registry, "services.peer.route_store", cfg.Peer.RouteStore)
+	if err != nil {
+		return err
+	}
+	server.PeerRunStore, err = resolveKVStore(registry, "services.peer.run_store", cfg.Peer.RunStore)
+	if err != nil {
+		return err
+	}
+	server.PublicLoginStore, err = resolveKVStore(registry, "services.public_login.store", cfg.PublicLogin.Store)
+	if err != nil {
+		return err
+	}
+	server.CredentialStore, err = resolveKVStore(registry, "services.credential.store", cfg.Credential.Store)
+	if err != nil {
+		return err
+	}
+	server.FirmwareStore, err = resolveKVStore(registry, "services.firmware.store", cfg.Firmware.Store)
+	if err != nil {
+		return err
+	}
+	server.RuntimeProfileStore, err = resolveKVStore(registry, "services.runtime_profile.store", cfg.RuntimeProfile.Store)
+	if err != nil {
+		return err
+	}
+	server.ModelStore, err = resolveKVStore(registry, "services.model.store", cfg.Model.Store)
+	if err != nil {
+		return err
+	}
+	server.VoiceStore, err = resolveKVStore(registry, "services.voice.store", cfg.Voice.Store)
+	if err != nil {
+		return err
+	}
+	server.MemoryLayoutStore, err = resolveKVStore(registry, "services.memory_layout.store", cfg.MemoryLayout.Store)
+	if err != nil {
+		return err
+	}
+	server.ProviderTenantStore, err = resolveKVStore(registry, "services.provider_tenants.generic_store", cfg.ProviderTenants.GenericStore)
+	if err != nil {
+		return err
+	}
+	server.MiniMaxTenantStore, err = resolveKVStore(registry, "services.provider_tenants.minimax_tenant_store", cfg.ProviderTenants.MiniMaxTenantStore)
+	if err != nil {
+		return err
+	}
+	server.DeepSeekTenantStore, err = resolveKVStore(registry, "services.provider_tenants.deepseek_tenant_store", cfg.ProviderTenants.DeepSeekTenantStore)
+	if err != nil {
+		return err
+	}
+	server.VolcTenantStore, err = resolveKVStore(registry, "services.provider_tenants.volc_tenant_store", cfg.ProviderTenants.VolcTenantStore)
+	if err != nil {
+		return err
+	}
+	server.MiniMaxCredentialStore, err = resolveKVStore(registry, "services.provider_tenants.credential_store", cfg.ProviderTenants.CredentialStore)
+	if err != nil {
+		return err
+	}
+	server.ProviderModelStore, err = resolveKVStore(registry, "services.provider_tenants.model_store", cfg.ProviderTenants.ModelStore)
+	if err != nil {
+		return err
+	}
+	server.ProviderVoiceStore, err = resolveKVStore(registry, "services.provider_tenants.voice_store", cfg.ProviderTenants.VoiceStore)
+	if err != nil {
+		return err
+	}
+	server.WorkflowStore, err = resolveKVStore(registry, "services.workflow.store", cfg.Workflow.Store)
+	if err != nil {
+		return err
+	}
+	server.WorkspaceStore, err = resolveKVStore(registry, "services.workspace.store", cfg.Workspace.Store)
+	if err != nil {
+		return err
+	}
+	workspaceWorkflow, err := resolveKVStore(registry, "services.workspace.workflow_store", cfg.Workspace.WorkflowStore)
+	if err != nil {
+		return err
+	}
+	server.WorkspaceWorkflowStore = workspaceWorkflow
+	server.WorkspaceAssets, err = resolveObjectStore(registry, "services.workspace.assets_store", cfg.Workspace.AssetsStore)
+	if err != nil {
+		return err
+	}
+	server.ToolStore, err = resolveKVStore(registry, "services.toolkit.store", cfg.Toolkit.Store)
+	if err != nil {
+		return err
+	}
+	server.ContactStore, err = resolveKVStore(registry, "services.contact.store", cfg.Contact.Store)
+	if err != nil {
+		return err
+	}
+	server.FriendStore, err = resolveKVStore(registry, "services.friend.store", cfg.Friend.Store)
+	if err != nil {
+		return err
+	}
+	server.FriendInviteTokenStore, err = resolveKVStore(registry, "services.friend.invite_token_store", cfg.Friend.InviteTokenStore)
+	if err != nil {
+		return err
+	}
+	server.FriendGroupStore, err = resolveKVStore(registry, "services.friend_group.store", cfg.FriendGroup.Store)
+	if err != nil {
+		return err
+	}
+	server.FriendGroupInviteTokenStore, err = resolveKVStore(registry, "services.friend_group.invite_token_store", cfg.FriendGroup.InviteTokenStore)
+	if err != nil {
+		return err
+	}
+	server.FriendGroupMemberStore, err = resolveKVStore(registry, "services.friend_group.member_store", cfg.FriendGroup.MemberStore)
+	if err != nil {
+		return err
+	}
+	server.FriendGroupBelongStore, err = resolveKVStore(registry, "services.friend_group.belong_store", cfg.FriendGroup.BelongStore)
+	if err != nil {
+		return err
+	}
+	if _, _, ok := kv.SharedAtomicStore(server.FriendGroupStore, server.FriendGroupInviteTokenStore, server.FriendGroupMemberStore, server.FriendGroupBelongStore); !ok {
+		return fmt.Errorf("server: services.friend_group Stores must share one atomic transaction boundary")
+	}
+	server.PetDefStore, err = resolveKVStore(registry, "services.gameplay.pet_def_store", cfg.Gameplay.PetDefStore)
+	if err != nil {
+		return err
+	}
+	server.BadgeDefStore, err = resolveKVStore(registry, "services.gameplay.badge_def_store", cfg.Gameplay.BadgeDefStore)
+	if err != nil {
+		return err
+	}
+	server.GameDefStore, err = resolveKVStore(registry, "services.gameplay.game_def_store", cfg.Gameplay.GameDefStore)
+	if err != nil {
+		return err
+	}
+	server.GameplayAssets, err = resolveObjectStore(registry, "services.gameplay.assets_store", cfg.Gameplay.AssetsStore)
+	if err != nil {
+		return err
+	}
+	server.GameplayDB, err = resolveSQLStore(registry, "services.gameplay.database_store", cfg.Gameplay.DatabaseStore)
+	if err != nil {
+		return err
+	}
+	if cfg.AgentHost != nil {
+		if cfg.AgentHost.RuntimeStore != "" {
+			server.AgentHostStore, err = resolveObjectStore(registry, "services.agent_host.runtime_store", cfg.AgentHost.RuntimeStore)
 			if err != nil {
-				return agentHostStoreReferenceError("agent_host.flowcraft.state_store", name, "kv.Store", err)
+				return err
 			}
-			server.FlowcraftState = stateStore
 		}
-		if name := flowcraft.HistoryStore; name != "" {
-			historyStore, err := registry.MutableLog(name)
-			if err != nil {
-				return agentHostStoreReferenceError("agent_host.flowcraft.history_store", name, "logstore.MutableStore", err)
+		if flowcraft := cfg.AgentHost.Flowcraft; flowcraft != nil {
+			if flowcraft.StateStore != "" {
+				server.FlowcraftState, err = resolveKVStore(registry, "services.agent_host.flowcraft.state_store", flowcraft.StateStore)
+				if err != nil {
+					return err
+				}
 			}
-			server.FlowcraftHistory = historyStore
+			if flowcraft.HistoryStore != "" {
+				server.FlowcraftHistory, err = resolveMutableLogStore(registry, "services.agent_host.flowcraft.history_store", flowcraft.HistoryStore)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if cfg.Metrics != nil {
+		server.MetricsStore, err = resolveMetricsStore(registry, "services.metrics.store", cfg.Metrics.Store)
+		if err != nil {
+			return err
+		}
+	}
+	if cfg.SystemLog != nil && cfg.SystemLog.QueryStore != "" {
+		queryStore, err := registry.Log(cfg.SystemLog.QueryStore)
+		if err != nil {
+			return serviceStoreReferenceError("services.system_log.query_store", cfg.SystemLog.QueryStore, "logstore.ImmutableStore", err)
+		}
+		server.ServerLogQuery, err = gizclaw.NewServerLogQueryService(queryStore)
+		if err != nil {
+			return fmt.Errorf("server: initialize log query service: %w", err)
+		}
+	}
+	if cfg.SystemLog != nil {
+		for index, sink := range cfg.SystemLog.Sinks {
+			if sink.Kind != logging.SinkStore {
+				continue
+			}
+			if _, err := registry.Log(sink.Store); err != nil {
+				path := fmt.Sprintf("services.system_log.sinks[%d].store", index)
+				return serviceStoreReferenceError(path, sink.Store, "logstore.ImmutableStore", err)
+			}
 		}
 	}
 	return nil
-}
-
-type agentHostStoreBinding struct {
-	path       string
-	name       string
-	capability string
-}
-
-func explicitAgentHostStoreBindings(cfg Config) []agentHostStoreBinding {
-	if cfg.AgentHost == nil {
-		return nil
-	}
-	bindings := make([]agentHostStoreBinding, 0, 6)
-	if name := cfg.AgentHost.RuntimeStore; name != "" {
-		bindings = append(bindings, agentHostStoreBinding{
-			path: "agent_host.runtime_store", name: name, capability: "objectstore.ObjectStore",
-		})
-	}
-	if flowcraft := cfg.AgentHost.Flowcraft; flowcraft != nil {
-		if name := flowcraft.StateStore; name != "" {
-			bindings = append(bindings, agentHostStoreBinding{
-				path: "agent_host.flowcraft.state_store", name: name, capability: "kv.Store",
-			})
-		}
-		if name := flowcraft.HistoryStore; name != "" {
-			bindings = append(bindings, agentHostStoreBinding{
-				path: "agent_host.flowcraft.history_store", name: name, capability: "logstore.MutableStore",
-			})
-		}
-	}
-	return bindings
-}
-
-func contextualizeAgentHostStoreBuildError(cfg Config, err error) error {
-	bindings := explicitAgentHostStoreBindings(cfg)
-	for _, binding := range bindings {
-		if logicalStoreErrorReferences(err, binding.name) {
-			return agentHostStoreReferenceError(binding.path, binding.name, binding.capability, err)
-		}
-	}
-
-	var physicalError *storage.ConfigError
-	if !errors.As(err, &physicalError) {
-		return err
-	}
-	for _, binding := range bindings {
-		storeConfig, ok := cfg.Stores[binding.name]
-		if !ok {
-			continue
-		}
-		physicalName := storeConfig.Storage
-		if physicalName == "" && len(cfg.Storage) == 0 {
-			physicalName = binding.name
-		}
-		if physicalName == physicalError.Name {
-			return agentHostStoreReferenceError(binding.path, binding.name, binding.capability, err)
-		}
-	}
-	return err
-}
-
-func logicalStoreErrorReferences(err error, name string) bool {
-	for {
-		var configError *stores.ConfigError
-		if !errors.As(err, &configError) {
-			return false
-		}
-		if configError.Name == name {
-			return true
-		}
-		err = configError.Err
-	}
-}
-
-func agentHostStoreReferenceError(path, name, capability string, err error) error {
-	return fmt.Errorf("server: %s %q requires %s: %w", path, name, capability, err)
 }
 
 type adminPublicKeySecurityPolicy struct {
@@ -560,26 +569,11 @@ func (p adminPublicKeySecurityPolicy) AllowService(publicKey giznet.PublicKey, s
 }
 
 func newStoreRegistry(cfg Config) (*stores.Stores, error) {
-	return newStoreRegistryContext(context.Background(), cfg)
-}
-
-func newStoreRegistryContext(ctx context.Context, cfg Config) (*stores.Stores, error) {
-	return newStoreRegistryWithOptionsContext(ctx, cfg, stores.Options{})
-}
-
-func newStoreRegistryWithOptions(cfg Config, options stores.Options) (*stores.Stores, error) {
-	return newStoreRegistryWithOptionsContext(context.Background(), cfg, options)
-}
-
-func newStoreRegistryWithOptionsContext(ctx context.Context, cfg Config, options stores.Options) (*stores.Stores, error) {
-	if len(cfg.Storage) == 0 {
-		return stores.NewWithOptions(ctx, cfg.Stores, options)
-	}
 	physical, err := storage.New(cfg.Storage)
 	if err != nil {
 		return nil, err
 	}
-	ss, err := stores.NewWithOwnedStorageOptions(ctx, physical, cfg.Stores, options)
+	ss, err := stores.NewWithOwnedStorage(physical, cfg.Stores)
 	if err != nil {
 		return nil, err
 	}

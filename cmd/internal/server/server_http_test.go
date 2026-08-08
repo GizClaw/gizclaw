@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -20,7 +21,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/pion/webrtc/v4"
 )
@@ -48,20 +48,17 @@ func TestCmdServerPrivateIngressRequiresAuthorizedSession(t *testing.T) {
 		t.Fatalf("GenerateKeyPair(client) error = %v", err)
 	}
 
-	srv, err := New(Config{
-		KeyPair:  serverKey,
-		Listen:   "127.0.0.1:0",
-		Endpoint: "127.0.0.1:0",
-		Stores: map[string]stores.Config{
-			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
-		},
-	})
+	cfg := validLayeredConfig(t.TempDir())
+	cfg.KeyPair = serverKey
+	cfg.Listen = "127.0.0.1:0"
+	cfg.Endpoint = "127.0.0.1:0"
+	srv, err := New(cfg)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
 	defer srv.Close()
 
-	peers := &peer.Server{Store: kv.Prefixed(srv.Server.PeerStore, kv.Key{"peers"})}
+	peers := &peer.Server{Store: srv.Server.PeerStore}
 	for _, item := range []apitypes.Peer{
 		{
 			PublicKey: adminKey.Public.String(),
@@ -244,20 +241,17 @@ func TestSideControlDirectTCPWhenServeToClientsEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(controller) error = %v", err)
 	}
-	srv, err := New(Config{
-		KeyPair:        serverKey,
-		Listen:         "127.0.0.1:0",
-		Endpoint:       "127.0.0.1:0",
-		ServeToClients: true,
-		Stores: map[string]stores.Config{
-			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
-		},
-	})
+	cfg := validLayeredConfig(t.TempDir())
+	cfg.KeyPair = serverKey
+	cfg.Listen = "127.0.0.1:0"
+	cfg.Endpoint = "127.0.0.1:0"
+	cfg.ServeToClients = true
+	srv, err := New(cfg)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
 	defer srv.Close()
-	peers := &peer.Server{Store: kv.Prefixed(srv.Server.PeerStore, kv.Key{"peers"})}
+	peers := &peer.Server{Store: srv.Server.PeerStore}
 	if _, err := peers.SavePeer(context.Background(), apitypes.Peer{
 		PublicKey: targetKey.Public.String(),
 		Role:      apitypes.PeerRoleClient,
@@ -405,21 +399,18 @@ func cmdServerTestCreateDeviceTokenURL(t *testing.T, baseURL, accessToken string
 	return token
 }
 
-func TestNewWithOptionsWiresLegacyMetricsStore(t *testing.T) {
-	srv, err := newWithOptions(Config{
-		Listen:   "127.0.0.1:0",
-		Endpoint: "127.0.0.1:0",
-		Stores: map[string]stores.Config{
-			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
-			defaultMetricsStore: {
-				Kind: stores.KindMetrics,
-				Prometheus: &metrics.PrometheusConfig{
-					RemoteWriteURL: "http://127.0.0.1:1/api/v1/write",
-					QueryURL:       "http://127.0.0.1:1",
-				},
-			},
+func TestNewWithOptionsWiresPrometheusMetricsStore(t *testing.T) {
+	cfg := validLayeredConfig(t.TempDir())
+	cfg.Storage["prometheus"] = storage.Config{
+		Kind: storage.KindPrometheus,
+		Prometheus: &metrics.PrometheusConfig{
+			RemoteWriteURL: "http://127.0.0.1:1/api/v1/write",
+			QueryURL:       "http://127.0.0.1:1",
 		},
-	}, newServerOptions{})
+	}
+	cfg.Stores["test-metrics"] = stores.Config{Kind: stores.KindMetrics, Storage: "prometheus"}
+	cfg.Services.Metrics = &SingleStoreConfig{Store: "test-metrics"}
+	srv, err := newWithOptions(cfg, newServerOptions{})
 	if err != nil {
 		t.Fatalf("newWithOptions() error = %v", err)
 	}
@@ -430,14 +421,10 @@ func TestNewWithOptionsWiresLegacyMetricsStore(t *testing.T) {
 }
 
 func TestNewWithOptionsInstallsAndFlushesMetricsRecorder(t *testing.T) {
-	srv, err := newWithOptions(Config{
-		Listen:   "127.0.0.1:0",
-		Endpoint: "127.0.0.1:0",
-		Stores: map[string]stores.Config{
-			defaultPeersStore:   {Kind: stores.KindKeyValue, Backend: "memory"},
-			defaultMetricsStore: {Kind: stores.KindMetrics, Backend: "memory"},
-		},
-	}, newServerOptions{})
+	cfg := validLayeredConfig(t.TempDir())
+	cfg.Stores["test-metrics"] = stores.Config{Kind: stores.KindMetrics, Memory: &struct{}{}}
+	cfg.Services.Metrics = &SingleStoreConfig{Store: "test-metrics"}
+	srv, err := newWithOptions(cfg, newServerOptions{})
 	if err != nil {
 		t.Fatalf("newWithOptions() error = %v", err)
 	}
@@ -472,13 +459,7 @@ func TestNewWithOptionsInstallsAndFlushesMetricsRecorder(t *testing.T) {
 }
 
 func TestNewWithOptionsWithoutMetricsStoreLeavesRecorderDisabled(t *testing.T) {
-	srv, err := newWithOptions(Config{
-		Listen:   "127.0.0.1:0",
-		Endpoint: "127.0.0.1:0",
-		Stores: map[string]stores.Config{
-			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
-		},
-	}, newServerOptions{})
+	srv, err := newWithOptions(validLayeredConfig(t.TempDir()), newServerOptions{})
 	if err != nil {
 		t.Fatalf("newWithOptions() error = %v", err)
 	}
@@ -514,14 +495,10 @@ func TestNewWithOptionsConcurrentMetricsInstallPreservesExistingRecorder(t *test
 		_ = existing.Close()
 	})
 
-	_, err = newWithOptions(Config{
-		Listen:   "127.0.0.1:0",
-		Endpoint: "127.0.0.1:0",
-		Stores: map[string]stores.Config{
-			defaultPeersStore:   {Kind: stores.KindKeyValue, Backend: "memory"},
-			defaultMetricsStore: {Kind: stores.KindMetrics, Backend: "memory"},
-		},
-	}, newServerOptions{})
+	cfg := validLayeredConfig(t.TempDir())
+	cfg.Stores["test-metrics"] = stores.Config{Kind: stores.KindMetrics, Memory: &struct{}{}}
+	cfg.Services.Metrics = &SingleStoreConfig{Store: "test-metrics"}
+	_, err = newWithOptions(cfg, newServerOptions{})
 	if !errors.Is(err, gizmetrics.ErrAlreadyInstalled) {
 		t.Fatalf("newWithOptions() error = %v, want %v", err, gizmetrics.ErrAlreadyInstalled)
 	}

@@ -1,192 +1,222 @@
 identity:
-  private-key: {{ quote .PrivateKey }}
-listen: {{ quote .Listen }}
-endpoint: {{ quote .Endpoint }}
-serve-to-clients: {{ .ServeToClients }}
-{{ if .AdminPublicKey }}
-admin-public-key: {{ quote .AdminPublicKey }}
-{{ end }}
+  private-key: ${GIZCLAW_SERVER_PRIVATE_KEY}
+admin-public-key: ${GIZCLAW_ADMIN_PUBLIC_KEY}
 
+listen: 0.0.0.0:9820
+endpoint: gizclaw.example.com:9820
+serve-to-clients: true
+
+# Dynamic physical Data Connector registry.
 storage:
-  local-kv:
+  main-kv:
     kind: keyvalue
     badger:
       dir: data/kv
-
-  local-files:
-    kind: objectstore
-    fs:
-      dir: data/objects
 
   gameplay-db:
     kind: sql
     sqlite:
       dir: data/gameplay.sqlite
 
+  local-assets:
+    kind: objectstore
+    fs:
+      dir: data/files
+
+  volc-logs:
+    kind: volc-tls
+    volc:
+      endpoint: ${GIZCLAW_VOLC_LOG_ENDPOINT}
+      region: ${GIZCLAW_VOLC_LOG_REGION}
+      access_key_id: ${GIZCLAW_VOLC_LOG_ACCESS_KEY_ID}
+      access_key_secret: ${GIZCLAW_VOLC_LOG_ACCESS_KEY_SECRET}
+
+  analytics:
+    kind: sql
+    clickhouse:
+      dsn: ${GIZCLAW_CLICKHOUSE_DSN}
+
+# Dynamic logical data-access registry.
 stores:
+  logs:
+    kind: log.immutable
+    storage: volc-logs
+    volc:
+      topic_id: ${GIZCLAW_VOLC_LOG_TOPIC_ID}
+
+  metrics:
+    kind: metrics
+    storage: analytics
+    clickhouse:
+      table: gizclaw_metrics
+
+  flowcraft-history:
+    kind: log.mutable
+    storage: analytics
+    clickhouse:
+      database: default
+      table: gizclaw_flowcraft_history
+
+  flowcraft-state:
+    kind: keyvalue
+    storage: main-kv
+    prefix: flowcraft-state
+
   peers:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: peers
 
   peer-routes:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: peer-routes
 
   peer-run:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: peer-run
 
   public-login:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: public-login
-
-  flowcraft-state:
-    kind: keyvalue
-    storage: local-kv
-    prefix: flowcraft-state
 
   credentials:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: credentials
 
   firmwares:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: firmwares
 
   runtime-profiles:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: runtime-profiles
 
   models:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: models
 
   voices:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: voices
 
   memory-layouts:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: memory-layouts
 
   provider-tenants:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: provider-tenants
 
   minimax-tenants:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: minimax-tenants
 
   deepseek-tenants:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: deepseek-tenants
 
   volc-tenants:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: volc-tenants
 
   workflows:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: workflows
 
   workspaces:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: workspaces
 
   tools:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: tools
 
   contacts:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: contacts
 
   friend-invite-tokens:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: friend-invite-tokens
 
   friends:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: friends
 
   friend-groups:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: friend-groups
 
   friend-group-invite-tokens:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: friend-group-invite-tokens
 
   friend-group-members:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: friend-group-members
 
   friend-group-belongs:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: friend-group-belongs
 
   pet-defs:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: pet-defs
 
   badge-defs:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: badge-defs
 
   game-defs:
     kind: keyvalue
-    storage: local-kv
+    storage: main-kv
     prefix: game-defs
 
   agenthost:
     kind: objectstore
-    storage: local-files
+    storage: local-assets
     prefix: agenthost
 
   workspace-assets:
     kind: objectstore
-    storage: local-files
+    storage: local-assets
     prefix: workspaces
 
   gameplay-assets:
     kind: objectstore
-    storage: local-files
+    storage: local-assets
     prefix: gameplay
 
   gameplay-db:
     kind: sql
     storage: gameplay-db
 
-  metrics:
-    kind: metrics
-    memory: {}
-
+# Fixed, strictly typed service-to-Store bindings.
 services:
   peer:
     store: peers
@@ -258,11 +288,15 @@ services:
     runtime_store: agenthost
     flowcraft:
       state_store: flowcraft-state
+      history_store: flowcraft-history
 
   metrics:
     store: metrics
 
   system_log:
     level: info
+    query_store: logs
     sinks:
       - kind: stderr
+      - kind: store
+        store: logs

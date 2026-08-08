@@ -147,10 +147,18 @@ func TestModelServiceResponseErrors(t *testing.T) {
 }
 
 func newModelManager() *Manager {
-	store := kv.NewMemory(nil)
+	base := kv.NewMemory(nil)
 	return New(Services{
-		Models:          &model.Server{Store: store},
-		ProviderTenants: &providertenants.Server{ModelStore: store},
+		Models: &model.Server{Store: kv.Prefixed(base, kv.Key{"models"})},
+		ProviderTenants: &providertenants.Server{
+			Store:               kv.Prefixed(base, kv.Key{"provider-tenants"}),
+			ModelStore:          kv.Prefixed(base, kv.Key{"models"}),
+			TenantStore:         kv.Prefixed(base, kv.Key{"minimax-tenants"}),
+			DeepSeekTenantStore: kv.Prefixed(base, kv.Key{"deepseek-tenants"}),
+			VolcTenantStore:     kv.Prefixed(base, kv.Key{"volc-tenants"}),
+			VoiceStore:          kv.Prefixed(base, kv.Key{"voices"}),
+			CredentialStore:     kv.Prefixed(base, kv.Key{"credentials"}),
+		},
 	})
 }
 

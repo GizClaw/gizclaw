@@ -14,8 +14,8 @@ func TestServerDeepSeekTenantCRUDAndPagination(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 5, 21, 9, 0, 0, 0, time.UTC)
 	srv := &Server{
-		Store: kv.NewMemory(nil),
-		Now:   func() time.Time { return now },
+		DeepSeekTenantStore: kv.NewMemory(nil),
+		Now:                 func() time.Time { return now },
 	}
 
 	body := deepSeekTenantUpsert("default")
@@ -135,7 +135,7 @@ func TestServerDeepSeekTenantUsesDedicatedStore(t *testing.T) {
 
 func TestServerDeepSeekTenantValidationAndStoreErrors(t *testing.T) {
 	ctx := context.Background()
-	srv := &Server{Store: kv.NewMemory(nil)}
+	srv := &Server{DeepSeekTenantStore: kv.NewMemory(nil)}
 	for _, tc := range []struct {
 		name string
 		body adminhttp.DeepSeekTenantUpsert

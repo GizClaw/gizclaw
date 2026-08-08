@@ -38,9 +38,6 @@ func TestRootHelp(t *testing.T) {
 	if !strings.Contains(out, "gen-key") {
 		t.Fatalf("help missing 'gen-key': %s", out)
 	}
-	if !strings.Contains(out, "migrate") {
-		t.Fatalf("help missing 'migrate': %s", out)
-	}
 	if !strings.Contains(out, "connect") {
 		t.Fatalf("help missing 'connect': %s", out)
 	}

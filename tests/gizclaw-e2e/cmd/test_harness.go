@@ -317,7 +317,6 @@ func (h *Harness) StartServerFromFixture(fixtureName string) {
 	}
 	h.lastFixtureName = fixtureName
 	h.PrepareServerWorkspaceFromFixture(fixtureName)
-	h.MigrateServerWorkspace()
 	h.startServerProcess()
 }
 
@@ -335,13 +334,6 @@ func (h *Harness) RestartServer() {
 
 	h.StopServer()
 	h.startServerProcess()
-}
-
-func (h *Harness) MigrateServerWorkspace() {
-	h.t.Helper()
-
-	result := h.RunCLI("migrate", "--workspace", h.ServerWorkspace)
-	result.MustSucceed(h.t)
 }
 
 func (h *Harness) StopServer() {

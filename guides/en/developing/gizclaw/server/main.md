@@ -2,33 +2,46 @@
 
 `Implementation file: server.go`
 
-Define a reusable `Server` composition root: receive identity, Peer listener, stores and running configuration; initialize services in various fields; start HTTP and Peer listener; process Peer event; manage background cleanup, shutdown sequence and module store fallback.
+Defines a reusable `Server` composition root: receive identity, Peer listeners, explicit Store capabilities, and runtime configuration; initialize services; start HTTP and Peer listeners; process Peer events; and manage shutdown. It has no Store-name or prefix fallback.
 
 It can combine multiple fields, but single field resource, validation, storage and lifecycle should stay in `services/<domain>`. Process configuration and startup belong to `cmd/internal/server`.
 
-## AgentHost store bindings
+## Storage, Store, and service composition
 
-Server Config binds AgentHost persistence capabilities to logical names from `stores`:
+Server configuration has three distinct layers:
 
-```yaml
-agent_host:
-  runtime_store: agenthost
-  flowcraft:
-    state_store: flowcraft-state
-    history_store: flowcraft-history
-```
-
-The references work with both the layered `storage` plus `stores` layout and the supported one-layer `stores` layout. Backend configuration remains on the referenced Store; `agent_host` never contains a directory, DSN, credential, prefix, scope, or inline backend.
-
-| Field | Required capability | Supported backend |
+| Layer | Shape | Ownership |
 | --- | --- | --- |
-| `agent_host.runtime_store` | `objectstore.ObjectStore` | filesystem ObjectStore |
-| `agent_host.flowcraft.state_store` | `kv.Store` | Memory or Badger KV |
-| `agent_host.flowcraft.history_store` | `logstore.MutableStore` | ClickHouse LogStore; immutable Volc LogStore is rejected |
+| `storage` | dynamic map | Physical connection, credentials, pool/client construction, readiness, and close |
+| `stores` | dynamic map | Logical interface kind and prefix/table/topic scope |
+| `services` | fixed typed structure | Built-in service fields that name compatible Stores |
 
-`agent_host` is the only source of these bindings. Omitting the whole block or a nested reference disables that optional capability; Store names have no reserved binding semantics. An unknown name, wrong Store kind, immutable History Store, unknown field, or empty reference fails Server construction instead of falling back.
+Registry names are exact and case-sensitive. The Server never assigns meaning to names such as `peers` or `metrics`; every built-in consumer uses a fixed `services` field. Core service blocks are required. `services.agent_host`, `services.metrics`, and `services.system_log` are optional. Omitted SystemLog selects info-level stderr.
 
-`agent_host.flowcraft.memory_store`, `agent_host.eino.memory_store`, `memory_objects_store`, and `stores.kind: memory` are not valid Server Config. The strict parser rejects those legacy fields. Admin `MemoryLayout` owns Memory policy, while RuntimeProfile `resources.memories` owns concrete connections. The Server provides only the MemoryLayout KV store and Server Workspace root; `flowcraft_bbh` constructs managed persistence under that root. See [Memory Store](/en/developing/stores/memory) for the complete contract.
+The main capability groups are:
+
+| Service fields | Capability |
+| --- | --- |
+| Peer, login, credential, firmware, RuntimeProfile, model, voice, MemoryLayout, provider tenants, workflow, toolkit, contact, friend, and Friend Group references | `keyvalue` |
+| `services.workspace.assets_store`, `services.gameplay.assets_store`, `services.agent_host.runtime_store` | `objectstore` |
+| `services.gameplay.database_store` | `sql` |
+| `services.agent_host.flowcraft.history_store` | `log.mutable` |
+| `services.metrics.store` | `metrics` |
+| `services.system_log.query_store` and Store sinks | immutable Log capability |
+
+The four Friend Group relationship Stores must share one atomic KV transaction boundary. Shared ObjectStores require non-empty, clean, non-overlapping prefixes. Missing references, wrong kinds, immutable Flowcraft History, and unknown fields fail before listeners open.
+
+Startup strictly parses the configuration, opens physical connectors, builds logical Stores, resolves service capabilities, lets active SQL-backed services validate their schemas, installs logging and metrics, and only then opens listeners. Logical Stores never close borrowed connectors. Shutdown closes logical wrappers before physical connectors.
+
+The old one-layer Store configuration, top-level pseudo-service blocks, implicit Store names, generic `kind: log`, and `gizclaw migrate` command are unsupported. Recreate development workspaces with the current configuration; no old data is imported or transformed. Gameplay and ClickHouse Store table initialization remain active schema lifecycle, not old-data migration.
+
+### Complete configuration
+
+The following development deployment uses Badger for KV state, SQLite for Gameplay SQL, a filesystem ObjectStore, Volc TLS logs, and one ClickHouse pool shared by Metrics and Flowcraft History. Production can replace `storage.gameplay-db.sqlite` with a `postgres.dsn` block without changing the logical Store or service binding.
+
+<<< ../../../../snippets/server-storage-stores-services.yaml{yaml}
+
+`memory.Store` remains selected by RuntimeProfile and MemoryLayout; `stores.kind: memory` is invalid. See [Memory Store](/en/developing/stores/memory).
 
 Each Workspace Agent generation resolves its memory alias from the current RuntimeProfile snapshot. Construction failure fails Agent initialization or reload explicitly. Server shutdown closes the shared Memory registry. Workspace reload and release of the final Agent reference close that generation's lease without migrating, merging, copying, or deleting durable data.
 

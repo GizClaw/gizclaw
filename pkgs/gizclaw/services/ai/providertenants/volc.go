@@ -974,17 +974,8 @@ func volcTenantKey(id string) kv.Key {
 }
 
 func (s *Server) volcTenantStore() (kv.Store, error) {
-	if s == nil {
+	if s == nil || s.VolcTenantStore == nil {
 		return nil, errors.New("Volcengine tenant store not configured")
 	}
-	if s.VolcTenantStore != nil {
-		return s.VolcTenantStore, nil
-	}
-	if s.TenantStore != nil {
-		return s.TenantStore, nil
-	}
-	if s.Store == nil {
-		return nil, errors.New("Volcengine tenant store not configured")
-	}
-	return s.Store, nil
+	return s.VolcTenantStore, nil
 }

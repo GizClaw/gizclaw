@@ -43,7 +43,7 @@ func PrepareConfig(cfg Config) (Config, error) {
 	} else {
 		cfg.Sinks = append([]SinkConfig(nil), cfg.Sinks...)
 		if len(cfg.Sinks) == 0 {
-			return Config{}, fmt.Errorf("system_log.sinks must contain at least one sink")
+			return Config{}, fmt.Errorf("services.system_log.sinks must contain at least one sink")
 		}
 	}
 	if strings.TrimSpace(cfg.Level) == "" {
@@ -52,7 +52,7 @@ func PrepareConfig(cfg Config) (Config, error) {
 		cfg.Level = strings.TrimSpace(os.ExpandEnv(cfg.Level))
 	}
 	if _, err := ParseLevel(cfg.Level); err != nil {
-		return Config{}, fmt.Errorf("system_log.level: %w", err)
+		return Config{}, fmt.Errorf("services.system_log.level: %w", err)
 	}
 	cfg.QueryStore = strings.TrimSpace(os.ExpandEnv(cfg.QueryStore))
 	seen := make(map[string]struct{}, len(cfg.Sinks))
@@ -66,31 +66,31 @@ func PrepareConfig(cfg Config) (Config, error) {
 			sink.Level = cfg.Level
 		}
 		if _, err := ParseLevel(sink.Level); err != nil {
-			return Config{}, fmt.Errorf("system_log.sinks[%d].level: %w", index, err)
+			return Config{}, fmt.Errorf("services.system_log.sinks[%d].level: %w", index, err)
 		}
 		key := sink.Kind
 		switch sink.Kind {
 		case SinkStderr:
 			if sink.Store != "" {
-				return Config{}, fmt.Errorf("system_log.sinks[%d].store is invalid for stderr", index)
+				return Config{}, fmt.Errorf("services.system_log.sinks[%d].store is invalid for stderr", index)
 			}
 		case SinkStore:
 			if sink.Store == "" {
-				return Config{}, fmt.Errorf("system_log.sinks[%d].store is required", index)
+				return Config{}, fmt.Errorf("services.system_log.sinks[%d].store is required", index)
 			}
 			key += ":" + sink.Store
 			storeSinks[sink.Store] = struct{}{}
 		default:
-			return Config{}, fmt.Errorf("system_log.sinks[%d].kind must be stderr or store", index)
+			return Config{}, fmt.Errorf("services.system_log.sinks[%d].kind must be stderr or store", index)
 		}
 		if _, duplicate := seen[key]; duplicate {
-			return Config{}, fmt.Errorf("system_log.sinks[%d] duplicates %q", index, key)
+			return Config{}, fmt.Errorf("services.system_log.sinks[%d] duplicates %q", index, key)
 		}
 		seen[key] = struct{}{}
 	}
 	if cfg.QueryStore != "" {
 		if _, exists := storeSinks[cfg.QueryStore]; !exists {
-			return Config{}, fmt.Errorf("system_log.query_store %q must reference a configured store sink", cfg.QueryStore)
+			return Config{}, fmt.Errorf("services.system_log.query_store %q must reference a configured store sink", cfg.QueryStore)
 		}
 	}
 	return cfg, nil
