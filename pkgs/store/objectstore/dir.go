@@ -1,8 +1,6 @@
 package objectstore
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +12,8 @@ import (
 )
 
 // Dir stores objects on the local filesystem rooted at the given directory.
+// It is a path-based convenience adapter; each operation delegates to the same
+// rooted implementation used by Storage-backed ObjectStores.
 //
 // Object names are slash-separated keys. Directories are implementation detail;
 // callers should treat this as object storage, not as a general filesystem.
@@ -21,220 +21,137 @@ type Dir string
 
 var _ ObjectStore = Dir("")
 
-const (
-	metadataRoot  = ".objectstore-meta"
-	putTempPrefix = ".objectstore-put-"
-)
-
-type objectMetadata struct {
-	Name     string    `json:"name"`
-	Deadline time.Time `json:"deadline"`
-}
-
-func (d Dir) Get(name string) (io.ReadCloser, error) {
-	name, full, err := d.absName(name, false)
+func (d Dir) Get(name string) (reader io.ReadCloser, err error) {
+	name, err = cleanName(name, false)
 	if err != nil {
 		return nil, err
 	}
-	if expired, err := d.expired(name, time.Now()); err != nil {
+	store, root, err := d.open(false)
+	if err != nil {
 		return nil, err
-	} else if expired {
-		_ = d.Delete(name)
-		return nil, fs.ErrNotExist
 	}
-	return os.Open(full)
-}
-
-func (d Dir) Put(name string, r io.Reader) error {
-	return d.put(name, r, time.Time{})
-}
-
-func (d Dir) PutWithDeadline(name string, r io.Reader, deadline time.Time) error {
-	return d.put(name, r, deadline)
-}
-
-func (d Dir) PutWithTTL(name string, r io.Reader, ttl time.Duration) error {
-	if ttl <= 0 {
-		return fmt.Errorf("objectstore: ttl must be positive")
+	reader, err = store.Get(name)
+	if closeErr := root.Close(); closeErr != nil {
+		if reader != nil {
+			_ = reader.Close()
+		}
+		return nil, errors.Join(err, closeErr)
 	}
-	return d.put(name, r, time.Now().Add(ttl))
+	return reader, err
 }
 
-func (d Dir) put(name string, r io.Reader, deadline time.Time) error {
-	name, full, err := d.absName(name, false)
+func (d Dir) Put(name string, reader io.Reader) error {
+	name, err := cleanName(name, false)
+	if err != nil {
+		return err
+	}
+	return d.use(true, func(store *Root) error {
+		return store.Put(name, reader)
+	})
+}
+
+func (d Dir) PutWithDeadline(name string, reader io.Reader, deadline time.Time) error {
+	name, err := cleanName(name, false)
 	if err != nil {
 		return err
 	}
 	if !deadline.IsZero() && !deadline.After(time.Now()) {
-		return fmt.Errorf("objectstore: deadline must be in the future")
+		return errors.New("objectstore: deadline must be in the future")
 	}
-	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-		return err
+	return d.use(true, func(store *Root) error {
+		return store.PutWithDeadline(name, reader, deadline)
+	})
+}
+
+func (d Dir) PutWithTTL(name string, reader io.Reader, ttl time.Duration) error {
+	if ttl <= 0 {
+		return errors.New("objectstore: ttl must be positive")
 	}
-	stagingDir := filepath.Join(d.metadataRoot(), "put")
-	if err := os.MkdirAll(stagingDir, 0o755); err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(stagingDir, putTempPrefix+"*")
+	name, err := cleanName(name, false)
 	if err != nil {
 		return err
 	}
-	tmpName := tmp.Name()
-	defer func() {
-		_ = os.Remove(tmpName)
-	}()
-	if _, err := io.Copy(tmp, r); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	backupName := tmpName + ".backup"
-	hadOld := false
-	if info, err := os.Lstat(full); err == nil {
-		if !info.Mode().IsRegular() {
-			return fmt.Errorf("objectstore: object path %q is not a regular file", name)
-		}
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-	if err := os.Rename(full, backupName); err == nil {
-		hadOld = true
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-	defer func() {
-		_ = os.Remove(backupName)
-	}()
-	if err := os.Rename(tmpName, full); err != nil {
-		if hadOld {
-			return errors.Join(err, os.Rename(backupName, full))
-		}
-		return err
-	}
-	if err := d.writeMetadata(name, deadline); err != nil {
-		rollbackErr := os.Remove(full)
-		if os.IsNotExist(rollbackErr) {
-			rollbackErr = nil
-		}
-		if hadOld {
-			if restoreErr := os.Rename(backupName, full); restoreErr != nil {
-				rollbackErr = errors.Join(rollbackErr, restoreErr)
-			}
-		}
-		return errors.Join(err, rollbackErr)
-	}
-	return nil
+	return d.use(true, func(store *Root) error {
+		return store.PutWithTTL(name, reader, ttl)
+	})
 }
 
 func (d Dir) Delete(name string) error {
-	name, full, err := d.absName(name, false)
+	name, err := cleanName(name, false)
 	if err != nil {
 		return err
 	}
-	err = os.Remove(full)
-	if os.IsNotExist(err) {
-		err = nil
-	}
-	if metaErr := d.deleteMetadata(name); err == nil {
-		err = metaErr
+	err = d.use(false, func(store *Root) error {
+		return store.Delete(name)
+	})
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
 	}
 	return err
 }
 
 func (d Dir) DeletePrefix(prefix string) error {
 	prefix, err := cleanName(prefix, true)
-	if err != nil {
+	if err != nil || prefix == "" {
 		return err
 	}
-	if prefix == "" {
+	err = d.use(false, func(store *Root) error {
+		return store.DeletePrefix(prefix)
+	})
+	if errors.Is(err, fs.ErrNotExist) {
 		return nil
-	}
-	full := d.join(prefix)
-	err = os.RemoveAll(full)
-	if os.IsNotExist(err) {
-		err = nil
-	}
-	if metaErr := d.deleteMetadataPrefix(prefix); err == nil {
-		err = metaErr
 	}
 	return err
 }
 
-func (d Dir) List(prefix string) ([]ObjectInfo, error) {
-	prefix, err := cleanName(prefix, true)
+func (d Dir) List(prefix string) (items []ObjectInfo, err error) {
+	prefix, err = cleanName(prefix, true)
 	if err != nil {
 		return nil, err
 	}
-	root := d.join(prefix)
-	var out []ObjectInfo
-	now := time.Now()
-	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
-			return err
-		}
-		if entry.IsDir() {
-			if path == d.metadataRoot() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		info, err := entry.Info()
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(d.root(), path)
-		if err != nil {
-			return err
-		}
-		name := filepath.ToSlash(rel)
-		deadline, expired, err := d.deadline(name, now)
-		if err != nil {
-			return err
-		}
-		if expired {
-			_ = d.Delete(name)
-			return nil
-		}
-		out = append(out, ObjectInfo{Name: name, Size: info.Size(), Deadline: deadline})
-		return nil
-	})
-	if os.IsNotExist(err) {
+	store, root, err := d.open(false)
+	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
-	return out, err
-}
-
-func (d Dir) LocalDir() (string, bool) {
-	return d.root(), true
-}
-
-func (d Dir) abs(name string, allowEmpty bool) (string, error) {
-	_, full, err := d.absName(name, allowEmpty)
-	return full, err
-}
-
-func (d Dir) absName(name string, allowEmpty bool) (string, string, error) {
-	name, err := cleanName(name, allowEmpty)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
-	return name, d.join(name), nil
+	defer func() {
+		err = errors.Join(err, root.Close())
+	}()
+	return store.List(prefix)
 }
 
-func (d Dir) join(name string) string {
-	if name == "" {
-		return d.root()
+func (d Dir) LocalDir() (string, bool) { return d.root(), true }
+
+func (d Dir) use(create bool, operation func(*Root) error) (err error) {
+	store, root, err := d.open(create)
+	if err != nil {
+		return err
 	}
-	return filepath.Join(d.root(), filepath.FromSlash(name))
+	defer func() {
+		err = errors.Join(err, root.Close())
+	}()
+	return operation(store)
+}
+
+func (d Dir) open(create bool) (*Root, *os.Root, error) {
+	dir := d.root()
+	if create {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, nil, err
+		}
+	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, nil, err
+	}
+	store, err := NewRoot(root)
+	if err != nil {
+		_ = root.Close()
+		return nil, nil, err
+	}
+	return store, root, nil
 }
 
 func (d Dir) root() string {
@@ -244,122 +161,21 @@ func (d Dir) root() string {
 	return string(d)
 }
 
-func (d Dir) metadataRoot() string {
-	return filepath.Join(d.root(), metadataRoot)
+func (d Dir) join(name string) string {
+	if name == "" {
+		return d.root()
+	}
+	return filepath.Join(d.root(), filepath.FromSlash(name))
 }
 
-func (d Dir) metadataPath(name string) string {
-	encoded := base64.RawURLEncoding.EncodeToString([]byte(name))
-	return filepath.Join(d.metadataRoot(), "expires", encoded+".json")
-}
+func (d Dir) metadataRoot() string { return d.join(metadataRoot) }
+
+func (d Dir) metadataPath(name string) string { return d.join(metadataName(name)) }
 
 func (d Dir) writeMetadata(name string, deadline time.Time) error {
-	path := d.metadataPath(name)
-	if deadline.IsZero() {
-		err := os.Remove(path)
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	data, err := json.Marshal(objectMetadata{Name: name, Deadline: deadline.UTC()})
-	if err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".metadata-*")
-	if err != nil {
-		return err
-	}
-	tmpName := tmp.Name()
-	defer func() {
-		_ = os.Remove(tmpName)
-	}()
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmpName, path)
-}
-
-func (d Dir) deleteMetadata(name string) error {
-	err := os.Remove(d.metadataPath(name))
-	if os.IsNotExist(err) {
-		return nil
-	}
-	return err
-}
-
-func (d Dir) deleteMetadataPrefix(prefix string) error {
-	root := filepath.Join(d.metadataRoot(), "expires")
-	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
-			return err
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		meta, err := readMetadataFile(path)
-		if err != nil {
-			return err
-		}
-		if meta.Name == prefix || strings.HasPrefix(meta.Name, prefix+"/") {
-			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-				return err
-			}
-		}
-		return nil
+	return d.use(true, func(store *Root) error {
+		return store.writeMetadata(name, deadline)
 	})
-	if os.IsNotExist(err) {
-		return nil
-	}
-	return err
-}
-
-func (d Dir) expired(name string, now time.Time) (bool, error) {
-	_, expired, err := d.deadline(name, now)
-	return expired, err
-}
-
-func (d Dir) deadline(name string, now time.Time) (time.Time, bool, error) {
-	meta, err := readMetadataFile(d.metadataPath(name))
-	if os.IsNotExist(err) {
-		return time.Time{}, false, nil
-	}
-	if err != nil {
-		return time.Time{}, false, err
-	}
-	if meta.Name != name {
-		return time.Time{}, false, fmt.Errorf("objectstore: metadata name mismatch for %q", name)
-	}
-	if meta.Deadline.IsZero() {
-		return time.Time{}, false, nil
-	}
-	return meta.Deadline, !now.Before(meta.Deadline), nil
-}
-
-func readMetadataFile(path string) (objectMetadata, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return objectMetadata{}, err
-	}
-	var meta objectMetadata
-	if err := json.Unmarshal(data, &meta); err != nil {
-		return objectMetadata{}, err
-	}
-	return meta, nil
 }
 
 func cleanName(name string, allowEmpty bool) (string, error) {

@@ -14,6 +14,16 @@ import (
 	"time"
 )
 
+const (
+	metadataRoot  = ".objectstore-meta"
+	putTempPrefix = ".objectstore-put-"
+)
+
+type objectMetadata struct {
+	Name     string    `json:"name"`
+	Deadline time.Time `json:"deadline"`
+}
+
 // Root is an ObjectStore that borrows an os.Root. It never closes the root.
 type Root struct {
 	root *os.Root
@@ -188,6 +198,10 @@ func (r *Root) List(prefix string) ([]ObjectInfo, error) {
 func (r *Root) LocalDir() (string, bool) { return r.root.Name(), true }
 
 func (r *Root) metadataPath(name string) string {
+	return metadataName(name)
+}
+
+func metadataName(name string) string {
 	encoded := base64.RawURLEncoding.EncodeToString([]byte(name))
 	return metadataRoot + "/expires/" + encoded + ".json"
 }
