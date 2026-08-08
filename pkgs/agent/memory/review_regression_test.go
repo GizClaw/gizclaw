@@ -8,7 +8,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/agent/recall"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 type starvationEmbedder struct{}
@@ -49,7 +48,7 @@ func TestRecallPerPersonaVecIsolation(t *testing.T) {
 	host, err := NewHost(ctx, HostConfig{
 		Store:       store,
 		Embedder:    starvationEmbedder{},
-		ObjectStore: objectstore.Dir(t.TempDir()),
+		ObjectStore: newTestObjectStore(t),
 		Separator:   testSep,
 	})
 	if err != nil {
@@ -93,7 +92,7 @@ func TestHostDeleteClearsPersonaData(t *testing.T) {
 	host, err := NewHost(ctx, HostConfig{
 		Store:       store,
 		Embedder:    starvationEmbedder{},
-		ObjectStore: objectstore.Dir(t.TempDir()),
+		ObjectStore: newTestObjectStore(t),
 		Separator:   testSep,
 	})
 	if err != nil {

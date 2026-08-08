@@ -41,7 +41,7 @@
 //	store := kv.NewBadger(dir, &kv.Options{Separator: 0x1F})
 //	host, err := memory.NewHost(ctx, memory.HostConfig{
 //	    Store:       store,
-//	    ObjectStore: objectstore.Dir(dir),
+//	    ObjectStore: objects,
 //	    Separator:   0x1F,
 //	})
 //

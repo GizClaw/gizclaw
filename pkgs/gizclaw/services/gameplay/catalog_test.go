@@ -68,7 +68,7 @@ func TestCatalogNormalizesAndBoundsBadgeRewardPrompt(t *testing.T) {
 func TestCatalogPetDefPixaUploadRejectsBeforePublication(t *testing.T) {
 	ctx := context.Background()
 	now := time.Unix(1, 0).UTC()
-	assets := objectstore.Dir(t.TempDir())
+	assets := newTestObjectStore(t)
 	catalog := testCatalog(t, now)
 	catalog.Assets = assets
 
@@ -218,7 +218,7 @@ func TestCatalogOpaqueIDsUseSafeKVSegments(t *testing.T) {
 }
 
 func TestCatalogAssetPrefixesDoNotOverlapOpaqueIDs(t *testing.T) {
-	assets := objectstore.Dir(t.TempDir())
+	assets := newTestObjectStore(t)
 	parentPrefix := catalogAssetPrefix("pet-defs", "team")
 	childPrefix := catalogAssetPrefix("pet-defs", "team/blue")
 	childObject := path.Join(childPrefix, "pixa")

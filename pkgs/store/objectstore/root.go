@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -296,4 +297,43 @@ var _ LocalDirProvider = (*Root)(nil)
 
 func rootTempName(prefix string) string {
 	return fmt.Sprintf("%s/put/%s%d-%d", metadataRoot, prefix, os.Getpid(), rootTempSequence.Add(1))
+}
+
+func cleanName(name string, allowEmpty bool) (string, error) {
+	if name == "" {
+		if allowEmpty {
+			return "", nil
+		}
+		return "", errors.New("objectstore: object name is empty")
+	}
+	if strings.HasPrefix(name, "/") || filepath.IsAbs(filepath.FromSlash(name)) {
+		return "", fmt.Errorf("objectstore: invalid absolute object name %q", name)
+	}
+
+	parts := strings.Split(filepath.ToSlash(name), "/")
+	out := parts[:0]
+	for _, part := range parts {
+		switch part {
+		case "", ".":
+			continue
+		case "..":
+			return "", fmt.Errorf("objectstore: invalid object name %q", name)
+		default:
+			out = append(out, part)
+		}
+	}
+	if len(out) == 0 {
+		if allowEmpty {
+			return "", nil
+		}
+		return "", errors.New("objectstore: object name is empty")
+	}
+	name = strings.Join(out, "/")
+	if filepath.IsAbs(filepath.FromSlash(name)) {
+		return "", fmt.Errorf("objectstore: invalid absolute object name %q", name)
+	}
+	if name == metadataRoot || strings.HasPrefix(name, metadataRoot+"/") {
+		return "", fmt.Errorf("objectstore: reserved object name %q", name)
+	}
+	return name, nil
 }

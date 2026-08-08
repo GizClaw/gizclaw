@@ -8,12 +8,11 @@ import (
 	"testing"
 
 	flowworkspace "github.com/GizClaw/flowcraft/sdk/workspace"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 func TestObjectWorkspaceCRUDIsolationAndStableList(t *testing.T) {
 	ctx := context.Background()
-	objects := objectstore.Dir(t.TempDir())
+	objects := newTestObjectStore(t)
 	first, err := newObjectWorkspace(objects, "flowcraft-memory/workspace-a/assistant")
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +58,7 @@ func TestObjectWorkspaceCRUDIsolationAndStableList(t *testing.T) {
 }
 
 func TestObjectWorkspaceRejectsPathTraversal(t *testing.T) {
-	workspace, err := newObjectWorkspace(objectstore.Dir(t.TempDir()), "memory/workspace")
+	workspace, err := newObjectWorkspace(newTestObjectStore(t), "memory/workspace")
 	if err != nil {
 		t.Fatal(err)
 	}

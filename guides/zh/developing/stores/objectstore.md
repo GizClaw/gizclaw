@@ -11,7 +11,6 @@
 | `ObjectStore` | 定义 Get、Put、expiration、Delete、DeletePrefix 与 List。 |
 | `ObjectInfo` | 返回 object name、size 和 deadline。 |
 | `LocalDirProvider` | 允许调用方识别 local filesystem backend。 |
-| `Dir` | 路径型便捷入口；为每次直接调用临时打开 `os.Root` 并委托给 `Root`；`Get` 返回的 reader 在 `Close` 时同时关闭该 Root。 |
 | `Root` / `NewRoot` | 唯一的 filesystem ObjectStore 实现；借用物理 `*os.Root` 执行 rooted 操作且不关闭 Root。 |
 
 ## 主要用途

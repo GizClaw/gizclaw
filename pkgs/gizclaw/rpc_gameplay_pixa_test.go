@@ -17,7 +17,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -113,7 +112,7 @@ func TestRPCServerPetPixaDownloadStreamsPublishedAsset(t *testing.T) {
 		PetDefs:   kv.NewMemory(nil),
 		BadgeDefs: kv.NewMemory(nil),
 		GameDefs:  kv.NewMemory(nil),
-		Assets:    objectstore.Dir(t.TempDir()),
+		Assets:    newTestObjectStore(t),
 		Now:       func() time.Time { return now },
 	}
 	createResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{

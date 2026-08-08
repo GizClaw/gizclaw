@@ -9,14 +9,13 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 func TestServerWorkspaceHistoryServiceReadPaths(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
-	srv.RuntimeStore = NewObjectRuntimeStore(objectstore.Dir(t.TempDir()))
+	srv.RuntimeStore = NewObjectRuntimeStore(newTestObjectStore(t))
 	ctx := context.Background()
 	seedWorkspace(t, srv, "demo0001")
 
@@ -72,7 +71,7 @@ func TestServerAppendWorkspaceHistoryBumpsLastActiveAt(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
-	srv.RuntimeStore = NewObjectRuntimeStore(objectstore.Dir(t.TempDir()))
+	srv.RuntimeStore = NewObjectRuntimeStore(newTestObjectStore(t))
 	ctx := context.Background()
 	seedWorkspace(t, srv, "demo0001")
 

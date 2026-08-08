@@ -5,7 +5,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -44,10 +43,10 @@ func completeTestServer(t testing.TB, server *Server) *Server {
 	set(&server.FriendGroupStore, "friend-groups")
 	set(&server.GameplayStore, "gameplay")
 	if server.WorkspaceAssets == nil {
-		server.WorkspaceAssets = objectstore.Dir(t.TempDir())
+		server.WorkspaceAssets = newTestObjectStore(t)
 	}
 	if server.GameplayAssets == nil {
-		server.GameplayAssets = objectstore.Dir(t.TempDir())
+		server.GameplayAssets = newTestObjectStore(t)
 	}
 	if server.GameplayDB == nil {
 		db, err := sqlx.Open("sqlite", ":memory:")
