@@ -339,8 +339,8 @@ jobs:
           GOFLAGS: -mod=readonly
         run: >-
           go test -count=1 -p 1
-          ./cmd/internal/storage
-          ./cmd/internal/stores
+          ./pkgs/store/storage
+          ./pkgs/store
           ./cmd/internal/server
           ./pkgs/gizclaw/services/gameplay
 
@@ -392,8 +392,8 @@ jobs:
           GOFLAGS: -mod=readonly
         run: >-
           go test -tags=integration -count=1 -p 1
-          ./cmd/internal/storage
-          ./cmd/internal/stores
+          ./pkgs/store/storage
+          ./pkgs/store
           ./pkgs/store/metrics
           ./pkgs/store/logstore
 

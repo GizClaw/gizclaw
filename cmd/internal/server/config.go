@@ -182,10 +182,10 @@ type storageFileConfig struct {
 
 func (cfg storageFileConfig) runtimeConfig() storage.Config {
 	return storage.Config{
-		Kind: cfg.Kind, Dir: cfg.Dir, DSN: cfg.DSN,
-		RemoteWriteURL: cfg.RemoteWriteURL, QueryURL: cfg.QueryURL,
-		BearerToken: cfg.BearerToken, Endpoint: cfg.Endpoint, Region: cfg.Region,
-		AccessKeyID: cfg.AccessKeyID, AccessKeySecret: cfg.AccessKeySecret,
+		Kind: cfg.Kind, Dir: os.ExpandEnv(cfg.Dir), DSN: os.ExpandEnv(cfg.DSN),
+		RemoteWriteURL: os.ExpandEnv(cfg.RemoteWriteURL), QueryURL: os.ExpandEnv(cfg.QueryURL),
+		BearerToken: os.ExpandEnv(cfg.BearerToken), Endpoint: os.ExpandEnv(cfg.Endpoint), Region: os.ExpandEnv(cfg.Region),
+		AccessKeyID: os.ExpandEnv(cfg.AccessKeyID), AccessKeySecret: os.ExpandEnv(cfg.AccessKeySecret),
 	}
 }
 
@@ -201,7 +201,7 @@ type storeFileConfig struct {
 func (cfg storeFileConfig) runtimeConfig() store.Config {
 	return store.Config{
 		Kind: cfg.Kind, Storage: cfg.Storage, Prefix: cfg.Prefix,
-		Database: cfg.Database, Table: cfg.Table, TopicID: cfg.TopicID,
+		Database: os.ExpandEnv(cfg.Database), Table: os.ExpandEnv(cfg.Table), TopicID: os.ExpandEnv(cfg.TopicID),
 	}
 }
 

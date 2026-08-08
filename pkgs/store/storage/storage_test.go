@@ -137,18 +137,23 @@ func TestSQLiteRequiresExactlyOneLocation(t *testing.T) {
 	}
 }
 
-func TestSQLExpandsDSNEnvironment(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "expanded.sqlite")
-	t.Setenv("GIZCLAW_TEST_SQLITE_DSN", dbPath)
+func TestSQLPreservesLiteralDSNEnvironmentReferences(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	t.Setenv("GIZCLAW_TEST_SQLITE_DSN", filepath.Join(dir, "expanded.sqlite"))
+	const literalPath = "$GIZCLAW_TEST_SQLITE_DSN"
 	registry, err := New(map[string]Config{
-		"database": {Kind: KindSQLite, DSN: "${GIZCLAW_TEST_SQLITE_DSN}"},
+		"database": {Kind: KindSQLite, DSN: literalPath},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = registry.Close() })
-	if _, err := os.Stat(dbPath); err != nil {
-		t.Fatalf("Stat(%q): %v", dbPath, err)
+	if _, err := os.Stat(filepath.Join(dir, literalPath)); err != nil {
+		t.Fatalf("Stat(%q): %v", literalPath, err)
+	}
+	if _, err := os.Stat(os.Getenv("GIZCLAW_TEST_SQLITE_DSN")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expanded DSN path unexpectedly created: %v", err)
 	}
 }
 

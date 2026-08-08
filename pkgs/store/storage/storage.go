@@ -372,7 +372,6 @@ func newSQL(name string, cfg Config) (*sqlx.DB, error) {
 	if cfg.Kind == KindSQLite && dsn == "" {
 		dsn = cfg.Dir
 	}
-	dsn = os.ExpandEnv(dsn)
 	if backend == KindSQLite || backend == KindClickHouse {
 		sqlx.BindDriver(backend, sqlx.QUESTION)
 	}
@@ -512,9 +511,9 @@ func newPrometheus(name string, cfg Config) (prometheusResource, error) {
 	if err := validateFields(name, cfg, "remote_write_url", "query_url", "bearer_token"); err != nil {
 		return prometheusResource{}, err
 	}
-	remoteWriteURL := strings.TrimSpace(os.ExpandEnv(cfg.RemoteWriteURL))
-	queryURL := strings.TrimSpace(os.ExpandEnv(cfg.QueryURL))
-	bearerToken := os.ExpandEnv(cfg.BearerToken)
+	remoteWriteURL := strings.TrimSpace(cfg.RemoteWriteURL)
+	queryURL := strings.TrimSpace(cfg.QueryURL)
+	bearerToken := cfg.BearerToken
 	for _, field := range []struct {
 		name  string
 		value string
@@ -553,10 +552,10 @@ func newVolcTLS(name string, cfg Config) (tls.Client, error) {
 	if err := validateFields(name, cfg, "endpoint", "region", "access_key_id", "access_key_secret"); err != nil {
 		return nil, err
 	}
-	endpoint := strings.TrimSpace(os.ExpandEnv(cfg.Endpoint))
-	region := strings.TrimSpace(os.ExpandEnv(cfg.Region))
-	accessKeyID := strings.TrimSpace(os.ExpandEnv(cfg.AccessKeyID))
-	accessKeySecret := strings.TrimSpace(os.ExpandEnv(cfg.AccessKeySecret))
+	endpoint := strings.TrimSpace(cfg.Endpoint)
+	region := strings.TrimSpace(cfg.Region)
+	accessKeyID := strings.TrimSpace(cfg.AccessKeyID)
+	accessKeySecret := strings.TrimSpace(cfg.AccessKeySecret)
 	for _, field := range []struct {
 		name  string
 		value string

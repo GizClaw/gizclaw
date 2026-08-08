@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -416,7 +415,7 @@ func (r *Stores) newMetrics(name string, cfg Config) (metrics.Store, error) {
 		if err != nil {
 			return nil, fmt.Errorf("stores: metrics %q resolve clickhouse storage %q: %w", name, cfg.Storage, err)
 		}
-		st, err := metrics.NewClickHouseStoreWithDB(db.DB, os.ExpandEnv(cfg.Table))
+		st, err := metrics.NewClickHouseStoreWithDB(db.DB, cfg.Table)
 		if err != nil {
 			return nil, fmt.Errorf("stores: metrics %q clickhouse: %w", name, err)
 		}
@@ -441,7 +440,7 @@ func (r *Stores) newLog(name string, cfg Config) (logstore.ImmutableStore, error
 		if err != nil {
 			return nil, fmt.Errorf("stores: log %q resolve clickhouse storage %q: %w", name, cfg.Storage, err)
 		}
-		store, err := logstore.NewClickHouseStoreWithDB(db.DB, os.ExpandEnv(cfg.Database), os.ExpandEnv(cfg.Table))
+		store, err := logstore.NewClickHouseStoreWithDB(db.DB, cfg.Database, cfg.Table)
 		if err != nil {
 			return nil, fmt.Errorf("stores: log %q clickhouse: %w", name, err)
 		}
@@ -461,7 +460,7 @@ func (r *Stores) newLog(name string, cfg Config) (logstore.ImmutableStore, error
 		if err != nil {
 			return nil, fmt.Errorf("stores: log %q volc-tls: %w", name, err)
 		}
-		st, err := connector.Store(os.ExpandEnv(cfg.TopicID))
+		st, err := connector.Store(cfg.TopicID)
 		if err != nil {
 			return nil, fmt.Errorf("stores: log %q volc-tls: %w", name, err)
 		}

@@ -499,25 +499,26 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 }
 
 func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
+	t.Setenv("GIZCLAW_TEST_CONFIG_VALUE", "expanded")
 	physical := storageFileConfig{
-		Kind: storage.KindPrometheus, Dir: "dir", DSN: "dsn",
-		RemoteWriteURL: "write", QueryURL: "query", BearerToken: "token",
-		Endpoint: "endpoint", Region: "region", AccessKeyID: "id", AccessKeySecret: "secret",
+		Kind: storage.KindPrometheus, Dir: "${GIZCLAW_TEST_CONFIG_VALUE}/dir", DSN: "${GIZCLAW_TEST_CONFIG_VALUE}/dsn",
+		RemoteWriteURL: "${GIZCLAW_TEST_CONFIG_VALUE}/write", QueryURL: "${GIZCLAW_TEST_CONFIG_VALUE}/query", BearerToken: "${GIZCLAW_TEST_CONFIG_VALUE}/token",
+		Endpoint: "${GIZCLAW_TEST_CONFIG_VALUE}/endpoint", Region: "${GIZCLAW_TEST_CONFIG_VALUE}/region", AccessKeyID: "${GIZCLAW_TEST_CONFIG_VALUE}/id", AccessKeySecret: "${GIZCLAW_TEST_CONFIG_VALUE}/secret",
 	}.runtimeConfig()
 	if physical != (storage.Config{
-		Kind: storage.KindPrometheus, Dir: "dir", DSN: "dsn",
-		RemoteWriteURL: "write", QueryURL: "query", BearerToken: "token",
-		Endpoint: "endpoint", Region: "region", AccessKeyID: "id", AccessKeySecret: "secret",
+		Kind: storage.KindPrometheus, Dir: "expanded/dir", DSN: "expanded/dsn",
+		RemoteWriteURL: "expanded/write", QueryURL: "expanded/query", BearerToken: "expanded/token",
+		Endpoint: "expanded/endpoint", Region: "expanded/region", AccessKeyID: "expanded/id", AccessKeySecret: "expanded/secret",
 	}) {
 		t.Fatalf("storage runtime config = %+v", physical)
 	}
 	logical := (storeFileConfig{
 		Kind: stores.KindLogImmutable, Storage: "storage", Prefix: "prefix",
-		Database: "database", Table: "table", TopicID: "topic",
+		Database: "${GIZCLAW_TEST_CONFIG_VALUE}/database", Table: "${GIZCLAW_TEST_CONFIG_VALUE}/table", TopicID: "${GIZCLAW_TEST_CONFIG_VALUE}/topic",
 	}).runtimeConfig()
 	if logical != (stores.Config{
 		Kind: stores.KindLogImmutable, Storage: "storage", Prefix: "prefix",
-		Database: "database", Table: "table", TopicID: "topic",
+		Database: "expanded/database", Table: "expanded/table", TopicID: "expanded/topic",
 	}) {
 		t.Fatalf("store runtime config = %+v", logical)
 	}
