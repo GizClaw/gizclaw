@@ -4489,6 +4489,7 @@ int main(void) {
   gzc_buf_init(&fake_webrtc_gateway.sent);
   gzc_buf_init(&fake_webrtc_gateway.outgoing);
   gzc_buf_init(&fake_webrtc_gateway.native_sent);
+  gzc_buf_init(&fake_webrtc_gateway.opus_sent);
 
   fake_http_t fake_http_gateway;
   memset(&fake_http_gateway, 0, sizeof(fake_http_gateway));
@@ -4526,6 +4527,7 @@ int main(void) {
     gzc_buf_free(&fake_webrtc_gateway.sent, platform);
     gzc_buf_free(&fake_webrtc_gateway.outgoing, platform);
     gzc_buf_free(&fake_webrtc_gateway.native_sent, platform);
+    gzc_buf_free(&fake_webrtc_gateway.opus_sent, platform);
     return 1;
   }
   rc = gzc_client_send_packet(
@@ -4536,11 +4538,17 @@ int main(void) {
   if (expect(
           rc == GZC_OK && fake_webrtc_gateway.opus_send_count == 1,
           "gateway client uses the mandatory Opus media extension") != 0) {
+    gzc_client_destroy(client_gateway);
+    gzc_buf_free(&fake_webrtc_gateway.sent, platform);
+    gzc_buf_free(&fake_webrtc_gateway.outgoing, platform);
+    gzc_buf_free(&fake_webrtc_gateway.native_sent, platform);
+    gzc_buf_free(&fake_webrtc_gateway.opus_sent, platform);
     return 1;
   }
   gzc_client_destroy(client_gateway);
   gzc_buf_free(&fake_webrtc_gateway.sent, platform);
   gzc_buf_free(&fake_webrtc_gateway.outgoing, platform);
   gzc_buf_free(&fake_webrtc_gateway.native_sent, platform);
+  gzc_buf_free(&fake_webrtc_gateway.opus_sent, platform);
   return 0;
 }
