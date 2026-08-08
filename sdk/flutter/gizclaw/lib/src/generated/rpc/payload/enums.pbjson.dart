@@ -267,7 +267,6 @@ const FirmwareChannelName$json = {
     {'1': 'FIRMWARE_CHANNEL_NAME_STABLE', '2': 1},
     {'1': 'FIRMWARE_CHANNEL_NAME_BETA', '2': 2},
     {'1': 'FIRMWARE_CHANNEL_NAME_DEVELOP', '2': 3},
-    {'1': 'FIRMWARE_CHANNEL_NAME_PENDING', '2': 4},
   ],
 };
 
@@ -275,8 +274,7 @@ const FirmwareChannelName$json = {
 final $typed_data.Uint8List firmwareChannelNameDescriptor = $convert.base64Decode(
     'ChNGaXJtd2FyZUNoYW5uZWxOYW1lEiUKIUZJUk1XQVJFX0NIQU5ORUxfTkFNRV9VTlNQRUNJRk'
     'lFRBAAEiAKHEZJUk1XQVJFX0NIQU5ORUxfTkFNRV9TVEFCTEUQARIeChpGSVJNV0FSRV9DSEFO'
-    'TkVMX05BTUVfQkVUQRACEiEKHUZJUk1XQVJFX0NIQU5ORUxfTkFNRV9ERVZFTE9QEAMSIQodRk'
-    'lSTVdBUkVfQ0hBTk5FTF9OQU1FX1BFTkRJTkcQBA==');
+    'TkVMX05BTUVfQkVUQRACEiEKHUZJUk1XQVJFX0NIQU5ORUxfTkFNRV9ERVZFTE9QEAM=');
 
 @$core.Deprecated(
     'Use flowcraftConversationParametersAgentInitiativePolicyDescriptor instead')

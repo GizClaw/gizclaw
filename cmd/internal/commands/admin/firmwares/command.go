@@ -16,7 +16,14 @@ import (
 
 func NewCmd() *cobra.Command {
 	var ctxName string
-	cmd := &cobra.Command{Use: "firmwares", Short: "Manage firmware release lines"}
+	cmd := &cobra.Command{
+		Use:   "firmwares",
+		Short: "Manage declarative firmware channels",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return cmd.Help()
+		},
+	}
 	cmd.PersistentFlags().StringVar(&ctxName, "context", "", "context name (default: current)")
 	cmd.AddCommand(
 		newListCmd(&ctxName),
@@ -24,8 +31,6 @@ func NewCmd() *cobra.Command {
 		newGetCmd(&ctxName),
 		newPutCmd(&ctxName),
 		newDeleteCmd(&ctxName),
-		newReleaseCmd(&ctxName),
-		newRollbackCmd(&ctxName),
 	)
 	return cmd
 }
@@ -126,42 +131,6 @@ func newDeleteCmd(ctxName *string) *cobra.Command {
 			}
 			defer client.Close()
 			item, err := adminapi.DeleteFirmware(context.Background(), client, args[0])
-			if err != nil {
-				return err
-			}
-			return json.NewEncoder(cmd.OutOrStdout()).Encode(item)
-		},
-	}
-}
-
-func newReleaseCmd(ctxName *string) *cobra.Command {
-	return &cobra.Command{
-		Use: "release <id>", Short: "Promote firmware slots", Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := connection.ConnectFromContext(*ctxName)
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			item, err := adminapi.ReleaseFirmware(context.Background(), client, args[0])
-			if err != nil {
-				return err
-			}
-			return json.NewEncoder(cmd.OutOrStdout()).Encode(item)
-		},
-	}
-}
-
-func newRollbackCmd(ctxName *string) *cobra.Command {
-	return &cobra.Command{
-		Use: "rollback <id>", Short: "Rollback firmware stable slot", Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := connection.ConnectFromContext(*ctxName)
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			item, err := adminapi.RollbackFirmware(context.Background(), client, args[0])
 			if err != nil {
 				return err
 			}

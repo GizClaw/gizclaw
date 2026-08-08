@@ -4105,7 +4105,6 @@ type FirmwareSlot struct {
 type FirmwareSlots struct {
 	Beta    FirmwareSlot `json:"beta"`
 	Develop FirmwareSlot `json:"develop"`
-	Pending FirmwareSlot `json:"pending"`
 	Stable  FirmwareSlot `json:"stable"`
 }
 
@@ -4125,7 +4124,6 @@ type FirmwareSpecSlot struct {
 type FirmwareSpecSlots struct {
 	Beta    FirmwareSpecSlot `json:"beta"`
 	Develop FirmwareSpecSlot `json:"develop"`
-	Pending FirmwareSpecSlot `json:"pending"`
 	Stable  FirmwareSpecSlot `json:"stable"`
 }
 
@@ -4961,7 +4959,7 @@ type Peer struct {
 	CreatedAt      time.Time  `json:"created_at"`
 	Device         DeviceInfo `json:"device"`
 
-	// FirmwareId Optional configured caller-defined Firmware release-line ID. Channel selection remains device-owned.
+	// FirmwareId Optional configured caller-defined Firmware ID. Channel selection remains device-owned.
 	FirmwareId *string                `json:"firmware_id,omitempty"`
 	PublicKey  string                 `json:"public_key"`
 	Role       PeerRole               `json:"role"`
@@ -5500,7 +5498,7 @@ type Registration struct {
 	CreatedAt      time.Time   `json:"created_at"`
 	Device         *DeviceInfo `json:"device,omitempty"`
 
-	// FirmwareId Optional configured caller-defined Firmware release-line ID. Channel selection remains device-owned.
+	// FirmwareId Optional configured caller-defined Firmware ID. Channel selection remains device-owned.
 	FirmwareId *string                `json:"firmware_id,omitempty"`
 	PublicKey  string                 `json:"public_key"`
 	Role       PeerRole               `json:"role"`
@@ -5512,7 +5510,7 @@ type Registration struct {
 type RegistrationToken struct {
 	CreatedAt time.Time `json:"created_at"`
 
-	// FirmwareId Optional caller-defined Firmware release-line ID. The device selects its own channel.
+	// FirmwareId Optional caller-defined Firmware ID. The device selects its own channel.
 	FirmwareId       *string   `json:"firmware_id,omitempty"`
 	Id               string    `json:"id"`
 	RuntimeProfileId string    `json:"runtime_profile_id"`
@@ -5527,7 +5525,7 @@ type RegistrationTokenResource struct {
 	Kind       RegistrationTokenResourceKind `json:"kind"`
 	Metadata   ResourceMetadata              `json:"metadata"`
 	Spec       struct {
-		// FirmwareId Optional caller-defined Firmware release-line ID. The device selects its own channel.
+		// FirmwareId Optional caller-defined Firmware ID. The device selects its own channel.
 		FirmwareId       *string `json:"firmware_id,omitempty"`
 		RuntimeProfileId string  `json:"runtime_profile_id"`
 		Token            string  `json:"token"`

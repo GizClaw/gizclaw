@@ -20,7 +20,7 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 	firmwarePath := filepath.Join(h.SandboxDir, "firmware.json")
 	if err := os.WriteFile(firmwarePath, []byte(`{
 			"id": "devkit",
-			"description": "Devkit firmware line",
+			"description": "Devkit firmware channels",
 			"slots": {
 				"stable": {
 					"description": "stable channel",
@@ -44,14 +44,6 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 						"sha256": "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0",
 						"size": 7168
 					}
-				},
-				"pending": {
-					"description": "pending channel",
-					"package": {
-						"url": "https://downloads.example.com/devkit/pending.tar.zlib",
-						"sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
-						"size": 8192
-					}
 				}
 			}
 	}`), 0o644); err != nil {
@@ -71,7 +63,7 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 
 	list := h.RunCLI("admin", "firmwares", "list", "--context", "admin-a")
 	list.MustSucceed(t)
-	assertContains(t, list.Stdout, `"id":"devkit"`, `"description":"Devkit firmware line"`)
+	assertContains(t, list.Stdout, `"id":"devkit"`, `"description":"Devkit firmware channels"`)
 	assertNotContains(t, list.Stdout, `"name":"devkit"`)
 
 	get := h.RunCLI("admin", "firmwares", "get", firmwareID, "--context", "admin-a")
@@ -80,16 +72,15 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 		`"description":"stable channel"`, `"url":"https://downloads.example.com/devkit/stable.tar.zlib"`,
 		`"description":"beta channel"`, `"url":"https://downloads.example.com/devkit/beta.tar.zlib"`,
 		`"url":"https://downloads.example.com/devkit/develop.tar.zlib"`,
-		`"description":"pending channel"`, `"url":"https://downloads.example.com/devkit/pending.tar.zlib"`,
 	)
+	assertNotContains(t, get.Stdout, `"pen`+`ding"`)
 
-	release := h.RunCLI("admin", "firmwares", "release", firmwareID, "--context", "admin-a")
-	release.MustSucceed(t)
-	assertContains(t, release.Stdout, `"stable":{"description":"pending channel","package":{`, `"size":8192`, `"beta":{"description":"stable channel","package":{`)
-
-	rollback := h.RunCLI("admin", "firmwares", "rollback", firmwareID, "--context", "admin-a")
-	rollback.MustSucceed(t)
-	assertContains(t, rollback.Stdout, `"stable":{"description":"stable channel","package":{`, `"size":4096`)
+	for _, removedCommand := range []string{"release", "rollback"} {
+		result := h.RunCLI("admin", "firmwares", removedCommand, firmwareID, "--context", "admin-a")
+		if result.Err == nil {
+			t.Fatalf("removed %s command succeeded:\n%s", removedCommand, result.Stdout)
+		}
+	}
 
 	resource := h.RunCLI("admin", "show", "Firmware", firmwareID, "--context", "admin-a")
 	resource.MustSucceed(t)

@@ -545,7 +545,7 @@ type RegistrationTokenList struct {
 
 // RegistrationTokenUpsert defines model for RegistrationTokenUpsert.
 type RegistrationTokenUpsert struct {
-	// FirmwareId Optional caller-defined Firmware release-line ID. The device selects its own channel.
+	// FirmwareId Optional caller-defined Firmware ID. The device selects its own channel.
 	FirmwareId       *string `json:"firmware_id,omitempty"`
 	Id               string  `json:"id"`
 	RuntimeProfileId string  `json:"runtime_profile_id"`
@@ -1482,12 +1482,6 @@ type ClientInterface interface {
 	PutFirmwareWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PutFirmware(ctx context.Context, id string, body PutFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ReleaseFirmware request
-	ReleaseFirmware(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// RollbackFirmware request
-	RollbackFirmware(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListGameDefs request
 	ListGameDefs(ctx context.Context, params *ListGameDefsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2432,30 +2426,6 @@ func (c *Client) PutFirmwareWithBody(ctx context.Context, id string, contentType
 
 func (c *Client) PutFirmware(ctx context.Context, id string, body PutFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutFirmwareRequest(c.Server, id, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ReleaseFirmware(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReleaseFirmwareRequest(c.Server, id)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RollbackFirmware(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRollbackFirmwareRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -5776,74 +5746,6 @@ func NewPutFirmwareRequestWithBody(server string, id string, contentType string,
 	}
 
 	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewReleaseFirmwareRequest generates requests for ReleaseFirmware
-func NewReleaseFirmwareRequest(server string, id string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/firmwares/%s/@release", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewRollbackFirmwareRequest generates requests for RollbackFirmware
-func NewRollbackFirmwareRequest(server string, id string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/firmwares/%s/@rollback", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
 
 	return req, nil
 }
@@ -12593,12 +12495,6 @@ type ClientWithResponsesInterface interface {
 
 	PutFirmwareWithResponse(ctx context.Context, id string, body PutFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*PutFirmwareResponse, error)
 
-	// ReleaseFirmwareWithResponse request
-	ReleaseFirmwareWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*ReleaseFirmwareResponse, error)
-
-	// RollbackFirmwareWithResponse request
-	RollbackFirmwareWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*RollbackFirmwareResponse, error)
-
 	// ListGameDefsWithResponse request
 	ListGameDefsWithResponse(ctx context.Context, params *ListGameDefsParams, reqEditors ...RequestEditorFn) (*ListGameDefsResponse, error)
 
@@ -13759,56 +13655,6 @@ func (r PutFirmwareResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PutFirmwareResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ReleaseFirmwareResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.Firmware
-	JSON404      *externalRef0.ErrorResponse
-	JSON409      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r ReleaseFirmwareResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ReleaseFirmwareResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type RollbackFirmwareResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.Firmware
-	JSON404      *externalRef0.ErrorResponse
-	JSON409      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r RollbackFirmwareResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r RollbackFirmwareResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -17514,24 +17360,6 @@ func (c *ClientWithResponses) PutFirmwareWithResponse(ctx context.Context, id st
 	return ParsePutFirmwareResponse(rsp)
 }
 
-// ReleaseFirmwareWithResponse request returning *ReleaseFirmwareResponse
-func (c *ClientWithResponses) ReleaseFirmwareWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*ReleaseFirmwareResponse, error) {
-	rsp, err := c.ReleaseFirmware(ctx, id, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseReleaseFirmwareResponse(rsp)
-}
-
-// RollbackFirmwareWithResponse request returning *RollbackFirmwareResponse
-func (c *ClientWithResponses) RollbackFirmwareWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*RollbackFirmwareResponse, error) {
-	rsp, err := c.RollbackFirmware(ctx, id, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRollbackFirmwareResponse(rsp)
-}
-
 // ListGameDefsWithResponse request returning *ListGameDefsResponse
 func (c *ClientWithResponses) ListGameDefsWithResponse(ctx context.Context, params *ListGameDefsParams, reqEditors ...RequestEditorFn) (*ListGameDefsResponse, error) {
 	rsp, err := c.ListGameDefs(ctx, params, reqEditors...)
@@ -20230,100 +20058,6 @@ func ParsePutFirmwareResponse(rsp *http.Response) (*PutFirmwareResponse, error) 
 			return nil, err
 		}
 		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseReleaseFirmwareResponse parses an HTTP response from a ReleaseFirmwareWithResponse call
-func ParseReleaseFirmwareResponse(rsp *http.Response) (*ReleaseFirmwareResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ReleaseFirmwareResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.Firmware
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseRollbackFirmwareResponse parses an HTTP response from a RollbackFirmwareWithResponse call
-func ParseRollbackFirmwareResponse(rsp *http.Response) (*RollbackFirmwareResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &RollbackFirmwareResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.Firmware
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -26516,24 +26250,18 @@ type ServerInterface interface {
 	// List firmwares
 	// (GET /firmwares)
 	ListFirmwares(c *fiber.Ctx, params ListFirmwaresParams) error
-	// Create a firmware release line
+	// Create a Firmware channel configuration
 	// (POST /firmwares)
 	CreateFirmware(c *fiber.Ctx) error
-	// Delete a firmware release line
+	// Delete a Firmware channel configuration
 	// (DELETE /firmwares/{id})
 	DeleteFirmware(c *fiber.Ctx, id string) error
-	// Get a firmware release line
+	// Get a Firmware channel configuration
 	// (GET /firmwares/{id})
 	GetFirmware(c *fiber.Ctx, id string) error
-	// Update a firmware release line
+	// Replace a Firmware channel configuration
 	// (PUT /firmwares/{id})
 	PutFirmware(c *fiber.Ctx, id string) error
-	// Promote firmware slots
-	// (POST /firmwares/{id}/@release)
-	ReleaseFirmware(c *fiber.Ctx, id string) error
-	// Rollback firmware stable slot
-	// (POST /firmwares/{id}/@rollback)
-	RollbackFirmware(c *fiber.Ctx, id string) error
 	// List GameDefs
 	// (GET /game-defs)
 	ListGameDefs(c *fiber.Ctx, params ListGameDefsParams) error
@@ -27421,38 +27149,6 @@ func (siw *ServerInterfaceWrapper) PutFirmware(c *fiber.Ctx) error {
 	}
 
 	return siw.Handler.PutFirmware(c, id)
-}
-
-// ReleaseFirmware operation middleware
-func (siw *ServerInterfaceWrapper) ReleaseFirmware(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "id" -------------
-	var id string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
-	}
-
-	return siw.Handler.ReleaseFirmware(c, id)
-}
-
-// RollbackFirmware operation middleware
-func (siw *ServerInterfaceWrapper) RollbackFirmware(c *fiber.Ctx) error {
-
-	var err error
-
-	// ------------- Path parameter "id" -------------
-	var id string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
-	}
-
-	return siw.Handler.RollbackFirmware(c, id)
 }
 
 // ListGameDefs operation middleware
@@ -30582,10 +30278,6 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Put(options.BaseURL+"/firmwares/:id", wrapper.PutFirmware)
 
-	router.Post(options.BaseURL+"/firmwares/:id/@release", wrapper.ReleaseFirmware)
-
-	router.Post(options.BaseURL+"/firmwares/:id/@rollback", wrapper.RollbackFirmware)
-
 	router.Get(options.BaseURL+"/game-defs", wrapper.ListGameDefs)
 
 	router.Post(options.BaseURL+"/game-defs", wrapper.CreateGameDef)
@@ -31947,94 +31639,6 @@ func (response PutFirmware404JSONResponse) VisitPutFirmwareResponse(ctx *fiber.C
 type PutFirmware500JSONResponse externalRef0.ErrorResponse
 
 func (response PutFirmware500JSONResponse) VisitPutFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type ReleaseFirmwareRequestObject struct {
-	Id string `json:"id"`
-}
-
-type ReleaseFirmwareResponseObject interface {
-	VisitReleaseFirmwareResponse(ctx *fiber.Ctx) error
-}
-
-type ReleaseFirmware200JSONResponse externalRef0.Firmware
-
-func (response ReleaseFirmware200JSONResponse) VisitReleaseFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type ReleaseFirmware404JSONResponse externalRef0.ErrorResponse
-
-func (response ReleaseFirmware404JSONResponse) VisitReleaseFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type ReleaseFirmware409JSONResponse externalRef0.ErrorResponse
-
-func (response ReleaseFirmware409JSONResponse) VisitReleaseFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type ReleaseFirmware500JSONResponse externalRef0.ErrorResponse
-
-func (response ReleaseFirmware500JSONResponse) VisitReleaseFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type RollbackFirmwareRequestObject struct {
-	Id string `json:"id"`
-}
-
-type RollbackFirmwareResponseObject interface {
-	VisitRollbackFirmwareResponse(ctx *fiber.Ctx) error
-}
-
-type RollbackFirmware200JSONResponse externalRef0.Firmware
-
-func (response RollbackFirmware200JSONResponse) VisitRollbackFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type RollbackFirmware404JSONResponse externalRef0.ErrorResponse
-
-func (response RollbackFirmware404JSONResponse) VisitRollbackFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type RollbackFirmware409JSONResponse externalRef0.ErrorResponse
-
-func (response RollbackFirmware409JSONResponse) VisitRollbackFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type RollbackFirmware500JSONResponse externalRef0.ErrorResponse
-
-func (response RollbackFirmware500JSONResponse) VisitRollbackFirmwareResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
@@ -37933,24 +37537,18 @@ type StrictServerInterface interface {
 	// List firmwares
 	// (GET /firmwares)
 	ListFirmwares(ctx context.Context, request ListFirmwaresRequestObject) (ListFirmwaresResponseObject, error)
-	// Create a firmware release line
+	// Create a Firmware channel configuration
 	// (POST /firmwares)
 	CreateFirmware(ctx context.Context, request CreateFirmwareRequestObject) (CreateFirmwareResponseObject, error)
-	// Delete a firmware release line
+	// Delete a Firmware channel configuration
 	// (DELETE /firmwares/{id})
 	DeleteFirmware(ctx context.Context, request DeleteFirmwareRequestObject) (DeleteFirmwareResponseObject, error)
-	// Get a firmware release line
+	// Get a Firmware channel configuration
 	// (GET /firmwares/{id})
 	GetFirmware(ctx context.Context, request GetFirmwareRequestObject) (GetFirmwareResponseObject, error)
-	// Update a firmware release line
+	// Replace a Firmware channel configuration
 	// (PUT /firmwares/{id})
 	PutFirmware(ctx context.Context, request PutFirmwareRequestObject) (PutFirmwareResponseObject, error)
-	// Promote firmware slots
-	// (POST /firmwares/{id}/@release)
-	ReleaseFirmware(ctx context.Context, request ReleaseFirmwareRequestObject) (ReleaseFirmwareResponseObject, error)
-	// Rollback firmware stable slot
-	// (POST /firmwares/{id}/@rollback)
-	RollbackFirmware(ctx context.Context, request RollbackFirmwareRequestObject) (RollbackFirmwareResponseObject, error)
 	// List GameDefs
 	// (GET /game-defs)
 	ListGameDefs(ctx context.Context, request ListGameDefsRequestObject) (ListGameDefsResponseObject, error)
@@ -39193,60 +38791,6 @@ func (sh *strictHandler) PutFirmware(ctx *fiber.Ctx, id string) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(PutFirmwareResponseObject); ok {
 		if err := validResponse.VisitPutFirmwareResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// ReleaseFirmware operation middleware
-func (sh *strictHandler) ReleaseFirmware(ctx *fiber.Ctx, id string) error {
-	var request ReleaseFirmwareRequestObject
-
-	request.Id = id
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.ReleaseFirmware(ctx.UserContext(), request.(ReleaseFirmwareRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ReleaseFirmware")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(ReleaseFirmwareResponseObject); ok {
-		if err := validResponse.VisitReleaseFirmwareResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// RollbackFirmware operation middleware
-func (sh *strictHandler) RollbackFirmware(ctx *fiber.Ctx, id string) error {
-	var request RollbackFirmwareRequestObject
-
-	request.Id = id
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.RollbackFirmware(ctx.UserContext(), request.(RollbackFirmwareRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RollbackFirmware")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(RollbackFirmwareResponseObject); ok {
-		if err := validResponse.VisitRollbackFirmwareResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

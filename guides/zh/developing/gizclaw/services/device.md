@@ -15,7 +15,7 @@ services/device/
 
 - Firmware catalog 和 channel metadata。
 - 校验和保存每个 channel 的 HTTPS `.tar.zlib` URL、SHA-256 和 archive size。
-- pending、stable 与 beta slot 之间的 release 和 rollback transition。
+- stable、beta、develop 三个 slot 的完整替换与严格校验。
 
 它不拥有设备连接、peer registration、runtime status 或 telemetry。设备通过什么 transport 连接、当前是否在线、上报了什么状态，属于根 peer 接线与 `services/runtime`。
 
@@ -30,7 +30,7 @@ flowchart LR
 应该放在 `services/device/firmware`：
 
 - Firmware 和 channel 的领域规则。
-- External package metadata 与 release/rollback 行为。
+- stable、beta、develop 的声明式 external package metadata。
 - Firmware 配置作为不可信输入时的 validation。
 
 不应该放在这里：

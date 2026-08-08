@@ -8,10 +8,10 @@ import { createRPCPlayDataClient } from "./gizclaw/play.ts";
 test("production Play data client requests the selected Firmware channel", async () => {
   const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
   const response = {
-    channel: "pending" as const,
+    channel: "develop" as const,
     sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     size: 16384,
-    url: "https://firmware.example.invalid/devkit/pending.tar.zlib",
+    url: "https://firmware.example.invalid/devkit/develop.tar.zlib",
   };
   const rpc = {
     call: async (method: string, params: Record<string, unknown>) => {
@@ -21,12 +21,12 @@ test("production Play data client requests the selected Firmware channel", async
   } as unknown as PeerRPCClient;
 
   const got = await createRPCPlayDataClient(rpc).getFirmware({
-    channel: "pending",
+    channel: "develop",
   });
 
   assert.deepEqual(got, response);
   assert.deepEqual(calls, [
-    { method: "server.firmware.get", params: { channel: "pending" } },
+    { method: "server.firmware.get", params: { channel: "develop" } },
   ]);
 });
 

@@ -58,7 +58,7 @@ export function FirmwareCreatePage(): JSX.Element {
       />
 
       <PageSummaryCard
-        description="Create a firmware release-line document with develop, beta, stable, and pending slots."
+        description="Create a complete Firmware configuration with stable, beta, and develop channels."
         eyebrow="Devices"
         title="Create Firmware"
       />

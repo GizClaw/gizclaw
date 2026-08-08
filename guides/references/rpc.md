@@ -39,7 +39,7 @@
 
 ## Firmware
 
-Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑定一个 Firmware release-line；设备不列举或选择 Firmware，只请求具体 channel 的 external package 配置。
+Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑定一个 Firmware；设备不列举或持久化选择 Firmware channel，只请求具体 channel 的 external package 配置。
 
 | ID | Method | 作用 |
 | ---: | --- | --- |

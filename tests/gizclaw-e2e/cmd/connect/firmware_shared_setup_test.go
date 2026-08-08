@@ -28,7 +28,6 @@ func TestRegistrationBindsFirmware(t *testing.T) {
 		{"stable", "https://firmware.example.invalid/devkit/stable.tar.zlib", `"size":4096`},
 		{"beta", "https://firmware.example.invalid/devkit/beta.tar.zlib", `"size":8192`},
 		{"develop", "https://firmware.example.invalid/devkit/develop.tar.zlib", `"size":12288`},
-		{"pending", "https://firmware.example.invalid/devkit/pending.tar.zlib", `"size":16384`},
 	}
 	for _, tc := range tests {
 		t.Run(tc.channel, func(t *testing.T) {
@@ -39,6 +38,11 @@ func TestRegistrationBindsFirmware(t *testing.T) {
 				t.Fatalf("firmware response unexpectedly exposes identity:\n%s", result.Stdout)
 			}
 		})
+	}
+	legacyChannel := "pen" + "ding"
+	rejected := h.RunCLI("connect", "firmware", "get", "--channel", legacyChannel, "--context", "device-a", "--registration-token", token)
+	if rejected.Err == nil || !strings.Contains(rejected.Stderr, "channel must be one of stable, beta, develop") {
+		t.Fatalf("pending channel result = err:%v stderr:%s", rejected.Err, rejected.Stderr)
 	}
 }
 

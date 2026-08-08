@@ -1,4 +1,4 @@
-import { ChevronLeft, RefreshCw, RotateCcw, StepForward } from "lucide-react";
+import { ChevronLeft, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
@@ -6,8 +6,6 @@ import {
   getFirmware,
   getResource,
   putFirmware,
-  releaseFirmware,
-  rollbackFirmware,
   type Firmware,
   type FirmwarePackage,
   type Resource,
@@ -59,7 +57,6 @@ export function FirmwareDetailPage(): JSX.Element {
   const [form, setForm] = useState<FirmwareFormState | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [acting, setActing] = useState("");
   const [error, setError] = useState("");
 
   const load = async (): Promise<void> => {
@@ -116,29 +113,6 @@ export function FirmwareDetailPage(): JSX.Element {
     }
   };
 
-  const runAction = async (action: "release" | "rollback"): Promise<void> => {
-    setActing(action);
-    setError("");
-    try {
-      const next = await expectData(
-        action === "release"
-          ? releaseFirmware({ path: { id: firmwareID } })
-          : rollbackFirmware({ path: { id: firmwareID } }),
-      );
-      setFirmware(next);
-      setForm(firmwareToForm(next));
-      setResource(
-        await expectData(
-          getResource({ path: { kind: "Firmware", id: firmwareID } }),
-        ),
-      );
-    } catch (err) {
-      setError(toMessage(err));
-    } finally {
-      setActing("");
-    }
-  };
-
   if (firmwareID === "") {
     return (
       <EmptyState
@@ -173,7 +147,7 @@ export function FirmwareDetailPage(): JSX.Element {
       />
 
       <PageSummaryCard
-        description="External .tar.zlib package configuration for each release channel."
+        description="Declarative external .tar.zlib package configuration for stable, beta, and develop."
         eyebrow="Devices"
         meta={
           firmware ? (
@@ -219,35 +193,13 @@ export function FirmwareDetailPage(): JSX.Element {
             />
 
             <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+              <CardHeader>
                 <div className="space-y-1">
                   <CardTitle>Channels</CardTitle>
                   <CardDescription>
                     Devices fetch the configured HTTPS URL directly and verify
                     the complete .tar.zlib archive with SHA-256 and size.
                   </CardDescription>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    disabled={acting !== ""}
-                    onClick={() => void runAction("release")}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    <StepForward className="size-4" />
-                    Release
-                  </Button>
-                  <Button
-                    disabled={acting !== ""}
-                    onClick={() => void runAction("rollback")}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    <RotateCcw className="size-4" />
-                    Rollback
-                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
@@ -290,7 +242,6 @@ function SlotsTable({ firmware }: { firmware: Firmware }): JSX.Element {
     ["develop", firmware.slots.develop],
     ["beta", firmware.slots.beta],
     ["stable", firmware.slots.stable],
-    ["pending", firmware.slots.pending],
   ] as const;
   return (
     <DashboardTable>
@@ -350,8 +301,6 @@ function firmwareCliCommands(firmware: Firmware): string {
   return [
     `gizclaw admin firmwares --context <admin-cli-context> get ${id}`,
     `gizclaw admin firmwares --context <admin-cli-context> put ${id} -f firmware.json`,
-    `gizclaw admin firmwares --context <admin-cli-context> release ${id}`,
-    `gizclaw admin firmwares --context <admin-cli-context> rollback ${id}`,
     `gizclaw admin --context <admin-cli-context> show Firmware ${id}`,
   ].join("\n");
 }

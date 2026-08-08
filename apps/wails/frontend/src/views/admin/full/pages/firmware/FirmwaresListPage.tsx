@@ -106,7 +106,7 @@ export function FirmwaresListPage(): JSX.Element {
       />
 
       <PageSummaryCard
-        description="Release-line JSON documents with develop, beta, stable, and pending slots."
+        description="Declarative Firmware documents with stable, beta, and develop channels."
         eyebrow="Devices"
         meta={
           <>
@@ -125,7 +125,7 @@ export function FirmwaresListPage(): JSX.Element {
           <div className="space-y-1">
             <CardTitle>Firmware catalog</CardTitle>
             <CardDescription>
-              Stored firmware release lines and current slot versions.
+              Stored desired package metadata for each Firmware channel.
             </CardDescription>
           </div>
         </CardHeader>
@@ -150,7 +150,7 @@ export function FirmwaresListPage(): JSX.Element {
             </div>
           ) : items.length === 0 ? (
             <EmptyState
-              description="Firmware release lines will appear here after they are created."
+              description="Firmware channel configurations will appear here after they are created."
               title="No firmwares"
             />
           ) : (
@@ -161,7 +161,6 @@ export function FirmwaresListPage(): JSX.Element {
                   <TableHead>Stable</TableHead>
                   <TableHead>Beta</TableHead>
                   <TableHead>Develop</TableHead>
-                  <TableHead>Pending</TableHead>
                   <TableHead className="w-40 text-right">Updated</TableHead>
                 </TableRow>
               </TableHeader>
@@ -208,7 +207,6 @@ export function FirmwaresListPage(): JSX.Element {
                     <TableCell>{slotLabel(firmware.slots.stable)}</TableCell>
                     <TableCell>{slotLabel(firmware.slots.beta)}</TableCell>
                     <TableCell>{slotLabel(firmware.slots.develop)}</TableCell>
-                    <TableCell>{slotLabel(firmware.slots.pending)}</TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">
                       {formatDate(firmware.updated_at)}
                     </TableCell>

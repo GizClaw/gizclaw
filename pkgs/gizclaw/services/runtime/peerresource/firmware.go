@@ -77,8 +77,6 @@ func firmwareSlot(slots apitypes.FirmwareSlots, channel rpcapi.FirmwareChannelNa
 		return slots.Beta
 	case rpcapi.FirmwareChannelNameDevelop:
 		return slots.Develop
-	case rpcapi.FirmwareChannelNamePending:
-		return slots.Pending
 	default:
 		return apitypes.FirmwareSlot{}
 	}

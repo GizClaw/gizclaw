@@ -38,12 +38,12 @@ func TestFirmwareGetHelp(t *testing.T) {
 }
 
 func TestFirmwareChannelFlag(t *testing.T) {
-	for _, value := range []string{"stable", " beta ", "develop", "pending"} {
+	for _, value := range []string{"stable", " beta ", "develop"} {
 		if _, err := firmwareChannelFlag(value); err != nil {
 			t.Fatalf("firmwareChannelFlag(%q): %v", value, err)
 		}
 	}
-	for _, value := range []string{"", "rollback"} {
+	for _, value := range []string{"", "pending", "rollback"} {
 		if _, err := firmwareChannelFlag(value); err == nil {
 			t.Fatalf("firmwareChannelFlag(%q) should fail", value)
 		}
@@ -53,6 +53,7 @@ func TestFirmwareChannelFlag(t *testing.T) {
 func TestFirmwareGetRejectsMissingOrInvalidChannel(t *testing.T) {
 	for _, args := range [][]string{
 		{"firmware", "get"},
+		{"firmware", "get", "--channel", "pending"},
 		{"firmware", "get", "--channel", "rollback"},
 	} {
 		cmd := NewCmd()
