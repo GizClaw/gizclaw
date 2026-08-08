@@ -110,11 +110,11 @@ func TestInviteTokenLifecycleAndAddFriend(t *testing.T) {
 		t.Fatalf("got token = %#v, want %q", got, created.InviteToken)
 	}
 
-	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: "missing"}); err == nil {
-		t.Fatal("AddFriend missing token error = nil")
+	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: "missing"}); !errors.Is(err, ErrInviteTokenUnavailable) {
+		t.Fatalf("AddFriend missing token error = %v, want unavailable", err)
 	}
-	if _, err := s.AddFriend(ctx, "peer-b", rpcapi.FriendAddRequest{InviteToken: created.InviteToken}); err == nil {
-		t.Fatal("AddFriend self token error = nil")
+	if _, err := s.AddFriend(ctx, "peer-b", rpcapi.FriendAddRequest{InviteToken: created.InviteToken}); !errors.Is(err, ErrInviteTokenSelfOwned) {
+		t.Fatalf("AddFriend self token error = %v, want self-owned", err)
 	}
 
 	friend, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: created.InviteToken})
@@ -175,6 +175,46 @@ func TestInviteTokenLifecycleAndAddFriend(t *testing.T) {
 		if socialutil.StringValue(friends.Items[0].WorkspaceName) != workspaceName {
 			t.Fatalf("ListFriends(%s) workspace_name = %#v, want %q", tc.owner, friends.Items[0].WorkspaceName, workspaceName)
 		}
+	}
+}
+
+func TestAddFriendInviteTokenRejectionsDoNotCreateRelationships(t *testing.T) {
+	s := newTestServer()
+	created, err := s.CreateFriendInviteToken(t.Context(), "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
+	if err != nil {
+		t.Fatalf("CreateFriendInviteToken: %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		owner       string
+		inviteToken string
+		want        error
+	}{
+		{name: "empty", owner: "peer-a", want: ErrInviteTokenRequired},
+		{name: "whitespace only", owner: "peer-a", inviteToken: " \t\n", want: ErrInviteTokenRequired},
+		{name: "unknown", owner: "peer-a", inviteToken: "missing", want: ErrInviteTokenUnavailable},
+		{name: "malformed", owner: "peer-a", inviteToken: "not/a/token?!", want: ErrInviteTokenUnavailable},
+		{name: "whitespace wrapped active", owner: "peer-a", inviteToken: " " + created.InviteToken + " ", want: ErrInviteTokenUnavailable},
+		{name: "self owned", owner: "peer-b", inviteToken: created.InviteToken, want: ErrInviteTokenSelfOwned},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := s.AddFriend(t.Context(), test.owner, rpcapi.FriendAddRequest{InviteToken: test.inviteToken}); !errors.Is(err, test.want) {
+				t.Fatalf("AddFriend() error = %v, want %v", err, test.want)
+			}
+			friends, err := s.ListFriends(t.Context(), test.owner, rpcapi.FriendListRequest{})
+			if err != nil {
+				t.Fatalf("ListFriends(): %v", err)
+			}
+			if len(friends.Items) != 0 {
+				t.Fatalf("ListFriends() = %#v, want no relationship", friends.Items)
+			}
+			assertNoFriendCreationState(t, s.Friends)
+			if created := s.Workspaces.(*recordingWorkspaceService).created; len(created) != 0 {
+				t.Fatalf("created Workspaces = %#v, want none", created)
+			}
+		})
 	}
 }
 
@@ -1189,6 +1229,9 @@ func TestInviteTokenExpiryAndClear(t *testing.T) {
 		t.Fatalf("CreateFriendInviteToken: %v", err)
 	}
 	s.Now = func() time.Time { return time.Date(2026, 6, 13, 0, 6, 0, 0, time.UTC) }
+	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: created.InviteToken}); !errors.Is(err, ErrInviteTokenUnavailable) {
+		t.Fatalf("AddFriend expired token error = %v, want unavailable", err)
+	}
 	got, err := s.GetFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenGetRequest{})
 	if err != nil {
 		t.Fatalf("GetFriendInviteToken expired: %v", err)
@@ -1196,8 +1239,8 @@ func TestInviteTokenExpiryAndClear(t *testing.T) {
 	if got.InviteToken != nil || got.ExpiresAt != nil {
 		t.Fatalf("expired token response = %#v, want no token fields", got)
 	}
-	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: created.InviteToken}); err == nil {
-		t.Fatal("AddFriend expired token error = nil")
+	if _, err := s.InviteTokens.Get(ctx, socialutil.FriendInviteTokenKey("peer-b")); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("expired invite token cleanup error = %v, want not found", err)
 	}
 
 	refreshed, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
@@ -1359,8 +1402,8 @@ func TestConfigurationAndValidationErrors(t *testing.T) {
 	if _, err := empty.CreateFriendInviteToken(ctx, "peer-a", rpcapi.FriendInviteTokenCreateRequest{}); err == nil {
 		t.Fatal("CreateFriendInviteToken without store error = nil")
 	}
-	if _, err := empty.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: "token"}); err == nil {
-		t.Fatal("AddFriend without store error = nil")
+	if _, err := empty.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: "token"}); !errors.Is(err, ErrInviteTokenLookupFailed) {
+		t.Fatalf("AddFriend without store error = %v, want lookup failed", err)
 	}
 	if _, err := empty.ListFriends(ctx, "peer-a", rpcapi.FriendListRequest{}); err == nil {
 		t.Fatal("ListFriends without store error = nil")
@@ -1388,8 +1431,8 @@ func TestConfigurationAndValidationErrors(t *testing.T) {
 	if _, err := s.AddFriend(ctx, "", rpcapi.FriendAddRequest{InviteToken: "token"}); err == nil {
 		t.Fatal("AddFriend empty owner error = nil")
 	}
-	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{}); err == nil {
-		t.Fatal("AddFriend empty token error = nil")
+	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{}); !errors.Is(err, ErrInviteTokenRequired) {
+		t.Fatalf("AddFriend empty token error = %v, want required", err)
 	}
 	defaultClock := &Server{InviteTokens: kv.NewMemory(nil), Friends: kv.NewMemory(nil)}
 	if created, err := defaultClock.CreateFriendInviteToken(ctx, "peer-z", rpcapi.FriendInviteTokenCreateRequest{}); err != nil || created.InviteToken == "" || created.ExpiresAt.IsZero() {
@@ -1403,14 +1446,110 @@ func TestConfigurationAndValidationErrors(t *testing.T) {
 func TestAddFriendPropagatesInviteTokenStoreErrors(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
-	s.InviteTokens = failingGetStore{Store: s.InviteTokens}
+	wantErr := errors.New("forced list failure")
+	s.InviteTokens = failingGetStore{Store: s.InviteTokens, err: wantErr}
 
 	_, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: "token"})
-	if err == nil {
-		t.Fatal("AddFriend with failing invite token store error = nil")
+	if !errors.Is(err, ErrInviteTokenLookupFailed) || !errors.Is(err, wantErr) {
+		t.Fatalf("AddFriend error = %v, want lookup failure wrapping store cause", err)
 	}
-	if err.Error() != "forced list failure" {
-		t.Fatalf("AddFriend error = %v, want forced list failure", err)
+	assertNoFriendCreationState(t, s.Friends)
+	if created := s.Workspaces.(*recordingWorkspaceService).created; len(created) != 0 {
+		t.Fatalf("created Workspaces = %#v, want none", created)
+	}
+}
+
+func TestAddFriendRejectsCorruptInviteTokenRecords(t *testing.T) {
+	tests := []struct {
+		name  string
+		value []byte
+		token string
+	}{
+		{name: "invalid JSON", value: []byte("{"), token: "token"},
+		{
+			name: "invalid active timestamp",
+			value: mustJSON(t, inviteTokenRecord{
+				PeerPublicKey: "peer-b",
+				InviteToken:   "different-token",
+				ExpiresAt:     time.Date(2026, 6, 13, 0, 5, 0, 0, time.UTC),
+			}),
+			token: "token",
+		},
+		{
+			name: "invalid matched owner",
+			value: mustJSON(t, inviteTokenRecord{
+				PeerPublicKey: " peer-b ",
+				InviteToken:   "token",
+				CreatedAt:     time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC),
+				ExpiresAt:     time.Date(2026, 6, 13, 0, 5, 0, 0, time.UTC),
+			}),
+			token: "token",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			s := newTestServer()
+			if err := s.InviteTokens.Set(t.Context(), socialutil.FriendInviteTokenKey("peer-b"), test.value); err != nil {
+				t.Fatalf("seed invite token: %v", err)
+			}
+			if _, err := s.AddFriend(t.Context(), "peer-a", rpcapi.FriendAddRequest{InviteToken: test.token}); !errors.Is(err, ErrInviteTokenLookupFailed) {
+				t.Fatalf("AddFriend() error = %v, want lookup failed", err)
+			}
+			assertNoFriendCreationState(t, s.Friends)
+			if created := s.Workspaces.(*recordingWorkspaceService).created; len(created) != 0 {
+				t.Fatalf("created Workspaces = %#v, want none", created)
+			}
+		})
+	}
+}
+
+func TestAddFriendReportsExpiredInviteTokenCleanupFailure(t *testing.T) {
+	s := newTestServer()
+	wantErr := errors.New("forced delete failure")
+	s.InviteTokens = failingDeleteStore{Store: s.InviteTokens, err: wantErr}
+	record := inviteTokenRecord{
+		PeerPublicKey: "peer-b",
+		InviteToken:   "expired",
+		CreatedAt:     time.Date(2026, 6, 12, 23, 0, 0, 0, time.UTC),
+		ExpiresAt:     time.Date(2026, 6, 12, 23, 5, 0, 0, time.UTC),
+	}
+	if err := socialutil.WriteJSON(t.Context(), s.InviteTokens, socialutil.FriendInviteTokenKey("peer-b"), record); err != nil {
+		t.Fatalf("seed expired invite token: %v", err)
+	}
+
+	_, err := s.AddFriend(t.Context(), "peer-a", rpcapi.FriendAddRequest{InviteToken: record.InviteToken})
+	if !errors.Is(err, ErrInviteTokenLookupFailed) || !errors.Is(err, wantErr) {
+		t.Fatalf("AddFriend() error = %v, want lookup failure wrapping delete cause", err)
+	}
+	assertNoFriendCreationState(t, s.Friends)
+	if created := s.Workspaces.(*recordingWorkspaceService).created; len(created) != 0 {
+		t.Fatalf("created Workspaces = %#v, want none", created)
+	}
+}
+
+func mustJSON(t *testing.T, value any) []byte {
+	t.Helper()
+	data, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("json.Marshal(): %v", err)
+	}
+	return data
+}
+
+func assertNoFriendCreationState(t *testing.T, store kv.Store) {
+	t.Helper()
+	for _, root := range []kv.Key{
+		socialutil.FriendsRoot,
+		creationIntentsRoot,
+		creationDecisionsRoot,
+		workspaceBindingsRoot,
+	} {
+		for entry, err := range store.List(t.Context(), root) {
+			if err != nil {
+				t.Fatalf("list %s: %v", root, err)
+			}
+			t.Fatalf("unexpected Friend creation state under %s: %s", root, entry.Key)
+		}
 	}
 }
 
@@ -1534,12 +1673,22 @@ func (s *blockingCreationDecisionStore) CompareAndMutate(
 
 type failingGetStore struct {
 	kv.Store
+	err error
 }
 
 func (s failingGetStore) List(context.Context, kv.Key) iter.Seq2[kv.Entry, error] {
 	return func(yield func(kv.Entry, error) bool) {
-		yield(kv.Entry{}, errors.New("forced list failure"))
+		yield(kv.Entry{}, s.err)
 	}
+}
+
+type failingDeleteStore struct {
+	kv.Store
+	err error
+}
+
+func (s failingDeleteStore) Delete(context.Context, kv.Key) error {
+	return s.err
 }
 
 type recordingWorkspaceService struct {

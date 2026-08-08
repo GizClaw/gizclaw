@@ -355,16 +355,13 @@ func (s *Server) AddFriend(ctx context.Context, owner string, req rpcapi.FriendA
 	if owner == "" {
 		return rpcapi.FriendAddResponse{}, errors.New("social: peer public key is required")
 	}
-	record, err := s.findInviteToken(ctx, strings.TrimSpace(req.InviteToken))
+	record, err := s.findInviteToken(ctx, req.InviteToken)
 	if err != nil {
 		return rpcapi.FriendAddResponse{}, err
 	}
-	to := strings.TrimSpace(record.PeerPublicKey)
-	if to == "" {
-		return rpcapi.FriendAddResponse{}, errors.New("social: invite token owner is empty")
-	}
+	to := record.PeerPublicKey
 	if owner == to {
-		return rpcapi.FriendAddResponse{}, errors.New("social: cannot friend self")
+		return rpcapi.FriendAddResponse{}, ErrInviteTokenSelfOwned
 	}
 	relationID := socialutil.RelationID(owner, to)
 	unlock := s.lockRelation(relationID)
@@ -1799,32 +1796,44 @@ func (s *Server) activeInviteToken(ctx context.Context, store kv.Store, owner st
 }
 
 func (s *Server) findInviteToken(ctx context.Context, inviteToken string) (inviteTokenRecord, error) {
-	inviteToken = strings.TrimSpace(inviteToken)
-	if inviteToken == "" {
-		return inviteTokenRecord{}, errors.New("social: invite token is required")
+	if strings.TrimSpace(inviteToken) == "" {
+		return inviteTokenRecord{}, ErrInviteTokenRequired
 	}
 	store, err := s.inviteTokensStore()
 	if err != nil {
-		return inviteTokenRecord{}, err
+		return inviteTokenRecord{}, inviteTokenLookupError(err)
 	}
 	now := s.now()
 	for entry, err := range store.List(ctx, socialutil.FriendInviteTokensRoot) {
 		if err != nil {
-			return inviteTokenRecord{}, err
+			return inviteTokenRecord{}, inviteTokenLookupError(err)
 		}
 		var record inviteTokenRecord
 		if err := json.Unmarshal(entry.Value, &record); err != nil {
-			return inviteTokenRecord{}, err
+			return inviteTokenRecord{}, inviteTokenLookupError(err)
 		}
-		if strings.TrimSpace(record.InviteToken) == "" || !record.ExpiresAt.After(now) {
-			_ = store.Delete(ctx, entry.Key)
+		if !record.ExpiresAt.After(now) {
+			if err := store.Delete(ctx, entry.Key); err != nil {
+				return inviteTokenRecord{}, inviteTokenLookupError(err)
+			}
 			continue
 		}
+		if strings.TrimSpace(record.InviteToken) == "" || record.CreatedAt.IsZero() ||
+			!record.CreatedAt.Before(record.ExpiresAt) {
+			return inviteTokenRecord{}, inviteTokenLookupError(errors.New("social: persisted Friend invite token is invalid"))
+		}
 		if record.InviteToken == inviteToken {
+			if record.PeerPublicKey == "" || record.PeerPublicKey != strings.TrimSpace(record.PeerPublicKey) {
+				return inviteTokenRecord{}, inviteTokenLookupError(errors.New("social: persisted Friend invite token is invalid"))
+			}
 			return record, nil
 		}
 	}
-	return inviteTokenRecord{}, errors.New("social: invite token not found")
+	return inviteTokenRecord{}, ErrInviteTokenUnavailable
+}
+
+func inviteTokenLookupError(err error) error {
+	return fmt.Errorf("%w: %w", ErrInviteTokenLookupFailed, err)
 }
 
 func (s *Server) inviteTokensStore() (kv.Store, error) {

@@ -9,8 +9,7 @@ func TestSocialFriendInviteTokenRPC(t *testing.T) {
 	peerB := h.ContextPublicKey("peer-b")
 	peerC := h.ContextPublicKey("peer-c")
 
-	assertFriendInviteTokenFailureCases(t, h)
-	friendAB := createFriendByInviteToken(t, h, "peer-a", "peer-b", peerB)
+	friendAB := assertFriendInviteTokenFailureCases(t, h, peerB)
 	friendAC := createFriendByInviteToken(t, h, "peer-a", "peer-c", peerC)
 	if stringValue(friendAB.WorkspaceName) == "" || stringValue(friendAC.WorkspaceName) == "" {
 		t.Fatalf("friend workspaces are empty: ab=%#v ac=%#v", friendAB, friendAC)

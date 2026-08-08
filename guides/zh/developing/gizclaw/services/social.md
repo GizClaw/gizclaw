@@ -27,6 +27,8 @@ Peer RPC 以 `name` 暴露 Friend relationship 的稳定身份，其值是已由
 
 Friend relationship 行保存 Peer 可见的精确 Workspace name，内部 binding 则保存用于 retirement、`PendingDeletion`、runtime、history 与 asset cleanup 的 canonical Workspace ID。正式删除好友时，服务在同一个 KV `BatchMutate` 中原子删除双方 relationship 并保存最小的 ID-based retirement intent，提交成功后才进入清理队列；完成后用 compact retirement receipt 保留幂等重试所需的 canonical identity 与不可变 name。重新加好友始终创建新的 Workspace，不查询、清除或复用旧 Workspace 的清理状态。Relationship 或 binding 缺少最终 Schema 要求的 identity 字段时视为无效，不提供旧 identity fallback。创建 invite token 的 Peer 是发起人和不可变 Workspace owner；接受邀请的一方获得访问权但不共享 ownership，Admin 创建使用显式 owner。
 
+Friend invite token 是不透明且区分每个字节的 credential。`friend.add` 只把空值或纯空白值视为缺少参数；其他输入不会做 trim 或格式校验，只有与当前有效 token 完全相等才可建立关系。未知、格式任意、带首尾空白、已清除或已过期的 token 统一返回 not found，调用方自己的 token 返回 conflict。存储读取、解码、有效记录校验或过期记录清理失败统一返回脱敏的 internal error；所有拒绝都不会创建 Friend relationship 或 Workspace，也不会关闭底层 Peer connection。
+
 ### friendgroup
 
 拥有 friend group、member、invite 以及权威的 canonical `friend_group_id -> workspace_id` 绑定。Admin 始终用 canonical ID 定位 Group；Peer RPC 只接受当前成员自己的本地 Group `name`，服务在 owner/member scope 内把该 name 解析为 canonical ID。不同 Peer 可以为同一 Group 使用不同 name，也可以为各自资源复用相同 name。Group membership 直接决定成员对 group system Workspace 的访问。
