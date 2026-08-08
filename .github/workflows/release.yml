@@ -371,10 +371,10 @@ jobs:
               ruleset_ok=true
             fi
           done
-          test "$ruleset_ok" = true && test "$creation_blocked" = false || {
+          if [[ "$ruleset_ok" != true || "$creation_blocked" != false ]]; then
             echo "an active refs/tags/v* ruleset allowing creation and restricting update and deletion is required" >&2
             exit 1
-          }
+          fi
 
           remote_tag_commit="$(
             git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}" |
