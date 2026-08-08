@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -446,10 +448,8 @@ func miniMaxBaseURLCandidates(tenant apitypes.MiniMaxTenant, credential apitypes
 		if baseURL == "" {
 			return
 		}
-		for _, existing := range candidates {
-			if existing == baseURL {
-				return
-			}
+		if slices.Contains(candidates, baseURL) {
+			return
 		}
 		candidates = append(candidates, baseURL)
 	}
@@ -904,9 +904,7 @@ func cloneMap(in *map[string]any) *map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(*in))
-	for key, value := range *in {
-		out[key] = value
-	}
+	maps.Copy(out, *in)
 	return &out
 }
 
@@ -925,8 +923,9 @@ func cloneVoiceProviderData(in *apitypes.VoiceProviderData) *apitypes.VoiceProvi
 	return &out
 }
 
+//go:fix inline
 func intPtr(value int) *int {
-	return &value
+	return new(value)
 }
 
 func (s *Server) now() time.Time {

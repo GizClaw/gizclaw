@@ -263,7 +263,7 @@ func (unexpectedFirmwareService) RollbackFirmware(context.Context, adminhttp.Rol
 func testFirmwareSpecSlots(stableDescription string) apitypes.FirmwareSpecSlots {
 	return apitypes.FirmwareSpecSlots{
 		Stable: apitypes.FirmwareSpecSlot{
-			Description: stringPtr(stableDescription),
+			Description: new(stableDescription),
 			Package: &apitypes.FirmwarePackage{
 				Url:    "https://firmware.example/stable.tar.zlib",
 				Sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
@@ -273,6 +273,7 @@ func testFirmwareSpecSlots(stableDescription string) apitypes.FirmwareSpecSlots 
 	}
 }
 
+//go:fix inline
 func stringPtr(value string) *string {
-	return &value
+	return new(value)
 }

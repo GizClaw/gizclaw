@@ -12,14 +12,14 @@ func TestIntegrationPeerServiceLifecycle(t *testing.T) {
 	ts := startTestServer(t)
 
 	admin := newTestClient(t, ts)
-	adminPublicKey := ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
+	adminPublicKey := ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: new("admin")})
 
 	device := newTestClient(t, ts)
 	devicePublicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{
-		Name: strPtr("peer"),
+		Name: new("peer"),
 		Identifiers: &apitypes.DeviceIdentifiers{
-			Sn:    strPtr("sn/1"),
-			Imeis: &[]apitypes.PeerIMEI{{Name: strPtr("main"), Tac: "12345678", Serial: "0000001"}},
+			Sn:    new("sn/1"),
+			Imeis: &[]apitypes.PeerIMEI{{Name: new("main"), Tac: "12345678", Serial: "0000001"}},
 			Labels: &[]apitypes.PeerLabel{{
 				Key:   "batch",
 				Value: "cn/east",
@@ -68,7 +68,7 @@ func TestIntegrationAdminResourceAPIs(t *testing.T) {
 	ts := startTestServer(t)
 
 	admin := newTestClient(t, ts)
-	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
+	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: new("admin")})
 
 	api, err := admin.ServerAdminClient()
 	if err != nil {

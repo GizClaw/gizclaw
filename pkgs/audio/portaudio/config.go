@@ -64,10 +64,7 @@ func defaultFramesPerBuffer(sampleRate int) uint32 {
 		return 320
 	}
 	// 20ms block for low-latency streaming.
-	frames := sampleRate / 50
-	if frames < 64 {
-		frames = 64
-	}
+	frames := max(sampleRate/50, 64)
 	return uint32(frames)
 }
 

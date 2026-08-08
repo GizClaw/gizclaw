@@ -143,8 +143,8 @@ func TestServerDeepSeekTenantValidationAndStoreErrors(t *testing.T) {
 		{name: "missing name", body: adminhttp.DeepSeekTenantUpsert{CredentialId: "credential"}},
 		{name: "missing credential", body: adminhttp.DeepSeekTenantUpsert{Id: "tenant"}},
 		{name: "credential id whitespace", body: adminhttp.DeepSeekTenantUpsert{Id: "tenant", CredentialId: " credential "}},
-		{name: "relative base URL", body: adminhttp.DeepSeekTenantUpsert{Id: "tenant", CredentialId: "credential", BaseUrl: stringPtr("/v1")}},
-		{name: "non HTTP base URL", body: adminhttp.DeepSeekTenantUpsert{Id: "tenant", CredentialId: "credential", BaseUrl: stringPtr("ftp://deepseek.example.com")}},
+		{name: "relative base URL", body: adminhttp.DeepSeekTenantUpsert{Id: "tenant", CredentialId: "credential", BaseUrl: new("/v1")}},
+		{name: "non HTTP base URL", body: adminhttp.DeepSeekTenantUpsert{Id: "tenant", CredentialId: "credential", BaseUrl: new("ftp://deepseek.example.com")}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resp, err := srv.CreateDeepSeekTenant(ctx, adminhttp.CreateDeepSeekTenantRequestObject{Body: &tc.body})

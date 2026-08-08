@@ -740,7 +740,7 @@ func TestFriendGroupMutationsRejectUnavailableOwnerButRetirementBypassesFence(t 
 		}
 		return nil
 	}
-	if _, err := s.AdminPutFriendGroup(t.Context(), groupID, strPtr("changed"), nil); !errors.Is(err, wantErr) {
+	if _, err := s.AdminPutFriendGroup(t.Context(), groupID, new("changed"), nil); !errors.Is(err, wantErr) {
 		t.Fatalf("AdminPutFriendGroup() error = %v, want Peer fence", err)
 	}
 	if _, err := s.AdminPutFriendGroupInviteToken(t.Context(), groupID, "invite", time.Now().Add(time.Hour)); !errors.Is(err, wantErr) {
@@ -766,7 +766,7 @@ func TestConfigurationErrorsAndHelpers(t *testing.T) {
 	if _, err := empty.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"}); err == nil {
 		t.Fatal("CreateFriendGroup without store error = nil")
 	}
-	if _, err := empty.ListFriendGroupMembers(ctx, "peer-a", rpcapi.FriendGroupMemberListRequest{FriendGroupName: strPtr("group-a")}); err == nil {
+	if _, err := empty.ListFriendGroupMembers(ctx, "peer-a", rpcapi.FriendGroupMemberListRequest{FriendGroupName: new("group-a")}); err == nil {
 		t.Fatal("ListFriendGroupMembers without store error = nil")
 	}
 	if _, err := empty.AdminCreateFriendGroup(ctx, "group-id", "peer-a", "group-a", nil, nil); err == nil {
@@ -793,7 +793,7 @@ func TestConfigurationErrorsAndHelpers(t *testing.T) {
 	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupName: group.Name, Role: rpcapi.FriendGroupMemberMutableRole("member"), MemberName: "room-b"}); err == nil {
 		t.Fatal("AddFriendGroupMember empty peer public key error = nil")
 	}
-	if _, err := s.AdminPutFriendGroup(ctx, "", strPtr("renamed"), nil); err == nil {
+	if _, err := s.AdminPutFriendGroup(ctx, "", new("renamed"), nil); err == nil {
 		t.Fatal("AdminPutFriendGroup empty id error = nil")
 	}
 	if _, err := s.AdminDeleteFriendGroup(ctx, ""); err == nil {
@@ -912,7 +912,7 @@ func TestFilteredListsPaginateAfterFilteringAndSortNewestFirst(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateFriendGroup visible: %v", err)
 	}
-	friendGroups, err := s.ListFriendGroups(ctx, "peer-a", rpcapi.FriendGroupListRequest{Limit: socialutil.IntPtr(1)})
+	friendGroups, err := s.ListFriendGroups(ctx, "peer-a", rpcapi.FriendGroupListRequest{Limit: new(1)})
 	if err != nil {
 		t.Fatalf("ListFriendGroups: %v", err)
 	}
@@ -1281,8 +1281,9 @@ func (s failingWorkspaceService) DeleteWorkspace(context.Context, adminhttp.Dele
 	return adminhttp.DeleteWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "missing")), nil
 }
 
+//go:fix inline
 func strPtr(v string) *string {
-	return &v
+	return new(v)
 }
 
 func testRuntimeProfileForOwner(context.Context, string) (apitypes.RuntimeProfile, error) {

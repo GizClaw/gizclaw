@@ -55,15 +55,12 @@ func copyEmbedding(emb []float32) []float32 {
 }
 
 func cosineSimilarity(a, b []float32) float32 {
-	n := len(a)
-	if len(b) < n {
-		n = len(b)
-	}
+	n := min(len(b), len(a))
 	if n == 0 {
 		return 0
 	}
 	var sum float32
-	for i := 0; i < n; i++ {
+	for i := range n {
 		sum += a[i] * b[i]
 	}
 	return sum

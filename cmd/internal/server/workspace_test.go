@@ -23,7 +23,7 @@ import (
 func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 	workspace := t.TempDir()
 	serverKP := testKeyPair(t, 0xcd)
-	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(fmt.Sprintf(`
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), fmt.Appendf(nil, `
 identity:
   private-key: %q
 listen: "127.0.0.1:39001"
@@ -73,7 +73,7 @@ stores:
   gameplay-db:
     kind: sql
     storage: gameplay-db
-`, serverKP.Private.String(), testKeyPair(t, 0xab).Public.String())), 0o644); err != nil {
+`, serverKP.Private.String(), testKeyPair(t, 0xab).Public.String()), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
@@ -111,7 +111,7 @@ stores:
 func TestServeContextServerInfoReportsTCPICE(t *testing.T) {
 	addr := localTCPUDPAddr(t)
 	workspace := t.TempDir()
-	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(fmt.Sprintf(`
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), fmt.Appendf(nil, `
 listen: %q
 endpoint: %q
 serve-to-clients: true
@@ -119,7 +119,7 @@ stores:
   peers:
     kind: keyvalue
     backend: memory
-`, addr, addr)), 0o644); err != nil {
+`, addr, addr), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
@@ -147,14 +147,14 @@ stores:
 func TestServeContextDefaultKeepsTCPMuxAndRequiresPrivateAuth(t *testing.T) {
 	addr := localTCPUDPAddr(t)
 	workspace := t.TempDir()
-	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(fmt.Sprintf(`
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), fmt.Appendf(nil, `
 listen: %q
 endpoint: %q
 stores:
   peers:
     kind: keyvalue
     backend: memory
-`, addr, addr)), 0o644); err != nil {
+`, addr, addr), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
@@ -561,7 +561,7 @@ stores:
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile config error = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(workspace, workspacePIDFile), []byte(fmt.Sprintf("%d\n", os.Getpid())), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(workspace, workspacePIDFile), fmt.Appendf(nil, "%d\n", os.Getpid()), 0o644); err != nil {
 		t.Fatalf("WriteFile pid error = %v", err)
 	}
 
@@ -610,7 +610,7 @@ func TestHandleExistingWorkspacePIDForceRemovesStale(t *testing.T) {
 func TestAcquireWorkspacePIDRejectsRunningPID(t *testing.T) {
 	workspace := t.TempDir()
 	pidPath := filepath.Join(workspace, workspacePIDFile)
-	if err := os.WriteFile(pidPath, []byte(fmt.Sprintf("%d\n", os.Getpid())), 0o644); err != nil {
+	if err := os.WriteFile(pidPath, fmt.Appendf(nil, "%d\n", os.Getpid()), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 

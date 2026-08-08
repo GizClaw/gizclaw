@@ -204,7 +204,8 @@ func int64Value(in *int64) int64 {
 	return *in
 }
 
-func stringPtr(v string) *string { return &v }
+//go:fix inline
+func stringPtr(v string) *string { return new(v) }
 
 func optionalString(v string) *string {
 	if v == "" {

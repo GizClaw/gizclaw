@@ -16,7 +16,7 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	ts := startTestServer(t)
 
 	admin := newTestClient(t, ts)
-	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
+	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: new("admin")})
 
 	createDoc := mustWorkflow(t, `{
 		"id": "demo-assistant",
@@ -80,7 +80,7 @@ func TestIntegrationAdminServiceRejectsLegacyWorkflowDescription(t *testing.T) {
 	ts := startTestServer(t)
 
 	admin := newTestClient(t, ts)
-	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
+	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: new("admin")})
 	api, err := admin.ServerAdminClient()
 	if err != nil {
 		t.Fatalf("ServerAdminClient() error = %v", err)
@@ -105,7 +105,7 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 	ts := startTestServer(t)
 
 	admin := newTestClient(t, ts)
-	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
+	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: new("admin")})
 
 	workflowDoc := mustWorkflow(t, `{
 		"id": "demo-workflow",
@@ -189,7 +189,7 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 	ts := startTestServer(t)
 
 	admin := newTestClient(t, ts)
-	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
+	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: new("admin")})
 
 	createBody := mustCredentialUpsert(t, `{
 		"id": "openai-primary",

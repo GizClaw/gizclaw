@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"strings"
 	"time"
@@ -664,9 +665,7 @@ func rawMapFromProviderData(values map[string]any) *map[string]any {
 	switch typed := rawValue.(type) {
 	case map[string]any:
 		out := make(map[string]any, len(typed))
-		for key, value := range typed {
-			out[key] = value
-		}
+		maps.Copy(out, typed)
 		if len(out) == 0 {
 			return nil
 		}

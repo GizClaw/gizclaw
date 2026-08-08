@@ -126,7 +126,7 @@ func (s *PeerService) serveActiveConn(conn giznet.Conn, isRetiring func() bool) 
 	go func() { errCh <- s.serveEdgePublicWithRetiring(conn, isRetiring) }()
 
 	var errs []error
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		err := <-errCh
 		if i == 0 {
 			_ = conn.Close()

@@ -71,9 +71,7 @@ func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
 	errs := make(chan error, calls)
 	var wg sync.WaitGroup
 	for range calls {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			cancels <- cancel
 			input := newBufferStream(1)
@@ -84,7 +82,7 @@ func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
 			}
 			inputs <- input
 			outputs <- output
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)

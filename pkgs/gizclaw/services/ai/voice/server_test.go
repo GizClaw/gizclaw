@@ -188,7 +188,7 @@ func TestVoiceHelperIndexesAndSemanticEquality(t *testing.T) {
 		t.Fatalf("SemanticEqual(same voice) = false")
 	}
 	changed := voice
-	changed.Description = stringPtr("Secondary")
+	changed.Description = new("Secondary")
 	if SemanticEqual(voice, changed) {
 		t.Fatalf("SemanticEqual(different description) = true")
 	}
@@ -403,7 +403,7 @@ func TestVoiceBoundaryBranches(t *testing.T) {
 		t.Fatalf("SemanticEqual(sync voice) = false")
 	}
 	withDescription := syncVoice
-	withDescription.Description = stringPtr("description")
+	withDescription.Description = new("description")
 	if SemanticEqual(syncVoice, withDescription) {
 		t.Fatalf("SemanticEqual(nil/non-nil description) = true")
 	}
@@ -451,6 +451,7 @@ func voiceUpsert(id, providerID string) adminhttp.VoiceUpsert {
 	}
 }
 
+//go:fix inline
 func stringPtr(value string) *string {
-	return &value
+	return new(value)
 }

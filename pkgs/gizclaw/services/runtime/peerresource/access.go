@@ -610,4 +610,5 @@ func pageVoices(items []apitypes.Voice, cursor *string, requested *int) ([]apity
 	return page, true, &next
 }
 
-func ptr[T any](value T) *T { return &value }
+//go:fix inline
+func ptr[T any](value T) *T { return new(value) }

@@ -32,8 +32,9 @@ func makeSineWavePCM(freq float64, samples, sampleRate int) []byte {
 	return audio
 }
 
+//go:fix inline
 func ptrToFbankConfig(cfg fbankConfig) *fbankConfig {
-	return &cfg
+	return new(cfg)
 }
 
 func newTestERes2Model(cfg ncnnModelConfig) *ncnnModel {
@@ -330,7 +331,7 @@ func TestECAPANCNNModelFromMemoryMatchesBuiltin(t *testing.T) {
 
 	memModel := newTestModelFromMemory(t, info.ParamData, info.BinData, ncnnModelConfig{
 		EmbeddingDim: 192,
-		FbankCfg: ptrToFbankConfig(fbankConfig{
+		FbankCfg: new(fbankConfig{
 			SampleRate:   16000,
 			NumMels:      80,
 			FrameLength:  400,

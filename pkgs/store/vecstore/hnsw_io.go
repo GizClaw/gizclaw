@@ -377,10 +377,7 @@ func LoadHNSWWithOptions(r io.Reader, opts HNSWLoadOptions) (*HNSW, error) {
 			bestLevel = nd.level
 		}
 	}
-	maxLevel := 0
-	if bestLevel >= 0 {
-		maxLevel = bestLevel
-	}
+	maxLevel := max(bestLevel, 0)
 
 	return &HNSW{
 		cfg:      cfg,

@@ -258,7 +258,7 @@ func (s *Server) CreateTranscription(ctx context.Context, request openaihttp.Cre
 }
 
 func transcriptionAcceptsEventStream(accept string) bool {
-	for _, part := range strings.Split(accept, ",") {
+	for part := range strings.SplitSeq(accept, ",") {
 		mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(part))
 		if err != nil {
 			continue
@@ -608,7 +608,7 @@ func writeChatCompletionSSE(w io.Writer, stream genx.Stream, model string, now t
 		if !ok || text == "" {
 			continue
 		}
-		delta := openaihttp.ChatCompletionStreamResponseDelta{Content: stringPtr(string(text))}
+		delta := openaihttp.ChatCompletionStreamResponseDelta{Content: new(string(text))}
 		if !sentRole {
 			role := openaihttp.ChatCompletionStreamResponseDeltaRoleAssistant
 			delta.Role = &role
@@ -902,6 +902,7 @@ func idWithPrefix(prefix string, now func() time.Time) string {
 	return prefix + "-" + strconv.FormatInt(now().UnixNano(), 36)
 }
 
+//go:fix inline
 func stringPtr(value string) *string {
-	return &value
+	return new(value)
 }

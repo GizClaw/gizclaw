@@ -19,8 +19,8 @@ func TestJSONPagingAndDeletePrefix(t *testing.T) {
 	firstID := "id/a"
 	secondID := "id b"
 
-	first := rpcapi.ContactObject{Name: firstID, DisplayName: strPtr("first")}
-	second := rpcapi.ContactObject{Name: secondID, DisplayName: strPtr("second")}
+	first := rpcapi.ContactObject{Name: firstID, DisplayName: new("first")}
+	second := rpcapi.ContactObject{Name: secondID, DisplayName: new("second")}
 	if err := WriteJSON(ctx, store, ContactKey(owner, firstID), first); err != nil {
 		t.Fatalf("WriteJSON first: %v", err)
 	}
@@ -60,9 +60,9 @@ func TestJSONPagingAndDeletePrefix(t *testing.T) {
 
 func TestItemPagingAndVisibility(t *testing.T) {
 	items := []rpcapi.ContactObject{
-		{Name: "a", DisplayName: strPtr("first")},
-		{Name: "b", DisplayName: strPtr("second")},
-		{Name: "c", DisplayName: strPtr("third")},
+		{Name: "a", DisplayName: new("first")},
+		{Name: "b", DisplayName: new("second")},
+		{Name: "c", DisplayName: new("third")},
 	}
 	page := PageItems(items, "a", 1, func(item rpcapi.ContactObject) string {
 		return item.Name
@@ -159,6 +159,7 @@ func TestGroupRolesAndMessageExpiry(t *testing.T) {
 	}
 }
 
+//go:fix inline
 func strPtr(v string) *string {
-	return &v
+	return new(v)
 }

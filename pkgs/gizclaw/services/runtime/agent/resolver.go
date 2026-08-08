@@ -60,8 +60,8 @@ func ParseWorkspacePattern(pattern string) (string, error) {
 	if pattern == "workspaces" {
 		return "", fmt.Errorf("agent: workspace pattern is required")
 	}
-	if strings.HasPrefix(pattern, "workspaces/") {
-		pattern = strings.TrimPrefix(pattern, "workspaces/")
+	if after, ok := strings.CutPrefix(pattern, "workspaces/"); ok {
+		pattern = after
 	}
 	if strings.Contains(pattern, "/") {
 		return "", fmt.Errorf("agent: workspace pattern %q must identify one workspace", pattern)

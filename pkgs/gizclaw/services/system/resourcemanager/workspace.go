@@ -2,6 +2,7 @@ package resourcemanager
 
 import (
 	"context"
+	"maps"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -185,8 +186,6 @@ func cloneWorkspaceLabels(labels *map[string]string) *map[string]string {
 		return nil
 	}
 	cloned := make(map[string]string, len(*labels))
-	for key, value := range *labels {
-		cloned[key] = value
-	}
+	maps.Copy(cloned, *labels)
 	return &cloned
 }

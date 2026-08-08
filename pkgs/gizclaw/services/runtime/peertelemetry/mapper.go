@@ -2,6 +2,7 @@ package peertelemetry
 
 import (
 	"fmt"
+	"maps"
 	"math"
 	"time"
 
@@ -236,9 +237,7 @@ func sample(name string, labels map[string]string, ts time.Time, value float64) 
 
 func cloneLabels(labels map[string]string) map[string]string {
 	out := make(map[string]string, len(labels))
-	for k, v := range labels {
-		out[k] = v
-	}
+	maps.Copy(out, labels)
 	return out
 }
 

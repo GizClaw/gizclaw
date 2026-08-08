@@ -162,10 +162,7 @@ func (m *ncnnModel) extractSegment(net *ncnn.Net, features [][]float32) ([]float
 		return nil, fmt.Errorf("voiceprint: ncnn output data is empty")
 	}
 
-	n := len(data)
-	if n > m.dim {
-		n = m.dim
-	}
+	n := min(len(data), m.dim)
 	embedding := make([]float32, m.dim)
 	copy(embedding, data[:n])
 	return embedding, nil

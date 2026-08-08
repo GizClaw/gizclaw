@@ -8,6 +8,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 
@@ -66,24 +67,16 @@ func bruteForceSearch(ids []string, vecs [][]float32, query []float32, topK int)
 		}
 		results[i], results[best] = results[best], results[i]
 	}
-	n := topK
-	if n > len(results) {
-		n = len(results)
-	}
+	n := min(topK, len(results))
 	out := make([]string, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		out[i] = results[i].id
 	}
 	return out
 }
 
 func containsUint32(s []uint32, want uint32) bool {
-	for _, got := range s {
-		if got == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s, want)
 }
 
 // ---------------------------------------------------------------------------

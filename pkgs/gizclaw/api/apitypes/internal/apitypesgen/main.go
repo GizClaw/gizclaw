@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -335,9 +336,7 @@ func (g *generator) resolveComponentRef(currentFile, ref string) (string, string
 
 func (g *generator) bundleSpec() ([]byte, error) {
 	schemas := make(map[string]any, len(g.schemas)+len(g.entryAliases))
-	for name, schema := range g.schemas {
-		schemas[name] = schema
-	}
+	maps.Copy(schemas, g.schemas)
 	for alias, target := range g.entryAliases {
 		if _, ok := schemas[target]; !ok {
 			return nil, fmt.Errorf("entry alias %q points at missing schema %q", alias, target)

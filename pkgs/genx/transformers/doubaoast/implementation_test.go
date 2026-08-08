@@ -112,9 +112,7 @@ func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
 	errs := make(chan error, calls)
 	var wg sync.WaitGroup
 	for i := range calls {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			input := newBufferStream(2)
 			streamID := fmt.Sprintf("turn-%d", i)
 			output, err := transformer.Transform(context.Background(), input)
@@ -126,7 +124,7 @@ func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
 			_ = input.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: streamID}})
 			inputs <- input
 			outputs <- output
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)
@@ -1488,16 +1486,16 @@ func countASTTranslateHistoryAudioEOS(chunks []*genx.MessageChunk, streamID stri
 }
 
 func collectASTTranslateText(chunks []*genx.MessageChunk, role genx.Role, label, streamID string) string {
-	var out string
+	var out strings.Builder
 	for _, chunk := range chunks {
 		if chunk.Role != role || chunk.Ctrl == nil || chunk.Ctrl.Label != label || chunk.Ctrl.StreamID != streamID {
 			continue
 		}
 		if text, ok := chunk.Part.(genx.Text); ok {
-			out += string(text)
+			out.WriteString(string(text))
 		}
 	}
-	return out
+	return out.String()
 }
 
 func countASTTranslateStreamChunks(chunks []*genx.MessageChunk, streamID string) int {

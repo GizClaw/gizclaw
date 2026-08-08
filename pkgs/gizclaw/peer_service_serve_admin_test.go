@@ -549,7 +549,7 @@ func TestAdminWorkspaceHistoryHandlersServePersistedHistoryAndOggAudio(t *testin
 				{
 					Name:            "history-a",
 					Type:            apitypes.PeerRunHistoryEntryTypeGear,
-					GearId:          adminTestStringPtr("gear-a"),
+					GearId:          new("gear-a"),
 					ActorName:       "transcript",
 					Text:            "hello",
 					CreatedAt:       time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC),
@@ -599,7 +599,7 @@ func TestAdminServerLogsStreamsLogAndEndEvents(t *testing.T) {
 			Path:    "slog",
 			Fields:  map[string]string{"error": "boom"},
 		}},
-		end: apitypes.ServerLogStreamEnd{Count: 1, HasNext: true, NextCursor: adminTestStringPtr("cursor-1")},
+		end: apitypes.ServerLogStreamEnd{Count: 1, HasNext: true, NextCursor: new("cursor-1")},
 	}
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{ServerLogs: logs}, nil))
@@ -853,8 +853,9 @@ func serveAdminJSON(app *fiber.App, method, target, body string) *httptest.Respo
 	return rec
 }
 
+//go:fix inline
 func adminTestStringPtr(value string) *string {
-	return &value
+	return new(value)
 }
 
 type fakeAdminWorkspaceHistory struct {

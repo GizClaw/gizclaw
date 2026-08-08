@@ -111,7 +111,7 @@ func TestListVoicesReturnsRuntimeProfileVoiceList(t *testing.T) {
 				t.Fatalf("unexpected admin voice filters = %#v", req.Params)
 			}
 			return adminhttp.ListVoices200JSONResponse(adminhttp.VoiceList{
-				Items: []apitypes.Voice{{Id: "voice-a", DisplayName: stringPtr("Voice A")}},
+				Items: []apitypes.Voice{{Id: "voice-a", DisplayName: new("Voice A")}},
 			}), nil
 		}),
 	}
@@ -805,7 +805,7 @@ func TestWriteSpeechSSEStripsMP3ID3Tags(t *testing.T) {
 	}
 
 	var audio []byte
-	for _, line := range strings.Split(buf.String(), "\n") {
+	for line := range strings.SplitSeq(buf.String(), "\n") {
 		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, "data:") || strings.Contains(line, "speech.audio.done") {
 			continue
@@ -842,7 +842,7 @@ func TestWriteSpeechSSEUsesBlobMIME(t *testing.T) {
 	}
 
 	var got []byte
-	for _, line := range strings.Split(buf.String(), "\n") {
+	for line := range strings.SplitSeq(buf.String(), "\n") {
 		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, "data:") || strings.Contains(line, "speech.audio.done") {
 			continue

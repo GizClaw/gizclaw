@@ -43,7 +43,9 @@ Go 代码应保持 package 边界明确、控制流简单、生命周期可推�
 - HTTP、RPC、数据库、文件系统、serialization、timeout 和 retry 行为使用 integration test。
 - 并发改动应根据风险运行 `go test -race`；性能敏感路径根据需要增加 benchmark。
 - 涉及生成类型、Protobuf 或跨 package API 时运行 `go vet`。仓库自有 generator 输出中的诊断应回到 generator 处理；第三方生成文件中的诊断应记录来源，不为消除诊断而手工修改输出。不得通过手写 alias、wrapper 或 suppression 隐藏 ownership 问题。
-- 修改 Go 代码时必须运行 `modernize ./...`，检查当前 Go 版本提供的现代化建议。review 至少处理本次改动涉及的手写代码诊断；已有的范围外诊断应在验证结果中说明，不要求混入当前改动。仓库自有 generator 输出中的诊断回到 generator 处理；第三方生成文件中的诊断不应手工修复。
+- 修改 Go 代码时必须通过 `go run ./tools/quality modernize -binary "$(go env GOPATH)/bin/modernize"` 运行仓库固定版本的 `modernize`。所有被维护 module 中的手写 Go 诊断都必须修复，不能按“既有债务”保留，也不能通过编辑 `tools/quality/modernize.exemptions` 豁免。
+- `tools/quality/modernize.exemptions` 是生成代码和第三方代码的精确诊断豁免列表，不是 baseline、历史快照、路径通配或 package suppression。每条记录必须是当前 analyzer 实际输出的完整诊断，并且 source 必须是仓库内的 Git 跟踪普通文件（不能是 symlink），且满足以下一种 provenance：Go package 之前的 comment preamble 含标准 `// Code generated ... DO NOT EDIT.` 标记、路径命中显式 generator-owned output 规则，或路径命中显式 third-party ownership root（例如 `third_party/`）。文件名、字符串/template 内的标记、测试 fixture、任意 `generated`/`vendor` 目录名和豁免列表中已有记录都不能证明 provenance。
+- 只有在所有维护 module 均完成分析、没有手写诊断且没有 tool/package-loading failure 后，才可使用 `--write-exemptions` 原子刷新豁免列表。新增、删除、变更或 stale 的生成/第三方诊断都会使普通检查失败；review 必须逐条核对 source ownership。显式 generated/third-party root 内的未跟踪依赖或本地生成输出（例如 `guides/node_modules/`）不属于维护 source，也不能进入已提交豁免列表；其他未跟踪或未知的仓库内 Go source 一律按手写代码失败。仓库自有 generator 能安全修复的诊断仍应从 generator 修复并重新生成；第三方生成输出不得手工修改。`go vet` 使用独立的 `tools/quality/vet.baseline` contract，不受此豁免列表影响。
 - `modernize -fix` 会直接修改文件，只能在确认建议适用后使用；执行后必须审查完整 diff，并运行对应测试，不能把 analyzer 建议等同于行为正确性证明。
 - 修改 Go 行为后默认运行：
 

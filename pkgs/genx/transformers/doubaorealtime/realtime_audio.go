@@ -279,7 +279,7 @@ func (a *doubaoRealtimeAudioInput) silenceFrames(frameCount int) ([][]byte, erro
 	case "speech_opus", "opus":
 		silence := make([]int16, a.frameSize*a.channels)
 		frames := make([][]byte, 0, frameCount)
-		for i := 0; i < frameCount; i++ {
+		for range frameCount {
 			frame, err := a.encodeOpusSamples(silence)
 			if err != nil {
 				return nil, err
@@ -295,7 +295,7 @@ func (a *doubaoRealtimeAudioInput) silenceFrames(frameCount int) ([][]byte, erro
 			frameBytes = 640
 		}
 		frames := make([][]byte, 0, frameCount)
-		for i := 0; i < frameCount; i++ {
+		for range frameCount {
 			frames = append(frames, make([]byte, frameBytes))
 		}
 		return frames, nil

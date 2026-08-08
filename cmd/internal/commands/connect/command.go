@@ -956,6 +956,7 @@ func newFriendGroupMessagesAudioGetCmd() *cobra.Command {
 	return cmd
 }
 
+//go:fix inline
 func stringPtr(value string) *string {
-	return &value
+	return new(value)
 }

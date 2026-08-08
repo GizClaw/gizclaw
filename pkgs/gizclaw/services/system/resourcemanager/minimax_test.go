@@ -73,7 +73,7 @@ func TestGetVolcTenantReturnsResource(t *testing.T) {
 		CreatedAt:    time.Now().UTC(),
 		CredentialId: "volc-cred",
 		Id:           "volc-main",
-		Region:       stringPtr("cn-shanghai"),
+		Region:       new("cn-shanghai"),
 		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
@@ -100,7 +100,7 @@ func TestApplyVolcTenantUnchangedSkipsPut(t *testing.T) {
 		CreatedAt:    time.Now().UTC(),
 		CredentialId: "volc-cred",
 		Id:           "volc-main",
-		Region:       stringPtr("cn-shanghai"),
+		Region:       new("cn-shanghai"),
 		UpdatedAt:    time.Now().UTC(),
 	}
 	manager := New(Services{ProviderTenants: minimax, Voices: minimax})
@@ -212,10 +212,10 @@ func TestDeleteVolcTenantDeletesAndReturnsResource(t *testing.T) {
 func TestDeleteMiniMaxTenantDeletesAndReturnsResource(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.tenants["main"] = apitypes.MiniMaxTenant{
-		AppId:        stringPtr("new-app"),
+		AppId:        new("new-app"),
 		CreatedAt:    time.Now().UTC(),
 		CredentialId: "minimax-main",
-		GroupId:      stringPtr("group"),
+		GroupId:      new("group"),
 		Id:           "main",
 		UpdatedAt:    time.Now().UTC(),
 	}
@@ -240,10 +240,10 @@ func TestDeleteMiniMaxTenantDeletesAndReturnsResource(t *testing.T) {
 func TestGetMiniMaxTenantReturnsResource(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.tenants["main"] = apitypes.MiniMaxTenant{
-		AppId:        stringPtr("old-app"),
+		AppId:        new("old-app"),
 		CreatedAt:    time.Now().UTC(),
 		CredentialId: "minimax-main",
-		GroupId:      stringPtr("group"),
+		GroupId:      new("group"),
 		Id:           "main",
 		UpdatedAt:    time.Now().UTC(),
 	}
@@ -268,10 +268,10 @@ func TestGetMiniMaxTenantReturnsResource(t *testing.T) {
 func TestApplyMiniMaxTenantUnchangedSkipsPut(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.tenants["main"] = apitypes.MiniMaxTenant{
-		AppId:        stringPtr("new-app"),
+		AppId:        new("new-app"),
 		CreatedAt:    time.Now().UTC(),
 		CredentialId: "minimax-main",
-		GroupId:      stringPtr("group"),
+		GroupId:      new("group"),
 		Id:           "main",
 		UpdatedAt:    time.Now().UTC(),
 	}
@@ -303,7 +303,7 @@ func TestApplyMiniMaxTenantUpdatesResource(t *testing.T) {
 	minimax.tenants["main"] = apitypes.MiniMaxTenant{
 		CreatedAt:    time.Now().UTC(),
 		CredentialId: "minimax-main",
-		GroupId:      stringPtr("group"),
+		GroupId:      new("group"),
 		Id:           "main",
 		UpdatedAt:    time.Now().UTC(),
 	}
@@ -335,7 +335,7 @@ func TestApplyVoiceUpdatesResource(t *testing.T) {
 	minimax.voices["voice-1"] = apitypes.Voice{
 		CreatedAt:   time.Now().UTC(),
 		Id:          "voice-1",
-		DisplayName: ptr("Old"),
+		DisplayName: new("Old"),
 		Provider:    apitypes.VoiceProvider{Kind: "minimax", Id: "main"},
 		Source:      apitypes.VoiceSourceManual,
 		UpdatedAt:   time.Now().UTC(),

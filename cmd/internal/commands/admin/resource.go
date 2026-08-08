@@ -377,7 +377,7 @@ func expandResourceEnvWith(input string, formatReplacement func(string, int) str
 func insideJSONString(input string, offset int) bool {
 	inString := false
 	escaped := false
-	for i := 0; i < offset; i++ {
+	for i := range offset {
 		switch input[i] {
 		case '\\':
 			if escaped {

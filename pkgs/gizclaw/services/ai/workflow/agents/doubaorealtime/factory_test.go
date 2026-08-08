@@ -13,7 +13,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 )
 
-func stringPtr(value string) *string { return &value }
+//go:fix inline
+func stringPtr(value string) *string { return new(value) }
 
 func testDoubaoRealtimeWorkflow(spec apitypes.DoubaoRealtimeWorkflowSpec) apitypes.Workflow {
 	return apitypes.Workflow{
@@ -44,7 +45,7 @@ func TestFactoryUsesWorkflowDuplexConfig(t *testing.T) {
 	loudness := -1
 	workflow := testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{
 		Model:        "doubao-dialog",
-		Instructions: stringPtr("简短回答。"),
+		Instructions: new("简短回答。"),
 		Audio: &apitypes.DoubaoRealtimeAudio{
 			Input: apitypes.DoubaoRealtimeAudioInput{Format: apitypes.DoubaoRealtimeAudioFormat{
 				Type: apitypes.DoubaoRealtimeAudioFormatType("speech_opus"),
@@ -52,12 +53,12 @@ func TestFactoryUsesWorkflowDuplexConfig(t *testing.T) {
 			}},
 			Output: apitypes.DoubaoRealtimeAudioOutput{
 				Format: apitypes.DoubaoRealtimeAudioFormat{Type: apitypes.DoubaoRealtimeAudioFormatType("ogg_opus"), Rate: 24000},
-				Voice:  stringPtr("workflow-voice"),
+				Voice:  new("workflow-voice"),
 				Speed:  &speed,
 			},
 		},
 		Extension: &apitypes.DoubaoRealtimeExtension{Dialog: &apitypes.DoubaoRealtimeDialogExtension{
-			Extra: &apitypes.DoubaoRealtimeDialogExtra{EnableMusic: &strict, AuditResponse: stringPtr("audit")},
+			Extra: &apitypes.DoubaoRealtimeDialogExtra{EnableMusic: &strict, AuditResponse: new("audit")},
 		}},
 	})
 	params := testDoubaoRealtimeWorkspaceParameters(t, apitypes.DoubaoRealtimeWorkspaceParameters{
@@ -68,7 +69,7 @@ func TestFactoryUsesWorkflowDuplexConfig(t *testing.T) {
 			}},
 			Output: apitypes.DoubaoRealtimeAudioOutput{
 				Format:   apitypes.DoubaoRealtimeAudioFormat{Type: apitypes.DoubaoRealtimeAudioFormatType("ogg_opus"), Rate: 24000},
-				Voice:    stringPtr("workspace-voice"),
+				Voice:    new("workspace-voice"),
 				Loudness: &loudness,
 			},
 		},
@@ -171,7 +172,7 @@ func TestFactoryWorkspaceCanOverrideModelAndMode(t *testing.T) {
 	factory := Factory{Transformer: recordingTransformer{}}
 	input := apitypes.WorkspaceInputModeRealtime
 	params := testDoubaoRealtimeWorkspaceParameters(t, apitypes.DoubaoRealtimeWorkspaceParameters{
-		Model: stringPtr("workspace-dialog"),
+		Model: new("workspace-dialog"),
 		Input: &input,
 	})
 	agent, err := factory.NewAgent(context.Background(), agenthost.Spec{

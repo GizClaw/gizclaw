@@ -63,7 +63,7 @@ func (s *Stub) CreateChatCompletion(_ context.Context, request CreateChatComplet
 		if err != nil {
 			return nil, err
 		}
-		body := []byte(fmt.Sprintf("data: %s\n\ndata: [DONE]\n\n", chunk))
+		body := fmt.Appendf(nil, "data: %s\n\ndata: [DONE]\n\n", chunk)
 		return CreateChatCompletion200TexteventStreamResponse{
 			Body:          bytes.NewReader(body),
 			ContentLength: int64(len(body)),
@@ -77,7 +77,7 @@ func (s *Stub) CreateChatCompletion(_ context.Context, request CreateChatComplet
 		Model:   model,
 		Choices: []ChatCompletionChoice{
 			{
-				FinishReason: stringPtr("stop"),
+				FinishReason: new("stop"),
 				Index:        0,
 				Message:      chatCompletionMessage("genx openai-compatible stub"),
 			},
@@ -174,8 +174,9 @@ func chatCompletionStreamDelta(content string) ChatCompletionStreamResponseDelta
 	}
 }
 
+//go:fix inline
 func stringPtr(value string) *string {
-	return &value
+	return new(value)
 }
 
 func TestOpenAISDKAgainstMockServer(t *testing.T) {
