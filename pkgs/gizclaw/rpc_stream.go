@@ -22,6 +22,10 @@ type rpcStream struct {
 	stopOnce                  sync.Once
 	stop                      chan struct{}
 	done                      chan struct{}
+	afterCloseMu              sync.Mutex
+	afterClose                []func()
+	closed                    bool
+	waitForPeerClose          bool
 	requestEOSAlreadyConsumed bool
 	responseObserver          func(*rpcapi.RPCResponse)
 }
@@ -84,12 +88,67 @@ func (s *rpcStream) Close() error {
 	if s == nil {
 		return nil
 	}
+	var callbacks []func()
 	s.stopOnce.Do(func() {
 		close(s.stop)
 		<-s.done
 		_ = s.conn.SetDeadline(time.Time{})
+		s.afterCloseMu.Lock()
+		s.closed = true
+		callbacks = append(callbacks, s.afterClose...)
+		s.afterClose = nil
+		s.afterCloseMu.Unlock()
 	})
+	// Run terminal callbacks after stopOnce has completed so a callback that
+	// indirectly closes the same logical stream cannot re-enter sync.Once.
+	for _, callback := range callbacks {
+		callback()
+	}
 	return nil
+}
+
+func (s *rpcStream) afterCloseDo(callback func()) {
+	if s == nil || callback == nil {
+		return
+	}
+	s.afterCloseMu.Lock()
+	if !s.closed {
+		s.afterClose = append(s.afterClose, callback)
+		s.afterCloseMu.Unlock()
+		return
+	}
+	s.afterCloseMu.Unlock()
+	callback()
+}
+
+func (s *rpcStream) waitForPeerCloseBeforeClose() {
+	if s == nil {
+		return
+	}
+	s.afterCloseMu.Lock()
+	s.waitForPeerClose = true
+	s.afterCloseMu.Unlock()
+}
+
+func (s *rpcStream) waitUntilPeerCloses(timeout time.Duration) {
+	if s == nil || s.conn == nil {
+		return
+	}
+	s.afterCloseMu.Lock()
+	wait := s.waitForPeerClose
+	s.afterCloseMu.Unlock()
+	if !wait {
+		return
+	}
+	if err := s.conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+		return
+	}
+	var buffer [1]byte
+	for {
+		if _, err := s.conn.Read(buffer[:]); err != nil {
+			return
+		}
+	}
 }
 
 func (s *rpcStream) WriteEOS() error {

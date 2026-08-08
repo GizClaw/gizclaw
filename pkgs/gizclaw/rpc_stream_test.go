@@ -44,6 +44,58 @@ func TestRPCStreamReadWriteFrames(t *testing.T) {
 	}
 }
 
+func TestRPCStreamAfterCloseMayReenterClose(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer clientSide.Close()
+	stream, err := newRPCStream(context.Background(), serverSide)
+	if err != nil {
+		t.Fatalf("newRPCStream() error = %v", err)
+	}
+	called := make(chan struct{})
+	stream.afterCloseDo(func() {
+		_ = stream.Close()
+		close(called)
+	})
+	done := make(chan struct{})
+	go func() {
+		_ = stream.Close()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("Close deadlocked when a terminal callback re-entered Close")
+	}
+	select {
+	case <-called:
+	default:
+		t.Fatal("terminal callback was not called")
+	}
+}
+
+func TestRPCStreamPeerCloseWaitStopsWhenDeadlineCannotBeSet(t *testing.T) {
+	conn := &readDeadlineErrorConn{}
+	stream := &rpcStream{conn: conn, waitForPeerClose: true}
+	stream.waitUntilPeerCloses(time.Second)
+	if conn.readCalls != 0 {
+		t.Fatalf("Read() calls = %d, want 0 after SetReadDeadline failure", conn.readCalls)
+	}
+}
+
+type readDeadlineErrorConn struct {
+	net.Conn
+	readCalls int
+}
+
+func (c *readDeadlineErrorConn) Read([]byte) (int, error) {
+	c.readCalls++
+	return 0, errors.New("unexpected read")
+}
+
+func (*readDeadlineErrorConn) SetReadDeadline(time.Time) error {
+	return errors.New("deadline unavailable")
+}
+
 func TestRPCStreamResponses(t *testing.T) {
 	serverSide, clientSide := net.Pipe()
 	defer serverSide.Close()

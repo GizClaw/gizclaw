@@ -32,6 +32,14 @@ The references work with both the layered `storage` plus `stores` layout and the
 
 Each Workspace Agent generation resolves its memory alias from the current RuntimeProfile snapshot. Construction failure fails Agent initialization or reload explicitly. Server shutdown closes the shared Memory registry. Workspace reload and release of the final Agent reference close that generation's lease without migrating, merging, copying, or deleting durable data.
 
+## Pending-deletion processor
+
+Server initialization validates the pending-deletion source and handler registry without starting background work. `Server.Listen` starts one immediate scanner plus a bounded worker pool; `Server.Close` cancels scans and active attempts, waits for all processor goroutines, and only then lets command-layer stores close. The durable domain store is the queue source of truth. Producer wake signals and the in-memory dispatch channel only reduce latency, so startup and periodic scans recover committed work after a restart or a dropped signal.
+
+The first production registration is `source=gameplay`, advertising only `kind=pet`, and it exists only when `GameplayDB` is configured. Peer, Workspace, and Friend Group are not registered without their domain handlers. An invalid, duplicate, incomplete, or capability-incompatible registration fails initialization.
+
+The optional top-level `pending_deletion` configuration defaults to `scan_interval: 30s`, `page_size: 100`, `dispatch_capacity: 256`, `workers: 4`, `lease_duration: 2m`, `attempt_timeout: 90s`, `retry_initial: 5s`, `retry_max: 30m`, and `max_attempts: 10`. Durations and counts must be positive and bounded, attempt timeout must be shorter than the lease, retry initial must not exceed retry max, and unknown keys fail strict configuration parsing. There is no completion-retention setting.
+
 ## Core structure and main function
 
 | Symbol | Function |

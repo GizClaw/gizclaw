@@ -41,23 +41,23 @@ func collectAllPages[T any](
 	}
 }
 
-func ListPeers(ctx context.Context, c *gizcli.Client) ([]apitypes.Registration, error) {
+func ListPeers(ctx context.Context, c *gizcli.Client) ([]adminhttp.PeerRegistrationResult, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return nil, err
 	}
-	return collectAllPages(func(cursor *string, limit *int32) (pagedItems[apitypes.Registration], error) {
+	return collectAllPages(func(cursor *string, limit *int32) (pagedItems[adminhttp.PeerRegistrationResult], error) {
 		resp, err := api.ListPeersWithResponse(ctx, &adminhttp.ListPeersParams{
 			Cursor: cursor,
 			Limit:  limit,
 		})
 		if err != nil {
-			return pagedItems[apitypes.Registration]{}, err
+			return pagedItems[adminhttp.PeerRegistrationResult]{}, err
 		}
 		if resp.JSON200 == nil {
-			return pagedItems[apitypes.Registration]{}, responseError(resp.StatusCode(), resp.Body, resp.JSON500)
+			return pagedItems[adminhttp.PeerRegistrationResult]{}, responseError(resp.StatusCode(), resp.Body, resp.JSON500)
 		}
-		return pagedItems[apitypes.Registration]{
+		return pagedItems[adminhttp.PeerRegistrationResult]{
 			HasNext:    resp.JSON200.HasNext,
 			Items:      resp.JSON200.Items,
 			NextCursor: resp.JSON200.NextCursor,
@@ -65,19 +65,19 @@ func ListPeers(ctx context.Context, c *gizcli.Client) ([]apitypes.Registration, 
 	})
 }
 
-func GetPeer(ctx context.Context, c *gizcli.Client, publicKey string) (apitypes.Registration, error) {
+func GetPeer(ctx context.Context, c *gizcli.Client, publicKey string) (adminhttp.PeerRegistrationResult, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
-		return apitypes.Registration{}, err
+		return adminhttp.PeerRegistrationResult{}, err
 	}
 	resp, err := api.GetPeerWithResponse(ctx, publicKey)
 	if err != nil {
-		return apitypes.Registration{}, err
+		return adminhttp.PeerRegistrationResult{}, err
 	}
 	if resp.JSON200 != nil {
 		return *resp.JSON200, nil
 	}
-	return apitypes.Registration{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
+	return adminhttp.PeerRegistrationResult{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
 }
 
 func FindPubKeyBySN(ctx context.Context, c *gizcli.Client, sn string) (string, error) {
@@ -170,19 +170,19 @@ func GetPeerRuntime(ctx context.Context, c *gizcli.Client, publicKey string) (ap
 	return apitypes.Runtime{}, responseError(resp.StatusCode(), resp.Body)
 }
 
-func DeletePeer(ctx context.Context, c *gizcli.Client, publicKey string) (apitypes.Registration, error) {
+func DeletePeer(ctx context.Context, c *gizcli.Client, publicKey string) (adminhttp.PeerRegistrationResult, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
-		return apitypes.Registration{}, err
+		return adminhttp.PeerRegistrationResult{}, err
 	}
 	resp, err := api.DeletePeerWithResponse(ctx, publicKey)
 	if err != nil {
-		return apitypes.Registration{}, err
+		return adminhttp.PeerRegistrationResult{}, err
 	}
 	if resp.JSON200 != nil {
 		return *resp.JSON200, nil
 	}
-	return apitypes.Registration{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
+	return adminhttp.PeerRegistrationResult{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
 }
 
 func RefreshPeer(ctx context.Context, c *gizcli.Client, publicKey string) (adminhttp.RefreshResult, error) {

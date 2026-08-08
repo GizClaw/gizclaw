@@ -648,6 +648,118 @@ func TestMemberDeleteRoleRules(t *testing.T) {
 	}
 }
 
+func TestPeerRetirementDeletesOwnedGroupAndOnlyForeignMembership(t *testing.T) {
+	s := newTestServer(t)
+	s.NewID = func() string { return "group-owned" }
+	owned, err := s.CreateFriendGroup(t.Context(), "peer-a", rpcapi.FriendGroupCreateRequest{Name: "owned"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownedID := mustGroupID(t, s, "peer-a", owned.Name)
+	if _, err := s.AddFriendGroupMember(t.Context(), "peer-a", rpcapi.FriendGroupMemberAddRequest{
+		FriendGroupName: owned.Name, PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("member"), MemberName: "owned-b",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	s.NewID = func() string { return "group-foreign" }
+	foreign, err := s.CreateFriendGroup(t.Context(), "peer-b", rpcapi.FriendGroupCreateRequest{Name: "foreign"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreignID := mustGroupID(t, s, "peer-b", foreign.Name)
+	if _, err := s.AddFriendGroupMember(t.Context(), "peer-b", rpcapi.FriendGroupMemberAddRequest{
+		FriendGroupName: foreign.Name, PeerPublicKey: "peer-a", Role: rpcapi.FriendGroupMemberMutableRole("member"), MemberName: "foreign-a",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshot, err := s.SnapshotPeerGroups(t.Context(), "peer-a")
+	if err != nil || len(snapshot) != 2 {
+		t.Fatalf("SnapshotPeerGroups() = %#v, %v", snapshot, err)
+	}
+	for _, item := range snapshot {
+		if err := s.RetirePeerGroup(t.Context(), item); err != nil {
+			t.Fatalf("RetirePeerGroup(%s) error = %v", item.FriendGroupID, err)
+		}
+		if err := s.RetirePeerGroup(t.Context(), item); err != nil {
+			t.Fatalf("replayed RetirePeerGroup(%s) error = %v", item.FriendGroupID, err)
+		}
+	}
+	if _, err := s.AdminGetFriendGroup(t.Context(), ownedID); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("owned group error = %v", err)
+	}
+	if _, err := s.AdminGetFriendGroup(t.Context(), foreignID); err != nil {
+		t.Fatalf("foreign group removed: %v", err)
+	}
+	if _, err := s.AdminGetFriendGroupMember(t.Context(), foreignID, "peer-a"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("retiring foreign membership error = %v", err)
+	}
+	if _, err := s.AdminGetFriendGroupMember(t.Context(), foreignID, "peer-b"); err != nil {
+		t.Fatalf("foreign owner membership removed: %v", err)
+	}
+}
+
+func TestFriendGroupMemberCreationFailsClosedWhenTargetUnavailable(t *testing.T) {
+	s := newTestServer(t)
+	group, err := s.CreateFriendGroup(t.Context(), "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	groupID := mustGroupID(t, s, "peer-a", group.Name)
+	wantErr := errors.New("PEER_DELETED")
+	s.PeerAvailability = func(_ context.Context, publicKey string) error {
+		if publicKey == "peer-b" {
+			return wantErr
+		}
+		return nil
+	}
+	_, err = s.AdminPutFriendGroupMember(t.Context(), groupID, "peer-b", "room-b", rpcapi.FriendGroupMemberRoleMember)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("AdminPutFriendGroupMember() error = %v, want target fence", err)
+	}
+	if _, err := s.AdminGetFriendGroupMember(t.Context(), groupID, "peer-b"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("membership written before target fence: %v", err)
+	}
+}
+
+func TestFriendGroupMutationsRejectUnavailableOwnerButRetirementBypassesFence(t *testing.T) {
+	s := newTestServer(t)
+	group, err := s.CreateFriendGroup(t.Context(), "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	groupID := mustGroupID(t, s, "peer-a", group.Name)
+	snapshot, err := s.SnapshotPeerGroups(t.Context(), "peer-a")
+	if err != nil || len(snapshot) != 1 {
+		t.Fatalf("SnapshotPeerGroups() = %#v, %v", snapshot, err)
+	}
+	wantErr := errors.New("PEER_PENDING_DELETION")
+	s.PeerAvailability = func(_ context.Context, publicKey string) error {
+		if publicKey == "peer-a" {
+			return wantErr
+		}
+		return nil
+	}
+	if _, err := s.AdminPutFriendGroup(t.Context(), groupID, strPtr("changed"), nil); !errors.Is(err, wantErr) {
+		t.Fatalf("AdminPutFriendGroup() error = %v, want Peer fence", err)
+	}
+	if _, err := s.AdminPutFriendGroupInviteToken(t.Context(), groupID, "invite", time.Now().Add(time.Hour)); !errors.Is(err, wantErr) {
+		t.Fatalf("AdminPutFriendGroupInviteToken() error = %v, want Peer fence", err)
+	}
+	if _, err := s.AdminPutFriendGroupMember(t.Context(), groupID, "peer-a", "room", rpcapi.FriendGroupMemberRoleOwner); !errors.Is(err, wantErr) {
+		t.Fatalf("AdminPutFriendGroupMember() error = %v, want Peer fence", err)
+	}
+	if _, err := s.AdminDeleteFriendGroup(t.Context(), groupID); !errors.Is(err, wantErr) {
+		t.Fatalf("AdminDeleteFriendGroup() error = %v, want Peer fence", err)
+	}
+	if _, err := s.AdminGetFriendGroup(t.Context(), groupID); err != nil {
+		t.Fatalf("Admin get must remain available while Peer is fenced: %v", err)
+	}
+	if err := s.RetirePeerGroup(t.Context(), snapshot[0]); err != nil {
+		t.Fatalf("RetirePeerGroup() error = %v", err)
+	}
+}
+
 func TestConfigurationErrorsAndHelpers(t *testing.T) {
 	ctx := context.Background()
 	empty := &Server{}

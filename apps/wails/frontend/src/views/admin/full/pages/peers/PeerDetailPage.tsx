@@ -66,24 +66,22 @@ export function PeerDetailPage(): JSX.Element {
   const [deviceEmoji, setDeviceEmoji] = useState("");
 
   const registration = detail.data?.registration ?? null;
-  const isBlocked = registration?.status === "blocked";
-  const isActive = registration?.status === "active";
+  const isDeleted = registration?.status === "deleted";
+  const isBlocked = !isDeleted && registration?.status === "blocked";
+  const isActive = !isDeleted && registration?.status === "active";
   const isApproved = isActive && registration?.role !== "unspecified";
 
   useEffect(() => {
     if (
-      detail.data?.registration?.role &&
-      detail.data.registration.role !== "unspecified"
+      registration !== null &&
+      registration.status !== "deleted" &&
+      registration.role !== "unspecified"
     ) {
-      setApproveRole(detail.data.registration.role);
+      setApproveRole(registration.role);
     }
     setDeviceName(detail.data?.info?.name ?? "");
     setDeviceEmoji(detail.data?.info?.emoji ?? "");
-  }, [
-    detail.data?.info?.emoji,
-    detail.data?.info?.name,
-    detail.data?.registration?.role,
-  ]);
+  }, [detail.data?.info?.emoji, detail.data?.info?.name, registration]);
 
   const runPeerAction = useCallback(
     async (
@@ -258,7 +256,7 @@ export function PeerDetailPage(): JSX.Element {
 
       <PageSummaryCard
         actions={
-          registration ? (
+          registration !== null && !isDeleted ? (
             <Button
               disabled={peerActionBusy !== null}
               onClick={() => void handleRefreshPeer()}
@@ -279,15 +277,19 @@ export function PeerDetailPage(): JSX.Element {
           registration ? (
             <>
               <StatusBadge status={registration.status} />
-              <Badge variant="outline">{registration.role}</Badge>
-              {registration.auto_registered ? (
-                <Badge variant="secondary">Auto Registered</Badge>
+              {registration.status !== "deleted" ? (
+                <>
+                  <Badge variant="outline">{registration.role}</Badge>
+                  {registration.auto_registered ? (
+                    <Badge variant="secondary">Auto Registered</Badge>
+                  ) : null}
+                  {detail.data?.runtime?.online ? (
+                    <Badge variant="success">Online</Badge>
+                  ) : (
+                    <Badge variant="outline">Offline</Badge>
+                  )}
+                </>
               ) : null}
-              {detail.data?.runtime?.online ? (
-                <Badge variant="success">Online</Badge>
-              ) : (
-                <Badge variant="outline">Offline</Badge>
-              )}
             </>
           ) : null
         }
@@ -310,6 +312,25 @@ export function PeerDetailPage(): JSX.Element {
           description="This peer could not be loaded."
           title="Not found"
         />
+      ) : registration.status === "deleted" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Deleted Peer</CardTitle>
+            <CardDescription>
+              This permanent tombstone prevents the public key from being
+              registered or used again.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DetailBlock
+              items={[
+                ["Public Key", registration.public_key],
+                ["Status", registration.status],
+              ]}
+              title="Tombstone"
+            />
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-4">
           {peerNotice !== null ? (
@@ -503,12 +524,10 @@ export function PeerDetailPage(): JSX.Element {
 
                     <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
                       <div className="space-y-1">
-                        <div className="text-sm font-medium">
-                          Registration reset
-                        </div>
+                        <div className="text-sm font-medium">Delete Peer</div>
                         <p className="text-sm leading-6 text-muted-foreground">
-                          Reset the peer registration back to the unapproved
-                          state.
+                          Permanently delete Peer-owned data and reserve this
+                          public key as a tombstone. The key cannot be reused.
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -519,7 +538,7 @@ export function PeerDetailPage(): JSX.Element {
                           variant="outline"
                         >
                           <Trash2 className="size-4" />
-                          Reset
+                          Delete
                         </Button>
                       </div>
                     </div>

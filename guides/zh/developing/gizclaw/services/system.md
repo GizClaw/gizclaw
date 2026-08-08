@@ -7,7 +7,7 @@
 ```text
 services/system/
 ├── ownership/         # owner context、owner index key 和写入规则
-├── pendingdeletion/   # durable pending-deletion handoff record
+├── pendingdeletion/   # durable pending-deletion task 与 managed processor
 ├── publiclogin/       # Public HTTP login、assertion 和 session
 ├── resourcemanager/   # Admin declarative resource 的统一入口
 └── runtimeprofile/    # RuntimeProfile 与 RegistrationToken
@@ -21,7 +21,11 @@ services/system/
 
 ### pendingdeletion
 
-定义带版本的、backend-neutral `PendingDeletion` envelope。领域删除请求必须在资源自己的物理存储中原子创建或复用一条最小 cleanup descriptor，同时保留 active resource 及其 index。新记录的 deletion ID 由资源 locator 稳定派生，因此重试只会命中同一事件，不会再次分配 ID；升级期间仍可读取旧 UUID 记录。Peer、用户 Workspace 和 Friend Group 数据 cleanup handoff 使用 KV，Pet 使用 gameplay SQL database。KV locator lookup 支持 kind 与全局唯一 resource ID，并显式拒绝 owner-scoped filter；gameplay SQL source 支持包含 owner 的 locator。这个 package 不运行 worker、不删除 pending record，也不暴露资源内容；processing 与物理删除属于后续 managed cleanup service。
+定义带版本的 backend-neutral `PendingDeletion` envelope，以及 durable task/source contract、registration、有界 scan 与 worker、lease、replay phase、持久化 retry state 和 operator list/get/retry service。领域删除请求在资源自己的物理存储中原子创建或复用一条最小 cleanup descriptor，同时保留 active resource 与 index。locator 派生的稳定 ID 让 producer retry 命中同一事件；immutable marker fingerprint 则阻止早期 generation 或 stale lease 修改后续 work。
+
+公共 processor 不包含任何资源删除 policy，也不会在 handler 返回后执行 generic complete。领域 handler 必须重新验证 marker、当前 lease 与准确 resource generation，然后在一个领域原子边界内删除资源及 source-owned marker、locator 和 task state。Outcome 分为 `deferred`、有界 retryable failure 与 terminal `failed`；operator retry 会保留 replay phase。完成的 task 立即消失，不保留 receipt 或 history。Production registry 包含 `gameplay/pet`、`friend_group/friend_group`、`workspace/workspace` 与 `peer/peer`；任一 source 只声明自己拥有且已注册 handler 的 kind。Peer handler 是跨领域协调者，但实际清理由各领域的 narrow adapter 完成；Peer 最终只在自己的 KV 留下永久 tombstone。
+
+Metrics 使用有界的 source/kind/status/phase/outcome label，报告 active depth、最老 active age、claim、active worker、phase latency、deferral、retry、terminal failure、transition error 与 completion；resource ID、owner、deletion ID、descriptor、fingerprint、lease token 和 error text 都不会成为 label。Metrics store 失败不会停止 cleanup。
 
 ### runtimeprofile
 

@@ -68,6 +68,10 @@
       "description": "Server log query operations"
     },
     {
+      "name": "PendingDeletion",
+      "description": "Managed pending-deletion inspection and retry operations"
+    },
+    {
       "name": "GameplayDebug",
       "description": "Admin read-only peer gameplay runtime inspection"
     },
@@ -105,6 +109,269 @@
     }
   ],
   "paths": {
+    "/pending-deletions": {
+      "get": {
+        "operationId": "listPendingDeletions",
+        "summary": "List active pending-deletion tasks",
+        "tags": [
+          "PendingDeletion"
+        ],
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "./shared.json#/components/schemas/PendingDeletionKind"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "./shared.json#/components/schemas/PendingDeletionStatus"
+            }
+          },
+          {
+            "name": "start_time_ms",
+            "in": "query",
+            "required": false,
+            "description": "Inclusive creation-time lower bound in Unix milliseconds.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "end_time_ms",
+            "in": "query",
+            "required": false,
+            "description": "Exclusive creation-time upper bound in Unix milliseconds.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor bound to every filter; limit may change.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active pending-deletion task page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/PendingDeletionList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filter or cursor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pending-deletions/{deletionId}": {
+      "get": {
+        "operationId": "getPendingDeletion",
+        "summary": "Get one active pending-deletion task",
+        "tags": [
+          "PendingDeletion"
+        ],
+        "parameters": [
+          {
+            "name": "deletionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active pending-deletion task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/PendingDeletionTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid source or deletion ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Active task not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pending-deletions/{deletionId}/retry": {
+      "post": {
+        "operationId": "retryPendingDeletion",
+        "summary": "Retry one failed active pending-deletion task",
+        "tags": [
+          "PendingDeletion"
+        ],
+        "parameters": [
+          {
+            "name": "deletionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Requeued pending-deletion task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/PendingDeletionTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid source or deletion ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Active task not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Task is not failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/logs/stream": {
       "get": {
         "operationId": "streamServerLogs",
@@ -840,6 +1107,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       },
@@ -909,6 +1179,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       }
@@ -1179,6 +1452,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       }
@@ -1451,6 +1727,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       },
@@ -1511,6 +1790,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       }
@@ -1752,6 +2034,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       },
@@ -1821,6 +2106,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       }
@@ -1953,6 +2241,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       },
@@ -2013,6 +2304,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/SocialUnavailable"
           }
         }
       }
@@ -6275,6 +6569,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/WorkspaceUnavailable"
           }
         }
       },
@@ -6336,6 +6633,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/WorkspaceUnavailable"
           }
         }
       }
@@ -6743,7 +7043,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared.json#/components/schemas/Registration"
+                  "$ref": "#/components/schemas/PeerRegistrationResult"
                 }
               }
             }
@@ -6763,7 +7063,7 @@
       "delete": {
         "operationId": "deletePeer",
         "summary": "Delete a peer",
-        "description": "Writes or reuses a durable pending-deletion handoff for the active Peer registration while retaining the Peer and its indexes. An existing online connection is not forcibly closed by this Admin operation.",
+        "description": "Writes or reuses a durable pending-deletion handoff and immediately fences and disconnects the Peer. A completed retry returns the permanent deleted tombstone.",
         "tags": [
           "Resource"
         ],
@@ -6784,7 +7084,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared.json#/components/schemas/Registration"
+                  "$ref": "#/components/schemas/PeerRegistrationResult"
                 }
               }
             }
@@ -6860,6 +7160,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -6902,6 +7205,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7006,6 +7312,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       },
@@ -7085,6 +7394,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7117,6 +7429,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7178,6 +7493,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7288,6 +7606,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7388,6 +7709,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7468,6 +7792,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       },
@@ -7538,6 +7865,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -7609,6 +7939,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       },
@@ -7678,6 +8011,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9083,6 +9419,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9145,6 +9484,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       },
@@ -9204,6 +9546,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9276,6 +9621,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9337,6 +9685,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9389,6 +9740,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9461,6 +9815,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9522,6 +9879,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9594,6 +9954,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9655,6 +10018,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9727,6 +10093,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -9788,6 +10157,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/PeerUnavailable"
           }
         }
       }
@@ -10400,7 +10772,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "./shared.json#/components/schemas/Registration"
+              "$ref": "#/components/schemas/PeerRegistrationResult"
             }
           }
         }
@@ -10427,6 +10799,16 @@
             }
           }
         }
+      },
+      "PeerRegistrationResult": {
+        "oneOf": [
+          {
+            "$ref": "./shared.json#/components/schemas/Registration"
+          },
+          {
+            "$ref": "./shared.json#/components/schemas/RegistrationTombstone"
+          }
+        ]
       },
       "PublicKeyResponse": {
         "type": "object",
@@ -10847,9 +11229,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 1024,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "name": {
             "type": "string"
@@ -11364,9 +11746,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 1024,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "owner_public_key": {
             "type": "string",
@@ -11393,9 +11775,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 1024,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "display_name": {
             "type": "string"
@@ -11439,9 +11821,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 1024,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "owner_public_key": {
             "type": "string",
@@ -11463,9 +11845,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 1024,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "peer_public_key": {
             "type": "string",
@@ -11484,9 +11866,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 80,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "name": {
             "type": "string",
@@ -11513,9 +11895,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 80,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "display_name": {
             "type": "string",
@@ -11538,9 +11920,9 @@
         "properties": {
           "id": {
             "type": "string",
-	        "minLength": 1,
-	        "maxLength": 1024,
-	        "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "name": {
             "type": "string",
@@ -11787,26 +12169,60 @@
       "AdminFriendGroupObject": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "name", "created_by_peer_public_key"],
+        "required": [
+          "id",
+          "name",
+          "created_by_peer_public_key"
+        ],
         "properties": {
-          "id": {"type": "string"},
-          "name": {"type": "string"},
-          "display_name": {"type": "string"},
-          "description": {"type": "string"},
-          "created_by_peer_public_key": {"type": "string"},
-          "workspace_id": {"type": "string"},
-          "created_at": {"type": "string", "format": "date-time"},
-          "updated_at": {"type": "string", "format": "date-time"}
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "created_by_peer_public_key": {
+            "type": "string"
+          },
+          "workspace_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "AdminFriendGroupListResponse": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["items", "has_next"],
+        "required": [
+          "items",
+          "has_next"
+        ],
         "properties": {
-          "items": {"type": "array", "items": {"$ref": "#/components/schemas/AdminFriendGroupObject"}},
-          "has_next": {"type": "boolean"},
-          "next_cursor": {"type": "string"}
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminFriendGroupObject"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
         }
       },
       "RuntimeProfileList": {
@@ -11942,6 +12358,38 @@
         "description": "Filter models by provider kind",
         "schema": {
           "$ref": "./shared.json#/components/schemas/ModelProviderKind"
+        }
+      }
+    },
+    "responses": {
+      "PeerUnavailable": {
+        "description": "Target Peer is pending deletion or permanently deleted",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./shared.json#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "WorkspaceUnavailable": {
+        "description": "Workspace is pending deletion or its owner Peer is unavailable",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./shared.json#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "SocialUnavailable": {
+        "description": "Social resource is unavailable because it or a related Peer is pending deletion or permanently deleted",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./shared.json#/components/schemas/ErrorResponse"
+            }
+          }
         }
       }
     }

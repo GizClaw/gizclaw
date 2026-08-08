@@ -14,7 +14,9 @@ var root = kv.Key{"pending-deletion"}
 
 // KVSource exposes pending deletion records stored in a KV backend.
 type KVSource struct {
-	Store kv.Store
+	Store      kv.Store
+	SourceName string
+	OwnedKinds []Kind
 }
 
 // Get loads one deletion event by ID.
@@ -36,6 +38,7 @@ func (s KVSource) HasLocator(ctx context.Context, locator Locator) (bool, error)
 	return HasLocator(ctx, s.Store, locator.Kind, locator.ResourceID)
 }
 
+var _ LookupSource = KVSource{}
 var _ Source = KVSource{}
 
 // KVEntries returns the durable record entry. CreateOrGet adds the unique
@@ -188,6 +191,17 @@ func validateLocatorRecord(record Record, kind Kind, resourceID string) error {
 
 // Get loads and validates one KV-backed deletion event by ID.
 func Get(ctx context.Context, store kv.Store, deletionID string) (Record, error) {
+	record, err := getStoredRecord(ctx, store, deletionID)
+	if err != nil {
+		return Record{}, err
+	}
+	if err := record.Validate(); err != nil {
+		return Record{}, fmt.Errorf("pending deletion: validate %s: %w", deletionID, err)
+	}
+	return record, nil
+}
+
+func getStoredRecord(ctx context.Context, store kv.Store, deletionID string) (Record, error) {
 	if store == nil {
 		return Record{}, errors.New("pending deletion: KV store not configured")
 	}
@@ -205,9 +219,6 @@ func Get(ctx context.Context, store kv.Store, deletionID string) (Record, error)
 			deletionID,
 			record.DeletionID,
 		)
-	}
-	if err := record.Validate(); err != nil {
-		return Record{}, fmt.Errorf("pending deletion: validate %s: %w", deletionID, err)
 	}
 	return record, nil
 }

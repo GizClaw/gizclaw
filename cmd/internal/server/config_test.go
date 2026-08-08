@@ -76,6 +76,60 @@ func TestDefaultConfig(t *testing.T) {
 		cfg.Speech.Synthesis.RequestTimeout != "120s" {
 		t.Fatalf("Speech.Synthesis = %+v", cfg.Speech.Synthesis)
 	}
+	if cfg.PendingDeletion.ScanInterval != "30s" || cfg.PendingDeletion.PageSize != 100 ||
+		cfg.PendingDeletion.DispatchCapacity != 256 || cfg.PendingDeletion.Workers != 4 ||
+		cfg.PendingDeletion.LeaseDuration != "2m" || cfg.PendingDeletion.AttemptTimeout != "90s" ||
+		cfg.PendingDeletion.RetryInitial != "5s" || cfg.PendingDeletion.RetryMax != "30m" ||
+		cfg.PendingDeletion.MaxAttempts != 10 {
+		t.Fatalf("PendingDeletion = %+v", cfg.PendingDeletion)
+	}
+}
+
+func TestParsePendingDeletionConfig(t *testing.T) {
+	file, err := parseConfigData([]byte(`pending_deletion:
+  scan_interval: 2s
+  page_size: 25
+  workers: 2
+`))
+	if err != nil {
+		t.Fatalf("parseConfigData() error = %v", err)
+	}
+	merged, err := mergeFileConfig(Config{}, file)
+	if err != nil {
+		t.Fatalf("mergeFileConfig() error = %v", err)
+	}
+	prepared, err := prepareConfig(merged)
+	if err != nil {
+		t.Fatalf("prepareConfig() error = %v", err)
+	}
+	if prepared.PendingDeletion.ScanInterval != "2s" || prepared.PendingDeletion.PageSize != 25 ||
+		prepared.PendingDeletion.Workers != 2 || prepared.PendingDeletion.LeaseDuration != "2m" {
+		t.Fatalf("PendingDeletion = %+v", prepared.PendingDeletion)
+	}
+}
+
+func TestPendingDeletionConfigRejectsInvalidInput(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		yaml string
+		want string
+	}{
+		{"unknown", "pending_deletion:\n  retention: 1h\n", "unknown field"},
+		{"zero workers", "pending_deletion:\n  workers: 0\n", "workers must be between"},
+		{"zero duration", "pending_deletion:\n  scan_interval: 0s\n", "scan_interval"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := parseConfigData([]byte(test.yaml))
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("parseConfigData() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+	cfg := DefaultConfig()
+	cfg.PendingDeletion.AttemptTimeout = "2m"
+	if _, err := prepareConfig(cfg); err == nil || !strings.Contains(err.Error(), "attempt timeout must be shorter") {
+		t.Fatalf("prepareConfig() error = %v", err)
+	}
 }
 
 func TestParseConfigAgentHostPresence(t *testing.T) {

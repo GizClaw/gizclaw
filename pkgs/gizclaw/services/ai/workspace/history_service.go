@@ -121,7 +121,7 @@ func (s *Server) LatestWorkspaceHistoryEntryBeforeByID(ctx context.Context, work
 }
 
 func (s *Server) AdminListWorkspaceHistory(ctx context.Context, workspaceName string, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
-	store, err := s.historyStoreByID(ctx, workspaceName)
+	store, err := s.adminHistoryStoreByID(ctx, workspaceName)
 	if err != nil {
 		return apitypes.PeerRunHistoryListResponse{}, err
 	}
@@ -145,7 +145,7 @@ func (s *Server) GetWorkspaceHistoryByID(ctx context.Context, workspaceID, histo
 }
 
 func (s *Server) AdminGetWorkspaceHistory(ctx context.Context, workspaceName, historyID string) (HistoryEntry, error) {
-	store, err := s.historyStoreByID(ctx, workspaceName)
+	store, err := s.adminHistoryStoreByID(ctx, workspaceName)
 	if err != nil {
 		return HistoryEntry{}, err
 	}
@@ -169,7 +169,7 @@ func (s *Server) ReadWorkspaceHistoryAssetByID(ctx context.Context, workspaceID,
 }
 
 func (s *Server) AdminReadWorkspaceHistoryAudio(ctx context.Context, workspaceName, historyID string) (io.ReadCloser, int64, error) {
-	store, err := s.historyStoreByID(ctx, workspaceName)
+	store, err := s.adminHistoryStoreByID(ctx, workspaceName)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -210,6 +210,12 @@ func (s *Server) historyStoreWithMetadata(ctx context.Context, workspaceName str
 	if err != nil {
 		return nil, nil, err
 	}
+	if err := s.ensureWorkspaceAvailable(ctx, workspace.Id); err != nil {
+		return nil, nil, err
+	}
+	if err := s.ensureWorkspaceOwnerAvailable(ctx, workspace); err != nil {
+		return nil, nil, err
+	}
 	if s.RuntimeStore == nil {
 		return nil, nil, fmt.Errorf("workspace: runtime store is required")
 	}
@@ -224,6 +230,14 @@ func (s *Server) historyStoreWithMetadata(ctx context.Context, workspaceName str
 }
 
 func (s *Server) historyStoreByID(ctx context.Context, workspaceID string) (*HistoryStore, error) {
+	return s.historyStoreByIDWithFence(ctx, workspaceID, true)
+}
+
+func (s *Server) adminHistoryStoreByID(ctx context.Context, workspaceID string) (*HistoryStore, error) {
+	return s.historyStoreByIDWithFence(ctx, workspaceID, false)
+}
+
+func (s *Server) historyStoreByIDWithFence(ctx context.Context, workspaceID string, fence bool) (*HistoryStore, error) {
 	if s == nil {
 		return nil, fmt.Errorf("workspace: nil server")
 	}
@@ -237,6 +251,14 @@ func (s *Server) historyStoreByID(ctx context.Context, workspaceID string) (*His
 	workspace, err := getWorkspaceByID(ctx, store, workspaceID)
 	if err != nil {
 		return nil, err
+	}
+	if fence {
+		if err := s.ensureWorkspaceAvailable(ctx, workspace.Id); err != nil {
+			return nil, err
+		}
+		if err := s.ensureWorkspaceOwnerAvailable(ctx, workspace); err != nil {
+			return nil, err
+		}
 	}
 	if s.RuntimeStore == nil {
 		return nil, fmt.Errorf("workspace: runtime store is required")

@@ -26,8 +26,12 @@ func TestAdminAPIPeersListGetAndLookup(t *testing.T) {
 		t.Fatalf("get peer: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.PublicKey != env.peerKey {
+	if get.JSON200 == nil {
 		t.Fatalf("get peer = %#v", get.JSON200)
+	}
+	registration, err := get.JSON200.AsExternalRef0Registration()
+	if err != nil || registration.PublicKey != env.peerKey {
+		t.Fatalf("get peer registration = %#v, %v", registration, err)
 	}
 
 	found, err := env.api.FindPubKeyBySNWithResponse(env.ctx, env.peerSN)

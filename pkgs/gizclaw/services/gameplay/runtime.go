@@ -53,6 +53,8 @@ type Runtime struct {
 	Workspaces           workspace.SystemWorkspaceService
 	DriveFacts           DriveFactMemory
 	WorkspaceRewards     WorkspaceRewardEnvironment
+	PendingDeletionWake  func()
+	PeerAvailability     func(context.Context, string) error
 	Now                  func() time.Time
 	NewID                func() string
 	PickWeight           func(total int64) int64
@@ -65,6 +67,7 @@ type Runtime struct {
 	workspaceRewardWake  chan struct{}
 	workspaceRewardQueue chan workspaceRewardActivity
 	workspaceRewardLocks [64]sync.Mutex
+	accountMu            [64]sync.Mutex
 }
 
 type WorkflowService interface {
@@ -320,6 +323,9 @@ func migrateGameplaySchema(ctx context.Context, db sqlDialectExecutor) error {
 		ON CONFLICT (kind, owner_public_key, resource_id) DO NOTHING`); err != nil {
 		return err
 	}
+	if err := migratePendingDeletionTasks(ctx, db); err != nil {
+		return err
+	}
 	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_game_results_idempotency_idx ON gameplay_game_results(owner_public_key, runtime_profile_id, idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''`); err != nil {
 		return err
 	}
@@ -359,6 +365,12 @@ func migrateGameplaySchema(ctx context.Context, db sqlDialectExecutor) error {
 
 func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAdoptRequest) (apitypes.PetAdoptResponse, error) {
 	if err := requireOwner(owner); err != nil {
+		return apitypes.PetAdoptResponse{}, err
+	}
+	accountMu := r.accountMutex(owner)
+	accountMu.Lock()
+	defer accountMu.Unlock()
+	if err := r.ensurePeerAvailable(ctx, owner); err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
@@ -650,6 +662,34 @@ func (r *Runtime) GetPet(ctx context.Context, owner, id string) (apitypes.Pet, e
 	return scanPet(db.QueryRowContext(ctx, db.Rebind(query), args...))
 }
 
+// ResolvePetName returns the immutable resource name for a current or deleted
+// Pet. Completed adoption reservations are retained so historical gameplay
+// records remain projectable after the Pet row is physically deleted.
+func (r *Runtime) ResolvePetName(ctx context.Context, owner, id string) (string, error) {
+	pet, err := r.GetPet(ctx, owner, id)
+	if err == nil {
+		return pet.Name, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return "", err
+	}
+	db, err := r.db()
+	if err != nil {
+		return "", err
+	}
+	query := `SELECT name FROM gameplay_pet_adoption_reservations WHERE owner_public_key = ? AND pet_id = ?`
+	args := []any{strings.TrimSpace(owner), strings.TrimSpace(id)}
+	if profile, ok := runtimeProfileFromContext(ctx); ok {
+		if profileID := profile.Id; profileID != "" {
+			query += ` AND runtime_profile_id = ?`
+			args = append(args, profileID)
+		}
+	}
+	var name string
+	err = db.QueryRowContext(ctx, db.Rebind(query), args...).Scan(&name)
+	return name, err
+}
+
 func (r *Runtime) GetPetByName(ctx context.Context, owner, name string) (apitypes.Pet, error) {
 	db, err := r.db()
 	if err != nil {
@@ -816,6 +856,12 @@ func (r *Runtime) OwnerHasPetWorkspace(ctx context.Context, owner, workspaceName
 }
 
 func (r *Runtime) PutPet(ctx context.Context, owner string, req apitypes.PetPutRequest) (apitypes.Pet, error) {
+	accountMu := r.accountMutex(owner)
+	accountMu.Lock()
+	defer accountMu.Unlock()
+	if err := r.ensurePeerAvailable(ctx, owner); err != nil {
+		return apitypes.Pet{}, err
+	}
 	pet, err := r.GetPet(ctx, owner, req.Id)
 	if err != nil {
 		return apitypes.Pet{}, err
@@ -830,8 +876,16 @@ func (r *Runtime) PutPet(ctx context.Context, owner string, req apitypes.PetPutR
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
-	if _, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_pets SET display_name = ?, updated_at = ? WHERE owner_public_key = ? AND id = ? AND runtime_profile_id = ?`), pet.DisplayName, formatTime(pet.UpdatedAt), owner, pet.Id, pet.RuntimeProfileId); err != nil {
+	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_pets SET display_name = ?, updated_at = ? WHERE owner_public_key = ? AND id = ? AND runtime_profile_id = ?`), pet.DisplayName, formatTime(pet.UpdatedAt), owner, pet.Id, pet.RuntimeProfileId)
+	if err != nil {
 		return apitypes.Pet{}, err
+	}
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return apitypes.Pet{}, err
+	}
+	if updated != 1 {
+		return apitypes.Pet{}, sql.ErrNoRows
 	}
 	return pet, nil
 }
@@ -853,6 +907,14 @@ func (r *Runtime) DeletePetByName(ctx context.Context, owner, name string) (apit
 }
 
 func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet, error) {
+	if !accountRetirementFromContext(ctx) {
+		accountMu := r.accountMutex(owner)
+		accountMu.Lock()
+		defer accountMu.Unlock()
+		if err := r.ensurePeerAvailable(ctx, owner); err != nil {
+			return apitypes.Pet{}, err
+		}
+	}
 	if err := r.Migration(ctx); err != nil {
 		return apitypes.Pet{}, err
 	}
@@ -870,13 +932,7 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
-	descriptor := struct {
-		OwnerPublicKey string `json:"owner_public_key"`
-		PetID          string `json:"pet_id"`
-		RuntimeProfile string `json:"runtime_profile_id"`
-		PetDefID       string `json:"pet_def_id"`
-		WorkspaceID    string `json:"workspace_id"`
-	}{
+	descriptor := petDeletionDescriptor{
 		OwnerPublicKey: pet.OwnerPublicKey,
 		PetID:          pet.Id,
 		RuntimeProfile: pet.RuntimeProfileId,
@@ -884,6 +940,10 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 		WorkspaceID:    pet.WorkspaceId,
 	}
 	record, err := pendingdeletion.New(pendingdeletion.KindPet, pet.Id, &pet.OwnerPublicKey, pendingdeletion.ReasonResourceDelete, descriptor, r.now())
+	if err != nil {
+		return apitypes.Pet{}, err
+	}
+	fingerprint, err := pendingdeletion.Fingerprint(record)
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
@@ -926,18 +986,39 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 		if err := tx.Commit(); err != nil {
 			return apitypes.Pet{}, fmt.Errorf("delete pet %q reuse pending deletion commit: %w", pet.Id, err)
 		}
+		if r.PendingDeletionWake != nil {
+			r.PendingDeletionWake()
+		}
 		return pet, nil
 	}
-	if _, err := tx.ExecContext(ctx, db.Rebind(`INSERT INTO gameplay_pending_deletions (deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`), record.DeletionID, record.Kind, pet.OwnerPublicKey, record.ResourceID, record.Reason, formatTime(record.DeletedAt), record.DescriptorVersion, string(record.Descriptor)); err != nil {
+	if _, err := tx.ExecContext(ctx, db.Rebind(`INSERT INTO gameplay_pending_deletions (
+		deletion_id, kind, owner_public_key, resource_id, reason, deleted_at,
+		descriptor_version, descriptor_json, marker_fingerprint, task_created_at, task_status,
+		task_phase, failure_count, next_attempt_at, lease_token, lease_deadline,
+		last_error_code, last_error_message, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, '', '', '', '', ?)`),
+		record.DeletionID, record.Kind, pet.OwnerPublicKey, record.ResourceID,
+		record.Reason, formatPendingDeletionTime(record.DeletedAt), record.DescriptorVersion,
+		string(record.Descriptor), fingerprint, formatPendingDeletionTime(record.DeletedAt), pendingdeletion.StatusQueued,
+		pendingdeletion.PhaseValidate, formatPendingDeletionTime(record.DeletedAt), formatPendingDeletionTime(record.DeletedAt)); err != nil {
 		return apitypes.Pet{}, fmt.Errorf("delete pet %q pending deletion: %w", pet.Id, err)
 	}
 	if err := tx.Commit(); err != nil {
 		return apitypes.Pet{}, fmt.Errorf("delete pet %q commit: %w", pet.Id, err)
 	}
+	if r.PendingDeletionWake != nil {
+		r.PendingDeletionWake()
+	}
 	return pet, nil
 }
 
 func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDriveRequest) (apitypes.PetDriveResponse, error) {
+	accountMu := r.accountMutex(owner)
+	accountMu.Lock()
+	defer accountMu.Unlock()
+	if err := r.ensurePeerAvailable(ctx, owner); err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
 	if err := r.Migration(ctx); err != nil {
 		return apitypes.PetDriveResponse{}, err
 	}
@@ -1870,6 +1951,19 @@ func (r *Runtime) adoptionMutex(key string) *sync.Mutex {
 	hash := fnv.New32a()
 	_, _ = hash.Write([]byte(key))
 	return &r.adoptMu[hash.Sum32()%uint32(len(r.adoptMu))]
+}
+
+func (r *Runtime) accountMutex(owner string) *sync.Mutex {
+	hash := fnv.New32a()
+	_, _ = hash.Write([]byte(strings.TrimSpace(owner)))
+	return &r.accountMu[hash.Sum32()%uint32(len(r.accountMu))]
+}
+
+func (r *Runtime) ensurePeerAvailable(ctx context.Context, owner string) error {
+	if r != nil && r.PeerAvailability != nil {
+		return r.PeerAvailability(ctx, strings.TrimSpace(owner))
+	}
+	return nil
 }
 
 func sqlColumnExists(ctx context.Context, db sqlDialectExecutor, table, column string) (bool, error) {

@@ -7,7 +7,7 @@ export type ClientOptions = {
 export type RegistrationList = {
     has_next: boolean;
     next_cursor?: string | null;
-    items: Array<Registration>;
+    items: Array<PeerRegistrationResult>;
 };
 
 export type RefreshResult = {
@@ -15,6 +15,8 @@ export type RefreshResult = {
     updated_fields?: Array<string>;
     errors?: Array<string>;
 };
+
+export type PeerRegistrationResult = Registration | RegistrationTombstone;
 
 export type PublicKeyResponse = {
     public_key: string;
@@ -1676,6 +1678,34 @@ export type PeerTelemetryValue = {
     observed_at_unix_ms: number;
 };
 
+export type PendingDeletionKind = 'peer' | 'workspace' | 'friend_group' | 'pet';
+
+export type PendingDeletionList = {
+    items: Array<PendingDeletionTask>;
+    next_cursor?: string;
+};
+
+export type PendingDeletionStatus = 'queued' | 'running' | 'retry_wait' | 'failed';
+
+export type PendingDeletionTask = {
+    source: string;
+    deletion_id: string;
+    kind: PendingDeletionKind;
+    /**
+     * Domain-approved safe locator. Owner identities and descriptors are never returned.
+     */
+    resource_id: string;
+    status: PendingDeletionStatus;
+    phase: string;
+    failure_count: number;
+    next_attempt_at?: string;
+    lease_deadline?: string;
+    last_error_code?: string;
+    last_error_message?: string;
+    created_at: string;
+    updated_at: string;
+};
+
 export type Registration = {
     public_key: string;
     role: PeerRole;
@@ -1701,6 +1731,11 @@ export type RegistrationToken = {
     firmware_id?: string;
     created_at: string;
     updated_at: string;
+};
+
+export type RegistrationTombstone = {
+    public_key: string;
+    status: 'deleted';
 };
 
 export type Runtime = {
@@ -3559,6 +3594,130 @@ export type ModelSource2 = ModelSource;
  */
 export type ModelProviderKind2 = ModelProviderKind;
 
+export type ListPendingDeletionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        source?: string;
+        kind?: PendingDeletionKind;
+        status?: PendingDeletionStatus;
+        /**
+         * Inclusive creation-time lower bound in Unix milliseconds.
+         */
+        start_time_ms?: number;
+        /**
+         * Exclusive creation-time upper bound in Unix milliseconds.
+         */
+        end_time_ms?: number;
+        limit?: number;
+        /**
+         * Opaque cursor bound to every filter; limit may change.
+         */
+        cursor?: string;
+    };
+    url: '/pending-deletions';
+};
+
+export type ListPendingDeletionsErrors = {
+    /**
+     * Invalid filter or cursor
+     */
+    400: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListPendingDeletionsError = ListPendingDeletionsErrors[keyof ListPendingDeletionsErrors];
+
+export type ListPendingDeletionsResponses = {
+    /**
+     * Active pending-deletion task page
+     */
+    200: PendingDeletionList;
+};
+
+export type ListPendingDeletionsResponse = ListPendingDeletionsResponses[keyof ListPendingDeletionsResponses];
+
+export type GetPendingDeletionData = {
+    body?: never;
+    path: {
+        deletionId: string;
+    };
+    query: {
+        source: string;
+    };
+    url: '/pending-deletions/{deletionId}';
+};
+
+export type GetPendingDeletionErrors = {
+    /**
+     * Invalid source or deletion ID
+     */
+    400: ErrorResponse;
+    /**
+     * Active task not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetPendingDeletionError = GetPendingDeletionErrors[keyof GetPendingDeletionErrors];
+
+export type GetPendingDeletionResponses = {
+    /**
+     * Active pending-deletion task
+     */
+    200: PendingDeletionTask;
+};
+
+export type GetPendingDeletionResponse = GetPendingDeletionResponses[keyof GetPendingDeletionResponses];
+
+export type RetryPendingDeletionData = {
+    body?: never;
+    path: {
+        deletionId: string;
+    };
+    query: {
+        source: string;
+    };
+    url: '/pending-deletions/{deletionId}/retry';
+};
+
+export type RetryPendingDeletionErrors = {
+    /**
+     * Invalid source or deletion ID
+     */
+    400: ErrorResponse;
+    /**
+     * Active task not found
+     */
+    404: ErrorResponse;
+    /**
+     * Task is not failed
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type RetryPendingDeletionError = RetryPendingDeletionErrors[keyof RetryPendingDeletionErrors];
+
+export type RetryPendingDeletionResponses = {
+    /**
+     * Requeued pending-deletion task
+     */
+    200: PendingDeletionTask;
+};
+
+export type RetryPendingDeletionResponse = RetryPendingDeletionResponses[keyof RetryPendingDeletionResponses];
+
 export type StreamServerLogsData = {
     body?: never;
     path?: never;
@@ -3901,6 +4060,10 @@ export type DeleteContactErrors = {
      */
     404: ErrorResponse;
     /**
+     * Social resource is unavailable because it or a related Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -3984,6 +4147,10 @@ export type PutContactErrors = {
      * Resource not found
      */
     404: ErrorResponse;
+    /**
+     * Social resource is unavailable because it or a related Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -4101,6 +4268,10 @@ export type DeleteFriendErrors = {
      * Resource not found
      */
     404: ErrorResponse;
+    /**
+     * Social resource is unavailable because it or a related Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -4261,6 +4432,10 @@ export type DeleteFriendGroupErrors = {
      */
     404: ErrorResponse;
     /**
+     * Social resource is unavailable because it or a related Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -4336,6 +4511,10 @@ export type PutFriendGroupErrors = {
      * Resource not found
      */
     404: ErrorResponse;
+    /**
+     * Social resource is unavailable because it or a related Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -4468,6 +4647,10 @@ export type DeleteFriendGroupMemberErrors = {
      */
     404: ErrorResponse;
     /**
+     * Social resource is unavailable because it or a related Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -4510,6 +4693,10 @@ export type PutFriendGroupMemberErrors = {
      */
     404: ErrorResponse;
     /**
+     * Social resource is unavailable because it or a related Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -4547,6 +4734,10 @@ export type DeleteFriendGroupInviteTokenErrors = {
      * Resource not found
      */
     404: ErrorResponse;
+    /**
+     * Social resource is unavailable because it or a related Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -4623,6 +4814,10 @@ export type PutFriendGroupInviteTokenErrors = {
      * Resource not found
      */
     404: ErrorResponse;
+    /**
+     * Social resource is unavailable because it or a related Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -7129,6 +7324,10 @@ export type DeleteWorkspaceIconErrors = {
      */
     404: ErrorResponse;
     /**
+     * Workspace is pending deletion or its owner Peer is unavailable
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -7196,6 +7395,10 @@ export type UploadWorkspaceIconErrors = {
      * Workspace not found
      */
     404: ErrorResponse;
+    /**
+     * Workspace is pending deletion or its owner Peer is unavailable
+     */
+    409: ErrorResponse;
     /**
      * Icon exceeds 2 MiB
      */
@@ -7470,7 +7673,7 @@ export type DeletePeerResponses = {
     /**
      * Deleted peer registration
      */
-    200: Registration;
+    200: PeerRegistrationResult;
 };
 
 export type DeletePeerResponse = DeletePeerResponses[keyof DeletePeerResponses];
@@ -7500,7 +7703,7 @@ export type GetPeerResponses = {
     /**
      * Peer registration
      */
-    200: Registration;
+    200: PeerRegistrationResult;
 };
 
 export type GetPeerResponse = GetPeerResponses[keyof GetPeerResponses];
@@ -7522,6 +7725,10 @@ export type ApprovePeerErrors = {
      * Invalid role
      */
     400: ErrorResponse;
+    /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
 };
 
 export type ApprovePeerError = ApprovePeerErrors[keyof ApprovePeerErrors];
@@ -7552,6 +7759,10 @@ export type BlockPeerErrors = {
      * Peer not found
      */
     404: ErrorResponse;
+    /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
 };
 
 export type BlockPeerError = BlockPeerErrors[keyof BlockPeerErrors];
@@ -7620,6 +7831,10 @@ export type GetPeerInfoErrors = {
      * Peer not found
      */
     404: ErrorResponse;
+    /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
 };
 
 export type GetPeerInfoError = GetPeerInfoErrors[keyof GetPeerInfoErrors];
@@ -7661,6 +7876,10 @@ export type PutPeerInfoErrors = {
      */
     404: ErrorResponse;
     /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -7688,6 +7907,15 @@ export type GetPeerRuntimeData = {
     query?: never;
     url: '/peers/{publicKey}/runtime';
 };
+
+export type GetPeerRuntimeErrors = {
+    /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+};
+
+export type GetPeerRuntimeError = GetPeerRuntimeErrors[keyof GetPeerRuntimeErrors];
 
 export type GetPeerRuntimeResponses = {
     /**
@@ -7720,6 +7948,10 @@ export type GetPeerTelemetryLatestErrors = {
      * Invalid telemetry query
      */
     400: ErrorResponse;
+    /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Telemetry query failed
      */
@@ -7780,6 +8012,10 @@ export type QueryPeerTelemetryErrors = {
      */
     400: ErrorResponse;
     /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Telemetry query failed
      */
     500: ErrorResponse;
@@ -7835,6 +8071,10 @@ export type AggregatePeerTelemetryErrors = {
      */
     400: ErrorResponse;
     /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Telemetry query failed
      */
     500: ErrorResponse;
@@ -7882,6 +8122,10 @@ export type ListPeerFriendsErrors = {
      */
     404: ErrorResponse;
     /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -7919,6 +8163,10 @@ export type CreatePeerFriendErrors = {
      * Resource not found
      */
     404: ErrorResponse;
+    /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -7962,6 +8210,10 @@ export type DeletePeerFriendErrors = {
      */
     404: ErrorResponse;
     /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -8003,6 +8255,10 @@ export type GetPeerFriendErrors = {
      * Resource not found
      */
     404: ErrorResponse;
+    /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -8818,6 +9074,10 @@ export type ListPeerPetsErrors = {
      */
     404: ErrorResponse;
     /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -8856,6 +9116,10 @@ export type DeletePeerPetErrors = {
      */
     404: ErrorResponse;
     /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -8893,6 +9157,10 @@ export type GetPeerPetErrors = {
      * Peer gameplay resource not found
      */
     404: ErrorResponse;
+    /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -8937,6 +9205,10 @@ export type ListPeerBadgesErrors = {
      */
     404: ErrorResponse;
     /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -8975,6 +9247,10 @@ export type GetPeerBadgeErrors = {
      */
     404: ErrorResponse;
     /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -9008,6 +9284,10 @@ export type GetPeerPointsErrors = {
      * Points account not found
      */
     404: ErrorResponse;
+    /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -9052,6 +9332,10 @@ export type ListPeerPointsTransactionsErrors = {
      */
     404: ErrorResponse;
     /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -9089,6 +9373,10 @@ export type GetPeerPointsTransactionErrors = {
      * Peer gameplay resource not found
      */
     404: ErrorResponse;
+    /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -9133,6 +9421,10 @@ export type ListPeerGameResultsErrors = {
      */
     404: ErrorResponse;
     /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -9170,6 +9462,10 @@ export type GetPeerGameResultErrors = {
      * Peer gameplay resource not found
      */
     404: ErrorResponse;
+    /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -9214,6 +9510,10 @@ export type ListPeerRewardGrantsErrors = {
      */
     404: ErrorResponse;
     /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -9251,6 +9551,10 @@ export type GetPeerRewardGrantErrors = {
      * Peer gameplay resource not found
      */
     404: ErrorResponse;
+    /**
+     * Target Peer is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -25,6 +27,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/resourcemanager"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -45,13 +48,15 @@ type adminService struct {
 	gameplay.CatalogAdminService
 	gameplay.GameDefIconAdminService
 	runtimeprofile.AdminService
-	Contacts        *contact.Server
-	Friends         *friend.Server
-	FriendGroups    *friendgroup.Server
-	Gameplay        *gameplay.Runtime
-	ResourceManager *resourcemanager.Manager
-	ServerLogs      ServerLogQueryService
-	PeerTelemetry   *peertelemetry.AdminService
+	Contacts         *contact.Server
+	Friends          *friend.Server
+	FriendGroups     *friendgroup.Server
+	Gameplay         *gameplay.Runtime
+	ResourceManager  *resourcemanager.Manager
+	ServerLogs       ServerLogQueryService
+	PeerTelemetry    *peertelemetry.AdminService
+	PendingDeletions *pendingdeletion.Admin
+	Peers            *peer.Server
 }
 
 var _ adminhttp.StrictServerInterface = (*adminService)(nil)
@@ -64,12 +69,12 @@ func (s *PeerService) serveAdminWithRetiring(conn giznet.Conn, isRetiring func()
 	app := fiber.New(fiber.Config{DisableStartupMessage: true, StreamRequestBody: true})
 	app.Use(observeFiberRoute)
 	app.Use(func(ctx *fiber.Ctx) error {
-		return ctx.Next()
+		return s.admin.fenceDeletedPeerBusiness(ctx)
 	})
 	handler := adminhttp.NewStrictHandler(s.admin, nil)
 	adminhttp.RegisterHandlers(app, handler)
 
-	httpHandler := rejectRetiringHTTP(isRetiring, observeHTTPHandler(fiberHTTPHandler(app), httpObservationOptions{
+	httpHandler := rejectRetiringAdminHTTP(isRetiring, conn.PublicKey().String(), observeHTTPHandler(fiberHTTPHandler(app), httpObservationOptions{
 		surface:       observability.SurfaceAdminHTTP,
 		peerPublicKey: conn.PublicKey().String(),
 		peerRole:      string(apitypes.PeerRoleAdmin),
@@ -79,6 +84,80 @@ func (s *PeerService) serveAdminWithRetiring(conn giznet.Conn, isRetiring func()
 		_ = server.Shutdown(context.Background())
 	}()
 	return server.Serve()
+}
+
+func (s *adminService) fenceDeletedPeerBusiness(ctx *fiber.Ctx) error {
+	if s == nil || s.Peers == nil {
+		return ctx.Next()
+	}
+	path := ctx.Path()
+	value := strings.TrimPrefix(path, "/peers/")
+	if value == path || value == "" {
+		return ctx.Next()
+	}
+	segments := strings.Split(value, "/")
+	// Only the Peer projection itself remains readable for retirement
+	// diagnostics. Peer-scoped business reads are fenced with mutations.
+	if len(segments) == 1 && ctx.Method() == http.MethodGet {
+		return ctx.Next()
+	}
+	if len(segments) == 1 && ctx.Method() == http.MethodDelete {
+		return ctx.Next()
+	}
+	decoded, err := url.PathUnescape(segments[0])
+	if err != nil {
+		return ctx.Next()
+	}
+	publicKey, err := parsePeerPublicKey(decoded)
+	if err != nil {
+		return ctx.Next()
+	}
+	err = s.Peers.EnsureAvailable(ctx.UserContext(), publicKey)
+	if err == nil || errors.Is(err, peer.ErrPeerNotFound) {
+		return ctx.Next()
+	}
+	code := "PEER_AVAILABILITY_FAILED"
+	status := http.StatusInternalServerError
+	if errors.Is(err, peer.ErrPeerPendingDeletion) {
+		code, status = peer.PeerPendingDeletionCode, http.StatusConflict
+	} else if errors.Is(err, peer.ErrPeerDeleted) {
+		code, status = "PEER_DELETED", http.StatusConflict
+	}
+	ctx.Status(status)
+	return ctx.JSON(apitypes.NewErrorResponse(code, err.Error()))
+}
+
+func rejectRetiringAdminHTTP(isRetiring func() bool, self string, next http.Handler) http.Handler {
+	if isRetiring == nil {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isRetiring() || retiringAdminDiagnosticRequest(r, self) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		_ = json.NewEncoder(w).Encode(apitypes.NewErrorResponse(peer.PeerPendingDeletionCode, "Peer deletion pending"))
+	})
+}
+
+func retiringAdminDiagnosticRequest(r *http.Request, self string) bool {
+	if r == nil {
+		return false
+	}
+	if r.Method == http.MethodGet && (r.URL.Path == "/peers" || strings.HasPrefix(r.URL.Path, "/pending-deletions")) {
+		return true
+	}
+	value := strings.TrimPrefix(r.URL.Path, "/peers/")
+	if value == r.URL.Path || value == "" || strings.Contains(value, "/") {
+		return false
+	}
+	decoded, err := url.PathUnescape(value)
+	if err != nil {
+		return false
+	}
+	return r.Method == http.MethodGet || r.Method == http.MethodDelete && decoded == self
 }
 
 func (s *adminService) ApplyResource(ctx context.Context, request adminhttp.ApplyResourceRequestObject) (adminhttp.ApplyResourceResponseObject, error) {

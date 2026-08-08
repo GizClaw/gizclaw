@@ -55,6 +55,17 @@ coverage without the unrelated provider-backed suites:
 bash tests/gizclaw-e2e/run_firmware_tests.sh
 ```
 
+Managed-deletion changes use a fixed production vertical-slice entrypoint. It
+validates the shared credential file, starts an isolated Docker stack, and runs
+the dedicated Peer RPC deletion package for Pet, Workspace, Friend Group, and
+Peer resources. The suite covers active-use termination and Peer tombstone
+survival across a Server restart, then cleans the project after success or
+failure without running unrelated provider-backed scenarios:
+
+```bash
+bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
+```
+
 The full gate installs locked Node workspaces, initializes nanopb, builds the
 E2E CLI, starts Compose, waits for Server/Desktop, runs JS, Desktop, C/cgo,
 Admin, chat, gameplay, RPC, social, and CLI phases in order, and performs

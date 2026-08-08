@@ -16,6 +16,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
+	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -23,6 +25,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 type testGiznetSecurityPolicy struct {
@@ -396,6 +400,84 @@ func TestServerServeReturnsNilAfterClose(t *testing.T) {
 	}
 }
 
+func TestServerListenProcessesExistingPetDeletion(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	db, err := sqlx.Open("sqlite", "file:server-pending-deletion?mode=memory&cache=shared")
+	if err != nil {
+		t.Fatalf("sqlx.Open() error = %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	ctx := context.Background()
+	runtime := &gameplay.Runtime{DB: db}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	now := time.Date(2026, 8, 7, 9, 0, 0, 0, time.UTC)
+	const owner = "peer-server-cleanup"
+	const petID = "pet-server-cleanup"
+	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (
+		owner_public_key, id, name, runtime_profile_id, pet_def_id, display_name, workspace_id,
+		stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		owner, petID, "pet-main", "profile-main", "petdef-main", "Pet", "workspace-main",
+		`{"life":100,"health":100,"satiety":100,"hygiene":100,"mood":100,"energy":100}`,
+		`{"experience":0,"level":1}`, "alive", nil,
+		now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano),
+	); err != nil {
+		t.Fatalf("insert Pet: %v", err)
+	}
+	if _, err := runtime.DeletePet(ctx, owner, petID); err != nil {
+		t.Fatalf("DeletePet() error = %v", err)
+	}
+	var markers int
+	if err := db.GetContext(ctx, &markers, `SELECT COUNT(*) FROM gameplay_pending_deletions`); err != nil {
+		t.Fatalf("count pending deletions: %v", err)
+	}
+	if markers != 1 {
+		t.Fatalf("pending deletions = %d, want 1 before Listen", markers)
+	}
+
+	server := &Server{
+		LocalStatic:   *keyPair,
+		PeerStore:     kv.NewMemory(nil),
+		GameplayDB:    db,
+		PeerListeners: []giznet.Listener{newTestGiznetListener()},
+	}
+	if err := server.Listen(); err != nil {
+		t.Fatalf("Listen() error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := server.Close(); err != nil {
+			t.Errorf("Close() error = %v", err)
+		}
+	})
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		var pets int
+		if err := db.GetContext(ctx, &pets, `SELECT COUNT(*) FROM gameplay_pets WHERE id = ?`, petID); err != nil {
+			t.Fatalf("count Pet: %v", err)
+		}
+		if pets == 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("Pet still exists after startup scan deadline")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if err := db.GetContext(ctx, &markers, `SELECT COUNT(*) FROM gameplay_pending_deletions`); err != nil {
+		t.Fatalf("count completed pending deletions: %v", err)
+	}
+	if markers != 0 {
+		t.Fatalf("pending deletions = %d, want 0 after cleanup", markers)
+	}
+}
+
 func TestServerCanListenAgainAfterClose(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -528,6 +610,49 @@ func TestPeerHTTPWebRTCSignalingUnavailable(t *testing.T) {
 	}
 	if payload.Error != "webrtc_signaling_listener_unavailable" {
 		t.Fatalf("error = %q", payload.Error)
+	}
+}
+
+func TestPeerHTTPWebRTCSignalingRejectsRetiringPeerBeforeHandler(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		err  error
+		code string
+	}{
+		{name: "pending", err: runtimepeer.ErrPeerPendingDeletion, code: runtimepeer.PeerPendingDeletionCode},
+		{name: "deleted", err: runtimepeer.ErrPeerDeleted, code: runtimepeer.PeerDeletedCode},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			called := false
+			service := &peerHTTP{
+				PeerAvailability: func(context.Context, giznet.PublicKey) error { return tc.err },
+				WebRTCSignalingHandler: func() http.Handler {
+					return http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true })
+				},
+			}
+			response, err := service.CreateGiznetWebRTCOffer(t.Context(), peerhttp.CreateGiznetWebRTCOfferRequestObject{
+				Params: peerhttp.CreateGiznetWebRTCOfferParams{
+					XGiznetPublicKey: keyPair.Public.String(),
+					XGiznetTimestamp: 1,
+					XGiznetNonce:     "nonce",
+				},
+				Body: strings.NewReader("encrypted-offer"),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			conflict, ok := response.(peerhttp.CreateGiznetWebRTCOffer409JSONResponse)
+			if !ok || conflict.Error != tc.code {
+				t.Fatalf("response = %#v, want 409 %q", response, tc.code)
+			}
+			if called {
+				t.Fatal("signaling handler was called for a retiring Peer")
+			}
+		})
 	}
 }
 

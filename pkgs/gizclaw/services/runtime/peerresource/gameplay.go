@@ -325,11 +325,11 @@ func (s *Server) projectPointsTransaction(ctx context.Context, item apitypes.Poi
 		SourceType:         item.SourceType,
 	}
 	if item.PetId != nil {
-		pet, err := s.Gameplay.GetPet(ctx, s.Caller.String(), *item.PetId)
+		petName, err := s.Gameplay.ResolvePetName(ctx, s.Caller.String(), *item.PetId)
 		if err != nil {
 			return rpcapi.PointsTransaction{}, err
 		}
-		projected.PetName = &pet.Name
+		projected.PetName = &petName
 	}
 	return projected, nil
 }
@@ -339,7 +339,7 @@ func (s *Server) projectGameResult(ctx context.Context, item apitypes.GameResult
 	if err != nil {
 		return rpcapi.GameResult{}, err
 	}
-	pet, err := s.Gameplay.GetPet(ctx, s.Caller.String(), item.PetId)
+	petName, err := s.Gameplay.ResolvePetName(ctx, s.Caller.String(), item.PetId)
 	if err != nil {
 		return rpcapi.GameResult{}, err
 	}
@@ -358,7 +358,7 @@ func (s *Server) projectGameResult(ctx context.Context, item apitypes.GameResult
 		OccurredAt:         item.OccurredAt,
 		Outcome:            item.Outcome,
 		Payload:            (*rpcapi.GameplayMetadata)(item.Payload),
-		PetName:            pet.Name,
+		PetName:            petName,
 		RuntimeProfileName: runtimeProfileName,
 		Score:              item.Score,
 	}, nil
@@ -383,11 +383,11 @@ func (s *Server) projectRewardGrant(ctx context.Context, item apitypes.RewardGra
 		SourceType:         item.SourceType,
 	}
 	if item.PetId != nil {
-		pet, err := s.Gameplay.GetPet(ctx, s.Caller.String(), *item.PetId)
+		petName, err := s.Gameplay.ResolvePetName(ctx, s.Caller.String(), *item.PetId)
 		if err != nil {
 			return rpcapi.RewardGrant{}, err
 		}
-		projected.PetName = &pet.Name
+		projected.PetName = &petName
 	}
 	return projected, nil
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -716,6 +717,158 @@ func TestRuntimeRegistrySharesAgentAndClosesOnFinalRelease(t *testing.T) {
 	if created != 2 || closed != 2 {
 		t.Fatalf("final created=%d closed=%d, want 2/2", created, closed)
 	}
+}
+
+func TestRuntimeRegistryQuiesceClosesOnlyExactWorkspace(t *testing.T) {
+	t.Parallel()
+	resolver := mutableWorkspaceResolver{idByPattern: map[string]string{"first": "workspace-a", "second": "workspace-b"}}
+	host := New(resolver)
+	var mu sync.Mutex
+	closed := map[string]int{}
+	if err := host.Register("shared", agentFactoryFunc(func(_ context.Context, spec Spec) (Agent, error) {
+		id := spec.Workspace.Id
+		return &closeTrackingAgent{
+			Agent: NewTransformerAgent(passthroughTransformer{}),
+			close: func() {
+				mu.Lock()
+				closed[id]++
+				mu.Unlock()
+			},
+		}, nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+	_, releaseFirst, err := host.OpenAgent(t.Context(), "first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, releaseSecond, err := host.OpenAgent(t.Context(), "second")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := host.QuiesceWorkspace(t.Context(), "workspace-a"); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	if closed["workspace-a"] != 1 || closed["workspace-b"] != 0 {
+		mu.Unlock()
+		t.Fatalf("close counts after quiesce = %#v", closed)
+	}
+	mu.Unlock()
+	releaseFirst()
+	releaseSecond()
+	mu.Lock()
+	defer mu.Unlock()
+	if closed["workspace-a"] != 1 || closed["workspace-b"] != 1 {
+		t.Fatalf("final close counts = %#v", closed)
+	}
+}
+
+func TestRuntimeRegistryQuiesceCancelsActiveAttachments(t *testing.T) {
+	t.Parallel()
+	resolver := mutableWorkspaceResolver{idByPattern: map[string]string{"first": "workspace-a"}}
+	host := New(resolver)
+	transformContext := make(chan context.Context, 1)
+	if err := host.Register("shared", agentFactoryFunc(func(_ context.Context, _ Spec) (Agent, error) {
+		return NewTransformerAgent(runtimeTransformerFunc(func(ctx context.Context, _ genx.Stream) (genx.Stream, error) {
+			transformContext <- ctx
+			return genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 1).Stream(), nil
+		})), nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+	agent, release, err := host.OpenAgent(t.Context(), "first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	output, err := agent.Transform(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := <-transformContext
+	if err := host.QuiesceWorkspace(t.Context(), "workspace-a"); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-ctx.Done():
+		if !errors.Is(context.Cause(ctx), errWorkspaceQuiesced) {
+			t.Fatalf("Transform context cause = %v, want %v", context.Cause(ctx), errWorkspaceQuiesced)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Workspace quiesce did not cancel the active Transform context")
+	}
+	if _, err := output.Next(); !errors.Is(err, errWorkspaceQuiesced) {
+		t.Fatalf("quiesced Transform output error = %v, want %v", err, errWorkspaceQuiesced)
+	}
+}
+
+func TestRuntimeRegistryQuiesceCancelsRetiredGenerationAttachments(t *testing.T) {
+	t.Parallel()
+	resolver := mutableWorkspaceResolver{idByPattern: map[string]string{"first": "workspace-a"}}
+	host := New(resolver)
+	transformContexts := make(chan context.Context, 2)
+	if err := host.Register("shared", agentFactoryFunc(func(_ context.Context, _ Spec) (Agent, error) {
+		return NewTransformerAgent(runtimeTransformerFunc(func(ctx context.Context, _ genx.Stream) (genx.Stream, error) {
+			transformContexts <- ctx
+			return genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 1).Stream(), nil
+		})), nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+	previous, releasePrevious, err := host.OpenAgent(t.Context(), "first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer releasePrevious()
+	previousOutput, err := previous.Transform(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previousContext := <-transformContexts
+
+	current, releaseCurrent, err := host.ReloadAgent(t.Context(), "first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer releaseCurrent()
+	currentOutput, err := current.Transform(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentContext := <-transformContexts
+
+	if err := host.QuiesceWorkspace(t.Context(), "workspace-a"); err != nil {
+		t.Fatal(err)
+	}
+	for label, state := range map[string]struct {
+		ctx    context.Context
+		output genx.Stream
+	}{
+		"retired": {ctx: previousContext, output: previousOutput},
+		"current": {ctx: currentContext, output: currentOutput},
+	} {
+		select {
+		case <-state.ctx.Done():
+			if !errors.Is(context.Cause(state.ctx), errWorkspaceQuiesced) {
+				t.Fatalf("%s Transform context cause = %v, want %v", label, context.Cause(state.ctx), errWorkspaceQuiesced)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("Workspace quiesce did not cancel the %s Transform context", label)
+		}
+		if _, err := state.output.Next(); !errors.Is(err, errWorkspaceQuiesced) {
+			t.Fatalf("%s Transform output error = %v, want %v", label, err, errWorkspaceQuiesced)
+		}
+	}
+}
+
+type mutableWorkspaceResolver struct {
+	idByPattern map[string]string
+}
+
+func (r mutableWorkspaceResolver) Resolve(_ context.Context, pattern string) (Spec, error) {
+	id := r.idByPattern[pattern]
+	return Spec{Workspace: apitypes.Workspace{Id: id, Name: pattern}, AgentType: "shared"}, nil
 }
 
 func TestRuntimeRegistryReloadPreservesOldGenerationOnConstructorFailure(t *testing.T) {

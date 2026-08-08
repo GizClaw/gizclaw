@@ -175,3 +175,13 @@ func (h *Host) runtimeRegistry() *RuntimeRegistry {
 func (h *Host) WorkspaceRuntimes() *RuntimeRegistry {
 	return h.runtimeRegistry()
 }
+
+// QuiesceWorkspace closes the currently published runtime generation for the
+// exact canonical Workspace ID.
+func (h *Host) QuiesceWorkspace(_ context.Context, workspaceID string) error {
+	if h == nil {
+		return fmt.Errorf("agenthost: host is nil")
+	}
+	h.runtimeRegistry().Quiesce(workspaceID)
+	return nil
+}

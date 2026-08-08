@@ -30,7 +30,16 @@ func saveTestPeer(t *testing.T, server *Server, publicKey giznet.PublicKey, devi
 	}
 }
 
-func TestDeleteSelfRetainsPeerAndReusesDeletionEvent(t *testing.T) {
+func registrationResultForTest(t *testing.T, result adminhttp.PeerRegistrationResult) apitypes.Registration {
+	t.Helper()
+	registration, err := result.AsExternalRef0Registration()
+	if err != nil {
+		t.Fatalf("decode Registration result: %v", err)
+	}
+	return registration
+}
+
+func TestDeleteSelfRetainsPeerFencesMutationsAndReusesDeletionEvent(t *testing.T) {
 	ctx := context.Background()
 	server := &Server{Store: mustBadgerInMemory(t, nil)}
 	publicKey := giznet.PublicKey{9}
@@ -38,19 +47,19 @@ func TestDeleteSelfRetainsPeerAndReusesDeletionEvent(t *testing.T) {
 	if err := server.DeleteSelf(ctx, publicKey); err != nil {
 		t.Fatalf("DeleteSelf(first): %v", err)
 	}
-	if _, err := server.BindFirmware(ctx, publicKey, "firmware-reconnected"); err != nil {
-		t.Fatalf("BindFirmware(marked): %v", err)
+	if _, err := server.BindFirmware(ctx, publicKey, "firmware-reconnected"); !errors.Is(err, ErrPeerPendingDeletion) {
+		t.Fatalf("BindFirmware(marked) error = %v", err)
 	}
 	if _, err := server.SavePeer(ctx, apitypes.Peer{
 		PublicKey: publicKey.String(),
 		Role:      apitypes.PeerRoleClient,
 		Status:    apitypes.PeerRegistrationStatusActive,
 		Device:    apitypes.DeviceInfo{},
-	}); err != nil {
-		t.Fatalf("SavePeer(marked): %v", err)
+	}); !errors.Is(err, ErrPeerPendingDeletion) {
+		t.Fatalf("SavePeer(marked) error = %v", err)
 	}
-	if err := server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{publicKey}); err != nil {
-		t.Fatalf("BootstrapEdgeNodes(marked): %v", err)
+	if err := server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{publicKey}); !errors.Is(err, ErrPeerPendingDeletion) {
+		t.Fatalf("BootstrapEdgeNodes(marked) error = %v", err)
 	}
 	if err := server.DeleteSelf(ctx, publicKey); err != nil {
 		t.Fatalf("DeleteSelf(second): %v", err)
@@ -67,7 +76,7 @@ func TestDeleteSelfRetainsPeerAndReusesDeletionEvent(t *testing.T) {
 	}
 }
 
-func TestDeleteSelfRetryPreservesPeerForReconnect(t *testing.T) {
+func TestDeleteSelfRetryPreservesPeerButRejectsReconnect(t *testing.T) {
 	ctx := context.Background()
 	server := &Server{Store: mustBadgerInMemory(t, nil)}
 	publicKey := giznet.PublicKey{10}
@@ -78,8 +87,8 @@ func TestDeleteSelfRetryPreservesPeerForReconnect(t *testing.T) {
 	if err := server.DeleteSelf(ctx, publicKey); err != nil {
 		t.Fatalf("DeleteSelf(retry): %v", err)
 	}
-	if _, err := server.EnsureConnectedPeer(ctx, publicKey); err != nil {
-		t.Fatalf("EnsureConnectedPeer: %v", err)
+	if _, err := server.EnsureConnectedPeer(ctx, publicKey); !errors.Is(err, ErrPeerPendingDeletion) {
+		t.Fatalf("EnsureConnectedPeer error = %v", err)
 	}
 	if _, err := server.LoadPeer(ctx, publicKey); err != nil {
 		t.Fatalf("LoadPeer(reconnected): %v", err)
@@ -164,7 +173,7 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	if !ok {
 		t.Fatalf("GetPeer response type = %T", getResp)
 	}
-	if getRegistered.PublicKey != peerPublicKey {
+	if registrationResultForTest(t, adminhttp.PeerRegistrationResult(getRegistered)).PublicKey != peerPublicKey {
 		t.Fatalf("GetPeer = %+v", getRegistered)
 	}
 
@@ -176,7 +185,7 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	if !ok {
 		t.Fatalf("ListPeers response type = %T", listResp)
 	}
-	if len(listed.Items) != 1 || listed.Items[0].PublicKey != peerPublicKey {
+	if len(listed.Items) != 1 || registrationResultForTest(t, listed.Items[0]).PublicKey != peerPublicKey {
 		t.Fatalf("ListPeers items = %+v", listed.Items)
 	}
 
@@ -280,7 +289,8 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	if !ok {
 		t.Fatalf("DeletePeer response type = %T", deleteResp)
 	}
-	if deleted.Role != apitypes.PeerRoleClient || deleted.Status != apitypes.PeerRegistrationStatusBlocked || deleted.ApprovedAt == nil {
+	deletedRegistration := registrationResultForTest(t, adminhttp.PeerRegistrationResult(deleted))
+	if deletedRegistration.Role != apitypes.PeerRoleClient || deletedRegistration.Status != apitypes.PeerRegistrationStatusBlocked || deletedRegistration.ApprovedAt == nil {
 		t.Fatalf("DeletePeer = %+v", deleted)
 	}
 	getDeletedResp, err := server.GetPeer(ctx, adminhttp.GetPeerRequestObject{PublicKey: string(peerPublicKey)})
@@ -295,7 +305,7 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 		t.Fatalf("ListPeers after DeletePeer error: %v", err)
 	}
 	listedDeleted, ok := listDeletedResp.(adminhttp.ListPeers200JSONResponse)
-	if !ok || len(listedDeleted.Items) != 1 || listedDeleted.Items[0].PublicKey != peerPublicKey {
+	if !ok || len(listedDeleted.Items) != 1 || registrationResultForTest(t, listedDeleted.Items[0]).PublicKey != peerPublicKey {
 		t.Fatalf("ListPeers after DeletePeer response = %#v", listDeletedResp)
 	}
 	if pending, err := pendingdeletion.HasLocator(ctx, server.Store, pendingdeletion.KindPeer, peerPublicKey); err != nil || !pending {
@@ -331,7 +341,7 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	if err := server.DeleteSelf(ctx, peerKey); err != nil {
 		t.Fatalf("DeleteSelf() retry error = %v", err)
 	}
-	if err := server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{peerKey}); err != nil {
+	if err := server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{peerKey}); !errors.Is(err, ErrPeerPendingDeletion) {
 		t.Fatalf("BootstrapEdgeNodes() while marked error = %v", err)
 	}
 }
@@ -374,7 +384,7 @@ func TestServerListPeersPagination(t *testing.T) {
 	if !listed.HasNext || listed.NextCursor == nil || *listed.NextCursor != peerAText {
 		t.Fatalf("ListPeers pagination metadata = %+v", listed)
 	}
-	if len(listed.Items) != 1 || listed.Items[0].PublicKey != peerAText {
+	if len(listed.Items) != 1 || registrationResultForTest(t, listed.Items[0]).PublicKey != peerAText {
 		t.Fatalf("ListPeers paged items = %+v", listed.Items)
 	}
 
@@ -411,7 +421,7 @@ func TestServerListPeersPaginationPreservesCreationOrder(t *testing.T) {
 	if !ok {
 		t.Fatalf("ListPeers first response type = %T", resp)
 	}
-	if len(firstPage.Items) != 2 || firstPage.Items[0].PublicKey != peerBText || firstPage.Items[1].PublicKey != peerAText {
+	if len(firstPage.Items) != 2 || registrationResultForTest(t, firstPage.Items[0]).PublicKey != peerBText || registrationResultForTest(t, firstPage.Items[1]).PublicKey != peerAText {
 		t.Fatalf("ListPeers first page = %+v", firstPage.Items)
 	}
 	if !firstPage.HasNext || firstPage.NextCursor == nil || *firstPage.NextCursor != peerAText {
@@ -431,7 +441,7 @@ func TestServerListPeersPaginationPreservesCreationOrder(t *testing.T) {
 	if !ok {
 		t.Fatalf("ListPeers second response type = %T", resp)
 	}
-	if len(secondPage.Items) != 1 || secondPage.Items[0].PublicKey != peerCText {
+	if len(secondPage.Items) != 1 || registrationResultForTest(t, secondPage.Items[0]).PublicKey != peerCText {
 		t.Fatalf("ListPeers second page = %+v", secondPage.Items)
 	}
 }

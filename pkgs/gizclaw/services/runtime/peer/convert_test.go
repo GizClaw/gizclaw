@@ -26,11 +26,15 @@ func TestConvertHelpers(t *testing.T) {
 	}
 
 	adminRegistrations := toAdminRegistrationList([]apitypes.Peer{peer}, false, nil)
-	if len(adminRegistrations.Items) != 1 || adminRegistrations.Items[0].PublicKey != peer.PublicKey {
+	if len(adminRegistrations.Items) != 1 {
 		t.Fatalf("toAdminRegistrationList = %+v", adminRegistrations)
 	}
-	if adminRegistrations.Items[0].Device == nil || adminRegistrations.Items[0].Device.Name == nil || *adminRegistrations.Items[0].Device.Name != deviceName {
-		t.Fatalf("toAdminRegistrationList device = %+v", adminRegistrations.Items[0].Device)
+	item, err := adminRegistrations.Items[0].AsExternalRef0Registration()
+	if err != nil || item.PublicKey != peer.PublicKey {
+		t.Fatalf("toAdminRegistrationList item = %+v, %v", item, err)
+	}
+	if item.Device == nil || item.Device.Name == nil || *item.Device.Name != deviceName {
+		t.Fatalf("toAdminRegistrationList device = %+v", item.Device)
 	}
 
 	convertedDevice, err := toPeerDeviceInfo(peer.Device)

@@ -47,6 +47,15 @@ Firmware OTA 变更可以只启动所需的 live stack，并执行相关 Admin/R
 bash tests/gizclaw-e2e/run_firmware_tests.sh
 ```
 
+托管删除变更使用固定的 production vertical-slice 入口。该入口校验统一的 credential
+file，启动隔离的 Docker stack，并在独立的 Peer RPC 删除测试包中覆盖 Pet、Workspace、
+Friend Group 和 Peer。测试会验证使用中资源被终止，以及 Peer tombstone 在 Server 重启后
+仍然生效；成功或失败后都会清理 project，且不运行无关的 provider-backed 场景：
+
+```bash
+bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
+```
+
 完整 gate 会安装锁定的 Node workspace、初始化 nanopb submodule、构建 E2E CLI、
 启动 Compose、等待 Server/Desktop，然后依次运行 JS、Desktop、C/cgo、Admin、chat、
 gameplay、RPC、social 和 CLI 套件，最后执行有界清理。总 deadline 默认 90 分钟；

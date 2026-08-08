@@ -92,7 +92,8 @@
                 }
               }
             }
-          }
+          },
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -109,7 +110,8 @@
           },
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -135,7 +137,8 @@
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -152,7 +155,8 @@
           },
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -178,7 +182,8 @@
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -193,7 +198,8 @@
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -208,7 +214,8 @@
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -223,7 +230,8 @@
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -245,7 +253,8 @@
           "400": {"$ref": "#/components/responses/BadRequest"},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -268,7 +277,8 @@
           "400": {"$ref": "#/components/responses/BadRequest"},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -290,7 +300,8 @@
           "400": {"$ref": "#/components/responses/BadRequest"},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -309,7 +320,8 @@
           "400": {"$ref": "#/components/responses/BadRequest"},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       },
       "post": {
@@ -323,7 +335,8 @@
           "400": {"$ref": "#/components/responses/BadRequest"},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -339,7 +352,8 @@
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       },
       "put": {
@@ -354,7 +368,8 @@
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       },
       "delete": {
@@ -367,7 +382,8 @@
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -494,7 +510,7 @@
             }
           },
           "409": {
-            "description": "Signaling nonce was replayed.",
+            "description": "Signaling nonce was replayed, or the Peer is pending deletion or permanently deleted.",
             "content": {
               "application/json": {
                 "schema": {
@@ -598,7 +614,8 @@
                 }
               }
             }
-          }
+          },
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -654,7 +671,8 @@
                 }
               }
             }
-          }
+          },
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       },
       "put": {
@@ -728,7 +746,8 @@
                 }
               }
             }
-          }
+          },
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     },
@@ -784,7 +803,8 @@
                 }
               }
             }
-          }
+          },
+          "409": {"$ref": "#/components/responses/Conflict"}
         }
       }
     }
@@ -810,6 +830,16 @@
       "InternalError": {
         "description": "Internal error",
         "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      },
+      "Conflict": {
+        "description": "Peer identity is pending deletion or permanently deleted",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./shared.json#/components/schemas/ErrorResponse"
+            }
+          }
+        }
       }
     },
     "securitySchemes": {

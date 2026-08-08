@@ -18,6 +18,7 @@ import (
 	externalRef1 "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/gofiber/fiber/v2"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for DeleteGameDefIconParamsFormat.
@@ -498,6 +499,11 @@ type OpenAITenantUpsert struct {
 	Kind *externalRef0.OpenAITenantKind `json:"kind,omitempty"`
 }
 
+// PeerRegistrationResult defines model for PeerRegistrationResult.
+type PeerRegistrationResult struct {
+	union json.RawMessage
+}
+
 // PetDefList defines model for PetDefList.
 type PetDefList struct {
 	HasNext    bool                  `json:"has_next"`
@@ -525,9 +531,9 @@ type RefreshResult struct {
 
 // RegistrationList defines model for RegistrationList.
 type RegistrationList struct {
-	HasNext    bool                        `json:"has_next"`
-	Items      []externalRef0.Registration `json:"items"`
-	NextCursor *string                     `json:"next_cursor,omitempty"`
+	HasNext    bool                     `json:"has_next"`
+	Items      []PeerRegistrationResult `json:"items"`
+	NextCursor *string                  `json:"next_cursor,omitempty"`
 }
 
 // RegistrationTokenList defines model for RegistrationTokenList.
@@ -659,6 +665,15 @@ type VoiceProviderKind = externalRef0.VoiceProviderKind
 
 // VoiceSource How the voice entered the global catalog
 type VoiceSource = externalRef0.VoiceSource
+
+// PeerUnavailable defines model for PeerUnavailable.
+type PeerUnavailable = externalRef0.ErrorResponse
+
+// SocialUnavailable defines model for SocialUnavailable.
+type SocialUnavailable = externalRef0.ErrorResponse
+
+// WorkspaceUnavailable defines model for WorkspaceUnavailable.
+type WorkspaceUnavailable = externalRef0.ErrorResponse
 
 // ListBadgeDefsParams defines parameters for ListBadgeDefs.
 type ListBadgeDefsParams struct {
@@ -913,6 +928,33 @@ type AggregatePeerTelemetryParams struct {
 type GetPeerTelemetryLatestParams struct {
 	// Fields Comma-separated telemetry field names. Omitted means all supported fields.
 	Fields *string `form:"fields,omitempty" json:"fields,omitempty"`
+}
+
+// ListPendingDeletionsParams defines parameters for ListPendingDeletions.
+type ListPendingDeletionsParams struct {
+	Source *string                             `form:"source,omitempty" json:"source,omitempty"`
+	Kind   *externalRef0.PendingDeletionKind   `form:"kind,omitempty" json:"kind,omitempty"`
+	Status *externalRef0.PendingDeletionStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// StartTimeMs Inclusive creation-time lower bound in Unix milliseconds.
+	StartTimeMs *int64 `form:"start_time_ms,omitempty" json:"start_time_ms,omitempty"`
+
+	// EndTimeMs Exclusive creation-time upper bound in Unix milliseconds.
+	EndTimeMs *int64 `form:"end_time_ms,omitempty" json:"end_time_ms,omitempty"`
+	Limit     *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque cursor bound to every filter; limit may change.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// GetPendingDeletionParams defines parameters for GetPendingDeletion.
+type GetPendingDeletionParams struct {
+	Source string `form:"source" json:"source"`
+}
+
+// RetryPendingDeletionParams defines parameters for RetryPendingDeletion.
+type RetryPendingDeletionParams struct {
+	Source string `form:"source" json:"source"`
 }
 
 // ListPetDefsParams defines parameters for ListPetDefs.
@@ -1199,6 +1241,68 @@ type CreateWorkspaceJSONRequestBody = WorkspaceUpsert
 
 // PutWorkspaceJSONRequestBody defines body for PutWorkspace for application/json ContentType.
 type PutWorkspaceJSONRequestBody = WorkspaceUpsert
+
+// AsExternalRef0Registration returns the union data inside the PeerRegistrationResult as a externalRef0.Registration
+func (t PeerRegistrationResult) AsExternalRef0Registration() (externalRef0.Registration, error) {
+	var body externalRef0.Registration
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromExternalRef0Registration overwrites any union data inside the PeerRegistrationResult as the provided externalRef0.Registration
+func (t *PeerRegistrationResult) FromExternalRef0Registration(v externalRef0.Registration) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeExternalRef0Registration performs a merge with any union data inside the PeerRegistrationResult, using the provided externalRef0.Registration
+func (t *PeerRegistrationResult) MergeExternalRef0Registration(v externalRef0.Registration) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsExternalRef0RegistrationTombstone returns the union data inside the PeerRegistrationResult as a externalRef0.RegistrationTombstone
+func (t PeerRegistrationResult) AsExternalRef0RegistrationTombstone() (externalRef0.RegistrationTombstone, error) {
+	var body externalRef0.RegistrationTombstone
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromExternalRef0RegistrationTombstone overwrites any union data inside the PeerRegistrationResult as the provided externalRef0.RegistrationTombstone
+func (t *PeerRegistrationResult) FromExternalRef0RegistrationTombstone(v externalRef0.RegistrationTombstone) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeExternalRef0RegistrationTombstone performs a merge with any union data inside the PeerRegistrationResult, using the provided externalRef0.RegistrationTombstone
+func (t *PeerRegistrationResult) MergeExternalRef0RegistrationTombstone(v externalRef0.RegistrationTombstone) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t PeerRegistrationResult) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *PeerRegistrationResult) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -1609,6 +1713,15 @@ type ClientInterface interface {
 
 	// GetPeerTelemetryLatest request
 	GetPeerTelemetryLatest(ctx context.Context, publicKey string, params *GetPeerTelemetryLatestParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPendingDeletions request
+	ListPendingDeletions(ctx context.Context, params *ListPendingDeletionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPendingDeletion request
+	GetPendingDeletion(ctx context.Context, deletionId openapi_types.UUID, params *GetPendingDeletionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RetryPendingDeletion request
+	RetryPendingDeletion(ctx context.Context, deletionId openapi_types.UUID, params *RetryPendingDeletionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPetDefs request
 	ListPetDefs(ctx context.Context, params *ListPetDefsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3303,6 +3416,42 @@ func (c *Client) AggregatePeerTelemetry(ctx context.Context, publicKey string, p
 
 func (c *Client) GetPeerTelemetryLatest(ctx context.Context, publicKey string, params *GetPeerTelemetryLatestParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPeerTelemetryLatestRequest(c.Server, publicKey, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListPendingDeletions(ctx context.Context, params *ListPendingDeletionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPendingDeletionsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPendingDeletion(ctx context.Context, deletionId openapi_types.UUID, params *GetPendingDeletionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPendingDeletionRequest(c.Server, deletionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RetryPendingDeletion(ctx context.Context, deletionId openapi_types.UUID, params *RetryPendingDeletionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRetryPendingDeletionRequest(c.Server, deletionId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -8914,6 +9063,255 @@ func NewGetPeerTelemetryLatestRequest(server string, publicKey string, params *G
 	return req, nil
 }
 
+// NewListPendingDeletionsRequest generates requests for ListPendingDeletions
+func NewListPendingDeletionsRequest(server string, params *ListPendingDeletionsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pending-deletions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Source != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", *params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Kind != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "kind", *params.Kind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.StartTimeMs != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time_ms", *params.StartTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.EndTimeMs != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time_ms", *params.EndTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPendingDeletionRequest generates requests for GetPendingDeletion
+func NewGetPendingDeletionRequest(server string, deletionId openapi_types.UUID, params *GetPendingDeletionParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "deletionId", deletionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pending-deletions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRetryPendingDeletionRequest generates requests for RetryPendingDeletion
+func NewRetryPendingDeletionRequest(server string, deletionId openapi_types.UUID, params *RetryPendingDeletionParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "deletionId", deletionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pending-deletions/%s/retry", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListPetDefsRequest generates requests for ListPetDefs
 func NewListPetDefsRequest(server string, params *ListPetDefsParams) (*http.Request, error) {
 	var err error
@@ -12426,6 +12824,15 @@ type ClientWithResponsesInterface interface {
 	// GetPeerTelemetryLatestWithResponse request
 	GetPeerTelemetryLatestWithResponse(ctx context.Context, publicKey string, params *GetPeerTelemetryLatestParams, reqEditors ...RequestEditorFn) (*GetPeerTelemetryLatestResponse, error)
 
+	// ListPendingDeletionsWithResponse request
+	ListPendingDeletionsWithResponse(ctx context.Context, params *ListPendingDeletionsParams, reqEditors ...RequestEditorFn) (*ListPendingDeletionsResponse, error)
+
+	// GetPendingDeletionWithResponse request
+	GetPendingDeletionWithResponse(ctx context.Context, deletionId openapi_types.UUID, params *GetPendingDeletionParams, reqEditors ...RequestEditorFn) (*GetPendingDeletionResponse, error)
+
+	// RetryPendingDeletionWithResponse request
+	RetryPendingDeletionWithResponse(ctx context.Context, deletionId openapi_types.UUID, params *RetryPendingDeletionParams, reqEditors ...RequestEditorFn) (*RetryPendingDeletionResponse, error)
+
 	// ListPetDefsWithResponse request
 	ListPetDefsWithResponse(ctx context.Context, params *ListPetDefsParams, reqEditors ...RequestEditorFn) (*ListPetDefsResponse, error)
 
@@ -14331,7 +14738,7 @@ func (r FindPubKeyBySNResponse) StatusCode() int {
 type DeletePeerResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef0.Registration
+	JSON200      *PeerRegistrationResult
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -14355,7 +14762,7 @@ func (r DeletePeerResponse) StatusCode() int {
 type GetPeerResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef0.Registration
+	JSON200      *PeerRegistrationResult
 	JSON404      *externalRef0.ErrorResponse
 }
 
@@ -14380,6 +14787,7 @@ type ApprovePeerResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Registration
 	JSON400      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 }
 
 // Status returns HTTPResponse.Status
@@ -14403,6 +14811,7 @@ type BlockPeerResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Registration
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 }
 
 // Status returns HTTPResponse.Status
@@ -14451,6 +14860,7 @@ type ListPeerBadgesResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.BadgeListResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14475,6 +14885,7 @@ type GetPeerBadgeResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Badge
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14500,6 +14911,7 @@ type ListPeerFriendsResponse struct {
 	JSON200      *AdminFriendListResponse
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14525,6 +14937,7 @@ type CreatePeerFriendResponse struct {
 	JSON200      *AdminFriendObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14550,6 +14963,7 @@ type DeletePeerFriendResponse struct {
 	JSON200      *AdminFriendObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14575,6 +14989,7 @@ type GetPeerFriendResponse struct {
 	JSON200      *AdminFriendObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14599,6 +15014,7 @@ type ListPeerGameResultsResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.GameResultListResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14623,6 +15039,7 @@ type GetPeerGameResultResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.GameResult
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14647,6 +15064,7 @@ type GetPeerInfoResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.DeviceInfo
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 }
 
 // Status returns HTTPResponse.Status
@@ -14671,6 +15089,7 @@ type PutPeerInfoResponse struct {
 	JSON200      *externalRef0.DeviceInfo
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14695,6 +15114,7 @@ type ListPeerPetsResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.PetListResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14719,6 +15139,7 @@ type DeletePeerPetResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Pet
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14743,6 +15164,7 @@ type GetPeerPetResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Pet
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14767,6 +15189,7 @@ type GetPeerPointsResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.PointsAccount
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14791,6 +15214,7 @@ type ListPeerPointsTransactionsResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.PointsTransactionListResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14815,6 +15239,7 @@ type GetPeerPointsTransactionResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.PointsTransaction
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14839,6 +15264,7 @@ type ListPeerRewardGrantsResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.RewardGrantListResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14863,6 +15289,7 @@ type GetPeerRewardGrantResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.RewardGrant
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14886,6 +15313,7 @@ type GetPeerRuntimeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Runtime
+	JSON409      *PeerUnavailable
 }
 
 // Status returns HTTPResponse.Status
@@ -14909,6 +15337,7 @@ type QueryPeerTelemetryResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.PeerTelemetryRangeResponse
 	JSON400      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14933,6 +15362,7 @@ type AggregatePeerTelemetryResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.PeerTelemetryAggregateResponse
 	JSON400      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14957,6 +15387,7 @@ type GetPeerTelemetryLatestResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.PeerTelemetryLatestResponse
 	JSON400      *externalRef0.ErrorResponse
+	JSON409      *PeerUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -14970,6 +15401,81 @@ func (r GetPeerTelemetryLatestResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetPeerTelemetryLatestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListPendingDeletionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PendingDeletionList
+	JSON400      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPendingDeletionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPendingDeletionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetPendingDeletionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PendingDeletionTask
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPendingDeletionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPendingDeletionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RetryPendingDeletionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PendingDeletionTask
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r RetryPendingDeletionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RetryPendingDeletionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -15524,6 +16030,7 @@ type DeleteContactResponse struct {
 	JSON200      *AdminContactObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *SocialUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -15574,6 +16081,7 @@ type PutContactResponse struct {
 	JSON200      *AdminContactObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *SocialUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -15650,6 +16158,7 @@ type DeleteFriendGroupResponse struct {
 	JSON200      *AdminFriendGroupObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *SocialUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -15700,6 +16209,7 @@ type PutFriendGroupResponse struct {
 	JSON200      *AdminFriendGroupObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *SocialUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -15725,6 +16235,7 @@ type DeleteFriendGroupInviteTokenResponse struct {
 	JSON200      *externalRef1.FriendGroupInviteTokenClearResponse
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *SocialUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -15775,6 +16286,7 @@ type PutFriendGroupInviteTokenResponse struct {
 	JSON200      *externalRef1.FriendGroupInviteTokenGetResponse
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *SocialUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -15851,6 +16363,7 @@ type DeleteFriendGroupMemberResponse struct {
 	JSON200      *AdminFriendGroupMemberObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *SocialUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -15876,6 +16389,7 @@ type PutFriendGroupMemberResponse struct {
 	JSON200      *AdminFriendGroupMemberObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *SocialUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -15951,6 +16465,7 @@ type DeleteFriendResponse struct {
 	JSON200      *AdminFriendObject
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *SocialUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -16589,6 +17104,7 @@ type DeleteWorkspaceIconResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Workspace
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *WorkspaceUnavailable
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -16637,6 +17153,7 @@ type UploadWorkspaceIconResponse struct {
 	JSON200      *externalRef0.Workspace
 	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *WorkspaceUnavailable
 	JSON413      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -17718,6 +18235,33 @@ func (c *ClientWithResponses) GetPeerTelemetryLatestWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseGetPeerTelemetryLatestResponse(rsp)
+}
+
+// ListPendingDeletionsWithResponse request returning *ListPendingDeletionsResponse
+func (c *ClientWithResponses) ListPendingDeletionsWithResponse(ctx context.Context, params *ListPendingDeletionsParams, reqEditors ...RequestEditorFn) (*ListPendingDeletionsResponse, error) {
+	rsp, err := c.ListPendingDeletions(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPendingDeletionsResponse(rsp)
+}
+
+// GetPendingDeletionWithResponse request returning *GetPendingDeletionResponse
+func (c *ClientWithResponses) GetPendingDeletionWithResponse(ctx context.Context, deletionId openapi_types.UUID, params *GetPendingDeletionParams, reqEditors ...RequestEditorFn) (*GetPendingDeletionResponse, error) {
+	rsp, err := c.GetPendingDeletion(ctx, deletionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPendingDeletionResponse(rsp)
+}
+
+// RetryPendingDeletionWithResponse request returning *RetryPendingDeletionResponse
+func (c *ClientWithResponses) RetryPendingDeletionWithResponse(ctx context.Context, deletionId openapi_types.UUID, params *RetryPendingDeletionParams, reqEditors ...RequestEditorFn) (*RetryPendingDeletionResponse, error) {
+	rsp, err := c.RetryPendingDeletion(ctx, deletionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRetryPendingDeletionResponse(rsp)
 }
 
 // ListPetDefsWithResponse request returning *ListPetDefsResponse
@@ -21384,7 +21928,7 @@ func ParseDeletePeerResponse(rsp *http.Response) (*DeletePeerResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.Registration
+		var dest PeerRegistrationResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -21424,7 +21968,7 @@ func ParseGetPeerResponse(rsp *http.Response) (*GetPeerResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.Registration
+		var dest PeerRegistrationResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -21470,6 +22014,13 @@ func ParseApprovePeerResponse(rsp *http.Response) (*ApprovePeerResponse, error) 
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	}
 
 	return response, nil
@@ -21502,6 +22053,13 @@ func ParseBlockPeerResponse(rsp *http.Response) (*BlockPeerResponse, error) {
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 
@@ -21583,6 +22141,13 @@ func ParseListPeerBadgesResponse(rsp *http.Response) (*ListPeerBadgesResponse, e
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21622,6 +22187,13 @@ func ParseGetPeerBadgeResponse(rsp *http.Response) (*GetPeerBadgeResponse, error
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -21670,6 +22242,13 @@ func ParseListPeerFriendsResponse(rsp *http.Response) (*ListPeerFriendsResponse,
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21716,6 +22295,13 @@ func ParseCreatePeerFriendResponse(rsp *http.Response) (*CreatePeerFriendRespons
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -21764,6 +22350,13 @@ func ParseDeletePeerFriendResponse(rsp *http.Response) (*DeletePeerFriendRespons
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21811,6 +22404,13 @@ func ParseGetPeerFriendResponse(rsp *http.Response) (*GetPeerFriendResponse, err
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21850,6 +22450,13 @@ func ParseListPeerGameResultsResponse(rsp *http.Response) (*ListPeerGameResultsR
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -21891,6 +22498,13 @@ func ParseGetPeerGameResultResponse(rsp *http.Response) (*GetPeerGameResultRespo
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21930,6 +22544,13 @@ func ParseGetPeerInfoResponse(rsp *http.Response) (*GetPeerInfoResponse, error) 
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 
@@ -21971,6 +22592,13 @@ func ParsePutPeerInfoResponse(rsp *http.Response) (*PutPeerInfoResponse, error) 
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22010,6 +22638,13 @@ func ParseListPeerPetsResponse(rsp *http.Response) (*ListPeerPetsResponse, error
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -22051,6 +22686,13 @@ func ParseDeletePeerPetResponse(rsp *http.Response) (*DeletePeerPetResponse, err
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22090,6 +22732,13 @@ func ParseGetPeerPetResponse(rsp *http.Response) (*GetPeerPetResponse, error) {
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -22131,6 +22780,13 @@ func ParseGetPeerPointsResponse(rsp *http.Response) (*GetPeerPointsResponse, err
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22170,6 +22826,13 @@ func ParseListPeerPointsTransactionsResponse(rsp *http.Response) (*ListPeerPoint
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -22211,6 +22874,13 @@ func ParseGetPeerPointsTransactionResponse(rsp *http.Response) (*GetPeerPointsTr
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22250,6 +22920,13 @@ func ParseListPeerRewardGrantsResponse(rsp *http.Response) (*ListPeerRewardGrant
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -22291,6 +22968,13 @@ func ParseGetPeerRewardGrantResponse(rsp *http.Response) (*GetPeerRewardGrantRes
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22324,6 +23008,13 @@ func ParseGetPeerRuntimeResponse(rsp *http.Response) (*GetPeerRuntimeResponse, e
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	}
 
 	return response, nil
@@ -22356,6 +23047,13 @@ func ParseQueryPeerTelemetryResponse(rsp *http.Response) (*QueryPeerTelemetryRes
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -22397,6 +23095,13 @@ func ParseAggregatePeerTelemetryResponse(rsp *http.Response) (*AggregatePeerTele
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22436,6 +23141,154 @@ func ParseGetPeerTelemetryLatestResponse(rsp *http.Response) (*GetPeerTelemetryL
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PeerUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListPendingDeletionsResponse parses an HTTP response from a ListPendingDeletionsWithResponse call
+func ParseListPendingDeletionsResponse(rsp *http.Response) (*ListPendingDeletionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPendingDeletionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PendingDeletionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPendingDeletionResponse parses an HTTP response from a GetPendingDeletionWithResponse call
+func ParseGetPendingDeletionResponse(rsp *http.Response) (*GetPendingDeletionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPendingDeletionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PendingDeletionTask
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRetryPendingDeletionResponse parses an HTTP response from a RetryPendingDeletionWithResponse call
+func ParseRetryPendingDeletionResponse(rsp *http.Response) (*RetryPendingDeletionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RetryPendingDeletionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PendingDeletionTask
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -23462,6 +24315,13 @@ func ParseDeleteContactResponse(rsp *http.Response) (*DeleteContactResponse, err
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest SocialUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -23555,6 +24415,13 @@ func ParsePutContactResponse(rsp *http.Response) (*PutContactResponse, error) {
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest SocialUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -23704,6 +24571,13 @@ func ParseDeleteFriendGroupResponse(rsp *http.Response) (*DeleteFriendGroupRespo
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest SocialUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -23798,6 +24672,13 @@ func ParsePutFriendGroupResponse(rsp *http.Response) (*PutFriendGroupResponse, e
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest SocialUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -23844,6 +24725,13 @@ func ParseDeleteFriendGroupInviteTokenResponse(rsp *http.Response) (*DeleteFrien
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest SocialUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -23938,6 +24826,13 @@ func ParsePutFriendGroupInviteTokenResponse(rsp *http.Response) (*PutFriendGroup
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest SocialUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -24087,6 +24982,13 @@ func ParseDeleteFriendGroupMemberResponse(rsp *http.Response) (*DeleteFriendGrou
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest SocialUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -24133,6 +25035,13 @@ func ParsePutFriendGroupMemberResponse(rsp *http.Response) (*PutFriendGroupMembe
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest SocialUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -24274,6 +25183,13 @@ func ParseDeleteFriendResponse(rsp *http.Response) (*DeleteFriendResponse, error
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest SocialUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -25413,6 +26329,13 @@ func ParseDeleteWorkspaceIconResponse(rsp *http.Response) (*DeleteWorkspaceIconR
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest WorkspaceUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -25492,6 +26415,13 @@ func ParseUploadWorkspaceIconResponse(rsp *http.Response) (*UploadWorkspaceIconR
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest WorkspaceUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
 		var dest externalRef0.ErrorResponse
@@ -25799,6 +26729,15 @@ type ServerInterface interface {
 	// Get latest sampled telemetry values for a peer
 	// (GET /peers/{publicKey}/telemetry/latest)
 	GetPeerTelemetryLatest(c *fiber.Ctx, publicKey string, params GetPeerTelemetryLatestParams) error
+	// List active pending-deletion tasks
+	// (GET /pending-deletions)
+	ListPendingDeletions(c *fiber.Ctx, params ListPendingDeletionsParams) error
+	// Get one active pending-deletion task
+	// (GET /pending-deletions/{deletionId})
+	GetPendingDeletion(c *fiber.Ctx, deletionId openapi_types.UUID, params GetPendingDeletionParams) error
+	// Retry one failed active pending-deletion task
+	// (POST /pending-deletions/{deletionId}/retry)
+	RetryPendingDeletion(c *fiber.Ctx, deletionId openapi_types.UUID, params RetryPendingDeletionParams) error
 	// List PetDefs
 	// (GET /pet-defs)
 	ListPetDefs(c *fiber.Ctx, params ListPetDefsParams) error
@@ -28074,6 +29013,152 @@ func (siw *ServerInterfaceWrapper) GetPeerTelemetryLatest(c *fiber.Ctx) error {
 	return siw.Handler.GetPeerTelemetryLatest(c, publicKey, params)
 }
 
+// ListPendingDeletions operation middleware
+func (siw *ServerInterfaceWrapper) ListPendingDeletions(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPendingDeletionsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", query, &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter source: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", query, &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter kind: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", query, &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter status: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "start_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "start_time_ms", query, &params.StartTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter start_time_ms: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "end_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "end_time_ms", query, &params.EndTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter end_time_ms: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	return siw.Handler.ListPendingDeletions(c, params)
+}
+
+// GetPendingDeletion operation middleware
+func (siw *ServerInterfaceWrapper) GetPendingDeletion(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "deletionId" -------------
+	var deletionId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "deletionId", c.Params("deletionId"), &deletionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter deletionId: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPendingDeletionParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "source" -------------
+
+	if paramValue := c.Query("source"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument source is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "source", query, &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter source: %w", err).Error())
+	}
+
+	return siw.Handler.GetPendingDeletion(c, deletionId, params)
+}
+
+// RetryPendingDeletion operation middleware
+func (siw *ServerInterfaceWrapper) RetryPendingDeletion(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "deletionId" -------------
+	var deletionId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "deletionId", c.Params("deletionId"), &deletionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter deletionId: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RetryPendingDeletionParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "source" -------------
+
+	if paramValue := c.Query("source"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument source is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "source", query, &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter source: %w", err).Error())
+	}
+
+	return siw.Handler.RetryPendingDeletion(c, deletionId, params)
+}
+
 // ListPetDefs operation middleware
 func (siw *ServerInterfaceWrapper) ListPetDefs(c *fiber.Ctx) error {
 
@@ -29631,6 +30716,12 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/peers/:publicKey/telemetry/latest", wrapper.GetPeerTelemetryLatest)
 
+	router.Get(options.BaseURL+"/pending-deletions", wrapper.ListPendingDeletions)
+
+	router.Get(options.BaseURL+"/pending-deletions/:deletionId", wrapper.GetPendingDeletion)
+
+	router.Post(options.BaseURL+"/pending-deletions/:deletionId/retry", wrapper.RetryPendingDeletion)
+
 	router.Get(options.BaseURL+"/pet-defs", wrapper.ListPetDefs)
 
 	router.Post(options.BaseURL+"/pet-defs", wrapper.CreatePetDef)
@@ -29768,6 +30859,12 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Put(options.BaseURL+"/workspaces/:id/icon/:format", wrapper.UploadWorkspaceIcon)
 
 }
+
+type PeerUnavailableJSONResponse externalRef0.ErrorResponse
+
+type SocialUnavailableJSONResponse externalRef0.ErrorResponse
+
+type WorkspaceUnavailableJSONResponse externalRef0.ErrorResponse
 
 type ApplyResourceRequestObject struct {
 	JSONBody *ApplyResourceJSONRequestBody
@@ -32422,7 +33519,7 @@ type DeletePeerResponseObject interface {
 	VisitDeletePeerResponse(ctx *fiber.Ctx) error
 }
 
-type DeletePeer200JSONResponse externalRef0.Registration
+type DeletePeer200JSONResponse PeerRegistrationResult
 
 func (response DeletePeer200JSONResponse) VisitDeletePeerResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -32457,7 +33554,7 @@ type GetPeerResponseObject interface {
 	VisitGetPeerResponse(ctx *fiber.Ctx) error
 }
 
-type GetPeer200JSONResponse externalRef0.Registration
+type GetPeer200JSONResponse PeerRegistrationResult
 
 func (response GetPeer200JSONResponse) VisitGetPeerResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -32502,6 +33599,15 @@ func (response ApprovePeer400JSONResponse) VisitApprovePeerResponse(ctx *fiber.C
 	return ctx.JSON(&response)
 }
 
+type ApprovePeer409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response ApprovePeer409JSONResponse) VisitApprovePeerResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type BlockPeerRequestObject struct {
 	PublicKey string `json:"publicKey"`
 }
@@ -32524,6 +33630,15 @@ type BlockPeer404JSONResponse externalRef0.ErrorResponse
 func (response BlockPeer404JSONResponse) VisitBlockPeerResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type BlockPeer409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response BlockPeer409JSONResponse) VisitBlockPeerResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -32599,6 +33714,15 @@ func (response ListPeerBadges404JSONResponse) VisitListPeerBadgesResponse(ctx *f
 	return ctx.JSON(&response)
 }
 
+type ListPeerBadges409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response ListPeerBadges409JSONResponse) VisitListPeerBadgesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type ListPeerBadges500JSONResponse externalRef0.ErrorResponse
 
 func (response ListPeerBadges500JSONResponse) VisitListPeerBadgesResponse(ctx *fiber.Ctx) error {
@@ -32631,6 +33755,15 @@ type GetPeerBadge404JSONResponse externalRef0.ErrorResponse
 func (response GetPeerBadge404JSONResponse) VisitGetPeerBadgeResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerBadge409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response GetPeerBadge409JSONResponse) VisitGetPeerBadgeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -32680,6 +33813,15 @@ func (response ListPeerFriends404JSONResponse) VisitListPeerFriendsResponse(ctx 
 	return ctx.JSON(&response)
 }
 
+type ListPeerFriends409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response ListPeerFriends409JSONResponse) VisitListPeerFriendsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type ListPeerFriends500JSONResponse externalRef0.ErrorResponse
 
 func (response ListPeerFriends500JSONResponse) VisitListPeerFriendsResponse(ctx *fiber.Ctx) error {
@@ -32721,6 +33863,15 @@ type CreatePeerFriend404JSONResponse externalRef0.ErrorResponse
 func (response CreatePeerFriend404JSONResponse) VisitCreatePeerFriendResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type CreatePeerFriend409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response CreatePeerFriend409JSONResponse) VisitCreatePeerFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -32770,6 +33921,15 @@ func (response DeletePeerFriend404JSONResponse) VisitDeletePeerFriendResponse(ct
 	return ctx.JSON(&response)
 }
 
+type DeletePeerFriend409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response DeletePeerFriend409JSONResponse) VisitDeletePeerFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type DeletePeerFriend500JSONResponse externalRef0.ErrorResponse
 
 func (response DeletePeerFriend500JSONResponse) VisitDeletePeerFriendResponse(ctx *fiber.Ctx) error {
@@ -32815,6 +33975,15 @@ func (response GetPeerFriend404JSONResponse) VisitGetPeerFriendResponse(ctx *fib
 	return ctx.JSON(&response)
 }
 
+type GetPeerFriend409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response GetPeerFriend409JSONResponse) VisitGetPeerFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type GetPeerFriend500JSONResponse externalRef0.ErrorResponse
 
 func (response GetPeerFriend500JSONResponse) VisitGetPeerFriendResponse(ctx *fiber.Ctx) error {
@@ -32847,6 +34016,15 @@ type ListPeerGameResults404JSONResponse externalRef0.ErrorResponse
 func (response ListPeerGameResults404JSONResponse) VisitListPeerGameResultsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerGameResults409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response ListPeerGameResults409JSONResponse) VisitListPeerGameResultsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -32887,6 +34065,15 @@ func (response GetPeerGameResult404JSONResponse) VisitGetPeerGameResultResponse(
 	return ctx.JSON(&response)
 }
 
+type GetPeerGameResult409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response GetPeerGameResult409JSONResponse) VisitGetPeerGameResultResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type GetPeerGameResult500JSONResponse externalRef0.ErrorResponse
 
 func (response GetPeerGameResult500JSONResponse) VisitGetPeerGameResultResponse(ctx *fiber.Ctx) error {
@@ -32918,6 +34105,15 @@ type GetPeerInfo404JSONResponse externalRef0.ErrorResponse
 func (response GetPeerInfo404JSONResponse) VisitGetPeerInfoResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerInfo409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response GetPeerInfo409JSONResponse) VisitGetPeerInfoResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -32958,6 +34154,15 @@ func (response PutPeerInfo404JSONResponse) VisitPutPeerInfoResponse(ctx *fiber.C
 	return ctx.JSON(&response)
 }
 
+type PutPeerInfo409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response PutPeerInfo409JSONResponse) VisitPutPeerInfoResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type PutPeerInfo500JSONResponse externalRef0.ErrorResponse
 
 func (response PutPeerInfo500JSONResponse) VisitPutPeerInfoResponse(ctx *fiber.Ctx) error {
@@ -32990,6 +34195,15 @@ type ListPeerPets404JSONResponse externalRef0.ErrorResponse
 func (response ListPeerPets404JSONResponse) VisitListPeerPetsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerPets409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response ListPeerPets409JSONResponse) VisitListPeerPetsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -33030,6 +34244,15 @@ func (response DeletePeerPet404JSONResponse) VisitDeletePeerPetResponse(ctx *fib
 	return ctx.JSON(&response)
 }
 
+type DeletePeerPet409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response DeletePeerPet409JSONResponse) VisitDeletePeerPetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type DeletePeerPet500JSONResponse externalRef0.ErrorResponse
 
 func (response DeletePeerPet500JSONResponse) VisitDeletePeerPetResponse(ctx *fiber.Ctx) error {
@@ -33066,6 +34289,15 @@ func (response GetPeerPet404JSONResponse) VisitGetPeerPetResponse(ctx *fiber.Ctx
 	return ctx.JSON(&response)
 }
 
+type GetPeerPet409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response GetPeerPet409JSONResponse) VisitGetPeerPetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type GetPeerPet500JSONResponse externalRef0.ErrorResponse
 
 func (response GetPeerPet500JSONResponse) VisitGetPeerPetResponse(ctx *fiber.Ctx) error {
@@ -33097,6 +34329,15 @@ type GetPeerPoints404JSONResponse externalRef0.ErrorResponse
 func (response GetPeerPoints404JSONResponse) VisitGetPeerPointsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerPoints409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response GetPeerPoints409JSONResponse) VisitGetPeerPointsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -33137,6 +34378,15 @@ func (response ListPeerPointsTransactions404JSONResponse) VisitListPeerPointsTra
 	return ctx.JSON(&response)
 }
 
+type ListPeerPointsTransactions409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response ListPeerPointsTransactions409JSONResponse) VisitListPeerPointsTransactionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type ListPeerPointsTransactions500JSONResponse externalRef0.ErrorResponse
 
 func (response ListPeerPointsTransactions500JSONResponse) VisitListPeerPointsTransactionsResponse(ctx *fiber.Ctx) error {
@@ -33169,6 +34419,15 @@ type GetPeerPointsTransaction404JSONResponse externalRef0.ErrorResponse
 func (response GetPeerPointsTransaction404JSONResponse) VisitGetPeerPointsTransactionResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerPointsTransaction409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response GetPeerPointsTransaction409JSONResponse) VisitGetPeerPointsTransactionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -33209,6 +34468,15 @@ func (response ListPeerRewardGrants404JSONResponse) VisitListPeerRewardGrantsRes
 	return ctx.JSON(&response)
 }
 
+type ListPeerRewardGrants409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response ListPeerRewardGrants409JSONResponse) VisitListPeerRewardGrantsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type ListPeerRewardGrants500JSONResponse externalRef0.ErrorResponse
 
 func (response ListPeerRewardGrants500JSONResponse) VisitListPeerRewardGrantsResponse(ctx *fiber.Ctx) error {
@@ -33245,6 +34513,15 @@ func (response GetPeerRewardGrant404JSONResponse) VisitGetPeerRewardGrantRespons
 	return ctx.JSON(&response)
 }
 
+type GetPeerRewardGrant409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response GetPeerRewardGrant409JSONResponse) VisitGetPeerRewardGrantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type GetPeerRewardGrant500JSONResponse externalRef0.ErrorResponse
 
 func (response GetPeerRewardGrant500JSONResponse) VisitGetPeerRewardGrantResponse(ctx *fiber.Ctx) error {
@@ -33267,6 +34544,15 @@ type GetPeerRuntime200JSONResponse externalRef0.Runtime
 func (response GetPeerRuntime200JSONResponse) VisitGetPeerRuntimeResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerRuntime409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response GetPeerRuntime409JSONResponse) VisitGetPeerRuntimeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -33294,6 +34580,15 @@ type QueryPeerTelemetry400JSONResponse externalRef0.ErrorResponse
 func (response QueryPeerTelemetry400JSONResponse) VisitQueryPeerTelemetryResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type QueryPeerTelemetry409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response QueryPeerTelemetry409JSONResponse) VisitQueryPeerTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -33334,6 +34629,15 @@ func (response AggregatePeerTelemetry400JSONResponse) VisitAggregatePeerTelemetr
 	return ctx.JSON(&response)
 }
 
+type AggregatePeerTelemetry409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response AggregatePeerTelemetry409JSONResponse) VisitAggregatePeerTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type AggregatePeerTelemetry500JSONResponse externalRef0.ErrorResponse
 
 func (response AggregatePeerTelemetry500JSONResponse) VisitAggregatePeerTelemetryResponse(ctx *fiber.Ctx) error {
@@ -33370,9 +34674,152 @@ func (response GetPeerTelemetryLatest400JSONResponse) VisitGetPeerTelemetryLates
 	return ctx.JSON(&response)
 }
 
+type GetPeerTelemetryLatest409JSONResponse struct{ PeerUnavailableJSONResponse }
+
+func (response GetPeerTelemetryLatest409JSONResponse) VisitGetPeerTelemetryLatestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type GetPeerTelemetryLatest500JSONResponse externalRef0.ErrorResponse
 
 func (response GetPeerTelemetryLatest500JSONResponse) VisitGetPeerTelemetryLatestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ListPendingDeletionsRequestObject struct {
+	Params ListPendingDeletionsParams
+}
+
+type ListPendingDeletionsResponseObject interface {
+	VisitListPendingDeletionsResponse(ctx *fiber.Ctx) error
+}
+
+type ListPendingDeletions200JSONResponse externalRef0.PendingDeletionList
+
+func (response ListPendingDeletions200JSONResponse) VisitListPendingDeletionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListPendingDeletions400JSONResponse externalRef0.ErrorResponse
+
+func (response ListPendingDeletions400JSONResponse) VisitListPendingDeletionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ListPendingDeletions500JSONResponse externalRef0.ErrorResponse
+
+func (response ListPendingDeletions500JSONResponse) VisitListPendingDeletionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetPendingDeletionRequestObject struct {
+	DeletionId openapi_types.UUID `json:"deletionId"`
+	Params     GetPendingDeletionParams
+}
+
+type GetPendingDeletionResponseObject interface {
+	VisitGetPendingDeletionResponse(ctx *fiber.Ctx) error
+}
+
+type GetPendingDeletion200JSONResponse externalRef0.PendingDeletionTask
+
+func (response GetPendingDeletion200JSONResponse) VisitGetPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetPendingDeletion400JSONResponse externalRef0.ErrorResponse
+
+func (response GetPendingDeletion400JSONResponse) VisitGetPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type GetPendingDeletion404JSONResponse externalRef0.ErrorResponse
+
+func (response GetPendingDeletion404JSONResponse) VisitGetPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetPendingDeletion500JSONResponse externalRef0.ErrorResponse
+
+func (response GetPendingDeletion500JSONResponse) VisitGetPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type RetryPendingDeletionRequestObject struct {
+	DeletionId openapi_types.UUID `json:"deletionId"`
+	Params     RetryPendingDeletionParams
+}
+
+type RetryPendingDeletionResponseObject interface {
+	VisitRetryPendingDeletionResponse(ctx *fiber.Ctx) error
+}
+
+type RetryPendingDeletion200JSONResponse externalRef0.PendingDeletionTask
+
+func (response RetryPendingDeletion200JSONResponse) VisitRetryPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type RetryPendingDeletion400JSONResponse externalRef0.ErrorResponse
+
+func (response RetryPendingDeletion400JSONResponse) VisitRetryPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type RetryPendingDeletion404JSONResponse externalRef0.ErrorResponse
+
+func (response RetryPendingDeletion404JSONResponse) VisitRetryPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type RetryPendingDeletion409JSONResponse externalRef0.ErrorResponse
+
+func (response RetryPendingDeletion409JSONResponse) VisitRetryPendingDeletionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type RetryPendingDeletion500JSONResponse externalRef0.ErrorResponse
+
+func (response RetryPendingDeletion500JSONResponse) VisitRetryPendingDeletionResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
@@ -34339,6 +35786,15 @@ func (response DeleteContact404JSONResponse) VisitDeleteContactResponse(ctx *fib
 	return ctx.JSON(&response)
 }
 
+type DeleteContact409JSONResponse struct{ SocialUnavailableJSONResponse }
+
+func (response DeleteContact409JSONResponse) VisitDeleteContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type DeleteContact500JSONResponse externalRef0.ErrorResponse
 
 func (response DeleteContact500JSONResponse) VisitDeleteContactResponse(ctx *fiber.Ctx) error {
@@ -34426,6 +35882,15 @@ type PutContact404JSONResponse externalRef0.ErrorResponse
 func (response PutContact404JSONResponse) VisitPutContactResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type PutContact409JSONResponse struct{ SocialUnavailableJSONResponse }
+
+func (response PutContact409JSONResponse) VisitPutContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -34571,6 +36036,15 @@ func (response DeleteFriendGroup404JSONResponse) VisitDeleteFriendGroupResponse(
 	return ctx.JSON(&response)
 }
 
+type DeleteFriendGroup409JSONResponse struct{ SocialUnavailableJSONResponse }
+
+func (response DeleteFriendGroup409JSONResponse) VisitDeleteFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type DeleteFriendGroup500JSONResponse externalRef0.ErrorResponse
 
 func (response DeleteFriendGroup500JSONResponse) VisitDeleteFriendGroupResponse(ctx *fiber.Ctx) error {
@@ -34660,6 +36134,15 @@ func (response PutFriendGroup404JSONResponse) VisitPutFriendGroupResponse(ctx *f
 	return ctx.JSON(&response)
 }
 
+type PutFriendGroup409JSONResponse struct{ SocialUnavailableJSONResponse }
+
+func (response PutFriendGroup409JSONResponse) VisitPutFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type PutFriendGroup500JSONResponse externalRef0.ErrorResponse
 
 func (response PutFriendGroup500JSONResponse) VisitPutFriendGroupResponse(ctx *fiber.Ctx) error {
@@ -34700,6 +36183,15 @@ type DeleteFriendGroupInviteToken404JSONResponse externalRef0.ErrorResponse
 func (response DeleteFriendGroupInviteToken404JSONResponse) VisitDeleteFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriendGroupInviteToken409JSONResponse struct{ SocialUnavailableJSONResponse }
+
+func (response DeleteFriendGroupInviteToken409JSONResponse) VisitDeleteFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -34789,6 +36281,15 @@ type PutFriendGroupInviteToken404JSONResponse externalRef0.ErrorResponse
 func (response PutFriendGroupInviteToken404JSONResponse) VisitPutFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroupInviteToken409JSONResponse struct{ SocialUnavailableJSONResponse }
+
+func (response PutFriendGroupInviteToken409JSONResponse) VisitPutFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -34937,6 +36438,15 @@ func (response DeleteFriendGroupMember404JSONResponse) VisitDeleteFriendGroupMem
 	return ctx.JSON(&response)
 }
 
+type DeleteFriendGroupMember409JSONResponse struct{ SocialUnavailableJSONResponse }
+
+func (response DeleteFriendGroupMember409JSONResponse) VisitDeleteFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type DeleteFriendGroupMember500JSONResponse externalRef0.ErrorResponse
 
 func (response DeleteFriendGroupMember500JSONResponse) VisitDeleteFriendGroupMemberResponse(ctx *fiber.Ctx) error {
@@ -34979,6 +36489,15 @@ type PutFriendGroupMember404JSONResponse externalRef0.ErrorResponse
 func (response PutFriendGroupMember404JSONResponse) VisitPutFriendGroupMemberResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroupMember409JSONResponse struct{ SocialUnavailableJSONResponse }
+
+func (response PutFriendGroupMember409JSONResponse) VisitPutFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -35112,6 +36631,15 @@ type DeleteFriend404JSONResponse externalRef0.ErrorResponse
 func (response DeleteFriend404JSONResponse) VisitDeleteFriendResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriend409JSONResponse struct{ SocialUnavailableJSONResponse }
+
+func (response DeleteFriend409JSONResponse) VisitDeleteFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -36180,6 +37708,17 @@ func (response DeleteWorkspaceIcon404JSONResponse) VisitDeleteWorkspaceIconRespo
 	return ctx.JSON(&response)
 }
 
+type DeleteWorkspaceIcon409JSONResponse struct {
+	WorkspaceUnavailableJSONResponse
+}
+
+func (response DeleteWorkspaceIcon409JSONResponse) VisitDeleteWorkspaceIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type DeleteWorkspaceIcon500JSONResponse externalRef0.ErrorResponse
 
 func (response DeleteWorkspaceIcon500JSONResponse) VisitDeleteWorkspaceIconResponse(ctx *fiber.Ctx) error {
@@ -36287,6 +37826,17 @@ type UploadWorkspaceIcon404JSONResponse externalRef0.ErrorResponse
 func (response UploadWorkspaceIcon404JSONResponse) VisitUploadWorkspaceIconResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type UploadWorkspaceIcon409JSONResponse struct {
+	WorkspaceUnavailableJSONResponse
+}
+
+func (response UploadWorkspaceIcon409JSONResponse) VisitUploadWorkspaceIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -36596,6 +38146,15 @@ type StrictServerInterface interface {
 	// Get latest sampled telemetry values for a peer
 	// (GET /peers/{publicKey}/telemetry/latest)
 	GetPeerTelemetryLatest(ctx context.Context, request GetPeerTelemetryLatestRequestObject) (GetPeerTelemetryLatestResponseObject, error)
+	// List active pending-deletion tasks
+	// (GET /pending-deletions)
+	ListPendingDeletions(ctx context.Context, request ListPendingDeletionsRequestObject) (ListPendingDeletionsResponseObject, error)
+	// Get one active pending-deletion task
+	// (GET /pending-deletions/{deletionId})
+	GetPendingDeletion(ctx context.Context, request GetPendingDeletionRequestObject) (GetPendingDeletionResponseObject, error)
+	// Retry one failed active pending-deletion task
+	// (POST /pending-deletions/{deletionId}/retry)
+	RetryPendingDeletion(ctx context.Context, request RetryPendingDeletionRequestObject) (RetryPendingDeletionResponseObject, error)
 	// List PetDefs
 	// (GET /pet-defs)
 	ListPetDefs(ctx context.Context, request ListPetDefsRequestObject) (ListPetDefsResponseObject, error)
@@ -39548,6 +41107,89 @@ func (sh *strictHandler) GetPeerTelemetryLatest(ctx *fiber.Ctx, publicKey string
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(GetPeerTelemetryLatestResponseObject); ok {
 		if err := validResponse.VisitGetPeerTelemetryLatestResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListPendingDeletions operation middleware
+func (sh *strictHandler) ListPendingDeletions(ctx *fiber.Ctx, params ListPendingDeletionsParams) error {
+	var request ListPendingDeletionsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPendingDeletions(ctx.UserContext(), request.(ListPendingDeletionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPendingDeletions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListPendingDeletionsResponseObject); ok {
+		if err := validResponse.VisitListPendingDeletionsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetPendingDeletion operation middleware
+func (sh *strictHandler) GetPendingDeletion(ctx *fiber.Ctx, deletionId openapi_types.UUID, params GetPendingDeletionParams) error {
+	var request GetPendingDeletionRequestObject
+
+	request.DeletionId = deletionId
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPendingDeletion(ctx.UserContext(), request.(GetPendingDeletionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPendingDeletion")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetPendingDeletionResponseObject); ok {
+		if err := validResponse.VisitGetPendingDeletionResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// RetryPendingDeletion operation middleware
+func (sh *strictHandler) RetryPendingDeletion(ctx *fiber.Ctx, deletionId openapi_types.UUID, params RetryPendingDeletionParams) error {
+	var request RetryPendingDeletionRequestObject
+
+	request.DeletionId = deletionId
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.RetryPendingDeletion(ctx.UserContext(), request.(RetryPendingDeletionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RetryPendingDeletion")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(RetryPendingDeletionResponseObject); ok {
+		if err := validResponse.VisitRetryPendingDeletionResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

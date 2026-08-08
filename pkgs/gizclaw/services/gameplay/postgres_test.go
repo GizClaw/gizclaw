@@ -2,6 +2,7 @@ package gameplay
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"os"
 	"slices"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
@@ -129,7 +131,8 @@ func TestPostgresGameplayContract(t *testing.T) {
 	}
 
 	runtime.NewID = sequentialIDs("pet-postgres-2", "adopt-txn-2")
-	if _, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{Name: "pet-second", DisplayName: "Pet"}); err != nil {
+	secondAdoption, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{Name: "pet-second", DisplayName: "Pet"})
+	if err != nil {
 		t.Fatalf("AdoptPet(second) error = %v", err)
 	}
 	limit := 1
@@ -162,6 +165,33 @@ func TestPostgresGameplayContract(t *testing.T) {
 	}
 	if pendingRows != 1 {
 		t.Fatalf("pending Pet deletions = %d, want 1", pendingRows)
+	}
+	source := PendingDeletionSource{DB: db}
+	refs, _, err := source.ScanDue(ctx, now.Add(time.Second), 10, "")
+	if err != nil || len(refs) != 1 {
+		t.Fatalf("PendingDeletionSource.ScanDue() = %#v, %v", refs, err)
+	}
+	claim, claimed, err := source.Claim(ctx, refs[0], now.Add(time.Second), time.Minute)
+	if err != nil || !claimed {
+		t.Fatalf("PendingDeletionSource.Claim() = %#v, %v, %v", claim, claimed, err)
+	}
+	if err := (PetDeletionHandler{DB: db, Now: func() time.Time { return now.Add(time.Second) }}).Handle(ctx, claim); err != nil {
+		t.Fatalf("PetDeletionHandler.Handle() error = %v", err)
+	}
+	if _, err := runtime.GetPet(ctx, "peer-postgres", adopted.Pet.Id); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("GetPet() after cleanup error = %v, want sql.ErrNoRows", err)
+	}
+	if _, err := source.GetTask(ctx, claim.Record.DeletionID); !errors.Is(err, pendingdeletion.ErrNotFound) {
+		t.Fatalf("GetTask() after cleanup error = %v, want ErrNotFound", err)
+	}
+	if points, err := runtime.GetPoints(ctx, "peer-postgres", profile.Id); err != nil || points.Balance != secondAdoption.Points.Balance {
+		t.Fatalf("GetPoints() after cleanup = %#v, %v", points, err)
+	}
+	if result, err := runtime.GetGameResult(ctx, "peer-postgres", drive.GameResult.Id); err != nil || result.Id != drive.GameResult.Id {
+		t.Fatalf("GetGameResult() after cleanup = %#v, %v", result, err)
+	}
+	if allowed, err := runtime.OwnerHasPetWorkspace(ctx, "peer-postgres", workspaceName); err != nil || !allowed {
+		t.Fatalf("OwnerHasPetWorkspace() after cleanup = %v, %v", allowed, err)
 	}
 
 	tx, err := db.BeginTxx(ctx, nil)

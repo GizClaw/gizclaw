@@ -151,7 +151,7 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PutWorkspace() while pending error = %v", err)
 	}
-	if _, ok := putAfterDelete.(adminhttp.PutWorkspace200JSONResponse); !ok {
+	if response, ok := putAfterDelete.(adminhttp.PutWorkspace409JSONResponse); !ok || response.Error.Code != WorkspacePendingDeletionCode {
 		t.Fatalf("PutWorkspace() while marked response = %#v", putAfterDelete)
 	}
 	invalidPutBody := updateBody
@@ -160,8 +160,8 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PutWorkspace() invalid while pending error = %v", err)
 	}
-	if _, ok := invalidPutAfterDelete.(adminhttp.PutWorkspace400JSONResponse); !ok {
-		t.Fatalf("PutWorkspace() invalid while pending response = %#v, want 400", invalidPutAfterDelete)
+	if response, ok := invalidPutAfterDelete.(adminhttp.PutWorkspace409JSONResponse); !ok || response.Error.Code != WorkspacePendingDeletionCode {
+		t.Fatalf("PutWorkspace() invalid while pending response = %#v, want pending conflict", invalidPutAfterDelete)
 	}
 }
 
@@ -488,8 +488,12 @@ func TestWorkspaceDeleteSerializesWithPut(t *testing.T) {
 		<-start
 		response, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: workspaceID, Body: &body})
 		if err == nil {
-			switch response.(type) {
+			switch response := response.(type) {
 			case adminhttp.PutWorkspace200JSONResponse:
+			case adminhttp.PutWorkspace409JSONResponse:
+				if response.Error.Code != WorkspacePendingDeletionCode {
+					err = fmt.Errorf("PutWorkspace conflict = %#v", response)
+				}
 			default:
 				err = fmt.Errorf("PutWorkspace response = %#v", response)
 			}
@@ -536,6 +540,32 @@ func TestCreateSystemWorkspaceRejectsRetiringWorkspace(t *testing.T) {
 	if _, _, err := srv.CreateSystemWorkspace(ctx, body); err == nil ||
 		!strings.Contains(err.Error(), "pending deletion") {
 		t.Fatalf("CreateSystemWorkspace(retiring) error = %v, want pending deletion conflict", err)
+	}
+}
+
+func TestCreateSystemWorkspaceRechecksOwnerInsideCreateLock(t *testing.T) {
+	srv := newTestServer(t)
+	seedWorkflow(t, srv, "workflow-create-fence")
+	calls := 0
+	srv.PeerAvailability = func(context.Context, string) error {
+		calls++
+		if calls == 2 {
+			return ErrPeerPendingDeletion
+		}
+		return nil
+	}
+	ctx := ownership.WithOwner(t.Context(), "peer-a")
+	body := adminhttp.WorkspaceUpsert{
+		Id: "workspace-create-fence", Name: "workspace-create-fence", WorkflowId: "workflow-create-fence",
+	}
+	if _, _, err := srv.CreateSystemWorkspace(ctx, body); !errors.Is(err, ErrPeerPendingDeletion) {
+		t.Fatalf("CreateSystemWorkspace() error = %v, want pending deletion", err)
+	}
+	if calls != 2 {
+		t.Fatalf("PeerAvailability calls = %d, want pre-lock and in-lock checks", calls)
+	}
+	if _, err := getWorkspaceByID(t.Context(), srv.Store, body.Id); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("rejected Workspace error = %v, want not found", err)
 	}
 }
 

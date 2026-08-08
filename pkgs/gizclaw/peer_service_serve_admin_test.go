@@ -21,6 +21,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
+	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
@@ -46,6 +47,48 @@ func TestAdminServiceApplyResourceRequiresBody(t *testing.T) {
 	}
 	if got.Error.Code != "INVALID_RESOURCE" {
 		t.Fatalf("ApplyResource() code = %q", got.Error.Code)
+	}
+}
+
+func TestAdminPeerFenceAllowsReadsAndRepeatedDeleteOnly(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	peers := &runtimepeer.Server{Store: mustBadgerInMemory(t, nil)}
+	if _, err := peers.SavePeer(t.Context(), apitypes.Peer{
+		PublicKey: keyPair.Public.String(), Role: apitypes.PeerRoleClient,
+		Status: apitypes.PeerRegistrationStatusActive, Device: apitypes.DeviceInfo{},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := peers.DeletePeer(t.Context(), adminhttp.DeletePeerRequestObject{PublicKey: keyPair.Public.String()}); err != nil {
+		t.Fatal(err)
+	}
+	service := &adminService{Peers: peers}
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app.Use(service.fenceDeletedPeerBusiness)
+	app.All("/*", func(ctx *fiber.Ctx) error { return ctx.SendStatus(http.StatusNoContent) })
+
+	for _, tc := range []struct {
+		method string
+		path   string
+		want   int
+	}{
+		{method: http.MethodGet, path: "/peers/" + keyPair.Public.String(), want: http.StatusNoContent},
+		{method: http.MethodGet, path: "/peers/" + keyPair.Public.String() + "/pets", want: http.StatusConflict},
+		{method: http.MethodPost, path: "/peers/" + keyPair.Public.String() + "/friends", want: http.StatusConflict},
+		{method: http.MethodDelete, path: "/peers/" + keyPair.Public.String(), want: http.StatusNoContent},
+	} {
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != tc.want {
+			t.Fatalf("%s %s status = %d, want %d", tc.method, tc.path, resp.StatusCode, tc.want)
+		}
 	}
 }
 

@@ -981,7 +981,7 @@ func (s *Service) consume(ctx context.Context, rt *runtime) {
 	if err == nil && ctx.Err() == nil {
 		err = errUnexpectedOutputEnd
 	}
-	if err != nil && ctx.Err() == nil {
+	if err != nil && ctx.Err() == nil && !errors.Is(err, errWorkspaceQuiesced) {
 		if !s.failRuntime(rt, err) {
 			return
 		}

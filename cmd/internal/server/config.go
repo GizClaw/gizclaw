@@ -10,27 +10,29 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/goccy/go-yaml"
 )
 
 type Config struct {
-	WorkspaceRoot  string `yaml:"-"`
-	KeyPair        *giznet.KeyPair
-	Listen         string
-	Endpoint       string
-	ServeToClients bool
-	EdgeNodes      []giznet.PublicKey
-	ICEServers     []gizwebrtc.ICEServer
-	AdminPublicKey giznet.PublicKey
-	Storage        map[string]storage.Config
-	Stores         map[string]stores.Config
-	AgentHost      *AgentHostConfig
-	SystemLog      logging.Config
-	Friends        FriendsConfig
-	FriendGroups   FriendGroupsConfig
-	Speech         SpeechConfig
+	WorkspaceRoot   string `yaml:"-"`
+	KeyPair         *giznet.KeyPair
+	Listen          string
+	Endpoint        string
+	ServeToClients  bool
+	EdgeNodes       []giznet.PublicKey
+	ICEServers      []gizwebrtc.ICEServer
+	AdminPublicKey  giznet.PublicKey
+	Storage         map[string]storage.Config
+	Stores          map[string]stores.Config
+	AgentHost       *AgentHostConfig
+	SystemLog       logging.Config
+	Friends         FriendsConfig
+	FriendGroups    FriendGroupsConfig
+	Speech          SpeechConfig
+	PendingDeletion PendingDeletionConfig
 }
 
 // AgentHostConfig binds AgentHost persistence capabilities to logical Stores.
@@ -78,6 +80,30 @@ type SpeechExtractionConfig struct {
 	RequestTimeout      string `yaml:"request_timeout"`
 }
 
+type PendingDeletionConfig struct {
+	ScanInterval     string `yaml:"scan_interval"`
+	PageSize         int    `yaml:"page_size"`
+	DispatchCapacity int    `yaml:"dispatch_capacity"`
+	Workers          int    `yaml:"workers"`
+	LeaseDuration    string `yaml:"lease_duration"`
+	AttemptTimeout   string `yaml:"attempt_timeout"`
+	RetryInitial     string `yaml:"retry_initial"`
+	RetryMax         string `yaml:"retry_max"`
+	MaxAttempts      int    `yaml:"max_attempts"`
+}
+
+type pendingDeletionFileConfig struct {
+	ScanInterval     *string `yaml:"scan_interval"`
+	PageSize         *int    `yaml:"page_size"`
+	DispatchCapacity *int    `yaml:"dispatch_capacity"`
+	Workers          *int    `yaml:"workers"`
+	LeaseDuration    *string `yaml:"lease_duration"`
+	AttemptTimeout   *string `yaml:"attempt_timeout"`
+	RetryInitial     *string `yaml:"retry_initial"`
+	RetryMax         *string `yaml:"retry_max"`
+	MaxAttempts      *int    `yaml:"max_attempts"`
+}
+
 type speechFileConfig struct {
 	Transcription struct {
 		MaxAudioBytes    *int64  `yaml:"max_audio_bytes"`
@@ -104,20 +130,21 @@ type IdentityConfig struct {
 }
 
 type ConfigFile struct {
-	Identity       IdentityConfig            `yaml:"identity"`
-	Listen         string                    `yaml:"listen"`
-	Endpoint       string                    `yaml:"endpoint"`
-	ServeToClients bool                      `yaml:"serve-to-clients"`
-	EdgeNodes      []giznet.PublicKey        `yaml:"edge-nodes"`
-	ICEServers     []gizwebrtc.ICEServer     `yaml:"ice-servers"`
-	AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key"`
-	Storage        map[string]storage.Config `yaml:"storage"`
-	Stores         map[string]stores.Config  `yaml:"stores"`
-	AgentHost      *AgentHostConfig          `yaml:"agent_host"`
-	SystemLog      logging.Config            `yaml:"system_log"`
-	Friends        FriendsConfig             `yaml:"friends"`
-	FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
-	Speech         SpeechConfig              `yaml:"speech"`
+	Identity        IdentityConfig            `yaml:"identity"`
+	Listen          string                    `yaml:"listen"`
+	Endpoint        string                    `yaml:"endpoint"`
+	ServeToClients  bool                      `yaml:"serve-to-clients"`
+	EdgeNodes       []giznet.PublicKey        `yaml:"edge-nodes"`
+	ICEServers      []gizwebrtc.ICEServer     `yaml:"ice-servers"`
+	AdminPublicKey  giznet.PublicKey          `yaml:"admin-public-key"`
+	Storage         map[string]storage.Config `yaml:"storage"`
+	Stores          map[string]stores.Config  `yaml:"stores"`
+	AgentHost       *AgentHostConfig          `yaml:"agent_host"`
+	SystemLog       logging.Config            `yaml:"system_log"`
+	Friends         FriendsConfig             `yaml:"friends"`
+	FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
+	Speech          SpeechConfig              `yaml:"speech"`
+	PendingDeletion PendingDeletionConfig     `yaml:"pending_deletion"`
 }
 
 const (
@@ -178,20 +205,21 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		return ConfigFile{}, fmt.Errorf("server: system_tasks is not supported; configure Pet model aliases in the RuntimeProfile")
 	}
 	var raw struct {
-		Identity       *IdentityConfig           `yaml:"identity"`
-		Listen         string                    `yaml:"listen"`
-		Endpoint       string                    `yaml:"endpoint"`
-		ServeToClients *bool                     `yaml:"serve-to-clients"`
-		EdgeNodes      []giznet.PublicKey        `yaml:"edge-nodes"`
-		ICEServers     []gizwebrtc.ICEServer     `yaml:"ice-servers"`
-		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`
-		Storage        map[string]storage.Config `yaml:"storage"`
-		Stores         map[string]stores.Config  `yaml:"stores"`
-		AgentHost      *AgentHostConfig          `yaml:"agent_host"`
-		SystemLog      logging.Config            `yaml:"system_log"`
-		Friends        FriendsConfig             `yaml:"friends"`
-		FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
-		Speech         speechFileConfig          `yaml:"speech"`
+		Identity        *IdentityConfig           `yaml:"identity"`
+		Listen          string                    `yaml:"listen"`
+		Endpoint        string                    `yaml:"endpoint"`
+		ServeToClients  *bool                     `yaml:"serve-to-clients"`
+		EdgeNodes       []giznet.PublicKey        `yaml:"edge-nodes"`
+		ICEServers      []gizwebrtc.ICEServer     `yaml:"ice-servers"`
+		AdminPublicKey  *giznet.PublicKey         `yaml:"admin-public-key"`
+		Storage         map[string]storage.Config `yaml:"storage"`
+		Stores          map[string]stores.Config  `yaml:"stores"`
+		AgentHost       *AgentHostConfig          `yaml:"agent_host"`
+		SystemLog       logging.Config            `yaml:"system_log"`
+		Friends         FriendsConfig             `yaml:"friends"`
+		FriendGroups    FriendGroupsConfig        `yaml:"friend_groups"`
+		Speech          speechFileConfig          `yaml:"speech"`
+		PendingDeletion pendingDeletionFileConfig `yaml:"pending_deletion"`
 	}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return ConfigFile{}, err
@@ -221,23 +249,75 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	if err != nil {
 		return ConfigFile{}, err
 	}
+	pendingDeletion, err := raw.PendingDeletion.runtimeConfig()
+	if err != nil {
+		return ConfigFile{}, err
+	}
 	cfg := ConfigFile{
-		Identity:       identity,
-		Listen:         raw.Listen,
-		Endpoint:       raw.Endpoint,
-		ServeToClients: serveToClients,
-		EdgeNodes:      raw.EdgeNodes,
-		ICEServers:     raw.ICEServers,
-		AdminPublicKey: adminPublicKey,
-		Storage:        raw.Storage,
-		Stores:         raw.Stores,
-		AgentHost:      raw.AgentHost,
-		SystemLog:      logCfg,
-		Friends:        raw.Friends,
-		FriendGroups:   raw.FriendGroups,
-		Speech:         speech,
+		Identity:        identity,
+		Listen:          raw.Listen,
+		Endpoint:        raw.Endpoint,
+		ServeToClients:  serveToClients,
+		EdgeNodes:       raw.EdgeNodes,
+		ICEServers:      raw.ICEServers,
+		AdminPublicKey:  adminPublicKey,
+		Storage:         raw.Storage,
+		Stores:          raw.Stores,
+		AgentHost:       raw.AgentHost,
+		SystemLog:       logCfg,
+		Friends:         raw.Friends,
+		FriendGroups:    raw.FriendGroups,
+		Speech:          speech,
+		PendingDeletion: pendingDeletion,
 	}
 	return cfg, nil
+}
+
+func (cfg pendingDeletionFileConfig) runtimeConfig() (PendingDeletionConfig, error) {
+	var out PendingDeletionConfig
+	if cfg.ScanInterval != nil {
+		out.ScanInterval = *cfg.ScanInterval
+	}
+	if cfg.PageSize != nil {
+		if *cfg.PageSize <= 0 || *cfg.PageSize > 1000 {
+			return PendingDeletionConfig{}, fmt.Errorf("server: pending_deletion.page_size must be between 1 and 1000")
+		}
+		out.PageSize = *cfg.PageSize
+	}
+	if cfg.DispatchCapacity != nil {
+		if *cfg.DispatchCapacity <= 0 || *cfg.DispatchCapacity > 10000 {
+			return PendingDeletionConfig{}, fmt.Errorf("server: pending_deletion.dispatch_capacity must be between 1 and 10000")
+		}
+		out.DispatchCapacity = *cfg.DispatchCapacity
+	}
+	if cfg.Workers != nil {
+		if *cfg.Workers <= 0 || *cfg.Workers > 256 {
+			return PendingDeletionConfig{}, fmt.Errorf("server: pending_deletion.workers must be between 1 and 256")
+		}
+		out.Workers = *cfg.Workers
+	}
+	if cfg.LeaseDuration != nil {
+		out.LeaseDuration = *cfg.LeaseDuration
+	}
+	if cfg.AttemptTimeout != nil {
+		out.AttemptTimeout = *cfg.AttemptTimeout
+	}
+	if cfg.RetryInitial != nil {
+		out.RetryInitial = *cfg.RetryInitial
+	}
+	if cfg.RetryMax != nil {
+		out.RetryMax = *cfg.RetryMax
+	}
+	if cfg.MaxAttempts != nil {
+		if *cfg.MaxAttempts <= 0 || *cfg.MaxAttempts > 1000 {
+			return PendingDeletionConfig{}, fmt.Errorf("server: pending_deletion.max_attempts must be between 1 and 1000")
+		}
+		out.MaxAttempts = *cfg.MaxAttempts
+	}
+	if _, err := out.processorConfigAllowZero(); err != nil {
+		return PendingDeletionConfig{}, fmt.Errorf("server: pending_deletion: %w", err)
+	}
+	return out, nil
 }
 
 func (cfg speechFileConfig) runtimeConfig() (SpeechConfig, error) {
@@ -344,6 +424,11 @@ func DefaultConfig() Config {
 			},
 			Synthesis: SpeechSynthesisConfig{MaxTextBytes: 4096, MaxOutputBytes: 4194304, RequestTimeout: "120s"},
 		},
+		PendingDeletion: PendingDeletionConfig{
+			ScanInterval: "30s", PageSize: 100, DispatchCapacity: 256, Workers: 4,
+			LeaseDuration: "2m", AttemptTimeout: "90s", RetryInitial: "5s",
+			RetryMax: "30m", MaxAttempts: 10,
+		},
 	}
 }
 
@@ -384,6 +469,7 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	cfg.Friends = mergeFriendsConfig(cfg.Friends, fileCfg.Friends)
 	cfg.FriendGroups = mergeFriendGroupsConfig(cfg.FriendGroups, fileCfg.FriendGroups)
 	cfg.Speech = mergeSpeechConfig(cfg.Speech, fileCfg.Speech)
+	cfg.PendingDeletion = mergePendingDeletionConfig(cfg.PendingDeletion, fileCfg.PendingDeletion)
 	return cfg, nil
 }
 
@@ -437,6 +523,37 @@ func mergeSpeechConfig(runtime SpeechConfig, file SpeechConfig) SpeechConfig {
 	return runtime
 }
 
+func mergePendingDeletionConfig(runtime, fallback PendingDeletionConfig) PendingDeletionConfig {
+	if runtime.ScanInterval == "" {
+		runtime.ScanInterval = fallback.ScanInterval
+	}
+	if runtime.PageSize == 0 {
+		runtime.PageSize = fallback.PageSize
+	}
+	if runtime.DispatchCapacity == 0 {
+		runtime.DispatchCapacity = fallback.DispatchCapacity
+	}
+	if runtime.Workers == 0 {
+		runtime.Workers = fallback.Workers
+	}
+	if runtime.LeaseDuration == "" {
+		runtime.LeaseDuration = fallback.LeaseDuration
+	}
+	if runtime.AttemptTimeout == "" {
+		runtime.AttemptTimeout = fallback.AttemptTimeout
+	}
+	if runtime.RetryInitial == "" {
+		runtime.RetryInitial = fallback.RetryInitial
+	}
+	if runtime.RetryMax == "" {
+		runtime.RetryMax = fallback.RetryMax
+	}
+	if runtime.MaxAttempts == 0 {
+		runtime.MaxAttempts = fallback.MaxAttempts
+	}
+	return runtime
+}
+
 func prepareConfig(cfg Config) (Config, error) {
 	defaults := DefaultConfig()
 	if cfg.Listen == "" {
@@ -446,6 +563,7 @@ func prepareConfig(cfg Config) (Config, error) {
 		cfg.Endpoint = cfg.Listen
 	}
 	cfg.Speech = mergeSpeechConfig(cfg.Speech, defaults.Speech)
+	cfg.PendingDeletion = mergePendingDeletionConfig(cfg.PendingDeletion, defaults.PendingDeletion)
 	logCfg, err := logging.PrepareConfig(cfg.SystemLog)
 	if err != nil {
 		return Config{}, fmt.Errorf("server: %w", err)
@@ -522,7 +640,81 @@ func (cfg Config) validate() error {
 	if err := validateAgentHostConfig(cfg.AgentHost); err != nil {
 		return err
 	}
+	processorConfig, err := cfg.PendingDeletion.processorConfig()
+	if err != nil {
+		return fmt.Errorf("server: pending_deletion: %w", err)
+	}
+	if err := processorConfig.Validate(); err != nil {
+		return fmt.Errorf("server: %w", err)
+	}
 	return nil
+}
+
+func (cfg PendingDeletionConfig) processorConfig() (pendingdeletion.Config, error) {
+	scanInterval, err := parsePositiveConfigDuration(cfg.ScanInterval)
+	if err != nil {
+		return pendingdeletion.Config{}, fmt.Errorf("scan_interval: %w", err)
+	}
+	leaseDuration, err := parsePositiveConfigDuration(cfg.LeaseDuration)
+	if err != nil {
+		return pendingdeletion.Config{}, fmt.Errorf("lease_duration: %w", err)
+	}
+	attemptTimeout, err := parsePositiveConfigDuration(cfg.AttemptTimeout)
+	if err != nil {
+		return pendingdeletion.Config{}, fmt.Errorf("attempt_timeout: %w", err)
+	}
+	retryInitial, err := parsePositiveConfigDuration(cfg.RetryInitial)
+	if err != nil {
+		return pendingdeletion.Config{}, fmt.Errorf("retry_initial: %w", err)
+	}
+	retryMax, err := parsePositiveConfigDuration(cfg.RetryMax)
+	if err != nil {
+		return pendingdeletion.Config{}, fmt.Errorf("retry_max: %w", err)
+	}
+	return pendingdeletion.Config{
+		ScanInterval: scanInterval, PageSize: cfg.PageSize, DispatchCapacity: cfg.DispatchCapacity,
+		Workers: cfg.Workers, LeaseDuration: leaseDuration, AttemptTimeout: attemptTimeout,
+		RetryInitial: retryInitial, RetryMax: retryMax, MaxAttempts: cfg.MaxAttempts,
+	}, nil
+}
+
+func (cfg PendingDeletionConfig) processorConfigAllowZero() (pendingdeletion.Config, error) {
+	parse := func(name, value string) (time.Duration, error) {
+		if value == "" {
+			return 0, nil
+		}
+		duration, err := parsePositiveConfigDuration(value)
+		if err != nil {
+			return 0, fmt.Errorf("%s: %w", name, err)
+		}
+		return duration, nil
+	}
+	scan, err := parse("scan_interval", cfg.ScanInterval)
+	if err != nil {
+		return pendingdeletion.Config{}, err
+	}
+	lease, err := parse("lease_duration", cfg.LeaseDuration)
+	if err != nil {
+		return pendingdeletion.Config{}, err
+	}
+	attempt, err := parse("attempt_timeout", cfg.AttemptTimeout)
+	if err != nil {
+		return pendingdeletion.Config{}, err
+	}
+	initial, err := parse("retry_initial", cfg.RetryInitial)
+	if err != nil {
+		return pendingdeletion.Config{}, err
+	}
+	maximum, err := parse("retry_max", cfg.RetryMax)
+	if err != nil {
+		return pendingdeletion.Config{}, err
+	}
+	for name, value := range map[string]int{"page_size": cfg.PageSize, "dispatch_capacity": cfg.DispatchCapacity, "workers": cfg.Workers, "max_attempts": cfg.MaxAttempts} {
+		if value < 0 {
+			return pendingdeletion.Config{}, fmt.Errorf("%s must be positive", name)
+		}
+	}
+	return pendingdeletion.Config{ScanInterval: scan, PageSize: cfg.PageSize, DispatchCapacity: cfg.DispatchCapacity, Workers: cfg.Workers, LeaseDuration: lease, AttemptTimeout: attempt, RetryInitial: initial, RetryMax: maximum, MaxAttempts: cfg.MaxAttempts}, nil
 }
 
 func validateAgentHostConfig(cfg *AgentHostConfig) error {
@@ -572,6 +764,19 @@ func validateConfigShape(data []byte) error {
 	if agentHostValue, exists := document["agent_host"]; exists {
 		if err := validateAgentHostConfigShape(agentHostValue); err != nil {
 			return err
+		}
+	}
+	if value, exists := document["pending_deletion"]; exists {
+		mapping, ok := value.(map[string]any)
+		if !ok {
+			return fmt.Errorf("server: pending_deletion must be a mapping")
+		}
+		for field := range mapping {
+			switch field {
+			case "scan_interval", "page_size", "dispatch_capacity", "workers", "lease_duration", "attempt_timeout", "retry_initial", "retry_max", "max_attempts":
+			default:
+				return fmt.Errorf("server: pending_deletion has unknown field %q", field)
+			}
 		}
 	}
 	if systemLogValue, exists := document["system_log"]; exists {

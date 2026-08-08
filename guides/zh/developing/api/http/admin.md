@@ -18,7 +18,7 @@ Go 生成输出：`pkgs/gizclaw/api/adminhttp`
 | Gameplay | Game Rule、Pet、Badge、Points、Result 与 Reward |
 | Social | Contact、Friend 与 Friend Group 管理 |
 | Firmware | Firmware resource、external channel package 配置、release 与 rollback |
-| Observability | Server log stream 与 Peer telemetry query |
+| Observability | Server log stream、Peer telemetry query 与 active pending-deletion 运维 |
 
 Admin OpenAPI 只拥有 HTTP path、request/response 和 wire error。Resource validation、authorization、storage 和领域 lifecycle 由对应 services 与 resource manager 实现。
 
@@ -36,7 +36,9 @@ Admin OpenAPI 只拥有 HTTP path、request/response 和 wire error。Resource v
 
 ## Pending-deletion 操作
 
-`DELETE /peers/{publicKey}`、`DELETE /workspaces/{name}` 和 `DELETE /peers/{publicKey}/pets/{id}` 会原子创建或复用一条领域 pending-deletion handoff，同时返回仍被保留的 active projection；不对外暴露 handoff record，且该标记不改变 authorization、读取、list 或 mutation。Admin 删除 Peer 不会强制关闭在线 connection。Workspace delete 只接受用户 Workspace；system Workspace 返回 `SYSTEM_WORKSPACE_DELETE_FORBIDDEN`。Pet delete 保留绑定的 system Workspace。物理清理以及 pending inspection/retry API 属于 cleanup service，不属于这些 delete operations。
+`DELETE /peers/{publicKey}`、`DELETE /workspaces/{name}` 和 `DELETE /peers/{publicKey}/pets/{id}` 会原子创建或复用一条领域 pending-deletion handoff，并返回删除时的投影；handoff record 只通过下述运维接口暴露。Workspace marker 会立即拒绝该 Workspace 的选择、运行、history/icon 与 mutation，但 Admin Workspace get/list 仍可用于诊断。Peer marker 会立即关闭在线 connection，并拒绝该身份的 reconnect、login、session、RPC、WebRTC、业务读取与 mutation；仅保留 Admin Peer get/list 和同一 delete。完成后 Peer 只保留永久 tombstone，同一 public key 不能重新注册。Workspace delete 只接受用户 Workspace；system Workspace 返回 `SYSTEM_WORKSPACE_DELETE_FORBIDDEN`。普通 Pet delete 保留其绑定和 system Workspace。
+
+Operator 通过 `GET /pending-deletions` 和 `GET /pending-deletions/{deletionId}?source=...` 查看 active cleanup work。`POST /pending-deletions/{deletionId}/retry?source=...` 只会重新排队 `failed` task；其他 active 状态返回 `409`。List cursor 是 opaque value，绑定除 `limit` 外的全部 filter。Response 只暴露领域批准的 locator 与有界 failure metadata，不暴露 owner identity、descriptor、payload、credential、lease token、marker fingerprint、原始 backend error 或 stack trace。Finalization 成功后立即删除 task，因此 get/retry 随后返回 `404`；系统不保留 completion receipt 或 history。
 
 ## Resource 依赖
 

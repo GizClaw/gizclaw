@@ -240,6 +240,10 @@ export type LoginErrors = {
      * Invalid assertion
      */
     401: ErrorResponse;
+    /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
 };
 
 export type LoginError = LoginErrors[keyof LoginErrors];
@@ -269,6 +273,10 @@ export type CreateSideControlDeviceTokenErrors = {
      * Session is not authorized for this route
      */
     403: ErrorResponse;
+    /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -309,6 +317,10 @@ export type RevokeSideControlDeviceTokenErrors = {
      */
     404: ErrorResponse;
     /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -341,6 +353,10 @@ export type ListSideControlSessionsErrors = {
      * Session is not authorized for this route
      */
     403: ErrorResponse;
+    /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -381,6 +397,10 @@ export type RevokeSideControlSessionErrors = {
      */
     404: ErrorResponse;
     /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -417,6 +437,10 @@ export type GetSideControlInfoErrors = {
      * Requested object was not found
      */
     404: ErrorResponse;
+    /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -455,6 +479,10 @@ export type GetSideControlRuntimeErrors = {
      */
     404: ErrorResponse;
     /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -491,6 +519,10 @@ export type GetSideControlStatusErrors = {
      * Requested object was not found
      */
     404: ErrorResponse;
+    /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -533,6 +565,10 @@ export type GetSideControlTelemetryLatestErrors = {
      * Session is not authorized for this route
      */
     403: ErrorResponse;
+    /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -578,6 +614,10 @@ export type QuerySideControlTelemetryErrors = {
      */
     403: ErrorResponse;
     /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -621,6 +661,10 @@ export type AggregateSideControlTelemetryErrors = {
      */
     403: ErrorResponse;
     /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -661,6 +705,10 @@ export type ListSideControlContactsErrors = {
      */
     403: ErrorResponse;
     /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -697,6 +745,10 @@ export type CreateSideControlContactErrors = {
      * Session is not authorized for this route
      */
     403: ErrorResponse;
+    /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -737,6 +789,10 @@ export type DeleteSideControlContactErrors = {
      */
     404: ErrorResponse;
     /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -775,6 +831,10 @@ export type GetSideControlContactErrors = {
      * Requested object was not found
      */
     404: ErrorResponse;
+    /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -818,6 +878,10 @@ export type PutSideControlContactErrors = {
      * Requested object was not found
      */
     404: ErrorResponse;
+    /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -895,7 +959,7 @@ export type CreateGiznetWebRtcOfferErrors = {
      */
     403: GiznetWebRtcSignalingError;
     /**
-     * Signaling nonce was replayed.
+     * Signaling nonce was replayed, or the Peer is pending deletion or permanently deleted.
      */
     409: GiznetWebRtcSignalingError;
     /**
@@ -944,6 +1008,10 @@ export type GetMeErrors = {
      */
     404: ErrorResponse;
     /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -976,6 +1044,10 @@ export type GetMeStatusErrors = {
      * Peer not found
      */
     404: ErrorResponse;
+    /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */
@@ -1014,6 +1086,10 @@ export type PutMeStatusErrors = {
      */
     404: ErrorResponse;
     /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -1046,6 +1122,10 @@ export type GetMeRuntimeErrors = {
      * Peer not found
      */
     404: ErrorResponse;
+    /**
+     * Peer identity is pending deletion or permanently deleted
+     */
+    409: ErrorResponse;
     /**
      * Internal error
      */

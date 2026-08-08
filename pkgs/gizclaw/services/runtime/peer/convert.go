@@ -20,15 +20,33 @@ func convertViaJSON[T any](in any) (T, error) {
 }
 
 func toAdminRegistrationList(items []apitypes.Peer, hasNext bool, nextCursor *string) adminhttp.RegistrationList {
-	out := make([]apitypes.Registration, 0, len(items))
+	out := make([]adminhttp.PeerRegistrationResult, 0, len(items))
 	for _, item := range items {
-		out = append(out, toAdminRegistration(item))
+		out = append(out, toAdminRegistrationResult(item))
 	}
 	return adminhttp.RegistrationList{
 		HasNext:    hasNext,
 		Items:      out,
 		NextCursor: nextCursor,
 	}
+}
+
+func toAdminRegistrationResult(peer apitypes.Peer) adminhttp.PeerRegistrationResult {
+	var result adminhttp.PeerRegistrationResult
+	if err := result.FromExternalRef0Registration(toAdminRegistration(peer)); err != nil {
+		panic(err)
+	}
+	return result
+}
+
+func toAdminTombstoneResult(publicKey string) adminhttp.PeerRegistrationResult {
+	var result adminhttp.PeerRegistrationResult
+	if err := result.FromExternalRef0RegistrationTombstone(apitypes.RegistrationTombstone{
+		PublicKey: publicKey, Status: apitypes.RegistrationTombstoneStatusDeleted,
+	}); err != nil {
+		panic(err)
+	}
+	return result
 }
 
 func toAdminRegistration(peer apitypes.Peer) apitypes.Registration {

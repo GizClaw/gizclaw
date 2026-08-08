@@ -164,6 +164,14 @@ func (m *SessionManager) CreateSideControlDeviceToken(ctx context.Context, targe
 	if m == nil || m.Store == nil || target.IsZero() {
 		return peerhttp.SideControlDeviceToken{}, errInvalidSession
 	}
+	if err := m.authorize(ctx, target); err != nil {
+		return peerhttp.SideControlDeviceToken{}, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if err := m.authorize(ctx, target); err != nil {
+		return peerhttp.SideControlDeviceToken{}, err
+	}
 	id, err := randomToken(rand.Reader, sideControlIDSize)
 	if err != nil {
 		return peerhttp.SideControlDeviceToken{}, err
@@ -255,6 +263,12 @@ func (m *SessionManager) loginSideControl(ctx context.Context, serverKeyPair *gi
 	if err := target.UnmarshalText([]byte(record.TargetPublicKey)); err != nil || target.IsZero() {
 		return peerhttp.LoginResult{}, errDeviceTokenNotFound
 	}
+	if err := m.authorize(ctx, controller); err != nil {
+		return peerhttp.LoginResult{}, err
+	}
+	if err := m.authorize(ctx, target); err != nil {
+		return peerhttp.LoginResult{}, err
+	}
 	accessToken, err := randomToken(rand.Reader, 32)
 	if err != nil {
 		return peerhttp.LoginResult{}, err
@@ -285,11 +299,21 @@ func (m *SessionManager) loginSideControl(ctx context.Context, serverKeyPair *gi
 	if err != nil {
 		return peerhttp.LoginResult{}, err
 	}
+	// m.mu has been held since the assertion and device-token lookup above.
+	// CleanupPeer takes the same lock, so the final availability checks and
+	// credential commit are serialized with peer credential cleanup.
+	if err := m.authorize(ctx, controller); err != nil {
+		return peerhttp.LoginResult{}, err
+	}
+	if err := m.authorize(ctx, target); err != nil {
+		return peerhttp.LoginResult{}, err
+	}
 	if err := m.Store.BatchSet(ctx, []kv.Entry{
 		{Key: assertionKey(claims), Value: []byte("used"), Deadline: time.Unix(claims.Exp, 0)},
 		{Key: recordKey, Value: recordBody, Deadline: time.UnixMilli(record.ExpiresAt)},
 		{Key: sessionKey(accessToken), Value: sessionBody, Deadline: expiresAt},
 		{Key: sideSessionKey(target, sessionID), Value: indexBody, Deadline: expiresAt},
+		{Key: sideSessionControllerKey(controller, sessionID), Value: indexBody, Deadline: expiresAt},
 	}); err != nil {
 		return peerhttp.LoginResult{}, err
 	}
@@ -313,7 +337,12 @@ func (m *SessionManager) ListSideControlSessions(ctx context.Context, target giz
 		}
 		expiresAt := time.UnixMilli(index.Session.ExpiresAt)
 		if index.Session.Kind != SessionKindSideControl || !expiresAt.After(now) {
-			_ = m.Store.BatchDelete(ctx, []kv.Key{entry.Key, sessionKey(index.AccessToken)})
+			keys := []kv.Key{entry.Key, sessionKey(index.AccessToken)}
+			var controller giznet.PublicKey
+			if controller.UnmarshalText([]byte(index.Session.PublicKey)) == nil && !controller.IsZero() {
+				keys = append(keys, sideSessionControllerKey(controller, index.Session.SessionID))
+			}
+			_ = m.Store.BatchDelete(ctx, keys)
 			continue
 		}
 		items = append(items, peerhttp.SideControlSession{
@@ -345,7 +374,11 @@ func (m *SessionManager) RevokeSideControlSession(ctx context.Context, target gi
 	if err := json.Unmarshal(data, &index); err != nil || index.Session.TargetPublicKey != target.String() || index.Session.SessionID != id {
 		return errSideControlSessionNotFound
 	}
-	return m.Store.BatchDelete(ctx, []kv.Key{indexKey, sessionKey(index.AccessToken)})
+	var controller giznet.PublicKey
+	if err := controller.UnmarshalText([]byte(index.Session.PublicKey)); err != nil || controller.IsZero() {
+		return errSideControlSessionNotFound
+	}
+	return m.Store.BatchDelete(ctx, []kv.Key{indexKey, sideSessionControllerKey(controller, id), sessionKey(index.AccessToken)})
 }
 
 func deviceTokenHash(token string) string {
@@ -372,4 +405,12 @@ func sideSessionPrefix(target giznet.PublicKey) kv.Key {
 
 func sideSessionKey(target giznet.PublicKey, id string) kv.Key {
 	return append(sideSessionPrefix(target), id)
+}
+
+func sideSessionControllerPrefix(controller giznet.PublicKey) kv.Key {
+	return kv.Key{"side-control", "session-controllers", controller.String()}
+}
+
+func sideSessionControllerKey(controller giznet.PublicKey, id string) kv.Key {
+	return append(sideSessionControllerPrefix(controller), id)
 }

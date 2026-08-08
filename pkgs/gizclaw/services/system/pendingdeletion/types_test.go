@@ -83,17 +83,18 @@ func TestNewRejectsPetWithoutOwner(t *testing.T) {
 	}
 }
 
-func TestNewRejectsPaddedResourceIDAndCanonicalizesOwner(t *testing.T) {
+func TestNewRejectsPaddedResourceIDAndOwner(t *testing.T) {
 	owner := " peer-a "
 	if _, err := New(KindPet, " pet-a ", &owner, ReasonResourceDelete, struct{}{}, time.Time{}); err == nil {
 		t.Fatal("New(padded resource id) error = nil")
 	}
-	record, err := New(KindPet, "pet-a", &owner, ReasonResourceDelete, struct{}{}, time.Time{})
+	if _, err := New(KindPet, "pet-a", &owner, ReasonResourceDelete, struct{}{}, time.Time{}); err == nil {
+		t.Fatal("New(padded owner) error = nil")
+	}
+	canonicalOwner := "peer-a"
+	record, err := New(KindPet, "pet-a", &canonicalOwner, ReasonResourceDelete, struct{}{}, time.Time{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
-	}
-	if record.ResourceID != "pet-a" || record.OwnerPublicKey == nil || *record.OwnerPublicKey != "peer-a" {
-		t.Fatalf("New locator = %q, %v", record.ResourceID, record.OwnerPublicKey)
 	}
 	deletionID, err := uuid.Parse(record.DeletionID)
 	if err != nil {
@@ -145,5 +146,35 @@ func TestNewUsesCurrentTimeWhenTimestampIsZero(t *testing.T) {
 	}
 	if record.DeletedAt.Before(before) || record.DeletedAt.After(time.Now().UTC()) {
 		t.Fatalf("DeletedAt = %s, want current time", record.DeletedAt)
+	}
+}
+
+func TestDeterministicIdentityAndStoredFingerprint(t *testing.T) {
+	owner := "peer-a"
+	record, err := New(KindPet, "pet-a", &owner, ReasonResourceDelete, struct{}{}, time.Unix(1, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	deterministic, err := DeterministicDeletionID(Locator{Kind: KindPet, ResourceID: "pet-a", OwnerPublicKey: &owner})
+	if err != nil || deterministic != record.DeletionID || !IsDeterministic(record) {
+		t.Fatalf("deterministic ID = %q, %v; record = %#v", deterministic, err, record)
+	}
+	fingerprint, err := Fingerprint(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := StoredFingerprint(record)
+	if err != nil || stored != fingerprint {
+		t.Fatalf("StoredFingerprint(valid) = %q, %v, want %q", stored, err, fingerprint)
+	}
+	legacy := record
+	legacy.DeletionID = uuid.NewString()
+	if IsDeterministic(legacy) {
+		t.Fatal("IsDeterministic(legacy) = true")
+	}
+	malformed := legacy
+	malformed.Descriptor = json.RawMessage("{")
+	if stored, err := StoredFingerprint(malformed); err != nil || stored == "" {
+		t.Fatalf("StoredFingerprint(malformed) = %q, %v", stored, err)
 	}
 }

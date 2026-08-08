@@ -75,7 +75,7 @@ pkgs/gizclaw/integration_peer_service_test.go:71:58: call of strPtr(x) can be si
 pkgs/gizclaw/integration_rpc_test.go:150:11: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/integration_rpc_test.go:151:11: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/integration_rpc_test.go:165:92: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/integration_utils_test.go:800:6: strPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/integration_utils_test.go:806:6: strPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/internal/socialutil/util.go:291:6: IntPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/internal/socialutil/util_test.go:162:6: strPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/internal/socialutil/util_test.go:22:60: call of strPtr(x) can be simplified to new(x)
@@ -83,16 +83,16 @@ pkgs/gizclaw/internal/socialutil/util_test.go:23:62: call of strPtr(x) can be si
 pkgs/gizclaw/internal/socialutil/util_test.go:63:28: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/internal/socialutil/util_test.go:64:28: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/internal/socialutil/util_test.go:65:28: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/peer_conn_test.go:1125:6: for loop can be modernized using range over int
-pkgs/gizclaw/peer_conn_test.go:1215:119: call of peerConnIntPtr(x) can be simplified to new(x)
-pkgs/gizclaw/peer_conn_test.go:1223:113: call of peerConnBoolPtr(x) can be simplified to new(x)
-pkgs/gizclaw/peer_conn_test.go:1231:6: for loop can be modernized using range over int
-pkgs/gizclaw/peer_conn_test.go:1700:6: peerConnBoolPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/peer_conn_test.go:1704:6: peerConnIntPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/peer_service.go:128:6: for loop can be modernized using range over int
-pkgs/gizclaw/peer_service_serve_admin_test.go:509:23: call of adminTestStringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/peer_service_serve_admin_test.go:559:73: call of adminTestStringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/peer_service_serve_admin_test.go:813:6: adminTestStringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/peer_conn_test.go:1128:6: for loop can be modernized using range over int
+pkgs/gizclaw/peer_conn_test.go:1218:119: call of peerConnIntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_conn_test.go:1226:113: call of peerConnBoolPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_conn_test.go:1234:6: for loop can be modernized using range over int
+pkgs/gizclaw/peer_conn_test.go:1703:6: peerConnBoolPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/peer_conn_test.go:1707:6: peerConnIntPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/peer_service.go:129:6: for loop can be modernized using range over int
+pkgs/gizclaw/peer_service_serve_admin_test.go:552:23: call of adminTestStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_service_serve_admin_test.go:602:73: call of adminTestStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_service_serve_admin_test.go:856:6: adminTestStringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/rpc_server_service_test.go:156:151: call of intPtr(x) can be simplified to new(x)
 pkgs/gizclaw/rpc_server_service_test.go:29:46: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/rpc_server_service_test.go:31:46: call of stringPtr(x) can be simplified to new(x)
@@ -188,7 +188,7 @@ pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:68:86
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:77:3: copying variable is unneeded
 pkgs/gizclaw/services/gameplay/reward.go:207:6: stringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/runtime/agent/resolver.go:63:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
-pkgs/gizclaw/services/runtime/peer/store_ops.go:397:5: if statement can be modernized using min
+pkgs/gizclaw/services/runtime/peer/store_ops.go:521:5: if statement can be modernized using min
 pkgs/gizclaw/services/runtime/peerresource/access.go:613:6: ptr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/runtime/peerresource/server.go:1418:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/services/runtime/peerresource/server.go:1418:83: reflect.TypeOf call can be simplified using TypeFor
@@ -242,10 +242,11 @@ pkgs/gizclaw/services/social/contact/server_test.go:46:16: call of strPtr(x) can
 pkgs/gizclaw/services/social/contact/server_test.go:56:16: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/social/contact/server_test.go:66:16: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/social/contact/server_test.go:67:16: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:1172:6: strPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:657:112: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:684:46: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:803:94: call of IntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:1284:6: strPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:743:59: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:769:112: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:796:46: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:915:94: call of IntPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/system/publiclogin/server_test.go:118:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
 pkgs/gizclaw/services/system/publiclogin/server_test.go:455:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
 pkgs/gizclaw/services/system/resourcemanager/common_test.go:148:6: ptr can be an inlinable wrapper around new(expr)

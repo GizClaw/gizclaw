@@ -1,11 +1,13 @@
-// Package pendingdeletion defines the durable handoff written when deletion is
-// requested for an active resource. Physical removal is intentionally owned by
-// the follow-up cleanup service.
+// Package pendingdeletion defines durable deletion handoffs and coordinates
+// bounded processing. Resource validation and atomic physical removal remain
+// owned by registered domain handlers.
 package pendingdeletion
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -74,9 +76,8 @@ type Locator struct {
 	OwnerPublicKey *string
 }
 
-// Source is the backend-neutral lookup surface shared by KV and SQL pending
-// stores. Claiming, retries, and removal are added by the cleanup processor.
-type Source interface {
+// LookupSource is the backend-neutral marker lookup surface shared by KV and SQL stores.
+type LookupSource interface {
 	Get(context.Context, string) (Record, error)
 	HasLocator(context.Context, Locator) (bool, error)
 }
@@ -86,9 +87,6 @@ type Source interface {
 // the same deletion event.
 func New(kind Kind, resourceID string, ownerPublicKey *string, reason Reason, descriptor any, now time.Time) (Record, error) {
 	ownerPublicKey = cloneString(ownerPublicKey)
-	if ownerPublicKey != nil {
-		*ownerPublicKey = strings.TrimSpace(*ownerPublicKey)
-	}
 	if !kind.valid() {
 		return Record{}, fmt.Errorf("pending deletion: invalid kind %q", kind)
 	}
@@ -182,10 +180,89 @@ func deletionIDForLocator(kind Kind, resourceID string, ownerPublicKey *string) 
 	if ownerPublicKey == nil || strings.TrimSpace(*ownerPublicKey) == "" {
 		return "", errors.New("pending deletion: Pet requires owner public key")
 	}
+	if *ownerPublicKey != strings.TrimSpace(*ownerPublicKey) {
+		return "", errors.New("pending deletion: non-canonical owner public key")
+	}
 	locator := string(kind) + "\x00" +
-		encode([]byte(strings.TrimSpace(*ownerPublicKey))) + "\x00" +
+		encode([]byte(*ownerPublicKey)) + "\x00" +
 		encode([]byte(resourceID))
 	return uuid.NewSHA1(deletionIDNamespace, []byte(locator)).String(), nil
+}
+
+// DeterministicDeletionID returns the current stable deletion ID for a locator.
+func DeterministicDeletionID(locator Locator) (string, error) {
+	return deletionIDForLocator(locator.Kind, locator.ResourceID, locator.OwnerPublicKey)
+}
+
+// IsDeterministic reports whether record uses the current stable locator ID.
+func IsDeterministic(record Record) bool {
+	expected, err := DeterministicDeletionID(Locator{
+		Kind:           record.Kind,
+		ResourceID:     record.ResourceID,
+		OwnerPublicKey: record.OwnerPublicKey,
+	})
+	return err == nil && record.DeletionID == expected
+}
+
+// Fingerprint returns a stable digest of every immutable marker field.
+func Fingerprint(record Record) (string, error) {
+	if err := record.Validate(); err != nil {
+		return "", err
+	}
+	data, err := json.Marshal(struct {
+		DeletionID        string          `json:"deletion_id"`
+		Kind              Kind            `json:"kind"`
+		ResourceID        string          `json:"resource_id"`
+		Reason            Reason          `json:"reason"`
+		DeletedAt         time.Time       `json:"deleted_at"`
+		OwnerPublicKey    *string         `json:"owner_public_key,omitempty"`
+		DescriptorVersion int             `json:"descriptor_version"`
+		Descriptor        json.RawMessage `json:"descriptor"`
+	}{
+		DeletionID:        record.DeletionID,
+		Kind:              record.Kind,
+		ResourceID:        record.ResourceID,
+		Reason:            record.Reason,
+		DeletedAt:         record.DeletedAt.UTC(),
+		OwnerPublicKey:    cloneString(record.OwnerPublicKey),
+		DescriptorVersion: record.DescriptorVersion,
+		Descriptor:        append(json.RawMessage(nil), record.Descriptor...),
+	})
+	if err != nil {
+		return "", fmt.Errorf("pending deletion: encode marker fingerprint: %w", err)
+	}
+	digest := sha256.Sum256(data)
+	return hex.EncodeToString(digest[:]), nil
+}
+
+// StoredFingerprint returns Fingerprint for valid records and a stable
+// quarantine fingerprint for malformed persisted records. Sources use the
+// latter only so a corrupt legacy marker can be claimed and failed instead of
+// blocking migration or every later task in the same source.
+func StoredFingerprint(record Record) (string, error) {
+	if fingerprint, err := Fingerprint(record); err == nil {
+		return fingerprint, nil
+	}
+	data, err := json.Marshal(struct {
+		DeletionID        string  `json:"deletion_id"`
+		Kind              Kind    `json:"kind"`
+		ResourceID        string  `json:"resource_id"`
+		Reason            Reason  `json:"reason"`
+		DeletedAt         string  `json:"deleted_at"`
+		OwnerPublicKey    *string `json:"owner_public_key,omitempty"`
+		DescriptorVersion int     `json:"descriptor_version"`
+		Descriptor        string  `json:"descriptor"`
+	}{
+		DeletionID: record.DeletionID, Kind: record.Kind, ResourceID: record.ResourceID,
+		Reason: record.Reason, DeletedAt: record.DeletedAt.UTC().Format(time.RFC3339Nano),
+		OwnerPublicKey: cloneString(record.OwnerPublicKey), DescriptorVersion: record.DescriptorVersion,
+		Descriptor: string(record.Descriptor),
+	})
+	if err != nil {
+		return "", fmt.Errorf("pending deletion: encode stored marker fingerprint: %w", err)
+	}
+	digest := sha256.Sum256(data)
+	return hex.EncodeToString(digest[:]), nil
 }
 
 func (k Kind) valid() bool {

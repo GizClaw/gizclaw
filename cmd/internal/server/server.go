@@ -83,6 +83,10 @@ func (s *CmdServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *CmdServer) authorizePrivateHTTPIngress(w http.ResponseWriter, r *http.Request) bool {
 	principal, err := s.Server.AuthenticateHTTPSessionPrincipalHeaders(r.Header.Get("Authorization"), r.Header.Get(publiclogin.PublicKeyHeader))
 	if err != nil {
+		if errors.Is(err, gizclaw.ErrPrivateHTTPIngressDenied) {
+			writePrivateHTTPIngressDenied(w)
+			return false
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		if errors.Is(err, publiclogin.ErrPublicKeyMismatch) {
@@ -179,16 +183,21 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	}
 
 	cmdSrv := &CmdServer{stores: ss, ownsStores: ownsStores, AdminPublicKey: cfg.AdminPublicKey, ServeToClients: cfg.ServeToClients}
+	pendingDeletionConfig, err := cfg.PendingDeletion.processorConfig()
+	if err != nil {
+		return nil, fmt.Errorf("server: pending_deletion: %w", err)
+	}
 	var gizServer *gizclaw.Server
 	gizServer = &gizclaw.Server{
-		LocalStatic:    *cfg.KeyPair,
-		PeerStore:      peersKV,
-		MemoryRoot:     cfg.WorkspaceRoot,
-		BuildCommit:    BuildCommit,
-		PublicEndpoint: cfg.Endpoint,
-		PublicICETCP:   newOpts.ICETCPListener != nil,
-		EdgeNodes:      cfg.EdgeNodes,
-		ICEServers:     cfg.ICEServers,
+		LocalStatic:           *cfg.KeyPair,
+		PeerStore:             peersKV,
+		MemoryRoot:            cfg.WorkspaceRoot,
+		BuildCommit:           BuildCommit,
+		PublicEndpoint:        cfg.Endpoint,
+		PublicICETCP:          newOpts.ICETCPListener != nil,
+		EdgeNodes:             cfg.EdgeNodes,
+		PendingDeletionConfig: pendingDeletionConfig,
+		ICEServers:            cfg.ICEServers,
 		PeerListenerFactories: []gizclaw.PeerListenerFactory{
 			func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
 				listenConfig := webRTCListenConfig(cfg, opts, newOpts.ICETCPListener)

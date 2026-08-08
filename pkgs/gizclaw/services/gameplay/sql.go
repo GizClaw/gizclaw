@@ -174,9 +174,19 @@ func updatePet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
 	if err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE gameplay_pets SET display_name = ?, stats_json = ?, progression_json = ?, lifecycle = ?, died_at = ?, state_settled_at = ?, last_active_at = ?, updated_at = ? WHERE owner_public_key = ? AND id = ?`),
+	result, err := tx.ExecContext(ctx, tx.Rebind(`UPDATE gameplay_pets SET display_name = ?, stats_json = ?, progression_json = ?, lifecycle = ?, died_at = ?, state_settled_at = ?, last_active_at = ?, updated_at = ? WHERE owner_public_key = ? AND id = ?`),
 		pet.DisplayName, statsJSON, progressionJSON, pet.Lifecycle, nullableTime(pet.DiedAt), formatTime(pet.StateSettledAt), formatTime(pet.LastActiveAt), formatTime(pet.UpdatedAt), pet.OwnerPublicKey, pet.Id)
-	return err
+	if err != nil {
+		return err
+	}
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if updated != 1 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func petDriveTickSelectSQL() string {

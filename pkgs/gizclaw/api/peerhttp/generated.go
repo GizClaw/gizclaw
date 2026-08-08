@@ -114,6 +114,9 @@ type SideControlSessionList struct {
 // BadRequest defines model for BadRequest.
 type BadRequest = externalRef0.ErrorResponse
 
+// Conflict defines model for Conflict.
+type Conflict = externalRef0.ErrorResponse
+
 // Forbidden defines model for Forbidden.
 type Forbidden = externalRef0.ErrorResponse
 
@@ -1765,6 +1768,7 @@ type LoginResponse struct {
 	JSON200      *LoginResult
 	JSON400      *BadRequest
 	JSON401      *externalRef0.ErrorResponse
+	JSON409      *Conflict
 }
 
 // Status returns HTTPResponse.Status
@@ -1789,6 +1793,7 @@ type GetMeResponse struct {
 	JSON200      *PeerSelf
 	JSON401      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *Conflict
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -1814,6 +1819,7 @@ type GetMeRuntimeResponse struct {
 	JSON200      *externalRef0.Runtime
 	JSON401      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *Conflict
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -1839,6 +1845,7 @@ type CreateSideControlDeviceTokenResponse struct {
 	JSON201      *SideControlDeviceToken
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -1864,6 +1871,7 @@ type RevokeSideControlDeviceTokenResponse struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -1889,6 +1897,7 @@ type ListSideControlSessionsResponse struct {
 	JSON200      *SideControlSessionList
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -1914,6 +1923,7 @@ type RevokeSideControlSessionResponse struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -1939,6 +1949,7 @@ type GetMeStatusResponse struct {
 	JSON200      *externalRef0.PeerStatus
 	JSON401      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *Conflict
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -1965,6 +1976,7 @@ type PutMeStatusResponse struct {
 	JSON400      *externalRef0.ErrorResponse
 	JSON401      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
+	JSON409      *Conflict
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -2014,6 +2026,7 @@ type ListSideControlContactsResponse struct {
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -2040,6 +2053,7 @@ type CreateSideControlContactResponse struct {
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -2066,6 +2080,7 @@ type DeleteSideControlContactResponse struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -2092,6 +2107,7 @@ type GetSideControlContactResponse struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -2119,6 +2135,7 @@ type PutSideControlContactResponse struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -2145,6 +2162,7 @@ type GetSideControlInfoResponse struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -2171,6 +2189,7 @@ type GetSideControlRuntimeResponse struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -2197,6 +2216,7 @@ type GetSideControlStatusResponse struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -2223,6 +2243,7 @@ type QuerySideControlTelemetryResponse struct {
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -2249,6 +2270,7 @@ type AggregateSideControlTelemetryResponse struct {
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -2275,6 +2297,7 @@ type GetSideControlTelemetryLatestResponse struct {
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -2597,6 +2620,13 @@ func ParseLoginResponse(rsp *http.Response) (*LoginResponse, error) {
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	}
 
 	return response, nil
@@ -2636,6 +2666,13 @@ func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -2684,6 +2721,13 @@ func ParseGetMeRuntimeResponse(rsp *http.Response) (*GetMeRuntimeResponse, error
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -2730,6 +2774,13 @@ func ParseCreateSideControlDeviceTokenResponse(rsp *http.Response) (*CreateSideC
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -2778,6 +2829,13 @@ func ParseRevokeSideControlDeviceTokenResponse(rsp *http.Response) (*RevokeSideC
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -2824,6 +2882,13 @@ func ParseListSideControlSessionsResponse(rsp *http.Response) (*ListSideControlS
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -2872,6 +2937,13 @@ func ParseRevokeSideControlSessionResponse(rsp *http.Response) (*RevokeSideContr
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -2918,6 +2990,13 @@ func ParseGetMeStatusResponse(rsp *http.Response) (*GetMeStatusResponse, error) 
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -2972,6 +3051,13 @@ func ParsePutMeStatusResponse(rsp *http.Response) (*PutMeStatusResponse, error) 
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -3060,6 +3146,13 @@ func ParseListSideControlContactsResponse(rsp *http.Response) (*ListSideControlC
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3113,6 +3206,13 @@ func ParseCreateSideControlContactResponse(rsp *http.Response) (*CreateSideContr
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -3168,6 +3268,13 @@ func ParseDeleteSideControlContactResponse(rsp *http.Response) (*DeleteSideContr
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3221,6 +3328,13 @@ func ParseGetSideControlContactResponse(rsp *http.Response) (*GetSideControlCont
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -3283,6 +3397,13 @@ func ParsePutSideControlContactResponse(rsp *http.Response) (*PutSideControlCont
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3336,6 +3457,13 @@ func ParseGetSideControlInfoResponse(rsp *http.Response) (*GetSideControlInfoRes
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -3391,6 +3519,13 @@ func ParseGetSideControlRuntimeResponse(rsp *http.Response) (*GetSideControlRunt
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3444,6 +3579,13 @@ func ParseGetSideControlStatusResponse(rsp *http.Response) (*GetSideControlStatu
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -3499,6 +3641,13 @@ func ParseQuerySideControlTelemetryResponse(rsp *http.Response) (*QuerySideContr
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3553,6 +3702,13 @@ func ParseAggregateSideControlTelemetryResponse(rsp *http.Response) (*AggregateS
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3606,6 +3762,13 @@ func ParseGetSideControlTelemetryLatestResponse(rsp *http.Response) (*GetSideCon
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -4397,6 +4560,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 type BadRequestJSONResponse externalRef0.ErrorResponse
 
+type ConflictJSONResponse externalRef0.ErrorResponse
+
 type ForbiddenJSONResponse externalRef0.ErrorResponse
 
 type InternalErrorJSONResponse externalRef0.ErrorResponse
@@ -4441,6 +4606,15 @@ func (response Login401JSONResponse) VisitLoginResponse(ctx *fiber.Ctx) error {
 	return ctx.JSON(&response)
 }
 
+type Login409JSONResponse struct{ ConflictJSONResponse }
+
+func (response Login409JSONResponse) VisitLoginResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type GetMeRequestObject struct {
 }
 
@@ -4471,6 +4645,15 @@ type GetMe404JSONResponse externalRef0.ErrorResponse
 func (response GetMe404JSONResponse) VisitGetMeResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetMe409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetMe409JSONResponse) VisitGetMeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -4518,6 +4701,15 @@ func (response GetMeRuntime404JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber
 	return ctx.JSON(&response)
 }
 
+type GetMeRuntime409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetMeRuntime409JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type GetMeRuntime500JSONResponse externalRef0.ErrorResponse
 
 func (response GetMeRuntime500JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error {
@@ -4557,6 +4749,15 @@ type CreateSideControlDeviceToken403JSONResponse struct{ ForbiddenJSONResponse }
 func (response CreateSideControlDeviceToken403JSONResponse) VisitCreateSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type CreateSideControlDeviceToken409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreateSideControlDeviceToken409JSONResponse) VisitCreateSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -4613,6 +4814,15 @@ func (response RevokeSideControlDeviceToken404JSONResponse) VisitRevokeSideContr
 	return ctx.JSON(&response)
 }
 
+type RevokeSideControlDeviceToken409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RevokeSideControlDeviceToken409JSONResponse) VisitRevokeSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type RevokeSideControlDeviceToken500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response RevokeSideControlDeviceToken500JSONResponse) VisitRevokeSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
@@ -4652,6 +4862,15 @@ type ListSideControlSessions403JSONResponse struct{ ForbiddenJSONResponse }
 func (response ListSideControlSessions403JSONResponse) VisitListSideControlSessionsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ListSideControlSessions409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ListSideControlSessions409JSONResponse) VisitListSideControlSessionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -4708,6 +4927,15 @@ func (response RevokeSideControlSession404JSONResponse) VisitRevokeSideControlSe
 	return ctx.JSON(&response)
 }
 
+type RevokeSideControlSession409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RevokeSideControlSession409JSONResponse) VisitRevokeSideControlSessionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type RevokeSideControlSession500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response RevokeSideControlSession500JSONResponse) VisitRevokeSideControlSessionResponse(ctx *fiber.Ctx) error {
@@ -4747,6 +4975,15 @@ type GetMeStatus404JSONResponse externalRef0.ErrorResponse
 func (response GetMeStatus404JSONResponse) VisitGetMeStatusResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetMeStatus409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetMeStatus409JSONResponse) VisitGetMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -4800,6 +5037,15 @@ type PutMeStatus404JSONResponse externalRef0.ErrorResponse
 func (response PutMeStatus404JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type PutMeStatus409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutMeStatus409JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -4882,6 +5128,15 @@ func (response ListSideControlContacts403JSONResponse) VisitListSideControlConta
 	return ctx.JSON(&response)
 }
 
+type ListSideControlContacts409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ListSideControlContacts409JSONResponse) VisitListSideControlContactsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type ListSideControlContacts500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response ListSideControlContacts500JSONResponse) VisitListSideControlContactsResponse(ctx *fiber.Ctx) error {
@@ -4931,6 +5186,15 @@ type CreateSideControlContact403JSONResponse struct{ ForbiddenJSONResponse }
 func (response CreateSideControlContact403JSONResponse) VisitCreateSideControlContactResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type CreateSideControlContact409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreateSideControlContact409JSONResponse) VisitCreateSideControlContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -4988,6 +5252,15 @@ func (response DeleteSideControlContact404JSONResponse) VisitDeleteSideControlCo
 	return ctx.JSON(&response)
 }
 
+type DeleteSideControlContact409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DeleteSideControlContact409JSONResponse) VisitDeleteSideControlContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type DeleteSideControlContact500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response DeleteSideControlContact500JSONResponse) VisitDeleteSideControlContactResponse(ctx *fiber.Ctx) error {
@@ -5037,6 +5310,15 @@ type GetSideControlContact404JSONResponse struct{ NotFoundJSONResponse }
 func (response GetSideControlContact404JSONResponse) VisitGetSideControlContactResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetSideControlContact409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetSideControlContact409JSONResponse) VisitGetSideControlContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -5104,6 +5386,15 @@ func (response PutSideControlContact404JSONResponse) VisitPutSideControlContactR
 	return ctx.JSON(&response)
 }
 
+type PutSideControlContact409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutSideControlContact409JSONResponse) VisitPutSideControlContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type PutSideControlContact500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response PutSideControlContact500JSONResponse) VisitPutSideControlContactResponse(ctx *fiber.Ctx) error {
@@ -5152,6 +5443,15 @@ type GetSideControlInfo404JSONResponse struct{ NotFoundJSONResponse }
 func (response GetSideControlInfo404JSONResponse) VisitGetSideControlInfoResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetSideControlInfo409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetSideControlInfo409JSONResponse) VisitGetSideControlInfoResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -5208,6 +5508,15 @@ func (response GetSideControlRuntime404JSONResponse) VisitGetSideControlRuntimeR
 	return ctx.JSON(&response)
 }
 
+type GetSideControlRuntime409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetSideControlRuntime409JSONResponse) VisitGetSideControlRuntimeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type GetSideControlRuntime500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response GetSideControlRuntime500JSONResponse) VisitGetSideControlRuntimeResponse(ctx *fiber.Ctx) error {
@@ -5256,6 +5565,15 @@ type GetSideControlStatus404JSONResponse struct{ NotFoundJSONResponse }
 func (response GetSideControlStatus404JSONResponse) VisitGetSideControlStatusResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetSideControlStatus409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetSideControlStatus409JSONResponse) VisitGetSideControlStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
@@ -5313,6 +5631,15 @@ func (response QuerySideControlTelemetry403JSONResponse) VisitQuerySideControlTe
 	return ctx.JSON(&response)
 }
 
+type QuerySideControlTelemetry409JSONResponse struct{ ConflictJSONResponse }
+
+func (response QuerySideControlTelemetry409JSONResponse) VisitQuerySideControlTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type QuerySideControlTelemetry500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response QuerySideControlTelemetry500JSONResponse) VisitQuerySideControlTelemetryResponse(ctx *fiber.Ctx) error {
@@ -5366,6 +5693,15 @@ func (response AggregateSideControlTelemetry403JSONResponse) VisitAggregateSideC
 	return ctx.JSON(&response)
 }
 
+type AggregateSideControlTelemetry409JSONResponse struct{ ConflictJSONResponse }
+
+func (response AggregateSideControlTelemetry409JSONResponse) VisitAggregateSideControlTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
 type AggregateSideControlTelemetry500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response AggregateSideControlTelemetry500JSONResponse) VisitAggregateSideControlTelemetryResponse(ctx *fiber.Ctx) error {
@@ -5415,6 +5751,15 @@ type GetSideControlTelemetryLatest403JSONResponse struct{ ForbiddenJSONResponse 
 func (response GetSideControlTelemetryLatest403JSONResponse) VisitGetSideControlTelemetryLatestResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetSideControlTelemetryLatest409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetSideControlTelemetryLatest409JSONResponse) VisitGetSideControlTelemetryLatestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }

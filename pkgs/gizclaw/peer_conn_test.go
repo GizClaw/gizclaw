@@ -566,8 +566,11 @@ func TestRejectRetiringHTTP(t *testing.T) {
 	}))
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
-	if response.Code != http.StatusServiceUnavailable {
-		t.Fatalf("status = %d, want %d", response.Code, http.StatusServiceUnavailable)
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusConflict)
+	}
+	if !strings.Contains(response.Body.String(), peer.PeerPendingDeletionCode) {
+		t.Fatalf("body = %q, want stable pending-deletion code", response.Body.String())
 	}
 	if called {
 		t.Fatal("retiring request reached the underlying handler")

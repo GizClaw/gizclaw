@@ -32,6 +32,13 @@ type RuntimeStore interface {
 	DeleteWorkspaceRuntime(context.Context, string) error
 }
 
+// RuntimeCleanupStore adds physical absence verification for asynchronous
+// Workspace retirement without widening the ordinary runtime surface.
+type RuntimeCleanupStore interface {
+	RuntimeStore
+	WorkspaceRuntimeAbsent(context.Context, string) (bool, error)
+}
+
 type ObjectRuntimeStore struct {
 	Objects objectstore.ObjectStore
 }
@@ -167,6 +174,20 @@ func (s ObjectRuntimeStore) DeleteWorkspaceRuntime(_ context.Context, workspaceI
 		return fmt.Errorf("workspace: delete runtime prefix: %w", err)
 	}
 	return nil
+}
+
+func (s ObjectRuntimeStore) WorkspaceRuntimeAbsent(_ context.Context, workspaceID string) (bool, error) {
+	if err := customid.ValidateResourceID(workspaceID); err != nil {
+		return false, fmt.Errorf("workspace: invalid id: %w", err)
+	}
+	if s.Objects == nil {
+		return false, fmt.Errorf("workspace: runtime store is required")
+	}
+	objects, err := s.Objects.List(ObjectPrefix(workspaceID))
+	if err != nil {
+		return false, fmt.Errorf("workspace: list runtime prefix: %w", err)
+	}
+	return len(objects) == 0, nil
 }
 
 func ObjectPrefix(workspaceID string) string {

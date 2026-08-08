@@ -19,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -176,6 +177,32 @@ func (s *Server) ResolveOwnerProfile(ctx context.Context, owner string) (apitype
 		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile %q dependencies are invalid: %w", profile.Id, err)
 	}
 	return profile, nil
+}
+
+// DeleteOwnerProfileBinding removes only the canonical owner's selected
+// RuntimeProfile binding. Global profiles and registration tokens are retained.
+func (s *Server) DeleteOwnerProfileBinding(ctx context.Context, owner string) error {
+	store, err := s.store()
+	if err != nil {
+		return err
+	}
+	var publicKey giznet.PublicKey
+	if err := publicKey.UnmarshalText([]byte(owner)); err != nil || publicKey.IsZero() || publicKey.String() != owner {
+		return errors.New("runtime profile owner must be a canonical public key")
+	}
+	s.mutationMu.Lock()
+	defer s.mutationMu.Unlock()
+	key := ownerProfileKey(owner)
+	if err := store.Delete(ctx, key); err != nil {
+		return err
+	}
+	if _, err := store.Get(ctx, key); !errors.Is(err, kv.ErrNotFound) {
+		if err == nil {
+			return errors.New("runtime profile owner binding remains after deletion")
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *Server) ResolveRegistration(ctx context.Context, rawToken string) (Registration, error) {

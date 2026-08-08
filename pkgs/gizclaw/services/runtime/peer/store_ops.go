@@ -1,6 +1,7 @@
 package peer
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
@@ -16,6 +18,19 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+const peerTombstoneVersion = 1
+
+type tombstone struct {
+	Version int    `json:"version"`
+	State   string `json:"state"`
+}
+
+var encodedPeerTombstone = []byte(`{"version":1,"state":"deleted"}`)
+
+func isPeerTombstone(data []byte) bool {
+	return bytes.Equal(data, encodedPeerTombstone)
+}
 
 // BindFirmware persists the Server-assigned Firmware release line for a Peer.
 // Firmware channel selection remains device-owned and is not stored here.
@@ -54,6 +69,9 @@ func (s *Server) EnsureConnectedPeerGuarded(ctx context.Context, publicKey gizne
 		if err := guard(); err != nil {
 			return apitypes.Peer{}, err
 		}
+	}
+	if err := s.EnsureAvailable(ctx, publicKey); err != nil && !errors.Is(err, ErrPeerNotFound) {
+		return apitypes.Peer{}, err
 	}
 	existing, err := s.get(ctx, publicKey)
 	if err == nil {
@@ -180,7 +198,13 @@ func (s *Server) block(ctx context.Context, publicKey giznet.PublicKey) (apitype
 func (s *Server) delete(ctx context.Context, publicKey giznet.PublicKey, reason pendingdeletion.Reason) (apitypes.Peer, error) {
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	return s.deleteLocked(ctx, publicKey, reason)
+	item, err := s.deleteLocked(ctx, publicKey, reason)
+	if quiescer, ok := s.PeerManager.(interface {
+		QuiescePeer(context.Context, giznet.PublicKey) error
+	}); err == nil && ok {
+		err = quiescer.QuiescePeer(ctx, publicKey)
+	}
+	return item, err
 }
 
 func (s *Server) deleteLocked(ctx context.Context, publicKey giznet.PublicKey, reason pendingdeletion.Reason) (apitypes.Peer, error) {
@@ -249,6 +273,9 @@ func (s *Server) getByPublicKeyText(ctx context.Context, store kv.Store, publicK
 		}
 		return apitypes.Peer{}, fmt.Errorf("peer: get %s: %w", publicKeyText, err)
 	}
+	if isPeerTombstone(data) {
+		return apitypes.Peer{}, ErrPeerDeleted
+	}
 	peer, err := decodePeer(data)
 	if err != nil {
 		return apitypes.Peer{}, fmt.Errorf("peer: decode %s: %w", publicKeyText, err)
@@ -257,6 +284,9 @@ func (s *Server) getByPublicKeyText(ctx context.Context, store kv.Store, publicK
 }
 
 func decodePeer(data []byte) (apitypes.Peer, error) {
+	if isPeerTombstone(data) {
+		return apitypes.Peer{}, ErrPeerDeleted
+	}
 	var peer apitypes.Peer
 	if err := json.Unmarshal(data, &peer); err != nil {
 		return apitypes.Peer{}, err
@@ -275,9 +305,8 @@ func (s *Server) exists(ctx context.Context, publicKey giznet.PublicKey) (bool, 
 	return false, err
 }
 
-// create is reserved for a newly authenticated Client connection. Reconnect is
-// the one path allowed to create a later active generation while an older
-// deletion event remains pending.
+// create is reserved for a newly authenticated Client connection. A pending
+// marker or permanent tombstone makes the public key unavailable here too.
 func (s *Server) create(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, error) {
 	if err := validatePeer(peer); err != nil {
 		return apitypes.Peer{}, err
@@ -294,6 +323,9 @@ func (s *Server) create(ctx context.Context, peer apitypes.Peer) (apitypes.Peer,
 func (s *Server) createLocked(ctx context.Context, publicKey giznet.PublicKey, peer apitypes.Peer) (apitypes.Peer, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.EnsureAvailable(ctx, publicKey); err != nil && !errors.Is(err, ErrPeerNotFound) {
+		return apitypes.Peer{}, err
+	}
 
 	if _, err := s.get(ctx, publicKey); err == nil {
 		return apitypes.Peer{}, ErrPeerAlreadyExists
@@ -331,6 +363,9 @@ func (s *Server) putRecord(ctx context.Context, peer apitypes.Peer) (apitypes.Pe
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.EnsureAvailable(ctx, publicKey); err != nil && !errors.Is(err, ErrPeerNotFound) {
+		return apitypes.Peer{}, err
+	}
 
 	old, err := s.get(ctx, publicKey)
 	if err != nil && !errors.Is(err, ErrPeerNotFound) {
@@ -350,6 +385,32 @@ func (s *Server) putRecord(ctx context.Context, peer apitypes.Peer) (apitypes.Pe
 	return s.get(ctx, publicKey)
 }
 
+// EnsureAvailable rejects marker-time and permanent-tombstone activation.
+func (s *Server) EnsureAvailable(ctx context.Context, publicKey giznet.PublicKey) error {
+	store, err := s.store()
+	if err != nil {
+		return err
+	}
+	data, err := store.Get(ctx, peerKey(publicKey.String()))
+	if errors.Is(err, kv.ErrNotFound) {
+		return ErrPeerNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if isPeerTombstone(data) {
+		return ErrPeerDeleted
+	}
+	pending, err := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindPeer, publicKey.String())
+	if err != nil {
+		return err
+	}
+	if pending {
+		return ErrPeerPendingDeletion
+	}
+	return nil
+}
+
 func (s *Server) list(ctx context.Context) ([]apitypes.Peer, error) {
 	store, err := s.store()
 	if err != nil {
@@ -359,6 +420,9 @@ func (s *Server) list(ctx context.Context) ([]apitypes.Peer, error) {
 	for entry, err := range store.List(ctx, peersPrefix()) {
 		if err != nil {
 			return nil, fmt.Errorf("peer: list: %w", err)
+		}
+		if isPeerTombstone(entry.Value) {
+			continue
 		}
 		var peer apitypes.Peer
 		if err := json.Unmarshal(entry.Value, &peer); err != nil {
@@ -373,6 +437,66 @@ func (s *Server) list(ctx context.Context) ([]apitypes.Peer, error) {
 		return items[i].CreatedAt.Before(items[j].CreatedAt)
 	})
 	return items, nil
+}
+
+func (s *Server) listAdminPage(ctx context.Context, cursor string, limit int) ([]adminhttp.PeerRegistrationResult, bool, *string, error) {
+	store, err := s.store()
+	if err != nil {
+		return nil, false, nil, err
+	}
+	type item struct {
+		publicKey string
+		createdAt time.Time
+		result    adminhttp.PeerRegistrationResult
+	}
+	items := make([]item, 0)
+	for entry, err := range store.List(ctx, peersPrefix()) {
+		if err != nil {
+			return nil, false, nil, fmt.Errorf("peer: list: %w", err)
+		}
+		if len(entry.Key) != 2 {
+			return nil, false, nil, fmt.Errorf("peer: malformed public-key record %v", entry.Key)
+		}
+		publicKey := entry.Key[1]
+		if isPeerTombstone(entry.Value) {
+			items = append(items, item{publicKey: publicKey, result: toAdminTombstoneResult(publicKey)})
+			continue
+		}
+		peer, err := decodePeer(entry.Value)
+		if err != nil || peer.PublicKey != publicKey {
+			return nil, false, nil, fmt.Errorf("peer: decode list %s: %w", entry.Key.String(), err)
+		}
+		items = append(items, item{publicKey: publicKey, createdAt: peer.CreatedAt, result: toAdminRegistrationResult(peer)})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].createdAt.Equal(items[j].createdAt) {
+			return items[i].publicKey < items[j].publicKey
+		}
+		return items[i].createdAt.Before(items[j].createdAt)
+	})
+	start := 0
+	if cursor != "" {
+		start = len(items)
+		for index, item := range items {
+			if item.publicKey == cursor {
+				start = index + 1
+				break
+			}
+		}
+	}
+	if start >= len(items) {
+		return nil, false, nil, nil
+	}
+	end := min(start+limit, len(items))
+	page := make([]adminhttp.PeerRegistrationResult, 0, end-start)
+	for _, item := range items[start:end] {
+		page = append(page, item.result)
+	}
+	if end >= len(items) {
+		return page, false, nil, nil
+	}
+	next := items[end-1].publicKey
+	return page, true, &next, nil
 }
 
 func (s *Server) listPage(ctx context.Context, cursor string, limit int) ([]apitypes.Peer, bool, *string, error) {

@@ -383,34 +383,37 @@ func requirePetName(t *testing.T, items []rpcapi.Pet, name string) {
 	t.Fatalf("pet %q not found in %#v", name, items)
 }
 
-func requirePointsTransactionName(t *testing.T, items []rpcapi.PointsTransaction, name string) {
+func requirePointsTransactionName(t *testing.T, items []rpcapi.PointsTransaction, name string) rpcapi.PointsTransaction {
 	t.Helper()
 	for _, item := range items {
 		if item.Name == name {
-			return
+			return item
 		}
 	}
 	t.Fatalf("points transaction %q not found in %#v", name, items)
+	return rpcapi.PointsTransaction{}
 }
 
-func requireGameResultName(t *testing.T, items []rpcapi.GameResult, name string) {
+func requireGameResultName(t *testing.T, items []rpcapi.GameResult, name string) rpcapi.GameResult {
 	t.Helper()
 	for _, item := range items {
 		if item.Name == name {
-			return
+			return item
 		}
 	}
 	t.Fatalf("game result %q not found in %#v", name, items)
+	return rpcapi.GameResult{}
 }
 
-func requireRewardGrantName(t *testing.T, items []rpcapi.RewardGrant, name string) {
+func requireRewardGrantName(t *testing.T, items []rpcapi.RewardGrant, name string) rpcapi.RewardGrant {
 	t.Helper()
 	for _, item := range items {
 		if item.Name == name {
-			return
+			return item
 		}
 	}
 	t.Fatalf("reward grant %q not found in %#v", name, items)
+	return rpcapi.RewardGrant{}
 }
 
 func testStringPtr(v string) *string {

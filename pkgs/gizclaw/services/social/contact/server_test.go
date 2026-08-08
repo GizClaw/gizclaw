@@ -316,6 +316,38 @@ func intPtr(v int) *int {
 	return &v
 }
 
+func TestPeerRetirementDeletesOnlyOwnedContactSnapshot(t *testing.T) {
+	s := newTestServer()
+	first, err := s.AdminCreateContact(t.Context(), adminhttp.AdminContactCreateRequest{
+		Id: "contact-a", OwnerPublicKey: "peer-a", Name: "alice", DisplayName: new("Alice"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := s.AdminCreateContact(t.Context(), adminhttp.AdminContactCreateRequest{
+		Id: "contact-b", OwnerPublicKey: "peer-b", Name: "bob", DisplayName: new("Bob"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := s.SnapshotPeerContacts(t.Context(), "peer-a")
+	if err != nil || len(snapshot) != 1 || snapshot[0].ID != first.Id {
+		t.Fatalf("SnapshotPeerContacts() = %#v, %v", snapshot, err)
+	}
+	if err := s.RetirePeerContact(t.Context(), snapshot[0]); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RetirePeerContact(t.Context(), snapshot[0]); err != nil {
+		t.Fatalf("replayed RetirePeerContact() error = %v", err)
+	}
+	if _, err := s.AdminGetContactByID(t.Context(), first.Id); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("retired Contact error = %v", err)
+	}
+	if got, err := s.AdminGetContactByID(t.Context(), foreign.Id); err != nil || got.OwnerPublicKey != "peer-b" {
+		t.Fatalf("foreign Contact = %#v, %v", got, err)
+	}
+}
+
 func TestPutAndDeleteContactAreSerialized(t *testing.T) {
 	s := newTestServer()
 	created, err := s.CreateContact(t.Context(), "peer-a", rpcapi.ContactCreateRequest{
@@ -365,6 +397,39 @@ func TestPutAndDeleteContactAreSerialized(t *testing.T) {
 	}
 	if _, err := s.GetContact(t.Context(), "peer-a", rpcapi.ContactGetRequest{Name: created.Name}); err != kv.ErrNotFound {
 		t.Fatalf("GetContact() after delete error = %v, want kv.ErrNotFound", err)
+	}
+}
+
+func TestContactMutationsRejectUnavailableOwner(t *testing.T) {
+	blocked := false
+	s := &Server{
+		Store: kv.NewMemory(nil),
+		NewID: func() string { return "contact001" },
+		PeerAvailability: func(context.Context, string) error {
+			if blocked {
+				return ErrPeerPendingDeletion
+			}
+			return nil
+		},
+	}
+	created, err := s.CreateContact(t.Context(), "peer-a", rpcapi.ContactCreateRequest{
+		Name: "alice001", DisplayName: new("Alice"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	blocked = true
+	if _, err := s.CreateContact(t.Context(), "peer-a", rpcapi.ContactCreateRequest{Name: "alice002", DisplayName: new("Alice 2")}); !errors.Is(err, ErrPeerPendingDeletion) {
+		t.Fatalf("CreateContact() error = %v, want pending deletion", err)
+	}
+	if _, err := s.PutContact(t.Context(), "peer-a", rpcapi.ContactPutRequest{Name: created.Name, DisplayName: new("Changed")}); !errors.Is(err, ErrPeerPendingDeletion) {
+		t.Fatalf("PutContact() error = %v, want pending deletion", err)
+	}
+	if _, err := s.DeleteContact(t.Context(), "peer-a", rpcapi.ContactDeleteRequest{Name: created.Name}); !errors.Is(err, ErrPeerPendingDeletion) {
+		t.Fatalf("DeleteContact() error = %v, want pending deletion", err)
+	}
+	if _, err := s.GetContact(t.Context(), "peer-a", rpcapi.ContactGetRequest{Name: created.Name}); err != nil {
+		t.Fatalf("failed mutation changed retained Contact: %v", err)
 	}
 }
 

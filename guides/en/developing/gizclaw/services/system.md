@@ -7,7 +7,7 @@
 ```text
 services/system/
 ├── ownership/         # owner context, owner index keys, and write rules
-├── pendingdeletion/   # durable pending-deletion handoff records
+├── pendingdeletion/   # durable pending-deletion tasks and managed processor
 ├── publiclogin/       # Public HTTP login, assertions, and sessions
 ├── resourcemanager/   # unified entry point for Admin declarative resources
 └── runtimeprofile/    # RuntimeProfile and RegistrationToken
@@ -21,7 +21,11 @@ Defines owner context and KV index conventions used by persisted resources. On t
 
 ### pendingdeletion
 
-Defines the versioned, backend-neutral `PendingDeletion` envelope. A domain deletion request atomically creates or reuses one minimal cleanup descriptor in that resource's physical store while retaining the active resource and its indexes. New records use a stable deletion ID derived from the resource locator, so retries address the same event instead of allocating another ID; legacy UUID records remain readable during upgrade. Peer, user Workspace, and Friend Group data cleanup handoffs use KV; Pet uses the gameplay SQL database. KV locator lookup supports kind and globally unique resource ID and explicitly rejects owner-scoped filters; the gameplay SQL source supports its owner-scoped locator. This package does not run workers, remove pending records, or expose resource payloads. Processing and physical removal belong to the managed cleanup service.
+Defines the versioned, backend-neutral `PendingDeletion` envelope, durable task/source contracts, registration, bounded scanning and workers, leases, replay phases, persisted retry state, and the operator list/get/retry service. A domain deletion request atomically creates or reuses one minimal cleanup descriptor in that resource's physical store while retaining the active resource and indexes. Stable locator-derived IDs make producer retries address the same event; the immutable marker fingerprint prevents an earlier generation or stale lease from mutating later work.
+
+The common processor contains no resource deletion policy and never marks a generic task complete after a handler returns. A domain handler revalidates its marker, current lease, and exact resource generation, then atomically removes the resource and its source-owned marker, locator, and task state. Outcomes are `deferred`, bounded retryable failure, or terminal `failed`; operator retry preserves the replay phase. Completed tasks disappear immediately without a receipt or history. The production registry contains `gameplay/pet`, `friend_group/friend_group`, `workspace/workspace`, and `peer/peer`; each source advertises only kinds for which it owns a registered handler. The Peer handler coordinates domains, but narrow domain adapters perform the actual cleanup. The Peer KV retains only its permanent tombstone after completion.
+
+Metrics report active depth, oldest active age, claims, active workers, phase latency, deferrals, retries, terminal failures, transition errors, and completions using bounded source/kind/status/phase/outcome labels. They never use resource IDs, owners, deletion IDs, descriptors, fingerprints, lease tokens, or error text as labels. Metrics storage failure cannot stop cleanup.
 
 ### runtimeprofile
 

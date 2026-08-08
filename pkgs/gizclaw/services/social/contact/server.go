@@ -16,13 +16,103 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
+const (
+	PeerPendingDeletionCode = "PEER_PENDING_DELETION"
+	PeerDeletedCode         = "PEER_DELETED"
+)
+
+var (
+	ErrPeerPendingDeletion = errors.New("social: Peer pending deletion")
+	ErrPeerDeleted         = errors.New("social: Peer deleted")
+)
+
 type Server struct {
-	Store kv.Store
+	Store            kv.Store
+	PeerAvailability func(context.Context, string) error
 
 	Now   func() time.Time
 	NewID func() string
 
 	mutationMu sync.Mutex
+}
+
+// PeerRetirementContact is immutable authority for deleting one owner-scoped
+// Contact during account retirement.
+type PeerRetirementContact struct {
+	Owner string `json:"owner"`
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+}
+
+func (s *Server) SnapshotPeerContacts(ctx context.Context, owner string) ([]PeerRetirementContact, error) {
+	store, err := s.store()
+	if err != nil {
+		return nil, err
+	}
+	if err := socialutil.RequireOwner(owner); err != nil {
+		return nil, err
+	}
+	if owner != strings.TrimSpace(owner) {
+		return nil, errors.New("social: Peer public key must be canonical")
+	}
+	s.mutationMu.Lock()
+	defer s.mutationMu.Unlock()
+	var out []PeerRetirementContact
+	for entry, err := range store.List(ctx, socialutil.OwnerPrefix(socialutil.ContactsRoot, owner)) {
+		if err != nil {
+			return nil, err
+		}
+		var item rpcapi.ContactObject
+		if err := json.Unmarshal(entry.Value, &item); err != nil {
+			return nil, err
+		}
+		id := socialutil.UnescapeStoreSegment(entry.Key[len(entry.Key)-1])
+		if err := customid.ValidateResourceID(id); err != nil || item.Name == "" || item.Name != strings.TrimSpace(item.Name) {
+			return nil, errors.New("social: invalid Contact in Peer retirement snapshot")
+		}
+		out = append(out, PeerRetirementContact{Owner: owner, ID: id, Name: item.Name})
+	}
+	return out, nil
+}
+
+func (s *Server) RetirePeerContact(ctx context.Context, snapshot PeerRetirementContact) error {
+	store, err := s.store()
+	if err != nil {
+		return err
+	}
+	if err := socialutil.RequireOwner(snapshot.Owner); err != nil {
+		return err
+	}
+	if err := customid.ValidateResourceID(snapshot.ID); err != nil || snapshot.Name == "" || snapshot.Name != strings.TrimSpace(snapshot.Name) {
+		return errors.New("social: invalid Contact Peer retirement snapshot")
+	}
+	s.mutationMu.Lock()
+	defer s.mutationMu.Unlock()
+	item, err := socialutil.ReadJSONValue[rpcapi.ContactObject](ctx, store, socialutil.ContactKey(snapshot.Owner, snapshot.ID))
+	if errors.Is(err, kv.ErrNotFound) {
+		owner, indexErr := store.Get(ctx, socialutil.ContactIDKey(snapshot.ID))
+		if errors.Is(indexErr, kv.ErrNotFound) {
+			return nil
+		}
+		if indexErr != nil {
+			return indexErr
+		}
+		if string(owner) != snapshot.Owner {
+			return errors.New("social: Contact ID belongs to a replacement owner")
+		}
+		return errors.New("social: Contact retirement is incomplete")
+	}
+	if err != nil {
+		return err
+	}
+	if item.Name != snapshot.Name {
+		return errors.New("social: Contact no longer matches Peer retirement snapshot")
+	}
+	return store.BatchDelete(ctx, []kv.Key{
+		socialutil.ContactKey(snapshot.Owner, snapshot.ID),
+		socialutil.ContactNameKey(snapshot.Owner, snapshot.Name),
+		socialutil.ContactIDKey(snapshot.ID),
+	})
 }
 
 func (s *Server) ListContacts(ctx context.Context, owner string, req rpcapi.ContactListRequest) (rpcapi.ContactListResponse, error) {
@@ -200,6 +290,9 @@ func (s *Server) createContact(ctx context.Context, owner, id, name string, disp
 	if err := socialutil.RequireOwner(owner); err != nil {
 		return rpcapi.ContactObject{}, err
 	}
+	if err := s.ensurePeerAvailable(ctx, owner); err != nil {
+		return rpcapi.ContactObject{}, err
+	}
 	rawName := name
 	name = strings.TrimSpace(name)
 	if err := customid.ValidateResourceID(id); err != nil {
@@ -218,6 +311,9 @@ func (s *Server) createContact(ctx context.Context, owner, id, name string, disp
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
+	if err := s.ensurePeerAvailable(ctx, owner); err != nil {
+		return rpcapi.ContactObject{}, err
+	}
 	if _, err := store.Get(ctx, socialutil.ContactKey(owner, id)); err == nil {
 		return rpcapi.ContactObject{}, fmt.Errorf("%w: contact id %q", socialutil.ErrResourceAlreadyExists, id)
 	} else if !errors.Is(err, kv.ErrNotFound) {
@@ -278,6 +374,9 @@ func (s *Server) putContactByID(ctx context.Context, owner, id string, displayNa
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
+	if err := s.ensurePeerAvailable(ctx, owner); err != nil {
+		return rpcapi.ContactObject{}, err
+	}
 	item, err := socialutil.ReadJSONValue[rpcapi.ContactObject](ctx, store, socialutil.ContactKey(owner, id))
 	if err != nil {
 		return rpcapi.ContactObject{}, err
@@ -320,6 +419,9 @@ func (s *Server) deleteContactByID(ctx context.Context, owner, id string) (rpcap
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
+	if err := s.ensurePeerAvailable(ctx, owner); err != nil {
+		return rpcapi.ContactObject{}, err
+	}
 	item, err := socialutil.ReadJSONValue[rpcapi.ContactObject](ctx, store, socialutil.ContactKey(owner, id))
 	if err != nil {
 		return rpcapi.ContactObject{}, err
@@ -327,6 +429,13 @@ func (s *Server) deleteContactByID(ctx context.Context, owner, id string) (rpcap
 	return item, store.BatchDelete(ctx, []kv.Key{
 		socialutil.ContactKey(owner, id), socialutil.ContactNameKey(owner, item.Name), socialutil.ContactIDKey(id),
 	})
+}
+
+func (s *Server) ensurePeerAvailable(ctx context.Context, publicKey string) error {
+	if s == nil || s.PeerAvailability == nil {
+		return nil
+	}
+	return s.PeerAvailability(ctx, publicKey)
 }
 
 func (s *Server) ensureUniquePhone(ctx context.Context, owner, currentID, phone string) error {

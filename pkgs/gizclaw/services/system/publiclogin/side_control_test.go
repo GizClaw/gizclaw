@@ -252,6 +252,134 @@ func TestDeviceTokenManagementRequiresPrimaryPrincipal(t *testing.T) {
 	}
 }
 
+func TestDeviceTokenCreationRechecksAvailabilityInsideCredentialLock(t *testing.T) {
+	manager := NewSessionManager(kv.NewMemory(nil))
+	target := generateTestKeyPair(t).Public
+	calls := 0
+	manager.Authorizer = func(context.Context, giznet.PublicKey) error {
+		calls++
+		if calls == 2 {
+			return ErrPeerDeletionPending
+		}
+		return nil
+	}
+	if _, err := manager.CreateSideControlDeviceToken(t.Context(), target); !errors.Is(err, ErrPeerDeletionPending) {
+		t.Fatalf("CreateSideControlDeviceToken() error = %v, want pending deletion", err)
+	}
+	if calls != 2 {
+		t.Fatalf("authorizer calls = %d, want pre-lock and in-lock checks", calls)
+	}
+	for entry, err := range manager.Store.List(t.Context(), nil) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Fatalf("rejected device token persisted %v", entry.Key)
+	}
+}
+
+func TestSideControlLoginRechecksAvailabilityAtCredentialCommit(t *testing.T) {
+	serverKey := generateTestKeyPair(t)
+	controller := generateTestKeyPair(t)
+	target := generateTestKeyPair(t).Public
+	manager := NewSessionManager(kv.NewMemory(nil))
+	token, err := manager.CreateSideControlDeviceToken(t.Context(), target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertion, err := NewLoginAssertion(controller, serverKey.Public, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	manager.Authorizer = func(context.Context, giznet.PublicKey) error {
+		calls++
+		if calls == 3 {
+			return ErrPeerDeletionPending
+		}
+		return nil
+	}
+	if _, err := manager.loginSideControl(t.Context(), serverKey, controller.Public, assertion, token.Token); !errors.Is(err, ErrPeerDeletionPending) {
+		t.Fatalf("loginSideControl() error = %v, want pending deletion", err)
+	}
+	if calls != 3 {
+		t.Fatalf("authorizer calls = %d, want validation plus commit-boundary recheck", calls)
+	}
+
+	manager.Authorizer = nil
+	if _, err := manager.loginSideControl(t.Context(), serverKey, controller.Public, assertion, token.Token); err != nil {
+		t.Fatalf("rejected login mutated assertion or device token: %v", err)
+	}
+}
+
+func TestSideControlLoginSerializesCredentialCommitWithPeerCleanup(t *testing.T) {
+	serverKey := generateTestKeyPair(t)
+	controller := generateTestKeyPair(t)
+	target := generateTestKeyPair(t).Public
+	manager := NewSessionManager(kv.NewMemory(nil))
+	token, err := manager.CreateSideControlDeviceToken(t.Context(), target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertion, err := NewLoginAssertion(controller, serverKey.Public, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commitCheck := make(chan struct{})
+	allowCommit := make(chan struct{})
+	calls := 0
+	manager.Authorizer = func(ctx context.Context, _ giznet.PublicKey) error {
+		calls++
+		if calls == 3 {
+			close(commitCheck)
+			select {
+			case <-allowCommit:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		return nil
+	}
+	type loginResult struct {
+		result peerhttp.LoginResult
+		err    error
+	}
+	loginDone := make(chan loginResult, 1)
+	go func() {
+		result, err := manager.loginSideControl(t.Context(), serverKey, controller.Public, assertion, token.Token)
+		loginDone <- loginResult{result: result, err: err}
+	}()
+	<-commitCheck
+	if manager.mu.TryLock() {
+		manager.mu.Unlock()
+		close(allowCommit)
+		<-loginDone
+		t.Fatal("credential mutex was not held at the commit-boundary authorization check")
+	}
+	cleanupStarted := make(chan struct{})
+	cleanupDone := make(chan error, 1)
+	go func() {
+		close(cleanupStarted)
+		cleanupDone <- manager.CleanupPeer(t.Context(), target.String())
+	}()
+	<-cleanupStarted
+	select {
+	case err := <-cleanupDone:
+		t.Fatalf("CleanupPeer() bypassed credential commit lock: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(allowCommit)
+	login := <-loginDone
+	if login.err != nil {
+		t.Fatalf("loginSideControl() error = %v", login.err)
+	}
+	if err := <-cleanupDone; err != nil {
+		t.Fatalf("CleanupPeer() error = %v", err)
+	}
+	if _, err := manager.AuthenticatePrincipal("Bearer " + login.result.AccessToken); err == nil {
+		t.Fatal("side-control credential survived serialized peer cleanup")
+	}
+}
+
 func loginSideController(t *testing.T, server *Server, controller *giznet.KeyPair, deviceToken string) peerhttp.Login200JSONResponse {
 	t.Helper()
 	assertion, err := NewLoginAssertion(controller, server.KeyPair.Public, time.Minute)
