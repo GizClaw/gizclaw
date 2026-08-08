@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 
-const slotKeys = ["develop", "beta", "stable", "pending"] as const;
+const slotKeys = ["develop", "beta", "stable"] as const;
 
 type SlotKey = (typeof slotKeys)[number];
 
@@ -130,7 +130,7 @@ export function FirmwareEditor({
           <CardHeader>
             <CardTitle>Firmware Slots</CardTitle>
             <CardDescription>
-              Release channels are edited per slot and saved together.
+              Stable, beta, and develop are edited directly and saved together.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -371,7 +371,7 @@ function SlotEditDialog({
 
 export function emptyFirmwareForm(): FirmwareFormState {
   return {
-    description: "Firmware release line",
+    description: "Firmware channel configuration",
     id: "new-firmware",
     slots: emptySlots(),
   };
@@ -392,7 +392,6 @@ export function formToUpsert(form: FirmwareFormState): FirmwareUpsert {
     slots: {
       beta: slotToUpsert(form.slots.beta),
       develop: slotToUpsert(form.slots.develop),
-      pending: slotToUpsert(form.slots.pending),
       stable: slotToUpsert(form.slots.stable),
     },
   };
@@ -402,7 +401,6 @@ function emptySlots(): FirmwareFormState["slots"] {
   return {
     beta: {},
     develop: {},
-    pending: {},
     stable: {},
   };
 }
@@ -413,7 +411,6 @@ function normalizeSlots(
   return {
     beta: slots.beta ?? {},
     develop: slots.develop ?? {},
-    pending: slots.pending ?? {},
     stable: slots.stable ?? {},
   };
 }

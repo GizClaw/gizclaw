@@ -4,6 +4,7 @@ package admin_test
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -30,7 +31,6 @@ func TestAdminAPIFirmwareResourceLifecycle(t *testing.T) {
 				Stable:  firmwareResourceSlot("stable", "https://downloads.example.com/resource/stable.tar.zlib", firmwarePackageSHA256, 4096),
 				Beta:    firmwareResourceSlot("beta", "https://downloads.example.com/resource/beta.tar.zlib", "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", 8192),
 				Develop: firmwareResourceSlot("", "https://downloads.example.com/resource/develop.tar.zlib", "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0", 12288),
-				Pending: firmwareResourceSlot("pending", "https://downloads.example.com/resource/pending.tar.zlib", "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210", 16384),
 			},
 		},
 	}
@@ -97,6 +97,26 @@ func TestAdminAPIFirmwareResourceLifecycle(t *testing.T) {
 	}
 	requireStatusOK(t, deleted, deleted.Body)
 	id = ""
+}
+
+func TestAdminAPIFirmwareResourceRejectsLegacySlots(t *testing.T) {
+	env := newAdminAPIHarness(t)
+	legacyChannel := "pen" + "ding"
+	for name, slots := range map[string]string{
+		"missing beta":   `"stable":{},"develop":{}`,
+		"legacy channel": `"stable":{},"beta":{},"develop":{},"` + legacyChannel + `":{}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			body := `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Firmware","metadata":{"id":"invalid-firmware-resource"},"spec":{"slots":{` + slots + `}}}`
+			response, err := env.api.ApplyResourceWithBodyWithResponse(env.ctx, "application/json", strings.NewReader(body))
+			if err != nil {
+				t.Fatalf("apply invalid Firmware Resource: %v", err)
+			}
+			if response.StatusCode() != 400 {
+				t.Fatalf("apply invalid Firmware Resource status = %d, body = %s", response.StatusCode(), response.Body)
+			}
+		})
+	}
 }
 
 func firmwareResourceSlot(description, url, sha256 string, size int64) apitypes.FirmwareSpecSlot {

@@ -208,6 +208,29 @@ func TestPeerIdentityMessagesUseCompactNameOnlyLayouts(t *testing.T) {
 	}
 }
 
+func TestFirmwareChannelRetiredValueIsUnknown(t *testing.T) {
+	descriptor := rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_UNSPECIFIED.Descriptor()
+	if retired := descriptor.Values().ByNumber(4); retired != nil {
+		t.Fatalf("retired Firmware channel value 4 is still registered as %s", retired.Name())
+	}
+	if descriptor.ReservedRanges().Len() != 0 || descriptor.ReservedNames().Len() != 0 {
+		t.Fatalf("Firmware channel compatibility reservations = ranges:%v names:%v", descriptor.ReservedRanges(), descriptor.ReservedNames())
+	}
+
+	data, err := proto.Marshal(&rpcpb.FirmwareGetRequest{Channel: rpcpb.FirmwareChannelName(4)})
+	if err != nil {
+		t.Fatalf("marshal retired Firmware channel: %v", err)
+	}
+	payload := newRPCPayload("FirmwareGetRequest", data, true)
+	request, err := payload.AsFirmwareGetRequest()
+	if err != nil {
+		t.Fatalf("decode retired Firmware channel: %v", err)
+	}
+	if request.Channel.Valid() {
+		t.Fatalf("retired Firmware channel decoded as valid %q", request.Channel)
+	}
+}
+
 func TestRPCMethodsIntentionallyReuseRetiredValuesWithoutCompatibilityReservations(t *testing.T) {
 	descriptor := rpcpb.RpcMethod_RPC_METHOD_UNSPECIFIED.Descriptor()
 	if method23 := descriptor.Values().ByNumber(23); method23 != nil {

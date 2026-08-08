@@ -115,7 +115,6 @@ func firmwareSpecSlots(slots apitypes.FirmwareSlots) apitypes.FirmwareSpecSlots 
 		Stable:  firmwareSpecSlot(slots.Stable),
 		Beta:    firmwareSpecSlot(slots.Beta),
 		Develop: firmwareSpecSlot(slots.Develop),
-		Pending: firmwareSpecSlot(slots.Pending),
 	}
 }
 
@@ -131,7 +130,6 @@ func firmwareRuntimeSlots(slots apitypes.FirmwareSpecSlots) apitypes.FirmwareSlo
 		Stable:  firmwareRuntimeSlot(slots.Stable),
 		Beta:    firmwareRuntimeSlot(slots.Beta),
 		Develop: firmwareRuntimeSlot(slots.Develop),
-		Pending: firmwareRuntimeSlot(slots.Pending),
 	}
 }
 

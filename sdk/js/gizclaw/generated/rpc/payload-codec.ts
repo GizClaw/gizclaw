@@ -35,7 +35,7 @@ export type DoubaoRealtimeDuplexWorkspaceParametersAgentType = "" | "doubao-real
 export type DoubaoRealtimeFunctionToolType = "" | "function" | "unspecified" | number;
 export type DoubaoRealtimeWorkspaceParametersAgentType = "" | "doubao-realtime" | "unspecified" | number;
 export type EinoWorkspaceParametersAgentType = "" | "eino" | "unspecified" | number;
-export type FirmwareChannelName = "" | "beta" | "develop" | "pending" | "stable" | "unspecified" | number;
+export type FirmwareChannelName = "" | "beta" | "develop" | "stable" | "unspecified" | number;
 export type FlowcraftConversationParametersAgentInitiativePolicy = "" | "on_reload" | "once_when_empty" | "unspecified" | number;
 export type FlowcraftConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
 export type FlowcraftWorkspaceParametersAgentType = "" | "flowcraft" | "unspecified" | number;
@@ -7677,7 +7677,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
     "byName": {
       "beta": 2,
       "develop": 3,
-      "pending": 4,
       "stable": 1,
       "unspecified": 0
     },
@@ -7685,8 +7684,7 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "0": "",
       "1": "stable",
       "2": "beta",
-      "3": "develop",
-      "4": "pending"
+      "3": "develop"
     }
   },
   "FlowcraftConversationParametersAgentInitiativePolicy": {

@@ -404,20 +404,16 @@ class FirmwareChannelName extends $pb.ProtobufEnum {
   static const FirmwareChannelName FIRMWARE_CHANNEL_NAME_DEVELOP =
       FirmwareChannelName._(
           3, _omitEnumNames ? '' : 'FIRMWARE_CHANNEL_NAME_DEVELOP');
-  static const FirmwareChannelName FIRMWARE_CHANNEL_NAME_PENDING =
-      FirmwareChannelName._(
-          4, _omitEnumNames ? '' : 'FIRMWARE_CHANNEL_NAME_PENDING');
 
   static const $core.List<FirmwareChannelName> values = <FirmwareChannelName>[
     FIRMWARE_CHANNEL_NAME_UNSPECIFIED,
     FIRMWARE_CHANNEL_NAME_STABLE,
     FIRMWARE_CHANNEL_NAME_BETA,
     FIRMWARE_CHANNEL_NAME_DEVELOP,
-    FIRMWARE_CHANNEL_NAME_PENDING,
   ];
 
   static final $core.List<FirmwareChannelName?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 4);
+      $pb.ProtobufEnum.$_initByValueList(values, 3);
   static FirmwareChannelName? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

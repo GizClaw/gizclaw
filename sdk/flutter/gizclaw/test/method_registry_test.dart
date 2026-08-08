@@ -23,7 +23,6 @@ void main() {
       FirmwareChannelName.FIRMWARE_CHANNEL_NAME_STABLE,
       FirmwareChannelName.FIRMWARE_CHANNEL_NAME_BETA,
       FirmwareChannelName.FIRMWARE_CHANNEL_NAME_DEVELOP,
-      FirmwareChannelName.FIRMWARE_CHANNEL_NAME_PENDING,
     ];
     for (final channel in channels) {
       final request = FirmwareGetRequest(channel: channel);
@@ -37,9 +36,9 @@ void main() {
     }
 
     final response = FirmwareGetResponse(
-      channel: FirmwareChannelName.FIRMWARE_CHANNEL_NAME_PENDING,
-      description: 'candidate package',
-      url: 'https://firmware.example.invalid/devkit/pending.tar.zlib',
+      channel: FirmwareChannelName.FIRMWARE_CHANNEL_NAME_STABLE,
+      description: 'stable package',
+      url: 'https://firmware.example.invalid/devkit/stable.tar.zlib',
       sha256:
           '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
       size: Int64(9007199254740991),

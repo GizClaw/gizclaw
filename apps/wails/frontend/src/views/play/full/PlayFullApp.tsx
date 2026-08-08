@@ -6227,13 +6227,11 @@ function FirmwaresPanel({
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {(["stable", "beta", "develop", "pending"] as const).map(
-                  (value) => (
-                    <SelectItem key={value} value={value}>
-                      {value}
-                    </SelectItem>
-                  ),
-                )}
+                {(["stable", "beta", "develop"] as const).map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {value}
+                  </SelectItem>
+                ))}
               </SelectGroup>
             </SelectContent>
           </Select>

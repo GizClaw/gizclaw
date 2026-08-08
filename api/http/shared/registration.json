@@ -32,7 +32,7 @@
           },
           "firmware_id": {
             "type": "string",
-            "description": "Optional configured caller-defined Firmware release-line ID. Channel selection remains device-owned."
+            "description": "Optional configured caller-defined Firmware ID. Channel selection remains device-owned."
           },
           "device": {
             "$ref": "./device_info.json#/components/schemas/DeviceInfo"

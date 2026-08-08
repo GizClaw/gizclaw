@@ -21,7 +21,7 @@ func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
 	firmwarePath := filepath.Join(h.SandboxDir, "firmware.json")
 	writeAdminFixture(t, firmwarePath, `{
   "id":"devkit",
-  "slots":{"stable":{},"beta":{},"develop":{},"pending":{}}
+  "slots":{"stable":{},"beta":{},"develop":{}}
 }`)
 	firmware := h.RunCLI("admin", "firmwares", "create", "-f", firmwarePath, "--context", "admin-a")
 	firmware.MustSucceed(t)

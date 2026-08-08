@@ -872,7 +872,6 @@ func CSDKFirmwareRPC(t *testing.T, identityDir, registrationToken string) {
 		{Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_STABLE, HasDescription: true, Description: "Devkit stable package", URL: "https://firmware.example.invalid/devkit/stable.tar.zlib", SHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", Size: 4096},
 		{Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_BETA, HasDescription: true, Description: "Devkit beta package", URL: "https://firmware.example.invalid/devkit/beta.tar.zlib", SHA256: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", Size: 8192},
 		{Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_DEVELOP, URL: "https://firmware.example.invalid/devkit/develop.tar.zlib", SHA256: "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0", Size: 12288},
-		{Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_PENDING, HasDescription: true, Description: "Devkit pending package", URL: "https://firmware.example.invalid/devkit/pending.tar.zlib", SHA256: "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210", Size: 16384},
 	}
 	CSDKFirmwareRPCPackages(t, identityDir, registrationToken, wants)
 }

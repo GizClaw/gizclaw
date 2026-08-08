@@ -3,7 +3,9 @@
 package admin_test
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -65,14 +67,6 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 					Size:   7168,
 				},
 			},
-			Pending: apitypes.FirmwareSlot{
-				Description: ptr("pending package"),
-				Package: &apitypes.FirmwarePackage{
-					Url:    "https://downloads.example.com/firmware/pending.tar.zlib?build=2",
-					Sha256: firmwarePackageSHA256,
-					Size:   8192,
-				},
-			},
 		},
 	}
 	created, err := env.api.CreateFirmwareWithResponse(env.ctx, upsert)
@@ -130,22 +124,33 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 	listedFirmware := requireName(t, listed, name, func(item apitypes.Firmware) string { return item.Id })
 	requireFirmwareSlots(t, listedFirmware.Slots, upsert.Slots)
 
-	released, err := env.api.ReleaseFirmwareWithResponse(env.ctx, created.JSON200.Id)
-	if err != nil {
-		t.Fatalf("release firmware: %v", err)
-	}
-	requireStatusOK(t, released, released.Body)
-	if released.JSON200 == nil || released.JSON200.Slots.Stable.Package == nil || released.JSON200.Slots.Stable.Package.Size != 8192 || released.JSON200.Slots.Beta.Package == nil || released.JSON200.Slots.Beta.Package.Size != 4096 {
-		t.Fatalf("release firmware = %#v", released.JSON200)
-	}
-
-	rolledBack, err := env.api.RollbackFirmwareWithResponse(env.ctx, created.JSON200.Id)
-	if err != nil {
-		t.Fatalf("rollback firmware: %v", err)
-	}
-	requireStatusOK(t, rolledBack, rolledBack.Body)
-	if rolledBack.JSON200 == nil || rolledBack.JSON200.Slots.Stable.Package == nil || rolledBack.JSON200.Slots.Stable.Package.Size != 4096 {
-		t.Fatalf("rollback firmware = %#v", rolledBack.JSON200)
+	legacyChannel := "pen" + "ding"
+	for name, slots := range map[string]string{
+		"missing develop": `"stable":{},"beta":{}`,
+		"legacy channel":  `"stable":{},"beta":{},"develop":{},"` + legacyChannel + `":{}`,
+		"unknown canary":  `"stable":{},"beta":{},"develop":{},"canary":{}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			invalidID := mutationName("firmware-shape-" + strings.ReplaceAll(name, " ", "-"))
+			response, requestErr := env.api.CreateFirmwareWithBodyWithResponse(
+				env.ctx,
+				"application/json",
+				strings.NewReader(fmt.Sprintf(`{"id":%q,"slots":{%s}}`, invalidID, slots)),
+			)
+			if requestErr != nil {
+				t.Fatalf("create invalid Firmware shape: %v", requestErr)
+			}
+			if response.StatusCode() != 400 {
+				t.Fatalf("create invalid Firmware shape status = %d, body = %s", response.StatusCode(), response.Body)
+			}
+			got, getErr := env.api.GetFirmwareWithResponse(env.ctx, invalidID)
+			if getErr != nil {
+				t.Fatalf("get rejected Firmware: %v", getErr)
+			}
+			if got.StatusCode() != 404 {
+				t.Fatalf("rejected Firmware was persisted: status=%d body=%s", got.StatusCode(), got.Body)
+			}
+		})
 	}
 
 	invalidName := mutationName("firmware-invalid")

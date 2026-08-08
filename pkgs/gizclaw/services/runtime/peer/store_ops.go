@@ -32,7 +32,7 @@ func isPeerTombstone(data []byte) bool {
 	return bytes.Equal(data, encodedPeerTombstone)
 }
 
-// BindFirmware persists the Server-assigned Firmware release line for a Peer.
+// BindFirmware persists the Server-assigned Firmware ID for a Peer.
 // Firmware channel selection remains device-owned and is not stored here.
 func (s *Server) BindFirmware(ctx context.Context, publicKey giznet.PublicKey, firmwareID string) (apitypes.Peer, error) {
 	if publicKey.IsZero() {

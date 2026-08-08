@@ -374,36 +374,6 @@ func DeleteFirmware(ctx context.Context, c *gizcli.Client, id string) (apitypes.
 	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func ReleaseFirmware(ctx context.Context, c *gizcli.Client, id string) (apitypes.Firmware, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.Firmware{}, err
-	}
-	resp, err := api.ReleaseFirmwareWithResponse(ctx, id)
-	if err != nil {
-		return apitypes.Firmware{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON409, resp.JSON500)
-}
-
-func RollbackFirmware(ctx context.Context, c *gizcli.Client, id string) (apitypes.Firmware, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.Firmware{}, err
-	}
-	resp, err := api.RollbackFirmwareWithResponse(ctx, id)
-	if err != nil {
-		return apitypes.Firmware{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON409, resp.JSON500)
-}
-
 func UploadPetDefPixa(ctx context.Context, c *gizcli.Client, id string, body io.Reader) (apitypes.PetDef, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {

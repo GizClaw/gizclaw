@@ -42,12 +42,11 @@ test.beforeEach(async ({ page }) => {
     };
     const firmware = {
       created_at: "2026-07-01T00:00:00Z",
-      description: "Devkit firmware line",
+      description: "Devkit firmware channels",
       id: "devkit-firmware-main",
       slots: {
         beta: {},
         develop: {},
-        pending: {},
         stable: {
           description: "stable package",
           package: {
@@ -338,6 +337,9 @@ test("admin firmware editor persists and renders an exact channel package", asyn
   await expect(
     page.getByRole("heading", { name: "devkit-firmware-main" }),
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Release" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Rollback" })).toHaveCount(0);
+  await expect(page.getByRole("cell", { name: "pen" + "ding" })).toHaveCount(0);
 
   await page.getByRole("tab", { name: "Edit" }).click();
   await page.getByRole("button", { name: "Edit beta slot" }).click();

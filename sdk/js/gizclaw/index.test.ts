@@ -866,7 +866,7 @@ test("RPC payload codec rejects unknown enum strings", () => {
 });
 
 test("Firmware RPC generated contract round-trips every channel and field", () => {
-  for (const channel of ["stable", "beta", "develop", "pending"] as const) {
+  for (const channel of ["stable", "beta", "develop"] as const) {
     const request = { channel };
     assert.deepEqual(
       decodeRPCRequestPayload(
@@ -878,11 +878,11 @@ test("Firmware RPC generated contract round-trips every channel and field", () =
   }
 
   const response = {
-    channel: "pending" as const,
-    description: "candidate package",
+    channel: "stable" as const,
+    description: "stable package",
     sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     size: Number.MAX_SAFE_INTEGER,
-    url: "https://firmware.example.invalid/devkit/pending.tar.zlib",
+    url: "https://firmware.example.invalid/devkit/stable.tar.zlib",
   };
   assert.deepEqual(
     decodeRPCResponsePayload(
@@ -905,6 +905,13 @@ test("Firmware RPC generated contract round-trips every channel and field", () =
 
   assert.equal(RPC_METHOD_IDS["server.firmware.get"], 22);
   assert.equal("server.firmware.download" in RPC_METHODS, false);
+  assert.throws(
+    () =>
+      encodeRPCRequestPayload("server.firmware.get", {
+        channel: "pending" as never,
+      }),
+    /unknown protobuf enum value for FirmwareChannelName: pending/,
+  );
 });
 
 test("WebRTCRPCClient reassembles response frames split across messages", async () => {

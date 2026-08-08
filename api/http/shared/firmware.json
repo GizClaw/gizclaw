@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Firmware Type",
-    "description": "Firmware release line schema.",
+    "description": "Declarative Firmware channel schema.",
     "version": "1.0.0"
   },
   "paths": {},
@@ -22,7 +22,7 @@
           },
           "description": {
             "type": "string",
-            "example": "Devkit firmware line"
+            "example": "Devkit firmware channels"
           },
           "slots": {
             "$ref": "./firmware_slots.json#/components/schemas/FirmwareSlots"
