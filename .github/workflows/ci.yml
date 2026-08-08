@@ -276,7 +276,7 @@ jobs:
       contents: read
     services:
       clickhouse:
-        image: clickhouse/clickhouse-server:25.8
+        image: clickhouse/clickhouse-server:25.8@sha256:aec6fb9892becb6a20eb8d57708b8cf9c777b2ad1f4eb70bbece7a70eaed9fd0
         env:
           CLICKHOUSE_USER: gizclaw
           CLICKHOUSE_PASSWORD: gizclaw

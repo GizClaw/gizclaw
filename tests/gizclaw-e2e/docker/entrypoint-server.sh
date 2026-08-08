@@ -87,7 +87,7 @@ function quote_yaml(value) {
   print "      access_key_id: " quote_yaml(access_key_id)
   print "      access_key_secret: " quote_yaml(access_key_secret)
   print ""
-  print
+  print $0
   next
 }
 /^services:/ {
@@ -97,7 +97,7 @@ function quote_yaml(value) {
   print "    volc:"
   print "      topic_id: " quote_yaml(topic_id)
   print ""
-  print
+  print $0
   next
 }
 /^  system_log:/ {
