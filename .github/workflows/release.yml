@@ -63,7 +63,7 @@ jobs:
           source_epoch="$(git show -s --format=%ct "$source_commit")"
           if [[ "$mode" != semver ]]; then
             tag=latest
-            version="0.0.0~main.${source_epoch}+${source_commit:0:12}"
+            version="0.0.0+main.${source_epoch}.${source_commit:0:12}"
           fi
           {
             echo "mode=$mode"

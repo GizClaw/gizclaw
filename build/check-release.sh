@@ -59,7 +59,7 @@ assert_inventory() {
 }
 
 if [[ "$requested_mode" == snapshot ]]; then
-  [[ "$version" =~ ^0\.0\.0~main\.[0-9]+\+[0-9a-f]{12}$ ]] || { echo "invalid canonical main snapshot Debian version" >&2; exit 2; }
+  [[ "$version" =~ ^0\.0\.0\+main\.[0-9]+\.[0-9a-f]{12}$ ]] || { echo "invalid canonical main snapshot Debian version" >&2; exit 2; }
 else
   [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "invalid canonical SemVer tag" >&2; exit 2; }
   version="${tag#v}"

@@ -110,7 +110,7 @@ commit/describe。Native package 是否可用仍以对应 package 的 build/runt
 `release-manifest.json` 和 `SHA256SUMS`，都不发布 Linux raw executable。正式
 Release 的 `gizclaw_<version>_{amd64,arm64}.deb` 从 tag 取得 `<version>`；
 `latest` 使用确定性的 Debian version
-`0.0.0~main.<source-epoch>+<12-character-source-commit>`，使每个滚动 snapshot
+`0.0.0+main.<source-epoch>.<12-character-source-commit>`，使每个滚动 snapshot
 的 package metadata 仍绑定到精确 source commit。
 
 对于正式 Release，Git tag 是唯一 source version：它同时是 Go module version 与

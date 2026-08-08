@@ -39,7 +39,7 @@ trap 'rm -rf "$fixture_root"' EXIT
 tag=v0.0.0
 version=0.0.0
 source_commit=1111111111111111111111111111111111111111
-snapshot_version=0.0.0~main.1+111111111111
+snapshot_version=0.0.0+main.1.111111111111
 fixture_binary="$(type -P true)"
 [[ -n "$fixture_binary" ]] || { echo "could not locate the true executable" >&2; exit 2; }
 
@@ -118,6 +118,8 @@ expect_failure "snapshot symlink" "$repo_root/build/check-release.sh" \
 
 expect_failure "snapshot version is not canonical" "$repo_root/build/check-release.sh" \
   snapshot "$snapshot" 0.0.0-main.1+111111111111 "$source_commit"
+expect_failure "snapshot version contains a GitHub-normalized tilde" "$repo_root/build/check-release.sh" \
+  snapshot "$snapshot" 0.0.0~main.1+111111111111 "$source_commit"
 
 payloads="$fixture_root/formal"
 make_formal_payloads "$payloads"

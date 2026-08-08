@@ -116,7 +116,7 @@ Both channels contain exactly two Debian packages, the two Darwin executables,
 executables. A formal Release uses `<version>` from its tag in
 `gizclaw_<version>_{amd64,arm64}.deb`. A `latest` package uses the
 deterministic Debian version
-`0.0.0~main.<source-epoch>+<12-character-source-commit>` so each moving snapshot
+`0.0.0+main.<source-epoch>.<12-character-source-commit>` so each moving snapshot
 still has package metadata bound to its exact source commit.
 
 For formal releases, the Git tag is the only source version. It is both the Go

@@ -26,7 +26,7 @@ go_module_version="$tag"
 if [[ "$tag" == latest ]]; then
   release_channel=snapshot
   go_module_version=
-  [[ "$debian_version" =~ ^0\.0\.0~main\.[0-9]+\+[0-9a-f]{12}$ ]] || {
+  [[ "$debian_version" =~ ^0\.0\.0\+main\.[0-9]+\.[0-9a-f]{12}$ ]] || {
     echo "invalid canonical main snapshot Debian version" >&2
     exit 2
   }
