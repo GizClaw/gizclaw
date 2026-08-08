@@ -3,6 +3,7 @@ package doubaorealtime
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 )
@@ -35,6 +36,7 @@ type Config struct {
 	ASRExtra          *doubaospeech.RealtimeASRExtra
 	TTSExtra          *doubaospeech.RealtimeTTSExtra
 	BotName           string
+	Instructions      string
 	SystemRole        string
 	VADWindow         int
 	SpeakingStyle     string
@@ -50,6 +52,9 @@ type Config struct {
 func New(config Config) (*Transformer, error) {
 	if config.Client == nil {
 		return nil, fmt.Errorf("doubao realtime: client is required")
+	}
+	if strings.TrimSpace(config.Model) == "" {
+		return nil, fmt.Errorf("doubao realtime: model is required")
 	}
 	config, err := cloneConfig(config)
 	if err != nil {
@@ -94,6 +99,9 @@ func New(config Config) (*Transformer, error) {
 	}
 	if config.BotName != "" {
 		opts = append(opts, withBotName(config.BotName))
+	}
+	if config.Instructions != "" {
+		opts = append(opts, withInstructions(config.Instructions))
 	}
 	if config.SystemRole != "" {
 		opts = append(opts, withSystemRole(config.SystemRole))

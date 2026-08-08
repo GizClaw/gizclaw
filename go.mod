@@ -9,7 +9,7 @@ replace github.com/pion/webrtc/v4 => github.com/GizClaw/pion-webrtc/v4 v4.0.0-20
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.47.0
 	github.com/GizClaw/dashscope-realtime-go v0.0.0-20260719062052-bf38cd23188e
-	github.com/GizClaw/doubao-speech-go v0.0.0-20260627203027-6f08ce8eb502
+	github.com/GizClaw/doubao-speech-go v0.0.0-20260808111617-550e142b360f
 	github.com/GizClaw/flowcraft/memory v0.1.7
 	github.com/GizClaw/flowcraft/sdk v0.4.8
 	github.com/GizClaw/flowcraft/sdkx v0.4.10

@@ -359,12 +359,115 @@ type doubaoRealtimePTTASRQueue struct {
 	generations []uint64
 }
 
+type doubaoRealtimeSpokenTransition struct {
+	text       []string
+	openAudio  bool
+	closeText  bool
+	closeAudio bool
+}
+
+type doubaoRealtimeSpokenResponse struct {
+	chatText     []string
+	ttsSelected  bool
+	chatFinished bool
+	ttsFinished  bool
+	textFinished bool
+	audioOpen    bool
+	audioClosed  bool
+}
+
+func (r *doubaoRealtimeSpokenResponse) chat(text string) doubaoRealtimeSpokenTransition {
+	if r == nil || strings.TrimSpace(text) == "" || r.ttsSelected || r.textFinished {
+		return doubaoRealtimeSpokenTransition{}
+	}
+	r.chatText = append(r.chatText, text)
+	return doubaoRealtimeSpokenTransition{}
+}
+
+func (r *doubaoRealtimeSpokenResponse) ttsStarted(text string) doubaoRealtimeSpokenTransition {
+	if r == nil || r.ttsFinished {
+		return doubaoRealtimeSpokenTransition{}
+	}
+	transition := doubaoRealtimeSpokenTransition{openAudio: r.openAudio()}
+	if strings.TrimSpace(text) == "" || r.textFinished {
+		return transition
+	}
+	if !r.ttsSelected {
+		r.ttsSelected = true
+		r.chatText = nil
+	}
+	transition.text = []string{text}
+	if r.ttsFinished {
+		r.textFinished = true
+		transition.closeText = true
+	}
+	return transition
+}
+
+func (r *doubaoRealtimeSpokenResponse) audioStarted() doubaoRealtimeSpokenTransition {
+	if r == nil || r.ttsFinished {
+		return doubaoRealtimeSpokenTransition{}
+	}
+	return doubaoRealtimeSpokenTransition{openAudio: r.openAudio()}
+}
+
+func (r *doubaoRealtimeSpokenResponse) finishTTS() doubaoRealtimeSpokenTransition {
+	if r == nil || r.ttsFinished {
+		return doubaoRealtimeSpokenTransition{}
+	}
+	r.ttsFinished = true
+	transition := doubaoRealtimeSpokenTransition{}
+	if r.audioOpen && !r.audioClosed {
+		r.audioClosed = true
+		transition.closeAudio = true
+	}
+	r.finishTextIfReady(&transition)
+	return transition
+}
+
+func (r *doubaoRealtimeSpokenResponse) finishChat() doubaoRealtimeSpokenTransition {
+	if r == nil || r.chatFinished {
+		return doubaoRealtimeSpokenTransition{}
+	}
+	r.chatFinished = true
+	transition := doubaoRealtimeSpokenTransition{}
+	r.finishTextIfReady(&transition)
+	return transition
+}
+
+func (r *doubaoRealtimeSpokenResponse) openAudio() bool {
+	if r.audioOpen || r.audioClosed {
+		return false
+	}
+	r.audioOpen = true
+	return true
+}
+
+func (r *doubaoRealtimeSpokenResponse) finishTextIfReady(transition *doubaoRealtimeSpokenTransition) {
+	if r.textFinished || !r.ttsFinished {
+		return
+	}
+	if r.ttsSelected {
+		r.textFinished = true
+		transition.closeText = true
+		return
+	}
+	if !r.chatFinished {
+		return
+	}
+	transition.text = append(transition.text, r.chatText...)
+	r.chatText = nil
+	r.textFinished = true
+	transition.closeText = true
+}
+
 type doubaoRealtimePTTResponse struct {
 	streamID   string
 	epoch      uint64
 	identity   doubaoRealtimePTTResponseIdentity
 	output     *realtimePTTOutputGate
 	completion *doubaoRealtimePTTCompletion
+	spoken     doubaoRealtimeSpokenResponse
 
 	ttsStarted  bool
 	ttsFinished bool
@@ -399,6 +502,7 @@ type doubaoRealtimeTextResponse struct {
 	ttsStarted  bool
 	ttsFinished bool
 	chatEnded   bool
+	spoken      doubaoRealtimeSpokenResponse
 }
 
 func (r *doubaoRealtimeTextResponse) done() bool {
@@ -450,6 +554,18 @@ func (q *doubaoRealtimeTextResponses) responseDone() (<-chan struct{}, bool) {
 		return nil, false
 	}
 	return q.done, true
+}
+
+func (q *doubaoRealtimeTextResponses) current() *doubaoRealtimeTextResponse {
+	if q == nil {
+		return nil
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if len(q.items) == 0 {
+		return nil
+	}
+	return q.items[0]
 }
 
 func (q *doubaoRealtimeTextResponses) markTTSStarted() {

@@ -174,6 +174,7 @@ func TestTransformerConfigSetsRealtimeSession(t *testing.T) {
 			},
 		}),
 		withBotName("bot"),
+		withInstructions("keep it brief"),
 		withSystemRole("brief"),
 		withSpeakingStyle("warm"),
 		withCharacterManifest("manifest"),
@@ -192,6 +193,9 @@ func TestTransformerConfigSetsRealtimeSession(t *testing.T) {
 	cfg := tfr.realtimeConfig()
 	if cfg.InputMode != doubaospeech.RealtimeInputModeText || cfg.Model != doubaospeech.RealtimeModelVersion("O") {
 		t.Fatalf("mode/model = %q/%q", cfg.InputMode, cfg.Model)
+	}
+	if cfg.Instructions != "keep it brief" {
+		t.Fatalf("instructions = %q, want keep it brief", cfg.Instructions)
 	}
 	if cfg.ASR.AudioInfo == nil ||
 		cfg.ASR.AudioInfo.Format != doubaospeech.FormatSpeechOpus ||
@@ -793,16 +797,13 @@ func TestTransformerEOSIsLocalInRealtimeMode(t *testing.T) {
 	}
 }
 
-func TestTransformerASRInfoInterruptsPendingAssistantOnce(t *testing.T) {
-	eventsDrained := make(chan struct{})
+func TestTransformerASRInfoHandsRealtimeInterruptionToReplacementWithoutProviderInterrupt(t *testing.T) {
 	allowEOF := make(chan struct{})
 	session := &fakeTransformerSession{
 		events: []*doubaospeech.RealtimeEvent{
 			{Type: doubaospeech.EventASREnded},
 			{Type: doubaospeech.EventASRInfo},
-			{Type: doubaospeech.EventASRInfo},
 		},
-		eventsDrained:    eventsDrained,
 		blockAfterEvents: make(chan struct{}),
 	}
 	tfr := newTransformer(nil, withMode(ModeRealtime))
@@ -811,16 +812,17 @@ func TestTransformerASRInfoInterruptsPendingAssistantOnce(t *testing.T) {
 	errCh := make(chan error, 1)
 	go func() { errCh <- runTransformerProcessLoop(t, tfr, input, output, session) }()
 	select {
-	case <-eventsDrained:
+	case err := <-errCh:
+		close(allowEOF)
+		if err != nil {
+			t.Fatalf("processLoop() error = %v", err)
+		}
 	case <-time.After(2 * time.Second):
-		t.Fatal("realtime events were not drained")
+		close(allowEOF)
+		t.Fatal("realtime interruption was not handed off")
 	}
-	close(allowEOF)
-	if err := <-errCh; err != nil {
-		t.Fatalf("processLoop() error = %v", err)
-	}
-	if got := session.interruptCount(); got != 1 {
-		t.Fatalf("Interrupt calls = %d, want 1", got)
+	if got := session.interruptCount(); got != 0 {
+		t.Fatalf("Interrupt calls = %d, want 0 outside push-to-talk", got)
 	}
 }
 
@@ -1050,6 +1052,77 @@ func TestTransformerTextDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	}
 }
 
+func TestTransformerTextPublishesTTSCanonicalTextWithSingleAudioRoute(t *testing.T) {
+	textSent := make(chan struct{})
+	session := &fakeTransformerSession{
+		beforeRecv:       textSent,
+		firstTextSent:    textSent,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventChatResponse, Text: "chat duplicate"},
+			{Type: doubaospeech.EventTTSStarted, Text: "first sentence"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}},
+			{Type: doubaospeech.EventTTSStarted, Text: "second sentence"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{3, 4}},
+			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSFinished},
+		},
+	}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(&fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}),
+		withMode(ModeText),
+		withFormat("pcm"),
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	output, err := tfr.transform(ctx, &sliceRealtimeStream{chunks: []*genx.MessageChunk{{Part: genx.Text("question")}}})
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	chunks := drainRealtimeTestOutput(t, output)
+	var texts []string
+	var audioBOS, audioEOS, textEOS int
+	var terminalOrder []string
+	streamID := ""
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.Role != genx.RoleModel || chunk.Ctrl == nil || chunk.Ctrl.Label != doubaoRealtimeAssistantLabel {
+			continue
+		}
+		if streamID == "" {
+			streamID = chunk.Ctrl.StreamID
+		} else if chunk.Ctrl.StreamID != streamID {
+			t.Fatalf("assistant StreamID = %q, want %q", chunk.Ctrl.StreamID, streamID)
+		}
+		switch part := chunk.Part.(type) {
+		case genx.Text:
+			if part != "" {
+				texts = append(texts, string(part))
+			}
+			if chunk.Ctrl.EndOfStream {
+				textEOS++
+				terminalOrder = append(terminalOrder, "text")
+			}
+		case *genx.Blob:
+			if chunk.Ctrl.BeginOfStream {
+				audioBOS++
+			}
+			if chunk.Ctrl.EndOfStream {
+				audioEOS++
+				terminalOrder = append(terminalOrder, "audio")
+			}
+		}
+	}
+	if !slices.Equal(texts, []string{"first sentence", "second sentence"}) {
+		t.Fatalf("assistant texts = %v, want only TTS source", texts)
+	}
+	if audioBOS != 1 || audioEOS != 1 || textEOS != 1 {
+		t.Fatalf("route terminals: audio BOS/EOS=%d/%d text EOS=%d, want 1/1/1", audioBOS, audioEOS, textEOS)
+	}
+	if !slices.Equal(terminalOrder, []string{"text", "audio"}) {
+		t.Fatalf("route terminal order = %v, want text before audio", terminalOrder)
+	}
+}
+
 func TestTransformerTextProviderLossClosesPartialResponseRoutes(t *testing.T) {
 	textSent := make(chan struct{})
 	session := &fakeTransformerSession{
@@ -1086,8 +1159,8 @@ func TestTransformerTextProviderLossClosesPartialResponseRoutes(t *testing.T) {
 	}
 
 	chunks := drainRealtimeTestOutput(t, output)
-	if !hasRealtimeTestText(chunks, genx.RoleModel, "partial answer") {
-		t.Fatalf("output missing partial assistant text: %#v", chunks)
+	if hasRealtimeTestText(chunks, genx.RoleModel, "partial answer") {
+		t.Fatalf("provider loss flushed buffered unspoken chat text: %#v", chunks)
 	}
 	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
 		t.Fatalf("output missing partial assistant audio: %#v", chunks)
@@ -1424,8 +1497,8 @@ func TestTransformerRealtimeInterruptHandsUnreadAudioToReplacementSession(t *tes
 	}
 
 	chunks := drainRealtimeTestOutput(t, output)
-	if got := first.interruptCount(); got != 1 {
-		t.Fatalf("first Interrupt calls = %d, want 1", got)
+	if got := first.interruptCount(); got != 0 {
+		t.Fatalf("first Interrupt calls = %d, want 0 outside push-to-talk", got)
 	}
 	if got := opener.dialogIDs(); !slices.Equal(got, []string{"dialog-1", "dialog-1"}) {
 		t.Fatalf("provider dialog IDs = %v, want stable dialog-1", got)
@@ -1591,8 +1664,8 @@ func TestTransformerInterruptsPendingResponseBeforeTTS(t *testing.T) {
 		close(releaseEvents)
 		t.Fatalf("processLoop() timed out: %v", ctx.Err())
 	}
-	if got := session.interruptCount(); got != 1 {
-		t.Fatalf("Interrupt calls = %d, want 1", got)
+	if got := session.interruptCount(); got != 0 {
+		t.Fatalf("Interrupt calls = %d, want 0 outside push-to-talk", got)
 	}
 	chunks := drainRealtimeTestOutput(t, output)
 	if !hasRealtimeInterruptedEOS(chunks, "turn-1:rt:1", genx.RoleModel, false) {

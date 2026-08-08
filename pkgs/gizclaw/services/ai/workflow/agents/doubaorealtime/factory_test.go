@@ -62,6 +62,7 @@ func TestFactoryUsesWorkflowDuplexConfig(t *testing.T) {
 		}},
 	})
 	params := testDoubaoRealtimeWorkspaceParameters(t, apitypes.DoubaoRealtimeWorkspaceParameters{
+		Instructions: new("工作区覆盖指令。"),
 		Audio: &apitypes.DoubaoRealtimeAudio{
 			Input: apitypes.DoubaoRealtimeAudioInput{Format: apitypes.DoubaoRealtimeAudioFormat{
 				Type: apitypes.DoubaoRealtimeAudioFormatType("speech_opus"),
@@ -88,7 +89,7 @@ func TestFactoryUsesWorkflowDuplexConfig(t *testing.T) {
 	}
 	query := patternQuery(t, got)
 	for key, want := range map[string]string{
-		"instructions":       "简短回答。",
+		"instructions":       "工作区覆盖指令。",
 		"input_format":       "speech_opus",
 		"input_sample_rate":  "16000",
 		"output_format":      "ogg_opus",

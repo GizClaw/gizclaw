@@ -2,11 +2,60 @@ package doubaorealtime
 
 import (
 	"io"
+	"reflect"
 	"sync"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
+
+func TestDoubaoRealtimeSpokenResponseSelectsTTSOnce(t *testing.T) {
+	var response doubaoRealtimeSpokenResponse
+	if got := response.chat("duplicate chat"); len(got.text) != 0 {
+		t.Fatalf("chat transition = %#v, want buffered", got)
+	}
+	first := response.ttsStarted("first sentence ")
+	if !first.openAudio || !reflect.DeepEqual(first.text, []string{"first sentence "}) {
+		t.Fatalf("first TTS transition = %#v", first)
+	}
+	second := response.ttsStarted("second sentence")
+	if second.openAudio || !reflect.DeepEqual(second.text, []string{"second sentence"}) {
+		t.Fatalf("second TTS transition = %#v", second)
+	}
+	if got := response.finishChat(); got.closeText || len(got.text) != 0 {
+		t.Fatalf("ChatEnded transition = %#v, want no output before TTS terminal", got)
+	}
+	finished := response.finishTTS()
+	if !finished.closeAudio || !finished.closeText || len(finished.text) != 0 {
+		t.Fatalf("TTSFinished transition = %#v", finished)
+	}
+	if got := response.finishTTS(); got.closeAudio || got.closeText || len(got.text) != 0 {
+		t.Fatalf("duplicate TTSFinished transition = %#v, want idempotent", got)
+	}
+	if got := response.ttsStarted("late sentence"); got.openAudio || got.closeText || len(got.text) != 0 {
+		t.Fatalf("late TTSStarted transition = %#v, want ignored after terminal", got)
+	}
+}
+
+func TestDoubaoRealtimeSpokenResponseFallsBackToChatAfterBothTerminals(t *testing.T) {
+	var response doubaoRealtimeSpokenResponse
+	response.chat("first ")
+	response.chat("second")
+	if got := response.finishChat(); got.closeText || len(got.text) != 0 {
+		t.Fatalf("ChatEnded transition = %#v, want buffered fallback", got)
+	}
+	if got := response.audioStarted(); !got.openAudio {
+		t.Fatalf("audio transition = %#v, want one BOS", got)
+	}
+	finished := response.finishTTS()
+	if !reflect.DeepEqual(finished.text, []string{"first ", "second"}) ||
+		!finished.closeText || !finished.closeAudio {
+		t.Fatalf("fallback transition = %#v", finished)
+	}
+	if got := response.finishChat(); got.closeText || len(got.text) != 0 {
+		t.Fatalf("duplicate ChatEnded transition = %#v, want idempotent", got)
+	}
+}
 
 type sliceRealtimeStream struct {
 	chunks []*genx.MessageChunk

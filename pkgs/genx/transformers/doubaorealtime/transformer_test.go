@@ -10,7 +10,10 @@ func TestNew(t *testing.T) {
 	if _, err := New(Config{}); err == nil {
 		t.Fatal("New(Config{}) succeeded without a client")
 	}
-	transformer, err := New(Config{Client: doubaospeech.NewClient("")})
+	if _, err := New(Config{Client: doubaospeech.NewClient("")}); err == nil {
+		t.Fatal("New() succeeded without a model")
+	}
+	transformer, err := New(Config{Client: doubaospeech.NewClient(""), Model: "O"})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -41,6 +44,7 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 		ASRExtra:          asr,
 		TTSExtra:          tts,
 		BotName:           "bot",
+		Instructions:      "instruction",
 		SystemRole:        "role",
 		VADWindow:         200,
 		SpeakingStyle:     "style",
@@ -69,10 +73,20 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 		transformer.sampleRate != 24000 || transformer.channels != 1 ||
 		transformer.inputFormat != "speech_opus" || transformer.inputSampleRate != 16000 ||
 		transformer.inputChannels != 1 || transformer.botName != "bot" ||
-		transformer.systemRole != "role" || transformer.vadWindowMs != 200 ||
+		transformer.instructions != "instruction" || transformer.systemRole != "role" || transformer.vadWindowMs != 200 ||
 		transformer.speakingStyle != "style" || transformer.characterManifest != "character" ||
 		transformer.dialogID != "dialog" || transformer.model != "O" || transformer.mode != ModeRealtime {
 		t.Fatalf("configured transformer = %#v", transformer)
+	}
+}
+
+func TestNewDoesNotInjectModelSpecificBotName(t *testing.T) {
+	transformer, err := New(Config{Client: doubaospeech.NewClient(""), Model: "SC"})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	if transformer.botName != "" || transformer.realtimeConfig().Dialog.BotName != "" {
+		t.Fatalf("SC transformer bot name = %q, want empty", transformer.botName)
 	}
 }
 

@@ -56,6 +56,10 @@ Owns workflow definition, driver selection, and workflow resource persistence. `
 
 Workflow describes how to run an Agent, but does not own the online state and stream lifecycle of the Agent instance.
 
+#### Doubao Realtime composition boundary
+
+The Doubao Realtime factory owns product precedence, not provider model-family mapping. A non-empty Workspace `parameters.instructions` replaces the Workflow instruction; the values are never concatenated. The factory adds the runtime `DialogID` and passes the resolved instruction, selected RuntimeProfile model, and audio configuration to the immutable GenX transformer. `peergenx` maps the semantic value to `Config.Instructions`; `doubao-speech-go` alone selects O20 `dialog.system_role` or SC20 `dialog.character_manifest`. Exact provider fields remain explicit independent options and `prompt.system` is not a fallback for Workflow instructions.
+
 #### Flowcraft composition boundary
 
 The Flowcraft workflow factory composes flattened `spec.flowcraft.graph`, `conversation`, `max_iterations`, and `voice_adapter` configuration with the Workspace owner's RuntimeProfile aliases, History, State, Memory, and Audio Dock. Workspace `input` defaults to `push-to-talk`, where client audio EOS completes a turn. `realtime` reuses the ASR Transformer's definite-utterance transcript EOS to complete a turn while the outer audio input remains open. An explicit client audio-route EOS finalizes the current ASR provider session, and the next route opens a replacement; continuous audio without a route EOS retains provider VAD segmentation. Audio Dock and Flowcraft preserve and sequentially combine ASR text deltas without reinterpreting provider segmentation. Flowcraft payload does not repeat `id` or `name`; they are derived from Workspace and Workflow metadata.

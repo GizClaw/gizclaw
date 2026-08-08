@@ -741,6 +741,7 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformerFromWorkflowParams(t *testin
 		},
 		Params: map[string]any{
 			"instructions":       "简短回答。",
+			"system_role":        "精确 O20 角色。",
 			"output_voice":       "workflow-speaker",
 			"output_format":      "ogg_opus",
 			"output_sample_rate": 24000,
@@ -770,8 +771,11 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformerFromWorkflowParams(t *testin
 	if got := transformerStringField(t, tf, "model"); got != "O" {
 		t.Fatalf("realtime model = %q, want O", got)
 	}
-	if got := transformerStringField(t, tf, "systemRole"); got != "简短回答。" {
-		t.Fatalf("realtime systemRole = %q, want 简短回答。", got)
+	if got := transformerStringField(t, tf, "instructions"); got != "简短回答。" {
+		t.Fatalf("realtime instructions = %q, want 简短回答。", got)
+	}
+	if got := transformerStringField(t, tf, "systemRole"); got != "精确 O20 角色。" {
+		t.Fatalf("realtime systemRole = %q, want exact provider field", got)
 	}
 	if got := transformerStringField(t, tf, "dialogID"); got != "workspace-dialog-id" {
 		t.Fatalf("realtime dialogID = %q, want workspace-dialog-id", got)
@@ -871,6 +875,45 @@ func TestDefaultBuilderRejectsUnsupportedVolcRealtimeMode(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), `doubao realtime mode "bad"`) {
 		t.Fatalf("BuildTransformer() error = %v, want unsupported mode", err)
+	}
+}
+
+func TestDefaultBuilderPassesSCRealtimeInstructionsWithoutModelSpecificDefaults(t *testing.T) {
+	tf, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
+		Model: &apitypes.Model{
+			Id:   "dialog-sc20",
+			Kind: apitypes.ModelKindRealtime,
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				UpstreamModel: new("2.2.0.0"),
+			}),
+		},
+		Tenant: Tenant{
+			Kind: "volc-tenant",
+			Volc: &apitypes.VolcTenant{Id: "main", CredentialId: "volc-token"},
+		},
+		Credential: apitypes.Credential{
+			Id: "volc-token",
+			Body: testVolcCredentialBodyFromStrings(map[string]string{
+				"speech_app_id":  "app",
+				"speech_api_key": "realtime-key",
+			}),
+		},
+		Params: map[string]any{"instructions": "只回答必要内容。"},
+	})
+	if err != nil {
+		t.Fatalf("BuildTransformer() error = %v", err)
+	}
+	if got := transformerStringField(t, tf, "model"); got != "2.2.0.0" {
+		t.Fatalf("realtime model = %q, want 2.2.0.0", got)
+	}
+	if got := transformerStringField(t, tf, "instructions"); got != "只回答必要内容。" {
+		t.Fatalf("realtime instructions = %q", got)
+	}
+	if got := transformerStringField(t, tf, "systemRole"); got != "" {
+		t.Fatalf("realtime systemRole = %q, want empty", got)
+	}
+	if got := transformerStringField(t, tf, "botName"); got != "" {
+		t.Fatalf("realtime botName = %q, want empty", got)
 	}
 }
 
