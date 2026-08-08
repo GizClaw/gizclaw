@@ -262,6 +262,93 @@ int gzc_cgo_session_call_rpc_payload(
   return GZC_OK;
 }
 
+int gzc_cgo_session_start_rpc_request(
+    gzc_cgo_session_t *session,
+    unsigned long long service,
+    unsigned method_id,
+    const unsigned char *params_payload,
+    unsigned long params_payload_len,
+    int timeout_ms,
+    gzc_rpc_request_t **out_request,
+    char *errbuf,
+    unsigned long errbuf_len) {
+  if (session == NULL || session->client == NULL || method_id == 0 ||
+      (params_payload == NULL && params_payload_len != 0) ||
+      out_request == NULL) {
+    return fail(errbuf, errbuf_len, "start rpc request", GZC_ERR_INVALID_ARGUMENT);
+  }
+  int rc = gzc_rpc_request_start(
+      session->client,
+      (uint64_t)service,
+      (gizclaw_rpc_v1_RpcMethod)method_id,
+      gzc_str_from_parts(
+          (const char *)params_payload, (size_t)params_payload_len),
+      timeout_ms,
+      out_request);
+  if (rc != GZC_OK) {
+    return fail(errbuf, errbuf_len, "start rpc request", rc);
+  }
+  if (errbuf != NULL && errbuf_len > 0) {
+    errbuf[0] = 0;
+  }
+  return GZC_OK;
+}
+
+int gzc_cgo_rpc_request_result(
+    gzc_rpc_request_t *request,
+    unsigned char **out_result_payload,
+    unsigned long *out_result_payload_len,
+    int *out_rpc_error_code,
+    char *errbuf,
+    unsigned long errbuf_len) {
+  if (request == NULL || out_result_payload == NULL ||
+      out_result_payload_len == NULL) {
+    return fail(errbuf, errbuf_len, "rpc request result", GZC_ERR_INVALID_ARGUMENT);
+  }
+  *out_result_payload = NULL;
+  *out_result_payload_len = 0;
+  if (out_rpc_error_code != NULL) {
+    *out_rpc_error_code = 0;
+  }
+  gzc_rpc_response_t response;
+  memset(&response, 0, sizeof(response));
+  int rc = gzc_rpc_request_result(request, &response);
+  if (rc == GZC_ERR_WOULD_BLOCK) {
+    return rc;
+  }
+  if (rc != GZC_OK) {
+    return fail(errbuf, errbuf_len, "rpc request result", rc);
+  }
+  if (response.has_error) {
+    return rpc_fail(
+        errbuf,
+        errbuf_len,
+        response.error.message,
+        response.error.code,
+        out_rpc_error_code);
+  }
+  unsigned char *result = (unsigned char *)malloc(
+      response.result_payload.len == 0 ? 1 : response.result_payload.len);
+  if (result == NULL) {
+    return fail(errbuf, errbuf_len, "copy rpc request result", GZC_ERR_NO_MEMORY);
+  }
+  memcpy(result, response.result_payload.data, response.result_payload.len);
+  *out_result_payload = result;
+  *out_result_payload_len = (unsigned long)response.result_payload.len;
+  if (errbuf != NULL && errbuf_len > 0) {
+    errbuf[0] = 0;
+  }
+  return GZC_OK;
+}
+
+void gzc_cgo_rpc_request_cancel(gzc_rpc_request_t *request) {
+  gzc_rpc_request_cancel(request);
+}
+
+void gzc_cgo_rpc_request_destroy(gzc_rpc_request_t *request) {
+  gzc_rpc_request_destroy(request);
+}
+
 int gzc_cgo_session_register(
     gzc_cgo_session_t *session,
     const char *token,

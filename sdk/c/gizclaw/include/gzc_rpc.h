@@ -25,8 +25,9 @@ typedef struct {
 } gzc_rpc_error_t;
 
 /*
- * All response and nested error string views are borrowed from the client and
- * remain valid until its next response-producing RPC call or destruction.
+ * Response and nested error strings are borrowed views. Synchronous call views
+ * belong to the client until its next response-producing call or destruction;
+ * gzc_rpc_request_result views belong to that request until request destruction.
  */
 typedef struct {
   gzc_str_t id;
@@ -47,6 +48,7 @@ typedef int (*gzc_rpc_speech_audio_cb)(
     size_t len);
 
 typedef struct gzc_rpc_speech_upload gzc_rpc_speech_upload_t;
+typedef struct gzc_rpc_request gzc_rpc_request_t;
 
 typedef struct {
   int64_t up_bytes;
@@ -65,6 +67,26 @@ int gzc_rpc_encode_request_envelope(
     gzc_str_t params_payload,
     gzc_buf_t *out_payload);
 int gzc_rpc_decode_response_envelope(gzc_str_t response_payload, gzc_rpc_response_t *out_response);
+/*
+ * Starts one unary RPC on a request-owned DataChannel. The caller remains the
+ * sole gzc_client_poll() owner; result() never polls. Response views returned
+ * by result() remain valid until this request is destroyed.
+ */
+int gzc_rpc_request_start(
+    gzc_client_t *client,
+    uint64_t service,
+    gizclaw_rpc_v1_RpcMethod method,
+    gzc_str_t params_payload,
+    int timeout_ms,
+    gzc_rpc_request_t **out_request);
+/* Returns GZC_ERR_WOULD_BLOCK until the request reaches a terminal state. */
+int gzc_rpc_request_result(
+    gzc_rpc_request_t *request,
+    gzc_rpc_response_t *out_response);
+/* Idempotently terminates a pending request with GZC_ERR_CLOSED. */
+void gzc_rpc_request_cancel(gzc_rpc_request_t *request);
+/* A NULL request is a no-op. The configured platform allocator must outlive it. */
+void gzc_rpc_request_destroy(gzc_rpc_request_t *request);
 int gzc_rpc_call_service(
     gzc_client_t *client,
     uint64_t service,

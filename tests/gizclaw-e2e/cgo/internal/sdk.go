@@ -91,6 +91,11 @@ type ServiceChannel struct {
 	channel *C.gzc_service_channel_t
 }
 
+type RPCRequest struct {
+	method  rpcpb.RpcMethod
+	request *C.gzc_rpc_request_t
+}
+
 type EventStream struct {
 	stream *C.gzc_event_stream_t
 }
@@ -178,6 +183,104 @@ func (c *Client) CallRPC(method rpcpb.RpcMethod, request proto.Message, response
 		}
 	}
 	return nil
+}
+
+func (c *Client) StartRPCRequest(
+	service uint64,
+	method rpcpb.RpcMethod,
+	request proto.Message,
+	timeout time.Duration,
+) (*RPCRequest, error) {
+	if c == nil || c.session == nil {
+		return nil, fmt.Errorf("closed C SDK client")
+	}
+	paramsPayload, err := proto.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("marshal %s request payload: %w", method, err)
+	}
+	var cParams *C.uchar
+	if len(paramsPayload) > 0 {
+		cParams = (*C.uchar)(unsafe.Pointer(&paramsPayload[0]))
+	}
+	errbuf := make([]byte, 1024)
+	var handle *C.gzc_rpc_request_t
+	rc := C.gzc_cgo_session_start_rpc_request(
+		c.session,
+		C.ulonglong(service),
+		C.uint(method),
+		cParams,
+		C.ulong(len(paramsPayload)),
+		C.int(timeout.Milliseconds()),
+		&handle,
+		(*C.char)(unsafe.Pointer(&errbuf[0])),
+		C.ulong(len(errbuf)),
+	)
+	if rc != C.GZC_OK {
+		return nil, &StatusError{
+			Operation: "start rpc request",
+			Code:      int(rc),
+			Message:   cString(errbuf),
+		}
+	}
+	return &RPCRequest{method: method, request: handle}, nil
+}
+
+func (r *RPCRequest) Result(response proto.Message) (bool, error) {
+	if r == nil || r.request == nil {
+		return false, fmt.Errorf("closed C SDK RPC request")
+	}
+	errbuf := make([]byte, 1024)
+	var result *C.uchar
+	var resultLen C.ulong
+	var rpcErrorCode C.int
+	rc := C.gzc_cgo_rpc_request_result(
+		r.request,
+		&result,
+		&resultLen,
+		&rpcErrorCode,
+		(*C.char)(unsafe.Pointer(&errbuf[0])),
+		C.ulong(len(errbuf)),
+	)
+	if rc == C.GZC_ERR_WOULD_BLOCK {
+		return false, nil
+	}
+	if rc == C.GZC_ERR_RPC && rpcErrorCode != 0 {
+		return true, &RPCError{
+			Method:  r.method,
+			Code:    rpcpb.RpcErrorCode(rpcErrorCode),
+			Message: cString(errbuf),
+		}
+	}
+	if rc != C.GZC_OK {
+		return true, &StatusError{
+			Operation: "rpc request result",
+			Code:      int(rc),
+			Message:   cString(errbuf),
+		}
+	}
+	defer C.gzc_cgo_free(unsafe.Pointer(result))
+	resultPayload := C.GoBytes(unsafe.Pointer(result), C.int(resultLen))
+	if response != nil {
+		if err := proto.Unmarshal(resultPayload, response); err != nil {
+			return true, fmt.Errorf("decode %s response payload: %w", r.method, err)
+		}
+	}
+	return true, nil
+}
+
+func (r *RPCRequest) Cancel() {
+	if r == nil || r.request == nil {
+		return
+	}
+	C.gzc_cgo_rpc_request_cancel(r.request)
+}
+
+func (r *RPCRequest) Close() {
+	if r == nil || r.request == nil {
+		return
+	}
+	C.gzc_cgo_rpc_request_destroy(r.request)
+	r.request = nil
 }
 
 func (c *Client) CallStream(method rpcpb.RpcMethod, request proto.Message) ([]StreamFrame, error) {

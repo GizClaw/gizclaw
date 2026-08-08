@@ -25,6 +25,7 @@ typedef struct gzc_cgo_transport_snapshot {
 } gzc_cgo_transport_snapshot_t;
 typedef struct gzc_service_channel gzc_service_channel_t;
 typedef struct gzc_event_stream gzc_event_stream_t;
+typedef struct gzc_rpc_request gzc_rpc_request_t;
 
 int gzc_cgo_session_open(
     const char *server_endpoint,
@@ -43,6 +44,25 @@ int gzc_cgo_session_call_rpc_payload(
     int *out_rpc_error_code,
     char *errbuf,
     unsigned long errbuf_len);
+int gzc_cgo_session_start_rpc_request(
+    gzc_cgo_session_t *session,
+    unsigned long long service,
+    unsigned method_id,
+    const unsigned char *params_payload,
+    unsigned long params_payload_len,
+    int timeout_ms,
+    gzc_rpc_request_t **out_request,
+    char *errbuf,
+    unsigned long errbuf_len);
+int gzc_cgo_rpc_request_result(
+    gzc_rpc_request_t *request,
+    unsigned char **out_result_payload,
+    unsigned long *out_result_payload_len,
+    int *out_rpc_error_code,
+    char *errbuf,
+    unsigned long errbuf_len);
+void gzc_cgo_rpc_request_cancel(gzc_rpc_request_t *request);
+void gzc_cgo_rpc_request_destroy(gzc_rpc_request_t *request);
 int gzc_cgo_session_register(
     gzc_cgo_session_t *session,
     const char *token,
