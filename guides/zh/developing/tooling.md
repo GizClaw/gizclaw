@@ -97,3 +97,53 @@ TARGET_ARCH=arm64 tools/audio/opus/build_prebuilt_linux.sh
 NCNN 固定使用 `NCNN_VULKAN=OFF` 与 `NCNN_C_API=ON`，并在 `build.env` 记录 upstream
 commit/describe。Native package 是否可用仍以对应 package 的 build/runtime capability
 检查为准；unsupported target 必须返回明确错误，不能产生占位输出。
+
+## 仓库发布
+
+仓库发布两种用途明确不同的 GitHub Release，二者不能互相替代：
+
+- `main-latest` 是随每次 `main` push 移动的 snapshot，资产严格为
+  `gizclaw-linux-amd64`、`gizclaw-linux-arm64`、`gizclaw-darwin-amd64` 和
+  `gizclaw-darwin-arm64`。
+- canonical protected tag `vMAJOR.MINOR.PATCH` 发布正式、非 prerelease 版本，
+  资产严格为两个 `gizclaw_<version>_{amd64,arm64}.deb`、两个 Darwin
+  executable、`release-manifest.json` 和 `SHA256SUMS`。正式 Release 不发布
+  Linux raw executable。
+
+Git tag 是唯一 source version：它同时是 Go module version 与 GitHub Release
+tag；仅在生成 Debian version 时移除开头的 `v`。正式 tag 必须是 stable
+canonical SemVer，不允许数字前导零、prerelease 或 build metadata。Annotated 与
+lightweight tag 都 peel 到完整 source commit，且该 commit 必须已能从当前受保护的
+`main` head 到达。
+
+创建第一个正式 tag 前，repository administrator 必须启用目标为
+`refs/tags/v*` 的 tag ruleset：允许创建，但限制更新和删除。Repository-wide
+immutable Releases 必须保持关闭，否则也会锁定必须移动的 `main-latest` Release。
+发布 workflow 会在创建正式 Release 前检查这些条件，但不持有或执行仓库管理权限。
+
+每个 Debian package 只拥有 root/root、mode `0755` 的 `/usr/bin/gizclaw`。
+Shared-library dependency 从 packaged ELF 自动推导，并在匹配架构的干净 Ubuntu
+24.04 容器中验证安装、执行、删除、重装以及篡改后的同版本重装恢复。两个 Darwin
+资产是独立的 single-architecture command-line executable，分别在 native macOS 15
+Intel 与 Apple Silicon runner 上构建和执行。Windows、macOS universal binary、
+application bundle、installer、notarization 以及 package-manager repository 发布
+不属于本仓库的 Release contract。
+
+下载正式 Release 后，应同时验证 checksum、manifest 与 source identity，不能只信任
+文件名：
+
+```sh
+tag=v1.2.3
+gh release download "$tag" --repo GizClaw/gizclaw --dir ".tmp/$tag"
+(cd ".tmp/$tag" && sha256sum --check SHA256SUMS)
+chmod +x ".tmp/$tag"/gizclaw-darwin-*
+build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
+```
+
+`release-manifest.json` 将每个 payload 的名称、平台、架构、字节数和 SHA-256 绑定到
+完整 source commit；Debian entry 还绑定 package metadata 与
+`/usr/bin/gizclaw`。Rerun 只有在现有正式 Release 的 published metadata 与全部六个
+下载文件逐字节一致时才是 idempotent success。Draft、partial、tag moved 或任何
+mismatch 都会 fail closed。首次上传失败可能留下 draft，必须由 administrator 检查并
+删除后才能重试；workflow 从不删除或覆盖已发布的 SemVer Release。下游 Homebrew 与
+APT channel 各自负责签名、托管、保留策略和 live installation acceptance。

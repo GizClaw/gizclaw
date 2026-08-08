@@ -12,6 +12,82 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  release-contract:
+    name: Release Contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          lfs: true
+
+      - name: Ensure Git LFS assets are available
+        run: git lfs pull
+
+      - name: Initialize nanopb submodule
+        run: git submodule update --init --depth=1 third_party/nanopb/upstream
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install release validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            binutils \
+            dpkg-dev \
+            shellcheck
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+
+      - name: Check release shell scripts
+        run: >-
+          shellcheck
+          build/build-linux.sh
+          build/package-deb.sh
+          build/check-deb.sh
+          build/build-release-manifest.sh
+          build/check-release.sh
+          build/release-contract-test.sh
+
+      - name: Check workflow syntax and embedded shell
+        run: |
+          "$(go env GOPATH)/bin/actionlint" .github/workflows/ci.yml .github/workflows/release.yml
+
+      - name: Test offline release contracts
+        run: build/release-contract-test.sh
+
+      - name: Build native validation executable
+        env:
+          PLATFORM: linux/amd64
+          OUTPUT: ${{ runner.temp }}/gizclaw-linux-amd64
+        run: build/build-linux.sh
+
+      - name: Build and exercise validation package
+        env:
+          BINARY: ${{ runner.temp }}/gizclaw-linux-amd64
+        run: |
+          source_commit="$(git rev-parse HEAD)"
+          source_epoch="$(git show -s --format=%ct HEAD)"
+          package="${RUNNER_TEMP}/gizclaw_0.0.0_amd64.deb"
+          build/package-deb.sh \
+            --binary "$BINARY" \
+            --tag v0.0.0 \
+            --source-commit "$source_commit" \
+            --source-epoch "$source_epoch" \
+            --architecture amd64 \
+            --output "$package"
+          build/check-deb.sh \
+            --package "$package" \
+            --tag v0.0.0 \
+            --source-commit "$source_commit" \
+            --architecture amd64
+
   quality:
     name: Quality
     runs-on: ubuntu-latest
@@ -55,7 +131,7 @@ jobs:
         run: go mod download
 
       - name: Install modernize
-        run: go install golang.org/x/tools/go/analysis/passes/modernize/cmd/modernize@${MODERNIZE_VERSION}
+        run: go install golang.org/x/tools/go/analysis/passes/modernize/cmd/modernize@"${MODERNIZE_VERSION}"
 
       - name: Check handwritten Go formatting
         run: go run ./tools/quality gofmt
