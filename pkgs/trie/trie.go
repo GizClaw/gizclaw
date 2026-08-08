@@ -45,11 +45,11 @@ func (t *Trie[T]) Set(path string, setFunc func(ptr *T, existed bool) error) err
 	}
 
 	var first, subseq string
-	if idx := strings.IndexByte(path, '/'); idx == -1 {
+	if before, after, ok := strings.Cut(path, "/"); !ok {
 		first = path
 	} else {
-		first = path[:idx]
-		subseq = path[idx+1:]
+		first = before
+		subseq = after
 	}
 	if t.children != nil {
 		if ch, ok := t.children[first]; ok {
@@ -115,12 +115,12 @@ func (t *Trie[T]) match(matched, path string) (string, *T, bool) {
 		return matched, &t.value, t.set
 	}
 	var first, subseq string
-	p := strings.IndexByte(path, '/')
-	if p == -1 {
+	before, after, ok := strings.Cut(path, "/")
+	if !ok {
 		first = path
 	} else {
-		first = path[:p]
-		subseq = path[p+1:]
+		first = before
+		subseq = after
 	}
 	if t.children != nil {
 		if ch, ok := t.children[first]; ok {

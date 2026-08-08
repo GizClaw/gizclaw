@@ -87,10 +87,7 @@ func (b *timestampedHistoryAudioBuffer) append(chunk *genx.MessageChunk, streamI
 			b.baseTS = next.Ctrl.Timestamp
 			b.haveTS = true
 		}
-		startMS = int(next.Ctrl.Timestamp - b.baseTS)
-		if startMS < 0 {
-			startMS = 0
-		}
+		startMS = max(int(next.Ctrl.Timestamp-b.baseTS), 0)
 	}
 	if n := len(b.blocks); n > 0 && b.blocks[n-1].endMS <= startMS {
 		b.blocks[n-1].endMS = startMS

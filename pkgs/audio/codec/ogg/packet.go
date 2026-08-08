@@ -46,10 +46,7 @@ func BuildPacketPages(serial, sequence uint32, packet []byte, granulePos uint64,
 	pages := make([]*Page, 0, pageCount)
 	payloadOffset := 0
 	for idx, segOffset := 0, 0; segOffset < len(segs); idx, segOffset = idx+1, segOffset+maxPageSegments {
-		end := segOffset + maxPageSegments
-		if end > len(segs) {
-			end = len(segs)
-		}
+		end := min(segOffset+maxPageSegments, len(segs))
 		chunkSegs := append([]byte(nil), segs[segOffset:end]...)
 
 		chunkPayloadLen := 0

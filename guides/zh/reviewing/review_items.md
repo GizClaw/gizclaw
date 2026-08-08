@@ -120,7 +120,7 @@
 - 仓库自有 generator 是否产生跨 package alias；若有，是否从 generator 修复。第三方 generator 直接产生的 alias 或 helper signature 不按手写代码问题报告，也不得仅为满足规范而手工改写、维护 fork 或增加 output normalizer。文件名和生成注释不能替代生成链证据。
 - goroutine、context、channel、timer 和连接生命周期是否闭合。
 - 并发风险是否需要 `go test -race`、leak test 或 soak test。
-- 是否运行 `modernize ./...` 并审查本次改动涉及的手写代码诊断；范围外既有诊断是否如实记录，仓库自有 generator 输出是否回到 generator 修复，第三方生成文件是否保持未手工修改。
+- 是否通过 `tools/quality` 运行固定版本的 `modernize` 并修复所有被维护 module 中的手写 Go 诊断；`modernize.exemptions` 是否只包含当前 analyzer 实际输出、且 source 由标准 package 前生成标记、显式 generator-owned output 规则或显式 third-party root 证明的完整诊断；是否拒绝 handwritten、unknown、missing、untracked、external、malformed、stale、通配和仅路径条目；仓库自有 generator 输出是否优先回到 generator 修复，第三方生成文件是否保持未手工修改。该文件是豁免列表，不是 baseline。
 
 ### JavaScript 与 TypeScript
 

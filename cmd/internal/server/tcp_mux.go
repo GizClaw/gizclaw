@@ -28,11 +28,9 @@ func newPublicTCPMux(parent net.Listener) *publicTCPMux {
 	}
 	m.http = newPublicTCPMuxListener(parent.Addr())
 	m.ice = newPublicTCPMuxListener(parent.Addr())
-	m.wg.Add(1)
-	go func() {
-		defer m.wg.Done()
+	m.wg.Go(func() {
 		m.acceptLoop()
-	}()
+	})
 	return m
 }
 
@@ -63,11 +61,9 @@ func (m *publicTCPMux) acceptLoop() {
 			_ = m.ice.Close()
 			return
 		}
-		m.wg.Add(1)
-		go func() {
-			defer m.wg.Done()
+		m.wg.Go(func() {
 			m.routeConn(conn)
-		}()
+		})
 	}
 }
 

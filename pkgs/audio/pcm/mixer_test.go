@@ -491,14 +491,8 @@ func TestMixerMixesTwoTracks(t *testing.T) {
 	for i := 0; i < 10 && i < len(samples); i++ {
 		w1 := int16(binary.LittleEndian.Uint16(wave1[i*2:]))
 		w2 := int16(binary.LittleEndian.Uint16(wave2[i*2:]))
-		expected := int32(w1) + int32(w2)
 		// Clip expected.
-		if expected > 32767 {
-			expected = 32767
-		}
-		if expected < -32768 {
-			expected = -32768
-		}
+		expected := max(min(int32(w1)+int32(w2), 32767), -32768)
 		_ = samples[i] - int16(expected)
 	}
 }
@@ -679,12 +673,10 @@ func TestMixerFourTracks(t *testing.T) {
 		for i := range 800 {
 			binary.LittleEndian.PutUint16(data[i*2:], uint16(val))
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			track.Write(format.DataChunk(data))
 			ctrl.CloseWrite()
-		}()
+		})
 	}
 
 	go func() {
@@ -787,12 +779,10 @@ func TestMixerGainClipping(t *testing.T) {
 		for j := range 800 {
 			binary.LittleEndian.PutUint16(data[j*2:], uint16(10000))
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			track.Write(format.DataChunk(data))
 			ctrl.CloseWrite()
-		}()
+		})
 	}
 
 	go func() {

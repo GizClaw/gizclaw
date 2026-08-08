@@ -803,6 +803,7 @@ func responseError(status int, body []byte, errs ...any) error {
 	return fmt.Errorf("unexpected empty response")
 }
 
+//go:fix inline
 func strPtr(value string) *string {
-	return &value
+	return new(value)
 }

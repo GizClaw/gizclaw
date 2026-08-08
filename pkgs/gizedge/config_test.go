@@ -303,7 +303,7 @@ upstream:
 		errCh <- ServeContext(ctx, dir)
 	}()
 	var lastErr error
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		resp, err := http.Get("http://" + listenAddr + "/server-info")
 		if err == nil {
 			defer resp.Body.Close()
@@ -522,8 +522,7 @@ func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 	}
 
 	first := startUpstream("first", "first")
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	transport, err := newUpstreamTransport(ctx, cfg, upstreamURL, nil)
 	if err != nil {
 		t.Fatalf("newUpstreamTransport error = %v", err)

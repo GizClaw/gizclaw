@@ -7,11 +7,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
-func testStringPtr(value string) *string { return &value }
+//go:fix inline
+func testStringPtr(value string) *string { return new(value) }
 
 func testOpenAICredentialBody(apiKey string) apitypes.CredentialBody {
 	var body apitypes.CredentialBody
-	if err := body.FromOpenAICredentialBody(apitypes.OpenAICredentialBody{ApiKey: testStringPtr(apiKey)}); err != nil {
+	if err := body.FromOpenAICredentialBody(apitypes.OpenAICredentialBody{ApiKey: new(apiKey)}); err != nil {
 		panic(err)
 	}
 	return body
@@ -31,7 +32,7 @@ func testCredentialBodyString(body apitypes.CredentialBody, key string) string {
 
 func testRPCOpenAICredentialBody(apiKey string) rpcapi.CredentialBody {
 	var body rpcapi.CredentialBody
-	if err := body.FromOpenAICredentialBody(rpcapi.OpenAICredentialBody{ApiKey: testStringPtr(apiKey)}); err != nil {
+	if err := body.FromOpenAICredentialBody(rpcapi.OpenAICredentialBody{ApiKey: new(apiKey)}); err != nil {
 		panic(err)
 	}
 	return body

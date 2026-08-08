@@ -822,10 +822,7 @@ func newOpusLoopbackReader(src io.Reader, format pcm.Format) (io.ReadCloser, err
 
 				out := int16ToBytes(decoded)
 				if n < len(out) {
-					trim := n - (n % 2)
-					if trim < 0 {
-						trim = 0
-					}
+					trim := max(n-(n%2), 0)
 					out = out[:trim]
 				}
 
@@ -853,7 +850,7 @@ func newOpusLoopbackReader(src io.Reader, format pcm.Format) (io.ReadCloser, err
 func bytesToInt16(data []byte) []int16 {
 	count := len(data) / 2
 	out := make([]int16, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		out[i] = int16(binary.LittleEndian.Uint16(data[i*2:]))
 	}
 	return out

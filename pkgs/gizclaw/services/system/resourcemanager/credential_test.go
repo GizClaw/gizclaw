@@ -109,7 +109,7 @@ func TestApplyCredentialUnchangedSkipsPut(t *testing.T) {
 	credentials.items["minimax-main"] = apitypes.Credential{
 		Body:        testOpenAICredentialBody("secret"),
 		CreatedAt:   time.Now().UTC(),
-		Description: ptr("primary key"),
+		Description: new("primary key"),
 		Id:          "minimax-main",
 		Provider:    "minimax",
 		UpdatedAt:   time.Now().UTC(),

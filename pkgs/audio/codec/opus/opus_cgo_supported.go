@@ -219,12 +219,8 @@ func (d *Decoder) Decode(packet []byte, frameSize int, fec bool) ([]int16, error
 	}
 
 	decoded := int(ret) * d.channels
-	if decoded < 0 {
-		decoded = 0
-	}
-	if decoded > len(out) {
-		decoded = len(out)
-	}
+	decoded = max(decoded, 0)
+	decoded = min(decoded, len(out))
 	return out[:decoded], nil
 }
 

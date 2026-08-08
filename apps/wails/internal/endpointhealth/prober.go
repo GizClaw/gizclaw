@@ -63,18 +63,12 @@ func (p *Prober) MarkUnreachable(endpoint, message string) Result {
 }
 
 func (p *Prober) ProbeAll(ctx context.Context, endpoints []string) []Result {
-	concurrency := p.Concurrency
-	if concurrency < 1 {
-		concurrency = 1
-	}
+	concurrency := max(p.Concurrency, 1)
 	results := make([]Result, len(endpoints))
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
 	for i, endpoint := range endpoints {
-		i, endpoint := i, endpoint
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			select {
 			case sem <- struct{}{}:
 				defer func() { <-sem }()
@@ -83,7 +77,7 @@ func (p *Prober) ProbeAll(ctx context.Context, endpoints []string) []Result {
 				return
 			}
 			results[i] = p.Probe(ctx, endpoint)
-		}()
+		})
 	}
 	wg.Wait()
 	return results

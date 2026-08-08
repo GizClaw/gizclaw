@@ -28,4 +28,5 @@ func testFlowcraftWorkspaceParameters() *apitypes.WorkspaceParameters {
 	return &params
 }
 
-func stringPtr(value string) *string { return &value }
+//go:fix inline
+func stringPtr(value string) *string { return new(value) }

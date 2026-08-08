@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -527,13 +528,7 @@ func validateSpeechSynthesisMetadata(synthesis peergenx.SpeechSynthesis, accepte
 		return "", errors.New("speech provider returned invalid content type")
 	}
 	contentType = strings.ToLower(contentType)
-	found := false
-	for _, value := range accepted {
-		if value == contentType {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(accepted, contentType)
 	if !found {
 		return "", fmt.Errorf("%w: synthesized content type %q is not accepted", errSpeechBadRequest, contentType)
 	}

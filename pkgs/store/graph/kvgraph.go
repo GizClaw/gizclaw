@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"maps"
 	"sort"
 	"strings"
 
@@ -175,9 +176,7 @@ func (g *KVGraph) MergeAttrs(ctx context.Context, label string, attrs map[string
 	if e.Attrs == nil {
 		e.Attrs = make(map[string]any, len(attrs))
 	}
-	for k, v := range attrs {
-		e.Attrs[k] = v
-	}
+	maps.Copy(e.Attrs, attrs)
 	return g.SetEntity(ctx, *e)
 }
 

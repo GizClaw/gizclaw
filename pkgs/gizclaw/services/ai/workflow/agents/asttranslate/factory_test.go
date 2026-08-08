@@ -104,11 +104,11 @@ func TestMergeWorkspaceParamsInternalSpeaker(t *testing.T) {
 	speechRate := 15
 	var voice apitypes.ASTTranslateVoiceParameters
 	if err := voice.FromASTTranslateInternalSpeakerParameters(apitypes.ASTTranslateInternalSpeakerParameters{
-		SpeakerId: "speaker-a", IsCustomSpeaker: &customSpeaker, TtsResourceId: stringPtr("tts-resource"), SpeechRate: &speechRate,
+		SpeakerId: "speaker-a", IsCustomSpeaker: &customSpeaker, TtsResourceId: new("tts-resource"), SpeechRate: &speechRate,
 	}); err != nil {
 		t.Fatalf("FromASTTranslateInternalSpeakerParameters() error = %v", err)
 	}
-	params := mergeWorkspaceParams(nil, apitypes.ASTTranslateWorkspaceParameters{LangPair: stringPtr("en/jp"), Voice: &voice, Denoise: &customSpeaker})
+	params := mergeWorkspaceParams(nil, apitypes.ASTTranslateWorkspaceParameters{LangPair: new("en/jp"), Voice: &voice, Denoise: &customSpeaker})
 	for _, want := range []string{"lang_pair", "speaker_id", "is_custom_speaker", "tts_resource_id", "speech_rate", "denoise"} {
 		if _, ok := params[want]; !ok {
 			t.Fatalf("params = %#v, missing %q", params, want)
@@ -150,4 +150,5 @@ func astWorkflow(model string, voice *apitypes.ASTTranslateVoiceParameters) apit
 	}}
 }
 
-func stringPtr(value string) *string { return &value }
+//go:fix inline
+func stringPtr(value string) *string { return new(value) }

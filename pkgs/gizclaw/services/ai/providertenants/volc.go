@@ -894,7 +894,6 @@ func volcResourceIDStringPtrs(resourceIDs []string) []*string {
 	strings := volcResourceIDStrings(resourceIDs)
 	out := make([]*string, 0, len(strings))
 	for _, value := range strings {
-		value := value
 		out = append(out, &value)
 	}
 	return out

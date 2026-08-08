@@ -1415,7 +1415,7 @@ func convertValue(dst reflect.Value, src reflect.Value) error {
 		}
 		return nil
 	}
-	if dst.Type() == reflect.TypeOf(apitypes.WorkspaceParameters{}) && src.Type() == reflect.TypeOf(rpcapi.WorkspaceParameters{}) {
+	if dst.Type() == reflect.TypeFor[apitypes.WorkspaceParameters]() && src.Type() == reflect.TypeFor[rpcapi.WorkspaceParameters]() {
 		body, err := rpcWorkspaceParametersToAPI(src.Interface().(rpcapi.WorkspaceParameters))
 		if err != nil {
 			return err
@@ -1423,7 +1423,7 @@ func convertValue(dst reflect.Value, src reflect.Value) error {
 		dst.Set(reflect.ValueOf(body))
 		return nil
 	}
-	if dst.Type() == reflect.TypeOf(rpcapi.WorkspaceParameters{}) && src.Type() == reflect.TypeOf(apitypes.WorkspaceParameters{}) {
+	if dst.Type() == reflect.TypeFor[rpcapi.WorkspaceParameters]() && src.Type() == reflect.TypeFor[apitypes.WorkspaceParameters]() {
 		body, err := apiWorkspaceParametersToRPC(src.Interface().(apitypes.WorkspaceParameters))
 		if err != nil {
 			return err

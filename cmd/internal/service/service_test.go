@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	kservice "github.com/kardianos/service"
@@ -820,12 +821,7 @@ func stubPaths(t *testing.T) func() {
 }
 
 func contains(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, want)
 }
 
 func equalStrings(a, b []string) bool {

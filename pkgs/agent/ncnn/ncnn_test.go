@@ -2,6 +2,7 @@ package ncnn
 
 import (
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -18,12 +19,7 @@ func requireNativeNCNNSupportedRuntime(t *testing.T) {
 }
 
 func containsModel(models []ModelID, target ModelID) bool {
-	for _, m := range models {
-		if m == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(models, target)
 }
 
 func TestListModelsIncludesBuiltins(t *testing.T) {

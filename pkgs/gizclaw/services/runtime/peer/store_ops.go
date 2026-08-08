@@ -517,10 +517,7 @@ func (s *Server) listPage(ctx context.Context, cursor string, limit int) ([]apit
 	if start >= len(items) {
 		return nil, false, nil, nil
 	}
-	end := start + limit
-	if end > len(items) {
-		end = len(items)
-	}
+	end := min(start+limit, len(items))
 	page := items[start:end]
 	if end >= len(items) {
 		return page, false, nil, nil

@@ -379,16 +379,16 @@ func loadBazelRCUserActionEnv() (map[string]string, error) {
 		}
 
 		m := make(map[string]string)
-		for _, line := range strings.Split(string(content), "\n") {
+		for line := range strings.SplitSeq(string(content), "\n") {
 			line = strings.TrimSpace(line)
 			if line == "" || strings.HasPrefix(line, "#") {
 				continue
 			}
-			idx := strings.Index(line, "--action_env=")
-			if idx < 0 {
+			_, after, ok := strings.Cut(line, "--action_env=")
+			if !ok {
 				continue
 			}
-			envKV := strings.TrimSpace(line[idx+len("--action_env="):])
+			envKV := strings.TrimSpace(after)
 			k, v, ok := strings.Cut(envKV, "=")
 			if !ok {
 				continue

@@ -249,7 +249,7 @@ func TestRenderAnalysis(t *testing.T) {
 func TestTrimSilence(t *testing.T) {
 	silenceFrame := make([]byte, 640)
 	voiceFrame := make([]byte, 640)
-	for i := 0; i < 320; i++ {
+	for i := range 320 {
 		sample := int16(1000)
 		binary.LittleEndian.PutUint16(voiceFrame[i*2:], uint16(sample))
 	}

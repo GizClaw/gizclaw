@@ -339,7 +339,7 @@ func trimSilence(audio []byte, threshold int16) []byte {
 
 	rms := func(start int) float64 {
 		var sum float64
-		for i := 0; i < frameSamples; i++ {
+		for i := range frameSamples {
 			offset := start + i*2
 			if offset+1 >= len(audio) {
 				break
@@ -352,7 +352,7 @@ func trimSilence(audio []byte, threshold int16) []byte {
 
 	thresh := float64(threshold)
 	first := 0
-	for frame := 0; frame < numFrames; frame++ {
+	for frame := range numFrames {
 		if rms(frame*frameBytes) > thresh {
 			first = frame
 			break
@@ -374,9 +374,6 @@ func trimSilence(audio []byte, threshold int16) []byte {
 	}
 
 	startByte := first * frameBytes
-	endByte := (last + 1) * frameBytes
-	if endByte > len(audio) {
-		endByte = len(audio)
-	}
+	endByte := min((last+1)*frameBytes, len(audio))
 	return audio[startByte:endByte]
 }

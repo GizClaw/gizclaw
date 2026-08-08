@@ -123,8 +123,8 @@ func TestServerOpenAITenantValidationAndStoreErrors(t *testing.T) {
 	}{
 		{name: "missing name", body: adminhttp.OpenAITenantUpsert{CredentialId: "credential"}},
 		{name: "missing credential", body: adminhttp.OpenAITenantUpsert{Id: "tenant"}},
-		{name: "bad kind", body: openAITenantUpsertWith("tenant", stringPtr("bad-kind"), nil)},
-		{name: "bad api mode", body: openAITenantUpsertWith("tenant", nil, stringPtr("responses"))},
+		{name: "bad kind", body: openAITenantUpsertWith("tenant", new("bad-kind"), nil)},
+		{name: "bad api mode", body: openAITenantUpsertWith("tenant", nil, new("responses"))},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resp, err := srv.CreateOpenAITenant(ctx, adminhttp.CreateOpenAITenantRequestObject{Body: &tc.body})

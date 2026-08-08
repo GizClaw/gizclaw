@@ -1125,7 +1125,7 @@ func TestPeerConnServeDirectPacketsDoesNotBlockOnTelemetry(t *testing.T) {
 		t.Fatalf("Marshal() error = %v", err)
 	}
 	packets := []peerConnTestPacket{{protocol: EventStreamTelemetry, payload: payload}}
-	for i := 0; i < peerConnTelemetryQueueSize+5; i++ {
+	for range peerConnTelemetryQueueSize + 5 {
 		packets = append(packets, peerConnTestPacket{protocol: EventStreamTelemetry, payload: payload})
 	}
 	packets = append(packets, peerConnTestPacket{protocol: giznet.ProtocolOpusPacket, payload: []byte{1, 2, 3}})
@@ -1215,7 +1215,7 @@ func TestPeerConnTelemetryStatusSyncSerializesCalls(t *testing.T) {
 	}
 	errCh := make(chan error, 2)
 	go func() {
-		errCh <- syncer.SyncTelemetryStatus(context.Background(), keyPair.Public, peertelemetry.StatusPatch{BatteryPercent: peerConnIntPtr(10)})
+		errCh <- syncer.SyncTelemetryStatus(context.Background(), keyPair.Public, peertelemetry.StatusPatch{BatteryPercent: new(10)})
 	}()
 	select {
 	case <-next.entered:
@@ -1223,7 +1223,7 @@ func TestPeerConnTelemetryStatusSyncSerializesCalls(t *testing.T) {
 		t.Fatal("timed out waiting for first status sync")
 	}
 	go func() {
-		errCh <- syncer.SyncTelemetryStatus(context.Background(), keyPair.Public, peertelemetry.StatusPatch{Charging: peerConnBoolPtr(true)})
+		errCh <- syncer.SyncTelemetryStatus(context.Background(), keyPair.Public, peertelemetry.StatusPatch{Charging: new(true)})
 	}()
 	select {
 	case <-next.entered:
@@ -1231,7 +1231,7 @@ func TestPeerConnTelemetryStatusSyncSerializesCalls(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 	close(next.release)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		select {
 		case err := <-errCh:
 			if err != nil {
@@ -1700,12 +1700,14 @@ func (s *peerConnBlockingStatusSync) SyncTelemetryStatus(context.Context, giznet
 	return nil
 }
 
+//go:fix inline
 func peerConnBoolPtr(v bool) *bool {
-	return &v
+	return new(v)
 }
 
+//go:fix inline
 func peerConnIntPtr(v int) *int {
-	return &v
+	return new(v)
 }
 
 func TestPeerConnPCMChunkToInt16(t *testing.T) {

@@ -85,7 +85,7 @@ func TestServiceReportPacketAppendsMetricsAndSyncsFixedStatus(t *testing.T) {
 	metricsStore := &fakeMetricsStore{}
 	statusStore := &fakeStatusStore{
 		status: apitypes.PeerStatus{
-			Volume:  intPtr(33),
+			Volume:  new(33),
 			Details: &map[string]any{"keep": "yes"},
 			Labels:  &map[string]string{"mode": "test"},
 		},
@@ -500,7 +500,7 @@ func TestMapFrameRejectsInvalidGNSSAndMissingBodies(t *testing.T) {
 
 func TestStatusSyncEdges(t *testing.T) {
 	peer := testPublicKey(t)
-	if err := (StatusSync{}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{BatteryPercent: intPtr(50)}); !errors.Is(err, ErrStatusServiceNil) {
+	if err := (StatusSync{}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{BatteryPercent: new(50)}); !errors.Is(err, ErrStatusServiceNil) {
 		t.Fatalf("SyncTelemetryStatus(nil store) error = %v, want %v", err, ErrStatusServiceNil)
 	}
 	store := &fakeStatusStore{}
@@ -517,7 +517,7 @@ func TestStatusSyncEdges(t *testing.T) {
 	staleReportedAt := currentReportedAt.Add(-time.Second)
 	if err := (StatusSync{Store: store}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{
 		ReportedAt:     staleReportedAt,
-		BatteryPercent: intPtr(10),
+		BatteryPercent: new(10),
 	}); err != nil {
 		t.Fatalf("SyncTelemetryStatus(stale patch) error = %v", err)
 	}
@@ -530,7 +530,7 @@ func TestStatusSyncEdges(t *testing.T) {
 	store.status = apitypes.PeerStatus{ReportedAt: &currentReportedAt}
 	if err := (StatusSync{Store: store}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{
 		ReportedAt:     staleReportedAt,
-		BatteryPercent: intPtr(10),
+		BatteryPercent: new(10),
 	}); err != nil {
 		t.Fatalf("SyncTelemetryStatus(stale missing field) error = %v", err)
 	}
@@ -559,9 +559,9 @@ func TestStatusSyncEdges(t *testing.T) {
 	newReportedAt := currentReportedAt.Add(time.Second)
 	if err := (StatusSync{Store: store}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{
 		ReportedAt:       newReportedAt,
-		BatteryPercent:   intPtr(10),
+		BatteryPercent:   new(10),
 		BatteryPercentAt: currentReportedAt.Add(-time.Second),
-		Charging:         boolPtr(true),
+		Charging:         new(true),
 		ChargingAt:       newReportedAt,
 	}); err != nil {
 		t.Fatalf("SyncTelemetryStatus(mixed field times) error = %v", err)
@@ -584,14 +584,14 @@ func TestStatusSyncEdges(t *testing.T) {
 	)
 	store.status = apitypes.PeerStatus{
 		ReportedAt:     &newReportedAt,
-		BatteryPercent: intPtr(80),
-		Charging:       boolPtr(true),
+		BatteryPercent: new(80),
+		Charging:       new(true),
 		Details:        &details,
 	}
 	percentRefreshAt := currentReportedAt.Add(500 * time.Millisecond)
 	if err := (StatusSync{Store: store}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{
 		ReportedAt:       percentRefreshAt,
-		BatteryPercent:   intPtr(81),
+		BatteryPercent:   new(81),
 		BatteryPercentAt: percentRefreshAt,
 	}); err != nil {
 		t.Fatalf("SyncTelemetryStatus(per-field freshness) error = %v", err)
@@ -619,9 +619,9 @@ func TestStatusSyncEdges(t *testing.T) {
 	latitudeRefreshAt := currentReportedAt.Add(500 * time.Millisecond)
 	if err := (StatusSync{Store: store}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{
 		ReportedAt:      latitudeRefreshAt,
-		GNSSLatitude:    float64Ptr(31.3),
+		GNSSLatitude:    new(31.3),
 		GNSSLatitudeAt:  latitudeRefreshAt,
-		GNSSLongitude:   float64Ptr(121.5),
+		GNSSLongitude:   new(121.5),
 		GNSSLongitudeAt: latitudeRefreshAt,
 	}); err != nil {
 		t.Fatalf("SyncTelemetryStatus(gnss per-field freshness) error = %v", err)
@@ -725,16 +725,19 @@ func (s *fakeStatusStore) PutStatus(_ context.Context, _ giznet.PublicKey, statu
 	return status, nil
 }
 
+//go:fix inline
 func intPtr(v int) *int {
-	return &v
+	return new(v)
 }
 
+//go:fix inline
 func boolPtr(v bool) *bool {
-	return &v
+	return new(v)
 }
 
+//go:fix inline
 func float64Ptr(v float64) *float64 {
-	return &v
+	return new(v)
 }
 
 func telemetryStatusDetails(items ...any) map[string]any {

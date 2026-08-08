@@ -3,6 +3,7 @@ package peertelemetry
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strconv"
 	"time"
 
@@ -159,15 +160,11 @@ func setTelemetryStatusFieldTime(status *apitypes.PeerStatus, fieldKey string, f
 	}
 	details := map[string]any{}
 	if status.Details != nil && *status.Details != nil {
-		for k, v := range *status.Details {
-			details[k] = v
-		}
+		maps.Copy(details, *status.Details)
 	}
 	fields := map[string]any{}
 	if raw, ok := details[telemetryStatusDetailsKey].(map[string]any); ok {
-		for k, v := range raw {
-			fields[k] = v
-		}
+		maps.Copy(fields, raw)
 	}
 	fields[fieldKey] = fmt.Sprintf("%d", fieldAt.UTC().UnixMilli())
 	details[telemetryStatusDetailsKey] = fields

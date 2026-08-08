@@ -66,10 +66,7 @@ func (m *Memory) CompactBucket(ctx context.Context, bucket recall.Bucket) error 
 	// Determine how many segments to compact: take the oldest ones
 	// that bring the bucket back under the threshold.
 	// We compact at least half the segments to avoid thrashing.
-	compactCount := len(segments) / 2
-	if compactCount < 1 {
-		compactCount = 1
-	}
+	compactCount := max(len(segments)/2, 1)
 	// Ensure we leave the bucket under threshold after compaction.
 	// If count is over threshold, compact enough to get under.
 	if m.policy.MaxMessages > 0 && count > m.policy.MaxMessages {

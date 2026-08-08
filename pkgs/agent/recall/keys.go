@@ -69,9 +69,9 @@ func sidValue(bucket Bucket, ts int64) []byte {
 // Handles legacy format (just "{ts_ns}") by defaulting to Bucket1H.
 func parseSidValue(data []byte) (Bucket, int64, error) {
 	s := string(data)
-	if idx := strings.IndexByte(s, ':'); idx >= 0 {
-		bucket := Bucket(s[:idx])
-		ts, err := strconv.ParseInt(s[idx+1:], 10, 64)
+	if before, after, ok := strings.Cut(s, ":"); ok {
+		bucket := Bucket(before)
+		ts, err := strconv.ParseInt(after, 10, 64)
 		if err != nil {
 			return "", 0, fmt.Errorf("recall: malformed sid value timestamp: %w", err)
 		}

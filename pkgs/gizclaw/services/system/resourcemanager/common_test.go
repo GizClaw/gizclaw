@@ -145,6 +145,7 @@ func withResourceID(t *testing.T, resource apitypes.Resource, id string) apitype
 	return result
 }
 
+//go:fix inline
 func ptr[T any](value T) *T {
-	return &value
+	return new(value)
 }

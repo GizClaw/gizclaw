@@ -60,7 +60,7 @@ jobs:
       - name: Check handwritten Go formatting
         run: go run ./tools/quality gofmt
 
-      - name: Check Go modernization baseline
+      - name: Check handwritten Go modernization and exemptions
         run: go run ./tools/quality modernize -binary "$(go env GOPATH)/bin/modernize"
 
       - name: Vet every maintained Go module

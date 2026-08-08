@@ -88,10 +88,7 @@ func TestCompactBucketMultiOutputKeepsUniqueSegments(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load source bucket before compact: %v", err)
 	}
-	compactCount := len(sourceBefore) / 2
-	if compactCount < 1 {
-		compactCount = 1
-	}
+	compactCount := max(len(sourceBefore)/2, 1)
 	if policyMax := 2; len(sourceBefore) > policyMax {
 		need := len(sourceBefore) - policyMax + 1
 		if need > compactCount {

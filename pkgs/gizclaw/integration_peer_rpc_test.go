@@ -18,16 +18,16 @@ func TestIntegrationPeerRPCRefresh(t *testing.T) {
 	ts := startTestServer(t)
 
 	admin := newTestClient(t, ts)
-	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
+	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: new("admin")})
 
 	device := newTestClientWithDevice(t, ts, apitypes.DeviceInfo{
 		Hardware: &apitypes.HardwareInfo{
-			Manufacturer: strPtr("Acme"),
-			Model:        strPtr("M1"),
+			Manufacturer: new("Acme"),
+			Model:        new("M1"),
 		},
-		Identifiers: &apitypes.DeviceIdentifiers{Sn: strPtr("sn-r1")},
+		Identifiers: &apitypes.DeviceIdentifiers{Sn: new("sn-r1")},
 	})
-	devicePublicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{Name: strPtr("peer")})
+	devicePublicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{Name: new("peer")})
 
 	result, err := waitForRefreshPeerSuccess(admin, devicePublicKey)
 	if err != nil {
@@ -42,10 +42,10 @@ func TestIntegrationPeerRPCRefreshReportsOfflineWhenDeviceDisconnected(t *testin
 	ts := startTestServer(t)
 
 	admin := newTestClient(t, ts)
-	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: strPtr("admin")})
+	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: new("admin")})
 
 	device := newTestClient(t, ts)
-	devicePublicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{Name: strPtr("peer")})
+	devicePublicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{Name: new("peer")})
 	if err := device.Close(); err != nil {
 		t.Fatalf("device close error: %v", err)
 	}

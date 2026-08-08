@@ -26,20 +26,20 @@ func TestRPCServerPeerMethods(t *testing.T) {
 	fake := &fakeRPCPeerService{
 		t:               t,
 		wantPublicKey:   publicKey,
-		info:            apitypes.DeviceInfo{Name: stringPtr("peer-1")},
+		info:            apitypes.DeviceInfo{Name: new("peer-1")},
 		runtime:         apitypes.Runtime{Online: true, LastSeenAt: now},
-		putInfoResponse: apitypes.DeviceInfo{Name: stringPtr("peer-2")},
+		putInfoResponse: apitypes.DeviceInfo{Name: new("peer-2")},
 	}
 	runRuntime := &fakeRPCPeerRunRuntime{
-		reload: apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateRunning, WorkspaceName: stringPtr("demo")},
-		status: apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateRunning, WorkspaceName: stringPtr("demo")},
-		stop:   apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateStopped, WorkspaceName: stringPtr("demo")},
+		reload: apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateRunning, WorkspaceName: new("demo")},
+		status: apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateRunning, WorkspaceName: new("demo")},
+		stop:   apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateStopped, WorkspaceName: new("demo")},
 		workspaceState: apitypes.PeerRunWorkspaceState{
 			RuntimeState:         apitypes.PeerRunStatusStateRunning,
 			WorkspaceName:        "demo",
-			HistoryAvailable:     boolPtr(true),
-			MemoryStatsAvailable: boolPtr(true),
-			RecallAvailable:      boolPtr(true),
+			HistoryAvailable:     new(true),
+			MemoryStatsAvailable: new(true),
+			RecallAvailable:      new(true),
 		},
 		history: apitypes.PeerRunHistoryListResponse{
 			Available: true,
@@ -70,7 +70,7 @@ func TestRPCServerPeerMethods(t *testing.T) {
 	}
 
 	putInfo := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerPutInfoResponse, error) {
-		return client.PutServerInfo(context.Background(), conn, "put-info", rpcapi.ServerPutInfoRequest{Name: stringPtr("peer-put")})
+		return client.PutServerInfo(context.Background(), conn, "put-info", rpcapi.ServerPutInfoRequest{Name: new("peer-put")})
 	})
 	if putInfo.Name == nil || *putInfo.Name != "peer-2" {
 		t.Fatalf("PutInfo() = %+v", putInfo)
@@ -153,7 +153,7 @@ func TestRPCServerPeerMethods(t *testing.T) {
 		t.Fatalf("ReloadServerRunWorkspace() = %+v", reloadWorkspace)
 	}
 	history := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerListRunWorkspaceHistoryResponse, error) {
-		return client.ListServerRunWorkspaceHistory(context.Background(), conn, "run-workspace-history", rpcapi.ServerListRunWorkspaceHistoryRequest{Limit: intPtr(1)})
+		return client.ListServerRunWorkspaceHistory(context.Background(), conn, "run-workspace-history", rpcapi.ServerListRunWorkspaceHistoryRequest{Limit: new(1)})
 	})
 	if !history.Available || len(history.Items) != 1 || history.Items[0].Name != "h1" || runRuntime.lastHistoryLimit == nil || *runRuntime.lastHistoryLimit != 1 {
 		t.Fatalf("ListServerRunWorkspaceHistory() = %+v limit=%v", history, runRuntime.lastHistoryLimit)
@@ -814,16 +814,19 @@ func (f *fakeRPCServerGenXService) Say(_ context.Context, request peergenx.SayRe
 	return peergenx.SayResponse{Accepted: true}, nil
 }
 
+//go:fix inline
 func stringPtr(value string) *string {
-	return &value
+	return new(value)
 }
 
+//go:fix inline
 func intPtr(value int) *int {
-	return &value
+	return new(value)
 }
 
+//go:fix inline
 func boolPtr(value bool) *bool {
-	return &value
+	return new(value)
 }
 
 func mustRPCParams[T any](value T, encode func(*rpcapi.RPCPayload, T) error) *rpcapi.RPCPayload {

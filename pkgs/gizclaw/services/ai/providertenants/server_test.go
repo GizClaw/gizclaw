@@ -115,7 +115,7 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 			"voice_id": "voice-1",
 		}),
 		Source:    apitypes.VoiceSourceSync,
-		SyncedAt:  timePtr(created.CreatedAt),
+		SyncedAt:  new(created.CreatedAt),
 		UpdatedAt: created.CreatedAt,
 	}
 	voiceStore, err := srv.voiceStore()
@@ -168,9 +168,9 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 	})
 
 	for _, body := range []adminhttp.MiniMaxTenantUpsert{
-		{Id: "alpha", AppId: stringPtr("app-a"), GroupId: stringPtr("group-a"), CredentialId: "cred-main"},
-		{Id: "beta", AppId: stringPtr("app-b"), GroupId: stringPtr("group-b"), CredentialId: "cred-main"},
-		{Id: "gamma", AppId: stringPtr("app-c"), GroupId: stringPtr("group-c"), CredentialId: "cred-main"},
+		{Id: "alpha", AppId: new("app-a"), GroupId: new("group-a"), CredentialId: "cred-main"},
+		{Id: "beta", AppId: new("app-b"), GroupId: new("group-b"), CredentialId: "cred-main"},
+		{Id: "gamma", AppId: new("app-c"), GroupId: new("group-c"), CredentialId: "cred-main"},
 	} {
 		if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &body}); err != nil {
 			t.Fatalf("CreateMiniMaxTenant(%q) error = %v", body.Id, err)
@@ -212,7 +212,7 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 
 	invalidBody := adminhttp.MiniMaxTenantUpsert{
 		Id:           "missing-cred",
-		GroupId:      stringPtr("group-x"),
+		GroupId:      new("group-x"),
 		CredentialId: "not-found",
 	}
 	invalidResp, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &invalidBody})
@@ -263,7 +263,7 @@ func TestServerMiniMaxCredentialValidation(t *testing.T) {
 	ctx := context.Background()
 	tenant := apitypes.MiniMaxTenant{
 		CredentialId: "cred-main",
-		GroupId:      stringPtr("group-1"),
+		GroupId:      new("group-1"),
 		Id:           "tenant-a",
 	}
 
@@ -358,7 +358,7 @@ func TestServerMiniMaxHelpers(t *testing.T) {
 		}),
 	}
 	candidates := miniMaxBaseURLCandidates(
-		apitypes.MiniMaxTenant{BaseUrl: stringPtr("https://tenant.example.test")},
+		apitypes.MiniMaxTenant{BaseUrl: new("https://tenant.example.test")},
 		credential,
 		[]string{"https://fallback.example.test", "https://voice-backup.example.test"},
 	)
@@ -409,7 +409,7 @@ func TestServerMiniMaxHelpers(t *testing.T) {
 	if rawEqual(nil, &right) || rawEqual(&left, nil) {
 		t.Fatalf("rawEqual(nil) = true, want false")
 	}
-	if matchesVoiceFilters(apitypes.Voice{Source: apitypes.VoiceSourceManual}, voiceFilters{source: stringPtr("sync")}) {
+	if matchesVoiceFilters(apitypes.Voice{Source: apitypes.VoiceSourceManual}, voiceFilters{source: new("sync")}) {
 		t.Fatalf("matchesVoiceFilters(source mismatch) = true, want false")
 	}
 }
@@ -695,7 +695,7 @@ func TestServerSyncMiniMaxTenantVoicesUsesTenantBaseURL(t *testing.T) {
 		"group_id": "group-1",
 		"credential_id": "cred-main"
 	}`)
-	tenantBody.BaseUrl = stringPtr(upstream.URL)
+	tenantBody.BaseUrl = new(upstream.URL)
 	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
@@ -766,7 +766,7 @@ func TestServerSyncMiniMaxTenantVoicesRetriesTransientEOF(t *testing.T) {
 		"group_id": "group-1",
 		"credential_id": "cred-main"
 	}`)
-	tenantBody.BaseUrl = stringPtr(upstream.URL)
+	tenantBody.BaseUrl = new(upstream.URL)
 	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
@@ -809,7 +809,7 @@ func TestServerSyncMiniMaxTenantVoicesCredentialRejected(t *testing.T) {
 		"group_id": "group-1",
 		"credential_id": "cred-main"
 	}`)
-	tenantBody.BaseUrl = stringPtr(upstream.URL)
+	tenantBody.BaseUrl = new(upstream.URL)
 	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
@@ -863,7 +863,7 @@ func TestServerSyncMiniMaxTenantVoicesFallsBackAfterRegionalAuthError(t *testing
 		"group_id": "group-1",
 		"credential_id": "cred-main"
 	}`)
-	tenantBody.BaseUrl = stringPtr(rejecting.URL)
+	tenantBody.BaseUrl = new(rejecting.URL)
 	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
@@ -923,7 +923,7 @@ func TestServerSyncMiniMaxTenantVoicesReconcile(t *testing.T) {
 		"group_id": "group-1",
 		"credential_id": "cred-main"
 	}`)
-	tenantBody.BaseUrl = stringPtr(upstream.URL)
+	tenantBody.BaseUrl = new(upstream.URL)
 	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
@@ -1042,7 +1042,7 @@ func TestServerSyncMiniMaxTenantVoicesFetchesAllVoiceTypes(t *testing.T) {
 		"group_id": "group-1",
 		"credential_id": "cred-main"
 	}`)
-	tenantBody.BaseUrl = stringPtr(upstream.URL)
+	tenantBody.BaseUrl = new(upstream.URL)
 	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
@@ -1123,9 +1123,9 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 	createBody := adminhttp.VolcTenantUpsert{
 		Id:           "tenant-a",
 		CredentialId: "volc-main",
-		Region:       stringPtr("cn-beijing"),
+		Region:       new("cn-beijing"),
 		ResourceIds:  &resourceIDs,
-		Description:  stringPtr("primary tenant"),
+		Description:  new("primary tenant"),
 	}
 	createResp, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody})
 	if err != nil {
@@ -1235,7 +1235,7 @@ func TestServerVolcTenantPutGetAndValidation(t *testing.T) {
 	invalidBody := adminhttp.VolcTenantUpsert{
 		Id:           "tenant-a",
 		CredentialId: "missing-credential",
-		Endpoint:     stringPtr("not-a-url"),
+		Endpoint:     new("not-a-url"),
 	}
 	invalidResp, err := srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Id: "tenant-a", Body: &invalidBody})
 	if err != nil {
@@ -1256,10 +1256,10 @@ func TestServerVolcTenantPutGetAndValidation(t *testing.T) {
 	body := adminhttp.VolcTenantUpsert{
 		Id:           "tenant-a",
 		CredentialId: "volc-main",
-		Endpoint:     stringPtr("https://speech.example.com/"),
-		Region:       stringPtr(" cn-beijing "),
+		Endpoint:     new("https://speech.example.com/"),
+		Region:       new(" cn-beijing "),
 		ResourceIds:  &resourceIDs,
-		Description:  stringPtr(" primary "),
+		Description:  new(" primary "),
 	}
 	createResp, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &body})
 	if err != nil {
@@ -1630,7 +1630,7 @@ func TestVolcCredentialAndResourceHelpers(t *testing.T) {
 			t.Fatalf("providerVoiceID() = %q, want %q", got, tt.want)
 		}
 	}
-	region := volcRegion(apitypes.VolcTenant{Region: stringPtr(" cn-shanghai ")})
+	region := volcRegion(apitypes.VolcTenant{Region: new(" cn-shanghai ")})
 	if region != "cn-shanghai" {
 		t.Fatalf("volcRegion() = %q", region)
 	}
@@ -1655,13 +1655,13 @@ func TestVolcCredentialAndResourceHelpers(t *testing.T) {
 	if !equalStringPtr(nil, nil) {
 		t.Fatal("equalStringPtr(nil, nil) = false")
 	}
-	if equalStringPtr(nil, stringPtr("value")) {
+	if equalStringPtr(nil, new("value")) {
 		t.Fatal("equalStringPtr(nil, value) = true")
 	}
-	if !equalStringPtr(stringPtr("value"), stringPtr("value")) {
+	if !equalStringPtr(new("value"), new("value")) {
 		t.Fatal("equalStringPtr(equal values) = false")
 	}
-	if equalStringPtr(stringPtr("value"), stringPtr("other")) {
+	if equalStringPtr(new("value"), new("other")) {
 		t.Fatal("equalStringPtr(different values) = true")
 	}
 	if cloneMap(nil) != nil {
@@ -1744,7 +1744,7 @@ func TestVolcSpeakerClientForTenantValidation(t *testing.T) {
 	tenant := apitypes.VolcTenant{
 		CredentialId: "volc-main",
 		Id:           "tenant-a",
-		Region:       stringPtr("cn-beijing"),
+		Region:       new("cn-beijing"),
 	}
 	if _, err := srv.volcSpeakerClientForTenant(ctx, apitypes.Credential{
 		Id:       "wrong-provider",
@@ -1989,10 +1989,12 @@ func mustVoiceUpsert(t *testing.T, raw string) adminhttp.VoiceUpsert {
 	return upsert
 }
 
+//go:fix inline
 func stringPtr(value string) *string {
-	return &value
+	return new(value)
 }
 
+//go:fix inline
 func timePtr(value time.Time) *time.Time {
-	return &value
+	return new(value)
 }

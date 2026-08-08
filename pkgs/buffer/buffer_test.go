@@ -58,10 +58,7 @@ func TestBuffer_ConcurrentWriteRead(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < len(data); i += 32 {
-			end := i + 32
-			if end > len(data) {
-				end = len(data)
-			}
+			end := min(i+32, len(data))
 			_, err := buf.Write(data[i:end])
 			if err != nil {
 				t.Errorf("Write error: %v", err)

@@ -371,10 +371,7 @@ func (h *HNSW) Insert(id string, vector []float32) error {
 
 	// Phase 2: At each layer from min(level, maxLevel) down to 0,
 	// do a beam search, select neighbors, and connect bidirectionally.
-	topInsert := level
-	if topInsert > h.maxLevel {
-		topInsert = h.maxLevel
-	}
+	topInsert := min(level, h.maxLevel)
 
 	ep := []uint32{cur}
 	for lev := topInsert; lev >= 0; lev-- {
@@ -443,10 +440,7 @@ func (h *HNSW) Search(query []float32, topK int) ([]Match, error) {
 	}
 
 	// ef must be at least topK to guarantee enough candidates.
-	ef := h.cfg.EfSearch
-	if ef < topK {
-		ef = topK
-	}
+	ef := max(h.cfg.EfSearch, topK)
 
 	// Phase 1: Greedy descent from top layer to layer 1.
 	cur := uint32(h.entryID)
@@ -538,10 +532,8 @@ func (h *HNSW) Delete(id string) error {
 func (h *HNSW) randomLevel() int {
 	// Use 1-rand to get (0,1] and avoid log(0).
 	r := max(rand.Float64(), math.SmallestNonzeroFloat64)
-	level := int(-math.Log(r) * h.levelMul)
-	if level > 31 {
-		level = 31 // cap to prevent pathological cases
-	}
+	// Cap the level to prevent pathological cases.
+	level := min(int(-math.Log(r)*h.levelMul), 31)
 	return level
 }
 

@@ -42,8 +42,7 @@ func TestRoundTrip(t *testing.T) {
 		w.Header().Set("X-Test", "ok")
 		_, _ = w.Write([]byte("echo:" + string(payload)))
 	}))
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() {
 		<-ctx.Done()
 		_ = srv.Shutdown(context.Background())
@@ -118,8 +117,7 @@ func TestRoundTripKeepsRequestBodyOpenAfterResponseHeaders(t *testing.T) {
 		}
 		_, _ = w.Write([]byte("rest:" + string(rest)))
 	}))
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() {
 		<-ctx.Done()
 		_ = srv.Shutdown(context.Background())

@@ -288,8 +288,9 @@ func IntValue(v *int) int {
 	return *v
 }
 
+//go:fix inline
 func IntPtr(v int) *int {
-	return &v
+	return new(v)
 }
 
 func OptionalString(v string) *string {
