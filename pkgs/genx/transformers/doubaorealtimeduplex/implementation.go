@@ -407,6 +407,7 @@ func (t *Transformer) processLoop(
 	go func() {
 		lastTranscriptText := ""
 		transcriptOpen := false
+		eventsFinished := false
 		textDeltaSeen := make(map[string]bool)
 		assistantTextStarted := make(map[string]bool)
 		assistantTextDone := make(map[string]bool)
@@ -462,14 +463,19 @@ func (t *Transformer) processLoop(
 			transcriptOpen = false
 			return nil
 		}
-		defer func() {
+		finishEvents := func() {
+			if eventsFinished {
+				return
+			}
+			eventsFinished = true
 			if transcriptOpen {
 				if err := closeInputSegment(""); err != nil {
 					finishEventError(err)
 				}
 			}
 			close(eventsDone)
-		}()
+		}
+		defer finishEvents()
 		for event, err := range session.Recv() {
 			if err != nil {
 				if restarting.Load() {
@@ -738,6 +744,10 @@ func (t *Transformer) processLoop(
 				completeAssistantStream(streamID)
 			case doubaospeech.RealtimeDuplexEventSessionClosed:
 				slog.Info("doubao: realtime duplex session closed")
+				// Signal the send loop before Recv performs any iterator cleanup.
+				// Otherwise input that arrives after SessionClosed can still be
+				// sent to the provider session that has already closed.
+				finishEvents()
 				return
 			case doubaospeech.RealtimeDuplexEventError:
 				err := fmt.Errorf("doubao realtime duplex event error")
