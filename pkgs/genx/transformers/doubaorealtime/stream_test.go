@@ -214,6 +214,43 @@ func TestRealtimeAssistantLifecycleInterruptsCurrentEpoch(t *testing.T) {
 	}
 }
 
+func TestRealtimeAssistantLifecyclePushHoldsInterruptLock(t *testing.T) {
+	assistant := newRealtimeAssistantLifecycle()
+	epoch := assistant.markStarted("turn-1")
+	lockHeld := false
+	accepted, err := assistant.pushIfCurrent(epoch, &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true},
+	}, func() error {
+		if assistant.mu.TryLock() {
+			assistant.mu.Unlock()
+			t.Fatal("push callback ran without holding the interruption lock")
+		}
+		lockHeld = true
+		return nil
+	})
+	if err != nil || !accepted || !lockHeld {
+		t.Fatalf("current push = accepted %t lock held %t error %v", accepted, lockHeld, err)
+	}
+
+	interruption := assistant.interruptRoutes("turn-2", false)
+	if !interruption.interrupted || !interruption.audioStarted {
+		t.Fatalf("interruptRoutes() = %#v, want started audio route", interruption)
+	}
+
+	called := false
+	accepted, err = assistant.pushIfCurrent(epoch, &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte("late")},
+	}, func() error {
+		called = true
+		return nil
+	})
+	if err != nil || accepted || called {
+		t.Fatalf("stale push = accepted %t called %t error %v", accepted, called, err)
+	}
+}
+
 func TestRealtimeAssistantLifecycleIgnoresStaleStreamCompletion(t *testing.T) {
 	assistant := newRealtimeAssistantLifecycle()
 	assistant.markStarted("turn-1")

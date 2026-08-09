@@ -1095,7 +1095,11 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 			}
 		case packet := <-d.transport.opusPackets:
 			if sentInterrupt && interruptedAt.IsZero() {
-				return stat, fmt.Errorf("interrupt downlink continued before interrupted assistant EOS; recent events: %s", trace.String())
+				// Client-side BOS completion cannot prove that the server has received
+				// the interrupt; packets already in flight still belong to the first
+				// response until its interrupted EOS establishes the cutover.
+				stat.DownlinkBeforeInterrupt++
+				continue
 			}
 			if !interruptedAt.IsZero() {
 				if !packet.receivedAt.IsZero() && packet.receivedAt.Before(interruptedAt) {

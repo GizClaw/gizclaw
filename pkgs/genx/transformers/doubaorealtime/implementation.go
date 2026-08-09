@@ -1036,21 +1036,21 @@ func (t *Transformer) processSession(
 		return true, nil
 	}
 	pushAssistantOutput := func(epoch uint64, response *doubaoRealtimePTTResponse, chunk *genx.MessageChunk) error {
-		if !assistant.canPush(epoch) {
-			return nil
-		}
 		if t.mode != ModePushToTalk {
-			markDoubaoRealtimeAssistantRouteStarted(assistant, epoch, chunk)
-			if err := output.Push(chunk); err != nil {
-				return err
-			}
-			return nil
+			_, err := assistant.pushIfCurrent(epoch, chunk, func() error {
+				return output.Push(chunk)
+			})
+			return err
 		}
 		if response == nil {
 			return nil
 		}
-		markDoubaoRealtimeAssistantRouteStarted(assistant, epoch, chunk)
-		err := response.push(chunk)
+		accepted, err := assistant.pushIfCurrent(epoch, chunk, func() error {
+			return response.push(chunk)
+		})
+		if !accepted {
+			return nil
+		}
 		if !errors.Is(err, errRealtimePTTOutputLimit) {
 			return err
 		}
@@ -1774,18 +1774,6 @@ func (t *Transformer) processSession(
 func isDoubaoRealtimeAssistantChunk(chunk *genx.MessageChunk, streamID string) bool {
 	return chunk != nil && chunk.Role == genx.RoleModel && chunk.Ctrl != nil &&
 		chunk.Ctrl.StreamID == streamID && chunk.Ctrl.Label == doubaoRealtimeAssistantLabel
-}
-
-func markDoubaoRealtimeAssistantRouteStarted(assistant *realtimeAssistantLifecycle, epoch uint64, chunk *genx.MessageChunk) {
-	if assistant == nil || chunk == nil || !chunk.IsBeginOfStream() {
-		return
-	}
-	switch chunk.Part.(type) {
-	case genx.Text:
-		assistant.markRouteStarted(epoch, true)
-	case *genx.Blob:
-		assistant.markRouteStarted(epoch, false)
-	}
 }
 
 func (t *Transformer) pushInputEOSError(output *bufferStream, streamID string, err error) {

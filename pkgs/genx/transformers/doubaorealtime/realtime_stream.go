@@ -211,6 +211,33 @@ func (s *realtimeAssistantLifecycle) canPush(epoch uint64) bool {
 	return s.acceptsOutput() && s.currentEpoch() == epoch
 }
 
+func (s *realtimeAssistantLifecycle) pushIfCurrent(
+	epoch uint64,
+	chunk *genx.MessageChunk,
+	push func() error,
+) (bool, error) {
+	if s == nil || chunk == nil || push == nil {
+		return false, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.accept.Load() || s.epoch.Load() != epoch {
+		return false, nil
+	}
+	if err := push(); err != nil {
+		return true, err
+	}
+	if chunk.IsBeginOfStream() && s.active && s.activeAt == epoch {
+		switch chunk.Part.(type) {
+		case genx.Text:
+			s.textStarted = true
+		case *genx.Blob:
+			s.audioStarted = true
+		}
+	}
+	return true, nil
+}
+
 type realtimeChunkOutput interface {
 	Push(*genx.MessageChunk) error
 }
