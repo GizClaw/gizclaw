@@ -110,8 +110,8 @@ Config rules:
 - The six logical Store kinds are `keyvalue`, `sql`, `objectstore`, `metrics`, `log.immutable`, and `log.mutable`.
 - Keyvalue Stores may use Badger or memory, or require an explicit `table` when backed by SQLite/PostgreSQL. Metrics Stores may additionally use Prometheus, ClickHouse, SQLite, or PostgreSQL.
 - `log.immutable` may use Volc TLS, ClickHouse, SQLite, or PostgreSQL; `log.mutable` may use ClickHouse, SQLite, or PostgreSQL. SQL-backed Metrics and Log Stores require `table`.
-- SQLite/PostgreSQL KV, Metrics, and Log declarations each claim one unqualified ASCII table of at most 63 bytes. Claims must be distinct on one connector (ASCII case-insensitive on SQLite, exact on PostgreSQL), and validation happens before migrations.
-- SQL-backed logical Stores run isolated forward-only migrations at startup and borrow the physical pool. Close logical Stores before Storage; they never close the pool themselves.
+- SQLite/PostgreSQL KV, Metrics, and Log declarations each claim one unqualified ASCII table of at most 63 bytes. Claims must be distinct on one connector (ASCII case-insensitive on SQLite, exact on PostgreSQL), and the complete claim set is validated before any DDL.
+- SQL-backed logical Stores directly ensure their table and indexes with idempotent DDL, then validate the exact schema. They create no version or history table and borrow the physical pool. Close logical Stores before Storage; they never close the pool themselves.
 - Public vecstore and graph packages remain available but are not Server Store kinds.
 - `memory` is a stateless marker; every logical Store entry creates its own in-process backend.
 - `cmd/internal/server` owns YAML DTO decoding and explicit conversion. `pkgs/store/storage` owns typed physical resources, while root `pkgs/store` builds logical Stores and never closes the physical registry.
@@ -120,7 +120,7 @@ Config rules:
 - `services.agent_host`, `services.metrics`, and `services.system_log` are optional; all other built-in service blocks are required.
 - `services.system_log` defaults to info-level stderr when omitted.
 - Service-internal collections use code-owned prefixes; expanded bindings such as `route_store`, `invite_token_store`, and `member_store` are unsupported.
-- Old top-level pseudo-service blocks, nested Storage drivers, one-layer Stores, generic `kind: log`, and `gizclaw migrate` are unsupported. Stop and recreate incompatible development services; do not attempt an automatic data migration.
+- Old top-level pseudo-service blocks, nested Storage drivers, one-layer Stores, generic `kind: log`, and `gizclaw migrate` are unsupported. Stop and recreate incompatible development services; do not import or rewrite existing data automatically.
 
 Service-managed edit flow:
 

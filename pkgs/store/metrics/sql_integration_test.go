@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlmigration"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
@@ -24,13 +23,8 @@ func TestPostgreSQLMetricsIntegration(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	table := fmt.Sprintf("gzc_metrics_sql_%d", time.Now().UnixNano())
-	namespace, err := sqlmigration.Prepare(db, "metrics", table)
-	if err != nil {
-		t.Fatal(err)
-	}
 	t.Cleanup(func() {
 		_, _ = db.Exec(`DROP TABLE IF EXISTS "` + table + `"`)
-		_, _ = db.Exec(`DROP TABLE IF EXISTS "` + namespace.VersionTable + `"`)
 	})
 	store, err := NewSQLStoreWithDB(db, table)
 	if err != nil {

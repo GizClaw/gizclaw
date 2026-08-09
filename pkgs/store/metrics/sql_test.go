@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlbackend"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -109,11 +110,17 @@ func TestSQLMetricsSelectorsBoundariesCancellationAndSchema(t *testing.T) {
 	if _, err := store.Latest(canceled, LatestQuery{Selector: Selector{Name: "cpu"}, At: start, Lookback: time.Second}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Latest(canceled) error = %v", err)
 	}
-	base := strings.TrimSuffix(store.namespace.VersionTable, "_schema_versions")
+	index, err := sqlbackend.IndexName(store.backend, "metric_idx")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`DROP INDEX "` + base + `_metric_idx"`); err != nil {
+	if _, err := db.Exec(`DROP INDEX "` + index + `"`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE INDEX "` + index + `" ON "metric_samples" (metric)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := NewSQLStoreWithDB(db, "metric_samples"); err == nil || !strings.Contains(err.Error(), "incompatible") {

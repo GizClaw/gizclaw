@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlbackend"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -150,11 +151,17 @@ func TestSQLRejectsIncompatibleSchemaAndRollsBackCanceledMutation(t *testing.T) 
 	if value, err := store.Get(context.Background(), Key{"stable"}); err != nil || string(value) != "value" {
 		t.Fatalf("Get(stable) = %q, %v", value, err)
 	}
-	index := strings.TrimSuffix(store.namespace.VersionTable, "_schema_versions") + "_expires_idx"
+	index, err := sqlbackend.IndexName(store.backend, "expires_idx")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`DROP INDEX "` + index + `"`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE INDEX "` + index + `" ON "kv_schema" (encoded_key)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := NewSQLWithDB(db, "kv_schema", nil); err == nil || !strings.Contains(err.Error(), "incompatible") {

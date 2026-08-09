@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlmigration"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	physicalstorage "github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
@@ -37,17 +36,8 @@ func TestPostgreSQLPhysicalPoolSupportsSQLLogicalStores(t *testing.T) {
 		"history": fmt.Sprintf("gzc_root_history_%d", suffix),
 	}
 	t.Cleanup(func() {
-		for name, table := range tables {
-			schemaKind := name
-			if name == "logs" || name == "history" {
-				schemaKind = "log"
-			}
-			namespace, prepareErr := sqlmigration.Prepare(db, schemaKind, table)
-			if prepareErr != nil {
-				continue
-			}
+		for _, table := range tables {
 			_, _ = db.Exec(`DROP TABLE IF EXISTS "` + table + `"`)
-			_, _ = db.Exec(`DROP TABLE IF EXISTS "` + namespace.VersionTable + `"`)
 		}
 	})
 	registry, err := New(map[string]Config{

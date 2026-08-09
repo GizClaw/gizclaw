@@ -7,23 +7,22 @@ import (
 	"errors"
 	"fmt"
 	"iter"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlmigration"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlbackend"
 	"github.com/jmoiron/sqlx"
 )
 
 const sqlInitializationTimeout = 30 * time.Second
 
-// SQL implements Store over one migrated SQLite or PostgreSQL table. The
+// SQL implements Store over one SQLite or PostgreSQL table. The
 // connection pool is borrowed and remains owned by the caller.
 type SQL struct {
-	db        *sqlx.DB
-	opts      *Options
-	namespace sqlmigration.Namespace
-	quoted    string
+	db      *sqlx.DB
+	opts    *Options
+	backend sqlbackend.Backend
+	quoted  string
 
 	mu     sync.RWMutex
 	closed bool
@@ -37,18 +36,14 @@ func NewSQLWithDB(db *sqlx.DB, table string, options *Options) (*SQL, error) {
 }
 
 func newSQLWithDB(ctx context.Context, db *sqlx.DB, table string, options *Options) (*SQL, error) {
-	namespace, err := sqlmigration.Prepare(db, "kv", table)
+	backend, err := sqlbackend.Prepare(db, "kv", table)
 	if err != nil {
 		return nil, fmt.Errorf("kv: sql table %q: %w", table, err)
 	}
-	if _, err := sqlmigration.Run(ctx, db, "kv", table, sqlMigrations(namespace)...); err != nil {
+	if err := ensureSQLSchema(ctx, db, backend); err != nil {
 		return nil, fmt.Errorf("kv: initialize sql table %q: %w", table, err)
 	}
-	quoted, err := sqlmigration.Quote(namespace.Dialect, table)
-	if err != nil {
-		return nil, fmt.Errorf("kv: quote sql table %q: %w", table, err)
-	}
-	store := &SQL{db: db, opts: options, namespace: namespace, quoted: quoted}
+	store := &SQL{db: db, opts: options, backend: backend, quoted: backend.Quoted}
 	if err := store.checkSchema(ctx); err != nil {
 		return nil, err
 	}
@@ -56,25 +51,28 @@ func newSQLWithDB(ctx context.Context, db *sqlx.DB, table string, options *Optio
 }
 
 func (store *SQL) checkSchema(ctx context.Context) error {
-	columns, err := sqlmigration.Columns(ctx, store.db, store.namespace)
+	columns, err := sqlbackend.Columns(ctx, store.db, store.backend)
 	if err != nil {
-		return fmt.Errorf("kv: inspect sql table %q: %w", store.namespace.Table, err)
+		return fmt.Errorf("kv: inspect sql table %q: %w", store.backend.Table, err)
 	}
 	binaryType := "BLOB"
-	if store.namespace.Dialect == sqlmigration.PostgreSQL {
+	if store.backend.Dialect == sqlbackend.PostgreSQL {
 		binaryType = "BYTEA"
 	}
-	want := map[string]sqlmigration.Column{
+	want := map[string]sqlbackend.Column{
 		"encoded_key":          {Type: binaryType, Nullable: false, PrimaryKeyPosition: 1},
 		"value":                {Type: binaryType, Nullable: false},
 		"expires_at_unix_nano": {Type: "BIGINT", Nullable: true},
 	}
-	if err := sqlmigration.ValidateColumns(columns, want); err != nil {
-		return fmt.Errorf("kv: incompatible sql table %q: %w", store.namespace.Table, err)
+	if err := sqlbackend.ValidateColumns(columns, want); err != nil {
+		return fmt.Errorf("kv: incompatible sql table %q: %w", store.backend.Table, err)
 	}
-	index := strings.TrimSuffix(store.namespace.VersionTable, "_schema_versions") + "_expires_idx"
-	if err := sqlmigration.ValidateIndexColumns(ctx, store.db, store.namespace, index, []string{"expires_at_unix_nano"}); err != nil {
-		return fmt.Errorf("kv: incompatible sql table %q expiration index: %w", store.namespace.Table, err)
+	index, err := sqlbackend.IndexName(store.backend, "expires_idx")
+	if err != nil {
+		return fmt.Errorf("kv: derive sql table %q expiration index: %w", store.backend.Table, err)
+	}
+	if err := sqlbackend.ValidateIndexColumns(ctx, store.db, store.backend, index, []string{"expires_at_unix_nano"}); err != nil {
+		return fmt.Errorf("kv: incompatible sql table %q expiration index: %w", store.backend.Table, err)
 	}
 	return nil
 }
@@ -108,16 +106,16 @@ func (store *SQL) getUnlocked(ctx context.Context, key Key) ([]byte, error) {
 	encoded := store.opts.encode(key)
 	var value []byte
 	var expires sql.NullInt64
-	query := sqlmigration.Rebind(store.db, "SELECT value, expires_at_unix_nano FROM "+store.quoted+" WHERE encoded_key = ?")
+	query := sqlbackend.Rebind(store.db, "SELECT value, expires_at_unix_nano FROM "+store.quoted+" WHERE encoded_key = ?")
 	err := store.db.QueryRowContext(ctx, query, encoded).Scan(&value, &expires)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
-		return nil, sqlmigration.ExternalError("kv: get sql key", err)
+		return nil, sqlbackend.ExternalError("kv: get sql key", err)
 	}
 	if expires.Valid && expires.Int64 <= time.Now().UnixNano() {
-		deleteQuery := sqlmigration.Rebind(store.db, "DELETE FROM "+store.quoted+" WHERE encoded_key = ? AND expires_at_unix_nano <= ?")
+		deleteQuery := sqlbackend.Rebind(store.db, "DELETE FROM "+store.quoted+" WHERE encoded_key = ? AND expires_at_unix_nano <= ?")
 		_, _ = store.db.ExecContext(ctx, deleteQuery, encoded, time.Now().UnixNano())
 		return nil, ErrNotFound
 	}
@@ -194,9 +192,9 @@ func (store *SQL) listAfter(ctx context.Context, prefix, after Key, limit *int) 
 		args = append(args, start)
 	}
 	query += " ORDER BY encoded_key ASC"
-	rows, err := store.db.QueryContext(ctx, sqlmigration.Rebind(store.db, query), args...)
+	rows, err := store.db.QueryContext(ctx, sqlbackend.Rebind(store.db, query), args...)
 	if err != nil {
-		return nil, sqlmigration.ExternalError("kv: list sql keys", err)
+		return nil, sqlbackend.ExternalError("kv: list sql keys", err)
 	}
 	defer rows.Close()
 	now := time.Now().UnixNano()
@@ -205,7 +203,7 @@ func (store *SQL) listAfter(ctx context.Context, prefix, after Key, limit *int) 
 		var key, value []byte
 		var expires sql.NullInt64
 		if err := rows.Scan(&key, &value, &expires); err != nil {
-			return nil, sqlmigration.ExternalError("kv: scan sql key", err)
+			return nil, sqlbackend.ExternalError("kv: scan sql key", err)
 		}
 		if len(prefixBytes) > 0 && !bytes.HasPrefix(key, prefixBytes) {
 			break
@@ -219,7 +217,7 @@ func (store *SQL) listAfter(ctx context.Context, prefix, after Key, limit *int) 
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return nil, sqlmigration.ExternalError("kv: list sql rows", err)
+		return nil, sqlbackend.ExternalError("kv: list sql rows", err)
 	}
 	return entries, nil
 }
@@ -259,14 +257,14 @@ func (store *SQL) BatchMutate(ctx context.Context, entries []Entry, keys []Key) 
 			return err
 		}
 	}
-	deleteQuery := sqlmigration.Rebind(store.db, "DELETE FROM "+store.quoted+" WHERE encoded_key = ?")
+	deleteQuery := sqlbackend.Rebind(store.db, "DELETE FROM "+store.quoted+" WHERE encoded_key = ?")
 	for _, key := range keys {
 		if _, err := tx.ExecContext(ctx, deleteQuery, store.opts.encode(key)); err != nil {
-			return sqlmigration.ExternalError("kv: delete sql key", err)
+			return sqlbackend.ExternalError("kv: delete sql key", err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return sqlmigration.ExternalError("kv: commit sql mutation", err)
+		return sqlbackend.ExternalError("kv: commit sql mutation", err)
 	}
 	return nil
 }
@@ -320,14 +318,14 @@ func (store *SQL) CreateIfAllAbsent(ctx context.Context, guards []Entry, entries
 			continue
 		}
 		claimed[encodedKey] = struct{}{}
-		insert := sqlmigration.Rebind(store.db, "INSERT INTO "+store.quoted+" (encoded_key, value, expires_at_unix_nano) VALUES (?, ?, ?) ON CONFLICT(encoded_key) DO NOTHING")
+		insert := sqlbackend.Rebind(store.db, "INSERT INTO "+store.quoted+" (encoded_key, value, expires_at_unix_nano) VALUES (?, ?, ?) ON CONFLICT(encoded_key) DO NOTHING")
 		result, err := tx.ExecContext(ctx, insert, guard.key, guard.value, guard.expires)
 		if err != nil {
-			return nil, nil, false, sqlmigration.ExternalError("kv: claim sql guard", err)
+			return nil, nil, false, sqlbackend.ExternalError("kv: claim sql guard", err)
 		}
 		rows, err := result.RowsAffected()
 		if err != nil {
-			return nil, nil, false, sqlmigration.ExternalError("kv: inspect sql guard claim", err)
+			return nil, nil, false, sqlbackend.ExternalError("kv: inspect sql guard claim", err)
 		}
 		if rows == 0 {
 			_ = tx.Rollback()
@@ -346,7 +344,7 @@ func (store *SQL) CreateIfAllAbsent(ctx context.Context, guards []Entry, entries
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return nil, nil, false, sqlmigration.ExternalError("kv: commit sql conditional create", err)
+		return nil, nil, false, sqlbackend.ExternalError("kv: commit sql conditional create", err)
 	}
 	return nil, nil, true, nil
 }
@@ -383,14 +381,14 @@ func (store *SQL) CompareAndMutate(ctx context.Context, guard Key, expected []by
 			return false, err
 		}
 	}
-	deleteQuery := sqlmigration.Rebind(store.db, "DELETE FROM "+store.quoted+" WHERE encoded_key = ?")
+	deleteQuery := sqlbackend.Rebind(store.db, "DELETE FROM "+store.quoted+" WHERE encoded_key = ?")
 	for _, key := range keys {
 		if _, err := tx.ExecContext(ctx, deleteQuery, store.opts.encode(key)); err != nil {
-			return false, sqlmigration.ExternalError("kv: delete compared sql key", err)
+			return false, sqlbackend.ExternalError("kv: delete compared sql key", err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return false, sqlmigration.ExternalError("kv: commit sql compare-and-mutate", err)
+		return false, sqlbackend.ExternalError("kv: commit sql compare-and-mutate", err)
 	}
 	return true, nil
 }
@@ -420,7 +418,7 @@ func (store *SQL) prepare(entries []Entry, now time.Time) ([]sqlEntry, error) {
 			if !entry.Deadline.After(now) {
 				return nil, ErrInvalidDeadline
 			}
-			nanoseconds, err := sqlmigration.UnixNano(entry.Deadline)
+			nanoseconds, err := sqlbackend.UnixNano(entry.Deadline)
 			if err != nil {
 				return nil, fmt.Errorf("kv: invalid SQL deadline: %w", ErrInvalidDeadline)
 			}
@@ -439,41 +437,41 @@ func (store *SQL) beginWrite(ctx context.Context) (*sqlx.Tx, error) {
 	}
 	tx, err := store.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return nil, sqlmigration.ExternalError("kv: begin sql transaction", err)
+		return nil, sqlbackend.ExternalError("kv: begin sql transaction", err)
 	}
-	if store.namespace.Dialect == sqlmigration.PostgreSQL {
-		if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1)", store.namespace.LockID); err != nil {
+	if store.backend.Dialect == sqlbackend.PostgreSQL {
+		if _, err := tx.ExecContext(ctx, "LOCK TABLE "+store.quoted+" IN SHARE ROW EXCLUSIVE MODE"); err != nil {
 			_ = tx.Rollback()
-			return nil, sqlmigration.ExternalError("kv: lock sql transaction", err)
+			return nil, sqlbackend.ExternalError("kv: lock sql table", err)
 		}
 	}
 	return tx, nil
 }
 
 func (store *SQL) cleanupExpired(ctx context.Context, tx *sqlx.Tx, now int64) error {
-	query := sqlmigration.Rebind(store.db, "DELETE FROM "+store.quoted+" WHERE expires_at_unix_nano IS NOT NULL AND expires_at_unix_nano <= ?")
+	query := sqlbackend.Rebind(store.db, "DELETE FROM "+store.quoted+" WHERE expires_at_unix_nano IS NOT NULL AND expires_at_unix_nano <= ?")
 	if _, err := tx.ExecContext(ctx, query, now); err != nil {
-		return sqlmigration.ExternalError("kv: clean expired sql keys", err)
+		return sqlbackend.ExternalError("kv: clean expired sql keys", err)
 	}
 	return nil
 }
 
 func (store *SQL) upsert(ctx context.Context, tx *sqlx.Tx, entry sqlEntry) error {
-	query := sqlmigration.Rebind(store.db, "INSERT INTO "+store.quoted+" (encoded_key, value, expires_at_unix_nano) VALUES (?, ?, ?) ON CONFLICT(encoded_key) DO UPDATE SET value = excluded.value, expires_at_unix_nano = excluded.expires_at_unix_nano")
+	query := sqlbackend.Rebind(store.db, "INSERT INTO "+store.quoted+" (encoded_key, value, expires_at_unix_nano) VALUES (?, ?, ?) ON CONFLICT(encoded_key) DO UPDATE SET value = excluded.value, expires_at_unix_nano = excluded.expires_at_unix_nano")
 	if _, err := tx.ExecContext(ctx, query, entry.key, entry.value, entry.expires); err != nil {
-		return sqlmigration.ExternalError("kv: upsert sql key", err)
+		return sqlbackend.ExternalError("kv: upsert sql key", err)
 	}
 	return nil
 }
 
 func (store *SQL) txGet(ctx context.Context, tx *sqlx.Tx, key Key) ([]byte, bool, error) {
-	query := sqlmigration.Rebind(store.db, "SELECT value FROM "+store.quoted+" WHERE encoded_key = ?")
+	query := sqlbackend.Rebind(store.db, "SELECT value FROM "+store.quoted+" WHERE encoded_key = ?")
 	var value []byte
 	if err := tx.QueryRowContext(ctx, query, store.opts.encode(key)).Scan(&value); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, false, nil
 		}
-		return nil, false, sqlmigration.ExternalError("kv: inspect sql guard", err)
+		return nil, false, sqlbackend.ExternalError("kv: inspect sql guard", err)
 	}
 	return append([]byte(nil), value...), true, nil
 }

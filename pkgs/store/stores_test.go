@@ -238,7 +238,39 @@ func TestSQLiteSupportsTableScopedKVMetricAndLogStores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	rows, err := raw.Query(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tables []string
+	for rows.Next() {
+		var table string
+		if err := rows.Scan(&table); err != nil {
+			rows.Close()
+			t.Fatal(err)
+		}
+		tables = append(tables, table)
+	}
+	if err := rows.Close(); err != nil {
+		t.Fatal(err)
+	}
+	wantTables := []string{"immutable_logs", "kv_items", "metric_samples", "mutable_logs"}
+	if !reflect.DeepEqual(tables, wantTables) {
+		t.Fatalf("SQLite tables = %v, want only business tables %v", tables, wantTables)
+	}
 	if err := registry.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := New(map[string]Config{
+		"kv":      {Kind: KindKeyValue, Storage: "database", Table: "kv_items", Prefix: "scope"},
+		"metrics": {Kind: KindMetrics, Storage: "database", Table: "metric_samples"},
+		"logs":    {Kind: KindLogImmutable, Storage: "database", Table: "immutable_logs"},
+		"history": {Kind: KindLogMutable, Storage: "database", Table: "mutable_logs"},
+	}, physical)
+	if err != nil {
+		t.Fatalf("reopen existing SQLite business tables: %v", err)
+	}
+	if err := reopened.Close(); err != nil {
 		t.Fatal(err)
 	}
 	if err := raw.Ping(); err != nil {
@@ -270,7 +302,7 @@ func TestSQLiteTableClaimsFailBeforeDDL(t *testing.T) {
 		t.Fatal(err)
 	}
 	if count != 0 {
-		t.Fatalf("preflight failure created %d migration tables", count)
+		t.Fatalf("preflight failure created %d SQL tables", count)
 	}
 }
 

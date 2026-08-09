@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlmigration"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
@@ -25,13 +24,8 @@ func TestPostgreSQLStoreIntegration(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	table := fmt.Sprintf("gzc_kv_sql_%d", time.Now().UnixNano())
-	namespace, err := sqlmigration.Prepare(db, "kv", table)
-	if err != nil {
-		t.Fatal(err)
-	}
 	t.Cleanup(func() {
 		_, _ = db.Exec(`DROP TABLE IF EXISTS "` + table + `"`)
-		_, _ = db.Exec(`DROP TABLE IF EXISTS "` + namespace.VersionTable + `"`)
 	})
 	stores := make([]*SQL, 2)
 	errorsByConstructor := make([]error, len(stores))

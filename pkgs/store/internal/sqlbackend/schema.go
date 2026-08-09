@@ -1,4 +1,4 @@
-package sqlmigration
+package sqlbackend
 
 import (
 	"context"
@@ -19,17 +19,17 @@ type Column struct {
 }
 
 // Columns returns the exact current-schema columns for a validated table.
-func Columns(ctx context.Context, db *sqlx.DB, namespace Namespace) (map[string]Column, error) {
+func Columns(ctx context.Context, db *sqlx.DB, backend Backend) (map[string]Column, error) {
 	columns := map[string]Column{}
-	switch namespace.Dialect {
+	switch backend.Dialect {
 	case SQLite:
-		quoted, err := Quote(namespace.Dialect, namespace.Table)
+		quoted, err := Quote(backend.Dialect, backend.Table)
 		if err != nil {
 			return nil, err
 		}
 		rows, err := db.QueryContext(ctx, "PRAGMA table_info("+quoted+")")
 		if err != nil {
-			return nil, fmt.Errorf("sqlmigration: inspect sqlite columns for %q: %w", namespace.Table, err)
+			return nil, fmt.Errorf("sqlbackend: inspect sqlite columns for %q: %w", backend.Table, err)
 		}
 		defer rows.Close()
 		for rows.Next() {
@@ -37,37 +37,37 @@ func Columns(ctx context.Context, db *sqlx.DB, namespace Namespace) (map[string]
 			var name, columnType string
 			var defaultValue sql.NullString
 			if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
-				return nil, fmt.Errorf("sqlmigration: scan sqlite columns for %q: %w", namespace.Table, err)
+				return nil, fmt.Errorf("sqlbackend: scan sqlite columns for %q: %w", backend.Table, err)
 			}
 			columns[name] = Column{Type: strings.ToUpper(columnType), Nullable: notNull == 0, PrimaryKeyPosition: primaryKey}
 		}
 		if err := rows.Err(); err != nil {
-			return nil, fmt.Errorf("sqlmigration: inspect sqlite column rows for %q: %w", namespace.Table, err)
+			return nil, fmt.Errorf("sqlbackend: inspect sqlite column rows for %q: %w", backend.Table, err)
 		}
 	case PostgreSQL:
 		rows, err := db.QueryContext(ctx, `
 			SELECT column_name, data_type, is_nullable = 'YES'
 			FROM information_schema.columns
 			WHERE table_schema = current_schema() AND table_name = $1
-			ORDER BY ordinal_position`, namespace.Table)
+			ORDER BY ordinal_position`, backend.Table)
 		if err != nil {
-			return nil, fmt.Errorf("sqlmigration: inspect postgres columns for %q: %w", namespace.Table, err)
+			return nil, fmt.Errorf("sqlbackend: inspect postgres columns for %q: %w", backend.Table, err)
 		}
 		for rows.Next() {
 			var name, columnType string
 			var nullable bool
 			if err := rows.Scan(&name, &columnType, &nullable); err != nil {
 				rows.Close()
-				return nil, fmt.Errorf("sqlmigration: scan postgres columns for %q: %w", namespace.Table, err)
+				return nil, fmt.Errorf("sqlbackend: scan postgres columns for %q: %w", backend.Table, err)
 			}
 			columns[name] = Column{Type: strings.ToUpper(columnType), Nullable: nullable}
 		}
 		if err := rows.Err(); err != nil {
 			rows.Close()
-			return nil, fmt.Errorf("sqlmigration: inspect postgres column rows for %q: %w", namespace.Table, err)
+			return nil, fmt.Errorf("sqlbackend: inspect postgres column rows for %q: %w", backend.Table, err)
 		}
 		if err := rows.Close(); err != nil {
-			return nil, fmt.Errorf("sqlmigration: close postgres column rows for %q: %w", namespace.Table, err)
+			return nil, fmt.Errorf("sqlbackend: close postgres column rows for %q: %w", backend.Table, err)
 		}
 		primaryRows, err := db.QueryContext(ctx, `
 			SELECT kcu.column_name, kcu.ordinal_position
@@ -77,47 +77,47 @@ func Columns(ctx context.Context, db *sqlx.DB, namespace Namespace) (map[string]
 			 AND tc.constraint_schema = kcu.constraint_schema
 			WHERE tc.table_schema = current_schema()
 			  AND tc.table_name = $1
-			  AND tc.constraint_type = 'PRIMARY KEY'`, namespace.Table)
+			  AND tc.constraint_type = 'PRIMARY KEY'`, backend.Table)
 		if err != nil {
-			return nil, fmt.Errorf("sqlmigration: inspect postgres primary key for %q: %w", namespace.Table, err)
+			return nil, fmt.Errorf("sqlbackend: inspect postgres primary key for %q: %w", backend.Table, err)
 		}
 		defer primaryRows.Close()
 		for primaryRows.Next() {
 			var name string
 			var position int
 			if err := primaryRows.Scan(&name, &position); err != nil {
-				return nil, fmt.Errorf("sqlmigration: scan postgres primary key for %q: %w", namespace.Table, err)
+				return nil, fmt.Errorf("sqlbackend: scan postgres primary key for %q: %w", backend.Table, err)
 			}
 			column := columns[name]
 			column.PrimaryKeyPosition = position
 			columns[name] = column
 		}
 		if err := primaryRows.Err(); err != nil {
-			return nil, fmt.Errorf("sqlmigration: inspect postgres primary key rows for %q: %w", namespace.Table, err)
+			return nil, fmt.Errorf("sqlbackend: inspect postgres primary key rows for %q: %w", backend.Table, err)
 		}
 	default:
-		return nil, fmt.Errorf("sqlmigration: unsupported dialect %q", namespace.Dialect)
+		return nil, fmt.Errorf("sqlbackend: unsupported dialect %q", backend.Dialect)
 	}
 	return columns, nil
 }
 
 // ValidateIndexColumns requires an exact, non-unique, non-partial index column
 // order.
-func ValidateIndexColumns(ctx context.Context, db *sqlx.DB, namespace Namespace, name string, want []string) error {
+func ValidateIndexColumns(ctx context.Context, db *sqlx.DB, backend Backend, name string, want []string) error {
 	if err := ValidateIdentifier(name); err != nil {
 		return err
 	}
 	var rows *sql.Rows
 	var err error
-	switch namespace.Dialect {
+	switch backend.Dialect {
 	case SQLite:
-		table, quoteErr := Quote(namespace.Dialect, namespace.Table)
+		table, quoteErr := Quote(backend.Dialect, backend.Table)
 		if quoteErr != nil {
 			return quoteErr
 		}
 		metadataRows, metadataErr := db.QueryContext(ctx, "PRAGMA index_list("+table+")")
 		if metadataErr != nil {
-			return fmt.Errorf("sqlmigration: inspect sqlite index %q metadata: %w", name, metadataErr)
+			return fmt.Errorf("sqlbackend: inspect sqlite index %q metadata: %w", name, metadataErr)
 		}
 		found := false
 		for metadataRows.Next() {
@@ -125,7 +125,7 @@ func ValidateIndexColumns(ctx context.Context, db *sqlx.DB, namespace Namespace,
 			var indexName, origin string
 			if err := metadataRows.Scan(&sequence, &indexName, &unique, &origin, &partial); err != nil {
 				metadataRows.Close()
-				return fmt.Errorf("sqlmigration: scan sqlite index %q metadata: %w", name, err)
+				return fmt.Errorf("sqlbackend: scan sqlite index %q metadata: %w", name, err)
 			}
 			if strings.EqualFold(indexName, name) {
 				found = true
@@ -137,15 +137,15 @@ func ValidateIndexColumns(ctx context.Context, db *sqlx.DB, namespace Namespace,
 		}
 		if err := metadataRows.Err(); err != nil {
 			metadataRows.Close()
-			return fmt.Errorf("sqlmigration: inspect sqlite index %q metadata rows: %w", name, err)
+			return fmt.Errorf("sqlbackend: inspect sqlite index %q metadata rows: %w", name, err)
 		}
 		if err := metadataRows.Close(); err != nil {
-			return fmt.Errorf("sqlmigration: close sqlite index %q metadata rows: %w", name, err)
+			return fmt.Errorf("sqlbackend: close sqlite index %q metadata rows: %w", name, err)
 		}
 		if !found {
 			return fmt.Errorf("index %q is missing", name)
 		}
-		quoted, quoteErr := Quote(namespace.Dialect, name)
+		quoted, quoteErr := Quote(backend.Dialect, name)
 		if quoteErr != nil {
 			return quoteErr
 		}
@@ -154,44 +154,44 @@ func ValidateIndexColumns(ctx context.Context, db *sqlx.DB, namespace Namespace,
 		rows, err = db.QueryContext(ctx, `
 			SELECT attribute.attname, index_metadata.indisunique, index_metadata.indpred IS NOT NULL
 			FROM pg_class data_table
-			JOIN pg_namespace namespace ON namespace.oid = data_table.relnamespace
+			JOIN pg_namespace backend ON backend.oid = data_table.relnamespace
 			JOIN pg_index index_metadata ON index_metadata.indrelid = data_table.oid
 			JOIN pg_class index_table ON index_table.oid = index_metadata.indexrelid
 			CROSS JOIN LATERAL unnest(index_metadata.indkey) WITH ORDINALITY AS key(attnum, position)
 			JOIN pg_attribute attribute
 			  ON attribute.attrelid = data_table.oid AND attribute.attnum = key.attnum
-			WHERE namespace.nspname = current_schema()
+			WHERE backend.nspname = current_schema()
 			  AND data_table.relname = $1
 			  AND index_table.relname = $2
-			ORDER BY key.position`, namespace.Table, name)
+			ORDER BY key.position`, backend.Table, name)
 	default:
-		return fmt.Errorf("sqlmigration: unsupported dialect %q", namespace.Dialect)
+		return fmt.Errorf("sqlbackend: unsupported dialect %q", backend.Dialect)
 	}
 	if err != nil {
-		return fmt.Errorf("sqlmigration: inspect index %q columns: %w", name, err)
+		return fmt.Errorf("sqlbackend: inspect index %q columns: %w", name, err)
 	}
 	defer rows.Close()
 	columns := []string{}
 	unique, partial := false, false
 	for rows.Next() {
 		var column string
-		if namespace.Dialect == SQLite {
+		if backend.Dialect == SQLite {
 			var sequence, cid int
 			if err := rows.Scan(&sequence, &cid, &column); err != nil {
-				return fmt.Errorf("sqlmigration: scan sqlite index %q columns: %w", name, err)
+				return fmt.Errorf("sqlbackend: scan sqlite index %q columns: %w", name, err)
 			}
 		} else if err := rows.Scan(&column, &unique, &partial); err != nil {
-			return fmt.Errorf("sqlmigration: scan postgres index %q columns: %w", name, err)
+			return fmt.Errorf("sqlbackend: scan postgres index %q columns: %w", name, err)
 		}
 		columns = append(columns, column)
 	}
 	if err := rows.Err(); err != nil {
-		return fmt.Errorf("sqlmigration: inspect index %q column rows: %w", name, err)
+		return fmt.Errorf("sqlbackend: inspect index %q column rows: %w", name, err)
 	}
 	if !slices.Equal(columns, want) {
 		return fmt.Errorf("index %q columns are %v, want %v", name, columns, want)
 	}
-	if namespace.Dialect == PostgreSQL && (unique || partial) {
+	if backend.Dialect == PostgreSQL && (unique || partial) {
 		return fmt.Errorf("index %q must be non-unique and non-partial", name)
 	}
 	return nil
@@ -216,18 +216,18 @@ func ValidateColumns(got, want map[string]Column) error {
 
 // ValidateSequenceIdentity requires the dialect-specific generated sequence
 // contract used to break equal-timestamp Metrics ties.
-func ValidateSequenceIdentity(ctx context.Context, db *sqlx.DB, namespace Namespace, column string) error {
+func ValidateSequenceIdentity(ctx context.Context, db *sqlx.DB, backend Backend, column string) error {
 	if err := ValidateIdentifier(column); err != nil {
 		return err
 	}
-	switch namespace.Dialect {
+	switch backend.Dialect {
 	case SQLite:
 		var definition string
 		if err := db.QueryRowContext(ctx,
 			`SELECT sql FROM sqlite_master WHERE type = 'table' AND lower(name) = lower(?)`,
-			namespace.Table,
+			backend.Table,
 		).Scan(&definition); err != nil {
-			return fmt.Errorf("sqlmigration: inspect sqlite table %q identity: %w", namespace.Table, err)
+			return fmt.Errorf("sqlbackend: inspect sqlite table %q identity: %w", backend.Table, err)
 		}
 		pattern := `(?i)(?:^|[,(]\s*)"?` + regexp.QuoteMeta(column) + `"?\s+INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT(?:\s|,|\))`
 		if !regexp.MustCompile(pattern).MatchString(definition) {
@@ -239,16 +239,16 @@ func ValidateSequenceIdentity(ctx context.Context, db *sqlx.DB, namespace Namesp
 			SELECT identity_generation
 			FROM information_schema.columns
 			WHERE table_schema = current_schema() AND table_name = $1 AND column_name = $2`,
-			namespace.Table, column,
+			backend.Table, column,
 		).Scan(&generation)
 		if err != nil {
-			return fmt.Errorf("sqlmigration: inspect postgres table %q identity: %w", namespace.Table, err)
+			return fmt.Errorf("sqlbackend: inspect postgres table %q identity: %w", backend.Table, err)
 		}
 		if !generation.Valid || generation.String != "ALWAYS" {
 			return fmt.Errorf("column %q identity generation is not ALWAYS", column)
 		}
 	default:
-		return fmt.Errorf("sqlmigration: unsupported dialect %q", namespace.Dialect)
+		return fmt.Errorf("sqlbackend: unsupported dialect %q", backend.Dialect)
 	}
 	return nil
 }

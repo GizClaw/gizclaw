@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlbackend"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -129,11 +130,17 @@ func TestSQLLogSelectorsCancellationCursorBindingAndSchema(t *testing.T) {
 	if _, err := store.Query(canceled, query); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Query(canceled) error = %v", err)
 	}
-	base := strings.TrimSuffix(store.namespace.VersionTable, "_schema_versions")
+	index, err := sqlbackend.IndexName(store.backend, "page_idx")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`DROP INDEX "` + base + `_page_idx"`); err != nil {
+	if _, err := db.Exec(`DROP INDEX "` + index + `"`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE INDEX "` + index + `" ON "log_records" (stream)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := NewSQLStoreWithDB(db, "log_records"); err == nil || !strings.Contains(err.Error(), "incompatible") {

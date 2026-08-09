@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlmigration"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlbackend"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
@@ -209,7 +209,7 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 		if cfg.Table == "" {
 			return fmt.Errorf("stores: %s %q requires table for %s storage", cfg.Kind, name, storageKind)
 		}
-		if err := sqlmigration.ValidateIdentifier(cfg.Table); err != nil {
+		if err := sqlbackend.ValidateIdentifier(cfg.Table); err != nil {
 			return fmt.Errorf("stores: %s %q table %q: %w", cfg.Kind, name, cfg.Table, err)
 		}
 		return nil
