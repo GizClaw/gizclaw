@@ -482,7 +482,11 @@ func (t *Transformer) processLoop(
 			}
 
 			slog.Debug("doubao: received duplex event", "type", event.Type, "text", event.Text, "transcript", event.Transcript, "audioLen", len(event.Audio), "functionCalls", len(event.FunctionCalls))
-			streamID := firstNonEmptyString(event.ResponseID, event.QuestionID, streamIDs.response())
+			// Provider response and question identifiers are event-local protocol
+			// metadata and may change between text, audio-start, audio-delta, and
+			// audio-done events. The Transformer owns one stable GenX StreamID for
+			// every input segment and all MIME routes generated for its response.
+			streamID := firstNonEmptyString(streamIDs.response(), streamIDs.input())
 			switch event.Type {
 			case doubaospeech.RealtimeDuplexEventTranscriptionStarted:
 				if err := openInputSegment(); err != nil {
@@ -494,9 +498,10 @@ func (t *Transformer) processLoop(
 				if text == "" {
 					continue
 				}
-				if event.Delta == "" {
-					text = realtimeDuplexTextDelta(lastTranscriptText, text)
-				}
+				// The provider may put either an incremental token or the full
+				// current ASR hypothesis in Delta. Normalize both forms against the
+				// text already emitted so cumulative hypotheses are not duplicated.
+				text = realtimeDuplexTextDelta(lastTranscriptText, text)
 				if text == "" {
 					continue
 				}
@@ -749,6 +754,8 @@ func (t *Transformer) processLoop(
 
 	// Send audio to realtime service
 	audioSent := 0
+	inputRouteID := ""
+	inputAudioEnded := false
 	audioInputs := newDoubaoRealtimeDuplexAudioInputs(t.inputFormat, t.inputSampleRate, t.inputChannels, t.inputTranscode)
 	defer audioInputs.close()
 	for {
@@ -795,53 +802,55 @@ func (t *Transformer) processLoop(
 			continue
 		}
 
-		// Track StreamID from BOS marker only
+		// A control BOS starts the StreamID route. A MIME-bearing BOS may either
+		// start that route directly or declare its audio channel after the
+		// control BOS; in both cases its payload still belongs to the channel.
 		if chunk.IsBeginOfStream() && chunk.Ctrl != nil && chunk.Ctrl.StreamID != "" {
-			interrupted, err := interruptAssistant(chunk.Ctrl.StreamID)
-			if err != nil {
-				return nil, err
+			streamID := strings.TrimSpace(chunk.Ctrl.StreamID)
+			if streamID != inputRouteID {
+				interrupted, err := interruptAssistant(streamID)
+				if err != nil {
+					return nil, err
+				}
+				if interrupted {
+					slog.Info("doubao: restarting realtime session after interrupt", "streamID", streamID)
+					restarting.Store(true)
+					return chunk.Clone(), nil
+				}
+				streamIDs.beginInput(streamID)
+				inputRouteID = streamID
+				inputAudioEnded = false
+				slog.Info("doubao: received route BOS", "streamID", streamID)
 			}
-			if interrupted {
-				slog.Info("doubao: restarting realtime session after interrupt", "streamID", chunk.Ctrl.StreamID)
-				restarting.Store(true)
-				return chunk.Clone(), nil
+			if chunk.Part == nil && !chunk.IsEndOfStream() {
+				continue
 			}
-			streamIDs.beginInput(chunk.Ctrl.StreamID)
-			slog.Info("doubao: received BOS", "streamID", chunk.Ctrl.StreamID)
-			continue
 		}
 
 		// Duplex uses server-side turn detection. Audio-channel or route EOS
-		// only closes the local stream boundary; it must not commit audio.
-		if realtimeAudioInputEOS(chunk) {
-			streamID := streamIDs.serviceInput(chunk)
-			slog.Debug("doubao: received realtime EOS, closing local audio stream without commit", "streamID", streamID, "audioSent", audioSent)
-			audioInputs.closeStream(streamID)
-			continue
-		}
+		// only closes the local stream boundary; it must not commit audio. An
+		// EOS may carry final data, so close only after processing its payload.
+		audioEOS := realtimeAudioInputEOS(chunk)
 
 		// Send based on part type
 		switch p := chunk.Part.(type) {
 		case *genx.Blob:
 			// Send audio blob
+			streamID := streamIDs.serviceInput(chunk)
+			audioInput, err := audioInputs.streamForBlob(streamID, p)
+			if err != nil {
+				slog.Error("doubao: prepare audio error", "error", err)
+				t.pushInputEOSError(output, streamID, err)
+				audioInputs.closeStream(streamID)
+				return nil, err
+			}
 			if len(p.Data) > 0 {
-				streamID := streamIDs.serviceInput(chunk)
-				audioInput, err := audioInputs.streamForBlob(streamID, p)
-				if err != nil {
-					slog.Error("doubao: prepare audio error", "error", err)
-					t.pushInputEOSError(output, streamID, err)
-					audioInputs.closeStream(streamID)
-					return nil, err
-				}
 				frames, err := audioInput.prepareFrames(p)
 				if err != nil {
 					slog.Error("doubao: prepare audio error", "error", err)
 					t.pushInputEOSError(output, streamID, err)
 					audioInputs.closeStream(streamID)
 					return nil, err
-				}
-				if len(frames) == 0 {
-					continue
 				}
 				for _, audio := range frames {
 					if len(audio) == 0 {
@@ -861,6 +870,15 @@ func (t *Transformer) processLoop(
 			if len(p) > 0 {
 				return nil, fmt.Errorf("doubao realtime duplex does not accept text input")
 			}
+		}
+		if audioEOS && !inputAudioEnded {
+			streamID := streamIDs.serviceInput(chunk)
+			slog.Debug("doubao: received realtime EOS, closing local audio stream without commit", "streamID", streamID, "audioSent", audioSent)
+			audioInputs.closeStream(streamID)
+			inputAudioEnded = true
+		}
+		if audioEOS && chunk.Part == nil && chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.StreamID) == inputRouteID {
+			inputRouteID = ""
 		}
 	}
 }

@@ -143,7 +143,7 @@ func runDuplexConversation(t *testing.T, tfr genx.Transformer, packets [][]byte)
 			feedDone <- pushDuplexTurn(ctx, input, streamID, packets)
 		}()
 
-		result, err := waitDuplexRound(ctx, events, errs, streamID, feedDone)
+		result, err := waitDuplexRound(t, ctx, events, errs, streamID, feedDone)
 		if err != nil {
 			t.Fatalf("round %d failed: %v", round, err)
 		}
@@ -178,18 +178,13 @@ func collectDuplexOutput(output genx.Stream) (<-chan *genx.MessageChunk, <-chan 
 }
 
 func pushDuplexTurn(ctx context.Context, input *genx.RealtimeStream, streamID string, packets [][]byte) error {
-	if err := input.Push(ctx, &genx.MessageChunk{
-		Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true},
-	}); err != nil {
-		return err
-	}
-	for _, packet := range packets {
-		if err := input.Push(ctx, &genx.MessageChunk{
-			Role: genx.RoleUser,
-			Part: &genx.Blob{MIMEType: duplexInputMIME, Data: packet},
-			Ctrl: &genx.StreamCtrl{StreamID: streamID},
-		}); err != nil {
+	for _, chunk := range duplexTurnInputChunks(streamID, packets) {
+		if err := input.Push(ctx, chunk); err != nil {
 			return err
+		}
+		blob, hasAudio := chunk.Part.(*genx.Blob)
+		if !hasAudio || len(blob.Data) == 0 {
+			continue
 		}
 		select {
 		case <-ctx.Done():
@@ -200,7 +195,38 @@ func pushDuplexTurn(ctx context.Context, input *genx.RealtimeStream, streamID st
 	return nil
 }
 
-func waitDuplexRound(ctx context.Context, events <-chan *genx.MessageChunk, errs <-chan error, streamID string, feedDone <-chan error) (duplexRoundResult, error) {
+func duplexTurnInputChunks(streamID string, packets [][]byte) []*genx.MessageChunk {
+	chunks := []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true}},
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: duplexInputMIME}, Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true}},
+	}
+	for _, packet := range packets {
+		chunks = append(chunks, &genx.MessageChunk{
+			Role: genx.RoleUser,
+			Part: &genx.Blob{MIMEType: duplexInputMIME, Data: append([]byte(nil), packet...)},
+			Ctrl: &genx.StreamCtrl{StreamID: streamID},
+		})
+	}
+	return append(chunks,
+		&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: duplexInputMIME}, Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}},
+		&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}},
+	)
+}
+
+func TestDuplexTurnInputLifecycle(t *testing.T) {
+	tracker := newRouteLifecycleTracker()
+	for _, chunk := range duplexTurnInputChunks("turn", [][]byte{{1}, {2}}) {
+		observeRouteLifecycle(t, tracker, chunk)
+	}
+	tracker.assertComplete(t)
+	state := tracker.route("turn", duplexInputMIME)
+	if state == nil || state.dataChunks != 2 {
+		t.Fatalf("input audio lifecycle = %#v, want two data chunks", state)
+	}
+}
+
+func waitDuplexRound(t *testing.T, ctx context.Context, events <-chan *genx.MessageChunk, errs <-chan error, streamID string, feedDone <-chan error) (duplexRoundResult, error) {
+	t.Helper()
 	var result duplexRoundResult
 	inputDone := false
 	for {
@@ -223,6 +249,10 @@ func waitDuplexRound(ctx context.Context, events <-chan *genx.MessageChunk, errs
 		case chunk, ok := <-events:
 			if !ok {
 				return result, fmt.Errorf("duplex output closed before round %s completed; transcript=%q assistant=%q audio_bytes=%d", streamID, result.transcript.String(), result.assistantText.String(), result.assistantAudioBytes)
+			}
+			if chunk != nil && (chunk.IsBeginOfStream() || chunk.IsEndOfStream()) {
+				mimeType, _ := chunk.MIMEType()
+				t.Logf("round=%s boundary stream=%q label=%q mime=%q bos=%t eos=%t", streamID, chunk.Ctrl.StreamID, chunk.Ctrl.Label, mimeType, chunk.IsBeginOfStream(), chunk.IsEndOfStream())
 			}
 			if err := result.observe(streamID, chunk); err != nil {
 				return result, err
@@ -384,15 +414,12 @@ func TestDoubaoRealtimeDuplexCommitDuringDownlinkProbe(t *testing.T) {
 	secondCommitStarted := false
 	secondCommitAt := time.Time{}
 	firstResponseID := ""
-	firstAudioDeltasBeforeCommit := 0
-	firstAudioDeltasAfterCommit := 0
+	audioDeltasBeforeCommit := 0
+	audioDeltasAfterCommit := 0
 	audioDeltaTotal := 0
-	firstAudioDoneAfterCommit := false
-	responseCanceledAfterCommit := false
-	responseDoneAfterCommit := false
 	receivedAnyAudio := false
-	observedAfterCommit := false
-	longResponseActive := false
+	secondTranscriptionDone := false
+	secondResponseAudioDone := false
 
 	for {
 		evt, err := session.RecvEvent(ctx)
@@ -421,20 +448,20 @@ func TestDoubaoRealtimeDuplexCommitDuringDownlinkProbe(t *testing.T) {
 			firstResponseID = evt.ResponseID
 		}
 		switch evt.Type {
-		case doubaospeech.RealtimeDuplexEventResponseOutputAudioStarted:
-			longResponseActive = true
+		case doubaospeech.RealtimeDuplexEventTranscriptionCompleted:
+			if secondCommitStarted {
+				secondTranscriptionDone = true
+			}
 		case doubaospeech.RealtimeDuplexEventResponseOutputAudioDelta:
 			audioDeltaTotal++
 			if audioDeltaTotal%20 == 0 {
 				t.Logf("audio delta count=%d commitDone=%t bytes=%d", audioDeltaTotal, !secondCommitAt.IsZero(), len(evt.Audio))
 			}
-			if longResponseActive {
-				receivedAnyAudio = true
-				if secondCommitAt.IsZero() {
-					firstAudioDeltasBeforeCommit++
-				} else {
-					firstAudioDeltasAfterCommit++
-				}
+			receivedAnyAudio = true
+			if secondCommitAt.IsZero() {
+				audioDeltasBeforeCommit++
+			} else {
+				audioDeltasAfterCommit++
 			}
 			if !secondCommitStarted {
 				secondCommitStarted = true
@@ -445,20 +472,8 @@ func TestDoubaoRealtimeDuplexCommitDuringDownlinkProbe(t *testing.T) {
 				}()
 			}
 		case doubaospeech.RealtimeDuplexEventResponseOutputAudioDone:
-			if longResponseActive && !secondCommitAt.IsZero() {
-				firstAudioDoneAfterCommit = true
-				observedAfterCommit = true
-			}
-			longResponseActive = false
-		case doubaospeech.RealtimeDuplexEventResponseCanceled:
-			if !secondCommitAt.IsZero() {
-				responseCanceledAfterCommit = true
-				observedAfterCommit = true
-			}
-		case doubaospeech.RealtimeDuplexEventResponseDone:
-			if !secondCommitAt.IsZero() {
-				responseDoneAfterCommit = true
-				observedAfterCommit = true
+			if secondTranscriptionDone {
+				secondResponseAudioDone = true
 			}
 		}
 
@@ -472,21 +487,29 @@ func TestDoubaoRealtimeDuplexCommitDuringDownlinkProbe(t *testing.T) {
 		default:
 		}
 
-		if !receivedAnyAudio {
+		if !receivedAnyAudio || !secondResponseAudioDone {
 			continue
 		}
-		if secondCommitStarted && !secondCommitAt.IsZero() && observedAfterCommit &&
-			(firstAudioDoneAfterCommit || responseCanceledAfterCommit || responseDoneAfterCommit) {
-			t.Logf("probe result: first_response=%s audio_deltas_before_commit=%d audio_deltas_after_commit=%d audio_done_after_commit=%t response_canceled_after_commit=%t response_done_after_commit=%t",
-				firstResponseID,
-				firstAudioDeltasBeforeCommit,
-				firstAudioDeltasAfterCommit,
-				firstAudioDoneAfterCommit,
-				responseCanceledAfterCommit,
-				responseDoneAfterCommit,
-			)
-			return
+		if secondCommitAt.IsZero() {
+			select {
+			case result := <-secondCommitDone:
+				if result.err != nil {
+					t.Fatalf("second input_audio_buffer.commit failed: %v", result.err)
+				}
+				secondCommitAt = result.at
+				t.Logf("second input_audio_buffer.commit sent after %s", result.elapsed)
+			case <-ctx.Done():
+				t.Fatalf("wait for second input_audio_buffer.commit: %v", ctx.Err())
+			}
 		}
+		t.Logf("probe result: first_response=%s audio_deltas_before_commit=%d audio_deltas_after_commit=%d second_transcription_done=%t second_response_audio_done=%t",
+			firstResponseID,
+			audioDeltasBeforeCommit,
+			audioDeltasAfterCommit,
+			secondTranscriptionDone,
+			secondResponseAudioDone,
+		)
+		return
 	}
 }
 
@@ -568,7 +591,7 @@ func TestDoubaoRealtimeDuplexDownlinkWithoutUplinkProbe(t *testing.T) {
 	}
 }
 
-func TestDoubaoRealtimeDuplexIdleAfterResponseProbe(t *testing.T) {
+func TestDoubaoRealtimeDuplexIdleTimeoutProbe(t *testing.T) {
 	loadGenXE2EEnv(t)
 	appID := firstEnv(doubaoAppIDEnv)
 	apiKey := firstEnv(doubaoAPIKeyEnv)
@@ -576,7 +599,13 @@ func TestDoubaoRealtimeDuplexIdleAfterResponseProbe(t *testing.T) {
 		t.Fatalf("set %s and %s in tests/genx-e2e/.env to run this provider probe", doubaoAppIDEnv, doubaoAPIKeyEnv)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	const (
+		minimumIdleWindow = 45 * time.Second
+		maximumIdleWindow = 100 * time.Second
+		idleTimeoutName   = "AudioServerNoAudioInputTooLongError"
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), maximumIdleWindow+20*time.Second)
 	defer cancel()
 
 	session := openProbeDuplexSession(t, ctx, appID, apiKey)
@@ -598,7 +627,16 @@ func TestDoubaoRealtimeDuplexIdleAfterResponseProbe(t *testing.T) {
 			if idleStart.IsZero() {
 				t.Fatalf("recv before idle: %v", err)
 			}
-			t.Fatalf("recv after idle %s: %v", time.Since(idleStart).Round(time.Millisecond), err)
+			idleFor := time.Since(idleStart)
+			providerErr, ok := doubaospeech.AsError(err)
+			if !ok || !strings.Contains(providerErr.Message, idleTimeoutName) {
+				t.Fatalf("unexpected provider error after idle %s: %v", idleFor.Round(time.Millisecond), err)
+			}
+			if idleFor < minimumIdleWindow || idleFor > maximumIdleWindow {
+				t.Fatalf("provider idle timeout after %s, want between %s and %s", idleFor.Round(time.Millisecond), minimumIdleWindow, maximumIdleWindow)
+			}
+			t.Logf("provider idle timeout observed after %s: %s", idleFor.Round(time.Millisecond), providerErr.Message)
+			return
 		}
 		if evt.Type != doubaospeech.RealtimeDuplexEventResponseOutputAudioDelta {
 			t.Logf("event type=%s response=%s audio=%d since_start=%s idle_for=%s",
@@ -630,9 +668,8 @@ func TestDoubaoRealtimeDuplexIdleAfterResponseProbe(t *testing.T) {
 			}
 			t.Fatalf("session closed by server after idle %s", time.Since(idleStart).Round(time.Millisecond))
 		}
-		if !idleStart.IsZero() && time.Since(idleStart) >= 3*time.Minute {
-			t.Logf("idle probe result: no provider timeout observed after idle %s", time.Since(idleStart).Round(time.Millisecond))
-			return
+		if !idleStart.IsZero() && time.Since(idleStart) > maximumIdleWindow {
+			t.Fatalf("provider did not enforce its idle timeout within %s", maximumIdleWindow)
 		}
 	}
 }

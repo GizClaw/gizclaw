@@ -9,6 +9,29 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
+func TestRealtimeAudioInputEOSContract(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		chunk *genx.MessageChunk
+		want  bool
+	}{
+		{name: "nil"},
+		{name: "route BOS", chunk: &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "turn", BeginOfStream: true}}},
+		{name: "route EOS", chunk: &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}}, want: true},
+		{name: "audio data", chunk: &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "turn"}}},
+		{name: "audio EOS with final data", chunk: &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}}, want: true},
+		{name: "ogg EOS with parameters", chunk: &genx.MessageChunk{Part: &genx.Blob{MIMEType: " Application/Ogg; codecs=opus "}, Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}}, want: true},
+		{name: "text EOS", chunk: &genx.MessageChunk{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}}},
+		{name: "unknown blob EOS", chunk: &genx.MessageChunk{Part: &genx.Blob{MIMEType: "application/octet-stream"}, Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := realtimeAudioInputEOS(test.chunk); got != test.want {
+				t.Fatalf("realtimeAudioInputEOS(%#v) = %t, want %t", test.chunk, got, test.want)
+			}
+		})
+	}
+}
+
 func TestDoubaoRealtimeSpokenResponseSelectsTTSOnce(t *testing.T) {
 	var response doubaoRealtimeSpokenResponse
 	if got := response.chat("duplicate chat"); len(got.text) != 0 {

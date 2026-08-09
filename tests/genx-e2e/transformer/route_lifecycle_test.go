@@ -22,20 +22,34 @@ type observedRouteLifecycle struct {
 	label      string
 }
 
+type observedStreamLifecycle struct {
+	begun    bool
+	explicit bool
+	ended    bool
+	chunks   int
+}
+
 type routeLifecycleTracker struct {
-	routes map[routeLifecycleKey]*observedRouteLifecycle
+	streams map[string]*observedStreamLifecycle
+	routes  map[routeLifecycleKey]*observedRouteLifecycle
 }
 
 func newRouteLifecycleTracker() *routeLifecycleTracker {
-	return &routeLifecycleTracker{routes: make(map[routeLifecycleKey]*observedRouteLifecycle)}
+	return &routeLifecycleTracker{
+		streams: make(map[string]*observedStreamLifecycle),
+		routes:  make(map[routeLifecycleKey]*observedRouteLifecycle),
+	}
 }
 
 func (tracker *routeLifecycleTracker) observe(chunk *genx.MessageChunk) error {
 	if chunk == nil {
 		return fmt.Errorf("route lifecycle: nil chunk")
 	}
+	if chunk.Ctrl != nil && chunk.Ctrl.Error != "" && !chunk.IsEndOfStream() {
+		return fmt.Errorf("route lifecycle: error metadata without EOS: %#v", chunk)
+	}
 	if chunk.Part == nil {
-		return nil
+		return tracker.observeControl(chunk)
 	}
 	mimeType, ok := chunk.MIMEType()
 	if !ok {
@@ -45,7 +59,19 @@ func (tracker *routeLifecycleTracker) observe(chunk *genx.MessageChunk) error {
 		return fmt.Errorf("route lifecycle: %s chunk has no StreamID", mimeType)
 	}
 
-	key := routeLifecycleKey{streamID: chunk.Ctrl.StreamID, mimeType: mimeType}
+	streamID := strings.TrimSpace(chunk.Ctrl.StreamID)
+	stream := tracker.stream(streamID)
+	if stream.ended {
+		return fmt.Errorf("route lifecycle: StreamID %q received chunk after route EOS", streamID)
+	}
+	if chunk.IsBeginOfStream() {
+		stream.begun = true
+	} else if !stream.begun {
+		return fmt.Errorf("route lifecycle: StreamID %q received data or EOS before BOS", streamID)
+	}
+	stream.chunks++
+
+	key := routeLifecycleKey{streamID: streamID, mimeType: mimeType}
 	state := tracker.routes[key]
 	if state == nil {
 		state = &observedRouteLifecycle{}
@@ -82,9 +108,56 @@ func (tracker *routeLifecycleTracker) observe(chunk *genx.MessageChunk) error {
 	return nil
 }
 
+func (tracker *routeLifecycleTracker) observeControl(chunk *genx.MessageChunk) error {
+	if chunk.Ctrl == nil || (!chunk.IsBeginOfStream() && !chunk.IsEndOfStream()) {
+		return nil
+	}
+	streamID := strings.TrimSpace(chunk.Ctrl.StreamID)
+	if streamID == "" {
+		return fmt.Errorf("route lifecycle: control boundary has no StreamID")
+	}
+	state := tracker.stream(streamID)
+	if state.ended {
+		return fmt.Errorf("route lifecycle: StreamID %q received control after route EOS", streamID)
+	}
+	if chunk.IsBeginOfStream() {
+		if state.begun {
+			return fmt.Errorf("route lifecycle: StreamID %q received duplicate route BOS", streamID)
+		}
+		state.begun = true
+		state.explicit = true
+	} else if !state.begun {
+		return fmt.Errorf("route lifecycle: StreamID %q received route EOS before BOS", streamID)
+	}
+	if chunk.IsEndOfStream() {
+		state.ended = true
+		for key, route := range tracker.routes {
+			if key.streamID == streamID && route.begun {
+				route.ended = true
+			}
+		}
+	}
+	state.chunks++
+	return nil
+}
+
+func (tracker *routeLifecycleTracker) stream(streamID string) *observedStreamLifecycle {
+	state := tracker.streams[streamID]
+	if state == nil {
+		state = &observedStreamLifecycle{}
+		tracker.streams[streamID] = state
+	}
+	return state
+}
+
 func (tracker *routeLifecycleTracker) allComplete() bool {
-	if tracker == nil || len(tracker.routes) == 0 {
+	if tracker == nil || len(tracker.streams) == 0 {
 		return false
+	}
+	for streamID, state := range tracker.streams {
+		if !tracker.streamComplete(streamID, state) {
+			return false
+		}
 	}
 	for _, state := range tracker.routes {
 		if !state.begun || !state.ended {
@@ -94,10 +167,38 @@ func (tracker *routeLifecycleTracker) allComplete() bool {
 	return true
 }
 
+func (tracker *routeLifecycleTracker) streamComplete(streamID string, state *observedStreamLifecycle) bool {
+	if state == nil || !state.begun {
+		return false
+	}
+	if state.ended {
+		return true
+	}
+	if state.explicit {
+		return false
+	}
+	hasMIME := false
+	for key, route := range tracker.routes {
+		if key.streamID != streamID {
+			continue
+		}
+		hasMIME = true
+		if !route.begun || !route.ended {
+			return false
+		}
+	}
+	return hasMIME
+}
+
 func (tracker *routeLifecycleTracker) assertComplete(t *testing.T) {
 	t.Helper()
-	if tracker == nil || len(tracker.routes) == 0 {
-		t.Fatal("route lifecycle: no MIME routes observed")
+	if tracker == nil || len(tracker.streams) == 0 {
+		t.Fatal("route lifecycle: no StreamID routes observed")
+	}
+	for streamID, state := range tracker.streams {
+		if !tracker.streamComplete(streamID, state) {
+			t.Errorf("route lifecycle: StreamID %q = %#v, want complete route", streamID, state)
+		}
 	}
 	for key, state := range tracker.routes {
 		if !state.begun || !state.ended {
@@ -184,6 +285,30 @@ func TestRouteLifecycleTrackerAcceptsEmptyErrorRoute(t *testing.T) {
 	}
 }
 
+func TestRouteLifecycleTrackerAcceptsInterleavedExplicitControlRoutes(t *testing.T) {
+	tracker := newRouteLifecycleTracker()
+	for _, chunk := range []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "audio-turn", BeginOfStream: true}},
+		{Ctrl: &genx.StreamCtrl{StreamID: "text-turn", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "audio-turn", BeginOfStream: true}},
+		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "text-turn", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "audio-turn"}},
+		{Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "text-turn"}},
+		{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "audio-turn", EndOfStream: true}},
+		{Ctrl: &genx.StreamCtrl{StreamID: "text-turn", EndOfStream: true}},
+		{Ctrl: &genx.StreamCtrl{StreamID: "audio-turn", EndOfStream: true}},
+	} {
+		observeRouteLifecycle(t, tracker, chunk)
+	}
+	tracker.assertComplete(t)
+	if len(tracker.streams) != 2 || len(tracker.routes) != 2 {
+		t.Fatalf("lifecycles = streams %d routes %d, want 2/2", len(tracker.streams), len(tracker.routes))
+	}
+	if route := tracker.route("text-turn", "text/plain"); route == nil || !route.ended {
+		t.Fatalf("control EOS did not close text MIME route: %#v", route)
+	}
+}
+
 func TestRouteLifecycleTrackerAcceptsPublisherNameChanges(t *testing.T) {
 	tracker := newRouteLifecycleTracker()
 	for _, chunk := range []*genx.MessageChunk{
@@ -208,6 +333,14 @@ func TestRouteLifecycleTrackerReportsIncompleteRoute(t *testing.T) {
 	if tracker.allComplete() {
 		t.Fatal("route without EOS reported complete")
 	}
+
+	explicit := newRouteLifecycleTracker()
+	observeRouteLifecycle(t, explicit, &genx.MessageChunk{
+		Ctrl: &genx.StreamCtrl{StreamID: "control", BeginOfStream: true},
+	})
+	if explicit.allComplete() {
+		t.Fatal("explicit control route without EOS reported complete")
+	}
 }
 
 func TestRouteLifecycleTrackerRejectsInvalidBoundaries(t *testing.T) {
@@ -225,6 +358,12 @@ func TestRouteLifecycleTrackerRejectsInvalidBoundaries(t *testing.T) {
 		{name: "data before BOS", chunks: []*genx.MessageChunk{{Part: genx.Text("late"), Ctrl: &genx.StreamCtrl{StreamID: "turn"}}}},
 		{name: "duplicate BOS", chunks: []*genx.MessageChunk{validBOS, validBOS.Clone()}},
 		{name: "post EOS", chunks: []*genx.MessageChunk{validBOS, validEOS, {Part: genx.Text("late"), Ctrl: &genx.StreamCtrl{StreamID: "turn"}}}},
+		{name: "duplicate MIME EOS", chunks: []*genx.MessageChunk{validBOS, validEOS, validEOS.Clone()}},
+		{name: "audio after MIME EOS", chunks: []*genx.MessageChunk{
+			{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn", BeginOfStream: true}},
+			{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}},
+			{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "turn"}},
+		}},
 		{name: "metadata changed", chunks: []*genx.MessageChunk{
 			{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn", Label: "assistant", BeginOfStream: true}},
 			{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("late"), Ctrl: &genx.StreamCtrl{StreamID: "turn", Label: "other"}},
@@ -232,6 +371,18 @@ func TestRouteLifecycleTrackerRejectsInvalidBoundaries(t *testing.T) {
 		{name: "missing control", chunks: []*genx.MessageChunk{{Part: genx.Text("late")}}},
 		{name: "missing StreamID", chunks: []*genx.MessageChunk{{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{BeginOfStream: true}}}},
 		{name: "invalid MIME", chunks: []*genx.MessageChunk{{Part: &genx.Blob{MIMEType: "not a mime"}, Ctrl: &genx.StreamCtrl{StreamID: "turn", BeginOfStream: true}}}},
+		{name: "control EOS before BOS", chunks: []*genx.MessageChunk{{Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}}}},
+		{name: "duplicate control BOS", chunks: []*genx.MessageChunk{
+			{Ctrl: &genx.StreamCtrl{StreamID: "turn", BeginOfStream: true}},
+			{Ctrl: &genx.StreamCtrl{StreamID: "turn", BeginOfStream: true}},
+		}},
+		{name: "post control EOS", chunks: []*genx.MessageChunk{
+			{Ctrl: &genx.StreamCtrl{StreamID: "turn", BeginOfStream: true}},
+			{Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}},
+			{Part: genx.Text("late"), Ctrl: &genx.StreamCtrl{StreamID: "turn", BeginOfStream: true}},
+		}},
+		{name: "control boundary missing StreamID", chunks: []*genx.MessageChunk{{Ctrl: &genx.StreamCtrl{BeginOfStream: true}}}},
+		{name: "error without EOS", chunks: []*genx.MessageChunk{{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn", BeginOfStream: true, Error: "early"}}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			tracker := newRouteLifecycleTracker()

@@ -256,7 +256,8 @@ func TestTransformerPushToTalkEndsASR(t *testing.T) {
 	)
 	input := &sliceRealtimeStream{chunks: []*genx.MessageChunk{
 		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
-		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0, 2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0, 2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
 		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
 	}}
 	output := newBufferStream(16)
@@ -286,10 +287,12 @@ func TestTransformerPushToTalkWaitsForAudioEOS(t *testing.T) {
 	)
 	input := &sliceRealtimeStream{chunks: []*genx.MessageChunk{
 		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
-		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
 		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
 		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
 		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
 	}}
 	output := newBufferStream(16)
 
@@ -789,8 +792,9 @@ func TestTransformerEOSIsLocalInRealtimeMode(t *testing.T) {
 	)
 	input := &sliceRealtimeStream{chunks: []*genx.MessageChunk{
 		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
-		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
-		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
 	}}
 	if err := runTransformerProcessLoop(t, tfr, input, newBufferStream(8), session); err != nil {
 		t.Fatalf("processLoop() error = %v", err)
@@ -798,8 +802,46 @@ func TestTransformerEOSIsLocalInRealtimeMode(t *testing.T) {
 	if got := session.endASRCount(); got != 0 {
 		t.Fatalf("EndASR calls = %d, want 0", got)
 	}
-	if got := len(session.audioFrames()); got != 1 {
-		t.Fatalf("SendAudio calls = %d, want only the client audio frame", got)
+	if got := len(session.audioFrames()); got != 2 {
+		t.Fatalf("SendAudio calls = %d, want data from MIME BOS and EOS", got)
+	}
+}
+
+func TestTransformerInputBoundariesRejectMIMEChange(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		chunks []*genx.MessageChunk
+	}{
+		{
+			name: "data differs from empty BOS declaration",
+			chunks: []*genx.MessageChunk{
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/mpeg", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+			},
+		},
+		{
+			name: "empty EOS differs from data declaration",
+			chunks: []*genx.MessageChunk{
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/mpeg"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			session := &fakeTransformerSession{blockAfterEvents: make(chan struct{})}
+			tfr := newTransformer(nil,
+				withMode(ModeRealtime),
+				withInputFormat("pcm"),
+				withInputTranscode(false),
+			)
+			err := runTransformerProcessLoop(t, tfr, &sliceRealtimeStream{chunks: test.chunks}, newBufferStream(8), session)
+			var mimeErr *doubaoRealtimeStreamMIMEChangeError
+			if !errors.As(err, &mimeErr) {
+				t.Fatalf("processLoop() error = %T %v, want MIME change", err, err)
+			}
+		})
 	}
 }
 
@@ -1276,8 +1318,9 @@ func TestTransformerPTTDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	)
 	input := &sliceRealtimeStream{chunks: []*genx.MessageChunk{
 		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
-		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
-		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
 	}}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -1294,6 +1337,12 @@ func TestTransformerPTTDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	}
 	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
 		t.Fatalf("output missing final assistant audio: %#v", chunks)
+	}
+	if got := session.audioCount(); got != 2 {
+		t.Fatalf("SendAudio calls = %d, want data from MIME BOS and EOS; audio=%v", got, session.audioChunks())
+	}
+	if got := session.endASRCount(); got != 1 {
+		t.Fatalf("EndASR calls = %d, want one despite following route EOS", got)
 	}
 	requireRealtimeOwnedRouteLifecycles(t, chunks, genx.RoleUser, genx.HistoryUserAudioLabel, 1)
 }
@@ -2090,6 +2139,22 @@ func (s *fakeTransformerSession) SendText(ctx context.Context, text string) erro
 		return s.sendTextErr
 	}
 	return nil
+}
+
+func (s *fakeTransformerSession) audioCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.audio)
+}
+
+func (s *fakeTransformerSession) audioChunks() [][]byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	chunks := make([][]byte, 0, len(s.audio))
+	for _, chunk := range s.audio {
+		chunks = append(chunks, append([]byte(nil), chunk...))
+	}
+	return chunks
 }
 
 func (s *fakeTransformerSession) EndASR(ctx context.Context) error {

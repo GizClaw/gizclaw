@@ -17,6 +17,7 @@ type duplexRoundResult struct {
 	transcript          strings.Builder
 	assistantText       strings.Builder
 	lifecycles          *routeLifecycleTracker
+	assistantStreamID   string
 	transcriptDone      bool
 	assistantTextDone   bool
 	assistantAudioDone  bool
@@ -34,8 +35,13 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 		chunkStreamID = chunk.Ctrl.StreamID
 	}
 	if err := duplexChunkError(chunk); err != nil {
-		if (label == duplexTranscriptLabel || label == duplexAssistantLabel) &&
-			!roundStreamMatches(chunkStreamID, streamID) {
+		if label == duplexTranscriptLabel && !roundStreamMatches(chunkStreamID, streamID) {
+			return nil
+		}
+		if label == duplexAssistantLabel && r.assistantStreamID != "" && chunkStreamID != r.assistantStreamID {
+			return nil
+		}
+		if label == duplexAssistantLabel && r.assistantStreamID == "" && !roundStreamMatches(chunkStreamID, streamID) {
 			return nil
 		}
 		return err
@@ -55,7 +61,16 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 		}
 		return nil
 	}
-	if label != duplexAssistantLabel || !roundStreamMatches(chunkStreamID, streamID) {
+	if label != duplexAssistantLabel {
+		return nil
+	}
+	if r.assistantStreamID == "" {
+		if !chunk.IsBeginOfStream() || strings.TrimSpace(chunkStreamID) == "" {
+			return fmt.Errorf("duplex assistant route started without BOS and StreamID: %#v", chunk)
+		}
+		r.assistantStreamID = chunkStreamID
+	}
+	if chunkStreamID != r.assistantStreamID {
 		return nil
 	}
 	if r.lifecycles == nil {
@@ -103,6 +118,23 @@ func TestDuplexRoundResultIgnoresOtherStreamTerminalError(t *testing.T) {
 	currentStreamError.Ctrl.StreamID = "round-2:rt:1"
 	if err := result.observe("round-2", currentStreamError); err == nil {
 		t.Fatal("observe() current terminal error = nil")
+	}
+}
+
+func TestDuplexRoundResultBindsProviderAssistantStreamID(t *testing.T) {
+	var result duplexRoundResult
+	for _, chunk := range []*genx.MessageChunk{
+		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "provider-response", Label: duplexAssistantLabel, BeginOfStream: true}},
+		{Role: genx.RoleModel, Part: genx.Text("answer"), Ctrl: &genx.StreamCtrl{StreamID: "provider-response", Label: duplexAssistantLabel}},
+		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "provider-response", Label: duplexAssistantLabel, EndOfStream: true}},
+		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "stale-response", Label: duplexAssistantLabel, BeginOfStream: true}},
+	} {
+		if err := result.observe("input-turn", chunk); err != nil {
+			t.Fatalf("observe() error = %v", err)
+		}
+	}
+	if result.assistantStreamID != "provider-response" || result.assistantText.String() != "answer" || !result.assistantTextDone {
+		t.Fatalf("assistant result = id %q text %q done %t", result.assistantStreamID, result.assistantText.String(), result.assistantTextDone)
 	}
 }
 

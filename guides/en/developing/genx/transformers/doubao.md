@@ -72,6 +72,12 @@ Unpublished assistant TTS output is limited to two minutes of normalized Opus pa
 
 The two Adapters can share GenX Stream, audio conversion, StreamID, and lifecycle infrastructure, but cannot merge provider session interface or event mapping. Push-to-Talk belongs only to the Realtime Dialogue API and should not be emulated by the Realtime Duplex Adapter.
 
+### Realtime Duplex stream identity and input boundaries
+
+Realtime Duplex relies on provider server VAD to segment continuous utterances. A control-route BOS and an audio MIME BOS with the same StreamID open the local input segment. Audio MIME EOS and control-route EOS close only their corresponding local codec/segment boundaries and do not send `input_audio_buffer.commit`. When a BOS or EOS chunk also carries audio data, the Adapter sends that payload before applying the boundary transition. Non-audio MIME boundaries cannot close the audio segment early.
+
+Provider `ResponseID` and `QuestionID` values are protocol metadata and may differ between events for one logical response, so they are not GenX route identity. The Adapter creates one stable owned StreamID for the current response; assistant text and audio MIME channels share that StreamID and each emit a complete BOS/data/EOS lifecycle. A provider transcription delta may be either a token or a cumulative hypothesis; the Adapter publishes only the suffix not already emitted and does not duplicate semantic content for repeated hypotheses.
+
 ## Realtime Duplex function-tool continuation
 
 ```go
