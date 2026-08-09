@@ -89,7 +89,7 @@ Badger 传入 DSN 或 provider credential。`cmd/internal/server` 保留扁平 Y
 
 多个 Store 可以借用同一个 connector；调用方必须先关闭逻辑 `Stores`，再关闭物理 `Storage`。`memory` 只是无状态 marker，每个引用它的 keyvalue 或 metrics Store 都创建独立实例。`vecstore` 与 `graph` 没有内置 Server 消费者，因此不属于命令层 Store 配置；对应公共 package 与构造函数仍保留。RuntimeProfile 与 MemoryLayout 选择的 Memory connection 仍在此 registry 之外。
 
-SQLite/PostgreSQL KV 只声明一个单段 `prefix`；后端把它直接作为带引号的物理表名，表内 key 不再重复增加该 prefix。Metrics 和 Log Store 继续声明 `table`。这些物理名称都必须是未限定、最长 63 bytes 的 ASCII 名称；KV prefix 还可包含 `-`。同一 connector 上，schema contract 兼容的多个逻辑 Store 可以用完全相同的名称共享一张物理表；KV、Metrics 与 Log 等不兼容 contract 不能共享。SQLite 按 ASCII 大小写不敏感识别物理表，但共享声明必须使用完全相同的拼写以保持 index identity 稳定；PostgreSQL 按带引号的精确名称比较。Registry 在任何 DDL 前完成整组兼容性、scope 和 table claim 校验。构造函数直接用幂等的 `CREATE ... IF NOT EXISTS` 保证业务表与索引存在，再精确校验列、主键、identity 和索引；它不创建 schema version/history 表，也不导入或重写既有 backend 数据。兼容的既有表会直接复用，不兼容的定义会让启动失败。逻辑 `Close` 只关闭 adapter 状态，不关闭借用的 `*sqlx.DB`。
+SQLite/PostgreSQL KV 只声明一个单段 `prefix`；后端把它直接作为带引号的物理表名，表内 key 不再重复增加该 prefix。Metrics 和 Log Store 继续声明 `table`。这些物理名称都必须是未限定、最长 63 bytes 的 ASCII 名称；KV prefix 还可包含 `-`。Registry 只独立校验每一份声明，不保留表名，也不比较不同 Store 声明。构造函数直接用幂等的 `CREATE ... IF NOT EXISTS` 保证业务表与索引存在，再校验当前 adapter 所要求的列、主键、identity 和索引；它不创建 schema version/history 表，也不导入或重写既有 backend 数据。兼容的既有表会直接复用，不兼容的定义会在该 adapter 构造时失败。逻辑 `Close` 只关闭 adapter 状态，不关闭借用的 `*sqlx.DB`。
 
 `storage.SQLTable` 是 SQLite/PostgreSQL 借用表的唯一 dialect、identifier、quoting、初始化和 schema inspection owner；它只能由校验后的 pool 与表名构造。KV、Metrics 和 Log 继续拥有各自的业务表定义，但直接消费这个 storage capability，不再经过独立的 SQL backend helper package。
 

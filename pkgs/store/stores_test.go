@@ -285,35 +285,7 @@ func TestSQLiteSupportsPrefixScopedKVAndTableScopedMetricAndLogStores(t *testing
 	}
 }
 
-func TestSQLiteTableClaimsFailBeforeDDL(t *testing.T) {
-	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = physical.Close() })
-	_, err = New(map[string]Config{
-		"first":  {Kind: KindKeyValue, Storage: "database", Prefix: "SharedTable"},
-		"second": {Kind: KindMetrics, Storage: "database", Table: "sharedtable"},
-	}, physical)
-	if err == nil || !strings.Contains(err.Error(), "claimed by both") {
-		t.Fatalf("New() error = %v", err)
-	}
-	db, err := physical.SQL("database")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var count int
-	if err := db.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name LIKE 'gizclaw_%'`).Scan(&count); err != nil {
-		t.Fatal(err)
-	}
-	if count != 0 {
-		t.Fatalf("preflight failure created %d SQL tables", count)
-	}
-}
-
-func TestSQLiteCompatibleTableClaimsShareTable(t *testing.T) {
+func TestSQLiteKeyValueStoresShareTable(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
 		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
 	})
@@ -322,7 +294,7 @@ func TestSQLiteCompatibleTableClaimsShareTable(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = physical.Close() })
 	registry, err := New(map[string]Config{
-		"first":  {Kind: KindKeyValue, Storage: "database", Prefix: "shared_items"},
+		"first":  {Kind: KindKeyValue, Storage: "database", Prefix: "Shared_Items"},
 		"second": {Kind: KindKeyValue, Storage: "database", Prefix: "shared_items"},
 	}, physical)
 	if err != nil {
@@ -347,6 +319,46 @@ func TestSQLiteCompatibleTableClaimsShareTable(t *testing.T) {
 	}
 	if string(got) != "value" {
 		t.Fatalf("second alias read = %q, want value", got)
+	}
+}
+
+func TestSQLiteMetricsStoresShareTable(t *testing.T) {
+	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = physical.Close() })
+	registry, err := New(map[string]Config{
+		"first":  {Kind: KindMetrics, Storage: "database", Table: "Shared_Metrics"},
+		"second": {Kind: KindMetrics, Storage: "database", Table: "shared_metrics"},
+	}, physical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	first, err := registry.Metrics("first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := registry.Metrics("second")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	now := time.UnixMilli(1000).UTC()
+	if err := first.Append(ctx, []metrics.Sample{{Name: "shared_metric", Timestamp: now, Value: 42}}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := second.Latest(ctx, metrics.LatestQuery{
+		Selector: metrics.Selector{Name: "shared_metric"}, At: now, Lookback: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || len(got[0].Points) != 1 || got[0].Points[0].Value != 42 {
+		t.Fatalf("second metrics adapter read = %+v, want value 42", got)
 	}
 }
 
@@ -389,23 +401,6 @@ func TestSQLiteImmutableAndMutableLogsShareTable(t *testing.T) {
 	}
 	if len(page.Records) != 1 || page.Records[0].ID != record.ID {
 		t.Fatalf("immutable alias query = %+v, want record %q", page, record.ID)
-	}
-}
-
-func TestSQLiteCompatibleTableClaimsRequireIdenticalSpelling(t *testing.T) {
-	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = physical.Close() })
-	_, err = New(map[string]Config{
-		"first":  {Kind: KindKeyValue, Storage: "database", Prefix: "SharedTable"},
-		"second": {Kind: KindKeyValue, Storage: "database", Prefix: "sharedtable"},
-	}, physical)
-	if err == nil || !strings.Contains(err.Error(), "must use identical spelling") {
-		t.Fatalf("New() error = %v", err)
 	}
 }
 

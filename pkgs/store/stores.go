@@ -152,12 +152,6 @@ func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) 
 }
 
 func validateConfigs(configs map[string]Config, physical *storage.Storage) error {
-	type tableClaim struct {
-		name     string
-		table    string
-		contract string
-	}
-	claims := map[string]tableClaim{}
 	names := make([]string, 0, len(configs))
 	for name := range configs {
 		names = append(names, name)
@@ -178,46 +172,8 @@ func validateConfigs(configs map[string]Config, physical *storage.Storage) error
 		if err := validateConfigFields(name, cfg, kind); err != nil {
 			return &ConfigError{Name: name, Err: err}
 		}
-		if kind != storage.KindSQLite && kind != storage.KindPostgreSQL ||
-			(cfg.Kind != KindKeyValue && cfg.Kind != KindMetrics && cfg.Kind != KindLogImmutable && cfg.Kind != KindLogMutable) {
-			continue
-		}
-		table := cfg.Table
-		if cfg.Kind == KindKeyValue {
-			table = cfg.Prefix
-		}
-		identity := cfg.Storage + "\x00" + table
-		if kind == storage.KindSQLite {
-			identity = cfg.Storage + "\x00" + strings.ToLower(table)
-		}
-		contract := sqlTableContract(cfg.Kind)
-		if previous, exists := claims[identity]; exists {
-			if previous.contract != contract {
-				err := fmt.Errorf(
-					"stores: SQL storage %q table %q is claimed by both %q (%s) and %q (%s), which require incompatible schemas",
-					cfg.Storage, table, previous.name, previous.contract, name, contract,
-				)
-				return &ConfigError{Name: previous.name, Err: &ConfigError{Name: name, Err: err}}
-			}
-			if previous.table != table {
-				err := fmt.Errorf(
-					"stores: SQLite storage %q table %q is also referenced as %q by %q; shared table claims must use identical spelling",
-					cfg.Storage, previous.table, table, name,
-				)
-				return &ConfigError{Name: previous.name, Err: &ConfigError{Name: name, Err: err}}
-			}
-			continue
-		}
-		claims[identity] = tableClaim{name: name, table: table, contract: contract}
 	}
 	return nil
-}
-
-func sqlTableContract(kind string) string {
-	if kind == KindLogImmutable || kind == KindLogMutable {
-		return "log"
-	}
-	return kind
 }
 
 func validateConfigFields(name string, cfg Config, storageKind string) error {
