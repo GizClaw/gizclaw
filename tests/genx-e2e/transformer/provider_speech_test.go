@@ -52,6 +52,11 @@ func TestDoubaoSAUCASR(t *testing.T) {
 	streamID := "doubao-sauc-e2e"
 	pushSpeechChunk(t, ctx, input, &genx.MessageChunk{
 		Role: genx.RoleUser,
+		Part: &genx.Blob{MIMEType: "audio/ogg"},
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true},
+	})
+	pushSpeechChunk(t, ctx, input, &genx.MessageChunk{
+		Role: genx.RoleUser,
 		Part: &genx.Blob{MIMEType: "audio/ogg", Data: doubaoRealtimeDuplexPromptOgg},
 		Ctrl: &genx.StreamCtrl{StreamID: streamID},
 	})
@@ -65,28 +70,29 @@ func TestDoubaoSAUCASR(t *testing.T) {
 	}
 
 	var transcript strings.Builder
-	seenEOS := false
-	for _, chunk := range collectSpeechOutput(t, output) {
+	tracker := newRouteLifecycleTracker()
+	chunks := collectSpeechOutput(t, output)
+	for _, chunk := range chunks {
 		if err := speechChunkError(chunk); err != nil {
 			t.Fatal(err)
 		}
+		observeRouteLifecycle(t, tracker, chunk)
 		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != streamID {
 			t.Fatalf("ASR chunk route = %#v, want stream %q", chunk.Ctrl, streamID)
 		}
 		if text, ok := chunk.Part.(genx.Text); ok {
 			transcript.WriteString(string(text))
 		}
-		if chunk.IsEndOfStream() {
-			seenEOS = true
-		}
 	}
+	tracker.assertComplete(t)
 	if strings.TrimSpace(transcript.String()) == "" {
 		t.Fatal("Doubao SAUC returned no transcript")
 	}
-	if !seenEOS {
-		t.Fatal("Doubao SAUC returned no terminal EOS")
+	transcriptRoute := tracker.route(streamID, "text/plain")
+	if transcriptRoute == nil || transcriptRoute.dataChunks == 0 {
+		t.Fatalf("Doubao SAUC transcript route = %#v, want BOS/data/EOS", transcriptRoute)
 	}
-	t.Logf("transcript=%q", transcript.String())
+	t.Logf("transcript=%q routes=%d chunks=%d", transcript.String(), len(tracker.routes), len(chunks))
 }
 
 func TestDoubaoSeedV2TTS(t *testing.T) {
@@ -137,22 +143,40 @@ func runTTSE2E(t *testing.T, transformer genx.Transformer, streamID, text, wantM
 	}
 	defer output.CloseWithError(context.Canceled)
 
-	pushSpeechChunk(t, ctx, input, &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Name: "assistant",
-		Part: genx.Text(text),
-		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "assistant", EndOfStream: true},
-	})
+	for _, chunk := range []*genx.MessageChunk{
+		{
+			Role: genx.RoleModel,
+			Name: "assistant",
+			Part: genx.Text(""),
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "assistant", BeginOfStream: true},
+		},
+		{
+			Role: genx.RoleModel,
+			Name: "assistant",
+			Part: genx.Text(text),
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "assistant"},
+		},
+		{
+			Role: genx.RoleModel,
+			Name: "assistant",
+			Part: genx.Text(""),
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "assistant", EndOfStream: true},
+		},
+	} {
+		pushSpeechChunk(t, ctx, input, chunk)
+	}
 	if err := input.Close(); err != nil {
 		t.Fatalf("close TTS input: %v", err)
 	}
 
 	audioBytes := 0
-	seenEOS := false
-	for _, chunk := range collectSpeechOutput(t, output) {
+	tracker := newRouteLifecycleTracker()
+	chunks := collectSpeechOutput(t, output)
+	for _, chunk := range chunks {
 		if err := speechChunkError(chunk); err != nil {
 			t.Fatal(err)
 		}
+		observeRouteLifecycle(t, tracker, chunk)
 		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != streamID || chunk.Ctrl.Label != "assistant" {
 			t.Fatalf("TTS chunk route = %#v, want stream %q label assistant", chunk.Ctrl, streamID)
 		}
@@ -165,17 +189,16 @@ func runTTSE2E(t *testing.T, transformer genx.Transformer, streamID, text, wantM
 			}
 			audioBytes += len(blob.Data)
 		}
-		if chunk.IsEndOfStream() {
-			seenEOS = true
-		}
 	}
+	tracker.assertComplete(t)
 	if audioBytes == 0 {
 		t.Fatal("TTS returned no audio bytes")
 	}
-	if !seenEOS {
-		t.Fatal("TTS returned no terminal EOS")
+	audioRoute := tracker.route(streamID, wantMIME)
+	if audioRoute == nil || audioRoute.dataChunks == 0 {
+		t.Fatalf("TTS audio route = %#v, want BOS/data/EOS", audioRoute)
 	}
-	t.Logf("audio_bytes=%d mime=%s", audioBytes, wantMIME)
+	t.Logf("audio_bytes=%d mime=%s routes=%d chunks=%d", audioBytes, wantMIME, len(tracker.routes), len(chunks))
 }
 
 func pushSpeechChunk(t *testing.T, ctx context.Context, input *genx.RealtimeStream, chunk *genx.MessageChunk) {

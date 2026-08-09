@@ -203,8 +203,6 @@ func TestDoubaoRealtimeDuplexInterruptionKeepsOwnedRoutesComplete(t *testing.T) 
 	tfr := newTransformer(nil, withFormat("pcm"))
 	assistant := newRealtimeAssistantLifecycle()
 	epoch := assistant.markStarted("turn-1")
-	assistant.markRouteStarted(epoch, true)
-	assistant.markRouteStarted(epoch, false)
 	output := newBufferStream(8)
 	for _, chunk := range []*genx.MessageChunk{
 		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeDuplexAssistantLabel, BeginOfStream: true}},
@@ -212,8 +210,11 @@ func TestDoubaoRealtimeDuplexInterruptionKeepsOwnedRoutesComplete(t *testing.T) 
 		{Role: genx.RoleModel, Part: genx.Text("stale"), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeDuplexAssistantLabel}},
 		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeDuplexAssistantLabel}},
 	} {
-		if err := output.Push(chunk); err != nil {
-			t.Fatalf("Push() error = %v", err)
+		accepted, err := assistant.pushIfCurrent(epoch, chunk, func() error {
+			return output.Push(chunk)
+		})
+		if err != nil || !accepted {
+			t.Fatalf("pushIfCurrent() = accepted %t, error %v", accepted, err)
 		}
 	}
 	first, err := output.Next()
@@ -222,6 +223,18 @@ func TestDoubaoRealtimeDuplexInterruptionKeepsOwnedRoutesComplete(t *testing.T) 
 	}
 	if !tfr.interruptAssistantOutput(output, assistant, "turn-2") {
 		t.Fatal("assistant response was not interrupted")
+	}
+	latePushCalled := false
+	accepted, err := assistant.pushIfCurrent(epoch, &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text("late"),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeDuplexAssistantLabel},
+	}, func() error {
+		latePushCalled = true
+		return nil
+	})
+	if err != nil || accepted || latePushCalled {
+		t.Fatalf("stale push = accepted %t called %t error %v", accepted, latePushCalled, err)
 	}
 	if err := output.Close(); err != nil {
 		t.Fatalf("Close(output) error = %v", err)

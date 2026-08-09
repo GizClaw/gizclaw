@@ -54,6 +54,17 @@ func (s *SharedAssistantLifecycle) Interrupt(id string, force bool) (string, boo
 }
 func (s *SharedAssistantLifecycle) CanPush(epoch uint64) bool { return s.inner.canPush(epoch) }
 
+// PushIfCurrent atomically verifies an assistant response epoch, publishes the
+// chunk, and records any generated route opened by the chunk. InterruptRoutes
+// cannot invalidate the epoch between those operations.
+func (s *SharedAssistantLifecycle) PushIfCurrent(
+	epoch uint64,
+	chunk *genx.MessageChunk,
+	push func() error,
+) (bool, error) {
+	return s.inner.pushIfCurrent(epoch, chunk, push)
+}
+
 func ObserveSharedAssistantOutput(state *SharedAssistantLifecycle, label string, chunk *genx.MessageChunk) {
 	if state != nil {
 		observeRealtimeAssistantOutput(state.inner, label, chunk)

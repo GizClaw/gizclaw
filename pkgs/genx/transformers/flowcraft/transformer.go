@@ -421,7 +421,10 @@ func (s *session) startTurn(user string, previous <-chan struct{}) <-chan struct
 		session: s, user: user, response: response, ctx: runCtx, cancel: cancel,
 		accepting: true, changed: make(chan struct{}, 1), done: make(chan struct{}), previous: previous,
 	}
-	if err := s.invocation.Emit(response, genx.NewBeginOfStream(response.StreamID())); err != nil {
+	if err := s.invocation.Emit(response, &genx.MessageChunk{
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: response.StreamID(), BeginOfStream: true},
+	}); err != nil {
 		_ = s.invocation.FinishResponse(response, err.Error())
 		done := make(chan struct{})
 		close(done)

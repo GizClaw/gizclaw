@@ -376,7 +376,7 @@ func (session *session) startTurn(user string, parts []any, previous <-chan stru
 		if output.Primary {
 			run.primary = route
 		}
-		if err := session.invocation.Emit(response, genx.NewBeginOfStream(response.StreamID())); err != nil {
+		if err := session.invocation.Emit(response, newOutputRouteBegin(response.StreamID(), output.MIMEType)); err != nil {
 			_ = session.invocation.Fail(err)
 			cancel(err)
 			close(run.done)
@@ -392,6 +392,21 @@ func (session *session) startTurn(user string, parts []any, previous <-chan stru
 	session.turns.Add(1)
 	go run.execute()
 	return run.done
+}
+
+func newOutputRouteBegin(streamID, mimeType string) *genx.MessageChunk {
+	return &genx.MessageChunk{
+		Part: newOutputRoutePart(mimeType, nil),
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true},
+	}
+}
+
+func newOutputRoutePart(mimeType string, data []byte) genx.Part {
+	probe := &genx.MessageChunk{Part: &genx.Blob{MIMEType: mimeType}}
+	if canonical, ok := probe.MIMEType(); ok && canonical == "text/plain" {
+		return genx.Text(data)
+	}
+	return &genx.Blob{MIMEType: mimeType, Data: data}
 }
 
 type turnRun struct {
@@ -432,7 +447,7 @@ func (run *turnRun) Emit(output OutputDefinition, value any) error {
 	var size int
 	switch typed := value.(type) {
 	case string:
-		chunk.Part = genx.Text(typed)
+		chunk.Part = newOutputRoutePart(output.MIMEType, []byte(typed))
 		size = len(typed)
 	case []byte:
 		chunk.Part = &genx.Blob{MIMEType: output.MIMEType, Data: append([]byte(nil), typed...)}
@@ -460,6 +475,9 @@ func (run *turnRun) observe(chunk *genx.MessageChunk) {
 		run.deliveredBytes += len(part)
 	case *genx.Blob:
 		if part != nil {
+			if mimeType, ok := chunk.MIMEType(); ok && strings.HasPrefix(mimeType, "text/") {
+				run.delivered.Write(part.Data)
+			}
 			run.deliveredBytes += len(part.Data)
 		}
 	}

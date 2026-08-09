@@ -141,11 +141,7 @@ func pushEinoChatTurn(
 	text string,
 ) {
 	t.Helper()
-	for _, chunk := range []*genx.MessageChunk{
-		genx.NewBeginOfStream(streamID),
-		{Role: genx.RoleUser, Part: genx.Text(text)},
-		genx.NewTextEndOfStream(),
-	} {
+	for _, chunk := range completeTextRoute(genx.RoleUser, "", "", streamID, text) {
 		if err := input.Push(ctx, chunk); err != nil {
 			t.Fatalf("push Eino chat turn %q: %v", streamID, err)
 		}
@@ -161,7 +157,7 @@ func readEinoChatTurn(t *testing.T, output genx.Stream) einoChatTurn {
 	t.Helper()
 	var response strings.Builder
 	var streamID string
-	seenBOS := false
+	tracker := newRouteLifecycleTracker()
 	for {
 		chunk, err := output.Next()
 		if err != nil {
@@ -170,6 +166,7 @@ func readEinoChatTurn(t *testing.T, output genx.Stream) einoChatTurn {
 		if chunk == nil {
 			t.Fatal("read Eino chat turn: nil chunk")
 		}
+		observeRouteLifecycle(t, tracker, chunk)
 		if chunk.ToolCall != nil {
 			t.Fatalf("Eino chat leaked internal ToolCall: %#v", chunk.ToolCall)
 		}
@@ -186,10 +183,14 @@ func readEinoChatTurn(t *testing.T, output genx.Stream) einoChatTurn {
 			if chunk.Ctrl.StreamID != streamID {
 				t.Fatalf("Eino chat output changed StreamID from %q to %q", streamID, chunk.Ctrl.StreamID)
 			}
-			seenBOS = seenBOS || chunk.IsBeginOfStream()
 			if chunk.IsEndOfStream() {
-				if !seenBOS || streamID == "" {
-					t.Fatalf("incomplete Eino chat lifecycle: stream_id=%q BOS=%v", streamID, seenBOS)
+				tracker.assertComplete(t)
+				if streamID == "" || len(tracker.routes) != 1 {
+					t.Fatalf("Eino chat routes = %#v, want one assistant text route", tracker.routes)
+				}
+				route := tracker.route(streamID, "text/plain")
+				if route == nil || route.dataChunks == 0 {
+					t.Fatalf("Eino chat route = %#v, want BOS/data/EOS", route)
 				}
 				return einoChatTurn{text: response.String(), streamID: streamID}
 			}

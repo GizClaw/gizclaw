@@ -95,7 +95,12 @@ func TestTransformStreamsTextAndResolvesModelAlias(t *testing.T) {
 		if chunk.Ctrl.StreamID != streamID {
 			t.Fatalf("one response used StreamIDs %q and %q", streamID, chunk.Ctrl.StreamID)
 		}
-		sawBOS = sawBOS || chunk.IsBeginOfStream()
+		if chunk.IsBeginOfStream() {
+			sawBOS = true
+			if mimeType, ok := chunk.MIMEType(); !ok || mimeType != "text/plain" {
+				t.Fatalf("route BOS MIME = %q, present=%v; chunk=%#v", mimeType, ok, chunk)
+			}
+		}
 		if chunk.IsEndOfStream() {
 			sawEOS = true
 			if chunk.Name != assistantLabel || chunk.Ctrl.Label != assistantLabel {

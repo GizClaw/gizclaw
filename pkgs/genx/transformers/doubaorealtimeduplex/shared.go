@@ -33,6 +33,13 @@ func (s *realtimeAssistantLifecycle) interrupt(id string, force bool) (string, b
 	return s.Interrupt(id, force)
 }
 func (s *realtimeAssistantLifecycle) canPush(epoch uint64) bool { return s.CanPush(epoch) }
+func (s *realtimeAssistantLifecycle) pushIfCurrent(
+	epoch uint64,
+	chunk *genx.MessageChunk,
+	push func() error,
+) (bool, error) {
+	return s.PushIfCurrent(epoch, chunk, push)
+}
 
 func observeRealtimeAssistantOutput(state *realtimeAssistantLifecycle, label string, chunk *genx.MessageChunk) {
 	if state != nil {

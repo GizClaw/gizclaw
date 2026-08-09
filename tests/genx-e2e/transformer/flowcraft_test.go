@@ -64,11 +64,9 @@ func TestFlowcraftTransformerOpenAICompatibleModel(t *testing.T) {
 		t.Fatalf("Transform() failed: %v", err)
 	}
 	streamID := "flowcraft-e2e-input"
-	for _, chunk := range []*genx.MessageChunk{
-		genx.NewBeginOfStream(streamID),
-		{Role: genx.RoleUser, Part: genx.Text("Confirm that the Flowcraft graph is running.")},
-		genx.NewTextEndOfStream(),
-	} {
+	for _, chunk := range completeTextRoute(
+		genx.RoleUser, "", "", streamID, "Confirm that the Flowcraft graph is running.",
+	) {
 		if err := input.Push(ctx, chunk); err != nil {
 			t.Fatalf("push Flowcraft input: %v", err)
 		}
@@ -78,7 +76,7 @@ func TestFlowcraftTransformerOpenAICompatibleModel(t *testing.T) {
 	}
 	var response strings.Builder
 	var outputStreamID string
-	seenBOS, seenEOS := false, false
+	tracker := newRouteLifecycleTracker()
 	for {
 		chunk, nextErr := output.Next()
 		if nextErr != nil {
@@ -87,6 +85,7 @@ func TestFlowcraftTransformerOpenAICompatibleModel(t *testing.T) {
 			}
 			t.Fatalf("read Flowcraft output: %v", nextErr)
 		}
+		observeRouteLifecycle(t, tracker, chunk)
 		if chunk.Ctrl != nil {
 			if chunk.Ctrl.Error != "" {
 				t.Fatalf("Flowcraft output error: %s", chunk.Ctrl.Error)
@@ -97,15 +96,18 @@ func TestFlowcraftTransformerOpenAICompatibleModel(t *testing.T) {
 			if chunk.Ctrl.StreamID != outputStreamID {
 				t.Fatalf("Flowcraft output changed StreamID from %q to %q", outputStreamID, chunk.Ctrl.StreamID)
 			}
-			seenBOS = seenBOS || chunk.IsBeginOfStream()
-			seenEOS = seenEOS || chunk.IsEndOfStream()
 		}
 		if text, ok := chunk.Part.(genx.Text); ok && !chunk.IsEndOfStream() {
 			response.WriteString(string(text))
 		}
 	}
-	if outputStreamID == "" || !seenBOS || !seenEOS {
-		t.Fatalf("incomplete lifecycle: stream_id=%q BOS=%v EOS=%v", outputStreamID, seenBOS, seenEOS)
+	tracker.assertComplete(t)
+	if outputStreamID == "" || len(tracker.routes) != 1 {
+		t.Fatalf("Flowcraft routes = %#v, want one generated text route", tracker.routes)
+	}
+	outputRoute := tracker.route(outputStreamID, "text/plain")
+	if outputRoute == nil || outputRoute.dataChunks == 0 {
+		t.Fatalf("Flowcraft route = %#v, want BOS/data/EOS", outputRoute)
 	}
 	if !strings.Contains(response.String(), "FLOWCRAFT_TOOL_OK") {
 		t.Fatalf("response = %q, want FLOWCRAFT_TOOL_OK", response.String())

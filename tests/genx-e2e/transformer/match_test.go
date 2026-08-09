@@ -207,11 +207,7 @@ func runMatchTransformer(t *testing.T, transformer genx.Transformer) string {
 	ctx, cancel := context.WithTimeout(t.Context(), 90*time.Second)
 	defer cancel()
 	input := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
-	if err := input.Add(
-		genx.NewBeginOfStream("match-input"),
-		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("我想听卡农")},
-		genx.NewTextEndOfStream(),
-	); err != nil {
+	if err := input.Add(completeTextRoute(genx.RoleUser, "", "", "match-input", "我想听卡农")...); err != nil {
 		t.Fatalf("build input: %v", err)
 	}
 	if err := input.Done(genx.Usage{}); err != nil {
@@ -223,9 +219,11 @@ func runMatchTransformer(t *testing.T, transformer genx.Transformer) string {
 	}
 	defer output.Close()
 	var text strings.Builder
+	tracker := newRouteLifecycleTracker()
 	for {
 		chunk, nextErr := output.Next()
 		if errors.Is(nextErr, io.EOF) {
+			tracker.assertComplete(t)
 			return text.String()
 		}
 		if nextErr != nil {
@@ -234,6 +232,7 @@ func runMatchTransformer(t *testing.T, transformer genx.Transformer) string {
 		if chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
 			t.Fatalf("output error: %s", chunk.Ctrl.Error)
 		}
+		observeRouteLifecycle(t, tracker, chunk)
 		if value, ok := chunk.Part.(genx.Text); ok && !chunk.IsEndOfStream() {
 			text.WriteString(string(value))
 		}
