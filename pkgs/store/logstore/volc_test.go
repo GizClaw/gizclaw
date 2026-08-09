@@ -4,14 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/volcengine/volc-sdk-golang/service/tls"
-	"github.com/volcengine/volc-sdk-golang/service/tls/pb"
-	"github.com/volcengine/volc-sdk-golang/service/tls/producer"
 )
+
+func TestVolcConfigsHaveNoSerializationTags(t *testing.T) {
+	for _, typeOf := range []reflect.Type{reflect.TypeFor[VolcConfig](), reflect.TypeFor[VolcConnectorConfig]()} {
+		for field := range typeOf.Fields() {
+			if field.Tag.Get("yaml") != "" || field.Tag.Get("json") != "" || field.Tag.Get("mapstructure") != "" {
+				t.Fatalf("%s.%s has serialization tag %q", typeOf.Name(), field.Name, field.Tag)
+			}
+		}
+	}
+}
 
 type fakeVolcClient struct {
 	index    *tls.DescribeIndexResponse
@@ -19,6 +29,10 @@ type fakeVolcClient struct {
 	request  *tls.SearchLogsRequest
 	err      error
 	searches int
+	puts     int
+	failAt   int
+	logs     []tls.Log
+	release  chan struct{}
 }
 
 func (f *fakeVolcClient) DescribeIndex(*tls.DescribeIndexRequest) (*tls.DescribeIndexResponse, error) {
@@ -31,13 +45,25 @@ func (f *fakeVolcClient) SearchLogsV2(request *tls.SearchLogsRequest) (*tls.Sear
 	return f.response, f.err
 }
 
+func (f *fakeVolcClient) PutLogsV2(request *tls.PutLogsV2Request) (*tls.CommonResponse, error) {
+	f.puts++
+	if f.release != nil {
+		<-f.release
+	}
+	if f.err != nil && (f.failAt == 0 || f.puts == f.failAt) {
+		return nil, f.err
+	}
+	f.logs = append(f.logs, request.Logs...)
+	return &tls.CommonResponse{}, nil
+}
+
 func TestVolcOperationErrorsHideProviderText(t *testing.T) {
 	providerErr := errors.New("provider body contains access-secret")
 	client := &fakeVolcClient{err: providerErr}
 	if err := validateVolcIndex(client, "topic"); !errors.Is(err, providerErr) || strings.Contains(err.Error(), "access-secret") {
 		t.Fatalf("index error = %v", err)
 	}
-	store := &VolcStore{topicID: "topic", client: client, writer: &fakeVolcProducer{err: providerErr}}
+	store := &VolcStore{topicID: "topic", client: client}
 	if _, err := store.Append(context.Background(), []Record{validRecord()}); !errors.Is(err, providerErr) || strings.Contains(err.Error(), "access-secret") {
 		t.Fatalf("append error = %v", err)
 	}
@@ -48,7 +74,7 @@ func TestVolcOperationErrorsHideProviderText(t *testing.T) {
 
 func TestVolcQueryRejectsInvalidPayload(t *testing.T) {
 	client := &fakeVolcClient{response: &tls.SearchLogsResponse{Status: "complete", ListOver: true, Logs: []map[string]any{{"payload": "{"}}}}
-	store := &VolcStore{topicID: "topic", client: client, writer: &fakeVolcProducer{}}
+	store := &VolcStore{topicID: "topic", client: client}
 	if _, err := store.Query(context.Background(), validQuery()); err == nil {
 		t.Fatal("invalid payload was accepted")
 	}
@@ -58,7 +84,7 @@ func TestVolcQueryPreservesStringAttributeLeaves(t *testing.T) {
 	client := &fakeVolcClient{response: &tls.SearchLogsResponse{Status: "complete", ListOver: true, Logs: []map[string]any{{
 		"attributes": `{"literal":"null","nested":{"value":"true"}}`,
 	}}}}
-	store := &VolcStore{topicID: "topic", client: client, writer: &fakeVolcProducer{}}
+	store := &VolcStore{topicID: "topic", client: client}
 	page, err := store.Query(context.Background(), validQuery())
 	if err != nil {
 		t.Fatalf("Query() error = %v", err)
@@ -76,7 +102,7 @@ func TestVolcQueryPreservesFixedFieldWhitespace(t *testing.T) {
 	client := &fakeVolcClient{response: &tls.SearchLogsResponse{Status: "complete", ListOver: true, Logs: []map[string]any{{
 		"id": " id ", "stream": " system ", "kind": " log ", "level": " WARN ", "msg": " message ",
 	}}}}
-	store := &VolcStore{topicID: "topic", client: client, writer: &fakeVolcProducer{}}
+	store := &VolcStore{topicID: "topic", client: client}
 	page, err := store.Query(context.Background(), validQuery())
 	if err != nil {
 		t.Fatalf("Query() error = %v", err)
@@ -86,26 +112,6 @@ func TestVolcQueryPreservesFixedFieldWhitespace(t *testing.T) {
 		t.Fatalf("record = %+v", got)
 	}
 }
-
-type fakeVolcProducer struct {
-	logs   []*pb.Log
-	closed int
-	err    error
-	calls  int
-	failAt int
-}
-
-func (f *fakeVolcProducer) SendLog(_, _, _, _ string, item *pb.Log, _ producer.CallBack) error {
-	f.calls++
-	if f.err != nil && (f.failAt == 0 || f.calls == f.failAt) {
-		return f.err
-	}
-	f.logs = append(f.logs, item)
-	return nil
-}
-func (*fakeVolcProducer) Start()      {}
-func (f *fakeVolcProducer) Close()    { f.closed++ }
-func (*fakeVolcProducer) ForceClose() {}
 
 func compatibleVolcIndex() *tls.DescribeIndexResponse {
 	values := []tls.KeyValueInfo{
@@ -119,11 +125,10 @@ func compatibleVolcIndex() *tls.DescribeIndexResponse {
 	return &tls.DescribeIndexResponse{KeyValue: &values, EnablePhraseIndex: true}
 }
 
-func TestVolcConnectorScopesTopicsAndClosesProducerOnce(t *testing.T) {
-	producer := &fakeVolcProducer{}
+func TestVolcConnectorScopesTopicsAndBorrowsClient(t *testing.T) {
+	client := &fakeVolcClient{index: compatibleVolcIndex()}
 	connector := &VolcConnector{
-		client: &fakeVolcClient{index: compatibleVolcIndex()},
-		writer: producer,
+		client: client,
 	}
 	first, err := connector.Store("topic-one")
 	if err != nil {
@@ -133,23 +138,17 @@ func TestVolcConnectorScopesTopicsAndClosesProducerOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.topicID == second.topicID || first.writer != second.writer {
+	if first.topicID == second.topicID || first.client != second.client {
 		t.Fatalf("topic stores = %+v, %+v", first, second)
 	}
 	if err := first.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if producer.closed != 0 {
-		t.Fatal("closing borrowed topic Store closed connector producer")
-	}
 	if err := connector.Close(); err != nil {
 		t.Fatal(err)
 	}
 	if err := connector.Close(); err != nil {
 		t.Fatal(err)
-	}
-	if producer.closed != 1 {
-		t.Fatalf("producer close count = %d, want 1", producer.closed)
 	}
 }
 
@@ -227,43 +226,53 @@ func TestValidateVolcIndexRejectsIncompatibleSchemas(t *testing.T) {
 }
 
 func TestVolcAppendValidatesWholeBatchBeforeSendingAndReportsPartialFailure(t *testing.T) {
-	writer := &fakeVolcProducer{}
-	store := &VolcStore{topicID: "topic", writer: writer}
+	client := &fakeVolcClient{}
+	store := &VolcStore{topicID: "topic", client: client}
 	invalid := validRecord()
 	invalid.Payload = []byte("{")
 	if _, err := store.Append(context.Background(), []Record{validRecord(), invalid}); err == nil {
 		t.Fatal("invalid batch was accepted")
 	}
-	if writer.calls != 0 {
-		t.Fatalf("writer calls = %d before complete validation", writer.calls)
+	if client.puts != 0 {
+		t.Fatalf("PutLogsV2 calls = %d before complete validation", client.puts)
 	}
 
 	wantErr := errors.New("send failed")
-	writer.err, writer.failAt = wantErr, 2
-	first := validRecord()
-	second := validRecord()
-	second.ID = "id-2"
-	keys, err := store.Append(context.Background(), []Record{first, second})
+	client.err = wantErr
+	keys, err := store.Append(context.Background(), []Record{validRecord()})
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("Append() error = %v", err)
 	}
-	if len(keys) != 1 || keys[0] != first.Key() {
-		t.Fatalf("Append() keys = %+v, want accepted prefix %+v", keys, []RecordKey{first.Key()})
+	if len(keys) != 0 {
+		t.Fatalf("Append() keys = %+v, want no accepted records", keys)
 	}
-	if writer.calls != 2 || len(writer.logs) != 1 {
-		t.Fatalf("calls = %d, accepted = %d", writer.calls, len(writer.logs))
+	if client.puts != 1 || len(client.logs) != 0 {
+		t.Fatalf("calls = %d, accepted = %d", client.puts, len(client.logs))
+	}
+
+	client.puts, client.logs, client.failAt = 0, nil, 2
+	records := make([]Record, volcMaxBatchRecords+1)
+	for index := range records {
+		records[index] = validRecord()
+		records[index].ID = fmt.Sprintf("id-%d", index)
+	}
+	keys, err = store.Append(context.Background(), records)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("second batch error = %v", err)
+	}
+	if len(keys) == 0 || len(keys) != len(client.logs) {
+		t.Fatalf("accepted prefix = %d, committed records = %d", len(keys), len(client.logs))
 	}
 }
 
 func TestVolcAppendAndQuery(t *testing.T) {
-	writer := &fakeVolcProducer{}
 	client := &fakeVolcClient{response: &tls.SearchLogsResponse{
 		Status: "complete", ListOver: false, Context: "next", Logs: []map[string]any{{
 			"id": "id", "stream": "system", "kind": "log", "level": "WARN", "msg": "hello", "__time__": int64(1000),
 			"attributes": map[string]any{"request": map[string]any{"method": "GET"}},
 		}},
 	}}
-	store := &VolcStore{topicID: "topic", client: client, writer: writer}
+	store := &VolcStore{topicID: "topic", client: client}
 	record := validRecord()
 	keys, err := store.Append(context.Background(), []Record{record})
 	if err != nil {
@@ -272,11 +281,11 @@ func TestVolcAppendAndQuery(t *testing.T) {
 	if len(keys) != 1 || keys[0] != record.Key() {
 		t.Fatalf("Append() keys = %+v, want %+v", keys, []RecordKey{record.Key()})
 	}
-	if len(writer.logs) != 1 || len(writer.logs[0].Contents) < 6 {
-		t.Fatalf("appended logs = %+v", writer.logs)
+	if len(client.logs) != 1 || len(client.logs[0].Contents) < 6 {
+		t.Fatalf("appended logs = %+v", client.logs)
 	}
 	contents := map[string]string{}
-	for _, content := range writer.logs[0].Contents {
+	for _, content := range client.logs[0].Contents {
 		contents[content.Key] = content.Value
 	}
 	if contents["id"] != record.ID || contents["stream"] != record.Stream || contents["payload"] != string(record.Payload) || contents["attributes"] != `{"request":{"method":"GET"}}` {
@@ -312,9 +321,6 @@ func TestVolcAppendAndQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = store.Close()
-	if writer.closed != 1 {
-		t.Fatalf("close count = %d", writer.closed)
-	}
 	if _, err := store.Append(context.Background(), []Record{validRecord()}); err == nil {
 		t.Fatal("append after close succeeded")
 	}
@@ -324,8 +330,8 @@ func TestVolcAppendAndQuery(t *testing.T) {
 }
 
 func TestVolcAppendTruncatesOversizedRecordBeforeProducer(t *testing.T) {
-	writer := &fakeVolcProducer{}
-	store := &VolcStore{topicID: "topic", writer: writer, maxLogBytes: 1024}
+	client := &fakeVolcClient{}
+	store := &VolcStore{topicID: "topic", client: client, maxLogBytes: 1024}
 	record := validRecord()
 	record.Message = strings.Repeat("message", 1024)
 	record.Attributes["large"] = strings.Repeat("attribute", 1024)
@@ -347,11 +353,11 @@ func TestVolcAppendTruncatesOversizedRecordBeforeProducer(t *testing.T) {
 	if len(keys) != 1 || keys[0] != record.Key() {
 		t.Fatalf("keys = %+v", keys)
 	}
-	if len(writer.logs) != 1 || producer.GetLogSize(writer.logs[0]) > store.maxLogBytes {
-		t.Fatalf("producer log size = %d", producer.GetLogSize(writer.logs[0]))
+	if len(client.logs) != 1 {
+		t.Fatalf("appended logs = %d", len(client.logs))
 	}
 	contents := make(map[string]string)
-	for _, content := range writer.logs[0].Contents {
+	for _, content := range client.logs[0].Contents {
 		contents[content.Key] = content.Value
 	}
 	var truncated struct {
@@ -425,7 +431,7 @@ func TestVolcQueryRejectsInvalidProviderPages(t *testing.T) {
 	for name, response := range tests {
 		t.Run(name, func(t *testing.T) {
 			client := &fakeVolcClient{response: response}
-			store := &VolcStore{topicID: "topic", client: client, writer: &fakeVolcProducer{}}
+			store := &VolcStore{topicID: "topic", client: client}
 			query := validQuery()
 			if name == "too many records" {
 				query.Limit = 1
@@ -444,7 +450,7 @@ func TestVolcQueryNormalizesLegacyRecordAndNanoseconds(t *testing.T) {
 		"level": "WARN", "msg": "legacy", "id": "legacy-id", "stream": "user-stream", "kind": "user-kind",
 		"payload": "legacy-payload", "request.method": "GET", "attributes": "legacy-value",
 	}}}}
-	store := &VolcStore{topicID: "topic", client: client, writer: &fakeVolcProducer{}}
+	store := &VolcStore{topicID: "topic", client: client}
 	query := validQuery()
 	query.Streams, query.Kinds = []string{"system"}, []string{"log"}
 	page, err := store.Query(context.Background(), query)
@@ -505,10 +511,15 @@ func (c *blockingVolcClient) SearchLogsV2(*tls.SearchLogsRequest) (*tls.SearchLo
 	return &tls.SearchLogsResponse{Status: "complete", ListOver: true}, nil
 }
 
+func (c *blockingVolcClient) PutLogsV2(*tls.PutLogsV2Request) (*tls.CommonResponse, error) {
+	<-c.release
+	return &tls.CommonResponse{}, nil
+}
+
 func TestVolcQueryHonorsEarlierDeadline(t *testing.T) {
 	client := &blockingVolcClient{release: make(chan struct{})}
 	t.Cleanup(func() { close(client.release) })
-	store := &VolcStore{topicID: "topic", client: client, writer: &fakeVolcProducer{}}
+	store := &VolcStore{topicID: "topic", client: client}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 	if _, err := store.Query(ctx, validQuery()); !errors.Is(err, context.DeadlineExceeded) {
@@ -516,20 +527,10 @@ func TestVolcQueryHonorsEarlierDeadline(t *testing.T) {
 	}
 }
 
-type blockingVolcProducer struct{ release chan struct{} }
-
-func (p *blockingVolcProducer) SendLog(string, string, string, string, *pb.Log, producer.CallBack) error {
-	<-p.release
-	return nil
-}
-func (*blockingVolcProducer) Start()      {}
-func (*blockingVolcProducer) Close()      {}
-func (*blockingVolcProducer) ForceClose() {}
-
 func TestVolcAppendHonorsEarlierDeadline(t *testing.T) {
-	writer := &blockingVolcProducer{release: make(chan struct{})}
-	t.Cleanup(func() { close(writer.release) })
-	store := &VolcStore{topicID: "topic", writer: writer}
+	client := &fakeVolcClient{release: make(chan struct{})}
+	t.Cleanup(func() { close(client.release) })
+	store := &VolcStore{topicID: "topic", client: client}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 	if _, err := store.Append(ctx, []Record{validRecord()}); !errors.Is(err, context.DeadlineExceeded) {
@@ -539,7 +540,7 @@ func TestVolcAppendHonorsEarlierDeadline(t *testing.T) {
 
 func TestVolcQueryCancellation(t *testing.T) {
 	client := &fakeVolcClient{response: &tls.SearchLogsResponse{Status: "complete", ListOver: true}}
-	store := &VolcStore{topicID: "topic", client: client, writer: &fakeVolcProducer{}}
+	store := &VolcStore{topicID: "topic", client: client}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if _, err := store.Query(ctx, validQuery()); !errors.Is(err, context.Canceled) {
@@ -549,7 +550,7 @@ func TestVolcQueryCancellation(t *testing.T) {
 
 func TestVolcCursorIgnoresExistenceMatcherValue(t *testing.T) {
 	client := &fakeVolcClient{response: &tls.SearchLogsResponse{Status: "complete", ListOver: false, Context: "next"}}
-	store := &VolcStore{topicID: "topic", client: client, writer: &fakeVolcProducer{}}
+	store := &VolcStore{topicID: "topic", client: client}
 	query := validQuery()
 	query.Matchers = []AttributeMatcher{{Name: "request.id", Op: MatchExists, Value: "ignored"}}
 	page, err := store.Query(context.Background(), query)

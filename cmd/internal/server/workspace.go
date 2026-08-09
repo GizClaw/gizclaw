@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
-	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
-	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	store "github.com/GizClaw/gizclaw-go/pkgs/store"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
 
 const workspaceConfigFile = "config.yaml"
@@ -104,11 +104,43 @@ func resolveWorkspaceStorageConfigs(root string, cfgs map[string]storage.Config)
 
 	resolved := make(map[string]storage.Config, len(cfgs))
 	for name, cfg := range cfgs {
-		switch cfg.Kind {
-		case storage.KindBadger, storage.KindFilesystemDir, storage.KindSQLite:
+		switch cfg := cfg.(type) {
+		case storage.BadgerConfig:
 			cfg.Dir = resolveWorkspaceDir(root, cfg.Dir)
+			resolved[name] = cfg
+		case *storage.BadgerConfig:
+			if cfg == nil {
+				resolved[name] = cfg
+				continue
+			}
+			copy := *cfg
+			copy.Dir = resolveWorkspaceDir(root, copy.Dir)
+			resolved[name] = copy
+		case storage.FilesystemDirConfig:
+			cfg.Dir = resolveWorkspaceDir(root, cfg.Dir)
+			resolved[name] = cfg
+		case *storage.FilesystemDirConfig:
+			if cfg == nil {
+				resolved[name] = cfg
+				continue
+			}
+			copy := *cfg
+			copy.Dir = resolveWorkspaceDir(root, copy.Dir)
+			resolved[name] = copy
+		case storage.SQLiteConfig:
+			cfg.Dir = resolveWorkspaceDir(root, cfg.Dir)
+			resolved[name] = cfg
+		case *storage.SQLiteConfig:
+			if cfg == nil {
+				resolved[name] = cfg
+				continue
+			}
+			copy := *cfg
+			copy.Dir = resolveWorkspaceDir(root, copy.Dir)
+			resolved[name] = copy
+		default:
+			resolved[name] = cfg
 		}
-		resolved[name] = cfg
 	}
 	return resolved
 }
@@ -120,12 +152,12 @@ func resolveWorkspaceDir(root, dir string) string {
 	return filepath.Join(root, dir)
 }
 
-func resolveWorkspaceStoreConfigs(root string, cfgs map[string]stores.Config) map[string]stores.Config {
+func resolveWorkspaceStoreConfigs(root string, cfgs map[string]store.Config) map[string]store.Config {
 	if len(cfgs) == 0 {
 		return nil
 	}
 
-	resolved := make(map[string]stores.Config, len(cfgs))
+	resolved := make(map[string]store.Config, len(cfgs))
 	maps.Copy(resolved, cfgs)
 	return resolved
 }
@@ -158,12 +190,13 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 	if err != nil {
 		return err
 	}
-	storeRegistry, err := newStoreRegistry(cfg)
+	storeRegistry, physicalStorage, err := newStoreRegistry(cfg)
 	if err != nil {
 		return fmt.Errorf("server: stores: %w", err)
 	}
 	defer func() {
 		err = errors.Join(err, storeRegistry.Close())
+		err = errors.Join(err, physicalStorage.Close())
 	}()
 	closeLogger, err := installConfiguredLogger(cfg.systemLogConfig(), storeRegistry)
 	if err != nil {

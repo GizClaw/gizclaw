@@ -9,7 +9,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/agent/recall"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 // ---------------------------------------------------------------------------
@@ -188,7 +187,7 @@ func newTestHost(t *testing.T) *Host {
 	h, err := NewHost(context.Background(), HostConfig{
 		Store:       store,
 		Embedder:    emb,
-		ObjectStore: objectstore.Dir(t.TempDir()),
+		ObjectStore: newTestObjectStore(t),
 		Separator:   testSep,
 	})
 	if err != nil {
@@ -252,7 +251,7 @@ func TestHostNilStoreReturnsError(t *testing.T) {
 func TestHostEmbedModelPersistence(t *testing.T) {
 	ctx := context.Background()
 	store := mustBadgerInMemory(t, &kv.Options{Separator: testSep})
-	fs := objectstore.Dir(t.TempDir())
+	fs := newTestObjectStore(t)
 
 	// First NewHost: should persist mock-embed model metadata.
 	emb := newMockEmbedder()
@@ -288,7 +287,7 @@ func TestHostEmbedModelPersistence(t *testing.T) {
 func TestHostEmbedDimensionMismatch(t *testing.T) {
 	ctx := context.Background()
 	store := mustBadgerInMemory(t, &kv.Options{Separator: testSep})
-	fs := objectstore.Dir(t.TempDir())
+	fs := newTestObjectStore(t)
 
 	// First NewHost with dim=8.
 	emb8 := newMockEmbedder() // dim=8
@@ -315,7 +314,7 @@ func TestNewHostRejectsNilFields(t *testing.T) {
 	ctx := context.Background()
 	store := mustBadgerInMemory(t, &kv.Options{Separator: testSep})
 	emb := newMockEmbedder()
-	fs := objectstore.Dir(t.TempDir())
+	fs := newTestObjectStore(t)
 
 	if _, err := NewHost(ctx, HostConfig{ObjectStore: fs, Embedder: emb, Separator: testSep}); err == nil {
 		t.Fatal("expected error on nil Store")
@@ -332,7 +331,7 @@ func TestHostOpenRejectsIDContainingSeparator(t *testing.T) {
 	ctx := context.Background()
 	store := mustBadgerInMemory(t, nil) // default separator ':'
 	h, err := NewHost(ctx, HostConfig{
-		Store: store, Embedder: newMockEmbedder(), ObjectStore: objectstore.Dir(t.TempDir()),
+		Store: store, Embedder: newMockEmbedder(), ObjectStore: newTestObjectStore(t),
 	})
 	if err != nil {
 		t.Fatalf("NewHost: %v", err)
@@ -673,7 +672,7 @@ func newTestHostWithCompactor(t *testing.T, policy CompressPolicy) *Host {
 	h, err := NewHost(context.Background(), HostConfig{
 		Store:          store,
 		Embedder:       emb,
-		ObjectStore:    objectstore.Dir(t.TempDir()),
+		ObjectStore:    newTestObjectStore(t),
 		Separator:      testSep,
 		Compressor:     &mockCompressor{},
 		CompressPolicy: policy,
@@ -882,7 +881,7 @@ func TestZeroCompressPolicyDisablesAutoCompression(t *testing.T) {
 	h, err := NewHost(context.Background(), HostConfig{
 		Store:          store,
 		Embedder:       newMockEmbedder(),
-		ObjectStore:    objectstore.Dir(t.TempDir()),
+		ObjectStore:    newTestObjectStore(t),
 		Compressor:     &mockCompressor{},
 		CompressPolicy: CompressPolicy{}, // zero policy => disable auto-compress
 		Separator:      testSep,
@@ -2041,7 +2040,7 @@ func TestVecObjectStorePerPersonaObjects(t *testing.T) {
 	h, err := NewHost(context.Background(), HostConfig{
 		Store:       store,
 		Embedder:    emb,
-		ObjectStore: objectstore.Dir(dir),
+		ObjectStore: newTestObjectStoreAt(t, dir),
 		Separator:   testSep,
 	})
 	if err != nil {
@@ -2090,7 +2089,7 @@ func TestVecObjectStorePerPersonaObjects(t *testing.T) {
 func BenchmarkConversationRecent(b *testing.B) {
 	store := mustBadgerInMemory(b, &kv.Options{Separator: testSep})
 	h, err := NewHost(context.Background(), HostConfig{
-		Store: store, Embedder: newMockEmbedder(), ObjectStore: objectstore.Dir(b.TempDir()), Separator: testSep,
+		Store: store, Embedder: newMockEmbedder(), ObjectStore: newTestObjectStore(b), Separator: testSep,
 	})
 	if err != nil {
 		b.Fatal(err)
@@ -2118,7 +2117,7 @@ func BenchmarkStoreSegment(b *testing.B) {
 	store := mustBadgerInMemory(b, &kv.Options{Separator: testSep})
 	emb := newMockEmbedder()
 	h, err := NewHost(context.Background(), HostConfig{
-		Store: store, Embedder: emb, ObjectStore: objectstore.Dir(b.TempDir()), Separator: testSep,
+		Store: store, Embedder: emb, ObjectStore: newTestObjectStore(b), Separator: testSep,
 	})
 	if err != nil {
 		b.Fatal(err)
@@ -2140,7 +2139,7 @@ func BenchmarkRecall(b *testing.B) {
 	store := mustBadgerInMemory(b, &kv.Options{Separator: testSep})
 	emb := newMockEmbedder()
 	h, err := NewHost(context.Background(), HostConfig{
-		Store: store, Embedder: emb, ObjectStore: objectstore.Dir(b.TempDir()), Separator: testSep,
+		Store: store, Embedder: emb, ObjectStore: newTestObjectStore(b), Separator: testSep,
 	})
 	if err != nil {
 		b.Fatal(err)

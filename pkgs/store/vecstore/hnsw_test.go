@@ -11,8 +11,6 @@ import (
 	"slices"
 	"sync"
 	"testing"
-
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 // ---------------------------------------------------------------------------
@@ -963,7 +961,7 @@ func BenchmarkHNSWSaveLoad(b *testing.B) {
 // ---------------------------------------------------------------------------
 
 func TestOpenHNSWCreateNew(t *testing.T) {
-	fs := objectstore.Dir(t.TempDir())
+	fs := newTestObjectStore(t)
 	idx, err := OpenHNSW(fs, "test.hnsw", HNSWConfig{Dim: 3})
 	if err != nil {
 		t.Fatalf("OpenHNSW: %v", err)
@@ -985,7 +983,7 @@ func TestOpenHNSWRejectsNilObjectStore(t *testing.T) {
 }
 
 func TestOpenHNSWInsertFlushReopen(t *testing.T) {
-	fs := objectstore.Dir(t.TempDir())
+	fs := newTestObjectStore(t)
 	idx, err := OpenHNSW(fs, "test.hnsw", HNSWConfig{Dim: 3})
 	if err != nil {
 		t.Fatalf("OpenHNSW: %v", err)
@@ -1030,7 +1028,7 @@ func TestOpenHNSWInsertFlushReopen(t *testing.T) {
 }
 
 func TestOpenHNSWDeleteMarksDirty(t *testing.T) {
-	fs := objectstore.Dir(t.TempDir())
+	fs := newTestObjectStore(t)
 	idx, err := OpenHNSW(fs, "test.hnsw", HNSWConfig{Dim: 3})
 	if err != nil {
 		t.Fatalf("OpenHNSW: %v", err)
@@ -1061,7 +1059,7 @@ func TestOpenHNSWDeleteMarksDirty(t *testing.T) {
 }
 
 func TestOpenHNSWBatchInsert(t *testing.T) {
-	fs := objectstore.Dir(t.TempDir())
+	fs := newTestObjectStore(t)
 	idx, err := OpenHNSW(fs, "test.hnsw", HNSWConfig{Dim: 3})
 	if err != nil {
 		t.Fatalf("OpenHNSW: %v", err)
@@ -1088,7 +1086,7 @@ func TestOpenHNSWBatchInsert(t *testing.T) {
 }
 
 func TestOpenHNSWDimMismatch(t *testing.T) {
-	fs := objectstore.Dir(t.TempDir())
+	fs := newTestObjectStore(t)
 	idx, err := OpenHNSW(fs, "test.hnsw", HNSWConfig{Dim: 3})
 	if err != nil {
 		t.Fatalf("OpenHNSW: %v", err)
@@ -1107,7 +1105,7 @@ func TestOpenHNSWDimMismatch(t *testing.T) {
 
 func TestOpenHNSWRemove(t *testing.T) {
 	dir := t.TempDir()
-	fs := objectstore.Dir(dir)
+	fs := newTestObjectStoreAt(t, dir)
 	idx, err := OpenHNSW(fs, "test.hnsw", HNSWConfig{Dim: 3})
 	if err != nil {
 		t.Fatalf("OpenHNSW: %v", err)
@@ -1133,7 +1131,7 @@ func TestOpenHNSWRemove(t *testing.T) {
 
 func TestOpenHNSWFlushNoopWhenClean(t *testing.T) {
 	dir := t.TempDir()
-	fs := objectstore.Dir(dir)
+	fs := newTestObjectStoreAt(t, dir)
 	idx, err := OpenHNSW(fs, "test.hnsw", HNSWConfig{Dim: 3})
 	if err != nil {
 		t.Fatalf("OpenHNSW: %v", err)
@@ -1151,7 +1149,7 @@ func TestOpenHNSWFlushNoopWhenClean(t *testing.T) {
 
 func TestOpenHNSWNestedDir(t *testing.T) {
 	dir := t.TempDir()
-	fs := objectstore.Dir(dir)
+	fs := newTestObjectStoreAt(t, dir)
 	idx, err := OpenHNSW(fs, "a/b/c/test.hnsw", HNSWConfig{Dim: 3})
 	if err != nil {
 		t.Fatalf("OpenHNSW nested: %v", err)

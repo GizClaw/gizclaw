@@ -23,7 +23,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -594,7 +593,7 @@ func TestServerInitConfiguresWorkspaceRuntimeStore(t *testing.T) {
 	server := &Server{
 		LocalStatic:    *keyPair,
 		PeerStore:      mustBadgerInMemory(t, nil),
-		AgentHostStore: objectstore.Dir(t.TempDir()),
+		AgentHostStore: newTestObjectStore(t),
 	}
 	completeTestServer(t, server)
 	if err := server.init(); err != nil {

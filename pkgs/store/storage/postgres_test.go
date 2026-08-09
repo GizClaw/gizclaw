@@ -14,7 +14,7 @@ func TestPostgresSQLStorage(t *testing.T) {
 	}
 
 	registry, err := New(map[string]Config{
-		"postgres": {Kind: KindPostgreSQL, DSN: dsn},
+		"postgres": PostgreSQLConfig{DSN: dsn},
 	})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)

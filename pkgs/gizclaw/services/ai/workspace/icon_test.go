@@ -11,13 +11,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 func TestWorkspaceIconLifecycleAndProjection(t *testing.T) {
 	t.Parallel()
 	srv := newTestServer(t)
-	srv.Assets = objectstore.Dir(t.TempDir())
+	srv.Assets = newTestObjectStore(t)
 	ctx := context.Background()
 	seedWorkflow(t, srv, "workflow-icon")
 	body := mustWorkspaceUpsert(t, `{
@@ -103,7 +102,7 @@ func TestWorkspaceIconLifecycleAndProjection(t *testing.T) {
 
 func TestWorkspaceIconAdminReadRemainsAvailableWhileMutationsAreFenced(t *testing.T) {
 	srv := newTestServer(t)
-	srv.Assets = objectstore.Dir(t.TempDir())
+	srv.Assets = newTestObjectStore(t)
 	ctx := context.Background()
 	seedWorkflow(t, srv, "workflow-icon-fence")
 	body := mustWorkspaceUpsert(t, `{

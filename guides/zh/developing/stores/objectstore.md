@@ -11,7 +11,7 @@
 | `ObjectStore` | 定义 Get、Put、expiration、Delete、DeletePrefix 与 List。 |
 | `ObjectInfo` | 返回 object name、size 和 deadline。 |
 | `LocalDirProvider` | 允许调用方识别 local filesystem backend。 |
-| `Dir` | 将 object keys 安全映射到指定目录，并维护 expiration metadata。 |
+| `Root` / `NewRoot` | 唯一的 filesystem ObjectStore 实现；借用物理 `*os.Root` 执行 rooted 操作且不关闭 Root。 |
 
 ## 主要用途
 
@@ -25,7 +25,7 @@ Workflow、Workspace、Peer 与 GameplayCatalog 等 owner 可以引用同一 phy
 
 Resource icon 仍由领域 service 管理固定 object name、格式校验、授权和删除顺序。ResourceManager 不接收 ObjectStore，也不存在通用 AssetService、binding 或跨 owner resolver。
 
-Server Config 中的 `storage` 拥有物理 filesystem 目录，逻辑 ObjectStore 只引用 connector 并选择 prefix。Asset 与 AgentHost 消费者通过固定 `services` 字段显式绑定；关闭 scoped Store 不会关闭或破坏共享 connector。
+Server Config 中的 `storage` 打开并拥有一个物理 `*os.Root`。逻辑 ObjectStore 借用同一个 rooted handle 并选择 prefix；绝对路径、`..` 和越界 symlink 会由 `os.Root` 拒绝。Asset 与 AgentHost 消费者通过固定 `services` 字段显式绑定；关闭 scoped Store 不会关闭或破坏共享 connector。
 
 ```yaml
 storage:

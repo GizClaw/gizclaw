@@ -18,7 +18,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -151,8 +150,8 @@ func completeExternalTestServer(t testing.TB, server *gizclaw.Server) *gizclaw.S
 	set(&server.FriendStore, "friends")
 	set(&server.FriendGroupStore, "friend-groups")
 	set(&server.GameplayStore, "gameplay")
-	server.WorkspaceAssets = objectstore.Dir(t.TempDir())
-	server.GameplayAssets = objectstore.Dir(t.TempDir())
+	server.WorkspaceAssets = newTestObjectStore(t)
+	server.GameplayAssets = newTestObjectStore(t)
 	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open test gameplay database: %v", err)

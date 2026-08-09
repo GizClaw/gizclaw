@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
-	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
-	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/goccy/go-yaml"
 )
 
@@ -27,8 +27,8 @@ func validWorkspaceConfigData(t *testing.T, mutate func(*ConfigFile)) []byte {
 	cfg := ConfigFile{
 		Listen:   runtime.Listen,
 		Endpoint: runtime.Endpoint,
-		Storage:  runtime.Storage,
-		Stores:   runtime.Stores,
+		Storage:  testStorageFileConfigs(runtime.Storage),
+		Stores:   testStoreFileConfigs(runtime.Stores),
 		Services: runtime.Services,
 	}
 	if mutate != nil {
@@ -39,14 +39,14 @@ func validWorkspaceConfigData(t *testing.T, mutate func(*ConfigFile)) []byte {
 		identity = &cfg.Identity
 	}
 	raw := struct {
-		Identity       *IdentityConfig           `yaml:"identity,omitempty"`
-		Listen         string                    `yaml:"listen,omitempty"`
-		Endpoint       string                    `yaml:"endpoint,omitempty"`
-		ServeToClients bool                      `yaml:"serve-to-clients,omitempty"`
-		AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key,omitempty"`
-		Storage        map[string]storage.Config `yaml:"storage"`
-		Stores         map[string]stores.Config  `yaml:"stores"`
-		Services       *ServicesConfig           `yaml:"services"`
+		Identity       *IdentityConfig              `yaml:"identity,omitempty"`
+		Listen         string                       `yaml:"listen,omitempty"`
+		Endpoint       string                       `yaml:"endpoint,omitempty"`
+		ServeToClients bool                         `yaml:"serve-to-clients,omitempty"`
+		AdminPublicKey giznet.PublicKey             `yaml:"admin-public-key,omitempty"`
+		Storage        map[string]storageFileConfig `yaml:"storage"`
+		Stores         map[string]storeFileConfig   `yaml:"stores"`
+		Services       *ServicesConfig              `yaml:"services"`
 	}{
 		Identity: identity, Listen: cfg.Listen, Endpoint: cfg.Endpoint,
 		ServeToClients: cfg.ServeToClients, AdminPublicKey: cfg.AdminPublicKey,
@@ -59,6 +59,50 @@ func validWorkspaceConfigData(t *testing.T, mutate func(*ConfigFile)) []byte {
 	return data
 }
 
+func testStorageFileConfigs(configs map[string]storage.Config) map[string]storageFileConfig {
+	out := make(map[string]storageFileConfig, len(configs))
+	for name, cfg := range configs {
+		switch cfg := cfg.(type) {
+		case storage.BadgerConfig:
+			out[name] = storageFileConfig{Kind: storage.KindBadger, Dir: cfg.Dir}
+		case storage.MemoryConfig:
+			out[name] = storageFileConfig{Kind: storage.KindMemory}
+		case storage.FilesystemDirConfig:
+			out[name] = storageFileConfig{Kind: storage.KindFilesystemDir, Dir: cfg.Dir}
+		case storage.SQLiteConfig:
+			out[name] = storageFileConfig{Kind: storage.KindSQLite, Dir: cfg.Dir, DSN: cfg.DSN}
+		case storage.PostgreSQLConfig:
+			out[name] = storageFileConfig{Kind: storage.KindPostgreSQL, DSN: cfg.DSN}
+		case storage.ClickHouseConfig:
+			out[name] = storageFileConfig{Kind: storage.KindClickHouse, DSN: cfg.DSN}
+		case storage.PrometheusConfig:
+			out[name] = storageFileConfig{
+				Kind: storage.KindPrometheus, RemoteWriteURL: cfg.RemoteWriteURL,
+				QueryURL: cfg.QueryURL, BearerToken: cfg.BearerToken,
+			}
+		case storage.VolcTLSConfig:
+			out[name] = storageFileConfig{
+				Kind: storage.KindVolcTLS, Endpoint: cfg.Endpoint, Region: cfg.Region,
+				AccessKeyID: cfg.AccessKeyID, AccessKeySecret: cfg.AccessKeySecret,
+			}
+		default:
+			panic(fmt.Sprintf("unsupported test storage config %T", cfg))
+		}
+	}
+	return out
+}
+
+func testStoreFileConfigs(configs map[string]stores.Config) map[string]storeFileConfig {
+	out := make(map[string]storeFileConfig, len(configs))
+	for name, cfg := range configs {
+		out[name] = storeFileConfig{
+			Kind: cfg.Kind, Storage: cfg.Storage, Prefix: cfg.Prefix,
+			Database: cfg.Database, Table: cfg.Table, TopicID: cfg.TopicID,
+		}
+	}
+	return out
+}
+
 func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 	workspace := t.TempDir()
 	serverKP := testKeyPair(t, 0xcd)
@@ -68,8 +112,8 @@ func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 		cfg.Listen = "127.0.0.1:39001"
 		cfg.Endpoint = "127.0.0.1:39001"
 		cfg.AdminPublicKey = adminKP.Public
-		cfg.Storage["local-files"] = storage.Config{Kind: storage.KindFilesystemDir, Dir: "."}
-		cfg.Storage["gameplay-db"] = storage.Config{Kind: storage.KindSQLite, Dir: "data/gameplay.sqlite"}
+		cfg.Storage["local-files"] = storageFileConfig{Kind: storage.KindFilesystemDir, Dir: "."}
+		cfg.Storage["gameplay-db"] = storageFileConfig{Kind: storage.KindSQLite, Dir: "data/gameplay.sqlite"}
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -95,11 +139,11 @@ func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 	if cfg.AdminPublicKey != adminKey {
 		t.Fatalf("AdminPublicKey = %v", cfg.AdminPublicKey)
 	}
-	if got := cfg.Storage["local-files"].Dir; got != workspace {
-		t.Fatalf("local-files dir = %q", got)
+	if got, ok := cfg.Storage["local-files"].(storage.FilesystemDirConfig); !ok || got.Dir != workspace {
+		t.Fatalf("local-files storage = %#v", cfg.Storage["local-files"])
 	}
-	if got := cfg.Storage["gameplay-db"].Dir; got != filepath.Join(workspace, "data", "gameplay.sqlite") {
-		t.Fatalf("gameplay db dir = %q", got)
+	if got, ok := cfg.Storage["gameplay-db"].(storage.SQLiteConfig); !ok || got.Dir != filepath.Join(workspace, "data", "gameplay.sqlite") {
+		t.Fatalf("gameplay-db storage = %#v", cfg.Storage["gameplay-db"])
 	}
 }
 
@@ -284,8 +328,8 @@ func TestPrepareWorkspaceConfigLoadError(t *testing.T) {
 func TestPrepareWorkspaceConfigResolvesRelativeStoreDirs(t *testing.T) {
 	workspace := t.TempDir()
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
-		cfg.Storage["local-files"] = storage.Config{Kind: storage.KindFilesystemDir, Dir: "."}
-		cfg.Storage["gameplay-db"] = storage.Config{Kind: storage.KindSQLite, Dir: "data/fixture.sqlite"}
+		cfg.Storage["local-files"] = storageFileConfig{Kind: storage.KindFilesystemDir, Dir: "."}
+		cfg.Storage["gameplay-db"] = storageFileConfig{Kind: storage.KindSQLite, Dir: "data/fixture.sqlite"}
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -295,11 +339,11 @@ func TestPrepareWorkspaceConfigResolvesRelativeStoreDirs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepareWorkspaceConfig error = %v", err)
 	}
-	if got := cfg.Storage["local-files"].Dir; got != workspace {
-		t.Fatalf("asset dir = %q", got)
+	if got, ok := cfg.Storage["local-files"].(storage.FilesystemDirConfig); !ok || got.Dir != workspace {
+		t.Fatalf("local-files storage = %#v", cfg.Storage["local-files"])
 	}
-	if got := cfg.Storage["gameplay-db"].Dir; got != filepath.Join(workspace, "data", "fixture.sqlite") {
-		t.Fatalf("gameplay-db dir = %q", got)
+	if got, ok := cfg.Storage["gameplay-db"].(storage.SQLiteConfig); !ok || got.Dir != filepath.Join(workspace, "data", "fixture.sqlite") {
+		t.Fatalf("gameplay-db storage = %#v", cfg.Storage["gameplay-db"])
 	}
 	if got := cfg.Stores["workspace-assets"].Prefix; got != "workspaces" {
 		t.Fatalf("workspace-assets prefix = %q", got)
@@ -333,13 +377,11 @@ func TestResolveWorkspaceStorageConfigsPreservesAbsoluteDirs(t *testing.T) {
 	absoluteDir := filepath.Join(t.TempDir(), "files")
 
 	gotStorage := resolveWorkspaceStorageConfigs(root, map[string]storage.Config{
-		"fw": {
-			Kind: storage.KindFilesystemDir,
-			Dir:  absoluteDir,
-		},
+		"fw": storage.FilesystemDirConfig{Dir: absoluteDir},
 	})
-	if gotStorage["fw"].Dir != absoluteDir {
-		t.Fatalf("fw storage dir = %q, want %q", gotStorage["fw"].Dir, absoluteDir)
+	got, ok := gotStorage["fw"].(storage.FilesystemDirConfig)
+	if !ok || got.Dir != absoluteDir {
+		t.Fatalf("fw storage = %#v, want FilesystemDirConfig{%q}", gotStorage["fw"], absoluteDir)
 	}
 }
 
@@ -362,7 +404,7 @@ func TestServeContextUsesBootstrapLoggerOnStoreStartupFailure(t *testing.T) {
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
 		cfg.Listen = "127.0.0.1:0"
 		cfg.Endpoint = "127.0.0.1:9820"
-		cfg.Storage["memory"] = storage.Config{Kind: storage.KindBadger}
+		cfg.Storage["memory"] = storageFileConfig{Kind: storage.KindBadger}
 		cfg.Services.SystemLog = &logging.Config{Level: "debug"}
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
@@ -444,7 +486,7 @@ func restoreLoggingInstaller(t *testing.T, fn func(logging.Config, ...logging.St
 func TestServeReturnsServerBuildError(t *testing.T) {
 	workspace := t.TempDir()
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
-		cfg.Storage["memory"] = storage.Config{Kind: storage.KindBadger}
+		cfg.Storage["memory"] = storageFileConfig{Kind: storage.KindBadger}
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -459,8 +501,8 @@ func TestServeReturnsServerBuildError(t *testing.T) {
 func TestServeContextClosesStoresWhenPIDAcquireFails(t *testing.T) {
 	workspace := t.TempDir()
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
-		cfg.Storage["memory"] = storage.Config{Kind: storage.KindBadger, Dir: "data/kv"}
-		cfg.Storage["local-files"] = storage.Config{Kind: storage.KindFilesystemDir, Dir: "."}
+		cfg.Storage["memory"] = storageFileConfig{Kind: storage.KindBadger, Dir: "data/kv"}
+		cfg.Storage["local-files"] = storageFileConfig{Kind: storage.KindFilesystemDir, Dir: "."}
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile config error = %v", err)
@@ -475,7 +517,7 @@ func TestServeContextClosesStoresWhenPIDAcquireFails(t *testing.T) {
 	}
 
 	reopened, err := storage.New(map[string]storage.Config{
-		"memory": {Kind: storage.KindBadger, Dir: filepath.Join(workspace, "data", "kv")},
+		"memory": storage.BadgerConfig{Dir: filepath.Join(workspace, "data", "kv")},
 	})
 	if err != nil {
 		t.Fatalf("storage should be closed after PID error, reopen: %v", err)

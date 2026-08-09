@@ -22,7 +22,7 @@
 
 ## Server 组合
 
-一个物理 `storage` entry 只打开一次 Memory 或 Badger。每个逻辑 `stores.kind: keyvalue` entry 引用该 connector，并可增加 slash-separated prefix。固定 `services` 字段再引用逻辑 Store；Store 名称和 prefix 都不会隐式选择 service。多个 service 可以显式复用同一个 Store。系统不提供 SQL-backed KV adapter 或通用 KV table。
+一个 `storage.kind: badger` entry 只打开一个 `*badger.DB`；逻辑 Store 用 `NewBadgerWithDB` 借用它。`storage.kind: memory` 只是 marker，每个逻辑 keyvalue Store 创建独立 `*kv.Memory`。每个 `stores.kind: keyvalue` entry 可增加 slash-separated prefix；固定 `services` 字段再引用逻辑 Store。系统不提供 SQL-backed KV adapter 或通用 KV table。
 
 ```yaml
 storage:

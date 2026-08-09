@@ -8,7 +8,7 @@
 
 `Store` owns the backend-neutral sample and query contract. `MemoryStore` is in-process. `PrometheusStore` uses remote write and the HTTP query API. `ClickHouseStore` owns one validated MergeTree table. Telemetry mapping, label cardinality, identity exposure, and authorization remain owned by the calling service.
 
-In Server Config, Prometheus connection URLs, bearer token, and reusable HTTP client belong to one physical `storage.kind: prometheus` connector. A logical Metrics Store only references it:
+In Server Config, Prometheus connection URLs, bearer token, and one reusable official `api.Client` belong to a physical `storage.kind: prometheus` connector. Queries and remote writes both use that client's `Do`; logical Metrics Stores only borrow it:
 
 ```yaml
 storage:
@@ -40,4 +40,4 @@ stores:
     table: gizclaw_metrics
 ```
 
-For local tests, configure a property-free `storage.kind: memory` and reference it from `stores.kind: metrics`. Legacy backend fields and provider connection fields under `stores` are invalid.
+For local tests, configure a property-free `storage.kind: memory` and reference it from `stores.kind: metrics`. Every logical Store receives an independent `MemoryStore`; the marker does not cache instances. Legacy backend fields and provider connection fields under `stores` are invalid.

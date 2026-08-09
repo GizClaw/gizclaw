@@ -8,11 +8,10 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 func TestHistoryStoreAppendListAndReadAsset(t *testing.T) {
-	store := NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	store := NewHistoryStore(newTestObjectStore(t), "demo")
 	base := time.Now().UTC().Truncate(time.Second)
 	store.Now = func() time.Time { return base }
 
@@ -77,7 +76,7 @@ func TestHistoryStoreAppendListAndReadAsset(t *testing.T) {
 }
 
 func TestHistoryStoreListSupportsDescAndMissingCursorBoundary(t *testing.T) {
-	store := NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	store := NewHistoryStore(newTestObjectStore(t), "demo")
 	base := time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)
 	ctx := context.Background()
 
@@ -126,7 +125,7 @@ func TestHistoryStoreListSupportsDescAndMissingCursorBoundary(t *testing.T) {
 
 func TestHistoryStoreInternalRangePreservesOriginAndHighWater(t *testing.T) {
 	t.Parallel()
-	store := NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	store := NewHistoryStore(newTestObjectStore(t), "demo")
 	base := time.Date(2026, 7, 29, 1, 0, 0, 0, time.UTC)
 	ctx := context.Background()
 	first, err := store.Append(ctx, AppendHistoryRequest{
@@ -172,7 +171,7 @@ func TestHistoryStoreInternalRangePreservesOriginAndHighWater(t *testing.T) {
 }
 
 func TestHistoryStoreListRejectsUnsupportedOrder(t *testing.T) {
-	store := NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	store := NewHistoryStore(newTestObjectStore(t), "demo")
 	order := apitypes.PeerRunHistoryListRequestOrder("sideways")
 	if _, err := store.List(context.Background(), apitypes.PeerRunHistoryListRequest{Order: &order}); err == nil || !strings.Contains(err.Error(), "unsupported order") {
 		t.Fatalf("List unsupported order error = %v", err)
@@ -180,7 +179,7 @@ func TestHistoryStoreListRejectsUnsupportedOrder(t *testing.T) {
 }
 
 func TestHistoryStoreValidatesGearAndAgentSource(t *testing.T) {
-	store := NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	store := NewHistoryStore(newTestObjectStore(t), "demo")
 	ctx := context.Background()
 
 	if _, err := store.Append(ctx, AppendHistoryRequest{Type: "gear", Name: "gear", Text: "x"}); err == nil || !strings.Contains(err.Error(), "gear_id") {
@@ -198,7 +197,7 @@ func TestHistoryStoreValidatesGearAndAgentSource(t *testing.T) {
 }
 
 func TestHistoryStoreMalformedEntryBlocksList(t *testing.T) {
-	objects := objectstore.Dir(t.TempDir())
+	objects := newTestObjectStore(t)
 	store := NewHistoryStore(objects, "demo")
 	if err := objects.Put(store.entryObjectName("bad"), strings.NewReader(`{"id":`)); err != nil {
 		t.Fatalf("Put malformed entry: %v", err)
@@ -209,7 +208,7 @@ func TestHistoryStoreMalformedEntryBlocksList(t *testing.T) {
 }
 
 func TestHistoryStoreReadAssetRejectsInvalidNames(t *testing.T) {
-	store := NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	store := NewHistoryStore(newTestObjectStore(t), "demo")
 	for _, name := range []string{"", "other/history/assets/a/audio.opus", store.entryObjectName("entry")} {
 		if _, err := store.ReadAsset(context.Background(), name); err == nil {
 			t.Fatalf("ReadAsset(%q) error = nil", name)
@@ -218,7 +217,7 @@ func TestHistoryStoreReadAssetRejectsInvalidNames(t *testing.T) {
 }
 
 func TestHistoryStoreHelpersCoverAssetExtensionsAndValidation(t *testing.T) {
-	store := NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	store := NewHistoryStore(newTestObjectStore(t), "demo")
 	for _, tc := range []struct {
 		mime string
 		want string
@@ -243,7 +242,7 @@ func TestHistoryStoreHelpersCoverAssetExtensionsAndValidation(t *testing.T) {
 }
 
 func TestHistoryStoreCleanupExpiredRemovesMetadataAndAssets(t *testing.T) {
-	objects := objectstore.Dir(t.TempDir())
+	objects := newTestObjectStore(t)
 	store := NewHistoryStore(objects, "demo")
 	now := time.Now().UTC()
 	store.Now = func() time.Time { return now }
@@ -277,7 +276,7 @@ func TestHistoryStoreCleanupExpiredRemovesMetadataAndAssets(t *testing.T) {
 }
 
 func TestHistoryStoreGetExpiredRemovesMetadataAndAssets(t *testing.T) {
-	objects := objectstore.Dir(t.TempDir())
+	objects := newTestObjectStore(t)
 	store := NewHistoryStore(objects, "demo")
 	now := time.Now().UTC()
 	store.Now = func() time.Time { return now }

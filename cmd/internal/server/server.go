@@ -12,18 +12,18 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
-	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
-	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/jmoiron/sqlx"
 	"github.com/pion/webrtc/v4"
 )
@@ -36,6 +36,7 @@ type CmdServer struct {
 	AdminPublicKey  giznet.PublicKey
 	ServeToClients  bool
 	stores          *stores.Stores
+	storage         *storage.Storage
 	ownsStores      bool
 	metricsShutdown func(context.Context) error
 }
@@ -55,6 +56,10 @@ func (s *CmdServer) Close() error {
 	if s.ownsStores && s.stores != nil {
 		errs = append(errs, s.stores.Close())
 		s.stores = nil
+	}
+	if s.ownsStores && s.storage != nil {
+		errs = append(errs, s.storage.Close())
+		s.storage = nil
 	}
 	return errors.Join(errs...)
 }
@@ -159,9 +164,10 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		return nil, err
 	}
 	ss := newOpts.Stores
+	var physical *storage.Storage
 	ownsStores := false
 	if ss == nil {
-		ss, err = newStoreRegistry(cfg)
+		ss, physical, err = newStoreRegistry(cfg)
 		if err != nil {
 			return nil, fmt.Errorf("server: stores: %w", err)
 		}
@@ -178,11 +184,14 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 			}
 			if ownsStores {
 				err = errors.Join(err, openedStores.Close())
+				if physical != nil {
+					err = errors.Join(err, physical.Close())
+				}
 			}
 		}
 	}()
 
-	cmdSrv := &CmdServer{stores: ss, ownsStores: ownsStores, AdminPublicKey: cfg.AdminPublicKey, ServeToClients: cfg.ServeToClients}
+	cmdSrv := &CmdServer{stores: ss, storage: physical, ownsStores: ownsStores, AdminPublicKey: cfg.AdminPublicKey, ServeToClients: cfg.ServeToClients}
 	pendingDeletionConfig, err := cfg.PendingDeletion.processorConfig()
 	if err != nil {
 		return nil, fmt.Errorf("server: pending_deletion: %w", err)
@@ -510,14 +519,14 @@ func (p adminPublicKeySecurityPolicy) AllowService(publicKey giznet.PublicKey, s
 	return service == gizclaw.ServiceAdminHTTP && publicKey == p.PublicKey
 }
 
-func newStoreRegistry(cfg Config) (*stores.Stores, error) {
+func newStoreRegistry(cfg Config) (*stores.Stores, *storage.Storage, error) {
 	physical, err := storage.New(cfg.Storage)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	ss, err := stores.NewWithOwnedStorage(physical, cfg.Stores)
+	ss, err := stores.New(cfg.Stores, physical)
 	if err != nil {
-		return nil, err
+		return nil, nil, errors.Join(err, physical.Close())
 	}
-	return ss, nil
+	return ss, physical, nil
 }
