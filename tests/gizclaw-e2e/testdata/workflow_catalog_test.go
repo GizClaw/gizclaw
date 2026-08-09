@@ -40,8 +40,9 @@ type flowcraftFixtureNode struct {
 	ID     string `json:"id" yaml:"id"`
 	Type   string `json:"type" yaml:"type"`
 	Config struct {
-		Source string `json:"source" yaml:"source"`
-		Query  struct {
+		Source          string `json:"source" yaml:"source"`
+		MessagesChannel string `json:"messages_channel" yaml:"messages_channel"`
+		Query           struct {
 			TextFrom string `json:"text_from" yaml:"text_from"`
 		} `json:"query" yaml:"query"`
 		Observations []struct {
@@ -356,6 +357,27 @@ func TestFlowcraftWerewolfConversationObservationHasSelfStartFallback(t *testing
 			}
 			if !hasTurns || !hasState {
 				t.Fatalf("observe_game_conversation sources = %#v", observe.Config.Observations)
+			}
+		})
+	}
+}
+
+func TestFlowcraftWerewolfIsolatesHiddenMoveClassifier(t *testing.T) {
+	for _, fixture := range []struct {
+		name  string
+		graph flowcraftFixtureGraph
+	}{
+		{name: "resource", graph: loadResourceFlowcraftGraph(t, "13-flowcraft-werewolf.yaml")},
+		{name: "workspace", graph: loadWorkspaceFlowcraftGraph(t, "flowcraft-werewolf.json")},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			load := findFlowcraftFixtureNode(t, fixture.graph.Nodes, "load_game_state")
+			if !strings.Contains(load.Config.Source, `rawCh("werewolf_move_channel", String(state.latest_user_text || ""))`) {
+				t.Fatal("load_game_state does not seed the hidden move classifier channel")
+			}
+			classifier := findFlowcraftFixtureNode(t, fixture.graph.Nodes, "format_player_move")
+			if classifier.Config.MessagesChannel != "werewolf_move_channel" {
+				t.Fatalf("format_player_move messages_channel = %q, want werewolf_move_channel", classifier.Config.MessagesChannel)
 			}
 		})
 	}

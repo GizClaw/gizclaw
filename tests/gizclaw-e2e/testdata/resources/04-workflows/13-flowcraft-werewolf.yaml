@@ -406,6 +406,7 @@ spec:
               ch("user_prompt_channel", "主持人提示3号玩家发言。");
               ch("vote_prompt_channel", "主持人投票提示，要求3号玩家明确投票座位号。");
               rawCh("vote_result_channel", String(state.vote_result_summary || ""));
+              rawCh("werewolf_move_channel", String(state.latest_user_text || ""));
               ch("retry_channel", "主持人纠正当前动作。");
               ch("post_game_seat_1_channel", seatPrivateCtx(1, "赛后自由发言，角色=1号林知。"));
               ch("post_game_seat_2_channel", seatPrivateCtx(2, "赛后自由发言，角色=2号阿澈。"));
@@ -1098,6 +1099,7 @@ spec:
         type: script
       - config:
           max_tokens: 2048
+          messages_channel: werewolf_move_channel
           model: llm
           output_key: werewolf_move_text
           system_prompt: |
