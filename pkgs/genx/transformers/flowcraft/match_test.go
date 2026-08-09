@@ -2,6 +2,7 @@ package flowcraft
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	flownode "github.com/GizClaw/flowcraft/sdk/graph/node"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	genxmatch "github.com/GizClaw/gizclaw-go/pkgs/genx/match"
 )
@@ -62,6 +64,54 @@ func TestCompileMatchNodeValidatesAndOwnsConfig(t *testing.T) {
 				t.Fatalf("compileMatchNode() error = %v, want containing %q", err, test.want)
 			}
 		})
+	}
+}
+
+func TestMatchNodeRegistrationAndJSONEOFTerminals(t *testing.T) {
+	decoder := json.NewDecoder(strings.NewReader(`{"value":1}`))
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	}
+	if err := ensureJSONEOF(decoder); err != nil {
+		t.Fatalf("ensureJSONEOF(valid) error = %v", err)
+	}
+	decoder = json.NewDecoder(strings.NewReader(`{} {}`))
+	if err := decoder.Decode(&value); err != nil {
+		t.Fatalf("Decode(first value) error = %v", err)
+	}
+	if err := ensureJSONEOF(decoder); err == nil || !strings.Contains(err.Error(), "trailing") {
+		t.Fatalf("ensureJSONEOF(trailing) error = %v", err)
+	}
+	decoder = json.NewDecoder(strings.NewReader(`{} {`))
+	if err := decoder.Decode(&value); err != nil {
+		t.Fatalf("Decode(first malformed value) error = %v", err)
+	}
+	if err := ensureJSONEOF(decoder); err == nil {
+		t.Fatal("ensureJSONEOF() accepted malformed trailing JSON")
+	}
+
+	if _, err := compileMatchNode("match", map[string]any{"model": make(chan int)}); err == nil || !strings.Contains(err.Error(), "encode config") {
+		t.Fatalf("compileMatchNode(unencodable) error = %v", err)
+	}
+	runtime, err := compileMatchNode("route", map[string]any{
+		"model": "router", "input": "input", "output": "matches",
+		"rules": []*genxmatch.Rule{{Name: "route", Patterns: []genxmatch.Pattern{{Input: "hello"}}}},
+	})
+	if err != nil {
+		t.Fatalf("compileMatchNode() error = %v", err)
+	}
+	factory := flownode.NewFactory()
+	registerMatchNodes(factory, Config{matchNodes: map[string]matchNodeRuntime{"route": runtime}})
+	if _, err := factory.Build(flowgraph.NodeDefinition{ID: "missing", Type: "match"}); err == nil || !strings.Contains(err.Error(), "was not compiled") {
+		t.Fatalf("Build(missing) error = %v", err)
+	}
+	built, err := factory.Build(flowgraph.NodeDefinition{ID: "route", Type: "match"})
+	if err != nil {
+		t.Fatalf("Build(route) error = %v", err)
+	}
+	if built.ID() != "route" || built.Type() != "match" {
+		t.Fatalf("built node identity = (%q, %q)", built.ID(), built.Type())
 	}
 }
 

@@ -78,6 +78,35 @@ func TestMuxHandleRejectsDuplicate(t *testing.T) {
 	}
 }
 
+func TestDefaultMuxFacade(t *testing.T) {
+	previous := DefaultMux
+	DefaultMux = NewMux()
+	t.Cleanup(func() { DefaultMux = previous })
+
+	if _, err := Transform(context.Background(), "missing", &testStream{}); err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("Transform(missing) error = %v", err)
+	}
+	if err := Handle("nil", nil); err != nil {
+		t.Fatalf("Handle(nil) error = %v", err)
+	}
+	if _, err := Transform(context.Background(), "nil", &testStream{}); err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("Transform(nil) error = %v", err)
+	}
+
+	want := &testStream{chunks: []*genx.MessageChunk{{Part: genx.Text("ok")}}}
+	if err := Handle("default", testTransformer{fn: func(_ context.Context, input genx.Stream) (genx.Stream, error) {
+		if input != want {
+			t.Fatalf("input = %p, want %p", input, want)
+		}
+		return input, nil
+	}}); err != nil {
+		t.Fatalf("Handle(default) error = %v", err)
+	}
+	if got, err := Transform(context.Background(), "default", want); err != nil || got != want {
+		t.Fatalf("Transform(default) = (%p, %v), want %p", got, err, want)
+	}
+}
+
 func TestStreamToReaderTreatsErrDoneAsEnd(t *testing.T) {
 	r := streamToReader(&testStream{chunks: []*genx.MessageChunk{{Part: genx.Text("hello")}}, doneErr: genx.ErrDone})
 	b, err := io.ReadAll(r)
@@ -95,5 +124,20 @@ func TestStreamToReaderPropagatesNonDoneError(t *testing.T) {
 	_, err := io.ReadAll(r)
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("expected %v, got %v", wantErr, err)
+	}
+}
+
+func TestStreamToReaderSkipsNilAndNonTextChunks(t *testing.T) {
+	r := streamToReader(&testStream{chunks: []*genx.MessageChunk{
+		nil,
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1}}},
+		{Part: genx.Text("text")},
+	}})
+	b, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("ReadAll() error = %v", err)
+	}
+	if got := string(b); got != "text" {
+		t.Fatalf("ReadAll() = %q", got)
 	}
 }

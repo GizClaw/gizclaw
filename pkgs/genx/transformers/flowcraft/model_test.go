@@ -97,6 +97,36 @@ func TestBuildModelContextMakesEmptyUserInputProviderSafe(t *testing.T) {
 	}
 }
 
+func TestModelAdapterAccessorAndNilBranches(t *testing.T) {
+	(&modelResolver{}).InvalidateCache()
+	structured := &genXStructuredStream{
+		content: "answer",
+		usage:   flowmodel.Usage{InputTokens: 1, OutputTokens: 2},
+	}
+	if current := structured.Current(); current.Content != "" {
+		t.Fatalf("initial structured Current() = %#v", current)
+	}
+	if !structured.Next() || structured.Current().Content != "answer" || structured.Next() {
+		t.Fatalf("structured stream state = current %#v", structured.Current())
+	}
+	if structured.Err() != nil || structured.Close() != nil || structured.Message().Content() != "answer" || structured.Usage().OutputTokens != 2 {
+		t.Fatal("structured stream accessors returned unexpected values")
+	}
+	var nilStructured *genXStructuredStream
+	if nilStructured.Next() {
+		t.Fatal("nil structured stream advanced")
+	}
+
+	var nilStream *genXStream
+	if err := nilStream.Close(); err != nil {
+		t.Fatalf("nil genXStream.Close() error = %v", err)
+	}
+	empty := &genXStream{}
+	if empty.Next() || empty.Close() != nil || empty.Current().Content != "" || empty.Message().Content() != "" || empty.Usage().OutputTokens != 0 {
+		t.Fatal("empty genXStream accessors returned unexpected values")
+	}
+}
+
 func TestGenXStreamPreservesTextOnEOS(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {

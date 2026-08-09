@@ -52,6 +52,32 @@ func TestConfigValidationDefaultsAndPointerCopies(t *testing.T) {
 	}
 }
 
+func TestMIMEAndDefaultHelperBranches(t *testing.T) {
+	tests := []struct {
+		format string
+		want   string
+	}{
+		{format: "mp3", want: "audio/mpeg"},
+		{format: "pcm", want: "audio/pcm"},
+		{format: "flac", want: "audio/flac"},
+		{format: "wav", want: "audio/wav"},
+		{format: "unknown", want: "audio/mpeg"},
+	}
+	for _, test := range tests {
+		if got := (&Transformer{format: test.format}).mimeType(); got != test.want {
+			t.Errorf("format %q MIME = %q, want %q", test.format, got, test.want)
+		}
+	}
+	zeroFloat := 0.0
+	zeroInt := 0
+	if stringDefault(" value ", "fallback") != "value" || stringDefault(" ", "fallback") != "fallback" ||
+		floatDefault(nil, 1) != 1 || floatDefault(&zeroFloat, 1) != 0 ||
+		intDefault(nil, 1) != 1 || intDefault(&zeroInt, 1) != 0 ||
+		positiveDefault(2, 1) != 2 || positiveDefault(0, 1) != 1 {
+		t.Fatal("default helpers returned unexpected values")
+	}
+}
+
 func TestSynthesizeMapsTypedConfigToProviderRequest(t *testing.T) {
 	requestBody := make(chan map[string]any, 1)
 	server := newMiniMaxTTSTestServer(t, requestBody)
