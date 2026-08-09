@@ -252,14 +252,6 @@ func (unexpectedFirmwareService) PutFirmware(context.Context, adminhttp.PutFirmw
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) ReleaseFirmware(context.Context, adminhttp.ReleaseFirmwareRequestObject) (adminhttp.ReleaseFirmwareResponseObject, error) {
-	return nil, nil
-}
-
-func (unexpectedFirmwareService) RollbackFirmware(context.Context, adminhttp.RollbackFirmwareRequestObject) (adminhttp.RollbackFirmwareResponseObject, error) {
-	return nil, nil
-}
-
 func testFirmwareSpecSlots(stableDescription string) apitypes.FirmwareSpecSlots {
 	return apitypes.FirmwareSpecSlots{
 		Stable: apitypes.FirmwareSpecSlot{
@@ -269,6 +261,10 @@ func testFirmwareSpecSlots(stableDescription string) apitypes.FirmwareSpecSlots 
 				Sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 				Size:   4096,
 			},
+		},
+		Beta: apitypes.FirmwareSpecSlot{Description: new("beta firmware")},
+		Develop: apitypes.FirmwareSpecSlot{
+			Description: new("develop firmware"),
 		},
 	}
 }

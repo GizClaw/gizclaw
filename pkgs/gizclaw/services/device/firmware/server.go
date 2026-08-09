@@ -38,8 +38,6 @@ type FirmwareAdminService interface {
 	DeleteFirmware(context.Context, adminhttp.DeleteFirmwareRequestObject) (adminhttp.DeleteFirmwareResponseObject, error)
 	GetFirmware(context.Context, adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error)
 	PutFirmware(context.Context, adminhttp.PutFirmwareRequestObject) (adminhttp.PutFirmwareResponseObject, error)
-	ReleaseFirmware(context.Context, adminhttp.ReleaseFirmwareRequestObject) (adminhttp.ReleaseFirmwareResponseObject, error)
-	RollbackFirmware(context.Context, adminhttp.RollbackFirmwareRequestObject) (adminhttp.RollbackFirmwareResponseObject, error)
 }
 
 var _ FirmwareAdminService = (*Server)(nil)
@@ -154,85 +152,6 @@ func (s *Server) PutFirmware(ctx context.Context, request adminhttp.PutFirmwareR
 	return adminhttp.PutFirmware200JSONResponse(item), nil
 }
 
-func (s *Server) ReleaseFirmware(ctx context.Context, request adminhttp.ReleaseFirmwareRequestObject) (adminhttp.ReleaseFirmwareResponseObject, error) {
-	item, err := s.updateSlots(ctx, request.Id, releaseSlots)
-	if err != nil {
-		return releaseError(request.Id, err), nil
-	}
-	return adminhttp.ReleaseFirmware200JSONResponse(item), nil
-}
-
-func (s *Server) RollbackFirmware(ctx context.Context, request adminhttp.RollbackFirmwareRequestObject) (adminhttp.RollbackFirmwareResponseObject, error) {
-	item, err := s.updateSlots(ctx, request.Id, rollbackSlots)
-	if err != nil {
-		return rollbackError(request.Id, err), nil
-	}
-	return adminhttp.RollbackFirmware200JSONResponse(item), nil
-}
-
-var errInvalidChannel = errors.New("invalid firmware channel")
-
-func (s *Server) updateSlots(ctx context.Context, rawID string, mutate func(apitypes.FirmwareSlots) apitypes.FirmwareSlots) (apitypes.Firmware, error) {
-	store, err := s.store()
-	if err != nil {
-		return apitypes.Firmware{}, err
-	}
-	id := string(rawID)
-	item, err := Get(ctx, store, id)
-	if err != nil {
-		return apitypes.Firmware{}, err
-	}
-	item.Slots = mutate(item.Slots)
-	if !slotHasPayload(item.Slots.Stable) {
-		return apitypes.Firmware{}, errStableEmpty
-	}
-	item.UpdatedAt = s.now()
-	if err := Write(ctx, store, item); err != nil {
-		return apitypes.Firmware{}, err
-	}
-	return item, nil
-}
-
-func releaseSlots(slots apitypes.FirmwareSlots) apitypes.FirmwareSlots {
-	return apitypes.FirmwareSlots{
-		Develop: slots.Beta,
-		Beta:    slots.Stable,
-		Stable:  slots.Pending,
-		Pending: apitypes.FirmwareSlot{},
-	}
-}
-
-func rollbackSlots(slots apitypes.FirmwareSlots) apitypes.FirmwareSlots {
-	return apitypes.FirmwareSlots{
-		Develop: apitypes.FirmwareSlot{},
-		Beta:    slots.Develop,
-		Stable:  slots.Beta,
-		Pending: slots.Stable,
-	}
-}
-
-var errStableEmpty = errors.New("stable slot must not be empty after operation")
-
-func releaseError(id string, err error) adminhttp.ReleaseFirmwareResponseObject {
-	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.ReleaseFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", id)))
-	}
-	if errors.Is(err, errStableEmpty) {
-		return adminhttp.ReleaseFirmware409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_STABLE_EMPTY", err.Error()))
-	}
-	return adminhttp.ReleaseFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
-}
-
-func rollbackError(id string, err error) adminhttp.RollbackFirmwareResponseObject {
-	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.RollbackFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", id)))
-	}
-	if errors.Is(err, errStableEmpty) {
-		return adminhttp.RollbackFirmware409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_STABLE_EMPTY", err.Error()))
-	}
-	return adminhttp.RollbackFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
-}
-
 func Get(ctx context.Context, store kv.Store, id string) (apitypes.Firmware, error) {
 	data, err := store.Get(ctx, firmwareKey(id))
 	if err != nil {
@@ -309,9 +228,6 @@ func normalizeSlots(in apitypes.FirmwareSlots) (apitypes.FirmwareSlots, error) {
 	}
 	if out.Develop, err = normalizeSlot(in.Develop); err != nil {
 		return out, fmt.Errorf("develop: %w", err)
-	}
-	if out.Pending, err = normalizeSlot(in.Pending); err != nil {
-		return out, fmt.Errorf("pending: %w", err)
 	}
 	return out, nil
 }
@@ -439,19 +355,4 @@ func (s *Server) now() time.Time {
 		return s.Now().UTC()
 	}
 	return time.Now().UTC()
-}
-
-func slotForChannel(slots *apitypes.FirmwareSlots, channel string) (*apitypes.FirmwareSlot, bool) {
-	switch channel {
-	case "stable":
-		return &slots.Stable, true
-	case "beta":
-		return &slots.Beta, true
-	case "develop":
-		return &slots.Develop, true
-	case "pending":
-		return &slots.Pending, true
-	default:
-		return nil, false
-	}
 }

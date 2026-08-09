@@ -13,7 +13,7 @@ import (
 
 const testSHA256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
-func TestServerCRUDReleaseRollback(t *testing.T) {
+func TestServerCRUDDeclarativeChannels(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	server := &Server{Store: kv.NewMemory(nil), Now: func() time.Time { return now }}
@@ -22,28 +22,10 @@ func TestServerCRUDReleaseRollback(t *testing.T) {
 		firmwareSlot("stable-1", "https://firmware.example/stable.tar.zlib", 101),
 		firmwareSlot("beta-1", "https://firmware.example/beta.tar.zlib", 102),
 		firmwareSlot("develop-1", "https://firmware.example/develop.tar.zlib", 103),
-		firmwareSlot("pending-1", "https://firmware.example/pending.tar.zlib", 104),
 	))
-
-	releasedResponse, err := server.ReleaseFirmware(ctx, adminhttp.ReleaseFirmwareRequestObject{Id: created.Id})
-	if err != nil {
-		t.Fatalf("ReleaseFirmware: %v", err)
-	}
-	released := apitypes.Firmware(releasedResponse.(adminhttp.ReleaseFirmware200JSONResponse))
-	assertPackageURL(t, released.Slots.Develop, "https://firmware.example/beta.tar.zlib")
-	assertPackageURL(t, released.Slots.Beta, "https://firmware.example/stable.tar.zlib")
-	assertPackageURL(t, released.Slots.Stable, "https://firmware.example/pending.tar.zlib")
-	if released.Slots.Pending.Package != nil || released.Slots.Pending.Description != nil {
-		t.Fatalf("released pending = %#v, want empty", released.Slots.Pending)
-	}
-
-	rolledBackResponse, err := server.RollbackFirmware(ctx, adminhttp.RollbackFirmwareRequestObject{Id: created.Id})
-	if err != nil {
-		t.Fatalf("RollbackFirmware: %v", err)
-	}
-	rolledBack := apitypes.Firmware(rolledBackResponse.(adminhttp.RollbackFirmware200JSONResponse))
-	assertPackageURL(t, rolledBack.Slots.Stable, "https://firmware.example/stable.tar.zlib")
-	assertPackageURL(t, rolledBack.Slots.Pending, "https://firmware.example/pending.tar.zlib")
+	assertPackageURL(t, created.Slots.Stable, "https://firmware.example/stable.tar.zlib")
+	assertPackageURL(t, created.Slots.Beta, "https://firmware.example/beta.tar.zlib")
+	assertPackageURL(t, created.Slots.Develop, "https://firmware.example/develop.tar.zlib")
 
 	listResponse, err := server.ListFirmwares(ctx, adminhttp.ListFirmwaresRequestObject{})
 	if err != nil {
@@ -67,10 +49,18 @@ func TestServerPutReplacesPackageConfiguration(t *testing.T) {
 			return current
 		},
 	}
-	created := createFirmware(t, server, firmwareUpsert("devkit", firmwareSlot("1.0.0", "https://firmware.example/1.0.0.tar.zlib", 100), apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}))
+	created := createFirmware(t, server, firmwareUpsert("devkit",
+		firmwareSlot("1.0.0", "https://firmware.example/1.0.0.tar.zlib", 100),
+		firmwareSlot("beta", "https://firmware.example/beta.tar.zlib", 101),
+		firmwareSlot("develop", "https://firmware.example/develop.tar.zlib", 102),
+	))
 
 	description := " updated firmware "
-	update := firmwareUpsert("devkit", firmwareSlot("1.1.0", "https://firmware.example/1.1.0.tar.zlib?release=1", 200), apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{})
+	update := firmwareUpsert("devkit",
+		firmwareSlot("1.1.0", "https://firmware.example/1.1.0.tar.zlib?build=1", 200),
+		firmwareSlot("beta", "https://firmware.example/beta.tar.zlib", 101),
+		firmwareSlot("develop", "https://firmware.example/develop.tar.zlib", 102),
+	)
 	update.Description = &description
 	response, err := server.PutFirmware(ctx, adminhttp.PutFirmwareRequestObject{Id: created.Id, Body: &update})
 	if err != nil {
@@ -83,17 +73,19 @@ func TestServerPutReplacesPackageConfiguration(t *testing.T) {
 	if updated.Description == nil || *updated.Description != "updated firmware" {
 		t.Fatalf("description = %v", updated.Description)
 	}
-	assertPackageURL(t, updated.Slots.Stable, "https://firmware.example/1.1.0.tar.zlib?release=1")
+	assertPackageURL(t, updated.Slots.Stable, "https://firmware.example/1.1.0.tar.zlib?build=1")
 	if updated.Slots.Stable.Package.Size != 200 {
 		t.Fatalf("size = %d, want 200", updated.Slots.Stable.Package.Size)
 	}
+	assertPackageURL(t, updated.Slots.Beta, "https://firmware.example/beta.tar.zlib")
+	assertPackageURL(t, updated.Slots.Develop, "https://firmware.example/develop.tar.zlib")
 
 	getResponse, err := server.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Id: created.Id})
 	if err != nil {
 		t.Fatalf("GetFirmware: %v", err)
 	}
 	got := apitypes.Firmware(getResponse.(adminhttp.GetFirmware200JSONResponse))
-	assertPackageURL(t, got.Slots.Stable, "https://firmware.example/1.1.0.tar.zlib?release=1")
+	assertPackageURL(t, got.Slots.Stable, "https://firmware.example/1.1.0.tar.zlib?build=1")
 
 	deleteResponse, err := server.DeleteFirmware(ctx, adminhttp.DeleteFirmwareRequestObject{Id: created.Id})
 	if err != nil {
@@ -126,7 +118,7 @@ func TestServerValidatesPackageConfiguration(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			server := &Server{Store: kv.NewMemory(nil)}
-			input := firmwareUpsert("devkit", apitypes.FirmwareSlot{Package: &test.pkg}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{})
+			input := firmwareUpsert("devkit", apitypes.FirmwareSlot{Package: &test.pkg}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{})
 			response, err := server.CreateFirmware(context.Background(), adminhttp.CreateFirmwareRequestObject{Body: &input})
 			if err != nil {
 				t.Fatalf("CreateFirmware: %v", err)
@@ -152,7 +144,7 @@ func TestServerValidatesPeerVisibleStringLengths(t *testing.T) {
 			name: "slot description",
 			input: firmwareUpsert("devkit", apitypes.FirmwareSlot{
 				Description: new(strings.Repeat("d", maxFirmwareSlotDescriptionBytes+1)),
-			}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}),
+			}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}),
 			message: "description must contain at most 1024 bytes",
 		},
 	}
@@ -174,7 +166,7 @@ func TestServerValidatesPeerVisibleStringLengths(t *testing.T) {
 func TestServerNormalizesPackageConfiguration(t *testing.T) {
 	server := &Server{Store: kv.NewMemory(nil)}
 	upperSHA := strings.ToUpper(testSHA256)
-	input := firmwareUpsert("devkit", apitypes.FirmwareSlot{Package: new(testPackage("  https://firmware.example/fw.tar.zlib?token=value  ", upperSHA, 7))}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{})
+	input := firmwareUpsert("devkit", apitypes.FirmwareSlot{Package: new(testPackage("  https://firmware.example/fw.tar.zlib?token=value  ", upperSHA, 7))}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{})
 	created := createFirmware(t, server, input)
 	if created.Slots.Stable.Package.Url != "https://firmware.example/fw.tar.zlib?token=value" {
 		t.Fatalf("url = %q", created.Slots.Stable.Package.Url)
@@ -184,20 +176,10 @@ func TestServerNormalizesPackageConfiguration(t *testing.T) {
 	}
 }
 
-func TestServerRejectsOperationLeavingStableEmpty(t *testing.T) {
-	server := &Server{Store: kv.NewMemory(nil)}
-	created := createFirmware(t, server, firmwareUpsert("devkit", firmwareSlot("stable", "https://firmware.example/stable.tar.zlib", 1), apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}))
-	if response, err := server.ReleaseFirmware(context.Background(), adminhttp.ReleaseFirmwareRequestObject{Id: created.Id}); err != nil {
-		t.Fatalf("ReleaseFirmware: %v", err)
-	} else if _, ok := response.(adminhttp.ReleaseFirmware409JSONResponse); !ok {
-		t.Fatalf("ReleaseFirmware response = %T, want 409", response)
-	}
-}
-
 func TestServerListFirmwaresPagination(t *testing.T) {
 	server := &Server{Store: kv.NewMemory(nil)}
 	for _, name := range []string{"a", "b", "c"} {
-		createFirmware(t, server, firmwareUpsert(name, firmwareSlot(name, "https://firmware.example/"+name+".tar.zlib", 1), apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}))
+		createFirmware(t, server, firmwareUpsert(name, firmwareSlot(name, "https://firmware.example/"+name+".tar.zlib", 1), apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}))
 	}
 	limit := int32(2)
 	response, err := server.ListFirmwares(context.Background(), adminhttp.ListFirmwaresRequestObject{Params: adminhttp.ListFirmwaresParams{Limit: &limit}})
@@ -234,8 +216,8 @@ func createFirmware(t *testing.T, server *Server, input adminhttp.FirmwareUpsert
 	return apitypes.Firmware(created)
 }
 
-func firmwareUpsert(id string, stable, beta, develop, pending apitypes.FirmwareSlot) adminhttp.FirmwareUpsert {
-	return adminhttp.FirmwareUpsert{Id: id, Slots: apitypes.FirmwareSlots{Stable: stable, Beta: beta, Develop: develop, Pending: pending}}
+func firmwareUpsert(id string, stable, beta, develop apitypes.FirmwareSlot) adminhttp.FirmwareUpsert {
+	return adminhttp.FirmwareUpsert{Id: id, Slots: apitypes.FirmwareSlots{Stable: stable, Beta: beta, Develop: develop}}
 }
 
 func firmwareSlot(description, packageURL string, size int64) apitypes.FirmwareSlot {

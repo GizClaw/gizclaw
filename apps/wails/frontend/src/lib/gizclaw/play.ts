@@ -19,7 +19,7 @@ export interface PlayDataClient {
   setWorkspace(workspaceName: string): Promise<unknown>;
 }
 
-export type PlayFirmwareChannel = "stable" | "beta" | "develop" | "pending";
+export type PlayFirmwareChannel = "stable" | "beta" | "develop";
 
 export interface PlaySession extends PlayDataClient {
   close(): void;

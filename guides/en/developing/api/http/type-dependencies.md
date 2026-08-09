@@ -62,7 +62,7 @@ The need to generate Go or JavaScript symbols does not constitute a reason for S
 | Runtime access | `runtime_profile*.json`, `registration_token.json` | Profile allow lists, Gameplay configuration, and device registration token metadata |
 | Configuration | `configuration.json`, `agent_selection.json`, `refresh_*.json` | Shared configuration, Agent selection, and refresh contracts |
 | Gameplay | `gameplay.json` | Gameplay metadata and shared rule values |
-| Firmware | `firmware*.json` | Firmware, slot, external package, spec, and selection values |
+| Firmware | `firmware*.json` | Firmware, slot, external package, and spec values |
 | Credential | `credential*.json` | Credential body, spec, and values shared across Resources and APIs |
 | Model | `model*.json` | Model kind, provider, source, spec, and provider-specific typed data |
 | Voice | `voice*.json` | Voice provider, source, spec, and provider data |

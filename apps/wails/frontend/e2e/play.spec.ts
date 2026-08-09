@@ -51,7 +51,6 @@ test.beforeEach(async ({ page }) => {
           slots: {
             beta: {},
             develop: {},
-            pending: {},
             stable: { description: "stable" },
           },
           title: "Stable Firmware",
@@ -325,8 +324,7 @@ test.beforeEach(async ({ page }) => {
           description: `${channel} channel package`,
           sha256:
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-          size:
-            4096 + ["stable", "beta", "develop", "pending"].indexOf(channel),
+          size: 4096 + ["stable", "beta", "develop"].indexOf(channel),
           url: `https://firmware.example.invalid/devkit/${channel}.tar.zlib`,
         };
       },
@@ -464,6 +462,9 @@ test("play view renders the full desktop play surface", async ({ page }) => {
   ).toBeVisible();
 
   await page.getByRole("combobox", { name: "Firmware channel" }).click();
+  await expect(page.getByRole("option", { name: "pen" + "ding" })).toHaveCount(
+    0,
+  );
   await page.getByRole("option", { name: "beta" }).click();
   await expect(
     page.getByText("https://firmware.example.invalid/devkit/beta.tar.zlib"),

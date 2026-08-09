@@ -3,15 +3,15 @@
 `Implementation file: services/runtime/peerresource/firmware.go`
 
 A RegistrationToken may bind one canonical Firmware ID to a Peer. Devices do
-not list or select a firmware release line. They request one channel from the
-bound release line through `server.firmware.get`.
+not list or select a Firmware resource. They request one channel from the bound
+resource through `server.firmware.get`.
 
 Admin create/apply receives that immutable ID from the caller. Firmware has no
-separate `name` or `spec.name`; its release-line identity is needed only for the
+separate `name` or `spec.name`; its identity is needed only for the
 Admin binding and is not exposed by Peer RPC.
 
-The request contains only `channel`, one of `stable`, `beta`, `develop`, or
-`pending`. The response contains:
+The request contains only `channel`, one of `stable`, `beta`, or `develop`.
+The response contains:
 
 - the requested channel;
 - the optional channel description;
@@ -27,7 +27,7 @@ does not fetch, unpack, proxy, upload, or stream firmware packages. A missing
 binding, bound Firmware, channel package, or invalid channel returns an explicit
 RPC error.
 
-Firmware catalog and release-channel ownership remain in
+Firmware catalog and declarative channel ownership remain in
 `services/device/firmware` and are managed through the Admin surface.
 
 ## Core structure

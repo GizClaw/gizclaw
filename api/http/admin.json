@@ -29,7 +29,7 @@
     },
     {
       "name": "Firmwares",
-      "description": "Firmware release line operations"
+      "description": "Declarative Firmware channel operations"
     },
     {
       "name": "Models",
@@ -2599,7 +2599,7 @@
       },
       "post": {
         "operationId": "createFirmware",
-        "summary": "Create a firmware release line",
+        "summary": "Create a Firmware channel configuration",
         "tags": [
           "Firmwares"
         ],
@@ -2660,7 +2660,7 @@
     "/firmwares/{id}": {
       "get": {
         "operationId": "getFirmware",
-        "summary": "Get a firmware release line",
+        "summary": "Get a Firmware channel configuration",
         "tags": [
           "Firmwares"
         ],
@@ -2710,7 +2710,7 @@
       },
       "put": {
         "operationId": "putFirmware",
-        "summary": "Update a firmware release line",
+        "summary": "Replace a Firmware channel configuration",
         "tags": [
           "Firmwares"
         ],
@@ -2780,7 +2780,7 @@
       },
       "delete": {
         "operationId": "deleteFirmware",
-        "summary": "Delete a firmware release line",
+        "summary": "Delete a Firmware channel configuration",
         "tags": [
           "Firmwares"
         ],
@@ -2808,132 +2808,6 @@
           },
           "404": {
             "description": "Firmware not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/firmwares/{id}/@release": {
-      "post": {
-        "operationId": "releaseFirmware",
-        "summary": "Promote firmware slots",
-        "description": "Atomically release by shifting slots left in develop, beta, stable, pending order: beta to develop, stable to beta, pending to stable, then clear pending. The resulting stable slot must be non-empty.",
-        "tags": [
-          "Firmwares"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "Firmware ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Released firmware",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/Firmware"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Firmware not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Release would leave stable empty",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/firmwares/{id}/@rollback": {
-      "post": {
-        "operationId": "rollbackFirmware",
-        "summary": "Rollback firmware stable slot",
-        "description": "Atomically rollback by shifting slots right in develop, beta, stable, pending order: develop to beta, beta to stable, stable to pending, then clear develop. The resulting stable slot must be non-empty.",
-        "tags": [
-          "Firmwares"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "Firmware ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Rolled back firmware",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/Firmware"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Firmware not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Rollback would leave stable empty",
             "content": {
               "application/json": {
                 "schema": {
@@ -12309,7 +12183,7 @@
           },
           "firmware_id": {
             "type": "string",
-            "description": "Optional caller-defined Firmware release-line ID. The device selects its own channel."
+            "description": "Optional caller-defined Firmware ID. The device selects its own channel."
           }
         }
       }

@@ -3,13 +3,12 @@
 `实现文件：services/runtime/peerresource/firmware.go`
 
 RegistrationToken 可以给 Peer 绑定一个 canonical Firmware ID。设备不列举或
-选择 Firmware release line；它通过 `server.firmware.get` 从已绑定的 release
-line 请求一个具体 channel。
+选择 Firmware resource；它通过 `server.firmware.get` 从已绑定的 resource 请求一个具体 channel。
 
 Admin create/apply 的 immutable ID 由 caller 提供。Firmware 没有独立的 `name`
-或 `spec.name`；release-line identity 只用于 Admin binding，不通过 Peer RPC 暴露。
+或 `spec.name`；Firmware identity 只用于 Admin binding，不通过 Peer RPC 暴露。
 
-request 只有 `channel`，可选值为 `stable`、`beta`、`develop` 或 `pending`。
+request 只有 `channel`，可选值为 `stable`、`beta` 或 `develop`。
 response 包含：
 
 - 所请求的 channel；
@@ -24,7 +23,7 @@ Peer 自己直接下载 URL，并校验压缩后的 bytes。GizClaw 不获取、
 不上传，也不通过 RPC stream 传输 firmware package。Peer 未绑定 Firmware、绑定目标
 不存在、channel 没有 package 或 channel 非法时，返回明确的 RPC error。
 
-Firmware catalog 和 release-channel ownership 仍属于
+Firmware catalog 和声明式 channel ownership 仍属于
 `services/device/firmware`，由 Admin surface 管理。
 
 ## 核心结构

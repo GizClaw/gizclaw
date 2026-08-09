@@ -1,7 +1,7 @@
 ---
 name: gizclaw-admin-firmware
 version: 2.0.0
-description: "Manage GizClaw firmware channel configuration, releases, and rollbacks. Use for admin firmware list/get/create/put/delete/release/rollback."
+description: "Manage GizClaw declarative firmware channel configuration. Use for admin firmware list/get/create/put/delete and resource apply/show."
 metadata:
   requires:
     bins: ["gizclaw"]
@@ -10,20 +10,20 @@ metadata:
 # GizClaw Admin Firmware
 
 Use this skill to manage firmware metadata and the external HTTPS `.tar.zlib`
-package configured for each release channel.
+package configured for the stable, beta, and develop channels.
 
 ## When To Use
 
 - User asks to list or inspect firmware configuration.
 - User wants to configure a channel package URL, SHA-256, or compressed size.
-- User wants to promote or roll back firmware channels.
+- User wants to replace the complete desired three-channel configuration.
 
 ## How To Start
 
 1. Determine the admin context and pass `--context <name>` when known.
-2. Identify the target firmware name and channel.
+2. Identify the target Firmware ID and desired channel metadata.
 3. Put the full desired firmware state in a JSON file.
-4. Before release or rollback, inspect the current stable, beta, and pending slots.
+4. Inspect the current state before replacing it; put and apply are complete-state operations.
 
 ## Commands
 
@@ -33,15 +33,15 @@ package configured for each release channel.
 <gizclaw> admin firmwares create --file <firmware.json> --context <admin-context>
 <gizclaw> admin firmwares put <firmware> --file <firmware.json> --context <admin-context>
 <gizclaw> admin firmwares delete <firmware> --context <admin-context>
-<gizclaw> admin firmwares release <firmware> --context <admin-context>
-<gizclaw> admin firmwares rollback <firmware> --context <admin-context>
+<gizclaw> admin apply --file <firmware-resource.json> --context <admin-context>
+<gizclaw> admin show Firmware <firmware> --context <admin-context>
 ```
 
 ## Payload
 
 ```json
 {
-  "name": "devkit",
+  "id": "devkit",
   "slots": {
     "stable": {
       "description": "stable channel",
@@ -52,8 +52,7 @@ package configured for each release channel.
       }
     },
     "beta": {},
-    "develop": {},
-    "pending": {}
+    "develop": {}
   }
 }
 ```
@@ -64,7 +63,5 @@ package configured for each release channel.
   unpack firmware packages.
 - `url` must be an absolute HTTPS URL. `sha256` and `size` describe the exact
   complete `.tar.zlib` archive bytes that the peer downloads directly.
-- `release` moves `pending -> stable`, `stable -> beta`, and `beta -> develop`,
-  then clears `pending`.
-- `rollback` moves `stable -> pending`, `beta -> stable`, and
-  `develop -> beta`, then clears `develop`.
+- Create, put, and apply require all three channel objects. There is no
+  promotion, rollback, package movement, or implicit merge.

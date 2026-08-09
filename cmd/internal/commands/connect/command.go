@@ -295,7 +295,7 @@ func nonEmptyFlag(name, value string) error {
 func firmwareChannelFlag(value string) (rpcapi.FirmwareChannelName, error) {
 	channel := rpcapi.FirmwareChannelName(strings.TrimSpace(value))
 	if !channel.Valid() {
-		return "", fmt.Errorf("channel must be one of stable, beta, develop, pending")
+		return "", fmt.Errorf("channel must be one of stable, beta, develop")
 	}
 	return channel, nil
 }

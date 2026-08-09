@@ -156,8 +156,7 @@
         "enum": [
           "stable",
           "beta",
-          "develop",
-          "pending"
+          "develop"
         ]
       },
       "FirmwareGetRequest": {

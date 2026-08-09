@@ -18,7 +18,7 @@
           "runtime_profile_id": { "type": "string" },
           "firmware_id": {
             "type": "string",
-            "description": "Optional caller-defined Firmware release-line ID. The device selects its own channel."
+            "description": "Optional caller-defined Firmware ID. The device selects its own channel."
           },
           "created_at": {
             "type": "string",

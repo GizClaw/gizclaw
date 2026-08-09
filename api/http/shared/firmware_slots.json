@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Firmware Slots Type",
-    "description": "Firmware release slot set schema.",
+    "description": "Firmware channel slot set schema.",
     "version": "1.0.0"
   },
   "paths": {},
@@ -13,9 +13,9 @@
         "required": [
           "stable",
           "beta",
-          "develop",
-          "pending"
+          "develop"
         ],
+        "additionalProperties": false,
         "properties": {
           "stable": {
             "$ref": "./firmware_slot.json#/components/schemas/FirmwareSlot"
@@ -24,9 +24,6 @@
             "$ref": "./firmware_slot.json#/components/schemas/FirmwareSlot"
           },
           "develop": {
-            "$ref": "./firmware_slot.json#/components/schemas/FirmwareSlot"
-          },
-          "pending": {
             "$ref": "./firmware_slot.json#/components/schemas/FirmwareSlot"
           }
         }

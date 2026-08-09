@@ -80,7 +80,6 @@ enum FirmwareChannelName {
   FIRMWARE_CHANNEL_NAME_STABLE = 1;
   FIRMWARE_CHANNEL_NAME_BETA = 2;
   FIRMWARE_CHANNEL_NAME_DEVELOP = 3;
-  FIRMWARE_CHANNEL_NAME_PENDING = 4;
 }
 
 enum FlowcraftConversationParametersAgentInitiativePolicy {

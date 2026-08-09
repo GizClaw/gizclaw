@@ -215,7 +215,6 @@ func (e DoubaoRealtimeWorkspaceParametersAgentType) Valid() bool {
 const (
 	FirmwareChannelNameBeta    FirmwareChannelName = "beta"
 	FirmwareChannelNameDevelop FirmwareChannelName = "develop"
-	FirmwareChannelNamePending FirmwareChannelName = "pending"
 	FirmwareChannelNameStable  FirmwareChannelName = "stable"
 )
 
@@ -225,8 +224,6 @@ func (e FirmwareChannelName) Valid() bool {
 	case FirmwareChannelNameBeta:
 		return true
 	case FirmwareChannelNameDevelop:
-		return true
-	case FirmwareChannelNamePending:
 		return true
 	case FirmwareChannelNameStable:
 		return true

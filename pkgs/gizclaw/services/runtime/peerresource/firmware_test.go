@@ -8,7 +8,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"google.golang.org/protobuf/proto"
 )
 
 const firmwareTestSHA256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -44,36 +46,50 @@ func TestFirmwareGetReturnsRequestedChannelConfiguration(t *testing.T) {
 			return adminhttp.GetFirmware200JSONResponse(apitypes.Firmware{
 				Id: firmwareID,
 				Slots: apitypes.FirmwareSlots{
-					Stable: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Url: "https://firmware.example/stable.tar.zlib", Sha256: firmwareTestSHA256, Size: 10}},
-					Beta:   apitypes.FirmwareSlot{Description: &description, Package: &apitypes.FirmwarePackage{Url: "https://firmware.example/beta.tar.zlib", Sha256: firmwareTestSHA256, Size: 20}},
+					Stable:  apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Url: "https://firmware.example/stable.tar.zlib", Sha256: firmwareTestSHA256, Size: 10}},
+					Beta:    apitypes.FirmwareSlot{Description: &description, Package: &apitypes.FirmwarePackage{Url: "https://firmware.example/beta.tar.zlib", Sha256: firmwareTestSHA256, Size: 20}},
+					Develop: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Url: "https://firmware.example/develop.tar.zlib", Sha256: firmwareTestSHA256, Size: 30}},
 				},
 			}), nil
 		}),
 	}
 
-	request := firmwareRPCRequest(t, "firmware-get", rpcapi.FirmwareGetRequest{Channel: rpcapi.FirmwareChannelNameBeta})
-	response := server.handleFirmwareGet(context.Background(), request)
-	if response.Error != nil {
-		t.Fatalf("handleFirmwareGet error = %#v", response.Error)
-	}
-	got, err := response.Result.AsFirmwareGetResponse()
-	if err != nil {
-		t.Fatalf("AsFirmwareGetResponse: %v", err)
-	}
-	if got.Channel != rpcapi.FirmwareChannelNameBeta || got.Description == nil || *got.Description != description {
-		t.Fatalf("response metadata = %#v", got)
-	}
-	if got.Url != "https://firmware.example/beta.tar.zlib" || got.Sha256 != firmwareTestSHA256 || got.Size != 20 {
-		t.Fatalf("response package = %#v", got)
+	for _, test := range []struct {
+		channel rpcapi.FirmwareChannelName
+		url     string
+		size    int64
+	}{
+		{rpcapi.FirmwareChannelNameStable, "https://firmware.example/stable.tar.zlib", 10},
+		{rpcapi.FirmwareChannelNameBeta, "https://firmware.example/beta.tar.zlib", 20},
+		{rpcapi.FirmwareChannelNameDevelop, "https://firmware.example/develop.tar.zlib", 30},
+	} {
+		t.Run(string(test.channel), func(t *testing.T) {
+			request := firmwareRPCRequest(t, "firmware-get", rpcapi.FirmwareGetRequest{Channel: test.channel})
+			response := server.handleFirmwareGet(context.Background(), request)
+			if response.Error != nil {
+				t.Fatalf("handleFirmwareGet error = %#v", response.Error)
+			}
+			got, err := response.Result.AsFirmwareGetResponse()
+			if err != nil {
+				t.Fatalf("AsFirmwareGetResponse: %v", err)
+			}
+			if got.Channel != test.channel || got.Url != test.url || got.Sha256 != firmwareTestSHA256 || got.Size != test.size {
+				t.Fatalf("response = %#v", got)
+			}
+		})
 	}
 }
 
 func TestFirmwareGetRejectsInvalidChannel(t *testing.T) {
 	server := &Server{}
-	request := firmwareRPCRequest(t, "firmware-get", rpcapi.FirmwareGetRequest{})
-	response := server.handleFirmwareGet(context.Background(), request)
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
-		t.Fatalf("response = %#v, want invalid params", response)
+	for name, request := range map[string]*rpcapi.RPCRequest{
+		"unspecified": firmwareRPCRequest(t, "firmware-get", rpcapi.FirmwareGetRequest{}),
+		"retired 4":   firmwareRawChannelRPCRequest(t, "firmware-get", rpcpb.FirmwareChannelName(4)),
+	} {
+		response := server.handleFirmwareGet(context.Background(), request)
+		if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+			t.Fatalf("%s response = %#v, want invalid params", name, response)
+		}
 	}
 }
 
@@ -102,7 +118,7 @@ func TestFirmwareGetRejectsEmptyChannelPackage(t *testing.T) {
 			return adminhttp.GetFirmware200JSONResponse(apitypes.Firmware{Id: firmwareID, Slots: apitypes.FirmwareSlots{}}), nil
 		}),
 	}
-	request := firmwareRPCRequest(t, "firmware-get", rpcapi.FirmwareGetRequest{Channel: rpcapi.FirmwareChannelNamePending})
+	request := firmwareRPCRequest(t, "firmware-get", rpcapi.FirmwareGetRequest{Channel: rpcapi.FirmwareChannelNameDevelop})
 	response := server.handleFirmwareGet(context.Background(), request)
 	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound || response.Error.Message != errFirmwarePackageNotFound.Error() {
 		t.Fatalf("response = %#v, want package not found", response)
@@ -167,4 +183,21 @@ func firmwareRPCRequest(t *testing.T, id string, value rpcapi.FirmwareGetRequest
 		t.Fatalf("encode firmware request: %v", err)
 	}
 	return &rpcapi.RPCRequest{V: rpcapi.RPCVersionV1, Id: id, Method: rpcapi.RPCMethodServerFirmwareGet, Params: &params}
+}
+
+func firmwareRawChannelRPCRequest(t *testing.T, id string, channel rpcpb.FirmwareChannelName) *rpcapi.RPCRequest {
+	t.Helper()
+	payload, err := proto.Marshal(&rpcpb.FirmwareGetRequest{Channel: channel})
+	if err != nil {
+		t.Fatalf("encode raw firmware request: %v", err)
+	}
+	request, err := rpcapi.DecodeRPCRequest(&rpcpb.RpcRequest{
+		Id:      id,
+		Method:  rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET,
+		Payload: payload,
+	})
+	if err != nil {
+		t.Fatalf("decode raw firmware request: %v", err)
+	}
+	return request
 }

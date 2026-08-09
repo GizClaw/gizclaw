@@ -425,7 +425,7 @@ export type RegistrationTokenUpsert = {
     token: string;
     runtime_profile_id: string;
     /**
-     * Optional caller-defined Firmware release-line ID. The device selects its own channel.
+     * Optional caller-defined Firmware ID. The device selects its own channel.
      */
     firmware_id?: string;
 };
@@ -631,7 +631,7 @@ export type RegistrationTokenResource = {
         token: string;
         runtime_profile_id: string;
         /**
-         * Optional caller-defined Firmware release-line ID. The device selects its own channel.
+         * Optional caller-defined Firmware ID. The device selects its own channel.
          */
         firmware_id?: string;
     };
@@ -1009,7 +1009,6 @@ export type FirmwareSlots = {
     stable: FirmwareSlot;
     beta: FirmwareSlot;
     develop: FirmwareSlot;
-    pending: FirmwareSlot;
 };
 
 export type FirmwareSpec = {
@@ -1026,7 +1025,6 @@ export type FirmwareSpecSlots = {
     stable: FirmwareSpecSlot;
     beta: FirmwareSpecSlot;
     develop: FirmwareSpecSlot;
-    pending: FirmwareSpecSlot;
 };
 
 export type Badge = {
@@ -1602,7 +1600,7 @@ export type Peer = {
     device: DeviceInfo;
     auto_registered?: boolean;
     /**
-     * Optional configured caller-defined Firmware release-line ID. Channel selection remains device-owned.
+     * Optional configured caller-defined Firmware ID. Channel selection remains device-owned.
      */
     firmware_id?: string;
     created_at: string;
@@ -1712,7 +1710,7 @@ export type Registration = {
     status: PeerRegistrationStatus;
     auto_registered?: boolean;
     /**
-     * Optional configured caller-defined Firmware release-line ID. Channel selection remains device-owned.
+     * Optional configured caller-defined Firmware ID. Channel selection remains device-owned.
      */
     firmware_id?: string;
     device?: DeviceInfo;
@@ -1726,7 +1724,7 @@ export type RegistrationToken = {
     token: string;
     runtime_profile_id: string;
     /**
-     * Optional caller-defined Firmware release-line ID. The device selects its own channel.
+     * Optional caller-defined Firmware ID. The device selects its own channel.
      */
     firmware_id?: string;
     created_at: string;
@@ -5145,82 +5143,6 @@ export type PutFirmwareResponses = {
 };
 
 export type PutFirmwareResponse = PutFirmwareResponses[keyof PutFirmwareResponses];
-
-export type ReleaseFirmwareData = {
-    body?: never;
-    path: {
-        /**
-         * Firmware ID
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/firmwares/{id}/@release';
-};
-
-export type ReleaseFirmwareErrors = {
-    /**
-     * Firmware not found
-     */
-    404: ErrorResponse;
-    /**
-     * Release would leave stable empty
-     */
-    409: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type ReleaseFirmwareError = ReleaseFirmwareErrors[keyof ReleaseFirmwareErrors];
-
-export type ReleaseFirmwareResponses = {
-    /**
-     * Released firmware
-     */
-    200: Firmware;
-};
-
-export type ReleaseFirmwareResponse = ReleaseFirmwareResponses[keyof ReleaseFirmwareResponses];
-
-export type RollbackFirmwareData = {
-    body?: never;
-    path: {
-        /**
-         * Firmware ID
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/firmwares/{id}/@rollback';
-};
-
-export type RollbackFirmwareErrors = {
-    /**
-     * Firmware not found
-     */
-    404: ErrorResponse;
-    /**
-     * Rollback would leave stable empty
-     */
-    409: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type RollbackFirmwareError = RollbackFirmwareErrors[keyof RollbackFirmwareErrors];
-
-export type RollbackFirmwareResponses = {
-    /**
-     * Rolled back firmware
-     */
-    200: Firmware;
-};
-
-export type RollbackFirmwareResponse = RollbackFirmwareResponses[keyof RollbackFirmwareResponses];
 
 export type ListCredentialsData = {
     body?: never;

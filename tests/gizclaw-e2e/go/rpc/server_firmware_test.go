@@ -26,7 +26,6 @@ func TestRegistrationBindsFirmwareRPC(t *testing.T) {
 		{rpcapi.FirmwareChannelNameStable, "Devkit stable package", "https://firmware.example.invalid/devkit/stable.tar.zlib", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", 4096},
 		{rpcapi.FirmwareChannelNameBeta, "Devkit beta package", "https://firmware.example.invalid/devkit/beta.tar.zlib", "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789", 8192},
 		{rpcapi.FirmwareChannelNameDevelop, "", "https://firmware.example.invalid/devkit/develop.tar.zlib", "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0", 12288},
-		{rpcapi.FirmwareChannelNamePending, "Devkit pending package", "https://firmware.example.invalid/devkit/pending.tar.zlib", "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210", 16384},
 	}
 	for _, tc := range tests {
 		t.Run(string(tc.channel), func(t *testing.T) {
