@@ -40,7 +40,7 @@ const (
 type Config struct {
 	Kind     string
 	Storage  string // reference to a physical storage backend
-	Prefix   string // slash-separated logical key prefix for KV stores
+	Prefix   string // logical key prefix; SQL KV uses one segment as its table name
 	Database string
 	Table    string
 	TopicID  string
@@ -77,6 +77,9 @@ func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) 
 	if physical == nil && needsPhysicalStorage(configs) {
 		return nil, fmt.Errorf("stores: storage registry is nil")
 	}
+	if err := validateConfigs(configs, physical); err != nil {
+		return nil, err
+	}
 	if err := validateObjectStorePrefixes(configs); err != nil {
 		return nil, err
 	}
@@ -104,12 +107,6 @@ func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) 
 	slices.Sort(names)
 	for _, name := range names {
 		cfg := configs[name]
-		if name == "" {
-			return nil, &ConfigError{Name: name, Err: errors.New("stores: Store name must not be empty")}
-		}
-		if err := validateKindFields(name, cfg); err != nil {
-			return nil, &ConfigError{Name: name, Err: err}
-		}
 		switch cfg.Kind {
 		case KindKeyValue:
 			st, err := s.newKV(name, cfg)
@@ -154,43 +151,145 @@ func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) 
 	return s, nil
 }
 
-func validateKindFields(name string, cfg Config) error {
-	invalid := func(condition bool, field string) error {
-		if !condition {
-			return nil
+func validateConfigs(configs map[string]Config, physical *storage.Storage) error {
+	names := make([]string, 0, len(configs))
+	for name := range configs {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	for _, name := range names {
+		cfg := configs[name]
+		if name == "" {
+			return &ConfigError{Name: name, Err: errors.New("stores: Store name must not be empty")}
 		}
-		return fmt.Errorf("stores: %s %q does not support %s", cfg.Kind, name, field)
+		if cfg.Storage == "" {
+			return &ConfigError{Name: name, Err: fmt.Errorf("stores: %s %q requires storage reference", cfg.Kind, name)}
+		}
+		kind, err := physical.Kind(cfg.Storage)
+		if err != nil {
+			return &ConfigError{Name: name, Err: fmt.Errorf("stores: %s %q resolve storage %q: %w", cfg.Kind, name, cfg.Storage, err)}
+		}
+		if err := validateConfigFields(name, cfg, kind); err != nil {
+			return &ConfigError{Name: name, Err: err}
+		}
+	}
+	return nil
+}
+
+func validateConfigFields(name string, cfg Config, storageKind string) error {
+	invalid := func(condition bool, field string) error {
+		if condition {
+			return fmt.Errorf("stores: %s %q does not support %s", cfg.Kind, name, field)
+		}
+		return nil
+	}
+	isSQL := storageKind == storage.KindSQLite || storageKind == storage.KindPostgreSQL
+	requireSQLTable := func() error {
+		if cfg.Table == "" {
+			return fmt.Errorf("stores: %s %q requires table for %s storage", cfg.Kind, name, storageKind)
+		}
+		if err := storage.ValidateSQLIdentifier(cfg.Table); err != nil {
+			return fmt.Errorf("stores: %s %q table %q: %w", cfg.Kind, name, cfg.Table, err)
+		}
+		return nil
 	}
 	switch cfg.Kind {
-	case KindKeyValue, KindObjectStore:
-		for _, field := range []struct {
-			set  bool
-			name string
-		}{
-			{cfg.Database != "", "database"}, {cfg.Table != "", "table"}, {cfg.TopicID != "", "topic_id"},
-		} {
-			if err := invalid(field.set, field.name); err != nil {
-				return err
-			}
+	case KindKeyValue:
+		if storageKind != storage.KindBadger && storageKind != storage.KindMemory && !isSQL {
+			return fmt.Errorf("stores: keyvalue %q does not support storage %q kind %q", name, cfg.Storage, storageKind)
 		}
-	case KindSQL:
-		if err := invalid(cfg.Prefix != "", "prefix"); err != nil {
+		if err := invalid(cfg.Database != "", "database"); err != nil {
 			return err
 		}
-		if cfg.Database != "" || cfg.Table != "" || cfg.TopicID != "" {
+		if err := invalid(cfg.TopicID != "", "topic_id"); err != nil {
+			return err
+		}
+		if _, err := parseKeyPrefix(cfg.Prefix); err != nil {
+			return fmt.Errorf("stores: keyvalue %q prefix: %w", name, err)
+		}
+		if isSQL {
+			if err := invalid(cfg.Table != "", "table"); err != nil {
+				return err
+			}
+			if cfg.Prefix == "" {
+				return fmt.Errorf("stores: keyvalue %q requires prefix for %s storage", name, storageKind)
+			}
+			if err := storage.ValidateSQLTableName(cfg.Prefix); err != nil {
+				return fmt.Errorf("stores: keyvalue %q prefix %q: %w", name, cfg.Prefix, err)
+			}
+			return nil
+		}
+		return invalid(cfg.Table != "", "table")
+	case KindSQL:
+		if storageKind != storage.KindSQLite && storageKind != storage.KindPostgreSQL && storageKind != storage.KindClickHouse {
+			return fmt.Errorf("stores: sql %q does not support storage %q kind %q", name, cfg.Storage, storageKind)
+		}
+		if cfg.Prefix != "" || cfg.Database != "" || cfg.Table != "" || cfg.TopicID != "" {
 			return fmt.Errorf("stores: sql %q does not support logical scope", name)
 		}
+	case KindObjectStore:
+		if storageKind != storage.KindFilesystemDir {
+			return fmt.Errorf("stores: objectstore %q does not support storage %q kind %q", name, cfg.Storage, storageKind)
+		}
+		if cfg.Database != "" || cfg.Table != "" || cfg.TopicID != "" {
+			return fmt.Errorf("stores: objectstore %q does not support database, table, or topic_id", name)
+		}
 	case KindMetrics:
+		if storageKind != storage.KindMemory && storageKind != storage.KindPrometheus && storageKind != storage.KindClickHouse && !isSQL {
+			return fmt.Errorf("stores: metrics %q does not support storage %q kind %q", name, cfg.Storage, storageKind)
+		}
 		if err := invalid(cfg.Prefix != "", "prefix"); err != nil {
 			return err
 		}
 		if err := invalid(cfg.TopicID != "", "topic_id"); err != nil {
 			return err
 		}
+		if cfg.Database != "" {
+			return fmt.Errorf("stores: metrics %q %s storage does not support database", name, storageKind)
+		}
+		if isSQL || storageKind == storage.KindClickHouse {
+			if cfg.Table == "" {
+				return fmt.Errorf("stores: metrics %q requires table for %s storage", name, storageKind)
+			}
+			if isSQL {
+				return requireSQLTable()
+			}
+			return nil
+		}
+		return invalid(cfg.Table != "", "table")
 	case KindLogImmutable, KindLogMutable:
+		if storageKind != storage.KindClickHouse && storageKind != storage.KindVolcTLS && !isSQL {
+			return fmt.Errorf("stores: %s %q does not support storage %q kind %q", cfg.Kind, name, cfg.Storage, storageKind)
+		}
+		if cfg.Kind == KindLogMutable && storageKind == storage.KindVolcTLS {
+			return fmt.Errorf("stores: %s %q does not support volc-tls", cfg.Kind, name)
+		}
 		if err := invalid(cfg.Prefix != "", "prefix"); err != nil {
 			return err
 		}
+		if isSQL {
+			if cfg.Database != "" || cfg.TopicID != "" {
+				return fmt.Errorf("stores: %s %q SQL storage does not support database or topic_id", cfg.Kind, name)
+			}
+			return requireSQLTable()
+		}
+		if storageKind == storage.KindVolcTLS {
+			if cfg.Database != "" || cfg.Table != "" {
+				return fmt.Errorf("stores: log %q volc-tls storage does not support database or table", name)
+			}
+			if cfg.TopicID == "" {
+				return fmt.Errorf("stores: log %q volc-tls storage requires topic_id", name)
+			}
+			return nil
+		}
+		if cfg.TopicID != "" {
+			return fmt.Errorf("stores: log %q clickhouse storage does not support topic_id", name)
+		}
+		if cfg.Table == "" {
+			return fmt.Errorf("stores: log %q requires table for clickhouse storage", name)
+		}
+	default:
+		return fmt.Errorf("stores: %q has unknown kind %q", name, cfg.Kind)
 	}
 	return nil
 }
@@ -335,7 +434,7 @@ func (r *Stores) newKV(name string, cfg Config) (kv.Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)
 	}
-	if kind != storage.KindBadger && kind != storage.KindMemory {
+	if kind != storage.KindBadger && kind != storage.KindMemory && kind != storage.KindSQLite && kind != storage.KindPostgreSQL {
 		return nil, fmt.Errorf("stores: keyvalue %q does not support storage %q kind %q", name, cfg.Storage, kind)
 	}
 	var base kv.Store
@@ -359,6 +458,17 @@ func (r *Stores) newKV(name string, cfg Config) (kv.Store, error) {
 			return nil, fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)
 		}
 		base = kv.NewMemory(nil)
+	case storage.KindSQLite, storage.KindPostgreSQL:
+		db, err := r.storage.SQL(cfg.Storage)
+		if err != nil {
+			return nil, fmt.Errorf("stores: keyvalue %q resolve SQL storage %q: %w", name, cfg.Storage, err)
+		}
+		root, err := kv.NewSQLWithDB(db, cfg.Prefix, nil)
+		if err != nil {
+			return nil, fmt.Errorf("stores: keyvalue %q %s prefix %q: %w", name, kind, cfg.Prefix, err)
+		}
+		r.logicClosers = append(r.logicClosers, root)
+		return root, nil
 	}
 	prefix, err := parseKeyPrefix(cfg.Prefix)
 	if err != nil {
@@ -421,6 +531,17 @@ func (r *Stores) newMetrics(name string, cfg Config) (metrics.Store, error) {
 		}
 		r.logicClosers = append(r.logicClosers, st)
 		return st, nil
+	case storage.KindSQLite, storage.KindPostgreSQL:
+		db, err := r.storage.SQL(cfg.Storage)
+		if err != nil {
+			return nil, fmt.Errorf("stores: metrics %q resolve %s storage %q: %w", name, kind, cfg.Storage, err)
+		}
+		st, err := metrics.NewSQLStoreWithDB(db, cfg.Table)
+		if err != nil {
+			return nil, fmt.Errorf("stores: metrics %q %s table %q: %w", name, kind, cfg.Table, err)
+		}
+		r.logicClosers = append(r.logicClosers, st)
+		return st, nil
 	default:
 		return nil, fmt.Errorf("stores: metrics %q does not support storage %q kind %q", name, cfg.Storage, kind)
 	}
@@ -435,6 +556,16 @@ func (r *Stores) newLog(name string, cfg Config) (logstore.ImmutableStore, error
 		return nil, fmt.Errorf("stores: log %q resolve storage %q: %w", name, cfg.Storage, err)
 	}
 	switch kind {
+	case storage.KindSQLite, storage.KindPostgreSQL:
+		db, err := r.storage.SQL(cfg.Storage)
+		if err != nil {
+			return nil, fmt.Errorf("stores: log %q resolve %s storage %q: %w", name, kind, cfg.Storage, err)
+		}
+		store, err := logstore.NewSQLStoreWithDB(db, cfg.Table)
+		if err != nil {
+			return nil, fmt.Errorf("stores: log %q %s table %q: %w", name, kind, cfg.Table, err)
+		}
+		return store, nil
 	case storage.KindClickHouse:
 		db, err := r.storage.SQL(cfg.Storage)
 		if err != nil {

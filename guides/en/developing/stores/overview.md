@@ -53,12 +53,12 @@ flowchart TB
 
 | Store kind | Interface and scope |
 | --- | --- |
-| `keyvalue` | `kv.Store`; optional key prefix over a physical KV connector |
+| `keyvalue` | `kv.Store`; optional key prefix for Badger/memory, or a required prefix that the SQLite/PostgreSQL backend uses as its physical table name |
 | `sql` | borrowed `*sqlx.DB` physical pool; service owns its schema |
 | `objectstore` | `objectstore.ObjectStore`; optional object prefix |
-| `metrics` | `metrics.Store`; `memory`, Prometheus, or ClickHouse Storage |
-| `log.immutable` | `logstore.ImmutableStore`; Volc topic or ClickHouse table |
-| `log.mutable` | `logstore.MutableStore`; ClickHouse table |
+| `metrics` | `metrics.Store`; `memory`, Prometheus, ClickHouse, or a SQLite/PostgreSQL table |
+| `log.immutable` | `logstore.ImmutableStore`; Volc topic or a ClickHouse/SQLite/PostgreSQL table |
+| `log.mutable` | `logstore.MutableStore`; a ClickHouse/SQLite/PostgreSQL table |
 
 | Storage kind | Physical configuration |
 | --- | --- |
@@ -90,6 +90,10 @@ directory to PostgreSQL or a DSN/provider credential to Badger.
 `kind` to its concrete Go type; YAML fields never enter the public config types.
 
 Multiple Stores may borrow one connector. The caller closes logical `Stores` first and physical `Storage` second. `memory` is a stateless marker; every keyvalue or metrics Store that references it creates an independent instance. `vecstore` and `graph` have no built-in Server consumer, so they are not command-layer Store kinds; their public packages and constructors remain available. Memory connections selected through RuntimeProfile and MemoryLayout remain outside this registry.
+
+A SQLite/PostgreSQL KV Store declares only one single-segment `prefix`; the backend uses it directly as the quoted physical table name and does not repeat that prefix inside encoded keys. Metrics and Log Stores continue declaring `table`. These physical names are unqualified ASCII names of at most 63 bytes; a KV prefix may also contain `-`. The registry validates each declaration independently and does not reserve table names or compare one Store declaration with another. Construction directly ensures the table and indexes with idempotent `CREATE ... IF NOT EXISTS`, then validates the exact columns, primary key, identity, and indexes required by that adapter. It creates no schema version or history table and never imports or rewrites existing backend data. A compatible existing table is reused; an incompatible definition fails when that adapter is constructed. Logical `Close` changes only adapter state and never closes the borrowed `*sqlx.DB`.
+
+`storage.SQLTable` is the single owner of SQLite/PostgreSQL borrowed-table dialect, identifier, quoting, initialization, and schema-inspection behavior; callers can construct it only from a validated pool and table name. KV, Metrics, and Log continue owning their business table definitions but consume this storage capability directly, without a separate SQL backend helper package.
 
 ### Process SQLite DSN contract
 
