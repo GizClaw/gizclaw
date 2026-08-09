@@ -313,6 +313,102 @@ func TestSQLiteTableClaimsFailBeforeDDL(t *testing.T) {
 	}
 }
 
+func TestSQLiteCompatibleTableClaimsShareTable(t *testing.T) {
+	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = physical.Close() })
+	registry, err := New(map[string]Config{
+		"first":  {Kind: KindKeyValue, Storage: "database", Prefix: "shared_items"},
+		"second": {Kind: KindKeyValue, Storage: "database", Prefix: "shared_items"},
+	}, physical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	first, err := registry.KV("first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := registry.KV("second")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := first.Set(ctx, kv.Key{"shared"}, []byte("value")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := second.Get(ctx, kv.Key{"shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "value" {
+		t.Fatalf("second alias read = %q, want value", got)
+	}
+}
+
+func TestSQLiteImmutableAndMutableLogsShareTable(t *testing.T) {
+	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = physical.Close() })
+	registry, err := New(map[string]Config{
+		"reader": {Kind: KindLogImmutable, Storage: "database", Table: "shared_logs"},
+		"writer": {Kind: KindLogMutable, Storage: "database", Table: "shared_logs"},
+	}, physical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	reader, err := registry.Log("reader")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer, err := registry.MutableLog("writer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	record := logstore.Record{
+		ID: "shared", Time: time.UnixMilli(1000).UTC(), Stream: "events", Kind: "created",
+	}
+	if _, err := writer.Append(ctx, []logstore.Record{record}); err != nil {
+		t.Fatal(err)
+	}
+	page, err := reader.Query(ctx, logstore.Query{
+		Streams: []string{"events"}, Start: record.Time, End: record.Time.Add(time.Second), Limit: 10, Order: logstore.OrderAsc,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Records) != 1 || page.Records[0].ID != record.ID {
+		t.Fatalf("immutable alias query = %+v, want record %q", page, record.ID)
+	}
+}
+
+func TestSQLiteCompatibleTableClaimsRequireIdenticalSpelling(t *testing.T) {
+	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = physical.Close() })
+	_, err = New(map[string]Config{
+		"first":  {Kind: KindKeyValue, Storage: "database", Prefix: "SharedTable"},
+		"second": {Kind: KindKeyValue, Storage: "database", Prefix: "sharedtable"},
+	}, physical)
+	if err == nil || !strings.Contains(err.Error(), "must use identical spelling") {
+		t.Fatalf("New() error = %v", err)
+	}
+}
+
 func TestSQLKeyValueRejectsTableAndRequiresPrefix(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
 		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
