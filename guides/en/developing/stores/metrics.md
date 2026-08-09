@@ -6,7 +6,7 @@
 
 ## Contract and implementations
 
-`Store` owns the backend-neutral sample and query contract. `MemoryStore` is in-process. `PrometheusStore` uses remote write and the HTTP query API. `ClickHouseStore` owns one validated MergeTree table. Telemetry mapping, label cardinality, identity exposure, and authorization remain owned by the calling service.
+`Store` owns the backend-neutral sample and query contract. `MemoryStore` is in-process. `PrometheusStore` uses remote write and the HTTP query API. `ClickHouseStore` owns one validated MergeTree table. `SQLStore` borrows a SQLite/PostgreSQL pool and owns one logical table. Telemetry mapping, label cardinality, identity exposure, and authorization remain owned by the calling service.
 
 In Server Config, Prometheus connection URLs, bearer token, and one reusable official `api.Client` belong to a physical `storage.kind: prometheus` connector. Queries and remote writes both use that client's `Do`; logical Metrics Stores only borrow it:
 
@@ -41,3 +41,5 @@ stores:
 ```
 
 For local tests, configure a property-free `storage.kind: memory` and reference it from `stores.kind: metrics`. Every logical Store receives an independent `MemoryStore`; the marker does not cache instances. Legacy backend fields and provider connection fields under `stores` are invalid.
+
+A SQLite/PostgreSQL table stores UTC time as signed nanoseconds, every `float64` as its IEEE-754 bits, and a generated sequence that defines last-write order for equal timestamps. Labels use the collision-safe series key plus canonical flat JSON; nil and empty labels identify the same series. `Append` is one complete batch transaction. Latest, Range, and Aggregate retain the selector, boundary, window, and ordering contract, with regexp matching and aggregation allowed in Go for dialect parity. The logical Store does not own its pool.

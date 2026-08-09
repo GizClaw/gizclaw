@@ -9,132 +9,133 @@ serve-to-clients: true
 # Dynamic registry of physical locations and connections. Each kind names the
 # concrete backend directly; there is no nested driver selector.
 storage:
-  main-kv:
-    kind: badger
-    dir: data/kv
-
-  gameplay-db:
-    kind: sqlite
-    dir: data/gameplay.sqlite
+  database:
+    kind: postgresql
+    dsn: ${GIZCLAW_POSTGRES_DSN}
 
   local-assets:
     kind: filesystem.dir
     dir: data/files
-
-  volc-logs:
-    kind: volc-tls
-    endpoint: ${GIZCLAW_VOLC_LOG_ENDPOINT}
-    region: ${GIZCLAW_VOLC_LOG_REGION}
-    access_key_id: ${GIZCLAW_VOLC_LOG_ACCESS_KEY_ID}
-    access_key_secret: ${GIZCLAW_VOLC_LOG_ACCESS_KEY_SECRET}
-
-  analytics:
-    kind: clickhouse
-    dsn: ${GIZCLAW_CLICKHOUSE_DSN}
 
 # Dynamic registry of logical data-access interfaces. Provider-specific scope
 # is expressed directly on the Store.
 stores:
   logs:
     kind: log.immutable
-    storage: volc-logs
-    topic_id: ${GIZCLAW_VOLC_LOG_TOPIC_ID}
+    storage: database
+    table: gizclaw_logs
 
   metrics:
     kind: metrics
-    storage: analytics
+    storage: database
     table: gizclaw_metrics
 
   flowcraft-history:
     kind: log.mutable
-    storage: analytics
-    database: default
+    storage: database
     table: gizclaw_flowcraft_history
 
   flowcraft-state:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: flowcraft-state
+    table: gizclaw_flowcraft_state
 
   peers:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: peers
+    table: gizclaw_peers
 
   public-login:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: public-login
+    table: gizclaw_public_login
 
   credentials:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: credentials
+    table: gizclaw_credentials
 
   firmwares:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: firmwares
+    table: gizclaw_firmwares
 
   runtime-profiles:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: runtime-profiles
+    table: gizclaw_runtime_profiles
 
   models:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: models
+    table: gizclaw_models
 
   voices:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: voices
+    table: gizclaw_voices
 
   memory-layouts:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: memory-layouts
+    table: gizclaw_memory_layouts
 
   provider-tenants:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: provider-tenants
+    table: gizclaw_provider_tenants
 
   workflows:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: workflows
+    table: gizclaw_workflows
 
   workspaces:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: workspaces
+    table: gizclaw_workspaces
 
   tools:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: tools
+    table: gizclaw_tools
 
   contacts:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: contacts
+    table: gizclaw_contacts
 
   friends:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: friends
+    table: gizclaw_friends
 
   friend-groups:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: friend-groups
+    table: gizclaw_friend_groups
 
   gameplay:
     kind: keyvalue
-    storage: main-kv
+    storage: database
     prefix: gameplay
+    table: gizclaw_gameplay
 
   agenthost:
     kind: objectstore
@@ -153,7 +154,7 @@ stores:
 
   gameplay-db:
     kind: sql
-    storage: gameplay-db
+    storage: database
 
 # Fixed service schema. Internal collections and indexes are code-owned; each
 # service names only one Store per capability it consumes.

@@ -1020,7 +1020,7 @@ func validateConfigShape(data []byte) error {
 			return fmt.Errorf("server: stores.%s kind %q is not supported; use %s or %s", name, kind, store.KindLogImmutable, store.KindLogMutable)
 		}
 		allowedFields := map[string]map[string]struct{}{
-			store.KindKeyValue:     {"kind": {}, "storage": {}, "prefix": {}},
+			store.KindKeyValue:     {"kind": {}, "storage": {}, "prefix": {}, "table": {}},
 			store.KindObjectStore:  {"kind": {}, "storage": {}, "prefix": {}},
 			store.KindSQL:          {"kind": {}, "storage": {}},
 			store.KindMetrics:      {"kind": {}, "storage": {}, "table": {}, "database": {}},

@@ -53,12 +53,12 @@ flowchart TB
 
 | Store kind | Interface and scope |
 | --- | --- |
-| `keyvalue` | `kv.Store`; optional key prefix over a physical KV connector |
+| `keyvalue` | `kv.Store`; Badger/memory or a required dedicated SQLite/PostgreSQL `table`, plus an optional key prefix |
 | `sql` | borrowed `*sqlx.DB` physical pool; service owns its schema |
 | `objectstore` | `objectstore.ObjectStore`; optional object prefix |
-| `metrics` | `metrics.Store`; `memory`, Prometheus, or ClickHouse Storage |
-| `log.immutable` | `logstore.ImmutableStore`; Volc topic or ClickHouse table |
-| `log.mutable` | `logstore.MutableStore`; ClickHouse table |
+| `metrics` | `metrics.Store`; `memory`, Prometheus, ClickHouse, or a SQLite/PostgreSQL table |
+| `log.immutable` | `logstore.ImmutableStore`; Volc topic or a ClickHouse/SQLite/PostgreSQL table |
+| `log.mutable` | `logstore.MutableStore`; a ClickHouse/SQLite/PostgreSQL table |
 
 | Storage kind | Physical configuration |
 | --- | --- |
@@ -90,6 +90,8 @@ directory to PostgreSQL or a DSN/provider credential to Badger.
 `kind` to its concrete Go type; YAML fields never enter the public config types.
 
 Multiple Stores may borrow one connector. The caller closes logical `Stores` first and physical `Storage` second. `memory` is a stateless marker; every keyvalue or metrics Store that references it creates an independent instance. `vecstore` and `graph` have no built-in Server consumer, so they are not command-layer Store kinds; their public packages and constructors remain available. Memory connections selected through RuntimeProfile and MemoryLayout remain outside this registry.
+
+Each SQLite/PostgreSQL KV, Metrics, or Log Store declares one unqualified ASCII `table` of at most 63 bytes. Logical declarations cannot claim the same table on one connector: SQLite compares ASCII names case-insensitively, while PostgreSQL compares exact quoted names. The registry validates the complete compatibility, scope, and table-claim set before any DDL. Every table has an isolated, stably named forward-only goose migration history. Construction rejects an unversioned existing table, future history, missing columns, or missing indexes without adopting, rewriting, or importing old backend data. Logical `Close` changes only adapter state and never closes the borrowed `*sqlx.DB`.
 
 ### Process SQLite DSN contract
 

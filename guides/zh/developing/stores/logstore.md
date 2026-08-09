@@ -20,6 +20,7 @@
 | --- | --- | --- |
 | Volc TLS | `ImmutableStore` | 同一 TLS SDK client 上的 PutLogsV2 与 SearchLogs；不支持 mutation |
 | ClickHouse | `MutableStore` | 独立 MergeTree 表与同步 replace/delete mutation |
+| SQLite / PostgreSQL | `MutableStore` | 独立关系表、原子 append/replace/delete 与共享 SQL cursor |
 
 每个逻辑 Log Store 都必须声明 `log.immutable` 或 `log.mutable`。`Stores.Log` 接受两种声明，`Stores.MutableLog` 只接受 `log.mutable`。Volc TLS 不能满足可变 Flowcraft History。物理连接 ownership 始终属于 `storage`。
 
@@ -70,6 +71,12 @@ stores:
 Driver 会创建并校验独立 `MergeTree` 表，按月分区，并按 `(timestamp, stream, id)` 排序。`Append` 会在同一 store instance 内串行执行查重与同步 batch insert，只在 commit 后返回 key；`Query` 把结构化 contract 直接转换为参数化 ClickHouse SQL，通过 `(timestamp, stream, id)` 分页，不建立额外分页索引。`Replace` 使用同步 `ALTER UPDATE`，`Delete` 使用同步 `ALTER DELETE`；二者都只针对一个 `(stream, id)`。发现重复 key 时会报错，不会静默修改多行。
 
 物理 DSN 已选择 database 时可以省略逻辑 `database` 字段。ClickHouse driver 不额外施加本地 payload 大小限制；service limit、retention 和 table policy 仍由 operator 负责。逻辑 Metrics 与 Log Store 可以共享一个物理 pool，但不拥有它。
+
+### SQLite / PostgreSQL
+
+每个逻辑 Store 必须声明独立 `table`。关系表用 `(stream, id)` 唯一标识 record，以 UTC nanoseconds 保存 time，并按 `(time, stream, id)` 稳定分页；flat attributes 使用 canonical JSON，payload 保留原始 JSON bytes。Append 在一个 transaction 中查重并写入完整 batch；Replace 不是 upsert，不能改变 time；Delete 对缺失 key 返回 `ErrNotFound`。Immutable 与 mutable 声明使用同一实现，但 Registry 只对 `log.mutable` 暴露 mutation capability。
+
+ClickHouse、SQLite 和 PostgreSQL 共用 version-1 opaque cursor：它绑定 normalized selector、text、millisecond-aligned `[Start, End)` 和 order，允许 continuation 修改 limit，并保持 16 KiB bound。相同 records 可以跨三种 SQL driver continuation。SQLite/PostgreSQL 的 text matching 保持 case-sensitive literal，attribute matcher 在 validated flat map 上执行；逻辑 Store 不关闭共享 pool。
 
 ## Process logging
 

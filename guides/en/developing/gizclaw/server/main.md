@@ -37,7 +37,7 @@ The old one-layer Store configuration, top-level pseudo-service blocks, implicit
 
 ### Complete configuration
 
-The following development deployment uses Badger for KV state, SQLite for Gameplay SQL, a filesystem ObjectStore, Volc TLS logs, and one ClickHouse pool shared by Metrics and Flowcraft History. Production can change `storage.gameplay-db.kind` to `postgresql` and replace `dir` with `dsn` without changing the logical Store or service binding.
+The complete production configuration below lets table-scoped KV, Metrics, immutable/mutable Log, and Gameplay raw SQL Stores borrow one PostgreSQL pool while ObjectStores use a separate filesystem root. Every logical SQL Store completes its isolated forward-only migration and schema/index validation before listeners start; any failure stops startup without a backend fallback. A local SQLite deployment keeps the same `stores` and `services` and changes only `storage.database` to `kind: sqlite` with `dir` or `dsn`.
 
 <<< ../../../../snippets/server-storage-stores-services.yaml{yaml}
 

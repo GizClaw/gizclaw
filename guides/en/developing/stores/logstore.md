@@ -20,6 +20,7 @@ A `Record` requires an `ID`, time, `Stream`, and `Kind`, and can carry severity,
 | --- | --- | --- |
 | Volc TLS | `ImmutableStore` | PutLogsV2 and SearchLogs over one TLS SDK client; mutations are unsupported |
 | ClickHouse | `MutableStore` | Dedicated MergeTree table with synchronous replace and delete mutations |
+| SQLite / PostgreSQL | `MutableStore` | Dedicated relational table, atomic append/replace/delete, and the shared SQL cursor |
 
 Every logical Log Store declares `log.immutable` or `log.mutable`. `Stores.Log` accepts both declarations, while `Stores.MutableLog` accepts only `log.mutable`. Volc TLS cannot satisfy mutable Flowcraft History. Physical connection ownership remains under `storage`.
 
@@ -70,6 +71,12 @@ stores:
 The driver creates and validates a dedicated `MergeTree` table, partitioned by month and ordered by `(timestamp, stream, id)`. `Append` serializes duplicate checks and synchronous batch insertion within one store instance, then returns keys only after commit. `Query` translates the structured contract directly to parameterized ClickHouse SQL and pages by `(timestamp, stream, id)` without a separate index. `Replace` uses a synchronous `ALTER UPDATE`, and `Delete` uses a synchronous `ALTER DELETE`; both target exactly one `(stream, id)` pair. The driver rejects duplicate keys instead of silently mutating multiple rows.
 
 The logical `database` field is optional when the physical DSN already selects one. The ClickHouse driver does not impose an additional local payload-size limit; operators remain responsible for service limits, retention, and table policy. Logical Metrics and Log Stores may share one physical pool without owning it.
+
+### SQLite / PostgreSQL
+
+Each logical Store requires a dedicated `table`. The relational table uniquely keys records by `(stream, id)`, stores time as UTC nanoseconds, and pages in stable `(time, stream, id)` order. Flat attributes use canonical JSON, while payload JSON retains its original bytes. Append rejects duplicates and writes a complete batch in one transaction. Replace is not an upsert and cannot change time. Delete returns `ErrNotFound` for a missing key. Immutable and mutable declarations use the same implementation, but the registry exposes mutation only for `log.mutable`.
+
+ClickHouse, SQLite, and PostgreSQL share the version-1 opaque cursor. It binds normalized selectors, text, the millisecond-aligned `[Start, End)` interval, and order while allowing a continuation to change its limit, with the same 16 KiB bound. Identical records can continue across all three SQL drivers. SQLite/PostgreSQL text matching remains case-sensitive and literal, attribute matchers run over the validated flat map, and the logical Store never closes its shared pool.
 
 ## Process logging
 

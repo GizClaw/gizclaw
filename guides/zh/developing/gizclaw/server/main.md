@@ -37,7 +37,7 @@ Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service 
 
 ### 完整配置
 
-下面的开发部署使用 Badger 保存 KV 状态、SQLite 保存 Gameplay SQL、filesystem ObjectStore、Volc TLS 日志，以及由 Metrics 和 Flowcraft History 共享的一个 ClickHouse pool。生产环境可以把 `storage.gameplay-db.kind` 改为 `postgresql` 并将 `dir` 改为 `dsn`，无需修改逻辑 Store 或 service binding。
+下面的完整生产配置让 table-scoped KV、Metrics、immutable/mutable Log 和 Gameplay raw SQL Store 借用同一个 PostgreSQL pool，并让 ObjectStore 使用独立 filesystem root。所有逻辑 SQL Store 在 listener 启动前完成独立的 forward-only migration 与 schema/index 校验；任何一个失败都会终止启动而不会回退到其他 backend。SQLite 本地部署使用相同 `stores` 与 `services`，只把 `storage.database` 改为 `kind: sqlite` 和 `dir`/`dsn`。
 
 <<< ../../../../snippets/server-storage-stores-services.yaml{yaml}
 

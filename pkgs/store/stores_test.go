@@ -1,13 +1,17 @@
 package store
 
 import (
+	"context"
+	"encoding/json"
 	"io"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	physicalstorage "github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
@@ -102,11 +106,11 @@ func TestStoreKindsRejectIncompatibleStorageKinds(t *testing.T) {
 		config      Config
 		storageKind string
 	}{
-		{"keyvalue", Config{Kind: KindKeyValue, Storage: "database"}, physicalstorage.KindSQLite},
+		{"keyvalue", Config{Kind: KindKeyValue, Storage: "files"}, physicalstorage.KindFilesystemDir},
 		{"objectstore", Config{Kind: KindObjectStore, Storage: "memory"}, physicalstorage.KindMemory},
 		{"sql", Config{Kind: KindSQL, Storage: "files"}, physicalstorage.KindFilesystemDir},
-		{"metrics", Config{Kind: KindMetrics, Storage: "database"}, physicalstorage.KindSQLite},
-		{"log.immutable", Config{Kind: KindLogImmutable, Storage: "database"}, physicalstorage.KindSQLite},
+		{"metrics", Config{Kind: KindMetrics, Storage: "files"}, physicalstorage.KindFilesystemDir},
+		{"log.immutable", Config{Kind: KindLogImmutable, Storage: "memory"}, physicalstorage.KindMemory},
 		{"log.mutable", Config{Kind: KindLogMutable, Storage: "memory"}, physicalstorage.KindMemory},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -179,6 +183,94 @@ func TestSQLUsesCompatibleDatabaseStorage(t *testing.T) {
 	}
 	if err := db.Ping(); err != nil {
 		t.Fatalf("Stores.Close closed borrowed SQL pool: %v", err)
+	}
+}
+
+func TestSQLiteSupportsTableScopedKVMetricAndLogStores(t *testing.T) {
+	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = physical.Close() })
+	registry, err := New(map[string]Config{
+		"kv":      {Kind: KindKeyValue, Storage: "database", Table: "kv_items", Prefix: "scope"},
+		"metrics": {Kind: KindMetrics, Storage: "database", Table: "metric_samples"},
+		"logs":    {Kind: KindLogImmutable, Storage: "database", Table: "immutable_logs"},
+		"history": {Kind: KindLogMutable, Storage: "database", Table: "mutable_logs"},
+		"raw":     {Kind: KindSQL, Storage: "database"},
+	}, physical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	ctx := context.Background()
+	kvStore, err := registry.KV("kv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := kvStore.Set(ctx, kv.Key{"one"}, []byte("value")); err != nil {
+		t.Fatal(err)
+	}
+	metricStore, err := registry.Metrics("metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.UnixMilli(1000).UTC()
+	if err := metricStore.Append(ctx, []metrics.Sample{{Name: "test", Timestamp: now, Value: 1}}); err != nil {
+		t.Fatal(err)
+	}
+	logStore, err := registry.Log("logs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := logStore.Append(ctx, []logstore.Record{{ID: "one", Stream: "events", Kind: "created", Time: now, Payload: json.RawMessage(`{"ok":true}`)}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registry.MutableLog("logs"); err == nil {
+		t.Fatal("immutable declaration exposed mutable capability")
+	}
+	if _, err := registry.MutableLog("history"); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := registry.SQL("raw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := raw.Ping(); err != nil {
+		t.Fatalf("Stores.Close closed shared pool: %v", err)
+	}
+}
+
+func TestSQLiteTableClaimsFailBeforeDDL(t *testing.T) {
+	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = physical.Close() })
+	_, err = New(map[string]Config{
+		"first":  {Kind: KindKeyValue, Storage: "database", Table: "SharedTable"},
+		"second": {Kind: KindMetrics, Storage: "database", Table: "sharedtable"},
+	}, physical)
+	if err == nil || !strings.Contains(err.Error(), "claimed by both") {
+		t.Fatalf("New() error = %v", err)
+	}
+	db, err := physical.SQL("database")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := db.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name LIKE 'gizclaw_%'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("preflight failure created %d migration tables", count)
 	}
 }
 

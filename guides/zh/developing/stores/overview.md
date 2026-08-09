@@ -53,12 +53,12 @@ flowchart TB
 
 | Store kind | 接口与 scope |
 | --- | --- |
-| `keyvalue` | `kv.Store`；物理 KV connector 上可选的 key prefix |
+| `keyvalue` | `kv.Store`；Badger/memory，或 SQLite/PostgreSQL 上必填的独立 `table`；可选 key prefix |
 | `sql` | 借用物理 `*sqlx.DB` pool；schema 由 service 拥有 |
 | `objectstore` | `objectstore.ObjectStore`；可选 object prefix |
-| `metrics` | `metrics.Store`；`memory`、Prometheus 或 ClickHouse Storage |
-| `log.immutable` | `logstore.ImmutableStore`；Volc topic 或 ClickHouse table |
-| `log.mutable` | `logstore.MutableStore`；ClickHouse table |
+| `metrics` | `metrics.Store`；`memory`、Prometheus、ClickHouse，或 SQLite/PostgreSQL table |
+| `log.immutable` | `logstore.ImmutableStore`；Volc topic、ClickHouse table 或 SQLite/PostgreSQL table |
+| `log.mutable` | `logstore.MutableStore`；ClickHouse、SQLite 或 PostgreSQL table |
 
 | Storage kind | 物理配置 |
 | --- | --- |
@@ -88,6 +88,8 @@ Badger 传入 DSN 或 provider credential。`cmd/internal/server` 保留扁平 Y
 根据 `kind` 显式转换为对应的具体 Go 类型；YAML 字段不会进入公共配置类型。
 
 多个 Store 可以借用同一个 connector；调用方必须先关闭逻辑 `Stores`，再关闭物理 `Storage`。`memory` 只是无状态 marker，每个引用它的 keyvalue 或 metrics Store 都创建独立实例。`vecstore` 与 `graph` 没有内置 Server 消费者，因此不属于命令层 Store 配置；对应公共 package 与构造函数仍保留。RuntimeProfile 与 MemoryLayout 选择的 Memory connection 仍在此 registry 之外。
+
+SQLite/PostgreSQL 的 KV、Metrics 和 Log Store 各自声明一个未限定、最长 63 bytes 的 ASCII `table`。同一物理 connector 上的逻辑声明不能重复占用表；SQLite 按 ASCII 大小写不敏感比较，PostgreSQL 按带引号的精确名称比较。Registry 在任何 DDL 前完成整组兼容性、scope 和 table claim 校验。每张表使用独立、稳定命名的 goose forward-only migration history；构造会拒绝无迁移历史的既有表、未来版本、缺列或缺索引，不会接管、重写或导入旧 backend 数据。逻辑 `Close` 只关闭 adapter 状态，不关闭借用的 `*sqlx.DB`。
 
 ### 进程 SQLite DSN 契约
 

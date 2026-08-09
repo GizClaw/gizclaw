@@ -897,6 +897,43 @@ stores:
 	}
 }
 
+func TestParseConfigReadsSQLBackedLogicalStoreScopes(t *testing.T) {
+	cfg, err := parseConfigData([]byte(`
+storage:
+  database:
+    kind: sqlite
+    dsn: ":memory:"
+stores:
+  state:
+    kind: keyvalue
+    storage: database
+    prefix: service
+    table: state_items
+  telemetry:
+    kind: metrics
+    storage: database
+    table: metric_samples
+  logs:
+    kind: log.immutable
+    storage: database
+    table: log_records
+  history:
+    kind: log.mutable
+    storage: database
+    table: history_records
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, table := range map[string]string{
+		"state": "state_items", "telemetry": "metric_samples", "logs": "log_records", "history": "history_records",
+	} {
+		if got := cfg.Stores[name].Table; got != table {
+			t.Fatalf("stores.%s.table = %q, want %q", name, got, table)
+		}
+	}
+}
+
 func TestE2ELogConfigFixturesUseReadablePlaceholders(t *testing.T) {
 	for _, path := range []string{
 		filepath.Join("..", "..", "..", "tests", "gizclaw-e2e", "testdata", "server-workspace", "config.yaml.template"),
@@ -932,8 +969,8 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 	if cfg.Services == nil || cfg.Services.AgentHost == nil || cfg.Services.AgentHost.Flowcraft == nil || cfg.Services.Metrics == nil || cfg.Services.SystemLog == nil {
 		t.Fatalf("complete services block = %+v", cfg.Services)
 	}
-	if len(cfg.Storage) != 5 {
-		t.Fatalf("storage count = %d, want 5", len(cfg.Storage))
+	if len(cfg.Storage) != 2 {
+		t.Fatalf("storage count = %d, want 2", len(cfg.Storage))
 	}
 	for _, name := range []string{
 		"logs", "metrics", "flowcraft-history", "flowcraft-state", "peers",
@@ -943,6 +980,14 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 	} {
 		if _, exists := cfg.Stores[name]; !exists {
 			t.Fatalf("stores.%s is missing", name)
+		}
+	}
+	for name, logical := range cfg.Stores {
+		switch logical.Kind {
+		case stores.KindKeyValue, stores.KindMetrics, stores.KindLogImmutable, stores.KindLogMutable:
+			if logical.Storage != "database" || logical.Table == "" {
+				t.Fatalf("stores.%s = %+v, want table-scoped database Store", name, logical)
+			}
 		}
 	}
 	assertCompleteServerConfigInventory(t, cfg)

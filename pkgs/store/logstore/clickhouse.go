@@ -3,12 +3,10 @@ package logstore
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -17,8 +15,7 @@ import (
 )
 
 const (
-	clickHouseTimeout     = 30 * time.Second
-	clickHouseCursorLimit = 16 * 1024
+	clickHouseTimeout = 30 * time.Second
 )
 
 var clickHouseIdentifierRE = regexp.MustCompile("^[A-Za-z_][A-Za-z0-9_]*$")
@@ -487,66 +484,6 @@ func (store *ClickHouseStore) Close() error {
 	return store.closeErr
 }
 
-type clickHouseBoundQuery struct {
-	Streams    []string
-	Kinds      []string
-	Severities []string
-	Matchers   []AttributeMatcher
-	Text       string
-	StartMS    int64
-	EndMS      int64
-	Order      Order
-}
-
-type clickHousePosition struct {
-	TimeUnixNano int64
-	Stream       string
-	ID           string
-}
-
-type clickHouseCursor struct {
-	Version  int
-	Query    clickHouseBoundQuery
-	Position clickHousePosition
-}
-
-func normalizeClickHouseQuery(query Query) clickHouseBoundQuery {
-	bound := clickHouseBoundQuery{
-		Streams:    append([]string(nil), query.Streams...),
-		Kinds:      append([]string(nil), query.Kinds...),
-		Severities: append([]string(nil), query.Severities...),
-		Matchers:   append([]AttributeMatcher(nil), query.Matchers...),
-		Text:       query.Text,
-		StartMS:    query.Start.UnixMilli(),
-		EndMS:      query.End.UnixMilli(),
-		Order:      query.Order,
-	}
-	slices.Sort(bound.Streams)
-	slices.Sort(bound.Kinds)
-	slices.Sort(bound.Severities)
-	for index := range bound.Matchers {
-		if bound.Matchers[index].Op == MatchExists || bound.Matchers[index].Op == MatchNotExists {
-			bound.Matchers[index].Value = ""
-		}
-	}
-	slices.SortFunc(bound.Matchers, func(left, right AttributeMatcher) int {
-		if value := strings.Compare(left.Name, right.Name); value != 0 {
-			return value
-		}
-		if value := strings.Compare(string(left.Op), string(right.Op)); value != 0 {
-			return value
-		}
-		return strings.Compare(left.Value, right.Value)
-	})
-	return bound
-}
-
-func equalClickHouseQuery(left, right clickHouseBoundQuery) bool {
-	leftJSON, _ := json.Marshal(left)
-	rightJSON, _ := json.Marshal(right)
-	return string(leftJSON) == string(rightJSON)
-}
-
 func buildClickHouseWhere(query clickHouseBoundQuery, position *clickHousePosition) (string, []any) {
 	parts := []string{"timestamp >= ?", "timestamp < ?"}
 	args := []any{time.UnixMilli(query.StartMS).UTC(), time.UnixMilli(query.EndMS).UTC()}
@@ -592,36 +529,6 @@ func buildClickHouseWhere(query clickHouseBoundQuery, position *clickHousePositi
 		args = append(args, position.TimeUnixNano, position.TimeUnixNano, position.Stream, position.Stream, position.ID)
 	}
 	return strings.Join(parts, " AND "), args
-}
-
-func encodeClickHouseCursor(cursor clickHouseCursor) (string, error) {
-	data, err := json.Marshal(cursor)
-	if err != nil {
-		return "", err
-	}
-	encoded := base64.RawURLEncoding.EncodeToString(data)
-	if len(encoded) > clickHouseCursorLimit {
-		return "", errors.New("logstore: clickhouse cursor is too large")
-	}
-	return encoded, nil
-}
-
-func decodeClickHouseCursor(value string) (clickHouseCursor, error) {
-	if len(value) > clickHouseCursorLimit {
-		return clickHouseCursor{}, fmt.Errorf("%w: cursor is too large", ErrCursorMismatch)
-	}
-	data, err := base64.RawURLEncoding.DecodeString(strings.TrimSpace(value))
-	if err != nil || len(data) > clickHouseCursorLimit {
-		return clickHouseCursor{}, fmt.Errorf("%w: cursor is malformed", ErrCursorMismatch)
-	}
-	var cursor clickHouseCursor
-	if err := json.Unmarshal(data, &cursor); err != nil ||
-		cursor.Version != 1 ||
-		strings.TrimSpace(cursor.Position.Stream) == "" ||
-		strings.TrimSpace(cursor.Position.ID) == "" {
-		return clickHouseCursor{}, fmt.Errorf("%w: cursor is invalid", ErrCursorMismatch)
-	}
-	return cursor, nil
 }
 
 var (
