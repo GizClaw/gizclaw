@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlbackend"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
@@ -213,7 +212,7 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 		if cfg.Table == "" {
 			return fmt.Errorf("stores: %s %q requires table for %s storage", cfg.Kind, name, storageKind)
 		}
-		if err := sqlbackend.ValidateIdentifier(cfg.Table); err != nil {
+		if err := storage.ValidateSQLIdentifier(cfg.Table); err != nil {
 			return fmt.Errorf("stores: %s %q table %q: %w", cfg.Kind, name, cfg.Table, err)
 		}
 		return nil
@@ -239,7 +238,7 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 			if cfg.Prefix == "" {
 				return fmt.Errorf("stores: keyvalue %q requires prefix for %s storage", name, storageKind)
 			}
-			if err := sqlbackend.ValidateTableName(cfg.Prefix); err != nil {
+			if err := storage.ValidateSQLTableName(cfg.Prefix); err != nil {
 				return fmt.Errorf("stores: keyvalue %q prefix %q: %w", name, cfg.Prefix, err)
 			}
 			return nil

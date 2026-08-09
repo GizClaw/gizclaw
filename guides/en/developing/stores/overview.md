@@ -93,6 +93,8 @@ Multiple Stores may borrow one connector. The caller closes logical `Stores` fir
 
 A SQLite/PostgreSQL KV Store declares only one single-segment `prefix`; the backend uses it directly as the quoted physical table name and does not repeat that prefix inside encoded keys. Metrics and Log Stores continue declaring `table`. These physical names are unqualified ASCII names of at most 63 bytes; a KV prefix may also contain `-`. Logical declarations cannot claim the same physical table on one connector: SQLite compares ASCII names case-insensitively, while PostgreSQL compares exact quoted names. The registry validates the complete compatibility, scope, and table-claim set before any DDL. Construction directly ensures the table and indexes with idempotent `CREATE ... IF NOT EXISTS`, then validates the exact columns, primary key, identity, and indexes. It creates no schema version or history table and never imports or rewrites existing backend data. A compatible existing table is reused; an incompatible definition fails startup. Logical `Close` changes only adapter state and never closes the borrowed `*sqlx.DB`.
 
+`storage.SQLTable` is the single owner of SQLite/PostgreSQL borrowed-table dialect, identifier, quoting, initialization, and schema-inspection behavior; callers can construct it only from a validated pool and table name. KV, Metrics, and Log continue owning their business table definitions but consume this storage capability directly, without a separate SQL backend helper package.
+
 ### Process SQLite DSN contract
 
 `pkgs/store/storage` accepts modernc SQLite DSNs and continues to support

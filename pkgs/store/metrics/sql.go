@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlbackend"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -22,9 +22,9 @@ const sqlStoreInitializationTimeout = 30 * time.Second
 // SQLStore persists metric samples in one SQLite or PostgreSQL table while
 // borrowing the caller-owned connection pool.
 type SQLStore struct {
-	db      *sqlx.DB
-	backend sqlbackend.Backend
-	quoted  string
+	db     *sqlx.DB
+	table  storage.SQLTable
+	quoted string
 
 	mu     sync.RWMutex
 	closed bool
@@ -38,14 +38,14 @@ func NewSQLStoreWithDB(db *sqlx.DB, table string) (*SQLStore, error) {
 }
 
 func newSQLStoreWithDB(ctx context.Context, db *sqlx.DB, table string) (*SQLStore, error) {
-	backend, err := sqlbackend.Prepare(db, "metrics", table)
+	sqlTable, err := storage.PrepareSQLTable(db, "metrics", table)
 	if err != nil {
 		return nil, fmt.Errorf("metrics: sql table %q: %w", table, err)
 	}
-	if err := ensureSQLSchema(ctx, db, backend); err != nil {
+	if err := ensureSQLSchema(ctx, db, sqlTable); err != nil {
 		return nil, fmt.Errorf("metrics: initialize sql table %q: %w", table, err)
 	}
-	store := &SQLStore{db: db, backend: backend, quoted: backend.Quoted}
+	store := &SQLStore{db: db, table: sqlTable, quoted: sqlTable.Quoted()}
 	if err := store.checkSchema(ctx); err != nil {
 		return nil, err
 	}
@@ -53,15 +53,15 @@ func newSQLStoreWithDB(ctx context.Context, db *sqlx.DB, table string) (*SQLStor
 }
 
 func (store *SQLStore) checkSchema(ctx context.Context) error {
-	columns, err := sqlbackend.Columns(ctx, store.db, store.backend)
+	columns, err := storage.SQLColumns(ctx, store.db, store.table)
 	if err != nil {
-		return fmt.Errorf("metrics: inspect sql table %q: %w", store.backend.Table, err)
+		return fmt.Errorf("metrics: inspect sql table %q: %w", store.table.Name(), err)
 	}
 	sequenceNullable := true
-	if store.backend.Dialect == sqlbackend.PostgreSQL {
+	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
 		sequenceNullable = false
 	}
-	want := map[string]sqlbackend.Column{
+	want := map[string]storage.SQLColumn{
 		"sequence":            {Type: "BIGINT", Nullable: sequenceNullable, PrimaryKeyPosition: 1},
 		"metric":              {Type: "TEXT", Nullable: false},
 		"series_key":          {Type: "TEXT", Nullable: false},
@@ -69,24 +69,24 @@ func (store *SQLStore) checkSchema(ctx context.Context) error {
 		"timestamp_unix_nano": {Type: "BIGINT", Nullable: false},
 		"value_bits":          {Type: "BIGINT", Nullable: false},
 	}
-	if store.backend.Dialect == sqlbackend.SQLite {
+	if store.table.Dialect() == storage.SQLDialectSQLite {
 		column := want["sequence"]
 		column.Type = "INTEGER"
 		want["sequence"] = column
 	}
-	if err := sqlbackend.ValidateColumns(columns, want); err != nil {
-		return fmt.Errorf("metrics: incompatible sql table %q: %w", store.backend.Table, err)
+	if err := storage.ValidateSQLColumns(columns, want); err != nil {
+		return fmt.Errorf("metrics: incompatible sql table %q: %w", store.table.Name(), err)
 	}
-	if err := sqlbackend.ValidateSequenceIdentity(ctx, store.db, store.backend, "sequence"); err != nil {
-		return fmt.Errorf("metrics: incompatible sql table %q sequence: %w", store.backend.Table, err)
+	if err := storage.ValidateSQLSequenceIdentity(ctx, store.db, store.table, "sequence"); err != nil {
+		return fmt.Errorf("metrics: incompatible sql table %q sequence: %w", store.table.Name(), err)
 	}
 	for _, index := range sqlMetricIndexes {
-		name, err := sqlbackend.IndexName(store.backend, index.purpose)
+		name, err := storage.SQLIndexName(store.table, index.purpose)
 		if err != nil {
-			return fmt.Errorf("metrics: derive sql table %q index: %w", store.backend.Table, err)
+			return fmt.Errorf("metrics: derive sql table %q index: %w", store.table.Name(), err)
 		}
-		if err := sqlbackend.ValidateIndexColumns(ctx, store.db, store.backend, name, index.want); err != nil {
-			return fmt.Errorf("metrics: incompatible sql table %q index %q: %w", store.backend.Table, name, err)
+		if err := storage.ValidateSQLIndexColumns(ctx, store.db, store.table, name, index.want); err != nil {
+			return fmt.Errorf("metrics: incompatible sql table %q index %q: %w", store.table.Name(), name, err)
 		}
 	}
 	return nil
@@ -131,7 +131,7 @@ func (store *SQLStore) Append(ctx context.Context, samples []Sample) error {
 		if err != nil {
 			return fmt.Errorf("metrics: encode sql labels: %w", err)
 		}
-		timestamp, err := sqlbackend.UnixNano(sample.Timestamp)
+		timestamp, err := storage.SQLUnixNano(sample.Timestamp)
 		if err != nil {
 			return fmt.Errorf("metrics: sample timestamp: %w", err)
 		}
@@ -145,22 +145,22 @@ func (store *SQLStore) Append(ctx context.Context, samples []Sample) error {
 	}
 	tx, err := store.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return sqlbackend.ExternalError("metrics: begin sql append", err)
+		return storage.ExternalSQLError("metrics: begin sql append", err)
 	}
 	defer tx.Rollback()
-	query := sqlbackend.Rebind(store.db, "INSERT INTO "+store.quoted+" (metric, series_key, labels_json, timestamp_unix_nano, value_bits) VALUES (?, ?, ?, ?, ?)")
+	query := store.db.Rebind("INSERT INTO " + store.quoted + " (metric, series_key, labels_json, timestamp_unix_nano, value_bits) VALUES (?, ?, ?, ?, ?)")
 	statement, err := tx.PrepareContext(ctx, query)
 	if err != nil {
-		return sqlbackend.ExternalError("metrics: prepare sql append", err)
+		return storage.ExternalSQLError("metrics: prepare sql append", err)
 	}
 	defer statement.Close()
 	for _, sample := range prepared {
 		if _, err := statement.ExecContext(ctx, sample.name, sample.seriesKey, sample.labelsJSON, sample.timestamp, sample.valueBits); err != nil {
-			return sqlbackend.ExternalError("metrics: append sql sample", err)
+			return storage.ExternalSQLError("metrics: append sql sample", err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return sqlbackend.ExternalError("metrics: commit sql append", err)
+		return storage.ExternalSQLError("metrics: commit sql append", err)
 	}
 	return nil
 }
@@ -291,18 +291,18 @@ func (store *SQLStore) load(ctx context.Context, selector Selector, start, end t
 		return nil, err
 	}
 	defer unlock()
-	startNano, err := sqlbackend.UnixNano(start)
+	startNano, err := storage.SQLUnixNano(start)
 	if err != nil {
 		return nil, fmt.Errorf("metrics: query start: %w", err)
 	}
-	endNano, err := sqlbackend.UnixNano(end)
+	endNano, err := storage.SQLUnixNano(end)
 	if err != nil {
 		return nil, fmt.Errorf("metrics: query end: %w", err)
 	}
-	query := sqlbackend.Rebind(store.db, "SELECT sequence, series_key, labels_json, timestamp_unix_nano, value_bits FROM "+store.quoted+" WHERE metric = ? AND timestamp_unix_nano >= ? AND timestamp_unix_nano <= ? ORDER BY series_key, timestamp_unix_nano, sequence")
+	query := store.db.Rebind("SELECT sequence, series_key, labels_json, timestamp_unix_nano, value_bits FROM " + store.quoted + " WHERE metric = ? AND timestamp_unix_nano >= ? AND timestamp_unix_nano <= ? ORDER BY series_key, timestamp_unix_nano, sequence")
 	rows, err := store.db.QueryContext(ctx, query, selector.Name, startNano, endNano)
 	if err != nil {
-		return nil, sqlbackend.ExternalError("metrics: query sql samples", err)
+		return nil, storage.ExternalSQLError("metrics: query sql samples", err)
 	}
 	defer rows.Close()
 	series := map[string]*sqlMetricSeries{}
@@ -310,7 +310,7 @@ func (store *SQLStore) load(ctx context.Context, selector Selector, start, end t
 		var sequence, timestamp, bits int64
 		var key, labelsJSON string
 		if err := rows.Scan(&sequence, &key, &labelsJSON, &timestamp, &bits); err != nil {
-			return nil, sqlbackend.ExternalError("metrics: scan sql sample", err)
+			return nil, storage.ExternalSQLError("metrics: scan sql sample", err)
 		}
 		labels := map[string]string{}
 		if err := json.Unmarshal([]byte(labelsJSON), &labels); err != nil {
@@ -330,7 +330,7 @@ func (store *SQLStore) load(ctx context.Context, selector Selector, start, end t
 		})
 	}
 	if err := rows.Err(); err != nil {
-		return nil, sqlbackend.ExternalError("metrics: query sql sample rows", err)
+		return nil, storage.ExternalSQLError("metrics: query sql sample rows", err)
 	}
 	for _, item := range series {
 		slices.SortFunc(item.points, func(left, right sqlMetricPoint) int {

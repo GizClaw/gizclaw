@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlbackend"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -19,9 +19,9 @@ const sqlLogInitializationTimeout = 30 * time.Second
 // SQLStore implements MutableStore over one SQLite or PostgreSQL table. The
 // supplied pool is borrowed and is never closed by this adapter.
 type SQLStore struct {
-	db      *sqlx.DB
-	backend sqlbackend.Backend
-	quoted  string
+	db     *sqlx.DB
+	table  storage.SQLTable
+	quoted string
 
 	mu     sync.RWMutex
 	closed bool
@@ -35,14 +35,14 @@ func NewSQLStoreWithDB(db *sqlx.DB, table string) (*SQLStore, error) {
 }
 
 func newSQLStoreWithDB(ctx context.Context, db *sqlx.DB, table string) (*SQLStore, error) {
-	backend, err := sqlbackend.Prepare(db, "log", table)
+	sqlTable, err := storage.PrepareSQLTable(db, "log", table)
 	if err != nil {
 		return nil, fmt.Errorf("logstore: sql table %q: %w", table, err)
 	}
-	if err := ensureSQLSchema(ctx, db, backend); err != nil {
+	if err := ensureSQLSchema(ctx, db, sqlTable); err != nil {
 		return nil, fmt.Errorf("logstore: initialize sql table %q: %w", table, err)
 	}
-	store := &SQLStore{db: db, backend: backend, quoted: backend.Quoted}
+	store := &SQLStore{db: db, table: sqlTable, quoted: sqlTable.Quoted()}
 	if err := store.checkSchema(ctx); err != nil {
 		return nil, err
 	}
@@ -50,15 +50,15 @@ func newSQLStoreWithDB(ctx context.Context, db *sqlx.DB, table string) (*SQLStor
 }
 
 func (store *SQLStore) checkSchema(ctx context.Context) error {
-	columns, err := sqlbackend.Columns(ctx, store.db, store.backend)
+	columns, err := storage.SQLColumns(ctx, store.db, store.table)
 	if err != nil {
-		return fmt.Errorf("logstore: inspect sql table %q: %w", store.backend.Table, err)
+		return fmt.Errorf("logstore: inspect sql table %q: %w", store.table.Name(), err)
 	}
 	payloadType := "BLOB"
-	if store.backend.Dialect == sqlbackend.PostgreSQL {
+	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
 		payloadType = "BYTEA"
 	}
-	want := map[string]sqlbackend.Column{
+	want := map[string]storage.SQLColumn{
 		"stream":              {Type: "TEXT", Nullable: false, PrimaryKeyPosition: 1},
 		"id":                  {Type: "TEXT", Nullable: false, PrimaryKeyPosition: 2},
 		"timestamp_unix_nano": {Type: "BIGINT", Nullable: false},
@@ -68,16 +68,16 @@ func (store *SQLStore) checkSchema(ctx context.Context) error {
 		"attributes_json":     {Type: "TEXT", Nullable: false},
 		"payload_json":        {Type: payloadType, Nullable: false},
 	}
-	if err := sqlbackend.ValidateColumns(columns, want); err != nil {
-		return fmt.Errorf("logstore: incompatible sql table %q: %w", store.backend.Table, err)
+	if err := storage.ValidateSQLColumns(columns, want); err != nil {
+		return fmt.Errorf("logstore: incompatible sql table %q: %w", store.table.Name(), err)
 	}
 	for _, index := range sqlLogIndexes {
-		name, err := sqlbackend.IndexName(store.backend, index.purpose)
+		name, err := storage.SQLIndexName(store.table, index.purpose)
 		if err != nil {
-			return fmt.Errorf("logstore: derive sql table %q index: %w", store.backend.Table, err)
+			return fmt.Errorf("logstore: derive sql table %q index: %w", store.table.Name(), err)
 		}
-		if err := sqlbackend.ValidateIndexColumns(ctx, store.db, store.backend, name, index.want); err != nil {
-			return fmt.Errorf("logstore: incompatible sql table %q index %q: %w", store.backend.Table, name, err)
+		if err := storage.ValidateSQLIndexColumns(ctx, store.db, store.table, name, index.want); err != nil {
+			return fmt.Errorf("logstore: incompatible sql table %q index %q: %w", store.table.Name(), name, err)
 		}
 	}
 	return nil
@@ -130,7 +130,7 @@ func (store *SQLStore) Append(ctx context.Context, records []Record) ([]RecordKe
 		if err != nil {
 			return nil, fmt.Errorf("logstore: encode sql attributes: %w", err)
 		}
-		if _, err := sqlbackend.UnixNano(record.Time); err != nil {
+		if _, err := storage.SQLUnixNano(record.Time); err != nil {
 			return nil, fmt.Errorf("logstore: record time: %w", err)
 		}
 		prepared = append(prepared, preparedRecord{record: cloneRecord(record), attributes: string(encoded)})
@@ -140,22 +140,22 @@ func (store *SQLStore) Append(ctx context.Context, records []Record) ([]RecordKe
 		return nil, err
 	}
 	defer tx.Rollback()
-	query := sqlbackend.Rebind(store.db, "INSERT INTO "+store.quoted+" (stream, id, timestamp_unix_nano, kind, severity, message, attributes_json, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+	query := store.db.Rebind("INSERT INTO " + store.quoted + " (stream, id, timestamp_unix_nano, kind, severity, message, attributes_json, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
 	statement, err := tx.PrepareContext(ctx, query)
 	if err != nil {
-		return nil, sqlbackend.ExternalError("logstore: prepare sql append", err)
+		return nil, storage.ExternalSQLError("logstore: prepare sql append", err)
 	}
 	defer statement.Close()
 	for _, item := range prepared {
 		record := item.record
 		payload := append([]byte{}, record.Payload...)
-		timestamp, _ := sqlbackend.UnixNano(record.Time)
+		timestamp, _ := storage.SQLUnixNano(record.Time)
 		if _, err := statement.ExecContext(ctx, record.Stream, record.ID, timestamp, record.Kind, record.Severity, record.Message, item.attributes, payload); err != nil {
-			return nil, sqlbackend.ExternalError("logstore: append sql record", err)
+			return nil, storage.ExternalSQLError("logstore: append sql record", err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return nil, sqlbackend.ExternalError("logstore: commit sql append", err)
+		return nil, storage.ExternalSQLError("logstore: commit sql append", err)
 	}
 	keys := make([]RecordKey, len(records))
 	for index, record := range records {
@@ -169,10 +169,10 @@ func (store *SQLStore) Query(ctx context.Context, query Query) (Page, error) {
 	if err := ValidateQuery(query); err != nil {
 		return Page{}, err
 	}
-	if _, err := sqlbackend.UnixNano(query.Start); err != nil {
+	if _, err := storage.SQLUnixNano(query.Start); err != nil {
 		return Page{}, fmt.Errorf("logstore: query start: %w", err)
 	}
-	if _, err := sqlbackend.UnixNano(query.End); err != nil {
+	if _, err := storage.SQLUnixNano(query.End); err != nil {
 		return Page{}, fmt.Errorf("logstore: query end: %w", err)
 	}
 	unlock, err := store.lock()
@@ -196,9 +196,9 @@ func (store *SQLStore) Query(ctx context.Context, query Query) (Page, error) {
 	if err != nil {
 		return Page{}, err
 	}
-	rows, err := store.db.QueryContext(ctx, sqlbackend.Rebind(store.db, statement), args...)
+	rows, err := store.db.QueryContext(ctx, store.db.Rebind(statement), args...)
 	if err != nil {
-		return Page{}, sqlbackend.ExternalError("logstore: query sql records", err)
+		return Page{}, storage.ExternalSQLError("logstore: query sql records", err)
 	}
 	defer rows.Close()
 	records := make([]Record, 0, query.Limit+1)
@@ -208,7 +208,7 @@ func (store *SQLStore) Query(ctx context.Context, query Query) (Page, error) {
 		var attributesJSON string
 		var payload []byte
 		if err := rows.Scan(&record.Stream, &record.ID, &timestamp, &record.Kind, &record.Severity, &record.Message, &attributesJSON, &payload); err != nil {
-			return Page{}, sqlbackend.ExternalError("logstore: scan sql record", err)
+			return Page{}, storage.ExternalSQLError("logstore: scan sql record", err)
 		}
 		record.Time = time.Unix(0, timestamp).UTC()
 		record.Attributes = map[string]string{}
@@ -228,7 +228,7 @@ func (store *SQLStore) Query(ctx context.Context, query Query) (Page, error) {
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return Page{}, sqlbackend.ExternalError("logstore: query sql rows", err)
+		return Page{}, storage.ExternalSQLError("logstore: query sql rows", err)
 	}
 	page := Page{}
 	if len(records) > query.Limit {
@@ -283,24 +283,24 @@ func (store *SQLStore) Replace(ctx context.Context, record Record) error {
 	if err != nil {
 		return err
 	}
-	timestamp, err := sqlbackend.UnixNano(record.Time)
+	timestamp, err := storage.SQLUnixNano(record.Time)
 	if err != nil {
 		return fmt.Errorf("logstore: record time: %w", err)
 	}
 	if stored != timestamp {
 		return errors.New("logstore: replace cannot change record time")
 	}
-	query := sqlbackend.Rebind(store.db, "UPDATE "+store.quoted+" SET kind = ?, severity = ?, message = ?, attributes_json = ?, payload_json = ? WHERE stream = ? AND id = ? AND timestamp_unix_nano = ?")
+	query := store.db.Rebind("UPDATE " + store.quoted + " SET kind = ?, severity = ?, message = ?, attributes_json = ?, payload_json = ? WHERE stream = ? AND id = ? AND timestamp_unix_nano = ?")
 	payload := append([]byte{}, record.Payload...)
 	result, err := tx.ExecContext(ctx, query, record.Kind, record.Severity, record.Message, string(encoded), payload, record.Stream, record.ID, stored)
 	if err != nil {
-		return sqlbackend.ExternalError("logstore: replace sql record", err)
+		return storage.ExternalSQLError("logstore: replace sql record", err)
 	}
 	if err := requireOneRow(result); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
-		return sqlbackend.ExternalError("logstore: commit sql replace", err)
+		return storage.ExternalSQLError("logstore: commit sql replace", err)
 	}
 	return nil
 }
@@ -320,16 +320,16 @@ func (store *SQLStore) Delete(ctx context.Context, key RecordKey) error {
 		return err
 	}
 	defer tx.Rollback()
-	query := sqlbackend.Rebind(store.db, "DELETE FROM "+store.quoted+" WHERE stream = ? AND id = ?")
+	query := store.db.Rebind("DELETE FROM " + store.quoted + " WHERE stream = ? AND id = ?")
 	result, err := tx.ExecContext(ctx, query, key.Stream, key.ID)
 	if err != nil {
-		return sqlbackend.ExternalError("logstore: delete sql record", err)
+		return storage.ExternalSQLError("logstore: delete sql record", err)
 	}
 	if err := requireOneRow(result); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
-		return sqlbackend.ExternalError("logstore: commit sql delete", err)
+		return storage.ExternalSQLError("logstore: commit sql delete", err)
 	}
 	return nil
 }
@@ -351,23 +351,23 @@ func (store *SQLStore) beginWrite(ctx context.Context) (*sqlx.Tx, error) {
 	}
 	tx, err := store.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return nil, sqlbackend.ExternalError("logstore: begin sql transaction", err)
+		return nil, storage.ExternalSQLError("logstore: begin sql transaction", err)
 	}
-	if store.backend.Dialect == sqlbackend.PostgreSQL {
+	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
 		if _, err := tx.ExecContext(ctx, "LOCK TABLE "+store.quoted+" IN SHARE ROW EXCLUSIVE MODE"); err != nil {
 			_ = tx.Rollback()
-			return nil, sqlbackend.ExternalError("logstore: lock sql table", err)
+			return nil, storage.ExternalSQLError("logstore: lock sql table", err)
 		}
 	}
 	return tx, nil
 }
 
 func (store *SQLStore) buildQuery(query sqlBoundQuery, position *sqlPosition) (string, []any, error) {
-	startNano, err := sqlbackend.UnixNano(time.UnixMilli(query.StartMS))
+	startNano, err := storage.SQLUnixNano(time.UnixMilli(query.StartMS))
 	if err != nil {
 		return "", nil, fmt.Errorf("logstore: query start: %w", err)
 	}
-	endNano, err := sqlbackend.UnixNano(time.UnixMilli(query.EndMS))
+	endNano, err := storage.SQLUnixNano(time.UnixMilli(query.EndMS))
 	if err != nil {
 		return "", nil, fmt.Errorf("logstore: query end: %w", err)
 	}
@@ -426,13 +426,13 @@ func matchesSQLRecord(record Record, query sqlBoundQuery) bool {
 }
 
 func (store *SQLStore) recordTime(ctx context.Context, tx *sqlx.Tx, key RecordKey) (int64, error) {
-	query := sqlbackend.Rebind(store.db, "SELECT timestamp_unix_nano FROM "+store.quoted+" WHERE stream = ? AND id = ?")
+	query := store.db.Rebind("SELECT timestamp_unix_nano FROM " + store.quoted + " WHERE stream = ? AND id = ?")
 	var timestamp int64
 	if err := tx.QueryRowContext(ctx, query, key.Stream, key.ID).Scan(&timestamp); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, ErrNotFound
 		}
-		return 0, sqlbackend.ExternalError("logstore: find sql record", err)
+		return 0, storage.ExternalSQLError("logstore: find sql record", err)
 	}
 	return timestamp, nil
 }
@@ -440,7 +440,7 @@ func (store *SQLStore) recordTime(ctx context.Context, tx *sqlx.Tx, key RecordKe
 func requireOneRow(result sql.Result) error {
 	count, err := result.RowsAffected()
 	if err != nil {
-		return sqlbackend.ExternalError("logstore: inspect sql mutation", err)
+		return storage.ExternalSQLError("logstore: inspect sql mutation", err)
 	}
 	if count == 0 {
 		return ErrNotFound

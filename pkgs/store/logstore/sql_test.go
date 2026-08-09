@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlbackend"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -130,7 +130,7 @@ func TestSQLLogSelectorsCancellationCursorBindingAndSchema(t *testing.T) {
 	if _, err := store.Query(canceled, query); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Query(canceled) error = %v", err)
 	}
-	index, err := sqlbackend.IndexName(store.backend, "page_idx")
+	index, err := storage.SQLIndexName(store.table, "page_idx")
 	if err != nil {
 		t.Fatal(err)
 	}

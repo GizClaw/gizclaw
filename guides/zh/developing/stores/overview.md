@@ -91,6 +91,8 @@ Badger 传入 DSN 或 provider credential。`cmd/internal/server` 保留扁平 Y
 
 SQLite/PostgreSQL KV 只声明一个单段 `prefix`；后端把它直接作为带引号的物理表名，表内 key 不再重复增加该 prefix。Metrics 和 Log Store 继续声明 `table`。这些物理名称都必须是未限定、最长 63 bytes 的 ASCII 名称；KV prefix 还可包含 `-`。同一 connector 上的逻辑声明不能重复占用物理表；SQLite 按 ASCII 大小写不敏感比较，PostgreSQL 按带引号的精确名称比较。Registry 在任何 DDL 前完成整组兼容性、scope 和 table claim 校验。构造函数直接用幂等的 `CREATE ... IF NOT EXISTS` 保证业务表与索引存在，再精确校验列、主键、identity 和索引；它不创建 schema version/history 表，也不导入或重写既有 backend 数据。兼容的既有表会直接复用，不兼容的定义会让启动失败。逻辑 `Close` 只关闭 adapter 状态，不关闭借用的 `*sqlx.DB`。
 
+`storage.SQLTable` 是 SQLite/PostgreSQL 借用表的唯一 dialect、identifier、quoting、初始化和 schema inspection owner；它只能由校验后的 pool 与表名构造。KV、Metrics 和 Log 继续拥有各自的业务表定义，但直接消费这个 storage capability，不再经过独立的 SQL backend helper package。
+
 ### 进程 SQLite DSN 契约
 
 `pkgs/store/storage` 接受 modernc SQLite DSN，并继续支持 `_pragma` 等

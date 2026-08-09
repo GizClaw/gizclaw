@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlbackend"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -110,7 +110,7 @@ func TestSQLMetricsSelectorsBoundariesCancellationAndSchema(t *testing.T) {
 	if _, err := store.Latest(canceled, LatestQuery{Selector: Selector{Name: "cpu"}, At: start, Lookback: time.Second}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Latest(canceled) error = %v", err)
 	}
-	index, err := sqlbackend.IndexName(store.backend, "metric_idx")
+	index, err := storage.SQLIndexName(store.table, "metric_idx")
 	if err != nil {
 		t.Fatal(err)
 	}

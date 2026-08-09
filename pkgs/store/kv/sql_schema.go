@@ -4,31 +4,31 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/internal/sqlbackend"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/jmoiron/sqlx"
 )
 
-func ensureSQLSchema(ctx context.Context, db *sqlx.DB, backend sqlbackend.Backend) error {
+func ensureSQLSchema(ctx context.Context, db *sqlx.DB, table storage.SQLTable) error {
 	binaryType := "BLOB"
-	if backend.Dialect == sqlbackend.PostgreSQL {
+	if table.Dialect() == storage.SQLDialectPostgreSQL {
 		binaryType = "BYTEA"
 	}
-	indexName, err := sqlbackend.IndexName(backend, "expires_idx")
+	indexName, err := storage.SQLIndexName(table, "expires_idx")
 	if err != nil {
 		return err
 	}
-	quotedIndex, err := sqlbackend.Quote(backend.Dialect, indexName)
+	quotedIndex, err := storage.QuoteSQLIdentifier(table.Dialect(), indexName)
 	if err != nil {
 		return err
 	}
-	return sqlbackend.Ensure(
+	return storage.EnsureSQLTable(
 		ctx,
 		db,
-		backend,
+		table,
 		fmt.Sprintf(
 			"CREATE TABLE IF NOT EXISTS %s (encoded_key %s NOT NULL PRIMARY KEY, value %s NOT NULL, expires_at_unix_nano BIGINT NULL)",
-			backend.Quoted, binaryType, binaryType,
+			table.Quoted(), binaryType, binaryType,
 		),
-		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s (expires_at_unix_nano)", quotedIndex, backend.Quoted),
+		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s (expires_at_unix_nano)", quotedIndex, table.Quoted()),
 	)
 }
