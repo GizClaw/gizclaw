@@ -1676,8 +1676,7 @@ int main(void) {
              "monotonic instant clock is required") != 0) {
     return 1;
   }
-  if (expect(GZC_API_VERSION == 5, "C API version 5") != 0 ||
-      expect(GZC_ERR_CHANNEL_LIMIT == -12,
+  if (expect(GZC_ERR_CHANNEL_LIMIT == -12,
              "channel-limit status value") != 0 ||
       expect(strcmp(gzc_status_string(GZC_ERR_CHANNEL_LIMIT),
                     "data channel limit reached") == 0,

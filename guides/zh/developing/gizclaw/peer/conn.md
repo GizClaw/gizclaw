@@ -26,13 +26,13 @@ DataChannel 和一条 reliable ordered `0x20` Event Stream。`pkgs/giznet/gizweb
 
 JavaScript、Flutter 和 C SDK 对 reliable、ordered service DataChannel 使用每 channel 串行 writer。JavaScript 与 Flutter 的每个原生 DataChannel message 最多承载 16 KiB，面向嵌入式的 C SDK 使用更保守的 4 KiB 上限；writer 到达 high-water 后暂停，收到 buffered-amount-low 通知且队列降到 low-water 后才继续。一次写入成功表示该逻辑消息的全部分片已被本地 WebRTC 发送队列接受，不表示远端已经消费。
 
-JavaScript 与 Flutter 的 high/low water 固定为 1 MiB / 256 KiB。C API v5 默认使用 256 KiB / 64 KiB，嵌入式调用方可以通过 `gzc_client_config_t` 的 `service_write_high_water_bytes` 和 `service_write_low_water_bytes` 调大；自定义值必须满足 high-water 至少 4 KiB 且 low-water 小于 high-water。C 的同步发送只在调用期间借用 caller payload，并使用 `write_timeout_ms` 限制整个逻辑写入；elapsed timeout 读取 platform 的单调 `time_instant_ms`，协议时间戳仍读取 `time_unix_ms`。
+JavaScript 与 Flutter 的 high/low water 固定为 1 MiB / 256 KiB。C SDK 默认使用 256 KiB / 64 KiB，嵌入式调用方可以通过 `gzc_client_config_t` 的 `service_write_high_water_bytes` 和 `service_write_low_water_bytes` 调大；自定义值必须满足 high-water 至少 4 KiB 且 low-water 小于 high-water。C 的同步发送只在调用期间借用 caller payload，并使用 `write_timeout_ms` 限制整个逻辑写入；elapsed timeout 读取 platform 的单调 `time_instant_ms`，协议时间戳仍读取 `time_unix_ms`。
 
 Direct packet、Telemetry 和 RTP 不走这套 service stream writer，也不继承这些阈值。
 
-C API v5 保留独立的 `gzc_webrtc_media_vtable_t` 扩展以公开双向 Opus RTP 能力，不改变既有 public struct 的布局。应用在 connect 前注册扩展，之后继续用 `gzc_client_send_packet` / `gzc_client_read_packet` 收发 `GZC_PROTOCOL_OPUS_PACKET`；SDK 对 `0x10` 单独分流，既不写入也不伪装成 packet DataChannel message。WebRTC backend 持有 connection-scoped sendrecv track、RTP header 与时钟，并根据每个 Opus packet 的实际时长推进 48 kHz timestamp。
+C SDK 保留独立的 `gzc_webrtc_media_vtable_t` 扩展以公开双向 Opus RTP 能力，不改变既有 public struct 的布局。应用在 connect 前注册扩展，之后继续用 `gzc_client_send_packet` / `gzc_client_read_packet` 收发 `GZC_PROTOCOL_OPUS_PACKET`；SDK 对 `0x10` 单独分流，既不写入也不伪装成 packet DataChannel message。WebRTC backend 持有 connection-scoped sendrecv track、RTP header 与时钟，并根据每个 Opus packet 的实际时长推进 48 kHz timestamp。
 
-C API v5 的并发 unary requester 不新增 connection-scoped transport：每个
+C SDK 的并发 unary requester 不新增 connection-scoped transport：每个
 `gzc_rpc_request_t` 独占一条动态 RPC service DataChannel，client 只按 channel
 identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，request result 不会
 再次进入 poll。client close 会先把所有 pending request 置为 closed 并摘除 channel，

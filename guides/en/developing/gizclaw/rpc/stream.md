@@ -23,7 +23,7 @@ This is the RPC framing layer; the underlying connection and service stream belo
 
 ## C unary request contract
 
-C API v5 represents concurrent unary calls with `gzc_rpc_request_start`,
+The C SDK represents concurrent unary calls with `gzc_rpc_request_start`,
 `gzc_rpc_request_result`, `gzc_rpc_request_cancel`, and
 `gzc_rpc_request_destroy`. Each request exclusively owns one RPC service
 DataChannel plus bounded frame, continuation, and response buffers. The client

@@ -23,7 +23,7 @@
 
 ## C unary request contract
 
-C API v5 用 `gzc_rpc_request_start` / `gzc_rpc_request_result` /
+C SDK 用 `gzc_rpc_request_start` / `gzc_rpc_request_result` /
 `gzc_rpc_request_cancel` / `gzc_rpc_request_destroy` 表示可并发的 unary 请求。每个
 request 独占一条 RPC service DataChannel 和有界的 frame、continuation、response
 缓冲区；client 只保存非 owning 的 channel → request 关联。调用方串行调用

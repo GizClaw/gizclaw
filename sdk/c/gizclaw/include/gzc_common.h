@@ -9,8 +9,6 @@
 extern "C" {
 #endif
 
-#define GZC_API_VERSION 5
-
 typedef enum {
   GZC_OK = 0,
   GZC_ERR_INVALID_ARGUMENT = -1,
