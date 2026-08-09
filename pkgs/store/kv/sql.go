@@ -137,7 +137,7 @@ func (store *SQL) Delete(ctx context.Context, key Key) error {
 // List iterates over a stable snapshot in encoded-key order.
 func (store *SQL) List(ctx context.Context, prefix Key) iter.Seq2[Entry, error] {
 	return func(yield func(Entry, error) bool) {
-		entries, err := store.listAfter(ctx, prefix, nil, -1)
+		entries, err := store.listAfter(ctx, prefix, nil, nil)
 		if err != nil {
 			yield(Entry{}, err)
 			return
@@ -155,10 +155,10 @@ func (store *SQL) ListAfter(ctx context.Context, prefix, after Key, limit int) (
 	if limit < 0 {
 		limit = 0
 	}
-	return store.listAfter(ctx, prefix, after, limit)
+	return store.listAfter(ctx, prefix, after, &limit)
 }
 
-func (store *SQL) listAfter(ctx context.Context, prefix, after Key, limit int) ([]Entry, error) {
+func (store *SQL) listAfter(ctx context.Context, prefix, after Key, limit *int) ([]Entry, error) {
 	unlock, err := store.lock()
 	if err != nil {
 		return nil, err
@@ -167,7 +167,7 @@ func (store *SQL) listAfter(ctx context.Context, prefix, after Key, limit int) (
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if limit == 0 {
+	if limit != nil && *limit == 0 {
 		return nil, nil
 	}
 	prefixBytes := store.opts.encode(prefix)
@@ -214,7 +214,7 @@ func (store *SQL) listAfter(ctx context.Context, prefix, after Key, limit int) (
 			continue
 		}
 		entries = append(entries, Entry{Key: store.opts.decode(key), Value: append([]byte(nil), value...)})
-		if limit > 0 && len(entries) == limit {
+		if limit != nil && len(entries) == *limit {
 			break
 		}
 	}
