@@ -7,14 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
-	"net/http"
-	"net/url"
 	"os"
 	"slices"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/dgraph-io/badger/v4"
 	"github.com/jmoiron/sqlx"
@@ -26,10 +21,6 @@ var (
 	errNilConfig         = errors.New("storage: config must not be nil")
 	errUnsupportedConfig = errors.New("storage: unsupported config type")
 )
-
-// Memory marks a process-local physical slot. Logical Store constructors use
-// the marker to create independent in-memory backends.
-type Memory struct{}
 
 // ConfigError identifies the physical storage entry whose construction failed.
 type ConfigError struct {
@@ -54,11 +45,6 @@ type Storage struct {
 	prometheus map[string]prometheusResource
 	volcs      map[string]tls.Client
 	closers    []io.Closer
-}
-
-type prometheusResource struct {
-	client         api.Client
-	remoteWriteURL string
 }
 
 // New creates a Storage registry, validates every configured physical backend,
@@ -100,47 +86,6 @@ func New(configs map[string]Config) (*Storage, error) {
 	return s, nil
 }
 
-// Badger returns the named physical Badger DB.
-func (s *Storage) Badger(name string) (*badger.DB, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
-		return nil, errors.New("storage: registry is closed")
-	}
-	st, ok := s.badgers[name]
-	if !ok {
-		return nil, fmt.Errorf("storage: badger %q not found", name)
-	}
-	return st, nil
-}
-
-// Memory returns the named process-local marker.
-func (s *Storage) Memory(name string) (Memory, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
-		return Memory{}, errors.New("storage: registry is closed")
-	}
-	if cfg, ok := s.configs[name]; !ok || cfg.storageKind() != KindMemory {
-		return Memory{}, fmt.Errorf("storage: memory %q not found", name)
-	}
-	return Memory{}, nil
-}
-
-// SQL returns the named physical SQL backend.
-func (s *Storage) SQL(name string) (*sqlx.DB, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
-		return nil, errors.New("storage: registry is closed")
-	}
-	st, ok := s.sqls[name]
-	if !ok {
-		return nil, fmt.Errorf("storage: sql %q not found", name)
-	}
-	return st, nil
-}
-
 // Kind returns the concrete kind of the named physical Storage.
 func (s *Storage) Kind(name string) (string, error) {
 	s.mu.Lock()
@@ -153,48 +98,6 @@ func (s *Storage) Kind(name string) (string, error) {
 		return "", fmt.Errorf("storage: %q not found", name)
 	}
 	return cfg.storageKind(), nil
-}
-
-// FilesystemDir returns the named rooted filesystem handle.
-func (s *Storage) FilesystemDir(name string) (*os.Root, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
-		return nil, errors.New("storage: registry is closed")
-	}
-	root, ok := s.dirs[name]
-	if !ok {
-		return nil, fmt.Errorf("storage: filesystem.dir %q not found", name)
-	}
-	return root, nil
-}
-
-// Prometheus returns the named API client and validated remote-write URL.
-func (s *Storage) Prometheus(name string) (api.Client, string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
-		return nil, "", errors.New("storage: registry is closed")
-	}
-	resource, ok := s.prometheus[name]
-	if !ok {
-		return nil, "", fmt.Errorf("storage: prometheus %q not found", name)
-	}
-	return resource.client, resource.remoteWriteURL, nil
-}
-
-// VolcTLS returns the named physical Volc TLS SDK client.
-func (s *Storage) VolcTLS(name string) (tls.Client, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
-		return nil, errors.New("storage: registry is closed")
-	}
-	connector, ok := s.volcs[name]
-	if !ok {
-		return nil, fmt.Errorf("storage: volc-tls %q not found", name)
-	}
-	return connector, nil
 }
 
 // Close releases all opened physical backends in reverse creation order.
@@ -252,22 +155,11 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 		}
 	case MemoryConfig:
 	case FilesystemDirConfig:
-		if cfg.Dir == "" {
-			err = fmt.Errorf("storage: filesystem.dir %q requires dir", name)
-		}
+		var root *os.Root
+		root, err = newFilesystemDir(name, cfg)
 		if err == nil {
-			err = os.MkdirAll(cfg.Dir, 0o755)
-			if err != nil {
-				err = fmt.Errorf("storage: filesystem.dir %q mkdir: %w", name, err)
-			}
-		}
-		if err == nil {
-			var root *os.Root
-			root, err = os.OpenRoot(cfg.Dir)
-			if err == nil {
-				s.dirs[name] = root
-				s.closers = append(s.closers, root)
-			}
+			s.dirs[name] = root
+			s.closers = append(s.closers, root)
 		}
 	case SQLiteConfig:
 		var st *sqlx.DB
@@ -325,84 +217,6 @@ type externalOperationError struct {
 
 func (e *externalOperationError) Error() string { return e.operation + " failed" }
 func (e *externalOperationError) Unwrap() error { return e.err }
-
-func newPrometheus(name string, cfg PrometheusConfig) (prometheusResource, error) {
-	remoteWriteURL := strings.TrimSpace(cfg.RemoteWriteURL)
-	queryURL := strings.TrimSpace(cfg.QueryURL)
-	bearerToken := cfg.BearerToken
-	for _, field := range []struct {
-		name  string
-		value string
-	}{
-		{name: "remote_write_url", value: remoteWriteURL},
-		{name: "query_url", value: queryURL},
-	} {
-		u, err := url.ParseRequestURI(field.value)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-			return prometheusResource{}, fmt.Errorf("storage: prometheus %q invalid %s", name, field.name)
-		}
-	}
-	transport := &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		DialContext:           (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: time.Second,
-	}
-	client, err := api.NewClient(api.Config{
-		Address: queryURL,
-		Client: &http.Client{
-			Transport: bearerRoundTripper{token: bearerToken, next: transport},
-			Timeout:   30 * time.Second,
-		},
-	})
-	if err != nil {
-		return prometheusResource{}, fmt.Errorf("storage: prometheus %q: %w", name, err)
-	}
-	return prometheusResource{client: client, remoteWriteURL: remoteWriteURL}, nil
-}
-
-func newVolcTLS(name string, cfg VolcTLSConfig) (tls.Client, error) {
-	endpoint := strings.TrimSpace(cfg.Endpoint)
-	region := strings.TrimSpace(cfg.Region)
-	accessKeyID := strings.TrimSpace(cfg.AccessKeyID)
-	accessKeySecret := strings.TrimSpace(cfg.AccessKeySecret)
-	for _, field := range []struct {
-		name  string
-		value string
-	}{
-		{name: "endpoint", value: endpoint},
-		{name: "region", value: region},
-		{name: "access_key_id", value: accessKeyID},
-		{name: "access_key_secret", value: accessKeySecret},
-	} {
-		if field.value == "" {
-			return nil, fmt.Errorf("storage: volc-tls %q requires %s", name, field.name)
-		}
-	}
-	client := tls.NewClient(endpoint, accessKeyID, accessKeySecret, "", region)
-	client.SetTimeout(30 * time.Second)
-	retryPolicy := client.GetRetryPolicy()
-	retryPolicy.TotalTimeout = 30 * time.Second
-	client.SetRetryPolicy(retryPolicy)
-	return client, nil
-}
-
-type bearerRoundTripper struct {
-	token string
-	next  http.RoundTripper
-}
-
-func (r bearerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	clone := req.Clone(req.Context())
-	clone.Header = req.Header.Clone()
-	if r.token != "" {
-		clone.Header.Set("Authorization", "Bearer "+r.token)
-	}
-	return r.next.RoundTrip(clone)
-}
 
 type closeIdler interface {
 	CloseIdleConnections()
