@@ -118,6 +118,53 @@ func TestSQLiteRequiresExactlyOneLocation(t *testing.T) {
 	}
 }
 
+func TestSQLiteConnectionConfiguration(t *testing.T) {
+	registry, err := New(map[string]Config{
+		"database": SQLiteConfig{Dir: filepath.Join(t.TempDir(), "configured.sqlite")},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	db, err := registry.SQL("database")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := db.Stats().MaxOpenConnections; got != 1 {
+		t.Fatalf("MaxOpenConnections = %d, want 1", got)
+	}
+	for _, check := range []struct {
+		query string
+		want  any
+	}{
+		{query: `PRAGMA busy_timeout`, want: int64(5000)},
+		{query: `PRAGMA foreign_keys`, want: int64(1)},
+		{query: `PRAGMA journal_mode`, want: "wal"},
+	} {
+		var got any
+		if err := db.Get(&got, check.query); err != nil {
+			t.Fatalf("%s: %v", check.query, err)
+		}
+		if got != check.want {
+			t.Fatalf("%s = %#v, want %#v", check.query, got, check.want)
+		}
+	}
+}
+
+func TestNetworkSQLRequiresDSN(t *testing.T) {
+	for name, cfg := range map[string]Config{
+		"postgresql": PostgreSQLConfig{},
+		"clickhouse": ClickHouseConfig{},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := New(map[string]Config{"database": cfg}); err == nil {
+				t.Fatal("New() error = nil")
+			}
+		})
+	}
+}
+
 func TestSQLPreservesLiteralDSNEnvironmentReferences(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)

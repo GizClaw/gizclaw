@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -21,10 +20,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/api"
 	"github.com/volcengine/volc-sdk-golang/service/tls"
-
-	_ "github.com/ClickHouse/clickhouse-go/v2"
-	_ "github.com/lib/pq"
-	_ "modernc.org/sqlite"
 )
 
 var (
@@ -283,14 +278,14 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 		}
 	case PostgreSQLConfig:
 		var st *sqlx.DB
-		st, err = newSQL(name, KindPostgreSQL, cfg.DSN)
+		st, err = newPostgreSQL(name, cfg)
 		if err == nil {
 			s.sqls[name] = st
 			s.closers = append(s.closers, st)
 		}
 	case ClickHouseConfig:
 		var st *sqlx.DB
-		st, err = newSQL(name, KindClickHouse, cfg.DSN)
+		st, err = newClickHouse(name, cfg)
 		if err == nil {
 			s.sqls[name] = st
 			s.closers = append(s.closers, st)
@@ -337,57 +332,6 @@ func newBadger(name, dir string) (*badger.DB, error) {
 	return db, nil
 }
 
-func newSQLite(name string, cfg SQLiteConfig) (*sqlx.DB, error) {
-	if (cfg.DSN == "") == (cfg.Dir == "") {
-		return nil, fmt.Errorf("storage: sqlite %q requires exactly one of dsn or dir", name)
-	}
-	dsn := cfg.DSN
-	if dsn == "" {
-		dsn = cfg.Dir
-	}
-	if err := prepareSQLDir(name, cfg.Dir); err != nil {
-		return nil, err
-	}
-	return newSQL(name, KindSQLite, dsn)
-}
-
-func newSQL(name, kind, dsn string) (*sqlx.DB, error) {
-	if dsn == "" {
-		return nil, fmt.Errorf("storage: %s %q requires dsn", kind, name)
-	}
-	backend := kind
-	if backend == KindPostgreSQL {
-		backend = "postgres"
-	}
-	if backend == KindSQLite || backend == KindClickHouse {
-		sqlx.BindDriver(backend, sqlx.QUESTION)
-	}
-	if sqlx.BindType(backend) == sqlx.UNKNOWN {
-		return nil, fmt.Errorf("storage: sql %q unsupported dialect %q", name, backend)
-	}
-	if backend == KindSQLite {
-		if err := validateSQLiteDSN(dsn); err != nil {
-			return nil, fmt.Errorf("storage: sql %q sqlite dsn: %w", name, err)
-		}
-	}
-	db, err := sqlx.Open(backend, dsn)
-	if err != nil {
-		return nil, &externalOperationError{operation: fmt.Sprintf("storage: sql %q open", name), err: err}
-	}
-	if backend == KindSQLite {
-		configureSQLitePool(db)
-		if err := configureSQLiteConnection(db); err != nil {
-			db.Close()
-			return nil, fmt.Errorf("storage: sql %q configure sqlite: %w", name, err)
-		}
-	}
-	if err := db.Ping(); err != nil {
-		db.Close()
-		return nil, &externalOperationError{operation: fmt.Sprintf("storage: sql %q ping", name), err: err}
-	}
-	return db, nil
-}
-
 type externalOperationError struct {
 	operation string
 	err       error
@@ -395,67 +339,6 @@ type externalOperationError struct {
 
 func (e *externalOperationError) Error() string { return e.operation + " failed" }
 func (e *externalOperationError) Unwrap() error { return e.err }
-
-func configureSQLitePool(db *sqlx.DB) {
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-}
-
-func configureSQLiteConnection(db *sqlx.DB) error {
-	for _, stmt := range []string{
-		`PRAGMA busy_timeout = 5000`,
-		`PRAGMA journal_mode = WAL`,
-		`PRAGMA foreign_keys = ON`,
-	} {
-		if _, err := db.Exec(stmt); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateSQLiteDSN(dsn string) error {
-	queryStart := strings.IndexRune(dsn, '?')
-	if queryStart < 1 {
-		return nil
-	}
-	query, err := url.ParseQuery(dsn[queryStart+1:])
-	if err != nil {
-		return fmt.Errorf("parse query: %w", err)
-	}
-	for _, key := range []string{
-		"_busy_timeout",
-		"_timeout",
-		"_foreign_keys",
-		"_fk",
-		"_journal_mode",
-		"_journal",
-		"_synchronous",
-		"_sync",
-		"_auto_vacuum",
-		"_vacuum",
-		"_query_only",
-	} {
-		if _, ok := query[key]; ok {
-			return fmt.Errorf("query parameter %q is unsupported; GizClaw owns SQLite PRAGMA configuration", key)
-		}
-	}
-	return nil
-}
-
-func prepareSQLDir(name, dir string) error {
-	if dir == "" {
-		return nil
-	}
-	parent := filepath.Dir(dir)
-	if parent == "." || parent == "" {
-		return nil
-	}
-	if err := os.MkdirAll(parent, 0o755); err != nil {
-		return fmt.Errorf("storage: sql %q mkdir: %w", name, err)
-	}
-	return nil
-}
 
 func newPrometheus(name string, cfg PrometheusConfig) (prometheusResource, error) {
 	remoteWriteURL := strings.TrimSpace(cfg.RemoteWriteURL)
