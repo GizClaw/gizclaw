@@ -41,22 +41,35 @@ func TestPostgreSQLPhysicalPoolSupportsSQLLogicalStores(t *testing.T) {
 		}
 	})
 	registry, err := New(map[string]Config{
-		"kv":      {Kind: KindKeyValue, Storage: "database", Prefix: tables["kv"]},
-		"metrics": {Kind: KindMetrics, Storage: "database", Table: tables["metrics"]},
-		"logs":    {Kind: KindLogImmutable, Storage: "database", Table: tables["logs"]},
-		"history": {Kind: KindLogMutable, Storage: "database", Table: tables["history"]},
-		"raw":     {Kind: KindSQL, Storage: "database"},
+		"kv":       {Kind: KindKeyValue, Storage: "database", Prefix: tables["kv"]},
+		"kv_alias": {Kind: KindKeyValue, Storage: "database", Prefix: tables["kv"]},
+		"metrics":  {Kind: KindMetrics, Storage: "database", Table: tables["metrics"]},
+		"logs":     {Kind: KindLogImmutable, Storage: "database", Table: tables["logs"]},
+		"history":  {Kind: KindLogMutable, Storage: "database", Table: tables["history"]},
+		"raw":      {Kind: KindSQL, Storage: "database"},
 	}, physical)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = registry.Close() })
-	store, err := registry.KV("kv")
+	primary, err := registry.KV("kv")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Set(context.Background(), kv.Key{"key"}, []byte("value")); err != nil {
+	alias, err := registry.KV("kv_alias")
+	if err != nil {
 		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := primary.Set(ctx, kv.Key{"key"}, []byte("value")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := alias.Get(ctx, kv.Key{"key"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "value" {
+		t.Fatalf("PostgreSQL KV alias read = %q, want value", got)
 	}
 	raw, err := registry.SQL("raw")
 	if err != nil {
