@@ -131,11 +131,6 @@ func (tracker *routeLifecycleTracker) observeControl(chunk *genx.MessageChunk) e
 	}
 	if chunk.IsEndOfStream() {
 		state.ended = true
-		for key, route := range tracker.routes {
-			if key.streamID == streamID && route.begun {
-				route.ended = true
-			}
-		}
 	}
 	state.chunks++
 	return nil
@@ -295,6 +290,7 @@ func TestRouteLifecycleTrackerAcceptsInterleavedExplicitControlRoutes(t *testing
 		{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "audio-turn"}},
 		{Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "text-turn"}},
 		{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "audio-turn", EndOfStream: true}},
+		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "text-turn", EndOfStream: true}},
 		{Ctrl: &genx.StreamCtrl{StreamID: "text-turn", EndOfStream: true}},
 		{Ctrl: &genx.StreamCtrl{StreamID: "audio-turn", EndOfStream: true}},
 	} {
@@ -305,7 +301,7 @@ func TestRouteLifecycleTrackerAcceptsInterleavedExplicitControlRoutes(t *testing
 		t.Fatalf("lifecycles = streams %d routes %d, want 2/2", len(tracker.streams), len(tracker.routes))
 	}
 	if route := tracker.route("text-turn", "text/plain"); route == nil || !route.ended {
-		t.Fatalf("control EOS did not close text MIME route: %#v", route)
+		t.Fatalf("text MIME EOS did not close text route: %#v", route)
 	}
 }
 
@@ -340,6 +336,19 @@ func TestRouteLifecycleTrackerReportsIncompleteRoute(t *testing.T) {
 	})
 	if explicit.allComplete() {
 		t.Fatal("explicit control route without EOS reported complete")
+	}
+
+	missingMIMEEOS := newRouteLifecycleTracker()
+	for _, chunk := range []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "control", BeginOfStream: true}},
+		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "control", BeginOfStream: true}},
+		{Part: genx.Text("data"), Ctrl: &genx.StreamCtrl{StreamID: "control"}},
+		{Ctrl: &genx.StreamCtrl{StreamID: "control", EndOfStream: true}},
+	} {
+		observeRouteLifecycle(t, missingMIMEEOS, chunk)
+	}
+	if missingMIMEEOS.allComplete() {
+		t.Fatal("control EOS completed a MIME route without its own EOS")
 	}
 }
 
