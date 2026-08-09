@@ -488,14 +488,10 @@ func (r *dockRun) forwardTTS(route *dockRoute, pipe *ttsPipe) {
 			return
 		}
 
+		terminalError := ""
 		if emitted.IsEndOfStream() {
 			state.done = true
-			if emitted.Ctrl.Error != "" {
-				err := errors.New(emitted.Ctrl.Error)
-				r.abortTTS(route, err)
-				r.finishRoute(route, emitted.Ctrl.Error)
-				return
-			}
+			terminalError = emitted.Ctrl.Error
 		}
 		emitted.Ctrl.StreamID = route.response.StreamID()
 
@@ -521,12 +517,23 @@ func (r *dockRun) forwardTTS(route *dockRoute, pipe *ttsPipe) {
 		if emitted.IsEndOfStream() {
 			emitted.Ctrl.EndOfStream = false
 		}
-		if !emitted.IsBeginOfStream() && !ttsChunkHasData(emitted) {
-			route.ttsEmitMu.Unlock()
-			continue
+		if terminalError != "" {
+			// The final merged route owns the error. A child may legally combine
+			// its empty BOS and error EOS in one chunk, so merge the BOS before
+			// closing the final MIME route with the error EOS.
+			emitted.Ctrl.Error = ""
 		}
-		if err := r.invocation.Emit(route.response, emitted); err != nil {
+		emitChunk := emitted.IsBeginOfStream() || ttsChunkHasData(emitted)
+		if emitChunk {
+			if err := r.invocation.Emit(route.response, emitted); err != nil {
+				route.ttsEmitMu.Unlock()
+				return
+			}
+		}
+		if terminalError != "" {
+			r.abortTTS(route, errors.New(terminalError))
 			route.ttsEmitMu.Unlock()
+			r.finishRoute(route, terminalError)
 			return
 		}
 		route.ttsEmitMu.Unlock()

@@ -1183,6 +1183,63 @@ func TestDockPreservesTTSTerminalEOSError(t *testing.T) {
 	t.Fatalf("TTS terminal EOS error was not preserved: %#v", chunks)
 }
 
+func TestDockMergesErrorOnlyTTSLifecycle(t *testing.T) {
+	want := errors.New("tts synthesis failed before audio")
+	dock, err := New(Config{
+		Agent: fixedAgentOutput(
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "answer", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "one"}},
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "answer", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "one", EndOfStream: true}},
+		),
+		TTS: muxFunc(func(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+			output := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 1})
+			go func() {
+				defer output.Close()
+				for {
+					chunk, err := input.Next()
+					if err != nil {
+						return
+					}
+					if !chunk.IsEndOfStream() {
+						continue
+					}
+					_ = output.Push(&genx.MessageChunk{
+						Role: genx.RoleModel,
+						Part: &genx.Blob{MIMEType: "audio/opus"},
+						Ctrl: &genx.StreamCtrl{
+							StreamID:      "child",
+							BeginOfStream: true,
+							EndOfStream:   true,
+							Error:         want.Error(),
+						},
+					})
+					return
+				}
+			}()
+			return output, nil
+		}),
+		ResolveVoice: fixedVoice("voice/narrator"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := dock.Transform(t.Context(), emptyStream{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunks := readAll(t, output)
+	var audio []*genx.MessageChunk
+	for _, chunk := range chunks {
+		if mimeType, ok := chunk.MIMEType(); ok && mimeType == "audio/opus" {
+			audio = append(audio, chunk)
+		}
+	}
+	if len(audio) != 2 || !audio[0].IsBeginOfStream() || audio[0].IsEndOfStream() || audio[0].Ctrl.Error != "" ||
+		audio[1].IsBeginOfStream() || !audio[1].IsEndOfStream() || audio[1].Ctrl.Error != want.Error() ||
+		audio[0].Ctrl.StreamID == "" || audio[1].Ctrl.StreamID != audio[0].Ctrl.StreamID {
+		t.Fatalf("error-only audio lifecycle = %#v, want BOS/error EOS", audio)
+	}
+}
+
 func TestDockConcurrentTransformsDoNotShareVoiceState(t *testing.T) {
 	var mu sync.Mutex
 	seen := make(map[string]int)
