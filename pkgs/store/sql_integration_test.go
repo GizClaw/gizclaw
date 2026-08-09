@@ -41,7 +41,7 @@ func TestPostgreSQLPhysicalPoolSupportsSQLLogicalStores(t *testing.T) {
 		}
 	})
 	registry, err := New(map[string]Config{
-		"kv":      {Kind: KindKeyValue, Storage: "database", Table: tables["kv"]},
+		"kv":      {Kind: KindKeyValue, Storage: "database", Prefix: tables["kv"]},
 		"metrics": {Kind: KindMetrics, Storage: "database", Table: tables["metrics"]},
 		"logs":    {Kind: KindLogImmutable, Storage: "database", Table: tables["logs"]},
 		"history": {Kind: KindLogMutable, Storage: "database", Table: tables["history"]},

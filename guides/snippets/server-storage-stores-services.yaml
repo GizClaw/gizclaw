@@ -39,103 +39,86 @@ stores:
     kind: keyvalue
     storage: database
     prefix: flowcraft-state
-    table: gizclaw_flowcraft_state
 
   peers:
     kind: keyvalue
     storage: database
     prefix: peers
-    table: gizclaw_peers
 
   public-login:
     kind: keyvalue
     storage: database
     prefix: public-login
-    table: gizclaw_public_login
 
   credentials:
     kind: keyvalue
     storage: database
     prefix: credentials
-    table: gizclaw_credentials
 
   firmwares:
     kind: keyvalue
     storage: database
     prefix: firmwares
-    table: gizclaw_firmwares
 
   runtime-profiles:
     kind: keyvalue
     storage: database
     prefix: runtime-profiles
-    table: gizclaw_runtime_profiles
 
   models:
     kind: keyvalue
     storage: database
     prefix: models
-    table: gizclaw_models
 
   voices:
     kind: keyvalue
     storage: database
     prefix: voices
-    table: gizclaw_voices
 
   memory-layouts:
     kind: keyvalue
     storage: database
     prefix: memory-layouts
-    table: gizclaw_memory_layouts
 
   provider-tenants:
     kind: keyvalue
     storage: database
     prefix: provider-tenants
-    table: gizclaw_provider_tenants
 
   workflows:
     kind: keyvalue
     storage: database
     prefix: workflows
-    table: gizclaw_workflows
 
   workspaces:
     kind: keyvalue
     storage: database
     prefix: workspaces
-    table: gizclaw_workspaces
 
   tools:
     kind: keyvalue
     storage: database
     prefix: tools
-    table: gizclaw_tools
 
   contacts:
     kind: keyvalue
     storage: database
     prefix: contacts
-    table: gizclaw_contacts
 
   friends:
     kind: keyvalue
     storage: database
     prefix: friends
-    table: gizclaw_friends
 
   friend-groups:
     kind: keyvalue
     storage: database
     prefix: friend-groups
-    table: gizclaw_friend_groups
 
   gameplay:
     kind: keyvalue
     storage: database
     prefix: gameplay
-    table: gizclaw_gameplay
 
   agenthost:
     kind: objectstore

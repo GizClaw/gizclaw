@@ -37,7 +37,7 @@ The old one-layer Store configuration, top-level pseudo-service blocks, implicit
 
 ### Complete configuration
 
-The complete production configuration below lets table-scoped KV, Metrics, immutable/mutable Log, and Gameplay raw SQL Stores borrow one PostgreSQL pool while ObjectStores use a separate filesystem root. Every logical SQL Store directly ensures its business table and indexes, then validates the exact schema before listeners start; no version or history table is created. Any failure stops startup without a backend fallback. A local SQLite deployment keeps the same `stores` and `services` and changes only `storage.database` to `kind: sqlite` with `dir` or `dsn`.
+The complete production configuration below lets prefix-scoped KV, table-scoped Metrics, immutable/mutable Log, and Gameplay raw SQL Stores borrow one PostgreSQL pool while ObjectStores use a separate filesystem root. The SQL backend maps each KV prefix directly to its physical table; the KV declaration has no `table` field. Every logical SQL Store directly ensures its business table and indexes, then validates the exact schema before listeners start; no version or history table is created. Any failure stops startup without a backend fallback. A local SQLite deployment keeps the same `stores` and `services` and changes only `storage.database` to `kind: sqlite` with `dir` or `dsn`.
 
 <<< ../../../../snippets/server-storage-stores-services.yaml{yaml}
 

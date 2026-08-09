@@ -37,7 +37,7 @@ Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service 
 
 ### 完整配置
 
-下面的完整生产配置让 table-scoped KV、Metrics、immutable/mutable Log 和 Gameplay raw SQL Store 借用同一个 PostgreSQL pool，并让 ObjectStore 使用独立 filesystem root。所有逻辑 SQL Store 在 listener 启动前直接保证业务表与索引存在，再精确校验 schema；不会创建 version/history 表。任何一个失败都会终止启动而不会回退到其他 backend。SQLite 本地部署使用相同 `stores` 与 `services`，只把 `storage.database` 改为 `kind: sqlite` 和 `dir`/`dsn`。
+下面的完整生产配置让 prefix-scoped KV、table-scoped Metrics、immutable/mutable Log 和 Gameplay raw SQL Store 借用同一个 PostgreSQL pool，并让 ObjectStore 使用独立 filesystem root。SQL KV 的 prefix 由后端直接映射为物理表；配置没有 `table` 字段。所有逻辑 SQL Store 在 listener 启动前直接保证业务表与索引存在，再精确校验 schema；不会创建 version/history 表。任何一个失败都会终止启动而不会回退到其他 backend。SQLite 本地部署使用相同 `stores` 与 `services`，只把 `storage.database` 改为 `kind: sqlite` 和 `dir`/`dsn`。
 
 <<< ../../../../snippets/server-storage-stores-services.yaml{yaml}
 

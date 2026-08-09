@@ -907,8 +907,7 @@ stores:
   state:
     kind: keyvalue
     storage: database
-    prefix: service
-    table: state_items
+    prefix: service-state
   telemetry:
     kind: metrics
     storage: database
@@ -925,12 +924,29 @@ stores:
 	if err != nil {
 		t.Fatal(err)
 	}
+	if state := cfg.Stores["state"]; state.Prefix != "service-state" || state.Table != "" {
+		t.Fatalf("stores.state = %+v, want prefix-scoped keyvalue Store", state)
+	}
 	for name, table := range map[string]string{
-		"state": "state_items", "telemetry": "metric_samples", "logs": "log_records", "history": "history_records",
+		"telemetry": "metric_samples", "logs": "log_records", "history": "history_records",
 	} {
 		if got := cfg.Stores[name].Table; got != table {
 			t.Fatalf("stores.%s.table = %q, want %q", name, got, table)
 		}
+	}
+}
+
+func TestParseConfigRejectsKeyValueTable(t *testing.T) {
+	_, err := parseConfigData([]byte(`
+stores:
+  state:
+    kind: keyvalue
+    storage: database
+    prefix: state
+    table: state_items
+`))
+	if err == nil || !strings.Contains(err.Error(), `stores.state field "table" is invalid for kind keyvalue`) {
+		t.Fatalf("parseConfigData() error = %v", err)
 	}
 }
 
@@ -984,7 +1000,11 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 	}
 	for name, logical := range cfg.Stores {
 		switch logical.Kind {
-		case stores.KindKeyValue, stores.KindMetrics, stores.KindLogImmutable, stores.KindLogMutable:
+		case stores.KindKeyValue:
+			if logical.Storage != "database" || logical.Prefix == "" || logical.Table != "" {
+				t.Fatalf("stores.%s = %+v, want prefix-scoped database KV Store", name, logical)
+			}
+		case stores.KindMetrics, stores.KindLogImmutable, stores.KindLogMutable:
 			if logical.Storage != "database" || logical.Table == "" {
 				t.Fatalf("stores.%s = %+v, want table-scoped database Store", name, logical)
 			}

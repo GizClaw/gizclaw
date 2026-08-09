@@ -33,6 +33,16 @@ func TestPrepareAndIndexNames(t *testing.T) {
 	if first != second || len(first) > 63 {
 		t.Fatalf("IndexName() = %q, %q", first, second)
 	}
+	hyphenated, err := Prepare(db, "kv", "service-state")
+	if err != nil || hyphenated.Quoted != `"service-state"` {
+		t.Fatalf("Prepare(hyphenated KV prefix) = %+v, %v", hyphenated, err)
+	}
+	if _, err := Quote(SQLite, "service-state"); err == nil {
+		t.Fatal("Quote accepted a hyphenated identifier")
+	}
+	if quoted, err := QuoteTableName(SQLite, "service-state"); err != nil || quoted != `"service-state"` {
+		t.Fatalf("QuoteTableName() = %q, %v", quoted, err)
+	}
 }
 
 func TestPrepareAndIdentifiersRejectUnsupportedInputs(t *testing.T) {
@@ -50,6 +60,14 @@ func TestPrepareAndIdentifiersRejectUnsupportedInputs(t *testing.T) {
 		if err := ValidateIdentifier(value); err == nil {
 			t.Errorf("ValidateIdentifier(%q) = nil", value)
 		}
+	}
+	for _, value := range []string{"", "1a", "a/b", "a.b", strings.Repeat("x", 64)} {
+		if err := ValidateTableName(value); err == nil {
+			t.Errorf("ValidateTableName(%q) = nil", value)
+		}
+	}
+	if _, err := Prepare(db, "metrics", "metric-samples"); err == nil {
+		t.Fatal("Prepare accepted a hyphenated Metrics table")
 	}
 }
 

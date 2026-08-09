@@ -53,7 +53,7 @@ flowchart TB
 
 | Store kind | Interface and scope |
 | --- | --- |
-| `keyvalue` | `kv.Store`; Badger/memory or a required dedicated SQLite/PostgreSQL `table`, plus an optional key prefix |
+| `keyvalue` | `kv.Store`; optional key prefix for Badger/memory, or a required prefix that the SQLite/PostgreSQL backend uses as its physical table name |
 | `sql` | borrowed `*sqlx.DB` physical pool; service owns its schema |
 | `objectstore` | `objectstore.ObjectStore`; optional object prefix |
 | `metrics` | `metrics.Store`; `memory`, Prometheus, ClickHouse, or a SQLite/PostgreSQL table |
@@ -91,7 +91,7 @@ directory to PostgreSQL or a DSN/provider credential to Badger.
 
 Multiple Stores may borrow one connector. The caller closes logical `Stores` first and physical `Storage` second. `memory` is a stateless marker; every keyvalue or metrics Store that references it creates an independent instance. `vecstore` and `graph` have no built-in Server consumer, so they are not command-layer Store kinds; their public packages and constructors remain available. Memory connections selected through RuntimeProfile and MemoryLayout remain outside this registry.
 
-Each SQLite/PostgreSQL KV, Metrics, or Log Store declares one unqualified ASCII `table` of at most 63 bytes. Logical declarations cannot claim the same table on one connector: SQLite compares ASCII names case-insensitively, while PostgreSQL compares exact quoted names. The registry validates the complete compatibility, scope, and table-claim set before any DDL. Construction directly ensures the table and indexes with idempotent `CREATE ... IF NOT EXISTS`, then validates the exact columns, primary key, identity, and indexes. It creates no schema version or history table and never imports or rewrites existing backend data. A compatible existing table is reused; an incompatible definition fails startup. Logical `Close` changes only adapter state and never closes the borrowed `*sqlx.DB`.
+A SQLite/PostgreSQL KV Store declares only one single-segment `prefix`; the backend uses it directly as the quoted physical table name and does not repeat that prefix inside encoded keys. Metrics and Log Stores continue declaring `table`. These physical names are unqualified ASCII names of at most 63 bytes; a KV prefix may also contain `-`. Logical declarations cannot claim the same physical table on one connector: SQLite compares ASCII names case-insensitively, while PostgreSQL compares exact quoted names. The registry validates the complete compatibility, scope, and table-claim set before any DDL. Construction directly ensures the table and indexes with idempotent `CREATE ... IF NOT EXISTS`, then validates the exact columns, primary key, identity, and indexes. It creates no schema version or history table and never imports or rewrites existing backend data. A compatible existing table is reused; an incompatible definition fails startup. Logical `Close` changes only adapter state and never closes the borrowed `*sqlx.DB`.
 
 ### Process SQLite DSN contract
 

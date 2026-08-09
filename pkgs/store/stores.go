@@ -41,7 +41,7 @@ const (
 type Config struct {
 	Kind     string
 	Storage  string // reference to a physical storage backend
-	Prefix   string // slash-separated logical key prefix for KV stores
+	Prefix   string // logical key prefix; SQL KV uses one segment as its table name
 	Database string
 	Table    string
 	TopicID  string
@@ -181,14 +181,18 @@ func validateConfigs(configs map[string]Config, physical *storage.Storage) error
 			(cfg.Kind != KindKeyValue && cfg.Kind != KindMetrics && cfg.Kind != KindLogImmutable && cfg.Kind != KindLogMutable) {
 			continue
 		}
-		identity := cfg.Storage + "\x00" + cfg.Table
+		table := cfg.Table
+		if cfg.Kind == KindKeyValue {
+			table = cfg.Prefix
+		}
+		identity := cfg.Storage + "\x00" + table
 		if kind == storage.KindSQLite {
-			identity = cfg.Storage + "\x00" + strings.ToLower(cfg.Table)
+			identity = cfg.Storage + "\x00" + strings.ToLower(table)
 		}
 		if previous, exists := claims[identity]; exists {
 			err := fmt.Errorf(
 				"stores: SQL storage %q table %q is claimed by both %q and %q",
-				cfg.Storage, cfg.Table, previous.name, name,
+				cfg.Storage, table, previous.name, name,
 			)
 			return &ConfigError{Name: previous.name, Err: &ConfigError{Name: name, Err: err}}
 		}
@@ -229,7 +233,16 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 			return fmt.Errorf("stores: keyvalue %q prefix: %w", name, err)
 		}
 		if isSQL {
-			return requireSQLTable()
+			if err := invalid(cfg.Table != "", "table"); err != nil {
+				return err
+			}
+			if cfg.Prefix == "" {
+				return fmt.Errorf("stores: keyvalue %q requires prefix for %s storage", name, storageKind)
+			}
+			if err := sqlbackend.ValidateTableName(cfg.Prefix); err != nil {
+				return fmt.Errorf("stores: keyvalue %q prefix %q: %w", name, cfg.Prefix, err)
+			}
+			return nil
 		}
 		return invalid(cfg.Table != "", "table")
 	case KindSQL:
@@ -475,13 +488,12 @@ func (r *Stores) newKV(name string, cfg Config) (kv.Store, error) {
 		if err != nil {
 			return nil, fmt.Errorf("stores: keyvalue %q resolve SQL storage %q: %w", name, cfg.Storage, err)
 		}
-		root, err := kv.NewSQLWithDB(db, cfg.Table, nil)
+		root, err := kv.NewSQLWithDB(db, cfg.Prefix, nil)
 		if err != nil {
-			return nil, fmt.Errorf("stores: keyvalue %q %s table %q: %w", name, kind, cfg.Table, err)
+			return nil, fmt.Errorf("stores: keyvalue %q %s prefix %q: %w", name, kind, cfg.Prefix, err)
 		}
-		base = root
-		r.kvRoots[name] = root
 		r.logicClosers = append(r.logicClosers, root)
+		return root, nil
 	}
 	prefix, err := parseKeyPrefix(cfg.Prefix)
 	if err != nil {

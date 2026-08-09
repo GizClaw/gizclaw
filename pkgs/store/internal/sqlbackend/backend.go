@@ -18,7 +18,10 @@ const indexNamespacePrefix = "gizclaw/store/sqlbackend/v1\x00"
 
 const concurrentDDLAttempts = 8
 
-var identifierRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+var (
+	identifierRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+	tableNameRE  = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]*$`)
+)
 
 // Dialect identifies a supported SQL Store dialect.
 type Dialect string
@@ -73,14 +76,18 @@ func Prepare(db *sqlx.DB, kind, table string) (Backend, error) {
 	if kind != "kv" && kind != "metrics" && kind != "log" {
 		return Backend{}, fmt.Errorf("sqlbackend: unsupported store kind %q", kind)
 	}
-	if err := ValidateIdentifier(table); err != nil {
+	validateTable := ValidateIdentifier
+	if kind == "kv" {
+		validateTable = ValidateTableName
+	}
+	if err := validateTable(table); err != nil {
 		return Backend{}, fmt.Errorf("sqlbackend: table %q: %w", table, err)
 	}
 	dialect := Dialect(db.DriverName())
 	if dialect != SQLite && dialect != PostgreSQL {
 		return Backend{}, fmt.Errorf("sqlbackend: unsupported driver %q", db.DriverName())
 	}
-	quoted, err := Quote(dialect, table)
+	quoted, err := QuoteTableName(dialect, table)
 	if err != nil {
 		return Backend{}, err
 	}
@@ -160,12 +167,33 @@ func ValidateIdentifier(value string) error {
 	return nil
 }
 
+// ValidateTableName validates an unqualified SQL table name. KV prefixes may
+// contain hyphens, which remain safe because every accepted name is quoted.
+func ValidateTableName(value string) error {
+	if len(value) == 0 || len(value) > 63 || !tableNameRE.MatchString(value) {
+		return errors.New("table name must match [A-Za-z_][A-Za-z0-9_-]* and contain at most 63 bytes")
+	}
+	return nil
+}
+
 // Quote returns a validated identifier quoted for SQLite or PostgreSQL.
 func Quote(dialect Dialect, value string) (string, error) {
 	if dialect != SQLite && dialect != PostgreSQL {
 		return "", fmt.Errorf("sqlbackend: unsupported dialect %q", dialect)
 	}
 	if err := ValidateIdentifier(value); err != nil {
+		return "", err
+	}
+	return `"` + value + `"`, nil
+}
+
+// QuoteTableName returns a validated table name quoted for SQLite or
+// PostgreSQL.
+func QuoteTableName(dialect Dialect, value string) (string, error) {
+	if dialect != SQLite && dialect != PostgreSQL {
+		return "", fmt.Errorf("sqlbackend: unsupported dialect %q", dialect)
+	}
+	if err := ValidateTableName(value); err != nil {
 		return "", err
 	}
 	return `"` + value + `"`, nil

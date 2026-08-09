@@ -16,8 +16,8 @@ import (
 
 const sqlInitializationTimeout = 30 * time.Second
 
-// SQL implements Store over one SQLite or PostgreSQL table. The
-// connection pool is borrowed and remains owned by the caller.
+// SQL implements one prefix-scoped Store over a SQLite or PostgreSQL table.
+// The connection pool is borrowed and remains owned by the caller.
 type SQL struct {
 	db      *sqlx.DB
 	opts    *Options
@@ -28,20 +28,21 @@ type SQL struct {
 	closed bool
 }
 
-// NewSQLWithDB builds a table-scoped Store over a borrowed SQL pool.
-func NewSQLWithDB(db *sqlx.DB, table string, options *Options) (*SQL, error) {
+// NewSQLWithDB builds a prefix-scoped Store over a borrowed SQL pool. Prefix is
+// used as the quoted backend table name and is not added to encoded keys.
+func NewSQLWithDB(db *sqlx.DB, prefix string, options *Options) (*SQL, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), sqlInitializationTimeout)
 	defer cancel()
-	return newSQLWithDB(ctx, db, table, options)
+	return newSQLWithDB(ctx, db, prefix, options)
 }
 
-func newSQLWithDB(ctx context.Context, db *sqlx.DB, table string, options *Options) (*SQL, error) {
-	backend, err := sqlbackend.Prepare(db, "kv", table)
+func newSQLWithDB(ctx context.Context, db *sqlx.DB, prefix string, options *Options) (*SQL, error) {
+	backend, err := sqlbackend.Prepare(db, "kv", prefix)
 	if err != nil {
-		return nil, fmt.Errorf("kv: sql table %q: %w", table, err)
+		return nil, fmt.Errorf("kv: sql prefix %q: %w", prefix, err)
 	}
 	if err := ensureSQLSchema(ctx, db, backend); err != nil {
-		return nil, fmt.Errorf("kv: initialize sql table %q: %w", table, err)
+		return nil, fmt.Errorf("kv: initialize sql prefix %q: %w", prefix, err)
 	}
 	store := &SQL{db: db, opts: options, backend: backend, quoted: backend.Quoted}
 	if err := store.checkSchema(ctx); err != nil {

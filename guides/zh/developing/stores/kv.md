@@ -13,7 +13,7 @@
 | `Options` | 配置 key separator 等 store 行为。 |
 | `Memory` / `NewMemory` | 进程内 ordered store。 |
 | `Badger` / `NewBadger` | Badger-backed persistent implementation。 |
-| `SQL` / `NewSQLWithDB` | 借用 SQLite/PostgreSQL pool 的 table-scoped implementation。 |
+| `SQL` / `NewSQLWithDB` | 借用 SQLite/PostgreSQL pool；把逻辑 prefix 映射为物理表。 |
 | `Prefixed` | 为已有 Store 增加固定 key namespace。 |
 | `ListAfter` | 在 prefix 下从指定 key 之后分页读取。 |
 
@@ -23,7 +23,7 @@
 
 ## Server 组合
 
-一个 `storage.kind: badger` entry 只打开一个 `*badger.DB`；逻辑 Store 用 `NewBadgerWithDB` 借用它。`storage.kind: memory` 只是 marker，每个逻辑 keyvalue Store 创建独立 `*kv.Memory`。SQLite/PostgreSQL keyvalue Store 必须声明独立 `table`，保留 ordered prefix、native paging、deadline、batch、conditional create 与 compare-and-mutate 的数据库事务语义；过期 row 在读取或后续成功 mutation 时清理，不运行后台 goroutine。它只保存 opaque bytes，不会自动替代领域 SQL repository。每个 Store 还可增加 slash-separated prefix；固定 `services` 字段再引用逻辑 Store。
+一个 `storage.kind: badger` entry 只打开一个 `*badger.DB`；逻辑 Store 用 `NewBadgerWithDB` 借用它。`storage.kind: memory` 只是 marker，每个逻辑 keyvalue Store 创建独立 `*kv.Memory`。SQLite/PostgreSQL keyvalue Store 只声明一个必填的单段 `prefix`，后端直接把它用作带引号的物理表名，不接受 `table` 字段，也不会在表内 encoded key 上再次添加该 prefix。SQL 实现保留 ordered prefix、native paging、deadline、batch、conditional create 与 compare-and-mutate 的数据库事务语义；过期 row 在读取或后续成功 mutation 时清理，不运行后台 goroutine。它只保存 opaque bytes，不会自动替代领域 SQL repository。固定 `services` 字段引用这个逻辑 Store。
 
 ```yaml
 storage:
@@ -40,6 +40,6 @@ services:
     store: peer-records
 ```
 
-SQLite/PostgreSQL 配置把同一个逻辑声明改为 `storage: database` 并增加 `table: gizclaw_peer_records`。表名不能和同一 connector 上的 Metrics 或 Log Store 重复；关闭逻辑 Store 不会关闭共享数据库 pool。
+SQLite/PostgreSQL 配置只把同一个逻辑声明改为 `storage: database`；此时 `prefix: peers` 同时是后端物理表名。这个名称不能和同一 connector 上其他 KV prefix 或 Metrics/Log table 重复；关闭逻辑 Store 不会关闭共享数据库 pool。
 
 Peer route 与 run state 使用代码内置 prefix，不再由 operator 分别绑定 Store。

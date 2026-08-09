@@ -23,7 +23,7 @@ func Columns(ctx context.Context, db *sqlx.DB, backend Backend) (map[string]Colu
 	columns := map[string]Column{}
 	switch backend.Dialect {
 	case SQLite:
-		quoted, err := Quote(backend.Dialect, backend.Table)
+		quoted, err := QuoteTableName(backend.Dialect, backend.Table)
 		if err != nil {
 			return nil, err
 		}
@@ -111,7 +111,7 @@ func ValidateIndexColumns(ctx context.Context, db *sqlx.DB, backend Backend, nam
 	var err error
 	switch backend.Dialect {
 	case SQLite:
-		table, quoteErr := Quote(backend.Dialect, backend.Table)
+		table, quoteErr := QuoteTableName(backend.Dialect, backend.Table)
 		if quoteErr != nil {
 			return quoteErr
 		}

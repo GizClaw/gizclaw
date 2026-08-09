@@ -186,7 +186,7 @@ func TestSQLUsesCompatibleDatabaseStorage(t *testing.T) {
 	}
 }
 
-func TestSQLiteSupportsTableScopedKVMetricAndLogStores(t *testing.T) {
+func TestSQLiteSupportsPrefixScopedKVAndTableScopedMetricAndLogStores(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
 		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
 	})
@@ -195,7 +195,7 @@ func TestSQLiteSupportsTableScopedKVMetricAndLogStores(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = physical.Close() })
 	registry, err := New(map[string]Config{
-		"kv":      {Kind: KindKeyValue, Storage: "database", Table: "kv_items", Prefix: "scope"},
+		"kv":      {Kind: KindKeyValue, Storage: "database", Prefix: "kv-items"},
 		"metrics": {Kind: KindMetrics, Storage: "database", Table: "metric_samples"},
 		"logs":    {Kind: KindLogImmutable, Storage: "database", Table: "immutable_logs"},
 		"history": {Kind: KindLogMutable, Storage: "database", Table: "mutable_logs"},
@@ -238,6 +238,13 @@ func TestSQLiteSupportsTableScopedKVMetricAndLogStores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var encodedKey []byte
+	if err := raw.QueryRow(`SELECT encoded_key FROM "kv-items"`).Scan(&encodedKey); err != nil {
+		t.Fatal(err)
+	}
+	if string(encodedKey) != "one" {
+		t.Fatalf("SQL KV encoded key = %q, want no repeated logical prefix", encodedKey)
+	}
 	rows, err := raw.Query(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name`)
 	if err != nil {
 		t.Fatal(err)
@@ -254,7 +261,7 @@ func TestSQLiteSupportsTableScopedKVMetricAndLogStores(t *testing.T) {
 	if err := rows.Close(); err != nil {
 		t.Fatal(err)
 	}
-	wantTables := []string{"immutable_logs", "kv_items", "metric_samples", "mutable_logs"}
+	wantTables := []string{"immutable_logs", "kv-items", "metric_samples", "mutable_logs"}
 	if !reflect.DeepEqual(tables, wantTables) {
 		t.Fatalf("SQLite tables = %v, want only business tables %v", tables, wantTables)
 	}
@@ -262,7 +269,7 @@ func TestSQLiteSupportsTableScopedKVMetricAndLogStores(t *testing.T) {
 		t.Fatal(err)
 	}
 	reopened, err := New(map[string]Config{
-		"kv":      {Kind: KindKeyValue, Storage: "database", Table: "kv_items", Prefix: "scope"},
+		"kv":      {Kind: KindKeyValue, Storage: "database", Prefix: "kv-items"},
 		"metrics": {Kind: KindMetrics, Storage: "database", Table: "metric_samples"},
 		"logs":    {Kind: KindLogImmutable, Storage: "database", Table: "immutable_logs"},
 		"history": {Kind: KindLogMutable, Storage: "database", Table: "mutable_logs"},
@@ -287,7 +294,7 @@ func TestSQLiteTableClaimsFailBeforeDDL(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = physical.Close() })
 	_, err = New(map[string]Config{
-		"first":  {Kind: KindKeyValue, Storage: "database", Table: "SharedTable"},
+		"first":  {Kind: KindKeyValue, Storage: "database", Prefix: "SharedTable"},
 		"second": {Kind: KindMetrics, Storage: "database", Table: "sharedtable"},
 	}, physical)
 	if err == nil || !strings.Contains(err.Error(), "claimed by both") {
@@ -303,6 +310,40 @@ func TestSQLiteTableClaimsFailBeforeDDL(t *testing.T) {
 	}
 	if count != 0 {
 		t.Fatalf("preflight failure created %d SQL tables", count)
+	}
+}
+
+func TestSQLKeyValueRejectsTableAndRequiresPrefix(t *testing.T) {
+	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = physical.Close() })
+	for name, test := range map[string]struct {
+		config Config
+		want   string
+	}{
+		"table": {
+			config: Config{Kind: KindKeyValue, Storage: "database", Prefix: "items", Table: "kv_items"},
+			want:   "does not support table",
+		},
+		"missing prefix": {
+			config: Config{Kind: KindKeyValue, Storage: "database"},
+			want:   "requires prefix for sqlite storage",
+		},
+		"nested prefix": {
+			config: Config{Kind: KindKeyValue, Storage: "database", Prefix: "service/items"},
+			want:   "table name must match",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := New(map[string]Config{"store": test.config}, physical)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("New() error = %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 

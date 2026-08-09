@@ -108,9 +108,9 @@ Config rules:
 - Concrete physical kinds are `badger`, `memory`, `filesystem.dir`, `sqlite`, `postgresql`, `clickhouse`, `prometheus`, and `volc-tls`; no nested driver selector is accepted.
 - Prometheus and Volc TLS are physical connector kinds. Their endpoints and credentials belong under `storage`.
 - The six logical Store kinds are `keyvalue`, `sql`, `objectstore`, `metrics`, `log.immutable`, and `log.mutable`.
-- Keyvalue Stores may use Badger or memory, or require an explicit `table` when backed by SQLite/PostgreSQL. Metrics Stores may additionally use Prometheus, ClickHouse, SQLite, or PostgreSQL.
+- Keyvalue Stores may use Badger or memory. SQLite/PostgreSQL keyvalue Stores require one single-segment `prefix`; the backend uses it as the physical table name, `table` is invalid, and encoded keys do not repeat the prefix. Metrics Stores may additionally use Prometheus, ClickHouse, SQLite, or PostgreSQL.
 - `log.immutable` may use Volc TLS, ClickHouse, SQLite, or PostgreSQL; `log.mutable` may use ClickHouse, SQLite, or PostgreSQL. SQL-backed Metrics and Log Stores require `table`.
-- SQLite/PostgreSQL KV, Metrics, and Log declarations each claim one unqualified ASCII table of at most 63 bytes. Claims must be distinct on one connector (ASCII case-insensitive on SQLite, exact on PostgreSQL), and the complete claim set is validated before any DDL.
+- SQLite/PostgreSQL KV declarations claim the physical table derived from `prefix`; Metrics and Log declarations claim their explicit `table`. Physical names are unqualified ASCII values of at most 63 bytes and must be distinct on one connector (ASCII case-insensitive on SQLite, exact on PostgreSQL); the complete claim set is validated before any DDL.
 - SQL-backed logical Stores directly ensure their table and indexes with idempotent DDL, then validate the exact schema. They create no version or history table and borrow the physical pool. Close logical Stores before Storage; they never close the pool themselves.
 - Public vecstore and graph packages remain available but are not Server Store kinds.
 - `memory` is a stateless marker; every logical Store entry creates its own in-process backend.

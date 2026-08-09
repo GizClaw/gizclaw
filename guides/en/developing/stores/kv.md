@@ -13,7 +13,7 @@
 | `Options` | Configure store behaviors such as key separator. |
 | `Memory` / `NewMemory` | In-process ordered store. |
 | `Badger` / `NewBadger` | Badger-backed persistent implementation. |
-| `SQL` / `NewSQLWithDB` | Table-scoped implementation borrowing a SQLite/PostgreSQL pool. |
+| `SQL` / `NewSQLWithDB` | Borrows a SQLite/PostgreSQL pool and maps the logical prefix to a physical table. |
 | `Prefixed` | Add a fixed key namespace to the existing Store. |
 | `ListAfter` | Read in pages after the specified key under prefix. |
 
@@ -23,7 +23,7 @@
 
 ## Server composition
 
-A `storage.kind: badger` entry opens one `*badger.DB`; logical Stores borrow it through `NewBadgerWithDB`. `storage.kind: memory` is only a marker, and every logical keyvalue Store creates an independent `*kv.Memory`. A SQLite/PostgreSQL keyvalue Store requires its own `table` and preserves ordered prefixes, native paging, deadlines, batches, conditional create, and compare-and-mutate with database transactions. Expired rows are removed by reads or later successful mutations; there is no background worker. The table stores opaque bytes and never replaces a domain SQL repository automatically. Each logical Store may still add a slash-separated prefix, and fixed `services` fields name it.
+A `storage.kind: badger` entry opens one `*badger.DB`; logical Stores borrow it through `NewBadgerWithDB`. `storage.kind: memory` is only a marker, and every logical keyvalue Store creates an independent `*kv.Memory`. A SQLite/PostgreSQL keyvalue Store declares only one required, single-segment `prefix`. The backend uses it directly as the quoted physical table name, rejects `table`, and does not add the prefix again to encoded keys. The SQL implementation preserves ordered prefixes, native paging, deadlines, batches, conditional create, and compare-and-mutate with database transactions. Expired rows are removed by reads or later successful mutations; there is no background worker. The table stores opaque bytes and never replaces a domain SQL repository automatically. Fixed `services` fields name the logical Store.
 
 ```yaml
 storage:
@@ -40,6 +40,6 @@ services:
     store: peer-records
 ```
 
-For SQLite/PostgreSQL, change the logical declaration to `storage: database` and add `table: gizclaw_peer_records`. The table cannot be shared with another KV, Metrics, or Log declaration on that connector, and closing the logical Store leaves the shared database pool open.
+For SQLite/PostgreSQL, only change the logical declaration to `storage: database`; `prefix: peers` then also names the backend table. That name cannot overlap another KV prefix or Metrics/Log table on the connector, and closing the logical Store leaves the shared database pool open.
 
 Peer routes and run state use code-owned prefixes rather than separate operator Store bindings.
