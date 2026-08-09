@@ -36,6 +36,16 @@ func TestSQLStoreContract(t *testing.T) {
 	if err := store.BatchSet(ctx, entries); err != nil {
 		t.Fatal(err)
 	}
+	var listed []Entry
+	for entry, err := range store.List(ctx, Key{"a"}) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		listed = append(listed, entry)
+	}
+	if len(listed) != 2 || !slices.Equal(listed[0].Key, Key{"a", "1"}) || !slices.Equal(listed[1].Key, Key{"a", "2"}) {
+		t.Fatalf("List() = %+v", listed)
+	}
 	got, err := store.ListAfter(ctx, Key{"a"}, nil, 10)
 	if err != nil {
 		t.Fatal(err)
