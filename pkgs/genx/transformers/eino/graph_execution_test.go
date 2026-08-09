@@ -461,8 +461,8 @@ func TestGraphExecutionDeclaredOutputRoutes(t *testing.T) {
 	}}
 	config.Graph.Edges = []EdgeDefinition{{From: "start", To: "publish"}, {From: "publish", To: "end"}}
 	config.Graph.Outputs = []OutputDefinition{
-		{Node: "publish", Field: "primary", Name: "assistant", MIMEType: "text/plain", Primary: true},
-		{Node: "publish", Field: "detail", Name: "detail", MIMEType: "text/markdown"},
+		{Node: "publish", Field: "primary", Name: "assistant", MIMEType: "text/markdown", Primary: true},
+		{Node: "publish", Field: "detail", Name: "detail", MIMEType: "text/plain"},
 	}
 	transformer, err := New(t.Context(), config)
 	if err != nil {
@@ -477,10 +477,39 @@ func TestGraphExecutionDeclaredOutputRoutes(t *testing.T) {
 		chunks := drain(t, output)
 		routeText := make(map[string]string)
 		routeIDs := make(map[string]string)
+		routeMIMEs := make(map[string]string)
+		routeBegun := make(map[string]bool)
+		routeEnded := make(map[string]bool)
 		lastEOS := ""
 		for _, chunk := range chunks {
-			if text, ok := chunk.Part.(genx.Text); ok && !chunk.IsEndOfStream() {
-				routeText[chunk.Name] += string(text)
+			mimeType, hasMIME := chunk.MIMEType()
+			if hasMIME {
+				if existing := routeMIMEs[chunk.Name]; existing != "" && existing != mimeType {
+					t.Fatalf("route %q changed MIME from %q to %q", chunk.Name, existing, mimeType)
+				}
+				routeMIMEs[chunk.Name] = mimeType
+				if chunk.IsBeginOfStream() {
+					if routeBegun[chunk.Name] {
+						t.Fatalf("route %q emitted duplicate BOS", chunk.Name)
+					}
+					routeBegun[chunk.Name] = true
+				} else if !routeBegun[chunk.Name] {
+					t.Fatalf("route %q emitted data or EOS before BOS", chunk.Name)
+				}
+				if routeEnded[chunk.Name] {
+					t.Fatalf("route %q emitted a chunk after EOS", chunk.Name)
+				}
+				if chunk.IsEndOfStream() {
+					routeEnded[chunk.Name] = true
+				}
+			}
+			if !chunk.IsEndOfStream() {
+				switch part := chunk.Part.(type) {
+				case genx.Text:
+					routeText[chunk.Name] += string(part)
+				case *genx.Blob:
+					routeText[chunk.Name] += string(part.Data)
+				}
 			}
 			if chunk.Ctrl != nil {
 				if existing := routeIDs[chunk.Name]; existing != "" && existing != chunk.Ctrl.StreamID {
@@ -497,6 +526,12 @@ func TestGraphExecutionDeclaredOutputRoutes(t *testing.T) {
 		}
 		if routeText["assistant"] != input || routeText["detail"] != "detail:"+input {
 			t.Fatalf("route text = %#v", routeText)
+		}
+		if routeMIMEs["assistant"] != "text/markdown" || routeMIMEs["detail"] != "text/plain" {
+			t.Fatalf("route MIME = %#v", routeMIMEs)
+		}
+		if !routeEnded["assistant"] || !routeEnded["detail"] {
+			t.Fatalf("route completion = %#v, want both routes complete", routeEnded)
 		}
 		if lastEOS != "assistant" {
 			t.Fatalf("last EOS route = %q, want primary assistant", lastEOS)

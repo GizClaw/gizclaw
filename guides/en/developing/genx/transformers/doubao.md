@@ -28,6 +28,8 @@ Constructors do not open provider sessions; each concurrent `Transform` call own
 
 Each Transformer's typed Config defines stable configuration, while the context passed to `Transform` controls one request's lifecycle. The Adapter must internally convert provider events, audio formats, usage, terminal states, and errors to GenX Stream.
 
+Every output route or MIME channel created by a Doubao Transformer has an explicit lifecycle owned by that Transformer. ASR transcripts and history audio, TTS audio, AST transcript/translation/history/audio, and Realtime transcript/assistant text/audio each emit BOS before or with their first data and one matching EOS, including empty and error completions. Input or unrelated routes that the Transformer does not create remain pass-through boundaries and are not repaired or closed on another component's behalf.
+
 ### ASR empty recognition
 
 When a Doubao ASR provider session completes normally without non-whitespace final result text or definite utterance text, `doubaoasr.Transformer` completes that recognition successfully without emitting recognized transcript text. A zero-content terminal chunk required by the existing Stream route remains a successful internal boundary rather than recognized user text.
@@ -37,6 +39,12 @@ After an explicit audio EOS, `doubaoasr.Transformer` waits at most one minute fo
 An interim transcript route that never receives a definite result remains an error. Provider, protocol, cancellation, interrupted-input, malformed-audio, unsupported-format failures, and timeouts other than the exception below retain their normal error propagation.
 
 Continuous ASR with `EmitInterim` sends every audio frame immediately as a non-final packet to the current healthy SAUC session. An explicit audio EOS sends the terminal marker, finishes that provider session, and leaves the outer Transformer stream open; the next audio route creates a replacement session and binds its transcript independently. A provider packet-wait timeout while finalizing is the expected recoverable post-route boundary. Other provider errors and the one-minute local finalization timeout terminate the outer stream.
+
+### Seed V2 empty audio
+
+`doubaotts.SeedV2` treats a successful provider terminal as successful synthesis only after a non-empty readable segment has emitted at least one normalized audio byte. A successful final-only provider stream, or any otherwise successful stream that emits zero normalized audio bytes, terminates the affected audio route with `doubaotts: seed v2 completed without audio` instead of a successful audio EOS.
+
+Provider, protocol, context-cancellation, normalizer, and downstream emission errors keep their original error identity. The adapter does not retry the request, switch the configured Voice, or synthesize replacement content. Shared TTS and Audio Dock propagate the resulting terminal error through their existing route lifecycle.
 
 ## AST Translate input modes
 
@@ -63,6 +71,12 @@ Unpublished assistant TTS output is limited to two minutes of normalized Opus pa
 | Tool result | Not provided by this session contract | `SendFunctionCallOutputs` |
 
 The two Adapters can share GenX Stream, audio conversion, StreamID, and lifecycle infrastructure, but cannot merge provider session interface or event mapping. Push-to-Talk belongs only to the Realtime Dialogue API and should not be emulated by the Realtime Duplex Adapter.
+
+### Realtime Duplex stream identity and input boundaries
+
+Realtime Duplex relies on provider server VAD to segment continuous utterances. A control-route BOS and an audio MIME BOS with the same StreamID open the local input segment. Audio MIME EOS and control-route EOS close only their corresponding local codec/segment boundaries and do not send `input_audio_buffer.commit`. When a BOS or EOS chunk also carries audio data, the Adapter sends that payload before applying the boundary transition. Non-audio MIME boundaries cannot close the audio segment early.
+
+Provider `ResponseID` and `QuestionID` values are protocol metadata and may differ between events for one logical response, so they are not GenX route identity. The Adapter creates one stable owned StreamID for the current response; assistant text and audio MIME channels share that StreamID and each emit a complete BOS/data/EOS lifecycle. A provider transcription delta may be either a token or a cumulative hypothesis; the Adapter publishes only the suffix not already emitted and does not duplicate semantic content for repeated hypotheses.
 
 ## Realtime Duplex function-tool continuation
 

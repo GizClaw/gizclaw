@@ -242,7 +242,7 @@ func forwardTextInput(ctx context.Context, input genx.Stream, builder *genx.Stre
 		if !textOpen {
 			return nil
 		}
-		if err := builder.Add(textChunk(textStreamID, "", true)); err != nil {
+		if err := builder.Add(textChunk(textStreamID, "", false, true)); err != nil {
 			return err
 		}
 		textOpen = false
@@ -273,9 +273,10 @@ func forwardTextInput(ctx context.Context, input genx.Stream, builder *genx.Stre
 			streamID = nextStreamID
 			text, ok := chunk.Part.(genx.Text)
 			if ok && text != "" {
+				begin := !textOpen
 				textOpen = true
 				textStreamID = streamID
-				if err := builder.Add(textChunk(streamID, string(text), false)); err != nil {
+				if err := builder.Add(textChunk(streamID, string(text), begin, false)); err != nil {
 					_ = builder.Abort(err)
 					return
 				}
@@ -408,7 +409,7 @@ func (a *Transformer) transcribeInput(ctx context.Context, input genx.Stream, ou
 		if !textOpen {
 			return nil
 		}
-		if err := output.Add(textChunk(textStreamID, "", true)); err != nil {
+		if err := output.Add(textChunk(textStreamID, "", false, true)); err != nil {
 			return err
 		}
 		textOpen = false
@@ -531,9 +532,10 @@ func (a *Transformer) transcribeInput(ctx context.Context, input genx.Stream, ou
 		streamID.Set(nextStreamID)
 		if text, ok := chunk.Part.(genx.Text); ok {
 			if text != "" {
+				begin := !textOpen
 				textOpen = true
 				textStreamID = streamID.Get()
-				if err := output.Add(textChunk(streamID.Get(), string(text), false)); err != nil {
+				if err := output.Add(textChunk(streamID.Get(), string(text), begin, false)); err != nil {
 					_ = output.Abort(err)
 					return
 				}
@@ -658,7 +660,7 @@ func normalizeASRTranscriptChunk(chunk *genx.MessageChunk, fallbackStreamID stri
 	return nil
 }
 
-func textChunk(streamID, text string, eos bool) *genx.MessageChunk {
+func textChunk(streamID, text string, bos, eos bool) *genx.MessageChunk {
 	if strings.TrimSpace(streamID) == "" {
 		streamID = defaultInputStreamID
 	}
@@ -666,7 +668,7 @@ func textChunk(streamID, text string, eos bool) *genx.MessageChunk {
 		Role: genx.RoleUser,
 		Name: transcriptLabel,
 		Part: genx.Text(text),
-		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: transcriptLabel, EndOfStream: eos},
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: transcriptLabel, BeginOfStream: bos, EndOfStream: eos},
 	}
 }
 

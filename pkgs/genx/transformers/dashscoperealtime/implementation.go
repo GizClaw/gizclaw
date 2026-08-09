@@ -116,7 +116,13 @@ func (s *dashScopeStreamIDs) bindTranscription() (inputStreamID, responseStreamI
 			return turn.inputStreamID, turn.responseStreamID
 		}
 	}
-	return "", ""
+	turn := &dashScopeStreamTurn{
+		inputStreamID:     genx.NewStreamID(),
+		responseStreamID:  genx.NewStreamID(),
+		transcriptionSeen: true,
+	}
+	s.turns = append(s.turns, turn)
+	return turn.inputStreamID, turn.responseStreamID
 }
 
 func (s *dashScopeStreamIDs) bindResponse(providerResponseID string) (inputStreamID, responseStreamID string) {
@@ -562,6 +568,50 @@ func (t *Transformer) processLoop(
 	}
 	go func() {
 		defer close(eventsDone)
+		type outputRouteState struct {
+			begun bool
+			done  bool
+		}
+		routes := make(map[string]*outputRouteState)
+		partForMIME := func(mimeType string) genx.Part {
+			if mimeType == "text/plain" {
+				return genx.Text("")
+			}
+			return &genx.Blob{MIMEType: mimeType}
+		}
+		ensureBOS := func(role genx.Role, streamID, mimeType string) error {
+			key := streamID + "\x00" + mimeType
+			state := routes[key]
+			if state == nil {
+				state = &outputRouteState{}
+				routes[key] = state
+			}
+			if state.begun {
+				return nil
+			}
+			state.begun = true
+			return output.Push(&genx.MessageChunk{
+				Role: role,
+				Part: partForMIME(mimeType),
+				Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true},
+			})
+		}
+		emitEOS := func(role genx.Role, streamID, mimeType string) error {
+			if err := ensureBOS(role, streamID, mimeType); err != nil {
+				return err
+			}
+			key := streamID + "\x00" + mimeType
+			state := routes[key]
+			if state.done {
+				return nil
+			}
+			state.done = true
+			return output.Push(&genx.MessageChunk{
+				Role: role,
+				Part: partForMIME(mimeType),
+				Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true},
+			})
+		}
 		for event, err := range session.Events() {
 			if err != nil {
 				output.CloseWithError(err)
@@ -577,21 +627,15 @@ func (t *Transformer) processLoop(
 				}
 
 			case dashscope.EventTypeResponseCreated:
-				_, responseStreamID := streamIDs.bindResponse(dashScopeResponseID(event))
-				// Send BOS to signal start of new audio stream
-				bosChunk := &genx.MessageChunk{
-					Role: genx.RoleModel,
-					Part: &genx.Blob{MIMEType: t.getOutputAudioMIMEType()},
-					Ctrl: &genx.StreamCtrl{StreamID: responseStreamID, BeginOfStream: true},
-				}
-				if err := output.Push(bosChunk); err != nil {
-					return
-				}
+				streamIDs.bindResponse(dashScopeResponseID(event))
 
 			case dashscope.EventTypeInputAudioTranscriptionCompleted:
 				inputStreamID, _ := streamIDs.bindTranscription()
 				// ASR result for user input - emit text then EOS
 				if event.Transcript != "" {
+					if err := ensureBOS(genx.RoleUser, inputStreamID, "text/plain"); err != nil {
+						return
+					}
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleUser,
 						Part: genx.Text(event.Transcript),
@@ -600,21 +644,18 @@ func (t *Transformer) processLoop(
 					if err := output.Push(outChunk); err != nil {
 						return
 					}
-					// Emit ASR EOS
-					eosChunk := &genx.MessageChunk{
-						Role: genx.RoleUser,
-						Part: genx.Text(""),
-						Ctrl: &genx.StreamCtrl{StreamID: inputStreamID, EndOfStream: true},
-					}
-					if err := output.Push(eosChunk); err != nil {
-						return
-					}
+				}
+				if err := emitEOS(genx.RoleUser, inputStreamID, "text/plain"); err != nil {
+					return
 				}
 
 			case dashscope.EventTypeResponseTextDelta:
 				responseStreamID := streamIDs.response(dashScopeResponseID(event))
 				// Model text response
 				if event.Delta != "" {
+					if err := ensureBOS(genx.RoleModel, responseStreamID, "text/plain"); err != nil {
+						return
+					}
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: genx.Text(event.Delta),
@@ -627,13 +668,7 @@ func (t *Transformer) processLoop(
 
 			case dashscope.EventTypeResponseTextDone:
 				responseStreamID := streamIDs.response(dashScopeResponseID(event))
-				// Model text response done - emit EOS
-				eosChunk := &genx.MessageChunk{
-					Role: genx.RoleModel,
-					Part: genx.Text(""),
-					Ctrl: &genx.StreamCtrl{StreamID: responseStreamID, EndOfStream: true},
-				}
-				if err := output.Push(eosChunk); err != nil {
+				if err := emitEOS(genx.RoleModel, responseStreamID, "text/plain"); err != nil {
 					return
 				}
 
@@ -641,6 +676,9 @@ func (t *Transformer) processLoop(
 				responseStreamID := streamIDs.responseTranscript(dashScopeResponseID(event))
 				// TTS transcript (what the model is saying)
 				if event.Delta != "" {
+					if err := ensureBOS(genx.RoleModel, responseStreamID, "text/plain"); err != nil {
+						return
+					}
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: genx.Text(event.Delta),
@@ -653,13 +691,7 @@ func (t *Transformer) processLoop(
 
 			case dashscope.EventTypeResponseTranscriptDone:
 				responseStreamID := streamIDs.responseTranscript(dashScopeResponseID(event))
-				// TTS transcript done - emit text EOS
-				eosChunk := &genx.MessageChunk{
-					Role: genx.RoleModel,
-					Part: genx.Text(""),
-					Ctrl: &genx.StreamCtrl{StreamID: responseStreamID, EndOfStream: true},
-				}
-				if err := output.Push(eosChunk); err != nil {
+				if err := emitEOS(genx.RoleModel, responseStreamID, "text/plain"); err != nil {
 					return
 				}
 
@@ -667,6 +699,9 @@ func (t *Transformer) processLoop(
 				responseStreamID := streamIDs.response(dashScopeResponseID(event))
 				// Audio response
 				if len(event.Audio) > 0 {
+					if err := ensureBOS(genx.RoleModel, responseStreamID, t.getOutputAudioMIMEType()); err != nil {
+						return
+					}
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: &genx.Blob{
@@ -682,13 +717,7 @@ func (t *Transformer) processLoop(
 
 			case dashscope.EventTypeResponseAudioDone:
 				responseStreamID := streamIDs.response(dashScopeResponseID(event))
-				// Audio response done - emit EOS
-				eosChunk := &genx.MessageChunk{
-					Role: genx.RoleModel,
-					Part: &genx.Blob{MIMEType: t.getOutputAudioMIMEType()},
-					Ctrl: &genx.StreamCtrl{StreamID: responseStreamID, EndOfStream: true},
-				}
-				if err := output.Push(eosChunk); err != nil {
+				if err := emitEOS(genx.RoleModel, responseStreamID, t.getOutputAudioMIMEType()); err != nil {
 					return
 				}
 
@@ -696,12 +725,20 @@ func (t *Transformer) processLoop(
 				responseStreamID := streamIDs.response(dashScopeResponseID(event))
 				// DashScope's choices format response
 				if event.Delta != "" {
+					if err := ensureBOS(genx.RoleModel, responseStreamID, "text/plain"); err != nil {
+						return
+					}
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: genx.Text(event.Delta),
 						Ctrl: &genx.StreamCtrl{StreamID: responseStreamID},
 					}
 					if err := output.Push(outChunk); err != nil {
+						return
+					}
+				}
+				if event.FinishReason != "" && event.FinishReason != "null" {
+					if err := emitEOS(genx.RoleModel, responseStreamID, "text/plain"); err != nil {
 						return
 					}
 				}

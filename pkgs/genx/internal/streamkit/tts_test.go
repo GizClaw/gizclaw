@@ -36,8 +36,8 @@ func TestTTSStreamPreservesInputRouteMetadata(t *testing.T) {
 	if want := []string{"你好，世界。"}; !reflect.DeepEqual(texts, want) {
 		t.Fatalf("synthesized texts = %#v, want %#v", texts, want)
 	}
-	if len(chunks) != 2 {
-		t.Fatalf("got %d output chunks, want 2", len(chunks))
+	if len(chunks) != 3 {
+		t.Fatalf("got %d output chunks, want BOS/data/EOS", len(chunks))
 	}
 	for index, chunk := range chunks {
 		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != "input-stream" || chunk.Ctrl.Label != "speech" {
@@ -47,8 +47,17 @@ func TestTTSStreamPreservesInputRouteMetadata(t *testing.T) {
 			t.Fatalf("chunk %d metadata = role %q name %q", index, chunk.Role, chunk.Name)
 		}
 	}
-	if !chunks[1].IsEndOfStream() {
-		t.Fatalf("terminal chunk = %#v", chunks[1])
+	if !chunks[0].IsBeginOfStream() {
+		t.Fatalf("initial chunk = %#v, want audio BOS", chunks[0])
+	}
+	if blob, ok := chunks[0].Part.(*genx.Blob); !ok || blob.MIMEType != "audio/mpeg" || len(blob.Data) != 0 {
+		t.Fatalf("initial part = %#v, want empty audio/mpeg Blob", chunks[0].Part)
+	}
+	if blob, ok := chunks[1].Part.(*genx.Blob); !ok || len(blob.Data) == 0 || chunks[1].IsBeginOfStream() || chunks[1].IsEndOfStream() {
+		t.Fatalf("data chunk = %#v", chunks[1])
+	}
+	if !chunks[2].IsEndOfStream() {
+		t.Fatalf("terminal chunk = %#v", chunks[2])
 	}
 }
 
@@ -62,12 +71,12 @@ func TestTTSStreamCreatesStreamIDWhenInputOmitsOne(t *testing.T) {
 		return emit([]byte("audio"))
 	})
 	chunks := collectTransformerChunks(t, output)
-	if len(chunks) != 2 {
-		t.Fatalf("got %d output chunks, want 2", len(chunks))
+	if len(chunks) != 3 {
+		t.Fatalf("got %d output chunks, want BOS/data/EOS", len(chunks))
 	}
 	streamID := chunks[0].Ctrl.StreamID
-	if streamID == "" || chunks[1].Ctrl.StreamID != streamID || !chunks[1].IsEndOfStream() {
-		t.Fatalf("route controls = %#v / %#v", chunks[0].Ctrl, chunks[1].Ctrl)
+	if streamID == "" || !chunks[0].IsBeginOfStream() || chunks[1].Ctrl.StreamID != streamID || chunks[2].Ctrl.StreamID != streamID || !chunks[2].IsEndOfStream() {
+		t.Fatalf("route controls = %#v / %#v / %#v", chunks[0].Ctrl, chunks[1].Ctrl, chunks[2].Ctrl)
 	}
 }
 
@@ -82,7 +91,7 @@ func TestTTSStreamSkipsUnreadableSegments(t *testing.T) {
 		return nil
 	})
 	chunks := collectTransformerChunks(t, output)
-	if len(chunks) != 1 || !chunks[0].IsEndOfStream() || chunks[0].Ctrl.StreamID != "input-stream" {
+	if len(chunks) != 2 || !chunks[0].IsBeginOfStream() || !chunks[1].IsEndOfStream() || chunks[0].Ctrl.StreamID != "input-stream" || chunks[1].Ctrl.StreamID != "input-stream" {
 		t.Fatalf("output chunks = %#v", chunks)
 	}
 }
@@ -142,7 +151,7 @@ func TestTTSStreamReturnsProviderFailureAsRouteEOS(t *testing.T) {
 		return wantErr
 	})
 	chunks := collectTransformerChunks(t, output)
-	if len(chunks) != 1 || !chunks[0].IsEndOfStream() || chunks[0].Ctrl.Error != wantErr.Error() {
+	if len(chunks) != 2 || !chunks[0].IsBeginOfStream() || !chunks[1].IsEndOfStream() || chunks[1].Ctrl.Error != wantErr.Error() {
 		t.Fatalf("failure output = %#v", chunks)
 	}
 }
@@ -158,11 +167,16 @@ func TestTTSStreamInterruptDiscardsUnpulledAudio(t *testing.T) {
 	<-output.Done()
 
 	chunks := collectTransformerChunks(t, output)
-	if len(chunks) != 1 || !chunks[0].IsEndOfStream() || chunks[0].Ctrl.Error != "caller interrupted" {
+	if len(chunks) != 2 || !chunks[0].IsBeginOfStream() || !chunks[1].IsEndOfStream() || chunks[1].Ctrl.Error != "caller interrupted" {
 		t.Fatalf("interruption output = %#v", chunks)
 	}
-	if mimeType, ok := chunks[0].MIMEType(); !ok || mimeType != "audio/mpeg" {
-		t.Fatalf("interruption MIME = %q, %t", mimeType, ok)
+	for index, chunk := range chunks {
+		if mimeType, ok := chunk.MIMEType(); !ok || mimeType != "audio/mpeg" {
+			t.Fatalf("interruption chunk %d MIME = %q, %t", index, mimeType, ok)
+		}
+		if blob := chunk.Part.(*genx.Blob); len(blob.Data) != 0 {
+			t.Fatalf("interruption chunk %d retained discarded audio %q", index, blob.Data)
+		}
 	}
 }
 

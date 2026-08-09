@@ -25,3 +25,10 @@ func (s *bufferStream) discard(predicate func(*genx.MessageChunk) bool) int {
 	}
 	return s.Discard(predicate)
 }
+
+func (s *bufferStream) discardChunks(predicate func(*genx.MessageChunk) bool) []*genx.MessageChunk {
+	if s == nil || s.Output == nil {
+		return nil
+	}
+	return s.DiscardChunks(predicate)
+}

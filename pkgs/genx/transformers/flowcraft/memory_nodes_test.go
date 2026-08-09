@@ -140,6 +140,8 @@ func TestMemoryObserveNodeMapsBoardFactsToStore(t *testing.T) {
 type memoryNodeStore struct {
 	recallResult  memory.RecallResult
 	observeResult memory.ObserveResult
+	recallErr     error
+	observeErr    error
 	recallQuery   memory.Query
 	observation   memory.Observation
 }
@@ -151,7 +153,7 @@ func (store *memoryNodeStore) Observe(
 	observation memory.Observation,
 ) (memory.ObserveResult, error) {
 	store.observation = observation
-	return store.observeResult, nil
+	return store.observeResult, store.observeErr
 }
 
 func (store *memoryNodeStore) Recall(
@@ -159,7 +161,7 @@ func (store *memoryNodeStore) Recall(
 	query memory.Query,
 ) (memory.RecallResult, error) {
 	store.recallQuery = query
-	return store.recallResult, nil
+	return store.recallResult, store.recallErr
 }
 
 func (*memoryNodeStore) Update(

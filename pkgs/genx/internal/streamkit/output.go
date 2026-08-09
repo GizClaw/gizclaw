@@ -178,6 +178,13 @@ func (o *Output) Discard(predicate func(*genx.MessageChunk) bool) int {
 	return len(o.discardChunks(predicate))
 }
 
+// DiscardChunks removes queued chunks matching predicate while preserving
+// order and returns the removed chunks. Composition layers use the returned
+// boundary markers to keep replacement lifecycles well formed.
+func (o *Output) DiscardChunks(predicate func(*genx.MessageChunk) bool) []*genx.MessageChunk {
+	return o.discardChunks(predicate)
+}
+
 func (o *Output) discardChunks(predicate func(*genx.MessageChunk) bool) []*genx.MessageChunk {
 	if o == nil || predicate == nil {
 		return nil

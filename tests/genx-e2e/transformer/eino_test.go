@@ -167,11 +167,9 @@ func TestEinoTransformerOpenAICompatibleGraph(t *testing.T) {
 		t.Fatalf("Transform() failed: %v", err)
 	}
 	streamID := "eino-e2e-input"
-	for _, chunk := range []*genx.MessageChunk{
-		genx.NewBeginOfStream(streamID),
-		{Role: genx.RoleUser, Part: genx.Text("Confirm that the Eino graph is running.")},
-		genx.NewTextEndOfStream(),
-	} {
+	for _, chunk := range completeTextRoute(
+		genx.RoleUser, "", "", streamID, "Confirm that the Eino graph is running.",
+	) {
 		if err := input.Push(ctx, chunk); err != nil {
 			t.Fatalf("push Eino input: %v", err)
 		}
@@ -181,6 +179,7 @@ func TestEinoTransformerOpenAICompatibleGraph(t *testing.T) {
 	}
 	var assistant strings.Builder
 	var assistantDataChunks int
+	tracker := newRouteLifecycleTracker()
 	for {
 		chunk, nextErr := output.Next()
 		if nextErr != nil {
@@ -189,6 +188,7 @@ func TestEinoTransformerOpenAICompatibleGraph(t *testing.T) {
 			}
 			t.Fatalf("read Eino output: %v", nextErr)
 		}
+		observeRouteLifecycle(t, tracker, chunk)
 		if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
 			t.Fatalf("Eino output error: %s", chunk.Ctrl.Error)
 		}
@@ -196,6 +196,10 @@ func TestEinoTransformerOpenAICompatibleGraph(t *testing.T) {
 			assistant.WriteString(string(text))
 			assistantDataChunks++
 		}
+	}
+	tracker.assertComplete(t)
+	if len(tracker.routes) != 2 {
+		t.Fatalf("Eino output routes = %#v, want primary and assistant", tracker.routes)
 	}
 	if assistantDataChunks == 0 || !strings.Contains(assistant.String(), "EINO_TOOL_OK") {
 		t.Fatalf("streamed assistant response = %q in %d chunks", assistant.String(), assistantDataChunks)

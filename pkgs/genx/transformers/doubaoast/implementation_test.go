@@ -91,6 +91,34 @@ func TestTransformerStreamsTranslationAndAudio(t *testing.T) {
 	assertASTTranslateAudioChunk(t, chunks, "turn-1", []byte{1, 2, 3})
 	assertASTTranslateEOS(t, chunks, genx.RoleUser, doubaoASTTranslateTranscriptLabel, "turn-1")
 	assertASTTranslateEOS(t, chunks, genx.RoleModel, doubaoASTTranslateAssistantLabel, "turn-1")
+	routes := make(map[string][]*genx.MessageChunk)
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil {
+			continue
+		}
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			continue
+		}
+		key := string(chunk.Role) + "\x00" + chunk.Ctrl.Label + "\x00" + chunk.Ctrl.StreamID + "\x00" + mimeType
+		routes[key] = append(routes[key], chunk)
+	}
+	if len(routes) != 4 {
+		t.Fatalf("generated routes = %d, want transcript, history audio, assistant text, and assistant audio: %#v", len(routes), chunks)
+	}
+	for key, route := range routes {
+		if len(route) < 2 || !route[0].IsBeginOfStream() || !route[len(route)-1].IsEndOfStream() {
+			t.Fatalf("route %q lifecycle = %#v, want BOS...EOS", key, route)
+		}
+		for index, chunk := range route {
+			if index > 0 && chunk.IsBeginOfStream() {
+				t.Fatalf("route %q has duplicate BOS: %#v", key, route)
+			}
+			if index < len(route)-1 && chunk.IsEndOfStream() {
+				t.Fatalf("route %q ended before its final chunk: %#v", key, route)
+			}
+		}
+	}
 }
 
 func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
@@ -1020,6 +1048,7 @@ func TestTransformerInterruptsActiveSessionOnNewInputStream(t *testing.T) {
 	}
 	assertASTTranslateInterruptedEOS(t, chunks, "turn-1", genx.Text(""))
 	assertASTTranslateInterruptedEOS(t, chunks, "turn-1", &genx.Blob{MIMEType: "audio/opus"})
+	assertASTTranslateInterruptedLifecycles(t, chunks, "turn-1")
 	if got := collectASTTranslateText(chunks, genx.RoleModel, doubaoASTTranslateAssistantLabel, "turn-1"); strings.Contains(got, "stale") {
 		t.Fatalf("stale interrupted session output leaked: text=%q chunks=%#v", got, chunks)
 	}
@@ -1357,6 +1386,30 @@ func readAllASTTranslateChunks(t *testing.T, stream genx.Stream) []*genx.Message
 	}
 }
 
+func TestHistoryUserAudioChunkDoesNotCopySourceBoundaries(t *testing.T) {
+	source := &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte("audio")},
+		Ctrl: &genx.StreamCtrl{
+			StreamID:      "source",
+			Label:         "source",
+			BeginOfStream: true,
+			EndOfStream:   true,
+			Error:         "source error",
+		},
+	}
+
+	got := historyUserAudioChunk(source, "history")
+	if got.Ctrl == nil || got.Ctrl.StreamID != "history" || got.Ctrl.Label != genx.HistoryUserAudioLabel {
+		t.Fatalf("history route = %#v", got.Ctrl)
+	}
+	if got.IsBeginOfStream() || got.IsEndOfStream() || got.Ctrl.Error != "" {
+		t.Fatalf("history data copied source boundaries = %#v", got.Ctrl)
+	}
+	if !source.IsBeginOfStream() || !source.IsEndOfStream() || source.Ctrl.Error != "source error" {
+		t.Fatalf("source chunk was mutated = %#v", source.Ctrl)
+	}
+}
+
 func nextASTTranslateChunk(t *testing.T, stream genx.Stream) (*genx.MessageChunk, error) {
 	t.Helper()
 	type result struct {
@@ -1449,6 +1502,31 @@ func assertASTTranslateInterruptedEOS(t *testing.T, chunks []*genx.MessageChunk,
 		}
 	}
 	t.Fatalf("missing interrupted EOS stream=%s part=%T in %#v", streamID, part, chunks)
+}
+
+func assertASTTranslateInterruptedLifecycles(t *testing.T, chunks []*genx.MessageChunk, streamID string) {
+	t.Helper()
+	routes := make(map[string][]*genx.MessageChunk)
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.StreamID != streamID ||
+			chunk.Ctrl.Label != doubaoASTTranslateAssistantLabel {
+			continue
+		}
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			continue
+		}
+		routes[mimeType] = append(routes[mimeType], chunk)
+	}
+	if len(routes) != 2 {
+		t.Fatalf("interrupted routes = %#v, want text and audio", routes)
+	}
+	for mimeType, route := range routes {
+		if len(route) != 2 || !route[0].IsBeginOfStream() || route[0].IsEndOfStream() ||
+			route[1].IsBeginOfStream() || !route[1].IsEndOfStream() || route[1].Ctrl.Error != "interrupted" {
+			t.Fatalf("interrupted route %q = %#v, want BOS/error EOS", mimeType, route)
+		}
+	}
 }
 
 func countASTTranslateTextEOS(chunks []*genx.MessageChunk, role genx.Role, label, streamID string) int {

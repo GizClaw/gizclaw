@@ -22,6 +22,8 @@ StreamKit 不提供 model role 或 `assistant` label。Producer 负责提供 rou
 
 ## TTS Stream Processing
 
-内部 TTS pipeline 按输入 StreamID 分别维护 sentence segmenter，可以在输入 EOS 前提前合成完整句子；EOS 到达后 flush 剩余文本，在同一逻辑 route 输出 audio EOS，并保留 role、name 与 label。没有 StreamID 的输入在 producer boundary 获得新的非空 ID。
+内部 TTS pipeline 按输入 StreamID 分别维护 sentence segmenter，可以在输入 EOS 前提前合成完整句子，并在 EOS 到达后 flush 剩余文本。它为自己创建的每个 audio MIME channel 保留 role、name 与 label，并在同一逻辑 route 显式输出 BOS、规范化后的 audio data 和一个匹配的 EOS。没有 StreamID 的输入在 producer boundary 获得新的非空 ID。
+
+Interrupt 或 cancel 删除了 downstream 尚未 pull 的显式 TTS BOS 时，StreamKit 会把这个由 producer 声明的边界保留为空 BOS，再发送 error EOS；它不恢复已丢弃的音频 data，也不会替从未发送 BOS 的 producer 创建边界。
 
 Provider package 负责 SDK request 和 audio synthesis。公开的 `transformers/audiostream` 只处理 Transformer audio byte stream；调用方始终按实际 MIME 构造 `Normalizer`，无需预先判断具体格式。无需特殊处理或尚未支持的 MIME 原样透传；当前只有 MP3 会去除 ID3v1 和 ID3v2 metadata。Normalizer 不转换 codec、sample rate 或 MIME type。StreamKit 负责调用生命周期和 route 终态，不解析音频 container bytes。

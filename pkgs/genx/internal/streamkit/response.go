@@ -139,15 +139,21 @@ func (r *Response) endAfterDiscard(errorText string, discarded []*genx.MessageCh
 	if r == nil {
 		return nil
 	}
+	discardedBOS := make(map[string]bool)
 	discardedRoutes := make(map[string]bool)
 	discardedControlEOS := false
 	for _, chunk := range discarded {
-		if chunk == nil || !chunk.IsEndOfStream() {
+		if chunk == nil {
 			continue
 		}
 		if mimeType, ok := chunk.MIMEType(); ok {
-			discardedRoutes[mimeType] = true
-		} else {
+			if chunk.IsBeginOfStream() {
+				discardedBOS[mimeType] = true
+			}
+			if chunk.IsEndOfStream() {
+				discardedRoutes[mimeType] = true
+			}
+		} else if chunk.IsEndOfStream() {
 			discardedControlEOS = true
 		}
 	}
@@ -170,8 +176,15 @@ func (r *Response) endAfterDiscard(errorText string, discarded []*genx.MessageCh
 		r.routes[mimeType] = true
 	}
 	sort.Strings(mimeTypes)
-	chunks := make([]*genx.MessageChunk, 0, len(mimeTypes))
+	chunks := make([]*genx.MessageChunk, 0, len(mimeTypes)*2)
 	for _, mimeType := range mimeTypes {
+		// An interruption may discard a producer's explicit, unpulled BOS along
+		// with its data. Preserve that declared boundary before replacing the
+		// discarded suffix with an error EOS; never infer a BOS that the producer
+		// did not emit.
+		if discardedBOS[mimeType] {
+			chunks = append(chunks, r.routeBOS(mimeType))
+		}
 		chunks = append(chunks, r.routeEOS(mimeType, errorText))
 	}
 	return chunks
@@ -214,6 +227,24 @@ func (r *Response) controlEOS(errorText string) *genx.MessageChunk {
 
 func (r *Response) routeEOS(mimeType, errorText string) *genx.MessageChunk {
 	chunk := r.controlEOS(errorText)
+	if mimeType == textMIME {
+		chunk.Part = genx.Text("")
+	} else {
+		chunk.Part = &genx.Blob{MIMEType: mimeType}
+	}
+	return chunk
+}
+
+func (r *Response) routeBOS(mimeType string) *genx.MessageChunk {
+	chunk := &genx.MessageChunk{
+		Role: r.config.Role,
+		Name: r.config.Name,
+		Ctrl: &genx.StreamCtrl{
+			StreamID:      r.config.StreamID,
+			Label:         r.config.Label,
+			BeginOfStream: true,
+		},
+	}
 	if mimeType == textMIME {
 		chunk.Part = genx.Text("")
 	} else {

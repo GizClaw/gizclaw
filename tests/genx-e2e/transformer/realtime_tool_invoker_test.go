@@ -115,6 +115,8 @@ func waitForRealtimeToolContinuation(
 ) string {
 	t.Helper()
 	var response strings.Builder
+	tracker := newRouteLifecycleTracker()
+	tokenSeen := false
 	for {
 		select {
 		case err := <-feedDone:
@@ -141,25 +143,28 @@ func waitForRealtimeToolContinuation(
 		if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
 			t.Fatalf("realtime output error: %s", chunk.Ctrl.Error)
 		}
+		observeRouteLifecycle(t, tracker, chunk)
 		if text, ok := chunk.Part.(genx.Text); ok {
 			response.WriteString(string(text))
-			if strings.Contains(response.String(), realtimeToolResponseToken) {
-				if feedDone != nil {
-					select {
-					case err := <-feedDone:
-						if err != nil {
-							t.Fatalf("feed realtime tool input: %v", err)
-						}
-					case <-ctx.Done():
-						t.Fatalf(
-							"wait realtime input completion: %v; response=%q",
-							ctx.Err(),
-							response.String(),
-						)
+			tokenSeen = tokenSeen || strings.Contains(response.String(), realtimeToolResponseToken)
+		}
+		if tokenSeen && tracker.allComplete() {
+			if feedDone != nil {
+				select {
+				case err := <-feedDone:
+					if err != nil {
+						t.Fatalf("feed realtime tool input: %v", err)
 					}
+				case <-ctx.Done():
+					t.Fatalf(
+						"wait realtime input completion: %v; response=%q",
+						ctx.Err(),
+						response.String(),
+					)
 				}
-				return response.String()
 			}
+			tracker.assertComplete(t)
+			return response.String()
 		}
 		if err := ctx.Err(); err != nil {
 			t.Fatalf("wait realtime tool continuation: %v; response=%q", err, response.String())

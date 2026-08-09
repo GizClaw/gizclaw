@@ -354,13 +354,16 @@ func TestGraphExecutionPublishAllowListAndRouteLifecycle(t *testing.T) {
 		}
 		if chunk.IsBeginOfStream() {
 			bos++
+			if mimeType, ok := chunk.MIMEType(); !ok || mimeType != "text/plain" {
+				t.Fatalf("BOS MIME = %q, present=%v; chunk=%#v", mimeType, ok, chunk)
+			}
 		}
 		if chunk.IsEndOfStream() {
 			eos++
 			if chunk.Name != assistantLabel || chunk.Ctrl.Label != assistantLabel {
 				t.Fatalf("EOS route = %q/%q", chunk.Name, chunk.Ctrl.Label)
 			}
-		} else if _, ok := chunk.Part.(genx.Text); ok && chunk.Name != "visible" {
+		} else if _, ok := chunk.Part.(genx.Text); ok && !chunk.IsBeginOfStream() && chunk.Name != "visible" {
 			t.Fatalf("published data route = %q, want visible", chunk.Name)
 		}
 	}

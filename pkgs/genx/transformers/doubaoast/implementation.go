@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -192,6 +193,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 
 	var session doubaoASTTranslateSession
 	var sessionGate *astTranslatePTTOutputGate
+	var sessionRoutes *astTranslateRouteLifecycle
 	var recvDone chan error
 	var recvStart chan struct{}
 	var recvFinished chan struct{}
@@ -241,12 +243,14 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		active := func() bool {
 			return activeSessionSeq.Load() == seq
 		}
+		sessionRoutes = newASTTranslateRouteLifecycle()
+		visibleOutput := astTranslateLifecycleOutput{output: output, routes: sessionRoutes}
 		eventOutput := astTranslateOutput(astTranslateGatedOutput{
-			output: output,
+			output: visibleOutput,
 			active: active,
 		})
 		if t.inputMode == InputModePushToTalk {
-			sessionGate = newASTTranslatePTTOutputGate(output, active, streamID)
+			sessionGate = newASTTranslatePTTOutputGate(visibleOutput, active, streamID)
 			eventOutput = sessionGate
 		} else {
 			sessionGate = nil
@@ -337,6 +341,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			if err := active.Finish(ctx); err != nil {
 				session = nil
 				sessionGate = nil
+				sessionRoutes = nil
 				recvDone = nil
 				recvFinished = nil
 				recvCompletionState = nil
@@ -374,6 +379,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		}
 		session = nil
 		sessionGate = nil
+		sessionRoutes = nil
 		recvDone = nil
 		recvFinished = nil
 		recvCompletionState = nil
@@ -403,6 +409,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			}
 			session = nil
 			sessionGate = nil
+			sessionRoutes = nil
 			recvDone = nil
 			recvFinished = nil
 			recvCompletionState = nil
@@ -425,6 +432,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		failedID := streamID
 		session = nil
 		sessionGate = nil
+		sessionRoutes = nil
 		recvDone = nil
 		recvFinished = nil
 		recvCompletionState = nil
@@ -460,6 +468,8 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		active := session
 		done := recvDone
 		limitExceeded := false
+		routes := sessionRoutes
+		activeSessionSeq.Store(0)
 		if sessionGate != nil {
 			sessionGate.Discard()
 			limitExceeded = sessionGate.LimitExceeded()
@@ -473,17 +483,21 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		}
 		session = nil
 		sessionGate = nil
+		sessionRoutes = nil
 		recvDone = nil
 		recvFinished = nil
 		recvCompletionState = nil
 		sessionFinishing = false
-		activeSessionSeq.Store(0)
 		if recvStart != nil {
 			close(recvStart)
 			recvStart = nil
 		}
 		if !limitExceeded {
-			for _, chunk := range astTranslateInterruptedChunks(interruptedStreamID) {
+			chunks := astTranslateInterruptedChunks(interruptedStreamID, t.mode == doubaospeech.ASTTranslateModeS2S)
+			if routes != nil {
+				chunks = routes.interruptedChunks(interruptedStreamID, t.mode == doubaospeech.ASTTranslateModeS2S)
+			}
+			for _, chunk := range chunks {
 				if err := output.Push(chunk); err != nil {
 					_ = active.Close()
 					return err
@@ -739,6 +753,104 @@ func (t *Transformer) audioChunkSize() int {
 
 type astTranslateOutput interface {
 	Push(*genx.MessageChunk) error
+}
+
+type astTranslateRouteLifecycle struct {
+	mu     sync.Mutex
+	routes map[string]*astTranslateOutputRoute
+}
+
+type astTranslateOutputRoute struct {
+	role     genx.Role
+	name     string
+	label    string
+	streamID string
+	mimeType string
+	text     bool
+	begun    bool
+	done     bool
+}
+
+func newASTTranslateRouteLifecycle() *astTranslateRouteLifecycle {
+	return &astTranslateRouteLifecycle{routes: make(map[string]*astTranslateOutputRoute)}
+}
+
+func (l *astTranslateRouteLifecycle) observe(chunk *genx.MessageChunk) {
+	if l == nil || chunk == nil || chunk.Ctrl == nil {
+		return
+	}
+	mimeType, ok := chunk.MIMEType()
+	if !ok {
+		return
+	}
+	key := string(chunk.Role) + "\x00" + chunk.Ctrl.Label + "\x00" + chunk.Ctrl.StreamID + "\x00" + mimeType
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	route := l.routes[key]
+	if route == nil {
+		_, text := chunk.Part.(genx.Text)
+		route = &astTranslateOutputRoute{
+			role: chunk.Role, name: chunk.Name, label: chunk.Ctrl.Label,
+			streamID: chunk.Ctrl.StreamID, mimeType: mimeType, text: text,
+		}
+		l.routes[key] = route
+	}
+	if chunk.IsBeginOfStream() {
+		route.begun = true
+	}
+	if chunk.IsEndOfStream() {
+		route.done = true
+	}
+}
+
+func (l *astTranslateRouteLifecycle) interruptedChunks(fallback string, wantAudio bool) []*genx.MessageChunk {
+	if l == nil {
+		return astTranslateInterruptedChunks(fallback, wantAudio)
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	keys := make([]string, 0, len(l.routes))
+	for key := range l.routes {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	result := make([]*genx.MessageChunk, 0, len(keys)+4)
+	assistantTextSeen := false
+	assistantAudioSeen := false
+	for _, key := range keys {
+		route := l.routes[key]
+		if route.role == genx.RoleModel && route.label == doubaoASTTranslateAssistantLabel {
+			if route.text {
+				assistantTextSeen = true
+			} else if strings.HasPrefix(baseAudioMIME(route.mimeType), "audio/") {
+				assistantAudioSeen = true
+			}
+		}
+		if !route.begun || route.done {
+			continue
+		}
+		result = append(result, astTranslateRouteBoundary(route, false, "interrupted"))
+	}
+	if !assistantTextSeen {
+		result = append(result, astTranslateEmptyInterruptedRoute(fallback, true)...)
+	}
+	if wantAudio && !assistantAudioSeen {
+		result = append(result, astTranslateEmptyInterruptedRoute(fallback, false)...)
+	}
+	return result
+}
+
+type astTranslateLifecycleOutput struct {
+	output astTranslateOutput
+	routes *astTranslateRouteLifecycle
+}
+
+func (o astTranslateLifecycleOutput) Push(chunk *genx.MessageChunk) error {
+	o.routes.observe(chunk)
+	if err := o.output.Push(chunk); err != nil {
+		return err
+	}
+	return nil
 }
 
 type astTranslatePTTOutputGate struct {
@@ -1111,24 +1223,44 @@ func astTranslateSegmentStreamID(base string, segment int) string {
 	return fmt.Sprintf("%s:ast:%d", base, segment)
 }
 
-func astTranslateInterruptedChunks(streamID string) []*genx.MessageChunk {
+func astTranslateInterruptedChunks(streamID string, wantAudio bool) []*genx.MessageChunk {
 	streamID = strings.TrimSpace(streamID)
 	if streamID == "" {
 		streamID = "audio"
 	}
-	textEOS := &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Name: doubaoASTTranslateAssistantLabel,
-		Part: genx.Text(""),
-		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoASTTranslateAssistantLabel, EndOfStream: true, Error: "interrupted"},
+	chunks := astTranslateEmptyInterruptedRoute(streamID, true)
+	if wantAudio {
+		chunks = append(chunks, astTranslateEmptyInterruptedRoute(streamID, false)...)
 	}
-	audioEOS := &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Name: doubaoASTTranslateAssistantLabel,
-		Part: &genx.Blob{MIMEType: "audio/opus"},
-		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoASTTranslateAssistantLabel, EndOfStream: true, Error: "interrupted"},
+	return chunks
+}
+
+func astTranslateEmptyInterruptedRoute(streamID string, text bool) []*genx.MessageChunk {
+	route := &astTranslateOutputRoute{
+		role: genx.RoleModel, name: doubaoASTTranslateAssistantLabel,
+		label: doubaoASTTranslateAssistantLabel, streamID: streamID,
+		mimeType: "audio/opus", text: text,
 	}
-	return []*genx.MessageChunk{textEOS, audioEOS}
+	if text {
+		route.mimeType = "text/plain"
+	}
+	return []*genx.MessageChunk{
+		astTranslateRouteBoundary(route, true, ""),
+		astTranslateRouteBoundary(route, false, "interrupted"),
+	}
+}
+
+func astTranslateRouteBoundary(route *astTranslateOutputRoute, begin bool, errText string) *genx.MessageChunk {
+	var part genx.Part = genx.Text("")
+	if !route.text {
+		part = &genx.Blob{MIMEType: route.mimeType}
+	}
+	ctrl := &genx.StreamCtrl{StreamID: route.streamID, Label: route.label, BeginOfStream: begin}
+	if !begin {
+		ctrl.EndOfStream = true
+		ctrl.Error = errText
+	}
+	return &genx.MessageChunk{Role: route.role, Name: route.name, Part: part, Ctrl: ctrl}
 }
 
 type astTranslateHistoryAudioBuffer struct {

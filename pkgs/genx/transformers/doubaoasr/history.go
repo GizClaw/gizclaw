@@ -17,12 +17,29 @@ func historyUserAudioChunk(chunk *genx.MessageChunk, streamID string) *genx.Mess
 	next := chunk.Clone()
 	next.Role = genx.RoleUser
 	next.Name = "transcript"
+	if blob, ok := next.Part.(*genx.Blob); ok && blob != nil {
+		blob.MIMEType = canonicalHistoryAudioMIME(blob.MIMEType)
+	}
 	if next.Ctrl == nil {
 		next.Ctrl = &genx.StreamCtrl{}
 	}
 	next.Ctrl.StreamID = streamID
 	next.Ctrl.Label = genx.HistoryUserAudioLabel
+	next.Ctrl.BeginOfStream = false
+	next.Ctrl.EndOfStream = false
+	next.Ctrl.Error = ""
 	return next
+}
+
+func canonicalHistoryAudioMIME(mimeType string) string {
+	chunk := &genx.MessageChunk{Part: &genx.Blob{MIMEType: strings.TrimSpace(mimeType)}}
+	if canonical, ok := chunk.MIMEType(); ok {
+		return canonical
+	}
+	if base := baseAudioMIME(mimeType); base != "" {
+		return base
+	}
+	return "audio/pcm"
 }
 
 func historyUserAudioEOSChunk(streamID, mimeType string) *genx.MessageChunk {
@@ -38,6 +55,13 @@ func historyUserAudioEOSChunk(streamID, mimeType string) *genx.MessageChunk {
 		Part: &genx.Blob{MIMEType: mimeType},
 		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: genx.HistoryUserAudioLabel, EndOfStream: true},
 	}
+}
+
+func historyUserAudioBOSChunk(streamID, mimeType string) *genx.MessageChunk {
+	chunk := historyUserAudioEOSChunk(streamID, mimeType)
+	chunk.Ctrl.BeginOfStream = true
+	chunk.Ctrl.EndOfStream = false
+	return chunk
 }
 
 type timestampedHistoryAudioBlock struct {
@@ -157,11 +181,17 @@ func pushHistoryAudioSegment(output interface {
 	}
 	mimeType := "audio/opus"
 	for _, chunk := range chunks {
-		if chunk == nil {
-			continue
-		}
 		if blob, ok := chunk.Part.(*genx.Blob); ok && strings.TrimSpace(blob.MIMEType) != "" {
 			mimeType = blob.MIMEType
+			break
+		}
+	}
+	if err := output.Push(historyUserAudioBOSChunk(streamID, mimeType)); err != nil {
+		return fmt.Errorf("push history user audio bos: %w", err)
+	}
+	for _, chunk := range chunks {
+		if chunk == nil {
+			continue
 		}
 		if err := output.Push(chunk); err != nil {
 			return err

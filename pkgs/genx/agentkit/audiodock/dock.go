@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -110,18 +111,29 @@ type inputEvent struct {
 }
 
 type dockRoute struct {
-	response *streamkit.Response
-	role     genx.Role
-	name     string
-	label    string
-	mu       sync.Mutex
+	response  *streamkit.Response
+	role      genx.Role
+	name      string
+	label     string
+	mu        sync.Mutex
+	ttsEmitMu sync.Mutex
 
 	deferredEOS *genx.MessageChunk
-	ttsRoutes   map[string]bool
+	ttsRoutes   map[string]*dockTTSRoute
 	ttsPipes    map[string]*ttsPipe
 	ttsDone     sync.WaitGroup
 	finish      sync.Once
 	closed      atomic.Bool
+}
+
+type dockTTSRoute struct {
+	begun bool
+	done  bool
+}
+
+type dockTTSChildRouteKey struct {
+	streamID string
+	mimeType string
 }
 
 type ttsPipe struct {
@@ -360,11 +372,12 @@ func (r *dockRun) route(chunk *genx.MessageChunk) (*dockRoute, error) {
 		return nil, err
 	}
 	route := &dockRoute{
-		response: response,
-		role:     chunk.Role,
-		name:     chunk.Name,
-		label:    label,
-		ttsPipes: make(map[string]*ttsPipe),
+		response:  response,
+		role:      chunk.Role,
+		name:      chunk.Name,
+		label:     label,
+		ttsPipes:  make(map[string]*ttsPipe),
+		ttsRoutes: make(map[string]*dockTTSRoute),
 	}
 	r.routes[streamID] = route
 	return route, nil
@@ -409,9 +422,6 @@ func (r *dockRun) startTTS(route *dockRoute, key, name, pattern string) (*ttsPip
 		return existing, nil
 	}
 	route.ttsPipes[key] = pipe
-	if route.ttsRoutes == nil {
-		route.ttsRoutes = make(map[string]bool)
-	}
 	route.ttsDone.Add(1)
 	route.mu.Unlock()
 	r.tts.Add(1)
@@ -424,10 +434,15 @@ func (r *dockRun) forwardTTS(route *dockRoute, pipe *ttsPipe) {
 	defer route.ttsDone.Done()
 	defer pipe.cancel()
 	defer pipe.output.Close()
+	childRoutes := make(map[dockTTSChildRouteKey]*dockTTSRoute)
 	for {
 		chunk, err := pipe.output.Next()
 		if err != nil {
-			if !streamDone(err) {
+			if streamDone(err) {
+				err = validateTTSTermination(childRoutes)
+			}
+			if err != nil {
+				r.abortTTS(route, err)
 				r.finishRoute(route, err.Error())
 			}
 			return
@@ -439,25 +454,129 @@ func (r *dockRun) forwardTTS(route *dockRoute, pipe *ttsPipe) {
 		if emitted.Ctrl == nil {
 			emitted.Ctrl = &genx.StreamCtrl{}
 		}
-		emitted.Ctrl.StreamID = route.response.StreamID()
-		route.mu.Lock()
-		if mimeType, ok := emitted.MIMEType(); ok {
-			route.ttsRoutes[mimeType] = false
-		}
-		route.mu.Unlock()
-		// Provider-level audio EOS is combined into one MIME-route EOS after all
-		// publisher-node TTS pipes complete.
-		if emitted.IsEndOfStream() {
-			if emitted.Ctrl.Error != "" {
-				err := errors.New(emitted.Ctrl.Error)
-				r.abortTTS(route, err)
-				r.finishRoute(route, emitted.Ctrl.Error)
-			}
-			continue
-		}
-		if err := r.invocation.Emit(route.response, emitted); err != nil {
+		childStreamID := strings.TrimSpace(emitted.Ctrl.StreamID)
+		mimeType, ok := emitted.MIMEType()
+		if !ok {
+			err := fmt.Errorf("audiodock: TTS emitted a non-MIME chunk")
+			r.abortTTS(route, err)
+			r.finishRoute(route, err.Error())
 			return
 		}
+		childKey := dockTTSChildRouteKey{streamID: childStreamID, mimeType: mimeType}
+		state := childRoutes[childKey]
+		if state == nil {
+			state = &dockTTSRoute{}
+			childRoutes[childKey] = state
+		}
+		if emitted.IsBeginOfStream() {
+			if state.begun || state.done {
+				err := fmt.Errorf("audiodock: TTS emitted duplicate BOS for %s", mimeType)
+				r.abortTTS(route, err)
+				r.finishRoute(route, err.Error())
+				return
+			}
+			state.begun = true
+		} else if !state.begun {
+			err := fmt.Errorf("audiodock: TTS emitted %s before its BOS", mimeType)
+			r.abortTTS(route, err)
+			r.finishRoute(route, err.Error())
+			return
+		} else if state.done {
+			err := fmt.Errorf("audiodock: TTS emitted %s after its EOS", mimeType)
+			r.abortTTS(route, err)
+			r.finishRoute(route, err.Error())
+			return
+		}
+
+		terminalError := ""
+		if emitted.IsEndOfStream() {
+			state.done = true
+			terminalError = emitted.Ctrl.Error
+		}
+		emitted.Ctrl.StreamID = route.response.StreamID()
+
+		route.ttsEmitMu.Lock()
+		if route.closed.Load() {
+			route.ttsEmitMu.Unlock()
+			return
+		}
+		route.mu.Lock()
+		merged := route.ttsRoutes[mimeType]
+		if merged == nil {
+			merged = &dockTTSRoute{}
+			route.ttsRoutes[mimeType] = merged
+		}
+		emitBOS := emitted.IsBeginOfStream() && !merged.begun
+		if emitBOS {
+			merged.begun = true
+		}
+		route.mu.Unlock()
+		if emitted.IsBeginOfStream() && !emitBOS {
+			emitted.Ctrl.BeginOfStream = false
+		}
+		if emitted.IsEndOfStream() {
+			emitted.Ctrl.EndOfStream = false
+		}
+		if terminalError != "" {
+			// The final merged route owns the error. A child may legally combine
+			// its empty BOS and error EOS in one chunk, so merge the BOS before
+			// closing the final MIME route with the error EOS.
+			emitted.Ctrl.Error = ""
+		}
+		emitChunk := emitted.IsBeginOfStream() || ttsChunkHasData(emitted)
+		if emitChunk {
+			if err := r.invocation.Emit(route.response, emitted); err != nil {
+				route.ttsEmitMu.Unlock()
+				return
+			}
+		}
+		if terminalError != "" {
+			r.abortTTS(route, errors.New(terminalError))
+			route.ttsEmitMu.Unlock()
+			r.finishRoute(route, terminalError)
+			return
+		}
+		route.ttsEmitMu.Unlock()
+	}
+}
+
+func validateTTSTermination(routes map[dockTTSChildRouteKey]*dockTTSRoute) error {
+	if len(routes) == 0 {
+		return fmt.Errorf("audiodock: TTS ended without a MIME lifecycle")
+	}
+	keys := make([]dockTTSChildRouteKey, 0, len(routes))
+	for key := range routes {
+		keys = append(keys, key)
+	}
+	slices.SortFunc(keys, func(a, b dockTTSChildRouteKey) int {
+		if order := strings.Compare(a.streamID, b.streamID); order != 0 {
+			return order
+		}
+		return strings.Compare(a.mimeType, b.mimeType)
+	})
+	for _, key := range keys {
+		state := routes[key]
+		if !state.begun {
+			return fmt.Errorf("audiodock: TTS ended without BOS for stream %q %s", key.streamID, key.mimeType)
+		}
+		if !state.done {
+			return fmt.Errorf("audiodock: TTS ended without EOS for stream %q %s", key.streamID, key.mimeType)
+		}
+	}
+	return nil
+}
+
+func ttsChunkHasData(chunk *genx.MessageChunk) bool {
+	if chunk == nil {
+		return false
+	}
+	switch part := chunk.Part.(type) {
+	case *genx.Blob:
+		return len(part.Data) > 0
+	case genx.Text:
+		return len(part) > 0
+	default:
+		return chunk.Part != nil
 	}
 }
 
@@ -504,6 +623,8 @@ func (r *dockRun) finishRoute(route *dockRoute, errorText string) {
 		return
 	}
 	route.finish.Do(func() {
+		route.ttsEmitMu.Lock()
+		defer route.ttsEmitMu.Unlock()
 		if err := r.emitDeferredTextEOS(route, errorText); err != nil && errorText == "" {
 			errorText = err.Error()
 		}
@@ -529,20 +650,18 @@ func (r *dockRoute) hasTTSPipes() bool {
 	return false
 }
 
-// emitPendingTTSEOS normalizes TTS implementations that end their Stream
-// without emitting a MIME-route EOS. The first TTS chunk opens the audio route
-// before a deferred text EOS, while this helper closes any route still open
-// when the provider Stream itself ends.
+// emitPendingTTSEOS closes the MIME routes owned by Audio Dock after every
+// child TTS pipe has completed its own validated BOS/data/EOS lifecycle.
 func (r *dockRun) emitPendingTTSEOS(route *dockRoute, errorText string) error {
 	if route == nil {
 		return nil
 	}
 	route.mu.Lock()
 	mimeTypes := make([]string, 0, len(route.ttsRoutes))
-	for mimeType, done := range route.ttsRoutes {
-		if !done {
+	for mimeType, state := range route.ttsRoutes {
+		if state.begun && !state.done {
 			mimeTypes = append(mimeTypes, mimeType)
-			route.ttsRoutes[mimeType] = true
+			state.done = true
 		}
 	}
 	route.mu.Unlock()

@@ -102,7 +102,9 @@ type Stream interface {
 - `Text` uses the canonical `text/plain` MIME channel. `Blob` uses its parsed and canonicalized MIME type, including semantically relevant parameters such as `codecs=opus`; case, parameter order, and insignificant spacing do not create a second channel.
 - An EOS chunk with a Part ends only that Part's MIME channel on the route. For example, `text/plain` EOS does not end `audio/opus` with the same StreamID.
 - A control-only EOS with `Part == nil` ends the whole StreamID route and all of its outstanding MIME channels. It still does not close the enclosing `Stream`.
-- A producer that may add a MIME channel after all currently observed channels complete must announce it with a MIME-bearing BOS or data chunk before that completion, or keep the route open until a control-only EOS.
+- The component that creates a StreamID owns that route's boundaries. If a Transformer creates a MIME channel on an existing StreamID, it likewise owns that channel: it emits a MIME-bearing BOS before or with the first data chunk and exactly one matching EOS, including for an empty successful or failed channel.
+- A Transformer passes through routes it does not create without adding, removing, or reinterpreting their BOS/EOS. Downstream composers and consumers must not repair a producer that emits data before BOS or closes without EOS.
+- A producer that may add a MIME channel after all currently observed channels complete must announce it with a MIME-bearing BOS before that completion, or keep the route open until a control-only EOS.
 - The same `Stream` can carry multiple StreamIDs in an interleaved manner. `Stream.Close` and `CloseWithError` terminate the enclosing transport and all outstanding routes.
 - `Iter` aggregates content readers until the enclosing Stream ends; it does not expose route-aware EOS through `StreamElement`.
 - Adapters must preserve StreamID, role, label, MIME type, BOS/EOS, and error semantics instead of keeping boundaries only in private session state.

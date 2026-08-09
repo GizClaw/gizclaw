@@ -199,6 +199,77 @@ func TestDoubaoRealtimeDuplexInterruptDiscardMatchesOnlyAssistantRoute(t *testin
 	}
 }
 
+func TestDoubaoRealtimeDuplexInterruptionKeepsOwnedRoutesComplete(t *testing.T) {
+	tfr := newTransformer(nil, withFormat("pcm"))
+	assistant := newRealtimeAssistantLifecycle()
+	epoch := assistant.markStarted("turn-1")
+	output := newBufferStream(8)
+	for _, chunk := range []*genx.MessageChunk{
+		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeDuplexAssistantLabel, BeginOfStream: true}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeDuplexAssistantLabel, BeginOfStream: true}},
+		{Role: genx.RoleModel, Part: genx.Text("stale"), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeDuplexAssistantLabel}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeDuplexAssistantLabel}},
+	} {
+		accepted, err := assistant.pushIfCurrent(epoch, chunk, func() error {
+			return output.Push(chunk)
+		})
+		if err != nil || !accepted {
+			t.Fatalf("pushIfCurrent() = accepted %t, error %v", accepted, err)
+		}
+	}
+	first, err := output.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	if !tfr.interruptAssistantOutput(output, assistant, "turn-2") {
+		t.Fatal("assistant response was not interrupted")
+	}
+	latePushCalled := false
+	accepted, err := assistant.pushIfCurrent(epoch, &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text("late"),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeDuplexAssistantLabel},
+	}, func() error {
+		latePushCalled = true
+		return nil
+	})
+	if err != nil || accepted || latePushCalled {
+		t.Fatalf("stale push = accepted %t called %t error %v", accepted, latePushCalled, err)
+	}
+	if err := output.Close(); err != nil {
+		t.Fatalf("Close(output) error = %v", err)
+	}
+
+	chunks := []*genx.MessageChunk{first}
+	for {
+		chunk, err := output.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+		chunks = append(chunks, chunk)
+	}
+	routes := make(map[string][]*genx.MessageChunk)
+	for _, chunk := range chunks {
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			t.Fatalf("interruption chunk = %#v, want MIME route", chunk)
+		}
+		routes[mimeType] = append(routes[mimeType], chunk)
+	}
+	if len(routes) != 2 {
+		t.Fatalf("interrupted routes = %#v, want text and audio", routes)
+	}
+	for mimeType, route := range routes {
+		if len(route) != 2 || !route[0].IsBeginOfStream() || route[0].IsEndOfStream() ||
+			route[1].IsBeginOfStream() || !route[1].IsEndOfStream() || route[1].Ctrl.Error != doubaoRealtimeDuplexInterrupted {
+			t.Fatalf("interrupted route %q = %#v, want BOS/error EOS", mimeType, route)
+		}
+	}
+}
+
 func TestChunkInputStreamIDUsesActiveStreamForDirectAudio(t *testing.T) {
 	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio"}}
 	if got := doubaoRealtimeDuplexChunkInputStreamID(chunk, "turn-1"); got != "turn-1" {
@@ -626,14 +697,16 @@ func TestDoubaoRealtimeDuplexErrorEventClosesBlockedInput(t *testing.T) {
 func TestDoubaoRealtimeDuplexMapsDuplexEventsToStreamChunks(t *testing.T) {
 	session := &fakeDoubaoRealtimeDuplexSession{
 		events: []*doubaospeech.RealtimeDuplexEvent{
+			{Type: doubaospeech.RealtimeDuplexEventTranscriptionDelta, Delta: "你"},
+			{Type: doubaospeech.RealtimeDuplexEventTranscriptionDelta, Delta: "你好"},
 			{Type: doubaospeech.RealtimeDuplexEventTranscriptionDelta, Delta: "你好"},
 			{Type: doubaospeech.RealtimeDuplexEventTranscriptionCompleted, Transcript: "你好"},
-			{Type: doubaospeech.RealtimeDuplexEventResponseOutputTextDelta, ResponseID: "resp-1", Delta: "收到"},
-			{Type: doubaospeech.RealtimeDuplexEventResponseOutputTextDone, ResponseID: "resp-1", Text: "收到"},
-			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioStarted, ResponseID: "resp-1"},
-			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioDelta, ResponseID: "resp-1", Audio: []byte{1, 2, 3}},
-			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioDone, ResponseID: "resp-1"},
-			{Type: doubaospeech.RealtimeDuplexEventResponseDone, ResponseID: "resp-1"},
+			{Type: doubaospeech.RealtimeDuplexEventResponseOutputTextDelta, ResponseID: "provider-text", Delta: "收到"},
+			{Type: doubaospeech.RealtimeDuplexEventResponseOutputTextDone, ResponseID: "provider-text-done", Text: "收到"},
+			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioStarted, ResponseID: "provider-audio-start"},
+			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioDelta, ResponseID: "provider-audio-data", Audio: []byte{1, 2, 3}},
+			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioDone, ResponseID: "provider-audio-done"},
+			{Type: doubaospeech.RealtimeDuplexEventResponseDone, ResponseID: "provider-response-done"},
 			{Type: doubaospeech.RealtimeDuplexEventSessionClosed},
 		},
 	}
@@ -656,20 +729,25 @@ func TestDoubaoRealtimeDuplexMapsDuplexEventsToStreamChunks(t *testing.T) {
 		}
 		chunks = append(chunks, chunk)
 	}
-	if len(chunks) < 6 {
-		t.Fatalf("chunks len = %d, chunks=%#v", len(chunks), chunks)
-	}
-	if got, ok := chunks[0].Part.(genx.Text); !ok || got != "你好" || chunks[0].Role != genx.RoleUser {
-		t.Fatalf("transcript chunk = %#v", chunks[0])
-	}
+	routes := make(map[string][]*genx.MessageChunk)
 	hasAssistantText := false
 	assistantTextCount := 0
+	var transcriptText strings.Builder
 	hasAudio := false
 	hasAudioEOS := false
 	for _, chunk := range chunks {
+		if chunk.Ctrl != nil {
+			if mimeType, ok := chunk.MIMEType(); ok {
+				key := string(chunk.Role) + "\x00" + chunk.Ctrl.Label + "\x00" + chunk.Ctrl.StreamID + "\x00" + mimeType
+				routes[key] = append(routes[key], chunk)
+			}
+		}
 		if text, ok := chunk.Part.(genx.Text); ok && chunk.Role == genx.RoleModel && text == "收到" {
 			hasAssistantText = true
 			assistantTextCount++
+		}
+		if text, ok := chunk.Part.(genx.Text); ok && chunk.Role == genx.RoleUser && strings.TrimSpace(string(text)) != "" {
+			transcriptText.WriteString(string(text))
 		}
 		if blob, ok := chunk.Part.(*genx.Blob); ok && bytes.Equal(blob.Data, []byte{1, 2, 3}) {
 			hasAudio = true
@@ -686,6 +764,27 @@ func TestDoubaoRealtimeDuplexMapsDuplexEventsToStreamChunks(t *testing.T) {
 	if assistantTextCount != 1 {
 		t.Fatalf("assistant text chunks = %d, want 1; chunks=%#v", assistantTextCount, chunks)
 	}
+	if got := transcriptText.String(); got != "你好" {
+		t.Fatalf("transcript text = %q, want one cumulative hypothesis", got)
+	}
+	if len(routes) != 3 {
+		t.Fatalf("generated routes = %d, want transcript text, assistant text, and assistant audio: %#v", len(routes), chunks)
+	}
+	for key, route := range routes {
+		if len(route) < 3 || !route[0].IsBeginOfStream() || !route[len(route)-1].IsEndOfStream() {
+			t.Fatalf("route %q lifecycle = %#v, want BOS/data/EOS", key, route)
+		}
+		for _, chunk := range route[1 : len(route)-1] {
+			if chunk.IsBeginOfStream() || chunk.IsEndOfStream() {
+				t.Fatalf("route %q contains interior boundary: %#v", key, route)
+			}
+		}
+		for _, chunk := range route {
+			if chunk.Ctrl.StreamID != "audio:rt:1" {
+				t.Fatalf("route %q leaked provider StreamID %q, want Transformer-owned audio:rt:1", key, chunk.Ctrl.StreamID)
+			}
+		}
+	}
 }
 
 func TestDoubaoRealtimeDuplexInputEOSClosesLocalStream(t *testing.T) {
@@ -695,22 +794,56 @@ func TestDoubaoRealtimeDuplexInputEOSClosesLocalStream(t *testing.T) {
 		wantAudio int
 	}{
 		{
-			name: "control EOS",
+			name: "explicit route and audio boundaries",
 			chunks: []*genx.MessageChunk{
 				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
 				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
 				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
 			},
 			wantAudio: 1,
 		},
 		{
+			name: "data bearing MIME boundaries",
+			chunks: []*genx.MessageChunk{
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+			},
+			wantAudio: 2,
+		},
+		{
 			name: "text EOS before audio EOS",
 			chunks: []*genx.MessageChunk{
 				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
-				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
 				{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
 				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
 				{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+			},
+			wantAudio: 2,
+		},
+		{
+			name: "empty audio route",
+			chunks: []*genx.MessageChunk{
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+			},
+		},
+		{
+			name: "consecutive routes close independently",
+			chunks: []*genx.MessageChunk{
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}},
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", EndOfStream: true}},
 			},
 			wantAudio: 2,
 		},
@@ -735,6 +868,74 @@ func TestDoubaoRealtimeDuplexInputEOSClosesLocalStream(t *testing.T) {
 				t.Fatalf("SendAudio calls = %d, want %d before EOS", got, tc.wantAudio)
 			}
 		})
+	}
+}
+
+func TestDoubaoRealtimeDuplexInputBoundariesRejectMIMEChange(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		chunks []*genx.MessageChunk
+	}{
+		{
+			name: "data differs from empty BOS declaration",
+			chunks: []*genx.MessageChunk{
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/mpeg", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+			},
+		},
+		{
+			name: "empty EOS differs from data declaration",
+			chunks: []*genx.MessageChunk{
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/mpeg"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			inputDrained := make(chan struct{})
+			session := &fakeDoubaoRealtimeDuplexSession{
+				beforeRecv: inputDrained,
+				events:     []*doubaospeech.RealtimeDuplexEvent{{Type: doubaospeech.RealtimeDuplexEventSessionClosed}},
+			}
+			tfr := newTransformer(nil,
+				withInputFormat("pcm"),
+				withInputTranscode(false),
+				withDoubaoRealtimeDuplexOpener(&fakeDoubaoRealtimeDuplexOpener{session: session}),
+			)
+			input := &gatedRealtimeStream{first: test.chunks, firstDrained: inputDrained}
+
+			err := runDoubaoRealtimeDuplexProcessLoop(t, tfr, input, session)
+			if err == nil || !strings.Contains(err.Error(), "changed MIME") {
+				t.Fatalf("processLoop() error = %v, want MIME change", err)
+			}
+		})
+	}
+}
+
+func TestDoubaoRealtimeDuplexInputErrorCreatesCompleteTranscriptLifecycle(t *testing.T) {
+	tfr := newTransformer(nil)
+	output := newBufferStream(2)
+	tfr.pushInputEOSError(output, "turn-1", errors.New("invalid input"))
+	if err := output.Close(); err != nil {
+		t.Fatalf("Close(output) error = %v", err)
+	}
+
+	var chunks []*genx.MessageChunk
+	for {
+		chunk, err := output.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+		chunks = append(chunks, chunk)
+	}
+	if len(chunks) != 2 || !chunks[0].IsBeginOfStream() || chunks[0].IsEndOfStream() ||
+		chunks[1].IsBeginOfStream() || !chunks[1].IsEndOfStream() || chunks[1].Ctrl.Error != "invalid input" {
+		t.Fatalf("transcript lifecycle = %#v, want BOS/error EOS", chunks)
 	}
 }
 
@@ -868,6 +1069,8 @@ func TestDoubaoRealtimeDuplexPendingChunkPrioritizesDone(t *testing.T) {
 }
 
 func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) {
+	const responseStreamID = "turn-1:rt:1"
+
 	firstInputDrained := make(chan struct{})
 	allowNextInput := make(chan struct{})
 	releaseEvents := make(chan struct{})
@@ -933,7 +1136,7 @@ func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) 
 	for !textDone || !audioDone {
 		select {
 		case chunk := <-drained:
-			if chunk == nil || !chunk.IsEndOfStream() || chunk.Ctrl == nil || chunk.Ctrl.StreamID != "turn-1" {
+			if chunk == nil || !chunk.IsEndOfStream() || chunk.Ctrl == nil || chunk.Ctrl.StreamID != responseStreamID {
 				continue
 			}
 			switch chunk.Part.(type) {

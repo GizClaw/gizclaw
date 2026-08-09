@@ -52,6 +52,32 @@ func TestConfigValidationDefaultsAndPointerCopies(t *testing.T) {
 	}
 }
 
+func TestMIMEAndDefaultHelperBranches(t *testing.T) {
+	tests := []struct {
+		format string
+		want   string
+	}{
+		{format: "mp3", want: "audio/mpeg"},
+		{format: "pcm", want: "audio/pcm"},
+		{format: "flac", want: "audio/flac"},
+		{format: "wav", want: "audio/wav"},
+		{format: "unknown", want: "audio/mpeg"},
+	}
+	for _, test := range tests {
+		if got := (&Transformer{format: test.format}).mimeType(); got != test.want {
+			t.Errorf("format %q MIME = %q, want %q", test.format, got, test.want)
+		}
+	}
+	zeroFloat := 0.0
+	zeroInt := 0
+	if stringDefault(" value ", "fallback") != "value" || stringDefault(" ", "fallback") != "fallback" ||
+		floatDefault(nil, 1) != 1 || floatDefault(&zeroFloat, 1) != 0 ||
+		intDefault(nil, 1) != 1 || intDefault(&zeroInt, 1) != 0 ||
+		positiveDefault(2, 1) != 2 || positiveDefault(0, 1) != 1 {
+		t.Fatal("default helpers returned unexpected values")
+	}
+}
+
 func TestSynthesizeMapsTypedConfigToProviderRequest(t *testing.T) {
 	requestBody := make(chan map[string]any, 1)
 	server := newMiniMaxTTSTestServer(t, requestBody)
@@ -135,7 +161,8 @@ func TestTransformerConcurrentCallsAreIndependent(t *testing.T) {
 				errors <- transformErr
 				return
 			}
-			for chunkIndex := range 2 {
+			chunks := make([]*genx.MessageChunk, 0, 3)
+			for chunkIndex := range 3 {
 				chunk, nextErr := output.Next()
 				if nextErr != nil {
 					errors <- fmt.Errorf("%s chunk %d: %w", streamID, chunkIndex, nextErr)
@@ -145,6 +172,11 @@ func TestTransformerConcurrentCallsAreIndependent(t *testing.T) {
 					errors <- fmt.Errorf("%s chunk %d control = %#v", streamID, chunkIndex, chunk.Ctrl)
 					return
 				}
+				chunks = append(chunks, chunk)
+			}
+			if !chunks[0].IsBeginOfStream() || chunks[1].IsBeginOfStream() || chunks[1].IsEndOfStream() || !chunks[2].IsEndOfStream() {
+				errors <- fmt.Errorf("%s lifecycle = %#v / %#v / %#v, want BOS/data/EOS", streamID, chunks[0].Ctrl, chunks[1].Ctrl, chunks[2].Ctrl)
+				return
 			}
 			if _, nextErr := output.Next(); nextErr != io.EOF {
 				errors <- fmt.Errorf("%s terminal error = %v", streamID, nextErr)

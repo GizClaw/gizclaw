@@ -40,7 +40,12 @@ func TestTransformStreamsLifecycle(t *testing.T) {
 		if streamID != chunk.Ctrl.StreamID {
 			t.Fatalf("StreamID changed from %q to %q", streamID, chunk.Ctrl.StreamID)
 		}
-		bos = bos || chunk.IsBeginOfStream()
+		if chunk.IsBeginOfStream() {
+			bos = true
+			if mimeType, ok := chunk.MIMEType(); !ok || mimeType != "text/plain" {
+				t.Fatalf("BOS MIME = %q, present=%v; chunk=%#v", mimeType, ok, chunk)
+			}
+		}
 		eos = eos || chunk.IsEndOfStream()
 		if chunk.Ctrl.Error != "" {
 			t.Fatalf("output error = %q", chunk.Ctrl.Error)
@@ -48,6 +53,34 @@ func TestTransformStreamsLifecycle(t *testing.T) {
 	}
 	if streamID == "" || !bos || !eos {
 		t.Fatalf("lifecycle stream_id=%q BOS=%v EOS=%v", streamID, bos, eos)
+	}
+}
+
+func TestOutputRouteBeginCarriesDeclaredMIME(t *testing.T) {
+	for _, test := range []struct {
+		name          string
+		mimeType      string
+		wantCanonical string
+		wantText      bool
+	}{
+		{name: "text", mimeType: " Text/Plain ", wantCanonical: "text/plain", wantText: true},
+		{name: "parameterized text", mimeType: "text/plain; charset=utf-8", wantCanonical: "text/plain; charset=utf-8"},
+		{name: "declared text subtype", mimeType: "text/markdown", wantCanonical: "text/markdown"},
+		{name: "blob", mimeType: "application/octet-stream", wantCanonical: "application/octet-stream"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			chunk := newOutputRouteBegin("route", test.mimeType)
+			if chunk.Ctrl == nil || chunk.Ctrl.StreamID != "route" || !chunk.IsBeginOfStream() || chunk.IsEndOfStream() {
+				t.Fatalf("route BOS = %#v", chunk)
+			}
+			if mimeType, ok := chunk.MIMEType(); !ok || mimeType != test.wantCanonical {
+				t.Fatalf("route BOS MIME = %q, present=%v, want %q", mimeType, ok, test.wantCanonical)
+			}
+			_, isText := chunk.Part.(genx.Text)
+			if isText != test.wantText {
+				t.Fatalf("route BOS part = %T, want text=%v", chunk.Part, test.wantText)
+			}
+		})
 	}
 }
 

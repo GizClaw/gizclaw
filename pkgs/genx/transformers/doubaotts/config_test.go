@@ -82,3 +82,45 @@ func TestICLV2ConfigValidationAndDefaults(t *testing.T) {
 		t.Fatalf("ICL V2 custom config = %#v", configured)
 	}
 }
+
+func TestDoubaoTTSMIMEAndHelperBranches(t *testing.T) {
+	tests := []struct {
+		format string
+		want   string
+	}{
+		{format: "mp3", want: "audio/mpeg"},
+		{format: "ogg_opus", want: "audio/ogg"},
+		{format: "pcm", want: "audio/pcm"},
+		{format: "unknown", want: "audio/ogg"},
+	}
+	for _, test := range tests {
+		if got := (&SeedV2{format: test.format}).mimeType(); got != test.want {
+			t.Errorf("Seed V2 format %q MIME = %q, want %q", test.format, got, test.want)
+		}
+		if got := (&ICLV2{format: test.format}).mimeType(); got != test.want {
+			t.Errorf("ICL V2 format %q MIME = %q, want %q", test.format, got, test.want)
+		}
+	}
+	if ratioToRate(0) != 0 || ratioToRate(1) != 0 || ratioToRate(1.25) != 25 || ratioToRate(0.5) != -50 {
+		t.Fatal("ratioToRate() boundaries are incorrect")
+	}
+	if firstString(" value ", "fallback") != "value" || firstString(" ", "fallback") != "fallback" ||
+		firstInt(2, 1) != 2 || firstInt(0, 1) != 1 || firstFloat(2, 1) != 2 || firstFloat(0, 1) != 1 {
+		t.Fatal("default helpers returned unexpected values")
+	}
+}
+
+func TestTTSDebugBranches(t *testing.T) {
+	t.Setenv("GIZCLAW_TTS_DEBUG", "")
+	if ttsDebugEnabled() {
+		t.Fatal("empty debug environment enabled logging")
+	}
+	t.Setenv("GIZCLAW_TTS_DEBUG", "1")
+	if !ttsDebugEnabled() {
+		t.Fatal("debug environment did not enable logging")
+	}
+	if ttsDebugPreview("text", 0) != "" || ttsDebugPreview("短文本", 3) != "短文本" ||
+		ttsDebugPreview("一二三四", 3) != "一二三..." {
+		t.Fatal("ttsDebugPreview() boundaries are incorrect")
+	}
+}

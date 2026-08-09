@@ -93,14 +93,26 @@ func TestExternalVoiceTransformerForwardsASTTextAndTTSAudio(t *testing.T) {
 	transformer := &scriptedTransformer{
 		streams: []genx.Stream{
 			streamFromChunks(
-				&genx.MessageChunk{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{Label: "assistant"}, Part: genx.Text("bonjour")},
+				&genx.MessageChunk{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "ast-1", Label: "assistant", BeginOfStream: true}},
+				&genx.MessageChunk{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "ast-1", Label: "assistant"}, Part: genx.Text("bonjour")},
+				&genx.MessageChunk{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "ast-1", Label: "assistant", EndOfStream: true}, Part: genx.Text("")},
 				&genx.MessageChunk{Ctrl: &genx.StreamCtrl{Label: "user"}, Part: genx.Text("ignored")},
 			),
 			streamFromChunks(
 				&genx.MessageChunk{
 					Role: genx.RoleModel,
+					Ctrl: &genx.StreamCtrl{StreamID: "tts-1", BeginOfStream: true},
+					Part: &genx.Blob{MIMEType: "audio/mpeg; codec=mp3"},
+				},
+				&genx.MessageChunk{
+					Role: genx.RoleModel,
 					Ctrl: &genx.StreamCtrl{StreamID: "tts-1"},
 					Part: &genx.Blob{MIMEType: "audio/mpeg; codec=mp3", Data: []byte{1, 2, 3}},
+				},
+				&genx.MessageChunk{
+					Role: genx.RoleModel,
+					Ctrl: &genx.StreamCtrl{StreamID: "tts-1", EndOfStream: true},
+					Part: &genx.Blob{MIMEType: "audio/mpeg; codec=mp3"},
 				},
 			),
 		},
@@ -147,10 +159,24 @@ func TestInterruptibleOutputDropsQueuedAssistantChunks(t *testing.T) {
 	output := newInterruptibleOutput()
 	if err := output.push(&genx.MessageChunk{
 		Role: genx.RoleModel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("push stale text BOS: %v", err)
+	}
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
 		Part: genx.Text("stale"),
 		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant"},
 	}); err != nil {
 		t.Fatalf("push stale text: %v", err)
+	}
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("push stale audio BOS: %v", err)
 	}
 	if err := output.push(&genx.MessageChunk{
 		Role: genx.RoleModel,
@@ -162,25 +188,15 @@ func TestInterruptibleOutputDropsQueuedAssistantChunks(t *testing.T) {
 
 	output.interrupt("turn-2")
 
-	first, err := output.Next()
-	if err != nil {
-		t.Fatalf("Next first: %v", err)
-	}
-	second, err := output.Next()
-	if err != nil {
-		t.Fatalf("Next second: %v", err)
-	}
-	for _, chunk := range []*genx.MessageChunk{first, second} {
-		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != "turn-1" || chunk.Ctrl.Label != "assistant" || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != "interrupted" {
-			t.Fatalf("interrupt chunk = %#v", chunk)
+	var interrupted []*genx.MessageChunk
+	for i := range 4 {
+		chunk, err := output.Next()
+		if err != nil {
+			t.Fatalf("Next interrupt chunk %d: %v", i, err)
 		}
+		interrupted = append(interrupted, chunk)
 	}
-	if _, ok := first.Part.(genx.Text); !ok {
-		t.Fatalf("first interrupt part = %T, want text", first.Part)
-	}
-	if blob, ok := second.Part.(*genx.Blob); !ok || blob.MIMEType != "audio/opus" {
-		t.Fatalf("second interrupt part = %#v, want audio/opus", second.Part)
-	}
+	requireASTInterruptedRoutes(t, interrupted, "turn-1")
 
 	if err := output.push(&genx.MessageChunk{
 		Role: genx.RoleModel,
@@ -199,10 +215,24 @@ func TestInterruptibleOutputDropsASTSegmentFamily(t *testing.T) {
 	output := newInterruptibleOutput()
 	if err := output.push(&genx.MessageChunk{
 		Role: genx.RoleModel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("push base text BOS: %v", err)
+	}
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
 		Part: genx.Text("stale-base"),
 		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant"},
 	}); err != nil {
 		t.Fatalf("push base text: %v", err)
+	}
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1:ast:2", Label: "assistant", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("push segment text BOS: %v", err)
 	}
 	if err := output.push(&genx.MessageChunk{
 		Role: genx.RoleModel,
@@ -214,15 +244,15 @@ func TestInterruptibleOutputDropsASTSegmentFamily(t *testing.T) {
 
 	output.interrupt("turn-2")
 
-	for i := range 2 {
+	var interrupted []*genx.MessageChunk
+	for i := range 4 {
 		chunk, err := output.Next()
 		if err != nil {
 			t.Fatalf("Next interrupt chunk %d: %v", i, err)
 		}
-		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != "turn-1" || chunk.Ctrl.Label != "assistant" || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != "interrupted" {
-			t.Fatalf("interrupt chunk %d = %#v", i, chunk)
-		}
+		interrupted = append(interrupted, chunk)
 	}
+	requireASTInterruptedRoutes(t, interrupted, "turn-1")
 	if err := output.push(&genx.MessageChunk{
 		Role: genx.RoleModel,
 		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
@@ -247,6 +277,13 @@ func TestInterruptibleOutputKeepsExternalTTSPendingAfterTextEOS(t *testing.T) {
 	output := newInterruptibleOutput(true)
 	if err := output.push(&genx.MessageChunk{
 		Role: genx.RoleModel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("push text BOS: %v", err)
+	}
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
 		Part: genx.Text("translated"),
 		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant"},
 	}); err != nil {
@@ -262,19 +299,15 @@ func TestInterruptibleOutputKeepsExternalTTSPendingAfterTextEOS(t *testing.T) {
 
 	output.interrupt("turn-2")
 
-	first, err := output.Next()
-	if err != nil {
-		t.Fatalf("Next first interrupt: %v", err)
-	}
-	second, err := output.Next()
-	if err != nil {
-		t.Fatalf("Next second interrupt: %v", err)
-	}
-	for _, chunk := range []*genx.MessageChunk{first, second} {
-		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != "turn-1" || chunk.Ctrl.Label != "assistant" || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != "interrupted" {
-			t.Fatalf("interrupt chunk = %#v", chunk)
+	var interrupted []*genx.MessageChunk
+	for i := range 4 {
+		chunk, err := output.Next()
+		if err != nil {
+			t.Fatalf("Next interrupt chunk %d: %v", i, err)
 		}
+		interrupted = append(interrupted, chunk)
 	}
+	requireASTInterruptedRoutes(t, interrupted, "turn-1")
 	if err := output.push(&genx.MessageChunk{
 		Role: genx.RoleModel,
 		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
@@ -384,6 +417,13 @@ func TestInterruptibleTransformerObservesInputBeforeInnerReads(t *testing.T) {
 	}
 	if err := innerOutput.Push(context.Background(), &genx.MessageChunk{
 		Role: genx.RoleModel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("Push stale assistant BOS: %v", err)
+	}
+	if err := innerOutput.Push(context.Background(), &genx.MessageChunk{
+		Role: genx.RoleModel,
 		Part: genx.Text("stale"),
 		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant"},
 	}); err != nil {
@@ -410,11 +450,41 @@ func TestInterruptibleTransformerObservesInputBeforeInnerReads(t *testing.T) {
 	case err := <-errs:
 		t.Fatalf("Next() error = %v", err)
 	case chunk := <-result:
-		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != "turn-1" || chunk.Ctrl.Label != "assistant" || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != "interrupted" {
-			t.Fatalf("first output = %#v, want interrupted EOS for stale assistant", chunk)
+		interrupted := []*genx.MessageChunk{chunk}
+		for i := 1; i < 4; i++ {
+			next, err := out.Next()
+			if err != nil {
+				t.Fatalf("Next interrupt chunk %d: %v", i, err)
+			}
+			interrupted = append(interrupted, next)
 		}
+		requireASTInterruptedRoutes(t, interrupted, "turn-1")
 	case <-time.After(time.Second):
 		t.Fatal("Next() timed out")
+	}
+}
+
+func requireASTInterruptedRoutes(t *testing.T, chunks []*genx.MessageChunk, streamID string) {
+	t.Helper()
+	routes := make(map[string][]*genx.MessageChunk)
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.StreamID != streamID || chunk.Ctrl.Label != "assistant" {
+			t.Fatalf("interrupt chunk = %#v, want assistant stream %q", chunk, streamID)
+		}
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			t.Fatalf("interrupt chunk = %#v, want MIME-bearing boundary", chunk)
+		}
+		routes[mimeType] = append(routes[mimeType], chunk)
+	}
+	if len(routes) != 2 {
+		t.Fatalf("interrupted routes = %#v, want text and audio", routes)
+	}
+	for mimeType, route := range routes {
+		if len(route) != 2 || !route[0].IsBeginOfStream() || route[0].IsEndOfStream() ||
+			route[1].IsBeginOfStream() || !route[1].IsEndOfStream() || route[1].Ctrl.Error != "interrupted" {
+			t.Fatalf("interrupted route %q = %#v, want BOS/error EOS", mimeType, route)
+		}
 	}
 }
 
@@ -480,7 +550,7 @@ func TestForwardASTTranslateTTSDecodesOggOpus(t *testing.T) {
 		[]byte{0xaa, 0xbb},
 	)
 	input := streamFromChunks(&genx.MessageChunk{
-		Ctrl: &genx.StreamCtrl{StreamID: "ogg-1", EndOfStream: true},
+		Ctrl: &genx.StreamCtrl{StreamID: "ogg-1", BeginOfStream: true, EndOfStream: true},
 		Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus", Data: raw},
 	})
 	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
@@ -494,16 +564,20 @@ func TestForwardASTTranslateTTSDecodesOggOpus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("collectStream() error = %v", err)
 	}
-	if len(chunks) != 2 {
-		t.Fatalf("output chunks = %d, want opus frame and EOS", len(chunks))
+	if len(chunks) != 3 {
+		t.Fatalf("output chunks = %d, want BOS, opus frame, and EOS", len(chunks))
 	}
-	frame, ok := chunks[0].Part.(*genx.Blob)
-	if !ok || frame.MIMEType != "audio/opus" || string(frame.Data) != string([]byte{0xaa, 0xbb}) {
-		t.Fatalf("frame chunk = %#v", chunks[0].Part)
+	bos, ok := chunks[0].Part.(*genx.Blob)
+	if !ok || bos.MIMEType != "audio/opus" || len(bos.Data) != 0 || !chunks[0].IsBeginOfStream() {
+		t.Fatalf("BOS chunk = %#v ctrl=%#v", chunks[0].Part, chunks[0].Ctrl)
 	}
-	eos, ok := chunks[1].Part.(*genx.Blob)
-	if !ok || eos.MIMEType != "audio/opus" || len(eos.Data) != 0 || !chunks[1].IsEndOfStream() {
-		t.Fatalf("EOS chunk = %#v ctrl=%#v", chunks[1].Part, chunks[1].Ctrl)
+	frame, ok := chunks[1].Part.(*genx.Blob)
+	if !ok || frame.MIMEType != "audio/opus" || string(frame.Data) != string([]byte{0xaa, 0xbb}) || chunks[1].IsBeginOfStream() || chunks[1].IsEndOfStream() {
+		t.Fatalf("frame chunk = %#v ctrl=%#v", chunks[1].Part, chunks[1].Ctrl)
+	}
+	eos, ok := chunks[2].Part.(*genx.Blob)
+	if !ok || eos.MIMEType != "audio/opus" || len(eos.Data) != 0 || !chunks[2].IsEndOfStream() {
+		t.Fatalf("EOS chunk = %#v ctrl=%#v", chunks[2].Part, chunks[2].Ctrl)
 	}
 }
 

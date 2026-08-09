@@ -2,6 +2,7 @@ package doubaotts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -13,6 +14,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/audiostream"
 )
+
+var errSeedV2EmptyAudio = errors.New("doubaotts: seed v2 completed without audio")
 
 // SeedV2 is a TTS transformer using Doubao seed-tts-2.0 (大模型 TTS 2.0).
 //
@@ -114,6 +117,17 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 	normalizer := audiostream.NewNormalizer(mimeType)
 	start := time.Now()
 	firstAudio := false
+	emittedBytes := 0
+	emitAudio := func(audio []byte) error {
+		if len(audio) == 0 {
+			return nil
+		}
+		if err := emit(audio); err != nil {
+			return err
+		}
+		emittedBytes += len(audio)
+		return nil
+	}
 	for chunk, err := range t.client.TTSV2.Stream(ctx, req) {
 		if err != nil {
 			return err
@@ -133,7 +147,7 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 					"text", ttsDebugPreview(text, 120),
 				)
 			}
-			if err := emit(audio); err != nil {
+			if err := emitAudio(audio); err != nil {
 				return err
 			}
 		}
@@ -150,8 +164,11 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 			"text", ttsDebugPreview(text, 120),
 		)
 	}
-	if err := emit(audio); err != nil {
+	if err := emitAudio(audio); err != nil {
 		return err
+	}
+	if emittedBytes == 0 {
+		return errSeedV2EmptyAudio
 	}
 	return nil
 }

@@ -196,6 +196,16 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	if !workspaceCasePushToTalkRoundtrip.runtimeValidationOptions().SkipReplay {
 		t.Fatal("catalog smoke unexpectedly replays history")
 	}
+	flowcraft, err := workspaceCasePushToTalkRoundtrip.applyConfig(config{
+		Rounds:   3,
+		Workflow: workflowConfig{Name: "flowcraft-voice-assistant"},
+	})
+	if err != nil {
+		t.Fatalf("applyConfig(flowcraft) error = %v", err)
+	}
+	if flowcraft.Rounds != 3 || flowcraft.workspaceMode() != "push_to_talk" {
+		t.Fatalf("flowcraft config rounds/mode = %d/%q, want 3/push_to_talk", flowcraft.Rounds, flowcraft.workspaceMode())
+	}
 	quality, err := workspaceCaseDoubaoRealtimeQuality.applyConfig(config{
 		Rounds:   8,
 		Workflow: workflowConfig{Name: "doubao-realtime-conversation"},
