@@ -3,6 +3,7 @@ package sqlbackend
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -175,5 +176,23 @@ func TestBackendHelpersRejectUnsupportedDialectAndCanceledInitialization(t *test
 	cancel()
 	if err := Ensure(ctx, db, backend, `CREATE TABLE "items" (value BLOB)`); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Ensure(canceled) error = %v, want context.Canceled", err)
+	}
+}
+
+type testSQLStateError string
+
+func (err testSQLStateError) Error() string    { return "database error" }
+func (err testSQLStateError) SQLState() string { return string(err) }
+
+func TestConcurrentDDLConflictClassification(t *testing.T) {
+	for _, code := range []string{"23505", "42P07"} {
+		if !isConcurrentDDLConflict(fmt.Errorf("wrapped: %w", testSQLStateError(code))) {
+			t.Errorf("SQLSTATE %s was not classified as a concurrent DDL conflict", code)
+		}
+	}
+	for _, err := range []error{testSQLStateError("23503"), errors.New("plain error")} {
+		if isConcurrentDDLConflict(err) {
+			t.Errorf("%v was classified as a concurrent DDL conflict", err)
+		}
 	}
 }

@@ -16,6 +16,8 @@ import (
 
 const indexNamespacePrefix = "gizclaw/store/sqlbackend/v1\x00"
 
+const concurrentDDLAttempts = 8
+
 var identifierRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // Dialect identifies a supported SQL Store dialect.
@@ -92,11 +94,45 @@ func Ensure(ctx context.Context, db *sqlx.DB, backend Backend, statements ...str
 		return ExternalError(fmt.Sprintf("sqlbackend: ping %s table %q", backend.Dialect, backend.Table), err)
 	}
 	for _, statement := range statements {
-		if _, err := db.ExecContext(ctx, statement); err != nil {
+		if err := executeInitializationStatement(ctx, db, backend, statement); err != nil {
 			return ExternalError(fmt.Sprintf("sqlbackend: initialize %s table %q", backend.Kind, backend.Table), err)
 		}
 	}
 	return nil
+}
+
+func executeInitializationStatement(ctx context.Context, db *sqlx.DB, backend Backend, statement string) error {
+	for attempt := range concurrentDDLAttempts {
+		if _, err := db.ExecContext(ctx, statement); err == nil {
+			return nil
+		} else if backend.Dialect != PostgreSQL || !isConcurrentDDLConflict(err) || attempt == concurrentDDLAttempts-1 {
+			return err
+		}
+		// PostgreSQL can transiently report a catalog uniqueness conflict when
+		// concurrent CREATE ... IF NOT EXISTS statements race. Retry the same
+		// idempotent statement after the winning transaction becomes visible.
+		delay := time.Duration(1<<attempt) * time.Millisecond
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return nil
+}
+
+type sqlStateError interface {
+	SQLState() string
+}
+
+func isConcurrentDDLConflict(err error) bool {
+	var state sqlStateError
+	if !errors.As(err, &state) {
+		return false
+	}
+	return state.SQLState() == "23505" || state.SQLState() == "42P07"
 }
 
 // IndexName derives a stable, bounded identifier for one table index.
