@@ -15,11 +15,11 @@ func TestDoubaoRealtimeSpokenResponseSelectsTTSOnce(t *testing.T) {
 		t.Fatalf("chat transition = %#v, want buffered", got)
 	}
 	first := response.ttsStarted("first sentence ")
-	if !first.openAudio || !reflect.DeepEqual(first.text, []string{"first sentence "}) {
+	if !first.openText || !first.openAudio || !reflect.DeepEqual(first.text, []string{"first sentence "}) {
 		t.Fatalf("first TTS transition = %#v", first)
 	}
 	second := response.ttsStarted("second sentence")
-	if second.openAudio || !reflect.DeepEqual(second.text, []string{"second sentence"}) {
+	if second.openText || second.openAudio || !reflect.DeepEqual(second.text, []string{"second sentence"}) {
 		t.Fatalf("second TTS transition = %#v", second)
 	}
 	if got := response.finishChat(); got.closeText || len(got.text) != 0 {
@@ -48,12 +48,53 @@ func TestDoubaoRealtimeSpokenResponseFallsBackToChatAfterBothTerminals(t *testin
 		t.Fatalf("audio transition = %#v, want one BOS", got)
 	}
 	finished := response.finishTTS()
-	if !reflect.DeepEqual(finished.text, []string{"first ", "second"}) ||
+	if !finished.openText || !reflect.DeepEqual(finished.text, []string{"first ", "second"}) ||
 		!finished.closeText || !finished.closeAudio {
 		t.Fatalf("fallback transition = %#v", finished)
 	}
 	if got := response.finishChat(); got.closeText || len(got.text) != 0 {
 		t.Fatalf("duplicate ChatEnded transition = %#v, want idempotent", got)
+	}
+}
+
+func TestDoubaoRealtimeHistoryRouteUsesCanonicalMIMEForCompleteLifecycle(t *testing.T) {
+	routes := newDoubaoRealtimeHistoryRoutes()
+	output := newBufferStream(4)
+	source := &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: " Audio/L16; rate=16000; channels=1 ", Data: []byte("audio")},
+		Ctrl: &genx.StreamCtrl{StreamID: "source", BeginOfStream: true, EndOfStream: true, Error: "source error"},
+	}
+	if err := routes.push(output, source, "history"); err != nil {
+		t.Fatalf("push() error = %v", err)
+	}
+	if err := routes.close(output, "history", "audio/l16; channels=1; rate=16000"); err != nil {
+		t.Fatalf("close() error = %v", err)
+	}
+
+	chunks := make([]*genx.MessageChunk, 3)
+	for index := range chunks {
+		chunk, err := output.Next()
+		if err != nil {
+			t.Fatalf("Next(%d) error = %v", index, err)
+		}
+		chunks[index] = chunk
+	}
+	for index, chunk := range chunks {
+		mimeType, ok := chunk.MIMEType()
+		if !ok || mimeType != "audio/l16; channels=1; rate=16000" {
+			t.Fatalf("chunk %d MIME = %q, %t", index, mimeType, ok)
+		}
+	}
+	if !chunks[0].IsBeginOfStream() || chunks[0].IsEndOfStream() ||
+		chunks[1].IsBeginOfStream() || chunks[1].IsEndOfStream() || chunks[1].Ctrl.Error != "" ||
+		chunks[2].IsBeginOfStream() || !chunks[2].IsEndOfStream() {
+		t.Fatalf("history lifecycle = %#v, want BOS/data/EOS", chunks)
+	}
+	if len(routes.open) != 0 {
+		t.Fatalf("open history routes = %#v, want none", routes.open)
+	}
+	if !source.IsBeginOfStream() || !source.IsEndOfStream() || source.Ctrl.Error != "source error" {
+		t.Fatalf("source chunk was mutated = %#v", source.Ctrl)
 	}
 }
 

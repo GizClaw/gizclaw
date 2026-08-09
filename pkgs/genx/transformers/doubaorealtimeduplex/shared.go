@@ -23,6 +23,12 @@ func (s *realtimeAssistantLifecycle) markStarted(id string) uint64 { return s.Ma
 func (s *realtimeAssistantLifecycle) markRouteDoneStream(id string, text bool) {
 	s.MarkRouteDone(id, text)
 }
+func (s *realtimeAssistantLifecycle) markRouteStarted(epoch uint64, text bool) {
+	s.MarkRouteStarted(epoch, text)
+}
+func (s *realtimeAssistantLifecycle) interruptRoutes(id string, force bool) doubaorealtime.SharedAssistantInterruption {
+	return s.InterruptRoutes(id, force)
+}
 func (s *realtimeAssistantLifecycle) interrupt(id string, force bool) (string, bool) {
 	return s.Interrupt(id, force)
 }

@@ -22,6 +22,8 @@ StreamKit never supplies a model role or `assistant` label. Producers provide ro
 
 ## TTS stream processing
 
-The internal TTS pipeline maintains one sentence segmenter per input StreamID. It can synthesize complete sentences before input EOS, flushes remaining text at EOS, preserves role/name/label metadata, and emits audio EOS on the same logical route. Inputs without a StreamID receive a fresh non-empty ID at the producer boundary.
+The internal TTS pipeline maintains one sentence segmenter per input StreamID. It can synthesize complete sentences before input EOS and flushes remaining text at EOS. For every audio MIME channel it creates, it preserves role/name/label metadata and emits an explicit BOS, normalized audio data, and one matching EOS on the same logical route. Inputs without a StreamID receive a fresh non-empty ID at the producer boundary.
+
+If interruption or cancellation discards an explicit TTS BOS that downstream has not pulled yet, StreamKit preserves that producer-owned declaration as an empty BOS followed by the error EOS. It never restores discarded audio data and never invents a BOS that the producer did not emit.
 
 Provider packages own SDK requests and audio synthesis. The public `transformers/audiostream` package only processes Transformer audio byte streams. Callers always construct a `Normalizer` with the actual MIME type and do not preselect a format-specific implementation. MIME types that require no handling or are not yet handled pass through unchanged; currently only MP3 removes ID3v1 and ID3v2 metadata. The normalizer does not convert codecs, sample rates, or MIME types. StreamKit owns invocation and route termination rather than parsing audio container bytes.

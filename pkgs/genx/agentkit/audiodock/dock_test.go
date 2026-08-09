@@ -752,6 +752,7 @@ func TestDockReturnsTextBeforeTTSAndMergesAudio(t *testing.T) {
 				return
 			}
 			streamID := first.Ctrl.StreamID
+			_ = output.Push(&genx.MessageChunk{Role: genx.RoleModel, Name: first.Name, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: first.Ctrl.Label, BeginOfStream: true}})
 			_ = output.Push(&genx.MessageChunk{Role: genx.RoleModel, Name: first.Name, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2}}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: first.Ctrl.Label}})
 			_, _ = input.Next()
 		}()
@@ -789,8 +790,8 @@ func TestDockReturnsTextBeforeTTSAndMergesAudio(t *testing.T) {
 	}
 	close(releaseAudio)
 	chunks := append([]*genx.MessageChunk{first}, readAll(t, output)...)
-	var textEOS, audio, audioEOS int
-	textEOSIndex, audioEOSIndex := -1, -1
+	var textEOS, audioBOS, audio, audioEOS int
+	audioBOSIndex, audioDataIndex, textEOSIndex, audioEOSIndex := -1, -1, -1, -1
 	for index, chunk := range chunks {
 		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != first.Ctrl.StreamID {
 			t.Fatalf("chunk route = %#v, want %q", chunk, first.Ctrl.StreamID)
@@ -802,8 +803,13 @@ func TestDockReturnsTextBeforeTTSAndMergesAudio(t *testing.T) {
 				textEOSIndex = index
 			}
 		case *genx.Blob:
+			if chunk.IsBeginOfStream() {
+				audioBOS++
+				audioBOSIndex = index
+			}
 			if len(part.Data) > 0 {
 				audio++
+				audioDataIndex = index
 			}
 			if chunk.IsEndOfStream() {
 				audioEOS++
@@ -811,11 +817,205 @@ func TestDockReturnsTextBeforeTTSAndMergesAudio(t *testing.T) {
 			}
 		}
 	}
-	if textEOS != 1 || audio != 1 || audioEOS != 1 {
-		t.Fatalf("textEOS/audio/audioEOS = %d/%d/%d; chunks=%#v", textEOS, audio, audioEOS, chunks)
+	if textEOS != 1 || audioBOS != 1 || audio != 1 || audioEOS != 1 {
+		t.Fatalf("textEOS/audioBOS/audio/audioEOS = %d/%d/%d/%d; chunks=%#v", textEOS, audioBOS, audio, audioEOS, chunks)
 	}
-	if textEOSIndex < 0 || audioEOSIndex <= textEOSIndex {
-		t.Fatalf("audio EOS index = %d, want after text EOS index %d; chunks=%#v", audioEOSIndex, textEOSIndex, chunks)
+	if audioBOSIndex < 0 || audioDataIndex <= audioBOSIndex || textEOSIndex <= audioDataIndex || audioEOSIndex <= textEOSIndex {
+		t.Fatalf("lifecycle indexes BOS/data/textEOS/audioEOS = %d/%d/%d/%d; chunks=%#v", audioBOSIndex, audioDataIndex, textEOSIndex, audioEOSIndex, chunks)
+	}
+}
+
+func TestDockMergesCompliantTTSLifecyclesByMIME(t *testing.T) {
+	dock, err := New(Config{
+		Agent: fixedAgentOutput(
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "narrator", Part: genx.Text("first"), Ctrl: &genx.StreamCtrl{StreamID: "one", BeginOfStream: true}},
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "character", Part: genx.Text("second"), Ctrl: &genx.StreamCtrl{StreamID: "one"}},
+			&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "one", EndOfStream: true}},
+		),
+		TTS: muxFunc(func(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
+			output := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 3})
+			go func() {
+				defer output.Close()
+				first, nextErr := input.Next()
+				if nextErr != nil {
+					return
+				}
+				_ = output.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: first.Ctrl.StreamID, BeginOfStream: true}})
+				_ = output.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte(pattern)}, Ctrl: &genx.StreamCtrl{StreamID: first.Ctrl.StreamID}})
+				for {
+					chunk, err := input.Next()
+					if err != nil || chunk.IsEndOfStream() {
+						break
+					}
+				}
+				_ = output.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: first.Ctrl.StreamID, EndOfStream: true}})
+			}()
+			return output, nil
+		}),
+		ResolveVoice: func(_ context.Context, request VoiceRequest) (string, error) {
+			return request.Name, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := dock.Transform(t.Context(), emptyStream{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunks := readAll(t, output)
+	var audioBOS, audioData, audioEOS int
+	var audio []*genx.MessageChunk
+	for _, chunk := range chunks {
+		blob, ok := chunk.Part.(*genx.Blob)
+		if !ok || blob.MIMEType != "audio/opus" {
+			continue
+		}
+		audio = append(audio, chunk)
+		if chunk.IsBeginOfStream() {
+			audioBOS++
+		}
+		if len(blob.Data) > 0 {
+			audioData++
+		}
+		if chunk.IsEndOfStream() {
+			audioEOS++
+		}
+	}
+	if audioBOS != 1 || audioData != 2 || audioEOS != 1 {
+		t.Fatalf("merged audio BOS/data/EOS = %d/%d/%d; chunks=%#v", audioBOS, audioData, audioEOS, chunks)
+	}
+	if len(audio) != 4 || !audio[0].IsBeginOfStream() || !audio[len(audio)-1].IsEndOfStream() {
+		t.Fatalf("merged audio lifecycle = %#v, want BOS/data/data/EOS", audio)
+	}
+}
+
+func TestDockRejectsInvalidChildTTSLifecycle(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		push func(*streamkit.Output)
+		want string
+	}{
+		{
+			name: "data before BOS",
+			push: func(output *streamkit.Output) {
+				_ = output.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte("audio")}})
+			},
+			want: "before its BOS",
+		},
+		{
+			name: "missing EOS",
+			push: func(output *streamkit.Output) {
+				_ = output.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{BeginOfStream: true}})
+				_ = output.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte("audio")}})
+			},
+			want: "without EOS",
+		},
+		{
+			name: "duplicate BOS",
+			push: func(output *streamkit.Output) {
+				_ = output.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{BeginOfStream: true}})
+				_ = output.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{BeginOfStream: true}})
+			},
+			want: "duplicate BOS",
+		},
+		{
+			name: "data after EOS",
+			push: func(output *streamkit.Output) {
+				_ = output.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{BeginOfStream: true}})
+				_ = output.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{EndOfStream: true}})
+				_ = output.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte("late")}})
+			},
+			want: "after its EOS",
+		},
+		{
+			name: "mismatched StreamID boundaries",
+			push: func(output *streamkit.Output) {
+				_ = output.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "first", BeginOfStream: true}})
+				_ = output.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "second", EndOfStream: true}})
+			},
+			want: "before its BOS",
+		},
+		{
+			name: "no MIME lifecycle",
+			push: func(*streamkit.Output) {},
+			want: "without a MIME lifecycle",
+		},
+		{
+			name: "control-only boundary",
+			push: func(output *streamkit.Output) {
+				_ = output.Push(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{EndOfStream: true}})
+			},
+			want: "non-MIME chunk",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			dock, err := New(Config{
+				Agent: fixedAgentOutput(
+					&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "one", BeginOfStream: true}},
+					&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "one", EndOfStream: true}},
+				),
+				TTS: muxFunc(func(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+					output := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 2})
+					go func() {
+						defer output.Close()
+						if _, nextErr := input.Next(); nextErr != nil {
+							return
+						}
+						test.push(output)
+					}()
+					return output, nil
+				}),
+				ResolveVoice: fixedVoice("voice"),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			output, err := dock.Transform(t.Context(), emptyStream{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			chunks := readAll(t, output)
+			for _, chunk := range chunks {
+				if chunk.Ctrl != nil && strings.Contains(chunk.Ctrl.Error, test.want) {
+					return
+				}
+			}
+			t.Fatalf("missing lifecycle error %q; chunks=%#v", test.want, chunks)
+		})
+	}
+}
+
+func TestDockComposesSharedTTSLifecycle(t *testing.T) {
+	dock, err := New(Config{
+		Agent: fixedAgentOutput(
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "answer", Ctrl: &genx.StreamCtrl{StreamID: "provider", BeginOfStream: true}},
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "answer", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "provider"}},
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "answer", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "provider", EndOfStream: true}},
+		),
+		TTS: muxFunc(func(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+			return streamkit.NewTTSStream(ctx, input, streamkit.OutputConfig{}, "audio/opus", func(_ context.Context, text string, _ streamkit.TTSMeta, _ string, emit func([]byte) error) error {
+				return emit([]byte(text))
+			}), nil
+		}),
+		ResolveVoice: fixedVoice("voice"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := dock.Transform(t.Context(), emptyStream{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunks := readAll(t, output)
+	var audio []*genx.MessageChunk
+	for _, chunk := range chunks {
+		if blob, ok := chunk.Part.(*genx.Blob); ok && blob.MIMEType == "audio/opus" {
+			audio = append(audio, chunk)
+		}
+	}
+	if len(audio) != 3 || !audio[0].IsBeginOfStream() || !ttsChunkHasData(audio[1]) || !audio[2].IsEndOfStream() {
+		t.Fatalf("shared TTS audio lifecycle = %#v, want BOS/data/EOS", audio)
 	}
 }
 
@@ -887,6 +1087,11 @@ func TestDockBoundsTTSCompletionAfterTextEOS(t *testing.T) {
 				}
 				_ = output.Push(&genx.MessageChunk{
 					Role: genx.RoleModel,
+					Part: &genx.Blob{MIMEType: "audio/opus"},
+					Ctrl: &genx.StreamCtrl{BeginOfStream: true},
+				})
+				_ = output.Push(&genx.MessageChunk{
+					Role: genx.RoleModel,
 					Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte("partial")},
 				})
 				<-ctx.Done()
@@ -929,7 +1134,7 @@ func TestDockPreservesTTSTerminalEOSError(t *testing.T) {
 			&genx.MessageChunk{Role: genx.RoleModel, Name: "answer", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "one", EndOfStream: true}},
 		),
 		TTS: muxFunc(func(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
-			output := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 2})
+			output := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 3})
 			go func() {
 				defer output.Close()
 				for {
@@ -940,6 +1145,11 @@ func TestDockPreservesTTSTerminalEOSError(t *testing.T) {
 					if !chunk.IsEndOfStream() {
 						continue
 					}
+					_ = output.Push(&genx.MessageChunk{
+						Role: genx.RoleModel,
+						Part: &genx.Blob{MIMEType: "audio/opus"},
+						Ctrl: &genx.StreamCtrl{BeginOfStream: true},
+					})
 					_ = output.Push(&genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte("audio")},
@@ -993,6 +1203,7 @@ func TestDockConcurrentTransformsDoNotShareVoiceState(t *testing.T) {
 				if err != nil {
 					return
 				}
+				_ = output.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: chunk.Ctrl.StreamID, BeginOfStream: true}})
 				_ = output.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: chunk.Ctrl.StreamID, EndOfStream: true}})
 			}()
 			return output, nil

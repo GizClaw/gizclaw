@@ -287,6 +287,7 @@ type interruptibleOutput struct {
 	active                 bool
 	activeStream           string
 	activeStreamKeys       map[string]map[string]struct{}
+	deliveredRoutes        map[string]map[string]*astDeliveredRoute
 	blockedStream          map[string]bool
 	keepActiveAfterTextEOS bool
 }
@@ -294,6 +295,7 @@ type interruptibleOutput struct {
 func newInterruptibleOutput(keepActiveAfterTextEOS ...bool) *interruptibleOutput {
 	out := &interruptibleOutput{
 		activeStreamKeys: make(map[string]map[string]struct{}),
+		deliveredRoutes:  make(map[string]map[string]*astDeliveredRoute),
 		blockedStream:    make(map[string]bool),
 	}
 	if len(keepActiveAfterTextEOS) > 0 {
@@ -326,6 +328,7 @@ retry:
 	}
 	chunk := s.queue[0]
 	s.queue = s.queue[1:]
+	s.observeDeliveredAssistantChunk(chunk)
 	return chunk, nil
 }
 
@@ -375,8 +378,85 @@ func (s *interruptibleOutput) interrupt(inputStreamID string) {
 	s.activeStream = ""
 	delete(s.activeStreamKeys, streamID)
 	s.queue = removeASTAssistantStreamChunks(s.queue, streamID)
-	s.queue = append(astInterruptedChunks(streamID), s.queue...)
+	s.queue = append(s.interruptedChunks(streamID), s.queue...)
 	s.cond.Broadcast()
+}
+
+type astDeliveredRoute struct {
+	streamID string
+	kind     string
+	mimeType string
+	begun    bool
+	done     bool
+}
+
+func (s *interruptibleOutput) observeDeliveredAssistantChunk(chunk *genx.MessageChunk) {
+	if !isASTAssistantChunk(chunk) {
+		return
+	}
+	kind := astAssistantChunkKind(chunk)
+	if kind == "" {
+		return
+	}
+	responseStreamID := astAssistantResponseStreamID(chunk.Ctrl.StreamID)
+	routes := s.deliveredRoutes[responseStreamID]
+	if routes == nil {
+		routes = make(map[string]*astDeliveredRoute)
+		s.deliveredRoutes[responseStreamID] = routes
+	}
+	key := astAssistantActiveKey(chunk)
+	route := routes[key]
+	if route == nil {
+		route = &astDeliveredRoute{streamID: chunk.Ctrl.StreamID, kind: kind}
+		if blob, ok := chunk.Part.(*genx.Blob); ok && blob != nil {
+			route.mimeType = blob.MIMEType
+		}
+		routes[key] = route
+	}
+	if chunk.IsBeginOfStream() {
+		route.begun = true
+	}
+	if chunk.IsEndOfStream() {
+		route.done = true
+	}
+}
+
+func (s *interruptibleOutput) interruptedChunks(responseStreamID string) []*genx.MessageChunk {
+	routes := s.deliveredRoutes[responseStreamID]
+	keys := make([]string, 0, len(routes))
+	for key := range routes {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	result := make([]*genx.MessageChunk, 0, 4)
+	seenKind := make(map[string]bool, 2)
+	for _, kind := range []string{"text", "audio"} {
+		for _, key := range keys {
+			route := routes[key]
+			if route.kind != kind {
+				continue
+			}
+			seenKind[route.kind] = true
+			if !route.begun || route.done {
+				continue
+			}
+			result = append(result, astInterruptedBoundary(route.streamID, route.kind, route.mimeType, false))
+		}
+	}
+	for _, kind := range []string{"text", "audio"} {
+		if seenKind[kind] {
+			continue
+		}
+		mimeType := ""
+		if kind == "audio" {
+			mimeType = "audio/opus"
+		}
+		result = append(result,
+			astInterruptedBoundary(responseStreamID, kind, mimeType, true),
+			astInterruptedBoundary(responseStreamID, kind, mimeType, false),
+		)
+	}
+	return result
 }
 
 func (s *interruptibleOutput) observeAssistantChunk(chunk *genx.MessageChunk, responseStreamID string) {
@@ -540,19 +620,20 @@ func astAssistantStreamIDMatches(streamID, responseStreamID string) bool {
 	return streamID == responseStreamID || strings.HasPrefix(streamID, responseStreamID+":ast:")
 }
 
-func astInterruptedChunks(streamID string) []*genx.MessageChunk {
-	return []*genx.MessageChunk{
-		{
-			Role: genx.RoleModel,
-			Part: genx.Text(""),
-			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "assistant", EndOfStream: true, Error: "interrupted"},
-		},
-		{
-			Role: genx.RoleModel,
-			Part: &genx.Blob{MIMEType: "audio/opus"},
-			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "assistant", EndOfStream: true, Error: "interrupted"},
-		},
+func astInterruptedBoundary(streamID, kind, mimeType string, begin bool) *genx.MessageChunk {
+	var part genx.Part = genx.Text("")
+	if kind == "audio" {
+		if strings.TrimSpace(mimeType) == "" {
+			mimeType = "audio/opus"
+		}
+		part = &genx.Blob{MIMEType: mimeType}
 	}
+	ctrl := &genx.StreamCtrl{StreamID: streamID, Label: "assistant", BeginOfStream: begin}
+	if !begin {
+		ctrl.EndOfStream = true
+		ctrl.Error = "interrupted"
+	}
+	return &genx.MessageChunk{Role: genx.RoleModel, Part: part, Ctrl: ctrl}
 }
 
 type externalVoiceTransformer struct {
@@ -637,6 +718,14 @@ func forwardASTTranslateTTS(ctx context.Context, ttsOutput genx.Stream, output *
 				decoder = newASTTranslateOggOpusFrameDecoder()
 				decoders[streamID] = decoder
 			}
+			if chunk.IsBeginOfStream() {
+				bos := chunk.Clone()
+				bos.Part = &genx.Blob{MIMEType: "audio/opus"}
+				bos.Ctrl.EndOfStream = false
+				if err := output.Add(bos); err != nil {
+					return err
+				}
+			}
 			if len(blob.Data) > 0 {
 				frames, err := decoder.Write(blob.Data)
 				if err != nil {
@@ -645,6 +734,7 @@ func forwardASTTranslateTTS(ctx context.Context, ttsOutput genx.Stream, output *
 				for _, frame := range frames {
 					out := chunk.Clone()
 					out.Part = &genx.Blob{MIMEType: "audio/opus", Data: frame}
+					out.Ctrl.BeginOfStream = false
 					out.Ctrl.EndOfStream = false
 					if err := output.Add(out); err != nil {
 						return err

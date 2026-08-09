@@ -63,7 +63,7 @@ func TestTransformerForwardsTextWithOneTranscriptRoute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("output.Next() first error = %v", err)
 	}
-	if first == nil || first.Name != transcriptLabel || first.Ctrl == nil || first.Ctrl.StreamID != "turn-a" || first.Part != genx.Text("hello") {
+	if first == nil || first.Name != transcriptLabel || first.Ctrl == nil || first.Ctrl.StreamID != "turn-a" || !first.IsBeginOfStream() || first.Part != genx.Text("hello") {
 		t.Fatalf("first output = %#v", first)
 	}
 	last, err := output.Next()
@@ -165,10 +165,13 @@ func TestTransformerConsumesEmptyASRCompletionWithoutError(t *testing.T) {
 		}
 		chunks = append(chunks, chunk)
 	}
-	if len(chunks) != 1 {
-		t.Fatalf("output chunks = %d, want one terminal boundary: %#v", len(chunks), chunks)
+	if len(chunks) != 2 {
+		t.Fatalf("output chunks = %d, want BOS/EOS: %#v", len(chunks), chunks)
 	}
-	chunk := chunks[0]
+	if !chunks[0].IsBeginOfStream() {
+		t.Fatalf("initial chunk = %#v, want transcript BOS", chunks[0])
+	}
+	chunk := chunks[1]
 	if !chunk.IsEndOfStream() || chunk.Ctrl == nil || chunk.Ctrl.StreamID != "empty-turn" || chunk.Ctrl.Error != "" {
 		t.Fatalf("terminal chunk = %#v, want successful empty-turn EOS", chunk)
 	}
@@ -523,7 +526,7 @@ func (a *recordingASR) Transform(_ context.Context, pattern string, input genx.S
 			}
 		}
 		if err := output.Add(
-			&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(a.text), Ctrl: &genx.StreamCtrl{StreamID: streamID}},
+			&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(a.text), Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true}},
 			&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}},
 		); err != nil {
 			return
@@ -601,7 +604,7 @@ func (a *routeAwareRealtimeASR) Transform(_ context.Context, _ string, input gen
 			}
 			seen[streamID] = struct{}{}
 			if err := output.Add(
-				&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("heard"), Ctrl: &genx.StreamCtrl{StreamID: streamID}},
+				&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("heard"), Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true}},
 				&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}},
 			); err != nil {
 				return

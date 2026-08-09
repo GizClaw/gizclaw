@@ -256,7 +256,7 @@ func (c workspaceCase) applyConfig(cfg config) (config, error) {
 	switch c {
 	case workspaceCasePushToTalkRoundtrip, workspaceCaseDoubaoRealtimeQuality, workspaceCasePushToTalkInterrupt, workspaceCaseHistoryReplay, workspaceCaseHumanReview:
 		cfg.Workflow.Parameters.Input = string(rpcapi.WorkspaceInputModePushToTalk)
-		if c == workspaceCasePushToTalkRoundtrip {
+		if c == workspaceCasePushToTalkRoundtrip && cfg.Workflow.Name != "flowcraft-voice-assistant" {
 			cfg.Rounds = 1
 		}
 		if c == workspaceCaseHistoryReplay {

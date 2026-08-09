@@ -135,7 +135,8 @@ func TestTransformerConcurrentCallsAreIndependent(t *testing.T) {
 				errors <- transformErr
 				return
 			}
-			for chunkIndex := range 2 {
+			chunks := make([]*genx.MessageChunk, 0, 3)
+			for chunkIndex := range 3 {
 				chunk, nextErr := output.Next()
 				if nextErr != nil {
 					errors <- fmt.Errorf("%s chunk %d: %w", streamID, chunkIndex, nextErr)
@@ -145,6 +146,11 @@ func TestTransformerConcurrentCallsAreIndependent(t *testing.T) {
 					errors <- fmt.Errorf("%s chunk %d control = %#v", streamID, chunkIndex, chunk.Ctrl)
 					return
 				}
+				chunks = append(chunks, chunk)
+			}
+			if !chunks[0].IsBeginOfStream() || chunks[1].IsBeginOfStream() || chunks[1].IsEndOfStream() || !chunks[2].IsEndOfStream() {
+				errors <- fmt.Errorf("%s lifecycle = %#v / %#v / %#v, want BOS/data/EOS", streamID, chunks[0].Ctrl, chunks[1].Ctrl, chunks[2].Ctrl)
+				return
 			}
 			if _, nextErr := output.Next(); nextErr != io.EOF {
 				errors <- fmt.Errorf("%s terminal error = %v", streamID, nextErr)

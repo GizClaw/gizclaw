@@ -428,17 +428,20 @@ func TestTransformerPTTTurnCommitsLatestHypothesisBeforeAssistantOutput(t *testi
 	}
 
 	chunks := output.chunks()
-	if len(chunks) != 3 {
-		t.Fatalf("output chunks = %d, want transcript, transcript EOS, assistant", len(chunks))
+	if len(chunks) != 4 {
+		t.Fatalf("output chunks = %d, want transcript BOS, transcript, transcript EOS, assistant", len(chunks))
 	}
-	if text, ok := chunks[0].Part.(genx.Text); !ok || text != "final" {
-		t.Fatalf("committed transcript = %#v, want final snapshot", chunks[0])
+	if !chunks[0].IsBeginOfStream() || chunks[0].Ctrl.Label != doubaoRealtimeTranscriptLabel {
+		t.Fatalf("first chunk = %#v, want transcript BOS", chunks[0])
 	}
-	if chunks[1].Ctrl == nil || !chunks[1].Ctrl.EndOfStream || chunks[1].Ctrl.Label != doubaoRealtimeTranscriptLabel {
-		t.Fatalf("second chunk = %#v, want transcript EOS", chunks[1])
+	if text, ok := chunks[1].Part.(genx.Text); !ok || text != "final" {
+		t.Fatalf("committed transcript = %#v, want final snapshot", chunks[1])
 	}
-	if text, ok := chunks[2].Part.(genx.Text); !ok || text != "answer" {
-		t.Fatalf("assistant output = %#v, want retained answer", chunks[2])
+	if chunks[2].Ctrl == nil || !chunks[2].Ctrl.EndOfStream || chunks[2].Ctrl.Label != doubaoRealtimeTranscriptLabel {
+		t.Fatalf("third chunk = %#v, want transcript EOS", chunks[2])
+	}
+	if text, ok := chunks[3].Part.(genx.Text); !ok || text != "answer" {
+		t.Fatalf("assistant output = %#v, want retained answer", chunks[3])
 	}
 }
 
@@ -474,10 +477,13 @@ func TestTransformerProviderLossClosesOnlyOpenAssistantRoutes(t *testing.T) {
 	runtime.providerLost(tfr, output, errors.New("provider lost"))
 
 	chunks := output.chunks()
-	if len(chunks) != 1 {
-		t.Fatalf("output chunks after provider loss = %#v, want one text error EOS", chunks)
+	if len(chunks) != 2 {
+		t.Fatalf("output chunks after provider loss = %#v, want text BOS and error EOS", chunks)
 	}
-	chunk := chunks[0]
+	if !chunks[0].IsBeginOfStream() || chunks[0].IsEndOfStream() {
+		t.Fatalf("provider-loss first chunk = %#v, want text BOS", chunks[0])
+	}
+	chunk := chunks[1]
 	if chunk.Ctrl == nil || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error == "" {
 		t.Fatalf("provider-loss chunk = %#v, want error EOS", chunk)
 	}
@@ -1289,6 +1295,7 @@ func TestTransformerPTTDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
 		t.Fatalf("output missing final assistant audio: %#v", chunks)
 	}
+	requireRealtimeOwnedRouteLifecycles(t, chunks, genx.RoleUser, genx.HistoryUserAudioLabel, 1)
 }
 
 func TestTransformerDoesNotReplayAmbiguousTextAfterReconnect(t *testing.T) {
@@ -1559,7 +1566,8 @@ func TestTransformerPTTDiscardsFailedTurnRemainderAfterReconnect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
-	_ = drainRealtimeTestOutput(t, output)
+	chunks := drainRealtimeTestOutput(t, output)
+	requireRealtimeOwnedRouteLifecycles(t, chunks, genx.RoleUser, genx.HistoryUserAudioLabel, 2)
 	if got := second.audioFrames(); len(got) != 1 || !bytes.Equal(got[0], []byte{3, 0}) {
 		t.Fatalf("replacement session audio = %v, want only next turn frame", got)
 	}
@@ -1600,6 +1608,31 @@ func TestTransformerMapsRealtimeEventsToStreamChunks(t *testing.T) {
 	}
 	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
 		t.Fatalf("output missing model audio: %#v", chunks)
+	}
+	routes := make(map[string][]*genx.MessageChunk)
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil {
+			continue
+		}
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			continue
+		}
+		key := string(chunk.Role) + "\x00" + chunk.Ctrl.Label + "\x00" + chunk.Ctrl.StreamID + "\x00" + mimeType
+		routes[key] = append(routes[key], chunk)
+	}
+	if len(routes) != 3 {
+		t.Fatalf("generated routes = %d, want transcript text, assistant text, and assistant audio: %#v", len(routes), chunks)
+	}
+	for key, route := range routes {
+		if len(route) < 2 || !route[0].IsBeginOfStream() || !route[len(route)-1].IsEndOfStream() {
+			t.Fatalf("route %q lifecycle = %#v, want BOS...EOS", key, route)
+		}
+		for _, chunk := range route[:len(route)-1] {
+			if chunk.IsEndOfStream() {
+				t.Fatalf("route %q ended before its final chunk: %#v", key, route)
+			}
+		}
 	}
 }
 
@@ -1674,6 +1707,7 @@ func TestTransformerInterruptsPendingResponseBeforeTTS(t *testing.T) {
 	if !hasRealtimeInterruptedEOS(chunks, "turn-1:rt:1", genx.RoleModel, true) {
 		t.Fatalf("missing interrupted audio EOS for pending response: %#v", chunks)
 	}
+	requireRealtimeOwnedRouteLifecycles(t, chunks, genx.RoleModel, doubaoRealtimeAssistantLabel, 2)
 	if hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
 		t.Fatalf("interrupted audio backlog leaked before Error EOS: %#v", chunks)
 	}
@@ -1743,6 +1777,22 @@ func TestTransformerPushToTalkBargeInWhileWaitingResponse(t *testing.T) {
 	if !hasRealtimeInterruptedEOS(chunks, "turn-1", genx.RoleModel, false) ||
 		!hasRealtimeInterruptedEOS(chunks, "turn-1", genx.RoleModel, true) {
 		t.Fatalf("missing interrupted response EOS: %#v", chunks)
+	}
+	requireRealtimeOwnedRouteLifecycles(t, chunks, genx.RoleModel, doubaoRealtimeAssistantLabel, 2)
+}
+
+func TestTransformerInputErrorCreatesCompleteTranscriptLifecycle(t *testing.T) {
+	tfr := newTransformer(nil)
+	output := newBufferStream(2)
+	tfr.pushInputEOSError(output, "turn-1", errors.New("invalid input"))
+	if err := output.Close(); err != nil {
+		t.Fatalf("Close(output) error = %v", err)
+	}
+
+	chunks := drainRealtimeTestOutput(t, output)
+	requireRealtimeOwnedRouteLifecycles(t, chunks, genx.RoleUser, doubaoRealtimeTranscriptLabel, 1)
+	if got := chunks[len(chunks)-1].Ctrl.Error; got != "invalid input" {
+		t.Fatalf("transcript EOS error = %q, want invalid input", got)
 	}
 }
 
@@ -1869,6 +1919,38 @@ func hasRealtimeInterruptedEOS(chunks []*genx.MessageChunk, streamID string, rol
 		}
 	}
 	return false
+}
+
+func requireRealtimeOwnedRouteLifecycles(t *testing.T, chunks []*genx.MessageChunk, role genx.Role, label string, want int) {
+	t.Helper()
+	routes := make(map[string][]*genx.MessageChunk)
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.Role != role || chunk.Ctrl == nil || chunk.Ctrl.Label != label {
+			continue
+		}
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			continue
+		}
+		key := chunk.Ctrl.StreamID + "\x00" + mimeType
+		routes[key] = append(routes[key], chunk)
+	}
+	if len(routes) != want {
+		t.Fatalf("owned %q routes = %d, want %d: %#v", label, len(routes), want, chunks)
+	}
+	for key, route := range routes {
+		if len(route) < 2 || !route[0].IsBeginOfStream() || !route[len(route)-1].IsEndOfStream() {
+			t.Fatalf("owned route %q lifecycle = %#v, want BOS...EOS", key, route)
+		}
+		for i, chunk := range route {
+			if i > 0 && chunk.IsBeginOfStream() {
+				t.Fatalf("owned route %q has duplicate BOS: %#v", key, route)
+			}
+			if i < len(route)-1 && chunk.IsEndOfStream() {
+				t.Fatalf("owned route %q ended before its final chunk: %#v", key, route)
+			}
+		}
+	}
 }
 
 type recordingRealtimeOutput struct {

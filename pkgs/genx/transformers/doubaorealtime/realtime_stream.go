@@ -15,19 +15,23 @@ type realtimeAssistantLifecycle struct {
 	epoch  atomic.Uint64
 	accept atomic.Bool
 
-	mu        sync.Mutex
-	active    bool
-	streamID  string
-	activeAt  uint64
-	textDone  bool
-	audioDone bool
+	mu           sync.Mutex
+	active       bool
+	streamID     string
+	activeAt     uint64
+	textStarted  bool
+	audioStarted bool
+	textDone     bool
+	audioDone    bool
 }
 
 type realtimeAssistantInterruption struct {
-	streamID    string
-	interrupted bool
-	textOpen    bool
-	audioOpen   bool
+	streamID     string
+	interrupted  bool
+	textOpen     bool
+	audioOpen    bool
+	textStarted  bool
+	audioStarted bool
 }
 
 func newRealtimeAssistantLifecycle() *realtimeAssistantLifecycle {
@@ -50,6 +54,8 @@ func (s *realtimeAssistantLifecycle) markPending(streamID string, epoch uint64) 
 	s.active = true
 	s.streamID = streamID
 	s.activeAt = epoch
+	s.textStarted = false
+	s.audioStarted = false
 	s.textDone = false
 	s.audioDone = false
 	s.mu.Unlock()
@@ -67,6 +73,8 @@ func (s *realtimeAssistantLifecycle) markStarted(streamID string) uint64 {
 		s.active = true
 		s.streamID = streamID
 		s.activeAt = epoch
+		s.textStarted = false
+		s.audioStarted = false
 		s.textDone = false
 		s.audioDone = false
 	}
@@ -100,6 +108,19 @@ func (s *realtimeAssistantLifecycle) markTextDone(epoch uint64) {
 
 func (s *realtimeAssistantLifecycle) markAudioDone(epoch uint64) {
 	s.markRouteDone(epoch, false)
+}
+
+func (s *realtimeAssistantLifecycle) markRouteStarted(epoch uint64, text bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.active || s.activeAt != epoch {
+		return
+	}
+	if text {
+		s.textStarted = true
+	} else {
+		s.audioStarted = true
+	}
 }
 
 func (s *realtimeAssistantLifecycle) markRouteDone(epoch uint64, text bool) {
@@ -163,14 +184,18 @@ func (s *realtimeAssistantLifecycle) interruptRoutes(fallback string, force bool
 	epoch := s.epoch.Add(1)
 	s.activeAt = epoch
 	interruption := realtimeAssistantInterruption{
-		streamID:    streamID,
-		interrupted: true,
-		textOpen:    !s.textDone,
-		audioOpen:   !s.audioDone,
+		streamID:     streamID,
+		interrupted:  true,
+		textOpen:     !s.textDone,
+		audioOpen:    !s.audioDone,
+		textStarted:  s.textStarted,
+		audioStarted: s.audioStarted,
 	}
 	if !wasActive && force {
 		interruption.textOpen = true
 		interruption.audioOpen = true
+		interruption.textStarted = false
+		interruption.audioStarted = false
 	}
 	s.textDone = true
 	s.audioDone = true
@@ -361,6 +386,7 @@ type doubaoRealtimePTTASRQueue struct {
 
 type doubaoRealtimeSpokenTransition struct {
 	text       []string
+	openText   bool
 	openAudio  bool
 	closeText  bool
 	closeAudio bool
@@ -372,6 +398,8 @@ type doubaoRealtimeSpokenResponse struct {
 	chatFinished bool
 	ttsFinished  bool
 	textFinished bool
+	textOpen     bool
+	textClosed   bool
 	audioOpen    bool
 	audioClosed  bool
 }
@@ -397,6 +425,7 @@ func (r *doubaoRealtimeSpokenResponse) ttsStarted(text string) doubaoRealtimeSpo
 		r.chatText = nil
 	}
 	transition.text = []string{text}
+	transition.openText = r.openText()
 	if r.ttsFinished {
 		r.textFinished = true
 		transition.closeText = true
@@ -443,11 +472,21 @@ func (r *doubaoRealtimeSpokenResponse) openAudio() bool {
 	return true
 }
 
+func (r *doubaoRealtimeSpokenResponse) openText() bool {
+	if r.textOpen || r.textClosed {
+		return false
+	}
+	r.textOpen = true
+	return true
+}
+
 func (r *doubaoRealtimeSpokenResponse) finishTextIfReady(transition *doubaoRealtimeSpokenTransition) {
 	if r.textFinished || !r.ttsFinished {
 		return
 	}
 	if r.ttsSelected {
+		transition.openText = r.openText()
+		r.textClosed = true
 		r.textFinished = true
 		transition.closeText = true
 		return
@@ -456,6 +495,8 @@ func (r *doubaoRealtimeSpokenResponse) finishTextIfReady(transition *doubaoRealt
 		return
 	}
 	transition.text = append(transition.text, r.chatText...)
+	transition.openText = r.openText()
+	r.textClosed = true
 	r.chatText = nil
 	r.textFinished = true
 	transition.closeText = true
@@ -705,6 +746,13 @@ func (t *doubaoRealtimePTTTurn) commitIfReady() error {
 	assistantOut := t.assistantOut
 	t.mu.Unlock()
 
+	if err := output.Push(&genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeTranscriptLabel, BeginOfStream: true},
+	}); err != nil {
+		return err
+	}
 	if strings.TrimSpace(text) != "" {
 		if err := output.Push(&genx.MessageChunk{
 			Role: genx.RoleUser,
@@ -962,6 +1010,15 @@ func (t *doubaoRealtimePTTTurn) discard() (streamID string, active, committed bo
 	output.Discard()
 	completion.complete()
 	return streamID, true, committed
+}
+
+func (t *doubaoRealtimePTTTurn) outputCommitted() bool {
+	if t == nil {
+		return false
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.active && t.committed
 }
 
 func (t *doubaoRealtimePTTTurn) stream() string {

@@ -110,7 +110,9 @@ type Stream interface {
 - `Text` 使用规范的 `text/plain` MIME channel；`Blob` 使用解析并规范化后的完整 MIME type，包括 `codecs=opus` 等具有语义的参数；大小写、参数顺序和无意义空格不会形成第二个 channel。
 - 携带 Part 的 EOS 只结束该 Part 对应的 MIME channel。例如，同一 StreamID 上的 `text/plain` EOS 不会结束 `audio/opus`。
 - `Part == nil` 的纯控制 EOS 结束整个 StreamID route 及其所有未完成 MIME channel，但仍不关闭外层 `Stream`。
-- 如果 producer 可能在当前已观察 channel 全部完成后再增加新 MIME channel，必须在此前通过携带 MIME 的 BOS 或 data chunk 声明该 channel，或者保持 route 直到发出纯控制 EOS。
+- 创建 StreamID 的组件负责该 route 的边界。Transformer 在已有 StreamID 上创建新的 MIME channel 时，同样负责该 channel：必须在第一段 data 之前或同时发出携带 MIME 的 BOS，并且只发出一个匹配的 EOS；成功空 channel 和失败 channel 也遵守这个要求。
+- Transformer 对自己没有创建的 route 只做透传，不增加、删除或重新解释其 BOS/EOS。下游 composer 和 consumer 不能替 data-before-BOS 或 missing-EOS 的 producer 修补生命周期。
+- 如果 producer 可能在当前已观察 channel 全部完成后再增加新 MIME channel，必须在此前通过携带 MIME 的 BOS 声明该 channel，或者保持 route 直到发出纯控制 EOS。
 - 同一个 `Stream` 可以交错承载多个 StreamID；`Stream.Close` 和 `CloseWithError` 终止外层传输及所有未完成 route。
 - `Iter` 会聚合 content reader 直到外层 Stream 结束，不通过 `StreamElement` 暴露 route-aware EOS。
 - Adapter 必须保留 StreamID、role、label、MIME type、BOS/EOS 和 error 语义，不能依靠私有 session 状态让边界只在实现内部可见。

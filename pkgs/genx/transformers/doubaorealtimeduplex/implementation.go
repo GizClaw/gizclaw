@@ -349,26 +349,7 @@ func (t *Transformer) processLoop(
 	})
 	defer output.setOutputObserver(nil)
 	interruptAssistantState := func(streamID string) bool {
-		interruptedStreamID, interrupted := assistant.interrupt(streamID, false)
-		if !interrupted {
-			return false
-		}
-		output.discard(func(chunk *genx.MessageChunk) bool {
-			return isDoubaoRealtimeDuplexAssistantChunk(chunk, interruptedStreamID)
-		})
-		textEOS := &genx.MessageChunk{
-			Role: genx.RoleModel,
-			Part: genx.Text(""),
-			Ctrl: &genx.StreamCtrl{StreamID: interruptedStreamID, Label: doubaoRealtimeDuplexAssistantLabel, EndOfStream: true, Error: doubaoRealtimeDuplexInterrupted},
-		}
-		audioEOS := &genx.MessageChunk{
-			Role: genx.RoleModel,
-			Part: &genx.Blob{MIMEType: t.outputMIMEType()},
-			Ctrl: &genx.StreamCtrl{StreamID: interruptedStreamID, Label: doubaoRealtimeDuplexAssistantLabel, EndOfStream: true, Error: doubaoRealtimeDuplexInterrupted},
-		}
-		_ = output.Push(textEOS)
-		_ = output.Push(audioEOS)
-		return true
+		return t.interruptAssistantOutput(output, assistant, streamID)
 	}
 	interruptAssistant := func(streamID string) (bool, error) {
 		if !interruptAssistantState(streamID) {
@@ -383,7 +364,18 @@ func (t *Transformer) processLoop(
 		if !assistant.canPush(epoch) {
 			return nil
 		}
-		return output.Push(chunk)
+		if chunk != nil && chunk.IsBeginOfStream() {
+			switch chunk.Part.(type) {
+			case genx.Text:
+				assistant.markRouteStarted(epoch, true)
+			case *genx.Blob:
+				assistant.markRouteStarted(epoch, false)
+			}
+		}
+		if err := output.Push(chunk); err != nil {
+			return err
+		}
+		return nil
 	}
 	streamIDs := newDoubaoRealtimeDuplexStreamIDs()
 	audioStarted := false
@@ -441,7 +433,28 @@ func (t *Transformer) processLoop(
 				assistant.markRouteDoneStream(streamID, false)
 			}
 		}
-		closeInputSegment := func() error {
+		openInputSegment := func() error {
+			if transcriptOpen {
+				return nil
+			}
+			if err := output.Push(&genx.MessageChunk{
+				Role: genx.RoleUser,
+				Part: genx.Text(""),
+				Ctrl: &genx.StreamCtrl{
+					StreamID:      streamIDs.input(),
+					Label:         doubaoRealtimeDuplexTranscriptLabel,
+					BeginOfStream: true,
+				},
+			}); err != nil {
+				return err
+			}
+			transcriptOpen = true
+			return nil
+		}
+		closeInputSegment := func(errText string) error {
+			if err := openInputSegment(); err != nil {
+				return err
+			}
 			inputStreamID := streamIDs.endInputSegment()
 			doneChunk := &genx.MessageChunk{
 				Role: genx.RoleUser,
@@ -450,6 +463,7 @@ func (t *Transformer) processLoop(
 					StreamID:    inputStreamID,
 					Label:       doubaoRealtimeDuplexTranscriptLabel,
 					EndOfStream: true,
+					Error:       errText,
 				},
 			}
 			if err := output.Push(doneChunk); err != nil {
@@ -461,7 +475,7 @@ func (t *Transformer) processLoop(
 		}
 		defer func() {
 			if transcriptOpen {
-				if err := closeInputSegment(); err != nil {
+				if err := closeInputSegment(""); err != nil {
 					finishEventError(err)
 				}
 			}
@@ -482,7 +496,10 @@ func (t *Transformer) processLoop(
 			streamID := firstNonEmptyString(event.ResponseID, event.QuestionID, streamIDs.response())
 			switch event.Type {
 			case doubaospeech.RealtimeDuplexEventTranscriptionStarted:
-				transcriptOpen = true
+				if err := openInputSegment(); err != nil {
+					finishEventError(err)
+					return
+				}
 			case doubaospeech.RealtimeDuplexEventTranscriptionDelta:
 				text := firstNonEmptyString(event.Delta, event.Transcript)
 				if text == "" {
@@ -499,6 +516,10 @@ func (t *Transformer) processLoop(
 					continue
 				}
 				lastTranscriptText += text
+				if err := openInputSegment(); err != nil {
+					finishEventError(err)
+					return
+				}
 				if err := output.Push(&genx.MessageChunk{
 					Role: genx.RoleUser,
 					Part: genx.Text(text),
@@ -507,12 +528,15 @@ func (t *Transformer) processLoop(
 					finishEventError(err)
 					return
 				}
-				transcriptOpen = true
 			case doubaospeech.RealtimeDuplexEventTranscriptionCompleted:
 				text := firstNonEmptyString(event.Transcript, event.Text, event.Delta)
 				if text != "" {
 					delta := realtimeDuplexTextDelta(lastTranscriptText, text)
 					if delta != "" {
+						if err := openInputSegment(); err != nil {
+							finishEventError(err)
+							return
+						}
 						if err := output.Push(&genx.MessageChunk{
 							Role: genx.RoleUser,
 							Part: genx.Text(delta),
@@ -521,11 +545,10 @@ func (t *Transformer) processLoop(
 							finishEventError(err)
 							return
 						}
-						transcriptOpen = true
 					}
 				}
 				if transcriptOpen {
-					if err := closeInputSegment(); err != nil {
+					if err := closeInputSegment(""); err != nil {
 						finishEventError(err)
 						return
 					}
@@ -537,25 +560,15 @@ func (t *Transformer) processLoop(
 				if event.Error != nil && strings.TrimSpace(event.Error.Message) != "" {
 					errText = event.Error.Message
 				}
-				if err := output.Push(&genx.MessageChunk{
-					Role: genx.RoleUser,
-					Part: genx.Text(""),
-					Ctrl: &genx.StreamCtrl{
-						StreamID:    streamIDs.endInputSegment(),
-						Label:       doubaoRealtimeDuplexTranscriptLabel,
-						EndOfStream: true,
-						Error:       errText,
-					},
-				}); err != nil {
+				if err := closeInputSegment(errText); err != nil {
 					finishEventError(err)
 					return
 				}
-				transcriptOpen = false
 			case doubaospeech.RealtimeDuplexEventInputAudioBufferCommitted:
 				assistant.setAccept(true)
 				assistant.nextEpoch()
 				if transcriptOpen {
-					if err := closeInputSegment(); err != nil {
+					if err := closeInputSegment(""); err != nil {
 						finishEventError(err)
 						return
 					}
@@ -572,6 +585,17 @@ func (t *Transformer) processLoop(
 					continue
 				}
 				epoch := markAssistantStarted(streamID)
+				if !assistantTextStarted[streamID] {
+					if err := pushAssistantOutput(epoch, &genx.MessageChunk{
+						Role: genx.RoleModel,
+						Part: genx.Text(""),
+						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeDuplexAssistantLabel, BeginOfStream: true},
+					}); err != nil {
+						finishEventError(err)
+						return
+					}
+					assistantTextStarted[streamID] = true
+				}
 				if err := pushAssistantOutput(epoch, &genx.MessageChunk{
 					Role: genx.RoleModel,
 					Part: genx.Text(text),
@@ -581,7 +605,6 @@ func (t *Transformer) processLoop(
 					return
 				}
 				textDeltaSeen[streamID] = true
-				assistantTextStarted[streamID] = true
 			case doubaospeech.RealtimeDuplexEventResponseOutputTextDone:
 				if !assistant.acceptsOutput() {
 					continue
@@ -590,6 +613,18 @@ func (t *Transformer) processLoop(
 					continue
 				}
 				epoch := assistant.currentEpoch()
+				if !assistantTextStarted[streamID] {
+					epoch = markAssistantStarted(streamID)
+					if err := pushAssistantOutput(epoch, &genx.MessageChunk{
+						Role: genx.RoleModel,
+						Part: genx.Text(""),
+						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeDuplexAssistantLabel, BeginOfStream: true},
+					}); err != nil {
+						finishEventError(err)
+						return
+					}
+					assistantTextStarted[streamID] = true
+				}
 				if event.Text != "" && !textDeltaSeen[streamID] {
 					if err := pushAssistantOutput(epoch, &genx.MessageChunk{
 						Role: genx.RoleModel,
@@ -599,7 +634,6 @@ func (t *Transformer) processLoop(
 						finishEventError(err)
 						return
 					}
-					assistantTextStarted[streamID] = true
 				}
 				delete(textDeltaSeen, streamID)
 				if err := pushAssistantOutput(epoch, &genx.MessageChunk{
@@ -847,6 +881,59 @@ func isDoubaoRealtimeDuplexAssistantChunk(chunk *genx.MessageChunk, streamID str
 		chunk.Ctrl.StreamID == streamID && chunk.Ctrl.Label == doubaoRealtimeDuplexAssistantLabel
 }
 
+func (t *Transformer) interruptAssistantOutput(output *bufferStream, assistant *realtimeAssistantLifecycle, streamID string) bool {
+	if output == nil || assistant == nil {
+		return false
+	}
+	interruption := assistant.interruptRoutes(streamID, false)
+	if !interruption.Interrupted {
+		return false
+	}
+	discarded := output.discardChunks(func(chunk *genx.MessageChunk) bool {
+		return isDoubaoRealtimeDuplexAssistantChunk(chunk, interruption.StreamID)
+	})
+	for _, chunk := range discarded {
+		if !chunk.IsBeginOfStream() {
+			continue
+		}
+		switch chunk.Part.(type) {
+		case genx.Text:
+			interruption.TextStarted = false
+		case *genx.Blob:
+			interruption.AudioStarted = false
+		}
+	}
+	if interruption.TextOpen {
+		if !interruption.TextStarted {
+			_ = output.Push(&genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: genx.Text(""),
+				Ctrl: &genx.StreamCtrl{StreamID: interruption.StreamID, Label: doubaoRealtimeDuplexAssistantLabel, BeginOfStream: true},
+			})
+		}
+		_ = output.Push(&genx.MessageChunk{
+			Role: genx.RoleModel,
+			Part: genx.Text(""),
+			Ctrl: &genx.StreamCtrl{StreamID: interruption.StreamID, Label: doubaoRealtimeDuplexAssistantLabel, EndOfStream: true, Error: doubaoRealtimeDuplexInterrupted},
+		})
+	}
+	if interruption.AudioOpen {
+		if !interruption.AudioStarted {
+			_ = output.Push(&genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: &genx.Blob{MIMEType: t.outputMIMEType()},
+				Ctrl: &genx.StreamCtrl{StreamID: interruption.StreamID, Label: doubaoRealtimeDuplexAssistantLabel, BeginOfStream: true},
+			})
+		}
+		_ = output.Push(&genx.MessageChunk{
+			Role: genx.RoleModel,
+			Part: &genx.Blob{MIMEType: t.outputMIMEType()},
+			Ctrl: &genx.StreamCtrl{StreamID: interruption.StreamID, Label: doubaoRealtimeDuplexAssistantLabel, EndOfStream: true, Error: doubaoRealtimeDuplexInterrupted},
+		})
+	}
+	return true
+}
+
 type doubaoRealtimeDuplexPendingChunkStream struct {
 	first *genx.MessageChunk
 	rest  genx.Stream
@@ -1035,6 +1122,15 @@ func (t *Transformer) pushInputEOSError(output *bufferStream, streamID string, e
 	if output == nil || err == nil {
 		return
 	}
+	_ = output.Push(&genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{
+			StreamID:      streamID,
+			Label:         doubaoRealtimeDuplexTranscriptLabel,
+			BeginOfStream: true,
+		},
+	})
 	_ = output.Push(&genx.MessageChunk{
 		Role: genx.RoleUser,
 		Part: genx.Text(""),

@@ -22,6 +22,11 @@ func historyUserAudioChunk(chunk *genx.MessageChunk, streamID string) *genx.Mess
 	}
 	next.Ctrl.StreamID = streamID
 	next.Ctrl.Label = genx.HistoryUserAudioLabel
+	// This is a newly generated history route. Source audio boundaries belong
+	// to the input route and must not leak into the generated lifecycle.
+	next.Ctrl.BeginOfStream = false
+	next.Ctrl.EndOfStream = false
+	next.Ctrl.Error = ""
 	return next
 }
 
@@ -33,6 +38,13 @@ func historyUserAudioEOSChunk(streamID, mimeType string) *genx.MessageChunk {
 		mimeType = "audio/pcm"
 	}
 	return &genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: genx.HistoryUserAudioLabel, EndOfStream: true}}
+}
+
+func historyUserAudioBOSChunk(streamID, mimeType string) *genx.MessageChunk {
+	chunk := historyUserAudioEOSChunk(streamID, mimeType)
+	chunk.Ctrl.BeginOfStream = true
+	chunk.Ctrl.EndOfStream = false
+	return chunk
 }
 
 type timestampedHistoryAudioBlock struct {
@@ -137,11 +149,17 @@ func pushHistoryAudioSegment(output interface {
 	}
 	mimeType := "audio/opus"
 	for _, chunk := range chunks {
-		if chunk == nil {
-			continue
-		}
 		if blob, ok := chunk.Part.(*genx.Blob); ok && strings.TrimSpace(blob.MIMEType) != "" {
 			mimeType = blob.MIMEType
+			break
+		}
+	}
+	if err := output.Push(historyUserAudioBOSChunk(streamID, mimeType)); err != nil {
+		return fmt.Errorf("push history user audio bos: %w", err)
+	}
+	for _, chunk := range chunks {
+		if chunk == nil {
+			continue
 		}
 		if err := output.Push(chunk); err != nil {
 			return err

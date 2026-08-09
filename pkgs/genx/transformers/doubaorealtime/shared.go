@@ -12,6 +12,17 @@ type SharedAssistantLifecycle struct {
 	inner *realtimeAssistantLifecycle
 }
 
+// SharedAssistantInterruption describes the generated routes that still need
+// a terminal boundary when a realtime response is interrupted.
+type SharedAssistantInterruption struct {
+	StreamID     string
+	Interrupted  bool
+	TextOpen     bool
+	AudioOpen    bool
+	TextStarted  bool
+	AudioStarted bool
+}
+
 func NewSharedAssistantLifecycle() *SharedAssistantLifecycle {
 	return &SharedAssistantLifecycle{inner: newRealtimeAssistantLifecycle()}
 }
@@ -23,6 +34,20 @@ func (s *SharedAssistantLifecycle) NextEpoch() uint64            { return s.inne
 func (s *SharedAssistantLifecycle) MarkStarted(id string) uint64 { return s.inner.markStarted(id) }
 func (s *SharedAssistantLifecycle) MarkRouteDone(id string, text bool) {
 	s.inner.markRouteDoneStream(id, text)
+}
+func (s *SharedAssistantLifecycle) MarkRouteStarted(epoch uint64, text bool) {
+	s.inner.markRouteStarted(epoch, text)
+}
+func (s *SharedAssistantLifecycle) InterruptRoutes(id string, force bool) SharedAssistantInterruption {
+	interruption := s.inner.interruptRoutes(id, force)
+	return SharedAssistantInterruption{
+		StreamID:     interruption.streamID,
+		Interrupted:  interruption.interrupted,
+		TextOpen:     interruption.textOpen,
+		AudioOpen:    interruption.audioOpen,
+		TextStarted:  interruption.textStarted,
+		AudioStarted: interruption.audioStarted,
+	}
 }
 func (s *SharedAssistantLifecycle) Interrupt(id string, force bool) (string, bool) {
 	return s.inner.interrupt(id, force)

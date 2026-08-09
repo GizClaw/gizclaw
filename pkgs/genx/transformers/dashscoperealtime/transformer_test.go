@@ -102,6 +102,75 @@ func TestDashScopeStreamIDsSeparateInputAndResponseRoutes(t *testing.T) {
 	}
 }
 
+func TestTransformerOwnsEveryGeneratedRouteLifecycle(t *testing.T) {
+	session := newDashScopeToolSession([]*dashscope.RealtimeEvent{
+		{Type: dashscope.EventTypeResponseCreated, ResponseID: "response-1"},
+		{Type: dashscope.EventTypeInputAudioTranscriptionCompleted, Transcript: "heard"},
+		{Type: dashscope.EventTypeResponseTextDelta, ResponseID: "response-1", Delta: "answer"},
+		{Type: dashscope.EventTypeResponseTextDone, ResponseID: "response-1"},
+		{Type: dashscope.EventTypeResponseTranscriptDelta, ResponseID: "response-1", Delta: "spoken"},
+		{Type: dashscope.EventTypeResponseTranscriptDone, ResponseID: "response-1"},
+		{Type: dashscope.EventTypeResponseAudioDelta, ResponseID: "response-1", Audio: []byte{1, 2}},
+		{Type: dashscope.EventTypeResponseAudioDone, ResponseID: "response-1"},
+	})
+	transformer := newTransformer(nil)
+	transformer.realtime = &dashScopeFixedOpener{session: session}
+	output, err := transformer.Transform(t.Context(), dashScopeToolInput{done: session.eventsDrained})
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	chunks, err := collectDashScopeToolOutput(output)
+	if err != nil {
+		t.Fatalf("collect output: %v", err)
+	}
+
+	routes := make(map[string][]*genx.MessageChunk)
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil {
+			continue
+		}
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			continue
+		}
+		key := chunk.Ctrl.StreamID + "\x00" + mimeType
+		routes[key] = append(routes[key], chunk)
+	}
+	if len(routes) != 4 {
+		t.Fatalf("generated MIME routes = %d, want input text, response text, response transcript, and response audio: %#v", len(routes), chunks)
+	}
+	for key, route := range routes {
+		if route[0].Ctrl.StreamID == "" {
+			t.Fatalf("route %q has empty StreamID: %#v", key, route)
+		}
+		if len(route) != 3 || !route[0].IsBeginOfStream() || route[1].IsBeginOfStream() || route[1].IsEndOfStream() || !route[2].IsEndOfStream() {
+			t.Fatalf("route %q lifecycle = %#v, want BOS/data/EOS", key, route)
+		}
+	}
+}
+
+func TestTransformerCreatesCompleteEmptyTranscriptLifecycle(t *testing.T) {
+	session := newDashScopeToolSession([]*dashscope.RealtimeEvent{
+		{Type: dashscope.EventTypeInputAudioTranscriptionCompleted},
+	})
+	transformer := newTransformer(nil)
+	transformer.realtime = &dashScopeFixedOpener{session: session}
+	output, err := transformer.Transform(t.Context(), dashScopeToolInput{done: session.eventsDrained})
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	chunks, err := collectDashScopeToolOutput(output)
+	if err != nil {
+		t.Fatalf("collect output: %v", err)
+	}
+	if len(chunks) != 2 || chunks[0].Ctrl == nil || chunks[0].Ctrl.StreamID == "" ||
+		chunks[1].Ctrl == nil || chunks[1].Ctrl.StreamID != chunks[0].Ctrl.StreamID ||
+		!chunks[0].IsBeginOfStream() || chunks[0].IsEndOfStream() ||
+		chunks[1].IsBeginOfStream() || !chunks[1].IsEndOfStream() {
+		t.Fatalf("empty transcript lifecycle = %#v, want non-empty StreamID BOS/EOS", chunks)
+	}
+}
+
 func TestPrepareInputAudioDecodesPeerOpusToPCM16(t *testing.T) {
 	encoder, err := opus.NewEncoder(16000, 1, opus.ApplicationAudio)
 	if err != nil {

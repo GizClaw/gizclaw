@@ -605,10 +605,13 @@ func TestTransformerTreatsZeroTextAsEmptyRecognition(t *testing.T) {
 				}
 				return
 			}
-			if len(chunks) != 1 {
-				t.Fatalf("non-history chunks = %d, want one terminal boundary: %#v", len(chunks), chunks)
+			if len(chunks) != 2 {
+				t.Fatalf("non-history chunks = %d, want BOS/EOS: %#v", len(chunks), chunks)
 			}
-			chunk := chunks[0]
+			if !chunks[0].IsBeginOfStream() || chunks[0].Ctrl == nil || chunks[0].Ctrl.StreamID != "empty-turn" {
+				t.Fatalf("initial chunk = %#v, want empty-turn BOS", chunks[0])
+			}
+			chunk := chunks[1]
 			if !chunk.IsEndOfStream() || chunk.Ctrl == nil || chunk.Ctrl.StreamID != "empty-turn" || chunk.Ctrl.Error != "" {
 				t.Fatalf("terminal chunk = %#v, want successful empty-turn EOS", chunk)
 			}
@@ -663,17 +666,20 @@ func TestTransformerRecognizesTurnAfterEmptyRecognition(t *testing.T) {
 	}
 
 	chunks := nonHistoryChunks(collectTransformerChunks(t, output))
-	if len(chunks) != 3 {
-		t.Fatalf("non-history chunks = %d, want empty EOS then recognized text/EOS: %#v", len(chunks), chunks)
+	if len(chunks) != 4 {
+		t.Fatalf("non-history chunks = %d, want empty BOS/EOS then recognized BOS+text/EOS: %#v", len(chunks), chunks)
 	}
-	if !chunks[0].IsEndOfStream() || chunks[0].Ctrl == nil || chunks[0].Ctrl.StreamID != "empty-turn" || chunks[0].Ctrl.Error != "" {
-		t.Fatalf("empty turn terminal chunk = %#v", chunks[0])
+	if !chunks[0].IsBeginOfStream() || chunks[0].Ctrl == nil || chunks[0].Ctrl.StreamID != "empty-turn" {
+		t.Fatalf("empty turn initial chunk = %#v", chunks[0])
 	}
-	if chunks[1].Ctrl == nil || chunks[1].Ctrl.StreamID != "recognized-turn" || chunks[1].Part != genx.Text("recognized text") {
-		t.Fatalf("recognized turn text = %#v", chunks[1])
+	if !chunks[1].IsEndOfStream() || chunks[1].Ctrl == nil || chunks[1].Ctrl.StreamID != "empty-turn" || chunks[1].Ctrl.Error != "" {
+		t.Fatalf("empty turn terminal chunk = %#v", chunks[1])
 	}
-	if !chunks[2].IsEndOfStream() || chunks[2].Ctrl == nil || chunks[2].Ctrl.StreamID != "recognized-turn" {
-		t.Fatalf("recognized turn terminal chunk = %#v", chunks[2])
+	if !chunks[2].IsBeginOfStream() || chunks[2].Ctrl == nil || chunks[2].Ctrl.StreamID != "recognized-turn" || chunks[2].Part != genx.Text("recognized text") {
+		t.Fatalf("recognized turn text = %#v", chunks[2])
+	}
+	if !chunks[3].IsEndOfStream() || chunks[3].Ctrl == nil || chunks[3].Ctrl.StreamID != "recognized-turn" {
+		t.Fatalf("recognized turn terminal chunk = %#v", chunks[3])
 	}
 }
 
@@ -804,13 +810,16 @@ func TestTransformerPushToTalkKeepsHistoryStreamIDAcrossEOS(t *testing.T) {
 
 	chunks := collectTransformerChunks(t, output)
 	history := historyAudioChunks(chunks)
-	if len(history) != 2 {
-		t.Fatalf("history chunks = %d, want audio and eos: %#v", len(history), history)
+	if len(history) != 3 {
+		t.Fatalf("history chunks = %d, want BOS, audio, and EOS: %#v", len(history), history)
 	}
 	for i, chunk := range history {
 		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != "turn-1" {
 			t.Fatalf("history[%d] ctrl = %#v, want stream turn-1", i, chunk.Ctrl)
 		}
+	}
+	if !history[0].IsBeginOfStream() || history[1].IsBeginOfStream() || history[1].IsEndOfStream() || !history[2].IsEndOfStream() {
+		t.Fatalf("history lifecycle = %#v, want BOS/data/EOS", history)
 	}
 	nonHistory := nonHistoryChunks(chunks)
 	if len(nonHistory) != 2 {
@@ -1061,7 +1070,7 @@ func TestTransformerEmitInterimControlsNonDefiniteUtterances(t *testing.T) {
 				bos   bool
 				eos   bool
 			}{
-				{text: "final text", label: "transcript"},
+				{text: "final text", label: "transcript", bos: true},
 				{label: "transcript", eos: true},
 			},
 		},

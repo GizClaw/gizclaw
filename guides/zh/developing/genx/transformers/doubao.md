@@ -28,6 +28,8 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client})
 
 每个 Transformer 的 typed Config 定义稳定配置；调用方通过 `Transform` 的 context 控制单次请求的生命周期。Adapter 必须在内部完成豆包事件、音频格式、usage、终态和错误到 GenX Stream 的转换。
 
+每个 Doubao Transformer 都负责自己创建的 output route 或 MIME channel 的显式生命周期。ASR transcript 与 history audio、TTS audio、AST transcript/translation/history/audio，以及 Realtime transcript/assistant text/audio，都在第一段 data 之前或同时发出 BOS，并且只发出一个匹配的 EOS；空结果和错误终态也遵守同一约束。Transformer 没有创建的 input 或无关 route 继续透传，不替其他组件修补或关闭边界。
+
 ### ASR 空识别
 
 豆包 ASR provider session 正常结束，但 final result text 和 definite utterance text 均不包含非空白内容时，`doubaoasr.Transformer` 将本次识别作为成功的空结果结束，不发送已识别 transcript text。现有 Stream route 所需的零内容 terminal chunk 仍是成功的内部边界，不表示用户产生了已识别文本。
@@ -37,6 +39,12 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client})
 已经打开 interim transcript route、但始终没有 definite result 的 session 仍是错误。Provider、protocol、cancellation、interrupted-input、malformed-audio、unsupported-format failure 和下述例外之外的 timeout 继续按原有路径传播错误。
 
 `EmitInterim` 的 continuous ASR 会把每个 audio frame 立即以 non-final packet 发给当前健康 SAUC session。显式 audio EOS 发送 terminal marker、结束该 provider session，同时保持 outer Transformer stream 打开；下一条 audio route 创建 replacement session，并独立绑定 transcript。Finalization 期间的 provider packet-wait timeout 是预期的可恢复 route boundary；其他 provider error 和一分钟本地 finalization timeout 仍终止 outer stream。
+
+### Seed V2 空音频
+
+`doubaotts.SeedV2` 只有在非空、可朗读的 segment 至少发出一个规范化音频字节后，才把 provider 的成功终态视为合成成功。Provider 只返回成功 final frame，或任何其他成功 stream 最终发出零个规范化音频字节时，对应 audio route 必须以 `doubaotts: seed v2 completed without audio` 错误结束，不能发送成功 audio EOS。
+
+Provider、protocol、context cancellation、normalizer 和下游 emit error 保持原有错误 identity。Adapter 不重试请求、不切换已配置 Voice，也不合成替代内容；shared TTS 与 Audio Dock 通过现有 route lifecycle 继续传播该 terminal error。
 
 ## AST Translate 输入模式
 

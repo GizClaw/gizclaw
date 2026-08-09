@@ -180,6 +180,12 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 	var activeStreamID string
 	var sessionSourceChunk *genx.MessageChunk
 	var sessionRoute *doubaoASRRouteState
+	var lastSessionTranscriptBegan bool
+	type historyRouteKey struct {
+		streamID string
+		mimeType string
+	}
+	historyRoutes := make(map[historyRouteKey]struct{})
 	var rawOpusDecoder *opus.Decoder
 	defer func() {
 		if rawOpusDecoder != nil {
@@ -207,6 +213,61 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		}
 		return streamID
 	}
+	ensureHistoryRoute := func(streamID, mimeType string) error {
+		mimeType = canonicalHistoryAudioMIME(mimeType)
+		key := historyRouteKey{streamID: streamID, mimeType: mimeType}
+		if _, ok := historyRoutes[key]; ok {
+			return nil
+		}
+		historyRoutes[key] = struct{}{}
+		return output.Push(historyUserAudioBOSChunk(streamID, mimeType))
+	}
+	closeHistoryRoute := func(key historyRouteKey) error {
+		delete(historyRoutes, key)
+		return output.Push(historyUserAudioEOSChunk(key.streamID, key.mimeType))
+	}
+	closeHistoryStream := func(streamID, fallbackMIME string) error {
+		keys := make([]historyRouteKey, 0)
+		for key := range historyRoutes {
+			if key.streamID == streamID {
+				keys = append(keys, key)
+			}
+		}
+		if len(keys) == 0 {
+			fallbackMIME = canonicalHistoryAudioMIME(fallbackMIME)
+			if err := ensureHistoryRoute(streamID, fallbackMIME); err != nil {
+				return err
+			}
+			keys = append(keys, historyRouteKey{streamID: streamID, mimeType: fallbackMIME})
+		}
+		slices.SortFunc(keys, func(a, b historyRouteKey) int {
+			return strings.Compare(a.mimeType, b.mimeType)
+		})
+		for _, key := range keys {
+			if err := closeHistoryRoute(key); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	closeHistoryRoutes := func() error {
+		keys := make([]historyRouteKey, 0, len(historyRoutes))
+		for key := range historyRoutes {
+			keys = append(keys, key)
+		}
+		slices.SortFunc(keys, func(a, b historyRouteKey) int {
+			if order := strings.Compare(a.streamID, b.streamID); order != 0 {
+				return order
+			}
+			return strings.Compare(a.mimeType, b.mimeType)
+		})
+		for _, key := range keys {
+			if err := closeHistoryRoute(key); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 
 	startSession := func(cfg doubaoASRSessionConfig, sourceChunk *genx.MessageChunk) error {
 		var err error
@@ -227,6 +288,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		}
 		sessionSourceChunk = sourceChunk
 		sessionRoute = newDoubaoASRRouteState(sourceChunk)
+		lastSessionTranscriptBegan = false
 		resultsCh = make(chan *genx.MessageChunk, 100)
 		resultsDone = make(chan error, 1)
 		resultsForwarded = make(chan struct{})
@@ -273,6 +335,9 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 	}
 
 	clearSession := func() {
+		if sessionRoute != nil {
+			lastSessionTranscriptBegan = sessionRoute.transcriptStarted()
+		}
 		if session != nil {
 			_ = session.Close()
 		}
@@ -287,6 +352,14 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		historyAudio = nil
 		sessionSourceChunk = nil
 		sessionRoute = nil
+	}
+	emitTranscriptEOS := func(sourceChunk *genx.MessageChunk) error {
+		if !lastSessionTranscriptBegan {
+			if err := output.Push(transcriptTextChunk(sourceChunk, "", true, false)); err != nil {
+				return err
+			}
+		}
+		return output.Push(transcriptTextChunk(sourceChunk, "", false, true))
 	}
 
 	// Providers may complete an otherwise healthy realtime ASR session after
@@ -382,8 +455,13 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 				output.CloseWithError(err)
 				return
 			}
+			if !t.emitInterim {
+				if err := closeHistoryRoutes(); err != nil {
+					return
+				}
+			}
 			if hadSession && !t.emitInterim {
-				if err := output.Push(transcriptTextChunk(sourceChunk, "", true)); err != nil {
+				if err := emitTranscriptEOS(sourceChunk); err != nil {
 					return
 				}
 			}
@@ -419,7 +497,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 					sourceChunk = sourceChunkForStream(chunk, historyStreamID)
 				}
 				if !t.emitInterim {
-					if err := output.Push(historyUserAudioEOSChunk(historyStreamID, blob.MIMEType)); err != nil {
+					if err := closeHistoryStream(historyStreamID, blob.MIMEType); err != nil {
 						return
 					}
 				}
@@ -429,8 +507,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 					return
 				}
 				if !t.emitInterim {
-					eosChunk := transcriptTextChunk(sourceChunk, "", true)
-					if err := output.Push(eosChunk); err != nil {
+					if err := emitTranscriptEOS(sourceChunk); err != nil {
 						return
 					}
 				}
@@ -459,6 +536,9 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 				}
 			}
 			if len(blob.Data) > 0 && !t.emitInterim {
+				if err := ensureHistoryRoute(historyStreamID, blob.MIMEType); err != nil {
+					return
+				}
 				if err := output.Push(historyUserAudioChunk(chunk, historyStreamID)); err != nil {
 					return
 				}
@@ -679,9 +759,10 @@ type doubaoASRHistoryAudioBuffer struct {
 }
 
 type doubaoASRRouteState struct {
-	mu         sync.RWMutex
-	streamID   string
-	generation uint64
+	mu              sync.RWMutex
+	streamID        string
+	generation      uint64
+	transcriptBegan bool
 }
 
 func newDoubaoASRRouteState(chunk *genx.MessageChunk) *doubaoASRRouteState {
@@ -716,6 +797,24 @@ func (s *doubaoASRRouteState) current() (string, uint64) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.streamID, s.generation
+}
+
+func (s *doubaoASRRouteState) markTranscriptStarted() {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.transcriptBegan = true
+	s.mu.Unlock()
+}
+
+func (s *doubaoASRRouteState) transcriptStarted() bool {
+	if s == nil {
+		return false
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.transcriptBegan
 }
 
 func newDoubaoASRHistoryAudioBuffer(cfg doubaoASRSessionConfig) *doubaoASRHistoryAudioBuffer {
@@ -867,7 +966,7 @@ func alignPCMOffset(offset, frameBytes int) int {
 	return offset - offset%frameBytes
 }
 
-func transcriptTextChunk(chunk *genx.MessageChunk, text string, eos bool) *genx.MessageChunk {
+func transcriptTextChunk(chunk *genx.MessageChunk, text string, bos, eos bool) *genx.MessageChunk {
 	streamID := ""
 	if chunk != nil && chunk.Ctrl != nil {
 		streamID = strings.TrimSpace(chunk.Ctrl.StreamID)
@@ -877,7 +976,7 @@ func transcriptTextChunk(chunk *genx.MessageChunk, text string, eos bool) *genx.
 		Role: genx.RoleUser,
 		Name: "transcript",
 		Part: genx.Text(text),
-		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "transcript", EndOfStream: eos},
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "transcript", BeginOfStream: bos, EndOfStream: eos},
 	}
 }
 
@@ -1020,6 +1119,7 @@ func (t *Transformer) receiveResults(session doubaoASRSession, lastChunk *genx.M
 			Ctrl: streamCtrl(true, false, ""),
 		}
 		resultsCh <- outChunk
+		route.markTranscriptStarted()
 		transcriptOpen = true
 		transcriptDefinite = false
 		lastInterimText = ""
@@ -1029,14 +1129,20 @@ func (t *Transformer) receiveResults(session doubaoASRSession, lastChunk *genx.M
 		if text == "" {
 			return
 		}
+		begin := false
 		if t.emitInterim {
 			emitTranscriptBOS()
+		} else if !transcriptOpen {
+			selectTranscriptRoute()
+			transcriptOpen = true
+			begin = true
+			route.markTranscriptStarted()
 		}
 		outChunk := &genx.MessageChunk{
 			Role: genx.RoleUser,
 			Name: "transcript",
 			Part: genx.Text(text),
-			Ctrl: streamCtrl(false, false, ""),
+			Ctrl: streamCtrl(begin, false, ""),
 		}
 		resultsCh <- outChunk
 		if definite {

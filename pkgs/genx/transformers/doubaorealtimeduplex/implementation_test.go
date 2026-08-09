@@ -199,6 +199,64 @@ func TestDoubaoRealtimeDuplexInterruptDiscardMatchesOnlyAssistantRoute(t *testin
 	}
 }
 
+func TestDoubaoRealtimeDuplexInterruptionKeepsOwnedRoutesComplete(t *testing.T) {
+	tfr := newTransformer(nil, withFormat("pcm"))
+	assistant := newRealtimeAssistantLifecycle()
+	epoch := assistant.markStarted("turn-1")
+	assistant.markRouteStarted(epoch, true)
+	assistant.markRouteStarted(epoch, false)
+	output := newBufferStream(8)
+	for _, chunk := range []*genx.MessageChunk{
+		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeDuplexAssistantLabel, BeginOfStream: true}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeDuplexAssistantLabel, BeginOfStream: true}},
+		{Role: genx.RoleModel, Part: genx.Text("stale"), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeDuplexAssistantLabel}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: doubaoRealtimeDuplexAssistantLabel}},
+	} {
+		if err := output.Push(chunk); err != nil {
+			t.Fatalf("Push() error = %v", err)
+		}
+	}
+	first, err := output.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	if !tfr.interruptAssistantOutput(output, assistant, "turn-2") {
+		t.Fatal("assistant response was not interrupted")
+	}
+	if err := output.Close(); err != nil {
+		t.Fatalf("Close(output) error = %v", err)
+	}
+
+	chunks := []*genx.MessageChunk{first}
+	for {
+		chunk, err := output.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+		chunks = append(chunks, chunk)
+	}
+	routes := make(map[string][]*genx.MessageChunk)
+	for _, chunk := range chunks {
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			t.Fatalf("interruption chunk = %#v, want MIME route", chunk)
+		}
+		routes[mimeType] = append(routes[mimeType], chunk)
+	}
+	if len(routes) != 2 {
+		t.Fatalf("interrupted routes = %#v, want text and audio", routes)
+	}
+	for mimeType, route := range routes {
+		if len(route) != 2 || !route[0].IsBeginOfStream() || route[0].IsEndOfStream() ||
+			route[1].IsBeginOfStream() || !route[1].IsEndOfStream() || route[1].Ctrl.Error != doubaoRealtimeDuplexInterrupted {
+			t.Fatalf("interrupted route %q = %#v, want BOS/error EOS", mimeType, route)
+		}
+	}
+}
+
 func TestChunkInputStreamIDUsesActiveStreamForDirectAudio(t *testing.T) {
 	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio"}}
 	if got := doubaoRealtimeDuplexChunkInputStreamID(chunk, "turn-1"); got != "turn-1" {
@@ -656,17 +714,18 @@ func TestDoubaoRealtimeDuplexMapsDuplexEventsToStreamChunks(t *testing.T) {
 		}
 		chunks = append(chunks, chunk)
 	}
-	if len(chunks) < 6 {
-		t.Fatalf("chunks len = %d, chunks=%#v", len(chunks), chunks)
-	}
-	if got, ok := chunks[0].Part.(genx.Text); !ok || got != "你好" || chunks[0].Role != genx.RoleUser {
-		t.Fatalf("transcript chunk = %#v", chunks[0])
-	}
+	routes := make(map[string][]*genx.MessageChunk)
 	hasAssistantText := false
 	assistantTextCount := 0
 	hasAudio := false
 	hasAudioEOS := false
 	for _, chunk := range chunks {
+		if chunk.Ctrl != nil {
+			if mimeType, ok := chunk.MIMEType(); ok {
+				key := string(chunk.Role) + "\x00" + chunk.Ctrl.Label + "\x00" + chunk.Ctrl.StreamID + "\x00" + mimeType
+				routes[key] = append(routes[key], chunk)
+			}
+		}
 		if text, ok := chunk.Part.(genx.Text); ok && chunk.Role == genx.RoleModel && text == "收到" {
 			hasAssistantText = true
 			assistantTextCount++
@@ -685,6 +744,14 @@ func TestDoubaoRealtimeDuplexMapsDuplexEventsToStreamChunks(t *testing.T) {
 	}
 	if assistantTextCount != 1 {
 		t.Fatalf("assistant text chunks = %d, want 1; chunks=%#v", assistantTextCount, chunks)
+	}
+	if len(routes) != 3 {
+		t.Fatalf("generated routes = %d, want transcript text, assistant text, and assistant audio: %#v", len(routes), chunks)
+	}
+	for key, route := range routes {
+		if len(route) != 3 || !route[0].IsBeginOfStream() || route[1].IsBeginOfStream() || route[1].IsEndOfStream() || !route[2].IsEndOfStream() {
+			t.Fatalf("route %q lifecycle = %#v, want BOS/data/EOS", key, route)
+		}
 	}
 }
 
@@ -735,6 +802,31 @@ func TestDoubaoRealtimeDuplexInputEOSClosesLocalStream(t *testing.T) {
 				t.Fatalf("SendAudio calls = %d, want %d before EOS", got, tc.wantAudio)
 			}
 		})
+	}
+}
+
+func TestDoubaoRealtimeDuplexInputErrorCreatesCompleteTranscriptLifecycle(t *testing.T) {
+	tfr := newTransformer(nil)
+	output := newBufferStream(2)
+	tfr.pushInputEOSError(output, "turn-1", errors.New("invalid input"))
+	if err := output.Close(); err != nil {
+		t.Fatalf("Close(output) error = %v", err)
+	}
+
+	var chunks []*genx.MessageChunk
+	for {
+		chunk, err := output.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+		chunks = append(chunks, chunk)
+	}
+	if len(chunks) != 2 || !chunks[0].IsBeginOfStream() || chunks[0].IsEndOfStream() ||
+		chunks[1].IsBeginOfStream() || !chunks[1].IsEndOfStream() || chunks[1].Ctrl.Error != "invalid input" {
+		t.Fatalf("transcript lifecycle = %#v, want BOS/error EOS", chunks)
 	}
 }
 

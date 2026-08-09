@@ -543,6 +543,7 @@ type doubaoRealtimeRuntime struct {
 	pttTurn     *doubaoRealtimePTTTurn
 	streamIDs   *doubaoRealtimeStreamIDs
 	audioInputs *doubaoRealtimeAudioInputs
+	history     *doubaoRealtimeHistoryRoutes
 }
 
 func newDoubaoRealtimeRuntime(t *Transformer) *doubaoRealtimeRuntime {
@@ -552,6 +553,7 @@ func newDoubaoRealtimeRuntime(t *Transformer) *doubaoRealtimeRuntime {
 		pttTurn:     &doubaoRealtimePTTTurn{},
 		streamIDs:   newDoubaoRealtimeStreamIDs(t.mode),
 		audioInputs: newDoubaoRealtimeAudioInputs(t.inputFormat, t.inputSampleRate, t.inputChannels, t.inputTranscode),
+		history:     newDoubaoRealtimeHistoryRoutes(),
 	}
 }
 
@@ -579,6 +581,15 @@ func (r *doubaoRealtimeRuntime) providerLost(t *Transformer, output realtimeChun
 			Role: genx.RoleUser,
 			Part: genx.Text(""),
 			Ctrl: &genx.StreamCtrl{
+				StreamID:      pttStreamID,
+				Label:         doubaoRealtimeTranscriptLabel,
+				BeginOfStream: true,
+			},
+		})
+		_ = output.Push(&genx.MessageChunk{
+			Role: genx.RoleUser,
+			Part: genx.Text(""),
+			Ctrl: &genx.StreamCtrl{
 				StreamID:    pttStreamID,
 				Label:       doubaoRealtimeTranscriptLabel,
 				EndOfStream: true,
@@ -588,7 +599,18 @@ func (r *doubaoRealtimeRuntime) providerLost(t *Transformer, output realtimeChun
 	}
 
 	interruption := r.assistant.interruptRoutes(pttStreamID, false)
+	if pttActive && !pttCommitted {
+		interruption.textStarted = false
+		interruption.audioStarted = false
+	}
 	if interruption.interrupted && interruption.textOpen {
+		if !interruption.textStarted {
+			_ = output.Push(&genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: genx.Text(""),
+				Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: doubaoRealtimeAssistantLabel, BeginOfStream: true},
+			})
+		}
 		_ = output.Push(&genx.MessageChunk{
 			Role: genx.RoleModel,
 			Part: genx.Text(""),
@@ -596,6 +618,13 @@ func (r *doubaoRealtimeRuntime) providerLost(t *Transformer, output realtimeChun
 		})
 	}
 	if interruption.interrupted && interruption.audioOpen {
+		if !interruption.audioStarted {
+			_ = output.Push(&genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: &genx.Blob{MIMEType: t.outputMIMEType()},
+				Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: doubaoRealtimeAssistantLabel, BeginOfStream: true},
+			})
+		}
 		_ = output.Push(&genx.MessageChunk{
 			Role: genx.RoleModel,
 			Part: &genx.Blob{MIMEType: t.outputMIMEType()},
@@ -942,10 +971,33 @@ func (t *Transformer) processSession(
 		if !interruption.interrupted {
 			return false
 		}
-		output.discard(func(chunk *genx.MessageChunk) bool {
+		pttUncommitted := t.mode == ModePushToTalk && !pttTurn.outputCommitted()
+		discarded := output.discardChunks(func(chunk *genx.MessageChunk) bool {
 			return isDoubaoRealtimeAssistantChunk(chunk, interruption.streamID)
 		})
+		for _, chunk := range discarded {
+			if !chunk.IsBeginOfStream() {
+				continue
+			}
+			switch chunk.Part.(type) {
+			case genx.Text:
+				interruption.textStarted = false
+			case *genx.Blob:
+				interruption.audioStarted = false
+			}
+		}
+		if pttUncommitted {
+			interruption.textStarted = false
+			interruption.audioStarted = false
+		}
 		if interruption.textOpen {
+			if !interruption.textStarted {
+				_ = output.Push(&genx.MessageChunk{
+					Role: genx.RoleModel,
+					Part: genx.Text(""),
+					Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: doubaoRealtimeAssistantLabel, BeginOfStream: true},
+				})
+			}
 			textEOS := &genx.MessageChunk{
 				Role: genx.RoleModel,
 				Part: genx.Text(""),
@@ -954,6 +1006,13 @@ func (t *Transformer) processSession(
 			_ = output.Push(textEOS)
 		}
 		if interruption.audioOpen {
+			if !interruption.audioStarted {
+				_ = output.Push(&genx.MessageChunk{
+					Role: genx.RoleModel,
+					Part: &genx.Blob{MIMEType: t.outputMIMEType()},
+					Ctrl: &genx.StreamCtrl{StreamID: interruption.streamID, Label: doubaoRealtimeAssistantLabel, BeginOfStream: true},
+				})
+			}
 			audioEOS := &genx.MessageChunk{
 				Role: genx.RoleModel,
 				Part: &genx.Blob{MIMEType: t.outputMIMEType()},
@@ -981,11 +1040,16 @@ func (t *Transformer) processSession(
 			return nil
 		}
 		if t.mode != ModePushToTalk {
-			return output.Push(chunk)
+			markDoubaoRealtimeAssistantRouteStarted(assistant, epoch, chunk)
+			if err := output.Push(chunk); err != nil {
+				return err
+			}
+			return nil
 		}
 		if response == nil {
 			return nil
 		}
+		markDoubaoRealtimeAssistantRouteStarted(assistant, epoch, chunk)
 		err := response.push(chunk)
 		if !errors.Is(err, errRealtimePTTOutputLimit) {
 			return err
@@ -1022,6 +1086,16 @@ func (t *Transformer) processSession(
 		streamID string,
 		transition doubaoRealtimeSpokenTransition,
 	) error {
+		if transition.openText {
+			bos := &genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: genx.Text(""),
+				Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, BeginOfStream: true},
+			}
+			if err := pushAssistantOutput(epoch, response, bos); err != nil {
+				return err
+			}
+		}
 		if transition.openAudio {
 			bos := &genx.MessageChunk{
 				Role: genx.RoleModel,
@@ -1225,7 +1299,7 @@ func (t *Transformer) processSession(
 						outChunk := &genx.MessageChunk{
 							Role: genx.RoleUser,
 							Part: genx.Text(delta),
-							Ctrl: &genx.StreamCtrl{StreamID: streamIDs.input(), Label: doubaoRealtimeTranscriptLabel},
+							Ctrl: &genx.StreamCtrl{StreamID: streamIDs.input(), Label: doubaoRealtimeTranscriptLabel, BeginOfStream: !transcriptOpen},
 						}
 						if err := output.Push(outChunk); err != nil {
 							return err
@@ -1542,7 +1616,7 @@ func (t *Transformer) processSession(
 				if blob, ok := chunk.Part.(*genx.Blob); ok {
 					mimeType = blob.MIMEType
 				}
-				if err := output.Push(historyUserAudioEOSChunk(historyStreamID, mimeType)); err != nil {
+				if err := runtime.history.close(output, historyStreamID, mimeType); err != nil {
 					return err
 				}
 				audioInputs.closeStream(streamID)
@@ -1607,7 +1681,7 @@ func (t *Transformer) processSession(
 				if blob, ok := chunk.Part.(*genx.Blob); ok {
 					mimeType = blob.MIMEType
 				}
-				if err := output.Push(historyUserAudioEOSChunk(historyStreamID, mimeType)); err != nil {
+				if err := runtime.history.close(output, historyStreamID, mimeType); err != nil {
 					return err
 				}
 				pttASR.add(pttTurn.currentGeneration())
@@ -1639,7 +1713,7 @@ func (t *Transformer) processSession(
 				streamID := streamIDs.serviceInput(chunk)
 				historyStreamID := streamIDs.historyInput(chunk)
 				if t.mode != ModeRealtime {
-					if err := output.Push(historyUserAudioChunk(chunk, historyStreamID)); err != nil {
+					if err := runtime.history.push(output, chunk, historyStreamID); err != nil {
 						return err
 					}
 				}
@@ -1702,10 +1776,31 @@ func isDoubaoRealtimeAssistantChunk(chunk *genx.MessageChunk, streamID string) b
 		chunk.Ctrl.StreamID == streamID && chunk.Ctrl.Label == doubaoRealtimeAssistantLabel
 }
 
+func markDoubaoRealtimeAssistantRouteStarted(assistant *realtimeAssistantLifecycle, epoch uint64, chunk *genx.MessageChunk) {
+	if assistant == nil || chunk == nil || !chunk.IsBeginOfStream() {
+		return
+	}
+	switch chunk.Part.(type) {
+	case genx.Text:
+		assistant.markRouteStarted(epoch, true)
+	case *genx.Blob:
+		assistant.markRouteStarted(epoch, false)
+	}
+}
+
 func (t *Transformer) pushInputEOSError(output *bufferStream, streamID string, err error) {
 	if output == nil || err == nil {
 		return
 	}
+	_ = output.Push(&genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{
+			StreamID:      streamID,
+			Label:         doubaoRealtimeTranscriptLabel,
+			BeginOfStream: true,
+		},
+	})
 	_ = output.Push(&genx.MessageChunk{
 		Role: genx.RoleUser,
 		Part: genx.Text(""),

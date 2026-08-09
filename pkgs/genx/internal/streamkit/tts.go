@@ -68,6 +68,13 @@ func runTTS(invocation *Invocation, input genx.Stream, mimeType string, synthesi
 				response:  response,
 			}
 			states[streamID] = state
+			if err := invocation.Emit(response, &genx.MessageChunk{
+				Part: &genx.Blob{MIMEType: mimeType},
+				Ctrl: &genx.StreamCtrl{BeginOfStream: true},
+			}); err != nil {
+				delete(states, streamID)
+				return nil, err
+			}
 		} else {
 			updateTTSMeta(&state.meta, chunk)
 		}
