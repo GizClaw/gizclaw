@@ -69,6 +69,9 @@ func (tracker *routeLifecycleTracker) observe(chunk *genx.MessageChunk) error {
 			key, state.role, state.label, chunk.Role, chunk.Ctrl.Label,
 		)
 	}
+	// Name identifies the publisher of an individual chunk, not the route.
+	// Flowcraft may publish several named nodes under one response StreamID so
+	// Audio Dock can resolve a different voice for each publisher.
 	if routeChunkHasData(chunk) {
 		state.dataChunks++
 	}
@@ -179,6 +182,19 @@ func TestRouteLifecycleTrackerAcceptsEmptyErrorRoute(t *testing.T) {
 	if state == nil || state.dataChunks != 0 || state.chunks != 2 {
 		t.Fatalf("empty error route = %#v, want BOS and error EOS without data", state)
 	}
+}
+
+func TestRouteLifecycleTrackerAcceptsPublisherNameChanges(t *testing.T) {
+	tracker := newRouteLifecycleTracker()
+	for _, chunk := range []*genx.MessageChunk{
+		{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn", Label: "assistant", BeginOfStream: true}},
+		{Role: genx.RoleModel, Name: "narrator", Part: genx.Text("first"), Ctrl: &genx.StreamCtrl{StreamID: "turn", Label: "assistant"}},
+		{Role: genx.RoleModel, Name: "character", Part: genx.Text("second"), Ctrl: &genx.StreamCtrl{StreamID: "turn", Label: "assistant"}},
+		{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn", Label: "assistant", EndOfStream: true}},
+	} {
+		observeRouteLifecycle(t, tracker, chunk)
+	}
+	tracker.assertComplete(t)
 }
 
 func TestRouteLifecycleTrackerReportsIncompleteRoute(t *testing.T) {
