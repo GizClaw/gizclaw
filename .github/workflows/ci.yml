@@ -363,15 +363,13 @@ jobs:
       - name: Run PostgreSQL integration tests
         env:
           GOFLAGS: -mod=readonly
-        run: >-
-          go test -count=1 -p 1
-          ./pkgs/store/storage
-          ./pkgs/store/kv
-          ./pkgs/store/metrics
-          ./pkgs/store/logstore
-          ./pkgs/store
-          ./cmd/internal/server
-          ./pkgs/gizclaw/services/gameplay
+        run: |
+          go test -count=1 -p 1 \
+            ./cmd/internal/server \
+            ./pkgs/gizclaw/services/gameplay
+          go test -tags=store_e2e -count=1 -p 1 \
+            -run '^TestPostgreSQL' \
+            ./tests/store-e2e
 
   clickhouse:
     name: ClickHouse Integration
@@ -420,11 +418,9 @@ jobs:
         env:
           GOFLAGS: -mod=readonly
         run: >-
-          go test -tags=integration -count=1 -p 1
-          ./pkgs/store/storage
-          ./pkgs/store
-          ./pkgs/store/metrics
-          ./pkgs/store/logstore
+          go test -tags=store_e2e -count=1 -p 1
+          -run '^TestClickHouse'
+          ./tests/store-e2e
 
   nested-go-modules:
     name: Nested Go Modules

@@ -5,6 +5,28 @@ still run according to the changed scope. Suites that require a build tag,
 Docker, live providers, or human judgment must be started explicitly and must
 not be reported as passing when they were not run.
 
+## Store E2E
+
+`tests/store-e2e` verifies PostgreSQL and ClickHouse through exported Store APIs
+without production-package-private test hooks. Every Go file in the directory
+uses the `store_e2e` build tag, so ordinary `go test ./...` neither selects these
+tests nor contacts an external database. Fast SQLite integration stays beside
+the corresponding package unit tests in a normal `*_test.go` file.
+
+PostgreSQL and ClickHouse tests use `TestPostgreSQL...` and `TestClickHouse...`
+names respectively. CI selects only the backend provisioned by the current job;
+a selected backend fails rather than skips when its DSN is absent:
+
+```sh
+GIZCLAW_TEST_POSTGRES_DSN='postgres://…' \
+  go test -tags=store_e2e -count=1 -p 1 -run '^TestPostgreSQL' ./tests/store-e2e
+GIZCLAW_TEST_CLICKHOUSE_DSN='clickhouse://…' \
+  go test -tags=store_e2e -count=1 -p 1 -run '^TestClickHouse' ./tests/store-e2e
+```
+
+Every test uses an isolated table name and performs best-effort cleanup. Errors,
+logs, and CI output must not print DSNs, database credentials, or Store payloads.
+
 ## Credential-backed harness contract
 
 GizClaw, GenX, LoCoMo, and Memory live suites each own one ignored `.env`,

@@ -425,8 +425,10 @@ func (store *SQL) prepare(entries []Entry, now time.Time) ([]sqlEntry, error) {
 			}
 			expires = nanoseconds
 		}
+		value := make([]byte, len(entry.Value))
+		copy(value, entry.Value)
 		prepared = append(prepared, sqlEntry{
-			key: store.opts.encode(entry.Key), value: append([]byte(nil), entry.Value...), expires: expires,
+			key: store.opts.encode(entry.Key), value: value, expires: expires,
 		})
 	}
 	return prepared, nil
