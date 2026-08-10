@@ -67,6 +67,120 @@ func TestSQLStoreContract(t *testing.T) {
 	}
 }
 
+func TestSQLStoresZeroLengthValuesAsNonNull(t *testing.T) {
+	values := []struct {
+		name  string
+		value []byte
+	}{
+		{name: "nil"},
+		{name: "empty", value: []byte{}},
+	}
+	operations := []struct {
+		name string
+		run  func(*testing.T, context.Context, *SQL, []byte) Key
+	}{
+		{
+			name: "set",
+			run: func(t *testing.T, ctx context.Context, store *SQL, value []byte) Key {
+				key := Key{"empty"}
+				if err := store.Set(ctx, key, value); err != nil {
+					t.Fatal(err)
+				}
+				return key
+			},
+		},
+		{
+			name: "batch-set",
+			run: func(t *testing.T, ctx context.Context, store *SQL, value []byte) Key {
+				key := Key{"empty"}
+				if err := store.BatchSet(ctx, []Entry{{Key: key, Value: value}}); err != nil {
+					t.Fatal(err)
+				}
+				return key
+			},
+		},
+		{
+			name: "batch-mutate",
+			run: func(t *testing.T, ctx context.Context, store *SQL, value []byte) Key {
+				key := Key{"empty"}
+				if err := store.BatchMutate(ctx, []Entry{{Key: key, Value: value}}, nil); err != nil {
+					t.Fatal(err)
+				}
+				return key
+			},
+		},
+		{
+			name: "create-if-absent-guard",
+			run: func(t *testing.T, ctx context.Context, store *SQL, value []byte) Key {
+				guard := Entry{Key: Key{"empty"}, Value: value}
+				if _, created, err := store.CreateIfAbsent(ctx, guard, nil); err != nil || !created {
+					t.Fatalf("CreateIfAbsent() = _, %v, %v", created, err)
+				}
+				return guard.Key
+			},
+		},
+		{
+			name: "create-if-all-absent-related-entry",
+			run: func(t *testing.T, ctx context.Context, store *SQL, value []byte) Key {
+				key := Key{"empty"}
+				_, _, created, err := store.CreateIfAllAbsent(ctx,
+					[]Entry{{Key: Key{"guard"}, Value: []byte("guard")}},
+					[]Entry{{Key: key, Value: value}},
+				)
+				if err != nil || !created {
+					t.Fatalf("CreateIfAllAbsent() = _, _, %v, %v", created, err)
+				}
+				return key
+			},
+		},
+		{
+			name: "compare-and-mutate",
+			run: func(t *testing.T, ctx context.Context, store *SQL, value []byte) Key {
+				guard := Key{"guard"}
+				if err := store.Set(ctx, guard, []byte("guard")); err != nil {
+					t.Fatal(err)
+				}
+				key := Key{"empty"}
+				matched, err := store.CompareAndMutate(ctx, guard, []byte("guard"), []Entry{{Key: key, Value: value}}, nil)
+				if err != nil || !matched {
+					t.Fatalf("CompareAndMutate() = %v, %v", matched, err)
+				}
+				return key
+			},
+		},
+	}
+
+	for _, operation := range operations {
+		for _, input := range values {
+			t.Run(operation.name+"/"+input.name, func(t *testing.T) {
+				store := newSQLiteStore(t)
+				key := operation.run(t, context.Background(), store, input.value)
+				assertSQLZeroLengthValue(t, store, key)
+			})
+		}
+	}
+}
+
+func assertSQLZeroLengthValue(t *testing.T, store *SQL, key Key) {
+	t.Helper()
+	value, err := store.Get(context.Background(), key)
+	if err != nil {
+		t.Fatalf("Get(%v) error = %v", key, err)
+	}
+	if len(value) != 0 {
+		t.Fatalf("Get(%v) value length = %d, want 0", key, len(value))
+	}
+	var isNull bool
+	var length int
+	query := "SELECT value IS NULL, length(value) FROM " + store.quoted + " WHERE encoded_key = ?"
+	if err := store.db.QueryRow(store.db.Rebind(query), store.opts.encode(key)).Scan(&isNull, &length); err != nil {
+		t.Fatalf("inspect %v: %v", key, err)
+	}
+	if isNull || length != 0 {
+		t.Fatalf("stored %v value: is_null=%v length=%d, want false and 0", key, isNull, length)
+	}
+}
+
 func TestSQLConditionalAndExpiration(t *testing.T) {
 	store := newSQLiteStore(t)
 	ctx := context.Background()

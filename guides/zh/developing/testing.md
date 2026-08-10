@@ -3,6 +3,27 @@
 本页说明仓库级测试 harness。普通 Go 单元测试仍按改动范围运行；带 build tag、
 Docker、真实 provider 或人工判断的套件必须显式启动，不能把未运行记作通过。
 
+## Store E2E
+
+`tests/store-e2e` 通过导出的 Store API 验证 PostgreSQL 与 ClickHouse，不依赖
+production package 的私有 test hook。目录内每个 Go 文件都使用 `store_e2e` build
+tag，因此普通 `go test ./...` 不会选择这些测试或访问外部数据库。快速 SQLite
+集成测试继续和对应 package 的单元测试放在同一个普通 `*_test.go` 文件中。
+
+PostgreSQL 与 ClickHouse 测试分别使用 `TestPostgreSQL...` 和
+`TestClickHouse...` 命名。CI 只选择当前 job 已启动的 backend；被选中的 backend
+缺少 DSN 时必须失败，不能记为 skip：
+
+```sh
+GIZCLAW_TEST_POSTGRES_DSN='postgres://…' \
+  go test -tags=store_e2e -count=1 -p 1 -run '^TestPostgreSQL' ./tests/store-e2e
+GIZCLAW_TEST_CLICKHOUSE_DSN='clickhouse://…' \
+  go test -tags=store_e2e -count=1 -p 1 -run '^TestClickHouse' ./tests/store-e2e
+```
+
+每个测试使用独立表名并尽力清理。错误、日志和 CI 输出不得打印 DSN、数据库
+credential 或 Store payload。
+
 ## Credential-backed harness 约束
 
 GizClaw、GenX、LoCoMo 和 Memory 的 live suite 各自只拥有一个 ignored `.env`，
