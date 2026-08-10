@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Offline regression tests for the snapshot, package, and formal-release contracts.
+# Offline regression tests for package and formal-release contracts.
 
 set -euo pipefail
 
@@ -10,14 +10,15 @@ done
 
 release_workflow="$repo_root/.github/workflows/release.yml"
 ci_workflow="$repo_root/.github/workflows/ci.yml"
-snapshot_publisher="$(awk '/^  publish-snapshot:/{selected=1} /^  publish-semver:/{selected=0} selected' "$release_workflow")"
 semver_publisher="$(awk '/^  publish-semver:/{selected=1} selected' "$release_workflow")"
 grep -Fq 'tags:' "$release_workflow"
 grep -Fq -- '- "v*"' "$release_workflow"
-grep -Fq 'gh release delete latest --yes --cleanup-tag' <<<"$snapshot_publisher"
-if grep -Fq 'Stage mutable snapshot executable' "$release_workflow" ||
-   grep -Fq '".tmp/release/gizclaw-linux-' "$release_workflow"; then
-  echo "release workflow must package Linux executables as Debian assets for every release channel" >&2
+if grep -Eq '^    branches:|^  workflow_dispatch:|publish-snapshot|refs/tags/latest|gh release .*latest|0\.0\.0\+main' "$release_workflow"; then
+  echo "release workflow must be triggered only by canonical SemVer tags" >&2
+  exit 1
+fi
+if grep -Fq '".tmp/release/gizclaw-linux-' "$release_workflow"; then
+  echo "release workflow must package Linux executables as Debian assets" >&2
   exit 1
 fi
 if grep -Eq 'gh release (delete|upload)|cleanup-tag|clobber|gh release .*latest|refs/tags/latest' <<<"$semver_publisher"; then
@@ -26,6 +27,10 @@ if grep -Eq 'gh release (delete|upload)|cleanup-tag|clobber|gh release .*latest|
 fi
 if grep -Eq 'gh api .*rulesets' <<<"$semver_publisher"; then
   echo "SemVer publisher must not query public rulesets with the permission-limited Actions token" >&2
+  exit 1
+fi
+if grep -Fq 'immutable-releases' "$release_workflow"; then
+  echo "release workflow must not require repository-wide immutable Release API access" >&2
   exit 1
 fi
 grep -Fq "\"\$GITHUB_API_URL/repos/\$GH_REPO/rulesets?includes_parents=true&per_page=100&page=\$rulesets_page\"" \
@@ -79,17 +84,6 @@ EOF
   dpkg-deb --build --root-owner-group "$root" "$output" >/dev/null
 }
 
-make_snapshot() {
-  local directory="$1"
-  mkdir -p "$directory"
-  make_fixture_deb amd64 "$directory/gizclaw_${snapshot_version}_amd64.deb" gizclaw "$snapshot_version"
-  make_fixture_deb arm64 "$directory/gizclaw_${snapshot_version}_arm64.deb" gizclaw "$snapshot_version"
-  install -m 0755 "$fixture_binary" "$directory/gizclaw-darwin-amd64"
-  install -m 0755 "$fixture_binary" "$directory/gizclaw-darwin-arm64"
-  "$repo_root/build/build-release-manifest.sh" \
-    --asset-dir "$directory" --tag latest --debian-version "$snapshot_version" --source-commit "$source_commit"
-}
-
 make_formal_payloads() {
   local directory="$1"
   mkdir -p "$directory"
@@ -99,36 +93,12 @@ make_formal_payloads() {
   install -m 0755 "$fixture_binary" "$directory/gizclaw-darwin-arm64"
 }
 
-snapshot="$fixture_root/snapshot"
-make_snapshot "$snapshot"
-"$repo_root/build/check-release.sh" snapshot "$snapshot" "$snapshot_version" "$source_commit"
-
-snapshot_extra="$fixture_root/snapshot-extra"
-cp -a "$snapshot" "$snapshot_extra"
-touch "$snapshot_extra/unexpected"
-expect_failure "snapshot extra asset" "$repo_root/build/check-release.sh" \
-  snapshot "$snapshot_extra" "$snapshot_version" "$source_commit"
-
-snapshot_missing="$fixture_root/snapshot-missing"
-cp -a "$snapshot" "$snapshot_missing"
-rm "$snapshot_missing/gizclaw-darwin-amd64"
-expect_failure "snapshot missing Intel macOS asset" "$repo_root/build/check-release.sh" \
-  snapshot "$snapshot_missing" "$snapshot_version" "$source_commit"
-
-snapshot_symlink="$fixture_root/snapshot-symlink"
-cp -a "$snapshot" "$snapshot_symlink"
-rm "$snapshot_symlink/gizclaw-darwin-amd64"
-ln -s gizclaw-darwin-arm64 "$snapshot_symlink/gizclaw-darwin-amd64"
-expect_failure "snapshot symlink" "$repo_root/build/check-release.sh" \
-  snapshot "$snapshot_symlink" "$snapshot_version" "$source_commit"
-
-expect_failure "snapshot version is not canonical" "$repo_root/build/check-release.sh" \
-  snapshot "$snapshot" 0.0.0-main.1+111111111111 "$source_commit"
-expect_failure "snapshot version contains a GitHub-normalized tilde" "$repo_root/build/check-release.sh" \
-  snapshot "$snapshot" 0.0.0~main.1+111111111111 "$source_commit"
-
 payloads="$fixture_root/formal"
 make_formal_payloads "$payloads"
+expect_failure "latest manifest channel is unsupported" "$repo_root/build/build-release-manifest.sh" \
+  --asset-dir "$payloads" --tag latest --debian-version "$snapshot_version" --source-commit "$source_commit"
+expect_failure "snapshot release mode is unsupported" "$repo_root/build/check-release.sh" \
+  snapshot "$payloads" "$snapshot_version" "$source_commit"
 "$repo_root/build/build-release-manifest.sh" \
   --asset-dir "$payloads" --tag "$tag" --debian-version "$version" --source-commit "$source_commit"
 "$repo_root/build/check-release.sh" semver "$payloads" "$tag" "$source_commit"
@@ -238,14 +208,6 @@ make_fixture_deb arm64 "$wrong_deb_arch/gizclaw_${version}_amd64.deb"
 expect_failure "wrong Debian architecture" "$repo_root/build/check-release.sh" semver "$wrong_deb_arch" "$tag" "$source_commit"
 
 if [[ "$(uname -s)" == Linux && "$(dpkg --print-architecture)" == amd64 ]]; then
-  snapshot_package="$fixture_root/snapshot-package/gizclaw_${snapshot_version}_amd64.deb"
-  "$repo_root/build/package-deb.sh" \
-    --binary "$fixture_binary" --version "$snapshot_version" --source-commit "$source_commit" --source-epoch 1 \
-    --architecture amd64 --output "$snapshot_package"
-  "$repo_root/build/check-deb.sh" \
-    --package "$snapshot_package" --version "$snapshot_version" --source-commit "$source_commit" \
-    --architecture amd64 --skip-runtime
-
   package_one="$fixture_root/package-one/gizclaw_${version}_amd64.deb"
   package_two="$fixture_root/package-two/gizclaw_${version}_amd64.deb"
   "$repo_root/build/package-deb.sh" \
@@ -257,6 +219,11 @@ if [[ "$(uname -s)" == Linux && "$(dpkg --print-architecture)" == amd64 ]]; then
   cmp "$package_one" "$package_two"
   "$repo_root/build/check-deb.sh" \
     --package "$package_one" --version "$version" --source-commit "$source_commit" --architecture amd64 --skip-runtime
+  expect_failure "snapshot Debian version validation" "$repo_root/build/check-deb.sh" \
+    --package "$package_one" --version "$snapshot_version" --source-commit "$source_commit" --architecture amd64 --skip-runtime
+  expect_failure "snapshot Debian package construction" "$repo_root/build/package-deb.sh" \
+    --binary "$fixture_binary" --version "$snapshot_version" --source-commit "$source_commit" --source-epoch 1 \
+    --architecture amd64 --output "$fixture_root/snapshot-package.deb"
   wrong_dependencies_root="$fixture_root/wrong-dependencies-root"
   wrong_dependencies_package="$fixture_root/wrong-dependencies/gizclaw_${version}_amd64.deb"
   mkdir -p "$(dirname "$wrong_dependencies_package")"

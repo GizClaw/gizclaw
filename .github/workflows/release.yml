@@ -2,11 +2,8 @@ name: Release
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "v*"
-  workflow_dispatch:
 
 concurrency:
   group: release-${{ github.ref }}
@@ -20,7 +17,6 @@ jobs:
     permissions:
       contents: read
     outputs:
-      mode: ${{ steps.contract.outputs.mode }}
       source_commit: ${{ steps.contract.outputs.source_commit }}
       source_epoch: ${{ steps.contract.outputs.source_epoch }}
       tag: ${{ steps.contract.outputs.tag }}
@@ -36,37 +32,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mode=validation
           source_commit="$(git rev-parse 'HEAD^{commit}')"
-          tag=
-          version=
-
-          if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
-            mode=snapshot
-            test "$source_commit" = "$GITHUB_SHA"
-          elif [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/tags/* ]]; then
-            tag="${GITHUB_REF#refs/tags/}"
-            [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
-              echo "formal release tags must be canonical stable SemVer" >&2
-              exit 1
-            }
-            mode=semver
-            version="${tag#v}"
-            source_commit="$(git rev-parse "refs/tags/$tag^{commit}")"
-            git fetch --force --no-tags origin refs/heads/main:refs/remotes/origin/main
-            git merge-base --is-ancestor "$source_commit" refs/remotes/origin/main || {
-              echo "formal release commit is not reachable from the current protected main head" >&2
-              exit 1
-            }
-          fi
+          tag="${GITHUB_REF#refs/tags/}"
+          [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/tags/* ]] || {
+            echo "formal releases must be triggered by a tag push" >&2
+            exit 1
+          }
+          [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
+            echo "formal release tags must be canonical stable SemVer" >&2
+            exit 1
+          }
+          version="${tag#v}"
+          source_commit="$(git rev-parse "refs/tags/$tag^{commit}")"
+          git fetch --force --no-tags origin refs/heads/main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$source_commit" refs/remotes/origin/main || {
+            echo "formal release commit is not reachable from the current protected main head" >&2
+            exit 1
+          }
 
           source_epoch="$(git show -s --format=%ct "$source_commit")"
-          if [[ "$mode" != semver ]]; then
-            tag=latest
-            version="0.0.0+main.${source_epoch}.${source_commit:0:12}"
-          fi
           {
-            echo "mode=$mode"
             echo "source_commit=$source_commit"
             echo "source_epoch=$source_epoch"
             echo "tag=$tag"
@@ -222,83 +207,12 @@ jobs:
           path: .tmp/release/gizclaw-darwin-${{ matrix.arch }}
           if-no-files-found: error
 
-  publish-snapshot:
-    name: Publish latest Snapshot
-    needs:
-      - prepare
-      - linux
-      - darwin
-    if: needs.prepare.outputs.mode == 'snapshot'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: write
-    steps:
-      - name: Check out release contract
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.prepare.outputs.source_commit }}
-
-      - name: Download workflow artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          path: .tmp/download
-
-      - name: Build and validate closed snapshot staging directory
-        env:
-          TAG: ${{ needs.prepare.outputs.tag }}
-          VERSION: ${{ needs.prepare.outputs.version }}
-          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
-        run: |
-          set -euo pipefail
-          install -d -m 0700 .tmp/publish
-          while IFS= read -r -d '' artifact; do
-            name="$(basename "$artifact")"
-            test ! -e ".tmp/publish/$name"
-            test -f "$artifact" && test ! -L "$artifact" && test -s "$artifact"
-            mode=0644
-            [[ "$name" != gizclaw-darwin-* ]] || mode=0755
-            install -m "$mode" "$artifact" ".tmp/publish/$name"
-          done < <(find .tmp/download -type f -print0)
-          build/build-release-manifest.sh \
-            --asset-dir .tmp/publish \
-            --tag "$TAG" \
-            --debian-version "$VERSION" \
-            --source-commit "$SOURCE_COMMIT"
-          build/check-release.sh snapshot .tmp/publish "$VERSION" "$SOURCE_COMMIT"
-
-      - name: Replace mutable latest Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          set -euo pipefail
-          if gh release view latest >/dev/null 2>&1; then
-            gh release delete latest --yes --cleanup-tag
-          fi
-          gh release create latest .tmp/publish/* \
-            --target "$SOURCE_COMMIT" \
-            --title "latest ${SOURCE_COMMIT::7}" \
-            --notes "Mutable automated snapshot of main at ${SOURCE_COMMIT}."
-          remote_tag_commit="$(git ls-remote origin refs/tags/latest | awk '{print $1}')"
-          test "$remote_tag_commit" = "$SOURCE_COMMIT"
-          remote_dir="$(mktemp -d "${RUNNER_TEMP}/latest.XXXXXX")"
-          gh release download latest --dir "$remote_dir"
-          chmod 0755 "$remote_dir"/gizclaw-darwin-*
-          build/check-release.sh snapshot "$remote_dir" "$VERSION" "$SOURCE_COMMIT"
-          for local_asset in .tmp/publish/*; do
-            cmp "$local_asset" "$remote_dir/$(basename "$local_asset")"
-          done
-
   publish-semver:
     name: Publish Protected SemVer Release
     needs:
       - prepare
       - linux
       - darwin
-    if: needs.prepare.outputs.mode == 'semver'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -346,11 +260,6 @@ jobs:
         run: |
           set -euo pipefail
           test "$(gh api "repos/$GH_REPO/branches/main" --jq .protected)" = true
-          immutable_enabled="$(gh api "repos/$GH_REPO/immutable-releases" --jq .enabled)"
-          test "$immutable_enabled" = false || {
-            echo "repository-wide immutable Releases conflict with mutable latest" >&2
-            exit 1
-          }
 
           ruleset_ok=false
           creation_blocked=false

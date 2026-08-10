@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validate an exact mutable snapshot or protected formal-release inventory.
+# Validate a protected formal-release inventory.
 
 set -euo pipefail
 
@@ -10,26 +10,15 @@ tag="${3:-}"
 source_commit="${4:-}"
 release_json="${5:-}"
 case "$requested_mode" in
-  snapshot)
-    mode=release
-    version="$tag"
-    tag=latest
-    release_channel=snapshot
-    go_module_version=
-    ;;
   semver)
     mode=release
-    release_channel=stable
-    go_module_version="$tag"
     ;;
   draft | published)
     mode=release
-    release_channel=stable
-    go_module_version="$tag"
     [[ -f "$release_json" && ! -L "$release_json" ]] || { echo "remote Release JSON must be a regular file" >&2; exit 2; }
     ;;
   *)
-    echo "usage: $0 snapshot DIR DEBIAN_VERSION SOURCE_COMMIT | $0 semver DIR TAG SOURCE_COMMIT | $0 draft|published DIR TAG SOURCE_COMMIT RELEASE_JSON" >&2
+    echo "usage: $0 semver DIR TAG SOURCE_COMMIT | $0 draft|published DIR TAG SOURCE_COMMIT RELEASE_JSON" >&2
     exit 2
     ;;
 esac
@@ -58,12 +47,8 @@ assert_inventory() {
   done <<<"$expected_names"
 }
 
-if [[ "$requested_mode" == snapshot ]]; then
-  [[ "$version" =~ ^0\.0\.0\+main\.[0-9]+\.[0-9a-f]{12}$ ]] || { echo "invalid canonical main snapshot Debian version" >&2; exit 2; }
-else
-  [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "invalid canonical SemVer tag" >&2; exit 2; }
-  version="${tag#v}"
-fi
+[[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "invalid canonical SemVer tag" >&2; exit 2; }
+version="${tag#v}"
 [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source commit" >&2; exit 2; }
 release_expected="$(printf '%s\n' \
   SHA256SUMS \
@@ -76,16 +61,15 @@ assert_inventory "$release_expected"
 
 manifest="$asset_dir/release-manifest.json"
 jq -e \
-  --arg release_channel "$release_channel" \
-  --arg tag "$tag" --arg go_module_version "$go_module_version" \
+  --arg tag "$tag" \
   --arg version "$version" --arg source_commit "$source_commit" '
   keys == ["assets","debian_version","go_module","go_module_version","release_channel","repository","schema_version","source_commit","tag","workflow"] and
   .schema_version == 2 and
   .repository == "GizClaw/gizclaw" and
   .go_module == "github.com/GizClaw/gizclaw-go" and
-  .release_channel == $release_channel and
+  .release_channel == "stable" and
   .tag == $tag and
-  .go_module_version == (if $go_module_version == "" then null else $go_module_version end) and
+  .go_module_version == $tag and
   .debian_version == $version and
   .source_commit == $source_commit and .workflow == ".github/workflows/release.yml" and
   (.assets | length == 4) and
@@ -144,7 +128,7 @@ for deb_arch in amd64 arm64; do
   [[ "$(dpkg-deb --field "$deb" Architecture)" == "$deb_arch" ]]
   [[ "$(dpkg-deb --field "$deb" X-GizClaw-Source-Commit)" == "$source_commit" ]]
 done
-if [[ "$requested_mode" == snapshot || "$requested_mode" == semver ]]; then
+if [[ "$requested_mode" == semver ]]; then
   for darwin_arch in amd64 arm64; do
     [[ -x "$asset_dir/gizclaw-darwin-$darwin_arch" ]] || { echo "local Darwin asset is not executable" >&2; exit 1; }
   done

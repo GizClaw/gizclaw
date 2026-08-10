@@ -18,24 +18,14 @@ while (($# > 0)); do
 done
 
 [[ -d "$asset_dir" && ! -L "$asset_dir" && -n "$tag" && -n "$debian_version" && -n "$source_commit" ]] || {
-  echo "usage: $0 --asset-dir DIR --tag latest|vMAJOR.MINOR.PATCH --debian-version VERSION --source-commit SHA" >&2
+  echo "usage: $0 --asset-dir DIR --tag vMAJOR.MINOR.PATCH --debian-version VERSION --source-commit SHA" >&2
   exit 2
 }
-release_channel=stable
-go_module_version="$tag"
-if [[ "$tag" == latest ]]; then
-  release_channel=snapshot
-  go_module_version=
-  [[ "$debian_version" =~ ^0\.0\.0\+main\.[0-9]+\.[0-9a-f]{12}$ ]] || {
-    echo "invalid canonical main snapshot Debian version" >&2
-    exit 2
-  }
-elif [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-  [[ "$debian_version" == "${tag#v}" ]] || { echo "SemVer tag and Debian version differ" >&2; exit 2; }
-else
-  echo "invalid release tag" >&2
+[[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
+  echo "invalid canonical SemVer release tag" >&2
   exit 2
-fi
+}
+[[ "$debian_version" == "${tag#v}" ]] || { echo "SemVer tag and Debian version differ" >&2; exit 2; }
 [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source commit" >&2; exit 2; }
 for command_name in dpkg-deb jq sha256sum; do
   command -v "$command_name" >/dev/null 2>&1 || { echo "required command not found: $command_name" >&2; exit 2; }
@@ -98,9 +88,7 @@ checksums="$asset_dir/SHA256SUMS"
   exit 1
 }
 jq -n \
-  --arg release_channel "$release_channel" \
   --arg tag "$tag" \
-  --arg go_module_version "$go_module_version" \
   --arg debian_version "$debian_version" \
   --arg source_commit "$source_commit" \
   --argjson assets "$assets_json" '
@@ -108,9 +96,9 @@ jq -n \
       schema_version: 2,
       repository: "GizClaw/gizclaw",
       go_module: "github.com/GizClaw/gizclaw-go",
-      release_channel: $release_channel,
+      release_channel: "stable",
       tag: $tag,
-      go_module_version: (if $go_module_version == "" then null else $go_module_version end),
+      go_module_version: $tag,
       debian_version: $debian_version,
       source_commit: $source_commit,
       workflow: ".github/workflows/release.yml",

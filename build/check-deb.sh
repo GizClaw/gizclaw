@@ -24,9 +24,8 @@ done
   echo "usage: $0 --package PATH --version DEBIAN_VERSION --source-commit SHA --architecture amd64|arm64 [--skip-runtime]" >&2
   exit 2
 }
-if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ &&
-      ! "$version" =~ ^0\.0\.0\+main\.[0-9]+\.[0-9a-f]{12}$ ]]; then
-  echo "invalid stable or main snapshot Debian version" >&2
+if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+  echo "invalid stable Debian version" >&2
   exit 2
 fi
 [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source commit" >&2; exit 2; }

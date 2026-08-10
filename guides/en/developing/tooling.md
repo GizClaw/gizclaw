@@ -105,34 +105,27 @@ explicit errors instead of placeholder output.
 
 ## Repository Releases
 
-The repository publishes the same release asset classes through two channels:
+The repository publishes a formal, non-prerelease Release only when a canonical
+protected tag `vMAJOR.MINOR.PATCH` is pushed. A push to `main` does not build or
+publish a Release.
 
-- `latest` is a mutable snapshot replaced by every push to `main`.
-- A canonical protected tag `vMAJOR.MINOR.PATCH` publishes an immutable formal,
-  non-prerelease version.
-
-Both channels contain exactly two Debian packages, the two Darwin executables,
-`release-manifest.json`, and `SHA256SUMS`; neither channel publishes raw Linux
-executables. A formal Release uses `<version>` from its tag in
-`gizclaw_<version>_{amd64,arm64}.deb`. A `latest` package uses the
-deterministic Debian version
-`0.0.0+main.<source-epoch>.<12-character-source-commit>` so each moving snapshot
-still has package metadata bound to its exact source commit.
+Each Release contains exactly two Debian packages, the two Darwin executables,
+`release-manifest.json`, and `SHA256SUMS`; it does not publish raw Linux
+executables. The Debian packages use `<version>` from the tag in
+`gizclaw_<version>_{amd64,arm64}.deb`.
 
 For formal releases, the Git tag is the only source version. It is both the Go
 module version and GitHub Release tag; removing its leading `v` gives the Debian
 package version. Formal tags must be stable canonical SemVer, without leading
 zeroes, prerelease identifiers, or build metadata. Both annotated and
 lightweight tags resolve to their full peeled commit, and that commit must
-already be reachable from the current protected `main` head. The mutable
-`latest` tag is a snapshot pointer, not a Go module SemVer.
+already be reachable from the current protected `main` head.
 
 Before creating the first formal tag, a repository administrator must activate
 a tag ruleset for `refs/tags/v*` that permits creation while restricting update
-and deletion. Repository-wide immutable Releases must remain disabled because
-they would also lock the required moving `latest` Release. The publication
-workflow checks these conditions and fails before creating a formal Release; it
-does not own repository administration.
+and deletion. The publication workflow checks the protected source branch and
+tag ruleset before creating a formal Release; it does not own repository
+administration.
 
 Each Debian package owns only root-owned mode-`0755` `/usr/bin/gizclaw`.
 Shared-library dependencies are derived from the packaged ELF and validated by
@@ -153,9 +146,9 @@ chmod +x ".tmp/$tag"/gizclaw-darwin-*
 build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
 ```
 
-`release-manifest.json` identifies the snapshot or stable channel and binds
-every payload name, platform, architecture, byte size, and SHA-256 to the full
-source commit. Debian entries also bind package metadata and
+`release-manifest.json` identifies the stable channel and binds every payload
+name, platform, architecture, byte size, and SHA-256 to the full source commit.
+Debian entries also bind package metadata and
 `/usr/bin/gizclaw`. A formal rerun accepts an existing Release only when its
 published metadata and all six downloaded files match byte-for-byte. Any draft,
 partial, moved, or mismatched formal Release fails closed. A failed first upload

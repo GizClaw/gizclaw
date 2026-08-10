@@ -100,30 +100,23 @@ commit/describe。Native package 是否可用仍以对应 package 的 build/runt
 
 ## 仓库发布
 
-仓库通过两个 channel 发布相同类型的 Release 资产：
+仓库只在 push canonical protected tag `vMAJOR.MINOR.PATCH` 时发布正式、非
+prerelease Release。push `main` 不会构建或发布 Release。
 
-- `latest` 是每次 `main` push 都会替换的可变 snapshot。
-- canonical protected tag `vMAJOR.MINOR.PATCH` 发布不可变的正式、非
-  prerelease 版本。
-
-两个 channel 都严格包含两个 Debian package、两个 Darwin executable、
-`release-manifest.json` 和 `SHA256SUMS`，都不发布 Linux raw executable。正式
-Release 的 `gizclaw_<version>_{amd64,arm64}.deb` 从 tag 取得 `<version>`；
-`latest` 使用确定性的 Debian version
-`0.0.0+main.<source-epoch>.<12-character-source-commit>`，使每个滚动 snapshot
-的 package metadata 仍绑定到精确 source commit。
+每个 Release 严格包含两个 Debian package、两个 Darwin executable、
+`release-manifest.json` 和 `SHA256SUMS`，不发布 Linux raw executable。Debian
+package 的 `gizclaw_<version>_{amd64,arm64}.deb` 从 tag 取得 `<version>`。
 
 对于正式 Release，Git tag 是唯一 source version：它同时是 Go module version 与
 GitHub Release tag；仅在生成 Debian version 时移除开头的 `v`。正式 tag 必须是
 stable canonical SemVer，不允许数字前导零、prerelease 或 build metadata。
 Annotated 与 lightweight tag 都 peel 到完整 source commit，且该 commit 必须已能
-从当前受保护的 `main` head 到达。可变的 `latest` tag 只是 snapshot pointer，
-不是 Go module SemVer。
+从当前受保护的 `main` head 到达。
 
 创建第一个正式 tag 前，repository administrator 必须启用目标为
-`refs/tags/v*` 的 tag ruleset：允许创建，但限制更新和删除。Repository-wide
-immutable Releases 必须保持关闭，否则也会锁定必须移动的 `latest` Release。
-发布 workflow 会在创建正式 Release 前检查这些条件，但不持有或执行仓库管理权限。
+`refs/tags/v*` 的 tag ruleset：允许创建，但限制更新和删除。发布 workflow 会在
+创建正式 Release 前检查受保护 source branch 与 tag ruleset，但不持有或执行仓库
+管理权限。
 
 每个 Debian package 只拥有 root/root、mode `0755` 的 `/usr/bin/gizclaw`。
 Shared-library dependency 从 packaged ELF 自动推导，并在匹配架构的干净 Ubuntu
@@ -144,9 +137,9 @@ chmod +x ".tmp/$tag"/gizclaw-darwin-*
 build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
 ```
 
-`release-manifest.json` 标识 snapshot 或 stable channel，并将每个 payload 的名称、
-平台、架构、字节数和 SHA-256 绑定到完整 source commit；Debian entry 还绑定 package
-metadata 与 `/usr/bin/gizclaw`。Formal rerun 只有在现有 Release 的 published
+`release-manifest.json` 标识 stable channel，并将每个 payload 的名称、平台、架构、
+字节数和 SHA-256 绑定到完整 source commit；Debian entry 还绑定 package metadata
+与 `/usr/bin/gizclaw`。Formal rerun 只有在现有 Release 的 published
 metadata 与全部六个下载文件逐字节一致时才是 idempotent success。Draft、partial、
 tag moved 或任何 mismatch 都会 fail closed。首次上传失败可能留下 draft，必须由
 administrator 检查并删除后才能重试；workflow 从不删除或覆盖已发布的 SemVer
