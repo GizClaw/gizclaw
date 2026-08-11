@@ -784,6 +784,80 @@ func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
 	}
 }
 
+func TestRuntimeProfileAliasGrammar(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		alias   string
+		wantErr bool
+	}{
+		{name: "legacy", alias: "pet-chat"},
+		{name: "multiple scopes", alias: "story.journey.center-earth"},
+		{name: "63 bytes", alias: strings.Repeat("a", 30) + "." + strings.Repeat("b", 32)},
+		{name: "empty", wantErr: true},
+		{name: "64 bytes", alias: strings.Repeat("a", 31) + "." + strings.Repeat("b", 32), wantErr: true},
+		{name: "leading dot", alias: ".voice", wantErr: true},
+		{name: "trailing dot", alias: "raid.", wantErr: true},
+		{name: "empty segment", alias: "raid..voice", wantErr: true},
+		{name: "leading segment hyphen", alias: "raid.-voice", wantErr: true},
+		{name: "trailing segment hyphen", alias: "raid-.voice", wantErr: true},
+		{name: "underscore", alias: "story.journey_center_earth", wantErr: true},
+		{name: "uppercase", alias: "Story.journey", wantErr: true},
+		{name: "slash", alias: "story/journey", wantErr: true},
+		{name: "internal whitespace", alias: "story. journey", wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := ValidateAlias("test alias", test.alias)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("ValidateAlias(%q) error = %v, wantErr %t", test.alias, err, test.wantErr)
+			}
+			if test.wantErr && (err == nil || !strings.Contains(err.Error(), "1-63 bytes of dot-separated lowercase kebab-case segments")) {
+				t.Fatalf("ValidateAlias(%q) error = %v, want byte and segment grammar", test.alias, err)
+			}
+		})
+	}
+}
+
+func TestNormalizeProfilePreservesScopedAliases(t *testing.T) {
+	t.Parallel()
+	models := map[string]apitypes.RuntimeProfileBinding{
+		"journey.model": runtimeProfileTestBinding("journey-model"),
+	}
+	voices := map[string]apitypes.RuntimeProfileBinding{
+		"journey.narrator": runtimeProfileTestBinding("journey-voice"),
+		"journey-narrator": runtimeProfileTestBinding("legacy-voice"),
+	}
+	profile, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{
+		Id: "test-profile",
+		Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				System: runtimeProfileTestSystemWorkflows(),
+				Collections: apitypes.RuntimeProfileWorkflowCollections{
+					"story.catalog": {
+						"story.journey-center-earth": runtimeProfileTestBinding("journey-workflow"),
+					},
+				},
+			},
+			Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices},
+		},
+	}, "")
+	if err != nil {
+		t.Fatalf("normalizeProfile() error = %v", err)
+	}
+	if _, ok := profile.Spec.Workflows.Collections["story.catalog"]["story.journey-center-earth"]; !ok {
+		t.Fatalf("normalized Workflow collections = %#v", profile.Spec.Workflows.Collections)
+	}
+	if _, ok := (*profile.Spec.Resources.Models)["journey.model"]; !ok {
+		t.Fatalf("normalized Model aliases = %#v", *profile.Spec.Resources.Models)
+	}
+	for _, alias := range []string{"journey.narrator", "journey-narrator"} {
+		if _, ok := (*profile.Spec.Resources.Voices)[alias]; !ok {
+			t.Fatalf("normalized Voice aliases = %#v, missing %q", *profile.Spec.Resources.Voices, alias)
+		}
+	}
+}
+
 func TestRuntimeProfileRejectsWorkflowCollectionsDuplicatedAfterNormalization(t *testing.T) {
 	t.Parallel()
 	_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{

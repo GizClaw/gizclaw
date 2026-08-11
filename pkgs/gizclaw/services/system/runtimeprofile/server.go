@@ -39,7 +39,7 @@ const (
 	maxWorkspaceRewardPeriod    = 365 * 24 * time.Hour
 )
 
-var runtimeAliasPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+var runtimeAliasPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)*$`)
 var errResourceResolverNotConfigured = errors.New("resource resolver not configured")
 
 // Server owns RuntimeProfile and RegistrationToken state.
@@ -1476,7 +1476,7 @@ func normalizeBindingMap(values map[string]apitypes.RuntimeProfileBinding) (map[
 // profile bindings and resources that persist those aliases.
 func ValidateAlias(kind, value string) error {
 	if len(value) == 0 || len(value) > 63 || !runtimeAliasPattern.MatchString(value) {
-		return fmt.Errorf("%s %q must be 1-63 characters of lowercase kebab-case", kind, value)
+		return fmt.Errorf("%s %q must be 1-63 bytes of dot-separated lowercase kebab-case segments", kind, value)
 	}
 	return nil
 }
