@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -40,6 +41,10 @@ type DriveFactMemory interface {
 	Snapshot(context.Context, string) (DriveFactTarget, error)
 	Observe(context.Context, DriveFactTarget, memory.Observation) (memory.ObserveResult, error)
 	Wait(context.Context, DriveFactTarget, memory.OperationRequest) (memory.ObserveResult, error)
+}
+
+type driveFactWorkspaceAvailability interface {
+	EnsureWorkspaceAvailable(context.Context, string) error
 }
 
 type driveFactPayload struct {
@@ -186,6 +191,15 @@ func (r *Runtime) DispatchDriveFactsOnce(ctx context.Context) (bool, error) {
 	if err != nil || !found {
 		return found, err
 	}
+	if r.DriveFacts == nil {
+		return true, r.failDriveFact(ctx, item, fmt.Errorf("%w: Workspace Memory delivery is not configured", memory.ErrInvalidInput))
+	}
+	if err := r.ensureDriveFactWorkspaceAvailable(ctx, item.Target.WorkspaceID); err != nil {
+		if isWorkspaceLifecycleTerminal(err) {
+			return true, r.retireDriveFactClaim(ctx, item)
+		}
+		return true, r.failDriveFact(ctx, item, err)
+	}
 	observation := item.Payload.observation(item.Target.WorkspaceID)
 	digest, err := memory.ObservationPayloadDigest(observation)
 	if err != nil || digest != item.PayloadDigest {
@@ -193,9 +207,6 @@ func (r *Runtime) DispatchDriveFactsOnce(ctx context.Context) (bool, error) {
 			err = fmt.Errorf("%w: persisted Drive Fact payload digest changed", memory.ErrConflict)
 		}
 		return true, r.failDriveFact(ctx, item, err)
-	}
-	if r.DriveFacts == nil {
-		return true, r.failDriveFact(ctx, item, fmt.Errorf("%w: Workspace Memory delivery is not configured", memory.ErrInvalidInput))
 	}
 	if strings.TrimSpace(item.Target.BindingIdentity) == "" {
 		target, err := r.DriveFacts.Snapshot(ctx, item.Target.WorkspaceID)
@@ -223,6 +234,12 @@ func (r *Runtime) DispatchDriveFactsOnce(ctx context.Context) (bool, error) {
 	if heartbeatErr := stopHeartbeat(); heartbeatErr != nil {
 		return true, heartbeatErr
 	}
+	if lifecycleErr := r.ensureDriveFactWorkspaceAvailable(ctx, item.Target.WorkspaceID); lifecycleErr != nil {
+		if isWorkspaceLifecycleTerminal(lifecycleErr) {
+			return true, r.retireDriveFactClaim(ctx, item)
+		}
+		return true, r.failDriveFact(ctx, item, lifecycleErr)
+	}
 	if err != nil {
 		return true, r.failDriveFact(ctx, item, err)
 	}
@@ -246,6 +263,20 @@ func (r *Runtime) DispatchDriveFactsOnce(ctx context.Context) (bool, error) {
 		return true, r.failDriveFact(ctx, item, cause)
 	}
 	return true, r.finishDriveFactClaim(ctx, item, driveFactDelivered, "", "", r.now())
+}
+
+func (r *Runtime) ensureDriveFactWorkspaceAvailable(ctx context.Context, workspaceID string) error {
+	availability, ok := r.DriveFacts.(driveFactWorkspaceAvailability)
+	if !ok {
+		return fmt.Errorf("%w: Drive Fact Workspace availability fence is not configured", memory.ErrUnavailable)
+	}
+	return availability.EnsureWorkspaceAvailable(ctx, workspaceID)
+}
+
+func isWorkspaceLifecycleTerminal(err error) bool {
+	return errors.Is(err, workspace.ErrWorkspacePendingDeletion) ||
+		errors.Is(err, workspace.ErrPeerPendingDeletion) ||
+		errors.Is(err, workspace.ErrPeerDeleted)
 }
 
 func (r *Runtime) driveFactClaimContext(parent context.Context, item driveFactOutbox) (context.Context, func() error) {
@@ -280,6 +311,15 @@ func (r *Runtime) driveFactClaimContext(parent context.Context, item driveFactOu
 }
 
 func (r *Runtime) failDriveFact(ctx context.Context, item driveFactOutbox, cause error) error {
+	availabilityCtx := ctx
+	cancelAvailability := func() {}
+	if ctx.Err() != nil {
+		availabilityCtx, cancelAvailability = context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	}
+	defer cancelAvailability()
+	if err := r.ensureDriveFactWorkspaceAvailable(availabilityCtx, item.Target.WorkspaceID); isWorkspaceLifecycleTerminal(err) {
+		return r.retireDriveFactClaim(availabilityCtx, item)
+	}
 	sanitized := sanitizeDriveFactError(cause)
 	slog.WarnContext(ctx, "gameplay Drive Fact delivery deferred",
 		"observation_id", item.ObservationID,

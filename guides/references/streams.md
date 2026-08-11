@@ -54,7 +54,7 @@ conversation、聊天 viewer 和资源 controller。页面 controller 只能订�
 
 WebRTC 两端各创建一条 Opus audio track：Client / Device 的 track 用于上行麦克风，Server 的 track 用于下行混音播放。Giznet API 以 `ProtocolOpusPacket 0x10` 暴露这些 Opus packets，但 WebRTC 实现会把该 protocol 映射到 RTP track，不会把它写进 direct packet DataChannel。
 
-音频的生命周期 metadata 可以通过 [Events](./events) 的 `bos` / `eos`、`kind=audio` 和 `mime_type` 表达；实时音频 bytes 仍只走 RTP。
+音频的生命周期 metadata 通过 [Events](./events) 的 `bos` / `eos` 和 `kind=audio` 表达，实时音频 bytes 仍只走 RTP。下行连接只有一条固定 Opus track，因此混音总生命周期的 `mime_type` 为空；Agent source MIME 只用于 Server 内部解码。上行输入可以继续用 event MIME 描述其逻辑 route。
 
 ## Direct packets
 

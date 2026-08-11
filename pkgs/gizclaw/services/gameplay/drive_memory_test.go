@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"strings"
 	"sync"
@@ -11,22 +12,44 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 type driveFactMemoryFake struct {
-	mu             sync.Mutex
-	target         DriveFactTarget
-	snapshotErr    error
-	observe        []memory.Observation
-	waits          []memory.OperationRequest
-	observeOut     memory.ObserveResult
-	observeErr     error
-	waitOut        memory.ObserveResult
-	waitErr        error
-	observeEntered chan struct{}
-	observeRelease <-chan struct{}
-	observeFunc    func(context.Context, memory.Observation) (memory.ObserveResult, error)
+	mu                sync.Mutex
+	target            DriveFactTarget
+	snapshotErr       error
+	observe           []memory.Observation
+	waits             []memory.OperationRequest
+	observeOut        memory.ObserveResult
+	observeErr        error
+	waitOut           memory.ObserveResult
+	waitErr           error
+	observeEntered    chan struct{}
+	observeRelease    <-chan struct{}
+	observeFunc       func(context.Context, memory.Observation) (memory.ObserveResult, error)
+	availabilityErr   error
+	availabilityCalls int
+}
+
+type driveFactMemoryWithoutAvailability struct {
+	DriveFactMemory
+}
+
+func TestDriveFactAvailabilityFailsClosedForCompatibleMemory(t *testing.T) {
+	runtime := &Runtime{DriveFacts: driveFactMemoryWithoutAvailability{}}
+	err := runtime.ensureDriveFactWorkspaceAvailable(t.Context(), "workspace-1")
+	if !errors.Is(err, memory.ErrUnavailable) {
+		t.Fatalf("ensureDriveFactWorkspaceAvailable() error = %v, want %v", err, memory.ErrUnavailable)
+	}
+}
+
+func (fake *driveFactMemoryFake) EnsureWorkspaceAvailable(context.Context, string) error {
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	fake.availabilityCalls++
+	return fake.availabilityErr
 }
 
 func (fake *driveFactMemoryFake) Snapshot(_ context.Context, workspaceID string) (DriveFactTarget, error) {
@@ -145,6 +168,185 @@ func TestDriveFactDispatcherBlocksCorruptPayload(t *testing.T) {
 	defer delivery.mu.Unlock()
 	if len(delivery.observe) != 0 {
 		t.Fatalf("corrupt payload was submitted %d times", len(delivery.observe))
+	}
+}
+
+func TestDriveFactDispatcherRetiresPendingWorkspaceRowsWithoutProviderCalls(t *testing.T) {
+	for _, state := range []string{driveFactPending, driveFactSubmitted, driveFactBlocked} {
+		t.Run(state, func(t *testing.T) {
+			ctx, runtime, now := newPetRuntime(t)
+			delivery := testDriveFactMemory()
+			delivery.availabilityErr = workspace.ErrWorkspacePendingDeletion
+			runtime.DriveFacts = delivery
+			if err := runtime.Migration(ctx); err != nil {
+				t.Fatal(err)
+			}
+			payload := driveFactPayload{
+				ID:         "gameplay/drive/reward_grant/terminal-" + state,
+				Text:       "terminal",
+				ObservedAt: *now,
+			}
+			target, targetErr := runtime.snapshotDriveFactTarget(ctx, "workspace")
+			if targetErr != "" {
+				t.Fatal(targetErr)
+			}
+			digest, err := memory.ObservationPayloadDigest(payload.observation("workspace"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			tx, err := runtime.DB.BeginTxx(ctx, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := insertDriveFactOutbox(ctx, tx, driveFactOutbox{
+				ObservationID: payload.ID, PayloadDigest: digest,
+				OwnerPublicKey: "owner", RuntimeProfile: "profile", PetID: "pet",
+				Target: target, Payload: payload, State: state,
+				OperationID: "operation", NextAttemptAt: *now, CreatedAt: *now, UpdatedAt: *now,
+			}); err != nil {
+				_ = tx.Rollback()
+				t.Fatal(err)
+			}
+			if err := tx.Commit(); err != nil {
+				t.Fatal(err)
+			}
+			if processed, err := runtime.DispatchDriveFactsOnce(ctx); err != nil || !processed {
+				t.Fatalf("DispatchDriveFactsOnce() = %v, %v", processed, err)
+			}
+			var rows int
+			if err := runtime.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_drive_fact_outbox`).Scan(&rows); err != nil {
+				t.Fatal(err)
+			}
+			if rows != 0 {
+				t.Fatalf("outbox rows = %d, want 0", rows)
+			}
+			delivery.mu.Lock()
+			observeCalls, waitCalls := len(delivery.observe), len(delivery.waits)
+			delivery.mu.Unlock()
+			if observeCalls != 0 || waitCalls != 0 {
+				t.Fatalf("Observe/Wait calls = %d/%d, want 0/0", observeCalls, waitCalls)
+			}
+			if processed, err := runtime.DispatchDriveFactsOnce(ctx); err != nil || processed {
+				t.Fatalf("restart dispatch = %v, %v; want no reclaim", processed, err)
+			}
+		})
+	}
+}
+
+func TestDriveFactDispatcherRetiresClaimWhenPendingDeletionWinsDuringObserve(t *testing.T) {
+	ctx, runtime, _ := newPetRuntime(t)
+	release := make(chan struct{})
+	delivery := testDriveFactMemory()
+	delivery.observeEntered = make(chan struct{}, 1)
+	delivery.observeRelease = release
+	runtime.DriveFacts = delivery
+	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{Name: "pet-main", DisplayName: "Pet"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	behavior := apitypes.PetBehaviorFeed
+	if _, err := runtime.DrivePet(ctx, "owner", apitypes.PetDriveRequest{PetId: adopted.Pet.Id, Behavior: &behavior}); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		processed, dispatchErr := runtime.DispatchDriveFactsOnce(ctx)
+		if dispatchErr == nil && !processed {
+			dispatchErr = errors.New("dispatcher did not claim row")
+		}
+		done <- dispatchErr
+	}()
+	<-delivery.observeEntered
+	delivery.mu.Lock()
+	delivery.availabilityErr = workspace.ErrWorkspacePendingDeletion
+	delivery.mu.Unlock()
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatalf("DispatchDriveFactsOnce() error = %v", err)
+	}
+	var rows int
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_drive_fact_outbox`).Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 0 {
+		t.Fatalf("outbox rows after concurrent PendingDeletion = %d, want 0", rows)
+	}
+	delivery.mu.Lock()
+	observeCalls, waitCalls := len(delivery.observe), len(delivery.waits)
+	delivery.mu.Unlock()
+	if observeCalls != 1 || waitCalls != 0 {
+		t.Fatalf("Observe/Wait calls = %d/%d, want 1/0", observeCalls, waitCalls)
+	}
+}
+
+func TestDriveFactActiveWorkspaceRemoteNotFoundStillRetries(t *testing.T) {
+	ctx, runtime, _ := newPetRuntime(t)
+	delivery := testDriveFactMemory()
+	delivery.observeErr = fmt.Errorf("%w: remote Memory returned 404", memory.ErrUnavailable)
+	runtime.DriveFacts = delivery
+	adopted, err := runtime.AdoptPet(ctx, "owner", apitypes.PetAdoptRequest{Name: "pet-main", DisplayName: "Pet"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	behavior := apitypes.PetBehaviorFeed
+	if _, err := runtime.DrivePet(ctx, "owner", apitypes.PetDriveRequest{PetId: adopted.Pet.Id, Behavior: &behavior}); err != nil {
+		t.Fatal(err)
+	}
+	if processed, err := runtime.DispatchDriveFactsOnce(ctx); err != nil || !processed {
+		t.Fatalf("DispatchDriveFactsOnce() = %v, %v", processed, err)
+	}
+	var state string
+	var attempts int
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT state, attempt_count FROM gameplay_drive_fact_outbox`).Scan(&state, &attempts); err != nil {
+		t.Fatal(err)
+	}
+	if state != driveFactPending || attempts != 1 {
+		t.Fatalf("remote 404 outbox state/attempts = %q/%d, want pending/1", state, attempts)
+	}
+}
+
+func TestRetireDriveFactClaimRequiresExactOwnershipOrAbsentRow(t *testing.T) {
+	ctx, runtime, now := newPetRuntime(t)
+	runtime.DriveFacts = testDriveFactMemory()
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatal(err)
+	}
+	payload := driveFactPayload{ID: "terminal-claim", Text: "terminal", ObservedAt: *now}
+	digest, err := memory.ObservationPayloadDigest(payload.observation("workspace"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := runtime.DB.BeginTxx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := insertDriveFactOutbox(ctx, tx, driveFactOutbox{
+		ObservationID: payload.ID, PayloadDigest: digest,
+		OwnerPublicKey: "owner", RuntimeProfile: "profile", PetID: "pet",
+		Target:  DriveFactTarget{WorkspaceID: "workspace", BindingIdentity: "binding"},
+		Payload: payload, State: driveFactPending, NextAttemptAt: *now, CreatedAt: *now, UpdatedAt: *now,
+	}); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	item, found, err := runtime.claimDriveFact(ctx)
+	if err != nil || !found {
+		t.Fatalf("claimDriveFact() = %#v, %v, %v", item, found, err)
+	}
+	if _, err := runtime.DB.ExecContext(ctx, `UPDATE gameplay_drive_fact_outbox SET claim_token = 'replacement'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.retireDriveFactClaim(ctx, item); !errors.Is(err, memory.ErrConflict) {
+		t.Fatalf("retireDriveFactClaim(lost) error = %v, want %v", err, memory.ErrConflict)
+	}
+	if _, err := runtime.DB.ExecContext(ctx, `DELETE FROM gameplay_drive_fact_outbox`); err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.retireDriveFactClaim(ctx, item); err != nil {
+		t.Fatalf("retireDriveFactClaim(absent) error = %v", err)
 	}
 }
 

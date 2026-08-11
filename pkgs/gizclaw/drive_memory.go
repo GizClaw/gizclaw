@@ -36,6 +36,11 @@ func (delivery *driveWorkspaceMemory) Snapshot(ctx context.Context, workspaceID 
 	return driveFactTarget(spec)
 }
 
+func (delivery *driveWorkspaceMemory) EnsureWorkspaceAvailable(ctx context.Context, workspaceID string) error {
+	_, err := delivery.resolve(ctx, workspaceID)
+	return err
+}
+
 func (delivery *driveWorkspaceMemory) Observe(ctx context.Context, target gameplay.DriveFactTarget, observation memory.Observation) (memory.ObserveResult, error) {
 	store, closer, err := delivery.open(ctx, target)
 	if err != nil {
@@ -121,7 +126,10 @@ func (delivery *driveWorkspaceMemory) resolve(ctx context.Context, workspaceID s
 	}
 	spec, err := delivery.resolver.ResolveMemoryByID(ctx, workspaceID)
 	if err != nil {
-		return agenthost.Spec{}, fmt.Errorf("%w: resolve Workspace Memory: %v", memory.ErrInvalidInput, err)
+		return agenthost.Spec{}, errors.Join(
+			memory.ErrInvalidInput,
+			fmt.Errorf("resolve Workspace Memory: %w", err),
+		)
 	}
 	if spec.MemoryBinding == nil || spec.MemoryLayout == nil || strings.TrimSpace(spec.MemoryName) == "" {
 		return agenthost.Spec{}, fmt.Errorf("%w: Workspace %q has no Memory binding", memory.ErrUnsupported, workspaceID)

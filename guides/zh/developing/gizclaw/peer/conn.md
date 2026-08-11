@@ -61,3 +61,5 @@ identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，reques
 `server.register` 也不会早于 connection activation。`server.peer.delete` 开始时，准确的 connection 会进入 retiring，其 Manager 条目会在 durable mutation 前进入 deleting。该 public key 的新工作、registration 与 replacement activation 会被拒绝，但 store 操作不会阻塞其他 Peer。mutation 成功后只条件摘除同一 generation；失败时也只在它仍是 current generation 时恢复。当前删除 RPC 的 transport 会保留到 acknowledgement 与 EOS 写入尝试结束；无论 response 或 EOS 写入是否成功，terminal action 都会关闭完整 Giznet connection。
 
 `streamMixedAudio` 是生成音频唯一的发送 pacing owner。普通 Go ticker 迟到时继续读取下一帧，不丢弃、重排或批量补发 PCM，也不创建 provider epoch。Pion 在同一条 WebRTC track 生命周期内维护 SSRC、RTP sequence number 和 timestamp；每个 20ms Opus sample 在 48kHz RTP clock 上推进 960 ticks，新连接建立独立 RTP timeline。到达 jitter、adaptive playout delay、packet-loss concealment 与 Opus FEC 属于 WebRTC receiver。
+
+`PeerConn` 不根据 paced packet 或 mixer read 推导逻辑 BOS/EOS；它只拥有固定的 mixed PCM-to-Opus 下行与实时 pacing。Agent output bridge 在 Mixer 排空后下发聚合后的音频生命周期，因此 transport sequence number、MIME fallback 和 per-source boundary state 都不属于这里。

@@ -140,6 +140,13 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if !ok || len(listedAfterDelete.Items) != 1 || listedAfterDelete.Items[0].Name != "alpha001" {
 		t.Fatalf("ListWorkspaces() after delete = %#v", listAfterDelete)
 	}
+	if _, err := srv.GetAvailableWorkspaceByID(ctx, workspaceID); !errors.Is(err, ErrWorkspacePendingDeletion) {
+		t.Fatalf("GetAvailableWorkspaceByID() after delete error = %v, want %v", err, ErrWorkspacePendingDeletion)
+	}
+	srv.RuntimeStore = nil
+	if _, err := srv.GetWorkspaceRuntimeByID(ctx, workspaceID); !errors.Is(err, ErrWorkspacePendingDeletion) {
+		t.Fatalf("GetWorkspaceRuntimeByID() without RuntimeStore error = %v, want %v", err, ErrWorkspacePendingDeletion)
+	}
 	createAfterDelete, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &createBody})
 	if err != nil {
 		t.Fatalf("CreateWorkspace() while pending error = %v", err)
@@ -162,6 +169,33 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	}
 	if response, ok := invalidPutAfterDelete.(adminhttp.PutWorkspace409JSONResponse); !ok || response.Error.Code != WorkspacePendingDeletionCode {
 		t.Fatalf("PutWorkspace() invalid while pending response = %#v, want pending conflict", invalidPutAfterDelete)
+	}
+}
+
+func TestGetAvailableWorkspaceByIDFencesPendingOwnerButAdminRetainsRecord(t *testing.T) {
+	srv := newTestServer(t)
+	seedWorkflow(t, srv, "workflow-owner-fence")
+	ctx := ownership.WithOwner(t.Context(), "peer-a")
+	body := adminhttp.WorkspaceUpsert{
+		Id: "workspace-owner-fence", Name: "workspace-owner-fence", WorkflowId: "workflow-owner-fence",
+	}
+	response, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	if err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	if _, ok := response.(adminhttp.CreateWorkspace200JSONResponse); !ok {
+		t.Fatalf("CreateWorkspace() response = %#v", response)
+	}
+	srv.PeerAvailability = func(context.Context, string) error { return ErrPeerPendingDeletion }
+	adminResponse, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Id: body.Id})
+	if err != nil {
+		t.Fatalf("GetWorkspace() error = %v", err)
+	}
+	if _, ok := adminResponse.(adminhttp.GetWorkspace200JSONResponse); !ok {
+		t.Fatalf("GetWorkspace() response = %#v, want retained record", adminResponse)
+	}
+	if _, err := srv.GetAvailableWorkspaceByID(ctx, body.Id); !errors.Is(err, ErrPeerPendingDeletion) {
+		t.Fatalf("GetAvailableWorkspaceByID() error = %v, want %v", err, ErrPeerPendingDeletion)
 	}
 }
 

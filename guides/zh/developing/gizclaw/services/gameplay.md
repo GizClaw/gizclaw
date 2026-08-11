@@ -58,6 +58,8 @@ Gameplay 在提交 Pet、result 和 reward 的同一个 SQL transaction 中写�
 
 投递使用 Pet 外层 Workflow 已选择的 Workspace Memory binding，并通过现有 `memorystore.Registry` 租用 `Scope.AppID = Pet.WorkspaceName` 的逻辑 Store。operation 同时记录不含 credential 的物理 binding digest；RuntimeProfile 在 operation 完成前切换物理 binding 时，旧 locator 不会交给新 backend。Pet death 或普通 Pet deletion 不删除 Workspace、outbox 或已投递 Fact；它们继续遵循 Workspace Memory 自身的生命周期。
 
+dispatcher 在 provider work 前以及 asynchronous wait 后再次检查权威 Workspace 与 owner availability。`PendingDeletion` 对该 Workspace 是 terminal：只在 claim token 匹配时删除准确的 claimed outbox row，不再启动 provider work 或 retry；其他 Workspace row 继续正常处理。Active Workspace 的失败仍保留既有 retry 与 blocked-state 语义。
+
 Gameplay 使用 Workspace owner 和 Pet 领域关系，不创建额外 role 或 policy binding。领养时会独立于 active Pet row 持久化 Pet-to-Workspace binding。Pet 删除在同一个 gameplay SQL database transaction 中创建或复用一条 `kind=pet` PendingDeletion，同时保留 Pet row 及其 binding；该标记不影响 Pet 的读取、list、authorization 或 mutation，也不会创建 Workspace pending record。
 
 已注册的 `source=gameplay` processor handler 随后验证 immutable Pet descriptor、marker fingerprint、准确的 deterministic marker 分类与 live SQL lease。Final transaction 只删除完全匹配的 retained Pet row、对应 locator 和 marker/task state。Pet 已不存在的 compatible legacy marker 会幂等完成；任何仍能看到 Pet 的 legacy marker 会以 replacement-ambiguous 失败。Pet-to-Workspace binding 和绑定的 system Workspace 继续保留，Points、badge、result、transaction、reward、Drive Fact outbox、Workspace reward state、Social data、prompt、message 与 history 也都保留。完成后不留下 task receipt；cleanup 抢先提交后，零行 Pet mutation 不能报告成功。
@@ -84,3 +86,5 @@ Badge EXP、window 完成和 checkpoint 在同一个 Gameplay SQL transaction �
 相同 window 不会重复发奖。成功改变状态后只向受益 Peer 发送
 `GAMEPLAY_REWARD_UPDATED` invalidation Event；客户端收到后重新拉取权威 Gameplay
 状态。确定性任务奖励属于独立任务系统，不经过该模型 evaluator。
+
+Workspace reward 的 scheduling、startup reconciliation、History paging、model evaluation 与 retry dispatch 都使用同一个权威 availability gate。Workspace 或 owner 进入 pending deletion 后，未结算 window 与准确 source row 会被删除，已完成 reward audit row 保留，并且不再为该 Workspace 调用 History 或 model；其他 Workspace 仍可独立 dispatch。

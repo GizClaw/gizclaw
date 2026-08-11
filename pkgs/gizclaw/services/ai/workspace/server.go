@@ -868,27 +868,44 @@ func (s *Server) GetWorkspaceByName(ctx context.Context, name string) (apitypes.
 	return item, nil
 }
 
-// GetWorkspaceRuntimeByID returns runtime state by canonical Workspace ID.
-func (s *Server) GetWorkspaceRuntimeByID(ctx context.Context, id string) (Runtime, error) {
-	if s == nil || s.RuntimeStore == nil {
-		return Runtime{}, nil
+// GetAvailableWorkspaceByID returns the canonical Workspace record only while
+// both the Workspace and its owner Peer remain available for runtime and
+// background work. Admin GetWorkspace intentionally retains its diagnostic
+// projection while deletion is pending.
+func (s *Server) GetAvailableWorkspaceByID(ctx context.Context, id string) (apitypes.Workspace, error) {
+	if s == nil {
+		return apitypes.Workspace{}, errors.New("workspace: nil server")
 	}
 	if err := customid.ValidateResourceID(id); err != nil {
-		return Runtime{}, fmt.Errorf("workspace: invalid id: %w", err)
+		return apitypes.Workspace{}, fmt.Errorf("workspace: invalid id: %w", err)
 	}
 	if err := s.ensureWorkspaceAvailable(ctx, id); err != nil {
-		return Runtime{}, err
+		return apitypes.Workspace{}, err
 	}
 	store, err := s.store()
 	if err != nil {
-		return Runtime{}, err
+		return apitypes.Workspace{}, err
 	}
 	item, err := getWorkspaceByID(ctx, store, id)
 	if err != nil {
-		return Runtime{}, err
+		return apitypes.Workspace{}, err
 	}
 	if err := s.ensureWorkspaceOwnerAvailable(ctx, item); err != nil {
+		return apitypes.Workspace{}, err
+	}
+	return item, nil
+}
+
+// GetWorkspaceRuntimeByID returns runtime state by canonical Workspace ID.
+func (s *Server) GetWorkspaceRuntimeByID(ctx context.Context, id string) (Runtime, error) {
+	if s == nil {
+		return Runtime{}, nil
+	}
+	if _, err := s.GetAvailableWorkspaceByID(ctx, id); err != nil {
 		return Runtime{}, err
+	}
+	if s == nil || s.RuntimeStore == nil {
+		return Runtime{}, nil
 	}
 	return s.RuntimeStore.GetWorkspaceRuntime(ctx, id)
 }
