@@ -799,7 +799,7 @@ func workspaceRewardLocalFaultClass(err error) (string, bool) {
 		return "owner_pending_deletion", true
 	case errors.Is(err, workspace.ErrPeerDeleted):
 		return "owner_deleted", true
-	case errors.Is(err, workspace.ErrPeerNotFound):
+	case workspace.IsExactOwnerNotFound(err):
 		return "owner_missing", true
 	case errors.Is(err, workspace.ErrWorkspaceInvalid):
 		return "workspace_invalid", true

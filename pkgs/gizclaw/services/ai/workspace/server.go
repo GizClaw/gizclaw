@@ -64,6 +64,29 @@ type invalidStoredWorkspaceError struct {
 	fenceExact bool
 }
 
+type exactOwnerNotFoundError struct{}
+
+func (*exactOwnerNotFoundError) Error() string {
+	return ErrPeerNotFound.Error()
+}
+
+func (*exactOwnerNotFoundError) Unwrap() error {
+	return ErrPeerNotFound
+}
+
+// NewExactOwnerNotFoundError marks a missing Peer result produced while
+// checking the owner of one exact background Workspace lookup.
+func NewExactOwnerNotFoundError() error {
+	return &exactOwnerNotFoundError{}
+}
+
+// IsExactOwnerNotFound reports whether err carries exact Workspace-owner
+// lookup provenance rather than only the public missing-Peer identity.
+func IsExactOwnerNotFound(err error) bool {
+	var exact *exactOwnerNotFoundError
+	return errors.As(err, &exact)
+}
+
 func (err *invalidStoredWorkspaceError) Error() string {
 	return fmt.Sprintf("workspace: stored Workspace %q is invalid", err.id)
 }

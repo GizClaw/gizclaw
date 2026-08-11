@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -262,37 +263,104 @@ func TestServerListenIsolatesWorkspaceRecordFaults(t *testing.T) {
 		}
 		return data
 	}
+	workspaceValue := func(id string, ownerPublicKey *string, system bool) []byte {
+		item := valid
+		item.Id = id
+		item.Name = id
+		item.OwnerPublicKey = ownerPublicKey
+		item.System = &system
+		return mustJSON(item)
+	}
 	for name, test := range map[string]struct {
-		id  string
-		raw []byte
+		id             string
+		raw            []byte
+		prepare        func(*testing.T, kv.Store, kv.Store)
+		preserveStored bool
+		expectFence    bool
 	}{
-		"malformed JSON":          {id: "workspace-malformed", raw: []byte("{")},
-		"missing required fields": {id: "workspace-invalid", raw: []byte(`{}`)},
+		"malformed JSON":          {id: "workspace-malformed", raw: []byte("{"), preserveStored: true, expectFence: true},
+		"missing required fields": {id: "workspace-invalid", raw: []byte(`{}`), preserveStored: true, expectFence: true},
 		"key value mismatch": {id: "workspace-key", raw: mustJSON(func() apitypes.Workspace {
 			item := valid
 			item.Id = "workspace-value"
 			item.OwnerPublicKey = nil
 			return item
-		}())},
-		"missing owner": {id: valid.Id, raw: mustJSON(valid)},
+		}()), preserveStored: true},
+		"missing owner": {id: valid.Id, raw: mustJSON(valid), preserveStored: true, expectFence: true},
+		"Workspace pending deletion": {
+			id: "workspace-pending", raw: workspaceValue("workspace-pending", nil, false), expectFence: true,
+			prepare: func(t *testing.T, _ kv.Store, workspaceStore kv.Store) {
+				t.Helper()
+				record, err := pendingdeletion.New(
+					pendingdeletion.KindWorkspace, "workspace-pending", nil,
+					pendingdeletion.ReasonResourceDelete,
+					map[string]any{"id": "workspace-pending", "name": "workspace-pending", "has_icon": false},
+					now,
+				)
+				if err != nil {
+					t.Fatalf("create Workspace PendingDeletion: %v", err)
+				}
+				if _, _, err := pendingdeletion.CreateOrGet(t.Context(), workspaceStore, record); err != nil {
+					t.Fatalf("seed Workspace PendingDeletion: %v", err)
+				}
+			},
+		},
+		"owner pending deletion": {
+			id: "workspace-owner-pending", raw: workspaceValue("workspace-owner-pending", &owner, true), expectFence: true,
+			prepare: func(t *testing.T, peerStore, _ kv.Store) {
+				t.Helper()
+				peers := &runtimepeer.Server{Store: peerStore}
+				if _, err := peers.SavePeer(t.Context(), apitypes.Peer{
+					PublicKey: owner, Role: apitypes.PeerRoleClient,
+					Status: apitypes.PeerRegistrationStatusActive, Device: apitypes.DeviceInfo{},
+				}); err != nil {
+					t.Fatalf("seed owner Peer: %v", err)
+				}
+				if err := peers.DeleteSelf(t.Context(), missingOwner.Public); err != nil {
+					t.Fatalf("mark owner Peer pending deletion: %v", err)
+				}
+			},
+		},
+		"owner deleted": {
+			id: "workspace-owner-deleted", raw: workspaceValue("workspace-owner-deleted", &owner, true),
+			preserveStored: true, expectFence: true,
+			prepare: func(t *testing.T, peerStore, _ kv.Store) {
+				t.Helper()
+				if err := peerStore.Set(t.Context(), kv.Key{"by-pubkey", owner}, []byte(`{"version":1,"state":"deleted"}`)); err != nil {
+					t.Fatalf("seed owner Peer tombstone: %v", err)
+				}
+			},
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			workspaceStore := mustBadgerInMemory(t, nil)
+			peerStore := mustBadgerInMemory(t, nil)
 			if err := workspaceStore.Set(t.Context(), kv.Key{"by-id", active.Id}, mustJSON(active)); err != nil {
 				t.Fatalf("seed active Workspace: %v", err)
 			}
 			if err := workspaceStore.Set(t.Context(), kv.Key{"by-id", test.id}, test.raw); err != nil {
 				t.Fatalf("seed Workspace: %v", err)
 			}
+			if test.prepare != nil {
+				test.prepare(t, peerStore, workspaceStore)
+			}
 			listeners := []*testGiznetListener{newTestGiznetListener(), newTestGiznetListener()}
 			server := &Server{
 				LocalStatic:    *keyPair,
-				PeerStore:      mustBadgerInMemory(t, nil),
+				PeerStore:      peerStore,
 				WorkspaceStore: workspaceStore,
 				AgentHostStore: newTestObjectStore(t),
 				PeerListeners:  []giznet.Listener{listeners[0], listeners[1]},
 			}
 			completeTestServer(t, server)
+			if err := (&gameplay.Runtime{DB: server.GameplayDB}).Migration(t.Context()); err != nil {
+				t.Fatalf("migrate Gameplay: %v", err)
+			}
+			if _, err := server.GameplayDB.ExecContext(t.Context(), `INSERT INTO gameplay_workspace_reward_sources
+				(workspace_id, scheduled_checkpoint, completed_checkpoint, created_at, updated_at)
+				VALUES (?, '', '', ?, ?)`, test.id, now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano)); err != nil {
+				t.Fatalf("seed Workspace reward source: %v", err)
+			}
 			if err := server.Listen(); err != nil {
 				t.Fatalf("Listen() error = %v", err)
 			}
@@ -301,12 +369,27 @@ func TestServerListenIsolatesWorkspaceRecordFaults(t *testing.T) {
 					t.Errorf("Close() error = %v", err)
 				}
 			})
-			stored, err := workspaceStore.Get(t.Context(), kv.Key{"by-id", test.id})
-			if err != nil {
-				t.Fatalf("Workspace was not preserved: %v", err)
+			if test.preserveStored {
+				stored, err := workspaceStore.Get(t.Context(), kv.Key{"by-id", test.id})
+				if err != nil {
+					t.Fatalf("Workspace was not preserved: %v", err)
+				}
+				if !bytes.Equal(stored, test.raw) {
+					t.Fatalf("stored Workspace = %q, want %q", stored, test.raw)
+				}
 			}
-			if !bytes.Equal(stored, test.raw) {
-				t.Fatalf("stored Workspace = %q, want %q", stored, test.raw)
+			var rewardSources int
+			if err := server.GameplayDB.QueryRowContext(t.Context(),
+				`SELECT COUNT(*) FROM gameplay_workspace_reward_sources WHERE workspace_id = ?`, test.id,
+			).Scan(&rewardSources); err != nil {
+				t.Fatalf("count Workspace reward source: %v", err)
+			}
+			wantSources := 1
+			if test.expectFence {
+				wantSources = 0
+			}
+			if rewardSources != wantSources {
+				t.Fatalf("Workspace reward source count = %d, want %d", rewardSources, wantSources)
 			}
 			for index, listener := range listeners {
 				select {

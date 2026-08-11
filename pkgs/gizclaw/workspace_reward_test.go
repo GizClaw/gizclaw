@@ -69,8 +69,9 @@ func TestWorkspaceRewardEnvironmentMapsOnlyExactOwnerMissingIdentity(t *testing.
 			return fmt.Errorf("exact owner lookup: %w", runtimepeer.ErrPeerNotFound)
 		},
 	}}
-	if err := environment.EnsureWorkspaceAvailable(ctx, item.Id); !errors.Is(err, workspace.ErrPeerNotFound) {
-		t.Fatalf("EnsureWorkspaceAvailable() error = %v, want Workspace owner-missing identity", err)
+	if err := environment.EnsureWorkspaceAvailable(ctx, item.Id); !errors.Is(err, workspace.ErrPeerNotFound) ||
+		!workspace.IsExactOwnerNotFound(err) {
+		t.Fatalf("EnsureWorkspaceAvailable() error = %v, want exact Workspace owner-missing identity", err)
 	}
 }
 

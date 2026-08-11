@@ -31,7 +31,7 @@ func (environment *workspaceRewardEnvironment) EnsureWorkspaceAvailable(ctx cont
 	}
 	_, err := environment.workspaces.GetAvailableWorkspaceByID(ctx, workspaceID)
 	if errors.Is(err, runtimepeer.ErrPeerNotFound) {
-		return workspace.ErrPeerNotFound
+		return workspace.NewExactOwnerNotFoundError()
 	}
 	return err
 }

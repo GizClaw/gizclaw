@@ -207,13 +207,17 @@ func TestWorkspaceRewardLocalFaultClassificationUsesTypedIdentity(t *testing.T) 
 		wantClass string
 		wantLocal bool
 	}{
-		"Workspace pending":   {err: fmt.Errorf("wrapped: %w", workspace.ErrWorkspacePendingDeletion), wantClass: "workspace_pending_deletion", wantLocal: true},
-		"owner pending":       {err: fmt.Errorf("wrapped: %w", workspace.ErrPeerPendingDeletion), wantClass: "owner_pending_deletion", wantLocal: true},
-		"owner deleted":       {err: fmt.Errorf("wrapped: %w", workspace.ErrPeerDeleted), wantClass: "owner_deleted", wantLocal: true},
-		"owner missing":       {err: fmt.Errorf("wrapped: %w", workspace.ErrPeerNotFound), wantClass: "owner_missing", wantLocal: true},
-		"Workspace invalid":   {err: fmt.Errorf("wrapped: %w", workspace.ErrWorkspaceInvalid), wantClass: "workspace_invalid", wantLocal: true},
-		"matching error text": {err: errors.New(workspace.ErrPeerDeleted.Error())},
-		"provider failure":    {err: errors.New("provider unavailable")},
+		"Workspace pending": {err: fmt.Errorf("wrapped: %w", workspace.ErrWorkspacePendingDeletion), wantClass: "workspace_pending_deletion", wantLocal: true},
+		"owner pending":     {err: fmt.Errorf("wrapped: %w", workspace.ErrPeerPendingDeletion), wantClass: "owner_pending_deletion", wantLocal: true},
+		"owner deleted":     {err: fmt.Errorf("wrapped: %w", workspace.ErrPeerDeleted), wantClass: "owner_deleted", wantLocal: true},
+		"exact owner missing": {
+			err:       fmt.Errorf("wrapped: %w", workspace.NewExactOwnerNotFoundError()),
+			wantClass: "owner_missing", wantLocal: true,
+		},
+		"Workspace invalid":                {err: fmt.Errorf("wrapped: %w", workspace.ErrWorkspaceInvalid), wantClass: "workspace_invalid", wantLocal: true},
+		"unrelated owner missing sentinel": {err: fmt.Errorf("unrelated: %w", workspace.ErrPeerNotFound)},
+		"matching error text":              {err: errors.New(workspace.ErrPeerDeleted.Error())},
+		"provider failure":                 {err: errors.New("provider unavailable")},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
