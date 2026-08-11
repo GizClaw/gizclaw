@@ -87,10 +87,10 @@ spec:
   flowcraft:
     extraction:
       enabled: true
-      model: memory-extractor
+      model: pet-care.extract
       mode: two_pass
     embedding:
-      model: text-embedding
+      model: pet-care.embedding
     bbh:
       search_overfetch: 20
     lanes:
@@ -108,7 +108,7 @@ spec:
       custom_instructions: Extract durable pet and owner facts.
 ```
 
-All three provider blocks are required. Flowcraft extraction, embedding, and rerank models are RuntimeProfile model aliases; they are resolved only when the binding selects `driver: flowcraft`. `extraction.enabled` defaults to `true`; setting it to `false` disables model extraction while Graph-authored direct Facts remain writable.
+All three provider blocks are required. Flowcraft extraction, embedding, and rerank models are RuntimeProfile model aliases; they accept the same 1-63-byte dot-separated lowercase kebab-case grammar as RuntimeProfile bindings. Each complete alias is an opaque flat key resolved exactly, without prefix, segment, or fallback lookup. They are resolved only when the binding selects `driver: flowcraft`. `extraction.enabled` defaults to `true`; setting it to `false` disables model extraction while Graph-authored direct Facts remain writable.
 
 ```yaml
 spec:

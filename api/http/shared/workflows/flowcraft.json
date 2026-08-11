@@ -247,7 +247,7 @@
         "required": ["model"],
         "additionalProperties": false,
         "properties": {
-          "model": { "type": "string", "minLength": 1, "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "model": { "type": "string", "minLength": 1, "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" },
           "system_prompt": { "type": "string" },
           "temperature": { "type": "number" },
           "max_tokens": { "type": "integer", "minimum": 1 },
@@ -283,9 +283,9 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "asr_model": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
-          "default_voice": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
-          "node_voices": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" } }
+          "asr_model": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" },
+          "default_voice": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" },
+          "node_voices": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" } }
         }
       }
     }

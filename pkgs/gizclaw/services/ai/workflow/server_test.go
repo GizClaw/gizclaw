@@ -28,9 +28,10 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 				"graph": {
 					"name": "assistant",
 					"entry": "answer",
-					"nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}],
+					"nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "pet-care.model"}}],
 					"edges": [{"from": "answer", "to": "__end__"}]
-				}
+				},
+				"voice_adapter": {"asr_model": "pet-care.asr", "default_voice": "pet-care.pet", "node_voices": {"answer": "pet-care.answer"}}
 			}
 		}
 	}`)
@@ -71,6 +72,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	if gotSingle.Id != "demo-assistant" {
 		t.Fatalf("GetWorkflow() name = %q", gotSingle.Id)
 	}
+	assertWorkflowDottedAliases(t, gotSingle, "pet-care.model", "pet-care.asr", "pet-care.pet", "pet-care.answer")
 
 	updateDoc := mustDocument(t, `{
 		"id": "demo-assistant",
@@ -80,9 +82,10 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 				"graph": {
 					"name": "assistant",
 					"entry": "answer",
-					"nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}],
+					"nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "story-teller.model"}}],
 					"edges": [{"from": "answer", "to": "__end__"}]
-				}
+				},
+				"voice_adapter": {"asr_model": "story-teller.asr", "default_voice": "story-teller.narrator", "node_voices": {"answer": "story-teller.answer"}}
 			}
 		}
 	}`)
@@ -101,6 +104,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	if putSingle.Spec.Flowcraft == nil || putSingle.Spec.Flowcraft.Graph.Name != "assistant" {
 		t.Fatalf("PutWorkflow() spec = %#v", putSingle.Spec)
 	}
+	assertWorkflowDottedAliases(t, putSingle, "story-teller.model", "story-teller.asr", "story-teller.narrator", "story-teller.answer")
 
 	deleteResp, err := srv.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Id: created.Id})
 	if err != nil {
@@ -116,6 +120,23 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	}
 	if _, ok := getAfterDelete.(adminhttp.GetWorkflow404JSONResponse); !ok {
 		t.Fatalf("GetWorkflow() after delete response = %#v", getAfterDelete)
+	}
+}
+
+func assertWorkflowDottedAliases(t *testing.T, workflow adminhttp.WorkflowUpsert, model, asr, defaultVoice, nodeVoice string) {
+	t.Helper()
+	if workflow.Spec.Flowcraft == nil || workflow.Spec.Flowcraft.VoiceAdapter == nil ||
+		workflow.Spec.Flowcraft.VoiceAdapter.AsrModel == nil || *workflow.Spec.Flowcraft.VoiceAdapter.AsrModel != asr ||
+		workflow.Spec.Flowcraft.VoiceAdapter.DefaultVoice == nil || *workflow.Spec.Flowcraft.VoiceAdapter.DefaultVoice != defaultVoice ||
+		workflow.Spec.Flowcraft.VoiceAdapter.NodeVoices == nil || (*workflow.Spec.Flowcraft.VoiceAdapter.NodeVoices)["answer"] != nodeVoice {
+		t.Fatalf("Flowcraft voice aliases = %#v", workflow.Spec.Flowcraft)
+	}
+	raw, err := json.Marshal(workflow.Spec.Flowcraft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"model":"`+model+`"`) {
+		t.Fatalf("Flowcraft model alias was not preserved: %s", raw)
 	}
 }
 

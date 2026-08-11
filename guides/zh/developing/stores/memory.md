@@ -87,10 +87,10 @@ spec:
   flowcraft:
     extraction:
       enabled: true
-      model: memory-extractor
+      model: pet-care.extract
       mode: two_pass
     embedding:
-      model: text-embedding
+      model: pet-care.embedding
     bbh:
       search_overfetch: 20
     lanes:
@@ -108,7 +108,7 @@ spec:
       custom_instructions: Extract durable pet and owner facts.
 ```
 
-`MemoryLayout` 的三个 provider block 都必须存在。Flowcraft block 中的 extraction、embedding 和 rerank model 是 RuntimeProfile model alias；只有实际选择 `driver: flowcraft` 时才解析这些 alias。`extraction.enabled` 默认为 `true`；设为 `false` 时不运行模型提取，但 Graph 写入的 direct Facts 仍然可用。
+`MemoryLayout` 的三个 provider block 都必须存在。Flowcraft block 中的 extraction、embedding 和 rerank model 是 RuntimeProfile model alias，使用与 RuntimeProfile binding 相同的总长 1–63 字节、由 `.` 分隔的 lowercase kebab-case segment 语法。每个完整 alias 都是平面 map 中的 opaque key，只做精确解析，不支持 prefix、segment 或 fallback lookup；只有实际选择 `driver: flowcraft` 时才解析这些 alias。`extraction.enabled` 默认为 `true`；设为 `false` 时不运行模型提取，但 Graph 写入的 direct Facts 仍然可用。
 
 ```yaml
 spec:

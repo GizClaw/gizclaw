@@ -22,8 +22,8 @@ func TestMemoryLayoutResourceLifecycle(t *testing.T) {
 		"metadata": {"id": "pet-memory"},
 		"spec": {
 			"flowcraft": {
-				"extraction": {"model": "extraction", "mode": "two_pass"},
-				"embedding": {"model": "embedding"},
+				"extraction": {"model": "pet-care.extract", "mode": "two_pass"},
+				"embedding": {"model": "pet-care.embedding"},
 				"bbh": {"search_overfetch": 2},
 				"lanes": [{"name": "owner_profile", "kind": "note"}],
 				"write": {"mode": "sync", "tier": "general"}
@@ -58,7 +58,7 @@ func TestMemoryLayoutResourceLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsMemoryLayoutResource(Get) error = %v", err)
 	}
-	if layout.Spec.Flowcraft.Extraction.Model != "extraction" {
+	if layout.Spec.Flowcraft.Extraction.Model != "pet-care.extract" {
 		t.Fatalf("Get(MemoryLayout) extraction model = %q", layout.Spec.Flowcraft.Extraction.Model)
 	}
 

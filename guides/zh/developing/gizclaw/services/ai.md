@@ -64,7 +64,7 @@ Doubao Realtime factory 拥有产品层 precedence，不解释 provider model fa
 
 Flowcraft workflow factory 把扁平的 `spec.flowcraft.graph`、`conversation`、`max_iterations` 和 `voice_adapter` 与 Workspace owner 的 RuntimeProfile alias、History、State、Memory 和 Audio Dock 组装成 Transformer。Workspace `input` 缺省为 `push-to-talk`：该模式由客户端 audio EOS 完成一轮；`realtime` 复用 ASR Transformer 的 definite-utterance transcript EOS，在外层音频输入保持打开时完成一轮。客户端显式 audio route EOS 会终结当前 ASR provider session，下一条 route 再打开新 session；没有 route EOS 的连续音频仍由 provider VAD 分段。Audio Dock 与 Flowcraft 保留并顺序组合 ASR text delta，不重新解释 provider 断句。`id` 与 `name` 不在 Flowcraft payload 中重复配置，分别由 Workspace 与 Workflow metadata 派生。
 
-Public `FlowcraftWorkflowSpec` 要求显式 `graph`，Graph 至少有一个 node，且 `entry` 必须引用已定义 node。除 `llm`、inline `script` 与 `passthrough` 外，`memory_recall` 和 `memory_observe` node 负责 Memory 的消费与写入。Workflow 顶层 `memory` 是 RuntimeProfile memory alias；provider extraction、embedding、rerank、lane 与 write policy 属于其 `MemoryLayout`，不再嵌套在 Flowcraft payload。
+Public `FlowcraftWorkflowSpec` 要求显式 `graph`，Graph 至少有一个 node，且 `entry` 必须引用已定义 node。除 `llm`、inline `script` 与 `passthrough` 外，`memory_recall` 和 `memory_observe` node 负责 Memory 的消费与写入。LLM node model 与 `voice_adapter` 的 ASR、default voice、per-node voice 都保存完整 RuntimeProfile alias，使用总长 1–63 字节、由 `.` 分隔的 lowercase kebab-case segment 语法，并作为平面 opaque key 精确解析，不支持 prefix、segment 或 fallback lookup。Workflow 顶层 `memory` 是 RuntimeProfile memory alias；provider extraction、embedding、rerank、lane 与 write policy 属于其 `MemoryLayout`，不再嵌套在 Flowcraft payload。
 
 同一 Workspace 的所有 stream 共用一个 Agent instance。Factory 为当前 RuntimeProfile binding 构造或借用 Store generation，以 Workspace 名作为 AppID；reload 关闭旧 generation 并按新 snapshot 重建，但不会因为 Layout policy 变化改写持久化 identity 或删除 canonical facts。
 
