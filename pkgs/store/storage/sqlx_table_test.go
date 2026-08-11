@@ -81,7 +81,7 @@ func TestPrepareAndIdentifiersRejectUnsupportedInputs(t *testing.T) {
 func TestExternalErrorAndUnixNano(t *testing.T) {
 	underlying := errors.New("secret bound value")
 	err := ExternalSQLError("storage: sql query", underlying)
-	if !errors.Is(err, underlying) || strings.Contains(err.Error(), "secret") {
+	if !errors.Is(err, underlying) || err.Error() != "storage: sql query failed" {
 		t.Fatalf("ExternalSQLError() = %v", err)
 	}
 	want := time.Unix(100, 123).UTC()

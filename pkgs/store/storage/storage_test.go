@@ -193,8 +193,11 @@ func TestSQLConnectionErrorsDoNotExposeDSNSecrets(t *testing.T) {
 	if err == nil {
 		t.Fatal("New() error = nil")
 	}
-	if strings.Contains(err.Error(), secret) {
-		t.Fatalf("New() exposed DSN secret: %v", err)
+	if strings.Contains(err.Error(), secret) || strings.Contains(err.Error(), "invalid URL escape") {
+		t.Fatalf("New() exposed driver details: %v", err)
+	}
+	if err.Error() != `storage: sql "database" ping failed` {
+		t.Fatalf("New() omitted operation context: %v", err)
 	}
 }
 

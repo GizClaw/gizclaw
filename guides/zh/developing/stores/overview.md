@@ -93,6 +93,8 @@ SQLite/PostgreSQL KV 只声明一个单段 `prefix`；后端把它直接作为�
 
 `storage.SQLTable` 是 SQLite/PostgreSQL 借用表的唯一 dialect、identifier、quoting、初始化和 schema inspection owner；它只能由校验后的 pool 与表名构造。KV、Metrics 和 Log 继续拥有各自的业务表定义，但直接消费这个 storage capability，不再经过独立的 SQL backend helper package。
 
+SQL backend 错误在补充具体 Store 操作上下文后保留底层 error identity，受信任的调用方可以通过 Go error chain 检查具体原因。公开错误文本只描述失败的 Store 操作，不包含可能携带绑定值、DSN 或连接信息的 driver 原始文本；HTTP/RPC surface 不得向客户端泄露这些细节。
+
 ### 进程 SQLite DSN 契约
 
 `pkgs/store/storage` 接受 modernc SQLite DSN，并继续支持 `_pragma` 等
