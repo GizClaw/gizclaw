@@ -39,8 +39,8 @@ func TestRPCSpeechExtractStreamsUploadAndReturnsValidatedResult(t *testing.T) {
 	firstAudio := make(chan []byte, 1)
 	service := speechServiceFuncs{
 		extract: func(_ context.Context, request peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error) {
-			if request.ASRModelAlias != "asr-main" ||
-				request.ExtractModelAlias != "extract-main" ||
+			if request.ASRModelAlias != "journey.asr" ||
+				request.ExtractModelAlias != "journey.extract" ||
 				request.Language != "zh-CN" ||
 				request.SchemaJSON != `{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}` ||
 				request.Instruction != "extract the contact" {
@@ -80,8 +80,8 @@ func TestRPCSpeechExtractStreamsUploadAndReturnsValidatedResult(t *testing.T) {
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "extract", rpcapi.RPCMethodServerSpeechExtract,
 		rpcapi.SpeechExtractRequest{
-			ASRModelName:     "asr-main",
-			ExtractModelName: "extract-main",
+			ASRModelName:     "journey.asr",
+			ExtractModelName: "journey.extract",
 			ContentType:      "audio/L16;rate=16000;channels=1",
 			Language:         new("zh-CN"),
 			SchemaJSON:       `{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}`,
@@ -441,7 +441,7 @@ func TestRPCSpeechTranscribeStreamsUploadBeforeEOS(t *testing.T) {
 	firstAudio := make(chan []byte, 1)
 	service := speechServiceFuncs{
 		transcribe: func(_ context.Context, alias, language string, input genx.Stream) (string, error) {
-			if alias != "asr-main" || language != "zh-CN" {
+			if alias != "journey.asr" || language != "zh-CN" {
 				t.Fatalf("transcription metadata = (%q, %q)", alias, language)
 			}
 			chunk, err := input.Next()
@@ -473,7 +473,7 @@ func TestRPCSpeechTranscribeStreamsUploadBeforeEOS(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "transcribe", rpcapi.RPCMethodServerSpeechTranscribe,
-		rpcapi.SpeechTranscribeRequest{ModelName: "asr-main", ContentType: "audio/L16;rate=16000;channels=1", Language: new("zh-CN")},
+		rpcapi.SpeechTranscribeRequest{ModelName: "journey.asr", ContentType: "audio/L16;rate=16000;channels=1", Language: new("zh-CN")},
 		(*rpcapi.RPCPayload).FromSpeechTranscribeRequest)
 	if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1, 2}}); err != nil {
 		t.Fatalf("WriteFrame(first audio) error = %v", err)
@@ -506,17 +506,27 @@ func TestRPCSpeechTranscribeStreamsUploadBeforeEOS(t *testing.T) {
 	readSpeechEOS(t, stream)
 }
 
-func TestRPCSpeechAcceptsLeadingDigitRuntimeAliases(t *testing.T) {
+func TestRPCSpeechAcceptsRuntimeAliasGrammar(t *testing.T) {
 	t.Parallel()
-	if _, err := validateSpeechTranscribeRequest(rpcapi.SpeechTranscribeRequest{
-		ModelName: "2fa-asr", ContentType: "audio/L16;rate=16000;channels=1",
-	}); err != nil {
-		t.Fatalf("validateSpeechTranscribeRequest() error = %v", err)
+	for _, alias := range []string{"2fa-asr", "journey.asr"} {
+		if _, err := validateSpeechTranscribeRequest(rpcapi.SpeechTranscribeRequest{
+			ModelName: alias, ContentType: "audio/L16;rate=16000;channels=1",
+		}); err != nil {
+			t.Fatalf("validateSpeechTranscribeRequest(%q) error = %v", alias, err)
+		}
 	}
 	if _, err := validateSpeechSynthesizeRequest(rpcapi.SpeechSynthesizeRequest{
-		VoiceName: "2fa-voice", Text: "hello", AcceptedContentTypes: []string{"audio/pcm"},
+		VoiceName: "journey.narrator", Text: "hello", AcceptedContentTypes: []string{"audio/pcm"},
 	}, rpcSpeechMaxTextBytes); err != nil {
 		t.Fatalf("validateSpeechSynthesizeRequest() error = %v", err)
+	}
+	if _, _, _, err := validateSpeechExtractRequest(rpcapi.SpeechExtractRequest{
+		ASRModelName:     "journey.asr",
+		ExtractModelName: "journey.extract",
+		ContentType:      "audio/L16;rate=16000;channels=1",
+		SchemaJSON:       `{"type":"object"}`,
+	}, DefaultSpeechLimits()); err != nil {
+		t.Fatalf("validateSpeechExtractRequest() error = %v", err)
 	}
 }
 
@@ -745,7 +755,7 @@ func TestRPCSpeechSynthesizeStreamsAudioBeforeEOS(t *testing.T) {
 	release := make(chan struct{})
 	service := speechServiceFuncs{
 		synthesize: func(_ context.Context, alias, text string, accepted []string) (peergenx.SpeechSynthesis, error) {
-			if alias != "narrator" || text != "hello" {
+			if alias != "journey.narrator" || text != "hello" {
 				t.Fatalf("synthesis request = (%q, %q)", alias, text)
 			}
 			if len(accepted) != 1 || accepted[0] != "audio/pcm" {
@@ -764,7 +774,7 @@ func TestRPCSpeechSynthesizeStreamsAudioBeforeEOS(t *testing.T) {
 	stream := newSpeechClientStream(t, client)
 	defer stream.Close()
 	writeSpeechRequest(t, stream, "synthesize", rpcapi.RPCMethodServerSpeechSynthesize,
-		rpcapi.SpeechSynthesizeRequest{VoiceName: "narrator", Text: "hello", AcceptedContentTypes: []string{"audio/pcm"}},
+		rpcapi.SpeechSynthesizeRequest{VoiceName: "journey.narrator", Text: "hello", AcceptedContentTypes: []string{"audio/pcm"}},
 		(*rpcapi.RPCPayload).FromSpeechSynthesizeRequest)
 	if err := stream.WriteEOS(); err != nil {
 		t.Fatalf("WriteEOS() error = %v", err)

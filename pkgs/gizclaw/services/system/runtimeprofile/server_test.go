@@ -784,6 +784,206 @@ func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
 	}
 }
 
+func TestRuntimeProfileAliasGrammar(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		alias   string
+		wantErr bool
+	}{
+		{name: "legacy", alias: "pet-chat"},
+		{name: "multiple scopes", alias: "story.journey.center-earth"},
+		{name: "63 bytes", alias: strings.Repeat("a", 30) + "." + strings.Repeat("b", 32)},
+		{name: "empty", wantErr: true},
+		{name: "64 bytes", alias: strings.Repeat("a", 31) + "." + strings.Repeat("b", 32), wantErr: true},
+		{name: "leading dot", alias: ".voice", wantErr: true},
+		{name: "trailing dot", alias: "raid.", wantErr: true},
+		{name: "empty segment", alias: "raid..voice", wantErr: true},
+		{name: "leading segment hyphen", alias: "raid.-voice", wantErr: true},
+		{name: "trailing segment hyphen", alias: "raid-.voice", wantErr: true},
+		{name: "underscore", alias: "story.journey_center_earth", wantErr: true},
+		{name: "uppercase", alias: "Story.journey", wantErr: true},
+		{name: "slash", alias: "story/journey", wantErr: true},
+		{name: "internal whitespace", alias: "story. journey", wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := ValidateAlias("test alias", test.alias)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("ValidateAlias(%q) error = %v, wantErr %t", test.alias, err, test.wantErr)
+			}
+			if test.wantErr && (err == nil || !strings.Contains(err.Error(), "1-63 bytes of dot-separated lowercase kebab-case segments")) {
+				t.Fatalf("ValidateAlias(%q) error = %v, want byte and segment grammar", test.alias, err)
+			}
+		})
+	}
+}
+
+func TestRuntimeProfileCreateAndUpdatePreserveScopedAliases(t *testing.T) {
+	t.Parallel()
+	profile := scopedAliasProfileForTest(t)
+	server := &Server{Store: kv.NewMemory(nil)}
+	t.Cleanup(func() { _ = server.Store.Close() })
+
+	response, err := server.CreateRuntimeProfile(t.Context(), adminhttp.CreateRuntimeProfileRequestObject{Body: &profile})
+	if err != nil {
+		t.Fatalf("CreateRuntimeProfile() error = %v", err)
+	}
+	created, ok := response.(adminhttp.CreateRuntimeProfile200JSONResponse)
+	if !ok {
+		t.Fatalf("CreateRuntimeProfile() response = %#v", response)
+	}
+	assertScopedProfileAliases(t, created.Spec)
+
+	updated := profile
+	voices := map[string]apitypes.RuntimeProfileBinding{
+		" journey.narrator ": runtimeProfileTestBinding("journey-voice-v2"),
+		"journey-narrator":   runtimeProfileTestBinding("legacy-voice"),
+	}
+	updated.Spec.Resources.Voices = &voices
+	putResponse, err := server.PutRuntimeProfile(t.Context(), adminhttp.PutRuntimeProfileRequestObject{Id: profile.Id, Body: &updated})
+	if err != nil {
+		t.Fatalf("PutRuntimeProfile() error = %v", err)
+	}
+	put, ok := putResponse.(adminhttp.PutRuntimeProfile200JSONResponse)
+	if !ok {
+		t.Fatalf("PutRuntimeProfile() response = %#v", putResponse)
+	}
+	assertScopedProfileAliases(t, put.Spec)
+	if got := (*put.Spec.Resources.Voices)["journey.narrator"].ResourceId; got != "journey-voice-v2" {
+		t.Fatalf("updated journey.narrator resource_id = %q, want journey-voice-v2", got)
+	}
+}
+
+func scopedAliasProfileForTest(t *testing.T) adminhttp.RuntimeProfileUpsert {
+	t.Helper()
+	models := map[string]apitypes.RuntimeProfileBinding{
+		"journey.model":     runtimeProfileTestBinding("journey-model"),
+		"reward.evaluator":  runtimeProfileTestBinding("reward-model"),
+		"game.reward-model": runtimeProfileTestBinding("game-reward-model"),
+	}
+	voices := map[string]apitypes.RuntimeProfileBinding{
+		"journey.narrator": runtimeProfileTestBinding("journey-voice"),
+		"journey-narrator": runtimeProfileTestBinding("legacy-voice"),
+	}
+	tools := map[string]apitypes.RuntimeProfileBinding{
+		"journey.tool": runtimeProfileTestBinding("journey-tool"),
+	}
+	petDefs := map[string]apitypes.RuntimeProfileBinding{
+		"pet-care.definition": runtimeProfileTestBinding("pet-definition"),
+	}
+	gameDefs := map[string]apitypes.RuntimeProfileBinding{
+		"journey.game": runtimeProfileTestBinding("journey-game"),
+	}
+	badgeDefs := map[string]apitypes.RuntimeProfileBinding{
+		"reward.science": runtimeProfileTestBinding("science-badge"),
+	}
+	var memory apitypes.RuntimeProfileMemoryBinding
+	if err := json.Unmarshal([]byte(`{
+		"layout_id":"journey-memory-layout",
+		"driver":"mem0",
+		"connection":{"type":"mem0","project_id":"project","endpoint":"https://api.mem0.ai","api_key":"key"}
+	}`), &memory); err != nil {
+		t.Fatalf("decode Memory binding: %v", err)
+	}
+	memories := map[string]apitypes.RuntimeProfileMemoryBinding{
+		"journey.memory": memory,
+	}
+
+	pet := validPetGameplaySpecForTest()
+	pet.Games = map[string]apitypes.RuntimeProfileGameSpec{
+		"journey.game": {
+			EnergyCost: 10,
+			Reward: apitypes.RuntimeProfileGameRewardSpec{
+				Model: "game.reward-model", Prompt: "Evaluate the game result.", PetExpMax: 10, BadgeExpMaxPerBadge: 5,
+			},
+		},
+	}
+	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "pet-care.definition", Weight: 1}}
+	reward := validWorkspaceRewardProfileForTest().Spec.Gameplay.WorkspaceReward
+	reward.Evaluation.Model = "reward.evaluator"
+	rewardBadges := map[string]apitypes.RuntimeProfileWorkspaceRewardBadgeSpec{
+		"reward.science": {MaxExpPerWindow: 5},
+	}
+	reward.Badges = &rewardBadges
+
+	return adminhttp.RuntimeProfileUpsert{
+		Id: "scoped-profile",
+		Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				System: runtimeProfileTestSystemWorkflows(),
+				Collections: apitypes.RuntimeProfileWorkflowCollections{
+					"story.catalog": {
+						"story.journey-center-earth": runtimeProfileTestBinding("journey-workflow"),
+					},
+				},
+			},
+			Resources: apitypes.RuntimeProfileResources{
+				Models: &models, Voices: &voices, Tools: &tools, PetDefs: &petDefs,
+				GameDefs: &gameDefs, BadgeDefs: &badgeDefs, Memories: &memories,
+			},
+			Gameplay: &apitypes.RuntimeProfileGameplaySpec{
+				Adoption: &apitypes.RuntimeProfileAdoptionSpec{Pool: &pool},
+				Pet:      &pet, WorkspaceReward: reward,
+			},
+		},
+	}
+}
+
+func assertScopedProfileAliases(t *testing.T, spec apitypes.RuntimeProfileSpec) {
+	t.Helper()
+	if _, ok := spec.Workflows.Collections["story.catalog"]["story.journey-center-earth"]; !ok {
+		t.Fatalf("Workflow collections = %#v", spec.Workflows.Collections)
+	}
+	for name, aliases := range map[string][]string{
+		"models":     {"journey.model", "reward.evaluator", "game.reward-model"},
+		"voices":     {"journey.narrator", "journey-narrator"},
+		"tools":      {"journey.tool"},
+		"pet_defs":   {"pet-care.definition"},
+		"game_defs":  {"journey.game"},
+		"badge_defs": {"reward.science"},
+	} {
+		var bindings *map[string]apitypes.RuntimeProfileBinding
+		switch name {
+		case "models":
+			bindings = spec.Resources.Models
+		case "voices":
+			bindings = spec.Resources.Voices
+		case "tools":
+			bindings = spec.Resources.Tools
+		case "pet_defs":
+			bindings = spec.Resources.PetDefs
+		case "game_defs":
+			bindings = spec.Resources.GameDefs
+		case "badge_defs":
+			bindings = spec.Resources.BadgeDefs
+		}
+		for _, alias := range aliases {
+			if bindings == nil {
+				t.Fatalf("%s bindings are nil", name)
+			}
+			if _, ok := (*bindings)[alias]; !ok {
+				t.Fatalf("%s aliases = %#v, missing %q", name, *bindings, alias)
+			}
+		}
+	}
+	if spec.Resources.Memories == nil {
+		t.Fatal("Memory bindings are nil")
+	}
+	if _, ok := (*spec.Resources.Memories)["journey.memory"]; !ok {
+		t.Fatalf("Memory aliases = %#v", *spec.Resources.Memories)
+	}
+	if spec.Gameplay == nil || spec.Gameplay.Adoption == nil || spec.Gameplay.Adoption.Pool == nil ||
+		(*spec.Gameplay.Adoption.Pool)[0].PetDef != "pet-care.definition" ||
+		spec.Gameplay.Pet == nil || spec.Gameplay.Pet.Games["journey.game"].Reward.Model != "game.reward-model" ||
+		spec.Gameplay.WorkspaceReward == nil || spec.Gameplay.WorkspaceReward.Evaluation.Model != "reward.evaluator" {
+		t.Fatalf("gameplay dotted references = %#v", spec.Gameplay)
+	}
+	if _, ok := (*spec.Gameplay.WorkspaceReward.Badges)["reward.science"]; !ok {
+		t.Fatalf("workspace reward Badge aliases = %#v", *spec.Gameplay.WorkspaceReward.Badges)
+	}
+}
+
 func TestRuntimeProfileRejectsWorkflowCollectionsDuplicatedAfterNormalization(t *testing.T) {
 	t.Parallel()
 	_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{

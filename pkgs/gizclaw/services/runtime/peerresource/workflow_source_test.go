@@ -25,12 +25,12 @@ func TestListRuntimeWorkflowsUsesCollectionAliasesAndSkipsDanglingBindings(t *te
 	createWorkflowForCollectionTest(t, ctx, workflows, "runtime-chat")
 	createWorkflowForCollectionTest(t, ctx, workflows, "runtime-translate")
 	bindings := map[string]apitypes.RuntimeProfileBinding{
-		"translate": collectionTestBinding("runtime-translate", "Translate"),
-		"chat":      collectionTestBinding("runtime-chat", "Chat"),
-		"missing":   collectionTestBinding("deleted-workflow", "Missing"),
+		"story.translate": collectionTestBinding("runtime-translate", "Translate"),
+		"story-translate": collectionTestBinding("runtime-chat", "Chat"),
+		"story.missing":   collectionTestBinding("deleted-workflow", "Missing"),
 	}
 	server := &Server{Workflows: workflows}
-	items, err := server.listRuntimeWorkflows(ctx, "assistants", bindings, []string{"chat", "missing", "translate"})
+	items, err := server.listRuntimeWorkflows(ctx, "assistants", bindings, []string{"story-translate", "story.missing", "story.translate"})
 	if err != nil {
 		t.Fatalf("listRuntimeWorkflows() error = %v", err)
 	}
@@ -40,11 +40,11 @@ func TestListRuntimeWorkflowsUsesCollectionAliasesAndSkipsDanglingBindings(t *te
 		if item.Collection != "assistants" || item.I18n["en"].DisplayName == "" {
 			t.Fatalf("workflow projection = %#v", item)
 		}
-		if item.Name == "translate" && (item.WorkspaceLangPair == nil || *item.WorkspaceLangPair != "zh/ja") {
+		if item.Name == "story.translate" && (item.WorkspaceLangPair == nil || *item.WorkspaceLangPair != "zh/ja") {
 			t.Fatalf("translation workflow projection = %#v", item)
 		}
 	}
-	if !reflect.DeepEqual(aliases, []string{"chat", "translate"}) {
+	if !reflect.DeepEqual(aliases, []string{"story-translate", "story.translate"}) {
 		t.Fatalf("aliases = %#v", aliases)
 	}
 }
@@ -110,6 +110,42 @@ func TestAliasGetsHideDanglingCanonicalResourceIDs(t *testing.T) {
 	assertAliasNotFound(t, server.handleVoiceGet(context.Background(), &rpcapi.RPCRequest{Id: "voice", Params: &voicePayload}), "voice not found", "volc-tenant:main:canonical-secret")
 }
 
+func TestResolveAliasesKeepsDottedAndHyphenatedNamesDistinct(t *testing.T) {
+	t.Parallel()
+	models := map[string]apitypes.RuntimeProfileBinding{
+		"journey.model": collectionTestBinding("journey-model", "Journey Model"),
+		"journey-model": collectionTestBinding("legacy-model", "Legacy Model"),
+	}
+	voices := map[string]apitypes.RuntimeProfileBinding{
+		"journey.narrator": collectionTestBinding("journey-voice", "Journey Voice"),
+		"journey-narrator": collectionTestBinding("legacy-voice", "Legacy Voice"),
+	}
+	profile := apitypes.RuntimeProfile{
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices}},
+	}
+	server := &Server{RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile }}
+
+	for alias, want := range map[string]string{
+		"journey.model": "journey-model",
+		"journey-model": "legacy-model",
+	} {
+		if got, ok := server.ResolveModelAlias(alias); !ok || got != want {
+			t.Fatalf("ResolveModelAlias(%q) = (%q, %t), want (%q, true)", alias, got, ok, want)
+		}
+	}
+	for alias, want := range map[string]string{
+		"journey.narrator": "journey-voice",
+		"journey-narrator": "legacy-voice",
+	} {
+		if got, ok := server.ResolveVoiceAlias(alias); !ok || got != want {
+			t.Fatalf("ResolveVoiceAlias(%q) = (%q, %t), want (%q, true)", alias, got, ok, want)
+		}
+	}
+	if _, ok := server.ResolveVoiceAlias("narrator"); ok {
+		t.Fatal("ResolveVoiceAlias(narrator) used fallback, want not found")
+	}
+}
+
 func TestListModelsProjectsRuntimeAliases(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -144,9 +180,9 @@ func TestListModelsProjectsRuntimeAliases(t *testing.T) {
 		t.Fatalf("CreateModel() response = %#v", response)
 	}
 	bindings := map[string]apitypes.RuntimeProfileBinding{
-		"extract-model":  collectionTestBinding(created.Id, "Extract Model"),
-		"generate-model": collectionTestBinding(created.Id, "Generate Model"),
-		"missing-model":  collectionTestBinding("deleted-model", "Missing Model"),
+		"journey.model": collectionTestBinding(created.Id, "Journey Model"),
+		"journey-model": collectionTestBinding(created.Id, "Legacy Journey Model"),
+		"missing.model": collectionTestBinding("deleted-model", "Missing Model"),
 	}
 	profile := apitypes.RuntimeProfile{
 		Id: "default", Revision: "r1",
@@ -166,15 +202,15 @@ func TestListModelsProjectsRuntimeAliases(t *testing.T) {
 	for i, item := range list.Items {
 		ids[i] = item.Id
 	}
-	if want := []string{"extract-model", "generate-model"}; !reflect.DeepEqual(ids, want) {
+	if want := []string{"journey-model", "journey.model"}; !reflect.DeepEqual(ids, want) {
 		t.Fatalf("ListModels() ids = %#v, want aliases %#v", ids, want)
 	}
-	gotResponse, err := server.GetModel(ctx, adminhttp.GetModelRequestObject{Id: "generate-model"})
+	gotResponse, err := server.GetModel(ctx, adminhttp.GetModelRequestObject{Id: "journey.model"})
 	if err != nil {
 		t.Fatalf("GetModel(alias) error = %v", err)
 	}
 	got, ok := gotResponse.(adminhttp.GetModel200JSONResponse)
-	if !ok || got.Id != "generate-model" {
+	if !ok || got.Id != "journey.model" {
 		t.Fatalf("GetModel(alias) = %#v", gotResponse)
 	}
 	canonicalResponse, err := server.GetModel(ctx, adminhttp.GetModelRequestObject{Id: "tenant-model-canonical"})
@@ -205,9 +241,9 @@ func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
 		t.Fatalf("CreateVoice() response = %#v", response)
 	}
 	bindings := map[string]apitypes.RuntimeProfileBinding{
-		"assistant-voice": collectionTestBinding(created.Id, "Assistant Voice"),
-		"narrator-voice":  collectionTestBinding(created.Id, "Narrator Voice"),
-		"missing-voice":   collectionTestBinding("openai-tenant:primary:deleted", "Missing Voice"),
+		"journey.narrator": collectionTestBinding(created.Id, "Journey Narrator"),
+		"journey-narrator": collectionTestBinding(created.Id, "Legacy Journey Narrator"),
+		"missing.narrator": collectionTestBinding("openai-tenant:primary:deleted", "Missing Voice"),
 	}
 	profile := apitypes.RuntimeProfile{
 		Id: "default", Revision: "r1",
@@ -227,15 +263,15 @@ func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
 	for i, item := range list.Items {
 		ids[i] = string(item.Id)
 	}
-	if want := []string{"assistant-voice", "narrator-voice"}; !reflect.DeepEqual(ids, want) {
+	if want := []string{"journey-narrator", "journey.narrator"}; !reflect.DeepEqual(ids, want) {
 		t.Fatalf("ListVoices() ids = %#v, want aliases %#v", ids, want)
 	}
-	gotResponse, err := server.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: "narrator-voice"})
+	gotResponse, err := server.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: "journey.narrator"})
 	if err != nil {
 		t.Fatalf("GetVoice(alias) error = %v", err)
 	}
 	got, ok := gotResponse.(adminhttp.GetVoice200JSONResponse)
-	if !ok || got.Id != "narrator-voice" {
+	if !ok || got.Id != "journey.narrator" {
 		t.Fatalf("GetVoice(alias) = %#v", gotResponse)
 	}
 	canonicalResponse, err := server.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: created.Id})
@@ -262,12 +298,12 @@ func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
 	for i, item := range rpcList.Items {
 		rpcAliases[i] = item.Name
 	}
-	if want := []string{"assistant-voice", "narrator-voice"}; !reflect.DeepEqual(rpcAliases, want) {
+	if want := []string{"journey-narrator", "journey.narrator"}; !reflect.DeepEqual(rpcAliases, want) {
 		t.Fatalf("handleVoiceList() aliases = %#v, want %#v", rpcAliases, want)
 	}
 
 	var getPayload rpcapi.RPCPayload
-	if err := getPayload.FromVoiceGetRequest(rpcapi.VoiceGetRequest{Name: "narrator-voice"}); err != nil {
+	if err := getPayload.FromVoiceGetRequest(rpcapi.VoiceGetRequest{Name: "journey.narrator"}); err != nil {
 		t.Fatal(err)
 	}
 	rpcGetResponse := server.handleVoiceGet(ctx, &rpcapi.RPCRequest{Id: "voice-get", Params: &getPayload})
@@ -278,8 +314,8 @@ func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsVoiceGetResponse() error = %v", err)
 	}
-	if rpcGet.Value.Name != "narrator-voice" {
-		t.Fatalf("handleVoiceGet() alias = %q, want narrator-voice", rpcGet.Value.Name)
+	if rpcGet.Value.Name != "journey.narrator" {
+		t.Fatalf("handleVoiceGet() alias = %q, want journey.narrator", rpcGet.Value.Name)
 	}
 }
 
