@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math"
 	"net/url"
-	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -19,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -39,7 +39,6 @@ const (
 	maxWorkspaceRewardPeriod    = 365 * 24 * time.Hour
 )
 
-var runtimeAliasPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)*$`)
 var errResourceResolverNotConfigured = errors.New("resource resolver not configured")
 
 // Server owns RuntimeProfile and RegistrationToken state.
@@ -1475,10 +1474,7 @@ func normalizeBindingMap(values map[string]apitypes.RuntimeProfileBinding) (map[
 // ValidateAlias applies the canonical RuntimeProfile alias contract used by
 // profile bindings and resources that persist those aliases.
 func ValidateAlias(kind, value string) error {
-	if len(value) == 0 || len(value) > 63 || !runtimeAliasPattern.MatchString(value) {
-		return fmt.Errorf("%s %q must be 1-63 bytes of dot-separated lowercase kebab-case segments", kind, value)
-	}
-	return nil
+	return runtimealias.Validate(kind, value)
 }
 
 func setProfileRevision(item *apitypes.RuntimeProfile) error {

@@ -77,6 +77,54 @@ func TestServerMemoryLayoutLifecycle(t *testing.T) {
 	}
 }
 
+func TestServerMemoryLayoutPreservesDottedRuntimeAliases(t *testing.T) {
+	server := newTestServer(t)
+	layout := testLayout(t, "pet-memory")
+	layout.Spec.Flowcraft.Extraction.Model = " pet-care.extract "
+	layout.Spec.Flowcraft.Embedding.Model = "pet-care.embedding"
+	layout.Spec.Flowcraft.Rerank.Model = "pet-care.rerank"
+
+	createResponse, err := server.CreateMemoryLayout(t.Context(), adminhttp.CreateMemoryLayoutRequestObject{Body: &layout})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, ok := createResponse.(adminhttp.CreateMemoryLayout200JSONResponse)
+	if !ok {
+		t.Fatalf("CreateMemoryLayout() = %#v", createResponse)
+	}
+	assertMemoryLayoutModelAliases(t, created.Spec, "pet-care.extract", "pet-care.embedding", "pet-care.rerank")
+
+	created.Spec.Flowcraft.Extraction.Model = "story-teller.extract"
+	putBody := adminhttp.MemoryLayoutUpsert{Id: created.Id, Spec: created.Spec}
+	putResponse, err := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Id: created.Id, Body: &putBody})
+	if err != nil {
+		t.Fatal(err)
+	}
+	put, ok := putResponse.(adminhttp.PutMemoryLayout200JSONResponse)
+	if !ok {
+		t.Fatalf("PutMemoryLayout() = %#v", putResponse)
+	}
+	assertMemoryLayoutModelAliases(t, put.Spec, "story-teller.extract", "pet-care.embedding", "pet-care.rerank")
+
+	getResponse, err := server.GetMemoryLayout(t.Context(), adminhttp.GetMemoryLayoutRequestObject{Id: created.Id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := getResponse.(adminhttp.GetMemoryLayout200JSONResponse)
+	if !ok {
+		t.Fatalf("GetMemoryLayout() = %#v", getResponse)
+	}
+	assertMemoryLayoutModelAliases(t, got.Spec, "story-teller.extract", "pet-care.embedding", "pet-care.rerank")
+}
+
+func assertMemoryLayoutModelAliases(t *testing.T, spec apitypes.MemoryLayoutSpec, extraction, embedding, rerank string) {
+	t.Helper()
+	if spec.Flowcraft.Extraction.Model != extraction || spec.Flowcraft.Embedding == nil || spec.Flowcraft.Embedding.Model != embedding ||
+		spec.Flowcraft.Rerank == nil || spec.Flowcraft.Rerank.Model != rerank {
+		t.Fatalf("MemoryLayout model aliases = %#v", spec.Flowcraft)
+	}
+}
+
 func TestServerMemoryLayoutAcceptsOpaqueIDWithKVSeparator(t *testing.T) {
 	server := newTestServer(t)
 	layout := testLayout(t, "tenant:memory")
@@ -198,6 +246,9 @@ func TestServerRejectsInvalidMemoryLayouts(t *testing.T) {
 		{"invalid extraction timeout", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Flowcraft.Extraction.StageTimeout = new("0s")
 		}, "stage_timeout"},
+		{"invalid dotted extraction alias", func(layout *adminhttp.MemoryLayoutUpsert) {
+			layout.Spec.Flowcraft.Extraction.Model = "pet-care..extract"
+		}, "RuntimeProfile alias"},
 		{"invalid overfetch", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Flowcraft.Bbh.SearchOverfetch = new(0)
 		}, "search_overfetch"},

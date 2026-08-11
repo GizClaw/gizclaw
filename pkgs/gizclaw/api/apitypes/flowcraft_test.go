@@ -49,6 +49,31 @@ func TestFlowcraftWorkflowSpecJSONRoundTrip(t *testing.T) {
 	}
 }
 
+func TestFlowcraftWorkflowSpecAcceptsDottedRuntimeAliases(t *testing.T) {
+	raw := strings.NewReplacer(
+		`"model":"llm"`, `"model":"pet-care.model"`,
+		`"asr_model":"asr"`, `"asr_model":"pet-care.asr"`,
+		`"default_voice":"narrator"`, `"default_voice":"pet-care.pet","node_voices":{"answer":"pet-care.answer"}`,
+	).Replace(flowcraftSpecJSON)
+
+	var spec FlowcraftWorkflowSpec
+	if err := json.Unmarshal([]byte(raw), &spec); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if spec.VoiceAdapter == nil || spec.VoiceAdapter.AsrModel == nil || *spec.VoiceAdapter.AsrModel != "pet-care.asr" ||
+		spec.VoiceAdapter.DefaultVoice == nil || *spec.VoiceAdapter.DefaultVoice != "pet-care.pet" ||
+		spec.VoiceAdapter.NodeVoices == nil || (*spec.VoiceAdapter.NodeVoices)["answer"] != "pet-care.answer" {
+		t.Fatalf("voice_adapter = %#v", spec.VoiceAdapter)
+	}
+	encoded, err := json.Marshal(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(encoded), `"model":"pet-care.model"`) {
+		t.Fatalf("encoded spec does not preserve dotted model alias: %s", encoded)
+	}
+}
+
 func TestFlowcraftWorkflowSpecYAMLDecode(t *testing.T) {
 	var spec FlowcraftWorkflowSpec
 	if err := yaml.Unmarshal([]byte(`
@@ -59,7 +84,7 @@ graph:
     - id: answer
       type: llm
       publish: true
-      config: {model: llm}
+      config: {model: pet-care.model}
 `), &spec); err != nil {
 		t.Fatal(err)
 	}
@@ -81,6 +106,12 @@ func TestFlowcraftWorkflowSpecRejectsInvalidConfig(t *testing.T) {
 		"missing publisher": {raw: strings.Replace(flowcraftSpecJSON, `,"publish":true`, ``, 1), want: "publish=true"},
 		"model resource ID": {raw: strings.Replace(flowcraftSpecJSON, `"model":"llm"`, `"model":"model/llm"`, 1), want: "RuntimeProfile alias"},
 		"voice resource ID": {raw: strings.Replace(flowcraftSpecJSON, `"default_voice":"narrator"`, `"default_voice":"voice/narrator"`, 1), want: "RuntimeProfile alias"},
+		"empty ASR alias":   {raw: strings.Replace(flowcraftSpecJSON, `"asr_model":"asr"`, `"asr_model":""`, 1), want: "1-63 bytes"},
+		"blank voice alias": {raw: strings.Replace(flowcraftSpecJSON, `"default_voice":"narrator"`, `"default_voice":" "`, 1), want: "1-63 bytes"},
+		"overlong model alias": {
+			raw:  strings.Replace(flowcraftSpecJSON, `"model":"llm"`, `"model":"`+strings.Repeat("a", 64)+`"`, 1),
+			want: "1-63 bytes",
+		},
 		"empty observation": {
 			raw:  strings.Replace(flowcraftSpecJSON, `{"turns_from":"conversation"}`, `{}`, 1),
 			want: "must select exactly one",

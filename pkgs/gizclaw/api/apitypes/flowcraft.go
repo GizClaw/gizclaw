@@ -5,11 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
-)
 
-var flowcraftRuntimeAliasPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
+)
 
 // UnmarshalJSON keeps the generated Flowcraft shape strict at every public
 // JSON boundary. FlowcraftNode is a generated raw union, so its selected
@@ -204,9 +203,6 @@ func validateFlowcraftVoiceAdapter(adapter *FlowcraftVoiceAdapter) error {
 		}
 	}
 	for field, alias := range aliases {
-		if strings.TrimSpace(alias) == "" {
-			continue
-		}
 		if err := validateFlowcraftAlias(field, alias); err != nil {
 			return err
 		}
@@ -215,10 +211,7 @@ func validateFlowcraftVoiceAdapter(adapter *FlowcraftVoiceAdapter) error {
 }
 
 func validateFlowcraftAlias(field, alias string) error {
-	if len(alias) > 63 || !flowcraftRuntimeAliasPattern.MatchString(alias) {
-		return fmt.Errorf("%s must be a 1-63 character lowercase kebab-case RuntimeProfile alias", field)
-	}
-	return nil
+	return runtimealias.Validate(field, alias)
 }
 
 func decodeStrictJSON(data []byte, target any) error {

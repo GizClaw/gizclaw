@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -16,13 +15,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-var (
-	layoutsRoot         = kv.Key{"by-id"}
-	runtimeAliasPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
-)
+var layoutsRoot = kv.Key{"by-id"}
 
 const (
 	defaultListLimit = 50
@@ -210,7 +207,7 @@ func validate(item apitypes.MemoryLayout, expectedID string) (apitypes.MemoryLay
 	if item.Spec.Flowcraft.Extraction.Model == "" {
 		return apitypes.MemoryLayout{}, nil, errors.New("spec.flowcraft.extraction.model is required")
 	}
-	if err := validateRuntimeAlias("spec.flowcraft.extraction.model", item.Spec.Flowcraft.Extraction.Model); err != nil {
+	if err := runtimealias.Validate("spec.flowcraft.extraction.model", item.Spec.Flowcraft.Extraction.Model); err != nil {
 		return apitypes.MemoryLayout{}, nil, err
 	}
 	if !item.Spec.Flowcraft.Extraction.Mode.Valid() {
@@ -229,7 +226,7 @@ func validate(item apitypes.MemoryLayout, expectedID string) (apitypes.MemoryLay
 	} {
 		if model != nil {
 			model.Model = strings.TrimSpace(model.Model)
-			if err := validateRuntimeAlias(path+".model", model.Model); err != nil {
+			if err := runtimealias.Validate(path+".model", model.Model); err != nil {
 				return apitypes.MemoryLayout{}, nil, err
 			}
 		}
@@ -344,14 +341,6 @@ func NormalizeSpec(id string, spec apitypes.MemoryLayoutSpec) (apitypes.MemoryLa
 		return apitypes.MemoryLayoutSpec{}, err
 	}
 	return item.Spec, nil
-}
-
-func validateRuntimeAlias(path, value string) error {
-	value = strings.TrimSpace(value)
-	if len(value) == 0 || len(value) > 63 || !runtimeAliasPattern.MatchString(value) {
-		return fmt.Errorf("%s %q must be 1-63 characters of lowercase kebab-case", path, value)
-	}
-	return nil
 }
 
 func decode(raw []byte) (apitypes.MemoryLayout, error) {

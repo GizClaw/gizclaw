@@ -2,6 +2,7 @@ package resourcemanager
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -19,7 +20,7 @@ func TestApplyWorkflowCreatesResource(t *testing.T) {
 		"metadata": {"id": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "pet-care.model"}}], "edges": [{"from": "answer", "to": "__end__"}]}, "voice_adapter": {"default_voice": "pet-care.pet"}}		}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply returned error: %v", err)
@@ -30,8 +31,30 @@ func TestApplyWorkflowCreatesResource(t *testing.T) {
 	if workflows.putCount != 1 {
 		t.Fatalf("putCount = %d, want 1", workflows.putCount)
 	}
-	if _, ok := workflows.items["workflow"]; !ok {
+	stored, ok := workflows.items["workflow"]
+	if !ok {
 		t.Fatal("stored workflow missing")
+	}
+	raw, err := json.Marshal(stored.Spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"model":"pet-care.model"`) || !strings.Contains(string(raw), `"default_voice":"pet-care.pet"`) {
+		t.Fatalf("stored Workflow aliases = %s", raw)
+	}
+	unchanged, err := manager.Apply(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Workflow",
+		"metadata": {"id": "workflow"},
+		"spec": {
+			"driver": "flowcraft",
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "pet-care.model"}}], "edges": [{"from": "answer", "to": "__end__"}]}, "voice_adapter": {"default_voice": "pet-care.pet"}}		}
+	}`))
+	if err != nil {
+		t.Fatalf("Apply unchanged Workflow returned error: %v", err)
+	}
+	if unchanged.Action != apitypes.ApplyActionUnchanged || workflows.putCount != 1 {
+		t.Fatalf("Apply unchanged Workflow = %#v, putCount = %d", unchanged, workflows.putCount)
 	}
 }
 
@@ -41,7 +64,7 @@ func TestGetWorkflowReturnsResource(t *testing.T) {
 		"id": "workflow",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "pet-care.model"}}], "edges": [{"from": "answer", "to": "__end__"}]}, "voice_adapter": {"default_voice": "pet-care.pet"}}		}
 	}`)
 	manager := New(Services{Workflows: workflows})
 
@@ -72,7 +95,7 @@ func TestPutWorkflowWritesResource(t *testing.T) {
 		"metadata": {"id": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "pet-care.model"}}], "edges": [{"from": "answer", "to": "__end__"}]}, "voice_adapter": {"default_voice": "pet-care.pet"}}		}
 	}`))
 	if err != nil {
 		t.Fatalf("Put returned error: %v", err)

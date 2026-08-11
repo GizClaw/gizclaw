@@ -512,6 +512,44 @@ func TestValidateFlowcraftRuntimeAliasesRejectsWrongModelKindAndMissingVoice(t *
 	}
 }
 
+func TestValidateDottedMemoryLayoutAndFlowcraftRuntimeAliases(t *testing.T) {
+	t.Parallel()
+
+	models := map[string]apitypes.ModelResource{
+		"pet-care.extract":   {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
+		"pet-care.embedding": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindEmbedding}},
+		"pet-care.rerank":    {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
+		"pet-care.model":     {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
+	}
+	voices := map[string]apitypes.VoiceResource{"pet-care.pet": {}}
+	layout := apitypes.MemoryLayoutSpec{Flowcraft: apitypes.FlowcraftMemoryLayoutPolicy{
+		Extraction: apitypes.FlowcraftMemoryExtractionPolicy{Model: "pet-care.extract"},
+		Embedding:  &apitypes.FlowcraftMemoryModelPolicy{Model: "pet-care.embedding"},
+		Rerank:     &apitypes.FlowcraftMemoryModelPolicy{Model: "pet-care.rerank"},
+	}}
+	if err := validateMemoryLayoutRuntimeAliases("resources.memories.pet-care", apitypes.RuntimeProfileMemoryDriverFlowcraft, layout, models); err != nil {
+		t.Fatalf("validateMemoryLayoutRuntimeAliases() error = %v", err)
+	}
+	workflow := apitypes.WorkflowSpec{
+		Driver:    apitypes.WorkflowDriverFlowcraft,
+		Flowcraft: runtimeProfileTestFlowcraftSpec(t, "pet-care.model", "pet-care.pet"),
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.pets.pet-care", workflow, models, voices); err != nil {
+		t.Fatalf("validateWorkflowRuntimeAliases() error = %v", err)
+	}
+
+	delete(models, "pet-care.extract")
+	if err := validateMemoryLayoutRuntimeAliases("resources.memories.pet-care", apitypes.RuntimeProfileMemoryDriverFlowcraft, layout, models); err == nil ||
+		!strings.Contains(err.Error(), `model alias "pet-care.extract" is not declared`) {
+		t.Fatalf("validateMemoryLayoutRuntimeAliases(missing dotted alias) error = %v", err)
+	}
+	delete(voices, "pet-care.pet")
+	if err := validateWorkflowRuntimeAliases("workflows.collections.pets.pet-care", workflow, models, voices); err == nil ||
+		!strings.Contains(err.Error(), `voice alias "pet-care.pet" is not declared`) {
+		t.Fatalf("validateWorkflowRuntimeAliases(missing dotted alias) error = %v", err)
+	}
+}
+
 func TestValidateChatroomRuntimeAliasesRequiresASRWhenTranscriptionIsEnabled(t *testing.T) {
 	t.Parallel()
 	enabled := true
