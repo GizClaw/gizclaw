@@ -33,6 +33,12 @@ Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service 
 
 启动顺序依次为严格解析配置、打开物理 connector、构造逻辑 Store、解析 service 能力、由活跃 SQL 服务校验 schema、安装日志与 metrics，最后才打开 listener。逻辑 Store 不关闭借用的 connector；关闭时先释放逻辑 wrapper，再关闭物理 connector。
 
+Workspace reward 启动对 schema、database、activation、KV enumeration 与精确 fencing
+失败继续 fail closed。Workspace key enumeration 成功后，精确 Workspace 的 malformed
+record、owner 缺失或 lifecycle terminal，以及精确 unsettled reward policy 损坏会在
+`Server.Listen` 以下被隔离；这些单记录问题不能关闭 listener，也不能阻止无关 Peer、
+Edge 与 Admin 流量启动。
+
 旧的一层 Store 配置、顶层伪 service block、隐式 Store 名称、通用 `kind: log` 和 `gizclaw migrate` 命令均不受支持。开发环境应使用当前配置重新创建，不导入或转换旧数据。Gameplay 与 ClickHouse Store 初始化表仍属于活跃 schema lifecycle，不属于旧数据迁移。
 
 ### 完整配置

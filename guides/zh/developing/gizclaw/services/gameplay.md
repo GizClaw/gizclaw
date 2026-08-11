@@ -84,3 +84,10 @@ Badge EXP、window 完成和 checkpoint 在同一个 Gameplay SQL transaction �
 相同 window 不会重复发奖。成功改变状态后只向受益 Peer 发送
 `GAMEPLAY_REWARD_UPDATED` invalidation Event；客户端收到后重新拉取权威 Gameplay
 状态。确定性任务奖励属于独立任务系统，不经过该模型 evaluator。
+
+Dispatcher 在 migration 或开始工作前要求精确 Workspace availability capability。
+lifecycle-terminal、owner 缺失或 malformed 的精确 Workspace 只退休自身 source 与
+non-completed window；completed audit row 及原始 Workspace/History 数据保持不变。
+精确 unsettled window 的 policy JSON malformed 或 digest mismatch 会以固定错误分类进入
+`blocked`；SQL identity 不可读、database access 失败或精确 fence 失败仍会使启动失败。
+History 读取、evaluator 解析/调用、settlement 与 retry persistence 前都会重新检查该 fence。

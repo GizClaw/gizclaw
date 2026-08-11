@@ -33,6 +33,13 @@ Friend Group groups, invite tokens, members, and belongs are code-owned scopes o
 
 Startup strictly parses the configuration, opens physical connectors, builds logical Stores, resolves service capabilities, lets active SQL-backed services validate their schemas, installs logging and metrics, and only then opens listeners. Logical Stores never close borrowed connectors. Shutdown closes logical wrappers before physical connectors.
 
+Workspace reward startup keeps this global fail-closed boundary for schema,
+database, activation, KV enumeration, and exact fencing failures. After
+Workspace key enumeration succeeds, a malformed exact Workspace record, a
+missing or lifecycle-terminal owner, or an exact corrupt unsettled reward
+policy is isolated below `Server.Listen`; it cannot close listeners or prevent
+unrelated Peer, Edge, and Admin traffic from starting.
+
 The old one-layer Store configuration, top-level pseudo-service blocks, implicit Store names, generic `kind: log`, and `gizclaw migrate` command are unsupported. Recreate development workspaces with the current configuration; no old data is imported or transformed. Gameplay and ClickHouse Store table initialization remain active schema lifecycle, not old-data migration.
 
 ### Complete configuration

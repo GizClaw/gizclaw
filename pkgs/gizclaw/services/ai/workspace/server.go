@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -51,7 +53,30 @@ var (
 	ErrWorkspacePendingDeletion = errors.New("workspace: pending deletion")
 	ErrPeerPendingDeletion      = errors.New("workspace: owner Peer pending deletion")
 	ErrPeerDeleted              = errors.New("workspace: owner Peer deleted")
+	// ErrWorkspaceInvalid marks an exact stored Workspace value that cannot be trusted.
+	ErrWorkspaceInvalid = errors.New("workspace: invalid stored record")
+	// ErrPeerNotFound marks a missing owner found by an exact background Workspace lookup.
+	ErrPeerNotFound = errors.New("workspace: owner Peer not found")
 )
+
+type invalidStoredWorkspaceError struct {
+	id         string
+	fenceExact bool
+}
+
+func (err *invalidStoredWorkspaceError) Error() string {
+	return fmt.Sprintf("workspace: stored Workspace %q is invalid", err.id)
+}
+
+func (err *invalidStoredWorkspaceError) Unwrap() error {
+	return ErrWorkspaceInvalid
+}
+
+// WorkspaceRewardFenceAllowed reports whether the canonical key, rather than
+// an untrusted value identity, safely identifies reward work to retire.
+func (err *invalidStoredWorkspaceError) WorkspaceRewardFenceAllowed() bool {
+	return err.fenceExact
+}
 
 type Server struct {
 	Store            kv.Store
@@ -64,7 +89,8 @@ type Server struct {
 	NewID            func() string
 	PeerAvailability func(context.Context, string) error
 
-	createMu sync.Mutex
+	createMu              sync.Mutex
+	invalidBackgroundKeys sync.Map
 }
 
 // WorkflowService resolves Workflow resources without exposing the owning
@@ -861,6 +887,77 @@ func (s *Server) GetWorkspaceByName(ctx context.Context, name string) (apitypes.
 	}
 	if err := s.ensureWorkspaceAvailable(ctx, item.Id); err != nil {
 		return apitypes.Workspace{}, err
+	}
+	if err := s.ensureWorkspaceOwnerAvailable(ctx, item); err != nil {
+		return apitypes.Workspace{}, err
+	}
+	return item, nil
+}
+
+// ListWorkspaceIDsForBackground returns canonical direct-record identities
+// without decoding stored Workspace values. Invalid or non-canonical key
+// segments are ignored because they cannot safely identify downstream state.
+func (s *Server) ListWorkspaceIDsForBackground(ctx context.Context) ([]string, error) {
+	store, err := s.store()
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0)
+	for entry, err := range store.List(ctx, workspacesRoot) {
+		if err != nil {
+			return nil, fmt.Errorf("workspace: list background identities: %w", err)
+		}
+		if len(entry.Key) != len(workspacesRoot)+1 {
+			s.logInvalidBackgroundWorkspaceKey(entry.Key.String())
+			continue
+		}
+		segment := entry.Key[len(entry.Key)-1]
+		id := customid.UnescapeStoreSegment(segment)
+		if customid.EscapeStoreSegment(id) != segment || customid.ValidateResourceID(id) != nil {
+			s.logInvalidBackgroundWorkspaceKey(segment)
+			continue
+		}
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids, nil
+}
+
+func (s *Server) logInvalidBackgroundWorkspaceKey(key string) {
+	if _, loaded := s.invalidBackgroundKeys.LoadOrStore(key, struct{}{}); loaded {
+		return
+	}
+	slog.Error("workspace reward record isolated", "error_class", "workspace_key_invalid")
+}
+
+// GetAvailableWorkspaceByID returns one exact retained Workspace only while
+// its record and owner remain safe for runtime or background work. Admin reads
+// intentionally retain their existing diagnostic projection.
+func (s *Server) GetAvailableWorkspaceByID(ctx context.Context, id string) (apitypes.Workspace, error) {
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.Workspace{}, fmt.Errorf("workspace: invalid id: %w", err)
+	}
+	if err := s.ensureWorkspaceAvailable(ctx, id); err != nil {
+		return apitypes.Workspace{}, err
+	}
+	store, err := s.store()
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	data, err := store.Get(ctx, workspaceKey(id))
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	var item apitypes.Workspace
+	if err := json.Unmarshal(data, &item); err != nil {
+		return apitypes.Workspace{}, &invalidStoredWorkspaceError{id: id, fenceExact: true}
+	}
+	item, err = validateStoredWorkspace(item)
+	if err != nil {
+		return apitypes.Workspace{}, &invalidStoredWorkspaceError{id: id, fenceExact: true}
+	}
+	if item.Id != id {
+		return apitypes.Workspace{}, &invalidStoredWorkspaceError{id: id, fenceExact: false}
 	}
 	if err := s.ensureWorkspaceOwnerAvailable(ctx, item); err != nil {
 		return apitypes.Workspace{}, err

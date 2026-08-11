@@ -12,6 +12,7 @@ export GIZCLAW_E2E_DOCKER_ENV="$script_dir/testdata/docker/$GIZCLAW_E2E_DOCKER_P
 export GIZCLAW_E2E_SYNC_VOLC_TENANT_ID=""
 export GIZCLAW_E2E_PRESERVE_DATA_ON_RESTART=1
 export GIZCLAW_E2E_PERSISTENT_KV=1
+export GIZCLAW_E2E_RETAINED_PET_RESTART_STATE="$script_dir/testdata/docker/$GIZCLAW_E2E_DOCKER_PROJECT/retained-pet-restart.json"
 
 # shellcheck source=setup/credentials.sh
 # shellcheck disable=SC1091
@@ -48,7 +49,7 @@ set +a
 export GIZCLAW_E2E_ADMIN_SANDBOX="$script_dir/testdata/docker/$GIZCLAW_E2E_DOCKER_PROJECT/pending-deletion-admin"
 
 (cd "$repo_root" && go test -count=1 -v -tags gizclaw_e2e -timeout 12m \
-	-run '^(TestPetDeletionDuringContinuousRPCUse|TestWorkspaceDeletionQuiescesRunningRuntime|TestFriendGroupDeletionQuiescesEveryMemberRuntime|TestPeerSelfDeletionStopsActiveConnectionAndRuntime|TestAdminPeerDeletionStopsActiveSession)$' \
+	-run '^(TestPetDeletionDuringContinuousRPCUse|TestWorkspaceDeletionQuiescesRunningRuntime|TestFriendGroupDeletionQuiescesEveryMemberRuntime|TestPeerSelfDeletionStopsActiveConnectionAndRuntime|TestAdminPeerDeletionStopsActiveSession|TestPeerDeletionRetainsAlreadyDeletedPetWorkspaceForRestart)$' \
 	./tests/gizclaw-e2e/go/delete)
 
 compose_file="$script_dir/docker/docker-compose.yaml"
@@ -72,7 +73,7 @@ wait_for_server_info "$GIZCLAW_E2E_EDGE2_ENDPOINT" edge2
 
 (cd "$repo_root" && GIZCLAW_E2E_VERIFY_PEER_DELETION_RESTART=1 \
 	go test -count=1 -v -tags gizclaw_e2e -timeout 2m \
-	-run '^TestPeerDeletionSurvivesServerRestart$' \
+	-run '^(TestPeerDeletionSurvivesServerRestart|TestDeletedPetWorkspaceDoesNotBlockServerRestart)$' \
 	./tests/gizclaw-e2e/go/delete)
 
 project="$GIZCLAW_E2E_DOCKER_PROJECT"

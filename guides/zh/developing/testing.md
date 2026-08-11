@@ -77,6 +77,12 @@ Friend Group 和 Peer。测试会验证使用中资源被终止，以及 Peer to
 bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
 ```
 
+原始 malformed Workspace value 与 reward-policy SQL row 由确定性的 package 和 Server
+startup 测试覆盖，不能通过绕过 production API 修改 Docker volume 来构造。Docker
+pending-deletion lane 只使用受支持 lifecycle operation，并在持久 application database 上
+验证 restart readiness；损坏 fixture 必须保留原始 source record、证明精确 reward 隔离，
+同时包含 active-neighbor 与 global-failure 对照。
+
 完整 gate 会安装锁定的 Node workspace、初始化 nanopb submodule、构建 E2E CLI、
 启动 Compose、等待 Server/Desktop，然后依次运行 JS、Desktop、C/cgo、Admin、chat、
 gameplay、RPC、social 和 CLI 套件，最后执行有界清理。总 deadline 默认 90 分钟；

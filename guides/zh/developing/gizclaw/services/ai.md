@@ -88,6 +88,11 @@ Workspace 配置显式指定一个 resource Store 与一个 asset ObjectStore；
 
 Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入 `system: false`；领域拥有的创建同时写入 `system: true` 与唯一且不可变的 `owner_public_key`。通用 put 只能修改 Chatroom system Workspace 的 input mode；owner、Workflow、领域 mode、history/transcript policy、labels 或 toolkit 的变化都会被拒绝，因此 Pet system Workspace 没有可变的执行配置。通用 delete 始终拒绝 system Workspace。删除用户 Workspace 时，会原子创建或复用一条 `kind=workspace` PendingDeletion，并立即拒绝该 Workspace 的选择、运行、history/icon 与 mutation；Admin Workspace get/list 仍可诊断 retained record。Production handler quiesce runtime，删除 exact Gameplay/History/runtime/icon/object/filesystem artifact，验证 absent 后原子删除 Workspace、index 与 mutable task state。内部 system lifecycle surface 只提供给拥有该 Workspace 的 Social 或 Gameplay service；Social relationship 或 Peer retirement 为选中的 system Workspace 创建同样的 handoff。
 
+后台 reward discovery 只读取 canonical 的直接 `by-id` key segment，不解码全部 Admin
+projection。精确 lookup 保留既有 PendingDeletion/deleted error，并用 typed、bounded error
+分类 malformed stored value 与缺失 owner。Admin get/list 行为和 retained Workspace 原始数据
+保持不变，因此隔离逻辑不会把改写损坏数据冒充成修复。
+
 ## 依赖与边界
 
 ```mermaid

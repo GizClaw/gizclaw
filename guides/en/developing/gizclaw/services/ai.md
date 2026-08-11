@@ -88,6 +88,13 @@ Workspace configuration explicitly assigns one resource Store and one asset Obje
 
 Workspace also owns the immutable `system` lifecycle classification. Generic creation stores `system: false`; domain-owned creation stores `system: true` together with one immutable `owner_public_key`. Generic put may change only a Chatroom system Workspace's input mode; it rejects changes to the owner, Workflow, domain mode, history/transcript policy, labels, or toolkit, and Pet system Workspaces therefore have no mutable execution configuration. Generic delete always rejects system Workspaces. Deleting a user Workspace atomically creates or reuses one `kind=workspace` PendingDeletion and immediately rejects selection, runtime, history/icon access, and mutations for that Workspace; Admin Workspace get/list can still inspect the retained record. The production handler quiesces runtime, removes exact Gameplay/History/runtime/icon/object/filesystem artifacts, verifies absence, and atomically removes the Workspace, indexes, and mutable task state. The internal system lifecycle surface remains restricted to the owning Social or Gameplay service; Social relationship or Peer retirement creates the same handoff for selected system Workspaces.
 
+Background reward discovery reads only canonical direct `by-id` key segments;
+it does not decode every Admin projection. Its exact lookup preserves the
+existing PendingDeletion/deleted errors and classifies malformed stored values
+and missing owners with typed bounded errors. Admin get/list behavior and raw
+retained Workspace data are unchanged, so isolation never rewrites corruption
+as a repair.
+
 ## Dependencies and boundaries
 
 ```mermaid

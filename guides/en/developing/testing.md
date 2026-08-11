@@ -88,6 +88,14 @@ failure without running unrelated provider-backed scenarios:
 bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
 ```
 
+Raw malformed Workspace values and reward-policy SQL rows are covered by
+deterministic package and Server startup tests, not by editing a Docker volume
+behind the production API. The Docker pending-deletion lane uses only supported
+lifecycle operations and a persistent application database when it verifies
+restart readiness; corruption fixtures must preserve their raw source record,
+prove exact reward isolation, and include active-neighbor plus global-failure
+controls.
+
 The full gate installs locked Node workspaces, initializes nanopb, builds the
 E2E CLI, starts Compose, waits for Server/Desktop, runs JS, Desktop, C/cgo,
 Admin, chat, gameplay, RPC, social, and CLI phases in order, and performs

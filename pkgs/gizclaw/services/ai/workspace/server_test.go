@@ -165,6 +165,111 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	}
 }
 
+func TestServerListsBackgroundWorkspaceIDsWithoutDecodingValues(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	for _, entry := range []kv.Entry{
+		{Key: kv.Key{"by-id", "workspace-valid"}, Value: []byte("{")},
+		{Key: kv.Key{"by-id", "%zz"}, Value: []byte(`{}`)},
+		{Key: kv.Key{"by-id", "workspace-nested", "child"}, Value: []byte(`{}`)},
+	} {
+		if err := store.Set(ctx, entry.Key, entry.Value); err != nil {
+			t.Fatalf("seed %s: %v", entry.Key.String(), err)
+		}
+	}
+	srv := &Server{Store: store}
+	ids, err := srv.ListWorkspaceIDsForBackground(ctx)
+	if err != nil {
+		t.Fatalf("ListWorkspaceIDsForBackground() error = %v", err)
+	}
+	if len(ids) != 1 || ids[0] != "workspace-valid" {
+		t.Fatalf("ListWorkspaceIDsForBackground() = %#v, want [workspace-valid]", ids)
+	}
+	response, err := srv.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{})
+	if err != nil {
+		t.Fatalf("ListWorkspaces() error = %v", err)
+	}
+	if _, ok := response.(adminhttp.ListWorkspaces500JSONResponse); !ok {
+		t.Fatalf("ListWorkspaces() = %#v, want unchanged diagnostic failure", response)
+	}
+}
+
+func TestServerGetAvailableWorkspaceByIDClassifiesStoredFaults(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 8, 12, 10, 0, 0, 0, time.UTC)
+	system := true
+	owner := "peer-owner"
+	valid := apitypes.Workspace{
+		Id: "workspace-valid", Name: "workspace-valid", WorkflowId: "workflow-valid",
+		System: &system, OwnerPublicKey: &owner,
+		CreatedAt: now, LastActiveAt: now, UpdatedAt: now,
+	}
+	encode := func(t *testing.T, item apitypes.Workspace) []byte {
+		t.Helper()
+		data, err := json.Marshal(item)
+		if err != nil {
+			t.Fatalf("json.Marshal() error = %v", err)
+		}
+		return data
+	}
+	for name, test := range map[string]struct {
+		id         string
+		raw        []byte
+		peerErr    error
+		want       error
+		wantFence  bool
+		checkFence bool
+	}{
+		"malformed JSON": {
+			id: "workspace-malformed", raw: []byte("{"),
+			want: ErrWorkspaceInvalid, wantFence: true, checkFence: true,
+		},
+		"missing required fields": {
+			id: "workspace-invalid", raw: []byte(`{}`),
+			want: ErrWorkspaceInvalid, wantFence: true, checkFence: true,
+		},
+		"key value mismatch": {
+			id: "workspace-key", raw: encode(t, func() apitypes.Workspace {
+				item := valid
+				item.Id = "workspace-value"
+				return item
+			}()),
+			want: ErrWorkspaceInvalid, wantFence: false, checkFence: true,
+		},
+		"owner pending": {
+			id: "workspace-valid", raw: encode(t, valid), peerErr: ErrPeerPendingDeletion,
+			want: ErrPeerPendingDeletion,
+		},
+		"owner deleted": {
+			id: "workspace-valid", raw: encode(t, valid), peerErr: ErrPeerDeleted,
+			want: ErrPeerDeleted,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			store := kv.NewMemory(nil)
+			if err := store.Set(t.Context(), workspaceKey(test.id), test.raw); err != nil {
+				t.Fatalf("seed Workspace: %v", err)
+			}
+			srv := &Server{
+				Store:            store,
+				PeerAvailability: func(context.Context, string) error { return test.peerErr },
+			}
+			_, err := srv.GetAvailableWorkspaceByID(t.Context(), test.id)
+			if !errors.Is(err, test.want) {
+				t.Fatalf("GetAvailableWorkspaceByID() error = %v, want %v", err, test.want)
+			}
+			if test.checkFence {
+				permission, ok := err.(interface{ WorkspaceRewardFenceAllowed() bool })
+				if !ok || permission.WorkspaceRewardFenceAllowed() != test.wantFence {
+					t.Fatalf("fence permission = %v, %v, want %v", permission, ok, test.wantFence)
+				}
+			}
+		})
+	}
+}
+
 func TestCreateWorkspaceRecordAtomicallyClaimsCallerID(t *testing.T) {
 	t.Parallel()
 

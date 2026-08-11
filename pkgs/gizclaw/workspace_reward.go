@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
+	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -24,34 +25,22 @@ type workspaceRewardEnvironment struct {
 	workspaces *workspace.Server
 }
 
+func (environment *workspaceRewardEnvironment) EnsureWorkspaceAvailable(ctx context.Context, workspaceID string) error {
+	if environment == nil || environment.workspaces == nil {
+		return errors.New("gizclaw: Workspace reward source is not configured")
+	}
+	_, err := environment.workspaces.GetAvailableWorkspaceByID(ctx, workspaceID)
+	if errors.Is(err, runtimepeer.ErrPeerNotFound) {
+		return workspace.ErrPeerNotFound
+	}
+	return err
+}
+
 func (environment *workspaceRewardEnvironment) ListWorkspaceIDs(ctx context.Context) ([]string, error) {
 	if environment == nil || environment.workspaces == nil {
 		return nil, errors.New("gizclaw: Workspace reward source is not configured")
 	}
-	limit := int32(200)
-	var cursor *string
-	var ids []string
-	for {
-		response, err := environment.workspaces.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{
-			Params: adminhttp.ListWorkspacesParams{Cursor: cursor, Limit: &limit},
-		})
-		if err != nil {
-			return nil, err
-		}
-		page, ok := response.(adminhttp.ListWorkspaces200JSONResponse)
-		if !ok {
-			return nil, fmt.Errorf("gizclaw: list Workspaces returned %T", response)
-		}
-		for _, item := range page.Items {
-			if id := strings.TrimSpace(item.Id); id != "" {
-				ids = append(ids, id)
-			}
-		}
-		if !page.HasNext || page.NextCursor == nil {
-			return ids, nil
-		}
-		cursor = page.NextCursor
-	}
+	return environment.workspaces.ListWorkspaceIDsForBackground(ctx)
 }
 
 func (environment *workspaceRewardEnvironment) LatestHistoryEntry(

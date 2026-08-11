@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -19,11 +20,19 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
+	"github.com/google/uuid"
 )
+
+type retainedPetWorkspaceRestartState struct {
+	DeletedPeerPublicKey string `json:"deleted_peer_public_key"`
+	WorkspaceID          string `json:"workspace_id"`
+	SurvivorContext      string `json:"survivor_context"`
+}
 
 func TestPeerSelfDeletionStopsActiveConnectionAndRuntime(t *testing.T) {
 	env := newDeletionHarness(t)
@@ -195,6 +204,46 @@ func TestAdminPeerDeletionStopsActiveSession(t *testing.T) {
 	requirePeerLoginRejected(t, env, peer)
 }
 
+func TestPeerDeletionRetainsAlreadyDeletedPetWorkspaceForRestart(t *testing.T) {
+	env := newDeletionHarness(t)
+	peer := env.newPeer(t, "delete-peer-retained-pet")
+	survivor := env.newPeer(t, "delete-peer-retained-pet-survivor")
+	adopted, err := peer.client.AdoptPet(env.ctx, "delete.peer.retained.pet.adopt", rpcapi.RuntimeAdoptRequest{
+		Name: "delete-peer-retained-pet", DisplayName: "Retained Pet",
+	})
+	if err != nil {
+		t.Fatalf("adopt retained Pet: %v", err)
+	}
+	storedPet := findPeerPet(t, env, peer.publicKey, adopted.Pet.Name)
+	if _, err := peer.client.DeletePet(env.ctx, "delete.peer.retained.pet.delete", rpcapi.ServerPetDeleteRequest{Name: adopted.Pet.Name}); err != nil {
+		t.Fatalf("delete retained Pet: %v", err)
+	}
+	deletionID, err := pendingdeletion.DeterministicDeletionID(pendingdeletion.Locator{
+		Kind: pendingdeletion.KindPet, ResourceID: storedPet.Id, OwnerPublicKey: &peer.publicKey,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForPetAndTaskAbsent(t, env, peer.publicKey, storedPet.Id, uuid.MustParse(deletionID))
+	response, err := env.api.DeletePeerWithResponse(env.ctx, peer.publicKey)
+	if err != nil || response.JSON200 == nil {
+		t.Fatalf("delete retained Pet owner: status=%d body=%s error=%v", response.StatusCode(), response.Body, err)
+	}
+	_ = waitPeerTombstone(t, env, peer.publicKey)
+	workspaceResponse, err := env.api.GetWorkspaceWithResponse(env.ctx, storedPet.WorkspaceId)
+	if err != nil || workspaceResponse.StatusCode() != http.StatusOK {
+		t.Fatalf("retained Pet Workspace before restart: status=%d body=%s error=%v", workspaceResponse.StatusCode(), workspaceResponse.Body, err)
+	}
+	if _, err := survivor.client.GetServerInfo(env.ctx, "delete.peer.retained.survivor.before"); err != nil {
+		t.Fatalf("survivor before restart: %v", err)
+	}
+	writeRetainedPetWorkspaceRestartState(t, retainedPetWorkspaceRestartState{
+		DeletedPeerPublicKey: peer.publicKey,
+		WorkspaceID:          storedPet.WorkspaceId,
+		SurvivorContext:      survivor.contextName,
+	})
+}
+
 func TestPeerDeletionSurvivesServerRestart(t *testing.T) {
 	if strings.TrimSpace(os.Getenv("GIZCLAW_E2E_VERIFY_PEER_DELETION_RESTART")) != "1" {
 		t.Skip("restart verification phase is run by run_pending_deletion_tests.sh")
@@ -215,6 +264,68 @@ func TestPeerDeletionSurvivesServerRestart(t *testing.T) {
 	if result := env.h.RegisterContext(contextName, "--sn", peer.serial); result.Err == nil {
 		t.Fatalf("deleted public key registered after restart: stdout=%s stderr=%s", result.Stdout, result.Stderr)
 	}
+}
+
+func TestDeletedPetWorkspaceDoesNotBlockServerRestart(t *testing.T) {
+	if strings.TrimSpace(os.Getenv("GIZCLAW_E2E_VERIFY_PEER_DELETION_RESTART")) != "1" {
+		t.Skip("restart verification phase is run by run_pending_deletion_tests.sh")
+	}
+	state := readRetainedPetWorkspaceRestartState(t)
+	env := newDeletionHarness(t)
+	tombstone := waitPeerTombstone(t, env, state.DeletedPeerPublicKey)
+	if tombstone.Status != apitypes.RegistrationTombstoneStatusDeleted {
+		t.Fatalf("retained Workspace owner tombstone = %#v", tombstone)
+	}
+	workspaceResponse, err := env.api.GetWorkspaceWithResponse(env.ctx, state.WorkspaceID)
+	if err != nil || workspaceResponse.StatusCode() != http.StatusOK {
+		t.Fatalf("retained Pet Workspace after restart: status=%d body=%s error=%v", workspaceResponse.StatusCode(), workspaceResponse.Body, err)
+	}
+	env.h.RequireClientContextEndpoint(state.SurvivorContext)
+	survivor := env.h.ConnectClientFromContextEventually(state.SurvivorContext, 30*time.Second)
+	defer survivor.Close()
+	if _, err := survivor.GetServerInfo(env.ctx, "delete.peer.retained.survivor.after"); err != nil {
+		t.Fatalf("survivor after restart: %v", err)
+	}
+}
+
+func writeRetainedPetWorkspaceRestartState(t *testing.T, state retainedPetWorkspaceRestartState) {
+	t.Helper()
+	path := retainedPetWorkspaceRestartStatePath(t)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatalf("create restart state directory: %v", err)
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		t.Fatalf("encode restart state: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatalf("write restart state: %v", err)
+	}
+}
+
+func readRetainedPetWorkspaceRestartState(t *testing.T) retainedPetWorkspaceRestartState {
+	t.Helper()
+	data, err := os.ReadFile(retainedPetWorkspaceRestartStatePath(t))
+	if err != nil {
+		t.Fatalf("read restart state: %v", err)
+	}
+	var state retainedPetWorkspaceRestartState
+	if err := json.Unmarshal(data, &state); err != nil {
+		t.Fatalf("decode restart state: %v", err)
+	}
+	if state.DeletedPeerPublicKey == "" || state.WorkspaceID == "" || state.SurvivorContext == "" {
+		t.Fatalf("incomplete restart state: %#v", state)
+	}
+	return state
+}
+
+func retainedPetWorkspaceRestartStatePath(t *testing.T) string {
+	t.Helper()
+	path := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_RETAINED_PET_RESTART_STATE"))
+	if path == "" {
+		t.Fatal("GIZCLAW_E2E_RETAINED_PET_RESTART_STATE is required")
+	}
+	return path
 }
 
 func waitPeerTombstone(t *testing.T, env *deletionHarness, publicKey string) apitypes.RegistrationTombstone {

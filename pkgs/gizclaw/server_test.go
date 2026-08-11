@@ -232,6 +232,104 @@ func TestServerServeReturnsNilAfterClose(t *testing.T) {
 	}
 }
 
+func TestServerListenIsolatesWorkspaceRecordFaults(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	missingOwner, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(missing owner) error = %v", err)
+	}
+	now := time.Date(2026, 8, 12, 10, 30, 0, 0, time.UTC)
+	system := true
+	userWorkspace := false
+	owner := missingOwner.Public.String()
+	valid := apitypes.Workspace{
+		Id: "workspace-missing-owner", Name: "workspace-missing-owner", WorkflowId: "workflow-valid",
+		System: &system, OwnerPublicKey: &owner,
+		CreatedAt: now, LastActiveAt: now, UpdatedAt: now,
+	}
+	active := apitypes.Workspace{
+		Id: "workspace-z-active", Name: "workspace-z-active", WorkflowId: "workflow-valid",
+		System:    &userWorkspace,
+		CreatedAt: now, LastActiveAt: now, UpdatedAt: now,
+	}
+	mustJSON := func(value any) []byte {
+		data, err := json.Marshal(value)
+		if err != nil {
+			t.Fatalf("json.Marshal() error = %v", err)
+		}
+		return data
+	}
+	for name, test := range map[string]struct {
+		id  string
+		raw []byte
+	}{
+		"malformed JSON":          {id: "workspace-malformed", raw: []byte("{")},
+		"missing required fields": {id: "workspace-invalid", raw: []byte(`{}`)},
+		"key value mismatch": {id: "workspace-key", raw: mustJSON(func() apitypes.Workspace {
+			item := valid
+			item.Id = "workspace-value"
+			item.OwnerPublicKey = nil
+			return item
+		}())},
+		"missing owner": {id: valid.Id, raw: mustJSON(valid)},
+	} {
+		t.Run(name, func(t *testing.T) {
+			workspaceStore := mustBadgerInMemory(t, nil)
+			if err := workspaceStore.Set(t.Context(), kv.Key{"by-id", active.Id}, mustJSON(active)); err != nil {
+				t.Fatalf("seed active Workspace: %v", err)
+			}
+			if err := workspaceStore.Set(t.Context(), kv.Key{"by-id", test.id}, test.raw); err != nil {
+				t.Fatalf("seed Workspace: %v", err)
+			}
+			listeners := []*testGiznetListener{newTestGiznetListener(), newTestGiznetListener()}
+			server := &Server{
+				LocalStatic:    *keyPair,
+				PeerStore:      mustBadgerInMemory(t, nil),
+				WorkspaceStore: workspaceStore,
+				AgentHostStore: newTestObjectStore(t),
+				PeerListeners:  []giznet.Listener{listeners[0], listeners[1]},
+			}
+			completeTestServer(t, server)
+			if err := server.Listen(); err != nil {
+				t.Fatalf("Listen() error = %v", err)
+			}
+			t.Cleanup(func() {
+				if err := server.Close(); err != nil {
+					t.Errorf("Close() error = %v", err)
+				}
+			})
+			stored, err := workspaceStore.Get(t.Context(), kv.Key{"by-id", test.id})
+			if err != nil {
+				t.Fatalf("Workspace was not preserved: %v", err)
+			}
+			if !bytes.Equal(stored, test.raw) {
+				t.Fatalf("stored Workspace = %q, want %q", stored, test.raw)
+			}
+			for index, listener := range listeners {
+				select {
+				case <-listener.closed:
+					t.Fatalf("listener %d was closed after isolated Workspace fault", index)
+				default:
+				}
+			}
+			workspaces, ok := server.manager.Workspaces.(*workspace.Server)
+			if !ok {
+				t.Fatalf("manager Workspaces = %T, want *workspace.Server", server.manager.Workspaces)
+			}
+			response, err := workspaces.GetWorkspace(t.Context(), adminhttp.GetWorkspaceRequestObject{Id: active.Id})
+			if err != nil {
+				t.Fatalf("GetWorkspace(active) error = %v", err)
+			}
+			if _, ok := response.(adminhttp.GetWorkspace200JSONResponse); !ok {
+				t.Fatalf("GetWorkspace(active) = %#v, want 200", response)
+			}
+		})
+	}
+}
+
 func TestServerListenProcessesExistingPetDeletion(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {

@@ -2,12 +2,77 @@ package gizclaw
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
+	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+func TestWorkspaceRewardEnvironmentListsMalformedWorkspaceByCanonicalKey(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	const workspaceID = "workspace-malformed"
+	raw := []byte("{")
+	if err := store.Set(ctx, kv.Key{"by-id", workspaceID}, raw); err != nil {
+		t.Fatalf("seed malformed Workspace: %v", err)
+	}
+	environment := &workspaceRewardEnvironment{workspaces: &workspace.Server{Store: store}}
+
+	ids, err := environment.ListWorkspaceIDs(ctx)
+	if err != nil {
+		t.Fatalf("ListWorkspaceIDs() error = %v", err)
+	}
+	if want := []string{workspaceID}; !reflect.DeepEqual(ids, want) {
+		t.Fatalf("ListWorkspaceIDs() = %#v, want %#v", ids, want)
+	}
+	stored, err := store.Get(ctx, kv.Key{"by-id", workspaceID})
+	if err != nil {
+		t.Fatalf("read malformed Workspace: %v", err)
+	}
+	if !reflect.DeepEqual(stored, raw) {
+		t.Fatalf("stored malformed Workspace = %q, want %q", stored, raw)
+	}
+}
+
+func TestWorkspaceRewardEnvironmentMapsOnlyExactOwnerMissingIdentity(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	now := time.Date(2026, 8, 12, 10, 15, 0, 0, time.UTC)
+	system := true
+	owner := "peer-owner"
+	item := apitypes.Workspace{
+		Id: "workspace-owner-missing", Name: "workspace-owner-missing", WorkflowId: "workflow-valid",
+		System: &system, OwnerPublicKey: &owner,
+		CreatedAt: now, LastActiveAt: now, UpdatedAt: now,
+	}
+	data, err := json.Marshal(item)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	if err := store.Set(ctx, kv.Key{"by-id", item.Id}, data); err != nil {
+		t.Fatalf("seed Workspace: %v", err)
+	}
+	environment := &workspaceRewardEnvironment{workspaces: &workspace.Server{
+		Store: store,
+		PeerAvailability: func(context.Context, string) error {
+			return fmt.Errorf("exact owner lookup: %w", runtimepeer.ErrPeerNotFound)
+		},
+	}}
+	if err := environment.EnsureWorkspaceAvailable(ctx, item.Id); !errors.Is(err, workspace.ErrPeerNotFound) {
+		t.Fatalf("EnsureWorkspaceAvailable() error = %v, want Workspace owner-missing identity", err)
+	}
+}
 
 func TestWorkspaceRewardKindUsesAuthoritativeAgentType(t *testing.T) {
 	t.Parallel()

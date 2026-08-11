@@ -40,6 +40,7 @@ var (
 	errWorkspaceRewardHistoryUnavailable = errors.New("claimed History high-water is unavailable")
 	errWorkspaceRewardHistoryIdentity    = errors.New("first History entry no longer matches frozen beneficiary")
 	errWorkspaceRewardTranscriptConflict = errors.New("transcript digest changed across retry")
+	errWorkspaceRewardAvailability       = errors.New("Workspace reward availability fence is not configured")
 )
 
 // WorkspaceRewardEnvironment supplies Server-owned Workspace, RuntimeProfile,
@@ -54,6 +55,14 @@ type WorkspaceRewardEnvironment interface {
 	ResolveWorkspaceRewardPolicy(context.Context, string, string) (WorkspaceRewardKind, *WorkspaceRewardPolicySnapshot, error)
 	WorkspaceRewardGenerator(context.Context, string, WorkspaceRewardPolicySnapshot) (genx.Generator, error)
 	NotifyWorkspaceReward(context.Context, string, WorkspaceRewardUpdate) error
+}
+
+type workspaceRewardAvailability interface {
+	EnsureWorkspaceAvailable(context.Context, string) error
+}
+
+type workspaceRewardFencePermission interface {
+	WorkspaceRewardFenceAllowed() bool
 }
 
 type WorkspaceRewardKind string
@@ -264,6 +273,10 @@ func (r *Runtime) StartWorkspaceRewardDispatcher(parent context.Context) (contex
 	if r == nil || r.WorkspaceRewards == nil {
 		return nil, nil, errors.New("gameplay: workspace reward environment is not configured")
 	}
+	if _, ok := r.WorkspaceRewards.(workspaceRewardAvailability); !ok {
+		return nil, nil, errWorkspaceRewardAvailability
+	}
+	r.resetWorkspaceRewardIsolation()
 	if err := r.Migration(parent); err != nil {
 		return nil, nil, err
 	}
@@ -360,6 +373,10 @@ func (r *Runtime) ScheduleWorkspaceRewardActivity(ctx context.Context, workspace
 	lock := r.workspaceRewardMutex(workspaceID)
 	lock.Lock()
 	defer lock.Unlock()
+	available, err := r.ensureWorkspaceRewardAvailableLocked(ctx, workspaceID)
+	if err != nil || !available {
+		return err
+	}
 	source, err := r.getWorkspaceRewardSource(ctx, workspaceID)
 	if errors.Is(err, sql.ErrNoRows) {
 		now := r.now()
@@ -417,7 +434,14 @@ func (r *Runtime) initializeWorkspaceRewardSources(ctx context.Context, activati
 		}
 		lock := r.workspaceRewardMutex(name)
 		lock.Lock()
-		_, err := r.getWorkspaceRewardSource(ctx, name)
+		available, err := r.ensureWorkspaceRewardAvailableLocked(ctx, name)
+		if err == nil && !available {
+			lock.Unlock()
+			continue
+		}
+		if err == nil {
+			_, err = r.getWorkspaceRewardSource(ctx, name)
+		}
 		if errors.Is(err, sql.ErrNoRows) {
 			err = nil
 			checkpoint := ""
@@ -460,6 +484,10 @@ func (r *Runtime) reconcileWorkspaceRewardSource(ctx context.Context, workspaceI
 	lock := r.workspaceRewardMutex(workspaceID)
 	lock.Lock()
 	defer lock.Unlock()
+	available, err := r.ensureWorkspaceRewardAvailableLocked(ctx, workspaceID)
+	if err != nil || !available {
+		return err
+	}
 	source, err := r.getWorkspaceRewardSource(ctx, workspaceID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
@@ -471,7 +499,7 @@ func (r *Runtime) reconcileWorkspaceRewardSource(ctx context.Context, workspaceI
 }
 
 func (r *Runtime) reconcileWorkspaceRewardSourceLocked(ctx context.Context, source *workspaceRewardSource, through string) error {
-	active, err := r.activeWorkspaceRewardWindow(ctx, source.WorkspaceID)
+	active, err := r.activeWorkspaceRewardWindowForReconcile(ctx, source.WorkspaceID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -492,7 +520,7 @@ func (r *Runtime) reconcileWorkspaceRewardSourceLocked(ctx context.Context, sour
 			if through != "" && cursor >= through {
 				return nil
 			}
-			active, err = r.activeWorkspaceRewardWindow(ctx, source.WorkspaceID)
+			active, err = r.activeWorkspaceRewardWindowForReconcile(ctx, source.WorkspaceID)
 			if err == nil && active.State != workspaceRewardPending {
 				return nil
 			}
@@ -508,7 +536,7 @@ func (r *Runtime) reconcileWorkspaceRewardSourceLocked(ctx context.Context, sour
 }
 
 func (r *Runtime) applyWorkspaceRewardEntry(ctx context.Context, source *workspaceRewardSource, entry workspace.HistoryEntry) error {
-	active, err := r.activeWorkspaceRewardWindow(ctx, source.WorkspaceID)
+	active, err := r.activeWorkspaceRewardWindowForReconcile(ctx, source.WorkspaceID)
 	if err == nil {
 		if active.State != workspaceRewardPending {
 			return nil
@@ -551,6 +579,25 @@ func (r *Runtime) applyWorkspaceRewardEntry(ctx context.Context, source *workspa
 	return r.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, *source)
 }
 
+func (r *Runtime) activeWorkspaceRewardWindowForReconcile(ctx context.Context, workspaceID string) (workspaceRewardWindow, error) {
+	window, err := r.activeWorkspaceRewardWindow(ctx, workspaceID)
+	var corrupt *workspaceRewardPolicyCorruptionError
+	if !errors.As(err, &corrupt) {
+		return window, err
+	}
+	if corrupt.WorkspaceID != workspaceID {
+		return workspaceRewardWindow{}, fmt.Errorf(
+			"gameplay: reward window %q Workspace identity %q does not match %q",
+			corrupt.WindowID, corrupt.WorkspaceID, workspaceID,
+		)
+	}
+	if err := r.blockCorruptWorkspaceRewardWindow(ctx, corrupt); err != nil {
+		return workspaceRewardWindow{}, err
+	}
+	r.logWorkspaceRewardFaultOnce(corrupt.WorkspaceID+"\x00"+corrupt.WindowID, corrupt.WorkspaceID, corrupt.WindowID, corrupt.Class)
+	return workspaceRewardWindow{}, sql.ErrNoRows
+}
+
 func (r *Runtime) advanceWorkspaceRewardWindow(
 	ctx context.Context,
 	source *workspaceRewardSource,
@@ -581,13 +628,42 @@ func minWorkspaceRewardTime(a, b time.Time) time.Time {
 
 func (r *Runtime) dispatchWorkspaceReward(ctx context.Context) (bool, error) {
 	window, ok, err := r.claimWorkspaceRewardWindow(ctx)
+	var corrupt *workspaceRewardPolicyCorruptionError
+	if errors.As(err, &corrupt) {
+		if err := r.blockCorruptWorkspaceRewardWindow(ctx, corrupt); err != nil {
+			return true, err
+		}
+		r.logWorkspaceRewardFaultOnce(corrupt.WorkspaceID+"\x00"+corrupt.WindowID, corrupt.WorkspaceID, corrupt.WindowID, corrupt.Class)
+		return true, nil
+	}
 	if err != nil || !ok {
 		return ok, err
 	}
+	available, availabilityErr := r.ensureWorkspaceRewardAvailable(ctx, window.WorkspaceID)
+	if !available {
+		return true, availabilityErr
+	}
+	if availabilityErr != nil {
+		return true, r.retryWorkspaceRewardWindow(ctx, window, availabilityErr)
+	}
 	err = r.processWorkspaceRewardClaim(ctx, window)
 	if err == nil {
+		available, availabilityErr = r.ensureWorkspaceRewardAvailable(ctx, window.WorkspaceID)
+		if !available {
+			return true, availabilityErr
+		}
+		if availabilityErr != nil {
+			return true, availabilityErr
+		}
 		_ = r.reconcileWorkspaceRewardSource(ctx, window.WorkspaceID, "")
 		return true, nil
+	}
+	available, availabilityErr = r.ensureWorkspaceRewardAvailable(ctx, window.WorkspaceID)
+	if !available {
+		return true, availabilityErr
+	}
+	if availabilityErr != nil {
+		return true, availabilityErr
 	}
 	if ctx.Err() != nil {
 		return true, r.retryWorkspaceRewardWindow(context.WithoutCancel(ctx), window, ctx.Err())
@@ -614,11 +690,17 @@ func (r *Runtime) blockAndReconcileWorkspaceRewardWindow(
 }
 
 func (r *Runtime) processWorkspaceRewardClaim(ctx context.Context, window workspaceRewardWindow) error {
+	if err := r.checkWorkspaceRewardAvailability(ctx, window.WorkspaceID); err != nil {
+		return err
+	}
 	transcript, digest, outcome, err := r.workspaceRewardTranscript(ctx, window)
 	if err != nil {
 		return &invalidWorkspaceRewardError{cause: err}
 	}
 	if outcome != "" {
+		if err := r.checkWorkspaceRewardAvailability(ctx, window.WorkspaceID); err != nil {
+			return err
+		}
 		if outcome == "skipped_incomplete" && r.now().Before(window.OpenedAt.Add(window.Policy.MaxWindowAge)) {
 			return r.deferIncompleteWorkspaceRewardWindow(ctx, window)
 		}
@@ -642,12 +724,21 @@ func (r *Runtime) processWorkspaceRewardClaim(ctx context.Context, window worksp
 	if err := r.setWorkspaceRewardTranscriptDigest(ctx, window, digest); err != nil {
 		return err
 	}
+	if err := r.checkWorkspaceRewardAvailability(ctx, window.WorkspaceID); err != nil {
+		return err
+	}
 	generator, err := r.WorkspaceRewards.WorkspaceRewardGenerator(ctx, window.BeneficiaryPublicKey, window.Policy)
 	if err != nil {
 		return fmt.Errorf("resolve evaluator: %w", err)
 	}
+	if err := r.checkWorkspaceRewardAvailability(ctx, window.WorkspaceID); err != nil {
+		return err
+	}
 	result, err := evaluateWorkspaceReward(ctx, generator, window.Policy, transcript)
 	if err != nil {
+		return err
+	}
+	if err := r.checkWorkspaceRewardAvailability(ctx, window.WorkspaceID); err != nil {
 		return err
 	}
 	grant, changed, err := r.settleWorkspaceReward(ctx, window, digest, result)
@@ -662,6 +753,59 @@ func (r *Runtime) processWorkspaceRewardClaim(ctx context.Context, window worksp
 		}
 	}
 	return nil
+}
+
+func (r *Runtime) ensureWorkspaceRewardAvailable(ctx context.Context, workspaceID string) (bool, error) {
+	lock := r.workspaceRewardMutex(workspaceID)
+	lock.Lock()
+	defer lock.Unlock()
+	return r.ensureWorkspaceRewardAvailableLocked(ctx, workspaceID)
+}
+
+func (r *Runtime) ensureWorkspaceRewardAvailableLocked(ctx context.Context, workspaceID string) (bool, error) {
+	err := r.checkWorkspaceRewardAvailability(ctx, workspaceID)
+	if err == nil {
+		return true, nil
+	}
+	class, local := workspaceRewardLocalFaultClass(err)
+	if !local {
+		return true, err
+	}
+	r.markWorkspaceRewardIsolated(workspaceID)
+	var permission workspaceRewardFencePermission
+	constrained := errors.As(err, &permission)
+	if !constrained || permission.WorkspaceRewardFenceAllowed() {
+		if err := r.deleteUnsettledWorkspaceRewardData(ctx, workspaceID); err != nil {
+			return false, err
+		}
+	}
+	r.logWorkspaceRewardFaultOnce(workspaceID, workspaceID, "", class)
+	return false, nil
+}
+
+func (r *Runtime) checkWorkspaceRewardAvailability(ctx context.Context, workspaceID string) error {
+	availability, ok := r.WorkspaceRewards.(workspaceRewardAvailability)
+	if !ok {
+		return errWorkspaceRewardAvailability
+	}
+	return availability.EnsureWorkspaceAvailable(ctx, workspaceID)
+}
+
+func workspaceRewardLocalFaultClass(err error) (string, bool) {
+	switch {
+	case errors.Is(err, workspace.ErrWorkspacePendingDeletion):
+		return "workspace_pending_deletion", true
+	case errors.Is(err, workspace.ErrPeerPendingDeletion):
+		return "owner_pending_deletion", true
+	case errors.Is(err, workspace.ErrPeerDeleted):
+		return "owner_deleted", true
+	case errors.Is(err, workspace.ErrPeerNotFound):
+		return "owner_missing", true
+	case errors.Is(err, workspace.ErrWorkspaceInvalid):
+		return "workspace_invalid", true
+	default:
+		return "", false
+	}
 }
 
 func (r *Runtime) workspaceRewardTranscript(
@@ -766,6 +910,51 @@ func (r *Runtime) wakeWorkspaceRewardDispatcher() {
 	case wake <- struct{}{}:
 	default:
 	}
+}
+
+func (r *Runtime) markWorkspaceRewardIsolated(workspaceID string) {
+	r.workspaceRewardMu.Lock()
+	defer r.workspaceRewardMu.Unlock()
+	if r.workspaceRewardIsolated == nil {
+		r.workspaceRewardIsolated = make(map[string]struct{})
+	}
+	r.workspaceRewardIsolated[workspaceID] = struct{}{}
+}
+
+func (r *Runtime) resetWorkspaceRewardIsolation() {
+	r.workspaceRewardMu.Lock()
+	defer r.workspaceRewardMu.Unlock()
+	r.workspaceRewardFaults = make(map[string]struct{})
+	r.workspaceRewardIsolated = make(map[string]struct{})
+}
+
+func (r *Runtime) workspaceRewardIsolatedIDs() []string {
+	r.workspaceRewardMu.Lock()
+	defer r.workspaceRewardMu.Unlock()
+	ids := make([]string, 0, len(r.workspaceRewardIsolated))
+	for id := range r.workspaceRewardIsolated {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func (r *Runtime) logWorkspaceRewardFaultOnce(key, workspaceID, windowID, class string) {
+	r.workspaceRewardMu.Lock()
+	if r.workspaceRewardFaults == nil {
+		r.workspaceRewardFaults = make(map[string]struct{})
+	}
+	if _, exists := r.workspaceRewardFaults[key]; exists {
+		r.workspaceRewardMu.Unlock()
+		return
+	}
+	r.workspaceRewardFaults[key] = struct{}{}
+	r.workspaceRewardMu.Unlock()
+	attributes := []any{"workspace", workspaceID, "error_class", class}
+	if windowID != "" {
+		attributes = append(attributes, "window", windowID)
+	}
+	slog.Error("workspace reward record isolated", attributes...)
 }
 
 func (r *Runtime) workspaceRewardMutex(key string) *sync.Mutex {

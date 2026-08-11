@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -601,6 +602,122 @@ func TestPostgresDifferentPetAdoptionsReleaseFailedReservation(t *testing.T) {
 	if len(workspaces.created) != 1 {
 		t.Fatalf("created workspaces = %d, want 1", len(workspaces.created))
 	}
+}
+
+func TestPostgresWorkspaceRewardIsolationContract(t *testing.T) {
+	t.Run("blocks exact corrupt policy row", func(t *testing.T) {
+		db := openGameplayPostgresTestDB(t)
+		ctx := context.Background()
+		dropGameplayPostgresTables(t, ctx, db)
+		t.Cleanup(func() { dropGameplayPostgresTables(t, context.Background(), db) })
+
+		now := time.Date(2026, 8, 12, 11, 0, 0, 0, time.UTC)
+		environment := &workspaceRewardTestEnvironment{
+			ids:     []string{"workspace-corrupt", "workspace-z-active"},
+			entries: map[string][]workspace.HistoryEntry{"workspace-corrupt": nil, "workspace-z-active": nil},
+		}
+		runtime := &Runtime{DB: db, WorkspaceRewards: environment, Now: func() time.Time { return now }}
+		if err := runtime.Migration(ctx); err != nil {
+			t.Fatalf("Migration() error = %v", err)
+		}
+		source := workspaceRewardSource{WorkspaceID: "workspace-corrupt", CreatedAt: now, UpdatedAt: now}
+		if err := runtime.insertWorkspaceRewardSource(ctx, source); err != nil {
+			t.Fatalf("insert source: %v", err)
+		}
+		policy := workspaceRewardTestPolicy(t)
+		window := workspaceRewardWindow{
+			ID: "window-corrupt", WorkspaceID: source.WorkspaceID,
+			WorkspaceKind: WorkspaceRewardKindWorkflow, BeneficiaryPublicKey: "peer-corrupt",
+			RuntimeProfileId: policy.RuntimeProfileId, RuntimeProfileRevision: policy.RuntimeProfileRevision,
+			Policy: policy, PolicyDigest: policy.Digest,
+			StartHistoryID: "history-corrupt", HighWaterHistoryID: "history-corrupt",
+			StartHistoryAt: now, HighWaterHistoryAt: now, OpenedAt: now, LastActivityAt: now,
+			EvaluateAfter: now, State: workspaceRewardPending, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
+			t.Fatalf("insert window: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, `UPDATE gameplay_workspace_reward_windows SET policy_json = '{' WHERE id = $1`, window.ID); err != nil {
+			t.Fatalf("corrupt policy JSON: %v", err)
+		}
+		stop, done, err := runtime.StartWorkspaceRewardDispatcher(ctx)
+		if err != nil {
+			t.Fatalf("StartWorkspaceRewardDispatcher() error = %v", err)
+		}
+		stop()
+		<-done
+		var state, lastError string
+		if err := db.QueryRowContext(ctx, `SELECT state, last_error FROM gameplay_workspace_reward_windows WHERE id = $1`, window.ID).Scan(&state, &lastError); err != nil {
+			t.Fatalf("read corrupt window: %v", err)
+		}
+		if state != workspaceRewardBlocked || lastError != "reward_policy_invalid" {
+			t.Fatalf("corrupt window state/error = %q/%q, want blocked/reward_policy_invalid", state, lastError)
+		}
+		if _, err := runtime.getWorkspaceRewardSource(ctx, "workspace-z-active"); err != nil {
+			t.Fatalf("active neighbor source error = %v", err)
+		}
+	})
+
+	t.Run("rolls back exact local fence failure", func(t *testing.T) {
+		db := openGameplayPostgresTestDB(t)
+		ctx := context.Background()
+		dropGameplayPostgresTables(t, ctx, db)
+		_, _ = db.ExecContext(ctx, `DROP FUNCTION IF EXISTS fail_workspace_reward_fence()`)
+		t.Cleanup(func() {
+			dropGameplayPostgresTables(t, context.Background(), db)
+			_, _ = db.ExecContext(context.Background(), `DROP FUNCTION IF EXISTS fail_workspace_reward_fence()`)
+		})
+
+		now := time.Date(2026, 8, 12, 11, 15, 0, 0, time.UTC)
+		environment := &workspaceRewardTestEnvironment{
+			ids:          []string{"workspace-broken"},
+			availability: map[string]error{"workspace-broken": workspace.ErrPeerDeleted},
+			entries:      map[string][]workspace.HistoryEntry{"workspace-broken": nil},
+		}
+		runtime := &Runtime{DB: db, WorkspaceRewards: environment, Now: func() time.Time { return now }}
+		if err := runtime.Migration(ctx); err != nil {
+			t.Fatalf("Migration() error = %v", err)
+		}
+		source := workspaceRewardSource{WorkspaceID: "workspace-broken", CreatedAt: now, UpdatedAt: now}
+		if err := runtime.insertWorkspaceRewardSource(ctx, source); err != nil {
+			t.Fatalf("insert source: %v", err)
+		}
+		policy := workspaceRewardTestPolicy(t)
+		window := workspaceRewardWindow{
+			ID: "window-broken", WorkspaceID: source.WorkspaceID,
+			WorkspaceKind: WorkspaceRewardKindWorkflow, BeneficiaryPublicKey: "peer-broken",
+			RuntimeProfileId: policy.RuntimeProfileId, RuntimeProfileRevision: policy.RuntimeProfileRevision,
+			Policy: policy, PolicyDigest: policy.Digest,
+			StartHistoryID: "history-broken", HighWaterHistoryID: "history-broken",
+			StartHistoryAt: now, HighWaterHistoryAt: now, OpenedAt: now, LastActivityAt: now,
+			EvaluateAfter: now, State: workspaceRewardPending, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
+			t.Fatalf("insert window: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, `CREATE FUNCTION fail_workspace_reward_fence() RETURNS trigger
+			LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced Workspace reward fence failure'; END $$`); err != nil {
+			t.Fatalf("create failure function: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, `CREATE TRIGGER fail_workspace_reward_fence
+			BEFORE DELETE ON gameplay_workspace_reward_sources FOR EACH ROW
+			WHEN (OLD.workspace_id = 'workspace-broken') EXECUTE FUNCTION fail_workspace_reward_fence()`); err != nil {
+			t.Fatalf("create failure trigger: %v", err)
+		}
+		if _, _, err := runtime.StartWorkspaceRewardDispatcher(ctx); err == nil || !strings.Contains(err.Error(), "forced Workspace reward fence failure") {
+			t.Fatalf("StartWorkspaceRewardDispatcher() error = %v, want fence failure", err)
+		}
+		if _, err := runtime.getWorkspaceRewardSource(ctx, source.WorkspaceID); err != nil {
+			t.Fatalf("source changed after rollback: %v", err)
+		}
+		var count int
+		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_workspace_reward_windows WHERE id = $1`, window.ID).Scan(&count); err != nil {
+			t.Fatalf("count window after rollback: %v", err)
+		}
+		if count != 1 {
+			t.Fatalf("window count after rollback = %d, want 1", count)
+		}
+	})
 }
 
 func openGameplayPostgresTestDB(t *testing.T) *sqlx.DB {

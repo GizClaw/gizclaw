@@ -10,8 +10,19 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/jmoiron/sqlx"
 )
+
+type workspaceRewardPolicyCorruptionError struct {
+	WindowID    string
+	WorkspaceID string
+	Class       string
+}
+
+func (err *workspaceRewardPolicyCorruptionError) Error() string {
+	return fmt.Sprintf("gameplay: Workspace reward window %q has invalid persisted policy", err.WindowID)
+}
 
 func workspaceRewardWindowColumns() string {
 	return `id, workspace_id, workspace_kind, beneficiary_public_key, runtime_profile_id,
@@ -62,15 +73,25 @@ func scanWorkspaceRewardWindow(row rowScanner) (workspaceRewardWindow, error) {
 	if err != nil {
 		return workspaceRewardWindow{}, err
 	}
+	if err := customid.ValidateResourceID(window.ID); err != nil {
+		return workspaceRewardWindow{}, fmt.Errorf("gameplay: invalid workspace reward window identity: %w", err)
+	}
+	if err := customid.ValidateResourceID(window.WorkspaceID); err != nil {
+		return workspaceRewardWindow{}, fmt.Errorf("gameplay: invalid workspace reward Workspace identity: %w", err)
+	}
 	if err := unmarshalJSON(policyJSON, &window.Policy); err != nil {
-		return workspaceRewardWindow{}, fmt.Errorf("gameplay: decode workspace reward policy: %w", err)
+		return workspaceRewardWindow{}, &workspaceRewardPolicyCorruptionError{
+			WindowID: window.ID, WorkspaceID: window.WorkspaceID, Class: "reward_policy_invalid",
+		}
 	}
 	digest, err := workspaceRewardPolicyDigest(window.Policy)
 	if err != nil {
 		return workspaceRewardWindow{}, err
 	}
 	if digest != window.PolicyDigest {
-		return workspaceRewardWindow{}, errors.New("gameplay: workspace reward policy digest mismatch")
+		return workspaceRewardWindow{}, &workspaceRewardPolicyCorruptionError{
+			WindowID: window.ID, WorkspaceID: window.WorkspaceID, Class: "reward_policy_digest_mismatch",
+		}
 	}
 	window.Policy.Digest = digest
 	window.StartHistoryAt = parseTime(startAt)
@@ -116,6 +137,48 @@ func (r *Runtime) insertWorkspaceRewardSource(ctx context.Context, source worksp
 		formatTime(source.CreatedAt), formatTime(source.UpdatedAt),
 	)
 	return err
+}
+
+func (r *Runtime) deleteUnsettledWorkspaceRewardData(ctx context.Context, workspaceID string) error {
+	db, err := r.db()
+	if err != nil {
+		return err
+	}
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM gameplay_workspace_reward_windows
+		WHERE workspace_id = ? AND state <> ?`), workspaceID, workspaceRewardCompleted); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM gameplay_workspace_reward_sources
+		WHERE workspace_id = ?`), workspaceID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (r *Runtime) blockCorruptWorkspaceRewardWindow(ctx context.Context, corrupt *workspaceRewardPolicyCorruptionError) error {
+	if corrupt == nil || customid.ValidateResourceID(corrupt.WindowID) != nil ||
+		customid.ValidateResourceID(corrupt.WorkspaceID) != nil {
+		return errors.New("gameplay: corrupt workspace reward row lacks a trusted identity")
+	}
+	db, err := r.db()
+	if err != nil {
+		return err
+	}
+	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_workspace_reward_windows SET
+		state = ?, claim_token = '', claim_until = '', last_error = ?, updated_at = ?
+		WHERE id = ? AND workspace_id = ? AND state IN (?, ?, ?)`),
+		workspaceRewardBlocked, corrupt.Class, formatTime(r.now()), corrupt.WindowID, corrupt.WorkspaceID,
+		workspaceRewardPending, workspaceRewardClaimed, workspaceRewardRetry,
+	)
+	if err != nil {
+		return err
+	}
+	return requireWorkspaceRewardRow(result, "corrupt reward window is no longer exactly identifiable")
 }
 
 func (r *Runtime) updateWorkspaceRewardSource(ctx context.Context, source workspaceRewardSource) error {
@@ -240,28 +303,39 @@ func (r *Runtime) claimWorkspaceRewardWindow(ctx context.Context) (workspaceRewa
 	}
 	now := r.now()
 	token := r.newID()
+	excluded := r.workspaceRewardIsolatedIDs()
+	exclusionSQL := ""
+	if len(excluded) > 0 {
+		exclusionSQL = " AND workspace_id NOT IN (" + strings.TrimSuffix(strings.Repeat("?,", len(excluded)), ",") + ")"
+	}
 	query := `UPDATE gameplay_workspace_reward_windows SET
 		state = ?, attempt_count = attempt_count + 1, claim_token = ?, claim_until = ?, updated_at = ?
 		WHERE id = (
 			SELECT id FROM gameplay_workspace_reward_windows
-			WHERE (state = ? AND evaluate_after <= ?)
+			WHERE ((state = ? AND evaluate_after <= ?)
 			   OR (state = ? AND next_attempt_at <= ?)
-			   OR (state = ? AND claim_until <= ?)
+			   OR (state = ? AND claim_until <= ?))` + exclusionSQL + `
 			ORDER BY evaluate_after, created_at LIMIT 1
 		)
 		AND ((state = ? AND evaluate_after <= ?)
 		  OR (state = ? AND next_attempt_at <= ?)
 		  OR (state = ? AND claim_until <= ?))
 		RETURNING ` + workspaceRewardWindowColumns()
-	window, err := scanWorkspaceRewardWindow(db.QueryRowContext(ctx, db.Rebind(query),
+	args := []any{
 		workspaceRewardClaimed, token, formatTime(now.Add(workspaceRewardClaimLease)), formatTime(now),
 		workspaceRewardPending, formatTime(now),
 		workspaceRewardRetry, formatTime(now),
 		workspaceRewardClaimed, formatTime(now),
+	}
+	for _, workspaceID := range excluded {
+		args = append(args, workspaceID)
+	}
+	args = append(args,
 		workspaceRewardPending, formatTime(now),
 		workspaceRewardRetry, formatTime(now),
 		workspaceRewardClaimed, formatTime(now),
-	))
+	)
+	window, err := scanWorkspaceRewardWindow(db.QueryRowContext(ctx, db.Rebind(query), args...))
 	if errors.Is(err, sql.ErrNoRows) {
 		return workspaceRewardWindow{}, false, nil
 	}

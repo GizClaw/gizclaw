@@ -89,3 +89,13 @@ window cannot grant twice. A successful state change sends
 `GAMEPLAY_REWARD_UPDATED` only to the beneficiary as an invalidation hint, after
 which clients fetch authoritative Gameplay state. Deterministic task rewards
 belong to a separate task system and do not use this evaluator.
+
+The dispatcher requires an exact Workspace availability capability before it
+migrates or starts work. A lifecycle-terminal, missing-owner, or malformed
+exact Workspace retires only that Workspace's source and non-completed windows
+while completed audit rows and raw Workspace/History data remain. An exact
+unsettled window with malformed policy JSON or a digest mismatch becomes
+`blocked` with a fixed error class; unreadable SQL identity, database access,
+or failure to perform the exact fence remains startup-fatal. These fences are
+rechecked before History reads, evaluator resolution/invocation, settlement,
+and retry persistence.

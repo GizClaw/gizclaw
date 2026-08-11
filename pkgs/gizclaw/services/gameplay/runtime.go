@@ -47,27 +47,29 @@ type sqlDialectExecutor interface {
 }
 
 type Runtime struct {
-	DB                   *sqlx.DB
-	Catalog              *Catalog
-	Workflows            WorkflowService
-	Workspaces           workspace.SystemWorkspaceService
-	DriveFacts           DriveFactMemory
-	WorkspaceRewards     WorkspaceRewardEnvironment
-	PendingDeletionWake  func()
-	PeerAvailability     func(context.Context, string) error
-	Now                  func() time.Time
-	NewID                func() string
-	PickWeight           func(total int64) int64
-	DecayPeriod          time.Duration
-	adoptMu              [64]sync.Mutex
-	driveMu              [64]sync.Mutex
-	driveFactMu          sync.Mutex
-	driveFactWake        chan struct{}
-	workspaceRewardMu    sync.Mutex
-	workspaceRewardWake  chan struct{}
-	workspaceRewardQueue chan workspaceRewardActivity
-	workspaceRewardLocks [64]sync.Mutex
-	accountMu            [64]sync.Mutex
+	DB                      *sqlx.DB
+	Catalog                 *Catalog
+	Workflows               WorkflowService
+	Workspaces              workspace.SystemWorkspaceService
+	DriveFacts              DriveFactMemory
+	WorkspaceRewards        WorkspaceRewardEnvironment
+	PendingDeletionWake     func()
+	PeerAvailability        func(context.Context, string) error
+	Now                     func() time.Time
+	NewID                   func() string
+	PickWeight              func(total int64) int64
+	DecayPeriod             time.Duration
+	adoptMu                 [64]sync.Mutex
+	driveMu                 [64]sync.Mutex
+	driveFactMu             sync.Mutex
+	driveFactWake           chan struct{}
+	workspaceRewardMu       sync.Mutex
+	workspaceRewardWake     chan struct{}
+	workspaceRewardQueue    chan workspaceRewardActivity
+	workspaceRewardFaults   map[string]struct{}
+	workspaceRewardIsolated map[string]struct{}
+	workspaceRewardLocks    [64]sync.Mutex
+	accountMu               [64]sync.Mutex
 }
 
 type WorkflowService interface {
