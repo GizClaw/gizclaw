@@ -173,16 +173,13 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 		Tracks:            o.Tracks,
 		WaitForAudioDrain: true,
 		Observe: func(chunk *genx.MessageChunk) error {
-			routeEOS, consumedRouteEOS := audio.consumeRouteEOS(chunk)
+			routeEOS := audio.consumeRouteEOS(chunk)
 			if routeEOS != nil {
 				if err := o.Events.Broadcast(routeEOS); err != nil {
 					return err
 				}
 			}
 			for _, event := range peerStreamEventsFromChunk(chunk) {
-				if consumedRouteEOS && event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_EOS {
-					continue
-				}
 				emit, err := audio.consume(event)
 				if err != nil {
 					return err
@@ -269,13 +266,13 @@ func (a *peerAudioRouteAggregator) consume(event *eventpb.PeerEvent) (bool, erro
 	}
 }
 
-func (a *peerAudioRouteAggregator) consumeRouteEOS(chunk *genx.MessageChunk) (*eventpb.PeerEvent, bool) {
+func (a *peerAudioRouteAggregator) consumeRouteEOS(chunk *genx.MessageChunk) *eventpb.PeerEvent {
 	if a == nil || chunk == nil || chunk.Part != nil || !chunk.IsEndOfStream() || chunk.Ctrl == nil {
-		return nil, false
+		return nil
 	}
 	streamID := strings.TrimSpace(chunk.Ctrl.StreamID)
 	if streamID == "" {
-		return nil, false
+		return nil
 	}
 	removed := false
 	for key := range a.active {
@@ -285,12 +282,12 @@ func (a *peerAudioRouteAggregator) consumeRouteEOS(chunk *genx.MessageChunk) (*e
 		}
 	}
 	if !removed || len(a.active) != 0 {
-		return nil, removed
+		return nil
 	}
 	event := peerStreamEventFromChunk(chunk, eventpb.PeerEventType_PEER_EVENT_TYPE_EOS, nil)
 	normalizePeerOutputAudioEvent(event, a.epoch)
 	a.epoch = peerAudioRoute{}
-	return event, true
+	return event
 }
 
 func (a *peerAudioRouteAggregator) close() error {

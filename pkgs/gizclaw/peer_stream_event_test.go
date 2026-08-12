@@ -387,16 +387,16 @@ func TestPeerAudioRouteAggregatorRouteEOSClosesOnlyMatchingAudio(t *testing.T) {
 			t.Fatalf("consume() error = %v", err)
 		}
 	}
-	if event, consumed := aggregator.consumeRouteEOS(&genx.MessageChunk{
+	if event := aggregator.consumeRouteEOS(&genx.MessageChunk{
 		Ctrl: &genx.StreamCtrl{StreamID: "route-a", EndOfStream: true, Error: "interrupted"},
-	}); event != nil || !consumed {
-		t.Fatalf("first route EOS = %+v, consumed = %v; want suppressed and consumed", event, consumed)
+	}); event != nil {
+		t.Fatalf("first route EOS = %+v, want suppressed", event)
 	}
-	event, consumed := aggregator.consumeRouteEOS(&genx.MessageChunk{
+	event := aggregator.consumeRouteEOS(&genx.MessageChunk{
 		Ctrl: &genx.StreamCtrl{StreamID: "route-b", EndOfStream: true},
 	})
-	if event == nil || !consumed || event.Type != eventpb.PeerEventType_PEER_EVENT_TYPE_EOS {
-		t.Fatalf("final route EOS = %+v, consumed = %v; want audio EOS", event, consumed)
+	if event == nil || event.Type != eventpb.PeerEventType_PEER_EVENT_TYPE_EOS {
+		t.Fatalf("final route EOS = %+v, want audio EOS", event)
 	}
 	if event.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_AUDIO || event.StreamID() != "route-a" || event.Label() != "assistant" {
 		t.Fatalf("final route EOS = %+v, want first route identity", event)
@@ -409,7 +409,7 @@ func TestPeerAudioRouteAggregatorRouteEOSClosesOnlyMatchingAudio(t *testing.T) {
 	}
 }
 
-func TestPeerAgentOutputSuppressesPerRouteControlEOS(t *testing.T) {
+func TestPeerAgentOutputPreservesNonAudioRouteEOS(t *testing.T) {
 	var events bytes.Buffer
 	broker := newPeerStreamEventBroker()
 	unsubscribe, err := broker.Subscribe(&events)
@@ -450,11 +450,97 @@ func TestPeerAgentOutputSuppressesPerRouteControlEOS(t *testing.T) {
 		eos.Type != eventpb.PeerEventType_PEER_EVENT_TYPE_EOS ||
 		bos.StreamID() != "route-a" || eos.StreamID() != "route-a" ||
 		bos.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_AUDIO ||
-		eos.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_AUDIO {
+		eos.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_UNSPECIFIED {
 		t.Fatalf("aggregate boundaries = %#v, %#v", bos, eos)
 	}
+	audioEOS, err := readPeerStreamEvent(&events)
+	if err != nil {
+		t.Fatalf("read audio EOS error = %v", err)
+	}
+	lastRouteEOS, err := readPeerStreamEvent(&events)
+	if err != nil {
+		t.Fatalf("read last route EOS error = %v", err)
+	}
+	if audioEOS.Type != eventpb.PeerEventType_PEER_EVENT_TYPE_EOS ||
+		audioEOS.StreamID() != "route-a" ||
+		audioEOS.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_AUDIO {
+		t.Fatalf("audio EOS = %#v, want aggregate route-a audio EOS", audioEOS)
+	}
+	if lastRouteEOS.Type != eventpb.PeerEventType_PEER_EVENT_TYPE_EOS ||
+		lastRouteEOS.StreamID() != "route-b" ||
+		lastRouteEOS.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_UNSPECIFIED {
+		t.Fatalf("last route EOS = %#v, want route-b non-audio EOS", lastRouteEOS)
+	}
 	if _, err := readPeerStreamEvent(&events); !errors.Is(err, io.EOF) {
-		t.Fatalf("trailing per-route Event error = %v, want EOF", err)
+		t.Fatalf("trailing Event error = %v, want EOF", err)
+	}
+}
+
+func TestPeerAgentOutputPreservesTextEOSForSharedAudioRoute(t *testing.T) {
+	var events bytes.Buffer
+	broker := newPeerStreamEventBroker()
+	unsubscribe, err := broker.Subscribe(&events)
+	if err != nil {
+		t.Fatalf("Subscribe() error = %v", err)
+	}
+	defer unsubscribe()
+
+	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{
+		{
+			Part: &genx.Blob{
+				MIMEType: "audio/L16; rate=16000; channels=1",
+				Data:     []byte{1, 0},
+			},
+			Ctrl: &genx.StreamCtrl{
+				StreamID:      "answer",
+				Label:         "assistant",
+				BeginOfStream: true,
+			},
+		},
+		{
+			Part: genx.Text("hello"),
+			Ctrl: &genx.StreamCtrl{StreamID: "answer", Label: "assistant"},
+		},
+		{
+			Ctrl: &genx.StreamCtrl{
+				StreamID:    "answer",
+				Label:       "assistant",
+				EndOfStream: true,
+				Error:       "interrupted",
+			},
+		},
+	}, doneErr: genx.ErrDone}
+	if err := (peerAgentOutput{Events: broker, Tracks: &peerStreamFakeTracks{}}).ConsumeAgentOutput(t.Context(), output); err != nil {
+		t.Fatalf("ConsumeAgentOutput() error = %v", err)
+	}
+
+	wantTypes := []eventpb.PeerEventType{
+		eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
+		eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA,
+		eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+	}
+	for index, wantType := range wantTypes {
+		event, err := readPeerStreamEvent(&events)
+		if err != nil {
+			t.Fatalf("read event %d error = %v", index, err)
+		}
+		if event.Type != wantType || event.StreamID() != "answer" {
+			t.Fatalf("event %d = %#v, want %s for answer", index, event, wantType)
+		}
+		switch index {
+		case 0, 2:
+			if event.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_AUDIO {
+				t.Fatalf("event %d kind = %s, want AUDIO", index, event.StreamKindValue())
+			}
+		case 3:
+			if event.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_UNSPECIFIED {
+				t.Fatalf("text route EOS kind = %s, want UNKNOWN", event.StreamKindValue())
+			}
+		}
+	}
+	if _, err := readPeerStreamEvent(&events); !errors.Is(err, io.EOF) {
+		t.Fatalf("trailing Event error = %v, want EOF", err)
 	}
 }
 
