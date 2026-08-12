@@ -90,4 +90,4 @@ Badge EXP、window 完成和 checkpoint 在同一个 Gameplay SQL transaction �
 `GAMEPLAY_REWARD_UPDATED` invalidation Event；客户端收到后重新拉取权威 Gameplay
 状态。确定性任务奖励属于独立任务系统，不经过该模型 evaluator。
 
-Workspace reward 的精确 Workspace 激活、History paging、model evaluation 与 retry dispatch 都使用同一个权威 availability gate。Workspace 或 owner 进入 pending deletion 后，未结算 window 与准确 source row 会被删除，已完成 reward audit row 保留，并且不再为该 Workspace 调用 History 或 model。重启时直接从带索引的 Gameplay SQL 队列恢复已有 pending、retry 与过期 claim，不扫描 Workspace catalog；其他 Workspace 仍可独立 dispatch。
+Workspace reward 的精确 Workspace 激活、History paging、model evaluation 与 retry dispatch 都使用同一个权威 availability gate。Workspace 或 owner 进入 pending deletion，或规范 Workspace 已完成物理删除后，stale activation 会幂等完成：未结算 window 与准确 source row 会被删除，已完成 reward audit row 保留，并且不再为该 Workspace 调用 History、model 或记录 operational error。PendingDeletion marker 创建与最终 settlement 还通过既有的 per-Workspace reward source row 串行化：marker 创建前已提交的 settlement 保留为有效历史；marker 抢先取得 fence 后，后续 settlement 不能再提交 RewardGrant、Points 或 badge。该数据库 fence 跨进程和重启保持有效，不同 Workspace 仍保持独立顺序。重启时直接从带索引的 Gameplay SQL 队列恢复已有 pending、retry 与过期 claim，不扫描 Workspace catalog。

@@ -70,6 +70,8 @@ The levels are deterministic:
 
 Streaming RPC emits one completion after the full stream handler returns. It never emits per-frame, audio, event-payload, or successful-chunk records.
 
+`server.speech.extract` uses the same completion record to expose only a closed stage/class code. Its stages are request, ASR, Extract Provider, result parsing, schema validation, and response encoding. Raw provider errors and request/result content remain excluded even when the wire response is a generic internal error.
+
 ### Request correlation
 
 HTTP propagates an incoming `X-Request-ID` only when it contains 1-128 characters from `[A-Za-z0-9._-]`. Missing or invalid values are replaced with a random 128-bit lowercase hexadecimal ID, returned in the response header, and exposed through CORS. If entropy fails, the response is unchanged, the ID is omitted, and a rate-limited warning is emitted.

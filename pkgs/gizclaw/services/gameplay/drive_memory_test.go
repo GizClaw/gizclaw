@@ -172,64 +172,66 @@ func TestDriveFactDispatcherBlocksCorruptPayload(t *testing.T) {
 }
 
 func TestDriveFactDispatcherRetiresPendingWorkspaceRowsWithoutProviderCalls(t *testing.T) {
-	for _, state := range []string{driveFactPending, driveFactSubmitted, driveFactBlocked} {
-		t.Run(state, func(t *testing.T) {
-			ctx, runtime, now := newPetRuntime(t)
-			delivery := testDriveFactMemory()
-			delivery.availabilityErr = workspace.ErrWorkspacePendingDeletion
-			runtime.DriveFacts = delivery
-			if err := runtime.Migration(ctx); err != nil {
-				t.Fatal(err)
-			}
-			payload := driveFactPayload{
-				ID:         "gameplay/drive/reward_grant/terminal-" + state,
-				Text:       "terminal",
-				ObservedAt: *now,
-			}
-			target, targetErr := runtime.snapshotDriveFactTarget(ctx, "workspace")
-			if targetErr != "" {
-				t.Fatal(targetErr)
-			}
-			digest, err := memory.ObservationPayloadDigest(payload.observation("workspace"))
-			if err != nil {
-				t.Fatal(err)
-			}
-			tx, err := runtime.DB.BeginTxx(ctx, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := insertDriveFactOutbox(ctx, tx, driveFactOutbox{
-				ObservationID: payload.ID, PayloadDigest: digest,
-				OwnerPublicKey: "owner", RuntimeProfile: "profile", PetID: "pet",
-				Target: target, Payload: payload, State: state,
-				OperationID: "operation", NextAttemptAt: *now, CreatedAt: *now, UpdatedAt: *now,
-			}); err != nil {
-				_ = tx.Rollback()
-				t.Fatal(err)
-			}
-			if err := tx.Commit(); err != nil {
-				t.Fatal(err)
-			}
-			if processed, err := runtime.DispatchDriveFactsOnce(ctx); err != nil || !processed {
-				t.Fatalf("DispatchDriveFactsOnce() = %v, %v", processed, err)
-			}
-			var rows int
-			if err := runtime.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_drive_fact_outbox`).Scan(&rows); err != nil {
-				t.Fatal(err)
-			}
-			if rows != 0 {
-				t.Fatalf("outbox rows = %d, want 0", rows)
-			}
-			delivery.mu.Lock()
-			observeCalls, waitCalls := len(delivery.observe), len(delivery.waits)
-			delivery.mu.Unlock()
-			if observeCalls != 0 || waitCalls != 0 {
-				t.Fatalf("Observe/Wait calls = %d/%d, want 0/0", observeCalls, waitCalls)
-			}
-			if processed, err := runtime.DispatchDriveFactsOnce(ctx); err != nil || processed {
-				t.Fatalf("restart dispatch = %v, %v; want no reclaim", processed, err)
-			}
-		})
+	for _, lifecycleErr := range []error{workspace.ErrWorkspacePendingDeletion, workspace.ErrWorkspaceDeleted} {
+		for _, state := range []string{driveFactPending, driveFactSubmitted, driveFactBlocked} {
+			t.Run(lifecycleErr.Error()+"/"+state, func(t *testing.T) {
+				ctx, runtime, now := newPetRuntime(t)
+				delivery := testDriveFactMemory()
+				delivery.availabilityErr = lifecycleErr
+				runtime.DriveFacts = delivery
+				if err := runtime.Migration(ctx); err != nil {
+					t.Fatal(err)
+				}
+				payload := driveFactPayload{
+					ID:         "gameplay/drive/reward_grant/terminal-" + state,
+					Text:       "terminal",
+					ObservedAt: *now,
+				}
+				target, targetErr := runtime.snapshotDriveFactTarget(ctx, "workspace")
+				if targetErr != "" {
+					t.Fatal(targetErr)
+				}
+				digest, err := memory.ObservationPayloadDigest(payload.observation("workspace"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				tx, err := runtime.DB.BeginTxx(ctx, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := insertDriveFactOutbox(ctx, tx, driveFactOutbox{
+					ObservationID: payload.ID, PayloadDigest: digest,
+					OwnerPublicKey: "owner", RuntimeProfile: "profile", PetID: "pet",
+					Target: target, Payload: payload, State: state,
+					OperationID: "operation", NextAttemptAt: *now, CreatedAt: *now, UpdatedAt: *now,
+				}); err != nil {
+					_ = tx.Rollback()
+					t.Fatal(err)
+				}
+				if err := tx.Commit(); err != nil {
+					t.Fatal(err)
+				}
+				if processed, err := runtime.DispatchDriveFactsOnce(ctx); err != nil || !processed {
+					t.Fatalf("DispatchDriveFactsOnce() = %v, %v", processed, err)
+				}
+				var rows int
+				if err := runtime.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_drive_fact_outbox`).Scan(&rows); err != nil {
+					t.Fatal(err)
+				}
+				if rows != 0 {
+					t.Fatalf("outbox rows = %d, want 0", rows)
+				}
+				delivery.mu.Lock()
+				observeCalls, waitCalls := len(delivery.observe), len(delivery.waits)
+				delivery.mu.Unlock()
+				if observeCalls != 0 || waitCalls != 0 {
+					t.Fatalf("Observe/Wait calls = %d/%d, want 0/0", observeCalls, waitCalls)
+				}
+				if processed, err := runtime.DispatchDriveFactsOnce(ctx); err != nil || processed {
+					t.Fatalf("restart dispatch = %v, %v; want no reclaim", processed, err)
+				}
+			})
+		}
 	}
 }
 

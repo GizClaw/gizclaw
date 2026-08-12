@@ -465,6 +465,12 @@ func (r *Runtime) settleWorkspaceReward(
 		return apitypes.RewardGrant{}, false, err
 	}
 	defer tx.Rollback()
+	if err := r.lockWorkspaceRewardSourceTx(ctx, tx, window.WorkspaceID); err != nil {
+		return apitypes.RewardGrant{}, false, err
+	}
+	if err := r.checkWorkspaceRewardAvailability(ctx, window.WorkspaceID); err != nil {
+		return apitypes.RewardGrant{}, false, err
+	}
 	current, err := scanWorkspaceRewardWindow(tx.QueryRowContext(ctx, tx.Rebind(
 		workspaceRewardWindowSelectSQL()+` WHERE id = ? AND state = ? AND claim_token = ?`,
 	), window.ID, workspaceRewardClaimed, window.ClaimToken))
@@ -550,6 +556,50 @@ func (r *Runtime) settleWorkspaceReward(
 		return apitypes.RewardGrant{}, false, err
 	}
 	return grant, true, nil
+}
+
+func (r *Runtime) lockWorkspaceRewardSourceTx(ctx context.Context, tx *sqlx.Tx, workspaceID string) error {
+	now := formatTime(r.now())
+	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_workspace_reward_sources
+		(workspace_id, scheduled_checkpoint, completed_checkpoint, created_at, updated_at)
+		VALUES (?, '', '', ?, ?)
+		ON CONFLICT(workspace_id) DO UPDATE SET updated_at = gameplay_workspace_reward_sources.updated_at`),
+		workspaceID, now, now,
+	)
+	return err
+}
+
+// WithWorkspaceDeletionFence makes PendingDeletion marker creation and final
+// reward settlement share one durable per-Workspace database ordering. If the
+// marker write succeeds but the SQL commit fails, settlement still fails closed
+// when its availability check observes the retained marker.
+func (r *Runtime) WithWorkspaceDeletionFence(
+	ctx context.Context,
+	workspaceID string,
+	createMarker func(context.Context) error,
+) error {
+	if createMarker == nil {
+		return errors.New("gameplay: Workspace deletion marker callback is not configured")
+	}
+	if err := customid.ValidateResourceID(workspaceID); err != nil {
+		return fmt.Errorf("gameplay: invalid Workspace ID: %w", err)
+	}
+	db, err := r.db()
+	if err != nil {
+		return err
+	}
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := r.lockWorkspaceRewardSourceTx(ctx, tx, workspaceID); err != nil {
+		return err
+	}
+	if err := createMarker(ctx); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func workspaceRewardRollingUsage(

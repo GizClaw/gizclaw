@@ -49,6 +49,7 @@ const (
 
 var (
 	ErrWorkspacePendingDeletion = errors.New("workspace: pending deletion")
+	ErrWorkspaceDeleted         = errors.New("workspace: deleted")
 	ErrPeerPendingDeletion      = errors.New("workspace: owner Peer pending deletion")
 	ErrPeerDeleted              = errors.New("workspace: owner Peer deleted")
 )
@@ -63,8 +64,16 @@ type Server struct {
 	IconLocks        iconasset.Locker
 	NewID            func() string
 	PeerAvailability func(context.Context, string) error
+	DeletionFencer   WorkspaceDeletionFencer
 
 	createMu sync.Mutex
+}
+
+// WorkspaceDeletionFencer serializes authoritative PendingDeletion marker
+// creation with any not-yet-committed reward settlement for the same
+// Workspace. The callback must be invoked while the durable fence is held.
+type WorkspaceDeletionFencer interface {
+	WithWorkspaceDeletionFence(context.Context, string, func(context.Context) error) error
 }
 
 // WorkflowService resolves Workflow resources without exposing the owning
@@ -625,7 +634,7 @@ func (s *Server) retireSystemWorkspace(ctx context.Context, store kv.Store, item
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
-	if _, _, err := pendingdeletion.CreateOrGet(ctx, store, record); err != nil {
+	if err := s.createPendingDeletion(ctx, store, record); err != nil {
 		return apitypes.Workspace{}, err
 	}
 	return item, nil
@@ -805,8 +814,7 @@ func (s *Server) fastDeleteWorkspaceRecord(ctx context.Context, store kv.Store, 
 	if err != nil {
 		return err
 	}
-	_, _, err = pendingdeletion.CreateOrGet(ctx, store, record)
-	return err
+	return s.createPendingDeletion(ctx, store, record)
 }
 
 func (s *Server) retirePeerPetWorkspaceRecord(ctx context.Context, store kv.Store, item apitypes.Workspace, owner string) error {
@@ -828,8 +836,18 @@ func (s *Server) retirePeerPetWorkspaceRecord(ctx context.Context, store kv.Stor
 	if err != nil {
 		return err
 	}
-	_, _, err = pendingdeletion.CreateOrGet(ctx, store, record)
-	return err
+	return s.createPendingDeletion(ctx, store, record)
+}
+
+func (s *Server) createPendingDeletion(ctx context.Context, store kv.Store, record pendingdeletion.Record) error {
+	create := func(ctx context.Context) error {
+		_, _, err := pendingdeletion.CreateOrGet(ctx, store, record)
+		return err
+	}
+	if s.DeletionFencer == nil {
+		return create(ctx)
+	}
+	return s.DeletionFencer.WithWorkspaceDeletionFence(ctx, record.ResourceID, create)
 }
 
 func (s *Server) GetWorkspace(ctx context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
@@ -888,6 +906,9 @@ func (s *Server) GetAvailableWorkspaceByID(ctx context.Context, id string) (apit
 	}
 	item, err := getWorkspaceByID(ctx, store, id)
 	if err != nil {
+		if errors.Is(err, kv.ErrNotFound) {
+			return apitypes.Workspace{}, fmt.Errorf("%w: Workspace %q no longer exists", ErrWorkspaceDeleted, id)
+		}
 		return apitypes.Workspace{}, err
 	}
 	if err := s.ensureWorkspaceOwnerAvailable(ctx, item); err != nil {

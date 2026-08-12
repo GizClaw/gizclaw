@@ -275,6 +275,7 @@ func (r *Runtime) ensureDriveFactWorkspaceAvailable(ctx context.Context, workspa
 
 func isWorkspaceLifecycleTerminal(err error) bool {
 	return errors.Is(err, workspace.ErrWorkspacePendingDeletion) ||
+		errors.Is(err, workspace.ErrWorkspaceDeleted) ||
 		errors.Is(err, workspace.ErrPeerPendingDeletion) ||
 		errors.Is(err, workspace.ErrPeerDeleted)
 }

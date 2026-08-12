@@ -23,6 +23,9 @@ func (r *Runtime) DeleteWorkspaceData(ctx context.Context, workspaceID string) e
 		return err
 	}
 	defer tx.Rollback()
+	if err := r.lockWorkspaceRewardSourceTx(ctx, tx, workspaceID); err != nil {
+		return err
+	}
 	for _, statement := range []string{
 		`DELETE FROM gameplay_drive_fact_outbox WHERE workspace_id = ?`,
 		`DELETE FROM gameplay_workspace_reward_windows WHERE workspace_id = ?`,

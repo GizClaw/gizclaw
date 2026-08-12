@@ -88,7 +88,7 @@ Workspace 配置显式指定一个 resource Store 与一个 asset ObjectStore；
 
 Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入 `system: false`；领域拥有的创建同时写入 `system: true` 与唯一且不可变的 `owner_public_key`。通用 put 只能修改 Chatroom system Workspace 的 input mode；owner、Workflow、领域 mode、history/transcript policy、labels 或 toolkit 的变化都会被拒绝，因此 Pet system Workspace 没有可变的执行配置。通用 delete 始终拒绝 system Workspace。删除用户 Workspace 时，会原子创建或复用一条 `kind=workspace` PendingDeletion，并立即拒绝该 Workspace 的选择、运行、history/icon 与 mutation；Admin Workspace get/list 仍可诊断 retained record。Production handler quiesce runtime，删除 exact Gameplay/History/runtime/icon/object/filesystem artifact，验证 absent 后原子删除 Workspace、index 与 mutable task state。内部 system lifecycle surface 只提供给拥有该 Workspace 的 Social 或 Gameplay service；Social relationship 或 Peer retirement 为选中的 system Workspace 创建同样的 handoff。
 
-后台 consumer 通过 `GetAvailableWorkspaceByID` 解析 retained Workspace；该入口会保留准确的 Workspace 或 owner `PendingDeletion` typed error，不会把 Admin projection 当作可运行状态。Runtime 与后台 Memory resolution 都经过这个 availability gate；Admin get/list 则有意继续作为 retained row 的诊断视图。
+后台 consumer 通过 `GetAvailableWorkspaceByID` 解析 retained Workspace；该入口会保留准确的 Workspace 或 owner `PendingDeletion` typed error，不会把 Admin projection 当作可运行状态。物理清理删除规范 Workspace record 后，同一入口返回 Workspace domain 拥有的 deleted 终态，不泄漏原始 Store not-found。Runtime 与后台 Memory resolution 都经过这个 availability gate；Admin get/list 则有意继续作为 retained row 的诊断视图。
 
 ## 依赖与边界
 

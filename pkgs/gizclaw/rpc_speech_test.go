@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"strings"
@@ -223,6 +224,41 @@ func TestRPCSpeechExtractMapsAndSanitizesTerminalErrors(t *testing.T) {
 			}
 			readSpeechEOS(t, stream)
 		})
+	}
+}
+
+func TestRPCSpeechExtractCompletionLogHasSafeErrorCode(t *testing.T) {
+	capture := captureSlog(t)
+	service := speechServiceFuncs{
+		extract: func(context.Context, peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error) {
+			return peergenx.SpeechExtraction{}, errors.New("secret upstream credential and transcript")
+		},
+	}
+	client, serverDone := startSpeechRPCServer(t, service, SpeechLimits{})
+	stream := newSpeechClientStream(t, client)
+	writeStandardSpeechExtractRequest(t, stream, "speech-safe-code")
+	response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechExtract)
+	if err != nil {
+		t.Fatalf("ReadResponse() error = %v", err)
+	}
+	if response.Error == nil || response.Error.Message != "speech extraction provider failed" {
+		t.Fatalf("response = %+v", response)
+	}
+	readSpeechEOS(t, stream)
+	if err := stream.Close(); err != nil {
+		t.Fatalf("stream Close() error = %v", err)
+	}
+	finishSpeechRPCServer(t, client, serverDone)
+	record, attrs := onlyCapturedRecord(t, capture)
+	if record.Level.String() != "ERROR" || attrs["operation"] != string(rpcapi.RPCMethodServerSpeechExtract) ||
+		attrs["request_id"] != "speech-safe-code" || attrs["rpc_code"] != int64(rpcapi.RPCErrorCodeInternalError) ||
+		attrs["error_code"] != "SPEECH_EXTRACT_PROVIDER_FAILURE" {
+		t.Fatalf("completion record = (%s, %#v)", record.Level, attrs)
+	}
+	for _, value := range attrs {
+		if strings.Contains(fmt.Sprint(value), "secret") || strings.Contains(fmt.Sprint(value), "transcript") {
+			t.Fatalf("completion attrs leaked provider content: %#v", attrs)
+		}
 	}
 }
 

@@ -1,12 +1,15 @@
 package gameplay
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -724,6 +727,172 @@ func TestWorkspaceRewardActivationIsolatesPendingWorkspace(t *testing.T) {
 	if source, err := runtime.getWorkspaceRewardSource(ctx, "workspace-active"); err != nil || source.CompletedCheckpoint != "001" {
 		t.Fatalf("active Workspace source = %#v, %v", source, err)
 	}
+}
+
+func TestWorkspaceRewardActivationRetiresPhysicallyDeletedWorkspaceIdempotently(t *testing.T) {
+	ctx := t.Context()
+	now := time.Date(2026, 8, 13, 1, 0, 0, 0, time.UTC)
+	environment := &workspaceRewardTestEnvironment{
+		entries: map[string][]workspace.HistoryEntry{
+			"workspace-deleted": {{ID: "001", CreatedAt: now.Add(-time.Minute)}},
+		},
+		availability: map[string]error{"workspace-deleted": workspace.ErrWorkspaceDeleted},
+	}
+	runtime := &Runtime{DB: testDB(t), WorkspaceRewards: environment, Now: func() time.Time { return now }}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runtime.DB.ExecContext(ctx, `INSERT INTO gameplay_workspace_reward_sources
+		(workspace_id, scheduled_checkpoint, completed_checkpoint, created_at, updated_at)
+		VALUES (?, '', '', ?, ?)`, "workspace-deleted", formatTime(now), formatTime(now)); err != nil {
+		t.Fatal(err)
+	}
+	for attempt := range 2 {
+		if err := runtime.ActivateWorkspaceReward(ctx, "workspace-deleted"); err != nil {
+			t.Fatalf("ActivateWorkspaceReward(deleted) attempt %d error = %v", attempt+1, err)
+		}
+	}
+	if got := environment.historyCallCount("workspace-deleted"); got != 0 {
+		t.Fatalf("deleted Workspace History calls = %d, want 0", got)
+	}
+	var rows int
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT
+		(SELECT COUNT(*) FROM gameplay_workspace_reward_windows WHERE workspace_id = ?) +
+		(SELECT COUNT(*) FROM gameplay_workspace_reward_sources WHERE workspace_id = ?)`,
+		"workspace-deleted", "workspace-deleted").Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 0 {
+		t.Fatalf("deleted Workspace unsettled reward rows = %d, want 0", rows)
+	}
+}
+
+func TestWorkspaceRewardTerminalLifecycleStatesRetireUnsettledData(t *testing.T) {
+	for _, lifecycleErr := range []error{
+		workspace.ErrWorkspacePendingDeletion,
+		workspace.ErrWorkspaceDeleted,
+		workspace.ErrPeerPendingDeletion,
+		workspace.ErrPeerDeleted,
+	} {
+		t.Run(lifecycleErr.Error(), func(t *testing.T) {
+			ctx := t.Context()
+			now := time.Date(2026, 8, 13, 1, 15, 0, 0, time.UTC)
+			environment := &workspaceRewardTestEnvironment{
+				entries:      map[string][]workspace.HistoryEntry{"workspace-terminal": {{ID: "001", CreatedAt: now}}},
+				availability: map[string]error{"workspace-terminal": lifecycleErr},
+			}
+			runtime := &Runtime{DB: testDB(t), WorkspaceRewards: environment, Now: func() time.Time { return now }}
+			if err := runtime.Migration(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := runtime.DB.ExecContext(ctx, `INSERT INTO gameplay_workspace_reward_sources
+				(workspace_id, scheduled_checkpoint, completed_checkpoint, created_at, updated_at)
+				VALUES (?, '', '', ?, ?)`, "workspace-terminal", formatTime(now), formatTime(now)); err != nil {
+				t.Fatal(err)
+			}
+			if err := runtime.ActivateWorkspaceReward(ctx, "workspace-terminal"); err != nil {
+				t.Fatalf("ActivateWorkspaceReward() error = %v", err)
+			}
+			if _, err := runtime.getWorkspaceRewardSource(ctx, "workspace-terminal"); !errors.Is(err, sql.ErrNoRows) {
+				t.Fatalf("terminal Workspace source error = %v, want no row", err)
+			}
+			if got := environment.historyCallCount("workspace-terminal"); got != 0 {
+				t.Fatalf("terminal Workspace History calls = %d, want 0", got)
+			}
+		})
+	}
+}
+
+func TestWorkspaceRewardDispatcherConsumesQueuedDeletedActivationsIdempotently(t *testing.T) {
+	ctx := t.Context()
+	now := time.Date(2026, 8, 13, 1, 30, 0, 0, time.UTC)
+	availabilityCalls := make(chan struct{}, 3)
+	releaseFirst := make(chan struct{})
+	var firstCall atomic.Bool
+	environment := &workspaceRewardTestEnvironment{
+		entries: map[string][]workspace.HistoryEntry{
+			"workspace-queued-deleted": {{ID: "001", CreatedAt: now.Add(-time.Minute)}},
+		},
+		availabilityFunc: func(context.Context, string) error {
+			availabilityCalls <- struct{}{}
+			if firstCall.CompareAndSwap(false, true) {
+				<-releaseFirst
+			}
+			return workspace.ErrWorkspaceDeleted
+		},
+	}
+	runtime := &Runtime{DB: testDB(t), WorkspaceRewards: environment, Now: func() time.Time { return now }}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runtime.DB.ExecContext(ctx, `INSERT INTO gameplay_workspace_reward_sources
+		(workspace_id, scheduled_checkpoint, completed_checkpoint, created_at, updated_at)
+		VALUES (?, '', '', ?, ?)`, "workspace-queued-deleted", formatTime(now), formatTime(now)); err != nil {
+		t.Fatal(err)
+	}
+	logs := &lockedLogBuffer{}
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+	stop, done, err := runtime.StartWorkspaceRewardDispatcher(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		stop()
+		<-done
+	})
+	if err := runtime.EnqueueWorkspaceRewardActivation(ctx, "workspace-queued-deleted"); err != nil {
+		t.Fatal(err)
+	}
+	<-availabilityCalls
+	close(releaseFirst)
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		_, err := runtime.getWorkspaceRewardSource(ctx, "workspace-queued-deleted")
+		if errors.Is(err, sql.ErrNoRows) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("queued deleted Workspace source was not retired")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	for range 2 {
+		if err := runtime.EnqueueWorkspaceRewardActivation(ctx, "workspace-queued-deleted"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	<-availabilityCalls
+	<-availabilityCalls
+	stop()
+	<-done
+	if got := environment.historyCallCount("workspace-queued-deleted"); got != 0 {
+		t.Fatalf("deleted Workspace History calls = %d, want 0", got)
+	}
+	if output := logs.String(); strings.Contains(output, "activate Workspace reward") {
+		t.Fatalf("stale activation emitted an operational error: %s", output)
+	}
+}
+
+type lockedLogBuffer struct {
+	mu     sync.Mutex
+	buffer bytes.Buffer
+}
+
+func (b *lockedLogBuffer) Write(data []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buffer.Write(data)
+}
+
+func (b *lockedLogBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buffer.String()
 }
 
 func TestWorkspaceRewardActivationLazilyBaselinesAndRecoversExactWorkspace(t *testing.T) {
@@ -1913,6 +2082,232 @@ func TestWorkspaceRewardConcurrentSQLiteSettlementHonorsBudget(t *testing.T) {
 	testConcurrentWorkspaceRewardSettlement(t, testDB(t))
 }
 
+func TestWorkspaceRewardSettlementRejectsDeletionAfterFinalAvailabilityCheck(t *testing.T) {
+	ctx := t.Context()
+	now := time.Date(2026, 8, 13, 2, 0, 0, 0, time.UTC)
+	policy := workspaceRewardTestPolicy(t)
+	environment := &workspaceRewardTestEnvironment{
+		availability: map[string]error{"workflow-deleting": workspace.ErrWorkspacePendingDeletion},
+	}
+	runtime := &Runtime{
+		DB:               testDB(t),
+		WorkspaceRewards: environment,
+		Now:              func() time.Time { return now },
+		NewID:            sequentialIDs("grant-deleting", "points-deleting"),
+	}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatal(err)
+	}
+	source := workspaceRewardSource{
+		WorkspaceID: "workflow-deleting", ScheduledCheckpoint: "002",
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := runtime.insertWorkspaceRewardSource(ctx, source); err != nil {
+		t.Fatal(err)
+	}
+	window := workspaceRewardWindow{
+		ID: "window-deleting", WorkspaceID: source.WorkspaceID,
+		WorkspaceKind: WorkspaceRewardKindWorkflow, BeneficiaryPublicKey: "peer-a",
+		RuntimeProfileId: "runtime-profile-a", RuntimeProfileRevision: "revision-a",
+		Policy: policy, PolicyDigest: policy.Digest, StartHistoryID: "001", HighWaterHistoryID: "002",
+		StartHistoryAt: now, HighWaterHistoryAt: now, OpenedAt: now, LastActivityAt: now,
+		EvaluateAfter: now, State: workspaceRewardClaimed, AttemptCount: 1,
+		ClaimToken: "claim-deleting", ClaimUntil: now.Add(time.Minute),
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
+		t.Fatal(err)
+	}
+
+	_, changed, err := runtime.settleWorkspaceReward(ctx, window, "transcript", workspaceRewardEvaluation{
+		Score: 90, Reason: "Qualified.",
+	})
+	if !errors.Is(err, workspace.ErrWorkspacePendingDeletion) {
+		t.Fatalf("settleWorkspaceReward() error = %v, want %v", err, workspace.ErrWorkspacePendingDeletion)
+	}
+	if changed {
+		t.Fatal("settleWorkspaceReward() changed = true for deleting Workspace")
+	}
+	var grants int
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_reward_grants WHERE source_id = ?`, window.ID).Scan(&grants); err != nil {
+		t.Fatal(err)
+	}
+	if grants != 0 {
+		t.Fatalf("deleting Workspace grants = %d, want 0", grants)
+	}
+}
+
+func TestWorkspaceRewardSQLiteDeletionFenceOrdersMarkerAndSettlement(t *testing.T) {
+	testWorkspaceRewardDeletionFenceOrdersMarkerAndSettlement(t, testDB(t))
+}
+
+func TestWorkspaceRewardDeletionFenceFailsClosedAfterCanceledCommit(t *testing.T) {
+	ctx := t.Context()
+	now := time.Date(2026, 8, 13, 2, 15, 0, 0, time.UTC)
+	deleting := false
+	environment := &workspaceRewardTestEnvironment{availabilityFunc: func(context.Context, string) error {
+		if deleting {
+			return workspace.ErrWorkspacePendingDeletion
+		}
+		return nil
+	}}
+	runtime := &Runtime{DB: testDB(t), WorkspaceRewards: environment, Now: func() time.Time { return now }}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatal(err)
+	}
+	deleteCtx, cancelDelete := context.WithCancel(ctx)
+	err := runtime.WithWorkspaceDeletionFence(deleteCtx, "workspace-canceled-delete", func(context.Context) error {
+		deleting = true
+		cancelDelete()
+		return nil
+	})
+	if err == nil {
+		t.Fatal("WithWorkspaceDeletionFence() error = nil after cancellation")
+	}
+	if err := runtime.checkWorkspaceRewardAvailability(ctx, "workspace-canceled-delete"); !errors.Is(err, workspace.ErrWorkspacePendingDeletion) {
+		t.Fatalf("availability after canceled fence commit = %v", err)
+	}
+	var rows int
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_workspace_reward_sources WHERE workspace_id = ?`, "workspace-canceled-delete").Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 0 {
+		t.Fatalf("canceled deletion fence rows = %d, want rolled back", rows)
+	}
+}
+
+func testWorkspaceRewardDeletionFenceOrdersMarkerAndSettlement(t *testing.T, db *sqlx.DB) {
+	t.Helper()
+	ctx := t.Context()
+	now := time.Date(2026, 8, 13, 2, 30, 0, 0, time.UTC)
+	policy := workspaceRewardTestPolicy(t)
+	var availabilityMu sync.Mutex
+	deleting := map[string]bool{}
+	settlementAtFence := make(chan struct{})
+	releaseSettlement := make(chan struct{})
+	var settlementBarrier sync.Once
+	environment := &workspaceRewardTestEnvironment{availabilityFunc: func(_ context.Context, workspaceID string) error {
+		if workspaceID == "workflow-settlement-first" {
+			settlementBarrier.Do(func() {
+				close(settlementAtFence)
+				<-releaseSettlement
+			})
+		}
+		availabilityMu.Lock()
+		defer availabilityMu.Unlock()
+		if deleting[workspaceID] {
+			return workspace.ErrWorkspacePendingDeletion
+		}
+		return nil
+	}}
+	settlementRuntime := &Runtime{
+		DB: db, WorkspaceRewards: environment, Now: func() time.Time { return now },
+		NewID: sequentialIDs("grant-settlement-first", "points-settlement-first"),
+	}
+	deletionRuntime := &Runtime{DB: db, Now: func() time.Time { return now }}
+	if err := settlementRuntime.Migration(ctx); err != nil {
+		t.Fatal(err)
+	}
+	seedWindow := func(workspaceID, owner, windowID, claimToken string) workspaceRewardWindow {
+		t.Helper()
+		source := workspaceRewardSource{
+			WorkspaceID: workspaceID, ScheduledCheckpoint: "002", CreatedAt: now, UpdatedAt: now,
+		}
+		if err := settlementRuntime.insertWorkspaceRewardSource(ctx, source); err != nil {
+			t.Fatal(err)
+		}
+		window := workspaceRewardWindow{
+			ID: windowID, WorkspaceID: workspaceID,
+			WorkspaceKind: WorkspaceRewardKindWorkflow, BeneficiaryPublicKey: owner,
+			RuntimeProfileId: "runtime-profile-a", RuntimeProfileRevision: "revision-a",
+			Policy: policy, PolicyDigest: policy.Digest, StartHistoryID: "001", HighWaterHistoryID: "002",
+			StartHistoryAt: now, HighWaterHistoryAt: now, OpenedAt: now, LastActivityAt: now,
+			EvaluateAfter: now, State: workspaceRewardClaimed, AttemptCount: 1,
+			ClaimToken: claimToken, ClaimUntil: now.Add(time.Minute), CreatedAt: now, UpdatedAt: now,
+		}
+		if err := settlementRuntime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
+			t.Fatal(err)
+		}
+		return window
+	}
+	first := seedWindow("workflow-settlement-first", "peer-settlement-first", "window-settlement-first", "claim-settlement-first")
+	type settlementResult struct {
+		changed bool
+		err     error
+	}
+	settled := make(chan settlementResult, 1)
+	go func() {
+		_, changed, err := settlementRuntime.settleWorkspaceReward(ctx, first, "transcript", workspaceRewardEvaluation{
+			Score: 90, Reason: "Qualified.",
+		})
+		settled <- settlementResult{changed: changed, err: err}
+	}()
+	<-settlementAtFence
+	deletionAttempted := make(chan struct{})
+	markerCreated := make(chan struct{})
+	deletionDone := make(chan error, 1)
+	go func() {
+		close(deletionAttempted)
+		deletionDone <- deletionRuntime.WithWorkspaceDeletionFence(ctx, first.WorkspaceID, func(context.Context) error {
+			availabilityMu.Lock()
+			deleting[first.WorkspaceID] = true
+			availabilityMu.Unlock()
+			close(markerCreated)
+			return nil
+		})
+	}()
+	<-deletionAttempted
+	select {
+	case <-markerCreated:
+		t.Fatal("deletion marker overtook an in-flight settlement holding the Workspace fence")
+	default:
+	}
+	close(releaseSettlement)
+	if result := <-settled; result.err != nil || !result.changed {
+		t.Fatalf("settlement-first result = changed %v, error %v", result.changed, result.err)
+	}
+	if err := <-deletionDone; err != nil {
+		t.Fatalf("settlement-first deletion fence error = %v", err)
+	}
+	<-markerCreated
+	if err := deletionRuntime.DeleteWorkspaceData(ctx, first.WorkspaceID); err != nil {
+		t.Fatalf("settlement-first cleanup error = %v", err)
+	}
+
+	second := seedWindow("workflow-marker-first", "peer-marker-first", "window-marker-first", "claim-marker-first")
+	if err := deletionRuntime.WithWorkspaceDeletionFence(ctx, second.WorkspaceID, func(context.Context) error {
+		availabilityMu.Lock()
+		deleting[second.WorkspaceID] = true
+		availabilityMu.Unlock()
+		return nil
+	}); err != nil {
+		t.Fatalf("marker-first deletion fence error = %v", err)
+	}
+	_, changed, err := settlementRuntime.settleWorkspaceReward(ctx, second, "transcript", workspaceRewardEvaluation{
+		Score: 90, Reason: "Qualified.",
+	})
+	if !errors.Is(err, workspace.ErrWorkspacePendingDeletion) || changed {
+		t.Fatalf("marker-first settlement = changed %v, error %v", changed, err)
+	}
+	if err := deletionRuntime.DeleteWorkspaceData(ctx, second.WorkspaceID); err != nil {
+		t.Fatalf("marker-first cleanup error = %v", err)
+	}
+	for _, workspaceID := range []string{first.WorkspaceID, second.WorkspaceID} {
+		absent, err := deletionRuntime.WorkspaceDataAbsent(ctx, workspaceID)
+		if err != nil || !absent {
+			t.Fatalf("WorkspaceDataAbsent(%q) = %v, %v", workspaceID, absent, err)
+		}
+	}
+	var grants int
+	if err := db.QueryRowContext(ctx, db.Rebind(`SELECT COUNT(*) FROM gameplay_reward_grants
+		WHERE source_id IN (?, ?)`), first.ID, second.ID).Scan(&grants); err != nil {
+		t.Fatal(err)
+	}
+	if grants != 1 {
+		t.Fatalf("ordered Workspace grants = %d, want 1", grants)
+	}
+}
+
 func testConcurrentWorkspaceRewardSettlement(t *testing.T, db *sqlx.DB) {
 	t.Helper()
 	ctx := context.Background()
@@ -1928,9 +2323,10 @@ func testConcurrentWorkspaceRewardSettlement(t *testing.T, db *sqlx.DB) {
 		t.Fatalf("CreateBadgeDef() error = %v", err)
 	}
 	requireResponse[adminhttp.CreateBadgeDef200JSONResponse](t, response)
+	environment := &workspaceRewardTestEnvironment{}
 	runtimes := []*Runtime{
-		{DB: db, Catalog: catalog, Now: func() time.Time { return now }, NewID: sequentialIDs("grant-a", "points-a")},
-		{DB: db, Catalog: catalog, Now: func() time.Time { return now }, NewID: sequentialIDs("grant-b", "points-b")},
+		{DB: db, Catalog: catalog, WorkspaceRewards: environment, Now: func() time.Time { return now }, NewID: sequentialIDs("grant-a", "points-a")},
+		{DB: db, Catalog: catalog, WorkspaceRewards: environment, Now: func() time.Time { return now }, NewID: sequentialIDs("grant-b", "points-b")},
 	}
 	if err := runtimes[0].Migration(ctx); err != nil {
 		t.Fatalf("Migration() error = %v", err)
