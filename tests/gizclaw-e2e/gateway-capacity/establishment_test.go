@@ -8,8 +8,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
 func TestSummarizeEstablishmentReportsRateLatencyAndPhases(t *testing.T) {
@@ -173,9 +171,9 @@ func TestEstablishSessionsReleasesBurstTogether(t *testing.T) {
 	closeSessions(state, time.Second)
 }
 
-func TestEstablishSessionsPingsDuringRampWithoutResourceSampling(t *testing.T) {
+func TestEstablishSessionsKeepsRampActiveWithoutResourceSampling(t *testing.T) {
 	const sessionCount = 2
-	var pings atomic.Int64
+	var keepalives atomic.Int64
 	state := &resultState{
 		edgeDistribution:     make(map[string]int),
 		upstreamDistribution: make(map[string]map[string]int),
@@ -209,9 +207,12 @@ func TestEstablishSessionsPingsDuringRampWithoutResourceSampling(t *testing.T) {
 						closeOnce.Do(func() { close(closed) })
 						return nil
 					},
-					pingFn: func(context.Context, string) (*rpcapi.PingResponse, error) {
-						pings.Add(1)
-						return &rpcapi.PingResponse{}, nil
+					packetWriteFn: func(protocol byte, payload []byte) (int, error) {
+						if protocol != rampKeepaliveProtocol || len(payload) != 0 {
+							return 0, fmt.Errorf("unexpected keepalive protocol=%d bytes=%d", protocol, len(payload))
+						}
+						keepalives.Add(1)
+						return len(payload), nil
 					},
 				}, establishmentSessionResult{
 					Upstream:     "upstream-1",
@@ -222,8 +223,8 @@ func TestEstablishSessionsPingsDuringRampWithoutResourceSampling(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pings.Load() == 0 {
-		t.Fatal("ramp established sessions were not kept active by Ping")
+	if keepalives.Load() == 0 {
+		t.Fatal("ramp established sessions were not kept active")
 	}
 	closeSessions(state, time.Second)
 }

@@ -36,8 +36,9 @@ import (
 )
 
 const (
-	artifactVersion = 14
-	maxSpeedBytes   = int64(1 << 30)
+	artifactVersion       = 14
+	maxSpeedBytes         = int64(1 << 30)
+	rampKeepaliveProtocol = byte(0xff)
 )
 
 type options struct {
@@ -1201,7 +1202,11 @@ func establishSessions(
 	attempts := make([]establishmentSessionResult, 0, opts.sessions)
 	stopRampPings := func() {}
 	if opts.ramp > 0 && opts.pingInterval > 0 {
-		stopRampPings = startRampPings(ctx, state, opts, sem)
+		if opts.requireRoleResources {
+			stopRampPings = startRampPings(ctx, state, opts, sem)
+		} else {
+			stopRampPings = startRampKeepalives(ctx, state, opts, sem)
+		}
 	}
 	startedAt := time.Now()
 	stopProgress := startEstablishmentProgress(opts, startedAt, &completed, &established, &failed)
@@ -1372,6 +1377,51 @@ func startRampPings(ctx context.Context, state *resultState, opts options, sem c
 			case <-ticker.C:
 				pingAll(ctx, state, opts, sem, "ramp", round)
 				round++
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			}
+		}
+	})
+	var once sync.Once
+	return func() {
+		once.Do(func() { close(done) })
+		wg.Wait()
+	}
+}
+
+func startRampKeepalives(ctx context.Context, state *resultState, opts options, sem chan struct{}) func() {
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		ticker := time.NewTicker(opts.pingInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				state.mu.Lock()
+				sessions := append([]*liveSession(nil), state.sessions...)
+				state.mu.Unlock()
+				for _, batch := range pingSessionBatches(sessions, opts.concurrency) {
+					var batchWG sync.WaitGroup
+					for _, session := range batch {
+						batchWG.Go(func() {
+							select {
+							case sem <- struct{}{}:
+							case <-ctx.Done():
+								return
+							case <-done:
+								return
+							}
+							defer func() { <-sem }()
+							if _, err := session.writePacket(rampKeepaliveProtocol, nil); err != nil {
+								state.recordError(fmt.Sprintf("ramp keepalive via %s upstream %s: %v", session.edge, session.upstream, err))
+							}
+						})
+					}
+					batchWG.Wait()
+				}
 			case <-done:
 				return
 			case <-ctx.Done():
