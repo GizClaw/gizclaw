@@ -127,16 +127,26 @@ candidate-pair 计数，用于诊断。
 
 ### giztunnel
 
-`pkgs/giznet/giztunnel` 在一条物理 `giznet.Conn` 上承载多个逻辑 connection。每个逻辑 session 有不可复用的 16-byte session ID、一条可靠有序 control stream，以及共享物理 packet channel 上带 session ID 的不可靠 packet frame。
+`pkgs/giznet/giztunnel` 把一条 physical WebRTC PeerConnection 上的原生 DataChannel 聚合为
+多个 logical `giznet.Conn`。每个 session 有随机 16-byte ID、一条可靠有序 control
+channel、一条无序且 `maxRetransmits=0` 的 packet channel，以及每条 Event、RPC、HTTP 或
+其他 service 独立的可靠有序 channel。service payload 只保留原有上层 framing，不再包含
+virtual open/data/close frame。
 
-control stream 使用版本化 binary frame，复用逻辑 service stream 的 open、data、close 和
-session close。open envelope 是严格 JSON，供上层验证 client、Edge 与 Server identity；
-通用 tunnel package 不拥有 GizClaw role 或授权规则。每个 session 的 frame、buffer、queue
-和 handshake 都有上界；logical service 的消费方变慢时，tunnel 在有界队列上反压该
-session，而不是把瞬时 queue 满误判成非法输入。超过 session 总 buffer、未知 session、
-重复 ID、非法 frame 或嵌套 tunnel protocol 仍会被拒绝。
+canonical `giznet/v2/tunnel/...` label 声明 session、logical client、service 与 channel
+instance。只有已经认证并激活为 `edge-node` 的 physical connection 才注册该 namespace；
+control label 是 logical identity 的唯一声明。Server 收齐 control 与 packet 后仍要由应用
+显式 Accept 并发送精确的 `GZT2` result，DCEP open 本身不是 logical acceptance。
 
-`ProtocolOpusPacket` 在逻辑 connection API 中仍是 Opus packet，但 tunnel wire 把它放在不可靠 packet lane。它不会进入可靠 control stream，因而不会让丢包敏感媒体等待 RPC/HTTP bytes。
+Direct packet 在每 session 的 unreliable channel 保留消息边界。`ProtocolOpusPacket` 继续
+使用 shared physical unreliable lane 上带 version 和 session ID 的 envelope，并合并回
+logical `Read`/`Write`；它不进入可靠 channel。原生 channel 隔离 ordering、buffered-amount
+backpressure 与 close/reset，但同一 PeerConnection 上的 channel 仍共享 SCTP association
+和 congestion controller。
+
+active limit 默认是每 session 32 条、每 upstream 8192 条。可靠 service write 同时受
+per-channel、per-session 与 32 MiB association budget 约束，reservation 要等
+`BufferedAmount` 排空后才释放。
 
 ## 依赖关系
 

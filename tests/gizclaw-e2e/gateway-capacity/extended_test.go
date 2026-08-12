@@ -74,6 +74,23 @@ func TestValidateOptionsKeepsPingTimeoutInsideRoundBudget(t *testing.T) {
 	}
 }
 
+func TestValidateOptionsBoundsChannelResetSettle(t *testing.T) {
+	opts := validOptionsForTest()
+	opts.channelResetSettle = 3 * time.Second
+	if err := validateOptions(opts); err != nil {
+		t.Fatalf("validateOptions = %v", err)
+	}
+
+	opts.channelResetSettle = -time.Nanosecond
+	if err := validateOptions(opts); err == nil || !strings.Contains(err.Error(), "channel-reset-settle") {
+		t.Fatalf("validateOptions negative settle error = %v", err)
+	}
+	opts.channelResetSettle = 30*time.Second + time.Nanosecond
+	if err := validateOptions(opts); err == nil || !strings.Contains(err.Error(), "channel-reset-settle") {
+		t.Fatalf("validateOptions oversized settle error = %v", err)
+	}
+}
+
 func TestValidateOptionsRequiresCompleteFinalSpeedContract(t *testing.T) {
 	opts := validOptionsForTest()
 	opts.minFinalSpeedRetention = 0.8

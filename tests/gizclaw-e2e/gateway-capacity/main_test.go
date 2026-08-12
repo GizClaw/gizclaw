@@ -278,12 +278,29 @@ func TestMeasureSpeedDirectionStartsConcurrentRunTogether(t *testing.T) {
 		0,
 		0,
 		"test",
+		0,
 	)
 	if entered.Load() != sessionCount {
 		t.Fatalf("concurrent starts = %d, want %d", entered.Load(), sessionCount)
 	}
 	if !got.Passed || got.Concurrent.Completed != sessionCount {
 		t.Fatalf("speed direction = %+v", got)
+	}
+}
+
+func TestSettleChannelResetsWaitsForConfiguredDelay(t *testing.T) {
+	started := time.Now()
+	if err := settleChannelResets(context.Background(), 10*time.Millisecond, "test"); err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(started); elapsed < 10*time.Millisecond {
+		t.Fatalf("settle elapsed = %s, want at least 10ms", elapsed)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := settleChannelResets(ctx, time.Second, "canceled"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("settle canceled error = %v, want context.Canceled", err)
 	}
 }
 

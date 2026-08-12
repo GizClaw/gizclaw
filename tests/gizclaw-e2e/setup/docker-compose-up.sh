@@ -34,6 +34,10 @@ while (($# > 0)); do
       topology_mode="gateway-capacity-direct"
       shift
       ;;
+    --gateway-native-channels-2048)
+      topology_mode="gateway-native-channels-2048"
+      shift
+      ;;
     --gateway-relay-recovery)
       topology_mode="gateway-relay-recovery"
       shift
@@ -58,7 +62,7 @@ if [[ "$stack_mode" == "volc-log" ]]; then
   : "${GIZCLAW_E2E_VOLC_LOG_REGION:?set the provisioned LogStore region}"
   : "${GIZCLAW_E2E_VOLC_LOG_TOPIC_ID:?set the provisioned LogStore topic id}"
 fi
-if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" ]]; then
+if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-native-channels-2048" ]]; then
   export GIZCLAW_E2E_CAPACITY_ONLY=1
 else
   unset GIZCLAW_E2E_CAPACITY_ONLY
@@ -425,7 +429,8 @@ GIZCLAW_E2E_SINGLE_EDGE=${GIZCLAW_E2E_SINGLE_EDGE:-}
 GIZCLAW_E2E_GATEWAY_MAX_SESSIONS=${GIZCLAW_E2E_GATEWAY_MAX_SESSIONS:-}
 GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS=${GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS:-}
 GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM=${GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM:-}
-GIZCLAW_E2E_GATEWAY_STREAMS_PER_UPSTREAM=${GIZCLAW_E2E_GATEWAY_STREAMS_PER_UPSTREAM:-}
+GIZCLAW_E2E_GATEWAY_CHANNELS_PER_SESSION=${GIZCLAW_E2E_GATEWAY_CHANNELS_PER_SESSION:-}
+GIZCLAW_E2E_GATEWAY_CHANNELS_PER_UPSTREAM=${GIZCLAW_E2E_GATEWAY_CHANNELS_PER_UPSTREAM:-}
 GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES=${GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES:-}
 GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE=${GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE:-}
 GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES=${GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES:-}
@@ -613,7 +618,7 @@ GIZCLAW_E2E_GATEWAY_RELAY_RECOVERY=""
 GIZCLAW_E2E_GATEWAY_RELAY_MODE=""
 GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH=""
 GIZCLAW_E2E_SINGLE_EDGE=""
-if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-relay-recovery" ]]; then
+if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-native-channels-2048" || "$topology_mode" == "gateway-relay-recovery" ]]; then
   GIZCLAW_E2E_GATEWAY_RELAY_SUBNET="${GIZCLAW_E2E_GATEWAY_RELAY_SUBNET:-$(pick_gateway_relay_subnet "$GIZCLAW_E2E_DOCKER_PROJECT")}"
   gateway_relay_prefix="${GIZCLAW_E2E_GATEWAY_RELAY_SUBNET%.0/24}"
   GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP="${GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP:-$gateway_relay_prefix.20}"
@@ -632,11 +637,12 @@ if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-cap
     GIZCLAW_E2E_GATEWAY_MAX_SESSIONS=8
     GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS=1
     GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM=8
-    GIZCLAW_E2E_GATEWAY_STREAMS_PER_UPSTREAM=32
+    GIZCLAW_E2E_GATEWAY_CHANNELS_PER_SESSION=32
+    GIZCLAW_E2E_GATEWAY_CHANNELS_PER_UPSTREAM=32
     GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES=8
     GIZCLAW_E2E_GATEWAY_RELAY_ENV_FILE="$state_root/$GIZCLAW_E2E_DOCKER_PROJECT/gateway-relay.env"
   else
-    if [[ "$topology_mode" == "gateway-capacity-direct" ]]; then
+    if [[ "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-native-channels-2048" ]]; then
       GIZCLAW_E2E_GATEWAY_RELAY_MODE="0"
       GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH="direct"
     else
@@ -646,9 +652,15 @@ if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-cap
     GIZCLAW_E2E_GATEWAY_MAX_SESSIONS=30000
     GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS=16
     GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM=2048
-    GIZCLAW_E2E_GATEWAY_STREAMS_PER_UPSTREAM=8192
+    GIZCLAW_E2E_GATEWAY_CHANNELS_PER_SESSION=32
+    GIZCLAW_E2E_GATEWAY_CHANNELS_PER_UPSTREAM=8192
     GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES=512
     GIZCLAW_E2E_GATEWAY_RELAY_ENV_FILE="$env_file"
+    if [[ "$topology_mode" == "gateway-native-channels-2048" ]]; then
+      GIZCLAW_E2E_SINGLE_EDGE="1"
+      GIZCLAW_E2E_GATEWAY_MAX_SESSIONS=2048
+      GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS=1
+    fi
   fi
   GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY="$gateway_relay_compose_file"
 else
@@ -668,13 +680,13 @@ export GIZCLAW_E2E_GATEWAY_RELAY_ENV_FILE
 export GIZCLAW_E2E_GATEWAY_RELAY_RECOVERY GIZCLAW_E2E_SINGLE_EDGE
 export GIZCLAW_E2E_GATEWAY_RELAY_MODE GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH
 export GIZCLAW_E2E_GATEWAY_MAX_SESSIONS GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS
-export GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM GIZCLAW_E2E_GATEWAY_STREAMS_PER_UPSTREAM
+export GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM GIZCLAW_E2E_GATEWAY_CHANNELS_PER_SESSION GIZCLAW_E2E_GATEWAY_CHANNELS_PER_UPSTREAM
 export GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES
 export GIZCLAW_E2E_DOCKER_ADMIN_BIND="${GIZCLAW_E2E_DOCKER_ADMIN_BIND:-127.0.0.1}"
 export GIZCLAW_E2E_DOCKER_SERVER_BIND="${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}"
 
 capacity_build_required=0
-if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-relay-recovery" ]]; then
+if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-native-channels-2048" || "$topology_mode" == "gateway-relay-recovery" ]]; then
   GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE="${GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE:-$GIZCLAW_E2E_DOCKER_PROJECT-service}"
   if [[ "${GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES:-}" == "1" ]] &&
     docker image inspect "$GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE" >/dev/null 2>&1; then
@@ -718,7 +730,7 @@ compose_files=(-f "$compose_file")
 if [[ "$stack_mode" == "volc-log" ]]; then
   compose_files+=(-f "$volc_log_compose_file")
 fi
-if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-relay-recovery" ]]; then
+if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-native-channels-2048" || "$topology_mode" == "gateway-relay-recovery" ]]; then
   compose_files+=(-f "$gateway_relay_compose_file")
 fi
 if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" ]]; then
@@ -730,6 +742,15 @@ if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-cap
     docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" build server
   fi
   docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --no-build turn server edge edge2 coturn-a coturn-b
+elif [[ "$topology_mode" == "gateway-native-channels-2048" ]]; then
+  if [[ $# -gt 0 ]]; then
+    echo "--gateway-native-channels-2048 does not accept docker compose arguments" >&2
+    exit 2
+  fi
+  if [[ "$capacity_build_required" == "1" ]]; then
+    docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" build server
+  fi
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --no-build turn server edge coturn-a coturn-b
 elif [[ "$topology_mode" == "gateway-relay-recovery" ]]; then
   if [[ $# -gt 0 ]]; then
     echo "--gateway-relay-recovery does not accept docker compose arguments" >&2
@@ -747,7 +768,7 @@ fi
 
 edge_tcp_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port --protocol tcp edge 9821 | awk -F: '{print $NF}')"
 edge2_tcp_port=""
-if [[ "$topology_mode" != "gateway-relay-recovery" ]]; then
+if [[ "$GIZCLAW_E2E_SINGLE_EDGE" != "1" ]]; then
   edge2_tcp_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port --protocol tcp edge2 9821 | awk -F: '{print $NF}')"
 fi
 desktop_url=""
@@ -760,7 +781,7 @@ wait_docker_ready_file "server" "/tmp/gizclaw-e2e-server-ready" "docker server"
 wait_http_ready "http://$GIZCLAW_E2E_SERVER_ENDPOINT/server-info" "docker server admin" "server"
 wait_http_ready "http://127.0.0.1:${edge_tcp_port}/server-info" "docker edge" "edge"
 wait_docker_ready_file "edge" "/tmp/gizclaw-e2e-edge-ready" "docker edge"
-if [[ "$topology_mode" != "gateway-relay-recovery" ]]; then
+if [[ "$GIZCLAW_E2E_SINGLE_EDGE" != "1" ]]; then
   wait_http_ready "http://127.0.0.1:${edge2_tcp_port}/server-info" "docker edge2" "edge2"
   wait_docker_ready_file "edge2" "/tmp/gizclaw-e2e-edge-ready" "docker edge2"
 fi

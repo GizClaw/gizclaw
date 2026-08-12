@@ -114,10 +114,10 @@ func TestGatewayConfigDefaultsAndBounds(t *testing.T) {
 	if cfg.MaxSessions != 30000 ||
 		cfg.MaxUpstreams != 16 ||
 		cfg.SessionsPerUpstream != 2048 ||
-		cfg.StreamsPerUpstream != 8192 ||
+		cfg.ChannelsPerSession != 32 ||
+		cfg.ChannelsPerUpstream != 8192 ||
 		cfg.MaxPendingHandshakes != 64 ||
 		cfg.SessionBufferBytes != 1<<20 ||
-		cfg.DelegatedEnvelopeValidity != 30*time.Second ||
 		cfg.IdleTimeout != 5*time.Minute ||
 		cfg.DrainTimeout != 30*time.Second {
 		t.Fatalf("gateway defaults = %+v", cfg)
@@ -136,18 +136,21 @@ func TestGatewayConfigDefaultsAndBounds(t *testing.T) {
 		{name: "session cap", change: func(cfg *GatewayConfig) {
 			cfg.SessionsPerUpstream = 2049
 		}, want: "sessions-per-upstream"},
-		{name: "stream rotation", change: func(cfg *GatewayConfig) {
-			cfg.StreamsPerUpstream = cfg.SessionsPerUpstream - 1
-		}, want: "streams-per-upstream"},
+		{name: "session channels", change: func(cfg *GatewayConfig) {
+			cfg.ChannelsPerSession = 2
+		}, want: "channels-per-session"},
+		{name: "association channels", change: func(cfg *GatewayConfig) {
+			cfg.ChannelsPerUpstream = 3*cfg.SessionsPerUpstream - 1
+		}, want: "channels-per-upstream"},
 		{name: "pending", change: func(cfg *GatewayConfig) {
 			cfg.MaxPendingHandshakes = 0
+		}, want: "max-pending-handshakes"},
+		{name: "pending router cap", change: func(cfg *GatewayConfig) {
+			cfg.MaxPendingHandshakes = 2049
 		}, want: "max-pending-handshakes"},
 		{name: "buffer", change: func(cfg *GatewayConfig) {
 			cfg.SessionBufferBytes = 1
 		}, want: "session-buffer-bytes"},
-		{name: "envelope", change: func(cfg *GatewayConfig) {
-			cfg.DelegatedEnvelopeValidity = 31 * time.Second
-		}, want: "delegated-envelope-validity"},
 		{name: "idle", change: func(cfg *GatewayConfig) {
 			cfg.IdleTimeout = 0
 		}, want: "idle-timeout"},
@@ -184,6 +187,24 @@ func TestParseConfigDataRejectsLegacyGatewayAddresses(t *testing.T) {
 			_, err := parseConfigData([]byte("gateway:\n  " + tc.key + ": " + tc.value + "\n"))
 			if err == nil || !strings.Contains(err.Error(), "gateway."+tc.key) || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("parseConfigData error = %v, want key and replacement", err)
+			}
+		})
+	}
+}
+
+func TestGatewayConfigRejectsRetiredTunnelKeys(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		yaml string
+		want string
+	}{
+		{name: "streams", yaml: "gateway:\n  streams-per-upstream: 8192\n", want: "use gateway.channels-per-upstream"},
+		{name: "envelope", yaml: "gateway:\n  delegated-envelope-validity: 30s\n", want: "is retired"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parseConfigData([]byte(tc.yaml))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("parseConfigData error = %v, want %q", err, tc.want)
 			}
 		})
 	}
@@ -1009,6 +1030,12 @@ func TestE2EEdgeWorkspaceTemplateParses(t *testing.T) {
 		"${GIZCLAW_E2E_EDGE_ENDPOINT}", "127.0.0.1:9821",
 		"${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}", "http://server:9822",
 		"${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}", testKeyPair(t, 0x88).Public.String(),
+		"${GIZCLAW_E2E_GATEWAY_MAX_SESSIONS}", "30000",
+		"${GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS}", "16",
+		"${GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM}", "2048",
+		"${GIZCLAW_E2E_GATEWAY_CHANNELS_PER_SESSION}", "32",
+		"${GIZCLAW_E2E_GATEWAY_CHANNELS_PER_UPSTREAM}", "8192",
+		"${GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES}", "512",
 		"${GIZCLAW_E2E_TURN_ENDPOINT}", "127.0.0.1:3478",
 		"${GIZCLAW_E2E_TURN_RELAY_ADDRESS}", "127.0.0.1",
 		"${GIZCLAW_E2E_TURN_REALM}", "gizclaw-e2e",
@@ -1017,6 +1044,9 @@ func TestE2EEdgeWorkspaceTemplateParses(t *testing.T) {
 		"${GIZCLAW_E2E_TURN_RELAY_MIN_PORT}", "36000",
 		"${GIZCLAW_E2E_TURN_RELAY_MAX_PORT}", "36019",
 	).Replace(string(data))
+	if strings.Contains(body, "${") {
+		t.Fatalf("edge template contains an unrendered variable: %s", body)
+	}
 	fileCfg, err := parseConfigData([]byte(body))
 	if err != nil {
 		t.Fatalf("parseConfigData edge template: %v", err)

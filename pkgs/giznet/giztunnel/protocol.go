@@ -1,34 +1,32 @@
-// Package giztunnel multiplexes logical Giznet connections over reliable
-// streams while keeping loss-tolerant packets on a separate packet lane.
+// Package giztunnel binds logical giznet connections to native WebRTC
+// DataChannels while retaining an unreliable session-tagged Opus lane.
 package giztunnel
 
 import (
-	"bytes"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 const (
-	Version = 1
-
-	defaultMaxFrameSize = 64 * 1024
-	maxOpenFrameSize    = 4 * 1024
-	maxRejectReasonSize = 256
-	frameHeaderSize     = 9
+	Version                 = 2
+	LabelPrefix             = "giznet/v2/tunnel/"
+	maxLabelSize            = 512
+	maxRemoteAddrSize       = 256
+	maxRejectReasonSize     = 256
+	sessionResultHeaderSize = 7
 )
 
 var (
-	frameMagic = [4]byte{'G', 'Z', 'T', '1'}
-
 	ErrInvalidFrame     = errors.New("giztunnel: invalid frame")
 	ErrFrameTooLarge    = errors.New("giztunnel: frame too large")
 	ErrInvalidState     = errors.New("giztunnel: invalid state")
@@ -39,224 +37,210 @@ var (
 	ErrServiceForbidden = errors.New("giztunnel: service forbidden")
 )
 
-type frameType byte
+var sessionResultMagic = [4]byte{'G', 'Z', 'T', '2'}
+
+type labelKind uint8
 
 const (
-	frameSessionOpen frameType = iota + 1
-	frameSessionAccepted
-	frameSessionRejected
-	frameStreamOpen
-	frameStreamData
-	frameStreamClose
-	frameSessionClose
+	labelControl labelKind = iota + 1
+	labelPacket
+	labelService
 )
 
-// SessionID identifies one logical connection on the unreliable packet lane.
+type sessionResultStatus byte
+
+const (
+	sessionAccepted sessionResultStatus = iota
+	sessionRejected
+)
+
+// SessionID identifies one logical connection within one physical Edge
+// PeerConnection.
 type SessionID [16]byte
 
+// NewSessionID returns a cryptographically random logical-session identifier.
 func NewSessionID() (SessionID, error) {
 	var id SessionID
-	_, err := rand.Read(id[:])
+	_, err := io.ReadFull(rand.Reader, id[:])
 	return id, err
 }
 
-func (id SessionID) IsZero() bool {
-	return id == SessionID{}
-}
+func (id SessionID) IsZero() bool { return id == SessionID{} }
 
-func (id SessionID) String() string {
-	return hex.EncodeToString(id[:])
-}
+func (id SessionID) String() string { return hex.EncodeToString(id[:]) }
 
-// OpenRequest is the delegated identity envelope sent by an Edge.
-type OpenRequest struct {
+// SessionDeclaration is the trusted Edge declaration encoded in a control
+// channel label.
+type SessionDeclaration struct {
 	SessionID       SessionID
 	ClientPublicKey giznet.PublicKey
-	EdgePublicKey   giznet.PublicKey
-	ServerPublicKey giznet.PublicKey
-	IssuedAtUnix    int64
-	ExpiresAtUnix   int64
 	RemoteAddr      string
 }
 
-type openRequestWire struct {
-	Version         int    `json:"version"`
-	SessionID       string `json:"session_id"`
-	ClientPublicKey string `json:"client_public_key"`
-	EdgePublicKey   string `json:"edge_public_key"`
-	ServerPublicKey string `json:"server_public_key"`
-	IssuedAtUnix    int64  `json:"issued_at_unix"`
-	ExpiresAtUnix   int64  `json:"expires_at_unix"`
-	RemoteAddr      string `json:"remote_addr,omitempty"`
+type parsedLabel struct {
+	kind      labelKind
+	session   SessionID
+	client    giznet.PublicKey
+	remote    string
+	service   uint64
+	channelID uint64
 }
 
-func encodeOpenRequest(open OpenRequest) ([]byte, error) {
-	if open.SessionID.IsZero() || open.ClientPublicKey.IsZero() ||
-		open.EdgePublicKey.IsZero() || open.ServerPublicKey.IsZero() {
-		return nil, fmt.Errorf("%w: zero identity", ErrInvalidFrame)
+func controlLabel(declaration SessionDeclaration) (string, error) {
+	if declaration.SessionID.IsZero() || declaration.ClientPublicKey.IsZero() ||
+		len(declaration.RemoteAddr) > maxRemoteAddrSize {
+		return "", ErrInvalidFrame
 	}
-	return json.Marshal(openRequestWire{
-		Version:         Version,
-		SessionID:       open.SessionID.String(),
-		ClientPublicKey: open.ClientPublicKey.String(),
-		EdgePublicKey:   open.EdgePublicKey.String(),
-		ServerPublicKey: open.ServerPublicKey.String(),
-		IssuedAtUnix:    open.IssuedAtUnix,
-		ExpiresAtUnix:   open.ExpiresAtUnix,
-		RemoteAddr:      open.RemoteAddr,
-	})
+	remote := "-"
+	if declaration.RemoteAddr != "" {
+		remote = base64.RawURLEncoding.EncodeToString([]byte(declaration.RemoteAddr))
+	}
+	label := LabelPrefix + declaration.SessionID.String() + "/control/" +
+		declaration.ClientPublicKey.String() + "/" + remote
+	if len(label) > maxLabelSize {
+		return "", ErrFrameTooLarge
+	}
+	return label, nil
 }
 
-func decodeOpenRequest(data []byte) (OpenRequest, error) {
-	if len(data) == 0 || len(data) > maxOpenFrameSize {
-		return OpenRequest{}, ErrFrameTooLarge
+func packetLabel(id SessionID) (string, error) {
+	if id.IsZero() {
+		return "", ErrInvalidFrame
 	}
-	var wire openRequestWire
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&wire); err != nil {
-		return OpenRequest{}, fmt.Errorf("%w: open envelope: %v", ErrInvalidFrame, err)
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return OpenRequest{}, fmt.Errorf("%w: trailing open envelope", ErrInvalidFrame)
-	}
-	if wire.Version != Version {
-		return OpenRequest{}, fmt.Errorf("%w: version %d", ErrInvalidFrame, wire.Version)
-	}
-	sessionRaw, err := hex.DecodeString(wire.SessionID)
-	if err != nil || len(sessionRaw) != len(SessionID{}) {
-		return OpenRequest{}, fmt.Errorf("%w: session id", ErrInvalidFrame)
-	}
-	var open OpenRequest
-	copy(open.SessionID[:], sessionRaw)
-	if err := open.ClientPublicKey.UnmarshalText([]byte(wire.ClientPublicKey)); err != nil {
-		return OpenRequest{}, fmt.Errorf("%w: client public key", ErrInvalidFrame)
-	}
-	if err := open.EdgePublicKey.UnmarshalText([]byte(wire.EdgePublicKey)); err != nil {
-		return OpenRequest{}, fmt.Errorf("%w: edge public key", ErrInvalidFrame)
-	}
-	if err := open.ServerPublicKey.UnmarshalText([]byte(wire.ServerPublicKey)); err != nil {
-		return OpenRequest{}, fmt.Errorf("%w: server public key", ErrInvalidFrame)
-	}
-	open.IssuedAtUnix = wire.IssuedAtUnix
-	open.ExpiresAtUnix = wire.ExpiresAtUnix
-	open.RemoteAddr = strings.TrimSpace(wire.RemoteAddr)
-	if open.SessionID.IsZero() || open.ClientPublicKey.IsZero() ||
-		open.EdgePublicKey.IsZero() || open.ServerPublicKey.IsZero() {
-		return OpenRequest{}, fmt.Errorf("%w: zero identity", ErrInvalidFrame)
-	}
-	return open, nil
+	return LabelPrefix + id.String() + "/packet", nil
 }
 
-func writeFrame(w io.Writer, typ frameType, payload []byte, maxFrameSize int) error {
-	if maxFrameSize <= 0 {
-		maxFrameSize = defaultMaxFrameSize
+func serviceLabel(id SessionID, service, channelID uint64) (string, error) {
+	if id.IsZero() || channelID == 0 {
+		return "", ErrInvalidFrame
 	}
-	if len(payload) > maxFrameSize {
-		return ErrFrameTooLarge
+	return LabelPrefix + id.String() + "/service/" +
+		strconv.FormatUint(service, 10) + "/" + strconv.FormatUint(channelID, 10), nil
+}
+
+func parseLabel(label string) (parsedLabel, error) {
+	if len(label) == 0 || len(label) > maxLabelSize || !strings.HasPrefix(label, LabelPrefix) {
+		return parsedLabel{}, ErrInvalidFrame
 	}
-	var header [frameHeaderSize]byte
-	copy(header[:4], frameMagic[:])
-	header[4] = byte(typ)
-	binary.BigEndian.PutUint32(header[5:], uint32(len(payload)))
-	if len(payload) == 0 {
-		return writeAll(w, header[:])
+	parts := strings.Split(strings.TrimPrefix(label, LabelPrefix), "/")
+	if len(parts) < 2 {
+		return parsedLabel{}, ErrInvalidFrame
 	}
-	if bw, ok := w.(interface {
-		WriteBuffers(net.Buffers) (int64, error)
-	}); ok {
-		total := int64(len(header) + len(payload))
-		n, err := bw.WriteBuffers(net.Buffers{header[:], payload})
+	id, err := parseSessionID(parts[0])
+	if err != nil {
+		return parsedLabel{}, err
+	}
+	switch parts[1] {
+	case "control":
+		if len(parts) != 4 {
+			return parsedLabel{}, ErrInvalidFrame
+		}
+		var client giznet.PublicKey
+		if err := client.UnmarshalText([]byte(parts[2])); err != nil || client.IsZero() || client.String() != parts[2] {
+			return parsedLabel{}, ErrInvalidFrame
+		}
+		remote, err := decodeRemoteAddr(parts[3])
 		if err != nil {
-			return err
+			return parsedLabel{}, err
 		}
-		if n != total {
-			return io.ErrShortWrite
+		return parsedLabel{kind: labelControl, session: id, client: client, remote: remote}, nil
+	case "packet":
+		if len(parts) != 2 {
+			return parsedLabel{}, ErrInvalidFrame
 		}
-		return nil
-	}
-	if err := writeAll(w, header[:]); err != nil {
-		return err
-	}
-	return writeAll(w, payload)
-}
-
-func writeAll(w io.Writer, data []byte) error {
-	for len(data) > 0 {
-		n, err := w.Write(data)
-		if n > 0 {
-			data = data[n:]
+		return parsedLabel{kind: labelPacket, session: id}, nil
+	case "service":
+		if len(parts) != 4 {
+			return parsedLabel{}, ErrInvalidFrame
 		}
+		service, err := parseCanonicalUint(parts[2], true)
 		if err != nil {
-			return err
+			return parsedLabel{}, err
 		}
-		if n == 0 {
-			return io.ErrShortWrite
+		channelID, err := parseCanonicalUint(parts[3], false)
+		if err != nil {
+			return parsedLabel{}, err
 		}
+		return parsedLabel{kind: labelService, session: id, service: service, channelID: channelID}, nil
+	default:
+		return parsedLabel{}, ErrInvalidFrame
 	}
-	return nil
 }
 
-func readFrame(r io.Reader, maxFrameSize int) (frameType, []byte, error) {
-	if maxFrameSize <= 0 {
-		maxFrameSize = defaultMaxFrameSize
+func parseSessionID(value string) (SessionID, error) {
+	if len(value) != hex.EncodedLen(len(SessionID{})) || strings.ToLower(value) != value {
+		return SessionID{}, ErrInvalidFrame
 	}
-	var header [frameHeaderSize]byte
-	if _, err := io.ReadFull(r, header[:]); err != nil {
-		return 0, nil, err
+	raw, err := hex.DecodeString(value)
+	if err != nil || len(raw) != len(SessionID{}) {
+		return SessionID{}, ErrInvalidFrame
 	}
-	if !bytes.Equal(header[:4], frameMagic[:]) {
-		return 0, nil, fmt.Errorf("%w: magic", ErrInvalidFrame)
+	var id SessionID
+	copy(id[:], raw)
+	if id.IsZero() {
+		return SessionID{}, ErrInvalidFrame
 	}
-	size := int(binary.BigEndian.Uint32(header[5:]))
-	if size > maxFrameSize {
-		return 0, nil, ErrFrameTooLarge
-	}
-	payload := make([]byte, size)
-	if _, err := io.ReadFull(r, payload); err != nil {
-		return 0, nil, err
-	}
-	return frameType(header[4]), payload, nil
+	return id, nil
 }
 
-func encodeStreamOpen(id, service uint64) []byte {
-	var payload [16]byte
-	binary.BigEndian.PutUint64(payload[:8], id)
-	binary.BigEndian.PutUint64(payload[8:], service)
-	return payload[:]
-}
-
-func decodeStreamOpen(payload []byte) (uint64, uint64, error) {
-	if len(payload) != 16 {
-		return 0, 0, ErrInvalidFrame
-	}
-	return binary.BigEndian.Uint64(payload[:8]), binary.BigEndian.Uint64(payload[8:]), nil
-}
-
-func encodeStreamID(id uint64) []byte {
-	var payload [8]byte
-	binary.BigEndian.PutUint64(payload[:], id)
-	return payload[:]
-}
-
-func decodeStreamID(payload []byte) (uint64, error) {
-	if len(payload) != 8 {
+func parseCanonicalUint(value string, allowZero bool) (uint64, error) {
+	if value == "" || len(value) > 20 || len(value) > 1 && value[0] == '0' {
 		return 0, ErrInvalidFrame
 	}
-	return binary.BigEndian.Uint64(payload), nil
-}
-
-func encodeStreamData(id uint64, data []byte) []byte {
-	payload := make([]byte, 8+len(data))
-	binary.BigEndian.PutUint64(payload[:8], id)
-	copy(payload[8:], data)
-	return payload
-}
-
-func decodeStreamData(payload []byte) (uint64, []byte, error) {
-	if len(payload) < 8 {
-		return 0, nil, ErrInvalidFrame
+	parsed, err := strconv.ParseUint(value, 10, 64)
+	if err != nil || !allowZero && parsed == 0 || strconv.FormatUint(parsed, 10) != value {
+		return 0, ErrInvalidFrame
 	}
-	return binary.BigEndian.Uint64(payload[:8]), payload[8:], nil
+	return parsed, nil
+}
+
+func decodeRemoteAddr(value string) (string, error) {
+	if value == "-" {
+		return "", nil
+	}
+	if value == "" || len(value) > base64.RawURLEncoding.EncodedLen(maxRemoteAddrSize) {
+		return "", ErrInvalidFrame
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil || len(raw) > maxRemoteAddrSize || base64.RawURLEncoding.EncodeToString(raw) != value {
+		return "", ErrInvalidFrame
+	}
+	return string(raw), nil
+}
+
+func encodeSessionResult(status sessionResultStatus, reason string) ([]byte, error) {
+	if status == sessionAccepted && reason != "" || status != sessionAccepted && status != sessionRejected ||
+		len(reason) > maxRejectReasonSize || !utf8.ValidString(reason) {
+		return nil, ErrInvalidFrame
+	}
+	payload := make([]byte, sessionResultHeaderSize+len(reason))
+	copy(payload[:4], sessionResultMagic[:])
+	payload[4] = byte(status)
+	binary.BigEndian.PutUint16(payload[5:7], uint16(len(reason)))
+	copy(payload[7:], reason)
+	return payload, nil
+}
+
+func decodeSessionResult(payload []byte) (sessionResultStatus, string, error) {
+	if len(payload) < sessionResultHeaderSize || len(payload) > sessionResultHeaderSize+maxRejectReasonSize ||
+		string(payload[:4]) != string(sessionResultMagic[:]) {
+		return 0, "", ErrInvalidFrame
+	}
+	status := sessionResultStatus(payload[4])
+	reasonSize := int(binary.BigEndian.Uint16(payload[5:7]))
+	if reasonSize != len(payload)-sessionResultHeaderSize || !utf8.Valid(payload[7:]) {
+		return 0, "", ErrInvalidFrame
+	}
+	reason := string(payload[7:])
+	if status == sessionAccepted && reason != "" || status != sessionAccepted && status != sessionRejected {
+		return 0, "", ErrInvalidFrame
+	}
+	return status, reason, nil
+}
+
+func rejectionError(reason string) error {
+	if reason == "" {
+		return ErrSessionRejected
+	}
+	return fmt.Errorf("%w: %s", ErrSessionRejected, reason)
 }

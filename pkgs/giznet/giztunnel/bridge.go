@@ -51,7 +51,7 @@ func bridgeServices(source giznet.ServiceAcceptor, destination giznet.Conn) erro
 		destinationStream, err := destination.Dial(service)
 		if err != nil {
 			_ = sourceStream.Close()
-			return err
+			continue
 		}
 		go bridgeStream(sourceStream, destinationStream)
 	}

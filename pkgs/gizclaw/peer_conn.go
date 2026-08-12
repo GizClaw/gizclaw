@@ -79,8 +79,7 @@ type PeerConn struct {
 	closed                 atomic.Bool
 	retiring               atomic.Bool
 	registration           atomic.Pointer[runtimeprofile.Registration]
-	tunnelMuxOnce          sync.Once
-	tunnelMux              *giztunnel.PacketMux
+	tunnelRouter           *giztunnel.Router
 }
 
 type peerAgentInput interface {
@@ -192,7 +191,6 @@ func (h *PeerConn) serve() error {
 	g.Go(h.servePackets)
 	g.Go(h.serveRPC)
 	g.Go(h.serveEdgeRPC)
-	g.Go(h.serveEdgeTunnel)
 	g.Go(h.serveOpenAI)
 	g.Go(func() error {
 		defer func() { _ = h.close() }()
@@ -244,6 +242,10 @@ func (h *PeerConn) serveEdgeNode() error {
 		return err
 	}
 	defer h.Service.manager.setEdgeTransportDown(h.Conn.PublicKey(), h.Conn)
+	if _, err := h.initEdgeTunnelRouter(); err != nil {
+		_ = h.close()
+		return err
+	}
 	var g errgroup.Group
 	g.Go(func() error {
 		defer func() { _ = h.close() }()
@@ -268,7 +270,7 @@ func (h *PeerConn) serveEdgePackets() error {
 		if protocol != giznet.ProtocolTunnelPacket {
 			continue
 		}
-		if err := h.tunnelPacketMux().HandlePacket(buf[:n]); err != nil &&
+		if err := h.tunnelRouter.HandlePacket(buf[:n]); err != nil &&
 			!errors.Is(err, giztunnel.ErrSessionNotFound) {
 			slog.Warn("gizclaw: edge tunnel packet ignored", "error", err)
 		}
@@ -572,15 +574,14 @@ func (h *PeerConn) close() error {
 	var closeErr error
 	h.closeOnce.Do(func() {
 		h.closed.Store(true)
+		if h.tunnelRouter != nil {
+			closeErr = errors.Join(closeErr, h.tunnelRouter.Close())
+		}
 		if h.Conn != nil {
 			if err := h.Conn.Close(); err != nil && !errors.Is(err, giznet.ErrConnClosed) {
 				closeErr = errors.Join(closeErr, err)
 			}
 		}
-		h.tunnelMuxOnce.Do(func() {
-			h.tunnelMux = giztunnel.NewPacketMux(h.Conn)
-		})
-		closeErr = errors.Join(closeErr, h.tunnelMux.Close())
 		if h.agentInput != nil {
 			closeErr = errors.Join(closeErr, h.agentInput.Close())
 		}
@@ -1099,11 +1100,6 @@ func (h *PeerConn) serveDirectPackets() error {
 			case telemetryPackets <- payload:
 			default:
 				slog.Warn("gizclaw: peer telemetry packet dropped", "reason", "queue_full")
-			}
-		case giznet.ProtocolTunnelPacket:
-			if err := h.tunnelPacketMux().HandlePacket(buf[:n]); err != nil &&
-				!errors.Is(err, giztunnel.ErrSessionNotFound) {
-				slog.Warn("gizclaw: edge tunnel packet ignored", "error", err)
 			}
 		default:
 			// Unknown direct packets are ignored by the echo slice; service

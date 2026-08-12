@@ -148,6 +148,33 @@ pair. The caller's Dial context still bounds the whole handshake. A packet
 DataChannel timeout reports the final PeerConnection, ICE, DTLS, SCTP, and
 candidate-pair counters for diagnosis.
 
+### giztunnel
+
+`pkgs/giznet/giztunnel` aggregates native WebRTC DataChannels into logical
+`giznet.Conn` values. Each logical session has a random 16-byte ID, one reliable
+ordered control channel, one unordered `maxRetransmits=0` packet channel, and
+one reliable ordered native channel for every Event, RPC, HTTP, or other
+service stream. Service payloads contain only their existing upper-layer
+framing; giztunnel adds no virtual open/data/close frames.
+
+Canonical `giznet/v2/tunnel/...` labels declare the session, logical client,
+service, and channel instance. Only an authenticated active Edge connection
+registers this namespace. The control label is the sole logical identity
+declaration, and the Server exposes the logical connection only after both
+persistent channels are attached and it sends the exact `GZT2` application
+acceptance result. DCEP open alone is not acceptance.
+
+Direct packets retain message boundaries on the per-session unreliable channel.
+Opus remains on the shared physical unreliable lane as a versioned session-ID
+envelope and is merged back into logical `Read` and `Write`; it never enters a
+reliable channel. Native channels isolate ordering, buffered-amount backpressure,
+and close/reset, but all channels on one PeerConnection still share its SCTP
+association and congestion controller.
+
+Active limits default to 32 channels per session and 8,192 per upstream. Reliable
+service writes use per-channel, per-session, and 32 MiB association budgets whose
+reservations remain held until `BufferedAmount` drains.
+
 ## Dependencies
 
 ```mermaid

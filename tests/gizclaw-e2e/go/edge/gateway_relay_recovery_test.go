@@ -70,8 +70,11 @@ func TestGatewayRelayRecoversSameClientBeforeSessionAcceptance(t *testing.T) {
 	}
 
 	edgeLog := composeOutput(t, "exec", "-T", "edge", "sh", "-c", "cat /src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.log")
+	if !strings.Contains(edgeLog, "gateway upstream transition") ||
+		!strings.Contains(edgeLog, "state=draining") && !strings.Contains(edgeLog, "state=failed") {
+		t.Fatal("Edge log is missing a sanitized draining or failed upstream transition")
+	}
 	for _, marker := range []string{
-		"state=draining reason=session_handshake_timeout",
 		"gateway logical session retry",
 		"gateway logical session alternate succeeded",
 	} {

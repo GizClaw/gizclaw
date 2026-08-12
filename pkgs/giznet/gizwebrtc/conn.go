@@ -47,6 +47,13 @@ type Conn struct {
 	acceptAll atomic.Bool
 	serviceCh chan acceptedService
 
+	nativeMu         sync.Mutex
+	nativePrefix     string
+	nativeHandler    func(*NativeChannel)
+	nativeGeneration uint64
+	nativeChannels   map[*NativeChannel]struct{}
+	nativeInbound    map[*webrtc.DataChannel]struct{}
+
 	readCh   chan directPacket
 	readyCh  chan struct{}
 	closeCh  chan struct{}
@@ -89,19 +96,20 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 		})
 	}()
 	c := &Conn{
-		pk:         pk,
-		pc:         pc,
-		policy:     policy,
-		localAddr:  addr("gizwebrtc:" + role + ":local"),
-		remoteAddr: addr("gizwebrtc:" + role + ":remote"),
-		services:   make(map[uint64]*ServiceListener),
-		streams:    make(map[uint64]map[*dataChannelConn]struct{}),
-		closedSvc:  make(map[uint64]bool),
-		serviceCh:  make(chan acceptedService, serviceQueueSize),
-		readCh:     make(chan directPacket, readPacketQueueSize),
-		readyCh:    make(chan struct{}),
-		closeCh:    make(chan struct{}),
-		audioTrack: audioTrack,
+		pk:             pk,
+		pc:             pc,
+		policy:         policy,
+		localAddr:      addr("gizwebrtc:" + role + ":local"),
+		remoteAddr:     addr("gizwebrtc:" + role + ":remote"),
+		services:       make(map[uint64]*ServiceListener),
+		streams:        make(map[uint64]map[*dataChannelConn]struct{}),
+		closedSvc:      make(map[uint64]bool),
+		serviceCh:      make(chan acceptedService, serviceQueueSize),
+		nativeChannels: make(map[*NativeChannel]struct{}),
+		readCh:         make(chan directPacket, readPacketQueueSize),
+		readyCh:        make(chan struct{}),
+		closeCh:        make(chan struct{}),
+		audioTrack:     audioTrack,
 	}
 	pc.OnDataChannel(c.handleDataChannel)
 	pc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
@@ -417,6 +425,17 @@ func (c *Conn) close(cause error) error {
 		for _, s := range streams {
 			_ = s.Close()
 		}
+		c.nativeMu.Lock()
+		nativeChannels := make([]*NativeChannel, 0, len(c.nativeChannels))
+		for channel := range c.nativeChannels {
+			nativeChannels = append(nativeChannels, channel)
+		}
+		c.nativeHandler = nil
+		c.nativePrefix = ""
+		c.nativeMu.Unlock()
+		for _, channel := range nativeChannels {
+			_ = channel.Close()
+		}
 		c.packetMu.Lock()
 		if c.packetDC != nil {
 			_ = c.packetDC.Close()
@@ -454,6 +473,9 @@ func (c *Conn) validate() error {
 
 func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 	label := dc.Label()
+	if c.handleNativeDataChannel(dc) {
+		return
+	}
 	if label == packetLabel && !c.reservePacketDataChannel(dc) {
 		_ = dc.Close()
 		return

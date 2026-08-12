@@ -101,6 +101,12 @@ The "any connection identity" here is a service-level policy, not a `PeerRole`. 
 - **Admin HTTP**: Provides the resource-management surface for a Peer with the active `admin` role. It covers RuntimeProfile, RegistrationToken, workflow, firmware, credential, model, gameplay, AI tenant, workspace, Peer, and social resources; see [Peer Services](./peer/service/overview).
 - **Edge HTTP**: Edge uses the Peer identity of the incoming token to forward browser/device public API requests to the authoritative Server; it is not an Admin surface.
 - **Edge RPC**: Only three edge-node control methods `server.peer.lookup`, `server.peer.assign` and `server.route.resolve` are provided; see [Edge RPC](./rpc/edge) for implementation boundaries.
+- **Edge tunnel namespace**: After an Edge transport is authenticated and
+  activated, the Server registers `giznet/v2/tunnel/` on that physical
+  PeerConnection. Canonical control labels declare logical client identity;
+  packet and per-service native channels are aggregated into a normal logical
+  `giznet.Conn`. Logical services are authorized as the declared client, never
+  by inheriting the Edge role. This namespace is not a product service ID.
 
 ### Event and Media do not belong to Service
 

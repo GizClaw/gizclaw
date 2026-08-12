@@ -23,6 +23,9 @@ const (
 	// upstream associations. Public client associations retain Pion's default
 	// receive window.
 	GatewaySCTPReceiveBufferSize = sctpBurstServiceStreams * streamWriteHighWater
+	// GatewaySCTPWriteBudgetSize bounds reliable bytes outstanding across all
+	// tunnel service channels on one upstream SCTP association.
+	GatewaySCTPWriteBudgetSize = GatewaySCTPReceiveBufferSize
 	// A lost SCTP INIT or COOKIE flight otherwise waits Pion's one-second
 	// default before retrying. Keep only the handshake timers short; established
 	// DATA/T3 timers retain the RFC-compliant association defaults.
@@ -52,5 +55,7 @@ const (
 	// Bound remote service DataChannel admission per connection. This matches
 	// the gateway's supported active-session ceiling per upstream association;
 	// the SCTP receive window independently bounds aggregate queued bytes.
-	maxInboundServiceStreams = 2048
+	maxInboundServiceStreams  = 2048
+	maxNativeChannelLabelSize = 512
+	maxInboundNativeChannels  = 8192
 )

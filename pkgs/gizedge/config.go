@@ -60,16 +60,16 @@ type TURNConfig struct {
 }
 
 type GatewayConfig struct {
-	Enabled                   bool          `yaml:"enabled"`
-	MaxSessions               int           `yaml:"max-sessions"`
-	MaxUpstreams              int           `yaml:"max-upstreams"`
-	SessionsPerUpstream       int           `yaml:"sessions-per-upstream"`
-	StreamsPerUpstream        int           `yaml:"streams-per-upstream"`
-	MaxPendingHandshakes      int           `yaml:"max-pending-handshakes"`
-	SessionBufferBytes        int64         `yaml:"session-buffer-bytes"`
-	DelegatedEnvelopeValidity time.Duration `yaml:"delegated-envelope-validity"`
-	IdleTimeout               time.Duration `yaml:"idle-timeout"`
-	DrainTimeout              time.Duration `yaml:"drain-timeout"`
+	Enabled              bool          `yaml:"enabled"`
+	MaxSessions          int           `yaml:"max-sessions"`
+	MaxUpstreams         int           `yaml:"max-upstreams"`
+	SessionsPerUpstream  int           `yaml:"sessions-per-upstream"`
+	ChannelsPerSession   int           `yaml:"channels-per-session"`
+	ChannelsPerUpstream  int           `yaml:"channels-per-upstream"`
+	MaxPendingHandshakes int           `yaml:"max-pending-handshakes"`
+	SessionBufferBytes   int64         `yaml:"session-buffer-bytes"`
+	IdleTimeout          time.Duration `yaml:"idle-timeout"`
+	DrainTimeout         time.Duration `yaml:"drain-timeout"`
 }
 
 type ConfigFile struct {
@@ -91,7 +91,7 @@ func LoadConfig(path string) (ConfigFile, error) {
 }
 
 func parseConfigData(data []byte) (ConfigFile, error) {
-	if err := rejectLegacyGatewayAddresses(data); err != nil {
+	if err := rejectRetiredGatewayConfig(data); err != nil {
 		return ConfigFile{}, err
 	}
 	var raw ConfigFile
@@ -104,7 +104,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	return raw, nil
 }
 
-func rejectLegacyGatewayAddresses(data []byte) error {
+func rejectRetiredGatewayConfig(data []byte) error {
 	var document map[string]any
 	if err := yaml.Unmarshal(data, &document); err != nil {
 		return err
@@ -113,16 +113,18 @@ func rejectLegacyGatewayAddresses(data []byte) error {
 	if !ok {
 		return nil
 	}
-	legacyAddresses := []struct {
-		key         string
-		replacement string
+	retiredSettings := []struct {
+		key     string
+		message string
 	}{
-		{key: "ice-udp-listen", replacement: "top-level listen"},
-		{key: "public-ice-udp", replacement: "top-level endpoint"},
+		{key: "ice-udp-listen", message: "was removed; use top-level listen"},
+		{key: "public-ice-udp", message: "was removed; use top-level endpoint"},
+		{key: "streams-per-upstream", message: "is retired; use gateway.channels-per-upstream"},
+		{key: "delegated-envelope-validity", message: "is retired"},
 	}
-	for _, legacy := range legacyAddresses {
-		if _, exists := gateway[legacy.key]; exists {
-			return fmt.Errorf("edge: gateway.%s was removed; use %s", legacy.key, legacy.replacement)
+	for _, retired := range retiredSettings {
+		if _, exists := gateway[retired.key]; exists {
+			return fmt.Errorf("edge: gateway.%s %s", retired.key, retired.message)
 		}
 	}
 	return nil
@@ -141,15 +143,15 @@ func DefaultConfig() Config {
 
 func defaultGatewayConfig() GatewayConfig {
 	return GatewayConfig{
-		MaxSessions:               30000,
-		MaxUpstreams:              16,
-		SessionsPerUpstream:       2048,
-		StreamsPerUpstream:        8192,
-		MaxPendingHandshakes:      64,
-		SessionBufferBytes:        1 << 20,
-		DelegatedEnvelopeValidity: 30 * time.Second,
-		IdleTimeout:               5 * time.Minute,
-		DrainTimeout:              30 * time.Second,
+		MaxSessions:          30000,
+		MaxUpstreams:         16,
+		SessionsPerUpstream:  2048,
+		ChannelsPerSession:   32,
+		ChannelsPerUpstream:  8192,
+		MaxPendingHandshakes: 64,
+		SessionBufferBytes:   1 << 20,
+		IdleTimeout:          5 * time.Minute,
+		DrainTimeout:         30 * time.Second,
 	}
 }
 
@@ -353,17 +355,17 @@ func mergeGatewayConfig(cfg, file GatewayConfig) GatewayConfig {
 	if cfg.SessionsPerUpstream == 0 {
 		cfg.SessionsPerUpstream = file.SessionsPerUpstream
 	}
-	if cfg.StreamsPerUpstream == 0 {
-		cfg.StreamsPerUpstream = file.StreamsPerUpstream
+	if cfg.ChannelsPerSession == 0 {
+		cfg.ChannelsPerSession = file.ChannelsPerSession
+	}
+	if cfg.ChannelsPerUpstream == 0 {
+		cfg.ChannelsPerUpstream = file.ChannelsPerUpstream
 	}
 	if cfg.MaxPendingHandshakes == 0 {
 		cfg.MaxPendingHandshakes = file.MaxPendingHandshakes
 	}
 	if cfg.SessionBufferBytes == 0 {
 		cfg.SessionBufferBytes = file.SessionBufferBytes
-	}
-	if cfg.DelegatedEnvelopeValidity == 0 {
-		cfg.DelegatedEnvelopeValidity = file.DelegatedEnvelopeValidity
 	}
 	if cfg.IdleTimeout == 0 {
 		cfg.IdleTimeout = file.IdleTimeout
@@ -395,17 +397,17 @@ func (cfg GatewayConfig) validate() error {
 	if cfg.MaxSessions > cfg.MaxUpstreams*cfg.SessionsPerUpstream {
 		return fmt.Errorf("edge: gateway.max-sessions exceeds upstream pool capacity")
 	}
-	if cfg.StreamsPerUpstream < cfg.SessionsPerUpstream || cfg.StreamsPerUpstream > 8192 {
-		return fmt.Errorf("edge: gateway.streams-per-upstream must be between sessions-per-upstream and 8192")
+	if cfg.ChannelsPerSession < 3 || cfg.ChannelsPerSession > 32 {
+		return fmt.Errorf("edge: gateway.channels-per-session must be between 3 and 32")
 	}
-	if cfg.MaxPendingHandshakes <= 0 || cfg.MaxPendingHandshakes > cfg.MaxSessions {
-		return fmt.Errorf("edge: gateway.max-pending-handshakes must be between 1 and max-sessions")
+	if cfg.ChannelsPerUpstream < 3*cfg.SessionsPerUpstream || cfg.ChannelsPerUpstream > 8192 {
+		return fmt.Errorf("edge: gateway.channels-per-upstream must be between three times sessions-per-upstream and 8192")
+	}
+	if cfg.MaxPendingHandshakes <= 0 || cfg.MaxPendingHandshakes > cfg.MaxSessions || cfg.MaxPendingHandshakes > 2048 {
+		return fmt.Errorf("edge: gateway.max-pending-handshakes must be between 1 and the smaller of max-sessions and 2048")
 	}
 	if cfg.SessionBufferBytes < 64*1024 || cfg.SessionBufferBytes > 16*1024*1024 {
 		return fmt.Errorf("edge: gateway.session-buffer-bytes must be between 65536 and 16777216")
-	}
-	if cfg.DelegatedEnvelopeValidity <= 0 || cfg.DelegatedEnvelopeValidity > 30*time.Second {
-		return fmt.Errorf("edge: gateway.delegated-envelope-validity must be between 1ns and 30s")
 	}
 	if cfg.IdleTimeout <= 0 {
 		return fmt.Errorf("edge: gateway.idle-timeout must be positive")

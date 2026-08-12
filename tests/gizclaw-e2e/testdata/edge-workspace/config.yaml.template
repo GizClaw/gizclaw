@@ -9,8 +9,9 @@ tls:
   cert-source: disabled
 gateway:
   enabled: true
-  max-sessions: 30000
-  max-upstreams: 16
-  sessions-per-upstream: 2048
-  streams-per-upstream: 8192
-  max-pending-handshakes: 512
+  max-sessions: ${GIZCLAW_E2E_GATEWAY_MAX_SESSIONS}
+  max-upstreams: ${GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS}
+  sessions-per-upstream: ${GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM}
+  channels-per-session: ${GIZCLAW_E2E_GATEWAY_CHANNELS_PER_SESSION}
+  channels-per-upstream: ${GIZCLAW_E2E_GATEWAY_CHANNELS_PER_UPSTREAM}
+  max-pending-handshakes: ${GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES}
