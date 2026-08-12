@@ -1030,6 +1030,12 @@ func TestE2EEdgeWorkspaceTemplateParses(t *testing.T) {
 		"${GIZCLAW_E2E_EDGE_ENDPOINT}", "127.0.0.1:9821",
 		"${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}", "http://server:9822",
 		"${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}", testKeyPair(t, 0x88).Public.String(),
+		"${GIZCLAW_E2E_GATEWAY_MAX_SESSIONS}", "30000",
+		"${GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS}", "16",
+		"${GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM}", "2048",
+		"${GIZCLAW_E2E_GATEWAY_CHANNELS_PER_SESSION}", "32",
+		"${GIZCLAW_E2E_GATEWAY_CHANNELS_PER_UPSTREAM}", "8192",
+		"${GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES}", "512",
 		"${GIZCLAW_E2E_TURN_ENDPOINT}", "127.0.0.1:3478",
 		"${GIZCLAW_E2E_TURN_RELAY_ADDRESS}", "127.0.0.1",
 		"${GIZCLAW_E2E_TURN_REALM}", "gizclaw-e2e",
@@ -1038,6 +1044,9 @@ func TestE2EEdgeWorkspaceTemplateParses(t *testing.T) {
 		"${GIZCLAW_E2E_TURN_RELAY_MIN_PORT}", "36000",
 		"${GIZCLAW_E2E_TURN_RELAY_MAX_PORT}", "36019",
 	).Replace(string(data))
+	if strings.Contains(body, "${") {
+		t.Fatalf("edge template contains an unrendered variable: %s", body)
+	}
 	fileCfg, err := parseConfigData([]byte(body))
 	if err != nil {
 		t.Fatalf("parseConfigData edge template: %v", err)
