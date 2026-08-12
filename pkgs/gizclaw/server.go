@@ -88,7 +88,6 @@ type Server struct {
 	ToolHTTPExecutor       giztools.HTTPExecutor
 	BuildVersion           string
 	BuildCommit            string
-	Region                 string
 	PublicEndpoint         string
 	PublicICETCP           bool
 	PublicLoginAuthorizer  publiclogin.SessionAuthorizer
@@ -433,7 +432,6 @@ func (s *Server) init() error {
 		Store:           peerStore,
 		BuildVersion:    s.BuildVersion,
 		BuildCommit:     s.BuildCommit,
-		Region:          s.Region,
 		Endpoint:        s.PublicEndpoint,
 		ServerPublicKey: s.LocalStatic.Public,
 		SignalingPath:   gizwebrtc.SignalingPath,

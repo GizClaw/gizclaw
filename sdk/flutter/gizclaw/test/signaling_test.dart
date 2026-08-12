@@ -12,7 +12,6 @@ void main() {
       'build_commit': 'deadbeef',
       'protocol': 'gizclaw-webrtc',
       'public_key': publicKey,
-      'region': 'cn-beijing',
       'signaling_path': '/webrtc/v1/offer',
       'version': '0.2.5',
     });
@@ -20,7 +19,6 @@ void main() {
     expect(info.publicKey, publicKey);
     expect(info.version, '0.2.5');
     expect(info.buildCommit, 'deadbeef');
-    expect(info.region, 'cn-beijing');
     expect(info.signalingPath, '/webrtc/v1/offer');
     expect(
       () =>
@@ -29,10 +27,6 @@ void main() {
     );
     expect(
       () => GiznetServerInfo.fromJson({'public_key': 'bad0'}),
-      throwsFormatException,
-    );
-    expect(
-      () => GiznetServerInfo.fromJson({'public_key': publicKey, 'region': ' '}),
       throwsFormatException,
     );
   });

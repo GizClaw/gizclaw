@@ -47,7 +47,6 @@ class GiznetServerInfo {
     this.endpoint,
     this.protocol,
     required this.publicKey,
-    this.region,
     this.signalingPath = giznetWebRtcSignalingPath,
     this.version,
   });
@@ -56,7 +55,6 @@ class GiznetServerInfo {
   final String? endpoint;
   final String? protocol;
   final String publicKey;
-  final String? region;
   final String signalingPath;
   final String? version;
 
@@ -79,7 +77,6 @@ class GiznetServerInfo {
     final signalingPath = _normalizeSignalingPath(
       json['signaling_path'] as String?,
     );
-    final region = _optionalServerInfoMetadata(json['region'], 'region');
     return GiznetServerInfo(
       buildCommit: _optionalServerInfoMetadata(
         json['build_commit'],
@@ -88,7 +85,6 @@ class GiznetServerInfo {
       endpoint: json['endpoint'] as String?,
       protocol: protocol,
       publicKey: publicKey,
-      region: region,
       signalingPath: signalingPath,
       version: _optionalServerInfoMetadata(json['version'], 'version'),
     );

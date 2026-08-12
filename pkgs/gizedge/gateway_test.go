@@ -1589,7 +1589,7 @@ func TestGatewayRejectsUnidentifiedSignalingBeforeListener(t *testing.T) {
 }
 
 func TestGatewayServerInfoTransportRemovesAuthoritativeICE(t *testing.T) {
-	body := `{"public_key":"server","version":"0.2.5","build_commit":"deadbeef","region":"cn-beijing","endpoint":"server:9820","signaling_path":"/offer","ice":{"udp":true,"tcp":true},"ice_servers":[{"urls":["turn:server"]}]}`
+	body := `{"public_key":"server","version":"0.2.5","build_commit":"deadbeef","endpoint":"server:9820","signaling_path":"/offer","ice":{"udp":true,"tcp":true},"ice_servers":[{"urls":["turn:server"]}]}`
 	resp := &http.Response{
 		Body:   io.NopCloser(strings.NewReader(body)),
 		Header: make(http.Header),
@@ -1610,7 +1610,7 @@ func TestGatewayServerInfoTransportRemovesAuthoritativeICE(t *testing.T) {
 	if _, ok := info["ice_servers"]; ok {
 		t.Fatal("gateway server-info retained authoritative ICE servers")
 	}
-	if info["version"] != "0.2.5" || info["build_commit"] != "deadbeef" || info["region"] != "cn-beijing" {
+	if info["version"] != "0.2.5" || info["build_commit"] != "deadbeef" {
 		t.Fatalf("gateway changed authoritative server metadata: %#v", info)
 	}
 	transport, ok := info["transport"].(map[string]any)

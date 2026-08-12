@@ -13,4 +13,4 @@ Offer 的身份认证由签名 signaling contract 自身完成，不应额外依
 
 Side Control 的 route contract、session 边界与 transport 见 [Peer HTTP · Side Control](../../gizclaw/peer/service/side-control)。设备密码、Wi-Fi、配网和播放声音等 LiteLink 本地能力不属于 Public API。
 
-`/server-info` 在连接前返回 authoritative Server 的 `public_key`、软件 `version`、`build_commit` 与 transport 能力。部署配置提供 `region` 时，response 还包含 operator 可读的部署区域；Server identity 仍只由密码学 `public_key` 表达。经过 Edge 时这些构建与部署字段保持 authoritative Server 的值，Edge transport 选择只由 `transport` 说明。
+`/server-info` 在连接前返回 authoritative Server 的 `public_key`、软件 `version`、`build_commit` 与 transport 能力。Server identity 仍只由密码学 `public_key` 表达。经过 Edge 时这些构建字段保持 authoritative Server 的值，Edge transport 选择只由 `transport` 说明。

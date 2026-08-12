@@ -167,7 +167,6 @@ export type GiznetServerInfo = {
   ice_servers?: RTCIceServer[];
   protocol?: string;
   public_key: string;
-  region?: string;
   signaling_path?: string;
   transport?: {
     endpoint: string;
@@ -1317,10 +1316,6 @@ export async function fetchGiznetServerInfo(
     (serverInfo as { build_commit?: unknown }).build_commit,
     "build_commit",
   );
-  const region = normalizeOptionalServerInfoMetadata(
-    (serverInfo as { region?: unknown }).region,
-    "region",
-  );
   return {
     ...serverInfo,
     build_commit: buildCommit,
@@ -1331,7 +1326,6 @@ export async function fetchGiznetServerInfo(
           )
         : undefined,
     public_key: serverInfo.public_key.trim(),
-    region,
     signaling_path: normalizeServerInfoSignalingPath(serverInfo.signaling_path),
     transport,
     version,

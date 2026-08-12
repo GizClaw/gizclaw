@@ -201,10 +201,6 @@ export type ServerInfo = {
      * Source commit embedded when the server binary was built.
      */
     build_commit: string;
-    /**
-     * Operator-defined deployment region for this authoritative Server instance.
-     */
-    region?: string;
     protocol: string;
     signaling_path: string;
     endpoint: string;

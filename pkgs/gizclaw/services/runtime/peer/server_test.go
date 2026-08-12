@@ -552,7 +552,6 @@ func TestPeerHTTPHandlers(t *testing.T) {
 		Store:           mustBadgerInMemory(t, nil),
 		BuildVersion:    "0.2.5",
 		BuildCommit:     "deadbeef",
-		Region:          "cn-beijing",
 		Endpoint:        "127.0.0.1:9820",
 		ServerPublicKey: giznet.PublicKey{1},
 		SignalingPath:   "/webrtc/v1/offer",
@@ -589,9 +588,6 @@ func TestPeerHTTPHandlers(t *testing.T) {
 	}
 	if serverInfo.Version != "0.2.5" || serverInfo.BuildCommit != "deadbeef" || serverInfo.PublicKey != server.ServerPublicKey.String() {
 		t.Fatalf("GetServerInfo = %+v", serverInfo)
-	}
-	if serverInfo.Region == nil || *serverInfo.Region != "cn-beijing" {
-		t.Fatalf("GetServerInfo region = %+v", serverInfo)
 	}
 	if serverInfo.Protocol != "gizclaw-webrtc" {
 		t.Fatalf("GetServerInfo protocol = %q, want gizclaw-webrtc", serverInfo.Protocol)

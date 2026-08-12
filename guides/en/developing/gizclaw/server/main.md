@@ -8,15 +8,9 @@ It can combine multiple fields, but single field resource, validation, storage a
 
 ## Server info and build identity
 
-`/server-info` reports software build metadata separately from deployment region. `version` and `build_commit` come from metadata embedded when the binary is built; `region` comes from runtime configuration. A formal Release uses `MAJOR.MINOR.PATCH` without a leading `v`, while an uninjected local development build reports `dev`. Release builds must inject both the version and the full source commit; runtime configuration cannot override the software version.
+`version` and `build_commit` in `/server-info` come from metadata embedded when the binary is built. A formal Release uses `MAJOR.MINOR.PATCH` without a leading `v`, while an uninjected local development build reports `dev`. Release builds must inject both the version and the full source commit; runtime configuration cannot override the software version.
 
-Deployment region uses the following optional top-level configuration. If it is not configured, the response omits `region`:
-
-```yaml
-region: cn-beijing
-```
-
-`public_key` is the authoritative Server's only identity; `region` only describes its deployment location. An Edge rewrites only transport routing and does not change the Server's `public_key`, version, or region.
+`public_key` remains the authoritative Server's only identity. An Edge rewrites only transport routing and does not change the Server's `public_key`, version, or build commit.
 
 ## Storage, Store, and service composition
 

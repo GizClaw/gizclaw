@@ -201,7 +201,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		MemoryRoot:            cfg.WorkspaceRoot,
 		BuildVersion:          buildinfo.Version,
 		BuildCommit:           buildinfo.Commit,
-		Region:                cfg.Region,
 		PublicEndpoint:        cfg.Endpoint,
 		PublicICETCP:          newOpts.ICETCPListener != nil,
 		EdgeNodes:             cfg.EdgeNodes,

@@ -36,10 +36,6 @@
             "type": "string",
             "description": "Source commit embedded when the server binary was built."
           },
-          "region": {
-            "type": "string",
-            "description": "Operator-defined deployment region for this authoritative Server instance."
-          },
           "protocol": {
             "type": "string"
           },

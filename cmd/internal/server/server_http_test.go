@@ -427,15 +427,14 @@ func TestNewWithOptionsWiresServerInfoMetadata(t *testing.T) {
 	})
 
 	cfg := validLayeredConfig(t.TempDir())
-	cfg.Region = "cn-beijing"
 	srv, err := newWithOptions(cfg, newServerOptions{})
 	if err != nil {
 		t.Fatalf("newWithOptions() error = %v", err)
 	}
 	defer srv.Close()
-	if srv.Server.BuildVersion != "0.2.5" || srv.Server.BuildCommit != "deadbeef" || srv.Server.Region != cfg.Region {
-		t.Fatalf("server info metadata = version %q commit %q region %q",
-			srv.Server.BuildVersion, srv.Server.BuildCommit, srv.Server.Region)
+	if srv.Server.BuildVersion != "0.2.5" || srv.Server.BuildCommit != "deadbeef" {
+		t.Fatalf("server info metadata = version %q commit %q",
+			srv.Server.BuildVersion, srv.Server.BuildCommit)
 	}
 }
 

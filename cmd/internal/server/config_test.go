@@ -90,43 +90,6 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
-func TestParseServerRegion(t *testing.T) {
-	file, err := parseConfigData([]byte("region: cn-beijing\n"))
-	if err != nil {
-		t.Fatalf("parseConfigData() error = %v", err)
-	}
-	merged, err := mergeFileConfig(Config{}, file)
-	if err != nil {
-		t.Fatalf("mergeFileConfig() error = %v", err)
-	}
-	if merged.Region != "cn-beijing" {
-		t.Fatalf("region = %q", merged.Region)
-	}
-}
-
-func TestServerRegionValidation(t *testing.T) {
-	tests := []struct {
-		name   string
-		region string
-		want   string
-	}{
-		{name: "whitespace", region: " cn-beijing", want: "surrounding whitespace"},
-		{name: "multiline", region: "cn-\nbeijing", want: "single-line"},
-		{name: "too long", region: strings.Repeat("a", 129), want: "128 bytes"},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			err := validateServerRegion(test.region)
-			if err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("validateServerRegion() error = %v, want %q", err, test.want)
-			}
-		})
-	}
-	if err := validateServerRegion("cn-beijing"); err != nil {
-		t.Fatalf("validateServerRegion(valid) error = %v", err)
-	}
-}
-
 func TestParsePendingDeletionConfig(t *testing.T) {
 	file, err := parseConfigData([]byte(`pending_deletion:
   scan_interval: 2s

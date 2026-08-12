@@ -47,7 +47,6 @@ type Server struct {
 	Store           kv.Store
 	BuildVersion    string
 	BuildCommit     string
-	Region          string
 	Endpoint        string
 	ServerPublicKey giznet.PublicKey
 	SignalingPath   string
@@ -312,7 +311,6 @@ func (s *Server) GetServerInfo(_ context.Context, _ peerhttp.GetServerInfoReques
 	return peerhttp.GetServerInfo200JSONResponse(apitypes.ServerInfo{
 		Version:     buildVersion,
 		BuildCommit: buildCommit,
-		Region:      optionalString(s.Region),
 		Endpoint:    s.Endpoint,
 		Ice: struct {
 			Tcp bool `json:"tcp"`
@@ -327,13 +325,6 @@ func (s *Server) GetServerInfo(_ context.Context, _ peerhttp.GetServerInfoReques
 		SignalingPath: signalingPath,
 		IceServers:    serverInfoICEServersAt(s.ICEServers, time.Now()),
 	}), nil
-}
-
-func optionalString(value string) *string {
-	if value == "" {
-		return nil
-	}
-	return &value
 }
 
 func serverInfoICEServers(servers []gizwebrtc.ICEServer) *[]struct {

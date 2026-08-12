@@ -6069,11 +6069,8 @@ type ServerInfo struct {
 		Urls       []string `json:"urls"`
 		Username   *string  `json:"username,omitempty"`
 	} `json:"ice_servers,omitempty"`
-	Protocol  string `json:"protocol"`
-	PublicKey string `json:"public_key"`
-
-	// Region Operator-defined deployment region for this authoritative Server instance.
-	Region        *string              `json:"region,omitempty"`
+	Protocol      string               `json:"protocol"`
+	PublicKey     string               `json:"public_key"`
 	ServerTime    int64                `json:"server_time"`
 	SignalingPath string               `json:"signaling_path"`
 	Transport     *ServerInfoTransport `json:"transport,omitempty"`
