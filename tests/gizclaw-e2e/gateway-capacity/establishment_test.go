@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
 func TestSummarizeEstablishmentReportsRateLatencyAndPhases(t *testing.T) {
@@ -167,6 +169,61 @@ func TestEstablishSessionsReleasesBurstTogether(t *testing.T) {
 	}
 	if state.establishment.Dial.Count != sessionCount || len(state.establishment.Sessions) != sessionCount {
 		t.Fatalf("establishment summary = %+v", state.establishment)
+	}
+	closeSessions(state, time.Second)
+}
+
+func TestEstablishSessionsPingsDuringRampWithoutResourceSampling(t *testing.T) {
+	const sessionCount = 2
+	var pings atomic.Int64
+	state := &resultState{
+		edgeDistribution:     make(map[string]int),
+		upstreamDistribution: make(map[string]map[string]int),
+	}
+	opts := options{
+		sessions:       sessionCount,
+		ramp:           100 * time.Millisecond,
+		pingInterval:   10 * time.Millisecond,
+		pingTimeout:    50 * time.Millisecond,
+		dialTimeout:    time.Second,
+		concurrency:    sessionCount,
+		cleanupTimeout: time.Second,
+	}
+	err := establishSessions(
+		t.Context(),
+		opts,
+		[]edgeMetadata{{endpoint: "edge-a"}},
+		state,
+		make(chan struct{}, opts.concurrency),
+		func(_ context.Context, edge edgeMetadata, index int, _ time.Duration) (*liveSession, establishmentSessionResult, error) {
+			closed := make(chan struct{})
+			var closeOnce sync.Once
+			return &liveSession{
+					edge:     edge.endpoint,
+					upstream: "upstream-1",
+					serveFn: func() error {
+						<-closed
+						return context.Canceled
+					},
+					closeFn: func() error {
+						closeOnce.Do(func() { close(closed) })
+						return nil
+					},
+					pingFn: func(context.Context, string) (*rpcapi.PingResponse, error) {
+						pings.Add(1)
+						return &rpcapi.PingResponse{}, nil
+					},
+				}, establishmentSessionResult{
+					Upstream:     "upstream-1",
+					DialDuration: time.Millisecond,
+				}, nil
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pings.Load() == 0 {
+		t.Fatal("ramp established sessions were not kept active by Ping")
 	}
 	closeSessions(state, time.Second)
 }

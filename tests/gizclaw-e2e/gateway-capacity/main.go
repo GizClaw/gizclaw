@@ -1200,7 +1200,7 @@ func establishSessions(
 	var failed atomic.Int64
 	attempts := make([]establishmentSessionResult, 0, opts.sessions)
 	stopRampPings := func() {}
-	if opts.requireRoleResources && opts.ramp > 0 {
+	if opts.ramp > 0 && opts.pingInterval > 0 {
 		stopRampPings = startRampPings(ctx, state, opts, sem)
 	}
 	startedAt := time.Now()
