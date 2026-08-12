@@ -470,6 +470,7 @@ func (h *PeerConn) initAgentHost() {
 			Tracks: h,
 		},
 		OnConsumerError:           h.broadcastAgentOutputError,
+		OnWorkspaceActivated:      manager.handleWorkspaceActivated,
 		OnWorkspaceHistoryUpdated: manager.handleWorkspaceHistoryUpdated,
 	}
 	if h.rpc != nil {

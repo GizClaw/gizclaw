@@ -232,6 +232,44 @@ func TestServerServeReturnsNilAfterClose(t *testing.T) {
 	}
 }
 
+func TestServerListenDoesNotReadColdWorkspaceRecordsForRewards(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	workspaceStore := mustBadgerInMemory(t, nil)
+	malformed := []byte("{")
+	if err := workspaceStore.Set(t.Context(), kv.Key{"by-id", "workspace-cold"}, malformed); err != nil {
+		t.Fatalf("seed malformed cold Workspace: %v", err)
+	}
+	listener := newTestGiznetListener()
+	server := &Server{
+		LocalStatic: *keyPair, PeerStore: mustBadgerInMemory(t, nil),
+		WorkspaceStore: workspaceStore, PeerListeners: []giznet.Listener{listener},
+	}
+	completeTestServer(t, server)
+	if err := server.Listen(); err != nil {
+		t.Fatalf("Listen() error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := server.Close(); err != nil {
+			t.Errorf("Close() error = %v", err)
+		}
+	})
+	select {
+	case <-listener.closed:
+		t.Fatal("listener was closed after reading a cold Workspace")
+	default:
+	}
+	stored, err := workspaceStore.Get(t.Context(), kv.Key{"by-id", "workspace-cold"})
+	if err != nil {
+		t.Fatalf("read retained cold Workspace: %v", err)
+	}
+	if !bytes.Equal(stored, malformed) {
+		t.Fatalf("cold Workspace was rewritten: got %q want %q", stored, malformed)
+	}
+}
+
 func TestServerListenProcessesExistingPetDeletion(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {

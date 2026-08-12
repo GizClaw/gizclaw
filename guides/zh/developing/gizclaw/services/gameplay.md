@@ -68,12 +68,15 @@ Gameplay 使用 Workspace owner 和 Pet 领域关系，不创建额外 role 或 
 
 `gameplay.workspace_reward` 是 RuntimeProfile 可选策略。它把同一 Workspace 中由
 AgentHost 新写入的连续 History 合并成 debounce window；window 的第一条 `gear`
-记录固定受益 Peer，后续群聊参与者不会改变受益人。Server 启动时只把已有 History
-设为 checkpoint，不为导入、回放或升级前的记录补发奖励。只评价同时包含受益人
-输入和 Agent 输出的完整 window。
+记录固定受益 Peer，后续群聊参与者不会改变受益人。Server 启动只创建全局
+activation boundary，不枚举 Workspace，也不读取它们的 History。某个具体 Workspace
+实际激活时才懒创建 source，并把 activation boundary 之前的 History 设为不补发的
+checkpoint。导入、回放或旧记录不参与奖励。只评价同时包含受益人输入和 Agent 输出的完整 window。
 
 Gameplay 为整个服务运行一个持久 dispatcher。AgentHost append 成功后的 callback
-只记录精确 History high-water 并唤醒 dispatcher，不调用模型。window 冻结当前
+只是有界且可丢弃的低延迟提示：它可以更早调度精确 History high-water，但没有
+持久 receipt，允许直接丢失。该 Workspace 下次激活时会比较权威 History 与 source
+checkpoint，只增量对账缺失后缀。启动和周期任务都不会发现或读取冷 Workspace。window 冻结当前
 RuntimeProfile revision、LLM Model resource、Points prompt、BadgeDef `reward_prompt`、
 tier、限额和滚动预算；profile 更新只影响后续 window。dispatcher 读取冻结边界内
 且 `origin=agenthost` 的文本，执行一次 snapshot-specific `genx.FuncTool` structured
@@ -87,4 +90,4 @@ Badge EXP、window 完成和 checkpoint 在同一个 Gameplay SQL transaction �
 `GAMEPLAY_REWARD_UPDATED` invalidation Event；客户端收到后重新拉取权威 Gameplay
 状态。确定性任务奖励属于独立任务系统，不经过该模型 evaluator。
 
-Workspace reward 的 scheduling、startup reconciliation、History paging、model evaluation 与 retry dispatch 都使用同一个权威 availability gate。Workspace 或 owner 进入 pending deletion 后，未结算 window 与准确 source row 会被删除，已完成 reward audit row 保留，并且不再为该 Workspace 调用 History 或 model；其他 Workspace 仍可独立 dispatch。
+Workspace reward 的精确 Workspace 激活、History paging、model evaluation 与 retry dispatch 都使用同一个权威 availability gate。Workspace 或 owner 进入 pending deletion 后，未结算 window 与准确 source row 会被删除，已完成 reward audit row 保留，并且不再为该 Workspace 调用 History 或 model。重启时直接从带索引的 Gameplay SQL 队列恢复已有 pending、retry 与过期 claim，不扫描 Workspace catalog；其他 Workspace 仍可独立 dispatch。

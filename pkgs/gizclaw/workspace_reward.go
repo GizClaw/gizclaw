@@ -32,36 +32,6 @@ func (environment *workspaceRewardEnvironment) EnsureWorkspaceAvailable(ctx cont
 	return err
 }
 
-func (environment *workspaceRewardEnvironment) ListWorkspaceIDs(ctx context.Context) ([]string, error) {
-	if environment == nil || environment.workspaces == nil {
-		return nil, errors.New("gizclaw: Workspace reward source is not configured")
-	}
-	limit := int32(200)
-	var cursor *string
-	var ids []string
-	for {
-		response, err := environment.workspaces.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{
-			Params: adminhttp.ListWorkspacesParams{Cursor: cursor, Limit: &limit},
-		})
-		if err != nil {
-			return nil, err
-		}
-		page, ok := response.(adminhttp.ListWorkspaces200JSONResponse)
-		if !ok {
-			return nil, fmt.Errorf("gizclaw: list Workspaces returned %T", response)
-		}
-		for _, item := range page.Items {
-			if id := strings.TrimSpace(item.Id); id != "" {
-				ids = append(ids, id)
-			}
-		}
-		if !page.HasNext || page.NextCursor == nil {
-			return ids, nil
-		}
-		cursor = page.NextCursor
-	}
-}
-
 func (environment *workspaceRewardEnvironment) LatestHistoryEntry(
 	ctx context.Context,
 	workspaceID string,
@@ -246,4 +216,21 @@ func (m *Manager) handleWorkspaceHistoryUpdated(
 		}
 	}
 	m.broadcastWorkspaceHistoryUpdated(ctx, workspaceID, entry.CreatedAt)
+}
+
+func (m *Manager) handleWorkspaceActivated(ctx context.Context, workspaceName string) {
+	if m == nil || m.Gameplay == nil {
+		return
+	}
+	item, err := resolveWorkspaceByName(ctx, m.Workspaces, workspaceName)
+	if err == nil {
+		err = m.Gameplay.EnqueueWorkspaceRewardActivation(ctx, item.Id)
+	}
+	if err != nil {
+		slog.Error("activate Workspace reward",
+			"workspace", workspaceName,
+			"error_class", "activation",
+			"error", err,
+		)
+	}
 }
