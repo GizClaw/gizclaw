@@ -66,12 +66,26 @@ if [[ -z "$edge_id" ]]; then
   echo "native-channel qualification Edge container is missing" >&2
   exit 1
 fi
-usage_log="$(docker exec "$edge_id" sh -c \
-  "grep 'gateway tunnel channel usage' /src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.log" || true)"
-observed_peak="$(sed -n 's/.*peak_active_channels=\([0-9][0-9]*\).*/\1/p' <<<"$usage_log" | sort -n | tail -1)"
-observed_after_cleanup="$(sed -n 's/.* active_channels=\([0-9][0-9]*\) .*/\1/p' <<<"$usage_log" | tail -1)"
+usage_log=""
+observed_peak=""
+observed_after_cleanup=""
+usage_deadline=$((SECONDS + 60))
+while ((SECONDS < usage_deadline)); do
+  usage_log="$(docker exec "$edge_id" sh -c \
+    "grep 'gateway tunnel channel usage' /src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.log" || true)"
+  observed_peak="$(sed -n 's/.*peak_active_channels=\([0-9][0-9]*\).*/\1/p' <<<"$usage_log" | sort -n | tail -1)"
+  observed_after_cleanup="$(sed -n 's/.* active_channels=\([0-9][0-9]*\) .*/\1/p' <<<"$usage_log" | tail -1)"
+  if [[ "$observed_peak" == "8192" && "$observed_after_cleanup" == "0" ]]; then
+    break
+  fi
+  sleep 1
+done
 if [[ -z "$observed_peak" || -z "$observed_after_cleanup" ]]; then
   echo "Edge did not emit native-channel usage evidence" >&2
+  exit 1
+fi
+if [[ "$observed_peak" != "8192" || "$observed_after_cleanup" != "0" ]]; then
+  echo "Edge native-channel usage did not settle: peak=$observed_peak after_cleanup=$observed_after_cleanup" >&2
   exit 1
 fi
 artifact_tmp="$(mktemp "${artifact}.tmp.XXXXXX")"
