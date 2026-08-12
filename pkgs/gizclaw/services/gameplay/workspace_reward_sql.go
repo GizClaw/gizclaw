@@ -17,6 +17,8 @@ import (
 type workspaceRewardPolicyCorruptionError struct {
 	WindowID    string
 	WorkspaceID string
+	State       string
+	ClaimToken  string
 	Class       string
 }
 
@@ -81,7 +83,8 @@ func scanWorkspaceRewardWindow(row rowScanner) (workspaceRewardWindow, error) {
 	}
 	if err := unmarshalJSON(policyJSON, &window.Policy); err != nil {
 		return workspaceRewardWindow{}, &workspaceRewardPolicyCorruptionError{
-			WindowID: window.ID, WorkspaceID: window.WorkspaceID, Class: "reward_policy_invalid",
+			WindowID: window.ID, WorkspaceID: window.WorkspaceID,
+			State: window.State, ClaimToken: window.ClaimToken, Class: "reward_policy_invalid",
 		}
 	}
 	digest, err := workspaceRewardPolicyDigest(window.Policy)
@@ -90,7 +93,8 @@ func scanWorkspaceRewardWindow(row rowScanner) (workspaceRewardWindow, error) {
 	}
 	if digest != window.PolicyDigest {
 		return workspaceRewardWindow{}, &workspaceRewardPolicyCorruptionError{
-			WindowID: window.ID, WorkspaceID: window.WorkspaceID, Class: "reward_policy_digest_mismatch",
+			WindowID: window.ID, WorkspaceID: window.WorkspaceID,
+			State: window.State, ClaimToken: window.ClaimToken, Class: "reward_policy_digest_mismatch",
 		}
 	}
 	window.Policy.Digest = digest
@@ -111,15 +115,20 @@ func (r *Runtime) blockCorruptWorkspaceRewardWindow(ctx context.Context, corrupt
 		customid.ValidateResourceID(corrupt.WorkspaceID) != nil {
 		return errors.New("gameplay: corrupt Workspace reward row lacks a trusted identity")
 	}
+	switch corrupt.State {
+	case workspaceRewardPending, workspaceRewardClaimed, workspaceRewardRetry:
+	default:
+		return errors.New("gameplay: corrupt Workspace reward row lacks a trusted state fence")
+	}
 	db, err := r.db()
 	if err != nil {
 		return err
 	}
 	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_workspace_reward_windows SET
 		state = ?, claim_token = '', claim_until = '', last_error = ?, updated_at = ?
-		WHERE id = ? AND workspace_id = ? AND state IN (?, ?, ?)`),
+		WHERE id = ? AND workspace_id = ? AND state = ? AND claim_token = ?`),
 		workspaceRewardBlocked, corrupt.Class, formatTime(r.now()), corrupt.WindowID, corrupt.WorkspaceID,
-		workspaceRewardPending, workspaceRewardClaimed, workspaceRewardRetry,
+		corrupt.State, corrupt.ClaimToken,
 	)
 	if err != nil {
 		return err

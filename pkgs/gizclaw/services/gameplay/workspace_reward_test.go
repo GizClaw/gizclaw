@@ -1038,6 +1038,65 @@ func TestWorkspaceRewardDispatchBlocksCorruptPolicyAndContinues(t *testing.T) {
 	}
 }
 
+func TestWorkspaceRewardCorruptPolicyBlockingHonorsClaimFence(t *testing.T) {
+	ctx := t.Context()
+	now := time.Date(2026, 8, 12, 9, 15, 0, 0, time.UTC)
+	policy := workspaceRewardTestPolicy(t)
+	runtime := &Runtime{DB: testDB(t), Now: func() time.Time { return now }, NewID: sequentialIDs("claim-observed")}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	source := workspaceRewardSource{
+		WorkspaceID: "workspace-corrupt", ScheduledCheckpoint: "history-corrupt",
+		CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}
+	if err := runtime.insertWorkspaceRewardSource(ctx, source); err != nil {
+		t.Fatalf("insert source: %v", err)
+	}
+	window := workspaceRewardWindow{
+		ID: "window-corrupt", WorkspaceID: source.WorkspaceID,
+		WorkspaceKind: WorkspaceRewardKindWorkflow, BeneficiaryPublicKey: "peer-corrupt",
+		RuntimeProfileId: policy.RuntimeProfileId, RuntimeProfileRevision: policy.RuntimeProfileRevision,
+		Policy: policy, PolicyDigest: policy.Digest,
+		StartHistoryID: "history-corrupt", HighWaterHistoryID: "history-corrupt",
+		StartHistoryAt: now.Add(-time.Hour), HighWaterHistoryAt: now.Add(-time.Hour),
+		OpenedAt: now.Add(-time.Hour), LastActivityAt: now.Add(-time.Hour),
+		EvaluateAfter: now.Add(-time.Minute), State: workspaceRewardPending,
+		CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}
+	if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
+		t.Fatalf("insert window: %v", err)
+	}
+	if _, err := runtime.DB.ExecContext(ctx, `UPDATE gameplay_workspace_reward_windows
+		SET policy_json = '{' WHERE id = ?`, window.ID); err != nil {
+		t.Fatalf("corrupt policy JSON: %v", err)
+	}
+
+	_, _, err := runtime.claimWorkspaceRewardWindow(ctx)
+	var corrupt *workspaceRewardPolicyCorruptionError
+	if !errors.As(err, &corrupt) {
+		t.Fatalf("claimWorkspaceRewardWindow() error = %v, want policy corruption", err)
+	}
+	if corrupt.State != workspaceRewardClaimed || corrupt.ClaimToken != "claim-observed" {
+		t.Fatalf("observed corruption fence = %q/%q", corrupt.State, corrupt.ClaimToken)
+	}
+	if _, err := runtime.DB.ExecContext(ctx, `UPDATE gameplay_workspace_reward_windows
+		SET claim_token = 'claim-renewed' WHERE id = ?`, window.ID); err != nil {
+		t.Fatalf("simulate renewed claim: %v", err)
+	}
+	if err := runtime.blockCorruptWorkspaceRewardWindow(ctx, corrupt); err == nil {
+		t.Fatal("stale corrupt-row observer blocked a renewed claim")
+	}
+	var state, claimToken string
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT state, claim_token
+		FROM gameplay_workspace_reward_windows WHERE id = ?`, window.ID).Scan(&state, &claimToken); err != nil {
+		t.Fatalf("read renewed row: %v", err)
+	}
+	if state != workspaceRewardClaimed || claimToken != "claim-renewed" {
+		t.Fatalf("renewed row = %q/%q, want claimed/claim-renewed", state, claimToken)
+	}
+}
+
 func TestWorkspaceRewardDisabledHistoryCannotBecomeRetroactivelyEligible(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 29, 4, 0, 0, 0, time.UTC)
