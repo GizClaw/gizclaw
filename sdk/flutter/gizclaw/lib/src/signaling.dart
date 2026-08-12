@@ -89,16 +89,16 @@ class GiznetServerInfo {
       version: _optionalServerInfoMetadata(json['version'], 'version'),
     );
   }
-}
 
-String? _optionalServerInfoMetadata(Object? value, String field) {
-  if (value == null) {
-    return null;
+  static String? _optionalServerInfoMetadata(Object? value, String field) {
+    if (value == null) {
+      return null;
+    }
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException('server-info invalid $field');
+    }
+    return value.trim();
   }
-  if (value is! String || value.trim().isEmpty) {
-    throw FormatException('server-info invalid $field');
-  }
-  return value.trim();
 }
 
 Future<PreparedGiznetWebRtcOffer> prepareEncryptedGiznetWebRtcOffer(
