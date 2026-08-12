@@ -6,6 +6,12 @@ Defines a reusable `Server` composition root: receive identity, Peer listeners, 
 
 It can combine multiple fields, but single field resource, validation, storage and lifecycle should stay in `services/<domain>`. Process configuration and startup belong to `cmd/internal/server`.
 
+## Server info and build identity
+
+`version` and `build_commit` in `/server-info` come from metadata embedded when the binary is built. A formal Release uses `MAJOR.MINOR.PATCH` without a leading `v`, while an uninjected local development build reports `dev`. Release builds must inject both the version and the full source commit; runtime configuration cannot override the software version.
+
+`public_key` remains the authoritative Server's only identity. An Edge rewrites only transport routing and does not change the Server's `public_key`, version, or build commit.
+
 ## Storage, Store, and service composition
 
 Server configuration has three distinct layers:

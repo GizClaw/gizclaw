@@ -2597,6 +2597,7 @@ test("fetchGiznetServerInfo validates server metadata", async () => {
     fetch: async (input, init) => {
       captured = new Request(input, init);
       return Response.json({
+        build_commit: "deadbeef",
         ice_servers: [
           {
             credential: "pass",
@@ -2607,12 +2608,15 @@ test("fetchGiznetServerInfo validates server metadata", async () => {
         protocol: "gizclaw-webrtc",
         public_key: serverPublicKey,
         signaling_path: "/custom/offer",
+        version: "0.2.5",
       });
     },
   });
 
   assert.equal(captured?.url, "http://localhost:9820/server-info");
   assert.equal(info.public_key, serverPublicKey);
+  assert.equal(info.version, "0.2.5");
+  assert.equal(info.build_commit, "deadbeef");
   assert.equal(info.signaling_path, "/custom/offer");
   assert.deepEqual(info.ice_servers, [
     {

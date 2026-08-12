@@ -95,17 +95,21 @@ jobs:
         env:
           PLATFORM: linux/${{ matrix.arch }}
           OUTPUT: ${{ runner.temp }}/gizclaw-linux-${{ matrix.arch }}
+          BUILD_VERSION: ${{ needs.prepare.outputs.version }}
+          BUILD_COMMIT: ${{ needs.prepare.outputs.source_commit }}
         run: ./build/build-linux.sh
 
       - name: Verify native Linux executable
         env:
           BINARY: ${{ runner.temp }}/gizclaw-linux-${{ matrix.arch }}
+          BUILD_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           file "$BINARY"
           docker run --rm --platform linux/${{ matrix.arch }} \
             --volume "$BINARY:/gizclaw:ro" \
             ubuntu:24.04 \
-            sh -c '/gizclaw --help >/dev/null'
+            sh -c 'test "$(/gizclaw --version)" = "gizclaw version $1" && /gizclaw --help >/dev/null' \
+            sh "$BUILD_VERSION"
 
       - name: Build and validate Debian package
         env:
@@ -183,13 +187,18 @@ jobs:
           CGO_ENABLED: "1"
           GOOS: darwin
           GOARCH: ${{ matrix.arch }}
+          BUILD_VERSION: ${{ needs.prepare.outputs.version }}
+          BUILD_COMMIT: ${{ needs.prepare.outputs.source_commit }}
         run: |
           mkdir -p .tmp/release
-          go build -trimpath -o ".tmp/release/gizclaw-darwin-${{ matrix.arch }}" ./cmd/gizclaw
+          go build -trimpath \
+            -ldflags "-X github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo.Version=${BUILD_VERSION} -X github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo.Commit=${BUILD_COMMIT}" \
+            -o ".tmp/release/gizclaw-darwin-${{ matrix.arch }}" ./cmd/gizclaw
 
       - name: Verify native macOS executable
         env:
           BINARY: .tmp/release/gizclaw-darwin-${{ matrix.arch }}
+          BUILD_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           test -f "$BINARY" && test ! -L "$BINARY" && test -x "$BINARY" && test -s "$BINARY"
           file "$BINARY"
@@ -198,6 +207,7 @@ jobs:
             echo "macOS executable contains the checkout path" >&2
             exit 1
           fi
+          test "$("$BINARY" --version)" = "gizclaw version $BUILD_VERSION"
           "$BINARY" --help >/dev/null
 
       - name: Upload Darwin release asset

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -49,6 +50,23 @@ func TestRootHelp(t *testing.T) {
 	}
 	if strings.Contains(out, "play") {
 		t.Fatalf("help should not include old Play UI command: %s", out)
+	}
+}
+
+func TestRootVersion(t *testing.T) {
+	originalVersion := buildinfo.Version
+	buildinfo.Version = "0.2.5"
+	t.Cleanup(func() { buildinfo.Version = originalVersion })
+
+	root := New()
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetArgs([]string{"--version"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := buf.String(), "gizclaw version 0.2.5\n"; got != want {
+		t.Fatalf("--version output = %q, want %q", got, want)
 	}
 }
 

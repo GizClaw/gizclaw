@@ -66,6 +66,8 @@ jobs:
         env:
           PLATFORM: linux/amd64
           OUTPUT: ${{ runner.temp }}/gizclaw-linux-amd64
+          BUILD_VERSION: 0.0.0
+          BUILD_COMMIT: ${{ github.sha }}
         run: build/build-linux.sh
 
       - name: Build and exercise validation package

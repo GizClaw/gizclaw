@@ -6057,6 +6057,7 @@ type RuntimeProfileWorkspaceRewardTranscriptSpec struct {
 
 // ServerInfo defines model for ServerInfo.
 type ServerInfo struct {
+	// BuildCommit Source commit embedded when the server binary was built.
 	BuildCommit string `json:"build_commit"`
 	Endpoint    string `json:"endpoint"`
 	Ice         struct {
@@ -6073,6 +6074,9 @@ type ServerInfo struct {
 	ServerTime    int64                `json:"server_time"`
 	SignalingPath string               `json:"signaling_path"`
 	Transport     *ServerInfoTransport `json:"transport,omitempty"`
+
+	// Version GizClaw software version embedded when the server binary was built. Formal releases use MAJOR.MINOR.PATCH without a leading v; development builds use dev.
+	Version string `json:"version"`
 }
 
 // ServerInfoTransport defines model for ServerInfoTransport.

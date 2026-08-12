@@ -550,6 +550,7 @@ func TestPeerHTTPHandlers(t *testing.T) {
 	peerKey := giznet.PublicKey{5}
 	server := &Server{
 		Store:           mustBadgerInMemory(t, nil),
+		BuildVersion:    "0.2.5",
 		BuildCommit:     "deadbeef",
 		Endpoint:        "127.0.0.1:9820",
 		ServerPublicKey: giznet.PublicKey{1},
@@ -585,7 +586,7 @@ func TestPeerHTTPHandlers(t *testing.T) {
 	if !ok {
 		t.Fatalf("GetServerInfo response type = %T", serverInfoResp)
 	}
-	if serverInfo.BuildCommit != "deadbeef" || serverInfo.PublicKey != server.ServerPublicKey.String() {
+	if serverInfo.Version != "0.2.5" || serverInfo.BuildCommit != "deadbeef" || serverInfo.PublicKey != server.ServerPublicKey.String() {
 		t.Fatalf("GetServerInfo = %+v", serverInfo)
 	}
 	if serverInfo.Protocol != "gizclaw-webrtc" {
@@ -602,6 +603,21 @@ func TestPeerHTTPHandlers(t *testing.T) {
 	}
 	if serverInfo.ServerTime < before.UnixMilli() || serverInfo.ServerTime > time.Now().Add(time.Second).UnixMilli() {
 		t.Fatalf("GetServerInfo = %+v", serverInfo)
+	}
+}
+
+func TestGetServerInfoDefaultsDevelopmentBuildIdentity(t *testing.T) {
+	server := &Server{ServerPublicKey: giznet.PublicKey{1}}
+	response, err := server.GetServerInfo(context.Background(), peerhttp.GetServerInfoRequestObject{})
+	if err != nil {
+		t.Fatalf("GetServerInfo() error = %v", err)
+	}
+	info, ok := response.(peerhttp.GetServerInfo200JSONResponse)
+	if !ok {
+		t.Fatalf("GetServerInfo response type = %T", response)
+	}
+	if info.Version != "dev" || info.BuildCommit != "dev" {
+		t.Fatalf("development build identity = version %q commit %q", info.Version, info.BuildCommit)
 	}
 }
 

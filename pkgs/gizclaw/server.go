@@ -86,6 +86,7 @@ type Server struct {
 	SpeechLimits           SpeechLimits
 	ClientToolTimeout      time.Duration
 	ToolHTTPExecutor       giztools.HTTPExecutor
+	BuildVersion           string
 	BuildCommit            string
 	PublicEndpoint         string
 	PublicICETCP           bool
@@ -429,6 +430,7 @@ func (s *Server) init() error {
 	publicLoginServer := publiclogin.NewServer(&s.LocalStatic, publicLoginStore)
 	peersServer := &peer.Server{
 		Store:           peerStore,
+		BuildVersion:    s.BuildVersion,
 		BuildCommit:     s.BuildCommit,
 		Endpoint:        s.PublicEndpoint,
 		ServerPublicKey: s.LocalStatic.Public,

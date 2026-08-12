@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
@@ -415,6 +416,25 @@ func TestNewWithOptionsWiresPrometheusMetricsStore(t *testing.T) {
 	defer srv.Close()
 	if srv.Server.MetricsStore == nil {
 		t.Fatal("MetricsStore is nil")
+	}
+}
+
+func TestNewWithOptionsWiresServerInfoMetadata(t *testing.T) {
+	originalVersion, originalCommit := buildinfo.Version, buildinfo.Commit
+	buildinfo.Version, buildinfo.Commit = "0.2.5", "deadbeef"
+	t.Cleanup(func() {
+		buildinfo.Version, buildinfo.Commit = originalVersion, originalCommit
+	})
+
+	cfg := validLayeredConfig(t.TempDir())
+	srv, err := newWithOptions(cfg, newServerOptions{})
+	if err != nil {
+		t.Fatalf("newWithOptions() error = %v", err)
+	}
+	defer srv.Close()
+	if srv.Server.BuildVersion != "0.2.5" || srv.Server.BuildCommit != "deadbeef" {
+		t.Fatalf("server info metadata = version %q commit %q",
+			srv.Server.BuildVersion, srv.Server.BuildCommit)
 	}
 }
 

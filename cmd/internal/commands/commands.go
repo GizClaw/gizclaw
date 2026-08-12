@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo"
 	admincmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin"
 	connectcmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/connect"
 	contextcmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/context"
@@ -16,8 +17,9 @@ import (
 
 func New() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "gizclaw",
-		Short: "GizClaw - peer-to-peer toy network",
+		Use:     "gizclaw",
+		Short:   "GizClaw - peer-to-peer toy network",
+		Version: buildinfo.Version,
 	}
 	root.SetArgs(normalizeLegacyLongFlags(os.Args[1:]))
 

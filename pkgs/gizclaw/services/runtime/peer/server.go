@@ -45,6 +45,7 @@ type PeerManager interface {
 
 type Server struct {
 	Store           kv.Store
+	BuildVersion    string
 	BuildCommit     string
 	Endpoint        string
 	ServerPublicKey giznet.PublicKey
@@ -299,8 +300,17 @@ func (s *Server) GetServerInfo(_ context.Context, _ peerhttp.GetServerInfoReques
 	if signalingPath == "" {
 		signalingPath = "/webrtc/v1/offer"
 	}
+	buildVersion := s.BuildVersion
+	if buildVersion == "" {
+		buildVersion = "dev"
+	}
+	buildCommit := s.BuildCommit
+	if buildCommit == "" {
+		buildCommit = "dev"
+	}
 	return peerhttp.GetServerInfo200JSONResponse(apitypes.ServerInfo{
-		BuildCommit: s.BuildCommit,
+		Version:     buildVersion,
+		BuildCommit: buildCommit,
 		Endpoint:    s.Endpoint,
 		Ice: struct {
 			Tcp bool `json:"tcp"`

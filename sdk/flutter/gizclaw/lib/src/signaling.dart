@@ -43,16 +43,20 @@ class PreparedGiznetWebRtcOffer {
 
 class GiznetServerInfo {
   const GiznetServerInfo({
+    this.buildCommit,
     this.endpoint,
     this.protocol,
     required this.publicKey,
     this.signalingPath = giznetWebRtcSignalingPath,
+    this.version,
   });
 
+  final String? buildCommit;
   final String? endpoint;
   final String? protocol;
   final String publicKey;
   final String signalingPath;
+  final String? version;
 
   factory GiznetServerInfo.fromJson(Map<String, Object?> json) {
     final protocol = json['protocol'] as String?;
@@ -74,11 +78,26 @@ class GiznetServerInfo {
       json['signaling_path'] as String?,
     );
     return GiznetServerInfo(
+      buildCommit: _optionalServerInfoMetadata(
+        json['build_commit'],
+        'build_commit',
+      ),
       endpoint: json['endpoint'] as String?,
       protocol: protocol,
       publicKey: publicKey,
       signalingPath: signalingPath,
+      version: _optionalServerInfoMetadata(json['version'], 'version'),
     );
+  }
+
+  static String? _optionalServerInfoMetadata(Object? value, String field) {
+    if (value == null) {
+      return null;
+    }
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException('server-info invalid $field');
+    }
+    return value.trim();
   }
 }
 

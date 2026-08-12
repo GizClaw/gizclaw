@@ -6,6 +6,12 @@
 
 它可以组合多个领域，但单一领域的 resource、validation、storage 和 lifecycle 应留在 `services/<domain>`。进程配置与启动属于 `cmd/internal/server`。
 
+## Server info 与构建身份
+
+`/server-info` 中的 `version` 和 `build_commit` 来自二进制编译期 metadata。正式 Release 的 `version` 是不带 `v` 前缀的 `MAJOR.MINOR.PATCH`，本地未注入的开发构建返回 `dev`。Release 构建必须同时注入版本与完整 source commit，不能从运行时配置覆盖软件版本。
+
+`public_key` 仍是 authoritative Server 的唯一身份。Edge 只改写 transport endpoint，不取得 Server 业务身份，也不改变 Server 的 `public_key`、版本或构建 commit。
+
 ## Storage、Store 与 Service 组合
 
 Server 配置明确分为三层：

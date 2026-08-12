@@ -112,6 +112,7 @@ docker run --rm --platform "linux/$architecture" \
     test "$(dpkg-query -W -f="$version_format" gizclaw)" = "$expected_version"
     test "$(stat -c %U:%G /usr/bin/gizclaw)" = root:root
     test "$(stat -c %a /usr/bin/gizclaw)" = 755
+    test "$(/usr/bin/gizclaw --version)" = "gizclaw version $expected_version"
     /usr/bin/gizclaw --help >/dev/null
     apt-get remove -y gizclaw >/dev/null
     test ! -e /usr/bin/gizclaw
@@ -119,6 +120,7 @@ docker run --rm --platform "linux/$architecture" \
     printf "%s\n" corrupted > /usr/bin/gizclaw
     chmod 0755 /usr/bin/gizclaw
     apt-get install --reinstall --no-install-recommends -y "$package" >/dev/null
+    test "$(/usr/bin/gizclaw --version)" = "gizclaw version $expected_version"
     /usr/bin/gizclaw --help >/dev/null
   ' bash "$expected_name" "$version"
 

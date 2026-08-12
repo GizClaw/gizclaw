@@ -9,12 +9,16 @@ void main() {
   test('validates server-info payloads', () {
     final publicKey = base58Encode(List<int>.filled(32, 7));
     final info = GiznetServerInfo.fromJson({
+      'build_commit': 'deadbeef',
       'protocol': 'gizclaw-webrtc',
       'public_key': publicKey,
       'signaling_path': '/webrtc/v1/offer',
+      'version': '0.2.5',
     });
 
     expect(info.publicKey, publicKey);
+    expect(info.version, '0.2.5');
+    expect(info.buildCommit, 'deadbeef');
     expect(info.signalingPath, '/webrtc/v1/offer');
     expect(
       () =>
