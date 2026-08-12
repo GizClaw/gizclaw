@@ -1521,9 +1521,69 @@ static int test_peer_event_golden_vectors(void) {
   return 0;
 }
 
+static int test_json_ascii_classification(void) {
+  const char all_ascii_whitespace[] =
+      "\t\n\v\f\r {\"value\":0}\t\n\v\f\r ";
+  if (expect(
+          gzc_json_validate_object(
+              gzc_str_from_cstr(all_ascii_whitespace)) == GZC_OK,
+          "accept every ASCII JSON whitespace byte") != 0) {
+    return 1;
+  }
+
+  int64_t parsed = -1;
+  if (expect(
+          gzc_json_parse_i64(gzc_str_from_cstr("0"), &parsed) == GZC_OK &&
+              parsed == 0,
+          "accept lower ASCII digit boundary") != 0 ||
+      expect(
+          gzc_json_parse_i64(gzc_str_from_cstr("9"), &parsed) == GZC_OK &&
+              parsed == 9,
+          "accept upper ASCII digit boundary") != 0 ||
+      expect(
+          gzc_json_parse_i64(gzc_str_from_cstr("/"), &parsed) ==
+              GZC_ERR_JSON,
+          "reject byte below ASCII digit range") != 0 ||
+      expect(
+          gzc_json_parse_i64(gzc_str_from_cstr(":"), &parsed) ==
+              GZC_ERR_JSON,
+          "reject byte above ASCII digit range") != 0) {
+    return 1;
+  }
+
+  const char high_digit_bytes[] = {(char)0x80, (char)0xff};
+  for (size_t i = 0; i < sizeof(high_digit_bytes); ++i) {
+    if (expect(
+            gzc_json_parse_i64(
+                gzc_str_from_parts(&high_digit_bytes[i], 1), &parsed) ==
+                GZC_ERR_JSON,
+            "reject non-ASCII byte as a digit") != 0) {
+      return 1;
+    }
+  }
+
+  const char high_separator_json[] = {
+      '{', '"', 'v', '"', ':', '0', (char)0x80, '}'};
+  if (expect(
+          gzc_json_validate_object(gzc_str_from_parts(
+              high_separator_json, sizeof(high_separator_json))) ==
+              GZC_ERR_JSON,
+          "reject non-ASCII byte as a JSON separator") != 0) {
+    return 1;
+  }
+
+  const char high_string_json[] = {
+      '{', '"', 'v', '"', ':', '"', (char)0x80, (char)0xff, '"', '}'};
+  return expect(
+      gzc_json_validate_object(gzc_str_from_parts(
+          high_string_json, sizeof(high_string_json))) == GZC_OK,
+      "preserve high bytes inside a delimited JSON string");
+}
+
 int main(void) {
   if (expect(test_peer_event_golden_vectors() == 0,
-             "all Peer Event golden vectors match Nanopb") != 0) {
+             "all Peer Event golden vectors match Nanopb") != 0 ||
+      test_json_ascii_classification() != 0) {
     return 1;
   }
   fake_clock_t clock = {
@@ -2175,6 +2235,29 @@ int main(void) {
           "sent Peer Event decodes with Nanopb") != 0) {
     return 1;
   }
+
+  (void)snprintf(
+      outbound_event.payload.bos.stream_id,
+      sizeof(outbound_event.payload.bos.stream_id),
+      "%s",
+      "\t\n\v\f\r ");
+  if (expect(
+          gzc_event_stream_send(event_stream, &outbound_event) == GZC_ERR_RPC,
+          "reject Event identifier containing only ASCII whitespace") != 0) {
+    return 1;
+  }
+  outbound_event.payload.bos.stream_id[0] = (char)0x80;
+  outbound_event.payload.bos.stream_id[1] = '\0';
+  if (expect(
+          gzc_event_stream_send(event_stream, &outbound_event) == GZC_OK,
+          "treat a high Event identifier byte as non-whitespace") != 0) {
+    return 1;
+  }
+  (void)snprintf(
+      outbound_event.payload.bos.stream_id,
+      sizeof(outbound_event.payload.bos.stream_id),
+      "%s",
+      "audio-c");
   gzc_event_stream_close(event_stream);
   if (expect(
           fake_webrtc.close_count == event_channel_close_count &&
