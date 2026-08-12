@@ -63,6 +63,41 @@ tls:
 	}
 }
 
+func TestPrepareWorkspaceConfigRejectsInvalidIngressPorts(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x23)
+	upstreamKey := testKeyPair(t, 0x24)
+	for _, tc := range []struct {
+		name     string
+		listen   string
+		endpoint string
+		want     string
+	}{
+		{name: "nonnumeric listen", listen: "127.0.0.1:http", endpoint: "192.0.2.10:9821", want: "listen port must be between 1 and 65535"},
+		{name: "nonnumeric endpoint", listen: "127.0.0.1:9821", endpoint: "192.0.2.10:not-a-port", want: "endpoint port must be between 1 and 65535"},
+		{name: "zero endpoint", listen: "127.0.0.1:9821", endpoint: "192.0.2.10:0", want: "endpoint port must be between 1 and 65535"},
+		{name: "overflow endpoint", listen: "127.0.0.1:9821", endpoint: "192.0.2.10:65536", want: "endpoint port must be between 1 and 65535"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeConfig(t, dir, `
+identity:
+  private-key: `+edgeKey.Private.String()+`
+listen: `+tc.listen+`
+endpoint: `+tc.endpoint+`
+upstream:
+  endpoint: server-a.example.com:9820
+  public-key: `+upstreamKey.Public.String()+`
+tls:
+  cert-source: disabled
+`)
+			_, err := PrepareWorkspaceConfig(dir)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("PrepareWorkspaceConfig error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
 func TestConfigUpstreamURLDefaultsHTTP(t *testing.T) {
 	cfg := Config{Upstream: UpstreamConfig{Endpoint: "server-a.example.com:9822"}}
 	upstreamURL, err := cfg.UpstreamURL()
@@ -75,7 +110,7 @@ func TestConfigUpstreamURLDefaultsHTTP(t *testing.T) {
 }
 
 func TestGatewayConfigDefaultsAndBounds(t *testing.T) {
-	cfg := applyGatewayDefaults(GatewayConfig{Enabled: true, ICEUDPListen: "127.0.0.1:0"})
+	cfg := applyGatewayDefaults(GatewayConfig{Enabled: true})
 	if cfg.MaxSessions != 30000 ||
 		cfg.MaxUpstreams != 16 ||
 		cfg.SessionsPerUpstream != 2048 ||
@@ -126,6 +161,58 @@ func TestGatewayConfigDefaultsAndBounds(t *testing.T) {
 			tt.change(&invalid)
 			if err := invalid.validate(); err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("validation error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseConfigDataRejectsLegacyGatewayAddresses(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		key   string
+		value string
+		want  string
+	}{
+		{name: "listen value", key: "ice-udp-listen", value: "0.0.0.0:9824", want: "top-level listen"},
+		{name: "listen empty", key: "ice-udp-listen", value: `""`, want: "top-level listen"},
+		{name: "listen null", key: "ice-udp-listen", value: "null", want: "top-level listen"},
+		{name: "endpoint value", key: "public-ice-udp", value: "192.0.2.10:9824", want: "top-level endpoint"},
+		{name: "endpoint empty", key: "public-ice-udp", value: `""`, want: "top-level endpoint"},
+		{name: "endpoint null", key: "public-ice-udp", value: "null", want: "top-level endpoint"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parseConfigData([]byte("gateway:\n  " + tc.key + ": " + tc.value + "\n"))
+			if err == nil || !strings.Contains(err.Error(), "gateway."+tc.key) || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("parseConfigData error = %v, want key and replacement", err)
+			}
+		})
+	}
+}
+
+func TestParseConfigDataKeepsUnknownKeysPermissive(t *testing.T) {
+	if _, err := parseConfigData([]byte("gateway:\n  future-setting: true\n")); err != nil {
+		t.Fatalf("parseConfigData unknown key error = %v", err)
+	}
+}
+
+func TestPublicGatewayICEAddr(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		endpoint string
+		want     string
+	}{
+		{name: "IPv4", endpoint: "192.0.2.10:9821", want: "192.0.2.10:9821"},
+		{name: "IPv6", endpoint: "[2001:db8::10]:9821", want: "[2001:db8::10]:9821"},
+		{name: "hostname", endpoint: "edge.example.com:9821"},
+		{name: "unspecified IPv4", endpoint: "0.0.0.0:9821"},
+		{name: "unspecified IPv6", endpoint: "[::]:9821"},
+		{name: "nonnumeric port", endpoint: "192.0.2.10:not-a-port"},
+		{name: "zero port", endpoint: "192.0.2.10:0"},
+		{name: "invalid", endpoint: "not-an-endpoint"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := publicGatewayICEAddr(tc.endpoint); got != tc.want {
+				t.Fatalf("publicGatewayICEAddr(%q) = %q, want %q", tc.endpoint, got, tc.want)
 			}
 		})
 	}
@@ -920,7 +1007,6 @@ func TestE2EEdgeWorkspaceTemplateParses(t *testing.T) {
 		"${GIZCLAW_E2E_EDGE_PRIVATE_KEY}", testKeyPair(t, 0x87).Private.String(),
 		"${GIZCLAW_E2E_SERVER_ENDPOINT}", "127.0.0.1:9821",
 		"${GIZCLAW_E2E_EDGE_ENDPOINT}", "127.0.0.1:9821",
-		"${GIZCLAW_E2E_GATEWAY_ENDPOINT}", "127.0.0.1:9824",
 		"${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}", "http://server:9822",
 		"${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}", testKeyPair(t, 0x88).Public.String(),
 		"${GIZCLAW_E2E_TURN_ENDPOINT}", "127.0.0.1:3478",

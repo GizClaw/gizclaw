@@ -21,8 +21,6 @@ tls:
   cert-source: disabled
 gateway:
   enabled: true
-  ice-udp-listen: 0.0.0.0:9824
-  public-ice-udp: ${GIZCLAW_E2E_GATEWAY_ENDPOINT}
   max-sessions: ${GIZCLAW_E2E_GATEWAY_MAX_SESSIONS}
   max-upstreams: ${GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS}
   sessions-per-upstream: ${GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM}
