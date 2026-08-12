@@ -433,6 +433,79 @@ func TestDuplicatePacketChannelDoesNotCreatePendingSession(t *testing.T) {
 	}
 }
 
+func TestPartiallyReliableServiceChannelIsRejected(t *testing.T) {
+	pair := newTunnelPair(t, Config{}, Config{})
+	label, err := serviceLabel(pair.declaration.SessionID, 9, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lifetime := uint16(250)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	channel, err := pair.edgePhysical.OpenNativeChannel(ctx, label, gizwebrtc.NativeChannelOptions{
+		Ordered: true, MaxPacketLifeTime: &lifetime,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer channel.Close()
+	if err := channel.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := channel.Read(make([]byte, 1)); err == nil {
+		t.Fatal("partially reliable service channel remained open")
+	}
+	if got := pair.serverRouter.ActiveChannels(); got != 2 {
+		t.Fatalf("server active channels = %d, want 2", got)
+	}
+}
+
+func TestLateServiceChannelAfterSessionCloseReleasesCapacity(t *testing.T) {
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	pair := newTunnelPair(t, Config{}, Config{
+		AllowRemoteService: func(giznet.PublicKey, uint64) bool {
+			close(entered)
+			<-release
+			return true
+		},
+	})
+	defer func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	}()
+	label, err := serviceLabel(pair.declaration.SessionID, 9, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	channel, err := pair.edgePhysical.OpenNativeChannel(ctx, label, gizwebrtc.NativeChannelOptions{Ordered: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer channel.Close()
+	select {
+	case <-entered:
+	case <-ctx.Done():
+		t.Fatal("service admission did not reach policy callback")
+	}
+	if err := pair.server.Close(); err != nil {
+		t.Fatal(err)
+	}
+	close(release)
+	deadline := time.Now().Add(5 * time.Second)
+	for pair.serverRouter.ActiveChannels() != 0 {
+		if time.Now().After(deadline) {
+			t.Fatalf("server active channels = %d, want 0", pair.serverRouter.ActiveChannels())
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 func TestSessionCloseDoesNotClosePhysicalConnection(t *testing.T) {
 	pair := newTunnelPair(t, Config{}, Config{})
 	if err := pair.edge.Close(); err != nil {

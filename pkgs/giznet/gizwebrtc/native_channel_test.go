@@ -136,6 +136,34 @@ func TestNativeChannelRejectsInvalidLabel(t *testing.T) {
 	}
 }
 
+func TestNativeChannelReportsMaxPacketLifeTime(t *testing.T) {
+	client, server := nativeChannelTestPair(t)
+	accepted := make(chan *NativeChannel, 1)
+	if _, err := server.RegisterNativeChannelHandler("giznet/v2/tunnel/", func(channel *NativeChannel) {
+		accepted <- channel
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	lifetime := uint16(250)
+	outbound, err := client.OpenNativeChannel(ctx, "giznet/v2/tunnel/test/lifetime", NativeChannelOptions{
+		Ordered: true, MaxPacketLifeTime: &lifetime,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer outbound.Close()
+	inbound := <-accepted
+	defer inbound.Close()
+	if got := inbound.MaxPacketLifeTime(); got == nil || *got != lifetime {
+		t.Fatalf("inbound MaxPacketLifeTime = %v, want %d", got, lifetime)
+	}
+	if inbound.MaxRetransmits() != nil {
+		t.Fatalf("inbound MaxRetransmits = %v, want nil", inbound.MaxRetransmits())
+	}
+}
+
 func TestNativeChannelDrainsFinalMessageBeforeRemoteClose(t *testing.T) {
 	client, server := nativeChannelTestPair(t)
 	accepted := make(chan *NativeChannel, 1)

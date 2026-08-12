@@ -344,9 +344,10 @@ func channelOptionsMatch(kind labelKind, channel *gizwebrtc.NativeChannel) bool 
 	switch kind {
 	case labelPacket:
 		maxRetransmits := channel.MaxRetransmits()
-		return !channel.Ordered() && maxRetransmits != nil && *maxRetransmits == 0
+		return !channel.Ordered() && channel.MaxPacketLifeTime() == nil &&
+			maxRetransmits != nil && *maxRetransmits == 0
 	case labelControl, labelService:
-		return channel.Ordered() && channel.MaxRetransmits() == nil
+		return channel.Ordered() && channel.MaxPacketLifeTime() == nil && channel.MaxRetransmits() == nil
 	default:
 		return false
 	}
@@ -1118,6 +1119,10 @@ func (c *Conn) acceptRemoteService(service, id uint64, channel *trackedChannel) 
 		return err
 	}
 	c.mu.Lock()
+	if err := c.validate(); err != nil {
+		c.mu.Unlock()
+		return err
+	}
 	if c.closedSvc[service] {
 		c.mu.Unlock()
 		return giznet.ErrServiceMuxClosed

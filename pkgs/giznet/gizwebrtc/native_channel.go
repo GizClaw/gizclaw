@@ -16,10 +16,12 @@ import (
 )
 
 // NativeChannelOptions selects the SCTP delivery semantics for a labeled
-// DataChannel. A nil MaxRetransmits selects reliable delivery.
+// DataChannel. Both partial-reliability options must be nil for reliable
+// delivery, and WebRTC forbids setting both options at once.
 type NativeChannelOptions struct {
-	Ordered        bool
-	MaxRetransmits *uint16
+	Ordered           bool
+	MaxPacketLifeTime *uint16
+	MaxRetransmits    *uint16
 }
 
 const nativeChannelRemoteCloseDrainTimeout = time.Second
@@ -28,13 +30,14 @@ const nativeChannelRemoteCloseDrainTimeout = time.Second
 // use its net.Conn surface; packet callers use ReadMessage and WriteMessage to
 // retain DataChannel message boundaries.
 type NativeChannel struct {
-	label          string
-	ordered        bool
-	maxRetransmits *uint16
-	stream         *dataChannelConn
-	raw            datachannel.ReadWriteCloserDeadliner
-	messageReadMu  sync.Mutex
-	messageWriteMu sync.Mutex
+	label             string
+	ordered           bool
+	maxPacketLifeTime *uint16
+	maxRetransmits    *uint16
+	stream            *dataChannelConn
+	raw               datachannel.ReadWriteCloserDeadliner
+	messageReadMu     sync.Mutex
+	messageWriteMu    sync.Mutex
 }
 
 // Label returns the immutable DCEP label that declared this channel.
@@ -50,8 +53,18 @@ func (c *NativeChannel) Ordered() bool {
 	return c != nil && c.ordered
 }
 
-// MaxRetransmits reports the negotiated retransmission limit. Nil means
-// reliable delivery.
+// MaxPacketLifeTime reports the negotiated packet lifetime in milliseconds.
+// Nil means that time-limited partial reliability is disabled.
+func (c *NativeChannel) MaxPacketLifeTime() *uint16 {
+	if c == nil || c.maxPacketLifeTime == nil {
+		return nil
+	}
+	value := *c.maxPacketLifeTime
+	return &value
+}
+
+// MaxRetransmits reports the negotiated retransmission limit. Nil means that
+// retransmission-limited partial reliability is disabled.
 func (c *NativeChannel) MaxRetransmits() *uint16 {
 	if c == nil || c.maxRetransmits == nil {
 		return nil
@@ -247,6 +260,10 @@ func (c *Conn) OpenNativeChannel(
 		return nil, err
 	}
 	init := &webrtc.DataChannelInit{Ordered: &options.Ordered}
+	if options.MaxPacketLifeTime != nil {
+		value := *options.MaxPacketLifeTime
+		init.MaxPacketLifeTime = &value
+	}
 	if options.MaxRetransmits != nil {
 		value := *options.MaxRetransmits
 		init.MaxRetransmits = &value
@@ -350,6 +367,10 @@ func (c *Conn) newNativeChannel(
 		ordered: dc.Ordered(),
 		stream:  stream,
 		raw:     raw,
+	}
+	if value := dc.MaxPacketLifeTime(); value != nil {
+		copyValue := *value
+		channel.maxPacketLifeTime = &copyValue
 	}
 	if value := dc.MaxRetransmits(); value != nil {
 		copyValue := *value
