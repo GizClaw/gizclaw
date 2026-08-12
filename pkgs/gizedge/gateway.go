@@ -26,10 +26,10 @@ const (
 	gatewayPoolWarmUpstreams       = 4
 	gatewayPoolWarmupTimeout       = 5 * time.Second
 	gatewayPoolReplenishRetryDelay = time.Second
-	gatewayServiceOpenTimeout      = 10 * time.Second
 	gatewaySessionHandshakeTimeout = 10 * time.Second
 	gatewaySessionEstablishTimeout = 30 * time.Second
 	gatewaySessionMaxAttempts      = 2
+	retiredEdgeTunnelServiceID     = 0x32
 	// The first bounded set of admitted client associations gets enough receive
 	// credit for a 1 MiB burst without exposing the 32 MiB upstream profile to
 	// every public peer. This caps burst-profile receive credit at 256 MiB per
@@ -465,52 +465,27 @@ func (g *Gateway) openLogicalSession(
 	admission *gatewayAdmission,
 	entry *gatewayUpstream,
 ) (*giztunnel.Conn, bool) {
-	dialer, ok := entry.conn.(giznet.ContextDialer)
-	if !ok {
+	if entry == nil || entry.router == nil {
 		return nil, false
-	}
-	attemptCtx, cancel, completeBudget := boundedAttemptContext(ctx, gatewayServiceOpenTimeout)
-	stream, err := dialer.DialContext(attemptCtx, gizclaw.ServiceEdgeTunnel)
-	cancel()
-	if err != nil {
-		return nil, g.classifyServiceOpenFailure(ctx, entry, err, completeBudget)
 	}
 	sessionID, err := giztunnel.NewSessionID()
 	if err != nil {
-		_ = stream.Close()
 		return nil, false
 	}
-	now := time.Now()
 	handshakeCtx, cancelHandshake, completeHandshakeBudget := boundedAttemptContext(
 		ctx,
 		gatewaySessionHandshakeTimeout,
 	)
-	logical, err := giztunnel.Dial(
+	logical, err := entry.router.Dial(
 		handshakeCtx,
-		stream,
-		entry.packets,
-		giztunnel.OpenRequest{
+		giztunnel.SessionDeclaration{
 			SessionID:       sessionID,
 			ClientPublicKey: client.PublicKey(),
-			EdgePublicKey:   g.cfg.KeyPair.Public,
-			ServerPublicKey: g.cfg.Upstream.PublicKey,
-			IssuedAtUnix:    now.Unix(),
-			ExpiresAtUnix:   now.Add(g.cfg.Gateway.DelegatedEnvelopeValidity).Unix(),
 			RemoteAddr:      admission.remoteAddr,
-		},
-		giztunnel.Config{
-			MaxBufferedBytes:  g.cfg.Gateway.SessionBufferBytes,
-			HandshakeTimeout:  gatewaySessionHandshakeTimeout,
-			PeerPublicKey:     g.cfg.Upstream.PublicKey,
-			AggregateServices: true,
-			AllowRemoteService: func(service uint64) bool {
-				return service != gizclaw.ServiceEdgeTunnel
-			},
 		},
 	)
 	cancelHandshake()
 	if err != nil {
-		_ = stream.Close()
 		slog.InfoContext(g.ctx, "gateway logical session establishment failed",
 			"entry_id", entry.id,
 			"reason", preSessionHandshakeFailureCategory(err, completeHandshakeBudget),
@@ -551,31 +526,6 @@ func boundedAttemptContext(
 	return attemptCtx, cancel, completeBudget
 }
 
-func (g *Gateway) classifyServiceOpenFailure(
-	ctx context.Context,
-	entry *gatewayUpstream,
-	err error,
-	completeBudget bool,
-) bool {
-	if ctx.Err() != nil || g.ctx.Err() != nil {
-		return false
-	}
-	info := entry.conn.PeerInfo()
-	if errors.Is(err, giznet.ErrConnClosed) || info != nil && info.State == giznet.PeerStateOffline {
-		entry.pool.markFailed(entry, "terminal_connection_failure", true)
-		return true
-	}
-	if errors.Is(err, gizwebrtc.ErrServiceOpen) {
-		entry.pool.markDraining(entry, "service_open_error")
-		return true
-	}
-	if completeBudget && errors.Is(err, context.DeadlineExceeded) {
-		entry.pool.markDraining(entry, "service_open_timeout")
-		return true
-	}
-	return false
-}
-
 func (g *Gateway) classifySessionHandshakeFailure(
 	ctx context.Context,
 	entry *gatewayUpstream,
@@ -592,6 +542,10 @@ func (g *Gateway) classifySessionHandshakeFailure(
 	}
 	if isPreAcceptStreamClose(err) {
 		entry.pool.markDraining(entry, "session_stream_closed")
+		return true
+	}
+	if errors.Is(err, gizwebrtc.ErrServiceOpen) {
+		entry.pool.markDraining(entry, "native_channel_open_error")
 		return true
 	}
 	if completeBudget && isPreAcceptHandshakeTimeout(err) {
@@ -790,13 +744,13 @@ type gatewayUpstream struct {
 	pool         *gatewayPool
 	conn         giznet.Conn
 	listener     giznet.Listener
-	packets      *giztunnel.PacketMux
+	router       *giztunnel.Router
 	relayAttempt *upstreamRelayAttempt
 	icePair      *gizwebrtc.ICECandidatePairObservation
 
-	active int
-	opened int
-	state  gatewayUpstreamState
+	active       int
+	state        gatewayUpstreamState
+	peakChannels atomic.Int64
 
 	closing   atomic.Bool
 	closeOnce sync.Once
@@ -988,7 +942,8 @@ func (p *gatewayPool) canAccept() bool {
 	}
 	for _, entry := range p.entries {
 		if entry.state == gatewayUpstreamSelectable &&
-			entry.active < p.cfg.Gateway.SessionsPerUpstream {
+			entry.active < p.cfg.Gateway.SessionsPerUpstream &&
+			entry.hasChannelCapacity(p.cfg.Gateway.ChannelsPerUpstream) {
 			return true
 		}
 	}
@@ -1005,7 +960,8 @@ func (p *gatewayPool) acquire(ctx context.Context) (*gatewayUpstream, func(), er
 		var selected *gatewayUpstream
 		for _, entry := range p.entries {
 			if entry.state != gatewayUpstreamSelectable ||
-				entry.active >= p.cfg.Gateway.SessionsPerUpstream {
+				entry.active >= p.cfg.Gateway.SessionsPerUpstream ||
+				!entry.hasChannelCapacity(p.cfg.Gateway.ChannelsPerUpstream) {
 				continue
 			}
 			if selected == nil || entry.active < selected.active {
@@ -1018,17 +974,8 @@ func (p *gatewayPool) acquire(ctx context.Context) (*gatewayUpstream, func(), er
 		// congestion window and makes modest bursts slower and more expensive.
 		if selected != nil {
 			selected.active++
-			selected.opened++
-			rotated := false
-			if selected.opened >= p.cfg.Gateway.StreamsPerUpstream {
-				selected.state = gatewayUpstreamDraining
-				rotated = true
-			}
 			growthDone := p.reserveWarmGrowthLocked()
 			p.mu.Unlock()
-			if rotated {
-				p.logTransition(selected, "draining", "stream_rotation")
-			}
 			if growthDone != nil {
 				go p.replenishWarm(growthDone)
 			}
@@ -1172,30 +1119,43 @@ func (p *gatewayPool) dial(ctx context.Context) (*gatewayUpstream, error) {
 			return nil, errors.New("edge: nil gateway upstream")
 		}
 		entry.pool = p
-		if entry.conn != nil {
-			if _, ok := entry.conn.(giznet.ContextDialer); !ok {
-				_ = entry.close()
-				return nil, errors.New("edge: gateway upstream does not support context-aware service dialing")
-			}
-		}
 		return entry, nil
 	}
 	conn, listener, relayAttempt, icePair, err := dialUpstream(ctx, p.cfg, p.upstreamURL, p.relay)
 	if err != nil {
 		return nil, err
 	}
+	webrtcConn, ok := conn.(*gizwebrtc.Conn)
+	if !ok {
+		_ = conn.Close()
+		_ = listener.Close()
+		return nil, errors.New("edge: gateway upstream is not WebRTC")
+	}
 	entry := &gatewayUpstream{
 		pool:         p,
 		conn:         conn,
 		listener:     listener,
-		packets:      giztunnel.NewPacketMux(conn),
 		relayAttempt: relayAttempt,
 		icePair:      icePair,
 	}
-	if _, ok := conn.(giznet.ContextDialer); !ok {
-		_ = entry.close()
-		return nil, errors.New("edge: gateway upstream does not support context-aware service dialing")
+	router, err := giztunnel.NewRouter(webrtcConn, giztunnel.Config{
+		MaxChannelsPerSession: p.cfg.Gateway.ChannelsPerSession,
+		MaxChannels:           p.cfg.Gateway.ChannelsPerUpstream,
+		MaxPendingSessions:    p.cfg.Gateway.MaxPendingHandshakes,
+		MaxBufferedBytes:      p.cfg.Gateway.SessionBufferBytes,
+		HandshakeTimeout:      gatewaySessionHandshakeTimeout,
+		AggregateServices:     true,
+		AllowRemoteService: func(_ giznet.PublicKey, service uint64) bool {
+			return service != retiredEdgeTunnelServiceID
+		},
+		OnActiveChannels: entry.observeActiveChannels,
+	})
+	if err != nil {
+		_ = conn.Close()
+		_ = listener.Close()
+		return nil, fmt.Errorf("edge: create gateway tunnel router: %w", err)
 	}
+	entry.router = router
 	go entry.readPackets()
 	return entry, nil
 }
@@ -1334,10 +1294,49 @@ func (e *gatewayUpstream) readPackets() {
 		if protocol != giznet.ProtocolTunnelPacket {
 			continue
 		}
-		if err := e.packets.HandlePacket(buf[:n]); err != nil &&
+		if err := e.router.HandlePacket(buf[:n]); err != nil &&
 			!errors.Is(err, giztunnel.ErrSessionNotFound) {
 			continue
 		}
+	}
+}
+
+func (e *gatewayUpstream) hasChannelCapacity(limit int) bool {
+	if e == nil {
+		return false
+	}
+	if limit < 3 {
+		return true
+	}
+	// active includes acquisitions that have not reached Router.Dial yet. Keep
+	// three persistent slots for every such session so concurrent admissions
+	// cannot all observe the same stale Router.ActiveChannels value.
+	claimed := e.active * 3
+	if e.router != nil {
+		claimed = max(claimed, e.router.ActiveChannels())
+	}
+	return claimed <= limit-3
+}
+
+func (e *gatewayUpstream) observeActiveChannels(active int) {
+	if e == nil {
+		return
+	}
+	peak := e.peakChannels.Load()
+	for int64(active) > peak && !e.peakChannels.CompareAndSwap(peak, int64(active)) {
+		peak = e.peakChannels.Load()
+	}
+	newPeak := int64(active) > peak
+	limit := 0
+	if e.pool != nil {
+		limit = e.pool.cfg.Gateway.ChannelsPerUpstream
+	}
+	if active == 0 || newPeak && (active == limit || active%1024 == 0) {
+		slog.Info("edge: gateway tunnel channel usage",
+			"entry_id", e.id,
+			"active_channels", active,
+			"peak_active_channels", e.peakChannels.Load(),
+		)
 	}
 }
 
@@ -1348,8 +1347,8 @@ func (e *gatewayUpstream) close() error {
 	var err error
 	e.closeOnce.Do(func() {
 		e.closing.Store(true)
-		if e.packets != nil {
-			err = errors.Join(err, e.packets.Close())
+		if e.router != nil {
+			err = errors.Join(err, e.router.Close())
 		}
 		if e.conn != nil {
 			err = errors.Join(err, e.conn.Close())

@@ -15,6 +15,14 @@ Universal WebRTC, packet transport and service stream belong to `pkgs/giznet`; u
 
 The [Streams Reference](/references/streams) owns the direction, reliability, service IDs, framing, and lifecycle of audio, direct packets, the Peer Event Stream, and RPC/HTTP service streams. The [Events Reference](/references/events) owns event wire types and fields. This page only explains how `PeerConn` implements those contracts and does not duplicate their protocol tables.
 
+For an activated physical `edge-node`, `PeerConn` registers the v2 tunnel
+namespace and accepts logical connections assembled from labeled native control,
+packet, and service DataChannels. The resulting value is a normal `giznet.Conn`:
+its key and endpoint come from the trusted Edge's canonical control label, while
+all service authorization and the mandatory Event-before-activation rule run as
+that logical client. Closing its control or packet channel closes the complete
+logical Peer without closing the physical Edge or sibling logical sessions.
+
 ## Service stream write flow control
 
 The JavaScript, Flutter, and C SDKs use one serialized writer per reliable, ordered service DataChannel. JavaScript and Flutter carry at most 16 KiB in each native DataChannel message, while the embedded C SDK uses a conservative 4 KiB limit. A writer pauses at its high-water mark and resumes only after a buffered-amount-low notification reports that the queue reached the low-water mark. Successful completion means every fragment of the logical message was accepted by the local WebRTC send queue; it does not mean the remote peer consumed the message.
@@ -43,6 +51,7 @@ while the configured platform allocator remains alive.
 | `serveService` | Accept and distribute the Giznet service stream currently opened by Peer. |
 | `servePackets` / `serveDirectPackets` | Receive ordinary and direct packets, and distribute telemetry/media. |
 | `serveRPC` / `serveEdgeRPC` | Start Peer RPC or Edge RPC service loop. |
+| `serveEdgeTunnel` / `serveEdgePackets` | Accept v2 labeled native channels only on an activated Edge, aggregate logical Peers, and route the shared Opus envelope. |
 | `init` / `initRPC` / `initMixer` / `initAgentHost` / `initPeerGenX` | Assemble connection-scoped runtime dependencies. |
 | `serveEvents` / `handleEventStream` | Accept event stream and push Agent input. |
 | `processTelemetryPackets` / `handleTelemetryPacket` | Decode telemetry and synchronize Peer status. |

@@ -114,10 +114,10 @@ func TestGatewayConfigDefaultsAndBounds(t *testing.T) {
 	if cfg.MaxSessions != 30000 ||
 		cfg.MaxUpstreams != 16 ||
 		cfg.SessionsPerUpstream != 2048 ||
-		cfg.StreamsPerUpstream != 8192 ||
+		cfg.ChannelsPerSession != 32 ||
+		cfg.ChannelsPerUpstream != 8192 ||
 		cfg.MaxPendingHandshakes != 64 ||
 		cfg.SessionBufferBytes != 1<<20 ||
-		cfg.DelegatedEnvelopeValidity != 30*time.Second ||
 		cfg.IdleTimeout != 5*time.Minute ||
 		cfg.DrainTimeout != 30*time.Second {
 		t.Fatalf("gateway defaults = %+v", cfg)
@@ -136,18 +136,21 @@ func TestGatewayConfigDefaultsAndBounds(t *testing.T) {
 		{name: "session cap", change: func(cfg *GatewayConfig) {
 			cfg.SessionsPerUpstream = 2049
 		}, want: "sessions-per-upstream"},
-		{name: "stream rotation", change: func(cfg *GatewayConfig) {
-			cfg.StreamsPerUpstream = cfg.SessionsPerUpstream - 1
-		}, want: "streams-per-upstream"},
+		{name: "session channels", change: func(cfg *GatewayConfig) {
+			cfg.ChannelsPerSession = 2
+		}, want: "channels-per-session"},
+		{name: "association channels", change: func(cfg *GatewayConfig) {
+			cfg.ChannelsPerUpstream = 3*cfg.SessionsPerUpstream - 1
+		}, want: "channels-per-upstream"},
 		{name: "pending", change: func(cfg *GatewayConfig) {
 			cfg.MaxPendingHandshakes = 0
+		}, want: "max-pending-handshakes"},
+		{name: "pending router cap", change: func(cfg *GatewayConfig) {
+			cfg.MaxPendingHandshakes = 2049
 		}, want: "max-pending-handshakes"},
 		{name: "buffer", change: func(cfg *GatewayConfig) {
 			cfg.SessionBufferBytes = 1
 		}, want: "session-buffer-bytes"},
-		{name: "envelope", change: func(cfg *GatewayConfig) {
-			cfg.DelegatedEnvelopeValidity = 31 * time.Second
-		}, want: "delegated-envelope-validity"},
 		{name: "idle", change: func(cfg *GatewayConfig) {
 			cfg.IdleTimeout = 0
 		}, want: "idle-timeout"},
@@ -184,6 +187,24 @@ func TestParseConfigDataRejectsLegacyGatewayAddresses(t *testing.T) {
 			_, err := parseConfigData([]byte("gateway:\n  " + tc.key + ": " + tc.value + "\n"))
 			if err == nil || !strings.Contains(err.Error(), "gateway."+tc.key) || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("parseConfigData error = %v, want key and replacement", err)
+			}
+		})
+	}
+}
+
+func TestGatewayConfigRejectsRetiredTunnelKeys(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		yaml string
+		want string
+	}{
+		{name: "streams", yaml: "gateway:\n  streams-per-upstream: 8192\n", want: "use gateway.channels-per-upstream"},
+		{name: "envelope", yaml: "gateway:\n  delegated-envelope-validity: 30s\n", want: "is retired"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parseConfigData([]byte(tc.yaml))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("parseConfigData error = %v, want %q", err, tc.want)
 			}
 		})
 	}

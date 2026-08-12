@@ -24,5 +24,6 @@ gateway:
   max-sessions: ${GIZCLAW_E2E_GATEWAY_MAX_SESSIONS}
   max-upstreams: ${GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS}
   sessions-per-upstream: ${GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM}
-  streams-per-upstream: ${GIZCLAW_E2E_GATEWAY_STREAMS_PER_UPSTREAM}
+  channels-per-session: ${GIZCLAW_E2E_GATEWAY_CHANNELS_PER_SESSION}
+  channels-per-upstream: ${GIZCLAW_E2E_GATEWAY_CHANNELS_PER_UPSTREAM}
   max-pending-handshakes: ${GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES}

@@ -11,8 +11,9 @@ const (
 	// packets over RTP rather than the Direct Packet DataChannel.
 	ProtocolOpusPacket byte = 0x10
 
-	// ProtocolTunnelPacket identifies session-tagged, loss-tolerant packets
-	// carried between tunnel endpoints.
+	// ProtocolTunnelPacket identifies session-tagged, loss-tolerant Opus
+	// packets carried between Edge tunnel endpoints. Other direct packets use
+	// each logical session's native packet DataChannel.
 	ProtocolTunnelPacket byte = 0x11
 )
 

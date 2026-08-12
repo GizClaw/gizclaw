@@ -45,9 +45,9 @@ sequenceDiagram
     Device->>Edge: POST /webrtc/v1/offer
     Edge-->>Device: Edge SDP answer
     Device->>Edge: WebRTC service, packet, and Opus lanes
-    Edge->>Server: Delegated client identity over ServiceEdgeTunnel
-    Edge->>Server: Multiplexed service frames
-    Edge->>Server: Session-tagged packet and Opus frames
+    Edge->>Server: Labeled control + packet DataChannels
+    Edge->>Server: One labeled native DataChannel per service
+    Edge->>Server: Session-tagged Opus packets
     Note over Server: Normal Peer lifecycle and authorization use the client identity
 ```
 
@@ -56,16 +56,16 @@ The ownership boundaries are:
 - `/server-info.public_key` always identifies the authoritative Server.
   `transport.public_key`, `transport.endpoint`, and
   `transport.signaling_path` select only the Edge WebRTC transport.
-- The Edge validates signaling and creates the client PeerConnection, then
-  sends a short-lived, replay-protected delegated envelope containing the
-  physical Edge identity, logical client public key, target Server identity,
-  validity window, and remote address.
-- The Server accepts `ServiceEdgeTunnel` only from active `edge-node` peers,
-  validates the envelope, and attaches the logical client to the normal Peer
-  lifecycle, service policy, and domain authorization.
-- Reliable service streams use one tunnel control DataChannel per logical
-  session. Direct packets and Opus use a separate unreliable, session-tagged
-  packet lane.
+- The Edge validates signaling and creates the client PeerConnection. On its
+  authenticated Server PeerConnection it opens canonical v2 control and packet
+  labels. The control label alone declares the logical client public key and
+  bounded remote address; there is no delegated body, expiry, or replay cache.
+- The Server registers the v2 namespace only after the physical peer is active
+  as `edge-node`, then attaches the declared client to the normal Peer lifecycle,
+  service policy, and domain authorization.
+- Each reliable client service maps to one labeled reliable ordered upstream
+  DataChannel. Direct packets use one per-session unreliable channel. Opus alone
+  retains the shared session-tagged physical packet lane.
 - Gateway transport does not expose authoritative Server ICE/TURN servers to
   the client, so the normal gateway path creates no per-client Server TURN
   allocation.
@@ -120,8 +120,9 @@ Edge ingress does not have business implementations of Peer HTTP, OpenAI-compati
 ### Upstream Connection
 
 The Edge uses `pkgs/giznet/gizwebrtc` to connect to the configured authoritative
-Server. `ServiceEdgeHTTP` carries public HTTP forwarding and
-`ServiceEdgeTunnel` carries gateway logical sessions.
+Server. `ServiceEdgeHTTP` carries public HTTP forwarding. Gateway logical
+sessions use the registered `giznet/v2/tunnel/` DataChannel namespace and are
+not a product service ID.
 
 By default, omitting `upstream.ice-transport-policy` and
 `upstream.ice-servers` preserves direct ICE. A relay deployment sets a pool of
@@ -173,17 +174,18 @@ member of the Edge-to-Server upstream pool. Relay usernames, credentials, SDP,
 ICE candidate bodies, and business payloads must not be logged.
 
 Each gateway upstream is one WebRTC PeerConnection and SCTP association. Every
-logical session has its own `ServiceEdgeTunnel` DataChannel on its selected
-upstream, but those DataChannels still share association-level congestion
-control and scheduling. At startup the pool opens four upstreams, bounded by
+logical session owns persistent control and packet channels, plus one native
+channel per live service, on its selected upstream. Those DataChannels still
+share association-level congestion control and scheduling. At startup the pool opens four upstreams, bounded by
 `max-upstreams`, then assigns sessions by least-active selection. It opens
 another upstream only after every healthy association reaches its configured
 active-session capacity. This bounded warm pool avoids both single-association
 head-of-line congestion and the cold-start cost of eagerly filling all 16
 available slots.
 
-By default, one upstream holds at most 2,048 active logical sessions and enters
-draining after 8,192 cumulatively opened tunnel streams. The Edge fails startup
+By default, one upstream holds at most 2,048 active logical sessions, 32 active
+channels per session, and 8,192 simultaneously active tunnel channels. Closed
+channels release capacity; sequential opens do not rotate an upstream. The Edge fails startup
 if it cannot establish the bounded warm pool. Later capacity growth fails only
 the admission that required the unavailable association. Failure of one
 upstream closes only its pinned sessions.
@@ -192,9 +194,8 @@ Pool eligibility has three states. A selectable association accepts new
 admissions. A draining association accepts none, preserves already established
 logical sessions, and closes after its final pinned session releases. A failed
 association is terminal and closes immediately. A complete ten-second
-`ServiceEdgeTunnel` open timeout, a pre-open DataChannel close or error, a new
-service stream closing before delegated-session acceptance, or a complete
-delegated-session handshake timeout drains a still-nonterminal association
+native control/packet open error, a pre-accept channel close, or a complete
+application-acceptance timeout drains a still-nonterminal association
 without penalizing its TURN member; caller cancellation, Edge shutdown, an
 explicit logical-session rejection, and other nonterminal protocol errors do
 not change a healthy association's eligibility. Packet or parent-connection
@@ -202,9 +203,8 @@ failure marks the association failed and reports its relay attempt at most
 once.
 
 A fresh client has one private 30-second logical-session establishment budget
-and may try at most two physical entries before Server acceptance. Each service
-open receives at most ten seconds. An alternate creates a new service stream,
-session ID, and delegated envelope; it does not replay an RPC or move an
+and may try at most two physical entries before Server acceptance. An alternate
+creates a new control/packet pair and session ID; it does not replay an RPC or move an
 accepted session. Selectable associations count toward warm capacity, while
 `max-upstreams` continues to cap all live selectable and draining physical
 associations. `X-GizClaw-Gateway-Upstream` remains the initially reserved entry
@@ -216,13 +216,14 @@ package must not copy GizClaw handlers to bypass upstream unavailability.
 ### Gateway Capacity and Lifecycle
 
 The default gateway capacity is 30,000 sessions across at most 16 upstreams.
-Signaling reserves handshake, total-session, and upstream-stream capacity
+Signaling reserves handshake, total-session, and active-channel capacity
 before creating Server state. Exhaustion returns stable `503`
 `gateway_over_capacity` JSON with `Retry-After: 1`.
 
-Each session has a default 1 MiB bounded tunnel buffer. Temporary reader
-slowdown applies backpressure instead of truncating a large reliable stream;
-exceeding the session or frame bound closes that session. Idle sessions expire
+Each session has a default 1 MiB reliable-write budget. One channel may consume
+at most half, preserving sibling Event/RPC progress, and the association budget
+is 32 MiB. Reservations remain until DataChannel `BufferedAmount` drains.
+Idle sessions expire
 after five minutes. Shutdown stops admission, drains for 30 seconds, and then
 closes remaining sessions.
 
@@ -234,8 +235,8 @@ direct Edge-to-Server UDP path:
 bash tests/gizclaw-e2e/run_gateway_relay_recovery_tests.sh
 ```
 
-It proves that the initial service stream can open locally and then reach its
-complete delegated-session handshake timeout, after which the same client
+It proves that the initial native channels can open locally and then reach the
+complete application-acceptance timeout, after which the same client
 completes Register and Ping through the alternate before logical-session
 acceptance. Live relay host failure, drain, capacity, and soak remain deployment
 acceptance rather than package E2E claims.
@@ -537,8 +538,8 @@ It is not a complete server mesh:
 
 - The Edge is configured for one upstream Server.
 - `ServiceEdgeHTTP` carries public request forwarding.
-- `ServiceEdgeTunnel` carries logical client sessions over a bounded upstream
-  pool.
+- The `giznet/v2/tunnel/` native-channel namespace carries logical client
+  sessions over a bounded upstream pool; `ServiceEdgeTunnel 0x32` is retired.
 - Edge control-plane RPC, certificate distribution, and non-disabled TLS
   certificate sources are not complete.
 - The Edge does not maintain mesh membership or a global peer/resource route

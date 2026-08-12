@@ -38,18 +38,18 @@ sequenceDiagram
     Device->>Edge: POST /webrtc/v1/offer
     Edge-->>Device: Edge SDP answer
     Device->>Edge: WebRTC service, packet and Opus lanes
-    Edge->>Server: Delegated client identity over ServiceEdgeTunnel
-    Edge->>Server: Multiplexed service frames
-    Edge->>Server: Session-tagged packet and Opus frames
+    Edge->>Server: 带 label 的 control + packet DataChannel
+    Edge->>Server: 每条 service 一个带 label 的原生 DataChannel
+    Edge->>Server: 带 session ID 的 Opus packet
     Note over Server: Normal Peer lifecycle and authorization use the client identity
 ```
 
 这条链路中的 ownership 是：
 
 - `/server-info.public_key` 始终是 authoritative Server identity；`transport.public_key`、`transport.endpoint` 和 `transport.signaling_path` 只选择本次 Edge WebRTC transport。客户端不能把 transport identity 当作业务 Server identity。
-- Edge 校验 signaling 并创建客户端 PeerConnection，但不会以 Edge identity 代替客户端。它向 Server 发送短时、不可重放的 delegated envelope，包含物理 Edge identity、逻辑客户端 public key、目标 Server identity、有效期和远端地址。
-- Server 只接受 active `edge-node` 打开的 `ServiceEdgeTunnel`，验证 delegated envelope 后，再以逻辑客户端 public key 进入正常 Peer lifecycle、service policy 和领域授权。
-- 可靠 service stream 走每个逻辑会话的一条 tunnel control DataChannel；direct packet 与 Opus 保持独立的不可靠 session-tagged packet lane，避免可靠有序隧道产生 head-of-line blocking 或改变媒体语义。
+- Edge 校验 signaling 并创建客户端 PeerConnection。在已经认证的 Server PeerConnection 上，Edge 打开 canonical v2 control 与 packet label；control label 单独声明 logical client public key 和有界 remote address，不再发送 delegated body、expiry 或 replay proof。
+- Server 只在 physical peer 已激活为 `edge-node` 后注册 v2 namespace，再以声明的 logical client public key 进入正常 Peer lifecycle、service policy 和领域授权。
+- 每条可靠 client service 映射到一条带 label 的可靠有序 upstream DataChannel。Direct packet 使用每 session 独立的 unreliable channel；只有 Opus 保留 shared、session-tagged physical packet lane。
 - Gateway transport 不把 authoritative Server 的 ICE/TURN server 列表返回给客户端，因此正常 gateway 路径不会为每个客户端创建 Server TURN allocation。
 
 Edge 不在本地执行 GizClaw domain handler，也不建立第二套业务权限模型。
@@ -97,7 +97,7 @@ Edge ingress 不拥有 Peer HTTP、OpenAI-compatible HTTP 或其他 product rout
 
 ### Upstream Connection
 
-Edge Node 使用 `pkgs/giznet/gizwebrtc` 连接配置的 authoritative Server。`ServiceEdgeHTTP` 承载 public HTTP forwarding，`ServiceEdgeTunnel` 承载 gateway logical sessions。
+Edge Node 使用 `pkgs/giznet/gizwebrtc` 连接配置的 authoritative Server。`ServiceEdgeHTTP` 承载 public HTTP forwarding；gateway logical sessions 使用注册的 `giznet/v2/tunnel/` DataChannel namespace，不占用 product service ID。
 
 默认省略 `upstream.ice-transport-policy` 和 `upstream.ice-servers`，保持原有
 direct ICE。启用 relay 时配置至少两个 literal-IP TURN/UDP 成员：
@@ -141,32 +141,31 @@ downstream TURN server，不是 Edge-to-Server upstream pool member。日志不�
 username、credential、SDP、ICE candidate body 或业务 payload。
 
 每条 gateway upstream 是一条独立的 WebRTC PeerConnection 和 SCTP
-association；每个 logical session 在选中的 upstream 上拥有自己的
-`ServiceEdgeTunnel` DataChannel。多个 DataChannel 仍共享 association 级的拥塞控制和
+association；每个 logical session 在选中的 upstream 上拥有 persistent control、packet，
+以及每条 live service 独立的原生 DataChannel。多个 DataChannel 仍共享 association 级的拥塞控制和
 调度。pool 启动时建立 4 条 upstream（不超过 `max-upstreams`），之后按 least-active
 分配 session；只有所有 healthy association 都达到配置的 active-session 容量后才扩展
 下一条 upstream。这个有界 warm pool 同时避免单 association 的队头阻塞，以及一次铺满
 16 条冷 SCTP association 的启动与拥塞收敛成本。
 
-默认每条 upstream 最多保持 2048 个 active logical sessions；一条 upstream 累计打开
-8192 个 tunnel streams 后进入 draining，不再接收新会话，现有会话结束后关闭并由新
-upstream 替换。Edge 无法建立有界 warm pool 时启动失败；后续只有确实需要新增
+默认每条 upstream 最多保持 2048 个 active logical sessions、每 session 32 条 active
+channel，以及 8192 条同时 active 的 tunnel channel。关闭 channel 会释放容量，连续打开
+并关闭不会触发 upstream rotation。Edge 无法建立有界 warm pool 时启动失败；后续只有确实需要新增
 association 的 admission 会受扩容失败影响。单条 upstream 失败只关闭固定在该连接上的
 会话，其他 upstream 和其他 Edge 不受影响。
 
 pool eligibility 有三个状态。selectable association 可以接收新 admission；draining
 association 不再接收新 admission，保留已经建立的 logical session，并在最后一个 pinned
 session 释放后关闭；failed association 是 terminal 状态并立即关闭。仍为 nonterminal 的
-association 如果发生完整十秒的 `ServiceEdgeTunnel` open timeout、DataChannel 在 open 前
-close/error、新 service stream 在 delegated-session acceptance 前关闭，或者完整的
-delegated-session handshake timeout，会进入 draining，但不会惩罚其 TURN member。caller
+association 如果发生 native control/packet open error、pre-accept channel close，或者完整的
+application-acceptance timeout，会进入 draining，但不会惩罚其 TURN member。caller
 cancellation、Edge shutdown、显式 logical-session rejection 和其他 nonterminal protocol
 error 不会改变 healthy association 的 eligibility。packet 或父连接失败会进入 failed，并且
 对应 relay attempt 最多报告一次失败。
 
 fresh client 共享一个私有的三十秒 logical-session establishment budget，并且只允许在
-Server acceptance 前尝试至多两条 physical entry；每次 service open 最多十秒。alternate
-会重新创建 service stream、session ID 和 delegated envelope，不重放 RPC，也不迁移已经
+Server acceptance 前尝试至多两条 physical entry。alternate 会重新创建 control/packet
+pair 和 session ID，不重放 RPC，也不迁移已经
 accepted 的 session。warm capacity 只计算 selectable association，`max-upstreams` 继续限制
 selectable 与 draining 在内的全部 live physical association。由于 signaling response 在可能
 选择 alternate 之前已经写出，`X-GizClaw-Gateway-Upstream` 仍表示最初预留的 entry。
@@ -175,11 +174,11 @@ HTTP forwarding 和 gateway upstream 都属于长生命周期 runtime 状态。E
 
 ### Gateway 容量与生命周期
 
-Gateway 的默认总容量为 30,000 sessions，最多 16 条 upstream。信令进入时先同时预留 handshake、总 session 和 upstream stream 容量；没有容量时返回稳定的 `503` JSON error `gateway_over_capacity` 和 `Retry-After: 1`，不会先在 Server 创建半连接。
+Gateway 的默认总容量为 30,000 sessions，最多 16 条 upstream。信令进入时先同时预留 handshake、总 session 和 active-channel 容量；没有容量时返回稳定的 `503` JSON error `gateway_over_capacity` 和 `Retry-After: 1`，不会先在 Server 创建半连接。
 
-每个 session 默认最多缓冲 1 MiB tunnel bytes。单个 logical service 的读取方暂时变慢时，
-tunnel 在有界队列上反压该 session 的可靠 stream，不会因为队列瞬时填满而截断 firmware
-等大文件；超过 session 总 buffer 或单 frame 上限的输入仍会关闭该 session，而不是无限增长。
+每个 session 默认有 1 MiB reliable-write budget，单 channel 最多占一半，为 sibling
+Event/RPC 保留进度；association budget 是 32 MiB。reservation 要等 DataChannel
+`BufferedAmount` 排空后释放，不会因为暂时背压而截断 firmware 等大文件。
 5 分钟无 activity 的 session 默认被回收。进程关闭时先停止新 admission，在 30 秒 drain
 deadline 内保留现有 session，超时后强制关闭。
 
@@ -190,7 +189,7 @@ upstream ICE、test-only silent UDP fault boundary，并阻断 direct Edge-to-Se
 bash tests/gizclaw-e2e/run_gateway_relay_recovery_tests.sh
 ```
 
-该测试证明初次 service stream 可以在本地 open 后达到完整 delegated-session handshake
+该测试证明初次 native channel 可以在本地 open 后达到完整 application-acceptance
 timeout，随后同一个 client 在 logical session acceptance 前经 alternate 完成 Register 和
 Ping。真实 relay host failure、drain、capacity 与 soak 仍属于 deployment acceptance，不由
 package E2E 代替。
@@ -433,7 +432,7 @@ flowchart TB
 
 - Edge Node 当前按配置连接一个 upstream Server。
 - `ServiceEdgeHTTP` 已用于 public request forwarding。
-- `ServiceEdgeTunnel` 已用于有界 upstream pool 上的 logical client sessions。
+- `giznet/v2/tunnel/` 原生 channel namespace 已用于有界 upstream pool 上的 logical client sessions；`ServiceEdgeTunnel 0x32` 已退役。
 - Edge control-plane RPC、certificate distribution 和 TLS certificate source 尚未完整实现。
 - Edge Node 不维护 mesh membership 或全局 peer/resource route registry。
 - Server 之间不存在由这个 package 提供的数据复制和事件同步。

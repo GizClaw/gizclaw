@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -84,6 +85,8 @@ type options struct {
 	opusPacketBytes          int
 	opusInterval             time.Duration
 	cleanupTimeout           time.Duration
+	holdServiceID            uint64
+	holdService              bool
 }
 
 type artifact struct {
@@ -115,6 +118,7 @@ type artifact struct {
 	UpstreamDistribution   map[string]map[string]int `json:"upstream_distribution"`
 	ResourceUsage          resourceSummary           `json:"resource_usage"`
 	Cleanup                cleanupSummary            `json:"cleanup"`
+	NativeChannels         nativeChannelSummary      `json:"native_channels"`
 	Extended               *extendedRunEvidence      `json:"extended,omitempty"`
 	Errors                 []string                  `json:"errors,omitempty"`
 	Passed                 bool                      `json:"passed"`
@@ -166,6 +170,20 @@ type artifactConfig struct {
 	OpusPacketBytes          int           `json:"opus_packet_bytes"`
 	OpusInterval             time.Duration `json:"opus_interval"`
 	CleanupTimeout           time.Duration `json:"cleanup_timeout"`
+	HoldService              bool          `json:"hold_service"`
+	HoldServiceID            uint64        `json:"hold_service_id,omitempty"`
+}
+
+type nativeChannelSummary struct {
+	Persistent           int                       `json:"persistent"`
+	HeldServices         int                       `json:"held_services"`
+	PeakActive           int                       `json:"peak_active"`
+	PerEdge              map[string]int            `json:"per_edge"`
+	PerUpstream          map[string]map[string]int `json:"per_upstream"`
+	ExpectedAfterCleanup int                       `json:"expected_after_cleanup"`
+	Observed             bool                      `json:"observed"`
+	ObservedPeakActive   int                       `json:"observed_peak_active"`
+	ObservedAfterCleanup int                       `json:"observed_after_cleanup"`
 }
 
 type opusSummary struct {
@@ -370,6 +388,8 @@ type liveSession struct {
 	speedFn       func(context.Context, string, rpcapi.SpeedTestRequest) (gizcli.SpeedTestResult, error)
 	packetWriteFn func(byte, []byte) (int, error)
 	pingFn        func(context.Context, string) (*rpcapi.PingResponse, error)
+	conn          giznet.Conn
+	heldService   net.Conn
 }
 
 type resultState struct {
@@ -536,6 +556,7 @@ func main() {
 
 func parseOptions() (options, error) {
 	var rawEdges string
+	var holdServiceID uint64
 	opts := options{}
 	flag.StringVar(&rawEdges, "edges", "", "comma-separated Edge HTTP endpoints")
 	flag.BoolVar(&opts.signalingBaseFromEdge, "signaling-base-from-edge", false, "use each -edges address as the signaling base instead of the advertised transport endpoint")
@@ -581,7 +602,12 @@ func parseOptions() (options, error) {
 	flag.IntVar(&opts.opusPacketBytes, "opus-packet-bytes", 3, "non-empty bytes per Opus packet")
 	flag.DurationVar(&opts.opusInterval, "opus-interval", 20*time.Millisecond, "cadence between Opus packets")
 	flag.DurationVar(&opts.cleanupTimeout, "cleanup-timeout", 30*time.Second, "maximum logical-session close and Serve wait")
+	flag.Uint64Var(&holdServiceID, "hold-service-id", math.MaxUint64, "open and hold this service on every session; omitted disables the native-channel peak profile")
 	flag.Parse()
+	if holdServiceID != math.MaxUint64 {
+		opts.holdService = true
+		opts.holdServiceID = holdServiceID
+	}
 	if opts.analysisDir != "" || opts.compareDir != "" {
 		if strings.TrimSpace(opts.artifactPath) == "" {
 			return options{}, errors.New("-artifact is required")
@@ -735,6 +761,8 @@ func run(ctx context.Context, opts options) (artifact, error) {
 			OpusPacketBytes:          opts.opusPacketBytes,
 			OpusInterval:             opts.opusInterval,
 			CleanupTimeout:           opts.cleanupTimeout,
+			HoldService:              opts.holdService,
+			HoldServiceID:            opts.holdServiceID,
 		},
 		Attempted:            opts.sessions,
 		EdgeDistribution:     make(map[string]int),
@@ -774,7 +802,6 @@ func run(ctx context.Context, opts options) (artifact, error) {
 	if err := establishSessions(ctx, opts, edges, state, sem, establish); err != nil {
 		return finalize(report, state, resources, extended), err
 	}
-
 	pingAll(ctx, state, opts, sem, "hold", 0)
 	if opts.opusPackets > 0 {
 		runOpusTest(ctx, state, opts)
@@ -782,6 +809,26 @@ func run(ctx context.Context, opts options) (artifact, error) {
 	}
 	if opts.speedBytes > 0 {
 		state.speedTest = runSpeedTests(ctx, state, opts, "initial")
+	}
+	if opts.holdService {
+		if err := holdNativeServices(state, opts.holdServiceID); err != nil {
+			closeSessions(state, opts.cleanupTimeout)
+			return finalize(report, state, resources, extended), err
+		}
+		// Client-side DCEP open precedes the Edge mirror's upstream DCEP open.
+		// Leave a bounded settle window before cleanup; the dedicated script
+		// still requires the Edge's observed Router peak, so this delay cannot
+		// turn an incomplete mirror into a passing artifact.
+		settle := time.NewTimer(10 * time.Second)
+		select {
+		case <-settle.C:
+		case <-ctx.Done():
+			if !settle.Stop() {
+				<-settle.C
+			}
+			closeSessions(state, opts.cleanupTimeout)
+			return finalize(report, state, resources, extended), ctx.Err()
+		}
 	}
 	if opts.duration > 0 {
 		if err := initialWorkloadError(state, opts); err != nil {
@@ -1454,6 +1501,7 @@ func establish(
 	}
 	recorder := &upstreamRecorder{base: http.DefaultTransport}
 	var transportDuration time.Duration
+	var transportConn giznet.Conn
 	var clientTiming gizwebrtc.DialTiming
 	client := &gizcli.Client{
 		KeyPair: key,
@@ -1470,6 +1518,7 @@ func establish(
 				},
 			})
 			transportDuration = time.Since(transportStarted)
+			transportConn = conn
 			return listener, conn, dialErr
 		},
 	}
@@ -1487,7 +1536,24 @@ func establish(
 		_ = client.Close()
 		return nil, timing, fmt.Errorf("session %d did not receive an upstream assignment", index)
 	}
-	return &liveSession{client: client, edge: edge.endpoint, upstream: upstream}, timing, nil
+	return &liveSession{client: client, conn: transportConn, edge: edge.endpoint, upstream: upstream}, timing, nil
+}
+
+func holdNativeServices(state *resultState, service uint64) error {
+	state.mu.Lock()
+	sessions := append([]*liveSession(nil), state.sessions...)
+	state.mu.Unlock()
+	for index, session := range sessions {
+		if session.conn == nil {
+			return fmt.Errorf("session %d has no transport for held service", index)
+		}
+		stream, err := session.conn.Dial(service)
+		if err != nil {
+			return fmt.Errorf("session %d hold service %d: %w", index, service, err)
+		}
+		session.heldService = stream
+	}
+	return nil
 }
 
 func recordEstablishmentPhases(
@@ -2302,13 +2368,17 @@ func (s *liveSession) close() error {
 		return nil
 	}
 	s.closed.Store(true)
+	var heldErr error
+	if s.heldService != nil {
+		heldErr = s.heldService.Close()
+	}
 	if s.closeFn != nil {
-		return s.closeFn()
+		return errors.Join(heldErr, s.closeFn())
 	}
 	if s.client == nil {
-		return nil
+		return heldErr
 	}
-	return s.client.Close()
+	return errors.Join(heldErr, s.client.Close())
 }
 
 func (s *liveSession) peerConn() giznet.Conn {
@@ -2552,6 +2622,7 @@ func finalize(report artifact, state *resultState, resources *resourceSampler, e
 	}
 	report.ResourceUsage = resources.summary()
 	report.Cleanup = state.cleanup
+	report.NativeChannels = summarizeNativeChannels(state.sessions, state.cleanup)
 	if report.Config.Soak {
 		stability := summarizeSoakQualification(report)
 		report.SoakStability = &stability
@@ -2575,8 +2646,39 @@ func finalize(report artifact, state *resultState, resources *resourceSampler, e
 				report.Opus.CompletedBytes == report.Opus.AttemptedBytes)) &&
 		(report.Config.MaxP99RTT == 0 || time.Duration(report.RTT.P99*float64(time.Millisecond)) <= report.Config.MaxP99RTT) &&
 		pingRoundsWithin(report.PingRounds, report.Config.MaxPingRoundDuration) &&
-		distributionWithin(report, report.Config)
+		distributionWithin(report, report.Config) &&
+		(!report.Config.HoldService ||
+			report.NativeChannels.HeldServices == report.Established &&
+				report.NativeChannels.PeakActive == 4*report.Established &&
+				report.NativeChannels.ExpectedAfterCleanup == 0)
 	return report
+}
+
+func summarizeNativeChannels(sessions []*liveSession, cleanup cleanupSummary) nativeChannelSummary {
+	summary := nativeChannelSummary{
+		Persistent:  len(sessions) * 3,
+		PerEdge:     make(map[string]int),
+		PerUpstream: make(map[string]map[string]int),
+	}
+	for _, session := range sessions {
+		channels := 3
+		if session.heldService != nil {
+			channels++
+			summary.HeldServices++
+		}
+		summary.PerEdge[session.edge] += channels
+		if summary.PerUpstream[session.edge] == nil {
+			summary.PerUpstream[session.edge] = make(map[string]int)
+		}
+		summary.PerUpstream[session.edge][session.upstream] += channels
+	}
+	summary.PeakActive = summary.Persistent + summary.HeldServices
+	if cleanup.ServeCompleted && !cleanup.TimedOut && cleanup.CloseFailures == 0 {
+		summary.ExpectedAfterCleanup = 0
+	} else {
+		summary.ExpectedAfterCleanup = summary.PeakActive
+	}
+	return summary
 }
 
 func pingRoundsWithin(rounds []pingRoundSummary, maximum time.Duration) bool {

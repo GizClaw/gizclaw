@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -38,6 +39,27 @@ func TestSummarizeEstablishmentReportsRateLatencyAndPhases(t *testing.T) {
 	}
 	if phase := got.Phases[phaseClientSCTPConnected]; phase.Supported || phase.Reason == "" {
 		t.Fatalf("unsupported SCTP phase = %+v", phase)
+	}
+}
+
+func TestSummarizeNativeChannels(t *testing.T) {
+	first, firstPeer := net.Pipe()
+	second, secondPeer := net.Pipe()
+	t.Cleanup(func() {
+		_ = first.Close()
+		_ = firstPeer.Close()
+		_ = second.Close()
+		_ = secondPeer.Close()
+	})
+	sessions := []*liveSession{
+		{edge: "edge-a", upstream: "upstream-1", heldService: first},
+		{edge: "edge-a", upstream: "upstream-1", heldService: second},
+	}
+	summary := summarizeNativeChannels(sessions, cleanupSummary{ServeCompleted: true})
+	if summary.Persistent != 6 || summary.HeldServices != 2 || summary.PeakActive != 8 ||
+		summary.PerEdge["edge-a"] != 8 || summary.PerUpstream["edge-a"]["upstream-1"] != 8 ||
+		summary.ExpectedAfterCleanup != 0 {
+		t.Fatalf("native channel summary = %+v", summary)
 	}
 }
 

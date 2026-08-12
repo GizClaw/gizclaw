@@ -120,6 +120,81 @@ func TestDataChannelConnWriteDeadlineExpiresWhileWaitingForBackpressure(t *testi
 	}
 }
 
+func TestDataChannelConnSharedWriteBudgetPreservesSiblingProgress(t *testing.T) {
+	budget := NewWriteBudget(streamChunkSize)
+	firstFlow := newFakeDataChannelFlow()
+	first := newDataChannelConn(&bufferingStreamRaw{flow: firstFlow}, firstFlow, addr("local"), addr("remote"))
+	defer first.Close()
+	if err := first.setWriteBudgets(budget); err != nil {
+		t.Fatal(err)
+	}
+	secondFlow := newFakeDataChannelFlow()
+	second := newDataChannelConn(&bufferingStreamRaw{flow: secondFlow}, secondFlow, addr("local"), addr("remote"))
+	defer second.Close()
+	if err := second.setWriteBudgets(budget); err != nil {
+		t.Fatal(err)
+	}
+	payload := make([]byte, streamChunkSize)
+	if _, err := first.Write(payload); err != nil {
+		t.Fatal(err)
+	}
+	if got := budget.Used(); got != streamChunkSize {
+		t.Fatalf("budget used = %d, want %d", got, streamChunkSize)
+	}
+	secondDone := make(chan error, 1)
+	go func() {
+		_, err := second.Write(payload)
+		secondDone <- err
+	}()
+	select {
+	case err := <-secondDone:
+		t.Fatalf("sibling write bypassed shared budget: %v", err)
+	case <-time.After(30 * time.Millisecond):
+	}
+	firstFlow.setBufferedAmount(0)
+	select {
+	case err := <-secondDone:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("sibling write did not resume after buffered bytes drained")
+	}
+}
+
+func TestDataChannelConnSharedWriteBudgetDeadlineAndCloseRelease(t *testing.T) {
+	budget := NewWriteBudget(streamChunkSize)
+	flow := newFakeDataChannelFlow()
+	conn := newDataChannelConn(&bufferingStreamRaw{flow: flow}, flow, addr("local"), addr("remote"))
+	if err := conn.setWriteBudgets(budget); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.Write(make([]byte, streamChunkSize)); err != nil {
+		t.Fatal(err)
+	}
+	waiter := newDataChannelConn(&fakeStreamRaw{}, nil, addr("local"), addr("remote"))
+	defer waiter.Close()
+	if err := waiter.setWriteBudgets(budget); err != nil {
+		t.Fatal(err)
+	}
+	if err := waiter.SetWriteDeadline(time.Now().Add(25 * time.Millisecond)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := waiter.Write([]byte("blocked")); !errors.Is(err, os.ErrDeadlineExceeded) {
+		t.Fatalf("blocked shared-budget write error = %v", err)
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(time.Second)
+	for budget.Used() != 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if got := budget.Used(); got != 0 {
+		t.Fatalf("budget used after close = %d", got)
+	}
+}
+
 func TestDataChannelConnDiagnosticsCaptureStreamStateAndBytes(t *testing.T) {
 	raw := &fakeStreamRaw{reads: [][]byte{[]byte("pong")}}
 	flow := &fakeDiagnosticDataChannelFlow{
@@ -629,6 +704,19 @@ type fakeStreamRaw struct {
 type repeatingStreamRaw struct {
 	fakeStreamRaw
 	message []byte
+}
+
+type bufferingStreamRaw struct {
+	fakeStreamRaw
+	flow *fakeDataChannelFlow
+}
+
+func (r *bufferingStreamRaw) WriteDataChannel(p []byte, binary bool) (int, error) {
+	n, err := r.fakeStreamRaw.WriteDataChannel(p, binary)
+	if n > 0 {
+		r.flow.setBufferedAmount(r.flow.BufferedAmount() + uint64(n))
+	}
+	return n, err
 }
 
 func (r *repeatingStreamRaw) ReadDataChannel(p []byte) (int, bool, error) {

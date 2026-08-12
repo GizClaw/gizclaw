@@ -51,11 +51,6 @@ func (gatewayAllowAllPolicy) AllowService(giznet.PublicKey, uint64) bool {
 
 const gatewayBenchmarkBytesPerStream = 8 * 1024 * 1024
 
-type contextDialGiznetConn struct {
-	*failingGiznetConn
-	dialContext func(context.Context, uint64) (net.Conn, error)
-}
-
 type blockingCloseGiznetConn struct {
 	failingGiznetConn
 	entered chan<- struct{}
@@ -100,10 +95,6 @@ func TestLogUpstreamICEIsAddressFree(t *testing.T) {
 	}
 }
 
-func (c *contextDialGiznetConn) DialContext(ctx context.Context, service uint64) (net.Conn, error) {
-	return c.dialContext(ctx, service)
-}
-
 func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -143,7 +134,8 @@ func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
 	gatewayConfig.MaxSessions = 4
 	gatewayConfig.MaxUpstreams = 1
 	gatewayConfig.SessionsPerUpstream = 4
-	gatewayConfig.StreamsPerUpstream = 8
+	gatewayConfig.ChannelsPerSession = 8
+	gatewayConfig.ChannelsPerUpstream = 12
 	gatewayConfig.MaxPendingHandshakes = 4
 	cfg := Config{
 		KeyPair:  edgeKey,
@@ -168,8 +160,23 @@ func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
 		t.Fatal("gateway upstream did not connect")
 	}
 	defer upstreamConn.Close()
-	packetMux := giztunnel.NewPacketMux(upstreamConn)
-	defer packetMux.Close()
+	serverTransport, ok := upstreamConn.(*gizwebrtc.Conn)
+	if !ok {
+		t.Fatalf("upstream type = %T", upstreamConn)
+	}
+	serverRouter, err := giztunnel.NewRouter(serverTransport, giztunnel.Config{
+		AcceptSessions:        true,
+		MaxChannelsPerSession: 8,
+		MaxChannels:           12,
+		MaxPendingSessions:    4,
+		AllowRemoteService: func(giznet.PublicKey, uint64) bool {
+			return true
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer serverRouter.Close()
 	go func() {
 		buf := make([]byte, 64*1024)
 		for {
@@ -178,36 +185,19 @@ func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
 				return
 			}
 			if protocol == giznet.ProtocolTunnelPacket {
-				_ = packetMux.HandlePacket(buf[:n])
+				_ = serverRouter.HandlePacket(buf[:n])
 			}
 		}
 	}()
 
 	logicalAccepted := make(chan *giztunnel.Conn, 1)
 	go func() {
-		stream, acceptErr := upstreamConn.ListenService(gizclaw.ServiceEdgeTunnel).Accept()
-		if acceptErr != nil {
+		logical, declaration, acceptErr := serverRouter.Accept(context.Background())
+		if acceptErr == nil && !declaration.ClientPublicKey.Equal(clientKey.Public) {
+			t.Errorf("unexpected declared client identity: %s", declaration.ClientPublicKey)
+			_ = logical.Close()
 			return
 		}
-		logical, _, acceptErr := giztunnel.Accept(
-			context.Background(),
-			stream,
-			packetMux,
-			func(open giztunnel.OpenRequest) error {
-				if !open.ClientPublicKey.Equal(clientKey.Public) ||
-					!open.EdgePublicKey.Equal(edgeKey.Public) ||
-					!open.ServerPublicKey.Equal(serverKey.Public) {
-					t.Errorf("unexpected delegated identities: %+v", open)
-				}
-				return nil
-			},
-			giztunnel.Config{
-				PeerPublicKey: clientKey.Public,
-				AllowRemoteService: func(uint64) bool {
-					return true
-				},
-			},
-		)
 		if acceptErr == nil {
 			logicalAccepted <- logical
 		}
@@ -305,29 +295,28 @@ func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
 	}
 }
 
-func TestGatewayPoolLeastActiveAndCumulativeRotation(t *testing.T) {
+func TestGatewayPoolSelectsLeastActiveAssociation(t *testing.T) {
 	cfg := Config{Gateway: GatewayConfig{
 		MaxUpstreams:        2,
 		SessionsPerUpstream: 2,
-		StreamsPerUpstream:  3,
+		ChannelsPerUpstream: 6,
 	}}
-	first := &gatewayUpstream{}
+	first := &gatewayUpstream{active: 1}
 	second := &gatewayUpstream{}
 	pool := &gatewayPool{cfg: cfg, entries: []*gatewayUpstream{first, second}}
 	first.pool = pool
 	second.pool = pool
-	first.opened = 2
 
 	selected, release, err := pool.acquire(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if selected != first || first.state != gatewayUpstreamDraining {
-		t.Fatalf("selected=%p state=%d, want first draining", selected, first.state)
+	if selected != second || second.active != 1 {
+		t.Fatalf("selected=%p active=%d, want least-active second", selected, second.active)
 	}
 	release()
-	if len(pool.entries) != 1 || pool.entries[0] != second {
-		t.Fatalf("rotated entries = %+v", pool.entries)
+	if len(pool.entries) != 2 || second.active != 0 {
+		t.Fatalf("entries=%d second.active=%d", len(pool.entries), second.active)
 	}
 }
 
@@ -335,9 +324,9 @@ func TestGatewayPoolExpandsAtSessionCapacity(t *testing.T) {
 	cfg := Config{Gateway: GatewayConfig{
 		MaxUpstreams:        2,
 		SessionsPerUpstream: 2,
-		StreamsPerUpstream:  8,
+		ChannelsPerUpstream: 8,
 	}}
-	first := &gatewayUpstream{active: 2, opened: 2}
+	first := &gatewayUpstream{active: 2}
 	var created atomic.Int32
 	pool := &gatewayPool{
 		cfg:     cfg,
@@ -364,9 +353,9 @@ func TestGatewayPoolReusesExistingSessionCapacity(t *testing.T) {
 	cfg := Config{Gateway: GatewayConfig{
 		MaxUpstreams:        2,
 		SessionsPerUpstream: 2,
-		StreamsPerUpstream:  4,
+		ChannelsPerUpstream: 6,
 	}}
-	first := &gatewayUpstream{active: 1, opened: 1}
+	first := &gatewayUpstream{active: 1}
 	attempts := 0
 	pool := &gatewayPool{
 		cfg:     cfg,
@@ -582,7 +571,7 @@ func TestGatewayPoolReplenishWarmSignalsEachNewAssociation(t *testing.T) {
 		cfg: Config{Gateway: GatewayConfig{
 			MaxUpstreams:        gatewayPoolWarmUpstreams,
 			SessionsPerUpstream: 1,
-			StreamsPerUpstream:  1,
+			ChannelsPerUpstream: 3,
 		}},
 		newUpstream: func(ctx context.Context) (*gatewayUpstream, error) {
 			if attempts.Add(1) == 1 {
@@ -647,7 +636,7 @@ func TestGatewayPoolDrainingPreservesPinnedSessionsAndLiveCap(t *testing.T) {
 		cfg: Config{Gateway: GatewayConfig{
 			MaxUpstreams:        2,
 			SessionsPerUpstream: 4,
-			StreamsPerUpstream:  8,
+			ChannelsPerUpstream: 12,
 		}},
 		entries: []*gatewayUpstream{first, second},
 		newUpstream: func(context.Context) (*gatewayUpstream, error) {
@@ -750,7 +739,7 @@ func TestGatewayPoolDrainingTransitionIsIdempotent(t *testing.T) {
 	}
 }
 
-func TestGatewayClassifiesPreSessionFailuresWithoutPenalizingRelayForDraining(t *testing.T) {
+func TestGatewayClassifiesNativeSessionFailuresWithoutPenalizingRelayForDraining(t *testing.T) {
 	selector, err := newUpstreamRelaySelector(testUpstreamRelayConfig(t))
 	if err != nil {
 		t.Fatal(err)
@@ -758,39 +747,13 @@ func TestGatewayClassifiesPreSessionFailuresWithoutPenalizingRelayForDraining(t 
 	ctx := t.Context()
 	gateway := &Gateway{ctx: ctx}
 	pool := &gatewayPool{}
-	entry := &gatewayUpstream{
-		pool:         pool,
-		conn:         &failingGiznetConn{state: giznet.PeerStateEstablished},
-		relayAttempt: selector.markSuccess(0),
-	}
+	entry := &gatewayUpstream{pool: pool, conn: &failingGiznetConn{state: giznet.PeerStateEstablished}, relayAttempt: selector.markSuccess(0)}
 	pool.entries = []*gatewayUpstream{entry}
-	if !gateway.classifyServiceOpenFailure(ctx, entry, gizwebrtc.ErrServiceOpen, false) {
-		t.Fatal("pre-open DataChannel error was not retryable")
+	if !gateway.classifySessionHandshakeFailure(ctx, entry, gizwebrtc.ErrServiceOpen, false) {
+		t.Fatal("native channel open error was not retryable")
 	}
 	if entry.state != gatewayUpstreamDraining || selector.members[0].failures != 0 {
 		t.Fatalf("state=%d relay failures=%d, want draining without relay penalty", entry.state, selector.members[0].failures)
-	}
-
-	serviceOpenTimeout := &gatewayUpstream{
-		pool: pool,
-		conn: &failingGiznetConn{state: giznet.PeerStateEstablished},
-	}
-	pool.entries = append(pool.entries, serviceOpenTimeout)
-	if !gateway.classifyServiceOpenFailure(ctx, serviceOpenTimeout, context.DeadlineExceeded, true) {
-		t.Fatal("complete service-open timeout was not retryable")
-	}
-	if serviceOpenTimeout.state != gatewayUpstreamDraining {
-		t.Fatalf("service-open timeout state=%d, want draining", serviceOpenTimeout.state)
-	}
-
-	truncatedServiceOpen := &gatewayUpstream{
-		pool: pool,
-		conn: &failingGiznetConn{state: giznet.PeerStateEstablished},
-	}
-	pool.entries = append(pool.entries, truncatedServiceOpen)
-	if gateway.classifyServiceOpenFailure(ctx, truncatedServiceOpen, context.DeadlineExceeded, false) ||
-		truncatedServiceOpen.state != gatewayUpstreamSelectable {
-		t.Fatal("overall-budget-truncated service-open timeout changed healthy upstream eligibility")
 	}
 
 	streamClosed := &gatewayUpstream{
@@ -844,129 +807,14 @@ func TestGatewayClassifiesPreSessionFailuresWithoutPenalizingRelayForDraining(t 
 	}
 }
 
-func TestGatewayRetriesSameClientThroughAlternateBeforeSessionAcceptance(t *testing.T) {
-	edgeKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatal(err)
-	}
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatal(err)
-	}
-	clientKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatal(err)
-	}
-	firstConn := &contextDialGiznetConn{
-		failingGiznetConn: &failingGiznetConn{state: giznet.PeerStateEstablished},
-		dialContext: func(context.Context, uint64) (net.Conn, error) {
-			return nil, gizwebrtc.ErrServiceOpen
-		},
-	}
-	serverStream := make(chan net.Conn, 1)
-	secondConn := &contextDialGiznetConn{
-		failingGiznetConn: &failingGiznetConn{state: giznet.PeerStateEstablished},
-		dialContext: func(context.Context, uint64) (net.Conn, error) {
-			client, server := net.Pipe()
-			serverStream <- server
-			return client, nil
-		},
-	}
-	first := &gatewayUpstream{id: 1, conn: firstConn, active: 1}
-	second := &gatewayUpstream{
-		id:      2,
-		conn:    secondConn,
-		packets: giztunnel.NewPacketMux(&failingGiznetConn{state: giznet.PeerStateEstablished}),
-	}
-	defer second.packets.Close()
-	pool := &gatewayPool{
-		cfg: Config{Gateway: GatewayConfig{
-			MaxUpstreams:              2,
-			SessionsPerUpstream:       2,
-			StreamsPerUpstream:        8,
-			SessionBufferBytes:        1 << 20,
-			DelegatedEnvelopeValidity: 30 * time.Second,
-		}},
-		entries: []*gatewayUpstream{first, second},
-	}
-	first.pool = pool
-	second.pool = pool
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	gateway := &Gateway{
-		ctx:    ctx,
-		cancel: cancel,
-		cfg: Config{
-			KeyPair:  edgeKey,
-			Upstream: UpstreamConfig{PublicKey: serverKey.Public},
-			Gateway:  pool.cfg.Gateway,
-		},
-		pool:     pool,
-		sessions: make(map[*gatewaySession]struct{}),
-	}
-	admission := &gatewayAdmission{
-		gateway:         gateway,
-		clientKey:       clientKey.Public,
-		remoteAddr:      "test-client",
-		upstream:        first,
-		releaseUpstream: func() { pool.release(first) },
-	}
-	admission.state.Store(1)
-	gateway.active = 1
-	accepted := make(chan struct {
-		open giztunnel.OpenRequest
-		err  error
-	}, 1)
-	go func() {
-		stream := <-serverStream
-		packetMux := giztunnel.NewPacketMux(&failingGiznetConn{state: giznet.PeerStateEstablished})
-		defer packetMux.Close()
-		logical, open, acceptErr := giztunnel.Accept(ctx, stream, packetMux, nil, giztunnel.Config{})
-		accepted <- struct {
-			open giztunnel.OpenRequest
-			err  error
-		}{open: open, err: acceptErr}
-		if acceptErr == nil {
-			_ = logical.Close()
-		}
-	}()
-	client := &failingGiznetConn{
-		readErr:   giznet.ErrConnClosed,
-		state:     giznet.PeerStateEstablished,
-		publicKey: clientKey.Public,
-	}
-	gateway.handleClient(client, admission)
-	select {
-	case result := <-accepted:
-		if result.err != nil {
-			t.Fatalf("alternate Accept error = %v", result.err)
-		}
-		if !result.open.ClientPublicKey.Equal(clientKey.Public) {
-			t.Fatalf("alternate client key = %s, want %s", result.open.ClientPublicKey, clientKey.Public)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("alternate did not accept the same client")
-	}
-	if first.state != gatewayUpstreamDraining || !firstConn.closed {
-		t.Fatalf("first state=%d closed=%t, want retired draining entry", first.state, firstConn.closed)
-	}
-	if admission.upstream != second || second.active != 1 {
-		t.Fatalf("admission upstream=%p second=%p active=%d", admission.upstream, second, second.active)
-	}
-	admission.releaseActive()
-	if second.active != 0 || gateway.active != 0 {
-		t.Fatalf("release left second active=%d gateway active=%d", second.active, gateway.active)
-	}
-}
-
 func TestGatewayPoolCancelStopsGrowthAndWaiters(t *testing.T) {
 	poolCtx, cancelPool := context.WithCancel(context.Background())
 	cfg := Config{Gateway: GatewayConfig{
 		MaxUpstreams:        2,
 		SessionsPerUpstream: 2,
-		StreamsPerUpstream:  4,
+		ChannelsPerUpstream: 6,
 	}}
-	first := &gatewayUpstream{active: 2, opened: 2}
+	first := &gatewayUpstream{active: 2}
 	growthStarted := make(chan struct{})
 	pool := &gatewayPool{
 		ctx:     poolCtx,
@@ -1099,7 +947,7 @@ func openGatewayThroughputStreams(tb testing.TB, clients, maxUpstreams int) []ga
 	gatewayConfig.MaxSessions = clients
 	gatewayConfig.MaxUpstreams = maxUpstreams
 	gatewayConfig.SessionsPerUpstream = clients
-	gatewayConfig.StreamsPerUpstream = clients * 2
+	gatewayConfig.ChannelsPerUpstream = clients * 3
 	gatewayConfig.MaxPendingHandshakes = clients
 	gatewayConfig.DrainTimeout = time.Second
 	cfg := Config{
@@ -1223,8 +1071,22 @@ func acceptGatewayBenchmarkSessions(
 	conn giznet.Conn,
 	logicalCh chan<- acceptedGatewayLogical,
 ) {
-	packetMux := giztunnel.NewPacketMux(conn)
-	defer packetMux.Close()
+	transport, ok := conn.(*gizwebrtc.Conn)
+	if !ok {
+		logicalCh <- acceptedGatewayLogical{err: fmt.Errorf("upstream type = %T", conn)}
+		return
+	}
+	router, err := giztunnel.NewRouter(transport, giztunnel.Config{
+		AcceptSessions: true,
+		AllowRemoteService: func(giznet.PublicKey, uint64) bool {
+			return true
+		},
+	})
+	if err != nil {
+		logicalCh <- acceptedGatewayLogical{err: err}
+		return
+	}
+	defer router.Close()
 	go func() {
 		buf := make([]byte, 64*1024)
 		for {
@@ -1233,30 +1095,17 @@ func acceptGatewayBenchmarkSessions(
 				return
 			}
 			if protocol == giznet.ProtocolTunnelPacket {
-				_ = packetMux.HandlePacket(buf[:n])
+				_ = router.HandlePacket(buf[:n])
 			}
 		}
 	}()
-	service := conn.ListenService(gizclaw.ServiceEdgeTunnel)
 	for {
-		stream, err := service.Accept()
+		logical, declaration, err := router.Accept(ctx)
 		if err != nil {
 			return
 		}
-		go func() {
-			logical, open, err := giztunnel.Accept(
-				ctx,
-				stream,
-				packetMux,
-				func(giztunnel.OpenRequest) error { return nil },
-				giztunnel.Config{
-					AllowRemoteService: func(uint64) bool { return true },
-				},
-			)
-			accepted := acceptedGatewayLogical{logical: logical, err: err}
-			if err == nil {
-				accepted.key = open.ClientPublicKey
-			}
+		go func(logical *giztunnel.Conn, key giznet.PublicKey) {
+			accepted := acceptedGatewayLogical{logical: logical, key: key}
 			select {
 			case logicalCh <- accepted:
 			case <-ctx.Done():
@@ -1264,7 +1113,7 @@ func acceptGatewayBenchmarkSessions(
 					_ = logical.Close()
 				}
 			}
-		}()
+		}(logical, declaration.ClientPublicKey)
 	}
 }
 

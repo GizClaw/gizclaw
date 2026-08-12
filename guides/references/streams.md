@@ -7,7 +7,8 @@ flowchart LR
     Client["Client / Device"] --> MediaUp["Opus RTP 上行 track<br/>Client → Server"] --> Server["GizClaw Server"]
     Client --> MediaDown["Opus RTP 下行 track<br/>Server → Client"] --> Server
     Client --> Packet["Direct Packet<br/>Telemetry 等低延迟数据"] --> Server
-    Client --> EdgePacket["Gateway Packet Lane<br/>Session ID + direct / Opus"] --> Server
+    Client --> EdgeChannels["Gateway native channels<br/>control + packet + service"] --> Server
+    Client --> EdgeOpus["Gateway shared Opus lane<br/>Session ID + Opus"] --> Server
     Client --> Events["Peer Event Stream 0x20<br/>长期、双向"] --> Server
     Client --> Services["RPC / HTTP Stream<br/>按请求动态创建（0 至 N 条）"] --> Server
 ```
@@ -19,7 +20,8 @@ flowchart LR
 | Opus media uplink | Client / Device → Server | WebRTC audio RTP | Peer connection 级别的一条 remote track | 麦克风实时 Opus packets。 |
 | Opus media downlink | Server → Client / Device | WebRTC audio RTP | Peer connection 级别的一条 remote track | Agent 输出经 mixer 合成后的实时 Opus packets。 |
 | Direct packet | 双向 | unordered、`maxRetransmits=0` DataChannel | 一条 connection 级长期 channel | 单字节 protocol 加 packet payload；适合允许丢包的高频数据。 |
-| Gateway packet lane | Edge ↔ Server | physical unordered、`maxRetransmits=0` DataChannel | 每条 Edge upstream 一条，共享给多个 logical sessions | 16-byte session ID、protocol byte 与 direct/Opus payload。 |
+| Gateway logical packet | Edge ↔ Server | 每个 session 一条 unordered、`maxRetransmits=0` DataChannel | logical connection 级长期 channel | 单字节 protocol 加原始 direct-packet payload；label 负责 session 路由。 |
+| Gateway Opus lane | Edge ↔ Server | physical unordered、`maxRetransmits=0` DataChannel | 每条 Edge upstream 一条，共享给多个 logical sessions | version、16-byte session ID 与 Opus payload。 |
 | Peer Event Stream | 双向 | reliable、ordered service DataChannel，ID `0x20` | 每条正常 Client / Device Peer connection 必须保持一条 | Protobuf BOS、EOS、文本和资源失效通知；不含实时音频 bytes。 |
 | RPC service stream | 双向 | reliable、ordered service DataChannel | 每次调用新建，完成后关闭 | Protobuf request/response、有限 binary stream。 |
 | HTTP service stream | 请求方 ↔ Provider | reliable、ordered service DataChannel | 每次 HTTP round trip 动态打开 | HTTP request 与 response。 |
@@ -63,7 +65,7 @@ Direct packet channel 的每条消息由一个 protocol byte 和 payload 组成�
 | Protocol | 方向 | 作用 |
 | --- | --- | --- |
 | `0x10` `ProtocolOpusPacket` | 双向 API | Opus media 的 Giznet API 标识；WebRTC wire 使用 RTP，不占用 packet DataChannel。 |
-| `0x11` `ProtocolTunnelPacket` | Edge ↔ Server | Gateway physical upstream 上的 session-tagged direct packet 或 Opus payload；禁止 logical client 直接嵌套发送。 |
+| `0x11` `ProtocolTunnelPacket` | Edge ↔ Server | Gateway physical upstream 上仅存的 session-tagged Opus payload；禁止 logical client 直接嵌套发送。 |
 | `0x40` `EventStreamTelemetry` | Client / Device → Server | 上报高频 telemetry packet。队列满时允许丢弃，不能用于必须可靠送达的状态。 |
 
 Direct Packet DataChannel 上收到 `0x10` 时必须静默丢弃，不能当作音频交付，也
@@ -93,19 +95,33 @@ RPC 使用可靠、有序的 service DataChannel。Service ID 选择 Provider，
 | `0x20` | `EventStreamAgent` | 长期双向 Peer Event Stream；名称为兼容标识。 |
 | `0x30` | `ServiceEdgeHTTP` | Edge-node HTTP forwarding。 |
 | `0x31` | `ServiceEdgeRPC` | Edge-node control RPC。 |
-| `0x32` | `ServiceEdgeTunnel` | Edge-node delegated logical connection；每个 logical session 一条可靠 control stream。 |
 
-### Gateway tunnel frames
+### Gateway native channels
 
-`ServiceEdgeTunnel 0x32` 的可靠 control stream 先发送严格的 delegated open envelope，再使用版本化 binary frames 表示 logical service open、data、close 和 session close。logical stream ID 只在该 session 内唯一；一条 physical upstream 可以同时承载多个 tunnel control streams。
+Edge-to-Server 不再使用 `ServiceEdgeTunnel 0x32` 或 application-level stream mux。受信的
+active Edge 在同一条 physical WebRTC PeerConnection 上使用下列 canonical label：
 
-Direct packet 和 Opus 不写入 control stream。它们使用 `ProtocolTunnelPacket 0x11` 的独立不可靠 physical packet lane，并在每条消息前带 16-byte session ID。这样可靠 RPC/HTTP backpressure 不会阻塞 packet/media，单 session queue overflow 也只终止该 session。
+```text
+giznet/v2/tunnel/<session-id>/control/<client-public-key>/<remote-addr-base64url>
+giznet/v2/tunnel/<session-id>/packet
+giznet/v2/tunnel/<session-id>/service/<service-id>/<channel-id>
+```
 
-每条 physical upstream 是一条 WebRTC PeerConnection/SCTP association，每个 logical
-session 使用一条独立 tunnel DataChannel。独立 DataChannel 隔离 writer 和
-buffered-amount backpressure，但不会隔离 association 级拥塞控制。Edge 启动时建立最多
-4 条 warm upstream，并按 least-active 复用；只有所有 healthy upstream 都达到配置的
-session 容量后才继续扩展，且始终不超过 `max-upstreams`。
+control channel 可靠有序，只承载一次 `GZT2` Server acceptance result；它的 label 是
+logical client identity 与 endpoint 的唯一声明。packet channel 无序且
+`maxRetransmits=0`，每条消息只有 protocol byte 与 direct-packet payload。每个 Event、RPC、
+HTTP 或其他 service 使用独立的可靠有序 DataChannel；Edge 创建奇数 channel ID，Server
+创建偶数 channel ID。关闭一条 service channel 只关闭对应 logical stream。
+
+Opus 不进入这些 channel。它继续使用 `ProtocolTunnelPacket 0x11` 的 shared physical
+unreliable lane，并带 version 与 16-byte session ID。多个 native DataChannel 可隔离 writer、
+backpressure 和 close/reset，但仍共享一条 SCTP association 的拥塞控制；需要 aggregate
+throughput 时仍以独立 physical upstream 扩展。
+
+每个 session 默认最多 32 条 active tunnel channels，每条 upstream 最多 8192 条；默认
+2048 sessions 会占用 control、packet、mandatory Event 共 6144 条，并保留 2048 条并发
+request service。可靠写入同时受每 channel、1 MiB session 和 32 MiB association budget
+约束；buffered bytes 排空后才释放 reservation。
 
 HTTP endpoint 见 [Admin API](/api/)；RPC method 见 [RPC API Reference](./rpc)。
 

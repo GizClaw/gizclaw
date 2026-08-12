@@ -435,6 +435,78 @@ func TestServiceStreamsRotateDataChannelIDsAfterReset(t *testing.T) {
 	requireServiceStreamsReleased(t, serverConn, 100)
 }
 
+func TestNativeChannelsReuseResetIDsWithOrdinaryServiceSibling(t *testing.T) {
+	const negotiatedStreams = uint16(8)
+	client, server := nativeChannelTestPairWithAPI(t, newLimitedSCTPAPI(negotiatedStreams))
+	accepted := make(chan *NativeChannel, 1)
+	unregister, err := server.RegisterNativeChannelHandler("giznet/v2/tunnel/", func(channel *NativeChannel) {
+		accepted <- channel
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unregister()
+
+	service := server.ListenService(100)
+	siblingClient, err := client.Dial(100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer siblingClient.Close()
+	siblingServer, err := service.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer siblingServer.Close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	// More than four times the locally negotiated ID count proves that native
+	// opens depend on completed reset reuse instead of cumulative-open quota.
+	for sequence := range int(negotiatedStreams) * 2 {
+		label := fmt.Sprintf("giznet/v2/tunnel/reset-%d", sequence)
+		var outbound *NativeChannel
+		for {
+			outbound, err = client.OpenNativeChannel(ctx, label, NativeChannelOptions{Ordered: true})
+			if err == nil {
+				break
+			}
+			if !errors.Is(err, webrtc.ErrMaxDataChannelID) {
+				t.Fatalf("OpenNativeChannel %d: %v", sequence, err)
+			}
+			select {
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			case <-time.After(time.Millisecond):
+			}
+		}
+		inbound := <-accepted
+		payload := fmt.Appendf(nil, "native-%d", sequence)
+		if _, err := outbound.Write(payload); err != nil {
+			t.Fatal(err)
+		}
+		received := make([]byte, len(payload))
+		if _, err := io.ReadFull(inbound, received); err != nil || !bytes.Equal(received, payload) {
+			t.Fatalf("native %d payload=%q err=%v", sequence, received, err)
+		}
+		if err := inbound.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if err := outbound.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	payload := []byte("ordinary-sibling-live")
+	if _, err := siblingClient.Write(payload); err != nil {
+		t.Fatal(err)
+	}
+	received := make([]byte, len(payload))
+	if _, err := io.ReadFull(siblingServer, received); err != nil || !bytes.Equal(received, payload) {
+		t.Fatalf("ordinary sibling payload=%q err=%v", received, err)
+	}
+}
+
 func TestDialSignalingWithFixedICEPort(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {

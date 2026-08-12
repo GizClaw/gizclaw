@@ -15,6 +15,12 @@
 
 Audio、direct packet、Peer Event Stream、RPC/HTTP service stream 的方向、可靠性、service ID、framing 与生命周期统一由 [Streams Reference](/references/streams) 定义；Event wire type 与字段统一由 [Events Reference](/references/events) 定义。本页只说明 `PeerConn` 如何实现这些 contract，不再复制协议表格。
 
+对于已经激活的 physical `edge-node`，`PeerConn` 注册 v2 tunnel namespace，并接受由带
+label 的原生 control、packet 与 service DataChannel 聚合出的 logical connection。结果仍是
+普通 `giznet.Conn`：key 与 endpoint 来自受信 Edge 的 canonical control label，service
+authorization 与 mandatory Event-before-activation 规则都按 logical client 执行。control
+或 packet channel 关闭会终止完整 logical Peer，但不关闭 physical Edge 或 sibling session。
+
 正常 Client / Device 连接在产品层 ready 前必须已经具有一条 Opus RTP uplink、
 一条 Opus RTP downlink、一条 unordered `maxRetransmits=0` Direct Packet
 DataChannel 和一条 reliable ordered `0x20` Event Stream。`pkgs/giznet/gizwebrtc`
@@ -48,6 +54,7 @@ identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，reques
 | `serveService` | 接受并分发当前 Peer 打开的 Giznet service stream。 |
 | `servePackets` / `serveDirectPackets` | 接收普通与 direct packet，并分发 telemetry/media。 |
 | `serveRPC` / `serveEdgeRPC` | 启动 Peer RPC 或 Edge RPC service loop。 |
+| `serveEdgeTunnel` / `serveEdgePackets` | 只在 activated Edge 上接受 v2 label、聚合 logical Peer，并路由 shared Opus envelope。 |
 | `init` / `initRPC` / `initMixer` / `initAgentHost` / `initPeerGenX` | 组装 connection-scoped runtime dependencies。 |
 | `acceptMandatoryEventStream` / `readEventStream` | 在 Peer activation 前有界等待唯一 Event stream，并把事件推入 Agent input；stream 结束会关闭 connection。 |
 | `rejectDuplicateEventStreams` | 接受并关闭额外 `0x20`，保留已绑定的 connection owner。 |

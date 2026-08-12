@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -14,7 +13,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giztunnel"
 )
 
 const (
@@ -28,8 +26,6 @@ const (
 	ServiceEdgeHTTP uint64 = 0x30
 	// ServiceEdgeRPC is the reliable edge-node control RPC service stream.
 	ServiceEdgeRPC uint64 = 0x31
-	// ServiceEdgeTunnel is the reliable edge-node logical connection service.
-	ServiceEdgeTunnel uint64 = 0x32
 	// ServiceAdminHTTP is the reliable admin HTTP service stream.
 	ServiceAdminHTTP uint64 = 0x10
 
@@ -83,9 +79,6 @@ type PeerService struct {
 	public   *peerHTTP
 	manager  *Manager
 	sessions *publiclogin.SessionManager
-
-	tunnelReplayMu sync.Mutex
-	tunnelReplay   map[giztunnel.SessionID]int64
 }
 
 var _ peerhttp.StrictServerInterface = (*peerHTTP)(nil)

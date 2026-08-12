@@ -1,22 +1,19 @@
 package giztunnel
 
-import (
-	"bytes"
-	"testing"
-)
+import "testing"
 
-func FuzzReadFrame(f *testing.F) {
-	f.Add([]byte("GZT1\x02\x00\x00\x00\x00"))
-	f.Add([]byte("bad"))
-	f.Fuzz(func(t *testing.T, data []byte) {
-		_, _, _ = readFrame(bytes.NewReader(data), defaultMaxFrameSize)
+func FuzzParseTunnelLabel(f *testing.F) {
+	f.Add("giznet/v2/tunnel/00112233445566778899aabbccddeeff/packet")
+	f.Add("")
+	f.Fuzz(func(t *testing.T, label string) {
+		_, _ = parseLabel(label)
 	})
 }
 
-func FuzzDecodeOpenRequest(f *testing.F) {
-	f.Add([]byte(`{"version":1}`))
-	f.Add([]byte(`{}`))
-	f.Fuzz(func(t *testing.T, data []byte) {
-		_, _ = decodeOpenRequest(data)
+func FuzzDecodeSessionResult(f *testing.F) {
+	f.Add([]byte{'G', 'Z', 'T', '2', 0, 0, 0})
+	f.Add([]byte{})
+	f.Fuzz(func(t *testing.T, payload []byte) {
+		_, _, _ = decodeSessionResult(payload)
 	})
 }

@@ -12,5 +12,6 @@ gateway:
   max-sessions: 30000
   max-upstreams: 16
   sessions-per-upstream: 2048
-  streams-per-upstream: 8192
+  channels-per-session: 32
+  channels-per-upstream: 8192
   max-pending-handshakes: 512
