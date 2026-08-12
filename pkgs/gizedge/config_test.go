@@ -63,6 +63,41 @@ tls:
 	}
 }
 
+func TestPrepareWorkspaceConfigRejectsInvalidIngressPorts(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x23)
+	upstreamKey := testKeyPair(t, 0x24)
+	for _, tc := range []struct {
+		name     string
+		listen   string
+		endpoint string
+		want     string
+	}{
+		{name: "nonnumeric listen", listen: "127.0.0.1:http", endpoint: "192.0.2.10:9821", want: "listen port must be between 1 and 65535"},
+		{name: "nonnumeric endpoint", listen: "127.0.0.1:9821", endpoint: "192.0.2.10:not-a-port", want: "endpoint port must be between 1 and 65535"},
+		{name: "zero endpoint", listen: "127.0.0.1:9821", endpoint: "192.0.2.10:0", want: "endpoint port must be between 1 and 65535"},
+		{name: "overflow endpoint", listen: "127.0.0.1:9821", endpoint: "192.0.2.10:65536", want: "endpoint port must be between 1 and 65535"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeConfig(t, dir, `
+identity:
+  private-key: `+edgeKey.Private.String()+`
+listen: `+tc.listen+`
+endpoint: `+tc.endpoint+`
+upstream:
+  endpoint: server-a.example.com:9820
+  public-key: `+upstreamKey.Public.String()+`
+tls:
+  cert-source: disabled
+`)
+			_, err := PrepareWorkspaceConfig(dir)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("PrepareWorkspaceConfig error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
 func TestConfigUpstreamURLDefaultsHTTP(t *testing.T) {
 	cfg := Config{Upstream: UpstreamConfig{Endpoint: "server-a.example.com:9822"}}
 	upstreamURL, err := cfg.UpstreamURL()
@@ -171,6 +206,8 @@ func TestPublicGatewayICEAddr(t *testing.T) {
 		{name: "hostname", endpoint: "edge.example.com:9821"},
 		{name: "unspecified IPv4", endpoint: "0.0.0.0:9821"},
 		{name: "unspecified IPv6", endpoint: "[::]:9821"},
+		{name: "nonnumeric port", endpoint: "192.0.2.10:not-a-port"},
+		{name: "zero port", endpoint: "192.0.2.10:0"},
 		{name: "invalid", endpoint: "not-an-endpoint"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

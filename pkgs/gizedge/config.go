@@ -221,10 +221,10 @@ func (cfg Config) validate() error {
 	if cfg.Endpoint == "" {
 		return fmt.Errorf("edge: missing endpoint")
 	}
-	if _, _, err := netSplitHostPort("listen", cfg.Listen); err != nil {
+	if _, _, err := netSplitNumericHostPort("listen", cfg.Listen); err != nil {
 		return err
 	}
-	if _, _, err := netSplitHostPort("endpoint", cfg.Endpoint); err != nil {
+	if _, _, err := netSplitNumericHostPort("endpoint", cfg.Endpoint); err != nil {
 		return err
 	}
 	if cfg.Upstream.Endpoint == "" {
@@ -473,6 +473,18 @@ func netSplitHostPort(field, value string) (string, string, error) {
 	}
 	if strings.TrimSpace(port) == "" {
 		return "", "", fmt.Errorf("edge: %s port is empty", field)
+	}
+	return host, port, nil
+}
+
+func netSplitNumericHostPort(field, value string) (string, string, error) {
+	host, port, err := netSplitHostPort(field, value)
+	if err != nil {
+		return "", "", err
+	}
+	portNumber, err := strconv.ParseUint(port, 10, 16)
+	if err != nil || portNumber == 0 {
+		return "", "", fmt.Errorf("edge: %s port must be between 1 and 65535, got %q", field, port)
 	}
 	return host, port, nil
 }

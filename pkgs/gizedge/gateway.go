@@ -130,7 +130,7 @@ func newGateway(
 }
 
 func publicGatewayICEAddr(endpoint string) string {
-	host, _, err := net.SplitHostPort(endpoint)
+	host, _, err := netSplitNumericHostPort("endpoint", endpoint)
 	if err != nil {
 		return ""
 	}
