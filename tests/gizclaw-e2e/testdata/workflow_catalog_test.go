@@ -142,6 +142,28 @@ func TestServerWorkspaceFixtureHasNoImplicitOrUnconsumedStoreEntries(t *testing.
 	}
 }
 
+func TestEdgeWorkspaceGatewayLimitsAreRuntimeParameters(t *testing.T) {
+	variables := []string{
+		"GIZCLAW_E2E_GATEWAY_MAX_SESSIONS",
+		"GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS",
+		"GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM",
+		"GIZCLAW_E2E_GATEWAY_CHANNELS_PER_SESSION",
+		"GIZCLAW_E2E_GATEWAY_CHANNELS_PER_UPSTREAM",
+		"GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES",
+	}
+	for _, name := range []string{"config.yaml.template", "config.gateway-relay.yaml.template"} {
+		raw, err := os.ReadFile(filepath.Join("edge-workspace", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, variable := range variables {
+			if !strings.Contains(string(raw), "${"+variable+"}") {
+				t.Errorf("%s does not use %s", name, variable)
+			}
+		}
+	}
+}
+
 func collectFixtureReferences(value any, stores map[string]any, references map[string]struct{}) {
 	switch current := value.(type) {
 	case map[string]any:

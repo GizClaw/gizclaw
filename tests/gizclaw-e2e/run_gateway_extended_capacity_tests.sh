@@ -228,8 +228,19 @@ start_capacity_stack() {
 
 read_gateway_limit() {
   local key="$1"
-  awk -v key="$key:" '$1 == key { print $2; found = 1; exit } END { if (!found) exit 1 }' \
-    "$script_dir/testdata/edge-workspace/config.yaml.template"
+  # shellcheck disable=SC2016 # envsubst needs literal variable names.
+  local envsubst_variables='${GIZCLAW_E2E_GATEWAY_MAX_SESSIONS} ${GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS} ${GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM} ${GIZCLAW_E2E_GATEWAY_CHANNELS_PER_SESSION} ${GIZCLAW_E2E_GATEWAY_CHANNELS_PER_UPSTREAM} ${GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES}'
+  env \
+    GIZCLAW_E2E_GATEWAY_MAX_SESSIONS=30000 \
+    GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS=16 \
+    GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM=2048 \
+    GIZCLAW_E2E_GATEWAY_CHANNELS_PER_SESSION=32 \
+    GIZCLAW_E2E_GATEWAY_CHANNELS_PER_UPSTREAM=8192 \
+    GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES=512 \
+    "$script_dir/docker/setup/envsubst.pl" \
+      "$envsubst_variables" \
+      < "$script_dir/testdata/edge-workspace/config.yaml.template" |
+    awk -v key="$key:" '$1 == key { print $2; found = 1; exit } END { if (!found) exit 1 }'
 }
 
 verify_capacity_stack_running() {
