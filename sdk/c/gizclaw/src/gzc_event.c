@@ -1,6 +1,5 @@
 #include "gzc_event.h"
 
-#include <ctype.h>
 #include <pb_decode.h>
 #include <pb_encode.h>
 #include <string.h>
@@ -14,12 +13,16 @@ struct gzc_event_stream {
   const gzc_platform_t *platform;
 };
 
+static int ascii_is_space(unsigned char ch) {
+  return ch == 0x20u || (ch >= 0x09u && ch <= 0x0du);
+}
+
 static int has_non_space(const char *value) {
   if (value == NULL) {
     return 0;
   }
   for (; *value != '\0'; ++value) {
-    if (!isspace((unsigned char)*value)) {
+    if (!ascii_is_space((unsigned char)*value)) {
       return 1;
     }
   }

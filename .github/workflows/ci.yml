@@ -232,6 +232,33 @@ jobs:
       - name: Initialize nanopb submodule
         run: git submodule update --init --depth=1 third_party/nanopb/upstream
 
+      - name: Audit freestanding C SDK ctype dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          audit_dir="$(mktemp -d)"
+          trap 'rm -rf "$audit_dir"' EXIT
+          cc -std=c11 -Wall -Wextra -Werror -ffreestanding -fno-builtin \
+            -I sdk/c/gizclaw/include \
+            -I sdk/c/gizclaw/generated \
+            -I third_party/nanopb/upstream \
+            -c sdk/c/gizclaw/src/gzc_event.c \
+            -o "$audit_dir/gzc_event.o"
+          cc -std=c11 -Wall -Wextra -Werror -ffreestanding -fno-builtin \
+            -I sdk/c/gizclaw/include \
+            -I sdk/c/gizclaw/generated \
+            -I third_party/nanopb/upstream \
+            -c sdk/c/gizclaw/src/gzc_json.c \
+            -o "$audit_dir/gzc_json.o"
+          ar rcs "$audit_dir/libgzc_ascii_freestanding.a" \
+            "$audit_dir/gzc_event.o" \
+            "$audit_dir/gzc_json.o"
+          if nm -u "$audit_dir/libgzc_ascii_freestanding.a" | \
+            grep -E '(_ctype_|__ctype_b_loc|_?isdigit$|_?isspace$)'; then
+            echo "C SDK archive imports locale-aware ctype classification" >&2
+            exit 1
+          fi
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:

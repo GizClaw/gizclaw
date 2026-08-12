@@ -1,12 +1,19 @@
 #include "gzc_json.h"
 
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+static int ascii_is_space(unsigned char ch) {
+  return ch == 0x20u || (ch >= 0x09u && ch <= 0x0du);
+}
+
+static int ascii_is_digit(unsigned char ch) {
+  return ch >= (unsigned char)'0' && ch <= (unsigned char)'9';
+}
+
 static const char *skip_ws(const char *p, const char *end) {
-  while (p < end && isspace((unsigned char)*p)) {
+  while (p < end && ascii_is_space((unsigned char)*p)) {
     p++;
   }
   return p;
@@ -191,12 +198,12 @@ static const char *skip_number(const char *p, const char *end) {
   if (p < end && (*p == '-')) {
     p++;
   }
-  while (p < end && isdigit((unsigned char)*p)) {
+  while (p < end && ascii_is_digit((unsigned char)*p)) {
     p++;
   }
   if (p < end && *p == '.') {
     p++;
-    while (p < end && isdigit((unsigned char)*p)) {
+    while (p < end && ascii_is_digit((unsigned char)*p)) {
       p++;
     }
   }
@@ -205,7 +212,7 @@ static const char *skip_number(const char *p, const char *end) {
     if (p < end && (*p == '+' || *p == '-')) {
       p++;
     }
-    while (p < end && isdigit((unsigned char)*p)) {
+    while (p < end && ascii_is_digit((unsigned char)*p)) {
       p++;
     }
   }
@@ -243,7 +250,7 @@ static const char *skip_value(const char *p, const char *end) {
     }
     return NULL;
   }
-  if (*p == '-' || isdigit((unsigned char)*p)) {
+  if (*p == '-' || ascii_is_digit((unsigned char)*p)) {
     return skip_number(p, end);
   }
   if ((end - p) >= 4 && memcmp(p, "true", 4) == 0) {
@@ -264,18 +271,18 @@ static const char *validate_json_number(const char *p, const char *end) {
   if (p < end && *p == '-') {
     p++;
   }
-  if (p >= end || !isdigit((unsigned char)*p)) {
+  if (p >= end || !ascii_is_digit((unsigned char)*p)) {
     return NULL;
   }
-  while (p < end && isdigit((unsigned char)*p)) {
+  while (p < end && ascii_is_digit((unsigned char)*p)) {
     p++;
   }
   if (p < end && *p == '.') {
     p++;
-    if (p >= end || !isdigit((unsigned char)*p)) {
+    if (p >= end || !ascii_is_digit((unsigned char)*p)) {
       return NULL;
     }
-    while (p < end && isdigit((unsigned char)*p)) {
+    while (p < end && ascii_is_digit((unsigned char)*p)) {
       p++;
     }
   }
@@ -284,10 +291,10 @@ static const char *validate_json_number(const char *p, const char *end) {
     if (p < end && (*p == '+' || *p == '-')) {
       p++;
     }
-    if (p >= end || !isdigit((unsigned char)*p)) {
+    if (p >= end || !ascii_is_digit((unsigned char)*p)) {
       return NULL;
     }
-    while (p < end && isdigit((unsigned char)*p)) {
+    while (p < end && ascii_is_digit((unsigned char)*p)) {
       p++;
     }
   }
@@ -371,7 +378,7 @@ static const char *validate_json_value(const char *p, const char *end) {
   if (*p == '[') {
     return validate_json_array(p, end);
   }
-  if (*p == '-' || isdigit((unsigned char)*p)) {
+  if (*p == '-' || ascii_is_digit((unsigned char)*p)) {
     return validate_json_number(p, end);
   }
   if ((end - p) >= 4 && memcmp(p, "true", 4) == 0) {
@@ -544,12 +551,13 @@ int gzc_json_parse_i64(gzc_str_t raw_json, int64_t *out) {
     neg = true;
     i++;
   }
-  if (i == raw_json.len || !isdigit((unsigned char)raw_json.data[i])) {
+  if (i == raw_json.len ||
+      !ascii_is_digit((unsigned char)raw_json.data[i])) {
     return GZC_ERR_JSON;
   }
   int64_t value = 0;
   for (; i < raw_json.len; i++) {
-    if (!isdigit((unsigned char)raw_json.data[i])) {
+    if (!ascii_is_digit((unsigned char)raw_json.data[i])) {
       return GZC_ERR_JSON;
     }
     int64_t digit = (int64_t)(raw_json.data[i] - '0');
