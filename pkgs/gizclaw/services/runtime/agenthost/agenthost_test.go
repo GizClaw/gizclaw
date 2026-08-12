@@ -361,6 +361,17 @@ func TestServiceResolverErrors(t *testing.T) {
 	}
 }
 
+func TestServiceResolverResolveMemoryByIDPreservesWorkspaceLifecycleError(t *testing.T) {
+	resolver := ServiceResolver{
+		Workspaces: fakeWorkspaceService{availabilityErr: workspace.ErrWorkspacePendingDeletion},
+		Workflows:  fakeWorkflowService{},
+	}
+	_, err := resolver.ResolveMemoryByID(context.Background(), "workspace-id")
+	if !errors.Is(err, workspace.ErrWorkspacePendingDeletion) {
+		t.Fatalf("ResolveMemoryByID() error = %v, want %v", err, workspace.ErrWorkspacePendingDeletion)
+	}
+}
+
 func TestServiceResolverAllowsAdminWorkspaceWithCanonicalWorkflow(t *testing.T) {
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
@@ -1062,8 +1073,9 @@ func (r fakeResolver) Resolve(context.Context, string) (Spec, error) {
 
 type fakeWorkspaceService struct {
 	workspace.WorkspaceAdminService
-	items   map[string]apitypes.Workspace
-	runtime workspace.Runtime
+	items           map[string]apitypes.Workspace
+	runtime         workspace.Runtime
+	availabilityErr error
 }
 
 func (s fakeWorkspaceService) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
@@ -1084,6 +1096,21 @@ func (s fakeWorkspaceService) GetWorkspaceByName(_ context.Context, name string)
 
 func (s fakeWorkspaceService) GetWorkspaceRuntimeByID(context.Context, string) (workspace.Runtime, error) {
 	return s.runtime, nil
+}
+
+func (s fakeWorkspaceService) GetAvailableWorkspaceByID(ctx context.Context, id string) (apitypes.Workspace, error) {
+	if s.availabilityErr != nil {
+		return apitypes.Workspace{}, s.availabilityErr
+	}
+	response, err := s.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Id: id})
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	value, ok := response.(adminhttp.GetWorkspace200JSONResponse)
+	if !ok {
+		return apitypes.Workspace{}, errors.New("workspace not found")
+	}
+	return apitypes.Workspace(value), nil
 }
 
 type fakeWorkflowService struct {

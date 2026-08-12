@@ -33,6 +33,7 @@ const (
 	workspaceRewardPollInterval     = time.Second
 	workspaceRewardReconcilePeriod  = 30 * time.Second
 	workspaceRewardClaimLease       = time.Minute
+	workspaceRewardRecoveryTimeout  = 2 * time.Second
 	workspaceRewardMaxAttempts      = 5
 )
 
@@ -40,6 +41,7 @@ var (
 	errWorkspaceRewardHistoryUnavailable = errors.New("claimed History high-water is unavailable")
 	errWorkspaceRewardHistoryIdentity    = errors.New("first History entry no longer matches frozen beneficiary")
 	errWorkspaceRewardTranscriptConflict = errors.New("transcript digest changed across retry")
+	errWorkspaceRewardAvailability       = errors.New("Workspace reward availability fence is not configured")
 )
 
 // WorkspaceRewardEnvironment supplies Server-owned Workspace, RuntimeProfile,
@@ -54,6 +56,10 @@ type WorkspaceRewardEnvironment interface {
 	ResolveWorkspaceRewardPolicy(context.Context, string, string) (WorkspaceRewardKind, *WorkspaceRewardPolicySnapshot, error)
 	WorkspaceRewardGenerator(context.Context, string, WorkspaceRewardPolicySnapshot) (genx.Generator, error)
 	NotifyWorkspaceReward(context.Context, string, WorkspaceRewardUpdate) error
+}
+
+type workspaceRewardAvailability interface {
+	EnsureWorkspaceAvailable(context.Context, string) error
 }
 
 type WorkspaceRewardKind string
@@ -360,6 +366,10 @@ func (r *Runtime) ScheduleWorkspaceRewardActivity(ctx context.Context, workspace
 	lock := r.workspaceRewardMutex(workspaceID)
 	lock.Lock()
 	defer lock.Unlock()
+	available, err := r.ensureWorkspaceRewardAvailableLocked(ctx, workspaceID)
+	if err != nil || !available {
+		return err
+	}
 	source, err := r.getWorkspaceRewardSource(ctx, workspaceID)
 	if errors.Is(err, sql.ErrNoRows) {
 		now := r.now()
@@ -370,7 +380,7 @@ func (r *Runtime) ScheduleWorkspaceRewardActivity(ctx context.Context, workspace
 		checkpoint := ""
 		latest, ok, latestErr := r.WorkspaceRewards.LatestHistoryEntryBefore(ctx, workspaceID, activation)
 		if latestErr != nil {
-			return latestErr
+			return r.retireWorkspaceRewardIfTerminalLocked(ctx, workspaceID, latestErr)
 		}
 		if ok {
 			checkpoint = latest.ID
@@ -387,7 +397,7 @@ func (r *Runtime) ScheduleWorkspaceRewardActivity(ctx context.Context, workspace
 			return err
 		}
 		if err := r.reconcileWorkspaceRewardSourceLocked(ctx, &source, entry.ID); err != nil {
-			return err
+			return r.retireWorkspaceRewardIfTerminalLocked(ctx, workspaceID, err)
 		}
 		r.wakeWorkspaceRewardDispatcher()
 		return nil
@@ -399,7 +409,7 @@ func (r *Runtime) ScheduleWorkspaceRewardActivity(ctx context.Context, workspace
 		return nil
 	}
 	if err := r.reconcileWorkspaceRewardSourceLocked(ctx, &source, entry.ID); err != nil {
-		return err
+		return r.retireWorkspaceRewardIfTerminalLocked(ctx, workspaceID, err)
 	}
 	r.wakeWorkspaceRewardDispatcher()
 	return nil
@@ -417,7 +427,14 @@ func (r *Runtime) initializeWorkspaceRewardSources(ctx context.Context, activati
 		}
 		lock := r.workspaceRewardMutex(name)
 		lock.Lock()
-		_, err := r.getWorkspaceRewardSource(ctx, name)
+		available, err := r.ensureWorkspaceRewardAvailableLocked(ctx, name)
+		if err == nil && !available {
+			lock.Unlock()
+			continue
+		}
+		if err == nil {
+			_, err = r.getWorkspaceRewardSource(ctx, name)
+		}
 		if errors.Is(err, sql.ErrNoRows) {
 			err = nil
 			checkpoint := ""
@@ -435,6 +452,7 @@ func (r *Runtime) initializeWorkspaceRewardSources(ctx context.Context, activati
 				})
 			}
 		}
+		err = r.retireWorkspaceRewardIfTerminalLocked(ctx, name, err)
 		lock.Unlock()
 		if err != nil {
 			return fmt.Errorf("initialize workspace reward source %q: %w", name, err)
@@ -460,6 +478,10 @@ func (r *Runtime) reconcileWorkspaceRewardSource(ctx context.Context, workspaceI
 	lock := r.workspaceRewardMutex(workspaceID)
 	lock.Lock()
 	defer lock.Unlock()
+	available, err := r.ensureWorkspaceRewardAvailableLocked(ctx, workspaceID)
+	if err != nil || !available {
+		return err
+	}
 	source, err := r.getWorkspaceRewardSource(ctx, workspaceID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
@@ -467,7 +489,8 @@ func (r *Runtime) reconcileWorkspaceRewardSource(ctx context.Context, workspaceI
 	if err != nil {
 		return err
 	}
-	return r.reconcileWorkspaceRewardSourceLocked(ctx, &source, through)
+	err = r.reconcileWorkspaceRewardSourceLocked(ctx, &source, through)
+	return r.retireWorkspaceRewardIfTerminalLocked(ctx, workspaceID, err)
 }
 
 func (r *Runtime) reconcileWorkspaceRewardSourceLocked(ctx context.Context, source *workspaceRewardSource, through string) error {
@@ -480,6 +503,9 @@ func (r *Runtime) reconcileWorkspaceRewardSourceLocked(ctx context.Context, sour
 	}
 	cursor := source.ScheduledCheckpoint
 	for {
+		if err := r.checkWorkspaceRewardAvailability(ctx, source.WorkspaceID); err != nil {
+			return err
+		}
 		page, err := r.WorkspaceRewards.ListHistoryEntries(ctx, source.WorkspaceID, cursor, through, workspaceRewardHistoryPageLimit)
 		if err != nil {
 			return err
@@ -508,6 +534,9 @@ func (r *Runtime) reconcileWorkspaceRewardSourceLocked(ctx context.Context, sour
 }
 
 func (r *Runtime) applyWorkspaceRewardEntry(ctx context.Context, source *workspaceRewardSource, entry workspace.HistoryEntry) error {
+	if err := r.checkWorkspaceRewardAvailability(ctx, source.WorkspaceID); err != nil {
+		return err
+	}
 	active, err := r.activeWorkspaceRewardWindow(ctx, source.WorkspaceID)
 	if err == nil {
 		if active.State != workspaceRewardPending {
@@ -584,13 +613,37 @@ func (r *Runtime) dispatchWorkspaceReward(ctx context.Context) (bool, error) {
 	if err != nil || !ok {
 		return ok, err
 	}
+	available, availabilityErr := r.ensureWorkspaceRewardAvailable(ctx, window.WorkspaceID)
+	if !available {
+		return true, availabilityErr
+	}
+	if availabilityErr != nil {
+		return true, r.retryWorkspaceRewardWindow(ctx, window, availabilityErr)
+	}
 	err = r.processWorkspaceRewardClaim(ctx, window)
 	if err == nil {
+		available, availabilityErr = r.ensureWorkspaceRewardAvailable(ctx, window.WorkspaceID)
+		if !available {
+			return true, availabilityErr
+		}
 		_ = r.reconcileWorkspaceRewardSource(ctx, window.WorkspaceID, "")
 		return true, nil
 	}
+	availabilityCtx, cancelAvailability := workspaceRewardRecoveryContext(ctx)
+	available, availabilityErr = r.ensureWorkspaceRewardAvailable(availabilityCtx, window.WorkspaceID)
+	cancelAvailability()
+	if !available {
+		return true, availabilityErr
+	}
+	if availabilityErr != nil {
+		persistCtx, cancelPersist := workspaceRewardRecoveryContext(ctx)
+		defer cancelPersist()
+		return true, r.retryWorkspaceRewardWindow(persistCtx, window, availabilityErr)
+	}
 	if ctx.Err() != nil {
-		return true, r.retryWorkspaceRewardWindow(context.WithoutCancel(ctx), window, ctx.Err())
+		persistCtx, cancelPersist := workspaceRewardRecoveryContext(ctx)
+		defer cancelPersist()
+		return true, r.retryWorkspaceRewardWindow(persistCtx, window, ctx.Err())
 	}
 	var invalid *invalidWorkspaceRewardError
 	if errors.As(err, &invalid) {
@@ -600,6 +653,13 @@ func (r *Runtime) dispatchWorkspaceReward(ctx context.Context) (bool, error) {
 		return true, r.blockAndReconcileWorkspaceRewardWindow(ctx, window, err)
 	}
 	return true, r.retryWorkspaceRewardWindow(ctx, window, err)
+}
+
+func workspaceRewardRecoveryContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if ctx.Err() == nil {
+		return ctx, func() {}
+	}
+	return context.WithTimeout(context.WithoutCancel(ctx), workspaceRewardRecoveryTimeout)
 }
 
 func (r *Runtime) blockAndReconcileWorkspaceRewardWindow(
@@ -614,11 +674,17 @@ func (r *Runtime) blockAndReconcileWorkspaceRewardWindow(
 }
 
 func (r *Runtime) processWorkspaceRewardClaim(ctx context.Context, window workspaceRewardWindow) error {
+	if err := r.checkWorkspaceRewardAvailability(ctx, window.WorkspaceID); err != nil {
+		return err
+	}
 	transcript, digest, outcome, err := r.workspaceRewardTranscript(ctx, window)
 	if err != nil {
 		return &invalidWorkspaceRewardError{cause: err}
 	}
 	if outcome != "" {
+		if err := r.checkWorkspaceRewardAvailability(ctx, window.WorkspaceID); err != nil {
+			return err
+		}
 		if outcome == "skipped_incomplete" && r.now().Before(window.OpenedAt.Add(window.Policy.MaxWindowAge)) {
 			return r.deferIncompleteWorkspaceRewardWindow(ctx, window)
 		}
@@ -642,12 +708,21 @@ func (r *Runtime) processWorkspaceRewardClaim(ctx context.Context, window worksp
 	if err := r.setWorkspaceRewardTranscriptDigest(ctx, window, digest); err != nil {
 		return err
 	}
+	if err := r.checkWorkspaceRewardAvailability(ctx, window.WorkspaceID); err != nil {
+		return err
+	}
 	generator, err := r.WorkspaceRewards.WorkspaceRewardGenerator(ctx, window.BeneficiaryPublicKey, window.Policy)
 	if err != nil {
 		return fmt.Errorf("resolve evaluator: %w", err)
 	}
+	if err := r.checkWorkspaceRewardAvailability(ctx, window.WorkspaceID); err != nil {
+		return err
+	}
 	result, err := evaluateWorkspaceReward(ctx, generator, window.Policy, transcript)
 	if err != nil {
+		return err
+	}
+	if err := r.checkWorkspaceRewardAvailability(ctx, window.WorkspaceID); err != nil {
 		return err
 	}
 	grant, changed, err := r.settleWorkspaceReward(ctx, window, digest, result)
@@ -664,10 +739,46 @@ func (r *Runtime) processWorkspaceRewardClaim(ctx context.Context, window worksp
 	return nil
 }
 
+func (r *Runtime) ensureWorkspaceRewardAvailable(ctx context.Context, workspaceID string) (bool, error) {
+	lock := r.workspaceRewardMutex(workspaceID)
+	lock.Lock()
+	defer lock.Unlock()
+	return r.ensureWorkspaceRewardAvailableLocked(ctx, workspaceID)
+}
+
+func (r *Runtime) ensureWorkspaceRewardAvailableLocked(ctx context.Context, workspaceID string) (bool, error) {
+	err := r.checkWorkspaceRewardAvailability(ctx, workspaceID)
+	if err == nil {
+		return true, nil
+	}
+	if !isWorkspaceLifecycleTerminal(err) {
+		return true, err
+	}
+	return false, r.deleteUnsettledWorkspaceRewardData(ctx, workspaceID)
+}
+
+func (r *Runtime) retireWorkspaceRewardIfTerminalLocked(ctx context.Context, workspaceID string, cause error) error {
+	if cause == nil || !isWorkspaceLifecycleTerminal(cause) {
+		return cause
+	}
+	return r.deleteUnsettledWorkspaceRewardData(ctx, workspaceID)
+}
+
+func (r *Runtime) checkWorkspaceRewardAvailability(ctx context.Context, workspaceID string) error {
+	availability, ok := r.WorkspaceRewards.(workspaceRewardAvailability)
+	if !ok {
+		return errWorkspaceRewardAvailability
+	}
+	return availability.EnsureWorkspaceAvailable(ctx, workspaceID)
+}
+
 func (r *Runtime) workspaceRewardTranscript(
 	ctx context.Context,
 	window workspaceRewardWindow,
 ) ([]WorkspaceRewardTranscriptEntry, string, string, error) {
+	if err := r.checkWorkspaceRewardAvailability(ctx, window.WorkspaceID); err != nil {
+		return nil, "", "", err
+	}
 	first, err := r.WorkspaceRewards.GetHistoryEntry(ctx, window.WorkspaceID, window.StartHistoryID)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("read first History entry: %w", err)
@@ -680,6 +791,9 @@ func (r *Runtime) workspaceRewardTranscript(
 	cursor := first.ID
 	lastSeenID := first.ID
 	for cursor < window.HighWaterHistoryID {
+		if err := r.checkWorkspaceRewardAvailability(ctx, window.WorkspaceID); err != nil {
+			return nil, "", "", err
+		}
 		page, err := r.WorkspaceRewards.ListHistoryEntries(ctx, window.WorkspaceID, cursor, window.HighWaterHistoryID, workspaceRewardHistoryPageLimit)
 		if err != nil {
 			return nil, "", "", err

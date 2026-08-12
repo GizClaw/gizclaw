@@ -381,6 +381,7 @@ func TestMixerOutputConsumesRouteInterruptWhilePreviousTrackDrains(t *testing.T)
 	go func() {
 		defer close(readDone)
 		_, _ = creator.mixer.Read(buffer)
+		_, _ = creator.mixer.Read(buffer)
 	}()
 	select {
 	case err := <-done:
@@ -397,6 +398,73 @@ func TestMixerOutputConsumesRouteInterruptWhilePreviousTrackDrains(t *testing.T)
 	if len(observed) != 1 || observed[0] != interrupt {
 		t.Fatalf("observed chunks = %#v, want only route interrupted EOS", observed)
 	}
+}
+
+func TestMixerOutputInterruptsOneRouteWhileAnotherDrains(t *testing.T) {
+	creator := newRecordingAudioTrackCreator()
+	interrupted := pcmOutputChunk("route-a", "audio/pcm", nil, true, "interrupted")
+	drained := pcmOutputChunk("route-b", "audio/pcm", nil, true, "")
+	observedEOS := make(chan *genx.MessageChunk, 2)
+	output := &sliceStream{chunks: []*genx.MessageChunk{
+		pcmOutputChunk("route-a", "audio/pcm", []byte{1, 0}, false, ""),
+		pcmOutputChunk("route-b", "audio/pcm", []byte{2, 0}, false, ""),
+		interrupted,
+		drained,
+	}, doneErr: genx.ErrDone}
+	done := make(chan error, 1)
+	go func() {
+		done <- (MixerOutput{
+			Tracks:            creator,
+			WaitForAudioDrain: true,
+			Observe: func(chunk *genx.MessageChunk) error {
+				if chunk.IsEndOfStream() {
+					observedEOS <- chunk
+				}
+				return nil
+			},
+		}).ConsumeAgentOutput(t.Context(), output)
+	}()
+	select {
+	case got := <-observedEOS:
+		if got != interrupted {
+			t.Fatalf("first observed EOS = %#v, want route-a interruption", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("route-a interruption was not observed")
+	}
+	select {
+	case got := <-observedEOS:
+		t.Fatalf("route-b EOS observed before drain: %#v", got)
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	buffer := make([]byte, creator.mixer.Output().BytesInDuration(60*time.Millisecond))
+	readDone := make(chan struct{})
+	go func() {
+		defer close(readDone)
+		_, _ = creator.mixer.Read(buffer)
+		_, _ = creator.mixer.Read(buffer)
+	}()
+	select {
+	case got := <-observedEOS:
+		if got != drained {
+			t.Fatalf("final observed EOS = %#v, want route-b drain", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("route-b EOS was not observed after drain")
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("ConsumeAgentOutput() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("ConsumeAgentOutput() did not finish")
+	}
+	if err := creator.mixer.Close(); err != nil {
+		t.Fatalf("mixer.Close() error = %v", err)
+	}
+	<-readDone
 }
 
 func TestMixerOutputClosesBlockedReaderAfterObserveError(t *testing.T) {

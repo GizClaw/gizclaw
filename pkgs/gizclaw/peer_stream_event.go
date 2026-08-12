@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"strings"
 	"sync"
 
@@ -167,11 +168,25 @@ type peerAgentOutput struct {
 }
 
 func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) error {
-	return (agenthost.MixerOutput{
+	audio := newPeerAudioRouteAggregator()
+	err := (agenthost.MixerOutput{
 		Tracks:            o.Tracks,
 		WaitForAudioDrain: true,
 		Observe: func(chunk *genx.MessageChunk) error {
+			routeEOS := audio.consumeRouteEOS(chunk)
+			if routeEOS != nil {
+				if err := o.Events.Broadcast(routeEOS); err != nil {
+					return err
+				}
+			}
 			for _, event := range peerStreamEventsFromChunk(chunk) {
+				emit, err := audio.consume(event)
+				if err != nil {
+					return err
+				}
+				if !emit {
+					continue
+				}
 				if err := o.Events.Broadcast(event); err != nil {
 					return err
 				}
@@ -179,6 +194,174 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 			return nil
 		},
 	}).ConsumeAgentOutput(ctx, output)
+	if err != nil {
+		return errors.Join(err, o.broadcastAudioAbort(audio))
+	}
+	if err := audio.close(); err != nil {
+		return errors.Join(err, o.broadcastAudioAbort(audio))
+	}
+	return nil
+}
+
+func (o peerAgentOutput) broadcastAudioAbort(audio *peerAudioRouteAggregator) error {
+	event := audio.abort()
+	if event == nil {
+		return nil
+	}
+	return o.Events.Broadcast(event)
+}
+
+type peerAudioRouteKey struct {
+	streamID string
+	mimeType string
+}
+
+type peerAudioRoute struct {
+	streamID string
+	label    string
+}
+
+type peerAudioRouteAggregator struct {
+	active map[peerAudioRouteKey]struct{}
+	epoch  peerAudioRoute
+}
+
+func newPeerAudioRouteAggregator() *peerAudioRouteAggregator {
+	return &peerAudioRouteAggregator{active: make(map[peerAudioRouteKey]struct{})}
+}
+
+func (a *peerAudioRouteAggregator) consume(event *eventpb.PeerEvent) (bool, error) {
+	if event == nil || event.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_AUDIO {
+		return true, nil
+	}
+	key, err := peerAudioRouteKeyFromEvent(event)
+	if err != nil {
+		return false, err
+	}
+	switch event.Type {
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_BOS:
+		if _, exists := a.active[key]; exists {
+			return false, fmt.Errorf("gizclaw: duplicate audio BOS stream_id=%q mime=%q", key.streamID, key.mimeType)
+		}
+		a.active[key] = struct{}{}
+		if len(a.active) != 1 {
+			return false, nil
+		}
+		a.epoch = peerAudioRoute{streamID: event.StreamID(), label: event.Label()}
+		normalizePeerOutputAudioEvent(event, a.epoch)
+		return true, nil
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS:
+		if _, exists := a.active[key]; !exists {
+			return false, fmt.Errorf("gizclaw: unmatched audio EOS stream_id=%q mime=%q", key.streamID, key.mimeType)
+		}
+		delete(a.active, key)
+		if len(a.active) != 0 {
+			return false, nil
+		}
+		normalizePeerOutputAudioEvent(event, a.epoch)
+		a.epoch = peerAudioRoute{}
+		return true, nil
+	default:
+		return true, nil
+	}
+}
+
+func (a *peerAudioRouteAggregator) consumeRouteEOS(chunk *genx.MessageChunk) *eventpb.PeerEvent {
+	if a == nil || chunk == nil || chunk.Part != nil || !chunk.IsEndOfStream() || chunk.Ctrl == nil {
+		return nil
+	}
+	streamID := strings.TrimSpace(chunk.Ctrl.StreamID)
+	if streamID == "" {
+		return nil
+	}
+	removed := false
+	for key := range a.active {
+		if key.streamID == streamID {
+			delete(a.active, key)
+			removed = true
+		}
+	}
+	if !removed || len(a.active) != 0 {
+		return nil
+	}
+	event := peerStreamEventFromChunk(chunk, eventpb.PeerEventType_PEER_EVENT_TYPE_EOS, nil)
+	normalizePeerOutputAudioEvent(event, a.epoch)
+	a.epoch = peerAudioRoute{}
+	return event
+}
+
+func (a *peerAudioRouteAggregator) close() error {
+	if a == nil || len(a.active) == 0 {
+		return nil
+	}
+	return fmt.Errorf("gizclaw: agent output ended with %d open audio route(s)", len(a.active))
+}
+
+func (a *peerAudioRouteAggregator) abort() *eventpb.PeerEvent {
+	if a == nil || len(a.active) == 0 || a.epoch.streamID == "" {
+		return nil
+	}
+	event := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
+			Error: &eventpb.EventError{
+				Code:      "AGENT_AUDIO_OUTPUT_ERROR",
+				Message:   "agent audio output ended unexpectedly",
+				Retryable: true,
+			},
+		}},
+	}
+	normalizePeerOutputAudioEvent(event, a.epoch)
+	clear(a.active)
+	a.epoch = peerAudioRoute{}
+	return event
+}
+
+func peerAudioRouteKeyFromEvent(event *eventpb.PeerEvent) (peerAudioRouteKey, error) {
+	streamID := strings.TrimSpace(event.StreamID())
+	if streamID == "" {
+		return peerAudioRouteKey{}, errors.New("gizclaw: audio route requires a stream_id")
+	}
+	mimeType := ""
+	switch event.Type {
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_BOS:
+		mimeType = event.GetBos().GetMimeType()
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS:
+		mimeType = event.GetEos().GetMimeType()
+	default:
+		return peerAudioRouteKey{}, fmt.Errorf("gizclaw: audio route event type %s is not a boundary", event.Type)
+	}
+	mediaType, params, err := mime.ParseMediaType(mimeType)
+	if err != nil {
+		return peerAudioRouteKey{}, fmt.Errorf("gizclaw: invalid audio route MIME %q: %w", mimeType, err)
+	}
+	mediaType = strings.ToLower(mediaType)
+	if !strings.HasPrefix(mediaType, "audio/") && mediaType != "application/ogg" {
+		return peerAudioRouteKey{}, fmt.Errorf("gizclaw: unsupported audio route MIME %q", mimeType)
+	}
+	return peerAudioRouteKey{streamID: streamID, mimeType: mime.FormatMediaType(mediaType, params)}, nil
+}
+
+func normalizePeerOutputAudioEvent(event *eventpb.PeerEvent, epoch peerAudioRoute) {
+	switch event.Type {
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_BOS:
+		if bos := event.GetBos(); bos != nil {
+			bos.StreamId = epoch.streamID
+			bos.Label = epoch.label
+			bos.Kind = eventpb.StreamKind_STREAM_KIND_AUDIO
+			bos.MimeType = ""
+			bos.Sequence = 0
+		}
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS:
+		if eos := event.GetEos(); eos != nil {
+			eos.StreamId = epoch.streamID
+			eos.Label = epoch.label
+			eos.Kind = eventpb.StreamKind_STREAM_KIND_AUDIO
+			eos.MimeType = ""
+			eos.Sequence = 0
+		}
+	}
 }
 
 func readPeerStreamEvent(r io.Reader) (*eventpb.PeerEvent, error) {
@@ -380,11 +563,12 @@ func peerStreamKindFromChunk(chunk *genx.MessageChunk) eventpb.StreamKind {
 		return eventpb.StreamKind_STREAM_KIND_TEXT
 	}
 	if blob, ok := chunk.Part.(*genx.Blob); ok {
-		mimeType := strings.ToLower(strings.TrimSpace(blob.MIMEType))
+		mimeType, _, err := mime.ParseMediaType(blob.MIMEType)
+		mimeType = strings.ToLower(mimeType)
 		switch {
-		case strings.HasPrefix(mimeType, "audio/"):
+		case err == nil && (strings.HasPrefix(mimeType, "audio/") || mimeType == "application/ogg"):
 			return eventpb.StreamKind_STREAM_KIND_AUDIO
-		case strings.HasPrefix(mimeType, "video/"):
+		case err == nil && strings.HasPrefix(mimeType, "video/"):
 			return eventpb.StreamKind_STREAM_KIND_VIDEO
 		}
 	}

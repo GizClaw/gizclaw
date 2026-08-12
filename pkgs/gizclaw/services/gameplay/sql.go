@@ -465,10 +465,10 @@ func (r *Runtime) claimDriveFact(ctx context.Context) (driveFactOutbox, bool, er
 	now := r.now()
 	for range 8 {
 		item, err := scanDriveFactOutbox(db.QueryRowContext(ctx, db.Rebind(
-			driveFactOutboxSelectSQL()+` WHERE state <> ? AND next_attempt_at <= ?
+			driveFactOutboxSelectSQL()+` WHERE state IN (?, ?, ?) AND next_attempt_at <= ?
 				AND (claim_token = '' OR claim_until <= ?)
 				ORDER BY next_attempt_at, created_at, observation_id LIMIT 1`,
-		), driveFactDelivered, formatDriveFactTime(now), formatDriveFactTime(now)))
+		), driveFactPending, driveFactSubmitted, driveFactBlocked, formatDriveFactTime(now), formatDriveFactTime(now)))
 		if errors.Is(err, sql.ErrNoRows) {
 			return driveFactOutbox{}, false, nil
 		}
@@ -479,10 +479,12 @@ func (r *Runtime) claimDriveFact(ctx context.Context) (driveFactOutbox, bool, er
 		claimUntil := now.Add(30 * time.Second)
 		result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_drive_fact_outbox
 			SET claim_token = ?, claim_until = ?, attempt_count = attempt_count + 1, updated_at = ?
-			WHERE workspace_id = ? AND observation_id = ? AND state <> ? AND next_attempt_at <= ?
+			WHERE workspace_id = ? AND observation_id = ? AND state IN (?, ?, ?) AND next_attempt_at <= ?
 				AND (claim_token = '' OR claim_until <= ?)`),
 			token, formatDriveFactTime(claimUntil), formatDriveFactTime(now),
-			item.Target.WorkspaceID, item.ObservationID, driveFactDelivered, formatDriveFactTime(now), formatDriveFactTime(now))
+			item.Target.WorkspaceID, item.ObservationID,
+			driveFactPending, driveFactSubmitted, driveFactBlocked,
+			formatDriveFactTime(now), formatDriveFactTime(now))
 		if err != nil {
 			return driveFactOutbox{}, false, err
 		}
@@ -498,6 +500,33 @@ func (r *Runtime) claimDriveFact(ctx context.Context) (driveFactOutbox, bool, er
 		}
 	}
 	return driveFactOutbox{}, false, nil
+}
+
+func (r *Runtime) retireDriveFactClaim(ctx context.Context, item driveFactOutbox) error {
+	db, err := r.db()
+	if err != nil {
+		return err
+	}
+	result, err := db.ExecContext(ctx, db.Rebind(`DELETE FROM gameplay_drive_fact_outbox
+		WHERE workspace_id = ? AND observation_id = ? AND claim_token = ?`),
+		item.Target.WorkspaceID, item.ObservationID, item.ClaimToken)
+	if err != nil {
+		return err
+	}
+	deleted, err := result.RowsAffected()
+	if err != nil || deleted == 1 {
+		return err
+	}
+	var remaining int
+	if err := db.QueryRowContext(ctx, db.Rebind(`SELECT COUNT(*) FROM gameplay_drive_fact_outbox
+		WHERE workspace_id = ? AND observation_id = ?`),
+		item.Target.WorkspaceID, item.ObservationID).Scan(&remaining); err != nil {
+		return err
+	}
+	if remaining == 0 {
+		return nil
+	}
+	return fmt.Errorf("%w: Drive Fact claim was lost before terminal retirement", memory.ErrConflict)
 }
 
 func (r *Runtime) finishDriveFactClaim(ctx context.Context, item driveFactOutbox, state, operationID, lastError string, nextAttemptAt time.Time) error {

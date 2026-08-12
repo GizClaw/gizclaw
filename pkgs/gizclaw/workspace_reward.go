@@ -24,6 +24,14 @@ type workspaceRewardEnvironment struct {
 	workspaces *workspace.Server
 }
 
+func (environment *workspaceRewardEnvironment) EnsureWorkspaceAvailable(ctx context.Context, workspaceID string) error {
+	if environment == nil || environment.workspaces == nil {
+		return errors.New("gizclaw: Workspace reward source is not configured")
+	}
+	_, err := environment.workspaces.GetAvailableWorkspaceByID(ctx, workspaceID)
+	return err
+}
+
 func (environment *workspaceRewardEnvironment) ListWorkspaceIDs(ctx context.Context) ([]string, error) {
 	if environment == nil || environment.workspaces == nil {
 		return nil, errors.New("gizclaw: Workspace reward source is not configured")

@@ -2,6 +2,7 @@ package agenthost
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"sort"
@@ -35,6 +36,10 @@ type ServiceResolver struct {
 
 type workspaceRuntimeProvider interface {
 	GetWorkspaceRuntimeByID(context.Context, string) (workspace.Runtime, error)
+}
+
+type availableWorkspaceProvider interface {
+	GetAvailableWorkspaceByID(context.Context, string) (apitypes.Workspace, error)
 }
 
 // ResolveMemory resolves only the Workspace, outer Workflow, and owner
@@ -71,7 +76,7 @@ func (r ServiceResolver) ResolveMemoryByID(ctx context.Context, workspaceID stri
 	if err := customid.ValidateResourceID(workspaceID); err != nil {
 		return Spec{}, fmt.Errorf("agenthost: invalid workspace id: %w", err)
 	}
-	ws, err := r.getWorkspaceByID(ctx, workspaceID)
+	ws, err := r.getAvailableWorkspaceByID(ctx, workspaceID)
 	if err != nil {
 		return Spec{}, err
 	}
@@ -412,6 +417,18 @@ func (r ServiceResolver) getWorkspaceByID(ctx context.Context, id string) (apity
 	default:
 		return apitypes.Workspace{}, fmt.Errorf("agenthost: unexpected GetWorkspace response %T", response)
 	}
+}
+
+func (r ServiceResolver) getAvailableWorkspaceByID(ctx context.Context, id string) (apitypes.Workspace, error) {
+	provider, ok := r.Workspaces.(availableWorkspaceProvider)
+	if !ok {
+		return apitypes.Workspace{}, errors.New("agenthost: Workspace availability resolver is required")
+	}
+	value, err := provider.GetAvailableWorkspaceByID(ctx, id)
+	if err != nil {
+		return apitypes.Workspace{}, fmt.Errorf("agenthost: get available workspace %q: %w", id, err)
+	}
+	return value, nil
 }
 
 func (r ServiceResolver) getWorkflow(ctx context.Context, id string) (apitypes.Workflow, error) {

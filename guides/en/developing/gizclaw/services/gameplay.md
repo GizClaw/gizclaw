@@ -58,6 +58,8 @@ Gameplay inserts `gameplay_drive_fact_outbox` in the same SQL transaction that c
 
 Delivery resolves the Workspace Memory binding selected by the Pet's outer Workflow and leases a logical `Scope.AppID = Pet.WorkspaceName` Store through the existing `memorystore.Registry`. An operation records a credential-free digest of its physical binding. If the RuntimeProfile selects a different physical binding before completion, the old locator is never passed to the new backend. Pet death and ordinary Pet deletion do not delete the Workspace, outbox, or delivered Fact; those records continue to follow the Workspace Memory lifecycle.
 
+The dispatcher checks authoritative Workspace and owner availability before provider work and again after asynchronous waits. `PendingDeletion` is terminal for that Workspace: the exact claimed outbox row is deleted under its claim token, no new provider work or retry is scheduled, and unrelated Workspace rows continue normally. Active Workspace failures retain the existing retry and blocked-state behavior.
+
 Gameplay uses Workspace ownership and the Pet domain relationship. It does not create extra roles or policy bindings. Adoption persists a Pet-to-Workspace binding independently of the active Pet row. Pet deletion atomically creates or reuses one `kind=pet` PendingDeletion in the same gameplay SQL database while retaining the Pet row and its binding; the marker does not change Pet reads, lists, authorization, or mutations. No Workspace pending record is created.
 
 The registered `source=gameplay` processor handler later verifies the immutable Pet descriptor, marker fingerprint, exact deterministic marker classification, and live SQL lease. Its final transaction deletes only the matching retained Pet row, matching locator, and marker/task state. A compatible legacy marker with no Pet is idempotently consumed; a legacy marker with any Pet is failed as replacement-ambiguous. The Pet-to-Workspace binding and bound system Workspace remain, as do Points, badges, results, transactions, rewards, Drive Fact outbox, Workspace reward state, Social data, prompts, messages, and history. Completion leaves no task receipt, and zero-row Pet mutations cannot report success after cleanup wins a race.
@@ -89,3 +91,5 @@ window cannot grant twice. A successful state change sends
 `GAMEPLAY_REWARD_UPDATED` only to the beneficiary as an invalidation hint, after
 which clients fetch authoritative Gameplay state. Deterministic task rewards
 belong to a separate task system and do not use this evaluator.
+
+Workspace reward scheduling, startup reconciliation, History paging, model evaluation, and retry dispatch all use the same authoritative availability gate. Once the Workspace or owner is pending deletion, unsettled windows and the exact source row are removed, completed reward audit rows remain, and no further History or model call is made for that Workspace. Other Workspaces remain independently dispatchable.

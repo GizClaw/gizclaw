@@ -2,17 +2,39 @@ package gizclaw
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
+
+type lifecycleDriveFactResolver struct {
+	err error
+}
+
+func (resolver lifecycleDriveFactResolver) ResolveMemoryByID(context.Context, string) (agenthost.Spec, error) {
+	return agenthost.Spec{}, resolver.err
+}
+
+func TestDriveWorkspaceMemoryPreservesLifecycleErrorIdentity(t *testing.T) {
+	delivery := &driveWorkspaceMemory{
+		resolver: lifecycleDriveFactResolver{err: workspace.ErrWorkspacePendingDeletion},
+		stores:   &memorystore.Registry{},
+	}
+	err := delivery.EnsureWorkspaceAvailable(context.Background(), "workspace-id")
+	if !errors.Is(err, workspace.ErrWorkspacePendingDeletion) || !errors.Is(err, memory.ErrInvalidInput) {
+		t.Fatalf("EnsureWorkspaceAvailable() error = %v, want lifecycle and invalid-input identity", err)
+	}
+}
 
 func TestDriveFactTargetUsesOpaqueBindingIdentity(t *testing.T) {
 	connection := apitypes.RuntimeProfileMemoryConnection{}
@@ -69,6 +91,8 @@ func TestDriveFactTargetUsesOpaqueBindingIdentity(t *testing.T) {
 }
 
 type serverDriveFactMemory struct{}
+
+func (serverDriveFactMemory) EnsureWorkspaceAvailable(context.Context, string) error { return nil }
 
 func (serverDriveFactMemory) Snapshot(context.Context, string) (gameplay.DriveFactTarget, error) {
 	return gameplay.DriveFactTarget{}, nil

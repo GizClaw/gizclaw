@@ -118,6 +118,27 @@ func (r *Runtime) insertWorkspaceRewardSource(ctx context.Context, source worksp
 	return err
 }
 
+func (r *Runtime) deleteUnsettledWorkspaceRewardData(ctx context.Context, workspaceID string) error {
+	db, err := r.db()
+	if err != nil {
+		return err
+	}
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM gameplay_workspace_reward_windows
+		WHERE workspace_id = ? AND state <> ?`), workspaceID, workspaceRewardCompleted); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM gameplay_workspace_reward_sources
+		WHERE workspace_id = ?`), workspaceID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (r *Runtime) updateWorkspaceRewardSource(ctx context.Context, source workspaceRewardSource) error {
 	db, err := r.db()
 	if err != nil {

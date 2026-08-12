@@ -441,6 +441,54 @@ func TestPeerStreamOrdersBufferedOpusBeforeAudioEOS(t *testing.T) {
 	}
 }
 
+func TestPeerStreamRoutesFixedOpusWithEmptyMIMEAcrossEpochs(t *testing.T) {
+	stream := &PeerStream{
+		out:  make(chan *genx.MessageChunk, 6),
+		done: make(chan struct{}),
+	}
+	defer stream.Close()
+	for _, streamID := range []string{"live", "history-replay"} {
+		bos, err := peerStreamEventToChunk(bosEvent(streamID, "assistant", ""))
+		if err != nil {
+			t.Fatalf("peerStreamEventToChunk(%s BOS) error = %v", streamID, err)
+		}
+		if err := stream.pushMergedEvent(bos); err != nil {
+			t.Fatalf("pushMergedEvent(%s BOS) error = %v", streamID, err)
+		}
+		if err := stream.pushMergedPacket([]byte{1, 2, 3}); err != nil {
+			t.Fatalf("pushMergedPacket(%s) error = %v", streamID, err)
+		}
+		eos, err := peerStreamEventToChunk(eosEvent(streamID, "assistant", "", nil))
+		if err != nil {
+			t.Fatalf("peerStreamEventToChunk(%s EOS) error = %v", streamID, err)
+		}
+		if err := stream.pushMergedEvent(eos); err != nil {
+			t.Fatalf("pushMergedEvent(%s EOS) error = %v", streamID, err)
+		}
+		for index := range 3 {
+			chunk, err := stream.Next()
+			if err != nil {
+				t.Fatalf("Next(%s, %d) error = %v", streamID, index, err)
+			}
+			if chunk.Ctrl == nil || chunk.Ctrl.StreamID != streamID || chunk.Ctrl.Label != "assistant" {
+				t.Fatalf("chunk %d route = %#v, want %s/assistant", index, chunk.Ctrl, streamID)
+			}
+			if index == 0 && !chunk.IsBeginOfStream() {
+				t.Fatalf("first chunk = %#v, want BOS", chunk)
+			}
+			if index == 1 {
+				blob, ok := chunk.Part.(*genx.Blob)
+				if !ok || blob.MIMEType != "audio/opus" || !bytes.Equal(blob.Data, []byte{1, 2, 3}) {
+					t.Fatalf("packet chunk = %#v", chunk)
+				}
+			}
+			if index == 2 && !chunk.IsEndOfStream() {
+				t.Fatalf("last chunk = %#v, want EOS", chunk)
+			}
+		}
+	}
+}
+
 func TestPeerStreamDeliversQueuedEventBeforeTerminalError(t *testing.T) {
 	stream := &PeerStream{
 		packets:      make(chan []byte),

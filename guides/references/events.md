@@ -80,6 +80,13 @@ EOS(kind=AUDIO, stream_id=audio-42)
 Server 只在对应的 `BOS(kind=AUDIO)` 通过本轮授权后接收该轮 Opus packets；
 先到达或绕过 BOS 的 packets 会被丢弃。EOS 会关闭该轮输入 gate。
 
+Server 下行只有一条固定 Opus media channel。多个 Agent source 同时输出时，Server
+把它们解码并混音成这一条 channel，同时把 source lifecycle 聚合为一组 boundary：
+第一条 active source 下发一次 `BOS(kind=AUDIO)`，最后一条 source 在 Mixer 排空或
+中断后才下发一次 `EOS(kind=AUDIO)`。中间 source 的 BOS/EOS 不下发；下行 boundary
+沿用第一条 source 的 `stream_id` 与 `label`，`sequence=0` 且 `mime_type` 为空。
+各 source 的 MIME 只用于 Server 内部选择 decoder，不是下行 media channel 的类型。
+
 RTP media 与 reliable Event Stream 是两条独立 transport，接收端不能依赖两个
 transport callback 的 goroutine 调度顺序。SDK 将它们合并为逻辑 stream 时，
 应由一个 owner 串行交付，并在交付 audio EOS 前先交付当前已经收到的该轮 Opus
