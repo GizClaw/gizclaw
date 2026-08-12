@@ -31,7 +31,6 @@ const (
 	workspaceRewardHistoryPageLimit = 200
 	workspaceRewardActivityCapacity = 256
 	workspaceRewardPollInterval     = time.Second
-	workspaceRewardReconcilePeriod  = 30 * time.Second
 	workspaceRewardClaimLease       = time.Minute
 	workspaceRewardRecoveryTimeout  = 2 * time.Second
 	workspaceRewardMaxAttempts      = 5
@@ -48,7 +47,6 @@ var (
 // model, and notification capabilities without moving their ownership into
 // Gameplay.
 type WorkspaceRewardEnvironment interface {
-	ListWorkspaceIDs(context.Context) ([]string, error)
 	LatestHistoryEntry(context.Context, string) (workspace.HistoryEntry, bool, error)
 	LatestHistoryEntryBefore(context.Context, string, time.Time) (workspace.HistoryEntry, bool, error)
 	ListHistoryEntries(context.Context, string, string, string, int) (workspace.HistoryEntryPage, error)
@@ -264,35 +262,31 @@ func workspaceRewardPolicyDigest(snapshot WorkspaceRewardPolicySnapshot) (string
 	return hex.EncodeToString(digest[:]), nil
 }
 
-// StartWorkspaceRewardDispatcher initializes durable source boundaries and
-// starts one poller for all Workspace reward windows.
+// StartWorkspaceRewardDispatcher initializes constant-size control state and
+// starts one poller for durable Workspace reward windows. Per-Workspace source
+// and History state is loaded only by exact activity or activation.
 func (r *Runtime) StartWorkspaceRewardDispatcher(parent context.Context) (context.CancelFunc, <-chan struct{}, error) {
 	if r == nil || r.WorkspaceRewards == nil {
 		return nil, nil, errors.New("gameplay: workspace reward environment is not configured")
 	}
+	if _, ok := r.WorkspaceRewards.(workspaceRewardAvailability); !ok {
+		return nil, nil, errWorkspaceRewardAvailability
+	}
 	if err := r.Migration(parent); err != nil {
 		return nil, nil, err
 	}
-	activation, err := r.ensureWorkspaceRewardActivation(parent)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := r.initializeWorkspaceRewardSources(parent, activation); err != nil {
-		return nil, nil, err
-	}
-	if err := r.reconcileWorkspaceRewardSources(parent); err != nil {
+	if _, err := r.ensureWorkspaceRewardActivation(parent); err != nil {
 		return nil, nil, err
 	}
 	ctx, cancel := context.WithCancel(parent)
 	done := make(chan struct{})
 	wake := r.workspaceRewardWakeChannel()
 	activities := r.workspaceRewardActivityChannel()
+	activations := r.workspaceRewardActivationChannel()
 	go func() {
 		defer close(done)
 		poll := time.NewTicker(workspaceRewardPollInterval)
 		defer poll.Stop()
-		reconcile := time.NewTicker(workspaceRewardReconcilePeriod)
-		defer reconcile.Stop()
 		for {
 			select {
 			case <-ctx.Done():
@@ -302,22 +296,24 @@ func (r *Runtime) StartWorkspaceRewardDispatcher(parent context.Context) (contex
 				if err := r.ScheduleWorkspaceRewardActivity(ctx, activity.WorkspaceID, activity.Entry); err != nil &&
 					ctx.Err() == nil {
 					slog.Error(
-						"schedule queued Workspace reward",
+						"schedule Workspace reward",
 						"workspace", activity.WorkspaceID,
 						"history_id", activity.Entry.ID,
-						"error_class", "schedule",
+						"error_class", "activity",
+						"error", err,
+					)
+				}
+			case workspaceID := <-activations:
+				if err := r.ActivateWorkspaceReward(ctx, workspaceID); err != nil && ctx.Err() == nil {
+					slog.Error(
+						"activate Workspace reward",
+						"workspace", workspaceID,
+						"error_class", "activation",
 						"error", err,
 					)
 				}
 			case <-wake:
 			case <-poll.C:
-			case <-reconcile.C:
-				if err := r.initializeWorkspaceRewardSources(ctx, activation); err != nil && ctx.Err() == nil {
-					slog.Error("reconcile workspace reward sources", "error_class", "source_init", "error", err)
-				}
-				if err := r.reconcileWorkspaceRewardSources(ctx); err != nil && ctx.Err() == nil {
-					slog.Error("reconcile workspace reward History", "error_class", "history_reconcile", "error", err)
-				}
 			}
 			for {
 				processed, err := r.dispatchWorkspaceReward(ctx)
@@ -337,8 +333,8 @@ func (r *Runtime) StartWorkspaceRewardDispatcher(parent context.Context) (contex
 }
 
 // EnqueueWorkspaceRewardActivity keeps the AgentHost post-append callback
-// bounded and non-blocking. Durable History reconciliation recovers an entry
-// when the in-memory queue is full or the process stops before consuming it.
+// bounded and non-blocking. The callback is a disposable latency hint; an
+// exact Workspace activation reconciles authoritative History after a drop.
 func (r *Runtime) EnqueueWorkspaceRewardActivity(workspaceID string, entry workspace.HistoryEntry) error {
 	if r == nil || r.WorkspaceRewards == nil {
 		return nil
@@ -351,6 +347,58 @@ func (r *Runtime) EnqueueWorkspaceRewardActivity(workspaceID string, entry works
 	case r.workspaceRewardActivityChannel() <- activity:
 	default:
 	}
+	return nil
+}
+
+// EnqueueWorkspaceRewardActivation hands one exact active Workspace to the
+// bounded dispatcher. Unlike the disposable History hint, activation applies
+// backpressure instead of dropping the Workspace while its runtime is active.
+func (r *Runtime) EnqueueWorkspaceRewardActivation(ctx context.Context, workspaceID string) error {
+	if r == nil || r.WorkspaceRewards == nil {
+		return nil
+	}
+	if customid.ValidateResourceID(workspaceID) != nil {
+		return errors.New("gameplay: Workspace reward activation requires a Workspace ID")
+	}
+	select {
+	case r.workspaceRewardActivationChannel() <- workspaceID:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// ActivateWorkspaceReward reconciles one active Workspace through its latest
+// authoritative History entry. It never discovers or reads other Workspaces.
+func (r *Runtime) ActivateWorkspaceReward(ctx context.Context, workspaceID string) error {
+	if r == nil || r.WorkspaceRewards == nil {
+		return nil
+	}
+	if customid.ValidateResourceID(workspaceID) != nil {
+		return errors.New("gameplay: Workspace reward activation requires a Workspace ID")
+	}
+	lock := r.workspaceRewardMutex(workspaceID)
+	lock.Lock()
+	defer lock.Unlock()
+	available, err := r.ensureWorkspaceRewardAvailableLocked(ctx, workspaceID)
+	if err != nil || !available {
+		return err
+	}
+	source, err := r.ensureWorkspaceRewardSourceLocked(ctx, workspaceID)
+	if err != nil {
+		return r.retireWorkspaceRewardIfTerminalLocked(ctx, workspaceID, err)
+	}
+	latest, ok, err := r.WorkspaceRewards.LatestHistoryEntry(ctx, workspaceID)
+	if err != nil {
+		return r.retireWorkspaceRewardIfTerminalLocked(ctx, workspaceID, err)
+	}
+	if !ok || latest.ID <= source.ScheduledCheckpoint {
+		return nil
+	}
+	if err := r.reconcileWorkspaceRewardSourceLocked(ctx, &source, latest.ID); err != nil {
+		return r.retireWorkspaceRewardIfTerminalLocked(ctx, workspaceID, err)
+	}
+	r.wakeWorkspaceRewardDispatcher()
 	return nil
 }
 
@@ -370,40 +418,9 @@ func (r *Runtime) ScheduleWorkspaceRewardActivity(ctx context.Context, workspace
 	if err != nil || !available {
 		return err
 	}
-	source, err := r.getWorkspaceRewardSource(ctx, workspaceID)
-	if errors.Is(err, sql.ErrNoRows) {
-		now := r.now()
-		activation, activationErr := r.ensureWorkspaceRewardActivation(ctx)
-		if activationErr != nil {
-			return activationErr
-		}
-		checkpoint := ""
-		latest, ok, latestErr := r.WorkspaceRewards.LatestHistoryEntryBefore(ctx, workspaceID, activation)
-		if latestErr != nil {
-			return r.retireWorkspaceRewardIfTerminalLocked(ctx, workspaceID, latestErr)
-		}
-		if ok {
-			checkpoint = latest.ID
-		}
-		source = workspaceRewardSource{
-			WorkspaceID: workspaceID, ScheduledCheckpoint: checkpoint,
-			CompletedCheckpoint: checkpoint, CreatedAt: now, UpdatedAt: now,
-		}
-		if err := r.insertWorkspaceRewardSource(ctx, source); err != nil {
-			return err
-		}
-		source, err = r.getWorkspaceRewardSource(ctx, workspaceID)
-		if err != nil {
-			return err
-		}
-		if err := r.reconcileWorkspaceRewardSourceLocked(ctx, &source, entry.ID); err != nil {
-			return r.retireWorkspaceRewardIfTerminalLocked(ctx, workspaceID, err)
-		}
-		r.wakeWorkspaceRewardDispatcher()
-		return nil
-	}
+	source, err := r.ensureWorkspaceRewardSourceLocked(ctx, workspaceID)
 	if err != nil {
-		return err
+		return r.retireWorkspaceRewardIfTerminalLocked(ctx, workspaceID, err)
 	}
 	if entry.ID <= source.ScheduledCheckpoint {
 		return nil
@@ -415,63 +432,34 @@ func (r *Runtime) ScheduleWorkspaceRewardActivity(ctx context.Context, workspace
 	return nil
 }
 
-func (r *Runtime) initializeWorkspaceRewardSources(ctx context.Context, activation time.Time) error {
-	names, err := r.WorkspaceRewards.ListWorkspaceIDs(ctx)
+func (r *Runtime) ensureWorkspaceRewardSourceLocked(ctx context.Context, workspaceID string) (workspaceRewardSource, error) {
+	source, err := r.getWorkspaceRewardSource(ctx, workspaceID)
+	if err == nil {
+		return source, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return workspaceRewardSource{}, err
+	}
+	activation, err := r.ensureWorkspaceRewardActivation(ctx)
 	if err != nil {
-		return err
+		return workspaceRewardSource{}, err
 	}
-	for _, name := range names {
-		name = strings.TrimSpace(name)
-		if name == "" {
-			continue
-		}
-		lock := r.workspaceRewardMutex(name)
-		lock.Lock()
-		available, err := r.ensureWorkspaceRewardAvailableLocked(ctx, name)
-		if err == nil && !available {
-			lock.Unlock()
-			continue
-		}
-		if err == nil {
-			_, err = r.getWorkspaceRewardSource(ctx, name)
-		}
-		if errors.Is(err, sql.ErrNoRows) {
-			err = nil
-			checkpoint := ""
-			latest, ok, latestErr := r.WorkspaceRewards.LatestHistoryEntryBefore(ctx, name, activation)
-			if latestErr != nil {
-				err = latestErr
-			} else if ok {
-				checkpoint = latest.ID
-			}
-			if err == nil {
-				now := r.now()
-				err = r.insertWorkspaceRewardSource(ctx, workspaceRewardSource{
-					WorkspaceID: name, ScheduledCheckpoint: checkpoint,
-					CompletedCheckpoint: checkpoint, CreatedAt: now, UpdatedAt: now,
-				})
-			}
-		}
-		err = r.retireWorkspaceRewardIfTerminalLocked(ctx, name, err)
-		lock.Unlock()
-		if err != nil {
-			return fmt.Errorf("initialize workspace reward source %q: %w", name, err)
-		}
-	}
-	return nil
-}
-
-func (r *Runtime) reconcileWorkspaceRewardSources(ctx context.Context) error {
-	names, err := r.WorkspaceRewards.ListWorkspaceIDs(ctx)
+	checkpoint := ""
+	latest, ok, err := r.WorkspaceRewards.LatestHistoryEntryBefore(ctx, workspaceID, activation)
 	if err != nil {
-		return err
+		return workspaceRewardSource{}, err
 	}
-	for _, name := range names {
-		if err := r.reconcileWorkspaceRewardSource(ctx, name, ""); err != nil {
-			return fmt.Errorf("reconcile workspace reward source %q: %w", name, err)
-		}
+	if ok {
+		checkpoint = latest.ID
 	}
-	return nil
+	now := r.now()
+	if err := r.insertWorkspaceRewardSource(ctx, workspaceRewardSource{
+		WorkspaceID: workspaceID, ScheduledCheckpoint: checkpoint,
+		CompletedCheckpoint: checkpoint, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		return workspaceRewardSource{}, err
+	}
+	return r.getWorkspaceRewardSource(ctx, workspaceID)
 }
 
 func (r *Runtime) reconcileWorkspaceRewardSource(ctx context.Context, workspaceID, through string) error {
@@ -494,7 +482,7 @@ func (r *Runtime) reconcileWorkspaceRewardSource(ctx context.Context, workspaceI
 }
 
 func (r *Runtime) reconcileWorkspaceRewardSourceLocked(ctx context.Context, source *workspaceRewardSource, through string) error {
-	active, err := r.activeWorkspaceRewardWindow(ctx, source.WorkspaceID)
+	active, err := r.activeWorkspaceRewardWindowForReconcile(ctx, source.WorkspaceID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -518,7 +506,7 @@ func (r *Runtime) reconcileWorkspaceRewardSourceLocked(ctx context.Context, sour
 			if through != "" && cursor >= through {
 				return nil
 			}
-			active, err = r.activeWorkspaceRewardWindow(ctx, source.WorkspaceID)
+			active, err = r.activeWorkspaceRewardWindowForReconcile(ctx, source.WorkspaceID)
 			if err == nil && active.State != workspaceRewardPending {
 				return nil
 			}
@@ -537,7 +525,7 @@ func (r *Runtime) applyWorkspaceRewardEntry(ctx context.Context, source *workspa
 	if err := r.checkWorkspaceRewardAvailability(ctx, source.WorkspaceID); err != nil {
 		return err
 	}
-	active, err := r.activeWorkspaceRewardWindow(ctx, source.WorkspaceID)
+	active, err := r.activeWorkspaceRewardWindowForReconcile(ctx, source.WorkspaceID)
 	if err == nil {
 		if active.State != workspaceRewardPending {
 			return nil
@@ -580,6 +568,29 @@ func (r *Runtime) applyWorkspaceRewardEntry(ctx context.Context, source *workspa
 	return r.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, *source)
 }
 
+func (r *Runtime) activeWorkspaceRewardWindowForReconcile(ctx context.Context, workspaceID string) (workspaceRewardWindow, error) {
+	window, err := r.activeWorkspaceRewardWindow(ctx, workspaceID)
+	var corrupt *workspaceRewardPolicyCorruptionError
+	if !errors.As(err, &corrupt) {
+		return window, err
+	}
+	if corrupt.WorkspaceID != workspaceID {
+		return workspaceRewardWindow{}, fmt.Errorf(
+			"gameplay: reward window %q Workspace identity %q does not match %q",
+			corrupt.WindowID, corrupt.WorkspaceID, workspaceID,
+		)
+	}
+	if err := r.blockCorruptWorkspaceRewardWindow(ctx, corrupt); err != nil {
+		return workspaceRewardWindow{}, err
+	}
+	slog.Error("Workspace reward row blocked",
+		"workspace", corrupt.WorkspaceID,
+		"window", corrupt.WindowID,
+		"error_class", corrupt.Class,
+	)
+	return workspaceRewardWindow{}, sql.ErrNoRows
+}
+
 func (r *Runtime) advanceWorkspaceRewardWindow(
 	ctx context.Context,
 	source *workspaceRewardSource,
@@ -610,6 +621,18 @@ func minWorkspaceRewardTime(a, b time.Time) time.Time {
 
 func (r *Runtime) dispatchWorkspaceReward(ctx context.Context) (bool, error) {
 	window, ok, err := r.claimWorkspaceRewardWindow(ctx)
+	var corrupt *workspaceRewardPolicyCorruptionError
+	if errors.As(err, &corrupt) {
+		if err := r.blockCorruptWorkspaceRewardWindow(ctx, corrupt); err != nil {
+			return true, err
+		}
+		slog.Error("Workspace reward row blocked",
+			"workspace", corrupt.WorkspaceID,
+			"window", corrupt.WindowID,
+			"error_class", corrupt.Class,
+		)
+		return true, nil
+	}
 	if err != nil || !ok {
 		return ok, err
 	}
@@ -867,6 +890,15 @@ func (r *Runtime) workspaceRewardActivityChannel() chan workspaceRewardActivity 
 		r.workspaceRewardQueue = make(chan workspaceRewardActivity, workspaceRewardActivityCapacity)
 	}
 	return r.workspaceRewardQueue
+}
+
+func (r *Runtime) workspaceRewardActivationChannel() chan string {
+	r.workspaceRewardMu.Lock()
+	defer r.workspaceRewardMu.Unlock()
+	if r.workspaceActivation == nil {
+		r.workspaceActivation = make(chan string, workspaceRewardActivityCapacity)
+	}
+	return r.workspaceActivation
 }
 
 func (r *Runtime) wakeWorkspaceRewardDispatcher() {

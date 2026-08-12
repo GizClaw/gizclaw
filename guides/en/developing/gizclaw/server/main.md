@@ -45,6 +45,17 @@ The complete production configuration below lets prefix-scoped KV, table-scoped 
 
 Each Workspace Agent generation resolves its memory alias from the current RuntimeProfile snapshot. Construction failure fails Agent initialization or reload explicitly. Server shutdown closes the shared Memory registry. Workspace reload and release of the final Agent reference close that generation's lease without migrating, merging, copying, or deleting durable data.
 
+## Workspace reward lifecycle
+
+Starting the Workspace reward dispatcher validates Gameplay SQL schema and the
+single activation boundary, then starts its bounded due-work poller. It never
+enumerates or reads persisted Workspace records or History during Server
+startup, and it has no periodic Workspace catalog scan. A successfully
+published AgentHost runtime schedules lazy catch-up for that exact Workspace;
+post-History-append notifications are optional latency hints and may be dropped.
+Durable pending, retry, and expired-claim windows resume directly from Gameplay
+SQL after restart.
+
 ## Pending-deletion processor
 
 Server initialization validates the pending-deletion source and handler registry without starting background work. `Server.Listen` starts one immediate scanner plus a bounded worker pool; `Server.Close` cancels scans and active attempts, waits for all processor goroutines, and only then lets command-layer stores close. The durable domain store is the queue source of truth. Producer wake signals and the in-memory dispatch channel only reduce latency, so startup and periodic scans recover committed work after a restart or a dropped signal.

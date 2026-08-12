@@ -10,8 +10,21 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/jmoiron/sqlx"
 )
+
+type workspaceRewardPolicyCorruptionError struct {
+	WindowID    string
+	WorkspaceID string
+	State       string
+	ClaimToken  string
+	Class       string
+}
+
+func (err *workspaceRewardPolicyCorruptionError) Error() string {
+	return fmt.Sprintf("gameplay: Workspace reward window %q has invalid persisted policy", err.WindowID)
+}
 
 func workspaceRewardWindowColumns() string {
 	return `id, workspace_id, workspace_kind, beneficiary_public_key, runtime_profile_id,
@@ -62,15 +75,27 @@ func scanWorkspaceRewardWindow(row rowScanner) (workspaceRewardWindow, error) {
 	if err != nil {
 		return workspaceRewardWindow{}, err
 	}
+	if err := customid.ValidateResourceID(window.ID); err != nil {
+		return workspaceRewardWindow{}, fmt.Errorf("gameplay: invalid Workspace reward window identity: %w", err)
+	}
+	if err := customid.ValidateResourceID(window.WorkspaceID); err != nil {
+		return workspaceRewardWindow{}, fmt.Errorf("gameplay: invalid Workspace reward Workspace identity: %w", err)
+	}
 	if err := unmarshalJSON(policyJSON, &window.Policy); err != nil {
-		return workspaceRewardWindow{}, fmt.Errorf("gameplay: decode workspace reward policy: %w", err)
+		return workspaceRewardWindow{}, &workspaceRewardPolicyCorruptionError{
+			WindowID: window.ID, WorkspaceID: window.WorkspaceID,
+			State: window.State, ClaimToken: window.ClaimToken, Class: "reward_policy_invalid",
+		}
 	}
 	digest, err := workspaceRewardPolicyDigest(window.Policy)
 	if err != nil {
 		return workspaceRewardWindow{}, err
 	}
 	if digest != window.PolicyDigest {
-		return workspaceRewardWindow{}, errors.New("gameplay: workspace reward policy digest mismatch")
+		return workspaceRewardWindow{}, &workspaceRewardPolicyCorruptionError{
+			WindowID: window.ID, WorkspaceID: window.WorkspaceID,
+			State: window.State, ClaimToken: window.ClaimToken, Class: "reward_policy_digest_mismatch",
+		}
 	}
 	window.Policy.Digest = digest
 	window.StartHistoryAt = parseTime(startAt)
@@ -83,6 +108,32 @@ func scanWorkspaceRewardWindow(row rowScanner) (workspaceRewardWindow, error) {
 	window.CreatedAt = parseTime(createdAt)
 	window.UpdatedAt = parseTime(updatedAt)
 	return window, nil
+}
+
+func (r *Runtime) blockCorruptWorkspaceRewardWindow(ctx context.Context, corrupt *workspaceRewardPolicyCorruptionError) error {
+	if corrupt == nil || customid.ValidateResourceID(corrupt.WindowID) != nil ||
+		customid.ValidateResourceID(corrupt.WorkspaceID) != nil {
+		return errors.New("gameplay: corrupt Workspace reward row lacks a trusted identity")
+	}
+	switch corrupt.State {
+	case workspaceRewardPending, workspaceRewardClaimed, workspaceRewardRetry:
+	default:
+		return errors.New("gameplay: corrupt Workspace reward row lacks a trusted state fence")
+	}
+	db, err := r.db()
+	if err != nil {
+		return err
+	}
+	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_workspace_reward_windows SET
+		state = ?, claim_token = '', claim_until = '', last_error = ?, updated_at = ?
+		WHERE id = ? AND workspace_id = ? AND state = ? AND claim_token = ?`),
+		workspaceRewardBlocked, corrupt.Class, formatTime(r.now()), corrupt.WindowID, corrupt.WorkspaceID,
+		corrupt.State, corrupt.ClaimToken,
+	)
+	if err != nil {
+		return err
+	}
+	return requireWorkspaceRewardRow(result, "corrupt reward window is no longer exactly identifiable")
 }
 
 func (r *Runtime) getWorkspaceRewardSource(ctx context.Context, workspaceID string) (workspaceRewardSource, error) {

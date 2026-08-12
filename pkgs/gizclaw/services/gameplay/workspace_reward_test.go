@@ -71,6 +71,7 @@ type workspaceRewardTestEnvironment struct {
 	availability     map[string]error
 	availabilityFunc func(context.Context, string) error
 	historyCalls     map[string]int
+	listCalls        int
 }
 
 type workspaceRewardEnvironmentWithoutAvailability struct {
@@ -78,10 +79,13 @@ type workspaceRewardEnvironmentWithoutAvailability struct {
 }
 
 func TestWorkspaceRewardAvailabilityFailsClosedForCompatibleEnvironment(t *testing.T) {
-	runtime := &Runtime{WorkspaceRewards: workspaceRewardEnvironmentWithoutAvailability{}}
+	runtime := &Runtime{DB: testDB(t), WorkspaceRewards: workspaceRewardEnvironmentWithoutAvailability{}}
 	err := runtime.checkWorkspaceRewardAvailability(t.Context(), "workspace-1")
 	if !errors.Is(err, errWorkspaceRewardAvailability) {
 		t.Fatalf("checkWorkspaceRewardAvailability() error = %v, want %v", err, errWorkspaceRewardAvailability)
+	}
+	if _, _, err := runtime.StartWorkspaceRewardDispatcher(t.Context()); !errors.Is(err, errWorkspaceRewardAvailability) {
+		t.Fatalf("StartWorkspaceRewardDispatcher() error = %v, want %v", err, errWorkspaceRewardAvailability)
 	}
 }
 
@@ -96,11 +100,24 @@ func (e *workspaceRewardTestEnvironment) EnsureWorkspaceAvailable(ctx context.Co
 }
 
 func (e *workspaceRewardTestEnvironment) ListWorkspaceIDs(context.Context) ([]string, error) {
+	e.mu.Lock()
+	e.listCalls++
+	e.mu.Unlock()
 	names := make([]string, 0, len(e.entries))
 	for name := range e.entries {
 		names = append(names, name)
 	}
 	return names, nil
+}
+
+func (e *workspaceRewardTestEnvironment) workspaceReadCounts() (int, int) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	historyCalls := 0
+	for _, calls := range e.historyCalls {
+		historyCalls += calls
+	}
+	return e.listCalls, historyCalls
 }
 
 func (e *workspaceRewardTestEnvironment) LatestHistoryEntry(_ context.Context, name string) (workspace.HistoryEntry, bool, error) {
@@ -672,7 +689,7 @@ func TestWorkspaceRewardCancellationRechecksPendingDeletionBeforeRetry(t *testin
 	}
 }
 
-func TestWorkspaceRewardInitializationSkipsPendingWorkspaceAndContinues(t *testing.T) {
+func TestWorkspaceRewardActivationIsolatesPendingWorkspace(t *testing.T) {
 	ctx := t.Context()
 	now := time.Date(2026, 8, 12, 4, 0, 0, 0, time.UTC)
 	environment := &workspaceRewardTestEnvironment{
@@ -686,28 +703,30 @@ func TestWorkspaceRewardInitializationSkipsPendingWorkspaceAndContinues(t *testi
 	if err := runtime.Migration(ctx); err != nil {
 		t.Fatal(err)
 	}
-	activation, err := runtime.ensureWorkspaceRewardActivation(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := runtime.initializeWorkspaceRewardSources(ctx, activation); err != nil {
-		t.Fatalf("initializeWorkspaceRewardSources() error = %v", err)
+	if err := runtime.ActivateWorkspaceReward(ctx, "workspace-pending"); err != nil {
+		t.Fatalf("ActivateWorkspaceReward(pending) error = %v", err)
 	}
 	if got := environment.historyCallCount("workspace-pending"); got != 0 {
 		t.Fatalf("pending Workspace History calls = %d, want 0", got)
 	}
-	if got := environment.historyCallCount("workspace-active"); got == 0 {
-		t.Fatal("active Workspace was not initialized")
+	if got := environment.historyCallCount("workspace-active"); got != 0 {
+		t.Fatalf("unrelated active Workspace History calls = %d, want 0", got)
 	}
 	if _, err := runtime.getWorkspaceRewardSource(ctx, "workspace-pending"); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("pending Workspace source error = %v, want no row", err)
+	}
+	if _, err := runtime.getWorkspaceRewardSource(ctx, "workspace-active"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("unactivated Workspace source error = %v, want no row", err)
+	}
+	if err := runtime.ActivateWorkspaceReward(ctx, "workspace-active"); err != nil {
+		t.Fatalf("ActivateWorkspaceReward(active) error = %v", err)
 	}
 	if source, err := runtime.getWorkspaceRewardSource(ctx, "workspace-active"); err != nil || source.CompletedCheckpoint != "001" {
 		t.Fatalf("active Workspace source = %#v, %v", source, err)
 	}
 }
 
-func TestWorkspaceRewardActivationBaselinesOldHistoryAndRecoversNewWorkspace(t *testing.T) {
+func TestWorkspaceRewardActivationLazilyBaselinesAndRecoversExactWorkspace(t *testing.T) {
 	ctx := context.Background()
 	activation := time.Date(2026, 7, 29, 2, 0, 0, 0, time.UTC)
 	policy := workspaceRewardTestPolicy(t)
@@ -731,11 +750,8 @@ func TestWorkspaceRewardActivationBaselinesOldHistoryAndRecoversNewWorkspace(t *
 	if err := runtime.Migration(ctx); err != nil {
 		t.Fatalf("Migration() error = %v", err)
 	}
-	if err := runtime.initializeWorkspaceRewardSources(ctx, activation); err != nil {
-		t.Fatalf("initializeWorkspaceRewardSources() error = %v", err)
-	}
-	if err := runtime.reconcileWorkspaceRewardSources(ctx); err != nil {
-		t.Fatalf("reconcileWorkspaceRewardSources() error = %v", err)
+	if err := runtime.ActivateWorkspaceReward(ctx, "old"); err != nil {
+		t.Fatalf("ActivateWorkspaceReward(old) error = %v", err)
 	}
 	oldSource, err := runtime.getWorkspaceRewardSource(ctx, "old")
 	if err != nil {
@@ -744,9 +760,18 @@ func TestWorkspaceRewardActivationBaselinesOldHistoryAndRecoversNewWorkspace(t *
 	if oldSource.ScheduledCheckpoint != "001" || oldSource.CompletedCheckpoint != "001" {
 		t.Fatalf("old source = %#v, want startup baseline", oldSource)
 	}
+	if _, err := runtime.getWorkspaceRewardSource(ctx, "new"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("unactivated new source error = %v, want no row", err)
+	}
+	if got := environment.historyCallCount("new"); got != 0 {
+		t.Fatalf("unactivated new Workspace History calls = %d, want 0", got)
+	}
+	if err := runtime.ActivateWorkspaceReward(ctx, "new"); err != nil {
+		t.Fatalf("ActivateWorkspaceReward(new) error = %v", err)
+	}
 	newSource, err := runtime.getWorkspaceRewardSource(ctx, "new")
 	if err != nil {
-		t.Fatalf("get new source: %v", err)
+		t.Fatalf("get activated new source: %v", err)
 	}
 	if newSource.ScheduledCheckpoint != "002" || newSource.CompletedCheckpoint != "" {
 		t.Fatalf("new source = %#v, want recovered pending History", newSource)
@@ -754,6 +779,62 @@ func TestWorkspaceRewardActivationBaselinesOldHistoryAndRecoversNewWorkspace(t *
 	window, err := runtime.activeWorkspaceRewardWindow(ctx, "new")
 	if err != nil || window.StartHistoryID != "002" || window.BeneficiaryPublicKey != "peer-new" {
 		t.Fatalf("new active window = %#v, %v", window, err)
+	}
+}
+
+func TestWorkspaceRewardRestartWaitsForExactActivationToRecoverDroppedNotification(t *testing.T) {
+	ctx := t.Context()
+	activation := time.Date(2026, 7, 29, 2, 30, 0, 0, time.UTC)
+	clock := activation
+	policy := workspaceRewardTestPolicy(t)
+	environment := &workspaceRewardTestEnvironment{
+		entries: map[string][]workspace.HistoryEntry{"workflow-a": nil},
+		policy:  &policy,
+	}
+	db := testDB(t)
+	first := &Runtime{DB: db, WorkspaceRewards: environment, Now: func() time.Time { return clock }}
+	stop, done, err := first.StartWorkspaceRewardDispatcher(ctx)
+	if err != nil {
+		t.Fatalf("first StartWorkspaceRewardDispatcher() error = %v", err)
+	}
+	stop()
+	<-done
+
+	entry := workspace.HistoryEntry{
+		ID: "001", Type: "gear", GearID: "peer-a", Origin: workspace.HistoryOriginAgentHost,
+		Text: "persisted without a reward notification", CreatedAt: activation.Add(time.Minute),
+	}
+	environment.entries["workflow-a"] = append(environment.entries["workflow-a"], entry)
+	clock = activation.Add(2 * time.Minute)
+	restarted := &Runtime{
+		DB: db, WorkspaceRewards: environment, Now: func() time.Time { return clock },
+		NewID: sequentialIDs("window-recovered"),
+	}
+	stop, done, err = restarted.StartWorkspaceRewardDispatcher(ctx)
+	if err != nil {
+		t.Fatalf("restarted StartWorkspaceRewardDispatcher() error = %v", err)
+	}
+	t.Cleanup(func() {
+		stop()
+		<-done
+	})
+	if _, err := restarted.getWorkspaceRewardSource(ctx, "workflow-a"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("cold Workspace source before activation error = %v, want no row", err)
+	}
+	if got := environment.historyCallCount("workflow-a"); got != 0 {
+		t.Fatalf("cold Workspace History calls before activation = %d, want 0", got)
+	}
+
+	if err := restarted.ActivateWorkspaceReward(ctx, "workflow-a"); err != nil {
+		t.Fatalf("ActivateWorkspaceReward() error = %v", err)
+	}
+	source, err := restarted.getWorkspaceRewardSource(ctx, "workflow-a")
+	if err != nil || source.ScheduledCheckpoint != entry.ID {
+		t.Fatalf("recovered source = %#v, %v", source, err)
+	}
+	window, err := restarted.activeWorkspaceRewardWindow(ctx, "workflow-a")
+	if err != nil || window.StartHistoryID != entry.ID {
+		t.Fatalf("recovered window = %#v, %v", window, err)
 	}
 }
 
@@ -862,6 +943,157 @@ func TestWorkspaceRewardMigrationReplacesBlockedActiveIndex(t *testing.T) {
 	}
 	if legacyIndexes != 0 || currentIndexes != 1 {
 		t.Fatalf("active index counts legacy/current = %d/%d", legacyIndexes, currentIndexes)
+	}
+}
+
+func TestWorkspaceRewardDispatchBlocksCorruptPolicyAndContinues(t *testing.T) {
+	for name, corrupt := range map[string]func(*testing.T, *Runtime, string){
+		"malformed json": func(t *testing.T, runtime *Runtime, windowID string) {
+			t.Helper()
+			if _, err := runtime.DB.ExecContext(t.Context(), `UPDATE gameplay_workspace_reward_windows SET policy_json = '{' WHERE id = ?`, windowID); err != nil {
+				t.Fatalf("corrupt policy JSON: %v", err)
+			}
+		},
+		"digest mismatch": func(t *testing.T, runtime *Runtime, windowID string) {
+			t.Helper()
+			if _, err := runtime.DB.ExecContext(t.Context(), `UPDATE gameplay_workspace_reward_windows SET policy_digest = 'mismatch' WHERE id = ?`, windowID); err != nil {
+				t.Fatalf("corrupt policy digest: %v", err)
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			ctx := t.Context()
+			now := time.Date(2026, 8, 12, 9, 0, 0, 0, time.UTC)
+			clock := now.Add(-3 * time.Hour)
+			policy := workspaceRewardTestPolicy(t)
+			generator := &workspaceRewardTestGenerator{result: `{"score":90,"reason":"Qualified.","badges":[]}`}
+			environment := &workspaceRewardTestEnvironment{
+				entries: map[string][]workspace.HistoryEntry{"workspace-healthy": nil, "workspace-corrupt": nil},
+				policy:  &policy, generator: generator,
+			}
+			runtime := &Runtime{
+				DB: testDB(t), WorkspaceRewards: environment, Now: func() time.Time { return clock },
+				NewID: sequentialIDs("window-healthy", "claim-corrupt", "claim-healthy", "grant-healthy", "points-healthy"),
+			}
+			if err := runtime.Migration(ctx); err != nil {
+				t.Fatalf("Migration() error = %v", err)
+			}
+			if _, err := runtime.ensureWorkspaceRewardActivation(ctx); err != nil {
+				t.Fatalf("ensureWorkspaceRewardActivation() error = %v", err)
+			}
+			clock = now
+			for _, entry := range []workspace.HistoryEntry{
+				{ID: "001", Type: "gear", GearID: "peer-healthy", Origin: workspace.HistoryOriginAgentHost, Text: "question", CreatedAt: now.Add(-time.Hour)},
+				{ID: "002", Type: "agent", Origin: workspace.HistoryOriginAgentHost, Text: "answer", CreatedAt: now.Add(-time.Hour + time.Second)},
+			} {
+				environment.entries["workspace-healthy"] = append(environment.entries["workspace-healthy"], entry)
+				if err := runtime.ScheduleWorkspaceRewardActivity(ctx, "workspace-healthy", entry); err != nil {
+					t.Fatalf("ScheduleWorkspaceRewardActivity(%s) error = %v", entry.ID, err)
+				}
+			}
+			corruptSource := workspaceRewardSource{
+				WorkspaceID: "workspace-corrupt", ScheduledCheckpoint: "history-corrupt",
+				CreatedAt: now.Add(-2 * time.Hour), UpdatedAt: now.Add(-2 * time.Hour),
+			}
+			if err := runtime.insertWorkspaceRewardSource(ctx, corruptSource); err != nil {
+				t.Fatalf("insert corrupt source: %v", err)
+			}
+			corruptWindow := workspaceRewardWindow{
+				ID: "window-corrupt", WorkspaceID: corruptSource.WorkspaceID,
+				WorkspaceKind: WorkspaceRewardKindWorkflow, BeneficiaryPublicKey: "peer-corrupt",
+				RuntimeProfileId: policy.RuntimeProfileId, RuntimeProfileRevision: policy.RuntimeProfileRevision,
+				Policy: policy, PolicyDigest: policy.Digest,
+				StartHistoryID: "history-corrupt", HighWaterHistoryID: "history-corrupt",
+				StartHistoryAt: now.Add(-2 * time.Hour), HighWaterHistoryAt: now.Add(-2 * time.Hour),
+				OpenedAt: now.Add(-2 * time.Hour), LastActivityAt: now.Add(-2 * time.Hour),
+				EvaluateAfter: now.Add(-90 * time.Minute), State: workspaceRewardPending,
+				CreatedAt: now.Add(-2 * time.Hour), UpdatedAt: now.Add(-2 * time.Hour),
+			}
+			if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, corruptWindow, corruptSource); err != nil {
+				t.Fatalf("insert corrupt window: %v", err)
+			}
+			corrupt(t, runtime, corruptWindow.ID)
+
+			if processed, err := runtime.dispatchWorkspaceReward(ctx); err != nil || !processed {
+				t.Fatalf("dispatch corrupt Workspace reward = %v, %v", processed, err)
+			}
+			var state, lastError string
+			if err := runtime.DB.QueryRowContext(ctx, `SELECT state, last_error FROM gameplay_workspace_reward_windows WHERE id = ?`, corruptWindow.ID).Scan(&state, &lastError); err != nil {
+				t.Fatalf("read corrupt window: %v", err)
+			}
+			wantError := "reward_policy_invalid"
+			if name == "digest mismatch" {
+				wantError = "reward_policy_digest_mismatch"
+			}
+			if state != workspaceRewardBlocked || lastError != wantError {
+				t.Fatalf("corrupt window state/error = %q/%q, want %q/%q", state, lastError, workspaceRewardBlocked, wantError)
+			}
+			if processed, err := runtime.dispatchWorkspaceReward(ctx); err != nil || !processed {
+				t.Fatalf("dispatch healthy Workspace reward = %v, %v", processed, err)
+			}
+			if generator.invokeCount != 1 {
+				t.Fatalf("healthy evaluator invokes = %d, want 1", generator.invokeCount)
+			}
+		})
+	}
+}
+
+func TestWorkspaceRewardCorruptPolicyBlockingHonorsClaimFence(t *testing.T) {
+	ctx := t.Context()
+	now := time.Date(2026, 8, 12, 9, 15, 0, 0, time.UTC)
+	policy := workspaceRewardTestPolicy(t)
+	runtime := &Runtime{DB: testDB(t), Now: func() time.Time { return now }, NewID: sequentialIDs("claim-observed")}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	source := workspaceRewardSource{
+		WorkspaceID: "workspace-corrupt", ScheduledCheckpoint: "history-corrupt",
+		CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}
+	if err := runtime.insertWorkspaceRewardSource(ctx, source); err != nil {
+		t.Fatalf("insert source: %v", err)
+	}
+	window := workspaceRewardWindow{
+		ID: "window-corrupt", WorkspaceID: source.WorkspaceID,
+		WorkspaceKind: WorkspaceRewardKindWorkflow, BeneficiaryPublicKey: "peer-corrupt",
+		RuntimeProfileId: policy.RuntimeProfileId, RuntimeProfileRevision: policy.RuntimeProfileRevision,
+		Policy: policy, PolicyDigest: policy.Digest,
+		StartHistoryID: "history-corrupt", HighWaterHistoryID: "history-corrupt",
+		StartHistoryAt: now.Add(-time.Hour), HighWaterHistoryAt: now.Add(-time.Hour),
+		OpenedAt: now.Add(-time.Hour), LastActivityAt: now.Add(-time.Hour),
+		EvaluateAfter: now.Add(-time.Minute), State: workspaceRewardPending,
+		CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}
+	if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
+		t.Fatalf("insert window: %v", err)
+	}
+	if _, err := runtime.DB.ExecContext(ctx, `UPDATE gameplay_workspace_reward_windows
+		SET policy_json = '{' WHERE id = ?`, window.ID); err != nil {
+		t.Fatalf("corrupt policy JSON: %v", err)
+	}
+
+	_, _, err := runtime.claimWorkspaceRewardWindow(ctx)
+	var corrupt *workspaceRewardPolicyCorruptionError
+	if !errors.As(err, &corrupt) {
+		t.Fatalf("claimWorkspaceRewardWindow() error = %v, want policy corruption", err)
+	}
+	if corrupt.State != workspaceRewardClaimed || corrupt.ClaimToken != "claim-observed" {
+		t.Fatalf("observed corruption fence = %q/%q", corrupt.State, corrupt.ClaimToken)
+	}
+	if _, err := runtime.DB.ExecContext(ctx, `UPDATE gameplay_workspace_reward_windows
+		SET claim_token = 'claim-renewed' WHERE id = ?`, window.ID); err != nil {
+		t.Fatalf("simulate renewed claim: %v", err)
+	}
+	if err := runtime.blockCorruptWorkspaceRewardWindow(ctx, corrupt); err == nil {
+		t.Fatal("stale corrupt-row observer blocked a renewed claim")
+	}
+	var state, claimToken string
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT state, claim_token
+		FROM gameplay_workspace_reward_windows WHERE id = ?`, window.ID).Scan(&state, &claimToken); err != nil {
+		t.Fatalf("read renewed row: %v", err)
+	}
+	if state != workspaceRewardClaimed || claimToken != "claim-renewed" {
+		t.Fatalf("renewed row = %q/%q, want claimed/claim-renewed", state, claimToken)
 	}
 }
 
@@ -1360,6 +1592,66 @@ func TestWorkspaceRewardActivityQueueIsBoundedAndDefersIO(t *testing.T) {
 	}
 }
 
+func TestWorkspaceRewardActivationQueueAppliesBackpressure(t *testing.T) {
+	runtime := &Runtime{WorkspaceRewards: &workspaceRewardTestEnvironment{}}
+	for range workspaceRewardActivityCapacity {
+		if err := runtime.EnqueueWorkspaceRewardActivation(t.Context(), "workflow-a"); err != nil {
+			t.Fatalf("EnqueueWorkspaceRewardActivation() error = %v", err)
+		}
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if err := runtime.EnqueueWorkspaceRewardActivation(ctx, "workflow-a"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("full activation queue error = %v, want context cancellation", err)
+	}
+	if got := len(runtime.workspaceRewardActivationChannel()); got != workspaceRewardActivityCapacity {
+		t.Fatalf("queued activations = %d, want %d", got, workspaceRewardActivityCapacity)
+	}
+}
+
+func TestWorkspaceRewardDispatcherStartsWithoutReadingWorkspaces(t *testing.T) {
+	ctx := context.Background()
+	entries := make(map[string][]workspace.HistoryEntry, 1000)
+	for index := range 1000 {
+		entries[fmt.Sprintf("cold-workspace-%04d", index)] = []workspace.HistoryEntry{{
+			ID: "history-cold", Type: "gear", GearID: "peer-cold",
+			Origin: workspace.HistoryOriginAgentHost, CreatedAt: time.Unix(1, 0),
+		}}
+	}
+	environment := &workspaceRewardTestEnvironment{entries: entries}
+	runtime := &Runtime{DB: testDB(t), WorkspaceRewards: environment}
+	stop, done, err := runtime.StartWorkspaceRewardDispatcher(ctx)
+	if err != nil {
+		t.Fatalf("StartWorkspaceRewardDispatcher() error = %v", err)
+	}
+	t.Cleanup(func() {
+		stop()
+		<-done
+	})
+
+	// Let the normal due-work poller run without relying on a timing assertion.
+	time.Sleep(2 * workspaceRewardPollInterval)
+	listCalls, historyCalls := environment.workspaceReadCounts()
+	if listCalls != 0 || historyCalls != 0 {
+		t.Fatalf("dispatcher startup Workspace reads = list:%d history:%d, want 0/0", listCalls, historyCalls)
+	}
+}
+
+func TestWorkspaceRewardDispatcherRejectsInvalidActivationBoundary(t *testing.T) {
+	runtime := &Runtime{DB: testDB(t), WorkspaceRewards: &workspaceRewardTestEnvironment{}}
+	if err := runtime.Migration(t.Context()); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	if _, err := runtime.DB.ExecContext(t.Context(), `INSERT INTO gameplay_workspace_reward_activation
+		(singleton, activated_at) VALUES (1, 'invalid')`); err != nil {
+		t.Fatalf("seed invalid activation boundary: %v", err)
+	}
+	if _, _, err := runtime.StartWorkspaceRewardDispatcher(t.Context()); err == nil ||
+		!strings.Contains(err.Error(), "invalid workspace reward activation boundary") {
+		t.Fatalf("StartWorkspaceRewardDispatcher() error = %v, want invalid activation boundary", err)
+	}
+}
+
 func TestWorkspaceRewardDispatcherConsumesQueuedActivity(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 29, 4, 59, 0, 0, time.UTC)
@@ -1399,6 +1691,111 @@ func TestWorkspaceRewardDispatcherConsumesQueuedActivity(t *testing.T) {
 			t.Fatalf("queued activity was not scheduled: source=%#v error=%v", source, sourceErr)
 		case <-time.After(10 * time.Millisecond):
 		}
+	}
+}
+
+func TestWorkspaceRewardDispatcherReconcilesQueuedActivation(t *testing.T) {
+	ctx := t.Context()
+	activation := time.Date(2026, 7, 29, 5, 0, 0, 0, time.UTC)
+	policy := workspaceRewardTestPolicy(t)
+	environment := &workspaceRewardTestEnvironment{
+		entries: map[string][]workspace.HistoryEntry{"workflow-a": {
+			{
+				ID: "001", Type: "gear", GearID: "peer-a", Origin: workspace.HistoryOriginAgentHost,
+				Text: "before activation", CreatedAt: activation.Add(-time.Minute),
+			},
+			{
+				ID: "002", Type: "gear", GearID: "peer-a", Origin: workspace.HistoryOriginAgentHost,
+				Text: "after activation", CreatedAt: activation.Add(time.Minute),
+			},
+		}},
+		policy: &policy,
+	}
+	runtime := &Runtime{
+		DB: testDB(t), WorkspaceRewards: environment,
+		Now: func() time.Time { return activation }, NewID: sequentialIDs("window-activated"),
+	}
+	stop, done, err := runtime.StartWorkspaceRewardDispatcher(ctx)
+	if err != nil {
+		t.Fatalf("StartWorkspaceRewardDispatcher() error = %v", err)
+	}
+	t.Cleanup(func() {
+		stop()
+		<-done
+	})
+	if err := runtime.EnqueueWorkspaceRewardActivation(ctx, "workflow-a"); err != nil {
+		t.Fatalf("EnqueueWorkspaceRewardActivation() error = %v", err)
+	}
+	deadline := time.After(2 * time.Second)
+	for {
+		source, sourceErr := runtime.getWorkspaceRewardSource(ctx, "workflow-a")
+		if sourceErr == nil && source.ScheduledCheckpoint == "002" {
+			if source.CompletedCheckpoint != "001" {
+				t.Fatalf("activated source = %#v, want pre-activation checkpoint 001", source)
+			}
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("queued activation was not reconciled: source=%#v error=%v", source, sourceErr)
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
+
+func TestWorkspaceRewardConcurrentActivationAndActivityAreIdempotent(t *testing.T) {
+	ctx := t.Context()
+	activation := time.Date(2026, 7, 29, 5, 30, 0, 0, time.UTC)
+	entry := workspace.HistoryEntry{
+		ID: "001", Type: "gear", GearID: "peer-a", Origin: workspace.HistoryOriginAgentHost,
+		Text: "new conversation", CreatedAt: activation.Add(time.Minute),
+	}
+	policy := workspaceRewardTestPolicy(t)
+	environment := &workspaceRewardTestEnvironment{
+		entries: map[string][]workspace.HistoryEntry{"workflow-a": {entry}}, policy: &policy,
+	}
+	runtime := &Runtime{
+		DB: testDB(t), WorkspaceRewards: environment,
+		Now: func() time.Time { return activation }, NewID: sequentialIDs("window-concurrent"),
+	}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+
+	start := make(chan struct{})
+	errs := make(chan error, 32)
+	var wg sync.WaitGroup
+	for index := range 32 {
+		wg.Go(func() {
+			<-start
+			if index%2 == 0 {
+				errs <- runtime.ActivateWorkspaceReward(ctx, "workflow-a")
+				return
+			}
+			errs <- runtime.ScheduleWorkspaceRewardActivity(ctx, "workflow-a", entry)
+		})
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent activation/activity error = %v", err)
+		}
+	}
+
+	source, err := runtime.getWorkspaceRewardSource(ctx, "workflow-a")
+	if err != nil || source.ScheduledCheckpoint != entry.ID {
+		t.Fatalf("source = %#v, %v; want checkpoint %q", source, err, entry.ID)
+	}
+	var windows int
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_workspace_reward_windows
+		WHERE workspace_id = ? AND state IN (?, ?, ?)`, "workflow-a",
+		workspaceRewardPending, workspaceRewardClaimed, workspaceRewardRetry).Scan(&windows); err != nil {
+		t.Fatalf("count active windows: %v", err)
+	}
+	if windows != 1 {
+		t.Fatalf("active windows = %d, want 1", windows)
 	}
 }
 

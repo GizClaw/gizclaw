@@ -378,6 +378,53 @@ func TestPostgresWorkspaceRewardConcurrentSettlementHonorsBudget(t *testing.T) {
 	testConcurrentWorkspaceRewardSettlement(t, db)
 }
 
+func TestPostgresWorkspaceRewardCorruptDueRowIsBlocked(t *testing.T) {
+	db := openGameplayPostgresTestDB(t)
+	ctx := t.Context()
+	dropGameplayPostgresTables(t, ctx, db)
+	t.Cleanup(func() { dropGameplayPostgresTables(t, context.Background(), db) })
+	now := time.Date(2026, 8, 12, 9, 30, 0, 0, time.UTC)
+	runtime := &Runtime{DB: db, Now: func() time.Time { return now }, NewID: sequentialIDs("claim-corrupt")}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	source := workspaceRewardSource{
+		WorkspaceID: "workspace-corrupt", ScheduledCheckpoint: "history-corrupt",
+		CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}
+	if err := runtime.insertWorkspaceRewardSource(ctx, source); err != nil {
+		t.Fatalf("insert source: %v", err)
+	}
+	policy := workspaceRewardTestPolicy(t)
+	window := workspaceRewardWindow{
+		ID: "window-corrupt", WorkspaceID: source.WorkspaceID,
+		WorkspaceKind: WorkspaceRewardKindWorkflow, BeneficiaryPublicKey: "peer-corrupt",
+		RuntimeProfileId: policy.RuntimeProfileId, RuntimeProfileRevision: policy.RuntimeProfileRevision,
+		Policy: policy, PolicyDigest: policy.Digest,
+		StartHistoryID: "history-corrupt", HighWaterHistoryID: "history-corrupt",
+		StartHistoryAt: now.Add(-time.Hour), HighWaterHistoryAt: now.Add(-time.Hour),
+		OpenedAt: now.Add(-time.Hour), LastActivityAt: now.Add(-time.Hour),
+		EvaluateAfter: now.Add(-time.Minute), State: workspaceRewardPending,
+		CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}
+	if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
+		t.Fatalf("insert window: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE gameplay_workspace_reward_windows SET policy_json = '{' WHERE id = $1`, window.ID); err != nil {
+		t.Fatalf("corrupt policy JSON: %v", err)
+	}
+	if processed, err := runtime.dispatchWorkspaceReward(ctx); err != nil || !processed {
+		t.Fatalf("dispatchWorkspaceReward() = %v, %v", processed, err)
+	}
+	var state, lastError string
+	if err := db.QueryRowContext(ctx, `SELECT state, last_error FROM gameplay_workspace_reward_windows WHERE id = $1`, window.ID).Scan(&state, &lastError); err != nil {
+		t.Fatalf("read blocked row: %v", err)
+	}
+	if state != workspaceRewardBlocked || lastError != "reward_policy_invalid" {
+		t.Fatalf("corrupt row state/error = %q/%q", state, lastError)
+	}
+}
+
 func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 	db := openGameplayPostgresTestDB(t)
 	ctx := context.Background()

@@ -82,6 +82,7 @@ type Service struct {
 	Source                     StreamSource
 	Consumer                   StreamConsumer
 	OnConsumerError            func(context.Context, string, error)
+	OnWorkspaceActivated       func(context.Context, string)
 	OnWorkspaceHistoryUpdated  func(context.Context, string, workspace.HistoryEntry)
 	Logger                     *slog.Logger
 	Now                        func() time.Time
@@ -277,6 +278,9 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		return s.reloadFailure(ctx, workspaceName, err)
 	}
 	go s.consume(runCtx, next)
+	if s.OnWorkspaceActivated != nil {
+		s.OnWorkspaceActivated(runCtx, selection.WorkspaceName)
+	}
 	return status, nil
 }
 

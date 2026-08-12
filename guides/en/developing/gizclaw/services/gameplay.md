@@ -69,13 +69,19 @@ The registered `source=gameplay` processor handler later verifies the immutable 
 `gameplay.workspace_reward` is an optional RuntimeProfile policy. It coalesces
 successive AgentHost-authored History entries in one Workspace into a debounced
 window. The first `gear` entry freezes the beneficiary; later group-chat
-participants do not replace that Peer. Server startup checkpoints existing
-History without retroactive rewards, and imported, replayed, or legacy entries
-are ineligible. A window must contain both beneficiary input and Agent output.
+participants do not replace that Peer. Server startup creates only the global
+activation boundary; it does not enumerate Workspaces or read their History.
+When one exact Workspace is activated, its source is created lazily and History
+before the activation boundary becomes its non-retroactive checkpoint. Imported,
+replayed, or legacy entries are ineligible. A window must contain both
+beneficiary input and Agent output.
 
 One persistent dispatcher serves the whole Gameplay service. The callback after
-a successful AgentHost append only records the exact History high-water and
-wakes the dispatcher; it never calls a model. Each window freezes the current
+a successful AgentHost append is a bounded, disposable latency hint: it can
+schedule the exact History high-water sooner, but has no durable receipt and may
+be dropped. A later activation of that exact Workspace compares authoritative
+History with its source checkpoint and reconciles the missing suffix. Cold
+Workspaces are never discovered by startup or periodic scans. Each window freezes the current
 RuntimeProfile revision, LLM Model resource, Points prompt, BadgeDef
 `reward_prompt` values, tiers, limits, and rolling budget. Profile updates affect
 only later windows. The dispatcher reads bounded `origin=agenthost` text and
@@ -92,4 +98,4 @@ window cannot grant twice. A successful state change sends
 which clients fetch authoritative Gameplay state. Deterministic task rewards
 belong to a separate task system and do not use this evaluator.
 
-Workspace reward scheduling, startup reconciliation, History paging, model evaluation, and retry dispatch all use the same authoritative availability gate. Once the Workspace or owner is pending deletion, unsettled windows and the exact source row are removed, completed reward audit rows remain, and no further History or model call is made for that Workspace. Other Workspaces remain independently dispatchable.
+Exact-Workspace activation, History paging, model evaluation, and retry dispatch all use the same authoritative availability gate. Once the Workspace or owner is pending deletion, unsettled windows and the exact source row are removed, completed reward audit rows remain, and no further History or model call is made for that Workspace. Existing pending, retry, and expired claims resume directly from the indexed Gameplay SQL queue after restart; no Workspace catalog scan is involved. Other Workspaces remain independently dispatchable.

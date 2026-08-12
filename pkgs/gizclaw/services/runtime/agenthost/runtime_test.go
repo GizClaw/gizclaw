@@ -91,6 +91,47 @@ func TestServiceReloadAppliesPendingAndStop(t *testing.T) {
 	}
 }
 
+func TestServiceReloadNotifiesOnlyPublishedWorkspaceActivation(t *testing.T) {
+	ctx := t.Context()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	activated := make(chan string, 1)
+	svc := testService(t, publicKey, store, &fakeHost{output: newBlockingStream()})
+	svc.OnWorkspaceActivated = func(_ context.Context, workspaceName string) {
+		activated <- workspaceName
+	}
+	if _, err := svc.Reload(ctx); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	select {
+	case workspaceName := <-activated:
+		if workspaceName != "demo" {
+			t.Fatalf("activated Workspace = %q, want demo", workspaceName)
+		}
+	default:
+		t.Fatal("published Workspace activation was not reported")
+	}
+	if _, err := svc.Stop(ctx); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+
+	failed := testService(t, publicKey, store, &fakeHost{err: errors.New("open failed")})
+	failed.OnWorkspaceActivated = func(_ context.Context, workspaceName string) {
+		activated <- workspaceName
+	}
+	if _, err := failed.Reload(ctx); err == nil {
+		t.Fatal("failed Reload() succeeded")
+	}
+	select {
+	case workspaceName := <-activated:
+		t.Fatalf("failed Workspace activation reported for %q", workspaceName)
+	default:
+	}
+}
+
 func TestServiceReloadAndStopSerializeTransitions(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)

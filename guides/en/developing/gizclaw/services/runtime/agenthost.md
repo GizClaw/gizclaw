@@ -40,10 +40,13 @@ All runtime creation paths must have symmetric cancel, stream close, lease relea
 
 History entries written by AgentHost carry the internal `origin=agenthost`
 marker. After persistence succeeds, the callback receives the exact entry
-identity rather than only a timestamp; the Gameplay Workspace-reward scheduler
-uses it as a durable high-water. The callback neither blocks output consumption
-nor invokes GenX, and the reward evaluator is not exposed as an Agent Tool.
-Imported and legacy History lacks this origin and is not new reward activity.
+identity rather than only a timestamp. The callback is a bounded, disposable
+Gameplay scheduling hint, not a durable high-water receipt; dropping it does not
+change persisted History. After a runtime is successfully published, AgentHost
+also reports that exact Workspace activation so Gameplay can lazily reconcile
+only its History checkpoint. Neither callback invokes GenX, and the reward
+evaluator is not exposed as an Agent Tool. Imported and legacy History lacks
+this origin and is not new reward activity.
 
 ## Current-Peer Tool scope
 

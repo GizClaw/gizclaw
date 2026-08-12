@@ -45,6 +45,14 @@ Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service 
 
 每个 Workspace Agent generation 根据当前 RuntimeProfile snapshot 解析 memory alias。构造失败会使 Agent 初始化或 reload 显式失败。Server shutdown 关闭共享 Memory registry；Workspace reload 与最后一个 Agent 引用释放会关闭该 generation 的 lease，但不迁移、合并、复制或删除持久数据。
 
+## Workspace reward 生命周期
+
+启动 Workspace reward dispatcher 时只验证 Gameplay SQL schema 与单例 activation
+boundary，然后启动有界 due-work poller。Server 启动期间不会枚举或读取任何持久化
+Workspace record 或 History，也没有周期性的 Workspace catalog scan。AgentHost runtime
+成功发布后只为该精确 Workspace 安排懒对账；History append 后的通知只是可选的低延迟
+提示，允许丢弃。已有 pending、retry 与过期 claim window 在重启后直接从 Gameplay SQL 恢复。
+
 ## Pending-deletion processor
 
 Server 初始化会验证 pending-deletion source 与 handler registry，但不会启动后台任务。`Server.Listen` 启动一次立即扫描和有界 worker pool；`Server.Close` 取消 scan 与 active attempt，等待全部 processor goroutine 退出，然后 command layer 才能关闭 store。领域持久化 store 是 queue 的唯一事实来源；producer wake signal 与内存 dispatch channel 只用于降低延迟，因此重启和周期扫描仍能恢复已提交但 signal 丢失的 work。

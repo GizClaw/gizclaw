@@ -66,6 +66,7 @@ type Runtime struct {
 	workspaceRewardMu    sync.Mutex
 	workspaceRewardWake  chan struct{}
 	workspaceRewardQueue chan workspaceRewardActivity
+	workspaceActivation  chan string
 	workspaceRewardLocks [64]sync.Mutex
 	accountMu            [64]sync.Mutex
 }
