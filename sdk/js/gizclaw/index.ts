@@ -162,10 +162,12 @@ export type SendGiznetWebRTCTelemetryOptions = {
 };
 
 export type GiznetServerInfo = {
+  build_commit?: string;
   endpoint?: string;
   ice_servers?: RTCIceServer[];
   protocol?: string;
   public_key: string;
+  region?: string;
   signaling_path?: string;
   transport?: {
     endpoint: string;
@@ -173,6 +175,7 @@ export type GiznetServerInfo = {
     public_key: string;
     signaling_path: string;
   };
+  version?: string;
 };
 
 export type ServerInfoBootstrapOptions = {
@@ -1306,8 +1309,21 @@ export async function fetchGiznetServerInfo(
     (serverInfo as { transport?: unknown }).transport,
     serverInfo.public_key.trim(),
   );
+  const version = normalizeOptionalServerInfoMetadata(
+    (serverInfo as { version?: unknown }).version,
+    "version",
+  );
+  const buildCommit = normalizeOptionalServerInfoMetadata(
+    (serverInfo as { build_commit?: unknown }).build_commit,
+    "build_commit",
+  );
+  const region = normalizeOptionalServerInfoMetadata(
+    (serverInfo as { region?: unknown }).region,
+    "region",
+  );
   return {
     ...serverInfo,
+    build_commit: buildCommit,
     ice_servers:
       transport == null
         ? normalizeServerInfoICEServers(
@@ -1315,9 +1331,24 @@ export async function fetchGiznetServerInfo(
           )
         : undefined,
     public_key: serverInfo.public_key.trim(),
+    region,
     signaling_path: normalizeServerInfoSignalingPath(serverInfo.signaling_path),
     transport,
+    version,
   };
+}
+
+function normalizeOptionalServerInfoMetadata(
+  value: unknown,
+  field: string,
+): string | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`server-info invalid ${field}`);
+  }
+  return value.trim();
 }
 
 function normalizeServerInfoTransport(

@@ -19,6 +19,7 @@ import (
 type Config struct {
 	WorkspaceRoot   string `yaml:"-"`
 	KeyPair         *giznet.KeyPair
+	Region          string
 	Listen          string
 	Endpoint        string
 	ServeToClients  bool
@@ -230,6 +231,7 @@ func (cfg storeFileConfig) runtimeConfig() store.Config {
 
 type ConfigFile struct {
 	Identity        IdentityConfig               `yaml:"identity"`
+	Region          string                       `yaml:"region"`
 	Listen          string                       `yaml:"listen"`
 	Endpoint        string                       `yaml:"endpoint"`
 	ServeToClients  bool                         `yaml:"serve-to-clients"`
@@ -278,6 +280,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	}
 	var raw struct {
 		Identity        *IdentityConfig              `yaml:"identity"`
+		Region          string                       `yaml:"region"`
 		Listen          string                       `yaml:"listen"`
 		Endpoint        string                       `yaml:"endpoint"`
 		ServeToClients  *bool                        `yaml:"serve-to-clients"`
@@ -329,6 +332,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	}
 	cfg := ConfigFile{
 		Identity:        identity,
+		Region:          raw.Region,
 		Listen:          raw.Listen,
 		Endpoint:        raw.Endpoint,
 		ServeToClients:  serveToClients,
@@ -505,6 +509,9 @@ func DefaultConfig() Config {
 }
 
 func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
+	if cfg.Region == "" {
+		cfg.Region = fileCfg.Region
+	}
 	if cfg.Listen == "" {
 		cfg.Listen = fileCfg.Listen
 	}
@@ -684,6 +691,9 @@ func prepareConfig(cfg Config) (Config, error) {
 }
 
 func (cfg Config) validate() error {
+	if err := validateServerRegion(cfg.Region); err != nil {
+		return err
+	}
 	if err := validateHostPort("listen", cfg.Listen); err != nil {
 		return err
 	}
@@ -744,6 +754,22 @@ func (cfg Config) validate() error {
 	}
 	if err := processorConfig.Validate(); err != nil {
 		return fmt.Errorf("server: %w", err)
+	}
+	return nil
+}
+
+func validateServerRegion(region string) error {
+	if region == "" {
+		return nil
+	}
+	if region != strings.TrimSpace(region) {
+		return fmt.Errorf("server: region must not have surrounding whitespace")
+	}
+	if len(region) > 128 {
+		return fmt.Errorf("server: region must not exceed 128 bytes")
+	}
+	if strings.ContainsAny(region, "\r\n\t") {
+		return fmt.Errorf("server: region must be a single-line value")
 	}
 	return nil
 }

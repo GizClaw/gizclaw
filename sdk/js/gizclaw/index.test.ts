@@ -2597,6 +2597,7 @@ test("fetchGiznetServerInfo validates server metadata", async () => {
     fetch: async (input, init) => {
       captured = new Request(input, init);
       return Response.json({
+        build_commit: "deadbeef",
         ice_servers: [
           {
             credential: "pass",
@@ -2606,13 +2607,18 @@ test("fetchGiznetServerInfo validates server metadata", async () => {
         ],
         protocol: "gizclaw-webrtc",
         public_key: serverPublicKey,
+        region: "cn-beijing",
         signaling_path: "/custom/offer",
+        version: "0.2.5",
       });
     },
   });
 
   assert.equal(captured?.url, "http://localhost:9820/server-info");
   assert.equal(info.public_key, serverPublicKey);
+  assert.equal(info.version, "0.2.5");
+  assert.equal(info.build_commit, "deadbeef");
+  assert.equal(info.region, "cn-beijing");
   assert.equal(info.signaling_path, "/custom/offer");
   assert.deepEqual(info.ice_servers, [
     {
@@ -2652,6 +2658,22 @@ test("fetchGiznetServerInfo preserves Server identity and selects Edge transport
     signaling_path: "/edge/offer",
   });
   assert.equal(info.ice_servers, undefined);
+});
+
+test("fetchGiznetServerInfo rejects invalid region metadata", async () => {
+  const serverPublicKey = base58Encode(
+    x25519.getPublicKey(new Uint8Array(32).fill(2)),
+  );
+  await assert.rejects(
+    fetchGiznetServerInfo({
+      fetch: async () =>
+        Response.json({
+          public_key: serverPublicKey,
+          region: " ",
+        }),
+    }),
+    /invalid region/,
+  );
 });
 
 test("fetchGiznetServerInfo rejects invalid Edge transport metadata", async () => {

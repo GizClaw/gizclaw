@@ -45,7 +45,9 @@ type PeerManager interface {
 
 type Server struct {
 	Store           kv.Store
+	BuildVersion    string
 	BuildCommit     string
+	Region          string
 	Endpoint        string
 	ServerPublicKey giznet.PublicKey
 	SignalingPath   string
@@ -299,8 +301,18 @@ func (s *Server) GetServerInfo(_ context.Context, _ peerhttp.GetServerInfoReques
 	if signalingPath == "" {
 		signalingPath = "/webrtc/v1/offer"
 	}
+	buildVersion := s.BuildVersion
+	if buildVersion == "" {
+		buildVersion = "dev"
+	}
+	buildCommit := s.BuildCommit
+	if buildCommit == "" {
+		buildCommit = "dev"
+	}
 	return peerhttp.GetServerInfo200JSONResponse(apitypes.ServerInfo{
-		BuildCommit: s.BuildCommit,
+		Version:     buildVersion,
+		BuildCommit: buildCommit,
+		Region:      optionalString(s.Region),
 		Endpoint:    s.Endpoint,
 		Ice: struct {
 			Tcp bool `json:"tcp"`
@@ -315,6 +327,13 @@ func (s *Server) GetServerInfo(_ context.Context, _ peerhttp.GetServerInfoReques
 		SignalingPath: signalingPath,
 		IceServers:    serverInfoICEServersAt(s.ICEServers, time.Now()),
 	}), nil
+}
+
+func optionalString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func serverInfoICEServers(servers []gizwebrtc.ICEServer) *[]struct {

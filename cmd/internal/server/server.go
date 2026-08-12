@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
@@ -27,8 +28,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pion/webrtc/v4"
 )
-
-var BuildCommit = "dev"
 
 // CmdServer owns the command-layer store registry for a gizclaw server.
 type CmdServer struct {
@@ -200,7 +199,9 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	gizServer = &gizclaw.Server{
 		LocalStatic:           *cfg.KeyPair,
 		MemoryRoot:            cfg.WorkspaceRoot,
-		BuildCommit:           BuildCommit,
+		BuildVersion:          buildinfo.Version,
+		BuildCommit:           buildinfo.Commit,
+		Region:                cfg.Region,
 		PublicEndpoint:        cfg.Endpoint,
 		PublicICETCP:          newOpts.ICETCPListener != nil,
 		EdgeNodes:             cfg.EdgeNodes,

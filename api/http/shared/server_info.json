@@ -13,6 +13,7 @@
         "required": [
           "public_key",
           "server_time",
+          "version",
           "build_commit",
           "protocol",
           "signaling_path",
@@ -27,8 +28,17 @@
             "type": "integer",
             "format": "int64"
           },
+          "version": {
+            "type": "string",
+            "description": "GizClaw software version embedded when the server binary was built. Formal releases use MAJOR.MINOR.PATCH without a leading v; development builds use dev."
+          },
           "build_commit": {
-            "type": "string"
+            "type": "string",
+            "description": "Source commit embedded when the server binary was built."
+          },
+          "region": {
+            "type": "string",
+            "description": "Operator-defined deployment region for this authoritative Server instance."
           },
           "protocol": {
             "type": "string"

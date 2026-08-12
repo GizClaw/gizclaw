@@ -12,3 +12,5 @@ See the [API Reference](/api/) for exact endpoints, parameters, requests, and re
 The identity authentication of the Offer is completed by the signing signaling contract itself and should not additionally rely on the Public login session. Public API can reuse real shared types such as `ErrorResponse`, `DeviceInfo` and `Runtime`, but does not reference Admin Resources.
 
 See [Peer HTTP · Side Control](../../gizclaw/peer/service/side-control) for the route contract, session boundary, and transports. LiteLink-local capabilities such as device passwords, Wi-Fi provisioning, and playing sounds are not Public API routes.
+
+Before connection, `/server-info` reports the authoritative Server's `public_key`, software `version`, `build_commit`, and transport capabilities. When deployment configuration supplies `region`, the response also includes that operator-readable deployment region; Server identity remains the cryptographic `public_key`. Through an Edge, the build and deployment fields remain those of the authoritative Server, while the `transport` object alone selects the Edge route.

@@ -11,6 +11,11 @@ done
 release_workflow="$repo_root/.github/workflows/release.yml"
 ci_workflow="$repo_root/.github/workflows/ci.yml"
 semver_publisher="$(awk '/^  publish-semver:/{selected=1} selected' "$release_workflow")"
+grep -Fq "buildinfo.Version=\${BUILD_VERSION}" "$repo_root/build/Dockerfile"
+grep -Fq "buildinfo.Commit=\${BUILD_COMMIT}" "$repo_root/build/Dockerfile"
+[[ "$(grep -Fc "BUILD_VERSION: \${{ needs.prepare.outputs.version }}" "$release_workflow")" -eq 4 ]]
+[[ "$(grep -Fc "BUILD_COMMIT: \${{ needs.prepare.outputs.source_commit }}" "$release_workflow")" -eq 2 ]]
+grep -Fq "gizclaw version \$BUILD_VERSION" "$release_workflow"
 grep -Fq 'tags:' "$release_workflow"
 grep -Fq -- '- "v*"' "$release_workflow"
 if grep -Eq '^    branches:|^  workflow_dispatch:|publish-snapshot|refs/tags/latest|gh release .*latest|0\.0\.0\+main' "$release_workflow"; then

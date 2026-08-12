@@ -6,6 +6,18 @@
 
 它可以组合多个领域，但单一领域的 resource、validation、storage 和 lifecycle 应留在 `services/<domain>`。进程配置与启动属于 `cmd/internal/server`。
 
+## Server info 与构建身份
+
+`/server-info` 将软件构建信息与部署区域分开返回：`version` 和 `build_commit` 来自二进制编译期 metadata，`region` 来自运行时配置。正式 Release 的 `version` 是不带 `v` 前缀的 `MAJOR.MINOR.PATCH`，本地未注入的开发构建返回 `dev`。Release 构建必须同时注入版本与完整 source commit，不能从运行时配置覆盖软件版本。
+
+部署区域使用以下可选顶层配置；未配置时 response 省略 `region`：
+
+```yaml
+region: cn-beijing
+```
+
+`public_key` 是 authoritative Server 的唯一身份，`region` 只描述部署区域。Edge 只改写 transport endpoint，不取得 Server 业务身份，也不改变 Server 的 `public_key`、版本或区域。
+
 ## Storage、Store 与 Service 组合
 
 Server 配置明确分为三层：

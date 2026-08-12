@@ -193,7 +193,18 @@ export type ContactObject = {
 export type ServerInfo = {
     public_key: string;
     server_time: number;
+    /**
+     * GizClaw software version embedded when the server binary was built. Formal releases use MAJOR.MINOR.PATCH without a leading v; development builds use dev.
+     */
+    version: string;
+    /**
+     * Source commit embedded when the server binary was built.
+     */
     build_commit: string;
+    /**
+     * Operator-defined deployment region for this authoritative Server instance.
+     */
+    region?: string;
     protocol: string;
     signaling_path: string;
     endpoint: string;
