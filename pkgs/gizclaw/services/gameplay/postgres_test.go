@@ -215,6 +215,14 @@ func TestPostgresGameplayContract(t *testing.T) {
 	}
 }
 
+func TestPostgresWorkspaceRewardDeletionFenceOrdersMarkerAndSettlement(t *testing.T) {
+	db := openGameplayPostgresTestDB(t)
+	ctx := t.Context()
+	dropGameplayPostgresTables(t, ctx, db)
+	t.Cleanup(func() { dropGameplayPostgresTables(t, context.Background(), db) })
+	testWorkspaceRewardDeletionFenceOrdersMarkerAndSettlement(t, db)
+}
+
 func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 	db := openGameplayPostgresTestDB(t)
 	ctx := context.Background()

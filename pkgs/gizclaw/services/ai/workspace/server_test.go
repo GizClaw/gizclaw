@@ -24,6 +24,8 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	srv := newTestServer(t)
 	runtime := &recordingRuntimeStore{}
 	srv.RuntimeStore = runtime
+	deletionFencer := &recordingWorkspaceDeletionFencer{}
+	srv.DeletionFencer = deletionFencer
 	ctx := context.Background()
 	seedWorkflow(t, srv, "workflow-1")
 
@@ -118,6 +120,9 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if _, ok := deleteResp.(adminhttp.DeleteWorkspace200JSONResponse); !ok {
 		t.Fatalf("DeleteWorkspace() response = %#v", deleteResp)
 	}
+	if len(deletionFencer.workspaceIDs) != 1 || deletionFencer.workspaceIDs[0] != workspaceID || !deletionFencer.callbackInvoked {
+		t.Fatalf("Workspace deletion fence = %#v", deletionFencer)
+	}
 	if len(runtime.deleted) != 0 {
 		t.Fatalf("runtime deleted during pending-deletion request = %#v", runtime.deleted)
 	}
@@ -196,6 +201,35 @@ func TestGetAvailableWorkspaceByIDFencesPendingOwnerButAdminRetainsRecord(t *tes
 	}
 	if _, err := srv.GetAvailableWorkspaceByID(ctx, body.Id); !errors.Is(err, ErrPeerPendingDeletion) {
 		t.Fatalf("GetAvailableWorkspaceByID() error = %v, want %v", err, ErrPeerPendingDeletion)
+	}
+}
+
+func TestGetAvailableWorkspaceByIDClassifiesOnlyCanonicalPhysicalAbsence(t *testing.T) {
+	srv := newTestServer(t)
+	seedWorkflow(t, srv, "workflow-physical-delete")
+	ctx := ownership.WithOwner(t.Context(), "peer-a")
+	body := adminhttp.WorkspaceUpsert{
+		Id: "workspace-physical-delete", Name: "workspace-physical-delete", WorkflowId: "workflow-physical-delete",
+	}
+	response, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	if err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	if _, ok := response.(adminhttp.CreateWorkspace200JSONResponse); !ok {
+		t.Fatalf("CreateWorkspace() response = %#v", response)
+	}
+	if err := srv.Store.Delete(ctx, workspaceKey(body.Id)); err != nil {
+		t.Fatalf("delete canonical Workspace record: %v", err)
+	}
+	_, err = srv.GetAvailableWorkspaceByID(ctx, body.Id)
+	if !errors.Is(err, ErrWorkspaceDeleted) {
+		t.Fatalf("GetAvailableWorkspaceByID() error = %v, want %v", err, ErrWorkspaceDeleted)
+	}
+	if errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("GetAvailableWorkspaceByID() exposed Store not-found identity: %v", err)
+	}
+	if _, err := srv.GetAvailableWorkspaceByID(ctx, " not-valid "); errors.Is(err, ErrWorkspaceDeleted) {
+		t.Fatalf("invalid Workspace ID classified as deleted: %v", err)
 	}
 }
 
@@ -1707,6 +1741,24 @@ func mustWorkspaceUpsert(t *testing.T, raw string) adminhttp.WorkspaceUpsert {
 type recordingRuntimeStore struct {
 	prepared []string
 	deleted  []string
+}
+
+type recordingWorkspaceDeletionFencer struct {
+	workspaceIDs    []string
+	callbackInvoked bool
+}
+
+func (f *recordingWorkspaceDeletionFencer) WithWorkspaceDeletionFence(
+	ctx context.Context,
+	workspaceID string,
+	createMarker func(context.Context) error,
+) error {
+	f.workspaceIDs = append(f.workspaceIDs, workspaceID)
+	if err := createMarker(ctx); err != nil {
+		return err
+	}
+	f.callbackInvoked = true
+	return nil
 }
 
 type failingCreateIfAbsentStore struct {

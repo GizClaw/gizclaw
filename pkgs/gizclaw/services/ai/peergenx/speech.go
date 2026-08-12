@@ -96,11 +96,120 @@ type SpeechExtraction struct {
 	ResultJSON string
 }
 
+// SpeechExtractionStage identifies the bounded service stage that owns a
+// Speech Extraction failure. It is safe to project as a server-owned
+// observability identifier; the wrapped cause is not.
+type SpeechExtractionStage string
+
+const (
+	SpeechExtractionStageRequest     SpeechExtractionStage = "request"
+	SpeechExtractionStageASR         SpeechExtractionStage = "asr"
+	SpeechExtractionStageProvider    SpeechExtractionStage = "provider"
+	SpeechExtractionStageResultParse SpeechExtractionStage = "result_parse"
+	SpeechExtractionStageSchema      SpeechExtractionStage = "schema"
+	SpeechExtractionStageResponse    SpeechExtractionStage = "response"
+)
+
+type speechExtractionClass string
+
+const (
+	speechExtractionClassTimeout         speechExtractionClass = "TIMEOUT"
+	speechExtractionClassCanceled        speechExtractionClass = "CANCELED"
+	speechExtractionClassNotFound        speechExtractionClass = "NOT_FOUND"
+	speechExtractionClassUnsupported     speechExtractionClass = "UNSUPPORTED"
+	speechExtractionClassNotConfigured   speechExtractionClass = "NOT_CONFIGURED"
+	speechExtractionClassInvalidInput    speechExtractionClass = "INVALID_INPUT"
+	speechExtractionClassInvalidOutput   speechExtractionClass = "INVALID_OUTPUT"
+	speechExtractionClassProviderFailure speechExtractionClass = "PROVIDER_FAILURE"
+)
+
+// SpeechExtractionFailure preserves the original error identity while adding
+// a closed stage and class for sanitized RPC completion diagnostics.
+type SpeechExtractionFailure struct {
+	stage SpeechExtractionStage
+	class speechExtractionClass
+	cause error
+}
+
+func (e *SpeechExtractionFailure) Error() string {
+	if e == nil || e.cause == nil {
+		return "speech extraction failed"
+	}
+	return e.cause.Error()
+}
+
+func (e *SpeechExtractionFailure) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.cause
+}
+
+// SpeechExtractionErrorCode returns the bounded completion code for a typed
+// extraction failure. Unknown errors deliberately produce no code.
+func SpeechExtractionErrorCode(err error) string {
+	var failure *SpeechExtractionFailure
+	if !errors.As(err, &failure) || failure == nil {
+		return ""
+	}
+	var stage string
+	switch failure.stage {
+	case SpeechExtractionStageRequest, SpeechExtractionStageASR, SpeechExtractionStageProvider,
+		SpeechExtractionStageResultParse, SpeechExtractionStageSchema, SpeechExtractionStageResponse:
+		stage = strings.ToUpper(string(failure.stage))
+	default:
+		return ""
+	}
+	var class string
+	switch failure.class {
+	case speechExtractionClassTimeout, speechExtractionClassCanceled, speechExtractionClassNotFound,
+		speechExtractionClassUnsupported, speechExtractionClassNotConfigured,
+		speechExtractionClassInvalidInput, speechExtractionClassInvalidOutput,
+		speechExtractionClassProviderFailure:
+		class = string(failure.class)
+	default:
+		return ""
+	}
+	if failure.stage == SpeechExtractionStageProvider && failure.class == speechExtractionClassProviderFailure {
+		return "SPEECH_EXTRACT_PROVIDER_FAILURE"
+	}
+	return "SPEECH_EXTRACT_" + stage + "_" + class
+}
+
+func speechExtractionFailure(stage SpeechExtractionStage, cause error) error {
+	if cause == nil {
+		return nil
+	}
+	var existing *SpeechExtractionFailure
+	if errors.As(cause, &existing) {
+		return cause
+	}
+	class := speechExtractionClassProviderFailure
+	switch {
+	case errors.Is(cause, context.DeadlineExceeded):
+		class = speechExtractionClassTimeout
+	case errors.Is(cause, context.Canceled):
+		class = speechExtractionClassCanceled
+	case errors.Is(cause, ErrNotFound):
+		class = speechExtractionClassNotFound
+	case errors.Is(cause, ErrUnsupported):
+		class = speechExtractionClassUnsupported
+	case errors.Is(cause, ErrNotConfigured):
+		class = speechExtractionClassNotConfigured
+	case errors.Is(cause, ErrInvalid):
+		class = speechExtractionClassInvalidInput
+	case errors.Is(cause, ErrInvalidOutput):
+		class = speechExtractionClassInvalidOutput
+	}
+	return &SpeechExtractionFailure{stage: stage, class: class, cause: cause}
+}
+
 // Extract transcribes audio and invokes the aliased LLM with a server-owned
 // schema-constrained extraction tool.
 func (s *Service) Extract(ctx context.Context, request SpeechExtractionRequest) (SpeechExtraction, error) {
 	if request.MaxTranscriptBytes <= 0 || request.MaxResultBytes <= 0 {
-		return SpeechExtraction{}, fmt.Errorf("%w: transcript and result byte limits are required", ErrNotConfigured)
+		return SpeechExtraction{}, speechExtractionFailure(SpeechExtractionStageRequest,
+			fmt.Errorf("%w: transcript and result byte limits are required", ErrNotConfigured))
 	}
 	schema, resolved, err := parseSpeechExtractionSchema(
 		request.SchemaJSON,
@@ -108,14 +217,19 @@ func (s *Service) Extract(ctx context.Context, request SpeechExtractionRequest) 
 		request.MaxSchemaProperties,
 	)
 	if err != nil {
-		return SpeechExtraction{}, err
+		return SpeechExtraction{}, speechExtractionFailure(SpeechExtractionStageRequest, err)
 	}
 	transcript, err := s.Transcribe(ctx, request.ASRModelAlias, request.Language, request.Input)
 	if err != nil {
-		return SpeechExtraction{}, err
+		return SpeechExtraction{}, speechExtractionFailure(SpeechExtractionStageASR, err)
+	}
+	if strings.TrimSpace(transcript) == "" {
+		return SpeechExtraction{}, speechExtractionFailure(SpeechExtractionStageASR,
+			fmt.Errorf("%w: transcript is empty", ErrInvalidOutput))
 	}
 	if !utf8.ValidString(transcript) || len(transcript) > request.MaxTranscriptBytes {
-		return SpeechExtraction{}, fmt.Errorf("%w: transcript exceeds output limits", ErrInvalidOutput)
+		return SpeechExtraction{}, speechExtractionFailure(SpeechExtractionStageASR,
+			fmt.Errorf("%w: transcript exceeds output limits", ErrInvalidOutput))
 	}
 
 	var modelContext genx.ModelContextBuilder
@@ -140,28 +254,33 @@ func (s *Service) Extract(ctx context.Context, request SpeechExtractionRequest) 
 		tool,
 	)
 	if err != nil {
-		return SpeechExtraction{}, err
+		return SpeechExtraction{}, speechExtractionFailure(SpeechExtractionStageProvider, err)
 	}
 	if call == nil || call.Name != tool.Name || strings.TrimSpace(call.Arguments) == "" {
-		return SpeechExtraction{}, fmt.Errorf("%w: missing extract result", ErrInvalidOutput)
+		return SpeechExtraction{}, speechExtractionFailure(SpeechExtractionStageResultParse,
+			fmt.Errorf("%w: missing extract result", ErrInvalidOutput))
 	}
 	if len(call.Arguments) > request.MaxResultBytes {
-		return SpeechExtraction{}, fmt.Errorf("%w: extract result exceeds byte limit", ErrInvalidOutput)
+		return SpeechExtraction{}, speechExtractionFailure(SpeechExtractionStageResultParse,
+			fmt.Errorf("%w: extract result exceeds byte limit", ErrInvalidOutput))
 	}
 
 	result, err := decodeSpeechExtractionResult(call.Arguments)
 	if err != nil {
-		return SpeechExtraction{}, err
+		return SpeechExtraction{}, speechExtractionFailure(SpeechExtractionStageResultParse, err)
 	}
 	if err := resolved.Validate(result); err != nil {
-		return SpeechExtraction{}, fmt.Errorf("%w: schema validation failed", ErrInvalidOutput)
+		return SpeechExtraction{}, speechExtractionFailure(SpeechExtractionStageSchema,
+			fmt.Errorf("%w: schema validation failed", ErrInvalidOutput))
 	}
 	canonical, err := json.Marshal(result)
 	if err != nil {
-		return SpeechExtraction{}, fmt.Errorf("%w: encode result", ErrInvalidOutput)
+		return SpeechExtraction{}, speechExtractionFailure(SpeechExtractionStageResponse,
+			fmt.Errorf("%w: encode result", ErrInvalidOutput))
 	}
 	if len(canonical) > request.MaxResultBytes {
-		return SpeechExtraction{}, fmt.Errorf("%w: canonical result exceeds byte limit", ErrInvalidOutput)
+		return SpeechExtraction{}, speechExtractionFailure(SpeechExtractionStageResponse,
+			fmt.Errorf("%w: canonical result exceeds byte limit", ErrInvalidOutput))
 	}
 	return SpeechExtraction{Transcript: transcript, ResultJSON: string(canonical)}, nil
 }

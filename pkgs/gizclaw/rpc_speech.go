@@ -13,6 +13,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 )
@@ -210,15 +211,18 @@ func (s *rpcServer) handleSpeechTranscribe(ctx context.Context, stream *rpcStrea
 
 func (s *rpcServer) handleSpeechExtract(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) error {
 	if req.Params == nil {
+		observability.SetErrorCode(ctx, "SPEECH_EXTRACT_REQUEST_INVALID_INPUT")
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "missing params")
 	}
 	params, err := req.Params.AsSpeechExtractRequest()
 	if err != nil {
+		observability.SetErrorCode(ctx, "SPEECH_EXTRACT_REQUEST_INVALID_INPUT")
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "invalid params")
 	}
 	limits := s.normalizedSpeechLimits()
 	contentType, language, instruction, err := validateSpeechExtractRequest(params, limits)
 	if err != nil {
+		observability.SetErrorCode(ctx, "SPEECH_EXTRACT_REQUEST_INVALID_INPUT")
 		if errors.Is(err, errSpeechBadRequest) {
 			code, message := speechRPCError(err)
 			return writeRPCErrorResponse(stream, req.Id, code, message)
@@ -227,6 +231,7 @@ func (s *rpcServer) handleSpeechExtract(ctx context.Context, stream *rpcStream, 
 	}
 	service := s.speechService()
 	if service == nil {
+		observability.SetErrorCode(ctx, "SPEECH_EXTRACT_REQUEST_NOT_CONFIGURED")
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "speech service not configured")
 	}
 
@@ -267,13 +272,16 @@ func (s *rpcServer) handleSpeechExtract(ctx context.Context, stream *rpcStream, 
 		if closeErr := callStream.Close(); closeErr != nil {
 			return closeErr
 		}
+		setSpeechExtractErrorCode(callCtx, callErr)
 		code, message := speechExtractRPCError(callErr)
 		return writeRPCErrorResponse(stream, req.Id, code, message)
 	}
 	if !utf8.ValidString(extraction.Transcript) || len(extraction.Transcript) > rpcSpeechMaxTranscriptBytes {
+		observability.SetErrorCode(callCtx, "SPEECH_EXTRACT_RESPONSE_INVALID_OUTPUT")
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "speech extraction returned an invalid transcript")
 	}
 	if !utf8.ValidString(extraction.ResultJSON) || len(extraction.ResultJSON) > limits.ExtractionMaxResultBytes {
+		observability.SetErrorCode(callCtx, "SPEECH_EXTRACT_RESPONSE_INVALID_OUTPUT")
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "speech extraction returned an invalid result")
 	}
 	response, err := newRPCResultResponse(req.Id, rpcapi.SpeechExtractResponse{
@@ -294,6 +302,21 @@ func (s *rpcServer) handleSpeechExtract(ctx context.Context, stream *rpcStream, 
 		return nil
 	}
 	return callStream.WriteEOS()
+}
+
+func setSpeechExtractErrorCode(ctx context.Context, err error) {
+	code := peergenx.SpeechExtractionErrorCode(err)
+	if code == "" {
+		switch {
+		case errors.Is(err, context.DeadlineExceeded):
+			code = "SPEECH_EXTRACT_REQUEST_TIMEOUT"
+		case errors.Is(err, context.Canceled):
+			code = "SPEECH_EXTRACT_REQUEST_CANCELED"
+		default:
+			code = "SPEECH_EXTRACT_PROVIDER_FAILURE"
+		}
+	}
+	observability.SetErrorCode(ctx, code)
 }
 
 func newSpeechCallStream(ctx context.Context, parent *rpcStream) (*rpcStream, error) {

@@ -600,6 +600,7 @@ func (s *Server) init() error {
 		if err := gameplayRuntime.Migration(context.Background()); err != nil {
 			return err
 		}
+		workspaceServer.DeletionFencer = gameplayRuntime
 	}
 	pendingDeletionRegistry := pendingdeletion.NewRegistry()
 	workspacePendingDeletionSource := workspace.NewPendingDeletionSource(workspaceStore)

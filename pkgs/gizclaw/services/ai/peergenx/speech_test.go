@@ -142,6 +142,9 @@ func TestExtractRejectsSchemaInvalidProviderResult(t *testing.T) {
 	if !errors.Is(err, ErrInvalidOutput) {
 		t.Fatalf("Extract() error = %v, want %v", err, ErrInvalidOutput)
 	}
+	if code := SpeechExtractionErrorCode(err); code != "SPEECH_EXTRACT_SCHEMA_INVALID_OUTPUT" {
+		t.Fatalf("SpeechExtractionErrorCode() = %q, want schema invalid output", code)
+	}
 }
 
 func TestExtractPreservesJSONNumberPrecision(t *testing.T) {
@@ -273,9 +276,33 @@ func TestExtractRejectsOversizedTranscriptBeforeLLMInvocation(t *testing.T) {
 	if !errors.Is(err, ErrInvalidOutput) {
 		t.Fatalf("Extract() error = %v, want %v", err, ErrInvalidOutput)
 	}
+	if code := SpeechExtractionErrorCode(err); code != "SPEECH_EXTRACT_ASR_INVALID_OUTPUT" {
+		t.Fatalf("SpeechExtractionErrorCode() = %q, want ASR invalid output", code)
+	}
 	for _, event := range events {
 		if strings.HasPrefix(event, "build:generator:") || strings.HasPrefix(event, "call:invoke:") {
 			t.Fatalf("LLM invoked for oversized transcript: events = %#v", events)
+		}
+	}
+}
+
+func TestExtractRejectsEmptyTranscriptBeforeLLMInvocation(t *testing.T) {
+	events := []string{}
+	builder := &speechExtractionBuilder{events: &events, arguments: `{"name":"Alice"}`}
+	svc := newSpeechExtractionTestService(&events, builder)
+	request := validSpeechExtractionRequest()
+	request.Input = newTextStream(" \n\t ")
+
+	_, err := svc.Extract(context.Background(), request)
+	if !errors.Is(err, ErrInvalidOutput) {
+		t.Fatalf("Extract() error = %v, want %v", err, ErrInvalidOutput)
+	}
+	if code := SpeechExtractionErrorCode(err); code != "SPEECH_EXTRACT_ASR_INVALID_OUTPUT" {
+		t.Fatalf("SpeechExtractionErrorCode() = %q, want ASR invalid output", code)
+	}
+	for _, event := range events {
+		if strings.HasPrefix(event, "build:generator:") || strings.HasPrefix(event, "call:invoke:") {
+			t.Fatalf("LLM invoked for empty transcript: events = %#v", events)
 		}
 	}
 }
@@ -317,6 +344,9 @@ func TestExtractRejectsInvalidInvocationOutputs(t *testing.T) {
 			if !errors.Is(err, ErrInvalidOutput) {
 				t.Fatalf("Extract() error = %v, want %v", err, ErrInvalidOutput)
 			}
+			if code := SpeechExtractionErrorCode(err); code != "SPEECH_EXTRACT_RESULT_PARSE_INVALID_OUTPUT" {
+				t.Fatalf("SpeechExtractionErrorCode() = %q, want result parse invalid output", code)
+			}
 		})
 	}
 }
@@ -333,6 +363,9 @@ func TestExtractRejectsCanonicalResultOverByteLimit(t *testing.T) {
 	_, err := svc.Extract(context.Background(), request)
 	if !errors.Is(err, ErrInvalidOutput) {
 		t.Fatalf("Extract() error = %v, want %v", err, ErrInvalidOutput)
+	}
+	if code := SpeechExtractionErrorCode(err); code != "SPEECH_EXTRACT_RESPONSE_INVALID_OUTPUT" {
+		t.Fatalf("SpeechExtractionErrorCode() = %q, want response invalid output", code)
 	}
 }
 
@@ -377,10 +410,16 @@ func TestExtractPropagatesProviderFailureAndCancellation(t *testing.T) {
 				if err == nil || err.Error() != test.want.Error() {
 					t.Fatalf("Extract() error = %v, want %v", err, test.want)
 				}
+				if code := SpeechExtractionErrorCode(err); code != "SPEECH_EXTRACT_PROVIDER_FAILURE" {
+					t.Fatalf("SpeechExtractionErrorCode() = %q, want provider failure", code)
+				}
 				return
 			}
 			if !errors.Is(err, test.want) {
 				t.Fatalf("Extract() error = %v, want %v", err, test.want)
+			}
+			if code := SpeechExtractionErrorCode(err); code != "SPEECH_EXTRACT_PROVIDER_CANCELED" {
+				t.Fatalf("SpeechExtractionErrorCode() = %q, want provider canceled", code)
 			}
 		})
 	}
@@ -422,8 +461,40 @@ func TestExtractRejectsUnknownAliasAndWrongModelKind(t *testing.T) {
 			if !errors.Is(err, test.want) {
 				t.Fatalf("Extract() error = %v, want %v", err, test.want)
 			}
+			wantCode := "SPEECH_EXTRACT_PROVIDER_NOT_FOUND"
+			if test.name == "wrong extraction model kind" {
+				wantCode = "SPEECH_EXTRACT_PROVIDER_INVALID_INPUT"
+			}
+			if code := SpeechExtractionErrorCode(err); code != wantCode {
+				t.Fatalf("SpeechExtractionErrorCode() = %q, want %q", code, wantCode)
+			}
 		})
 	}
+}
+
+func TestExtractClassifiesRequestAndASRFailures(t *testing.T) {
+	t.Run("request schema", func(t *testing.T) {
+		events := []string{}
+		svc := newSpeechExtractionTestService(&events, &speechExtractionBuilder{events: &events})
+		request := validSpeechExtractionRequest()
+		request.SchemaJSON = `{`
+		_, err := svc.Extract(context.Background(), request)
+		if !errors.Is(err, ErrInvalid) || SpeechExtractionErrorCode(err) != "SPEECH_EXTRACT_REQUEST_INVALID_INPUT" {
+			t.Fatalf("Extract() error/code = %v/%q", err, SpeechExtractionErrorCode(err))
+		}
+	})
+	t.Run("ASR alias", func(t *testing.T) {
+		events := []string{}
+		svc := New(Service{
+			Models:      speechExtractionModels{events: &events, aliases: map[string]string{"extract": "canonical-extract"}},
+			Credentials: fakeCredentials{events: &events}, ProviderTenants: fakeTenants{events: &events},
+			Builder: &speechExtractionBuilder{events: &events, arguments: `{"name":"Alice"}`},
+		})
+		_, err := svc.Extract(context.Background(), validSpeechExtractionRequest())
+		if !errors.Is(err, ErrNotFound) || SpeechExtractionErrorCode(err) != "SPEECH_EXTRACT_ASR_NOT_FOUND" {
+			t.Fatalf("Extract() error/code = %v/%q", err, SpeechExtractionErrorCode(err))
+		}
+	})
 }
 
 func TestParseSpeechExtractionSchemaRejectsInvalidOrUnboundedSchemas(t *testing.T) {
