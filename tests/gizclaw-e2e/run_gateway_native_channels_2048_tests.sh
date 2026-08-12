@@ -49,6 +49,7 @@ echo "==> establish 2,048 sessions, complete exact-byte service traffic, and hol
   -speed-bytes 1024 \
   -speed-baseline-bytes 1024 \
   -speed-timeout 5m \
+  -channel-reset-settle 3s \
   -concurrency 512 \
   -max-establishment-failures 0 \
   -max-ping-failures 0 \

@@ -86,6 +86,7 @@ type options struct {
 	opusPacketBytes          int
 	opusInterval             time.Duration
 	cleanupTimeout           time.Duration
+	channelResetSettle       time.Duration
 	holdServiceID            uint64
 	holdService              bool
 }
@@ -171,6 +172,7 @@ type artifactConfig struct {
 	OpusPacketBytes          int           `json:"opus_packet_bytes"`
 	OpusInterval             time.Duration `json:"opus_interval"`
 	CleanupTimeout           time.Duration `json:"cleanup_timeout"`
+	ChannelResetSettle       time.Duration `json:"channel_reset_settle"`
 	HoldService              bool          `json:"hold_service"`
 	HoldServiceID            uint64        `json:"hold_service_id,omitempty"`
 }
@@ -603,6 +605,7 @@ func parseOptions() (options, error) {
 	flag.IntVar(&opts.opusPacketBytes, "opus-packet-bytes", 3, "non-empty bytes per Opus packet")
 	flag.DurationVar(&opts.opusInterval, "opus-interval", 20*time.Millisecond, "cadence between Opus packets")
 	flag.DurationVar(&opts.cleanupTimeout, "cleanup-timeout", 30*time.Second, "maximum logical-session close and Serve wait")
+	flag.DurationVar(&opts.channelResetSettle, "channel-reset-settle", 0, "bounded delay between native service-channel waves while remote SCTP resets complete")
 	flag.Uint64Var(&holdServiceID, "hold-service-id", math.MaxUint64, "open and hold this service on every session; omitted disables the native-channel peak profile")
 	flag.Parse()
 	if holdServiceID != math.MaxUint64 {
@@ -712,6 +715,8 @@ func validateOptions(opts options) error {
 		return errors.New("Opus packet byte accounting overflows int64")
 	case opts.cleanupTimeout <= 0:
 		return errors.New("-cleanup-timeout must be positive")
+	case opts.channelResetSettle < 0 || opts.channelResetSettle > 30*time.Second:
+		return errors.New("-channel-reset-settle must be between 0 and 30s")
 	}
 	return nil
 }
@@ -762,6 +767,7 @@ func run(ctx context.Context, opts options) (artifact, error) {
 			OpusPacketBytes:          opts.opusPacketBytes,
 			OpusInterval:             opts.opusInterval,
 			CleanupTimeout:           opts.cleanupTimeout,
+			ChannelResetSettle:       opts.channelResetSettle,
 			HoldService:              opts.holdService,
 			HoldServiceID:            opts.holdServiceID,
 		},
@@ -804,9 +810,17 @@ func run(ctx context.Context, opts options) (artifact, error) {
 		return finalize(report, state, resources, extended), err
 	}
 	pingAll(ctx, state, opts, sem, "hold", 0)
+	if err := settleChannelResets(ctx, opts.channelResetSettle, "post-ping"); err != nil {
+		closeSessions(state, opts.cleanupTimeout)
+		return finalize(report, state, resources, extended), err
+	}
 	if opts.opusPackets > 0 {
 		runOpusTest(ctx, state, opts)
 		pingAll(ctx, state, opts, sem, "post_opus", 0)
+		if err := settleChannelResets(ctx, opts.channelResetSettle, "post-opus-ping"); err != nil {
+			closeSessions(state, opts.cleanupTimeout)
+			return finalize(report, state, resources, extended), err
+		}
 	}
 	if opts.speedBytes > 0 {
 		state.speedTest = runSpeedTests(ctx, state, opts, "initial")
@@ -1949,6 +1963,7 @@ func runSpeedTests(ctx context.Context, state *resultState, opts options, checkp
 		opts.minSpeedAggregateRatio,
 		opts.minUploadAggregateMbps,
 		checkpoint,
+		opts.channelResetSettle,
 	)
 	recordSpeedDirectionErrors(state, opts, checkpoint, upload)
 	if !upload.Passed {
@@ -1975,6 +1990,7 @@ func runSpeedTests(ctx context.Context, state *resultState, opts options, checkp
 		opts.minSpeedAggregateRatio,
 		opts.minDownloadAggregateMbps,
 		checkpoint,
+		opts.channelResetSettle,
 	)
 	recordSpeedDirectionErrors(state, opts, checkpoint, download)
 	return speedTestSummary{Upload: upload, Download: download}
@@ -2037,6 +2053,7 @@ func measureSpeedDirection(
 	minAggregateRatio float64,
 	minAggregateMbps float64,
 	checkpoint string,
+	channelResetSettle time.Duration,
 ) speedDirectionSummary {
 	summary := speedDirectionSummary{
 		Direction:                 direction,
@@ -2054,6 +2071,9 @@ func measureSpeedDirection(
 		timeout,
 		checkpoint+".baseline",
 	)
+	if err := settleChannelResets(ctx, channelResetSettle, checkpoint+"."+direction+".baseline"); err != nil {
+		return summary
+	}
 	summary.Concurrent = measureSpeedRun(
 		ctx,
 		sessions,
@@ -2062,12 +2082,31 @@ func measureSpeedDirection(
 		timeout,
 		checkpoint+".concurrent",
 	)
+	if err := settleChannelResets(ctx, channelResetSettle, checkpoint+"."+direction+".concurrent"); err != nil {
+		return summary
+	}
 	if summary.Baseline.AggregateMbps > 0 {
 		summary.AggregateToBaselineRatio =
 			summary.Concurrent.AggregateMbps / summary.Baseline.AggregateMbps
 	}
 	summary.Passed = speedDirectionPassed(summary, minAggregateRatio, minAggregateMbps)
 	return summary
+}
+
+func settleChannelResets(ctx context.Context, delay time.Duration, phase string) error {
+	if delay <= 0 {
+		return nil
+	}
+	fmt.Fprintf(os.Stderr, "gateway capacity progress: status=started phase=channel-reset-settle after=%s delay=%s\n", phase, delay)
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		fmt.Fprintf(os.Stderr, "gateway capacity progress: status=completed phase=channel-reset-settle after=%s delay=%s\n", phase, delay)
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func summarizeSpeedRetention(initial, final speedTestSummary, minimum float64) speedRetentionSummary {
