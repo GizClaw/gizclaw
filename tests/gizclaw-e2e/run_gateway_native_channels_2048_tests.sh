@@ -45,7 +45,7 @@ echo "==> establish 2,048 sessions, complete exact-byte service traffic, and hol
   -duration 0s \
   -ping-interval 30s \
   -dial-timeout 20s \
-  -ping-timeout 10s \
+  -ping-timeout 20s \
   -speed-bytes 1024 \
   -speed-baseline-bytes 1024 \
   -speed-timeout 5m \
