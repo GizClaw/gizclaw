@@ -61,8 +61,6 @@ type TURNConfig struct {
 
 type GatewayConfig struct {
 	Enabled                   bool          `yaml:"enabled"`
-	ICEUDPListen              string        `yaml:"ice-udp-listen"`
-	PublicICEUDP              string        `yaml:"public-ice-udp"`
 	MaxSessions               int           `yaml:"max-sessions"`
 	MaxUpstreams              int           `yaml:"max-upstreams"`
 	SessionsPerUpstream       int           `yaml:"sessions-per-upstream"`
@@ -93,6 +91,9 @@ func LoadConfig(path string) (ConfigFile, error) {
 }
 
 func parseConfigData(data []byte) (ConfigFile, error) {
+	if err := rejectLegacyGatewayAddresses(data); err != nil {
+		return ConfigFile{}, err
+	}
 	var raw ConfigFile
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return ConfigFile{}, err
@@ -101,6 +102,30 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		raw.TLS.CertSource = TLSCertSourceDisabled
 	}
 	return raw, nil
+}
+
+func rejectLegacyGatewayAddresses(data []byte) error {
+	var document map[string]any
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		return err
+	}
+	gateway, ok := document["gateway"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	legacyAddresses := []struct {
+		key         string
+		replacement string
+	}{
+		{key: "ice-udp-listen", replacement: "top-level listen"},
+		{key: "public-ice-udp", replacement: "top-level endpoint"},
+	}
+	for _, legacy := range legacyAddresses {
+		if _, exists := gateway[legacy.key]; exists {
+			return fmt.Errorf("edge: gateway.%s was removed; use %s", legacy.key, legacy.replacement)
+		}
+	}
+	return nil
 }
 
 func DefaultConfig() Config {
@@ -116,7 +141,6 @@ func DefaultConfig() Config {
 
 func defaultGatewayConfig() GatewayConfig {
 	return GatewayConfig{
-		ICEUDPListen:              "0.0.0.0:9821",
 		MaxSessions:               30000,
 		MaxUpstreams:              16,
 		SessionsPerUpstream:       2048,
@@ -196,6 +220,12 @@ func (cfg Config) validate() error {
 	}
 	if cfg.Endpoint == "" {
 		return fmt.Errorf("edge: missing endpoint")
+	}
+	if _, _, err := netSplitHostPort("listen", cfg.Listen); err != nil {
+		return err
+	}
+	if _, _, err := netSplitHostPort("endpoint", cfg.Endpoint); err != nil {
+		return err
 	}
 	if cfg.Upstream.Endpoint == "" {
 		return fmt.Errorf("edge: missing upstream.endpoint")
@@ -314,12 +344,6 @@ func mergeGatewayConfig(cfg, file GatewayConfig) GatewayConfig {
 	if !cfg.Enabled {
 		cfg.Enabled = file.Enabled
 	}
-	if cfg.ICEUDPListen == "" {
-		cfg.ICEUDPListen = file.ICEUDPListen
-	}
-	if cfg.PublicICEUDP == "" {
-		cfg.PublicICEUDP = file.PublicICEUDP
-	}
 	if cfg.MaxSessions == 0 {
 		cfg.MaxSessions = file.MaxSessions
 	}
@@ -358,14 +382,6 @@ func applyGatewayDefaults(cfg GatewayConfig) GatewayConfig {
 func (cfg GatewayConfig) validate() error {
 	if !cfg.Enabled {
 		return nil
-	}
-	if _, _, err := netSplitHostPort("gateway.ice-udp-listen", cfg.ICEUDPListen); err != nil {
-		return err
-	}
-	if cfg.PublicICEUDP != "" {
-		if _, _, err := netSplitHostPort("gateway.public-ice-udp", cfg.PublicICEUDP); err != nil {
-			return err
-		}
 	}
 	if cfg.MaxSessions <= 0 {
 		return fmt.Errorf("edge: gateway.max-sessions must be positive")

@@ -80,13 +80,26 @@ business authorization model.
 The Edge workspace configuration describes the basic information required to run the current node:
 
 - The Edge Node's own giznet identity.
-- Public HTTP listen address and external endpoint.
+- One public client-ingress listen address and external endpoint shared by
+  HTTP/signaling TCP and gateway ICE UDP.
 - The endpoint and public key of a single upstream Server, plus an optional
   relay-only TURN pool for Edge-to-Server PeerConnections.
 - Selection of TLS certificate source.
 - Optional TURN listener, public endpoint, relay address, credential and relay port range.
-- Optional gateway ICE UDP listener, public endpoint, capacity, upstream pool,
-  buffer, idle, and drain bounds.
+- Optional gateway capacity, upstream pool, buffer, idle, and drain bounds.
+
+Top-level `listen` is the only client-ingress bind tuple. The Edge opens
+separate TCP and UDP sockets on that host and numeric port: TCP carries public
+HTTP and signaling, while UDP carries ICE, DTLS, SCTP, and DataChannels when
+gateway mode is enabled. Top-level `endpoint` is the matching externally
+reachable tuple published in `/server-info.transport.endpoint`. When its host
+is a concrete literal IP, the gateway also rewrites answer-SDP UDP host
+candidates to that exact host and port. A hostname or unspecified address does
+not trigger DNS lookup or fabricate a public candidate. NAT and container
+deployments may use different local and external tuples, but the one external
+`endpoint` must map both protocols. The optional `turn.listen` and
+`turn.public-endpoint` remain separate because they configure a downstream
+relay service rather than the client HTTP/WebRTC ingress.
 
 The configuration belongs to the Edge runtime and does not reuse the storage, service or domain configuration of GizClaw Server. Server config should also not assume the public ingress and TURN parameters of the Edge process.
 

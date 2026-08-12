@@ -61,12 +61,23 @@ Edge 不在本地执行 GizClaw domain handler，也不建立第二套业务权�
 Edge workspace 配置描述当前节点运行所需的基础信息：
 
 - Edge Node 自身的 giznet identity。
-- Public HTTP listen address 和对外 endpoint。
+- HTTP/signaling TCP 与 gateway ICE UDP 共用的一组 public client-ingress
+  listen address 和对外 endpoint。
 - 单个 upstream Server 的 endpoint 与 public key，以及可选的 Edge-to-Server
   relay-only TURN pool。
 - TLS certificate source 的选择。
 - 可选 TURN listener、public endpoint、relay address、credential 和 relay port range。
-- 可选 gateway ICE UDP listener、public UDP endpoint、容量、upstream pool、buffer、idle 和 drain 边界。
+- 可选 gateway 容量、upstream pool、buffer、idle 和 drain 边界。
+
+顶层 `listen` 是客户端入口唯一的本地 bind tuple。Edge 在同一 host 和数字端口上打开独立的
+TCP 与 UDP socket：TCP 承载 public HTTP 与 signaling，启用 gateway 时 UDP 承载 ICE、
+DTLS、SCTP 与 DataChannel。顶层 `endpoint` 是对应的外部可达 tuple，并通过
+`/server-info.transport.endpoint` 发布；当 host 是具体 literal IP 时，gateway 还会把
+answer SDP 的 UDP host candidate 改写为完全相同的 host 和 port。Hostname 或 unspecified
+address 不触发 DNS lookup，也不会伪造 public candidate。NAT 或 container 部署可以让本地
+tuple 与外部 tuple 不同，但唯一的外部 `endpoint` 必须同时映射 TCP 和 UDP。可选的
+`turn.listen` 与 `turn.public-endpoint` 保持独立，因为它们配置的是 downstream relay
+service，而不是客户端 HTTP/WebRTC 入口。
 
 配置属于 Edge runtime，不复用 GizClaw Server 的 storage、service 或 domain 配置。Server config 也不应承担 Edge 进程的 public ingress 和 TURN 参数。
 

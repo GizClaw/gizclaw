@@ -112,8 +112,10 @@ bash tests/gizclaw-e2e/setup/docker-compose-up.sh
 bash tests/gizclaw-e2e/setup/docker-compose-down.sh
 ```
 
-Setup selects random free Edge and Admin host ports. Firmware or LAN clients
-need an explicitly reachable address:
+Setup selects random free Edge and Admin host ports. Each Edge host port is
+available for both TCP and UDP and maps both protocols to container port
+`9821`; it does not have a separate gateway endpoint or UDP port. Firmware or
+LAN clients need an explicitly reachable address:
 
 ```sh
 GIZCLAW_E2E_EDGE_HOST=192.168.1.20 \
@@ -130,7 +132,8 @@ source tests/gizclaw-e2e/testdata/docker/current.env
 set +a
 ```
 
-`GIZCLAW_E2E_EDGE_ENDPOINT` is client-facing and
+`GIZCLAW_E2E_EDGE_ENDPOINT` is the client-facing HTTP/signaling and WebRTC ICE
+endpoint, and
 `GIZCLAW_E2E_SERVER_ENDPOINT` is host-Admin-facing. The remaining generated
 variables provide the CLI config home, identity home, Desktop URL, and Compose
 project. Reset the standard resource set with:
@@ -369,7 +372,7 @@ advertised `transport.endpoint` contract. This avoids published-port proxy
 backlog as a load-generator artifact without changing non-local discovery
 behavior. The script prints the selected endpoint boundary and falls back to
 the published endpoint when direct access is unavailable. WebRTC/ICE still uses
-the configured gateway candidates; the Dial barrier and workload are not paced,
+the Edge endpoint candidates on that same external port; the Dial barrier and workload are not paced,
 batched, or preconnected.
 
 ## GenX provider E2E

@@ -100,8 +100,9 @@ bash tests/gizclaw-e2e/setup/docker-compose-up.sh
 bash tests/gizclaw-e2e/setup/docker-compose-down.sh
 ```
 
-setup 自动选择随机可用的 Edge/Admin host ports。Firmware 或 LAN client 需要显式
-提供可达地址：
+setup 自动选择随机可用的 Edge/Admin host ports。每个 Edge host port 必须同时可用于 TCP
+和 UDP，并把两种协议都映射到 container `9821`；不再存在独立的 gateway endpoint 或 UDP
+port。Firmware 或 LAN client 需要显式提供可达地址：
 
 ```sh
 GIZCLAW_E2E_EDGE_HOST=192.168.1.20 \
@@ -117,7 +118,8 @@ source tests/gizclaw-e2e/testdata/docker/current.env
 set +a
 ```
 
-其中 `GIZCLAW_E2E_EDGE_ENDPOINT` 面向 client，
+其中 `GIZCLAW_E2E_EDGE_ENDPOINT` 同时是面向 client 的 HTTP/signaling 与 WebRTC ICE
+endpoint，
 `GIZCLAW_E2E_SERVER_ENDPOINT` 面向 host Admin，其他变量提供 CLI config home、
 identity home、Desktop URL 和 Compose project。需要重置标准资源时使用：
 
@@ -306,8 +308,8 @@ allocation，最终由 project teardown 清除。这个 focused 产品证据不�
 的 direct endpoint 和显式的本机 `-signaling-base-from-edge` override；其他调用仍遵守
 advertised `transport.endpoint` contract。这样不会改变非本机 discovery 行为，同时避免把
 published-port proxy backlog 误判为 load generator 以外的瓶颈。script 会打印选定的
-endpoint boundary，不可直达时回退到 published endpoint。WebRTC/ICE 仍使用配置的 gateway
-candidates，Dial barrier 和 workload 不会被 pacing、batching 或 preconnect。
+endpoint boundary，不可直达时回退到 published endpoint。WebRTC/ICE 仍使用同一外部端口的
+Edge endpoint candidates，Dial barrier 和 workload 不会被 pacing、batching 或 preconnect。
 
 ## GenX provider E2E
 

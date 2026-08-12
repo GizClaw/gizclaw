@@ -140,14 +140,15 @@ func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
 
 	gatewayConfig := defaultGatewayConfig()
 	gatewayConfig.Enabled = true
-	gatewayConfig.ICEUDPListen = "127.0.0.1:0"
 	gatewayConfig.MaxSessions = 4
 	gatewayConfig.MaxUpstreams = 1
 	gatewayConfig.SessionsPerUpstream = 4
 	gatewayConfig.StreamsPerUpstream = 8
 	gatewayConfig.MaxPendingHandshakes = 4
 	cfg := Config{
-		KeyPair: edgeKey,
+		KeyPair:  edgeKey,
+		Listen:   "127.0.0.1:0",
+		Endpoint: "localhost:0",
 		Upstream: UpstreamConfig{
 			Endpoint:  upstreamHTTP.URL,
 			PublicKey: serverKey.Public,
@@ -1095,7 +1096,6 @@ func openGatewayThroughputStreams(tb testing.TB, clients, maxUpstreams int) []ga
 
 	gatewayConfig := defaultGatewayConfig()
 	gatewayConfig.Enabled = true
-	gatewayConfig.ICEUDPListen = "127.0.0.1:0"
 	gatewayConfig.MaxSessions = clients
 	gatewayConfig.MaxUpstreams = maxUpstreams
 	gatewayConfig.SessionsPerUpstream = clients
@@ -1103,7 +1103,9 @@ func openGatewayThroughputStreams(tb testing.TB, clients, maxUpstreams int) []ga
 	gatewayConfig.MaxPendingHandshakes = clients
 	gatewayConfig.DrainTimeout = time.Second
 	cfg := Config{
-		KeyPair: edgeKey,
+		KeyPair:  edgeKey,
+		Listen:   "127.0.0.1:0",
+		Endpoint: "localhost:0",
 		Upstream: UpstreamConfig{
 			Endpoint:  upstreamHTTP.URL,
 			PublicKey: serverKey.Public,

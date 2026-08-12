@@ -101,11 +101,10 @@ services:
     environment:
       GIZCLAW_E2E_SERVER_ENDPOINT: ${GIZCLAW_E2E_SERVER_ENDPOINT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_EDGE_ENDPOINT: ${GIZCLAW_E2E_EDGE_ENDPOINT:?set by docker-compose-up.sh}
-      GIZCLAW_E2E_GATEWAY_ENDPOINT: ${GIZCLAW_E2E_GATEWAY_ENDPOINT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT: http://server:9820
     ports:
       - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_EDGE_PORT:?set by docker-compose-up.sh}:9821/tcp"
-      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_GATEWAY_PORT:?set by docker-compose-up.sh}:9824/udp"
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_EDGE_PORT:?set by docker-compose-up.sh}:9821/udp"
     volumes:
       - type: bind
         source: ../.env
@@ -133,12 +132,11 @@ services:
     environment:
       GIZCLAW_E2E_SERVER_ENDPOINT: ${GIZCLAW_E2E_SERVER_ENDPOINT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_EDGE_ENDPOINT: ${GIZCLAW_E2E_EDGE2_ENDPOINT:?set by docker-compose-up.sh}
-      GIZCLAW_E2E_GATEWAY_ENDPOINT: ${GIZCLAW_E2E_GATEWAY2_ENDPOINT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_EDGE_PRIVATE_KEY: BHu9b5qgfhTtpzKKLCjRWPerv6rtvDowad4AftyFTY6o
       GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT: http://server:9820
     ports:
       - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_EDGE2_PORT:?set by docker-compose-up.sh}:9821/tcp"
-      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_GATEWAY2_PORT:?set by docker-compose-up.sh}:9824/udp"
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_EDGE2_PORT:?set by docker-compose-up.sh}:9821/udp"
     volumes:
       - type: bind
         source: ../.env

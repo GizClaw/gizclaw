@@ -97,8 +97,8 @@ func newGateway(
 		acceptDone:      make(chan struct{}),
 	}
 	listener, err := (&gizwebrtc.ListenConfig{
-		ICEUDPAddr:                   cfg.Gateway.ICEUDPListen,
-		PublicICEUDPAddr:             cfg.Gateway.PublicICEUDP,
+		ICEUDPAddr:                   cfg.Listen,
+		PublicICEUDPAddr:             publicGatewayICEAddr(cfg.Endpoint),
 		ICELite:                      true,
 		SecurityPolicy:               gatewayClientSecurityPolicy{},
 		AggregateServices:            true,
@@ -127,6 +127,18 @@ func newGateway(
 	gateway.pool = pool
 	go gateway.acceptLoop()
 	return gateway, nil
+}
+
+func publicGatewayICEAddr(endpoint string) string {
+	host, _, err := net.SplitHostPort(endpoint)
+	if err != nil {
+		return ""
+	}
+	ip := net.ParseIP(host)
+	if ip == nil || ip.IsUnspecified() {
+		return ""
+	}
+	return endpoint
 }
 
 func retryGatewayStartupRelay(ctx context.Context, operation func(context.Context) error) error {
