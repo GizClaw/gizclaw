@@ -2,7 +2,6 @@ package workspace
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,36 +41,40 @@ func TestObjectPrefixIsolatesOpaqueWorkspaceIDs(t *testing.T) {
 	}
 }
 
-func TestObjectRuntimeStorePersistsDialogID(t *testing.T) {
+func TestObjectRuntimeStoreIgnoresLegacyRuntimeMetadata(t *testing.T) {
+	root := t.TempDir()
+	objects := newTestObjectStoreAt(t, root)
+	store := NewObjectRuntimeStore(objects)
+	prefix := ObjectPrefix("demo")
+	if err := objects.Put(prefix+"/runtime.json", strings.NewReader(`{not-json`)); err != nil {
+		t.Fatalf("Put legacy runtime metadata: %v", err)
+	}
+
+	if _, err := store.PrepareWorkspace(context.Background(), "demo"); err != nil {
+		t.Fatalf("PrepareWorkspace() error = %v", err)
+	}
+	if _, err := store.GetWorkspaceRuntime(context.Background(), "demo"); err != nil {
+		t.Fatalf("GetWorkspaceRuntime() error = %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(prefix), "runtime.json"))
+	if err != nil {
+		t.Fatalf("read legacy runtime metadata: %v", err)
+	}
+	if got := string(data); got != `{not-json` {
+		t.Fatalf("legacy runtime metadata = %q, want unchanged", got)
+	}
+}
+
+func TestObjectRuntimeStoreDoesNotCreateRuntimeMetadata(t *testing.T) {
 	root := t.TempDir()
 	store := NewObjectRuntimeStore(newTestObjectStoreAt(t, root))
 
-	rt, err := store.PrepareWorkspace(context.Background(), "demo")
-	if err != nil {
+	if _, err := store.PrepareWorkspace(context.Background(), "demo"); err != nil {
 		t.Fatalf("PrepareWorkspace() error = %v", err)
 	}
-	if rt.DialogID == "" {
-		t.Fatal("DialogID is empty")
-	}
-
-	got, err := store.GetWorkspaceRuntime(context.Background(), "demo")
-	if err != nil {
-		t.Fatalf("GetWorkspaceRuntime() error = %v", err)
-	}
-	if got.DialogID != rt.DialogID {
-		t.Fatalf("DialogID = %q, want %q", got.DialogID, rt.DialogID)
-	}
-
-	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(ObjectPrefix("demo")), "runtime.json"))
-	if err != nil {
-		t.Fatalf("read runtime metadata: %v", err)
-	}
-	var metadata runtimeMetadata
-	if err := json.Unmarshal(data, &metadata); err != nil {
-		t.Fatalf("decode runtime metadata: %v", err)
-	}
-	if metadata.DialogID != rt.DialogID {
-		t.Fatalf("metadata DialogID = %q, want %q", metadata.DialogID, rt.DialogID)
+	metadata := filepath.Join(root, filepath.FromSlash(ObjectPrefix("demo")), "runtime.json")
+	if _, err := os.Stat(metadata); !os.IsNotExist(err) {
+		t.Fatalf("runtime metadata after prepare err = %v, want not exist", err)
 	}
 }
 

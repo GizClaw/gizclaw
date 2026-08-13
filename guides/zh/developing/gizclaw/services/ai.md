@@ -58,7 +58,7 @@ Workflow 描述如何运行 Agent，但不拥有 Agent instance 的在线状态�
 
 #### Doubao Realtime 组合边界
 
-Doubao Realtime factory 拥有产品层 precedence，不解释 provider model family。非空的 Workspace `parameters.instructions` 覆盖 Workflow instruction，两者不会拼接。Factory 加入 runtime `DialogID`，再把最终 instruction、选中的 RuntimeProfile model 和 audio 配置交给 immutable GenX transformer。`peergenx` 只把语义值映射到 `Config.Instructions`；只有 `doubao-speech-go` 负责选择 O20 `dialog.system_role` 或 SC20 `dialog.character_manifest`。精确 provider 字段仍是显式、相互独立的选项，`prompt.system` 不是 Workflow instruction 的 fallback。
+Doubao Realtime factory 拥有产品层 precedence，不解释 provider model family。非空的 Workspace `parameters.instructions` 覆盖 Workflow instruction，两者不会拼接。Provider `dialog_id` 使用规范 Workspace ID 的精确值，因此替换 connection 或 reload 同一个 Workspace 会继续同一个 provider dialog，不再依赖独立的随机 runtime metadata。Provider session 仍然只属于 connection；删除 Workspace 后以新规范 ID 创建的 Workspace 会开启不同 dialog。Factory 再把最终 instruction、选中的 RuntimeProfile model 和 audio 配置交给 immutable GenX transformer。`peergenx` 只把语义值映射到 `Config.Instructions`；只有 `doubao-speech-go` 负责选择 O20 `dialog.system_role` 或 SC20 `dialog.character_manifest`。精确 provider 字段仍是显式、相互独立的选项，`prompt.system` 不是 Workflow instruction 的 fallback。
 
 #### Flowcraft 组合边界
 
