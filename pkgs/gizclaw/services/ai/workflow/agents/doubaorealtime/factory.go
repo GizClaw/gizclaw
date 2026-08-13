@@ -90,12 +90,14 @@ func resolveRealtimeModelPattern(spec agenthost.Spec) (string, error) {
 		}
 		params = mergeDoubaoRealtimeWorkspaceParams(params, typed)
 	}
-	if dialogID := strings.TrimSpace(spec.Runtime.DialogID); dialogID != "" {
-		if params == nil {
-			params = make(map[string]any)
-		}
-		params["dialog_id"] = dialogID
+	dialogID := spec.Workspace.Id
+	if dialogID == "" {
+		return "", fmt.Errorf("doubaorealtime: canonical workspace id is required")
 	}
+	if params == nil {
+		params = make(map[string]any)
+	}
+	params["dialog_id"] = dialogID
 	if model == "" {
 		return "", fmt.Errorf("doubaorealtime: model is required")
 	}

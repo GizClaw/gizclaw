@@ -208,12 +208,12 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	}
 	quality, err := workspaceCaseDoubaoRealtimeQuality.applyConfig(config{
 		Rounds:   8,
-		Workflow: workflowConfig{Name: "doubao-realtime-conversation"},
+		Workflow: workflowConfig{Name: "doubao-realtime-quality"},
 	})
 	if err != nil {
 		t.Fatalf("applyConfig(quality) error = %v", err)
 	}
-	if quality.Rounds != 8 || quality.workspaceMode() != "push_to_talk" || quality.Workspace != "doubao-realtime-conversation-quality" {
+	if quality.Rounds != 8 || quality.workspaceMode() != "push_to_talk" || quality.Workspace != "doubao-realtime-quality-quality" {
 		t.Fatalf("quality config rounds/mode/workspace = %d/%q/%q", quality.Rounds, quality.workspaceMode(), quality.Workspace)
 	}
 }
@@ -248,8 +248,8 @@ func TestDoubaoRealtimeQualityFixtureKeepsEightTurns(t *testing.T) {
 	if cfg.Rounds != 8 || len(cfg.Utterances) != 8 || len(quality.Quality.Rounds) != 8 {
 		t.Fatalf("fixture rounds/utterances/quality = %d/%d/%d, want 8/8/8", cfg.Rounds, len(cfg.Utterances), len(quality.Quality.Rounds))
 	}
-	if strings.TrimSpace(cfg.Workflow.Instructions) == "" || cfg.Workflow.Parameters.Input != "push-to-talk" {
-		t.Fatalf("fixture instructions/input = %q/%q", cfg.Workflow.Instructions, cfg.Workflow.Parameters.Input)
+	if cfg.Workflow.Name != "doubao-realtime-quality" || strings.TrimSpace(cfg.Workflow.Instructions) == "" || cfg.Workflow.Parameters.Input != "push-to-talk" {
+		t.Fatalf("fixture workflow/instructions/input = %q/%q/%q", cfg.Workflow.Name, cfg.Workflow.Instructions, cfg.Workflow.Parameters.Input)
 	}
 }
 
