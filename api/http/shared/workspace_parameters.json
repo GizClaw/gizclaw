@@ -128,6 +128,11 @@
           "instructions": {
             "type": "string"
           },
+          "max_output_runes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Workspace override for the maximum Unicode code points published on each assistant text stream. Zero is unbounded."
+          },
           "input": {
             "$ref": "#/components/schemas/WorkspaceInputMode"
           },

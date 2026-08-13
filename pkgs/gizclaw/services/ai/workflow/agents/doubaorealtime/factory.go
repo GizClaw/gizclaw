@@ -29,11 +29,15 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if transformer == nil {
 		return nil, fmt.Errorf("doubaorealtime: transformer is required")
 	}
-	pattern, err := resolveRealtimeModelPattern(spec)
+	config, err := resolveRealtimeConfig(spec)
 	if err != nil {
 		return nil, err
 	}
-	return agenthost.NewTransformerAgent(patternTransformer{Transformer: transformer, Pattern: pattern}), nil
+	var agent genx.Transformer = patternTransformer{Transformer: transformer, Pattern: config.Pattern}
+	if config.MaxOutputRunes > 0 {
+		agent = outputLimitTransformer{Transformer: agent, MaxRunes: config.MaxOutputRunes}
+	}
+	return agenthost.NewTransformerAgent(agent), nil
 }
 
 func resolveOwnerTransformer(ctx context.Context, workspace apitypes.Workspace, fallback genx.TransformerMux, resolve func(context.Context, string) (genx.TransformerMux, error)) (genx.TransformerMux, error) {
@@ -66,40 +70,67 @@ func (t patternTransformer) Transform(ctx context.Context, input genx.Stream) (g
 	return t.Transformer.Transform(ctx, t.Pattern, input)
 }
 
-func resolveRealtimeModelPattern(spec agenthost.Spec) (string, error) {
+type realtimeConfig struct {
+	Pattern        string
+	MaxOutputRunes int
+}
+
+func resolveRealtimeConfig(spec agenthost.Spec) (realtimeConfig, error) {
 	workflowSpec := spec.Workflow.Spec.DoubaoRealtime
 	if workflowSpec == nil {
-		return "", fmt.Errorf("doubaorealtime: workflow doubao_realtime spec is required")
+		return realtimeConfig{}, fmt.Errorf("doubaorealtime: workflow doubao_realtime spec is required")
+	}
+	if err := workflowSpec.Validate(); err != nil {
+		return realtimeConfig{}, fmt.Errorf("doubaorealtime: workflow doubao_realtime spec: %w", err)
 	}
 	if err := rejectTools("workflow", workflowSpec.Tools); err != nil {
-		return "", err
+		return realtimeConfig{}, err
 	}
 
 	model := strings.TrimSpace(workflowSpec.Model)
 	params := realtimeWorkflowParams(*workflowSpec)
+	maxOutputRunes := intPtrValue(workflowSpec.MaxOutputRunes)
 	if spec.Workspace.Parameters != nil {
 		typed, err := spec.Workspace.Parameters.AsDoubaoRealtimeWorkspaceParameters()
 		if err != nil {
-			return "", fmt.Errorf("doubaorealtime: decode workspace parameters: %w", err)
+			return realtimeConfig{}, fmt.Errorf("doubaorealtime: decode workspace parameters: %w", err)
+		}
+		if err := typed.Validate(); err != nil {
+			return realtimeConfig{}, fmt.Errorf("doubaorealtime: workspace parameters: %w", err)
 		}
 		if typed.Model != nil && strings.TrimSpace(*typed.Model) != "" {
 			model = strings.TrimSpace(*typed.Model)
 		}
 		if err := rejectTools("workspace", typed.Tools); err != nil {
-			return "", err
+			return realtimeConfig{}, err
 		}
 		params = mergeDoubaoRealtimeWorkspaceParams(params, typed)
-	}
-	if dialogID := strings.TrimSpace(spec.Runtime.DialogID); dialogID != "" {
-		if params == nil {
-			params = make(map[string]any)
+		if typed.MaxOutputRunes != nil {
+			maxOutputRunes = *typed.MaxOutputRunes
 		}
-		params["dialog_id"] = dialogID
 	}
+	dialogID := strings.TrimSpace(spec.Workspace.Id)
+	if dialogID == "" {
+		return realtimeConfig{}, fmt.Errorf("doubaorealtime: canonical workspace id is required")
+	}
+	if params == nil {
+		params = make(map[string]any)
+	}
+	params["dialog_id"] = dialogID
 	if model == "" {
-		return "", fmt.Errorf("doubaorealtime: model is required")
+		return realtimeConfig{}, fmt.Errorf("doubaorealtime: model is required")
 	}
-	return normalizeModelPattern(appendPatternParams(model, params)), nil
+	return realtimeConfig{
+		Pattern:        normalizeModelPattern(appendPatternParams(model, params)),
+		MaxOutputRunes: maxOutputRunes,
+	}, nil
+}
+
+func intPtrValue(value *int) int {
+	if value == nil {
+		return 0
+	}
+	return *value
 }
 
 func normalizeModelPattern(pattern string) string {

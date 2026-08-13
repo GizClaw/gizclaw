@@ -375,6 +375,7 @@ export type DoubaoRealtimeWorkflowSpec = {
   "instructions"?: string;
   "model": string;
   "tools": DoubaoRealtimeFunctionTool[];
+  "max_output_runes"?: number;
 };
 export type DoubaoRealtimeWorkspaceParameters = {
   "agent_type": string;
@@ -385,6 +386,7 @@ export type DoubaoRealtimeWorkspaceParameters = {
   "instructions"?: string;
   "model"?: string;
   "tools": DoubaoRealtimeFunctionTool[];
+  "max_output_runes"?: number;
 };
 export type EinoWorkflowSpec = {
   "graph": Record<string, unknown>;
@@ -3062,6 +3064,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "repeated": true,
         "type": "DoubaoRealtimeFunctionTool"
+      },
+      {
+        "name": "max_output_runes",
+        "number": 6,
+        "optional": true,
+        "type": "int64"
       }
     ]
   },
@@ -3113,6 +3121,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 8,
         "repeated": true,
         "type": "DoubaoRealtimeFunctionTool"
+      },
+      {
+        "name": "max_output_runes",
+        "number": 9,
+        "optional": true,
+        "type": "int64"
       }
     ]
   },

@@ -309,6 +309,7 @@ message DoubaoRealtimeWorkflowSpec {
   optional string instructions = 3;
   string model = 4;
   repeated DoubaoRealtimeFunctionTool tools = 5;
+  optional int64 max_output_runes = 6;
 }
 
 message DoubaoRealtimeWorkspaceParameters {
@@ -320,6 +321,7 @@ message DoubaoRealtimeWorkspaceParameters {
   optional string instructions = 6;
   optional string model = 7;
   repeated DoubaoRealtimeFunctionTool tools = 8;
+  optional int64 max_output_runes = 9;
 }
 
 message FlowcraftConversationParameters {

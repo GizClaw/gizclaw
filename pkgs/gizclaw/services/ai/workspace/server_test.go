@@ -1309,6 +1309,18 @@ func TestValidateDoubaoRealtimeOverridesRejectsTools(t *testing.T) {
 }
 
 func TestValidateRealtimeOverridesRejectInvalidOptions(t *testing.T) {
+	negativeRunes := -1
+	var doubaoParameters apitypes.WorkspaceParameters
+	if err := doubaoParameters.FromDoubaoRealtimeWorkspaceParameters(apitypes.DoubaoRealtimeWorkspaceParameters{
+		AgentType:      apitypes.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime,
+		MaxOutputRunes: &negativeRunes,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateDoubaoRealtimeOverrides(&doubaoParameters); err == nil || !strings.Contains(err.Error(), "max_output_runes") {
+		t.Fatalf("validateDoubaoRealtimeOverrides() error = %v", err)
+	}
+
 	temperature := float32(3)
 	var dashParameters apitypes.WorkspaceParameters
 	if err := dashParameters.FromDashScopeRealtimeWorkspaceParameters(apitypes.DashScopeRealtimeWorkspaceParameters{

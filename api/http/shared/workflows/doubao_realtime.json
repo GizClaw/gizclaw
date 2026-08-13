@@ -361,6 +361,11 @@
           "instructions": {
             "type": "string"
           },
+          "max_output_runes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Maximum Unicode code points published on each assistant text stream. Zero or omission is unbounded."
+          },
           "audio": {
             "$ref": "#/components/schemas/DoubaoRealtimeAudio"
           },

@@ -221,6 +221,15 @@ func TestValidateDriverSpecRequiresDoubaoRealtimeConfigAndModel(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("validateDriverSpec(valid config) error = %v", err)
 	}
+	negativeRunes := -1
+	if err := validateDriverSpec(apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverDoubaoRealtime,
+		DoubaoRealtime: &apitypes.DoubaoRealtimeWorkflowSpec{
+			Model: "doubao-realtime", MaxOutputRunes: &negativeRunes,
+		},
+	}); err == nil || !strings.Contains(err.Error(), "max_output_runes") {
+		t.Fatalf("validateDriverSpec(negative max_output_runes) error = %v", err)
+	}
 }
 
 func TestValidateDriverSpecRejectsInvalidEinoGraph(t *testing.T) {

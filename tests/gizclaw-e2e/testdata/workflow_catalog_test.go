@@ -63,6 +63,7 @@ var workflowFixtureFiles = []string{
 	"04-doubao-realtime.yaml",
 	"05-flowcraft-basic.yaml",
 	"06-flowcraft-chat.yaml",
+	"07-doubao-realtime-quality.yaml",
 	"08-flowcraft-journey.yaml",
 	"10-flowcraft-multi-role-storyteller.yaml",
 	"11-flowcraft-murder-mystery.yaml",

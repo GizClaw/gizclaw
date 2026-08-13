@@ -1403,6 +1403,9 @@ func validateDoubaoRealtimeOverrides(workspaceParameters *apitypes.WorkspacePara
 	if parameters.Tools != nil && len(*parameters.Tools) != 0 {
 		return invalidWorkspaceReference("doubao_realtime parameters.tools are unsupported until ToolCall is implemented")
 	}
+	if err := parameters.Validate(); err != nil {
+		return invalidWorkspaceReference("doubao_realtime parameters: %v", err)
+	}
 	return nil
 }
 

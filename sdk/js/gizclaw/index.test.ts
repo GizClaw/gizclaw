@@ -700,6 +700,24 @@ test("RPC payload codec round-trips DashScope float options", () => {
   assert.ok(Math.abs((decoded.parameters?.temperature ?? 0) - 0.7) < 0.000001);
 });
 
+test("RPC payload codec round-trips realtime rune limits", () => {
+  const request = {
+    collection: "assistants",
+    name: "workspace-doubao",
+    parameters: {
+      agent_type: "doubao-realtime",
+      max_output_runes: 20,
+    },
+    workflow_name: "workflow-doubao",
+  };
+  const payload = encodeRPCRequestPayload("server.workspace.create", request);
+  const decoded = decodeRPCRequestPayload(
+    "server.workspace.create",
+    payload,
+  ) as { parameters?: { max_output_runes?: number } };
+  assert.equal(decoded.parameters?.max_output_runes, 20);
+});
+
 test("RPC payload codec excludes peer resource mutation methods", () => {
   for (const method of [
     "server.workflow.create",

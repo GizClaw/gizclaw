@@ -234,6 +234,9 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 		if strings.TrimSpace(spec.DoubaoRealtime.Model) == "" {
 			return errors.New("spec.doubao_realtime.model is required")
 		}
+		if err := spec.DoubaoRealtime.Validate(); err != nil {
+			return fmt.Errorf("spec.doubao_realtime: %w", err)
+		}
 		if spec.DoubaoRealtime.Tools != nil && len(*spec.DoubaoRealtime.Tools) != 0 {
 			return errors.New("spec.doubao_realtime.tools are unsupported until ToolCall is implemented")
 		}

@@ -58,7 +58,11 @@ Workflow describes how to run an Agent, but does not own the online state and st
 
 #### Doubao Realtime composition boundary
 
-The Doubao Realtime factory owns product precedence, not provider model-family mapping. A non-empty Workspace `parameters.instructions` replaces the Workflow instruction; the values are never concatenated. The factory adds the runtime `DialogID` and passes the resolved instruction, selected RuntimeProfile model, and audio configuration to the immutable GenX transformer. `peergenx` maps the semantic value to `Config.Instructions`; `doubao-speech-go` alone selects O20 `dialog.system_role` or SC20 `dialog.character_manifest`. Exact provider fields remain explicit independent options and `prompt.system` is not a fallback for Workflow instructions.
+The Doubao Realtime factory owns product precedence, not provider model-family mapping. A non-empty Workspace `parameters.instructions` replaces the Workflow instruction; the values are never concatenated. The exact canonical Workspace ID is the provider `dialog_id`, so replacing a connection or reloading the same Workspace continues the same provider dialog without separate random runtime metadata. The provider session remains connection-scoped; deleting a Workspace and creating another canonical ID starts a different dialog.
+
+`max_output_runes` is an optional deterministic boundary on each published `assistant` text stream. A present Workspace value replaces the Workflow value, including zero; omission inherits, and zero means unbounded. The adapter counts Unicode code points, truncates only model text, and preserves the provider's original EOS and terminal error. It does not limit provider tokens, billing, transcript/user text, or audio that the provider has already generated.
+
+The factory passes the resolved instruction, selected RuntimeProfile model, and audio configuration to the immutable GenX transformer. `peergenx` maps the semantic value to `Config.Instructions`; `doubao-speech-go` alone selects O20 `dialog.system_role` or SC20 `dialog.character_manifest`. Exact provider fields remain explicit independent options and `prompt.system` is not a fallback for Workflow instructions.
 
 #### Flowcraft composition boundary
 

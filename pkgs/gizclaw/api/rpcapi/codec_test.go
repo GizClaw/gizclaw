@@ -678,6 +678,20 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 		t.Fatalf("Duplex workflow round trip = %#v", decodedDuplex)
 	}
 
+	maxOutputRunes := 20
+	realtime := DoubaoRealtimeWorkflowSpec{Model: "realtime", MaxOutputRunes: &maxOutputRunes}
+	var realtimePayload RPCPayload
+	if err := realtimePayload.encode("DoubaoRealtimeWorkflowSpec", realtime); err != nil {
+		t.Fatalf("encode Doubao realtime workflow: %v", err)
+	}
+	var decodedRealtime DoubaoRealtimeWorkflowSpec
+	if err := realtimePayload.decode("DoubaoRealtimeWorkflowSpec", &decodedRealtime); err != nil {
+		t.Fatalf("decode Doubao realtime workflow: %v", err)
+	}
+	if decodedRealtime.MaxOutputRunes == nil || *decodedRealtime.MaxOutputRunes != maxOutputRunes {
+		t.Fatalf("Doubao realtime max_output_runes round trip = %#v", decodedRealtime)
+	}
+
 	eino := EinoWorkflowSpec{
 		Conversation: &map[string]any{"starts": "agent"},
 		Graph: map[string]any{

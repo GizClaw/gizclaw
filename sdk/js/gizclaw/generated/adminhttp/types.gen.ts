@@ -2650,6 +2650,10 @@ export type DoubaoRealtimeWorkflowSpec = {
      */
     model: string;
     instructions?: string;
+    /**
+     * Maximum Unicode code points published on each assistant text stream. Zero or omission is unbounded.
+     */
+    max_output_runes?: number;
     audio?: DoubaoRealtimeAudio;
     tools?: Array<DoubaoRealtimeFunctionTool>;
     extension?: DoubaoRealtimeExtension;
@@ -3251,6 +3255,10 @@ export type DoubaoRealtimeWorkspaceParameters = {
      */
     model?: string;
     instructions?: string;
+    /**
+     * Workspace override for the maximum Unicode code points published on each assistant text stream. Zero is unbounded.
+     */
+    max_output_runes?: number;
     input?: WorkspaceInputMode;
     audio?: DoubaoRealtimeAudio;
     tools?: Array<DoubaoRealtimeFunctionTool>;

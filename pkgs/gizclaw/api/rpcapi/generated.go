@@ -1481,9 +1481,10 @@ type DoubaoRealtimeTTSExtra struct {
 
 // DoubaoRealtimeWorkflowSpec defines model for DoubaoRealtimeWorkflowSpec.
 type DoubaoRealtimeWorkflowSpec struct {
-	Audio        *DoubaoRealtimeAudio     `json:"audio,omitempty"`
-	Extension    *DoubaoRealtimeExtension `json:"extension,omitempty"`
-	Instructions *string                  `json:"instructions,omitempty"`
+	Audio          *DoubaoRealtimeAudio     `json:"audio,omitempty"`
+	Extension      *DoubaoRealtimeExtension `json:"extension,omitempty"`
+	Instructions   *string                  `json:"instructions,omitempty"`
+	MaxOutputRunes *int                     `json:"max_output_runes,omitempty"`
 
 	// Model GizClaw Model resource name. The upstream Doubao model version is configured on Model provider_data.upstream_model.
 	Model string                        `json:"model"`
@@ -1496,10 +1497,11 @@ type DoubaoRealtimeWorkspaceParameters struct {
 	Audio     *DoubaoRealtimeAudio                       `json:"audio,omitempty"`
 
 	// E2e Marks seed resources used by the local e2e harness.
-	E2e          *bool                    `json:"e2e,omitempty"`
-	Extension    *DoubaoRealtimeExtension `json:"extension,omitempty"`
-	Input        *WorkspaceInputMode      `json:"input,omitempty"`
-	Instructions *string                  `json:"instructions,omitempty"`
+	E2e            *bool                    `json:"e2e,omitempty"`
+	Extension      *DoubaoRealtimeExtension `json:"extension,omitempty"`
+	Input          *WorkspaceInputMode      `json:"input,omitempty"`
+	Instructions   *string                  `json:"instructions,omitempty"`
+	MaxOutputRunes *int                     `json:"max_output_runes,omitempty"`
 
 	// Model GizClaw Model resource name. Defaults to Workflow.spec.doubao_realtime.model.
 	Model *string                       `json:"model,omitempty"`

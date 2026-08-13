@@ -330,31 +330,31 @@ pkgs/gizclaw/api/adminhttp/generated.go:42717:42: interface{} can be replaced by
 pkgs/gizclaw/api/adminhttp/generated.go:42717:56: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:3173:25: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:3392:22: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:3880:8: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:4049:22: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:4235:11: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:4606:34: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:4665:22: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:4680:25: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:4804:25: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:4951:22: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:5054:45: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:5067:31: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:5074:25: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:5084:22: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:5129:29: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:6139:26: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:6279:26: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:6286:21: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:6443:25: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:7311:51: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:7860:43: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:8049:48: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:8954:43: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:9173:65: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:9436:47: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:9537:43: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:9906:54: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:3886:8: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:4055:22: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:4241:11: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:4612:34: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:4671:22: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:4686:25: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:4810:25: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:4957:22: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:5060:45: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:5073:31: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:5080:25: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:5090:22: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:5135:29: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:6145:26: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:6285:26: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:6292:21: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:6449:25: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:7317:51: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:7866:43: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:8055:48: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:8960:43: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:9179:65: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:9442:47: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:9543:43: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:9912:54: interface{} can be replaced by any
 pkgs/gizclaw/api/eventproto/peer_event.pb.go:1331:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/openaihttp/generated.go:135:27: interface{} can be replaced by any
 pkgs/gizclaw/api/openaihttp/generated.go:499:50: interface{} can be replaced by any
@@ -416,7 +416,7 @@ pkgs/gizclaw/api/peerhttp/generated.go:6539:56: interface{} can be replaced by a
 pkgs/gizclaw/api/rpcapi/tool_generated.go:15:21: interface{} can be replaced by any
 pkgs/gizclaw/api/rpcapi/tool_generated.go:24:26: interface{} can be replaced by any
 pkgs/gizclaw/api/rpcapi/tool_generated.go:59:24: interface{} can be replaced by any
-pkgs/gizclaw/api/rpcproto/ai.pb.go:6721:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcproto/ai.pb.go:6741:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/edge.pb.go:461:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/enums.pb.go:1722:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/firmware.pb.go:199:19: reflect.TypeOf call can be simplified using TypeFor

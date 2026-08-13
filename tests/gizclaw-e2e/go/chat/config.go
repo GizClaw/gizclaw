@@ -72,6 +72,7 @@ type workflowConfig struct {
 	Memory               string                                   `json:"memory,omitempty"`
 	Model                string                                   `json:"model"`
 	Instructions         string                                   `json:"instructions,omitempty"`
+	MaxOutputRunes       *int                                     `json:"max_output_runes,omitempty"`
 	Audio                *rpcapi.DoubaoRealtimeAudio              `json:"audio,omitempty"`
 	Tools                *[]rpcapi.DoubaoRealtimeFunctionTool     `json:"tools,omitempty"`
 	Extension            *rpcapi.DoubaoRealtimeExtension          `json:"extension,omitempty"`
@@ -92,6 +93,7 @@ type workspaceParameterConfig struct {
 	Mode                       string                               `json:"mode,omitempty"`
 	Model                      string                               `json:"model,omitempty"`
 	Instructions               string                               `json:"instructions,omitempty"`
+	MaxOutputRunes             *int                                 `json:"max_output_runes,omitempty"`
 	Audio                      *rpcapi.DoubaoRealtimeAudio          `json:"audio,omitempty"`
 	Tools                      *[]rpcapi.DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
 	Extension                  *rpcapi.DoubaoRealtimeExtension      `json:"extension,omitempty"`

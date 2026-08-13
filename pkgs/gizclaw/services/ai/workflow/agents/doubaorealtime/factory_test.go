@@ -9,7 +9,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 )
 
@@ -76,9 +75,8 @@ func TestFactoryUsesWorkflowDuplexConfig(t *testing.T) {
 		},
 	})
 	agent, err := factory.NewAgent(context.Background(), agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "demo", Parameters: params},
+		Workspace: apitypes.Workspace{Id: "workspace-dialog-id", Name: "demo", Parameters: params},
 		Workflow:  workflow,
-		Runtime:   workspace.Runtime{DialogID: "workspace-dialog-id"},
 	})
 	if err != nil {
 		t.Fatalf("NewAgent() error = %v", err)
@@ -123,7 +121,7 @@ func TestFactoryUsesWorkspaceOwnerTransformer(t *testing.T) {
 			return recordingTransformer{}, nil
 		},
 	}).NewAgent(t.Context(), agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "pet-realtime", OwnerPublicKey: &owner},
+		Workspace: apitypes.Workspace{Id: "workspace-owner", Name: "pet-realtime", OwnerPublicKey: &owner},
 		Workflow:  testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{Model: "owner-model"}),
 	})
 	if err != nil {
@@ -145,7 +143,7 @@ func TestFactoryRejectsToolCallConfiguration(t *testing.T) {
 	}{
 		{
 			name: "workflow",
-			spec: agenthost.Spec{Workflow: testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{
+			spec: agenthost.Spec{Workspace: apitypes.Workspace{Id: "workspace-workflow-tools"}, Workflow: testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{
 				Model: "doubao-dialog",
 				Tools: &tools,
 			})},
@@ -154,7 +152,7 @@ func TestFactoryRejectsToolCallConfiguration(t *testing.T) {
 			name: "workspace",
 			spec: agenthost.Spec{
 				Workflow: testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{Model: "doubao-dialog"}),
-				Workspace: apitypes.Workspace{Parameters: testDoubaoRealtimeWorkspaceParameters(t, apitypes.DoubaoRealtimeWorkspaceParameters{
+				Workspace: apitypes.Workspace{Id: "workspace-parameters-tools", Parameters: testDoubaoRealtimeWorkspaceParameters(t, apitypes.DoubaoRealtimeWorkspaceParameters{
 					Tools: &tools,
 				})},
 			},
@@ -177,7 +175,7 @@ func TestFactoryWorkspaceCanOverrideModelAndMode(t *testing.T) {
 		Input: &input,
 	})
 	agent, err := factory.NewAgent(context.Background(), agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "demo", Parameters: params},
+		Workspace: apitypes.Workspace{Id: "workspace-override", Name: "demo", Parameters: params},
 		Workflow:  testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{Model: "workflow-dialog"}),
 	})
 	if err != nil {
@@ -197,9 +195,84 @@ func TestFactoryValidation(t *testing.T) {
 		t.Fatalf("NewAgent(missing workflow) error = %v", err)
 	}
 	if _, err := (Factory{Transformer: recordingTransformer{}}).NewAgent(context.Background(), agenthost.Spec{
-		Workflow: testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{}),
+		Workspace: apitypes.Workspace{Id: "workspace-missing-model"},
+		Workflow:  testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{}),
 	}); err == nil || !strings.Contains(err.Error(), "model") {
 		t.Fatalf("NewAgent(missing model) error = %v", err)
+	}
+}
+
+func TestFactoryRequiresCanonicalWorkspaceID(t *testing.T) {
+	_, err := (Factory{Transformer: recordingTransformer{}}).NewAgent(context.Background(), agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "display-name"},
+		Workflow:  testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{Model: "doubao-dialog"}),
+	})
+	if err == nil || !strings.Contains(err.Error(), "canonical workspace id") {
+		t.Fatalf("NewAgent(missing workspace id) error = %v", err)
+	}
+}
+
+func TestFactoryUsesExactCanonicalWorkspaceID(t *testing.T) {
+	factory := Factory{Transformer: recordingTransformer{}}
+	workflow := testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{Model: "doubao-dialog"})
+	for _, workspaceID := range []string{"workspace-a", "workspace-b"} {
+		agent, err := factory.NewAgent(context.Background(), agenthost.Spec{
+			Workspace: apitypes.Workspace{Id: workspaceID, Name: "same-display-name"},
+			Workflow:  workflow,
+		})
+		if err != nil {
+			t.Fatalf("NewAgent(%q) error = %v", workspaceID, err)
+		}
+		if got := patternQuery(t, transformPattern(t, agent)).Get("dialog_id"); got != workspaceID {
+			t.Fatalf("dialog_id = %q, want %q", got, workspaceID)
+		}
+	}
+}
+
+func TestResolveRealtimeConfigOutputLimitPrecedence(t *testing.T) {
+	workflowLimit := 20
+	for _, test := range []struct {
+		name      string
+		override  *int
+		wantLimit int
+	}{
+		{name: "inherit", wantLimit: 20},
+		{name: "positive override", override: new(10), wantLimit: 10},
+		{name: "explicit zero disables", override: new(0), wantLimit: 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var parameters *apitypes.WorkspaceParameters
+			if test.override != nil {
+				parameters = testDoubaoRealtimeWorkspaceParameters(t, apitypes.DoubaoRealtimeWorkspaceParameters{
+					MaxOutputRunes: test.override,
+				})
+			}
+			config, err := resolveRealtimeConfig(agenthost.Spec{
+				Workspace: apitypes.Workspace{Id: "workspace-limit", Parameters: parameters},
+				Workflow: testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{
+					Model: "doubao-dialog", MaxOutputRunes: &workflowLimit,
+				}),
+			})
+			if err != nil {
+				t.Fatalf("resolveRealtimeConfig() error = %v", err)
+			}
+			if config.MaxOutputRunes != test.wantLimit {
+				t.Fatalf("MaxOutputRunes = %d, want %d", config.MaxOutputRunes, test.wantLimit)
+			}
+		})
+	}
+}
+
+func TestResolveRealtimeConfigRejectsNegativeOutputLimit(t *testing.T) {
+	negative := -1
+	_, err := resolveRealtimeConfig(agenthost.Spec{
+		Workspace: apitypes.Workspace{Id: "workspace-limit"},
+		Workflow: testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{
+			Model: "doubao-dialog", MaxOutputRunes: &negative,
+		}),
+	})
+	if err == nil || !strings.Contains(err.Error(), "max_output_runes") {
+		t.Fatalf("resolveRealtimeConfig() error = %v", err)
 	}
 }
 

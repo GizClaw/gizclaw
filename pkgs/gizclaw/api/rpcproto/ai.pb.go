@@ -2934,14 +2934,15 @@ func (x *DoubaoRealtimeTTSExtra) GetTts_2_0Model() string {
 }
 
 type DoubaoRealtimeWorkflowSpec struct {
-	state         protoimpl.MessageState        `protogen:"open.v1"`
-	Audio         *DoubaoRealtimeAudio          `protobuf:"bytes,1,opt,name=audio,proto3,oneof" json:"audio,omitempty"`
-	Extension     *DoubaoRealtimeExtension      `protobuf:"bytes,2,opt,name=extension,proto3,oneof" json:"extension,omitempty"`
-	Instructions  *string                       `protobuf:"bytes,3,opt,name=instructions,proto3,oneof" json:"instructions,omitempty"`
-	Model         string                        `protobuf:"bytes,4,opt,name=model,proto3" json:"model,omitempty"`
-	Tools         []*DoubaoRealtimeFunctionTool `protobuf:"bytes,5,rep,name=tools,proto3" json:"tools,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState        `protogen:"open.v1"`
+	Audio          *DoubaoRealtimeAudio          `protobuf:"bytes,1,opt,name=audio,proto3,oneof" json:"audio,omitempty"`
+	Extension      *DoubaoRealtimeExtension      `protobuf:"bytes,2,opt,name=extension,proto3,oneof" json:"extension,omitempty"`
+	Instructions   *string                       `protobuf:"bytes,3,opt,name=instructions,proto3,oneof" json:"instructions,omitempty"`
+	Model          string                        `protobuf:"bytes,4,opt,name=model,proto3" json:"model,omitempty"`
+	Tools          []*DoubaoRealtimeFunctionTool `protobuf:"bytes,5,rep,name=tools,proto3" json:"tools,omitempty"`
+	MaxOutputRunes *int64                        `protobuf:"varint,6,opt,name=max_output_runes,json=maxOutputRunes,proto3,oneof" json:"max_output_runes,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *DoubaoRealtimeWorkflowSpec) Reset() {
@@ -3009,18 +3010,26 @@ func (x *DoubaoRealtimeWorkflowSpec) GetTools() []*DoubaoRealtimeFunctionTool {
 	return nil
 }
 
+func (x *DoubaoRealtimeWorkflowSpec) GetMaxOutputRunes() int64 {
+	if x != nil && x.MaxOutputRunes != nil {
+		return *x.MaxOutputRunes
+	}
+	return 0
+}
+
 type DoubaoRealtimeWorkspaceParameters struct {
-	state         protoimpl.MessageState                     `protogen:"open.v1"`
-	AgentType     DoubaoRealtimeWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType" json:"agent_type,omitempty"`
-	Audio         *DoubaoRealtimeAudio                       `protobuf:"bytes,2,opt,name=audio,proto3,oneof" json:"audio,omitempty"`
-	E2E           *bool                                      `protobuf:"varint,3,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
-	Extension     *DoubaoRealtimeExtension                   `protobuf:"bytes,4,opt,name=extension,proto3,oneof" json:"extension,omitempty"`
-	Input         *WorkspaceInputMode                        `protobuf:"varint,5,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
-	Instructions  *string                                    `protobuf:"bytes,6,opt,name=instructions,proto3,oneof" json:"instructions,omitempty"`
-	Model         *string                                    `protobuf:"bytes,7,opt,name=model,proto3,oneof" json:"model,omitempty"`
-	Tools         []*DoubaoRealtimeFunctionTool              `protobuf:"bytes,8,rep,name=tools,proto3" json:"tools,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState                     `protogen:"open.v1"`
+	AgentType      DoubaoRealtimeWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType" json:"agent_type,omitempty"`
+	Audio          *DoubaoRealtimeAudio                       `protobuf:"bytes,2,opt,name=audio,proto3,oneof" json:"audio,omitempty"`
+	E2E            *bool                                      `protobuf:"varint,3,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
+	Extension      *DoubaoRealtimeExtension                   `protobuf:"bytes,4,opt,name=extension,proto3,oneof" json:"extension,omitempty"`
+	Input          *WorkspaceInputMode                        `protobuf:"varint,5,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
+	Instructions   *string                                    `protobuf:"bytes,6,opt,name=instructions,proto3,oneof" json:"instructions,omitempty"`
+	Model          *string                                    `protobuf:"bytes,7,opt,name=model,proto3,oneof" json:"model,omitempty"`
+	Tools          []*DoubaoRealtimeFunctionTool              `protobuf:"bytes,8,rep,name=tools,proto3" json:"tools,omitempty"`
+	MaxOutputRunes *int64                                     `protobuf:"varint,9,opt,name=max_output_runes,json=maxOutputRunes,proto3,oneof" json:"max_output_runes,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *DoubaoRealtimeWorkspaceParameters) Reset() {
@@ -3107,6 +3116,13 @@ func (x *DoubaoRealtimeWorkspaceParameters) GetTools() []*DoubaoRealtimeFunction
 		return x.Tools
 	}
 	return nil
+}
+
+func (x *DoubaoRealtimeWorkspaceParameters) GetMaxOutputRunes() int64 {
+	if x != nil && x.MaxOutputRunes != nil {
+		return *x.MaxOutputRunes
+	}
+	return 0
 }
 
 type FlowcraftConversationParameters struct {
@@ -6068,17 +6084,19 @@ const file_payload_ai_proto_rawDesc = "" +
 	"tts20Model\x88\x01\x01B\x10\n" +
 	"\x0e_aigc_metadataB\x13\n" +
 	"\x11_explicit_dialectB\x10\n" +
-	"\x0e_tts_2_0_model\"\xd2\x02\n" +
+	"\x0e_tts_2_0_model\"\x96\x03\n" +
 	"\x1aDoubaoRealtimeWorkflowSpec\x12>\n" +
 	"\x05audio\x18\x01 \x01(\v2#.gizclaw.rpc.v1.DoubaoRealtimeAudioH\x00R\x05audio\x88\x01\x01\x12J\n" +
 	"\textension\x18\x02 \x01(\v2'.gizclaw.rpc.v1.DoubaoRealtimeExtensionH\x01R\textension\x88\x01\x01\x12'\n" +
 	"\finstructions\x18\x03 \x01(\tH\x02R\finstructions\x88\x01\x01\x12\x14\n" +
 	"\x05model\x18\x04 \x01(\tR\x05model\x12@\n" +
-	"\x05tools\x18\x05 \x03(\v2*.gizclaw.rpc.v1.DoubaoRealtimeFunctionToolR\x05toolsB\b\n" +
+	"\x05tools\x18\x05 \x03(\v2*.gizclaw.rpc.v1.DoubaoRealtimeFunctionToolR\x05tools\x12-\n" +
+	"\x10max_output_runes\x18\x06 \x01(\x03H\x03R\x0emaxOutputRunes\x88\x01\x01B\b\n" +
 	"\x06_audioB\f\n" +
 	"\n" +
 	"_extensionB\x0f\n" +
-	"\r_instructions\"\xab\x04\n" +
+	"\r_instructionsB\x13\n" +
+	"\x11_max_output_runes\"\xef\x04\n" +
 	"!DoubaoRealtimeWorkspaceParameters\x12Y\n" +
 	"\n" +
 	"agent_type\x18\x01 \x01(\x0e2:.gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentTypeR\tagentType\x12>\n" +
@@ -6088,14 +6106,16 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x05input\x18\x05 \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x03R\x05input\x88\x01\x01\x12'\n" +
 	"\finstructions\x18\x06 \x01(\tH\x04R\finstructions\x88\x01\x01\x12\x19\n" +
 	"\x05model\x18\a \x01(\tH\x05R\x05model\x88\x01\x01\x12@\n" +
-	"\x05tools\x18\b \x03(\v2*.gizclaw.rpc.v1.DoubaoRealtimeFunctionToolR\x05toolsB\b\n" +
+	"\x05tools\x18\b \x03(\v2*.gizclaw.rpc.v1.DoubaoRealtimeFunctionToolR\x05tools\x12-\n" +
+	"\x10max_output_runes\x18\t \x01(\x03H\x06R\x0emaxOutputRunes\x88\x01\x01B\b\n" +
 	"\x06_audioB\x06\n" +
 	"\x04_e2eB\f\n" +
 	"\n" +
 	"_extensionB\b\n" +
 	"\x06_inputB\x0f\n" +
 	"\r_instructionsB\b\n" +
-	"\x06_model\"\xb0\x02\n" +
+	"\x06_modelB\x13\n" +
+	"\x11_max_output_runes\"\xb0\x02\n" +
 	"\x1fFlowcraftConversationParameters\x12\x81\x01\n" +
 	"\x17agent_initiative_policy\x18\x01 \x01(\x0e2D.gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicyH\x00R\x15agentInitiativePolicy\x88\x01\x01\x12^\n" +
 	"\n" +

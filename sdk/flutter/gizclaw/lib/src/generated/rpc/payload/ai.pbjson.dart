@@ -2138,11 +2138,21 @@ const DoubaoRealtimeWorkflowSpec$json = {
       '6': '.gizclaw.rpc.v1.DoubaoRealtimeFunctionTool',
       '10': 'tools'
     },
+    {
+      '1': 'max_output_runes',
+      '3': 6,
+      '4': 1,
+      '5': 3,
+      '9': 3,
+      '10': 'maxOutputRunes',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_audio'},
     {'1': '_extension'},
     {'1': '_instructions'},
+    {'1': '_max_output_runes'},
   ],
 };
 
@@ -2153,8 +2163,9 @@ final $typed_data.Uint8List doubaoRealtimeWorkflowSpecDescriptor = $convert.base
     'MicuZ2l6Y2xhdy5ycGMudjEuRG91YmFvUmVhbHRpbWVFeHRlbnNpb25IAVIJZXh0ZW5zaW9uiA'
     'EBEicKDGluc3RydWN0aW9ucxgDIAEoCUgCUgxpbnN0cnVjdGlvbnOIAQESFAoFbW9kZWwYBCAB'
     'KAlSBW1vZGVsEkAKBXRvb2xzGAUgAygLMiouZ2l6Y2xhdy5ycGMudjEuRG91YmFvUmVhbHRpbW'
-    'VGdW5jdGlvblRvb2xSBXRvb2xzQggKBl9hdWRpb0IMCgpfZXh0ZW5zaW9uQg8KDV9pbnN0cnVj'
-    'dGlvbnM=');
+    'VGdW5jdGlvblRvb2xSBXRvb2xzEi0KEG1heF9vdXRwdXRfcnVuZXMYBiABKANIA1IObWF4T3V0'
+    'cHV0UnVuZXOIAQFCCAoGX2F1ZGlvQgwKCl9leHRlbnNpb25CDwoNX2luc3RydWN0aW9uc0ITCh'
+    'FfbWF4X291dHB1dF9ydW5lcw==');
 
 @$core.Deprecated('Use doubaoRealtimeWorkspaceParametersDescriptor instead')
 const DoubaoRealtimeWorkspaceParameters$json = {
@@ -2217,6 +2228,15 @@ const DoubaoRealtimeWorkspaceParameters$json = {
       '6': '.gizclaw.rpc.v1.DoubaoRealtimeFunctionTool',
       '10': 'tools'
     },
+    {
+      '1': 'max_output_runes',
+      '3': 9,
+      '4': 1,
+      '5': 3,
+      '9': 6,
+      '10': 'maxOutputRunes',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_audio'},
@@ -2225,6 +2245,7 @@ const DoubaoRealtimeWorkspaceParameters$json = {
     {'1': '_input'},
     {'1': '_instructions'},
     {'1': '_model'},
+    {'1': '_max_output_runes'},
   ],
 };
 
@@ -2238,8 +2259,10 @@ final $typed_data.Uint8List doubaoRealtimeWorkspaceParametersDescriptor = $conve
     'V4dGVuc2lvbogBARI9CgVpbnB1dBgFIAEoDjIiLmdpemNsYXcucnBjLnYxLldvcmtzcGFjZUlu'
     'cHV0TW9kZUgDUgVpbnB1dIgBARInCgxpbnN0cnVjdGlvbnMYBiABKAlIBFIMaW5zdHJ1Y3Rpb2'
     '5ziAEBEhkKBW1vZGVsGAcgASgJSAVSBW1vZGVsiAEBEkAKBXRvb2xzGAggAygLMiouZ2l6Y2xh'
-    'dy5ycGMudjEuRG91YmFvUmVhbHRpbWVGdW5jdGlvblRvb2xSBXRvb2xzQggKBl9hdWRpb0IGCg'
-    'RfZTJlQgwKCl9leHRlbnNpb25CCAoGX2lucHV0Qg8KDV9pbnN0cnVjdGlvbnNCCAoGX21vZGVs');
+    'dy5ycGMudjEuRG91YmFvUmVhbHRpbWVGdW5jdGlvblRvb2xSBXRvb2xzEi0KEG1heF9vdXRwdX'
+    'RfcnVuZXMYCSABKANIBlIObWF4T3V0cHV0UnVuZXOIAQFCCAoGX2F1ZGlvQgYKBF9lMmVCDAoK'
+    'X2V4dGVuc2lvbkIICgZfaW5wdXRCDwoNX2luc3RydWN0aW9uc0IICgZfbW9kZWxCEwoRX21heF'
+    '9vdXRwdXRfcnVuZXM=');
 
 @$core.Deprecated('Use flowcraftConversationParametersDescriptor instead')
 const FlowcraftConversationParameters$json = {

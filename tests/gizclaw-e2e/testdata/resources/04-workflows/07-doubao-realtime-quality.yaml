@@ -1,0 +1,23 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: doubao-realtime-quality
+spec:
+  driver: doubao-realtime
+  doubao_realtime:
+    model: realtime
+    instructions: 你是中文语音测试助手。必须记住本轮对话中用户给出的事实与更正，严格遵守每轮指定的回答格式和长度，不补充无关内容。
+    max_output_runes: 12
+    audio:
+      input:
+        format:
+          type: speech_opus
+          rate: 16000
+      output:
+        format:
+          type: ogg_opus
+          rate: 24000
+        voice: doubao-assistant
+        speed: 0
+        loudness: 0

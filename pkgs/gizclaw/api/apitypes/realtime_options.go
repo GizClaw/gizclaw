@@ -6,6 +6,34 @@ import (
 	"strings"
 )
 
+// Validate verifies the constraints shared by HTTP, RPC, and internal Doubao
+// Realtime Workflow writes.
+func (s DoubaoRealtimeWorkflowSpec) Validate() error {
+	if strings.TrimSpace(s.Model) == "" {
+		return fmt.Errorf("model is required")
+	}
+	return validateDoubaoRealtimeOutputRunes(s.MaxOutputRunes)
+}
+
+// Validate verifies the constraints shared by HTTP, RPC, and internal Doubao
+// Realtime Workspace writes.
+func (p DoubaoRealtimeWorkspaceParameters) Validate() error {
+	if !p.AgentType.Valid() {
+		return fmt.Errorf("agent_type %q is unsupported", p.AgentType)
+	}
+	if err := validateOptionalNonBlank("model", p.Model); err != nil {
+		return err
+	}
+	return validateDoubaoRealtimeOutputRunes(p.MaxOutputRunes)
+}
+
+func validateDoubaoRealtimeOutputRunes(value *int) error {
+	if value != nil && *value < 0 {
+		return fmt.Errorf("max_output_runes must be at least 0")
+	}
+	return nil
+}
+
 // Validate verifies the constraints shared by HTTP, RPC, and internal
 // DashScope Realtime Workflow writes.
 func (s DashScopeRealtimeWorkflowSpec) Validate() error {

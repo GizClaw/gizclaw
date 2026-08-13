@@ -3685,6 +3685,9 @@ type DoubaoRealtimeWorkflowSpec struct {
 	Extension    *DoubaoRealtimeExtension `json:"extension,omitempty"`
 	Instructions *string                  `json:"instructions,omitempty"`
 
+	// MaxOutputRunes Maximum Unicode code points published on each assistant text stream. Zero or omission is unbounded.
+	MaxOutputRunes *int `json:"max_output_runes,omitempty"`
+
 	// Model RuntimeProfile realtime Model alias. The canonical Model and upstream version are resolved on Workspace reload.
 	Model string                        `json:"model"`
 	Tools *[]DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
@@ -3700,6 +3703,9 @@ type DoubaoRealtimeWorkspaceParameters struct {
 	Extension    *DoubaoRealtimeExtension `json:"extension,omitempty"`
 	Input        *WorkspaceInputMode      `json:"input,omitempty"`
 	Instructions *string                  `json:"instructions,omitempty"`
+
+	// MaxOutputRunes Workspace override for the maximum Unicode code points published on each assistant text stream. Zero is unbounded.
+	MaxOutputRunes *int `json:"max_output_runes,omitempty"`
 
 	// Model RuntimeProfile Model alias. Defaults to Workflow.spec.doubao_realtime.model.
 	Model *string                       `json:"model,omitempty"`

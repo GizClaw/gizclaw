@@ -208,12 +208,12 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	}
 	quality, err := workspaceCaseDoubaoRealtimeQuality.applyConfig(config{
 		Rounds:   8,
-		Workflow: workflowConfig{Name: "doubao-realtime-conversation"},
+		Workflow: workflowConfig{Name: "doubao-realtime-quality"},
 	})
 	if err != nil {
 		t.Fatalf("applyConfig(quality) error = %v", err)
 	}
-	if quality.Rounds != 8 || quality.workspaceMode() != "push_to_talk" || quality.Workspace != "doubao-realtime-conversation-quality" {
+	if quality.Rounds != 8 || quality.workspaceMode() != "push_to_talk" || quality.Workspace != "doubao-realtime-quality-quality" {
 		t.Fatalf("quality config rounds/mode/workspace = %d/%q/%q", quality.Rounds, quality.workspaceMode(), quality.Workspace)
 	}
 }
@@ -248,8 +248,9 @@ func TestDoubaoRealtimeQualityFixtureKeepsEightTurns(t *testing.T) {
 	if cfg.Rounds != 8 || len(cfg.Utterances) != 8 || len(quality.Quality.Rounds) != 8 {
 		t.Fatalf("fixture rounds/utterances/quality = %d/%d/%d, want 8/8/8", cfg.Rounds, len(cfg.Utterances), len(quality.Quality.Rounds))
 	}
-	if strings.TrimSpace(cfg.Workflow.Instructions) == "" || cfg.Workflow.Parameters.Input != "push-to-talk" {
-		t.Fatalf("fixture instructions/input = %q/%q", cfg.Workflow.Instructions, cfg.Workflow.Parameters.Input)
+	if strings.TrimSpace(cfg.Workflow.Instructions) == "" || cfg.Workflow.Parameters.Input != "push-to-talk" ||
+		cfg.Workflow.Name != "doubao-realtime-quality" || cfg.Workflow.MaxOutputRunes == nil || *cfg.Workflow.MaxOutputRunes != 12 {
+		t.Fatalf("fixture workflow = %+v", cfg.Workflow)
 	}
 }
 
@@ -584,9 +585,13 @@ func TestWorkflowSpecCoversTypedAgentSpecs(t *testing.T) {
 		t.Fatalf("ast mode = %#v", ast.AstTranslate.Mode)
 	}
 
-	realtime := workflowSpec(config{Workflow: workflowConfig{Model: "rt", Audio: defaultDoubaoRealtimeAudio()}})
+	maxOutputRunes := 12
+	realtime := workflowSpec(config{Workflow: workflowConfig{Model: "rt", MaxOutputRunes: &maxOutputRunes, Audio: defaultDoubaoRealtimeAudio()}})
 	if realtime.Driver != rpcapi.WorkflowDriverDoubaoRealtime || realtime.DoubaoRealtime == nil || realtime.DoubaoRealtime.Model != "rt" || realtime.DoubaoRealtime.Audio == nil {
 		t.Fatalf("realtime spec = %+v", realtime)
+	}
+	if realtime.DoubaoRealtime.MaxOutputRunes == nil || *realtime.DoubaoRealtime.MaxOutputRunes != maxOutputRunes {
+		t.Fatalf("realtime max output runes = %#v", realtime.DoubaoRealtime.MaxOutputRunes)
 	}
 }
 
@@ -1008,6 +1013,7 @@ func TestDialClientRejectsInvalidPrivateKey(t *testing.T) {
 func TestEnsureWorkspaceRequiresSetupWorkflowAndRecreatesWorkspace(t *testing.T) {
 	control := &fakeRunControl{}
 	audio := defaultDoubaoRealtimeAudio()
+	maxOutputRunes := 12
 	cfg := config{
 		Workspace: "workspace-a",
 		Agent:     "doubao-realtime",
@@ -1017,9 +1023,10 @@ func TestEnsureWorkspaceRequiresSetupWorkflowAndRecreatesWorkspace(t *testing.T)
 			Model: "realtime",
 			Audio: audio,
 			Parameters: workspaceParameterConfig{
-				Input: "realtime",
-				Model: "realtime",
-				Audio: audio,
+				Input:          "realtime",
+				Model:          "realtime",
+				MaxOutputRunes: &maxOutputRunes,
+				Audio:          audio,
 			},
 		},
 	}
@@ -1054,7 +1061,8 @@ func TestEnsureWorkspaceRequiresSetupWorkflowAndRecreatesWorkspace(t *testing.T)
 	}
 	if params.AgentType != rpcapi.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime ||
 		params.Model == nil || *params.Model != "realtime" ||
-		params.Input == nil || *params.Input != rpcapi.WorkspaceInputModeRealtime {
+		params.Input == nil || *params.Input != rpcapi.WorkspaceInputModeRealtime ||
+		params.MaxOutputRunes == nil || *params.MaxOutputRunes != maxOutputRunes {
 		t.Fatalf("workspace parameters = %#v", params)
 	}
 	if params.Audio == nil || params.Audio.Output.Voice == nil || *params.Audio.Output.Voice != "zh_female_vv_jupiter_bigtts" {

@@ -625,11 +625,12 @@ func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 	return rpcapi.WorkflowSpec{
 		Driver: rpcapi.WorkflowDriver("doubao-realtime"),
 		DoubaoRealtime: &rpcapi.DoubaoRealtimeWorkflowSpec{
-			Model:        cfg.Workflow.Model,
-			Instructions: optionalString(cfg.Workflow.Instructions),
-			Audio:        cfg.Workflow.Audio,
-			Tools:        optionalFunctionTools(cfg.Workflow.Tools),
-			Extension:    cfg.Workflow.Extension,
+			Model:          cfg.Workflow.Model,
+			Instructions:   optionalString(cfg.Workflow.Instructions),
+			MaxOutputRunes: cfg.Workflow.MaxOutputRunes,
+			Audio:          cfg.Workflow.Audio,
+			Tools:          optionalFunctionTools(cfg.Workflow.Tools),
+			Extension:      cfg.Workflow.Extension,
 		},
 	}
 }
@@ -690,13 +691,14 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 		}
 	default:
 		typed := rpcapi.DoubaoRealtimeWorkspaceParameters{
-			AgentType:    rpcapi.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime,
-			Input:        optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
-			Model:        optionalString(cfg.Workflow.Parameters.Model),
-			Instructions: optionalString(cfg.Workflow.Parameters.Instructions),
-			Audio:        cfg.Workflow.Parameters.Audio,
-			Tools:        optionalFunctionTools(cfg.Workflow.Parameters.Tools),
-			Extension:    cfg.Workflow.Parameters.Extension,
+			AgentType:      rpcapi.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime,
+			Input:          optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
+			Model:          optionalString(cfg.Workflow.Parameters.Model),
+			Instructions:   optionalString(cfg.Workflow.Parameters.Instructions),
+			MaxOutputRunes: cfg.Workflow.Parameters.MaxOutputRunes,
+			Audio:          cfg.Workflow.Parameters.Audio,
+			Tools:          optionalFunctionTools(cfg.Workflow.Parameters.Tools),
+			Extension:      cfg.Workflow.Parameters.Extension,
 		}
 		if err := parameters.FromDoubaoRealtimeWorkspaceParameters(typed); err != nil {
 			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode doubao realtime workspace parameters: %w", err)

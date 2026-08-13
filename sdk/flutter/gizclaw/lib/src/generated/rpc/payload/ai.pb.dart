@@ -3978,6 +3978,7 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
     $core.String? instructions,
     $core.String? model,
     $core.Iterable<DoubaoRealtimeFunctionTool>? tools,
+    $fixnum.Int64? maxOutputRunes,
   }) {
     final result = create();
     if (audio != null) result.audio = audio;
@@ -3985,6 +3986,7 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
     if (instructions != null) result.instructions = instructions;
     if (model != null) result.model = model;
     if (tools != null) result.tools.addAll(tools);
+    if (maxOutputRunes != null) result.maxOutputRunes = maxOutputRunes;
     return result;
   }
 
@@ -4009,6 +4011,7 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
     ..aOS(4, _omitFieldNames ? '' : 'model')
     ..pPM<DoubaoRealtimeFunctionTool>(5, _omitFieldNames ? '' : 'tools',
         subBuilder: DoubaoRealtimeFunctionTool.create)
+    ..aInt64(6, _omitFieldNames ? '' : 'maxOutputRunes')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4074,6 +4077,15 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(5)
   $pb.PbList<DoubaoRealtimeFunctionTool> get tools => $_getList(4);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get maxOutputRunes => $_getI64(5);
+  @$pb.TagNumber(6)
+  set maxOutputRunes($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasMaxOutputRunes() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearMaxOutputRunes() => $_clearField(6);
 }
 
 class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
@@ -4086,6 +4098,7 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     $core.String? instructions,
     $core.String? model,
     $core.Iterable<DoubaoRealtimeFunctionTool>? tools,
+    $fixnum.Int64? maxOutputRunes,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
@@ -4096,6 +4109,7 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     if (instructions != null) result.instructions = instructions;
     if (model != null) result.model = model;
     if (tools != null) result.tools.addAll(tools);
+    if (maxOutputRunes != null) result.maxOutputRunes = maxOutputRunes;
     return result;
   }
 
@@ -4127,6 +4141,7 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     ..aOS(7, _omitFieldNames ? '' : 'model')
     ..pPM<DoubaoRealtimeFunctionTool>(8, _omitFieldNames ? '' : 'tools',
         subBuilder: DoubaoRealtimeFunctionTool.create)
+    ..aInt64(9, _omitFieldNames ? '' : 'maxOutputRunes')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4222,6 +4237,15 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(8)
   $pb.PbList<DoubaoRealtimeFunctionTool> get tools => $_getList(7);
+
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get maxOutputRunes => $_getI64(8);
+  @$pb.TagNumber(9)
+  set maxOutputRunes($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasMaxOutputRunes() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearMaxOutputRunes() => $_clearField(9);
 }
 
 class FlowcraftConversationParameters extends $pb.GeneratedMessage {

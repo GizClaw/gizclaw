@@ -114,4 +114,24 @@ void main() {
   test('exports generated enum payload types from public barrel', () {
     expect(ASTTranslateMode.ASTTRANSLATE_MODE_S2S.value, 2);
   });
+
+  test('round-trips generated realtime rune limits', () {
+    final workflow = DoubaoRealtimeWorkflowSpec(
+      model: 'realtime',
+      maxOutputRunes: Int64(20),
+    );
+    final decodedWorkflow = DoubaoRealtimeWorkflowSpec.fromBuffer(
+      workflow.writeToBuffer(),
+    );
+    expect(decodedWorkflow.maxOutputRunes, Int64(20));
+
+    final workspace = DoubaoRealtimeWorkspaceParameters(
+      maxOutputRunes: Int64.ZERO,
+    );
+    final decodedWorkspace = DoubaoRealtimeWorkspaceParameters.fromBuffer(
+      workspace.writeToBuffer(),
+    );
+    expect(decodedWorkspace.hasMaxOutputRunes(), isTrue);
+    expect(decodedWorkspace.maxOutputRunes, Int64.ZERO);
+  });
 }

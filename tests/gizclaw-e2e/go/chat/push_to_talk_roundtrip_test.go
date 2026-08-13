@@ -165,6 +165,7 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 		"volc-ast-translate-zh-en":            "volc-ast-translate-zh-en",
 		"volc-ast-translate-zh-jp":            "volc-ast-translate-zh-jp",
 		"doubao-realtime-conversation":        "doubao-realtime-conversation",
+		"doubao-realtime-quality":             "doubao-realtime-quality",
 		"doubao-realtime-duplex-conversation": "doubao-realtime-duplex-conversation",
 		"eino-memory-assistant":               "eino-memory-assistant",
 		"flowcraft-configured-memory":         "flowcraft-configured-memory",
