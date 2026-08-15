@@ -89,9 +89,5 @@ func New(ctx context.Context, config Config) (*Store, error) {
 	if queue != nil {
 		queue.setStatusWriter(store.recordOperationStatus)
 	}
-	if err := store.rehydrateOperations(ctx); err != nil {
-		_ = store.Close()
-		return nil, err
-	}
 	return store, nil
 }

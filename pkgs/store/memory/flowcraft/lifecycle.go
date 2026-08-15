@@ -159,23 +159,6 @@ func (s *Store) ProcessAsync(ctx context.Context, request memorystore.OperationR
 	return s.Wait(processCtx, request)
 }
 
-func (s *Store) rehydrateOperations(ctx context.Context) error {
-	enumerator, ok := s.temporal.(recall.ScopeEnumerator)
-	if !ok {
-		return nil
-	}
-	scopes, err := enumerator.ListScopes(ctx, recall.ScopeListQuery{})
-	if err != nil {
-		return mapFlowcraftError("rehydrate async operations", err)
-	}
-	for _, scope := range scopes {
-		if err := s.rehydrateScopeOperations(ctx, scope); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (s *Store) rehydrateScopeOperations(ctx context.Context, scope recall.Scope) error {
 	nativeFacts, err := s.temporal.List(ctx, scope, recall.ListQuery{IncludeSuperseded: true})
 	if err != nil {
