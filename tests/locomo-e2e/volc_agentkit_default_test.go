@@ -14,6 +14,18 @@ import (
 
 func TestLoCoMoVolcAgentKitDefault(t *testing.T) {
 	settings := requireLiveSettings(t, liveNeeds{})
+	config, identity := requireVolcConfig(t)
+	store, err := memoryvolc.Open(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile := "volc_agentkit_default"
+	fingerprint := configFingerprint(profile, config.Mem0.Endpoint, identity, config.APIKeyID, config.MemoryProjectID)
+	runLiveProfile(t, settings, profile, fingerprint, reportModels{}, store, nil)
+}
+
+func requireVolcConfig(t *testing.T) (memoryvolc.Config, string) {
+	t.Helper()
 	endpoint := os.Getenv("GIZCLAW_LOCOMO_E2E_VOLC_MEM0_ENDPOINT")
 	apiKey := os.Getenv("GIZCLAW_LOCOMO_E2E_VOLC_MEM0_API_KEY")
 	apiKeyID := os.Getenv("GIZCLAW_LOCOMO_E2E_VOLC_API_KEY_ID")
@@ -21,28 +33,27 @@ func TestLoCoMoVolcAgentKitDefault(t *testing.T) {
 	accessKeyID := os.Getenv("GIZCLAW_LOCOMO_E2E_VOLC_ACCESS_KEY_ID")
 	accessKeySecret := os.Getenv("GIZCLAW_LOCOMO_E2E_VOLC_ACCESS_KEY_SECRET")
 	identity := os.Getenv("GIZCLAW_LOCOMO_E2E_VOLC_DEFAULT_FINGERPRINT")
-	if err := validateRequired(map[string]string{"endpoint": endpoint, "fingerprint": identity}, "endpoint", "fingerprint"); err != nil {
+	if err := validateRequired(map[string]string{
+		"GIZCLAW_LOCOMO_E2E_VOLC_MEM0_ENDPOINT":       endpoint,
+		"GIZCLAW_LOCOMO_E2E_VOLC_DEFAULT_FINGERPRINT": identity,
+	}, "GIZCLAW_LOCOMO_E2E_VOLC_MEM0_ENDPOINT", "GIZCLAW_LOCOMO_E2E_VOLC_DEFAULT_FINGERPRINT"); err != nil {
 		t.Fatal(err)
 	}
 	if strings.TrimSpace(apiKey) == "" {
 		if err := validateRequired(map[string]string{
-			"api_key_id": apiKeyID, "project_id": projectID,
-			"access_key_id": accessKeyID, "access_key_secret": accessKeySecret,
-		}, "api_key_id", "project_id", "access_key_id", "access_key_secret"); err != nil {
+			"GIZCLAW_LOCOMO_E2E_VOLC_API_KEY_ID":        apiKeyID,
+			"GIZCLAW_LOCOMO_E2E_VOLC_MEMORY_PROJECT_ID": projectID,
+			"GIZCLAW_LOCOMO_E2E_VOLC_ACCESS_KEY_ID":     accessKeyID,
+			"GIZCLAW_LOCOMO_E2E_VOLC_ACCESS_KEY_SECRET": accessKeySecret,
+		}, "GIZCLAW_LOCOMO_E2E_VOLC_API_KEY_ID", "GIZCLAW_LOCOMO_E2E_VOLC_MEMORY_PROJECT_ID", "GIZCLAW_LOCOMO_E2E_VOLC_ACCESS_KEY_ID", "GIZCLAW_LOCOMO_E2E_VOLC_ACCESS_KEY_SECRET"); err != nil {
 			t.Fatal(err)
 		}
 	}
-	store, err := memoryvolc.Open(context.Background(), memoryvolc.Config{
-		Mem0:     memorymem0.Config{Endpoint: endpoint, APIKey: apiKey, Flavor: memorymem0.Platform},
+	return memoryvolc.Config{
+		Mem0:     memorymem0.Config{Endpoint: endpoint, APIKey: apiKey},
 		APIKeyID: apiKeyID, MemoryProjectID: projectID,
 		ControlEndpoint: os.Getenv("GIZCLAW_LOCOMO_E2E_VOLC_CONTROL_ENDPOINT"),
 		Region:          envOr("GIZCLAW_LOCOMO_E2E_VOLC_REGION", "cn-beijing"),
 		AccessKeyID:     accessKeyID, AccessKeySecret: accessKeySecret,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	profile := "volc_agentkit_default"
-	fingerprint := configFingerprint(profile, endpoint, identity, apiKeyID, projectID)
-	runLiveProfile(t, settings, profile, fingerprint, reportModels{}, store, nil)
+	}, identity
 }

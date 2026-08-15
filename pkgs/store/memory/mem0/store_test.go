@@ -426,9 +426,11 @@ func TestStoreRejectsNativeRoutingFilters(t *testing.T) {
 
 func TestStoreWaitPollsPlatformEvent(t *testing.T) {
 	t.Parallel()
+	var paths []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.Method+" "+r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
-		if strings.Contains(r.URL.Path, "/event/") {
+		if r.URL.Path == "/v1/event/operation/" {
 			_, _ = io.WriteString(w, `{"status":"completed","results":[{"id":"fact","memory":"done"}]}`)
 			return
 		}
@@ -447,6 +449,27 @@ func TestStoreWaitPollsPlatformEvent(t *testing.T) {
 	}
 	if result.Operation.ID != operationID || result.Facts[0].ID != encodeFactLocator(scope, "fact") {
 		t.Fatalf("Wait() locators = operation %q fact %q", result.Operation.ID, result.Facts[0].ID)
+	}
+	if !reflect.DeepEqual(paths, []string{"GET /v1/event/operation/", "GET /v1/memories/fact/"}) {
+		t.Fatalf("paths = %v", paths)
+	}
+}
+
+func TestVolcOperationNativeIDRoundTrip(t *testing.T) {
+	t.Parallel()
+	encoded := encodeVolcOperationNativeID("job/id", "observation:id")
+	jobID, observationID, err := decodeVolcOperationNativeID(encoded)
+	if err != nil || jobID != "job/id" || observationID != "observation:id" {
+		t.Fatalf("decode = %q %q, %v", jobID, observationID, err)
+	}
+	for _, invalid := range []string{volcOperationNativePrefix, volcOperationNativePrefix + "bad", volcOperationNativePrefix + ":bad"} {
+		if _, _, err := decodeVolcOperationNativeID(invalid); !errors.Is(err, ErrInvalidInput) {
+			t.Fatalf("decode %q error = %v", invalid, err)
+		}
+	}
+	jobID, observationID, err = decodeVolcOperationNativeID("legacy-job")
+	if err != nil || jobID != "legacy-job" || observationID != "" {
+		t.Fatalf("legacy decode = %q %q, %v", jobID, observationID, err)
 	}
 }
 

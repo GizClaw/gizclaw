@@ -59,6 +59,7 @@ type reportEnvelope struct {
 	Models            reportModels     `json:"models"`
 	StartedAt         time.Time        `json:"started_at"`
 	FinishedAt        time.Time        `json:"finished_at"`
+	Duration          time.Duration    `json:"duration_ns"`
 	Ingest            []ingestResult   `json:"ingest"`
 	Questions         []questionResult `json:"questions"`
 	Aggregate         aggregateResult  `json:"aggregate"`
@@ -83,11 +84,14 @@ type ingestResult struct {
 type questionResult struct {
 	ID             string         `json:"id"`
 	ConversationID string         `json:"conversation_id"`
-	Query          string         `json:"query"`
-	GoldAnswers    []string       `json:"gold_answers"`
-	Prediction     string         `json:"prediction,omitempty"`
+	Category       int            `json:"category"`
+	Answerable     bool           `json:"answerable"`
+	Query          string         `json:"-"`
+	GoldAnswers    []string       `json:"-"`
+	Prediction     string         `json:"-"`
 	ExactMatch     bool           `json:"exact_match"`
 	F1             float64        `json:"f1"`
+	AdversarialOK  bool           `json:"adversarial_rejection"`
 	EvidenceHit    *bool          `json:"evidence_hit,omitempty"`
 	RecallDuration time.Duration  `json:"recall_duration_ns"`
 	AnswerDuration time.Duration  `json:"answer_duration_ns"`
@@ -97,13 +101,17 @@ type questionResult struct {
 
 type recalledFact struct {
 	ID          string   `json:"id"`
-	Text        string   `json:"text"`
+	Text        string   `json:"-"`
 	Score       float64  `json:"score"`
 	EvidenceIDs []string `json:"evidence_ids,omitempty"`
 }
 
 type aggregateResult struct {
 	Questions       int     `json:"questions"`
+	Answerable      int     `json:"answerable_questions"`
+	Adversarial     int     `json:"adversarial_questions"`
+	AdversarialOK   int     `json:"adversarial_rejections"`
+	AdversarialRate float64 `json:"adversarial_accuracy"`
 	Succeeded       int     `json:"succeeded"`
 	Failed          int     `json:"failed"`
 	ExactMatch      float64 `json:"exact_match"`
@@ -153,9 +161,10 @@ func runLiveProfile(t *testing.T, settings liveSettings, profile, fingerprint st
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("%s: n=%d em=%.4f f1=%.4f evidence_hit=%.4f", profile,
+	t.Logf("%s: n=%d em=%.4f f1=%.4f evidence_hit=%.4f adversarial=%.4f duration=%s", profile,
 		envelope.Aggregate.Questions, envelope.Aggregate.ExactMatch,
-		envelope.Aggregate.F1, envelope.Aggregate.EvidenceHitRate)
+		envelope.Aggregate.F1, envelope.Aggregate.EvidenceHitRate,
+		envelope.Aggregate.AdversarialRate, envelope.Duration)
 }
 
 type benchmarkOptions struct {
@@ -190,7 +199,7 @@ func runBenchmark(ctx context.Context, options benchmarkOptions, store memorysto
 		result, err := ingestConversation(ctx, store, scope, conversation, options.IngestTimeout, options.Logf)
 		envelope.Ingest = append(envelope.Ingest, result)
 		if err != nil {
-			envelope.FinishedAt = time.Now().UTC()
+			finishReport(envelope)
 			return envelope, fmt.Errorf("ingest %s: %w", conversation.ID, err)
 		}
 	}
@@ -203,7 +212,7 @@ func runBenchmark(ctx context.Context, options benchmarkOptions, store memorysto
 		}
 	}
 	envelope.Aggregate = aggregateQuestions(envelope.Questions)
-	envelope.FinishedAt = time.Now().UTC()
+	finishReport(envelope)
 	if envelope.Aggregate.Failed > 0 {
 		return envelope, fmt.Errorf("%d of %d LoCoMo questions failed", envelope.Aggregate.Failed, envelope.Aggregate.Questions)
 	}
@@ -214,6 +223,11 @@ func runBenchmark(ctx context.Context, options benchmarkOptions, store memorysto
 		return envelope, fmt.Errorf("LoCoMo evidence hit rate %.4f is below minimum %.4f", envelope.Aggregate.EvidenceHitRate, options.MinimumEvidenceHit)
 	}
 	return envelope, nil
+}
+
+func finishReport(envelope *reportEnvelope) {
+	envelope.FinishedAt = time.Now().UTC()
+	envelope.Duration = envelope.FinishedAt.Sub(envelope.StartedAt)
 }
 
 func ingestConversation(ctx context.Context, store memorystore.Store, scope memorystore.Scope, conversation benchmarkConversation, timeout time.Duration, logf func(string, ...any)) (ingestResult, error) {
@@ -299,6 +313,7 @@ func awaitObservation(ctx context.Context, store memorystore.Store, scope memory
 func runQuestion(ctx context.Context, store memorystore.Store, answerer benchmarkAnswerer, scope memorystore.Scope, question benchmarkQuestion, topK int, timeout time.Duration) questionResult {
 	result := questionResult{
 		ID: question.ID, ConversationID: question.ConversationID,
+		Category: question.Category, Answerable: question.Answerable != nil && *question.Answerable,
 		Query: question.Query, GoldAnswers: question.GoldAnswers,
 	}
 	qaCtx, cancel := context.WithTimeout(ctx, timeout)
@@ -307,7 +322,7 @@ func runQuestion(ctx context.Context, store memorystore.Store, answerer benchmar
 	recalled, err := store.Recall(qaCtx, memorystore.Query{Scope: scope, Text: question.Query, Limit: topK})
 	result.RecallDuration = time.Since(recallStarted)
 	if err != nil {
-		result.Error = "recall: " + err.Error()
+		result.Error = "recall_error"
 		return result
 	}
 	result.EvidenceHit = evidenceHit(recalled.Matches, question.EvidenceIDs)
@@ -320,11 +335,15 @@ func runQuestion(ctx context.Context, store memorystore.Store, answerer benchmar
 	result.Prediction, err = answerer.Answer(qaCtx, question.Query, recalled.Matches)
 	result.AnswerDuration = time.Since(answerStarted)
 	if err != nil {
-		result.Error = "answer: " + err.Error()
+		result.Error = "answer_error"
 		return result
 	}
-	result.ExactMatch = exactMatch(result.Prediction, question.GoldAnswers)
-	result.F1 = tokenF1(result.Prediction, question.GoldAnswers)
+	if result.Answerable {
+		result.ExactMatch = exactMatch(result.Prediction, question.GoldAnswers)
+		result.F1 = tokenF1(result.Prediction, question.GoldAnswers)
+	} else {
+		result.AdversarialOK = isAdversarialRejection(result.Prediction)
+	}
 	return result
 }
 
@@ -378,25 +397,45 @@ func aggregateQuestions(results []questionResult) aggregateResult {
 			continue
 		}
 		aggregate.Succeeded++
-		if result.ExactMatch {
-			exactMatches++
+		if result.Answerable {
+			aggregate.Answerable++
+			if result.ExactMatch {
+				exactMatches++
+			}
+			aggregate.F1 += result.F1
+		} else {
+			aggregate.Adversarial++
+			if result.AdversarialOK {
+				aggregate.AdversarialOK++
+			}
 		}
-		aggregate.F1 += result.F1
-		if result.EvidenceHit != nil {
+		if result.Answerable && result.EvidenceHit != nil {
 			aggregate.EvidenceScored++
 			if *result.EvidenceHit {
 				evidenceHits++
 			}
 		}
 	}
-	if aggregate.Succeeded > 0 {
-		aggregate.ExactMatch = float64(exactMatches) / float64(aggregate.Succeeded)
-		aggregate.F1 /= float64(aggregate.Succeeded)
+	if aggregate.Answerable > 0 {
+		aggregate.ExactMatch = float64(exactMatches) / float64(aggregate.Answerable)
+		aggregate.F1 /= float64(aggregate.Answerable)
 	}
 	if aggregate.EvidenceScored > 0 {
 		aggregate.EvidenceHitRate = float64(evidenceHits) / float64(aggregate.EvidenceScored)
 	}
+	if aggregate.Adversarial > 0 {
+		aggregate.AdversarialRate = float64(aggregate.AdversarialOK) / float64(aggregate.Adversarial)
+	}
 	return aggregate
+}
+
+func isAdversarialRejection(prediction string) bool {
+	switch normalizeAnswer(prediction) {
+	case "unknown", "not mentioned", "no information available":
+		return true
+	default:
+		return false
+	}
 }
 
 func exactMatch(prediction string, answers []string) bool {

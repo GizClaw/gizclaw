@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,15 +22,26 @@ func TestDatasetBundledSmokeSubset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(dataset.Conversations) != 1 || len(dataset.Conversations[0].Turns) != 58 || len(dataset.Questions) != 6 {
-		t.Fatalf("conversations=%d turns=%d questions=%d, want 1, 58, and 6",
-			len(dataset.Conversations), len(dataset.Conversations[0].Turns), len(dataset.Questions))
+	totalTurns := 0
+	for _, conversation := range dataset.Conversations {
+		totalTurns += len(conversation.Turns)
+	}
+	if len(dataset.Conversations) != 2 || totalTurns != 76 || len(dataset.Questions) != 8 {
+		t.Fatalf("conversations=%d turns=%d questions=%d, want 2, 76, and 8",
+			len(dataset.Conversations), totalTurns, len(dataset.Questions))
 	}
 	if dataset.Conversations[0].ID != "conv-30" || !strings.HasPrefix(identity, "locomo10_smoke.jsonl:sha256:") {
 		t.Fatalf("conversation=%q identity=%q", dataset.Conversations[0].ID, identity)
 	}
 	if dataset.Conversations[0].MinimumFactsPerSession != 1 {
 		t.Fatalf("minimum facts per session=%d, want 1", dataset.Conversations[0].MinimumFactsPerSession)
+	}
+	categories := map[int]int{}
+	for _, question := range dataset.Questions {
+		categories[question.Category]++
+	}
+	if fmt.Sprint(categories) != "map[1:2 2:2 3:1 4:2 5:1]" {
+		t.Fatalf("category counts = %v", categories)
 	}
 	first := dataset.Conversations[0].Turns[0]
 	if first.Speaker != "Gina" || first.ObservedAt.Format(time.RFC3339) != "2023-01-20T16:04:00Z" {
@@ -58,6 +70,9 @@ func TestDatasetRejectsInvalidReferencesAndContent(t *testing.T) {
 		"empty answer": func(dataset *benchmarkDataset) {
 			dataset.Questions[0].GoldAnswers = []string{" "}
 		},
+		"missing category":      func(dataset *benchmarkDataset) { dataset.Questions[0].Category = 0 },
+		"missing answerability": func(dataset *benchmarkDataset) { dataset.Questions[0].Answerable = nil },
+		"wrong taxonomy":        func(dataset *benchmarkDataset) { dataset.Questions[0].Tags = []string{"cat4", "temporal"} },
 		"missing speaker": func(dataset *benchmarkDataset) {
 			dataset.Conversations[0].Turns[0].Speaker = " "
 		},
@@ -119,6 +134,29 @@ func TestScoreDeterministicEMAndF1(t *testing.T) {
 	}
 }
 
+func TestAdversarialRejectionNormalization(t *testing.T) {
+	t.Parallel()
+	for _, accepted := range []string{"Unknown.", "not mentioned", "No information available"} {
+		if !isAdversarialRejection(accepted) {
+			t.Fatalf("%q should be accepted", accepted)
+		}
+	}
+	if isAdversarialRejection("I do not know") {
+		t.Fatal("unlisted rejection must not be accepted")
+	}
+}
+
+func TestAggregateSeparatesAdversarialFromAnswerableScores(t *testing.T) {
+	t.Parallel()
+	aggregate := aggregateQuestions([]questionResult{
+		{Answerable: true, ExactMatch: true, F1: 1},
+		{Answerable: false, AdversarialOK: true},
+	})
+	if aggregate.Answerable != 1 || aggregate.Adversarial != 1 || aggregate.ExactMatch != 1 || aggregate.F1 != 1 || aggregate.AdversarialRate != 1 {
+		t.Fatalf("aggregate = %+v", aggregate)
+	}
+}
+
 func TestRunBenchmarkRejectsZeroQuality(t *testing.T) {
 	t.Parallel()
 	dataset := &benchmarkDataset{
@@ -126,7 +164,7 @@ func TestRunBenchmarkRejectsZeroQuality(t *testing.T) {
 			ID: "conversation", Turns: []benchmarkTurn{{Role: "user", Content: "green tea", EvidenceID: "turn-1", SessionID: "session-1"}},
 		}},
 		Questions: []benchmarkQuestion{{
-			ID: "question", ConversationID: "conversation", Query: "drink?", GoldAnswers: []string{"green tea"}, EvidenceIDs: []string{"turn-1"},
+			ID: "question", ConversationID: "conversation", Query: "drink?", GoldAnswers: []string{"green tea"}, EvidenceIDs: []string{"turn-1"}, Category: 4, Answerable: new(true),
 		}},
 	}
 	report, err := runBenchmark(context.Background(), benchmarkOptions{
@@ -146,7 +184,7 @@ func TestRunBenchmarkRejectsSuccessfulZeroFactSession(t *testing.T) {
 			Turns: []benchmarkTurn{{Role: "user", Content: "green tea", EvidenceID: "turn-1", SessionID: "session-1"}},
 		}},
 		Questions: []benchmarkQuestion{{
-			ID: "question", ConversationID: "conversation", Query: "drink?", GoldAnswers: []string{"green tea"}, EvidenceIDs: []string{"turn-1"},
+			ID: "question", ConversationID: "conversation", Query: "drink?", GoldAnswers: []string{"green tea"}, EvidenceIDs: []string{"turn-1"}, Category: 4, Answerable: new(true),
 		}},
 	}
 	report, err := runBenchmark(context.Background(), benchmarkOptions{
@@ -216,21 +254,21 @@ func TestAwaitObservationHonorsCancellation(t *testing.T) {
 
 func TestRunQuestionReportsRecallAndAnswerFailures(t *testing.T) {
 	t.Parallel()
-	question := benchmarkQuestion{ID: "question", ConversationID: "conversation", Query: "drink?", GoldAnswers: []string{"tea"}}
+	question := benchmarkQuestion{ID: "question", ConversationID: "conversation", Query: "drink?", GoldAnswers: []string{"tea"}, Category: 4, Answerable: new(true)}
 	scope := memorystore.Scope{AppID: "test"}
 	recallFailure := runQuestion(context.Background(), &failingRecallStore{}, staticAnswerer("tea"), scope, question, 1, time.Second)
-	if !strings.Contains(recallFailure.Error, "recall failed") {
+	if recallFailure.Error != "recall_error" {
 		t.Fatalf("recall result=%+v", recallFailure)
 	}
 	answerFailure := runQuestion(context.Background(), &recordingStore{}, errorAnswerer{}, scope, question, 1, time.Second)
-	if !strings.Contains(answerFailure.Error, "answer failed") {
+	if answerFailure.Error != "answer_error" {
 		t.Fatalf("answer result=%+v", answerFailure)
 	}
 }
 
 func TestRunQuestionHandlesEmptyMatches(t *testing.T) {
 	t.Parallel()
-	question := benchmarkQuestion{ID: "question", ConversationID: "conversation", Query: "drink?", GoldAnswers: []string{"tea"}}
+	question := benchmarkQuestion{ID: "question", ConversationID: "conversation", Query: "drink?", GoldAnswers: []string{"tea"}, Category: 4, Answerable: new(true)}
 	result := runQuestion(context.Background(), &emptyRecallStore{}, staticAnswerer("unknown"), memorystore.Scope{AppID: "test"}, question, 1, time.Second)
 	if result.Error != "" || result.EvidenceHit != nil || len(result.Recalled) != 0 || result.F1 != 0 {
 		t.Fatalf("result=%+v", result)
@@ -286,6 +324,7 @@ func TestRedactionReportContainsOnlyFingerprint(t *testing.T) {
 	envelope := reportEnvelope{
 		Profile: "profile", ConfigFingerprint: configFingerprint("profile", "endpoint", "deployment", secret),
 		DatasetIdentity: "dataset", Models: reportModels{Answer: defaultDoubaoModel},
+		Questions: []questionResult{{Query: secret, GoldAnswers: []string{secret}, Prediction: secret, Recalled: []recalledFact{{Text: secret}}}},
 	}
 	raw, err := json.Marshal(envelope)
 	if err != nil {
@@ -319,8 +358,8 @@ func TestRunBenchmarkUsesConversationSpecificScopes(t *testing.T) {
 			{ID: "right", Turns: []benchmarkTurn{{Role: "user", Content: "right", EvidenceID: "right-1", SessionID: "s1"}}},
 		},
 		Questions: []benchmarkQuestion{
-			{ID: "q-left", ConversationID: "left", Query: "left?", GoldAnswers: []string{"left"}},
-			{ID: "q-right", ConversationID: "right", Query: "right?", GoldAnswers: []string{"right"}},
+			{ID: "q-left", ConversationID: "left", Query: "left?", GoldAnswers: []string{"left"}, Category: 4, Answerable: new(true)},
+			{ID: "q-right", ConversationID: "right", Query: "right?", GoldAnswers: []string{"right"}, Category: 4, Answerable: new(true)},
 		},
 	}
 	report, err := runBenchmark(context.Background(), benchmarkOptions{
@@ -440,7 +479,7 @@ func validOfflineDataset() *benchmarkDataset {
 			ID: "conversation", Turns: []benchmarkTurn{{Role: "user", Speaker: "Jon", Content: "tea", EvidenceID: "turn-1", SessionID: "session-1", ObservedAt: observedAt}},
 		}},
 		Questions: []benchmarkQuestion{{
-			ID: "question", ConversationID: "conversation", Query: "drink?", GoldAnswers: []string{"tea"}, EvidenceIDs: []string{"turn-1"},
+			ID: "question", ConversationID: "conversation", Query: "drink?", GoldAnswers: []string{"tea"}, EvidenceIDs: []string{"turn-1"}, Category: 4, Answerable: new(true), Tags: []string{"cat4", "single-hop"},
 		}},
 	}
 }

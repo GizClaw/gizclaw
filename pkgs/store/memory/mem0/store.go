@@ -2,6 +2,7 @@ package mem0
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,11 +18,12 @@ import (
 type Flavor string
 
 const (
-	Platform   Flavor = "platform"
-	SelfHosted Flavor = "self_hosted"
+	Platform     Flavor = "platform"
+	SelfHosted   Flavor = "self_hosted"
+	VolcPlatform Flavor = "volc_platform"
 )
 
-// Config configures a Mem0 Platform or self-hosted HTTP client.
+// Config configures a Mem0 Platform, Volc-compatible, or self-hosted HTTP client.
 // Entity IDs are business memory scopes, not transport tenants.
 type Config struct {
 	Endpoint     string
@@ -42,6 +44,9 @@ const (
 	mem0ObservationIDMetadata     = "gizclaw.observation_id"
 	mem0TurnIDsMetadata           = "gizclaw.turn_ids"
 	mem0ObservationDigestMetadata = "gizclaw.observation_digest"
+	mem0EntityScopeMetadata       = "gizclaw.entity_scope"
+	volcScopeUserPrefix           = "gizclaw-volc-scope-v1:"
+	volcOperationNativePrefix     = "volc-job-v1:"
 )
 
 // New constructs a remote Mem0 adapter without performing I/O.
@@ -49,17 +54,19 @@ func New(config Config) (*Store, error) {
 	if config.Flavor == "" {
 		config.Flavor = Platform
 	}
-	if config.Flavor != Platform && config.Flavor != SelfHosted {
+	if config.Flavor != Platform && config.Flavor != SelfHosted && config.Flavor != VolcPlatform {
 		return nil, fmt.Errorf("%w: unknown mem0 flavor %q", errInvalidInput, config.Flavor)
 	}
-	if config.Flavor == Platform && strings.TrimSpace(config.APIKey) == "" {
-		return nil, fmt.Errorf("%w: mem0 platform api_key is required", errInvalidInput)
+	if config.Flavor != SelfHosted && strings.TrimSpace(config.APIKey) == "" {
+		return nil, fmt.Errorf("%w: mem0 %s api_key is required", errInvalidInput, config.Flavor)
 	}
 	if config.Endpoint == "" {
 		if config.Flavor == Platform {
 			config.Endpoint = "https://api.mem0.ai"
-		} else {
+		} else if config.Flavor == SelfHosted {
 			return nil, fmt.Errorf("%w: self-hosted mem0 endpoint is required", errInvalidInput)
+		} else {
+			return nil, fmt.Errorf("%w: volc mem0 endpoint is required", errInvalidInput)
 		}
 	}
 	if config.PollInterval < 0 {
@@ -71,6 +78,8 @@ func New(config Config) (*Store, error) {
 	}
 	return &Store{config: config, client: transport}, nil
 }
+
+func (s *Store) usesPlatformAPI() bool { return s.config.Flavor != SelfHosted }
 
 func (*Store) SupportsDirectFactObservation() bool { return true }
 
@@ -97,6 +106,9 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 	if observation.ID != "" {
 		metadata[mem0ObservationIDMetadata] = observation.ID
 	}
+	if s.config.Flavor == VolcPlatform {
+		metadata[mem0EntityScopeMetadata] = encodeSelfHostedScope(scope)
+	}
 	turnIDs := make([]string, 0, len(observation.Turns))
 	for _, turn := range observation.Turns {
 		if turn.ID != "" {
@@ -111,19 +123,32 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 		"metadata": metadata,
 		"infer":    true,
 	}
+	if s.config.Flavor == VolcPlatform {
+		payload["async_mode"] = true
+	}
 	for key, value := range s.entityFields(scope) {
 		payload[key] = value
 	}
 	path := "/memories"
-	if s.config.Flavor == Platform {
+	if s.usesPlatformAPI() {
 		path = "/v3/memories/add/"
+	}
+	if s.config.Flavor == VolcPlatform {
+		path = "/v1/memories/"
 	}
 	var response mem0Envelope
 	if err := s.client.do(ctx, http.MethodPost, path, payload, &response); err != nil {
 		return observeResult{}, err
 	}
-	if response.EventID != "" {
-		operationID := encodeOperationLocator(scope, response.EventID)
+	operationNativeID, err := response.operationID(s.config.Flavor)
+	if err != nil {
+		return observeResult{}, err
+	}
+	if operationNativeID != "" {
+		if s.config.Flavor == VolcPlatform {
+			operationNativeID = encodeVolcOperationNativeID(operationNativeID, observation.ID)
+		}
+		operationID := encodeOperationLocator(scope, operationNativeID)
 		return observeResult{Operation: &memorystore.Operation{ID: operationID, Status: operationPending}}, nil
 	}
 	facts, err := s.scopedFacts(response.entries(), scope)
@@ -163,17 +188,26 @@ func (s *Store) observeDirectFact(ctx context.Context, scope scope, observation 
 	}
 	metadata[mem0ObservationIDMetadata] = observation.ID
 	metadata[mem0ObservationDigestMetadata] = digest
+	if s.config.Flavor == VolcPlatform {
+		metadata[mem0EntityScopeMetadata] = encodeSelfHostedScope(scope)
+	}
 	payload := map[string]any{
 		"messages": []mem0Message{{Role: roleUser, Content: strings.TrimSpace(observation.Facts[0].Text)}},
 		"metadata": metadata,
 		"infer":    false,
 	}
+	if s.config.Flavor == VolcPlatform {
+		payload["async_mode"] = true
+	}
 	for key, value := range s.entityFields(scope) {
 		payload[key] = value
 	}
 	path := "/memories"
-	if s.config.Flavor == Platform {
+	if s.usesPlatformAPI() {
 		path = "/v3/memories/add/"
+	}
+	if s.config.Flavor == VolcPlatform {
+		path = "/v1/memories/"
 	}
 	var response mem0Envelope
 	if err := s.client.do(ctx, http.MethodPost, path, payload, &response); err != nil {
@@ -182,8 +216,15 @@ func (s *Store) observeDirectFact(ctx context.Context, scope scope, observation 
 		}
 		return observeResult{}, err
 	}
-	if response.EventID != "" {
-		operationID := encodeOperationLocator(scope, response.EventID)
+	operationNativeID, err := response.operationID(s.config.Flavor)
+	if err != nil {
+		return observeResult{}, err
+	}
+	if operationNativeID != "" {
+		if s.config.Flavor == VolcPlatform {
+			operationNativeID = encodeVolcOperationNativeID(operationNativeID, observation.ID)
+		}
+		operationID := encodeOperationLocator(scope, operationNativeID)
 		return observeResult{Operation: &memorystore.Operation{ID: operationID, Status: operationPending}}, nil
 	}
 	entries := response.entries()
@@ -208,18 +249,28 @@ func (s *Store) observeDirectFact(ctx context.Context, scope scope, observation 
 func (s *Store) findDirectObservation(ctx context.Context, scope scope, observationID, digest string) ([]fact, bool, error) {
 	filters := s.mem0ScopeFilter(scope)
 	metadataFilter := map[string]any{mem0ObservationIDMetadata: observationID}
-	if s.config.Flavor == Platform {
+	if s.usesPlatformAPI() {
 		metadataFilter = map[string]any{"metadata": metadataFilter}
 	}
 	filters = map[string]any{"AND": []any{filters, metadataFilter}}
 	payload := map[string]any{"query": observationID, "top_k": 10, "filters": filters}
 	path := "/search"
-	if s.config.Flavor == Platform {
+	method := http.MethodPost
+	if s.usesPlatformAPI() {
 		path = "/v3/memories/"
 		payload = map[string]any{"filters": filters, "page": 1, "page_size": 100}
 	}
+	if s.config.Flavor == VolcPlatform {
+		query := url.Values{}
+		for key, value := range s.entityFields(scope) {
+			query.Set(key, value)
+		}
+		path = "/v1/memories/?" + query.Encode()
+		method = http.MethodGet
+		payload = nil
+	}
 	var response mem0Envelope
-	if err := s.client.do(ctx, http.MethodPost, path, payload, &response); err != nil {
+	if err := s.client.do(ctx, method, path, payload, &response); err != nil {
 		return nil, false, err
 	}
 	entries := response.entries()
@@ -252,7 +303,7 @@ func (s *Store) findDirectObservation(ctx context.Context, scope scope, observat
 }
 
 func validateMem0Metadata(metadata map[string]any) error {
-	for _, key := range []string{mem0ObservationIDMetadata, mem0TurnIDsMetadata, mem0ObservationDigestMetadata} {
+	for _, key := range []string{mem0ObservationIDMetadata, mem0TurnIDsMetadata, mem0ObservationDigestMetadata, mem0EntityScopeMetadata} {
 		if _, exists := metadata[key]; exists {
 			return fmt.Errorf("%w: mem0 metadata %q is provider-owned", errUnsupported, key)
 		}
@@ -275,8 +326,18 @@ func (s *Store) Recall(ctx context.Context, query memorystore.Query) (memorystor
 	}
 	payload := map[string]any{"query": query.Text, "top_k": query.Limit, "filters": filters}
 	path := "/search"
-	if s.config.Flavor == Platform {
+	if s.usesPlatformAPI() {
 		path = "/v3/memories/search/"
+	}
+	if s.config.Flavor == VolcPlatform {
+		path = "/v1/memories/search/"
+		payload = map[string]any{"query": query.Text, "top_k": query.Limit}
+		for key, value := range s.entityFields(scope) {
+			payload[key] = value
+		}
+		if len(query.Filters) > 0 {
+			payload["filters"] = filters
+		}
 	}
 	var response mem0Envelope
 	if err := s.client.do(ctx, http.MethodPost, path, payload, &response); err != nil {
@@ -371,7 +432,7 @@ func (s *Store) Delete(ctx context.Context, request memorystore.DeleteRequest) e
 	return s.client.do(ctx, http.MethodDelete, path, nil, nil)
 }
 
-// Wait polls an asynchronous Mem0 Platform event.
+// Wait polls an asynchronous Mem0 Platform event or Volc job.
 func (s *Store) Wait(ctx context.Context, request memorystore.OperationRequest) (memorystore.ObserveResult, error) {
 	if err := validateOperationRequest(request); err != nil {
 		return observeResult{}, err
@@ -387,7 +448,14 @@ func (s *Store) Wait(ctx context.Context, request memorystore.OperationRequest) 
 	if locatorScope != scope {
 		return observeResult{}, fmt.Errorf("%w: operation locator scope does not match wait scope", errInvalidInput)
 	}
-	if s.config.Flavor != Platform {
+	observationID := ""
+	if s.config.Flavor == VolcPlatform {
+		nativeID, observationID, err = decodeVolcOperationNativeID(nativeID)
+		if err != nil {
+			return observeResult{}, err
+		}
+	}
+	if s.config.Flavor == SelfHosted {
 		return observeResult{}, fmt.Errorf("%w: self-hosted mem0 has no event API", errUnsupported)
 	}
 	interval := s.config.PollInterval
@@ -396,19 +464,32 @@ func (s *Store) Wait(ctx context.Context, request memorystore.OperationRequest) 
 	}
 	for {
 		var response mem0Envelope
-		if err := s.client.do(ctx, http.MethodGet, "/v1/event/"+url.PathEscape(nativeID)+"/", nil, &response); err != nil {
+		path := "/v1/event/" + url.PathEscape(nativeID) + "/"
+		if s.config.Flavor == VolcPlatform {
+			path = "/v1/job/" + url.PathEscape(nativeID) + "/"
+		}
+		if err := s.client.do(ctx, http.MethodGet, path, nil, &response); err != nil {
 			return observeResult{}, err
 		}
-		status := strings.ToLower(response.Status)
+		status := strings.ToLower(strings.TrimSpace(response.Status))
 		switch status {
 		case "completed", "complete", "succeeded", "success":
-			facts, err := s.loadScopedFacts(ctx, scope, response.resultEntries())
+			entries := response.resultEntries()
+			var facts []fact
+			if s.config.Flavor == VolcPlatform && len(entries) == 0 {
+				facts, err = s.listVolcScopedFacts(ctx, scope, observationID)
+			} else {
+				facts, err = s.loadScopedFacts(ctx, scope, entries)
+			}
 			if err != nil {
 				return observeResult{}, err
 			}
 			return observeResult{Facts: facts, Operation: &memorystore.Operation{ID: request.ID, Status: operationSucceeded}}, nil
 		case "failed", "error":
 			return observeResult{Operation: &memorystore.Operation{ID: request.ID, Status: operationFailed, Error: "mem0 operation failed"}}, nil
+		case "pending", "queued", "running", "processing", "in_progress":
+		default:
+			return observeResult{}, fmt.Errorf("%w: mem0 operation returned unknown status", errUnavailable)
 		}
 		timer := time.NewTimer(interval)
 		select {
@@ -418,6 +499,53 @@ func (s *Store) Wait(ctx context.Context, request memorystore.OperationRequest) 
 		case <-timer.C:
 		}
 	}
+}
+
+func (s *Store) listVolcScopedFacts(ctx context.Context, scope scope, observationID string) ([]fact, error) {
+	query := url.Values{}
+	for key, value := range s.entityFields(scope) {
+		query.Set(key, value)
+	}
+	var response mem0Envelope
+	if err := s.client.do(ctx, http.MethodGet, "/v1/memories/?"+query.Encode(), nil, &response); err != nil {
+		return nil, err
+	}
+	entries := response.entries()
+	if observationID != "" {
+		filtered := entries[:0]
+		for _, entry := range entries {
+			storedID, _ := entry.Metadata[mem0ObservationIDMetadata].(string)
+			if storedID == observationID {
+				filtered = append(filtered, entry)
+			}
+		}
+		entries = filtered
+	}
+	return s.scopedFacts(entries, scope)
+}
+
+func encodeVolcOperationNativeID(jobID, observationID string) string {
+	return volcOperationNativePrefix + base64.RawURLEncoding.EncodeToString([]byte(jobID)) + ":" +
+		base64.RawURLEncoding.EncodeToString([]byte(observationID))
+}
+
+func decodeVolcOperationNativeID(value string) (string, string, error) {
+	if !strings.HasPrefix(value, volcOperationNativePrefix) {
+		return value, "", nil
+	}
+	parts := strings.Split(strings.TrimPrefix(value, volcOperationNativePrefix), ":")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("%w: invalid volc mem0 operation locator", errInvalidInput)
+	}
+	jobID, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil || len(jobID) == 0 {
+		return "", "", fmt.Errorf("%w: invalid volc mem0 operation job id", errInvalidInput)
+	}
+	observationID, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", "", fmt.Errorf("%w: invalid volc mem0 operation observation id", errInvalidInput)
+	}
+	return string(jobID), string(observationID), nil
 }
 
 func normalizeEntityScope(input scope) (scope, error) {
@@ -447,7 +575,15 @@ func (s *Store) entityFields(scope scope) map[string]string {
 	if s.config.Flavor == SelfHosted {
 		return map[string]string{"user_id": encodeSelfHostedScope(scope)}
 	}
-	return platformEntityFields(scope)
+	fields := platformEntityFields(scope)
+	if s.config.Flavor == VolcPlatform && scope.UserID == "" {
+		fields["user_id"] = volcScopeUserID(scope)
+	}
+	return fields
+}
+
+func volcScopeUserID(input scope) string {
+	return volcScopeUserPrefix + strings.TrimPrefix(encodeSelfHostedScope(input), selfHostedScopeIdentifier)
 }
 
 func (s *Store) mem0Filters(scope scope, input []filter) (map[string]any, error) {
@@ -535,9 +671,22 @@ func validateEnvelopeScope(entry mem0Envelope, expected scope, flavor Flavor) er
 		}
 		return nil
 	}
+	if flavor == VolcPlatform {
+		encoded, _ := entry.Metadata[mem0EntityScopeMetadata].(string)
+		if strings.TrimSpace(encoded) != "" {
+			actual, err := decodeSelfHostedScope(encoded)
+			if err != nil || actual != expected {
+				return fmt.Errorf("%w: volc mem0 memory entity scope does not match request", errInvalidInput)
+			}
+			return validateReturnedEnvelopeScope(entry, expected, flavor)
+		}
+	}
 	actual := scope{
 		AppID: strings.TrimSpace(entry.AppID), UserID: strings.TrimSpace(entry.UserID),
 		AgentID: strings.TrimSpace(entry.AgentID), RunID: strings.TrimSpace(entry.RunID),
+	}
+	if flavor == VolcPlatform && expected.UserID == "" && actual.UserID == volcScopeUserID(expected) {
+		actual.UserID = ""
 	}
 	if actual == (scope{}) {
 		return fmt.Errorf("%w: mem0 memory does not expose its entity scope", errUnsupported)
@@ -589,6 +738,15 @@ func validateReturnedEnvelopeScope(entry mem0Envelope, expected scope, flavor Fl
 		}
 		return nil
 	}
+	if flavor == VolcPlatform {
+		encoded, _ := entry.Metadata[mem0EntityScopeMetadata].(string)
+		if strings.TrimSpace(encoded) != "" {
+			actual, err := decodeSelfHostedScope(encoded)
+			if err != nil || actual != expected {
+				return fmt.Errorf("%w: volc mem0 response scope does not match request", errInvalidInput)
+			}
+		}
+	}
 	for _, field := range []struct {
 		name     string
 		actual   string
@@ -600,6 +758,9 @@ func validateReturnedEnvelopeScope(entry mem0Envelope, expected scope, flavor Fl
 		{name: "run_id", actual: entry.RunID, expected: expected.RunID},
 	} {
 		actual := strings.TrimSpace(field.actual)
+		if flavor == VolcPlatform && field.name == "user_id" && expected.UserID == "" && actual == volcScopeUserID(expected) {
+			continue
+		}
 		if actual != "" && actual != field.expected {
 			return fmt.Errorf(
 				"%w: mem0 response %s does not match request scope",
@@ -612,7 +773,7 @@ func validateReturnedEnvelopeScope(entry mem0Envelope, expected scope, flavor Fl
 
 func (s *Store) mem0FilterClause(filter filter) (map[string]any, error) {
 	field := strings.TrimSpace(filter.Field)
-	if field == mem0ObservationIDMetadata || field == mem0TurnIDsMetadata || field == mem0ObservationDigestMetadata || isMem0RoutingField(field) {
+	if field == mem0ObservationIDMetadata || field == mem0TurnIDsMetadata || field == mem0ObservationDigestMetadata || field == mem0EntityScopeMetadata || isMem0RoutingField(field) {
 		return nil, fmt.Errorf("%w: mem0 filter field %q is provider-owned", errUnsupported, field)
 	}
 	if !isMem0NativeFilterField(field) {
@@ -723,6 +884,34 @@ type mem0Envelope struct {
 	Data       json.RawMessage `json:"data"`
 }
 
+func (e mem0Envelope) operationID(flavor Flavor) (string, error) {
+	if flavor != VolcPlatform {
+		return strings.TrimSpace(e.EventID), nil
+	}
+	entries, err := decodeVolcResults(e.Results)
+	if err != nil {
+		return "", err
+	}
+	if len(entries) == 0 {
+		return "", fmt.Errorf("%w: volc mem0 add response has no results.event_id", errUnavailable)
+	}
+	if len(entries) != 1 || strings.TrimSpace(entries[0].EventID) == "" {
+		return "", fmt.Errorf("%w: volc mem0 add response must contain one results.event_id", errUnavailable)
+	}
+	return strings.TrimSpace(entries[0].EventID), nil
+}
+
+func decodeVolcResults(raw json.RawMessage) ([]mem0Envelope, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, nil
+	}
+	var entries []mem0Envelope
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		return nil, fmt.Errorf("%w: volc mem0 results must be an array", errUnavailable)
+	}
+	return entries, nil
+}
+
 func (e mem0Envelope) facts() []fact {
 	entries := e.entries()
 	facts := make([]fact, len(entries))
@@ -802,6 +991,7 @@ func (e mem0Envelope) fact() fact {
 	}
 	delete(attributes, mem0TurnIDsMetadata)
 	delete(attributes, mem0ObservationDigestMetadata)
+	delete(attributes, mem0EntityScopeMetadata)
 	var sources []sourceRef
 	if observationID != "" || len(turnIDs) > 0 {
 		sources = []sourceRef{{ObservationID: observationID, TurnIDs: turnIDs}}

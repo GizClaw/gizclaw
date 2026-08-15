@@ -66,7 +66,7 @@ without a live account is not passing live evidence.
 
 ## Credential-backed harness contract
 
-GizClaw, GenX, LoCoMo, and Memory live suites each own one ignored `.env`,
+GizClaw, GenX, and Memory live suites each own one ignored `.env`,
 described by a committed credential-only `.env.example`. Every field is
 mandatory for every `run*_tests.sh` entrypoint in that harness, including
 shorter entrypoints that do not consume every credential. Missing files,
@@ -79,7 +79,8 @@ variables may supply non-secret runtime parameters after an entrypoint is
 chosen, but cannot select coverage or turn a selected failure into a skip.
 Provider, fixture, network, timeout, rate-limit, and native-runtime failures
 therefore fail the command. Direct tagged `go test` commands are not accepted
-as live-suite evidence.
+as live-suite evidence for those script-owned harnesses. LoCoMo is the
+exception described below: its Go test names are the supported selectors.
 
 ## GizClaw Docker E2E
 
@@ -511,34 +512,41 @@ mutates it nor presents one endpoint/project as multiple lanes.
 
 Current lanes cover Flowcraft BBH BM25 single-pass, hybrid single/two-pass,
 Mem0 Platform default/custom-instructions, and Volc AgentKit Memory default.
-The full entrypoint runs every lane:
+LoCoMo is a tagged Go test package, not a shell runner. Select a backend group
+with standard `go test -run`; selected tests validate only the environment
+variables they consume. Missing or placeholder values fail, and unselected
+backend variables are not inspected:
 
 ```sh
-cp tests/locomo-e2e/.env.example tests/locomo-e2e/.env
-bash tests/locomo-e2e/run_tests.sh
+go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
+  -run '^TestLoCoMoVolcAgentKit' ./tests/locomo-e2e
+go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
+  -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
+go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
+  -run '^TestLoCoMoFlowcraft' ./tests/locomo-e2e
 ```
 
-Shorter fixed selections are
-`run_flowcraft_bm25_tests.sh`, `run_flowcraft_hybrid_tests.sh`,
-`run_mem0_tests.sh`, and `run_volc_agentkit_tests.sh` in the same directory.
-They all require the same complete LoCoMo `.env`; dataset, report, timeout,
-model, endpoint, project, and threshold settings are explicit non-secret
-runtime parameters or committed defaults, not credential-file fields.
-
-The script has a 30-minute default whole-test timeout and bounded session and
+Use `.env.example` as a variable inventory and inject values through the
+process environment; the test package does not read `.env` files. Use a
+30-minute package timeout and bounded session and
 question stages. The runner calls `memory.Store.Observe` by official session,
 recalls for every question, asks the configured model to answer, and computes
-EM, F1, and evidence-hit metrics locally. The default gate requires aggregate
-F1 of at least `0.05`, evidence hit rate of at least `0.50` for evidence-aware
+EM, F1, evidence-hit, and adversarial-rejection metrics locally. Only answerable
+questions contribute to EM/F1 and evidence-hit. Category 5 accepts the exact
+normalized rejections `unknown`, `not mentioned`, and
+`no information available`. The default gate requires aggregate F1 of at least
+`0.05`, evidence hit rate of at least `0.50` for evidence-aware
 stores, and one materialized fact per selected session. Provider failures and
-timeouts remain failures. Ignored `reports/` output must never contain secrets.
+timeouts remain failures. Ignored `reports/` output contains IDs, scores, and
+timings, but no conversation, question, answer, prediction, or recalled text.
 
 ### Dataset and license
 
 `testdata/locomo10_smoke.jsonl` is a Git LFS object adapted for noncommercial
 use from SNAP Research's LoCoMo `locomo10.json`. It contains the first three
-sessions of `conv-30` (58 turns) and six questions whose evidence is entirely
-within those sessions. It is a contract smoke set, not a full benchmark. Exact
+sessions of `conv-30` plus session 1 of `conv-26` (76 turns total) and eight
+questions across categories 1 through 5. It is a contract smoke set, not a
+full benchmark. Exact
 upstream commit, checksum, subset, and transformation information is recorded
 in `locomo10_smoke.manifest.json`.
 
@@ -553,9 +561,8 @@ Offline validation:
 
 ```sh
 go test -race -tags gizclaw_locomo_e2e \
-  -run 'TestDataset|TestScore|TestPreflight|TestRedaction|TestSession|TestRunBenchmark|TestAwait' \
+  -run 'TestDataset|TestScore|TestAdversarial|TestAggregate|TestPreflight|TestRedaction|TestSession|TestRunBenchmark|TestAwait' \
   ./tests/locomo-e2e
-bash -n tests/locomo-e2e/run_tests.sh
 git lfs fsck
 ```
 

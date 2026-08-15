@@ -62,7 +62,7 @@ interoperability risk；只完成 tagged compile 不能算 live pass。
 
 ## Credential-backed harness 约束
 
-GizClaw、GenX、LoCoMo 和 Memory 的 live suite 各自只拥有一个 ignored `.env`，
+GizClaw、GenX 和 Memory 的 live suite 各自只拥有一个 ignored `.env`，
 由 committed、仅含 credential 的 `.env.example` 定义。每个字段对该 harness 的每个
 `run*_tests.sh` 都是必填项，即使某个短入口并不消费其中全部 credential。缺文件、
 缺字段、空值、纯空白或占位值必须在安装依赖、build、启动 Docker/service、执行 Go
@@ -71,7 +71,8 @@ GizClaw、GenX、LoCoMo 和 Memory 的 live suite 各自只拥有一个 ignored 
 每个入口的 package 和 test selection 固定在仓库脚本中。入口选定后可以通过环境变量
 提供非秘密 runtime 参数，但不能用环境变量选择 coverage，也不能把已选测试的失败改成
 skip。Provider、fixture、网络、timeout、rate limit 或 native runtime 问题都必须使
-命令失败。绕过入口的 tagged `go test` 不能作为 live suite 的验收证据。
+命令失败。对这些脚本入口，绕过入口的 tagged `go test` 不能作为 live suite 的验收证据。
+LoCoMo 是下文说明的例外：其 Go 测试名就是受支持的 selector。
 
 ## GizClaw Docker E2E
 
@@ -432,30 +433,34 @@ remote project 配置由部署拥有，harness 不修改它，也不会把一个
 冒充成多条 lane。
 
 当前 lane 包括 Flowcraft BBH BM25 single-pass、hybrid single/two-pass、Mem0 Platform
-default/custom instructions 和 Volc AgentKit Memory default。完整入口运行全部 lane：
+default/custom instructions 和 Volc AgentKit Memory default。LoCoMo 是 tagged Go 测试包，
+不是 shell runner。用标准 `go test -run` 选择 backend 组；被选择的测试只校验自己消费的
+环境变量，缺失或占位值会失败，未选择 backend 的变量不会被检查：
 
 ```sh
-cp tests/locomo-e2e/.env.example tests/locomo-e2e/.env
-bash tests/locomo-e2e/run_tests.sh
+go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
+  -run '^TestLoCoMoVolcAgentKit' ./tests/locomo-e2e
+go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
+  -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
+go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
+  -run '^TestLoCoMoFlowcraft' ./tests/locomo-e2e
 ```
 
-同目录中的 `run_flowcraft_bm25_tests.sh`、`run_flowcraft_hybrid_tests.sh`、
-`run_mem0_tests.sh` 和 `run_volc_agentkit_tests.sh` 提供固定的短 selection。
-它们仍要求同一份完整 LoCoMo `.env`；dataset、report、timeout、model、endpoint、
-project 与 threshold 是显式非秘密 runtime 参数或 committed default，不属于
-credential 文件。
-
-脚本具有 30 分钟默认总 timeout，并分别限制 session 与 question。Runner 按官方 session
+`.env.example` 只是变量清单；值通过进程环境注入，测试包不会读取 `.env` 文件。
+包级 timeout 使用 30 分钟，并分别限制 session 与 question。Runner 按官方 session
 调用 `memory.Store.Observe`，逐题 recall，再用配置模型回答并在本地计算 EM、F1 和
-evidence-hit。默认 gate 要求 aggregate F1 不低于 `0.05`，有 evidence 的 store 要求
+evidence-hit 和 adversarial rejection。只有 answerable 问题进入 EM/F1 和 evidence-hit；
+category 5 只接受规范化后精确等于 `unknown`、`not mentioned` 或
+`no information available` 的拒答。默认 gate 要求 aggregate F1 不低于 `0.05`，有 evidence 的 store 要求
 hit rate 不低于 `0.50`，且每个选中 session 至少 materialize 一个 fact。Provider error
-或 timeout 是失败，不能降级成 skip/pass。报告写入 ignored `reports/`，不得包含 credential。
+或 timeout 是失败，不能降级成 skip/pass。报告写入 ignored `reports/`，只包含 ID、分数和耗时，
+不得包含 credential、conversation、question、answer、prediction 或 recalled text。
 
 ### Dataset 与许可
 
 `testdata/locomo10_smoke.jsonl` 是通过 Git LFS 保存的 SNAP Research LoCoMo
-`locomo10.json` 非商业适配子集：包含 `conv-30` 前三个 session（58 turns）和六个
-evidence 完全落在这些 session 中的问题。它只用于 contract smoke，不代表完整 benchmark。
+`locomo10.json` 非商业适配子集：包含 `conv-30` 前三个 session 和 `conv-26` 第一个
+session（共 76 turns），以及覆盖 category 1 到 5 的八个问题。它只用于 contract smoke，不代表完整 benchmark。
 精确 upstream commit、checksum、subset 和 transformation 记录在
 `locomo10_smoke.manifest.json`。
 
@@ -468,9 +473,8 @@ evidence 完全落在这些 session 中的问题。它只用于 contract smoke�
 
 ```sh
 go test -race -tags gizclaw_locomo_e2e \
-  -run 'TestDataset|TestScore|TestPreflight|TestRedaction|TestSession|TestRunBenchmark|TestAwait' \
+  -run 'TestDataset|TestScore|TestAdversarial|TestAggregate|TestPreflight|TestRedaction|TestSession|TestRunBenchmark|TestAwait' \
   ./tests/locomo-e2e
-bash -n tests/locomo-e2e/run_tests.sh
 git lfs fsck
 ```
 
