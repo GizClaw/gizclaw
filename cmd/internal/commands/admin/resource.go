@@ -3,6 +3,7 @@ package admincmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -176,38 +177,65 @@ func newDeleteCmd(ctxName *string) *cobra.Command {
 }
 
 func readResourceFile(cmd *cobra.Command, path string) (apitypes.Resource, error) {
-	var reader io.Reader
-	if path == "-" {
-		reader = cmd.InOrStdin()
-	} else {
-		file, err := os.Open(path)
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		defer file.Close()
-		reader = file
-	}
-	data, err := io.ReadAll(reader)
+	data, err := readResourceData(cmd, path)
 	if err != nil {
 		return apitypes.Resource{}, err
 	}
 	return decodeResourceData(path, data)
 }
 
+func readResourceData(cmd *cobra.Command, path string) ([]byte, error) {
+	var reader io.Reader
+	if path == "-" {
+		reader = cmd.InOrStdin()
+	} else {
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+		reader = file
+	}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
 func decodeResourceData(path string, data []byte) (apitypes.Resource, error) {
+	prepared, err := prepareResourceData(path, data)
+	if err != nil {
+		return apitypes.Resource{}, err
+	}
+	return decodePreparedResource(prepared)
+}
+
+func prepareResourceData(path string, data []byte) ([]byte, error) {
 	switch resourceFileFormat(path) {
 	case "json":
-		var err error
-		data, err = expandResourceEnv(data)
+		expanded, err := expandResourceEnv(data)
 		if err != nil {
-			return apitypes.Resource{}, err
+			return nil, err
 		}
-		return decodeJSONResource(data)
+		data = expanded
 	case "yaml":
-		return decodeYAMLResource(data)
+		var value any
+		if err := yaml.Unmarshal(data, &value); err != nil {
+			return nil, err
+		}
+		expanded, err := expandResourceYAMLValue(value)
+		if err != nil {
+			return nil, err
+		}
+		data, err = json.Marshal(expanded)
+		if err != nil {
+			return nil, err
+		}
 	default:
-		return apitypes.Resource{}, fmt.Errorf("unsupported resource file extension %q; use .json, .yaml, or .yml", filepath.Ext(path))
+		return nil, &unsupportedResourceFormatError{extension: filepath.Ext(path)}
 	}
+	return normalizeResourceKind(data)
 }
 
 func resourceFileFormat(path string) string {
@@ -224,11 +252,7 @@ func resourceFileFormat(path string) string {
 	}
 }
 
-func decodeJSONResource(data []byte) (apitypes.Resource, error) {
-	data, err := normalizeResourceKind(data)
-	if err != nil {
-		return apitypes.Resource{}, err
-	}
+func decodePreparedResource(data []byte) (apitypes.Resource, error) {
 	var resource apitypes.Resource
 	if err := json.Unmarshal(data, &resource); err != nil {
 		return apitypes.Resource{}, err
@@ -241,8 +265,16 @@ func normalizeResourceKind(data []byte) ([]byte, error) {
 	if err := json.Unmarshal(data, &envelope); err != nil {
 		return nil, err
 	}
+	rawKind, ok := envelope["kind"]
+	if !ok {
+		return data, nil
+	}
 	var kind string
-	if err := json.Unmarshal(envelope["kind"], &kind); err != nil {
+	if err := json.Unmarshal(rawKind, &kind); err != nil {
+		var typeError *json.UnmarshalTypeError
+		if errors.As(err, &typeError) {
+			return data, nil
+		}
 		return nil, err
 	}
 
@@ -257,23 +289,7 @@ func normalizeResourceKind(data []byte) ([]byte, error) {
 		envelope["kind"] = normalized
 		return json.Marshal(envelope)
 	}
-	return nil, fmt.Errorf("unknown resource kind %q", kind)
-}
-
-func decodeYAMLResource(data []byte) (apitypes.Resource, error) {
-	var value any
-	if err := yaml.Unmarshal(data, &value); err != nil {
-		return apitypes.Resource{}, err
-	}
-	expanded, err := expandResourceYAMLValue(value)
-	if err != nil {
-		return apitypes.Resource{}, err
-	}
-	jsonData, err := json.Marshal(expanded)
-	if err != nil {
-		return apitypes.Resource{}, err
-	}
-	return decodeJSONResource(jsonData)
+	return nil, &unknownResourceKindError{kind: kind}
 }
 
 func expandResourceYAMLValue(value any) (any, error) {
@@ -361,7 +377,7 @@ func expandResourceEnvWith(input string, formatReplacement func(string, int) str
 		} else if match[4] != -1 {
 			replacement = input[match[6]:match[7]]
 		} else {
-			firstErr = fmt.Errorf("environment variable %s is required", name)
+			firstErr = &missingResourceEnvError{name: name}
 			break
 		}
 		expanded.WriteString(formatReplacement(replacement, match[0]))
@@ -372,6 +388,30 @@ func expandResourceEnvWith(input string, formatReplacement func(string, int) str
 	}
 	expanded.WriteString(input[last:])
 	return expanded.String(), nil
+}
+
+type unsupportedResourceFormatError struct {
+	extension string
+}
+
+func (e *unsupportedResourceFormatError) Error() string {
+	return fmt.Sprintf("unsupported resource file extension %q; use .json, .yaml, or .yml", e.extension)
+}
+
+type unknownResourceKindError struct {
+	kind string
+}
+
+func (e *unknownResourceKindError) Error() string {
+	return fmt.Sprintf("unknown resource kind %q", e.kind)
+}
+
+type missingResourceEnvError struct {
+	name string
+}
+
+func (e *missingResourceEnvError) Error() string {
+	return fmt.Sprintf("environment variable %s is required", e.name)
 }
 
 func insideJSONString(input string, offset int) bool {

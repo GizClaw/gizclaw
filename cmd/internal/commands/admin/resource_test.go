@@ -402,6 +402,205 @@ func TestExpandResourceEnvSupportsJSONDefaults(t *testing.T) {
 	}
 }
 
+func TestAdminResourceValidateOfflineInputs(t *testing.T) {
+	t.Setenv("GIZCLAW_TEST_VALIDATE_SECRET", "expanded-top-secret")
+	resourceFile := filepath.Join(t.TempDir(), "credential.yaml")
+	if err := os.WriteFile(resourceFile, []byte(`
+apiVersion: gizclaw.admin/v1alpha1
+kind: CredentialResource
+metadata:
+  id: offline-main
+spec:
+  provider: openai
+  body:
+    api_key: ${GIZCLAW_TEST_VALIDATE_SECRET}
+`), 0o644); err != nil {
+		t.Fatalf("write resource: %v", err)
+	}
+
+	original := openResourceClient
+	opened := false
+	openResourceClient = func(string) (resourceClient, error) {
+		opened = true
+		return nil, errors.New("validate must not open a Resource client")
+	}
+	defer func() { openResourceClient = original }()
+
+	cmd := NewCmd()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"validate", "-f", resourceFile})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("admin validate error: %v", err)
+	}
+	if opened {
+		t.Fatal("admin validate opened a Resource client")
+	}
+	if got, want := stdout.String(), "{\"valid\":true,\"kind\":\"Credential\",\"id\":\"offline-main\"}\n"; got != want {
+		t.Fatalf("admin validate output = %q, want %q", got, want)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("admin validate stderr = %q", stderr.String())
+	}
+	if strings.Contains(stdout.String(), "expanded-top-secret") {
+		t.Fatalf("admin validate output leaked expanded secret: %q", stdout.String())
+	}
+}
+
+func TestAdminResourceValidateReadsJSONStdin(t *testing.T) {
+	cmd := NewCmd()
+	cmd.SetIn(strings.NewReader(`{
+  "apiVersion":"gizclaw.admin/v1alpha1",
+  "kind":"Credential",
+  "metadata":{"id":"stdin-credential"},
+  "spec":{"provider":"openai","body":{"api_key":"secret"}}
+}`))
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetArgs([]string{"validate", "-f", "-"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("admin validate stdin error: %v", err)
+	}
+	if got, want := stdout.String(), "{\"valid\":true,\"kind\":\"Credential\",\"id\":\"stdin-credential\"}\n"; got != want {
+		t.Fatalf("admin validate stdin output = %q, want %q", got, want)
+	}
+}
+
+func TestAdminResourceValidateReportsResourceListCount(t *testing.T) {
+	resourceFile := filepath.Join(t.TempDir(), "resources.json")
+	if err := os.WriteFile(resourceFile, []byte(`{
+  "apiVersion":"gizclaw.admin/v1alpha1",
+  "kind":"ResourceList",
+  "spec":{"items":[
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"id":"first"},"spec":{"provider":"openai","body":{"api_key":"secret-one"}}},
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"id":"second"},"spec":{"provider":"openai","body":{"api_key":"secret-two"}}}
+  ]}
+}`), 0o644); err != nil {
+		t.Fatalf("write resource: %v", err)
+	}
+
+	cmd := NewCmd()
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetArgs([]string{"validate", "-f", resourceFile})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("admin validate ResourceList error: %v", err)
+	}
+	if got, want := stdout.String(), "{\"valid\":true,\"kind\":\"ResourceList\",\"items\":2}\n"; got != want {
+		t.Fatalf("admin validate ResourceList output = %q, want %q", got, want)
+	}
+}
+
+func TestAdminResourceValidateFailuresAreRedacted(t *testing.T) {
+	const secret = "expanded-top-secret"
+	t.Setenv("GIZCLAW_TEST_VALIDATE_FAILURE_SECRET", secret)
+	tests := []struct {
+		name      string
+		extension string
+		input     string
+		want      string
+	}{
+		{
+			name:      "schema",
+			extension: ".json",
+			input:     `{"apiVersion":"unsupported","kind":"Credential","metadata":{"id":"bad"},"spec":{"provider":"openai","body":{"api_key":"${GIZCLAW_TEST_VALIDATE_FAILURE_SECRET}"}}}`,
+			want:      "/apiVersion",
+		},
+		{
+			name:      "unknown kind",
+			extension: ".json",
+			input:     `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"${GIZCLAW_TEST_VALIDATE_FAILURE_SECRET}","metadata":{"id":"bad"},"spec":{}}`,
+			want:      "/kind [discriminator]",
+		},
+		{
+			name:      "malformed JSON",
+			extension: ".json",
+			input:     `{"secret":"${GIZCLAW_TEST_VALIDATE_FAILURE_SECRET}","kind":`,
+			want:      "invalid JSON at byte",
+		},
+		{
+			name:      "multiple JSON values",
+			extension: ".json",
+			input:     `{"secret":"${GIZCLAW_TEST_VALIDATE_FAILURE_SECRET}"}{}`,
+			want:      "invalid JSON at byte",
+		},
+		{
+			name:      "malformed YAML",
+			extension: ".yaml",
+			input:     "secret: ${GIZCLAW_TEST_VALIDATE_FAILURE_SECRET}\nkind: [\n",
+			want:      "invalid YAML at line",
+		},
+		{
+			name:      "unsupported extension",
+			extension: ".txt",
+			input:     `{"secret":"${GIZCLAW_TEST_VALIDATE_FAILURE_SECRET}"}`,
+			want:      "unsupported resource file extension",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resourceFile := filepath.Join(t.TempDir(), "resource"+tc.extension)
+			if err := os.WriteFile(resourceFile, []byte(tc.input), 0o644); err != nil {
+				t.Fatalf("write resource: %v", err)
+			}
+			cmd := NewCmd()
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+			cmd.SetArgs([]string{"validate", "-f", resourceFile})
+			err := cmd.Execute()
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("admin validate error = %v, want %q", err, tc.want)
+			}
+			allOutput := stdout.String() + stderr.String() + err.Error()
+			if strings.Contains(allOutput, secret) {
+				t.Fatalf("admin validate failure leaked secret: %q", allOutput)
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("admin validate failure stdout = %q", stdout.String())
+			}
+		})
+	}
+}
+
+func TestAdminResourceValidateMissingEnvIsSafe(t *testing.T) {
+	resourceFile := filepath.Join(t.TempDir(), "credential.json")
+	if err := os.WriteFile(resourceFile, []byte(`{
+  "apiVersion":"gizclaw.admin/v1alpha1",
+  "kind":"Credential",
+  "metadata":{"id":"missing-env"},
+  "spec":{"provider":"openai","body":{"api_key":"${GIZCLAW_TEST_VALIDATE_MISSING}"}}
+}`), 0o644); err != nil {
+		t.Fatalf("write resource: %v", err)
+	}
+	cmd := NewCmd()
+	cmd.SetArgs([]string{"validate", "-f", resourceFile})
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "GIZCLAW_TEST_VALIDATE_MISSING") {
+		t.Fatalf("admin validate error = %v, want missing environment variable", err)
+	}
+}
+
+func TestAdminResourceValidateRequiresFile(t *testing.T) {
+	cmd := NewCmd()
+	cmd.SetArgs([]string{"validate"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("admin validate without --file should fail")
+	}
+}
+
+func TestAdminResourceValidateDoesNotAcceptContext(t *testing.T) {
+	cmd := NewCmd()
+	cmd.SetArgs([]string{"validate", "--context", "ignored", "-f", "-"})
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "unknown flag: --context") {
+		t.Fatalf("admin validate error = %v, want unknown context flag", err)
+	}
+}
+
 func TestAdminResourceApplyRequiresFile(t *testing.T) {
 	cmd := NewCmd()
 	cmd.SetArgs([]string{"apply"})

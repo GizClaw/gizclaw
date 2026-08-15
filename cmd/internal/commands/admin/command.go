@@ -32,6 +32,7 @@ func NewCmd() *cobra.Command {
 	cmd.Flags().StringVar(&ctxName, "context", "", "context name (default: current)")
 	cmd.AddCommand(
 		newApplyCmd(&ctxName),
+		newValidateCmd(),
 		newDeleteCmd(&ctxName),
 		newShowCmd(&ctxName),
 		peerscmd.NewCmd(),

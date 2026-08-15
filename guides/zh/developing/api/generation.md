@@ -19,6 +19,8 @@ API 变更必须从根 `api/` 的 source schema 开始。禁止直接修改由�
 go generate ./pkgs/gizclaw/api/...
 ```
 
+`pkgs/gizclaw/api/apitypes/types_resolved.json` 既是 `apitypes/generated.go` 的生成输入，也是需要提交的生成产物。`apitypes` package 会嵌入这份 resolved document，使发布后的二进制无需仓库文件或预先执行生成命令即可校验声明式 Resource。使用 `go generate ./pkgs/gizclaw/api/apitypes` 同步刷新两份产物；生成后执行 `git diff --exit-code -- pkgs/gizclaw/api/apitypes/generated.go pkgs/gizclaw/api/apitypes/types_resolved.json` 可以确认它们保持新鲜。
+
 ## 一次完整变更
 
 ```mermaid
