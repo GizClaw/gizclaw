@@ -115,6 +115,7 @@ func TestStoreUsesVolcJobProtocol(t *testing.T) {
 	var paths []string
 	var transportUserID string
 	var encodedScope string
+	var operationMarker string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, r.Method+" "+r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
@@ -128,13 +129,14 @@ func TestStoreUsesVolcJobProtocol(t *testing.T) {
 				transportUserID, _ = body["user_id"].(string)
 				metadata, _ := body["metadata"].(map[string]any)
 				encodedScope, _ = metadata["gizclaw.entity_scope"].(string)
-				if body["app_id"] != "workspace" || body["run_id"] != "run" || body["async_mode"] != true || transportUserID != "user" || encodedScope == "" {
+				operationMarker, _ = metadata["gizclaw.operation_marker"].(string)
+				if body["app_id"] != "workspace" || body["run_id"] != "run" || body["async_mode"] != true || transportUserID != "user" || encodedScope == "" || operationMarker == "" {
 					t.Errorf("unexpected Volc add routing")
 				}
 				_, _ = io.WriteString(w, `{"results":[{"event_id":"job-id"}]}`)
 				return
 			}
-			_, _ = io.WriteString(w, fmt.Sprintf(`{"results":[{"id":"fact-id","memory":"remembered","user_id":%q,"metadata":{"gizclaw.observation_id":"observation","gizclaw.entity_scope":%q}}]}`, transportUserID, encodedScope))
+			_, _ = io.WriteString(w, fmt.Sprintf(`{"results":[{"id":"fact-id","memory":"remembered","user_id":%q,"metadata":{"gizclaw.observation_id":"observation","gizclaw.entity_scope":%q,"gizclaw.operation_marker":%q}}]}`, transportUserID, encodedScope, operationMarker))
 		case "/v1/job/job-id/":
 			_, _ = io.WriteString(w, `{"status":"SUCCEEDED","results":[]}`)
 		case "/v1/memories/fact-id/":
@@ -175,6 +177,7 @@ func TestStoreUsesVolcV1DirectFactProtocol(t *testing.T) {
 	var (
 		added         bool
 		transportUser string
+		operationMark string
 	)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -184,14 +187,16 @@ func TestStoreUsesVolcV1DirectFactProtocol(t *testing.T) {
 				_, _ = io.WriteString(w, `{"results":[]}`)
 				return
 			}
-			_, _ = io.WriteString(w, fmt.Sprintf(`{"results":[{"id":"fact","memory":"direct","agent_id":"agent","user_id":%q,"metadata":{"gizclaw.observation_id":"direct-observation"}}]}`, transportUser))
+			_, _ = io.WriteString(w, fmt.Sprintf(`{"results":[{"id":"fact","memory":"direct","agent_id":"agent","user_id":%q,"metadata":{"gizclaw.observation_id":"direct-observation","gizclaw.operation_marker":%q}}]}`, transportUser, operationMark))
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/memories/":
 			var body map[string]any
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				t.Errorf("decode direct add: %v", err)
 			}
 			transportUser, _ = body["user_id"].(string)
-			if body["infer"] != false || body["async_mode"] != true || body["agent_id"] != "agent" {
+			metadata, _ := body["metadata"].(map[string]any)
+			operationMark, _ = metadata["gizclaw.operation_marker"].(string)
+			if body["infer"] != false || body["async_mode"] != true || body["agent_id"] != "agent" || operationMark == "" {
 				t.Errorf("unexpected direct add payload")
 			}
 			added = true
@@ -219,6 +224,48 @@ func TestStoreUsesVolcV1DirectFactProtocol(t *testing.T) {
 	completed, err := store.Wait(context.Background(), memorystore.OperationRequest{Scope: scope, ID: observed.Operation.ID})
 	if err != nil || len(completed.Facts) != 1 || completed.Facts[0].Text != "direct" {
 		t.Fatalf("Wait() = %#v, %v", completed, err)
+	}
+}
+
+func TestStoreRejectsVolcJobWithoutCorrelatedFacts(t *testing.T) {
+	t.Parallel()
+	var operationMarker string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/memories/":
+			if r.Method == http.MethodPost {
+				var body map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Errorf("decode add: %v", err)
+				}
+				metadata, _ := body["metadata"].(map[string]any)
+				operationMarker, _ = metadata["gizclaw.operation_marker"].(string)
+				_, _ = io.WriteString(w, `{"results":[{"event_id":"job"}]}`)
+				return
+			}
+			_, _ = io.WriteString(w, `{"results":[{"id":"old","memory":"unrelated","user_id":"user","metadata":{"gizclaw.operation_marker":"old-operation"}}]}`)
+		case "/v1/job/job/":
+			_, _ = io.WriteString(w, `{"status":"SUCCEEDED","results":[]}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	store, err := Open(context.Background(), Config{Mem0: mem0.Config{
+		Endpoint: server.URL, APIKey: "key", PollInterval: time.Millisecond, HTTPClient: server.Client(),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scope := memorystore.Scope{UserID: "user"}
+	observed, err := store.Observe(context.Background(), memorystore.Observation{Scope: scope, Text: "remember"})
+	if err != nil || operationMarker == "" {
+		t.Fatalf("Observe() = %#v, marker = %q, error = %v", observed, operationMarker, err)
+	}
+	_, err = store.Wait(context.Background(), memorystore.OperationRequest{Scope: scope, ID: observed.Operation.ID})
+	if !errors.Is(err, memorystore.ErrUnavailable) {
+		t.Fatalf("Wait() error = %v", err)
 	}
 }
 

@@ -2,6 +2,7 @@ package mem0
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -45,6 +46,7 @@ const (
 	mem0TurnIDsMetadata           = "gizclaw.turn_ids"
 	mem0ObservationDigestMetadata = "gizclaw.observation_digest"
 	mem0EntityScopeMetadata       = "gizclaw.entity_scope"
+	mem0OperationMarkerMetadata   = "gizclaw.operation_marker"
 	volcScopeUserPrefix           = "gizclaw-volc-scope-v1:"
 	volcOperationNativePrefix     = "volc-job-v1:"
 )
@@ -106,8 +108,11 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 	if observation.ID != "" {
 		metadata[mem0ObservationIDMetadata] = observation.ID
 	}
+	operationMarker := ""
 	if s.config.Flavor == VolcPlatform {
+		operationMarker = rand.Text()
 		metadata[mem0EntityScopeMetadata] = encodeSelfHostedScope(scope)
+		metadata[mem0OperationMarkerMetadata] = operationMarker
 	}
 	turnIDs := make([]string, 0, len(observation.Turns))
 	for _, turn := range observation.Turns {
@@ -146,7 +151,7 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 	}
 	if operationNativeID != "" {
 		if s.config.Flavor == VolcPlatform {
-			operationNativeID = encodeVolcOperationNativeID(operationNativeID, observation.ID)
+			operationNativeID = encodeVolcOperationNativeID(operationNativeID, operationMarker)
 		}
 		operationID := encodeOperationLocator(scope, operationNativeID)
 		return observeResult{Operation: &memorystore.Operation{ID: operationID, Status: operationPending}}, nil
@@ -188,8 +193,11 @@ func (s *Store) observeDirectFact(ctx context.Context, scope scope, observation 
 	}
 	metadata[mem0ObservationIDMetadata] = observation.ID
 	metadata[mem0ObservationDigestMetadata] = digest
+	operationMarker := ""
 	if s.config.Flavor == VolcPlatform {
+		operationMarker = rand.Text()
 		metadata[mem0EntityScopeMetadata] = encodeSelfHostedScope(scope)
+		metadata[mem0OperationMarkerMetadata] = operationMarker
 	}
 	payload := map[string]any{
 		"messages": []mem0Message{{Role: roleUser, Content: strings.TrimSpace(observation.Facts[0].Text)}},
@@ -222,7 +230,7 @@ func (s *Store) observeDirectFact(ctx context.Context, scope scope, observation 
 	}
 	if operationNativeID != "" {
 		if s.config.Flavor == VolcPlatform {
-			operationNativeID = encodeVolcOperationNativeID(operationNativeID, observation.ID)
+			operationNativeID = encodeVolcOperationNativeID(operationNativeID, operationMarker)
 		}
 		operationID := encodeOperationLocator(scope, operationNativeID)
 		return observeResult{Operation: &memorystore.Operation{ID: operationID, Status: operationPending}}, nil
@@ -303,7 +311,7 @@ func (s *Store) findDirectObservation(ctx context.Context, scope scope, observat
 }
 
 func validateMem0Metadata(metadata map[string]any) error {
-	for _, key := range []string{mem0ObservationIDMetadata, mem0TurnIDsMetadata, mem0ObservationDigestMetadata, mem0EntityScopeMetadata} {
+	for _, key := range []string{mem0ObservationIDMetadata, mem0TurnIDsMetadata, mem0ObservationDigestMetadata, mem0EntityScopeMetadata, mem0OperationMarkerMetadata} {
 		if _, exists := metadata[key]; exists {
 			return fmt.Errorf("%w: mem0 metadata %q is provider-owned", errUnsupported, key)
 		}
@@ -448,9 +456,9 @@ func (s *Store) Wait(ctx context.Context, request memorystore.OperationRequest) 
 	if locatorScope != scope {
 		return observeResult{}, fmt.Errorf("%w: operation locator scope does not match wait scope", errInvalidInput)
 	}
-	observationID := ""
+	operationMarker := ""
 	if s.config.Flavor == VolcPlatform {
-		nativeID, observationID, err = decodeVolcOperationNativeID(nativeID)
+		nativeID, operationMarker, err = decodeVolcOperationNativeID(nativeID)
 		if err != nil {
 			return observeResult{}, err
 		}
@@ -477,7 +485,7 @@ func (s *Store) Wait(ctx context.Context, request memorystore.OperationRequest) 
 			entries := response.resultEntries()
 			var facts []fact
 			if s.config.Flavor == VolcPlatform && len(entries) == 0 {
-				facts, err = s.listVolcScopedFacts(ctx, scope, observationID)
+				facts, err = s.listVolcScopedFacts(ctx, scope, operationMarker)
 			} else {
 				facts, err = s.loadScopedFacts(ctx, scope, entries)
 			}
@@ -501,7 +509,10 @@ func (s *Store) Wait(ctx context.Context, request memorystore.OperationRequest) 
 	}
 }
 
-func (s *Store) listVolcScopedFacts(ctx context.Context, scope scope, observationID string) ([]fact, error) {
+func (s *Store) listVolcScopedFacts(ctx context.Context, scope scope, operationMarker string) ([]fact, error) {
+	if operationMarker == "" {
+		return nil, fmt.Errorf("%w: volc mem0 operation has no reconciliation marker", errUnavailable)
+	}
 	query := url.Values{}
 	for key, value := range s.entityFields(scope) {
 		query.Set(key, value)
@@ -511,22 +522,22 @@ func (s *Store) listVolcScopedFacts(ctx context.Context, scope scope, observatio
 		return nil, err
 	}
 	entries := response.entries()
-	if observationID != "" {
-		filtered := entries[:0]
-		for _, entry := range entries {
-			storedID, _ := entry.Metadata[mem0ObservationIDMetadata].(string)
-			if storedID == observationID {
-				filtered = append(filtered, entry)
-			}
+	filtered := entries[:0]
+	for _, entry := range entries {
+		storedMarker, _ := entry.Metadata[mem0OperationMarkerMetadata].(string)
+		if storedMarker == operationMarker {
+			filtered = append(filtered, entry)
 		}
-		entries = filtered
 	}
-	return s.scopedFacts(entries, scope)
+	if len(filtered) == 0 {
+		return nil, fmt.Errorf("%w: volc mem0 operation materialized no correlated facts", errUnavailable)
+	}
+	return s.scopedFacts(filtered, scope)
 }
 
-func encodeVolcOperationNativeID(jobID, observationID string) string {
+func encodeVolcOperationNativeID(jobID, operationMarker string) string {
 	return volcOperationNativePrefix + base64.RawURLEncoding.EncodeToString([]byte(jobID)) + ":" +
-		base64.RawURLEncoding.EncodeToString([]byte(observationID))
+		base64.RawURLEncoding.EncodeToString([]byte(operationMarker))
 }
 
 func decodeVolcOperationNativeID(value string) (string, string, error) {
@@ -541,11 +552,11 @@ func decodeVolcOperationNativeID(value string) (string, string, error) {
 	if err != nil || len(jobID) == 0 {
 		return "", "", fmt.Errorf("%w: invalid volc mem0 operation job id", errInvalidInput)
 	}
-	observationID, err := base64.RawURLEncoding.DecodeString(parts[1])
+	operationMarker, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		return "", "", fmt.Errorf("%w: invalid volc mem0 operation observation id", errInvalidInput)
+		return "", "", fmt.Errorf("%w: invalid volc mem0 operation marker", errInvalidInput)
 	}
-	return string(jobID), string(observationID), nil
+	return string(jobID), string(operationMarker), nil
 }
 
 func normalizeEntityScope(input scope) (scope, error) {
@@ -773,7 +784,7 @@ func validateReturnedEnvelopeScope(entry mem0Envelope, expected scope, flavor Fl
 
 func (s *Store) mem0FilterClause(filter filter) (map[string]any, error) {
 	field := strings.TrimSpace(filter.Field)
-	if field == mem0ObservationIDMetadata || field == mem0TurnIDsMetadata || field == mem0ObservationDigestMetadata || field == mem0EntityScopeMetadata || isMem0RoutingField(field) {
+	if field == mem0ObservationIDMetadata || field == mem0TurnIDsMetadata || field == mem0ObservationDigestMetadata || field == mem0EntityScopeMetadata || field == mem0OperationMarkerMetadata || isMem0RoutingField(field) {
 		return nil, fmt.Errorf("%w: mem0 filter field %q is provider-owned", errUnsupported, field)
 	}
 	if !isMem0NativeFilterField(field) {
@@ -992,6 +1003,7 @@ func (e mem0Envelope) fact() fact {
 	delete(attributes, mem0TurnIDsMetadata)
 	delete(attributes, mem0ObservationDigestMetadata)
 	delete(attributes, mem0EntityScopeMetadata)
+	delete(attributes, mem0OperationMarkerMetadata)
 	var sources []sourceRef
 	if observationID != "" || len(turnIDs) > 0 {
 		sources = []sourceRef{{ObservationID: observationID, TurnIDs: turnIDs}}

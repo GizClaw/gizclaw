@@ -458,18 +458,18 @@ func TestStoreWaitPollsPlatformEvent(t *testing.T) {
 func TestVolcOperationNativeIDRoundTrip(t *testing.T) {
 	t.Parallel()
 	encoded := encodeVolcOperationNativeID("job/id", "observation:id")
-	jobID, observationID, err := decodeVolcOperationNativeID(encoded)
-	if err != nil || jobID != "job/id" || observationID != "observation:id" {
-		t.Fatalf("decode = %q %q, %v", jobID, observationID, err)
+	jobID, operationMarker, err := decodeVolcOperationNativeID(encoded)
+	if err != nil || jobID != "job/id" || operationMarker != "observation:id" {
+		t.Fatalf("decode = %q %q, %v", jobID, operationMarker, err)
 	}
 	for _, invalid := range []string{volcOperationNativePrefix, volcOperationNativePrefix + "bad", volcOperationNativePrefix + ":bad"} {
 		if _, _, err := decodeVolcOperationNativeID(invalid); !errors.Is(err, ErrInvalidInput) {
 			t.Fatalf("decode %q error = %v", invalid, err)
 		}
 	}
-	jobID, observationID, err = decodeVolcOperationNativeID("legacy-job")
-	if err != nil || jobID != "legacy-job" || observationID != "" {
-		t.Fatalf("legacy decode = %q %q, %v", jobID, observationID, err)
+	jobID, operationMarker, err = decodeVolcOperationNativeID("legacy-job")
+	if err != nil || jobID != "legacy-job" || operationMarker != "" {
+		t.Fatalf("legacy decode = %q %q, %v", jobID, operationMarker, err)
 	}
 }
 
