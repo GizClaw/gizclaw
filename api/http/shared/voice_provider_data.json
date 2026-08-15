@@ -10,7 +10,7 @@
     "schemas": {
       "VoiceProviderData": {
         "description": "Provider-specific voice runtime configuration. The shape is selected by Voice.provider.kind.",
-        "oneOf": [
+        "anyOf": [
           {
             "$ref": "#/components/schemas/GeminiTenantVoiceProviderData"
           },

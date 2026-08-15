@@ -149,7 +149,7 @@ func mapNode(public apitypes.EinoNode) (genxeino.NodeDefinition, error) {
 		node.Prompt = &genxeino.PromptNode{Format: genxeino.PromptFormat(value.Format)}
 		for _, message := range value.Messages {
 			node.Prompt.Messages = append(node.Prompt.Messages, genxeino.PromptMessage{
-				Role: genxeino.PromptRole(message.Role), Template: stringValue(message.Template),
+				Role: genxeino.PromptRole(stringEnumValue(message.Role)), Template: stringValue(message.Template),
 				Placeholder: stringValue(message.Placeholder), Optional: boolValue(message.Optional),
 			})
 		}
@@ -348,6 +348,13 @@ func stringValue(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func stringEnumValue[T ~string](value *T) string {
+	if value == nil {
+		return ""
+	}
+	return string(*value)
 }
 
 func boolValue(value *bool) bool {

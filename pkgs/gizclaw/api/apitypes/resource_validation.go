@@ -130,7 +130,8 @@ func decodeResourceJSONValue(data []byte) (any, error) {
 
 func newResourceValidationError(err error) error {
 	issues := make([]ResourceValidationIssue, 0, 1)
-	collectResourceValidationIssues(err, &issues)
+	collectResourceValidationIssues(err, nil, &issues)
+	issues = filterResourceValidationIssues(issues)
 	if len(issues) == 0 {
 		issues = append(issues, ResourceValidationIssue{
 			Pointer: "/",
@@ -152,20 +153,21 @@ func newResourceValidationError(err error) error {
 	return &ResourceValidationError{Issues: issues}
 }
 
-func collectResourceValidationIssues(err error, issues *[]ResourceValidationIssue) {
+func collectResourceValidationIssues(err error, parentPath []string, issues *[]ResourceValidationIssue) {
 	if err == nil {
 		return
 	}
 	if multi, ok := err.(openapi3.MultiError); ok {
 		for _, nested := range multi {
-			collectResourceValidationIssues(nested, issues)
+			collectResourceValidationIssues(nested, parentPath, issues)
 		}
 		return
 	}
 	if schemaError, ok := err.(*openapi3.SchemaError); ok {
+		issuePath := mergeResourceValidationPath(parentPath, schemaError.JSONPointer())
 		if schemaError.Origin != nil {
 			before := len(*issues)
-			collectResourceValidationIssues(schemaError.Origin, issues)
+			collectResourceValidationIssues(schemaError.Origin, issuePath, issues)
 			if len(*issues) > before {
 				return
 			}
@@ -179,7 +181,7 @@ func collectResourceValidationIssues(err error, issues *[]ResourceValidationIssu
 			keyword = "schema"
 		}
 		*issues = append(*issues, ResourceValidationIssue{
-			Pointer: resourceJSONPointer(schemaError.JSONPointer()),
+			Pointer: resourceJSONPointer(issuePath),
 			Keyword: keyword,
 			Reason:  reason,
 		})
@@ -187,13 +189,45 @@ func collectResourceValidationIssues(err error, issues *[]ResourceValidationIssu
 	}
 	if unwrapper, ok := err.(interface{ Unwrap() []error }); ok {
 		for _, nested := range unwrapper.Unwrap() {
-			collectResourceValidationIssues(nested, issues)
+			collectResourceValidationIssues(nested, parentPath, issues)
 		}
 		return
 	}
 	if nested := errors.Unwrap(err); nested != nil {
-		collectResourceValidationIssues(nested, issues)
+		collectResourceValidationIssues(nested, parentPath, issues)
 	}
+}
+
+func mergeResourceValidationPath(parentPath, childPath []string) []string {
+	if len(parentPath) == 0 {
+		return slices.Clone(childPath)
+	}
+	overlap := min(len(parentPath), len(childPath))
+	for overlap > 0 && !slices.Equal(parentPath[len(parentPath)-overlap:], childPath[:overlap]) {
+		overlap--
+	}
+	return append(slices.Clone(parentPath), childPath[overlap:]...)
+}
+
+func filterResourceValidationIssues(issues []ResourceValidationIssue) []ResourceValidationIssue {
+	filtered := make([]ResourceValidationIssue, 0, len(issues))
+	for _, issue := range issues {
+		drop := false
+		if issue.Keyword != "not" {
+			filtered = append(filtered, issue)
+			continue
+		}
+		for _, other := range issues {
+			if other.Keyword != "not" && strings.HasPrefix(other.Pointer, issue.Pointer+"/") {
+				drop = true
+				break
+			}
+		}
+		if !drop {
+			filtered = append(filtered, issue)
+		}
+	}
+	return filtered
 }
 
 func resourceJSONPointer(path []string) string {

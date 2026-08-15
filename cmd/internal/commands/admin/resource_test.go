@@ -493,6 +493,94 @@ func TestAdminResourceValidateReportsResourceListCount(t *testing.T) {
 	}
 }
 
+func TestAdminResourceValidateRaidsShapedVoiceAndEino(t *testing.T) {
+	tests := []struct {
+		name      string
+		extension string
+		input     string
+		want      string
+	}{
+		{
+			name:      "voice JSON",
+			extension: ".json",
+			input: `{
+  "apiVersion":"gizclaw.admin/v1alpha1",
+  "kind":"Voice",
+  "metadata":{"id":"minimax-tenant:minimax-cn:Arabic_CalmWoman"},
+  "spec":{"source":"manual","provider":{"kind":"minimax-tenant","id":"minimax-cn"},"display_name":"Calm Woman","provider_data":{"voice_id":"Arabic_CalmWoman","voice_type":"system"}}
+}`,
+			want: "{\"valid\":true,\"kind\":\"Voice\",\"id\":\"minimax-tenant:minimax-cn:Arabic_CalmWoman\"}\n",
+		},
+		{
+			name:      "Eino YAML",
+			extension: ".yaml",
+			input: `
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: eino-history
+spec:
+  driver: eino
+  eino:
+    graph:
+      name: history
+      compile:
+        node_trigger_mode: any_predecessor
+      state:
+        fields:
+        - name: messages
+          type: messages
+          merge: replace
+      nodes:
+      - id: prompt
+        type: prompt
+        inputs:
+          history:
+            from: input.messages
+        outputs:
+          messages: messages
+        format: f_string
+        messages:
+        - role: system
+          template: Be helpful.
+        - placeholder: history
+          optional: true
+      edges:
+      - from: start
+        to: prompt
+      - from: prompt
+        to: end
+      branches: []
+      outputs:
+      - node: prompt
+        field: messages
+        name: assistant
+        mime_type: application/json
+        primary: true
+`,
+			want: "{\"valid\":true,\"kind\":\"Workflow\",\"id\":\"eino-history\"}\n",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resourceFile := filepath.Join(t.TempDir(), "resource"+tc.extension)
+			if err := os.WriteFile(resourceFile, []byte(tc.input), 0o644); err != nil {
+				t.Fatalf("write resource: %v", err)
+			}
+			cmd := NewCmd()
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetArgs([]string{"validate", "-f", resourceFile})
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("admin validate error: %v", err)
+			}
+			if got := stdout.String(); got != tc.want {
+				t.Fatalf("admin validate output = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestAdminResourceValidateFailuresAreRedacted(t *testing.T) {
 	const secret = "expanded-top-secret"
 	t.Setenv("GIZCLAW_TEST_VALIDATE_FAILURE_SECRET", secret)

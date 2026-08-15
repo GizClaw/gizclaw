@@ -85,6 +85,8 @@ Edge 映射到 Eino `AddEdge`。`first_match` 选择第一个命中的 route，�
 | `Race` | 所有 nested Graph 共有的 input。 | 所有 nested Graph 共有的 output name。 |
 | `Batch` | `Items` 是 list binding。 | 一个保持顺序的 `items` list。 |
 
+每条 Prompt message 必须且只能使用一种声明形式。角色消息同时声明非空 `role` 和 `template`；占位消息声明非空 `placeholder`，可以设置 `optional`，但不能同时声明 `role` 或 `template`。占位名称必须对应绑定到 `messages` 的 Prompt input。
+
 Prompt、ChatModel 和 Retriever 通过 Eino 原生 `AddChatTemplateNode`、`AddChatModelNode`、`AddRetrieverNode` 路径加入 typed nested Graph。没有 serializable native component contract 的 Transform、Script、Race、Batch 与 State adapter 使用 Eino Lambda。
 
 ChatModel 调用解析后的 Eino streaming interface。model node 直接拥有 declared text output 时，文本 chunk 会增量发布。配置 `ToolInvoker` 后，`ResolveTools` 取得的函数名、说明和 schema 会通过 Eino model option 传入；带关联 ID 的 ToolCall 按模型顺序通过 `InvokeTool(name, arguments)` 执行，native tool message 被追加后继续同一个 model node。内部 call/result 不公开输出；完成的 model turn 没有文本时，请求 `text` port 仍会失败。

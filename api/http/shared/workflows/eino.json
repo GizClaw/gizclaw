@@ -184,7 +184,7 @@
               "messages": {
                 "type": "array",
                 "minItems": 1,
-                "items": { "$ref": "#/components/schemas/EinoPromptMessage" }
+                "items": { "$ref": "#/components/schemas/EinoPromptMessageSchema" }
               }
             }
           }
@@ -192,14 +192,39 @@
       },
       "EinoPromptMessage": {
         "type": "object",
-        "required": ["role"],
         "additionalProperties": false,
         "properties": {
           "role": { "type": "string", "enum": ["system", "user", "assistant"] },
-          "template": { "type": "string" },
-          "placeholder": { "type": "string" },
+          "template": { "type": "string", "minLength": 1 },
+          "placeholder": { "type": "string", "minLength": 1 },
           "optional": { "type": "boolean" }
         }
+      },
+      "EinoPromptMessageSchema": {
+        "x-go-type": "EinoPromptMessage",
+        "allOf": [
+          { "$ref": "#/components/schemas/EinoPromptMessage" }
+        ],
+        "oneOf": [
+          {
+            "required": ["role", "template"],
+            "not": {
+              "anyOf": [
+                { "required": ["placeholder"] },
+                { "required": ["optional"] }
+              ]
+            }
+          },
+          {
+            "required": ["placeholder"],
+            "not": {
+              "anyOf": [
+                { "required": ["role"] },
+                { "required": ["template"] }
+              ]
+            }
+          }
+        ]
       },
       "EinoChatModelNode": {
         "allOf": [

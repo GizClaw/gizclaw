@@ -3885,23 +3885,26 @@ type EinoPredicateOp string
 
 // EinoPromptMessage defines model for EinoPromptMessage.
 type EinoPromptMessage struct {
-	Optional    *bool                 `json:"optional,omitempty"`
-	Placeholder *string               `json:"placeholder,omitempty"`
-	Role        EinoPromptMessageRole `json:"role"`
-	Template    *string               `json:"template,omitempty"`
+	Optional    *bool                  `json:"optional,omitempty"`
+	Placeholder *string                `json:"placeholder,omitempty"`
+	Role        *EinoPromptMessageRole `json:"role,omitempty"`
+	Template    *string                `json:"template,omitempty"`
 }
 
 // EinoPromptMessageRole defines model for EinoPromptMessage.Role.
 type EinoPromptMessageRole string
 
+// EinoPromptMessageSchema defines model for EinoPromptMessageSchema.
+type EinoPromptMessageSchema = EinoPromptMessage
+
 // EinoPromptNode defines model for EinoPromptNode.
 type EinoPromptNode struct {
-	Format   EinoPromptNodeFormat    `json:"format"`
-	Id       string                  `json:"id"`
-	Inputs   *map[string]EinoBinding `json:"inputs,omitempty"`
-	Messages []EinoPromptMessage     `json:"messages"`
-	Outputs  *map[string]string      `json:"outputs,omitempty"`
-	Type     EinoPromptNodeType      `json:"type"`
+	Format   EinoPromptNodeFormat      `json:"format"`
+	Id       string                    `json:"id"`
+	Inputs   *map[string]EinoBinding   `json:"inputs,omitempty"`
+	Messages []EinoPromptMessageSchema `json:"messages"`
+	Outputs  *map[string]string        `json:"outputs,omitempty"`
+	Type     EinoPromptNodeType        `json:"type"`
 }
 
 // EinoPromptNodeFormat defines model for EinoPromptNode.Format.

@@ -154,6 +154,46 @@ func TestValidate(t *testing.T) {
 	})
 }
 
+func TestMapGraphPromptMessageForms(t *testing.T) {
+	t.Parallel()
+	spec := decodeSpec(t, `{
+		"graph": {
+			"name": "prompt-message-forms",
+			"compile": {"node_trigger_mode": "any_predecessor"},
+			"state": {"fields": [{"name": "messages", "type": "messages", "merge": "replace"}]},
+			"nodes": [{
+				"id": "prompt",
+				"type": "prompt",
+				"inputs": {"history": {"from": "input.messages"}},
+				"outputs": {"messages": "messages"},
+				"format": "f_string",
+				"messages": [
+					{"role": "system", "template": "Be helpful."},
+					{"placeholder": "history", "optional": true}
+				]
+			}],
+			"edges": [{"from": "start", "to": "prompt"}, {"from": "prompt", "to": "end"}],
+			"branches": [],
+			"outputs": [{"node": "prompt", "field": "messages", "name": "assistant", "mime_type": "application/json", "primary": true}]
+		}
+	}`)
+
+	graph, err := MapGraph(spec.Graph)
+	if err != nil {
+		t.Fatalf("MapGraph() error = %v", err)
+	}
+	messages := graph.Nodes[0].Prompt.Messages
+	if len(messages) != 2 {
+		t.Fatalf("prompt messages = %#v, want two", messages)
+	}
+	if messages[0].Role != "system" || messages[0].Template != "Be helpful." || messages[0].Placeholder != "" {
+		t.Fatalf("role/template message = %#v", messages[0])
+	}
+	if messages[1].Role != "" || messages[1].Template != "" || messages[1].Placeholder != "history" || !messages[1].Optional {
+		t.Fatalf("placeholder message = %#v", messages[1])
+	}
+}
+
 func decodeSpec(t testing.TB, data string) apitypes.EinoWorkflowSpec {
 	t.Helper()
 	var spec apitypes.EinoWorkflowSpec
