@@ -264,6 +264,72 @@ func TestStoreWaitPreservesDurableOperationStates(t *testing.T) {
 	}
 }
 
+func TestStoreWaitRecoversStillPendingOperationAfterReconstruction(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	backend := newWorkspaceBackend(t)
+	loader := &testFlowcraftLoader{model: testLLM{response: `{"facts":[{"text":"Alice prefers tea.","kind":"preference"}]}`}}
+	config := Config{
+		Loader: loader, Extraction: ExtractionConfig{Model: "extract"},
+		TemporalStore: backend.TemporalStore(), EvidenceStore: backend.EvidenceStore(),
+		AsyncQueue: backend.AsyncSemanticQueue(), SideEffectOutbox: backend.SideEffectOutbox(),
+	}
+	store, err := New(ctx, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observed, err := store.Observe(ctx, Observation{Scope: testScope, Text: "Alice prefers tea."})
+	if err != nil || observed.Operation == nil || observed.Operation.Status != OperationPending {
+		t.Fatalf("Observe() = %+v, %v", observed, err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	native, err := nativeScope(testScope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nativeFacts, err := backend.TemporalStore().List(ctx, native, recall.ListQuery{IncludeSuperseded: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fact := range nativeFacts {
+		if _, marked := flowcraftOperationMarker(fact); marked {
+			t.Fatalf("pending operation unexpectedly has a durable status marker: %+v", fact)
+		}
+	}
+
+	instrumented := &instrumentedTemporalStore{TemporalStore: backend.TemporalStore()}
+	instrumented.allowReadsFrom(native)
+	config.TemporalStore = instrumented
+	reopened, err := New(ctx, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	listScopesCalls, reads := instrumented.readSnapshot()
+	if listScopesCalls != 0 || len(reads) != 0 {
+		t.Fatalf("reconstructed New() durable reads = ListScopes:%d, %+v", listScopesCalls, reads)
+	}
+
+	waitCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	result, err := reopened.Wait(waitCtx, memorystore.OperationRequest{Scope: testScope, ID: observed.Operation.ID})
+	if err != nil || result.Operation == nil || result.Operation.Status != OperationSucceeded || len(result.Facts) != 1 {
+		t.Fatalf("Wait() = %+v, %v", result, err)
+	}
+	listScopesCalls, reads = instrumented.readSnapshot()
+	if listScopesCalls != 0 || len(reads) == 0 {
+		t.Fatalf("Wait() durable reads = ListScopes:%d, %+v", listScopesCalls, reads)
+	}
+	for _, read := range reads {
+		if !reflect.DeepEqual(read.scope, native) {
+			t.Fatalf("Wait() read %s from foreign scope %+v", read.method, read.scope)
+		}
+	}
+}
+
 func BenchmarkStoreConstruction(b *testing.B) {
 	for _, foreignScopes := range []int{0, 100, 1_000} {
 		b.Run(fmt.Sprintf("foreign_scopes_%d", foreignScopes), func(b *testing.B) {
