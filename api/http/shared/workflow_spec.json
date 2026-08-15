@@ -235,7 +235,19 @@
           {
             "$ref": "#/components/schemas/ReusableChatroomWorkflowVariant"
           }
-        ]
+        ],
+        "discriminator": {
+          "propertyName": "driver",
+          "mapping": {
+            "flowcraft": "#/components/schemas/ReusableFlowcraftWorkflowVariant",
+            "doubao-realtime": "#/components/schemas/ReusableDoubaoRealtimeWorkflowVariant",
+            "dashscope-realtime": "#/components/schemas/ReusableDashScopeRealtimeWorkflowVariant",
+            "doubao-realtime-duplex": "#/components/schemas/ReusableDoubaoRealtimeDuplexWorkflowVariant",
+            "eino": "#/components/schemas/ReusableEinoWorkflowVariant",
+            "ast-translate": "#/components/schemas/ReusableASTTranslateWorkflowVariant",
+            "chatroom": "#/components/schemas/ReusableChatroomWorkflowVariant"
+          }
+        }
       },
       "WorkflowSpecObject": {
         "type": "object",
@@ -309,12 +321,43 @@
         "x-go-type": "WorkflowSpecObject",
         "oneOf": [
           {
-            "$ref": "#/components/schemas/ReusableWorkflowSpec"
+            "$ref": "#/components/schemas/ReusableFlowcraftWorkflowVariant"
+          },
+          {
+            "$ref": "#/components/schemas/ReusableDoubaoRealtimeWorkflowVariant"
+          },
+          {
+            "$ref": "#/components/schemas/ReusableDashScopeRealtimeWorkflowVariant"
+          },
+          {
+            "$ref": "#/components/schemas/ReusableDoubaoRealtimeDuplexWorkflowVariant"
+          },
+          {
+            "$ref": "#/components/schemas/ReusableEinoWorkflowVariant"
+          },
+          {
+            "$ref": "#/components/schemas/ReusableASTTranslateWorkflowVariant"
+          },
+          {
+            "$ref": "#/components/schemas/ReusableChatroomWorkflowVariant"
           },
           {
             "$ref": "#/components/schemas/PetWorkflowVariant"
           }
-        ]
+        ],
+        "discriminator": {
+          "propertyName": "driver",
+          "mapping": {
+            "flowcraft": "#/components/schemas/ReusableFlowcraftWorkflowVariant",
+            "doubao-realtime": "#/components/schemas/ReusableDoubaoRealtimeWorkflowVariant",
+            "dashscope-realtime": "#/components/schemas/ReusableDashScopeRealtimeWorkflowVariant",
+            "doubao-realtime-duplex": "#/components/schemas/ReusableDoubaoRealtimeDuplexWorkflowVariant",
+            "eino": "#/components/schemas/ReusableEinoWorkflowVariant",
+            "ast-translate": "#/components/schemas/ReusableASTTranslateWorkflowVariant",
+            "chatroom": "#/components/schemas/ReusableChatroomWorkflowVariant",
+            "pet": "#/components/schemas/PetWorkflowVariant"
+          }
+        }
       }
     }
   }

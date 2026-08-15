@@ -85,6 +85,8 @@ Native parallelism executes sibling Graph paths and joins them through Eino sche
 | `Race` | Common nested Graph inputs. | Common nested Graph output names. |
 | `Batch` | `Items` is a list binding. | Exactly one ordered `items` list. |
 
+Each Prompt message uses exactly one declaration form. A role message declares a non-empty `role` and `template`. A placeholder message declares a non-empty `placeholder` and may set `optional`; it cannot also declare `role` or `template`. The placeholder name must identify a Prompt input bound to `messages`.
+
 Prompt, ChatModel, and Retriever components are added through Eino's native `AddChatTemplateNode`, `AddChatModelNode`, and `AddRetrieverNode` paths inside typed nested Graphs. Package-owned Transform, Script, Race, Batch, and State adapters use Eino Lambdas when no serializable native component contract exists.
 
 ChatModel uses the resolved Eino streaming interface. Text chunks are published incrementally when the model node owns a declared text output. When a `ToolInvoker` is configured, `ResolveTools` supplies function names, descriptions, and schemas through Eino model options. Correlated ToolCalls execute in model order through `InvokeTool(name, arguments)`, native tool messages are appended, and the same model node continues. Internal calls and results are not published. A requested text port fails when the completed model turn contains no text.

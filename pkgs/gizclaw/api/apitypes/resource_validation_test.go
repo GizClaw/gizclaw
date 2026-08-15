@@ -3,6 +3,7 @@ package apitypes
 import (
 	"errors"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -16,6 +17,31 @@ const validCredentialResource = `{
   "kind":"Credential",
   "metadata":{"id":"main"},
   "spec":{"provider":"openai","body":{"api_key":"top-secret-value"}}
+}`
+
+const validEinoWorkflowResource = `{
+  "apiVersion":"gizclaw.admin/v1alpha1",
+  "kind":"Workflow",
+  "metadata":{"id":"eino-history"},
+  "spec":{
+    "driver":"eino",
+    "eino":{"graph":{
+      "name":"history",
+      "compile":{"node_trigger_mode":"any_predecessor"},
+      "state":{"fields":[{"name":"messages","type":"messages","merge":"replace"}]},
+      "nodes":[{
+        "id":"prompt",
+        "type":"prompt",
+        "inputs":{"history":{"from":"input.messages"}},
+        "outputs":{"messages":"messages"},
+        "format":"f_string",
+        "messages":[{"role":"system","template":"Be helpful."},{"placeholder":"history","optional":true}]
+      }],
+      "edges":[{"from":"start","to":"prompt"},{"from":"prompt","to":"end"}],
+      "branches":[],
+      "outputs":[{"node":"prompt","field":"messages","name":"assistant","mime_type":"application/json","primary":true}]
+    }}
+  }
 }`
 
 func TestValidateResourceJSON(t *testing.T) {
@@ -75,6 +101,136 @@ func TestValidateResourceJSONCredentialBodyUsesWireShapeBoundary(t *testing.T) {
 	if err := ValidateResourceJSON([]byte(input)); err != nil {
 		t.Fatalf("ValidateResourceJSON() error = %v", err)
 	}
+}
+
+func TestValidateResourceJSONVoiceProviderDataUsesWireShapeBoundary(t *testing.T) {
+	for _, providerKind := range []string{
+		"gemini-tenant",
+		"dashscope-tenant",
+		"openai-tenant",
+		"minimax-tenant",
+		"volc-tenant",
+	} {
+		t.Run(providerKind, func(t *testing.T) {
+			input := `{
+  "apiVersion":"gizclaw.admin/v1alpha1",
+  "kind":"Voice",
+  "metadata":{"id":"minimax-tenant:minimax-cn:Arabic_CalmWoman"},
+  "spec":{
+    "source":"manual",
+    "provider":{"kind":"` + providerKind + `","id":"provider-main"},
+    "display_name":"Calm Woman",
+    "provider_data":{"voice_id":"Arabic_CalmWoman","voice_type":"system"}
+  }
+}`
+			if err := ValidateResourceJSON([]byte(input)); err != nil {
+				t.Fatalf("ValidateResourceJSON() error = %v", err)
+			}
+		})
+	}
+
+	invalid := `{
+  "apiVersion":"gizclaw.admin/v1alpha1",
+  "kind":"Voice",
+  "metadata":{"id":"invalid-provider-data"},
+  "spec":{"source":"manual","provider":{"kind":"openai-tenant","id":"main"},"provider_data":{"voice_id":42,"raw":"redacted"}}
+}`
+	if err := ValidateResourceJSON([]byte(invalid)); err == nil {
+		t.Fatal("ValidateResourceJSON() accepted provider data invalid under every wire shape")
+	}
+}
+
+func TestValidateResourceJSONEinoPromptMessageForms(t *testing.T) {
+	if err := ValidateResourceJSON([]byte(validEinoWorkflowResource)); err != nil {
+		t.Fatalf("ValidateResourceJSON() error = %v", err)
+	}
+
+	for _, tc := range []struct {
+		name    string
+		message string
+	}{
+		{name: "empty", message: `{}`},
+		{name: "role without template", message: `{"role":"system"}`},
+		{name: "template without role", message: `{"template":"Be helpful."}`},
+		{name: "empty template", message: `{"role":"system","template":""}`},
+		{name: "empty placeholder", message: `{"placeholder":""}`},
+		{name: "mixed", message: `{"role":"system","template":"Be helpful.","placeholder":"history"}`},
+		{name: "optional on role form", message: `{"role":"system","template":"Be helpful.","optional":true}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			input := strings.Replace(validEinoWorkflowResource, `{"role":"system","template":"Be helpful."}`, tc.message, 1)
+			if err := ValidateResourceJSON([]byte(input)); err == nil {
+				t.Fatal("ValidateResourceJSON() error = nil")
+			}
+		})
+	}
+}
+
+func TestValidateResourceJSONEinoErrorUsesSelectedFullPointer(t *testing.T) {
+	input := strings.Replace(validEinoWorkflowResource, `{"placeholder":"history","optional":true}`, `{"role":"system"}`, 1)
+	err := ValidateResourceJSON([]byte(input))
+	if err == nil {
+		t.Fatal("ValidateResourceJSON() error = nil")
+	}
+	var validationError *ResourceValidationError
+	if !errors.As(err, &validationError) {
+		t.Fatalf("error type = %T, want *ResourceValidationError", err)
+	}
+	if len(validationError.Issues) != 1 {
+		t.Fatalf("issues = %#v, want one selected-branch issue", validationError.Issues)
+	}
+	if got, want := validationError.Issues[0].Pointer, "/spec/eino/graph/nodes/0/messages/1/template"; got != want {
+		t.Fatalf("issue pointer = %q, want %q; error = %v", got, want, err)
+	}
+}
+
+func TestValidateResourceJSONEinoPlaceholderErrorUsesSelectedBranch(t *testing.T) {
+	input := strings.Replace(validEinoWorkflowResource, `{"placeholder":"history","optional":true}`, `{"placeholder":"history","role":"system"}`, 1)
+	err := ValidateResourceJSON([]byte(input))
+	if err == nil {
+		t.Fatal("ValidateResourceJSON() error = nil")
+	}
+	var validationError *ResourceValidationError
+	if !errors.As(err, &validationError) {
+		t.Fatalf("error type = %T, want *ResourceValidationError", err)
+	}
+	if len(validationError.Issues) != 1 {
+		t.Fatalf("issues = %#v, want one selected-branch issue", validationError.Issues)
+	}
+	if got, want := validationError.Issues[0].Pointer, "/spec/eino/graph/nodes/0/messages/1"; got != want {
+		t.Fatalf("issue pointer = %q, want %q; error = %v", got, want, err)
+	}
+}
+
+func TestValidateResourceJSONEinoResourceListErrorUsesIndexedFullPointer(t *testing.T) {
+	invalid := strings.Replace(validEinoWorkflowResource, `{"placeholder":"history","optional":true}`, `{"role":"system"}`, 1)
+	input := `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"ResourceList","spec":{"items":[` + invalid + `]}}`
+	err := ValidateResourceJSON([]byte(input))
+	if err == nil || !strings.Contains(err.Error(), "/spec/items/0/spec/eino/graph/nodes/0/messages/1/template") {
+		t.Fatalf("ValidateResourceJSON() error = %v, want indexed Eino prompt pointer", err)
+	}
+}
+
+func TestValidateResourceJSONEinoFailureIsDeterministicConcurrently(t *testing.T) {
+	input := strings.Replace(validEinoWorkflowResource, `{"placeholder":"history","optional":true}`, `{"role":"system"}`, 1)
+	want := ValidateResourceJSON([]byte(input))
+	if want == nil {
+		t.Fatal("ValidateResourceJSON() error = nil")
+	}
+
+	const callers = 32
+	var wait sync.WaitGroup
+	wait.Add(callers)
+	for range callers {
+		go func() {
+			defer wait.Done()
+			got := ValidateResourceJSON([]byte(input))
+			if got == nil || got.Error() != want.Error() {
+				t.Errorf("ValidateResourceJSON() error = %v, want %v", got, want)
+			}
+		}()
+	}
+	wait.Wait()
 }
 
 func TestValidateResourceJSONReportsResourceListItemPointer(t *testing.T) {
@@ -208,5 +364,26 @@ func TestResourceJSONPointerEscapesRFC6901Segments(t *testing.T) {
 	}
 	if got, want := strings.Join(path, "/"), "spec/a/b~c"; got != want {
 		t.Fatalf("resourceJSONPointer() mutated input to %q", got)
+	}
+}
+
+func TestMergeResourceValidationPath(t *testing.T) {
+	tests := []struct {
+		name   string
+		parent []string
+		child  []string
+		want   []string
+	}{
+		{name: "empty parent", child: []string{"spec"}, want: []string{"spec"}},
+		{name: "absolute child", parent: []string{"spec"}, child: []string{"spec", "eino"}, want: []string{"spec", "eino"}},
+		{name: "relative child", parent: []string{"spec", "eino", "graph", "nodes", "0"}, child: []string{"messages", "1"}, want: []string{"spec", "eino", "graph", "nodes", "0", "messages", "1"}},
+		{name: "overlapping child", parent: []string{"spec", "eino", "graph", "nodes", "0", "messages", "1"}, child: []string{"messages", "1", "template"}, want: []string{"spec", "eino", "graph", "nodes", "0", "messages", "1", "template"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := mergeResourceValidationPath(tc.parent, tc.child); !slices.Equal(got, tc.want) {
+				t.Fatalf("mergeResourceValidationPath(%v, %v) = %v, want %v", tc.parent, tc.child, got, tc.want)
+			}
+		})
 	}
 }
