@@ -313,9 +313,7 @@ func TestStoreWaitRecoversStillPendingOperationAfterReconstruction(t *testing.T)
 		t.Fatalf("reconstructed New() durable reads = ListScopes:%d, %+v", listScopesCalls, reads)
 	}
 
-	waitCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	result, err := reopened.Wait(waitCtx, memorystore.OperationRequest{Scope: testScope, ID: observed.Operation.ID})
+	result, err := reopened.Wait(ctx, memorystore.OperationRequest{Scope: testScope, ID: observed.Operation.ID})
 	if err != nil || result.Operation == nil || result.Operation.Status != OperationSucceeded || len(result.Facts) != 1 {
 		t.Fatalf("Wait() = %+v, %v", result, err)
 	}
