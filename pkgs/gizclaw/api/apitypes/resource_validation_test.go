@@ -184,6 +184,24 @@ func TestValidateResourceJSONEinoErrorUsesSelectedFullPointer(t *testing.T) {
 	}
 }
 
+func TestValidateResourceJSONEinoPlaceholderErrorUsesSelectedBranch(t *testing.T) {
+	input := strings.Replace(validEinoWorkflowResource, `{"placeholder":"history","optional":true}`, `{"placeholder":"history","role":"system"}`, 1)
+	err := ValidateResourceJSON([]byte(input))
+	if err == nil {
+		t.Fatal("ValidateResourceJSON() error = nil")
+	}
+	var validationError *ResourceValidationError
+	if !errors.As(err, &validationError) {
+		t.Fatalf("error type = %T, want *ResourceValidationError", err)
+	}
+	if len(validationError.Issues) != 1 {
+		t.Fatalf("issues = %#v, want one selected-branch issue", validationError.Issues)
+	}
+	if got, want := validationError.Issues[0].Pointer, "/spec/eino/graph/nodes/0/messages/1"; got != want {
+		t.Fatalf("issue pointer = %q, want %q; error = %v", got, want, err)
+	}
+}
+
 func TestValidateResourceJSONEinoResourceListErrorUsesIndexedFullPointer(t *testing.T) {
 	invalid := strings.Replace(validEinoWorkflowResource, `{"placeholder":"history","optional":true}`, `{"role":"system"}`, 1)
 	input := `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"ResourceList","spec":{"items":[` + invalid + `]}}`

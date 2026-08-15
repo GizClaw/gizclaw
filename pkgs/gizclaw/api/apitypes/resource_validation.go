@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"path"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -70,7 +71,7 @@ func (v *resourceValidator) validate(data []byte) error {
 		return err
 	}
 	if err := v.schema.VisitJSON(value, openapi3.MultiErrors()); err != nil {
-		return newResourceValidationError(err)
+		return newResourceValidationError(value, err)
 	}
 	return nil
 }
@@ -128,10 +129,10 @@ func decodeResourceJSONValue(data []byte) (any, error) {
 	return value, nil
 }
 
-func newResourceValidationError(err error) error {
+func newResourceValidationError(value any, err error) error {
 	issues := make([]ResourceValidationIssue, 0, 1)
 	collectResourceValidationIssues(err, nil, &issues)
-	issues = filterResourceValidationIssues(issues)
+	issues = filterResourceValidationIssues(value, issues)
 	if len(issues) == 0 {
 		issues = append(issues, ResourceValidationIssue{
 			Pointer: "/",
@@ -209,7 +210,8 @@ func mergeResourceValidationPath(parentPath, childPath []string) []string {
 	return append(slices.Clone(parentPath), childPath[overlap:]...)
 }
 
-func filterResourceValidationIssues(issues []ResourceValidationIssue) []ResourceValidationIssue {
+func filterResourceValidationIssues(value any, issues []ResourceValidationIssue) []ResourceValidationIssue {
+	issues = selectPromptMessageValidationIssues(value, issues)
 	filtered := make([]ResourceValidationIssue, 0, len(issues))
 	for _, issue := range issues {
 		drop := false
@@ -228,6 +230,90 @@ func filterResourceValidationIssues(issues []ResourceValidationIssue) []Resource
 		}
 	}
 	return filtered
+}
+
+func selectPromptMessageValidationIssues(value any, issues []ResourceValidationIssue) []ResourceValidationIssue {
+	selected := make([]ResourceValidationIssue, 0, len(issues))
+	for _, issue := range issues {
+		message, pointer, ok := promptMessageAtIssuePointer(value, issue.Pointer)
+		if !ok {
+			selected = append(selected, issue)
+			continue
+		}
+		_, placeholderForm := message["placeholder"]
+		if placeholderForm && (pointerContainsField(issue.Pointer, pointer, "role") || pointerContainsField(issue.Pointer, pointer, "template")) {
+			continue
+		}
+		if !placeholderForm && pointerContainsField(issue.Pointer, pointer, "placeholder") {
+			continue
+		}
+		selected = append(selected, issue)
+	}
+	return selected
+}
+
+func promptMessageAtIssuePointer(value any, pointer string) (map[string]any, string, bool) {
+	segments, ok := resourcePointerSegments(pointer)
+	if !ok {
+		return nil, "", false
+	}
+	messageEnd := 0
+	for i := len(segments) - 2; i >= 0; i-- {
+		if segments[i] != "messages" {
+			continue
+		}
+		if _, err := strconv.Atoi(segments[i+1]); err == nil {
+			messageEnd = i + 2
+			break
+		}
+	}
+	if messageEnd == 0 {
+		return nil, "", false
+	}
+
+	current := value
+	for _, segment := range segments[:messageEnd] {
+		switch typed := current.(type) {
+		case map[string]any:
+			current, ok = typed[segment]
+		case []any:
+			index, err := strconv.Atoi(segment)
+			if err != nil || index < 0 || index >= len(typed) {
+				return nil, "", false
+			}
+			current, ok = typed[index], true
+		default:
+			return nil, "", false
+		}
+		if !ok {
+			return nil, "", false
+		}
+	}
+	message, ok := current.(map[string]any)
+	if !ok {
+		return nil, "", false
+	}
+	return message, resourceJSONPointer(segments[:messageEnd]), true
+}
+
+func resourcePointerSegments(pointer string) ([]string, bool) {
+	if pointer == "/" {
+		return nil, true
+	}
+	if !strings.HasPrefix(pointer, "/") {
+		return nil, false
+	}
+	segments := strings.Split(strings.TrimPrefix(pointer, "/"), "/")
+	for i, segment := range segments {
+		segment = strings.ReplaceAll(segment, "~1", "/")
+		segments[i] = strings.ReplaceAll(segment, "~0", "~")
+	}
+	return segments, true
+}
+
+func pointerContainsField(pointer, parentPointer, field string) bool {
+	fieldPointer := parentPointer + resourceJSONPointer([]string{field})
+	return pointer == fieldPointer || strings.HasPrefix(pointer, fieldPointer+"/")
 }
 
 func resourceJSONPointer(path []string) string {

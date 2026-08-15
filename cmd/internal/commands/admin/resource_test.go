@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -494,31 +495,109 @@ func TestAdminResourceValidateReportsResourceListCount(t *testing.T) {
 }
 
 func TestAdminResourceValidateRaidsShapedVoiceAndEino(t *testing.T) {
-	tests := []struct {
-		name      string
-		extension string
-		input     string
-		want      string
-	}{
-		{
-			name:      "voice JSON",
-			extension: ".json",
-			input: `{
+	tests := make([]struct {
+		name, extension, input, want string
+	}, 0, 14)
+	for _, providerKind := range []string{"gemini-tenant", "dashscope-tenant", "openai-tenant", "minimax-tenant", "volc-tenant"} {
+		for _, extension := range []string{".json", ".yaml"} {
+			id := providerKind + ":provider-main:voice-main"
+			tests = append(tests, struct {
+				name, extension, input, want string
+			}{
+				name:      "Voice " + providerKind + " " + extension,
+				extension: extension,
+				input:     raidsVoiceValidationFixture(providerKind, id, extension),
+				want:      fmt.Sprintf("{\"valid\":true,\"kind\":\"Voice\",\"id\":%q}\n", id),
+			})
+		}
+	}
+	for _, form := range []string{"role", "placeholder"} {
+		for _, extension := range []string{".json", ".yaml"} {
+			id := "eino-" + form
+			tests = append(tests, struct {
+				name, extension, input, want string
+			}{
+				name:      "Eino " + form + " " + extension,
+				extension: extension,
+				input:     raidsEinoValidationFixture(form, id, extension),
+				want:      fmt.Sprintf("{\"valid\":true,\"kind\":\"Workflow\",\"id\":%q}\n", id),
+			})
+		}
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resourceFile := filepath.Join(t.TempDir(), "resource"+tc.extension)
+			if err := os.WriteFile(resourceFile, []byte(tc.input), 0o644); err != nil {
+				t.Fatalf("write resource: %v", err)
+			}
+			cmd := NewCmd()
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetArgs([]string{"validate", "-f", resourceFile})
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("admin validate error: %v", err)
+			}
+			if got := stdout.String(); got != tc.want {
+				t.Fatalf("admin validate output = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func raidsVoiceValidationFixture(providerKind, id, extension string) string {
+	if extension == ".json" {
+		return fmt.Sprintf(`{
   "apiVersion":"gizclaw.admin/v1alpha1",
   "kind":"Voice",
-  "metadata":{"id":"minimax-tenant:minimax-cn:Arabic_CalmWoman"},
-  "spec":{"source":"manual","provider":{"kind":"minimax-tenant","id":"minimax-cn"},"display_name":"Calm Woman","provider_data":{"voice_id":"Arabic_CalmWoman","voice_type":"system"}}
-}`,
-			want: "{\"valid\":true,\"kind\":\"Voice\",\"id\":\"minimax-tenant:minimax-cn:Arabic_CalmWoman\"}\n",
-		},
-		{
-			name:      "Eino YAML",
-			extension: ".yaml",
-			input: `
+  "metadata":{"id":%q},
+  "spec":{"source":"manual","provider":{"kind":%q,"id":"provider-main"},"display_name":"Voice","provider_data":{"voice_id":"voice-main","voice_type":"system"}}
+}`, id, providerKind)
+	}
+	return fmt.Sprintf(`
+apiVersion: gizclaw.admin/v1alpha1
+kind: Voice
+metadata:
+  id: %q
+spec:
+  source: manual
+  provider:
+    kind: %s
+    id: provider-main
+  display_name: Voice
+  provider_data:
+    voice_id: voice-main
+    voice_type: system
+`, id, providerKind)
+}
+
+func raidsEinoValidationFixture(form, id, extension string) string {
+	messageJSON := `{"role":"system","template":"Be helpful."}`
+	messageYAML := "        - role: system\n          template: Be helpful."
+	if form == "placeholder" {
+		messageJSON = `{"placeholder":"history","optional":true}`
+		messageYAML = "        - placeholder: history\n          optional: true"
+	}
+	if extension == ".json" {
+		return fmt.Sprintf(`{
+  "apiVersion":"gizclaw.admin/v1alpha1",
+  "kind":"Workflow",
+  "metadata":{"id":%q},
+  "spec":{"driver":"eino","eino":{"graph":{
+    "name":"history",
+    "compile":{"node_trigger_mode":"any_predecessor"},
+    "state":{"fields":[{"name":"messages","type":"messages","merge":"replace"}]},
+    "nodes":[{"id":"prompt","type":"prompt","inputs":{"history":{"from":"input.messages"}},"outputs":{"messages":"messages"},"format":"f_string","messages":[%s]}],
+    "edges":[{"from":"start","to":"prompt"},{"from":"prompt","to":"end"}],
+    "branches":[],
+    "outputs":[{"node":"prompt","field":"messages","name":"assistant","mime_type":"application/json","primary":true}]
+  }}}
+}`, id, messageJSON)
+	}
+	return fmt.Sprintf(`
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
-  id: eino-history
+  id: %q
 spec:
   driver: eino
   eino:
@@ -541,10 +620,7 @@ spec:
           messages: messages
         format: f_string
         messages:
-        - role: system
-          template: Be helpful.
-        - placeholder: history
-          optional: true
+%s
       edges:
       - from: start
         to: prompt
@@ -557,28 +633,7 @@ spec:
         name: assistant
         mime_type: application/json
         primary: true
-`,
-			want: "{\"valid\":true,\"kind\":\"Workflow\",\"id\":\"eino-history\"}\n",
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			resourceFile := filepath.Join(t.TempDir(), "resource"+tc.extension)
-			if err := os.WriteFile(resourceFile, []byte(tc.input), 0o644); err != nil {
-				t.Fatalf("write resource: %v", err)
-			}
-			cmd := NewCmd()
-			var stdout bytes.Buffer
-			cmd.SetOut(&stdout)
-			cmd.SetArgs([]string{"validate", "-f", resourceFile})
-			if err := cmd.Execute(); err != nil {
-				t.Fatalf("admin validate error: %v", err)
-			}
-			if got := stdout.String(); got != tc.want {
-				t.Fatalf("admin validate output = %q, want %q", got, tc.want)
-			}
-		})
-	}
+`, id, messageYAML)
 }
 
 func TestAdminResourceValidateFailuresAreRedacted(t *testing.T) {
