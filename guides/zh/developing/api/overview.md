@@ -8,6 +8,7 @@
 
 ```text
 api/
+├── embed.go                   # 为运行时 contract consumer 提供嵌入的 HTTP 与 Protobuf source filesystem
 ├── http/
 │   ├── admin.json              # Admin HTTP surface
 │   ├── peer.json               # Public/Peer HTTP 与 WebRTC signaling surface

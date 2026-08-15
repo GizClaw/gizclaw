@@ -2,6 +2,7 @@ package apitypes
 
 import (
 	"errors"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -174,6 +175,29 @@ func TestResourceValidatorRejectsMissingInitializedSchema(t *testing.T) {
 	}}
 	if err := validator.validate([]byte(validCredentialResource)); err == nil || !strings.Contains(err.Error(), "returned no schema") {
 		t.Fatalf("validate() error = %v, want missing schema error", err)
+	}
+}
+
+func TestReadEmbeddedAPIFile(t *testing.T) {
+	data, err := readEmbeddedAPIFile(nil, &url.URL{Path: "http/resources/resource.json"})
+	if err != nil {
+		t.Fatalf("readEmbeddedAPIFile() error = %v", err)
+	}
+	if !strings.Contains(string(data), `"Resource"`) {
+		t.Fatal("embedded Resource schema does not contain Resource")
+	}
+
+	for _, location := range []*url.URL{
+		nil,
+		{Scheme: "https", Host: "example.com", Path: "/schema.json"},
+		{Path: "../outside.json"},
+	} {
+		if _, err := readEmbeddedAPIFile(nil, location); !errors.Is(err, openapi3.ErrURINotSupported) {
+			t.Fatalf("readEmbeddedAPIFile(%v) error = %v, want ErrURINotSupported", location, err)
+		}
+	}
+	if _, err := readEmbeddedAPIFile(nil, &url.URL{Path: "http/missing.json"}); err == nil {
+		t.Fatal("readEmbeddedAPIFile() missing file error = nil")
 	}
 }
 

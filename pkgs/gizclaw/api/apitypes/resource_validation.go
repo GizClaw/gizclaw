@@ -3,20 +3,19 @@ package apitypes
 import (
 	"bytes"
 	"context"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
+	"path"
 	"slices"
 	"strings"
 	"sync"
 
+	apiassets "github.com/GizClaw/gizclaw-go/api"
 	"github.com/getkin/kin-openapi/openapi3"
 )
-
-//go:embed types_resolved.json
-var resolvedResourceSchema []byte
 
 // ResourceValidationIssue describes one value-redacted OpenAPI schema failure.
 type ResourceValidationIssue struct {
@@ -77,9 +76,12 @@ func (v *resourceValidator) validate(data []byte) error {
 }
 
 func loadBundledResourceSchema() (*openapi3.Schema, error) {
-	doc, err := openapi3.NewLoader().LoadFromData(resolvedResourceSchema)
+	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = true
+	loader.ReadFromURIFunc = readEmbeddedAPIFile
+	doc, err := loader.LoadFromFile("http/resources/resource.json")
 	if err != nil {
-		return nil, fmt.Errorf("load embedded Resource schema: %w", err)
+		return nil, fmt.Errorf("load embedded Resource schema sources: %w", err)
 	}
 	resource, ok := doc.Components.Schemas["Resource"]
 	if !ok || resource == nil || resource.Value == nil {
@@ -90,6 +92,21 @@ func loadBundledResourceSchema() (*openapi3.Schema, error) {
 		return nil, fmt.Errorf("validate embedded Resource schema: %w", err)
 	}
 	return resource.Value, nil
+}
+
+func readEmbeddedAPIFile(_ *openapi3.Loader, location *url.URL) ([]byte, error) {
+	if location == nil || location.Scheme != "" || location.Host != "" {
+		return nil, openapi3.ErrURINotSupported
+	}
+	name := path.Clean(strings.TrimPrefix(location.Path, "/"))
+	if name == "." || name == ".." || strings.HasPrefix(name, "../") {
+		return nil, openapi3.ErrURINotSupported
+	}
+	data, err := apiassets.Files.ReadFile(name)
+	if err != nil {
+		return nil, fmt.Errorf("read embedded API source %q: %w", name, err)
+	}
+	return data, nil
 }
 
 func decodeResourceJSONValue(data []byte) (any, error) {

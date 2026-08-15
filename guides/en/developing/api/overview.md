@@ -8,6 +8,7 @@ The root directory `api/` is the source of truth for GizClaw’s external agreem
 
 ```text
 api/
+├── embed.go                   # embedded HTTP and protobuf source filesystem for runtime contract consumers
 ├── http/
 │   ├── admin.json              # Admin HTTP surface
 │   ├── peer.json               # Public/Peer HTTP and WebRTC signaling surface
