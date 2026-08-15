@@ -19,6 +19,8 @@ API 变更必须从根 `api/` 的 source schema 开始。禁止直接修改由�
 go generate ./pkgs/gizclaw/api/...
 ```
 
+`api` Go package 会嵌入仓库拥有的完整 `api/http` 与 `api/proto` source tree。离线 Resource 校验等运行时 contract consumer 直接从 embedded filesystem 读取这些原始定义，不再提交另一份 resolved schema 副本。`pkgs/gizclaw/api/apitypes/types_resolved.json` 继续作为仅用于生成 `apitypes/generated.go` 的 ignored intermediate。使用 `go generate ./pkgs/gizclaw/api/apitypes` 刷新 Go 生成结果；生成后执行 `git diff --exit-code -- pkgs/gizclaw/api/apitypes/generated.go` 可以确认结果保持新鲜。
+
 ## 一次完整变更
 
 ```mermaid

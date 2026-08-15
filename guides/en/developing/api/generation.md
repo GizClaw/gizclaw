@@ -19,6 +19,8 @@ The full Go API is available:
 go generate ./pkgs/gizclaw/api/...
 ```
 
+The `api` Go package embeds the complete repository-owned `api/http` and `api/proto` source trees. Runtime contract consumers, including offline Resource validation, read those original definitions from the embedded filesystem instead of committing another resolved schema copy. `pkgs/gizclaw/api/apitypes/types_resolved.json` remains an ignored intermediate used only to generate `apitypes/generated.go`. Refresh the generated Go output with `go generate ./pkgs/gizclaw/api/apitypes`; a clean generation followed by `git diff --exit-code -- pkgs/gizclaw/api/apitypes/generated.go` verifies freshness.
+
 ## A complete change
 
 ```mermaid

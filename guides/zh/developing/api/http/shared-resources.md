@@ -50,6 +50,8 @@ Resource spec 中引用另一个 Admin Resource 的字段必须直接保存目�
 
 `Credential.spec.body` 是 write-only 字段。Apply 与 put 接受它，get、delete 和其他 Resource 读取响应不返回它。用不含 body 的读取结果重新 apply 时，Server 保留已有 credential，不会清空 secret，也不会误报 update。
 
+`CredentialBody` 使用 `anyOf`，因为不同 provider 的 body shape 有意重叠，例如多个 provider 都接受 `api_key`。外层 `Credential.provider` 负责选择 provider，Server credential service 负责校验 provider/body 组合与非空字段规则。Schema validation 只能证明 body 至少符合一种受支持的 wire shape，不会验证凭据，也不会证明它适用于声明的 provider。
+
 ### 核心数据与 Display
 
 Resource 的数据首先按语义分为两类：

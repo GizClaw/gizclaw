@@ -25,6 +25,7 @@ require (
 	github.com/dgraph-io/badger/v4 v4.9.5
 	github.com/eino-contrib/jsonschema v1.0.3
 	github.com/felixge/httpsnoop v1.1.0
+	github.com/getkin/kin-openapi v0.133.0
 	github.com/goccy/go-yaml v1.19.2
 	github.com/gofiber/fiber/v2 v2.52.14
 	github.com/gogo/protobuf v1.3.2
@@ -123,7 +124,6 @@ require (
 	github.com/envoyproxy/go-control-plane/envoy v1.37.0 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
 	github.com/expr-lang/expr v1.17.8 // indirect
-	github.com/getkin/kin-openapi v0.133.0 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
