@@ -40,6 +40,11 @@ The logical `objectstore` borrows it and applies its configured prefix once.
 Non-overlapping logical prefixes may share one connector; the registry rejects
 equal or parent/child overlap before listeners open.
 
+The startup probe confirms that the existing bucket/container can be found and
+read with the configured identity. It cannot prove Put/Delete authorization.
+Those permission failures return as redacted runtime ObjectStore errors; run the
+credential-backed conformance suite to validate the complete permission set.
+
 ```yaml
 storage:
   profile-files:

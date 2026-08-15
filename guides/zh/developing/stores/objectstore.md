@@ -38,6 +38,10 @@ readiness probe，并在逻辑 Stores 之后关闭 transport。逻辑 `objectsto
 且只应用一次配置 prefix。多个不重叠的 logical prefix 可以共享 connector；相同或
 父子重叠会在 listener 打开前被 registry 拒绝。
 
+Startup probe 只确认配置身份能够找到并读取既有 bucket/container，不能证明 Put/Delete
+authorization。相关权限失败会作为经过 redaction 的 runtime ObjectStore error 返回；完整
+permission set 必须通过 credential-backed conformance suite 验证。
+
 ```yaml
 storage:
   profile-files:

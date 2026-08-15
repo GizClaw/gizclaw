@@ -92,6 +92,58 @@ func TestProcessProfilerCleansFailedSet(t *testing.T) {
 	}
 }
 
+type failingProfilingDeleteStore struct {
+	objectstore.ObjectStore
+	failures int
+}
+
+func (s *failingProfilingDeleteStore) DeletePrefix(prefix string) error {
+	if s.failures > 0 {
+		s.failures--
+		return errors.New("delete failed")
+	}
+	return s.ObjectStore.DeletePrefix(prefix)
+}
+
+func TestProcessProfilerRetriesFailedCleanupBeforeNextCapture(t *testing.T) {
+	base := newProfilingTestStore(t)
+	store := &failingProfilingDeleteStore{ObjectStore: base, failures: 1}
+	now := time.Date(2026, 8, 15, 1, 2, 3, 0, time.UTC)
+	failCapture := true
+	profiler, err := newProcessProfiler(store, profilingOptions{
+		now: func() time.Time { return now }, pid: 8, maxBytes: 1024,
+		capture: func(kind string, writer io.Writer) error {
+			if failCapture && kind == "allocs" {
+				return errors.New("capture failed")
+			}
+			_, err := io.WriteString(writer, kind)
+			return err
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := profiler.baseline(); err == nil || !strings.Contains(err.Error(), "delete failed") {
+		t.Fatalf("first capture error = %v", err)
+	}
+	failCapture = false
+	if err := profiler.captureSet(1, now.Add(time.Second), false); err != nil {
+		t.Fatal(err)
+	}
+	items, err := base.List("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 4 {
+		t.Fatalf("objects after retry = %#v", items)
+	}
+	for _, item := range items {
+		if strings.Contains(item.Name, "000000-baseline") {
+			t.Fatalf("failed partial set survived retry: %q", item.Name)
+		}
+	}
+}
+
 func TestProcessProfilerRotatesOldestSets(t *testing.T) {
 	store := newProfilingTestStore(t)
 	start := time.Date(2026, 8, 15, 1, 2, 3, 0, time.UTC)
@@ -158,6 +210,31 @@ func TestProcessProfilerRejectsManifestPathMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := profiler.loadCompletedSets(""); err == nil || !strings.Contains(err.Error(), "invalid profiling manifest") {
+		t.Fatalf("loadCompletedSets() error = %v", err)
+	}
+}
+
+func TestProcessProfilerRejectsSameSizeDigestMismatch(t *testing.T) {
+	store := newProfilingTestStore(t)
+	now := time.Date(2026, 8, 15, 1, 2, 3, 0, time.UTC)
+	profiler, err := newProcessProfiler(store, profilingOptions{
+		now: func() time.Time { return now }, pid: 14, maxBytes: 1024,
+		capture: func(kind string, writer io.Writer) error {
+			_, err := io.WriteString(writer, kind)
+			return err
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := profiler.baseline(); err != nil {
+		t.Fatal(err)
+	}
+	name := "runs/20260815T010203.000000000Z-pid-14/000000-baseline/heap.pprof"
+	if err := store.Put(name, strings.NewReader("xxxx")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := profiler.loadCompletedSets(""); err == nil || !strings.Contains(err.Error(), "does not match manifest") {
 		t.Fatalf("loadCompletedSets() error = %v", err)
 	}
 }

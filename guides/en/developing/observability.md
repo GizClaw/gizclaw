@@ -54,9 +54,12 @@ runs/<UTC timestamp>-pid-<pid>/
 Each profile is streamed directly from `runtime/pprof`; `manifest.json` is
 written last and records the run, sequence, capture time, size, and SHA-256 of
 all three files. Only a valid manifest marks a completed set. Failed attempts
-remove their recognizable partial objects best-effort. Startup keeps valid sets
-from older runs, removes recognizable manifest-less sets, and fails safely on
-malformed manifests or unrecognized names instead of deleting unknown data.
+remove their recognizable partial objects best-effort. If cleanup fails, the
+next attempt retries that exact prefix before uploading anything new. Startup
+keeps sets from older runs only after streaming every referenced profile and
+verifying its size and SHA-256, removes recognizable manifest-less sets, and
+fails safely on malformed manifests or unrecognized names instead of deleting
+unknown data.
 
 Retention covers all runs and includes baselines: at most 576 completed sets
 and 1 GiB of profile bytes. A candidate also has one shared 1 GiB streaming

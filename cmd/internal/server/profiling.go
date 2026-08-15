@@ -60,6 +60,7 @@ type processProfiler struct {
 	store    objectstore.ObjectStore
 	run      string
 	options  profilingOptions
+	pending  map[string]struct{}
 	cancel   context.CancelFunc
 	wait     sync.WaitGroup
 	sequence uint64
@@ -87,12 +88,12 @@ func newProcessProfiler(store objectstore.ObjectStore, options profilingOptions)
 	if options.capture == nil {
 		options.capture = captureRuntimeProfile
 	}
-	if options.pid <= 0 || options.interval <= 0 || options.maxSets <= 0 || options.maxBytes <= 0 {
+	if options.pid <= 0 || options.interval <= 0 || options.maxSets <= 0 || options.maxBytes <= 0 || options.maxBytes > profilingMaxBytes {
 		return nil, errors.New("profiling: invalid internal limits")
 	}
 	now := options.now().UTC()
 	run := fmt.Sprintf("%s-pid-%d", profilingTimestamp(now), options.pid)
-	profiler := &processProfiler{store: store, run: run, options: options}
+	profiler := &processProfiler{store: store, run: run, options: options, pending: map[string]struct{}{}}
 	runItems, err := store.List("runs/" + run)
 	if err != nil {
 		return nil, fmt.Errorf("profiling: check run collision: %w", err)
@@ -155,13 +156,20 @@ func (p *processProfiler) stop() {
 }
 
 func (p *processProfiler) captureSet(sequence uint64, capturedAt time.Time, baseline bool) (err error) {
+	if err := p.retryPendingCleanup(); err != nil {
+		return err
+	}
 	prefix := p.setPrefix(sequence, capturedAt, baseline)
 	remaining := p.options.maxBytes
 	manifest := profilingManifest{Version: 1, Run: p.run, Sequence: sequence, CapturedAt: capturedAt}
 	complete := false
 	defer func() {
 		if !complete {
-			err = errors.Join(err, p.store.DeletePrefix(prefix))
+			cleanupErr := p.store.DeletePrefix(prefix)
+			if cleanupErr != nil {
+				p.pending[prefix] = struct{}{}
+			}
+			err = errors.Join(err, cleanupErr)
 		}
 	}()
 	for _, kind := range []string{"heap", "allocs", "goroutine"} {
@@ -182,6 +190,16 @@ func (p *processProfiler) captureSet(sequence uint64, capturedAt time.Time, base
 		return fmt.Errorf("profiling: publish manifest: %w", err)
 	}
 	complete = true
+	return nil
+}
+
+func (p *processProfiler) retryPendingCleanup() error {
+	for prefix := range p.pending {
+		if err := p.store.DeletePrefix(prefix); err != nil {
+			return fmt.Errorf("profiling: retry cleanup %q: %w", prefix, err)
+		}
+		delete(p.pending, prefix)
+	}
 	return nil
 }
 
@@ -335,8 +353,11 @@ func (p *processProfiler) loadCompletedSets(preservePrefix string) ([]completedP
 		if err != nil {
 			return nil, err
 		}
-		set, err := validateProfilingManifest(group.run, group.prefix, group.sequence, group.captured, group.baseline, manifest, group.files)
+		set, err := validateProfilingManifest(group.run, group.prefix, group.sequence, group.captured, group.baseline, manifest, group.files, p.options.maxBytes)
 		if err != nil {
+			return nil, err
+		}
+		if err := p.verifyCompletedSet(set); err != nil {
 			return nil, err
 		}
 		completed = append(completed, set)
@@ -364,7 +385,7 @@ func (p *processProfiler) readManifest(name string) (profilingManifest, error) {
 	return manifest, nil
 }
 
-func validateProfilingManifest(run, prefix string, sequence uint64, captured time.Time, baseline bool, manifest profilingManifest, files map[string]objectstore.ObjectInfo) (completedProfileSet, error) {
+func validateProfilingManifest(run, prefix string, sequence uint64, captured time.Time, baseline bool, manifest profilingManifest, files map[string]objectstore.ObjectInfo, maxBytes int64) (completedProfileSet, error) {
 	if manifest.Version != 1 || manifest.Run != run || manifest.Sequence != sequence || manifest.CapturedAt.IsZero() || len(manifest.Profiles) != 3 {
 		return completedProfileSet{}, fmt.Errorf("invalid profiling manifest %q", prefix+"/manifest.json")
 	}
@@ -374,7 +395,7 @@ func validateProfilingManifest(run, prefix string, sequence uint64, captured tim
 	want := map[string]struct{}{"heap.pprof": {}, "allocs.pprof": {}, "goroutine.pprof": {}}
 	bytes := int64(0)
 	for _, profile := range manifest.Profiles {
-		if _, ok := want[profile.Name]; !ok || profile.Size < 0 || len(profile.SHA256) != sha256.Size*2 {
+		if _, ok := want[profile.Name]; !ok || profile.Size < 0 || profile.Size > maxBytes || len(profile.SHA256) != sha256.Size*2 {
 			return completedProfileSet{}, fmt.Errorf("invalid profiling manifest entry in %q", prefix+"/manifest.json")
 		}
 		if _, err := hex.DecodeString(profile.SHA256); err != nil {
@@ -391,6 +412,26 @@ func validateProfilingManifest(run, prefix string, sequence uint64, captured tim
 		return completedProfileSet{}, fmt.Errorf("profiling set %q has unexpected files", prefix)
 	}
 	return completedProfileSet{run: run, prefix: prefix, captured: manifest.CapturedAt, bytes: bytes, manifest: manifest}, nil
+}
+
+func (p *processProfiler) verifyCompletedSet(set completedProfileSet) error {
+	for _, profile := range set.manifest.Profiles {
+		name := set.prefix + "/" + profile.Name
+		reader, err := p.store.Get(name)
+		if err != nil {
+			return fmt.Errorf("verify profile %q: %w", name, err)
+		}
+		hasher := sha256.New()
+		read, readErr := io.Copy(hasher, io.LimitReader(reader, profile.Size+1))
+		readErr = errors.Join(readErr, reader.Close())
+		if readErr != nil {
+			return fmt.Errorf("verify profile %q: %w", name, readErr)
+		}
+		if read != profile.Size || !strings.EqualFold(hex.EncodeToString(hasher.Sum(nil)), profile.SHA256) {
+			return fmt.Errorf("profiling profile %q does not match manifest", name)
+		}
+	}
+	return nil
 }
 
 func (p *processProfiler) deleteCompletedSet(set completedProfileSet) error {

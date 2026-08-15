@@ -51,9 +51,11 @@ runs/<UTC timestamp>-pid-<pid>/
 
 每个 profile 直接从 `runtime/pprof` 流式写入；最后写入的 `manifest.json` 记录 run、
 sequence、capture time、三个文件的 size 与 SHA-256。只有 valid manifest 才表示完整
-set。失败 attempt 会尽力删除可识别的 partial objects。Startup 保留旧 run 的 valid
-set、清理可识别的 manifest-less set；遇到 malformed manifest 或未知 name 时安全失败，
-不会删除未知数据。
+set。失败 attempt 会尽力删除可识别的 partial objects；cleanup 失败时，下一次 attempt
+会先重试该精确 prefix，成功前不会上传新 set。
+Startup 会流式读取 manifest 引用的每个 profile 并验证实际 size 与 SHA-256，再保留旧
+run 的 set，同时清理可识别的 manifest-less set；遇到 malformed manifest 或未知 name
+时安全失败，不会删除未知数据。
 
 Retention 跨所有 run 且 baseline 计数：最多 576 个 completed sets 和 1 GiB profile
 bytes。单个 candidate 也共享一个 1 GiB streaming limit。Rotation 先删最旧 manifest，
