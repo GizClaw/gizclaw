@@ -37,7 +37,7 @@ The main capability groups are:
 
 Friend Group groups, invite tokens, members, and belongs are code-owned scopes over one Service Store, so they share one atomic KV transaction boundary. Shared ObjectStores require non-empty, clean, non-overlapping prefixes. Missing references, wrong kinds, immutable Flowcraft History, and unknown fields fail before listeners open.
 
-Startup strictly parses the configuration, opens physical connectors, builds logical Stores, resolves service capabilities, lets active SQL-backed services validate their schemas, installs logging and metrics, and only then opens listeners. Logical Stores never close borrowed connectors. Shutdown closes logical wrappers before physical connectors.
+Startup strictly parses the configuration, opens physical connectors, builds logical Stores, resolves service capabilities, lets active SQL-backed services validate their schemas, and installs logging and metrics. After workspace PID ownership is acquired, optional process profiling resolves its dedicated ObjectStore and publishes a baseline; only then are public listeners opened and `Server.Listen` started. Logical Stores never close borrowed connectors. Shutdown joins the profiling worker before closing logging, logical wrappers, and physical connectors. Process profiling belongs to `cmd/internal/server`; the reusable `pkgs/gizclaw.Server` has no pprof dependency.
 
 The old one-layer Store configuration, top-level pseudo-service blocks, implicit Store names, generic `kind: log`, and `gizclaw migrate` command are unsupported. Recreate development workspaces with the current configuration; no old data is imported or transformed. Gameplay and ClickHouse Store table initialization remain active schema lifecycle, not old-data migration.
 

@@ -65,6 +65,10 @@ flowchart TB
 | `badger` | `dir` |
 | `memory` | 无属性 |
 | `filesystem.dir` | `dir` |
+| `volc-tos` | HTTPS endpoint、region、既有 bucket、key pair 与可选 session token |
+| `aliyun-oss` | HTTPS endpoint、既有 bucket、key pair 与可选 security token |
+| `gcs` | 既有 bucket 与可选 Application Default Credentials 文件 |
+| `azure-blob` | HTTPS account URL 与既有 container；身份来自 Azure Default Credential |
 | `sqlite` | `dir` 或 `dsn` 二选一 |
 | `postgresql`、`clickhouse` | `dsn` |
 | `prometheus` | remote-write/query URL 与可选 bearer token |
@@ -82,12 +86,18 @@ physical, err := storage.New(map[string]storage.Config{
 ```
 
 具体实现包括 `BadgerConfig`、`MemoryConfig`、`FilesystemDirConfig`、
-`SQLiteConfig`、`PostgreSQLConfig`、`ClickHouseConfig`、`PrometheusConfig`
-和 `VolcTLSConfig`。因此 Go 调用方不能为 PostgreSQL 传入 `dir`，也不能为
+`SQLiteConfig`、`PostgreSQLConfig`、`ClickHouseConfig`、`PrometheusConfig`、
+`VolcTLSConfig`、`VolcTOSConfig`、`AliyunOSSConfig`、`GCSConfig` 和
+`AzureBlobConfig`。因此 Go 调用方不能为 PostgreSQL 传入 `dir`，也不能为
 Badger 传入 DSN 或 provider credential。`cmd/internal/server` 保留扁平 YAML DTO，
 根据 `kind` 显式转换为对应的具体 Go 类型；YAML 字段不会进入公共配置类型。
 
 多个 Store 可以借用同一个 connector；调用方必须先关闭逻辑 `Stores`，再关闭物理 `Storage`。`memory` 只是无状态 marker，每个引用它的 keyvalue 或 metrics Store 都创建独立实例。`vecstore` 与 `graph` 没有内置 Server 消费者，因此不属于命令层 Store 配置；对应公共 package 与构造函数仍保留。RuntimeProfile 与 MemoryLayout 选择的 Memory connection 仍在此 registry 之外。
+
+`objectstore` 与 `filesystem.dir`、`volc-tos`、`aliyun-oss`、`gcs` 和
+`azure-blob` 兼容。物理 Storage 拥有 official SDK client、readiness probe、
+transport、retry policy 与关闭；逻辑 ObjectStore 借用 client，只应用一次 prefix，
+且不关闭 client。因此多个不重叠的逻辑 prefix 可以共享同一个 cloud connector。
 
 SQLite/PostgreSQL KV 只声明一个单段 `prefix`；后端把它直接作为带引号的物理表名，表内 key 不再重复增加该 prefix。Metrics 和 Log Store 继续声明 `table`。这些物理名称都必须是未限定、最长 63 bytes 的 ASCII 名称；KV prefix 还可包含 `-`。Registry 只独立校验每一份声明，不保留表名，也不比较不同 Store 声明。构造函数直接用幂等的 `CREATE ... IF NOT EXISTS` 保证业务表与索引存在，再校验当前 adapter 所要求的列、主键、identity 和索引；它不创建 schema version/history 表，也不导入或重写既有 backend 数据。兼容的既有表会直接复用，不兼容的定义会在该 adapter 构造时失败。逻辑 `Close` 只关闭 adapter 状态，不关闭借用的 `*sqlx.DB`。
 

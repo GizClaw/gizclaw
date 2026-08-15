@@ -138,6 +138,17 @@ func resolveWorkspaceStorageConfigs(root string, cfgs map[string]storage.Config)
 			copy := *cfg
 			copy.Dir = resolveWorkspaceDir(root, copy.Dir)
 			resolved[name] = copy
+		case storage.GCSConfig:
+			cfg.CredentialsFile = resolveWorkspaceDir(root, cfg.CredentialsFile)
+			resolved[name] = cfg
+		case *storage.GCSConfig:
+			if cfg == nil {
+				resolved[name] = cfg
+				continue
+			}
+			copy := *cfg
+			copy.CredentialsFile = resolveWorkspaceDir(root, copy.CredentialsFile)
+			resolved[name] = copy
 		default:
 			resolved[name] = cfg
 		}
@@ -205,6 +216,26 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 	defer func() {
 		err = errors.Join(err, closeLogger())
 	}()
+	releasePID, err := acquireWorkspacePID(root, opts.Force)
+	if err != nil {
+		return err
+	}
+	defer releasePID()
+	profilingStore, err := resolveProfilingStore(storeRegistry, cfg.Profiling)
+	if err != nil {
+		return err
+	}
+	if cfg.Profiling.Enabled {
+		profiler, err := newProcessProfiler(profilingStore, profilingOptions{})
+		if err != nil {
+			return err
+		}
+		if err := profiler.baseline(); err != nil {
+			return fmt.Errorf("server: profiling baseline: %w", err)
+		}
+		profiler.start(ctx)
+		defer profiler.stop()
+	}
 	publicListener, err := net.Listen("tcp", cfg.PublicAPIListenAddr())
 	if err != nil {
 		return fmt.Errorf("server: listen tcp mux: %w", err)
@@ -218,12 +249,6 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 	}
 	defer srv.Close()
 	publicHTTP := &http.Server{Handler: srv}
-	releasePID, err := acquireWorkspacePID(root, opts.Force)
-	if err != nil {
-		return err
-	}
-	defer releasePID()
-
 	if err := srv.Listen(); err != nil {
 		return err
 	}

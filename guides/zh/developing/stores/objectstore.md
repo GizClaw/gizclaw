@@ -1,44 +1,87 @@
 # pkgs/store/objectstore
 
-`pkgs/store/objectstore` 定义 prefix-addressable binary object storage。Object name 是 slash-separated key；调用方可以读写单个 object、按 prefix 列举或删除，并为 object 设置 deadline 或 TTL。
+`pkgs/store/objectstore` 定义 provider-neutral、prefix-addressable 的 binary object
+storage。Object name 是相对的 slash-separated key；调用方可以流式读写单个 object、
+列举或删除 prefix，并设置 deadline 或 TTL。
 
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/store/objectstore)
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/objectstore)
 
-## 核心结构与实现
+## 契约与 ownership
 
 | 符号 | 作用 |
 | --- | --- |
-| `ObjectStore` | 定义 Get、Put、expiration、Delete、DeletePrefix 与 List。 |
-| `ObjectInfo` | 返回 object name、size 和 deadline。 |
-| `LocalDirProvider` | 允许调用方识别 local filesystem backend。 |
-| `Root` / `NewRoot` | 唯一的 filesystem ObjectStore 实现；借用物理 `*os.Root` 执行 rooted 操作且不关闭 Root。 |
+| `ObjectStore` | Get、流式覆盖、expiration、幂等 Delete、DeletePrefix 与 List |
+| `ObjectInfo` | Object name、size 与 deadline |
+| `Root` / `NewRoot` | 借用 rooted local filesystem handle |
+| `NewVolcTOS`、`NewAliyunOSS`、`NewGCS`、`NewAzureBlob` | 借用由物理 Storage 持有的 official cloud SDK client |
+| `LocalDirProvider` | 只识别 local filesystem-backed store |
 
-## 主要用途
+Name 必须是相对且规范化的 slash key。空 object name、absolute path、parent
+traversal 和保留的 `.objectstore-meta` namespace 会被拒绝。Put 精确替换一个
+object，并只在 backend 确认后返回。Get 缺失或过期 object 的错误匹配
+`fs.ErrNotExist`；Delete 幂等。List 消费 provider 全部分页，以完整 path segment
+限定 prefix，并按 name 确定性字典序返回。
 
-Workspace history、Agent memory binary data、Gameplay pixa 和 HNSW vector index persistence 使用 Object Store。Firmware OTA package 是 external HTTPS resource，不存放在这里。
+Cloud object 的 expiration 使用 GizClaw-owned metadata `gizclaw-deadline`；zero
+deadline 会移除该 metadata。Get 与 List 隐藏过期 object，并尽力删除。Filesystem
+backend 使用语义相同的私有 sidecar metadata。调用方不能依赖 provider lifecycle
+rule 来实现此契约。
 
-## Ownership 边界
+Resource content type、authorization、命名策略和版本规则仍属于调用领域。
+ObjectStore 不创建 bucket/container、不提供 public URL，也不向 service 暴露
+provider SDK type。
 
-Object Store 把目录视为实现细节，不提供任意 filesystem 操作。资源 metadata、content type、authorization 和版本规则属于调用领域；objectstore 只拥有 binary object lifecycle。
+## Server 组合
 
-Workflow、Workspace、Peer 与 GameplayCatalog 等 owner 可以引用同一 physical ObjectStore，但必须由组装层注入不同的 scoped logical store。共享 physical storage 时，每个 logical store 的 prefix 必须非空、clean 且互不重叠；相同或父子 prefix 会在 Server 启动前被拒绝。
-
-Resource icon 仍由领域 service 管理固定 object name、格式校验、授权和删除顺序。ResourceManager 不接收 ObjectStore，也不存在通用 AssetService、binding 或跨 owner resolver。
-
-Server Config 中的 `storage` 打开并拥有一个物理 `*os.Root`。逻辑 ObjectStore 借用同一个 rooted handle 并选择 prefix；绝对路径、`..` 和越界 symlink 会由 `os.Root` 拒绝。Asset 与 AgentHost 消费者通过固定 `services` 字段显式绑定；关闭 scoped Store 不会关闭或破坏共享 connector。
+`storage` 打开并持有物理 root 或 official SDK client，执行 30 秒有界的只读
+readiness probe，并在逻辑 Stores 之后关闭 transport。逻辑 `objectstore` 借用它，
+且只应用一次配置 prefix。多个不重叠的 logical prefix 可以共享 connector；相同或
+父子重叠会在 listener 打开前被 registry 拒绝。
 
 ```yaml
 storage:
-  files:
-    kind: filesystem.dir
-    dir: data/files
+  profile-files:
+    kind: volc-tos
+    endpoint: https://tos-cn-beijing.volces.com
+    region: cn-beijing
+    bucket: example-profiles
+    access_key_id: ${VOLC_TOS_ACCESS_KEY_ID}
+    access_key_secret: ${VOLC_TOS_ACCESS_KEY_SECRET}
+    session_token: ${VOLC_TOS_SESSION_TOKEN}
 stores:
-  workspace-assets:
+  runtime-profiles:
     kind: objectstore
-    storage: files
-    prefix: workspaces
-services:
-  workspace:
-    store: workspaces
-    assets_store: workspace-assets
+    storage: profile-files
+    prefix: pprof
 ```
+
+支持的物理配置如下：
+
+| Kind | 必填字段 | 认证 |
+| --- | --- | --- |
+| `filesystem.dir` | `dir` | 进程 filesystem permission |
+| `volc-tos` | `endpoint`、`region`、`bucket`、`access_key_id`、`access_key_secret` | 可选 `session_token` |
+| `aliyun-oss` | `endpoint`、`bucket`、`access_key_id`、`access_key_secret` | 可选 `security_token` |
+| `gcs` | `bucket` | ADC，或可选 `credentials_file` |
+| `azure-blob` | `account_url`、`container` | `DefaultAzureCredential`（managed/workload identity、environment 或 developer credential） |
+
+Bucket/container 必须已经存在。Production endpoint 与 account URL 必须使用
+HTTPS。`${VAR}` 展开与 GCS credentials file 的 workspace 相对路径解析由
+`cmd/internal/server` 完成，credential 内容不会进入日志。配置的 GCS credential
+路径必须是可读 regular file。Azure credential 不进入 YAML。
+
+每个 cloud operation 固定为 30 秒上限，并使用有界 SDK retry。Alibaba OSS 的
+List response 不包含 custom metadata，所以 adapter 会为每个返回 object 再请求
+metadata，这会产生请求量和计费成本；其他 adapter 使用各自 list API 返回的 metadata。
+DeletePrefix 同样会读取全部页面并逐项删除，operator 应使用专用 prefix，并计入
+provider 请求成本。
+
+正常 error 文本不会暴露 credential、Authorization、signed query parameter 或 raw
+response body。Production 不应记录 wrapped provider error，也不应启用 SDK wire log。
+Cleanup 或 retention 失败属于未完成操作，应由拥有该 feature 的 owner 重试。
+
+## 主要用途
+
+Workspace 与 Gameplay assets、Agent Host runtime data、HNSW persistence 和 Server
+process profile 使用 ObjectStore。Firmware OTA package 仍是 external HTTPS resource，
+不存放在这里。

@@ -85,6 +85,29 @@ func TestFilesystemDirDescriptor(t *testing.T) {
 	}
 }
 
+func TestCloudObjectStorageConfigValidationFailsBeforeNetwork(t *testing.T) {
+	tests := map[string]Config{
+		"volc-tos":   VolcTOSConfig{Endpoint: "http://tos.example", Region: "region", Bucket: "bucket", AccessKeyID: "id", AccessKeySecret: "supersecretvalue"},
+		"aliyun-oss": AliyunOSSConfig{Endpoint: "https://oss.example", Bucket: "bucket", AccessKeyID: "id"},
+		"gcs":        GCSConfig{},
+		"azure-blob": AzureBlobConfig{AccountURL: "http://account.example", Container: "container"},
+	}
+	for name, cfg := range tests {
+		t.Run(name, func(t *testing.T) {
+			registry, err := New(map[string]Config{name: cfg})
+			if registry != nil {
+				_ = registry.Close()
+			}
+			if err == nil {
+				t.Fatal("New succeeded")
+			}
+			if strings.Contains(err.Error(), "supersecretvalue") {
+				t.Fatalf("error leaked secret: %v", err)
+			}
+		})
+	}
+}
+
 func TestSQLiteDirAndDSN(t *testing.T) {
 	for name, cfg := range map[string]Config{
 		"dir": SQLiteConfig{Dir: filepath.Join(t.TempDir(), "dir.sqlite")},

@@ -13,6 +13,69 @@ Observability 用日志回答“某一次请求发生了什么”，用 metrics 
 - `pkgs/store/metrics.Store`，通过 Prometheus Remote Write 写入并通过 Prometheus HTTP API 查询；
 - Peer telemetry 的 battery、GNSS、network 和 system metrics。
 
+## 持久化 Go runtime profile
+
+Process profiling 是 opt-in 能力，由 `cmd/internal/server` 拥有；它不会注册
+`net/http/pprof`，也不会暴露 `/debug/pprof`。需要配置一个专用 logical
+ObjectStore，不能与 Workspace assets、Gameplay assets 或 Agent Host runtime data
+共享：
+
+```yaml
+storage:
+  profile-files:
+    kind: filesystem.dir
+    dir: data/profiles
+stores:
+  runtime-profiles:
+    kind: objectstore
+    storage: profile-files
+    prefix: pprof
+profiling:
+  enabled: true
+  store: runtime-profiles
+```
+
+配置缺失、`{}` 和 `enabled: false` 不执行 Store operation，也不启动 worker；但只要
+填写了 Store 名称，即使 disabled 也会验证引用。Enabled 时，command 在 listener
+打开前发布一次 baseline；此后每次 attempt 完成后等待五分钟再开始下一次。Attempt
+不会重叠，也不会 catch up。Shutdown 取消下一次 wait，让 active attempt 完成或清理，
+join worker 后才关闭 logging 与 Stores；shutdown 不额外采集 snapshot。
+
+完整证据的布局如下：
+
+```text
+runs/<UTC timestamp>-pid-<pid>/
+  000000-baseline/{heap.pprof,allocs.pprof,goroutine.pprof,manifest.json}
+  000001-<UTC timestamp>/{heap.pprof,allocs.pprof,goroutine.pprof,manifest.json}
+```
+
+每个 profile 直接从 `runtime/pprof` 流式写入；最后写入的 `manifest.json` 记录 run、
+sequence、capture time、三个文件的 size 与 SHA-256。只有 valid manifest 才表示完整
+set。失败 attempt 会尽力删除可识别的 partial objects。Startup 保留旧 run 的 valid
+set、清理可识别的 manifest-less set；遇到 malformed manifest 或未知 name 时安全失败，
+不会删除未知数据。
+
+Retention 跨所有 run 且 baseline 计数：最多 576 个 completed sets 和 1 GiB profile
+bytes。单个 candidate 也共享一个 1 GiB streaming limit。Rotation 先删最旧 manifest，
+再删对应 profiles，reader 不会把删除到一半的 set 误认为完整证据。Periodic failure
+只输出一条 structured warning，并在下一个五分钟 wait 后重试；baseline failure 会终止
+startup。
+
+Profile 包含 package、function 与 source/build path metadata。必须使用 operator-only
+bucket/container 与 prefix，禁止 public access 或作为 asset 提供，并通过 access-controlled
+channel 传输。安全下载后的常见分析命令如下：
+
+```sh
+go tool pprof -top heap.pprof
+go tool pprof -top -inuse_space heap.pprof
+go tool pprof -top -alloc_space allocs.pprof
+go tool pprof -top goroutine.pprof
+go tool pprof -top -base baseline/heap.pprof later/heap.pprof
+```
+
+比较时应尽量使用同一个 build 的 profiles。保存的 profile 是诊断证据，本身不能证明
+存在 leak，也不能直接归因 outage。
+
 ## 信号和 ownership
 
 | 层 | Ownership | 状态 |

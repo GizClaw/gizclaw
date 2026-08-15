@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -47,16 +48,49 @@ func validWorkspaceConfigData(t *testing.T, mutate func(*ConfigFile)) []byte {
 		Storage        map[string]storageFileConfig `yaml:"storage"`
 		Stores         map[string]storeFileConfig   `yaml:"stores"`
 		Services       *ServicesConfig              `yaml:"services"`
+		Profiling      ProfilingConfig              `yaml:"profiling,omitempty"`
 	}{
 		Identity: identity, Listen: cfg.Listen, Endpoint: cfg.Endpoint,
 		ServeToClients: cfg.ServeToClients, AdminPublicKey: cfg.AdminPublicKey,
-		Storage: cfg.Storage, Stores: cfg.Stores, Services: cfg.Services,
+		Storage: cfg.Storage, Stores: cfg.Stores, Services: cfg.Services, Profiling: cfg.Profiling,
 	}
 	data, err := yaml.MarshalWithOptions(raw, yaml.OmitEmpty())
 	if err != nil {
 		t.Fatalf("yaml.Marshal() error = %v", err)
 	}
 	return data
+}
+
+func TestResolveProfilingStoreValidatesNamedStoreWhileDisabled(t *testing.T) {
+	physical, err := storage.New(map[string]storage.Config{
+		"files":  storage.FilesystemDirConfig{Dir: t.TempDir()},
+		"memory": storage.MemoryConfig{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = physical.Close() })
+	registry, err := stores.New(map[string]stores.Config{
+		"profiles": {Kind: stores.KindObjectStore, Storage: "files", Prefix: "profiles"},
+		"wrong":    {Kind: stores.KindKeyValue, Storage: "memory"},
+	}, physical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+
+	resolved, err := resolveProfilingStore(registry, ProfilingConfig{Store: "profiles"})
+	if err != nil || resolved == nil {
+		t.Fatalf("resolve profiles = %T, %v", resolved, err)
+	}
+	for _, name := range []string{"missing", "wrong"} {
+		if _, err := resolveProfilingStore(registry, ProfilingConfig{Store: name}); err == nil || !strings.Contains(err.Error(), "profiling.store") {
+			t.Fatalf("resolve %q error = %v", name, err)
+		}
+	}
+	if resolved, err := resolveProfilingStore(registry, ProfilingConfig{}); err != nil || resolved != nil {
+		t.Fatalf("resolve absent = %T, %v", resolved, err)
+	}
 }
 
 func testStorageFileConfigs(configs map[string]storage.Config) map[string]storageFileConfig {
@@ -177,6 +211,64 @@ func TestServeContextServerInfoReportsTCPICE(t *testing.T) {
 	}
 	if info.Endpoint != addr {
 		t.Fatalf("server-info endpoint = %q, want %q", info.Endpoint, addr)
+	}
+}
+
+func TestServeContextProfilingLifecycle(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("enabled=%t", enabled), func(t *testing.T) {
+			addr := localTCPUDPAddr(t)
+			workspace := t.TempDir()
+			data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
+				cfg.Listen = addr
+				cfg.Endpoint = addr
+				cfg.ServeToClients = true
+				cfg.Storage["profile-files"] = storageFileConfig{Kind: storage.KindFilesystemDir, Dir: "data/profiles"}
+				cfg.Stores["runtime-profiling"] = storeFileConfig{Kind: stores.KindObjectStore, Storage: "profile-files", Prefix: "pprof"}
+				cfg.Profiling = ProfilingConfig{Enabled: enabled, Store: "runtime-profiling"}
+			})
+			if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			errCh := make(chan error, 1)
+			go func() {
+				errCh <- ServeContext(ctx, workspace, ServeOptions{Force: true})
+			}()
+			_ = waitForServerInfo(t, "http://"+addr+"/server-info")
+			cancel()
+			select {
+			case err := <-errCh:
+				if err != nil && !errors.Is(err, context.Canceled) {
+					t.Fatalf("ServeContext shutdown error = %v", err)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("ServeContext did not join profiling worker")
+			}
+
+			profileRoot := filepath.Join(workspace, "data", "profiles", "pprof")
+			files := 0
+			walkErr := filepath.WalkDir(profileRoot, func(_ string, entry os.DirEntry, err error) error {
+				if err == nil && !entry.IsDir() {
+					files++
+				}
+				return err
+			})
+			if !enabled && errors.Is(walkErr, fs.ErrNotExist) {
+				walkErr = nil
+			}
+			if walkErr != nil {
+				t.Fatal(walkErr)
+			}
+			want := 0
+			if enabled {
+				want = 4
+			}
+			if files != want {
+				t.Fatalf("profile files after shutdown = %d, want %d", files, want)
+			}
+		})
 	}
 }
 

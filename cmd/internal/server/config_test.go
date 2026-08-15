@@ -546,6 +546,29 @@ func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
 				AccessKeyID: "expanded/id", AccessKeySecret: "expanded/secret",
 			},
 		},
+		"volc-tos": {
+			file: storageFileConfig{
+				Kind: storage.KindVolcTOS, Endpoint: "${GIZCLAW_TEST_CONFIG_VALUE}/endpoint", Region: "${GIZCLAW_TEST_CONFIG_VALUE}/region",
+				Bucket: "${GIZCLAW_TEST_CONFIG_VALUE}/bucket", AccessKeyID: "${GIZCLAW_TEST_CONFIG_VALUE}/id",
+				AccessKeySecret: "${GIZCLAW_TEST_CONFIG_VALUE}/secret", SessionToken: "${GIZCLAW_TEST_CONFIG_VALUE}/token",
+			},
+			want: storage.VolcTOSConfig{Endpoint: "expanded/endpoint", Region: "expanded/region", Bucket: "expanded/bucket", AccessKeyID: "expanded/id", AccessKeySecret: "expanded/secret", SessionToken: "expanded/token"},
+		},
+		"aliyun-oss": {
+			file: storageFileConfig{
+				Kind: storage.KindAliyunOSS, Endpoint: "${GIZCLAW_TEST_CONFIG_VALUE}/endpoint", Bucket: "${GIZCLAW_TEST_CONFIG_VALUE}/bucket",
+				AccessKeyID: "${GIZCLAW_TEST_CONFIG_VALUE}/id", AccessKeySecret: "${GIZCLAW_TEST_CONFIG_VALUE}/secret", SecurityToken: "${GIZCLAW_TEST_CONFIG_VALUE}/token",
+			},
+			want: storage.AliyunOSSConfig{Endpoint: "expanded/endpoint", Bucket: "expanded/bucket", AccessKeyID: "expanded/id", AccessKeySecret: "expanded/secret", SecurityToken: "expanded/token"},
+		},
+		"gcs": {
+			file: storageFileConfig{Kind: storage.KindGCS, Bucket: "${GIZCLAW_TEST_CONFIG_VALUE}/bucket", CredentialsFile: "${GIZCLAW_TEST_CONFIG_VALUE}/credentials.json"},
+			want: storage.GCSConfig{Bucket: "expanded/bucket", CredentialsFile: "expanded/credentials.json"},
+		},
+		"azure-blob": {
+			file: storageFileConfig{Kind: storage.KindAzureBlob, AccountURL: "https://${GIZCLAW_TEST_CONFIG_VALUE}.blob.core.windows.net", Container: "${GIZCLAW_TEST_CONFIG_VALUE}-container"},
+			want: storage.AzureBlobConfig{AccountURL: "https://expanded.blob.core.windows.net", Container: "expanded-container"},
+		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -567,6 +590,53 @@ func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
 		Database: "expanded/database", Table: "expanded/table", TopicID: "expanded/topic",
 	}) {
 		t.Fatalf("store runtime config = %+v", logical)
+	}
+}
+
+func TestProfilingConfigShape(t *testing.T) {
+	valid, err := parseConfigData([]byte("profiling:\n  enabled: true\n  store: profiles\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !valid.Profiling.Enabled || valid.Profiling.Store != "profiles" {
+		t.Fatalf("profiling = %#v", valid.Profiling)
+	}
+	for _, source := range []string{
+		"profiling: null\n",
+		"profiling: value\n",
+		"profiling: []\n",
+		"profiling:\n  unknown: true\n",
+	} {
+		if _, err := parseConfigData([]byte(source)); err == nil {
+			t.Fatalf("parseConfigData(%q) succeeded", source)
+		}
+	}
+}
+
+func TestProfilingConfigValidation(t *testing.T) {
+	services := validServicesConfig()
+	for name, test := range map[string]struct {
+		config  ProfilingConfig
+		wantErr string
+	}{
+		"absent":               {},
+		"disabled named store": {config: ProfilingConfig{Store: "profiles"}},
+		"enabled":              {config: ProfilingConfig{Enabled: true, Store: "profiles"}},
+		"missing store":        {config: ProfilingConfig{Enabled: true}, wantErr: "is required"},
+		"whitespace":           {config: ProfilingConfig{Store: " profiles"}, wantErr: "whitespace"},
+		"workspace shared":     {config: ProfilingConfig{Store: services.Workspace.AssetsStore}, wantErr: "must be dedicated"},
+		"gameplay shared":      {config: ProfilingConfig{Store: services.Gameplay.AssetsStore}, wantErr: "must be dedicated"},
+		"agent host shared":    {config: ProfilingConfig{Store: services.AgentHost.RuntimeStore}, wantErr: "must be dedicated"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := validateProfilingConfig(test.config, services)
+			if test.wantErr == "" && err != nil {
+				t.Fatal(err)
+			}
+			if test.wantErr != "" && (err == nil || !strings.Contains(err.Error(), test.wantErr)) {
+				t.Fatalf("validateProfilingConfig() error = %v, want %q", err, test.wantErr)
+			}
+		})
 	}
 }
 

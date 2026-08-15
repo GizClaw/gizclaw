@@ -15,6 +15,10 @@ func TestConfigImplementationsHaveOnlyBackendFieldsAndNoSerializationTags(t *tes
 		reflect.TypeFor[ClickHouseConfig]():    {"DSN"},
 		reflect.TypeFor[PrometheusConfig]():    {"RemoteWriteURL", "QueryURL", "BearerToken"},
 		reflect.TypeFor[VolcTLSConfig]():       {"Endpoint", "Region", "AccessKeyID", "AccessKeySecret"},
+		reflect.TypeFor[VolcTOSConfig]():       {"Endpoint", "Region", "Bucket", "AccessKeyID", "AccessKeySecret", "SessionToken"},
+		reflect.TypeFor[AliyunOSSConfig]():     {"Endpoint", "Bucket", "AccessKeyID", "AccessKeySecret", "SecurityToken"},
+		reflect.TypeFor[GCSConfig]():           {"Bucket", "CredentialsFile"},
+		reflect.TypeFor[AzureBlobConfig]():     {"AccountURL", "Container"},
 	}
 	for typeOf, fields := range wantFields {
 		if typeOf.NumField() != len(fields) {

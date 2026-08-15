@@ -348,6 +348,13 @@ func resolveObjectStore(registry *stores.Stores, path, name string) (objectstore
 	return store, nil
 }
 
+func resolveProfilingStore(registry *stores.Stores, cfg ProfilingConfig) (objectstore.ObjectStore, error) {
+	if cfg.Store == "" {
+		return nil, nil
+	}
+	return resolveObjectStore(registry, "profiling.store", cfg.Store)
+}
+
 func resolveSQLStore(registry *stores.Stores, path, name string) (*sqlx.DB, error) {
 	store, err := registry.SQL(name)
 	if err != nil {
