@@ -26,9 +26,271 @@ type recallMemoryWithHits struct {
 	query recall.Query
 }
 
+type temporalRead struct {
+	method string
+	scope  recall.Scope
+}
+
+type instrumentedTemporalStore struct {
+	recall.TemporalStore
+
+	mu              sync.Mutex
+	allowedScope    *recall.Scope
+	listScopesCalls int
+	reads           []temporalRead
+}
+
+func (s *instrumentedTemporalStore) allowReadsFrom(scope recall.Scope) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.allowedScope = &scope
+}
+
+func (s *instrumentedTemporalStore) readSnapshot() (int, []temporalRead) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.listScopesCalls, append([]temporalRead(nil), s.reads...)
+}
+
+func (s *instrumentedTemporalStore) recordRead(method string, scope recall.Scope) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reads = append(s.reads, temporalRead{method: method, scope: scope})
+	if s.allowedScope == nil || !reflect.DeepEqual(scope, *s.allowedScope) {
+		return fmt.Errorf("unexpected %s read from scope %+v", method, scope)
+	}
+	return nil
+}
+
+func (s *instrumentedTemporalStore) ListScopes(context.Context, recall.ScopeListQuery) ([]recall.Scope, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.listScopesCalls++
+	return nil, errors.New("unexpected durable scope enumeration")
+}
+
+func (s *instrumentedTemporalStore) Get(ctx context.Context, scope recall.Scope, factID string) (recall.TemporalFact, error) {
+	if err := s.recordRead("Get", scope); err != nil {
+		return recall.TemporalFact{}, err
+	}
+	return s.TemporalStore.Get(ctx, scope, factID)
+}
+
+func (s *instrumentedTemporalStore) List(ctx context.Context, scope recall.Scope, query recall.ListQuery) ([]recall.TemporalFact, error) {
+	if err := s.recordRead("List", scope); err != nil {
+		return nil, err
+	}
+	return s.TemporalStore.List(ctx, scope, query)
+}
+
+func (s *instrumentedTemporalStore) FindByMergeKey(ctx context.Context, scope recall.Scope, mergeKey string) ([]recall.TemporalFact, error) {
+	if err := s.recordRead("FindByMergeKey", scope); err != nil {
+		return nil, err
+	}
+	return s.TemporalStore.FindByMergeKey(ctx, scope, mergeKey)
+}
+
+func (s *instrumentedTemporalStore) FindSupersededBy(ctx context.Context, scope recall.Scope, factID string) ([]recall.TemporalFact, error) {
+	if err := s.recordRead("FindSupersededBy", scope); err != nil {
+		return nil, err
+	}
+	return s.TemporalStore.FindSupersededBy(ctx, scope, factID)
+}
+
+func (s *instrumentedTemporalStore) FindByRevisionSource(ctx context.Context, scope recall.Scope, sourceFactID string) ([]recall.TemporalFact, error) {
+	if err := s.recordRead("FindByRevisionSource", scope); err != nil {
+		return nil, err
+	}
+	return s.TemporalStore.FindByRevisionSource(ctx, scope, sourceFactID)
+}
+
+func (s *instrumentedTemporalStore) FindByOriginRequestID(ctx context.Context, scope recall.Scope, requestID string) ([]recall.TemporalFact, error) {
+	if err := s.recordRead("FindByOriginRequestID", scope); err != nil {
+		return nil, err
+	}
+	return s.TemporalStore.FindByOriginRequestID(ctx, scope, requestID)
+}
+
+func (s *instrumentedTemporalStore) ListByID(ctx context.Context, scope recall.Scope, factID string) ([]recall.TemporalFact, error) {
+	if err := s.recordRead("ListByID", scope); err != nil {
+		return nil, err
+	}
+	return s.TemporalStore.ListByID(ctx, scope, factID)
+}
+
 func (m *recallMemoryWithHits) Recall(_ context.Context, _ recall.Scope, query recall.Query) ([]recall.Hit, error) {
 	m.query = query
 	return m.hits, nil
+}
+
+func durableOperationFacts(scope recall.Scope, operationID, status string, observedAt time.Time) []recall.TemporalFact {
+	facts := []recall.TemporalFact{{
+		ID:         operationID + "-fact",
+		Scope:      scope,
+		Kind:       recall.FactNote,
+		Content:    "durable fact for " + operationID,
+		ObservedAt: observedAt,
+		Origin:     recall.FactOrigin{RequestID: operationID, Kind: recall.OriginKindSemanticDerivation},
+	}}
+	if status == "" {
+		facts = append(facts, recall.TemporalFact{
+			ID:         operationID + "-episode",
+			Scope:      scope,
+			Kind:       recall.FactEpisode,
+			Content:    "durable episode for " + operationID,
+			ObservedAt: observedAt,
+			Origin:     recall.FactOrigin{RequestID: operationID, Kind: recall.OriginKindEpisode},
+		})
+		return facts
+	}
+	facts = append(facts, recall.TemporalFact{
+		ID:         flowcraftOperationMarkerID(operationID, status),
+		Scope:      scope,
+		Kind:       recall.FactEpisode,
+		Content:    "flowcraft async operation " + status,
+		ObservedAt: observedAt,
+		Origin:     recall.FactOrigin{RequestID: operationID, Kind: recall.OriginKindEpisode},
+		Metadata:   map[string]any{flowcraftOperationStatusAttribute: status},
+	})
+	return facts
+}
+
+func TestStoreConstructionDoesNotReadDurableScopes(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	temporal := recall.NewInMemoryTemporalStore()
+	targetScope, err := nativeScope(testScope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observedAt := time.Date(2026, 8, 15, 1, 2, 3, 0, time.UTC)
+	facts := durableOperationFacts(targetScope, "target-operation", flowcraftOperationStatusSucceeded, observedAt)
+	for index := range 1_000 {
+		foreignScope := recall.Scope{RuntimeID: fmt.Sprintf("foreign-%04d", index), UserID: "user"}
+		facts = append(facts, durableOperationFacts(foreignScope, fmt.Sprintf("foreign-operation-%04d", index), flowcraftOperationStatusSucceeded, observedAt)...)
+	}
+	if err := temporal.Append(ctx, facts); err != nil {
+		t.Fatal(err)
+	}
+	instrumented := &instrumentedTemporalStore{TemporalStore: temporal}
+	store, err := New(ctx, Config{TemporalStore: instrumented})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	listScopesCalls, reads := instrumented.readSnapshot()
+	if listScopesCalls != 0 || len(reads) != 0 {
+		t.Fatalf("New() durable reads = ListScopes:%d, %+v", listScopesCalls, reads)
+	}
+	if len(store.operations) != 0 || len(store.ready) != 0 || len(store.failed) != 0 {
+		t.Fatalf("New() retained operations = operations:%d ready:%d failed:%d", len(store.operations), len(store.ready), len(store.failed))
+	}
+
+	instrumented.allowReadsFrom(targetScope)
+	operationID := encodeLocator(targetScope, "target-operation")
+	result, err := store.Wait(ctx, memorystore.OperationRequest{Scope: testScope, ID: operationID})
+	if err != nil || result.Operation == nil || result.Operation.Status != OperationSucceeded || len(result.Facts) != 1 {
+		t.Fatalf("Wait() = %+v, %v", result, err)
+	}
+	listScopesCalls, reads = instrumented.readSnapshot()
+	if listScopesCalls != 0 || len(reads) == 0 {
+		t.Fatalf("Wait() durable reads = ListScopes:%d, %+v", listScopesCalls, reads)
+	}
+	for _, read := range reads {
+		if !reflect.DeepEqual(read.scope, targetScope) {
+			t.Fatalf("Wait() read %s from foreign scope %+v", read.method, read.scope)
+		}
+	}
+
+	readsBeforeCrossScopeWait := len(reads)
+	foreignRequestScope := Scope{AppID: "foreign", UserID: testScope.UserID, AgentID: testScope.AgentID}
+	if _, err := store.Wait(ctx, memorystore.OperationRequest{Scope: foreignRequestScope, ID: operationID}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("cross-scope Wait() error = %v, want ErrInvalidInput", err)
+	}
+	_, reads = instrumented.readSnapshot()
+	if len(reads) != readsBeforeCrossScopeWait {
+		t.Fatalf("cross-scope Wait() performed temporal reads: %+v", reads[readsBeforeCrossScopeWait:])
+	}
+}
+
+func TestStoreWaitPreservesDurableOperationStates(t *testing.T) {
+	for _, status := range []string{
+		flowcraftOperationStatusSucceeded,
+		flowcraftOperationStatusFailed,
+		flowcraftOperationStatusPrepared,
+		flowcraftOperationStatusReady,
+	} {
+		t.Run(status, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			temporal := recall.NewInMemoryTemporalStore()
+			native, err := nativeScope(testScope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			nativeID := "operation-" + status
+			facts := durableOperationFacts(native, nativeID, status, time.Date(2026, 8, 15, 1, 2, 3, 0, time.UTC))
+			if err := temporal.Append(ctx, facts); err != nil {
+				t.Fatal(err)
+			}
+			config := Config{
+				Loader:        &testFlowcraftLoader{model: testLLM{response: `{"facts":[]}`}},
+				Extraction:    ExtractionConfig{Model: "extract"},
+				TemporalStore: temporal,
+				AsyncQueue:    recall.NewInMemoryAsyncSemanticQueue(),
+			}
+			store, err := New(ctx, config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = store.Close() })
+			result, err := store.Wait(ctx, memorystore.OperationRequest{Scope: testScope, ID: encodeLocator(native, nativeID)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Operation == nil {
+				t.Fatalf("Wait() = %+v, want operation", result)
+			}
+			if status == flowcraftOperationStatusFailed {
+				if result.Operation.Status != operationFailed || result.Operation.Error != "flowcraft async extraction failed" || len(result.Facts) != 0 {
+					t.Fatalf("Wait() failed result = %+v", result)
+				}
+				return
+			}
+			if result.Operation.Status != OperationSucceeded || len(result.Facts) != 1 || result.Facts[0].Text != "durable fact for "+nativeID {
+				t.Fatalf("Wait() %s result = %+v", status, result)
+			}
+		})
+	}
+}
+
+func BenchmarkStoreConstruction(b *testing.B) {
+	for _, foreignScopes := range []int{0, 100, 1_000} {
+		b.Run(fmt.Sprintf("foreign_scopes_%d", foreignScopes), func(b *testing.B) {
+			ctx := context.Background()
+			temporal := recall.NewInMemoryTemporalStore()
+			observedAt := time.Date(2026, 8, 15, 1, 2, 3, 0, time.UTC)
+			facts := make([]recall.TemporalFact, 0, foreignScopes*2)
+			for index := range foreignScopes {
+				scope := recall.Scope{RuntimeID: fmt.Sprintf("foreign-%04d", index), UserID: "user"}
+				facts = append(facts, durableOperationFacts(scope, fmt.Sprintf("operation-%04d", index), flowcraftOperationStatusSucceeded, observedAt)...)
+			}
+			if err := temporal.Append(ctx, facts); err != nil {
+				b.Fatal(err)
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for b.Loop() {
+				store, err := New(ctx, Config{TemporalStore: temporal})
+				if err != nil {
+					b.Fatal(err)
+				}
+				if err := store.Close(); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
 }
 
 func TestExtractedLaneRecognizesOnlyConfiguredExactPrefix(t *testing.T) {
