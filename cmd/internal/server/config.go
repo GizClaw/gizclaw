@@ -32,6 +32,13 @@ type Config struct {
 	FriendGroups    FriendGroupsConfig
 	Speech          SpeechConfig
 	PendingDeletion PendingDeletionConfig
+	Profiling       ProfilingConfig
+}
+
+// ProfilingConfig controls persistent Go runtime snapshots for the Server process.
+type ProfilingConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Store   string `yaml:"store"`
 }
 
 // AgentHostConfig binds AgentHost persistence capabilities to logical Stores.
@@ -178,6 +185,12 @@ type storageFileConfig struct {
 	Region          string `yaml:"region"`
 	AccessKeyID     string `yaml:"access_key_id"`
 	AccessKeySecret string `yaml:"access_key_secret"`
+	Bucket          string `yaml:"bucket"`
+	SessionToken    string `yaml:"session_token"`
+	SecurityToken   string `yaml:"security_token"`
+	CredentialsFile string `yaml:"credentials_file"`
+	AccountURL      string `yaml:"account_url"`
+	Container       string `yaml:"container"`
 }
 
 func (cfg storageFileConfig) runtimeConfig() (storage.Config, error) {
@@ -207,6 +220,22 @@ func (cfg storageFileConfig) runtimeConfig() (storage.Config, error) {
 			AccessKeyID:     os.ExpandEnv(cfg.AccessKeyID),
 			AccessKeySecret: os.ExpandEnv(cfg.AccessKeySecret),
 		}, nil
+	case storage.KindVolcTOS:
+		return storage.VolcTOSConfig{
+			Endpoint: os.ExpandEnv(cfg.Endpoint), Region: os.ExpandEnv(cfg.Region), Bucket: os.ExpandEnv(cfg.Bucket),
+			AccessKeyID: os.ExpandEnv(cfg.AccessKeyID), AccessKeySecret: os.ExpandEnv(cfg.AccessKeySecret),
+			SessionToken: os.ExpandEnv(cfg.SessionToken),
+		}, nil
+	case storage.KindAliyunOSS:
+		return storage.AliyunOSSConfig{
+			Endpoint: os.ExpandEnv(cfg.Endpoint), Bucket: os.ExpandEnv(cfg.Bucket),
+			AccessKeyID: os.ExpandEnv(cfg.AccessKeyID), AccessKeySecret: os.ExpandEnv(cfg.AccessKeySecret),
+			SecurityToken: os.ExpandEnv(cfg.SecurityToken),
+		}, nil
+	case storage.KindGCS:
+		return storage.GCSConfig{Bucket: os.ExpandEnv(cfg.Bucket), CredentialsFile: os.ExpandEnv(cfg.CredentialsFile)}, nil
+	case storage.KindAzureBlob:
+		return storage.AzureBlobConfig{AccountURL: os.ExpandEnv(cfg.AccountURL), Container: os.ExpandEnv(cfg.Container)}, nil
 	default:
 		return nil, fmt.Errorf("server: unknown storage kind %q", cfg.Kind)
 	}
@@ -243,6 +272,7 @@ type ConfigFile struct {
 	FriendGroups    FriendGroupsConfig           `yaml:"friend_groups"`
 	Speech          SpeechConfig                 `yaml:"speech"`
 	PendingDeletion PendingDeletionConfig        `yaml:"pending_deletion"`
+	Profiling       ProfilingConfig              `yaml:"profiling"`
 }
 
 const maxSpeechExtractionRequestTimeout = 120 * time.Second
@@ -291,6 +321,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		FriendGroups    FriendGroupsConfig           `yaml:"friend_groups"`
 		Speech          speechFileConfig             `yaml:"speech"`
 		PendingDeletion pendingDeletionFileConfig    `yaml:"pending_deletion"`
+		Profiling       ProfilingConfig              `yaml:"profiling"`
 	}
 	if err := yaml.UnmarshalWithOptions(data, &raw, yaml.DisallowUnknownField()); err != nil {
 		return ConfigFile{}, err
@@ -342,6 +373,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		FriendGroups:    raw.FriendGroups,
 		Speech:          speech,
 		PendingDeletion: pendingDeletion,
+		Profiling:       raw.Profiling,
 	}
 	return cfg, nil
 }
@@ -543,6 +575,9 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	cfg.FriendGroups = mergeFriendGroupsConfig(cfg.FriendGroups, fileCfg.FriendGroups)
 	cfg.Speech = mergeSpeechConfig(cfg.Speech, fileCfg.Speech)
 	cfg.PendingDeletion = mergePendingDeletionConfig(cfg.PendingDeletion, fileCfg.PendingDeletion)
+	if !cfg.Profiling.Enabled && cfg.Profiling.Store == "" {
+		cfg.Profiling = fileCfg.Profiling
+	}
 	return cfg, nil
 }
 
@@ -738,12 +773,43 @@ func (cfg Config) validate() error {
 	if err := validateServicesConfig(cfg.Services); err != nil {
 		return err
 	}
+	if err := validateProfilingConfig(cfg.Profiling, cfg.Services); err != nil {
+		return err
+	}
 	processorConfig, err := cfg.PendingDeletion.processorConfig()
 	if err != nil {
 		return fmt.Errorf("server: pending_deletion: %w", err)
 	}
 	if err := processorConfig.Validate(); err != nil {
 		return fmt.Errorf("server: %w", err)
+	}
+	return nil
+}
+
+func validateProfilingConfig(cfg ProfilingConfig, services *ServicesConfig) error {
+	storeName := strings.TrimSpace(cfg.Store)
+	if cfg.Store != storeName {
+		return fmt.Errorf("server: profiling.store must not have leading or trailing whitespace")
+	}
+	if cfg.Enabled && storeName == "" {
+		return fmt.Errorf("server: profiling.store is required when profiling.enabled is true")
+	}
+	if storeName == "" || services == nil {
+		return nil
+	}
+	for path, businessStore := range map[string]string{
+		"services.workspace.assets_store": services.Workspace.AssetsStore,
+		"services.gameplay.assets_store":  services.Gameplay.AssetsStore,
+		"services.agent_host.runtime_store": func() string {
+			if services.AgentHost == nil {
+				return ""
+			}
+			return services.AgentHost.RuntimeStore
+		}(),
+	} {
+		if storeName == businessStore {
+			return fmt.Errorf("server: profiling.store %q must be dedicated and cannot reuse %s", storeName, path)
+		}
 	}
 	return nil
 }
@@ -962,6 +1028,19 @@ func validateConfigShape(data []byte) error {
 			}
 		}
 	}
+	if value, exists := document["profiling"]; exists {
+		mapping, ok := value.(map[string]any)
+		if !ok {
+			return fmt.Errorf("server: profiling must be a mapping")
+		}
+		for field := range mapping {
+			switch field {
+			case "enabled", "store":
+			default:
+				return fmt.Errorf("server: profiling has unknown field %q", field)
+			}
+		}
+	}
 	if value, exists := document["storage"]; exists {
 		if err := validateStorageConfigShape(value); err != nil {
 			return err
@@ -1054,6 +1133,10 @@ func validateStorageConfigShape(value any) error {
 		storage.KindClickHouse:    {"kind": {}, "dsn": {}},
 		storage.KindPrometheus:    {"kind": {}, "remote_write_url": {}, "query_url": {}, "bearer_token": {}},
 		storage.KindVolcTLS:       {"kind": {}, "endpoint": {}, "region": {}, "access_key_id": {}, "access_key_secret": {}},
+		storage.KindVolcTOS:       {"kind": {}, "endpoint": {}, "region": {}, "bucket": {}, "access_key_id": {}, "access_key_secret": {}, "session_token": {}},
+		storage.KindAliyunOSS:     {"kind": {}, "endpoint": {}, "bucket": {}, "access_key_id": {}, "access_key_secret": {}, "security_token": {}},
+		storage.KindGCS:           {"kind": {}, "bucket": {}, "credentials_file": {}},
+		storage.KindAzureBlob:     {"kind": {}, "account_url": {}, "container": {}},
 	}
 	for name, entry := range registry {
 		mapping, ok := entry.(map[string]any)

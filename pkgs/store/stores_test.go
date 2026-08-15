@@ -159,6 +159,23 @@ func TestObjectStoreConstructedFromFilesystemDir(t *testing.T) {
 	}
 }
 
+func TestCloudObjectStorageKindsAreCompatible(t *testing.T) {
+	for _, kind := range []string{
+		physicalstorage.KindFilesystemDir,
+		physicalstorage.KindVolcTOS,
+		physicalstorage.KindAliyunOSS,
+		physicalstorage.KindGCS,
+		physicalstorage.KindAzureBlob,
+	} {
+		if !isObjectStorageKind(kind) {
+			t.Fatalf("isObjectStorageKind(%q) = false", kind)
+		}
+	}
+	if isObjectStorageKind(physicalstorage.KindBadger) {
+		t.Fatal("badger accepted as ObjectStore")
+	}
+}
+
 func TestSQLUsesCompatibleDatabaseStorage(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
 		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},

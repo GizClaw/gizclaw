@@ -13,6 +13,77 @@ The server currently provides:
 - `pkgs/store/metrics.Store`, including Prometheus Remote Write and Prometheus HTTP API backends;
 - Peer battery, GNSS, network, and system telemetry metrics.
 
+## Persistent Go runtime profiles
+
+Process profiling is opt-in and owned by `cmd/internal/server`. It does not
+register `net/http/pprof` or expose `/debug/pprof`. Configure a dedicated
+logical ObjectStore that is not shared with Workspace assets, Gameplay assets,
+or Agent Host runtime data:
+
+```yaml
+storage:
+  profile-files:
+    kind: filesystem.dir
+    dir: data/profiles
+stores:
+  runtime-profiles:
+    kind: objectstore
+    storage: profile-files
+    prefix: pprof
+profiling:
+  enabled: true
+  store: runtime-profiles
+```
+
+Absent configuration, `{}`, and `enabled: false` perform no Store operation and
+start no worker. A named Store is still validated while disabled. When enabled,
+the command publishes one baseline before opening listeners, then waits five
+minutes after each completed attempt before starting the next. Attempts never
+overlap or catch up. Shutdown cancels the next wait, lets an active attempt
+finish or clean up, joins the worker, and only then closes logging and Stores;
+there is no shutdown snapshot.
+
+Completed evidence has this layout:
+
+```text
+runs/<UTC timestamp>-pid-<pid>/
+  000000-baseline/{heap.pprof,allocs.pprof,goroutine.pprof,manifest.json}
+  000001-<UTC timestamp>/{heap.pprof,allocs.pprof,goroutine.pprof,manifest.json}
+```
+
+Each profile is streamed directly from `runtime/pprof`; `manifest.json` is
+written last and records the run, sequence, capture time, size, and SHA-256 of
+all three files. Only a valid manifest marks a completed set. Failed attempts
+remove their recognizable partial objects best-effort. If cleanup fails, the
+next attempt retries that exact prefix before uploading anything new. Startup
+keeps sets from older runs only after streaming every referenced profile and
+verifying its size and SHA-256, removes recognizable manifest-less sets, and
+fails safely on malformed manifests or unrecognized names instead of deleting
+unknown data.
+
+Retention covers all runs and includes baselines: at most 576 completed sets
+and 1 GiB of profile bytes. A candidate also has one shared 1 GiB streaming
+limit. Rotation removes the oldest manifest first, then its profile objects, so
+readers never mistake a partly deleted set for completed evidence. Periodic
+failures produce one structured warning and retry after the next five-minute
+wait; baseline failure aborts startup.
+
+Profiles contain package, function, and source/build-path metadata. Use an
+operator-only bucket/container and prefix, never make it public or serve it as
+an asset, and transfer files through an access-controlled channel. After a safe
+download, common analyses are:
+
+```sh
+go tool pprof -top heap.pprof
+go tool pprof -top -inuse_space heap.pprof
+go tool pprof -top -alloc_space allocs.pprof
+go tool pprof -top goroutine.pprof
+go tool pprof -top -base baseline/heap.pprof later/heap.pprof
+```
+
+Comparisons should use profiles from the same build where possible. A retained
+profile is diagnostic evidence, not by itself proof of a leak or outage cause.
+
 ## Ownership
 
 | Layer | Responsibility |

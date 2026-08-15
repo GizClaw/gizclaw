@@ -65,6 +65,10 @@ flowchart TB
 | `badger` | `dir` |
 | `memory` | no properties |
 | `filesystem.dir` | `dir` |
+| `volc-tos` | HTTPS endpoint, region, existing bucket, key pair, and optional session token |
+| `aliyun-oss` | HTTPS endpoint, existing bucket, key pair, and optional security token |
+| `gcs` | existing bucket and optional Application Default Credentials file |
+| `azure-blob` | HTTPS account URL and existing container; Azure Default Credential supplies identity |
 | `sqlite` | exactly one of `dir` or `dsn` |
 | `postgresql`, `clickhouse` | `dsn` |
 | `prometheus` | remote-write/query URLs and optional bearer token |
@@ -84,12 +88,19 @@ physical, err := storage.New(map[string]storage.Config{
 
 The concrete implementations are `BadgerConfig`, `MemoryConfig`,
 `FilesystemDirConfig`, `SQLiteConfig`, `PostgreSQLConfig`, `ClickHouseConfig`,
-`PrometheusConfig`, and `VolcTLSConfig`. A Go caller therefore cannot pass a
+`PrometheusConfig`, `VolcTLSConfig`, `VolcTOSConfig`, `AliyunOSSConfig`,
+`GCSConfig`, and `AzureBlobConfig`. A Go caller therefore cannot pass a
 directory to PostgreSQL or a DSN/provider credential to Badger.
 `cmd/internal/server` retains the flat YAML DTO and explicitly converts each
 `kind` to its concrete Go type; YAML fields never enter the public config types.
 
 Multiple Stores may borrow one connector. The caller closes logical `Stores` first and physical `Storage` second. `memory` is a stateless marker; every keyvalue or metrics Store that references it creates an independent instance. `vecstore` and `graph` have no built-in Server consumer, so they are not command-layer Store kinds; their public packages and constructors remain available. Memory connections selected through RuntimeProfile and MemoryLayout remain outside this registry.
+
+`objectstore` is compatible with `filesystem.dir`, `volc-tos`, `aliyun-oss`,
+`gcs`, and `azure-blob`. Physical Storage owns each official SDK client,
+readiness probe, transport, retry policy, and close. Logical ObjectStores borrow
+the client, apply their prefix once, and never close it. Several non-overlapping
+logical prefixes may therefore share one cloud connector.
 
 A SQLite/PostgreSQL KV Store declares only one single-segment `prefix`; the backend uses it directly as the quoted physical table name and does not repeat that prefix inside encoded keys. Metrics and Log Stores continue declaring `table`. These physical names are unqualified ASCII names of at most 63 bytes; a KV prefix may also contain `-`. The registry validates each declaration independently and does not reserve table names or compare one Store declaration with another. Construction directly ensures the table and indexes with idempotent `CREATE ... IF NOT EXISTS`, then validates the exact columns, primary key, identity, and indexes required by that adapter. It creates no schema version or history table and never imports or rewrites existing backend data. A compatible existing table is reused; an incompatible definition fails when that adapter is constructed. Logical `Close` changes only adapter state and never closes the borrowed `*sqlx.DB`.
 

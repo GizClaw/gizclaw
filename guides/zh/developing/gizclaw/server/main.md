@@ -37,7 +37,7 @@ Registry 名称精确匹配并区分大小写。Server 不会赋予 `peers`、`m
 
 Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service Store 上的代码内置 scope，因此天然共享一个原子 KV transaction boundary。共享 ObjectStore 必须使用非空、规范且互不重叠的 prefix。引用缺失、kind 不兼容、Flowcraft History 不可变或出现未知字段时，Server 会在打开 listener 前失败。
 
-启动顺序依次为严格解析配置、打开物理 connector、构造逻辑 Store、解析 service 能力、由活跃 SQL 服务校验 schema、安装日志与 metrics，最后才打开 listener。逻辑 Store 不关闭借用的 connector；关闭时先释放逻辑 wrapper，再关闭物理 connector。
+启动顺序依次为严格解析配置、打开物理 connector、构造逻辑 Store、解析 service 能力、由活跃 SQL 服务校验 schema，并安装日志与 metrics。取得 workspace PID ownership 后，可选 process profiling 解析其专用 ObjectStore 并发布 baseline；完成后才打开 public listener 并启动 `Server.Listen`。逻辑 Store 不关闭借用的 connector。Shutdown 会先 join profiling worker，再关闭 logging、逻辑 wrapper 与物理 connector。Process profiling 属于 `cmd/internal/server`；可复用的 `pkgs/gizclaw.Server` 不依赖 pprof。
 
 旧的一层 Store 配置、顶层伪 service block、隐式 Store 名称、通用 `kind: log` 和 `gizclaw migrate` 命令均不受支持。开发环境应使用当前配置重新创建，不导入或转换旧数据。Gameplay 与 ClickHouse Store 初始化表仍属于活跃 schema lifecycle，不属于旧数据迁移。
 

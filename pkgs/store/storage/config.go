@@ -12,6 +12,10 @@ const (
 	KindClickHouse    = "clickhouse"
 	KindPrometheus    = "prometheus"
 	KindVolcTLS       = "volc-tls"
+	KindVolcTOS       = "volc-tos"
+	KindAliyunOSS     = "aliyun-oss"
+	KindGCS           = "gcs"
+	KindAzureBlob     = "azure-blob"
 )
 
 // Config is a closed set of physical backend configurations accepted by New.
@@ -82,12 +86,52 @@ type VolcTLSConfig struct {
 
 func (VolcTLSConfig) storageKind() string { return KindVolcTLS }
 
+// VolcTOSConfig configures one Volcengine TOS bucket.
+type VolcTOSConfig struct {
+	Endpoint        string
+	Region          string
+	Bucket          string
+	AccessKeyID     string
+	AccessKeySecret string
+	SessionToken    string
+}
+
+func (VolcTOSConfig) storageKind() string { return KindVolcTOS }
+
+// AliyunOSSConfig configures one Alibaba Cloud OSS bucket.
+type AliyunOSSConfig struct {
+	Endpoint        string
+	Bucket          string
+	AccessKeyID     string
+	AccessKeySecret string
+	SecurityToken   string
+}
+
+func (AliyunOSSConfig) storageKind() string { return KindAliyunOSS }
+
+// GCSConfig configures one Google Cloud Storage bucket.
+type GCSConfig struct {
+	Bucket          string
+	CredentialsFile string
+}
+
+func (GCSConfig) storageKind() string { return KindGCS }
+
+// AzureBlobConfig configures one Azure Blob Storage container.
+type AzureBlobConfig struct {
+	AccountURL string
+	Container  string
+}
+
+func (AzureBlobConfig) storageKind() string { return KindAzureBlob }
+
 func normalizeConfig(config Config) (Config, error) {
 	switch cfg := config.(type) {
 	case nil:
 		return nil, errNilConfig
 	case BadgerConfig, MemoryConfig, FilesystemDirConfig, SQLiteConfig,
-		PostgreSQLConfig, ClickHouseConfig, PrometheusConfig, VolcTLSConfig:
+		PostgreSQLConfig, ClickHouseConfig, PrometheusConfig, VolcTLSConfig,
+		VolcTOSConfig, AliyunOSSConfig, GCSConfig, AzureBlobConfig:
 		return cfg, nil
 	case *BadgerConfig:
 		if cfg == nil {
@@ -125,6 +169,26 @@ func normalizeConfig(config Config) (Config, error) {
 		}
 		return *cfg, nil
 	case *VolcTLSConfig:
+		if cfg == nil {
+			return nil, errNilConfig
+		}
+		return *cfg, nil
+	case *VolcTOSConfig:
+		if cfg == nil {
+			return nil, errNilConfig
+		}
+		return *cfg, nil
+	case *AliyunOSSConfig:
+		if cfg == nil {
+			return nil, errNilConfig
+		}
+		return *cfg, nil
+	case *GCSConfig:
+		if cfg == nil {
+			return nil, errNilConfig
+		}
+		return *cfg, nil
+	case *AzureBlobConfig:
 		if cfg == nil {
 			return nil, errNilConfig
 		}

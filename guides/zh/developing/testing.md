@@ -24,6 +24,42 @@ GIZCLAW_TEST_CLICKHOUSE_DSN='clickhouse://…' \
 每个测试使用独立表名并尽力清理。错误、日志和 CI 输出不得打印 DSN、数据库
 credential 或 Store payload。
 
+### Cloud ObjectStore conformance
+
+同一个 tagged package 包含 `TestObjectStore`。通过
+`GIZCLAW_OBJECTSTORE_PROVIDER` 选择一个已经存在的测试 bucket/container；值必须是
+`volc-tos`、`aliyun-oss`、`gcs` 或 `azure-blob`：
+
+```sh
+GIZCLAW_OBJECTSTORE_PROVIDER=volc-tos \
+GIZCLAW_TOS_ENDPOINT=https://tos-cn-beijing.volces.com \
+GIZCLAW_TOS_REGION=cn-beijing GIZCLAW_TOS_BUCKET=... \
+GIZCLAW_TOS_ACCESS_KEY_ID=... GIZCLAW_TOS_ACCESS_KEY_SECRET=... \
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+
+GIZCLAW_OBJECTSTORE_PROVIDER=aliyun-oss \
+GIZCLAW_OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com \
+GIZCLAW_OSS_BUCKET=... GIZCLAW_OSS_ACCESS_KEY_ID=... \
+GIZCLAW_OSS_ACCESS_KEY_SECRET=... \
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+
+GIZCLAW_OBJECTSTORE_PROVIDER=gcs GIZCLAW_GCS_BUCKET=... \
+GOOGLE_APPLICATION_CREDENTIALS=/secure/credentials.json \
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+
+GIZCLAW_OBJECTSTORE_PROVIDER=azure-blob \
+GIZCLAW_AZURE_BLOB_ACCOUNT_URL=https://example.blob.core.windows.net \
+GIZCLAW_AZURE_BLOB_CONTAINER=... \
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+```
+
+TOS 可另外使用 `GIZCLAW_TOS_SESSION_TOKEN`，OSS 可使用
+`GIZCLAW_OSS_SECURITY_TOKEN`；Azure identity 来自标准
+`DefaultAzureCredential` environment 或 managed identity chain。每轮使用生成的
+`gizclaw-e2e/` logical prefix，并验证 cleanup 后没有 residue。不得打印或提交
+credential value。没有可用 account 时，应把对应 provider 明确记录为 `SKIP` 并保留
+interoperability risk；只完成 tagged compile 不能算 live pass。
+
 ## Credential-backed harness 约束
 
 GizClaw、GenX、LoCoMo 和 Memory 的 live suite 各自只拥有一个 ignored `.env`，

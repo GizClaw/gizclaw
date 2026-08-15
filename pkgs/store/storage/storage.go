@@ -44,6 +44,10 @@ type Storage struct {
 	sqls       map[string]*sqlx.DB
 	prometheus map[string]prometheusResource
 	volcs      map[string]tls.Client
+	tos        map[string]volcTOSResource
+	aliyunOSS  map[string]aliyunOSSResource
+	gcs        map[string]gcsResource
+	azureBlob  map[string]azureBlobResource
 	closers    []io.Closer
 }
 
@@ -59,6 +63,10 @@ func New(configs map[string]Config) (*Storage, error) {
 		sqls:       make(map[string]*sqlx.DB),
 		prometheus: make(map[string]prometheusResource),
 		volcs:      make(map[string]tls.Client),
+		tos:        make(map[string]volcTOSResource),
+		aliyunOSS:  make(map[string]aliyunOSSResource),
+		gcs:        make(map[string]gcsResource),
+		azureBlob:  make(map[string]azureBlobResource),
 	}
 	ok := false
 	defer func() {
@@ -200,6 +208,37 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 				s.closers = append(s.closers, closeIdleAdapter{httpClient})
 			}
 		}
+	case VolcTOSConfig:
+		var resource volcTOSResource
+		resource, err = newVolcTOS(name, cfg)
+		if err == nil {
+			s.tos[name] = resource
+			s.closers = append(s.closers, closeFunc(func() error {
+				resource.client.Close()
+				return nil
+			}))
+		}
+	case AliyunOSSConfig:
+		var resource aliyunOSSResource
+		resource, err = newAliyunOSS(name, cfg)
+		if err == nil {
+			s.aliyunOSS[name] = resource
+			s.closers = append(s.closers, closeIdleAdapter{resource.client})
+		}
+	case GCSConfig:
+		var resource gcsResource
+		resource, err = newGCS(name, cfg)
+		if err == nil {
+			s.gcs[name] = resource
+			s.closers = append(s.closers, resource.client)
+		}
+	case AzureBlobConfig:
+		var resource azureBlobResource
+		resource, err = newAzureBlob(name, cfg)
+		if err == nil {
+			s.azureBlob[name] = resource
+			s.closers = append(s.closers, closeIdleAdapter{resource.transport})
+		}
 	default:
 		err = fmt.Errorf("storage: %q: %w", name, errUnsupportedConfig)
 	}
@@ -223,6 +262,10 @@ type closeIdler interface {
 }
 
 type closeIdleAdapter struct{ closeIdler }
+
+type closeFunc func() error
+
+func (f closeFunc) Close() error { return f() }
 
 func (c closeIdleAdapter) Close() error {
 	c.CloseIdleConnections()

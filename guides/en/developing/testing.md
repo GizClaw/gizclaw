@@ -27,6 +27,43 @@ GIZCLAW_TEST_CLICKHOUSE_DSN='clickhouse://…' \
 Every test uses an isolated table name and performs best-effort cleanup. Errors,
 logs, and CI output must not print DSNs, database credentials, or Store payloads.
 
+### Cloud ObjectStore conformance
+
+The same tagged package contains `TestObjectStore`. Select exactly one
+pre-existing test bucket or container with `GIZCLAW_OBJECTSTORE_PROVIDER` set to
+`volc-tos`, `aliyun-oss`, `gcs`, or `azure-blob`:
+
+```sh
+GIZCLAW_OBJECTSTORE_PROVIDER=volc-tos \
+GIZCLAW_TOS_ENDPOINT=https://tos-cn-beijing.volces.com \
+GIZCLAW_TOS_REGION=cn-beijing GIZCLAW_TOS_BUCKET=... \
+GIZCLAW_TOS_ACCESS_KEY_ID=... GIZCLAW_TOS_ACCESS_KEY_SECRET=... \
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+
+GIZCLAW_OBJECTSTORE_PROVIDER=aliyun-oss \
+GIZCLAW_OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com \
+GIZCLAW_OSS_BUCKET=... GIZCLAW_OSS_ACCESS_KEY_ID=... \
+GIZCLAW_OSS_ACCESS_KEY_SECRET=... \
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+
+GIZCLAW_OBJECTSTORE_PROVIDER=gcs GIZCLAW_GCS_BUCKET=... \
+GOOGLE_APPLICATION_CREDENTIALS=/secure/credentials.json \
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+
+GIZCLAW_OBJECTSTORE_PROVIDER=azure-blob \
+GIZCLAW_AZURE_BLOB_ACCOUNT_URL=https://example.blob.core.windows.net \
+GIZCLAW_AZURE_BLOB_CONTAINER=... \
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+```
+
+TOS may additionally use `GIZCLAW_TOS_SESSION_TOKEN`; OSS may use
+`GIZCLAW_OSS_SECURITY_TOKEN`. Azure identity comes from the standard
+`DefaultAzureCredential` environment or managed identity chain. Each run uses a
+generated `gizclaw-e2e/` logical prefix and verifies cleanup leaves no residue.
+Never print or commit credential values. When an account is unavailable, record
+that provider as `SKIP` and retain the interoperability risk; a tagged compile
+without a live account is not passing live evidence.
+
 ## Credential-backed harness contract
 
 GizClaw, GenX, LoCoMo, and Memory live suites each own one ignored `.env`,

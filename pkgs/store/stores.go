@@ -228,7 +228,7 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 			return fmt.Errorf("stores: sql %q does not support logical scope", name)
 		}
 	case KindObjectStore:
-		if storageKind != storage.KindFilesystemDir {
+		if !isObjectStorageKind(storageKind) {
 			return fmt.Errorf("stores: objectstore %q does not support storage %q kind %q", name, cfg.Storage, storageKind)
 		}
 		if cfg.Database != "" || cfg.Table != "" || cfg.TopicID != "" {
@@ -627,16 +627,49 @@ func (r *Stores) newObjectStore(name string, cfg Config) (objectstore.ObjectStor
 	if err != nil {
 		return nil, fmt.Errorf("stores: objectstore %q resolve storage %q: %w", name, cfg.Storage, err)
 	}
-	if kind != storage.KindFilesystemDir {
+	if !isObjectStorageKind(kind) {
 		return nil, fmt.Errorf("stores: objectstore %q does not support storage %q kind %q", name, cfg.Storage, kind)
 	}
-	root, err := r.storage.FilesystemDir(cfg.Storage)
-	if err != nil {
-		return nil, fmt.Errorf("stores: objectstore %q resolve storage %q: %w", name, cfg.Storage, err)
+	var st objectstore.ObjectStore
+	switch kind {
+	case storage.KindFilesystemDir:
+		root, lookupErr := r.storage.FilesystemDir(cfg.Storage)
+		if lookupErr != nil {
+			err = lookupErr
+		} else {
+			st, err = objectstore.NewRoot(root)
+		}
+	case storage.KindVolcTOS:
+		client, bucket, lookupErr := r.storage.VolcTOS(cfg.Storage)
+		if lookupErr != nil {
+			err = lookupErr
+		} else {
+			st, err = objectstore.NewVolcTOS(client, bucket)
+		}
+	case storage.KindAliyunOSS:
+		bucket, lookupErr := r.storage.AliyunOSS(cfg.Storage)
+		if lookupErr != nil {
+			err = lookupErr
+		} else {
+			st, err = objectstore.NewAliyunOSS(bucket)
+		}
+	case storage.KindGCS:
+		client, bucket, lookupErr := r.storage.GCS(cfg.Storage)
+		if lookupErr != nil {
+			err = lookupErr
+		} else {
+			st, err = objectstore.NewGCS(client, bucket)
+		}
+	case storage.KindAzureBlob:
+		client, container, lookupErr := r.storage.AzureBlob(cfg.Storage)
+		if lookupErr != nil {
+			err = lookupErr
+		} else {
+			st, err = objectstore.NewAzureBlob(client, container)
+		}
 	}
-	st, err := objectstore.NewRoot(root)
 	if err != nil {
-		return nil, fmt.Errorf("stores: objectstore %q filesystem.dir: %w", name, err)
+		return nil, fmt.Errorf("stores: objectstore %q %s: %w", name, kind, err)
 	}
 	prefix, err := parseObjectPrefix(cfg.Prefix)
 	if err != nil {
@@ -646,6 +679,15 @@ func (r *Stores) newObjectStore(name string, cfg Config) (objectstore.ObjectStor
 		return st, nil
 	}
 	return prefixedObjectStore{base: st, prefix: prefix}, nil
+}
+
+func isObjectStorageKind(kind string) bool {
+	switch kind {
+	case storage.KindFilesystemDir, storage.KindVolcTOS, storage.KindAliyunOSS, storage.KindGCS, storage.KindAzureBlob:
+		return true
+	default:
+		return false
+	}
 }
 
 func needsPhysicalStorage(configs map[string]Config) bool {

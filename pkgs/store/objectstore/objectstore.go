@@ -13,10 +13,11 @@ type ObjectInfo struct {
 	Deadline time.Time
 }
 
-// ObjectStore provides prefix-addressable object storage.
+// ObjectStore provides provider-neutral, prefix-addressable object storage.
 //
-// Object names use slash-separated keys such as
-// "demo/main/stable/manifest.json".
+// Object names are normalized relative slash-separated keys such as
+// "demo/main/stable/manifest.json". Implementations stream writes, replace an
+// exact object, hide expired objects, and return List results in lexical order.
 type ObjectStore interface {
 	// Get opens an object for reading.
 	// Returns an error wrapping fs.ErrNotExist/os.ErrNotExist if absent.
@@ -35,10 +36,11 @@ type ObjectStore interface {
 	// Delete removes a single object. Returns nil if absent.
 	Delete(name string) error
 
-	// DeletePrefix removes all objects under the given prefix.
+	// DeletePrefix removes all objects under the given prefix. A scoped Store
+	// may interpret an empty prefix as its complete logical namespace.
 	DeletePrefix(prefix string) error
 
-	// List returns all objects under the given prefix.
+	// List returns all objects at the prefix or below it in lexical name order.
 	List(prefix string) ([]ObjectInfo, error)
 }
 
