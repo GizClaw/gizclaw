@@ -53,6 +53,7 @@ jobs:
           build/check-deb.sh
           build/build-release-manifest.sh
           build/check-release.sh
+          build/find-release-by-tag.sh
           build/release-contract-test.sh
 
       - name: Check workflow syntax and embedded shell

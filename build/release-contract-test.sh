@@ -40,11 +40,17 @@ if grep -Fq 'immutable-releases' "$release_workflow"; then
 fi
 grep -Fq "\"\$GITHUB_API_URL/repos/\$GH_REPO/rulesets?includes_parents=true&per_page=100&page=\$rulesets_page\"" \
   <<<"$semver_publisher"
-draft_transition="gh release edit \"\$TAG\" --draft=false"
+draft_transition="gh api --method PATCH \"repos/\$GH_REPO/releases/\$release_id\""
 [[ "$(grep -Fc "$draft_transition" <<<"$semver_publisher")" -eq 1 ]] || {
   echo "SemVer publisher must contain exactly one draft-to-published transition" >&2
   exit 1
 }
+grep -Fq "build/find-release-by-tag.sh \"\$GH_REPO\" \"\$TAG\"" <<<"$semver_publisher"
+grep -Fq "repos/\$GH_REPO/releases/assets/\$asset_id" <<<"$semver_publisher"
+if grep -Fq "releases/tags/\$TAG" <<<"$semver_publisher"; then
+  echo "SemVer publisher must not use the published-only tag endpoint for draft lookup" >&2
+  exit 1
+fi
 if grep -Eq 'gh release (create|delete|edit|upload)' "$ci_workflow"; then
   echo "pull-request CI must not publish or mutate a Release" >&2
   exit 1
@@ -67,6 +73,54 @@ expect_failure() {
     exit 1
   fi
 }
+
+fake_bin="$fixture_root/bin"
+mkdir -p "$fake_bin"
+cat >"$fake_bin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$*" == "api --paginate --slurp repos/GizClaw/gizclaw/releases?per_page=100" ]]
+[[ "${MOCK_GH_FAILURE:-false}" != true ]] || exit 3
+cat "$MOCK_RELEASE_PAGES"
+EOF
+chmod 0755 "$fake_bin/gh"
+
+release_pages="$fixture_root/releases.json"
+jq -n --arg tag "$tag" '[[
+  {id:1,tag_name:"v9.9.9",draft:false},
+  {id:2,tag_name:$tag,draft:true}
+], [
+  {id:3,tag_name:"v8.8.8",draft:false}
+]]' >"$release_pages"
+selected_release="$(
+  PATH="$fake_bin:$PATH" MOCK_RELEASE_PAGES="$release_pages" \
+    "$repo_root/build/find-release-by-tag.sh" GizClaw/gizclaw "$tag"
+)"
+jq -e --arg tag "$tag" '.id == 2 and .tag_name == $tag and .draft == true' \
+  <<<"$selected_release" >/dev/null
+
+jq -n '[[{id:1,tag_name:"v9.9.9",draft:false}]]' >"$release_pages"
+set +e
+PATH="$fake_bin:$PATH" MOCK_RELEASE_PAGES="$release_pages" \
+  "$repo_root/build/find-release-by-tag.sh" GizClaw/gizclaw "$tag" >/dev/null
+lookup_status=$?
+set -e
+[[ "$lookup_status" -eq 3 ]] || { echo "missing Release lookup must exit 3" >&2; exit 1; }
+
+set +e
+PATH="$fake_bin:$PATH" MOCK_RELEASE_PAGES="$release_pages" MOCK_GH_FAILURE=true \
+  "$repo_root/build/find-release-by-tag.sh" GizClaw/gizclaw "$tag" >/dev/null 2>&1
+lookup_status=$?
+set -e
+[[ "$lookup_status" -eq 1 ]] || { echo "GitHub API failure must fail closed" >&2; exit 1; }
+
+jq -n --arg tag "$tag" '[[
+  {id:1,tag_name:$tag,draft:true},
+  {id:2,tag_name:$tag,draft:false}
+]]' >"$release_pages"
+expect_failure "duplicate exact-tag Releases" env \
+  PATH="$fake_bin:$PATH" MOCK_RELEASE_PAGES="$release_pages" \
+  "$repo_root/build/find-release-by-tag.sh" GizClaw/gizclaw "$tag"
 
 make_fixture_deb() {
   local architecture="$1" output="$2" package_name="${3:-gizclaw}" package_version="${4:-$version}" package_source="${5:-$source_commit}"

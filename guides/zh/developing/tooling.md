@@ -139,9 +139,9 @@ build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
 
 `release-manifest.json` 标识 stable channel，并将每个 payload 的名称、平台、架构、
 字节数和 SHA-256 绑定到完整 source commit；Debian entry 还绑定 package metadata
-与 `/usr/bin/gizclaw`。Formal rerun 只有在现有 Release 的 published
-metadata 与全部六个下载文件逐字节一致时才是 idempotent success。Draft、partial、
-tag moved 或任何 mismatch 都会 fail closed。首次上传失败可能留下 draft，必须由
-administrator 检查并删除后才能重试；workflow 从不删除或覆盖已发布的 SemVer
-Release。下游 Homebrew 与 APT channel 各自负责签名、托管、保留策略和 live
-installation acceptance。
+与 `/usr/bin/gizclaw`。Formal rerun 只有在现有 published Release 的 metadata 与
+全部六个下载文件逐字节一致时才是 idempotent success。首次上传失败留下的 exact-tag
+draft 也必须通过相同的 metadata、inventory、digest 与逐字节校验，workflow 才会发布
+同一个 draft。Partial、tag moved、重复 exact-tag Release 或任何 mismatch 都会 fail
+closed；workflow 从不删除、替换或覆盖已发布的 SemVer Release。下游 Homebrew 与 APT
+channel 各自负责签名、托管、保留策略和 live installation acceptance。

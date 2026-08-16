@@ -149,10 +149,11 @@ build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
 `release-manifest.json` identifies the stable channel and binds every payload
 name, platform, architecture, byte size, and SHA-256 to the full source commit.
 Debian entries also bind package metadata and
-`/usr/bin/gizclaw`. A formal rerun accepts an existing Release only when its
-published metadata and all six downloaded files match byte-for-byte. Any draft,
-partial, moved, or mismatched formal Release fails closed. A failed first upload
-can leave a draft; an administrator must inspect and delete that draft before
-retrying. The workflow never deletes or overwrites a published SemVer Release.
-Downstream Homebrew and APT channels independently own their signing, hosting,
-retention, and live installation acceptance.
+`/usr/bin/gizclaw`. A formal rerun accepts an existing published Release only
+when its metadata and all six downloaded files match byte-for-byte. An
+exact-tag draft left by an interrupted first upload must pass the same metadata,
+inventory, digest, and byte-for-byte checks before the workflow publishes that
+same draft. Partial, moved, duplicate exact-tag, or mismatched Releases fail
+closed. The workflow never deletes, replaces, or overwrites a published SemVer
+Release. Downstream Homebrew and APT channels independently own their signing,
+hosting, retention, and live installation acceptance.

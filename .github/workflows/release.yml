@@ -336,10 +336,33 @@ jobs:
         run: |
           set -euo pipefail
 
+          lookup_release() {
+            build/find-release-by-tag.sh "$GH_REPO" "$TAG" >"$release_raw"
+          }
+
+          normalize_release() {
+            jq '{tag_name,target_commitish,draft,prerelease,assets:[.assets[] | {name,size}]}' \
+              "$release_raw" >"$release_json"
+          }
+
           verify_remote() {
-            local state="$1" release_json="$2" remote_dir
+            local state="$1" remote_dir local_asset name asset_id
             remote_dir="$(mktemp -d "${RUNNER_TEMP}/gizclaw-release.XXXXXX")"
-            gh release download "$TAG" --dir "$remote_dir"
+            for local_asset in .tmp/publish/*; do
+              name="$(basename "$local_asset")"
+              asset_id="$(
+                jq -er --arg name "$name" '
+                  [.assets[] | select(.name == $name)] |
+                  if length == 1 and (.[0].id | type == "number" and . > 0) then
+                    .[0].id
+                  else
+                    error("expected exactly one asset named " + $name)
+                  end
+                ' "$release_raw"
+              )"
+              gh api -H 'Accept: application/octet-stream' \
+                "repos/$GH_REPO/releases/assets/$asset_id" >"$remote_dir/$name"
+            done
             build/check-release.sh "$state" "$remote_dir" "$TAG" "$SOURCE_COMMIT" "$release_json"
             for local_asset in .tmp/publish/*; do
               cmp "$local_asset" "$remote_dir/$(basename "$local_asset")"
@@ -348,35 +371,33 @@ jobs:
 
           release_json="${RUNNER_TEMP}/release.json"
           release_raw="${RUNNER_TEMP}/release.raw.json"
-          release_error="${RUNNER_TEMP}/release.error"
-          if gh api "repos/$GH_REPO/releases/tags/$TAG" >"$release_raw" 2>"$release_error"; then
-            jq '{tag_name,target_commitish,draft,prerelease,assets:[.assets[] | {name,size}]}' \
-              "$release_raw" >"$release_json"
-            verify_remote published "$release_json"
+          lookup_status=0
+          lookup_release || lookup_status=$?
+          if [[ "$lookup_status" -eq 3 ]]; then
+            gh release create "$TAG" .tmp/publish/* \
+              --draft \
+              --verify-tag \
+              --target "$SOURCE_COMMIT" \
+              --title "$TAG" \
+              --notes "Formal GizClaw $TAG release from $SOURCE_COMMIT."
+            lookup_release
+          elif [[ "$lookup_status" -ne 0 ]]; then
+            exit "$lookup_status"
+          fi
+
+          normalize_release
+          if jq -e '.draft == false' "$release_raw" >/dev/null; then
+            verify_remote published
             echo "existing published Release is an exact idempotent match"
             exit 0
           fi
-          if ! grep -q 'HTTP 404' "$release_error"; then
-            cat "$release_error" >&2
-            exit 1
-          fi
 
-          gh release create "$TAG" .tmp/publish/* \
-            --draft \
-            --verify-tag \
-            --target "$SOURCE_COMMIT" \
-            --title "$TAG" \
-            --notes "Formal GizClaw $TAG release from $SOURCE_COMMIT."
-          gh api "repos/$GH_REPO/releases/tags/$TAG" >"$release_raw"
-          jq '{tag_name,target_commitish,draft,prerelease,assets:[.assets[] | {name,size}]}' \
-            "$release_raw" >"$release_json"
-          verify_remote draft "$release_json"
-
-          gh release edit "$TAG" --draft=false
-          gh api "repos/$GH_REPO/releases/tags/$TAG" >"$release_raw"
-          jq '{tag_name,target_commitish,draft,prerelease,assets:[.assets[] | {name,size}]}' \
-            "$release_raw" >"$release_json"
-          verify_remote published "$release_json"
+          verify_remote draft
+          release_id="$(jq -er '.id | select(type == "number" and . > 0)' "$release_raw")"
+          gh api --method PATCH "repos/$GH_REPO/releases/$release_id" \
+            -F draft=false >"$release_raw"
+          normalize_release
+          verify_remote published
 
           remote_tag_commit="$(
             git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}" |
