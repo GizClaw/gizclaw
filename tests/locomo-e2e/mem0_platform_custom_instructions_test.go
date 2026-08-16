@@ -15,8 +15,10 @@ func TestLoCoMoMem0PlatformCustomInstructions(t *testing.T) {
 	apiKey := os.Getenv("GIZCLAW_LOCOMO_E2E_MEM0_CUSTOM_INSTRUCTIONS_API_KEY")
 	identity := os.Getenv("GIZCLAW_LOCOMO_E2E_MEM0_CUSTOM_INSTRUCTIONS_FINGERPRINT")
 	if err := validateRequired(map[string]string{
-		"endpoint": endpoint, "api_key": apiKey, "fingerprint": identity,
-	}, "endpoint", "api_key", "fingerprint"); err != nil {
+		"GIZCLAW_LOCOMO_E2E_MEM0_CUSTOM_INSTRUCTIONS_ENDPOINT":    endpoint,
+		"GIZCLAW_LOCOMO_E2E_MEM0_CUSTOM_INSTRUCTIONS_API_KEY":     apiKey,
+		"GIZCLAW_LOCOMO_E2E_MEM0_CUSTOM_INSTRUCTIONS_FINGERPRINT": identity,
+	}, "GIZCLAW_LOCOMO_E2E_MEM0_CUSTOM_INSTRUCTIONS_ENDPOINT", "GIZCLAW_LOCOMO_E2E_MEM0_CUSTOM_INSTRUCTIONS_API_KEY", "GIZCLAW_LOCOMO_E2E_MEM0_CUSTOM_INSTRUCTIONS_FINGERPRINT"); err != nil {
 		t.Fatal(err)
 	}
 	store, err := memorymem0.New(memorymem0.Config{

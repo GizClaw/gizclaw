@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -46,6 +47,8 @@ type benchmarkQuestion struct {
 	GoldAnswers    []string `json:"gold_answers"`
 	EvidenceIDs    []string `json:"evidence_ids"`
 	Tags           []string `json:"tags"`
+	Category       int      `json:"category"`
+	Answerable     *bool    `json:"answerable"`
 }
 
 type datasetLine struct {
@@ -150,8 +153,22 @@ func validateDataset(dataset *benchmarkDataset) error {
 	}
 	questions := make(map[string]struct{}, len(dataset.Questions))
 	for _, question := range dataset.Questions {
-		if strings.TrimSpace(question.ID) == "" || strings.TrimSpace(question.Query) == "" || len(question.GoldAnswers) == 0 {
-			return errors.New("LoCoMo question requires an ID, query, and gold answers")
+		if strings.TrimSpace(question.ID) == "" || strings.TrimSpace(question.Query) == "" {
+			return errors.New("LoCoMo question requires an ID and query")
+		}
+		if question.Category < 1 || question.Category > 5 || question.Answerable == nil {
+			return fmt.Errorf("question %q requires category 1 through 5 and explicit answerable", question.ID)
+		}
+		wantTag := map[int]string{1: "multi-hop", 2: "temporal", 3: "commonsense", 4: "single-hop", 5: "adversarial"}[question.Category]
+		if !slices.Contains(question.Tags, wantTag) {
+			return fmt.Errorf("question %q category %d requires tag %q", question.ID, question.Category, wantTag)
+		}
+		if question.Category == 5 {
+			if *question.Answerable || len(question.GoldAnswers) != 0 {
+				return fmt.Errorf("question %q category 5 must be unanswerable without gold answers", question.ID)
+			}
+		} else if !*question.Answerable || len(question.GoldAnswers) == 0 {
+			return fmt.Errorf("question %q category %d must be answerable with gold answers", question.ID, question.Category)
 		}
 		for _, answer := range question.GoldAnswers {
 			if strings.TrimSpace(answer) == "" {

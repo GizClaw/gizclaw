@@ -46,9 +46,10 @@ func Open(ctx context.Context, config Config) (*Store, error) {
 	if strings.TrimSpace(config.Mem0.Endpoint) == "" {
 		return nil, fmt.Errorf("%w: volc memory mem0 endpoint is required", memorystore.ErrInvalidInput)
 	}
-	if config.Mem0.Flavor == "" {
-		config.Mem0.Flavor = mem0.Platform
+	if config.Mem0.Flavor != "" && config.Mem0.Flavor != mem0.VolcPlatform {
+		return nil, fmt.Errorf("%w: volc memory requires the volc mem0 protocol", memorystore.ErrInvalidInput)
 	}
+	config.Mem0.Flavor = mem0.VolcPlatform
 	if config.Mem0.APIKey == "" {
 		resolver := config.Resolver
 		if resolver == nil {
