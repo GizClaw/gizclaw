@@ -175,7 +175,6 @@ func TestStoreUsesVolcJobProtocol(t *testing.T) {
 func TestStoreUsesVolcV1DirectFactProtocol(t *testing.T) {
 	t.Parallel()
 	var (
-		added         bool
 		transportUser string
 		operationMark string
 	)
@@ -183,11 +182,7 @@ func TestStoreUsesVolcV1DirectFactProtocol(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/memories/":
-			if !added {
-				_, _ = io.WriteString(w, `{"results":[]}`)
-				return
-			}
-			_, _ = io.WriteString(w, fmt.Sprintf(`{"results":[{"id":"fact","memory":"direct","agent_id":"agent","user_id":%q,"metadata":{"gizclaw.observation_id":"direct-observation","gizclaw.operation_marker":%q}}]}`, transportUser, operationMark))
+			_, _ = io.WriteString(w, `{"results":[]}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/memories/":
 			var body map[string]any
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -196,13 +191,10 @@ func TestStoreUsesVolcV1DirectFactProtocol(t *testing.T) {
 			transportUser, _ = body["user_id"].(string)
 			metadata, _ := body["metadata"].(map[string]any)
 			operationMark, _ = metadata["gizclaw.operation_marker"].(string)
-			if body["infer"] != false || body["async_mode"] != true || body["agent_id"] != "agent" || operationMark == "" {
+			if body["infer"] != false || body["async_mode"] != false || body["agent_id"] != "agent" || transportUser == "" || operationMark == "" {
 				t.Errorf("unexpected direct add payload")
 			}
-			added = true
-			_, _ = io.WriteString(w, `{"results":[{"event_id":"direct-job"}]}`)
-		case r.Method == http.MethodGet && r.URL.Path == "/v1/job/direct-job/":
-			_, _ = io.WriteString(w, `{"status":"SUCCEEDED","results":[]}`)
+			_, _ = io.WriteString(w, `{"results":[{"id":"fact","memory":"direct","event":"ADD"}]}`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -218,12 +210,8 @@ func TestStoreUsesVolcV1DirectFactProtocol(t *testing.T) {
 	observed, err := store.Observe(context.Background(), memorystore.Observation{
 		Scope: scope, ID: "direct-observation", Facts: []memorystore.FactCandidate{{Text: "direct"}},
 	})
-	if err != nil || observed.Operation == nil {
+	if err != nil || observed.Operation != nil || len(observed.Facts) != 1 || observed.Facts[0].Text != "direct" {
 		t.Fatalf("Observe() = %#v, %v", observed, err)
-	}
-	completed, err := store.Wait(context.Background(), memorystore.OperationRequest{Scope: scope, ID: observed.Operation.ID})
-	if err != nil || len(completed.Facts) != 1 || completed.Facts[0].Text != "direct" {
-		t.Fatalf("Wait() = %#v, %v", completed, err)
 	}
 }
 

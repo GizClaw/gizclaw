@@ -205,7 +205,9 @@ func (s *Store) observeDirectFact(ctx context.Context, scope scope, observation 
 		"infer":    false,
 	}
 	if s.config.Flavor == VolcPlatform {
-		payload["async_mode"] = true
+		// Volc rejects asynchronous direct imports: async_mode must be false
+		// when infer is false, and the response contains the created fact.
+		payload["async_mode"] = false
 	}
 	for key, value := range s.entityFields(scope) {
 		payload[key] = value
@@ -224,14 +226,14 @@ func (s *Store) observeDirectFact(ctx context.Context, scope scope, observation 
 		}
 		return observeResult{}, err
 	}
-	operationNativeID, err := response.operationID(s.config.Flavor)
-	if err != nil {
-		return observeResult{}, err
+	operationNativeID := ""
+	if s.config.Flavor != VolcPlatform {
+		operationNativeID, err = response.operationID(s.config.Flavor)
+		if err != nil {
+			return observeResult{}, err
+		}
 	}
 	if operationNativeID != "" {
-		if s.config.Flavor == VolcPlatform {
-			operationNativeID = encodeVolcOperationNativeID(operationNativeID, operationMarker)
-		}
 		operationID := encodeOperationLocator(scope, operationNativeID)
 		return observeResult{Operation: &memorystore.Operation{ID: operationID, Status: operationPending}}, nil
 	}

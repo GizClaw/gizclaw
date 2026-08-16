@@ -2,6 +2,9 @@ package memorystore
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -80,6 +83,52 @@ func TestBuildRejectsEmptyCanonicalLayoutID(t *testing.T) {
 	_, err := Build(t.Context(), request)
 	if err == nil || !strings.Contains(err.Error(), `layout id "" does not match binding layout_id "layout-id"`) {
 		t.Fatalf("Build() error = %v", err)
+	}
+}
+
+func TestBuildVolcMem0UsesVolcProtocol(t *testing.T) {
+	requestPath := make(chan string, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		requestPath <- request.Method + " " + request.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"results":[{"event_id":"job"}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	connection := apitypes.RuntimeProfileMemoryConnection{}
+	if err := connection.FromRuntimeProfileVolcMem0Connection(apitypes.RuntimeProfileVolcMem0Connection{
+		ApiKey:          "key",
+		Endpoint:        server.URL,
+		MemoryProjectId: "project",
+		Type:            apitypes.RuntimeProfileVolcMem0ConnectionTypeVolcMem0,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Build(t.Context(), Request{
+		WorkspaceID: "workspace",
+		BindingName: "memory",
+		Layout:      apitypes.MemoryLayout{Id: "layout-id"},
+		Binding: apitypes.RuntimeProfileMemoryBinding{
+			LayoutId:   "layout-id",
+			Driver:     apitypes.RuntimeProfileMemoryDriverVolcMem0,
+			Connection: connection,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	observed, err := result.Store.Observe(t.Context(), memory.Observation{
+		Scope: memory.Scope{UserID: "user"},
+		Text:  "remember this",
+	})
+	if err != nil {
+		t.Fatalf("Observe() error = %v", err)
+	}
+	if observed.Operation == nil {
+		t.Fatal("Observe() returned no Volc operation")
+	}
+	if got := <-requestPath; got != "POST /v1/memories/" {
+		t.Fatalf("Volc request = %q, want POST /v1/memories/", got)
 	}
 }
 

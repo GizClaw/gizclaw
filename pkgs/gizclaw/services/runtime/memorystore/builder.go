@@ -98,7 +98,7 @@ func Build(ctx context.Context, request Request) (Result, error) {
 		store, err := memoryvolc.Open(ctx, memoryvolc.Config{
 			Mem0: memorymem0.Config{
 				Endpoint: connection.Endpoint, APIKey: connection.ApiKey,
-				Flavor: memorymem0.Platform, PollInterval: poll,
+				Flavor: memorymem0.VolcPlatform, PollInterval: poll,
 			},
 			MemoryProjectID: connection.MemoryProjectId,
 		})
