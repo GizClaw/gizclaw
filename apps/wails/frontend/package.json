@@ -20,7 +20,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "dayjs": "^1.11.21",
-    "lucide-react": "^1.28.0",
+    "lucide-react": "^1.31.0",
     "maplibre-gl": "^6.1.0",
     "openai": "^7.2.0",
     "qrcode": "^1.5.4",
