@@ -6,7 +6,7 @@ require (
 	github.com/GizClaw/gizclaw-go v0.0.0
 	github.com/getlantern/systray v1.2.2
 	github.com/goccy/go-yaml v1.19.2
-	github.com/wailsapp/wails/v2 v2.13.0
+	github.com/wailsapp/wails/v2 v2.14.0
 )
 
 require (
