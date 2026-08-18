@@ -164,7 +164,15 @@ func (s *adminService) ApplyResource(ctx context.Context, request adminhttp.Appl
 	if request.JSONBody == nil {
 		return adminhttp.ApplyResource400JSONResponse(apitypes.NewErrorResponse("INVALID_RESOURCE", "request body is required")), nil
 	}
-	result, err := s.ResourceManager.Apply(ctx, *request.JSONBody)
+	data, err := json.Marshal(request.JSONBody)
+	if err != nil {
+		return adminhttp.ApplyResource400JSONResponse(apitypes.NewErrorResponse("INVALID_RESOURCE", err.Error())), nil
+	}
+	var resource apitypes.Resource
+	if err := json.Unmarshal(data, &resource); err != nil {
+		return adminhttp.ApplyResource400JSONResponse(apitypes.NewErrorResponse("INVALID_RESOURCE", err.Error())), nil
+	}
+	result, err := s.ResourceManager.Apply(ctx, resource)
 	if err != nil {
 		status, body := resourceManagerError(err)
 		switch status {

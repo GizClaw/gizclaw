@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
@@ -115,32 +114,8 @@ func TestServerResourceUnavailableWithoutProfileOrOwnership(t *testing.T) {
 
 func TestServerResourceCreatorOwnsConcreteResources(t *testing.T) {
 	env := newServerResourceHarness(t)
-	admin := serverResourceAdminClient(t, env)
 
 	workspaceName := "owner-workspace"
-	unownedWorkspaceName := "unowned-workspace"
-	input := apitypes.WorkspaceInputModePushToTalk
-	var adminParameters apitypes.WorkspaceParameters
-	if err := adminParameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
-		AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
-		Input:     &input,
-	}); err != nil {
-		t.Fatalf("build unowned Workspace parameters: %v", err)
-	}
-	workflowID := sharedWorkflow
-	created, err := admin.CreateWorkspaceWithResponse(env.ctx, adminhttp.WorkspaceUpsert{
-		Id:         unownedWorkspaceName,
-		Name:       unownedWorkspaceName,
-		WorkflowId: workflowID,
-		Parameters: &adminParameters,
-	})
-	if err != nil || created.JSON200 == nil {
-		t.Fatalf("create unowned workspace: response=%#v error=%v", created, err)
-	}
-	t.Cleanup(func() { _, _ = admin.DeleteWorkspaceWithResponse(env.ctx, created.JSON200.Id) })
-	if _, err := env.peer.DeleteWorkspace(env.ctx, "owner.workspace.unowned.delete", rpcapi.WorkspaceDeleteRequest{Name: unownedWorkspaceName}); err == nil {
-		t.Fatalf("workspace.delete unowned error = %v", err)
-	}
 
 	if _, err := env.peer.CreateWorkspace(env.ctx, "owner.workspace.create", rpcapi.WorkspaceCreateRequest{
 		Name:         workspaceName,

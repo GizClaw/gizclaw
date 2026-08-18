@@ -27,7 +27,7 @@ func TestAdminAPIApplyResource(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("build workflow resource: %v", err)
 	}
-	resp, err := env.api.ApplyResourceWithResponse(env.ctx, resource)
+	resp, err := env.api.ApplyResourceWithResponse(env.ctx, writableResource(t, resource))
 	if err != nil {
 		t.Fatalf("apply resource: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestAdminAPIApplyRejectsInvalidResourceIdentities(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			resp, err := env.api.ApplyResourceWithResponse(env.ctx, tc.resource)
+			resp, err := env.api.ApplyResourceWithResponse(env.ctx, writableResource(t, tc.resource))
 			if err != nil {
 				t.Fatalf("apply invalid resource: %v", err)
 			}
@@ -102,7 +102,7 @@ func TestAdminAPIApplyRejectsInvalidResourceIdentities(t *testing.T) {
 func applyAndRequire(t *testing.T, env *adminAPIHarness, kind apitypes.ResourceKind, id string, resource apitypes.Resource) string {
 	t.Helper()
 
-	resp, err := env.api.ApplyResourceWithResponse(env.ctx, resource)
+	resp, err := env.api.ApplyResourceWithResponse(env.ctx, writableResource(t, resource))
 	if err != nil {
 		t.Fatalf("apply %s %s: %v", kind, id, err)
 	}

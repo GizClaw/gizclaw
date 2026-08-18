@@ -1237,9 +1237,6 @@ type CreateWorkflowJSONRequestBody = WorkflowUpsert
 // PutWorkflowJSONRequestBody defines body for PutWorkflow for application/json ContentType.
 type PutWorkflowJSONRequestBody = WorkflowUpsert
 
-// CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
-type CreateWorkspaceJSONRequestBody = WorkspaceUpsert
-
 // PutWorkspaceJSONRequestBody defines body for PutWorkspace for application/json ContentType.
 type PutWorkspaceJSONRequestBody = WorkspaceUpsert
 
@@ -1933,11 +1930,6 @@ type ClientInterface interface {
 
 	// ListWorkspaces request
 	ListWorkspaces(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateWorkspaceWithBody request with any body
-	CreateWorkspaceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateWorkspace(ctx context.Context, body CreateWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteWorkspace request
 	DeleteWorkspace(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -4371,30 +4363,6 @@ func (c *Client) PutWorkflow(ctx context.Context, id string, body PutWorkflowJSO
 
 func (c *Client) ListWorkspaces(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListWorkspacesRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateWorkspaceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateWorkspaceRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateWorkspace(ctx context.Context, body CreateWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateWorkspaceRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11845,46 +11813,6 @@ func NewListWorkspacesRequest(server string, params *ListWorkspacesParams) (*htt
 	return req, nil
 }
 
-// NewCreateWorkspaceRequest calls the generic CreateWorkspace builder with application/json body
-func NewCreateWorkspaceRequest(server string, body CreateWorkspaceJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateWorkspaceRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateWorkspaceRequestWithBody generates requests for CreateWorkspace with any type of body
-func NewCreateWorkspaceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/workspaces")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewDeleteWorkspaceRequest generates requests for DeleteWorkspace
 func NewDeleteWorkspaceRequest(server string, id string) (*http.Request, error) {
 	var err error
@@ -12890,11 +12818,6 @@ type ClientWithResponsesInterface interface {
 
 	// ListWorkspacesWithResponse request
 	ListWorkspacesWithResponse(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error)
-
-	// CreateWorkspaceWithBodyWithResponse request with any body
-	CreateWorkspaceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWorkspaceResponse, error)
-
-	CreateWorkspaceWithResponse(ctx context.Context, body CreateWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWorkspaceResponse, error)
 
 	// DeleteWorkspaceWithResponse request
 	DeleteWorkspaceWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteWorkspaceResponse, error)
@@ -17949,39 +17872,6 @@ func (r ListWorkspacesResponse) ContentType() string {
 	return ""
 }
 
-type CreateWorkspaceResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.Workspace
-	JSON400      *externalRef0.ErrorResponse
-	JSON409      *externalRef0.ErrorResponse
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateWorkspaceResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateWorkspaceResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r CreateWorkspaceResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
 type DeleteWorkspaceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -20038,23 +19928,6 @@ func (c *ClientWithResponses) ListWorkspacesWithResponse(ctx context.Context, pa
 		return nil, err
 	}
 	return ParseListWorkspacesResponse(rsp)
-}
-
-// CreateWorkspaceWithBodyWithResponse request with arbitrary body returning *CreateWorkspaceResponse
-func (c *ClientWithResponses) CreateWorkspaceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWorkspaceResponse, error) {
-	rsp, err := c.CreateWorkspaceWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateWorkspaceResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateWorkspaceWithResponse(ctx context.Context, body CreateWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWorkspaceResponse, error) {
-	rsp, err := c.CreateWorkspace(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateWorkspaceResponse(rsp)
 }
 
 // DeleteWorkspaceWithResponse request returning *DeleteWorkspaceResponse
@@ -26971,53 +26844,6 @@ func ParseListWorkspacesResponse(rsp *http.Response) (*ListWorkspacesResponse, e
 	return response, nil
 }
 
-// ParseCreateWorkspaceResponse parses an HTTP response from a CreateWorkspaceWithResponse call
-func ParseCreateWorkspaceResponse(rsp *http.Response) (*CreateWorkspaceResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateWorkspaceResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.Workspace
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseDeleteWorkspaceResponse parses an HTTP response from a DeleteWorkspaceWithResponse call
 func ParseDeleteWorkspaceResponse(rsp *http.Response) (*DeleteWorkspaceResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -27898,9 +27724,6 @@ type ServerInterface interface {
 	// List all workspaces
 	// (GET /workspaces)
 	ListWorkspaces(c *fiber.Ctx, params ListWorkspacesParams) error
-	// Create a workspace
-	// (POST /workspaces)
-	CreateWorkspace(c *fiber.Ctx) error
 	// Delete a workspace
 	// (DELETE /workspaces/{id})
 	DeleteWorkspace(c *fiber.Ctx, id string) error
@@ -33140,24 +32963,6 @@ func (siw *ServerInterfaceWrapper) ListWorkspaces(c *fiber.Ctx) error {
 	return handler(c)
 }
 
-// CreateWorkspace operation middleware
-func (siw *ServerInterfaceWrapper) CreateWorkspace(c *fiber.Ctx) error {
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.CreateWorkspace(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
 // DeleteWorkspace operation middleware
 func (siw *ServerInterfaceWrapper) DeleteWorkspace(c *fiber.Ctx) error {
 
@@ -33819,8 +33624,6 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Put(options.BaseURL+"/workflows/:id", wrapper.PutWorkflow)
 
 	router.Get(options.BaseURL+"/workspaces", wrapper.ListWorkspaces)
-
-	router.Post(options.BaseURL+"/workspaces", wrapper.CreateWorkspace)
 
 	router.Delete(options.BaseURL+"/workspaces/:id", wrapper.DeleteWorkspace)
 
@@ -40312,50 +40115,6 @@ func (response ListWorkspaces500JSONResponse) VisitListWorkspacesResponse(ctx *f
 	return ctx.JSON(&response)
 }
 
-type CreateWorkspaceRequestObject struct {
-	Body *CreateWorkspaceJSONRequestBody
-}
-
-type CreateWorkspaceResponseObject interface {
-	VisitCreateWorkspaceResponse(ctx *fiber.Ctx) error
-}
-
-type CreateWorkspace200JSONResponse externalRef0.Workspace
-
-func (response CreateWorkspace200JSONResponse) VisitCreateWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type CreateWorkspace400JSONResponse externalRef0.ErrorResponse
-
-func (response CreateWorkspace400JSONResponse) VisitCreateWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type CreateWorkspace409JSONResponse externalRef0.ErrorResponse
-
-func (response CreateWorkspace409JSONResponse) VisitCreateWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type CreateWorkspace500JSONResponse externalRef0.ErrorResponse
-
-func (response CreateWorkspace500JSONResponse) VisitCreateWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
 type DeleteWorkspaceRequestObject struct {
 	Id string `json:"id"`
 }
@@ -41276,9 +41035,6 @@ type StrictServerInterface interface {
 	// List all workspaces
 	// (GET /workspaces)
 	ListWorkspaces(ctx context.Context, request ListWorkspacesRequestObject) (ListWorkspacesResponseObject, error)
-	// Create a workspace
-	// (POST /workspaces)
-	CreateWorkspace(ctx context.Context, request CreateWorkspaceRequestObject) (CreateWorkspaceResponseObject, error)
 	// Delete a workspace
 	// (DELETE /workspaces/{id})
 	DeleteWorkspace(ctx context.Context, request DeleteWorkspaceRequestObject) (DeleteWorkspaceResponseObject, error)
@@ -45784,37 +45540,6 @@ func (sh *strictHandler) ListWorkspaces(ctx *fiber.Ctx, params ListWorkspacesPar
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(ListWorkspacesResponseObject); ok {
 		if err := validResponse.VisitListWorkspacesResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// CreateWorkspace operation middleware
-func (sh *strictHandler) CreateWorkspace(ctx *fiber.Ctx) error {
-	var request CreateWorkspaceRequestObject
-
-	var body CreateWorkspaceJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateWorkspace(ctx.UserContext(), request.(CreateWorkspaceRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateWorkspace")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(CreateWorkspaceResponseObject); ok {
-		if err := validResponse.VisitCreateWorkspaceResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

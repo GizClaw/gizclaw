@@ -6,6 +6,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -18,6 +19,19 @@ import (
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
+
+func writableResource(t *testing.T, resource apitypes.Resource) adminhttp.ApplyResourceJSONRequestBody {
+	t.Helper()
+	raw, err := json.Marshal(resource)
+	if err != nil {
+		t.Fatalf("marshal writable resource: %v", err)
+	}
+	var writable adminhttp.ApplyResourceJSONRequestBody
+	if err := json.Unmarshal(raw, &writable); err != nil {
+		t.Fatalf("decode writable resource: %v", err)
+	}
+	return writable
+}
 
 const adminAPIAdminContext = "admin-api-admin"
 

@@ -1125,7 +1125,7 @@ func (m *Manager) Apply(ctx context.Context, resource apitypes.Resource) (apityp
 	case string(apitypes.ResourceKindVoice), "VoiceResource":
 		return m.applyVoice(ctx, resource)
 	case string(apitypes.ResourceKindWorkspace), "WorkspaceResource":
-		return m.applyWorkspace(ctx, resource)
+		return apitypes.ApplyResult{}, applyError(400, "UNSUPPORTED_WORKSPACE_APPLY", "Workspace is Peer-owned and cannot be applied by Admin")
 	case string(apitypes.ResourceKindWorkflow), "WorkflowResource":
 		return m.applyWorkflow(ctx, resource)
 	case string(apitypes.ResourceKindMemoryLayout), "MemoryLayoutResource":

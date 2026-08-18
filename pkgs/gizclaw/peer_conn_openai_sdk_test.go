@@ -1,13 +1,18 @@
 package gizclaw
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,6 +24,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 )
@@ -43,8 +49,12 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 	speechReached := make(chan struct{}, 1)
 	transcriptionReached := make(chan struct{}, 1)
 	transcriptionStreamReached := make(chan struct{}, 1)
+	conversationBackend := newOpenAISDKConversationBackend(t)
 	handler := newOpenAIHTTPHandler(&openaiapi.Server{
-		Caller: clientKey.Public,
+		Caller:     clientKey.Public,
+		Workspaces: conversationBackend,
+		Executor:   conversationBackend,
+		Responses:  openaiapi.NewResponseRuntime(),
 		Models: peerConnModelListerFunc(func(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
 			return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{Items: []apitypes.Model{
 				{
@@ -81,8 +91,8 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 				if err != nil {
 					t.Fatalf("read speech input: %v", err)
 				}
-				if text != "hello speech" {
-					t.Fatalf("speech input = %q, want hello speech", text)
+				if text != "hello speech" && text != "sdk response result" {
+					return nil, fmt.Errorf("speech input = %q", text)
 				}
 				signalOpenAISDK(speechReached)
 				return openAISDKStream((&genx.ModelContextBuilder{}).Build(), &genx.MessageChunk{
@@ -192,6 +202,114 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 	requireOpenAISDKSignal(t, transcriptionStreamReached, "streaming transcription request did not reach GenX transformer")
 	if transcriptionText != "sdk streaming transcription ok" {
 		t.Fatalf("streaming transcription text = %q, want sdk streaming transcription ok", transcriptionText)
+	}
+
+	var conversation struct {
+		ID string `json:"id"`
+	}
+	requireNoOpenAISDKError(t, sdk.Post(ctx, "conversations", map[string]any{
+		"metadata": map[string]string{"collection": "assistants", "workflow_name": "story"},
+	}, &conversation))
+	if conversation.ID == "" {
+		t.Fatal("generic SDK Conversation create returned no ID")
+	}
+	var responseIDs []string
+	for turn := 1; turn <= 3; turn++ {
+		input := fmt.Sprintf("sdk turn %d", turn)
+		if turn == 2 {
+			input = transcription.Text
+		}
+		var response struct {
+			ID     string `json:"id"`
+			Status string `json:"status"`
+		}
+		requireNoOpenAISDKError(t, sdk.Post(ctx, "responses", map[string]any{
+			"conversation": conversation.ID, "input": input,
+		}, &response))
+		if response.ID == "" || response.Status != "completed" {
+			t.Fatalf("generic SDK Response %d = %#v", turn, response)
+		}
+		responseIDs = append(responseIDs, response.ID)
+	}
+	var conversationItems struct {
+		Data []json.RawMessage `json:"data"`
+	}
+	requireNoOpenAISDKError(t, sdk.Get(ctx, "conversations/"+conversation.ID+"/items", nil, &conversationItems))
+	if len(conversationItems.Data) != 6 {
+		t.Fatalf("generic SDK Conversation items = %d, want 6", len(conversationItems.Data))
+	}
+	var firstInputItems struct {
+		Data []json.RawMessage `json:"data"`
+	}
+	requireNoOpenAISDKError(t, sdk.Get(ctx, "responses/"+responseIDs[0]+"/input_items", nil, &firstInputItems))
+	if len(firstInputItems.Data) != 1 {
+		t.Fatalf("generic SDK first Response input items = %d, want 1", len(firstInputItems.Data))
+	}
+
+	composedSpeech, err := sdk.Audio.Speech.New(ctx, openai.AudioSpeechNewParams{
+		Input: "sdk response result", Model: openai.SpeechModelTTS1, Voice: "voice-a", ResponseFormat: openai.AudioSpeechNewParamsResponseFormatMP3,
+	})
+	requireNoOpenAISDKError(t, err)
+	composedAudio, err := io.ReadAll(composedSpeech.Body)
+	_ = composedSpeech.Body.Close()
+	if err != nil || len(composedAudio) == 0 {
+		t.Fatalf("composed Response speech bytes=%d err=%v", len(composedAudio), err)
+	}
+
+	var background struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	}
+	requireNoOpenAISDKError(t, sdk.Post(ctx, "responses", map[string]any{
+		"conversation": conversation.ID, "input": "sdk cancel", "background": true,
+	}, &background))
+	var cancelled struct {
+		Status string `json:"status"`
+	}
+	requireNoOpenAISDKError(t, sdk.Post(ctx, "responses/"+background.ID+"/cancel", nil, &cancelled))
+	if cancelled.Status != "cancelled" {
+		t.Fatalf("cancelled Response = %#v", cancelled)
+	}
+
+	streamBody, err := json.Marshal(map[string]any{"conversation": conversation.ID, "input": "sdk abort", "stream": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamCtx, streamCancel := context.WithCancel(ctx)
+	streamRequest, err := http.NewRequestWithContext(streamCtx, http.MethodPost, "http://gizclaw/v1/responses", bytes.NewReader(streamBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamRequest.Header.Set("Authorization", "Bearer sdk-test")
+	streamRequest.Header.Set("Content-Type", "application/json")
+	streamResponse, err := httpClient.Do(streamRequest)
+	requireNoOpenAISDKError(t, err)
+	scanner := bufio.NewScanner(streamResponse.Body)
+	sawDelta := false
+	for scanner.Scan() {
+		if bytes.Contains(scanner.Bytes(), []byte("response.output_text.delta")) {
+			sawDelta = true
+			break
+		}
+	}
+	streamCancel()
+	_ = streamResponse.Body.Close()
+	if !sawDelta {
+		t.Fatalf("stream ended before delta: %v", scanner.Err())
+	}
+	deadline := time.Now().Add(time.Second)
+	for {
+		var recovered struct {
+			Status string `json:"status"`
+		}
+		err = sdk.Post(ctx, "responses", map[string]any{"conversation": conversation.ID, "input": "sdk recovery"}, &recovered)
+		if err == nil && recovered.Status == "completed" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("same-Conversation recovery = %#v err=%v", recovered, err)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	_ = clientConn.Close()
@@ -400,4 +518,99 @@ func requireNoOpenAISDKError(t *testing.T, err error) {
 	if err != nil {
 		t.Fatalf("openai sdk request failed: %v", err)
 	}
+}
+
+type openAISDKConversationBackend struct {
+	mu       sync.Mutex
+	store    workspace.ObjectRuntimeStore
+	items    map[string]apitypes.Workspace
+	runtimes map[string]workspace.Runtime
+	sequence int
+}
+
+func newOpenAISDKConversationBackend(t *testing.T) *openAISDKConversationBackend {
+	return &openAISDKConversationBackend{
+		store: workspace.NewObjectRuntimeStore(newTestObjectStore(t)),
+		items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{},
+	}
+}
+
+func (b *openAISDKConversationBackend) CreateConversationWorkspace(ctx context.Context, request openaiapi.ConversationWorkspaceRequest) (apitypes.Workspace, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.sequence++
+	id := fmt.Sprintf("sdk-workspace-%d", b.sequence)
+	runtime, err := b.store.PrepareWorkspace(ctx, id)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	if err := request.Initialize(ctx, runtime); err != nil {
+		return apitypes.Workspace{}, err
+	}
+	system := false
+	now := time.Now()
+	labels := map[string]string{"collection": request.Collection, "openai.conversation": "true"}
+	item := apitypes.Workspace{Id: id, Name: request.Name, WorkflowId: request.WorkflowName, Labels: &labels, System: &system, CreatedAt: now, UpdatedAt: now, LastActiveAt: now}
+	b.items[item.Name] = item
+	b.runtimes[item.Id] = runtime
+	return item, nil
+}
+
+func (b *openAISDKConversationBackend) GetConversationWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	item, ok := b.items[name]
+	if !ok {
+		return apitypes.Workspace{}, errors.New("not found")
+	}
+	return item, nil
+}
+
+func (b *openAISDKConversationBackend) GetConversationRuntime(_ context.Context, id string) (workspace.Runtime, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	runtime, ok := b.runtimes[id]
+	if !ok {
+		return workspace.Runtime{}, errors.New("not found")
+	}
+	return runtime, nil
+}
+
+func (b *openAISDKConversationBackend) AppendConversationHistory(ctx context.Context, id string, request workspace.AppendHistoryRequest) (workspace.HistoryEntry, error) {
+	runtime, err := b.GetConversationRuntime(ctx, id)
+	if err != nil {
+		return workspace.HistoryEntry{}, err
+	}
+	return runtime.History.Append(ctx, request)
+}
+
+func (b *openAISDKConversationBackend) ExecuteWorkspaceText(ctx context.Context, item apitypes.Workspace, input string, delta func(string) error) ([]workspace.HistoryEntry, error) {
+	if input == "sdk cancel" {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	if input == "sdk abort" {
+		if delta != nil {
+			if err := delta("partial"); err != nil {
+				return nil, err
+			}
+		}
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	text := "sdk response:" + input
+	if delta != nil {
+		if err := delta(text); err != nil {
+			return nil, err
+		}
+	}
+	runtime, err := b.GetConversationRuntime(ctx, item.Id)
+	if err != nil {
+		return nil, err
+	}
+	entry, err := runtime.History.Append(ctx, workspace.AppendHistoryRequest{Type: "agent", Origin: workspace.HistoryOriginAgentHost, Name: "assistant", Text: text})
+	if err != nil {
+		return nil, err
+	}
+	return []workspace.HistoryEntry{entry}, nil
 }

@@ -29,6 +29,8 @@ const (
 	// HistoryOriginAgentHost marks entries durably written by the authenticated
 	// AgentHost path. Missing or other origins are never reward-eligible.
 	HistoryOriginAgentHost = "agenthost"
+	// HistoryOriginOpenAI marks user turns accepted by the OpenAI Responses adapter.
+	HistoryOriginOpenAI = "openai.responses"
 )
 
 var historyIDSeq uint64

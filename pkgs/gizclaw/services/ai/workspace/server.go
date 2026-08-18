@@ -120,16 +120,61 @@ func WithRuntimeVoiceBindings(ctx context.Context, bindings map[string]string) c
 
 type WorkspaceAdminService interface {
 	ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error)
-	CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error)
 	DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error)
 	GetWorkspace(context.Context, adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error)
 	PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error)
 }
 
-// PeerWorkspaceService is the Peer-facing create surface. Peer callers choose
-// an owner-scoped name; the Server allocates the separate canonical Admin ID.
+// PeerWorkspaceCreateRequest is the transport-independent input for creating
+// one ordinary Workspace owned by the authenticated Peer in ctx.
+type PeerWorkspaceCreateRequest struct {
+	Name       string
+	WorkflowID string
+	Labels     map[string]string
+	Parameters *apitypes.WorkspaceParameters
+	Toolkit    *apitypes.ToolkitPolicy
+
+	// Initialize may persist runtime-scoped state after runtime preparation and
+	// before the Workspace record becomes visible. A failure rolls the runtime
+	// back and leaves no discoverable Workspace.
+	Initialize func(context.Context, Runtime) error
+}
+
+// PeerWorkspaceCreateErrorKind classifies errors for transport adapters.
+type PeerWorkspaceCreateErrorKind string
+
+const (
+	PeerWorkspaceCreateInvalid  PeerWorkspaceCreateErrorKind = "invalid"
+	PeerWorkspaceCreateNotFound PeerWorkspaceCreateErrorKind = "not_found"
+	PeerWorkspaceCreateConflict PeerWorkspaceCreateErrorKind = "conflict"
+	PeerWorkspaceCreateInternal PeerWorkspaceCreateErrorKind = "internal"
+)
+
+// PeerWorkspaceCreateError is a typed domain failure mapped by Peer RPC and
+// other authenticated Peer-owned transports.
+type PeerWorkspaceCreateError struct {
+	Kind PeerWorkspaceCreateErrorKind
+	Err  error
+}
+
+func (e *PeerWorkspaceCreateError) Error() string {
+	if e == nil || e.Err == nil {
+		return "workspace: create failed"
+	}
+	return e.Err.Error()
+}
+
+func (e *PeerWorkspaceCreateError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+// PeerWorkspaceService is the authenticated Peer-owned create surface. The
+// Server generates the canonical ID and never accepts an Admin HTTP DTO.
 type PeerWorkspaceService interface {
-	CreatePeerWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error)
+	CreatePeerWorkspace(context.Context, PeerWorkspaceCreateRequest) (apitypes.Workspace, error)
 }
 
 // SystemWorkspaceService is the domain-only Workspace lifecycle surface. It is
@@ -252,66 +297,67 @@ func (s *Server) ListWorkspacesByOwnerAndLabels(ctx context.Context, owner strin
 	return items, nil
 }
 
-func (s *Server) CreateWorkspace(ctx context.Context, request adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
+func (s *Server) CreatePeerWorkspace(ctx context.Context, request PeerWorkspaceCreateRequest) (apitypes.Workspace, error) {
+	return s.createPeerWorkspace(ctx, request, s.newID())
+}
+
+func (s *Server) createPeerWorkspace(ctx context.Context, request PeerWorkspaceCreateRequest, canonicalID string) (apitypes.Workspace, error) {
+	owner, ok := ownership.FromContext(ctx)
+	if !ok || strings.TrimSpace(owner) == "" {
+		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateInvalid, errors.New("workspace: Peer owner is required"))
+	}
 	store, err := s.store()
 	if err != nil {
-		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateInternal, err)
 	}
-	if request.Body == nil {
-		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
+	labels := maps.Clone(request.Labels)
+	body := adminhttp.WorkspaceUpsert{
+		Id: canonicalID, Name: request.Name, WorkflowId: request.WorkflowID,
+		Labels: &labels, Parameters: request.Parameters, Toolkit: request.Toolkit,
 	}
-	if request.Body.Icon != nil {
-		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "icon object names are managed by the icon API")), nil
-	}
-	normalized, err := normalizeWorkspaceUpsert(*request.Body, "")
+	normalized, err := normalizeWorkspaceUpsert(body, "")
 	if err != nil {
-		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
+		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateInvalid, err)
 	}
 	if err := s.ensureContextPeerAvailable(ctx); err != nil {
-		return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse(peerAvailabilityCode(err), err.Error())), nil
+		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateConflict, err)
 	}
 	unlock := s.IconLocks.LockRecord(string(normalized.Name))
 	defer unlock()
 	if err := s.ensureWorkspaceAvailable(ctx, normalized.Id); err != nil {
 		if errors.Is(err, ErrWorkspacePendingDeletion) {
-			return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse(WorkspacePendingDeletionCode, err.Error())), nil
+			return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateConflict, err)
 		}
-		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateInternal, err)
 	}
 	if err := s.validateReferences(ctx, normalized, true); err != nil {
 		if isInvalidWorkspaceReference(err) {
-			return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
+			return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateInvalid, err)
 		}
-		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateInternal, err)
 	}
 	if _, err := getWorkspace(ctx, store, string(normalized.Name)); err == nil {
-		return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse("WORKSPACE_ALREADY_EXISTS", fmt.Sprintf("workspace %q already exists", normalized.Name))), nil
+		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateConflict, fmt.Errorf("workspace %q already exists", normalized.Name))
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateInternal, err)
 	}
 	if _, err := getWorkspaceByID(ctx, store, normalized.Id); err == nil {
-		return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse("WORKSPACE_ALREADY_EXISTS", fmt.Sprintf("workspace id %q already exists", normalized.Id))), nil
+		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateConflict, fmt.Errorf("workspace id %q already exists", normalized.Id))
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateInternal, err)
 	}
-	workspace, err := s.createWorkspaceRecord(ctx, store, normalized, false)
+	workspace, err := s.createWorkspaceRecord(ctx, store, normalized, false, request.Initialize)
 	if err != nil {
 		if errors.Is(err, errWorkspaceIDExists) || errors.Is(err, errWorkspaceNameExists) {
-			return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse("WORKSPACE_ALREADY_EXISTS", err.Error())), nil
+			return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateConflict, err)
 		}
-		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateInternal, err)
 	}
-	return adminhttp.CreateWorkspace200JSONResponse(workspace), nil
+	return workspace, nil
 }
 
-func (s *Server) CreatePeerWorkspace(ctx context.Context, request adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
-	if request.Body == nil {
-		return s.CreateWorkspace(ctx, request)
-	}
-	body := *request.Body
-	body.Id = s.newID()
-	request.Body = &body
-	return s.CreateWorkspace(ctx, request)
+func peerWorkspaceCreateError(kind PeerWorkspaceCreateErrorKind, err error) error {
+	return &PeerWorkspaceCreateError{Kind: kind, Err: err}
 }
 
 func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
@@ -378,11 +424,17 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 	if !errors.Is(err, kv.ErrNotFound) {
 		return apitypes.Workspace{}, false, err
 	}
-	workspace, err := s.createWorkspaceRecord(ctx, store, normalized, true)
+	workspace, err := s.createWorkspaceRecord(ctx, store, normalized, true, nil)
 	return workspace, err == nil, err
 }
 
-func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, normalized adminhttp.WorkspaceUpsert, system bool) (apitypes.Workspace, error) {
+func (s *Server) createWorkspaceRecord(
+	ctx context.Context,
+	store kv.Store,
+	normalized adminhttp.WorkspaceUpsert,
+	system bool,
+	initialize func(context.Context, Runtime) error,
+) (apitypes.Workspace, error) {
 	s.createMu.Lock()
 	defer s.createMu.Unlock()
 	if err := s.ensureContextPeerAvailable(ctx); err != nil {
@@ -415,10 +467,13 @@ func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, norm
 	if owner, ok := ownership.FromContext(ctx); ok {
 		workspace.OwnerPublicKey = &owner
 	}
+	var runtime Runtime
 	if s.RuntimeStore != nil {
-		if _, err := s.RuntimeStore.PrepareWorkspace(ctx, workspace.Id); err != nil {
+		prepared, err := s.RuntimeStore.PrepareWorkspace(ctx, workspace.Id)
+		if err != nil {
 			return apitypes.Workspace{}, err
 		}
+		runtime = prepared
 	}
 	cleanupRuntime := func(cause error) error {
 		if s.RuntimeStore == nil {
@@ -430,6 +485,14 @@ func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, norm
 			return errors.Join(cause, fmt.Errorf("delete prepared Workspace runtime: %w", err))
 		}
 		return cause
+	}
+	if initialize != nil {
+		if s.RuntimeStore == nil {
+			return apitypes.Workspace{}, errors.New("workspace: runtime store is required for initialization")
+		}
+		if err := initialize(ctx, runtime); err != nil {
+			return apitypes.Workspace{}, cleanupRuntime(fmt.Errorf("initialize Workspace runtime: %w", err))
+		}
 	}
 	data, err := json.Marshal(workspace)
 	if err != nil {

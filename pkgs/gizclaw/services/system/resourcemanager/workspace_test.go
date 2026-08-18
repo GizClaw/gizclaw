@@ -2,7 +2,6 @@ package resourcemanager
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -11,7 +10,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 )
 
-func TestApplyWorkspaceCreatesResource(t *testing.T) {
+func TestApplyWorkspaceIsRejected(t *testing.T) {
 	workspaces := newFakeWorkspaces()
 	manager := New(Services{Workspaces: workspaces})
 
@@ -25,20 +24,12 @@ func TestApplyWorkspaceCreatesResource(t *testing.T) {
 			"parameters": {"topic": "demo"}
 		}
 	}`))
-	if err != nil {
-		t.Fatalf("Apply returned error: %v", err)
+	if err == nil {
+		t.Fatalf("Apply() = %#v, want Workspace rejection", result)
 	}
-	if result.Action != apitypes.ApplyActionCreated {
-		t.Fatalf("action = %q, want created", result.Action)
-	}
-	if workspaces.putCount != 1 {
-		t.Fatalf("putCount = %d, want 1", workspaces.putCount)
-	}
-	if workspaces.items["demo"].WorkflowId != "workflow" {
-		t.Fatalf("workflow = %q, want workflow", workspaces.items["demo"].WorkflowId)
-	}
-	if system := workspaces.items["demo"].System; system == nil || *system {
-		t.Fatalf("system = %#v, want false", system)
+	assertResourceError(t, err, 400, "UNSUPPORTED_WORKSPACE_APPLY")
+	if workspaces.putCount != 0 {
+		t.Fatalf("putCount = %d, want 0", workspaces.putCount)
 	}
 }
 
@@ -86,7 +77,7 @@ func TestWorkspaceResourceRoundTripsToolkitPolicy(t *testing.T) {
 	}
 }
 
-func TestWorkspaceResourceRoundTripsLabelsAndDetectsLabelOnlyUpdate(t *testing.T) {
+func TestWorkspaceResourceRoundTripsLabels(t *testing.T) {
 	labels := map[string]string{"collection": "raids", "tier": "gold"}
 	workspaces := newFakeWorkspaces()
 	workspaces.items["demo"] = apitypes.Workspace{
@@ -111,7 +102,7 @@ func TestWorkspaceResourceRoundTripsLabelsAndDetectsLabelOnlyUpdate(t *testing.T
 		t.Fatalf("resource labels = %#v", got.Metadata.Labels)
 	}
 
-	result, err := manager.Apply(context.Background(), mustResource(t, `{
+	_, err = manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
 		"metadata": {"id": "demo", "labels": {"collection": "story-teller", "tier": "gold"}},
@@ -120,8 +111,8 @@ func TestWorkspaceResourceRoundTripsLabelsAndDetectsLabelOnlyUpdate(t *testing.T
 	if err != nil {
 		t.Fatalf("Apply() error = %v", err)
 	}
-	if result.Action != apitypes.ApplyActionUpdated || workspaces.putCount != 1 {
-		t.Fatalf("Apply() = %#v, putCount = %d", result, workspaces.putCount)
+	if workspaces.putCount != 1 {
+		t.Fatalf("Put() count = %d, want 1", workspaces.putCount)
 	}
 	stored := workspaces.items["demo"].Labels
 	if stored == nil || (*stored)["collection"] != "story-teller" {
@@ -179,38 +170,7 @@ func TestPutWorkspaceWritesResource(t *testing.T) {
 	}
 }
 
-func TestApplyWorkspaceUnchangedSkipsPut(t *testing.T) {
-	workspaces := newFakeWorkspaces()
-	workspaces.items["demo"] = apitypes.Workspace{
-		Id:         "demo",
-		CreatedAt:  time.Now().UTC(),
-		Name:       "demo",
-		UpdatedAt:  time.Now().UTC(),
-		WorkflowId: "workflow",
-	}
-	manager := New(Services{Workspaces: workspaces})
-
-	result, err := manager.Apply(context.Background(), mustResource(t, `{
-		"apiVersion": "gizclaw.admin/v1alpha1",
-		"kind": "Workspace",
-		"metadata": {"id": "demo"},
-		"spec": {
-			"name": "demo",
-			"workflow_id": "workflow"
-		}
-	}`))
-	if err != nil {
-		t.Fatalf("Apply returned error: %v", err)
-	}
-	if result.Action != apitypes.ApplyActionUnchanged {
-		t.Fatalf("action = %q, want unchanged", result.Action)
-	}
-	if workspaces.putCount != 0 {
-		t.Fatalf("putCount = %d, want 0", workspaces.putCount)
-	}
-}
-
-func TestApplyWorkspaceIgnoresOwnerManagedIcon(t *testing.T) {
+func TestPutWorkspaceIgnoresOwnerManagedIcon(t *testing.T) {
 	iconName := "demo/icon.png"
 	workspaces := newFakeWorkspaces()
 	workspaces.items["demo"] = apitypes.Workspace{
@@ -221,20 +181,7 @@ func TestApplyWorkspaceIgnoresOwnerManagedIcon(t *testing.T) {
 	}
 	manager := New(Services{Workspaces: workspaces})
 
-	unchanged, err := manager.Apply(context.Background(), mustResource(t, `{
-		"apiVersion": "gizclaw.admin/v1alpha1",
-		"kind": "Workspace",
-		"metadata": {"id": "demo"},
-		"spec": {"name": "demo", "workflow_id": "workflow"}
-	}`))
-	if err != nil {
-		t.Fatalf("Apply without icon returned error: %v", err)
-	}
-	if unchanged.Action != apitypes.ApplyActionUnchanged || workspaces.putCount != 0 {
-		t.Fatalf("Apply without icon = %#v, putCount = %d", unchanged, workspaces.putCount)
-	}
-
-	updated, err := manager.Apply(context.Background(), mustResource(t, `{
+	_, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
 		"metadata": {"id": "demo"},
@@ -244,8 +191,8 @@ func TestApplyWorkspaceIgnoresOwnerManagedIcon(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Apply with projected icon returned error: %v", err)
 	}
-	if updated.Action != apitypes.ApplyActionUpdated || workspaces.putCount != 1 {
-		t.Fatalf("Apply with spec update = %#v, putCount = %d", updated, workspaces.putCount)
+	if workspaces.putCount != 1 {
+		t.Fatalf("Put() count = %d, want 1", workspaces.putCount)
 	}
 	icon := workspaces.items["demo"].Icon
 	if icon == nil || icon.Png == nil || *icon.Png != iconName {
@@ -253,7 +200,7 @@ func TestApplyWorkspaceIgnoresOwnerManagedIcon(t *testing.T) {
 	}
 }
 
-func TestApplyWorkspaceCanonicalizesToolkitPolicyBeforeCompare(t *testing.T) {
+func TestPutWorkspaceWritesToolkitPolicy(t *testing.T) {
 	toolIDs := []string{"system.mode.switch", "system.music.play"}
 	workspaces := newFakeWorkspaces()
 	workspaces.items["demo"] = apitypes.Workspace{
@@ -266,7 +213,7 @@ func TestApplyWorkspaceCanonicalizesToolkitPolicyBeforeCompare(t *testing.T) {
 	}
 	manager := New(Services{Workspaces: workspaces})
 
-	result, err := manager.Apply(context.Background(), mustResource(t, `{
+	_, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
 		"metadata": {"id": "demo"},
@@ -279,29 +226,13 @@ func TestApplyWorkspaceCanonicalizesToolkitPolicyBeforeCompare(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Apply returned error: %v", err)
 	}
-	if result.Action != apitypes.ApplyActionUnchanged {
-		t.Fatalf("action = %q, want unchanged", result.Action)
-	}
-	if workspaces.putCount != 0 {
-		t.Fatalf("putCount = %d, want 0", workspaces.putCount)
+	if workspaces.putCount != 1 {
+		t.Fatalf("putCount = %d, want 1", workspaces.putCount)
 	}
 
-	_, err = manager.Apply(context.Background(), mustResource(t, `{
-		"apiVersion": "gizclaw.admin/v1alpha1",
-		"kind": "Workspace",
-		"metadata": {"id": "demo"},
-		"spec": {
-			"name": "demo",
-			"workflow_id": "workflow",
-			"toolkit": {"tool_ids": [" system.music.play "]}
-		}
-	}`))
-	if err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
-		t.Fatalf("Apply(whitespace tool ID) error = %v", err)
-	}
 }
 
-func TestApplyWorkspaceUpdatesResource(t *testing.T) {
+func TestPutWorkspaceUpdatesResource(t *testing.T) {
 	workspaces := newFakeWorkspaces()
 	workspaces.items["demo"] = apitypes.Workspace{
 		Id:         "demo",
@@ -312,7 +243,7 @@ func TestApplyWorkspaceUpdatesResource(t *testing.T) {
 	}
 	manager := New(Services{Workspaces: workspaces})
 
-	result, err := manager.Apply(context.Background(), mustResource(t, `{
+	_, err := manager.Put(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
 		"metadata": {"id": "demo"},
@@ -323,9 +254,6 @@ func TestApplyWorkspaceUpdatesResource(t *testing.T) {
 	}`))
 	if err != nil {
 		t.Fatalf("Apply returned error: %v", err)
-	}
-	if result.Action != apitypes.ApplyActionUpdated {
-		t.Fatalf("action = %q, want updated", result.Action)
 	}
 	if workspaces.putCount != 1 {
 		t.Fatalf("putCount = %d, want 1", workspaces.putCount)
@@ -368,19 +296,6 @@ func newFakeWorkspaces() *fakeWorkspaces {
 
 func (f *fakeWorkspaces) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
 	return nil, nil
-}
-
-func (f *fakeWorkspaces) CreateWorkspace(_ context.Context, request adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
-	f.putCount++
-	body := *request.Body
-	now := time.Now().UTC()
-	item := apitypes.Workspace{
-		Id: body.Id, Name: body.Name, CreatedAt: now, LastActiveAt: now,
-		Labels: body.Labels, Parameters: body.Parameters, System: new(false),
-		Toolkit: body.Toolkit, UpdatedAt: now, WorkflowId: body.WorkflowId,
-	}
-	f.items[item.Id] = item
-	return adminhttp.CreateWorkspace200JSONResponse(item), nil
 }
 
 func (f *fakeWorkspaces) DeleteWorkspace(_ context.Context, request adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {

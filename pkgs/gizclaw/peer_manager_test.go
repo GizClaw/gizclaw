@@ -671,10 +671,6 @@ func (s staticWorkspaceService) ListWorkspaces(context.Context, adminhttp.ListWo
 	return adminhttp.ListWorkspaces200JSONResponse{}, nil
 }
 
-func (s staticWorkspaceService) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
-	return nil, errors.New("not implemented")
-}
-
 func (s staticWorkspaceService) DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
 	return nil, errors.New("not implemented")
 }

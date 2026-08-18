@@ -348,7 +348,7 @@
         "$ref": "./resources/resource_list.json#/components/schemas/ResourceListSpec"
       },
       "ApplyResource": {
-        "$ref": "./resources/resource.json#/components/schemas/Resource"
+        "$ref": "./resources/resource.json#/components/schemas/WritableResource"
       },
       "ApplyAction": {
         "$ref": "./resources/resource.json#/components/schemas/ApplyAction"

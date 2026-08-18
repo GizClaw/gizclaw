@@ -48,7 +48,7 @@ func TestAdminAPIToolResourceLifecycle(t *testing.T) {
 		t.Fatalf("build Tool resource: %v", err)
 	}
 
-	applied, err := env.api.ApplyResourceWithResponse(env.ctx, resource)
+	applied, err := env.api.ApplyResourceWithResponse(env.ctx, writableResource(t, resource))
 	if err != nil {
 		t.Fatalf("apply Tool resource: %v", err)
 	}

@@ -282,9 +282,6 @@ type fakeFriendGroupHistoryWorkspace struct {
 func (*fakeFriendGroupHistoryWorkspace) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
 	return nil, nil
 }
-func (*fakeFriendGroupHistoryWorkspace) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
-	return nil, nil
-}
 func (*fakeFriendGroupHistoryWorkspace) DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
 	return nil, nil
 }

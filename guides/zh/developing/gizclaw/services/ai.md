@@ -92,6 +92,10 @@ Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入
 
 后台 consumer 通过 `GetAvailableWorkspaceByID` 解析 retained Workspace；该入口会保留准确的 Workspace 或 owner `PendingDeletion` typed error，不会把 Admin projection 当作可运行状态。物理清理删除规范 Workspace record 后，同一入口返回 Workspace domain 拥有的 deleted 终态，不泄漏原始 Store not-found。Runtime 与后台 Memory resolution 都经过这个 availability gate；Admin get/list 则有意继续作为 retained row 的诊断视图。
 
+普通 Workspace 创建由 Peer 拥有。Admin `PUT` 只更新已有 Workspace；Admin apply 在修改任何 item 前拒绝 Workspace resource，包括嵌套在 `ResourceList` 中的情况。Peer RPC 与 OpenAI Conversation 创建共享 typed domain operation：从 RuntimeProfile 解析 Workflow alias，绑定 authenticated owner，准备 runtime，执行可选的发布前 initializer，并在失败时回滚。
+
+一个 OpenAI Conversation 一对一映射一个用户 Workspace。History 仍是唯一 transcript store；OpenAI item record 只保存稳定 ID、role/status/order 与准确 History correlation。Conversation metadata、item index、不可变 Response input snapshot 与 Response lifecycle record 共用 Workspace runtime prefix，因此会被普通 Workspace cleanup 一并移除。
+
 ## 依赖与边界
 
 ```mermaid

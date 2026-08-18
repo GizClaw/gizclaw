@@ -178,6 +178,12 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 - `desktop/shell` 验证 Pod shell；`desktop/admin` 和 `desktop/play` 验证浏览器 surface。
 - `js/admin` 验证 WebRTC Admin fetch；`js/rpc` 验证 peer 与 server-initiated RPC。
 
+### OpenAI Conversations 与 Responses E2E
+
+标准 GizClaw Docker runner 包含必须执行的 `go:openai` phase，目录为 `tests/gizclaw-e2e/go/openai`。它使用 pinned 官方 OpenAI Go SDK 通过 authenticated `ServicePeerOpenAI` 创建隔离的 Peer-owned Conversation Workspace，完成三轮文本、组合 transcription 到 Response 再到 speech，并验证 background cancel、stream client abort 与同 Conversation 恢复；所有 mutation 前先注册 Workspace cleanup。
+
+成功运行会在 ignored `tests/gizclaw-e2e/testdata/openai-compatibility/` 下写入脱敏 monotonic timing evidence。Artifact 只含 schema/version、target/case、受限 media size、数字 phase timing 与 status，不能包含 credential、ID、prompt、transcript、generated text、media、URL 或 provider error。仅做 tagged compile 只是诊断，不能代替 `bash tests/gizclaw-e2e/run_tests.sh`。
+
 人工音频判断与自动 gate 分离：
 
 ```sh

@@ -1737,19 +1737,6 @@ func (s *recordingWorkspaceService) RetireSystemWorkspaceByID(_ context.Context,
 	return apitypes.Workspace{Id: id}, s.retireErr
 }
 
-func (s *recordingWorkspaceService) CreateWorkspace(_ context.Context, req adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
-	if req.Body == nil {
-		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
-	}
-	for _, workspace := range s.created {
-		if workspace.Name == req.Body.Name {
-			return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse("WORKSPACE_ALREADY_EXISTS", "exists")), nil
-		}
-	}
-	s.created = append(s.created, *req.Body)
-	return adminhttp.CreateWorkspace200JSONResponse(apitypes.Workspace{Name: req.Body.Name, WorkflowId: req.Body.WorkflowId, Parameters: req.Body.Parameters}), nil
-}
-
 func (s *recordingWorkspaceService) DeleteWorkspace(_ context.Context, req adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
 	s.deleted = append(s.deleted, req.Id)
 	return adminhttp.DeleteWorkspace200JSONResponse(apitypes.Workspace{Name: req.Id}), nil

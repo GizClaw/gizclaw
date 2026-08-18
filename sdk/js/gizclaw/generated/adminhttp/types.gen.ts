@@ -658,57 +658,9 @@ export type ApplyResult = {
 };
 
 /**
- * A concrete resource carrying metadata.id. ResourceList is excluded.
+ * A concrete ResourceList item accepted by Admin apply. Workspace and nested ResourceList are excluded.
  */
-export type ConcreteResource = ({
-    kind: 'Credential';
-} & CredentialResource) | ({
-    kind: 'Firmware';
-} & FirmwareResource) | ({
-    kind: 'Contact';
-} & ContactResource) | ({
-    kind: 'Friend';
-} & FriendResource) | ({
-    kind: 'FriendGroup';
-} & FriendGroupResource) | ({
-    kind: 'FriendGroupInviteToken';
-} & FriendGroupInviteTokenResource) | ({
-    kind: 'FriendGroupMember';
-} & FriendGroupMemberResource) | ({
-    kind: 'Model';
-} & ModelResource) | ({
-    kind: 'DashScopeTenant';
-} & DashScopeTenantResource) | ({
-    kind: 'DeepSeekTenant';
-} & DeepSeekTenantResource) | ({
-    kind: 'GeminiTenant';
-} & GeminiTenantResource) | ({
-    kind: 'MiniMaxTenant';
-} & MiniMaxTenantResource) | ({
-    kind: 'OpenAITenant';
-} & OpenAiTenantResource) | ({
-    kind: 'VolcTenant';
-} & VolcTenantResource) | ({
-    kind: 'Voice';
-} & VoiceResource) | ({
-    kind: 'Tool';
-} & ToolResource) | ({
-    kind: 'Workflow';
-} & WorkflowResource) | ({
-    kind: 'Workspace';
-} & WorkspaceResource) | ({
-    kind: 'PetDef';
-} & PetDefResource) | ({
-    kind: 'BadgeDef';
-} & BadgeDefResource) | ({
-    kind: 'GameDef';
-} & GameDefResource) | ({
-    kind: 'MemoryLayout';
-} & MemoryLayoutResource) | ({
-    kind: 'RuntimeProfile';
-} & RuntimeProfileResource) | ({
-    kind: 'RegistrationToken';
-} & RegistrationTokenResource);
+export type ConcreteResourceWritable = CredentialResource | FirmwareResource | ContactResource | FriendResource | FriendGroupResource | FriendGroupInviteTokenResource | FriendGroupMemberResource | ModelResource | DashScopeTenantResource | DeepSeekTenantResource | GeminiTenantResource | MiniMaxTenantResource | OpenAiTenantResource | VolcTenantResource | VoiceResource | ToolResource | WorkflowResource | PetDefResource | BadgeDefResource | GameDefResource | MemoryLayoutResource | RuntimeProfileResource | RegistrationTokenResource;
 
 export type Resource = ({
     kind: 'Credential';
@@ -789,6 +741,11 @@ export type ResourceMetadata = {
     owner_public_key?: string;
 };
 
+/**
+ * A declarative resource accepted by Admin apply. Workspace is readable but cannot be created or changed through apply.
+ */
+export type WritableResource = ConcreteResourceWritable | ResourceListResource;
+
 export type ResourceListResource = {
     apiVersion: ResourceApiVersion;
     kind: 'ResourceList';
@@ -797,9 +754,9 @@ export type ResourceListResource = {
 
 export type ResourceListSpec = {
     /**
-     * Concrete resources only; nested ResourceList envelopes are invalid.
+     * Writable concrete resources only; Workspace and nested ResourceList envelopes are invalid.
      */
-    items: Array<ConcreteResource>;
+    items: Array<ConcreteResourceWritable>;
 };
 
 export type RuntimeProfileResource = {
@@ -3370,57 +3327,9 @@ export type CredentialResourceWritable = {
 };
 
 /**
- * A concrete resource carrying metadata.id. ResourceList is excluded.
+ * A concrete ResourceList item accepted by Admin apply. Workspace and nested ResourceList are excluded.
  */
-export type ConcreteResourceWritable = ({
-    kind: 'Credential';
-} & CredentialResourceWritable) | ({
-    kind: 'Firmware';
-} & FirmwareResource) | ({
-    kind: 'Contact';
-} & ContactResource) | ({
-    kind: 'Friend';
-} & FriendResource) | ({
-    kind: 'FriendGroup';
-} & FriendGroupResource) | ({
-    kind: 'FriendGroupInviteToken';
-} & FriendGroupInviteTokenResource) | ({
-    kind: 'FriendGroupMember';
-} & FriendGroupMemberResource) | ({
-    kind: 'Model';
-} & ModelResource) | ({
-    kind: 'DashScopeTenant';
-} & DashScopeTenantResource) | ({
-    kind: 'DeepSeekTenant';
-} & DeepSeekTenantResource) | ({
-    kind: 'GeminiTenant';
-} & GeminiTenantResource) | ({
-    kind: 'MiniMaxTenant';
-} & MiniMaxTenantResource) | ({
-    kind: 'OpenAITenant';
-} & OpenAiTenantResource) | ({
-    kind: 'VolcTenant';
-} & VolcTenantResource) | ({
-    kind: 'Voice';
-} & VoiceResource) | ({
-    kind: 'Tool';
-} & ToolResourceWritable) | ({
-    kind: 'Workflow';
-} & WorkflowResource) | ({
-    kind: 'Workspace';
-} & WorkspaceResource) | ({
-    kind: 'PetDef';
-} & PetDefResource) | ({
-    kind: 'BadgeDef';
-} & BadgeDefResource) | ({
-    kind: 'GameDef';
-} & GameDefResource) | ({
-    kind: 'MemoryLayout';
-} & MemoryLayoutResource) | ({
-    kind: 'RuntimeProfile';
-} & RuntimeProfileResource) | ({
-    kind: 'RegistrationToken';
-} & RegistrationTokenResource);
+export type ConcreteResourceWritableWritable = CredentialResourceWritable | FirmwareResource | ContactResource | FriendResource | FriendGroupResource | FriendGroupInviteTokenResource | FriendGroupMemberResource | ModelResource | DashScopeTenantResource | DeepSeekTenantResource | GeminiTenantResource | MiniMaxTenantResource | OpenAiTenantResource | VolcTenantResource | VoiceResource | ToolResourceWritable | WorkflowResource | PetDefResource | BadgeDefResource | GameDefResource | MemoryLayoutResource | RuntimeProfileResource | RegistrationTokenResource;
 
 export type ResourceWritable = ({
     kind: 'Credential';
@@ -3474,6 +3383,11 @@ export type ResourceWritable = ({
     kind: 'ResourceList';
 } & ResourceListResourceWritable);
 
+/**
+ * A declarative resource accepted by Admin apply. Workspace is readable but cannot be created or changed through apply.
+ */
+export type WritableResourceWritable = ConcreteResourceWritableWritable | ResourceListResourceWritable;
+
 export type ResourceListResourceWritable = {
     apiVersion: ResourceApiVersion;
     kind: 'ResourceList';
@@ -3482,9 +3396,9 @@ export type ResourceListResourceWritable = {
 
 export type ResourceListSpecWritable = {
     /**
-     * Concrete resources only; nested ResourceList envelopes are invalid.
+     * Writable concrete resources only; Workspace and nested ResourceList envelopes are invalid.
      */
-    items: Array<ConcreteResourceWritable>;
+    items: Array<ConcreteResourceWritableWritable>;
 };
 
 export type ToolResourceWritable = {
@@ -3809,7 +3723,7 @@ export type StreamServerLogsResponses = {
 export type StreamServerLogsResponse = StreamServerLogsResponses[keyof StreamServerLogsResponses];
 
 export type ApplyResourceData = {
-    body: ResourceWritable;
+    body: WritableResourceWritable;
     path?: never;
     query?: never;
     url: '/@apply';
@@ -7116,39 +7030,6 @@ export type ListWorkspacesResponses = {
 };
 
 export type ListWorkspacesResponse = ListWorkspacesResponses[keyof ListWorkspacesResponses];
-
-export type CreateWorkspaceData = {
-    body: WorkspaceUpsert;
-    path?: never;
-    query?: never;
-    url: '/workspaces';
-};
-
-export type CreateWorkspaceErrors = {
-    /**
-     * Invalid workspace payload
-     */
-    400: ErrorResponse;
-    /**
-     * Workspace already exists
-     */
-    409: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type CreateWorkspaceError = CreateWorkspaceErrors[keyof CreateWorkspaceErrors];
-
-export type CreateWorkspaceResponses = {
-    /**
-     * Created workspace
-     */
-    200: Workspace;
-};
-
-export type CreateWorkspaceResponse = CreateWorkspaceResponses[keyof CreateWorkspaceResponses];
 
 export type DeleteWorkspaceData = {
     body?: never;

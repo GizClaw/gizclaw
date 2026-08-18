@@ -15,6 +15,7 @@ type Runtime struct {
 	ObjectPrefix string
 	LocalDir     string
 	History      *HistoryStore
+	OpenAI       *OpenAIStateStore
 }
 
 type RuntimeStore interface {
@@ -71,6 +72,7 @@ func (s ObjectRuntimeStore) GetWorkspaceRuntime(_ context.Context, workspaceID s
 			ObjectPrefix:   objectPrefix,
 			AssetRetention: defaultHistoryAssetTTL,
 		},
+		OpenAI: NewOpenAIStateStore(s.Objects, objectPrefix),
 	}
 	if provider, ok := s.Objects.(objectstore.LocalDirProvider); ok {
 		root, ok := provider.LocalDir()

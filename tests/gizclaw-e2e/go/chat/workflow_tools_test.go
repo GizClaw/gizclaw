@@ -317,7 +317,7 @@ func configureChatToolResources(
 	if err := workflowResource.FromWorkflowResource(workflow); err != nil {
 		t.Fatalf("encode Tool E2E Workflow resource: %v", err)
 	}
-	workflowResponse, err := api.ApplyResourceWithResponse(ctx, workflowResource)
+	workflowResponse, err := api.ApplyResourceWithResponse(ctx, chatWritableResource(t, workflowResource))
 	if err != nil {
 		t.Fatalf("apply Tool E2E Workflow resource: %v", err)
 	}
@@ -347,7 +347,7 @@ func configureChatToolResources(
 		}); err != nil {
 			t.Fatalf("encode Tool resource %q: %v", name, err)
 		}
-		response, err := api.ApplyResourceWithResponse(ctx, resource)
+		response, err := api.ApplyResourceWithResponse(ctx, chatWritableResource(t, resource))
 		if err != nil {
 			t.Fatalf("apply Tool resource %q: %v", name, err)
 		}
@@ -449,6 +449,19 @@ func configureChatToolResources(
 		}
 	})
 	return workflowName
+}
+
+func chatWritableResource(t *testing.T, resource apitypes.Resource) adminhttp.ApplyResourceJSONRequestBody {
+	t.Helper()
+	raw, err := json.Marshal(resource)
+	if err != nil {
+		t.Fatalf("marshal writable resource: %v", err)
+	}
+	var writable adminhttp.ApplyResourceJSONRequestBody
+	if err := json.Unmarshal(raw, &writable); err != nil {
+		t.Fatalf("decode writable resource: %v", err)
+	}
+	return writable
 }
 
 func cloneRuntimeProfileSpec(source apitypes.RuntimeProfileSpec) (apitypes.RuntimeProfileSpec, error) {

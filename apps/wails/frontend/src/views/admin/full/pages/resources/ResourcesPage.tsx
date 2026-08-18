@@ -23,6 +23,7 @@ import {
   type ApplyResult,
   type Resource,
   type ResourceKind,
+  type WritableResourceWritable,
 } from "@gizclaw/gizclaw/admin";
 import { PixaPreviewDialog } from "@/components/pixa/PixaPreviewDialog";
 import { DomainIconEditor } from "../../components/DomainIconEditor";
@@ -236,8 +237,13 @@ export function ResourcesPage(): JSX.Element {
     setApplyResult(null);
     try {
       const body = parseResourceText();
+      if (body.kind === "Workspace") {
+        throw new Error(
+          "Workspace is Peer-owned and cannot be applied by Admin.",
+        );
+      }
       const result = await expectData(
-        applyResource({ body: body as Resource }),
+        applyResource({ body: body as WritableResourceWritable }),
       );
       setApplyResult(result);
       setNotice(`${result.kind} ${result.id ?? ""} ${result.action}.`);
@@ -428,7 +434,7 @@ export function ResourcesPage(): JSX.Element {
             </Button>
             <Button
               className="min-w-fit shrink-0 whitespace-nowrap"
-              disabled={acting !== ""}
+              disabled={acting !== "" || kind === "Workspace"}
               onClick={() => void applyJSON()}
               size="sm"
               type="button"
@@ -573,7 +579,7 @@ export function ResourcesPage(): JSX.Element {
               </Button>
               <Button
                 className="min-w-fit shrink-0 whitespace-nowrap"
-                disabled={acting !== ""}
+                disabled={acting !== "" || kind === "Workspace"}
                 onClick={() => void applyJSON()}
                 size="sm"
                 type="button"

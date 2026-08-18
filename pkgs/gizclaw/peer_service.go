@@ -11,6 +11,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -76,13 +77,15 @@ type peerHTTPContactService interface {
 
 // PeerService serves one peer connection.
 type PeerService struct {
-	admin             *adminService
-	public            *peerHTTP
-	manager           *Manager
-	sessions          *publiclogin.SessionManager
-	openAIOnce        sync.Once
-	openAIProtocol    http.Handler
-	openAIProtocolErr error
+	admin              *adminService
+	public             *peerHTTP
+	manager            *Manager
+	sessions           *publiclogin.SessionManager
+	openAIOnce         sync.Once
+	openAIProtocol     http.Handler
+	openAIProtocolErr  error
+	openAIResponseOnce sync.Once
+	openAIResponses    *openaiapi.ResponseRuntime
 }
 
 var _ peerhttp.StrictServerInterface = (*peerHTTP)(nil)

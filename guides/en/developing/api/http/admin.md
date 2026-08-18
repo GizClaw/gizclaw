@@ -22,6 +22,8 @@ See the [Admin API Reference](/api/) for exact endpoints, parameters, requests, 
 
 Admin OpenAPI only has HTTP path, request/response and wire error. Resource validation, authorization, storage and domain lifecycle are implemented by corresponding services and resource managers.
 
+Workspace creation is not an Admin operation. Admin exposes Workspace get/list, update, delete, history, and icon operations, but `PUT` is update-only and generic resource apply excludes Workspace. A Peer creates its own Workspace through the typed Peer RPC/domain capability so ownership is derived from authenticated identity rather than supplied by an operator payload.
+
 ## Admin Resource identity
 
 Every concrete Admin Resource is uniquely addressed by caller-supplied `(kind, id)`. A declarative envelope must contain a non-empty `metadata.id`, and direct create/put DTOs must contain the same `id`. The Server persists an accepted value exactly; it does not generate or trim it and does not resolve a `name` into an ID. IDs are limited to 1024 Unicode characters (and 4096 UTF-8 bytes). IDs with leading or trailing whitespace are invalid, as are the standalone URI dot segments `.` and `..`; other valid IDs remain opaque. `PUT /resources/{kind}/{id}` and domain-specific put endpoints require exact equality between the path ID and body ID.

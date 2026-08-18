@@ -39,7 +39,7 @@ func TestAdminAPIFirmwareResourceLifecycle(t *testing.T) {
 		t.Fatalf("build Firmware resource: %v", err)
 	}
 
-	applied, err := env.api.ApplyResourceWithResponse(env.ctx, resource)
+	applied, err := env.api.ApplyResourceWithResponse(env.ctx, writableResource(t, resource))
 	if err != nil {
 		t.Fatalf("apply Firmware resource: %v", err)
 	}

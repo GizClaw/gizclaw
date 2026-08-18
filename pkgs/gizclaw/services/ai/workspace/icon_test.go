@@ -24,11 +24,11 @@ func TestWorkspaceIconLifecycleAndProjection(t *testing.T) {
 		"workflow_id": "workflow-icon",
 		"parameters": {"mode": "demo"}
 	}`)
-	createResponse, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	createResponse, err := createWorkspaceForTest(srv, ctx, createWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatal(err)
 	}
-	created, ok := createResponse.(adminhttp.CreateWorkspace200JSONResponse)
+	created, ok := createResponse.(createWorkspace200JSONResponse)
 	if !ok {
 		t.Fatalf("CreateWorkspace() response = %#v", createResponse)
 	}
@@ -110,11 +110,11 @@ func TestWorkspaceIconAdminReadRemainsAvailableWhileMutationsAreFenced(t *testin
 		"workflow_id": "workflow-icon-fence",
 		"parameters": {"mode": "demo"}
 	}`)
-	createdResponse, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	createdResponse, err := createWorkspaceForTest(srv, ctx, createWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatal(err)
 	}
-	created := createdResponse.(adminhttp.CreateWorkspace200JSONResponse)
+	created := createdResponse.(createWorkspace200JSONResponse)
 	icon := workspaceIconPNG(t)
 	if response, err := srv.UploadWorkspaceIcon(ctx, adminhttp.UploadWorkspaceIconRequestObject{
 		Id: created.Id, Format: adminhttp.UploadWorkspaceIconParamsFormatPng, Body: bytes.NewReader(icon),

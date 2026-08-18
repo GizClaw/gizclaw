@@ -36,3 +36,5 @@ Flowcraft、Eino、DashScope Realtime 与豆包 Realtime Duplex factory 都把�
 Transformer 内部；AgentHost 只按 canonical Resource name 分发到 `http_request`
 或当前 connection 的 `client.tool.invoke`，不会把 Tool control traffic 投影到
 public assistant stream。
+
+OpenAI Responses 通过相同 canonical Resolver 与共享 Runtime Registry 建立 request-scoped direct Workspace attachment，不读取或修改 PeerRun selection。Server-side tool 继续遵守 Workflow policy；由于 OpenAI request 没有稳定的 client-tool transport contract，connection-scoped client tool 会 fail closed。受限 History observer 返回 Response projection 使用的准确已持久化 assistant entry。

@@ -1490,14 +1490,6 @@ func (s *recordingWorkspaceService) ListWorkspaces(context.Context, adminhttp.Li
 	return adminhttp.ListWorkspaces200JSONResponse(adminhttp.WorkspaceList{}), nil
 }
 
-func (s *recordingWorkspaceService) CreateWorkspace(_ context.Context, req adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
-	if req.Body == nil {
-		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
-	}
-	s.created = append(s.created, *req.Body)
-	return adminhttp.CreateWorkspace200JSONResponse(apitypes.Workspace{Name: req.Body.Name, WorkflowId: req.Body.WorkflowId}), nil
-}
-
 func (s *recordingWorkspaceService) DeleteWorkspace(_ context.Context, req adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
 	s.deleted = append(s.deleted, req.Id)
 	return adminhttp.DeleteWorkspace200JSONResponse(apitypes.Workspace{Name: req.Id}), nil
@@ -1526,44 +1518,5 @@ func (s *recordingWorkspaceService) GetWorkspaceByName(_ context.Context, name s
 }
 
 func (s *recordingWorkspaceService) PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
-	return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("UNIMPLEMENTED", "not implemented")), nil
-}
-
-type workspaceResponseService struct {
-	resp adminhttp.CreateWorkspaceResponseObject
-}
-
-func (s workspaceResponseService) CreateSystemWorkspace(context.Context, adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
-	if response, ok := s.resp.(adminhttp.CreateWorkspace200JSONResponse); ok {
-		return apitypes.Workspace(response), true, nil
-	}
-	return apitypes.Workspace{}, false, fmt.Errorf("create system workspace failed: %T", s.resp)
-}
-
-func (s workspaceResponseService) DeleteSystemWorkspace(context.Context, string) (apitypes.Workspace, error) {
-	return apitypes.Workspace{}, nil
-}
-
-func (s workspaceResponseService) GetWorkspace(context.Context, adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
-	return adminhttp.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
-}
-
-func (s workspaceResponseService) GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error) {
-	return apitypes.Workspace{}, kv.ErrNotFound
-}
-
-func (s workspaceResponseService) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
-	return adminhttp.ListWorkspaces200JSONResponse(adminhttp.WorkspaceList{}), nil
-}
-
-func (s workspaceResponseService) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
-	return s.resp, nil
-}
-
-func (s workspaceResponseService) DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
-	return adminhttp.DeleteWorkspace200JSONResponse(apitypes.Workspace{}), nil
-}
-
-func (s workspaceResponseService) PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
 	return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("UNIMPLEMENTED", "not implemented")), nil
 }

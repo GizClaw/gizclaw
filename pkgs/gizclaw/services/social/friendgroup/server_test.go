@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"iter"
 	"strings"
 	"testing"
@@ -1220,35 +1219,18 @@ func (s *recordingWorkspaceService) GetRetiredSystemWorkspaceByID(_ context.Cont
 	return apitypes.Workspace{Id: id, OwnerPublicKey: ownerPointer}, nil
 }
 
-func (s *recordingWorkspaceService) CreateWorkspace(_ context.Context, req adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
-	if req.Body == nil {
-		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
-	}
-	for _, workspace := range s.created {
-		if workspace.Name == req.Body.Name {
-			return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse("WORKSPACE_ALREADY_EXISTS", "exists")), nil
-		}
-	}
-	s.created = append(s.created, *req.Body)
-	return adminhttp.CreateWorkspace200JSONResponse(apitypes.Workspace{Name: req.Body.Name, WorkflowId: req.Body.WorkflowId, Parameters: req.Body.Parameters}), nil
-}
-
 func (s *recordingWorkspaceService) DeleteWorkspace(_ context.Context, req adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
 	s.deleted = append(s.deleted, req.Id)
 	return adminhttp.DeleteWorkspace200JSONResponse(apitypes.Workspace{Name: req.Id}), nil
 }
 
 type failingWorkspaceService struct {
-	createResp adminhttp.CreateWorkspaceResponseObject
-	createErr  error
+	createErr error
 }
 
 func (s failingWorkspaceService) CreateSystemWorkspace(context.Context, adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
 	if s.createErr != nil {
 		return apitypes.Workspace{}, false, s.createErr
-	}
-	if s.createResp != nil {
-		return apitypes.Workspace{}, false, fmt.Errorf("create system workspace failed: %T", s.createResp)
 	}
 	system := true
 	return apitypes.Workspace{System: &system}, true, nil
@@ -1268,13 +1250,6 @@ func (s failingWorkspaceService) RetireSystemWorkspaceByID(context.Context, stri
 
 func (s failingWorkspaceService) GetRetiredSystemWorkspaceByID(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{}, kv.ErrNotFound
-}
-
-func (s failingWorkspaceService) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
-	if s.createErr != nil {
-		return nil, s.createErr
-	}
-	return s.createResp, nil
 }
 
 func (s failingWorkspaceService) DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {

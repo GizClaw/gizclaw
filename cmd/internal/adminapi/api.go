@@ -1010,21 +1010,6 @@ func ListWorkspaces(ctx context.Context, c *gizcli.Client) ([]apitypes.Workspace
 	})
 }
 
-func CreateWorkspace(ctx context.Context, c *gizcli.Client, req adminhttp.WorkspaceUpsert) (apitypes.Workspace, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.Workspace{}, err
-	}
-	resp, err := api.CreateWorkspaceWithResponse(ctx, req)
-	if err != nil {
-		return apitypes.Workspace{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Workspace{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
-}
-
 func GetWorkspace(ctx context.Context, c *gizcli.Client, id string) (apitypes.Workspace, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {

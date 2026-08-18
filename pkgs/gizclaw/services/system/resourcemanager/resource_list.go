@@ -28,8 +28,7 @@ func (m *Manager) applyResourceList(ctx context.Context, resource apitypes.Resou
 	if list.ApiVersion != apitypes.ResourceAPIVersionGizclawAdminv1alpha1 {
 		return apitypes.ApplyResult{}, applyError(400, "UNSUPPORTED_RESOURCE_VERSION", "unsupported ResourceList apiVersion")
 	}
-	items := make([]apitypes.ApplyResult, 0, len(list.Spec.Items))
-	action := apitypes.ApplyActionUnchanged
+	prepared := make([]apitypes.Resource, 0, len(list.Spec.Items))
 	for _, concrete := range list.Spec.Items {
 		item, err := resourceFromConcrete(concrete)
 		if err != nil {
@@ -39,9 +38,14 @@ func (m *Manager) applyResourceList(ctx context.Context, resource apitypes.Resou
 		if err != nil {
 			return apitypes.ApplyResult{}, err
 		}
-		if kind == apitypes.ResourceKindResourceList {
-			return apitypes.ApplyResult{}, applyError(400, "INVALID_RESOURCE_LIST", "ResourceList items must be concrete resources")
+		if kind == apitypes.ResourceKindResourceList || kind == apitypes.ResourceKindWorkspace {
+			return apitypes.ApplyResult{}, applyError(400, "INVALID_RESOURCE_LIST", "ResourceList items must be writable concrete resources")
 		}
+		prepared = append(prepared, item)
+	}
+	items := make([]apitypes.ApplyResult, 0, len(prepared))
+	action := apitypes.ApplyActionUnchanged
+	for _, item := range prepared {
 		result, err := m.Apply(ctx, item)
 		if err != nil {
 			return apitypes.ApplyResult{}, err
@@ -57,13 +61,13 @@ func (m *Manager) applyResourceList(ctx context.Context, resource apitypes.Resou
 }
 
 func resourceFromResourceList(items []apitypes.Resource) (apitypes.Resource, error) {
-	concrete := make([]apitypes.ConcreteResource, 0, len(items))
+	concrete := make([]apitypes.ConcreteResourceWritable, 0, len(items))
 	for _, item := range items {
 		data, err := json.Marshal(item)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
-		var converted apitypes.ConcreteResource
+		var converted apitypes.ConcreteResourceWritable
 		if err := json.Unmarshal(data, &converted); err != nil {
 			return apitypes.Resource{}, err
 		}
@@ -76,7 +80,7 @@ func resourceFromResourceList(items []apitypes.Resource) (apitypes.Resource, err
 	})
 }
 
-func resourceFromConcrete(item apitypes.ConcreteResource) (apitypes.Resource, error) {
+func resourceFromConcrete(item any) (apitypes.Resource, error) {
 	data, err := json.Marshal(item)
 	if err != nil {
 		return apitypes.Resource{}, err
