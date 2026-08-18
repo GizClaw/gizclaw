@@ -20,6 +20,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 type slogCapture struct {
@@ -92,6 +94,62 @@ func TestObserveHTTPHandlerLogsSafeDomainErrorAndRequestID(t *testing.T) {
 			t.Errorf("record contains sensitive value %q", secret)
 		}
 	}
+}
+
+func TestObserveOpenAIHandlerUsesClosedRouteAndOperationLabels(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	tests := []struct {
+		method    string
+		path      string
+		operation string
+	}{
+		{method: http.MethodGet, path: "/v1/models", operation: "listModels"},
+		{method: http.MethodPost, path: "/v1/chat/completions", operation: "createChatCompletion"},
+		{method: http.MethodPost, path: "/v1/audio/speech", operation: "createSpeech"},
+		{method: http.MethodPost, path: "/v1/audio/transcriptions", operation: "createTranscription"},
+		{method: http.MethodGet, path: "/v1/voices", operation: "listVoices"},
+	}
+	for _, test := range tests {
+		t.Run(test.operation, func(t *testing.T) {
+			capture := captureSlog(t)
+			handler := observeHTTPHandler(
+				newOpenAIHTTPHandler(&openaiapi.Server{Caller: keyPair.Public}),
+				httpObservationOptions{surface: observability.SurfaceServerPublic},
+			)
+			request := httptest.NewRequest(test.method, test.path, nil)
+			if test.method == http.MethodPost {
+				request.Header.Set("Content-Type", "application/json")
+			}
+			handler.ServeHTTP(httptest.NewRecorder(), request)
+
+			_, attrs := onlyCapturedRecord(t, capture)
+			if attrs["route"] != test.path || attrs["operation"] != test.operation {
+				t.Fatalf("OpenAI observation attrs = %#v", attrs)
+			}
+		})
+	}
+	t.Run("unsupported", func(t *testing.T) {
+		capture := captureSlog(t)
+		handler := observeHTTPHandler(
+			newOpenAIHTTPHandler(&openaiapi.Server{Caller: keyPair.Public}),
+			httpObservationOptions{surface: observability.SurfaceServerPublic},
+		)
+		handler.ServeHTTP(
+			httptest.NewRecorder(),
+			httptest.NewRequest(http.MethodPost, "/v1/responses/model-secret", nil),
+		)
+
+		_, attrs := onlyCapturedRecord(t, capture)
+		if attrs["route"] != "unknown" || attrs["operation"] != "unknown" {
+			t.Fatalf("unsupported OpenAI observation attrs = %#v", attrs)
+		}
+		if strings.Contains(fmt.Sprint(attrs), "model-secret") {
+			t.Fatalf("unsupported path leaked into observation attrs = %#v", attrs)
+		}
+	})
 }
 
 func TestObserveHTTPHandlerReplacesInvalidRequestID(t *testing.T) {

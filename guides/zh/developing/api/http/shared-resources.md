@@ -22,7 +22,7 @@
 
 - 从 `api/http/shared/` 中实际存在的 owner 文件开始，不使用按领域臆造的聚合文件名；
 - 跨 surface error、identity、runtime profile、registration、firmware、credential、model、voice、tool、workflow、workspace 与 provider tenant values 按所有权映射定位；
-- Public-only DTO 留在 `peer.json`，Admin endpoint 专属 DTO 留在 `admin.json`，OpenAI-compatible DTO 留在 `openai-compat/v1/service.json`；
+- Public-only DTO 留在 `peer.json`，Admin endpoint 专属 DTO 留在 `admin.json`。OpenAI-compatible wire DTO 由本 schema graph 之外的 AI Server Shell 拥有；
 - Resource envelope、metadata、Apply contract 与 Resource union 留在 `resources/resource.json`，Resource 专属数据留在对应 `resources/<kind>.json`。
 
 如果现有 Shared value 最终只剩一个 owner，应在 contract 变更中评估是否内联；不能因为已经生成公共 symbol 就永久保留，也不能在没有独立复用证据时新增 Shared 文件。
@@ -94,7 +94,7 @@ flowchart LR
     SharedIndex --> Public["peer.json"]
 ```
 
-Schema 所有权依赖是 `shared/ ← resources/`；当前 codegen 再由 `shared.json` 聚合两层，供 `admin.json` 使用。`peer.json` 与 OpenAI-compatible surface 只引用它们实际需要的 Shared contract，不直接依赖 Admin Resource 文件。
+Schema 所有权依赖是 `shared/ ← resources/`；当前 codegen 再由 `shared.json` 聚合两层，供 `admin.json` 使用。`peer.json` 只引用实际需要的 Shared contract，不直接依赖 Admin Resource 文件。
 
 新增字段时应优先修改其真正拥有者：真正共享的 value 修改 `shared/`，声明式资源和专属 Spec 修改 `resources/`，只属于某个 endpoint 的输入则留在该 surface。不要复制一份名字相近但逐渐漂移的 schema。
 

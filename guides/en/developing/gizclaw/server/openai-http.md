@@ -2,12 +2,15 @@
 
 `Implementation file: server_openai_http.go`
 
-Assemble the Peer-scoped OpenAI-compatible handler for the ordinary Server HTTP entry, and access the public login session and the corresponding Peer resource view.
+Assemble the Peer-scoped OpenAI-compatible handler for the ordinary Server HTTP entry, and connect the public-login session to the corresponding RuntimeProfile resource view.
 
-The domain implementation of the OpenAI API belongs to the AI ​​service; this file is only responsible for Server-level HTTP composition.
+The Server authenticates the primary session before stripping `/openai`. The retained handler in `PeerService` then applies an exact method/path allowlist, binds the verified canonical Peer ID and request-scoped resources, and delegates the four standard operations to AI Server Shell. `/v1/voices` remains a GizClaw handler outside the Shell. Unsupported paths return `404` only after ingress authentication.
+
+Bearer and cookie values are never the backend identity. The Shell authenticator reads the verified context binding and fails closed if it is absent. CORS and preflight behavior remain owned by the outer Server handler.
 
 ## Core structure and main function
 
 | Symbol | Function |
 | --- | --- |
-| `peerOpenAIHTTPHandler` | Assemble the OpenAI-compatible handler based on the Peer identity in the HTTP session. |
+| `peerOpenAIHTTPHandler` | Authenticate the primary session and bind its immutable registration snapshot before dispatch. |
+| `openAIProtocolHandler` | Lazily construct and retain one Shell router for a `PeerService` handler graph, keeping unrelated Server startup independent of OpenAI schema parsing. |

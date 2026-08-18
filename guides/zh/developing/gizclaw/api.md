@@ -21,7 +21,6 @@ API 变更必须从 source schema 开始，再同步生成并验证所有受影�
 pkgs/gizclaw/api/
 ├── adminhttp/     # Admin HTTP Go surface
 ├── apitypes/      # HTTP Shared 与 Resource Go models
-├── openaihttp/    # OpenAI-compatible HTTP surface
 ├── peerhttp/      # Peer HTTP Go surface
 ├── rpcapi/        # RPC method registry、typed codec 和 helpers
 ├── rpcproto/      # Protobuf 生成的 RPC message
@@ -37,10 +36,6 @@ pkgs/gizclaw/api/
 ### apitypes
 
 保存从 `api/http/shared.json` 及其引用的 `api/http/resources/*.json` 生成的 Go models。Source 层仍保持 Shared 与 Resources 的单向依赖和所有权边界；Go 生成输出可以集中在一个 package，不要求镜像 source 目录。
-
-### openaihttp
-
-保存 GizClaw OpenAI-compatible HTTP surface 的生成 contract。它负责与 OpenAI-compatible request、response 和 route 形状对齐；Agent、GenX、model 和 workflow 的运行行为属于对应 AI services。
 
 ### peerhttp
 

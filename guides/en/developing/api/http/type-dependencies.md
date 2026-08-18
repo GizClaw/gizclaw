@@ -1,6 +1,6 @@
 # HTTP Schema dependency rules
 
-HTTP schema is divided into Shared, Resources and three API surfaces by ownership. The current generation entry uses a `shared.json` that aggregates Shared values ​​and Resource graph; `shared/` and `resources/` remain independent by ownership.
+Repository-owned HTTP schema is divided into Shared, Resources and two API surfaces by ownership. The OpenAI-compatible wire contract belongs to AI Server Shell and is outside this graph.
 
 ## Directory
 
@@ -8,9 +8,6 @@ HTTP schema is divided into Shared, Resources and three API surfaces by ownershi
 api/http/
 ├── admin.json
 ├── peer.json
-├── openai-compat/
-│   └── v1/
-│       └── service.json
 ├── shared.json
 ├── shared/
 │   └── ...
@@ -27,7 +24,6 @@ flowchart LR
     Resources --> SharedIndex
     SharedIndex --> Admin["admin.json"]
     SharedIndex --> Public["peer.json"]
-    SharedIndex --> OpenAI["openai-compat/v1/service.json"]
 ```
 
 Dependencies must remain one-way:
@@ -35,7 +31,6 @@ Dependencies must remain one-way:
 ```text
 shared/ ← resources/ ← shared.json ← admin
 shared.json ← public
-shared.json ← openai-compatible
 ```
 
 `shared/` Do not quote `resources/`. `resources/` can quote `shared/`. `shared.json` is the generation entry, and exports two layers of stable schema at the same time; its file name does not indicate that the Resource belongs to Shared ownership.
@@ -76,7 +71,6 @@ Schemas outside these Shared ownership families must be defined in their owner f
 
 - Public-only DTO put in `peer.json`.
 - Admin endpoint exclusive DTO is placed in `admin.json`.
-- OpenAI-compatible DTO put in `openai-compat/v1/service.json`.
 - Resource, exclusive `*Spec` and nested values ​​are put into corresponding `resources/<kind>.json`.
 - Resource envelope, metadata, kind, Apply contract and union are placed in `resources/resource.json`.
 
@@ -97,7 +91,7 @@ Each `resources/<kind>.json` also has:
 
 - `admin.json` refers to Shared values and Resource graph via `shared.json`.
 - `peer.json` only quotes `shared.json`, not Admin Resources. Public-only DTO is defined directly at `peer.json`.
-- OpenAI-compatible models stay in their own `service.json`; only contracts that are actually shared with other GizClaw HTTP surfaces reference `shared.json`.
+- OpenAI-compatible wire models stay in AI Server Shell and do not reference the repository-owned Shared graph.
 - Desktop application contract belongs to `apps/wails` and does not enter the Server HTTP API schema graph.
 
 ## File boundaries

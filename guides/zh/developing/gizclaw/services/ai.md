@@ -34,7 +34,7 @@ services/ai/
 
 ### [openaiapi](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/openaiapi)
 
-实现 GizClaw 的 OpenAI-compatible 产品服务，把已配置的 Agent/GenX 能力暴露到对应 HTTP surface。OpenAPI contract 属于 `api/`，route 组装属于根 `pkgs/gizclaw`，这里拥有该 surface 的 AI 业务行为。
+实现 GizClaw 对 `ai-server-shell/backend` 的 adapter，仅负责已支持的 model、chat、speech 与 transcription operation。标准 wire contract 与 transport 属于 AI Server Shell；exact route gate、verified Peer binding 与 voices 扩展属于根 `pkgs/gizclaw`。
 
 ### [peergenx](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/peergenx)
 

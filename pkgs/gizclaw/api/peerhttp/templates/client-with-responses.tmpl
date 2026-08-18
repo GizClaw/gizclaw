@@ -1,5 +1,5 @@
 {{/*
-Based on oapi-codegen v2.6.0 client-with-responses.tmpl. Optional request
+Based on oapi-codegen v2.7.2 client-with-responses.tmpl. Optional request
 bodies retain the existing bodyless response helper.
 */}}
 // ClientWithResponses builds on ClientInterface to offer response payloads
@@ -63,12 +63,6 @@ type {{genResponseTypeName $opid | ucFirst}} struct {
     {{- end}}
 }
 
-{{- range $responseTypeDefinitions}}
-  {{- range .AdditionalTypeDefinitions}}
-    type {{.TypeName}} {{if .IsAlias }}={{end}} {{.Schema.TypeDecl}}
-  {{- end}}
-{{- end}}
-
 // Status returns HTTPResponse.Status
 func (r {{genResponseTypeName $opid | ucFirst}}) Status() string {
     if r.HTTPResponse != nil {
@@ -89,6 +83,16 @@ func (r {{genResponseTypeName $opid | ucFirst}}) StatusCode() int {
 // Bytes is a convenience method to retrieve the raw bytes from the HTTP response
 func (r {{genResponseTypeName $opid | ucFirst}}) Bytes() []byte {
     return r.Body
+}
+{{end}}
+
+{{ if not opts.OutputOptions.SkipClientResponseContentType }}
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r {{genResponseTypeName $opid | ucFirst}}) ContentType() string {
+    if r.HTTPResponse != nil {
+        return r.HTTPResponse.Header.Get("Content-Type")
+    }
+    return ""
 }
 {{end}}
 {{end}}

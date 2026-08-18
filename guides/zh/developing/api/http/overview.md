@@ -1,14 +1,14 @@
 # HTTP API
 
-GizClaw Server 对外维护三个独立 HTTP surface。它们可以复用 DTO，但面向的 caller、认证方式和业务边界不同，不能合并成一个“大而全”的 router contract。
+GizClaw Server 对外维护两个仓库自有 OpenAPI surface，以及一个由 AI Server Shell 提供的受限 OpenAI-compatible surface。它们面向的 caller、认证方式和业务边界保持独立。
 
 ## Surface
 
-| Source | Caller 与职责 | Go 生成结果 |
+| Contract owner | Caller 与职责 | Go surface |
 | --- | --- | --- |
 | `admin.json` | 管理员管理资源、Peer、Telemetry 和运维动作 | `pkgs/gizclaw/api/adminhttp` |
 | `peer.json` | Public/Peer 登录、自身状态、Server info 与 WebRTC offer | `pkgs/gizclaw/api/peerhttp` |
-| `openai-compat/v1/service.json` | OpenAI-compatible model、chat 与 audio subset | `pkgs/gizclaw/api/openaihttp` |
+| `github.com/idy/ai-server-shell` | OpenAI-compatible model、chat 与 audio subset | `services/ai/openaiapi` backend adapter |
 
 Desktop application contract 属于 `apps/wails`，不属于 GizClaw Server HTTP API。
 
@@ -33,7 +33,7 @@ sequenceDiagram
     Router-->>Caller: HTTP response
 ```
 
-OpenAPI 拥有 path、method、parameters、wire DTO 和 response status。Adapter 负责把生成类型映射到领域调用。Service 拥有 authorization decision、资源规则和 persistence。不要把业务实现写进 generated package，也不要让 service 直接解析 Fiber request。
+对于仓库自有 surface，OpenAPI 拥有 path、method、parameters、wire DTO 和 response status。对于 OpenAI compatibility，这些协议细节由 AI Server Shell 拥有并转换成 protocol-neutral backend request。Adapter 把两类边界映射到领域调用；Service 继续拥有 authorization decision、资源规则和 persistence。
 
 ## 变更规则
 

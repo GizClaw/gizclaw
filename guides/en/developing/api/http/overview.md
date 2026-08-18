@@ -1,14 +1,14 @@
 # HTTP API
 
-GizClaw Server maintains three independent HTTP surfaces externally. They can reuse DTOs, but their callers, authentication methods, and business boundaries are different, and they cannot be merged into a "large and comprehensive" router contract.
+GizClaw Server maintains two repository-owned OpenAPI surfaces plus one limited OpenAI-compatible surface supplied by AI Server Shell. Their callers, authentication methods, and business boundaries remain independent.
 
 ## Surface
 
-| Source | Caller and Responsibilities | Go Generate Results |
+| Contract owner | Caller and Responsibilities | Go surface |
 | --- | --- | --- |
 | `admin.json` | Administrator manages resources, Peer, Telemetry and operation and maintenance actions | `pkgs/gizclaw/api/adminhttp` |
 | `peer.json` | Public/Peer login, own status, Server info and WebRTC offer | `pkgs/gizclaw/api/peerhttp` |
-| `openai-compat/v1/service.json` | OpenAI-compatible model, chat and audio subset | `pkgs/gizclaw/api/openaihttp` |
+| `github.com/idy/ai-server-shell` | OpenAI-compatible model, chat and audio subset | `services/ai/openaiapi` backend adapter |
 
 Desktop application contract belongs to `apps/wails` and does not belong to GizClaw Server HTTP API.
 
@@ -33,7 +33,7 @@ sequenceDiagram
     Router-->>Caller: HTTP response
 ```
 
-OpenAPI has path, method, parameters, wire DTO and response status. Adapter is responsible for mapping generated types to domain calls. Service has authorization decisions, resource rules, and persistence. Do not write the business implementation into the generated package, and do not let the service directly parse the Fiber request.
+For repository-owned surfaces, OpenAPI has path, method, parameters, wire DTO and response status. For OpenAI compatibility, AI Server Shell owns those protocol details and dispatches a protocol-neutral backend request. Adapters map either boundary to domain calls; services retain authorization decisions, resource rules, and persistence.
 
 ## Change rules
 
