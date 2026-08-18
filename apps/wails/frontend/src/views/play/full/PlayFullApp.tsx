@@ -56,12 +56,10 @@ import {
   ComposerPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
-  useEditComposer,
+  useAuiState,
   useLocalRuntime,
-  useMessage,
   type ChatModelAdapter,
   type ChatModelRunResult,
-  type EditComposerState,
   type ExportedMessageRepository,
   type ExportedMessageRepositoryItem,
   type SpeechSynthesisAdapter,
@@ -5153,11 +5151,7 @@ function ChatRuntime({
 }
 
 function UserChatMessage(): JSX.Element {
-  const isEditing =
-    useEditComposer({
-      optional: true,
-      selector: (state: EditComposerState) => state.isEditing,
-    }) ?? false;
+  const isEditing = useAuiState((state) => state.composer.isEditing);
 
   return (
     <MessagePrimitive.Root className="group flex justify-end">
@@ -5182,7 +5176,7 @@ function AssistantChatMessage({
 }: {
   onSpeak: (text: string) => void;
 }): JSX.Element {
-  const message = useMessage();
+  const message = useAuiState((state) => state.message);
   const text = threadMessageText(message);
 
   return (
