@@ -4029,11 +4029,19 @@ type EinoTransformNodeOperation string
 // EinoTransformNodeType defines model for EinoTransformNode.Type.
 type EinoTransformNodeType string
 
+// EinoVoiceAdapter defines model for EinoVoiceAdapter.
+type EinoVoiceAdapter struct {
+	AsrModel     *string            `json:"asr_model,omitempty"`
+	DefaultVoice *string            `json:"default_voice,omitempty"`
+	OutputVoices *map[string]string `json:"output_voices,omitempty"`
+}
+
 // EinoWorkflowSpec defines model for EinoWorkflowSpec.
 type EinoWorkflowSpec struct {
 	Conversation *EinoConversation `json:"conversation,omitempty"`
 	Graph        EinoGraph         `json:"graph"`
 	Limits       *EinoLimits       `json:"limits,omitempty"`
+	VoiceAdapter *EinoVoiceAdapter `json:"voice_adapter,omitempty"`
 }
 
 // EinoWorkspaceParameters defines model for EinoWorkspaceParameters.
@@ -4041,6 +4049,7 @@ type EinoWorkspaceParameters struct {
 	AgentType    EinoWorkspaceParametersAgentType `json:"agent_type"`
 	Conversation *FlowcraftConversationParameters `json:"conversation,omitempty"`
 	E2e          *bool                            `json:"e2e,omitempty"`
+	Input        *WorkspaceInputMode              `json:"input,omitempty"`
 }
 
 // EinoWorkspaceParametersAgentType defines model for EinoWorkspaceParameters.AgentType.

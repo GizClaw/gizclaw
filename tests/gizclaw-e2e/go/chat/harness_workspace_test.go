@@ -218,6 +218,29 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	}
 }
 
+func TestRuntimeContinuityTrackerStartsAfterFirstRoundAndRejectsRestart(t *testing.T) {
+	startedAt := time.Unix(10, 0)
+	restartedAt := time.Unix(20, 0)
+	control := &fakeRunControl{workspaceStates: []*rpcapi.ServerGetRunWorkspaceResponse{
+		{StartedAt: &startedAt},
+		{StartedAt: &startedAt},
+		{StartedAt: &restartedAt},
+	}}
+	tracker := &runtimeContinuityTracker{client: control}
+	if err := tracker.check(context.Background(), 1); err != nil {
+		t.Fatalf("first check error = %v", err)
+	}
+	if tracker.startedAt == nil || !tracker.startedAt.Equal(startedAt) {
+		t.Fatalf("startedAt = %v, want %v", tracker.startedAt, startedAt)
+	}
+	if err := tracker.check(context.Background(), 2); err != nil {
+		t.Fatalf("second check error = %v", err)
+	}
+	if err := tracker.check(context.Background(), 3); err == nil || !strings.Contains(err.Error(), "started_at changed") {
+		t.Fatalf("restart check error = %v", err)
+	}
+}
+
 func TestDoubaoRealtimeQualityValidationIsNonRetryable(t *testing.T) {
 	err := validateDoubaoRealtimeQuality(
 		[]roundStats{{AssistantText: "旧城市苏州"}},
@@ -365,6 +388,38 @@ func TestWorkspaceCaseDispatchRejectsUnknown(t *testing.T) {
 	_, err := (&personaDriver{}).runCase(context.Background(), workspaceCase("unknown"))
 	if err == nil || !strings.Contains(err.Error(), "unsupported workspace case") {
 		t.Fatalf("runCase(unknown) error = %v", err)
+	}
+}
+
+func TestEinoVoiceCasesForceThreeRoundsAndInputMode(t *testing.T) {
+	t.Parallel()
+	base := config{Agent: "eino", Rounds: 1, Workflow: workflowConfig{Name: "eino-memory-assistant"}}
+	for _, testCase := range []struct {
+		selected   workspaceCase
+		wantMode   string
+		wantSuffix string
+	}{
+		{selected: workspaceCaseEinoPushToTalk, wantMode: "push_to_talk", wantSuffix: "eino-ptt"},
+		{selected: workspaceCaseEinoRealtime, wantMode: "realtime", wantSuffix: "eino-rt"},
+	} {
+		got, err := testCase.selected.applyConfig(base)
+		if err != nil {
+			t.Fatalf("applyConfig(%s): %v", testCase.selected, err)
+		}
+		if got.Rounds != 3 || got.workspaceMode() != testCase.wantMode {
+			t.Fatalf("applyConfig(%s) rounds/mode = %d/%q, want 3/%q", testCase.selected, got.Rounds, got.workspaceMode(), testCase.wantMode)
+		}
+		if !strings.HasSuffix(got.Workspace, testCase.wantSuffix) || !testCase.selected.requiresRuntimeContinuity() {
+			t.Fatalf("applyConfig(%s) workspace/continuity = %q/%t", testCase.selected, got.Workspace, testCase.selected.requiresRuntimeContinuity())
+		}
+		request, err := workspaceDocument(got)
+		if err != nil {
+			t.Fatalf("workspaceDocument(%s): %v", testCase.selected, err)
+		}
+		parameters, err := request.Parameters.AsEinoWorkspaceParameters()
+		if err != nil || parameters.Input == nil || string(*parameters.Input) != strings.ReplaceAll(testCase.wantMode, "_", "-") {
+			t.Fatalf("workspaceDocument(%s) Eino input = %#v, %v", testCase.selected, parameters.Input, err)
+		}
 	}
 }
 

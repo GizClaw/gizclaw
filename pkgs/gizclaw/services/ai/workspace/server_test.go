@@ -1548,6 +1548,46 @@ func TestServerRejectsWrongEinoWorkspaceParameterVariant(t *testing.T) {
 	}
 }
 
+func TestServerValidatesEinoWorkspaceInputMode(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	store := testWorkflowStore(t, srv)
+	if err := store.Set(t.Context(), workflowReferenceKey("eino-workflow"), []byte(
+		`{"name":"eino-workflow","spec":{"driver":"eino","eino":{"graph":{"name":"eino","compile":{"node_trigger_mode":"any_predecessor"},"state":{"fields":[]},"nodes":[],"edges":[],"branches":[],"outputs":[]}}}}`,
+	)); err != nil {
+		t.Fatal(err)
+	}
+	ctx := WithRuntimeWorkflowBindings(t.Context(), map[string]string{"eino": "eino-workflow"})
+	for _, testCase := range []struct {
+		name       string
+		parameters string
+		valid      bool
+	}{
+		{name: "omitted", valid: true},
+		{name: "push-to-talk", parameters: `,"parameters":{"agent_type":"eino","input":"push-to-talk"}`, valid: true},
+		{name: "realtime", parameters: `,"parameters":{"agent_type":"eino","input":"realtime"}`, valid: true},
+		{name: "invalid", parameters: `,"parameters":{"agent_type":"eino","input":"invalid"}`},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			body := mustWorkspaceUpsert(t, fmt.Sprintf(`{"name":"eino-%s","workflow_id":"eino-workflow"%s}`, testCase.name, testCase.parameters))
+			response, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if testCase.valid {
+				if _, ok := response.(adminhttp.CreateWorkspace200JSONResponse); !ok {
+					t.Fatalf("CreateWorkspace() = %#v, want 200", response)
+				}
+				return
+			}
+			invalid, ok := response.(adminhttp.CreateWorkspace400JSONResponse)
+			if !ok || !strings.Contains(invalid.Error.Message, "input \"invalid\" is unsupported") {
+				t.Fatalf("CreateWorkspace() = %#v, want invalid input rejection", response)
+			}
+		})
+	}
+}
+
 func TestServerStoreHelpers(t *testing.T) {
 	t.Parallel()
 

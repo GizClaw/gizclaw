@@ -2328,11 +2328,13 @@ class EinoWorkflowSpec extends $pb.GeneratedMessage {
     $0.Struct? graph,
     $0.Struct? limits,
     $0.Struct? conversation,
+    $0.Struct? voiceAdapter,
   }) {
     final result = create();
     if (graph != null) result.graph = graph;
     if (limits != null) result.limits = limits;
     if (conversation != null) result.conversation = conversation;
+    if (voiceAdapter != null) result.voiceAdapter = voiceAdapter;
     return result;
   }
 
@@ -2354,6 +2356,8 @@ class EinoWorkflowSpec extends $pb.GeneratedMessage {
     ..aOM<$0.Struct>(2, _omitFieldNames ? '' : 'limits',
         subBuilder: $0.Struct.create)
     ..aOM<$0.Struct>(3, _omitFieldNames ? '' : 'conversation',
+        subBuilder: $0.Struct.create)
+    ..aOM<$0.Struct>(4, _omitFieldNames ? '' : 'voiceAdapter',
         subBuilder: $0.Struct.create)
     ..hasRequiredFields = false;
 
@@ -2408,6 +2412,17 @@ class EinoWorkflowSpec extends $pb.GeneratedMessage {
   void clearConversation() => $_clearField(3);
   @$pb.TagNumber(3)
   $0.Struct ensureConversation() => $_ensure(2);
+
+  @$pb.TagNumber(4)
+  $0.Struct get voiceAdapter => $_getN(3);
+  @$pb.TagNumber(4)
+  set voiceAdapter($0.Struct value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasVoiceAdapter() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearVoiceAdapter() => $_clearField(4);
+  @$pb.TagNumber(4)
+  $0.Struct ensureVoiceAdapter() => $_ensure(3);
 }
 
 class EinoWorkspaceParameters extends $pb.GeneratedMessage {
@@ -2415,11 +2430,13 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
     $1.EinoWorkspaceParametersAgentType? agentType,
     $core.bool? e2e,
     FlowcraftConversationParameters? conversation,
+    $1.WorkspaceInputMode? input,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
     if (e2e != null) result.e2e = e2e;
     if (conversation != null) result.conversation = conversation;
+    if (input != null) result.input = input;
     return result;
   }
 
@@ -2443,6 +2460,8 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
     ..aOM<FlowcraftConversationParameters>(
         3, _omitFieldNames ? '' : 'conversation',
         subBuilder: FlowcraftConversationParameters.create)
+    ..aE<$1.WorkspaceInputMode>(4, _omitFieldNames ? '' : 'input',
+        enumValues: $1.WorkspaceInputMode.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2495,6 +2514,15 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
   void clearConversation() => $_clearField(3);
   @$pb.TagNumber(3)
   FlowcraftConversationParameters ensureConversation() => $_ensure(2);
+
+  @$pb.TagNumber(4)
+  $1.WorkspaceInputMode get input => $_getN(3);
+  @$pb.TagNumber(4)
+  set input($1.WorkspaceInputMode value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasInput() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearInput() => $_clearField(4);
 }
 
 class DoubaoRealtimeAIGCMetadata extends $pb.GeneratedMessage {

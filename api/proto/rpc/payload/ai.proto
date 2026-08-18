@@ -185,12 +185,14 @@ message EinoWorkflowSpec {
   google.protobuf.Struct graph = 1;
   optional google.protobuf.Struct limits = 2;
   optional google.protobuf.Struct conversation = 3;
+  optional google.protobuf.Struct voice_adapter = 4;
 }
 
 message EinoWorkspaceParameters {
   EinoWorkspaceParametersAgentType agent_type = 1;
   optional bool e2e = 2;
   optional FlowcraftConversationParameters conversation = 3;
+  optional WorkspaceInputMode input = 4;
 }
 
 message DoubaoRealtimeAIGCMetadata {

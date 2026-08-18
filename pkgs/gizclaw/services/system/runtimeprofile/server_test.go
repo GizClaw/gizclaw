@@ -772,6 +772,24 @@ func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
 	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.eino", eino, models, voices); err != nil {
 		t.Fatalf("validate Eino aliases: %v", err)
 	}
+	asr, defaultVoice := "speech.asr", "speech.voice"
+	outputVoices := map[string]string{"assistant": defaultVoice}
+	eino.Eino.VoiceAdapter = &apitypes.EinoVoiceAdapter{
+		AsrModel: &asr, DefaultVoice: &defaultVoice, OutputVoices: &outputVoices,
+	}
+	models[asr] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}}
+	voices[defaultVoice] = apitypes.VoiceResource{}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.eino", eino, models, voices); err == nil || !strings.Contains(err.Error(), `want "asr"`) {
+		t.Fatalf("validate Eino wrong ASR kind error = %v", err)
+	}
+	models[asr] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindAsr}}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.eino", eino, models, voices); err != nil {
+		t.Fatalf("validate Eino voice aliases: %v", err)
+	}
+	delete(voices, defaultVoice)
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.eino", eino, models, voices); err == nil || !strings.Contains(err.Error(), "not declared in resources.voices") {
+		t.Fatalf("validate Eino missing Voice error = %v", err)
+	}
 }
 
 func TestValidatePetRuntimeAliases(t *testing.T) {

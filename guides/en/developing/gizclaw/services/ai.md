@@ -72,6 +72,8 @@ All streams for one Workspace share one Agent instance. The factory constructs o
 
 `dashscope-realtime`, `doubao-realtime-duplex`, and `eino` are persisted Workflow and Workspace drivers. Their factories resolve typed RuntimeProfile Model and Voice aliases and construct the existing GenX Transformers. DashScope requires a DashScope realtime Model; Doubao Duplex requires a Volc `realtime-duplex` Model; Eino resolves each `chat_model` node independently.
 
+An Eino Workflow remains text-only when `eino.voice_adapter` is omitted. When present, `asr_model` converts audio input through a RuntimeProfile ASR Model alias, while `default_voice` and `output_voices` synthesize declared `text/plain` Graph outputs through RuntimeProfile Voice aliases. `output_voices` is keyed by Graph output name and takes precedence over `default_voice`. Eino Workspace `input` accepts `push-to-talk` or `realtime` and defaults to `push-to-talk`; realtime ASR emits interim transcripts. The factory validates all aliases before constructing the Agent and composes the Eino Transformer with AudioDock, without moving audio behavior into the provider-neutral Eino package.
+
 Eino Graphs consume the same Workflow memory alias through typed `memory_recall` and `memory_observe` nodes. There is no Eino-specific Memory block or Server Config binding. `conversation.starts: agent` enables proactive opening. Workspace conversation parameters select `on_reload` or once when history is empty; concurrent streams permit only one successful claim, a failed opening is retryable, and user input interrupts through the existing interruption path. History remains persistent while Graph state remains invocation-local.
 
 #### Pet composition boundary

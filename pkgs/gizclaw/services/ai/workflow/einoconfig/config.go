@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"mime"
+	"strings"
 	"time"
 
 	"github.com/cloudwego/eino/components/model"
@@ -13,6 +15,7 @@ import (
 
 	genxeino "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -20,6 +23,9 @@ import (
 // construct. Runtime model resolution and Store capability checks remain
 // AgentHost responsibilities.
 func Validate(public apitypes.EinoWorkflowSpec) error {
+	if err := validateVoiceAdapter(public); err != nil {
+		return fmt.Errorf("voice_adapter: %w", err)
+	}
 	graph, err := MapGraph(public.Graph)
 	if err != nil {
 		return fmt.Errorf("graph: %w", err)
@@ -40,6 +46,51 @@ func Validate(public apitypes.EinoWorkflowSpec) error {
 		config.Limits.MaxOutputBytes = *public.Limits.MaxOutputBytes
 	}
 	return genxeino.ValidateConfig(config)
+}
+
+func validateVoiceAdapter(public apitypes.EinoWorkflowSpec) error {
+	adapter := public.VoiceAdapter
+	if adapter == nil {
+		return nil
+	}
+	asr := stringValue(adapter.AsrModel)
+	defaultVoice := stringValue(adapter.DefaultVoice)
+	var outputVoices map[string]string
+	if adapter.OutputVoices != nil {
+		outputVoices = *adapter.OutputVoices
+	}
+	if asr == "" && defaultVoice == "" && len(outputVoices) == 0 {
+		return errors.New("must configure asr_model, default_voice, or output_voices")
+	}
+	if asr != "" {
+		if err := runtimealias.Validate("ASR model alias", asr); err != nil {
+			return fmt.Errorf("asr_model: %w", err)
+		}
+	}
+	if defaultVoice != "" {
+		if err := runtimealias.Validate("default Voice alias", defaultVoice); err != nil {
+			return fmt.Errorf("default_voice: %w", err)
+		}
+	}
+	outputs := make(map[string]apitypes.EinoOutput, len(public.Graph.Outputs))
+	for _, output := range public.Graph.Outputs {
+		outputs[strings.TrimSpace(output.Name)] = output
+	}
+	for name, alias := range outputVoices {
+		name = strings.TrimSpace(name)
+		output, ok := outputs[name]
+		if !ok {
+			return fmt.Errorf("output_voices.%s: output name is not declared by graph.outputs", name)
+		}
+		mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(output.MimeType))
+		if err != nil || !strings.EqualFold(mediaType, "text/plain") {
+			return fmt.Errorf("output_voices.%s: output MIME type %q is not text/plain", name, output.MimeType)
+		}
+		if err := runtimealias.Validate("output Voice alias", strings.TrimSpace(alias)); err != nil {
+			return fmt.Errorf("output_voices.%s: %w", name, err)
+		}
+	}
+	return nil
 }
 
 type validationComponents struct{}

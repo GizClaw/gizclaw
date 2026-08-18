@@ -36,6 +36,52 @@ func TestValidate(t *testing.T) {
 		t.Fatalf("Validate(valid) error = %v", err)
 	}
 
+	t.Run("voice adapter", func(t *testing.T) {
+		spec := cloneSpec(t, valid)
+		asr, voice := "speech.asr", "speech.voice"
+		outputs := map[string]string{"assistant": voice}
+		spec.VoiceAdapter = &apitypes.EinoVoiceAdapter{
+			AsrModel:     &asr,
+			DefaultVoice: &voice,
+			OutputVoices: &outputs,
+		}
+		if err := Validate(spec); err != nil {
+			t.Fatalf("Validate(voice adapter) error = %v", err)
+		}
+
+		tests := []struct {
+			name    string
+			mutate  func(*apitypes.EinoWorkflowSpec)
+			wantErr string
+		}{
+			{name: "empty", mutate: func(spec *apitypes.EinoWorkflowSpec) {
+				spec.VoiceAdapter = &apitypes.EinoVoiceAdapter{}
+			}, wantErr: "must configure"},
+			{name: "invalid alias", mutate: func(spec *apitypes.EinoWorkflowSpec) {
+				invalid := "INVALID ALIAS"
+				spec.VoiceAdapter = &apitypes.EinoVoiceAdapter{AsrModel: &invalid}
+			}, wantErr: "asr_model"},
+			{name: "unknown output", mutate: func(spec *apitypes.EinoWorkflowSpec) {
+				mapped := map[string]string{"missing": voice}
+				spec.VoiceAdapter = &apitypes.EinoVoiceAdapter{OutputVoices: &mapped}
+			}, wantErr: "not declared"},
+			{name: "non-text output", mutate: func(spec *apitypes.EinoWorkflowSpec) {
+				spec.Graph.Outputs[0].MimeType = "application/octet-stream"
+				mapped := map[string]string{"assistant": voice}
+				spec.VoiceAdapter = &apitypes.EinoVoiceAdapter{OutputVoices: &mapped}
+			}, wantErr: "not text/plain"},
+		}
+		for _, testCase := range tests {
+			t.Run(testCase.name, func(t *testing.T) {
+				candidate := cloneSpec(t, valid)
+				testCase.mutate(&candidate)
+				if err := Validate(candidate); err == nil || !strings.Contains(err.Error(), testCase.wantErr) {
+					t.Fatalf("Validate() error = %v, want %q", err, testCase.wantErr)
+				}
+			})
+		}
+	})
+
 	t.Run("valid memory graph", func(t *testing.T) {
 		spec := decodeSpec(t, `{
 			"graph": {

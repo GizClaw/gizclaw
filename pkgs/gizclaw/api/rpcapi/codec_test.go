@@ -680,6 +680,10 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 
 	eino := EinoWorkflowSpec{
 		Conversation: &map[string]any{"starts": "agent"},
+		VoiceAdapter: &map[string]any{
+			"asr_model":     "speech.asr",
+			"default_voice": "speech.voice",
+		},
 		Graph: map[string]any{
 			"name":    "rpc-eino",
 			"compile": map[string]any{"node_trigger_mode": "any_predecessor"},
@@ -719,6 +723,10 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 	if decodedEino.Conversation == nil || (*decodedEino.Conversation)["starts"] != "agent" {
 		t.Fatalf("Eino conversation round trip = %#v", decodedEino.Conversation)
 	}
+	if decodedEino.VoiceAdapter == nil || (*decodedEino.VoiceAdapter)["asr_model"] != "speech.asr" ||
+		(*decodedEino.VoiceAdapter)["default_voice"] != "speech.voice" {
+		t.Fatalf("Eino voice adapter round trip = %#v", decodedEino.VoiceAdapter)
+	}
 
 	pet := PetWorkflowSpec{
 		Driver:               ReusableWorkflowDriverDoubaoRealtimeDuplex,
@@ -739,8 +747,10 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 	}
 
 	var parameters WorkspaceParameters
+	realtime := WorkspaceInputModeRealtime
 	if err := parameters.FromEinoWorkspaceParameters(EinoWorkspaceParameters{
 		AgentType: EinoWorkspaceParametersAgentTypeEino,
+		Input:     &realtime,
 	}); err != nil {
 		t.Fatalf("encode Eino workspace parameters union: %v", err)
 	}
@@ -752,8 +762,12 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 	if err := parametersPayload.decode("WorkspaceParameters", &decodedParameters); err != nil {
 		t.Fatalf("decode WorkspaceParameters: %v", err)
 	}
-	if _, err := decodedParameters.AsEinoWorkspaceParameters(); err != nil {
+	decodedEinoParameters, err := decodedParameters.AsEinoWorkspaceParameters()
+	if err != nil {
 		t.Fatalf("Eino WorkspaceParameters round trip: %v", err)
+	}
+	if decodedEinoParameters.Input == nil || *decodedEinoParameters.Input != WorkspaceInputModeRealtime {
+		t.Fatalf("Eino Workspace input round trip = %#v", decodedEinoParameters.Input)
 	}
 }
 

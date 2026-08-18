@@ -138,9 +138,14 @@ func TestFactoryInjectsPetContextForEveryReusableDriver(t *testing.T) {
 			name: "eino",
 			spec: apitypes.PetWorkflowSpec{
 				Driver: apitypes.ReusableWorkflowDriverEino,
-				Eino:   &apitypes.EinoWorkflowSpec{},
+				Eino: &apitypes.EinoWorkflowSpec{VoiceAdapter: &apitypes.EinoVoiceAdapter{
+					AsrModel: new("speech.asr"),
+				}},
 			},
-			payloadPresent: func(spec apitypes.WorkflowSpec) bool { return spec.Eino != nil },
+			payloadPresent: func(spec apitypes.WorkflowSpec) bool {
+				return spec.Eino != nil && spec.Eino.VoiceAdapter != nil &&
+					spec.Eino.VoiceAdapter.AsrModel != nil && *spec.Eino.VoiceAdapter.AsrModel == "speech.asr"
+			},
 		},
 		{
 			name: "ast-translate",
@@ -185,6 +190,9 @@ func TestFactoryInjectsPetContextForEveryReusableDriver(t *testing.T) {
 			}
 			if !testCase.payloadPresent(nested.spec.Workflow.Spec) {
 				t.Fatalf("nested Workflow payload was not forwarded: %#v", nested.spec.Workflow.Spec)
+			}
+			if nested.spec.Workspace.Parameters != nil {
+				t.Fatalf("nested Workspace parameters = %#v, want cleared driver overrides", nested.spec.Workspace.Parameters)
 			}
 			if _, err := agent.Transform(t.Context(), nil); err != nil {
 				t.Fatalf("Transform() error = %v", err)

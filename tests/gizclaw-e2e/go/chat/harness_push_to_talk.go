@@ -60,6 +60,11 @@ func (d *personaDriver) runConversation(ctx context.Context, mode conversationMo
 		if err != nil {
 			return stats, err
 		}
+		if d.afterRound != nil {
+			if err := d.afterRound(ctx, i); err != nil {
+				return stats, fmt.Errorf("after round %d: %w", i, err)
+			}
+		}
 		if err := d.waitFlowcraftHistoryProgress(ctx, fmt.Sprintf("round %d", i)); err != nil {
 			return stats, err
 		}

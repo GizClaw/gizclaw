@@ -64,6 +64,8 @@ const (
 	workspaceCaseFlowcraftRealtimeChat workspaceCase = "flowcraft-realtime-chat-roundtrip"
 	workspaceCaseRealtimeInterrupt     workspaceCase = "realtime-interrupt"
 	workspaceCaseRealtimeAutoSplit     workspaceCase = "realtime-auto-split-history"
+	workspaceCaseEinoPushToTalk        workspaceCase = "eino-push-to-talk-roundtrip"
+	workspaceCaseEinoRealtime          workspaceCase = "eino-realtime-roundtrip"
 	workspaceCaseHistoryReplay         workspaceCase = "history-replay"
 	workspaceCaseHumanReview           workspaceCase = "human-review"
 	workspaceCaseTextRoundtrip         workspaceCase = "text-roundtrip"
@@ -153,6 +155,10 @@ func runLoadedConfigWithResultAndInspect(
 		}
 		cfg = ensured
 	}
+	var runtimeContinuity *runtimeContinuityTracker
+	if selectedCase.requiresRuntimeContinuity() {
+		runtimeContinuity = &runtimeContinuityTracker{client: client}
+	}
 
 	openaiHTTPClient := client.HTTPClient(gizcli.ServicePeerOpenAI)
 	openaiHTTPClient.Timeout = cfg.timeout
@@ -173,6 +179,9 @@ func runLoadedConfigWithResultAndInspect(
 			return selectAndReloadAgentForRun(ctx, client, cfg)
 		},
 	}
+	if runtimeContinuity != nil {
+		driver.afterRound = runtimeContinuity.check
+	}
 	defer driver.close()
 	result, err := runWorkspaceCaseForRun(driver, ctx, selectedCase)
 	if len(result.Rounds) > 0 {
@@ -186,6 +195,14 @@ func runLoadedConfigWithResultAndInspect(
 			err = errors.Join(err, inspect(ctx, client, cfg))
 		}
 		return result, err
+	}
+	if runtimeContinuity != nil {
+		if runtimeContinuity.startedAt == nil {
+			return result, fmt.Errorf("runtime continuity was not observed after a completed round")
+		}
+		if err := runtimeContinuity.check(ctx, len(result.Rounds)+1); err != nil {
+			return result, fmt.Errorf("runtime continuity final state: %w", err)
+		}
 	}
 	if selectedCase != workspaceCaseRealtimeAutoSplit && selectedCase != workspaceCaseTextRoundtrip {
 		report, err := validateWorkspaceRuntimeForRun(ctx, driver, client, cfg, result.Rounds, selectedCase.runtimeValidationOptions())
@@ -202,6 +219,30 @@ func runLoadedConfigWithResultAndInspect(
 		}
 	}
 	return result, nil
+}
+
+type runtimeContinuityTracker struct {
+	client    runControlClient
+	startedAt *time.Time
+}
+
+func (t *runtimeContinuityTracker) check(ctx context.Context, round int) error {
+	state, err := t.client.GetServerRunWorkspace(ctx, fmt.Sprintf("workspacetest.runtime.round-%d", round))
+	if err != nil {
+		return err
+	}
+	if state.StartedAt == nil {
+		return fmt.Errorf("runtime has no started_at")
+	}
+	if t.startedAt == nil {
+		startedAt := *state.StartedAt
+		t.startedAt = &startedAt
+		return nil
+	}
+	if !state.StartedAt.Equal(*t.startedAt) {
+		return fmt.Errorf("runtime started_at changed: first=%s current=%s", t.startedAt.Format(time.RFC3339Nano), state.StartedAt.Format(time.RFC3339Nano))
+	}
+	return nil
 }
 
 func dialAndRegisterChatClientForRun(ctx context.Context, cfg config, token string) (*gizcli.Client, <-chan error, error) {
@@ -255,9 +296,12 @@ func (c workspaceCase) applyConfig(cfg config) (config, error) {
 		cfg.Workspace = compactWorkspaceName(cfg.Workspace + "-" + cfg.workspaceSuffix)
 	}
 	switch c {
-	case workspaceCasePushToTalkRoundtrip, workspaceCaseDoubaoRealtimeQuality, workspaceCasePushToTalkInterrupt, workspaceCaseHistoryReplay, workspaceCaseHumanReview:
+	case workspaceCasePushToTalkRoundtrip, workspaceCaseDoubaoRealtimeQuality, workspaceCasePushToTalkInterrupt, workspaceCaseHistoryReplay, workspaceCaseHumanReview, workspaceCaseEinoPushToTalk:
 		cfg.Workflow.Parameters.Input = string(rpcapi.WorkspaceInputModePushToTalk)
-		if c == workspaceCasePushToTalkRoundtrip && cfg.Workflow.Name != "flowcraft-voice-assistant" {
+		if c == workspaceCaseEinoPushToTalk {
+			cfg.Rounds = 3
+		}
+		if c == workspaceCasePushToTalkRoundtrip && cfg.Workflow.Name != "flowcraft-voice-assistant" && !cfg.isEinoAgent() {
 			cfg.Rounds = 1
 		}
 		if c == workspaceCaseHistoryReplay {
@@ -266,8 +310,11 @@ func (c workspaceCase) applyConfig(cfg config) (config, error) {
 		if c == workspaceCaseHumanReview && cfg.Rounds < 3 {
 			cfg.Rounds = 3
 		}
-	case workspaceCaseRealtimeRoundtrip, workspaceCaseFlowcraftRealtimeChat, workspaceCaseRealtimeInterrupt, workspaceCaseRealtimeAutoSplit:
+	case workspaceCaseRealtimeRoundtrip, workspaceCaseFlowcraftRealtimeChat, workspaceCaseRealtimeInterrupt, workspaceCaseRealtimeAutoSplit, workspaceCaseEinoRealtime:
 		cfg.Workflow.Parameters.Input = string(rpcapi.WorkspaceInputModeRealtime)
+		if c == workspaceCaseEinoRealtime {
+			cfg.Rounds = 3
+		}
 		if c == workspaceCaseFlowcraftRealtimeChat {
 			cfg.Rounds = 1
 		}
@@ -277,6 +324,10 @@ func (c workspaceCase) applyConfig(cfg config) (config, error) {
 		return config{}, fmt.Errorf("unsupported workspace case %q", c)
 	}
 	return cfg, nil
+}
+
+func (c workspaceCase) requiresRuntimeContinuity() bool {
+	return c == workspaceCaseEinoPushToTalk || c == workspaceCaseEinoRealtime
 }
 
 func workspaceNameForCase(workflowName string, selected workspaceCase) string {
@@ -307,6 +358,10 @@ func (c workspaceCase) workspaceIDSuffix() string {
 		return "review"
 	case workspaceCaseTextRoundtrip:
 		return "text"
+	case workspaceCaseEinoPushToTalk:
+		return "eino-ptt"
+	case workspaceCaseEinoRealtime:
+		return "eino-rt"
 	default:
 		return string(c)
 	}
@@ -341,13 +396,13 @@ func compactWorkspaceName(name string) string {
 
 func (d *personaDriver) runCase(ctx context.Context, selected workspaceCase) (workspaceCaseResult, error) {
 	switch selected {
-	case workspaceCasePushToTalkRoundtrip:
+	case workspaceCasePushToTalkRoundtrip, workspaceCaseEinoPushToTalk:
 		rounds, err := d.runPushToTalkRoundtrip(ctx)
 		return workspaceCaseResult{Rounds: rounds}, err
 	case workspaceCaseDoubaoRealtimeQuality:
 		rounds, err := d.runPushToTalkRoundtrip(ctx)
 		return workspaceCaseResult{Rounds: rounds}, err
-	case workspaceCaseRealtimeRoundtrip:
+	case workspaceCaseRealtimeRoundtrip, workspaceCaseEinoRealtime:
 		rounds, err := d.runRealtimeRoundtrip(ctx)
 		return workspaceCaseResult{Rounds: rounds}, err
 	case workspaceCaseFlowcraftRealtimeChat:
@@ -685,6 +740,7 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 	case cfg.isEinoAgent():
 		typed := rpcapi.EinoWorkspaceParameters{
 			AgentType: rpcapi.EinoWorkspaceParametersAgentTypeEino,
+			Input:     optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
 		}
 		if err := parameters.FromEinoWorkspaceParameters(typed); err != nil {
 			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode eino workspace parameters: %w", err)
@@ -854,7 +910,7 @@ type workspaceRuntimeReport struct {
 }
 
 func validateWorkspaceRuntime(ctx context.Context, driver *personaDriver, client runControlClient, cfg config, stats []roundStats, options workspaceRuntimeValidationOptions) (*workspaceRuntimeReport, error) {
-	if !cfg.isFlowcraftAgent() {
+	if !cfg.isFlowcraftAgent() && !cfg.isEinoAgent() {
 		return nil, nil
 	}
 	state, err := client.GetServerRunWorkspace(ctx, "workspacetest.runtime.workspace.get")
