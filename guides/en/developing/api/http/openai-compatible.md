@@ -1,10 +1,23 @@
 # OpenAI Compatible API
 
-The OpenAI Compatible API is intended for applications using the OpenAI-style client contract, exposing GizClaw Agent, Model, and Audio capabilities as an intentionally limited compatible surface. It is not an Admin API and does not directly expose the GizClaw Resource CRUD.
+GizClaw exposes an intentionally limited OpenAI-compatible surface through the current compatible `github.com/idy/ai-server-shell` module. AI Server Shell owns standard OpenAI routing, the 32 MiB body limit, OpenAPI request and response validation, request IDs, error envelopes, SSE framing, cancellation, and transport cleanup. GizClaw does not keep a second OpenAI OpenAPI document or generated wire package.
 
-Source:`api/http/openai-compat/v1/service.json`
-Go generated output: `pkgs/gizclaw/api/openaihttp`
+## Supported routes
 
-See the [API Reference](/api/) for exact endpoints, parameters, requests, and responses. Compatibility is limited to the endpoints and payloads listed in the Reference; it does not mean that all OpenAI APIs are implemented. New fields or endpoints must be supported by actual GizClaw capabilities and cannot leave placeholder handlers behind.
+- `GET /v1/models`
+- `POST /v1/chat/completions`
+- `POST /v1/audio/speech`
+- `POST /v1/audio/transcriptions`
+- `GET /v1/voices`, a GizClaw extension outside the Shell handler
 
-The wire models of this surface remain in `openai-compat/v1/service.json`, and the Admin Model Resource or Peer RPC payload is not reused because of similar names. Adapter is responsible for mapping compatible requests to GizClaw Agent/GenX services.
+The ordinary authenticated Server and Edge entry mounts these paths below `/openai`; the reliable `ServicePeerOpenAI` service exposes them directly. An exact method/path gate runs before the Shell router. Every other route, including other routes known by the Shell, returns `404` after the existing ingress authentication boundary.
+
+## Product boundary
+
+The composition layer binds the already verified Peer identity, RuntimeProfile-scoped model and voice resources, and the matching GenX Generator and Transformer to each request. The Shell authenticator reads only this verified binding. It ignores and never forwards an incoming bearer value, cookie, or dummy OpenAI API key.
+
+`services/ai/openaiapi` implements only `models/listModels`, `chat/createChatCompletion`, `audio/createSpeech`, and `audio/createTranscription` through `ai-server-shell/backend`. Unsupported options are rejected instead of being silently claimed. Chat additionally consumes the GizClaw `thinking.enabled` and `thinking.level` option. Speech streaming uses the official `stream_format: "sse"`; the former non-standard `stream` alias is rejected by schema validation.
+
+JSON, binary, and ordered SSE responses are owned and framed by the Shell. GenX streams are closed on completion, failure, cancellation, or downstream disconnect. No Realtime or Responses WebSocket backend is registered.
+
+The concrete Shell revision in `go.mod` and `go.sum` makes each build reproducible. Compatible updates advance through the normal weekly Go module Dependabot flow; GizClaw does not vendor, replace, or copy the upstream compatibility profile.

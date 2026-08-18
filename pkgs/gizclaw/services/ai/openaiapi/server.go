@@ -11,17 +11,18 @@ import (
 	"mime"
 	"mime/multipart"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/idy/ai-server-shell/backend"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/audiostream"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaihttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -40,6 +41,8 @@ type VoiceListParams struct {
 	Limit  *int32
 }
 
+// Server maps the limited OpenAI-compatible surface to GizClaw resources and
+// GenX. Wire parsing, validation, framing, and request IDs belong to the Shell.
 type Server struct {
 	Caller      giznet.PublicKey
 	Models      ModelLister
@@ -49,161 +52,472 @@ type Server struct {
 	Now         func() time.Time
 }
 
-var _ openaihttp.StrictServerInterface = (*Server)(nil)
+var _ backend.Handler = (*Server)(nil)
 
-func (s *Server) ListModels(ctx context.Context, _ openaihttp.ListModelsRequestObject) (openaihttp.ListModelsResponseObject, error) {
-	if s == nil || s.Models == nil {
-		return nil, errors.New("openaiapi: model service is not configured")
+func (s *Server) Handle(ctx context.Context, request backend.Request) (backend.Response, error) {
+	if s == nil || s.Caller.IsZero() || request.Metadata.CallerID != s.Caller.String() {
+		return backend.Response{}, unavailable("openai_backend_unavailable", "The OpenAI backend binding is unavailable.", nil)
 	}
-	var out []openaihttp.Model
-	cursor := (*string)(nil)
+	switch {
+	case request.Capability == backend.CapabilityModels && request.Operation == "listModels":
+		return s.listModels(ctx)
+	case request.Capability == backend.CapabilityChat && request.Operation == "createChatCompletion":
+		return s.createChatCompletion(ctx, request)
+	case request.Capability == backend.CapabilityAudio && request.Operation == "createSpeech":
+		return s.createSpeech(ctx, request)
+	case request.Capability == backend.CapabilityAudio && request.Operation == "createTranscription":
+		return s.createTranscription(ctx, request)
+	default:
+		return backend.Response{}, &backend.Error{
+			Kind: backend.ErrorUnsupported, Code: "operation_not_supported",
+			Message: "This operation is not supported by GizClaw.",
+		}
+	}
+}
+
+func (s *Server) listModels(ctx context.Context) (backend.Response, error) {
+	if s.Models == nil {
+		return backend.Response{}, unavailable("models_unavailable", "The model service is unavailable.", nil)
+	}
+	models := make([]openAIModel, 0)
+	var cursor *string
 	limit := int32(200)
 	for {
-		resp, err := s.Models.ListModels(ctx, adminhttp.ListModelsRequestObject{
+		response, err := s.Models.ListModels(ctx, adminhttp.ListModelsRequestObject{
 			Params: adminhttp.ListModelsParams{Cursor: cursor, Limit: &limit},
 		})
 		if err != nil {
-			return nil, err
+			return backend.Response{}, internal(err)
 		}
-		list, err := modelListFromResponse(resp)
+		list, err := modelListFromResponse(response)
 		if err != nil {
-			return nil, err
+			return backend.Response{}, internal(err)
 		}
 		for _, item := range list.Items {
-			out = append(out, openAIModel(item))
+			models = append(models, modelFromResource(item))
 		}
 		if !list.HasNext || list.NextCursor == nil || *list.NextCursor == "" {
 			break
 		}
 		cursor = list.NextCursor
 	}
-	if out == nil {
-		out = []openaihttp.Model{}
+	return jsonResponse(map[string]any{"object": "list", "data": models})
+}
+
+type thinkingOptions struct {
+	Enabled *bool   `json:"enabled,omitempty"`
+	Level   *string `json:"level,omitempty"`
+}
+
+type chatCompletionRequest struct {
+	Messages    []map[string]any `json:"messages"`
+	Model       string           `json:"model"`
+	Stream      *bool            `json:"stream,omitempty"`
+	Temperature *float32         `json:"temperature,omitempty"`
+	Thinking    *thinkingOptions `json:"thinking,omitempty"`
+}
+
+func (s *Server) createChatCompletion(ctx context.Context, request backend.Request) (backend.Response, error) {
+	var body chatCompletionRequest
+	if err := decodeJSONProjection(request.Input.JSON, &body, "messages", "model", "stream", "temperature", "thinking"); err != nil {
+		return backend.Response{}, err
 	}
-	return openaihttp.ListModels200JSONResponse{Object: "list", Data: out}, nil
+	model := strings.TrimSpace(body.Model)
+	if model == "" {
+		return backend.Response{}, invalid("missing_model", "model", "The model field is required.")
+	}
+	modelContext, err := buildModelContext(&body)
+	if err != nil {
+		var backendErr *backend.Error
+		if errors.As(err, &backendErr) {
+			return backend.Response{}, backendErr
+		}
+		return backend.Response{}, invalid("invalid_messages", "messages", "The messages field is invalid.")
+	}
+	if s.Generator == nil {
+		return backend.Response{}, unavailable("generator_unavailable", "The model generator is unavailable.", nil)
+	}
+	stream, err := s.Generator.GenerateStream(ctx, "model/"+model, modelContext)
+	if err != nil {
+		return backend.Response{}, internal(err)
+	}
+	if nilInterface(stream) {
+		return backend.Response{}, unavailable("generator_unavailable", "The model generator is unavailable.", nil)
+	}
+	if body.Stream != nil && *body.Stream {
+		return backend.Response{Stream: newChatEventStream(ctx, stream, model, s.now())}, nil
+	}
+	text, err := readTextStream(stream)
+	if err != nil {
+		return backend.Response{}, internal(err)
+	}
+	now := s.now()
+	return jsonResponse(map[string]any{
+		"id": idWithPrefix("chatcmpl", func() time.Time { return now }), "object": "chat.completion",
+		"created": now.Unix(), "model": model,
+		"choices": []any{map[string]any{
+			"finish_reason": "stop", "index": 0, "logprobs": nil,
+			"message": map[string]any{"content": text, "refusal": nil, "role": "assistant"},
+		}},
+	})
+}
+
+type speechRequest struct {
+	Input          string   `json:"input"`
+	Model          string   `json:"model"`
+	ResponseFormat *string  `json:"response_format,omitempty"`
+	Speed          *float32 `json:"speed,omitempty"`
+	StreamFormat   *string  `json:"stream_format,omitempty"`
+	Voice          string   `json:"voice"`
+}
+
+func (s *Server) createSpeech(ctx context.Context, request backend.Request) (backend.Response, error) {
+	var body speechRequest
+	if err := decodeJSONProjection(request.Input.JSON, &body, "input", "model", "response_format", "speed", "stream_format", "voice"); err != nil {
+		return backend.Response{}, err
+	}
+	if strings.TrimSpace(body.Input) == "" {
+		return backend.Response{}, invalid("missing_input", "input", "The input field is required.")
+	}
+	if body.Speed != nil && *body.Speed != 1 {
+		return backend.Response{}, invalid("unsupported_option", "speed", "The speed option is not supported by GizClaw.")
+	}
+	pattern, err := speechPattern(&body)
+	if err != nil {
+		return backend.Response{}, invalid("missing_voice", "voice", "A model or voice is required.")
+	}
+	if s.Transformer == nil {
+		return backend.Response{}, unavailable("transformer_unavailable", "The audio transformer is unavailable.", nil)
+	}
+	input := newTextStream(body.Input)
+	stream, err := s.Transformer.Transform(ctx, pattern, input)
+	if err != nil {
+		_ = input.CloseWithError(err)
+		return backend.Response{}, internal(err)
+	}
+	if nilInterface(stream) {
+		_ = input.CloseWithError(errors.New("transformer returned a nil stream"))
+		return backend.Response{}, unavailable("transformer_unavailable", "The audio transformer is unavailable.", nil)
+	}
+	contentType := speechContentType(&body)
+	if body.StreamFormat != nil && *body.StreamFormat == "sse" {
+		return backend.Response{Stream: newSpeechEventStream(ctx, stream, contentType)}, nil
+	}
+	audio, contentType, err := readBlobStreamWithMIME(stream, contentType)
+	if err != nil {
+		return backend.Response{}, internal(err)
+	}
+	return backend.Response{MediaType: contentType, Body: io.NopCloser(bytes.NewReader(audio))}, nil
+}
+
+func (s *Server) createTranscription(ctx context.Context, request backend.Request) (backend.Response, error) {
+	contentType := firstHeader(request.Metadata.Extensions, "Content-Type")
+	_, parameters, err := mime.ParseMediaType(contentType)
+	if err != nil || parameters["boundary"] == "" {
+		return backend.Response{}, invalid("invalid_multipart", "file", "A valid multipart request is required.")
+	}
+	form, err := parseTranscriptionForm(multipart.NewReader(bytes.NewReader(request.Input.Bytes), parameters["boundary"]))
+	if err != nil {
+		return backend.Response{}, err
+	}
+	if transcriptionAcceptsEventStream(firstHeader(request.Metadata.Extensions, "Accept")) {
+		form.stream = true
+	}
+	if s.Transformer == nil {
+		return backend.Response{}, unavailable("transformer_unavailable", "The audio transformer is unavailable.", nil)
+	}
+	stream, err := s.Transformer.Transform(ctx, "model/"+form.model, form.input)
+	if err != nil {
+		_ = form.input.CloseWithError(err)
+		return backend.Response{}, internal(err)
+	}
+	if nilInterface(stream) {
+		_ = form.input.CloseWithError(errors.New("transformer returned a nil stream"))
+		return backend.Response{}, unavailable("transformer_unavailable", "The audio transformer is unavailable.", nil)
+	}
+	if form.stream {
+		return backend.Response{Stream: newTranscriptionEventStream(ctx, stream)}, nil
+	}
+	text, err := readTextStream(stream)
+	if err != nil {
+		return backend.Response{}, internal(err)
+	}
+	return jsonResponse(map[string]string{"text": text})
 }
 
 func (s *Server) ListVoices(ctx context.Context, params VoiceListParams) (adminhttp.VoiceList, error) {
 	if s == nil || s.Voices == nil {
 		return adminhttp.VoiceList{}, errors.New("openaiapi: voice service is not configured")
 	}
-	resp, err := s.Voices.ListVoices(ctx, adminhttp.ListVoicesRequestObject{Params: adminhttp.ListVoicesParams{
-		Cursor: params.Cursor,
-		Limit:  params.Limit,
+	response, err := s.Voices.ListVoices(ctx, adminhttp.ListVoicesRequestObject{Params: adminhttp.ListVoicesParams{
+		Cursor: params.Cursor, Limit: params.Limit,
 	}})
 	if err != nil {
 		return adminhttp.VoiceList{}, err
 	}
-	switch typed := resp.(type) {
+	switch typed := response.(type) {
 	case adminhttp.ListVoices200JSONResponse:
 		return adminhttp.VoiceList(typed), nil
 	default:
-		return adminhttp.VoiceList{}, fmt.Errorf("openaiapi: list voices response %T", resp)
+		return adminhttp.VoiceList{}, fmt.Errorf("openaiapi: list voices response %T", response)
 	}
 }
 
-func (s *Server) CreateChatCompletion(ctx context.Context, request openaihttp.CreateChatCompletionRequestObject) (openaihttp.CreateChatCompletionResponseObject, error) {
-	if request.Body == nil {
-		return nil, errors.New("openaiapi: request body is required")
+func decodeJSONProjection(input json.RawMessage, target any, allowed ...string) error {
+	if len(input) == 0 {
+		return invalid("missing_body", "", "A JSON request body is required.")
 	}
-	model := strings.TrimSpace(request.Body.Model)
-	if model == "" {
-		return nil, errors.New("openaiapi: model is required")
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(input, &fields); err != nil {
+		return invalid("invalid_json", "", "The JSON request body is invalid.")
 	}
-	mctx, err := buildModelContext(request.Body)
-	if err != nil {
-		return nil, err
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, field := range allowed {
+		allowedSet[field] = struct{}{}
 	}
-	if s == nil || s.Generator == nil {
-		return nil, errors.New("openaiapi: generator is not configured")
+	for field := range fields {
+		if _, ok := allowedSet[field]; !ok {
+			return invalid("unsupported_option", "request", "A request option is not supported by GizClaw.")
+		}
 	}
-	stream, err := s.Generator.GenerateStream(ctx, "model/"+model, mctx)
-	if err != nil {
-		return nil, err
+	if err := json.Unmarshal(input, target); err != nil {
+		return invalid("invalid_json", "", "The JSON request body is invalid.")
 	}
-	if request.Body.Stream != nil && *request.Body.Stream {
-		pr, pw := io.Pipe()
-		go func() {
-			defer stream.Close()
-			err := writeChatCompletionSSE(pw, stream, model, s.now())
-			_ = pw.CloseWithError(err)
-		}()
-		return openaihttp.CreateChatCompletion200TexteventStreamResponse{Body: pr}, nil
-	}
-	text, err := readTextStream(stream)
-	if err != nil {
-		return nil, err
-	}
-	finish := "stop"
-	now := s.now()
-	return openaihttp.CreateChatCompletion200JSONResponse{
-		Id:      idWithPrefix("chatcmpl", func() time.Time { return now }),
-		Object:  "chat.completion",
-		Created: now.Unix(),
-		Model:   model,
-		Choices: []openaihttp.ChatCompletionChoice{
-			{
-				FinishReason: &finish,
-				Index:        0,
-				Message: openaihttp.ChatCompletionResponseMessage{
-					Content: &text,
-					Role:    openaihttp.ChatCompletionResponseMessageRoleAssistant,
-				},
-			},
-		},
-	}, nil
+	return nil
 }
 
-func (s *Server) CreateSpeech(ctx context.Context, request openaihttp.CreateSpeechRequestObject) (openaihttp.CreateSpeechResponseObject, error) {
-	if request.Body == nil {
-		return nil, errors.New("openaiapi: request body is required")
-	}
-	if strings.TrimSpace(request.Body.Input) == "" {
-		return nil, errors.New("openaiapi: input is required")
-	}
-	pattern, err := speechPattern(request.Body)
+func jsonResponse(value any) (backend.Response, error) {
+	data, err := json.Marshal(value)
 	if err != nil {
-		return nil, err
+		return backend.Response{}, internal(err)
 	}
-	if s == nil || s.Transformer == nil {
-		return nil, errors.New("openaiapi: transformer is not configured")
-	}
-	stream, err := s.Transformer.Transform(ctx, pattern, newTextStream(request.Body.Input))
-	if err != nil {
-		return nil, err
-	}
-	contentType := speechContentType(request.Body)
-	if speechWantsSSE(request.Body) {
-		pr, pw := io.Pipe()
-		go func() {
-			defer stream.Close()
-			err := writeSpeechSSE(pw, stream, contentType)
-			_ = pw.CloseWithError(err)
-		}()
-		return openaihttp.CreateSpeech200TexteventStreamResponse{Body: pr}, nil
-	}
-	audio, contentType, err := readBlobStreamWithMIME(stream, contentType)
-	if err != nil {
-		return nil, err
-	}
-	return speechAudioResponse{
-		Body:          bytes.NewReader(audio),
-		ContentLength: int64(len(audio)),
-		ContentType:   contentType,
-	}, nil
+	return backend.Response{JSON: data}, nil
 }
 
-func speechWantsSSE(body *openaihttp.CreateSpeechRequest) bool {
-	if body == nil {
-		return false
+func invalid(code, parameter, message string) error {
+	return &backend.Error{Kind: backend.ErrorInvalid, Code: code, Param: parameter, Message: message}
+}
+
+func unavailable(code, message string, cause error) error {
+	return &backend.Error{Kind: backend.ErrorUnavailable, Code: code, Message: message, Cause: cause}
+}
+
+func internal(cause error) error {
+	if errors.Is(cause, context.Canceled) {
+		return &backend.Error{Kind: backend.ErrorCanceled, Code: "request_canceled", Message: "The request was canceled.", Cause: cause}
 	}
-	if body.Stream != nil && *body.Stream {
+	if errors.Is(cause, context.DeadlineExceeded) {
+		return &backend.Error{Kind: backend.ErrorTimeout, Code: "request_timeout", Message: "The request timed out.", Cause: cause}
+	}
+	return &backend.Error{Kind: backend.ErrorInternal, Code: "backend_error", Message: "The GizClaw backend failed.", Cause: cause}
+}
+
+func nilInterface(value any) bool {
+	if value == nil {
 		return true
 	}
-	return body.StreamFormat != nil && *body.StreamFormat == openaihttp.Sse
+	reflected := reflect.ValueOf(value)
+	switch reflected.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return reflected.IsNil()
+	default:
+		return false
+	}
 }
 
-func speechContentType(body *openaihttp.CreateSpeechRequest) string {
+type openAIModel struct {
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Created int64  `json:"created"`
+	OwnedBy string `json:"owned_by"`
+}
+
+func modelListFromResponse(response adminhttp.ListModelsResponseObject) (adminhttp.ModelList, error) {
+	switch typed := response.(type) {
+	case adminhttp.ListModels200JSONResponse:
+		return adminhttp.ModelList(typed), nil
+	default:
+		return adminhttp.ModelList{}, fmt.Errorf("openaiapi: list models response %T", response)
+	}
+}
+
+func modelFromResource(model apitypes.Model) openAIModel {
+	owner := strings.TrimSpace(model.Provider.Id)
+	if owner == "" {
+		owner = strings.TrimSpace(string(model.Provider.Kind))
+	}
+	if owner == "" {
+		owner = "gizclaw"
+	}
+	created := model.CreatedAt.Unix()
+	if model.CreatedAt.IsZero() {
+		created = 0
+	}
+	return openAIModel{ID: model.Id, Object: "model", Created: created, OwnedBy: owner}
+}
+
+func buildModelContext(body *chatCompletionRequest) (genx.ModelContext, error) {
+	var builder genx.ModelContextBuilder
+	if body.Temperature != nil {
+		builder.Params = &genx.ModelParams{Temperature: *body.Temperature}
+	}
+	if body.Thinking != nil {
+		if builder.Params == nil {
+			builder.Params = &genx.ModelParams{}
+		}
+		builder.Params.Thinking = thinkingParams(body.Thinking)
+	}
+	for _, message := range body.Messages {
+		for field := range message {
+			switch field {
+			case "role", "name", "content":
+			default:
+				return nil, invalid("unsupported_option", "messages", "A message option is not supported by GizClaw.")
+			}
+		}
+		role, _ := message["role"].(string)
+		name, _ := message["name"].(string)
+		text, blobs, err := parseMessageContent(message["content"])
+		if err != nil {
+			return nil, err
+		}
+		switch role {
+		case "system", "developer":
+			if strings.TrimSpace(text) != "" {
+				builder.PromptText(role, text)
+			}
+		case "user":
+			if text != "" {
+				builder.UserText(name, text)
+			}
+			for _, blob := range blobs {
+				builder.UserBlob(name, blob.MIMEType, blob.Data)
+			}
+		case "assistant":
+			if text != "" {
+				builder.ModelText(name, text)
+			}
+		default:
+			return nil, invalid("unsupported_option", "messages.role", "This message role is not supported by GizClaw.")
+		}
+	}
+	return builder.Build(), nil
+}
+
+func thinkingParams(options *thinkingOptions) *genx.ThinkingParams {
+	if options == nil {
+		return nil
+	}
+	result := &genx.ThinkingParams{Enabled: options.Enabled}
+	if options.Level != nil {
+		result.Level = strings.TrimSpace(*options.Level)
+	}
+	if result.Enabled == nil && result.Level == "" {
+		return nil
+	}
+	return result
+}
+
+func parseMessageContent(value any) (string, []*genx.Blob, error) {
+	switch typed := value.(type) {
+	case string:
+		return typed, nil, nil
+	case []any:
+		var text strings.Builder
+		var blobs []*genx.Blob
+		for _, raw := range typed {
+			part, ok := raw.(map[string]any)
+			if !ok {
+				return "", nil, invalid("invalid_messages", "messages.content", "A message content part is invalid.")
+			}
+			switch part["type"] {
+			case "text":
+				if err := requireFields(part, "type", "text"); err != nil {
+					return "", nil, err
+				}
+				if value, ok := part["text"].(string); ok {
+					text.WriteString(value)
+				}
+			case "input_audio":
+				if err := requireFields(part, "type", "input_audio"); err != nil {
+					return "", nil, err
+				}
+				blob, err := parseInputAudio(part["input_audio"])
+				if err != nil {
+					return "", nil, err
+				}
+				blobs = append(blobs, blob)
+			default:
+				return "", nil, invalid("unsupported_option", "messages.content", "This message content type is not supported by GizClaw.")
+			}
+		}
+		return text.String(), blobs, nil
+	case nil:
+		return "", nil, nil
+	default:
+		return "", nil, invalid("invalid_messages", "messages.content", "A message content value is invalid.")
+	}
+}
+
+func requireFields(value map[string]any, allowed ...string) error {
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, field := range allowed {
+		allowedSet[field] = struct{}{}
+	}
+	for field := range value {
+		if _, ok := allowedSet[field]; !ok {
+			return invalid("unsupported_option", "messages.content", "A message content option is not supported by GizClaw.")
+		}
+	}
+	return nil
+}
+
+func parseInputAudio(value any) (*genx.Blob, error) {
+	input, ok := value.(map[string]any)
+	if !ok {
+		return nil, errors.New("input_audio must be an object")
+	}
+	if err := requireFields(input, "data", "format"); err != nil {
+		return nil, err
+	}
+	data, _ := input["data"].(string)
+	format, _ := input["format"].(string)
+	if data == "" || format == "" {
+		return nil, errors.New("input_audio data and format are required")
+	}
+	decoded, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return nil, fmt.Errorf("decode input_audio: %w", err)
+	}
+	return &genx.Blob{MIMEType: "audio/" + format, Data: decoded}, nil
+}
+
+func speechPattern(body *speechRequest) (string, error) {
+	format := speechTransformerFormat(body)
+	if voice := strings.TrimSpace(body.Voice); voice != "" {
+		return "voice/" + voice + "?format=" + format, nil
+	}
+	if model := strings.TrimSpace(body.Model); model != "" {
+		return "model/" + model + "?format=" + format, nil
+	}
+	return "", errors.New("model or voice is required")
+}
+
+func speechTransformerFormat(body *speechRequest) string {
+	if body == nil || body.ResponseFormat == nil {
+		return "mp3"
+	}
+	switch format := strings.ToLower(strings.TrimSpace(*body.ResponseFormat)); format {
+	case "opus":
+		return "ogg_opus"
+	case "aac", "flac", "mp3", "pcm", "wav":
+		return format
+	default:
+		return "mp3"
+	}
+}
+
+func speechContentType(body *speechRequest) string {
 	if body == nil || body.ResponseFormat == nil {
 		return "audio/mpeg"
 	}
@@ -218,280 +532,93 @@ func speechContentType(body *openaihttp.CreateSpeechRequest) string {
 		return "audio/wav"
 	case "pcm":
 		return "audio/pcm"
-	case "mp3", "":
-		return "audio/mpeg"
 	default:
 		return "audio/mpeg"
 	}
 }
 
-func (s *Server) CreateTranscription(ctx context.Context, request openaihttp.CreateTranscriptionRequestObject) (openaihttp.CreateTranscriptionResponseObject, error) {
-	form, err := parseTranscriptionForm(request.Body)
-	if err != nil {
-		return nil, err
+type transcriptionForm struct {
+	model  string
+	stream bool
+	input  genx.Stream
+}
+
+func parseTranscriptionForm(reader *multipart.Reader) (transcriptionForm, error) {
+	if reader == nil {
+		return transcriptionForm{}, invalid("invalid_multipart", "file", "A valid multipart request is required.")
 	}
-	if request.Params.Accept != nil && transcriptionAcceptsEventStream(*request.Params.Accept) {
-		form.stream = true
+	var result transcriptionForm
+	var file []byte
+	var filename, contentType string
+	for {
+		part, err := reader.NextPart()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return transcriptionForm{}, invalid("invalid_multipart", "file", "A valid multipart request is required.")
+		}
+		name := part.FormName()
+		filenameValue := part.FileName()
+		partContentType := part.Header.Get("Content-Type")
+		body, err := io.ReadAll(part)
+		_ = part.Close()
+		if err != nil {
+			return transcriptionForm{}, internal(err)
+		}
+		switch name {
+		case "model":
+			result.model = strings.TrimSpace(string(body))
+		case "stream":
+			value, err := strconv.ParseBool(strings.TrimSpace(string(body)))
+			if err != nil {
+				return transcriptionForm{}, invalid("invalid_stream", "stream", "The stream field must be a boolean.")
+			}
+			result.stream = value
+		case "response_format":
+			if value := strings.TrimSpace(string(body)); value != "" && value != "json" {
+				return transcriptionForm{}, invalid("unsupported_option", "response_format", "Only the json response format is supported by GizClaw.")
+			}
+		case "file":
+			file = append([]byte(nil), body...)
+			filename = filenameValue
+			contentType = partContentType
+		case "":
+		default:
+			return transcriptionForm{}, invalid("unsupported_option", "request", "A transcription option is not supported by GizClaw.")
+		}
 	}
-	if s == nil || s.Transformer == nil {
-		return nil, errors.New("openaiapi: transformer is not configured")
+	if result.model == "" {
+		return transcriptionForm{}, invalid("missing_model", "model", "The model field is required.")
 	}
-	stream, err := s.Transformer.Transform(ctx, "model/"+form.model, form.input)
-	if err != nil {
-		_ = form.input.CloseWithError(err)
-		return nil, err
+	if file == nil {
+		return transcriptionForm{}, invalid("missing_file", "file", "The file field is required.")
 	}
-	if form.stream {
-		pr, pw := io.Pipe()
-		go func() {
-			defer stream.Close()
-			err := writeTranscriptionSSE(pw, stream)
-			_ = pw.CloseWithError(err)
-		}()
-		return openaihttp.CreateTranscription200TexteventStreamResponse{Body: pr}, nil
+	contentType = transcriptionAudioMIME(contentType, filename, file)
+	if contentType == "" {
+		contentType = "application/octet-stream"
 	}
-	text, err := readTextStream(stream)
-	if err != nil {
-		return nil, err
-	}
-	return openaihttp.CreateTranscription200JSONResponse{Text: text}, nil
+	result.input = newBlobStream(contentType, file)
+	return result, nil
 }
 
 func transcriptionAcceptsEventStream(accept string) bool {
 	for part := range strings.SplitSeq(accept, ",") {
 		mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(part))
-		if err != nil {
-			continue
-		}
-		if strings.EqualFold(mediaType, "text/event-stream") {
+		if err == nil && strings.EqualFold(mediaType, "text/event-stream") {
 			return true
 		}
 	}
 	return false
 }
 
-func modelListFromResponse(resp adminhttp.ListModelsResponseObject) (adminhttp.ModelList, error) {
-	switch v := resp.(type) {
-	case adminhttp.ListModels200JSONResponse:
-		return adminhttp.ModelList(v), nil
-	default:
-		return adminhttp.ModelList{}, fmt.Errorf("openaiapi: list models response %T", resp)
-	}
-}
-
-func openAIModel(model apitypes.Model) openaihttp.Model {
-	owner := strings.TrimSpace(model.Provider.Id)
-	if owner == "" {
-		owner = strings.TrimSpace(string(model.Provider.Kind))
-	}
-	if owner == "" {
-		owner = "gizclaw"
-	}
-	created := model.CreatedAt.Unix()
-	if model.CreatedAt.IsZero() {
-		created = 0
-	}
-	return openaihttp.Model{
-		Id:      model.Id,
-		Object:  openaihttp.ModelObjectModel,
-		Created: created,
-		OwnedBy: owner,
-	}
-}
-
-func buildModelContext(body *openaihttp.CreateChatCompletionRequest) (genx.ModelContext, error) {
-	var b genx.ModelContextBuilder
-	if body.Temperature != nil {
-		b.Params = &genx.ModelParams{Temperature: *body.Temperature}
-	}
-	if body.Thinking != nil {
-		if b.Params == nil {
-			b.Params = &genx.ModelParams{}
-		}
-		b.Params.Thinking = thinkingParams(body.Thinking)
-	}
-	for _, msg := range body.Messages {
-		role, _ := msg["role"].(string)
-		name, _ := msg["name"].(string)
-		text, blobs, err := parseMessageContent(msg["content"])
-		if err != nil {
-			return nil, err
-		}
-		switch role {
-		case "system", "developer":
-			if strings.TrimSpace(text) != "" {
-				b.PromptText(role, text)
-			}
-		case "user":
-			if text != "" {
-				b.UserText(name, text)
-			}
-			for _, blob := range blobs {
-				b.UserBlob(name, blob.MIMEType, blob.Data)
-			}
-		case "assistant":
-			if text != "" {
-				b.ModelText(name, text)
-			}
-		default:
-			return nil, fmt.Errorf("openaiapi: unsupported chat message role %q", role)
+func firstHeader(headers map[string][]string, name string) string {
+	for key, values := range headers {
+		if strings.EqualFold(key, name) && len(values) > 0 {
+			return values[0]
 		}
 	}
-	return b.Build(), nil
-}
-
-func thinkingParams(options *openaihttp.ThinkingOptions) *genx.ThinkingParams {
-	if options == nil {
-		return nil
-	}
-	out := &genx.ThinkingParams{Enabled: options.Enabled}
-	if options.Level != nil {
-		out.Level = strings.TrimSpace(*options.Level)
-	}
-	if out.Enabled == nil && out.Level == "" {
-		return nil
-	}
-	return out
-}
-
-func parseMessageContent(value any) (string, []*genx.Blob, error) {
-	switch v := value.(type) {
-	case string:
-		return v, nil, nil
-	case []any:
-		var text strings.Builder
-		var blobs []*genx.Blob
-		for _, raw := range v {
-			part, ok := raw.(map[string]any)
-			if !ok {
-				continue
-			}
-			switch part["type"] {
-			case "text":
-				if s, ok := part["text"].(string); ok {
-					text.WriteString(s)
-				}
-			case "input_audio":
-				blob, err := parseInputAudio(part["input_audio"])
-				if err != nil {
-					return "", nil, err
-				}
-				blobs = append(blobs, blob)
-			}
-		}
-		return text.String(), blobs, nil
-	case nil:
-		return "", nil, nil
-	default:
-		return "", nil, fmt.Errorf("openaiapi: unsupported message content type %T", value)
-	}
-}
-
-func parseInputAudio(value any) (*genx.Blob, error) {
-	m, ok := value.(map[string]any)
-	if !ok {
-		return nil, errors.New("openaiapi: input_audio must be an object")
-	}
-	data, _ := m["data"].(string)
-	format, _ := m["format"].(string)
-	if data == "" || format == "" {
-		return nil, errors.New("openaiapi: input_audio data and format are required")
-	}
-	decoded, err := base64.StdEncoding.DecodeString(data)
-	if err != nil {
-		return nil, fmt.Errorf("openaiapi: decode input_audio: %w", err)
-	}
-	return &genx.Blob{MIMEType: "audio/" + format, Data: decoded}, nil
-}
-
-func speechPattern(body *openaihttp.CreateSpeechRequest) (string, error) {
-	format := speechTransformerFormat(body)
-	voice := strings.TrimSpace(body.Voice)
-	if voice != "" {
-		return "voice/" + voice + "?format=" + format, nil
-	}
-	model := strings.TrimSpace(body.Model)
-	if model == "" {
-		return "", errors.New("openaiapi: model or voice is required")
-	}
-	return "model/" + model + "?format=" + format, nil
-}
-
-func speechTransformerFormat(body *openaihttp.CreateSpeechRequest) string {
-	if body == nil || body.ResponseFormat == nil {
-		return "mp3"
-	}
-	switch format := strings.ToLower(strings.TrimSpace(*body.ResponseFormat)); format {
-	case "opus":
-		return "ogg_opus"
-	case "aac", "flac", "mp3", "pcm", "wav":
-		return format
-	default:
-		return "mp3"
-	}
-}
-
-type transcriptionForm struct {
-	model    string
-	stream   bool
-	input    genx.Stream
-	mimeType string
-}
-
-func parseTranscriptionForm(r *multipart.Reader) (transcriptionForm, error) {
-	if r == nil {
-		return transcriptionForm{}, errors.New("openaiapi: multipart body is required")
-	}
-	var out transcriptionForm
-	for {
-		part, err := r.NextPart()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return transcriptionForm{}, err
-		}
-		switch part.FormName() {
-		case "model":
-			body, err := io.ReadAll(part)
-			if err != nil {
-				return transcriptionForm{}, err
-			}
-			out.model = strings.TrimSpace(string(body))
-		case "stream":
-			body, err := io.ReadAll(part)
-			if err != nil {
-				return transcriptionForm{}, err
-			}
-			out.stream = strings.TrimSpace(string(body)) == "true"
-		case "file":
-			out.mimeType = part.Header.Get("Content-Type")
-			out.mimeType = transcriptionAudioMIME(out.mimeType, part.FileName(), nil)
-			if out.model != "" {
-				if out.mimeType == "" {
-					out.mimeType = "application/octet-stream"
-				}
-				out.input = newReaderBlobStream(part, out.mimeType, part.FileName())
-				return out, nil
-			}
-			body, err := io.ReadAll(part)
-			if err != nil {
-				return transcriptionForm{}, err
-			}
-			out.mimeType = transcriptionAudioMIME(out.mimeType, part.FileName(), body)
-			out.input = newBlobStream(out.mimeType, body)
-		}
-	}
-	if out.model == "" {
-		return transcriptionForm{}, errors.New("openaiapi: model is required")
-	}
-	if out.input == nil {
-		return transcriptionForm{}, errors.New("openaiapi: file is required")
-	}
-	if out.mimeType == "" {
-		out.mimeType = "application/octet-stream"
-	}
-	return out, nil
+	return ""
 }
 
 func transcriptionAudioMIME(contentType, filename string, data []byte) string {
@@ -499,10 +626,10 @@ func transcriptionAudioMIME(contentType, filename string, data []byte) string {
 	if contentType != "" && contentType != "application/octet-stream" {
 		return contentType
 	}
-	if extType := mime.TypeByExtension(filepath.Ext(filename)); extType != "" {
-		extType = strings.TrimSpace(strings.Split(extType, ";")[0])
-		if extType != "" && extType != "application/octet-stream" {
-			return extType
+	if extensionType := mime.TypeByExtension(filepath.Ext(filename)); extensionType != "" {
+		extensionType = strings.TrimSpace(strings.Split(extensionType, ";")[0])
+		if extensionType != "application/octet-stream" {
+			return extensionType
 		}
 	}
 	switch {
@@ -523,258 +650,210 @@ func transcriptionAudioMIME(contentType, filename string, data []byte) string {
 	}
 }
 
-type readerBlobStream struct {
-	reader   io.Reader
-	closer   io.Closer
-	mimeType string
-	filename string
-	buf      []byte
-	done     bool
-	err      error
+type eventStream struct {
+	events      chan backend.Event
+	cancel      context.CancelFunc
+	closeSource func() error
+	closeOnce   sync.Once
 }
 
-func newReaderBlobStream(r io.Reader, mimeType, filename string) genx.Stream {
-	stream := &readerBlobStream{
-		reader:   r,
-		mimeType: mimeType,
-		filename: filename,
-		buf:      make([]byte, 32*1024),
-	}
-	if closer, ok := r.(io.Closer); ok {
-		stream.closer = closer
-	}
-	return stream
-}
+type eventSender func(json.RawMessage) bool
 
-func (s *readerBlobStream) Next() (*genx.MessageChunk, error) {
-	if s.err != nil {
-		return nil, s.err
-	}
-	if s.done {
-		return nil, genx.ErrDone
-	}
-	for {
-		n, err := s.reader.Read(s.buf)
-		if n > 0 {
-			data := append([]byte(nil), s.buf[:n]...)
-			s.mimeType = transcriptionAudioMIME(s.mimeType, s.filename, data)
-			if s.mimeType == "" {
-				s.mimeType = "application/octet-stream"
+func newEventStream(ctx context.Context, source genx.Stream, produce func(context.Context, genx.Stream, eventSender)) backend.Stream {
+	streamCtx, cancel := context.WithCancel(ctx)
+	result := &eventStream{events: make(chan backend.Event, 1), cancel: cancel}
+	result.closeSource = sync.OnceValue(source.Close)
+	stopContextClose := context.AfterFunc(streamCtx, func() {
+		_ = result.closeSource()
+	})
+	go func() {
+		defer close(result.events)
+		defer result.closeSource()
+		defer stopContextClose()
+		send := func(data json.RawMessage) bool {
+			select {
+			case result.events <- backend.Event{Data: data}:
+				return true
+			case <-streamCtx.Done():
+				return false
 			}
-			return &genx.MessageChunk{Part: &genx.Blob{MIMEType: s.mimeType, Data: data}}, nil
 		}
-		if errors.Is(err, io.EOF) {
-			s.done = true
-			if s.mimeType == "" {
-				s.mimeType = "application/octet-stream"
-			}
-			return genx.NewEndOfStream(s.mimeType), nil
-		}
-		if err != nil {
-			return nil, err
-		}
-	}
+		produce(streamCtx, source, send)
+	}()
+	return result
 }
 
-func (s *readerBlobStream) Close() error {
-	s.done = true
-	if s.closer != nil {
-		return s.closer.Close()
+func (s *eventStream) Events() <-chan backend.Event { return s.events }
+
+func (s *eventStream) Close() error {
+	if s == nil {
+		return nil
 	}
+	s.closeOnce.Do(func() {
+		s.cancel()
+		_ = s.closeSource()
+	})
 	return nil
 }
 
-func (s *readerBlobStream) CloseWithError(err error) error {
-	s.err = err
-	return s.Close()
+func sendJSON(send eventSender, value any) bool {
+	data, err := json.Marshal(value)
+	return err == nil && send(data)
 }
 
-func writeChatCompletionSSE(w io.Writer, stream genx.Stream, model string, now time.Time) error {
+func newChatEventStream(ctx context.Context, source genx.Stream, model string, now time.Time) backend.Stream {
 	id := idWithPrefix("chatcmpl", func() time.Time { return now })
 	created := now.Unix()
-	sentRole := false
-	for {
-		chunk, err := stream.Next()
-		if err != nil {
-			if errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF) {
+	return newEventStream(ctx, source, func(streamCtx context.Context, source genx.Stream, send eventSender) {
+		sentRole := false
+		for {
+			chunk, err := source.Next()
+			if streamDone(err) {
+				if streamCtx.Err() != nil {
+					return
+				}
 				break
 			}
-			return writeSSEError(w, "STREAM_ERROR", err)
-		}
-		if chunk == nil || chunk.IsEndOfStream() {
-			continue
-		}
-		text, ok := chunk.Part.(genx.Text)
-		if !ok || text == "" {
-			continue
-		}
-		delta := openaihttp.ChatCompletionStreamResponseDelta{Content: new(string(text))}
-		if !sentRole {
-			role := openaihttp.ChatCompletionStreamResponseDeltaRoleAssistant
-			delta.Role = &role
-			sentRole = true
-		}
-		if err := writeSSEData(w, openaihttp.CreateChatCompletionStreamResponse{
-			Id:      id,
-			Object:  openaihttp.ChatCompletionChunk,
-			Created: created,
-			Model:   model,
-			Choices: []openaihttp.ChatCompletionChunkChoice{{Index: 0, Delta: delta}},
-		}); err != nil {
-			return err
-		}
-	}
-	finish := "stop"
-	if err := writeSSEData(w, openaihttp.CreateChatCompletionStreamResponse{
-		Id:      id,
-		Object:  openaihttp.ChatCompletionChunk,
-		Created: created,
-		Model:   model,
-		Choices: []openaihttp.ChatCompletionChunkChoice{{Index: 0, FinishReason: &finish}},
-	}); err != nil {
-		return err
-	}
-	_, err := io.WriteString(w, "data: [DONE]\n\n")
-	return err
-}
-
-func writeSpeechSSE(w io.Writer, stream genx.Stream, contentType string) error {
-	var normalizer *audiostream.Normalizer
-	for {
-		chunk, err := stream.Next()
-		if err != nil {
-			if errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF) {
-				break
+			if err != nil {
+				sendJSON(send, streamErrorEvent())
+				return
 			}
-			return err
+			if chunk == nil || chunk.IsEndOfStream() {
+				continue
+			}
+			text, ok := chunk.Part.(genx.Text)
+			if !ok || text == "" {
+				continue
+			}
+			delta := map[string]any{"content": string(text)}
+			if !sentRole {
+				delta["role"] = "assistant"
+				sentRole = true
+			}
+			if !sendJSON(send, map[string]any{
+				"id": id, "object": "chat.completion.chunk", "created": created, "model": model,
+				"choices": []any{map[string]any{"index": 0, "delta": delta}},
+			}) {
+				return
+			}
 		}
-		if chunk == nil {
-			continue
+		if !sendJSON(send, map[string]any{
+			"id": id, "object": "chat.completion.chunk", "created": created, "model": model,
+			"choices": []any{map[string]any{"index": 0, "delta": map[string]any{}, "finish_reason": "stop"}},
+		}) {
+			return
 		}
-		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
-			return errors.New(chunk.Ctrl.Error)
-		}
-		if chunk.IsEndOfStream() {
-			continue
-		}
-		blob, ok := chunk.Part.(*genx.Blob)
-		if !ok || len(blob.Data) == 0 {
-			continue
-		}
-		if normalizer == nil {
-			normalizer = audiostream.NewNormalizer(blobContentType(blob, contentType))
-		}
-		if err := writeSpeechAudioDelta(w, normalizer.Normalize(blob.Data)); err != nil {
-			return err
-		}
-	}
-	if normalizer != nil {
-		if err := writeSpeechAudioDelta(w, normalizer.Flush()); err != nil {
-			return err
-		}
-	}
-	done := true
-	return writeSSEData(w, openaihttp.CreateSpeechResponseStreamEvent{
-		Type: "speech.audio.done",
-		Done: &done,
+		send(json.RawMessage("[DONE]"))
 	})
 }
 
-func writeSpeechAudioDelta(w io.Writer, data []byte) error {
+func newSpeechEventStream(ctx context.Context, source genx.Stream, contentType string) backend.Stream {
+	return newEventStream(ctx, source, func(streamCtx context.Context, source genx.Stream, send eventSender) {
+		var normalizer *audiostream.Normalizer
+		for {
+			chunk, err := source.Next()
+			if streamDone(err) {
+				if streamCtx.Err() != nil {
+					return
+				}
+				break
+			}
+			if err != nil || chunk != nil && chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
+				sendJSON(send, streamErrorEvent())
+				return
+			}
+			if chunk == nil || chunk.IsEndOfStream() {
+				continue
+			}
+			blob, ok := chunk.Part.(*genx.Blob)
+			if !ok || len(blob.Data) == 0 {
+				continue
+			}
+			if normalizer == nil {
+				normalizer = audiostream.NewNormalizer(blobContentType(blob, contentType))
+			}
+			if !sendSpeechDelta(send, normalizer.Normalize(blob.Data)) {
+				return
+			}
+		}
+		if normalizer != nil && !sendSpeechDelta(send, normalizer.Flush()) {
+			return
+		}
+		sendJSON(send, map[string]any{"type": "speech.audio.done", "done": true})
+	})
+}
+
+func sendSpeechDelta(send eventSender, data []byte) bool {
 	if len(data) == 0 {
-		return nil
+		return true
 	}
-	audio := base64.StdEncoding.EncodeToString(data)
-	return writeSSEData(w, openaihttp.CreateSpeechResponseStreamEvent{
-		Type:  "speech.audio.delta",
-		Audio: &audio,
-	})
+	return sendJSON(send, map[string]any{"type": "speech.audio.delta", "audio": base64.StdEncoding.EncodeToString(data)})
 }
 
-func writeTranscriptionSSE(w io.Writer, stream genx.Stream) error {
-	var full strings.Builder
-	for {
-		chunk, err := stream.Next()
-		if err != nil {
-			if errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF) {
+func newTranscriptionEventStream(ctx context.Context, source genx.Stream) backend.Stream {
+	return newEventStream(ctx, source, func(streamCtx context.Context, source genx.Stream, send eventSender) {
+		var full strings.Builder
+		for {
+			chunk, err := source.Next()
+			if streamDone(err) {
+				if streamCtx.Err() != nil {
+					return
+				}
 				break
 			}
-			return err
+			if err != nil {
+				sendJSON(send, streamErrorEvent())
+				return
+			}
+			if chunk == nil || chunk.IsEndOfStream() {
+				continue
+			}
+			text, ok := chunk.Part.(genx.Text)
+			if !ok || text == "" {
+				continue
+			}
+			full.WriteString(string(text))
+			if !sendJSON(send, map[string]any{"type": "transcript.text.delta", "delta": string(text)}) {
+				return
+			}
 		}
-		if chunk == nil || chunk.IsEndOfStream() {
-			continue
-		}
-		text, ok := chunk.Part.(genx.Text)
-		if !ok || text == "" {
-			continue
-		}
-		delta := string(text)
-		full.WriteString(delta)
-		if err := writeSSEData(w, openaihttp.CreateTranscriptionResponseStreamEvent{
-			Type:  "transcript.text.delta",
-			Delta: &delta,
-		}); err != nil {
-			return err
-		}
-	}
-	done := full.String()
-	return writeSSEData(w, openaihttp.CreateTranscriptionResponseStreamEvent{
-		Type: "transcript.text.done",
-		Text: &done,
+		sendJSON(send, map[string]any{"type": "transcript.text.done", "text": full.String()})
 	})
 }
 
-func writeSSEData(w io.Writer, event any) error {
-	data, err := json.Marshal(event)
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprintf(w, "data: %s\n\n", data)
-	return err
+func streamErrorEvent() map[string]any {
+	return map[string]any{"error": map[string]string{
+		"code": "stream_error", "message": "The GizClaw backend stream failed.", "type": "server_error",
+	}}
 }
 
-func writeSSEError(w io.Writer, code string, err error) error {
-	message := "upstream stream failed"
-	if err != nil && strings.TrimSpace(err.Error()) != "" {
-		message = err.Error()
-	}
-	return writeSSEData(w, map[string]any{
-		"error": map[string]string{
-			"code":    code,
-			"message": message,
-			"type":    "upstream_error",
-		},
-	})
+func streamDone(err error) bool {
+	return errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF)
 }
 
 func readTextStream(stream genx.Stream) (string, error) {
 	defer stream.Close()
-	var out strings.Builder
+	var result strings.Builder
 	for {
 		chunk, err := stream.Next()
+		if streamDone(err) {
+			return result.String(), nil
+		}
 		if err != nil {
-			if errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF) {
-				return out.String(), nil
-			}
 			return "", err
 		}
 		if chunk == nil || chunk.IsEndOfStream() {
 			continue
 		}
 		if text, ok := chunk.Part.(genx.Text); ok {
-			out.WriteString(string(text))
+			result.WriteString(string(text))
 		}
 	}
 }
 
-func readBlobStream(stream genx.Stream) ([]byte, error) {
-	audio, _, err := readBlobStreamWithMIME(stream, "application/octet-stream")
-	return audio, err
-}
-
 func readBlobStreamWithMIME(stream genx.Stream, contentType string) ([]byte, string, error) {
 	defer stream.Close()
-	var out bytes.Buffer
+	var result bytes.Buffer
 	contentType = strings.TrimSpace(contentType)
 	if contentType == "" {
 		contentType = "application/octet-stream"
@@ -782,71 +861,44 @@ func readBlobStreamWithMIME(stream genx.Stream, contentType string) ([]byte, str
 	var normalizer *audiostream.Normalizer
 	for {
 		chunk, err := stream.Next()
-		if err != nil {
-			if errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF) {
-				if normalizer != nil {
-					out.Write(normalizer.Flush())
-				}
-				return out.Bytes(), contentType, nil
+		if streamDone(err) {
+			if normalizer != nil {
+				result.Write(normalizer.Flush())
 			}
+			return result.Bytes(), contentType, nil
+		}
+		if err != nil {
 			return nil, "", err
 		}
 		if chunk == nil {
 			continue
 		}
 		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
-			return nil, "", errors.New(chunk.Ctrl.Error)
+			return nil, "", errors.New("audio stream failed")
 		}
 		if chunk.IsEndOfStream() {
 			continue
 		}
 		if blob, ok := chunk.Part.(*genx.Blob); ok {
-			if out.Len() == 0 && strings.TrimSpace(blob.MIMEType) != "" {
+			if result.Len() == 0 && strings.TrimSpace(blob.MIMEType) != "" {
 				contentType = strings.TrimSpace(blob.MIMEType)
 			}
 			if normalizer == nil {
 				normalizer = audiostream.NewNormalizer(contentType)
 			}
-			out.Write(normalizer.Normalize(blob.Data))
+			result.Write(normalizer.Normalize(blob.Data))
 		}
 	}
 }
 
 func blobContentType(blob *genx.Blob, fallback string) string {
-	if blob != nil {
-		if mimeType := strings.TrimSpace(blob.MIMEType); mimeType != "" {
-			return mimeType
-		}
+	if blob != nil && strings.TrimSpace(blob.MIMEType) != "" {
+		return strings.TrimSpace(blob.MIMEType)
 	}
-	fallback = strings.TrimSpace(fallback)
-	if fallback == "" {
+	if strings.TrimSpace(fallback) == "" {
 		return "application/octet-stream"
 	}
-	return fallback
-}
-
-type speechAudioResponse struct {
-	Body          io.Reader
-	ContentLength int64
-	ContentType   string
-}
-
-func (response speechAudioResponse) VisitCreateSpeechResponse(ctx *fiber.Ctx) error {
-	contentType := strings.TrimSpace(response.ContentType)
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
-	ctx.Response().Header.Set("Content-Type", contentType)
-	if response.ContentLength != 0 {
-		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
-	}
-	ctx.Status(200)
-
-	if closer, ok := response.Body.(io.ReadCloser); ok {
-		defer closer.Close()
-	}
-	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
-	return err
+	return strings.TrimSpace(fallback)
 }
 
 type sliceStream struct {
@@ -855,16 +907,12 @@ type sliceStream struct {
 }
 
 func newTextStream(text string) genx.Stream {
-	return &sliceStream{chunks: []*genx.MessageChunk{
-		{Part: genx.Text(text)},
-		genx.NewTextEndOfStream(),
-	}}
+	return &sliceStream{chunks: []*genx.MessageChunk{{Part: genx.Text(text)}, genx.NewTextEndOfStream()}}
 }
 
 func newBlobStream(mimeType string, data []byte) genx.Stream {
 	return &sliceStream{chunks: []*genx.MessageChunk{
-		{Part: &genx.Blob{MIMEType: mimeType, Data: data}},
-		genx.NewEndOfStream(mimeType),
+		{Part: &genx.Blob{MIMEType: mimeType, Data: data}}, genx.NewEndOfStream(mimeType),
 	}}
 }
 
@@ -900,9 +948,4 @@ func (s *Server) now() time.Time {
 
 func idWithPrefix(prefix string, now func() time.Time) string {
 	return prefix + "-" + strconv.FormatInt(now().UnixNano(), 36)
-}
-
-//go:fix inline
-func stringPtr(value string) *string {
-	return new(value)
 }

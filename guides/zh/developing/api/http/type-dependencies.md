@@ -1,6 +1,6 @@
 # HTTP Schema 依赖规则
 
-HTTP schema 按所有权分为 Shared、Resources 和三个 API surfaces。当前生成入口使用一个 `shared.json` 聚合 Shared values 与 Resource graph；`shared/` 和 `resources/` 仍按所有权保持独立。
+仓库自有 HTTP schema 按所有权分为 Shared、Resources 和两个 API surfaces。OpenAI-compatible wire contract 属于 AI Server Shell，不进入本 graph。
 
 ## 目录
 
@@ -8,9 +8,6 @@ HTTP schema 按所有权分为 Shared、Resources 和三个 API surfaces。当�
 api/http/
 ├── admin.json
 ├── peer.json
-├── openai-compat/
-│   └── v1/
-│       └── service.json
 ├── shared.json
 ├── shared/
 │   └── ...
@@ -27,7 +24,6 @@ flowchart LR
     Resources --> SharedIndex
     SharedIndex --> Admin["admin.json"]
     SharedIndex --> Public["peer.json"]
-    SharedIndex --> OpenAI["openai-compat/v1/service.json"]
 ```
 
 依赖必须保持单向：
@@ -35,7 +31,6 @@ flowchart LR
 ```text
 shared/ ← resources/ ← shared.json ← admin
 shared.json ← public
-shared.json ← openai-compatible
 ```
 
 `shared/` 不得引用 `resources/`。`resources/` 可以引用 `shared/`。`shared.json` 是生成入口，同时导出两层的稳定 schema；它的文件名不表示 Resource 属于 Shared ownership。
@@ -76,7 +71,6 @@ Schema 只有满足以下至少一个条件才能进入 `shared/`：
 
 - Public-only DTO 放入 `peer.json`。
 - Admin endpoint 专属 DTO 放入 `admin.json`。
-- OpenAI-compatible DTO 放入 `openai-compat/v1/service.json`。
 - Resource、专属 `*Spec` 和 nested values 放入对应 `resources/<kind>.json`。
 - Resource envelope、metadata、kind、Apply contract 与 union 放入 `resources/resource.json`。
 
@@ -97,7 +91,7 @@ Schema 只有满足以下至少一个条件才能进入 `shared/`：
 
 - `admin.json` 通过 `shared.json` 引用 Shared values 与 Resource graph。
 - `peer.json` 只引用 `shared.json`，不引用 Admin Resources。Public-only DTO 直接定义在 `peer.json`。
-- OpenAI-compatible models 留在自己的 `service.json`；只有确实与其他 GizClaw HTTP surfaces 共用的 contract 才引用 `shared.json`。
+- OpenAI-compatible wire models 留在 AI Server Shell，不引用仓库自有 Shared graph。
 - Desktop application contract 属于 `apps/wails`，不进入 Server HTTP API schema graph。
 
 ## 文件边界

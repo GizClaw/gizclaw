@@ -34,7 +34,7 @@ Owns the connection-free `MemoryLayout` Admin resource. One Layout declares Flow
 
 ### [openaiapi](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/openaiapi)
 
-Implement GizClaw's OpenAI-compatible product service and expose the configured Agent/GenX capabilities to the corresponding HTTP surface. The OpenAPI contract belongs to `api/`, and the route assembly belongs to the root `pkgs/gizclaw`, which contains the AI ​​business behavior of the surface.
+Implements the GizClaw `ai-server-shell/backend` adapter for the supported model, chat, speech, and transcription operations. AI Server Shell owns the standard wire contract and transport; root `pkgs/gizclaw` owns exact route gating, verified Peer binding, and the voices extension.
 
 ### [peergenx](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/peergenx)
 

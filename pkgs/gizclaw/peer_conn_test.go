@@ -21,7 +21,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaihttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
@@ -694,11 +693,15 @@ func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
 		if resp.Code != http.StatusOK {
 			t.Fatalf("GET /v1/models status = %d body=%s", resp.Code, resp.Body.String())
 		}
-		var models openaihttp.ListModelsResponse
+		var models struct {
+			Data []struct {
+				ID string `json:"id"`
+			} `json:"data"`
+		}
 		if err := json.Unmarshal(resp.Body.Bytes(), &models); err != nil {
 			t.Fatalf("decode /v1/models response: %v", err)
 		}
-		if len(models.Data) != 1 || models.Data[0].Id != "chat" {
+		if len(models.Data) != 1 || models.Data[0].ID != "chat" {
 			t.Fatalf("/v1/models response = %#v", models)
 		}
 
@@ -740,6 +743,121 @@ func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
 		}
 	})
 }
+
+func TestOpenAIHandlerEnforcesShellBoundary(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	var modelCalls atomic.Int32
+	handler := newOpenAIHTTPHandler(&openaiapi.Server{
+		Caller: keyPair.Public,
+		Models: peerConnModelListerFunc(func(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
+			modelCalls.Add(1)
+			return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{}), nil
+		}),
+	})
+	for _, request := range []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPost, "/v1/responses"},
+		{http.MethodPost, "/v1/embeddings"},
+		{http.MethodGet, "/v1/realtime"},
+		{http.MethodGet, "/v1/models/model-a"},
+		{http.MethodPost, "/v1/audio/translations"},
+		{http.MethodGet, "/v1/chat/completions/completion-a"},
+		{http.MethodPost, "/v1/models"},
+	} {
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, httptest.NewRequest(request.method, request.path, nil))
+		if recorder.Code != http.StatusNotFound {
+			t.Errorf("%s %s status = %d body=%s", request.method, request.path, recorder.Code, recorder.Body.String())
+		}
+	}
+	if modelCalls.Load() != 0 {
+		t.Fatalf("unsupported routes dispatched %d model calls", modelCalls.Load())
+	}
+
+	protocol, err := newOpenAIProtocolHandler()
+	if err != nil {
+		t.Fatalf("newOpenAIProtocolHandler() error = %v", err)
+	}
+	recorder := httptest.NewRecorder()
+	protocol.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/v1/models", nil))
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("missing binding status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestOpenAIHandlerPreservesThinkingAndBodyLimit(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	var generatorCalls atomic.Int32
+	handler := newOpenAIHTTPHandler(&openaiapi.Server{
+		Caller: keyPair.Public,
+		Generator: peerConnOpenAIGeneratorFunc(func(_ context.Context, _ string, modelContext genx.ModelContext) (genx.Stream, error) {
+			generatorCalls.Add(1)
+			params := modelContext.Params()
+			if params == nil || params.Thinking == nil || params.Thinking.Enabled == nil || !*params.Thinking.Enabled || params.Thinking.Level != "high" {
+				t.Fatalf("thinking params = %#v", params)
+			}
+			return &peerConnOpenAITextStream{text: "ok"}, nil
+		}),
+	})
+	body := `{"model":"chat","messages":[{"role":"user","content":"hello"}],"thinking":{"enabled":true,"level":"high"}}`
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("thinking status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	oversized := `{"model":"chat","messages":[],"padding":"` + strings.Repeat("x", int(openAIMaxBodyBytes)) + `"}`
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(oversized))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if generatorCalls.Load() != 1 {
+		t.Fatalf("generator calls = %d, want 1", generatorCalls.Load())
+	}
+}
+
+type peerConnOpenAIGeneratorFunc func(context.Context, string, genx.ModelContext) (genx.Stream, error)
+
+func (f peerConnOpenAIGeneratorFunc) GenerateStream(ctx context.Context, pattern string, modelContext genx.ModelContext) (genx.Stream, error) {
+	return f(ctx, pattern, modelContext)
+}
+
+func (peerConnOpenAIGeneratorFunc) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
+	return genx.Usage{}, nil, errors.New("not implemented")
+}
+
+type peerConnOpenAITextStream struct {
+	text string
+	done bool
+}
+
+func (s *peerConnOpenAITextStream) Next() (*genx.MessageChunk, error) {
+	if s.done {
+		return nil, genx.ErrDone
+	}
+	s.done = true
+	return &genx.MessageChunk{Part: genx.Text(s.text)}, nil
+}
+
+func (s *peerConnOpenAITextStream) Close() error {
+	s.done = true
+	return nil
+}
+
+func (s *peerConnOpenAITextStream) CloseWithError(error) error { return s.Close() }
 
 func TestPeerConnPacesMixedAudioAtEgress(t *testing.T) {
 	mx := pcm.NewMixer(peerConnMixerFormat)

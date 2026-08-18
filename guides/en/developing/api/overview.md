@@ -12,7 +12,6 @@ api/
 ├── http/
 │   ├── admin.json              # Admin HTTP surface
 │   ├── peer.json               # Public/Peer HTTP and WebRTC signaling surface
-│   ├── openai-compat/v1/       # OpenAI-compatible HTTP subset
 │   ├── shared.json             # aggregation entry point for truly shared OpenAPI schemas
 │   ├── shared/                 # cross-surface or cross-domain DTOs
 │   └── resources/              # Resource, owned Spec, and Resource aggregation definitions
@@ -31,7 +30,7 @@ api/
 | --- | --- | --- | --- |
 | Admin API | Server | HTTP / OpenAPI | [Design](./http/admin) · [API Reference](/api/) |
 | Public API | Server | HTTP / OpenAPI | [Design](./http/public) · [API Reference](/api/) |
-| OpenAI Compatible API | Server | HTTP / OpenAPI | [Design](./http/openai-compatible) · [API Reference](/api/) |
+| OpenAI Compatible API | Server | AI Server Shell over HTTP | [Design](./http/openai-compatible) |
 | Peer RPC | Client, Server, Edge-node | Protobuf RPC over Giznet service stream | [Design](./proto/rpc/overview) · [Methods](/references/rpc) · [Streams](/references/streams#rpc-streams) |
 | Peer Events | Client, Server | Protobuf over Peer Event Stream | [Events](/references/events) · [Streams](/references/streams) |
 | Peer Telemetry | Client / Peer | Protobuf direct packet | [Design](./proto/telemetry) · [Transport](/references/streams#direct-packets) |

@@ -21,7 +21,6 @@ API changes must start from the source schema, and then synchronize the generati
 pkgs/gizclaw/api/
 ├── adminhttp/     # Admin HTTP Go surface
 ├── apitypes/      # HTTP Shared and Resource Go models
-├── openaihttp/    # OpenAI-compatible HTTP surface
 ├── peerhttp/      # Peer HTTP Go surface
 ├── rpcapi/        # RPC method registry, typed codecs, and helpers
 ├── rpcproto/      # Protobuf-generated RPC messages
@@ -37,10 +36,6 @@ Stores the request/response type, client, server interface and route contract ge
 ### apitypes
 
 Stores the Go models generated from `api/http/shared.json` and its referenced `api/http/resources/*.json`. The Source layer still maintains the one-way dependency and ownership boundaries of Shared and Resources; Go generated output can be concentrated in a package, without mirroring the source directory.
-
-### openaihttp
-
-Stores the generated contract for the GizClaw OpenAI-compatible HTTP surface. It is responsible for aligning with OpenAI-compatible request, response and route shapes; the running behavior of Agent, GenX, model and workflow belongs to the corresponding AI services.
 
 ### peerhttp
 

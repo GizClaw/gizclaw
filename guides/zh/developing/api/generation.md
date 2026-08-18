@@ -6,7 +6,7 @@ API 变更必须从根 `api/` 的 source schema 开始。禁止直接修改由�
 
 | Source | 主要输出 | 命令 |
 | --- | --- | --- |
-| HTTP OpenAPI + shared schemas | Go HTTP server/client/models | `go generate ./pkgs/gizclaw/api/adminhttp ./pkgs/gizclaw/api/apitypes ./pkgs/gizclaw/api/peerhttp ./pkgs/gizclaw/api/openaihttp` |
+| HTTP OpenAPI + shared schemas | Go HTTP server/client/models | `go generate ./pkgs/gizclaw/api/adminhttp ./pkgs/gizclaw/api/apitypes ./pkgs/gizclaw/api/peerhttp` |
 | `api/proto/rpc/**/*.proto` | Go Protobuf | `go generate ./pkgs/gizclaw/api/rpcproto` |
 | RPC descriptors/wrappers | 手工维护的 `rpcapi` committed surface | `go test ./pkgs/gizclaw/api/rpcapi`（当前 `go generate` 也只执行该验证，不会重新生成文件） |
 | HTTP + RPC schemas | JavaScript SDK | `npm --prefix sdk/js run gen:sdk` |
@@ -20,6 +20,8 @@ go generate ./pkgs/gizclaw/api/...
 ```
 
 `api` Go package 会嵌入仓库拥有的完整 `api/http` 与 `api/proto` source tree。离线 Resource 校验等运行时 contract consumer 直接从 embedded filesystem 读取这些原始定义，不再提交另一份 resolved schema 副本。`pkgs/gizclaw/api/apitypes/types_resolved.json` 继续作为仅用于生成 `apitypes/generated.go` 的 ignored intermediate。使用 `go generate ./pkgs/gizclaw/api/apitypes` 刷新 Go 生成结果；生成后执行 `git diff --exit-code -- pkgs/gizclaw/api/apitypes/generated.go` 可以确认结果保持新鲜。
+
+仓库自有 OpenAPI generator 使用 root Go module 声明的 `oapi-codegen` tool。tool 版本必须与 module 的 `kin-openapi` 版本兼容；升级任一依赖时，必须重新生成并审查所有受影响的已提交 Go output。
 
 ## 一次完整变更
 
@@ -50,6 +52,6 @@ RPC/C surface 变化时增加 C generation/build tests；管理资源变化时�
 ## Generator ownership
 
 - `rpcproto/*.pb.go` 由第三方 `protoc-gen-go` 直接生成。
-- `adminhttp`、`apitypes`、`openaihttp` 和 `peerhttp` 的 Go output 由第三方 `oapi-codegen` 生成；仓库内工具可以准备输入，但不因此拥有生成模板。
+- `adminhttp`、`apitypes` 和 `peerhttp` 的 Go output 由第三方 `oapi-codegen` 生成；仓库内工具可以准备输入，但不因此拥有生成模板。OpenAI-compatible protocol 由 AI Server Shell 提供，不属于本仓库生成链。
 - 第三方生成器产生的 alias、helper signature 或 import qualifier 保持生成结果，不为本地风格规则手改、fork generator 或追加 AST normalizer。
 - 仓库手写代码和仓库自有 generator 直接使用类型所属 package，不新增仅用于重命名或 re-export 的跨 package alias。

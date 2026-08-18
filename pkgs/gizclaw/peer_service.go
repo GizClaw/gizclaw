@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -75,10 +76,13 @@ type peerHTTPContactService interface {
 
 // PeerService serves one peer connection.
 type PeerService struct {
-	admin    *adminService
-	public   *peerHTTP
-	manager  *Manager
-	sessions *publiclogin.SessionManager
+	admin             *adminService
+	public            *peerHTTP
+	manager           *Manager
+	sessions          *publiclogin.SessionManager
+	openAIOnce        sync.Once
+	openAIProtocol    http.Handler
+	openAIProtocolErr error
 }
 
 var _ peerhttp.StrictServerInterface = (*peerHTTP)(nil)

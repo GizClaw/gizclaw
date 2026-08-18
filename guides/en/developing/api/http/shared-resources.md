@@ -22,7 +22,7 @@ When changing a Shared schema:
 
 - Start from an owner file that actually exists under `api/http/shared/`; do not invent aggregate domain file names.
 - Locate cross-surface error, identity, RuntimeProfile, registration, firmware, credential, model, voice, tool, workflow, workspace, and provider tenant values through the ownership map.
-- Keep Public-only DTOs in `peer.json`, Admin endpoint-specific DTOs in `admin.json`, and OpenAI-compatible DTOs in `openai-compat/v1/service.json`.
+- Keep Public-only DTOs in `peer.json` and Admin endpoint-specific DTOs in `admin.json`. OpenAI-compatible wire DTOs are owned by AI Server Shell, outside this schema graph.
 - Keep Resource envelopes, metadata, Apply contracts, and the Resource union in `resources/resource.json`; Resource-specific data remains in the corresponding `resources/<kind>.json`.
 
 If an existing Shared value is reduced to one owner, evaluate inlining it as a contract change. A generated public symbol is not sufficient reason to retain it forever, and a new Shared file requires evidence of independent reuse.
@@ -92,7 +92,7 @@ flowchart LR
     SharedIndex --> Public["peer.json"]
 ```
 
-Schema ownership dependency is `shared/ ← resources/`; the current codegen is aggregated into two layers by `shared.json` for use by `admin.json`. `peer.json` and OpenAI-compatible surface only reference the Shared contract they actually need and do not directly rely on the Admin Resource file.
+Schema ownership dependency is `shared/ ← resources/`; the current codegen is aggregated into two layers by `shared.json` for use by `admin.json`. `peer.json` references only the Shared contract it needs and does not directly rely on the Admin Resource file.
 
 When adding fields, priority should be given to modifying their real owners: truly shared values ​​modify `shared/`, declarative resources and exclusive Spec modify `resources/`, and inputs that only belong to a certain endpoint remain on the surface. Don’t copy a schema with a similar name that drifts away.
 
