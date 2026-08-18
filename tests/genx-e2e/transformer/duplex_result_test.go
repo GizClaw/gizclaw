@@ -17,6 +17,7 @@ type duplexRoundResult struct {
 	transcript          strings.Builder
 	assistantText       strings.Builder
 	lifecycles          *routeLifecycleTracker
+	terminalErrors      []string
 	assistantStreamID   string
 	transcriptDone      bool
 	assistantTextDone   bool
@@ -34,7 +35,8 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 		label = chunk.Ctrl.Label
 		chunkStreamID = chunk.Ctrl.StreamID
 	}
-	if err := duplexChunkError(chunk); err != nil {
+	chunkErr := duplexChunkError(chunk)
+	if chunkErr != nil {
 		if label == duplexTranscriptLabel && !roundStreamMatches(chunkStreamID, streamID) {
 			return nil
 		}
@@ -44,7 +46,6 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 		if label == duplexAssistantLabel && r.assistantStreamID == "" && !roundStreamMatches(chunkStreamID, streamID) {
 			return nil
 		}
-		return err
 	}
 	if label == duplexTranscriptLabel && roundStreamMatches(chunkStreamID, streamID) {
 		if r.lifecycles == nil {
@@ -58,6 +59,9 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 		}
 		if chunk.IsEndOfStream() {
 			r.transcriptDone = true
+		}
+		if chunkErr != nil {
+			r.terminalErrors = append(r.terminalErrors, chunkErr.Error())
 		}
 		return nil
 	}
@@ -95,6 +99,9 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 			r.assistantAudioDone = true
 		}
 	}
+	if chunkErr != nil {
+		r.terminalErrors = append(r.terminalErrors, chunkErr.Error())
+	}
 	return nil
 }
 
@@ -117,7 +124,7 @@ func TestDuplexRoundResultIgnoresOtherStreamTerminalError(t *testing.T) {
 	currentStreamError := oldStreamError.Clone()
 	currentStreamError.Ctrl.StreamID = "round-2:rt:1"
 	if err := result.observe("round-2", currentStreamError); err == nil {
-		t.Fatal("observe() current terminal error = nil")
+		t.Fatal("observe() current terminal error without BOS = nil")
 	}
 }
 
@@ -138,6 +145,33 @@ func TestDuplexRoundResultBindsProviderAssistantStreamID(t *testing.T) {
 	}
 }
 
+func TestDuplexRoundResultCollectsEveryRouteBeforeReturningTerminalError(t *testing.T) {
+	var result duplexRoundResult
+	chunks := []*genx.MessageChunk{
+		{Role: genx.RoleUser, Part: genx.Text("question"), Ctrl: &genx.StreamCtrl{StreamID: "round-1:rt:1", Label: duplexTranscriptLabel, BeginOfStream: true}},
+		{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "round-1:rt:1", Label: duplexTranscriptLabel, EndOfStream: true}},
+		{Role: genx.RoleModel, Part: genx.Text("answer"), Ctrl: &genx.StreamCtrl{StreamID: "response-1", Label: duplexAssistantLabel, BeginOfStream: true}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "response-1", Label: duplexAssistantLabel, BeginOfStream: true}},
+		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response-1", Label: duplexAssistantLabel, EndOfStream: true, Error: "DialogAudioIdleTimeoutError"}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "response-1", Label: duplexAssistantLabel, EndOfStream: true, Error: "DialogAudioIdleTimeoutError"}},
+	}
+	for index, chunk := range chunks {
+		if err := result.observe("round-1", chunk); err != nil {
+			t.Fatalf("observe(%d) error = %v", index, err)
+		}
+		if index == len(chunks)-2 && result.terminalComplete() {
+			t.Fatal("result completed after text error EOS before audio error EOS")
+		}
+	}
+	if !result.terminalComplete() {
+		t.Fatalf("result = %#v, want all three routes complete", result.lifecycles.routes)
+	}
+	if err := result.terminalError(); err == nil || !strings.Contains(err.Error(), "DialogAudioIdleTimeoutError") {
+		t.Fatalf("terminalError() = %v, want DialogAudioIdleTimeoutError", err)
+	}
+	result.lifecycles.assertComplete(t)
+}
+
 func (r *duplexRoundResult) done() bool {
 	return strings.TrimSpace(r.transcript.String()) != "" &&
 		r.transcriptDone &&
@@ -145,6 +179,18 @@ func (r *duplexRoundResult) done() bool {
 		r.assistantAudioBytes > 0 &&
 		r.assistantTextDone &&
 		r.assistantAudioDone
+}
+
+func (r *duplexRoundResult) terminalComplete() bool {
+	return len(r.terminalErrors) != 0 && r.lifecycles != nil &&
+		len(r.lifecycles.routes) == 3 && r.lifecycles.allComplete()
+}
+
+func (r *duplexRoundResult) terminalError() error {
+	if len(r.terminalErrors) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%s", strings.Join(r.terminalErrors, "; "))
 }
 
 func assertDuplexRound(t *testing.T, round int, result duplexRoundResult) {

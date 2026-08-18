@@ -131,7 +131,19 @@ func (b *workflowConcurrencyBarrier) releaseAll() {
 }
 
 func runWorkflowConcurrency10(t *testing.T, spec workflowConcurrencySpec, scenario workflowConcurrencyScenario) {
+	runWorkflowConcurrency(t, spec, scenario, workflowConcurrency10)
+}
+
+func runWorkflowConcurrency(
+	t *testing.T,
+	spec workflowConcurrencySpec,
+	scenario workflowConcurrencyScenario,
+	concurrency int,
+) {
 	t.Helper()
+	if concurrency <= 0 {
+		t.Fatalf("workflow concurrency must be positive, got %d", concurrency)
+	}
 	if err := probeLiveWorkspaceSetup(); err != nil {
 		t.Fatalf("required e2e setup server is not available: %v", err)
 	}
@@ -152,10 +164,10 @@ func runWorkflowConcurrency10(t *testing.T, spec workflowConcurrencySpec, scenar
 	runID := fmt.Sprintf("%x", time.Now().UnixNano())
 	waveCtx, cancel := context.WithTimeout(context.Background(), base.timeout)
 	defer cancel()
-	wave := newWorkflowConcurrencyArtifact(spec, scenario, workflowConcurrency10)
+	wave := newWorkflowConcurrencyArtifact(spec, scenario, concurrency)
 	wave.captureBefore()
 
-	lanes, prepareErr := prepareWorkflowConcurrencyLanes(waveCtx, base, token, spec, scenario, runID)
+	lanes, prepareErr := prepareWorkflowConcurrencyLanes(waveCtx, base, token, spec, scenario, runID, concurrency)
 	var inputs workflowConcurrencyInputs
 	var inputErr error
 	if prepareErr == nil {
@@ -215,18 +227,19 @@ func prepareWorkflowConcurrencyLanes(
 	spec workflowConcurrencySpec,
 	scenario workflowConcurrencyScenario,
 	runID string,
+	concurrency int,
 ) ([]*workflowConcurrencyLane, error) {
-	results := make(chan workflowConcurrencyPrepareResult, workflowConcurrency10)
-	for index := 1; index <= workflowConcurrency10; index++ {
+	results := make(chan workflowConcurrencyPrepareResult, concurrency)
+	for index := 1; index <= concurrency; index++ {
 		index := index
 		go func() {
 			lane, err := prepareWorkflowConcurrencyLane(ctx, base, token, spec, scenario, runID, index)
 			results <- workflowConcurrencyPrepareResult{lane: lane, err: err}
 		}()
 	}
-	lanes := make([]*workflowConcurrencyLane, workflowConcurrency10)
+	lanes := make([]*workflowConcurrencyLane, concurrency)
 	var errs []error
-	for range workflowConcurrency10 {
+	for range concurrency {
 		result := <-results
 		if result.lane != nil {
 			lanes[result.lane.Index-1] = result.lane

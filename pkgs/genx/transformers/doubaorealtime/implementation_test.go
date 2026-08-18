@@ -554,6 +554,104 @@ func TestTransformerProviderLossClosesOnlyOpenAssistantRoutes(t *testing.T) {
 	}
 }
 
+func TestTransformerRealtimeAudioIdleProviderErrorClosesEveryOpenedRoute(t *testing.T) {
+	firstAudioSent := make(chan struct{})
+	providerErr := errors.New("sami error: DialogAudioIdleTimeoutError (code=55000001)")
+	session := &fakeTransformerSession{
+		beforeRecv:     firstAudioSent,
+		firstAudioSent: firstAudioSent,
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "question"},
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventChatResponse, Text: "answer"},
+			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSStarted, Text: "answer"},
+		},
+		recvErr: providerErr,
+	}
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModeRealtime),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	input := newBufferStream(4)
+	defer input.Close()
+	for _, chunk := range []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+	} {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push(input) error = %v", err)
+		}
+	}
+
+	output, err := tfr.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	defer output.CloseWithError(context.Canceled)
+
+	type routeKey struct {
+		role     genx.Role
+		mimeType string
+	}
+	routes := make(map[routeKey][]*genx.MessageChunk)
+	for completed := 0; completed < 3; {
+		chunk, nextErr := output.Next()
+		if nextErr != nil {
+			t.Fatalf("Next() before all routes closed = %v; routes=%#v", nextErr, routes)
+		}
+		if chunk == nil || chunk.Ctrl == nil || chunk.Part == nil {
+			continue
+		}
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			continue
+		}
+		key := routeKey{role: chunk.Role, mimeType: mimeType}
+		routes[key] = append(routes[key], chunk)
+		if chunk.IsEndOfStream() {
+			completed++
+		}
+	}
+
+	transcript := routes[routeKey{role: genx.RoleUser, mimeType: "text/plain"}]
+	assistantText := routes[routeKey{role: genx.RoleModel, mimeType: "text/plain"}]
+	assistantAudio := routes[routeKey{role: genx.RoleModel, mimeType: "audio/pcm"}]
+	for name, route := range map[string][]*genx.MessageChunk{
+		"transcript":      transcript,
+		"assistant text":  assistantText,
+		"assistant audio": assistantAudio,
+	} {
+		if len(route) < 2 || !route[0].IsBeginOfStream() || !route[len(route)-1].IsEndOfStream() {
+			t.Fatalf("%s route = %#v, want BOS...EOS", name, route)
+		}
+	}
+	if got := transcript[len(transcript)-1].Ctrl.Error; got != "" {
+		t.Fatalf("transcript EOS error = %q, want success", got)
+	}
+	for name, route := range map[string][]*genx.MessageChunk{
+		"assistant text":  assistantText,
+		"assistant audio": assistantAudio,
+	} {
+		if got := route[len(route)-1].Ctrl.Error; !strings.Contains(got, "DialogAudioIdleTimeoutError") {
+			t.Fatalf("%s EOS error = %q, want DialogAudioIdleTimeoutError", name, got)
+		}
+	}
+	if !hasRealtimeTestText(assistantText, genx.RoleModel, "answer") {
+		t.Fatalf("assistant text route = %#v, want answer", assistantText)
+	}
+	if hasRealtimeTestBlob(assistantAudio, genx.RoleModel, "audio/pcm") {
+		t.Fatalf("assistant audio route = %#v, want zero audio data before error EOS", assistantAudio)
+	}
+}
+
 func TestTransformerPTTResponsesMatchQuestionAndReplyIDs(t *testing.T) {
 	response := &doubaoRealtimePTTResponse{
 		streamID: "turn-1",
@@ -2239,6 +2337,7 @@ func (o *fakeTransformerOpener) waitForCalls(want int, timeout time.Duration) bo
 
 type fakeTransformerSession struct {
 	events           []*doubaospeech.RealtimeEvent
+	recvErr          error
 	eventInterval    time.Duration
 	beforeRecv       <-chan struct{}
 	endASR           chan struct{}
@@ -2369,6 +2468,9 @@ func (s *fakeTransformerSession) Recv() iter.Seq2[*doubaospeech.RealtimeEvent, e
 			if !yield(event, nil) {
 				return
 			}
+		}
+		if s.recvErr != nil && !yield(nil, s.recvErr) {
+			return
 		}
 		if s.eventsDrained != nil {
 			s.eventsDrainedOnce.Do(func() {

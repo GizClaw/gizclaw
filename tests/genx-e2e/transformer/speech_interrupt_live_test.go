@@ -33,7 +33,7 @@ func TestDoubaoASTLiveRepeatedInterrupt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("doubaoast.New() failed: %v", err)
 	}
-	runLiveAudioRepeatedInterrupt(t, transformer, "doubao-ast", true, true, false, 10)
+	runLiveAudioRepeatedInterrupt(t, transformer, "doubao-ast", true, true, false, 10, false, false)
 }
 
 func TestDoubaoASRLiveRepeatedInterrupt(t *testing.T) {

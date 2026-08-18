@@ -131,6 +131,11 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 		if err := tracks.consume(chunk); err != nil {
 			return err
 		}
+		if o.WaitForAudioDrain && tracks.takeCutoverPending() {
+			if err := tracks.waitPending(ctx); err != nil {
+				return err
+			}
+		}
 		var superseded []*genx.MessageChunk
 		pendingObserve, superseded = removeSupersededAudioEOS(pendingObserve, chunk)
 		if abandoner, ok := output.(outputObservationAbandoner); ok {

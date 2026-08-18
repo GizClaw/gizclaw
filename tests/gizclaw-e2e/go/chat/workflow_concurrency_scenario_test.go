@@ -98,6 +98,18 @@ func runWorkflowConcurrencyScenario(
 	if err := sendTurn(0, false); err != nil {
 		return fmt.Errorf("turn 1 input send: %w", err)
 	}
+	handleEvent := func(received timedPeerEvent) error {
+		event := received.event
+		turn := workflowConcurrencyEventTurn(observations, current, event)
+		trace.add("turn=%d stream=%s label=%s type=%s text_chars=%d error=%s", turn+1, eventStreamID(event), eventLabel(event), event.Type, runeCount(eventText(event)), eventError(event))
+		if turn < 0 || turn >= len(observations) {
+			return nil
+		}
+		if err := observeWorkflowConcurrencyEvent(&observations[turn], event, received.receivedAt); err != nil {
+			return fmt.Errorf("turn %d: %w", turn+1, err)
+		}
+		return nil
+	}
 	for {
 		if scenario == workflowConcurrencyInterrupt && current < turnCount-1 {
 			observation := &observations[current]
@@ -121,6 +133,20 @@ func runWorkflowConcurrencyScenario(
 			}
 			return nil
 		}
+		// readChunks receives stream events and audio packets in one ordered
+		// sequence, then fans them into separate buffered channels. Consume any
+		// already queued boundaries before selecting an audio packet so a new
+		// epoch BOS cannot be skipped merely because select chose the packet
+		// channel first. receivedAt still assigns packets that arrived before a
+		// boundary to the preceding epoch.
+		select {
+		case received := <-lane.Transport.events:
+			if err := handleEvent(received); err != nil {
+				return err
+			}
+			continue
+		default:
+		}
 
 		select {
 		case <-ctx.Done():
@@ -135,16 +161,25 @@ func runWorkflowConcurrencyScenario(
 		case err := <-lane.Transport.errs:
 			return fmt.Errorf("logical PeerStream: %w; recent events: %s", err, trace.String())
 		case received := <-lane.Transport.events:
-			event := received.event
-			turn := workflowConcurrencyEventTurn(observations, current, event)
-			trace.add("turn=%d stream=%s label=%s type=%s text_chars=%d error=%s", turn+1, eventStreamID(event), eventLabel(event), event.Type, runeCount(eventText(event)), eventError(event))
-			if turn < 0 || turn >= len(observations) {
-				continue
-			}
-			if err := observeWorkflowConcurrencyEvent(&observations[turn], event, received.receivedAt); err != nil {
-				return fmt.Errorf("turn %d: %w", turn+1, err)
+			if err := handleEvent(received); err != nil {
+				return err
 			}
 		case packet := <-lane.Transport.opusPackets:
+			// The single stream reader enqueues boundaries before later audio,
+			// but this select reads from two channels and may choose the packet
+			// even when the corresponding BOS is already queued. Drain those
+			// boundaries before assigning the packet by receive timestamp.
+			for {
+				select {
+				case received := <-lane.Transport.events:
+					if err := handleEvent(received); err != nil {
+						return err
+					}
+				default:
+					goto packetReady
+				}
+			}
+		packetReady:
 			turn := workflowConcurrencyAudioTurn(observations, packet.receivedAt)
 			if turn < 0 {
 				continue

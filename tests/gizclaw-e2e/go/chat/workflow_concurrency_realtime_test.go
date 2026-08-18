@@ -4,6 +4,10 @@ package chat
 
 import "testing"
 
+func TestRealtimeWorkflowConcurrency1(t *testing.T) {
+	runWorkflowConcurrency(t, realtimeWorkflowConcurrencySpec, workflowConcurrencyConversation, 1)
+}
+
 func TestRealtimeWorkflowConcurrency10(t *testing.T) {
 	runWorkflowConcurrency10(t, realtimeWorkflowConcurrencySpec, workflowConcurrencyConversation)
 }

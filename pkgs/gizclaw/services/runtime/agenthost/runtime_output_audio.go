@@ -26,20 +26,24 @@ type audioOutputKey struct {
 }
 
 type audioOutputTracks struct {
-	creator  AudioTrackCreator
-	channels map[audioOutputKey]*audioOutputChannel
-	pending  []audioOutputPending
+	creator        AudioTrackCreator
+	channels       map[audioOutputKey]*audioOutputChannel
+	pending        []audioOutputPending
+	labels         map[audioOutputKey]string
+	cutoverPending bool
 }
 
 type audioOutputPending struct {
-	key  audioOutputKey
-	ctrl *pcm.TrackCtrl
+	key   audioOutputKey
+	label string
+	ctrl  *pcm.TrackCtrl
 }
 
 type audioOutputChannel struct {
 	track   pcm.Track
 	ctrl    *pcm.TrackCtrl
 	decoder audioPCMDecoder
+	label   string
 }
 
 type audioPCMDecoder interface {
@@ -59,6 +63,7 @@ func newAudioOutputTracks(creator AudioTrackCreator) *audioOutputTracks {
 	return &audioOutputTracks{
 		creator:  creator,
 		channels: make(map[audioOutputKey]*audioOutputChannel),
+		labels:   make(map[audioOutputKey]string),
 	}
 }
 
@@ -94,8 +99,18 @@ func (o *audioOutputTracks) consume(chunk *genx.MessageChunk) error {
 		return nil
 	}
 	key := audioOutputKey{streamID: streamID, mimeType: mimeType}
+	label := ""
+	if chunk.Ctrl != nil {
+		label = strings.TrimSpace(chunk.Ctrl.Label)
+	}
+	if chunk.IsBeginOfStream() && label != "" {
+		if err := o.cutover(streamID, label); err != nil {
+			return err
+		}
+		o.labels[key] = label
+	}
 	if len(blob.Data) > 0 {
-		channel, err := o.channel(key)
+		channel, err := o.channel(key, label)
 		if err != nil {
 			return err
 		}
@@ -112,12 +127,17 @@ func (o *audioOutputTracks) consume(chunk *genx.MessageChunk) error {
 		}
 	}
 	if chunk.IsEndOfStream() {
-		return o.closeChannel(key, errorText)
+		err := o.closeChannel(key, errorText)
+		delete(o.labels, key)
+		return err
 	}
 	return nil
 }
 
-func (o *audioOutputTracks) channel(key audioOutputKey) (*audioOutputChannel, error) {
+func (o *audioOutputTracks) channel(key audioOutputKey, label string) (*audioOutputChannel, error) {
+	if label == "" {
+		label = o.labels[key]
+	}
 	if channel := o.channels[key]; channel != nil {
 		return channel, nil
 	}
@@ -140,9 +160,33 @@ func (o *audioOutputTracks) channel(key audioOutputKey) (*audioOutputChannel, er
 		}
 		return nil, fmt.Errorf("agenthost: create audio track stream_id=%q mime=%q returned nil track or control", key.streamID, key.mimeType)
 	}
-	channel := &audioOutputChannel{track: track, ctrl: ctrl, decoder: decoder}
+	channel := &audioOutputChannel{track: track, ctrl: ctrl, decoder: decoder, label: label}
 	o.channels[key] = channel
 	return channel, nil
+}
+
+func (o *audioOutputTracks) cutover(streamID, label string) error {
+	var errs error
+	cutover := false
+	errs = errors.Join(errs, o.closePending(func(pending audioOutputPending) bool {
+		matched := pending.key.streamID != streamID && pending.label == label
+		cutover = cutover || matched
+		return matched
+	}, "interrupted"))
+	for key, channel := range o.channels {
+		if key.streamID != streamID && channel.label == label {
+			cutover = true
+			errs = errors.Join(errs, o.closeChannelWithPending(key, "interrupted", true))
+		}
+	}
+	o.cutoverPending = o.cutoverPending || cutover
+	return errs
+}
+
+func (o *audioOutputTracks) takeCutoverPending() bool {
+	pending := o.cutoverPending
+	o.cutoverPending = false
+	return pending
 }
 
 func (o *audioOutputTracks) closeRoute(streamID, errorText string) error {
@@ -153,19 +197,28 @@ func (o *audioOutputTracks) closeRoute(streamID, errorText string) error {
 		}
 	}
 	if errorText != "" {
-		errs = errors.Join(errs, o.closePending(func(key audioOutputKey) bool {
-			return key.streamID == streamID
+		errs = errors.Join(errs, o.closePending(func(pending audioOutputPending) bool {
+			return pending.key.streamID == streamID
 		}, errorText))
+	}
+	for key := range o.labels {
+		if key.streamID == streamID {
+			delete(o.labels, key)
+		}
 	}
 	return errs
 }
 
 func (o *audioOutputTracks) closeChannel(key audioOutputKey, errorText string) error {
+	return o.closeChannelWithPending(key, errorText, false)
+}
+
+func (o *audioOutputTracks) closeChannelWithPending(key audioOutputKey, errorText string, retainPending bool) error {
 	channel := o.channels[key]
 	if channel == nil {
 		if errorText != "" {
-			return o.closePending(func(pendingKey audioOutputKey) bool {
-				return pendingKey == key
+			return o.closePending(func(pending audioOutputPending) bool {
+				return pending.key == key
 			}, errorText)
 		}
 		return nil
@@ -197,9 +250,14 @@ func (o *audioOutputTracks) closeChannel(key audioOutputKey, errorText string) e
 	}
 	if errorText != "" {
 		closeErr := fmt.Errorf("agenthost: audio stream_id=%q mime=%q: %s", key.streamID, key.mimeType, errorText)
-		return errors.Join(decoderErr, channel.ctrl.CloseWithError(closeErr), o.closePending(func(pendingKey audioOutputKey) bool {
-			return pendingKey == key
-		}, errorText))
+		pendingErr := o.closePending(func(pending audioOutputPending) bool {
+			return pending.key == key
+		}, errorText)
+		ctrlErr := channel.ctrl.CloseWithError(closeErr)
+		if retainPending {
+			o.pending = append(o.pending, audioOutputPending{key: key, label: channel.label, ctrl: channel.ctrl})
+		}
+		return errors.Join(decoderErr, pendingErr, ctrlErr)
 	}
 	if decoderErr != nil {
 		return errors.Join(decoderErr, channel.ctrl.CloseWithError(decoderErr))
@@ -207,7 +265,7 @@ func (o *audioOutputTracks) closeChannel(key audioOutputKey, errorText string) e
 	if err := channel.ctrl.CloseWrite(); err != nil {
 		return err
 	}
-	o.pending = append(o.pending, audioOutputPending{key: key, ctrl: channel.ctrl})
+	o.pending = append(o.pending, audioOutputPending{key: key, label: channel.label, ctrl: channel.ctrl})
 	return nil
 }
 
@@ -218,11 +276,11 @@ func abortAudioPCMDecoder(decoder audioPCMDecoder) error {
 	return decoder.Close()
 }
 
-func (o *audioOutputTracks) closePending(match func(audioOutputKey) bool, errorText string) error {
+func (o *audioOutputTracks) closePending(match func(audioOutputPending) bool, errorText string) error {
 	var errs error
 	kept := o.pending[:0]
 	for _, pending := range o.pending {
-		if !match(pending.key) {
+		if !match(pending) {
 			kept = append(kept, pending)
 			continue
 		}

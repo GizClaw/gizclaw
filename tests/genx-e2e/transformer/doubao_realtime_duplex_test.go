@@ -230,8 +230,13 @@ func waitDuplexRound(t *testing.T, ctx context.Context, events <-chan *genx.Mess
 	var result duplexRoundResult
 	inputDone := false
 	for {
-		if inputDone && result.done() {
-			return result, nil
+		if inputDone {
+			if result.done() {
+				return result, nil
+			}
+			if result.terminalComplete() {
+				return result, result.terminalError()
+			}
 		}
 		select {
 		case <-ctx.Done():

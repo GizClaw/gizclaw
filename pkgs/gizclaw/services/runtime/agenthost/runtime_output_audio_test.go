@@ -98,6 +98,32 @@ func TestAudioOutputTracksErrorEOSAndRouteEOS(t *testing.T) {
 	}
 }
 
+func TestAudioOutputTracksCutoverInheritsLabelFromBOS(t *testing.T) {
+	creator := newRecordingAudioTrackCreator()
+	tracks := newAudioOutputTracks(creator)
+	mimeType := "audio/L16; rate=16000; channels=1"
+	if err := tracks.consume(&genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: mimeType},
+		Ctrl: &genx.StreamCtrl{StreamID: "first", Label: "assistant", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("consume(first BOS) error = %v", err)
+	}
+	if err := tracks.consume(pcmOutputChunk("first", mimeType, []byte{1, 0}, false, "")); err != nil {
+		t.Fatalf("consume(first data) error = %v", err)
+	}
+	first := creator.tracks[0]
+	if err := tracks.consume(&genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: mimeType},
+		Ctrl: &genx.StreamCtrl{StreamID: "second", Label: "assistant", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("consume(second BOS) error = %v", err)
+	}
+	if !tracks.takeCutoverPending() {
+		t.Fatal("second assistant BOS did not cut over the first track")
+	}
+	waitForTrackWriteError(t, first, "interrupted")
+}
+
 func TestAudioOutputTracksRejectInvalidPCMWithContext(t *testing.T) {
 	creator := newRecordingAudioTrackCreator()
 	tracks := newAudioOutputTracks(creator)

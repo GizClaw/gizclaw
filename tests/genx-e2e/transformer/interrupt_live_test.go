@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	dashscope "github.com/GizClaw/dashscope-realtime-go"
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/asttranslate"
@@ -24,6 +26,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaotts"
 	einotransformer "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
 	flowcrafttransformer "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/flowcraft"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
@@ -100,7 +103,102 @@ func TestDoubaoRealtimeLiveRepeatedInterrupt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("doubaorealtime.New() failed: %v", err)
 	}
-	runLiveAudioRepeatedInterrupt(t, transformer, "doubao-realtime", true, true, true, 1)
+	runLiveAudioRepeatedInterrupt(t, transformer, "doubao-realtime", true, true, true, 1, false, false)
+}
+
+func TestDoubaoRealtimeModeRealtimeLiveNaturalCompletion(t *testing.T) {
+	loadGenXE2EEnv(t)
+	transcode := false
+	transformer, err := doubaorealtime.New(doubaorealtime.Config{
+		Client:         liveDoubaoClient(t),
+		Model:          string(doubaospeech.RealtimeModelO20),
+		Mode:           doubaorealtime.ModeRealtime,
+		Instructions:   "Reply in one short English sentence.",
+		InputTranscode: &transcode,
+	})
+	if err != nil {
+		t.Fatalf("doubaorealtime.New() failed: %v", err)
+	}
+	runLiveDoubaoModeRealtimeNaturalCompletion(t, transformer)
+}
+
+func TestDoubaoRealtimeModeRealtimeLiveRepeatedInterrupt(t *testing.T) {
+	loadGenXE2EEnv(t)
+	transformer := newLiveDoubaoRealtimeModeRealtimeTransformer(t)
+	// Keep the outer Transformer input open across all three rounds. Each new
+	// input BOS must close both assistant MIME routes from the previous round
+	// before any replacement assistant BOS becomes visible.
+	runLiveAudioRepeatedInterrupt(t, transformer, "doubao-realtime-mode-realtime", true, true, true, 1, true, true)
+}
+
+func TestDoubaoRealtimeModeRealtimeLiveRepeatedInterruptConcurrency10(t *testing.T) {
+	loadGenXE2EEnv(t)
+	for lane := 1; lane <= 10; lane++ {
+		t.Run(fmt.Sprintf("lane-%02d", lane), func(t *testing.T) {
+			t.Parallel()
+			transformer := newLiveDoubaoRealtimeModeRealtimeTransformer(t)
+			runLiveAudioRepeatedInterrupt(
+				t,
+				transformer,
+				fmt.Sprintf("doubao-realtime-mode-realtime-lane-%02d", lane),
+				true,
+				true,
+				true,
+				1,
+				true,
+				true,
+			)
+		})
+	}
+}
+
+func newLiveDoubaoRealtimeModeRealtimeTransformer(t *testing.T) genx.Transformer {
+	t.Helper()
+	transcode := false
+	transformer, err := doubaorealtime.New(doubaorealtime.Config{
+		Client:         liveDoubaoClient(t),
+		Model:          string(doubaospeech.RealtimeModelO20),
+		Mode:           doubaorealtime.ModeRealtime,
+		Instructions:   "Reply with a detailed answer so the caller can interrupt you while speaking.",
+		InputTranscode: &transcode,
+	})
+	if err != nil {
+		t.Fatalf("doubaorealtime.New() failed: %v", err)
+	}
+	return transformer
+}
+
+func runLiveDoubaoModeRealtimeNaturalCompletion(t *testing.T, transformer genx.Transformer) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+	defer input.CloseWithError(context.Canceled)
+	output, err := transformer.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() failed: %v", err)
+	}
+	defer output.CloseWithError(context.Canceled)
+
+	events, outputErrors := collectDuplexOutput(output)
+	const streamID = "doubao-realtime-natural"
+	feedDone := make(chan error, 1)
+	packets := embeddedPromptOpusPackets(t)
+	go func() {
+		feedDone <- pushDuplexTurn(ctx, input, streamID, packets)
+	}()
+	result, err := waitDuplexRound(t, ctx, events, outputErrors, streamID, feedDone)
+	if err != nil {
+		if result.terminalComplete() {
+			result.lifecycles.assertComplete(t)
+		}
+		t.Fatalf("ModeRealtime natural completion: %v", err)
+	}
+	assertDuplexRound(t, 1, result)
+	t.Logf(
+		"ModeRealtime transcript=%q assistant=%q assistant_audio_bytes=%d",
+		result.transcript.String(), result.assistantText.String(), result.assistantAudioBytes,
+	)
 }
 
 func TestDoubaoRealtimeDuplexLiveRepeatedInterrupt(t *testing.T) {
@@ -113,7 +211,7 @@ func TestDoubaoRealtimeDuplexLiveRepeatedInterrupt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("doubaorealtimeduplex.New() failed: %v", err)
 	}
-	runLiveAudioRepeatedInterrupt(t, transformer, "doubao-duplex", true, true, true, 1)
+	runLiveAudioRepeatedInterrupt(t, transformer, "doubao-duplex", true, true, true, 1, false, false)
 }
 
 func TestDashScopeRealtimeLiveRepeatedInterrupt(t *testing.T) {
@@ -130,7 +228,7 @@ func TestDashScopeRealtimeLiveRepeatedInterrupt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dashscoperealtime.New() failed: %v", err)
 	}
-	runLiveAudioRepeatedInterrupt(t, transformer, "dashscope", false, false, true, 1)
+	runLiveAudioRepeatedInterrupt(t, transformer, "dashscope", false, false, true, 1, false, false)
 }
 
 func TestASTTranslateLiveRepeatedInterrupt(t *testing.T) {
@@ -163,7 +261,7 @@ func TestASTTranslateLiveRepeatedInterrupt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("asttranslate.New() failed: %v", err)
 	}
-	runLiveAudioRepeatedInterrupt(t, transformer, "ast-translate", true, true, true, 1)
+	runLiveAudioRepeatedInterrupt(t, transformer, "ast-translate", true, true, true, 1, false, false)
 }
 
 func liveDoubaoClient(t *testing.T) *doubaospeech.Client {
@@ -176,14 +274,27 @@ func liveDoubaoClient(t *testing.T) *doubaospeech.Client {
 	return doubaospeech.NewClient(appID, doubaospeech.WithAPIKey(apiKey))
 }
 
-func runLiveAudioRepeatedInterrupt(t *testing.T, transformer genx.Transformer, prefix string, paced, explicitRoute, inputEOS bool, packetRepeats int) {
+func runLiveAudioRepeatedInterrupt(
+	t *testing.T,
+	transformer genx.Transformer,
+	prefix string,
+	paced, explicitRoute, inputEOS bool,
+	packetRepeats int,
+	consumeThroughMixer bool,
+	keepRealtimeInputOpen bool,
+) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
-	output, err := transformer.Transform(ctx, input)
+	providerOutput, err := transformer.Transform(ctx, input)
 	if err != nil {
 		t.Fatalf("Transform() failed: %v", err)
+	}
+	defer providerOutput.CloseWithError(context.Canceled)
+	output := providerOutput
+	if consumeThroughMixer {
+		output = consumeLiveOutputThroughMixer(t, ctx, providerOutput)
 	}
 	defer output.CloseWithError(context.Canceled)
 
@@ -205,10 +316,22 @@ func runLiveAudioRepeatedInterrupt(t *testing.T, transformer genx.Transformer, p
 		t.Helper()
 		streamID := fmt.Sprintf("%s-input-%d", prefix, round)
 		chunks := duplexTurnInputChunks(streamID, packets)
-		if !inputEOS && round < 3 {
+		if keepRealtimeInputOpen {
+			chunks = make([]*genx.MessageChunk, 0, len(packets)+1)
+			chunks = append(chunks, &genx.MessageChunk{
+				Part: &genx.Blob{MIMEType: duplexInputMIME},
+				Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true},
+			})
+			for _, packet := range packets {
+				chunks = append(chunks, &genx.MessageChunk{
+					Part: &genx.Blob{MIMEType: duplexInputMIME, Data: append([]byte(nil), packet...)},
+					Ctrl: &genx.StreamCtrl{StreamID: streamID},
+				})
+			}
+		} else if !inputEOS && round < 3 {
 			chunks = chunks[:len(chunks)-1]
 		}
-		if !explicitRoute {
+		if !keepRealtimeInputOpen && !explicitRoute {
 			chunks = make([]*genx.MessageChunk, 0, len(packets))
 			for index, packet := range packets {
 				chunks = append(chunks, &genx.MessageChunk{
@@ -404,6 +527,83 @@ func runLiveAudioRepeatedInterrupt(t *testing.T, transformer genx.Transformer, p
 		t.Fatalf("assistant response IDs = %#v, want three unique IDs", responseIDs)
 	}
 	t.Logf("responses=%q routes=%d", responseIDs, len(tracker.routes))
+}
+
+type liveMixerTrackCreator struct {
+	mixer *pcm.Mixer
+}
+
+func (c liveMixerTrackCreator) CreateAudioTrack(opts ...pcm.TrackOption) (pcm.Track, *pcm.TrackCtrl, error) {
+	return c.mixer.CreateTrack(opts...)
+}
+
+func consumeLiveOutputThroughMixer(t *testing.T, ctx context.Context, providerOutput genx.Stream) genx.Stream {
+	t.Helper()
+	mixer := pcm.NewMixer(pcm.L16Mono16K)
+	observed := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+	var closeOnce sync.Once
+	closeObserved := func(err error) {
+		closeOnce.Do(func() {
+			if err != nil {
+				_ = observed.CloseWithError(err)
+				return
+			}
+			_ = observed.Close()
+		})
+	}
+
+	consumeDone := make(chan error, 1)
+	go func() {
+		err := (agenthost.MixerOutput{
+			Tracks:            liveMixerTrackCreator{mixer: mixer},
+			WaitForAudioDrain: true,
+			Observe: func(chunk *genx.MessageChunk) error {
+				return observed.Push(ctx, chunk)
+			},
+		}).ConsumeAgentOutput(ctx, providerOutput)
+		closeObserved(err)
+		consumeDone <- err
+	}()
+
+	drainDone := make(chan error, 1)
+	go func() {
+		frame := make([]byte, mixer.Output().BytesInDuration(20*time.Millisecond))
+		ticker := time.NewTicker(20 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				drainDone <- ctx.Err()
+				return
+			case <-ticker.C:
+			}
+			if _, err := mixer.Read(frame); err != nil {
+				drainDone <- err
+				return
+			}
+		}
+	}()
+
+	t.Cleanup(func() {
+		_ = mixer.Close()
+		select {
+		case err := <-consumeDone:
+			if err != nil && !errors.Is(err, context.Canceled) {
+				t.Errorf("MixerOutput.ConsumeAgentOutput() error = %v", err)
+			}
+		case <-time.After(time.Second):
+			t.Error("MixerOutput.ConsumeAgentOutput() did not stop")
+		}
+		select {
+		case err := <-drainDone:
+			if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, io.ErrClosedPipe) {
+				t.Errorf("drain live mixer error = %v", err)
+			}
+		case <-time.After(time.Second):
+			t.Error("live mixer drain did not stop")
+		}
+	})
+	return observed
 }
 
 func runLiveTextRepeatedInterrupt(t *testing.T, transformer genx.Transformer, prefix string) {
