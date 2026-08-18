@@ -109,6 +109,51 @@ func TestValidationAndOwnerIsolation(t *testing.T) {
 	}
 }
 
+func TestAPIKeyOwnerRootManagement(t *testing.T) {
+	ctx := t.Context()
+	server := NewServer(kv.NewMemory(nil))
+	ownerA := testOwner(t)
+	ownerB := testOwner(t)
+	first, err := server.Create(ctx, ownerA, "ordinary-a", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := server.Create(ctx, ownerA, "ordinary-b", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := server.Create(ctx, ownerB, "foreign", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	page, err := server.ListOwner(ctx, ownerA, "", 1)
+	if err != nil || len(page.Items) != 1 || page.NextCursor == "" {
+		t.Fatalf("ListOwner(first page) = %#v, %v", page, err)
+	}
+	next, err := server.ListOwner(ctx, ownerA, page.NextCursor, 1)
+	if err != nil || len(next.Items) != 1 || next.NextCursor != "" {
+		t.Fatalf("ListOwner(second page) = %#v, %v", next, err)
+	}
+	for _, item := range append(page.Items, next.Items...) {
+		if item.Owner != ownerA || item.Digest == "" {
+			t.Fatalf("ListOwner returned unexpected stored item %#v", item)
+		}
+	}
+	if err := server.RevokeOwner(ctx, ownerA, foreign.Key.Name); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("RevokeOwner(foreign) error = %v", err)
+	}
+	if err := server.RevokeOwner(ctx, ownerA, first.Key.Name); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.Authenticate(ctx, first.Secret); !errors.Is(err, ErrInvalidAPIKey) {
+		t.Fatalf("Authenticate(revoked) error = %v", err)
+	}
+	if _, err := server.Authenticate(ctx, second.Secret); err != nil {
+		t.Fatalf("Authenticate(remaining) error = %v", err)
+	}
+}
+
 func TestConcurrentCleanupDoesNotResurrectAPIKey(t *testing.T) {
 	ctx := t.Context()
 	server := NewServer(kv.NewMemory(nil))

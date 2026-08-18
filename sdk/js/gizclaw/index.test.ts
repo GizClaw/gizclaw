@@ -726,6 +726,29 @@ test("RPC method map preserves generated payload types", () => {
   assert.doesNotMatch(source, /response: unknown;/);
 });
 
+test("RPC API key root management methods preserve IDs and payloads", () => {
+  assert.equal(RPC_METHOD_IDS["server.api_key.create"], 96);
+  assert.equal(RPC_METHOD_IDS["server.api_key.list"], 97);
+  assert.equal(RPC_METHOD_IDS["server.api_key.revoke"], 98);
+
+  const list = { cursor: "key_cursor", limit: 25 };
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "server.api_key.list",
+      encodeRPCRequestPayload("server.api_key.list", list),
+    ),
+    list,
+  );
+  const revoke = { name: "key_name" };
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "server.api_key.revoke",
+      encodeRPCRequestPayload("server.api_key.revoke", revoke),
+    ),
+    revoke,
+  );
+});
+
 test("RPC payload codec decodes omitted proto3 defaults", () => {
   assert.deepEqual(
     decodeRPCResponsePayload("all.speed_test.run", new Uint8Array()),

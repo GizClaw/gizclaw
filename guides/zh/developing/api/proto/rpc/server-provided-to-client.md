@@ -29,7 +29,7 @@ sequenceDiagram
 
 RPC adapter 负责 payload decode、framing、lifecycle 和稳定 error mapping；领域 service 负责 storage、resource validation、authorization 与 execution。
 
-`server.api_key.create`（method 96）是 Public HTTP credential 的唯一免 Key bootstrap。它只接受 `display_name` 与 `manage_api_keys`，owner 固定为当前 active Client connection；Server 同时验证 durable RuntimeProfile owner binding，完整 secret 只在成功响应中返回一次。Key 的后续 list/get/revoke 统一走 `/gizclaw/v1/api-keys*`。
+已认证的 Peer 连接是 API Key 的根管理入口。`server.api_key.create`（method 96）、`server.api_key.list`（method 97）和 `server.api_key.revoke`（method 98）都从当前 active Client connection 推导 owner，并验证 durable RuntimeProfile owner binding。create 只在成功响应中返回一次完整 secret；list 使用 cursor 分页且只返回 metadata；revoke 只接受一个同 owner 的 opaque key name。根管理操作不需要 API Key，也不检查 `manage_api_keys`。
 
 Friend Group 消息是群组绑定 Workspace History 的只读投影。list/get/audio 请求接收当前认证成员自己的 `friend_group_name`，需要时再携带消息的 `history_name`；Server 将它们解析为 canonical ID，验证 membership 后只在内部继续携带 ID。每条响应都以 `name` 暴露记录身份，以 `actor_name` 暴露归属显示。Conversation 是唯一写入路径。audio get 使用标准 metadata、binary frames、EOS 响应，不暴露 canonical group、Workspace 或 asset locator。
 

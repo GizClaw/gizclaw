@@ -34,6 +34,7 @@ var (
 	ErrInvalidOwner       = errors.New("api key: invalid owner")
 	ErrInvalidDisplayName = errors.New("api key: display name must be non-empty UTF-8 and at most 80 bytes")
 	ErrInvalidCursor      = errors.New("api key: invalid cursor")
+	ErrInvalidName        = errors.New("api key: invalid name")
 	ErrOwnerRetired       = errors.New("api key: owner is retired")
 	ErrForbidden          = errors.New("api key: management permission required")
 	ErrNotFound           = errors.New("api key: not found")
@@ -176,6 +177,18 @@ func (s *Server) List(ctx context.Context, principal Principal, cursor string, l
 	if !principal.Key.ManageAPIKeys {
 		return ListResult{}, ErrForbidden
 	}
+	return s.ListOwner(ctx, principal.Key.Owner, cursor, limit)
+}
+
+// ListOwner returns API keys for a canonical device owner. It is intended for
+// the authenticated Peer RPC root management surface.
+func (s *Server) ListOwner(ctx context.Context, owner, cursor string, limit int) (ListResult, error) {
+	if s == nil || s.Store == nil {
+		return ListResult{}, errors.New("api key: store is not configured")
+	}
+	if err := validateOwner(owner); err != nil {
+		return ListResult{}, err
+	}
 	if cursor != "" && !validName(cursor) {
 		return ListResult{}, ErrInvalidCursor
 	}
@@ -188,7 +201,7 @@ func (s *Server) List(ctx context.Context, principal Principal, cursor string, l
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var items []Key
-	for entry, err := range s.Store.List(ctx, ownerPrefix(principal.Key.Owner)) {
+	for entry, err := range s.Store.List(ctx, ownerPrefix(owner)) {
 		if err != nil {
 			return ListResult{}, err
 		}
@@ -203,7 +216,7 @@ func (s *Server) List(ctx context.Context, principal Principal, cursor string, l
 		if err != nil {
 			return ListResult{}, err
 		}
-		if item.Owner != principal.Key.Owner {
+		if item.Owner != owner {
 			return ListResult{}, fmt.Errorf("api key: cross-owned index %v", entry.Key)
 		}
 		items = append(items, item)
@@ -243,6 +256,21 @@ func (s *Server) Revoke(ctx context.Context, principal Principal, name string) e
 		return ErrForbidden
 	}
 	return s.revoke(ctx, principal.Key.Owner, name)
+}
+
+// RevokeOwner revokes one API key for a canonical device owner. It is intended
+// for the authenticated Peer RPC root management surface.
+func (s *Server) RevokeOwner(ctx context.Context, owner, name string) error {
+	if s == nil || s.Store == nil {
+		return errors.New("api key: store is not configured")
+	}
+	if err := validateOwner(owner); err != nil {
+		return err
+	}
+	if !validName(name) {
+		return ErrInvalidName
+	}
+	return s.revoke(ctx, owner, name)
 }
 
 // CleanupPeer revokes all API keys owned by a canonical device. It is safe to replay.

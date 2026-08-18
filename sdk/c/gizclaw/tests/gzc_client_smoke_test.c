@@ -15,6 +15,11 @@ _Static_assert(
 _Static_assert(
     sizeof(((gizclaw_rpc_v1_APIKeyCreateResponse *)0)->api_key) == 96,
     "API key secret must retain its bounded Nanopb capacity");
+_Static_assert(
+    sizeof(((gizclaw_rpc_v1_APIKeyListResponse *)0)->items) /
+            sizeof(((gizclaw_rpc_v1_APIKeyListResponse *)0)->items[0]) ==
+        100,
+    "API key list must retain its bounded Nanopb capacity");
 
 struct gzc_rtc_peer {
   int unused;
@@ -2434,6 +2439,12 @@ int main(void) {
     return 1;
   }
   if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_CREATE == 96, "API key create method id value") != 0) {
+    return 1;
+  }
+  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_LIST == 97, "API key list method id value") != 0) {
+    return 1;
+  }
+  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_REVOKE == 98, "API key revoke method id value") != 0) {
     return 1;
   }
   gizclaw_rpc_v1_APIKeyCreateResponse api_key_response =

@@ -142,6 +142,10 @@ func (s *rpcServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		return s.handleRegister(ctx, req)
 	case rpcapi.RPCMethodServerAPIKeyCreate:
 		return s.handleAPIKeyCreate(ctx, req)
+	case rpcapi.RPCMethodServerAPIKeyList:
+		return s.handleAPIKeyList(ctx, req)
+	case rpcapi.RPCMethodServerAPIKeyRevoke:
+		return s.handleAPIKeyRevoke(ctx, req)
 	case rpcapi.RPCMethodServerInfoPut:
 		return s.handlePutInfo(ctx, req)
 	case rpcapi.RPCMethodServerRuntimeGet:

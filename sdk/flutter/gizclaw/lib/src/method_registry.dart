@@ -585,6 +585,18 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'APIKeyCreateRequest',
     responseType: 'APIKeyCreateResponse',
   ),
+  'server.api_key.list': RpcMethodDescriptor(
+    id: 97,
+    name: 'server.api_key.list',
+    requestType: 'APIKeyListRequest',
+    responseType: 'APIKeyListResponse',
+  ),
+  'server.api_key.revoke': RpcMethodDescriptor(
+    id: 98,
+    name: 'server.api_key.revoke',
+    requestType: 'APIKeyRevokeRequest',
+    responseType: 'APIKeyRevokeResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -683,6 +695,8 @@ const rpcMethodNamesById = <int, String>{
   94: 'server.speech.extract',
   95: 'server.friend_group.messages.audio.get',
   96: 'server.api_key.create',
+  97: 'server.api_key.list',
+  98: 'server.api_key.revoke',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

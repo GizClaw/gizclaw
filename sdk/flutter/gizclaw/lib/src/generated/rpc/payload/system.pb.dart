@@ -1292,6 +1292,224 @@ class APIKeyCreateResponse extends $pb.GeneratedMessage {
   void clearApiKey() => $_clearField(2);
 }
 
+class APIKeyListRequest extends $pb.GeneratedMessage {
+  factory APIKeyListRequest({
+    $core.String? cursor,
+    $fixnum.Int64? limit,
+  }) {
+    final result = create();
+    if (cursor != null) result.cursor = cursor;
+    if (limit != null) result.limit = limit;
+    return result;
+  }
+
+  APIKeyListRequest._();
+
+  factory APIKeyListRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory APIKeyListRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'APIKeyListRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'cursor')
+    ..aInt64(2, _omitFieldNames ? '' : 'limit')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  APIKeyListRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  APIKeyListRequest copyWith(void Function(APIKeyListRequest) updates) =>
+      super.copyWith((message) => updates(message as APIKeyListRequest))
+          as APIKeyListRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static APIKeyListRequest create() => APIKeyListRequest._();
+  @$core.override
+  APIKeyListRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static APIKeyListRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<APIKeyListRequest>(create);
+  static APIKeyListRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get cursor => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set cursor($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasCursor() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCursor() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get limit => $_getI64(1);
+  @$pb.TagNumber(2)
+  set limit($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLimit() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLimit() => $_clearField(2);
+}
+
+class APIKeyListResponse extends $pb.GeneratedMessage {
+  factory APIKeyListResponse({
+    $core.Iterable<APIKey>? items,
+    $core.String? nextCursor,
+  }) {
+    final result = create();
+    if (items != null) result.items.addAll(items);
+    if (nextCursor != null) result.nextCursor = nextCursor;
+    return result;
+  }
+
+  APIKeyListResponse._();
+
+  factory APIKeyListResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory APIKeyListResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'APIKeyListResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..pPM<APIKey>(1, _omitFieldNames ? '' : 'items', subBuilder: APIKey.create)
+    ..aOS(2, _omitFieldNames ? '' : 'nextCursor')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  APIKeyListResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  APIKeyListResponse copyWith(void Function(APIKeyListResponse) updates) =>
+      super.copyWith((message) => updates(message as APIKeyListResponse))
+          as APIKeyListResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static APIKeyListResponse create() => APIKeyListResponse._();
+  @$core.override
+  APIKeyListResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static APIKeyListResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<APIKeyListResponse>(create);
+  static APIKeyListResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<APIKey> get items => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $core.String get nextCursor => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set nextCursor($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasNextCursor() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearNextCursor() => $_clearField(2);
+}
+
+class APIKeyRevokeRequest extends $pb.GeneratedMessage {
+  factory APIKeyRevokeRequest({
+    $core.String? name,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  APIKeyRevokeRequest._();
+
+  factory APIKeyRevokeRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory APIKeyRevokeRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'APIKeyRevokeRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  APIKeyRevokeRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  APIKeyRevokeRequest copyWith(void Function(APIKeyRevokeRequest) updates) =>
+      super.copyWith((message) => updates(message as APIKeyRevokeRequest))
+          as APIKeyRevokeRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static APIKeyRevokeRequest create() => APIKeyRevokeRequest._();
+  @$core.override
+  APIKeyRevokeRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static APIKeyRevokeRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<APIKeyRevokeRequest>(create);
+  static APIKeyRevokeRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+}
+
+class APIKeyRevokeResponse extends $pb.GeneratedMessage {
+  factory APIKeyRevokeResponse() => create();
+
+  APIKeyRevokeResponse._();
+
+  factory APIKeyRevokeResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory APIKeyRevokeResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'APIKeyRevokeResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  APIKeyRevokeResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  APIKeyRevokeResponse copyWith(void Function(APIKeyRevokeResponse) updates) =>
+      super.copyWith((message) => updates(message as APIKeyRevokeResponse))
+          as APIKeyRevokeResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static APIKeyRevokeResponse create() => APIKeyRevokeResponse._();
+  @$core.override
+  APIKeyRevokeResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static APIKeyRevokeResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<APIKeyRevokeResponse>(create);
+  static APIKeyRevokeResponse? _defaultInstance;
+}
+
 class ServerPeerDeleteRequest extends $pb.GeneratedMessage {
   factory ServerPeerDeleteRequest() => create();
 

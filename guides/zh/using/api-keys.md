@@ -1,6 +1,6 @@
 # API Key
 
-GizClaw 使用长期有效、绑定设备的 API Key 访问公开的 GizClaw API 和 OpenAI 兼容 HTTP API。完成注册的设备先通过已认证的 Peer RPC 连接调用 `server.api_key.create` 创建 Key。完整的 `gizclaw_sk_v1_...` secret 只返回一次，请安全保存。
+GizClaw 使用长期有效、绑定设备的 API Key 访问公开的 GizClaw API 和 OpenAI 兼容 HTTP API。完成注册的设备通过已认证的 Peer RPC 连接调用 `server.api_key.create`、`server.api_key.list` 和 `server.api_key.revoke` 管理 Key；该连接是根权限入口。完整的 `gizclaw_sk_v1_...` secret 只由 create 返回一次，list 只返回 metadata。
 
 访问 `/gizclaw/v1/*` 和 `/openai/v1/*` 时发送 `Authorization: Bearer <api-key>`，不再需要 public-key header 或 login 交换。
 

@@ -63,6 +63,18 @@ PB_BIND(gizclaw_rpc_v1_APIKeyCreateRequest, gizclaw_rpc_v1_APIKeyCreateRequest, 
 PB_BIND(gizclaw_rpc_v1_APIKeyCreateResponse, gizclaw_rpc_v1_APIKeyCreateResponse, 2)
 
 
+PB_BIND(gizclaw_rpc_v1_APIKeyListRequest, gizclaw_rpc_v1_APIKeyListRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_APIKeyListResponse, gizclaw_rpc_v1_APIKeyListResponse, 4)
+
+
+PB_BIND(gizclaw_rpc_v1_APIKeyRevokeRequest, gizclaw_rpc_v1_APIKeyRevokeRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_APIKeyRevokeResponse, gizclaw_rpc_v1_APIKeyRevokeResponse, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_ServerPeerDeleteRequest, gizclaw_rpc_v1_ServerPeerDeleteRequest, AUTO)
 
 

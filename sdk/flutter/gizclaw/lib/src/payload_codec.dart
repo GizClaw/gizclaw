@@ -10,6 +10,10 @@ typedef MessageFactory = GeneratedMessage Function();
 final _messageFactories = <String, MessageFactory>{
   'APIKeyCreateRequest': payload.APIKeyCreateRequest.new,
   'APIKeyCreateResponse': payload.APIKeyCreateResponse.new,
+  'APIKeyListRequest': payload.APIKeyListRequest.new,
+  'APIKeyListResponse': payload.APIKeyListResponse.new,
+  'APIKeyRevokeRequest': payload.APIKeyRevokeRequest.new,
+  'APIKeyRevokeResponse': payload.APIKeyRevokeResponse.new,
   'BadgeDefPixaDownloadRequest': payload.BadgeDefPixaDownloadRequest.new,
   'BadgeDefPixaDownloadResponse': payload.BadgeDefPixaDownloadResponse.new,
   'ClientGetIdentifiersRequest': payload.ClientGetIdentifiersRequest.new,
@@ -229,6 +233,10 @@ final _messageFactories = <String, MessageFactory>{
 final _messageTypes = <String, Type>{
   'APIKeyCreateRequest': payload.APIKeyCreateRequest,
   'APIKeyCreateResponse': payload.APIKeyCreateResponse,
+  'APIKeyListRequest': payload.APIKeyListRequest,
+  'APIKeyListResponse': payload.APIKeyListResponse,
+  'APIKeyRevokeRequest': payload.APIKeyRevokeRequest,
+  'APIKeyRevokeResponse': payload.APIKeyRevokeResponse,
   'BadgeDefPixaDownloadRequest': payload.BadgeDefPixaDownloadRequest,
   'BadgeDefPixaDownloadResponse': payload.BadgeDefPixaDownloadResponse,
   'ClientGetIdentifiersRequest': payload.ClientGetIdentifiersRequest,

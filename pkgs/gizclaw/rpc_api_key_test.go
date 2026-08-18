@@ -28,7 +28,7 @@ func TestRPCAPIKeyCreateRequiresRegistrationAndReturnsSecretOnce(t *testing.T) {
 		},
 	}
 	request := newRPCRequest("api-key", rpcapi.RPCMethodServerAPIKeyCreate, mustRPCParams(
-		rpcapi.APIKeyCreateRequest{DisplayName: "phone", ManageAPIKeys: true},
+		rpcapi.APIKeyCreateRequest{DisplayName: "phone", ManageAPIKeys: false},
 		(*rpcapi.RPCPayload).FromAPIKeyCreateRequest,
 	))
 
@@ -73,7 +73,66 @@ func TestRPCAPIKeyCreateRequiresRegistrationAndReturnsSecretOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created.Value == nil || !created.Value.ManageAPIKeys || !strings.HasPrefix(created.APIKey, "gizclaw_sk_v1_") {
+	if created.Value == nil || created.Value.ManageAPIKeys || !strings.HasPrefix(created.APIKey, "gizclaw_sk_v1_") {
 		t.Fatal("created response returned invalid metadata or secret format")
+	}
+	if _, err := server.apiKeys.Create(t.Context(), keyPair.Public.String(), "tablet", false); err != nil {
+		t.Fatal(err)
+	}
+
+	listRequest := newRPCRequest("api-key-list", rpcapi.RPCMethodServerAPIKeyList, mustRPCParams(
+		rpcapi.APIKeyListRequest{Limit: 1}, (*rpcapi.RPCPayload).FromAPIKeyListRequest,
+	))
+	listResponse, err := server.dispatch(t.Context(), listRequest)
+	if err != nil || listResponse.Error != nil || listResponse.Result == nil {
+		t.Fatalf("list dispatch = %#v, %v", listResponse, err)
+	}
+	page, err := listResponse.Result.AsAPIKeyListResponse()
+	if err != nil || len(page.Items) != 1 || page.NextCursor == "" {
+		t.Fatalf("list result = %#v, %v", page, err)
+	}
+	listRequest = newRPCRequest("api-key-list-next", rpcapi.RPCMethodServerAPIKeyList, mustRPCParams(
+		rpcapi.APIKeyListRequest{Cursor: page.NextCursor, Limit: 1}, (*rpcapi.RPCPayload).FromAPIKeyListRequest,
+	))
+	listResponse, err = server.dispatch(t.Context(), listRequest)
+	if err != nil || listResponse.Error != nil || listResponse.Result == nil {
+		t.Fatalf("next list dispatch = %#v, %v", listResponse, err)
+	}
+	nextPage, err := listResponse.Result.AsAPIKeyListResponse()
+	if err != nil || len(nextPage.Items) != 1 || nextPage.NextCursor != "" {
+		t.Fatalf("next list result = %#v, %v", nextPage, err)
+	}
+	invalidList := newRPCRequest("api-key-list-invalid", rpcapi.RPCMethodServerAPIKeyList, mustRPCParams(
+		rpcapi.APIKeyListRequest{Cursor: "not-a-key"}, (*rpcapi.RPCPayload).FromAPIKeyListRequest,
+	))
+	invalidResponse, err := server.dispatch(t.Context(), invalidList)
+	if err != nil || invalidResponse.Error == nil || invalidResponse.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+		t.Fatalf("invalid list dispatch = %#v, %v", invalidResponse, err)
+	}
+	foreignPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := server.apiKeys.Create(t.Context(), foreignPair.Public.String(), "foreign", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreignRevoke := newRPCRequest("api-key-revoke-foreign", rpcapi.RPCMethodServerAPIKeyRevoke, mustRPCParams(
+		rpcapi.APIKeyRevokeRequest{Name: foreign.Key.Name}, (*rpcapi.RPCPayload).FromAPIKeyRevokeRequest,
+	))
+	foreignResponse, err := server.dispatch(t.Context(), foreignRevoke)
+	if err != nil || foreignResponse.Error == nil || foreignResponse.Error.Code != rpcapi.RPCErrorCodeNotFound {
+		t.Fatalf("foreign revoke dispatch = %#v, %v", foreignResponse, err)
+	}
+
+	revokeRequest := newRPCRequest("api-key-revoke", rpcapi.RPCMethodServerAPIKeyRevoke, mustRPCParams(
+		rpcapi.APIKeyRevokeRequest{Name: created.Value.Name}, (*rpcapi.RPCPayload).FromAPIKeyRevokeRequest,
+	))
+	revokeResponse, err := server.dispatch(t.Context(), revokeRequest)
+	if err != nil || revokeResponse.Error != nil || revokeResponse.Result == nil {
+		t.Fatalf("revoke dispatch = %#v, %v", revokeResponse, err)
+	}
+	if _, err := server.apiKeys.Authenticate(t.Context(), created.APIKey); !errors.Is(err, apikey.ErrInvalidAPIKey) {
+		t.Fatalf("Authenticate(revoked) error = %v", err)
 	}
 }

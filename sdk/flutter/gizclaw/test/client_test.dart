@@ -81,6 +81,72 @@ void main() {
     expect((await future).apiKey, 'gizclaw_sk_v1_secret');
   });
 
+  test('lists and revokes API keys for the current device', () async {
+    final listFactory = FakeDataChannelFactory();
+    final listClient = GizClawClient(listFactory);
+    final listFuture = listClient.listApiKeys(cursor: 'key_cursor', limit: 25);
+    await Future<void>.delayed(Duration.zero);
+
+    final listChannel = listFactory.channels.single;
+    final listRequest = rpc.RpcRequest.fromBuffer(
+      decodeFrames(listChannel.sent.single).first.payload,
+    );
+    expect(listRequest.method, rpc.RpcMethod.RPC_METHOD_SERVER_API_KEY_LIST);
+    final listParams =
+        decodeRpcRequestPayload('server.api_key.list', listRequest.payload)
+            as APIKeyListRequest;
+    expect(listParams.cursor, 'key_cursor');
+    expect(listParams.limit.toInt(), 25);
+    listChannel.addMessage(
+      concatBytes([
+        ...encodeEnvelopeFrames(
+          rpc.RpcResponse(
+            id: listRequest.id,
+            payload: encodeRpcResponsePayload(
+              'server.api_key.list',
+              APIKeyListResponse(items: [APIKey(name: 'key_a')]),
+            ),
+          ).writeToBuffer(),
+        ),
+        encodeFrame(rpcFrameTypeEos),
+      ]),
+    );
+    expect((await listFuture).items.single.name, 'key_a');
+
+    final revokeFactory = FakeDataChannelFactory();
+    final revokeClient = GizClawClient(revokeFactory);
+    final revokeFuture = revokeClient.revokeApiKey('key_a');
+    await Future<void>.delayed(Duration.zero);
+
+    final revokeChannel = revokeFactory.channels.single;
+    final revokeRequest = rpc.RpcRequest.fromBuffer(
+      decodeFrames(revokeChannel.sent.single).first.payload,
+    );
+    expect(
+      revokeRequest.method,
+      rpc.RpcMethod.RPC_METHOD_SERVER_API_KEY_REVOKE,
+    );
+    final revokeParams =
+        decodeRpcRequestPayload('server.api_key.revoke', revokeRequest.payload)
+            as APIKeyRevokeRequest;
+    expect(revokeParams.name, 'key_a');
+    revokeChannel.addMessage(
+      concatBytes([
+        ...encodeEnvelopeFrames(
+          rpc.RpcResponse(
+            id: revokeRequest.id,
+            payload: encodeRpcResponsePayload(
+              'server.api_key.revoke',
+              APIKeyRevokeResponse(),
+            ),
+          ).writeToBuffer(),
+        ),
+        encodeFrame(rpcFrameTypeEos),
+      ]),
+    );
+    await revokeFuture;
+  });
+
   test('uploads the local device info to the server', () async {
     final factory = FakeDataChannelFactory();
     final client = GizClawClient(factory);

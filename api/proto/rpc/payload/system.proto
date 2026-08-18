@@ -105,6 +105,23 @@ message APIKeyCreateResponse {
   string api_key = 2;
 }
 
+message APIKeyListRequest {
+  optional string cursor = 1;
+  optional int64 limit = 2;
+}
+
+message APIKeyListResponse {
+  repeated APIKey items = 1;
+  optional string next_cursor = 2;
+}
+
+message APIKeyRevokeRequest {
+  string name = 1;
+}
+
+message APIKeyRevokeResponse {
+}
+
 message ServerPeerDeleteRequest {
 }
 
