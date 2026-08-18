@@ -14,9 +14,13 @@ export type ApiKey = {
      */
     display_name: string;
     /**
-     * Redacted secret prefix for display only.
+     * Short display prefix; the complete API key is also returned.
      */
     prefix: string;
+    /**
+     * Complete recoverable API key stored by the server.
+     */
+    api_key: string;
     manage_api_keys: boolean;
     created_at: string;
 };
@@ -32,7 +36,7 @@ export type ApiKeyCreateRequest = {
 export type ApiKeyCreateResult = {
     value: ApiKey;
     /**
-     * Complete API key secret returned once at creation.
+     * Complete recoverable API key.
      */
     api_key: string;
 };
@@ -220,7 +224,7 @@ export type ListApiKeysError = ListApiKeysErrors[keyof ListApiKeysErrors];
 
 export type ListApiKeysResponses = {
     /**
-     * API key metadata in stable name order.
+     * API keys, including complete credentials, in stable name order.
      */
     200: ApiKeyList;
 };
@@ -261,7 +265,7 @@ export type CreateApiKeyError = CreateApiKeyErrors[keyof CreateApiKeyErrors];
 
 export type CreateApiKeyResponses = {
     /**
-     * Created API key; the complete secret is returned only in this response.
+     * Created API key, including its complete recoverable credential.
      */
     201: ApiKeyCreateResult;
 };
@@ -335,7 +339,7 @@ export type GetSelfApiKeyError = GetSelfApiKeyErrors[keyof GetSelfApiKeyErrors];
 
 export type GetSelfApiKeyResponses = {
     /**
-     * Current API key metadata.
+     * Current API key, including its complete credential.
      */
     200: ApiKey;
 };
@@ -421,7 +425,7 @@ export type GetApiKeyError = GetApiKeyErrors[keyof GetApiKeyErrors];
 
 export type GetApiKeyResponses = {
     /**
-     * API key metadata.
+     * API key, including its complete credential.
      */
     200: ApiKey;
 };

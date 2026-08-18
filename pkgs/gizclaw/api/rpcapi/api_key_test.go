@@ -33,6 +33,7 @@ func TestAPIKeyCreateMethodAndPayloadRoundTrip(t *testing.T) {
 			Name:          "key_0123456789012345678901",
 			DisplayName:   "phone",
 			Prefix:        "gizclaw_sk_v1_01234567…",
+			APIKey:        "gizclaw_sk_v1_0123456789012345678901234567890123456789012",
 			ManageAPIKeys: true,
 			CreatedAt:     "2026-08-19T00:00:00Z",
 		},
@@ -46,7 +47,7 @@ func TestAPIKeyCreateMethodAndPayloadRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsAPIKeyCreateResponse() error = %v", err)
 	}
-	if gotResponse.APIKey != response.APIKey || gotResponse.Value == nil || gotResponse.Value.Name != response.Value.Name || !gotResponse.Value.ManageAPIKeys {
+	if gotResponse.APIKey != response.APIKey || gotResponse.Value == nil || gotResponse.Value.Name != response.Value.Name || gotResponse.Value.APIKey != response.Value.APIKey || !gotResponse.Value.ManageAPIKeys {
 		t.Fatal("AsAPIKeyCreateResponse() did not preserve metadata and secret")
 	}
 }
@@ -73,7 +74,7 @@ func TestAPIKeyManagementMethodsAndPayloadRoundTrip(t *testing.T) {
 	}
 
 	listResponse := APIKeyListResponse{
-		Items:      []APIKey{{Name: "key_0123456789012345678901", DisplayName: "phone", Prefix: "gizclaw_sk_v1_01234567…"}},
+		Items:      []APIKey{{Name: "key_0123456789012345678901", DisplayName: "phone", Prefix: "gizclaw_sk_v1_01234567…", APIKey: "gizclaw_sk_v1_0123456789012345678901234567890123456789012"}},
 		NextCursor: "key_1234567890123456789012",
 	}
 	var listResponsePayload RPCPayload
@@ -81,7 +82,7 @@ func TestAPIKeyManagementMethodsAndPayloadRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	gotListResponse, err := listResponsePayload.AsAPIKeyListResponse()
-	if err != nil || len(gotListResponse.Items) != 1 || gotListResponse.Items[0].Name != listResponse.Items[0].Name || gotListResponse.NextCursor != listResponse.NextCursor {
+	if err != nil || len(gotListResponse.Items) != 1 || gotListResponse.Items[0].Name != listResponse.Items[0].Name || gotListResponse.Items[0].APIKey != listResponse.Items[0].APIKey || gotListResponse.NextCursor != listResponse.NextCursor {
 		t.Fatalf("list response round trip = %#v, %v", gotListResponse, err)
 	}
 

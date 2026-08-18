@@ -93,6 +93,7 @@ message APIKey {
   string prefix = 3;
   bool manage_api_keys = 4;
   string created_at = 5;
+  string api_key = 6;
 }
 
 message APIKeyCreateRequest {

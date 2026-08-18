@@ -54,7 +54,7 @@ PB_BIND(gizclaw_rpc_v1_ServerRegisterRequest, gizclaw_rpc_v1_ServerRegisterReque
 PB_BIND(gizclaw_rpc_v1_ServerRegisterResponse, gizclaw_rpc_v1_ServerRegisterResponse, 2)
 
 
-PB_BIND(gizclaw_rpc_v1_APIKey, gizclaw_rpc_v1_APIKey, AUTO)
+PB_BIND(gizclaw_rpc_v1_APIKey, gizclaw_rpc_v1_APIKey, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_APIKeyCreateRequest, gizclaw_rpc_v1_APIKeyCreateRequest, AUTO)

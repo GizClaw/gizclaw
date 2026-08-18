@@ -63,7 +63,7 @@ func TestPeerHTTPAPIKeyLifecycle(t *testing.T) {
 	if err := json.NewDecoder(response.Body).Decode(&created); err != nil {
 		t.Fatal(err)
 	}
-	if created.ApiKey == "" || created.Value.DisplayName != "phone" {
+	if created.ApiKey == "" || created.Value.DisplayName != "phone" || created.Value.ApiKey != created.ApiKey {
 		t.Fatal("created response returned invalid metadata or secret")
 	}
 
@@ -73,6 +73,13 @@ func TestPeerHTTPAPIKeyLifecycle(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
 		t.Fatalf("GET self status = %d body=%s", response.Code, response.Body.String())
+	}
+	var self peerhttp.APIKey
+	if err := json.NewDecoder(response.Body).Decode(&self); err != nil {
+		t.Fatal(err)
+	}
+	if self.ApiKey != created.ApiKey {
+		t.Fatalf("GET self api_key = %q, want complete key", self.ApiKey)
 	}
 
 	request = httptest.NewRequest(http.MethodGet, "/gizclaw/v1/api-keys", nil)

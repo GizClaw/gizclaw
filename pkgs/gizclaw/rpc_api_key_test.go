@@ -13,7 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func TestRPCAPIKeyCreateRequiresRegistrationAndReturnsSecretOnce(t *testing.T) {
+func TestRPCAPIKeyCreateRequiresRegistrationAndReturnsRecoverableKey(t *testing.T) {
 	profiles, _ := registrationServerAndToken(t, "profile-api-key")
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -73,7 +73,7 @@ func TestRPCAPIKeyCreateRequiresRegistrationAndReturnsSecretOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created.Value == nil || created.Value.ManageAPIKeys || !strings.HasPrefix(created.APIKey, "gizclaw_sk_v1_") {
+	if created.Value == nil || created.Value.ManageAPIKeys || !strings.HasPrefix(created.APIKey, "gizclaw_sk_v1_") || created.Value.APIKey != created.APIKey {
 		t.Fatal("created response returned invalid metadata or secret format")
 	}
 	if _, err := server.apiKeys.Create(t.Context(), keyPair.Public.String(), "tablet", false); err != nil {
@@ -101,6 +101,11 @@ func TestRPCAPIKeyCreateRequiresRegistrationAndReturnsSecretOnce(t *testing.T) {
 	nextPage, err := listResponse.Result.AsAPIKeyListResponse()
 	if err != nil || len(nextPage.Items) != 1 || nextPage.NextCursor != "" {
 		t.Fatalf("next list result = %#v, %v", nextPage, err)
+	}
+	for _, item := range append(page.Items, nextPage.Items...) {
+		if !strings.HasPrefix(item.APIKey, "gizclaw_sk_v1_") {
+			t.Fatalf("list did not return complete API key: %#v", item)
+		}
 	}
 	invalidList := newRPCRequest("api-key-list-invalid", rpcapi.RPCMethodServerAPIKeyList, mustRPCParams(
 		rpcapi.APIKeyListRequest{Cursor: "not-a-key"}, (*rpcapi.RPCPayload).FromAPIKeyListRequest,

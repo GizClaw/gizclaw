@@ -33,7 +33,7 @@ Owns RuntimeProfile and RegistrationToken KV state, schema validation, determini
 
 ### apikey
 
-Issues long-lived keys for a registered Peer, stores only SHA-256 secret digests, enforces same-owner management, and revokes all owner keys during Peer retirement. It does not own HTTP routing, Edge proxying, or business resource implementations.
+Issues long-lived keys for a registered Peer, stores complete keys in plaintext for management recovery, enforces same-owner management, and revokes all owner keys during Peer retirement. It does not own HTTP routing, Edge proxying, or business resource implementations.
 
 ### resourcemanager
 

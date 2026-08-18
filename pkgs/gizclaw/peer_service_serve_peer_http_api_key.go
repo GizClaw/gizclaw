@@ -125,7 +125,7 @@ func (s *peerHTTP) RevokeAPIKey(ctx context.Context, request peerhttp.RevokeAPIK
 func publicAPIKey(item apikey.Key) peerhttp.APIKey {
 	return peerhttp.APIKey{
 		Name: item.Name, DisplayName: item.DisplayName, Prefix: item.Prefix,
-		ManageApiKeys: item.ManageAPIKeys, CreatedAt: item.CreatedAt,
+		ApiKey: item.APIKey, ManageApiKeys: item.ManageAPIKeys, CreatedAt: item.CreatedAt,
 	}
 }
 

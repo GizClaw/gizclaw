@@ -70,7 +70,7 @@ export const revokeSelfApiKey = <ThrowOnError extends boolean = false>(options?:
 });
 
 /**
- * Get metadata for the current API key
+ * Get the current API key
  */
 export const getSelfApiKey = <ThrowOnError extends boolean = false>(options?: Options<GetSelfApiKeyData, ThrowOnError>): RequestResult<GetSelfApiKeyResponses, GetSelfApiKeyErrors, ThrowOnError> => (options?.client ?? client).get<GetSelfApiKeyResponses, GetSelfApiKeyErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
@@ -88,7 +88,7 @@ export const revokeApiKey = <ThrowOnError extends boolean = false>(options: Opti
 });
 
 /**
- * Get API key metadata owned by the caller's device
+ * Get an API key owned by the caller's device
  */
 export const getApiKey = <ThrowOnError extends boolean = false>(options: Options<GetApiKeyData, ThrowOnError>): RequestResult<GetApiKeyResponses, GetApiKeyErrors, ThrowOnError> => (options.client ?? client).get<GetApiKeyResponses, GetApiKeyErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],

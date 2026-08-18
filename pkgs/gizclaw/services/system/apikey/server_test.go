@@ -25,8 +25,11 @@ func TestCreateAuthenticateManageAndCleanup(t *testing.T) {
 	if len(manager.Secret) != 57 || !strings.HasPrefix(manager.Secret, secretPrefix) || len(manager.Key.Name) != 26 {
 		t.Fatal("Create(manager) returned invalid key metadata or secret format")
 	}
-	if strings.Contains(string(mustGet(t, store, recordKey(manager.Key.Name))), manager.Secret) {
-		t.Fatal("stored record contains plaintext secret")
+	if !strings.Contains(string(mustGet(t, store, recordKey(manager.Key.Name))), manager.Secret) {
+		t.Fatal("stored record does not contain the complete plaintext API key")
+	}
+	if got := string(mustGet(t, store, secretKey(manager.Secret))); got != manager.Key.Name {
+		t.Fatalf("plaintext API key index = %q, want %q", got, manager.Key.Name)
 	}
 	managerPrincipal, err := server.Authenticate(ctx, manager.Secret)
 	if err != nil {
@@ -135,8 +138,9 @@ func TestAPIKeyOwnerRootManagement(t *testing.T) {
 	if err != nil || len(next.Items) != 1 || next.NextCursor != "" {
 		t.Fatalf("ListOwner(second page) = %#v, %v", next, err)
 	}
+	wantAPIKeys := map[string]bool{first.Secret: true, second.Secret: true}
 	for _, item := range append(page.Items, next.Items...) {
-		if item.Owner != ownerA || item.Digest == "" {
+		if item.Owner != ownerA || !wantAPIKeys[item.APIKey] {
 			t.Fatalf("ListOwner returned unexpected stored item %#v", item)
 		}
 	}

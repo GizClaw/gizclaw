@@ -4,9 +4,7 @@ package apikey
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -40,19 +38,19 @@ var (
 	ErrNotFound           = errors.New("api key: not found")
 )
 
-// Key is the public metadata for an API key. Digest and owner are never exposed
-// through the public HTTP or RPC representations.
+// Key is the stored representation of an API key. APIKey is intentionally
+// recoverable and is returned by the API key management surfaces.
 type Key struct {
 	Name          string    `json:"name"`
 	DisplayName   string    `json:"display_name"`
 	Prefix        string    `json:"prefix"`
+	APIKey        string    `json:"api_key"`
 	ManageAPIKeys bool      `json:"manage_api_keys"`
 	CreatedAt     time.Time `json:"created_at"`
 	Owner         string    `json:"owner"`
-	Digest        string    `json:"digest"`
 }
 
-// Created contains public metadata plus the secret returned only at creation.
+// Created contains the stored key plus the complete credential.
 type Created struct {
 	Key    Key
 	Secret string
@@ -69,7 +67,7 @@ type ListResult struct {
 	NextCursor string
 }
 
-// Server persists API keys and their digest and owner indexes.
+// Server persists API keys and their credential and owner indexes.
 type Server struct {
 	Store kv.Store
 
@@ -113,15 +111,14 @@ func (s *Server) Create(ctx context.Context, owner, displayName string, manageAP
 			return Created{}, err
 		}
 		secret := secretPrefix + secretRandom
-		digest := digestSecret(secret)
 		item := Key{
 			Name:          namePrefix + nameRandom,
 			DisplayName:   displayName,
 			Prefix:        secretPrefix + secretRandom[:8] + "…",
+			APIKey:        secret,
 			ManageAPIKeys: manageAPIKeys,
 			CreatedAt:     s.nowOrDefault().UTC(),
 			Owner:         owner,
-			Digest:        digest,
 		}
 		data, err := json.Marshal(item)
 		if err != nil {
@@ -129,7 +126,7 @@ func (s *Server) Create(ctx context.Context, owner, displayName string, manageAP
 		}
 		guards := []kv.Entry{
 			{Key: recordKey(item.Name), Value: data},
-			{Key: digestKey(digest), Value: []byte(item.Name)},
+			{Key: secretKey(secret), Value: []byte(item.Name)},
 		}
 		_, _, created, err := kv.CreateIfAllAbsent(ctx, s.Store, guards, []kv.Entry{
 			{Key: ownerKey(owner, item.Name), Value: []byte(item.Name)},
@@ -144,12 +141,12 @@ func (s *Server) Create(ctx context.Context, owner, displayName string, manageAP
 	return Created{}, errors.New("api key: random identifier collision limit reached")
 }
 
-// Authenticate resolves a bearer secret without persisting or logging it.
+// Authenticate resolves a bearer credential using its plaintext index.
 func (s *Server) Authenticate(ctx context.Context, secret string) (Principal, error) {
 	if s == nil || s.Store == nil || !validSecret(secret) {
 		return Principal{}, ErrInvalidAPIKey
 	}
-	name, err := s.Store.Get(ctx, digestKey(digestSecret(secret)))
+	name, err := s.Store.Get(ctx, secretKey(secret))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
 			return Principal{}, ErrInvalidAPIKey
@@ -163,13 +160,13 @@ func (s *Server) Authenticate(ctx context.Context, secret string) (Principal, er
 		}
 		return Principal{}, err
 	}
-	if item.Digest != digestSecret(secret) {
+	if item.APIKey != secret {
 		return Principal{}, ErrInvalidAPIKey
 	}
 	return Principal{Key: item}, nil
 }
 
-// GetSelf returns metadata for the credential used by the caller.
+// GetSelf returns the complete credential used by the caller.
 func (s *Server) GetSelf(principal Principal) Key { return principal.Key }
 
 // List returns API keys for the caller's device.
@@ -295,7 +292,7 @@ func (s *Server) CleanupPeer(ctx context.Context, owner string) error {
 		if item.Owner != owner {
 			return fmt.Errorf("api key: cross-owned index %v", entry.Key)
 		}
-		deletes = append(deletes, entry.Key, recordKey(item.Name), digestKey(item.Digest))
+		deletes = append(deletes, entry.Key, recordKey(item.Name), secretKey(item.APIKey))
 	}
 	return s.Store.BatchMutate(ctx, []kv.Entry{{Key: retiredKey(owner), Value: []byte("retired")}}, deletes)
 }
@@ -310,7 +307,7 @@ func (s *Server) revoke(ctx context.Context, owner, name string) error {
 	if item.Owner != owner {
 		return ErrNotFound
 	}
-	return s.Store.BatchDelete(ctx, []kv.Key{recordKey(name), digestKey(item.Digest), ownerKey(owner, name)})
+	return s.Store.BatchDelete(ctx, []kv.Key{recordKey(name), secretKey(item.APIKey), ownerKey(owner, name)})
 }
 
 func (s *Server) load(ctx context.Context, name string) (Key, error) {
@@ -325,7 +322,7 @@ func (s *Server) load(ctx context.Context, name string) (Key, error) {
 	if err := json.Unmarshal(data, &item); err != nil {
 		return Key{}, fmt.Errorf("api key: malformed record %q: %w", name, err)
 	}
-	if item.Name != name || item.Owner == "" || item.Digest == "" {
+	if item.Name != name || item.Owner == "" || !validSecret(item.APIKey) {
 		return Key{}, fmt.Errorf("api key: malformed record %q", name)
 	}
 	return item, nil
@@ -378,13 +375,8 @@ func validName(name string) bool {
 	return err == nil && len(decoded) == 16
 }
 
-func digestSecret(secret string) string {
-	digest := sha256.Sum256([]byte(secret))
-	return hex.EncodeToString(digest[:])
-}
-
 func recordKey(name string) kv.Key       { return kv.Key{"records", name} }
-func digestKey(digest string) kv.Key     { return kv.Key{"digests", digest} }
+func secretKey(secret string) kv.Key     { return kv.Key{"secrets", secret} }
 func ownerPrefix(owner string) kv.Key    { return kv.Key{"owners", owner} }
 func ownerKey(owner, name string) kv.Key { return kv.Key{"owners", owner, name} }
 func retiredKey(owner string) kv.Key     { return kv.Key{"retired", owner} }

@@ -6,6 +6,7 @@ type APIKey struct {
 	Name          string
 	DisplayName   string
 	Prefix        string
+	APIKey        string
 	ManageAPIKeys bool
 	CreatedAt     string
 }
@@ -148,6 +149,7 @@ func apiKeyFromProto(key *rpcpb.APIKey) APIKey {
 		Name:          key.GetName(),
 		DisplayName:   key.GetDisplayName(),
 		Prefix:        key.GetPrefix(),
+		APIKey:        key.GetApiKey(),
 		ManageAPIKeys: key.GetManageApiKeys(),
 		CreatedAt:     key.GetCreatedAt(),
 	}
@@ -158,6 +160,7 @@ func apiKeyToProto(key APIKey) *rpcpb.APIKey {
 		Name:          key.Name,
 		DisplayName:   key.DisplayName,
 		Prefix:        key.Prefix,
+		ApiKey:        key.APIKey,
 		ManageApiKeys: key.ManageAPIKeys,
 		CreatedAt:     key.CreatedAt,
 	}

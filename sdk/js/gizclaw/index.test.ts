@@ -739,6 +739,27 @@ test("RPC API key root management methods preserve IDs and payloads", () => {
     ),
     list,
   );
+  const completeKey =
+    "gizclaw_sk_v1_0123456789012345678901234567890123456789012";
+  const listResponse = {
+    items: [
+      {
+        name: "key_name",
+        display_name: "",
+        prefix: "",
+        api_key: completeKey,
+        manage_api_keys: false,
+        created_at: "",
+      },
+    ],
+  };
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "server.api_key.list",
+      encodeRPCResponsePayload("server.api_key.list", listResponse),
+    ),
+    listResponse,
+  );
   const revoke = { name: "key_name" };
   assert.deepEqual(
     decodeRPCRequestPayload(

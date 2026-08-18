@@ -1064,6 +1064,7 @@ class APIKey extends $pb.GeneratedMessage {
     $core.String? prefix,
     $core.bool? manageApiKeys,
     $core.String? createdAt,
+    $core.String? apiKey,
   }) {
     final result = create();
     if (name != null) result.name = name;
@@ -1071,6 +1072,7 @@ class APIKey extends $pb.GeneratedMessage {
     if (prefix != null) result.prefix = prefix;
     if (manageApiKeys != null) result.manageApiKeys = manageApiKeys;
     if (createdAt != null) result.createdAt = createdAt;
+    if (apiKey != null) result.apiKey = apiKey;
     return result;
   }
 
@@ -1092,6 +1094,7 @@ class APIKey extends $pb.GeneratedMessage {
     ..aOS(3, _omitFieldNames ? '' : 'prefix')
     ..aOB(4, _omitFieldNames ? '' : 'manageApiKeys')
     ..aOS(5, _omitFieldNames ? '' : 'createdAt')
+    ..aOS(6, _omitFieldNames ? '' : 'apiKey')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1156,6 +1159,15 @@ class APIKey extends $pb.GeneratedMessage {
   $core.bool hasCreatedAt() => $_has(4);
   @$pb.TagNumber(5)
   void clearCreatedAt() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get apiKey => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set apiKey($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasApiKey() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearApiKey() => $_clearField(6);
 }
 
 class APIKeyCreateRequest extends $pb.GeneratedMessage {

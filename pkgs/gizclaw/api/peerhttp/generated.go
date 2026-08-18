@@ -25,6 +25,8 @@ const (
 
 // APIKey defines model for APIKey.
 type APIKey struct {
+	// ApiKey Complete recoverable API key stored by the server.
+	ApiKey    string    `json:"api_key"`
 	CreatedAt time.Time `json:"created_at"`
 
 	// DisplayName Trimmed UTF-8 display name; the server enforces an 80-byte maximum.
@@ -34,7 +36,7 @@ type APIKey struct {
 	// Name Opaque API key identity.
 	Name string `json:"name"`
 
-	// Prefix Redacted secret prefix for display only.
+	// Prefix Short display prefix; the complete API key is also returned.
 	Prefix string `json:"prefix"`
 }
 
@@ -47,7 +49,7 @@ type APIKeyCreateRequest struct {
 
 // APIKeyCreateResult defines model for APIKeyCreateResult.
 type APIKeyCreateResult struct {
-	// ApiKey Complete API key secret returned once at creation.
+	// ApiKey Complete recoverable API key.
 	ApiKey string `json:"api_key"`
 	Value  APIKey `json:"value"`
 }
@@ -1509,13 +1511,13 @@ type ServerInterface interface {
 	// Revoke the current API key
 	// (DELETE /gizclaw/v1/api-keys/self)
 	RevokeSelfAPIKey(c *fiber.Ctx) error
-	// Get metadata for the current API key
+	// Get the current API key
 	// (GET /gizclaw/v1/api-keys/self)
 	GetSelfAPIKey(c *fiber.Ctx) error
 	// Revoke an API key owned by the caller's device
 	// (DELETE /gizclaw/v1/api-keys/{apiKeyName})
 	RevokeAPIKey(c *fiber.Ctx, apiKeyName string) error
-	// Get API key metadata owned by the caller's device
+	// Get an API key owned by the caller's device
 	// (GET /gizclaw/v1/api-keys/{apiKeyName})
 	GetAPIKey(c *fiber.Ctx, apiKeyName string) error
 	// Get server information
@@ -2346,13 +2348,13 @@ type StrictServerInterface interface {
 	// Revoke the current API key
 	// (DELETE /gizclaw/v1/api-keys/self)
 	RevokeSelfAPIKey(ctx context.Context, request RevokeSelfAPIKeyRequestObject) (RevokeSelfAPIKeyResponseObject, error)
-	// Get metadata for the current API key
+	// Get the current API key
 	// (GET /gizclaw/v1/api-keys/self)
 	GetSelfAPIKey(ctx context.Context, request GetSelfAPIKeyRequestObject) (GetSelfAPIKeyResponseObject, error)
 	// Revoke an API key owned by the caller's device
 	// (DELETE /gizclaw/v1/api-keys/{apiKeyName})
 	RevokeAPIKey(ctx context.Context, request RevokeAPIKeyRequestObject) (RevokeAPIKeyResponseObject, error)
-	// Get API key metadata owned by the caller's device
+	// Get an API key owned by the caller's device
 	// (GET /gizclaw/v1/api-keys/{apiKeyName})
 	GetAPIKey(ctx context.Context, request GetAPIKeyRequestObject) (GetAPIKeyResponseObject, error)
 	// Get server information

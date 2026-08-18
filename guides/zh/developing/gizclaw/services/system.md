@@ -33,7 +33,7 @@ Metrics 使用有界的 source/kind/status/phase/outcome label，报告 active d
 
 ### apikey
 
-为已注册 Peer 创建长期 Key，只保存 secret 的 SHA-256 digest，强制同 owner 管理，并在 Peer 退役时撤销该 owner 的全部 Key。该 package 不拥有 HTTP routing、Edge proxy 或业务资源实现。
+为已注册 Peer 创建长期 Key，明文保存完整 Key 供管理接口恢复，强制同 owner 管理，并在 Peer 退役时撤销该 owner 的全部 Key。该 package 不拥有 HTTP routing、Edge proxy 或业务资源实现。
 
 ### resourcemanager
 

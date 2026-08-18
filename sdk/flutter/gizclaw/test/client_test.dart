@@ -104,14 +104,18 @@ void main() {
             id: listRequest.id,
             payload: encodeRpcResponsePayload(
               'server.api_key.list',
-              APIKeyListResponse(items: [APIKey(name: 'key_a')]),
+              APIKeyListResponse(
+                items: [APIKey(name: 'key_a', apiKey: 'gizclaw_sk_v1_full')],
+              ),
             ),
           ).writeToBuffer(),
         ),
         encodeFrame(rpcFrameTypeEos),
       ]),
     );
-    expect((await listFuture).items.single.name, 'key_a');
+    final listed = (await listFuture).items.single;
+    expect(listed.name, 'key_a');
+    expect(listed.apiKey, 'gizclaw_sk_v1_full');
 
     final revokeFactory = FakeDataChannelFactory();
     final revokeClient = GizClawClient(revokeFactory);

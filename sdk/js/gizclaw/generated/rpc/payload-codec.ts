@@ -61,6 +61,7 @@ export type APIKey = {
   "prefix": string;
   "manage_api_keys": boolean;
   "created_at": string;
+  "api_key": string;
 };
 export type APIKeyCreateRequest = {
   "display_name": string;
@@ -1602,6 +1603,11 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "created_at",
         "number": 5,
+        "type": "string"
+      },
+      {
+        "name": "api_key",
+        "number": 6,
         "type": "string"
       }
     ]

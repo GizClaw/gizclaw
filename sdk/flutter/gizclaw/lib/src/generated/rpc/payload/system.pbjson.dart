@@ -438,6 +438,7 @@ const APIKey$json = {
     {'1': 'prefix', '3': 3, '4': 1, '5': 9, '10': 'prefix'},
     {'1': 'manage_api_keys', '3': 4, '4': 1, '5': 8, '10': 'manageApiKeys'},
     {'1': 'created_at', '3': 5, '4': 1, '5': 9, '10': 'createdAt'},
+    {'1': 'api_key', '3': 6, '4': 1, '5': 9, '10': 'apiKey'},
   ],
 };
 
@@ -445,7 +446,8 @@ const APIKey$json = {
 final $typed_data.Uint8List aPIKeyDescriptor = $convert.base64Decode(
     'CgZBUElLZXkSEgoEbmFtZRgBIAEoCVIEbmFtZRIhCgxkaXNwbGF5X25hbWUYAiABKAlSC2Rpc3'
     'BsYXlOYW1lEhYKBnByZWZpeBgDIAEoCVIGcHJlZml4EiYKD21hbmFnZV9hcGlfa2V5cxgEIAEo'
-    'CFINbWFuYWdlQXBpS2V5cxIdCgpjcmVhdGVkX2F0GAUgASgJUgljcmVhdGVkQXQ=');
+    'CFINbWFuYWdlQXBpS2V5cxIdCgpjcmVhdGVkX2F0GAUgASgJUgljcmVhdGVkQXQSFwoHYXBpX2'
+    'tleRgGIAEoCVIGYXBpS2V5');
 
 @$core.Deprecated('Use aPIKeyCreateRequestDescriptor instead')
 const APIKeyCreateRequest$json = {

@@ -119,6 +119,7 @@ typedef struct _gizclaw_rpc_v1_APIKey {
     char prefix[27];
     bool manage_api_keys;
     char created_at[36];
+    char api_key[96];
 } gizclaw_rpc_v1_APIKey;
 
 typedef struct _gizclaw_rpc_v1_APIKeyCreateRequest {
@@ -232,7 +233,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PingResponse_init_default {0}
 #define gizclaw_rpc_v1_ServerRegisterRequest_init_default {""}
 #define gizclaw_rpc_v1_ServerRegisterResponse_init_default {""}
-#define gizclaw_rpc_v1_APIKey_init_default       {"", "", "", 0, ""}
+#define gizclaw_rpc_v1_APIKey_init_default       {"", "", "", 0, "", ""}
 #define gizclaw_rpc_v1_APIKeyCreateRequest_init_default {"", 0}
 #define gizclaw_rpc_v1_APIKeyCreateResponse_init_default {false, gizclaw_rpc_v1_APIKey_init_default, ""}
 #define gizclaw_rpc_v1_APIKeyListRequest_init_default {false, "", false, 0}
@@ -266,7 +267,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PingResponse_init_zero    {0}
 #define gizclaw_rpc_v1_ServerRegisterRequest_init_zero {""}
 #define gizclaw_rpc_v1_ServerRegisterResponse_init_zero {""}
-#define gizclaw_rpc_v1_APIKey_init_zero          {"", "", "", 0, ""}
+#define gizclaw_rpc_v1_APIKey_init_zero          {"", "", "", 0, "", ""}
 #define gizclaw_rpc_v1_APIKeyCreateRequest_init_zero {"", 0}
 #define gizclaw_rpc_v1_APIKeyCreateResponse_init_zero {false, gizclaw_rpc_v1_APIKey_init_zero, ""}
 #define gizclaw_rpc_v1_APIKeyListRequest_init_zero {false, "", false, 0}
@@ -327,6 +328,7 @@ extern "C" {
 #define gizclaw_rpc_v1_APIKey_prefix_tag         3
 #define gizclaw_rpc_v1_APIKey_manage_api_keys_tag 4
 #define gizclaw_rpc_v1_APIKey_created_at_tag     5
+#define gizclaw_rpc_v1_APIKey_api_key_tag        6
 #define gizclaw_rpc_v1_APIKeyCreateRequest_display_name_tag 1
 #define gizclaw_rpc_v1_APIKeyCreateRequest_manage_api_keys_tag 2
 #define gizclaw_rpc_v1_APIKeyCreateResponse_value_tag 1
@@ -466,7 +468,8 @@ X(a, STATIC,   SINGULAR, STRING,   name,              1) \
 X(a, STATIC,   SINGULAR, STRING,   display_name,      2) \
 X(a, STATIC,   SINGULAR, STRING,   prefix,            3) \
 X(a, STATIC,   SINGULAR, BOOL,     manage_api_keys,   4) \
-X(a, STATIC,   SINGULAR, STRING,   created_at,        5)
+X(a, STATIC,   SINGULAR, STRING,   created_at,        5) \
+X(a, STATIC,   SINGULAR, STRING,   api_key,           6)
 #define gizclaw_rpc_v1_APIKey_CALLBACK NULL
 #define gizclaw_rpc_v1_APIKey_DEFAULT NULL
 
@@ -658,12 +661,12 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 /* gizclaw_rpc_v1_ServerPutInfoResponse_size depends on runtime parameters */
 #define GIZCLAW_RPC_V1_PAYLOAD_SYSTEM_PB_H_MAX_SIZE gizclaw_rpc_v1_APIKeyListResponse_size
 #define gizclaw_rpc_v1_APIKeyCreateRequest_size  84
-#define gizclaw_rpc_v1_APIKeyCreateResponse_size 277
+#define gizclaw_rpc_v1_APIKeyCreateResponse_size 374
 #define gizclaw_rpc_v1_APIKeyListRequest_size    39
-#define gizclaw_rpc_v1_APIKeyListResponse_size   18028
+#define gizclaw_rpc_v1_APIKeyListResponse_size   27728
 #define gizclaw_rpc_v1_APIKeyRevokeRequest_size  28
 #define gizclaw_rpc_v1_APIKeyRevokeResponse_size 0
-#define gizclaw_rpc_v1_APIKey_size               177
+#define gizclaw_rpc_v1_APIKey_size               274
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_size 0
 #define gizclaw_rpc_v1_ClientGetInfoRequest_size 0
 #define gizclaw_rpc_v1_DeviceProfile_size        325

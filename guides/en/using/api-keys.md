@@ -1,6 +1,6 @@
 # API keys
 
-GizClaw uses long-lived, device-bound API keys for the public GizClaw and OpenAI-compatible HTTP APIs. A registered device manages its keys over the authenticated Peer RPC connection with `server.api_key.create`, `server.api_key.list`, and `server.api_key.revoke`. The Peer connection is the root authority. The complete `gizclaw_sk_v1_...` secret is returned only by create; list returns metadata without secrets.
+GizClaw uses long-lived, device-bound API keys for the public GizClaw and OpenAI-compatible HTTP APIs. A registered device manages its keys over the authenticated Peer RPC connection with `server.api_key.create`, `server.api_key.list`, and `server.api_key.revoke`. The Peer connection is the root authority. API keys are recoverable management resources: create, list, get, and self responses include the complete `gizclaw_sk_v1_...` credential.
 
 Send the secret as `Authorization: Bearer <api-key>` to `/gizclaw/v1/*` and `/openai/v1/*`. No public-key header or login exchange is required.
 

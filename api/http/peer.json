@@ -85,7 +85,7 @@
           "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIKeyCreateRequest"}}}
         },
         "responses": {
-          "201": {"description": "Created API key; the complete secret is returned only in this response.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIKeyCreateResult"}}}},
+          "201": {"description": "Created API key, including its complete recoverable credential.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIKeyCreateResult"}}}},
           "400": {"$ref": "#/components/responses/BadRequest"},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
@@ -103,7 +103,7 @@
           {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "format": "int32", "minimum": 1, "maximum": 100, "default": 50}}
         ],
         "responses": {
-          "200": {"description": "API key metadata in stable name order.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIKeyList"}}}},
+          "200": {"description": "API keys, including complete credentials, in stable name order.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIKeyList"}}}},
           "400": {"$ref": "#/components/responses/BadRequest"},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
@@ -115,11 +115,11 @@
     "/gizclaw/v1/api-keys/self": {
       "get": {
         "operationId": "getSelfAPIKey",
-        "summary": "Get metadata for the current API key",
+        "summary": "Get the current API key",
         "tags": ["APIKeys"],
         "security": [{"BearerAuth": []}],
         "responses": {
-          "200": {"description": "Current API key metadata.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIKey"}}}},
+          "200": {"description": "Current API key, including its complete credential.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIKey"}}}},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "409": {"$ref": "#/components/responses/Conflict"},
@@ -146,11 +146,11 @@
       ],
       "get": {
         "operationId": "getAPIKey",
-        "summary": "Get API key metadata owned by the caller's device",
+        "summary": "Get an API key owned by the caller's device",
         "tags": ["APIKeys"],
         "security": [{"BearerAuth": []}],
         "responses": {
-          "200": {"description": "API key metadata.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIKey"}}}},
+          "200": {"description": "API key, including its complete credential.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIKey"}}}},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "404": {"$ref": "#/components/responses/NotFound"},
@@ -190,11 +190,12 @@
       "APIKey": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "display_name", "prefix", "manage_api_keys", "created_at"],
+        "required": ["name", "display_name", "prefix", "api_key", "manage_api_keys", "created_at"],
         "properties": {
           "name": {"type": "string", "description": "Opaque API key identity.", "minLength": 26, "maxLength": 26, "pattern": "^key_[A-Za-z0-9_-]{22}$"},
           "display_name": {"type": "string", "description": "Trimmed UTF-8 display name; the server enforces an 80-byte maximum.", "minLength": 1, "maxLength": 80},
-          "prefix": {"type": "string", "description": "Redacted secret prefix for display only."},
+          "prefix": {"type": "string", "description": "Short display prefix; the complete API key is also returned."},
+          "api_key": {"type": "string", "description": "Complete recoverable API key stored by the server.", "minLength": 57, "maxLength": 57, "pattern": "^gizclaw_sk_v1_[A-Za-z0-9_-]{43}$"},
           "manage_api_keys": {"type": "boolean"},
           "created_at": {"type": "string", "format": "date-time"}
         }
@@ -214,7 +215,7 @@
         "required": ["value", "api_key"],
         "properties": {
           "value": {"$ref": "#/components/schemas/APIKey"},
-          "api_key": {"type": "string", "description": "Complete API key secret returned once at creation.", "minLength": 57, "maxLength": 57, "pattern": "^gizclaw_sk_v1_[A-Za-z0-9_-]{43}$"}
+          "api_key": {"type": "string", "description": "Complete recoverable API key.", "minLength": 57, "maxLength": 57, "pattern": "^gizclaw_sk_v1_[A-Za-z0-9_-]{43}$"}
         }
       },
       "APIKeyList": {

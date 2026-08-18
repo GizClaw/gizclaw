@@ -843,6 +843,7 @@ type APIKey struct {
 	Prefix        string                 `protobuf:"bytes,3,opt,name=prefix,proto3" json:"prefix,omitempty"`
 	ManageApiKeys bool                   `protobuf:"varint,4,opt,name=manage_api_keys,json=manageApiKeys,proto3" json:"manage_api_keys,omitempty"`
 	CreatedAt     string                 `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	ApiKey        string                 `protobuf:"bytes,6,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -908,6 +909,13 @@ func (x *APIKey) GetManageApiKeys() bool {
 func (x *APIKey) GetCreatedAt() string {
 	if x != nil {
 		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *APIKey) GetApiKey() string {
+	if x != nil {
+		return x.ApiKey
 	}
 	return ""
 }
@@ -1781,14 +1789,15 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x15ServerRegisterRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\"J\n" +
 	"\x16ServerRegisterResponse\x120\n" +
-	"\x14runtime_profile_name\x18\x01 \x01(\tR\x12runtimeProfileName\"\x9e\x01\n" +
+	"\x14runtime_profile_name\x18\x01 \x01(\tR\x12runtimeProfileName\"\xb7\x01\n" +
 	"\x06APIKey\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x16\n" +
 	"\x06prefix\x18\x03 \x01(\tR\x06prefix\x12&\n" +
 	"\x0fmanage_api_keys\x18\x04 \x01(\bR\rmanageApiKeys\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x05 \x01(\tR\tcreatedAt\"`\n" +
+	"created_at\x18\x05 \x01(\tR\tcreatedAt\x12\x17\n" +
+	"\aapi_key\x18\x06 \x01(\tR\x06apiKey\"`\n" +
 	"\x13APIKeyCreateRequest\x12!\n" +
 	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\x12&\n" +
 	"\x0fmanage_api_keys\x18\x02 \x01(\bR\rmanageApiKeys\"]\n" +

@@ -36,7 +36,7 @@ func (s *rpcServer) handleAPIKeyCreate(ctx context.Context, req *rpcapi.RPCReque
 	response := rpcapi.APIKeyCreateResponse{
 		Value: &rpcapi.APIKey{
 			Name: created.Key.Name, DisplayName: created.Key.DisplayName,
-			Prefix: created.Key.Prefix, ManageAPIKeys: created.Key.ManageAPIKeys,
+			Prefix: created.Key.Prefix, APIKey: created.Key.APIKey, ManageAPIKeys: created.Key.ManageAPIKeys,
 			CreatedAt: created.Key.CreatedAt.Format(time.RFC3339Nano),
 		},
 		APIKey: created.Secret,
@@ -123,6 +123,6 @@ func (s *rpcServer) apiKeyRPCOwner(ctx context.Context, requestID string) (strin
 func rpcAPIKey(key apikey.Key) rpcapi.APIKey {
 	return rpcapi.APIKey{
 		Name: key.Name, DisplayName: key.DisplayName, Prefix: key.Prefix,
-		ManageAPIKeys: key.ManageAPIKeys, CreatedAt: key.CreatedAt.Format(time.RFC3339Nano),
+		APIKey: key.APIKey, ManageAPIKeys: key.ManageAPIKeys, CreatedAt: key.CreatedAt.Format(time.RFC3339Nano),
 	}
 }

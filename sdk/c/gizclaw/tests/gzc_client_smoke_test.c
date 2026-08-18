@@ -16,6 +16,9 @@ _Static_assert(
     sizeof(((gizclaw_rpc_v1_APIKeyCreateResponse *)0)->api_key) == 96,
     "API key secret must retain its bounded Nanopb capacity");
 _Static_assert(
+    sizeof(((gizclaw_rpc_v1_APIKey *)0)->api_key) == 96,
+    "listed API key must retain its bounded Nanopb capacity");
+_Static_assert(
     sizeof(((gizclaw_rpc_v1_APIKeyListResponse *)0)->items) /
             sizeof(((gizclaw_rpc_v1_APIKeyListResponse *)0)->items[0]) ==
         100,
@@ -2453,6 +2456,7 @@ int main(void) {
   strcpy(api_key_response.value.name, "key_0123456789012345678901");
   strcpy(api_key_response.value.display_name, "phone");
   strcpy(api_key_response.value.prefix, "gizclaw_sk_v1_01234567...");
+  strcpy(api_key_response.value.api_key, "gizclaw_sk_v1_0123456789012345678901234567890123456789012");
   api_key_response.value.manage_api_keys = true;
   strcpy(api_key_response.value.created_at, "2026-08-19T00:00:00Z");
   strcpy(api_key_response.api_key, "gizclaw_sk_v1_0123456789012345678901234567890123456789012");
@@ -2479,6 +2483,7 @@ int main(void) {
               decoded_api_key_response.has_value &&
               decoded_api_key_response.value.manage_api_keys &&
               strcmp(decoded_api_key_response.value.name, api_key_response.value.name) == 0 &&
+              strcmp(decoded_api_key_response.value.api_key, api_key_response.value.api_key) == 0 &&
               strcmp(decoded_api_key_response.api_key, api_key_response.api_key) == 0,
           "API key response round trip") != 0) {
     return 1;

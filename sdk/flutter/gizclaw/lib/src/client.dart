@@ -72,8 +72,7 @@ class GizClawClient {
     );
   }
 
-  /// Creates a long-lived API key for this connected device. The complete
-  /// secret is returned only by this call.
+  /// Creates a long-lived, recoverable API key for this connected device.
   Future<payload.APIKeyCreateResponse> createApiKey({
     required String displayName,
     bool manageApiKeys = false,
@@ -87,8 +86,7 @@ class GizClawClient {
     );
   }
 
-  /// Lists API keys owned by this connected device. Complete secrets are never
-  /// included in list results.
+  /// Lists API keys owned by this connected device, including complete keys.
   Future<payload.APIKeyListResponse> listApiKeys({String? cursor, int? limit}) {
     return rpc.call<payload.APIKeyListResponse>(
       'server.api_key.list',
