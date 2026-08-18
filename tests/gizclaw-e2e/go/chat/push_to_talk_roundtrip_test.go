@@ -27,12 +27,14 @@ func allWorkspaceConfigPaths(t testing.TB) []string {
 	t.Helper()
 	paths := workspaceConfigCatalogPaths(t)
 	specialized := map[string]struct{}{
-		"dashscope-realtime.json":          {},
-		"doubao-realtime-quality.json":     {},
-		"doubao-realtime-duplex.json":      {},
-		"eino-memory.json":                 {},
-		"flowcraft-configured-memory.json": {},
-		"flowcraft-realtime-chat.json":     {},
+		"dashscope-realtime.json":           {},
+		"doubao-realtime-quality.json":      {},
+		"doubao-realtime-duplex.json":       {},
+		"eino-latency-comparison.json":      {},
+		"eino-memory.json":                  {},
+		"flowcraft-configured-memory.json":  {},
+		"flowcraft-latency-comparison.json": {},
+		"flowcraft-realtime-chat.json":      {},
 	}
 	defaults := make([]string, 0, len(paths)-len(specialized))
 	for _, path := range paths {
@@ -241,7 +243,9 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 		"doubao-realtime-quality":             "doubao-realtime-quality",
 		"doubao-realtime-duplex-conversation": "doubao-realtime-duplex-conversation",
 		"eino-memory-assistant":               "eino-memory-assistant",
+		"eino-latency-comparison":             "eino-latency-comparison",
 		"flowcraft-configured-memory":         "flowcraft-configured-memory",
+		"flowcraft-latency-comparison":        "flowcraft-latency-comparison",
 		"flowcraft-realtime-chat":             "flowcraft-realtime-chat",
 		"flowcraft-voice-assistant":           "flowcraft-voice-assistant",
 		"flowcraft-chat-assistant":            "flowcraft-chat-assistant",

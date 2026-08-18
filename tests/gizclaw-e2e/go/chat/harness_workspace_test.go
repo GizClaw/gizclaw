@@ -1250,6 +1250,27 @@ func TestEnsureWorkspaceAlwaysRecreatesWorkspace(t *testing.T) {
 	}
 }
 
+func TestEnsureWorkspaceWaitsForPendingDeletion(t *testing.T) {
+	control := &fakeRunControl{getWorkspaceErrs: []error{
+		errors.New("rpc: workspace: pending deletion"),
+		rpcapi.Error{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace missing"},
+	}}
+	cfg := config{
+		Workspace: "workspace-a",
+		Agent:     "doubao-realtime",
+		Workflow:  workflowConfig{Name: "workflow-a", Model: "realtime"},
+	}
+	if _, err := ensureWorkspace(context.Background(), control, cfg); err != nil {
+		t.Fatalf("ensureWorkspace() error = %v", err)
+	}
+	if control.getWorkspace.Name != "workspace-a" || len(control.getWorkspaceErrs) != 0 {
+		t.Fatalf("workspace deletion checks = request=%+v remaining=%d", control.getWorkspace, len(control.getWorkspaceErrs))
+	}
+	if control.createdWorkspace.Name != "workspace-a" {
+		t.Fatalf("created workspace = %+v", control.createdWorkspace)
+	}
+}
+
 func TestEnsureWorkspaceReturnsGetWorkflowErrors(t *testing.T) {
 	control := &fakeRunControl{getWorkflowErr: errors.New("denied")}
 	_, err := ensureWorkspace(context.Background(), control, config{
@@ -1682,6 +1703,7 @@ func restoreRunHooks(t *testing.T) {
 
 type fakeRunControl struct {
 	getWorkflowErr     error
+	getWorkspaceErrs   []error
 	createWorkspaceErr error
 	putWorkspaceErr    error
 	deleteWorkspaceErr error
@@ -1696,6 +1718,7 @@ type fakeRunControl struct {
 	memory             *rpcapi.ServerGetRunWorkspaceMemoryStatsResponse
 	recall             *rpcapi.ServerRunWorkspaceRecallResponse
 	getWorkflow        rpcapi.WorkflowGetRequest
+	getWorkspace       rpcapi.WorkspaceGetRequest
 	workflow           *rpcapi.WorkflowGetResponse
 	createdWorkspace   rpcapi.WorkspaceCreateRequest
 	putWorkspace       rpcapi.WorkspacePutRequest
@@ -1703,6 +1726,19 @@ type fakeRunControl struct {
 	selectedWorkspace  string
 	stopped            bool
 	reloaded           bool
+}
+
+func (f *fakeRunControl) GetWorkspace(_ context.Context, _ string, request rpcapi.WorkspaceGetRequest) (*rpcapi.WorkspaceGetResponse, error) {
+	f.getWorkspace = request
+	if len(f.getWorkspaceErrs) > 0 {
+		err := f.getWorkspaceErrs[0]
+		f.getWorkspaceErrs = f.getWorkspaceErrs[1:]
+		return nil, err
+	}
+	if f.deletedWorkspace == request.Name {
+		return nil, rpcapi.Error{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace missing"}
+	}
+	return &rpcapi.WorkspaceGetResponse{Value: rpcapi.Workspace{Name: request.Name}}, nil
 }
 
 func (f *fakeRunControl) GetWorkflow(_ context.Context, _ string, request rpcapi.WorkflowGetRequest) (*rpcapi.WorkflowGetResponse, error) {

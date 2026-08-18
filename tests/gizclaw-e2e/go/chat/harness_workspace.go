@@ -555,6 +555,7 @@ func fetchChatServerInfoOnce(endpoint string) (chatServerInfo, bool, error) {
 
 type runControlClient interface {
 	GetWorkflow(context.Context, string, rpcapi.WorkflowGetRequest) (*rpcapi.WorkflowGetResponse, error)
+	GetWorkspace(context.Context, string, rpcapi.WorkspaceGetRequest) (*rpcapi.WorkspaceGetResponse, error)
 	StopServerRun(context.Context, string) (*rpcapi.ServerStopRunResponse, error)
 	DeleteWorkspace(context.Context, string, rpcapi.WorkspaceDeleteRequest) (*rpcapi.WorkspaceDeleteResponse, error)
 	CreateWorkspace(context.Context, string, rpcapi.WorkspaceCreateRequest) (*rpcapi.WorkspaceCreateResponse, error)
@@ -604,6 +605,9 @@ func ensureWorkspace(ctx context.Context, client runControlClient, cfg config) (
 		fmt.Printf("workspace_progress event=workspace_delete_missing workspace=%s\n", cfg.Workspace)
 	} else {
 		fmt.Printf("workspace_progress event=workspace_delete_done workspace=%s\n", cfg.Workspace)
+		if err := waitWorkspaceDeleted(ctx, client, cfg.Workspace); err != nil {
+			return config{}, fmt.Errorf("wait for workspace %q (%s) deletion: %w", cfg.Workspace, workspaceDisplayName, err)
+		}
 	}
 	createdWorkspace, err := client.CreateWorkspace(ctx, "workspacetest.workspace.create", workspace)
 	if err != nil {
@@ -617,6 +621,28 @@ func ensureWorkspace(ctx context.Context, client runControlClient, cfg config) (
 	}
 	fmt.Printf("workspace_progress event=workspace_create_done workspace=%s workflow=%s\n", cfg.Workspace, cfg.Workflow.Name)
 	return cfg, nil
+}
+
+func waitWorkspaceDeleted(ctx context.Context, client runControlClient, workspace string) error {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		_, err := client.GetWorkspace(ctx, "workspacetest.workspace.get-deleted", rpcapi.WorkspaceGetRequest{
+			Name: workspace,
+		})
+		if isRPCNotFound(err) {
+			fmt.Printf("workspace_progress event=workspace_delete_settled workspace=%s\n", workspace)
+			return nil
+		}
+		if err != nil && !strings.Contains(err.Error(), "pending deletion") {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
 }
 
 func isRPCNotFound(err error) bool {
